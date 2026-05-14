@@ -39,7 +39,10 @@ import {
   useSwapSelectTokenNetworkAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsPersistAtom,
+  useTokenSelectorFilterPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -106,7 +109,9 @@ const SwapTokenSelectPage = ({
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const [showLpTokensOnly, setShowLpTokensOnly] = useState(false);
+  const [tokenSelectorFilter, setTokenSelectorFilter] =
+    useTokenSelectorFilterPersistAtom();
+  const showLpTokensOnly = tokenSelectorFilter.swapShowLpTokensOnly;
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
   if (fromTokenRef.current !== fromToken) {
@@ -165,13 +170,19 @@ const SwapTokenSelectPage = ({
   const [currentSelectNetwork, setCurrentSelectNetwork] =
     useSwapSelectTokenNetworkAtom();
   const listViewRef = useRef<FlatList>(null);
-  const handleLpTokenFilterChange = useCallback((value: boolean) => {
-    setShowLpTokensOnly(value);
-    listViewRef.current?.scrollToOffset({
-      offset: 0,
-      animated: false,
-    });
-  }, []);
+  const handleLpTokenFilterChange = useCallback(
+    (value: boolean) => {
+      setTokenSelectorFilter((prev) => ({
+        ...prev,
+        swapShowLpTokensOnly: value,
+      }));
+      listViewRef.current?.scrollToOffset({
+        offset: 0,
+        animated: false,
+      });
+    },
+    [setTokenSelectorFilter],
+  );
 
   useEffect(() => {
     setCurrentSelectNetwork(syncDefaultNetworkSelect);

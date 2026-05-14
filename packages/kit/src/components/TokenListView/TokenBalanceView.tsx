@@ -8,6 +8,8 @@ import {
 } from '../../states/jotai/contexts/tokenList';
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
+import { useTokenListViewContext } from './TokenListViewContext';
+
 type IProps = {
   $key: string;
   symbol: string;
@@ -16,8 +18,10 @@ type IProps = {
 
 function TokenBalanceView(props: IProps) {
   const { $key, symbol, ...rest } = props;
-  const [tokenListMap] = useTokenListMapAtom();
+  const { tokenListMap: contextTokenListMap } = useTokenListViewContext();
+  const [globalTokenListMap] = useTokenListMapAtom();
   const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
+  const tokenListMap = contextTokenListMap ?? globalTokenListMap;
   const token = tokenListMap[$key || ''] ?? aggregateTokensMap[$key || ''];
 
   if (!token) {
