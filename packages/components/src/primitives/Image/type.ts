@@ -9,26 +9,22 @@ import type {
   ImageProgressEventData,
   ImageProps,
 } from 'expo-image';
-import type { Image, ImageSourcePropType } from 'react-native';
-
-export type IImageContext = {
-  loading?: boolean;
-  setLoading?: (loading: boolean) => void;
-  loadedSuccessfully?: boolean;
-  setLoadedSuccessfully?: (isSuccessful: boolean) => void;
-};
+import type { ImageSourcePropType } from 'react-native';
 
 export type IImageFallbackProps = PropsWithChildren<
   StackStyle & {
-    /** Milliseconds to wait before showing the fallback, to prevent flicker */
+    /** Milliseconds to wait before showing the fallback, prevents flicker */
     delayMs?: number;
   }
 >;
 
 export type IImageLoadingProps = IImageFallbackProps;
 
+/** @deprecated kept for backwards compatibility; use `Image.Fallback`. */
 export type IImageSkeletonProps = Omit<IImageFallbackProps, 'children'>;
+
 export type IImageSourcePropType = ImageProps['source'];
+
 export type IImageSourceProps = Omit<
   ImageProps,
   'width' | 'height' | 'source' | 'borderRadius' | 'size'
@@ -39,21 +35,6 @@ export type IImageSourceProps = Omit<
   source?: IImageSourcePropType;
   size?: StackStyle['width'];
 } & StackStyle;
-
-export type IUseSource = (
-  source?: ImageSourcePropType,
-  src?: string,
-) => ImageSourcePropType | undefined;
-
-export type IUseImageComponent = (
-  imageSource?: ImageSourcePropType,
-) => typeof Image;
-
-export type IPreloadImagesFunc = (
-  sources: { uri?: string }[],
-) => Promise<boolean>;
-
-export type IPreloadImageFunc = (source: { uri?: string }) => Promise<boolean>;
 
 export type IImageV2Props = Omit<
   ImageProps,
@@ -67,31 +48,21 @@ export type IImageV2Props = Omit<
   | 'onProgress'
 > &
   IStackStyle & {
-    /** Enable animated image support */
-    animated?: boolean;
     size?: IStackStyle['height'];
     source?: ImageSourcePropType | string | number;
+    src?: string;
     skeleton?: React.ReactNode;
     fallback?: React.ReactNode;
-    src?: string;
-    /** Retry times when image loading fails, default is 5 */
-    retryTimes?: number;
     onError?: (event: ImageErrorEventData) => void;
     onLoad?: (event: ImageLoadEventData) => void;
     onLoadEnd?: () => void;
     onLoadStart?: () => void;
     onDisplay?: () => void;
+    onProgress?: (event: ImageProgressEventData) => void;
     resizeMode?: ImageProps['resizeMode'];
     tintColor?: ImageProps['tintColor'];
-    onProgress?: (event: ImageProgressEventData) => void;
-    /** Whether the image can be retried
-     * @default true
-     */
-    canRetry?: boolean;
-    /** Whether to autoplay animated images (GIF, WebP)
-     * @default true
-     * @platform android
-     * @platform ios
+    /** Whether to autoplay animated images (GIF, WebP).
+     * @default true on iOS, false on Android (OOM protection)
      */
     autoplay?: boolean;
   };

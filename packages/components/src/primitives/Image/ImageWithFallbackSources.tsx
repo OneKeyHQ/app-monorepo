@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { ImageV2 } from './ImageV2';
+import { Image } from './Image';
 
 import type { IImageV2Props } from './type';
 
@@ -22,7 +22,7 @@ export function ImageWithFallbackSources({
   const sourcesLengthRef = useRef(sources.length);
   sourcesLengthRef.current = sources.length;
 
-  // Reset index when sources change
+  // Reset index when the primary source changes (treated as a new identity).
   const firstSource = sources[0];
   useEffect(() => {
     setIndex(0);
@@ -40,19 +40,15 @@ export function ImageWithFallbackSources({
   );
 
   const currentSrc = sources[index];
-
-  if (!currentSrc) {
-    return fallback ?? null;
-  }
+  if (!currentSrc) return fallback ?? null;
 
   return (
-    <ImageV2
+    <Image
       {...rest}
       key={currentSrc}
       src={currentSrc}
       fallback={fallback}
       onError={handleError}
-      canRetry={false}
     />
   );
 }

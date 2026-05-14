@@ -2,15 +2,14 @@ import { useImage } from 'expo-image';
 
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 
-import { ImageFallback, ImageSkeleton } from './ImageFallback';
+import { Image as ImageCore } from './Image';
+import { ImageFallback } from './ImageFallback';
 import { ImageLoading } from './ImageLoading';
-import { ImageV2 } from './ImageV2';
 import { ImageWithFallbackSources } from './ImageWithFallbackSources';
 import { loadImage, preloadImage, preloadImages } from './preload';
 
-export const Image = withStaticProperties(ImageV2, {
+export const Image = withStaticProperties(ImageCore, {
   Fallback: ImageFallback,
-  Skeleton: ImageSkeleton,
   Loading: ImageLoading,
   WithFallbackSources: ImageWithFallbackSources,
   useImage,
