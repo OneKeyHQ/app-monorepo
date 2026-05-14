@@ -11,6 +11,6 @@ export function useActiveTradeDisplay() {
 
   return useMemo(
     () => buildActiveTradeDisplay({ tradeInstrument, perpsAsset }),
-    [tradeInstrument, perpsAsset.coin, perpsAsset.assetId],
+    [tradeInstrument, perpsAsset],
   );
 }
