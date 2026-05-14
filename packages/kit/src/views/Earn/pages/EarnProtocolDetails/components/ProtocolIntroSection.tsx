@@ -1341,6 +1341,7 @@ function AuditAccordionItem({
         gap="$2"
         borderWidth={0}
         bg="$transparent"
+        minHeight="$10"
         px="$0"
         py="$0"
         borderRadius="$2"

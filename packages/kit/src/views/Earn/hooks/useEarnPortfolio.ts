@@ -37,6 +37,7 @@ import {
   type IEarnPortfolioInvestmentFetchResult,
   applyEarnPortfolioFetchResult,
   mergeEarnPortfolioInvestments,
+  removeEarnPortfolioInvestmentSource,
 } from './earnPortfolioInvestmentMerge';
 import { useEarnAccountKey } from './useEarnAccountKey';
 
@@ -650,21 +651,26 @@ export const useEarnPortfolio = ({
             })
           : accountAssetPairs;
 
-        const keysUpdatedInThisSession = new Set<string>();
+        const normalKeysToFetch = new Set<string>();
+        const airdropKeysToFetch = new Set<string>();
         const normalKeysUpdatedInThisSession = new Set<string>();
         const airdropKeysUpdatedInThisSession = new Set<string>();
-        const failedKeysInThisSession = new Set<string>();
+        const normalKeysFailedInThisSession = new Set<string>();
+        const airdropKeysFailedInThisSession = new Set<string>();
         const limit = pLimit(6);
 
         const singlePairs: IAccountAssetPair[] = [];
         const batchCandidateRequests: IPortfolioFetchRequest[] = [];
 
         pairsToFetch.forEach((pair) => {
+          const requestKey = createEarnPortfolioRequestKey(pair.params);
           if (pair.isAirdrop) {
+            airdropKeysToFetch.add(requestKey);
             singlePairs.push(pair);
             return;
           }
 
+          normalKeysToFetch.add(requestKey);
           if (
             shouldUseEarnPortfolioBatchFetch({
               enableBatch: pair.enableBatch,
@@ -689,11 +695,6 @@ export const useEarnPortfolio = ({
           });
         });
 
-        const airdropKeysToFetch = new Set(
-          singlePairs
-            .filter((pair) => pair.isAirdrop)
-            .map((pair) => createEarnPortfolioRequestKey(pair.params)),
-        );
         const applyResult = (result: IEarnPortfolioInvestmentFetchResult) => {
           const shouldPreserveAirdrop =
             result.source === 'normal' &&
@@ -714,8 +715,6 @@ export const useEarnPortfolio = ({
             return;
           }
 
-          keysUpdatedInThisSession.add(result.key);
-
           if (isMountedRef.current) {
             throttledUIUpdate(new Map(requestMap));
           }
@@ -730,9 +729,12 @@ export const useEarnPortfolio = ({
               try {
                 result = await fetchSingleInvestment(params, isAirdrop);
               } catch (error) {
-                failedKeysInThisSession.add(
-                  createEarnPortfolioRequestKey(params),
-                );
+                const failedKey = createEarnPortfolioRequestKey(params);
+                if (isAirdrop) {
+                  airdropKeysFailedInThisSession.add(failedKey);
+                } else {
+                  normalKeysFailedInThisSession.add(failedKey);
+                }
                 console.warn(
                   `[useEarnPortfolio] Failed to fetch investment for ${params.provider}/${params.symbol}:`,
                   error,
@@ -779,7 +781,7 @@ export const useEarnPortfolio = ({
                   );
               } catch (error) {
                 group.requestsByKey.forEach((_request, key) => {
-                  failedKeysInThisSession.add(key);
+                  normalKeysFailedInThisSession.add(key);
                 });
                 console.warn(
                   `[useEarnPortfolio] Failed to batch fetch investments for ${group.provider}/${group.networkId}:`,
@@ -821,7 +823,7 @@ export const useEarnPortfolio = ({
                 });
 
                 if (matchedRequest) {
-                  failedKeysInThisSession.add(
+                  normalKeysFailedInThisSession.add(
                     createEarnPortfolioRequestKey(matchedRequest),
                   );
                 }
@@ -838,11 +840,33 @@ export const useEarnPortfolio = ({
           // Remove stale entries for full refresh
           if (!options) {
             Array.from(requestMap.keys()).forEach((key) => {
-              if (
-                !keysUpdatedInThisSession.has(key) &&
-                !failedKeysInThisSession.has(key)
-              ) {
+              if (!normalKeysToFetch.has(key) && !airdropKeysToFetch.has(key)) {
                 requestMap.delete(key);
+                return;
+              }
+
+              if (
+                !normalKeysToFetch.has(key) ||
+                (!normalKeysUpdatedInThisSession.has(key) &&
+                  !normalKeysFailedInThisSession.has(key))
+              ) {
+                removeEarnPortfolioInvestmentSource({
+                  requestMap,
+                  key,
+                  source: 'normal',
+                });
+              }
+
+              if (
+                !airdropKeysToFetch.has(key) ||
+                (!airdropKeysUpdatedInThisSession.has(key) &&
+                  !airdropKeysFailedInThisSession.has(key))
+              ) {
+                removeEarnPortfolioInvestmentSource({
+                  requestMap,
+                  key,
+                  source: 'airdrop',
+                });
               }
             });
           }

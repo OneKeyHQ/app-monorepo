@@ -50,6 +50,47 @@ const clearNormalInvestment = (
   };
 };
 
+const clearAirdropInvestment = (
+  investment: IEarnPortfolioInvestment,
+): IEarnPortfolioInvestment => ({
+  ...investment,
+  airdropAssets: [],
+});
+
+const hasEarnPortfolioNormalAssets = (
+  investment: IEarnPortfolioInvestment | undefined,
+) => Boolean(investment?.assets.length);
+
+export const removeEarnPortfolioInvestmentSource = ({
+  requestMap,
+  key,
+  source,
+}: {
+  requestMap: Map<string, IEarnPortfolioInvestment>;
+  key: string;
+  source: IEarnPortfolioInvestmentSource;
+}) => {
+  const existing = requestMap.get(key);
+  if (!existing) {
+    return;
+  }
+
+  const nextInvestment =
+    source === 'normal'
+      ? clearNormalInvestment(existing)
+      : clearAirdropInvestment(existing);
+
+  if (
+    hasEarnPortfolioNormalAssets(nextInvestment) ||
+    hasEarnPortfolioAirdropAssets(nextInvestment)
+  ) {
+    requestMap.set(key, nextInvestment);
+    return;
+  }
+
+  requestMap.delete(key);
+};
+
 const mergeNormalInvestment = ({
   existing,
   incoming,
