@@ -45,6 +45,11 @@ jobs:
     needs: [get-version, standalone]
     runs-on: ubuntu-latest
     name: "Publish CLI v${{ needs.get-version.outputs.version }}"
+    env:
+      # Single source of truth for which platform subpackages the main
+      # package routes to. Both the pre-publish guard and the
+      # optionalDependencies inject step read from this list.
+      PLATFORM_SUBPKGS: "@onekeyfe/cli-darwin-arm64 @onekeyfe/cli-darwin-x64"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -67,18 +72,15 @@ jobs:
             echo "::error::@onekeyfe/cli@$VERSION is already published; bump version first"
             exit 1
           fi
-          # Guard 2: every platform subpackage listed in optionalDependencies
-          # must already be published at the same version. The standalone job
-          # is expected to have published them — if any is missing, abort
-          # before publishing a main package that would resolve to broken
-          # platform deps.
-          MAIN_PKG_JSON="apps/cli/package.json"
-          SUBPKGS=$(node -p "Object.keys(require('./${MAIN_PKG_JSON}').optionalDependencies || {}).join(' ')")
-          if [ -z "$SUBPKGS" ]; then
-            echo "::error::No optionalDependencies declared in ${MAIN_PKG_JSON}"
+          # Guard 2: every platform subpackage must already be published at the
+          # same version. The standalone job is expected to have published
+          # them — if any is missing, abort before publishing a main package
+          # that would resolve to broken platform deps.
+          if [ -z "${PLATFORM_SUBPKGS:-}" ]; then
+            echo "::error::PLATFORM_SUBPKGS env is empty"
             exit 1
           fi
-          for pkg in $SUBPKGS; do
+          for pkg in $PLATFORM_SUBPKGS; do
             if ! npm view "$pkg@$VERSION" version >/dev/null 2>&1; then
               echo "::error::$pkg@$VERSION is not on npm yet"
               echo "::error::The standalone job should have published it. Check the standalone job logs."
@@ -103,7 +105,9 @@ jobs:
         # creates a chicken-and-egg with the standalone job that publishes
         # those subpackages. We inject them into the package.json right before
         # `npm pack` so the published tarball routes installs to the signed
-        # platform binaries while the source repo stays installable.
+        # platform binaries while the source repo stays installable. The
+        # subpackage names come from the job-level PLATFORM_SUBPKGS env,
+        # shared with the Pre-publish guard.
         env:
           VERSION: ${{ needs.get-version.outputs.version }}
         run: |
@@ -111,10 +115,14 @@ jobs:
           const fs = require("fs");
           const p = "apps/cli/package.json";
           const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
-          pkg.optionalDependencies = {
-            "@onekeyfe/cli-darwin-arm64": process.env.VERSION,
-            "@onekeyfe/cli-darwin-x64": process.env.VERSION,
-          };
+          const subpkgs = (process.env.PLATFORM_SUBPKGS || "").split(/\s+/).filter(Boolean);
+          if (subpkgs.length === 0) {
+            console.error("PLATFORM_SUBPKGS env is empty");
+            process.exit(1);
+          }
+          pkg.optionalDependencies = Object.fromEntries(
+            subpkgs.map(name => [name, process.env.VERSION])
+          );
           fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
           '
           echo "Injected optionalDependencies at v$VERSION:"
