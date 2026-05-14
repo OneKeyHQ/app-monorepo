@@ -17,6 +17,12 @@ export enum ECloudBackupProviderType {
   GoogleDrive = 'GoogleDrive',
 }
 
+export enum ERestoreResult {
+  SUCCESS = 'success',
+  WRONG_PASSWORD = 'wrong_password',
+  UNKNOWN_ERROR = 'unknown_error',
+}
+
 export type IBackupCloudServerData = {
   iCloud?: IAppleCloudKitRecord;
   googleDrive?: IGoogleDriveFile;
