@@ -35,8 +35,16 @@ export function computeDownloadRetryDelayMs(attempt: number): number {
  * NetInfo that hasn't booted yet, since blocking on `null` would wedge the
  * retry loop on environments where the reachability probe never runs.
  */
-async function waitForOnlineOrTimeout(timeoutMs: number): Promise<void> {
+async function waitForOnlineOrTimeout(
+  timeoutMs: number,
+  context: string,
+): Promise<void> {
   if (globalNetInfo.currentState().isInternetReachable !== false) return;
+  const startedAt = Date.now();
+  defaultLogger.app.appUpdate.log(
+    `${context}: offline-wait start, cap=${timeoutMs}ms`,
+  );
+  let exitReason: 'online' | 'timeout' = 'timeout';
   await new Promise<void>((resolve) => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let unsubscribe: (() => void) | null = null;
@@ -48,11 +56,22 @@ async function waitForOnlineOrTimeout(timeoutMs: number): Promise<void> {
       unsubscribe?.();
       resolve();
     };
-    timeoutId = setTimeout(finish, timeoutMs);
+    timeoutId = setTimeout(() => {
+      exitReason = 'timeout';
+      finish();
+    }, timeoutMs);
     unsubscribe = globalNetInfo.addEventListener((state) => {
-      if (state.isInternetReachable !== false) finish();
+      if (state.isInternetReachable !== false) {
+        exitReason = 'online';
+        finish();
+      }
     });
   });
+  defaultLogger.app.appUpdate.log(
+    `${context}: offline-wait end reason=${exitReason} elapsed=${
+      Date.now() - startedAt
+    }ms`,
+  );
 }
 
 /**
@@ -62,10 +81,13 @@ async function waitForOnlineOrTimeout(timeoutMs: number): Promise<void> {
  * When the device is online, fall back to the original
  * exp + jitter schedule capped at DOWNLOAD_RETRY_MAX_DELAY_MS.
  */
-async function waitBeforeRetry(attempt: number): Promise<void> {
+async function waitBeforeRetry(
+  attempt: number,
+  context: string,
+): Promise<void> {
   const baseDelay = computeDownloadRetryDelayMs(attempt);
   if (globalNetInfo.currentState().isInternetReachable === false) {
-    await waitForOnlineOrTimeout(DOWNLOAD_RETRY_OFFLINE_WAIT_MS);
+    await waitForOnlineOrTimeout(DOWNLOAD_RETRY_OFFLINE_WAIT_MS, context);
     // After the listener fires (or the offline cap expires), give the OS a
     // moment to stabilize the new path before we hammer the CDN again.
     await timerUtils.wait(Math.min(baseDelay, DOWNLOAD_RETRY_ONLINE_GRACE_MS));
@@ -106,13 +128,17 @@ export async function runDownloadWithRetry<T>(
       ) {
         throw e;
       }
-      const delayMs = computeDownloadRetryDelayMs(attempt);
+      const isOffline =
+        globalNetInfo.currentState().isInternetReachable === false;
+      const baseDelayMs = computeDownloadRetryDelayMs(attempt);
       defaultLogger.app.appUpdate.log(
-        `${context}: retry ${attempt + 1}/${DOWNLOAD_RETRY_MAX_ATTEMPTS} in ${delayMs}ms — code=${
-          extractUpdateErrorCode(e) ?? '<none>'
-        }`,
+        `${context}: retry ${attempt + 1}/${DOWNLOAD_RETRY_MAX_ATTEMPTS} ${
+          isOffline
+            ? `offline-wait≤${DOWNLOAD_RETRY_OFFLINE_WAIT_MS}ms`
+            : `in ${baseDelayMs}ms`
+        } — code=${extractUpdateErrorCode(e) ?? '<none>'}`,
       );
-      await waitBeforeRetry(attempt);
+      await waitBeforeRetry(attempt, context);
     }
   }
   throw new OneKeyLocalError(
