@@ -812,25 +812,42 @@ async function createMainWindow() {
   // Dev-only backdoor: force the CPU watchdog dialog to appear immediately,
   // bypassing the sustained-CPU threshold and 30-minute cooldown. Used by
   // the "Force trigger CPU Watchdog Dialog" entries under Dev Mode.
-  ipcMain.removeAllListeners(ipcMessageKeys.CPU_WATCHDOG_FORCE_TRIGGER);
-  ipcMain.on(
-    ipcMessageKeys.CPU_WATCHDOG_FORCE_TRIGGER,
-    (_event, reason: ICpuWatchdogReason) => {
-      logger.warn('[CPU Watchdog] force-trigger via IPC', { reason });
-      triggerCpuWatchdog({
-        reason,
-        cpuTrend: [99, 99, 99],
-        bypassCooldown: true,
-      });
-    },
-  );
+  //
+  // SECURITY: registration is gated to dev builds so the channel does not
+  // exist on the production IPC surface — a tainted renderer (XSS, malicious
+  // DApp webview) cannot spam-pop a system dialog containing a Restart
+  // button. Handlers also re-check the gate as backstop and validate the
+  // reason against the enum to drop garbage payloads.
+  if (isDevServer && !app.isPackaged) {
+    ipcMain.removeAllListeners(ipcMessageKeys.CPU_WATCHDOG_FORCE_TRIGGER);
+    ipcMain.on(
+      ipcMessageKeys.CPU_WATCHDOG_FORCE_TRIGGER,
+      (_event, reason: unknown) => {
+        if (!isDevServer || app.isPackaged) return;
+        if (!isCpuWatchdogReason(reason)) {
+          logger.warn(
+            '[CPU Watchdog] force-trigger rejected — invalid reason',
+            {
+              reason,
+            },
+          );
+          return;
+        }
+        logger.warn('[CPU Watchdog] force-trigger via IPC', { reason });
+        triggerCpuWatchdog({
+          reason,
+          cpuTrend: [99, 99, 99],
+          bypassCooldown: true,
+        });
+      },
+    );
 
-  // Dev-only: clear the cooldown and any stale dialog-open flag so a
-  // subsequent test trigger can fire immediately.
-  ipcMain.removeAllListeners(ipcMessageKeys.CPU_WATCHDOG_RESET_COOLDOWN);
-  ipcMain.on(ipcMessageKeys.CPU_WATCHDOG_RESET_COOLDOWN, () => {
-    resetCpuWatchdogStateForTesting();
-  });
+    ipcMain.removeAllListeners(ipcMessageKeys.CPU_WATCHDOG_RESET_COOLDOWN);
+    ipcMain.on(ipcMessageKeys.CPU_WATCHDOG_RESET_COOLDOWN, () => {
+      if (!isDevServer || app.isPackaged) return;
+      resetCpuWatchdogStateForTesting();
+    });
+  }
 
   // System Resources
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
@@ -1969,6 +1986,19 @@ type ICpuWatchdogReason =
   | 'sustained-high-cpu-severe'
   | 'sustained-high-cpu-mild'
   | 'unresponsive';
+
+const CPU_WATCHDOG_REASONS = new Set<ICpuWatchdogReason>([
+  'sustained-high-cpu-severe',
+  'sustained-high-cpu-mild',
+  'unresponsive',
+]);
+
+function isCpuWatchdogReason(value: unknown): value is ICpuWatchdogReason {
+  return (
+    typeof value === 'string' &&
+    CPU_WATCHDOG_REASONS.has(value as ICpuWatchdogReason)
+  );
+}
 
 function startCpuWatchdog() {
   if (cpuWatchdogInterval) {
