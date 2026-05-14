@@ -9,6 +9,12 @@ import { Icon, Page, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
+import {
+  type IScopedActiveTokenList,
+  type IScopedActiveTokenListState,
+  buildScopedActiveTokenListFromResponses,
+  fetchFilteredTokenSelectorTokens,
+} from '@onekeyhq/kit/src/components/TokenSelectorFilter/utils';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useAggregateTokensListMapAtom,
@@ -22,16 +28,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAssetSelectorParamList } from '@onekeyhq/shared/src/routes';
 import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { buildTokenSelectorDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type {
-  IAccountToken,
-  IFetchAccountTokensResp,
-  ITokenFiat,
-} from '@onekeyhq/shared/types/token';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
@@ -54,6 +55,7 @@ type ISelectorTokenListRequestContext = {
   activeAccountId: string;
   activeNetworkId: string;
   isSelectorAllNetworks: boolean;
+  mergeDeriveAddressData: boolean;
   showLpTokensOnly: boolean;
   useSelectorFilteredTokenList: boolean;
   showActiveAccountTokenList: boolean;
@@ -70,6 +72,7 @@ function isSameSelectorTokenListRequestContext(
     a.activeAccountId === b.activeAccountId &&
     a.activeNetworkId === b.activeNetworkId &&
     a.isSelectorAllNetworks === b.isSelectorAllNetworks &&
+    a.mergeDeriveAddressData === b.mergeDeriveAddressData &&
     a.showLpTokensOnly === b.showLpTokensOnly &&
     a.useSelectorFilteredTokenList === b.useSelectorFilteredTokenList &&
     a.showActiveAccountTokenList === b.showActiveAccountTokenList
@@ -78,13 +81,8 @@ function isSameSelectorTokenListRequestContext(
 
 function TokenSelector() {
   const intl = useIntl();
-  const {
-    updateCreateAccountState,
-    updateProcessingTokenState,
-    refreshActiveAccountTokenList,
-    refreshTokenListMap,
-    updateActiveAccountTokenListState,
-  } = useTokenListActions().current;
+  const { updateCreateAccountState, updateProcessingTokenState } =
+    useTokenListActions().current;
 
   const route =
     useRoute<
@@ -124,11 +122,31 @@ function TokenSelector() {
     showDeFiTokenSwitch,
   } = route.params;
 
-  const { network, account } = useAccountData({ networkId, accountId });
+  const {
+    network,
+    account,
+    vaultSettings: selectorVaultSettings,
+  } = useAccountData({
+    networkId,
+    accountId,
+  });
 
   const [searchKey, setSearchKey] = useState('');
   const [showLpTokensOnly, setShowLpTokensOnly] = useState(false);
   const [hasTokenFilterChanged, setHasTokenFilterChanged] = useState(false);
+  const [scopedActiveTokenList, setScopedActiveTokenList] =
+    useState<IScopedActiveTokenList>({
+      tokens: [],
+      keys: '',
+    });
+  const [scopedActiveTokenListMap, setScopedActiveTokenListMap] = useState<
+    Record<string, ITokenFiat>
+  >({});
+  const [scopedActiveTokenListState, setScopedActiveTokenListState] =
+    useState<IScopedActiveTokenListState>({
+      isRefreshing: false,
+      initialized: false,
+    });
   const [allTokenListMap] = useAllTokenListMapAtom();
   const [searchTokenState, setSearchTokenState] = useState({
     isSearching: false,
@@ -492,6 +510,10 @@ function TokenSelector() {
   ]);
 
   const isSelectorAllNetworks = isAllNetworks ?? network?.isAllNetworks;
+  const mergeDeriveAddressData =
+    !!selectorVaultSettings?.mergeDeriveAssetsEnabled &&
+    !!indexedAccountId &&
+    !accountUtils.isOthersAccount({ accountId });
   const useSelectorFilteredTokenList =
     !!showDeFiTokenSwitch && hasTokenFilterChanged;
   const effectiveShowActiveAccountTokenList =
@@ -506,6 +528,7 @@ function TokenSelector() {
       activeAccountId: activeAccountId ?? '',
       activeNetworkId: activeNetworkId ?? '',
       isSelectorAllNetworks: !!isSelectorAllNetworks,
+      mergeDeriveAddressData,
       showLpTokensOnly,
       useSelectorFilteredTokenList,
       showActiveAccountTokenList,
@@ -517,6 +540,7 @@ function TokenSelector() {
     activeAccountId: activeAccountId ?? '',
     activeNetworkId: activeNetworkId ?? '',
     isSelectorAllNetworks: !!isSelectorAllNetworks,
+    mergeDeriveAddressData,
     showLpTokensOnly,
     useSelectorFilteredTokenList,
     showActiveAccountTokenList,
@@ -538,6 +562,7 @@ function TokenSelector() {
       activeAccountId: activeAccountId ?? '',
       activeNetworkId: activeNetworkId ?? '',
       isSelectorAllNetworks: !!isSelectorAllNetworks,
+      mergeDeriveAddressData,
       showLpTokensOnly,
       useSelectorFilteredTokenList,
       showActiveAccountTokenList,
@@ -552,103 +577,46 @@ function TokenSelector() {
       return;
     }
 
-    updateActiveAccountTokenListState({
+    setScopedActiveTokenListState({
       initialized: false,
       isRefreshing: true,
     });
-    refreshActiveAccountTokenList({
+    setScopedActiveTokenList({
       tokens: [],
       keys: '',
     });
+    setScopedActiveTokenListMap({});
 
     try {
-      let responses: IFetchAccountTokensResp[] = [];
-
-      if (isSelectorAllNetworks) {
-        const { accountsInfo } =
-          await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-            accountId,
-            networkId,
-            indexedAccountId,
-            excludeTestNetwork: true,
-            networksEnabledOnly: !accountUtils.isOthersAccount({ accountId }),
-          });
-
-        if (!isLatestRequest()) {
-          return;
-        }
-
-        const requestFactories = accountsInfo.map(
-          ({ accountId: itemAccountId, networkId: itemNetworkId, dbAccount }) =>
-            () =>
-              backgroundApiProxy.serviceToken.fetchAccountTokens({
-                accountId: itemAccountId,
-                networkId: itemNetworkId,
-                dbAccount,
-                indexedAccountId,
-                flag: 'token-selector',
-                isAllNetworks: true,
-                allNetworksAccountId: accountId,
-                allNetworksNetworkId: networkId,
-                saveToLocal: false,
-                ...tokenSelectorFilterParams,
-              }),
-        );
-
-        responses = (
-          await promiseAllSettledEnhanced(requestFactories, {
-            continueOnError: true,
-            concurrency: 10,
-          })
-        ).filter((item): item is IFetchAccountTokensResp => Boolean(item));
-      } else {
-        const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-          accountId,
-          networkId,
-          indexedAccountId,
-          flag: 'token-selector',
-          saveToLocal: false,
-          ...tokenSelectorFilterParams,
-        });
-        responses = [r];
-      }
+      const responses = await fetchFilteredTokenSelectorTokens({
+        accountId,
+        networkId,
+        indexedAccountId,
+        isAllNetworks: !!isSelectorAllNetworks,
+        mergeDeriveAddressData,
+        tokenSelectorFilterParams,
+      });
 
       if (!isLatestRequest()) {
         return;
       }
 
-      const selectorTokenList: IAccountToken[] = [];
-      let selectorTokenListMap: Record<string, ITokenFiat> = {};
-
-      for (const r of responses) {
-        selectorTokenList.push(...r.tokens.data, ...r.smallBalanceTokens.data);
-        selectorTokenListMap = {
-          ...selectorTokenListMap,
-          ...r.tokens.map,
-          ...r.smallBalanceTokens.map,
-        };
-      }
-
       const tokenFilterKeySuffix = showLpTokensOnly
         ? 'lp-dapp-token'
         : 'wallet-token';
-      const tokenKeys = `${responses
-        .map((r) => `${r.tokens.keys}_${r.smallBalanceTokens.keys}`)
-        .join('_')}_${tokenFilterKeySuffix}`;
+      const { tokenList, tokenListMap } =
+        buildScopedActiveTokenListFromResponses({
+          responses,
+          keySuffix: tokenFilterKeySuffix,
+        });
 
-      refreshActiveAccountTokenList({
-        tokens: selectorTokenList,
-        keys: tokenKeys,
-      });
-      refreshTokenListMap({
-        tokens: selectorTokenListMap,
-        merge: true,
-      });
+      setScopedActiveTokenList(tokenList);
+      setScopedActiveTokenListMap(tokenListMap);
     } catch (e) {
       console.error(e);
     } finally {
       if (isLatestRequest()) {
-        updateActiveAccountTokenListState({
+        setScopedActiveTokenListState({
           initialized: true,
           isRefreshing: false,
         });
@@ -660,13 +628,11 @@ function TokenSelector() {
     accountId,
     indexedAccountId,
     isSelectorAllNetworks,
+    mergeDeriveAddressData,
     networkId,
-    refreshActiveAccountTokenList,
-    refreshTokenListMap,
     showActiveAccountTokenList,
     showLpTokensOnly,
     tokenSelectorFilterParams,
-    updateActiveAccountTokenListState,
     useSelectorFilteredTokenList,
   ]);
 
@@ -679,6 +645,7 @@ function TokenSelector() {
         activeAccountId,
         activeNetworkId,
         isSelectorAllNetworks: !!isSelectorAllNetworks,
+        mergeDeriveAddressData,
         showLpTokensOnly,
         useSelectorFilteredTokenList,
         showActiveAccountTokenList,
@@ -693,14 +660,15 @@ function TokenSelector() {
         return;
       }
 
-      updateActiveAccountTokenListState({
+      setScopedActiveTokenListState({
         initialized: false,
         isRefreshing: true,
       });
-      refreshActiveAccountTokenList({
+      setScopedActiveTokenList({
         tokens: [],
         keys: '',
       });
+      setScopedActiveTokenListMap({});
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
         accountId: activeAccountId,
         networkId: activeNetworkId,
@@ -713,18 +681,15 @@ function TokenSelector() {
         return;
       }
 
-      refreshActiveAccountTokenList({
+      setScopedActiveTokenList({
         tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
         keys: `${r.tokens.keys}_${r.smallBalanceTokens.keys}`,
       });
-      refreshTokenListMap({
-        tokens: {
-          ...r.tokens.map,
-          ...r.smallBalanceTokens.map,
-        },
-        merge: true,
+      setScopedActiveTokenListMap({
+        ...r.tokens.map,
+        ...r.smallBalanceTokens.map,
       });
-      updateActiveAccountTokenListState({
+      setScopedActiveTokenListState({
         isRefreshing: false,
         initialized: true,
       });
@@ -759,13 +724,11 @@ function TokenSelector() {
     accountId,
     indexedAccountId,
     isSelectorAllNetworks,
+    mergeDeriveAddressData,
     networkId,
-    refreshActiveAccountTokenList,
-    refreshTokenListMap,
     showActiveAccountTokenList,
     showLpTokensOnly,
     tokenSelectorFilterParams,
-    updateActiveAccountTokenListState,
     currencyInfo.id,
     useSelectorFilteredTokenList,
   ]);
@@ -807,6 +770,9 @@ function TokenSelector() {
           networkId={networkId}
           indexedAccountId={indexedAccountId}
           showActiveAccountTokenList={effectiveShowActiveAccountTokenList}
+          scopedActiveAccountTokenList={scopedActiveTokenList}
+          scopedActiveAccountTokenListState={scopedActiveTokenListState}
+          scopedActiveAccountTokenListMap={scopedActiveTokenListMap}
           onPressToken={handleTokenOnPress}
           isAllNetworks={isSelectorAllNetworks}
           withNetwork={isSelectorAllNetworks}
