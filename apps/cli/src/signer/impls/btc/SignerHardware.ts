@@ -144,20 +144,26 @@ export class SignerHardware extends SignerHardwareBase {
     const sdk = await this.getHardwareSDK();
     const commonParams = await this.getHwCommonParams();
 
-    const [addressResult, pubKeyResult] = await Promise.all([
-      sdk.btcGetAddress(this.device.connectId, this.device.deviceId, {
+    const addressResult = await sdk.btcGetAddress(
+      this.device.connectId,
+      this.device.deviceId,
+      {
         path: info.path,
         coin: this.getCoin(),
         showOnOneKey: false,
         ...commonParams,
-      }),
-      sdk.btcGetPublicKey(this.device.connectId, this.device.deviceId, {
+      },
+    );
+    const pubKeyResult = await sdk.btcGetPublicKey(
+      this.device.connectId,
+      this.device.deviceId,
+      {
         path: info.path,
         coin: this.getCoin(),
         showOnOneKey: false,
         ...commonParams,
-      }),
-    ]);
+      },
+    );
 
     const address = unwrapSDKResult<IBtcAddressPayload>(
       addressResult,
