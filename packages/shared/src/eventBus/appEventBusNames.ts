@@ -153,4 +153,5 @@ export enum EAppEventBusNames {
   CreateNewBrowserTab = 'CreateNewBrowserTab',
   NavigateModalFromBackgroundThread = 'NavigateModalFromBackgroundThread',
   TrayActionWillNavigate = 'TrayActionWillNavigate',
+  MemoryPressureWarning = 'MemoryPressureWarning',
 }

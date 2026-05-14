@@ -12,6 +12,8 @@ import {
   initSentry,
   withSentryHOC,
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+
+import { installDesktopWatchdog } from './perf/installDesktopWatchdog';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import { TrayPanel } from '@onekeyhq/kit/src/views/Tray/TrayPanel';
@@ -28,6 +30,7 @@ import {
 } from 'react-native-reanimated';
 
 initSentry();
+installDesktopWatchdog();
 
 if (process.env.NODE_ENV !== 'production') {
   configureReanimatedLogger({

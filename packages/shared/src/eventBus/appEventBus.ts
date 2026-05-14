@@ -528,6 +528,14 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.HomePageReady]: undefined;
   [EAppEventBusNames.TrayActionWillNavigate]: undefined;
+  [EAppEventBusNames.MemoryPressureWarning]: {
+    /** 'low' (Android only) or 'critical' (iOS + Android). See native spec. */
+    level: 'low' | 'critical';
+    /** Process RSS in bytes at the moment the warning fired; `0` if unknown. */
+    rss: number;
+    /** Wall-clock timestamp (ms since unix epoch). */
+    timestamp: number;
+  };
 }
 
 /**
