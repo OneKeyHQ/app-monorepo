@@ -1,6 +1,10 @@
 import BigNumber from 'bignumber.js';
 
 import type { EAddressEncodings, IEncodedTx } from '@onekeyhq/core/src/types';
+import {
+  type IBtcSwapSingleAddressUtxoPlan,
+  applyBtcSwapSingleAddressUtxoPlanToTransferInfo,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapBtcUtxoUtils';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -41,6 +45,7 @@ export async function buildMarketExecutionPayload({
   slippage,
   swapType,
   userAddress,
+  btcSwapSingleAddressUtxoPlan,
   onBuildInternalDappTx,
   onBuildLMSwapEncodedTx,
   onBuildOkxSwapEncodedTx,
@@ -56,6 +61,7 @@ export async function buildMarketExecutionPayload({
   slippage: number;
   swapType?: ESwapTabSwitchType;
   userAddress: string;
+  btcSwapSingleAddressUtxoPlan?: IBtcSwapSingleAddressUtxoPlan;
   onBuildInternalDappTx: (params: {
     accountId: string;
     networkId: string;
@@ -84,15 +90,20 @@ export async function buildMarketExecutionPayload({
   let transferInfo: ITransferInfo | undefined;
   let encodedTx: IEncodedTx | undefined;
   const serviceOrderId = buildRes.orderId ?? buildRes.result.quoteId;
+  const executionUserAddress =
+    btcSwapSingleAddressUtxoPlan?.userAddress ?? userAddress;
 
   if (buildRes.swftOrder) {
-    transferInfo = {
-      from: userAddress,
-      tokenInfo: buildTransferTokenInfo(buildRes.result.fromTokenInfo),
-      to: buildRes.swftOrder.platformAddr,
-      amount: buildRes.swftOrder.depositCoinAmt,
-      memo: buildRes.swftOrder.memo,
-    };
+    transferInfo = applyBtcSwapSingleAddressUtxoPlanToTransferInfo({
+      plan: btcSwapSingleAddressUtxoPlan,
+      transferInfo: {
+        from: executionUserAddress,
+        tokenInfo: buildTransferTokenInfo(buildRes.result.fromTokenInfo),
+        to: buildRes.swftOrder.platformAddr,
+        amount: buildRes.swftOrder.depositCoinAmt,
+        memo: buildRes.swftOrder.memo,
+      },
+    });
   } else if (buildRes.changellyOrder) {
     transferInfo = {
       from: userAddress,
@@ -136,7 +147,7 @@ export async function buildMarketExecutionPayload({
       encodedTx = {
         ...buildRes.tx,
         value: toBigIntHex(new BigNumber(buildRes.tx.value ?? 0)),
-        from: userAddress,
+        from: executionUserAddress,
       };
     } else {
       encodedTx = buildRes.tx as IEncodedTx;
@@ -192,7 +203,7 @@ export async function buildMarketExecutionPayload({
         networkId: currentToToken.networkId,
       },
     },
-    accountAddress: userAddress,
+    accountAddress: buildRes.swftOrder ? executionUserAddress : userAddress,
     receivingAddress,
     swapBuildResData: {
       ...buildRes,

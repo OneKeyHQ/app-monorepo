@@ -1,4 +1,5 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 import type {
   EInternalDappEnum,
   IStakeTx,
@@ -110,6 +111,43 @@ describe('marketBuildExecutionUtils', () => {
     expect(result.encodedTx).toEqual({
       data: '0xlm',
     });
+  });
+
+  it('attaches selected BTC UTXOs to SWFT provider orders', async () => {
+    const result = await buildMarketExecutionPayload({
+      accountId: 'account-1',
+      buildRes: createBuildRes({
+        swftOrder: {
+          platformAddr: 'bc1p-platform',
+          depositCoinAmt: '0.001',
+          memo: 'memo-1',
+        } as never,
+      }),
+      currentFromToken: fromToken,
+      currentToToken: toToken,
+      fromAmount: '0.001',
+      receivingAddress: '0xreceive',
+      slippage: 1,
+      userAddress: 'bc1p-current',
+      btcSwapSingleAddressUtxoPlan: {
+        userAddress: 'bc1p-input',
+        selectedUtxoKeys: ['tx-a:0'],
+        utxoSelectionStrategy: EUtxoSelectionStrategy.ForceSelected,
+      },
+      onBuildOkxSwapEncodedTx: jest.fn(),
+      onBuildLMSwapEncodedTx: jest.fn(),
+      onBuildInternalDappTx: jest.fn(),
+    });
+
+    expect(result.transferInfo).toEqual(
+      expect.objectContaining({
+        from: 'bc1p-input',
+        selectedUtxoKeys: ['tx-a:0'],
+        utxoSelectionStrategy: EUtxoSelectionStrategy.ForceSelected,
+      }),
+    );
+    expect(result.swapInfo.accountAddress).toBe('bc1p-input');
+    expect(result.swapInfo.receivingAddress).toBe('0xreceive');
   });
 
   it('marks signed orders to skip on-chain sending and preserves quote-based order ids', async () => {

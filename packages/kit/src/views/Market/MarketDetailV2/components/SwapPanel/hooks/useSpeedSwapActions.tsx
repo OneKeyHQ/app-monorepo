@@ -19,6 +19,12 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import { checkSwapLatestBalanceSufficient } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
+import {
+  BTC_SWAP_SINGLE_ADDRESS_UTXO_REQUIRED_ERROR_MESSAGE,
+  type IBtcSwapSingleAddressUtxoPlan,
+  buildBtcSingleAddressUtxoPlanFromUtxos,
+  shouldUseBtcSingleAddressUtxoPlan,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapBtcUtxoUtils';
 import type {
   ISwapReviewAdapter,
   ISwapReviewApproveBroadcastResult,
@@ -702,7 +708,9 @@ export function useSpeedSwapActions(props: {
       currentFromToken,
       currentToToken,
       fromAmount,
+      receivingAddress,
       userAddress,
+      btcSwapSingleAddressUtxoPlan,
       accountId,
     }: {
       buildRes: IFetchBuildTxResponse;
@@ -710,7 +718,9 @@ export function useSpeedSwapActions(props: {
       currentFromToken: ISwapToken;
       currentToToken: ISwapToken;
       fromAmount: string;
+      receivingAddress?: string;
       userAddress: string;
+      btcSwapSingleAddressUtxoPlan?: IBtcSwapSingleAddressUtxoPlan;
       accountId: string;
     }) => {
       const buildResFinal = mergeMarketBuildResultWithQuote({
@@ -727,9 +737,10 @@ export function useSpeedSwapActions(props: {
         currentToToken,
         deriveAddressEncoding: marketDeriveInfoRes.result?.addressEncoding,
         fromAmount,
-        receivingAddress: userAddress,
+        receivingAddress: receivingAddress ?? userAddress,
         slippage,
         userAddress,
+        btcSwapSingleAddressUtxoPlan,
         onBuildOkxSwapEncodedTx: (params) =>
           backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx(params),
         onBuildLMSwapEncodedTx: (params) =>
@@ -862,13 +873,43 @@ export function useSpeedSwapActions(props: {
           };
         }
 
+        let btcSwapSingleAddressUtxoPlan:
+          | IBtcSwapSingleAddressUtxoPlan
+          | undefined;
+        if (
+          shouldUseBtcSingleAddressUtxoPlan({
+            networkId: fromTokenFinal.networkId,
+            provider,
+          })
+        ) {
+          const utxos =
+            await backgroundApiProxy.serviceAccountProfile.getAccountUtxos({
+              accountId: netAccountRes.result.id,
+              networkId: fromTokenFinal.networkId,
+            });
+          btcSwapSingleAddressUtxoPlan = buildBtcSingleAddressUtxoPlanFromUtxos(
+            {
+              amount,
+              decimals: fromTokenFinal.decimals,
+              utxos,
+            },
+          );
+          if (!btcSwapSingleAddressUtxoPlan) {
+            throw new OneKeyLocalError(
+              BTC_SWAP_SINGLE_ADDRESS_UTXO_REQUIRED_ERROR_MESSAGE,
+            );
+          }
+        }
+        const buildUserAddress =
+          btcSwapSingleAddressUtxoPlan?.userAddress ?? userAddress;
+
         const buildRes =
           await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx({
             fromToken: fromTokenFinal,
             toToken: toTokenFinal,
             fromTokenAmount: amount,
             provider,
-            userAddress,
+            userAddress: buildUserAddress,
             receivingAddress: userAddress,
             slippagePercentage: slippage,
             accountId: netAccountRes.result.id,
@@ -887,7 +928,7 @@ export function useSpeedSwapActions(props: {
               fromToken: fromTokenFinal,
               toToken: toTokenFinal,
               fromTokenAmount: amount,
-              userAddress,
+              userAddress: buildUserAddress,
               receivingAddress: userAddress,
               slippagePercentage: slippage,
               autoSlippage: false,
@@ -913,7 +954,9 @@ export function useSpeedSwapActions(props: {
             currentFromToken: fromTokenFinal,
             currentToToken: toTokenFinal,
             fromAmount: amount,
-            userAddress,
+            receivingAddress: userAddress,
+            userAddress: buildUserAddress,
+            btcSwapSingleAddressUtxoPlan,
             accountId: netAccountRes.result.id,
           });
 
@@ -922,7 +965,7 @@ export function useSpeedSwapActions(props: {
           encodedTx,
           transferInfo,
           swapInfo,
-          userAddress,
+          userAddress: buildUserAddress,
         };
       } finally {
         setSpeedSwapBuildTxLoading(false);

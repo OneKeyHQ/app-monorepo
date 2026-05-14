@@ -35,7 +35,11 @@ import {
   BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { OneKeyAppError, OneKeyError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyAppError,
+  OneKeyError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -127,6 +131,13 @@ import {
   checkSwapLatestBalanceSufficient,
   getSwapRequiredNativeBalanceAmount,
 } from '../utils/swapBalanceUtils';
+import {
+  BTC_SWAP_SINGLE_ADDRESS_UTXO_REQUIRED_ERROR_MESSAGE,
+  type IBtcSwapSingleAddressUtxoPlan,
+  applyBtcSwapSingleAddressUtxoPlanToTransferInfo,
+  buildBtcSingleAddressUtxoPlanFromUtxos,
+  shouldUseBtcSingleAddressUtxoPlan,
+} from '../utils/swapBtcUtxoUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapBuildTxInfo, useSwapProAccount } from './useSwapPro';
@@ -1878,6 +1889,10 @@ export function useSwapBuildTx() {
           return swapStepsRef.current.preSwapData.swapBuildResultData;
         }
         let buildSwapRes: IFetchBuildTxResponse | undefined;
+        let buildUserAddress = fromUserAddress;
+        let btcSwapSingleAddressUtxoPlan:
+          | IBtcSwapSingleAddressUtxoPlan
+          | undefined;
         try {
           if (!skipLoading) {
             setSwapSteps((prev) => ({
@@ -1888,6 +1903,32 @@ export function useSwapBuildTx() {
               },
             }));
           }
+          if (
+            shouldUseBtcSingleAddressUtxoPlan({
+              networkId: data.fromTokenInfo.networkId,
+              provider: data.info.provider,
+              providerName: data.info.providerName,
+            })
+          ) {
+            const utxos =
+              await backgroundApiProxy.serviceAccountProfile.getAccountUtxos({
+                accountId: fromAccountId,
+                networkId: data.fromTokenInfo.networkId,
+              });
+            btcSwapSingleAddressUtxoPlan =
+              buildBtcSingleAddressUtxoPlanFromUtxos({
+                amount: data.fromAmount,
+                decimals: data.fromTokenInfo.decimals,
+                utxos,
+              });
+            if (!btcSwapSingleAddressUtxoPlan) {
+              throw new OneKeyLocalError(
+                BTC_SWAP_SINGLE_ADDRESS_UTXO_REQUIRED_ERROR_MESSAGE,
+              );
+            }
+          }
+          buildUserAddress =
+            btcSwapSingleAddressUtxoPlan?.userAddress ?? fromUserAddress;
           buildSwapRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
             fromToken: data.fromTokenInfo,
             toToken: data.toTokenInfo,
@@ -1895,7 +1936,7 @@ export function useSwapBuildTx() {
             fromTokenAmount: data.fromAmount,
             slippagePercentage: slippageItem.value,
             receivingAddress: toUserAddress ?? '',
-            userAddress: fromUserAddress,
+            userAddress: buildUserAddress,
             provider: data?.info.provider,
             accountId: fromAccountId ?? '',
             quoteResultCtx: data?.quoteResultCtx,
@@ -1925,7 +1966,7 @@ export function useSwapBuildTx() {
             fromTokenAmount: data?.fromAmount ?? '',
             toTokenAmount: buildSwapRes?.result?.toAmount ?? '',
             quoteToTokenAmount: data?.toAmount ?? '',
-            fromAddress: fromUserAddress ?? '',
+            fromAddress: buildUserAddress ?? '',
             toAddress: toUserAddress ?? '',
             status: ESwapEventAPIStatus.FAIL,
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -1957,20 +1998,23 @@ export function useSwapBuildTx() {
           if (buildSwapRes?.swftOrder) {
             encodedTx = undefined;
             // swft order
-            transferInfo = {
-              from: fromUserAddress ?? '',
-              tokenInfo: {
-                ...buildSwapRes.result.fromTokenInfo,
-                isNative: !!buildSwapRes.result.fromTokenInfo.isNative,
-                address: buildSwapRes.result.fromTokenInfo.contractAddress,
-                name:
-                  buildSwapRes.result.fromTokenInfo.name ??
-                  buildSwapRes.result.fromTokenInfo.symbol,
+            transferInfo = applyBtcSwapSingleAddressUtxoPlanToTransferInfo({
+              plan: btcSwapSingleAddressUtxoPlan,
+              transferInfo: {
+                from: buildUserAddress ?? '',
+                tokenInfo: {
+                  ...buildSwapRes.result.fromTokenInfo,
+                  isNative: !!buildSwapRes.result.fromTokenInfo.isNative,
+                  address: buildSwapRes.result.fromTokenInfo.contractAddress,
+                  name:
+                    buildSwapRes.result.fromTokenInfo.name ??
+                    buildSwapRes.result.fromTokenInfo.symbol,
+                },
+                to: buildSwapRes.swftOrder.platformAddr,
+                amount: buildSwapRes.swftOrder.depositCoinAmt,
+                memo: buildSwapRes.swftOrder.memo,
               },
-              to: buildSwapRes.swftOrder.platformAddr,
-              amount: buildSwapRes.swftOrder.depositCoinAmt,
-              memo: buildSwapRes.swftOrder.memo,
-            };
+            });
           } else if (buildSwapRes?.changellyOrder) {
             encodedTx = undefined;
             // changelly order
@@ -2123,7 +2167,9 @@ export function useSwapBuildTx() {
                 networkId: buildSwapRes.result.toTokenInfo.networkId,
               },
             },
-            accountAddress: fromUserAddress ?? '',
+            accountAddress: buildSwapRes.swftOrder
+              ? (buildUserAddress ?? '')
+              : (fromUserAddress ?? ''),
             receivingAddress: toUserAddress ?? '',
             swapBuildResData: {
               ...buildSwapRes,
