@@ -1,0 +1,15 @@
+diff --git a/node_modules/fast-deep-equal/index.js b/node_modules/fast-deep-equal/index.js
+--- a/node_modules/fast-deep-equal/index.js
++++ b/node_modules/fast-deep-equal/index.js
+@@ -23,7 +23,10 @@
+ 
+     if (a.constructor === RegExp) return a.source === b.source && a.flags === b.flags;
+     if (a.valueOf !== Object.prototype.valueOf) return a.valueOf() === b.valueOf();
+-    if (a.toString !== Object.prototype.toString) return a.toString() === b.toString();
++    if (a.toString !== Object.prototype.toString) {
++      if (typeof a.toString !== 'function' || typeof b.toString !== 'function') return false;
++      return a.toString() === b.toString();
++    }
+ 
+     keys = Object.keys(a);
+     length = keys.length;
