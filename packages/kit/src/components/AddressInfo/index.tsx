@@ -3,6 +3,10 @@ import { useIntl } from 'react-intl';
 import { Badge, Dialog, Stack, XStack } from '@onekeyhq/components';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -23,6 +27,10 @@ type IProps = {
   withWrapper?: boolean;
   addressMap?: Record<string, IAddressInfo>;
 };
+
+function writeAddressInfoProbeLog(message: string) {
+  NativeLogger.write(LogLevel.Info, `[SigConfirmProbe] ${message}`);
+}
 
 type ISwitchHomeAccountButtonProps = {
   accountId?: string;
@@ -131,15 +139,36 @@ function AddressInfo(props: IProps) {
     addressMap,
   } = props;
   const addressQueryResult = usePromiseResult(async () => {
-    const result = await backgroundApiProxy.serviceAccountProfile.queryAddress({
-      accountId,
-      networkId,
-      address,
-      enableAddressBook: true,
-      enableWalletName: true,
-      skipValidateAddress: true,
-    });
-    return result;
+    writeAddressInfoProbeLog(
+      `AddressInfo query:start networkId=${networkId} hasAccount=${
+        accountId ? 1 : 0
+      } addressLen=${address?.length ?? 0}`,
+    );
+    try {
+      const result =
+        await backgroundApiProxy.serviceAccountProfile.queryAddress({
+          accountId,
+          networkId,
+          address,
+          enableAddressBook: true,
+          enableWalletName: true,
+          skipValidateAddress: true,
+        });
+      writeAddressInfoProbeLog(
+        `AddressInfo query:result hasWalletName=${
+          result?.walletAccountName ? 1 : 0
+        } hasAddressBookName=${result?.addressBookName ? 1 : 0}`,
+      );
+      return result;
+    } catch (error) {
+      const typedError = error as { message?: string; name?: string };
+      writeAddressInfoProbeLog(
+        `AddressInfo query:error name=${typedError.name ?? ''} messageLen=${
+          typedError.message?.length ?? 0
+        }`,
+      );
+      throw error;
+    }
   }, [accountId, address, networkId]).result;
 
   const addressInfoKey = buildAddressMapInfoKey({
@@ -149,13 +178,28 @@ function AddressInfo(props: IProps) {
 
   const addressInfo = addressMap?.[addressInfoKey];
 
+  const hasWalletAccountName = addressQueryResult?.walletAccountName ? 1 : 0;
+  const hasAddressBookName = addressQueryResult?.addressBookName ? 1 : 0;
+  const hasLocalAddressInfo = addressInfo ? 1 : 0;
+
   if (
     !addressQueryResult?.walletAccountName &&
     !addressQueryResult?.addressBookName &&
     !addressInfo
   ) {
+    writeAddressInfoProbeLog(
+      `AddressInfo render:empty networkId=${networkId} hasWalletName=${hasWalletAccountName} hasAddressBookName=${hasAddressBookName} hasLocalInfo=${hasLocalAddressInfo} withWrapper=${
+        withWrapper ? 1 : 0
+      }`,
+    );
     return null;
   }
+
+  writeAddressInfoProbeLog(
+    `AddressInfo render:badges networkId=${networkId} hasWalletName=${hasWalletAccountName} hasAddressBookName=${hasAddressBookName} hasLocalInfo=${hasLocalAddressInfo} withWrapper=${
+      withWrapper ? 1 : 0
+    } allowClick=${allowClickAccountNameSwitch ? 1 : 0}`,
+  );
 
   const renderWalletAccountName = () => {
     if (!addressQueryResult?.walletAccountName) return null;

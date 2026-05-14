@@ -1,6 +1,10 @@
 import { memo } from 'react';
 
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import type { IDisplayComponent } from '@onekeyhq/shared/types/signatureConfirm';
 import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 
@@ -30,6 +34,10 @@ interface IProps {
   };
 }
 
+function writeSignatureConfirmDetailsProbeLog(message: string) {
+  NativeLogger.write(LogLevel.Info, `[SigConfirmProbe] ${message}`);
+}
+
 function SignatureConfirmDetails(props: IProps) {
   const {
     accountId,
@@ -42,6 +50,12 @@ function SignatureConfirmDetails(props: IProps) {
   } = props;
 
   return displayComponents.map(({ component, approveInfo }, index) => {
+    writeSignatureConfirmDetailsProbeLog(
+      `Details item:render index=${index} type=${component.type} hasApproveInfo=${
+        approveInfo ? 1 : 0
+      } isBridge=${isBridge ? 1 : 0} isMulti=${isMultiSignatures ? 1 : 0}`,
+    );
+
     switch (component.type) {
       case EParseTxComponentType.Divider:
         return <Divider key={index} />;

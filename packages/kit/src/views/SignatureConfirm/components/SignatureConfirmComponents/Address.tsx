@@ -9,6 +9,10 @@ import { HighlightAddress } from '@onekeyhq/kit/src/components/HighlightAddress'
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IDisplayComponentAddress } from '@onekeyhq/shared/types/signatureConfirm';
 
@@ -20,6 +24,10 @@ type IProps = {
   component: IDisplayComponentAddress;
   showAddressLocalTags?: boolean;
 };
+
+function writeAddressProbeLog(message: string) {
+  NativeLogger.write(LogLevel.Info, `[SigConfirmProbe] ${message}`);
+}
 
 function formatTagValue(value: string | string[]) {
   if (typeof value === 'string' || typeof value === 'number') {
@@ -73,6 +81,21 @@ function Address(props: IProps) {
     component.highlight,
     component.address,
   ]);
+
+  const tagCount = component.tags?.length ?? 0;
+
+  writeAddressProbeLog(
+    `Address render networkId=${networkId ?? ''} hasAccount=${
+      accountId ? 1 : 0
+    } addressLen=${component.address?.length ?? 0} hasLabel=${
+      component.label ? 1 : 0
+    } isNavigable=${component.isNavigable ? 1 : 0} highlight=${
+      component.highlight ? 1 : 0
+    } showAccountName=${component.showAccountName ? 1 : 0} showLocalTags=${
+      showAddressLocalTags ? 1 : 0
+    } tagCount=${tagCount}`,
+  );
+
   return (
     <SignatureConfirmItem>
       <SignatureConfirmItem.Label>

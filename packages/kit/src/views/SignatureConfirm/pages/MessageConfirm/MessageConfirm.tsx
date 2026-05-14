@@ -12,6 +12,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
@@ -47,6 +51,14 @@ import SwapInfo from '../../components/SwapInfo';
 import { SignatureConfirmTestIDs } from '../../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
+
+function writeMessageConfirmProbeLog(message: string) {
+  NativeLogger.write(LogLevel.Info, `[SigConfirmProbe] ${message}`);
+}
+
+function getDisplayComponentTypes(display?: ISignatureConfirmDisplay) {
+  return display?.components.map((component) => component.type).join(',') ?? '';
+}
 
 export function useDappCloseHandler(
   dappApprove: ReturnType<typeof useDappApproveAction>,
@@ -107,11 +119,23 @@ function MessageConfirm() {
 
   const { result, isLoading } = usePromiseResult(
     async () => {
+      writeMessageConfirmProbeLog(
+        `MessageConfirm parse:start networkId=${networkId} hasAccount=${
+          accountId ? 1 : 0
+        } hasOrigin=${sourceInfo?.origin ? 1 : 0} hasSwap=${swapInfo ? 1 : 0}`,
+      );
+
       const accountAddress =
         await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
           networkId,
           accountId,
         });
+
+      writeMessageConfirmProbeLog(
+        `MessageConfirm accountAddress:loaded addressLen=${
+          accountAddress?.length ?? 0
+        }`,
+      );
 
       const resp = await promiseAllSettledEnhanced(
         [
@@ -164,6 +188,16 @@ function MessageConfirm() {
         });
       }
 
+      writeMessageConfirmProbeLog(
+        `MessageConfirm parse:result hasResp=${m ? 1 : 0} hasDisplay=${
+          m?.display ? 1 : 0
+        } componentCount=${p.components.length} componentTypes=${getDisplayComponentTypes(
+          p,
+        )} alertCount=${p.alerts?.length ?? 0} confirmationRequired=${
+          m?.isConfirmationRequired ? 1 : 0
+        }`,
+      );
+
       return {
         p,
         isConfirmationRequired: m?.isConfirmationRequired,
@@ -213,6 +247,18 @@ function MessageConfirm() {
     if (!parsedMessage) {
       return null;
     }
+
+    writeMessageConfirmProbeLog(
+      `MessageConfirm content:render componentCount=${
+        parsedMessage.components.length
+      } componentTypes=${getDisplayComponentTypes(
+        parsedMessage,
+      )} showHeader=${showMessageHeaderInfo ? 1 : 0} showRisk=${
+        showDAppRiskyAlert ? 1 : 0
+      } showAlerts=${showMessageAlerts ? 1 : 0} showSite=${
+        showDAppSiteMark ? 1 : 0
+      } hasSwap=${swapInfo ? 1 : 0}`,
+    );
 
     return (
       <YStack gap="$5">
