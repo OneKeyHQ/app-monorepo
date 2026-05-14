@@ -541,6 +541,10 @@ export default class ServiceNotification extends ServiceBase {
       const walletId = accountUtils.getWalletIdFromAccountId({
         accountId: account.id,
       });
+      // Bot wallets must not occupy notification quota.
+      if (accountUtils.isBotWallet({ walletId })) {
+        continue;
+      }
       const isEnabled =
         await this.backgroundApi.simpleDb.notificationSettings.isAccountActivityEnabled(
           {
@@ -740,7 +744,10 @@ export default class ServiceNotification extends ServiceBase {
       allWallets,
       allDevices,
     });
-    return result.wallets;
+    // Bot wallets must not occupy notification quota.
+    return result.wallets.filter(
+      (wallet) => !accountUtils.isBotWallet({ walletId: wallet.id }),
+    );
   }
 
   getNotificationWalletName({
