@@ -53,6 +53,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
     useState(false);
   const [navigationUrlValidateState, setNavigationUrlValidateState] =
     useState<EValidateUrlEnum>();
+  const [navigationBlockedUrl, setNavigationBlockedUrl] = useState<string>();
   const { setWebTabData, closeWebTab, setCurrentWebTab, getWebTabById } =
     useBrowserTabActions().current;
   const { onNavigation, validateWebviewSrc } = useBrowserAction().current;
@@ -66,10 +67,12 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   const urlValidateState = shouldBlockCurrentUrl
     ? currentUrlValidateState
     : navigationUrlValidateState;
+  const blockedUrl = shouldBlockCurrentUrl ? url : navigationBlockedUrl;
 
   useEffect(() => {
     setNavigationBlockAccessView(false);
     setNavigationUrlValidateState(undefined);
+    setNavigationBlockedUrl(undefined);
   }, [id, url]);
 
   useEffect(() => {
@@ -110,6 +113,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       if (isMainFrame) {
         setNavigationBlockAccessView(false);
         setNavigationUrlValidateState(undefined);
+        setNavigationBlockedUrl(undefined);
         notifyTabNavigation(id);
         onNavigation({
           id,
@@ -120,6 +124,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
           handlePhishingUrl: (illegalUrl) => {
             setNavigationBlockAccessView(true);
             setNavigationUrlValidateState(EValidateUrlEnum.NotSupportProtocol);
+            setNavigationBlockedUrl(illegalUrl);
             phishingUrlRef.current = illegalUrl;
           },
         });
@@ -176,6 +181,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       }
       setNavigationBlockAccessView(true);
       setNavigationUrlValidateState(validateState);
+      setNavigationBlockedUrl(navUrl);
       phishingUrlRef.current = navUrl;
       return false;
     },
@@ -279,6 +285,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
         bg="$bgApp"
       >
         <BlockAccessView
+          url={blockedUrl}
           urlValidateState={urlValidateState}
           onCloseTab={() => {
             closeWebTab({ tabId: id, entry: 'BlockView' });
@@ -292,7 +299,14 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
         />
       </Stack>
     ),
-    [closeWebTab, setCurrentWebTab, id, navigation, urlValidateState],
+    [
+      blockedUrl,
+      closeWebTab,
+      setCurrentWebTab,
+      id,
+      navigation,
+      urlValidateState,
+    ],
   );
 
   return (

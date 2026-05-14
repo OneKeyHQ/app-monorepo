@@ -37,7 +37,7 @@ import { DiscoveryIcon } from './DiscoveryIcon';
 
 import type { ILocalDataType } from '../hooks/useSearchModalData';
 import type { IDiscoverySearchListItem } from '../utils/searchResultRanking';
-const URL_SCHEME_REGEXP = /^[a-zA-Z][a-zA-Z0-9+.-]*:/u;
+const URL_PROTOCOL_PREFIX_REGEXP = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//u;
 
 const LoadingSkeleton = (
   <Image.Loading>
@@ -352,7 +352,7 @@ export function SearchResultContent({
       if (
         item.isExactUrl &&
         trimmedSearchValue &&
-        !URL_SCHEME_REGEXP.test(trimmedSearchValue) &&
+        !URL_PROTOCOL_PREFIX_REGEXP.test(trimmedSearchValue) &&
         (uriUtils.isLocalhostUrl(trimmedSearchValue) ||
           uriUtils.isIpAddressUrl(trimmedSearchValue))
       ) {
