@@ -51,6 +51,6 @@ export function mapThirdPartyDeviceToSearchDevice({
     commType: 'bridge',
     // Pass-through: persisted into IDBDeviceSettings.vendorModel/vendorModelName.
     vendorModel: device.model,
-    vendorModelName: device.modelName,
+    vendorModelName: (device as DeviceInfo & { modelName?: string }).modelName,
   } as SearchDevice;
 }

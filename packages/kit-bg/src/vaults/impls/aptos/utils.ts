@@ -58,6 +58,8 @@ export const APTOS_NATIVE_TRANSFER_FUNC = '0x1::aptos_account::transfer';
 // Transfer legacy coin & native coin, not register account
 export const APTOS_NATIVE_TRANSFER_FUNC_LEGACY =
   '0x1::aptos_account::transfer_coins';
+export const APTOS_NATIVE_BATCH_TRANSFER_FUNC_LEGACY =
+  '0x1::aptos_account::batch_transfer_coins';
 
 export const APTOS_TRANSFER_FUNGIBLE_FUNC =
   '0x1::primary_fungible_store::transfer';
@@ -101,6 +103,7 @@ export function getTransactionTypeByPayload({
       function_name === APTOS_NATIVE_TRANSFER_FUNC ||
       function_name === APTOS_TRANSFER_FUNC ||
       function_name === APTOS_NATIVE_TRANSFER_FUNC_LEGACY ||
+      function_name === APTOS_NATIVE_BATCH_TRANSFER_FUNC_LEGACY ||
       function_name === APTOS_TRANSFER_FUNGIBLE_FUNC
     ) {
       return EDecodedTxActionType.ASSET_TRANSFER;

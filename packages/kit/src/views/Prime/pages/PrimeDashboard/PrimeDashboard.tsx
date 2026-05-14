@@ -177,6 +177,23 @@ export default function PrimeDashboard({
     void fn();
   }, [isFocused, isAuthReady]);
 
+  // Clear local serverUserInfo state on real logout transition (true -> false).
+  // Gated by isAuthReady to avoid acting on the initial pre-hydration value
+  // of isLoggedIn (which can be false before Supabase / atom restore). And
+  // tracked via a ref of the previous value so we only clear on a real
+  // transition, not on the initial render when isLoggedIn happens to be false.
+  const prevIsLoggedInForClearRef = useRef(isLoggedIn);
+  useEffect(() => {
+    if (!isAuthReady) {
+      return;
+    }
+    const wasLoggedIn = prevIsLoggedInForClearRef.current;
+    prevIsLoggedInForClearRef.current = isLoggedIn;
+    if (wasLoggedIn && !isLoggedIn) {
+      setServerUserInfo(undefined);
+    }
+  }, [isAuthReady, isLoggedIn]);
+
   const shouldShowConfirmButton = useMemo(() => {
     if (!isLoggedIn || !isPrimeSubscriptionActive) {
       return true;
