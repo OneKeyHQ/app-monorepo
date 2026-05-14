@@ -23,13 +23,20 @@ export function PrimeTransferServerStatusBar() {
   const intl = useIntl();
   const { copyText } = useClipboard();
 
-  const { websocketConnected, websocketError } = primeTransferAtom;
+  const { websocketConnected, websocketError, websocketReconnecting } =
+    primeTransferAtom;
 
   const getConnectionState = () => {
     if (websocketConnected) {
       return 'connected';
     }
-    if (!websocketConnected && !websocketError) {
+    // While socket.io is mid-retry (initial-connect grace period or explicit
+    // reconnect_attempt), surface as "connecting" — not "failed" — so users
+    // don't see a flash of red error during normal recovery.
+    if (websocketReconnecting) {
+      return 'connecting';
+    }
+    if (!websocketError) {
       return 'connecting';
     }
     return 'failed';
