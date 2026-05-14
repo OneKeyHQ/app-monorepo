@@ -7,6 +7,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -53,6 +57,16 @@ import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDb
 class ServiceToken extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+    // Drop memoized token info / unblocked / blocked / exchange-supported
+    // assets caches under critical memory pressure. These cumulatively
+    // pin sizeable token-metadata structures that are cheap to refetch.
+    appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
+      if (event.level !== 'critical') return;
+      this.fetchTokenInfoOnlyMemo.clear();
+      this.getUnblockedTokensMemo.clear();
+      this.getBlockedTokensMemo.clear();
+      void this._getBinanceSupportedAssetsMemo.clear();
+    });
   }
 
   _fetchAccountTokensControllers: AbortController[] = [];

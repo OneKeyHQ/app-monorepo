@@ -27,8 +27,7 @@ import type {
   IDialogShowProps,
 } from '@onekeyhq/components/src/composite/Dialog/type';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { v4CoinTypeToNetworkId } from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
+import { v4CoinTypeToNetworkId } from '@onekeyhq/shared/src/consts/v4CoinTypeToNetworkId';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EChangeHistoryContentType,

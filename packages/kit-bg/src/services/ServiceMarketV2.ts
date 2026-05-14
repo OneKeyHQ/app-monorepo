@@ -69,6 +69,17 @@ type INormalizedMarketTokenListRequestParams = IMarketTokenListRequestParams & {
 class ServiceMarketV2 extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+    // Drop the in-memory market data cache + memoized batch fetchers on
+    // critical memory pressure. These are the largest known per-route
+    // cache footprints (token logos + pricing for 218 batch fetches in
+    // 27 min in observed sessions).
+    appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
+      if (event.level !== 'critical') return;
+      this._marketTokenBatchCache.clear();
+      void this.memoizedFetchMarketTokenList.clear();
+      void this.memoizedFetchMarketChains.clear();
+      void this.memoizedFetchMarketBasicConfig.clear();
+    });
   }
 
   // Cache for batch token list items with auto-expiration
