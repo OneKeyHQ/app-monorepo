@@ -266,6 +266,25 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async retryWebSocket() {
+    defaultLogger.prime.transfer.initWebSocket({ endpoint: '(retry)' });
+    // Clear terminal-failed state immediately so the UI flips back to
+    // "Connecting..." without waiting for the new init to race-set it. The
+    // page reacts to websocketEndpointUpdatedAt and will resolve the
+    // endpoint + call initWebSocket again.
+    await primeTransferAtom.set(
+      (v): IPrimeTransferAtomData => ({
+        ...v,
+        websocketConnected: false,
+        websocketReconnecting: false,
+        websocketError: undefined,
+        websocketEndpointUpdatedAt: Date.now(),
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async initWebSocket({ endpoint }: { endpoint: string }) {
     defaultLogger.prime.transfer.initWebSocket({ endpoint });
     await this.initWebsocketMutex.runExclusive(async () => {

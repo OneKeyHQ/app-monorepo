@@ -124,6 +124,10 @@ export function PrimeTransferServerStatusBar() {
     showPrimeTransferServerConfigDialog({ intl });
   };
 
+  const handleRetryPress = useCallback(() => {
+    void backgroundApiProxy.servicePrimeTransfer.retryWebSocket();
+  }, []);
+
   const { result: statusInfo } = usePromiseResult(
     () => getStatusInfo(),
     [getStatusInfo],
@@ -178,6 +182,18 @@ export function PrimeTransferServerStatusBar() {
       </XStack>
 
       <XStack gap="$4">
+        {connectionState === 'failed' ? (
+          <Button
+            size="small"
+            variant="tertiary"
+            onPress={handleRetryPress}
+            testID="prime-retry-btn"
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_retry,
+            })}
+          </Button>
+        ) : null}
         <Button
           size="small"
           variant="tertiary"
