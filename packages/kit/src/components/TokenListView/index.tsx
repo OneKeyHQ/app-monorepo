@@ -953,6 +953,12 @@ function TokenListViewCmp(props: IProps) {
 }
 
 const TokenListView = memo((props: IProps) => {
+  const [tokenListMap] = useTokenListMapAtom();
+  const activeAccountTokenListMap =
+    props.scopedActiveAccountTokenListMap ?? tokenListMap;
+  const visibleTokenListMap = props.showActiveAccountTokenList
+    ? activeAccountTokenListMap
+    : tokenListMap;
   const needNetworksMap =
     !!props.isAllNetworks && (!!props.showNetworkIcon || !!props.withNetwork);
   const { result: allNetworksResp } = usePromiseResult<{
@@ -985,8 +991,9 @@ const TokenListView = memo((props: IProps) => {
     return {
       allAggregateTokenMap: props.allAggregateTokenMap,
       networksMap,
+      tokenListMap: visibleTokenListMap,
     };
-  }, [props.allAggregateTokenMap, networksMap]);
+  }, [props.allAggregateTokenMap, networksMap, visibleTokenListMap]);
 
   return (
     <TokenListViewContext.Provider value={contextValue}>

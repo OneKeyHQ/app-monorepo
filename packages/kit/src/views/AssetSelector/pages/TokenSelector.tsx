@@ -521,7 +521,7 @@ function TokenSelector() {
     !!indexedAccountId &&
     !accountUtils.isOthersAccount({ accountId });
   const useSelectorFilteredTokenList =
-    !!showDeFiTokenSwitch && hasTokenFilterChanged;
+    !!showDeFiTokenSwitch && (hasTokenFilterChanged || showLpTokensOnly);
   const effectiveShowActiveAccountTokenList =
     showActiveAccountTokenList || useSelectorFilteredTokenList;
   const effectiveHideZeroBalanceTokens =
