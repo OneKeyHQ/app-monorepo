@@ -95,9 +95,6 @@ const protocolLogoFallbackMap: Record<string, string> = {
   stakefish: 'https://uni.onekey-asset.com/static/logo/stakefish.png',
 };
 
-const AUDIT_NAME_COLUMN_WIDTH = 172;
-const AUDIT_REPORT_BUTTON_HEIGHT = 28;
-
 function getItemSubtitle(
   item: IEarnProtocolIntroItem | undefined,
   intl: ReturnType<typeof useIntl>,
@@ -1341,6 +1338,7 @@ function AuditAccordionItem({
         unstyled
         flexDirection="row"
         alignItems="center"
+        gap="$2"
         borderWidth={0}
         bg="$transparent"
         px="$0"
@@ -1356,8 +1354,8 @@ function AuditAccordionItem({
         {({ open }: { open: boolean }) => (
           <>
             <XStack
-              width={AUDIT_NAME_COLUMN_WIDTH}
-              flexShrink={0}
+              flexGrow={1}
+              flexBasis={0}
               minWidth={0}
               gap="$1.5"
               ai="center"
@@ -1374,16 +1372,23 @@ function AuditAccordionItem({
               </SizableText>
             </XStack>
             <SizableText
-              size="$bodySm"
+              size="$bodyMd"
               color="$textSubdued"
-              flex={1}
+              flexGrow={1}
+              flexBasis={0}
               minWidth={0}
               numberOfLines={1}
               textAlign="left"
             >
               {dateText}
             </SizableText>
-            <XStack w="$5" flexShrink={0} minWidth={0} jc="flex-end">
+            <XStack
+              flexGrow={1}
+              flexBasis={0}
+              flexShrink={1}
+              minWidth={0}
+              jc="flex-end"
+            >
               <Stack
                 animation="quick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
@@ -1392,7 +1397,7 @@ function AuditAccordionItem({
                 <Icon
                   name="ChevronDownSmallOutline"
                   color={open ? '$iconActive' : '$iconSubdued'}
-                  size="$4"
+                  size="$5"
                 />
               </Stack>
             </XStack>
@@ -1403,8 +1408,8 @@ function AuditAccordionItem({
         <Accordion.HeightAnimator animation="quick">
           <Accordion.Content
             unstyled
-            pt="$2"
-            pb="$3"
+            pt="$3"
+            pb="$4"
             animation="100ms"
             animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{ opacity: 0 }}
@@ -1412,7 +1417,7 @@ function AuditAccordionItem({
           >
             <XStack gap="$3" ai="flex-start">
               {hasScopeText ? (
-                <SizableText size="$bodySm" color="$text" flex={1} minWidth={0}>
+                <SizableText size="$bodyMd" color="$text" flex={1} minWidth={0}>
                   {scopeText}
                 </SizableText>
               ) : (
@@ -1426,16 +1431,10 @@ function AuditAccordionItem({
                   size="small"
                   variant="secondary"
                   borderRadius="$full"
-                  minHeight={AUDIT_REPORT_BUTTON_HEIGHT}
-                  py="$1.5"
-                  px="$3"
                   disabled={isButtonDisabled}
                   onPress={handleOpen}
-                  childrenAsText={false}
                 >
-                  <SizableText size="$bodySmMedium" color="$text">
-                    {buttonText}
-                  </SizableText>
+                  {buttonText}
                 </Button>
               ) : null}
             </XStack>
@@ -1451,8 +1450,8 @@ function AuditsDialogContent({ audits }: { audits: IEarnProtocolIntroAudits }) {
   const auditItems = getAudits(audits);
   const descriptions = audits.button?.data?.description;
   return (
-    <YStack gap="$3">
-      <Accordion type="single" collapsible gap="$3" pt="$2">
+    <YStack gap="$5">
+      <Accordion type="single" collapsible gap="$4">
         {auditItems.map((audit, index) => (
           <AuditAccordionItem
             key={`${getText(getAuditTitle(audit)) || 'audit'}-${index}`}
