@@ -621,16 +621,11 @@ function TokenSelector() {
       let selectorTokenListMap: Record<string, ITokenFiat> = {};
 
       for (const r of responses) {
-        selectorTokenList.push(
-          ...r.tokens.data,
-          ...r.smallBalanceTokens.data,
-          ...r.riskTokens.data,
-        );
+        selectorTokenList.push(...r.tokens.data, ...r.smallBalanceTokens.data);
         selectorTokenListMap = {
           ...selectorTokenListMap,
           ...r.tokens.map,
           ...r.smallBalanceTokens.map,
-          ...r.riskTokens.map,
         };
       }
 
@@ -638,10 +633,7 @@ function TokenSelector() {
         ? 'lp-dapp-token'
         : 'wallet-token';
       const tokenKeys = `${responses
-        .map(
-          (r) =>
-            `${r.tokens.keys}_${r.smallBalanceTokens.keys}_${r.riskTokens.keys}`,
-        )
+        .map((r) => `${r.tokens.keys}_${r.smallBalanceTokens.keys}`)
         .join('_')}_${tokenFilterKeySuffix}`;
 
       refreshActiveAccountTokenList({
