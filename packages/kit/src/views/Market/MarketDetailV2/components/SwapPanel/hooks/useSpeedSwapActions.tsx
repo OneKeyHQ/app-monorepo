@@ -20,9 +20,9 @@ import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contex
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import { checkSwapLatestBalanceSufficient } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import {
-  BTC_SWAP_SINGLE_ADDRESS_UTXO_REQUIRED_ERROR_MESSAGE,
   type IBtcSwapSingleAddressUtxoPlan,
   buildBtcSingleAddressUtxoPlanFromUtxos,
+  pickBtcSwapFeeRateSatPerVByte,
   shouldUseBtcSingleAddressUtxoPlan,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapBtcUtxoUtils';
 import type {
@@ -887,16 +887,27 @@ export function useSpeedSwapActions(props: {
               accountId: netAccountRes.result.id,
               networkId: fromTokenFinal.networkId,
             });
+          const feeInfo = await backgroundApiProxy.serviceGas.estimateFee({
+            accountId: netAccountRes.result.id,
+            networkId: fromTokenFinal.networkId,
+            accountAddress: userAddress,
+            scenario: 'swap',
+          });
           btcSwapSingleAddressUtxoPlan = buildBtcSingleAddressUtxoPlanFromUtxos(
             {
               amount,
               decimals: fromTokenFinal.decimals,
+              feeRateSatPerVByte: pickBtcSwapFeeRateSatPerVByte(
+                feeInfo.feeUTXO,
+              ),
               utxos,
             },
           );
           if (!btcSwapSingleAddressUtxoPlan) {
             throw new OneKeyLocalError(
-              BTC_SWAP_SINGLE_ADDRESS_UTXO_REQUIRED_ERROR_MESSAGE,
+              intl.formatMessage({
+                id: ETranslations.send_toast_btc_fork_insufficient_fund,
+              }),
             );
           }
         }
@@ -982,6 +993,7 @@ export function useSpeedSwapActions(props: {
       toToken,
       buildMarketExecutionFromBuildRes,
       assertLatestFromTokenBalanceSufficient,
+      intl,
     ],
   );
 

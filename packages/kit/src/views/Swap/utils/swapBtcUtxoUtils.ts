@@ -5,10 +5,11 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
 const SWFT_PROVIDER_KEYWORD = 'swft';
-const BTC_SWAP_UTXO_FEE_BUFFER_SATS = '10000';
-const BTC_SWAP_MIN_EXTRA_SATS = '1';
-export const BTC_SWAP_SINGLE_ADDRESS_UTXO_REQUIRED_ERROR_MESSAGE =
-  'SWFT BTC swap requires enough spendable BTC from one address.';
+const BTC_SWAP_DEFAULT_FEE_RATE_SATS_PER_VBYTE = '20';
+const BTC_SWAP_TX_OVERHEAD_VIRTUAL_BYTES = '10';
+const BTC_SWAP_INPUT_VIRTUAL_BYTES = '180';
+const BTC_SWAP_OUTPUT_VIRTUAL_BYTES = '43';
+const BTC_SWAP_OUTPUT_COUNT = '2';
 
 export type IBtcSwapUtxo = {
   txid: string;
@@ -53,51 +54,112 @@ function toSatsBN({ amount, decimals }: { amount: string; decimals: number }) {
     .integerValue(BigNumber.ROUND_CEIL);
 }
 
-function buildCandidateForRequiredAmount({
-  requiredSats,
+export function pickBtcSwapFeeRateSatPerVByte(
+  feeUTXO?: Array<{ feeRate?: string }>,
+) {
+  return feeUTXO?.[1]?.feeRate ?? feeUTXO?.[0]?.feeRate;
+}
+
+function normalizeFeeRateSatPerVByte(feeRateSatPerVByte?: string) {
+  const feeRate = new BigNumber(
+    feeRateSatPerVByte ?? BTC_SWAP_DEFAULT_FEE_RATE_SATS_PER_VBYTE,
+  );
+
+  if (!feeRate.isFinite() || feeRate.lte(0)) {
+    return new BigNumber(BTC_SWAP_DEFAULT_FEE_RATE_SATS_PER_VBYTE);
+  }
+
+  return feeRate;
+}
+
+function buildEstimatedRequiredSats({
+  amountSats,
+  feeRateSatPerVByte,
+  inputCount,
+}: {
+  amountSats: BigNumber;
+  feeRateSatPerVByte: string | undefined;
+  inputCount: number;
+}) {
+  const feeRate = normalizeFeeRateSatPerVByte(feeRateSatPerVByte);
+  const txVBytes = new BigNumber(BTC_SWAP_TX_OVERHEAD_VIRTUAL_BYTES)
+    .plus(new BigNumber(BTC_SWAP_INPUT_VIRTUAL_BYTES).times(inputCount))
+    .plus(
+      new BigNumber(BTC_SWAP_OUTPUT_VIRTUAL_BYTES).times(BTC_SWAP_OUTPUT_COUNT),
+    );
+
+  return amountSats.plus(
+    txVBytes.times(feeRate).integerValue(BigNumber.ROUND_CEIL),
+  );
+}
+
+function buildCandidateForAmount({
+  amountSats,
+  feeRateSatPerVByte,
   utxos,
 }: {
-  requiredSats: BigNumber;
+  amountSats: BigNumber;
+  feeRateSatPerVByte: string | undefined;
   utxos: IBtcSwapUtxo[];
 }) {
   const sortedUtxos = utxos.toSorted((a, b) =>
     new BigNumber(a.value).comparedTo(b.value),
   );
-  const singleUtxo = sortedUtxos.find((utxo) =>
-    new BigNumber(utxo.value).gte(requiredSats),
-  );
+  const singleUtxo = sortedUtxos.find((utxo) => {
+    const requiredSats = buildEstimatedRequiredSats({
+      amountSats,
+      feeRateSatPerVByte,
+      inputCount: 1,
+    });
+    return new BigNumber(utxo.value).gte(requiredSats);
+  });
 
   if (singleUtxo) {
+    const totalValue = new BigNumber(singleUtxo.value);
+    const requiredSats = buildEstimatedRequiredSats({
+      amountSats,
+      feeRateSatPerVByte,
+      inputCount: 1,
+    });
+
     return {
       address: singleUtxo.address,
       selectedUtxos: [singleUtxo],
-      totalValue: new BigNumber(singleUtxo.value),
+      totalValue,
+      wasteSats: totalValue.minus(requiredSats),
     };
   }
 
   const selectedUtxos: IBtcSwapUtxo[] = [];
   let totalValue = new BigNumber(0);
-  utxos
-    .toSorted((a, b) => new BigNumber(b.value).comparedTo(a.value))
-    .some((utxo) => {
-      selectedUtxos.push(utxo);
-      totalValue = totalValue.plus(utxo.value);
-      return totalValue.gte(requiredSats);
+  const sortedDescUtxos = utxos.toSorted((a, b) =>
+    new BigNumber(b.value).comparedTo(a.value),
+  );
+  for (const utxo of sortedDescUtxos) {
+    selectedUtxos.push(utxo);
+    totalValue = totalValue.plus(utxo.value);
+
+    const requiredSats = buildEstimatedRequiredSats({
+      amountSats,
+      feeRateSatPerVByte,
+      inputCount: selectedUtxos.length,
     });
 
-  if (totalValue.gte(requiredSats)) {
-    return {
-      address: selectedUtxos[0].address,
-      selectedUtxos,
-      totalValue,
-    };
+    if (totalValue.gte(requiredSats)) {
+      return {
+        address: selectedUtxos[0].address,
+        selectedUtxos,
+        totalValue,
+        wasteSats: totalValue.minus(requiredSats),
+      };
+    }
   }
 
   return undefined;
 }
 
 type IBtcSwapUtxoCandidate = NonNullable<
-  ReturnType<typeof buildCandidateForRequiredAmount>
+  ReturnType<typeof buildCandidateForAmount>
 >;
 
 function isBtcSwapUtxoCandidate(
@@ -109,10 +171,12 @@ function isBtcSwapUtxoCandidate(
 export function buildBtcSingleAddressUtxoPlanFromUtxos({
   amount,
   decimals,
+  feeRateSatPerVByte,
   utxos,
 }: {
   amount: string;
   decimals: number;
+  feeRateSatPerVByte?: string;
   utxos: IBtcSwapUtxo[];
 }): IBtcSwapSingleAddressUtxoPlan | undefined {
   const amountSats = toSatsBN({ amount, decimals });
@@ -139,29 +203,35 @@ export function buildBtcSingleAddressUtxoPlanFromUtxos({
     {},
   );
 
-  const requiredAmounts = [
-    amountSats.plus(BTC_SWAP_UTXO_FEE_BUFFER_SATS),
-    amountSats.plus(BTC_SWAP_MIN_EXTRA_SATS),
-  ];
+  const candidate = Object.values(utxosByAddress)
+    .map((groupedUtxos) =>
+      buildCandidateForAmount({
+        amountSats,
+        feeRateSatPerVByte,
+        utxos: groupedUtxos,
+      }),
+    )
+    .filter(isBtcSwapUtxoCandidate)
+    .toSorted((a, b) => {
+      const wasteCompare = a.wasteSats.comparedTo(b.wasteSats);
+      if (wasteCompare !== 0) {
+        return wasteCompare;
+      }
 
-  for (const requiredSats of requiredAmounts) {
-    const candidate = Object.values(utxosByAddress)
-      .map((groupedUtxos) =>
-        buildCandidateForRequiredAmount({
-          requiredSats,
-          utxos: groupedUtxos,
-        }),
-      )
-      .filter(isBtcSwapUtxoCandidate)
-      .toSorted((a, b) => a.totalValue.comparedTo(b.totalValue))[0];
+      const inputCountCompare = a.selectedUtxos.length - b.selectedUtxos.length;
+      if (inputCountCompare !== 0) {
+        return inputCountCompare;
+      }
 
-    if (candidate) {
-      return {
-        userAddress: candidate.address,
-        selectedUtxoKeys: candidate.selectedUtxos.map(buildUtxoKey),
-        utxoSelectionStrategy: EUtxoSelectionStrategy.ForceSelected,
-      };
-    }
+      return a.totalValue.comparedTo(b.totalValue);
+    })[0];
+
+  if (candidate) {
+    return {
+      userAddress: candidate.address,
+      selectedUtxoKeys: candidate.selectedUtxos.map(buildUtxoKey),
+      utxoSelectionStrategy: EUtxoSelectionStrategy.ForceSelected,
+    };
   }
 
   return undefined;

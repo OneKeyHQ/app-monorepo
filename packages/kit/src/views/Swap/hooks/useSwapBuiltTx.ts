@@ -132,10 +132,10 @@ import {
   getSwapRequiredNativeBalanceAmount,
 } from '../utils/swapBalanceUtils';
 import {
-  BTC_SWAP_SINGLE_ADDRESS_UTXO_REQUIRED_ERROR_MESSAGE,
   type IBtcSwapSingleAddressUtxoPlan,
   applyBtcSwapSingleAddressUtxoPlanToTransferInfo,
   buildBtcSingleAddressUtxoPlanFromUtxos,
+  pickBtcSwapFeeRateSatPerVByte,
   shouldUseBtcSingleAddressUtxoPlan,
 } from '../utils/swapBtcUtxoUtils';
 
@@ -1915,15 +1915,26 @@ export function useSwapBuildTx() {
                 accountId: fromAccountId,
                 networkId: data.fromTokenInfo.networkId,
               });
+            const feeInfo = await backgroundApiProxy.serviceGas.estimateFee({
+              accountId: fromAccountId,
+              networkId: data.fromTokenInfo.networkId,
+              accountAddress: fromUserAddress,
+              scenario: 'swap',
+            });
             btcSwapSingleAddressUtxoPlan =
               buildBtcSingleAddressUtxoPlanFromUtxos({
                 amount: data.fromAmount,
                 decimals: data.fromTokenInfo.decimals,
+                feeRateSatPerVByte: pickBtcSwapFeeRateSatPerVByte(
+                  feeInfo.feeUTXO,
+                ),
                 utxos,
               });
             if (!btcSwapSingleAddressUtxoPlan) {
               throw new OneKeyLocalError(
-                BTC_SWAP_SINGLE_ADDRESS_UTXO_REQUIRED_ERROR_MESSAGE,
+                intl.formatMessage({
+                  id: ETranslations.send_toast_btc_fork_insufficient_fund,
+                }),
               );
             }
           }

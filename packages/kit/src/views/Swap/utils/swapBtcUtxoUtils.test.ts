@@ -2,6 +2,7 @@ import { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
 import {
   buildBtcSingleAddressUtxoPlanFromUtxos,
+  pickBtcSwapFeeRateSatPerVByte,
   shouldUseBtcSingleAddressUtxoPlan,
 } from './swapBtcUtxoUtils';
 
@@ -29,10 +30,11 @@ describe('swapBtcUtxoUtils', () => {
     ).toBe(false);
   });
 
-  it('selects the smallest single UTXO that covers the amount plus fee buffer', () => {
+  it('picks the smallest single UTXO that covers amount and estimated fee', () => {
     const plan = buildBtcSingleAddressUtxoPlanFromUtxos({
       amount: '0.001',
       decimals: 8,
+      feeRateSatPerVByte: '20',
       utxos: [
         {
           txid: 'tx-a',
@@ -62,10 +64,11 @@ describe('swapBtcUtxoUtils', () => {
     });
   });
 
-  it('falls back to nominal amount coverage when the buffer is not available', () => {
+  it('returns undefined when nominal amount is covered but estimated fee is not', () => {
     const plan = buildBtcSingleAddressUtxoPlanFromUtxos({
       amount: '0.001',
       decimals: 8,
+      feeRateSatPerVByte: '20',
       utxos: [
         {
           txid: 'tx-a',
@@ -76,17 +79,14 @@ describe('swapBtcUtxoUtils', () => {
       ],
     });
 
-    expect(plan).toEqual({
-      userAddress: 'bc1p-a',
-      selectedUtxoKeys: ['tx-a:0'],
-      utxoSelectionStrategy: EUtxoSelectionStrategy.ForceSelected,
-    });
+    expect(plan).toBeUndefined();
   });
 
   it('can select multiple UTXOs from the same address', () => {
     const plan = buildBtcSingleAddressUtxoPlanFromUtxos({
       amount: '0.001',
       decimals: 8,
+      feeRateSatPerVByte: '20',
       utxos: [
         {
           txid: 'tx-a',
@@ -116,10 +116,39 @@ describe('swapBtcUtxoUtils', () => {
     });
   });
 
+  it('uses the fee rate when choosing between same-address candidates', () => {
+    const plan = buildBtcSingleAddressUtxoPlanFromUtxos({
+      amount: '0.001',
+      decimals: 8,
+      feeRateSatPerVByte: '50',
+      utxos: [
+        {
+          txid: 'tx-a',
+          vout: 0,
+          value: '112000',
+          address: 'bc1p-a',
+        },
+        {
+          txid: 'tx-b',
+          vout: 0,
+          value: '120000',
+          address: 'bc1p-b',
+        },
+      ],
+    });
+
+    expect(plan).toEqual({
+      userAddress: 'bc1p-b',
+      selectedUtxoKeys: ['tx-b:0'],
+      utxoSelectionStrategy: EUtxoSelectionStrategy.ForceSelected,
+    });
+  });
+
   it('returns undefined when no one address can cover the amount', () => {
     const plan = buildBtcSingleAddressUtxoPlanFromUtxos({
       amount: '0.001',
       decimals: 8,
+      feeRateSatPerVByte: '20',
       utxos: [
         {
           txid: 'tx-a',
@@ -137,5 +166,17 @@ describe('swapBtcUtxoUtils', () => {
     });
 
     expect(plan).toBeUndefined();
+  });
+
+  it('picks the medium BTC fee rate from fee estimates', () => {
+    expect(
+      pickBtcSwapFeeRateSatPerVByte([
+        { feeRate: '10' },
+        { feeRate: '20' },
+        { feeRate: '30' },
+      ]),
+    ).toBe('20');
+
+    expect(pickBtcSwapFeeRateSatPerVByte([{ feeRate: '10' }])).toBe('10');
   });
 });
