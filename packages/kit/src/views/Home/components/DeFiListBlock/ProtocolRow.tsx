@@ -2,7 +2,8 @@ import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, YStack } from '@onekeyhq/components';
+import { SizableText, Stack, YStack } from '@onekeyhq/components';
+import { getProtocolValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -34,6 +35,10 @@ const ProtocolRow = memo(
           protocolInfo,
         }),
       [protocol, protocolInfo],
+    );
+    const protocolValueState = useMemo(
+      () => getProtocolValueState(protocol),
+      [protocol],
     );
     // Match the desktop accordion header's "{n} 持仓" sub-label so the
     // condensed mobile row carries the same density signal.
@@ -69,17 +74,29 @@ const ProtocolRow = memo(
             {positionCountText}
           </SizableText>
         </YStack>
-        <NumberSizeableTextWrapper
-          hideValue
-          size="$bodyLgMedium"
-          formatter="value"
-          formatterOptions={{ currency: currencySymbol }}
-          textAlign="right"
-          flexShrink={0}
-          maxWidth={120}
-        >
-          {protocolDisplayInfo.netWorth}
-        </NumberSizeableTextWrapper>
+        <Stack flexShrink={0} maxWidth={120} alignItems="flex-end">
+          {protocolValueState.hasAvailableValue ? (
+            <NumberSizeableTextWrapper
+              hideValue
+              size="$bodyLgMedium"
+              formatter="value"
+              formatterOptions={{ currency: currencySymbol }}
+              textAlign="right"
+              numberOfLines={1}
+            >
+              {protocolValueState.value}
+            </NumberSizeableTextWrapper>
+          ) : (
+            <SizableText
+              size="$bodyLgMedium"
+              color="$textSubdued"
+              textAlign="right"
+              numberOfLines={1}
+            >
+              --
+            </SizableText>
+          )}
+        </Stack>
       </ListItem>
     );
   },
