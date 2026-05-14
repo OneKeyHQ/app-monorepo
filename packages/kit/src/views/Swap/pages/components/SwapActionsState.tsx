@@ -825,7 +825,17 @@ const SwapActionsState = ({
           }}
         />
       ) : (
-        swapActionState.label
+        <SizableText
+          flex={platformEnv.isNativeAndroid ? 1 : undefined}
+          flexShrink={1}
+          minWidth={0}
+          maxWidth="100%"
+          size="$bodyLgMedium"
+          color="$textInverse"
+          textAlign="center"
+        >
+          {swapActionState.label}
+        </SizableText>
       ),
     [
       isWaitingActionableQuote,
@@ -860,6 +870,7 @@ const SwapActionsState = ({
             variant="primary"
             disabled={isActionDisabled}
             borderRadius="$full"
+            childrenAsText={false}
           >
             {actionButtonChildren}
           </Button>

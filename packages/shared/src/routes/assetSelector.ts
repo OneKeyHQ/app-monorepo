@@ -75,6 +75,7 @@ export type ITokenSelectorParamList = {
   exchangeFilter?: IExchangeFilter;
   hideBalanceAndValue?: boolean;
   onSwitchNetwork?: () => void | Promise<void>;
+  showDeFiTokenSwitch?: boolean;
 };
 
 export type IAggregateTokenSelectorParams = {
