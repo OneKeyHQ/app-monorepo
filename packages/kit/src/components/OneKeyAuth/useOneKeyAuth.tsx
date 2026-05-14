@@ -114,7 +114,10 @@ export function useOneKeyAuthMethods() {
   return useMemo(() => {
     return {
       isLoggedIn: user?.isLoggedIn && user?.isLoggedInOnServer,
-      isPrimeSubscriptionActive: user?.primeSubscription?.isActive,
+      isPrimeSubscriptionActive:
+        user?.isLoggedIn &&
+        user?.isLoggedInOnServer &&
+        user?.primeSubscription?.isActive,
       user,
       logout,
       logoutWithPurchasesSdk,

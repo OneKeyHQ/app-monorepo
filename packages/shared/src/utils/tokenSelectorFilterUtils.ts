@@ -16,6 +16,14 @@ export function buildTokenSelectorDappTokenFilterParams({
       };
 }
 
+export function isTokenSelectorDappToken({
+  dappName,
+}: {
+  dappName?: string | null;
+}) {
+  return Boolean(dappName?.trim());
+}
+
 export function buildSwapAllNetworkTokenListCacheKey({
   accountId,
   lpToken,
