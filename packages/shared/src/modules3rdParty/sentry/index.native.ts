@@ -10,6 +10,7 @@ import {
 } from '@sentry/react-native';
 
 import appGlobals from '../../appGlobals';
+import platformEnv from '../../platformEnv';
 
 import { buildBasicOptions, navigationIntegration } from './basicOptions';
 
@@ -19,6 +20,24 @@ import type { FallbackRender } from '@sentry/react';
 export * from '@sentry/react-native';
 
 export * from './basicOptions';
+
+// Unified release identifier shared with `SENTRY_RELEASE` in
+// apps/mobile/build-bundle-base.js (`<appVersion>+<buildNumber>+<bundleVersion>`).
+// Keeping the runtime SDK and the sourcemap-upload pipeline on the same
+// release name is what lets Sentry pair stack frames against maps uploaded
+// by `uploadDirectoryToSentry` (main.jsbundle, common.jsbundle, segments).
+// Without this override, @sentry/react-native auto-infers a per-platform
+// name (`so.onekey.<app>.wallet@<appVersion>+<buildNumber>`) that
+// `uploadDirectoryToSentry` never targets, so common.bundle frames can't
+// be symbolicated.
+const resolveUnifiedRelease = () => {
+  const parts = [
+    platformEnv.version,
+    platformEnv.buildNumber,
+    platformEnv.bundleVersion,
+  ].filter((value): value is string => Boolean(value));
+  return parts.length > 0 ? parts.join('+') : undefined;
+};
 
 export const initSentry = () => {
   if (process.env.NODE_ENV !== 'production') {
@@ -31,9 +50,13 @@ export const initSentry = () => {
       },
     });
 
+  const unifiedRelease = resolveUnifiedRelease();
+
   init({
     dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
     ...basicOptions,
+    ...(unifiedRelease ? { release: unifiedRelease } : null),
+    ...(platformEnv.bundleVersion ? { dist: platformEnv.bundleVersion } : null),
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,

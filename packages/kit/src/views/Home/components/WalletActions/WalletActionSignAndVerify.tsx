@@ -20,15 +20,8 @@ export function WalletActionSignAndVerify({
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
-  const {
-    network,
-    account,
-    wallet,
-    indexedAccount,
-    deriveInfoItems,
-    deriveType,
-    isOthersWallet,
-  } = activeAccount;
+  const { network, account, wallet, indexedAccount, isOthersWallet } =
+    activeAccount;
 
   const displaySignAndVerify = usePromiseResult(async () => {
     const signAccounts =
@@ -52,8 +45,6 @@ export function WalletActionSignAndVerify({
         accountId: account?.id,
         walletId: wallet?.id,
         indexedAccountId: indexedAccount?.id,
-        deriveInfoItems,
-        deriveType,
         isOthersWallet,
       },
     });
@@ -62,8 +53,6 @@ export function WalletActionSignAndVerify({
     navigation,
     onClose,
     account,
-    deriveInfoItems,
-    deriveType,
     indexedAccount,
     isOthersWallet,
     network,
