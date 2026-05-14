@@ -1,6 +1,6 @@
 import { Toast } from '@onekeyhq/components';
 
-// Centralised messages for "deactivated bot wallet" UI feedback. Disabled
+// Centralized messages for "deactivated bot wallet" UI feedback. Disabled
 // buttons should still respond to taps with a toast so users get feedback
 // instead of a silent dead-click.
 // TODO(i18n): replace hardcoded Chinese once locale entries are added.
