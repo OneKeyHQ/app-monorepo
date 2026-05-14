@@ -32,7 +32,7 @@ type IProps = {
   textProps?: ISizableTextProps;
   withAggregateBadge?: boolean;
   showNetworkName?: boolean;
-  showDeFiMarkedBadge?: boolean;
+  showDeFiReceiptTokenBadge?: boolean;
 } & IXStackProps;
 
 function TokenNameView(props: IProps) {
@@ -47,7 +47,7 @@ function TokenNameView(props: IProps) {
     textProps,
     withAggregateBadge,
     showNetworkName,
-    showDeFiMarkedBadge,
+    showDeFiReceiptTokenBadge,
     ...rest
   } = props;
   const intl = useIntl();
@@ -97,7 +97,7 @@ function TokenNameView(props: IProps) {
       <SizableText minWidth={0} numberOfLines={1} {...textProps}>
         {name}
       </SizableText>
-      {showDeFiMarkedBadge ? (
+      {showDeFiReceiptTokenBadge ? (
         <Tooltip
           renderContent={intl.formatMessage({
             id: ETranslations.wallet_defi_receipt_token__desc,

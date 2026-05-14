@@ -11,6 +11,8 @@ import {
 } from '../../states/jotai/contexts/tokenList';
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
+import { useTokenListViewContext } from './TokenListViewContext';
+
 type IProps = {
   $key: string;
   hideValue?: boolean;
@@ -19,8 +21,10 @@ type IProps = {
 function TokenValueView(props: IProps) {
   const { $key, ...rest } = props;
   const [settings] = useSettingsPersistAtom();
-  const [tokenListMap] = useTokenListMapAtom();
+  const { tokenListMap: contextTokenListMap } = useTokenListViewContext();
+  const [globalTokenListMap] = useTokenListMapAtom();
   const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
+  const tokenListMap = contextTokenListMap ?? globalTokenListMap;
   const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
 
   const fiatValue = new BigNumber(token?.fiatValue || 0);
