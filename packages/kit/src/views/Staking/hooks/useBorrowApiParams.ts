@@ -51,7 +51,7 @@ export function useBorrowApiParams({
       !networkId ||
       !provider ||
       !marketAddress ||
-      !reserveAddress ||
+      reserveAddress === undefined ||
       !accountId ||
       !action
     ) {

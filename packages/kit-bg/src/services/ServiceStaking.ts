@@ -2487,6 +2487,32 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async borrowBuildApproveDelegationTransaction(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.post<{
+      data: IBorrowUnsignedTransaction;
+    }>('/earn/v1/borrow/build-approve-delegation-transaction', {
+      ...rest,
+      accountAddress,
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
   async borrowBuildRepayTransaction(params: {
     networkId: string;
     provider: string;

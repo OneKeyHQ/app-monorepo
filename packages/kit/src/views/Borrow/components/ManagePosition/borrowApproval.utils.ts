@@ -2,7 +2,11 @@ import BigNumber from 'bignumber.js';
 
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 
-import type { IBorrowActionType, IBorrowApproveTarget } from './types';
+import type {
+  IBorrowActionType,
+  IBorrowApproveTarget,
+  IBorrowDelegationApproveTarget,
+} from './types';
 
 const borrowMaxApprovalAllowanceThreshold = new BigNumber(2).pow(128);
 
@@ -21,6 +25,21 @@ export function isBorrowTokenApprovalEnabled({
     !!approveTarget?.spenderAddress &&
     !!approveTarget.token &&
     !approveTarget.token.isNative
+  );
+}
+
+export function isBorrowDelegationApprovalEnabled({
+  action,
+  approveTarget,
+}: {
+  action: IBorrowActionType;
+  approveTarget?: IBorrowDelegationApproveTarget;
+}) {
+  return (
+    action === 'borrow' &&
+    !!approveTarget?.provider &&
+    !!approveTarget.marketAddress &&
+    approveTarget.reserveAddress !== undefined
   );
 }
 

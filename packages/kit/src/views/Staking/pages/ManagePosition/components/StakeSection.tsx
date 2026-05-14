@@ -121,6 +121,26 @@ export const StakeSection = ({
     borrowApiCtx.isBorrow &&
     (borrowApiCtx.borrowApiParams.action === 'supply' ||
       borrowApiCtx.borrowApiParams.action === 'borrow');
+  const borrowDelegationApproveTarget = useMemo(() => {
+    if (
+      !borrowApiCtx.isBorrow ||
+      borrowApiCtx.borrowApiParams.action !== 'borrow' ||
+      protocolInfo?.borrowAllowance === undefined
+    ) {
+      return undefined;
+    }
+
+    const { provider, marketAddress, reserveAddress } =
+      borrowApiCtx.borrowApiParams;
+    return {
+      accountId,
+      networkId,
+      provider,
+      marketAddress,
+      reserveAddress,
+      allowance: protocolInfo.borrowAllowance,
+    };
+  }, [accountId, borrowApiCtx, networkId, protocolInfo?.borrowAllowance]);
 
   const { result: stakeAssetsList } = usePromiseResult(
     async () => {
@@ -641,6 +661,7 @@ export const StakeSection = ({
           isDisabled={isDisabled}
           approveType={effectiveApproveType}
           currentAllowance={result?.allowanceParsed}
+          borrowDelegationApproveTarget={borrowDelegationApproveTarget}
           approveTarget={{
             accountId,
             networkId,

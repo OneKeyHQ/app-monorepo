@@ -243,6 +243,7 @@ export const useManagePage = ({
         approve: managePageData.approve,
         approveTarget: managePageData.approveTarget,
       }),
+      borrowAllowance: managePageData.borrowAllowance,
     } as IProtocolInfo;
   }, [
     managePageData,

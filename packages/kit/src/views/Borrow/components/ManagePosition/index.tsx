@@ -40,6 +40,7 @@ export function ManagePosition(props: IManagePositionProps) {
     selectableAssetsLoading,
     approveType,
     approveTarget,
+    borrowDelegationApproveTarget,
     currentAllowance,
   } = props;
 
@@ -130,6 +131,7 @@ export function ManagePosition(props: IManagePositionProps) {
     repayAll: baseState.isRepayAll,
     approveType,
     approveTarget,
+    borrowDelegationApproveTarget,
     currentAllowance,
     onApprovedSubmit: onSubmit,
   });

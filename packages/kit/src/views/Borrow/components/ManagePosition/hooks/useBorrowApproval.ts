@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
 import { Dialog, Toast } from '@onekeyhq/components';
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useTrackTokenAllowance } from '@onekeyhq/kit/src/views/Staking/hooks/useUtilsHooks';
@@ -17,6 +18,7 @@ import type { EApproveType } from '@onekeyhq/shared/types/staking';
 import {
   isBorrowAllowanceEnough,
   isBorrowAllowanceZero,
+  isBorrowDelegationApprovalEnabled,
   isBorrowTokenApprovalEnabled,
   isBorrowTokenApprovalRequired,
   resolveBorrowApprovalActionStep,
@@ -25,6 +27,7 @@ import {
 import type {
   IBorrowActionType,
   IBorrowApproveTarget,
+  IBorrowDelegationApproveTarget,
   IManagePositionApproval,
 } from '../types';
 
@@ -66,12 +69,25 @@ function buildBorrowApproveInfo({
   };
 }
 
+function parseBorrowApprovalEncodedTx(tx: string): IEncodedTx {
+  try {
+    const parsed = JSON.parse(tx) as unknown;
+    if (parsed && typeof parsed === 'object') {
+      return parsed as IEncodedTx;
+    }
+  } catch {
+    // Ignore parsing errors and fallback to raw string
+  }
+  return tx;
+}
+
 export function useBorrowApproval({
   action,
   amountValue,
   repayAll,
   approveType,
   approveTarget,
+  borrowDelegationApproveTarget,
   currentAllowance = '0',
   onApprovedSubmit,
 }: {
@@ -80,6 +96,7 @@ export function useBorrowApproval({
   repayAll?: boolean;
   approveType?: EApproveType;
   approveTarget?: IBorrowApproveTarget;
+  borrowDelegationApproveTarget?: IBorrowDelegationApproveTarget;
   currentAllowance?: string;
   onApprovedSubmit: () => Promise<void>;
 }): IManagePositionApproval {
@@ -88,8 +105,14 @@ export function useBorrowApproval({
   const mountedRef = useRef(false);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
   const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId: approveTarget?.accountId ?? '',
-    networkId: approveTarget?.networkId ?? '',
+    accountId:
+      approveTarget?.accountId ??
+      borrowDelegationApproveTarget?.accountId ??
+      '',
+    networkId:
+      approveTarget?.networkId ??
+      borrowDelegationApproveTarget?.networkId ??
+      '',
   });
 
   useEffect(() => {
@@ -145,6 +168,14 @@ export function useBorrowApproval({
       }),
     [action, approveTarget, approveType],
   );
+  const delegationApprovalEnabled = useMemo(
+    () =>
+      isBorrowDelegationApprovalEnabled({
+        action,
+        approveTarget: borrowDelegationApproveTarget,
+      }),
+    [action, borrowDelegationApproveTarget],
+  );
 
   const {
     allowance,
@@ -160,30 +191,72 @@ export function useBorrowApproval({
     approveType,
   });
 
-  const shouldApprove = useMemo(
-    () =>
-      isBorrowTokenApprovalRequired({
-        enabled: approvalEnabled,
-        amount: amountValue,
-        allowance,
-        requiresMaxApproval: action === 'repay' && repayAll,
-      }),
-    [action, allowance, amountValue, approvalEnabled, repayAll],
-  );
+  const fetchTokenAllowanceParsed = useCallback(async () => {
+    const allowanceInfo = await fetchAllowanceResponse();
+    return allowanceInfo.allowanceParsed || '0';
+  }, [fetchAllowanceResponse]);
+
+  const fetchBorrowDelegationAllowance = useCallback(async () => {
+    if (!borrowDelegationApproveTarget) {
+      return '0';
+    }
+
+    const managePageData =
+      await backgroundApiProxy.serviceStaking.getBorrowManagePage({
+        accountId: borrowDelegationApproveTarget.accountId,
+        networkId: borrowDelegationApproveTarget.networkId,
+        provider: borrowDelegationApproveTarget.provider,
+        marketAddress: borrowDelegationApproveTarget.marketAddress,
+        reserveAddress: borrowDelegationApproveTarget.reserveAddress,
+        type: 'borrow',
+      });
+
+    return managePageData.borrowAllowance ?? '0';
+  }, [borrowDelegationApproveTarget]);
+
+  const shouldApprove = useMemo(() => {
+    const tokenApprovalRequired = isBorrowTokenApprovalRequired({
+      enabled: approvalEnabled,
+      amount: amountValue,
+      allowance,
+      requiresMaxApproval: action === 'repay' && repayAll,
+    });
+    if (tokenApprovalRequired) {
+      return true;
+    }
+
+    return isBorrowTokenApprovalRequired({
+      enabled: delegationApprovalEnabled,
+      amount: amountValue,
+      allowance: borrowDelegationApproveTarget?.allowance ?? '0',
+    });
+  }, [
+    action,
+    allowance,
+    amountValue,
+    approvalEnabled,
+    borrowDelegationApproveTarget?.allowance,
+    delegationApprovalEnabled,
+    repayAll,
+  ]);
 
   const waitForAllowance = useCallback(
     async ({
+      enabled,
       isReady,
+      fetchAllowance,
       maxAttempts = 15,
       intervalMs = 2000,
       signal,
     }: {
+      enabled: boolean;
       isReady: (allowance: string) => boolean;
+      fetchAllowance: () => Promise<string>;
       maxAttempts?: number;
       intervalMs?: number;
       signal?: AbortSignal;
     }) => {
-      if (!approvalEnabled) {
+      if (!enabled) {
         return true;
       }
 
@@ -193,11 +266,11 @@ export function useBorrowApproval({
         }
 
         try {
-          const allowanceInfo = await fetchAllowanceResponse();
+          const nextAllowance = await fetchAllowance();
           if (signal?.aborted) {
             return false;
           }
-          if (isReady(allowanceInfo.allowanceParsed || '0')) {
+          if (isReady(nextAllowance)) {
             return true;
           }
         } catch {
@@ -211,22 +284,28 @@ export function useBorrowApproval({
 
       return false;
     },
-    [approvalEnabled, fetchAllowanceResponse],
+    [],
   );
 
   const pollAllowanceThen = useCallback(
     ({
+      enabled,
       isReady,
+      fetchAllowance,
       onReady,
     }: {
+      enabled: boolean;
       isReady: (allowance: string) => boolean;
+      fetchAllowance: () => Promise<string>;
       onReady?: (signal: AbortSignal) => Promise<void>;
     }) => {
       const abortController = startAllowancePolling();
       void (async () => {
         try {
           const allowanceReady = await waitForAllowance({
+            enabled,
             isReady,
+            fetchAllowance,
             signal: abortController.signal,
           });
           if (allowanceReady && !abortController.signal.aborted) {
@@ -271,7 +350,11 @@ export function useBorrowApproval({
             trackAllowance(txid);
           }
 
-          pollAllowanceThen({ isReady: isBorrowAllowanceZero });
+          pollAllowanceThen({
+            enabled: approvalEnabled,
+            fetchAllowance: fetchTokenAllowanceParsed,
+            isReady: isBorrowAllowanceZero,
+          });
         },
         onFail() {
           stopAllowancePolling();
@@ -289,6 +372,8 @@ export function useBorrowApproval({
     }
   }, [
     approveTarget,
+    approvalEnabled,
+    fetchTokenAllowanceParsed,
     navigationToTxConfirm,
     pollAllowanceThen,
     setApprovingSafe,
@@ -336,6 +421,82 @@ export function useBorrowApproval({
   );
 
   const onApprove = useCallback(async () => {
+    if (delegationApprovalEnabled && borrowDelegationApproveTarget) {
+      Keyboard.dismiss();
+      stopAllowancePolling();
+      setApprovingSafe(true);
+
+      try {
+        let approveAllowance = borrowDelegationApproveTarget.allowance;
+        try {
+          approveAllowance = await fetchBorrowDelegationAllowance();
+        } catch {
+          approveAllowance = borrowDelegationApproveTarget.allowance;
+        }
+
+        const approvalActionStep = resolveBorrowApprovalActionStep({
+          enabled: delegationApprovalEnabled,
+          amount: amountValue,
+          allowance: approveAllowance || '0',
+          shouldResetUSDT: false,
+        });
+
+        if (approvalActionStep === 'submit') {
+          try {
+            await submitApprovedAction();
+          } finally {
+            setApprovingSafe(false);
+          }
+          return;
+        }
+
+        if (approvalActionStep !== 'approve') {
+          setApprovingSafe(false);
+          return;
+        }
+
+        const resp =
+          await backgroundApiProxy.serviceStaking.borrowBuildApproveDelegationTransaction(
+            {
+              accountId: borrowDelegationApproveTarget.accountId,
+              networkId: borrowDelegationApproveTarget.networkId,
+              provider: borrowDelegationApproveTarget.provider,
+              marketAddress: borrowDelegationApproveTarget.marketAddress,
+              reserveAddress: borrowDelegationApproveTarget.reserveAddress,
+            },
+          );
+
+        await navigationToTxConfirm({
+          encodedTx: parseBorrowApprovalEncodedTx(resp.tx),
+          onSuccess() {
+            pollAllowanceThen({
+              enabled: delegationApprovalEnabled,
+              fetchAllowance: fetchBorrowDelegationAllowance,
+              isReady: (nextAllowance) =>
+                isBorrowAllowanceEnough({
+                  amount: amountValue,
+                  allowance: nextAllowance,
+                }),
+              onReady: submitApprovedAction,
+            });
+          },
+          onFail() {
+            stopAllowancePolling();
+            setApprovingSafe(false);
+          },
+          onCancel() {
+            stopAllowancePolling();
+            setApprovingSafe(false);
+          },
+        });
+      } catch (error) {
+        stopAllowancePolling();
+        setApprovingSafe(false);
+        showApprovalError({ error, scope: 'borrowDelegationApprove' });
+      }
+      return;
+    }
+
     if (!approvalEnabled || !approveTarget?.token) {
       return;
     }
@@ -347,8 +508,7 @@ export function useBorrowApproval({
     try {
       let approveAllowance = allowance;
       try {
-        const allowanceInfo = await fetchAllowanceResponse();
-        approveAllowance = allowanceInfo.allowanceParsed;
+        approveAllowance = await fetchTokenAllowanceParsed();
       } catch {
         approveAllowance = allowance;
       }
@@ -403,6 +563,8 @@ export function useBorrowApproval({
           }
 
           pollAllowanceThen({
+            enabled: approvalEnabled,
+            fetchAllowance: fetchTokenAllowanceParsed,
             isReady: (nextAllowance) =>
               isBorrowAllowanceEnough({
                 amount: amountValue,
@@ -432,7 +594,10 @@ export function useBorrowApproval({
     amountValue,
     approvalEnabled,
     approveTarget,
-    fetchAllowanceResponse,
+    borrowDelegationApproveTarget,
+    delegationApprovalEnabled,
+    fetchBorrowDelegationAllowance,
+    fetchTokenAllowanceParsed,
     navigationToTxConfirm,
     pollAllowanceThen,
     repayAll,

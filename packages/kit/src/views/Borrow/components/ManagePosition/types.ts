@@ -35,6 +35,15 @@ export interface IBorrowApproveTarget {
   token?: IToken;
 }
 
+export interface IBorrowDelegationApproveTarget {
+  accountId: string;
+  networkId: string;
+  provider: string;
+  marketAddress: string;
+  reserveAddress: string;
+  allowance: string;
+}
+
 export interface IManagePositionApproval {
   approveType?: EApproveType;
   approving: boolean;
@@ -67,6 +76,7 @@ export interface IManagePositionProps {
   tokenInfo?: IEarnTokenInfo;
   approveType?: EApproveType;
   approveTarget?: IBorrowApproveTarget;
+  borrowDelegationApproveTarget?: IBorrowDelegationApproveTarget;
   currentAllowance?: string;
 
   // UI configuration

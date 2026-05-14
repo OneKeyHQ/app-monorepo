@@ -85,17 +85,22 @@ export function ActionFooter({
     checkAmountLoading,
   ]);
 
+  const confirmBorrowLiquidationRisk = useCallback(async () => {
+    if (action !== 'borrow' || !riskOfLiquidationAlert) {
+      return true;
+    }
+
+    return showLiquidationRiskDialog(intl);
+  }, [action, intl, riskOfLiquidationAlert]);
+
   // Handle submit with liquidation risk check for borrow
   const handleSubmit = useCallback(async () => {
     try {
       Keyboard.dismiss();
 
-      // Check if liquidation risk alert is needed (only for borrow action)
-      if (action === 'borrow' && riskOfLiquidationAlert) {
-        const confirmed = await showLiquidationRiskDialog(intl);
-        if (!confirmed) {
-          return;
-        }
+      const confirmed = await confirmBorrowLiquidationRisk();
+      if (!confirmed) {
+        return;
       }
 
       setSubmitting(true);
@@ -103,15 +108,20 @@ export function ActionFooter({
     } finally {
       setSubmitting(false);
     }
-  }, [action, riskOfLiquidationAlert, intl, onSubmit, setSubmitting]);
+  }, [confirmBorrowLiquidationRisk, onSubmit, setSubmitting]);
 
   const handleConfirm = useCallback(async () => {
     if (shouldApprove) {
+      Keyboard.dismiss();
+      const confirmed = await confirmBorrowLiquidationRisk();
+      if (!confirmed) {
+        return;
+      }
       await onApprove();
       return;
     }
     await handleSubmit();
-  }, [handleSubmit, onApprove, shouldApprove]);
+  }, [confirmBorrowLiquidationRisk, handleSubmit, onApprove, shouldApprove]);
 
   const confirmText = useMemo(() => {
     if (shouldApprove) {

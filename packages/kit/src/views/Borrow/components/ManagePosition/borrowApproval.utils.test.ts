@@ -3,6 +3,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
   isBorrowAllowanceEnough,
+  isBorrowDelegationApprovalEnabled,
   isBorrowTokenApprovalEnabled,
   isBorrowTokenApprovalRequired,
   resolveBorrowApprovalActionStep,
@@ -66,6 +67,30 @@ describe('borrowApproval utils', () => {
           ...approveTarget,
           token: nativeToken,
         },
+      }),
+    ).toBe(false);
+  });
+
+  it('enables borrow delegation approval only for borrow actions', () => {
+    const delegationTarget = {
+      accountId: 'account-id',
+      networkId: 'evm--1',
+      provider: 'aave',
+      marketAddress: '0xMarket',
+      reserveAddress: '',
+      allowance: '0',
+    };
+
+    expect(
+      isBorrowDelegationApprovalEnabled({
+        action: 'borrow',
+        approveTarget: delegationTarget,
+      }),
+    ).toBe(true);
+    expect(
+      isBorrowDelegationApprovalEnabled({
+        action: 'supply',
+        approveTarget: delegationTarget,
       }),
     ).toBe(false);
   });

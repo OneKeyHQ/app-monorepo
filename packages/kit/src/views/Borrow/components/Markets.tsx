@@ -15,6 +15,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
 import { buildBorrowMarketKey, useBorrowContext } from '../BorrowProvider';
+import { BorrowTestIDs } from '../testIDs';
 
 function MarketTrigger({
   market,
@@ -107,6 +108,7 @@ export const Markets = () => {
 
   return (
     <Select
+      testID={BorrowTestIDs.marketSelect}
       title={intl.formatMessage({ id: ETranslations.global_market })}
       items={marketItems}
       value={selectedMarketKey}

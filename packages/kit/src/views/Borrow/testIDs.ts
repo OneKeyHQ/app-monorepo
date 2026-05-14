@@ -30,6 +30,7 @@ export const BorrowTestIDs = {
 
   // --- Borrow Action ---
   borrowActionBtn: 'borrow-action-btn',
+  marketSelect: 'borrow-market-select',
 
   // --- History ---
   historyFilterSelect: 'borrow-history-filter-select',

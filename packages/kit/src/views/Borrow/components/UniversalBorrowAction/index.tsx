@@ -71,7 +71,11 @@ export function useUniversalBorrowAction({
   const isReady = useMemo(
     () =>
       Boolean(
-        accountId && networkId && provider && marketAddress && reserveAddress,
+        accountId &&
+        networkId &&
+        provider &&
+        marketAddress &&
+        reserveAddress !== undefined,
       ),
     [accountId, networkId, provider, marketAddress, reserveAddress],
   );

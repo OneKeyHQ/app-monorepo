@@ -525,6 +525,8 @@ export type IProtocolInfo = {
   needsSetupLut?: boolean;
   // Max supply balance for supply max button
   maxSupplyBalance?: string;
+  // Borrow delegation allowance returned by Aave borrow manage-page.
+  borrowAllowance?: string;
 };
 
 export interface IEarnToken {
@@ -1308,6 +1310,7 @@ export interface IEarnManagePageResponse {
   ongoingValidator?: IEarnSelectField;
   tooltip?: IEarnTooltip;
   approveTarget?: string;
+  borrowAllowance?: string;
   approve?: {
     allowance?: string;
     approveType?: string;
