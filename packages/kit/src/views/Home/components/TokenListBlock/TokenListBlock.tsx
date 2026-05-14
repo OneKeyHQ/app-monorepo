@@ -810,16 +810,11 @@ function TokenListBlock({
         let tokenListMap: Record<string, ITokenFiat> = {};
 
         for (const r of responses) {
-          tokenList.push(
-            ...r.tokens.data,
-            ...r.smallBalanceTokens.data,
-            ...r.riskTokens.data,
-          );
+          tokenList.push(...r.tokens.data, ...r.smallBalanceTokens.data);
           tokenListMap = {
             ...tokenListMap,
             ...r.tokens.map,
             ...r.smallBalanceTokens.map,
-            ...r.riskTokens.map,
           };
         }
 
@@ -830,10 +825,7 @@ function TokenListBlock({
         refreshActiveAccountTokenList({
           tokens: tokenList,
           keys: `${responses
-            .map(
-              (r) =>
-                `${r.tokens.keys}_${r.smallBalanceTokens.keys}_${r.riskTokens.keys}`,
-            )
+            .map((r) => `${r.tokens.keys}_${r.smallBalanceTokens.keys}`)
             .join('_')}_lp-dapp-token`,
         });
         refreshTokenListMap({
