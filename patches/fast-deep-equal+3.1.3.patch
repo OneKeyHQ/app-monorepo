@@ -1,7 +1,7 @@
 diff --git a/node_modules/fast-deep-equal/index.js b/node_modules/fast-deep-equal/index.js
 --- a/node_modules/fast-deep-equal/index.js
 +++ b/node_modules/fast-deep-equal/index.js
-@@ -23,7 +23,37 @@
+@@ -23,7 +23,39 @@
  
      if (a.constructor === RegExp) return a.source === b.source && a.flags === b.flags;
      if (a.valueOf !== Object.prototype.valueOf) return a.valueOf() === b.valueOf();
@@ -9,18 +9,20 @@ diff --git a/node_modules/fast-deep-equal/index.js b/node_modules/fast-deep-equa
 +    if (a.toString !== Object.prototype.toString) {
 +      if (typeof a.toString !== 'function' || typeof b.toString !== 'function') {
 +        try {
-+          // Avoid cross-bundle require (this module lives in common.bundle,
-+          // but @onekeyhq/* lives in main.bundle — split-bundle DAG forbids
-+          // the reverse edge). Reach the defaultLogger via globalThis,
-+          // which appGlobals.ts attaches at module load.
-+          var __log = globalThis &&
++          // Reach defaultLogger via globalThis (cross-bundle require is
++          // forbidden by the split-bundle DAG). The full path is preserved
++          // on the invocation so the @LogToServer decorator's wrapped
++          // function keeps its `this` binding to the error scene — capturing
++          // the bare method ref and calling it bare would break `this` and
++          // the decorator's internal try/catch would silently swallow it.
++          var __errScene =
++            globalThis &&
 +            globalThis.$$appGlobals &&
 +            globalThis.$$appGlobals.$defaultLogger &&
 +            globalThis.$$appGlobals.$defaultLogger.app &&
-+            globalThis.$$appGlobals.$defaultLogger.app.error &&
-+            globalThis.$$appGlobals.$defaultLogger.app.error.log;
-+          if (__log) {
-+            __log(
++            globalThis.$$appGlobals.$defaultLogger.app.error;
++          if (__errScene && typeof __errScene.log === 'function') {
++            __errScene.log(
 +              '[fast-deep-equal][BUG] non-callable toString — ' +
 +                'typeof a.toString=' + typeof a.toString +
 +                ', typeof b.toString=' + typeof b.toString +
