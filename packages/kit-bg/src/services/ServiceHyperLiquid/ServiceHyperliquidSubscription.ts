@@ -157,15 +157,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   // Context: On browser extension cold start (e.g. create wallet in popup
   // then expand to large-screen tab), UI-to-background atom sync is an async
   // IPC round-trip.  socketOpenHandler() calls updateSubscriptions() before
-  // perpsActiveAccountAtom / perpsActiveAssetAtom / perpsActiveOrderBookOptionsAtom
-  // have arrived from the freshly-mounted UI, so calculateRequiredSubscriptions()
-  // silently skips all user-/symbol-gated subscriptions and the user sees
-  // everything except the K-line iframe stuck in loading.
+  // perpsActiveAccountAtom / active asset / trading mode /
+  // perpsActiveOrderBookOptionsAtom have arrived from the freshly-mounted UI,
+  // so calculateRequiredSubscriptions() silently skips user-/symbol-gated
+  // subscriptions and the user sees Perps market data stuck in loading.
   //
-  // Fix: subscribe to the three atoms that gate subscription creation and
-  // re-run updateSubscriptions() whenever any of them changes while the
-  // socket is OPEN.  updateSubscriptions() is debounced(300ms) + idempotent
-  // via diff, so redundant fires are coalesced.
+  // Fix: subscribe to the atoms that gate subscription creation and re-run
+  // updateSubscriptions() whenever any of them changes while the socket is
+  // OPEN.  updateSubscriptions() is debounced(300ms) + idempotent via diff,
+  // so redundant fires are coalesced.
   //
   // Scope: extension only — other platforms run UI and background in the
   // same JS process where atom writes are effectively synchronous, so the
@@ -192,6 +192,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._subscriptionAtomsUnsubs = [
       perpsActiveAccountAtom.sub(handler),
       perpsActiveAssetAtom.sub(handler),
+      spotActiveAssetAtom.sub(handler),
+      tradingModeAtom.sub(handler),
       perpsActiveOrderBookOptionsAtom.sub(handler),
     ];
   }
