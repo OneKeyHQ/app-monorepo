@@ -185,12 +185,19 @@ export const useManagePage = ({
     const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
 
     // Find the matching protocol from protocol list
-    const matchingProtocol = protocolList?.find(
+    const strictMatchingProtocol = protocolList?.find(
       (item: IStakeProtocolListItem) =>
         item.provider.name.toLowerCase() === provider.toLowerCase() &&
         item.network.networkId === networkId &&
         (!vault || item.provider.vault === vault),
     );
+    const matchingProtocol =
+      strictMatchingProtocol ??
+      protocolList?.find(
+        (item: IStakeProtocolListItem) =>
+          item.provider.name.toLowerCase() === provider.toLowerCase() &&
+          item.network.networkId === networkId,
+      );
 
     // Get withdraw action from managePageData
     const withdrawAction = managePageData.withdraw as
