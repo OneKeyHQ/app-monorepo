@@ -295,9 +295,12 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         const makePurchaseResult =
           await PurchasesReactNative.purchasePackage(offering);
 
-        // Always use server API as source of truth, ignore SDK result for subscription status
-        // Set subscriptionManageUrl from SDK since server may not have it yet (RevenueCat webhook delay)
-        if (makePurchaseResult?.customerInfo?.managementURL) {
+        if (
+          makePurchaseResult?.customerInfo?.entitlements?.active?.Prime
+            ?.isActive
+        ) {
+          // Set subscriptionManageUrl immediately from purchase result,
+          // because the server may not yet have it (RevenueCat webhook delay).
           setPrimePersistAtom(
             (prev): IPrimeUserInfo =>
               perfUtils.buildNewValueIfChanged(prev, {
@@ -308,14 +311,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
                   '',
               }),
           );
-        }
-
-        // Fetch from server API as the source of truth for subscription status
-        const { primeSubscription } =
           await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
-        const serverIsActive = primeSubscription?.isActive;
 
-        if (serverIsActive) {
           const rawPrice =
             subscriptionPeriod === 'P1Y'
               ? offering.product.pricePerYear
