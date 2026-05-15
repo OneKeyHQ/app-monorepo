@@ -426,9 +426,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
 
         const activateAdjacentTab = () => {
-          if (platformEnv.isNative && isClosingCurrentTab) {
-            this.setCurrentWebTab.call(set, null);
-            return;
+          if (platformEnv.isNative) {
+            if (isClosingCurrentTab || !activeTabId) {
+              this.setCurrentWebTab.call(set, null);
+              return;
+            }
           }
 
           let newActiveTabIndex = targetIndex - 1;

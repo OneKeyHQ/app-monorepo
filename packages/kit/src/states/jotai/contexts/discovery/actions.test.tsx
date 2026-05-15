@@ -146,12 +146,20 @@ const tabsFixture: IWebTab[] = [
   },
 ];
 
-function createWrapper() {
-  const tabs = tabsFixture.map((tab) => ({ ...tab }));
+function createWrapper({
+  tabs: tabsValue = tabsFixture,
+  activeTabId = 'tab-1',
+  displayHomePage = true,
+}: {
+  tabs?: IWebTab[];
+  activeTabId?: string;
+  displayHomePage?: boolean;
+} = {}) {
+  const tabs = tabsValue.map((tab) => ({ ...tab }));
   const store = createStore();
   store.set(browserDataReadyAtom(), true);
-  store.set(activeTabIdAtom(), 'tab-1');
-  store.set(displayHomePageAtom(), true);
+  store.set(activeTabIdAtom(), activeTabId);
+  store.set(displayHomePageAtom(), displayHomePage);
   store.set(webTabsAtom(), {
     keys: tabs.map((tab) => tab.id),
     tabs,
@@ -318,6 +326,79 @@ describe('useBrowserTabActions', () => {
     expect(result.current.tabs).toEqual([
       expect.objectContaining({
         id: 'tab-1',
+        isActive: false,
+      }),
+    ]);
+  });
+
+  it('keeps native browser closed when closing an inactive tab without an active tab', () => {
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserTabActions().current;
+        const [activeTabId] = useActiveTabIdAtom();
+        const [displayHomePage] = useDisplayHomePageAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          activeTabId,
+          displayHomePage,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'tab-1',
+              url: 'https://previous.example',
+              title: 'Previous',
+              isActive: false,
+              timestamp: 1,
+            },
+            {
+              id: 'tab-2',
+              url: 'https://current.example',
+              title: 'Current',
+              isActive: true,
+              timestamp: 2,
+            },
+            {
+              id: 'tab-3',
+              url: 'https://next.example',
+              title: 'Next',
+              isActive: false,
+              timestamp: 3,
+            },
+          ],
+          activeTabId: 'tab-2',
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    act(() => {
+      result.current.actions.closeWebTab({
+        tabId: 'tab-2',
+        entry: 'Menu',
+      });
+    });
+
+    expect(result.current.activeTabId).toBe('');
+    expect(result.current.displayHomePage).toBe(true);
+
+    act(() => {
+      result.current.actions.closeWebTab({
+        tabId: 'tab-1',
+        entry: 'Menu',
+      });
+    });
+
+    expect(result.current.activeTabId).toBe('');
+    expect(result.current.displayHomePage).toBe(true);
+    expect(result.current.tabs).toEqual([
+      expect.objectContaining({
+        id: 'tab-3',
         isActive: false,
       }),
     ]);

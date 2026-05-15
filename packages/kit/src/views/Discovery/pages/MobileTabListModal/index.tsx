@@ -216,16 +216,17 @@ function MobileTabListModal() {
         targetIndex > 0 ? remainingTabs[targetIndex - 1] : remainingTabs[0];
       void closeWebTab({ tabId: id, entry: 'Menu' });
 
+      if (!nextActiveTab) {
+        setDisplayHomePage(true);
+        navigation.pop();
+        return;
+      }
+
       if (!isClosingActiveTab) {
         return;
       }
 
-      if (nextActiveTab) {
-        setCurrentWebTab(nextActiveTab.id);
-      } else {
-        setDisplayHomePage(true);
-        navigation.pop();
-      }
+      setCurrentWebTab(nextActiveTab.id);
     },
     [
       activeTabId,
