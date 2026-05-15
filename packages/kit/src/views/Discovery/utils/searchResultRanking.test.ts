@@ -1601,6 +1601,7 @@ describe('searchResultRanking', () => {
         'app.uniswap.org/swap?inputCurrency=ETH&outputCurrency=USDC&chain=ethereum',
       ),
     ).toBe(false);
+    expect(shouldSkipRemoteSearchByKeyword('6.6.6.6/'.repeat(20))).toBe(false);
   });
 
   it('detects URL-like search keywords without parsing invalid input', () => {
@@ -1610,6 +1611,8 @@ describe('searchResultRanking', () => {
     expect(isWebUrlLikeSearchKeyword('app.uniswap.org/swap')).toBe(true);
     expect(isWebUrlLikeSearchKeyword('http://localhost:3000')).toBe(true);
     expect(isWebUrlLikeSearchKeyword('localhost:3000')).toBe(true);
+    expect(isWebUrlLikeSearchKeyword('6.6.6.6')).toBe(true);
+    expect(isWebUrlLikeSearchKeyword('6.6.6.6:8080/path')).toBe(true);
     expect(isWebUrlLikeSearchKeyword('http://')).toBe(false);
     expect(isWebUrlLikeSearchKeyword('https:// app.uniswap.org')).toBe(false);
     expect(isWebUrlLikeSearchKeyword('search query')).toBe(false);
