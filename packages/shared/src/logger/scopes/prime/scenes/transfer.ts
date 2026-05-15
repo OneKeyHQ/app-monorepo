@@ -201,6 +201,9 @@ export class PrimeTransferScene extends BaseScene {
     elapsedMs,
     sinceLastErrorMs,
     sinceFactoryMs,
+    errorName,
+    errorKeys,
+    hasCause,
   }: {
     message: string | undefined;
     type: string | undefined;
@@ -211,6 +214,9 @@ export class PrimeTransferScene extends BaseScene {
     elapsedMs: number;
     sinceLastErrorMs: number | undefined;
     sinceFactoryMs: number;
+    errorName: string | undefined;
+    errorKeys: string[] | undefined;
+    hasCause: boolean;
   }) {
     return {
       message,
@@ -222,7 +228,84 @@ export class PrimeTransferScene extends BaseScene {
       elapsedMs,
       sinceLastErrorMs,
       sinceFactoryMs,
+      errorName,
+      errorKeys,
+      hasCause,
     };
+  }
+
+  // Cheap isolation experiment: a plain HTTPS GET of `${endpoint}/health`
+  // runs at the same time as socket.io. If main-thread HTTP succeeds but
+  // BG-thread HTTP or socket.io fails, the bug is bg-thread-specific
+  // networking — not the server.
+  @LogToLocal({ level: 'info' })
+  public uiHealthCheck({
+    status,
+    elapsedMs,
+    error,
+    runtimeKind,
+  }: {
+    status: number | undefined;
+    elapsedMs: number;
+    error: string | undefined;
+    runtimeKind: string | undefined;
+  }) {
+    return { status, elapsedMs, error, runtimeKind };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public bgHealthCheckProbe({
+    status,
+    elapsedMs,
+    error,
+    runtimeKind,
+  }: {
+    status: number | undefined;
+    elapsedMs: number;
+    error: string | undefined;
+    runtimeKind: string | undefined;
+  }) {
+    return { status, elapsedMs, error, runtimeKind };
+  }
+
+  // Manager-level events: catch the case where polling connects but the
+  // websocket upgrade itself fails, which would otherwise look like a normal
+  // disconnect→reconnect in the existing logs.
+  @LogToLocal({ level: 'info' })
+  public socketUpgrade({
+    transport,
+    elapsedMs,
+  }: {
+    transport: string | undefined;
+    elapsedMs: number;
+  }) {
+    return { transport, elapsedMs };
+  }
+
+  @LogToLocal({ level: 'warn' })
+  public socketUpgradeError({
+    message,
+    transport,
+    elapsedMs,
+  }: {
+    message: string | undefined;
+    transport: string | undefined;
+    elapsedMs: number;
+  }) {
+    return { message, transport, elapsedMs };
+  }
+
+  @LogToLocal({ level: 'warn' })
+  public socketManagerError({
+    message,
+    errorName,
+    elapsedMs,
+  }: {
+    message: string | undefined;
+    errorName: string | undefined;
+    elapsedMs: number;
+  }) {
+    return { message, errorName, elapsedMs };
   }
 
   @LogToLocal({ level: 'info' })

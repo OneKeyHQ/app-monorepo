@@ -112,13 +112,25 @@ export default function PagePrimeTransfer() {
       endpoint: result.endpoint,
     });
 
+    const healthCheckStartedAt = Date.now();
     void axios
       .get(`${result.endpoint}/health`)
       .then((res) => {
-        console.log('health check', res.data);
+        defaultLogger.prime.transfer.uiHealthCheck({
+          status: res.status,
+          elapsedMs: Date.now() - healthCheckStartedAt,
+          error: undefined,
+          runtimeKind: platformEnv.nativeRuntimeKind,
+        });
       })
-      .catch((err) => {
-        console.log('health check error', err);
+      .catch((err: unknown) => {
+        const e = err as { message?: string; code?: string } | undefined;
+        defaultLogger.prime.transfer.uiHealthCheck({
+          status: undefined,
+          elapsedMs: Date.now() - healthCheckStartedAt,
+          error: e?.code ? `${e.code}: ${e?.message}` : e?.message,
+          runtimeKind: platformEnv.nativeRuntimeKind,
+        });
       });
 
     return () => {

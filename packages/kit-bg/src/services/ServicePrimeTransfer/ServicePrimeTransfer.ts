@@ -1,4 +1,5 @@
 import { Semaphore } from 'async-mutex';
+import axios from 'axios';
 import { cloneDeep, debounce, isEmpty, isNaN, isNil, uniqBy } from 'lodash';
 import natsort from 'natsort';
 import { io } from 'socket.io-client';
@@ -367,6 +368,30 @@ class ServicePrimeTransfer extends ServiceBase {
         sinceInitMs: Date.now() - initWsEnteredAt,
       });
 
+      // Fire a parallel HTTPS GET to /health from this runtime. If a BG-side
+      // probe fails while the UI-side probe (in PagePrimeTransfer.tsx)
+      // succeeds, the bug is bg-thread networking — not the server.
+      const healthProbeStartedAt = Date.now();
+      void axios
+        .get(`${endpoint}/health`, { timeout: SOCKET_TIMEOUT_MS })
+        .then((res) => {
+          defaultLogger.prime.transfer.bgHealthCheckProbe({
+            status: res.status,
+            elapsedMs: Date.now() - healthProbeStartedAt,
+            error: undefined,
+            runtimeKind: platformEnv.nativeRuntimeKind,
+          });
+        })
+        .catch((err: unknown) => {
+          const e = err as { message?: string; code?: string } | undefined;
+          defaultLogger.prime.transfer.bgHealthCheckProbe({
+            status: undefined,
+            elapsedMs: Date.now() - healthProbeStartedAt,
+            error: e?.code ? `${e.code}: ${e?.message}` : e?.message,
+            runtimeKind: platformEnv.nativeRuntimeKind,
+          });
+        });
+
       this.socket = io(endpoint, {
         transports,
         upgrade: true,
@@ -423,6 +448,22 @@ class ServicePrimeTransfer extends ServiceBase {
           const withinGracePeriod =
             elapsedMs < FIRST_CONNECT_GRACE_PERIOD_MS &&
             connectErrorCount < RECONNECTION_ATTEMPTS;
+          const rawError = error as unknown;
+          let errorName: string | undefined;
+          let errorKeys: string[] | undefined;
+          let hasCause = false;
+          if (rawError && typeof rawError === 'object') {
+            errorName = (rawError as { constructor?: { name?: string } })
+              ?.constructor?.name;
+            try {
+              errorKeys = Object.keys(rawError as Record<string, unknown>);
+            } catch {
+              errorKeys = undefined;
+            }
+            hasCause = 'cause' in (rawError as Record<string, unknown>);
+          } else if (typeof rawError === 'string') {
+            errorName = 'string';
+          }
           defaultLogger.prime.transfer.socketConnectError({
             message: e?.message,
             type: e?.type,
@@ -433,6 +474,9 @@ class ServicePrimeTransfer extends ServiceBase {
             elapsedMs,
             sinceLastErrorMs,
             sinceFactoryMs: nowMs - initWsEnteredAt,
+            errorName,
+            errorKeys,
+            hasCause,
           });
           if (!withinGracePeriod && !gracePeriodExpiredLogged) {
             gracePeriodExpiredLogged = true;
@@ -523,6 +567,53 @@ class ServicePrimeTransfer extends ServiceBase {
               }),
             );
           });
+          // Manager-level `error` is fired for low-level Manager failures
+          // distinct from socket connect_error. Catches edge cases where the
+          // socket layer never gets to surface its own error.
+          manager.on('error', (err: unknown) => {
+            const me = err as
+              | { message?: string; constructor?: { name?: string } }
+              | undefined;
+            defaultLogger.prime.transfer.socketManagerError({
+              message: me?.message,
+              errorName: me?.constructor?.name,
+              elapsedMs: Date.now() - connectStartedAt,
+            });
+          });
+          // Engine.io transport upgrade lifecycle. With
+          // `transports: ['polling', 'websocket']` and `upgrade: true`,
+          // polling connects first and engine.io then tries to upgrade to
+          // websocket. A successful poll + failed upgrade would otherwise
+          // surface only as a generic disconnect→reconnect; these two
+          // listeners attribute the flap directly to the upgrade step.
+          // NOTE: the engine is rebuilt on each reconnect, so this listener
+          // covers the FIRST connection only — sufficient for the
+          // first-attempt diagnosis we're after.
+          const engine = manager.engine as unknown as
+            | {
+                on: (
+                  event: 'upgrade' | 'upgradeError',
+                  cb: (arg: unknown) => void,
+                ) => void;
+              }
+            | undefined;
+          if (engine) {
+            engine.on('upgrade', (transport: unknown) => {
+              const t = transport as { name?: string } | undefined;
+              defaultLogger.prime.transfer.socketUpgrade({
+                transport: t?.name,
+                elapsedMs: Date.now() - connectStartedAt,
+              });
+            });
+            engine.on('upgradeError', (err: unknown) => {
+              const me = err as { message?: string } | undefined;
+              defaultLogger.prime.transfer.socketUpgradeError({
+                message: me?.message,
+                transport: this.socket?.io?.engine?.transport?.name,
+                elapsedMs: Date.now() - connectStartedAt,
+              });
+            });
+          }
         }
 
         this.socket.on(
