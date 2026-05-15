@@ -25,6 +25,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { logSignAndVerifyCrashProbe } from '@onekeyhq/kit/src/views/SignAndVerifyMessage/utils/crashProbe';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -93,10 +94,26 @@ export const SignForm = ({
   }, [selectedAddress]);
 
   useEffect(() => {
+    logSignAndVerifyCrashProbe('sign form selected account effect', [
+      { name: 'currentSignAccount', value: currentSignAccount },
+      {
+        name: 'currentSignAccount.network',
+        value: currentSignAccount?.network,
+      },
+      {
+        name: 'currentSignAccount.account',
+        value: currentSignAccount?.account,
+      },
+    ]);
     onCurrentSignAccountChange?.(currentSignAccount);
   }, [currentSignAccount, onCurrentSignAccountChange]);
 
   const setDefaultAccount = useCallback(async () => {
+    logSignAndVerifyCrashProbe('sign form set default account start', [
+      { name: 'selectedAddress', value: selectedAddress },
+      { name: 'networkId', value: networkId },
+      { name: 'signAccountsRef.current', value: signAccountsRef.current },
+    ]);
     if (selectedAddress) {
       return;
     }
@@ -111,6 +128,10 @@ export const SignForm = ({
     const network = await backgroundApiProxy.serviceNetwork.getNetwork({
       networkId,
     });
+    logSignAndVerifyCrashProbe('sign form set default account network result', [
+      { name: 'network', value: network },
+      { name: 'signAccountsRef.current', value: signAccountsRef.current },
+    ]);
     if (
       networkId === getNetworkIdsMap().eth ||
       network.impl === IMPL_EVM ||
@@ -147,6 +168,12 @@ export const SignForm = ({
 
   const { result: selectOptions } = usePromiseResult<ISelectSection[]>(
     async () => {
+      logSignAndVerifyCrashProbe('sign form accounts request start', [
+        { name: 'networkId', value: networkId },
+        { name: 'accountId', value: accountId },
+        { name: 'indexedAccountId', value: indexedAccountId },
+        { name: 'isOthersWallet', value: isOthersWallet },
+      ]);
       const signAccounts =
         await backgroundApiProxy.serviceInternalSignAndVerify.getSignAccounts({
           networkId,
@@ -154,6 +181,23 @@ export const SignForm = ({
           indexedAccountId,
           isOthersWallet,
         });
+      const signAccountProbeValues = signAccounts
+        .slice(0, 8)
+        .flatMap((signAccount, index) => [
+          { name: `signAccounts[${index}]`, value: signAccount },
+          {
+            name: `signAccounts[${index}].network`,
+            value: signAccount.network,
+          },
+          {
+            name: `signAccounts[${index}].account`,
+            value: signAccount.account,
+          },
+        ]);
+      logSignAndVerifyCrashProbe('sign form accounts request result', [
+        { name: 'signAccounts', value: signAccounts },
+        ...signAccountProbeValues,
+      ]);
       signAccountsRef.current = signAccounts;
       const result: ISelectSection[] = [];
       const ethereumAccount = signAccounts.find(
@@ -321,11 +365,21 @@ export const SignForm = ({
       if (!accountUtils.isHwWallet({ walletId })) {
         return false;
       }
+      logSignAndVerifyCrashProbe('sign form wallet lookup start', [
+        { name: 'walletId', value: walletId },
+      ]);
       const wallet = await backgroundApiProxy.serviceAccount.getWalletSafe({
         walletId: walletId ?? '',
       });
       const deviceType = wallet?.associatedDeviceInfo?.deviceType;
-      console.log('wallet?.associatedDevice: ', wallet?.associatedDevice);
+      logSignAndVerifyCrashProbe('sign form wallet lookup result', [
+        { name: 'wallet', value: wallet },
+        {
+          name: 'wallet.associatedDeviceInfo',
+          value: wallet?.associatedDeviceInfo,
+        },
+        { name: 'wallet.associatedDevice', value: wallet?.associatedDevice },
+      ]);
       if (
         deviceType &&
         (deviceType === EDeviceType.Classic || deviceType === EDeviceType.Mini)

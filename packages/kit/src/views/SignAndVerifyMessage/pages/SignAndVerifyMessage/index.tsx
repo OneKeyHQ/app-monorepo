@@ -12,6 +12,7 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { logSignAndVerifyCrashProbe } from '@onekeyhq/kit/src/views/SignAndVerifyMessage/utils/crashProbe';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -64,17 +65,22 @@ function SignAndVerifyMessage() {
     deriveType,
     isOthersWallet,
   } = route.params;
+  const didLogPageRenderProbeRef = useRef(false);
+
+  if (!didLogPageRenderProbeRef.current) {
+    didLogPageRenderProbeRef.current = true;
+    logSignAndVerifyCrashProbe('page render route params', [
+      { name: 'route', value: route },
+      { name: 'route.params', value: route.params },
+      { name: 'route.params.deriveInfoItems', value: deriveInfoItems },
+    ]);
+  }
 
   useEffect(() => {
-    console.log('route.params: ', {
-      networkId,
-      accountId,
-      walletId,
-      indexedAccountId,
-      deriveInfoItems,
-      deriveType,
-      isOthersWallet,
-    });
+    logSignAndVerifyCrashProbe('page route params effect', [
+      { name: 'route.params', value: route.params },
+      { name: 'route.params.deriveInfoItems', value: deriveInfoItems },
+    ]);
   }, [
     accountId,
     deriveInfoItems,
@@ -82,6 +88,7 @@ function SignAndVerifyMessage() {
     indexedAccountId,
     isOthersWallet,
     networkId,
+    route.params,
     walletId,
   ]);
 
@@ -94,6 +101,20 @@ function SignAndVerifyMessage() {
   const [verifyDetectedNetworkId, setVerifyDetectedNetworkId] = useState<
     string | null
   >(null);
+
+  useEffect(() => {
+    logSignAndVerifyCrashProbe('page currentSignAccount effect', [
+      { name: 'currentSignAccount', value: currentSignAccount },
+      {
+        name: 'currentSignAccount.network',
+        value: currentSignAccount?.network,
+      },
+      {
+        name: 'currentSignAccount.account',
+        value: currentSignAccount?.account,
+      },
+    ]);
+  }, [currentSignAccount]);
 
   useEffect(() => {
     if (action === ESignAndVerifyAction.Verify) {
@@ -135,8 +156,18 @@ function SignAndVerifyMessage() {
   const handleSign = useCallback(async () => {
     const isValid = await signForm.trigger();
     if (isValid) {
-      console.log('Sign form values:', signForm.getValues());
-      console.log('Current sign account:', currentSignAccount);
+      logSignAndVerifyCrashProbe('page sign submit start', [
+        { name: 'signFormValues', value: signForm.getValues() },
+        { name: 'currentSignAccount', value: currentSignAccount },
+        {
+          name: 'currentSignAccount.network',
+          value: currentSignAccount?.network,
+        },
+        {
+          name: 'currentSignAccount.account',
+          value: currentSignAccount?.account,
+        },
+      ]);
       const { message, format, hexFormat } = signForm.getValues();
 
       if (!currentSignAccount) {
@@ -200,7 +231,7 @@ function SignAndVerifyMessage() {
       const { message, address, signature, hexFormat, format } =
         verifyForm.getValues();
       if (!verifyDetectedNetworkId) {
-        console.error('No network detected for address:', address);
+        console.error('No network detected for address');
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.message_signing_verification_failed,
