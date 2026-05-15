@@ -17,6 +17,8 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
+const { stopChild } = require('./lib/processTree');
+
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -68,12 +70,16 @@ async function main() {
     if (stopping) return;
     stopping = true;
     if (activeChild && activeChild.exitCode === null) {
-      activeChild.kill('SIGINT');
+      await stopChild(activeChild, {
+        signal: 'SIGINT',
+        killSignal: 'SIGKILL',
+        timeoutMs: Number(process.env.PERF_DAEMON_STOP_TIMEOUT_MS) || 30_000,
+      });
     }
     process.exit(0);
   };
-  process.on('SIGINT', onStop);
-  process.on('SIGTERM', onStop);
+  process.once('SIGINT', onStop);
+  process.once('SIGTERM', onStop);
 
   // eslint-disable-next-line no-console
   console.log(
