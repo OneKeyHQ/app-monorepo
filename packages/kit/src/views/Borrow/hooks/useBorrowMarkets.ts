@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
@@ -22,7 +22,7 @@ export const useBorrowMarkets = ({
   const {
     result: markets,
     isLoading = true,
-    run: refetchMarkets,
+    run: runFetchMarkets,
   } = usePromiseResult(
     async () => {
       const cached = marketsRef.current ?? defaultMarkets;
@@ -56,6 +56,11 @@ export const useBorrowMarkets = ({
       marketsRef.current = markets;
     }
   }, [markets]);
+
+  const refetchMarkets = useCallback(async () => {
+    lastUpdatedAtRef.current = null;
+    await runFetchMarkets({ alwaysSetState: true });
+  }, [runFetchMarkets]);
 
   return { markets, isLoading, refetchMarkets };
 };
