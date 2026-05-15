@@ -704,7 +704,7 @@ class ServiceWebviewPerp extends ServiceBase {
 
   @backgroundMethod()
   async getBuilderFeeConfig() {
-    void this.backgroundApi.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+    void this.backgroundApi.serviceHyperliquid.updatePerpsConfigByServerSilently();
     // try {
     //   const p = this.updateBuilderFeeConfigByServer();
     //   await pTimeout(p, {

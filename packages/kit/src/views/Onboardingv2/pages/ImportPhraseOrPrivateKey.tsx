@@ -2,26 +2,23 @@ import type { ReactNode, RefObject } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import type { IInputRef, ITextAreaInputProps } from '@onekeyhq/components';
 import {
   Button,
   HeightTransition,
   Icon,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
+  Page,
   Portal,
   SegmentControl,
   SizableText,
-  Stack,
   TextAreaInput,
   XStack,
   YStack,
-  useKeyboardEvent,
   useMedia,
-  useReanimatedKeyboardAnimation,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
@@ -252,6 +249,7 @@ export default function ImportPhraseOrPrivateKey() {
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();
   const [privateKey, setPrivateKey] = useState('');
+  const { bottom: safeAreaBottom } = useSafeAreaInsets();
 
   const sidebarFaqs =
     selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase
@@ -300,28 +298,6 @@ export default function ImportPhraseOrPrivateKey() {
     }
   };
 
-  const { height } = useReanimatedKeyboardAnimation();
-  const { bottom: safeAreaBottom } = useSafeAreaInsets();
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(
-    selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase,
-  );
-  useKeyboardEvent({
-    keyboardWillShow: () => setIsKeyboardVisible(true),
-    keyboardWillHide: () => setIsKeyboardVisible(false),
-  });
-
-  // The root layout adds pb: safeAreaBottom + 10 which creates a gap below
-  // the footer when keyboard is up. Compensate by translating down half that
-  // distance so the footer content is vertically centered.
-  const rootBottomPadding = safeAreaBottom + 10;
-  const footerAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY: height.value < 0 ? height.value + rootBottomPadding / 2 : 0,
-      },
-    ],
-  }));
-
   const renderHardwarePhrasesWarningTag = useCallback(
     (chunks: ReactNode[]) => (
       <SizableText
@@ -346,7 +322,11 @@ export default function ImportPhraseOrPrivateKey() {
   );
 
   return (
-    <OnboardingPage testID={OnboardingTestIDs.importPhrasePage} scrollable>
+    <OnboardingPage
+      testID={OnboardingTestIDs.importPhrasePage}
+      scrollable
+      keyboardBottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 80}
+    >
       <YStack $gtMd={{ flexDirection: 'row' }}>
         <YStack gap="$8" $gtMd={{ flex: 1, gap: '$12' }}>
           <OnboardingHeading>
@@ -354,7 +334,7 @@ export default function ImportPhraseOrPrivateKey() {
               id: ETranslations.global_import_wallet,
             })}
           </OnboardingHeading>
-          <YStack gap="$5">
+          <YStack gap="$5" pb="$5">
             <SegmentControl
               value={selected}
               fullWidth
@@ -463,73 +443,23 @@ export default function ImportPhraseOrPrivateKey() {
         ) : null}
       </YStack>
       {!gtMd ? (
-        <XStack
-          mt="auto"
-          minHeight="$6"
-          justifyContent="center"
-          alignItems="center"
-        >
-          {platformEnv.isNative ? (
-            <YStack>
-              <Animated.View style={footerAnimatedStyle}>
-                <YStack>
-                  {isKeyboardVisible ? (
-                    <Stack
-                      mx="$-5"
-                      borderTopWidth={StyleSheet.hairlineWidth}
-                      borderColor="$borderSubdued"
-                    />
-                  ) : null}
-                  <XStack
-                    bg="$bgApp"
-                    alignItems="center"
-                    justifyContent="center"
-                    pt="$3"
-                    pb={500}
-                    mb={-500}
-                  >
-                    <YStack w="100%" gap="$3">
-                      <HeightTransition>
-                        <XStack onPress={noop}>
-                          <Portal.Container
-                            name={Portal.Constant.SUGGESTION_LIST}
-                          />
-                        </XStack>
-                      </HeightTransition>
-                      <Button
-                        testID={OnboardingTestIDs.importPhraseConfirmBtn}
-                        size="large"
-                        variant="primary"
-                        onPress={handleConfirm}
-                        loading={isConfirming}
-                        w="100%"
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.global_confirm,
-                        })}
-                      </Button>
-                    </YStack>
-                  </XStack>
-                </YStack>
-              </Animated.View>
-            </YStack>
-          ) : (
-            <YStack w="100%" pb="$5">
-              <Button
-                testID={OnboardingTestIDs.importPhraseConfirmBtn}
-                size="large"
-                variant="primary"
-                onPress={handleConfirm}
-                loading={isConfirming}
-                w="100%"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.global_confirm,
-                })}
-              </Button>
-            </YStack>
-          )}
-        </XStack>
+        <Page.Footer>
+          <Page.FooterActions
+            pb={safeAreaBottom ? safeAreaBottom + 8 : 20}
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.global_confirm,
+            })}
+            confirmButtonProps={{
+              testID: OnboardingTestIDs.importPhraseConfirmBtn,
+              onPress: handleConfirm,
+              loading: isConfirming,
+            }}
+          >
+            <HeightTransition>
+              <Portal.Container name={Portal.Constant.SUGGESTION_LIST} />
+            </HeightTransition>
+          </Page.FooterActions>
+        </Page.Footer>
       ) : null}
     </OnboardingPage>
   );

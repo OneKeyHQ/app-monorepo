@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -62,16 +62,19 @@ export function PerpMarketWorkspacePanel({
   const intl = useIntl();
   const [activeView, setActiveView] =
     useState<IPerpMarketWorkspaceView>('chart');
-  const [hasInfoViewMounted, setHasInfoViewMounted] = useState(false);
   const [, setLayoutState] = usePerpsLayoutStateAtom();
   const { baseName, coin, displayName } = useActiveTradeDisplay();
+  const marketKey = useMemo(
+    () => coin || displayName || baseName || 'unknown',
+    [baseName, coin, displayName],
+  );
+  const [mountedInfoMarketKey, setMountedInfoMarketKey] = useState<
+    string | undefined
+  >();
 
   const handleChangeActiveView = useCallback(
     (view: IPerpMarketWorkspaceView) => {
       setActiveView(view);
-      if (view === 'info') {
-        setHasInfoViewMounted(true);
-      }
     },
     [],
   );
@@ -83,6 +86,18 @@ export function PerpMarketWorkspacePanel({
       );
     }
   }, [activeView, setLayoutState]);
+
+  useEffect(() => {
+    setMountedInfoMarketKey((prev) => {
+      if (activeView === 'info') {
+        return marketKey;
+      }
+
+      return prev === marketKey ? prev : undefined;
+    });
+  }, [activeView, marketKey]);
+
+  const shouldRenderInfo = mountedInfoMarketKey === marketKey;
 
   return (
     <YStack flex={1} minHeight={0}>
@@ -113,14 +128,14 @@ export function PerpMarketWorkspacePanel({
           <PerpCandles onTouchScroll={onTouchScroll} />
         </YStack>
 
-        {hasInfoViewMounted ? (
+        {shouldRenderInfo ? (
           <YStack
+            key={`info-${mountedInfoMarketKey}`}
             flex={1}
             minHeight={0}
             display={activeView === 'info' ? 'flex' : 'none'}
           >
             <PerpMarketDetailContent
-              key={`info-${coin || displayName || baseName || 'unknown'}`}
               coin={coin}
               displayName={baseName || displayName}
               tabKeys={PERP_MARKET_INFO_TAB_KEYS}

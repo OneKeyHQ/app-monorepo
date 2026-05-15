@@ -1,5 +1,6 @@
 import { SizableText, XStack } from '@onekeyhq/components';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
+import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 
@@ -39,6 +40,7 @@ function ProtocolAssetBalanceText({
             value={asset.value}
             currencySymbol={currencySymbol}
             priceUnavailableLabel={priceUnavailableLabel}
+            isUnavailable={isProtocolAssetValueUnavailable(asset)}
             size="$bodyMd"
             color="$textSubdued"
             fontVariant={TABULAR_NUMS}

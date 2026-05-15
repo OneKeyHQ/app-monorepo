@@ -5,9 +5,10 @@ import type { IPropsWithTestId } from '@onekeyhq/components';
 import { ESwitchSize, SizableText, Switch, YStack } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { FirmwareUpdateGalleryDemo } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/FirmwareUpdateGallery';
 import { useFirmwareUpdateDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IFirmwareUpdateDevSettingsKeys } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
+import { FirmwareUpdateActions } from './FirmwareUpdateActions';
 
 interface IFirmwareUpdateSectionFieldItem extends PropsWithChildren {
   name?: IFirmwareUpdateDevSettingsKeys;
@@ -158,7 +159,7 @@ export function FirmwareUpdateDevSettings() {
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
       <SizableText>{JSON.stringify(devSetting, null, 2)}</SizableText>
-      <FirmwareUpdateGalleryDemo />
+      <FirmwareUpdateActions />
     </YStack>
   );
 }

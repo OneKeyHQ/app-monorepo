@@ -12,6 +12,8 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EPerpPageEnterSource,
@@ -64,6 +66,10 @@ export function UniversalSearchPerpItem({
       navigation.switchTab(ETabRoutes.Perp);
       try {
         await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+          coin,
+        });
+        appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
+          mode: 'perp',
           coin,
         });
       } catch (error) {

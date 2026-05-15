@@ -94,7 +94,6 @@ type IChStateLite = {
 type IChPositionLite = HL.IPerpsAssetPosition;
 
 const MAX_LEDGER_UPDATES = 200;
-const ANDROID_ACTIVE_INSTRUMENT_SWITCH_SETTLE_MS = 120;
 
 function getLedgerUpdateKey(update: HL.IUserNonFundingLedgerUpdate): string {
   return (
@@ -191,9 +190,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private async waitForActiveInstrumentChangeSettle(
     requestId: number,
   ): Promise<boolean> {
-    if (platformEnv.isNativeAndroid) {
-      await timerUtils.wait(ANDROID_ACTIVE_INSTRUMENT_SWITCH_SETTLE_MS);
-    }
     return this.isLatestActiveInstrumentChange(requestId);
   }
 
@@ -738,12 +734,50 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     return a.mode === b.mode && a.coin === b.coin && a.assetId === b.assetId;
   }
 
+  private static _isL2BookEqual(a: HL.IBook | null, b: HL.IBook): boolean {
+    if (!a || a.coin !== b.coin) {
+      return false;
+    }
+    const prevSides = a.levels ?? [];
+    const nextSides = b.levels ?? [];
+    if (prevSides.length !== nextSides.length) {
+      return false;
+    }
+    for (let sideIndex = 0; sideIndex < nextSides.length; sideIndex += 1) {
+      const prevLevels = prevSides[sideIndex] ?? [];
+      const nextLevels = nextSides[sideIndex] ?? [];
+      if (prevLevels.length !== nextLevels.length) {
+        return false;
+      }
+      for (
+        let levelIndex = 0;
+        levelIndex < nextLevels.length;
+        levelIndex += 1
+      ) {
+        const prevLevel = prevLevels[levelIndex];
+        const nextLevel = nextLevels[levelIndex];
+        if (
+          prevLevel?.px !== nextLevel?.px ||
+          prevLevel?.sz !== nextLevel?.sz ||
+          prevLevel?.n !== nextLevel?.n
+        ) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   updateL2Book = contextAtomMethod(async (get, set, data: HL.IBook) => {
     const activeCoin = await this._getActiveCoin();
     if (!data) {
       return;
     }
     if (activeCoin === data.coin) {
+      const currentBook = get(l2BookAtom());
+      if (ContextJotaiActionsHyperliquid._isL2BookEqual(currentBook, data)) {
+        return;
+      }
       set(l2BookAtom(), data);
     } else {
       const currentBook = get(l2BookAtom());
@@ -885,6 +919,24 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }: { coin: string; force?: boolean; requestId?: number },
     ) => {
       const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
+      const optimisticInstrument: IActiveTradeInstrument = {
+        mode: 'perp',
+        coin,
+        assetId: undefined,
+        universe: undefined,
+      };
+      const prevInstrument = get(activeTradeInstrumentAtom());
+      const shouldSetOptimisticInstrument =
+        prevInstrument.mode !== 'perp' || prevInstrument.coin !== coin;
+      if (
+        shouldSetOptimisticInstrument &&
+        !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
+          prevInstrument,
+          optimisticInstrument,
+        )
+      ) {
+        set(activeTradeInstrumentAtom(), optimisticInstrument);
+      }
       await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const activeAsset = await perpsActiveAssetAtom.get();
       if (activeAsset?.coin === coin && !force) {
@@ -921,9 +973,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
-      await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-        coin,
-      });
+      const nextActiveAsset =
+        await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+          coin,
+        });
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
@@ -945,7 +998,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             : '';
       }
 
-      const nextInstrument = await this._buildActiveTradeInstrument('perp');
+      const nextInstrument: IActiveTradeInstrument = {
+        mode: 'perp',
+        coin: nextActiveAsset?.coin || coin,
+        assetId: nextActiveAsset?.assetId,
+        universe: nextActiveAsset?.universe,
+      };
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
@@ -1305,6 +1363,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateTradingForm = contextAtomMethod(
     (get, set, updates: Partial<ITradingFormData>) => {
       const current = get(tradingFormAtom());
+      const updateKeys = Object.keys(updates) as Array<keyof ITradingFormData>;
+      if (
+        updateKeys.length === 0 ||
+        updateKeys.every((key) => current[key] === updates[key])
+      ) {
+        return;
+      }
       set(tradingFormAtom(), { ...current, ...updates });
     },
   );

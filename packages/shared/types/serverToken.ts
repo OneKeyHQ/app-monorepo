@@ -25,6 +25,7 @@ export interface IServerTokenInfo {
   uniqueKey?: string;
   adaName?: string;
   networkId?: string;
+  dappName?: string | null;
 }
 
 export interface IServerTokenItemWithInfo extends IServerPriceItem {
@@ -73,6 +74,8 @@ export type IFetchServerTokenListApiParams = {
   isAllNetwork?: boolean;
   isForceRefresh?: boolean;
   onlyReturnSpecificTokens?: boolean;
+  withoutDappToken?: boolean;
+  withoutWalletToken?: boolean;
 };
 
 export type IFetchServerTokenListResponse = {

@@ -23,6 +23,7 @@ import {
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -130,6 +131,13 @@ import type {
 
 type ILoadTradesHistoryOptions = {
   force?: boolean;
+};
+
+type IChangeActiveAssetResult = {
+  coin: string;
+  assetId: number | undefined;
+  universe: IPerpsUniverse | undefined;
+  margin: IMarginTable | undefined;
 };
 
 function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
@@ -517,6 +525,21 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this._updatePerpsConfigByServerWithCache();
   }
 
+  @backgroundMethod()
+  async updatePerpsConfigByServerSilently({
+    ignoreCache = false,
+  }: { ignoreCache?: boolean } = {}) {
+    try {
+      return ignoreCache
+        ? await this.updatePerpsConfigByServer()
+        : await this.updatePerpsConfigByServerWithCache();
+    } catch (error) {
+      errorToastUtils.toastIfErrorDisable(error);
+      console.warn('[ServiceHyperliquid] Failed to update perp config', error);
+      return undefined;
+    }
+  }
+
   _updatePerpsConfigByServerWithCache = cacheUtils.memoizee(
     async () => {
       return this.updatePerpsConfigByServer();
@@ -533,7 +556,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async getTokenSearchAliases() {
     // Ensure config is loaded (uses memoizee cache)
-    void this.updatePerpsConfigByServerWithCache();
+    void this.updatePerpsConfigByServerSilently();
     const config = await this.backgroundApi.simpleDb.perp.getPerpData();
     return config.tokenSearchAliases;
   }
@@ -1523,10 +1546,9 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
-  async changeActiveAsset(params: { coin: string }): Promise<{
-    universeItems: IPerpsUniverse[];
-    selectedUniverse: IPerpsUniverse | undefined;
-  }> {
+  async changeActiveAsset(params: {
+    coin: string;
+  }): Promise<IChangeActiveAssetResult> {
     const requestId = (this.activeAssetChangeRequestId += 1);
     const oldActiveAsset = await perpsActiveAssetAtom.get();
     const oldCoin = oldActiveAsset?.coin;
@@ -1542,8 +1564,10 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     if (dexUniverses?.length === 0) {
       return {
-        universeItems: [],
-        selectedUniverse: oldActiveAsset?.universe,
+        coin: oldActiveAsset?.coin || newCoin || '',
+        assetId: oldActiveAsset?.assetId,
+        universe: oldActiveAsset?.universe,
+        margin: oldActiveAsset?.margin,
       };
     }
 
@@ -1551,8 +1575,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       dexUniverses?.find((item) => item.name === newCoin) || dexUniverses?.[0];
     if (requestId !== this.activeAssetChangeRequestId) {
       return {
-        universeItems: dexUniverses || [],
-        selectedUniverse: oldActiveAsset?.universe,
+        coin: oldActiveAsset?.coin || newCoin || '',
+        assetId: oldActiveAsset?.assetId,
+        universe: oldActiveAsset?.universe,
+        margin: oldActiveAsset?.margin,
       };
     }
 
@@ -1565,24 +1591,25 @@ export default class ServiceHyperliquid extends ServiceBase {
     const selectedMargin = dexMarginTables?.[selectedUniverse?.marginTableId];
     if (requestId !== this.activeAssetChangeRequestId) {
       return {
-        universeItems: dexUniverses || [],
-        selectedUniverse: oldActiveAsset?.universe,
+        coin: oldActiveAsset?.coin || newCoin || '',
+        assetId: oldActiveAsset?.assetId,
+        universe: oldActiveAsset?.universe,
+        margin: oldActiveAsset?.margin,
       };
     }
 
-    await perpsActiveAssetAtom.set({
+    const nextActiveAsset = {
       coin: selectedUniverse?.name || newCoin || '',
       assetId,
       universe: selectedUniverse,
       margin: selectedMargin,
-    });
+    };
+
+    await perpsActiveAssetAtom.set(nextActiveAsset);
     if (oldCoin !== newCoin) {
       await perpsActiveAssetCtxAtom.set(undefined);
     }
-    return {
-      universeItems: dexUniverses || [],
-      selectedUniverse,
-    };
+    return nextActiveAsset;
   }
 
   @backgroundMethod()
@@ -2580,7 +2607,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   async getBuilderFeeConfig() {
-    void this.updatePerpsConfigByServerWithCache();
+    void this.updatePerpsConfigByServerSilently();
     let {
       hyperliquidBuilderAddress: expectBuilderAddress,
       hyperliquidMaxBuilderFee: expectMaxBuilderFee,

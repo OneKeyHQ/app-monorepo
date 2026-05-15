@@ -98,11 +98,65 @@ describe('transferOptionsSchema', () => {
     ).toThrow('Amount must be a positive number');
   });
 
-  // Token address validation
-  it('rejects invalid token address', () => {
-    expect(() =>
-      transferOptionsSchema.parse({ ...validBase, token: 'not-an-address' }),
-    ).toThrow('Invalid Ethereum address');
+  // Token validation is chain-aware in the command path (asserted after
+  // resolveChain). The schema only enforces non-empty string so SPL mints
+  // and other chain-specific token IDs reach the per-chain validator.
+  it('accepts chain-agnostic token strings at schema level', () => {
+    const result = transferOptionsSchema.parse({
+      ...validBase,
+      chain: 'sol',
+      token: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    });
+    expect(result.token).toBe('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+  });
+
+  it('rejects empty token at schema level', () => {
+    const result = transferOptionsSchema.safeParse({ ...validBase, token: '' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid EVM token format on default EVM transfer path', async () => {
+    const program = createTestProgram();
+    registerTransferCommand(program);
+
+    const result = await runCommand(program, [
+      'transfer',
+      '--to',
+      '0x0000000000000000000000000000000000000001',
+      '--amount',
+      '0.001',
+      '--token',
+      'not-an-address',
+      '--dry-run',
+      '--json',
+    ]);
+
+    expect(result.exitCode).not.toBe(0);
+    const parsed = JSON.parse(extractJson(result.stdout));
+    expect(parsed.error.code).toBe('PARAM_INVALID_TOKEN');
+  });
+
+  it('rejects invalid SPL mint format on SOL transfer path', async () => {
+    const program = createTestProgram();
+    registerTransferCommand(program);
+
+    const result = await runCommand(program, [
+      'transfer',
+      '--chain',
+      'sol',
+      '--to',
+      '11111111111111111111111111111111',
+      '--amount',
+      '0.001',
+      '--token',
+      'not-a-mint',
+      '--dry-run',
+      '--json',
+    ]);
+
+    expect(result.exitCode).not.toBe(0);
+    const parsed = JSON.parse(extractJson(result.stdout));
+    expect(parsed.error.code).toBe('PARAM_INVALID_TOKEN');
   });
 
   it('parses BTC address type', () => {
