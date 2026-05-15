@@ -206,9 +206,7 @@ export function useImportAddressForm({
       return false;
     }
     if (method === EImportMethod.Address) {
-      return (
-        !addressValue.pending && !!addressValue.resolved && formIsValid
-      );
+      return !addressValue.pending && !!addressValue.resolved && formIsValid;
     }
     return validateResult?.isValid ?? false;
   }, [
