@@ -1120,7 +1120,8 @@ export function isWebUrlLikeSearchKeyword(keyword: string) {
 
   return (
     uriUtils.isUrlWithoutProtocol(normalizedKeyword) ||
-    uriUtils.isLocalhostUrl(normalizedKeyword)
+    uriUtils.isLocalhostUrl(normalizedKeyword) ||
+    uriUtils.isIpAddressUrl(normalizedKeyword)
   );
 }
 

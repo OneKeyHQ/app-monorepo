@@ -522,6 +522,7 @@ export interface IAppEventBusPayload {
     data: IRookieShareData;
   };
   [EAppEventBusNames.CreateNewBrowserTab]: undefined;
+  [EAppEventBusNames.ClearSavedBrowserActiveTab]: undefined;
   [EAppEventBusNames.NavigateModalFromBackgroundThread]: {
     screen: any;
     params: any;

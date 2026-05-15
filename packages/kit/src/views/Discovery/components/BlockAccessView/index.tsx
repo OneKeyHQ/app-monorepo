@@ -5,17 +5,29 @@ import { useIntl } from 'react-intl';
 import { Empty, YStack } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 function BlockAccessView({
+  url,
   urlValidateState,
   onCloseTab,
 }: {
+  url?: string;
   urlValidateState: EValidateUrlEnum | undefined;
   onCloseTab: () => void;
 }) {
   const intl = useIntl();
+  const isLocalUrlBlocked = useMemo(
+    () =>
+      urlValidateState === EValidateUrlEnum.NotSupportProtocol &&
+      Boolean(url && uriUtils.isLocalhostOrPrivateIpUrl(url)),
+    [url, urlValidateState],
+  );
   const title = useMemo(() => {
+    if (isLocalUrlBlocked) {
+      return 'Local URLs are blocked by default';
+    }
     if (urlValidateState === EValidateUrlEnum.InvalidPunycode) {
       return intl.formatMessage({
         id: ETranslations.explore_risky_domain,
@@ -24,8 +36,11 @@ function BlockAccessView({
     return intl.formatMessage({
       id: ETranslations.explore_connection_is_not_private,
     });
-  }, [urlValidateState, intl]);
+  }, [isLocalUrlBlocked, urlValidateState, intl]);
   const description = useMemo(() => {
+    if (isLocalUrlBlocked) {
+      return 'Enable "Allow local URLs in DApp Browser" in Developer settings';
+    }
     if (urlValidateState === EValidateUrlEnum.InvalidPunycode) {
       return intl.formatMessage({
         id: ETranslations.explore_risky_domain_warning,
@@ -34,7 +49,7 @@ function BlockAccessView({
     return intl.formatMessage({
       id: ETranslations.explore_connection_is_not_private_warning,
     });
-  }, [urlValidateState, intl]);
+  }, [isLocalUrlBlocked, urlValidateState, intl]);
   const content = useMemo(
     () => (
       <YStack
