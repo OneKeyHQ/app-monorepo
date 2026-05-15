@@ -165,7 +165,9 @@ async function startRenderer() {
   try {
     await waitForRenderer(rendererUrl, child, RENDERER_TIMEOUT_MS);
   } catch (error) {
-    throw new Error(`${error.message}\n\nRenderer output tail:\n${output}`, { cause: error });
+    throw new Error(`${error.message}\n\nRenderer output tail:\n${output}`, {
+      cause: error,
+    });
   }
 
   return { child, rendererUrl };
