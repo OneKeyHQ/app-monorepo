@@ -134,9 +134,12 @@ export enum EAtomNames {
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<
-  Record<IAtomNameKeys, { deepCompare?: boolean }>
+  Record<IAtomNameKeys, { deepCompare?: boolean; mergeInitialValue?: boolean }>
 > = {
   [EAtomNames.notificationsAtom]: {
     deepCompare: true,
+  },
+  [EAtomNames.primePersistAtom]: {
+    mergeInitialValue: false,
   },
 };
