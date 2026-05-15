@@ -234,6 +234,33 @@ export const swrKeys = {
       accountId ?? '',
     ].join(':'),
   defiEnabled: (networkId: string) => `defiEnabled:${networkId}`,
+  // Account selector accounts list: caches the section data that drives the
+  // wallet/account picker modal so subsequent opens render the previous
+  // structure synchronously instead of flashing the empty state. Account
+  // values are loaded separately (see useAccountSelectorValuesLoader) and
+  // intentionally NOT in this cache.
+  accountSelectorList: ({
+    focusedWallet,
+    deriveType,
+    linkedNetworkId,
+    selectedNetworkId,
+    keepAllOtherAccounts,
+  }: {
+    focusedWallet: string;
+    deriveType: string;
+    linkedNetworkId?: string;
+    selectedNetworkId?: string;
+    keepAllOtherAccounts?: boolean;
+  }) =>
+    [
+      'accSelList',
+      'v1',
+      focusedWallet,
+      deriveType,
+      linkedNetworkId ?? '',
+      selectedNetworkId ?? '',
+      keepAllOtherAccounts ? '1' : '0',
+    ].join(':'),
 };
 
 export const swrCacheUtils = {

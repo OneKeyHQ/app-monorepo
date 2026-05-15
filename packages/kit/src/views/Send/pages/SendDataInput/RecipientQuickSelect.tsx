@@ -44,6 +44,10 @@ import type {
 import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/addressBooks';
 import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -309,40 +313,74 @@ function AccountRecipients({
 
   // Single IPC call — all wallet/account aggregation happens in background.
   // useDeferredValue lets React yield to events (close button) mid-render.
-  const { result: walletGroupsRaw = [], isLoading: isLoadingAccounts } =
-    usePromiseResult<IWalletGroup[]>(
-      async () => {
-        if (!networkId) {
-          return [];
-        }
+  const {
+    result: walletGroupsRaw = [],
+    isLoading: isLoadingAccounts,
+    run: refreshWalletGroups,
+  } = usePromiseResult<IWalletGroup[]>(
+    async () => {
+      if (!networkId) {
+        return [];
+      }
 
-        const { groups, mergeDeriveAssetsEnabled } =
-          await backgroundApiProxy.serviceAccount.getWalletAccountGroupsForNetwork(
-            { networkId, keylessWalletsOnly },
-          );
+      const { groups, mergeDeriveAssetsEnabled } =
+        await backgroundApiProxy.serviceAccount.getWalletAccountGroupsForNetwork(
+          { networkId, keylessWalletsOnly },
+        );
 
-        // senderDeriveType filtering stays on UI side (cheap, no IPC)
-        if (!mergeDeriveAssetsEnabled) {
-          return groups
-            .map((group) => {
-              const targetDeriveType =
-                senderDeriveType ?? group.accounts[0]?.deriveType;
-              if (!targetDeriveType) return group;
-              const filtered = group.accounts.filter(
-                (a) => !a.deriveType || a.deriveType === targetDeriveType,
-              );
-              return filtered.length > 0
-                ? { ...group, accounts: filtered }
-                : group;
-            })
-            .filter((g) => g.accounts.length > 0);
+      // Drop deactivated bot wallets from the recipient picker — sending
+      // to them is blocked elsewhere, so don't even surface them as a
+      // selectable target. Use the batch IPC to keep this O(1) round-trip
+      // instead of one call per bot wallet.
+      const botWalletIds = groups
+        .map((g) => g.walletId)
+        .filter((id) => accountUtils.isBotWallet({ walletId: id }));
+      let filteredGroups = groups;
+      if (botWalletIds.length > 0) {
+        let statusMap: Record<string, boolean> = {};
+        try {
+          statusMap =
+            await backgroundApiProxy.serviceAccount.getBotWalletDeactivationStatusMap(
+              { walletIds: botWalletIds },
+            );
+        } catch {
+          statusMap = {};
         }
-        return groups;
-      },
-      [networkId, senderDeriveType, keylessWalletsOnly],
-      { initResult: [], watchLoading: true, undefinedResultIfError: true },
-    );
+        filteredGroups = groups.filter((g) => !statusMap[g.walletId]);
+      }
+
+      // senderDeriveType filtering stays on UI side (cheap, no IPC)
+      if (!mergeDeriveAssetsEnabled) {
+        return filteredGroups
+          .map((group) => {
+            const targetDeriveType =
+              senderDeriveType ?? group.accounts[0]?.deriveType;
+            if (!targetDeriveType) return group;
+            const filtered = group.accounts.filter(
+              (a) => !a.deriveType || a.deriveType === targetDeriveType,
+            );
+            return filtered.length > 0
+              ? { ...group, accounts: filtered }
+              : group;
+          })
+          .filter((g) => g.accounts.length > 0);
+      }
+      return filteredGroups;
+    },
+    [networkId, senderDeriveType, keylessWalletsOnly],
+    { initResult: [], watchLoading: true, undefinedResultIfError: true },
+  );
   const walletGroups = useDeferredValue(walletGroupsRaw);
+
+  // Bot wallet activate/deactivate emits WalletUpdate via
+  // ServiceAccount.scheduleWalletUpdateForBotMetadata. Re-fetch the
+  // recipient list so the picker stays in sync without page refresh.
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refreshWalletGroups);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refreshWalletGroups);
+    };
+  }, [refreshWalletGroups]);
 
   // BTC fresh address lookup — logic lives in ServiceFreshAddress.
   const { result: btcFreshAddressMap = {} } = usePromiseResult<

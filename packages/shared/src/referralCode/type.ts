@@ -760,7 +760,6 @@ export interface IBtcRewardCommitData {
 }
 
 export interface IBtcRewardHistoryParams {
-  walletAddress: string;
   current?: number;
   pageSize?: number;
   status?: EBtcRewardStatus;

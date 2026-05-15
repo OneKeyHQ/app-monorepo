@@ -62,6 +62,7 @@ const useSymbolSync = ({
   displayCoin,
   isChartReady,
   enabled,
+  syncOnReady = enabled,
 }: {
   webRef: React.RefObject<IWebViewRef | null>;
   symbol: string;
@@ -69,13 +70,14 @@ const useSymbolSync = ({
   displayCoin: string | undefined;
   isChartReady: boolean;
   enabled: boolean;
+  syncOnReady?: boolean;
 }) => {
   const prevParamsRef = useRef({
     displayCoin,
     displayPair,
     symbol,
   });
-  const hasSyncedReadyChartRef = useRef(false);
+  const readySyncKeyRef = useRef<string | null>(null);
 
   const sendSymbolChange = useCallback(
     ({ force }: { force: boolean }) => {
@@ -122,23 +124,32 @@ const useSymbolSync = ({
 
   // Re-sync symbol when chart becomes ready to catch messages lost during iframe load
   useEffect(() => {
-    if (!enabled) {
-      hasSyncedReadyChartRef.current = false;
+    if (!syncOnReady) {
+      readySyncKeyRef.current = null;
       return;
     }
 
     if (!isChartReady) {
-      hasSyncedReadyChartRef.current = false;
+      readySyncKeyRef.current = null;
       return;
     }
 
-    if (hasSyncedReadyChartRef.current || !webRef.current) {
+    const readySyncKey = `${symbol}:${displayPair ?? ''}:${displayCoin ?? ''}`;
+    if (readySyncKeyRef.current === readySyncKey || !webRef.current) {
       return;
     }
 
     sendSymbolChange({ force: false });
-    hasSyncedReadyChartRef.current = true;
-  }, [enabled, isChartReady, sendSymbolChange, webRef]);
+    readySyncKeyRef.current = readySyncKey;
+  }, [
+    displayCoin,
+    displayPair,
+    isChartReady,
+    sendSymbolChange,
+    symbol,
+    syncOnReady,
+    webRef,
+  ]);
 };
 
 // WebView Memoized component to prevent unnecessary re-renders
@@ -177,6 +188,59 @@ const WebViewMemoized = memo(
 
 WebViewMemoized.displayName = 'WebViewMemoized';
 
+const hideTradingViewBuiltInLoadingScript = `
+  ;(function() {
+    var styleText = [
+      '#loading-indicator',
+      '.loading-indicator',
+      '.tv-spinner',
+      '.spinner.tv-spinner'
+    ].join(',') + '{display:none!important;visibility:hidden!important;opacity:0!important;}';
+
+    function applyStyle(doc) {
+      try {
+        if (!doc || !doc.documentElement) {
+          return;
+        }
+        if (!doc.getElementById('onekey-hide-tradingview-loading')) {
+          var style = doc.createElement('style');
+          style.id = 'onekey-hide-tradingview-loading';
+          style.textContent = styleText;
+          doc.documentElement.appendChild(style);
+        }
+      } catch (error) {
+        // noop
+      }
+    }
+
+    function applyToFrames() {
+      applyStyle(document);
+      try {
+        var frames = document.querySelectorAll('iframe');
+        for (var i = 0; i < frames.length; i += 1) {
+          var frame = frames[i];
+          applyStyle(frame.contentDocument);
+        }
+      } catch (error) {
+        // noop
+      }
+    }
+
+    applyToFrames();
+    var observer = new MutationObserver(applyToFrames);
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+    var intervalId = setInterval(applyToFrames, 100);
+    setTimeout(function() {
+      clearInterval(intervalId);
+      observer.disconnect();
+    }, 5000);
+  })();
+  true;
+`;
+
 export function TradingViewPerpsV2(
   props: ITradingViewPerpsV2Props & WebViewProps,
 ) {
@@ -205,6 +269,7 @@ export function TradingViewPerpsV2(
     }`;
   }, [reloadOnSymbolChange, symbol, theme, webviewKey]);
   const [isChartLinesReady, setIsChartLinesReady] = useState(false);
+  const [isChartContentReady, setIsChartContentReady] = useState(false);
 
   // Track webviewKey changes and reset isChartLinesReady when it changes
   const prevWebviewKeyRef = useRef(_webviewKey);
@@ -212,6 +277,7 @@ export function TradingViewPerpsV2(
     if (prevWebviewKeyRef.current !== _webviewKey) {
       // WebView will reload due to key change, reset ready state
       setIsChartLinesReady(false);
+      setIsChartContentReady(false);
       prevWebviewKeyRef.current = _webviewKey;
     }
   }, [_webviewKey]);
@@ -248,6 +314,8 @@ export function TradingViewPerpsV2(
   const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
     additionalParams,
   });
+  const isSpotDisplayNameSyncRequired =
+    reloadOnSymbolChange && (!!displayPair || !!displayCoin);
 
   // Optimization: Dynamic symbol parameter sync mechanism
   useSymbolSync({
@@ -255,8 +323,11 @@ export function TradingViewPerpsV2(
     symbol,
     displayPair,
     displayCoin,
-    isChartReady: isChartLinesReady,
+    isChartReady: reloadOnSymbolChange
+      ? isChartContentReady
+      : isChartLinesReady,
     enabled: !reloadOnSymbolChange,
+    syncOnReady: !reloadOnSymbolChange || isSpotDisplayNameSyncRequired,
   });
 
   const pendingRecoverRef = useRef(false);
@@ -288,7 +359,12 @@ export function TradingViewPerpsV2(
 
   // Callback when TradingView iframe signals chart lines are ready
   const onChartLinesReady = useCallback(() => {
+    setIsChartContentReady(true);
     setIsChartLinesReady(true);
+  }, []);
+
+  const onChartReady = useCallback(() => {
+    setIsChartContentReady(true);
   }, []);
 
   const onOrderCancel = useCallback(
@@ -378,6 +454,7 @@ export function TradingViewPerpsV2(
     symbol,
     userAddress,
     webRef,
+    onChartReady,
     onChartLinesReady,
     onOrderCancel,
     onOrderDraftCreate,
@@ -408,7 +485,7 @@ export function TradingViewPerpsV2(
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
   );
-  const showSymbolReloadMask = reloadOnSymbolChange && !isChartLinesReady;
+  const showSymbolReloadMask = reloadOnSymbolChange && !isChartContentReady;
 
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
@@ -419,6 +496,11 @@ export function TradingViewPerpsV2(
         onWebViewRef={onWebViewRef}
         onLoadEnd={onLoadEnd}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+        nativeInjectedJavaScriptBeforeContentLoaded={
+          platformEnv.isNativeAndroid
+            ? hideTradingViewBuiltInLoadingScript
+            : undefined
+        }
         allowsBackForwardNavigationGestures={false}
         displayProgressBar={false}
         pullToRefreshEnabled={false}
@@ -438,7 +520,7 @@ export function TradingViewPerpsV2(
           right={0}
           bottom={0}
           zIndex={2}
-          bg="background-default"
+          bg="$bgApp"
           alignItems="center"
           justifyContent="center"
           pointerEvents="none"
