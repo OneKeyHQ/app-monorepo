@@ -1,6 +1,10 @@
+import {
+  parseBackgroundThreadResponse,
+  serializeBackgroundThreadResponse,
+} from './rpcProtocol';
+
 describe('background thread RPC protocol', () => {
   it('preserves error payload metadata across response serialization', () => {
-    const rpcProtocol = require('./rpcProtocol');
     const payload = {
       connectId: 'CE:1F:0C:F1:CA:A9',
       deviceId: 'device-1',
@@ -16,8 +20,8 @@ describe('background thread RPC protocol', () => {
       payload,
     };
 
-    const response = rpcProtocol.parseBackgroundThreadResponse(
-      rpcProtocol.serializeBackgroundThreadResponse({
+    const response = parseBackgroundThreadResponse(
+      serializeBackgroundThreadResponse({
         ok: false,
         error,
       }),
