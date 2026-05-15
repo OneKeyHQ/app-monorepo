@@ -195,7 +195,7 @@ export function buildTickOptions(
     (result) => result.targetTick >= 1e-6,
   );
 
-  return sanitizedResults;
+  return sanitizedResults.length ? sanitizedResults : uniqueResults;
 }
 
 /**
