@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { Spinner, Stack } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -45,6 +45,7 @@ interface IBaseTradingViewPerpsV2Props {
   userAddress: IHex | undefined | null;
   enablePerpsTradingUi?: boolean;
   webviewKey?: string;
+  reloadOnSymbolChange?: boolean;
   onLoadEnd?: () => void;
   onTradeUpdate?: (trade: ITradeEvent) => void;
   onTouchScroll?: (deltaY: number) => void;
@@ -60,12 +61,14 @@ const useSymbolSync = ({
   displayPair,
   displayCoin,
   isChartReady,
+  enabled,
 }: {
   webRef: React.RefObject<IWebViewRef | null>;
   symbol: string;
   displayPair: string | undefined;
   displayCoin: string | undefined;
   isChartReady: boolean;
+  enabled: boolean;
 }) => {
   const prevParamsRef = useRef({
     displayCoin,
@@ -90,6 +93,15 @@ const useSymbolSync = ({
   );
 
   useEffect(() => {
+    if (!enabled) {
+      prevParamsRef.current = {
+        displayCoin,
+        displayPair,
+        symbol,
+      };
+      return;
+    }
+
     const prevParams = prevParamsRef.current;
     const hasSymbolChanged = prevParams.symbol !== symbol;
     const hasDisplayParamsChanged =
@@ -106,10 +118,15 @@ const useSymbolSync = ({
         symbol,
       };
     }
-  }, [displayCoin, displayPair, sendSymbolChange, symbol, webRef]);
+  }, [displayCoin, displayPair, enabled, sendSymbolChange, symbol, webRef]);
 
   // Re-sync symbol when chart becomes ready to catch messages lost during iframe load
   useEffect(() => {
+    if (!enabled) {
+      hasSyncedReadyChartRef.current = false;
+      return;
+    }
+
     if (!isChartReady) {
       hasSyncedReadyChartRef.current = false;
       return;
@@ -121,7 +138,7 @@ const useSymbolSync = ({
 
     sendSymbolChange({ force: false });
     hasSyncedReadyChartRef.current = true;
-  }, [isChartReady, sendSymbolChange, webRef]);
+  }, [enabled, isChartReady, sendSymbolChange, webRef]);
 };
 
 // WebView Memoized component to prevent unnecessary re-renders
@@ -169,6 +186,7 @@ export function TradingViewPerpsV2(
     displayCoin,
     userAddress,
     enablePerpsTradingUi = false,
+    reloadOnSymbolChange = false,
     onLoadEnd,
     onTradeUpdate,
     onTouchScroll,
@@ -180,12 +198,13 @@ export function TradingViewPerpsV2(
   const theme = useThemeVariant();
   const actions = useHyperliquidActions();
 
-  // Chart lines state
-  const [isChartLinesReady, setIsChartLinesReady] = useState(false);
   const [{ szDecimals }] = useTradingFormEnvAtom();
   const _webviewKey = useMemo(() => {
-    return `${theme}-${webviewKey || ''}`;
-  }, [theme, webviewKey]);
+    return `${theme}-${webviewKey || ''}${
+      reloadOnSymbolChange ? `-${symbol}` : ''
+    }`;
+  }, [reloadOnSymbolChange, symbol, theme, webviewKey]);
+  const [isChartLinesReady, setIsChartLinesReady] = useState(false);
 
   // Track webviewKey changes and reset isChartLinesReady when it changes
   const prevWebviewKeyRef = useRef(_webviewKey);
@@ -204,28 +223,27 @@ export function TradingViewPerpsV2(
     };
   }, [setMounted]);
 
-  // Freeze initial symbol to prevent URL regeneration on symbol changes
-  const initialSymbolRef = useRef(symbol);
-
   const { handleNavigation } = useNavigationHandler();
 
   // Optimization: Static URL with only initialization params to avoid WebView reload
   // Memoize additionalParams to prevent useTradingViewUrl from regenerating URL
+  const staticUrlSymbol = useMemo(
+    () => symbol,
+    // Symbol-only changes are sent through SYMBOL_CHANGE. Recompute only when
+    // the WebView is intentionally re-keyed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [_webviewKey],
+  );
+  const urlSymbol = reloadOnSymbolChange ? symbol : staticUrlSymbol;
   const additionalParams = useMemo(
     () => ({
-      symbol: initialSymbolRef.current, // Use frozen initial symbol
+      symbol: urlSymbol,
       type: 'perps' as const,
       storageNamespace: 'perps' as const,
       enablePerpsTradingUi: enablePerpsTradingUi ? '1' : '0',
     }),
-    // Only regenerate when the WebView reload key or static feature flags change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [_webviewKey, enablePerpsTradingUi],
+    [enablePerpsTradingUi, urlSymbol],
   );
-
-  useEffect(() => {
-    initialSymbolRef.current = symbol;
-  }, [symbol]);
 
   const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
     additionalParams,
@@ -238,6 +256,7 @@ export function TradingViewPerpsV2(
     displayPair,
     displayCoin,
     isChartReady: isChartLinesReady,
+    enabled: !reloadOnSymbolChange,
   });
 
   const pendingRecoverRef = useRef(false);
@@ -389,6 +408,7 @@ export function TradingViewPerpsV2(
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
   );
+  const showSymbolReloadMask = reloadOnSymbolChange && !isChartLinesReady;
 
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
@@ -409,6 +429,23 @@ export function TradingViewPerpsV2(
         showsVerticalScrollIndicator={false}
         decelerationRate="normal"
       />
+
+      {showSymbolReloadMask ? (
+        <Stack
+          position="absolute"
+          left={0}
+          top={0}
+          right={0}
+          bottom={0}
+          zIndex={2}
+          bg="background-default"
+          alignItems="center"
+          justifyContent="center"
+          pointerEvents="none"
+        >
+          <Spinner size="large" />
+        </Stack>
+      ) : null}
 
       {platformEnv.isNativeIOS ? (
         <Stack

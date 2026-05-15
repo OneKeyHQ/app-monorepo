@@ -83,6 +83,11 @@ const fixtures = {
       { targetTick: 0.000_01, nSigFigs: 2, mantissa: null },
     ],
   },
+  FLY: {
+    price: 0.000_009,
+    decimals: 6,
+    options: [{ targetTick: 0.000_000_1, nSigFigs: 2, mantissa: null }],
+  },
 };
 
 describe('fixtures map', () => {
