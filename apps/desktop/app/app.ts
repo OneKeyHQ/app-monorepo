@@ -13,7 +13,6 @@ import {
   BrowserWindow,
   Menu,
   app,
-  dialog,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   inAppPurchase,
   ipcMain,
@@ -53,7 +52,7 @@ import {
   getMetadata,
 } from './bundle';
 import { ipcMessageKeys } from './config';
-import { ElectronTranslations, i18nFormat, i18nText, initLocale } from './i18n';
+import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
@@ -1979,7 +1978,6 @@ const cpuHistoryByPid = new Map<number, number[]>();
 const prevCumCpuByPid = new Map<number, number>();
 let lastSampleAt: number | null = null;
 let lastWatchdogFiredAt = 0;
-let watchdogDialogOpen = false;
 let cpuWatchdogInterval: ReturnType<typeof setInterval> | null = null;
 
 type ICpuWatchdogReason =
@@ -2121,18 +2119,6 @@ function startCpuWatchdog() {
   });
 }
 
-function pickWatchdogDialogParent(): BrowserWindow | undefined {
-  const candidates = BrowserWindow.getAllWindows().filter(
-    (w) => !w.isDestroyed() && w.isVisible(),
-  );
-  if (candidates.length === 0) return undefined;
-  return (
-    candidates.find((w) => w.isFocused()) ??
-    getSafelyMainWindow() ??
-    candidates[0]
-  );
-}
-
 function reportWatchdogToSentry(params: {
   reason: ICpuWatchdogReason;
   pid?: number;
@@ -2162,12 +2148,6 @@ function triggerCpuWatchdog(params: {
   bypassCooldown?: boolean;
 }) {
   const now = Date.now();
-  if (watchdogDialogOpen) {
-    logger.warn('[CPU Watchdog] trigger ignored — dialog already open', {
-      reason: params.reason,
-    });
-    return;
-  }
   if (
     !params.bypassCooldown &&
     now - lastWatchdogFiredAt < CPU_WATCHDOG_COOLDOWN_MS
@@ -2181,91 +2161,18 @@ function triggerCpuWatchdog(params: {
   }
   lastWatchdogFiredAt = now;
 
-  logger.warn('[CPU Watchdog] fired', params);
+  // UI suppressed: only collect local logs + Sentry telemetry while we
+  // investigate the underlying CPU regression. Re-enable surface (status
+  // indicator / non-blocking card) once root cause is identified.
+  logger.warn('[CPU Watchdog] fired (UI suppressed)', params);
   reportWatchdogToSentry(params);
-
-  const parent = pickWatchdogDialogParent();
-  if (!parent) {
-    logger.warn(
-      '[CPU Watchdog] no visible window to attach dialog to; skipping UI',
-    );
-    return;
-  }
-
-  const uptimeMinutes = Math.round(process.uptime() / 60);
-  let reasonText: string;
-  if (params.reason === 'unresponsive') {
-    reasonText = i18nText(ElectronTranslations.cpu_watchdog_unresponsive__desc);
-  } else if (params.reason === 'sustained-high-cpu-severe') {
-    const seconds = Math.round(
-      (CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES *
-        CPU_WATCHDOG_SAMPLE_INTERVAL_MS) /
-        1000,
-    );
-    reasonText = i18nFormat(ElectronTranslations.cpu_watchdog_severe__desc, {
-      threshold: CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
-      seconds,
-    });
-  } else {
-    const minutes = Math.round(
-      (CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES * CPU_WATCHDOG_SAMPLE_INTERVAL_MS) /
-        60_000,
-    );
-    reasonText = i18nFormat(ElectronTranslations.cpu_watchdog_mild__desc, {
-      threshold: CPU_WATCHDOG_MILD_THRESHOLD_PERCENT,
-      minutes,
-    });
-  }
-  const actionText = i18nFormat(
-    ElectronTranslations.cpu_watchdog_action__desc,
-    { minutes: uptimeMinutes },
-  );
-  const dialogTitle = i18nText(ElectronTranslations.cpu_watchdog__title);
-
-  watchdogDialogOpen = true;
-  void dialog
-    .showMessageBox(parent, {
-      type: 'warning',
-      title: dialogTitle,
-      message: dialogTitle,
-      detail: `${reasonText}\n\n${actionText}`,
-      buttons: [
-        i18nText(ElectronTranslations.settings_upload_state_logs),
-        i18nText(ElectronTranslations.troubleshooting_restart_app),
-        i18nText(ElectronTranslations.global_later),
-      ],
-      defaultId: 0,
-      cancelId: 2,
-      noLink: true,
-    })
-    .then(({ response }) => {
-      if (response === 0) {
-        const win = getSafelyMainWindow();
-        win?.webContents.send(ipcMessageKeys.CPU_WATCHDOG_OPEN_EXPORT_LOGS);
-      } else if (response === 1) {
-        if (!process.mas) {
-          app.relaunch();
-        }
-        app.exit(0);
-      } else {
-        logger.info('[CPU Watchdog] user dismissed dialog');
-      }
-    })
-    .catch((err) => {
-      logger.warn('[CPU Watchdog] dialog failed', err);
-    })
-    .finally(() => {
-      watchdogDialogOpen = false;
-    });
 }
 
 function resetCpuWatchdogStateForTesting() {
   logger.warn('[CPU Watchdog] cooldown reset via IPC', {
     previousLastFiredAt: lastWatchdogFiredAt,
-    previousDialogOpen: watchdogDialogOpen,
   });
   lastWatchdogFiredAt = 0;
-  watchdogDialogOpen = false;
   cpuHistoryByPid.clear();
   prevCumCpuByPid.clear();
   lastSampleAt = null;
