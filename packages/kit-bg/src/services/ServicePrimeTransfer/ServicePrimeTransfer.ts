@@ -45,6 +45,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
@@ -265,13 +266,38 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async retryWebSocket() {
+    defaultLogger.prime.transfer.initWebSocket({ endpoint: '(retry)' });
+    // Clear terminal-failed state and switch to "reconnecting" so the UI
+    // flips back to "Connecting..." immediately. We set websocketReconnecting
+    // (not just clear error) for two reasons:
+    //   1. The page's init effect cleanup runs disconnectWebSocket, which
+    //      calls handleDisconnect — under reconnecting=true that path skips
+    //      writing 'WebSocket disconnected' so the UI doesn't flicker red.
+    //   2. The page also reacts to websocketEndpointUpdatedAt and will
+    //      re-resolve the endpoint, then re-run the init effect to call
+    //      initWebSocket again (which clears reconnecting=false at start).
+    await primeTransferAtom.set(
+      (v): IPrimeTransferAtomData => ({
+        ...v,
+        websocketConnected: false,
+        websocketReconnecting: true,
+        websocketError: undefined,
+        websocketEndpointUpdatedAt: Date.now(),
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async initWebSocket({ endpoint }: { endpoint: string }) {
-    console.log('initWebSocket', endpoint);
+    defaultLogger.prime.transfer.initWebSocket({ endpoint });
     await this.initWebsocketMutex.runExclusive(async () => {
       void primeTransferAtom.set(
         (v): IPrimeTransferAtomData => ({
           ...v,
           websocketError: undefined,
+          websocketReconnecting: false,
         }),
       );
 
@@ -283,8 +309,20 @@ class ServicePrimeTransfer extends ServiceBase {
         (v): IPrimeTransferAtomData => ({
           ...v,
           websocketError: undefined,
+          websocketReconnecting: false,
         }),
       );
+
+      const RECONNECTION_ATTEMPTS = 5;
+      const RECONNECTION_DELAY = 1000;
+      const RECONNECTION_DELAY_MAX = 5000;
+      // First-connect grace period: while connecting for the first time, do
+      // not flip UI to "failed" on transient connect_error — socket.io will
+      // auto-retry and usually succeed. Only show failed after retries are
+      // truly exhausted or grace period passes without success.
+      const FIRST_CONNECT_GRACE_PERIOD_MS = 8000;
+      const connectStartedAt = Date.now();
+      let connectErrorCount = 0;
 
       this.socket = io(endpoint, {
         transports: [
@@ -297,6 +335,10 @@ class ServicePrimeTransfer extends ServiceBase {
         ].filter(Boolean),
         upgrade: true,
         timeout: 10_000,
+        reconnection: true,
+        reconnectionAttempts: RECONNECTION_ATTEMPTS,
+        reconnectionDelay: RECONNECTION_DELAY,
+        reconnectionDelayMax: RECONNECTION_DELAY_MAX,
         auth: {
           // instanceId: settings.instanceId,
         },
@@ -308,6 +350,10 @@ class ServicePrimeTransfer extends ServiceBase {
 
         // Listen to socket connection events
         this.socket.on('connect', () => {
+          defaultLogger.prime.transfer.socketConnect({
+            transport: this.socket?.io?.engine?.transport?.name,
+            elapsedMs: Date.now() - connectStartedAt,
+          });
           connectedPairingCode = null;
           connectedEncryptedKey = null;
           void primeTransferAtom.set(
@@ -315,12 +361,14 @@ class ServicePrimeTransfer extends ServiceBase {
               ...v,
               shouldPreventExit: true,
               websocketConnected: true,
+              websocketReconnecting: false,
               websocketError: undefined,
             }),
           );
         });
 
-        this.socket.on('disconnect', () => {
+        this.socket.on('disconnect', (reason: string) => {
+          defaultLogger.prime.transfer.socketDisconnect({ reason });
           void this.handleDisconnect();
         });
 
@@ -328,17 +376,45 @@ class ServicePrimeTransfer extends ServiceBase {
           const e = error as unknown as
             | { message: string; type: string; description: string }
             | undefined;
-          console.log('connect_error', e?.message, e?.type, e?.description);
-          console.log(
-            'Socket.IO transport:',
-            this.socket?.io?.engine?.transport?.name,
-          );
+          connectErrorCount += 1;
+          const elapsedMs = Date.now() - connectStartedAt;
+          const withinGracePeriod =
+            elapsedMs < FIRST_CONNECT_GRACE_PERIOD_MS &&
+            connectErrorCount < RECONNECTION_ATTEMPTS;
+          defaultLogger.prime.transfer.socketConnectError({
+            message: e?.message,
+            type: e?.type,
+            description: e?.description,
+            transport: this.socket?.io?.engine?.transport?.name,
+            attempt: connectErrorCount,
+            withinGracePeriod,
+            elapsedMs,
+          });
           connectedPairingCode = null;
           connectedEncryptedKey = null;
+          // While socket.io is still going to auto-retry (within the grace
+          // period and reconnection budget), surface the state as
+          // "reconnecting" instead of "failed" so the UI does not flash a
+          // misleading red error to the user.
+          if (withinGracePeriod) {
+            void primeTransferAtom.set(
+              (v): IPrimeTransferAtomData => ({
+                ...v,
+                websocketConnected: false,
+                websocketReconnecting: true,
+                websocketError: undefined,
+                status: EPrimeTransferStatus.init,
+                pairedRoomId: undefined,
+                myUserId: undefined,
+              }),
+            );
+            return;
+          }
           void primeTransferAtom.set(
             (v): IPrimeTransferAtomData => ({
               ...v,
               websocketConnected: false,
+              websocketReconnecting: false,
               websocketError: e?.message || 'WebSocket connection error',
               status: EPrimeTransferStatus.init,
               pairedRoomId: undefined,
@@ -346,6 +422,51 @@ class ServicePrimeTransfer extends ServiceBase {
             }),
           );
         });
+
+        // socket.io Manager events (fired on the underlying manager, not the
+        // socket itself) — expose retry lifecycle to logs + UI.
+        const manager = this.socket.io;
+        if (manager) {
+          manager.on('reconnect_attempt', (attempt: number) => {
+            defaultLogger.prime.transfer.socketReconnectAttempt({ attempt });
+            void primeTransferAtom.set(
+              (v): IPrimeTransferAtomData => ({
+                ...v,
+                websocketReconnecting: true,
+                websocketError: undefined,
+              }),
+            );
+          });
+          manager.on('reconnect', (attempt: number) => {
+            defaultLogger.prime.transfer.socketReconnect({ attempt });
+            // The 'connect' event will fire too and clear the flags, but
+            // clear here as well for safety in case 'connect' is delayed.
+            void primeTransferAtom.set(
+              (v): IPrimeTransferAtomData => ({
+                ...v,
+                websocketReconnecting: false,
+                websocketError: undefined,
+              }),
+            );
+          });
+          manager.on('reconnect_failed', () => {
+            defaultLogger.prime.transfer.socketReconnectFailed({
+              attempts: connectErrorCount,
+              elapsedMs: Date.now() - connectStartedAt,
+            });
+            void primeTransferAtom.set(
+              (v): IPrimeTransferAtomData => ({
+                ...v,
+                websocketConnected: false,
+                websocketReconnecting: false,
+                websocketError: 'WebSocket reconnection failed',
+                status: EPrimeTransferStatus.init,
+                pairedRoomId: undefined,
+                myUserId: undefined,
+              }),
+            );
+          });
+        }
 
         this.socket.on(
           'user-left',
@@ -1642,7 +1763,12 @@ class ServicePrimeTransfer extends ServiceBase {
       (v): IPrimeTransferAtomData => ({
         ...v,
         websocketConnected: false,
-        websocketError: 'WebSocket disconnected',
+        // Keep websocketReconnecting as-is: if socket.io is mid-reconnect, a
+        // disconnect event will fire between attempts and we don't want to
+        // flip the UI to "failed" during that window.
+        websocketError: v.websocketReconnecting
+          ? undefined
+          : 'WebSocket disconnected',
         status: EPrimeTransferStatus.init,
         myCreatedRoomId: undefined,
         pairedRoomId: undefined,
@@ -1716,30 +1842,45 @@ class ServicePrimeTransfer extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async disconnectWebSocket() {
+    defaultLogger.prime.transfer.disconnectWebSocket({
+      caller: this.socket ? 'active' : 'noop',
+    });
     // Stop heartbeat monitoring
     this.stopHeartbeatCheck();
 
     try {
       if (this.socket) {
         try {
+          this.socket.io?.removeAllListeners?.();
+        } catch (e) {
+          defaultLogger.prime.transfer.disconnectError({
+            stage: 'managerRemoveAllListeners',
+            error: (e as Error)?.message || String(e),
+          });
+        }
+        try {
           this.socket.removeAllListeners();
         } catch (e) {
-          console.error('disconnectWebSocket error', e);
+          defaultLogger.prime.transfer.disconnectError({
+            stage: 'removeAllListeners',
+            error: (e as Error)?.message || String(e),
+          });
         }
         try {
           this.socket.disconnect();
         } catch (e) {
-          console.error('disconnectWebSocket error', e);
+          defaultLogger.prime.transfer.disconnectError({
+            stage: 'disconnect',
+            error: (e as Error)?.message || String(e),
+          });
         }
         try {
           this.socket.close();
         } catch (e) {
-          console.error('disconnectWebSocket error', e);
-        }
-        try {
-          this.socket.disconnect();
-        } catch (e) {
-          console.error('disconnectWebSocket error', e);
+          defaultLogger.prime.transfer.disconnectError({
+            stage: 'close',
+            error: (e as Error)?.message || String(e),
+          });
         }
         this.socket = null;
 
@@ -1747,10 +1888,21 @@ class ServicePrimeTransfer extends ServiceBase {
         connectedEncryptedKey = null;
         e2eeClientToClientApi.setSelfPairingCode({ pairingCode: '' });
         e2eeClientToClientApi.clearSensitiveData();
+        // Force-clear reconnecting flag on explicit disconnect — the user is
+        // leaving the page / aborting on purpose, no further retry expected.
+        void primeTransferAtom.set(
+          (v): IPrimeTransferAtomData => ({
+            ...v,
+            websocketReconnecting: false,
+          }),
+        );
         await this.handleDisconnect();
       }
     } catch (error) {
-      console.error('disconnectWebSocket error', error);
+      defaultLogger.prime.transfer.disconnectError({
+        stage: 'outer',
+        error: (error as Error)?.message || String(error),
+      });
     }
   }
 
