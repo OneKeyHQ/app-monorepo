@@ -83,7 +83,12 @@ import {
   usePerpsFavorites,
 } from '../../hooks';
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
-import { getTokenSelectorFavoriteItems } from '../../utils/tokenSelectorFavorites';
+import {
+  getTokenSelectorFavoriteItems,
+  getTokenSelectorFavoriteSortEntry,
+  getTokenSelectorListItemKey,
+  sortTokenSelectorFavoriteItems,
+} from '../../utils/tokenSelectorFavorites';
 import {
   markTokenSelectorPerfMeasure,
   startTokenSelectorPerfMeasure,
@@ -903,6 +908,22 @@ function BasePerpTokenSelectorContent({
         perpItems: perpSortedList,
         spotItems: spotFavoriteSortedList,
       });
+      if (sortField) {
+        result = sortTokenSelectorFavoriteItems({
+          items: result,
+          sortField,
+          sortDirection,
+          getSortEntry: (item, order) =>
+            getTokenSelectorFavoriteSortEntry({
+              item,
+              order,
+              spotPriceSnapshot,
+              spotMarketCaps,
+              perpAssetCtxsByDex: ctxSnapshotRef.current,
+              computePerpSortValues: computeSortValues,
+            }),
+        });
+      }
     } else if (isPerpTokenSelectorPerpsTab(displayActiveTab)) {
       result = perpSortedList;
     } else {
@@ -947,10 +968,13 @@ function BasePerpTokenSelectorContent({
     displayPrimaryTab,
     assetsByDex,
     categoryTabs,
+    computeSortValues,
     favoritesOrder.sequence,
     favoriteItems,
     perpSortedList,
     spotFavoriteSortedList,
+    spotMarketCaps,
+    spotPriceSnapshot,
     spotSortedList,
     searchQuery,
     selectorConfig?.direction,
@@ -966,10 +990,7 @@ function BasePerpTokenSelectorContent({
   });
 
   const keyExtractor = useCallback(
-    (item: { dexIndex: number; index: number; assetId?: number }) => {
-      const assetId = item.assetId ?? item.index;
-      return `${item.dexIndex}-${assetId}`;
-    },
+    (item: ITokenSelectorListItem) => getTokenSelectorListItemKey(item),
     [],
   );
   const desktopListLayout = useMemo((): 'perp' | 'spot' | 'mixed' => {
