@@ -11,7 +11,6 @@ import {
   IconButton,
   NATIVE_HIT_SLOP,
   SizableText,
-  Toast,
   Tooltip,
   XStack,
 } from '@onekeyhq/components';
@@ -33,6 +32,7 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
+import { showBotWalletDisabledToast } from '../../utils/botWalletDisabledToast';
 import { shouldBlockBotWalletCopyAddress } from '../../utils/botWalletStatusUtils';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
@@ -98,12 +98,9 @@ const AllNetworkAccountSelector = ({
           }}
           userSelect="none"
           opacity={isCopyDisabled ? 0.5 : 1}
-          disabled={isCopyDisabled}
           onPress={async () => {
             if (isCopyDisabled) {
-              Toast.error({
-                title: '该钱包已停用，无法复制地址',
-              });
+              showBotWalletDisabledToast('copyAddress');
               return;
             }
             if (
@@ -233,9 +230,7 @@ export function AccountSelectorActiveAccountHome({
         isBotWalletDeactivated,
       })
     ) {
-      Toast.error({
-        title: '该钱包已停用，无法复制地址',
-      });
+      showBotWalletDisabledToast('copyAddress');
       return;
     }
 

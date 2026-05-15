@@ -10,6 +10,10 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import {
+  getBotWalletDisabledMessage,
+  showBotWalletDisabledToast,
+} from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
+import {
   getBulkSendMinTransferAmount,
   getBulkSendMinTransferDisplayAmount,
 } from '@onekeyhq/kit/src/views/BulkSend/utils';
@@ -591,13 +595,20 @@ function useMultiLineAddressValidation(
           if (isValidationStale()) {
             return true;
           }
+          let hasDeactivatedBotReceiver = false;
           for (const { index, isDeactivated } of botWalletResults) {
             if (isDeactivated) {
+              hasDeactivatedBotReceiver = true;
               lineErrors.push({
                 lineNumber: index + 1,
-                message: '该 Bot 钱包已停用，无法作为接收地址',
+                message: getBotWalletDisabledMessage('beReceiver'),
               });
             }
+          }
+          if (hasDeactivatedBotReceiver) {
+            // Show a single aggregated toast — pasting many lines should not
+            // spam one toast per row.
+            showBotWalletDisabledToast('beReceiver');
           }
         }
 
