@@ -6,9 +6,12 @@ import type { IActionListItemProps } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { DiscoveryTestIDs } from '../../testIDs';
 import { ESiteMode, type IMobileBottomOptionsProps } from '../../types';
+
+import { ACTION_LIST_CLOSE_ANIMATION_DELAY_MS } from './useMobileBrowserBottomBarData';
 
 function MobileBrowserBottomOptions({
   children,
@@ -126,7 +129,11 @@ function MobileBrowserBottomOptions({
                 : ETranslations.explore_close_tab,
             }),
             icon: 'CrossedLargeOutline',
-            onPress: onCloseTab,
+            onPress: async (close: () => void) => {
+              close();
+              await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
+              onCloseTab();
+            },
             testID: DiscoveryTestIDs.tabActionClose,
           },
           onGoBackHomePage
