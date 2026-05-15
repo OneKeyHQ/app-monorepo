@@ -89,7 +89,10 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import { buildTokenSelectorDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
+import {
+  TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
+  buildTokenSelectorDappTokenFilterParams,
+} from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   buildAggregateTokenListData,
   buildLocalAggregateTokenMapKey,
@@ -185,7 +188,9 @@ function TokenListBlock({
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
-  const showLpTokensOnly = tokenSelectorFilter.homeShowLpTokensOnly;
+  const showLpTokensOnly = TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED
+    ? tokenSelectorFilter.homeShowLpTokensOnly
+    : false;
   const [scopedLpTokenList, setScopedLpTokenList] =
     useState<IScopedActiveTokenList>({
       tokens: [],
@@ -2742,12 +2747,12 @@ function TokenListBlock({
   ]);
 
   const renderHeaderActions = useCallback(() => {
-    const filterSwitch = (
+    const filterSwitch = TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED ? (
       <TokenSelectorLpTokenSwitch
         value={showLpTokensOnly}
         onChange={handleLpTokenFilterChange}
       />
-    );
+    ) : null;
 
     if (manageTokenEnabled && tableLayout) {
       return (

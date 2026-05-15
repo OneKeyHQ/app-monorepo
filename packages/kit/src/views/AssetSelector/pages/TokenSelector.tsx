@@ -30,7 +30,10 @@ import type { IAssetSelectorParamList } from '@onekeyhq/shared/src/routes';
 import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { buildTokenSelectorDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
+import {
+  TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
+  buildTokenSelectorDappTokenFilterParams,
+} from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -83,16 +86,20 @@ const TokenSelectorHeaderRight = memo(function TokenSelectorHeaderRight({
   isCustomNetwork,
 }: ITokenSelectorHeaderRightProps) {
   const [tokenSelectorFilter] = useTokenSelectorFilterPersistAtom();
-  const showLpTokensOnly = tokenSelectorFilter.sendTokenShowLpTokensOnly;
+  const showTokenSelectorFilter =
+    TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED && showDeFiTokenSwitch;
+  const showLpTokensOnly = showTokenSelectorFilter
+    ? tokenSelectorFilter.sendTokenShowLpTokensOnly
+    : false;
   const shouldShowNetworkSwitch = !!onSwitchNetwork && !!networkName;
 
-  if (!showDeFiTokenSwitch && !shouldShowNetworkSwitch) {
+  if (!showTokenSelectorFilter && !shouldShowNetworkSwitch) {
     return null;
   }
 
   return (
     <XStack alignItems="center" gap="$2" mr="$-2">
-      {showDeFiTokenSwitch ? (
+      {showTokenSelectorFilter ? (
         <TokenSelectorLpTokenSwitch
           value={showLpTokensOnly}
           onChange={onLpTokenFilterChange}
@@ -199,7 +206,11 @@ function TokenSelector() {
   const [searchKey, setSearchKey] = useState('');
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
-  const showLpTokensOnly = tokenSelectorFilter.sendTokenShowLpTokensOnly;
+  const showTokenSelectorFilter =
+    TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED && showDeFiTokenSwitch;
+  const showLpTokensOnly = showTokenSelectorFilter
+    ? tokenSelectorFilter.sendTokenShowLpTokensOnly
+    : false;
   const [hasTokenFilterChanged, setHasTokenFilterChanged] = useState(false);
   const [scopedActiveTokenList, setScopedActiveTokenList] =
     useState<IScopedActiveTokenList>({
@@ -224,12 +235,12 @@ function TokenSelector() {
 
   const tokenSelectorFilterParams = useMemo(
     () =>
-      showDeFiTokenSwitch
+      showTokenSelectorFilter
         ? buildTokenSelectorDappTokenFilterParams({
             lpToken: showLpTokensOnly,
           })
         : {},
-    [showDeFiTokenSwitch, showLpTokensOnly],
+    [showLpTokensOnly, showTokenSelectorFilter],
   );
 
   const handleLpTokenFilterChange = useCallback(
@@ -486,12 +497,12 @@ function TokenSelector() {
 
   const headerRight = useMemo(() => {
     const shouldShowNetworkSwitch = !!onSwitchNetwork && !!network?.name;
-    if (!showDeFiTokenSwitch && !shouldShowNetworkSwitch) return undefined;
+    if (!showTokenSelectorFilter && !shouldShowNetworkSwitch) return undefined;
 
     return function RenderTokenSelectorHeaderRight() {
       return (
         <TokenSelectorHeaderRight
-          showDeFiTokenSwitch={showDeFiTokenSwitch}
+          showDeFiTokenSwitch={showTokenSelectorFilter}
           onLpTokenFilterChange={handleLpTokenFilterChange}
           onSwitchNetwork={onSwitchNetwork}
           networkLogoURI={network?.logoURI}
@@ -504,7 +515,7 @@ function TokenSelector() {
   }, [
     handleLpTokenFilterChange,
     onSwitchNetwork,
-    showDeFiTokenSwitch,
+    showTokenSelectorFilter,
     network?.name,
     network?.shortname,
     network?.logoURI,
@@ -554,11 +565,11 @@ function TokenSelector() {
     !!indexedAccountId &&
     !accountUtils.isOthersAccount({ accountId });
   const useSelectorFilteredTokenList =
-    !!showDeFiTokenSwitch && (hasTokenFilterChanged || showLpTokensOnly);
+    !!showTokenSelectorFilter && (hasTokenFilterChanged || showLpTokensOnly);
   const effectiveShowActiveAccountTokenList =
     showActiveAccountTokenList || useSelectorFilteredTokenList;
   const effectiveHideZeroBalanceTokens =
-    showDeFiTokenSwitch && showLpTokensOnly ? false : hideZeroBalanceTokens;
+    showTokenSelectorFilter && showLpTokensOnly ? false : hideZeroBalanceTokens;
   const latestSelectorTokenListRequestContextRef =
     useRef<ISelectorTokenListRequestContext>({
       accountId: accountId ?? '',
@@ -824,7 +835,7 @@ function TokenSelector() {
           allAggregateTokenMap={allAggregateTokenMap}
           hideZeroBalanceTokens={effectiveHideZeroBalanceTokens}
           hideDeFiMarkedTokens={
-            showDeFiTokenSwitch ? !showLpTokensOnly : undefined
+            showTokenSelectorFilter ? !showLpTokensOnly : undefined
           }
           keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
           showNetworkIcon={isSelectorAllNetworks}
