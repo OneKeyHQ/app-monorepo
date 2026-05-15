@@ -40,6 +40,35 @@ function writeJson(filePath, data) {
   fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
 }
 
+async function gracefullyTerminateApp() {
+  try {
+    // The native app uses a boot-fail counter that is reset on background/onStop.
+    // `terminateApp()` alone looks like a crash to that recovery mechanism.
+    await device.sendToHome();
+    await sleep(1000);
+  } catch {
+    // ignore
+  }
+
+  try {
+    await device.terminateApp();
+  } catch {
+    // ignore
+  }
+}
+
+async function launchAppForPerf({ timeoutMs, label }) {
+  const syncArg = process.env.DETOX_ENABLE_SYNCHRONIZATION ?? '0';
+  await withTimeout(
+    device.launchApp({
+      newInstance: true,
+      launchArgs: { detoxEnableSynchronization: syncArg },
+    }),
+    timeoutMs,
+    label,
+  );
+}
+
 function listSessionIds(sessionsDir) {
   if (!fs.existsSync(sessionsDir)) return new Set();
   const entries = fs.readdirSync(sessionsDir, { withFileTypes: true });
@@ -143,14 +172,22 @@ describe('Perf Regression Guard (Detox)', () => {
   const runs = Number(process.env.PERF_RUN_COUNT) || 3;
 
   const launchTimeoutMs = Number(process.env.PERF_LAUNCH_TIMEOUT_MS) || 120_000;
+  const initialLaunchTimeoutMs =
+    Number(process.env.PERF_INITIAL_LAUNCH_TIMEOUT_MS) ||
+    Math.max(launchTimeoutMs, 180_000);
   const markTimeoutMs = Number(process.env.PERF_MARK_TIMEOUT_MS) || 120_000;
   const sessionTimeoutMs =
     Number(process.env.PERF_SESSION_TIMEOUT_MS) || 5 * 60_000;
   const afterMarkDelayMs = Number(process.env.AFTER_MARK_DELAY_MS) || 4000;
+  const prewarmLaunch = process.env.PERF_PREWARM_LAUNCH === '1';
+  const prewarmDelayMs = Number(process.env.PERF_PREWARM_DELAY_MS) || 3000;
+  const retryTimes = Number(process.env.PERF_DETOX_RETRY_TIMES);
 
-  // This perf job does not interact with UI; disable Detox sync by default to avoid "isReady" hangs.
-  const detoxEnableSynchronization =
-    process.env.DETOX_ENABLE_SYNCHRONIZATION ?? '0';
+  if (Number.isFinite(retryTimes) && retryTimes > 0) {
+    jest.retryTimes(retryTimes, {
+      logErrorsBeforeRetry: true,
+    });
+  }
 
   const jobOutputDir =
     process.env.PERF_JOB_OUTPUT_DIR ||
@@ -182,14 +219,24 @@ describe('Perf Regression Guard (Detox)', () => {
     if (process.env.PERF_SKIP_INSTALL_APP !== '1') {
       await device.installApp();
     }
+
+    if (prewarmLaunch) {
+      // The first post-install launch on iOS release can be much slower due to simulator/app initialization.
+      // Warm it up outside the measured runs so the 3 sampled runs are stable.
+      // eslint-disable-next-line no-console
+      console.log('[perf] warmup: launch');
+      await launchAppForPerf({
+        timeoutMs: initialLaunchTimeoutMs,
+        label: 'launchApp warmup',
+      });
+      await sleep(prewarmDelayMs);
+      await gracefullyTerminateApp();
+      await sleep(1000);
+    }
   });
 
   afterAll(async () => {
-    try {
-      await device.terminateApp();
-    } catch {
-      // ignore
-    }
+    await gracefullyTerminateApp();
   });
 
   const runIndices = Array.from({ length: runs }, (_, i) => i + 1);
@@ -203,14 +250,10 @@ describe('Perf Regression Guard (Detox)', () => {
 
       const before = listSessionIds(sessionsDir);
 
-      await withTimeout(
-        device.launchApp({
-          newInstance: true,
-          launchArgs: { detoxEnableSynchronization },
-        }),
-        launchTimeoutMs,
-        'device.launchApp(newInstance=true)',
-      );
+      await launchAppForPerf({
+        timeoutMs: launchTimeoutMs,
+        label: 'launchApp',
+      });
 
       const sessionId = await waitForNewSessionId({
         sessionsDir,
@@ -227,7 +270,7 @@ describe('Perf Regression Guard (Detox)', () => {
       });
 
       await sleep(afterMarkDelayMs);
-      await device.terminateApp();
+      await gracefullyTerminateApp();
       await sleep(750);
 
       results.push({
