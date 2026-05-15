@@ -31,6 +31,7 @@ import { WalletActionAddressList } from './WalletActionAddressList';
 import { WalletActionApprovals } from './WalletActionApprovals';
 import { WalletActionBulkSend } from './WalletActionBulkSend';
 import { WalletActionBuy } from './WalletActionBuy';
+import { WalletActionCoins } from './WalletActionCoins';
 import { WalletActionCopy } from './WalletActionCopy';
 import { WalletActionExport } from './WalletActionExport';
 import { WalletActionPerp } from './WalletActionPerp';
@@ -179,6 +180,8 @@ export function WalletActionMore() {
               return isApprovalEnabled;
             case 'addressList':
               return isAddressListEnabled;
+            case 'coins':
+              return isAddressListEnabled;
             default:
               return config.moreActions.includes(action);
           }
@@ -203,6 +206,13 @@ export function WalletActionMore() {
               return (
                 <WalletActionAddressList
                   key="addressList"
+                  onClose={handleActionListClose}
+                />
+              );
+            case 'coins':
+              return (
+                <WalletActionCoins
+                  key="coins"
                   onClose={handleActionListClose}
                 />
               );
