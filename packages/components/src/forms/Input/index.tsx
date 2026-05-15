@@ -123,7 +123,12 @@ export const useAutoScrollToTop = platformEnv.isNativeAndroid
   ? (ref: RefObject<TextInput | null>, waitMs = 250) => {
       useEffect(() => {
         setTimeout(() => {
-          ref.current?.setSelection(0, 0);
+          // Guard `setSelection` itself — some refs (e.g. Tamagui-wrapped
+          // inputs in the sign-and-verify form) point to objects that
+          // expose `current` but not the RN `setSelection(start, end)` API,
+          // which throws `undefined is not a function` on Android. See the
+          // sign-and-verify crash investigation (OK-?).
+          ref.current?.setSelection?.(0, 0);
         }, waitMs);
       }, [ref, waitMs]);
     }
