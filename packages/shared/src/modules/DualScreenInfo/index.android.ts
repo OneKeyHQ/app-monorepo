@@ -52,11 +52,29 @@ export const useIsSpanningInDualScreen = () => {
   return isSpanningInDualScreen;
 };
 
+// When the user opts out of the split-view layout (settingsPersistAtom.enableSplitView === false),
+// a spanning dual-screen device should be treated as one continuous logical pane
+// instead of two halves. The setting lives in kit-bg, which shared cannot import,
+// so kit calls `setSplitViewLayoutDisabled` from <Container> at startup.
+let splitViewLayoutDisabled = false;
+const splitViewLayoutListeners = new Set<() => void>();
+
+export function setSplitViewLayoutDisabled(disabled: boolean) {
+  if (splitViewLayoutDisabled === disabled) return;
+  splitViewLayoutDisabled = disabled;
+  splitViewLayoutListeners.forEach((fn) => fn());
+}
+
 const getDualScreenInfoWidth = () => {
   const { width: windowWidth } = Dimensions.get('window');
   const { width: screenWidth } = Dimensions.get('screen');
   const spanning = isSpanning();
   if (spanning) {
+    // Single-pane override: app renders as one logical surface across the
+    // unfolded screen, so don't halve the width.
+    if (splitViewLayoutDisabled) {
+      return Math.max(windowWidth, screenWidth);
+    }
     return Math.max(windowWidth, screenWidth) / 2;
   }
   return Math.min(windowWidth, screenWidth);
@@ -65,11 +83,12 @@ const getDualScreenInfoWidth = () => {
 export const useDualScreenWidth = () => {
   const [width, setWidth] = useState(() => getDualScreenInfoWidth());
   useEffect(() => {
-    const windowListener = Dimensions.addEventListener('change', () => {
-      setWidth(getDualScreenInfoWidth());
-    });
+    const update = () => setWidth(getDualScreenInfoWidth());
+    const windowListener = Dimensions.addEventListener('change', update);
+    splitViewLayoutListeners.add(update);
     return () => {
       windowListener?.remove();
+      splitViewLayoutListeners.delete(update);
     };
   }, []);
   return width;
