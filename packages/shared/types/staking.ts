@@ -496,6 +496,7 @@ export type IProtocolInfo = {
   approve?: {
     allowance?: string;
     approveType?: EApproveType;
+    approveAsset?: string;
     approveTarget?: string;
   };
   providerDetail: {
@@ -1314,10 +1315,12 @@ export interface IEarnManagePageResponse {
   ongoingValidator?: IEarnSelectField;
   tooltip?: IEarnTooltip;
   approveTarget?: string;
+  approveAsset?: string;
   borrowAllowance?: string;
   approve?: {
     allowance?: string;
     approveType?: string;
+    approveAsset?: string;
     approveTarget?: string;
   };
   nums?: {

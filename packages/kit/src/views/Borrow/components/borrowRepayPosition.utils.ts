@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EBorrowProviderEnum,
   type IBorrowAsset,
@@ -61,13 +62,16 @@ export function getBorrowAssetByReserveAddress({
 }
 
 export function shouldUseAaveNativeGateway({
+  networkId,
   providerName,
   reserveAddress,
 }: {
+  networkId?: string;
   providerName?: string;
   reserveAddress?: string;
 }) {
   return (
+    networkId === getNetworkIdsMap().eth &&
     providerName?.toLowerCase() === EBorrowProviderEnum.Aave &&
     reserveAddress === ''
   );

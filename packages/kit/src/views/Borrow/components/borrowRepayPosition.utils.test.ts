@@ -88,24 +88,35 @@ describe('borrowRepayPosition utils', () => {
   it('uses the Aave native gateway only for the native reserve sentinel', () => {
     expect(
       shouldUseAaveNativeGateway({
+        networkId: 'evm--1',
         providerName: 'aave',
         reserveAddress: '',
       }),
     ).toBe(true);
     expect(
       shouldUseAaveNativeGateway({
+        networkId: 'evm--1',
         providerName: 'Aave',
         reserveAddress: '',
       }),
     ).toBe(true);
     expect(
       shouldUseAaveNativeGateway({
+        networkId: 'evm--8453',
+        providerName: 'aave',
+        reserveAddress: '',
+      }),
+    ).toBe(false);
+    expect(
+      shouldUseAaveNativeGateway({
+        networkId: 'evm--1',
         providerName: 'aave',
         reserveAddress: '0xWETH',
       }),
     ).toBe(false);
     expect(
       shouldUseAaveNativeGateway({
+        networkId: 'evm--1',
         providerName: 'kamino',
         reserveAddress: '',
       }),

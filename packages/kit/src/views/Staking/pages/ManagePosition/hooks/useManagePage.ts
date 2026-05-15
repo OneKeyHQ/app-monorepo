@@ -248,6 +248,7 @@ export const useManagePage = ({
       // approve
       approve: buildManagePageApproveInfo({
         approve: managePageData.approve,
+        approveAsset: managePageData.approveAsset,
         approveTarget: managePageData.approveTarget,
       }),
       borrowAllowance: managePageData.borrowAllowance,

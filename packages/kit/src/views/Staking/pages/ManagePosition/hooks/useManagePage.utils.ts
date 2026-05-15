@@ -13,10 +13,12 @@ function normalizeApproveType(approveType?: string): EApproveType {
 
 export function buildManagePageApproveInfo({
   approve,
+  approveAsset,
   approveTarget,
-}: Pick<IEarnManagePageResponse, 'approve' | 'approveTarget'>):
-  | IProtocolInfo['approve']
-  | undefined {
+}: Pick<
+  IEarnManagePageResponse,
+  'approve' | 'approveAsset' | 'approveTarget'
+>): IProtocolInfo['approve'] | undefined {
   const resolvedApproveTarget = approve?.approveTarget ?? approveTarget;
   if (!resolvedApproveTarget) {
     return undefined;
@@ -25,6 +27,7 @@ export function buildManagePageApproveInfo({
   return {
     allowance: approve?.allowance ?? '0',
     approveType: normalizeApproveType(approve?.approveType),
+    approveAsset: approve?.approveAsset ?? approveAsset,
     approveTarget: resolvedApproveTarget,
   };
 }

@@ -162,6 +162,7 @@ export function useUniversalBorrowAction({
         accountId,
         action,
         amount: amountNumber.toFixed(),
+        repayAll: action === 'repay' ? repayAll : undefined,
       });
     },
     [
@@ -172,6 +173,7 @@ export function useUniversalBorrowAction({
       marketAddress,
       networkId,
       provider,
+      repayAll,
       reserveAddress,
     ],
   );
@@ -196,7 +198,7 @@ export function useUniversalBorrowAction({
     }
 
     void debouncedFetchEstimateFeeResp(amount);
-  }, [amount, debouncedFetchEstimateFeeResp, isDisabled, isReady]);
+  }, [amount, debouncedFetchEstimateFeeResp, isDisabled, isReady, repayAll]);
 
   const checkAmount = useDebouncedCallback(async (value: string) => {
     if (!isReady || isAmountInvalid(value)) {

@@ -20,7 +20,7 @@ export function isBorrowTokenApprovalEnabled({
   approveTarget?: IBorrowApproveTarget;
 }) {
   return (
-    (action === 'supply' || action === 'repay') &&
+    (action === 'supply' || action === 'withdraw' || action === 'repay') &&
     approveType === EApproveType.Legacy &&
     !!approveTarget?.spenderAddress &&
     !!approveTarget.token &&

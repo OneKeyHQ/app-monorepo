@@ -550,6 +550,7 @@ export const StakeSection = ({
       const shouldUnwrapNativeAaveReserve =
         action === 'borrow' &&
         shouldUseAaveNativeGateway({
+          networkId,
           providerName: provider,
           reserveAddress,
         });
@@ -594,6 +595,7 @@ export const StakeSection = ({
       handleBorrowBorrow,
       handleBorrowSupply,
       hasRequiredData,
+      networkId,
       onSuccess,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.stakeTag,

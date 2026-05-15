@@ -37,7 +37,7 @@ const approveTarget: IBorrowApproveTarget = {
 };
 
 describe('borrowApproval utils', () => {
-  it('enables legacy ERC20 approvals only for supply and repay actions', () => {
+  it('enables legacy ERC20 approvals for supply, withdraw, and repay actions', () => {
     expect(
       isBorrowTokenApprovalEnabled({
         action: 'supply',
@@ -48,6 +48,13 @@ describe('borrowApproval utils', () => {
     expect(
       isBorrowTokenApprovalEnabled({
         action: 'repay',
+        approveType: EApproveType.Legacy,
+        approveTarget,
+      }),
+    ).toBe(true);
+    expect(
+      isBorrowTokenApprovalEnabled({
+        action: 'withdraw',
         approveType: EApproveType.Legacy,
         approveTarget,
       }),
