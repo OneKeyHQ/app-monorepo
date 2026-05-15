@@ -210,32 +210,15 @@ function MobileTabListModal() {
   const handleCloseTab = useCallback(
     (id: string) => {
       const isClosingActiveTab = id === activeTabId;
-      const targetIndex = tabs.findIndex((tab) => tab.id === id);
-      const remainingTabs = tabs.filter((tab) => tab.id !== id);
-      const nextActiveTab =
-        targetIndex > 0 ? remainingTabs[targetIndex - 1] : remainingTabs[0];
+      const hasRemainingTabs = tabs.some((tab) => tab.id !== id);
       void closeWebTab({ tabId: id, entry: 'Menu' });
 
-      if (!nextActiveTab) {
+      if (isClosingActiveTab || !hasRemainingTabs) {
         setDisplayHomePage(true);
         navigation.pop();
-        return;
       }
-
-      if (!isClosingActiveTab) {
-        return;
-      }
-
-      setCurrentWebTab(nextActiveTab.id);
     },
-    [
-      activeTabId,
-      closeWebTab,
-      navigation,
-      setCurrentWebTab,
-      setDisplayHomePage,
-      tabs,
-    ],
+    [activeTabId, closeWebTab, navigation, setDisplayHomePage, tabs],
   );
 
   const handleAddNewTab = useCallback(() => {
