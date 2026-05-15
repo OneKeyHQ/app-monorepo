@@ -37,6 +37,33 @@ public class MainActivity extends ReactActivity {
       "StartupTiming",
       "android.activity.on_create.start: +" + (tActivityStart - MainApplication.appLaunchMs) + "ms from launch"
     );
+
+    // Increment the boot-fail counter HERE (not in MainApplication.onCreate).
+    // System-initiated process launches — JPush wakeups, foreground-service
+    // callbacks, broadcast receivers, post-download relaunches — only run
+    // Application.onCreate; they never bring up MainActivity, so they must
+    // not bump the counter. Doing it here is the "user actually tried to
+    // open the app" signal. Reset path is unchanged: MainActivity.onStop on
+    // graceful background, RecoveryActivity after the user resolves recovery,
+    // and the JS-side 5s `markBootSuccess` timer in Bootstrap.tsx.
+    //
+    // Placed before super.onCreate(null) so that crashes during ReactActivity
+    // / Fabric / TurboModule init still accumulate toward recovery — the
+    // whole point of the counter is to catch RN init crash-loops.
+    {
+      SharedPreferences recoveryPrefs =
+        getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
+      int oldCount = recoveryPrefs.getInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0);
+      int newCount = oldCount + 1;
+      recoveryPrefs.edit()
+        .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, newCount)
+        .commit();
+      OneKeyLog.info(
+        "BootRecovery",
+        "boot_fail_count(activity): " + oldCount + " -> " + newCount
+      );
+    }
+
     // Install AndroidX SplashScreen before super.onCreate() to fix MIUI/HyperOS crashes
     // where system's replaceUmiTheme method fails with NullPointerException
     // Added defensive error handling for OPPO and other vendor-specific crashes

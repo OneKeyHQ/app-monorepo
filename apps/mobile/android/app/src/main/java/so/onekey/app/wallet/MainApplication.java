@@ -281,16 +281,23 @@ public class MainApplication extends Application implements ReactApplication {
     }
     prefs.edit().putString(BootRecoveryKeys.BOOT_FAIL_APP_VERSION, currentVersion).commit();
 
-    // Increment boot fail count; counter is reset in MainActivity.onStop()
-    // on graceful exit, so only consecutive crashes accumulate
-    int oldCount = prefs.getInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0);
-    int newCount = oldCount + 1;
-    prefs.edit().putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, newCount).commit();
+    // Read (do NOT increment) the boot-fail counter here. The increment
+    // moved to MainActivity.onCreate so that system-initiated process
+    // launches — JPush wakeups, foreground-service callbacks, broadcast
+    // receivers, post-download relaunches — don't bump the counter when
+    // they never bring up the UI. Counter is reset by MainActivity.onStop
+    // on graceful background, and by RecoveryActivity after the user
+    // resolves recovery.
+    int currentCount = prefs.getInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0);
 
     // Harness tests create this marker file via globalSetup so the recovery
     // page never blocks React Native from starting during test runs.
     boolean isHarnessMode = new java.io.File(getFilesDir(), "harness_mode").exists();
-    shouldShowRecovery = !isHarnessMode && newCount >= 3;
+    // Predicts the post-increment value: MainActivity.onCreate will bump
+    // currentCount by 1 right after Application init. Keeping the literal
+    // `>= 3` here preserves the original "3 strikes" semantic — recovery
+    // triggers on the 3rd consecutive failed user-launch, not the 4th.
+    shouldShowRecovery = !isHarnessMode && (currentCount + 1) >= 3;
 
     long tBeforeSuper = System.currentTimeMillis();
     super.onCreate();
@@ -323,7 +330,7 @@ public class MainApplication extends Application implements ReactApplication {
       "android.app.new_arch_load: " + (tAfterNewArch - tAfterSoLoader) + "ms (+" + (tAfterNewArch - appLaunchMs) + "ms from launch)"
     );
 
-    OneKeyLog.info("BootRecovery", "boot_fail_count: " + oldCount + " -> " + newCount + ", shouldShowRecovery: " + shouldShowRecovery);
+    OneKeyLog.info("BootRecovery", "boot_fail_count(app.read): " + currentCount + ", shouldShowRecovery: " + shouldShowRecovery);
 
     if (shouldShowRecovery) {
         // Skip heavy initialization (React Native, Expo, JPush).
