@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   WALLET_TYPE_HD,
@@ -68,6 +69,7 @@ import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
+import { HomeNativePageView } from './HomeNativePageView';
 import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
@@ -156,14 +158,16 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function HomePageView({
+type IHomePageViewProps = {
+  onPressHide?: () => void;
+  sceneName: EAccountSelectorSceneName;
+};
+
+function HomePageViewLegacy({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onPressHide,
   sceneName,
-}: {
-  onPressHide?: () => void;
-  sceneName: EAccountSelectorSceneName;
-}) {
+}: IHomePageViewProps) {
   const tabBarHeight = useScrollContentTabBarOffset();
   const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
@@ -938,4 +942,18 @@ export function HomePageView({
       </HomeStickyHeaderContext.Provider>
     );
   }, [homePage, stickyHeaderCtx]);
+}
+
+export function HomePageView(props: IHomePageViewProps) {
+  const [devSettings] = useDevSettingsPersistAtom();
+  const enableNativeHomeTabs =
+    platformEnv.isNative &&
+    !!devSettings.enabled &&
+    !!devSettings.settings?.enableNativeHomeTabs;
+
+  if (enableNativeHomeTabs) {
+    return <HomeNativePageView {...props} />;
+  }
+
+  return <HomePageViewLegacy {...props} />;
 }

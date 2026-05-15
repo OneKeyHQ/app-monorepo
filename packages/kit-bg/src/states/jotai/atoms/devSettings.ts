@@ -104,6 +104,8 @@ export interface IDevSettings {
   disableCustomUA?: boolean;
   // Allow Discovery browser to load local development URLs.
   allowLocalhostUrlInDAppBrowser?: boolean;
+  // Route native mobile Home through the experimental Fabric shell.
+  enableNativeHomeTabs?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -142,6 +144,7 @@ export const {
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
       allowLocalhostUrlInDAppBrowser: false,
+      enableNativeHomeTabs: false,
       // Linux Desktop use Bridge，avoiding WebUSB permission problem
       usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default

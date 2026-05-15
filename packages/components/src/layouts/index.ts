@@ -15,3 +15,4 @@ export * from './Swiper';
 export * from './UnorderedList';
 export * from './Accordion';
 export * from './NativeSectionList';
+export * from './NativeHomeTabs';

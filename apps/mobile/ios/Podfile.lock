@@ -604,6 +604,34 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - OneKeyComponents (0.0.1):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - Pbkdf2 (3.0.37):
     - boost
     - DoubleConversion
@@ -4621,6 +4649,7 @@ DEPENDENCIES:
   - NetworkInfo (from `../../../node_modules/react-native-network-info`)
   - NitroMmkv (from `../../../node_modules/react-native-mmkv`)
   - NitroModules (from `../../../node_modules/react-native-nitro-modules`)
+  - "OneKeyComponents (from `../node_modules/@onekeyhq/components`)"
   - Pbkdf2 (from `../../../node_modules/react-native-fast-pbkdf2`)
   - Ping (from `../../../node_modules/react-native-ping`)
   - RCT-Folly (from `../../../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
@@ -4883,6 +4912,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-mmkv"
   NitroModules:
     :path: "../../../node_modules/react-native-nitro-modules"
+  OneKeyComponents:
+    :path: "../node_modules/@onekeyhq/components"
   Pbkdf2:
     :path: "../../../node_modules/react-native-fast-pbkdf2"
   Ping:
@@ -5188,6 +5219,7 @@ SPEC CHECKSUMS:
   NetworkInfo: 797a86072b272fec5b3346a1b06a8bfe208e42c7
   NitroMmkv: ce1df9b9f0e06dfbde2455d863047e0411fceb6e
   NitroModules: 11bba9d065af151eae51e38a6425e04c3b223ff3
+  OneKeyComponents: eddedd08c72ea1d50c90e7981dfbfb9fa7ad913c
   Pbkdf2: 71418bb05eba5243b3e7bdbe79abc8503cac49d6
   Ping: 6c5e4d5e86d363277c7a0bbc581907cb8ee2ae20
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47

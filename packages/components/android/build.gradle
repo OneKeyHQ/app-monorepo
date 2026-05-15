@@ -1,0 +1,37 @@
+plugins {
+  id 'com.android.library'
+  id 'org.jetbrains.kotlin.android'
+  id 'com.facebook.react'
+}
+
+android {
+  namespace 'so.onekey.components'
+  compileSdk rootProject.ext.compileSdkVersion
+
+  defaultConfig {
+    minSdkVersion rootProject.ext.minSdkVersion
+  }
+
+  sourceSets {
+    main {
+      java.srcDirs += ["${project.buildDir}/generated/source/codegen/java"]
+    }
+  }
+}
+
+repositories {
+  google()
+  mavenCentral()
+  maven {
+    url "$rootDir/../node_modules/react-native/android"
+  }
+}
+
+def kotlin_version = rootProject.ext.has('kotlinVersion') ? rootProject.ext.kotlinVersion : '2.1.20'
+
+dependencies {
+  implementation 'com.facebook.react:react-android'
+  implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+  implementation 'androidx.recyclerview:recyclerview:1.3.2'
+  implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+}

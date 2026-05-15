@@ -32,5 +32,18 @@
     "icon:build": "rimraf src/primitives/Icon/react && svgr --config-file .svgrrc.json -d src/primitives/Icon/react svg && node src/primitives/Icon/script.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
+  },
+  "codegenConfig": {
+    "name": "OKNativeHomeTabs",
+    "type": "components",
+    "jsSrcsDir": "src/layouts/NativeHomeTabs",
+    "android": {
+      "javaPackageName": "so.onekey.components.nativehometabs"
+    },
+    "ios": {
+      "componentProvider": {
+        "OKNativeHomeTabs": "OKNativeHomeTabsComponentView"
+      }
+    }
   }
 }
