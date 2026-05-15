@@ -570,9 +570,7 @@ const SwapTokenSelectPage = ({
     return popularTokens;
   }, [currentSelectNetwork?.networkId, swapTypeSwitch]);
   const shouldShowPopularTokens =
-    !showLpTokensOnly &&
-    currentNetworkPopularTokens.length > 0 &&
-    !requestedSearchKeyword;
+    currentNetworkPopularTokens.length > 0 && !requestedSearchKeyword;
   return (
     <Page lazyLoad={!platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
