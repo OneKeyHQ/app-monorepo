@@ -1,0 +1,93 @@
+diff --git a/node_modules/fast-deep-equal/index.js b/node_modules/fast-deep-equal/index.js
+index 30dd1ba..1beec2d 100644
+--- a/node_modules/fast-deep-equal/index.js
++++ b/node_modules/fast-deep-equal/index.js
+@@ -23,7 +23,87 @@ module.exports = function equal(a, b) {
+ 
+     if (a.constructor === RegExp) return a.source === b.source && a.flags === b.flags;
+     if (a.valueOf !== Object.prototype.valueOf) return a.valueOf() === b.valueOf();
+-    if (a.toString !== Object.prototype.toString) return a.toString() === b.toString();
++    if (a.toString !== Object.prototype.toString) {
++      if (typeof a.toString !== 'function' || typeof b.toString !== 'function') {
++        try {
++          var describeForCrashProbe = function (name, value) {
++            var proto = Object.getPrototypeOf(value);
++            var keys = Object.keys(value);
++            var descriptor = Object.prototype.hasOwnProperty.call(value, 'toString')
++              ? Object.getOwnPropertyDescriptor(value, 'toString')
++              : null;
++            var fields = [];
++            for (var fieldIndex = 0; fieldIndex < keys.length && fieldIndex < 24; fieldIndex += 1) {
++              var fieldKey = keys[fieldIndex];
++              var fieldValue = value[fieldKey];
++              var fieldCtor = fieldValue && fieldValue.constructor && fieldValue.constructor.name;
++              var fieldProto = fieldValue && typeof fieldValue == 'object' ? Object.getPrototypeOf(fieldValue) : null;
++              fields.push(
++                fieldKey +
++                  ':' +
++                  typeof fieldValue +
++                  (fieldCtor ? '/' + fieldCtor : '') +
++                  (fieldProto === null ? '/null-proto' : '')
++              );
++            }
++            return (
++              name +
++              '{type=' +
++              typeof value +
++              ',ctor=' +
++              (value && value.constructor && value.constructor.name) +
++              ',proto=' +
++              (proto === null ? 'null' : proto && proto.constructor && proto.constructor.name) +
++              ',typeofToString=' +
++              typeof value.toString +
++              ',ownToString=' +
++              Object.prototype.hasOwnProperty.call(value, 'toString') +
++              ',toStringDesc=' +
++              (descriptor
++                ? 'valueType:' +
++                  typeof descriptor.value +
++                  ',get:' +
++                  typeof descriptor.get +
++                  ',set:' +
++                  typeof descriptor.set +
++                  ',enumerable:' +
++                  descriptor.enumerable
++                : 'none') +
++              ',keys=[' +
++              keys.slice(0, 24).join(',') +
++              '],fields=[' +
++              fields.join(',') +
++              ']}'
++            );
++          };
++          var message =
++            '[fast-deep-equal][CRASH_PROBE] non-callable toString before original crash ' +
++            describeForCrashProbe('a', a) +
++            ' ' +
++            describeForCrashProbe('b', b) +
++            ' stack=' +
++            ((new Error('fast-deep-equal crash probe')).stack || '');
++          if (typeof console !== 'undefined' && console.error) {
++            console.error(message);
++          }
++          if (
++            typeof globalThis !== 'undefined' &&
++            globalThis.$$appGlobals &&
++            globalThis.$$appGlobals.$defaultLogger &&
++            globalThis.$$appGlobals.$defaultLogger.app &&
++            globalThis.$$appGlobals.$defaultLogger.app.error &&
++            typeof globalThis.$$appGlobals.$defaultLogger.app.error.log === 'function'
++          ) {
++            globalThis.$$appGlobals.$defaultLogger.app.error.log(message);
++          }
++        } catch (probeError) {
++          if (typeof console !== 'undefined' && console.error) {
++            console.error('[fast-deep-equal][CRASH_PROBE] failed', probeError);
++          }
++        }
++      }
++      return a.toString() === b.toString();
++    }
+ 
+     keys = Object.keys(a);
+     length = keys.length;
