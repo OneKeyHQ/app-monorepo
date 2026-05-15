@@ -18,9 +18,14 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+const { withBuildLock } = require('./lib/buildLock');
 const { readPerfCiLocalConfig } = require('./lib/config');
 const { defaultDerivedOutPath, deriveSession } = require('./lib/derive');
-const { execCmd } = require('./lib/exec');
+const {
+  execCmd,
+  formatExecResultError,
+  withRepoNodeBin,
+} = require('./lib/exec');
 const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
 const { nowId } = require('./lib/id');
 const { notifyPerfFailure, notifyPerfResult } = require('./lib/notify');
@@ -57,7 +62,7 @@ function makeLogger() {
   };
 }
 
-async function buildDesktop({ repoRoot }) {
+async function buildDesktop({ repoRoot, outputDir }) {
   const mainPath = path.join(
     repoRoot,
     'apps',
@@ -89,20 +94,24 @@ async function buildDesktop({ repoRoot }) {
     PERF_MONITOR_ENABLED: '1',
   };
 
-  const r1 = await execCmd(
-    'yarn',
-    ['workspace', '@onekeyhq/desktop', 'build:renderer'],
-    {
-      cwd: repoRoot,
-      env,
-      timeoutMs:
-        Number(process.env.PERF_DESKTOP_BUILD_TIMEOUT_MS) || 45 * 60 * 1000,
-      stdout: (d) => process.stdout.write(d),
-      stderr: (d) => process.stderr.write(d),
-    },
+  const r1 = await withBuildLock(
+    'webpack-build',
+    () =>
+      execCmd('yarn', ['workspace', '@onekeyhq/desktop', 'build:renderer'], {
+        cwd: repoRoot,
+        env: withRepoNodeBin(repoRoot, env),
+        timeoutMs:
+          Number(process.env.PERF_DESKTOP_BUILD_TIMEOUT_MS) || 45 * 60 * 1000,
+        killProcessGroup: true,
+        stdout: (d) => process.stdout.write(d),
+        stderr: (d) => process.stderr.write(d),
+      }),
+    { log: (...args) => console.log('[perf:desktop]', ...args) },
   );
   if (r1.code !== 0) {
-    throw new Error(`desktop build:renderer failed with exit code ${r1.code}`);
+    throw new Error(
+      formatExecResultError('desktop build:renderer', r1, { outputDir }),
+    );
   }
 
   const r2 = await execCmd(
@@ -110,15 +119,18 @@ async function buildDesktop({ repoRoot }) {
     ['workspace', '@onekeyhq/desktop', 'build:main'],
     {
       cwd: repoRoot,
-      env,
+      env: withRepoNodeBin(repoRoot, env),
       timeoutMs:
         Number(process.env.PERF_DESKTOP_BUILD_TIMEOUT_MS) || 45 * 60 * 1000,
+      killProcessGroup: true,
       stdout: (d) => process.stdout.write(d),
       stderr: (d) => process.stderr.write(d),
     },
   );
   if (r2.code !== 0) {
-    throw new Error(`desktop build:main failed with exit code ${r2.code}`);
+    throw new Error(
+      formatExecResultError('desktop build:main', r2, { outputDir }),
+    );
   }
 }
 
@@ -372,7 +384,7 @@ async function main() {
       await checkPerfServer(serverUrl);
     }
 
-    await buildDesktop({ repoRoot });
+    await buildDesktop({ repoRoot, outputDir });
     log('build: ok');
 
     if (!fileExists(mainPath)) {

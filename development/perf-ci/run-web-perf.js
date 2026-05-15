@@ -20,10 +20,15 @@ const path = require('path');
 
 const { chromium } = require('playwright-core');
 
+const { withBuildLock } = require('./lib/buildLock');
 const { findChromiumExecutable } = require('./lib/chromium');
 const { readPerfCiLocalConfig } = require('./lib/config');
 const { defaultDerivedOutPath, deriveSession } = require('./lib/derive');
-const { execCmd } = require('./lib/exec');
+const {
+  execCmd,
+  formatExecResultError,
+  withRepoNodeBin,
+} = require('./lib/exec');
 const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
 const { nowId } = require('./lib/id');
 const { notifyPerfFailure, notifyPerfResult } = require('./lib/notify');
@@ -39,6 +44,7 @@ const {
 } = require('./lib/regression');
 const {
   ensureSessionsDirWritable,
+  getFileSize,
   listSessionIds,
   waitForNewSessionId,
   waitForMark,
@@ -72,19 +78,24 @@ async function buildWeb({ repoRoot, outputDir }) {
   const skip = process.env.PERF_SKIP_BUILD === '1';
   if (skip) return;
 
-  const res = await execCmd('yarn', ['workspace', '@onekeyhq/web', 'build'], {
-    cwd: repoRoot,
-    env: {
-      PERF_MONITOR_ENABLED: '1',
-    },
-    timeoutMs: Number(process.env.PERF_WEB_BUILD_TIMEOUT_MS) || 30 * 60 * 1000,
-    stdout: (d) => process.stdout.write(d),
-    stderr: (d) => process.stderr.write(d),
-  });
+  const res = await withBuildLock(
+    'webpack-build',
+    () =>
+      execCmd('yarn', ['workspace', '@onekeyhq/web', 'build'], {
+        cwd: repoRoot,
+        env: withRepoNodeBin(repoRoot, {
+          PERF_MONITOR_ENABLED: '1',
+        }),
+        timeoutMs:
+          Number(process.env.PERF_WEB_BUILD_TIMEOUT_MS) || 30 * 60 * 1000,
+        killProcessGroup: true,
+        stdout: (d) => process.stdout.write(d),
+        stderr: (d) => process.stderr.write(d),
+      }),
+    { log: (...args) => console.log('[perf:web]', ...args) },
+  );
   if (res.code !== 0) {
-    throw new Error(
-      `web build failed with exit code ${res.code} (output=${outputDir})`,
-    );
+    throw new Error(formatExecResultError('web build', res, { outputDir }));
   }
 }
 
@@ -152,20 +163,37 @@ async function runOne({
     });
     log(`run#${runIndex}: sessionId=${sessionId}`);
 
+    const markLogPath = path.join(sessionsDir, sessionId, 'mark.log');
+    log(`run#${runIndex}: waiting for Home overview mount...`);
+    await waitForMark({
+      markLogPath,
+      markName: 'Home:overview:mount',
+      timeoutMs: markTimeoutMs,
+    });
+
+    const refreshSelector =
+      process.env.PERF_WEB_REFRESH_SELECTOR ||
+      '[data-testid="wallet-refresh-manually"]';
+    log(`run#${runIndex}: trigger home refresh (${refreshSelector})...`);
+    const refreshMarkLogOffset = getFileSize(markLogPath);
+    await page.locator(refreshSelector).click({ timeout: markTimeoutMs });
+
     // Require a real refresh cycle so metrics are meaningful.
     log(`run#${runIndex}: waiting for start mark "${startMarkName}"...`);
     await waitForMark({
-      markLogPath: path.join(sessionsDir, sessionId, 'mark.log'),
+      markLogPath,
       markName: startMarkName,
       timeoutMs: markTimeoutMs,
+      startOffset: refreshMarkLogOffset,
     });
     log(`run#${runIndex}: start mark received`);
 
     log(`run#${runIndex}: waiting for done mark "${markName}"...`);
     await waitForMark({
-      markLogPath: path.join(sessionsDir, sessionId, 'mark.log'),
+      markLogPath,
       markName,
       timeoutMs: markTimeoutMs,
+      startOffset: refreshMarkLogOffset,
     });
     log(`run#${runIndex}: done mark received`);
 
@@ -175,6 +203,7 @@ async function runOne({
       runIndex,
       sessionId,
       markName,
+      markLogOffset: refreshMarkLogOffset,
       durations: { totalMs: Date.now() - t0 },
     };
   } finally {
@@ -445,7 +474,11 @@ async function main() {
       return {
         ...r,
         metrics: {
-          ...readSessionMetrics({ sessionsDir, sessionId: r.sessionId }),
+          ...readSessionMetrics({
+            sessionsDir,
+            sessionId: r.sessionId,
+            startOffset: r.markLogOffset,
+          }),
           ...extractDerivedDebugMetrics(dj),
         },
       };
