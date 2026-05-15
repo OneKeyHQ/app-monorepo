@@ -75,6 +75,18 @@ export function shouldReleasePinLock({
   return target !== null && candidate === target;
 }
 
+export function shouldQueueProtocolNavigation({
+  hasRegisteredHandle,
+  isNative,
+  tableLayout,
+}: {
+  hasRegisteredHandle: boolean;
+  isNative: boolean;
+  tableLayout: boolean;
+}): boolean {
+  return !hasRegisteredHandle && !isNative && tableLayout;
+}
+
 // Whether the active chip in the protocol-chip strip is wholly inside the
 // strip's visible scroll window. Coordinates are passed in whichever frame
 // the caller measures in (storage layout vs. live `getBoundingClientRect`)
