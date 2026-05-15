@@ -18,7 +18,7 @@ const { chromium } = require('playwright-core');
 
 const { findChromiumExecutable } = require('./lib/chromium');
 const { readPerfCiLocalConfig } = require('./lib/config');
-const { execCmd } = require('./lib/exec');
+const { execCmd, withRepoNodeBin } = require('./lib/exec');
 const { ensureDir, fileExists } = require('./lib/fs');
 const { startStaticServer } = require('./lib/staticServer');
 
@@ -32,9 +32,9 @@ async function buildWeb({ repoRoot, outputDir }) {
 
   const res = await execCmd('yarn', ['workspace', '@onekeyhq/web', 'build'], {
     cwd: repoRoot,
-    env: {
+    env: withRepoNodeBin(repoRoot, {
       PERF_MONITOR_ENABLED: '1',
-    },
+    }),
     timeoutMs: Number(process.env.PERF_WEB_BUILD_TIMEOUT_MS) || 30 * 60 * 1000,
     stdout: (d) => process.stdout.write(d),
     stderr: (d) => process.stderr.write(d),
