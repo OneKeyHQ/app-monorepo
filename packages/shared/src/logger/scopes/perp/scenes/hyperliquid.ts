@@ -56,6 +56,59 @@ export interface IHyperLiquidOrderRequestPayload {
   } | null;
 }
 
+export type IHyperLiquidSubscriptionDiagnosticParams = {
+  source: 'ui' | 'bg';
+  event: string;
+  reason?: string;
+  caller?: string;
+  readyState?: number | null;
+  socketOpen?: boolean;
+  routeFocused?: boolean;
+  isFocus?: boolean;
+  isHiddenByModal?: boolean;
+  hasOnboardingRoute?: boolean;
+  hasOverlayRoute?: boolean;
+  currentTabName?: string;
+  isLocked?: boolean;
+  lastFocusState?: boolean | null;
+  shouldTreatFocusedOnMount?: boolean;
+  hasAccount?: boolean;
+  hasInstrumentCoin?: boolean;
+  instrumentMode?: string;
+  hasOrderBookCoin?: boolean;
+  hasOrderBookOptions?: boolean;
+  tokenSelectorOpen?: boolean;
+  tokenSelectorTab?: string;
+  infoPanelTab?: string;
+  favoritesBarSpotActive?: boolean;
+  isLoading?: boolean;
+  isWebSocketConnected?: boolean;
+  shouldSyncSubscriptions?: boolean;
+  spotEnabled?: boolean;
+  spotAssetCtxsEnabled?: boolean;
+  enableLedgerUpdates?: boolean;
+  disabled?: boolean;
+  disabledCount?: number;
+  hasInitialSubscription?: boolean;
+  lifecycleVersion?: number;
+  pendingCount?: number;
+  activeCount?: number;
+  toCreateCount?: number;
+  requiredCount?: number;
+  hasAllDexsAssetCtxs?: boolean;
+  hasL2Book?: boolean;
+  hasL2BookOptions?: boolean;
+  currentSymbolSet?: boolean;
+  currentSpotSymbolSet?: boolean;
+  currentUserSet?: boolean;
+  tradingMode?: string;
+  subscriptionType?: string;
+  isFirstData?: boolean;
+  claimed?: boolean;
+  nextCoinSet?: boolean;
+  metaRefreshOk?: boolean;
+};
+
 export class HyperLiquidScene extends BaseScene {
   @LogToServer()
   public setReferrer(
@@ -320,6 +373,14 @@ export class HyperLiquidScene extends BaseScene {
    */
   @LogToLocal({ level: 'error' })
   public subscriptionInnerClientDisposeError(params: { error: unknown }) {
+    return params;
+  }
+
+  // Local-only breadcrumbs for OK-54167 QA bundles; keep them out of analytics.
+  @LogToLocal({ level: 'info' })
+  public subscriptionDiagnostic(
+    params: IHyperLiquidSubscriptionDiagnosticParams,
+  ) {
     return params;
   }
 }

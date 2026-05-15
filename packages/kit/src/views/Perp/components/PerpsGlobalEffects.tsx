@@ -3,7 +3,7 @@ import { memo, startTransition, useCallback, useEffect, useRef } from 'react';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { isEqual, noop } from 'lodash';
 
-import { useUpdateEffect } from '@onekeyhq/components';
+import { useOnRouterChange, useUpdateEffect } from '@onekeyhq/components';
 import {
   useAccountIsAutoCreatingAtom,
   useAppIsLockedAtom,
@@ -29,8 +29,9 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { useDebugHooksDepsChangedChecker } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -79,6 +80,60 @@ let lastRecoveredPerpsLocaleVariant: string | undefined;
 
 function resolvePerpRouteFocused(isFocus: boolean) {
   return shouldTreatPerpAsFocusedOnMount || isFocus;
+}
+
+function usePerpsNavigationDiagnostics() {
+  const lastRouterSnapshotRef = useRef<string>('');
+
+  useEffect(() => {
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+      source: 'ui',
+      event: 'perps_global_effects_mount',
+      shouldTreatFocusedOnMount: shouldTreatPerpAsFocusedOnMount,
+    });
+    return () => {
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+        source: 'ui',
+        event: 'perps_global_effects_unmount',
+      });
+    };
+  }, []);
+
+  useOnRouterChange((state) => {
+    const rootState = state?.routes.find(
+      ({ name }) => name === ERootRoutes.Main,
+    )?.state;
+    const currentTabName = rootState?.routeNames
+      ? (rootState?.routeNames?.[rootState?.index || 0] as ETabRoutes)
+      : (rootState?.routes[0]?.name as ETabRoutes | undefined);
+    const hasOnboardingRoute = !!state?.routes.some(
+      ({ name }) => name === ERootRoutes.Onboarding,
+    );
+    const hasOverlayRoute = !!state?.routes.some(({ name }) =>
+      [
+        ERootRoutes.Modal,
+        ERootRoutes.iOSFullScreen,
+        ERootRoutes.FullScreenPush,
+      ].includes(name as ERootRoutes),
+    );
+    const snapshot = [
+      currentTabName ?? '',
+      hasOnboardingRoute ? 'onboarding' : '',
+      hasOverlayRoute ? 'overlay' : '',
+    ].join('|');
+    if (lastRouterSnapshotRef.current === snapshot) {
+      return;
+    }
+    lastRouterSnapshotRef.current = snapshot;
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+      source: 'ui',
+      event: 'router_state',
+      currentTabName,
+      routeFocused: currentTabName === ETabRoutes.Perp,
+      hasOnboardingRoute,
+      hasOverlayRoute,
+    });
+  });
 }
 
 function useSyncContextOrderBookOptionsToGlobal() {
@@ -616,6 +671,26 @@ function WebSocketSubscriptionUpdate() {
       orderBookOptions: activeOrderBookOptionsRef.current,
       viewState: tradeRouteViewStateRef.current,
     });
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+      source: 'ui',
+      event: 'subscription_plan',
+      hasAccount: !!accountAddress,
+      hasInstrumentCoin: !!instrumentCoin,
+      instrumentMode,
+      hasOrderBookCoin: !!orderBookCoin,
+      hasOrderBookOptions: !!activeOrderBookOptionsRef.current,
+      routeFocused,
+      tokenSelectorOpen,
+      tokenSelectorTab,
+      infoPanelTab,
+      favoritesBarSpotActive,
+      isLoading,
+      isWebSocketConnected,
+      shouldSyncSubscriptions: plan.shouldSyncSubscriptions,
+      spotEnabled: plan.spotEnabled,
+      spotAssetCtxsEnabled: plan.spotAssetCtxsEnabled,
+      enableLedgerUpdates: plan.enableLedgerUpdates,
+    });
 
     void backgroundApiProxy.serviceHyperliquidSubscription.setRouteSubscriptionState(
       {
@@ -666,17 +741,39 @@ function useHyperliquidSymbolSelect() {
       // Perp tab detach/remount does not re-trigger this init.
       const claimed =
         await backgroundApiProxy.serviceHyperliquid.tryClaimInitialSymbolSelect();
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+        source: 'ui',
+        event: 'initial_symbol_claim',
+        claimed,
+        hasInstrumentCoin: !!activeTradeInstrumentRef.current?.coin,
+        instrumentMode: activeTradeInstrumentRef.current?.mode,
+      });
       if (!claimed && activeTradeInstrumentRef.current?.coin) {
         return;
       }
       if (claimed) {
-        await Promise.all([
-          backgroundApiProxy.serviceHyperliquid.refreshTradingMeta(),
-          // Spot meta failure must not block perps initialization
-          backgroundApiProxy.serviceHyperliquid.refreshSpotMeta().catch((e) => {
-            console.error('refreshSpotMeta failed (non-blocking):', e);
-          }),
-        ]);
+        let metaRefreshOk = true;
+        try {
+          await Promise.all([
+            backgroundApiProxy.serviceHyperliquid.refreshTradingMeta(),
+            // Spot meta failure must not block perps initialization
+            backgroundApiProxy.serviceHyperliquid
+              .refreshSpotMeta()
+              .catch((e) => {
+                console.error('refreshSpotMeta failed (non-blocking):', e);
+              }),
+          ]);
+        } catch (e) {
+          metaRefreshOk = false;
+          throw e;
+        } finally {
+          defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+            source: 'ui',
+            event: 'initial_symbol_meta_refresh',
+            claimed,
+            metaRefreshOk,
+          });
+        }
       }
       const currentMode = await tradingModeAtom.get();
       const currentPerpToken = await perpsActiveAssetAtom.get();
@@ -684,6 +781,13 @@ function useHyperliquidSymbolSelect() {
       const nextMode = currentMode === 'spot' ? 'spot' : 'perp';
       const nextCoin =
         nextMode === 'spot' ? currentSpotToken?.coin : currentPerpToken?.coin;
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+        source: 'ui',
+        event: 'initial_symbol_next_coin',
+        claimed,
+        nextCoinSet: !!nextCoin,
+        instrumentMode: nextMode,
+      });
       if (!nextCoin) {
         return;
       }
@@ -813,6 +917,10 @@ function AutoPauseSubscriptions() {
   // Dedup: visibilitychange + window.focus can fire back-to-back
   const lastFocusStateRef = useRef<boolean | null>(null);
 
+  const [isLocked] = useAppIsLockedAtom();
+  const isLockedRef = useRef(isLocked);
+  isLockedRef.current = isLocked;
+
   const onFocusHandler = useCallback(
     async ({
       isFocus,
@@ -824,7 +932,15 @@ function AutoPauseSubscriptions() {
       if (lastFocusStateRef.current === isFocus && pauseDelay === undefined) {
         return;
       }
+      const previousFocusState = lastFocusStateRef.current;
       lastFocusStateRef.current = isFocus;
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+        source: 'ui',
+        event: 'auto_pause_focus',
+        isFocus,
+        lastFocusState: previousFocusState,
+        isLocked: isLockedRef.current,
+      });
 
       if (isFocus) {
         clearTimeout(pauseSubscriptionsTimerRef.current);
@@ -879,8 +995,6 @@ function AutoPauseSubscriptions() {
   // native the OS itself suspends JS in the background and resume is
   // handled by useHandleAppStateActive.
 
-  const [isLocked] = useAppIsLockedAtom();
-
   useEffect(() => {
     if (isLocked) {
       void onFocusHandler({ isFocus: false });
@@ -931,6 +1045,7 @@ function useHyperliquidInstrumentSwitchRequest() {
 }
 
 function PerpsGlobalEffectsView() {
+  usePerpsNavigationDiagnostics();
   useHyperliquidEventBusListener();
   useHyperliquidMarketDataSnapshotReplay();
   useHyperliquidSession();

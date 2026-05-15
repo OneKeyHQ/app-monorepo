@@ -184,11 +184,26 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _latestMarketDataSnapshot: ILatestPerpsMarketDataSnapshot = {};
 
+  private _loggedFirstDataSubscriptionTypes = new Set<ESubscriptionType>();
+
   // Cross-runtime atom sync can lag behind a reopened socket, leaving current
   // market subscriptions absent while the socket still looks healthy.
   private _subscriptionAtomsUnsubs: Array<() => void> = [];
 
   private _subscriptionLifecycleVersion = 0;
+
+  private _summarizeRequiredSubscriptions(
+    requiredSubSpecsMap?: Record<string, ISubscriptionSpec<ESubscriptionType>>,
+  ) {
+    const specs = Object.values(requiredSubSpecsMap || {});
+    return {
+      requiredCount: specs.length,
+      hasAllDexsAssetCtxs: specs.some(
+        (spec) => spec.type === ESubscriptionType.ALL_DEXS_ASSET_CTXS,
+      ),
+      hasL2Book: specs.some((spec) => spec.type === ESubscriptionType.L2_BOOK),
+    };
+  }
 
   private _watchSubscriptionAtoms(): void {
     if (!platformEnv.isExtension && !platformEnv.isNativeBackgroundThread) {
@@ -300,12 +315,47 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private async _updateSubscriptionsCore() {
     if (this.subscriptionsHandlerDisabled) {
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+        source: 'bg',
+        event: 'update_core_skip_disabled',
+        disabled: this.subscriptionsHandlerDisabled,
+        disabledCount: this.subscriptionsHandlerDisabledCount,
+        hasInitialSubscription: this._hasInitialSubscription,
+        lifecycleVersion: this._subscriptionLifecycleVersion,
+      });
       return;
     }
     const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
     if (!requiredSubInfo) {
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+        source: 'bg',
+        event: 'update_core_skip_no_required_info',
+        disabled: this.subscriptionsHandlerDisabled,
+        disabledCount: this.subscriptionsHandlerDisabledCount,
+        hasInitialSubscription: this._hasInitialSubscription,
+        lifecycleVersion: this._subscriptionLifecycleVersion,
+      });
       return;
     }
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+      source: 'bg',
+      event: 'update_core_required',
+      ...this._summarizeRequiredSubscriptions(
+        requiredSubInfo.requiredSubSpecsMap,
+      ),
+      disabled: this.subscriptionsHandlerDisabled,
+      disabledCount: this.subscriptionsHandlerDisabledCount,
+      hasInitialSubscription: this._hasInitialSubscription,
+      lifecycleVersion: this._subscriptionLifecycleVersion,
+      currentSymbolSet: !!requiredSubInfo.params.currentSymbol,
+      currentSpotSymbolSet: !!requiredSubInfo.params.currentSpotSymbol,
+      currentUserSet: !!requiredSubInfo.params.currentUser,
+      hasL2BookOptions: !!requiredSubInfo.params.l2BookOptions,
+      tradingMode: requiredSubInfo.params.tradingMode,
+      spotEnabled: requiredSubInfo.params.spotEnabled,
+      spotAssetCtxsEnabled: requiredSubInfo.params.spotAssetCtxsEnabled,
+      enableLedgerUpdates: requiredSubInfo.params.enableLedgerUpdates,
+    });
 
     const staleCriticalTypes = this._getStaleCriticalOpenSubscriptionTypes(
       requiredSubInfo.requiredSubSpecsMap,
@@ -358,6 +408,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async updateSubscriptions(): Promise<void> {
     if (this.subscriptionsHandlerDisabled) {
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+        source: 'bg',
+        event: 'update_skip_disabled',
+        disabled: this.subscriptionsHandlerDisabled,
+        disabledCount: this.subscriptionsHandlerDisabledCount,
+        hasInitialSubscription: this._hasInitialSubscription,
+        lifecycleVersion: this._subscriptionLifecycleVersion,
+      });
       return;
     }
     const client = await this.getWebSocketClient();
@@ -457,6 +515,31 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         updatedAt,
       };
     }
+  }
+
+  private _logFirstCriticalSubscriptionData(
+    subscriptionType: ESubscriptionType,
+  ): void {
+    if (
+      subscriptionType !== ESubscriptionType.ALL_DEXS_ASSET_CTXS &&
+      subscriptionType !== ESubscriptionType.L2_BOOK
+    ) {
+      return;
+    }
+    if (this._loggedFirstDataSubscriptionTypes.has(subscriptionType)) {
+      return;
+    }
+    this._loggedFirstDataSubscriptionTypes.add(subscriptionType);
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+      source: 'bg',
+      event: 'critical_subscription_first_data',
+      subscriptionType,
+      isFirstData: true,
+      disabled: this.subscriptionsHandlerDisabled,
+      disabledCount: this.subscriptionsHandlerDisabledCount,
+      lifecycleVersion: this._subscriptionLifecycleVersion,
+      activeCount: this._activeSubscriptions.size,
+    });
   }
 
   @backgroundMethod()
@@ -643,6 +726,18 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
     this._resumeRecoveryPromise = (async () => {
       const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+        source: 'bg',
+        event: 'reconcile_open_socket',
+        reason: params?.reason,
+        ...this._summarizeRequiredSubscriptions(
+          requiredSubInfo?.requiredSubSpecsMap,
+        ),
+        disabled: this.subscriptionsHandlerDisabled,
+        disabledCount: this.subscriptionsHandlerDisabledCount,
+        hasInitialSubscription: this._hasInitialSubscription,
+        lifecycleVersion: this._subscriptionLifecycleVersion,
+      });
       if (
         this._shouldRebuildOpenSocketSubscriptionsOnResume({
           ...params,
@@ -763,6 +858,24 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }): Promise<void> {
     await this.enableSubscriptionsHandler();
     this._postOpenDataCheckRetries = 0;
+    let reason = 'resume';
+    if (params?.forceRebuild) {
+      reason = 'force_rebuild';
+    } else if (params?.forceReconnect) {
+      reason = 'force_reconnect';
+    }
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+      source: 'bg',
+      event: 'resume_subscriptions',
+      reason,
+      readyState: this._client?.transport?.socket?.readyState ?? null,
+      socketOpen:
+        this._client?.transport?.socket?.readyState === WebSocket.OPEN,
+      disabled: this.subscriptionsHandlerDisabled,
+      disabledCount: this.subscriptionsHandlerDisabledCount,
+      hasInitialSubscription: this._hasInitialSubscription,
+      lifecycleVersion: this._subscriptionLifecycleVersion,
+    });
     console.log('updateSubscriptions__by__resumeSubscriptions');
 
     if (params?.forceReconnect) {
@@ -812,11 +925,29 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   async disableSubscriptionsHandler(): Promise<void> {
     this.subscriptionsHandlerDisabled = true;
     this.subscriptionsHandlerDisabledCount += 1;
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+      source: 'bg',
+      event: 'disable_subscriptions_handler',
+      disabled: this.subscriptionsHandlerDisabled,
+      disabledCount: this.subscriptionsHandlerDisabledCount,
+      hasInitialSubscription: this._hasInitialSubscription,
+      lifecycleVersion: this._subscriptionLifecycleVersion,
+      activeCount: this._activeSubscriptions.size,
+    });
   }
 
   @backgroundMethod()
   async enableSubscriptionsHandler(): Promise<void> {
     this.subscriptionsHandlerDisabled = false;
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+      source: 'bg',
+      event: 'enable_subscriptions_handler',
+      disabled: this.subscriptionsHandlerDisabled,
+      disabledCount: this.subscriptionsHandlerDisabledCount,
+      hasInitialSubscription: this._hasInitialSubscription,
+      lifecycleVersion: this._subscriptionLifecycleVersion,
+      activeCount: this._activeSubscriptions.size,
+    });
     if (this.hasNewUserFills) {
       this.hasNewUserFills = false;
       void perpsTradesHistoryRefreshHookAtom.set({
@@ -837,6 +968,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     spotAssetCtxsEnabled: boolean;
     spotEnabled: boolean;
   }): Promise<void> {
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+      source: 'bg',
+      event: 'set_route_subscription_state',
+      enableLedgerUpdates: params.enableLedgerUpdates,
+      spotAssetCtxsEnabled: params.spotAssetCtxsEnabled,
+      spotEnabled: params.spotEnabled,
+      disabled: this.subscriptionsHandlerDisabled,
+      disabledCount: this.subscriptionsHandlerDisabledCount,
+      lifecycleVersion: this._subscriptionLifecycleVersion,
+    });
     // enableLedgerUpdates is a one-way toggle (set true by enableLedgerUpdatesSubscription
     // when user visits Account tab). Never reset to false — planTradeSubscriptions cannot
     // reliably compute this since infoPanelTab is not synced to real tab state.
@@ -953,6 +1094,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         client: params.client,
         timeoutMs:
           ServiceHyperliquidSubscription.SUBSCRIPTION_UPDATE_OPEN_WAIT_MS,
+      });
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+        source: 'bg',
+        event: 'recover_not_open_socket',
+        reason: params.reason,
+        readyState: params.client.transport?.socket?.readyState ?? null,
+        socketOpen: isOpen,
+        disabled: this.subscriptionsHandlerDisabled,
+        disabledCount: this.subscriptionsHandlerDisabledCount,
+        hasInitialSubscription: this._hasInitialSubscription,
+        lifecycleVersion: this._subscriptionLifecycleVersion,
       });
       if (isOpen) {
         this._watchSubscriptionAtoms();
@@ -1154,6 +1306,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
       await timerUtils.wait(600); // wait network status atom update
       const currentClient = this._client;
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+        source: 'bg',
+        event: 'socket_open_after_wait',
+        readyState: currentClient?.transport?.socket?.readyState ?? null,
+        socketOpen:
+          currentClient?.transport?.socket?.readyState === WebSocket.OPEN,
+        disabled: this.subscriptionsHandlerDisabled,
+        disabledCount: this.subscriptionsHandlerDisabledCount,
+        hasInitialSubscription: this._hasInitialSubscription,
+        lifecycleVersion: this._subscriptionLifecycleVersion,
+      });
       if (
         !currentClient ||
         currentClient !== openClient ||
@@ -1459,6 +1622,24 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         toCreateSubscriptions.push(spec);
       }
     });
+    const pendingSpecs = Object.values(this.pendingSubSpecsMap);
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+      source: 'bg',
+      event: 'execute_subscription_changes',
+      pendingCount: pendingSpecs.length,
+      activeCount: this._activeSubscriptions.size,
+      toCreateCount: toCreateSubscriptions.length,
+      hasAllDexsAssetCtxs: pendingSpecs.some(
+        (spec) => spec.type === ESubscriptionType.ALL_DEXS_ASSET_CTXS,
+      ),
+      hasL2Book: pendingSpecs.some(
+        (spec) => spec.type === ESubscriptionType.L2_BOOK,
+      ),
+      disabled: this.subscriptionsHandlerDisabled,
+      disabledCount: this.subscriptionsHandlerDisabledCount,
+      hasInitialSubscription: this._hasInitialSubscription,
+      lifecycleVersion: this._subscriptionLifecycleVersion,
+    });
 
     this.destroyUnusedSubscriptions();
 
@@ -1492,6 +1673,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     try {
+      if (
+        spec.type === ESubscriptionType.ALL_DEXS_ASSET_CTXS ||
+        spec.type === ESubscriptionType.L2_BOOK
+      ) {
+        defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+          source: 'bg',
+          event: 'create_critical_subscription_start',
+          subscriptionType: spec.type,
+          activeCount: this._activeSubscriptions.size,
+          disabled: this.subscriptionsHandlerDisabled,
+          disabledCount: this.subscriptionsHandlerDisabledCount,
+          hasInitialSubscription: this._hasInitialSubscription,
+          lifecycleVersion: this._subscriptionLifecycleVersion,
+        });
+      }
       const _sdkSubscription = await this._createSubscriptionDirect(spec);
       this._activeSubscriptions.set(spec.key, {
         key: spec.key,
@@ -1501,6 +1697,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         lastActivity: Date.now(),
         isActive: true,
       });
+      if (
+        spec.type === ESubscriptionType.ALL_DEXS_ASSET_CTXS ||
+        spec.type === ESubscriptionType.L2_BOOK
+      ) {
+        defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+          source: 'bg',
+          event: 'create_critical_subscription_done',
+          subscriptionType: spec.type,
+          activeCount: this._activeSubscriptions.size,
+          disabled: this.subscriptionsHandlerDisabled,
+          disabledCount: this.subscriptionsHandlerDisabledCount,
+          hasInitialSubscription: this._hasInitialSubscription,
+          lifecycleVersion: this._subscriptionLifecycleVersion,
+        });
+      }
     } catch (error) {
       console.error(
         `[ServiceHyperliquidSubscription.createSubscription] Failed to create subscription ${spec.type}:`,
@@ -1651,6 +1862,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const messageTimestamp = Date.now();
       this._markSubscriptionActivity(subscriptionType, messageTimestamp);
       this._cacheMarketDataSnapshot(subscriptionType, data, messageTimestamp);
+      this._logFirstCriticalSubscriptionData(subscriptionType);
 
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
         // Cache allMids in background for spot balance USD calculation
