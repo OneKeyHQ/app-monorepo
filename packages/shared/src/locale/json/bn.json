@@ -5136,7 +5136,6 @@
   "wallet.pay_with_usdt": "USDT দিয়ে পরিশোধ করুন",
   "wallet.positions_empty_desc": "আপনার পজিশনগুলি এখানে দেখা যাবে",
   "wallet.price_unavailable": "কোনো মূল্য উপলব্ধ নেই",
-  "wallet.partial_price_unavailable": "Some prices are unavailable",
   "wallet.receive_note_fresh_address": "এই ঠিকানায় শুধুমাত্র বিটকয়েন নেটওয়ার্কের সম্পদ পাঠান। প্রতিটি লেনদেনের জন্য একটি নতুন ঠিকানা তৈরি করা হয়, <url>https://app.onekey.so/receive/btcaddresses<underline><bold>পূর্বের ঠিকানাগুলো</bold></underline></url> বৈধ থাকে।",
   "wallet.receive_token_instruction": "অন্যান্য ওয়ালেট থেকে ডিপোজিট",
   "wallet.recent_transaction_history_title": "সাম্প্রতিক কার্যকলাপ",

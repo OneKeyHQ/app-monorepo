@@ -5136,7 +5136,6 @@
   "wallet.pay_with_usdt": "ชำระเงินด้วย USDT",
   "wallet.positions_empty_desc": "โพซิชันของคุณจะแสดงที่นี่",
   "wallet.price_unavailable": "ไม่มีข้อมูลราคา",
-  "wallet.partial_price_unavailable": "Some prices are unavailable",
   "wallet.receive_note_fresh_address": "ส่งเฉพาะสินทรัพย์บนเครือข่าย Bitcoin มายังที่อยู่นี้ จะมีการสร้างที่อยู่ใหม่สำหรับแต่ละธุรกรรม โดยที่ <url>https://app.onekey.so/receive/btcaddresses<underline><bold>ที่อยู่ก่อนหน้า</bold></underline></url> ยังคงใช้ได้",
   "wallet.receive_token_instruction": "ฝากจากกระเป๋าเงินอื่นๆ",
   "wallet.recent_transaction_history_title": "กิจกรรมล่าสุด",

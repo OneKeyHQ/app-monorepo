@@ -5136,7 +5136,6 @@
   "wallet.pay_with_usdt": "使用 USDT 付款",
   "wallet.positions_empty_desc": "您的倉位將顯示在此處",
   "wallet.price_unavailable": "暫無價格",
-  "wallet.partial_price_unavailable": "部分價格缺失",
   "wallet.receive_note_fresh_address": "僅支援接收 Bitcoin 網路資產。每筆交易都會產生新地址，<url>https://app.onekey.so/receive/btcaddresses<underline><bold>先前的地址</bold></underline></url>仍然有效。",
   "wallet.receive_token_instruction": "從其他錢包轉入資產",
   "wallet.recent_transaction_history_title": "最近活動",

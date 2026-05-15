@@ -5136,7 +5136,6 @@
   "wallet.pay_with_usdt": "Thanh toán bằng USDT",
   "wallet.positions_empty_desc": "Vị thế của bạn sẽ hiển thị tại đây",
   "wallet.price_unavailable": "Không có giá khả dụng",
-  "wallet.partial_price_unavailable": "Some prices are unavailable",
   "wallet.receive_note_fresh_address": "Chỉ gửi tài sản trên mạng Bitcoin đến địa chỉ này. Một địa chỉ mới được tạo cho mỗi giao dịch, <url>https://app.onekey.so/receive/btcaddresses<underline><bold>các địa chỉ trước đây</bold></underline></url> vẫn có hiệu lực.",
   "wallet.receive_token_instruction": "Nạp từ các ví khác",
   "wallet.recent_transaction_history_title": "Hoạt động gần đây",

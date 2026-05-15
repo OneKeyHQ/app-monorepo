@@ -5136,7 +5136,6 @@
   "wallet.pay_with_usdt": "USDT से भुगतान करें",
   "wallet.positions_empty_desc": "आपकी पोज़िशन्स यहाँ दिखाई देंगी",
   "wallet.price_unavailable": "कोई मूल्य उपलब्ध नहीं है",
-  "wallet.partial_price_unavailable": "Some prices are unavailable",
   "wallet.receive_note_fresh_address": "केवल Bitcoin नेटवर्क की संपत्तियाँ इस पते पर भेजें। हर लेन-देन के लिए एक नया पता बनाया जाता है, <url>https://app.onekey.so/receive/btcaddresses<underline><bold>पहले के पते</bold></underline></url> वैध बने रहते हैं।",
   "wallet.receive_token_instruction": "अन्य वॉलेट्स से जमा करें",
   "wallet.recent_transaction_history_title": "हाल की गतिविधि",
