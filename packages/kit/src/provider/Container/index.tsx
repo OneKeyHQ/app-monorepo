@@ -1,9 +1,18 @@
+import { useEffect } from 'react';
+
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
-import { ESplitViewType, SplitViewContext } from '@onekeyhq/components';
+import {
+  ESplitViewType,
+  SplitViewContext,
+  isNativeTablet,
+} from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { setSplitViewLayoutDisabled } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -97,6 +106,33 @@ export function Container() {
     debugLandingLog('Container render');
   }
   const shouldUseSplitView = useShouldUseSplitView();
+
+  // Tell the dual-screen width helper whether the app is rendering as a single
+  // logical pane. Without this, a foldable Android in spanning mode would
+  // always halve the tab-container width even after the user disabled the
+  // split-view setting — leaving Wallet/Home content stuck on the left half.
+  useEffect(() => {
+    setSplitViewLayoutDisabled(!shouldUseSplitView);
+  }, [shouldUseSplitView]);
+
+  // iPad allows all orientations via Info.plist (UISupportedInterfaceOrientations~ipad).
+  // When the user opts out of the split-view layout, the single-pane UI is only
+  // designed for portrait — so lock the device to portrait. Android already
+  // forces portrait at the AndroidManifest level, so this only matters on iPad.
+  // Toggling enableSplitView restarts the app, so this effect only needs to run
+  // once per boot.
+  useEffect(() => {
+    if (!platformEnv.isNativeIOS) return;
+    if (!isNativeTablet()) return;
+    if (shouldUseSplitView) {
+      ScreenOrientation.unlockAsync().catch(() => {});
+    } else {
+      ScreenOrientation.lockAsync(
+        ScreenOrientation.OrientationLock.PORTRAIT,
+      ).catch(() => {});
+    }
+  }, [shouldUseSplitView]);
+
   if (shouldUseSplitView) {
     return (
       <RootSiblingParent>
