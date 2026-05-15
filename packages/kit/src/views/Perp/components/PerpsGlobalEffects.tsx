@@ -600,22 +600,33 @@ function WebSocketSubscriptionUpdate() {
 
 function useHyperliquidSymbolSelect() {
   const actions = useHyperliquidActions();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const activeTradeInstrumentRef = useRef(activeTradeInstrument);
+  activeTradeInstrumentRef.current = activeTradeInstrument;
+  const isInitializingRef = useRef(false);
 
-  useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
-    if (!resolvePerpRouteFocused(isFocus)) return;
-    void (async () => {
+  const selectInitialSymbol = useCallback(async () => {
+    if (isInitializingRef.current) {
+      return;
+    }
+    isInitializingRef.current = true;
+    try {
       // OK-53208: latch lives in ServiceHyperliquid (singleton) so that
       // Perp tab detach/remount does not re-trigger this init.
       const claimed =
         await backgroundApiProxy.serviceHyperliquid.tryClaimInitialSymbolSelect();
-      if (!claimed) return;
-      await Promise.all([
-        backgroundApiProxy.serviceHyperliquid.refreshTradingMeta(),
-        // Spot meta failure must not block perps initialization
-        backgroundApiProxy.serviceHyperliquid.refreshSpotMeta().catch((e) => {
-          console.error('refreshSpotMeta failed (non-blocking):', e);
-        }),
-      ]);
+      if (!claimed && activeTradeInstrumentRef.current?.coin) {
+        return;
+      }
+      if (claimed) {
+        await Promise.all([
+          backgroundApiProxy.serviceHyperliquid.refreshTradingMeta(),
+          // Spot meta failure must not block perps initialization
+          backgroundApiProxy.serviceHyperliquid.refreshSpotMeta().catch((e) => {
+            console.error('refreshSpotMeta failed (non-blocking):', e);
+          }),
+        ]);
+      }
       const currentMode = await tradingModeAtom.get();
       const currentPerpToken = await perpsActiveAssetAtom.get();
       const currentSpotToken = await spotActiveAssetAtom.get();
@@ -632,8 +643,22 @@ function useHyperliquidSymbolSelect() {
         spotUniverse:
           nextMode === 'spot' ? currentSpotToken?.universe : undefined,
       });
-    })();
+    } finally {
+      isInitializingRef.current = false;
+    }
+  }, [actions]);
+
+  useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
+    if (!resolvePerpRouteFocused(isFocus)) return;
+    void selectInitialSymbol();
   });
+
+  useEffect(() => {
+    if (!shouldTreatPerpAsFocusedOnMount) {
+      return;
+    }
+    void selectInitialSymbol();
+  }, [selectInitialSymbol]);
 }
 
 function useHyperliquidScreenLockHandler() {
@@ -677,7 +702,12 @@ function useHyperliquidLocaleChangeRecovery() {
 
   const recoverSubscriptions = useCallback(async () => {
     await backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
-    await backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions();
+    await backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions(
+      {
+        forceRebuild: true,
+        forceReconnect: platformEnv.isNativeIOS,
+      },
+    );
     await actions.current.updateSubscriptions();
     await backgroundApiProxy.serviceHyperliquidSubscription.forceReloadCandlesWebview();
   }, [actions]);
