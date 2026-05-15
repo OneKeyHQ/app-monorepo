@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 const assert = require('node:assert/strict');
+const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
-const { spawn, spawnSync } = require('node:child_process');
 
 const { _electron: electron } = require('playwright-core');
 
@@ -165,7 +165,7 @@ async function startRenderer() {
   try {
     await waitForRenderer(rendererUrl, child, RENDERER_TIMEOUT_MS);
   } catch (error) {
-    throw new Error(`${error.message}\n\nRenderer output tail:\n${output}`);
+    throw new Error(`${error.message}\n\nRenderer output tail:\n${output}`, { cause: error });
   }
 
   return { child, rendererUrl };
@@ -380,7 +380,11 @@ async function openBrowserTab(page) {
   }
 
   let directBrowserTab =
-    (await findVisibleLocator(page, ['[data-testid="multitabbrowser"]'], 2000)) ||
+    (await findVisibleLocator(
+      page,
+      ['[data-testid="multitabbrowser"]'],
+      2000,
+    )) ||
     (await findExactTextLocator(
       page,
       'Browser',
@@ -505,18 +509,17 @@ async function main() {
     });
 
     page = await app.firstWindow({ timeout: APP_TIMEOUT_MS });
-    await page.waitForURL(
-      (url) => url.toString().startsWith(rendererUrl),
-      { timeout: APP_TIMEOUT_MS },
-    );
+    await page.waitForURL((url) => url.toString().startsWith(rendererUrl), {
+      timeout: APP_TIMEOUT_MS,
+    });
 
     await runBrowserOpenUrlFlow(page);
   } catch (error) {
     if (page) {
       const screenshotPath = path.join(artifactDir, 'open-url-failure.png');
-      await page.screenshot({ path: screenshotPath, fullPage: true }).catch(
-        () => {},
-      );
+      await page
+        .screenshot({ path: screenshotPath, fullPage: true })
+        .catch(() => {});
       log(`failure screenshot: ${screenshotPath}`);
     }
     throw error;
