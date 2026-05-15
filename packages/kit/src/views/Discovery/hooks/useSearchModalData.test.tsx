@@ -390,6 +390,51 @@ describe('useSearchModalData', () => {
     });
   });
 
+  it('adds an exact local URL result for localhost input without relying on remote search', async () => {
+    const { result } = renderHook(() => useSearchModalData('localhost:3000'));
+
+    await waitFor(() => {
+      expect(result.current.searchList[0]).toEqual(
+        expect.objectContaining({
+          type: 'dapp',
+          source: 'remote',
+          title: 'http://localhost:3000',
+          url: 'http://localhost:3000',
+          isExactUrl: true,
+        }),
+      );
+    });
+
+    expect(serviceDiscoveryMock.searchDApp).not.toHaveBeenCalled();
+    expect(result.current.searchList).toEqual([
+      expect.objectContaining({
+        type: 'dapp',
+        url: 'http://localhost:3000',
+      }),
+      expect.objectContaining({
+        type: 'search-action',
+      }),
+    ]);
+  });
+
+  it('adds an exact HTTP URL result for bare IP input', async () => {
+    const { result } = renderHook(() => useSearchModalData('6.6.6.6:8080'));
+
+    await waitFor(() => {
+      expect(result.current.searchList[0]).toEqual(
+        expect.objectContaining({
+          type: 'dapp',
+          source: 'remote',
+          title: 'http://6.6.6.6:8080',
+          url: 'http://6.6.6.6:8080',
+          isExactUrl: true,
+        }),
+      );
+    });
+
+    expect(serviceDiscoveryMock.searchDApp).not.toHaveBeenCalled();
+  });
+
   it('requests remote search for queries longer than three characters when review control is enabled', async () => {
     reviewControlMock.mockReturnValue(true);
 
