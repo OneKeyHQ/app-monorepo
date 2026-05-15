@@ -39,6 +39,8 @@ export const MarketTestIDs = {
   // Token liquidity pools row
   liquidityPoolCopyAddressBtn: 'market-liquidity-pool-copy-address-btn',
   liquidityPoolOpenAddressBtn: 'market-liquidity-pool-open-address-btn',
+  liquidityPoolExpandTokenAmountsBtn:
+    'market-liquidity-pool-expand-token-amounts-btn',
 
   // Token selector row
   tokenSelectorRowStarBtn: 'market-token-selector-row-star-btn',

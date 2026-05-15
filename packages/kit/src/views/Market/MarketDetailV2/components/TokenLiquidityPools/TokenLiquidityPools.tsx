@@ -8,6 +8,7 @@ import {
   Dialog,
   Divider,
   Icon,
+  IconButton,
   Image,
   InteractiveIcon,
   NumberSizeableText,
@@ -798,6 +799,16 @@ function AddressActions({
 }
 
 function TokenAmountLines({ tokens }: { tokens: IDisplayPoolToken[] }) {
+  const labels = useLiquidityPoolLabels();
+
+  const handleShowAllTokenAmounts = useCallback(() => {
+    Dialog.show({
+      title: labels.tokenAmount,
+      renderContent: <TokenAmountListDialogContent tokens={tokens} />,
+      showFooter: false,
+    });
+  }, [labels.tokenAmount, tokens]);
+
   if (!tokens.length) {
     return (
       <SizableText size="$bodyMd" color="$text">
@@ -807,40 +818,90 @@ function TokenAmountLines({ tokens }: { tokens: IDisplayPoolToken[] }) {
   }
 
   return (
-    <YStack>
-      {tokens.slice(0, 2).map((token) =>
-        token.amount === FALLBACK_VALUE ? (
-          <SizableText
-            key={token.key}
-            size="$bodyMd"
-            color="$text"
-            numberOfLines={1}
-          >
-            {FALLBACK_VALUE}
-          </SizableText>
-        ) : (
-          <XStack key={token.key} ai="center" gap="$1" minWidth={0}>
-            <NumberSizeableText
+    <XStack ai="center" gap="$1" minWidth={0}>
+      <YStack minWidth={0} flexShrink={1}>
+        {tokens.slice(0, 2).map((token) =>
+          token.amount === FALLBACK_VALUE ? (
+            <SizableText
+              key={token.key}
               size="$bodyMd"
               color="$text"
-              autoFormatter="balance-marketCap"
-              autoFormatterThreshold={TOKEN_AMOUNT_COMPACT_THRESHOLD}
               numberOfLines={1}
-              ellipsizeMode="tail"
-              flexShrink={1}
             >
-              {token.amount}
-            </NumberSizeableText>
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              numberOfLines={1}
-              flexShrink={1}
-            >
-              {token.symbol}
+              {FALLBACK_VALUE}
             </SizableText>
-          </XStack>
-        ),
+          ) : (
+            <XStack key={token.key} ai="center" gap="$1" minWidth={0}>
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$text"
+                autoFormatter="balance-marketCap"
+                autoFormatterThreshold={TOKEN_AMOUNT_COMPACT_THRESHOLD}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                flexShrink={1}
+              >
+                {token.amount}
+              </NumberSizeableText>
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {token.symbol}
+              </SizableText>
+            </XStack>
+          ),
+        )}
+      </YStack>
+      {tokens.length > 2 ? (
+        <IconButton
+          testID={MarketTestIDs.liquidityPoolExpandTokenAmountsBtn}
+          icon="ChevronDownSmallOutline"
+          title={labels.tokenAmount}
+          variant="tertiary"
+          size="small"
+          iconSize="$4"
+          onPress={handleShowAllTokenAmounts}
+          flexShrink={0}
+          m="$0"
+        />
+      ) : null}
+    </XStack>
+  );
+}
+
+function TokenAmountListDialogContent({
+  tokens,
+}: {
+  tokens: IDisplayPoolToken[];
+}) {
+  const intl = useIntl();
+  const labels = useLiquidityPoolLabels();
+  const shouldScrollTokenRows =
+    tokens.length > POOL_DETAIL_TOKEN_LIST_SCROLL_THRESHOLD;
+  const tokenRows = <DetailTokenRows tokens={tokens} />;
+
+  return (
+    <YStack pb="$5" gap="$4">
+      <XStack ai="center" jc="space-between">
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.dexmarket_select_token })}
+        </SizableText>
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {labels.tokenAmount}
+        </SizableText>
+      </XStack>
+      {shouldScrollTokenRows ? (
+        <ScrollView
+          maxHeight={POOL_DETAIL_TOKEN_LIST_MAX_HEIGHT}
+          nestedScrollEnabled
+        >
+          {tokenRows}
+        </ScrollView>
+      ) : (
+        tokenRows
       )}
     </YStack>
   );
