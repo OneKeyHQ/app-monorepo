@@ -55,6 +55,7 @@ const validChannels = new Set([
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
   ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
   ipcMessageKeys.SHOW_ABOUT_WINDOW,
+  ipcMessageKeys.CPU_WATCHDOG_OPEN_EXPORT_LOGS,
   'memory-pressure-warning',
   'memory-pressure-critical',
   'gpu-process-crashed',
@@ -153,6 +154,23 @@ const desktopApi = {
   },
   isFocused: () => ipcRenderer.sendSync(ipcMessageKeys.APP_IS_FOCUSED),
   testCrash: () => ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH),
+  // Dev-only watchdog test entrypoints. Only attached in dev builds so the
+  // channel is absent from the production renderer surface — a tainted page
+  // cannot call them. The matching ipcMain listeners in app.ts are also
+  // dev-gated.
+  ...(isDev
+    ? {
+        forceCpuWatchdog: (
+          reason:
+            | 'sustained-high-cpu-severe'
+            | 'sustained-high-cpu-mild'
+            | 'unresponsive',
+        ) =>
+          ipcRenderer.send(ipcMessageKeys.CPU_WATCHDOG_FORCE_TRIGGER, reason),
+        resetCpuWatchdogCooldown: () =>
+          ipcRenderer.send(ipcMessageKeys.CPU_WATCHDOG_RESET_COOLDOWN),
+      }
+    : {}),
   touchUpdateResource: (params: {
     resourceUrl: string;
     dialogTitle: string;

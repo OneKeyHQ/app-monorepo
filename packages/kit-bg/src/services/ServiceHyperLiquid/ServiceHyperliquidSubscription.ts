@@ -16,6 +16,11 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isAppVisible } from '@onekeyhq/shared/src/utils/appVisibility';
+import {
+  clearTrackedInterval,
+  trackedSetInterval,
+} from '@onekeyhq/shared/src/utils/timerRegistry';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS,
@@ -116,6 +121,16 @@ interface ISubscriptionUpdateParams {
 export default class ServiceHyperliquidSubscription extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     super({ backgroundApi });
+    // Drop the heaviest per-account fills memo on critical memory
+    // pressure. We deliberately keep the live WebSocket + per-route
+    // subscriptions intact: a full disconnect() leaves the foreground
+    // Perp page stuck on stale price/orderbook/userFlow data — nothing
+    // re-arms updateSubscriptions() while connected=false, so the page
+    // appears frozen until the user navigates away and back.
+    appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
+      if (event.level !== 'critical') return;
+      this.backgroundApi.serviceHyperliquid._getUserFillsByTimeMemo.clear();
+    });
   }
 
   private _client: IHyperliquidWsClient | null = null;
@@ -1786,14 +1801,24 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._stopPingLoop();
     // Measure immediately on connect, then periodically
     void this._measurePing();
-    this._pingIntervalTimer = setInterval(() => {
-      void this._measurePing();
-    }, 3000);
+    this._pingIntervalTimer = trackedSetInterval(
+      'hyperliquid:ping',
+      () => {
+        // Defense: skip when the app is not visible (desktop window
+        // unfocused, web tab hidden, or RN app backgrounded). The pingMs
+        // value drives a UI indicator the user can not see, and the WS
+        // layer maintains its own liveness signal. Avoids ~1,200
+        // allocation/atom-write cycles per hour of background uptime.
+        if (!isAppVisible()) return;
+        void this._measurePing();
+      },
+      3000,
+    );
   }
 
   private _stopPingLoop(): void {
     if (this._pingIntervalTimer) {
-      clearInterval(this._pingIntervalTimer);
+      clearTrackedInterval(this._pingIntervalTimer);
       this._pingIntervalTimer = null;
     }
   }

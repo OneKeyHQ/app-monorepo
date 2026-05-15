@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
@@ -296,6 +297,7 @@ export default class ServiceSwap extends ServiceBase {
     onlyAccountTokens,
     isAllNetworkFetchAccountTokens,
     protocol,
+    lpToken,
   }: IFetchTokensParams): Promise<ISwapToken[]> {
     if (!isAllNetworkFetchAccountTokens) {
       await this.cancelFetchTokenList();
@@ -317,6 +319,7 @@ export default class ServiceSwap extends ServiceBase {
       accountNetworkId,
       skipReservationValue: true,
       onlyAccountTokens,
+      ...(shouldSendSwapLpTokenParam(lpToken) ? { lpToken } : {}),
     };
     if (!isAllNetworkFetchAccountTokens) {
       this._tokenListAbortController = new AbortController();

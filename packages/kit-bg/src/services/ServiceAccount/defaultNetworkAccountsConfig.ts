@@ -187,25 +187,42 @@ export async function buildDefaultAddAccountNetworks(
     });
   }
 
-  // Third-party HW (Ledger, Trezor) + add-account → only current network,
-  // but BTC need all derive types expanded
+  // Third-party HW (Ledger, Trezor) + add-account with explicit networks
+  // should only create those networks, while All Networks default add-account
+  // uses the same default network set as OneKey devices.
   if (!params.isCreateWallet) {
     const isThirdPartyHw =
       await backgroundApi.serviceAccount.isThirdPartyHwByWalletId({
         walletId,
       });
     if (isThirdPartyHw) {
-      const hasBtc = params.customNetworks?.some(
-        (n) =>
-          networkUtils.getNetworkImpl({ networkId: n.networkId }) === IMPL_BTC,
-      );
-      if (hasBtc) {
-        return buildAddAccountsNetworks({
-          ...params,
-          btc: hasBtc,
+      const isOnlyAllNetwork =
+        params.customNetworks?.length === 1 &&
+        networkUtils.isAllNetwork({
+          networkId: params.customNetworks[0].networkId,
         });
+      if (params.customNetworks?.length && !isOnlyAllNetwork) {
+        const hasBtc = params.customNetworks.some(
+          (n) =>
+            networkUtils.getNetworkImpl({ networkId: n.networkId }) ===
+            IMPL_BTC,
+        );
+        if (hasBtc) {
+          return buildAddAccountsNetworks({
+            ...params,
+            btc: hasBtc,
+          });
+        }
+        return [];
       }
-      return [];
+
+      return buildAddAccountsNetworks({
+        ...params,
+        btc: true,
+        evm: true,
+        tron: true,
+        sol: true,
+      });
     }
   }
 

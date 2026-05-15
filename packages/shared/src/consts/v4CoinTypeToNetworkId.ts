@@ -1,5 +1,4 @@
-import type { INetworkShortCode } from '@onekeyhq/shared/src/config/networkIds';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { getNetworkIdsMap } from '../config/networkIds';
 import {
   COINTYPE_ADA,
   COINTYPE_ALGO,
@@ -27,10 +26,11 @@ import {
   COINTYPE_SUI,
   COINTYPE_TBTC,
   COINTYPE_TRON,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   COINTYPE_XMR,
   COINTYPE_XRP,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+} from '../engine/engineConsts';
+
+import type { INetworkShortCode } from '../config/networkIds';
 
 const networkIdsMap = getNetworkIdsMap();
 export const v4CoinTypeToNetworkId: Partial<

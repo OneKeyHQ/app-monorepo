@@ -168,6 +168,7 @@ export default function LedgerConnectionFlow() {
       1500, // pollInterval — 1.5s between polls
       MAX_TRY_COUNT, // maxTryCount — search for up to ~90s
       vendor,
+      { resetSession: true },
     );
   }, [deviceScanner, vendor, tabValue, intl]);
 

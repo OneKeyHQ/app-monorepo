@@ -308,7 +308,7 @@ export default function BackupWalletReminder() {
 
         <OnboardingSidebar
           gap="$4"
-          $md={{ mt: 'auto' }}
+          $md={{ mt: 'auto', pb: '$5' }}
           $gtMd={{ justifyContent: 'center', alignItems: 'center' }}
         >
           <AnimatePresence initial={false} exitBeforeEnter>

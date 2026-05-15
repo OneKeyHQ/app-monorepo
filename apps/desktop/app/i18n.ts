@@ -61,4 +61,19 @@ export const initLocale = async () => {
 
 export const i18nText = (key: ETranslations) => globalMessages[key];
 
+// Lightweight {placeholder} interpolation for main-process i18n.
+// Mirrors react-intl's syntax for the simple variable substitution case so
+// the same translation keys can be reused on both sides.
+export const i18nFormat = (
+  key: ETranslations,
+  values?: Record<string, string | number>,
+) => {
+  const template = globalMessages[key];
+  if (!template) return key as unknown as string;
+  if (!values) return template;
+  return template.replace(/\{(\w+)\}/g, (_match, name: string) =>
+    values[name] === undefined ? `{${name}}` : String(values[name]),
+  );
+};
+
 export const ElectronTranslations = ETranslationsShared;
