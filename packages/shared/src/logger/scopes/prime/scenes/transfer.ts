@@ -429,4 +429,31 @@ export class PrimeTransferScene extends BaseScene {
   }) {
     return { sinceConnectMs, sinceLastPingMs };
   }
+
+  // Verification probe for the "setTimeout fires too early on bg Hermes"
+  // hypothesis. Each call schedules setTimeout(fn, scheduledDelayMs) at a
+  // known moment and reports the actual wall-clock elapsed when the
+  // callback fires. On a healthy timer infrastructure actualElapsedMs is
+  // within ±50ms of scheduledDelayMs; if it's an order of magnitude
+  // smaller, the timer is firing prematurely. Run from both main and bg
+  // runtimes so the two can be compared head-to-head.
+  @LogToLocal({ level: 'info' })
+  public timerSanityCheck({
+    scheduledDelayMs,
+    actualElapsedMs,
+    runtimeKind,
+    enableNativeBackgroundThread,
+  }: {
+    scheduledDelayMs: number;
+    actualElapsedMs: number;
+    runtimeKind: string | undefined;
+    enableNativeBackgroundThread: boolean;
+  }) {
+    return {
+      scheduledDelayMs,
+      actualElapsedMs,
+      runtimeKind,
+      enableNativeBackgroundThread,
+    };
+  }
 }

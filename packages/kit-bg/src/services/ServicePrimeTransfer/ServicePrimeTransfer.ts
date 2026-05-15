@@ -368,6 +368,28 @@ class ServicePrimeTransfer extends ServiceBase {
         sinceInitMs: Date.now() - initWsEnteredAt,
       });
 
+      // setTimeout sanity probes. engine.io's pingTimeout watchdog uses
+      // setTimeout(fn, pingInterval + pingTimeout) — a ~85s timer in our
+      // server's config. Round-3 logs showed that timer firing in <1s on
+      // the bg runtime, which would explain the perpetual ping-timeout
+      // loop. These three probes (1s / 10s / 30s) measure the actual
+      // delivery delay so we can confirm whether setTimeout itself is
+      // broken on bg Hermes, and on which range. The 30s probe is
+      // intentionally above any realistic socket session lifetime, so it
+      // will only complete if the timer is honest.
+      [1000, 10000, 30000].forEach((scheduledDelayMs) => {
+        const scheduledAt = Date.now();
+        setTimeout(() => {
+          defaultLogger.prime.transfer.timerSanityCheck({
+            scheduledDelayMs,
+            actualElapsedMs: Date.now() - scheduledAt,
+            runtimeKind: platformEnv.nativeRuntimeKind,
+            enableNativeBackgroundThread:
+              !!platformEnv.enableNativeBackgroundThread,
+          });
+        }, scheduledDelayMs);
+      });
+
       // Fire a parallel HTTPS GET to /health from this runtime. If a BG-side
       // probe fails while the UI-side probe (in PagePrimeTransfer.tsx)
       // succeeds, the bug is bg-thread networking — not the server.
@@ -400,6 +422,14 @@ class ServicePrimeTransfer extends ServiceBase {
         reconnectionAttempts: RECONNECTION_ATTEMPTS,
         reconnectionDelay: RECONNECTION_DELAY,
         reconnectionDelayMax: RECONNECTION_DELAY_MAX,
+        // Zero-cost workaround attempt: bypass any potential setTimeout
+        // wrapper by asking engine.io-client to use its captured "native"
+        // timer functions instead of `globalThis.setTimeout` dynamically.
+        // If the bg-Hermes setTimeout polyfill is what's firing the
+        // pingTimeoutTimer early, switching to the cached reference
+        // (captured at engine.io-client module load time) MAY sidestep it.
+        // See `installTimerFunctions` in engine.io-client.
+        useNativeTimers: true,
         auth: {
           // instanceId: settings.instanceId,
         },
