@@ -343,4 +343,90 @@ export class PrimeTransferScene extends BaseScene {
   public disconnectError({ stage, error }: { stage: string; error: string }) {
     return { stage, error };
   }
+
+  // engine.io handshake response from the server. The server is the
+  // authoritative source for pingInterval / pingTimeout — both threads (main
+  // vs background) MUST receive the same values here. If they differ, the
+  // problem is at the polling response layer; if they match, the timer fires
+  // for a reason other than "wrong configured value."
+  @LogToLocal({ level: 'info' })
+  public engineHandshake({
+    source,
+    sid,
+    pingInterval,
+    pingTimeout,
+    upgrades,
+    maxPayload,
+    transport,
+  }: {
+    source: 'manager-open' | 'engine-handshake';
+    sid: string | undefined;
+    pingInterval: number | undefined;
+    pingTimeout: number | undefined;
+    upgrades: string[] | undefined;
+    maxPayload: number | undefined;
+    transport: string | undefined;
+  }) {
+    return {
+      source,
+      sid,
+      pingInterval,
+      pingTimeout,
+      upgrades,
+      maxPayload,
+      transport,
+    };
+  }
+
+  // Every packet that the engine.io layer RECEIVES. Engine packet types are
+  // numeric: 0=open, 1=close, 2=ping, 3=pong, 4=message, 5=upgrade, 6=noop.
+  // Decoded names are emitted as strings so logs are scannable. If we never
+  // see type=2 (ping) it means server-side ping is not reaching the client
+  // — hypothesis A. If we see ping but no outgoing pong, hypothesis B.
+  @LogToLocal({ level: 'info' })
+  public enginePacketIn({
+    type,
+    dataLength,
+    sinceConnectMs,
+    sinceLastPacketInMs,
+  }: {
+    type: string | undefined;
+    dataLength: number | undefined;
+    sinceConnectMs: number;
+    sinceLastPacketInMs: number | undefined;
+  }) {
+    return { type, dataLength, sinceConnectMs, sinceLastPacketInMs };
+  }
+
+  // Every packet the engine.io layer is ABOUT TO SEND (packetCreate). Pong
+  // (type=3) responses to server pings are auto-created by engine.io's
+  // heartbeat path. If a ping arrives in enginePacketIn but no matching pong
+  // appears in enginePacketOut, the client knows about the ping but cannot
+  // write the response — hypothesis B (bg-thread XHR can't POST in time).
+  @LogToLocal({ level: 'info' })
+  public enginePacketOut({
+    type,
+    dataLength,
+    sinceConnectMs,
+  }: {
+    type: string | undefined;
+    dataLength: number | undefined;
+    sinceConnectMs: number;
+  }) {
+    return { type, dataLength, sinceConnectMs };
+  }
+
+  // Manager-level 'ping' event — fired on socket.io v4 Manager when the
+  // client has just received a server ping (and is about to auto-pong).
+  // Cross-checks enginePacketIn(type=ping); also gives a clean cadence view.
+  @LogToLocal({ level: 'info' })
+  public managerPing({
+    sinceConnectMs,
+    sinceLastPingMs,
+  }: {
+    sinceConnectMs: number;
+    sinceLastPingMs: number | undefined;
+  }) {
+    return { sinceConnectMs, sinceLastPingMs };
+  }
 }

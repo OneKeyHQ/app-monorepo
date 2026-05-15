@@ -580,6 +580,108 @@ class ServicePrimeTransfer extends ServiceBase {
               elapsedMs: Date.now() - connectStartedAt,
             });
           });
+          // Manager-level 'ping' fires whenever the client receives an
+          // engine.io ping packet from the server (engine.io auto-pongs).
+          // This is the cleanest signal for "is the server's heartbeat
+          // actually reaching the client" — independent of the raw packet
+          // listener we attach to the engine below.
+          let managerLastPingAt: number | undefined;
+          manager.on('ping', () => {
+            const nowMs = Date.now();
+            defaultLogger.prime.transfer.managerPing({
+              sinceConnectMs: nowMs - connectStartedAt,
+              sinceLastPingMs:
+                managerLastPingAt !== undefined
+                  ? nowMs - managerLastPingAt
+                  : undefined,
+            });
+            managerLastPingAt = nowMs;
+          });
+          // The engine.io socket is destroyed and rebuilt on every
+          // reconnect attempt. Re-bind raw packet listeners + log the
+          // handshake values each time so the diagnostic stream covers all
+          // 240+ reconnect cycles, not only the first one.
+          const enginePacketTypeName = (t: unknown): string | undefined => {
+            if (typeof t === 'string') {
+              return t;
+            }
+            if (typeof t === 'number') {
+              // engine.io v3 ships numeric packet types; v4 ships strings.
+              // Mirror v4 names so logs stay homogeneous across versions.
+              return (
+                [
+                  'open',
+                  'close',
+                  'ping',
+                  'pong',
+                  'message',
+                  'upgrade',
+                  'noop',
+                ][t] || String(t)
+              );
+            }
+            return undefined;
+          };
+          const bindEngineDiagnostics = (source: 'factory' | 'open') => {
+            const engineAny = (
+              manager as unknown as {
+                engine?: {
+                  on?: (event: string, cb: (arg: unknown) => void) => void;
+                  id?: string;
+                  pingInterval?: number;
+                  pingTimeout?: number;
+                  upgrades?: string[];
+                  maxPayload?: number;
+                  transport?: { name?: string };
+                };
+              }
+            ).engine;
+            if (!engineAny || !engineAny.on) {
+              return;
+            }
+            defaultLogger.prime.transfer.engineHandshake({
+              source: source === 'open' ? 'manager-open' : 'engine-handshake',
+              sid: engineAny.id,
+              pingInterval: engineAny.pingInterval,
+              pingTimeout: engineAny.pingTimeout,
+              upgrades: engineAny.upgrades,
+              maxPayload: engineAny.maxPayload,
+              transport: engineAny.transport?.name,
+            });
+            let lastPacketInAt: number | undefined;
+            engineAny.on('packet', (packet: unknown) => {
+              const p = packet as
+                | { type?: unknown; data?: string | undefined }
+                | undefined;
+              const nowMs = Date.now();
+              defaultLogger.prime.transfer.enginePacketIn({
+                type: enginePacketTypeName(p?.type),
+                dataLength:
+                  typeof p?.data === 'string' ? p.data.length : undefined,
+                sinceConnectMs: nowMs - connectStartedAt,
+                sinceLastPacketInMs:
+                  lastPacketInAt !== undefined
+                    ? nowMs - lastPacketInAt
+                    : undefined,
+              });
+              lastPacketInAt = nowMs;
+            });
+            engineAny.on('packetCreate', (packet: unknown) => {
+              const p = packet as
+                | { type?: unknown; data?: string | undefined }
+                | undefined;
+              defaultLogger.prime.transfer.enginePacketOut({
+                type: enginePacketTypeName(p?.type),
+                dataLength:
+                  typeof p?.data === 'string' ? p.data.length : undefined,
+                sinceConnectMs: Date.now() - connectStartedAt,
+              });
+            });
+          };
+          // Bind once now for the initial engine, and re-bind every time the
+          // manager opens a fresh engine on reconnect.
+          bindEngineDiagnostics('factory');
+          manager.on('open', () => bindEngineDiagnostics('open'));
           // Engine.io transport upgrade lifecycle. With
           // `transports: ['polling', 'websocket']` and `upgrade: true`,
           // polling connects first and engine.io then tries to upgrade to
