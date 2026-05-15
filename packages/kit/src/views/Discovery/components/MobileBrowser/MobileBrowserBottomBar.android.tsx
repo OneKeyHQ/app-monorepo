@@ -23,7 +23,10 @@ import { ESiteMode } from '../../types';
 
 import RefreshButton from './RefreshButton';
 import TabCountButton from './TabCountButton';
-import { useMobileBrowserBottomBarData } from './useMobileBrowserBottomBarData';
+import {
+  ACTION_LIST_CLOSE_ANIMATION_DELAY_MS,
+  useMobileBrowserBottomBarData,
+} from './useMobileBrowserBottomBarData';
 
 import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
 
@@ -90,6 +93,15 @@ function MobileBrowserBottomBar({
       });
     })();
   }, [takeScreenshot, navigation, displayHomePage]);
+
+  const handleCloseTabFromActionList = useCallback(
+    async (close: () => void) => {
+      close();
+      await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
+      handleCloseTab();
+    },
+    [handleCloseTab],
+  );
 
   // Options button: use ActionList.show() programmatically
   const handleShowOptions = useCallback(() => {
@@ -200,7 +212,7 @@ function MobileBrowserBottomBar({
                   : ETranslations.explore_close_tab,
               }),
               icon: 'CrossedLargeOutline',
-              onPress: handleCloseTab,
+              onPress: handleCloseTabFromActionList,
               testID: DiscoveryTestIDs.tabActionClose,
             },
             ...(onGoBackHomePage
@@ -234,7 +246,7 @@ function MobileBrowserBottomBar({
     onShare,
     hasConnectedAccount,
     handleDisconnect,
-    handleCloseTab,
+    handleCloseTabFromActionList,
     onGoBackHomePage,
   ]);
 
