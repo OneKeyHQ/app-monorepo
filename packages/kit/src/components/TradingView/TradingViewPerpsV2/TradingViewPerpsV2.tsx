@@ -62,6 +62,7 @@ const useSymbolSync = ({
   displayCoin,
   isChartReady,
   enabled,
+  syncOnReady = enabled,
 }: {
   webRef: React.RefObject<IWebViewRef | null>;
   symbol: string;
@@ -69,13 +70,14 @@ const useSymbolSync = ({
   displayCoin: string | undefined;
   isChartReady: boolean;
   enabled: boolean;
+  syncOnReady?: boolean;
 }) => {
   const prevParamsRef = useRef({
     displayCoin,
     displayPair,
     symbol,
   });
-  const hasSyncedReadyChartRef = useRef(false);
+  const readySyncKeyRef = useRef<string | null>(null);
 
   const sendSymbolChange = useCallback(
     ({ force }: { force: boolean }) => {
@@ -122,23 +124,32 @@ const useSymbolSync = ({
 
   // Re-sync symbol when chart becomes ready to catch messages lost during iframe load
   useEffect(() => {
-    if (!enabled) {
-      hasSyncedReadyChartRef.current = false;
+    if (!syncOnReady) {
+      readySyncKeyRef.current = null;
       return;
     }
 
     if (!isChartReady) {
-      hasSyncedReadyChartRef.current = false;
+      readySyncKeyRef.current = null;
       return;
     }
 
-    if (hasSyncedReadyChartRef.current || !webRef.current) {
+    const readySyncKey = `${symbol}:${displayPair ?? ''}:${displayCoin ?? ''}`;
+    if (readySyncKeyRef.current === readySyncKey || !webRef.current) {
       return;
     }
 
     sendSymbolChange({ force: false });
-    hasSyncedReadyChartRef.current = true;
-  }, [enabled, isChartReady, sendSymbolChange, webRef]);
+    readySyncKeyRef.current = readySyncKey;
+  }, [
+    displayCoin,
+    displayPair,
+    isChartReady,
+    sendSymbolChange,
+    symbol,
+    syncOnReady,
+    webRef,
+  ]);
 };
 
 // WebView Memoized component to prevent unnecessary re-renders
@@ -303,6 +314,8 @@ export function TradingViewPerpsV2(
   const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
     additionalParams,
   });
+  const isSpotDisplayNameSyncRequired =
+    reloadOnSymbolChange && (!!displayPair || !!displayCoin);
 
   // Optimization: Dynamic symbol parameter sync mechanism
   useSymbolSync({
@@ -310,8 +323,11 @@ export function TradingViewPerpsV2(
     symbol,
     displayPair,
     displayCoin,
-    isChartReady: isChartLinesReady,
+    isChartReady: reloadOnSymbolChange
+      ? isChartContentReady
+      : isChartLinesReady,
     enabled: !reloadOnSymbolChange,
+    syncOnReady: !reloadOnSymbolChange || isSpotDisplayNameSyncRequired,
   });
 
   const pendingRecoverRef = useRef(false);
