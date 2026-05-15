@@ -456,4 +456,23 @@ export class PrimeTransferScene extends BaseScene {
       enableNativeBackgroundThread,
     };
   }
+
+  // Raw trace pipe from the patched engine.io-client (see
+  // patches/engine.io-client+6.5.3.patch). Every call to send / receive /
+  // parse / setTimeout / onClose inside the polling transport and engine
+  // socket is funneled through this single scene with a stable `event`
+  // string + arbitrary payload. Lets us reconstruct the full I/O timeline
+  // from logs without re-bundling for each micro-question.
+  @LogToLocal({ level: 'info' })
+  public engineRawTrace({
+    event,
+    runtimeKind,
+    data,
+  }: {
+    event: string;
+    runtimeKind: string | undefined;
+    data: unknown;
+  }) {
+    return { event, runtimeKind, data };
+  }
 }

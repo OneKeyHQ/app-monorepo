@@ -299,6 +299,29 @@ class ServicePrimeTransfer extends ServiceBase {
   async initWebSocket({ endpoint }: { endpoint: string }) {
     defaultLogger.prime.transfer.initWebSocket({ endpoint });
     const initWsEnteredAt = Date.now();
+    // Install the bridge from the patched engine.io-client (see
+    // patches/engine.io-client+6.5.3.patch) into our scoped logger. The
+    // patched code calls globalThis.__onekeyEngineIoTrace__(event, data) on
+    // send / receive / parse / setTimeout / onClose. We re-install on every
+    // call so runtimeKind in the log reflects the runtime that is actually
+    // emitting the trace.
+    const traceGlobal = globalThis as typeof globalThis & {
+      __onekeyEngineIoTrace__?: (event: string, data: unknown) => void;
+    };
+    traceGlobal.__onekeyEngineIoTrace__ = (
+      event: string,
+      data: unknown,
+    ): void => {
+      try {
+        defaultLogger.prime.transfer.engineRawTrace({
+          event,
+          runtimeKind: platformEnv.nativeRuntimeKind,
+          data,
+        });
+      } catch {
+        // never let logging break engine.io
+      }
+    };
     // Smoking-gun for split-thread: how soon after the background Hermes
     // entry did this RPC arrive? __ONEKEY_BG_ENTRY_START__ is set at the very
     // top of apps/mobile/background.ts; undefined on platforms without a
@@ -377,7 +400,7 @@ class ServicePrimeTransfer extends ServiceBase {
       // broken on bg Hermes, and on which range. The 30s probe is
       // intentionally above any realistic socket session lifetime, so it
       // will only complete if the timer is honest.
-      [1000, 10000, 30000].forEach((scheduledDelayMs) => {
+      [1000, 10_000, 30_000].forEach((scheduledDelayMs) => {
         const scheduledAt = Date.now();
         setTimeout(() => {
           defaultLogger.prime.transfer.timerSanityCheck({

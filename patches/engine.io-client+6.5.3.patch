@@ -1,0 +1,198 @@
+diff --git a/node_modules/engine.io-client/build/cjs/socket.js b/node_modules/engine.io-client/build/cjs/socket.js
+--- a/node_modules/engine.io-client/build/cjs/socket.js
++++ b/node_modules/engine.io-client/build/cjs/socket.js
+@@ -3,6 +3,16 @@
+     return (mod && mod.__esModule) ? mod : { "default": mod };
+ };
+ Object.defineProperty(exports, "__esModule", { value: true });
++// [OneKey patch] diagnostic tracing — see ServicePrimeTransfer.ts. Calls
++// `globalThis.__onekeyEngineIoTrace__(event, data)` when set, otherwise no-op.
++function __onekeyTrace(event, data) {
++    try {
++        var fn = (typeof globalThis !== "undefined" ? globalThis : global).__onekeyEngineIoTrace__;
++        if (typeof fn === "function")
++            fn(event, data);
++    }
++    catch (e) { }
++}
+ exports.Socket = void 0;
+ const index_js_1 = require("./transports/index.js");
+ const util_js_1 = require("./util.js");
+@@ -338,6 +348,7 @@
+      * @private
+      */
+     onPacket(packet) {
++        __onekeyTrace("engine.onPacket", { type: packet && packet.type, dataLength: packet && typeof packet.data === "string" ? packet.data.length : undefined, dataPreview: packet && typeof packet.data === "string" ? packet.data.slice(0, 200) : undefined, readyState: this.readyState });
+         if ("opening" === this.readyState ||
+             "open" === this.readyState ||
+             "closing" === this.readyState) {
+@@ -398,9 +409,13 @@
+      */
+     resetPingTimeout() {
+         this.clearTimeoutFn(this.pingTimeoutTimer);
++        var delay = this.pingInterval + this.pingTimeout;
++        var scheduledAt = Date.now();
++        __onekeyTrace("engine.resetPingTimeout.schedule", { delay: delay, pingInterval: this.pingInterval, pingTimeout: this.pingTimeout, readyState: this.readyState, sid: this.id });
+         this.pingTimeoutTimer = this.setTimeoutFn(() => {
++            __onekeyTrace("engine.resetPingTimeout.fire", { delay: delay, actualElapsedMs: Date.now() - scheduledAt, readyState: this.readyState, sid: this.id });
+             this.onClose("ping timeout");
+-        }, this.pingInterval + this.pingTimeout);
++        }, delay);
+         if (this.opts.autoUnref) {
+             this.pingTimeoutTimer.unref();
+         }
+@@ -504,7 +519,9 @@
+             fn = options;
+             options = null;
+         }
++        __onekeyTrace("engine.sendPacket", { type: type, dataLength: typeof data === "string" ? data.length : undefined, readyState: this.readyState });
+         if ("closing" === this.readyState || "closed" === this.readyState) {
++            __onekeyTrace("engine.sendPacket.dropped", { type: type, readyState: this.readyState });
+             return;
+         }
+         options = options || {};
+@@ -577,6 +594,9 @@
+      * @private
+      */
+     onClose(reason, description) {
++        var __ok_stack = "";
++        try { __ok_stack = (new Error("trace")).stack || ""; } catch (e) { }
++        __onekeyTrace("engine.onClose.entry", { reason: reason, readyState: this.readyState, sid: this.id, descriptionMessage: description && description.message, descriptionType: description && description.type, stack: typeof __ok_stack === "string" ? __ok_stack.split("\n").slice(0, 12).join(" | ") : undefined });
+         if ("opening" === this.readyState ||
+             "open" === this.readyState ||
+             "closing" === this.readyState) {
+diff --git a/node_modules/engine.io-client/build/cjs/transports/polling.js b/node_modules/engine.io-client/build/cjs/transports/polling.js
+--- a/node_modules/engine.io-client/build/cjs/transports/polling.js
++++ b/node_modules/engine.io-client/build/cjs/transports/polling.js
+@@ -3,6 +3,19 @@
+     return (mod && mod.__esModule) ? mod : { "default": mod };
+ };
+ Object.defineProperty(exports, "__esModule", { value: true });
++// [OneKey patch] diagnostic tracing — see ServicePrimeTransfer.ts. Calls
++// `globalThis.__onekeyEngineIoTrace__(event, data)` when set, otherwise no-op.
++function __onekeyTrace(event, data) {
++    try {
++        var fn = (typeof globalThis !== "undefined" ? globalThis : global).__onekeyEngineIoTrace__;
++        if (typeof fn === "function")
++            fn(event, data);
++    }
++    catch (e) { }
++}
++// Monotonically-increasing id for correlating poll / write requests across
++// xhr lifecycle events.
++var __onekeyReqId = 0;
+ exports.Request = exports.Polling = void 0;
+ const transport_js_1 = require("../transport.js");
+ const debug_1 = __importDefault(require("debug")); // debug()
+@@ -117,7 +130,11 @@
+      */
+     onData(data) {
+         debug("polling got data %s", data);
++        var __ok_packetCount = 0;
++        __onekeyTrace("polling.onData.raw", { dataType: typeof data, dataLength: typeof data === "string" ? data.length : (data && data.byteLength) || undefined, dataPreview: typeof data === "string" ? data.slice(0, 300) : undefined, readyState: this.readyState });
+         const callback = (packet) => {
++            __ok_packetCount++;
++            __onekeyTrace("polling.onData.packet", { index: __ok_packetCount - 1, type: packet && packet.type, dataLength: packet && typeof packet.data === "string" ? packet.data.length : undefined, dataPreview: packet && typeof packet.data === "string" ? packet.data.slice(0, 200) : undefined });
+             // if its the first message we consider the transport open
+             if ("opening" === this.readyState && packet.type === "open") {
+                 this.onOpen();
+@@ -131,7 +148,14 @@
+             this.onPacket(packet);
+         };
+         // decode payload
+-        (0, engine_io_parser_1.decodePayload)(data, this.socket.binaryType).forEach(callback);
++        try {
++            var __ok_parsed = (0, engine_io_parser_1.decodePayload)(data, this.socket.binaryType);
++            __onekeyTrace("polling.onData.parsed", { packetCount: __ok_parsed && __ok_parsed.length });
++            __ok_parsed.forEach(callback);
++        } catch (e) {
++            __onekeyTrace("polling.onData.parseError", { errorMessage: e && e.message, errorName: e && e.name });
++            throw e;
++        }
+         // if an event did not trigger closing
+         if ("closed" !== this.readyState) {
+             // if we got data we're not polling
+@@ -216,12 +240,21 @@
+      * @private
+      */
+     doWrite(data, fn) {
++        var __ok_id = ++__onekeyReqId;
++        var __ok_startedAt = Date.now();
++        __onekeyTrace("polling.doWrite.start", { reqId: __ok_id, dataLength: typeof data === "string" ? data.length : undefined, dataPreview: typeof data === "string" ? data.slice(0, 200) : undefined, uri: this.uri() });
+         const req = this.request({
+             method: "POST",
+             data: data,
+-        });
+-        req.on("success", fn);
++            __onekeyReqId: __ok_id,
++            __onekeyKind: "write",
++        });
++        req.on("success", () => {
++            __onekeyTrace("polling.doWrite.success", { reqId: __ok_id, elapsedMs: Date.now() - __ok_startedAt });
++            fn();
++        });
+         req.on("error", (xhrStatus, context) => {
++            __onekeyTrace("polling.doWrite.error", { reqId: __ok_id, elapsedMs: Date.now() - __ok_startedAt, xhrStatus: xhrStatus });
+             this.onError("xhr post error", xhrStatus, context);
+         });
+     }
+@@ -232,9 +265,16 @@
+      */
+     doPoll() {
+         debug("xhr poll");
+-        const req = this.request();
+-        req.on("data", this.onData.bind(this));
++        var __ok_id = ++__onekeyReqId;
++        var __ok_startedAt = Date.now();
++        __onekeyTrace("polling.doPoll.start", { reqId: __ok_id, uri: this.uri() });
++        const req = this.request({ __onekeyReqId: __ok_id, __onekeyKind: "poll" });
++        req.on("data", (data) => {
++            __onekeyTrace("polling.doPoll.data", { reqId: __ok_id, elapsedMs: Date.now() - __ok_startedAt, dataLength: typeof data === "string" ? data.length : undefined });
++            this.onData(data);
++        });
+         req.on("error", (xhrStatus, context) => {
++            __onekeyTrace("polling.doPoll.error", { reqId: __ok_id, elapsedMs: Date.now() - __ok_startedAt, xhrStatus: xhrStatus });
+             this.onError("xhr poll error", xhrStatus, context);
+         });
+         this.pollXhr = req;
+@@ -299,17 +339,24 @@
+             if (this.opts.requestTimeout) {
+                 xhr.timeout = this.opts.requestTimeout;
+             }
++            var __ok_xhrReqId = this.opts.__onekeyReqId;
++            var __ok_xhrKind = this.opts.__onekeyKind;
++            var __ok_xhrStartedAt = Date.now();
++            __onekeyTrace("xhr.create", { reqId: __ok_xhrReqId, kind: __ok_xhrKind, method: this.method, uri: this.uri, hasData: this.data != null, dataLength: typeof this.data === "string" ? this.data.length : undefined });
+             xhr.onreadystatechange = () => {
+                 var _a;
++                __onekeyTrace("xhr.readyState", { reqId: __ok_xhrReqId, kind: __ok_xhrKind, readyState: xhr.readyState, status: xhr.status, elapsedMs: Date.now() - __ok_xhrStartedAt });
+                 if (xhr.readyState === 3) {
+                     (_a = this.opts.cookieJar) === null || _a === void 0 ? void 0 : _a.parseCookies(xhr);
+                 }
+                 if (4 !== xhr.readyState)
+                     return;
+                 if (200 === xhr.status || 1223 === xhr.status) {
++                    __onekeyTrace("xhr.done.ok", { reqId: __ok_xhrReqId, kind: __ok_xhrKind, status: xhr.status, elapsedMs: Date.now() - __ok_xhrStartedAt, responseLength: typeof xhr.responseText === "string" ? xhr.responseText.length : undefined });
+                     this.onLoad();
+                 }
+                 else {
++                    __onekeyTrace("xhr.done.fail", { reqId: __ok_xhrReqId, kind: __ok_xhrKind, status: xhr.status, elapsedMs: Date.now() - __ok_xhrStartedAt });
+                     // make sure the `error` event handler that's user-set
+                     // does not throw in the same tick and gets caught here
+                     this.setTimeoutFn(() => {
+@@ -340,6 +387,7 @@
+      * @private
+      */
+     onError(err) {
++        __onekeyTrace("xhr.onError", { reqId: this.opts && this.opts.__onekeyReqId, kind: this.opts && this.opts.__onekeyKind, err: typeof err === "number" ? err : (err && err.message) || String(err) });
+         this.emitReserved("error", err, this.xhr);
+         this.cleanup(true);
+     }
+@@ -371,6 +419,7 @@
+      */
+     onLoad() {
+         const data = this.xhr.responseText;
++        __onekeyTrace("xhr.onLoad", { reqId: this.opts && this.opts.__onekeyReqId, kind: this.opts && this.opts.__onekeyKind, hasData: data !== null, dataLength: typeof data === "string" ? data.length : undefined, dataPreview: typeof data === "string" ? data.slice(0, 300) : undefined });
+         if (data !== null) {
+             this.emitReserved("data", data);
+             this.emitReserved("success");
