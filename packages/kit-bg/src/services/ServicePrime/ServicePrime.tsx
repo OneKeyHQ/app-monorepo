@@ -430,6 +430,7 @@ class ServicePrime extends ServiceBase {
         reason:
           'ServicePrime.apiFetchPrimeUserInfo: auth token cleared during request, discarding response',
       });
+      await this.setPrimePersistAtomNotLoggedIn();
       const localUserInfo = await primePersistAtom.get();
       return {
         userInfo: localUserInfo,
