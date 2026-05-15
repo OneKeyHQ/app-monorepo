@@ -13,7 +13,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePerpsAllAssetsFilteredAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpTokenFavoritesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
@@ -34,7 +33,6 @@ const QUICK_ADD_TOKENS: IQuickAddToken[] = [
 ];
 
 export function FavoritesEmptyState({ isMobile }: { isMobile?: boolean }) {
-  const [favorites, setFavorites] = usePerpTokenFavoritesPersistAtom();
   const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
   const [selectedTokens, setSelectedTokens] = useState<Set<string>>(
     new Set(QUICK_ADD_TOKENS.map((token) => token.coinName)),
@@ -61,7 +59,7 @@ export function FavoritesEmptyState({ isMobile }: { isMobile?: boolean }) {
     selectedTokens.forEach((coinName) => {
       for (const assets of assetsByDexTyped) {
         const foundAsset = assets.find((a) => a.name === coinName);
-        if (foundAsset && !favorites.favorites.includes(foundAsset.name)) {
+        if (foundAsset) {
           tokensToAdd.push(foundAsset.name);
           break;
         }
@@ -69,22 +67,17 @@ export function FavoritesEmptyState({ isMobile }: { isMobile?: boolean }) {
     });
 
     if (tokensToAdd.length > 0) {
-      setFavorites((prev) => ({
-        ...prev,
-        favorites: [...prev.favorites, ...tokensToAdd],
-      }));
-
       for (const coin of tokensToAdd) {
-        void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
+        void backgroundApiProxy.serviceHyperliquid.updateTokenSelectorFavorite({
+          mode: 'perp',
           coin,
           action: 'add',
         });
       }
 
-      // Clear selection after adding to favorites
       setSelectedTokens(new Set());
     }
-  }, [selectedTokens, assetsByDex, favorites.favorites, setFavorites]);
+  }, [selectedTokens, assetsByDex]);
 
   return (
     <YStack flex={1} gap="$3" alignItems="center">

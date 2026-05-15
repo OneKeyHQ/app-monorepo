@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { usePerpsFavorites } from '../../hooks/usePerpsFavorites';
+import { dedupeTokenSelectorFavoritesOrder } from '../../utils/tokenSelectorFavorites';
 
 import { FavoriteTokenItem } from './FavoriteTokenItem';
 
@@ -173,7 +174,9 @@ function FavoritesBar() {
     }
     const ordered: typeof merged = [];
     const seen = new Set<string>();
-    for (const entry of favoritesOrder.sequence) {
+    for (const entry of dedupeTokenSelectorFavoritesOrder(
+      favoritesOrder.sequence,
+    )) {
       const key = `${entry.mode}:${entry.coinName}`;
       const item = lookup.get(key);
       if (item) {
@@ -199,8 +202,8 @@ function FavoritesBar() {
       const allKeys = new Set<string>();
       for (const it of perpItems) allKeys.add(`${it.mode}:${it.coinName}`);
       for (const it of spotItems) allKeys.add(`${it.mode}:${it.coinName}`);
-      const filtered = prev.sequence.filter((e) =>
-        allKeys.has(`${e.mode}:${e.coinName}`),
+      const filtered = dedupeTokenSelectorFavoritesOrder(prev.sequence).filter(
+        (e) => allKeys.has(`${e.mode}:${e.coinName}`),
       );
       const seqKeys = new Set(filtered.map((e) => `${e.mode}:${e.coinName}`));
       const additions: IPerpsFavoritesOrderEntry[] = [];
@@ -251,7 +254,7 @@ function FavoritesBar() {
       if (!sourceItem || !destItem) return;
 
       setFavoritesOrder((prev) => {
-        const next = [...prev.sequence];
+        const next = dedupeTokenSelectorFavoritesOrder(prev.sequence);
         const sourceIdx = next.findIndex(
           (e) =>
             e.mode === sourceItem.mode && e.coinName === sourceItem.coinName,

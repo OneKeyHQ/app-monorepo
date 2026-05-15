@@ -30,6 +30,18 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { hyperLiquidErrorResolver } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
+import type {
+  IResolvedTokenSelectorFavoriteAction,
+  ITokenSelectorFavoriteAction,
+  ITokenSelectorFavoriteMode,
+} from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
+import {
+  dedupeTokenSelectorFavoriteCoins,
+  isSameFavoritesOrderSequence,
+  isSameStringArray,
+  reconcileTokenSelectorFavoritesOrder,
+  updateTokenSelectorFavoriteCoins,
+} from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import perpsUtils, {
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -74,6 +86,7 @@ import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliqui
 
 import localDb from '../../dbs/local/localDb';
 import {
+  perpTokenFavoritesPersistAtom,
   perpTokenSelectorTabsAtom,
   perpsAbstractionModeAtom,
   perpsAccountLoadingInfoAtom,
@@ -88,6 +101,7 @@ import {
   perpsCustomSettingsAtom,
   perpsDepositNetworksAtom,
   perpsDepositTokensAtom,
+  perpsFavoritesOrderPersistAtom,
   perpsLastUsedLeverageAtom,
   perpsSpotBalancesAtom,
   perpsTradesHistoryDataAtom,
@@ -97,6 +111,7 @@ import {
   spotBalancesAtom,
   spotExternalMarketCapsAtom,
   spotPairDisplayMapAtom,
+  spotTokenFavoritesPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -154,9 +169,121 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private activeAssetChangeRequestId = 0;
 
+  private tokenSelectorFavoriteUpdateQueue = Promise.resolve();
+
   @backgroundMethod()
   async cancelPendingActiveAssetChange(): Promise<void> {
     this.activeAssetChangeRequestId += 1;
+  }
+
+  private async updateTokenSelectorFavoriteInBg({
+    mode,
+    coin,
+    action,
+  }: {
+    mode: ITokenSelectorFavoriteMode;
+    coin: string;
+    action: ITokenSelectorFavoriteAction;
+  }) {
+    let result: {
+      favorites: string[];
+      action: IResolvedTokenSelectorFavoriteAction;
+    };
+    if (mode === 'perp' && action === 'remove') {
+      await this.backgroundApi.serviceMarketV2.syncToMarketWatchList({
+        coin,
+        action,
+      });
+    }
+    const [currentPerpFavorites, currentSpotFavorites] = await Promise.all([
+      perpTokenFavoritesPersistAtom.get(),
+      spotTokenFavoritesPersistAtom.get(),
+    ]);
+    let nextPerpFavorites = dedupeTokenSelectorFavoriteCoins(
+      currentPerpFavorites.favorites,
+    );
+    let nextSpotFavorites = dedupeTokenSelectorFavoriteCoins(
+      currentSpotFavorites.favorites,
+    );
+    if (mode === 'spot') {
+      result = updateTokenSelectorFavoriteCoins({
+        favorites: currentSpotFavorites.favorites,
+        coin,
+        action,
+      });
+      nextSpotFavorites = result.favorites;
+      if (
+        !isSameStringArray(result.favorites, currentSpotFavorites.favorites)
+      ) {
+        await spotTokenFavoritesPersistAtom.set({
+          ...currentSpotFavorites,
+          favorites: result.favorites,
+        });
+      }
+    } else {
+      result = updateTokenSelectorFavoriteCoins({
+        favorites: currentPerpFavorites.favorites,
+        coin,
+        action,
+      });
+      nextPerpFavorites = result.favorites;
+      if (
+        !isSameStringArray(result.favorites, currentPerpFavorites.favorites)
+      ) {
+        await perpTokenFavoritesPersistAtom.set({
+          ...currentPerpFavorites,
+          favorites: result.favorites,
+        });
+      }
+    }
+
+    const currentOrder = await perpsFavoritesOrderPersistAtom.get();
+    const nextSequence = reconcileTokenSelectorFavoritesOrder({
+      sequence: currentOrder.sequence,
+      perpFavorites: nextPerpFavorites,
+      spotFavorites: nextSpotFavorites,
+    });
+    if (!isSameFavoritesOrderSequence(nextSequence, currentOrder.sequence)) {
+      await perpsFavoritesOrderPersistAtom.set({
+        sequence: nextSequence,
+      });
+    }
+
+    const watchListAction = action === 'toggle' ? result.action : action;
+    if (mode === 'perp' && watchListAction !== 'none' && action !== 'remove') {
+      await this.backgroundApi.serviceMarketV2.syncToMarketWatchList({
+        coin,
+        action: watchListAction,
+      });
+    }
+
+    return result;
+  }
+
+  @backgroundMethod()
+  async updateTokenSelectorFavorite({
+    mode,
+    coin,
+    action = 'toggle',
+  }: {
+    mode: ITokenSelectorFavoriteMode;
+    coin: string;
+    action?: ITokenSelectorFavoriteAction;
+  }) {
+    const task = this.tokenSelectorFavoriteUpdateQueue
+      .catch(() => undefined)
+      .then(() =>
+        this.updateTokenSelectorFavoriteInBg({
+          mode,
+          coin,
+          action,
+        }),
+      );
+    this.tokenSelectorFavoriteUpdateQueue = task.then(
+      () => undefined,
+      () => undefined,
+    );
+    return task;
   }
 
   // Avoids async atom reads in the hot path — written to atom on a throttled schedule

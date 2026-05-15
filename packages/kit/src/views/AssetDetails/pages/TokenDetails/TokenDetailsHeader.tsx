@@ -13,7 +13,6 @@ import {
   SizableText,
   Skeleton,
   Stack,
-  Toast,
   XStack,
   YStack,
   useTabIsRefreshingFocused,
@@ -29,6 +28,7 @@ import { useDisplayAccountAddress } from '@onekeyhq/kit/src/hooks/useDisplayAcco
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import {
   shouldBlockBotWalletCopyAddress,
   shouldBlockBotWalletReceive,
@@ -442,6 +442,14 @@ function TokenDetailsHeader(props: IProps) {
   const addressBlockValue = useMemo(() => {
     const address = account?.address ?? '';
 
+    // For deactivated bot wallets the address must not be exposed in full —
+    // copying is blocked, and showing the full string would let users still
+    // grab the address via long-press / OS-level select. Mask it the same
+    // way the account selector shortens addresses.
+    if (isBotWalletCopyBlocked) {
+      return accountUtils.shortenAddress({ address });
+    }
+
     if (
       accountUtils.isHwWallet({ walletId }) ||
       accountUtils.isQrWallet({ walletId })
@@ -450,13 +458,11 @@ function TokenDetailsHeader(props: IProps) {
     }
 
     return address;
-  }, [account?.address, walletId]);
+  }, [account?.address, walletId, isBotWalletCopyBlocked]);
 
   const handleCopyAddressPress = useCallback(() => {
     if (isBotWalletCopyBlocked) {
-      Toast.error({
-        title: '该钱包已停用，无法复制地址',
-      });
+      showBotWalletDisabledToast('copyAddress');
       return;
     }
     void copyAccountAddress({
@@ -536,9 +542,7 @@ function TokenDetailsHeader(props: IProps) {
               allowPressWhenDisabled={isBotWalletReceiveBlocked}
               onPress={async () => {
                 if (isBotWalletReceiveBlocked) {
-                  Toast.error({
-                    title: '该钱包已停用，无法接收资产',
-                  });
+                  showBotWalletDisabledToast('receive');
                   return;
                 }
                 if (

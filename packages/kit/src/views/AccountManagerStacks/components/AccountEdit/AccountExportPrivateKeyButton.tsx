@@ -5,6 +5,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { navigateToBackupWalletReminderPage } from '@onekeyhq/kit/src/hooks/usePageNavigation';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { shouldHideBotWalletExport } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type {
   IDBAccount,
@@ -45,14 +46,10 @@ export function AccountExportPrivateKeyButton({
       walletId: wallet?.id,
     },
   );
-  if (
-    shouldHideBotWalletExport({
-      isBotWallet,
-      isBotWalletDeactivated,
-    })
-  ) {
-    return null;
-  }
+  const isExportBlocked = shouldHideBotWalletExport({
+    isBotWallet,
+    isBotWalletDeactivated,
+  });
 
   return (
     <ActionList.Item
@@ -61,6 +58,13 @@ export function AccountExportPrivateKeyButton({
       label={label}
       onClose={onClose}
       onPress={async () => {
+        if (isExportBlocked) {
+          // Stay clickable so users get feedback instead of a silent
+          // dead-click. Keep the visual cue minimal — `disabled` would
+          // also suppress onPress in ActionList.Item.
+          showBotWalletDisabledToast('export');
+          return;
+        }
         if (
           await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
             walletId: wallet?.id ?? '',

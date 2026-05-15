@@ -19,3 +19,7 @@ export const useIsSpanningInDualScreen = () => {
 export const useDualScreenWidth = () => {
   return Dimensions.get('window').width;
 };
+
+export function setSplitViewLayoutDisabled(_disabled: boolean) {
+  // no-op outside Android dual-screen devices
+}

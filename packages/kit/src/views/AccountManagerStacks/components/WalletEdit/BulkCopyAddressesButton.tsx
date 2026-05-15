@@ -3,7 +3,9 @@ import { useIntl } from 'react-intl';
 import { ActionList, Badge, Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -28,6 +30,12 @@ export function BulkCopyAddressesButton({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const actions = useAccountSelectorActions();
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  const isBulkCopyBlocked = isBotWallet && isBotWalletDeactivated;
 
   return (
     <ActionList.Item
@@ -36,6 +44,13 @@ export function BulkCopyAddressesButton({
         id: ETranslations.global_bulk_copy_addresses,
       })}
       onPress={async (close) => {
+        if (isBulkCopyBlocked) {
+          // Keep the entry interactive so users get feedback instead of a
+          // silent dead-click; close the action sheet after toasting.
+          showBotWalletDisabledToast('bulkCopy');
+          close?.();
+          return;
+        }
         close?.();
         // Close the Action first and wait 150ms before ejecting the Modal to avoid the problem of closing after ejecting
         await timerUtils.wait(150);
