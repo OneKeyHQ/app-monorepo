@@ -1,8 +1,8 @@
 diff --git a/node_modules/@react-navigation/core/lib/module/index.js b/node_modules/@react-navigation/core/lib/module/index.js
-index 31900cb..2b63081 100644
+index 4a96235..c9167c1 100644
 --- a/node_modules/@react-navigation/core/lib/module/index.js
 +++ b/node_modules/@react-navigation/core/lib/module/index.js
-@@ -34,4 +34,8 @@ export { useRoute } from "./useRoute.js";
+@@ -35,4 +35,8 @@ export { useRoute } from "./useRoute.js";
  export { useStateForPath } from "./useStateForPath.js";
  export { validatePathConfig } from "./validatePathConfig.js";
  export * from '@react-navigation/routers';
@@ -12,11 +12,224 @@ index 31900cb..2b63081 100644
 +export * from './isArrayEqual';
  //# sourceMappingURL=index.js.map
 \ No newline at end of file
+diff --git a/node_modules/@react-navigation/core/lib/module/useNavigationBuilder.js b/node_modules/@react-navigation/core/lib/module/useNavigationBuilder.js
+index be69496..a739e05 100644
+--- a/node_modules/@react-navigation/core/lib/module/useNavigationBuilder.js
++++ b/node_modules/@react-navigation/core/lib/module/useNavigationBuilder.js
+@@ -34,6 +34,199 @@ import { useOnGetState } from "./useOnGetState.js";
+ import { useOnRouteFocus } from "./useOnRouteFocus.js";
+ import { useRegisterNavigator } from "./useRegisterNavigator.js";
+ import { useScheduleUpdate } from "./useScheduleUpdate.js";
++const NAVIGATION_BUILDER_CRASH_PROBE = '[react-navigation-core][CRASH_PROBE]';
++const MAX_PROBE_KEYS = 24;
++const MAX_NESTED_KEYS = 12;
++const MAX_ARRAY_ITEMS = 6;
++
++function getProbeObject(value) {
++  if (value !== null && (typeof value === 'object' || typeof value === 'function')) {
++    return value;
++  }
++  return null;
++}
++
++function getConstructorName(value) {
++  const objectValue = getProbeObject(value);
++  if (!objectValue) {
++    return '';
++  }
++  try {
++    const constructorValue = objectValue.constructor;
++    if (typeof constructorValue === 'function') {
++      return constructorValue.name || 'anonymous';
++    }
++    if (constructorValue === undefined) {
++      return 'undefined';
++    }
++    return `nonFunction:${typeof constructorValue}`;
++  } catch (error) {
++    return `constructorError:${error instanceof Error ? error.message : String(error)}`;
++  }
++}
++
++function getPrototypeName(value) {
++  try {
++    const proto = Object.getPrototypeOf(value);
++    if (proto === null) {
++      return 'null';
++    }
++    if (proto === Object.prototype) {
++      return 'Object.prototype';
++    }
++    if (proto === Array.prototype) {
++      return 'Array.prototype';
++    }
++    return getConstructorName(proto) || typeof proto;
++  } catch (error) {
++    return `prototypeError:${error instanceof Error ? error.message : String(error)}`;
++  }
++}
++
++function describeDescriptorForProbe(descriptor) {
++  if (!descriptor) {
++    return 'none';
++  }
++  const parts = [];
++  parts.push(descriptor.enumerable ? 'enumerable' : 'nonEnumerable');
++  parts.push(descriptor.configurable ? 'configurable' : 'nonConfigurable');
++  if ('writable' in descriptor) {
++    parts.push(descriptor.writable ? 'writable' : 'readonly');
++  }
++  if ('value' in descriptor) {
++    parts.push(`value:${typeof descriptor.value}`);
++  }
++  if ('get' in descriptor) {
++    parts.push(`get:${typeof descriptor.get}`);
++  }
++  if ('set' in descriptor) {
++    parts.push(`set:${typeof descriptor.set}`);
++  }
++  return parts.join('/');
++}
++
++function describeFieldForProbe(key, value) {
++  if (value === null) {
++    return `${key}:null`;
++  }
++  const valueType = typeof value;
++  const objectValue = getProbeObject(value);
++  if (!objectValue) {
++    return `${key}:${valueType}`;
++  }
++  return [`${key}:${valueType}`, `ctor:${getConstructorName(value)}`, `proto:${getPrototypeName(value)}`, `toString:${typeof objectValue.toString}`, `valueOf:${typeof objectValue.valueOf}`, Object.prototype.hasOwnProperty.call(objectValue, 'toString') ? 'ownToString:true' : 'ownToString:false', Object.prototype.hasOwnProperty.call(objectValue, 'valueOf') ? 'ownValueOf:true' : 'ownValueOf:false'].join('/');
++}
++
++function describeValueForProbe(name, value, maxKeys = MAX_PROBE_KEYS) {
++  try {
++    if (value === null) {
++      return `${name}{type=null}`;
++    }
++    const valueType = typeof value;
++    const objectValue = getProbeObject(value);
++    if (!objectValue) {
++      return `${name}{type=${valueType}}`;
++    }
++    const keys = Object.keys(objectValue);
++    const toStringDescriptor = Object.prototype.hasOwnProperty.call(objectValue, 'toString') ? Object.getOwnPropertyDescriptor(objectValue, 'toString') : undefined;
++    const valueOfDescriptor = Object.prototype.hasOwnProperty.call(objectValue, 'valueOf') ? Object.getOwnPropertyDescriptor(objectValue, 'valueOf') : undefined;
++    const fields = keys.slice(0, maxKeys).map(key => {
++      try {
++        return describeFieldForProbe(key, objectValue[key]);
++      } catch (error) {
++        return `${key}:probeError:${error instanceof Error ? error.message : String(error)}`;
++      }
++    });
++    return [`${name}{type=${valueType}`, `ctor=${getConstructorName(value)}`, `proto=${getPrototypeName(value)}`, `array=${Array.isArray(value)}`, `keys=${keys.slice(0, maxKeys).join(',')}`, `keysLength=${keys.length}`, `typeofToString=${typeof objectValue.toString}`, `typeofValueOf=${typeof objectValue.valueOf}`, `ownToString=${Object.prototype.hasOwnProperty.call(objectValue, 'toString')}`, `ownValueOf=${Object.prototype.hasOwnProperty.call(objectValue, 'valueOf')}`, `toStringDesc=${describeDescriptorForProbe(toStringDescriptor)}`, `valueOfDesc=${describeDescriptorForProbe(valueOfDescriptor)}`, `fields=${fields.join(',')}}`].join(';');
++  } catch (error) {
++    return `${name}{probeError=${error instanceof Error ? error.message : String(error)}}`;
++  }
++}
++
++function formatNestedName(parentName, key) {
++  return /^\d+$/.test(key) ? `${parentName}[${key}]` : `${parentName}.${key}`;
++}
++
++function describeNestedValuesForProbe(name, value, maxDepth = 0, seen = new WeakSet()) {
++  const objectValue = getProbeObject(value);
++  if (!objectValue || maxDepth <= 0) {
++    return [];
++  }
++  if (seen.has(objectValue)) {
++    return [`${name}{cycle=true}`];
++  }
++  seen.add(objectValue);
++  try {
++    const keyLimit = Array.isArray(value) ? Math.min(MAX_ARRAY_ITEMS, MAX_NESTED_KEYS) : MAX_NESTED_KEYS;
++    return Object.keys(objectValue).slice(0, keyLimit).flatMap(key => {
++      const childName = formatNestedName(name, key);
++      let childValue;
++      try {
++        childValue = objectValue[key];
++      } catch (error) {
++        return [`${childName}{probeError=${error instanceof Error ? error.message : String(error)}}`];
++      }
++      return [describeValueForProbe(childName, childValue, MAX_NESTED_KEYS), ...describeNestedValuesForProbe(childName, childValue, maxDepth - 1, seen)];
++    });
++  } catch (error) {
++    return [`${name}{nestedProbeError=${error instanceof Error ? error.message : String(error)}}`];
++  }
++}
++
++function getProbeStack() {
++  return new Error(NAVIGATION_BUILDER_CRASH_PROBE).stack?.split('\n').slice(1, 8).map(line => line.trim()).join(' <- ') || 'unavailable';
++}
++
++function logNavigationBuilderCrashProbe(stage, values, extra = '') {
++  const message = [`${NAVIGATION_BUILDER_CRASH_PROBE} ${stage}`, extra, ...values.flatMap(value => [describeValueForProbe(value.name, value.value, value.maxKeys), ...describeNestedValuesForProbe(value.name, value.value, value.maxDepth)]), `stack=${getProbeStack()}`].filter(Boolean).join(' | ');
++  try {
++    if (typeof console !== 'undefined' && console.error) {
++      console.error(message);
++    }
++    const logger = globalThis?.$$appGlobals?.$defaultLogger;
++    if (logger?.app?.error && typeof logger.app.error.log === 'function') {
++      logger.app.error.log(message);
++    }
++  } catch (error) {
++    if (typeof console !== 'undefined' && console.error) {
++      console.error(`${NAVIGATION_BUILDER_CRASH_PROBE} logger failed`, error instanceof Error ? error.message : String(error));
++    }
++  }
++}
++
++function probeNavigationBuilderDeepEqual(route, routeNames, state, unhandledState) {
++  const values = [{
++    name: 'route',
++    value: route,
++    maxDepth: 1
++  }, {
++    name: 'route.params',
++    value: route?.params,
++    maxDepth: 3
++  }, {
++    name: 'route.params.params',
++    value: route?.params?.params,
++    maxDepth: 3
++  }, {
++    name: 'routeNames',
++    value: routeNames
++  }, {
++    name: 'state',
++    value: state,
++    maxDepth: 3
++  }, {
++    name: 'unhandledState',
++    value: unhandledState,
++    maxDepth: 3
++  }];
++  logNavigationBuilderCrashProbe('before deepEqual state/unhandledState', values, `routeName=${String(route?.name)} routeKey=${String(route?.key)} targetScreen=${String(route?.params?.screen)}`);
++  try {
++    return deepEqual(state, unhandledState);
++  } catch (error) {
++    logNavigationBuilderCrashProbe('deepEqual threw', values, `errorName=${error instanceof Error ? error.name : typeof error} errorMessage=${error instanceof Error ? error.message : String(error)}`);
++    throw error;
++  }
++}
+ 
+ // This is to make TypeScript compiler happy
+ // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+@@ -334,7 +527,7 @@ export function useNavigationBuilder(createRouter, options) {
+     } else if (typeof route.params.screen === 'string' && (route.params.initial === false && isFirstStateInitialization || route.params !== previousParams)) {
+       if (options.UNSTABLE_routeNamesChangeBehavior === 'lastUnhandled' && !routeNames.includes(route.params.screen)) {
+         const state = getStateFromParams(route.params);
+-        if (state != null && !deepEqual(state, unhandledState)) {
++        if (state != null && !probeNavigationBuilderDeepEqual(route, routeNames, state, unhandledState)) {
+           setUnhandledState(state);
+         }
+       } else {
 diff --git a/node_modules/@react-navigation/core/lib/typescript/src/index.d.ts b/node_modules/@react-navigation/core/lib/typescript/src/index.d.ts
-index 69b9100..7b4c509 100644
+index a583f09..c22ca1a 100644
 --- a/node_modules/@react-navigation/core/lib/typescript/src/index.d.ts
 +++ b/node_modules/@react-navigation/core/lib/typescript/src/index.d.ts
-@@ -32,4 +32,8 @@ export { useRoute } from './useRoute';
+@@ -33,4 +33,8 @@ export { useRoute } from './useRoute';
  export { useStateForPath } from './useStateForPath';
  export { validatePathConfig } from './validatePathConfig';
  export * from '@react-navigation/routers';
@@ -27,10 +240,10 @@ index 69b9100..7b4c509 100644
  //# sourceMappingURL=index.d.ts.map
 \ No newline at end of file
 diff --git a/node_modules/@react-navigation/core/src/index.tsx b/node_modules/@react-navigation/core/src/index.tsx
-index 3c3204c..741aa78 100644
+index 3123ac9..ee9bb95 100644
 --- a/node_modules/@react-navigation/core/src/index.tsx
 +++ b/node_modules/@react-navigation/core/src/index.tsx
-@@ -41,3 +41,7 @@ export { useRoute } from './useRoute';
+@@ -42,3 +42,7 @@ export { useRoute } from './useRoute';
  export { useStateForPath } from './useStateForPath';
  export { validatePathConfig } from './validatePathConfig';
  export * from '@react-navigation/routers';
@@ -39,3 +252,375 @@ index 3c3204c..741aa78 100644
 +export * from './getPatternParts';
 +export * from './isArrayEqual';
 \ No newline at end of file
+diff --git a/node_modules/@react-navigation/core/src/useNavigationBuilder.tsx b/node_modules/@react-navigation/core/src/useNavigationBuilder.tsx
+index 804504e..84c9a00 100644
+--- a/node_modules/@react-navigation/core/src/useNavigationBuilder.tsx
++++ b/node_modules/@react-navigation/core/src/useNavigationBuilder.tsx
+@@ -52,6 +52,350 @@ import { useOnRouteFocus } from './useOnRouteFocus';
+ import { useRegisterNavigator } from './useRegisterNavigator';
+ import { useScheduleUpdate } from './useScheduleUpdate';
+ 
++const NAVIGATION_BUILDER_CRASH_PROBE = '[react-navigation-core][CRASH_PROBE]';
++const MAX_PROBE_KEYS = 24;
++const MAX_NESTED_KEYS = 12;
++const MAX_ARRAY_ITEMS = 6;
++
++type IProbeValue = {
++  name: string;
++  value: unknown;
++  maxDepth?: number;
++  maxKeys?: number;
++};
++
++function getProbeObject(value: unknown): Record<string, unknown> | Function | null {
++  if (value !== null && (typeof value === 'object' || typeof value === 'function')) {
++    return value as Record<string, unknown> | Function;
++  }
++  return null;
++}
++
++function getConstructorName(value: unknown) {
++  const objectValue = getProbeObject(value);
++  if (!objectValue) {
++    return '';
++  }
++  try {
++    const constructorValue = objectValue.constructor;
++    if (typeof constructorValue === 'function') {
++      return constructorValue.name || 'anonymous';
++    }
++    if (constructorValue === undefined) {
++      return 'undefined';
++    }
++    return `nonFunction:${typeof constructorValue}`;
++  } catch (error) {
++    return `constructorError:${
++      error instanceof Error ? error.message : String(error)
++    }`;
++  }
++}
++
++function getPrototypeName(value: unknown) {
++  try {
++    const proto = Object.getPrototypeOf(value);
++    if (proto === null) {
++      return 'null';
++    }
++    if (proto === Object.prototype) {
++      return 'Object.prototype';
++    }
++    if (proto === Array.prototype) {
++      return 'Array.prototype';
++    }
++    return getConstructorName(proto) || typeof proto;
++  } catch (error) {
++    return `prototypeError:${
++      error instanceof Error ? error.message : String(error)
++    }`;
++  }
++}
++
++function describeDescriptorForProbe(
++  descriptor: PropertyDescriptor | undefined,
++) {
++  if (!descriptor) {
++    return 'none';
++  }
++  const parts = [];
++  parts.push(descriptor.enumerable ? 'enumerable' : 'nonEnumerable');
++  parts.push(descriptor.configurable ? 'configurable' : 'nonConfigurable');
++  if ('writable' in descriptor) {
++    parts.push(descriptor.writable ? 'writable' : 'readonly');
++  }
++  if ('value' in descriptor) {
++    parts.push(`value:${typeof descriptor.value}`);
++  }
++  if ('get' in descriptor) {
++    parts.push(`get:${typeof descriptor.get}`);
++  }
++  if ('set' in descriptor) {
++    parts.push(`set:${typeof descriptor.set}`);
++  }
++  return parts.join('/');
++}
++
++function describeFieldForProbe(key: string, value: unknown) {
++  if (value === null) {
++    return `${key}:null`;
++  }
++  const valueType = typeof value;
++  const objectValue = getProbeObject(value);
++  if (!objectValue) {
++    return `${key}:${valueType}`;
++  }
++  return [
++    `${key}:${valueType}`,
++    `ctor:${getConstructorName(value)}`,
++    `proto:${getPrototypeName(value)}`,
++    `toString:${typeof objectValue.toString}`,
++    `valueOf:${typeof objectValue.valueOf}`,
++    Object.prototype.hasOwnProperty.call(objectValue, 'toString')
++      ? 'ownToString:true'
++      : 'ownToString:false',
++    Object.prototype.hasOwnProperty.call(objectValue, 'valueOf')
++      ? 'ownValueOf:true'
++      : 'ownValueOf:false',
++  ].join('/');
++}
++
++function describeValueForProbe(
++  name: string,
++  value: unknown,
++  maxKeys = MAX_PROBE_KEYS,
++) {
++  try {
++    if (value === null) {
++      return `${name}{type=null}`;
++    }
++    const valueType = typeof value;
++    const objectValue = getProbeObject(value);
++    if (!objectValue) {
++      return `${name}{type=${valueType}}`;
++    }
++    const keys = Object.keys(objectValue);
++    const toStringDescriptor = Object.prototype.hasOwnProperty.call(
++      objectValue,
++      'toString',
++    )
++      ? Object.getOwnPropertyDescriptor(objectValue, 'toString')
++      : undefined;
++    const valueOfDescriptor = Object.prototype.hasOwnProperty.call(
++      objectValue,
++      'valueOf',
++    )
++      ? Object.getOwnPropertyDescriptor(objectValue, 'valueOf')
++      : undefined;
++    const fields = keys.slice(0, maxKeys).map((key) => {
++      try {
++        return describeFieldForProbe(
++          key,
++          (objectValue as Record<string, unknown>)[key],
++        );
++      } catch (error) {
++        return `${key}:probeError:${
++          error instanceof Error ? error.message : String(error)
++        }`;
++      }
++    });
++    return [
++      `${name}{type=${valueType}`,
++      `ctor=${getConstructorName(value)}`,
++      `proto=${getPrototypeName(value)}`,
++      `array=${Array.isArray(value)}`,
++      `keys=${keys.slice(0, maxKeys).join(',')}`,
++      `keysLength=${keys.length}`,
++      `typeofToString=${typeof objectValue.toString}`,
++      `typeofValueOf=${typeof objectValue.valueOf}`,
++      `ownToString=${Object.prototype.hasOwnProperty.call(
++        objectValue,
++        'toString',
++      )}`,
++      `ownValueOf=${Object.prototype.hasOwnProperty.call(
++        objectValue,
++        'valueOf',
++      )}`,
++      `toStringDesc=${describeDescriptorForProbe(toStringDescriptor)}`,
++      `valueOfDesc=${describeDescriptorForProbe(valueOfDescriptor)}`,
++      `fields=${fields.join(',')}}`,
++    ].join(';');
++  } catch (error) {
++    return `${name}{probeError=${
++      error instanceof Error ? error.message : String(error)
++    }}`;
++  }
++}
++
++function formatNestedName(parentName: string, key: string) {
++  return /^\d+$/.test(key) ? `${parentName}[${key}]` : `${parentName}.${key}`;
++}
++
++function describeNestedValuesForProbe(
++  name: string,
++  value: unknown,
++  maxDepth = 0,
++  seen = new WeakSet<object>(),
++): string[] {
++  const objectValue = getProbeObject(value);
++  if (!objectValue || maxDepth <= 0) {
++    return [];
++  }
++  if (seen.has(objectValue)) {
++    return [`${name}{cycle=true}`];
++  }
++  seen.add(objectValue);
++  try {
++    const keyLimit = Array.isArray(value)
++      ? Math.min(MAX_ARRAY_ITEMS, MAX_NESTED_KEYS)
++      : MAX_NESTED_KEYS;
++    return Object.keys(objectValue)
++      .slice(0, keyLimit)
++      .flatMap((key) => {
++        const childName = formatNestedName(name, key);
++        let childValue;
++        try {
++          childValue = (objectValue as Record<string, unknown>)[key];
++        } catch (error) {
++          return [
++            `${childName}{probeError=${
++              error instanceof Error ? error.message : String(error)
++            }}`,
++          ];
++        }
++        return [
++          describeValueForProbe(childName, childValue, MAX_NESTED_KEYS),
++          ...describeNestedValuesForProbe(
++            childName,
++            childValue,
++            maxDepth - 1,
++            seen,
++          ),
++        ];
++      });
++  } catch (error) {
++    return [
++      `${name}{nestedProbeError=${
++        error instanceof Error ? error.message : String(error)
++      }}`,
++    ];
++  }
++}
++
++function getProbeStack() {
++  return (
++    new Error(NAVIGATION_BUILDER_CRASH_PROBE).stack
++      ?.split('\n')
++      .slice(1, 8)
++      .map((line) => line.trim())
++      .join(' <- ') || 'unavailable'
++  );
++}
++
++function logNavigationBuilderCrashProbe(
++  stage: string,
++  values: IProbeValue[],
++  extra = '',
++) {
++  const message = [
++    `${NAVIGATION_BUILDER_CRASH_PROBE} ${stage}`,
++    extra,
++    ...values.flatMap((value) => [
++      describeValueForProbe(value.name, value.value, value.maxKeys),
++      ...describeNestedValuesForProbe(
++        value.name,
++        value.value,
++        value.maxDepth,
++      ),
++    ]),
++    `stack=${getProbeStack()}`,
++  ]
++    .filter(Boolean)
++    .join(' | ');
++  try {
++    if (typeof console !== 'undefined' && console.error) {
++      console.error(message);
++    }
++    const logger = (
++      globalThis as {
++        $$appGlobals?: {
++          $defaultLogger?: {
++            app?: { error?: { log?: (message: string) => void } };
++          };
++        };
++      }
++    )?.$$appGlobals?.$defaultLogger;
++    if (logger?.app?.error && typeof logger.app.error.log === 'function') {
++      logger.app.error.log(message);
++    }
++  } catch (error) {
++    if (typeof console !== 'undefined' && console.error) {
++      console.error(
++        `${NAVIGATION_BUILDER_CRASH_PROBE} logger failed`,
++        error instanceof Error ? error.message : String(error),
++      );
++    }
++  }
++}
++
++function probeNavigationBuilderDeepEqual(
++  route: Route<string> | undefined,
++  routeNames: string[],
++  state: unknown,
++  unhandledState: unknown,
++) {
++  const values: IProbeValue[] = [
++    {
++      name: 'route',
++      value: route,
++      maxDepth: 1,
++    },
++    {
++      name: 'route.params',
++      value: route?.params,
++      maxDepth: 3,
++    },
++    {
++      name: 'route.params.params',
++      value: route?.params?.params,
++      maxDepth: 3,
++    },
++    {
++      name: 'routeNames',
++      value: routeNames,
++    },
++    {
++      name: 'state',
++      value: state,
++      maxDepth: 3,
++    },
++    {
++      name: 'unhandledState',
++      value: unhandledState,
++      maxDepth: 3,
++    },
++  ];
++  logNavigationBuilderCrashProbe(
++    'before deepEqual state/unhandledState',
++    values,
++    `routeName=${String(route?.name)} routeKey=${String(
++      route?.key,
++    )} targetScreen=${String(route?.params?.screen)}`,
++  );
++  try {
++    return deepEqual(state, unhandledState);
++  } catch (error) {
++    logNavigationBuilderCrashProbe(
++      'deepEqual threw',
++      values,
++      `errorName=${
++        error instanceof Error ? error.name : typeof error
++      } errorMessage=${error instanceof Error ? error.message : String(error)}`,
++    );
++    throw error;
++  }
++}
++
+ // This is to make TypeScript compiler happy
+ // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+ PrivateValueStore;
+@@ -642,7 +986,15 @@ export function useNavigationBuilder<
+       ) {
+         const state = getStateFromParams(route.params);
+ 
+-        if (state != null && !deepEqual(state, unhandledState)) {
++        if (
++          state != null &&
++          !probeNavigationBuilderDeepEqual(
++            route,
++            routeNames,
++            state,
++            unhandledState,
++          )
++        ) {
+           setUnhandledState(state);
+         }
+       } else {
