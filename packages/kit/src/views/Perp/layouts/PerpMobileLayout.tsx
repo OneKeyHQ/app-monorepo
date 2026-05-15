@@ -95,7 +95,7 @@ export const TabBarItem = memo(
           mb={-2}
         >
           <SizableText size="$bodyMdMedium" pr="$0.5">
-            {displayTitle}
+            {displayTitle.toUpperCase()}
           </SizableText>
         </XStack>
       </DebugRenderTracker>
