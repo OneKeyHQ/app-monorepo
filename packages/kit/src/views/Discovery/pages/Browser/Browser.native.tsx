@@ -421,9 +421,15 @@ function MobileBrowser() {
   const earnTabsRef = useRef<ITabContainerRef>(null);
   const earnBorrowPagerRef = useRef<IEarnBorrowPagerViewRef>(null);
 
-  // Determine if outer PagerView should be used (phone only, not tablet/dual-screen)
-  const useOuterPager =
-    !isTabletMainView && !isTabletDetailView && !isDualScreen;
+  // Determine if outer PagerView should be used (phone-style layout).
+  // Only the legacy tablet layout requires display:none gating across panes;
+  // that layout is only meaningful when SplitView is actually active (the
+  // SplitViewContext provider wraps the routers). When the user disables
+  // enableSplitView on a foldable / dual-screen device, neither main nor sub
+  // view is set — fall back to the phone-style pager so Market/Earn/Browser
+  // can still render. Without this, dual-screen Android with split-screen
+  // off renders a blank Market/DeFi page.
+  const useOuterPager = !isTabletMainView && !isTabletDetailView;
   const handleExploreTabSwipe = useCallback(() => {
     exploreTabSwitchTypeRef.current = 'swipe';
   }, []);
