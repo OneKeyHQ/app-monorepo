@@ -3,6 +3,7 @@ import {
   findScrollableAncestorFromLocalNode,
   getStickySidebarMaxHeight,
   isChipFullyVisible,
+  shouldQueueProtocolNavigation,
   shouldReleasePinLock,
 } from '../defiDesktopStickyDom';
 
@@ -220,6 +221,42 @@ describe('defiDesktopStickyDom', () => {
       // "no lock" sentinel and must never trigger a release.
       expect(
         shouldReleasePinLock({ candidate: 'anything', target: null }),
+      ).toBe(false);
+    });
+  });
+
+  describe('shouldQueueProtocolNavigation', () => {
+    it('queues only missing desktop table-layout protocol handles', () => {
+      expect(
+        shouldQueueProtocolNavigation({
+          hasRegisteredHandle: false,
+          isNative: false,
+          tableLayout: true,
+        }),
+      ).toBe(true);
+
+      expect(
+        shouldQueueProtocolNavigation({
+          hasRegisteredHandle: true,
+          isNative: false,
+          tableLayout: true,
+        }),
+      ).toBe(false);
+
+      expect(
+        shouldQueueProtocolNavigation({
+          hasRegisteredHandle: false,
+          isNative: true,
+          tableLayout: true,
+        }),
+      ).toBe(false);
+
+      expect(
+        shouldQueueProtocolNavigation({
+          hasRegisteredHandle: false,
+          isNative: false,
+          tableLayout: false,
+        }),
       ).toBe(false);
     });
   });

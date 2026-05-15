@@ -1,23 +1,27 @@
-import { memo } from 'react';
+import { type ReactNode, memo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import type { INumberSizeableTextProps } from '@onekeyhq/components';
-import { Icon, Stack, Tooltip, XStack } from '@onekeyhq/components';
+import {
+  DashText,
+  type INumberSizeableTextProps,
+  SizableText,
+  Tooltip,
+  XStack,
+} from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
+import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 
-export function isProtocolValueUnavailable(
-  value: IDeFiAsset['value'],
-): boolean {
-  const valueBN = new BigNumber(value);
-  return valueBN.isNaN() || valueBN.isZero();
-}
+import { isProtocolValueUnavailable } from './protocolValueUtils';
 
 type IProtocolValueCellProps = {
   value: IDeFiAsset['value'];
   currencySymbol: string;
   priceUnavailableLabel: string;
+  partialPriceUnavailableLabel?: string;
+  showPriceUnavailableTooltip?: boolean;
   isUnavailable?: boolean;
   justifyContent?: 'flex-start' | 'flex-end';
   size?: INumberSizeableTextProps['size'];
@@ -32,6 +36,8 @@ const ProtocolValueCell = memo(
     value,
     currencySymbol,
     priceUnavailableLabel,
+    partialPriceUnavailableLabel,
+    showPriceUnavailableTooltip,
     isUnavailable,
     justifyContent = 'flex-end',
     size = '$bodyMdMedium',
@@ -40,34 +46,75 @@ const ProtocolValueCell = memo(
     numberOfLines,
     fontVariant,
   }: IProtocolValueCellProps) => {
+    const [{ hideValue }] = useSettingsValuePersistAtom();
     const valueBN = new BigNumber(value);
     const isValueUnavailable =
       isUnavailable ?? isProtocolValueUnavailable(value);
+    let formattedValue = '';
+    if (showPriceUnavailableTooltip && !isValueUnavailable) {
+      formattedValue = hideValue
+        ? '****'
+        : numberFormat(valueBN.toFixed(), {
+            formatter: 'value',
+            formatterOptions: { currency: currencySymbol },
+          });
+    }
 
-    return (
-      <XStack alignItems="center" justifyContent={justifyContent} gap="$1">
-        {isValueUnavailable ? (
-          <Stack width="$4" height="$4">
-            <Tooltip
-              renderContent={priceUnavailableLabel}
-              renderTrigger={
-                <Icon name="ErrorOutline" size="$4" color="$iconCritical" />
-              }
-            />
-          </Stack>
-        ) : null}
+    let valueContent: ReactNode;
+    if (isValueUnavailable) {
+      valueContent = (
+        <Tooltip
+          renderTrigger={
+            <SizableText
+              size={size}
+              color="$textSubdued"
+              textAlign={textAlign}
+              numberOfLines={numberOfLines}
+              fontVariant={fontVariant}
+              cursor="help"
+            >
+              --
+            </SizableText>
+          }
+          renderContent={priceUnavailableLabel}
+          placement="top"
+        />
+      );
+    } else if (showPriceUnavailableTooltip) {
+      valueContent = (
+        <DashText
+          tooltip={partialPriceUnavailableLabel ?? priceUnavailableLabel}
+          size={size}
+          color={color}
+          textAlign={textAlign}
+          numberOfLines={numberOfLines}
+          fontVariant={fontVariant}
+          dashColor="$textDisabled"
+          dashThickness={0.5}
+        >
+          {formattedValue}
+        </DashText>
+      );
+    } else {
+      valueContent = (
         <NumberSizeableTextWrapper
           hideValue
           size={size}
           formatter="value"
           formatterOptions={{ currency: currencySymbol }}
-          color={isValueUnavailable ? '$text' : color}
+          color={color}
           textAlign={textAlign}
           numberOfLines={numberOfLines}
           fontVariant={fontVariant}
         >
-          {isValueUnavailable ? '--' : valueBN.toFixed()}
+          {valueBN.toFixed()}
         </NumberSizeableTextWrapper>
+      );
+    }
+
+    return (
+      <XStack alignItems="center" justifyContent={justifyContent} gap="$1">
+        {valueContent}
       </XStack>
     );
   },
@@ -75,4 +122,8 @@ const ProtocolValueCell = memo(
 
 ProtocolValueCell.displayName = 'ProtocolValueCell';
 
+export {
+  isProtocolAssetValueUnavailable,
+  isProtocolValueUnavailable,
+} from './protocolValueUtils';
 export { ProtocolValueCell };
