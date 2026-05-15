@@ -2,6 +2,7 @@ import { memo } from 'react';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
+import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 
@@ -46,6 +47,7 @@ const ProtocolRewardsCell = memo(
               value={asset.value}
               currencySymbol={currencySymbol}
               priceUnavailableLabel={priceUnavailableLabel}
+              isUnavailable={isProtocolAssetValueUnavailable(asset)}
               size="$bodyMd"
               color="$textSubdued"
               justifyContent="flex-start"

@@ -14,6 +14,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ProtocolPositionSection } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionSection';
+import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
+import { getProtocolPositionSectionsValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
@@ -47,6 +49,9 @@ function DeFiProtocolDetails() {
 
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
+  });
+  const partialPriceUnavailableLabel = intl.formatMessage({
+    id: ETranslations.wallet_partial_price_unavailable,
   });
 
   const positions = useMemo(
@@ -130,6 +135,12 @@ function DeFiProtocolDetails() {
           {positions.map((position) => {
             const positionDisplayName =
               getProtocolPositionDisplayName(position);
+            const positionValueState = getProtocolPositionSectionsValueState(
+              position.sections,
+            );
+            const hasPartialUnavailableValue =
+              positionValueState.hasAvailableValue &&
+              positionValueState.hasUnavailableValue;
 
             return (
               <Stack key={position.positionKey} px="$5">
@@ -155,19 +166,21 @@ function DeFiProtocolDetails() {
                       </SizableText>
                     ) : null}
                   </XStack>
-                  <NumberSizeableTextWrapper
-                    hideValue
-                    size="$headingMd"
-                    formatter="value"
-                    formatterOptions={{
-                      currency: settings.currencyInfo.symbol,
-                    }}
-                    numberOfLines={1}
-                    textAlign="right"
-                    maxWidth="45%"
-                  >
-                    {position.value}
-                  </NumberSizeableTextWrapper>
+                  <Stack maxWidth="45%" alignItems="flex-end">
+                    <ProtocolValueCell
+                      value={positionValueState.value}
+                      currencySymbol={settings.currencyInfo.symbol}
+                      priceUnavailableLabel={priceUnavailableLabel}
+                      partialPriceUnavailableLabel={
+                        partialPriceUnavailableLabel
+                      }
+                      isUnavailable={!positionValueState.hasAvailableValue}
+                      showPriceUnavailableTooltip={hasPartialUnavailableValue}
+                      size="$headingMd"
+                      textAlign="right"
+                      numberOfLines={1}
+                    />
+                  </Stack>
                 </XStack>
                 <YStack gap="$2">
                   {position.sections.map((section) => (
