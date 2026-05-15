@@ -141,6 +141,7 @@ debug.log
 /.worktrees
 .skillshare/logs/operations.log
 .gstack/
+.codex/
 /apps/mobile/out-dir-analysis
 /apps/mobile/dist-test
 /apps/mobile/ios-bundle
