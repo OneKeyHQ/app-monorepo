@@ -411,6 +411,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
       if (targetIndex !== -1) {
         const closedTab = tabs[targetIndex];
+        const activeTabId = get(activeTabIdAtom());
+        const isClosingCurrentTab =
+          closedTab.isActive || activeTabId === closedTab.id;
         tabs.splice(targetIndex, 1);
 
         // Add to browser history when tab is closed
@@ -423,6 +426,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
 
         const activateAdjacentTab = () => {
+          if (platformEnv.isNative) {
+            if (isClosingCurrentTab || !activeTabId) {
+              this.setCurrentWebTab.call(set, null);
+              return;
+            }
+          }
+
           let newActiveTabIndex = targetIndex - 1;
 
           if (newActiveTabIndex < 0 && tabs.length > 0) {
