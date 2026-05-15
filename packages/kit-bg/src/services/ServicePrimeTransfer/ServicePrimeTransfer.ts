@@ -609,15 +609,9 @@ class ServicePrimeTransfer extends ServiceBase {
               // engine.io v3 ships numeric packet types; v4 ships strings.
               // Mirror v4 names so logs stay homogeneous across versions.
               return (
-                [
-                  'open',
-                  'close',
-                  'ping',
-                  'pong',
-                  'message',
-                  'upgrade',
-                  'noop',
-                ][t] || String(t)
+                ['open', 'close', 'ping', 'pong', 'message', 'upgrade', 'noop'][
+                  t
+                ] || String(t)
               );
             }
             return undefined;
