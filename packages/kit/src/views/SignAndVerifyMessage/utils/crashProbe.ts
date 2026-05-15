@@ -312,3 +312,94 @@ export function logSignAndVerifyCrashProbe(
     );
   }
 }
+
+function encodeProbeText(text: unknown) {
+  if (text === null || text === undefined) {
+    return String(text);
+  }
+  return String(text).replace(/\r?\n/g, ' <- ').replace(/\s+/g, ' ');
+}
+
+export function logSignAndVerifyTextProbe(stage: string, text: string) {
+  const message = `${SIGN_AND_VERIFY_ROUTE_PROBE} ${stage} | ${text} | stack=${getProbeStack()}`;
+  try {
+    console.error(message);
+    defaultLogger.app.error.log(message);
+  } catch (error) {
+    console.error(
+      `${SIGN_AND_VERIFY_ROUTE_PROBE} logger failed`,
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
+export function captureSignAndVerifyError<T>(stage: string, fn: () => T): T {
+  try {
+    return fn();
+  } catch (error) {
+    const errorObj = error as Error | null;
+    logSignAndVerifyTextProbe(
+      stage,
+      `caught=true | error.name=${encodeProbeText(
+        errorObj?.name,
+      )} | error.message=${encodeProbeText(
+        errorObj?.message,
+      )} | error.stack=${encodeProbeText(errorObj?.stack)}`,
+    );
+    throw error;
+  }
+}
+
+const SIGN_AND_VERIFY_GLOBAL_ERROR_PROBE_INSTALLED =
+  '__signAndVerifyGlobalErrorProbeInstalled__';
+
+function installSignAndVerifyGlobalErrorProbe() {
+  try {
+    const globalScope = globalThis as unknown as Record<string, unknown> & {
+      ErrorUtils?: {
+        setGlobalHandler?: (
+          handler: (error: Error, isFatal?: boolean) => void,
+        ) => void;
+        getGlobalHandler?: () => (error: Error, isFatal?: boolean) => void;
+      };
+    };
+    if (globalScope[SIGN_AND_VERIFY_GLOBAL_ERROR_PROBE_INSTALLED]) {
+      return;
+    }
+    const errorUtils = globalScope.ErrorUtils;
+    if (
+      !errorUtils ||
+      typeof errorUtils.setGlobalHandler !== 'function' ||
+      typeof errorUtils.getGlobalHandler !== 'function'
+    ) {
+      return;
+    }
+    globalScope[SIGN_AND_VERIFY_GLOBAL_ERROR_PROBE_INSTALLED] = true;
+    const previousHandler = errorUtils.getGlobalHandler();
+    errorUtils.setGlobalHandler((error, isFatal) => {
+      try {
+        const errorObj = error as Error | null;
+        logSignAndVerifyTextProbe(
+          'global error handler',
+          `isFatal=${String(isFatal)} | error.name=${encodeProbeText(
+            errorObj?.name,
+          )} | error.message=${encodeProbeText(
+            errorObj?.message,
+          )} | error.stack=${encodeProbeText(errorObj?.stack)}`,
+        );
+      } catch {
+        // swallow probe failure
+      }
+      if (typeof previousHandler === 'function') {
+        previousHandler(error, isFatal);
+      }
+    });
+  } catch (error) {
+    console.error(
+      `${SIGN_AND_VERIFY_ROUTE_PROBE} global handler install failed`,
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
+installSignAndVerifyGlobalErrorProbe();

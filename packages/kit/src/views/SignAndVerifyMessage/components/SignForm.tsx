@@ -25,7 +25,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { logSignAndVerifyCrashProbe } from '@onekeyhq/kit/src/views/SignAndVerifyMessage/utils/crashProbe';
+import {
+  captureSignAndVerifyError,
+  logSignAndVerifyCrashProbe,
+  logSignAndVerifyTextProbe,
+} from '@onekeyhq/kit/src/views/SignAndVerifyMessage/utils/crashProbe';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -85,12 +89,25 @@ export const SignForm = ({
   const rawMessage = form.watch('message');
   const selectedAddress = form.watch('address');
   const currentSignAccount = useMemo(() => {
-    if (!selectedAddress) {
-      return undefined;
-    }
-    return signAccountsRef.current.find(
-      (account) => account.account.address === selectedAddress,
-    );
+    return captureSignAndVerifyError('currentSignAccount useMemo crash', () => {
+      logSignAndVerifyCrashProbe('currentSignAccount useMemo enter', [
+        { name: 'selectedAddress', value: selectedAddress },
+        {
+          name: 'signAccountsRef.current',
+          value: signAccountsRef.current,
+        },
+      ]);
+      if (!selectedAddress) {
+        return undefined;
+      }
+      const matched = signAccountsRef.current.find(
+        (account) => account.account.address === selectedAddress,
+      );
+      logSignAndVerifyCrashProbe('currentSignAccount useMemo exit', [
+        { name: 'matched', value: matched },
+      ]);
+      return matched;
+    });
   }, [selectedAddress]);
 
   const logSignAccountDeepProbe = useCallback(
@@ -164,7 +181,34 @@ export const SignForm = ({
         currentSignAccount,
       );
     }
-    onCurrentSignAccountChange?.(currentSignAccount);
+    captureSignAndVerifyError(
+      'onCurrentSignAccountChange callback crash',
+      () => {
+        logSignAndVerifyCrashProbe(
+          'onCurrentSignAccountChange callback before',
+          [
+            {
+              name: 'currentSignAccount',
+              value: currentSignAccount,
+            },
+            {
+              name: 'typeof onCurrentSignAccountChange',
+              value: typeof onCurrentSignAccountChange,
+            },
+          ],
+        );
+        onCurrentSignAccountChange?.(currentSignAccount);
+        logSignAndVerifyCrashProbe(
+          'onCurrentSignAccountChange callback after',
+          [
+            {
+              name: 'currentSignAccount',
+              value: currentSignAccount,
+            },
+          ],
+        );
+      },
+    );
   }, [currentSignAccount, logSignAccountDeepProbe, onCurrentSignAccountChange]);
 
   const setDefaultAccount = useCallback(async () => {
@@ -338,7 +382,17 @@ export const SignForm = ({
           })),
         });
       }
-      void setDefaultAccount();
+      setDefaultAccount().catch((error: unknown) => {
+        const errorObj = error as Error | null;
+        logSignAndVerifyTextProbe(
+          'setDefaultAccount rejection',
+          `error.name=${String(errorObj?.name)} | error.message=${String(
+            errorObj?.message,
+          )} | error.stack=${String(errorObj?.stack)
+            .replace(/\r?\n/g, ' <- ')
+            .replace(/\s+/g, ' ')}`,
+        );
+      });
       return result;
     },
     [accountId, indexedAccountId, isOthersWallet, networkId, setDefaultAccount],
@@ -348,29 +402,63 @@ export const SignForm = ({
   );
 
   const displayFormatForm = useMemo(() => {
-    return networkUtils.isBTCNetwork(currentSignAccount?.network.id);
+    return captureSignAndVerifyError('displayFormatForm useMemo crash', () => {
+      logSignAndVerifyCrashProbe('displayFormatForm useMemo enter', [
+        {
+          name: 'currentSignAccount.network.id',
+          value: currentSignAccount?.network.id,
+        },
+      ]);
+      return networkUtils.isBTCNetwork(currentSignAccount?.network.id);
+    });
   }, [currentSignAccount?.network.id]);
 
   const formatRadioOptions = useMemo(() => {
-    const isHwAccount = accountUtils.isHwAccount({
-      accountId: currentSignAccount?.account.id ?? '',
-    });
-    if (!networkUtils.isBTCNetwork(currentSignAccount?.network.id)) {
-      return [];
-    }
-    if (currentSignAccount?.deriveType === 'BIP86') {
-      return [
+    return captureSignAndVerifyError('formatRadioOptions useMemo crash', () => {
+      logSignAndVerifyCrashProbe('formatRadioOptions useMemo enter', [
         {
-          label: intl.formatMessage({ id: ETranslations.global_standard }),
-          value: 'electrum',
-          disabled: true,
+          name: 'currentSignAccount.account.id',
+          value: currentSignAccount?.account.id,
         },
-        { label: 'BIP137', value: 'bip137', disabled: true },
-        { label: 'BIP322', value: 'bip322', disabled: false },
-      ];
-    }
+        {
+          name: 'currentSignAccount.network.id',
+          value: currentSignAccount?.network.id,
+        },
+        {
+          name: 'currentSignAccount.deriveType',
+          value: currentSignAccount?.deriveType,
+        },
+      ]);
+      const isHwAccount = accountUtils.isHwAccount({
+        accountId: currentSignAccount?.account.id ?? '',
+      });
+      if (!networkUtils.isBTCNetwork(currentSignAccount?.network.id)) {
+        return [];
+      }
+      if (currentSignAccount?.deriveType === 'BIP86') {
+        return [
+          {
+            label: intl.formatMessage({ id: ETranslations.global_standard }),
+            value: 'electrum',
+            disabled: true,
+          },
+          { label: 'BIP137', value: 'bip137', disabled: true },
+          { label: 'BIP322', value: 'bip322', disabled: false },
+        ];
+      }
 
-    if (currentSignAccount?.deriveType === 'BIP84') {
+      if (currentSignAccount?.deriveType === 'BIP84') {
+        return [
+          {
+            label: intl.formatMessage({ id: ETranslations.global_standard }),
+            value: 'electrum',
+            disabled: false,
+          },
+          { label: 'BIP137', value: 'bip137', disabled: false },
+          { label: 'BIP322', value: 'bip322', disabled: isHwAccount },
+        ];
+      }
+
       return [
         {
           label: intl.formatMessage({ id: ETranslations.global_standard }),
@@ -378,19 +466,9 @@ export const SignForm = ({
           disabled: false,
         },
         { label: 'BIP137', value: 'bip137', disabled: false },
-        { label: 'BIP322', value: 'bip322', disabled: isHwAccount },
+        { label: 'BIP322', value: 'bip322', disabled: true },
       ];
-    }
-
-    return [
-      {
-        label: intl.formatMessage({ id: ETranslations.global_standard }),
-        value: 'electrum',
-        disabled: false,
-      },
-      { label: 'BIP137', value: 'bip137', disabled: false },
-      { label: 'BIP322', value: 'bip322', disabled: true },
-    ];
+    });
   }, [
     currentSignAccount?.account.id,
     currentSignAccount?.network.id,
