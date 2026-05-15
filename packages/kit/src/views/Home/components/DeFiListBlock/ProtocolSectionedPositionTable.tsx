@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
+import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { ILocalizedProtocolPositionItem } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -12,6 +13,7 @@ import { ProtocolAssetBalanceText } from './ProtocolAssetBalanceText';
 import {
   BALANCE_FLEX_WITHOUT_REWARDS,
   POSITION_COLUMN_WIDTH,
+  PROTOCOL_TABLE_COLUMN_GAP,
   USD_FLEX_WITHOUT_REWARDS,
 } from './ProtocolUnifiedTable';
 
@@ -59,6 +61,7 @@ const ProtocolSectionedPositionTable = memo(
               mt={sectionIndex === 0 ? '$0' : '$2'}
               alignItems="center"
               bg="$bgSubdued"
+              gap={PROTOCOL_TABLE_COLUMN_GAP}
             >
               <Stack width={POSITION_COLUMN_WIDTH} flexShrink={0} minWidth={0}>
                 <SizableText size="$headingXs" color="$textSubdued">
@@ -67,13 +70,18 @@ const ProtocolSectionedPositionTable = memo(
                     : section.title}
                 </SizableText>
               </Stack>
-              <Stack flex={BALANCE_FLEX_WITHOUT_REWARDS} minWidth={0}>
+              <Stack
+                flex={BALANCE_FLEX_WITHOUT_REWARDS}
+                flexBasis={0}
+                minWidth={0}
+              >
                 <SizableText size="$headingXs" color="$textSubdued">
                   {labels.balance}
                 </SizableText>
               </Stack>
               <Stack
                 flex={USD_FLEX_WITHOUT_REWARDS}
+                flexBasis={0}
                 minWidth={0}
                 alignItems="flex-end"
               >
@@ -90,6 +98,7 @@ const ProtocolSectionedPositionTable = memo(
                 py="$2"
                 alignItems="center"
                 minHeight={44}
+                gap={PROTOCOL_TABLE_COLUMN_GAP}
               >
                 <XStack
                   width={POSITION_COLUMN_WIDTH}
@@ -112,7 +121,11 @@ const ProtocolSectionedPositionTable = memo(
                     {asset.symbol}
                   </SizableText>
                 </XStack>
-                <Stack flex={BALANCE_FLEX_WITHOUT_REWARDS} minWidth={0}>
+                <Stack
+                  flex={BALANCE_FLEX_WITHOUT_REWARDS}
+                  flexBasis={0}
+                  minWidth={0}
+                >
                   <ProtocolAssetBalanceText
                     asset={asset}
                     currencySymbol={currencySymbol}
@@ -121,6 +134,7 @@ const ProtocolSectionedPositionTable = memo(
                 </Stack>
                 <Stack
                   flex={USD_FLEX_WITHOUT_REWARDS}
+                  flexBasis={0}
                   minWidth={0}
                   alignItems="flex-end"
                 >
@@ -128,6 +142,7 @@ const ProtocolSectionedPositionTable = memo(
                     value={asset.value}
                     currencySymbol={currencySymbol}
                     priceUnavailableLabel={priceUnavailableLabel}
+                    isUnavailable={isProtocolAssetValueUnavailable(asset)}
                     size="$bodyMdMedium"
                     textAlign="right"
                     numberOfLines={1}
