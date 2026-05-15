@@ -353,29 +353,82 @@ export function captureSignAndVerifyError<T>(stage: string, fn: () => T): T {
 const SIGN_AND_VERIFY_GLOBAL_ERROR_PROBE_INSTALLED =
   '__signAndVerifyGlobalErrorProbeInstalled__';
 
+type IErrorUtilsLike = {
+  setGlobalHandler?: (
+    handler: (error: Error, isFatal?: boolean) => void,
+  ) => void;
+  getGlobalHandler?: () => (error: Error, isFatal?: boolean) => void;
+};
+
+function resolveErrorUtils(): {
+  source: string;
+  errorUtils: IErrorUtilsLike | undefined;
+} {
+  const candidates: { source: string; value: unknown }[] = [];
+  try {
+    candidates.push({
+      source: 'globalThis.ErrorUtils',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      value: (globalThis as any)?.ErrorUtils,
+    });
+  } catch {
+    // ignore
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fromGlobalAlias = (globalThis as any)?.global?.ErrorUtils;
+    candidates.push({
+      source: 'globalThis.global.ErrorUtils',
+      value: fromGlobalAlias,
+    });
+  } catch {
+    // ignore
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fromBracket = (globalThis as any)?.['ErrorUtils'];
+    candidates.push({ source: 'globalThis[ErrorUtils]', value: fromBracket });
+  } catch {
+    // ignore
+  }
+  for (const candidate of candidates) {
+    const v = candidate.value as IErrorUtilsLike | undefined;
+    if (
+      v &&
+      typeof v.setGlobalHandler === 'function' &&
+      typeof v.getGlobalHandler === 'function'
+    ) {
+      return { source: candidate.source, errorUtils: v };
+    }
+  }
+  return { source: 'none', errorUtils: undefined };
+}
+
 function installSignAndVerifyGlobalErrorProbe() {
   try {
-    const globalScope = globalThis as unknown as Record<string, unknown> & {
-      ErrorUtils?: {
-        setGlobalHandler?: (
-          handler: (error: Error, isFatal?: boolean) => void,
-        ) => void;
-        getGlobalHandler?: () => (error: Error, isFatal?: boolean) => void;
-      };
-    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const globalScope = globalThis as any;
     if (globalScope[SIGN_AND_VERIFY_GLOBAL_ERROR_PROBE_INSTALLED]) {
+      logSignAndVerifyTextProbe(
+        'global error probe install skipped',
+        'reason=already-installed',
+      );
       return;
     }
-    const errorUtils = globalScope.ErrorUtils;
-    if (
-      !errorUtils ||
-      typeof errorUtils.setGlobalHandler !== 'function' ||
-      typeof errorUtils.getGlobalHandler !== 'function'
-    ) {
+    const { source, errorUtils } = resolveErrorUtils();
+    if (!errorUtils || !errorUtils.setGlobalHandler) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const hasGlobalAlias = typeof (globalThis as any)?.global;
+      logSignAndVerifyTextProbe(
+        'global error probe install skipped',
+        `reason=no-error-utils | typeofGlobalThis=${typeof globalThis} | typeofGlobalAlias=${hasGlobalAlias}`,
+      );
       return;
     }
     globalScope[SIGN_AND_VERIFY_GLOBAL_ERROR_PROBE_INSTALLED] = true;
-    const previousHandler = errorUtils.getGlobalHandler();
+    const previousHandler = errorUtils.getGlobalHandler
+      ? errorUtils.getGlobalHandler()
+      : undefined;
     errorUtils.setGlobalHandler((error, isFatal) => {
       try {
         const errorObj = error as Error | null;
@@ -394,11 +447,25 @@ function installSignAndVerifyGlobalErrorProbe() {
         previousHandler(error, isFatal);
       }
     });
-  } catch (error) {
-    console.error(
-      `${SIGN_AND_VERIFY_ROUTE_PROBE} global handler install failed`,
-      error instanceof Error ? error.message : String(error),
+    logSignAndVerifyTextProbe(
+      'global error probe installed',
+      `source=${source} | typeofPreviousHandler=${typeof previousHandler}`,
     );
+  } catch (error) {
+    const errorObj = error as Error | null;
+    try {
+      logSignAndVerifyTextProbe(
+        'global error probe install threw',
+        `error.name=${encodeProbeText(
+          errorObj?.name,
+        )} | error.message=${encodeProbeText(errorObj?.message)}`,
+      );
+    } catch {
+      console.error(
+        `${SIGN_AND_VERIFY_ROUTE_PROBE} global handler install failed`,
+        errorObj?.message ?? String(error),
+      );
+    }
   }
 }
 
