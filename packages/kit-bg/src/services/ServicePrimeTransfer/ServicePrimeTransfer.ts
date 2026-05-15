@@ -268,15 +268,20 @@ class ServicePrimeTransfer extends ServiceBase {
   @toastIfError()
   async retryWebSocket() {
     defaultLogger.prime.transfer.initWebSocket({ endpoint: '(retry)' });
-    // Clear terminal-failed state immediately so the UI flips back to
-    // "Connecting..." without waiting for the new init to race-set it. The
-    // page reacts to websocketEndpointUpdatedAt and will resolve the
-    // endpoint + call initWebSocket again.
+    // Clear terminal-failed state and switch to "reconnecting" so the UI
+    // flips back to "Connecting..." immediately. We set websocketReconnecting
+    // (not just clear error) for two reasons:
+    //   1. The page's init effect cleanup runs disconnectWebSocket, which
+    //      calls handleDisconnect — under reconnecting=true that path skips
+    //      writing 'WebSocket disconnected' so the UI doesn't flicker red.
+    //   2. The page also reacts to websocketEndpointUpdatedAt and will
+    //      re-resolve the endpoint, then re-run the init effect to call
+    //      initWebSocket again (which clears reconnecting=false at start).
     await primeTransferAtom.set(
       (v): IPrimeTransferAtomData => ({
         ...v,
         websocketConnected: false,
-        websocketReconnecting: false,
+        websocketReconnecting: true,
         websocketError: undefined,
         websocketEndpointUpdatedAt: Date.now(),
       }),
