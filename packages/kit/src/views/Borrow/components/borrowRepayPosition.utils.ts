@@ -28,12 +28,16 @@ function isSameBorrowReserveAddress({
   reserveAddress?: string;
   targetReserveAddress?: string;
 }) {
-  if (!reserveAddress || !targetReserveAddress) {
+  if (reserveAddress === undefined || targetReserveAddress === undefined) {
     return false;
   }
 
   if (reserveAddress === targetReserveAddress) {
     return true;
+  }
+
+  if (!reserveAddress || !targetReserveAddress) {
+    return false;
   }
 
   if (

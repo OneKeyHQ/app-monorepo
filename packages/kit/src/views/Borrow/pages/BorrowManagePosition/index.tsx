@@ -49,6 +49,7 @@ const BorrowManagePosition = () => {
   const accountId = earnAccount?.account?.id || routeAccountId || '';
   const indexedAccountId =
     earnAccount?.account?.indexedAccountId ?? routeIndexedAccountId;
+  const hasReserveAddress = reserveAddress !== undefined;
   const defaultTab = useMemo(() => {
     if (type === 'withdraw' || type === 'repay') {
       return 'withdraw';
@@ -56,7 +57,7 @@ const BorrowManagePosition = () => {
     return 'deposit';
   }, [type]);
   const handleViewReserveDetails = useCallback(() => {
-    if (!reserveAddress || !marketAddress) {
+    if (!hasReserveAddress || !marketAddress) {
       return;
     }
     BorrowNavigation.pushToBorrowReserveDetails(appNavigation, {
@@ -76,6 +77,7 @@ const BorrowManagePosition = () => {
     provider,
     marketAddress,
     reserveAddress,
+    hasReserveAddress,
     symbol,
     logoURI,
     accountId,
@@ -83,7 +85,7 @@ const BorrowManagePosition = () => {
   ]);
 
   const headerRight = useCallback(() => {
-    if (gtMd || !reserveAddress || !marketAddress) {
+    if (gtMd || !hasReserveAddress || !marketAddress) {
       return null;
     }
 
@@ -97,7 +99,7 @@ const BorrowManagePosition = () => {
         {intl.formatMessage({ id: ETranslations.defi_reserve_info })}
       </Button>
     );
-  }, [gtMd, reserveAddress, marketAddress, handleViewReserveDetails, intl]);
+  }, [gtMd, hasReserveAddress, marketAddress, handleViewReserveDetails, intl]);
 
   return (
     <Page scrollEnabled>

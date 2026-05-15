@@ -1,8 +1,10 @@
 import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
+import type { IBorrowAsset } from '@onekeyhq/shared/types/staking';
 
 import {
   appendBorrowRepaySetupState,
   buildBorrowRepayPositionKey,
+  getBorrowAssetByReserveAddress,
   getBorrowRepayMaxInputBalance,
   getBorrowRepayProgressStep,
   hasPositiveDebtBalance,
@@ -121,6 +123,38 @@ describe('borrowRepayPosition utils', () => {
         reserveAddress: '',
       }),
     ).toBe(false);
+  });
+
+  it('matches the native reserve empty-string sentinel', () => {
+    const assets = [
+      {
+        reserveAddress: '',
+        token: { symbol: 'ETH' },
+      },
+      {
+        reserveAddress: '0xUSDC',
+        token: { symbol: 'USDC' },
+      },
+    ] as unknown as IBorrowAsset[];
+
+    expect(
+      getBorrowAssetByReserveAddress({
+        assets,
+        reserveAddress: '',
+      })?.token.symbol,
+    ).toBe('ETH');
+    expect(
+      getBorrowAssetByReserveAddress({
+        assets,
+        reserveAddress: '0xusdc',
+      })?.token.symbol,
+    ).toBe('USDC');
+    expect(
+      getBorrowAssetByReserveAddress({
+        assets,
+        reserveAddress: undefined,
+      }),
+    ).toBeUndefined();
   });
 
   it('invalidates request keys when setup state changes', () => {

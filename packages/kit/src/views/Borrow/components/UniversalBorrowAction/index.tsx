@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useDebouncedCallback } from 'use-debounce';
@@ -39,6 +39,30 @@ const isAmountInvalid = (amount: string) =>
   BigNumber(amount).isNaN() ||
   (typeof amount === 'string' && amount.endsWith('.'));
 
+function buildBorrowActionRequestKey({
+  action,
+  accountId,
+  networkId,
+  provider,
+  marketAddress,
+  reserveAddress,
+  amount,
+  isDisabled,
+  repayAll,
+}: IUniversalBorrowActionParams) {
+  return [
+    action,
+    accountId,
+    networkId,
+    provider,
+    marketAddress,
+    reserveAddress,
+    amount,
+    isDisabled ? 'disabled' : 'enabled',
+    action === 'repay' ? String(!!repayAll) : '',
+  ].join('|');
+}
+
 export function useUniversalBorrowAction({
   action,
   accountId,
@@ -67,6 +91,9 @@ export function useUniversalBorrowAction({
   const [riskOfLiquidationAlert, setRiskOfLiquidationAlert] = useState<
     boolean | undefined
   >(undefined);
+  const transactionConfirmationRequestKeyRef = useRef('');
+  const estimateFeeRequestKeyRef = useRef('');
+  const checkAmountRequestKeyRef = useRef('');
 
   const isReady = useMemo(
     () =>
@@ -118,25 +145,61 @@ export function useUniversalBorrowAction({
   );
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
-    async (value?: string) => {
-      const resp = await fetchTransactionConfirmation(value || '0');
-      setTransactionConfirmation(resp);
+    async (value: string, requestKey: string) => {
+      if (transactionConfirmationRequestKeyRef.current !== requestKey) {
+        return;
+      }
+      try {
+        const resp = await fetchTransactionConfirmation(value);
+        if (transactionConfirmationRequestKeyRef.current === requestKey) {
+          setTransactionConfirmation(resp);
+        }
+      } catch {
+        if (transactionConfirmationRequestKeyRef.current === requestKey) {
+          setTransactionConfirmation(undefined);
+        }
+      }
     },
     350,
   );
 
   useEffect(() => {
+    debouncedFetchTransactionConfirmation.cancel();
     if (!isReady || isDisabled) {
+      transactionConfirmationRequestKeyRef.current = '';
       setTransactionConfirmation(undefined);
       return;
     }
 
-    void debouncedFetchTransactionConfirmation(normalizedAmount);
+    const requestKey = buildBorrowActionRequestKey({
+      action,
+      accountId,
+      networkId,
+      provider,
+      marketAddress,
+      reserveAddress,
+      amount: normalizedAmount,
+      isDisabled,
+      repayAll,
+    });
+    transactionConfirmationRequestKeyRef.current = requestKey;
+    setTransactionConfirmation(undefined);
+    void debouncedFetchTransactionConfirmation(normalizedAmount, requestKey);
+    return () => {
+      debouncedFetchTransactionConfirmation.cancel();
+    };
   }, [
-    debouncedFetchTransactionConfirmation,
+    accountId,
+    action,
+    marketAddress,
+    networkId,
+    normalizedAmount,
+    provider,
+    repayAll,
+    reserveAddress,
     isDisabled,
     isReady,
-    normalizedAmount,
+    debouncedFetchTransactionConfirmation,
   ]);
 
   const fetchEstimateFeeResp = useCallback(
@@ -179,63 +242,135 @@ export function useUniversalBorrowAction({
   );
 
   const debouncedFetchEstimateFeeResp = useDebouncedCallback(
-    async (value?: string) => {
-      const resp = await fetchEstimateFeeResp(value || '0');
-      setEstimateFeeResp(resp);
+    async (value: string, requestKey: string) => {
+      if (estimateFeeRequestKeyRef.current !== requestKey) {
+        return;
+      }
+      try {
+        const resp = await fetchEstimateFeeResp(value);
+        if (estimateFeeRequestKeyRef.current === requestKey) {
+          setEstimateFeeResp(resp);
+        }
+      } catch {
+        if (estimateFeeRequestKeyRef.current === requestKey) {
+          setEstimateFeeResp(undefined);
+        }
+      }
     },
     350,
   );
 
   useEffect(() => {
+    debouncedFetchEstimateFeeResp.cancel();
     if (!isReady || isDisabled) {
+      estimateFeeRequestKeyRef.current = '';
       setEstimateFeeResp(undefined);
       return;
     }
 
     if (!amount || isAmountInvalid(amount) || BigNumber(amount).lte(0)) {
+      estimateFeeRequestKeyRef.current = '';
       setEstimateFeeResp(undefined);
       return;
     }
 
-    void debouncedFetchEstimateFeeResp(amount);
-  }, [amount, debouncedFetchEstimateFeeResp, isDisabled, isReady, repayAll]);
+    const requestKey = buildBorrowActionRequestKey({
+      action,
+      accountId,
+      networkId,
+      provider,
+      marketAddress,
+      reserveAddress,
+      amount,
+      isDisabled,
+      repayAll,
+    });
+    estimateFeeRequestKeyRef.current = requestKey;
+    setEstimateFeeResp(undefined);
+    void debouncedFetchEstimateFeeResp(amount, requestKey);
+    return () => {
+      debouncedFetchEstimateFeeResp.cancel();
+    };
+  }, [
+    accountId,
+    action,
+    amount,
+    marketAddress,
+    networkId,
+    provider,
+    repayAll,
+    reserveAddress,
+    isDisabled,
+    isReady,
+    debouncedFetchEstimateFeeResp,
+  ]);
 
-  const checkAmount = useDebouncedCallback(async (value: string) => {
-    if (!isReady || isAmountInvalid(value)) {
-      return;
-    }
-    setCheckAmountLoading(true);
-    try {
-      const response =
-        await backgroundApiProxy.serviceStaking.getBorrowCheckAmount({
-          networkId,
-          provider,
-          marketAddress,
-          reserveAddress,
-          accountId,
-          action,
-          amount: value,
-          repayAll: action === 'repay' ? repayAll : undefined,
-        });
-
-      if (Number(response.code) === 0) {
-        setCheckAmountMessage('');
-        setCheckAmountAlerts(response.data?.alerts || []);
-        setCheckAmountResult(response.data?.result);
-        setRiskOfLiquidationAlert(response.data?.riskOfLiquidationAlert);
-      } else {
-        setCheckAmountMessage(response.message);
-        setCheckAmountAlerts([]);
-        setCheckAmountResult(false);
-        setRiskOfLiquidationAlert(undefined);
+  const checkAmount = useDebouncedCallback(
+    async (value: string, requestKey: string) => {
+      if (
+        checkAmountRequestKeyRef.current !== requestKey ||
+        !isReady ||
+        isDisabled ||
+        isAmountInvalid(value)
+      ) {
+        return;
       }
-    } finally {
-      setCheckAmountLoading(false);
-    }
-  }, 300);
+      try {
+        const response =
+          await backgroundApiProxy.serviceStaking.getBorrowCheckAmount({
+            networkId,
+            provider,
+            marketAddress,
+            reserveAddress,
+            accountId,
+            action,
+            amount: value,
+            repayAll: action === 'repay' ? repayAll : undefined,
+          });
+
+        if (checkAmountRequestKeyRef.current !== requestKey) {
+          return;
+        }
+
+        if (Number(response.code) === 0) {
+          setCheckAmountMessage('');
+          setCheckAmountAlerts(response.data?.alerts || []);
+          setCheckAmountResult(response.data?.result);
+          setRiskOfLiquidationAlert(response.data?.riskOfLiquidationAlert);
+        } else {
+          setCheckAmountMessage(response.message);
+          setCheckAmountAlerts([]);
+          setCheckAmountResult(false);
+          setRiskOfLiquidationAlert(undefined);
+        }
+      } catch {
+        if (checkAmountRequestKeyRef.current === requestKey) {
+          setCheckAmountMessage('');
+          setCheckAmountAlerts([]);
+          setCheckAmountResult(false);
+          setRiskOfLiquidationAlert(undefined);
+        }
+      } finally {
+        if (checkAmountRequestKeyRef.current === requestKey) {
+          setCheckAmountLoading(false);
+        }
+      }
+    },
+    300,
+  );
 
   useEffect(() => {
-    if (!isReady || (amount && isAmountInvalid(amount))) {
+    checkAmount.cancel();
+    const amountBN = new BigNumber(amount || '0');
+    if (
+      !isReady ||
+      isDisabled ||
+      !amount ||
+      isAmountInvalid(amount) ||
+      amountBN.isNaN() ||
+      amountBN.lte(0)
+    ) {
+      checkAmountRequestKeyRef.current = '';
       setCheckAmountMessage('');
       setCheckAmountAlerts([]);
       setCheckAmountLoading(false);
@@ -244,8 +379,40 @@ export function useUniversalBorrowAction({
       return;
     }
 
-    void checkAmount(amount || '0');
-  }, [amount, checkAmount, isReady, repayAll]);
+    const requestKey = buildBorrowActionRequestKey({
+      action,
+      accountId,
+      networkId,
+      provider,
+      marketAddress,
+      reserveAddress,
+      amount,
+      isDisabled,
+      repayAll,
+    });
+    checkAmountRequestKeyRef.current = requestKey;
+    setCheckAmountMessage('');
+    setCheckAmountAlerts([]);
+    setCheckAmountLoading(true);
+    setCheckAmountResult(undefined);
+    setRiskOfLiquidationAlert(undefined);
+    void checkAmount(amount, requestKey);
+    return () => {
+      checkAmount.cancel();
+    };
+  }, [
+    accountId,
+    action,
+    amount,
+    marketAddress,
+    networkId,
+    provider,
+    repayAll,
+    reserveAddress,
+    isDisabled,
+    isReady,
+    checkAmount,
+  ]);
 
   const isCheckAmountMessageError = useMemo(
     () => amount.length > 0 && !!checkAmountMessage,
