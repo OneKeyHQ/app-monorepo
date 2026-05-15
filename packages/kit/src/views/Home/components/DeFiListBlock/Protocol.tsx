@@ -82,6 +82,7 @@ const ProtocolDesktopLayout = memo(
       currencySymbol: string;
       positionCountText: string;
       priceUnavailableLabel: string;
+      partialPriceUnavailableLabel: string;
       categoryGroups: ILocalizedProtocolCategoryGroup[];
     }
   >(
@@ -93,6 +94,7 @@ const ProtocolDesktopLayout = memo(
         currencySymbol,
         positionCountText,
         priceUnavailableLabel,
+        partialPriceUnavailableLabel,
         categoryGroups,
       },
       forwardedRef,
@@ -185,6 +187,9 @@ const ProtocolDesktopLayout = memo(
                       group={group}
                       currencySymbol={currencySymbol}
                       priceUnavailableLabel={priceUnavailableLabel}
+                      partialPriceUnavailableLabel={
+                        partialPriceUnavailableLabel
+                      }
                     />
                   ))}
                 </YStack>
@@ -219,6 +224,9 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
   );
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
+  });
+  const partialPriceUnavailableLabel = intl.formatMessage({
+    id: ETranslations.wallet_partial_price_unavailable,
   });
   const categoryGroups = useMemo<ILocalizedProtocolCategoryGroup[]>(
     () =>
@@ -264,6 +272,7 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
     onPressProtocol,
     positionCountText,
     priceUnavailableLabel,
+    partialPriceUnavailableLabel,
     protocolDisplayInfo,
     protocolInfo,
   };
@@ -297,6 +306,7 @@ const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
         currencySymbol={viewModel.currencySymbol}
         positionCountText={viewModel.positionCountText}
         priceUnavailableLabel={viewModel.priceUnavailableLabel}
+        partialPriceUnavailableLabel={viewModel.partialPriceUnavailableLabel}
         categoryGroups={viewModel.categoryGroups}
       />
     );
