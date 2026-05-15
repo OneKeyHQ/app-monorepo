@@ -932,6 +932,7 @@ function SendDataInputContainer() {
     }) => {
       if (isNavigatingRef.current) return;
       isNavigatingRef.current = true;
+      setIsSubmitting(true);
       try {
         const queryResult =
           await backgroundApiProxy.serviceAccountProfile.queryAddress({
@@ -1045,6 +1046,7 @@ function SendDataInputContainer() {
         });
       } finally {
         isNavigatingRef.current = false;
+        setIsSubmitting(false);
       }
     },
     [
@@ -1309,7 +1311,7 @@ function SendDataInputContainer() {
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>
-      {toResolved && !toPending ? (
+      {(toResolved && !toPending) || isSubmitting ? (
         <Page.Footer>
           <Page.FooterActions
             onConfirm={handleNavigateToAmountInput}

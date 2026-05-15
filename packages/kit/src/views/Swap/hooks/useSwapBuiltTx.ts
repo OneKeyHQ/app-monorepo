@@ -428,49 +428,42 @@ export function useSwapBuildTx() {
       if (otherFeeInfo?.length) {
         await Promise.all(
           otherFeeInfo.map(async (item) => {
-            const tokenBalanceInfo =
-              await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-                networkId: item.token?.networkId,
-                contractAddress: item.token?.contractAddress,
-                accountAddress: fromUserAddress,
-                accountId: fromAccountId,
+            const shouldAddFromAmount = equalTokenNoCaseSensitive({
+              token1: item.token,
+              token2: fromToken,
+            });
+            const tokenAmountBN = new BigNumber(item.amount ?? 0);
+            const fromTokenAmountBN = new BigNumber(
+              selectQuote?.fromAmount ?? 0,
+            );
+            const finalTokenAmount = shouldAddFromAmount
+              ? tokenAmountBN.plus(fromTokenAmountBN).toFixed()
+              : tokenAmountBN.toFixed();
+            const checkResult = await checkSwapLatestBalanceSufficient({
+              token: item.token,
+              amount: finalTokenAmount,
+              accountAddress: fromUserAddress,
+              accountId: fromAccountId,
+            });
+            if (!checkResult.isSufficient) {
+              Toast.error({
+                title: intl.formatMessage(
+                  {
+                    id: ETranslations.swap_page_toast_insufficient_balance_title,
+                  },
+                  { token: checkResult.tokenSymbol },
+                ),
+                message: intl.formatMessage(
+                  {
+                    id: ETranslations.swap_page_toast_insufficient_balance_content,
+                  },
+                  {
+                    token: checkResult.tokenSymbol,
+                    number: numberFormat(tokenAmountBN.toFixed(), formatter),
+                  },
+                ),
               });
-            if (tokenBalanceInfo?.length) {
-              const tokenBalanceBN = new BigNumber(
-                tokenBalanceInfo[0].balanceParsed ?? 0,
-              );
-              const shouldAddFromAmount = equalTokenNoCaseSensitive({
-                token1: item.token,
-                token2: fromToken,
-              });
-
-              const tokenAmountBN = new BigNumber(item.amount ?? 0);
-              const fromTokenAmountBN = new BigNumber(
-                selectQuote?.fromAmount ?? 0,
-              );
-              const finalTokenAmount = shouldAddFromAmount
-                ? tokenAmountBN.plus(fromTokenAmountBN).toFixed()
-                : tokenAmountBN.toFixed();
-              if (tokenBalanceBN.lt(finalTokenAmount)) {
-                Toast.error({
-                  title: intl.formatMessage(
-                    {
-                      id: ETranslations.swap_page_toast_insufficient_balance_title,
-                    },
-                    { token: item.token.symbol },
-                  ),
-                  message: intl.formatMessage(
-                    {
-                      id: ETranslations.swap_page_toast_insufficient_balance_content,
-                    },
-                    {
-                      token: item.token.symbol,
-                      number: numberFormat(tokenAmountBN.toFixed(), formatter),
-                    },
-                  ),
-                });
-                checkRes = false;
-              }
+              checkRes = false;
             }
           }),
         );

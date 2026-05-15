@@ -28,9 +28,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import type { IPublicBackupData } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
-// TODO: Move lightning utils to shared module
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { ERestoreResult } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
+import { ERestoreResult } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

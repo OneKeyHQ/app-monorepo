@@ -30,6 +30,7 @@ export default function ClearAppCache() {
       signatureRecord: false,
       customToken: false,
       customRpc: false,
+      customNetworkFee: false,
       serverNetworks: false,
     } as IClearCacheOnAppState,
   });
@@ -115,6 +116,15 @@ export default function ClearAppCache() {
                   <Checkbox
                     label={intl.formatMessage({
                       id: ETranslations.custom_rpc_title,
+                    })}
+                  />
+                </Form.Field>
+              )}
+              {platformEnv.isWebDappMode ? null : (
+                <Form.Field name="customNetworkFee">
+                  <Checkbox
+                    label={intl.formatMessage({
+                      id: ETranslations.global_custom_network_fee,
                     })}
                   />
                 </Form.Field>

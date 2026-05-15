@@ -17,6 +17,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ERestoreResult } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import * as CloudFs from '@onekeyhq/shared/src/cloudfs';
 import {
   WALLET_TYPE_HD,
@@ -45,7 +46,6 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import ServiceBase from '../ServiceBase';
 
-import { ERestoreResult } from './types';
 import {
   accountCountWithBackup,
   isAvailableBackupWithBackup,

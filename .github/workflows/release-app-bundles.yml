@@ -121,7 +121,14 @@ jobs:
             echo "Found BUILD_NUMBER in .env.version: $BUILD_NUMBER"
             BUILD_SOURCE="bundle-release"
           else
-            # Fallback: bundle-dev format 10YYMMDD{run_number % 100}
+            # Fallback: bundle-dev format 10YYMMDDxx — the leading "10"
+            # explicitly marks the build as manual / PR-triggered so it's
+            # visually distinguishable from daily-build's YYYYMMDDxx in QA
+            # CDN listings, Slack notifications, Sentry release names, and
+            # Android versionCode bumps. Diverging the prefix is the point.
+            #
+            # Total 10 digits; max value 1099123199 stays inside Android
+            # versionCode's int32 cap (2147483647).
             DATE=$(date -u "+%y%m%d")
             RUN_MOD=$(( $GITHUB_RUN_NUMBER % 100 ))
             RUN_MOD=$(printf "%02d" $RUN_MOD)
