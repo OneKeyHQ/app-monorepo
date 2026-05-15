@@ -18,7 +18,10 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
-import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
+import {
+  getBotWalletDisabledMessage,
+  showBotWalletDisabledToast,
+} from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -294,7 +297,7 @@ function SingleLineReceiverInput() {
         if (isDeactivatedBotReceiver) {
           setReceiverValidationErrors([]);
           showBotWalletDisabledToast('beReceiver');
-          return '该 Bot 钱包已停用，无法作为接收地址';
+          return getBotWalletDisabledMessage('beReceiver');
         }
       }
 

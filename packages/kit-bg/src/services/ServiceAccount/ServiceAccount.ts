@@ -4124,6 +4124,39 @@ class ServiceAccount extends ServiceBase {
     return metadata?.status === BOT_WALLET_STATUS_DEACTIVATED;
   }
 
+  // Batch variant of isBotWalletDeactivated to avoid N IPC round-trips when a
+  // caller needs the status for many wallets (recipient picker, bulk lists).
+  // Returns a map keyed by the input walletId; non-bot wallets are mapped to
+  // false without touching simpleDb.
+  @backgroundMethod()
+  async getBotWalletDeactivationStatusMap({
+    walletIds,
+  }: {
+    walletIds: string[];
+  }): Promise<Record<string, boolean>> {
+    const result: Record<string, boolean> = {};
+    if (!walletIds?.length) {
+      return result;
+    }
+    const uniqueIds = Array.from(new Set(walletIds));
+    const botWalletIds = uniqueIds.filter((id) =>
+      accountUtils.isBotWallet({ walletId: id }),
+    );
+    for (const id of uniqueIds) {
+      result[id] = false;
+    }
+    if (botWalletIds.length === 0) {
+      return result;
+    }
+    const metadataList = await Promise.all(
+      botWalletIds.map((id) => simpleDb.botWallet.getMetadata(id)),
+    );
+    botWalletIds.forEach((id, idx) => {
+      result[id] = metadataList[idx]?.status === BOT_WALLET_STATUS_DEACTIVATED;
+    });
+    return result;
+  }
+
   @backgroundMethod()
   async isTempWalletRemoved({
     wallet,

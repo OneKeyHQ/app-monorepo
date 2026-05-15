@@ -380,6 +380,34 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       { initResult: new Map(), undefinedResultIfError: true },
     );
 
+  // Pre-compute deactivated-bot-wallet status for every recent recipient so
+  // the per-tap check is a sync map lookup instead of an IPC round-trip.
+  // Recipients without a walletId are external addresses and can't belong
+  // to a bot wallet — they default to false.
+  const { result: deactivatedRecipientWalletIds = new Set<string>() } =
+    usePromiseResult<Set<string>>(
+      async () => {
+        if (recentWalletIds.length === 0) {
+          return new Set();
+        }
+        try {
+          const statusMap =
+            await backgroundApiProxy.serviceAccount.getBotWalletDeactivationStatusMap(
+              { walletIds: recentWalletIds },
+            );
+          return new Set(
+            Object.entries(statusMap)
+              .filter(([, isDeactivated]) => isDeactivated)
+              .map(([walletId]) => walletId),
+          );
+        } catch {
+          return new Set();
+        }
+      },
+      [recentWalletIds],
+      { initResult: new Set(), undefinedResultIfError: true },
+    );
+
   // Notify parent of match status and count.
   // Skip during debounce — parent resets tabMatchStatus to null on
   // searchKey change, so allReported stays false until we re-report.
@@ -425,7 +453,15 @@ function RecentRecipients(props: IRecentRecipientsProps) {
               // which has since been deactivated. Block selection so we
               // don't paste a dead address into the recipient input — show
               // a toast so the user understands why the row is rejected.
-              if (
+              // Fast path: recipients with a known walletId resolve via the
+              // precomputed set (no IPC). Recipients without a walletId
+              // (e.g. BTC fresh addresses) still need the async lookup.
+              if (recipient.walletId) {
+                if (deactivatedRecipientWalletIds.has(recipient.walletId)) {
+                  showBotWalletDisabledToast('beReceiver');
+                  return;
+                }
+              } else if (
                 await isAddressOwnedByDeactivatedBotWallet({
                   networkId,
                   address: canonicalAddress,
@@ -475,6 +511,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     networkId,
     onSelect,
     recentWalletMap,
+    deactivatedRecipientWalletIds,
   ]);
 
   return (

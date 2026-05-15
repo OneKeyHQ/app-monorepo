@@ -9,7 +9,10 @@ import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/Addre
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
-import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
+import {
+  getBotWalletDisabledMessage,
+  showBotWalletDisabledToast,
+} from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import {
   getBulkSendMinTransferAmount,
   getBulkSendMinTransferDisplayAmount,
@@ -598,7 +601,7 @@ function useMultiLineAddressValidation(
               hasDeactivatedBotReceiver = true;
               lineErrors.push({
                 lineNumber: index + 1,
-                message: '该 Bot 钱包已停用，无法作为接收地址',
+                message: getBotWalletDisabledMessage('beReceiver'),
               });
             }
           }

@@ -24,6 +24,10 @@ const SCENE_TITLES: Record<IBotWalletDisabledScene, string> = {
   referral: '该钱包已停用，无法绑定邀请码',
 };
 
+export function getBotWalletDisabledMessage(scene: IBotWalletDisabledScene) {
+  return SCENE_TITLES[scene];
+}
+
 export function showBotWalletDisabledToast(scene: IBotWalletDisabledScene) {
   Toast.error({
     title: SCENE_TITLES[scene],

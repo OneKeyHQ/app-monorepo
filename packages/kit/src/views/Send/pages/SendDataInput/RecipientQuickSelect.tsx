@@ -330,30 +330,24 @@ function AccountRecipients({
 
       // Drop deactivated bot wallets from the recipient picker — sending
       // to them is blocked elsewhere, so don't even surface them as a
-      // selectable target.
-      const botGroups = groups.filter((g) =>
-        accountUtils.isBotWallet({ walletId: g.walletId }),
-      );
-      const deactivatedBotWalletIds = new Set<string>();
-      if (botGroups.length > 0) {
-        const flags = await Promise.all(
-          botGroups.map(async (g) => {
-            try {
-              return await backgroundApiProxy.serviceAccount.isBotWalletDeactivated(
-                { walletId: g.walletId },
-              );
-            } catch {
-              return false;
-            }
-          }),
-        );
-        botGroups.forEach((g, idx) => {
-          if (flags[idx]) deactivatedBotWalletIds.add(g.walletId);
-        });
+      // selectable target. Use the batch IPC to keep this O(1) round-trip
+      // instead of one call per bot wallet.
+      const botWalletIds = groups
+        .map((g) => g.walletId)
+        .filter((id) => accountUtils.isBotWallet({ walletId: id }));
+      let filteredGroups = groups;
+      if (botWalletIds.length > 0) {
+        let statusMap: Record<string, boolean> = {};
+        try {
+          statusMap =
+            await backgroundApiProxy.serviceAccount.getBotWalletDeactivationStatusMap(
+              { walletIds: botWalletIds },
+            );
+        } catch {
+          statusMap = {};
+        }
+        filteredGroups = groups.filter((g) => !statusMap[g.walletId]);
       }
-      const filteredGroups = groups.filter(
-        (g) => !deactivatedBotWalletIds.has(g.walletId),
-      );
 
       // senderDeriveType filtering stays on UI side (cheap, no IPC)
       if (!mergeDeriveAssetsEnabled) {
