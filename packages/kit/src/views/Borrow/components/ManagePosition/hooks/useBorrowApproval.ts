@@ -430,8 +430,15 @@ export function useBorrowApproval({
         let approveAllowance = borrowDelegationApproveTarget.allowance;
         try {
           approveAllowance = await fetchBorrowDelegationAllowance();
-        } catch {
-          approveAllowance = borrowDelegationApproveTarget.allowance;
+        } catch (error) {
+          const staleAllowanceRequiresApproval = isBorrowTokenApprovalRequired({
+            enabled: delegationApprovalEnabled,
+            amount: amountValue,
+            allowance: approveAllowance || '0',
+          });
+          if (!staleAllowanceRequiresApproval) {
+            throw error;
+          }
         }
 
         const approvalActionStep = resolveBorrowApprovalActionStep({
@@ -509,8 +516,16 @@ export function useBorrowApproval({
       let approveAllowance = allowance;
       try {
         approveAllowance = await fetchTokenAllowanceParsed();
-      } catch {
-        approveAllowance = allowance;
+      } catch (error) {
+        const staleAllowanceRequiresApproval = isBorrowTokenApprovalRequired({
+          enabled: approvalEnabled,
+          amount: amountValue,
+          allowance: approveAllowance || '0',
+          requiresMaxApproval: action === 'repay' && repayAll,
+        });
+        if (!staleAllowanceRequiresApproval) {
+          throw error;
+        }
       }
 
       const approvalActionStep = resolveBorrowApprovalActionStep({
@@ -609,11 +624,70 @@ export function useBorrowApproval({
     trackAllowance,
   ]);
 
+  const ensureReadyToSubmit = useCallback(async () => {
+    try {
+      if (approvalEnabled) {
+        const approveAllowance = await fetchTokenAllowanceParsed();
+        const approvalActionStep = resolveBorrowApprovalActionStep({
+          enabled: approvalEnabled,
+          amount: amountValue,
+          allowance: approveAllowance || '0',
+          requiresMaxApproval: action === 'repay' && repayAll,
+          shouldResetUSDT: approveTarget?.token
+            ? earnUtils.isUSDTonETHNetwork(approveTarget.token)
+            : false,
+        });
+
+        if (approvalActionStep === 'submit') {
+          return true;
+        }
+
+        await onApprove();
+        return false;
+      }
+
+      if (delegationApprovalEnabled && borrowDelegationApproveTarget) {
+        const approveAllowance = await fetchBorrowDelegationAllowance();
+        const approvalActionStep = resolveBorrowApprovalActionStep({
+          enabled: delegationApprovalEnabled,
+          amount: amountValue,
+          allowance: approveAllowance || '0',
+          shouldResetUSDT: false,
+        });
+
+        if (approvalActionStep === 'submit') {
+          return true;
+        }
+
+        await onApprove();
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      showApprovalError({ error, scope: 'ensureReadyToSubmit' });
+      return false;
+    }
+  }, [
+    action,
+    amountValue,
+    approvalEnabled,
+    approveTarget?.token,
+    borrowDelegationApproveTarget,
+    delegationApprovalEnabled,
+    fetchBorrowDelegationAllowance,
+    fetchTokenAllowanceParsed,
+    onApprove,
+    repayAll,
+    showApprovalError,
+  ]);
+
   return {
     approveType,
     approving,
     loadingAllowance: !!loadingAllowance,
     shouldApprove,
+    ensureReadyToSubmit,
     onApprove,
   };
 }

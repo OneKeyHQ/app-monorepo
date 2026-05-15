@@ -4,12 +4,15 @@ import type { IBorrowAsset } from '@onekeyhq/shared/types/staking';
 import {
   appendBorrowRepaySetupState,
   buildBorrowRepayPositionKey,
+  filterUnsupportedAaveNativeReserveAssets,
   getBorrowAssetByReserveAddress,
   getBorrowRepayMaxInputBalance,
   getBorrowRepayProgressStep,
   hasPositiveDebtBalance,
   isBorrowRepayAllAmount,
   isCollateralRepayEnabled,
+  isUnsupportedAaveNativeReserve,
+  resolveBorrowTokenApproveSpenderAddress,
   shouldUseAaveNativeGateway,
 } from './borrowRepayPosition.utils';
 
@@ -123,6 +126,90 @@ describe('borrowRepayPosition utils', () => {
         reserveAddress: '',
       }),
     ).toBe(false);
+  });
+
+  it('fails closed for unsupported Aave native reserves', () => {
+    expect(
+      isUnsupportedAaveNativeReserve({
+        networkId: 'evm--8453',
+        providerName: 'aave',
+        reserveAddress: '',
+      }),
+    ).toBe(true);
+    expect(
+      isUnsupportedAaveNativeReserve({
+        networkId: 'evm--1',
+        providerName: 'aave',
+        reserveAddress: '',
+      }),
+    ).toBe(false);
+    expect(
+      isUnsupportedAaveNativeReserve({
+        networkId: 'evm--8453',
+        providerName: 'aave',
+        reserveAddress: '0xWETH',
+      }),
+    ).toBe(false);
+  });
+
+  it('filters unsupported Aave native reserve assets', () => {
+    const assets = [
+      {
+        reserveAddress: '',
+        token: { symbol: 'ETH' },
+      },
+      {
+        reserveAddress: '0xWETH',
+        token: { symbol: 'WETH' },
+      },
+    ] as unknown as IBorrowAsset[];
+
+    expect(
+      filterUnsupportedAaveNativeReserveAssets({
+        assets,
+        networkId: 'evm--8453',
+        providerName: 'aave',
+      }).map((asset) => asset.token.symbol),
+    ).toEqual(['WETH']);
+    expect(
+      filterUnsupportedAaveNativeReserveAssets({
+        assets,
+        networkId: 'evm--1',
+        providerName: 'aave',
+      }).map((asset) => asset.token.symbol),
+    ).toEqual(['ETH', 'WETH']);
+  });
+
+  it('falls back to the Aave market pool for ERC20 token approvals', () => {
+    expect(
+      resolveBorrowTokenApproveSpenderAddress({
+        providerName: 'aave',
+        marketAddress: '0xPool',
+        tokenIsNative: false,
+      }),
+    ).toBe('0xPool');
+    expect(
+      resolveBorrowTokenApproveSpenderAddress({
+        providerName: 'aave',
+        marketAddress: '0xPool',
+        backendApproveTarget: '0xBackend',
+        tokenIsNative: false,
+      }),
+    ).toBe('0xBackend');
+    expect(
+      resolveBorrowTokenApproveSpenderAddress({
+        providerName: 'aave',
+        marketAddress: '0xPool',
+        tokenIsNative: true,
+      }),
+    ).toBe('');
+    expect(
+      resolveBorrowTokenApproveSpenderAddress({
+        providerName: 'kamino',
+        marketAddress: '0xMarket',
+        tokenIsNative: false,
+      }),
+    ).toBe('');
   });
 
   it('matches the native reserve empty-string sentinel', () => {

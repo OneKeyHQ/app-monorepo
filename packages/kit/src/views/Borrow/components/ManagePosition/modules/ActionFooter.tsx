@@ -46,7 +46,13 @@ export function ActionFooter({
   } = actionResult;
 
   const { onSubmit, onSelectPercentageStage, setSubmitting } = actions;
-  const { approving, loadingAllowance, shouldApprove, onApprove } = approval;
+  const {
+    approving,
+    loadingAllowance,
+    shouldApprove,
+    ensureReadyToSubmit,
+    onApprove,
+  } = approval;
 
   const isInModalContext = isInModalContextProp ?? isInModalContextState;
 
@@ -104,11 +110,20 @@ export function ActionFooter({
       }
 
       setSubmitting(true);
+      const readyToSubmit = await ensureReadyToSubmit();
+      if (!readyToSubmit) {
+        return;
+      }
       await onSubmit();
     } finally {
       setSubmitting(false);
     }
-  }, [confirmBorrowLiquidationRisk, onSubmit, setSubmitting]);
+  }, [
+    confirmBorrowLiquidationRisk,
+    ensureReadyToSubmit,
+    onSubmit,
+    setSubmitting,
+  ]);
 
   const handleConfirm = useCallback(async () => {
     if (shouldApprove) {

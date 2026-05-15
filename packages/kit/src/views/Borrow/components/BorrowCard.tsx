@@ -14,6 +14,7 @@ import { EBorrowDataStatus } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
+import { filterUnsupportedAaveNativeReserveAssets } from './borrowRepayPosition.utils';
 import {
   ActionField,
   AmountField,
@@ -85,6 +86,15 @@ export const BorrowCard = () => {
     borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
     borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
     borrowDataStatus === EBorrowDataStatus.LoadingReserves;
+  const borrowAssets = useMemo(
+    () =>
+      filterUnsupportedAaveNativeReserveAssets({
+        assets: reserves.data?.borrow?.assets,
+        networkId: market?.networkId,
+        providerName: market?.provider,
+      }),
+    [market?.networkId, market?.provider, reserves.data?.borrow?.assets],
+  );
 
   // Per-row disabled state: dim + block tap for disabled borrow assets on mobile.
   // Desktop rows navigate to details (still useful), so only mobile rows are disabled.
@@ -215,7 +225,7 @@ export const BorrowCard = () => {
   return (
     <Card title={labels.assetsToBorrow}>
       <BorrowTableList<IBorrowAsset>
-        data={reserves.data?.borrow?.assets || []}
+        data={borrowAssets}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}

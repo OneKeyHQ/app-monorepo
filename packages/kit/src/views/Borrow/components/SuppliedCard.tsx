@@ -14,6 +14,7 @@ import { EBorrowDataStatus } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
+import { filterUnsupportedAaveNativeReserveAssets } from './borrowRepayPosition.utils';
 import {
   ActionField,
   AmountField,
@@ -133,6 +134,15 @@ export const SuppliedCard = () => {
     borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
     borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
     borrowDataStatus === EBorrowDataStatus.LoadingReserves;
+  const suppliedAssets = useMemo(
+    () =>
+      filterUnsupportedAaveNativeReserveAssets({
+        assets: reserves.data?.supplied?.assets,
+        networkId: market?.networkId,
+        providerName: market?.provider,
+      }),
+    [market?.networkId, market?.provider, reserves.data?.supplied?.assets],
+  );
 
   const labels = useMemo(() => {
     const asset = intl.formatMessage({ id: ETranslations.global_asset });
@@ -238,8 +248,8 @@ export const SuppliedCard = () => {
   );
 
   const hasData = useMemo(
-    () => (reserves.data?.supplied?.assets || []).length > 0,
-    [reserves.data?.supplied?.assets],
+    () => suppliedAssets.length > 0,
+    [suppliedAssets.length],
   );
 
   return (
@@ -257,7 +267,7 @@ export const SuppliedCard = () => {
       }
     >
       <BorrowTableList<ISuppliedAsset>
-        data={reserves.data?.supplied?.assets || []}
+        data={suppliedAssets}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}

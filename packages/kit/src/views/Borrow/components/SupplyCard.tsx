@@ -19,6 +19,7 @@ import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { BorrowTestIDs } from '../testIDs';
 
+import { filterUnsupportedAaveNativeReserveAssets } from './borrowRepayPosition.utils';
 import {
   ActionField,
   AmountField,
@@ -166,16 +167,26 @@ export const SupplyCard = () => {
 
   // Filter data based on showZeroBalance (mobile always shows all assets)
   const filteredAssets = useMemo(() => {
-    if (!reserves.data?.supply?.assets) return [];
+    const supportedAssets = filterUnsupportedAaveNativeReserveAssets({
+      assets: reserves.data?.supply?.assets,
+      networkId: market?.networkId,
+      providerName: market?.provider,
+    });
     // Mobile: always show all assets
-    if (!gtMd) return reserves.data.supply.assets;
+    if (!gtMd) return supportedAssets;
     // Desktop: filter based on showZeroBalance toggle
-    if (showZeroBalance) return reserves.data.supply.assets;
-    return reserves.data.supply.assets.filter((asset) => {
+    if (showZeroBalance) return supportedAssets;
+    return supportedAssets.filter((asset) => {
       const balance = new BigNumber(asset?.walletBalance?.title?.text || '0');
       return balance.gt(0);
     });
-  }, [reserves.data?.supply?.assets, showZeroBalance, gtMd]);
+  }, [
+    gtMd,
+    market?.networkId,
+    market?.provider,
+    reserves.data?.supply?.assets,
+    showZeroBalance,
+  ]);
 
   const labels = useMemo(
     () => ({

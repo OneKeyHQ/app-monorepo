@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IBorrowTransactionConfirmation,
   ICheckAmountAlert,
@@ -74,6 +76,7 @@ export function useUniversalBorrowAction({
   isDisabled = false,
   repayAll,
 }: IUniversalBorrowActionParams): IUniversalBorrowActionState {
+  const intl = useIntl();
   const [estimateFeeResp, setEstimateFeeResp] = useState<
     IEarnEstimateFeeResp | undefined
   >();
@@ -345,7 +348,9 @@ export function useUniversalBorrowAction({
         }
       } catch {
         if (checkAmountRequestKeyRef.current === requestKey) {
-          setCheckAmountMessage('');
+          setCheckAmountMessage(
+            intl.formatMessage({ id: ETranslations.global_network_error }),
+          );
           setCheckAmountAlerts([]);
           setCheckAmountResult(false);
           setRiskOfLiquidationAlert(undefined);

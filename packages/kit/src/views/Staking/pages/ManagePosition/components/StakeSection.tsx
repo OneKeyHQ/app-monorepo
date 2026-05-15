@@ -7,7 +7,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
-import { shouldUseAaveNativeGateway } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+import {
+  isUnsupportedAaveNativeReserve,
+  resolveBorrowTokenApproveSpenderAddress,
+  shouldUseAaveNativeGateway,
+} from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
 import {
   type IManagePositionConfirmParams,
   ManagePosition,
@@ -249,19 +253,28 @@ export const StakeSection = ({
       effectiveStakeTokenInfo?.token.symbol,
     ],
   );
-  const approveSpenderAddress = useMemo(
-    () =>
-      earnUtils.resolveEarnApproveSpenderAddress({
-        providerName: protocolInfo?.provider || '',
-        protocolVault: protocolInfo?.vault,
+  const approveSpenderAddress = useMemo(() => {
+    if (borrowApiCtx.isBorrow) {
+      return resolveBorrowTokenApproveSpenderAddress({
+        providerName: protocolInfo?.provider,
+        marketAddress: borrowApiCtx.borrowApiParams.marketAddress,
         backendApproveTarget: protocolInfo?.approve?.approveTarget,
-      }),
-    [
-      protocolInfo?.provider,
-      protocolInfo?.vault,
-      protocolInfo?.approve?.approveTarget,
-    ],
-  );
+        tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
+      });
+    }
+
+    return earnUtils.resolveEarnApproveSpenderAddress({
+      providerName: protocolInfo?.provider || '',
+      protocolVault: protocolInfo?.vault,
+      backendApproveTarget: protocolInfo?.approve?.approveTarget,
+    });
+  }, [
+    borrowApiCtx,
+    effectiveStakeTokenInfo?.token?.isNative,
+    protocolInfo?.provider,
+    protocolInfo?.vault,
+    protocolInfo?.approve?.approveTarget,
+  ]);
   const effectiveApproveType = useMemo(() => {
     return earnUtils.resolveEarnApproveType({
       providerName: protocolInfo?.provider || '',
@@ -538,11 +551,31 @@ export const StakeSection = ({
     }
     return protocolInfo?.maxSupplyBalance;
   }, [borrowAction, protocolInfo?.maxSupplyBalance]);
+  const unsupportedAaveNativeReserve = useMemo(
+    () =>
+      isUnsupportedAaveNativeReserve({
+        networkId,
+        providerName: providerName || borrowApiCtx.borrowApiParams?.provider,
+        reserveAddress: borrowApiCtx.borrowApiParams?.reserveAddress,
+      }),
+    [
+      borrowApiCtx.borrowApiParams?.provider,
+      borrowApiCtx.borrowApiParams?.reserveAddress,
+      networkId,
+      providerName,
+    ],
+  );
 
   const onBorrowConfirm = useCallback(
     async (params: IManagePositionConfirmParams) => {
       const { amount } = params;
-      if (!hasRequiredData || !borrowApiCtx.isBorrow) return;
+      if (
+        !hasRequiredData ||
+        !borrowApiCtx.isBorrow ||
+        unsupportedAaveNativeReserve
+      ) {
+        return;
+      }
 
       const token = tokenInfo?.token as IToken;
       const { provider, marketAddress, reserveAddress, action } =
@@ -600,6 +633,7 @@ export const StakeSection = ({
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.stakeTag,
       tokenInfo?.token,
+      unsupportedAaveNativeReserve,
     ],
   );
 
@@ -608,7 +642,7 @@ export const StakeSection = ({
     if (
       useBorrowApi &&
       borrowMarketAddress &&
-      borrowReserveAddress &&
+      borrowReserveAddress !== undefined &&
       (borrowAction === 'supply' || borrowAction === 'borrow')
     ) {
       return (
@@ -668,7 +702,7 @@ export const StakeSection = ({
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
           onConfirm={onBorrowConfirm}
           tokenInfo={tokenInfo}
-          isDisabled={isDisabled}
+          isDisabled={isDisabled || unsupportedAaveNativeReserve}
           approveType={effectiveApproveType}
           currentAllowance={result?.allowanceParsed}
           borrowDelegationApproveTarget={borrowDelegationApproveTarget}

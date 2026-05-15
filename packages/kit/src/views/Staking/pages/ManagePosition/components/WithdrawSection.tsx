@@ -11,10 +11,13 @@ import {
   type IRepayWithCollateralConfirmParams,
 } from '@onekeyhq/kit/src/views/Borrow/components/BorrowRepayPosition';
 import {
+  filterUnsupportedAaveNativeReserveAssets,
   getBorrowAssetByReserveAddress,
   getBorrowRepayDebtBalance,
   getBorrowRepayMaxInputBalance,
   getBorrowRepayWalletBalance,
+  isUnsupportedAaveNativeReserve,
+  resolveBorrowTokenApproveSpenderAddress,
   shouldUseAaveNativeGateway,
 } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
 import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
@@ -117,8 +120,8 @@ export const WithdrawSection = ({
   const [selectedAsset, setSelectedAsset] = useState<IBorrowAsset | null>(null);
   const borrowTokenApproveNeeded =
     !!useBorrowApi &&
-    !!protocolInfo?.approve?.approveTarget &&
-    (borrowAction === 'repay' || borrowAction === 'withdraw');
+    (borrowAction === 'repay' ||
+      (borrowAction === 'withdraw' && !!protocolInfo?.approve?.approveTarget));
   const effectiveToken = useMemo<IToken | undefined>(() => {
     if (selectedAsset) {
       return {
@@ -173,22 +176,34 @@ export const WithdrawSection = ({
   ]);
   const useApproveTarget = isPendleProvider || borrowTokenApproveNeeded;
 
-  const approveSpenderAddress = useMemo(
-    () =>
-      useApproveTarget
-        ? earnUtils.resolveEarnApproveSpenderAddress({
-            providerName,
-            protocolVault: protocolInfo?.vault,
-            backendApproveTarget: protocolInfo?.approve?.approveTarget,
-          })
-        : '',
-    [
-      useApproveTarget,
+  const approveSpenderAddress = useMemo(() => {
+    if (!useApproveTarget) {
+      return '';
+    }
+
+    if (useBorrowApi) {
+      return resolveBorrowTokenApproveSpenderAddress({
+        providerName,
+        marketAddress: borrowMarketAddress,
+        backendApproveTarget: protocolInfo?.approve?.approveTarget,
+        tokenIsNative: approvalToken?.isNative,
+      });
+    }
+
+    return earnUtils.resolveEarnApproveSpenderAddress({
       providerName,
-      protocolInfo?.vault,
-      protocolInfo?.approve?.approveTarget,
-    ],
-  );
+      protocolVault: protocolInfo?.vault,
+      backendApproveTarget: protocolInfo?.approve?.approveTarget,
+    });
+  }, [
+    approvalToken?.isNative,
+    borrowMarketAddress,
+    useApproveTarget,
+    useBorrowApi,
+    providerName,
+    protocolInfo?.vault,
+    protocolInfo?.approve?.approveTarget,
+  ]);
   const effectiveApproveType = useMemo(
     () =>
       earnUtils.resolveEarnApproveType({
@@ -297,6 +312,15 @@ export const WithdrawSection = ({
         watchLoading: true,
       },
     );
+  const selectableBorrowAssets = useMemo(
+    () =>
+      filterUnsupportedAaveNativeReserveAssets({
+        assets: assetsList.assets,
+        networkId,
+        providerName,
+      }),
+    [assetsList.assets, networkId, providerName],
+  );
 
   const { result: unstakeAssetsList } = usePromiseResult<
     IEarnAssetsList | undefined
@@ -491,6 +515,15 @@ export const WithdrawSection = ({
     borrowApiCtx.isBorrow &&
     (borrowApiCtx.borrowApiParams.action === 'withdraw' ||
       borrowApiCtx.borrowApiParams.action === 'repay');
+  const unsupportedAaveNativeReserve = useMemo(
+    () =>
+      isUnsupportedAaveNativeReserve({
+        networkId,
+        providerName,
+        reserveAddress: effectiveReserveAddress,
+      }),
+    [effectiveReserveAddress, networkId, providerName],
+  );
 
   // Determine the effective token info (from selected asset or default)
   const effectiveTokenSymbol = useMemo(
@@ -553,10 +586,15 @@ export const WithdrawSection = ({
     }
 
     return getBorrowAssetByReserveAddress({
-      assets: assetsList.assets,
+      assets: selectableBorrowAssets,
       reserveAddress: borrowReserveAddress,
     });
-  }, [assetsList.assets, borrowAction, borrowReserveAddress, selectedAsset]);
+  }, [
+    borrowAction,
+    borrowReserveAddress,
+    selectableBorrowAssets,
+    selectedAsset,
+  ]);
 
   const repayDebtAsset = useMemo(
     () => selectedAsset ?? currentRepayAsset,
@@ -626,6 +664,7 @@ export const WithdrawSection = ({
   );
   const isBorrowRepayInputDisabled =
     isDisabled ||
+    unsupportedAaveNativeReserve ||
     (borrowAction === 'repay' && !!selectedAsset && selectedRepayLoading) ||
     isMissingSelectedRepayWalletBalance;
 
@@ -797,7 +836,7 @@ export const WithdrawSection = ({
       withdrawAll?: boolean;
       repayAll?: boolean;
     }) => {
-      if (!borrowApiCtx.isBorrow) return;
+      if (!borrowApiCtx.isBorrow || unsupportedAaveNativeReserve) return;
 
       const { provider, marketAddress, action } = borrowApiCtx.borrowApiParams;
       // Use effective reserve address (from selected asset or default)
@@ -881,6 +920,7 @@ export const WithdrawSection = ({
       onSuccess,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.stakeTag,
+      unsupportedAaveNativeReserve,
     ],
   );
 
@@ -1004,7 +1044,7 @@ export const WithdrawSection = ({
     if (
       useBorrowApi &&
       borrowMarketAddress &&
-      borrowReserveAddress &&
+      borrowReserveAddress !== undefined &&
       (borrowAction === 'withdraw' || borrowAction === 'repay')
     ) {
       return (
@@ -1074,7 +1114,7 @@ export const WithdrawSection = ({
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
           actionLabel={borrowActionLabel}
-          selectableAssets={assetsList.assets}
+          selectableAssets={selectableBorrowAssets}
           selectableAssetsLoading={assetsListLoading}
           onTokenSelect={handleTokenSelect}
           isInModalContext={isInModalContext}
@@ -1111,7 +1151,7 @@ export const WithdrawSection = ({
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
           actionLabel={borrowActionLabel}
-          selectableAssets={assetsList.assets}
+          selectableAssets={selectableBorrowAssets}
           selectableAssetsLoading={assetsListLoading}
           onTokenSelect={handleTokenSelect}
           isInModalContext={isInModalContext}

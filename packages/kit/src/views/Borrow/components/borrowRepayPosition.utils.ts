@@ -81,6 +81,77 @@ export function shouldUseAaveNativeGateway({
   );
 }
 
+export function isAaveBorrowProvider({
+  providerName,
+}: {
+  providerName?: string;
+}) {
+  return providerName?.toLowerCase() === EBorrowProviderEnum.Aave;
+}
+
+export function isUnsupportedAaveNativeReserve({
+  networkId,
+  providerName,
+  reserveAddress,
+}: {
+  networkId?: string;
+  providerName?: string;
+  reserveAddress?: string;
+}) {
+  return (
+    reserveAddress === '' &&
+    isAaveBorrowProvider({ providerName }) &&
+    !shouldUseAaveNativeGateway({ networkId, providerName, reserveAddress })
+  );
+}
+
+export function filterUnsupportedAaveNativeReserveAssets<
+  T extends { reserveAddress: string },
+>({
+  assets,
+  networkId,
+  providerName,
+}: {
+  assets?: T[];
+  networkId?: string;
+  providerName?: string;
+}) {
+  return (assets ?? []).filter(
+    (asset) =>
+      !isUnsupportedAaveNativeReserve({
+        networkId,
+        providerName,
+        reserveAddress: asset.reserveAddress,
+      }),
+  );
+}
+
+export function resolveBorrowTokenApproveSpenderAddress({
+  providerName,
+  marketAddress,
+  backendApproveTarget,
+  tokenIsNative,
+}: {
+  providerName?: string;
+  marketAddress?: string;
+  backendApproveTarget?: string;
+  tokenIsNative?: boolean;
+}) {
+  if (backendApproveTarget) {
+    return backendApproveTarget;
+  }
+
+  if (
+    isAaveBorrowProvider({ providerName }) &&
+    tokenIsNative === false &&
+    marketAddress
+  ) {
+    return marketAddress;
+  }
+
+  return '';
+}
+
 export function getBorrowRepayDebtBalance({
   selectedAsset,
   fallbackDebtBalance,

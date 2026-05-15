@@ -49,6 +49,7 @@ export interface IManagePositionApproval {
   approving: boolean;
   loadingAllowance: boolean;
   shouldApprove: boolean;
+  ensureReadyToSubmit: () => Promise<boolean>;
   onApprove: () => Promise<void>;
 }
 

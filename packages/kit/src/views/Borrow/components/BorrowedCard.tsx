@@ -14,6 +14,7 @@ import { EBorrowDataStatus } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
+import { filterUnsupportedAaveNativeReserveAssets } from './borrowRepayPosition.utils';
 import {
   ActionField,
   AmountField,
@@ -126,6 +127,15 @@ export const BorrowedCard = () => {
     borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
     borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
     borrowDataStatus === EBorrowDataStatus.LoadingReserves;
+  const borrowedAssets = useMemo(
+    () =>
+      filterUnsupportedAaveNativeReserveAssets({
+        assets: reserves.data?.borrowed?.assets,
+        networkId: market?.networkId,
+        providerName: market?.provider,
+      }),
+    [market?.networkId, market?.provider, reserves.data?.borrowed?.assets],
+  );
 
   const labels = useMemo(() => {
     const asset = intl.formatMessage({ id: ETranslations.global_asset });
@@ -245,13 +255,18 @@ export const BorrowedCard = () => {
   );
 
   const hasData = useMemo(
-    () => (reserves.data?.borrowed?.assets || []).length > 0,
-    [reserves.data?.borrowed?.assets],
+    () => borrowedAssets.length > 0,
+    [borrowedAssets.length],
   );
 
   const hasSupplied = useMemo(
-    () => (reserves.data?.supplied?.assets || []).length > 0,
-    [reserves.data?.supplied?.assets],
+    () =>
+      filterUnsupportedAaveNativeReserveAssets({
+        assets: reserves.data?.supplied?.assets,
+        networkId: market?.networkId,
+        providerName: market?.provider,
+      }).length > 0,
+    [market?.networkId, market?.provider, reserves.data?.supplied?.assets],
   );
 
   const emptyContent = useMemo(
@@ -279,7 +294,7 @@ export const BorrowedCard = () => {
       }
     >
       <BorrowTableList<IBorrowedAsset>
-        data={reserves.data?.borrowed?.assets || []}
+        data={borrowedAssets}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}

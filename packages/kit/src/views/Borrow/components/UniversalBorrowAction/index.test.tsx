@@ -1,5 +1,18 @@
 /* eslint-disable import/first */
 
+jest.mock('react-intl', () => {
+  const actualReactIntl =
+    jest.requireActual<typeof import('react-intl')>('react-intl');
+
+  return {
+    __esModule: true,
+    ...actualReactIntl,
+    useIntl: () => ({
+      formatMessage: ({ id }: { id: string }) => id,
+    }),
+  };
+});
+
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const serviceStaking = {
     getBorrowTransactionConfirmation: jest.fn(),
@@ -28,6 +41,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
 import { type IUniversalBorrowActionParams, useUniversalBorrowAction } from '.';
 
 import { act, renderHook } from '@testing-library/react-native';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const backgroundMock = (
   globalThis as unknown as {
@@ -170,5 +185,25 @@ describe('useUniversalBorrowAction', () => {
 
     expect(result.current.checkAmountResult).toBe(false);
     expect(result.current.riskOfLiquidationAlert).toBe(true);
+  });
+
+  it('keeps a visible error when check amount fails', async () => {
+    backgroundMock.serviceStaking.getBorrowCheckAmount.mockRejectedValueOnce(
+      new Error('network failed'),
+    );
+
+    const { result } = renderHook(() => useUniversalBorrowAction(baseParams));
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+      await flushPromises();
+    });
+
+    expect(result.current.checkAmountResult).toBe(false);
+    expect(result.current.checkAmountMessage).toBe(
+      ETranslations.global_network_error,
+    );
+    expect(result.current.isCheckAmountMessageError).toBe(true);
+    expect(result.current.checkAmountLoading).toBe(false);
   });
 });
