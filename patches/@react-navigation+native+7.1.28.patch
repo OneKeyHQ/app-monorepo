@@ -65,6 +65,217 @@ index 474db5e..4b47a93 100644
      },
      // `history.go(n)` is asynchronous, there are couple of things to keep in mind:
      // - it won't do anything if we can't go `n` steps, the `popstate` event won't fire.
+diff --git a/node_modules/@react-navigation/native/lib/module/useLinking.js b/node_modules/@react-navigation/native/lib/module/useLinking.js
+index d30009f..6bcf63a 100644
+--- a/node_modules/@react-navigation/native/lib/module/useLinking.js
++++ b/node_modules/@react-navigation/native/lib/module/useLinking.js
+@@ -5,6 +5,197 @@ import isEqual from 'fast-deep-equal';
+ import * as React from 'react';
+ import { createMemoryHistory } from "./createMemoryHistory.js";
+ import { ServerContext } from "./ServerContext.js";
++const LINKING_CRASH_PROBE = '[react-navigation][CRASH_PROBE]';
++const MAX_PROBE_KEYS = 24;
++const MAX_NESTED_KEYS = 12;
++const MAX_ARRAY_ITEMS = 6;
++
++function getProbeObject(value) {
++  if (value !== null && (typeof value === 'object' || typeof value === 'function')) {
++    return value;
++  }
++  return null;
++}
++
++function getConstructorName(value) {
++  const objectValue = getProbeObject(value);
++  if (!objectValue) {
++    return '';
++  }
++  const constructorValue = objectValue.constructor;
++  if (typeof constructorValue === 'function') {
++    return constructorValue.name || 'anonymous';
++  }
++  if (constructorValue === undefined) {
++    return 'undefined';
++  }
++  return `nonFunction:${typeof constructorValue}`;
++}
++
++function getPrototypeName(value) {
++  const proto = Object.getPrototypeOf(value);
++  if (proto === null) {
++    return 'null';
++  }
++  if (proto === Object.prototype) {
++    return 'Object.prototype';
++  }
++  if (proto === Array.prototype) {
++    return 'Array.prototype';
++  }
++  return getConstructorName(proto) || typeof proto;
++}
++
++function describeDescriptorForProbe(descriptor) {
++  if (!descriptor) {
++    return 'none';
++  }
++  const parts = [];
++  parts.push(descriptor.enumerable ? 'enumerable' : 'nonEnumerable');
++  parts.push(descriptor.configurable ? 'configurable' : 'nonConfigurable');
++  if ('writable' in descriptor) {
++    parts.push(descriptor.writable ? 'writable' : 'readonly');
++  }
++  if ('value' in descriptor) {
++    parts.push(`value:${typeof descriptor.value}`);
++  }
++  if ('get' in descriptor) {
++    parts.push(`get:${typeof descriptor.get}`);
++  }
++  if ('set' in descriptor) {
++    parts.push(`set:${typeof descriptor.set}`);
++  }
++  return parts.join('/');
++}
++
++function describeFieldForProbe(key, value) {
++  if (value === null) {
++    return `${key}:null`;
++  }
++  const valueType = typeof value;
++  const objectValue = getProbeObject(value);
++  if (!objectValue) {
++    return `${key}:${valueType}`;
++  }
++  return [`${key}:${valueType}`, `ctor:${getConstructorName(value)}`, `proto:${getPrototypeName(value)}`, `toString:${typeof objectValue.toString}`, `valueOf:${typeof objectValue.valueOf}`, Object.prototype.hasOwnProperty.call(objectValue, 'toString') ? 'ownToString:true' : 'ownToString:false', Object.prototype.hasOwnProperty.call(objectValue, 'valueOf') ? 'ownValueOf:true' : 'ownValueOf:false'].join('/');
++}
++
++function describeValueForProbe(name, value, maxKeys = MAX_PROBE_KEYS) {
++  try {
++    if (value === null) {
++      return `${name}{type=null}`;
++    }
++    const valueType = typeof value;
++    const objectValue = getProbeObject(value);
++    if (!objectValue) {
++      return `${name}{type=${valueType}}`;
++    }
++    const keys = Object.keys(objectValue);
++    const toStringDescriptor = Object.prototype.hasOwnProperty.call(objectValue, 'toString') ? Object.getOwnPropertyDescriptor(objectValue, 'toString') : undefined;
++    const valueOfDescriptor = Object.prototype.hasOwnProperty.call(objectValue, 'valueOf') ? Object.getOwnPropertyDescriptor(objectValue, 'valueOf') : undefined;
++    const fields = keys.slice(0, maxKeys).map(key => describeFieldForProbe(key, objectValue[key]));
++    return [`${name}{type=${valueType}`, `ctor=${getConstructorName(value)}`, `proto=${getPrototypeName(value)}`, `array=${Array.isArray(value)}`, `keys=${keys.slice(0, maxKeys).join(',')}`, `keysLength=${keys.length}`, `typeofToString=${typeof objectValue.toString}`, `typeofValueOf=${typeof objectValue.valueOf}`, `ownToString=${Object.prototype.hasOwnProperty.call(objectValue, 'toString')}`, `ownValueOf=${Object.prototype.hasOwnProperty.call(objectValue, 'valueOf')}`, `toStringDesc=${describeDescriptorForProbe(toStringDescriptor)}`, `valueOfDesc=${describeDescriptorForProbe(valueOfDescriptor)}`, `fields=${fields.join(',')}}`].join(';');
++  } catch (error) {
++    return `${name}{probeError=${error instanceof Error ? error.message : String(error)}}`;
++  }
++}
++
++function formatNestedName(parentName, key) {
++  return /^\d+$/.test(key) ? `${parentName}[${key}]` : `${parentName}.${key}`;
++}
++
++function describeNestedValuesForProbe(name, value, maxDepth = 0, seen = new WeakSet()) {
++  const objectValue = getProbeObject(value);
++  if (!objectValue || maxDepth <= 0) {
++    return [];
++  }
++  if (seen.has(objectValue)) {
++    return [`${name}{cycle=true}`];
++  }
++  seen.add(objectValue);
++  try {
++    const keyLimit = Array.isArray(value) ? Math.min(MAX_ARRAY_ITEMS, MAX_NESTED_KEYS) : MAX_NESTED_KEYS;
++    return Object.keys(objectValue).slice(0, keyLimit).flatMap(key => {
++      const childName = formatNestedName(name, key);
++      let childValue;
++      try {
++        childValue = objectValue[key];
++      } catch (error) {
++        return [`${childName}{probeError=${error instanceof Error ? error.message : String(error)}}`];
++      }
++      return [describeValueForProbe(childName, childValue, MAX_NESTED_KEYS), ...describeNestedValuesForProbe(childName, childValue, maxDepth - 1, seen)];
++    });
++  } catch (error) {
++    return [`${name}{nestedProbeError=${error instanceof Error ? error.message : String(error)}}`];
++  }
++}
++
++function getProbeStack() {
++  return new Error(LINKING_CRASH_PROBE).stack?.split('\n').slice(1, 8).map(line => line.trim()).join(' <- ') || 'unavailable';
++}
++
++function logLinkingCrashProbe(stage, values, extra = '') {
++  const message = [`${LINKING_CRASH_PROBE} ${stage}`, extra, ...values.flatMap(value => [describeValueForProbe(value.name, value.value, value.maxKeys), ...describeNestedValuesForProbe(value.name, value.value, value.maxDepth)]), `stack=${getProbeStack()}`].filter(Boolean).join(' | ');
++  try {
++    if (typeof console !== 'undefined' && console.error) {
++      console.error(message);
++    }
++    const logger = globalThis?.$$appGlobals?.$defaultLogger;
++    if (logger?.app?.error && typeof logger.app.error.log === 'function') {
++      logger.app.error.log(message);
++    }
++  } catch (error) {
++    if (typeof console !== 'undefined' && console.error) {
++      console.error(`${LINKING_CRASH_PROBE} logger failed`, error instanceof Error ? error.message : String(error));
++    }
++  }
++}
++
++function isRouteParamsEqualForLinking(focusedRoute, route) {
++  const meta = [`routeName=${String(route?.name)}`, `focusedRouteName=${String(focusedRoute?.name)}`, `routeKeyType=${typeof route?.key}`, `focusedRouteKeyType=${typeof focusedRoute?.key}`, `routePathType=${typeof route?.path}`, `routePathLength=${typeof route?.path === 'string' ? route.path.length : 0}`].join(' | ');
++  try {
++    logLinkingCrashProbe('useLinking before params isEqual', [{
++      name: 'focusedRoute.params',
++      value: focusedRoute?.params,
++      maxDepth: 2
++    }, {
++      name: 'route.params',
++      value: route?.params,
++      maxDepth: 2
++    }, {
++      name: 'focusedRoute',
++      value: focusedRoute,
++      maxDepth: 1
++    }, {
++      name: 'route',
++      value: route,
++      maxDepth: 1
++    }], meta);
++    const result = isEqual(focusedRoute?.params, route?.params);
++    logLinkingCrashProbe('useLinking after params isEqual', [], `${meta} | result=${String(result)}`);
++    return result;
++  } catch (error) {
++    const errorObj = error;
++    logLinkingCrashProbe('useLinking params isEqual threw', [{
++      name: 'focusedRoute.params',
++      value: focusedRoute?.params,
++      maxDepth: 3
++    }, {
++      name: 'route.params',
++      value: route?.params,
++      maxDepth: 3
++    }, {
++      name: 'focusedRoute',
++      value: focusedRoute,
++      maxDepth: 2
++    }, {
++      name: 'route',
++      value: route,
++      maxDepth: 2
++    }], `${meta} | error.name=${String(errorObj?.name)} | error.message=${String(errorObj?.message)} | error.stack=${String(errorObj?.stack).replace(/\r?\n/g, ' <- ').replace(/\s+/g, ' ')}`);
++    throw error;
++  }
++}
+ /**
+  * Find the matching navigation state that changed between 2 navigation states
+  * e.g.: a -> b -> c -> d and a -> b -> c -> e -> f, if history in b changed, b is the matching state
+@@ -196,7 +387,7 @@ export function useLinking(ref, {
+         const stateForPath = getStateFromPathRef.current(route.path, configRef.current);
+         if (stateForPath) {
+           const focusedRoute = findFocusedRoute(stateForPath);
+-          if (focusedRoute && focusedRoute.name === route.name && isEqual(focusedRoute.params, route.params)) {
++          if (focusedRoute && focusedRoute.name === route.name && isRouteParamsEqualForLinking(focusedRoute, route)) {
+             path = route.path;
+           }
+         }
 diff --git a/node_modules/@react-navigation/native/src/createMemoryHistory.tsx b/node_modules/@react-navigation/native/src/createMemoryHistory.tsx
 index 1568263..2adaaec 100644
 --- a/node_modules/@react-navigation/native/src/createMemoryHistory.tsx
@@ -135,3 +346,400 @@ index 1568263..2adaaec 100644
      },
  
      // `history.go(n)` is asynchronous, there are couple of things to keep in mind:
+diff --git a/node_modules/@react-navigation/native/src/useLinking.tsx b/node_modules/@react-navigation/native/src/useLinking.tsx
+index a33b493..2d7ae71 100644
+--- a/node_modules/@react-navigation/native/src/useLinking.tsx
++++ b/node_modules/@react-navigation/native/src/useLinking.tsx
+@@ -17,6 +17,383 @@ import type { LinkingOptions } from './types';
+ 
+ type ResultState = ReturnType<typeof getStateFromPathDefault>;
+ 
++const LINKING_CRASH_PROBE = '[react-navigation][CRASH_PROBE]';
++const MAX_PROBE_KEYS = 24;
++const MAX_NESTED_KEYS = 12;
++const MAX_ARRAY_ITEMS = 6;
++
++type ProbeValue = {
++  name: string;
++  value: unknown;
++  maxDepth?: number;
++  maxKeys?: number;
++};
++
++function getProbeObject(value: unknown): Record<string, unknown> | null {
++  if (
++    value !== null &&
++    (typeof value === 'object' || typeof value === 'function')
++  ) {
++    return value as Record<string, unknown>;
++  }
++  return null;
++}
++
++function getConstructorName(value: unknown) {
++  const objectValue = getProbeObject(value);
++  if (!objectValue) {
++    return '';
++  }
++  const constructorValue = (
++    objectValue as {
++      constructor?: unknown;
++    }
++  ).constructor;
++  if (typeof constructorValue === 'function') {
++    return constructorValue.name || 'anonymous';
++  }
++  if (constructorValue === undefined) {
++    return 'undefined';
++  }
++  return `nonFunction:${typeof constructorValue}`;
++}
++
++function getPrototypeName(value: object) {
++  const proto = Object.getPrototypeOf(value);
++  if (proto === null) {
++    return 'null';
++  }
++  if (proto === Object.prototype) {
++    return 'Object.prototype';
++  }
++  if (proto === Array.prototype) {
++    return 'Array.prototype';
++  }
++  return getConstructorName(proto) || typeof proto;
++}
++
++function describeDescriptorForProbe(descriptor?: PropertyDescriptor) {
++  if (!descriptor) {
++    return 'none';
++  }
++  const parts: string[] = [];
++  parts.push(descriptor.enumerable ? 'enumerable' : 'nonEnumerable');
++  parts.push(descriptor.configurable ? 'configurable' : 'nonConfigurable');
++  if ('writable' in descriptor) {
++    parts.push(descriptor.writable ? 'writable' : 'readonly');
++  }
++  if ('value' in descriptor) {
++    parts.push(`value:${typeof descriptor.value}`);
++  }
++  if ('get' in descriptor) {
++    parts.push(`get:${typeof descriptor.get}`);
++  }
++  if ('set' in descriptor) {
++    parts.push(`set:${typeof descriptor.set}`);
++  }
++  return parts.join('/');
++}
++
++function describeFieldForProbe(key: string, value: unknown) {
++  if (value === null) {
++    return `${key}:null`;
++  }
++  const valueType = typeof value;
++  const objectValue = getProbeObject(value);
++  if (!objectValue) {
++    return `${key}:${valueType}`;
++  }
++  const toStringValue = (
++    objectValue as {
++      toString?: unknown;
++    }
++  ).toString;
++  const valueOfValue = (
++    objectValue as {
++      valueOf?: unknown;
++    }
++  ).valueOf;
++  return [
++    `${key}:${valueType}`,
++    `ctor:${getConstructorName(value)}`,
++    `proto:${getPrototypeName(value as object)}`,
++    `toString:${typeof toStringValue}`,
++    `valueOf:${typeof valueOfValue}`,
++    Object.prototype.hasOwnProperty.call(objectValue, 'toString')
++      ? 'ownToString:true'
++      : 'ownToString:false',
++    Object.prototype.hasOwnProperty.call(objectValue, 'valueOf')
++      ? 'ownValueOf:true'
++      : 'ownValueOf:false',
++  ].join('/');
++}
++
++function describeValueForProbe(
++  name: string,
++  value: unknown,
++  maxKeys = MAX_PROBE_KEYS
++) {
++  try {
++    if (value === null) {
++      return `${name}{type=null}`;
++    }
++    const valueType = typeof value;
++    const objectValue = getProbeObject(value);
++    if (!objectValue) {
++      return `${name}{type=${valueType}}`;
++    }
++    const keys = Object.keys(objectValue);
++    const toStringValue = (
++      objectValue as {
++        toString?: unknown;
++      }
++    ).toString;
++    const valueOfValue = (
++      objectValue as {
++        valueOf?: unknown;
++      }
++    ).valueOf;
++    const toStringDescriptor = Object.prototype.hasOwnProperty.call(
++      objectValue,
++      'toString'
++    )
++      ? Object.getOwnPropertyDescriptor(objectValue, 'toString')
++      : undefined;
++    const valueOfDescriptor = Object.prototype.hasOwnProperty.call(
++      objectValue,
++      'valueOf'
++    )
++      ? Object.getOwnPropertyDescriptor(objectValue, 'valueOf')
++      : undefined;
++    const fields = keys
++      .slice(0, maxKeys)
++      .map((key) => describeFieldForProbe(key, objectValue[key]));
++    return [
++      `${name}{type=${valueType}`,
++      `ctor=${getConstructorName(value)}`,
++      `proto=${getPrototypeName(value as object)}`,
++      `array=${Array.isArray(value)}`,
++      `keys=${keys.slice(0, maxKeys).join(',')}`,
++      `keysLength=${keys.length}`,
++      `typeofToString=${typeof toStringValue}`,
++      `typeofValueOf=${typeof valueOfValue}`,
++      `ownToString=${Object.prototype.hasOwnProperty.call(
++        objectValue,
++        'toString'
++      )}`,
++      `ownValueOf=${Object.prototype.hasOwnProperty.call(
++        objectValue,
++        'valueOf'
++      )}`,
++      `toStringDesc=${describeDescriptorForProbe(toStringDescriptor)}`,
++      `valueOfDesc=${describeDescriptorForProbe(valueOfDescriptor)}`,
++      `fields=${fields.join(',')}}`,
++    ].join(';');
++  } catch (error) {
++    return `${name}{probeError=${
++      error instanceof Error ? error.message : String(error)
++    }}`;
++  }
++}
++
++function formatNestedName(parentName: string, key: string) {
++  return /^\d+$/.test(key) ? `${parentName}[${key}]` : `${parentName}.${key}`;
++}
++
++function describeNestedValuesForProbe(
++  name: string,
++  value: unknown,
++  maxDepth = 0,
++  seen = new WeakSet<object>()
++): string[] {
++  const objectValue = getProbeObject(value);
++  if (!objectValue || maxDepth <= 0) {
++    return [];
++  }
++  if (seen.has(objectValue)) {
++    return [`${name}{cycle=true}`];
++  }
++  seen.add(objectValue);
++  try {
++    const keyLimit = Array.isArray(value)
++      ? Math.min(MAX_ARRAY_ITEMS, MAX_NESTED_KEYS)
++      : MAX_NESTED_KEYS;
++    return Object.keys(objectValue)
++      .slice(0, keyLimit)
++      .flatMap((key) => {
++        const childName = formatNestedName(name, key);
++        let childValue: unknown;
++        try {
++          childValue = objectValue[key];
++        } catch (error) {
++          return [
++            `${childName}{probeError=${
++              error instanceof Error ? error.message : String(error)
++            }}`,
++          ];
++        }
++        return [
++          describeValueForProbe(childName, childValue, MAX_NESTED_KEYS),
++          ...describeNestedValuesForProbe(
++            childName,
++            childValue,
++            maxDepth - 1,
++            seen
++          ),
++        ];
++      });
++  } catch (error) {
++    return [
++      `${name}{nestedProbeError=${
++        error instanceof Error ? error.message : String(error)
++      }}`,
++    ];
++  }
++}
++
++function getProbeStack() {
++  return (
++    new Error(LINKING_CRASH_PROBE).stack
++      ?.split('\n')
++      .slice(1, 8)
++      .map((line) => line.trim())
++      .join(' <- ') || 'unavailable'
++  );
++}
++
++function logLinkingCrashProbe(
++  stage: string,
++  values: ProbeValue[],
++  extra = ''
++) {
++  const message = [
++    `${LINKING_CRASH_PROBE} ${stage}`,
++    extra,
++    ...values.flatMap((value) => [
++      describeValueForProbe(value.name, value.value, value.maxKeys),
++      ...describeNestedValuesForProbe(
++        value.name,
++        value.value,
++        value.maxDepth
++      ),
++    ]),
++    `stack=${getProbeStack()}`,
++  ]
++    .filter(Boolean)
++    .join(' | ');
++  try {
++    if (typeof console !== 'undefined' && console.error) {
++      console.error(message);
++    }
++    const globalScope = globalThis as unknown as {
++      $$appGlobals?: {
++        $defaultLogger?: {
++          app?: {
++            error?: {
++              log?: (message: string) => void;
++            };
++          };
++        };
++      };
++    };
++    const logger = globalScope.$$appGlobals?.$defaultLogger;
++    if (typeof logger?.app?.error?.log === 'function') {
++      logger.app.error.log(message);
++    }
++  } catch (error) {
++    if (typeof console !== 'undefined' && console.error) {
++      console.error(
++        `${LINKING_CRASH_PROBE} logger failed`,
++        error instanceof Error ? error.message : String(error)
++      );
++    }
++  }
++}
++
++function isRouteParamsEqualForLinking(
++  focusedRoute: ReturnType<typeof findFocusedRoute>,
++  route: ReturnType<typeof findFocusedRoute>
++) {
++  const meta = [
++    `routeName=${String(route?.name)}`,
++    `focusedRouteName=${String(focusedRoute?.name)}`,
++    `routeKeyType=${typeof route?.key}`,
++    `focusedRouteKeyType=${typeof focusedRoute?.key}`,
++    `routePathType=${typeof route?.path}`,
++    `routePathLength=${typeof route?.path === 'string' ? route.path.length : 0}`,
++  ].join(' | ');
++  try {
++    logLinkingCrashProbe(
++      'useLinking before params isEqual',
++      [
++        {
++          name: 'focusedRoute.params',
++          value: focusedRoute?.params,
++          maxDepth: 2,
++        },
++        {
++          name: 'route.params',
++          value: route?.params,
++          maxDepth: 2,
++        },
++        {
++          name: 'focusedRoute',
++          value: focusedRoute,
++          maxDepth: 1,
++        },
++        {
++          name: 'route',
++          value: route,
++          maxDepth: 1,
++        },
++      ],
++      meta
++    );
++    const result = isEqual(focusedRoute?.params, route?.params);
++    logLinkingCrashProbe(
++      'useLinking after params isEqual',
++      [],
++      `${meta} | result=${String(result)}`
++    );
++    return result;
++  } catch (error) {
++    const errorObj = error as Error | null;
++    logLinkingCrashProbe(
++      'useLinking params isEqual threw',
++      [
++        {
++          name: 'focusedRoute.params',
++          value: focusedRoute?.params,
++          maxDepth: 3,
++        },
++        {
++          name: 'route.params',
++          value: route?.params,
++          maxDepth: 3,
++        },
++        {
++          name: 'focusedRoute',
++          value: focusedRoute,
++          maxDepth: 2,
++        },
++        {
++          name: 'route',
++          value: route,
++          maxDepth: 2,
++        },
++      ],
++      `${meta} | error.name=${String(
++        errorObj?.name
++      )} | error.message=${String(errorObj?.message)} | error.stack=${String(
++        errorObj?.stack
++      )
++        .replace(/\r?\n/g, ' <- ')
++        .replace(/\s+/g, ' ')}`
++    );
++    throw error;
++  }
++}
++
+ /**
+  * Find the matching navigation state that changed between 2 navigation states
+  * e.g.: a -> b -> c -> d and a -> b -> c -> e -> f, if history in b changed, b is the matching state
+@@ -296,7 +673,7 @@ export function useLinking(
+           if (
+             focusedRoute &&
+             focusedRoute.name === route.name &&
+-            isEqual(focusedRoute.params, route.params)
++            isRouteParamsEqualForLinking(focusedRoute, route)
+           ) {
+             path = route.path;
+           }
