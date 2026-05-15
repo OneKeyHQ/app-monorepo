@@ -51,7 +51,10 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
+import {
+  SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
+  TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
+} from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
@@ -111,7 +114,9 @@ const SwapTokenSelectPage = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
-  const showLpTokensOnly = tokenSelectorFilter.swapShowLpTokensOnly;
+  const showLpTokensOnly = TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED
+    ? tokenSelectorFilter.swapShowLpTokensOnly
+    : false;
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
   if (fromTokenRef.current !== fromToken) {
@@ -214,7 +219,7 @@ const SwapTokenSelectPage = ({
     currentSelectNetwork?.networkId,
     requestedSearchKeyword,
     swapTypeSwitch,
-    showLpTokensOnly,
+    TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED ? showLpTokensOnly : undefined,
   );
   const alertIndex = useMemo(
     () =>
@@ -621,11 +626,13 @@ const SwapTokenSelectPage = ({
               </SizableText>
             </XStack>
           </XStack>
-          <TokenSelectorLpTokenSwitch
-            value={showLpTokensOnly}
-            onChange={handleLpTokenFilterChange}
-            disabled={!SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED}
-          />
+          {TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED ? (
+            <TokenSelectorLpTokenSwitch
+              value={showLpTokensOnly}
+              onChange={handleLpTokenFilterChange}
+              disabled={!SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED}
+            />
+          ) : null}
         </XStack>
         <NetworkToggleGroup
           onMoreNetwork={() => {
