@@ -142,6 +142,58 @@ if (!__DEV__) {
         LogLevel.Error,
         `[JSError] ${isFatal ? 'FATAL' : 'ERROR'}: ${error?.message || error}\n${error?.stack?.slice(0, 500) || ''}`,
       );
+      try {
+        // Detailed dump for sign-and-verify crash investigation.
+        // Uses the same [sign-and-verify][CRASH_PROBE] format so it ends up
+        // in the same log stream alongside the SignForm probes.
+        const encode = (value: unknown) =>
+          value === null || value === undefined
+            ? String(value)
+            : String(value).replace(/\r?\n/g, ' <- ').replace(/\s+/g, ' ');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const e = error as any;
+        const ownKeys = (() => {
+          try {
+            return Object.getOwnPropertyNames(e || {})
+              .slice(0, 24)
+              .join(',');
+          } catch {
+            return 'unavailable';
+          }
+        })();
+        const ctorName: string = (() => {
+          try {
+            const name = e?.constructor?.name as unknown;
+            return typeof name === 'string' && name ? name : 'unknown';
+          } catch {
+            return 'unavailable';
+          }
+        })();
+        const causeStr = (() => {
+          try {
+            if (e?.cause === undefined || e?.cause === null) {
+              return String(e?.cause);
+            }
+            return encode(
+              `${e.cause?.name ?? ''}:${e.cause?.message ?? String(e.cause)}`,
+            );
+          } catch {
+            return 'unavailable';
+          }
+        })();
+        const fullStack = encode(e?.stack);
+        const messageEncoded = encode(e?.message);
+        NativeLogger.write(
+          LogLevel.Error,
+          `[sign-and-verify][CRASH_PROBE] mobile entry error handler | isFatal=${String(
+            isFatal,
+          )} | name=${encode(
+            e?.name,
+          )} | ctor=${ctorName} | message=${messageEncoded} | ownKeys=${ownKeys} | cause=${causeStr} | fullStack=${fullStack}`,
+        );
+      } catch {
+        /* never let logging break the handler */
+      }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       origHandler?.(error, isFatal);
     },
