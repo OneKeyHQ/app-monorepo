@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { ensureDir } = require('./fs');
+const { stopChild } = require('./processTree');
 
 async function checkPerfServer(serverUrl) {
   const controller = new AbortController();
@@ -143,19 +144,6 @@ async function ensurePerfServerRunning({
       `Logs:\n- ${started.logOutPath}\n- ${started.logErrPath}\n` +
       `Last error: ${msg}`,
   );
-}
-
-async function stopChild(child) {
-  if (!child) return;
-  if (child.exitCode !== null) return;
-
-  child.kill('SIGTERM');
-  const deadline = Date.now() + 5000;
-  while (Date.now() < deadline && child.exitCode === null) {
-    // eslint-disable-next-line no-await-in-loop
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  if (child.exitCode === null) child.kill('SIGKILL');
 }
 
 module.exports = {

@@ -19,7 +19,7 @@ const path = require('path');
 
 const { readPerfCiLocalConfig } = require('./lib/config');
 const { deriveSession, defaultDerivedOutPath } = require('./lib/derive');
-const { execCmd } = require('./lib/exec');
+const { execCmd, formatExecResultError } = require('./lib/exec');
 const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
 const { nowId } = require('./lib/id');
 const { notifyPerfFailure, notifyPerfResult } = require('./lib/notify');
@@ -72,11 +72,119 @@ function parseAdbDevices(text) {
   return out;
 }
 
+function isAndroidOfflineText(text) {
+  return /device offline/i.test(String(text || ''));
+}
+
+function isAndroidInsufficientStorageText(text) {
+  return /INSTALL_FAILED_INSUFFICIENT_STORAGE|insufficient storage|Failed to override installation location/i.test(
+    String(text || ''),
+  );
+}
+
+function adbTimeoutMs() {
+  return Number(process.env.PERF_ANDROID_ADB_TIMEOUT_MS) || 2 * 60_000;
+}
+
+function androidInstallTimeoutMs() {
+  return Number(process.env.PERF_ANDROID_INSTALL_TIMEOUT_MS) || 10 * 60_000;
+}
+
+async function execAdb(args, options = {}) {
+  return execCmd('adb', args, {
+    timeoutMs: adbTimeoutMs(),
+    killProcessGroup: true,
+    ...options,
+  });
+}
+
+async function waitForAndroidDeviceReady({
+  deviceId,
+  timeoutMs = 2 * 60_000,
+} = {}) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    // eslint-disable-next-line no-await-in-loop
+    const devices = await execAdb(['devices']);
+    const current = parseAdbDevices(devices.stdout).find(
+      (d) => d.id === deviceId,
+    );
+
+    if (current?.state === 'device') {
+      // eslint-disable-next-line no-await-in-loop
+      const boot = await execAdb([
+        '-s',
+        deviceId,
+        'shell',
+        'getprop',
+        'sys.boot_completed',
+      ]);
+      if (String(boot.stdout || '').trim() === '1') {
+        // Package manager needs to be responsive before install/reinstall.
+        // eslint-disable-next-line no-await-in-loop
+        const pm = await execAdb([
+          '-s',
+          deviceId,
+          'shell',
+          'pm',
+          'path',
+          'android',
+        ]);
+        if (pm.code === 0 && /package:/.test(String(pm.stdout || ''))) {
+          return deviceId;
+        }
+      }
+    }
+
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((res) => setTimeout(res, 1000));
+  }
+
+  throw new Error(
+    `Timeout waiting for Android device ready (deviceId=${deviceId}, timeoutMs=${timeoutMs})`,
+  );
+}
+
+async function recoverAndroidOfflineDevice({
+  deviceId,
+  avdName,
+  outputDir,
+  headless,
+} = {}) {
+  await execAdb(['kill-server']).catch(() => {});
+  await new Promise((res) => setTimeout(res, 1000));
+  await execAdb(['start-server']).catch(() => {});
+
+  let nextDeviceId = deviceId;
+  try {
+    nextDeviceId = await waitForAndroidDeviceReady({
+      deviceId,
+      timeoutMs:
+        Number(process.env.PERF_ANDROID_DEVICE_READY_TIMEOUT_MS) || 2 * 60_000,
+    });
+  } catch {
+    const ensured = await ensureAndroidEmulatorRunning({
+      avdName: avdName || detectAndroidAvdNameSync(),
+      outputDir,
+      headless,
+    });
+    nextDeviceId = ensured.deviceId;
+  }
+
+  await waitForAndroidBootComplete({
+    deviceId: nextDeviceId,
+    timeoutMs: Number(process.env.PERF_ANDROID_BOOT_TIMEOUT_MS) || 6 * 60_000,
+  });
+  await bestEffortAndroidPostBoot({ deviceId: nextDeviceId });
+  return nextDeviceId;
+}
+
 async function waitForAndroidEmulatorDevice({ timeoutMs = 5 * 60_000 } = {}) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     // eslint-disable-next-line no-await-in-loop
-    const r = await execCmd('adb', ['devices']);
+    const r = await execAdb(['devices']);
     const devs = parseAdbDevices(r.stdout);
     const emu = devs.find((d) => d.id.startsWith('emulator-'));
     if (emu && emu.state === 'device') return emu.id;
@@ -95,7 +203,7 @@ async function waitForAndroidBootComplete({
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     // eslint-disable-next-line no-await-in-loop
-    const r = await execCmd('adb', [
+    const r = await execAdb([
       '-s',
       deviceId,
       'shell',
@@ -115,8 +223,8 @@ async function bestEffortAndroidPostBoot({ deviceId } = {}) {
   if (!deviceId) return;
 
   // Unlock + turn off animations for stability.
-  await execCmd('adb', ['-s', deviceId, 'shell', 'input', 'keyevent', '82']);
-  await execCmd('adb', [
+  await execAdb(['-s', deviceId, 'shell', 'input', 'keyevent', '82']);
+  await execAdb([
     '-s',
     deviceId,
     'shell',
@@ -126,7 +234,7 @@ async function bestEffortAndroidPostBoot({ deviceId } = {}) {
     'window_animation_scale',
     '0',
   ]);
-  await execCmd('adb', [
+  await execAdb([
     '-s',
     deviceId,
     'shell',
@@ -136,7 +244,7 @@ async function bestEffortAndroidPostBoot({ deviceId } = {}) {
     'transition_animation_scale',
     '0',
   ]);
-  await execCmd('adb', [
+  await execAdb([
     '-s',
     deviceId,
     'shell',
@@ -168,6 +276,17 @@ function startAndroidEmulator({ avdName, headless, outputDir }) {
   ];
   if (headless) args.push('-no-window');
 
+  const gpuMode = String(
+    process.env.PERF_ANDROID_EMULATOR_GPU_MODE || 'swiftshader_indirect',
+  ).trim();
+  if (gpuMode) {
+    args.push('-gpu', gpuMode);
+  }
+
+  if (process.env.PERF_ANDROID_EMULATOR_NO_SNAPSHOT_LOAD !== '0') {
+    args.push('-no-snapshot-load');
+  }
+
   const child = spawn('emulator', args, {
     stdio: ['ignore', outFd, errFd],
     detached: true,
@@ -187,7 +306,7 @@ async function ensureAndroidEmulatorRunning({
 } = {}) {
   // If one is already running, do nothing.
   {
-    const r = await execCmd('adb', ['devices']);
+    const r = await execAdb(['devices']);
     const devs = parseAdbDevices(r.stdout);
     const emu = devs.find((d) => d.id.startsWith('emulator-'));
     if (emu && emu.state === 'device') {
@@ -267,6 +386,224 @@ async function requireCommand(cmd, hint) {
         .join('\n'),
     );
   }
+}
+
+function getAndroidBinaryPaths({ repoRoot, mode }) {
+  if (mode === 'release') {
+    return {
+      appBinaryPath: path.join(
+        repoRoot,
+        'apps/mobile/android/app/build/outputs/apk/prod/release/app-prod-release.apk',
+      ),
+      testBinaryPath: path.join(
+        repoRoot,
+        'apps/mobile/android/app/build/outputs/apk/androidTest/prod/debug/app-prod-debug-androidTest.apk',
+      ),
+    };
+  }
+
+  return {
+    appBinaryPath: path.join(
+      repoRoot,
+      'apps/mobile/android/app/build/outputs/apk/prod/debug/app-prod-debug.apk',
+    ),
+    testBinaryPath: path.join(
+      repoRoot,
+      'apps/mobile/android/app/build/outputs/apk/androidTest/prod/debug/app-prod-debug-androidTest.apk',
+    ),
+  };
+}
+
+async function adbIgnoreFailure(args) {
+  await execAdb(args).catch(() => {});
+}
+
+async function cleanupAndroidInstallStorage({ deviceId, testBundleId }) {
+  await adbIgnoreFailure(['-s', deviceId, 'uninstall', testBundleId]);
+  await adbIgnoreFailure([
+    '-s',
+    deviceId,
+    'shell',
+    'pm',
+    'trim-caches',
+    process.env.PERF_ANDROID_TRIM_CACHES_SIZE || '2048M',
+  ]);
+  await adbIgnoreFailure([
+    '-s',
+    deviceId,
+    'shell',
+    'rm',
+    '-rf',
+    '/data/local/tmp/detox',
+    '/data/local/tmp/*.apk',
+    '/data/local/tmp/*-*.apk',
+  ]);
+}
+
+async function installWithStorageRecovery({
+  args,
+  deviceId,
+  testBundleId,
+  label,
+}) {
+  const installTimeoutMs = androidInstallTimeoutMs();
+  let result = await execAdb(args, { timeoutMs: installTimeoutMs });
+  const output = result.stderr || result.stdout;
+  if (result.code !== 0 && isAndroidInsufficientStorageText(output)) {
+    await cleanupAndroidInstallStorage({ deviceId, testBundleId });
+    result = await execAdb(args, { timeoutMs: installTimeoutMs });
+  }
+  if (
+    result.code !== 0 &&
+    isAndroidInsufficientStorageText(result.stderr || result.stdout)
+  ) {
+    throw new Error(
+      [
+        `${label} failed because the Android emulator is still out of storage after cleanup.`,
+        result.stderr || result.stdout || result.code,
+        '',
+        'Fix options:',
+        '- Increase the AVD Internal Storage size',
+        '- Or run with PERF_ANDROID_RESET_APP_DATA=1 to allow uninstalling the main app',
+        '- Or recreate the AVD used by DETOX_ANDROID_AVD_NAME',
+      ].join('\n'),
+    );
+  }
+  return result;
+}
+
+async function installAndroidApkFiles({
+  deviceId,
+  appBinaryPath,
+  testBinaryPath,
+  mode,
+  avdName,
+  outputDir,
+  headless,
+}) {
+  const bundleId = 'so.onekey.app.wallet';
+  const testBundleId = 'so.onekey.app.wallet.test';
+  const resetAppData = process.env.PERF_ANDROID_RESET_APP_DATA === '1';
+
+  if (!fileExists(appBinaryPath)) {
+    throw new Error(`Android app APK not found: ${appBinaryPath}`);
+  }
+  if (!fileExists(testBinaryPath)) {
+    throw new Error(`Android test APK not found: ${testBinaryPath}`);
+  }
+
+  await adbIgnoreFailure([
+    '-s',
+    deviceId,
+    'shell',
+    'am',
+    'force-stop',
+    bundleId,
+  ]);
+  await adbIgnoreFailure([
+    '-s',
+    deviceId,
+    'shell',
+    'am',
+    'force-stop',
+    testBundleId,
+  ]);
+
+  if (resetAppData) {
+    await adbIgnoreFailure(['-s', deviceId, 'uninstall', testBundleId]);
+    await adbIgnoreFailure(['-s', deviceId, 'uninstall', bundleId]);
+  }
+
+  const appInstallArgs = ['-s', deviceId, 'install'];
+  if (!resetAppData) {
+    // Preserve the pre-configured wallet/login state on the emulator.
+    appInstallArgs.push('-r');
+  }
+  appInstallArgs.push(appBinaryPath);
+
+  let currentDeviceId = await waitForAndroidDeviceReady({
+    deviceId,
+    timeoutMs:
+      Number(process.env.PERF_ANDROID_DEVICE_READY_TIMEOUT_MS) || 2 * 60_000,
+  });
+
+  appInstallArgs[1] = currentDeviceId;
+  let appInstall = await installWithStorageRecovery({
+    args: appInstallArgs,
+    deviceId: currentDeviceId,
+    testBundleId,
+    label: `Android app APK install (${mode})`,
+  });
+  if (
+    appInstall.code !== 0 &&
+    isAndroidOfflineText(appInstall.stderr || appInstall.stdout)
+  ) {
+    currentDeviceId = await recoverAndroidOfflineDevice({
+      deviceId: currentDeviceId,
+      avdName,
+      outputDir,
+      headless,
+    });
+    appInstallArgs[1] = currentDeviceId;
+    appInstall = await installWithStorageRecovery({
+      args: appInstallArgs,
+      deviceId: currentDeviceId,
+      testBundleId,
+      label: `Android app APK install (${mode})`,
+    });
+  }
+  if (appInstall.code !== 0) {
+    throw new Error(
+      `Failed to install Android app APK (${mode}): ${
+        appInstall.stderr || appInstall.stdout || appInstall.code
+      }${
+        resetAppData
+          ? ''
+          : '\nTip: set PERF_ANDROID_RESET_APP_DATA=1 only if you intentionally want a clean reinstall.'
+      }`,
+    );
+  }
+
+  const testInstallArgs = ['-s', deviceId, 'install'];
+  if (!resetAppData) {
+    testInstallArgs.push('-r');
+  }
+  testInstallArgs.push('-t', testBinaryPath);
+
+  testInstallArgs[1] = currentDeviceId;
+  let testInstall = await installWithStorageRecovery({
+    args: testInstallArgs,
+    deviceId: currentDeviceId,
+    testBundleId,
+    label: `Android test APK install (${mode})`,
+  });
+  if (
+    testInstall.code !== 0 &&
+    isAndroidOfflineText(testInstall.stderr || testInstall.stdout)
+  ) {
+    currentDeviceId = await recoverAndroidOfflineDevice({
+      deviceId: currentDeviceId,
+      avdName,
+      outputDir,
+      headless,
+    });
+    testInstallArgs[1] = currentDeviceId;
+    testInstall = await installWithStorageRecovery({
+      args: testInstallArgs,
+      deviceId: currentDeviceId,
+      testBundleId,
+      label: `Android test APK install (${mode})`,
+    });
+  }
+  if (testInstall.code !== 0) {
+    throw new Error(
+      `Failed to install Android test APK (${mode}): ${
+        testInstall.stderr || testInstall.stdout || testInstall.code
+      }`,
+    );
+  }
+
+  return currentDeviceId;
 }
 
 async function main() {
@@ -427,13 +764,28 @@ async function main() {
       {
         cwd: repoRoot,
         timeoutMs: Number(process.env.DETOX_BUILD_TIMEOUT_MS) || 60 * 60 * 1000,
+        killProcessGroup: true,
         stdout: (d) => process.stdout.write(d),
         stderr: (d) => process.stderr.write(d),
       },
     );
     if (buildRes.code !== 0) {
-      throw new Error(`Detox build failed with exit code ${buildRes.code}`);
+      throw new Error(formatExecResultError('Detox build', buildRes));
     }
+
+    const { appBinaryPath, testBinaryPath } = getAndroidBinaryPaths({
+      repoRoot,
+      mode,
+    });
+    emulator.deviceId = await installAndroidApkFiles({
+      deviceId: emulator.deviceId,
+      appBinaryPath,
+      testBinaryPath,
+      mode,
+      avdName,
+      outputDir,
+      headless,
+    });
 
     const detoxEnv = {
       ...(avdName ? { DETOX_ANDROID_AVD_NAME: avdName } : {}),
@@ -447,6 +799,7 @@ async function main() {
       PERF_METRO_PLATFORM: 'android',
       PERF_METRO_APP_ID: 'so.onekey.app.wallet',
       PERF_USE_METRO: useMetro,
+      PERF_SKIP_INSTALL_APP: '1',
       METRO_URL: process.env.METRO_URL || 'http://localhost:8081',
       PERF_TEST_TIMEOUT_MS: String(
         Number(process.env.PERF_TEST_TIMEOUT_MS) || 30 * 60 * 1000,
@@ -472,12 +825,13 @@ async function main() {
       cwd: repoRoot,
       env: detoxEnv,
       timeoutMs: Number(process.env.DETOX_TIMEOUT_MS) || 30 * 60 * 1000,
+      killProcessGroup: true,
       stdout: (d) => process.stdout.write(d),
       stderr: (d) => process.stderr.write(d),
     });
 
     if (detoxRes.code !== 0) {
-      throw new Error(`Detox failed with exit code ${detoxRes.code}`);
+      throw new Error(formatExecResultError('Detox', detoxRes));
     }
 
     const runsPath = path.join(detoxOutDir, 'runs.json');
@@ -596,9 +950,7 @@ async function main() {
       emulator?.started &&
       emulator?.deviceId
     ) {
-      await execCmd('adb', ['-s', emulator.deviceId, 'emu', 'kill']).catch(
-        () => {},
-      );
+      await execAdb(['-s', emulator.deviceId, 'emu', 'kill']).catch(() => {});
     }
   }
 }
