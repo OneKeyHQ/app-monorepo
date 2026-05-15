@@ -17,6 +17,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
@@ -58,6 +59,12 @@ export default function PagePrimeTransfer() {
 
   const { result } = usePromiseResult(async () => {
     noop(primeTransferAtom.websocketEndpointUpdatedAt);
+    const resolveStartedAt = Date.now();
+    defaultLogger.prime.transfer.pageEndpointResolveStart({
+      runtimeKind: platformEnv.nativeRuntimeKind,
+      websocketEndpointUpdatedAt: primeTransferAtom.websocketEndpointUpdatedAt,
+      isBotWalletExport,
+    });
     const serverConfig = isBotWalletExport
       ? undefined
       : await backgroundApiProxy.simpleDb.primeTransfer.getServerConfig();
@@ -67,6 +74,12 @@ export default function PagePrimeTransfer() {
       });
     // remove last slash
     const endpointWithoutLastSlash = endpoint.replace(/\/+$/, '');
+    defaultLogger.prime.transfer.pageEndpointResolveDone({
+      endpoint: endpointWithoutLastSlash,
+      elapsedMs: Date.now() - resolveStartedAt,
+      serverType: serverConfig?.serverType,
+      runtimeKind: platformEnv.nativeRuntimeKind,
+    });
     return {
       endpoint: endpointWithoutLastSlash,
       serverConfig,
@@ -74,6 +87,22 @@ export default function PagePrimeTransfer() {
   }, [primeTransferAtom.websocketEndpointUpdatedAt, isBotWalletExport]);
 
   useEffect(() => {
+    // Snapshot every dep of this effect (plus runtime context) so the log
+    // stream alone is enough to attribute a surprise reconnect to the dep
+    // that actually changed.
+    const bgReadyGlobal = globalThis as typeof globalThis & {
+      __onekeyBackgroundThreadReadyPayload?: unknown;
+    };
+    defaultLogger.prime.transfer.pageInitEffectFired({
+      endpoint: result?.endpoint,
+      hasEndpoint: !!result?.endpoint,
+      serverType: result?.serverConfig?.serverType,
+      isBotWalletExport,
+      websocketEndpointUpdatedAt: primeTransferAtom.websocketEndpointUpdatedAt,
+      runtimeKind: platformEnv.nativeRuntimeKind,
+      isBackgroundThreadReady:
+        !!bgReadyGlobal.__onekeyBackgroundThreadReadyPayload,
+    });
     if (!result?.endpoint) {
       return;
     }

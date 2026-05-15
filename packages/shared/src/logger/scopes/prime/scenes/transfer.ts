@@ -18,6 +18,167 @@ export class PrimeTransferScene extends BaseScene {
     return { endpoint };
   }
 
+  // Page-side: usePromiseResult begins resolving the websocket endpoint.
+  // Pair this log with pageEndpointResolveDone to measure endpoint resolution
+  // cost (notably across the UI→BG RPC under split-thread).
+  @LogToLocal({ level: 'info' })
+  public pageEndpointResolveStart({
+    runtimeKind,
+    websocketEndpointUpdatedAt,
+    isBotWalletExport,
+  }: {
+    runtimeKind: string | undefined;
+    websocketEndpointUpdatedAt: number | undefined;
+    isBotWalletExport: boolean;
+  }) {
+    return { runtimeKind, websocketEndpointUpdatedAt, isBotWalletExport };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public pageEndpointResolveDone({
+    endpoint,
+    elapsedMs,
+    serverType,
+    runtimeKind,
+  }: {
+    endpoint: string;
+    elapsedMs: number;
+    serverType: string | undefined;
+    runtimeKind: string | undefined;
+  }) {
+    return { endpoint, elapsedMs, serverType, runtimeKind };
+  }
+
+  // Page-side: the useEffect that calls initWebSocket has just fired. Log the
+  // dep snapshot so we can identify which dependency caused the re-run when a
+  // surprise reconnect happens without a manual Refresh tap.
+  @LogToLocal({ level: 'info' })
+  public pageInitEffectFired({
+    endpoint,
+    hasEndpoint,
+    serverType,
+    isBotWalletExport,
+    websocketEndpointUpdatedAt,
+    runtimeKind,
+    isBackgroundThreadReady,
+  }: {
+    endpoint: string | undefined;
+    hasEndpoint: boolean;
+    serverType: string | undefined;
+    isBotWalletExport: boolean;
+    websocketEndpointUpdatedAt: number | undefined;
+    runtimeKind: string | undefined;
+    isBackgroundThreadReady: boolean;
+  }) {
+    return {
+      endpoint,
+      hasEndpoint,
+      serverType,
+      isBotWalletExport,
+      websocketEndpointUpdatedAt,
+      runtimeKind,
+      isBackgroundThreadReady,
+    };
+  }
+
+  // BG-side: initWebSocket has just entered (still inside mutex). Captures the
+  // smoking-gun question for split-thread: how soon after the background
+  // Hermes entry did this RPC arrive, and was a previous socket still around?
+  @LogToLocal({ level: 'info' })
+  public initWebSocketContext({
+    endpoint,
+    runtimeKind,
+    enableNativeBackgroundThread,
+    sinceBgEntryMs,
+    prevSocketExists,
+  }: {
+    endpoint: string;
+    runtimeKind: string | undefined;
+    enableNativeBackgroundThread: boolean;
+    sinceBgEntryMs: number | undefined;
+    prevSocketExists: boolean;
+  }) {
+    return {
+      endpoint,
+      runtimeKind,
+      enableNativeBackgroundThread,
+      sinceBgEntryMs,
+      prevSocketExists,
+    };
+  }
+
+  // BG-side: right before invoking io(endpoint, …). Mirrors the exact config
+  // socket.io is given so logs alone can answer "what retry budget did this
+  // run actually start with."
+  @LogToLocal({ level: 'info' })
+  public socketIoFactoryCalled({
+    endpoint,
+    transports,
+    timeout,
+    reconnectionAttempts,
+    reconnectionDelay,
+    reconnectionDelayMax,
+    sinceInitMs,
+  }: {
+    endpoint: string;
+    transports: string[];
+    timeout: number;
+    reconnectionAttempts: number;
+    reconnectionDelay: number;
+    reconnectionDelayMax: number;
+    sinceInitMs: number;
+  }) {
+    return {
+      endpoint,
+      transports,
+      timeout,
+      reconnectionAttempts,
+      reconnectionDelay,
+      reconnectionDelayMax,
+      sinceInitMs,
+    };
+  }
+
+  // Fired exactly once per init when `withinGracePeriod` flips false (i.e. the
+  // UI is about to surface the red "failed" banner). Tells us _why_ it flipped
+  // (timer vs attempt budget).
+  @LogToLocal({ level: 'warn' })
+  public gracePeriodExpired({
+    reason,
+    elapsedMs,
+    connectErrorCount,
+    gracePeriodMs,
+    reconnectionAttempts,
+  }: {
+    reason: 'elapsedMs' | 'connectErrorCount';
+    elapsedMs: number;
+    connectErrorCount: number;
+    gracePeriodMs: number;
+    reconnectionAttempts: number;
+  }) {
+    return {
+      reason,
+      elapsedMs,
+      connectErrorCount,
+      gracePeriodMs,
+      reconnectionAttempts,
+    };
+  }
+
+  // Records every bump of primeTransferAtom.websocketEndpointUpdatedAt so we
+  // can attribute the page's useEffect re-runs to a concrete caller (manual
+  // Refresh vs custom-server save vs anything else added later).
+  @LogToLocal({ level: 'info' })
+  public endpointTimestampBumped({
+    caller,
+    newTs,
+  }: {
+    caller: string;
+    newTs: number;
+  }) {
+    return { caller, newTs };
+  }
+
   @LogToLocal({ level: 'info' })
   public socketConnect({
     transport,
@@ -38,6 +199,8 @@ export class PrimeTransferScene extends BaseScene {
     attempt,
     withinGracePeriod,
     elapsedMs,
+    sinceLastErrorMs,
+    sinceFactoryMs,
   }: {
     message: string | undefined;
     type: string | undefined;
@@ -46,6 +209,8 @@ export class PrimeTransferScene extends BaseScene {
     attempt: number;
     withinGracePeriod: boolean;
     elapsedMs: number;
+    sinceLastErrorMs: number | undefined;
+    sinceFactoryMs: number;
   }) {
     return {
       message,
@@ -55,6 +220,8 @@ export class PrimeTransferScene extends BaseScene {
       attempt,
       withinGracePeriod,
       elapsedMs,
+      sinceLastErrorMs,
+      sinceFactoryMs,
     };
   }
 

@@ -266,7 +266,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async retryWebSocket() {
+  async retryWebSocket({ caller }: { caller?: string } = {}) {
     defaultLogger.prime.transfer.initWebSocket({ endpoint: '(retry)' });
     // Clear terminal-failed state and switch to "reconnecting" so the UI
     // flips back to "Connecting..." immediately. We set websocketReconnecting
@@ -277,13 +277,18 @@ class ServicePrimeTransfer extends ServiceBase {
     //   2. The page also reacts to websocketEndpointUpdatedAt and will
     //      re-resolve the endpoint, then re-run the init effect to call
     //      initWebSocket again (which clears reconnecting=false at start).
+    const newTs = Date.now();
+    defaultLogger.prime.transfer.endpointTimestampBumped({
+      caller: caller || 'retryWebSocket',
+      newTs,
+    });
     await primeTransferAtom.set(
       (v): IPrimeTransferAtomData => ({
         ...v,
         websocketConnected: false,
         websocketReconnecting: true,
         websocketError: undefined,
-        websocketEndpointUpdatedAt: Date.now(),
+        websocketEndpointUpdatedAt: newTs,
       }),
     );
   }
@@ -292,6 +297,26 @@ class ServicePrimeTransfer extends ServiceBase {
   @toastIfError()
   async initWebSocket({ endpoint }: { endpoint: string }) {
     defaultLogger.prime.transfer.initWebSocket({ endpoint });
+    const initWsEnteredAt = Date.now();
+    // Smoking-gun for split-thread: how soon after the background Hermes
+    // entry did this RPC arrive? __ONEKEY_BG_ENTRY_START__ is set at the very
+    // top of apps/mobile/background.ts; undefined on platforms without a
+    // separate background runtime.
+    const bgEntryStart = (
+      globalThis as typeof globalThis & {
+        __ONEKEY_BG_ENTRY_START__?: number;
+      }
+    ).__ONEKEY_BG_ENTRY_START__;
+    defaultLogger.prime.transfer.initWebSocketContext({
+      endpoint,
+      runtimeKind: platformEnv.nativeRuntimeKind,
+      enableNativeBackgroundThread: !!platformEnv.enableNativeBackgroundThread,
+      sinceBgEntryMs:
+        typeof bgEntryStart === 'number'
+          ? initWsEnteredAt - bgEntryStart
+          : undefined,
+      prevSocketExists: !!this.socket,
+    });
     await this.initWebsocketMutex.runExclusive(async () => {
       void primeTransferAtom.set(
         (v): IPrimeTransferAtomData => ({
@@ -321,20 +346,31 @@ class ServicePrimeTransfer extends ServiceBase {
       // auto-retry and usually succeed. Only show failed after retries are
       // truly exhausted or grace period passes without success.
       const FIRST_CONNECT_GRACE_PERIOD_MS = 8000;
+      const SOCKET_TIMEOUT_MS = 10_000;
       const connectStartedAt = Date.now();
       let connectErrorCount = 0;
+      let lastConnectErrorAt: number | undefined;
+      // gracePeriodExpired is fired exactly once per init, at the moment the
+      // UI is about to surface the red "failed" banner. Useful to confirm
+      // whether the red dot you saw was caused by the 8s timer or the
+      // 5-attempt budget.
+      let gracePeriodExpiredLogged = false;
+      const transports = ['polling', 'websocket'].filter(Boolean);
+
+      defaultLogger.prime.transfer.socketIoFactoryCalled({
+        endpoint,
+        transports,
+        timeout: SOCKET_TIMEOUT_MS,
+        reconnectionAttempts: RECONNECTION_ATTEMPTS,
+        reconnectionDelay: RECONNECTION_DELAY,
+        reconnectionDelayMax: RECONNECTION_DELAY_MAX,
+        sinceInitMs: Date.now() - initWsEnteredAt,
+      });
 
       this.socket = io(endpoint, {
-        transports: [
-          //
-          // platformEnv.isNative || platformEnv.isExtension
-          //   ? 'polling'
-          //   : undefined,
-          'polling',
-          'websocket',
-        ].filter(Boolean),
+        transports,
         upgrade: true,
-        timeout: 10_000,
+        timeout: SOCKET_TIMEOUT_MS,
         reconnection: true,
         reconnectionAttempts: RECONNECTION_ATTEMPTS,
         reconnectionDelay: RECONNECTION_DELAY,
@@ -377,7 +413,13 @@ class ServicePrimeTransfer extends ServiceBase {
             | { message: string; type: string; description: string }
             | undefined;
           connectErrorCount += 1;
-          const elapsedMs = Date.now() - connectStartedAt;
+          const nowMs = Date.now();
+          const elapsedMs = nowMs - connectStartedAt;
+          const sinceLastErrorMs =
+            lastConnectErrorAt !== undefined
+              ? nowMs - lastConnectErrorAt
+              : undefined;
+          lastConnectErrorAt = nowMs;
           const withinGracePeriod =
             elapsedMs < FIRST_CONNECT_GRACE_PERIOD_MS &&
             connectErrorCount < RECONNECTION_ATTEMPTS;
@@ -389,7 +431,22 @@ class ServicePrimeTransfer extends ServiceBase {
             attempt: connectErrorCount,
             withinGracePeriod,
             elapsedMs,
+            sinceLastErrorMs,
+            sinceFactoryMs: nowMs - initWsEnteredAt,
           });
+          if (!withinGracePeriod && !gracePeriodExpiredLogged) {
+            gracePeriodExpiredLogged = true;
+            defaultLogger.prime.transfer.gracePeriodExpired({
+              reason:
+                connectErrorCount >= RECONNECTION_ATTEMPTS
+                  ? 'connectErrorCount'
+                  : 'elapsedMs',
+              elapsedMs,
+              connectErrorCount,
+              gracePeriodMs: FIRST_CONNECT_GRACE_PERIOD_MS,
+              reconnectionAttempts: RECONNECTION_ATTEMPTS,
+            });
+          }
           connectedPairingCode = null;
           connectedEncryptedKey = null;
           // While socket.io is still going to auto-retry (within the grace
