@@ -22,6 +22,7 @@ import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConst
 import {
   EKeylessWebPrivateRpcMethod,
   type IKeylessWebOpenSidePanelPayload,
+  type IKeylessWebSessionState,
   KEYLESS_WEB_LEGACY_EXTENSION_VERSION_MAX,
   KEYLESS_WEB_OPEN_SIDE_PANEL_EVENT,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWebTypes';
@@ -213,13 +214,7 @@ function WalletItem({
   );
 }
 
-function OneKeyWalletItem({
-  networkType,
-  isOneKeyConnected,
-}: {
-  networkType?: string;
-  isOneKeyConnected: boolean;
-}) {
+function OneKeyWalletItem({ networkType }: { networkType?: string }) {
   const intl = useIntl();
   const { isOneKeyInstalled, getOneKeyConnectionInfo } =
     useOneKeyWalletDetection();
@@ -245,12 +240,11 @@ function OneKeyWalletItem({
         py="$3"
         pl="$3"
         pr="$5"
-        cursor={isOneKeyConnected ? 'default' : 'pointer'}
-        opacity={isOneKeyConnected ? 0.6 : 1}
-        hoverStyle={isOneKeyConnected ? undefined : { bg: '$bgStrong' }}
-        pressStyle={isOneKeyConnected ? undefined : { bg: '$bgActive' }}
-        onPress={isOneKeyConnected ? undefined : handlePress}
-        focusable={!isOneKeyConnected}
+        cursor="pointer"
+        hoverStyle={{ bg: '$bgStrong' }}
+        pressStyle={{ bg: '$bgActive' }}
+        onPress={handlePress}
+        focusable
         focusVisibleStyle={{
           outlineColor: '$focusRing',
           outlineStyle: 'solid',
@@ -283,9 +277,7 @@ function OneKeyWalletItem({
               </SizableText>
               <Badge badgeType="success" badgeSize="sm">
                 {intl.formatMessage({
-                  id: isOneKeyConnected
-                    ? ETranslations.global_connected
-                    : ETranslations.earn_recommended,
+                  id: ETranslations.earn_recommended,
                 })}
               </Badge>
             </XStack>
@@ -303,11 +295,7 @@ function OneKeyWalletItem({
   );
 }
 
-function KeylessProviderButtons({
-  keylessWalletExists,
-}: {
-  keylessWalletExists: boolean;
-}) {
+function KeylessProviderButtons({ shouldShow }: { shouldShow: boolean }) {
   const intl = useIntl();
   const { isOneKeyInstalled, getOneKeyConnectionInfo } =
     useOneKeyWalletDetection();
@@ -443,10 +431,7 @@ function KeylessProviderButtons({
       } else {
         const oneKeyPrivateProvider = getOneKeyPrivateProvider();
         const keylessStatus = await oneKeyPrivateProvider
-          ?.request?.<{
-            walletExists?: boolean;
-            walletType?: EOAuthSocialLoginProvider;
-          }>({
+          ?.request?.<IKeylessWebSessionState>({
             method: EKeylessWebPrivateRpcMethod.GetStatus,
             params: { provider },
           })
@@ -502,7 +487,7 @@ function KeylessProviderButtons({
     return null;
   }
 
-  if (keylessWalletExists) {
+  if (!shouldShow) {
     return null;
   }
 
@@ -606,7 +591,7 @@ function ExternalWalletList({ impl }: { impl?: string }) {
         return { walletExists: false, siteConnected: false };
       }
       const status = await getOneKeyPrivateProvider()
-        ?.request?.<{ walletExists?: boolean; siteConnected?: boolean }>({
+        ?.request?.<IKeylessWebSessionState>({
           method: EKeylessWebPrivateRpcMethod.GetStatus,
         })
         .catch(() => undefined);
@@ -618,7 +603,7 @@ function ExternalWalletList({ impl }: { impl?: string }) {
     [isOneKeyInstalled],
     { initResult: { walletExists: false, siteConnected: false } },
   );
-  const isOneKeyConnected = keylessWalletExists && siteConnected;
+  const shouldShowKeylessProviders = !keylessWalletExists && !siteConnected;
 
   // detect available wallets
   const { result: allWallets = { wallets: {} } } = usePromiseResult(
@@ -684,12 +669,9 @@ function ExternalWalletList({ impl }: { impl?: string }) {
 
   return (
     <Stack px="$5" pt="$2" pb="$4">
-      <KeylessProviderButtons keylessWalletExists={keylessWalletExists} />
+      <KeylessProviderButtons shouldShow={shouldShowKeylessProviders} />
       <XStack flexWrap="wrap" mx="$-1.5">
-        <OneKeyWalletItem
-          networkType={networkLabel}
-          isOneKeyConnected={isOneKeyConnected}
-        />
+        <OneKeyWalletItem networkType={networkLabel} />
         {walletItems}
         {fallbackWalletItems}
         <WalletConnectItem impl={impl} />

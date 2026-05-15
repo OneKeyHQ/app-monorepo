@@ -101,6 +101,7 @@ import {
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
 import { BundleCommitSearch } from './BundleCommitSearch';
+import { CpuWatchdogDevSettings } from './CpuWatchdogDevSettings';
 import { CrashDevSettings } from './CrashDevSettings';
 import { DeviceToken } from './DeviceToken';
 import {
@@ -630,7 +631,7 @@ const BaseDevSettingsSection = () => {
         title: 'Performance & Crash & Error & Unit Tests',
         description: '性能 崩溃 错误 单元测试',
         keywords:
-          'Performance Monitor UI FPS JS FPS 性能监控 DebugRenderTracker 组件渲染高亮 Perps渲染统计 Bg Api 可序列化检测 Analytics Dev Unit Tests Show Recovery Page crash counter',
+          'Performance Monitor UI FPS JS FPS 性能监控 DebugRenderTracker 组件渲染高亮 Perps渲染统计 Bg Api 可序列化检测 Analytics Dev Unit Tests Show Recovery Page crash counter CPU Watchdog Burn long task unresponsive severe mild',
       },
       {
         key: 'data',
@@ -1401,6 +1402,9 @@ const BaseDevSettingsSection = () => {
                       />
                       <SearchFilterItem keywords="CrashDevSettings Crash Test 崩溃测试">
                         <CrashDevSettings />
+                      </SearchFilterItem>
+                      <SearchFilterItem keywords="CPU Watchdog Burn long task unresponsive severe mild 性能监视 测试">
+                        <CpuWatchdogDevSettings />
                       </SearchFilterItem>
                     </Accordion.Content>
                   </Accordion.HeightAnimator>

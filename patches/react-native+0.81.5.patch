@@ -627,10 +627,10 @@ index 89b666d..246c9cf 100644
  
    override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
 diff --git a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm b/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
-index 2a67797..57f7c7a 100644
+index 2a677974ca..5e5aeffc30 100644
 --- a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
 +++ b/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
-@@ -57,6 +57,9 @@ static int32_t getUniqueId()
+@@ -57,6 +57,9 @@
  
  static jsi::String convertNSStringToJSIString(jsi::Runtime &runtime, NSString *value)
  {
@@ -640,7 +640,7 @@ index 2a67797..57f7c7a 100644
    return jsi::String::createFromUtf8(runtime, [value UTF8String] ? [value UTF8String] : "");
  }
  
-@@ -89,6 +92,9 @@ static int32_t getUniqueId()
+@@ -89,6 +92,9 @@
  
  jsi::Value convertObjCObjectToJSIValue(jsi::Runtime &runtime, id value)
  {
@@ -650,6 +650,66 @@ index 2a67797..57f7c7a 100644
    if ([value isKindOfClass:[NSString class]]) {
      return convertNSStringToJSIString(runtime, (NSString *)value);
    } else if ([value isKindOfClass:[NSNumber class]]) {
+@@ -435,7 +441,58 @@
+     @try {
+       [inv invokeWithTarget:strongModule];
+     } @catch (NSException *exception) {
+-      throw convertNSExceptionToJSError(runtime, exception, std::string{moduleName}, methodNameStr);
++      // ---------------------------------------------------------------
++      // OneKey patch — async void TurboModule must not touch `runtime`.
++      // ---------------------------------------------------------------
++      //
++      // Upstream RN already has the right rule for the *sibling* method
++      // (`performMethodInvocation`, this file ~L374): JSError is only
++      // safe to construct from a sync call, because only a sync call is
++      // guaranteed to run on the JS thread. Quoting the upstream comment:
++      //
++      //     // We can only convert NSException to JSError in sync method
++      //     // calls. See https://github.com/reactwg/react-native-new-
++      //     // architecture/discussions/276#discussioncomment-12567155
++      //
++      // `performVoidMethodInvocation` (this function), however,
++      // unconditionally calls `convertNSExceptionToJSError(runtime, ...)`
++      // — even on the async branch, where the block has been hopped onto
++      // a GCD queue via `nativeMethodCallInvoker_->invokeAsync(...)`
++      // (~L463). `convertNSExceptionToJSError` reads JS properties off
++      // the runtime to build the JSError (e.g. `Error.prototype.stack`),
++      // which races the JS thread that is still using the same Hermes
++      // runtime. The Hermes GCScope chain / handle table is not
++      // thread-safe, so this race manifests as a SIGSEGV inside
++      // `PinnedHermesValue` construction during a subsequent JS
++      // `instanceof` (see crash report — Thread 5 mid
++      // `convertNSExceptionToJSError`, Thread 18 mid
++      // `instanceOfOperator_RJS`).
++      //
++      // The minimal fix is to mirror the sibling function's sync/async
++      // split here. For sync void calls (rare; gated by
++      // `shouldVoidMethodsExecuteSync_`) we keep the original behavior
++      // so JS callers that opted into sync semantics still see the
++      // exception as a JSError. For the async path we re-throw the
++      // NSException to unwind the GCD block: the void method has no JS
++      // caller awaiting a result, so the rethrow is harmless to JS
++      // semantics — it just routes through the GCD top-level handler
++      // (and any `RCTSetFatalHandler` installed by the host app), where
++      // we can observe it via crash reporters instead of crashing
++      // Hermes.
++      if (shouldVoidMethodsExecuteSync_) {
++        throw convertNSExceptionToJSError(runtime, exception, std::string{moduleName}, methodNameStr);
++      } else {
++        // Note for future maintainers: do NOT try to "convert and emit"
++        // by hopping to the JS thread via `jsInvoker_`. That works in
++        // principle but turns a fire-and-forget void method into a
++        // queued task, which subtly changes ordering w.r.t. the next
++        // JS-initiated call. If reach-into-JS observability is desired,
++        // post a Sentry breadcrumb / NSLog here and keep the rethrow.
++        RCTLogError(
++            @"[OneKey] Async void TurboModule %s.%s raised NSException; rethrowing to GCD handler. name=%@ reason=%@",
++            moduleName, methodNameStr.c_str(), exception.name, exception.reason);
++        @throw exception;
++      }
+     } @finally {
+       [retainedObjectsForInvocation removeAllObjects];
+     }
 diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp
 index a9bc219..0fc50bf 100644
 --- a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp

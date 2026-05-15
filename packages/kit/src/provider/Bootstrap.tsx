@@ -829,17 +829,55 @@ export function Bootstrap() {
   }, [navigation, autoNavigation?.enabled, autoNavigation?.selectedTab]);
 
   useEffect(() => {
-    if (devSettings.enabled) {
-      performance.start(1000);
-      if (devSettings.settings?.showPerformanceMonitor) {
-        performance.showOverlay();
-      }
+    // Sampler runs unconditionally in production: 1Hz mach syscall +
+    // rAF counter is negligible overhead, and the data feeds the
+    // memory-pressure observability path (anomaly logs, future
+    // telemetry) for all users. Process-global on the native side, so
+    // start once on mount — don't re-start when dev settings toggle.
+    performance.start(1000);
+  }, []);
+
+  useEffect(() => {
+    if (devSettings.enabled && devSettings.settings?.showPerformanceMonitor) {
+      performance.showOverlay();
+    } else {
+      performance.hideOverlay();
     }
     return () => {
       performance.hideOverlay();
-      performance.stop();
     };
   }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
+
+  // Bridge native memory-warning notifications to the cross-process
+  // appEventBus, so background services and JS-side caches can react.
+  // Registered once for the lifetime of the React tree; the native
+  // listener is a process-global observer (see MemoryWarningCenter on
+  // each platform), so we never want it tied to per-screen state.
+  useEffect(() => {
+    const id = performance.addMemoryWarningListener((event) => {
+      appEventBus.emit(EAppEventBusNames.MemoryPressureWarning, event);
+      // Run GC after Main-runtime subscribers (listener closures + any
+      // FG caches that subscribe directly) have had a chance to drop
+      // references. setTimeout(0) yields the current macrotask so any
+      // synchronous `clear()` on this runtime finishes first.
+      //
+      // Cross-runtime note (iOS/Android with split Hermes): this GC
+      // call only reclaims Main's heap. Background-side caches
+      // (@backgroundClass services, memoize buffers, socket queues)
+      // live in a separate Hermes instance and are GC'd by a symmetric
+      // listener in BackgroundApiBase.constructor after the IPC-
+      // delivered event fires there. Critical-only: a `low` event
+      // isn't worth the stop-the-world cost.
+      if (event.level === 'critical') {
+        setTimeout(() => {
+          performance.forceGarbageCollection();
+        }, 0);
+      }
+    });
+    return () => {
+      performance.removeMemoryWarningListener(id);
+    };
+  }, []);
 
   // === Boot Recovery: mark boot success after 5s stability window ===
   useEffect(() => {

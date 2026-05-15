@@ -190,6 +190,45 @@ describe('btc hardware signer', () => {
     );
   });
 
+  it('serializes btc address and public key reads on the same device', async () => {
+    const order: string[] = [];
+    const device = makeDevice();
+    const { deps } = makeDeps({
+      sdk: {
+        btcGetAddress: jest.fn(async () => {
+          order.push('address-start');
+          await Promise.resolve();
+          order.push('address-end');
+          return makeSuccess({
+            address: 'tb1p-first',
+            path: "m/86'/1'/0'/0/0",
+          });
+        }),
+        btcGetPublicKey: jest.fn(async () => {
+          order.push('public-key-start');
+          return makeSuccess({
+            path: "m/86'/1'/0'/0/0",
+            node: {
+              public_key:
+                '03098891dd952dd6f6bde1489761d0befbfa31815e9c0e64058d12b83de852a18c',
+            },
+            root_fingerprint: 0xde_ad_be_ef,
+          });
+        }),
+      } as unknown as Partial<CoreApi>,
+    });
+    const signer = new SignerHardware({
+      impl: 'tbtc',
+      device,
+      passphraseMode: 'none',
+      deps,
+    });
+
+    await signer.getAddress('tbtc--0', { addressType: 'taproot' });
+
+    expect(order).toEqual(['address-start', 'address-end', 'public-key-start']);
+  });
+
   it('rejects getAddress without explicit addressType', async () => {
     const { deps, mocks } = makeDeps();
     const signer = new SignerHardware({

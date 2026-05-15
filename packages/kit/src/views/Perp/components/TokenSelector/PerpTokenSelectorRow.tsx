@@ -101,6 +101,7 @@ const TokenSelectorRowContext =
   createContext<ITokenSelectorRowContextValue | null>(null);
 
 const DESKTOP_SUBTITLE_MAX_WIDTH = 52;
+const DESKTOP_METRIC_TEXT_LINE_HEIGHT = 16;
 const MOBILE_SUBTITLE_MAX_WIDTH = 80;
 
 function isSpotAssetCtxEntryEqual(
@@ -509,10 +510,15 @@ const TokenPriceCellDesktop = memo(() => {
           flexBasis={useFlexibleLayout ? 0 : undefined}
           minWidth={useFlexibleLayout ? columnLayout.price.minWidth : 110}
           justifyContent="flex-start"
+          alignItems="center"
         >
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             {isSpot ? (
-              <SizableText size="$bodySmMedium" color="$text">
+              <SizableText
+                size="$bodySmMedium"
+                color="$text"
+                lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+              >
                 {assetCtx.markPrice}
               </SizableText>
             ) : (
@@ -520,6 +526,7 @@ const TokenPriceCellDesktop = memo(() => {
                 formatter="price"
                 size="$bodySmMedium"
                 color="$text"
+                lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
               >
                 {assetCtx.markPrice}
               </NumberSizeableText>
@@ -561,15 +568,18 @@ const Token24hChangeCellDesktop = memo(() => {
           flexBasis={useFlexibleLayout ? 0 : undefined}
           minWidth={useFlexibleLayout ? columnLayout.change24h.minWidth : 150}
           justifyContent="flex-start"
+          alignItems="center"
         >
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <SizableText
               size="$bodySm"
               color={assetCtx.change24hPercent > 0 ? '$green11' : '$red11'}
+              lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
             >
               <SizableText
                 size="$bodySm"
                 color={assetCtx.change24hPercent > 0 ? '$green11' : '$red11'}
+                lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
               >
                 {assetCtx.change24h}
               </SizableText>{' '}
@@ -579,6 +589,7 @@ const Token24hChangeCellDesktop = memo(() => {
                 color={assetCtx.change24hPercent > 0 ? '$green11' : '$red11'}
                 formatter="priceChange"
                 formatterOptions={{ showPlusMinusSigns: true }}
+                lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
               >
                 {assetCtx.change24hPercent.toString()}
               </NumberSizeableText>
@@ -626,13 +637,18 @@ const TokenFundingCellDesktop = memo(() => {
               : undefined
           }
           justifyContent="flex-start"
+          alignItems="center"
         >
           <SkeletonContainer
             isLoading={!isSpot ? isLoading : false}
             width="80%"
             height={16}
           >
-            <SizableText size="$bodySm" color="$text">
+            <SizableText
+              size="$bodySm"
+              color="$text"
+              lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+            >
               {isSpot
                 ? '-'
                 : `${(Number(assetCtx.fundingRate) * 100).toFixed(4)}%`}
@@ -674,9 +690,14 @@ const TokenVolumeCellDesktop = memo(() => {
           flexBasis={useFlexibleLayout ? 0 : undefined}
           minWidth={useFlexibleLayout ? columnLayout.volume.minWidth : 110}
           justifyContent="flex-start"
+          alignItems="center"
         >
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
-            <SizableText size="$bodySm" color="$text">
+            <SizableText
+              size="$bodySm"
+              color="$text"
+              lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+            >
               $
               {formatDisplayNumber(
                 NUMBER_FORMATTER.marketCap(assetCtx.volume24h),
@@ -713,13 +734,18 @@ const TokenMarketCapCellDesktop = memo(() => {
         flexBasis={useFlexibleLayout ? 0 : undefined}
         minWidth={useFlexibleLayout ? columnLayout.marketCap.minWidth : 120}
         justifyContent="flex-start"
+        alignItems="center"
       >
         <SkeletonContainer
           isLoading={isSpot ? isLoading : false}
           width="80%"
           height={16}
         >
-          <SizableText size="$bodySm" color="$text">
+          <SizableText
+            size="$bodySm"
+            color="$text"
+            lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+          >
             {assetCtx.marketCap ?? '-'}
           </SizableText>
         </SkeletonContainer>
@@ -773,13 +799,18 @@ const TokenOpenInterestCellDesktop = memo(() => {
               : undefined
           }
           justifyContent="flex-start"
+          alignItems="center"
         >
           <SkeletonContainer
             isLoading={!isSpot ? isLoading : false}
             width="80%"
             height={16}
           >
-            <SizableText size="$bodySm" color="$text">
+            <SizableText
+              size="$bodySm"
+              color="$text"
+              lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+            >
               {isSpot ? '-' : openInterestDisplay}
             </SizableText>
           </SkeletonContainer>
@@ -1228,6 +1259,7 @@ const PerpTokenSelectorRowPerps = memo(
 
     const { assetCtx, isLoading } = usePerpsAssetCtx({
       assetId: tokenAssetId,
+      dexIndex: mockedToken.dexIndex,
       skipMarkRequired,
     });
 
@@ -1277,7 +1309,7 @@ const PerpTokenSelectorRowPerps = memo(
       ],
     );
 
-    if (!tokenName || !assetCtx) {
+    if (!tokenName) {
       return null;
     }
 
