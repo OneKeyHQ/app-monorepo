@@ -1813,11 +1813,6 @@ export const wrappedTokens = [
     logo: 'https://uni.onekey-asset.com/static/logo/wht.png',
   },
   {
-    networkId: 'evm--66',
-    address: '0x8f8526dbfd6e38e3d8307702ca8469bae6c56c15',
-    logo: 'https://uni.onekey-asset.com/static/logo/wokt.png',
-  },
-  {
     networkId: 'evm--10',
     address: '0x4200000000000000000000000000000000000006',
     logo: 'https://uni.onekey-asset.com/static/logo/WETH.png',
