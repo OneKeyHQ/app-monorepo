@@ -95,8 +95,6 @@ const protocolLogoFallbackMap: Record<string, string> = {
   stakefish: 'https://uni.onekey-asset.com/static/logo/stakefish.png',
 };
 
-const AUDIT_NAME_COLUMN_WIDTH = 172;
-
 function getItemSubtitle(
   item: IEarnProtocolIntroItem | undefined,
   intl: ReturnType<typeof useIntl>,
@@ -857,7 +855,11 @@ function getAuditTitle(audit?: IEarnProtocolIntroAudit) {
 }
 
 function getAuditScope(audit?: IEarnProtocolIntroAudit) {
-  return audit?.scope || audit?.description;
+  return audit?.data?.scope || audit?.scope || audit?.description;
+}
+
+function getAuditDate(audit?: IEarnProtocolIntroAudit) {
+  return audit?.data?.date || audit?.date;
 }
 
 function FallbackAvatar({ size = 24 }: { size?: number }) {
@@ -1313,13 +1315,22 @@ function AuditAccordionItem({
 }) {
   const intl = useIntl();
   const url = getLinkUrl(audit.button) || getSafeExternalUrl(audit.url);
+  const isButtonDisabled = Boolean(audit.button?.disabled) || !url;
+  const shouldShowButton = Boolean(audit.button || url);
   const scope = getAuditScope(audit);
-  const hasContent = hasText(scope) || Boolean(url);
+  const titleText = getText(getAuditTitle(audit));
+  const dateText = getText(getAuditDate(audit));
+  const scopeText = getText(scope);
+  const hasScopeText = Boolean(scopeText?.trim());
+  const buttonText =
+    getText(audit.button?.title) ||
+    intl.formatMessage({ id: ETranslations.global_view });
+  const hasContent = hasScopeText || shouldShowButton;
   const handleOpen = useCallback(() => {
-    if (url) {
+    if (url && !isButtonDisabled) {
       openUrlExternal(url);
     }
-  }, [url]);
+  }, [isButtonDisabled, url]);
 
   return (
     <Accordion.Item value={String(index)}>
@@ -1327,12 +1338,12 @@ function AuditAccordionItem({
         unstyled
         flexDirection="row"
         alignItems="center"
+        gap="$2"
         borderWidth={0}
         bg="$transparent"
-        px="$2"
-        py="$2"
-        mx="$-2"
-        my="$-2"
+        minHeight="$10"
+        px="$0"
+        py="$0"
         borderRadius="$2"
         hoverStyle={{
           bg: '$bgHover',
@@ -1344,32 +1355,41 @@ function AuditAccordionItem({
         {({ open }: { open: boolean }) => (
           <>
             <XStack
-              width={AUDIT_NAME_COLUMN_WIDTH}
-              flexShrink={0}
+              flexGrow={1}
+              flexBasis={0}
               minWidth={0}
               gap="$1.5"
               ai="center"
             >
               <AuditLogo audit={audit} />
-              <EarnText
-                text={toEarnText(getAuditTitle(audit))}
+              <SizableText
                 size="$bodyMdMedium"
                 color="$text"
                 flexShrink={1}
                 minWidth={0}
                 numberOfLines={1}
-              />
+              >
+                {titleText}
+              </SizableText>
             </XStack>
-            <EarnText
-              text={toEarnText(audit.date)}
+            <SizableText
               size="$bodyMd"
               color="$textSubdued"
-              flex={1}
+              flexGrow={1}
+              flexBasis={0}
               minWidth={0}
               numberOfLines={1}
               textAlign="left"
-            />
-            <XStack w="$5" flexShrink={0} minWidth={0} jc="flex-end">
+            >
+              {dateText}
+            </SizableText>
+            <XStack
+              flexGrow={1}
+              flexBasis={0}
+              flexShrink={1}
+              minWidth={0}
+              jc="flex-end"
+            >
               <Stack
                 animation="quick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
@@ -1397,17 +1417,14 @@ function AuditAccordionItem({
             exitStyle={{ opacity: 0 }}
           >
             <XStack gap="$3" ai="flex-start">
-              {hasText(scope) ? (
-                <EarnText
-                  text={toEarnText(scope)}
-                  size="$bodyMd"
-                  color="$text"
-                  flex={1}
-                />
+              {hasScopeText ? (
+                <SizableText size="$bodyMd" color="$text" flex={1} minWidth={0}>
+                  {scopeText}
+                </SizableText>
               ) : (
                 <YStack flex={1} />
               )}
-              {url ? (
+              {shouldShowButton ? (
                 <Button
                   testID={EarnTestIDs.protocolIntroAuditButton(
                     getText(audit.button?.title) || '',
@@ -1415,10 +1432,10 @@ function AuditAccordionItem({
                   size="small"
                   variant="secondary"
                   borderRadius="$full"
+                  disabled={isButtonDisabled}
                   onPress={handleOpen}
                 >
-                  {getText(audit.button?.title) ||
-                    intl.formatMessage({ id: ETranslations.global_view })}
+                  {buttonText}
                 </Button>
               ) : null}
             </XStack>
@@ -1434,8 +1451,8 @@ function AuditsDialogContent({ audits }: { audits: IEarnProtocolIntroAudits }) {
   const auditItems = getAudits(audits);
   const descriptions = audits.button?.data?.description;
   return (
-    <YStack gap="$4">
-      <Accordion type="single" collapsible gap="$4" pt="$2">
+    <YStack gap="$5">
+      <Accordion type="single" collapsible gap="$4">
         {auditItems.map((audit, index) => (
           <AuditAccordionItem
             key={`${getText(getAuditTitle(audit)) || 'audit'}-${index}`}

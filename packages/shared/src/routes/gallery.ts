@@ -24,7 +24,6 @@ export enum EGalleryRoutes {
   ComponentDotMap = 'component-DotMap',
   ComponentEmpty = 'component-Empty',
   ComponentErrorToast = 'component-ErrorToast',
-  ComponentFirmwareUpdate = 'component-FirmwareUpdate',
   ComponentForm = 'component-Form',
   ComponentHardware = 'component-Hardware',
   ComponentIcon = 'component-Icon',

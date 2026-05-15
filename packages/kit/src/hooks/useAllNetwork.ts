@@ -321,6 +321,7 @@ function useAllNetworkRequests<T>(params: {
     pollingNonce?: number;
     alwaysSetState?: boolean;
     skipAccountsCache?: boolean;
+    ignoreDisabled?: boolean;
   };
   const {
     accountId: currentAccountId,
@@ -361,6 +362,7 @@ function useAllNetworkRequests<T>(params: {
   // into the method body, so we relay it through this ref and consume it
   // inside the runner.
   const skipAccountsCacheRef = useRef(false);
+  const ignoreDisabledRef = useRef(false);
 
   useEffect(() => {
     const onEnabledNetworksChanged = () => {
@@ -438,8 +440,11 @@ function useAllNetworkRequests<T>(params: {
 
   const { run, result } = usePromiseResult(
     async () => {
+      const ignoreDisabledForThisRun = ignoreDisabledRef.current;
+      ignoreDisabledRef.current = false;
+      const effectiveDisabled = disabled && !ignoreDisabledForThisRun;
       const shouldDebounceWait =
-        !disabled &&
+        !effectiveDisabled &&
         !isFetching.current &&
         !!currentAccountId &&
         !!currentNetworkId &&
@@ -462,7 +467,7 @@ function useAllNetworkRequests<T>(params: {
 
       const requestsUUID = generateUUID();
 
-      if (disabled) return;
+      if (effectiveDisabled) return;
       if (isFetching.current) {
         rerunAfterCurrentRef.current = true;
         return;
@@ -854,11 +859,17 @@ function useAllNetworkRequests<T>(params: {
           skipAccountsCache:
             !!rerunConfigRef.current?.skipAccountsCache ||
             !!config?.skipAccountsCache,
+          ignoreDisabled:
+            !!rerunConfigRef.current?.ignoreDisabled ||
+            !!config?.ignoreDisabled,
         };
         return;
       }
       if (config?.skipAccountsCache) {
         skipAccountsCacheRef.current = true;
+      }
+      if (config?.ignoreDisabled) {
+        ignoreDisabledRef.current = true;
       }
       await run(config);
     },

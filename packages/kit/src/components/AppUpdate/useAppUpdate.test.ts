@@ -132,12 +132,41 @@ jest.mock('@onekeyhq/components', () => {
   const te = jest.fn();
   (globalThis as any).__mockDialogShow = ds;
   (globalThis as any).__mockToastError = te;
+  // The root jest.config.js moduleNameMapper rewrites `@onekeyhq/components`
+  // AND every deeper subpath under it (including
+  // `@onekeyhq/components/src/hooks/useNetInfo`) to the same
+  // __mocks__/componentsMock.ts. As a result jest.mock attaches to the
+  // resolved file, so both `import { Toast } from '@onekeyhq/components'`
+  // AND `import { globalNetInfo } from '@onekeyhq/components/src/hooks/useNetInfo'`
+  // pull from this single returned object — we must expose ALL named exports
+  // here, or one import path will silently overwrite the other.
+  const netInfoListeners: Array<
+    (s: { isInternetReachable: boolean | null }) => void
+  > = [];
+  const globalNetInfo = {
+    currentState: () => ({ isInternetReachable: null as boolean | null }),
+    addEventListener: (
+      l: (s: { isInternetReachable: boolean | null }) => void,
+    ) => {
+      netInfoListeners.push(l);
+      return () => {
+        const idx = netInfoListeners.indexOf(l);
+        if (idx >= 0) netInfoListeners.splice(idx, 1);
+      };
+    },
+    __emit: (state: { isInternetReachable: boolean | null }) => {
+      [...netInfoListeners].forEach((l) => l(state));
+    },
+    __reset: () => netInfoListeners.splice(0, netInfoListeners.length),
+  };
+  (globalThis as any).__mockGlobalNetInfo = globalNetInfo;
   return {
     Dialog: { show: ds },
     Toast: { error: te },
     LottieView: () => null,
     YStack: ({ children }: any) => children,
     useInTabDialog: () => ({ show: ds }),
+    globalNetInfo,
   };
 });
 
@@ -477,24 +506,26 @@ describe('runDownloadWithRetry', () => {
     }
   });
 
-  test('throws the last error after exhausting all 3 retries', async () => {
-    const e1 = new Error('NSURLErrorDomain -1005');
-    const e2 = new Error('NSURLErrorDomain -1001');
-    const e3 = new Error('HTTP 502');
-    const e4 = new Error('IO_SocketTimeoutException');
-    const op = jest
-      .fn<Promise<string>, []>()
-      .mockRejectedValueOnce(e1)
-      .mockRejectedValueOnce(e2)
-      .mockRejectedValueOnce(e3)
-      .mockRejectedValueOnce(e4);
+  test('throws the last error after exhausting all 5 retries', async () => {
+    const errs = [
+      new Error('NSURLErrorDomain -1005'),
+      new Error('NSURLErrorDomain -1001'),
+      new Error('HTTP 502'),
+      new Error('IO_SocketTimeoutException'),
+      new Error('NSURLErrorDomain -1009'),
+      new Error('HTTP 503'),
+    ];
+    const op = jest.fn<Promise<string>, []>();
+    errs.forEach((e) => op.mockRejectedValueOnce(e));
     const promise = runDownloadWithRetry(op, 'test').catch((err) => err);
-    await flush();
-    await flush();
-    await flush();
+    // initial + 5 retries = 6 attempts; flush once per await chain.
+    for (let i = 0; i < errs.length + 1; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await flush();
+    }
     const finalErr = await promise;
-    expect(finalErr).toBe(e4);
-    expect(op).toHaveBeenCalledTimes(4); // initial + 3 retries
+    expect(finalErr).toBe(errs[errs.length - 1]);
+    expect(op).toHaveBeenCalledTimes(errs.length); // initial + 5 retries
   });
 
   test('computeDownloadRetryDelayMs grows exponentially with jitter floor', () => {
@@ -509,6 +540,74 @@ describe('runDownloadWithRetry', () => {
     expect(a1).toBeLessThan(3500);
     expect(a2).toBeGreaterThanOrEqual(6000);
     expect(a2).toBeLessThan(6500);
+  });
+
+  test('computeDownloadRetryDelayMs is capped at 60s for late attempts', () => {
+    // base * 2^6 = 96_000 > 60_000 cap; cap must clamp before jitter pushes
+    // us further. Same for attempt 10 (way past the cap).
+    expect(computeDownloadRetryDelayMs(6)).toBeLessThanOrEqual(60_000);
+    expect(computeDownloadRetryDelayMs(10)).toBeLessThanOrEqual(60_000);
+  });
+
+  test('camps on the NetInfo listener while offline and resumes once back online', async () => {
+    const netInfo = (globalThis as any).__mockGlobalNetInfo;
+    netInfo.__reset();
+    // Start offline: the first retry should NOT proceed off the regular
+    // backoff clock — it should wait for an online emission.
+    let online = false;
+    netInfo.currentState = () => ({
+      isInternetReachable: online ? null : false,
+    });
+    const op = jest
+      .fn<Promise<string>, []>()
+      .mockRejectedValueOnce(new Error('NSURLErrorDomain -1009'))
+      .mockResolvedValueOnce('ok');
+    const promise = runDownloadWithRetry(op, 'test').catch((e) => e);
+    // Let the rejection settle and waitBeforeRetry block on addEventListener.
+    for (let i = 0; i < 8; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.resolve();
+    }
+    expect(op).toHaveBeenCalledTimes(1);
+    // Simulate the device coming back online — the listener fires and the
+    // grace-period setTimeout schedules; advance both.
+    online = true;
+    netInfo.__emit({ isInternetReachable: true });
+    await flush();
+    await flush();
+    const result = await promise;
+    expect(result).toBe('ok');
+    expect(op).toHaveBeenCalledTimes(2);
+    // Restore default for sibling tests.
+    netInfo.currentState = () => ({ isInternetReachable: null });
+  });
+
+  test('falls back to grace + retry when the offline cap expires', async () => {
+    const netInfo = (globalThis as any).__mockGlobalNetInfo;
+    netInfo.__reset();
+    // Stay offline the whole time — the listener never fires, so the only
+    // way the retry loop can make progress is by the 5-min offline-wait cap
+    // tripping and bubbling out as exitReason='timeout'.
+    netInfo.currentState = () => ({ isInternetReachable: false });
+    const op = jest
+      .fn<Promise<string>, []>()
+      .mockRejectedValueOnce(new Error('NSURLErrorDomain -1009'))
+      .mockResolvedValueOnce('ok');
+    const promise = runDownloadWithRetry(op, 'test').catch((e) => e);
+    // Let the rejection settle and waitForOnlineOrTimeout register its timer.
+    for (let i = 0; i < 8; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.resolve();
+    }
+    expect(op).toHaveBeenCalledTimes(1);
+    // Trip the offline cap → exitReason='timeout' → falls through to grace.
+    jest.advanceTimersByTime(5 * 60 * 1000);
+    await flush();
+    const result = await promise;
+    expect(result).toBe('ok');
+    expect(op).toHaveBeenCalledTimes(2);
+    // Restore default for sibling tests.
+    netInfo.currentState = () => ({ isInternetReachable: null });
   });
 });
 
