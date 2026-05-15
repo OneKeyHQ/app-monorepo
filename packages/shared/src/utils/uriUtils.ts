@@ -271,10 +271,11 @@ function normalizeUrlHostnameSeparators(url: string) {
   )}${suffix}${rest}`;
 }
 
-function normalizeLocalhostUrlSeparators(url: string) {
-  const result = isLocalhostUrl(url)
-    ? normalizeUrlHostnameSeparators(url)
-    : url;
+function normalizeLocalhostOrIpUrlSeparators(url: string) {
+  const result =
+    isLocalhostUrl(url) || isIpAddressUrl(url)
+      ? normalizeUrlHostnameSeparators(url)
+      : url;
   return result;
 }
 
@@ -373,17 +374,16 @@ export function ensureHttpsPrefix(url: string): string {
 
 export function ensureHttpPrefix(url: string): string {
   if (!url) return url;
-  const normalizedLocalhostUrl = normalizeLocalhostUrlSeparators(url);
+  const normalizedUrl = normalizeLocalhostOrIpUrlSeparators(url);
   if (
-    (isLocalhostUrl(normalizedLocalhostUrl) ||
-      isIpAddressUrl(normalizedLocalhostUrl)) &&
-    !URL_PROTOCOL_PREFIX_REGEXP.test(normalizedLocalhostUrl)
+    (isLocalhostUrl(normalizedUrl) || isIpAddressUrl(normalizedUrl)) &&
+    !URL_PROTOCOL_PREFIX_REGEXP.test(normalizedUrl)
   ) {
-    const result = `http://${normalizedLocalhostUrl}`;
+    const result = `http://${normalizedUrl}`;
     return result;
   }
-  if (URL_SCHEME_REGEXP.test(normalizedLocalhostUrl)) {
-    return normalizedLocalhostUrl;
+  if (URL_SCHEME_REGEXP.test(normalizedUrl)) {
+    return normalizedUrl;
   }
   const result = `http://${url}`;
   return result;
@@ -634,7 +634,13 @@ export const validateUrl = (
   const originalParsedUrl = safeParseURL(url);
   const isPublicIpAddressUrlInput = isPublicIpAddressUrl(urlWithoutProtocol);
   if (isPublicIpAddressUrlInput && originalParsedUrl?.protocol !== 'https:') {
-    const httpUrl = `http://${urlWithoutProtocol}`;
+    const normalizedPublicIpAddressUrl =
+      normalizeUrlHostnameSeparators(urlWithoutProtocol);
+    const httpUrl = URL_PROTOCOL_PREFIX_REGEXP.test(
+      normalizedPublicIpAddressUrl,
+    )
+      ? normalizedPublicIpAddressUrl
+      : `http://${normalizedPublicIpAddressUrl}`;
     if (validator.isURL(httpUrl, { protocols: ['http'] })) {
       return httpUrl;
     }

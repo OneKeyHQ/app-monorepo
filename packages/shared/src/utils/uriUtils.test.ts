@@ -106,6 +106,7 @@ describe('validateUrl', () => {
   test('uses http for bare public IP addresses', () => {
     expect(validateUrl('6.6.6.6')).toBe('http://6.6.6.6');
     expect(validateUrl('6.6.6.6:8080/path')).toBe('http://6.6.6.6:8080/path');
+    expect(validateUrl('6。6。6。6:8080')).toBe('http://6.6.6.6:8080');
     expect(validateUrl('http://6.6.6.6:8080/path')).toBe(
       'http://6.6.6.6:8080/path',
     );
@@ -158,7 +159,7 @@ describe('validateUrl', () => {
     });
   });
 
-  test('normalizes only localhost hostname separators', () => {
+  test('normalizes only localhost and IP hostname separators', () => {
     expect(
       validateUrl('http://localhost/file。json?name=a．b#part｡1', {
         allowLocalhostUrl: true,
@@ -169,6 +170,9 @@ describe('validateUrl', () => {
         allowLocalhostUrl: true,
       }),
     ).toBe('http://127.0.0.1/file。json?name=a．b#part｡1');
+    expect(validateUrl('6。6。6。6/file。json?name=a．b#part｡1')).toBe(
+      'http://6.6.6.6/file。json?name=a．b#part｡1',
+    );
   });
 });
 
@@ -459,14 +463,18 @@ describe('ensureHttpPrefix', () => {
   test('adds http:// prefix to URL-like text without protocol', () => {
     expect(ensureHttpPrefix('localhost:3000')).toBe('http://localhost:3000');
     expect(ensureHttpPrefix('6.6.6.6:8080')).toBe('http://6.6.6.6:8080');
+    expect(ensureHttpPrefix('6。6。6。6:8080')).toBe('http://6.6.6.6:8080');
   });
 
-  test('normalizes only localhost host separators', () => {
+  test('normalizes only localhost and IP host separators', () => {
     expect(ensureHttpPrefix('http://localhost/file。json?name=a．b')).toBe(
       'http://localhost/file。json?name=a．b',
     );
     expect(ensureHttpPrefix('http://127。0。0。1/file。json?name=a．b')).toBe(
       'http://127.0.0.1/file。json?name=a．b',
+    );
+    expect(ensureHttpPrefix('http://6。6。6。6/file。json?name=a．b')).toBe(
+      'http://6.6.6.6/file。json?name=a．b',
     );
   });
 });
