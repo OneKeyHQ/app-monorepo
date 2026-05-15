@@ -27,6 +27,7 @@ import {
   HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
+  IBook,
   IHex,
   IHyperliquidEventTarget,
   IPerpsActiveAssetDataRaw,
@@ -68,6 +69,10 @@ import { spotActiveAssetAtom } from '../../states/jotai/atoms/spot';
 import ServiceBase from '../ServiceBase';
 
 import hyperLiquidCache from './hyperLiquidCache';
+import {
+  type ILatestPerpsMarketDataSnapshot,
+  filterFreshPerpsMarketDataSnapshot,
+} from './utils/latestMarketDataSnapshot';
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
@@ -176,6 +181,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   pendingSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>> = {};
 
   private _activeSubscriptions = new Map<string, IActiveSubscription>();
+
+  private _latestMarketDataSnapshot: ILatestPerpsMarketDataSnapshot = {};
 
   // Cross-runtime atom sync can lag behind a reopened socket, leaving current
   // market subscriptions absent while the socket still looks healthy.
@@ -429,6 +436,40 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         sub.isActive = true;
       }
     }
+  }
+
+  private _cacheMarketDataSnapshot(
+    subscriptionType: ESubscriptionType,
+    data: unknown,
+    updatedAt: number,
+  ): void {
+    if (subscriptionType === ESubscriptionType.ALL_DEXS_ASSET_CTXS) {
+      this._latestMarketDataSnapshot.allDexsAssetCtxs = {
+        data: data as IWsAllDexsAssetCtxs,
+        updatedAt,
+      };
+      return;
+    }
+
+    if (subscriptionType === ESubscriptionType.L2_BOOK) {
+      this._latestMarketDataSnapshot.l2Book = {
+        data: data as IBook,
+        updatedAt,
+      };
+    }
+  }
+
+  @backgroundMethod()
+  async getLatestMarketDataSnapshot(params?: {
+    coin?: string;
+    maxAgeMs?: number;
+  }): Promise<ILatestPerpsMarketDataSnapshot> {
+    return filterFreshPerpsMarketDataSnapshot({
+      snapshot: this._latestMarketDataSnapshot,
+      coin: params?.coin,
+      maxAgeMs: params?.maxAgeMs ?? HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS,
+      now: Date.now(),
+    });
   }
 
   private _getStaleCriticalOpenSubscriptionTypes(
@@ -1609,6 +1650,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
       const messageTimestamp = Date.now();
       this._markSubscriptionActivity(subscriptionType, messageTimestamp);
+      this._cacheMarketDataSnapshot(subscriptionType, data, messageTimestamp);
 
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
         // Cache allMids in background for spot balance USD calculation

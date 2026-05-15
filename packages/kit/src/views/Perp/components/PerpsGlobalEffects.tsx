@@ -330,6 +330,59 @@ function useHyperliquidEventBusListener() {
   }, [actions]);
 }
 
+function useHyperliquidMarketDataSnapshotReplay() {
+  const actions = useHyperliquidActions();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [tradeRouteViewState] = useTradeRouteViewStateAtom();
+  const localeVariant = useLocaleVariant();
+
+  const instrumentCoin = activeTradeInstrument.coin;
+  const instrumentMode = activeTradeInstrument.mode;
+  const routeFocused = tradeRouteViewState.routeFocused;
+  const tokenSelectorOpen = tradeRouteViewState.tokenSelectorOpen;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const snapshot =
+        await backgroundApiProxy.serviceHyperliquidSubscription.getLatestMarketDataSnapshot(
+          {
+            coin: instrumentCoin,
+          },
+        );
+      if (cancelled) {
+        return;
+      }
+
+      const allDexsAssetCtxs = snapshot.allDexsAssetCtxs?.data;
+      if (allDexsAssetCtxs) {
+        // Replays the latest BG snapshot after iOS locale reloads where the
+        // one-shot event can fire before this UI context has mounted.
+        startTransition(() => {
+          void actions.current.updateAllDexsAssetCtxs(allDexsAssetCtxs);
+        });
+      }
+
+      const l2Book = snapshot.l2Book?.data;
+      if (l2Book) {
+        void actions.current.updateL2Book(l2Book);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    actions,
+    instrumentCoin,
+    instrumentMode,
+    localeVariant,
+    routeFocused,
+    tokenSelectorOpen,
+  ]);
+}
+
 // OK-53208: perps atoms/WS must survive unmount — mobile modal push
 // detaches this tab and re-mount has no recovery. Resets on account
 // switch / logout are owned by clearActiveAccountData / ServiceApp.resetApp.
@@ -879,6 +932,7 @@ function useHyperliquidInstrumentSwitchRequest() {
 
 function PerpsGlobalEffectsView() {
   useHyperliquidEventBusListener();
+  useHyperliquidMarketDataSnapshotReplay();
   useHyperliquidSession();
   useHyperliquidAccountSelect();
   usePerpTokenUrlSync();
