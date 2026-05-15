@@ -3,9 +3,9 @@ import { memo, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, YStack } from '@onekeyhq/components';
+import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { getProtocolValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { buildProtocolDisplayInfo } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -40,6 +40,15 @@ const ProtocolRow = memo(
       () => getProtocolValueState(protocol),
       [protocol],
     );
+    const hasPartialUnavailableValue =
+      protocolValueState.hasAvailableValue &&
+      protocolValueState.hasUnavailableValue;
+    const priceUnavailableLabel = intl.formatMessage({
+      id: ETranslations.wallet_price_unavailable,
+    });
+    const partialPriceUnavailableLabel = intl.formatMessage({
+      id: ETranslations.wallet_partial_price_unavailable,
+    });
     // Match the desktop accordion header's "{n} 持仓" sub-label so the
     // condensed mobile row carries the same density signal.
     const positionCountText = `${protocol.positions.length} ${intl.formatMessage(
@@ -75,27 +84,17 @@ const ProtocolRow = memo(
           </SizableText>
         </YStack>
         <Stack flexShrink={0} maxWidth={120} alignItems="flex-end">
-          {protocolValueState.hasAvailableValue ? (
-            <NumberSizeableTextWrapper
-              hideValue
-              size="$bodyLgMedium"
-              formatter="value"
-              formatterOptions={{ currency: currencySymbol }}
-              textAlign="right"
-              numberOfLines={1}
-            >
-              {protocolValueState.value}
-            </NumberSizeableTextWrapper>
-          ) : (
-            <SizableText
-              size="$bodyLgMedium"
-              color="$textSubdued"
-              textAlign="right"
-              numberOfLines={1}
-            >
-              --
-            </SizableText>
-          )}
+          <ProtocolValueCell
+            value={protocolValueState.value}
+            currencySymbol={currencySymbol}
+            priceUnavailableLabel={priceUnavailableLabel}
+            partialPriceUnavailableLabel={partialPriceUnavailableLabel}
+            isUnavailable={!protocolValueState.hasAvailableValue}
+            showPriceUnavailableTooltip={hasPartialUnavailableValue}
+            size="$bodyLgMedium"
+            textAlign="right"
+            numberOfLines={1}
+          />
         </Stack>
       </ListItem>
     );
