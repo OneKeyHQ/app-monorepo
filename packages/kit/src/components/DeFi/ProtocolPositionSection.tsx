@@ -10,6 +10,7 @@ import type { ILocalizedProtocolPositionSection } from '@onekeyhq/kit/src/utils/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ProtocolValueCell } from './ProtocolValueCell';
+import { isProtocolAssetValueUnavailable } from './protocolValueUtils';
 
 const ProtocolPositionSection = memo(
   ({
@@ -71,6 +72,7 @@ const ProtocolPositionSection = memo(
                 value={asset.value}
                 currencySymbol={currencySymbol}
                 priceUnavailableLabel={priceUnavailableLabel}
+                isUnavailable={isProtocolAssetValueUnavailable(asset)}
               />
               <NumberSizeableTextWrapper
                 hideValue

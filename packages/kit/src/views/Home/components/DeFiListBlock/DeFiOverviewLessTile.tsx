@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export type IDeFiOverviewLessTileProps = {
@@ -9,9 +9,6 @@ export type IDeFiOverviewLessTileProps = {
 
 function DeFiOverviewLessTile({ onPress }: IDeFiOverviewLessTileProps) {
   const intl = useIntl();
-  const showLessLabel = intl.formatMessage({
-    id: ETranslations.global_show_less,
-  });
   const collapseLabel = intl.formatMessage({
     id: ETranslations.global_collapse,
   });
@@ -41,7 +38,7 @@ function DeFiOverviewLessTile({ onPress }: IDeFiOverviewLessTileProps) {
       pressStyle={{ bg: '$bgActive' }}
       onPress={onPress}
       role="button"
-      aria-label={showLessLabel}
+      aria-label={collapseLabel}
     >
       <Stack
         width={20}
@@ -52,14 +49,9 @@ function DeFiOverviewLessTile({ onPress }: IDeFiOverviewLessTileProps) {
       >
         <Icon name="ChevronTopSmallSolid" size="$5" color="$iconSubdued" />
       </Stack>
-      <YStack flex={1} minWidth={0} gap="$0.5">
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-          {showLessLabel}
-        </SizableText>
-        <SizableText size="$bodyLgMedium" numberOfLines={1}>
-          {collapseLabel}
-        </SizableText>
-      </YStack>
+      <SizableText flex={1} minWidth={0} size="$bodyLgMedium" numberOfLines={1}>
+        {collapseLabel}
+      </SizableText>
     </XStack>
   );
 }
