@@ -192,7 +192,14 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 // Mock cacheUtils (memoizee + memoFn)
 // ---------------------------------------------------------------------------
 jest.mock('@onekeyhq/shared/src/utils/cacheUtils', () => ({
-  memoizee: (fn: any) => fn,
+  // Wrap so the returned function still has a `.clear()` like real memoizee,
+  // which ServiceAppUpdate.clearCache calls to invalidate the 5-minute
+  // changelog cache.
+  memoizee: (fn: any) => {
+    const wrapped: any = (...args: any[]) => fn(...args);
+    wrapped.clear = () => undefined;
+    return wrapped;
+  },
   memoFn: (fn: any) => fn,
 }));
 
@@ -1188,6 +1195,26 @@ describe('ServiceAppUpdate state transitions', () => {
       await service.clearCache();
 
       expect(atomValue.lastUpdateDialogShownAt).toBe(0);
+    });
+
+    test('wipes in-memory fetch caches so the post-reset check cannot replay a stale featuredChangelog (OK-54862)', async () => {
+      service.cachedUpdateInfo = {
+        version: '9906.15.1',
+        updateStrategy: EUpdateStrategy.manual,
+        featuredChangelog: {
+          version: '9906.15.1',
+          features: [{ mediaUrl: 'https://x/a.png', mediaType: 'image' }],
+        },
+      };
+      service.updateAt = Date.now();
+
+      // Isolate the invalidation step from the post-reset fetch flow.
+      jest.spyOn(service, 'fetchAppUpdateInfo').mockResolvedValue(atomValue);
+
+      await service.clearCache();
+
+      expect(service.cachedUpdateInfo).toBeUndefined();
+      expect(service.updateAt).toBe(0);
     });
   });
 
