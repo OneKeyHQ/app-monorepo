@@ -1,6 +1,5 @@
 export const BorrowTestIDs = {
   // --- Home Page ---
-  marketSelect: 'borrow-market-select',
   segmentControl: 'borrow-segment-control',
 
   // --- Overview ---
