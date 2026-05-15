@@ -4,7 +4,7 @@ import { forwardRef, useImperativeHandle, useRef } from 'react';
 import { getFontSize } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Input, useAutoScrollToTop } from '../Input';
+import { Input } from '../Input';
 
 import { TextArea as TMTextArea } from './TamaguiTextArea';
 
@@ -62,7 +62,6 @@ function BaseTextArea(
     : allowSecureTextEye;
   const ref = useRef<TextInput>(null);
   useImperativeHandle(forwardedRef, () => ref.current as TextInput);
-  useAutoScrollToTop(ref);
   return (
     // testID is forwarded via the rest props the caller supplies.
     // oxlint-disable-next-line onekey/require-testid
