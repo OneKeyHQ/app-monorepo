@@ -5,8 +5,15 @@ import type { ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
+import { rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import { useBrowserAction, useBrowserTabActions } from './actions';
@@ -24,6 +31,28 @@ import {
 const mockSetBrowserTabsRawData = jest.fn();
 const mockSetBrowserHistoryRawData = jest.fn();
 const mockSetBrowserClosedTabsRawData = jest.fn();
+const mockCrossWebviewLoadUrl = jest.fn();
+
+jest.mock('@onekeyhq/components', () => ({
+  Toast: {
+    message: jest.fn(),
+  },
+  rootNavigationRef: {
+    current: {
+      getRootState: jest.fn(),
+    },
+  },
+  switchTabAsync: jest.fn(async () => undefined),
+}));
+
+const mockSwitchTabAsync = switchTabAsync as jest.MockedFunction<
+  typeof switchTabAsync
+>;
+const mockRootNavigationRef = rootNavigationRef as typeof rootNavigationRef & {
+  current: {
+    getRootState: jest.Mock;
+  };
+};
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -60,11 +89,24 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         },
       },
     },
+    serviceDiscovery: {
+      buildWebsiteIconUrl: jest.fn(async () => ''),
+    },
   },
 }));
 
 jest.mock('@onekeyhq/kit/src/routes/config/deeplink', () => ({
   handleDeepLinkUrl: jest.fn(),
+}));
+
+jest.mock('@onekeyhq/kit/src/views/Discovery/utils/explorerUtils', () => ({
+  browserTypeHandler: 'MultiTabBrowser',
+  crossWebviewLoadUrl: (payload: unknown) => {
+    mockCrossWebviewLoadUrl(payload);
+  },
+  injectToPauseWebsocket: '',
+  injectToResumeWebsocket: '',
+  webviewRefs: {},
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
@@ -128,6 +170,13 @@ describe('useBrowserTabActions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (jotaiDefaultStore.get as jest.Mock).mockReturnValue({});
+    Object.assign(platformEnv, {
+      isDesktop: false,
+      isNative: true,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+      isJest: true,
+    });
   });
 
   it('persists active tab flags when switching to an existing tab', () => {
@@ -219,17 +268,28 @@ describe('useBrowserTabActions', () => {
     ]);
   });
 
-  it('allows localhost webview URLs only when the developer setting is enabled', () => {
+  it('allows local webview URLs only when the developer setting is enabled', () => {
     const { result } = renderHook(() => useBrowserAction().current, {
       wrapper: createWrapper(),
     });
 
-    expect(
-      result.current.validateWebviewSrc({
-        url: 'http://localhost:3000',
-        isTopFrame: true,
-      }),
-    ).toBe(EValidateUrlEnum.NotSupportProtocol);
+    [
+      'http://localhost:3000',
+      'http://127.0.0.1:8888',
+      'http://127。0。0。1:8888',
+      'https://127.0.0.1:3000/',
+      'https://127。0。0。1:3000/',
+      'http://10.0.0.1:3000',
+      'http://192.168.0.1',
+      'http://169.254.169.254/latest/meta-data',
+    ].forEach((url) => {
+      expect(
+        result.current.validateWebviewSrc({
+          url,
+          isTopFrame: true,
+        }),
+      ).toBe(EValidateUrlEnum.NotSupportProtocol);
+    });
 
     (jotaiDefaultStore.get as jest.Mock).mockReturnValue({
       enabled: true,
@@ -238,12 +298,45 @@ describe('useBrowserTabActions', () => {
       },
     });
 
+    [
+      'http://localhost:3000',
+      'http://127.0.0.1:8888',
+      'http://127。0。0。1:8888',
+      'https://127.0.0.1:3000/',
+      'https://127。0。0。1:3000/',
+      'http://10.0.0.1:3000',
+      'http://192.168.0.1',
+      'http://169.254.169.254/latest/meta-data',
+    ].forEach((url) => {
+      expect(
+        result.current.validateWebviewSrc({
+          url,
+          isTopFrame: true,
+        }),
+      ).toBe(EValidateUrlEnum.Valid);
+    });
+  });
+
+  it('allows public HTTP IP webview URLs without allowing HTTP domains', () => {
+    const { result } = renderHook(() => useBrowserAction().current, {
+      wrapper: createWrapper(),
+    });
+
+    ['http://6.6.6.6', 'http://6.6.6.6:8080/path'].forEach((url) => {
+      expect(
+        result.current.validateWebviewSrc({
+          url,
+          isTopFrame: true,
+        }),
+      ).toBe(EValidateUrlEnum.Valid);
+    });
+
     expect(
       result.current.validateWebviewSrc({
-        url: 'http://localhost:3000',
+        url: 'http://example.com',
         isTopFrame: true,
       }),
-    ).toBe(EValidateUrlEnum.Valid);
+    ).toBe(EValidateUrlEnum.NotSupportProtocol);
   });
 
   it('keeps blocked localhost gotoSite in the browser so the block page is shown', async () => {
@@ -266,17 +359,99 @@ describe('useBrowserTabActions', () => {
     await act(async () => {
       opened = await result.current.actions.gotoSite({
         id: 'tab-1',
-        url: 'http://localhost:3000',
-        title: 'http://localhost:3000',
+        url: '127。0。0。1:8888',
+        title: '127。0。0。1:8888',
       });
     });
 
     expect(opened).toBe(true);
     expect(
-      result.current.tabs.some((tab) => tab.url === 'http://localhost:3000'),
+      result.current.tabs.some((tab) => tab.url === 'http://127.0.0.1:8888'),
     ).toBe(true);
+    expect(mockCrossWebviewLoadUrl).not.toHaveBeenCalled();
     expect(
       result.current.tabs.some((tab) => tab.url.includes('google.com/search')),
     ).toBe(false);
+  });
+
+  it('creates the desktop destination tab before switching to MultiTabBrowser', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    mockRootNavigationRef.current.getRootState.mockReturnValue({
+      index: 0,
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: {
+            index: 0,
+            routes: [{ name: ETabRoutes.Discovery }],
+          },
+        },
+      ],
+    });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [activeTabId] = useActiveTabIdAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          activeTabId,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper(),
+      },
+    );
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+    await act(async () => {
+      result.current.actions.handleOpenWebSite({
+        webSite: {
+          title: 'Example',
+          url: 'https://example.com/',
+          logo: undefined,
+          sortIndex: undefined,
+        },
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const switchOrder = mockSwitchTabAsync.mock.invocationCallOrder[0];
+    const activeDestinationTabSaveOrder =
+      mockSetBrowserTabsRawData.mock.invocationCallOrder.find(
+        (_, callIndex) => {
+          const payload = mockSetBrowserTabsRawData.mock.calls[
+            callIndex
+          ]?.[0] as { tabs?: IWebTab[] } | undefined;
+          return payload?.tabs?.some(
+            (tab) => tab.url === 'https://example.com' && tab.isActive,
+          );
+        },
+      );
+
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.MultiTabBrowser);
+    const clearSavedActiveTabOrder = emitSpy.mock.invocationCallOrder.find(
+      (_, callIndex) =>
+        emitSpy.mock.calls[callIndex]?.[0] ===
+        EAppEventBusNames.ClearSavedBrowserActiveTab,
+    );
+    expect(clearSavedActiveTabOrder).toBeDefined();
+    expect(activeDestinationTabSaveOrder).toBeDefined();
+    expect(activeDestinationTabSaveOrder).toBeLessThan(switchOrder);
+    expect(clearSavedActiveTabOrder).toBeLessThan(switchOrder);
+    expect(result.current.activeTabId).not.toBe('tab-1');
+    expect(
+      result.current.tabs.find((tab) => tab.id === result.current.activeTabId),
+    ).toEqual(expect.objectContaining({ url: 'https://example.com' }));
   });
 });
