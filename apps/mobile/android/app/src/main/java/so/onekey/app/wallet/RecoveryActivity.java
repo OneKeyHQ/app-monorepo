@@ -257,7 +257,9 @@ public class RecoveryActivity extends AppCompatActivity {
             // Clear app cache
             clearAppCache();
 
-            // Reset counter and set recovery action (single atomic write)
+            // Reset counter and set recovery action (single atomic write).
+            // Timestamps are invalidated implicitly via the freshness signal
+            // (integer == 0), so no explicit clear is needed.
             SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
             prefs.edit()
                 .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0)
