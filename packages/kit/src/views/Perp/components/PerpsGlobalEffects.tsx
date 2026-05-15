@@ -75,6 +75,8 @@ const shouldTreatPerpAsFocusedOnMount = !!(
   platformEnv.isExtensionUiStandaloneWindow
 );
 
+let lastRecoveredPerpsLocaleVariant: string | undefined;
+
 function resolvePerpRouteFocused(isFocus: boolean) {
   return shouldTreatPerpAsFocusedOnMount || isFocus;
 }
@@ -570,11 +572,7 @@ function WebSocketSubscriptionUpdate() {
       },
     );
 
-    if (
-      isWebSocketConnected === true &&
-      !isLoading &&
-      plan.shouldSyncSubscriptions
-    ) {
+    if (!isLoading && plan.shouldSyncSubscriptions) {
       void actions.current.updateSubscriptions();
     }
   }, [
@@ -697,19 +695,32 @@ function useHyperliquidScreenLockHandler() {
 function useHyperliquidLocaleChangeRecovery() {
   const localeVariant = useLocaleVariant();
   const actions = useHyperliquidActions();
-  const isFocusedRef = useRef(false);
+  const isRouteFocused = useRouteIsFocused();
+  const isFocusedRef = useRef(resolvePerpRouteFocused(isRouteFocused));
   const pendingRecoveryRef = useRef(false);
+  const recoveryPromiseRef = useRef<Promise<void> | null>(null);
+  const localeVariantRef = useRef(localeVariant);
+  localeVariantRef.current = localeVariant;
 
   const recoverSubscriptions = useCallback(async () => {
-    await backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
-    await backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions(
-      {
-        forceRebuild: true,
-        forceReconnect: platformEnv.isNativeIOS,
-      },
-    );
-    await actions.current.updateSubscriptions();
-    await backgroundApiProxy.serviceHyperliquidSubscription.forceReloadCandlesWebview();
+    if (recoveryPromiseRef.current) {
+      await recoveryPromiseRef.current;
+      return;
+    }
+    recoveryPromiseRef.current = (async () => {
+      await backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
+      await backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions(
+        {
+          forceRebuild: true,
+        },
+      );
+      await actions.current.updateSubscriptions();
+      await backgroundApiProxy.serviceHyperliquidSubscription.forceReloadCandlesWebview();
+      lastRecoveredPerpsLocaleVariant = localeVariantRef.current;
+    })().finally(() => {
+      recoveryPromiseRef.current = null;
+    });
+    await recoveryPromiseRef.current;
   }, [actions]);
 
   useListenTabFocusState(
@@ -724,7 +735,15 @@ function useHyperliquidLocaleChangeRecovery() {
     },
   );
 
-  useUpdateEffect(() => {
+  useEffect(() => {
+    const currentLocaleVariant = localeVariantRef.current;
+    if (lastRecoveredPerpsLocaleVariant === undefined) {
+      lastRecoveredPerpsLocaleVariant = currentLocaleVariant;
+      return;
+    }
+    if (lastRecoveredPerpsLocaleVariant === currentLocaleVariant) {
+      return;
+    }
     if (!isFocusedRef.current) {
       pendingRecoveryRef.current = true;
       return;

@@ -37,6 +37,7 @@ import type { IWebViewRef } from '../../../WebView/types';
 import type {
   IGetMarksRequest,
   IGetMarksResponse,
+  ITVChartReadyPayload,
   ITVLineReadyPayload,
   ITVOrderCancelPayload,
   ITVOrderDraftCreatePayload,
@@ -50,6 +51,7 @@ export function usePerpsTradingViewMessageHandler({
   symbol,
   userAddress,
   webRef,
+  onChartReady,
   onChartLinesReady,
   onOrderCancel,
   onOrderDraftCreate,
@@ -59,6 +61,7 @@ export function usePerpsTradingViewMessageHandler({
   symbol: string;
   userAddress?: IHex | null;
   webRef: React.RefObject<IWebViewRef | null>;
+  onChartReady?: (payload: ITVChartReadyPayload) => void;
   onChartLinesReady?: (payload: ITVLineReadyPayload) => void;
   onOrderCancel?: (payload: ITVOrderCancelPayload) => void;
   onOrderDraftCreate?: (payload: ITVOrderDraftCreatePayload) => void;
@@ -355,7 +358,10 @@ export function usePerpsTradingViewMessageHandler({
             messageData.data as { symbol: string; requestId: string },
           );
           break;
-        case 'tradingview_perpsReady':
+        case PERPS_TV_MESSAGE_METHODS.CHART_READY:
+          onChartReady?.(messageData.data as ITVChartReadyPayload);
+          break;
+        case PERPS_TV_MESSAGE_METHODS.READY:
           // Chart lines iframe is ready to receive data
           onChartLinesReady?.(messageData.data as ITVLineReadyPayload);
           break;
@@ -394,6 +400,7 @@ export function usePerpsTradingViewMessageHandler({
     [
       handleGetMarks,
       handleGetHyperliquidPriceScale,
+      onChartReady,
       onChartLinesReady,
       onOrderCancel,
       onOrderDraftCreate,
