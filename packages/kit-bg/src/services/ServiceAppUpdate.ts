@@ -713,16 +713,38 @@ class ServiceAppUpdate extends ServiceBase {
    */
   @backgroundMethod()
   async onDownloadProgressHeartbeat(): Promise<void> {
-    const { status } = await appUpdatePersistAtom.get();
-    if (status !== EAppUpdateStatus.downloadPackageFailed) return;
+    // Functional set with a re-check inside the updater closes the
+    // get-then-set window: status may have already advanced to
+    // downloadASC / verifyASC / done by the time we set, and we must
+    // not regress those healthy states back to downloadPackage.
+    let healed = false;
+    await appUpdatePersistAtom.set((prev) => {
+      if (prev.status !== EAppUpdateStatus.downloadPackageFailed) return prev;
+      healed = true;
+      return {
+        ...prev,
+        status: EAppUpdateStatus.downloadPackage,
+        errorText: undefined,
+      };
+    });
+    if (!healed) return;
     defaultLogger.app.appUpdate.log(
       'onDownloadProgressHeartbeat: native still progressing while status=failed → healing to downloadPackage',
     );
-    await appUpdatePersistAtom.set((prev) => ({
-      ...prev,
-      status: EAppUpdateStatus.downloadPackage,
-      errorText: undefined,
-    }));
+    // Restart the 30-min watchdog so we never get stuck silently when
+    // native progress stalls or the JS download Promise is dead (e.g.,
+    // the previous JS instance was killed and the foreground download
+    // outlived it). Without this, percent could hit 100% but no further
+    // step transitions would ever fire.
+    clearTimeout(downloadTimeoutId);
+    downloadTimeoutId = setTimeout(
+      async () => {
+        await this.downloadPackageFailed({
+          message: ETranslations.update_download_timed_out_check_connection,
+        });
+      },
+      timerUtils.getTimeDurationMs({ minute: 30 }),
+    );
   }
 
   @backgroundMethod()
