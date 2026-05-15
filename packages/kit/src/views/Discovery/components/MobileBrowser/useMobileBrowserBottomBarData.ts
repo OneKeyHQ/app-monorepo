@@ -23,7 +23,6 @@ import { usePageTranslation } from '../../hooks/usePageTranslation';
 import {
   useDisplayHomePageFlag,
   useWebTabDataById,
-  useWebTabs,
 } from '../../hooks/useWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { showTabBar } from '../../utils/tabBarUtils';
@@ -49,7 +48,6 @@ export function useMobileBrowserBottomBarData({
   const { bottom } = useSafeAreaInsets();
 
   const { tab } = useWebTabDataById(id);
-  const { tabs } = useWebTabs();
 
   const origin = tab?.url ? new URL(tab.url).origin : null;
   const { result: hasConnectedAccount, run: refreshConnectState } =
@@ -69,7 +67,7 @@ export function useMobileBrowserBottomBarData({
     }, [origin]);
 
   const { displayHomePage } = useDisplayHomePageFlag();
-  const { setPinnedTab, setCurrentWebTab, closeWebTab, setSiteMode } =
+  const { setPinnedTab, closeWebTab, setSiteMode, setDisplayHomePage } =
     useBrowserTabActions().current;
 
   const {
@@ -124,14 +122,10 @@ export function useMobileBrowserBottomBarData({
   );
 
   const handleCloseTab = useCallback(() => {
-    const isLastTab = tabs.length <= 1;
     closeWebTab({ tabId: id, entry: 'Menu' });
-    if (isLastTab) {
-      setCurrentWebTab(null);
-    }
-
+    setDisplayHomePage(true);
     showTabBar();
-  }, [closeWebTab, id, setCurrentWebTab, tabs.length]);
+  }, [closeWebTab, id, setDisplayHomePage]);
 
   const onShare = useCallback(() => {
     handleShareUrl(tab?.displayUrl ?? tab?.url ?? '');

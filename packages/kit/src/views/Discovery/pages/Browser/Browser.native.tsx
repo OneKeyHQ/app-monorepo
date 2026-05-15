@@ -292,10 +292,12 @@ function MobileBrowser() {
 
   const closeCurrentWebTab = useCallback(async () => {
     showTabBar();
-    return activeTabId
-      ? closeWebTab({ tabId: activeTabId, entry: 'Menu' })
-      : Promise.resolve();
-  }, [activeTabId, closeWebTab]);
+    if (activeTabId) {
+      closeWebTab({ tabId: activeTabId, entry: 'Menu' });
+      setDisplayHomePage(true);
+    }
+    return Promise.resolve();
+  }, [activeTabId, closeWebTab, setDisplayHomePage]);
 
   useEffect(() => {
     const listener = async (event: {
