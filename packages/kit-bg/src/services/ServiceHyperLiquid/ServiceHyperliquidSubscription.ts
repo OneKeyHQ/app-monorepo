@@ -161,11 +161,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private static readonly POST_OPEN_DATA_CHECK_MAX_RETRIES = 3;
 
+  private static readonly SUBSCRIPTION_UPDATE_OPEN_WAIT_MS = 3000;
+
   private _criticalSubscriptionHealthCheckTimer: ReturnType<
     typeof setTimeout
   > | null = null;
 
   private _resumeRecoveryPromise: Promise<void> | null = null;
+
+  private _subscriptionUpdateRecoveryPromise: Promise<void> | null = null;
 
   allSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>> = {};
 
@@ -346,7 +350,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async updateSubscriptions(): Promise<void> {
-    if (await this._reconnectClosedOrClosingSocket()) {
+    if (this.subscriptionsHandlerDisabled) {
+      return;
+    }
+    const client = await this.getWebSocketClient();
+    if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
+      await this._recoverNotOpenSocketBeforeSubscriptionUpdate({
+        client,
+        reason: 'update_subscriptions_not_open',
+      });
       return;
     }
     // Skip debounce on first subscription to speed up initial load
@@ -878,6 +890,87 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     );
     this._emitConnectionStatus();
     await this.getWebSocketClient();
+  }
+
+  private async _recoverNotOpenSocketBeforeSubscriptionUpdate(params: {
+    client: IHyperliquidWsClient;
+    reason: string;
+  }): Promise<void> {
+    if (this._subscriptionUpdateRecoveryPromise) {
+      await this._subscriptionUpdateRecoveryPromise;
+      return;
+    }
+
+    this._subscriptionUpdateRecoveryPromise = (async () => {
+      const readyState = params.client.transport?.socket?.readyState;
+      if (readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING) {
+        await this._forceReconnectTransport();
+        return;
+      }
+
+      const isOpen = await this._waitForOpenSocket({
+        client: params.client,
+        timeoutMs:
+          ServiceHyperliquidSubscription.SUBSCRIPTION_UPDATE_OPEN_WAIT_MS,
+      });
+      if (isOpen) {
+        this._watchSubscriptionAtoms();
+        await this._reconcileOpenSocketSubscriptionsOnResume({
+          reason: params.reason,
+        });
+        await perpsNetworkStatusAtom.set(
+          (prev): IPerpsNetworkStatus => ({
+            ...prev,
+            connected: true,
+          }),
+        );
+        this._currentState.isConnected = true;
+        this._startPingLoop();
+        this._startPostOpenDataCheck();
+        return;
+      }
+
+      if (
+        params.client === this._client &&
+        (platformEnv.isNative || platformEnv.isNativeBackgroundThread)
+      ) {
+        // Native main/BG restart can leave the first sync request racing a
+        // stuck CONNECTING transport; recreating it lets socketOpenHandler own
+        // the eventual subscription rebuild.
+        console.log(
+          `updateSubscriptions__force_reconnect_not_open__${params.reason}`,
+        );
+        await this._forceReconnectTransport();
+      }
+    })().finally(() => {
+      this._subscriptionUpdateRecoveryPromise = null;
+    });
+
+    await this._subscriptionUpdateRecoveryPromise;
+  }
+
+  private async _waitForOpenSocket(params: {
+    client: IHyperliquidWsClient;
+    timeoutMs: number;
+  }): Promise<boolean> {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < params.timeoutMs) {
+      if (params.client !== this._client) {
+        return false;
+      }
+      const readyState = params.client.transport?.socket?.readyState;
+      if (readyState === WebSocket.OPEN) {
+        return true;
+      }
+      if (readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING) {
+        return false;
+      }
+      await timerUtils.wait(100);
+    }
+    return (
+      params.client === this._client &&
+      params.client.transport?.socket?.readyState === WebSocket.OPEN
+    );
   }
 
   private _startPostOpenDataCheck(): void {
