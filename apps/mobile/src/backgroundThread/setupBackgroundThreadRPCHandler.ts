@@ -120,6 +120,7 @@ function buildErrorPayload(error: unknown) {
     requestId?: unknown;
     httpStatusCode?: unknown;
     constructorName?: unknown;
+    payload?: unknown;
   };
   const errorPayload: {
     name: string;
@@ -132,6 +133,7 @@ function buildErrorPayload(error: unknown) {
     requestId?: string;
     httpStatusCode?: number;
     constructorName?: string;
+    payload?: unknown;
   } = {
     name: runtimeError?.name || 'BackgroundThreadError',
     message: runtimeError?.message || 'Unknown background thread error',
@@ -162,6 +164,9 @@ function buildErrorPayload(error: unknown) {
   }
   if (typeof runtimeError?.constructorName === 'string') {
     errorPayload.constructorName = runtimeError.constructorName;
+  }
+  if (runtimeError?.payload !== undefined) {
+    errorPayload.payload = runtimeError.payload;
   }
   return {
     ok: false,
