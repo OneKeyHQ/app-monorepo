@@ -98,6 +98,9 @@ build({
     'process.env.GITHUB_SHA': JSON.stringify(process.env.GITHUB_SHA || ''),
     'process.env.DESK_CHANNEL': JSON.stringify(process.env.DESK_CHANNEL || ''),
     'process.env.COMMITHASH': JSON.stringify(gitRevision),
+    'process.env.PERF_MONITOR_ENABLED': JSON.stringify(
+      process.env.PERF_MONITOR_ENABLED || '',
+    ),
     'process.env.SENTRY_DSN_EXT': JSON.stringify(
       process.env.SENTRY_DSN_EXT || '',
     ),
