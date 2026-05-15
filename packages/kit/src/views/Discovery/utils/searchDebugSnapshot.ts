@@ -41,14 +41,16 @@ function buildSearchValueExactUrlDapp(searchValue: string): IDApp | undefined {
     return undefined;
   }
 
-  const shouldUseHttpPrefix =
-    uriUtils.isLocalhostUrl(trimmedSearchValue) ||
-    uriUtils.isIpAddressUrl(trimmedSearchValue);
-  if (!shouldUseHttpPrefix) {
+  if (!isWebUrlLikeSearchKeyword(trimmedSearchValue)) {
     return undefined;
   }
 
-  const normalizedUrl = uriUtils.ensureHttpPrefix(trimmedSearchValue);
+  const shouldUseHttpPrefix =
+    uriUtils.isLocalhostUrl(trimmedSearchValue) ||
+    uriUtils.isIpAddressUrl(trimmedSearchValue);
+  const normalizedUrl = shouldUseHttpPrefix
+    ? uriUtils.ensureHttpPrefix(trimmedSearchValue)
+    : uriUtils.ensureHttpsPrefix(trimmedSearchValue);
   const parsedUrl = uriUtils.safeParseURL(normalizedUrl);
   if (!parsedUrl || !['http:', 'https:'].includes(parsedUrl.protocol)) {
     return undefined;

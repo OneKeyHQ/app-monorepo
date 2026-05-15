@@ -133,6 +133,7 @@ const buildBasePlugins: (
     'process.env.ONEKEY_PROXY': JSON.stringify(onekeyProxy),
     'process.env.ONEKEY_PLATFORM': JSON.stringify(platform),
     'process.env.NODE_ENV': JSON.stringify(nodeEnv),
+    'process.env.E2E_MODE': JSON.stringify(process.env.E2E_MODE || ''),
     'process.env.TAMAGUI_TARGET': JSON.stringify('web'),
     'process.env.PERF_MONITOR_ENABLED': JSON.stringify(
       process.env.PERF_MONITOR_ENABLED || '',
