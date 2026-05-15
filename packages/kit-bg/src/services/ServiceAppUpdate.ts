@@ -101,7 +101,7 @@ class ServiceAppUpdate extends ServiceBase {
 
   private isResetting = false;
 
-  private updateAt = 0;
+  updateAt = 0;
 
   cachedUpdateInfo: IResponseAppUpdateInfo | undefined;
 
@@ -1067,6 +1067,12 @@ class ServiceAppUpdate extends ServiceBase {
     await AppUpdate.clearPackage();
     await BundleUpdate.clearDownload();
     await this.backgroundApi.servicePendingInstallTask.clearPendingInstallTask();
+    // reset() below schedules an immediate fetchAppUpdateInfo(forceUpdate=false)
+    // which would hit getAppLatestInfo's 5-min in-memory cache and replay the
+    // release the user just asked us to clear straight back onto the atom.
+    this.cachedUpdateInfo = undefined;
+    this.updateAt = 0;
+    void this.fetchAppChangeLog.clear();
     await this.reset();
   }
 
