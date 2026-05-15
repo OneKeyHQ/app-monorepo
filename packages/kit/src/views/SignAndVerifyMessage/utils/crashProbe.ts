@@ -3,11 +3,14 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 const SIGN_AND_VERIFY_ROUTE_PROBE = '[sign-and-verify][CRASH_PROBE]';
 const DEFAULT_MAX_PROBE_KEYS = 24;
 const DEFAULT_MAX_PROBE_ARRAY_ITEMS = 8;
+const DEFAULT_MAX_NESTED_PROBE_KEYS = 12;
 
 type IProbeValue = {
   name: string;
   value: unknown;
   maxArrayItems?: number;
+  maxDepth?: number;
+  maxKeys?: number;
 };
 
 function getProbeObject(value: unknown): Record<string, unknown> | null {
@@ -96,17 +99,27 @@ function describeFieldValue(key: string, value: unknown) {
       toString?: unknown;
     }
   ).toString;
+  const valueOfType = typeof (
+    objectValue as {
+      valueOf?: unknown;
+    }
+  ).valueOf;
 
   return [
     `${key}:${valueType}`,
     `ctor:${getConstructorName(value)}`,
     `proto:${getPrototypeName(value as object)}`,
     `toString:${toStringType}`,
+    `valueOf:${valueOfType}`,
     hasOwnToString ? 'ownToString:true' : 'ownToString:false',
   ].join('/');
 }
 
-function describeProbeValue(name: string, value: unknown) {
+function describeProbeValue(
+  name: string,
+  value: unknown,
+  maxKeys = DEFAULT_MAX_PROBE_KEYS,
+) {
   try {
     if (value === null) {
       return `${name}{type=null}`;
@@ -123,17 +136,30 @@ function describeProbeValue(name: string, value: unknown) {
       objectValue,
       'toString',
     );
+    const ownValueOf = Object.prototype.hasOwnProperty.call(
+      objectValue,
+      'valueOf',
+    );
     const toStringValue = (
       objectValue as {
         toString?: unknown;
       }
     ).toString;
+    const valueOfValue = (
+      objectValue as {
+        valueOf?: unknown;
+      }
+    ).valueOf;
     const toStringDescriptor = Object.getOwnPropertyDescriptor(
       objectValue,
       'toString',
     );
+    const valueOfDescriptor = Object.getOwnPropertyDescriptor(
+      objectValue,
+      'valueOf',
+    );
     const fields = keys
-      .slice(0, DEFAULT_MAX_PROBE_KEYS)
+      .slice(0, maxKeys)
       .map((key) => describeFieldValue(key, objectValue[key]));
 
     return [
@@ -141,11 +167,14 @@ function describeProbeValue(name: string, value: unknown) {
       `ctor=${getConstructorName(value)}`,
       `proto=${getPrototypeName(value as object)}`,
       `array=${Array.isArray(value)}`,
-      `keys=${keys.slice(0, DEFAULT_MAX_PROBE_KEYS).join(',')}`,
+      `keys=${keys.slice(0, maxKeys).join(',')}`,
       `keysLength=${keys.length}`,
       `typeofToString=${typeof toStringValue}`,
+      `typeofValueOf=${typeof valueOfValue}`,
       `ownToString=${ownToString}`,
+      `ownValueOf=${ownValueOf}`,
       `toStringDesc=${describeToStringDescriptor(toStringDescriptor)}`,
+      `valueOfDesc=${describeToStringDescriptor(valueOfDescriptor)}`,
       `fields=${fields.join(',')}}`,
     ].join(';');
   } catch (error) {
@@ -168,6 +197,83 @@ function describeArrayItems({
     .map((item, index) => describeProbeValue(`${name}[${index}]`, item));
 }
 
+function getNestedProbeKeyLimit(
+  value: unknown,
+  maxArrayItems: number,
+  maxKeys: number,
+) {
+  if (Array.isArray(value)) {
+    return Math.min(maxArrayItems, maxKeys);
+  }
+  return maxKeys;
+}
+
+function formatNestedProbeName(parentName: string, key: string) {
+  if (/^\d+$/.test(key)) {
+    return `${parentName}[${key}]`;
+  }
+  return `${parentName}.${key}`;
+}
+
+function describeNestedProbeValues(
+  {
+    name,
+    value,
+    maxArrayItems = DEFAULT_MAX_PROBE_ARRAY_ITEMS,
+    maxDepth = 0,
+    maxKeys = DEFAULT_MAX_NESTED_PROBE_KEYS,
+  }: IProbeValue,
+  seen = new WeakSet<object>(),
+): string[] {
+  const objectValue = getProbeObject(value);
+  if (!objectValue || maxDepth <= 0) {
+    return [];
+  }
+
+  if (seen.has(objectValue)) {
+    return [`${name}{cycle=true}`];
+  }
+  seen.add(objectValue);
+
+  try {
+    const keyLimit = getNestedProbeKeyLimit(value, maxArrayItems, maxKeys);
+    const keys = Object.keys(objectValue).slice(0, keyLimit);
+    return keys.flatMap((key) => {
+      let childValue: unknown;
+      const childName = formatNestedProbeName(name, key);
+      try {
+        childValue = objectValue[key];
+      } catch (error) {
+        return [
+          `${childName}{probeError=${
+            error instanceof Error ? error.message : String(error)
+          }}`,
+        ];
+      }
+
+      return [
+        describeProbeValue(childName, childValue, maxKeys),
+        ...describeNestedProbeValues(
+          {
+            name: childName,
+            value: childValue,
+            maxArrayItems,
+            maxDepth: maxDepth - 1,
+            maxKeys,
+          },
+          seen,
+        ),
+      ];
+    });
+  } catch (error) {
+    return [
+      `${name}{nestedProbeError=${
+        error instanceof Error ? error.message : String(error)
+      }}`,
+    ];
+  }
+}
+
 function getProbeStack() {
   return (
     new Error(SIGN_AND_VERIFY_ROUTE_PROBE).stack
@@ -184,10 +290,15 @@ export function logSignAndVerifyCrashProbe(
 ) {
   const message = [
     `${SIGN_AND_VERIFY_ROUTE_PROBE} ${stage}`,
-    ...values.flatMap((value) => [
-      describeProbeValue(value.name, value.value),
-      ...describeArrayItems(value),
-    ]),
+    ...values.flatMap((value) => {
+      const shouldUseNestedProbe = (value.maxDepth ?? 0) > 0;
+      return [
+        describeProbeValue(value.name, value.value, value.maxKeys),
+        ...(shouldUseNestedProbe
+          ? describeNestedProbeValues(value)
+          : describeArrayItems(value)),
+      ];
+    }),
     `stack=${getProbeStack()}`,
   ].join(' | ');
 

@@ -93,6 +93,59 @@ export const SignForm = ({
     );
   }, [selectedAddress]);
 
+  const logSignAccountDeepProbe = useCallback(
+    (stage: string, signAccount: ISignAccount | undefined) => {
+      const accountFields = signAccount?.account as
+        | Record<string, unknown>
+        | undefined;
+      logSignAndVerifyCrashProbe(stage, [
+        {
+          name: 'signAccount',
+          value: signAccount,
+          maxDepth: 2,
+          maxArrayItems: 4,
+          maxKeys: 24,
+        },
+        {
+          name: 'signAccount.account',
+          value: signAccount?.account,
+          maxDepth: 2,
+          maxArrayItems: 6,
+          maxKeys: 24,
+        },
+        {
+          name: 'signAccount.account.connectedAddresses',
+          value: accountFields?.connectedAddresses,
+          maxDepth: 2,
+          maxArrayItems: 6,
+          maxKeys: 24,
+        },
+        {
+          name: 'signAccount.account.selectedAddress',
+          value: accountFields?.selectedAddress,
+          maxDepth: 2,
+          maxArrayItems: 6,
+          maxKeys: 24,
+        },
+        {
+          name: 'signAccount.account.addressDetail',
+          value: signAccount?.account?.addressDetail,
+          maxDepth: 2,
+          maxArrayItems: 6,
+          maxKeys: 24,
+        },
+        {
+          name: 'signAccount.network',
+          value: signAccount?.network,
+          maxDepth: 2,
+          maxArrayItems: 6,
+          maxKeys: 24,
+        },
+      ]);
+    },
+    [],
+  );
+
   useEffect(() => {
     logSignAndVerifyCrashProbe('sign form selected account effect', [
       { name: 'currentSignAccount', value: currentSignAccount },
@@ -105,8 +158,14 @@ export const SignForm = ({
         value: currentSignAccount?.account,
       },
     ]);
+    if (currentSignAccount) {
+      logSignAccountDeepProbe(
+        'sign form selected account deep effect',
+        currentSignAccount,
+      );
+    }
     onCurrentSignAccountChange?.(currentSignAccount);
-  }, [currentSignAccount, onCurrentSignAccountChange]);
+  }, [currentSignAccount, logSignAccountDeepProbe, onCurrentSignAccountChange]);
 
   const setDefaultAccount = useCallback(async () => {
     logSignAndVerifyCrashProbe('sign form set default account start', [
@@ -141,7 +200,15 @@ export const SignForm = ({
         (i) => i.network.id === networkId || i.network.impl === network.impl,
       );
       if (defaultAccount) {
+        logSignAccountDeepProbe(
+          'sign form set default account before address set',
+          defaultAccount,
+        );
         form.setValue('address', defaultAccount.account.address);
+        logSignAccountDeepProbe(
+          'sign form set default account after address set',
+          defaultAccount,
+        );
         return;
       }
     }
@@ -158,13 +225,35 @@ export const SignForm = ({
           btcAccounts.find((i) => i.deriveType === globalDeriveType) ||
           btcAccounts[0];
         if (defaultAccount) {
+          logSignAccountDeepProbe(
+            'sign form set default btc account before address set',
+            defaultAccount,
+          );
           form.setValue('address', defaultAccount.account.address);
+          logSignAccountDeepProbe(
+            'sign form set default btc account after address set',
+            defaultAccount,
+          );
           return;
         }
       }
     }
+    logSignAccountDeepProbe(
+      'sign form set default fallback account before address set',
+      signAccountsRef.current[0],
+    );
     form.setValue('address', signAccountsRef.current[0].account.address);
-  }, [form, networkId, selectedAddress, signAccountsRef]);
+    logSignAccountDeepProbe(
+      'sign form set default fallback account after address set',
+      signAccountsRef.current[0],
+    );
+  }, [
+    form,
+    logSignAccountDeepProbe,
+    networkId,
+    selectedAddress,
+    signAccountsRef,
+  ]);
 
   const { result: selectOptions } = usePromiseResult<ISelectSection[]>(
     async () => {
