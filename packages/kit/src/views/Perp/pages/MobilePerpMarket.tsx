@@ -414,7 +414,9 @@ function MobilePerpMarket() {
   );
 
   const pageFooter = useMemo(() => <PerpMarketFooter />, []);
-  const pageScrollEnabled = platformEnv.isNativeAndroid || activeTab === 'info';
+  const pageScrollEnabled =
+    platformEnv.isNativeAndroid ||
+    (!platformEnv.isNativeIOS && activeTab === 'info');
 
   return (
     <Page scrollEnabled={pageScrollEnabled}>
@@ -460,8 +462,12 @@ function MobilePerpMarket() {
             </YStack>
             <YStack w={effectivePageWidth} flex={1} minHeight={0}>
               {hasInfoTabMounted ? (
-                <ScrollView showsVerticalScrollIndicator={false}>
-                  <YStack>{infoContent}</YStack>
+                <ScrollView
+                  flex={1}
+                  minHeight={0}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {infoContent}
                 </ScrollView>
               ) : null}
             </YStack>

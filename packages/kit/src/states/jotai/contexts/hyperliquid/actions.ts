@@ -94,7 +94,6 @@ type IChStateLite = {
 type IChPositionLite = HL.IPerpsAssetPosition;
 
 const MAX_LEDGER_UPDATES = 200;
-const ANDROID_ACTIVE_INSTRUMENT_SWITCH_SETTLE_MS = 120;
 
 function getLedgerUpdateKey(update: HL.IUserNonFundingLedgerUpdate): string {
   return (
@@ -191,9 +190,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private async waitForActiveInstrumentChangeSettle(
     requestId: number,
   ): Promise<boolean> {
-    if (platformEnv.isNativeAndroid) {
-      await timerUtils.wait(ANDROID_ACTIVE_INSTRUMENT_SWITCH_SETTLE_MS);
-    }
     return this.isLatestActiveInstrumentChange(requestId);
   }
 
@@ -923,6 +919,24 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }: { coin: string; force?: boolean; requestId?: number },
     ) => {
       const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
+      const optimisticInstrument: IActiveTradeInstrument = {
+        mode: 'perp',
+        coin,
+        assetId: undefined,
+        universe: undefined,
+      };
+      const prevInstrument = get(activeTradeInstrumentAtom());
+      const shouldSetOptimisticInstrument =
+        prevInstrument.mode !== 'perp' || prevInstrument.coin !== coin;
+      if (
+        shouldSetOptimisticInstrument &&
+        !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
+          prevInstrument,
+          optimisticInstrument,
+        )
+      ) {
+        set(activeTradeInstrumentAtom(), optimisticInstrument);
+      }
       await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const activeAsset = await perpsActiveAssetAtom.get();
       if (activeAsset?.coin === coin && !force) {
@@ -959,9 +973,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
-      await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-        coin,
-      });
+      const nextActiveAsset =
+        await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+          coin,
+        });
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
@@ -983,7 +998,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             : '';
       }
 
-      const nextInstrument = await this._buildActiveTradeInstrument('perp');
+      const nextInstrument: IActiveTradeInstrument = {
+        mode: 'perp',
+        coin: nextActiveAsset?.coin || coin,
+        assetId: nextActiveAsset?.assetId,
+        universe: nextActiveAsset?.universe,
+      };
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }

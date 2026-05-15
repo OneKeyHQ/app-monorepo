@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
 
-import { useL2BookAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
+import {
+  useActiveTradeInstrumentAtom,
+  useL2BookAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -48,10 +50,12 @@ export function useL2Book(_options?: IL2BookOptions): {
   getTotalAskVolume: (levels?: number) => number;
 } {
   const [l2BookData] = useL2BookAtom();
-  const [currentToken] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const expectedCoin = activeTradeInstrument.coin;
 
   const l2Book = useMemo((): IL2BookData | null => {
-    if (!l2BookData || !currentToken.coin) return null;
+    if (!l2BookData || !expectedCoin) return null;
+    if (l2BookData.coin !== expectedCoin) return null;
 
     const [bids, asks] = l2BookData.levels || [[], []];
 
@@ -62,7 +66,7 @@ export function useL2Book(_options?: IL2BookOptions): {
       bids: bids || [],
       asks: asks || [],
     };
-  }, [l2BookData, currentToken.coin]);
+  }, [l2BookData, expectedCoin]);
 
   const getBestBid = (): string | null => {
     if (!l2Book?.bids || l2Book.bids.length === 0) return null;
