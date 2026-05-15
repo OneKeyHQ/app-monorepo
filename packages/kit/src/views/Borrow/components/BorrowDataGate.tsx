@@ -15,7 +15,7 @@ import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { EBorrowDataStatus } from '../borrowDataStatus';
-import { useBorrowContext } from '../BorrowProvider';
+import { buildBorrowMarketKey, useBorrowContext } from '../BorrowProvider';
 import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
 
@@ -40,21 +40,46 @@ export const BorrowDataGate = ({
     isLoading: marketsLoading,
     refetchMarkets,
   } = useBorrowMarkets({ isActive: isViewActive });
-  const market = useMemo(() => markets?.[0], [markets]);
+  const availableMarkets = useMemo(() => markets ?? [], [markets]);
   const borrowNetworkIds = useMemo(() => {
-    const ids = (markets ?? []).map((item) => item.networkId);
+    const ids = availableMarkets.map((item) => item.networkId);
     return [
       ...new Set(
         ids.filter((networkId): networkId is string => Boolean(networkId)),
       ),
     ];
-  }, [markets]);
+  }, [availableMarkets]);
   useEffect(() => {
     onBorrowNetworksChange?.(borrowNetworkIds);
   }, [borrowNetworkIds, onBorrowNetworksChange, isViewActive]);
 
-  const { setMarket, setReserves, setEarnAccount, setBorrowDataStatus } =
-    useBorrowContext();
+  const {
+    market,
+    setMarkets,
+    setMarket,
+    setReserves,
+    setEarnAccount,
+    setBorrowDataStatus,
+  } = useBorrowContext();
+
+  useEffect(() => {
+    setMarkets(availableMarkets);
+  }, [availableMarkets, setMarkets]);
+
+  useEffect(() => {
+    setMarket((currentMarket) => {
+      if (!availableMarkets.length) {
+        return currentMarket ? null : currentMarket;
+      }
+
+      const currentMarketKey = buildBorrowMarketKey(currentMarket);
+      const refreshedCurrentMarket = availableMarkets.find(
+        (item) => buildBorrowMarketKey(item) === currentMarketKey,
+      );
+
+      return refreshedCurrentMarket ?? availableMarkets[0];
+    });
+  }, [availableMarkets, setMarket]);
 
   const { activeAccount } = useActiveAccount({ num: 0 });
   const {
@@ -128,9 +153,11 @@ export const BorrowDataGate = ({
   const fetchKey = useMemo(
     () =>
       !isEmpty(market)
-        ? `${marketProvider}-${marketAddress}-${accountId ?? 'public'}`
+        ? `${marketProvider}-${marketNetworkId}-${marketAddress}-${
+            accountId ?? 'public'
+          }`
         : null,
-    [market, marketProvider, marketAddress, accountId],
+    [market, marketProvider, marketNetworkId, marketAddress, accountId],
   );
 
   // Invalidate before usePromiseResult reruns for the new key; a later effect
@@ -261,10 +288,6 @@ export const BorrowDataGate = ({
     }
     wasActiveRef.current = isViewActive;
   }, [isViewActive, refetchMarkets, refreshReserves]);
-
-  useEffect(() => {
-    setMarket(market ?? null);
-  }, [market, setMarket]);
 
   useEffect(() => {
     setBorrowDataStatus(dataStatus);

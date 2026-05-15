@@ -48,7 +48,9 @@ const defaultAsyncData = <T,>(data: T): IAsyncData<T> => ({
 type IBorrowContextValue = {
   // Market (sync data)
   market: IBorrowMarketItem | null;
+  markets: IBorrowMarketItem[];
   setMarket: React.Dispatch<React.SetStateAction<IBorrowMarketItem | null>>;
+  setMarkets: React.Dispatch<React.SetStateAction<IBorrowMarketItem[]>>;
 
   // Async data requests - unified format
   earnAccount: IAsyncData<IBorrowEarnAccount>;
@@ -80,12 +82,18 @@ const defaultSwapConfig: ISwapConfig = {
 
 const BorrowContext = createContext<IBorrowContextValue | null>(null);
 
+export const buildBorrowMarketKey = (market?: IBorrowMarketItem | null) =>
+  market
+    ? `${market.provider}-${market.networkId}-${market.marketAddress}`
+    : '';
+
 export const BorrowProvider = ({
   children,
 }: PropsWithChildren<{
   value?: IBorrowContextValue;
 }>) => {
   const [market, setMarket] = useState<IBorrowMarketItem | null>(null);
+  const [markets, setMarkets] = useState<IBorrowMarketItem[]>([]);
   const [earnAccount, setEarnAccount] = useState<
     IAsyncData<IBorrowEarnAccount>
   >(defaultAsyncData(null));
@@ -130,7 +138,9 @@ export const BorrowProvider = ({
   const contextValue = useMemo(
     () => ({
       market,
+      markets,
       setMarket,
+      setMarkets,
       earnAccount,
       setEarnAccount,
       reserves,
@@ -145,6 +155,7 @@ export const BorrowProvider = ({
     }),
     [
       market,
+      markets,
       earnAccount,
       reserves,
       borrowDataStatus,
