@@ -40,11 +40,11 @@ export const appRestart: IAppRestart = async (opts: IAppRestartOptions) => {
     // swallows the flush we want evidence, not guesswork.
     const countAfter =
       await ReactNativeDeviceUtils.getConsecutiveBootFailCount();
-    defaultLogger.app.appUpdate.log(
+    defaultLogger.app.bootRecovery.log(
       `appRestart: markBootSuccess ok, count_after=${countAfter}`,
     );
   } catch (err) {
-    defaultLogger.app.appUpdate.log(
+    defaultLogger.app.bootRecovery.log(
       `appRestart: markBootSuccess threw: ${
         (err as Error)?.message ?? String(err)
       }`,
