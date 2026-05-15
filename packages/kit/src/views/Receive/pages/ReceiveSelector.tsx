@@ -456,10 +456,10 @@ function ReceiveSelectorContent() {
                 testID={ReceiveTestIDs.ReceiveFromWalletOption}
                 icon="QrCodeOutline"
                 title={intl.formatMessage({
-                  id: ETranslations.receive_from_another_wallet,
+                  id: ETranslations.receive_transfer,
                 })}
                 subtitle={intl.formatMessage({
-                  id: ETranslations.receive_from_another_wallet_desc,
+                  id: ETranslations.receive_transfer_desc,
                 })}
                 onPress={() =>
                   handleReceiveOnPress({
