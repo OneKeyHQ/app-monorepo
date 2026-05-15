@@ -19,10 +19,15 @@ const path = require('path');
 
 const { chromium } = require('playwright-core');
 
+const { withBuildLock } = require('./lib/buildLock');
 const { findChromiumExecutable } = require('./lib/chromium');
 const { readPerfCiLocalConfig } = require('./lib/config');
 const { defaultDerivedOutPath, deriveSession } = require('./lib/derive');
-const { execCmd } = require('./lib/exec');
+const {
+  execCmd,
+  formatExecResultError,
+  withRepoNodeBin,
+} = require('./lib/exec');
 const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
 const { nowId } = require('./lib/id');
 const { notifyPerfFailure, notifyPerfResult } = require('./lib/notify');
@@ -55,26 +60,28 @@ function makeLogger() {
   };
 }
 
-async function buildExt({ repoRoot }) {
+async function buildExt({ repoRoot, outputDir }) {
   const skip = process.env.PERF_SKIP_EXT_BUILD === '1';
   if (skip) return;
 
-  const res = await execCmd(
-    'yarn',
-    ['workspace', '@onekeyhq/ext', 'build:v3'],
-    {
-      cwd: repoRoot,
-      env: {
-        PERF_MONITOR_ENABLED: '1',
-      },
-      timeoutMs:
-        Number(process.env.PERF_EXT_BUILD_TIMEOUT_MS) || 30 * 60 * 1000,
-      stdout: (d) => process.stdout.write(d),
-      stderr: (d) => process.stderr.write(d),
-    },
+  const res = await withBuildLock(
+    'webpack-build',
+    () =>
+      execCmd('yarn', ['workspace', '@onekeyhq/ext', 'build:v3'], {
+        cwd: repoRoot,
+        env: withRepoNodeBin(repoRoot, {
+          PERF_MONITOR_ENABLED: '1',
+        }),
+        timeoutMs:
+          Number(process.env.PERF_EXT_BUILD_TIMEOUT_MS) || 30 * 60 * 1000,
+        killProcessGroup: true,
+        stdout: (d) => process.stdout.write(d),
+        stderr: (d) => process.stderr.write(d),
+      }),
+    { log: (...args) => console.log('[perf:ext]', ...args) },
   );
   if (res.code !== 0) {
-    throw new Error(`ext build failed with exit code ${res.code}`);
+    throw new Error(formatExecResultError('ext build', res, { outputDir }));
   }
 }
 
@@ -344,7 +351,7 @@ async function main() {
     } else {
       log('build: start (@onekeyhq/ext build:v3)');
     }
-    await buildExt({ repoRoot });
+    await buildExt({ repoRoot, outputDir });
     log('build: ok');
 
     if (!fileExists(path.join(extDir, extPagePath))) {
