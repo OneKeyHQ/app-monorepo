@@ -21,6 +21,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  resetOnboardingModal,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -76,6 +77,11 @@ export const LayoutHeaderBack = memo(({ exit }: { exit?: boolean }) => {
   const handleBack = useCallback(() => {
     if (exit) {
       defaultLogger.account.wallet.onboardingExit();
+      // iOS can leave Main's RNSScreenStack detached when the root
+      // Onboarding route is popped during cold-start reattach. Drop the
+      // onboarding root atomically so tab screens keep a valid window.
+      resetOnboardingModal();
+      return;
     }
     navigation.pop();
   }, [navigation, exit]);
