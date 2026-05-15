@@ -698,6 +698,33 @@ class ServiceAppUpdate extends ServiceBase {
     }));
   }
 
+  /**
+   * Self-heal hook for the failed → resuming race. Native progress events
+   * keep firing while status sits at downloadPackageFailed when the
+   * previous attempt rejected JS-side but native's transfer outlived the
+   * rejection, or the AppState 'active' resume path didn't propagate
+   * cleanly through serviceAppUpdate.downloadPackage. Flipping status
+   * back here lets the UI catch up with reality.
+   *
+   * No-op unless status is exactly downloadPackageFailed — never touches
+   * a healthy in-progress or post-download state. Idempotent against
+   * repeat calls because the second one reads status === downloadPackage
+   * and returns immediately.
+   */
+  @backgroundMethod()
+  async onDownloadProgressHeartbeat(): Promise<void> {
+    const { status } = await appUpdatePersistAtom.get();
+    if (status !== EAppUpdateStatus.downloadPackageFailed) return;
+    defaultLogger.app.appUpdate.log(
+      'onDownloadProgressHeartbeat: native still progressing while status=failed → healing to downloadPackage',
+    );
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      status: EAppUpdateStatus.downloadPackage,
+      errorText: undefined,
+    }));
+  }
+
   @backgroundMethod()
   updateErrorText(status: EAppUpdateStatus, errorText: string) {
     void appUpdatePersistAtom.set((prev) => ({
