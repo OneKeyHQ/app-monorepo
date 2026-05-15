@@ -198,6 +198,7 @@ function ReceiveSelectorContent() {
         accountId,
         indexedAccountId,
         closeAfterSelect: false,
+        showDeFiTokenSwitch: true,
         aggregateTokenSelectorScreen:
           EModalReceiveRoutes.ReceiveSelectAggregateToken,
         exchangeFilter: {
@@ -289,6 +290,7 @@ function ReceiveSelectorContent() {
           accountId,
           indexedAccountId,
           closeAfterSelect: false,
+          showDeFiTokenSwitch: true,
           aggregateTokenSelectorScreen:
             EModalReceiveRoutes.ReceiveSelectAggregateToken,
           onSelect: async (selectedToken: IToken) => {
