@@ -30247,8 +30247,8 @@ __metadata:
 
 "fast-deep-equal@patch:fast-deep-equal@npm%3A3.1.3#~/.yarn/patches/fast-deep-equal-npm-3.1.3-790edcfcf5.patch":
   version: 3.1.3
-  resolution: "fast-deep-equal@patch:fast-deep-equal@npm%3A3.1.3#~/.yarn/patches/fast-deep-equal-npm-3.1.3-790edcfcf5.patch::version=3.1.3&hash=381d94"
-  checksum: 10/86f20acf933ba0cb7661ab6c0fdaae7704533d0c6662708191801a94c4c96c3f9518587663cd3813dc014d0db4a942662762c42f56d827805042387d03994a73
+  resolution: "fast-deep-equal@patch:fast-deep-equal@npm%3A3.1.3#~/.yarn/patches/fast-deep-equal-npm-3.1.3-790edcfcf5.patch::version=3.1.3&hash=095299"
+  checksum: 10/54e60962895cafb32956d93fad6d2de923983f8aa8f2d431d7496e0967e3f8ef0564b4385e65fcc0913c0ee468d719a0701dd2e804c15fc3e670ef53fe2cb477
   languageName: node
   linkType: hard
 
