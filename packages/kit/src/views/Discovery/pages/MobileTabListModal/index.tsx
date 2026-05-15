@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -131,15 +131,6 @@ function MobileTabListModal() {
     setDisplayHomePage,
   } = useBrowserTabActions().current;
 
-  const triggerCloseTab = useRef(false);
-  useEffect(() => {
-    if (triggerCloseTab.current && !tabs.length) {
-      setDisplayHomePage(true);
-      navigation.pop();
-    }
-    triggerCloseTab.current = false;
-  }, [tabs, setDisplayHomePage, navigation]);
-
   const initialScrollIndex = useMemo(() => {
     const index = data.findIndex((t) => t.id === activeTabId);
 
@@ -218,10 +209,32 @@ function MobileTabListModal() {
   );
   const handleCloseTab = useCallback(
     (id: string) => {
-      triggerCloseTab.current = true;
+      const isClosingActiveTab = id === activeTabId;
+      const targetIndex = tabs.findIndex((tab) => tab.id === id);
+      const remainingTabs = tabs.filter((tab) => tab.id !== id);
+      const nextActiveTab =
+        targetIndex > 0 ? remainingTabs[targetIndex - 1] : remainingTabs[0];
       void closeWebTab({ tabId: id, entry: 'Menu' });
+
+      if (!isClosingActiveTab) {
+        return;
+      }
+
+      if (nextActiveTab) {
+        setCurrentWebTab(nextActiveTab.id);
+      } else {
+        setDisplayHomePage(true);
+        navigation.pop();
+      }
     },
-    [closeWebTab],
+    [
+      activeTabId,
+      closeWebTab,
+      navigation,
+      setCurrentWebTab,
+      setDisplayHomePage,
+      tabs,
+    ],
   );
 
   const handleAddNewTab = useCallback(() => {
@@ -447,8 +460,11 @@ function MobileTabListModal() {
           closeAllDisabled={data.length <= 0}
           onAddTab={handleAddNewTab}
           onCloseAll={() => {
-            triggerCloseTab.current = true;
             void closeAllWebTabs({ navigation });
+            if (pinnedData.length === 0) {
+              setDisplayHomePage(true);
+              navigation.pop();
+            }
           }}
           onDone={() => {
             navigation.pop();

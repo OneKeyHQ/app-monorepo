@@ -230,16 +230,70 @@ describe('useBrowserTabActions', () => {
     });
   });
 
-  it('selects a replacement tab after closing the current tab', () => {
+  it('selects a replacement tab after closing the current tab outside native', () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    jest.useFakeTimers();
+    try {
+      const { result } = renderHook(
+        () => {
+          const actions = useBrowserTabActions().current;
+          const [activeTabId] = useActiveTabIdAtom();
+          const [webTabs] = useWebTabsAtom();
+
+          return {
+            actions,
+            activeTabId,
+            tabs: webTabs.tabs,
+          };
+        },
+        {
+          wrapper: createWrapper(),
+        },
+      );
+
+      act(() => {
+        result.current.actions.setCurrentWebTab('tab-2');
+      });
+
+      act(() => {
+        result.current.actions.closeWebTab({
+          tabId: 'tab-2',
+          entry: 'Menu',
+        });
+      });
+      act(() => {
+        jest.advanceTimersByTime(100);
+      });
+
+      expect(result.current.activeTabId).toBe('tab-1');
+      expect(result.current.tabs).toEqual([
+        expect.objectContaining({
+          id: 'tab-1',
+          isActive: true,
+        }),
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('closes the browser instead of revealing an adjacent tab on native', () => {
     const { result } = renderHook(
       () => {
         const actions = useBrowserTabActions().current;
         const [activeTabId] = useActiveTabIdAtom();
+        const [displayHomePage] = useDisplayHomePageAtom();
         const [webTabs] = useWebTabsAtom();
 
         return {
           actions,
           activeTabId,
+          displayHomePage,
           tabs: webTabs.tabs,
         };
       },
@@ -259,11 +313,12 @@ describe('useBrowserTabActions', () => {
       });
     });
 
-    expect(result.current.activeTabId).toBe('tab-1');
+    expect(result.current.activeTabId).toBe('');
+    expect(result.current.displayHomePage).toBe(true);
     expect(result.current.tabs).toEqual([
       expect.objectContaining({
         id: 'tab-1',
-        isActive: true,
+        isActive: false,
       }),
     ]);
   });
