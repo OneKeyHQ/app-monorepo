@@ -111,6 +111,8 @@ import { SortableHeaderCell } from './SortableHeaderCell';
 export const SPOT_DEX_INDEX = -1;
 const DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH = 800;
 const TOKEN_SELECTOR_TABLE_HORIZONTAL_PADDING = 32;
+const TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT = 48;
+const TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE = 20;
 const PERP_TOKEN_SELECTOR_DESKTOP_TABLE_MIN_WIDTH =
   180 + 110 + 150 + 110 + 110 + 120 + TOKEN_SELECTOR_TABLE_HORIZONTAL_PADDING;
 
@@ -1150,8 +1152,14 @@ function BasePerpTokenSelectorContent({
                   <ListView
                     ref={listRef}
                     keyExtractor={keyExtractor}
-                    windowSize={3}
-                    initialNumToRender={12}
+                    estimatedItemSize={TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT}
+                    windowSize={5}
+                    initialNumToRender={
+                      TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE
+                    }
+                    maxToRenderPerBatch={
+                      TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE
+                    }
                     data={activeTabData}
                     renderItem={renderItem}
                     ListEmptyComponent={listEmptyComponent}
