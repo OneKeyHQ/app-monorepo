@@ -32,7 +32,10 @@ import type { IMarksTimeRange } from './messageHandlers';
 import type { ICustomReceiveHandlerData } from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
-import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
+import type {
+  WebViewNavigation,
+  WebViewNavigationEvent,
+} from 'react-native-webview/lib/WebViewTypes';
 
 const MOCK_EMPTY_KLINE_BADGE_POSITION_STYLES = [
   { right: '$2', bottom: '$2' },
@@ -86,6 +89,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     accountAddress,
     onTouchScroll,
     onIndicatorsDialogOpenChange,
+    onLoadStart,
     ...stackStyle
   } = props;
 
@@ -257,6 +261,34 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [handleNavigation],
   );
 
+  const resetIndicatorsDialogOpen = useCallback(() => {
+    onIndicatorsDialogOpenChange?.(false);
+  }, [onIndicatorsDialogOpenChange]);
+
+  const handleLoadStart = useCallback(
+    (event: WebViewNavigationEvent) => {
+      resetIndicatorsDialogOpen();
+      onLoadStart?.(event);
+    },
+    [onLoadStart, resetIndicatorsDialogOpen],
+  );
+
+  const handleWebViewRef = useCallback(
+    (ref: IWebViewRef | null) => {
+      if (!ref) {
+        resetIndicatorsDialogOpen();
+      }
+      webRef.current = ref;
+    },
+    [resetIndicatorsDialogOpen, webRef],
+  );
+
+  useEffect(() => {
+    return () => {
+      resetIndicatorsDialogOpen();
+    };
+  }, [resetIndicatorsDialogOpen]);
+
   const handleMockEmptyKLineBadgePress = useCallback(() => {
     setMockEmptyKLineBadgePositionIndex(
       (positionIndex) =>
@@ -271,10 +303,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         customReceiveHandler={async (data) => {
           await customReceiveHandler(data as ICustomReceiveHandlerData);
         }}
-        onWebViewRef={(ref) => {
-          webRef.current = ref;
-        }}
+        onWebViewRef={handleWebViewRef}
         allowsBackForwardNavigationGestures={false}
+        onLoadStart={handleLoadStart}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         displayProgressBar={false}
         pullToRefreshEnabled={false}
@@ -289,10 +320,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     ),
     [
       customReceiveHandler,
+      handleLoadStart,
+      handleWebViewRef,
       onShouldStartLoadWithRequest,
       theme,
       tradingViewUrlWithParams,
-      webRef,
     ],
   );
 
