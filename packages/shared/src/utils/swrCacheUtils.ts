@@ -234,6 +234,18 @@ export const swrKeys = {
       accountId ?? '',
     ].join(':'),
   defiEnabled: (networkId: string) => `defiEnabled:${networkId}`,
+  // Account selector left sidebar wallet list. One slot per
+  // `hideNonBackedUpWallet` variant — every selector instance (main /
+  // send-target / dapp-connect) shares the same wallets data, so we
+  // intentionally keep this single-slot. Other inputs (HardwareFeaturesUpdate
+  // ts, passphraseProtectionChangedAt) only drive a re-fetch and must stay
+  // out of the key, otherwise prevSwrKey reset (see usePromiseResult.ts)
+  // would blank the sidebar on every device/passphrase event.
+  walletListSideBar: ({
+    hideNonBackedUpWallet,
+  }: {
+    hideNonBackedUpWallet?: boolean;
+  }) => ['walletList', 'v1', hideNonBackedUpWallet ? '1' : '0'].join(':'),
   // Account selector accounts list: caches the section data that drives the
   // wallet/account picker modal so subsequent opens render the previous
   // structure synchronously instead of flashing the empty state. Account
