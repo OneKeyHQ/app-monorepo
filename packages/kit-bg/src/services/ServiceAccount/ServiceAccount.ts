@@ -234,7 +234,9 @@ class ServiceAccount extends ServiceBase {
     // fresh data — avoids painting deleted wallets / stale section data
     // when the mutation happened while the consumer wasn't mounted.
     const dropWalletListSwr = () =>
-      swrCacheUtils.removeByPrefix(prefixOf(swrCacheNamespaces.walletListSideBar));
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.walletListSideBar),
+      );
     const dropAccountSelectorListSwr = () =>
       swrCacheUtils.removeByPrefix(
         prefixOf(swrCacheNamespaces.accountSelectorList),

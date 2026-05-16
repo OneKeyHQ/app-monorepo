@@ -203,7 +203,8 @@ export const swrKeys = {
   }: {
     walletId: string;
     accountId?: string;
-  }) => [NS.unifiedNetworkSelectorMeta, 'v1', walletId, accountId ?? ''].join(':'),
+  }) =>
+    [NS.unifiedNetworkSelectorMeta, 'v1', walletId, accountId ?? ''].join(':'),
   // NetworkContent (the "Network" tab inside UnifiedNetworkSelector) bundles
   // sorted chainSelectorNetworks + account balances + DeFi overview into one
   // result object. Balances/DeFi are included despite being volatile because
