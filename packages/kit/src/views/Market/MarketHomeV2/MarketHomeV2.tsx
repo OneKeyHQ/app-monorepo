@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EJotaiContextStoreNames,
   useMarketSelectedTabAtom,
@@ -15,7 +16,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { useSelectedNetworkIdAtom } from '../../../states/jotai/contexts/marketV2';
+import {
+  useSelectedNetworkIdAtom,
+  useWatchListV2Actions,
+} from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '../hooks';
 import { useMarketHomePageEnterAnalytics } from '../hooks/useMarketEnterAnalytics';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
@@ -27,6 +31,16 @@ import { MobileLayout } from './layouts/MobileLayout';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
+
+function useRefreshWatchListV2OnFocus(isFocused: boolean) {
+  const actions = useWatchListV2Actions();
+
+  useEffect(() => {
+    if (isFocused) {
+      void actions.current.refreshWatchListV2();
+    }
+  }, [actions, isFocused]);
+}
 
 const useMarketHomeLayoutProps = () => {
   const { md } = useMedia();
@@ -166,6 +180,8 @@ const useMarketHomeLayoutProps = () => {
 
 function BaseMarketHomeLayout() {
   const { md, layoutProps } = useMarketHomeLayoutProps();
+  const isFocused = useRouteIsFocused();
+  useRefreshWatchListV2OnFocus(isFocused);
 
   return (
     <LazyPageContainer>
@@ -223,6 +239,7 @@ function BaseMarketHomeWithProvider({
   nestedPager?: boolean;
 }) {
   const { layoutProps } = useMarketHomeLayoutProps();
+  useRefreshWatchListV2OnFocus(isFocused);
   // In nested outer pagers (Discovery: Market/Earn/Browser), keep Market mounted
   // and let Freeze control inactive-page performance. Unmounting here causes
   // visible flashes when the outer pager finishes settling.
