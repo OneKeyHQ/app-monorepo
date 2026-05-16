@@ -64,12 +64,15 @@ class ServiceE2E extends ServiceBase {
 
     await this.backgroundApi.simpleDb.accountSelector.clearRawData();
 
-    // Wipe the cold-start SWR cache here so consumers (sidebar wallet list,
-    // accountSelectorList, allNetworksCompatible, etc.) don't paint deleted
-    // wallets from MMKV on the next cold open. ServiceApp.resetApp clears
-    // the entire coldStartCacheStorage; this path is narrower (wallets
-    // only), so we just drop SWR entries. flushNow persists the empty
-    // snapshot immediately — clearAll alone debounces the MMKV write 2s.
+    // Wipe every SWR namespace (walletList, accountSelectorList,
+    // allNetCompat, netContent, unsMeta, recentNets, defiEnabled, etc.).
+    // This dev wipe means to reset all wallet state, so the broad clear
+    // is intentional — keeping non-account namespaces around would leave
+    // them referencing IDs that no longer exist in localDb.
+    // ServiceApp.resetApp clears the entire coldStartCacheStorage (jotai
+    // snapshot included); this path is narrower (SWR only). flushNow
+    // persists the empty snapshot immediately — clearAll alone debounces
+    // the MMKV write 2s, which could lose the wipe on a fast kill.
     swrCacheUtils.clearAll();
     swrCacheUtils.flushNow();
 
