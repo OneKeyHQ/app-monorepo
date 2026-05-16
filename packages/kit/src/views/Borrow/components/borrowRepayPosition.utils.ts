@@ -127,6 +127,23 @@ export function filterUnsupportedAaveNativeReserveAssets<
   );
 }
 
+export function getValidBorrowSelectedAsset({
+  assets,
+  selectedAsset,
+}: {
+  assets?: IBorrowAsset[];
+  selectedAsset?: IBorrowAsset | null;
+}) {
+  if (!selectedAsset) {
+    return undefined;
+  }
+
+  return getBorrowAssetByReserveAddress({
+    assets,
+    reserveAddress: selectedAsset.reserveAddress,
+  });
+}
+
 export function buildBorrowTokenFromAsset({
   asset,
   networkId,
@@ -170,6 +187,27 @@ export function buildAaveNativeGatewayReceiveToken({
     name: nativeToken?.name ?? 'Ether',
     symbol: nativeToken?.symbol ?? 'ETH',
   } as IToken;
+}
+
+export function shouldDowngradeAaveNativeRepayAll({
+  action,
+  networkId,
+  providerName,
+  reserveAddress,
+}: {
+  action?: string;
+  networkId?: string;
+  providerName?: string;
+  reserveAddress?: string;
+}) {
+  return (
+    action === 'repay' &&
+    shouldUseAaveNativeGateway({
+      networkId,
+      providerName,
+      reserveAddress,
+    })
+  );
 }
 
 export function resolveBorrowTokenApproveSpenderAddress({

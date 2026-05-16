@@ -10,11 +10,13 @@ import {
   getBorrowAssetByReserveAddress,
   getBorrowRepayMaxInputBalance,
   getBorrowRepayProgressStep,
+  getValidBorrowSelectedAsset,
   hasPositiveDebtBalance,
   isBorrowRepayAllAmount,
   isCollateralRepayEnabled,
   isUnsupportedAaveNativeReserve,
   resolveBorrowTokenApproveSpenderAddress,
+  shouldDowngradeAaveNativeRepayAll,
   shouldUseAaveNativeGateway,
 } from './borrowRepayPosition.utils';
 
@@ -182,6 +184,35 @@ describe('borrowRepayPosition utils', () => {
     ).toEqual(['ETH', 'WETH']);
   });
 
+  it('validates selected assets against the current borrow asset list', () => {
+    const selectedAsset = {
+      reserveAddress: '0xUSDC',
+      token: { symbol: 'USDC' },
+    } as IBorrowAsset;
+    const refreshedAsset = {
+      reserveAddress: '0xusdc',
+      token: { symbol: 'USDC.e' },
+    } as IBorrowAsset;
+
+    expect(
+      getValidBorrowSelectedAsset({
+        assets: [refreshedAsset],
+        selectedAsset,
+      }),
+    ).toBe(refreshedAsset);
+    expect(
+      getValidBorrowSelectedAsset({
+        assets: [
+          {
+            reserveAddress: '0xDAI',
+            token: { symbol: 'DAI' },
+          } as IBorrowAsset,
+        ],
+        selectedAsset,
+      }),
+    ).toBeUndefined();
+  });
+
   it('falls back to the Aave market pool for ERC20 token approvals', () => {
     expect(
       resolveBorrowTokenApproveSpenderAddress({
@@ -313,6 +344,33 @@ describe('borrowRepayPosition utils', () => {
       networkId: 'evm--1',
       symbol: 'ETH',
     });
+  });
+
+  it('downgrades only Aave ETH native repay-all to exact repay', () => {
+    expect(
+      shouldDowngradeAaveNativeRepayAll({
+        action: 'repay',
+        networkId: 'evm--1',
+        providerName: 'aave',
+        reserveAddress: '',
+      }),
+    ).toBe(true);
+    expect(
+      shouldDowngradeAaveNativeRepayAll({
+        action: 'withdraw',
+        networkId: 'evm--1',
+        providerName: 'aave',
+        reserveAddress: '',
+      }),
+    ).toBe(false);
+    expect(
+      shouldDowngradeAaveNativeRepayAll({
+        action: 'repay',
+        networkId: 'evm--8453',
+        providerName: 'aave',
+        reserveAddress: '',
+      }),
+    ).toBe(false);
   });
 
   it('invalidates request keys when setup state changes', () => {

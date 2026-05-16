@@ -100,11 +100,9 @@ export function ManagePosition(props: IManagePositionProps) {
     repayAll: baseState.isRepayAll,
   });
 
-  // Clear amount when reserve address changes (only for supply/borrow which use navigation)
+  // Clear amount when the transaction reserve scope changes.
   useEffect(() => {
-    if (action === 'supply' || action === 'borrow') {
-      setAmountValue('');
-    }
+    setAmountValue('');
   }, [action, borrowReserveAddress, setAmountValue]);
 
   // Submit handler

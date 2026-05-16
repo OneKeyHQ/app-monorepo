@@ -4,7 +4,10 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { isBorrowRepayAllAmount } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+import {
+  isBorrowRepayAllAmount,
+  shouldDowngradeAaveNativeRepayAll,
+} from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -99,13 +102,30 @@ export function useManagePositionState(props: IManagePositionProps): {
     return amountBN.gt(0) && amountBN.eq(maxAmountBN);
   }, [props.action, amountValue, maxAmountValue]);
 
+  const shouldDowngradeRepayAll = useMemo(
+    () =>
+      shouldDowngradeAaveNativeRepayAll({
+        action: props.action,
+        networkId: props.networkId,
+        providerName: props.providerName,
+        reserveAddress: props.borrowReserveAddress,
+      }),
+    [
+      props.action,
+      props.borrowReserveAddress,
+      props.networkId,
+      props.providerName,
+    ],
+  );
+
   const isRepayAll = useMemo(() => {
     if (props.action !== 'repay') return false;
+    if (shouldDowngradeRepayAll) return false;
     return isBorrowRepayAllAmount({
       amount: amountValue,
       debtBalance: props.debtBalance,
     });
-  }, [props.action, amountValue, props.debtBalance]);
+  }, [props.action, amountValue, props.debtBalance, shouldDowngradeRepayAll]);
 
   const state: Omit<
     IManagePositionState,

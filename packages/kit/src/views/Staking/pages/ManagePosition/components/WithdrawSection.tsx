@@ -18,6 +18,7 @@ import {
   getBorrowRepayDebtBalance,
   getBorrowRepayMaxInputBalance,
   getBorrowRepayWalletBalance,
+  getValidBorrowSelectedAsset,
   isUnsupportedAaveNativeReserve,
   resolveBorrowTokenApproveSpenderAddress,
   shouldUseAaveNativeGateway,
@@ -57,6 +58,11 @@ import {
 import { buildManagePageApproveInfo } from '../hooks/useManagePage.utils';
 
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
+
+type IBorrowSelectedAssetState = {
+  asset: IBorrowAsset;
+  scopeKey: string;
+};
 
 export const WithdrawSection = ({
   accountId,
@@ -120,7 +126,36 @@ export const WithdrawSection = ({
     () => (tokenInfo?.token ? (tokenInfo.token as IToken) : undefined),
     [tokenInfo],
   );
-  const [selectedAsset, setSelectedAsset] = useState<IBorrowAsset | null>(null);
+  const borrowAssetSelectionScopeKey = useMemo(
+    () =>
+      [
+        useBorrowApi ? 'borrow' : 'earn',
+        accountId,
+        networkId,
+        providerName,
+        borrowMarketAddress,
+        borrowAction,
+        borrowReserveAddress,
+      ].join('|'),
+    [
+      accountId,
+      borrowAction,
+      borrowMarketAddress,
+      borrowReserveAddress,
+      networkId,
+      providerName,
+      useBorrowApi,
+    ],
+  );
+  const [selectedAssetState, setSelectedAssetState] =
+    useState<IBorrowSelectedAssetState | null>(null);
+  const selectedAsset = useMemo(
+    () =>
+      selectedAssetState?.scopeKey === borrowAssetSelectionScopeKey
+        ? selectedAssetState.asset
+        : null,
+    [borrowAssetSelectionScopeKey, selectedAssetState],
+  );
   const selectedAssetReserveAddress = selectedAsset?.reserveAddress;
   const selectedBorrowManagePageType = useMemo(() => {
     if (
@@ -408,6 +443,33 @@ export const WithdrawSection = ({
       }),
     [assetsList.assets, networkId, providerName],
   );
+  useEffect(() => {
+    setSelectedAssetState((prev) => {
+      if (!prev) {
+        return null;
+      }
+      if (prev.scopeKey !== borrowAssetSelectionScopeKey) {
+        return null;
+      }
+      if (assetsListLoading) {
+        return prev;
+      }
+      const matchedAsset = getValidBorrowSelectedAsset({
+        assets: selectableBorrowAssets,
+        selectedAsset: prev.asset,
+      });
+      if (!matchedAsset) {
+        return null;
+      }
+      if (matchedAsset === prev.asset) {
+        return prev;
+      }
+      return {
+        ...prev,
+        asset: matchedAsset,
+      };
+    });
+  }, [assetsListLoading, borrowAssetSelectionScopeKey, selectableBorrowAssets]);
 
   const { result: unstakeAssetsList } = usePromiseResult<
     IEarnAssetsList | undefined
@@ -583,11 +645,26 @@ export const WithdrawSection = ({
     () => selectedAsset?.reserveAddress ?? borrowReserveAddress,
     [selectedAsset, borrowReserveAddress],
   );
+  const isSelectedBorrowAssetValid = useMemo(
+    () =>
+      !selectedAsset ||
+      !!getValidBorrowSelectedAsset({
+        assets: selectableBorrowAssets,
+        selectedAsset,
+      }),
+    [selectableBorrowAssets, selectedAsset],
+  );
 
   // Handle token selection from popover
-  const handleTokenSelect = useCallback((item: IBorrowAsset) => {
-    setSelectedAsset(item);
-  }, []);
+  const handleTokenSelect = useCallback(
+    (item: IBorrowAsset) => {
+      setSelectedAssetState({
+        asset: item,
+        scopeKey: borrowAssetSelectionScopeKey,
+      });
+    },
+    [borrowAssetSelectionScopeKey],
+  );
 
   const borrowApiCtx = useBorrowApiParams({
     useBorrowApi,
@@ -720,6 +797,7 @@ export const WithdrawSection = ({
   const isBorrowRepayInputDisabled =
     isDisabled ||
     unsupportedAaveNativeReserve ||
+    !isSelectedBorrowAssetValid ||
     (!!selectedAsset &&
       !!selectedBorrowManagePageType &&
       !!selectedBorrowManagePageLoading) ||
@@ -901,7 +979,13 @@ export const WithdrawSection = ({
       withdrawAll?: boolean;
       repayAll?: boolean;
     }) => {
-      if (!borrowApiCtx.isBorrow || unsupportedAaveNativeReserve) return;
+      if (
+        !borrowApiCtx.isBorrow ||
+        unsupportedAaveNativeReserve ||
+        !isSelectedBorrowAssetValid
+      ) {
+        return;
+      }
 
       const { provider, marketAddress, action } = borrowApiCtx.borrowApiParams;
       // Use effective reserve address (from selected asset or default)
@@ -988,6 +1072,7 @@ export const WithdrawSection = ({
       effectiveToken,
       handleBorrowRepay,
       handleBorrowWithdraw,
+      isSelectedBorrowAssetValid,
       networkId,
       onSuccess,
       protocolInfo?.providerDetail.logoURI,
