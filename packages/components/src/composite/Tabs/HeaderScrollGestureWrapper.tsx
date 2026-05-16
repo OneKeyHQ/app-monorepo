@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react';
 
 export interface IHeaderScrollGestureWrapperProps {
+  disabled?: boolean;
   onRefresh?: () => void;
   disableMomentum?: boolean;
   panActiveOffsetY?: [number, number];
