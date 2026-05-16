@@ -59,6 +59,7 @@ interface IBaseTradingViewV2Props {
   dataSource?: 'websocket' | 'polling';
   accountAddress?: string;
   onTouchScroll?: (deltaY: number) => void;
+  onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -84,6 +85,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     dataSource,
     accountAddress,
     onTouchScroll,
+    onIndicatorsDialogOpenChange,
     ...stackStyle
   } = props;
 
@@ -98,6 +100,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     marksTimeRange,
     currentKLineResolution,
     onTouchScroll,
+    onIndicatorsDialogOpenChange,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
