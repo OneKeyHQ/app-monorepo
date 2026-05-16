@@ -7,7 +7,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -88,14 +87,9 @@ export function usePrimeTransferSaveCustomServer() {
           });
         }
 
-        const newTs = Date.now();
-        defaultLogger.prime.transfer.endpointTimestampBumped({
-          caller: 'saveCustomServerConfig',
-          newTs,
-        });
         setPrimeTransferAtom((v) => ({
           ...v,
-          websocketEndpointUpdatedAt: newTs,
+          websocketEndpointUpdatedAt: Date.now(),
         }));
       } catch (error) {
         const e = error as OneKeyError | undefined;

@@ -125,9 +125,7 @@ export function PrimeTransferServerStatusBar() {
   };
 
   const handleRetryPress = useCallback(() => {
-    void backgroundApiProxy.servicePrimeTransfer.retryWebSocket({
-      caller: 'statusBar.refreshButton',
-    });
+    void backgroundApiProxy.servicePrimeTransfer.retryWebSocket();
   }, []);
 
   const { result: statusInfo } = usePromiseResult(

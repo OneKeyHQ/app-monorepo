@@ -1,5 +1,4 @@
 import { Semaphore } from 'async-mutex';
-import axios from 'axios';
 import { cloneDeep, debounce, isEmpty, isNaN, isNil, uniqBy } from 'lodash';
 import natsort from 'natsort';
 import { io } from 'socket.io-client';
@@ -267,7 +266,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async retryWebSocket({ caller }: { caller?: string } = {}) {
+  async retryWebSocket() {
     defaultLogger.prime.transfer.initWebSocket({ endpoint: '(retry)' });
     // Clear terminal-failed state and switch to "reconnecting" so the UI
     // flips back to "Connecting..." immediately. We set websocketReconnecting
@@ -278,18 +277,13 @@ class ServicePrimeTransfer extends ServiceBase {
     //   2. The page also reacts to websocketEndpointUpdatedAt and will
     //      re-resolve the endpoint, then re-run the init effect to call
     //      initWebSocket again (which clears reconnecting=false at start).
-    const newTs = Date.now();
-    defaultLogger.prime.transfer.endpointTimestampBumped({
-      caller: caller || 'retryWebSocket',
-      newTs,
-    });
     await primeTransferAtom.set(
       (v): IPrimeTransferAtomData => ({
         ...v,
         websocketConnected: false,
         websocketReconnecting: true,
         websocketError: undefined,
-        websocketEndpointUpdatedAt: newTs,
+        websocketEndpointUpdatedAt: Date.now(),
       }),
     );
   }
@@ -298,49 +292,6 @@ class ServicePrimeTransfer extends ServiceBase {
   @toastIfError()
   async initWebSocket({ endpoint }: { endpoint: string }) {
     defaultLogger.prime.transfer.initWebSocket({ endpoint });
-    const initWsEnteredAt = Date.now();
-    // Install the bridge from the patched engine.io-client (see
-    // patches/engine.io-client+6.5.3.patch) into our scoped logger. The
-    // patched code calls globalThis.__onekeyEngineIoTrace__(event, data) on
-    // send / receive / parse / setTimeout / onClose. We re-install on every
-    // call so runtimeKind in the log reflects the runtime that is actually
-    // emitting the trace.
-    const traceGlobal = globalThis as typeof globalThis & {
-      __onekeyEngineIoTrace__?: (event: string, data: unknown) => void;
-    };
-    traceGlobal.__onekeyEngineIoTrace__ = (
-      event: string,
-      data: unknown,
-    ): void => {
-      try {
-        defaultLogger.prime.transfer.engineRawTrace({
-          event,
-          runtimeKind: platformEnv.nativeRuntimeKind,
-          data,
-        });
-      } catch {
-        // never let logging break engine.io
-      }
-    };
-    // Smoking-gun for split-thread: how soon after the background Hermes
-    // entry did this RPC arrive? __ONEKEY_BG_ENTRY_START__ is set at the very
-    // top of apps/mobile/background.ts; undefined on platforms without a
-    // separate background runtime.
-    const bgEntryStart = (
-      globalThis as typeof globalThis & {
-        __ONEKEY_BG_ENTRY_START__?: number;
-      }
-    ).__ONEKEY_BG_ENTRY_START__;
-    defaultLogger.prime.transfer.initWebSocketContext({
-      endpoint,
-      runtimeKind: platformEnv.nativeRuntimeKind,
-      enableNativeBackgroundThread: !!platformEnv.enableNativeBackgroundThread,
-      sinceBgEntryMs:
-        typeof bgEntryStart === 'number'
-          ? initWsEnteredAt - bgEntryStart
-          : undefined,
-      prevSocketExists: !!this.socket,
-    });
     await this.initWebsocketMutex.runExclusive(async () => {
       void primeTransferAtom.set(
         (v): IPrimeTransferAtomData => ({
@@ -370,89 +321,24 @@ class ServicePrimeTransfer extends ServiceBase {
       // auto-retry and usually succeed. Only show failed after retries are
       // truly exhausted or grace period passes without success.
       const FIRST_CONNECT_GRACE_PERIOD_MS = 8000;
-      const SOCKET_TIMEOUT_MS = 10_000;
       const connectStartedAt = Date.now();
       let connectErrorCount = 0;
-      let lastConnectErrorAt: number | undefined;
-      // gracePeriodExpired is fired exactly once per init, at the moment the
-      // UI is about to surface the red "failed" banner. Useful to confirm
-      // whether the red dot you saw was caused by the 8s timer or the
-      // 5-attempt budget.
-      let gracePeriodExpiredLogged = false;
-      const transports = ['polling', 'websocket'].filter(Boolean);
-
-      defaultLogger.prime.transfer.socketIoFactoryCalled({
-        endpoint,
-        transports,
-        timeout: SOCKET_TIMEOUT_MS,
-        reconnectionAttempts: RECONNECTION_ATTEMPTS,
-        reconnectionDelay: RECONNECTION_DELAY,
-        reconnectionDelayMax: RECONNECTION_DELAY_MAX,
-        sinceInitMs: Date.now() - initWsEnteredAt,
-      });
-
-      // setTimeout sanity probes. engine.io's pingTimeout watchdog uses
-      // setTimeout(fn, pingInterval + pingTimeout) — a ~85s timer in our
-      // server's config. Round-3 logs showed that timer firing in <1s on
-      // the bg runtime, which would explain the perpetual ping-timeout
-      // loop. These three probes (1s / 10s / 30s) measure the actual
-      // delivery delay so we can confirm whether setTimeout itself is
-      // broken on bg Hermes, and on which range. The 30s probe is
-      // intentionally above any realistic socket session lifetime, so it
-      // will only complete if the timer is honest.
-      [1000, 10_000, 30_000].forEach((scheduledDelayMs) => {
-        const scheduledAt = Date.now();
-        setTimeout(() => {
-          defaultLogger.prime.transfer.timerSanityCheck({
-            scheduledDelayMs,
-            actualElapsedMs: Date.now() - scheduledAt,
-            runtimeKind: platformEnv.nativeRuntimeKind,
-            enableNativeBackgroundThread:
-              !!platformEnv.enableNativeBackgroundThread,
-          });
-        }, scheduledDelayMs);
-      });
-
-      // Fire a parallel HTTPS GET to /health from this runtime. If a BG-side
-      // probe fails while the UI-side probe (in PagePrimeTransfer.tsx)
-      // succeeds, the bug is bg-thread networking — not the server.
-      const healthProbeStartedAt = Date.now();
-      void axios
-        .get(`${endpoint}/health`, { timeout: SOCKET_TIMEOUT_MS })
-        .then((res) => {
-          defaultLogger.prime.transfer.bgHealthCheckProbe({
-            status: res.status,
-            elapsedMs: Date.now() - healthProbeStartedAt,
-            error: undefined,
-            runtimeKind: platformEnv.nativeRuntimeKind,
-          });
-        })
-        .catch((err: unknown) => {
-          const e = err as { message?: string; code?: string } | undefined;
-          defaultLogger.prime.transfer.bgHealthCheckProbe({
-            status: undefined,
-            elapsedMs: Date.now() - healthProbeStartedAt,
-            error: e?.code ? `${e.code}: ${e?.message}` : e?.message,
-            runtimeKind: platformEnv.nativeRuntimeKind,
-          });
-        });
 
       this.socket = io(endpoint, {
-        transports,
+        transports: [
+          //
+          // platformEnv.isNative || platformEnv.isExtension
+          //   ? 'polling'
+          //   : undefined,
+          'polling',
+          'websocket',
+        ].filter(Boolean),
         upgrade: true,
-        timeout: SOCKET_TIMEOUT_MS,
+        timeout: 10_000,
         reconnection: true,
         reconnectionAttempts: RECONNECTION_ATTEMPTS,
         reconnectionDelay: RECONNECTION_DELAY,
         reconnectionDelayMax: RECONNECTION_DELAY_MAX,
-        // Zero-cost workaround attempt: bypass any potential setTimeout
-        // wrapper by asking engine.io-client to use its captured "native"
-        // timer functions instead of `globalThis.setTimeout` dynamically.
-        // If the bg-Hermes setTimeout polyfill is what's firing the
-        // pingTimeoutTimer early, switching to the cached reference
-        // (captured at engine.io-client module load time) MAY sidestep it.
-        // See `installTimerFunctions` in engine.io-client.
-        useNativeTimers: true,
         auth: {
           // instanceId: settings.instanceId,
         },
@@ -491,32 +377,10 @@ class ServicePrimeTransfer extends ServiceBase {
             | { message: string; type: string; description: string }
             | undefined;
           connectErrorCount += 1;
-          const nowMs = Date.now();
-          const elapsedMs = nowMs - connectStartedAt;
-          const sinceLastErrorMs =
-            lastConnectErrorAt !== undefined
-              ? nowMs - lastConnectErrorAt
-              : undefined;
-          lastConnectErrorAt = nowMs;
+          const elapsedMs = Date.now() - connectStartedAt;
           const withinGracePeriod =
             elapsedMs < FIRST_CONNECT_GRACE_PERIOD_MS &&
             connectErrorCount < RECONNECTION_ATTEMPTS;
-          const rawError = error as unknown;
-          let errorName: string | undefined;
-          let errorKeys: string[] | undefined;
-          let hasCause = false;
-          if (rawError && typeof rawError === 'object') {
-            errorName = (rawError as { constructor?: { name?: string } })
-              ?.constructor?.name;
-            try {
-              errorKeys = Object.keys(rawError as Record<string, unknown>);
-            } catch {
-              errorKeys = undefined;
-            }
-            hasCause = 'cause' in (rawError as Record<string, unknown>);
-          } else if (typeof rawError === 'string') {
-            errorName = 'string';
-          }
           defaultLogger.prime.transfer.socketConnectError({
             message: e?.message,
             type: e?.type,
@@ -525,25 +389,7 @@ class ServicePrimeTransfer extends ServiceBase {
             attempt: connectErrorCount,
             withinGracePeriod,
             elapsedMs,
-            sinceLastErrorMs,
-            sinceFactoryMs: nowMs - initWsEnteredAt,
-            errorName,
-            errorKeys,
-            hasCause,
           });
-          if (!withinGracePeriod && !gracePeriodExpiredLogged) {
-            gracePeriodExpiredLogged = true;
-            defaultLogger.prime.transfer.gracePeriodExpired({
-              reason:
-                connectErrorCount >= RECONNECTION_ATTEMPTS
-                  ? 'connectErrorCount'
-                  : 'elapsedMs',
-              elapsedMs,
-              connectErrorCount,
-              gracePeriodMs: FIRST_CONNECT_GRACE_PERIOD_MS,
-              reconnectionAttempts: RECONNECTION_ATTEMPTS,
-            });
-          }
           connectedPairingCode = null;
           connectedEncryptedKey = null;
           // While socket.io is still going to auto-retry (within the grace
@@ -620,149 +466,6 @@ class ServicePrimeTransfer extends ServiceBase {
               }),
             );
           });
-          // Manager-level `error` is fired for low-level Manager failures
-          // distinct from socket connect_error. Catches edge cases where the
-          // socket layer never gets to surface its own error.
-          manager.on('error', (err: unknown) => {
-            const me = err as
-              | { message?: string; constructor?: { name?: string } }
-              | undefined;
-            defaultLogger.prime.transfer.socketManagerError({
-              message: me?.message,
-              errorName: me?.constructor?.name,
-              elapsedMs: Date.now() - connectStartedAt,
-            });
-          });
-          // Manager-level 'ping' fires whenever the client receives an
-          // engine.io ping packet from the server (engine.io auto-pongs).
-          // This is the cleanest signal for "is the server's heartbeat
-          // actually reaching the client" — independent of the raw packet
-          // listener we attach to the engine below.
-          let managerLastPingAt: number | undefined;
-          manager.on('ping', () => {
-            const nowMs = Date.now();
-            defaultLogger.prime.transfer.managerPing({
-              sinceConnectMs: nowMs - connectStartedAt,
-              sinceLastPingMs:
-                managerLastPingAt !== undefined
-                  ? nowMs - managerLastPingAt
-                  : undefined,
-            });
-            managerLastPingAt = nowMs;
-          });
-          // The engine.io socket is destroyed and rebuilt on every
-          // reconnect attempt. Re-bind raw packet listeners + log the
-          // handshake values each time so the diagnostic stream covers all
-          // 240+ reconnect cycles, not only the first one.
-          const enginePacketTypeName = (t: unknown): string | undefined => {
-            if (typeof t === 'string') {
-              return t;
-            }
-            if (typeof t === 'number') {
-              // engine.io v3 ships numeric packet types; v4 ships strings.
-              // Mirror v4 names so logs stay homogeneous across versions.
-              return (
-                ['open', 'close', 'ping', 'pong', 'message', 'upgrade', 'noop'][
-                  t
-                ] || String(t)
-              );
-            }
-            return undefined;
-          };
-          const bindEngineDiagnostics = (source: 'factory' | 'open') => {
-            const engineAny = (
-              manager as unknown as {
-                engine?: {
-                  on?: (event: string, cb: (arg: unknown) => void) => void;
-                  id?: string;
-                  pingInterval?: number;
-                  pingTimeout?: number;
-                  upgrades?: string[];
-                  maxPayload?: number;
-                  transport?: { name?: string };
-                };
-              }
-            ).engine;
-            if (!engineAny || !engineAny.on) {
-              return;
-            }
-            defaultLogger.prime.transfer.engineHandshake({
-              source: source === 'open' ? 'manager-open' : 'engine-handshake',
-              sid: engineAny.id,
-              pingInterval: engineAny.pingInterval,
-              pingTimeout: engineAny.pingTimeout,
-              upgrades: engineAny.upgrades,
-              maxPayload: engineAny.maxPayload,
-              transport: engineAny.transport?.name,
-            });
-            let lastPacketInAt: number | undefined;
-            engineAny.on('packet', (packet: unknown) => {
-              const p = packet as
-                | { type?: unknown; data?: string | undefined }
-                | undefined;
-              const nowMs = Date.now();
-              defaultLogger.prime.transfer.enginePacketIn({
-                type: enginePacketTypeName(p?.type),
-                dataLength:
-                  typeof p?.data === 'string' ? p.data.length : undefined,
-                sinceConnectMs: nowMs - connectStartedAt,
-                sinceLastPacketInMs:
-                  lastPacketInAt !== undefined
-                    ? nowMs - lastPacketInAt
-                    : undefined,
-              });
-              lastPacketInAt = nowMs;
-            });
-            engineAny.on('packetCreate', (packet: unknown) => {
-              const p = packet as
-                | { type?: unknown; data?: string | undefined }
-                | undefined;
-              defaultLogger.prime.transfer.enginePacketOut({
-                type: enginePacketTypeName(p?.type),
-                dataLength:
-                  typeof p?.data === 'string' ? p.data.length : undefined,
-                sinceConnectMs: Date.now() - connectStartedAt,
-              });
-            });
-          };
-          // Bind once now for the initial engine, and re-bind every time the
-          // manager opens a fresh engine on reconnect.
-          bindEngineDiagnostics('factory');
-          manager.on('open', () => bindEngineDiagnostics('open'));
-          // Engine.io transport upgrade lifecycle. With
-          // `transports: ['polling', 'websocket']` and `upgrade: true`,
-          // polling connects first and engine.io then tries to upgrade to
-          // websocket. A successful poll + failed upgrade would otherwise
-          // surface only as a generic disconnect→reconnect; these two
-          // listeners attribute the flap directly to the upgrade step.
-          // NOTE: the engine is rebuilt on each reconnect, so this listener
-          // covers the FIRST connection only — sufficient for the
-          // first-attempt diagnosis we're after.
-          const engine = manager.engine as unknown as
-            | {
-                on: (
-                  event: 'upgrade' | 'upgradeError',
-                  cb: (arg: unknown) => void,
-                ) => void;
-              }
-            | undefined;
-          if (engine) {
-            engine.on('upgrade', (transport: unknown) => {
-              const t = transport as { name?: string } | undefined;
-              defaultLogger.prime.transfer.socketUpgrade({
-                transport: t?.name,
-                elapsedMs: Date.now() - connectStartedAt,
-              });
-            });
-            engine.on('upgradeError', (err: unknown) => {
-              const me = err as { message?: string } | undefined;
-              defaultLogger.prime.transfer.socketUpgradeError({
-                message: me?.message,
-                transport: this.socket?.io?.engine?.transport?.name,
-                elapsedMs: Date.now() - connectStartedAt,
-              });
-            });
-          }
         }
 
         this.socket.on(
