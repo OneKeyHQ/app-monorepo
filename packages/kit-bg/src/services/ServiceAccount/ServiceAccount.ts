@@ -101,6 +101,11 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import {
+  prefixOf,
+  swrCacheNamespaces,
+  swrCacheUtils,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -223,23 +228,75 @@ class ServiceAccount extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
 
+    // SWR cache invalidation. Mutation events have no payload, so we drop
+    // every entry in the affected namespace by prefix. Subsequent UI mounts
+    // read an empty MMKV slot and the fetcher repopulates with fresh data —
+    // avoids painting deleted wallets / stale section data when the mutation
+    // happened while the consumer wasn't mounted.
+    //
+    // flushNow forces the cleared snapshot into MMKV synchronously instead
+    // of waiting on scheduleFlush's 2s debounce. Mutations are low-frequency
+    // and the extra write is worth it: a force-kill (task-manager swipe,
+    // watchdog) between the bg drop and AppState's background flush would
+    // otherwise leave deleted wallets in the MMKV blob and resurrect them
+    // on the next cold open.
+    const dropWalletListSwr = () =>
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.walletListSideBar),
+      );
+    const dropAccountSelectorListSwr = () =>
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.accountSelectorList),
+      );
+
     appEventBus.on(EAppEventBusNames.WalletUpdate, () => {
       void this.clearAccountCache();
+      dropWalletListSwr();
+      dropAccountSelectorListSwr();
+      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountRemove, () => {
       void this.clearAccountCache();
+      // sidebar also depends on accounts via ignoreEmptySingletonWalletAccounts
+      dropWalletListSwr();
+      dropAccountSelectorListSwr();
+      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountUpdate, () => {
       void this.clearAccountCache();
+      dropWalletListSwr();
+      dropAccountSelectorListSwr();
+      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.RenameDBAccounts, () => {
       void this.clearAccountCache();
+      // sidebar doesn't show account names, only the right-panel sectionData does
+      dropAccountSelectorListSwr();
+      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.WalletRename, () => {
       void this.clearAccountCache();
+      dropWalletListSwr();
+      dropAccountSelectorListSwr();
+      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
       void this.clearAccountCache();
+      dropWalletListSwr();
+      dropAccountSelectorListSwr();
+      swrCacheUtils.flushNow();
+    });
+    // Defensive WalletClear handler. ServiceE2E.clearWalletsAndAccounts
+    // currently calls swrCacheUtils.clearAll() before emitting this event,
+    // so the drop here is redundant for the existing emitter — but it makes
+    // the contract explicit, so future emitters (logout flow, alternative
+    // reset paths) inherit the invalidation without having to remember the
+    // call-site dance.
+    appEventBus.on(EAppEventBusNames.WalletClear, () => {
+      void this.clearAccountCache();
+      dropWalletListSwr();
+      dropAccountSelectorListSwr();
+      swrCacheUtils.flushNow();
     });
     // Drop derived-address / xpub memoizee caches on critical memory
     // pressure. These caches are the cheapest to rebuild (one BIP32
