@@ -60,6 +60,8 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import {
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
+  useL2BookAtom,
+  usePerpsAllAssetCtxsAtom,
   useTradeRouteViewStateAtom,
 } from '../../../states/jotai/contexts/hyperliquid';
 import {
@@ -80,6 +82,37 @@ let lastRecoveredPerpsLocaleVariant: string | undefined;
 
 function resolvePerpRouteFocused(isFocus: boolean) {
   return shouldTreatPerpAsFocusedOnMount || isFocus;
+}
+
+function summarizeAllDexsAssetCtxs(data: IWsAllDexsAssetCtxs | null) {
+  const incoming = data?.ctxs || [];
+  const ctxMap = new Map<string, unknown[]>();
+  incoming.forEach(([dexName, ctxList]) => {
+    ctxMap.set(dexName, ctxList || []);
+  });
+  return {
+    assetCtxDexCount: incoming.length,
+    assetCtxPerpCount: (ctxMap.get('') ?? ctxMap.get('perps') ?? []).length,
+    assetCtxXyzCount: (ctxMap.get('xyz') ?? []).length,
+  };
+}
+
+function summarizeAssetCtxsByDex(assetCtxsByDex: unknown[][] | undefined) {
+  return {
+    assetCtxDexCount: assetCtxsByDex?.length ?? 0,
+    assetCtxPerpCount: assetCtxsByDex?.[0]?.length ?? 0,
+    assetCtxXyzCount: assetCtxsByDex?.[1]?.length ?? 0,
+  };
+}
+
+function summarizeL2Book(data: IBook | null | undefined) {
+  const levels = data?.levels ?? [];
+  return {
+    dataCoin: data?.coin,
+    l2BookSideCount: levels.length,
+    l2BookBidCount: levels[0]?.length ?? 0,
+    l2BookAskCount: levels[1]?.length ?? 0,
+  };
 }
 
 function usePerpsNavigationDiagnostics() {
@@ -180,6 +213,17 @@ function useSyncContextOrderBookOptionsToGlobal() {
       await perpsActiveOrderBookOptionsAtom.set(
         (): IPerpsActiveOrderBookOptionsAtom => next,
       );
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+        source: 'ui',
+        event: 'set_global_order_book_options',
+        hasInstrumentCoin: !!_activeInstrument?.coin,
+        instrumentMode: _activeInstrument?.mode,
+        hasOrderBookCoin: !!next?.coin,
+        hasOrderBookOptions: !!next,
+        activeCoin: _activeInstrument?.coin,
+        orderBookCoin: next?.coin,
+        currentAssetIdSet: next?.assetId !== undefined,
+      });
     },
     [],
   );
@@ -244,8 +288,19 @@ function useHyperliquidEventBusListener() {
   // to user interactions.
   const assetCtxsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const assetCtxsDirtyRef = useRef<IWsAllDexsAssetCtxs | null>(null);
+  const lastCriticalUiEventLogAtRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
+    const shouldLogCriticalUiEvent = (subType: ESubscriptionType) => {
+      const now = Date.now();
+      const lastAt = lastCriticalUiEventLogAtRef.current[subType] ?? 0;
+      if (now - lastAt < 3000) {
+        return false;
+      }
+      lastCriticalUiEventLogAtRef.current[subType] = now;
+      return true;
+    };
+
     const handleDataUpdate = (payload: unknown) => {
       const eventPayload = payload as {
         type: EPerpsSubscriptionCategory;
@@ -279,11 +334,26 @@ function useHyperliquidEventBusListener() {
           }
 
           case ESubscriptionType.ALL_DEXS_ASSET_CTXS: {
-            assetCtxsDirtyRef.current = data as IWsAllDexsAssetCtxs;
+            const nextAssetCtxs = data as IWsAllDexsAssetCtxs;
+            if (shouldLogCriticalUiEvent(subType)) {
+              defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+                source: 'ui',
+                event: 'ui_event_critical_data_received',
+                subscriptionType: subType,
+                ...summarizeAllDexsAssetCtxs(nextAssetCtxs),
+              });
+            }
+            assetCtxsDirtyRef.current = nextAssetCtxs;
             if (!assetCtxsTimerRef.current) {
               const pending = assetCtxsDirtyRef.current;
               assetCtxsDirtyRef.current = null;
               startTransition(() => {
+                defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+                  source: 'ui',
+                  event: 'ui_apply_all_dexs_asset_ctxs_leading',
+                  subscriptionType: subType,
+                  ...summarizeAllDexsAssetCtxs(pending),
+                });
                 void actions.current.updateAllDexsAssetCtxs(pending);
               });
               assetCtxsTimerRef.current = setTimeout(() => {
@@ -292,6 +362,12 @@ function useHyperliquidEventBusListener() {
                   const trailing = assetCtxsDirtyRef.current;
                   assetCtxsDirtyRef.current = null;
                   startTransition(() => {
+                    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+                      source: 'ui',
+                      event: 'ui_apply_all_dexs_asset_ctxs_trailing',
+                      subscriptionType: subType,
+                      ...summarizeAllDexsAssetCtxs(trailing),
+                    });
                     void actions.current.updateAllDexsAssetCtxs(trailing);
                   });
                 }
@@ -300,9 +376,19 @@ function useHyperliquidEventBusListener() {
             break;
           }
 
-          case ESubscriptionType.L2_BOOK:
-            void actions.current.updateL2Book(data as IBook);
+          case ESubscriptionType.L2_BOOK: {
+            const l2Book = data as IBook;
+            if (shouldLogCriticalUiEvent(subType)) {
+              defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+                source: 'ui',
+                event: 'ui_event_critical_data_received',
+                subscriptionType: subType,
+                ...summarizeL2Book(l2Book),
+              });
+            }
+            void actions.current.updateL2Book(l2Book);
             break;
+          }
 
           case ESubscriptionType.BBO:
             void actions.current.updateBbo(data as IWsBbo);
@@ -385,6 +471,74 @@ function useHyperliquidEventBusListener() {
   }, [actions]);
 }
 
+function usePerpsContextMarketDataDiagnostics() {
+  const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
+  const [l2BookData] = useL2BookAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [tradeRouteViewState] = useTradeRouteViewStateAtom();
+  const lastSnapshotRef = useRef<{ key: string; loggedAt: number }>({
+    key: '',
+    loggedAt: 0,
+  });
+
+  useEffect(() => {
+    const expectedCoin = activeTradeInstrument.coin;
+    const coinMatched = !!(
+      expectedCoin &&
+      l2BookData?.coin &&
+      l2BookData.coin === expectedCoin
+    );
+    const ctxSummary = summarizeAssetCtxsByDex(assetCtxsByDex);
+    const l2Summary = summarizeL2Book(l2BookData);
+    const key = [
+      expectedCoin,
+      l2BookData?.coin ?? '',
+      coinMatched ? 'match' : 'mismatch',
+      ctxSummary.assetCtxPerpCount,
+      ctxSummary.assetCtxXyzCount,
+      l2Summary.l2BookBidCount,
+      l2Summary.l2BookAskCount,
+      tradeRouteViewState.routeFocused ? 'focused' : 'blurred',
+      tradeRouteViewState.tokenSelectorOpen ? 'selector' : '',
+    ].join('|');
+    const now = Date.now();
+    if (
+      lastSnapshotRef.current.key === key &&
+      now - lastSnapshotRef.current.loggedAt < 3000
+    ) {
+      return;
+    }
+    lastSnapshotRef.current = { key, loggedAt: now };
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+      source: 'ui',
+      event: 'context_market_data_state',
+      expectedCoin,
+      coinMatched,
+      currentBookCoinSet: !!l2BookData?.coin,
+      hasInstrumentCoin: !!expectedCoin,
+      instrumentMode: activeTradeInstrument.mode,
+      routeFocused: tradeRouteViewState.routeFocused,
+      tokenSelectorOpen: tradeRouteViewState.tokenSelectorOpen,
+      tokenSelectorTab: tradeRouteViewState.tokenSelectorTab,
+      infoPanelTab: tradeRouteViewState.infoPanelTab,
+      favoritesBarSpotActive: tradeRouteViewState.favoritesBarSpotActive,
+      ...ctxSummary,
+      ...l2Summary,
+    });
+  }, [
+    activeTradeInstrument.assetId,
+    activeTradeInstrument.coin,
+    activeTradeInstrument.mode,
+    assetCtxsByDex,
+    l2BookData,
+    tradeRouteViewState.favoritesBarSpotActive,
+    tradeRouteViewState.infoPanelTab,
+    tradeRouteViewState.routeFocused,
+    tradeRouteViewState.tokenSelectorOpen,
+    tradeRouteViewState.tokenSelectorTab,
+  ]);
+}
+
 function useHyperliquidMarketDataSnapshotReplay() {
   const actions = useHyperliquidActions();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
@@ -411,16 +565,47 @@ function useHyperliquidMarketDataSnapshotReplay() {
       }
 
       const allDexsAssetCtxs = snapshot.allDexsAssetCtxs?.data;
+      const allDexsAgeMs = snapshot.allDexsAssetCtxs?.updatedAt
+        ? Date.now() - snapshot.allDexsAssetCtxs.updatedAt
+        : undefined;
+      const l2BookAgeMs = snapshot.l2Book?.updatedAt
+        ? Date.now() - snapshot.l2Book.updatedAt
+        : undefined;
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+        source: 'ui',
+        event: 'snapshot_replay_result',
+        snapshotAllDexsSet: !!allDexsAssetCtxs,
+        snapshotL2BookSet: !!snapshot.l2Book?.data,
+        hasInstrumentCoin: !!instrumentCoin,
+        instrumentMode,
+        routeFocused,
+        tokenSelectorOpen,
+        ageMs: Math.max(allDexsAgeMs ?? 0, l2BookAgeMs ?? 0),
+      });
       if (allDexsAssetCtxs) {
         // Replays the latest BG snapshot after iOS locale reloads where the
         // one-shot event can fire before this UI context has mounted.
         startTransition(() => {
+          defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+            source: 'ui',
+            event: 'snapshot_replay_all_dexs_asset_ctxs',
+            subscriptionType: ESubscriptionType.ALL_DEXS_ASSET_CTXS,
+            ...summarizeAllDexsAssetCtxs(allDexsAssetCtxs),
+            ageMs: allDexsAgeMs,
+          });
           void actions.current.updateAllDexsAssetCtxs(allDexsAssetCtxs);
         });
       }
 
       const l2Book = snapshot.l2Book?.data;
       if (l2Book) {
+        defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+          source: 'ui',
+          event: 'snapshot_replay_l2_book',
+          subscriptionType: ESubscriptionType.L2_BOOK,
+          ...summarizeL2Book(l2Book),
+          ageMs: l2BookAgeMs,
+        });
         void actions.current.updateL2Book(l2Book);
       }
     })();
@@ -1047,6 +1232,7 @@ function useHyperliquidInstrumentSwitchRequest() {
 function PerpsGlobalEffectsView() {
   usePerpsNavigationDiagnostics();
   useHyperliquidEventBusListener();
+  usePerpsContextMarketDataDiagnostics();
   useHyperliquidMarketDataSnapshotReplay();
   useHyperliquidSession();
   useHyperliquidAccountSelect();

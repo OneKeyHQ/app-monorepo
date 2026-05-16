@@ -178,6 +178,37 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   private activeInstrumentChangeRequestId = 0;
 
+  private lastAllDexsAssetCtxsDiagnosticAt = 0;
+
+  private lastL2BookDiagnosticAt = 0;
+
+  private shouldLogContextDiagnostic(lastAt: number): boolean {
+    return Date.now() - lastAt >= 3000;
+  }
+
+  private summarizeAllDexsAssetCtxs(data: HL.IWsAllDexsAssetCtxs) {
+    const incoming = data?.ctxs || [];
+    const ctxMap = new Map<string, HL.IPerpsAssetCtx[]>();
+    incoming.forEach(([dexName, ctxList]) => {
+      ctxMap.set(dexName, ctxList || []);
+    });
+    return {
+      assetCtxDexCount: incoming.length,
+      assetCtxPerpCount: (ctxMap.get('') ?? ctxMap.get('perps') ?? []).length,
+      assetCtxXyzCount: (ctxMap.get('xyz') ?? []).length,
+    };
+  }
+
+  private summarizeL2Book(data: HL.IBook | null | undefined) {
+    const levels = data?.levels ?? [];
+    return {
+      dataCoin: data?.coin,
+      l2BookSideCount: levels.length,
+      l2BookBidCount: levels[0]?.length ?? 0,
+      l2BookAskCount: levels[1]?.length ?? 0,
+    };
+  }
+
   private beginActiveInstrumentChange(): number {
     this.activeInstrumentChangeRequestId += 1;
     return this.activeInstrumentChangeRequestId;
@@ -572,6 +603,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set(perpsAllAssetCtxsAtom(), {
         assetCtxsByDex: ctxsByDex,
       });
+      if (
+        this.shouldLogContextDiagnostic(this.lastAllDexsAssetCtxsDiagnosticAt)
+      ) {
+        this.lastAllDexsAssetCtxsDiagnosticAt = Date.now();
+        defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+          source: 'ui',
+          event: 'context_update_all_dexs_asset_ctxs',
+          subscriptionType: 'allDexsAssetCtxs',
+          updateApplied: true,
+          ...this.summarizeAllDexsAssetCtxs(data),
+        });
+      }
     },
   );
 
@@ -771,18 +814,70 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateL2Book = contextAtomMethod(async (get, set, data: HL.IBook) => {
     const activeCoin = await this._getActiveCoin();
     if (!data) {
+      if (this.shouldLogContextDiagnostic(this.lastL2BookDiagnosticAt)) {
+        this.lastL2BookDiagnosticAt = Date.now();
+        defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+          source: 'ui',
+          event: 'context_update_l2_book',
+          reason: 'empty_data',
+          activeCoin,
+          updateApplied: false,
+        });
+      }
       return;
     }
+    const shouldLog = this.shouldLogContextDiagnostic(
+      this.lastL2BookDiagnosticAt,
+    );
     if (activeCoin === data.coin) {
       const currentBook = get(l2BookAtom());
       if (ContextJotaiActionsHyperliquid._isL2BookEqual(currentBook, data)) {
+        if (shouldLog) {
+          this.lastL2BookDiagnosticAt = Date.now();
+          defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+            source: 'ui',
+            event: 'context_update_l2_book',
+            reason: 'same_book',
+            activeCoin,
+            coinMatched: true,
+            currentBookCoinSet: !!currentBook?.coin,
+            updateApplied: false,
+            ...this.summarizeL2Book(data),
+          });
+        }
         return;
       }
       set(l2BookAtom(), data);
+      if (shouldLog) {
+        this.lastL2BookDiagnosticAt = Date.now();
+        defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+          source: 'ui',
+          event: 'context_update_l2_book',
+          reason: 'applied',
+          activeCoin,
+          coinMatched: true,
+          currentBookCoinSet: !!currentBook?.coin,
+          updateApplied: true,
+          ...this.summarizeL2Book(data),
+        });
+      }
     } else {
       const currentBook = get(l2BookAtom());
       if (currentBook?.coin && currentBook?.coin !== activeCoin) {
         set(l2BookAtom(), null);
+      }
+      if (shouldLog) {
+        this.lastL2BookDiagnosticAt = Date.now();
+        defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+          source: 'ui',
+          event: 'context_update_l2_book',
+          reason: 'coin_mismatch',
+          activeCoin,
+          coinMatched: false,
+          currentBookCoinSet: !!currentBook?.coin,
+          updateApplied: false,
+          ...this.summarizeL2Book(data),
+        });
       }
     }
   });
@@ -1291,6 +1386,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   });
 
   clearActiveAssetData = contextAtomMethod(async (get, set) => {
+    const currentBook = get(l2BookAtom());
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+      source: 'ui',
+      event: 'clear_active_asset_data',
+      currentBookCoinSet: !!currentBook?.coin,
+      updateApplied: true,
+    });
     set(l2BookAtom(), null);
     await perpsActiveAssetCtxAtom.set(undefined);
     await perpsActiveAssetDataAtom.set(undefined);
@@ -1340,6 +1442,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   // reset all data
   clearAllData = contextAtomMethod(async (get, set) => {
+    const currentBook = get(l2BookAtom());
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+      source: 'ui',
+      event: 'clear_all_data',
+      currentBookCoinSet: !!currentBook?.coin,
+      updateApplied: true,
+    });
     set(perpsAllMidsAtom(), null);
     set(perpsAllAssetCtxsAtom(), {
       assetCtxsByDex: [],

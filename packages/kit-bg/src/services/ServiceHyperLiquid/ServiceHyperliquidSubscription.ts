@@ -255,6 +255,25 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const currentAssetId =
       currentMode === 'spot' ? spotActiveAsset?.assetId : activeAsset?.assetId;
     let activeOrderBookOptions = await perpsActiveOrderBookOptionsAtom.get();
+    const orderBookCoinMatchesCurrent =
+      !activeOrderBookOptions?.coin ||
+      activeOrderBookOptions.coin === currentCoin;
+
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+      source: 'bg',
+      event: 'build_required_state',
+      tradingMode: currentMode,
+      activeAssetCoinSet: !!activeAsset?.coin,
+      spotActiveAssetCoinSet: !!spotActiveAsset?.coin,
+      activeAssetIdSet: activeAsset?.assetId !== undefined,
+      spotActiveAssetIdSet: spotActiveAsset?.assetId !== undefined,
+      currentSymbolSet: !!currentCoin,
+      currentAssetIdSet: currentAssetId !== undefined,
+      currentCoin,
+      orderBookCoin: activeOrderBookOptions?.coin,
+      orderBookCoinMatchesCurrent,
+      hasOrderBookOptions: !!activeOrderBookOptions,
+    });
 
     if (
       activeOrderBookOptions?.coin &&
@@ -351,6 +370,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       currentSpotSymbolSet: !!requiredSubInfo.params.currentSpotSymbol,
       currentUserSet: !!requiredSubInfo.params.currentUser,
       hasL2BookOptions: !!requiredSubInfo.params.l2BookOptions,
+      currentCoin: requiredSubInfo.params.currentSymbol,
       tradingMode: requiredSubInfo.params.tradingMode,
       spotEnabled: requiredSubInfo.params.spotEnabled,
       spotAssetCtxsEnabled: requiredSubInfo.params.spotAssetCtxsEnabled,
@@ -517,13 +537,49 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
   }
 
+  private _summarizeMarketPayload(
+    subscriptionType: ESubscriptionType,
+    data: unknown,
+  ) {
+    if (subscriptionType === ESubscriptionType.ALL_DEXS_ASSET_CTXS) {
+      const assetCtxs = (data as IWsAllDexsAssetCtxs | undefined)?.ctxs ?? [];
+      const ctxMap = new Map<string, unknown[]>();
+      assetCtxs.forEach(([dexName, ctxList]) => {
+        ctxMap.set(dexName, ctxList || []);
+      });
+      return {
+        assetCtxDexCount: assetCtxs.length,
+        assetCtxPerpCount: (ctxMap.get('') ?? ctxMap.get('perps') ?? []).length,
+        assetCtxXyzCount: (ctxMap.get('xyz') ?? []).length,
+      };
+    }
+
+    if (subscriptionType === ESubscriptionType.L2_BOOK) {
+      const levels = (data as IBook | undefined)?.levels ?? [];
+      return {
+        dataCoin: (data as IBook | undefined)?.coin,
+        l2BookSideCount: levels.length,
+        l2BookBidCount: levels[0]?.length ?? 0,
+        l2BookAskCount: levels[1]?.length ?? 0,
+      };
+    }
+
+    return {};
+  }
+
+  private _isCriticalMarketSubscription(
+    subscriptionType: ESubscriptionType,
+  ): boolean {
+    return (
+      subscriptionType === ESubscriptionType.ALL_DEXS_ASSET_CTXS ||
+      subscriptionType === ESubscriptionType.L2_BOOK
+    );
+  }
+
   private _logFirstCriticalSubscriptionData(
     subscriptionType: ESubscriptionType,
   ): void {
-    if (
-      subscriptionType !== ESubscriptionType.ALL_DEXS_ASSET_CTXS &&
-      subscriptionType !== ESubscriptionType.L2_BOOK
-    ) {
+    if (!this._isCriticalMarketSubscription(subscriptionType)) {
       return;
     }
     if (this._loggedFirstDataSubscriptionTypes.has(subscriptionType)) {
@@ -1810,6 +1866,32 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _showPerpsRenderStats = false;
 
+  private _lastCriticalDataDiagnosticAtByType = new Map<
+    ESubscriptionType,
+    number
+  >();
+
+  private _lastCriticalEmitDiagnosticAtByType = new Map<
+    ESubscriptionType,
+    number
+  >();
+
+  private _shouldLogThrottledCriticalDiagnostic(
+    cache: Map<ESubscriptionType, number>,
+    subscriptionType: ESubscriptionType,
+  ): boolean {
+    if (!this._isCriticalMarketSubscription(subscriptionType)) {
+      return false;
+    }
+    const now = Date.now();
+    const lastAt = cache.get(subscriptionType) ?? 0;
+    if (now - lastAt < 3000) {
+      return false;
+    }
+    cache.set(subscriptionType, now);
+    return true;
+  }
+
   async updateDevSettings() {
     const devSettings = await devSettingsPersistAtom.get();
     this._showPerpsRenderStats = !!(
@@ -1863,6 +1945,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       this._markSubscriptionActivity(subscriptionType, messageTimestamp);
       this._cacheMarketDataSnapshot(subscriptionType, data, messageTimestamp);
       this._logFirstCriticalSubscriptionData(subscriptionType);
+      if (
+        this._shouldLogThrottledCriticalDiagnostic(
+          this._lastCriticalDataDiagnosticAtByType,
+          subscriptionType,
+        )
+      ) {
+        defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+          source: 'bg',
+          event: 'critical_subscription_data_flow',
+          subscriptionType,
+          ...this._summarizeMarketPayload(subscriptionType, data),
+          disabled: this.subscriptionsHandlerDisabled,
+          disabledCount: this.subscriptionsHandlerDisabledCount,
+          lifecycleVersion: this._subscriptionLifecycleVersion,
+          activeCount: this._activeSubscriptions.size,
+        });
+      }
 
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
         // Cache allMids in background for spot balance USD calculation
@@ -2087,6 +2186,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     subscriptionType: ESubscriptionType,
     data: unknown,
   ): void {
+    if (
+      this._shouldLogThrottledCriticalDiagnostic(
+        this._lastCriticalEmitDiagnosticAtByType,
+        subscriptionType,
+      )
+    ) {
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostic({
+        source: 'bg',
+        event: 'emit_critical_data_update',
+        subscriptionType,
+        ...this._summarizeMarketPayload(subscriptionType, data),
+        disabled: this.subscriptionsHandlerDisabled,
+        disabledCount: this.subscriptionsHandlerDisabledCount,
+        lifecycleVersion: this._subscriptionLifecycleVersion,
+        activeCount: this._activeSubscriptions.size,
+      });
+    }
     appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
       type: SUBSCRIPTION_TYPE_INFO[subscriptionType].eventType,
       subType: subscriptionType,
