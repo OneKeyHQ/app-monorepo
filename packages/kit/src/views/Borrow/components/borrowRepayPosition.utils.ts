@@ -7,6 +7,7 @@ import {
   type IBorrowAsset,
   type IBorrowBalance,
 } from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 const collateralRepayProviderAllowlist = new Set<string>([
   EBorrowProviderEnum.Kamino,
@@ -124,6 +125,27 @@ export function filterUnsupportedAaveNativeReserveAssets<
         reserveAddress: asset.reserveAddress,
       }),
   );
+}
+
+export function buildBorrowTokenFromAsset({
+  asset,
+  networkId,
+}: {
+  asset?: IBorrowAsset | null;
+  networkId: string;
+}) {
+  if (!asset) {
+    return undefined;
+  }
+
+  const isNativeReserve = asset.reserveAddress === '';
+
+  return {
+    ...asset.token,
+    address: isNativeReserve ? '' : asset.token.address,
+    isNative: isNativeReserve,
+    networkId,
+  } as IToken;
 }
 
 export function resolveBorrowTokenApproveSpenderAddress({

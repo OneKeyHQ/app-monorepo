@@ -2279,21 +2279,21 @@ export interface IBorrowAsset {
     logoURI: string;
   };
   canBeCollateral?: boolean;
-  balance: {
+  balance?: {
     title: IEarnText;
     description: IEarnText;
   };
   walletBalance?: IBorrowBalance;
   available?: IBorrowBalance;
   borrowed?: IBorrowBalance;
-  supplied: {
+  supplied?: {
     title: IEarnText;
     description: IEarnText;
   };
-  apyDetail: IBorrowApy;
+  apyDetail?: IBorrowApy;
   platformBonusApy?: {
     title: IEarnText;
-    logoURI: string;
+    logoURI?: string;
   };
 }
 

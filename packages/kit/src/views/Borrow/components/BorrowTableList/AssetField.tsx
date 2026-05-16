@@ -12,7 +12,7 @@ type IAssetFieldProps = {
   canBeCollateral?: boolean;
   platformBonusApy?: {
     title: IEarnText;
-    logoURI: string;
+    logoURI?: string;
   };
 };
 
@@ -52,11 +52,13 @@ export const AssetField = ({
                 color="$textSuccess"
                 whiteSpace="nowrap"
               />
-              <Image
-                src={platformBonusApy.logoURI}
-                width="$3.5"
-                height="$3.5"
-              />
+              {platformBonusApy.logoURI ? (
+                <Image
+                  src={platformBonusApy.logoURI}
+                  width="$3.5"
+                  height="$3.5"
+                />
+              ) : null}
             </XStack>
           ) : null}
         </YStack>

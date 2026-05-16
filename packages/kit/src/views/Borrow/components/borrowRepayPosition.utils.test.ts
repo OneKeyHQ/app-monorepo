@@ -4,6 +4,7 @@ import type { IBorrowAsset } from '@onekeyhq/shared/types/staking';
 import {
   appendBorrowRepaySetupState,
   buildBorrowRepayPositionKey,
+  buildBorrowTokenFromAsset,
   filterUnsupportedAaveNativeReserveAssets,
   getBorrowAssetByReserveAddress,
   getBorrowRepayMaxInputBalance,
@@ -242,6 +243,52 @@ describe('borrowRepayPosition utils', () => {
         reserveAddress: undefined,
       }),
     ).toBeUndefined();
+  });
+
+  it('marks selected native reserve assets as native tokens', () => {
+    const nativeAsset = {
+      reserveAddress: '',
+      token: {
+        address: '0xWETH',
+        decimals: 18,
+        logoURI: 'eth.png',
+        name: 'Ether',
+        symbol: 'ETH',
+      },
+    } as IBorrowAsset;
+    const erc20Asset = {
+      reserveAddress: '0xUSDCReserve',
+      token: {
+        address: '0xUSDC',
+        decimals: 6,
+        logoURI: 'usdc.png',
+        name: 'USD Coin',
+        symbol: 'USDC',
+      },
+    } as IBorrowAsset;
+
+    expect(
+      buildBorrowTokenFromAsset({
+        asset: nativeAsset,
+        networkId: 'evm--1',
+      }),
+    ).toMatchObject({
+      address: '',
+      isNative: true,
+      networkId: 'evm--1',
+      symbol: 'ETH',
+    });
+    expect(
+      buildBorrowTokenFromAsset({
+        asset: erc20Asset,
+        networkId: 'evm--1',
+      }),
+    ).toMatchObject({
+      address: '0xUSDC',
+      isNative: false,
+      networkId: 'evm--1',
+      symbol: 'USDC',
+    });
   });
 
   it('invalidates request keys when setup state changes', () => {

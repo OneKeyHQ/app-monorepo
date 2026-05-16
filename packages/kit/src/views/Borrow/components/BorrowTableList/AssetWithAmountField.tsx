@@ -16,7 +16,7 @@ type IAssetWithAmountFieldProps = {
   showWalletIcon?: boolean;
   platformBonusApy?: {
     title: IEarnText;
-    logoURI: string;
+    logoURI?: string;
   };
 };
 
@@ -59,11 +59,13 @@ export const AssetWithAmountField = ({
                 color="$textSuccess"
                 whiteSpace="nowrap"
               />
-              <Image
-                src={platformBonusApy.logoURI}
-                width="$3.5"
-                height="$3.5"
-              />
+              {platformBonusApy.logoURI ? (
+                <Image
+                  src={platformBonusApy.logoURI}
+                  width="$3.5"
+                  height="$3.5"
+                />
+              ) : null}
             </XStack>
           ) : null}
           <XStack ai="center" gap="$1">
