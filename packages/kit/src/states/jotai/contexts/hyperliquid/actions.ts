@@ -2431,7 +2431,7 @@ export function useHyperliquidActions() {
   const updateOpenOrders = actions.updateOpenOrders.use();
   const updateAllDexsAssetCtxs = actions.updateAllDexsAssetCtxs.use();
 
-  return useRef({
+  const currentActions = {
     updateAllAssetsFiltered,
     updateAllMids,
     markAllAssetCtxsRequired,
@@ -2483,5 +2483,14 @@ export function useHyperliquidActions() {
     getMidPrice,
     switchTradeInstrument,
     setTradeRouteViewState,
-  });
+  };
+
+  const actionsRef = useRef(currentActions);
+
+  // The Perps context store can be recreated during native restart/route
+  // recovery. Keep long-lived event handlers writing to the currently mounted
+  // store instead of the one captured on first render.
+  actionsRef.current = currentActions;
+
+  return actionsRef;
 }
