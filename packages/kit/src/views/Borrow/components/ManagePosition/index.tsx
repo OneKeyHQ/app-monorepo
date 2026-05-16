@@ -96,6 +96,7 @@ export function ManagePosition(props: IManagePositionProps) {
     reserveAddress: borrowReserveAddress,
     amount: amountValue,
     isDisabled,
+    withdrawAll: baseState.isWithdrawAll,
     repayAll: baseState.isRepayAll,
   });
 

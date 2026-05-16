@@ -148,6 +148,30 @@ export function buildBorrowTokenFromAsset({
   } as IToken;
 }
 
+export function buildAaveNativeGatewayReceiveToken({
+  token,
+  nativeToken,
+  networkId,
+}: {
+  token?: IToken;
+  nativeToken?: IToken;
+  networkId: string;
+}) {
+  const baseToken = nativeToken ?? token;
+  if (!baseToken) {
+    return undefined;
+  }
+
+  return {
+    ...baseToken,
+    address: '',
+    isNative: true,
+    networkId,
+    name: nativeToken?.name ?? 'Ether',
+    symbol: nativeToken?.symbol ?? 'ETH',
+  } as IToken;
+}
+
 export function resolveBorrowTokenApproveSpenderAddress({
   providerName,
   marketAddress,

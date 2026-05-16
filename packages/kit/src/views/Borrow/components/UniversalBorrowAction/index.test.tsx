@@ -206,4 +206,31 @@ describe('useUniversalBorrowAction', () => {
     expect(result.current.isCheckAmountMessageError).toBe(true);
     expect(result.current.checkAmountLoading).toBe(false);
   });
+
+  it('passes withdrawAll to estimate fee without sending it to check amount', async () => {
+    renderHook(() =>
+      useUniversalBorrowAction({
+        ...baseParams,
+        action: 'withdraw',
+        withdrawAll: true,
+      }),
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(350);
+      await flushPromises();
+    });
+
+    expect(
+      backgroundMock.serviceStaking.getBorrowEstimateFee,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'withdraw',
+        withdrawAll: true,
+      }),
+    );
+    expect(
+      backgroundMock.serviceStaking.getBorrowCheckAmount.mock.calls[0][0],
+    ).not.toHaveProperty('withdrawAll');
+  });
 });

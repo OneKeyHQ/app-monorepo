@@ -11,6 +11,7 @@ import {
   type IRepayWithCollateralConfirmParams,
 } from '@onekeyhq/kit/src/views/Borrow/components/BorrowRepayPosition';
 import {
+  buildAaveNativeGatewayReceiveToken,
   buildBorrowTokenFromAsset,
   filterUnsupportedAaveNativeReserveAssets,
   getBorrowAssetByReserveAddress,
@@ -912,6 +913,13 @@ export const WithdrawSection = ({
           providerName: provider,
           reserveAddress,
         });
+      const receiveToken = shouldUnwrapNativeAaveReserve
+        ? buildAaveNativeGatewayReceiveToken({
+            token: effectiveToken,
+            nativeToken: tokenInfo?.nativeToken?.info,
+            networkId,
+          })
+        : effectiveToken;
 
       // Build tags array with both new borrow tag and legacy stakeTag for backward compatibility
       const buildTags = (actionType: 'withdraw' | 'repay'): string[] => {
@@ -965,7 +973,7 @@ export const WithdrawSection = ({
                 providerName: provider,
               }),
               protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-              receive: { token: effectiveToken, amount },
+              receive: { token: receiveToken ?? effectiveToken, amount },
               tags: buildTags('withdraw'),
             }
           : undefined,
@@ -984,6 +992,7 @@ export const WithdrawSection = ({
       onSuccess,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.stakeTag,
+      tokenInfo?.nativeToken?.info,
       unsupportedAaveNativeReserve,
     ],
   );

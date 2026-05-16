@@ -23,6 +23,7 @@ export type IUniversalBorrowActionParams = {
   reserveAddress: string;
   amount: string;
   isDisabled?: boolean;
+  withdrawAll?: boolean;
   repayAll?: boolean;
 };
 
@@ -50,6 +51,7 @@ function buildBorrowActionRequestKey({
   reserveAddress,
   amount,
   isDisabled,
+  withdrawAll,
   repayAll,
 }: IUniversalBorrowActionParams) {
   return [
@@ -61,6 +63,7 @@ function buildBorrowActionRequestKey({
     reserveAddress,
     amount,
     isDisabled ? 'disabled' : 'enabled',
+    action === 'withdraw' ? String(!!withdrawAll) : '',
     action === 'repay' ? String(!!repayAll) : '',
   ].join('|');
 }
@@ -74,6 +77,7 @@ export function useUniversalBorrowAction({
   reserveAddress,
   amount,
   isDisabled = false,
+  withdrawAll,
   repayAll,
 }: IUniversalBorrowActionParams): IUniversalBorrowActionState {
   const intl = useIntl();
@@ -183,6 +187,7 @@ export function useUniversalBorrowAction({
       reserveAddress,
       amount: normalizedAmount,
       isDisabled,
+      withdrawAll,
       repayAll,
     });
     transactionConfirmationRequestKeyRef.current = requestKey;
@@ -200,6 +205,7 @@ export function useUniversalBorrowAction({
     provider,
     repayAll,
     reserveAddress,
+    withdrawAll,
     isDisabled,
     isReady,
     debouncedFetchTransactionConfirmation,
@@ -228,6 +234,7 @@ export function useUniversalBorrowAction({
         accountId,
         action,
         amount: amountNumber.toFixed(),
+        withdrawAll: action === 'withdraw' ? withdrawAll : undefined,
         repayAll: action === 'repay' ? repayAll : undefined,
       });
     },
@@ -241,6 +248,7 @@ export function useUniversalBorrowAction({
       provider,
       repayAll,
       reserveAddress,
+      withdrawAll,
     ],
   );
 
@@ -286,6 +294,7 @@ export function useUniversalBorrowAction({
       reserveAddress,
       amount,
       isDisabled,
+      withdrawAll,
       repayAll,
     });
     estimateFeeRequestKeyRef.current = requestKey;
@@ -303,6 +312,7 @@ export function useUniversalBorrowAction({
     provider,
     repayAll,
     reserveAddress,
+    withdrawAll,
     isDisabled,
     isReady,
     debouncedFetchEstimateFeeResp,
@@ -393,6 +403,7 @@ export function useUniversalBorrowAction({
       reserveAddress,
       amount,
       isDisabled,
+      withdrawAll,
       repayAll,
     });
     checkAmountRequestKeyRef.current = requestKey;
@@ -414,6 +425,7 @@ export function useUniversalBorrowAction({
     provider,
     repayAll,
     reserveAddress,
+    withdrawAll,
     isDisabled,
     isReady,
     checkAmount,

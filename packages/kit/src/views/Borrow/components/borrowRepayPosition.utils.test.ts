@@ -3,6 +3,7 @@ import type { IBorrowAsset } from '@onekeyhq/shared/types/staking';
 
 import {
   appendBorrowRepaySetupState,
+  buildAaveNativeGatewayReceiveToken,
   buildBorrowRepayPositionKey,
   buildBorrowTokenFromAsset,
   filterUnsupportedAaveNativeReserveAssets,
@@ -288,6 +289,29 @@ describe('borrowRepayPosition utils', () => {
       isNative: false,
       networkId: 'evm--1',
       symbol: 'USDC',
+    });
+  });
+
+  it('builds native ETH receive token for Aave native gateway tx summaries', () => {
+    expect(
+      buildAaveNativeGatewayReceiveToken({
+        token: {
+          address: '0xWETH',
+          decimals: 18,
+          isNative: false,
+          logoURI: 'weth.png',
+          name: 'Wrapped Ether',
+          networkId: 'evm--1',
+          symbol: 'WETH',
+        },
+        networkId: 'evm--1',
+      }),
+    ).toMatchObject({
+      address: '',
+      isNative: true,
+      name: 'Ether',
+      networkId: 'evm--1',
+      symbol: 'ETH',
     });
   });
 
