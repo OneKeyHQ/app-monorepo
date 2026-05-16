@@ -791,6 +791,7 @@ export type ISwapQuoteEventData =
 export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   userAddress: string;
   receivingAddress: string;
+  refundAddress?: string;
   slippagePercentage: number;
   toTokenAmount?: string;
   provider: string;

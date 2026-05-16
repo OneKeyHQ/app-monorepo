@@ -1940,6 +1940,8 @@ export function useSwapBuildTx() {
           }
           buildUserAddress =
             btcSwapSingleAddressUtxoPlan?.userAddress ?? fromUserAddress;
+          const buildRefundAddress =
+            btcSwapSingleAddressUtxoPlan?.refundAddress;
           buildSwapRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
             fromToken: data.fromTokenInfo,
             toToken: data.toTokenInfo,
@@ -1947,6 +1949,7 @@ export function useSwapBuildTx() {
             fromTokenAmount: data.fromAmount,
             slippagePercentage: slippageItem.value,
             receivingAddress: toUserAddress ?? '',
+            refundAddress: buildRefundAddress,
             userAddress: buildUserAddress,
             provider: data?.info.provider,
             accountId: fromAccountId ?? '',

@@ -937,6 +937,7 @@ export default class ServiceSwap extends ServiceBase {
     toTokenAmount,
     provider,
     receivingAddress,
+    refundAddress,
     slippagePercentage,
     quoteResultCtx,
     accountId,
@@ -951,6 +952,7 @@ export default class ServiceSwap extends ServiceBase {
     provider: string;
     userAddress: string;
     receivingAddress: string;
+    refundAddress?: string;
     slippagePercentage: number;
     accountId?: string;
     quoteResultCtx?: any;
@@ -969,6 +971,7 @@ export default class ServiceSwap extends ServiceBase {
       provider,
       userAddress,
       receivingAddress,
+      refundAddress,
       slippagePercentage,
       quoteResultCtx,
       kind,
@@ -2582,6 +2585,7 @@ export default class ServiceSwap extends ServiceBase {
     userAddress,
     provider,
     receivingAddress,
+    refundAddress,
     slippagePercentage,
     accountId,
     protocol,
@@ -2594,6 +2598,7 @@ export default class ServiceSwap extends ServiceBase {
     provider: string;
     userAddress: string;
     receivingAddress: string;
+    refundAddress?: string;
     slippagePercentage: number;
     accountId?: string;
     protocol: EProtocolOfExchange;
@@ -2622,6 +2627,7 @@ export default class ServiceSwap extends ServiceBase {
       provider,
       userAddress,
       receivingAddress,
+      refundAddress,
       slippagePercentage,
       kind,
       walletType,

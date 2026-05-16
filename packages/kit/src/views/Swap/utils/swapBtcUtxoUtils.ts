@@ -20,6 +20,7 @@ export type IBtcSwapUtxo = {
 
 export type IBtcSwapSingleAddressUtxoPlan = {
   userAddress: string;
+  refundAddress: string;
   selectedUtxoKeys: string[];
   utxoSelectionStrategy: EUtxoSelectionStrategy.ForceSelected;
 };
@@ -229,6 +230,7 @@ export function buildBtcSingleAddressUtxoPlanFromUtxos({
   if (candidate) {
     return {
       userAddress: candidate.address,
+      refundAddress: candidate.address,
       selectedUtxoKeys: candidate.selectedUtxos.map(buildUtxoKey),
       utxoSelectionStrategy: EUtxoSelectionStrategy.ForceSelected,
     };

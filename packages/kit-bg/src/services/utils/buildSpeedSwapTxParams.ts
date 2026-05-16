@@ -12,6 +12,7 @@ export function buildSpeedSwapTxParams({
   userAddress,
   provider,
   receivingAddress,
+  refundAddress,
   slippagePercentage,
   protocol,
   kind,
@@ -24,6 +25,7 @@ export function buildSpeedSwapTxParams({
   userAddress: string;
   provider: string;
   receivingAddress: string;
+  refundAddress?: IFetchBuildTxParams['refundAddress'];
   slippagePercentage: number;
   protocol: EProtocolOfExchange;
   kind: ESwapQuoteKind;
@@ -40,6 +42,7 @@ export function buildSpeedSwapTxParams({
     provider,
     userAddress,
     receivingAddress,
+    refundAddress,
     slippagePercentage,
     kind,
     walletType,

@@ -913,6 +913,7 @@ export function useSpeedSwapActions(props: {
         }
         const buildUserAddress =
           btcSwapSingleAddressUtxoPlan?.userAddress ?? userAddress;
+        const buildRefundAddress = btcSwapSingleAddressUtxoPlan?.refundAddress;
 
         const buildRes =
           await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx({
@@ -922,6 +923,7 @@ export function useSpeedSwapActions(props: {
             provider,
             userAddress: buildUserAddress,
             receivingAddress: userAddress,
+            refundAddress: buildRefundAddress,
             slippagePercentage: slippage,
             accountId: netAccountRes.result.id,
             protocol: EProtocolOfExchange.SWAP,
@@ -2243,6 +2245,13 @@ export function useSpeedSwapActions(props: {
           accountAddress: snapshot.accountAddress,
           receivingAddress: snapshot.swapInfo.receivingAddress,
         });
+        const signedBuildRefundAddress = shouldUseBtcSingleAddressUtxoPlan({
+          networkId: snapshot.swapInfo.sender.token.networkId,
+          provider: signedQuoteResult.info.provider,
+          providerName: signedQuoteResult.info.providerName,
+        })
+          ? snapshot.accountAddress
+          : undefined;
         const buildRes =
           await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx({
             fromToken: snapshot.swapInfo.sender.token,
@@ -2252,6 +2261,7 @@ export function useSpeedSwapActions(props: {
             provider: signedQuoteResult.info.provider,
             userAddress: snapshot.accountAddress,
             receivingAddress: snapshot.swapInfo.receivingAddress,
+            refundAddress: signedBuildRefundAddress,
             slippagePercentage: signedQuoteResult.slippage ?? slippage,
             quoteResultCtx: signedQuoteResult.quoteResultCtx,
             accountId: snapshot.accountId,

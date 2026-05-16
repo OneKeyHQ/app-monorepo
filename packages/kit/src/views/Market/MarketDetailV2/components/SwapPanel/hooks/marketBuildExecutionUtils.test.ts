@@ -131,6 +131,7 @@ describe('marketBuildExecutionUtils', () => {
       userAddress: 'bc1p-current',
       btcSwapSingleAddressUtxoPlan: {
         userAddress: 'bc1p-input',
+        refundAddress: 'bc1p-input',
         selectedUtxoKeys: ['tx-a:0'],
         utxoSelectionStrategy: EUtxoSelectionStrategy.ForceSelected,
       },

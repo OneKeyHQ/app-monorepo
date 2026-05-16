@@ -59,6 +59,7 @@ describe('swapBtcUtxoUtils', () => {
 
     expect(plan).toEqual({
       userAddress: 'bc1p-b',
+      refundAddress: 'bc1p-b',
       selectedUtxoKeys: ['tx-b:1'],
       utxoSelectionStrategy: EUtxoSelectionStrategy.ForceSelected,
     });
@@ -111,6 +112,7 @@ describe('swapBtcUtxoUtils', () => {
 
     expect(plan).toEqual({
       userAddress: 'bc1p-a',
+      refundAddress: 'bc1p-a',
       selectedUtxoKeys: ['tx-a:0', 'tx-b:1'],
       utxoSelectionStrategy: EUtxoSelectionStrategy.ForceSelected,
     });
@@ -139,6 +141,7 @@ describe('swapBtcUtxoUtils', () => {
 
     expect(plan).toEqual({
       userAddress: 'bc1p-b',
+      refundAddress: 'bc1p-b',
       selectedUtxoKeys: ['tx-b:0'],
       utxoSelectionStrategy: EUtxoSelectionStrategy.ForceSelected,
     });
