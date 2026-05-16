@@ -31,7 +31,6 @@ describe('buildSpeedSwapTxParams', () => {
       userAddress: '0xuser',
       provider: 'Swap1inchFusion',
       receivingAddress: '0xreceiver',
-      refundAddress: '0xrefund',
       slippagePercentage: 0.5,
       protocol: EProtocolOfExchange.SWAP,
       kind: ESwapQuoteKind.SELL,
@@ -53,7 +52,6 @@ describe('buildSpeedSwapTxParams', () => {
       provider: 'Swap1inchFusion',
       userAddress: '0xuser',
       receivingAddress: '0xreceiver',
-      refundAddress: '0xrefund',
       slippagePercentage: 0.5,
       kind: ESwapQuoteKind.SELL,
       walletType: 'hd',
@@ -64,5 +62,23 @@ describe('buildSpeedSwapTxParams', () => {
       },
     });
     expect(result).not.toHaveProperty('toTokenAmount');
+    expect(result).not.toHaveProperty('refundAddress');
+  });
+
+  it('forwards an explicit refund address for providers that need one', () => {
+    const result = buildSpeedSwapTxParams({
+      fromToken,
+      toToken,
+      fromTokenAmount: '1.23',
+      userAddress: '0xuser',
+      provider: 'SwapSwft',
+      receivingAddress: '0xreceiver',
+      refundAddress: '0xrefund',
+      slippagePercentage: 0.5,
+      protocol: EProtocolOfExchange.SWAP,
+      kind: ESwapQuoteKind.SELL,
+    });
+
+    expect(result.refundAddress).toBe('0xrefund');
   });
 });

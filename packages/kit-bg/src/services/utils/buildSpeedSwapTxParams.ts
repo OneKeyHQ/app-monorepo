@@ -42,7 +42,7 @@ export function buildSpeedSwapTxParams({
     provider,
     userAddress,
     receivingAddress,
-    refundAddress,
+    ...(refundAddress ? { refundAddress } : {}),
     slippagePercentage,
     kind,
     walletType,
