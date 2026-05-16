@@ -129,16 +129,15 @@ export function AccountSelectorWalletListSideBar({
     accountSelectorStatus?.passphraseProtectionChangedAt ?? 0
   }`;
 
-  // Sidebar SWR cache. Invalidation strategy:
-  //   - Wallet/Account CRUD all funnel through WalletUpdate / AccountUpdate
+  // Sidebar SWR cache. Invalidation is handled outside this component:
+  //   - Wallet/Account CRUD funnels through WalletUpdate / AccountUpdate
   //     (see ServiceAccount emits) — listeners below call reloadWallets,
   //     which runs the fetcher and overwrites this slot via usePromiseResult.
   //   - HardwareFeaturesUpdate / passphrase toggle flow through
   //     reloadWalletsHook -> useEffect refetch -> same overwrite path.
-  //   - ServiceApp.resetApp wipes coldStartCacheStorage globally.
-  //   - ServiceE2E.clearWalletsAndAccounts emits WalletClear only, so we
-  //     add an explicit WalletClear listener below; otherwise the dev wipe
-  //     would leave a stale wallet list painted from MMKV.
+  //   - Bulk wipes (ServiceApp.resetApp, ServiceE2E.clearWalletsAndAccounts)
+  //     clear the cold-start cache in the bg service before emitting the
+  //     wipe event, so this hook reads an empty MMKV on next mount.
   const walletsSwrKey = swrKeys.walletListSideBar({ hideNonBackedUpWallet });
 
   const {
@@ -285,14 +284,9 @@ export function AccountSelectorWalletListSideBar({
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
     appEventBus.on(EAppEventBusNames.AccountUpdate, fn);
-    // ServiceE2E.clearWalletsAndAccounts emits only WalletClear (no
-    // WalletUpdate / coldStartCacheStorage.clearAll), so without this
-    // the SWR slot would keep painting deleted wallets after a dev wipe.
-    appEventBus.on(EAppEventBusNames.WalletClear, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
       appEventBus.off(EAppEventBusNames.AccountUpdate, fn);
-      appEventBus.off(EAppEventBusNames.WalletClear, fn);
     };
   }, [reloadWallets]);
 

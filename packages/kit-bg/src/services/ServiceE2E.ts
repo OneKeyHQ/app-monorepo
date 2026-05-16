@@ -12,6 +12,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
@@ -62,6 +63,15 @@ class ServiceE2E extends ServiceBase {
     await localDb.resetContext();
 
     await this.backgroundApi.simpleDb.accountSelector.clearRawData();
+
+    // Wipe the cold-start SWR cache here so consumers (sidebar wallet list,
+    // accountSelectorList, allNetworksCompatible, etc.) don't paint deleted
+    // wallets from MMKV on the next cold open. ServiceApp.resetApp clears
+    // the entire coldStartCacheStorage; this path is narrower (wallets
+    // only), so we just drop SWR entries. flushNow persists the empty
+    // snapshot immediately — clearAll alone debounces the MMKV write 2s.
+    swrCacheUtils.clearAll();
+    swrCacheUtils.flushNow();
 
     appEventBus.emit(EAppEventBusNames.WalletClear, undefined);
   }
