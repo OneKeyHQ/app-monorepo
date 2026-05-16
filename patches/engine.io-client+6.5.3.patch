@@ -26,10 +26,24 @@ diff --git a/node_modules/engine.io-client/build/cjs/socket.js b/node_modules/en
          if ("opening" === this.readyState ||
              "open" === this.readyState ||
              "closing" === this.readyState) {
-@@ -398,9 +409,13 @@
+@@ -398,9 +409,27 @@
       */
      resetPingTimeout() {
          this.clearTimeoutFn(this.pingTimeoutTimer);
++        // [OneKey fix] onPacket calls resetPingTimeout BEFORE the switch case
++        // dispatches to onHandshake for the initial "open" packet. At that
++        // moment this.pingInterval / this.pingTimeout are still null, so the
++        // computed delay is `null + null === 0`. setTimeout(fn, 0) schedules
++        // a macrotask that, on RN bg Hermes (split-thread), races past the
++        // subsequent clearTimeout from onHandshake's own resetPingTimeout
++        // call — firing onClose("ping timeout") almost immediately and
++        // looping the engine forever. When the values aren't known yet, skip
++        // scheduling entirely; onHandshake will call us again with the real
++        // server-provided values, which is the only legitimate schedule.
++        if (this.pingInterval == null || this.pingTimeout == null) {
++            __onekeyTrace("engine.resetPingTimeout.skipped", { reason: "pingInterval-or-pingTimeout-null", pingInterval: this.pingInterval, pingTimeout: this.pingTimeout, readyState: this.readyState, sid: this.id });
++            return;
++        }
 +        var delay = this.pingInterval + this.pingTimeout;
 +        var scheduledAt = Date.now();
 +        __onekeyTrace("engine.resetPingTimeout.schedule", { delay: delay, pingInterval: this.pingInterval, pingTimeout: this.pingTimeout, readyState: this.readyState, sid: this.id });
@@ -41,7 +55,7 @@ diff --git a/node_modules/engine.io-client/build/cjs/socket.js b/node_modules/en
          if (this.opts.autoUnref) {
              this.pingTimeoutTimer.unref();
          }
-@@ -504,7 +519,9 @@
+@@ -504,7 +533,9 @@
              fn = options;
              options = null;
          }
@@ -51,7 +65,7 @@ diff --git a/node_modules/engine.io-client/build/cjs/socket.js b/node_modules/en
              return;
          }
          options = options || {};
-@@ -577,6 +594,9 @@
+@@ -577,6 +608,9 @@
       * @private
       */
      onClose(reason, description) {
