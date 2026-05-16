@@ -136,6 +136,7 @@ type IMarketReviewExecutionSnapshot = {
   buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams;
   swapInfo: ISwapTxInfo;
   buildRes?: IFetchBuildTxResponse;
+  btcSwapSingleAddressUtxoPlan?: IBtcSwapSingleAddressUtxoPlan;
   // customPriorityFee is owned by the swapStepNetFeeLevel atom; never snapshot
   // it here, or a cleared preset fee would resurrect via `?? snapshot.value`.
 };
@@ -979,6 +980,7 @@ export function useSpeedSwapActions(props: {
           transferInfo,
           swapInfo,
           userAddress: buildUserAddress,
+          btcSwapSingleAddressUtxoPlan,
         };
       } finally {
         setSpeedSwapBuildTxLoading(false);
@@ -1337,7 +1339,14 @@ export function useSpeedSwapActions(props: {
 
       const currentSpenderAddress = effectiveSpenderAddress;
       const [
-        { buildRes, encodedTx, transferInfo, swapInfo, userAddress },
+        {
+          buildRes,
+          encodedTx,
+          transferInfo,
+          swapInfo,
+          userAddress,
+          btcSwapSingleAddressUtxoPlan,
+        },
         allowanceState,
       ] = await Promise.all([
         buildSpeedSwapTxData({
@@ -1398,6 +1407,7 @@ export function useSpeedSwapActions(props: {
         } as ISendTxBaseParams & IBuildUnsignedTxParams,
         swapInfo,
         buildRes,
+        btcSwapSingleAddressUtxoPlan,
       };
 
       return buildMarketReviewStateFromSnapshot(
@@ -2250,7 +2260,8 @@ export function useSpeedSwapActions(props: {
           provider: signedQuoteResult.info.provider,
           providerName: signedQuoteResult.info.providerName,
         })
-          ? snapshot.accountAddress
+          ? (snapshot.btcSwapSingleAddressUtxoPlan?.refundAddress ??
+            snapshot.accountAddress)
           : undefined;
         const buildRes =
           await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx({
@@ -2282,6 +2293,7 @@ export function useSpeedSwapActions(props: {
             fromAmount:
               signedQuoteResult.fromAmount ?? snapshot.swapInfo.sender.amount,
             userAddress: snapshot.accountAddress,
+            btcSwapSingleAddressUtxoPlan: snapshot.btcSwapSingleAddressUtxoPlan,
             accountId: snapshot.accountId,
           });
         const buildResFinal = mergeMarketBuildResultWithQuote({
@@ -2332,6 +2344,7 @@ export function useSpeedSwapActions(props: {
           } as ISendTxBaseParams & IBuildUnsignedTxParams,
           swapInfo,
           buildRes: buildResFinal,
+          btcSwapSingleAddressUtxoPlan: snapshot.btcSwapSingleAddressUtxoPlan,
         };
 
         if (shouldPersistSignedOrder) {

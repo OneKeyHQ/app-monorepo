@@ -151,6 +151,51 @@ describe('marketBuildExecutionUtils', () => {
     expect(result.swapInfo.receivingAddress).toBe('0xreceive');
   });
 
+  it('keeps selected BTC UTXOs on signed SWFT provider rebuilds', async () => {
+    const result = await buildMarketExecutionPayload({
+      accountId: 'account-1',
+      buildRes: createBuildRes({
+        swftOrder: {
+          platformAddr: 'bc1p-platform',
+          depositCoinAmt: '0.001',
+          memo: 'memo-1',
+        } as never,
+        result: {
+          ...createBuildRes().result,
+          quoteId: 'quote-1',
+          swapShouldSignedData: {
+            unSignedInfo: {},
+          } as never,
+        },
+      }),
+      currentFromToken: fromToken,
+      currentToToken: toToken,
+      fromAmount: '0.001',
+      receivingAddress: '0xreceive',
+      slippage: 1,
+      userAddress: 'bc1p-input',
+      btcSwapSingleAddressUtxoPlan: {
+        userAddress: 'bc1p-input',
+        refundAddress: 'bc1p-input',
+        selectedUtxoKeys: ['tx-a:0'],
+        utxoSelectionStrategy: EUtxoSelectionStrategy.ForceSelected,
+      },
+      onBuildOkxSwapEncodedTx: jest.fn(),
+      onBuildLMSwapEncodedTx: jest.fn(),
+      onBuildInternalDappTx: jest.fn(),
+    });
+
+    expect(result.skipSendTransAction).toBe(true);
+    expect(result.transferInfo).toEqual(
+      expect.objectContaining({
+        from: 'bc1p-input',
+        selectedUtxoKeys: ['tx-a:0'],
+        utxoSelectionStrategy: EUtxoSelectionStrategy.ForceSelected,
+      }),
+    );
+    expect(result.swapInfo.accountAddress).toBe('bc1p-input');
+  });
+
   it('marks signed orders to skip on-chain sending and preserves quote-based order ids', async () => {
     const result = await buildMarketExecutionPayload({
       accountId: 'account-1',
