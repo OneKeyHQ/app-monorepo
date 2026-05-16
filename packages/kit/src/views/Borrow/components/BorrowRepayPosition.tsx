@@ -652,6 +652,14 @@ function RepayWithCollateralForm({
           setCheckAmountAlerts([]);
           setCheckAmountResult(false);
         }
+      } catch {
+        if (checkAmountRequestKeyRef.current === requestKey) {
+          setCheckAmountMessage(
+            intl.formatMessage({ id: ETranslations.global_network_error }),
+          );
+          setCheckAmountAlerts([]);
+          setCheckAmountResult(false);
+        }
       } finally {
         if (checkAmountRequestKeyRef.current === requestKey) {
           setCheckAmountLoading(false);

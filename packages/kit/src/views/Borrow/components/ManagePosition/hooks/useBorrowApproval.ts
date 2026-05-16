@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
 import { Dialog, Toast } from '@onekeyhq/components';
-import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useTrackTokenAllowance } from '@onekeyhq/kit/src/views/Staking/hooks/useUtilsHooks';
@@ -30,6 +29,12 @@ import type {
   IBorrowDelegationApproveTarget,
   IManagePositionApproval,
 } from '../types';
+
+type IBorrowApprovalEncodedTx = NonNullable<
+  Parameters<
+    ReturnType<typeof useSignatureConfirm>['navigationToTxConfirm']
+  >[0]['encodedTx']
+>;
 
 function getBorrowApprovalSubmitErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -69,11 +74,11 @@ function buildBorrowApproveInfo({
   };
 }
 
-function parseBorrowApprovalEncodedTx(tx: string): IEncodedTx {
+function parseBorrowApprovalEncodedTx(tx: string): IBorrowApprovalEncodedTx {
   try {
     const parsed = JSON.parse(tx) as unknown;
     if (parsed && typeof parsed === 'object') {
-      return parsed as IEncodedTx;
+      return parsed as IBorrowApprovalEncodedTx;
     }
   } catch {
     // Ignore parsing errors and fallback to raw string
