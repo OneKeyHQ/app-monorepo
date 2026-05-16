@@ -1,14 +1,21 @@
 package so.onekey.components.nativehometabs
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.util.LruCache
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
@@ -20,11 +27,14 @@ import com.facebook.react.R as ReactR
 import com.facebook.react.uimanager.PixelUtil
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.URL
+import java.util.concurrent.Executors
 import kotlin.math.abs
 import kotlin.math.max
 
 private const val ROW_TYPE_TEXT = 1
 private const val ROW_TYPE_SLOT = 2
+private const val ROW_TYPE_TOKEN = 3
 
 private data class OKHomeRow(
   val key: String,
@@ -32,6 +42,17 @@ private data class OKHomeRow(
   val title: String,
   val subtitle: String?,
   val slotId: String?,
+  val iconUri: String?,
+  val value: String?,
+  val status: String?,
+  val tokenSymbol: String?,
+  val tokenName: String?,
+  val tokenBalance: String?,
+  val tokenFiatValue: String?,
+  val tokenPrice: String?,
+  val tokenChange24h: String?,
+  val tokenChange24hColor: String?,
+  val tokenNetworkName: String?,
   val estimatedHeightPx: Int,
   val raw: String,
 )
@@ -105,6 +126,12 @@ class OKNativeHomeTabsView(context: Context) : FrameLayout(context) {
   var onEndReached: ((tabKey: String, itemCount: Int) -> Unit)? = null
   var onRowPress: ((tabKey: String, rowKey: String, rowType: String) -> Unit)? =
     null
+  var onRowAction: ((
+    tabKey: String,
+    rowKey: String,
+    rowType: String,
+    action: String,
+  ) -> Unit)? = null
   var onVisibleRowsChange: ((tabKey: String, rowKeysJson: String) -> Unit)? =
     null
   var onNativeError: ((code: String, message: String) -> Unit)? = null
@@ -213,10 +240,13 @@ class OKNativeHomeTabsView(context: Context) : FrameLayout(context) {
       return
     }
     try {
+      val shouldPreserveActiveTab = schema != null
       schema = JSONObject(schemaJson)
-      activeTabKey = schema?.optString("activeTabKey", activeTabKey)
-        ?: activeTabKey
       tabs = parseTabs(schema?.optJSONArray("tabs") ?: JSONArray())
+      activeTabKey = resolveSchemaActiveTabKey(
+        schema?.optString("activeTabKey", activeTabKey),
+        shouldPreserveActiveTab,
+      )
       rebuildTabs()
       submitActiveRows()
       syncRefreshingState()
@@ -270,8 +300,10 @@ class OKNativeHomeTabsView(context: Context) : FrameLayout(context) {
       val currentSchema = schema ?: JSONObject()
       schema = mergeJson(currentSchema, JSONObject(patchJson))
       tabs = parseTabs(schema?.optJSONArray("tabs") ?: JSONArray())
-      activeTabKey = schema?.optString("activeTabKey", activeTabKey)
-        ?: activeTabKey
+      activeTabKey = resolveSchemaActiveTabKey(
+        schema?.optString("activeTabKey", activeTabKey),
+        preserveCurrent = true,
+      )
       rebuildTabs()
       submitActiveRows()
       syncRefreshingState()
@@ -423,7 +455,43 @@ class OKNativeHomeTabsView(context: Context) : FrameLayout(context) {
         ),
       )
     }
+    if (shouldShowSettingsButton()) {
+      val settingsButton = OKHomeSettingsButton(context)
+      settingsButton.setOnClickListener {
+        onRowAction?.invoke(
+          activeTabKey,
+          "tabBar:settings",
+          "tabBar",
+          "settings",
+        )
+      }
+      tabBar.addView(
+        settingsButton,
+        LinearLayout.LayoutParams(
+          PixelUtil.toPixelFromDIP(44.0).toInt(),
+          PixelUtil.toPixelFromDIP(44.0).toInt(),
+        ),
+      )
+    }
     requestLayout()
+  }
+
+  private fun shouldShowSettingsButton(): Boolean =
+    schema?.optJSONObject("tabBar")?.optBoolean("showSettingsButton", false)
+      ?: false
+
+  private fun resolveSchemaActiveTabKey(
+    requestedTabKey: String?,
+    preserveCurrent: Boolean,
+  ): String {
+    val enabledTabs = tabs.filter { it.enabled }
+    if (preserveCurrent && enabledTabs.any { it.key == activeTabKey }) {
+      return activeTabKey
+    }
+    requestedTabKey
+      ?.takeIf { requested -> enabledTabs.any { it.key == requested } }
+      ?.let { return it }
+    return enabledTabs.firstOrNull()?.key ?: activeTabKey
   }
 
   private fun setActiveTab(tabKey: String, source: String) {
@@ -470,6 +538,8 @@ class OKNativeHomeTabsView(context: Context) : FrameLayout(context) {
     val type = row.optString("type", "text")
     val title = when (type) {
       "token" -> row.optString("symbol", "Token")
+      "defi" -> row.optString("title", "DeFi")
+      "nft" -> row.optString("title", "NFT")
       "history" -> row.optString("title", "History")
       "loading" -> "Loading"
       "rnSlot" -> ""
@@ -482,6 +552,12 @@ class OKNativeHomeTabsView(context: Context) : FrameLayout(context) {
         row.optString("change24h"),
       ).filter { it.isNotBlank() }.joinToString("  ")
       "history" -> listOf(row.optString("subtitle"), row.optString("value"))
+        .filter { it.isNotBlank() }
+        .joinToString("  ")
+      "defi" -> listOf(row.optString("subtitle"), row.optString("networkName"))
+        .filter { it.isNotBlank() }
+        .joinToString("  ")
+      "nft" -> listOf(row.optString("subtitle"), row.optString("networkName"))
         .filter { it.isNotBlank() }
         .joinToString("  ")
       "rnSlot" -> null
@@ -497,6 +573,24 @@ class OKNativeHomeTabsView(context: Context) : FrameLayout(context) {
       title = title,
       subtitle = subtitle,
       slotId = row.optString("slotId").takeIf { type == "rnSlot" && it.isNotBlank() },
+      iconUri = when (type) {
+        "token" -> row.optString("iconUri")
+        "defi" -> row.optString("iconUri")
+        "nft" -> row.optString("imageUri")
+        "history" -> row.optString("iconUri")
+        else -> ""
+      }.takeIf { it.isNotBlank() },
+      value = row.optString("value").takeIf { it.isNotBlank() },
+      status = row.optString("status").takeIf { it.isNotBlank() },
+      tokenSymbol = row.optString("symbol").takeIf { type == "token" && it.isNotBlank() },
+      tokenName = row.optString("name").takeIf { type == "token" && it.isNotBlank() },
+      tokenBalance = row.optString("balance").takeIf { type == "token" && it.isNotBlank() },
+      tokenFiatValue = row.optString("fiatValue").takeIf { type == "token" && it.isNotBlank() },
+      tokenPrice = row.optString("price").takeIf { type == "token" && it.isNotBlank() },
+      tokenChange24h = row.optString("change24h").takeIf { type == "token" && it.isNotBlank() },
+      tokenChange24hColor = row.optString("change24hColor")
+        .takeIf { type == "token" && it.isNotBlank() },
+      tokenNetworkName = row.optString("networkName").takeIf { type == "token" && it.isNotBlank() },
       estimatedHeightPx = PixelUtil.toPixelFromDIP(estimatedHeight).toInt(),
       raw = row.toString(),
     )
@@ -584,13 +678,61 @@ class OKNativeHomeTabsView(context: Context) : FrameLayout(context) {
   }
 }
 
+private class OKHomeSettingsButton(context: Context) : View(context) {
+  private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    color = Color.rgb(144, 144, 144)
+    strokeWidth = PixelUtil.toPixelFromDIP(2.4).toFloat()
+    strokeCap = Paint.Cap.ROUND
+    style = Paint.Style.STROKE
+  }
+  private val knobPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    color = Color.rgb(144, 144, 144)
+    style = Paint.Style.FILL
+  }
+
+  init {
+    isClickable = true
+    isFocusable = true
+  }
+
+  override fun onDraw(canvas: Canvas) {
+    super.onDraw(canvas)
+    val width = width.toFloat()
+    val centerX = width / 2f
+    val startX = centerX - PixelUtil.toPixelFromDIP(13.0).toFloat()
+    val endX = centerX + PixelUtil.toPixelFromDIP(13.0).toFloat()
+    val rowGap = PixelUtil.toPixelFromDIP(8.0).toFloat()
+    val firstY = height / 2f - rowGap
+    val knobRadius = PixelUtil.toPixelFromDIP(3.6).toFloat()
+    drawSlider(canvas, startX, endX, firstY, startX + PixelUtil.toPixelFromDIP(8.0).toFloat(), knobRadius)
+    drawSlider(canvas, startX, endX, firstY + rowGap, endX - PixelUtil.toPixelFromDIP(8.0).toFloat(), knobRadius)
+    drawSlider(canvas, startX, endX, firstY + rowGap * 2f, centerX, knobRadius)
+  }
+
+  private fun drawSlider(
+    canvas: Canvas,
+    startX: Float,
+    endX: Float,
+    y: Float,
+    knobX: Float,
+    knobRadius: Float,
+  ) {
+    canvas.drawLine(startX, y, endX, y, paint)
+    canvas.drawCircle(knobX, y, knobRadius, knobPaint)
+  }
+}
+
 private class OKHomeRowsAdapter(
   private val onPress: (OKHomeRow) -> Unit,
   private val onBindSlot: (slotId: String, container: FrameLayout) -> Unit,
   private val onRecycleSlot: (container: FrameLayout) -> Unit,
 ) : ListAdapter<OKHomeRow, RecyclerView.ViewHolder>(DIFF) {
   override fun getItemViewType(position: Int): Int =
-    if (getItem(position).type == "rnSlot") ROW_TYPE_SLOT else ROW_TYPE_TEXT
+    when (getItem(position).type) {
+      "rnSlot" -> ROW_TYPE_SLOT
+      "token", "defi", "nft", "history" -> ROW_TYPE_TOKEN
+      else -> ROW_TYPE_TEXT
+    }
 
   override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
     if (viewType == ROW_TYPE_SLOT) {
@@ -600,6 +742,10 @@ private class OKHomeRowsAdapter(
         RecyclerView.LayoutParams.WRAP_CONTENT,
       )
       return SlotViewHolder(container)
+    }
+
+    if (viewType == ROW_TYPE_TOKEN) {
+      return createTokenViewHolder(parent)
     }
 
     val container = LinearLayout(parent.context)
@@ -621,11 +767,125 @@ private class OKHomeRowsAdapter(
     return RowViewHolder(container, title, subtitle)
   }
 
+  private fun createTokenViewHolder(parent: ViewGroup): TokenRowViewHolder {
+    val context = parent.context
+    val row = LinearLayout(context)
+    row.orientation = LinearLayout.HORIZONTAL
+    row.gravity = Gravity.CENTER_VERTICAL
+    row.setPadding(
+      PixelUtil.toPixelFromDIP(20.0).toInt(),
+      PixelUtil.toPixelFromDIP(10.0).toInt(),
+      PixelUtil.toPixelFromDIP(20.0).toInt(),
+      PixelUtil.toPixelFromDIP(10.0).toInt(),
+    )
+
+    val avatarFrame = FrameLayout(context)
+    val avatarImage = ImageView(context)
+    avatarImage.scaleType = ImageView.ScaleType.CENTER_CROP
+    avatarImage.visibility = View.GONE
+    val avatar = TextView(context)
+    avatar.gravity = Gravity.CENTER
+    avatar.textSize = 18f
+    avatar.typeface = Typeface.DEFAULT_BOLD
+    avatar.setTextColor(Color.WHITE)
+    avatarFrame.addView(
+      avatarImage,
+      FrameLayout.LayoutParams(
+        FrameLayout.LayoutParams.MATCH_PARENT,
+        FrameLayout.LayoutParams.MATCH_PARENT,
+      ),
+    )
+    avatarFrame.addView(
+      avatar,
+      FrameLayout.LayoutParams(
+        FrameLayout.LayoutParams.MATCH_PARENT,
+        FrameLayout.LayoutParams.MATCH_PARENT,
+      ),
+    )
+    row.addView(
+      avatarFrame,
+      LinearLayout.LayoutParams(
+        PixelUtil.toPixelFromDIP(44.0).toInt(),
+        PixelUtil.toPixelFromDIP(44.0).toInt(),
+      ),
+    )
+
+    val middle = LinearLayout(context)
+    middle.orientation = LinearLayout.VERTICAL
+    middle.setPadding(PixelUtil.toPixelFromDIP(12.0).toInt(), 0, 0, 0)
+    val symbol = TextView(context)
+    symbol.textSize = 17f
+    symbol.typeface = Typeface.DEFAULT_BOLD
+    symbol.setTextColor(Color.rgb(32, 32, 32))
+    symbol.maxLines = 1
+    val detail = TextView(context)
+    detail.textSize = 14f
+    detail.setTextColor(Color.rgb(112, 112, 112))
+    detail.maxLines = 1
+    middle.addView(symbol)
+    middle.addView(detail)
+    row.addView(
+      middle,
+      LinearLayout.LayoutParams(
+        0,
+        LinearLayout.LayoutParams.WRAP_CONTENT,
+        1f,
+      ),
+    )
+
+    val right = LinearLayout(context)
+    right.orientation = LinearLayout.VERTICAL
+    right.gravity = Gravity.END
+    val balance = TextView(context)
+    balance.gravity = Gravity.END
+    balance.textSize = 17f
+    balance.setTextColor(Color.rgb(32, 32, 32))
+    balance.maxLines = 1
+    val fiat = TextView(context)
+    fiat.gravity = Gravity.END
+    fiat.textSize = 14f
+    fiat.setTextColor(Color.rgb(112, 112, 112))
+    fiat.maxLines = 1
+    right.addView(balance)
+    right.addView(fiat)
+    row.addView(
+      right,
+      LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.WRAP_CONTENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT,
+      ),
+    )
+    return TokenRowViewHolder(row, avatar, avatarImage, symbol, detail, balance, fiat)
+  }
+
   override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
     val row = getItem(position)
     if (holder is SlotViewHolder) {
       holder.container.minimumHeight = row.estimatedHeightPx
       row.slotId?.let { onBindSlot(it, holder.container) }
+      return
+    }
+
+    if (holder is TokenRowViewHolder) {
+      val symbol = row.tokenSymbol ?: row.title
+      bindAvatar(holder, row.iconUri, symbol)
+      holder.symbol.text = symbol
+      holder.detail.text = when (row.type) {
+        "token" -> listOfNotNull(
+          row.tokenName,
+          row.tokenPrice,
+          row.tokenChange24h,
+          row.tokenNetworkName,
+        ).filter { it.isNotBlank() }.joinToString("  ")
+        else -> row.subtitle.orEmpty()
+      }
+      holder.detail.setTextColor(changeColor(row.tokenChange24hColor))
+      holder.balance.text = row.tokenBalance ?: row.value.orEmpty()
+      holder.fiat.text = row.tokenFiatValue ?: row.status.orEmpty()
+      holder.itemView.minimumHeight = row.estimatedHeightPx
+      holder.itemView.setOnClickListener {
+        onPress(row)
+      }
       return
     }
 
@@ -654,10 +914,82 @@ private class OKHomeRowsAdapter(
     super.onViewRecycled(holder)
   }
 
+  private fun bindAvatar(
+    holder: TokenRowViewHolder,
+    iconUri: String?,
+    fallback: String,
+  ) {
+    holder.avatar.text = fallback.take(1).uppercase()
+    holder.avatar.background = createAvatarBackground(fallback)
+    holder.avatar.visibility = View.VISIBLE
+    holder.avatarImage.visibility = View.GONE
+    holder.avatarImage.setImageDrawable(null)
+    holder.avatarImage.tag = iconUri
+    if (iconUri.isNullOrBlank() || !iconUri.startsWith("http")) {
+      return
+    }
+    val cached = IMAGE_CACHE.get(iconUri)
+    if (cached != null) {
+      holder.avatarImage.setImageBitmap(cached)
+      holder.avatarImage.visibility = View.VISIBLE
+      holder.avatar.visibility = View.GONE
+      return
+    }
+    IMAGE_EXECUTOR.execute {
+      try {
+        val bitmap = URL(iconUri).openStream().use { BitmapFactory.decodeStream(it) }
+        if (bitmap != null) {
+          IMAGE_CACHE.put(iconUri, bitmap)
+          holder.avatarImage.post {
+            if (holder.avatarImage.tag == iconUri) {
+              holder.avatarImage.setImageBitmap(bitmap)
+              holder.avatarImage.visibility = View.VISIBLE
+              holder.avatar.visibility = View.GONE
+            }
+          }
+        }
+      } catch (_: Exception) {
+        // Ignore image failures and keep the deterministic native placeholder.
+      }
+    }
+  }
+
+  private fun createAvatarBackground(symbol: String): GradientDrawable {
+    val hueSeed = symbol.fold(0) { acc, char -> acc + char.code }
+    val colors = intArrayOf(
+      Color.rgb(66, 133, 244),
+      Color.rgb(251, 188, 5),
+      Color.rgb(52, 168, 83),
+      Color.rgb(234, 67, 53),
+      Color.rgb(103, 58, 183),
+    )
+    return GradientDrawable().apply {
+      shape = GradientDrawable.OVAL
+      setColor(colors[hueSeed.mod(colors.size)])
+    }
+  }
+
+  private fun changeColor(color: String?): Int =
+    when (color) {
+      "positive" -> Color.rgb(0, 128, 96)
+      "negative" -> Color.rgb(229, 0, 36)
+      else -> Color.rgb(112, 112, 112)
+    }
+
   class RowViewHolder(
     view: View,
     val title: TextView,
     val subtitle: TextView,
+  ) : RecyclerView.ViewHolder(view)
+
+  class TokenRowViewHolder(
+    view: View,
+    val avatar: TextView,
+    val avatarImage: ImageView,
+    val symbol: TextView,
+    val detail: TextView,
+    val balance: TextView,
+    val fiat: TextView,
   ) : RecyclerView.ViewHolder(view)
 
   class SlotViewHolder(
@@ -665,6 +997,9 @@ private class OKHomeRowsAdapter(
   ) : RecyclerView.ViewHolder(container)
 
   companion object {
+    private val IMAGE_CACHE = object : LruCache<String, Bitmap>(64) {}
+    private val IMAGE_EXECUTOR = Executors.newFixedThreadPool(2)
+
     private val DIFF = object : DiffUtil.ItemCallback<OKHomeRow>() {
       override fun areItemsTheSame(oldItem: OKHomeRow, newItem: OKHomeRow) =
         oldItem.key == newItem.key && oldItem.type == newItem.type

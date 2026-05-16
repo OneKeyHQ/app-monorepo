@@ -37,7 +37,27 @@ export type IHomeNativeHistoryRow = IHomeNativeRowBase & {
   title: string;
   subtitle: string;
   value: string;
+  iconUri?: string;
   status: 'pending' | 'success' | 'failed' | 'unknown';
+};
+
+export type IHomeNativeDeFiRow = IHomeNativeRowBase & {
+  type: 'defi';
+  protocolKey: string;
+  title: string;
+  subtitle?: string;
+  iconUri?: string;
+  networkName?: string;
+  value: string;
+};
+
+export type IHomeNativeNftRow = IHomeNativeRowBase & {
+  type: 'nft';
+  nftKey: string;
+  title: string;
+  subtitle?: string;
+  imageUri?: string;
+  networkName?: string;
 };
 
 export type IHomeNativeEmptyRow = IHomeNativeRowBase & {
@@ -62,6 +82,8 @@ export type IHomeNativeRow =
   | IHomeNativeTextRow
   | IHomeNativeTokenRow
   | IHomeNativeHistoryRow
+  | IHomeNativeDeFiRow
+  | IHomeNativeNftRow
   | IHomeNativeEmptyRow
   | IHomeNativeLoadingRow
   | IHomeNativeRnSlotRow;

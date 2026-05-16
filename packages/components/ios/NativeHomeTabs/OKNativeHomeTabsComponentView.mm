@@ -15,6 +15,17 @@ using namespace facebook::react;
 static NSString *const OKHomeHeaderNativeID = @"ok-home-header";
 static NSString *const OKHomeSlotNativeIDPrefix = @"ok-home-slot:";
 
+static NSCache<NSString *, UIImage *> *OKHomeImageCache()
+{
+  static NSCache<NSString *, UIImage *> *cache;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    cache = [NSCache new];
+    cache.countLimit = 128;
+  });
+  return cache;
+}
+
 static NSString *OKStringFromStdString(const std::string &value)
 {
   return [NSString stringWithUTF8String:value.c_str()];
@@ -38,8 +49,17 @@ static OKNativeHomeTabsEventEmitter::OnTabChangeSource OKTabChangeSourceFromNSSt
 
 @interface OKNativeHomeTabsRowCell : UICollectionViewCell
 @property (nonatomic, strong) UIStackView *textStack;
+@property (nonatomic, strong) UIStackView *tokenStack;
 @property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UILabel *subtitleLabel;
+@property (nonatomic, strong) UIView *tokenIconContainer;
+@property (nonatomic, strong) UIImageView *tokenIconImageView;
+@property (nonatomic, strong) UILabel *tokenIconLabel;
+@property (nonatomic, strong) UILabel *tokenTitleLabel;
+@property (nonatomic, strong) UILabel *tokenDetailLabel;
+@property (nonatomic, strong) UILabel *tokenBalanceLabel;
+@property (nonatomic, strong) UILabel *tokenValueLabel;
+@property (nonatomic, copy) NSString *currentIconURI;
 - (void)configureWithRow:(NSDictionary *)row;
 - (void)prepareForSlotWithEstimatedHeight:(CGFloat)height;
 @end
@@ -71,11 +91,99 @@ static OKNativeHomeTabsEventEmitter::OnTabChangeSource OKTabChangeSourceFromNSSt
     [_textStack addArrangedSubview:_subtitleLabel];
     [self.contentView addSubview:_textStack];
 
+    _tokenStack = [UIStackView new];
+    _tokenStack.axis = UILayoutConstraintAxisHorizontal;
+    _tokenStack.alignment = UIStackViewAlignmentCenter;
+    _tokenStack.spacing = 12;
+    _tokenStack.layoutMargins = UIEdgeInsetsMake(10, 20, 10, 20);
+    _tokenStack.layoutMarginsRelativeArrangement = YES;
+    _tokenStack.translatesAutoresizingMaskIntoConstraints = NO;
+    _tokenStack.hidden = YES;
+
+    _tokenIconContainer = [UIView new];
+    _tokenIconContainer.clipsToBounds = YES;
+    _tokenIconContainer.layer.cornerRadius = 22;
+    [_tokenIconContainer.widthAnchor constraintEqualToConstant:44].active = YES;
+    [_tokenIconContainer.heightAnchor constraintEqualToConstant:44].active = YES;
+
+    _tokenIconImageView = [UIImageView new];
+    _tokenIconImageView.contentMode = UIViewContentModeScaleAspectFill;
+    _tokenIconImageView.translatesAutoresizingMaskIntoConstraints = NO;
+    _tokenIconImageView.hidden = YES;
+    [_tokenIconContainer addSubview:_tokenIconImageView];
+
+    _tokenIconLabel = [UILabel new];
+    _tokenIconLabel.textAlignment = NSTextAlignmentCenter;
+    _tokenIconLabel.font = [UIFont systemFontOfSize:18 weight:UIFontWeightSemibold];
+    _tokenIconLabel.textColor = UIColor.whiteColor;
+    _tokenIconLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    [_tokenIconContainer addSubview:_tokenIconLabel];
+
+    UIStackView *tokenTextStack = [UIStackView new];
+    tokenTextStack.axis = UILayoutConstraintAxisVertical;
+    tokenTextStack.spacing = 2;
+
+    _tokenTitleLabel = [UILabel new];
+    _tokenTitleLabel.numberOfLines = 1;
+    _tokenTitleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+    _tokenTitleLabel.textColor = UIColor.labelColor;
+    _tokenTitleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
+
+    _tokenDetailLabel = [UILabel new];
+    _tokenDetailLabel.numberOfLines = 1;
+    _tokenDetailLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+    _tokenDetailLabel.textColor = UIColor.secondaryLabelColor;
+    _tokenDetailLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
+
+    [tokenTextStack addArrangedSubview:_tokenTitleLabel];
+    [tokenTextStack addArrangedSubview:_tokenDetailLabel];
+
+    UIStackView *tokenValueStack = [UIStackView new];
+    tokenValueStack.axis = UILayoutConstraintAxisVertical;
+    tokenValueStack.alignment = UIStackViewAlignmentTrailing;
+    tokenValueStack.spacing = 2;
+    [tokenValueStack setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    [tokenValueStack setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+
+    _tokenBalanceLabel = [UILabel new];
+    _tokenBalanceLabel.numberOfLines = 1;
+    _tokenBalanceLabel.textAlignment = NSTextAlignmentRight;
+    _tokenBalanceLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+    _tokenBalanceLabel.textColor = UIColor.labelColor;
+    _tokenBalanceLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightRegular];
+
+    _tokenValueLabel = [UILabel new];
+    _tokenValueLabel.numberOfLines = 1;
+    _tokenValueLabel.textAlignment = NSTextAlignmentRight;
+    _tokenValueLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+    _tokenValueLabel.textColor = UIColor.secondaryLabelColor;
+    _tokenValueLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
+
+    [tokenValueStack addArrangedSubview:_tokenBalanceLabel];
+    [tokenValueStack addArrangedSubview:_tokenValueLabel];
+
+    [_tokenStack addArrangedSubview:_tokenIconContainer];
+    [_tokenStack addArrangedSubview:tokenTextStack];
+    [_tokenStack addArrangedSubview:tokenValueStack];
+    [self.contentView addSubview:_tokenStack];
+
     [NSLayoutConstraint activateConstraints:@[
       [_textStack.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
       [_textStack.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor],
       [_textStack.topAnchor constraintEqualToAnchor:self.contentView.topAnchor],
       [_textStack.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor],
+      [_tokenStack.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
+      [_tokenStack.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor],
+      [_tokenStack.topAnchor constraintEqualToAnchor:self.contentView.topAnchor],
+      [_tokenStack.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor],
+      [_tokenIconImageView.leadingAnchor constraintEqualToAnchor:_tokenIconContainer.leadingAnchor],
+      [_tokenIconImageView.trailingAnchor constraintEqualToAnchor:_tokenIconContainer.trailingAnchor],
+      [_tokenIconImageView.topAnchor constraintEqualToAnchor:_tokenIconContainer.topAnchor],
+      [_tokenIconImageView.bottomAnchor constraintEqualToAnchor:_tokenIconContainer.bottomAnchor],
+      [_tokenIconLabel.leadingAnchor constraintEqualToAnchor:_tokenIconContainer.leadingAnchor],
+      [_tokenIconLabel.trailingAnchor constraintEqualToAnchor:_tokenIconContainer.trailingAnchor],
+      [_tokenIconLabel.topAnchor constraintEqualToAnchor:_tokenIconContainer.topAnchor],
+      [_tokenIconLabel.bottomAnchor constraintEqualToAnchor:_tokenIconContainer.bottomAnchor],
     ]];
   }
 
@@ -86,21 +194,32 @@ static OKNativeHomeTabsEventEmitter::OnTabChangeSource OKTabChangeSourceFromNSSt
 {
   [super prepareForReuse];
   for (UIView *view in self.contentView.subviews.copy) {
-    if (view != _textStack) {
+    if (view != _textStack && view != _tokenStack) {
       [view removeFromSuperview];
     }
   }
   _textStack.hidden = NO;
+  _tokenStack.hidden = YES;
+  _tokenIconImageView.image = nil;
+  _tokenIconImageView.hidden = YES;
+  _tokenIconLabel.hidden = NO;
+  _currentIconURI = nil;
   self.contentView.frame = self.bounds;
 }
 
 - (void)configureWithRow:(NSDictionary *)row
 {
   NSString *type = [row[@"type"] isKindOfClass:NSString.class] ? row[@"type"] : @"text";
+  if ([type isEqualToString:@"token"] || [type isEqualToString:@"defi"] || [type isEqualToString:@"nft"] || [type isEqualToString:@"history"]) {
+    [self configureTokenWithRow:row];
+    return;
+  }
+
   NSString *title = [self titleForRow:row type:type];
   NSString *subtitle = [self subtitleForRow:row type:type];
 
   _textStack.hidden = NO;
+  _tokenStack.hidden = YES;
   _titleLabel.text = title ?: type;
   _titleLabel.font = [type isEqualToString:@"sectionHeader"]
     ? [UIFont systemFontOfSize:20 weight:UIFontWeightSemibold]
@@ -113,9 +232,132 @@ static OKNativeHomeTabsEventEmitter::OnTabChangeSource OKTabChangeSourceFromNSSt
 - (void)prepareForSlotWithEstimatedHeight:(CGFloat)height
 {
   _textStack.hidden = YES;
+  _tokenStack.hidden = YES;
   CGRect frame = self.contentView.frame;
   frame.size.height = MAX(height, 1);
   self.contentView.frame = frame;
+}
+
+- (void)configureTokenWithRow:(NSDictionary *)row
+{
+  _textStack.hidden = YES;
+  _tokenStack.hidden = NO;
+
+  NSString *type = [row[@"type"] isKindOfClass:NSString.class] ? row[@"type"] : @"text";
+  NSString *symbol = [type isEqualToString:@"token"]
+    ? [self stringValueForKey:@"symbol" row:row fallback:@"Token"]
+    : [self stringValueForKey:@"title" row:row fallback:type];
+  NSString *name = [type isEqualToString:@"token"]
+    ? [self stringValueForKey:@"name" row:row fallback:nil]
+    : [self stringValueForKey:@"subtitle" row:row fallback:nil];
+  NSString *price = [type isEqualToString:@"token"] ? [self stringValueForKey:@"price" row:row fallback:nil] : nil;
+  NSString *change24h = [type isEqualToString:@"token"] ? [self stringValueForKey:@"change24h" row:row fallback:nil] : nil;
+  NSString *networkName = [self stringValueForKey:@"networkName" row:row fallback:nil];
+  NSString *balance = [type isEqualToString:@"token"]
+    ? [self stringValueForKey:@"balance" row:row fallback:@""]
+    : [self stringValueForKey:@"value" row:row fallback:@""];
+  NSString *fiatValue = [type isEqualToString:@"token"]
+    ? [self stringValueForKey:@"fiatValue" row:row fallback:@""]
+    : [self stringValueForKey:@"status" row:row fallback:@""];
+  NSString *iconURI = [type isEqualToString:@"nft"]
+    ? [self stringValueForKey:@"imageUri" row:row fallback:nil]
+    : [self stringValueForKey:@"iconUri" row:row fallback:nil];
+  NSString *change24hColor = [self stringValueForKey:@"change24hColor" row:row fallback:@"neutral"];
+
+  [self bindIconWithURI:iconURI fallback:symbol];
+  _tokenTitleLabel.text = symbol;
+  _tokenBalanceLabel.text = balance;
+  _tokenValueLabel.text = fiatValue;
+
+  NSMutableArray<NSString *> *parts = [NSMutableArray array];
+  for (NSString *value in @[ name ?: @"", price ?: @"", change24h ?: @"", networkName ?: @"" ]) {
+    if (value.length > 0) {
+      [parts addObject:value];
+    }
+  }
+  _tokenDetailLabel.text = [parts componentsJoinedByString:@"  "];
+  _tokenDetailLabel.textColor = [self changeColorForValue:change24hColor];
+}
+
+- (void)bindIconWithURI:(NSString *)iconURI fallback:(NSString *)fallback
+{
+  _currentIconURI = iconURI ?: @"";
+  _tokenIconLabel.text = fallback.length > 0 ? [[fallback substringToIndex:1] uppercaseString] : @"";
+  _tokenIconLabel.backgroundColor = [self avatarBackgroundColorForSymbol:fallback];
+  _tokenIconImageView.hidden = YES;
+  _tokenIconImageView.image = nil;
+  _tokenIconLabel.hidden = NO;
+
+  if (iconURI.length == 0 || ![iconURI hasPrefix:@"http"]) {
+    return;
+  }
+
+  UIImage *cachedImage = [OKHomeImageCache() objectForKey:iconURI];
+  if (cachedImage) {
+    _tokenIconImageView.image = cachedImage;
+    _tokenIconImageView.hidden = NO;
+    _tokenIconLabel.hidden = YES;
+    return;
+  }
+
+  NSURL *url = [NSURL URLWithString:iconURI];
+  if (!url) {
+    return;
+  }
+  __weak OKNativeHomeTabsRowCell *weakSelf = self;
+  NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+    if (error || data.length == 0) {
+      return;
+    }
+    UIImage *image = [UIImage imageWithData:data];
+    if (!image) {
+      return;
+    }
+    [OKHomeImageCache() setObject:image forKey:iconURI];
+    dispatch_async(dispatch_get_main_queue(), ^{
+      __strong OKNativeHomeTabsRowCell *strongSelf = weakSelf;
+      if (!strongSelf || ![strongSelf.currentIconURI isEqualToString:iconURI]) {
+        return;
+      }
+      strongSelf.tokenIconImageView.image = image;
+      strongSelf.tokenIconImageView.hidden = NO;
+      strongSelf.tokenIconLabel.hidden = YES;
+    });
+  }];
+  [task resume];
+}
+
+- (NSString *)stringValueForKey:(NSString *)key row:(NSDictionary *)row fallback:(NSString *)fallback
+{
+  NSString *value = [row[key] isKindOfClass:NSString.class] ? row[key] : nil;
+  return value.length > 0 ? value : fallback;
+}
+
+- (UIColor *)changeColorForValue:(NSString *)value
+{
+  if ([value isEqualToString:@"positive"]) {
+    return [UIColor colorWithRed:0 green:0.5 blue:0.38 alpha:1];
+  }
+  if ([value isEqualToString:@"negative"]) {
+    return [UIColor colorWithRed:0.9 green:0 blue:0.14 alpha:1];
+  }
+  return UIColor.secondaryLabelColor;
+}
+
+- (UIColor *)avatarBackgroundColorForSymbol:(NSString *)symbol
+{
+  NSArray<UIColor *> *colors = @[
+    [UIColor colorWithRed:0.26 green:0.52 blue:0.96 alpha:1],
+    [UIColor colorWithRed:0.98 green:0.74 blue:0.02 alpha:1],
+    [UIColor colorWithRed:0.2 green:0.66 blue:0.33 alpha:1],
+    [UIColor colorWithRed:0.92 green:0.26 blue:0.21 alpha:1],
+    [UIColor colorWithRed:0.4 green:0.23 blue:0.72 alpha:1],
+  ];
+  NSUInteger seed = 0;
+  for (NSUInteger index = 0; index < symbol.length; index += 1) {
+    seed += [symbol characterAtIndex:index];
+  }
+  return colors[seed % colors.count];
 }
 
 - (NSString *)titleForRow:(NSDictionary *)row type:(NSString *)type
@@ -125,6 +367,9 @@ static OKNativeHomeTabsEventEmitter::OnTabChangeSource OKTabChangeSourceFromNSSt
   }
   if ([type isEqualToString:@"history"]) {
     return [row[@"title"] isKindOfClass:NSString.class] ? row[@"title"] : @"History";
+  }
+  if ([type isEqualToString:@"defi"]) {
+    return [row[@"title"] isKindOfClass:NSString.class] ? row[@"title"] : @"DeFi";
   }
   if ([type isEqualToString:@"loading"]) {
     return @"Loading";
@@ -244,7 +489,7 @@ static OKNativeHomeTabsEventEmitter::OnTabChangeSource OKTabChangeSourceFromNSSt
     _tabBar.axis = UILayoutConstraintAxisHorizontal;
     _tabBar.spacing = 12;
     _tabBar.alignment = UIStackViewAlignmentCenter;
-    _tabBar.distribution = UIStackViewDistributionFillEqually;
+    _tabBar.distribution = UIStackViewDistributionFill;
     _tabBar.layoutMargins = UIEdgeInsetsMake(8, 16, 8, 16);
     _tabBar.layoutMarginsRelativeArrangement = YES;
     _tabBar.backgroundColor = UIColor.systemBackgroundColor;
@@ -340,7 +585,7 @@ static OKNativeHomeTabsEventEmitter::OnTabChangeSource OKTabChangeSourceFromNSSt
     return;
   }
   _schema = [self dictionaryByMergingBase:_schema ?: @{} patch:json];
-  [self applyCurrentSchemaPreservingActiveTab:NO];
+  [self applyCurrentSchemaPreservingActiveTab:YES];
 }
 
 - (void)endRefreshing:(NSString *)tabKey
@@ -412,8 +657,9 @@ static OKNativeHomeTabsEventEmitter::OnTabChangeSource OKTabChangeSourceFromNSSt
     return;
   }
 
+  BOOL shouldPreserveActiveTab = _schema != nil;
   _schema = (NSDictionary *)json;
-  [self applyCurrentSchemaPreservingActiveTab:NO];
+  [self applyCurrentSchemaPreservingActiveTab:shouldPreserveActiveTab];
 }
 
 - (void)applyCurrentSchemaPreservingActiveTab:(BOOL)preserveActiveTab
@@ -421,10 +667,10 @@ static OKNativeHomeTabsEventEmitter::OnTabChangeSource OKTabChangeSourceFromNSSt
   NSString *nextActiveTabKey = [_schema[@"activeTabKey"] isKindOfClass:NSString.class]
     ? _schema[@"activeTabKey"]
     : @"portfolio";
-  if (!preserveActiveTab) {
-    _activeTabKey = nextActiveTabKey;
-  }
   _tabs = [_schema[@"tabs"] isKindOfClass:NSArray.class] ? _schema[@"tabs"] : @[];
+  if (!preserveActiveTab || ![self isEnabledTab:_activeTabKey]) {
+    _activeTabKey = [self resolvedActiveTabKey:nextActiveTabKey];
+  }
   [self rebuildTabBar];
   [self rebuildRows];
   [self syncRefreshingState];
@@ -496,6 +742,26 @@ static OKNativeHomeTabsEventEmitter::OnTabChangeSource OKTabChangeSourceFromNSSt
     [button addTarget:self action:@selector(handleTabButtonPress:) forControlEvents:UIControlEventTouchUpInside];
     [_tabBar addArrangedSubview:button];
   }
+
+  if ([self shouldShowSettingsButton]) {
+    UIView *spacer = [UIView new];
+    [spacer setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
+    [_tabBar addArrangedSubview:spacer];
+
+    UIButton *settingsButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    UIImage *image = [UIImage systemImageNamed:@"slider.horizontal.3"];
+    if (image) {
+      [settingsButton setImage:image forState:UIControlStateNormal];
+    } else {
+      [settingsButton setTitle:@"..." forState:UIControlStateNormal];
+    }
+    settingsButton.tintColor = UIColor.secondaryLabelColor;
+    settingsButton.accessibilityIdentifier = @"native-home-tab-settings";
+    [settingsButton.widthAnchor constraintEqualToConstant:44].active = YES;
+    [settingsButton.heightAnchor constraintEqualToConstant:44].active = YES;
+    [settingsButton addTarget:self action:@selector(handleSettingsButtonPress) forControlEvents:UIControlEventTouchUpInside];
+    [_tabBar addArrangedSubview:settingsButton];
+  }
 }
 
 - (void)handleTabButtonPress:(UIButton *)sender
@@ -505,6 +771,11 @@ static OKNativeHomeTabsEventEmitter::OnTabChangeSource OKTabChangeSourceFromNSSt
     NSString *key = enabledTabs[sender.tag][@"key"];
     [self setActiveTabKey:key source:@"tap"];
   }
+}
+
+- (void)handleSettingsButtonPress
+{
+  [self emitRowAction:@"tabBar:settings" rowType:@"tabBar" action:@"settings"];
 }
 
 - (void)rebuildRows
@@ -592,6 +863,23 @@ static OKNativeHomeTabsEventEmitter::OnTabChangeSource OKTabChangeSourceFromNSSt
   return NO;
 }
 
+- (NSString *)resolvedActiveTabKey:(NSString *)requestedTabKey
+{
+  if ([self isEnabledTab:requestedTabKey]) {
+    return requestedTabKey;
+  }
+  NSArray<NSDictionary *> *enabledTabs = [self enabledTabs];
+  NSDictionary *firstTab = enabledTabs.firstObject;
+  NSString *firstKey = [firstTab[@"key"] isKindOfClass:NSString.class] ? firstTab[@"key"] : nil;
+  return firstKey.length > 0 ? firstKey : _activeTabKey;
+}
+
+- (BOOL)shouldShowSettingsButton
+{
+  NSDictionary *tabBar = [_schema[@"tabBar"] isKindOfClass:NSDictionary.class] ? _schema[@"tabBar"] : @{};
+  return [tabBar[@"showSettingsButton"] boolValue];
+}
+
 - (CGFloat)currentHeaderHeight
 {
   CGFloat measuredHeight = [_headerContainer systemLayoutSizeFittingSize:CGSizeMake(self.bounds.size.width, UIViewNoIntrinsicMetric)].height;
@@ -614,7 +902,7 @@ static OKNativeHomeTabsEventEmitter::OnTabChangeSource OKTabChangeSourceFromNSSt
   if ([type isEqualToString:@"sectionHeader"]) {
     return 56;
   }
-  if ([type isEqualToString:@"token"] || [type isEqualToString:@"history"]) {
+  if ([type isEqualToString:@"token"] || [type isEqualToString:@"defi"] || [type isEqualToString:@"history"]) {
     return 72;
   }
   if ([type isEqualToString:@"rnSlot"]) {
@@ -772,6 +1060,21 @@ static OKNativeHomeTabsEventEmitter::OnTabChangeSource OKTabChangeSourceFromNSSt
     .rowType = OKStdStringFromNSString(rowType),
   };
   emitter->onRowPress(event);
+}
+
+- (void)emitRowAction:(NSString *)rowKey rowType:(NSString *)rowType action:(NSString *)action
+{
+  (void)action;
+  auto emitter = std::dynamic_pointer_cast<const OKNativeHomeTabsEventEmitter>(_eventEmitter);
+  if (!emitter) {
+    return;
+  }
+  OKNativeHomeTabsEventEmitter::OnRowAction event = {
+    .tabKey = OKStdStringFromNSString(_activeTabKey),
+    .rowKey = OKStdStringFromNSString(rowKey),
+    .rowType = OKStdStringFromNSString(rowType),
+  };
+  emitter->onRowAction(event);
 }
 
 - (void)emitVisibleRows:(NSString *)rowKeysJson

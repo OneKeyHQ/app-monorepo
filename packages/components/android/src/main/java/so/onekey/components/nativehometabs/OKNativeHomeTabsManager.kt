@@ -56,6 +56,20 @@ class OKNativeHomeTabsManager(
           ),
         )
     }
+    view.onRowAction = { tabKey, rowKey, rowType, action ->
+      UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
+        ?.dispatchEvent(
+          OKHomeRowEvent(
+            surfaceId,
+            view.id,
+            "topRowAction",
+            tabKey,
+            rowKey,
+            rowType,
+            action,
+          ),
+        )
+    }
     view.onVisibleRowsChange = { tabKey, rowKeysJson ->
       UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
         ?.dispatchEvent(
