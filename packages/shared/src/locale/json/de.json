@@ -4345,7 +4345,7 @@
   "swap_account.to_address": "{addrss}",
   "swap_account.to_address_edit": " (bearbeitet)",
   "swap_account.to_address_edit_button": "Zurücksetzen",
-  "swap_history.all_history": "Alle Activitäten",
+  "swap_history.all_history": "Alle Aktivitäten",
   "swap_history.all_history_content": "Dadurch wird der gesamte lokale Verlauf gelöscht.",
   "swap_history.all_history_title": "Verlauf löschen",
   "swap_history.amount_received": "+{amount} {token}",
