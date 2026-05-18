@@ -277,17 +277,23 @@ export function usePromiseResult<T>(
             const { r, nonce } = await methodWithNonce({
               nonce: requestNonce,
             });
-            if (shouldApplyResult(config) && nonceRef.current === nonce) {
+            // swrKey may also change without bumping deps (it is not part
+            // of runnerDeps). Compare the captured key against the latest
+            // before landing — otherwise an in-flight result from the
+            // previous scope would overwrite the new scope's render-time
+            // setResult swap.
+            const currentSwrKey = swrKeyRef.current;
+            if (
+              shouldApplyResult(config) &&
+              nonceRef.current === nonce &&
+              capturedSwrKey === currentSwrKey
+            ) {
               setResult(r);
-              // Only persist if (1) swrKey is still the one we dispatched
-              // under, and (2) the result is defined — writing `undefined`
-              // would later override the caller's explicit initResult on
-              // next mount.
-              if (
-                capturedSwrKey &&
-                capturedSwrKey === swrKeyRef.current &&
-                r !== undefined
-              ) {
+              // Only persist if the result is defined — writing
+              // `undefined` would later override the caller's explicit
+              // initResult on next mount. (Scope identity is already
+              // guaranteed by the outer check.)
+              if (capturedSwrKey && r !== undefined) {
                 swrCacheUtils.set(capturedSwrKey, r);
               }
             }
@@ -301,8 +307,12 @@ export function usePromiseResult<T>(
             err instanceof DOMException &&
             err.name === 'AbortError';
 
+          // Mirror the success-path gate: callers that opted into
+          // `undefinedResultIfError` expect the reset to land regardless
+          // of focus. Without this, a blur-time rejection silently keeps
+          // stale data and re-throws as an unhandled rejection.
           if (
-            shouldSetState(config) &&
+            shouldApplyResult(config) &&
             (undefinedResultIfError || isAbortError)
           ) {
             setResult(undefined);
@@ -313,7 +323,11 @@ export function usePromiseResult<T>(
           if (loadingDelay && watchLoading) {
             await timerUtils.wait(loadingDelay);
           }
-          if (shouldSetState(config)) {
+          // Loading state must travel with `setResult`: if the result is
+          // ungated by focus, isLoading clearing has to follow the same
+          // gate. Otherwise watchLoading consumers see isLoading stuck
+          // on `true` after a successful blur-time resolution.
+          if (shouldApplyResult(config)) {
             setLoadingFalse();
           }
           if (

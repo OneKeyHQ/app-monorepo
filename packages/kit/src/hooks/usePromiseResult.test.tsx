@@ -371,6 +371,54 @@ describe('usePromiseResult', () => {
       expect(result.current.result).toBeUndefined();
     });
 
+    // Cross-scope guard for swrKey transitions: an in-flight request
+    // dispatched under swrKey=A must not land on the new scope when the
+    // consumer rerenders with swrKey=B. The render-time swrKey swap only
+    // updates `result` to B's init/cached value; nothing currently
+    // invalidates A's pending nonce, so without an extra check the stale
+    // result would overwrite the new scope.
+    it('discards in-flight result when swrKey changes mid-flight', async () => {
+      const resolvers: Record<string, (v: string) => void> = {};
+      const method = jest.fn(
+        (key: string) =>
+          new Promise<string>((res) => {
+            resolvers[key] = res;
+          }),
+      );
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { swrKey: string }
+      >(
+        ({ swrKey }) =>
+          usePromiseResult(() => method(swrKey), [], {
+            initResult: 'init',
+            swrKey,
+          }),
+        { initialProps: { swrKey: 'A' } },
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledWith('A');
+      });
+
+      // swrKey swap to B. Deps are stable so no new runner fires; the
+      // render-time effect resets `result` to B's init.
+      rerender({ swrKey: 'B' });
+      expect(result.current.result).toBe('init');
+
+      await act(async () => {
+        resolvers.A('A-data');
+        await Promise.resolve();
+      });
+
+      // A's stale result must not be applied under the B scope.
+      expect(result.current.result).toBe('init');
+      // SWR cache for either scope must not be polluted by stale data.
+      expect(swrCacheUtils.get('A')).toBeUndefined();
+      expect(swrCacheUtils.get('B')).toBeUndefined();
+    });
+
     it('resets to undefined when new swrKey has neither cache nor initResult', () => {
       swrCacheUtils.set('wallet-A', 'data-A');
 
@@ -728,6 +776,84 @@ describe('usePromiseResult', () => {
       await waitFor(() => {
         expect(result.current.result).toBe('B-data');
       });
+    });
+
+    // setLoadingFalse must travel with setResult: if result landing is
+    // ungated by focus, isLoading clearing has to follow the same gate.
+    // Otherwise `watchLoading` consumers (spinners / onIsLoadingChange)
+    // see isLoading stuck on `true` after a successful blur-time
+    // resolution.
+    it('clears isLoading when result lands during blur (watchLoading)', async () => {
+      let resolveFetch!: (v: string) => void;
+      const method = jest.fn(
+        () =>
+          new Promise<string>((res) => {
+            resolveFetch = res;
+          }),
+      );
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], {
+          initResult: 'init',
+          watchLoading: true,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(1);
+      });
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(true);
+      });
+
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+
+      await act(async () => {
+        resolveFetch('fresh');
+        await Promise.resolve();
+      });
+
+      expect(result.current.result).toBe('fresh');
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // The error path must mirror the success path: if the success branch
+    // applies blur-time results, then `undefinedResultIfError` callers
+    // also expect their `undefined` reset to land regardless of focus,
+    // not to be silently swallowed and re-thrown as an unhandled
+    // rejection.
+    it('applies undefinedResultIfError when fetch rejects during blur', async () => {
+      let rejectFetch!: (e: unknown) => void;
+      const method = jest.fn(
+        () =>
+          new Promise<string>((_, rej) => {
+            rejectFetch = rej;
+          }),
+      );
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], {
+          initResult: 'init',
+          undefinedResultIfError: true,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(1);
+      });
+
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+
+      await act(async () => {
+        rejectFetch(new Error('boom'));
+        await Promise.resolve();
+      });
+
+      expect(result.current.result).toBeUndefined();
     });
 
     // Regression for the cold-start tab-switch data-loss bug. A fetch
