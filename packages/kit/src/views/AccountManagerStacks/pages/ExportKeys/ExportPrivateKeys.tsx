@@ -27,6 +27,7 @@ import {
 import { DeriveTypeSelectorFormField } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import useRecoveryPhraseProtected from '@onekeyhq/kit/src/hooks/useRecoveryPhraseProtected';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -84,6 +85,12 @@ function ExportPrivateKeysPage({
   title,
   exportType,
 }: IExportAccountSecretKeysRouteParams) {
+  // Block screenshot/recording and blur background preview while the
+  // private key / public key view is mounted. On native this also covers
+  // the App Switcher snapshot via FLAG_SECURE (Android) and SecureTextEntry
+  // (iOS). See SlowMist audit iOS-22 / iOS-26 / AND-26.
+  useRecoveryPhraseProtected();
+
   const { activeAccount } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
 
