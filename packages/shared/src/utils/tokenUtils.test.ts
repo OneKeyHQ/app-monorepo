@@ -241,6 +241,42 @@ describe('calculateAccountTokensValue — OK-46491 null handling', () => {
     ).toBeNull();
   });
 
+  test('Single network: returns null even when sibling networks have values', () => {
+    // Regression: `??` collapsed null/undefined together and used to leak
+    // a sibling network's value as the "fallback" when the current network
+    // was explicitly unavailable.
+    expect(
+      calculateAccountTokensValue({
+        accountId: 'acct-1',
+        networkId: 'evm--195',
+        tokensWorth: {
+          ...baseWorthMeta,
+          worth: {
+            'acct-1_evm--1': '100',
+            'acct-1_evm--195': null,
+          },
+        },
+        mergeDeriveAssetsEnabled: false,
+      }),
+    ).toBeNull();
+  });
+
+  test('Single network: falls back to the first map value when current key is absent', () => {
+    expect(
+      calculateAccountTokensValue({
+        accountId: 'acct-1',
+        networkId: 'evm--195',
+        tokensWorth: {
+          ...baseWorthMeta,
+          worth: {
+            'acct-1_evm--1': '100',
+          },
+        },
+        mergeDeriveAssetsEnabled: false,
+      }),
+    ).toBe('100');
+  });
+
   test('Single network: returns the value as-is when available', () => {
     expect(
       calculateAccountTokensValue({

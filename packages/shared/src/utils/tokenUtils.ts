@@ -9,6 +9,7 @@ import { OneKeyInternalError } from '../errors';
 
 import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
+import { isValidNumberValue } from './tokenValueUtils';
 
 import type {
   IAccountToken,
@@ -317,8 +318,14 @@ export function mergeDeriveTokenListMap({
           .plus(value.totalBalanceParsed ?? 0)
           .toFixed();
 
-        mergedToken.fiatValue = new BigNumber(mergedToken.fiatValue)
-          .plus(value.fiatValue)
+        // OK-46491: any merge participant with unavailable fiatValue would
+        // otherwise propagate 'NaN' through the toFixed() string. Skip it so
+        // the merged value stays a partial sum — matches the aggregation
+        // semantics in calculateAccountTokensValue.
+        mergedToken.fiatValue = new BigNumber(
+          isValidNumberValue(mergedToken.fiatValue) ? mergedToken.fiatValue : 0,
+        )
+          .plus(isValidNumberValue(value.fiatValue) ? value.fiatValue : 0)
           .toFixed();
 
         mergedToken.frozenBalanceFiatValue = new BigNumber(
@@ -1144,19 +1151,15 @@ export function calculateAccountTokensValue({
     return sumValues(Object.values(tokensWorth.worth));
   }
 
-  const value =
-    tokensWorth.worth[
-      accountUtils.buildAccountValueKey({
-        accountId,
-        networkId,
-      })
-    ] ?? Object.values(tokensWorth.worth)[0];
-  // Distinguish null ("unavailable" — caller renders '--') from undefined
-  // ("not loaded yet" — fall back to 0).
-  if (value === null) {
-    return null;
+  // Distinguish "key present but null" (unavailable — return null so the caller
+  // renders '--') from "key absent" (not loaded yet — fall back to the first
+  // map entry or '0'). `??` would collapse both, leaking a sibling network's
+  // value when the current network is explicitly unavailable.
+  const key = accountUtils.buildAccountValueKey({ accountId, networkId });
+  if (Object.prototype.hasOwnProperty.call(tokensWorth.worth, key)) {
+    return tokensWorth.worth[key];
   }
-  return value ?? '0';
+  return Object.values(tokensWorth.worth)[0] ?? '0';
 }
 
 export function validateTokenAmount({
