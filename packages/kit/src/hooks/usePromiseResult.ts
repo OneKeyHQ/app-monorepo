@@ -258,35 +258,41 @@ export function usePromiseResult<T>(
           // scope's init / cached state until refocus re-fetches.
           nonceRef.current += 1;
         }
+        // Track outside the try-block so catch / finally can decide
+        // whether THIS runner started a request, which swrKey scope it
+        // dispatched under, and which nonce it owns. Without these,
+        // focus-gated no-op runners would still emit phantom loading
+        // transitions, stale resolutions would clear a newer request's
+        // loading, and error-path resets would land on the wrong scope.
+        let didStartRequest = false;
+        let requestNonce: number | null = null;
+        let capturedSwrKey: string | undefined;
         try {
           if (shouldSetState(config)) {
-            if (
-              shouldSetState(config) &&
-              optionsRef.current.undefinedResultIfReRun
-            ) {
+            didStartRequest = true;
+            // Capture swrKey at dispatch time. If it changes mid-flight
+            // (e.g. user switches wallet/account), we must NOT land
+            // this result on the new scope — neither into its render
+            // state nor into its cache slot.
+            capturedSwrKey = swrKeyRef.current;
+            if (optionsRef.current.undefinedResultIfReRun) {
               setResult(undefined);
             }
             setLoadingTrue();
             nonceRef.current += 1;
-            const requestNonce = nonceRef.current;
-            // Capture swrKey at dispatch time. If it changes mid-flight (e.g.
-            // user switches wallet/account), we must NOT write this result
-            // into the new scope's cache slot — that would cross-pollute
-            // cached balances between accounts.
-            const capturedSwrKey = swrKeyRef.current;
+            requestNonce = nonceRef.current;
             const { r, nonce } = await methodWithNonce({
               nonce: requestNonce,
             });
-            // swrKey may also change without bumping deps (it is not part
-            // of runnerDeps). Compare the captured key against the latest
+            // swrKey may change without bumping deps (it is not part of
+            // runnerDeps). Compare the captured key against the latest
             // before landing — otherwise an in-flight result from the
             // previous scope would overwrite the new scope's render-time
             // setResult swap.
-            const currentSwrKey = swrKeyRef.current;
             if (
               shouldApplyResult(config) &&
               nonceRef.current === nonce &&
-              capturedSwrKey === currentSwrKey
+              capturedSwrKey === swrKeyRef.current
             ) {
               setResult(r);
               // Only persist if the result is defined — writing
@@ -307,14 +313,27 @@ export function usePromiseResult<T>(
             err instanceof DOMException &&
             err.name === 'AbortError';
 
-          // Mirror the success-path gate: callers that opted into
-          // `undefinedResultIfError` expect the reset to land regardless
-          // of focus. Without this, a blur-time rejection silently keeps
-          // stale data and re-throws as an unhandled rejection.
-          if (
+          // A request whose swrKey scope changed mid-flight belongs to
+          // a scope the consumer has abandoned: it must not reset the
+          // new scope's result, and re-throwing its error would surface
+          // a failure that no longer applies to anyone.
+          const isStaleScope =
+            didStartRequest && capturedSwrKey !== swrKeyRef.current;
+
+          if (isStaleScope) {
+            // Swallow: scope identity check (same as success path) and
+            // suppressed re-throw mirror how AbortError is already
+            // treated as non-critical.
+          } else if (
+            didStartRequest &&
             shouldApplyResult(config) &&
             (undefinedResultIfError || isAbortError)
           ) {
+            // Mirror the success-path gate: callers that opted into
+            // `undefinedResultIfError` expect the reset to land
+            // regardless of focus. Without this, a blur-time rejection
+            // silently keeps stale data and re-throws as an unhandled
+            // rejection.
             setResult(undefined);
           } else if (!isAbortError) {
             throw err;
@@ -323,11 +342,18 @@ export function usePromiseResult<T>(
           if (loadingDelay && watchLoading) {
             await timerUtils.wait(loadingDelay);
           }
-          // Loading state must travel with `setResult`: if the result is
-          // ungated by focus, isLoading clearing has to follow the same
-          // gate. Otherwise watchLoading consumers see isLoading stuck
-          // on `true` after a successful blur-time resolution.
-          if (shouldApplyResult(config)) {
+          // Loading state must travel with `setResult`: clear only when
+          // THIS runner started a request AND it is still the latest
+          // nonce. A focus-gated no-op runner never called
+          // setLoadingTrue (so an unpaired (false) would be phantom),
+          // and a stale runner clearing here would flicker isLoading
+          // off while a newer in-flight request is still pending.
+          if (
+            didStartRequest &&
+            shouldApplyResult(config) &&
+            requestNonce !== null &&
+            nonceRef.current === requestNonce
+          ) {
             setLoadingFalse();
           }
           if (
