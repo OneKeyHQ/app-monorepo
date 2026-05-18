@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { pickBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -290,9 +291,8 @@ function HomeOverviewContainer() {
         (account.id === accountWorth.accountId ||
           account.indexedAccountId === accountWorth.accountId)
       ) {
-        // OK-46491: unavailable networks (worth = null) are skipped here so
-        // the wallet-status threshold check operates on a partial sum of
-        // known-good values rather than producing NaN.
+        // Skip null entries (unavailable networks) so the threshold check
+        // sees a partial sum of known-good values instead of NaN.
         const allWorth = Object.values(accountWorth.worth).reduce<string>(
           (acc, cur) =>
             cur === null ? acc : new BigNumber(acc).plus(cur).toFixed(),
@@ -328,14 +328,14 @@ function HomeOverviewContainer() {
           accountValueId = account.indexedAccountId as string;
         }
 
+        // Backend persists a `Record<string, string>` and the legacy listing
+        // surfaces need a numeric fallback. Collapse null → '0' for the
+        // single-network write and strip nulls for the all-networks write;
+        // the UI still sees the null signal via accountWorth.worth upstream.
         if (
           !accountUtils.isOthersAccount({ accountId: account.id }) &&
           !network.isAllNetworks
         ) {
-          // Backend persisted account value expects a string; collapse null
-          // (network has unavailable tokens) to '0' at this boundary so the
-          // sorting/listing surfaces stay backwards-compatible. UI uses the
-          // null signal directly via accountWorth.worth before this coercion.
           const singleNetworkValue =
             accountWorth.worth[
               accountUtils.buildAccountValueKey({
@@ -352,19 +352,10 @@ function HomeOverviewContainer() {
           );
         }
 
-        // Same boundary as above: drop null entries from the per-network map
-        // before handing to the backend so its `Record<string, string>`
-        // contract is preserved.
-        const sanitizedWorth: Record<string, string> = {};
-        for (const [key, value] of Object.entries(accountWorth.worth)) {
-          if (value !== null) {
-            sanitizedWorth[key] = value;
-          }
-        }
         void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
           {
             accountId: accountValueId,
-            value: sanitizedWorth,
+            value: pickBy(accountWorth.worth, (v): v is string => v !== null),
             currency: settings.currencyInfo.id,
             updateAll: accountWorth.updateAll,
           },

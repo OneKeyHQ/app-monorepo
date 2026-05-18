@@ -111,7 +111,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   UNAVAILABLE_DISPLAY,
-  tokenMapHasUnavailable,
+  tokenGroupsHaveUnavailable,
 } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
@@ -529,12 +529,9 @@ function TokenListBlock({
                 accountId: item.accountId,
                 networkId: item.networkId,
               });
-              // OK-46491: if any token in this network has an unavailable
-              // fiat/balance value, the network total is untrustworthy.
-              if (
-                tokenMapHasUnavailable(item.tokens.map) ||
-                tokenMapHasUnavailable(item.smallBalanceTokens.map)
-              ) {
+              // Any unavailable token poisons the per-network total → null
+              // so consumers render '--' instead of a partial sum.
+              if (tokenGroupsHaveUnavailable(item)) {
                 accountWorth[key] = null;
               } else {
                 const accountWorthValue = new BigNumber(0)
@@ -578,9 +575,7 @@ function TokenListBlock({
             ...walletTokenFilterParams,
           });
 
-          const hasUnavailable =
-            tokenMapHasUnavailable(r.tokens.map) ||
-            tokenMapHasUnavailable(r.smallBalanceTokens.map);
+          const hasUnavailable = tokenGroupsHaveUnavailable(r);
           let accountWorth = new BigNumber(0);
           accountWorth = accountWorth
             .plus(r.tokens.fiatValue ?? '0')
@@ -612,9 +607,9 @@ function TokenListBlock({
                   networkId: network.id,
                 })]: networkWorthValue,
               },
-              // createAtNetworkWorth participates in legacy aggregation only;
-              // keep it as a numeric string so existing BigNumber.plus paths
-              // never see NaN. Unavailability is conveyed via worth[key]=null.
+              // Keep numeric string even when unavailable: legacy aggregation
+              // paths use it raw in BigNumber.plus and would NaN otherwise.
+              // Unavailability is conveyed via worth[key]=null.
               createAtNetworkWorth: accountWorth.toFixed(),
               merge: false,
             });
@@ -1036,9 +1031,7 @@ function TokenListBlock({
       r.allTokens = allTokens;
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
-        const hasUnavailable =
-          tokenMapHasUnavailable(r.tokens.map) ||
-          tokenMapHasUnavailable(r.smallBalanceTokens.map);
+        const hasUnavailable = tokenGroupsHaveUnavailable(r);
         let accountWorth = new BigNumber(0);
         let createAtNetworkWorth = new BigNumber(0);
 
@@ -1848,9 +1841,7 @@ function TokenListBlock({
           mergeDeriveAssets: mergeDeriveAssetsEnabled,
         });
 
-        const hasUnavailable =
-          tokenMapHasUnavailable(r.tokens.map) ||
-          tokenMapHasUnavailable(r.smallBalanceTokens.map);
+        const hasUnavailable = tokenGroupsHaveUnavailable(r);
         const accountWorth = new BigNumber(r.tokens.fiatValue ?? '0').plus(
           r.smallBalanceTokens.fiatValue ?? '0',
         );

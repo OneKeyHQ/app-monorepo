@@ -2,6 +2,7 @@ import {
   UNAVAILABLE_DISPLAY,
   displayOrUnavailable,
   isValidNumberValue,
+  tokenGroupsHaveUnavailable,
   tokenMapHasUnavailable,
 } from './tokenValueUtils';
 
@@ -10,6 +11,11 @@ describe('isValidNumberValue', () => {
     expect(isValidNumberValue(null)).toBe(false);
     expect(isValidNumberValue(undefined)).toBe(false);
     expect(isValidNumberValue('')).toBe(false);
+  });
+
+  test('rejects NaN — would otherwise poison BigNumber aggregates', () => {
+    expect(isValidNumberValue(Number.NaN)).toBe(false);
+    expect(isValidNumberValue('NaN')).toBe(false);
   });
 
   test('accepts real zero (string and number)', () => {
@@ -81,5 +87,41 @@ describe('tokenMapHasUnavailable', () => {
         b: { fiatValue: '1', balanceParsed: '1' },
       }),
     ).toBe(false);
+  });
+
+  test('flags NaN values as unavailable', () => {
+    expect(
+      tokenMapHasUnavailable({
+        a: { fiatValue: 'NaN', balanceParsed: '1' },
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('tokenGroupsHaveUnavailable', () => {
+  test('returns false when both maps are fully populated', () => {
+    expect(
+      tokenGroupsHaveUnavailable({
+        tokens: { map: { a: { fiatValue: '1', balanceParsed: '1' } } },
+        smallBalanceTokens: {
+          map: { b: { fiatValue: '0.1', balanceParsed: '1' } },
+        },
+      }),
+    ).toBe(false);
+  });
+
+  test('returns true when smallBalanceTokens has an unavailable entry', () => {
+    expect(
+      tokenGroupsHaveUnavailable({
+        tokens: { map: { a: { fiatValue: '1', balanceParsed: '1' } } },
+        smallBalanceTokens: {
+          map: { b: { fiatValue: null, balanceParsed: '1' } },
+        },
+      }),
+    ).toBe(true);
+  });
+
+  test('handles missing token group shapes', () => {
+    expect(tokenGroupsHaveUnavailable({})).toBe(false);
   });
 });

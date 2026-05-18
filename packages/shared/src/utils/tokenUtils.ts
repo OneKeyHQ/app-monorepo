@@ -1127,10 +1127,8 @@ export function calculateAccountTokensValue({
   };
   mergeDeriveAssetsEnabled: boolean;
 }) {
-  // Skip networks whose worth is null (= contains at least one unavailable
-  // token under OK-46226 compat). For All Networks this yields a silent
-  // partial sum; for the single-network path the caller handles null upstream
-  // and renders '--'.
+  // Aggregation paths silently skip null entries so a single unavailable
+  // network does not poison the whole sum with NaN.
   const sumValues = (values: Array<string | null>) =>
     values.reduce<string>(
       (acc, cur) =>
@@ -1153,8 +1151,8 @@ export function calculateAccountTokensValue({
         networkId,
       })
     ] ?? Object.values(tokensWorth.worth)[0];
-  // null preserved here so the caller can detect "unavailable" before
-  // feeding into BigNumber math. undefined → not loaded yet → fall back to 0.
+  // Distinguish null ("unavailable" — caller renders '--') from undefined
+  // ("not loaded yet" — fall back to 0).
   if (value === null) {
     return null;
   }

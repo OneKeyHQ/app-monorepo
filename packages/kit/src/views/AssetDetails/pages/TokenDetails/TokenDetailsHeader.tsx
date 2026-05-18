@@ -254,9 +254,9 @@ function TokenDetailsHeader(props: IProps) {
 
         const data = tokensDetails?.[0];
 
-        // TODO(OK-46491-follow-up): preserve null when the chart price-line
-        // surface migrates. Today the chart context can't render '--', so the
-        // 0 fallback is kept here. Header price/balance below render '--'.
+        // Chart price-line surface cannot render '--', so coerce to 0 here.
+        // The header price/balance read from tokenDetails directly and still
+        // render '--' via displayOrUnavailable below.
         updateTokenMetadata({
           price: data?.price ?? 0,
           priceChange24h: data?.price24h ?? 0,
@@ -295,8 +295,8 @@ function TokenDetailsHeader(props: IProps) {
       return;
     }
 
-    // TODO(OK-46491-follow-up): preserve null when the chart price-line
-    // surface migrates. See sibling updateTokenMetadata above.
+    // Chart price-line surface cannot render '--'; coerce to 0 (see sibling
+    // updateTokenMetadata above for the full rationale).
     updateTokenMetadata({
       price: cachedTokenDetails.price ?? 0,
       priceChange24h: cachedTokenDetails.price24h ?? 0,
