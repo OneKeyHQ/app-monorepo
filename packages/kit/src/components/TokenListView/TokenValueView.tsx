@@ -4,6 +4,10 @@ import BigNumber from 'bignumber.js';
 
 import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  UNAVAILABLE_DISPLAY,
+  isValidNumberValue,
+} from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import {
   useFlattenAggregateTokensMapAtom,
@@ -27,11 +31,23 @@ function TokenValueView(props: IProps) {
   const tokenListMap = contextTokenListMap ?? globalTokenListMap;
   const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
 
-  const fiatValue = new BigNumber(token?.fiatValue || 0);
-
   if (!token) {
     return <SizableText {...rest}>-</SizableText>;
   }
+
+  if (!isValidNumberValue(token.fiatValue)) {
+    return (
+      <NumberSizeableTextWrapper
+        formatter="value"
+        formatterOptions={{ currency: settings.currencyInfo.symbol }}
+        {...rest}
+      >
+        {UNAVAILABLE_DISPLAY}
+      </NumberSizeableTextWrapper>
+    );
+  }
+
+  const fiatValue = new BigNumber(token.fiatValue);
 
   return (
     <NumberSizeableTextWrapper
@@ -39,7 +55,7 @@ function TokenValueView(props: IProps) {
       formatterOptions={{ currency: settings.currencyInfo.symbol }}
       {...rest}
     >
-      {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
+      {fiatValue.toFixed()}
     </NumberSizeableTextWrapper>
   );
 }
