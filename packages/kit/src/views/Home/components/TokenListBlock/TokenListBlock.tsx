@@ -109,6 +109,10 @@ import {
   sortTokensByFiatValue,
   sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  UNAVAILABLE_DISPLAY,
+  tokenMapHasUnavailable,
+} from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
@@ -258,12 +262,13 @@ function TokenListBlock({
   const syncTokenFilterToOverview = true;
 
   const accountTokensValue = useMemo(() => {
-    return calculateAccountTokensValue({
+    const value = calculateAccountTokensValue({
       accountId: account?.id ?? '',
       networkId: network?.id ?? '',
       tokensWorth: accountTokensWorth,
       mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
     });
+    return value === null ? UNAVAILABLE_DISPLAY : value;
   }, [
     account?.id,
     network?.id,
@@ -516,21 +521,27 @@ function TokenListBlock({
             map: allTokenListMap,
           };
 
-          const accountWorth: Record<string, string> = {};
+          const accountWorth: Record<string, string | null> = {};
 
           resp.forEach((item) => {
             if (item.accountId && item.networkId) {
-              let accountWorthValue = new BigNumber(0);
-              accountWorthValue = accountWorthValue
-                .plus(item.tokens.fiatValue ?? '0')
-                .plus(item.smallBalanceTokens.fiatValue ?? '0');
-
-              accountWorth[
-                accountUtils.buildAccountValueKey({
-                  accountId: item.accountId,
-                  networkId: item.networkId,
-                })
-              ] = accountWorthValue.toFixed();
+              const key = accountUtils.buildAccountValueKey({
+                accountId: item.accountId,
+                networkId: item.networkId,
+              });
+              // OK-46491: if any token in this network has an unavailable
+              // fiat/balance value, the network total is untrustworthy.
+              if (
+                tokenMapHasUnavailable(item.tokens.map) ||
+                tokenMapHasUnavailable(item.smallBalanceTokens.map)
+              ) {
+                accountWorth[key] = null;
+              } else {
+                const accountWorthValue = new BigNumber(0)
+                  .plus(item.tokens.fiatValue ?? '0')
+                  .plus(item.smallBalanceTokens.fiatValue ?? '0');
+                accountWorth[key] = accountWorthValue.toFixed();
+              }
             }
           });
 
@@ -567,6 +578,9 @@ function TokenListBlock({
             ...walletTokenFilterParams,
           });
 
+          const hasUnavailable =
+            tokenMapHasUnavailable(r.tokens.map) ||
+            tokenMapHasUnavailable(r.smallBalanceTokens.map);
           let accountWorth = new BigNumber(0);
           accountWorth = accountWorth
             .plus(r.tokens.fiatValue ?? '0')
@@ -586,6 +600,9 @@ function TokenListBlock({
               initialized: true,
             });
 
+            const networkWorthValue: string | null = hasUnavailable
+              ? null
+              : accountWorth.toFixed();
             updateAccountWorth({
               accountId,
               initialized: true,
@@ -593,8 +610,11 @@ function TokenListBlock({
                 [accountUtils.buildAccountValueKey({
                   accountId,
                   networkId: network.id,
-                })]: accountWorth.toFixed(),
+                })]: networkWorthValue,
               },
+              // createAtNetworkWorth participates in legacy aggregation only;
+              // keep it as a numeric string so existing BigNumber.plus paths
+              // never see NaN. Unavailability is conveyed via worth[key]=null.
               createAtNetworkWorth: accountWorth.toFixed(),
               merge: false,
             });
@@ -1016,6 +1036,9 @@ function TokenListBlock({
       r.allTokens = allTokens;
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
+        const hasUnavailable =
+          tokenMapHasUnavailable(r.tokens.map) ||
+          tokenMapHasUnavailable(r.smallBalanceTokens.map);
         let accountWorth = new BigNumber(0);
         let createAtNetworkWorth = new BigNumber(0);
 
@@ -1045,6 +1068,9 @@ function TokenListBlock({
             createAtNetworkWorth = accountWorth;
           }
 
+          const networkWorthValue: string | null = hasUnavailable
+            ? null
+            : accountWorth.toFixed();
           updateAccountWorth({
             accountId: mergeDeriveAddressData
               ? (indexedAccount?.id ?? '')
@@ -1054,7 +1080,7 @@ function TokenListBlock({
               [accountUtils.buildAccountValueKey({
                 accountId,
                 networkId,
-              })]: accountWorth.toFixed(),
+              })]: networkWorthValue,
             },
             createAtNetworkWorth: createAtNetworkWorth.toFixed(),
             merge: true,
@@ -1717,7 +1743,7 @@ function TokenListBlock({
     let riskyTokenListMap: {
       [key: string]: ITokenFiat;
     } = {};
-    const accountsWorth: Record<string, string> = {};
+    const accountsWorth: Record<string, string | null> = {};
     let createAtNetworkWorth = new BigNumber(0);
     let smallBalanceTokensFiatValue = new BigNumber(0);
 
@@ -1822,6 +1848,9 @@ function TokenListBlock({
           mergeDeriveAssets: mergeDeriveAssetsEnabled,
         });
 
+        const hasUnavailable =
+          tokenMapHasUnavailable(r.tokens.map) ||
+          tokenMapHasUnavailable(r.smallBalanceTokens.map);
         const accountWorth = new BigNumber(r.tokens.fiatValue ?? '0').plus(
           r.smallBalanceTokens.fiatValue ?? '0',
         );
@@ -1831,7 +1860,7 @@ function TokenListBlock({
             accountId: r.accountId ?? '',
             networkId: r.networkId ?? '',
           })
-        ] = accountWorth.toFixed();
+        ] = hasUnavailable ? null : accountWorth.toFixed();
 
         if (
           account?.id &&

@@ -18,3 +18,27 @@ export function displayOrUnavailable(
 ): string | number {
   return isValidNumberValue(v) ? v : UNAVAILABLE_DISPLAY;
 }
+
+// Returns true when any entry in the token map has an unavailable
+// `fiatValue` or `balanceParsed`. Used at accountWorth source sites to
+// decide whether the per-network aggregate should be set to null.
+export function tokenMapHasUnavailable(
+  map:
+    | Record<
+        string,
+        | {
+            fiatValue?: string | null;
+            balanceParsed?: string | null;
+          }
+        | undefined
+      >
+    | undefined,
+): boolean {
+  if (!map) return false;
+  return Object.values(map).some(
+    (entry) =>
+      !!entry &&
+      (!isValidNumberValue(entry.fiatValue) ||
+        !isValidNumberValue(entry.balanceParsed)),
+  );
+}

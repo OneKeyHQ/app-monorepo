@@ -31,6 +31,7 @@ import {
   calculateAccountTokensValue,
   calculateAccountTotalValue,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -289,8 +290,12 @@ function HomeOverviewContainer() {
         (account.id === accountWorth.accountId ||
           account.indexedAccountId === accountWorth.accountId)
       ) {
-        const allWorth = Object.values(accountWorth.worth).reduce(
-          (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+        // OK-46491: unavailable networks (worth = null) are skipped here so
+        // the wallet-status threshold check operates on a partial sum of
+        // known-good values rather than producing NaN.
+        const allWorth = Object.values(accountWorth.worth).reduce<string>(
+          (acc, cur) =>
+            cur === null ? acc : new BigNumber(acc).plus(cur).toFixed(),
           '0',
         );
 
@@ -327,25 +332,39 @@ function HomeOverviewContainer() {
           !accountUtils.isOthersAccount({ accountId: account.id }) &&
           !network.isAllNetworks
         ) {
+          // Backend persisted account value expects a string; collapse null
+          // (network has unavailable tokens) to '0' at this boundary so the
+          // sorting/listing surfaces stay backwards-compatible. UI uses the
+          // null signal directly via accountWorth.worth before this coercion.
+          const singleNetworkValue =
+            accountWorth.worth[
+              accountUtils.buildAccountValueKey({
+                accountId: account.id,
+                networkId: network.id,
+              })
+            ];
           void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
             {
               accountId: accountValueId,
-              value:
-                accountWorth.worth[
-                  accountUtils.buildAccountValueKey({
-                    accountId: account.id,
-                    networkId: network.id,
-                  })
-                ],
+              value: singleNetworkValue ?? '0',
               currency: settings.currencyInfo.id,
             },
           );
         }
 
+        // Same boundary as above: drop null entries from the per-network map
+        // before handing to the backend so its `Record<string, string>`
+        // contract is preserved.
+        const sanitizedWorth: Record<string, string> = {};
+        for (const [key, value] of Object.entries(accountWorth.worth)) {
+          if (value !== null) {
+            sanitizedWorth[key] = value;
+          }
+        }
         void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
           {
             accountId: accountValueId,
-            value: accountWorth.worth,
+            value: sanitizedWorth,
             currency: settings.currencyInfo.id,
             updateAll: accountWorth.updateAll,
           },
@@ -514,6 +533,14 @@ function HomeOverviewContainer() {
             mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
           })
         : '0';
+
+    // Single-network mode: if this network's worth is null, at least one token
+    // in the list is unavailable, so the total is untrustworthy → render '--'.
+    // All Networks: calculateAccountTokensValue silently sums the available
+    // networks, so it never returns null here.
+    if (tokenWorth === null) {
+      return UNAVAILABLE_DISPLAY;
+    }
 
     const deFiWorth =
       !isAllNetworks || isCurrentAccountDeFiReady

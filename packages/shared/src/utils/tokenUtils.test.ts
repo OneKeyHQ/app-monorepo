@@ -1,7 +1,10 @@
 /*
 yarn test packages/shared/src/utils/tokenUtils.test.ts
 */
-import { calculateAccountTotalValue } from './tokenUtils';
+import {
+  calculateAccountTokensValue,
+  calculateAccountTotalValue,
+} from './tokenUtils';
 
 describe('calculateAccountTotalValue — tray case (no filters)', () => {
   test('sums all token values + deFi when no filters passed', () => {
@@ -175,6 +178,98 @@ describe('calculateAccountTotalValue — wallet-scoped derive matching branch', 
         networkInfoMap: {
           'evm--1': { deriveType: 'default', mergeDeriveAssetsEnabled: false },
         },
+      }),
+    ).toBe('100');
+  });
+});
+
+describe('calculateAccountTokensValue — OK-46491 null handling', () => {
+  const baseWorthMeta = {
+    createAtNetworkWorth: '0',
+    accountId: 'acct-1',
+    initialized: true,
+  };
+
+  test('All Networks: silently skips null entries (partial sum)', () => {
+    expect(
+      calculateAccountTokensValue({
+        accountId: 'acct-1',
+        networkId: 'onekeyall--0',
+        tokensWorth: {
+          ...baseWorthMeta,
+          worth: {
+            'acct-1_evm--1': '100',
+            // Tron unavailable — must be excluded from the sum, not treated as 0.
+            'acct-1_evm--195': null,
+            'acct-1_evm--56': '50',
+          },
+        },
+        mergeDeriveAssetsEnabled: false,
+      }),
+    ).toBe('150');
+  });
+
+  test('All Networks: returns "0" when every entry is null', () => {
+    expect(
+      calculateAccountTokensValue({
+        accountId: 'acct-1',
+        networkId: 'onekeyall--0',
+        tokensWorth: {
+          ...baseWorthMeta,
+          worth: {
+            'acct-1_evm--195': null,
+          },
+        },
+        mergeDeriveAssetsEnabled: false,
+      }),
+    ).toBe('0');
+  });
+
+  test('Single network: returns null when the current network is unavailable', () => {
+    expect(
+      calculateAccountTokensValue({
+        accountId: 'acct-1',
+        networkId: 'evm--195',
+        tokensWorth: {
+          ...baseWorthMeta,
+          worth: {
+            'acct-1_evm--195': null,
+          },
+        },
+        mergeDeriveAssetsEnabled: false,
+      }),
+    ).toBeNull();
+  });
+
+  test('Single network: returns the value as-is when available', () => {
+    expect(
+      calculateAccountTokensValue({
+        accountId: 'acct-1',
+        networkId: 'evm--1',
+        tokensWorth: {
+          ...baseWorthMeta,
+          worth: {
+            'acct-1_evm--1': '42.5',
+          },
+        },
+        mergeDeriveAssetsEnabled: false,
+      }),
+    ).toBe('42.5');
+  });
+
+  test('mergeDeriveAssetsEnabled: silently skips null entries (partial sum)', () => {
+    expect(
+      calculateAccountTokensValue({
+        accountId: 'acct-1',
+        networkId: 'evm--1',
+        tokensWorth: {
+          ...baseWorthMeta,
+          worth: {
+            'acct-1_evm--1--default': '100',
+            'acct-1_evm--1--ledgerlive': null,
+          },
+        },
+        mergeDeriveAssetsEnabled: true,
       }),
     ).toBe('100');
   });

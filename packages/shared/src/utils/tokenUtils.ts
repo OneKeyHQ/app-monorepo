@@ -1119,7 +1119,7 @@ export function calculateAccountTokensValue({
   accountId: string;
   networkId: string;
   tokensWorth: {
-    worth: Record<string, string>;
+    worth: Record<string, string | null>;
     createAtNetworkWorth: string;
     accountId: string;
     initialized: boolean;
@@ -1127,32 +1127,38 @@ export function calculateAccountTokensValue({
   };
   mergeDeriveAssetsEnabled: boolean;
 }) {
-  if (networkUtils.isAllNetwork({ networkId })) {
-    const allWorth = Object.values(tokensWorth.worth).reduce(
-      (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+  // Skip networks whose worth is null (= contains at least one unavailable
+  // token under OK-46226 compat). For All Networks this yields a silent
+  // partial sum; for the single-network path the caller handles null upstream
+  // and renders '--'.
+  const sumValues = (values: Array<string | null>) =>
+    values.reduce<string>(
+      (acc, cur) =>
+        cur === null ? acc : new BigNumber(acc).plus(cur).toFixed(),
       '0',
     );
-    return allWorth;
+
+  if (networkUtils.isAllNetwork({ networkId })) {
+    return sumValues(Object.values(tokensWorth.worth));
   }
 
   if (mergeDeriveAssetsEnabled) {
-    const allWorth = Object.values(tokensWorth.worth).reduce(
-      (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
-      '0',
-    );
-    return allWorth;
+    return sumValues(Object.values(tokensWorth.worth));
   }
 
-  return (
+  const value =
     tokensWorth.worth[
       accountUtils.buildAccountValueKey({
         accountId,
         networkId,
       })
-    ] ??
-    Object.values(tokensWorth.worth)[0] ??
-    '0'
-  );
+    ] ?? Object.values(tokensWorth.worth)[0];
+  // null preserved here so the caller can detect "unavailable" before
+  // feeding into BigNumber math. undefined → not loaded yet → fall back to 0.
+  if (value === null) {
+    return null;
+  }
+  return value ?? '0';
 }
 
 export function validateTokenAmount({
