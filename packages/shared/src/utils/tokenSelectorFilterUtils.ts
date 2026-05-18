@@ -1,4 +1,4 @@
-export const TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED = false;
+export const TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED = true;
 
 export function buildTokenSelectorDappTokenFilterParams({
   lpToken,
