@@ -23,10 +23,22 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { appendUtmSourceToUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
-import { openWebView } from '../../../WebView/utils/webViewNavigation';
 import { RichBlock } from '../RichBlock';
+
+function openSupportHubUrl(url: string) {
+  if (platformEnv.isDesktop || platformEnv.isNative) {
+    openUrlInDiscovery({ url });
+    return;
+  }
+
+  openUrlExternal(url);
+}
 
 function SupportHubItem({
   icon,
@@ -57,7 +69,7 @@ function SupportHubItem({
       onPress={
         link
           ? () => {
-              openWebView({ url: link, source: 'in-app' });
+              openSupportHubUrl(link);
             }
           : onPress
       }
@@ -100,7 +112,7 @@ function SupportHubBannerItem({
       px="$4"
       position="relative"
       onPress={() => {
-        openWebView({ url: item.url, source: 'in-app' });
+        openSupportHubUrl(item.url);
       }}
     >
       <Stack
