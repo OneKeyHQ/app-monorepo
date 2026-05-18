@@ -29,7 +29,10 @@ export interface IAccountValueDb {
   // Legacy fields preserved during the one-shot address-key migration so a rollback
   // PR can keep reading old data. Cleaned up in a later release.
   _legacy_data?: Record<string, { value: string; currency: string }>;
-  _legacy_all?: Record<string, { value: Record<string, string>; currency: string }>;
+  _legacy_all?: Record<
+    string,
+    { value: Record<string, string>; currency: string }
+  >;
   _migratedAt?: number;
 }
 
@@ -122,7 +125,7 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       return {
         ...base,
         byAddress: {
-          ...(base.byAddress ?? {}),
+          ...base.byAddress,
           [key]: { value, currency },
         },
         allByAddress: base.allByAddress ?? {},
@@ -160,8 +163,9 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     const grouped: Record<string, Record<string, string>> = {};
     for (const it of items) {
       const key = this.buildAllKey(it);
-      if (!key) continue;
-      grouped[key] = { ...(grouped[key] ?? {}), [it.networkId]: it.value };
+      if (key) {
+        grouped[key] = { ...grouped[key], [it.networkId]: it.value };
+      }
     }
     if (Object.keys(grouped).length === 0) {
       return;
@@ -178,7 +182,7 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
           next[key] = { value: valueMap, currency };
         } else {
           next[key] = {
-            value: { ...(existing[key]?.value ?? {}), ...valueMap },
+            value: { ...existing[key]?.value, ...valueMap },
             currency,
           };
         }
@@ -241,83 +245,87 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     // Legacy `data` was only ever populated by Others accounts at their
     // createAtNetwork. Skip anything that doesn't fit that shape.
     for (const [oldKey, entry] of Object.entries(legacyData)) {
-      if (entry?.currency !== 'usd') continue;
-      if (!accountUtils.isOthersAccount({ accountId: oldKey })) continue;
-      try {
-        const account = await serviceAccount.getDBAccount({ accountId: oldKey });
-        if (!account) {
+      if (
+        entry?.currency === 'usd' &&
+        accountUtils.isOthersAccount({ accountId: oldKey })
+      ) {
+        try {
+          const account = await serviceAccount.getDBAccount({
+            accountId: oldKey,
+          });
+          if (account && account.createAtNetwork) {
+            const addressKey = accountUtils.buildAccountLocalAssetsKey({
+              networkId: account.createAtNetwork,
+              accountAddress: account.address,
+              xpub: (account as { xpub?: string }).xpub,
+            });
+            byAddress[addressKey] = { value: entry.value, currency: 'usd' };
+          } else {
+            failures.push(oldKey);
+          }
+        } catch {
           failures.push(oldKey);
-          continue;
         }
-        const networkId = account.createAtNetwork;
-        if (!networkId) {
-          failures.push(oldKey);
-          continue;
-        }
-        const addressKey = accountUtils.buildAccountLocalAssetsKey({
-          networkId,
-          accountAddress: account.address,
-          xpub: (account as { xpub?: string }).xpub,
-        });
-        byAddress[addressKey] = { value: entry.value, currency: 'usd' };
-      } catch {
-        failures.push(oldKey);
       }
     }
 
     for (const [oldKey, entry] of Object.entries(legacyAll)) {
-      if (entry?.currency !== 'usd') continue;
-      try {
-        if (accountUtils.isOthersAccount({ accountId: oldKey })) {
+      if (entry?.currency !== 'usd') {
+        // skip: unknown currency leaves no safe migration path
+      } else if (accountUtils.isOthersAccount({ accountId: oldKey })) {
+        try {
           const account = await serviceAccount.getDBAccount({
             accountId: oldKey,
           });
-          if (!account || (!account.address && !(account as { xpub?: string }).xpub)) {
+          const xpub = account
+            ? (account as { xpub?: string }).xpub
+            : undefined;
+          if (account && (account.address || xpub)) {
+            const addressKey = accountUtils.buildAccountLocalAssetsKey({
+              accountAddress: account.address,
+              xpub,
+            });
+            allByAddress[addressKey] = {
+              value: {
+                ...allByAddress[addressKey]?.value,
+                ...entry.value,
+              },
+              currency: 'usd',
+            };
+          } else {
             failures.push(oldKey);
-            continue;
           }
-          const addressKey = accountUtils.buildAccountLocalAssetsKey({
-            accountAddress: account.address,
-            xpub: (account as { xpub?: string }).xpub,
-          });
-          allByAddress[addressKey] = {
-            value: {
-              ...(allByAddress[addressKey]?.value ?? {}),
-              ...entry.value,
-            },
-            currency: 'usd',
-          };
-        } else {
-          for (const [networkId, v] of Object.entries(entry.value)) {
-            try {
-              const result =
-                await serviceAccount.getNetworkAccountsInSameIndexedAccountId({
-                  indexedAccountId: oldKey,
-                  networkIds: [networkId],
-                });
-              const networkAccount = result?.[0]?.account;
-              if (!networkAccount) {
-                failures.push(`${oldKey}/${networkId}`);
-                continue;
-              }
+        } catch {
+          failures.push(oldKey);
+        }
+      } else {
+        for (const [networkId, v] of Object.entries(entry.value)) {
+          try {
+            const result =
+              await serviceAccount.getNetworkAccountsInSameIndexedAccountId({
+                indexedAccountId: oldKey,
+                networkIds: [networkId],
+              });
+            const networkAccount = result?.[0]?.account;
+            if (networkAccount) {
               const addressKey = accountUtils.buildAccountLocalAssetsKey({
                 accountAddress: networkAccount.address,
                 xpub: (networkAccount as { xpub?: string }).xpub,
               });
               allByAddress[addressKey] = {
                 value: {
-                  ...(allByAddress[addressKey]?.value ?? {}),
+                  ...allByAddress[addressKey]?.value,
                   [networkId]: v,
                 },
                 currency: 'usd',
               };
-            } catch {
+            } else {
               failures.push(`${oldKey}/${networkId}`);
             }
+          } catch {
+            failures.push(`${oldKey}/${networkId}`);
           }
         }
-      } catch {
-        failures.push(oldKey);
       }
     }
 

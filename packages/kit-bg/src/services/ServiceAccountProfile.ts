@@ -1044,19 +1044,21 @@ class ServiceAccountProfile extends ServiceBase {
       const parsed = accountUtils.parseAccountValueKey({
         key: accountValueKey,
       });
-      if (!parsed.accountId || !parsed.networkId) continue;
-      const resolved = await this.resolveAddressKey({
-        accountId: parsed.accountId,
-        networkId: parsed.networkId,
-      });
-      atomValueByNetworkId[parsed.networkId] = usdValue;
-      if (!resolved) continue;
-      writeItems.push({
-        accountAddress: resolved.accountAddress,
-        xpub: resolved.xpub,
-        networkId: parsed.networkId,
-        value: usdValue,
-      });
+      if (parsed.accountId && parsed.networkId) {
+        const resolved = await this.resolveAddressKey({
+          accountId: parsed.accountId,
+          networkId: parsed.networkId,
+        });
+        atomValueByNetworkId[parsed.networkId] = usdValue;
+        if (resolved) {
+          writeItems.push({
+            accountAddress: resolved.accountAddress,
+            xpub: resolved.xpub,
+            networkId: parsed.networkId,
+            value: usdValue,
+          });
+        }
+      }
     }
 
     if (updateAll) {
@@ -1072,7 +1074,7 @@ class ServiceAccountProfile extends ServiceBase {
         typeof current.value === 'object' &&
         current.value !== null
           ? {
-              ...(current.value as Record<string, string>),
+              ...current.value,
               ...atomValueByNetworkId,
             }
           : atomValueByNetworkId;
@@ -1155,14 +1157,16 @@ class ServiceAccountProfile extends ServiceBase {
       const seen = new Set<string>();
       for (const acc of dbAccounts ?? []) {
         const xpub = (acc as IDBUtxoAccount).xpub;
-        if (!acc.address && !xpub) continue;
-        const ak = accountUtils.buildAccountLocalAssetsKey({
-          accountAddress: acc.address,
-          xpub,
-        });
-        if (seen.has(ak)) continue;
-        seen.add(ak);
-        items.push({ accountAddress: acc.address, xpub });
+        if (acc.address || xpub) {
+          const ak = accountUtils.buildAccountLocalAssetsKey({
+            accountAddress: acc.address,
+            xpub,
+          });
+          if (!seen.has(ak)) {
+            seen.add(ak);
+            items.push({ accountAddress: acc.address, xpub });
+          }
+        }
       }
 
       if (items.length === 0) {

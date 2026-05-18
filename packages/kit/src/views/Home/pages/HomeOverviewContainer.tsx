@@ -320,8 +320,7 @@ function HomeOverviewContainer() {
         if (isOthers) {
           if (
             account.createAtNetwork &&
-            (network.isAllNetworks ||
-              account.createAtNetwork === network.id)
+            (network.isAllNetworks || account.createAtNetwork === network.id)
           ) {
             void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
               accountId: accountValueId,
