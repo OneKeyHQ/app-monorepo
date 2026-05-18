@@ -1191,11 +1191,15 @@ async function createMainWindow() {
         callback(true);
         return;
       }
-      logger.info(
-        '[webview] permission denied:',
-        permission,
-        requestingUrl || topLevelUrl,
-      );
+      // Log only the origin — full URLs can carry session tokens or
+      // dapp-specific query strings that should not leak into log files.
+      let deniedOrigin = '<malformed>';
+      try {
+        deniedOrigin = new URL(requestingUrl || topLevelUrl).origin;
+      } catch {
+        // keep '<malformed>' fallback
+      }
+      logger.info('[webview] permission denied:', permission, deniedOrigin);
       callback(false);
     },
   );
