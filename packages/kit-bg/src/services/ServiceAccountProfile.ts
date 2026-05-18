@@ -957,124 +957,367 @@ class ServiceAccountProfile extends ServiceBase {
     return resp.data.data as T;
   }
 
+  // Resolve a (accountId, networkId) to its on-chain identifiers used as
+  // the SimpleDb key. Returns null when either lookup fails so callers can
+  // skip the write/read gracefully.
+  private async resolveAddressKey({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<{ accountAddress?: string; xpub?: string } | null> {
+    try {
+      const [xpub, accountAddress] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        }),
+      ]);
+      if (!xpub && !accountAddress) {
+        return null;
+      }
+      return { accountAddress, xpub };
+    } catch {
+      return null;
+    }
+  }
+
+  private async convertOneToUsd(value: string, currency: string) {
+    if (currency === 'usd') return value;
+    const currencyMap = (await currencyPersistAtom.get()).currencyMap;
+    const info = currencyMap[currency];
+    if (!info) {
+      throw new OneKeyLocalError('Currency not found');
+    }
+    return new BigNumber(value).div(new BigNumber(info.value)).toFixed();
+  }
+
+  private async convertMapToUsd(
+    value: Record<string, string>,
+    currency: string,
+  ): Promise<Record<string, string>> {
+    if (currency === 'usd') return value;
+    const currencyMap = (await currencyPersistAtom.get()).currencyMap;
+    const info = currencyMap[currency];
+    if (!info) {
+      throw new OneKeyLocalError('Currency not found');
+    }
+    return Object.entries(value).reduce<Record<string, string>>(
+      (acc, [k, v]) => {
+        acc[k] = new BigNumber(v).div(new BigNumber(info.value)).toFixed();
+        return acc;
+      },
+      {},
+    );
+  }
+
   @backgroundMethod()
   async updateAllNetworkAccountValue(params: {
     accountId: string;
+    // Record<accountValueKey, value> where accountValueKey = `${networkAccount.id}_${networkId}`,
+    // produced by accountUtils.buildAccountValueKey in UI layer.
     value: Record<string, string>;
     currency: string;
     updateAll?: boolean;
   }) {
-    const { currency, value, updateAll } = params;
+    const { currency, value, updateAll, accountId } = params;
 
-    const currencyMap = (await currencyPersistAtom.get()).currencyMap;
+    const usdValueMap = await this.convertMapToUsd(value, currency);
 
-    let usdValue: Record<string, string> = value;
+    // Parse each accountValueKey back to (networkAccountId, networkId), resolve
+    // the chain identifiers, and collect both the SimpleDb write items and a
+    // per-networkId atom snapshot.
+    const writeItems: {
+      accountAddress?: string;
+      xpub?: string;
+      networkId: string;
+      value: string;
+    }[] = [];
+    const atomValueByNetworkId: Record<string, string> = {};
 
-    if (currency !== 'usd') {
-      const currencyInfo = currencyMap[currency];
-
-      if (!currencyInfo) {
-        throw new OneKeyLocalError('Currency not found');
-      }
-      usdValue = Object.entries(value).reduce(
-        (acc, [n, v]) => {
-          acc[n] = new BigNumber(v)
-            .div(new BigNumber(currencyInfo.value))
-            .toFixed();
-          return acc;
-        },
-        {} as Record<string, string>,
-      );
-    }
-
-    const usdAccountValue = {
-      ...params,
-      value: usdValue,
-      currency: 'usd',
-    };
-
-    if (updateAll) {
-      await activeAccountValueAtom.set(usdAccountValue);
-    } else {
-      const accountsValue =
-        await simpleDb.accountValue.getAllNetworkAccountsValue({
-          accounts: [{ accountId: params.accountId }],
-        });
-      const currentAccountValue = accountsValue?.[0];
-      if (currentAccountValue?.accountId !== params.accountId) {
-        return;
-      }
-
-      await activeAccountValueAtom.set({
-        ...usdAccountValue,
-        value: {
-          ...currentAccountValue.value,
-          ...usdValue,
-        },
+    for (const [accountValueKey, usdValue] of Object.entries(usdValueMap)) {
+      const parsed = accountUtils.parseAccountValueKey({
+        key: accountValueKey,
+      });
+      if (!parsed.accountId || !parsed.networkId) continue;
+      const resolved = await this.resolveAddressKey({
+        accountId: parsed.accountId,
+        networkId: parsed.networkId,
+      });
+      atomValueByNetworkId[parsed.networkId] = usdValue;
+      if (!resolved) continue;
+      writeItems.push({
+        accountAddress: resolved.accountAddress,
+        xpub: resolved.xpub,
+        networkId: parsed.networkId,
+        value: usdValue,
       });
     }
 
-    await simpleDb.accountValue.updateAllNetworkAccountValue(usdAccountValue);
+    if (updateAll) {
+      await activeAccountValueAtom.set({
+        accountId,
+        value: atomValueByNetworkId,
+        currency: 'usd',
+      });
+    } else {
+      const current = await activeAccountValueAtom.get();
+      const mergedAtomValue =
+        current?.accountId === accountId &&
+        typeof current.value === 'object' &&
+        current.value !== null
+          ? {
+              ...(current.value as Record<string, string>),
+              ...atomValueByNetworkId,
+            }
+          : atomValueByNetworkId;
+      await activeAccountValueAtom.set({
+        accountId,
+        value: mergedAtomValue,
+        currency: 'usd',
+      });
+    }
+
+    await simpleDb.accountValue.updateAllNetworkAccountValue({
+      items: writeItems,
+      currency: 'usd',
+      updateAll,
+    });
 
     // Check DEPOSIT task for rookie guide (fire-and-forget)
     void this.backgroundApi.serviceRookieGuide.checkAndRecordDepositTask(
-      params.accountId,
+      accountId,
     );
   }
 
   @backgroundMethod()
   async getAllNetworkAccountsValue(params: {
-    accounts: { accountId: string }[];
+    accounts: {
+      accountId: string;
+      networkId?: string;
+      indexedAccountId?: string;
+      accountAddress?: string;
+      xpub?: string;
+    }[];
   }) {
-    const accountsValue =
-      await simpleDb.accountValue.getAllNetworkAccountsValue(params);
-    return accountsValue;
+    const items = await Promise.all(
+      params.accounts.map(async (a) => {
+        if (a.accountAddress || a.xpub) {
+          return { accountAddress: a.accountAddress, xpub: a.xpub };
+        }
+        if (a.networkId) {
+          const resolved = await this.resolveAddressKey({
+            accountId: a.accountId,
+            networkId: a.networkId,
+          });
+          if (resolved) {
+            return {
+              accountAddress: resolved.accountAddress,
+              xpub: resolved.xpub,
+            };
+          }
+        }
+        return {} as { accountAddress?: string; xpub?: string };
+      }),
+    );
+
+    const values = await simpleDb.accountValue.getAllNetworkAccountsValue({
+      items,
+    });
+
+    return params.accounts.map((a, i) => ({
+      accountId: a.accountId,
+      value: values[i]?.value,
+      currency: values[i]?.currency,
+    }));
+  }
+
+  // Aggregate "All Networks" worth for a single indexedAccount when the caller
+  // does not already know each network's address — used by global search where
+  // only indexedAccountId is available.
+  @backgroundMethod()
+  async getAllNetworkAccountsValueByIndexedAccount(params: {
+    indexedAccountId: string;
+  }) {
+    const { indexedAccountId } = params;
+    try {
+      const { accounts: dbAccounts } =
+        await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+          { indexedAccountId },
+        );
+
+      const items: { accountAddress?: string; xpub?: string }[] = [];
+      const seen = new Set<string>();
+      for (const acc of dbAccounts ?? []) {
+        const xpub = (acc as IDBUtxoAccount).xpub;
+        if (!acc.address && !xpub) continue;
+        const ak = accountUtils.buildAccountLocalAssetsKey({
+          accountAddress: acc.address,
+          xpub,
+        });
+        if (seen.has(ak)) continue;
+        seen.add(ak);
+        items.push({ accountAddress: acc.address, xpub });
+      }
+
+      if (items.length === 0) {
+        return {
+          accountId: indexedAccountId,
+          value: undefined,
+          currency: undefined,
+        };
+      }
+
+      const entries = await simpleDb.accountValue.getAllNetworkAccountsValue({
+        items,
+      });
+
+      const mergedValue: Record<string, string> = {};
+      let currency: 'usd' | undefined;
+      for (const entry of entries) {
+        if (entry?.value) {
+          Object.assign(mergedValue, entry.value);
+          currency = entry.currency;
+        }
+      }
+
+      if (Object.keys(mergedValue).length === 0) {
+        return {
+          accountId: indexedAccountId,
+          value: undefined,
+          currency: undefined,
+        };
+      }
+
+      return {
+        accountId: indexedAccountId,
+        value: mergedValue,
+        currency,
+      };
+    } catch {
+      return {
+        accountId: indexedAccountId,
+        value: undefined,
+        currency: undefined,
+      };
+    }
   }
 
   @backgroundMethod()
-  async getAccountsValue(params: { accounts: { accountId: string }[] }) {
-    const accountsValue = await simpleDb.accountValue.getAccountsValue(params);
-    return accountsValue;
+  async getAccountsValue(params: {
+    accounts: {
+      accountId: string;
+      networkId: string;
+      accountAddress?: string;
+      xpub?: string;
+    }[];
+  }) {
+    const items = await Promise.all(
+      params.accounts.map(async (a) => {
+        if (a.accountAddress || a.xpub) {
+          return {
+            networkId: a.networkId,
+            accountAddress: a.accountAddress,
+            xpub: a.xpub,
+          };
+        }
+        const resolved = await this.resolveAddressKey({
+          accountId: a.accountId,
+          networkId: a.networkId,
+        });
+        if (resolved) {
+          return {
+            networkId: a.networkId,
+            accountAddress: resolved.accountAddress,
+            xpub: resolved.xpub,
+          };
+        }
+        return { networkId: a.networkId };
+      }),
+    );
+
+    const values = await simpleDb.accountValue.getAccountsValue({ items });
+
+    return params.accounts.map((a, i) => ({
+      accountId: a.accountId,
+      value: values[i]?.value,
+      currency: values[i]?.currency,
+    }));
   }
 
   @backgroundMethod()
   async updateAccountValue(params: {
+    // The logical account id used for the activeAccountValueAtom snapshot — it
+    // is indexedAccountId for HD/HW wallets and account.id for Others, matching
+    // the keying convention used by the account selector.
     accountId: string;
+    // The network-specific account id (always account.id of the active
+    // networkAccount), used to resolve the chain address/xpub for SimpleDb.
+    // Defaults to `accountId` (correct for Others accounts).
+    networkAccountId?: string;
+    networkId: string;
     value: string;
     currency: string;
     shouldUpdateActiveAccountValue?: boolean;
   }) {
     if (params.shouldUpdateActiveAccountValue) {
-      await activeAccountValueAtom.set(params);
+      await activeAccountValueAtom.set({
+        accountId: params.accountId,
+        value: params.value,
+        currency: params.currency,
+      });
     }
 
-    await simpleDb.accountValue.updateAccountValue(params);
+    const usdValue = await this.convertOneToUsd(params.value, params.currency);
+    const resolved = await this.resolveAddressKey({
+      accountId: params.networkAccountId ?? params.accountId,
+      networkId: params.networkId,
+    });
+    if (!resolved) return;
+
+    await simpleDb.accountValue.updateAccountValue({
+      networkId: params.networkId,
+      accountAddress: resolved.accountAddress,
+      xpub: resolved.xpub,
+      value: usdValue,
+      currency: 'usd',
+    });
   }
 
   @backgroundMethod()
   async updateAccountValueForSingleNetwork(params: {
     accountId: string;
+    networkAccountId?: string;
+    networkId: string;
     value: string;
     currency: string;
   }) {
-    const accountsValue = await simpleDb.accountValue.getAccountsValue({
-      accounts: [{ accountId: params.accountId }],
+    const resolved = await this.resolveAddressKey({
+      accountId: params.networkAccountId ?? params.accountId,
+      networkId: params.networkId,
     });
-    const currentAccountValue = accountsValue?.[0];
-    if (currentAccountValue?.accountId !== params.accountId) {
-      return;
-    }
+    if (!resolved) return;
+
+    const [existing] = await simpleDb.accountValue.getAccountsValue({
+      items: [
+        {
+          networkId: params.networkId,
+          accountAddress: resolved.accountAddress,
+          xpub: resolved.xpub,
+        },
+      ],
+    });
+
+    const usdValue = await this.convertOneToUsd(params.value, params.currency);
     if (
-      currentAccountValue?.currency &&
-      params.currency &&
-      currentAccountValue?.currency !== params.currency
-    ) {
-      return;
-    }
-    if (
-      currentAccountValue?.value &&
-      params.value &&
-      new BigNumber(params.value).lte(currentAccountValue.value)
+      existing?.value &&
+      usdValue &&
+      new BigNumber(usdValue).lte(existing.value)
     ) {
       return;
     }

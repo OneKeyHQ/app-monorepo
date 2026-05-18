@@ -682,7 +682,14 @@ class ServiceUniversalSearch extends ServiceBase {
           if (account?.id) {
             accountsValue = (
               await this.backgroundApi.serviceAccountProfile.getAccountsValue({
-                accounts: [{ accountId: account?.id }],
+                accounts: [
+                  {
+                    accountId: account.id,
+                    networkId: networkId || '',
+                    accountAddress: account.address,
+                    xpub: (account as { xpub?: string }).xpub,
+                  },
+                ],
               })
             )?.[0];
           }
@@ -698,13 +705,12 @@ class ServiceUniversalSearch extends ServiceBase {
             })
           )?.[0]?.account;
           if (account?.id) {
-            accountsValue = (
-              await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
-                {
-                  accounts: [{ accountId: indexedAccount.id }],
-                },
-              )
-            )?.[0];
+            // Use the address-keyed aggregate so wallets sharing the same
+            // chain address can read each other's already-loaded worth.
+            accountsValue =
+              await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByIndexedAccount(
+                { indexedAccountId: indexedAccount.id },
+              );
           }
         }
 
@@ -917,11 +923,13 @@ class ServiceUniversalSearch extends ServiceBase {
           const wallet = await serviceAccount.getWalletSafe({
             walletId: i.item.walletId,
           });
-          const accountsValue = (
-            await serviceAccountProfile.getAllNetworkAccountsValue({
-              accounts: [{ accountId: i.item.id }],
-            })
-          )?.[0];
+          // Aggregate across all known chain addresses for this indexedAccount
+          // by querying the address-keyed store, so wallets that share an
+          // address with one another inherit each other's loaded worth.
+          const accountsValue =
+            await serviceAccountProfile.getAllNetworkAccountsValueByIndexedAccount(
+              { indexedAccountId: i.item.id },
+            );
 
           let account: INetworkAccount | undefined;
           let addressInfo: IAddressValidation | undefined;
@@ -1009,7 +1017,14 @@ class ServiceUniversalSearch extends ServiceBase {
           }
           const accountsValue = (
             await serviceAccountProfile.getAccountsValue({
-              accounts: [{ accountId: i.item.id }],
+              accounts: [
+                {
+                  accountId: i.item.id,
+                  networkId: i.item.createAtNetwork ?? network?.id ?? '',
+                  accountAddress: account.address,
+                  xpub: (account as { xpub?: string }).xpub,
+                },
+              ],
             })
           )?.[0];
           const localValidateResult =
