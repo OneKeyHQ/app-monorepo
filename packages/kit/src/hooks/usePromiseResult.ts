@@ -250,6 +250,13 @@ export function usePromiseResult<T>(
         const { pollingInterval } = optionsRef.current;
         if (config?.triggerByDeps && !isFocusedRef.current) {
           isDepsChangedOnBlur.current = true;
+          // Deps changed but the new run was blocked by the focus gate,
+          // so we never minted a fresh nonce for the new scope. Bump
+          // here to invalidate any in-flight request from the previous
+          // scope — otherwise its stale result would still satisfy
+          // `shouldApplyResult` (mount-only) and overwrite the new
+          // scope's init / cached state until refocus re-fetches.
+          nonceRef.current += 1;
         }
         try {
           if (shouldSetState(config)) {

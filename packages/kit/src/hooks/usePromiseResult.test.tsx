@@ -665,6 +665,71 @@ describe('usePromiseResult', () => {
       expect(method).toHaveBeenCalledTimes(1);
     });
 
+    // Cross-scope guard (PR #11681 review): when deps change while the
+    // route is blurred, the new triggerByDeps run is gated by focus and
+    // does not mint a fresh nonce. Without invalidation, an in-flight
+    // stale request from the previous scope (matching the original
+    // nonce) would satisfy shouldApplyResult (mount-only) and overwrite
+    // the new scope's init / cached state. Bumping nonceRef on the
+    // gated run prevents this cross-scope leak.
+    it('discards in-flight result when deps change during blur (cross-scope guard)', async () => {
+      const resolvers: Record<string, (v: string) => void> = {};
+      const method = jest.fn(
+        (id: string) =>
+          new Promise<string>((res) => {
+            resolvers[id] = res;
+          }),
+      );
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { id: string }
+      >(
+        ({ id }) =>
+          usePromiseResult(() => method(id), [id], { initResult: 'init' }),
+        { initialProps: { id: 'A' } },
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledWith('A');
+      });
+      expect(result.current.result).toBe('init');
+
+      // Blur, then deps change to B. The triggerByDeps run for B is
+      // gated by focus and no fetch is dispatched yet.
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+      rerender({ id: 'B' });
+
+      // A's stale in-flight request resolves while the new scope is B.
+      await act(async () => {
+        resolvers.A('A-data');
+        await Promise.resolve();
+      });
+
+      // The previous scope's data must not land on the new scope.
+      expect(result.current.result).toBe('init');
+
+      // Refocus → B's deferred fetch fires → result reflects new scope.
+      act(() => {
+        focusControl.__setFocus(true);
+      });
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledWith('B');
+      });
+
+      await act(async () => {
+        resolvers.B('B-data');
+        await Promise.resolve();
+      });
+
+      await waitFor(() => {
+        expect(result.current.result).toBe('B-data');
+      });
+    });
+
     // Regression for the cold-start tab-switch data-loss bug. A fetch
     // started while focused must deliver its result even if the route
     // blurs before resolution — there is otherwise no recovery path on
