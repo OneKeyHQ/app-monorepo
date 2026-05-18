@@ -2,8 +2,8 @@ import {
   UNAVAILABLE_DISPLAY,
   displayOrUnavailable,
   isValidNumberValue,
-  tokenGroupsHaveUnavailable,
-  tokenMapHasUnavailable,
+  sumFiatValuesIgnoringUnavailable,
+  sumTokenGroupsFiatValueIgnoringUnavailable,
 } from './tokenValueUtils';
 
 describe('isValidNumberValue', () => {
@@ -44,84 +44,73 @@ describe('displayOrUnavailable', () => {
   });
 });
 
-describe('tokenMapHasUnavailable', () => {
-  test('returns false for an empty or missing map', () => {
-    expect(tokenMapHasUnavailable(undefined)).toBe(false);
-    expect(tokenMapHasUnavailable({})).toBe(false);
+describe('sumFiatValuesIgnoringUnavailable', () => {
+  test('returns 0 for an empty or missing map', () => {
+    expect(sumFiatValuesIgnoringUnavailable(undefined)).toBe('0');
+    expect(sumFiatValuesIgnoringUnavailable({})).toBe('0');
   });
 
-  test('returns false when every entry has valid fiat and balance', () => {
+  test('sums valid fiat values', () => {
     expect(
-      tokenMapHasUnavailable({
-        a: { fiatValue: '0', balanceParsed: '0' },
-        b: { fiatValue: '12.34', balanceParsed: '1' },
+      sumFiatValuesIgnoringUnavailable({
+        a: { fiatValue: '1.5' },
+        b: { fiatValue: '2.25' },
       }),
-    ).toBe(false);
+    ).toBe('3.75');
   });
 
-  test('returns true when any entry has null fiatValue', () => {
+  test('skips null/undefined/empty/NaN entries', () => {
     expect(
-      tokenMapHasUnavailable({
-        a: { fiatValue: '12.34', balanceParsed: '1' },
-        b: { fiatValue: null, balanceParsed: '5' },
+      sumFiatValuesIgnoringUnavailable({
+        a: { fiatValue: '10' },
+        b: { fiatValue: null },
+        c: { fiatValue: undefined },
+        d: { fiatValue: '' },
+        e: { fiatValue: 'NaN' },
+        f: { fiatValue: '5' },
       }),
-    ).toBe(true);
-  });
-
-  test('returns true when any entry has null balanceParsed', () => {
-    expect(
-      tokenMapHasUnavailable({
-        a: { fiatValue: '12.34', balanceParsed: null },
-      }),
-    ).toBe(true);
-  });
-
-  test('returns true when any entry has undefined fields', () => {
-    expect(tokenMapHasUnavailable({ a: {} })).toBe(true);
+    ).toBe('15');
   });
 
   test('skips empty entries without crashing', () => {
     expect(
-      tokenMapHasUnavailable({
+      sumFiatValuesIgnoringUnavailable({
         a: undefined,
-        b: { fiatValue: '1', balanceParsed: '1' },
+        b: { fiatValue: '7' },
       }),
-    ).toBe(false);
+    ).toBe('7');
   });
 
-  test('flags NaN values as unavailable', () => {
+  test('returns 0 when every entry is unavailable', () => {
     expect(
-      tokenMapHasUnavailable({
-        a: { fiatValue: 'NaN', balanceParsed: '1' },
+      sumFiatValuesIgnoringUnavailable({
+        a: { fiatValue: null },
+        b: { fiatValue: 'NaN' },
       }),
-    ).toBe(true);
+    ).toBe('0');
   });
 });
 
-describe('tokenGroupsHaveUnavailable', () => {
-  test('returns false when both maps are fully populated', () => {
+describe('sumTokenGroupsFiatValueIgnoringUnavailable', () => {
+  test('sums tokens.map and smallBalanceTokens.map together', () => {
     expect(
-      tokenGroupsHaveUnavailable({
-        tokens: { map: { a: { fiatValue: '1', balanceParsed: '1' } } },
-        smallBalanceTokens: {
-          map: { b: { fiatValue: '0.1', balanceParsed: '1' } },
-        },
+      sumTokenGroupsFiatValueIgnoringUnavailable({
+        tokens: { map: { a: { fiatValue: '10' } } },
+        smallBalanceTokens: { map: { b: { fiatValue: '0.5' } } },
       }),
-    ).toBe(false);
+    ).toBe('10.5');
   });
 
-  test('returns true when smallBalanceTokens has an unavailable entry', () => {
+  test('produces a partial sum when an entry is unavailable', () => {
     expect(
-      tokenGroupsHaveUnavailable({
-        tokens: { map: { a: { fiatValue: '1', balanceParsed: '1' } } },
-        smallBalanceTokens: {
-          map: { b: { fiatValue: null, balanceParsed: '1' } },
-        },
+      sumTokenGroupsFiatValueIgnoringUnavailable({
+        tokens: { map: { a: { fiatValue: '10' }, b: { fiatValue: null } } },
+        smallBalanceTokens: { map: { c: { fiatValue: '0.25' } } },
       }),
-    ).toBe(true);
+    ).toBe('10.25');
   });
 
   test('handles missing token group shapes', () => {
-    expect(tokenGroupsHaveUnavailable({})).toBe(false);
+    expect(sumTokenGroupsFiatValueIgnoringUnavailable({})).toBe('0');
   });
 });

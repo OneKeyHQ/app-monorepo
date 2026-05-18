@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 export const UNAVAILABLE_DISPLAY = '--';
 
 // Why loose runtime type: during the OK-46226 backend compatibility window,
@@ -21,32 +23,34 @@ export function displayOrUnavailable(
 
 type ITokenFiatValueShape = {
   fiatValue?: string | null;
-  balanceParsed?: string | null;
 };
 
-export function tokenMapHasUnavailable(
+// Sum map.fiatValue while silently dropping entries whose value is unavailable
+// (null/undefined/''/NaN). Mirrors the partial-sum semantics already used in
+// All Networks aggregation so a single broken upstream provider does not
+// poison the per-network total with NaN or force the whole sum to '--'.
+export function sumFiatValuesIgnoringUnavailable(
   map: Record<string, ITokenFiatValueShape | undefined> | undefined,
-): boolean {
-  if (!map) return false;
-  return Object.values(map).some(
-    (entry) =>
-      !!entry &&
-      (!isValidNumberValue(entry.fiatValue) ||
-        !isValidNumberValue(entry.balanceParsed)),
-  );
+): string {
+  if (!map) return '0';
+  return Object.values(map)
+    .reduce<BigNumber>((acc, entry) => {
+      if (!entry || !isValidNumberValue(entry.fiatValue)) return acc;
+      return acc.plus(entry.fiatValue);
+    }, new BigNumber(0))
+    .toFixed();
 }
 
-// Convenience for the common per-network shape produced by token list
-// fetches — collapses the duplicated `tokens.map || smallBalanceTokens.map`
-// check at every accountWorth source site.
-export function tokenGroupsHaveUnavailable(r: {
+// Convenience for the per-network shape produced by token list fetches:
+// collapses the duplicated `tokens.map + smallBalanceTokens.map` sum at every
+// accountWorth write site.
+export function sumTokenGroupsFiatValueIgnoringUnavailable(r: {
   tokens?: { map?: Record<string, ITokenFiatValueShape | undefined> };
   smallBalanceTokens?: {
     map?: Record<string, ITokenFiatValueShape | undefined>;
   };
-}): boolean {
-  return (
-    tokenMapHasUnavailable(r.tokens?.map) ||
-    tokenMapHasUnavailable(r.smallBalanceTokens?.map)
-  );
+}): string {
+  return new BigNumber(sumFiatValuesIgnoringUnavailable(r.tokens?.map))
+    .plus(sumFiatValuesIgnoringUnavailable(r.smallBalanceTokens?.map))
+    .toFixed();
 }

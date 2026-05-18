@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { pickBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -32,7 +31,6 @@ import {
   calculateAccountTokensValue,
   calculateAccountTotalValue,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -291,13 +289,9 @@ function HomeOverviewContainer() {
         (account.id === accountWorth.accountId ||
           account.indexedAccountId === accountWorth.accountId)
       ) {
-        // Skip null entries (unavailable networks) so the threshold check
-        // sees a partial sum of known-good values instead of NaN.
-        const allWorth = Object.values(accountWorth.worth).reduce<string>(
-          (acc, cur) =>
-            cur === null ? acc : new BigNumber(acc).plus(cur).toFixed(),
-          '0',
-        );
+        const allWorth = Object.values(accountWorth.worth)
+          .reduce<BigNumber>((acc, cur) => acc.plus(cur), new BigNumber(0))
+          .toFixed();
 
         if (
           new BigNumber(allWorth).gt(
@@ -328,10 +322,6 @@ function HomeOverviewContainer() {
           accountValueId = account.indexedAccountId as string;
         }
 
-        // Backend persists a `Record<string, string>` and the legacy listing
-        // surfaces need a numeric fallback. Collapse null → '0' for the
-        // single-network write and strip nulls for the all-networks write;
-        // the UI still sees the null signal via accountWorth.worth upstream.
         if (
           !accountUtils.isOthersAccount({ accountId: account.id }) &&
           !network.isAllNetworks
@@ -355,7 +345,7 @@ function HomeOverviewContainer() {
         void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
           {
             accountId: accountValueId,
-            value: pickBy(accountWorth.worth, (v): v is string => v !== null),
+            value: accountWorth.worth,
             currency: settings.currencyInfo.id,
             updateAll: accountWorth.updateAll,
           },
@@ -524,14 +514,6 @@ function HomeOverviewContainer() {
             mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
           })
         : '0';
-
-    // Single-network mode: if this network's worth is null, at least one token
-    // in the list is unavailable, so the total is untrustworthy → render '--'.
-    // All Networks: calculateAccountTokensValue silently sums the available
-    // networks, so it never returns null here.
-    if (tokenWorth === null) {
-      return UNAVAILABLE_DISPLAY;
-    }
 
     const deFiWorth =
       !isAllNetworks || isCurrentAccountDeFiReady

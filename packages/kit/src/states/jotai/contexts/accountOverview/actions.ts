@@ -44,7 +44,7 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
-        worth: Record<string, string | null>;
+        worth: Record<string, string>;
         createAtNetworkWorth?: string;
         initialized: boolean;
         accountId: string;

@@ -39,13 +39,13 @@ export const { atom: walletStatusAtom, use: useWalletStatusAtom } =
     referralCodeBlockInit: false,
   });
 
-// `worth[networkKey] = null` signals that the network contains at least one
-// token whose fiatValue/balanceParsed is unavailable (OK-46226 compat window),
-// so the per-network aggregate cannot be trusted. Consumers must treat null as
-// "unavailable" rather than coercing to 0.
+// `worth[networkKey]` is a partial sum: tokens with unavailable
+// fiatValue/balanceParsed (OK-46226 backend compat window) are silently
+// dropped from the per-network total. Row-level rendering still surfaces the
+// broken entry as '--' via displayOrUnavailable.
 export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
   contextAtom<{
-    worth: Record<string, string | null>;
+    worth: Record<string, string>;
     createAtNetworkWorth: string;
     accountId: string;
     initialized: boolean;

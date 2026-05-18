@@ -1126,22 +1126,18 @@ export function calculateAccountTokensValue({
   accountId: string;
   networkId: string;
   tokensWorth: {
-    worth: Record<string, string | null>;
+    worth: Record<string, string>;
     createAtNetworkWorth: string;
     accountId: string;
     initialized: boolean;
     updateAll?: boolean;
   };
   mergeDeriveAssetsEnabled: boolean;
-}) {
-  // Aggregation paths silently skip null entries so a single unavailable
-  // network does not poison the whole sum with NaN.
-  const sumValues = (values: Array<string | null>) =>
-    values.reduce<string>(
-      (acc, cur) =>
-        cur === null ? acc : new BigNumber(acc).plus(cur).toFixed(),
-      '0',
-    );
+}): string {
+  const sumValues = (values: string[]) =>
+    values
+      .reduce<BigNumber>((acc, cur) => acc.plus(cur), new BigNumber(0))
+      .toFixed();
 
   if (networkUtils.isAllNetwork({ networkId })) {
     return sumValues(Object.values(tokensWorth.worth));
@@ -1151,15 +1147,8 @@ export function calculateAccountTokensValue({
     return sumValues(Object.values(tokensWorth.worth));
   }
 
-  // Distinguish "key present but null" (unavailable — return null so the caller
-  // renders '--') from "key absent" (not loaded yet — fall back to the first
-  // map entry or '0'). `??` would collapse both, leaking a sibling network's
-  // value when the current network is explicitly unavailable.
   const key = accountUtils.buildAccountValueKey({ accountId, networkId });
-  if (Object.prototype.hasOwnProperty.call(tokensWorth.worth, key)) {
-    return tokensWorth.worth[key];
-  }
-  return Object.values(tokensWorth.worth)[0] ?? '0';
+  return tokensWorth.worth[key] ?? Object.values(tokensWorth.worth)[0] ?? '0';
 }
 
 export function validateTokenAmount({
