@@ -29,6 +29,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { useDebugHooksDepsChangedChecker } from '@onekeyhq/shared/src/utils/debug/debugUtils';
@@ -516,6 +517,7 @@ function WebSocketSubscriptionUpdate() {
   const isLoading: boolean = !!loadingInfo?.selectAccountLoading;
   const isLoadingRef = useRef(isLoading);
   isLoadingRef.current = isLoading;
+  const lastPlanDiagnosticsKeyRef = useRef<string | undefined>(undefined);
 
   // Primitives as deps — avoids re-running on same-value object changes
   const instrumentCoin = activeTradeInstrument?.coin;
@@ -563,6 +565,34 @@ function WebSocketSubscriptionUpdate() {
       orderBookOptions: activeOrderBookOptionsRef.current,
       viewState: tradeRouteViewStateRef.current,
     });
+    const planDiagnostics = {
+      isWebSocketConnected,
+      isLoading,
+      hasAccount: Boolean(accountAddress),
+      instrumentCoin,
+      instrumentMode,
+      hasInstrumentAssetId: Boolean(instrumentAssetId),
+      orderBookCoin,
+      orderBookMantissa,
+      orderBookNSigFigs,
+      routeFocused,
+      tokenSelectorOpen,
+      tokenSelectorTab,
+      infoPanelTab,
+      favoritesBarSpotActive,
+      shouldSyncSubscriptions: plan.shouldSyncSubscriptions,
+      enableLedgerUpdates: plan.enableLedgerUpdates,
+      spotAssetCtxsEnabled: plan.spotAssetCtxsEnabled,
+      spotEnabled: plan.spotEnabled,
+    };
+    const planDiagnosticsKey = JSON.stringify(planDiagnostics);
+    if (lastPlanDiagnosticsKeyRef.current !== planDiagnosticsKey) {
+      lastPlanDiagnosticsKeyRef.current = planDiagnosticsKey;
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostics({
+        event: 'ui_subscription_plan',
+        extra: planDiagnostics,
+      });
+    }
 
     void backgroundApiProxy.serviceHyperliquidSubscription.setRouteSubscriptionState(
       {
@@ -769,11 +799,24 @@ function AutoPauseSubscriptions() {
       pauseDelay?: number;
     }) => {
       if (lastFocusStateRef.current === isFocus && pauseDelay === undefined) {
+        defaultLogger.perp.hyperliquid.subscriptionDiagnostics({
+          event: 'ui_auto_pause_deduped',
+          extra: {
+            isFocus,
+            isNative: platformEnv.isNative,
+          },
+        });
         return;
       }
       lastFocusStateRef.current = isFocus;
 
       if (isFocus) {
+        defaultLogger.perp.hyperliquid.subscriptionDiagnostics({
+          event: 'ui_auto_pause_resume',
+          extra: {
+            isNative: platformEnv.isNative,
+          },
+        });
         clearTimeout(pauseSubscriptionsTimerRef.current);
         void backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
         void backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions();
@@ -787,7 +830,21 @@ function AutoPauseSubscriptions() {
             minute: 5,
             seconds: 30,
           });
+        defaultLogger.perp.hyperliquid.subscriptionDiagnostics({
+          event: 'ui_auto_pause_disable',
+          extra: {
+            isNative: platformEnv.isNative,
+            pauseDelay,
+          },
+        });
         pauseSubscriptionsTimerRef.current = setTimeout(() => {
+          defaultLogger.perp.hyperliquid.subscriptionDiagnostics({
+            event: 'ui_auto_pause_timer_fire',
+            extra: {
+              isNative: platformEnv.isNative,
+              pauseDelay,
+            },
+          });
           void backgroundApiProxy.serviceHyperliquidSubscription.pauseSubscriptions();
         }, pauseDelay);
       }
@@ -807,6 +864,12 @@ function AutoPauseSubscriptions() {
 
   const handleAppActiveFromBackground = useCallback(() => {
     if (isFocusedRef.current) {
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostics({
+        event: 'ui_app_active_resume',
+        extra: {
+          isNative: platformEnv.isNative,
+        },
+      });
       // Native doesn't set lastFocusStateRef to false on background,
       // so reset it here to prevent dedup guard from blocking resume
       lastFocusStateRef.current = false;
@@ -829,6 +892,14 @@ function AutoPauseSubscriptions() {
   const [isLocked] = useAppIsLockedAtom();
 
   useEffect(() => {
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostics({
+      event: 'ui_lock_state_effect',
+      extra: {
+        isLocked,
+        routeFocused: isFocusedRef.current,
+        isNative: platformEnv.isNative,
+      },
+    });
     if (isLocked) {
       void onFocusHandler({ isFocus: false });
     } else {

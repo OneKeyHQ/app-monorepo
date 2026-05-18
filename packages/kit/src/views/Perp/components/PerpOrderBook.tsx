@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -24,7 +24,12 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsNetworkStatusAtom,
+  usePerpsWebSocketReadyStateAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import { useL2Book } from '../hooks/usePerpMarketData';
@@ -336,9 +341,18 @@ export function PerpOrderBook({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
+  const [networkStatus] = usePerpsNetworkStatusAtom();
+  const [wsReadyState] = usePerpsWebSocketReadyStateAtom();
   const { midPrice } = useTradingPrice();
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
+  const networkStatusRef = useRef(networkStatus);
+  networkStatusRef.current = networkStatus;
+  const wsReadyStateRef = useRef(wsReadyState);
+  wsReadyStateRef.current = wsReadyState;
+  const lastOrderBookLoadingDiagnosticsKeyRef = useRef<string | undefined>(
+    undefined,
+  );
 
   const l2SubscriptionOptions = useMemo(() => {
     const coin = activeTradeInstrument.coin;
@@ -356,6 +370,7 @@ export function PerpOrderBook({
     nSigFigs: l2SubscriptionOptions.nSigFigs,
     mantissa: l2SubscriptionOptions.mantissa,
   });
+  const hasL2Book = Boolean(l2Book);
 
   const tickOptionsData = useTickOptions({
     symbol: l2Book?.coin,
@@ -408,6 +423,67 @@ export function PerpOrderBook({
     () => propMaxLevelsPerSide ?? 18,
     [propMaxLevelsPerSide],
   );
+
+  useEffect(() => {
+    if (hasOrderBook && hasL2Book) {
+      lastOrderBookLoadingDiagnosticsKeyRef.current = undefined;
+      return;
+    }
+
+    const coin = activeTradeInstrument.coin;
+    if (!coin) {
+      return;
+    }
+
+    const diagnosticsKey = JSON.stringify({
+      coin,
+      mode: activeTradeInstrument.mode,
+      entry,
+      nSigFigs: l2SubscriptionOptions.nSigFigs,
+      mantissa: l2SubscriptionOptions.mantissa,
+    });
+    const startedAt = Date.now();
+    const timer = setTimeout(() => {
+      if (lastOrderBookLoadingDiagnosticsKeyRef.current === diagnosticsKey) {
+        return;
+      }
+      lastOrderBookLoadingDiagnosticsKeyRef.current = diagnosticsKey;
+      const latestNetworkStatus = networkStatusRef.current;
+      const latestWsReadyState = wsReadyStateRef.current;
+      const lastMessageAt = latestNetworkStatus?.lastMessageAt;
+      defaultLogger.perp.hyperliquid.subscriptionDiagnostics({
+        event: 'ui_orderbook_loading_timeout',
+        readyState: latestWsReadyState?.readyState,
+        lastMessageAgeMs: lastMessageAt ? Date.now() - lastMessageAt : null,
+        paramsSummary: {
+          coin,
+          nSigFigs: l2SubscriptionOptions.nSigFigs,
+          mantissa: l2SubscriptionOptions.mantissa ?? null,
+        },
+        extra: {
+          entry,
+          mode: activeTradeInstrument.mode,
+          connected: latestNetworkStatus?.connected,
+          pingMs: latestNetworkStatus?.pingMs,
+          hasOrderBook,
+          hasL2Book,
+          waitedMs: Date.now() - startedAt,
+        },
+      });
+    }, 10_000);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [
+    activeTradeInstrument.coin,
+    activeTradeInstrument.mode,
+    entry,
+    hasL2Book,
+    hasOrderBook,
+    l2SubscriptionOptions.mantissa,
+    l2SubscriptionOptions.nSigFigs,
+  ]);
 
   const mobileOrderBook = useMemo(() => {
     if (!hasOrderBook || !l2Book) return null;

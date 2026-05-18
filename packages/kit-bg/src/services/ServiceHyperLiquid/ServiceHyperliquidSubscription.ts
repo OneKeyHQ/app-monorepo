@@ -94,6 +94,8 @@ interface IActiveSubscription {
 
 type IHyperliquidWsClient = {
   clientId: string;
+  createdAt: number;
+  socketUrl: string;
   transport: WebSocketTransport;
   dispose: () => Promise<void>;
   hlEventTarget: IHyperliquidEventTarget;
@@ -115,6 +117,24 @@ interface ISubscriptionUpdateParams {
   currentSymbol?: string;
   isConnected?: boolean;
   l2BookOptions?: IL2BookOptions | null;
+}
+
+interface ISubscriptionDiagnosticParams {
+  event: string;
+  clientId?: string | null;
+  readyState?: number;
+  elapsedMs?: number;
+  reason?: string;
+  code?: number;
+  wasClean?: boolean;
+  subscriptionType?: ESubscriptionType;
+  subscriptionTypes?: ESubscriptionType[];
+  paramsSummary?: Record<string, unknown>;
+  requiredSubSpecsMap?: Record<string, ISubscriptionSpec<ESubscriptionType>>;
+  missingCriticalTypes?: ESubscriptionType[];
+  staleCriticalTypes?: ESubscriptionType[];
+  extra?: Record<string, unknown>;
+  error?: unknown;
 }
 
 @backgroundClass()
@@ -163,6 +183,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private static readonly SUBSCRIPTION_UPDATE_OPEN_WAIT_MS = 3000;
 
+  private static readonly DIAGNOSTIC_DATA_LOG_THROTTLE_MS = 30_000;
+
+  private static readonly DIAGNOSTIC_LIVENESS_LOG_THROTTLE_MS = 15_000;
+
+  private static readonly DIAGNOSTIC_PING_LOG_THROTTLE_MS = 30_000;
+
   private _criticalSubscriptionHealthCheckTimer: ReturnType<
     typeof setTimeout
   > | null = null;
@@ -182,6 +208,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _subscriptionAtomsUnsubs: Array<() => void> = [];
 
   private _subscriptionLifecycleVersion = 0;
+
+  private _firstDataLoggedTypes = new Set<ESubscriptionType>();
+
+  private _lastDataDiagnosticLogAt = new Map<ESubscriptionType, number>();
+
+  private _lastDisabledDataDiagnosticLogAt = new Map<
+    ESubscriptionType,
+    number
+  >();
+
+  private _lastLivenessDiagnosticLogAt = 0;
+
+  private _lastPingDiagnosticLogAt = 0;
+
+  private _hasLoggedRawSocketMessage = false;
+
+  private _lastRawSocketMessageDiagnosticLogAt = 0;
 
   private _watchSubscriptionAtoms(): void {
     if (!platformEnv.isExtension && !platformEnv.isNativeBackgroundThread) {
@@ -216,6 +259,278 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
     }
     this._subscriptionAtomsUnsubs = [];
+  }
+
+  private _getLastMessageAgeMs(now = Date.now()): number | null {
+    return this._lastMessageAt ? now - this._lastMessageAt : null;
+  }
+
+  private _getDiagnosticRequiredSubSpecsMap(
+    requiredSubSpecsMap?: Record<string, ISubscriptionSpec<ESubscriptionType>>,
+  ): Record<string, ISubscriptionSpec<ESubscriptionType>> | undefined {
+    if (requiredSubSpecsMap) {
+      return requiredSubSpecsMap;
+    }
+    if (Object.keys(this.pendingSubSpecsMap).length > 0) {
+      return this.pendingSubSpecsMap;
+    }
+    if (Object.keys(this.allSubSpecsMap).length > 0) {
+      return this.allSubSpecsMap;
+    }
+    return undefined;
+  }
+
+  private _getSubscriptionParamsSummary<T extends ESubscriptionType>(
+    spec: ISubscriptionSpec<T>,
+  ): Record<string, unknown> {
+    const params = spec.params as Record<string, unknown>;
+    const summary: Record<string, unknown> = {};
+
+    if (typeof params.coin === 'string') {
+      summary.coin = params.coin;
+    }
+    if (typeof params.dex === 'string') {
+      summary.dex = params.dex;
+    }
+    if (typeof params.nSigFigs === 'number' || params.nSigFigs === null) {
+      summary.nSigFigs = params.nSigFigs;
+    }
+    if (typeof params.mantissa === 'number' || params.mantissa === null) {
+      summary.mantissa = params.mantissa;
+    }
+    if (typeof params.aggregateByTime === 'boolean') {
+      summary.aggregateByTime = params.aggregateByTime;
+    }
+    if (typeof params.user === 'string') {
+      summary.hasUser = true;
+    }
+
+    return summary;
+  }
+
+  private _getSubscriptionDataSummary(data: unknown): Record<string, unknown> {
+    if (!data || typeof data !== 'object') {
+      return { dataType: typeof data };
+    }
+
+    const record = data as Record<string, unknown>;
+    const summary: Record<string, unknown> = {
+      keys: Object.keys(record).slice(0, 12),
+    };
+
+    const levels = record.levels;
+    if (Array.isArray(levels)) {
+      summary.levelSideLengths = levels
+        .slice(0, 2)
+        .map((side) => (Array.isArray(side) ? side.length : null));
+    }
+
+    const mids = record.mids;
+    if (mids && typeof mids === 'object') {
+      summary.midsCount = Object.keys(mids).length;
+    }
+
+    [
+      'fills',
+      'orders',
+      'clearinghouseStates',
+      'assetCtxs',
+      'tokens',
+      'balances',
+    ].forEach((key) => {
+      const value = record[key];
+      if (Array.isArray(value)) {
+        summary[`${key}Length`] = value.length;
+      }
+    });
+
+    if (typeof record.coin === 'string') {
+      summary.hasCoin = true;
+    }
+    if (typeof record.user === 'string') {
+      summary.hasUser = true;
+    }
+    if (typeof record.isSnapshot === 'boolean') {
+      summary.isSnapshot = record.isSnapshot;
+    }
+
+    return summary;
+  }
+
+  private _getRawSocketMessageSummary(data: unknown): Record<string, unknown> {
+    if (typeof data === 'string') {
+      return {
+        dataType: 'string',
+        length: data.length,
+      };
+    }
+    if (data && typeof data === 'object') {
+      const record = data as Record<string, unknown>;
+      const byteLength = record.byteLength;
+      const size = record.size;
+      return {
+        dataType: data.constructor?.name ?? 'object',
+        byteLength: typeof byteLength === 'number' ? byteLength : undefined,
+        size: typeof size === 'number' ? size : undefined,
+      };
+    }
+    return { dataType: typeof data };
+  }
+
+  private _logSubscriptionDataDiagnostics(params: {
+    subscriptionType: ESubscriptionType;
+    data: unknown;
+    messageTimestamp: number;
+  }): void {
+    const { subscriptionType, data, messageTimestamp } = params;
+    const isFirst = !this._firstDataLoggedTypes.has(subscriptionType);
+    const lastLoggedAt =
+      this._lastDataDiagnosticLogAt.get(subscriptionType) ?? 0;
+    const shouldLogPeriodic =
+      messageTimestamp - lastLoggedAt >=
+      ServiceHyperliquidSubscription.DIAGNOSTIC_DATA_LOG_THROTTLE_MS;
+
+    if (!isFirst && !shouldLogPeriodic) {
+      return;
+    }
+
+    this._firstDataLoggedTypes.add(subscriptionType);
+    this._lastDataDiagnosticLogAt.set(subscriptionType, messageTimestamp);
+    this._logSubscriptionDiagnostics({
+      event: isFirst ? 'subscription_data_first' : 'subscription_data_periodic',
+      subscriptionType,
+      extra: {
+        dataSummary: this._getSubscriptionDataSummary(data),
+        messageTimestamp,
+      },
+    });
+  }
+
+  private _logDisabledSubscriptionDataDiagnostics(params: {
+    subscriptionType: ESubscriptionType;
+    data: unknown;
+    force?: boolean;
+  }): void {
+    const now = Date.now();
+    const { subscriptionType, data, force } = params;
+    const lastLoggedAt =
+      this._lastDisabledDataDiagnosticLogAt.get(subscriptionType) ?? 0;
+    if (
+      !force &&
+      now - lastLoggedAt <
+        ServiceHyperliquidSubscription.DIAGNOSTIC_DATA_LOG_THROTTLE_MS
+    ) {
+      return;
+    }
+
+    this._lastDisabledDataDiagnosticLogAt.set(subscriptionType, now);
+    this._logSubscriptionDiagnostics({
+      event: 'subscription_data_dropped_disabled',
+      subscriptionType,
+      extra: {
+        disabledCount: this.subscriptionsHandlerDisabledCount,
+        dataSummary: this._getSubscriptionDataSummary(data),
+      },
+    });
+  }
+
+  private _logPingDiagnostics(params: {
+    event: string;
+    pingMs?: number;
+    error?: unknown;
+  }): void {
+    const now = Date.now();
+    if (
+      now - this._lastPingDiagnosticLogAt <
+      ServiceHyperliquidSubscription.DIAGNOSTIC_PING_LOG_THROTTLE_MS
+    ) {
+      return;
+    }
+
+    this._lastPingDiagnosticLogAt = now;
+    this._logSubscriptionDiagnostics({
+      event: params.event,
+      elapsedMs: params.pingMs,
+      error: params.error,
+    });
+  }
+
+  private _getDiagnosticErrorSummary(
+    error: unknown,
+  ): Record<string, unknown> | undefined {
+    if (!error) {
+      return undefined;
+    }
+    if (typeof error === 'string') {
+      return {
+        message: error.slice(0, 300),
+      };
+    }
+    if (typeof error !== 'object') {
+      return {
+        message: String(error),
+      };
+    }
+
+    const record = error as Record<string, unknown>;
+    return {
+      name: typeof record.name === 'string' ? record.name : undefined,
+      message:
+        typeof record.message === 'string'
+          ? record.message.slice(0, 300)
+          : undefined,
+      code:
+        typeof record.code === 'string' || typeof record.code === 'number'
+          ? record.code
+          : undefined,
+      status:
+        typeof record.status === 'string' || typeof record.status === 'number'
+          ? record.status
+          : undefined,
+    };
+  }
+
+  private _logSubscriptionDiagnostics(
+    params: ISubscriptionDiagnosticParams,
+  ): void {
+    const now = Date.now();
+    const client = this._client;
+    const requiredSubSpecsMap = this._getDiagnosticRequiredSubSpecsMap(
+      params.requiredSubSpecsMap,
+    );
+    const missingCriticalTypes =
+      params.missingCriticalTypes ??
+      this._getMissingCriticalOpenSubscriptionTypes(requiredSubSpecsMap);
+    const staleCriticalTypes =
+      params.staleCriticalTypes ??
+      this._getStaleCriticalOpenSubscriptionTypes(requiredSubSpecsMap);
+
+    defaultLogger.perp.hyperliquid.subscriptionDiagnostics({
+      event: params.event,
+      clientId: params.clientId ?? client?.clientId,
+      readyState:
+        params.readyState ??
+        client?.transport?.socket?.readyState ??
+        this._lastReadyState,
+      socketUrl: client?.socketUrl,
+      elapsedMs: params.elapsedMs,
+      reason: params.reason,
+      code: params.code,
+      wasClean: params.wasClean,
+      activeCount: this._activeSubscriptions.size,
+      pendingCount: Object.keys(this.pendingSubSpecsMap).length,
+      allCount: Object.keys(this.allSubSpecsMap).length,
+      lastMessageAgeMs: this._getLastMessageAgeMs(now),
+      missingCriticalTypes: missingCriticalTypes.map((type) => String(type)),
+      staleCriticalTypes: staleCriticalTypes.map((type) => String(type)),
+      subscriptionType: params.subscriptionType
+        ? String(params.subscriptionType)
+        : undefined,
+      subscriptionTypes: params.subscriptionTypes?.map((type) => String(type)),
+      paramsSummary: params.paramsSummary,
+      extra: params.extra,
+      error: this._getDiagnosticErrorSummary(params.error),
+    });
   }
 
   async buildRequiredSubscriptionsMap() {
@@ -297,6 +612,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
     const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
     if (!requiredSubInfo) {
+      this._logSubscriptionDiagnostics({
+        event: 'update_subscriptions_core_no_required_info',
+      });
       return;
     }
 
@@ -309,6 +627,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           ',',
         )}`,
       );
+      this._logSubscriptionDiagnostics({
+        event: 'update_subscriptions_rebuild_stale_critical',
+        requiredSubSpecsMap: requiredSubInfo.requiredSubSpecsMap,
+        staleCriticalTypes,
+      });
       this._subscriptionLifecycleVersion += 1;
       this._updateSubscriptionsDebounced.cancel();
       this._clearPostOpenDataCheck();
@@ -331,6 +654,32 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._applyStateUpdates(newState, requiredSubInfo.params);
 
     this._emitConnectionStatus();
+    const toCreateSubscriptionTypes = Object.values(
+      requiredSubInfo.requiredSubSpecsMap,
+    )
+      .filter((spec) => !this._activeSubscriptions.has(spec.key))
+      .map((spec) => spec.type);
+    this._logSubscriptionDiagnostics({
+      event: 'update_subscriptions_core_plan',
+      requiredSubSpecsMap: requiredSubInfo.requiredSubSpecsMap,
+      subscriptionTypes: toCreateSubscriptionTypes,
+      extra: {
+        requiredCount: Object.keys(requiredSubInfo.requiredSubSpecsMap).length,
+        toCreateCount: toCreateSubscriptionTypes.length,
+        currentSymbol: requiredSubInfo.params.currentSymbol,
+        currentSpotSymbol: requiredSubInfo.params.currentSpotSymbol,
+        tradingMode: requiredSubInfo.params.tradingMode,
+        hasUser: Boolean(requiredSubInfo.params.currentUser),
+        hasL2BookOptions: Boolean(requiredSubInfo.params.l2BookOptions),
+        enableLedgerUpdates: Boolean(
+          requiredSubInfo.params.enableLedgerUpdates,
+        ),
+        spotEnabled: Boolean(requiredSubInfo.params.spotEnabled),
+        spotAssetCtxsEnabled: Boolean(
+          requiredSubInfo.params.spotAssetCtxsEnabled,
+        ),
+      },
+    });
     this._executeSubscriptionChanges();
     this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
 
@@ -351,10 +700,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async updateSubscriptions(): Promise<void> {
     if (this.subscriptionsHandlerDisabled) {
+      this._logSubscriptionDiagnostics({
+        event: 'update_subscriptions_skipped_disabled',
+      });
       return;
     }
+    const startedAt = Date.now();
     const client = await this.getWebSocketClient();
     if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
+      this._logSubscriptionDiagnostics({
+        event: 'update_subscriptions_socket_not_open',
+        clientId: client?.clientId,
+        readyState: client?.transport?.socket?.readyState,
+        elapsedMs: Date.now() - startedAt,
+      });
       await this._recoverNotOpenSocketBeforeSubscriptionUpdate({
         client,
         reason: 'update_subscriptions_not_open',
@@ -365,9 +724,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     if (!this._hasInitialSubscription) {
       this._hasInitialSubscription = true;
       await this._updateSubscriptionsCore();
+      this._logSubscriptionDiagnostics({
+        event: 'update_subscriptions_initial_done',
+        clientId: client.clientId,
+        elapsedMs: Date.now() - startedAt,
+      });
       return;
     }
     await this._updateSubscriptionsDebounced();
+    this._logSubscriptionDiagnostics({
+      event: 'update_subscriptions_debounced',
+      clientId: client.clientId,
+      elapsedMs: Date.now() - startedAt,
+    });
   }
 
   @backgroundMethod()
@@ -566,6 +935,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         missingCriticalTypes.length === 0 &&
         staleCriticalTypes.length === 0
       ) {
+        this._logSubscriptionDiagnostics({
+          event: 'critical_subscription_health_check_ok',
+          reason,
+          requiredSubSpecsMap: requiredSubInfo.requiredSubSpecsMap,
+        });
         return;
       }
 
@@ -574,6 +948,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           ',',
         )}__stale=${staleCriticalTypes.join(',')}`,
       );
+      this._logSubscriptionDiagnostics({
+        event: 'critical_subscription_health_check_rebuild',
+        reason,
+        requiredSubSpecsMap: requiredSubInfo.requiredSubSpecsMap,
+        missingCriticalTypes,
+        staleCriticalTypes,
+      });
       this._subscriptionLifecycleVersion += 1;
       this._updateSubscriptionsDebounced.cancel();
       this._clearPostOpenDataCheck();
@@ -602,6 +983,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
     this._resumeRecoveryPromise = (async () => {
       const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
+      this._logSubscriptionDiagnostics({
+        event: 'resume_reconcile_start',
+        reason: params?.reason,
+        requiredSubSpecsMap: requiredSubInfo?.requiredSubSpecsMap,
+        extra: {
+          forceRebuild: Boolean(params?.forceRebuild),
+        },
+      });
       if (
         this._shouldRebuildOpenSocketSubscriptionsOnResume({
           ...params,
@@ -610,6 +999,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       ) {
         const reason = params?.reason ?? 'resumeSubscriptions';
         console.log(`resumeSubscriptions__rebuild_open_socket__${reason}`);
+        this._logSubscriptionDiagnostics({
+          event: 'resume_rebuild_open_socket',
+          reason,
+          requiredSubSpecsMap: requiredSubInfo?.requiredSubSpecsMap,
+        });
         this._subscriptionLifecycleVersion += 1;
         this._updateSubscriptionsDebounced.cancel();
         this._clearPostOpenDataCheck();
@@ -619,6 +1013,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         await timerUtils.wait(50);
       }
       await this.updateSubscriptions();
+      this._logSubscriptionDiagnostics({
+        event: 'resume_reconcile_done',
+        reason: params?.reason,
+        requiredSubSpecsMap: requiredSubInfo?.requiredSubSpecsMap,
+      });
     })().finally(() => {
       this._resumeRecoveryPromise = null;
     });
@@ -636,6 +1035,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return false;
     }
     console.log('updateSubscriptions__force_reconnect_closed_socket');
+    this._logSubscriptionDiagnostics({
+      event: 'force_reconnect_closed_or_closing_socket',
+    });
     await this._forceReconnectTransport();
     return true;
   }
@@ -691,25 +1093,49 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     currentUser: string | null;
     currentSymbol: string;
     isConnected: boolean;
+    clientId?: string;
+    socketReadyState?: number;
+    lastReadyState?: number;
+    lastMessageAt: number | null;
+    lastMessageAgeMs: number | null;
+    missingCriticalTypes: ESubscriptionType[];
+    staleCriticalTypes: ESubscriptionType[];
+    pendingSubscriptionTypes: ESubscriptionType[];
     activeSubscriptions: Array<{
-      key: string;
       type: ESubscriptionType;
       createdAt: number;
+      createdAgeMs: number;
       lastActivity: number;
+      lastActivityAgeMs: number;
       isActive: boolean;
     }>;
   }> {
+    const now = Date.now();
+    const requiredSubSpecsMap = this._getDiagnosticRequiredSubSpecsMap();
     return {
       currentUser: this._currentState.currentUser,
       currentSymbol: this._currentState.currentSymbol,
       isConnected: this._currentState.isConnected,
+      clientId: this._client?.clientId,
+      socketReadyState: this._client?.transport?.socket?.readyState,
+      lastReadyState: this._lastReadyState,
+      lastMessageAt: this._lastMessageAt,
+      lastMessageAgeMs: this._getLastMessageAgeMs(now),
+      missingCriticalTypes:
+        this._getMissingCriticalOpenSubscriptionTypes(requiredSubSpecsMap),
+      staleCriticalTypes:
+        this._getStaleCriticalOpenSubscriptionTypes(requiredSubSpecsMap),
+      pendingSubscriptionTypes: Object.values(this.pendingSubSpecsMap).map(
+        (spec) => spec.type,
+      ),
       activeSubscriptions: Array.from(this._activeSubscriptions.values() || [])
         .filter(Boolean)
         .map((sub) => ({
-          key: sub.key,
           type: sub.type,
           createdAt: sub.createdAt,
+          createdAgeMs: now - sub.createdAt,
           lastActivity: sub.lastActivity,
+          lastActivityAgeMs: now - sub.lastActivity,
           isActive: sub.isActive,
         })),
     };
@@ -720,19 +1146,39 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     forceRebuild?: boolean;
     forceReconnect?: boolean;
   }): Promise<void> {
+    const startedAt = Date.now();
     await this.enableSubscriptionsHandler();
     this._postOpenDataCheckRetries = 0;
     console.log('updateSubscriptions__by__resumeSubscriptions');
+    this._logSubscriptionDiagnostics({
+      event: 'resume_subscriptions_start',
+      extra: {
+        forceRebuild: Boolean(params?.forceRebuild),
+        forceReconnect: Boolean(params?.forceReconnect),
+      },
+    });
 
     if (params?.forceReconnect) {
       console.log('resumeSubscriptions__force_reconnect_transport__requested');
+      this._logSubscriptionDiagnostics({
+        event: 'resume_subscriptions_force_reconnect_requested',
+      });
       await this._forceReconnectTransport();
+      this._logSubscriptionDiagnostics({
+        event: 'resume_subscriptions_done',
+        elapsedMs: Date.now() - startedAt,
+      });
       return;
     }
 
     const client = await this.getWebSocketClient();
     if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
       console.log('resumeSubscriptions__force_reconnect_transport');
+      this._logSubscriptionDiagnostics({
+        event: 'resume_subscriptions_socket_not_open',
+        clientId: client?.clientId,
+        readyState: client?.transport?.socket?.readyState,
+      });
       await this._forceReconnectTransport();
     } else {
       // OK-53014: re-install atom watcher since pauseSubscriptions() tore
@@ -746,10 +1192,18 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           : 'native_resume_stale_data',
       });
     }
+    this._logSubscriptionDiagnostics({
+      event: 'resume_subscriptions_done',
+      elapsedMs: Date.now() - startedAt,
+    });
   }
 
   @backgroundMethod()
   async pauseSubscriptions(): Promise<void> {
+    const startedAt = Date.now();
+    this._logSubscriptionDiagnostics({
+      event: 'pause_subscriptions_start',
+    });
     this._subscriptionLifecycleVersion += 1;
     this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
@@ -759,6 +1213,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._stopPingLoop();
     await this._cleanupAllSubscriptions();
     // No reloadHook change — iframe WS self-heals on resume
+    this._logSubscriptionDiagnostics({
+      event: 'pause_subscriptions_done',
+      elapsedMs: Date.now() - startedAt,
+    });
   }
 
   hasNewUserFills = false;
@@ -771,10 +1229,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   async disableSubscriptionsHandler(): Promise<void> {
     this.subscriptionsHandlerDisabled = true;
     this.subscriptionsHandlerDisabledCount += 1;
+    this._logSubscriptionDiagnostics({
+      event: 'subscriptions_handler_disabled',
+      extra: {
+        disabledCount: this.subscriptionsHandlerDisabledCount,
+      },
+    });
   }
 
   @backgroundMethod()
   async enableSubscriptionsHandler(): Promise<void> {
+    const hadNewUserFills = this.hasNewUserFills;
     this.subscriptionsHandlerDisabled = false;
     if (this.hasNewUserFills) {
       this.hasNewUserFills = false;
@@ -782,6 +1247,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         refreshHook: Date.now(),
       });
     }
+    this._logSubscriptionDiagnostics({
+      event: 'subscriptions_handler_enabled',
+      extra: {
+        disabledCount: this.subscriptionsHandlerDisabledCount,
+        hadNewUserFills,
+      },
+    });
   }
 
   @backgroundMethod()
@@ -796,6 +1268,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     spotAssetCtxsEnabled: boolean;
     spotEnabled: boolean;
   }): Promise<void> {
+    const prevState = {
+      enableLedgerUpdates: this._currentState.enableLedgerUpdates,
+      spotAssetCtxsEnabled: this._currentState.spotAssetCtxsEnabled,
+      spotEnabled: this._currentState.spotEnabled,
+    };
     // enableLedgerUpdates is a one-way toggle (set true by enableLedgerUpdatesSubscription
     // when user visits Account tab). Never reset to false — planTradeSubscriptions cannot
     // reliably compute this since infoPanelTab is not synced to real tab state.
@@ -803,6 +1280,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       params.enableLedgerUpdates || this._currentState.enableLedgerUpdates;
     this._currentState.spotAssetCtxsEnabled = params.spotAssetCtxsEnabled;
     this._currentState.spotEnabled = params.spotEnabled;
+    this._logSubscriptionDiagnostics({
+      event: 'route_subscription_state_set',
+      extra: {
+        prevState,
+        nextState: {
+          enableLedgerUpdates: this._currentState.enableLedgerUpdates,
+          spotAssetCtxsEnabled: this._currentState.spotAssetCtxsEnabled,
+          spotEnabled: this._currentState.spotEnabled,
+        },
+      },
+    });
   }
 
   @backgroundMethod()
@@ -819,8 +1307,18 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async connect(): Promise<void> {
+    const startedAt = Date.now();
     const client = await this.getWebSocketClient();
+    this._logSubscriptionDiagnostics({
+      event: 'connect_start',
+      clientId: client.clientId,
+      readyState: client.transport?.socket?.readyState,
+    });
     if (await this._reconnectClosedOrClosingSocket()) {
+      this._logSubscriptionDiagnostics({
+        event: 'connect_reconnected_closed_socket',
+        elapsedMs: Date.now() - startedAt,
+      });
       return;
     }
     const readyState = client.transport?.socket?.readyState;
@@ -830,11 +1328,26 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       await this._reconcileOpenSocketSubscriptionsOnResume({
         reason: 'connect_open_socket',
       });
+      this._logSubscriptionDiagnostics({
+        event: 'connect_open_socket_done',
+        clientId: client.clientId,
+        elapsedMs: Date.now() - startedAt,
+      });
+    } else {
+      this._logSubscriptionDiagnostics({
+        event: 'connect_waiting_for_socket_open',
+        clientId: client.clientId,
+        readyState,
+        elapsedMs: Date.now() - startedAt,
+      });
     }
   }
 
   @backgroundMethod()
   async disconnect(): Promise<void> {
+    this._logSubscriptionDiagnostics({
+      event: 'disconnect_start',
+    });
     this._subscriptionLifecycleVersion += 1;
     this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
@@ -849,17 +1362,29 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // for fast recovery (critical for iOS foreground resume).
     this._hasInitialSubscription = false;
     this._emitConnectionStatus();
+    this._logSubscriptionDiagnostics({
+      event: 'disconnect_done',
+    });
   }
 
   @backgroundMethod()
   async reconnect(): Promise<void> {
+    this._logSubscriptionDiagnostics({
+      event: 'reconnect_start',
+    });
     await this.disconnect();
     await timerUtils.wait(1000);
     await this.connect();
+    this._logSubscriptionDiagnostics({
+      event: 'reconnect_done',
+    });
   }
 
   @backgroundMethod()
   async cleanup(): Promise<void> {
+    this._logSubscriptionDiagnostics({
+      event: 'cleanup_start',
+    });
     this._subscriptionLifecycleVersion += 1;
     this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
@@ -867,11 +1392,18 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._clearPostOpenDataCheck();
     this._clearCriticalSubscriptionHealthCheck();
     await this._cleanupAllSubscriptions();
+    this._logSubscriptionDiagnostics({
+      event: 'cleanup_done',
+    });
   }
 
   // Skip per-subscription unsubscribe to avoid async race where stale
   // _destroySubscription completion deletes newly created tracking entries
   private async _forceReconnectTransport(): Promise<void> {
+    const startedAt = Date.now();
+    this._logSubscriptionDiagnostics({
+      event: 'force_reconnect_transport_start',
+    });
     this._subscriptionLifecycleVersion += 1;
     this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
@@ -890,6 +1422,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     );
     this._emitConnectionStatus();
     await this.getWebSocketClient();
+    this._logSubscriptionDiagnostics({
+      event: 'force_reconnect_transport_done',
+      elapsedMs: Date.now() - startedAt,
+    });
   }
 
   private async _recoverNotOpenSocketBeforeSubscriptionUpdate(params: {
@@ -902,8 +1438,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     this._subscriptionUpdateRecoveryPromise = (async () => {
+      const startedAt = Date.now();
       const readyState = params.client.transport?.socket?.readyState;
+      this._logSubscriptionDiagnostics({
+        event: 'recover_not_open_socket_start',
+        clientId: params.client.clientId,
+        readyState,
+        reason: params.reason,
+      });
       if (readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING) {
+        this._logSubscriptionDiagnostics({
+          event: 'recover_not_open_socket_closed_or_closing',
+          clientId: params.client.clientId,
+          readyState,
+          reason: params.reason,
+          elapsedMs: Date.now() - startedAt,
+        });
         await this._forceReconnectTransport();
         return;
       }
@@ -914,6 +1464,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           ServiceHyperliquidSubscription.SUBSCRIPTION_UPDATE_OPEN_WAIT_MS,
       });
       if (isOpen) {
+        this._logSubscriptionDiagnostics({
+          event: 'recover_not_open_socket_opened',
+          clientId: params.client.clientId,
+          readyState: params.client.transport?.socket?.readyState,
+          reason: params.reason,
+          elapsedMs: Date.now() - startedAt,
+        });
         this._watchSubscriptionAtoms();
         await this._reconcileOpenSocketSubscriptionsOnResume({
           reason: params.reason,
@@ -940,7 +1497,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         console.log(
           `updateSubscriptions__force_reconnect_not_open__${params.reason}`,
         );
+        this._logSubscriptionDiagnostics({
+          event: 'recover_not_open_socket_timeout_force_reconnect',
+          clientId: params.client.clientId,
+          readyState: params.client.transport?.socket?.readyState,
+          reason: params.reason,
+          elapsedMs: Date.now() - startedAt,
+        });
         await this._forceReconnectTransport();
+      } else {
+        this._logSubscriptionDiagnostics({
+          event: 'recover_not_open_socket_timeout_noop',
+          clientId: params.client.clientId,
+          readyState: params.client.transport?.socket?.readyState,
+          reason: params.reason,
+          elapsedMs: Date.now() - startedAt,
+        });
       }
     })().finally(() => {
       this._subscriptionUpdateRecoveryPromise = null;
@@ -980,9 +1552,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       ServiceHyperliquidSubscription.POST_OPEN_DATA_CHECK_MAX_RETRIES
     ) {
       // Stop retrying — rely on transport's built-in backoff
+      this._logSubscriptionDiagnostics({
+        event: 'post_open_data_check_max_retries_reached',
+        extra: {
+          retries: this._postOpenDataCheckRetries,
+        },
+      });
       return;
     }
     const messageAtBefore = this._lastMessageAt;
+    this._logSubscriptionDiagnostics({
+      event: 'post_open_data_check_scheduled',
+      extra: {
+        retries: this._postOpenDataCheckRetries,
+        messageAtBefore,
+      },
+    });
     this._postOpenDataCheckTimer = setTimeout(async () => {
       this._postOpenDataCheckTimer = null;
       if (
@@ -993,8 +1578,25 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         console.log(
           `post_open_data_check__force_reconnect (${this._postOpenDataCheckRetries}/${ServiceHyperliquidSubscription.POST_OPEN_DATA_CHECK_MAX_RETRIES})`,
         );
+        this._logSubscriptionDiagnostics({
+          event: 'post_open_data_check_force_reconnect',
+          extra: {
+            retries: this._postOpenDataCheckRetries,
+            maxRetries:
+              ServiceHyperliquidSubscription.POST_OPEN_DATA_CHECK_MAX_RETRIES,
+            messageAtBefore,
+          },
+        });
         await this._forceReconnectTransport();
       } else {
+        this._logSubscriptionDiagnostics({
+          event: 'post_open_data_check_data_received',
+          extra: {
+            retries: this._postOpenDataCheckRetries,
+            messageAtBefore,
+            lastMessageAt: this._lastMessageAt,
+          },
+        });
         this._postOpenDataCheckRetries = 0;
       }
     }, 5000);
@@ -1058,6 +1660,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._lastReadyState = readyState;
     void perpsWebSocketReadyStateAtom.set({ readyState });
     // WS error event — readyState tracked via perpsWebSocketReadyStateAtom
+    this._logSubscriptionDiagnostics({
+      event: 'socket_error_event',
+      readyState,
+      extra: {
+        eventType: event.type,
+      },
+    });
   };
 
   socketCloseHandler: (event: WebSocketEventMap['close']) => void = (
@@ -1069,6 +1678,18 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._lastReadyState = readyState;
     void perpsWebSocketReadyStateAtom.set({ readyState });
     // WS close event — readyState tracked via perpsWebSocketReadyStateAtom
+    const closeEvent = event as {
+      code?: number;
+      reason?: string;
+      wasClean?: boolean;
+    };
+    this._logSubscriptionDiagnostics({
+      event: 'socket_close_event',
+      readyState,
+      code: closeEvent.code,
+      reason: closeEvent.reason,
+      wasClean: closeEvent.wasClean,
+    });
     this._activeSubscriptions.clear();
     this._clearPostOpenDataCheck();
     this._stopPingLoop();
@@ -1098,6 +1719,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // Catch-all here keeps the WS lifecycle robust regardless of which atom
     // write or update fails.
     try {
+      const openStartedAt = Date.now();
       const socket = event.target as WebSocket | undefined;
       const readyState = socket?.readyState;
       this._lastReadyState = readyState;
@@ -1110,6 +1732,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const prevNetworkStatus = await perpsNetworkStatusAtom.get();
       const wasConnected = prevNetworkStatus?.connected;
       const openClient = this._client;
+      this._logSubscriptionDiagnostics({
+        event: 'socket_open_event',
+        clientId: openClient?.clientId,
+        readyState: readyState ?? WebSocket.OPEN,
+        elapsedMs: openClient ? Date.now() - openClient.createdAt : undefined,
+        extra: {
+          wasConnected,
+        },
+      });
 
       await timerUtils.wait(600); // wait network status atom update
       const currentClient = this._client;
@@ -1119,6 +1750,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         currentClient.transport?.socket?.readyState !== WebSocket.OPEN ||
         this.subscriptionsHandlerDisabled
       ) {
+        this._logSubscriptionDiagnostics({
+          event: 'socket_open_event_skipped',
+          clientId: openClient?.clientId,
+          readyState: currentClient?.transport?.socket?.readyState,
+          elapsedMs: Date.now() - openStartedAt,
+          extra: {
+            hasCurrentClient: Boolean(currentClient),
+            isSameClient: currentClient === openClient,
+            subscriptionsHandlerDisabled: this.subscriptionsHandlerDisabled,
+          },
+        });
         return;
       }
 
@@ -1146,8 +1788,18 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       this._startPostOpenDataCheck();
+      this._logSubscriptionDiagnostics({
+        event: 'socket_open_handler_done',
+        clientId: currentClient.clientId,
+        readyState: currentClient.transport?.socket?.readyState,
+        elapsedMs: Date.now() - openStartedAt,
+      });
     } catch (error) {
       defaultLogger.perp.hyperliquid.subscriptionSocketOpenError({ error });
+      this._logSubscriptionDiagnostics({
+        event: 'socket_open_handler_error',
+        error,
+      });
     }
   };
 
@@ -1157,13 +1809,37 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     event,
     ..._args
   ) => {
+    const now = Date.now();
     const socket = event.target as WebSocket | undefined;
     const readyState = socket?.readyState;
+    const isFirstRawMessage = !this._hasLoggedRawSocketMessage;
+    const shouldLogRawMessage =
+      isFirstRawMessage ||
+      now - this._lastRawSocketMessageDiagnosticLogAt >=
+        ServiceHyperliquidSubscription.DIAGNOSTIC_DATA_LOG_THROTTLE_MS;
+    if (shouldLogRawMessage) {
+      const messageEvent = event as { data?: unknown };
+      this._hasLoggedRawSocketMessage = true;
+      this._lastRawSocketMessageDiagnosticLogAt = now;
+      this._logSubscriptionDiagnostics({
+        event: isFirstRawMessage
+          ? 'socket_raw_message_first'
+          : 'socket_raw_message_periodic',
+        readyState,
+        extra: {
+          dataSummary: this._getRawSocketMessageSummary(messageEvent.data),
+        },
+      });
+    }
     // Only write readyState atom when it actually changes to avoid
     // triggering downstream re-renders on every WS message
     if (readyState !== this._lastReadyState) {
       this._lastReadyState = readyState;
       void perpsWebSocketReadyStateAtom.set({ readyState });
+      this._logSubscriptionDiagnostics({
+        event: 'socket_message_ready_state_changed',
+        readyState,
+      });
     }
   };
 
@@ -1175,11 +1851,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return this._clientInitPromise;
     }
     this._clientInitPromise = (async () => {
+      const createdAt = Date.now();
       const clientId = `hl-ws-${Date.now()}-${Math.random()
         .toString(16)
         .slice(2, 8)}`;
+      const socketUrl = 'wss://api.hyperliquid.xyz/ws';
+      this._firstDataLoggedTypes.clear();
+      this._lastDataDiagnosticLogAt.clear();
+      this._hasLoggedRawSocketMessage = false;
+      this._lastRawSocketMessageDiagnosticLogAt = 0;
       const transportOptions: IWebSocketTransportOptions = {
-        url: 'wss://api.hyperliquid.xyz/ws',
+        url: socketUrl,
         /* spell-checker:disable */
         reconnect: {
           maxRetries: 999,
@@ -1188,12 +1870,32 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           // oxlint-disable-next-line @cspell/spellchecker
           reconnectionDelay: (
             attempt: number, // spell-checker:disable-line
-          ) =>
+          ) => {
             // eslint-disable-next-line no-bitwise
-            Math.min(~~(1 << attempt) * 150, 8000),
+            const delayMs = Math.min(~~(1 << attempt) * 150, 8000);
+            this._logSubscriptionDiagnostics({
+              event: 'transport_reconnection_delay',
+              clientId,
+              elapsedMs: Date.now() - createdAt,
+              extra: {
+                attempt,
+                delayMs,
+              },
+            });
+            return delayMs;
+          },
         },
         /* spell-checker:enable */
       };
+      this._logSubscriptionDiagnostics({
+        event: 'client_create_start',
+        clientId,
+        extra: {
+          socketUrl,
+          connectionTimeout:
+            transportOptions.reconnect?.connectionTimeout ?? undefined,
+        },
+      });
       const transport = new WebSocketTransport(transportOptions);
       // transport.socket.readyState
       const removeAllSocketEventListeners = () => {
@@ -1215,7 +1917,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       transport.socket.addEventListener('close', this.socketCloseHandler);
       transport.socket.addEventListener('error', this.socketErrorHandler);
       transport.socket.addEventListener('open', this.socketOpenHandler);
-      // transport.socket.addEventListener('message', this.socketMessageHandler);
+      transport.socket.addEventListener('message', this.socketMessageHandler);
       const innerClient = new SubscriptionClient({ transport });
       const innerTransport = transport;
       // @ts-ignore
@@ -1308,6 +2010,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       };
       this._client = {
         clientId,
+        createdAt,
+        socketUrl,
         transport,
         hlEventTarget,
         wsRequester,
@@ -1325,6 +2029,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           // defensively by the rews patch, but harmless cleanup is preferred).
           defaultLogger.perp.hyperliquid.subscriptionTransportDispose({
             clientId,
+          });
+          this._logSubscriptionDiagnostics({
+            event: 'transport_dispose_start',
+            clientId,
+            readyState: transport.socket?.readyState,
+            elapsedMs: Date.now() - createdAt,
           });
           try {
             // Close socket first so rews's internal close listener fires and
@@ -1363,8 +2073,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
               );
             }
           }
+          this._logSubscriptionDiagnostics({
+            event: 'transport_dispose_done',
+            clientId,
+            readyState: transport.socket?.readyState,
+            elapsedMs: Date.now() - createdAt,
+          });
         },
       };
+      this._logSubscriptionDiagnostics({
+        event: 'client_create_done',
+        clientId,
+        readyState: transport.socket?.readyState,
+        elapsedMs: Date.now() - createdAt,
+      });
       return this._client;
     })();
     return this._clientInitPromise;
@@ -1373,18 +2095,35 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private async _closeClient(): Promise<void> {
     this._unwatchSubscriptionAtoms();
     if (this._client) {
+      const client = this._client;
+      this._logSubscriptionDiagnostics({
+        event: 'close_client_start',
+        clientId: client.clientId,
+        readyState: client.transport?.socket?.readyState,
+      });
       try {
         // TODO remove all eventListeners
-        await this._client.dispose();
+        await client.dispose();
       } catch (error) {
         console.error(
           '[ServiceHyperliquidSubscription.closeClient] Failed to close client:',
           error,
         );
+        this._logSubscriptionDiagnostics({
+          event: 'close_client_error',
+          clientId: client.clientId,
+          readyState: client.transport?.socket?.readyState,
+          error,
+        });
       }
 
       this._client = null;
       this._clientInitPromise = null;
+      this._logSubscriptionDiagnostics({
+        event: 'close_client_done',
+        clientId: client.clientId,
+        readyState: client.transport?.socket?.readyState,
+      });
     }
   }
 
@@ -1432,6 +2171,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   ): Promise<void> {
     // eslint-disable-next-line no-param-reassign
     spec = cloneDeep(spec);
+    const startedAt = Date.now();
+    const paramsSummary = this._getSubscriptionParamsSummary(spec);
 
     const addSubCache = () => {
       if (!this.allSubSpecsMap[spec.key]) {
@@ -1447,10 +2188,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       console.warn(
         `[ServiceHyperliquidSubscription.createSubscription] Subscription already exists: ${spec.key}`,
       );
+      this._logSubscriptionDiagnostics({
+        event: 'subscription_create_skipped_exists',
+        subscriptionType: spec.type,
+        paramsSummary,
+      });
       return;
     }
 
     try {
+      this._logSubscriptionDiagnostics({
+        event: 'subscription_create_start',
+        subscriptionType: spec.type,
+        paramsSummary,
+      });
       const _sdkSubscription = await this._createSubscriptionDirect(spec);
       this._activeSubscriptions.set(spec.key, {
         key: spec.key,
@@ -1460,11 +2211,24 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         lastActivity: Date.now(),
         isActive: true,
       });
+      this._logSubscriptionDiagnostics({
+        event: 'subscription_create_success',
+        subscriptionType: spec.type,
+        paramsSummary,
+        elapsedMs: Date.now() - startedAt,
+      });
     } catch (error) {
       console.error(
         `[ServiceHyperliquidSubscription.createSubscription] Failed to create subscription ${spec.type}:`,
         error,
       );
+      this._logSubscriptionDiagnostics({
+        event: 'subscription_create_error',
+        subscriptionType: spec.type,
+        paramsSummary,
+        elapsedMs: Date.now() - startedAt,
+        error,
+      });
     } finally {
       // this.destroyUnusedSubscriptions();
       addSubCache();
@@ -1474,6 +2238,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private async _destroySubscription(
     spec: ISubscriptionSpec<ESubscriptionType>,
   ): Promise<boolean> {
+    const startedAt = Date.now();
+    const paramsSummary = this._getSubscriptionParamsSummary(spec);
     try {
       if (spec) {
         const removeSubCache = () => {
@@ -1481,14 +2247,31 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           this._activeSubscriptions.delete(spec.key);
         };
         try {
+          this._logSubscriptionDiagnostics({
+            event: 'subscription_destroy_start',
+            subscriptionType: spec.type,
+            paramsSummary,
+          });
           const client = await this.getWebSocketClient();
           if (!client) {
             removeSubCache();
+            this._logSubscriptionDiagnostics({
+              event: 'subscription_destroy_no_client',
+              subscriptionType: spec.type,
+              paramsSummary,
+              elapsedMs: Date.now() - startedAt,
+            });
             return true;
           }
           // await sdkSub.unsubscribe();
           await client.unsubscribe(spec.type, spec.params);
           removeSubCache();
+          this._logSubscriptionDiagnostics({
+            event: 'subscription_destroy_success',
+            subscriptionType: spec.type,
+            paramsSummary,
+            elapsedMs: Date.now() - startedAt,
+          });
           return true;
         } catch (error) {
           const e = error as OneKeyError | undefined;
@@ -1498,8 +2281,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           );
           if (e?.message.includes('Already unsubscribed')) {
             removeSubCache();
+            this._logSubscriptionDiagnostics({
+              event: 'subscription_destroy_already_unsubscribed',
+              subscriptionType: spec.type,
+              paramsSummary,
+              elapsedMs: Date.now() - startedAt,
+            });
             return true;
           }
+          this._logSubscriptionDiagnostics({
+            event: 'subscription_destroy_error',
+            subscriptionType: spec.type,
+            paramsSummary,
+            elapsedMs: Date.now() - startedAt,
+            error,
+          });
           return false;
         }
       }
@@ -1508,11 +2304,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         `[ServiceHyperliquidSubscription.destroySubscription] Failed to destroy subscription ${spec.key}:`,
         error,
       );
+      this._logSubscriptionDiagnostics({
+        event: 'subscription_destroy_unexpected_error',
+        subscriptionType: spec.type,
+        paramsSummary,
+        elapsedMs: Date.now() - startedAt,
+        error,
+      });
     }
     return true;
   }
 
   private async _cleanupAllSubscriptions(): Promise<void> {
+    const startedAt = Date.now();
     const allSpecsByKey = new Map<
       string,
       ISubscriptionSpec<ESubscriptionType>
@@ -1529,6 +2333,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const allSpecs: ISubscriptionSpec<ESubscriptionType>[] = Array.from(
       allSpecsByKey.values(),
     );
+    this._logSubscriptionDiagnostics({
+      event: 'cleanup_all_subscriptions_start',
+      subscriptionTypes: allSpecs.map((spec) => spec.type),
+      extra: {
+        specsCount: allSpecs.length,
+        activeCount: this._activeSubscriptions.size,
+        pendingCount: Object.keys(this.pendingSubSpecsMap).length,
+        allCount: Object.keys(this.allSubSpecsMap).length,
+      },
+    });
     // Await all unsubscribes before clearing the active set so that the
     // server has fully acknowledged the teardown before we forget about them.
     const results = await Promise.all(
@@ -1539,6 +2353,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       console.warn(
         '[ServiceHyperliquidSubscription.cleanupAllSubscriptions] Some unsubscribes failed, closing transport to reset server-side subscriptions.',
       );
+      this._logSubscriptionDiagnostics({
+        event: 'cleanup_all_subscriptions_unsubscribe_failure',
+        subscriptionTypes: allSpecs.map((spec) => spec.type),
+        elapsedMs: Date.now() - startedAt,
+      });
       await this._closeClient();
     }
     this.allSubSpecsMap = {};
@@ -1549,6 +2368,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ...prev,
         connected: false,
       };
+    });
+    this._logSubscriptionDiagnostics({
+      event: 'cleanup_all_subscriptions_done',
+      elapsedMs: Date.now() - startedAt,
     });
   }
 
@@ -1580,14 +2403,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       if (this.subscriptionsHandlerDisabled) {
+        const droppedData = event?.detail as unknown;
+        let forceLogDroppedData = false;
         if (subscriptionType === ESubscriptionType.USER_FILLS) {
           const userFills = event?.detail as IWsUserFills;
           const isSnapshot = userFills?.isSnapshot;
           const fillsLength = userFills?.fills?.length;
           if (userFills?.user && fillsLength > 0 && !isSnapshot) {
             this.hasNewUserFills = true;
+            forceLogDroppedData = true;
           }
         }
+        this._logDisabledSubscriptionDataDiagnostics({
+          subscriptionType,
+          data: droppedData,
+          force: forceLogDroppedData,
+        });
         return;
       }
 
@@ -1604,11 +2435,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         console.warn(
           `[ServiceHyperliquidSubscription.handleSubscriptionData] Data validation failed for: ${subscriptionType}`,
         );
+        this._logSubscriptionDiagnostics({
+          event: 'subscription_data_invalid',
+          subscriptionType,
+        });
         return;
       }
 
       const messageTimestamp = Date.now();
       this._markSubscriptionActivity(subscriptionType, messageTimestamp);
+      this._logSubscriptionDataDiagnostics({
+        subscriptionType,
+        data,
+        messageTimestamp,
+      });
 
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
         // Cache allMids in background for spot balance USD calculation
@@ -1784,6 +2624,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         `[ServiceHyperliquidSubscription.handleSubscriptionData] Failed to handle data for ${subscriptionType}:`,
         error,
       );
+      this._logSubscriptionDiagnostics({
+        event: 'subscription_data_handler_error',
+        subscriptionType,
+        error,
+      });
     }
   }
 
@@ -1793,6 +2638,18 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const now = Date.now();
     if (!this._pingIntervalTimer) {
       this._startPingLoop();
+    }
+    if (
+      now - this._lastLivenessDiagnosticLogAt >
+      ServiceHyperliquidSubscription.DIAGNOSTIC_LIVENESS_LOG_THROTTLE_MS
+    ) {
+      this._lastLivenessDiagnosticLogAt = now;
+      this._logSubscriptionDiagnostics({
+        event: 'network_liveness_update',
+        extra: {
+          lastLivenessAtomUpdateAgeMs: now - this._lastLivenessAtomUpdate,
+        },
+      });
     }
     // Throttle atom writes to at most once per 5 seconds to avoid
     // excessive re-renders from high-frequency events like ALL_MIDS
@@ -1817,6 +2674,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
 
+    this._logSubscriptionDiagnostics({
+      event: 'network_timeout_scheduled',
+      extra: {
+        timeoutMs: HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS,
+        messageTimestamp,
+      },
+    });
     this._networkTimeoutTimer = setTimeout(() => {
       void this._handleNetworkTimeout();
     }, HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS);
@@ -1847,6 +2711,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const elapsed = lastMessageAt ? Date.now() - lastMessageAt : Infinity;
 
     if (elapsed < HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS) {
+      this._logSubscriptionDiagnostics({
+        event: 'network_timeout_checked_recent',
+        elapsedMs: elapsed,
+        extra: {
+          timeoutMs: HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS,
+        },
+      });
       void perpsNetworkStatusAtom.set(
         (prev): IPerpsNetworkStatus => ({
           ...prev,
@@ -1866,6 +2737,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         connected: false,
       }),
     );
+    this._logSubscriptionDiagnostics({
+      event: 'network_timeout_triggered',
+      elapsedMs: Number.isFinite(elapsed) ? elapsed : undefined,
+      extra: {
+        timeoutMs: HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS,
+      },
+    });
   }
 
   private async _measurePing(): Promise<void> {
@@ -1882,16 +2760,27 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       void perpsNetworkStatusAtom.set(
         (prev): IPerpsNetworkStatus => ({ ...prev, pingMs }),
       );
-    } catch {
+      this._logPingDiagnostics({
+        event: 'ping_success',
+        pingMs,
+      });
+    } catch (error) {
       // Ping failed — clear displayed value without marking disconnected
       void perpsNetworkStatusAtom.set(
         (prev): IPerpsNetworkStatus => ({ ...prev, pingMs: null }),
       );
+      this._logPingDiagnostics({
+        event: 'ping_error',
+        error,
+      });
     }
   }
 
   private _startPingLoop(): void {
     this._stopPingLoop();
+    this._logSubscriptionDiagnostics({
+      event: 'ping_loop_start',
+    });
     // Measure immediately on connect, then periodically
     void this._measurePing();
     this._pingIntervalTimer = trackedSetInterval(
@@ -1913,6 +2802,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     if (this._pingIntervalTimer) {
       clearTrackedInterval(this._pingIntervalTimer);
       this._pingIntervalTimer = null;
+      this._logSubscriptionDiagnostics({
+        event: 'ping_loop_stop',
+      });
     }
   }
 

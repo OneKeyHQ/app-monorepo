@@ -316,6 +316,36 @@ export class HyperLiquidScene extends BaseScene {
   }
 
   /**
+   * Structured local diagnostics for HyperLiquid WebSocket lifecycle.
+   * Keep this local-only and payload-light: it must not include user
+   * addresses, order details, or raw subscription payloads.
+   */
+  @LogToLocal({ level: 'info' })
+  public subscriptionDiagnostics(params: {
+    event: string;
+    clientId?: string | null;
+    readyState?: number;
+    socketUrl?: string;
+    elapsedMs?: number;
+    reason?: string;
+    code?: number;
+    wasClean?: boolean;
+    activeCount?: number;
+    pendingCount?: number;
+    allCount?: number;
+    lastMessageAgeMs?: number | null;
+    missingCriticalTypes?: string[];
+    staleCriticalTypes?: string[];
+    subscriptionType?: string;
+    subscriptionTypes?: string[];
+    paramsSummary?: Record<string, unknown>;
+    extra?: Record<string, unknown>;
+    error?: unknown;
+  }) {
+    return params;
+  }
+
+  /**
    * Defensive log for inner SDK SubscriptionClient dispose errors.
    */
   @LogToLocal({ level: 'error' })
