@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Page, useMedia } from '@onekeyhq/components';
+import { Button, Page, Skeleton, YStack, useMedia } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -41,7 +41,7 @@ const BorrowManagePosition = () => {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { gtMd } = useMedia();
-  const { earnAccount } = useEarnAccount({
+  const { earnAccount, isLoading: isAccountLoading } = useEarnAccount({
     networkId,
     accountId: routeAccountId,
     indexedAccountId: routeIndexedAccountId,
@@ -56,6 +56,11 @@ const BorrowManagePosition = () => {
     }
     return 'deposit';
   }, [type]);
+  const shouldWaitForAccount = Boolean(
+    !earnAccount &&
+    (routeAccountId || routeIndexedAccountId) &&
+    isAccountLoading !== false,
+  );
   const handleViewReserveDetails = useCallback(() => {
     if (!hasReserveAddress || !marketAddress) {
       return;
@@ -111,21 +116,29 @@ const BorrowManagePosition = () => {
         headerRight={headerRight}
       />
       <Page.Body>
-        <ManagePositionContent
-          showApyDetail
-          isInModalContext
-          networkId={networkId}
-          symbol={symbol}
-          provider={provider}
-          accountId={accountId}
-          indexedAccountId={indexedAccountId}
-          fallbackTokenImageUri={logoURI}
-          providerLogoUri={providerLogoURI}
-          type={type}
-          reserveAddress={reserveAddress}
-          marketAddress={marketAddress}
-          defaultTab={defaultTab}
-        />
+        {shouldWaitForAccount ? (
+          <YStack px="$5" py="$4" gap="$4">
+            <Skeleton h="$10" w="100%" borderRadius="$3" />
+            <Skeleton h="$24" w="100%" borderRadius="$3" />
+            <Skeleton h="$12" w="100%" borderRadius="$3" />
+          </YStack>
+        ) : (
+          <ManagePositionContent
+            showApyDetail
+            isInModalContext
+            networkId={networkId}
+            symbol={symbol}
+            provider={provider}
+            accountId={accountId}
+            indexedAccountId={indexedAccountId}
+            fallbackTokenImageUri={logoURI}
+            providerLogoUri={providerLogoURI}
+            type={type}
+            reserveAddress={reserveAddress}
+            marketAddress={marketAddress}
+            defaultTab={defaultTab}
+          />
+        )}
       </Page.Body>
     </Page>
   );

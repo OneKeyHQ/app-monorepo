@@ -268,29 +268,6 @@ export const Overview = ({
     showBorrowClaimRewardsDialog({
       rewardsDetails,
       pendingClaimIds,
-      onClaimItem: async (item) => {
-        // Build stakingInfo with proper tag for single item claim
-        const stakingInfo = {
-          label: EEarnLabels.Claim,
-          protocol: earnUtils.getEarnProviderName({ providerName: provider }),
-          protocolLogoURI: market?.logoURI,
-          tags: [
-            EEarnLabels.Borrow,
-            buildBorrowTag({
-              provider,
-              action: 'claim',
-              claimIds: [item.id],
-            }),
-          ],
-        };
-        await handleBorrowClaim({
-          provider,
-          marketAddress,
-          ids: [item.id],
-          stakingInfo,
-          onSuccess: () => requestRefresh('txSuccess'),
-        });
-      },
       onClaimAll: async () => {
         if (allIds.length === 0) {
           return;

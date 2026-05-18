@@ -22,6 +22,11 @@ export function getBorrowBalanceAmount(balance?: Partial<IBorrowBalance>) {
   return balance?.amount ?? balance?.title?.text ?? '0';
 }
 
+export function hasPositiveBorrowBalance(balance?: Partial<IBorrowBalance>) {
+  const balanceBN = new BigNumber(getBorrowBalanceAmount(balance));
+  return !balanceBN.isNaN() && balanceBN.gt(0);
+}
+
 function isSameBorrowReserveAddress({
   reserveAddress,
   targetReserveAddress,

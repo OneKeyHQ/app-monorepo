@@ -14,7 +14,10 @@ import { EBorrowDataStatus } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
-import { filterUnsupportedAaveNativeReserveAssets } from './borrowRepayPosition.utils';
+import {
+  filterUnsupportedAaveNativeReserveAssets,
+  hasPositiveBorrowBalance,
+} from './borrowRepayPosition.utils';
 import {
   ActionField,
   AmountField,
@@ -133,7 +136,7 @@ export const BorrowedCard = () => {
         assets: reserves.data?.borrowed?.assets,
         networkId: market?.networkId,
         providerName: market?.provider,
-      }),
+      }).filter((asset) => hasPositiveBorrowBalance(asset.borrowedAmount)),
     [market?.networkId, market?.provider, reserves.data?.borrowed?.assets],
   );
 

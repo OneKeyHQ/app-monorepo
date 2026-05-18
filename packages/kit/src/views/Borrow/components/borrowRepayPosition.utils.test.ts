@@ -11,6 +11,7 @@ import {
   getBorrowRepayMaxInputBalance,
   getBorrowRepayProgressStep,
   getValidBorrowSelectedAsset,
+  hasPositiveBorrowBalance,
   hasPositiveDebtBalance,
   isBorrowRepayAllAmount,
   isCollateralRepayEnabled,
@@ -31,6 +32,21 @@ describe('borrowRepayPosition utils', () => {
         collateralAssetCount: 2,
       }),
     ).toBe(false);
+  });
+
+  it('detects positive borrow balances from raw amount or display text', () => {
+    expect(hasPositiveBorrowBalance({ amount: '0' })).toBe(false);
+    expect(hasPositiveBorrowBalance({ amount: '0.00000001' })).toBe(true);
+    expect(
+      hasPositiveBorrowBalance({
+        title: { text: '0' },
+      }),
+    ).toBe(false);
+    expect(
+      hasPositiveBorrowBalance({
+        title: { text: '1.23' },
+      }),
+    ).toBe(true);
   });
 
   it('limits repay max input to the smaller wallet or debt balance', () => {

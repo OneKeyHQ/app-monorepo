@@ -19,6 +19,7 @@ import {
   getBorrowRepayMaxInputBalance,
   getBorrowRepayWalletBalance,
   getValidBorrowSelectedAsset,
+  hasPositiveBorrowBalance,
   isUnsupportedAaveNativeReserve,
   resolveBorrowTokenApproveSpenderAddress,
   shouldUseAaveNativeGateway,
@@ -434,15 +435,20 @@ export const WithdrawSection = ({
         watchLoading: true,
       },
     );
-  const selectableBorrowAssets = useMemo(
-    () =>
-      filterUnsupportedAaveNativeReserveAssets({
-        assets: assetsList.assets,
-        networkId,
-        providerName,
-      }),
-    [assetsList.assets, networkId, providerName],
-  );
+  const selectableBorrowAssets = useMemo(() => {
+    const assets = filterUnsupportedAaveNativeReserveAssets({
+      assets: assetsList.assets,
+      networkId,
+      providerName,
+    });
+    if (borrowAction === 'withdraw') {
+      return assets.filter((asset) => hasPositiveBorrowBalance(asset.supplied));
+    }
+    if (borrowAction === 'repay') {
+      return assets.filter((asset) => hasPositiveBorrowBalance(asset.borrowed));
+    }
+    return assets;
+  }, [assetsList.assets, borrowAction, networkId, providerName]);
   useEffect(() => {
     setSelectedAssetState((prev) => {
       if (!prev) {
