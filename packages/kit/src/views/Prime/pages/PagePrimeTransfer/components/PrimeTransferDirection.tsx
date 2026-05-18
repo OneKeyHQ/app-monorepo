@@ -281,6 +281,44 @@ export function PrimeTransferDirection({
     primeTransferAtom.pairedRoomId,
   ]);
 
+  // OK-51681: After entering the transfer-data page, confirm the peer is still
+  // in the room. The `user-left` socket event can race with the paired-status
+  // transition when the peer cancels mid-pairing, leaving this side stuck on
+  // the paired screen with no real peer. The delay gives the server room state
+  // a chance to settle before we act on it.
+  const peerPresenceCheckedRoomId = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (primeTransferAtom.status !== EPrimeTransferStatus.paired) return;
+    const roomId = primeTransferAtom.pairedRoomId;
+    if (!roomId) return;
+    if (peerPresenceCheckedRoomId.current === roomId) return;
+
+    const timer = setTimeout(() => {
+      void (async () => {
+        if (peerPresenceCheckedRoomId.current === roomId) return;
+        peerPresenceCheckedRoomId.current = roomId;
+        try {
+          const users =
+            await backgroundApiProxy.servicePrimeTransfer.getRoomUsers({
+              roomId,
+            });
+          if (users.length < 2) {
+            appEventBus.emit(EAppEventBusNames.PrimeTransferForceExit, {
+              title: intl.formatMessage({
+                id: ETranslations.global_connet_error_try_again,
+              }),
+              description: platformEnv.isDev ? 'PeerMissingAfterPaired' : '',
+            });
+          }
+        } catch (error) {
+          console.error('[PeerPresenceCheck] failed:', error);
+        }
+      })();
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [primeTransferAtom.status, primeTransferAtom.pairedRoomId, intl]);
+
   // Bot wallet export: auto-fix direction so current device is always the sender
   const botDirectionFixDone = useRef(false);
   const fixBotDirection = useCallback(async () => {
