@@ -12,13 +12,10 @@ import {
   withToast,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils';
 import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
@@ -261,6 +258,7 @@ export function TradingViewPerpsV2(
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
   const actions = useHyperliquidActions();
+  const { restoreNonce } = useNetworkRestore();
 
   const [{ szDecimals }] = useTradingFormEnvAtom();
   const _webviewKey = useMemo(() => {
@@ -270,12 +268,15 @@ export function TradingViewPerpsV2(
   }, [reloadOnSymbolChange, symbol, theme, webviewKey]);
   const [isChartLinesReady, setIsChartLinesReady] = useState(false);
   const [isChartContentReady, setIsChartContentReady] = useState(false);
+  const hasPerpsReadyRef = useRef(false);
+  const lastHandledRestoreNonceRef = useRef(0);
 
-  // Track webviewKey changes and reset isChartLinesReady when it changes
   const prevWebviewKeyRef = useRef(_webviewKey);
   useEffect(() => {
     if (prevWebviewKeyRef.current !== _webviewKey) {
-      // WebView will reload due to key change, reset ready state
+      // A new WebView instance must prove perpsReady before app-side recovery
+      // can stay hands-off.
+      hasPerpsReadyRef.current = false;
       setIsChartLinesReady(false);
       setIsChartContentReady(false);
       prevWebviewKeyRef.current = _webviewKey;
@@ -330,35 +331,25 @@ export function TradingViewPerpsV2(
     syncOnReady: !reloadOnSymbolChange || isSpotDisplayNameSyncRequired,
   });
 
-  const pendingRecoverRef = useRef(false);
-
   useEffect(() => {
-    const handler = () => {
-      if (isChartLinesReady && webRef.current) {
-        webRef.current.sendMessageViaInjectedScript({
-          type: 'FORCE_RECOVER_WS',
-        });
-      } else {
-        pendingRecoverRef.current = true;
-      }
-    };
-    appEventBus.on(EAppEventBusNames.PerpsWebSocketRecovered, handler);
-    return () => {
-      appEventBus.off(EAppEventBusNames.PerpsWebSocketRecovered, handler);
-    };
-  }, [isChartLinesReady, webRef]);
-
-  useEffect(() => {
-    if (isChartLinesReady && pendingRecoverRef.current) {
-      pendingRecoverRef.current = false;
-      webRef.current?.sendMessageViaInjectedScript({
-        type: 'FORCE_RECOVER_WS',
-      });
+    if (restoreNonce <= 0) {
+      return;
     }
-  }, [isChartLinesReady, webRef]);
+    if (lastHandledRestoreNonceRef.current === restoreNonce) {
+      return;
+    }
 
-  // Callback when TradingView iframe signals chart lines are ready
+    lastHandledRestoreNonceRef.current = restoreNonce;
+
+    if (!hasPerpsReadyRef.current) {
+      setIsChartLinesReady(false);
+      setIsChartContentReady(false);
+      webRef.current?.reload();
+    }
+  }, [restoreNonce]);
+
   const onChartLinesReady = useCallback(() => {
+    hasPerpsReadyRef.current = true;
     setIsChartContentReady(true);
     setIsChartLinesReady(true);
   }, []);
