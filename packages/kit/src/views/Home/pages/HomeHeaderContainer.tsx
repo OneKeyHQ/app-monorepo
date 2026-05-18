@@ -9,6 +9,7 @@ import {
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useWalletTopBannersAtom } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import ReferralCodeBlock from '../components/NotBakcedUp/ReferralCodeBlock';
@@ -22,7 +23,7 @@ import { HomeOverviewContainer } from './HomeOverviewContainer';
 
 function BaseHomeHeaderContainer() {
   const {
-    activeAccount: { wallet },
+    activeAccount: { wallet, account, network, vaultSettings },
   } = useActiveAccount({
     num: 0,
   });
@@ -31,6 +32,16 @@ function BaseHomeHeaderContainer() {
 
   const [showReceiveInfo, setShowReceiveInfo] = useState(false);
   const [showReferralCodeBlock, setShowReferralCodeBlock] = useState(false);
+
+  // Mirror WalletBanner's render condition so the placeholder height matches
+  // exactly what WalletBanner will display. WalletBanner returns null when
+  // `banners.length === 0 && !tronCard`; otherwise it renders the banner band
+  // (~130pt tall) and the header settles around 312pt total.
+  const [{ banners }] = useWalletTopBannersAtom();
+  const hasTronCard = Boolean(
+    vaultSettings?.hasResource && account?.id && network?.id,
+  );
+  const hasWalletBannerContent = banners.length > 0 || hasTronCard;
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -110,25 +121,15 @@ function BaseHomeHeaderContainer() {
         pb="$8"
         gap="$5"
         minHeight={
-          platformEnv.isNative && !isWalletNotBackedUp ? 312 : undefined
+          platformEnv.isNative && !isWalletNotBackedUp
+            ? hasWalletBannerContent
+              ? 312
+              : 182
+            : undefined
         }
         $gtMd={{ gap: '$8' }}
         bg="$bgApp"
         pointerEvents="box-none"
-        onLayout={(e) => {
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const { NativeLogger: NL, LogLevel: LL } =
-              require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-            const { height } = e.nativeEvent.layout;
-            NL.write(
-              LL.Info,
-              `[LayoutDiag] HeaderContainer: h=${height} rounded=${Math.round(height)} diff=${(height - 312).toFixed(2)}`,
-            );
-          } catch {
-            /* */
-          }
-        }}
       >
         <Stack
           testID={HomeTestIDs.headerContainer}
