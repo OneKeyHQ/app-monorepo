@@ -274,6 +274,9 @@ function BasicEarnHome({
       : 'default';
 
     hasLoggedEarnModeSwitchRef.current = true;
+    if (defaultMode === 'earn') {
+      defaultLogger.staking.page.enterEarn();
+    }
     defaultLogger.staking.page.earnModeSwitch({
       mode: defaultMode,
       switchType,

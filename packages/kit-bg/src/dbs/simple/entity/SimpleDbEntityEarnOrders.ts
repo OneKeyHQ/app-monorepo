@@ -1,7 +1,14 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { EEarnLabels, IStakeTag } from '@onekeyhq/shared/types/staking';
 import type { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+
+export interface IEarnOrderTrackingInfo {
+  stakingLabel?: EEarnLabels;
+  stakingProtocol?: string;
+  stakingTags?: IStakeTag[];
+}
 
 export interface IEarnOrderItem {
   orderId: string;
@@ -11,6 +18,9 @@ export interface IEarnOrderItem {
   status: EDecodedTxStatus;
   updatedAt: number;
   createdAt: number;
+  stakingLabel?: IEarnOrderTrackingInfo['stakingLabel'];
+  stakingProtocol?: IEarnOrderTrackingInfo['stakingProtocol'];
+  stakingTags?: IEarnOrderTrackingInfo['stakingTags'];
 }
 
 export interface IEarnOrderDBStructure {
@@ -21,7 +31,8 @@ export interface IEarnOrderDBStructure {
 export type IAddEarnOrderParams = Omit<
   IEarnOrderItem,
   'updatedAt' | 'createdAt' | 'previousTxIds'
->;
+> &
+  IEarnOrderTrackingInfo;
 
 export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStructure> {
   entityName = 'earnOrders';
