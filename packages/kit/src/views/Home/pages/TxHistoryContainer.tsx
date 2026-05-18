@@ -170,56 +170,69 @@ function TxHistoryListContainer(
   );
 
   const isManualRefresh = useRef(false);
-  // Identifies the most recently dispatched fetch. Older fetches that complete
-  // after a newer one started must NOT write their stale result into local
-  // state — they would clobber the new account/network's data.
-  const fetchDispatchKeyRef = useRef('');
+  // Monotonic request id. Bumped on identity dep changes (via the effect
+  // below) AND at the start of every `run()` body — so old in-flight fetches
+  // are invalidated *before* the next debounced runner even starts, and
+  // early-return runs (no network / no account) still produce a fresh id
+  // that older runs can compare against.
+  const fetchRequestIdRef = useRef(0);
   const { run } = usePromiseResult(
     async () => {
-      if (!network) return;
-
-      let accountId = account?.id ?? '';
-
-      if (mergeDeriveAddressData) {
-        accountId = indexedAccount?.id ?? '';
-      } else if (!account) return;
-
-      const refreshNetworkId = network.id;
-      const refreshAccountId = accountId;
-      const dispatchKey = `${refreshAccountId}-${refreshNetworkId}`;
-      fetchDispatchKeyRef.current = dispatchKey;
-      const isCurrentDispatch = () =>
-        fetchDispatchKeyRef.current === dispatchKey;
-
-      let r: {
-        allAccounts: IAllNetworkAccountInfo[];
-        txs: IAccountHistoryTx[];
-        accountsWithChangedTxs: {
-          accountId: string;
-          networkId: string;
-        }[];
-        addressMap?: Record<string, IAddressBadge>;
-        hasMoreOnChainHistory?: boolean;
-      } = {
-        allAccounts: [],
-        txs: [],
-        accountsWithChangedTxs: [],
-        addressMap: {},
-        hasMoreOnChainHistory: false,
-      };
+      // Bump UNCONDITIONALLY, before any early return, so an older in-flight
+      // run cannot survive across an identity change just because the new
+      // run happened to early-return (no account/network). The captured
+      // `requestId` is used everywhere below to gate state writes.
+      fetchRequestIdRef.current += 1;
+      const requestId = fetchRequestIdRef.current;
+      const isCurrentRequest = () => fetchRequestIdRef.current === requestId;
 
       let emittedTrue = false;
+      let refreshAccountId = '';
+      let refreshNetworkId = '';
+
       try {
+        if (!network) return;
+
+        let accountId = account?.id ?? '';
+
+        if (mergeDeriveAddressData) {
+          accountId = indexedAccount?.id ?? '';
+        } else if (!account) return;
+
+        refreshNetworkId = network.id;
+        refreshAccountId = accountId;
+
+        let r: {
+          allAccounts: IAllNetworkAccountInfo[];
+          txs: IAccountHistoryTx[];
+          accountsWithChangedTxs: {
+            accountId: string;
+            networkId: string;
+          }[];
+          addressMap?: Record<string, IAddressBadge>;
+          hasMoreOnChainHistory?: boolean;
+        } = {
+          allAccounts: [],
+          txs: [],
+          accountsWithChangedTxs: [],
+          addressMap: {},
+          hasMoreOnChainHistory: false,
+        };
+        let aggregatedHasMoreOnChainHistory = false;
+
+        // Set the flag BEFORE the synchronous emit call: if any subscriber
+        // throws inside its handler, the emit may have already broadcast the
+        // `true` to earlier subscribers, and the finally block must still
+        // mirror with `false` to release them.
+        emittedTrue = true;
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: true,
           type: EHomeTab.HISTORY,
           accountId: refreshAccountId,
           networkId: refreshNetworkId,
         });
-        emittedTrue = true;
 
         if (mergeDeriveAddressData) {
-          let hasMoreOnChainHistory = false;
           const { networkAccounts } =
             await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
               {
@@ -252,7 +265,7 @@ function TxHistoryListContainer(
             ];
             r.addressMap = { ...r.addressMap, ...item.addressMap };
             if (item.hasMoreOnChainHistory) {
-              hasMoreOnChainHistory = true;
+              aggregatedHasMoreOnChainHistory = true;
             }
           });
 
@@ -263,10 +276,6 @@ function TxHistoryListContainer(
                 (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
             )
             .slice(0, HISTORY_PAGE_SIZE);
-          setHasMoreOnChainHistory(hasMoreOnChainHistory);
-          updateAddressesInfo({
-            data: r.addressMap ?? {},
-          });
         } else {
           r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
             accountId,
@@ -279,18 +288,23 @@ function TxHistoryListContainer(
             currencyMap,
             limit,
           });
-          setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
-          updateAddressesInfo({
-            data: r.addressMap ?? {},
-          });
+          aggregatedHasMoreOnChainHistory = !!r.hasMoreOnChainHistory;
         }
 
         // Skip every state write past this point if a newer fetch already
         // took over — otherwise this stale body would clobber the new
         // account/network's data and leave the UI on stale or empty state.
-        if (!isCurrentDispatch()) {
+        // This guard must precede shared-state writes (has-more flag,
+        // address-badge metadata, history rows, allNetworks visible count),
+        // not just the local history setter.
+        if (!isCurrentRequest()) {
           return;
         }
+
+        setHasMoreOnChainHistory(aggregatedHasMoreOnChainHistory);
+        updateAddressesInfo({
+          data: r.addressMap ?? {},
+        });
 
         updateAllNetworksState({
           visibleCount: uniqBy(r.allAccounts, 'networkId').length,
@@ -307,11 +321,15 @@ function TxHistoryListContainer(
             accounts: r.accountsWithChangedTxs,
           });
         }
-        isManualRefresh.current = false;
       } finally {
-        // Always clear the overview spinner that we lit up — emit-false has
-        // to mirror emit-true regardless of error / abort / dispatch
-        // supersession, or the home header spinner gets stuck.
+        // Always release the request-level latch regardless of error / abort
+        // / supersession, otherwise the next polling tick would be wrongly
+        // marked as a manual refresh (forcing an on-chain fetch).
+        isManualRefresh.current = false;
+        // emit-false must mirror emit-true. HomeOverviewContainer's per-tab
+        // keyed state filters stale `false` events by accountId/networkId
+        // already, so a superseded run's emit-false won't clobber the new
+        // run's spinner state.
         if (emittedTrue) {
           appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
             isRefreshing: false,
@@ -320,7 +338,13 @@ function TxHistoryListContainer(
             networkId: refreshNetworkId,
           });
         }
-        if (isCurrentDispatch()) {
+        // Only the freshest run owns the header refresh indicator. If an
+        // older superseded run finishes first, hiding the indicator while
+        // the newer fetch is still in flight would mislead the user.
+        // Early-return runs (no network / no account) still bumped the
+        // counter at function entry, so they pass `isCurrentRequest()` and
+        // correctly release the spinner.
+        if (isCurrentRequest()) {
           setIsHeaderRefreshing(false);
         }
       }
@@ -411,7 +435,7 @@ function TxHistoryListContainer(
       // The local-history reads above are async; a faster identity switch can
       // arrive while we're awaiting and bump `lastInitIdentityRef`. If that
       // happened, this stale result must not be written into the new identity's
-      // state (same rationale as the dispatch-key guard in `run()`).
+      // state (same rationale as the monotonic request id guard in `run()`).
       if (lastInitIdentityRef.current !== capturedIdentity) {
         return;
       }
@@ -457,6 +481,12 @@ function TxHistoryListContainer(
         indexedAccount?.id ?? '',
         identity,
       );
+    } else {
+      // Identity went invalid (account/network/wallet became null during a
+      // transition). Invalidate the ref so any currently-awaiting
+      // `initHistoryState` from the previous valid identity bails out
+      // before writing stale local-cache rows into the new identity's state.
+      lastInitIdentityRef.current = '';
     }
   }, [
     account?.id,
@@ -473,12 +503,14 @@ function TxHistoryListContainer(
     limit,
   ]);
 
-  // Invalidate the dispatch key whenever the source identity changes so any
-  // in-flight `run()` from the previous identity fails its
-  // `isCurrentDispatch()` check on response, before the new `run()` even gets
-  // a chance to overwrite the key.
+  // Invalidate any in-flight `run()` AS SOON AS the source identity changes,
+  // without waiting for the next debounced runner to actually start. Without
+  // this, an old run that resolves during the ~1s debounce window (between
+  // user input change and the next runner firing) would still see its
+  // captured `requestId` as current and write stale data into the new
+  // identity's state. The runner-body bump alone cannot cover this window.
   useEffect(() => {
-    fetchDispatchKeyRef.current = '';
+    fetchRequestIdRef.current += 1;
   }, [
     account?.id,
     indexedAccount?.id,

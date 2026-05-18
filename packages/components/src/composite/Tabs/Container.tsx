@@ -20,6 +20,7 @@ import { XStack, YStack } from '../../primitives';
 import { TabsContext, TabsScrollContext } from './context';
 import { TabBar } from './TabBar';
 import { useConvertAnimatedToValue } from './useFocusedTab';
+import { parseCssSize } from './utils';
 
 import type { LayoutChangeEvent } from 'react-native';
 import type {
@@ -36,11 +37,6 @@ const childDivStyle = {
   flexShrink: 0,
   scrollSnapAlign: 'center',
 } as const;
-
-const parseCssSize = (value: string | undefined) => {
-  const size = Number.parseFloat(value ?? '');
-  return Number.isFinite(size) ? size : 0;
-};
 
 export function ContainerChild({
   children,
@@ -181,12 +177,12 @@ export function Container({
       parseCssSize(style.marginBottom) +
       parseCssSize(style.paddingTop) +
       parseCssSize(style.paddingBottom);
-    const virtualizedInnerElement = htmlElement.querySelector(
+    const virtualizedInnerElement = htmlElement.querySelector<HTMLElement>(
       [
         '.ReactVirtualized__Grid__innerScrollContainer',
         '.ReactVirtualized__Collection__innerScrollContainer',
       ].join(','),
-    ) as HTMLElement | null;
+    );
     const virtualizedHeight = virtualizedInnerElement
       ? Math.max(
           virtualizedInnerElement.scrollHeight || 0,

@@ -27,6 +27,7 @@ import {
 import { useTabsContext, useTabsScrollContext } from './context';
 import { useTabNameContext } from './TabNameContext';
 import { useConvertAnimatedToValue } from './useFocusedTab';
+import { parseCssSize } from './utils';
 
 import type { ISectionListProps } from '../../layouts';
 import type { FlashListProps } from '@shopify/flash-list';
@@ -77,11 +78,6 @@ const renderElement = (Element: ReactNode | ComponentType<any>) => {
   }
   const Component = Element as ComponentType<any>;
   return <Component />;
-};
-
-const parseCssSize = (value: string | undefined) => {
-  const size = Number.parseFloat(value ?? '');
-  return Number.isFinite(size) ? size : 0;
 };
 
 export function List<Item>({
@@ -573,13 +569,17 @@ export function List<Item>({
     };
   }, []);
 
-  useImperativeHandle(parentRef as any, () => ({
-    recomputeLayout: () => {
-      recompute({ numColumns, width });
-      pendingScheduleCleanupRef.current?.();
-      pendingScheduleCleanupRef.current = scheduleListContainerHeightUpdate();
-    },
-  }));
+  useImperativeHandle(
+    parentRef as any,
+    () => ({
+      recomputeLayout: () => {
+        recompute({ numColumns, width });
+        pendingScheduleCleanupRef.current?.();
+        pendingScheduleCleanupRef.current = scheduleListContainerHeightUpdate();
+      },
+    }),
+    [numColumns, recompute, scheduleListContainerHeightUpdate, width],
+  );
 
   const handleScroll = useCallback(
     (params: {
