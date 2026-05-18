@@ -120,27 +120,32 @@ describe('useSearchModalData', () => {
     ]);
   });
 
-  it('does not fetch or show trending suggestions when review control is disabled', async () => {
-    const { result } = renderHook(() => useSearchModalData('uni'));
+  it('keeps trending suggestions but skips remote dapp search when review control is disabled', async () => {
+    const { result } = renderHook(() => useSearchModalData('uniswap'));
 
     await waitFor(() => {
       expect(serviceDiscoveryMock.getBookmarkData).toHaveBeenCalled();
       expect(serviceDiscoveryMock.getHistoryData).toHaveBeenCalled();
+      expect(
+        serviceDiscoveryMock.fetchDiscoveryHomePageData,
+      ).toHaveBeenCalled();
+      expect(result.current.searchList).toEqual([
+        expect.objectContaining({
+          type: 'dapp',
+          source: 'trending',
+          url: 'https://app.uniswap.org',
+        }),
+        expect.objectContaining({
+          type: 'search-action',
+        }),
+      ]);
     });
 
-    expect(
-      serviceDiscoveryMock.fetchDiscoveryHomePageData,
-    ).not.toHaveBeenCalled();
     expect(serviceDiscoveryMock.searchDApp).not.toHaveBeenCalled();
     expect(serviceDiscoveryMock.getHistoryData).toHaveBeenCalledWith({
       generateIcon: false,
       sliceCount: 200,
     });
-    expect(result.current.searchList).toEqual([
-      expect.objectContaining({
-        type: 'search-action',
-      }),
-    ]);
   });
 
   it('keeps enough local candidates for chrome-like re-ranking before returning search results', async () => {
