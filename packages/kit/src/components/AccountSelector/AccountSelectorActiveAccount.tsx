@@ -52,16 +52,6 @@ const AllNetworkAccountSelector = ({
       activeAccount,
     });
 
-  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
-    {
-      walletId: activeAccount?.wallet?.id,
-    },
-  );
-  const isCopyDisabled = shouldBlockBotWalletCopyAddress({
-    isBotWallet,
-    isBotWalletDeactivated,
-  });
-
   if (!isAllNetworkEnabled) {
     return null;
   }
@@ -97,12 +87,7 @@ const AllNetworkAccountSelector = ({
             top: 8,
           }}
           userSelect="none"
-          opacity={isCopyDisabled ? 0.5 : 1}
           onPress={async () => {
-            if (isCopyDisabled) {
-              showBotWalletDisabledToast('copyAddress');
-              return;
-            }
             if (
               await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
                 walletId: activeAccount?.wallet?.id ?? '',
@@ -147,9 +132,11 @@ const AllNetworkAccountSelector = ({
 function CopyButton({
   onPress,
   visible,
+  disabled,
 }: {
   onPress: IIconButtonProps['onPress'];
   visible: boolean;
+  disabled?: boolean;
 }) {
   const intl = useIntl();
   return visible ? (
@@ -161,6 +148,8 @@ function CopyButton({
       icon="Copy3Outline"
       size="small"
       variant="tertiary"
+      disabled={disabled}
+      allowPressWhenDisabled={disabled}
       onPress={onPress}
     />
   ) : null;
@@ -356,10 +345,10 @@ export function AccountSelectorActiveAccountHome({
               mx="$-2"
               borderRadius="$2"
               hoverStyle={{
-                bg: '$bgHover',
+                bg: isCopyDisabled ? '$transparent' : '$bgHover',
               }}
               pressStyle={{
-                bg: '$bgActive',
+                bg: isCopyDisabled ? '$transparent' : '$bgActive',
               }}
               focusable
               focusVisibleStyle={{
@@ -394,7 +383,11 @@ export function AccountSelectorActiveAccountHome({
     }
 
     return (
-      <CopyButton onPress={handleAddressOnPress} visible={showCopyButton} />
+      <CopyButton
+        onPress={handleAddressOnPress}
+        visible={showCopyButton}
+        disabled={isCopyDisabled}
+      />
     );
   }
 

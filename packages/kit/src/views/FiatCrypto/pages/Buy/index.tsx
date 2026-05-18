@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -8,6 +8,8 @@ import { Page, SegmentControl, Stack } from '@onekeyhq/components';
 import { PagerView } from '@onekeyhq/components/src/composite/Carousel/pager';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import {
   BUY_GUIDE_URL,
   SELL_GUIDE_URL,
@@ -18,6 +20,7 @@ import type {
   EModalFiatCryptoRoutes,
   IModalFiatCryptoParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   openUrlExternal,
   openUrlInDiscovery,
@@ -54,30 +57,70 @@ const BuyPage = () => {
     defaultTab,
   } = route.params;
   const intl = useIntl();
+  const walletId = useMemo(
+    () =>
+      accountUtils.getWalletIdFromAccountId({
+        accountId: accountId ?? '',
+      }),
+    [accountId],
+  );
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId,
+    },
+  );
+  const isBuyBlockedByBotWallet = isBotWallet && isBotWalletDeactivated;
 
-  const initialTab: ITabType = defaultTab ?? 'buy';
+  const requestedInitialTab: ITabType = defaultTab ?? 'buy';
+  const initialTab: ITabType =
+    requestedInitialTab === 'buy' && isBuyBlockedByBotWallet
+      ? 'sell'
+      : requestedInitialTab;
   const [activeTab, setActiveTab] = useState<ITabType>(initialTab);
 
   const pagerRef = useRef<NativePagerView>(null);
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
 
-  const handleTabChange = useCallback((value: string | number) => {
-    const tab = value as ITabType;
+  const switchToTab = useCallback((tab: ITabType) => {
     setActiveTab(tab);
     if (platformEnv.isNative) {
       pagerRef.current?.setPage(TAB_TO_INDEX[tab]);
     }
   }, []);
 
+  useEffect(() => {
+    if (!isBuyBlockedByBotWallet || activeTabRef.current !== 'buy') {
+      return;
+    }
+    switchToTab('sell');
+  }, [isBuyBlockedByBotWallet, switchToTab]);
+
+  const handleTabChange = useCallback(
+    (value: string | number) => {
+      const tab = value as ITabType;
+      if (tab === 'buy' && isBuyBlockedByBotWallet) {
+        showBotWalletDisabledToast('addMoney');
+        return;
+      }
+      switchToTab(tab);
+    },
+    [isBuyBlockedByBotWallet, switchToTab],
+  );
+
   const handlePageSelected = useCallback(
     (e: { nativeEvent: { position: number } }) => {
       const newTab = INDEX_TO_TAB[e.nativeEvent.position];
+      if (newTab === 'buy' && isBuyBlockedByBotWallet) {
+        showBotWalletDisabledToast('addMoney');
+        switchToTab('sell');
+        return;
+      }
       if (newTab && newTab !== activeTabRef.current) {
         setActiveTab(newTab);
       }
     },
-    [],
+    [isBuyBlockedByBotWallet, switchToTab],
   );
 
   const segmentOptions = useMemo(
@@ -85,13 +128,14 @@ const BuyPage = () => {
       {
         label: intl.formatMessage({ id: ETranslations.global_buy }),
         value: 'buy' as const,
+        disabled: isBuyBlockedByBotWallet,
       },
       {
         label: intl.formatMessage({ id: ETranslations.global_cash_out }),
         value: 'sell' as const,
       },
     ],
-    [intl],
+    [intl, isBuyBlockedByBotWallet],
   );
 
   const headerRight = useCallback(

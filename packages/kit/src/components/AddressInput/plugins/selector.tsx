@@ -110,12 +110,16 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
     });
 
   const handleActiveAccountSelected = useCallback(
-    (activeAccount: IAccountSelectorActiveAccountInfo | undefined) => {
+    async (activeAccount: IAccountSelectorActiveAccountInfo | undefined) => {
       if (!activeAccount?.account?.address || !accountSelectorOpen.current) {
         return;
       }
 
-      onActiveAccountChange?.(activeAccount);
+      const shouldContinue = await onActiveAccountChange?.(activeAccount);
+      if (shouldContinue === false) {
+        accountSelectorOpen.current = false;
+        return;
+      }
       onChange?.({
         text: activeAccount.account.address,
         inputType: EInputAddressChangeType.AccountSelector,
@@ -126,7 +130,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   );
 
   useEffect(() => {
-    handleActiveAccountSelected(activeAccountFromSelector);
+    void handleActiveAccountSelected(activeAccountFromSelector);
   }, [activeAccountFromSelector, handleActiveAccountSelected]);
 
   useEffect(() => {
@@ -152,7 +156,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
         payload.othersWalletAccountId === activeAccountFromSelector.account?.id;
 
       if (isSameIndexedAccount || isSameOthersWalletAccount) {
-        handleActiveAccountSelected(activeAccountFromSelector);
+        void handleActiveAccountSelected(activeAccountFromSelector);
       }
     };
 
