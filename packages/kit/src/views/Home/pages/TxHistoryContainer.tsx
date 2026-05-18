@@ -310,6 +310,13 @@ function TxHistoryListContainer(
           });
         }
 
+        // Skip every state write past this point if a newer fetch already
+        // took over — otherwise this stale body would clobber the new
+        // account/network's data and leave the UI on stale or empty state.
+        if (!isCurrentDispatch()) {
+          return;
+        }
+
         updateAllNetworksState({
           visibleCount: uniqBy(r.allAccounts, 'networkId').length,
         });
@@ -490,6 +497,20 @@ function TxHistoryListContainer(
     settings.currencyInfo.id,
     currencyMap,
     limit,
+  ]);
+
+  // Invalidate the dispatch key whenever the source identity changes so any
+  // in-flight `run()` from the previous identity fails its
+  // `isCurrentDispatch()` check on response, before the new `run()` even gets
+  // a chance to overwrite the key.
+  useEffect(() => {
+    fetchDispatchKeyRef.current = '';
+  }, [
+    account?.id,
+    indexedAccount?.id,
+    mergeDeriveAddressData,
+    network?.id,
+    wallet?.id,
   ]);
 
   useEffect(() => {
