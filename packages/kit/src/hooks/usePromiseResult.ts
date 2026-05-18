@@ -386,9 +386,14 @@ export function usePromiseResult<T>(
           trailing: true,
         });
         return async (config?: IRunnerConfig) => {
-          if (shouldSetState(config)) {
-            setLoadingTrue();
-          }
+          // Loading transitions are owned by the inner runner: setting
+          // setLoadingTrue here would leak `isLoading=true` if the
+          // route blurred during the debounce window and the runner
+          // later hit the focus gate (no `didStartRequest` → no paired
+          // setLoadingFalse in finally). Letting the runner emit
+          // setLoadingTrue when it actually starts also matches what
+          // debounced callers want: no loading flicker on every
+          // keystroke, only when the request truly fires.
           await runnerDebounced(config);
         };
       }

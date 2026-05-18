@@ -608,6 +608,89 @@ describe('usePromiseResult', () => {
     });
   });
 
+  describe('debounced', () => {
+    const DEBOUNCE_MS = 100;
+
+    beforeEach(() => {
+      focusControl.__resetFocus();
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    const tick = async (ms = 0) => {
+      await act(async () => {
+        jest.advanceTimersByTime(ms);
+        for (let i = 0; i < 10; i += 1) {
+          await Promise.resolve();
+        }
+      });
+    };
+
+    // The wrapper used to pre-call `setLoadingTrue()` synchronously
+    // before scheduling the debounced runner. If the page blurred
+    // during the debounce window, the inner runner fired under the
+    // focus gate and never started a request — so `didStartRequest`
+    // stayed false and `finally` skipped `setLoadingFalse()`. The
+    // pre-loaded `isLoading=true` then leaked forever until refocus +
+    // re-run. Move loading transitions inside the runner so they only
+    // emit when the request actually starts.
+    it('does not leak isLoading=true when the debounced runner is gated by blur after the timer was scheduled', async () => {
+      const method = jest.fn(async () => 'data');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], {
+          initResult: 'init',
+          watchLoading: true,
+          debounced: DEBOUNCE_MS,
+        }),
+      );
+
+      // Drain mount effect — the debounced wrapper scheduled the inner
+      // runner via setTimeout but it has not fired yet.
+      await tick(0);
+
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+
+      // Advance past the debounce window. Inner runner fires under
+      // blur and never starts a request.
+      await tick(DEBOUNCE_MS * 2);
+
+      expect(result.current.isLoading).not.toBe(true);
+      expect(method).not.toHaveBeenCalled();
+    });
+
+    // Lock the happy path: when focus holds through the debounce
+    // window, the runner starts, completes, and the loading
+    // transitions pair correctly.
+    it('still emits paired loading transitions for a debounced run that completes under focus', async () => {
+      const onIsLoadingChange = jest.fn();
+      const method = jest.fn(async () => 'data');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], {
+          initResult: 'init',
+          watchLoading: true,
+          debounced: DEBOUNCE_MS,
+          onIsLoadingChange,
+        }),
+      );
+
+      await tick(0);
+      await tick(DEBOUNCE_MS * 2);
+
+      expect(method).toHaveBeenCalledTimes(1);
+      expect(result.current.result).toBe('data');
+      expect(result.current.isLoading).toBe(false);
+      expect(onIsLoadingChange).toHaveBeenCalledWith(true);
+      expect(onIsLoadingChange).toHaveBeenCalledWith(false);
+    });
+  });
+
   describe('focus gating', () => {
     beforeEach(() => {
       focusControl.__resetFocus();
