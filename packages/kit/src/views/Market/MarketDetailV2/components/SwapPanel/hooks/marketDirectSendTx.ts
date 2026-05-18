@@ -10,6 +10,7 @@ import {
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IEstimateFeeParams,
   IFeeAlgo,
@@ -59,6 +60,22 @@ type IEstimateMarketDirectGasInfosParams = Omit<
   IMarketDirectSendParams,
   'gasInfos'
 >;
+
+const MARKET_PRESET_FALLBACK_EVM_SWAP_GAS_LIMIT = '350000';
+const MARKET_PRESET_FALLBACK_EVM_SWAP_GAS_LIMIT_BY_CHAIN_ID: Record<
+  string,
+  string
+> = {
+  '1': '200000',
+  '10': '350000',
+  '56': '600000',
+  '137': '600000',
+  '8453': '350000',
+  '42161': '350000',
+  '43114': '350000',
+  '7777777': '1000000',
+  '81457': '300000',
+};
 
 function pickFeeLevelValue<T>(
   values: T[] | undefined,
@@ -491,7 +508,46 @@ async function resolveExactUnsignedTxGasInfos({
   return gasInfos;
 }
 
-function buildGasFeeFiatValue(gasInfos: IMarketGasInfoEntry[]) {
+function getMarketPresetFallbackEvmSwapGasLimit(networkId: string) {
+  const chainId = networkUtils.getNetworkChainId({ networkId });
+  return (
+    MARKET_PRESET_FALLBACK_EVM_SWAP_GAS_LIMIT_BY_CHAIN_ID[chainId] ??
+    MARKET_PRESET_FALLBACK_EVM_SWAP_GAS_LIMIT
+  );
+}
+
+function applyMarketPresetFallbackGasLimit({
+  gasInfo,
+  gasLimit,
+}: {
+  gasInfo: ISwapGasInfo;
+  gasLimit: string;
+}): ISwapGasInfo {
+  return {
+    ...gasInfo,
+    gas: gasInfo.gas
+      ? {
+          ...gasInfo.gas,
+          gasLimit,
+          gasLimitForDisplay: gasLimit,
+        }
+      : undefined,
+    gasEIP1559: gasInfo.gasEIP1559
+      ? {
+          ...gasInfo.gasEIP1559,
+          gasLimit,
+          gasLimitForDisplay: gasLimit,
+        }
+      : undefined,
+  };
+}
+
+function buildGasFeeFiatValue(
+  gasInfos: {
+    gasInfo: ISwapGasInfo;
+    estimateFeeParams?: IEstimateFeeParams;
+  }[],
+) {
   const gasFeeFiatValue = gasInfos.reduce((acc, item) => {
     if (!item.gasInfo.common) {
       return acc;
@@ -507,6 +563,57 @@ function buildGasFeeFiatValue(gasInfos: IMarketGasInfoEntry[]) {
   }, new BigNumber(0));
 
   return gasFeeFiatValue.isZero() ? undefined : gasFeeFiatValue.toFixed();
+}
+
+export async function estimateMarketPresetGasFeeFiatValues({
+  accountAddress,
+  accountId,
+  items,
+  networkId,
+}: {
+  accountAddress: string;
+  accountId: string;
+  items: {
+    customPriorityFee?: IMarketPresetPriorityFeeOverride;
+    networkFeeLevel?: ESwapNetworkFeeLevel;
+  }[];
+  networkId: string;
+}) {
+  if (
+    !accountId ||
+    !networkId ||
+    !accountAddress ||
+    !networkUtils.isEvmNetwork({ networkId })
+  ) {
+    return items.map(() => undefined);
+  }
+
+  if (!items.length) {
+    return [];
+  }
+
+  const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
+    accountAddress,
+    accountId,
+    gasAccountEnabled: false,
+    networkId,
+    scenario: 'swap',
+  });
+  const gasLimit = getMarketPresetFallbackEvmSwapGasLimit(networkId);
+
+  return items.map((item) => {
+    const gasInfo = applyMarketPresetFallbackGasLimit({
+      gasInfo: buildGasInfo(
+        gasRes,
+        gasRes.common,
+        item.networkFeeLevel,
+        item.customPriorityFee,
+      ),
+      gasLimit,
+    });
+
+    return buildGasFeeFiatValue([{ gasInfo }]);
+  });
 }
 
 export function buildMarketGasInfoFeeInfo(gasInfo: ISwapGasInfo): IFeeInfoUnit {

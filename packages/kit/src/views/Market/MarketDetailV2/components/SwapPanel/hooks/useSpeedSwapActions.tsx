@@ -86,6 +86,7 @@ import {
   buildMarketGasInfoFeeInfo,
   estimateMarketApproveGasInfos,
   estimateMarketDirectGasInfos,
+  estimateMarketPresetGasFeeFiatValues,
   sendMarketDirectUnsignedTxs,
 } from './marketDirectSendTx';
 import { resolveMarketReviewAllowanceState } from './marketReviewAllowance';
@@ -117,6 +118,8 @@ import {
 } from './marketSwapReviewUtils';
 import { usePaymentTokenPrice } from './usePaymentTokenPrice';
 import { ESwapDirection } from './useTradeType';
+
+import type { IMarketPresetPriorityFeeOverride } from './marketPresetSettings';
 
 export type IMarketSwapReviewAdapter = ISwapReviewAdapter;
 
@@ -1206,6 +1209,37 @@ export function useSpeedSwapActions(props: {
       };
     },
     [buildMarketApproveUnsignedTxArr, buildReviewStepTexts, slippage],
+  );
+
+  const estimateMarketPresetNetworkFees = useCallback(
+    async ({
+      items,
+    }: {
+      items: {
+        customPriorityFee?: IMarketPresetPriorityFeeOverride;
+        networkFeeLevel?: ESwapNetworkFeeLevel;
+      }[];
+    }) => {
+      const accountAddress = netAccountRes.result?.addressDetail.address ?? '';
+      const accountId = netAccountRes.result?.id ?? '';
+      const networkId = fromToken.networkId;
+
+      if (!accountAddress || !accountId || !networkId) {
+        return items.map(() => undefined);
+      }
+
+      return estimateMarketPresetGasFeeFiatValues({
+        accountAddress,
+        accountId,
+        items,
+        networkId,
+      });
+    },
+    [
+      fromToken.networkId,
+      netAccountRes.result?.addressDetail.address,
+      netAccountRes.result?.id,
+    ],
   );
 
   const prepareMarketSwapReview = useCallback<
@@ -2861,6 +2895,7 @@ export function useSpeedSwapActions(props: {
     isWrapped,
     speedCheckError,
     speedCheckLoading,
+    estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,
     sendMarketApproveTx,
     sendMarketSwapTx,
