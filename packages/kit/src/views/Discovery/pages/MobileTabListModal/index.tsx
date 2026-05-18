@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -115,6 +115,7 @@ function MobileTabListModal() {
     [tabs],
   );
   const { disabledAddedNewTab } = useDisabledAddedNewTab();
+  const hasCheckedEmptyTabsRef = useRef(false);
 
   const { activeTabId } = useActiveTabId();
 
@@ -129,9 +130,39 @@ function MobileTabListModal() {
     closeWebTab,
     setPinnedTab,
     setDisplayHomePage,
+    buildWebTabs,
+    setBrowserDataReady,
   } = useBrowserTabActions().current;
 
+  useEffect(() => {
+    if (hasCheckedEmptyTabsRef.current) {
+      return;
+    }
+    hasCheckedEmptyTabsRef.current = true;
+
+    if (tabs.length > 0) {
+      return;
+    }
+
+    void (async () => {
+      const tabsData =
+        await backgroundApiProxy.simpleDb.browserTabs.getRawData();
+      const restoredTabs = tabsData?.tabs ?? [];
+      if (restoredTabs.length > 0) {
+        buildWebTabs({
+          data: restoredTabs,
+          options: { isInitFromStorage: true },
+        });
+      }
+      setBrowserDataReady();
+    })();
+  }, [buildWebTabs, setBrowserDataReady, tabs.length]);
+
   const initialScrollIndex = useMemo(() => {
+    if (!data.length) {
+      return undefined;
+    }
+
     const index = data.findIndex((t) => t.id === activeTabId);
 
     if (index === -1) {
@@ -145,10 +176,14 @@ function MobileTabListModal() {
     return index;
   }, [data, activeTabId]);
   const pinInitialScrollIndex = useMemo(() => {
+    if (!pinnedData.length) {
+      return undefined;
+    }
+
     const index = pinnedData.findIndex((t) => t.id === activeTabId) - 2;
 
     if (index <= 0) {
-      return -1;
+      return undefined;
     }
 
     return index;
