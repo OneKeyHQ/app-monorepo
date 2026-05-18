@@ -144,12 +144,9 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
       walletId,
     },
   );
-  // The modal itself and create-address (`+`) rows stay available for
-  // deactivated Bot Wallets. Only copying an existing address is blocked.
   const isBotWalletAddressBlocked =
     isBotWallet &&
     isBotWalletDeactivated &&
-    Boolean(account) &&
     actionType !== EWalletAddressActionType.ViewInExplorer;
 
   const subtitle = useMemo(() => {
@@ -198,7 +195,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     }
 
     if (isBotWalletAddressBlocked) {
-      showBotWalletDisabledToast('copyAddress');
+      showBotWalletDisabledToast(account ? 'copyAddress' : 'receive');
       return;
     }
 
@@ -315,7 +312,8 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
             primary={
               <XStack alignItems="center" gap="$2">
                 <SizableText size="$bodyLgMedium">{network.name}</SizableText>
-                {networkUtils
+                {!isBotWalletAddressBlocked &&
+                networkUtils
                   .getDefaultDeriveTypeVisibleNetworks()
                   .includes(network.id) ? (
                   <AddressTypeSelector

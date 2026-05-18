@@ -1,15 +1,15 @@
 import type { RefObject } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, SegmentControl, Stack } from '@onekeyhq/components';
+import { Empty, Page, SegmentControl, Stack } from '@onekeyhq/components';
 import { PagerView } from '@onekeyhq/components/src/composite/Carousel/pager';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
-import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
+import { getBotWalletDisabledMessage } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import {
   BUY_GUIDE_URL,
   SELL_GUIDE_URL,
@@ -44,6 +44,17 @@ const TAB_GUIDE_URLS: Record<ITabType, string> = {
   sell: SELL_GUIDE_URL,
 };
 
+function BotWalletBuyBlockedPlaceholder() {
+  return (
+    <Stack flex={1} justifyContent="center" px="$5">
+      <Empty
+        illustration="WalletAdd"
+        title={getBotWalletDisabledMessage('addMoney')}
+      />
+    </Stack>
+  );
+}
+
 const BuyPage = () => {
   const route =
     useRoute<
@@ -71,11 +82,7 @@ const BuyPage = () => {
   );
   const isBuyBlockedByBotWallet = isBotWallet && isBotWalletDeactivated;
 
-  const requestedInitialTab: ITabType = defaultTab ?? 'buy';
-  const initialTab: ITabType =
-    requestedInitialTab === 'buy' && isBuyBlockedByBotWallet
-      ? 'sell'
-      : requestedInitialTab;
+  const initialTab: ITabType = defaultTab ?? 'buy';
   const [activeTab, setActiveTab] = useState<ITabType>(initialTab);
 
   const pagerRef = useRef<NativePagerView>(null);
@@ -89,38 +96,22 @@ const BuyPage = () => {
     }
   }, []);
 
-  useEffect(() => {
-    if (!isBuyBlockedByBotWallet || activeTabRef.current !== 'buy') {
-      return;
-    }
-    switchToTab('sell');
-  }, [isBuyBlockedByBotWallet, switchToTab]);
-
   const handleTabChange = useCallback(
     (value: string | number) => {
       const tab = value as ITabType;
-      if (tab === 'buy' && isBuyBlockedByBotWallet) {
-        showBotWalletDisabledToast('addMoney');
-        return;
-      }
       switchToTab(tab);
     },
-    [isBuyBlockedByBotWallet, switchToTab],
+    [switchToTab],
   );
 
   const handlePageSelected = useCallback(
     (e: { nativeEvent: { position: number } }) => {
       const newTab = INDEX_TO_TAB[e.nativeEvent.position];
-      if (newTab === 'buy' && isBuyBlockedByBotWallet) {
-        showBotWalletDisabledToast('addMoney');
-        switchToTab('sell');
-        return;
-      }
       if (newTab && newTab !== activeTabRef.current) {
         setActiveTab(newTab);
       }
     },
-    [isBuyBlockedByBotWallet, switchToTab],
+    [],
   );
 
   const segmentOptions = useMemo(
@@ -128,14 +119,13 @@ const BuyPage = () => {
       {
         label: intl.formatMessage({ id: ETranslations.global_buy }),
         value: 'buy' as const,
-        disabled: isBuyBlockedByBotWallet,
       },
       {
         label: intl.formatMessage({ id: ETranslations.global_cash_out }),
         value: 'sell' as const,
       },
     ],
-    [intl, isBuyBlockedByBotWallet],
+    [intl],
   );
 
   const headerRight = useCallback(
@@ -166,6 +156,23 @@ const BuyPage = () => {
     ),
     [activeTab, handleTabChange, segmentOptions],
   );
+
+  const buyContent = isBuyBlockedByBotWallet ? (
+    <BotWalletBuyBlockedPlaceholder />
+  ) : (
+    <SellOrBuyContent type="buy" networkId={networkId} accountId={accountId} />
+  );
+
+  const activeTabContent =
+    activeTab === 'buy' ? (
+      buyContent
+    ) : (
+      <SellOrBuyContent
+        type="sell"
+        networkId={networkId}
+        accountId={accountId}
+      />
+    );
 
   return (
     <AccountSelectorProviderMirror
@@ -198,13 +205,7 @@ const BuyPage = () => {
                   keyboardDismissMode="on-drag"
                   pageWidth="100%"
                 >
-                  <Stack flex={1}>
-                    <SellOrBuyContent
-                      type="buy"
-                      networkId={networkId}
-                      accountId={accountId}
-                    />
-                  </Stack>
+                  <Stack flex={1}>{buyContent}</Stack>
                   <Stack flex={1}>
                     <SellOrBuyContent
                       type="sell"
@@ -214,11 +215,7 @@ const BuyPage = () => {
                   </Stack>
                 </PagerView>
               ) : (
-                <SellOrBuyContent
-                  type={activeTab}
-                  networkId={networkId}
-                  accountId={accountId}
-                />
+                activeTabContent
               )}
             </Page.Body>
           </Page>
