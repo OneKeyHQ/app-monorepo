@@ -314,7 +314,7 @@ export function PrimeTransferDirection({
           console.error('[PeerPresenceCheck] failed:', error);
         }
       })();
-    }, 2000);
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, [primeTransferAtom.status, primeTransferAtom.pairedRoomId, intl]);
