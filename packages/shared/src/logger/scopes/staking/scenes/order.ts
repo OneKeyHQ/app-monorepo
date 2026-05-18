@@ -2,19 +2,30 @@ import type { IAddEarnOrderParams } from '@onekeyhq/kit-bg/src/dbs/simple/entity
 import type { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../base/decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export class OrderScene extends BaseScene {
+  @LogToServer()
   @LogToLocal()
   public addOrder(order: IAddEarnOrderParams) {
     return order;
   }
 
+  @LogToServer()
   @LogToLocal()
-  public updateOrderStatus(params: { txId: string; status: EDecodedTxStatus }) {
+  public updateOrderStatus(
+    params: Pick<
+      IAddEarnOrderParams,
+      'stakingLabel' | 'stakingProtocol' | 'stakingTags'
+    > & {
+      txId: string;
+      status: EDecodedTxStatus;
+    },
+  ) {
     return params;
   }
 
+  @LogToServer()
   @LogToLocal()
   public updateOrderStatusError(params: {
     txId: string;
@@ -23,12 +34,18 @@ export class OrderScene extends BaseScene {
     return params;
   }
 
+  @LogToServer()
   @LogToLocal()
-  public updateOrderStatusByTxId(params: {
-    currentTxId: string;
-    newTxId?: string;
-    status: EDecodedTxStatus;
-  }) {
+  public updateOrderStatusByTxId(
+    params: Pick<
+      IAddEarnOrderParams,
+      'stakingLabel' | 'stakingProtocol' | 'stakingTags'
+    > & {
+      currentTxId: string;
+      newTxId?: string;
+      status: EDecodedTxStatus;
+    },
+  ) {
     return params;
   }
 }

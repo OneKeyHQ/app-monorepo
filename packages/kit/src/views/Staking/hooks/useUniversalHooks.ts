@@ -39,6 +39,12 @@ const createStakeInfoWithOrderId = ({
   orderId,
 });
 
+const getEarnOrderTrackingInfo = (stakingInfo?: IStakingInfo) => ({
+  stakingLabel: stakingInfo?.label,
+  stakingProtocol: stakingInfo?.protocol,
+  stakingTags: stakingInfo?.tags,
+});
+
 type ITxConfirmResult =
   | {
       status: 'success';
@@ -115,6 +121,7 @@ const handleStakeSuccess = async ({
       networkId,
       txId: data[0].signedTx.txid,
       status: data[0].decodedTx.status,
+      ...getEarnOrderTrackingInfo(stakeInfo),
     });
   }
   onSuccess?.(data);
