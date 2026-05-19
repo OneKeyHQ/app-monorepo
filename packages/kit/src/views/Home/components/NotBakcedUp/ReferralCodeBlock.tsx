@@ -404,7 +404,10 @@ function ReferralCodeBlock({
             ? require('@onekeyhq/kit/assets/promo-code-bg.png')
             : require('@onekeyhq/kit/assets/promo-code-bg-dark.png')
         }
-        title={intl.formatMessage({ id: ETranslations.referral_promo_title })}
+        title={intl.formatMessage(
+          { id: ETranslations.referral_promo_title },
+          { br: () => '\n' },
+        )}
         iconProps={{ name: 'GiftOutline' }}
         iconContainerProps={{ bg: '$info8' }}
         containerProps={{
