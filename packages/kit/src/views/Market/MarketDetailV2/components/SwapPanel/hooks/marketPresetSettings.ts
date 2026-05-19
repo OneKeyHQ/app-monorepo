@@ -102,6 +102,7 @@ export type IMarketPresetConfig = {
 };
 
 type IMarketPresetRemoteConfig = {
+  source: 'preset' | 'legacy';
   enabled?: boolean;
   priorityFeeEditable?: boolean;
   customPriorityFeeRange?: IMarketPresetCustomPriorityFeeRange;
@@ -194,6 +195,42 @@ const MARKET_PRESET_CUSTOM_PRIORITY_FEE_RANGE_BY_NETWORK_ID: Partial<
   },
 };
 
+function getMarketPresetPriorityFeeCustomUnit(networkId: string) {
+  if (networkId.startsWith('evm--')) {
+    return 'Gwei';
+  }
+
+  if (MARKET_PRESET_SOL_NETWORK_IDS.has(networkId)) {
+    return 'SOL';
+  }
+
+  return undefined;
+}
+
+function getMarketPresetPriorityFeeSupportedTypes({
+  networkId,
+  priorityFeeEditable,
+}: {
+  networkId: string;
+  priorityFeeEditable: boolean;
+}) {
+  if (!priorityFeeEditable || networkId.startsWith('evm--')) {
+    return undefined;
+  }
+
+  if (MARKET_PRESET_SOL_NETWORK_IDS.has(networkId)) {
+    return [
+      EMarketPresetPriorityFeeType.MARKET,
+      EMarketPresetPriorityFeeType.CUSTOM,
+    ];
+  }
+
+  return [
+    EMarketPresetPriorityFeeType.MARKET,
+    EMarketPresetPriorityFeeType.FAST,
+  ];
+}
+
 function getMarketPresetCustomPriorityFeeRange({
   networkId,
   customRange,
@@ -275,6 +312,7 @@ function getMarketPresetRemoteConfig(
   const legacyConfig = (speedConfig as IMarketPresetSpeedConfig | undefined)
     ?.marketPresetConfig;
   const presetConfig = speedConfig?.preset;
+  const source = presetConfig ? 'preset' : 'legacy';
   const enabled = presetConfig?.isEnabled ?? legacyConfig?.enabled;
   const priorityFeeEditable =
     presetConfig?.priorityFee ?? legacyConfig?.priorityFeeEditable;
@@ -297,6 +335,7 @@ function getMarketPresetRemoteConfig(
   }
 
   return {
+    source,
     enabled,
     priorityFeeEditable,
     customPriorityFeeRange: {
@@ -331,11 +370,25 @@ function buildPresetConfigFromRemote({
     });
   }
 
+  if (remoteConfig.source === 'preset' && remoteConfig.enabled === true) {
+    const priorityFeeEditable = remoteConfig.priorityFeeEditable ?? false;
+    return buildPresetConfig({
+      networkId,
+      priorityFeeEditable,
+      priorityFeeSupportedTypes: getMarketPresetPriorityFeeSupportedTypes({
+        networkId,
+        priorityFeeEditable,
+      }),
+      customUnit: getMarketPresetPriorityFeeCustomUnit(networkId),
+      customRange,
+    });
+  }
+
   if (MARKET_PRESET_PRIORITY_READONLY_NETWORK_IDS.has(networkId)) {
     return buildPresetConfig({
       networkId,
       priorityFeeEditable: resolvePriorityFeeEditable(false),
-      customUnit: networkId.startsWith('evm--') ? 'Gwei' : undefined,
+      customUnit: getMarketPresetPriorityFeeCustomUnit(networkId),
       customRange,
     });
   }
@@ -348,7 +401,7 @@ function buildPresetConfigFromRemote({
     return buildPresetConfig({
       networkId,
       priorityFeeEditable: resolvePriorityFeeEditable(true),
-      customUnit: 'Gwei',
+      customUnit: getMarketPresetPriorityFeeCustomUnit(networkId),
       customRange,
     });
   }
