@@ -65,10 +65,71 @@ export type IAllNetworkAccountsParamsForApi = {
   accountAddress: string;
   xpub?: string;
 };
+// Short-lived in-flight + result cache for getAllNetworkAccounts. CDP
+// profiles showed 3-4 callers (Earn portfolio, DeFi block, Token list,
+// Universal Search) firing this method redundantly within a single
+// tab-switch window, accumulating ~700ms of DB / network-derive-type
+// work. A 5s TTL collapses all of them onto a single backend trip
+// without holding stale data long enough to mask real account changes.
+const GET_ALL_NETWORK_ACCOUNTS_CACHE_TTL_MS = 5000;
+const GET_ALL_NETWORK_ACCOUNTS_CACHE_MAX_ENTRIES = 50;
+type IGetAllNetworkAccountsCacheEntry = {
+  createdAt: number;
+  promise: Promise<IAllNetworkAccountsInfoResult>;
+};
+
 @backgroundClass()
 class ServiceAllNetwork extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  private _getAllNetworkAccountsCache = new Map<
+    string,
+    IGetAllNetworkAccountsCacheEntry
+  >();
+
+  private _buildGetAllNetworkAccountsCacheKey(
+    params: IAllNetworkAccountsParams,
+  ): string {
+    // Include every field the function branches on so two callers with
+    // different intents (e.g. NFT-only vs unrestricted) don't share a
+    // result.
+    return [
+      params.accountId ?? '',
+      params.networkId ?? '',
+      params.indexedAccountId ?? '',
+      params.deriveType ?? '',
+      params.nftEnabledOnly ? 1 : 0,
+      params.DeFiEnabledOnly ? 1 : 0,
+      params.includingNonExistingAccount ? 1 : 0,
+      params.includingNotEqualGlobalDeriveTypeAccount ? 1 : 0,
+      params.includingDeriveTypeMismatchInDefaultVisibleNetworks === false
+        ? 0
+        : 1,
+      params.fetchAllNetworkAccounts ? 1 : 0,
+      params.networksEnabledOnly ? 1 : 0,
+      params.excludeTestNetwork === false ? 0 : 1,
+      params.excludeIncompatibleWithWalletAccounts ? 1 : 0,
+    ].join('::');
+  }
+
+  private _sweepGetAllNetworkAccountsCache(now: number) {
+    for (const [key, entry] of Array.from(
+      this._getAllNetworkAccountsCache.entries(),
+    )) {
+      if (now - entry.createdAt >= GET_ALL_NETWORK_ACCOUNTS_CACHE_TTL_MS) {
+        this._getAllNetworkAccountsCache.delete(key);
+      }
+    }
+    while (
+      this._getAllNetworkAccountsCache.size >
+      GET_ALL_NETWORK_ACCOUNTS_CACHE_MAX_ENTRIES
+    ) {
+      const oldestKey = this._getAllNetworkAccountsCache.keys().next().value;
+      if (!oldestKey) break;
+      this._getAllNetworkAccountsCache.delete(oldestKey);
+    }
   }
 
   private async forEachWithConcurrency<T>(
@@ -242,6 +303,37 @@ class ServiceAllNetwork extends ServiceBase {
 
   @backgroundMethod()
   async getAllNetworkAccounts(
+    params: IAllNetworkAccountsParams,
+  ): Promise<IAllNetworkAccountsInfoResult> {
+    const now = Date.now();
+    this._sweepGetAllNetworkAccountsCache(now);
+    const cacheKey = this._buildGetAllNetworkAccountsCacheKey(params);
+    const cached = this._getAllNetworkAccountsCache.get(cacheKey);
+    if (
+      cached &&
+      now - cached.createdAt < GET_ALL_NETWORK_ACCOUNTS_CACHE_TTL_MS
+    ) {
+      return cached.promise;
+    }
+    const promise = this._getAllNetworkAccountsUncached(params).catch(
+      (error) => {
+        // Don't keep a rejected promise in the cache; the next caller
+        // should retry.
+        const current = this._getAllNetworkAccountsCache.get(cacheKey);
+        if (current?.promise === promise) {
+          this._getAllNetworkAccountsCache.delete(cacheKey);
+        }
+        throw error;
+      },
+    );
+    this._getAllNetworkAccountsCache.set(cacheKey, {
+      createdAt: now,
+      promise,
+    });
+    return promise;
+  }
+
+  private async _getAllNetworkAccountsUncached(
     params: IAllNetworkAccountsParams,
   ): Promise<IAllNetworkAccountsInfoResult> {
     defaultLogger.account.allNetworkAccountPerf.getAllNetworkAccountsStart();
