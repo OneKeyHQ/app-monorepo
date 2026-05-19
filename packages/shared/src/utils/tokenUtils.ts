@@ -318,13 +318,19 @@ export function mergeDeriveTokenListMap({
           .plus(value.totalBalanceParsed ?? 0)
           .toFixed();
 
-        // Drop unavailable participants so the merged value is a partial sum
-        // instead of propagating NaN through toFixed().
-        mergedToken.fiatValue = new BigNumber(
-          isValidNumberValue(mergedToken.fiatValue) ? mergedToken.fiatValue : 0,
-        )
-          .plus(isValidNumberValue(value.fiatValue) ? value.fiatValue : 0)
-          .toFixed();
+        // Only write a partial sum when at least one participant has a valid
+        // fiatValue. If every participant is unavailable, keep the merged
+        // token's existing unavailable marker so TokenValueView still renders
+        // '--' instead of a misleading $0.
+        const mergedFiatValid = isValidNumberValue(mergedToken.fiatValue);
+        const incomingFiatValid = isValidNumberValue(value.fiatValue);
+        if (mergedFiatValid || incomingFiatValid) {
+          mergedToken.fiatValue = new BigNumber(
+            mergedFiatValid ? mergedToken.fiatValue : 0,
+          )
+            .plus(incomingFiatValid ? value.fiatValue : 0)
+            .toFixed();
+        }
 
         mergedToken.frozenBalanceFiatValue = new BigNumber(
           mergedToken.frozenBalanceFiatValue ?? 0,
