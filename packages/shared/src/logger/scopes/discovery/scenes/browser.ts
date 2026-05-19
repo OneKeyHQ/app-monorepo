@@ -17,10 +17,6 @@ type IBrowserTabsLifecycleParams = {
     | 'rebuildBrowserDataApply'
     | 'rebuildBrowserDataReady'
     | 'mobileTabListEmptyDetected'
-    | 'mobileTabListReloadReadSuccess'
-    | 'mobileTabListReloadReadError'
-    | 'mobileTabListReloadApplied'
-    | 'mobileTabListReloadSkipped'
     | 'simpleDbBrowserTabsGetRawDataStart'
     | 'simpleDbBrowserTabsGetRawDataSuccess'
     | 'simpleDbBrowserTabsGetRawDataError'
@@ -47,7 +43,6 @@ type IBrowserTabsLifecycleParams = {
   nextLocale?: string;
   tabsCount?: number;
   previousTabsCount?: number;
-  restoredTabsCount?: number;
   pinnedTabsCount?: number;
   unpinnedTabsCount?: number;
   activeTabExists?: boolean;
