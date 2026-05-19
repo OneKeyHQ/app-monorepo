@@ -200,11 +200,15 @@ export function List<Item>({
   // Cell measurement cache for react-virtualized list optimization
   // Uses ref for listData so the cache is NOT recreated when data changes,
   // preserving measured row heights across pagination/data updates.
+  // defaultHeight tuned to the observed average row height (item ~72, section
+  // header ~44) so the initial startIndex/stopIndex estimate is close to the
+  // truth and CellMeasurer-driven recompute storms during fast scroll are
+  // dampened.
   const cache = useMemo(
     () =>
       new CellMeasurerCache({
         fixedWidth: true,
-        defaultHeight: 60,
+        defaultHeight: 76,
         keyMapper: (rowIndex, columnIndex) => {
           if (keyExtractor) {
             const item = listDataRef.current[rowIndex];
@@ -517,7 +521,7 @@ export function List<Item>({
       isScrolling: isVisible ? isScrolling : false,
       onScroll: isVisible ? handleScroll : undefined,
       scrollTop: isVisible && listData.length > 0 ? scrollTop : 0,
-      overscanRowCount: 10,
+      overscanRowCount: 25,
       deferredMeasurementCache: cache,
     };
   }, [

@@ -30,6 +30,17 @@ import type { WindowScrollerChildProps } from 'react-virtualized';
 
 const overflowYScrollStyle = { overflowY: 'scroll' } as const;
 const scrollSnapStyle = { scrollSnapType: 'x' } as const;
+// During fast scroll, CellMeasurer re-measures rows and recomputeRowHeights
+// makes the virtualized Grid's height oscillate. The ResizeObserver below
+// would echo that oscillation into listContainerRef.style.height, which
+// changes the outer scroll metrics, which in turn re-fires WindowScroller's
+// scrollTop, which kicks off another measurement pass. Two knobs break the
+// loop without losing correctness on tab switches:
+//   - HEIGHT_EPSILON_PX: ignore sub-pixel-ish jitter from CellMeasurer.
+//   - SCROLL_END_DEBOUNCE_MS: while the outer scroller is actively scrolling,
+//     defer height writes; flush the latest target once scrolling settles.
+const HEIGHT_EPSILON_PX = 8;
+const SCROLL_END_DEBOUNCE_MS = 150;
 const childDivStyle = {
   width: '100%',
   flexShrink: 0,
@@ -228,6 +239,43 @@ export function Container({
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const observedElementRef = useRef<HTMLElement | null>(null);
+  // Scroll-aware throttling state for the apply() loop below. isScrollingRef
+  // is flipped by the outer scroller's scroll listener (installed in the
+  // useEffect that depends on scrollElement). pendingHeightRef holds the
+  // most recent target height observed while scrolling so it can be flushed
+  // on settle.
+  const isScrollingRef = useRef(false);
+  const scrollEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingHeightRef = useRef<number | null>(null);
+
+  // Force-write: used by tab switches and initial measurement, where the
+  // target represents a real content change (different tab, different data).
+  const writeHeightForce = useCallback((h: number) => {
+    if (!listContainerRef.current) return;
+    const el = listContainerRef.current as HTMLElement;
+    if (Math.abs(h - el.clientHeight) < HEIGHT_EPSILON_PX) return;
+    el.style.height = `${h}px`;
+  }, []);
+
+  // Monotonic write: used by the ResizeObserver throttled path. CellMeasurer's
+  // estimated totalHeight oscillates while the user scrolls (because the set
+  // of measured rows shifts), so a smaller-than-current value is almost always
+  // a stale estimate, not a real shrinkage. Accept only growth here; genuine
+  // shrinkage (data cleared, tab switched) lands via writeHeightForce.
+  const writeHeightMonotonic = useCallback((h: number) => {
+    if (!listContainerRef.current) return;
+    const el = listContainerRef.current as HTMLElement;
+    if (h <= el.clientHeight + HEIGHT_EPSILON_PX) return;
+    el.style.height = `${h}px`;
+  }, []);
+
+  const flushPendingHeight = useCallback(() => {
+    if (pendingHeightRef.current != null) {
+      writeHeightMonotonic(pendingHeightRef.current);
+      pendingHeightRef.current = null;
+    }
+  }, [writeHeightMonotonic]);
+
   // Attach (or re-attach) a ResizeObserver to the focused tab's scroll
   // element so listContainerRef height follows it. Replaces the previous
   // 250ms-polling retry loop entirely:
@@ -252,20 +300,31 @@ export function Container({
     }
     observedElementRef.current = element;
     if (!element) return;
-    const apply = () => {
+    const applyImmediate = () => {
       if (!listContainerRef.current) return;
       const h = getTabContentHeight(element);
-      if (h > 0) {
-        (listContainerRef.current as HTMLElement).style.height = `${h}px`;
-      }
+      if (h > 0) writeHeightForce(h);
     };
-    // Synchronous initial measurement so the container doesn't flicker
-    // between 0-height and the first observer callback.
-    apply();
-    const ro = new ResizeObserver(apply);
+    const applyThrottled = () => {
+      if (!listContainerRef.current) return;
+      const h = getTabContentHeight(element);
+      if (h <= 0) return;
+      // While the user is actively scrolling, the height jitter we see is
+      // a measurement artifact, not a real content change. Stash the latest
+      // target and let the scroll-end debounce flush it.
+      if (isScrollingRef.current) {
+        pendingHeightRef.current = h;
+        return;
+      }
+      writeHeightMonotonic(h);
+    };
+    // Initial measurement is always immediate: tab switches and first paint
+    // must not be deferred by an in-flight scroll on another tab.
+    applyImmediate();
+    const ro = new ResizeObserver(applyThrottled);
     ro.observe(element);
     resizeObserverRef.current = ro;
-  }, [focusedTab, getTabContentHeight]);
+  }, [focusedTab, getTabContentHeight, writeHeightForce, writeHeightMonotonic]);
 
   // Keep the requestRemeasure context callback pointing at the latest
   // attach function. We use an indirection ref so contextValue identity
@@ -285,8 +344,34 @@ export function Container({
         resizeObserverRef.current = null;
       }
       observedElementRef.current = null;
+      if (scrollEndTimerRef.current) {
+        clearTimeout(scrollEndTimerRef.current);
+        scrollEndTimerRef.current = null;
+      }
     };
   }, [attachObserverForFocusedTab]);
+
+  // Track the outer scroller's scrolling state so applyThrottled() above can
+  // defer ResizeObserver-driven height writes until the user settles. Passive
+  // listener: must not block scroll. Debounced 150ms which is short enough to
+  // feel instant and long enough to absorb a flick.
+  useEffect(() => {
+    if (!scrollElement) return undefined;
+    const onScroll = () => {
+      isScrollingRef.current = true;
+      if (scrollEndTimerRef.current) {
+        clearTimeout(scrollEndTimerRef.current);
+      }
+      scrollEndTimerRef.current = setTimeout(() => {
+        isScrollingRef.current = false;
+        flushPendingHeight();
+      }, SCROLL_END_DEBOUNCE_MS);
+    };
+    scrollElement.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      scrollElement.removeEventListener('scroll', onScroll);
+    };
+  }, [scrollElement, flushPendingHeight]);
 
   useLayoutEffect(() => {
     const callback = debounce(() => {
@@ -316,9 +401,7 @@ export function Container({
     (tabName, prevTabName) => {
       if (isEffectValid.current && prevTabName && tabName !== prevTabName) {
         isSwitchingTabRef.current = true;
-        const index = tabNamesRef.current.findIndex(
-          (name) => name === tabName,
-        );
+        const index = tabNamesRef.current.findIndex((name) => name === tabName);
         let scrollTop = scrollTopRef.current[tabName] || 0;
 
         // Execute DOM updates synchronously instead of inside startViewTransition.
@@ -425,7 +508,7 @@ export function Container({
   // legitimately change when children change; that's the only time these
   // need to be rebuilt (focusedTab and onTabPress are stable refs).
   const headerArgs = useMemo(
-    () => ({ focusedTab, tabNames, onTabPress } as any),
+    () => ({ focusedTab, tabNames, onTabPress }) as any,
     [focusedTab, tabNames, onTabPress],
   );
   const tabBarArgs = useMemo(
@@ -435,7 +518,7 @@ export function Container({
         tabNames,
         onTabPress,
         containerWidth,
-      } as any),
+      }) as any,
     [focusedTab, tabNames, onTabPress, containerWidth],
   );
 
