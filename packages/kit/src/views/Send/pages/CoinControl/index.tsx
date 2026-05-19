@@ -308,7 +308,7 @@ function CoinControlPage() {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.wallet_coin_control })}
       />
-      <Page.Body>
+      <Page.Body testID={SendTestIDs.coinControlPage}>
         <YStack flex={1}>
           {/* Strategy Selector */}
           <XStack
