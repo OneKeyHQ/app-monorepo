@@ -4,6 +4,7 @@ import {
   type JsonRpcRequest,
   type JsonRpcResponse,
 } from "../shared/jsonRpc.js";
+import { scrubEnabled, scrubValue } from "../shared/scrubber.js";
 
 export type Handler = (
   params: Record<string, unknown>,
@@ -30,7 +31,10 @@ export class Dispatcher {
     const params = (req.params ?? {}) as Record<string, unknown>;
     try {
       const result = await handler(params);
-      return { jsonrpc: "2.0", id, result };
+      // Apply the scrubber to the success `result` only; errors and metadata
+      // (code/message) are never scrubbed. Bypassed by `ODB_SCRUB=0`.
+      const scrubbed = scrubEnabled() ? scrubValue(result) : result;
+      return { jsonrpc: "2.0", id, result: scrubbed };
     } catch (e) {
       if (e instanceof JsonRpcException) {
         return this.errorResp(id, e.code, e.message, e.data);

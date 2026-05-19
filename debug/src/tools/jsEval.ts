@@ -1,4 +1,5 @@
 import { attachHermes, type CdpHandle } from "../adapters/cdp.js";
+import { injectBootstrap } from "../adapters/cdpBootstrap.js";
 import type { Registry } from "../daemon/registry.js";
 
 const handles = new Map<string, CdpHandle>();
@@ -8,6 +9,16 @@ async function ensureCdp(sessionId: string, port?: number): Promise<CdpHandle> {
   if (!h) {
     h = await attachHermes(port);
     handles.set(sessionId, h);
+    // Best-effort bootstrap: inject `__onekey_debug__` probe so later
+    // js.eval calls can read store / queryClient / navigation. Runs once
+    // per session. Bootstrap failures are non-fatal — callers can inspect
+    // `__onekey_debug__.error` to see what happened.
+    try {
+      await injectBootstrap(h.client);
+    } catch {
+      // Swallow — bootstrap script catches internally; this guards against
+      // unexpected CDP/transport-level rejections.
+    }
   }
   return h;
 }
