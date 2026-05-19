@@ -166,15 +166,19 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   async updateAllNetworkAccountValue({
     items,
     currency,
+    updateAll,
   }: {
     items: IAccountValueAllWriteItem[];
     currency: 'usd';
-    // `updateAll` is accepted by upstream callers but intentionally ignored
-    // here: address-keyed entries are shared across every wallet that
-    // resolves to the same on-chain identifier, so a destructive "replace
-    // the whole network set" write would erase another wallet's per-network
-    // values. All writes now merge by networkId; callers that need to drop
-    // stale networks should issue an explicit clear instead.
+    // When `updateAll === true` the caller has completed a full token
+    // snapshot for the covered address keys, so the per-network map for
+    // each touched address is replaced — networkIds that no longer appear
+    // (network removed/disabled, refresh produced no value) are dropped to
+    // avoid stale entries leaking into ChainSelector / AccountSelector /
+    // UniversalSearch. Address keys NOT covered by this refresh are left
+    // untouched so a sibling wallet's data for an unrelated address is
+    // preserved. When `updateAll === false` writes are partial and merge
+    // by networkId.
     updateAll?: boolean;
   }) {
     // Group write items by addressKey so a single setRawData call handles
@@ -194,6 +198,14 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     const isNoop = Object.entries(grouped).every(([key, valueMap]) => {
       const prev = existingMap[key];
       if (!prev || prev.currency !== currency) return false;
+      if (updateAll) {
+        // Replace mode: the existing map must match the incoming snapshot
+        // exactly, otherwise we still need to write to drop stale networkIds.
+        const prevKeys = Object.keys(prev.value);
+        const nextKeys = Object.keys(valueMap);
+        if (prevKeys.length !== nextKeys.length) return false;
+        return nextKeys.every((nId) => prev.value[nId] === valueMap[nId]);
+      }
       return Object.entries(valueMap).every(
         ([nId, v]) => prev.value[nId] === v,
       );
@@ -210,7 +222,9 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       };
       for (const [key, valueMap] of Object.entries(grouped)) {
         next[key] = {
-          value: { ...existing[key]?.value, ...valueMap },
+          value: updateAll
+            ? valueMap
+            : { ...existing[key]?.value, ...valueMap },
           currency,
         };
       }
