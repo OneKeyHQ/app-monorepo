@@ -322,6 +322,81 @@ const TOOLS: ToolSpec[] = [
       required: ["sessionId"],
     },
   },
+  {
+    name: "record.start",
+    description:
+      "Start a multi-layer .odb recording for the session. Layers default to all four (js, network, native, ui). Returns {recordId, path}.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        layers: {
+          type: "array",
+          items: { type: "string", enum: ["js", "network", "native", "ui"] },
+        },
+        uiIntervalMs: {
+          type: "number",
+          description: "UI snapshot interval (default 2000, min 500).",
+        },
+      },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "record.stop",
+    description:
+      "Stop the active recording for the session and finalize the .odb directory. Returns {path, eventCount, durationMs}.",
+    inputSchema: {
+      type: "object",
+      properties: { sessionId: { type: "string" } },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "record.status",
+    description: "Return whether the session has an active recording.",
+    inputSchema: {
+      type: "object",
+      properties: { sessionId: { type: "string" } },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "replay",
+    description:
+      "Replay a recorded .odb directory. Only js.eval events are re-executed (on `targetSessionId`); other layers are dry-run. Returns counts {replayed, skipped, errors}.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Path to the .odb directory." },
+        targetSessionId: {
+          type: "string",
+          description: "Session to re-execute js.eval events against.",
+        },
+        layers: {
+          type: "array",
+          items: { type: "string", enum: ["js", "network", "native", "ui"] },
+          default: ["js"],
+        },
+        speed: { type: "number", description: "1.0 = real time" },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "timeline",
+    description:
+      "Inspect events near a timestamp (ms relative to recording start) within ±windowMs/2 of `t`. Returns {manifest, events}.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string" },
+        t: { type: "number" },
+        windowMs: { type: "number", default: 1000 },
+      },
+      required: ["path", "t"],
+    },
+  },
 ];
 
 export const server = new Server(

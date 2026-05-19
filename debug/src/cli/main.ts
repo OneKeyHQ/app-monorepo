@@ -365,6 +365,104 @@ program
   });
 
 program
+  .command("record-start <sessionId>")
+  .option(
+    "--layers <csv>",
+    "comma-separated: js,network,native,ui",
+    "js,network,native,ui",
+  )
+  .option("--ui-interval <ms>", "ui snapshot interval", (v) => parseInt(v, 10))
+  .description("Start a multi-layer .odb recording for the session")
+  .action(
+    async (
+      sessionId: string,
+      opts: { layers: string; uiInterval?: number },
+    ) => {
+      const layers = opts.layers.split(",") as (
+        | "js"
+        | "network"
+        | "native"
+        | "ui"
+      )[];
+      process.stdout.write(
+        JSON.stringify(
+          await call("record.start", {
+            sessionId,
+            layers,
+            uiIntervalMs: opts.uiInterval,
+          }),
+          null,
+          2,
+        ) + "\n",
+      );
+    },
+  );
+
+program
+  .command("record-stop <sessionId>")
+  .description("Stop the active recording and finalize the .odb directory")
+  .action(async (sessionId: string) => {
+    process.stdout.write(
+      JSON.stringify(await call("record.stop", { sessionId }), null, 2) + "\n",
+    );
+  });
+
+program
+  .command("record-status <sessionId>")
+  .description("Whether the session currently has an active recording")
+  .action(async (sessionId: string) => {
+    process.stdout.write(
+      JSON.stringify(await call("record.status", { sessionId }), null, 2) +
+        "\n",
+    );
+  });
+
+program
+  .command("replay <path>")
+  .option("--target <sessionId>", "target session for js re-execution")
+  .option("--layers <csv>", "layers to replay", "js")
+  .option("--speed <n>", "speed multiplier (1.0 = real time)", (v) =>
+    parseFloat(v),
+  )
+  .description("Replay a recorded .odb directory onto a live session")
+  .action(
+    async (
+      p: string,
+      opts: { target?: string; layers: string; speed?: number },
+    ) => {
+      process.stdout.write(
+        JSON.stringify(
+          await call("replay", {
+            path: p,
+            targetSessionId: opts.target,
+            layers: opts.layers.split(","),
+            speed: opts.speed,
+          }),
+          null,
+          2,
+        ) + "\n",
+      );
+    },
+  );
+
+program
+  .command("timeline <path>")
+  .requiredOption("--t <ms>", "ms relative to recording start", (v) =>
+    parseInt(v, 10),
+  )
+  .option("--window <ms>", "window size in ms", (v) => parseInt(v, 10))
+  .description("Inspect events near a timestamp in a recorded .odb")
+  .action(async (p: string, opts: { t: number; window?: number }) => {
+    process.stdout.write(
+      JSON.stringify(
+        await call("timeline", { path: p, t: opts.t, windowMs: opts.window }),
+        null,
+        2,
+      ) + "\n",
+    );
+  });
+
+program
   .command("doctor")
   .description("Pre-flight checks (adb, xcrun, lldb, Hermes, devices, frida)")
   .action(async () => {

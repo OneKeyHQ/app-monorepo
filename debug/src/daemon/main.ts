@@ -17,6 +17,13 @@ import {
   perfTraceStart,
   perfTraceStop,
 } from "../tools/perf.js";
+import {
+  recordReplay,
+  recordStart,
+  recordStatus,
+  recordStop,
+  recordTimeline,
+} from "../tools/record.js";
 import { screenshot } from "../tools/screenshot.js";
 import { uiTree } from "../tools/uiTree.js";
 import {
@@ -63,6 +70,11 @@ async function main(): Promise<void> {
   );
   d.register("perf.trace.start", (p) => perfTraceStart(registry, p as never));
   d.register("perf.trace.stop", (p) => perfTraceStop(registry, p as never));
+  d.register("record.start", (p) => recordStart(registry, p as never));
+  d.register("record.stop", (p) => recordStop(registry, p as never));
+  d.register("record.status", (p) => recordStatus(registry, p as never));
+  d.register("replay", (p) => recordReplay(registry, p as never));
+  d.register("timeline", (p) => recordTimeline(registry, p as never));
 
   const server = new UnixSocketServer(DEFAULT_SOCKET, d);
   await server.start();
