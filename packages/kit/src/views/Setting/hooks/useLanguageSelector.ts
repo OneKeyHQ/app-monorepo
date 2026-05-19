@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -30,15 +31,26 @@ export function useLanguageSelector() {
     return locale === 'en-US' ? 'en' : locale;
   }, [locale]);
 
-  const onChange = useCallback(async (text: string) => {
-    await changeLanguage(text);
-    // mode=All restarts main + bg in lockstep so no half-quiesced state
-    // can leak across the reload boundary.
-    await backgroundApiProxy.serviceApp.restartApp({
-      mode: EAppRestartMode.All,
-      reason: `setting.language.${text}`,
-    });
-  }, []);
+  const onChange = useCallback(
+    async (text: string) => {
+      await changeLanguage(text);
+      defaultLogger.discovery.browser.browserTabsLifecycle({
+        step: 'languageChangeRestart',
+        source: 'useLanguageSelector',
+        platform: platformEnv.appPlatform ?? 'unknown',
+        previousLocale: locale,
+        nextLocale: text,
+        restartMode: EAppRestartMode.All,
+      });
+      // mode=All restarts main + bg in lockstep so no half-quiesced state
+      // can leak across the reload boundary.
+      await backgroundApiProxy.serviceApp.restartApp({
+        mode: EAppRestartMode.All,
+        reason: `setting.language.${text}`,
+      });
+    },
+    [locale],
+  );
 
   return {
     options,

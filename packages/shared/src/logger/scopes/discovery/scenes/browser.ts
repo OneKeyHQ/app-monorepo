@@ -3,6 +3,82 @@ import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+type IBrowserTabsLifecycleParams = {
+  step:
+    | 'languageChangeRestart'
+    | 'setBrowserDataReady'
+    | 'buildWebTabsEntry'
+    | 'buildWebTabsBlocked'
+    | 'buildWebTabsPersist'
+    | 'buildWebTabsPersistError'
+    | 'rebuildBrowserDataStart'
+    | 'rebuildBrowserDataReadSuccess'
+    | 'rebuildBrowserDataReadError'
+    | 'rebuildBrowserDataApply'
+    | 'rebuildBrowserDataReady'
+    | 'mobileTabListEmptyDetected'
+    | 'mobileTabListReloadReadSuccess'
+    | 'mobileTabListReloadReadError'
+    | 'mobileTabListReloadApplied'
+    | 'mobileTabListReloadSkipped'
+    | 'simpleDbBrowserTabsGetRawDataStart'
+    | 'simpleDbBrowserTabsGetRawDataSuccess'
+    | 'simpleDbBrowserTabsGetRawDataError'
+    | 'simpleDbBrowserTabsSetRawDataStart'
+    | 'simpleDbBrowserTabsSetRawDataSuccess'
+    | 'simpleDbBrowserTabsSetRawDataError'
+    | 'simpleDbBrowserTabsClearRawDataStart'
+    | 'simpleDbBrowserTabsClearRawDataSuccess'
+    | 'simpleDbBrowserTabsClearRawDataError'
+    | 'handleOpenWebSiteEntry'
+    | 'handleOpenWebSiteSwitchTab'
+    | 'handleOpenWebSiteOpenDappStart'
+    | 'handleOpenWebSiteOpenDappResult'
+    | 'gotoSiteEntry'
+    | 'gotoSiteInvalidUrl'
+    | 'gotoSiteResolved'
+    | 'gotoSiteWriteTab'
+    | 'gotoSiteCrossWebviewLoad';
+  source?: string;
+  platform?: string;
+  browserType?: string;
+  restartMode?: string;
+  previousLocale?: string;
+  nextLocale?: string;
+  tabsCount?: number;
+  previousTabsCount?: number;
+  restoredTabsCount?: number;
+  pinnedTabsCount?: number;
+  unpinnedTabsCount?: number;
+  activeTabExists?: boolean;
+  hasActiveTabId?: boolean;
+  hasTabId?: boolean;
+  hasUrl?: boolean;
+  hasWebSite?: boolean;
+  hasDApp?: boolean;
+  useCurrentWindow?: boolean;
+  needsSwitchTab?: boolean;
+  currentTabName?: string;
+  targetTabName?: string;
+  isReady?: boolean;
+  isInitFromStorage?: boolean;
+  forceUpdate?: boolean;
+  shouldUpdateAtom?: boolean;
+  shouldPersist?: boolean;
+  hasCache?: boolean;
+  isDataNullish?: boolean;
+  isBuilderPayload?: boolean;
+  updatedAt?: number;
+  isNewWindow?: boolean;
+  isNewTab?: boolean;
+  isInPlace?: boolean;
+  isBookmark?: boolean;
+  shouldBlockLocalhostUrl?: boolean;
+  result?: 'success' | 'failure' | 'skipped' | 'error';
+  reason?: string;
+  errorName?: string;
+};
+
 export class BrowserScene extends BaseScene {
   @LogToLocal({ level: 'info' })
   public tabsData(tabs: IWebTab[]) {
@@ -17,6 +93,12 @@ export class BrowserScene extends BaseScene {
   @LogToLocal({ level: 'info' })
   public logRejectUrl(url: string) {
     return url;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public browserTabsLifecycle(params: IBrowserTabsLifecycleParams) {
+    return params;
   }
 
   @LogToServer()

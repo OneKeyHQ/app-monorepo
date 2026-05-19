@@ -24,6 +24,7 @@ import {
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -46,6 +47,10 @@ import type { IWebTab } from '../../types';
 import type { View } from 'react-native';
 
 export const tabGridRefs: Record<string, View> = {};
+
+function getLogErrorName(error: unknown) {
+  return error instanceof Error ? error.name : typeof error;
+}
 
 function TabToolBar({
   closeAllDisabled,
@@ -144,19 +149,63 @@ function MobileTabListModal() {
       return;
     }
 
+    defaultLogger.discovery.browser.browserTabsLifecycle({
+      step: 'mobileTabListEmptyDetected',
+      source: 'MobileTabListModal',
+      tabsCount: tabs.length,
+      pinnedTabsCount: pinnedData.length,
+      unpinnedTabsCount: data.length,
+      hasActiveTabId: Boolean(activeTabId),
+    });
+
     void (async () => {
-      const tabsData =
-        await backgroundApiProxy.simpleDb.browserTabs.getRawData();
-      const restoredTabs = tabsData?.tabs ?? [];
-      if (restoredTabs.length > 0) {
-        buildWebTabs({
-          data: restoredTabs,
-          options: { isInitFromStorage: true },
+      try {
+        const tabsData =
+          await backgroundApiProxy.simpleDb.browserTabs.getRawData();
+        const restoredTabs = tabsData?.tabs ?? [];
+        defaultLogger.discovery.browser.browserTabsLifecycle({
+          step: 'mobileTabListReloadReadSuccess',
+          source: 'MobileTabListModal',
+          restoredTabsCount: restoredTabs.length,
+        });
+        if (restoredTabs.length > 0) {
+          defaultLogger.discovery.browser.browserTabsLifecycle({
+            step: 'mobileTabListReloadApplied',
+            source: 'MobileTabListModal',
+            restoredTabsCount: restoredTabs.length,
+            isInitFromStorage: true,
+          });
+          buildWebTabs({
+            data: restoredTabs,
+            options: { isInitFromStorage: true },
+          });
+        } else {
+          defaultLogger.discovery.browser.browserTabsLifecycle({
+            step: 'mobileTabListReloadSkipped',
+            source: 'MobileTabListModal',
+            restoredTabsCount: restoredTabs.length,
+            reason: 'emptySimpleDbTabs',
+            result: 'skipped',
+          });
+        }
+        setBrowserDataReady();
+      } catch (error) {
+        defaultLogger.discovery.browser.browserTabsLifecycle({
+          step: 'mobileTabListReloadReadError',
+          source: 'MobileTabListModal',
+          result: 'error',
+          errorName: getLogErrorName(error),
         });
       }
-      setBrowserDataReady();
     })();
-  }, [buildWebTabs, setBrowserDataReady, tabs.length]);
+  }, [
+    activeTabId,
+    buildWebTabs,
+    data.length,
+    pinnedData.length,
+    setBrowserDataReady,
+    tabs.length,
+  ]);
 
   const initialScrollIndex = useMemo(() => {
     if (!data.length) {
