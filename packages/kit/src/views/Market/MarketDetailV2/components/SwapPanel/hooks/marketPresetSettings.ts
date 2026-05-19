@@ -207,6 +207,10 @@ function getMarketPresetPriorityFeeCustomUnit(networkId: string) {
   return undefined;
 }
 
+function isMarketPresetPriorityFeeEditableNetwork(networkId: string) {
+  return !!MARKET_PRESET_CUSTOM_PRIORITY_FEE_RANGE_BY_NETWORK_ID[networkId];
+}
+
 function getMarketPresetPriorityFeeSupportedTypes({
   networkId,
   priorityFeeEditable,
@@ -225,10 +229,7 @@ function getMarketPresetPriorityFeeSupportedTypes({
     ];
   }
 
-  return [
-    EMarketPresetPriorityFeeType.MARKET,
-    EMarketPresetPriorityFeeType.FAST,
-  ];
+  return undefined;
 }
 
 function getMarketPresetCustomPriorityFeeRange({
@@ -354,7 +355,8 @@ function buildPresetConfigFromRemote({
 }): IMarketPresetConfig | undefined {
   const customRange = remoteConfig.customPriorityFeeRange;
   const resolvePriorityFeeEditable = (editable: boolean) =>
-    remoteConfig.priorityFeeEditable ?? editable;
+    (remoteConfig.priorityFeeEditable ?? editable) &&
+    isMarketPresetPriorityFeeEditableNetwork(networkId);
 
   if (
     remoteConfig.enabled === false ||
@@ -371,7 +373,9 @@ function buildPresetConfigFromRemote({
   }
 
   if (remoteConfig.source === 'preset' && remoteConfig.enabled === true) {
-    const priorityFeeEditable = remoteConfig.priorityFeeEditable ?? false;
+    const priorityFeeEditable =
+      (remoteConfig.priorityFeeEditable ?? false) &&
+      isMarketPresetPriorityFeeEditableNetwork(networkId);
     return buildPresetConfig({
       networkId,
       priorityFeeEditable,
@@ -464,7 +468,7 @@ async function fetchMarketPresetDashboardConfig({
   if (MARKET_PRESET_EVM_NETWORK_IDS.has(networkId)) {
     return buildPresetConfig({
       networkId,
-      priorityFeeEditable: true,
+      priorityFeeEditable: isMarketPresetPriorityFeeEditableNetwork(networkId),
       customUnit: 'Gwei',
     });
   }
@@ -910,6 +914,16 @@ export function getMarketPresetPriorityFeeOverride(
 
 export function getMarketPresetPriorityFeeUnit(config?: IMarketPresetConfig) {
   return config?.priorityFee.customUnit ?? '';
+}
+
+export function shouldShowMarketPresetPriorityFeeTooltip(
+  config?: IMarketPresetConfig,
+) {
+  return (
+    config?.priorityFee.supportedTypes.includes(
+      EMarketPresetPriorityFeeType.CUSTOM,
+    ) ?? false
+  );
 }
 
 function isMarketPresetKey(value: unknown): value is EMarketPresetKey {

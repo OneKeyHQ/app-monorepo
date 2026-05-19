@@ -60,6 +60,7 @@ import {
   isInvalidMarketPresetSlippageSettings,
   isMarketPresetConfirmDisabled,
   normalizeMarketPresetDirectionSettings,
+  shouldShowMarketPresetPriorityFeeTooltip,
 } from '../../hooks/marketPresetSettings';
 
 import {
@@ -843,6 +844,12 @@ function MarketPresetSettingsDialog({
     );
   const currentPriorityFeeCustomValue =
     currentSettings.priorityFee.customValue ?? '';
+  const priorityFeeTitle = intl.formatMessage({
+    id: ETranslations.marketdex_priority_fee,
+  });
+  const shouldShowPriorityFeeTooltip = shouldShowMarketPresetPriorityFeeTooltip(
+    presetSettings.config,
+  );
   const priorityFeeTooltip = useMemo(
     () => getPriorityFeeTooltip({ intl }),
     [intl],
@@ -1359,17 +1366,19 @@ function MarketPresetSettingsDialog({
             <>
               <Divider />
               <YStack gap="$2">
-                <DashText
-                  size="$bodyMdMedium"
-                  tooltip={priorityFeeTooltip}
-                  tooltipTitle={intl.formatMessage({
-                    id: ETranslations.marketdex_priority_fee,
-                  })}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.marketdex_priority_fee,
-                  })}
-                </DashText>
+                {shouldShowPriorityFeeTooltip ? (
+                  <DashText
+                    size="$bodyMdMedium"
+                    tooltip={priorityFeeTooltip}
+                    tooltipTitle={priorityFeeTitle}
+                  >
+                    {priorityFeeTitle}
+                  </DashText>
+                ) : (
+                  <SizableText size="$bodyMdMedium">
+                    {priorityFeeTitle}
+                  </SizableText>
+                )}
                 <SegmentControl
                   fullWidth
                   value={currentSettings.priorityFee.type}
@@ -1452,10 +1461,10 @@ function MarketPresetSettingsDialog({
 
           {showPriorityFeeSettings && !isPriorityFeeEditable ? (
             <MarketPresetReadonlyRow
-              label={intl.formatMessage({
-                id: ETranslations.marketdex_priority_fee,
-              })}
-              labelTooltip={priorityFeeTooltip}
+              label={priorityFeeTitle}
+              labelTooltip={
+                shouldShowPriorityFeeTooltip ? priorityFeeTooltip : undefined
+              }
               value={intl.formatMessage({ id: ETranslations.global_auto })}
             />
           ) : null}
