@@ -92,6 +92,20 @@ function BaseBulkSendReview({
   const transferTxCount = unsignedTxs.length - approvesInfo.length;
   const isTransferSplit = transferTxCount > 1;
 
+  const receiverGroups = useMemo(() => {
+    if (
+      bulkSendMode !== EBulkSendMode.OneToMany ||
+      !isTransferSplit ||
+      unsignedTxs.length === 0
+    ) {
+      return undefined;
+    }
+    const txBatches = unsignedTxs
+      .map((tx) => tx.transfersInfo ?? [])
+      .filter((batch) => batch.length > 0);
+    return txBatches.length > 1 ? txBatches : undefined;
+  }, [bulkSendMode, isTransferSplit, unsignedTxs]);
+
   // Use fee estimation hook
   const { feeLabel, handleFeeChange, vaultSettings, forceRefreshFee } =
     useBulkSendFeeEstimation({
@@ -688,6 +702,7 @@ function BaseBulkSendReview({
             tokenInfo={tokenInfo}
             transfersInfo={transfersInfo}
             bulkSendMode={bulkSendMode}
+            receiverGroups={receiverGroups}
             containerProps={{
               px: '$5',
             }}
