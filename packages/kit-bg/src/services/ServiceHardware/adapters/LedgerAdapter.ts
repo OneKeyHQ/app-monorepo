@@ -4,6 +4,8 @@ import {
   EThirdPartyHardwareUiAction,
   thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -128,12 +130,49 @@ export class LedgerAdapter
         });
       }
     });
+
+    // App-install progress: forward SDK `app-install-progress` events to
+    // the app-wide event bus so UI consumers (Gallery test page, future
+    // settings install UI) can render progress without subscribing into
+    // the SDK directly across the proxy boundary.
+    (
+      this.hw as IHardwareWallet & {
+        on(
+          event: 'app-install-progress',
+          listener: (e: {
+            type: 'app-install-progress';
+            payload: {
+              connectId: string;
+              appName: string;
+              progress: number;
+              requiredUserInteraction?: string;
+            };
+          }) => void,
+        ): void;
+      }
+    ).on('app-install-progress', (event) => {
+      const payload = event.payload;
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Ledger] app-install-progress appName=${payload.appName} progress=${payload.progress}`,
+      );
+      appEventBus.emit(EAppEventBusNames.ThirdPartyHardwareAppInstallProgress, {
+        vendor: EHardwareVendor.ledger,
+        connectId: payload.connectId,
+        appName: payload.appName,
+        progress: payload.progress,
+        requiredUserInteraction: payload.requiredUserInteraction,
+      });
+    });
   }
 
   async searchDevices(
     options?: IThirdPartyHardwareSearchOptions,
   ): Promise<DeviceInfo[]> {
-    defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] searchDevices()');
+    defaultLogger.hardware.sdkLog.log(
+      `[SESS-DBG][UP] searchDevices ENTER resetSession=${String(
+        options?.resetSession ?? false,
+      )}`,
+    );
     const devices = await (
       this.hw as IHardwareWallet & {
         searchDevices(
@@ -142,7 +181,14 @@ export class LedgerAdapter
       }
     ).searchDevices(options);
     defaultLogger.hardware.sdkLog.log(
-      `[3rdPartyHW][Ledger] searchDevices -> count=${devices.length}`,
+      `[SESS-DBG][UP] searchDevices RETURN count=${devices.length} list=${JSON.stringify(
+        devices.map((d) => ({
+          connectId: d.connectId,
+          deviceId: d.deviceId,
+          label: d.label,
+          serial: d.serialNumber,
+        })),
+      )}`,
     );
     return devices;
   }
@@ -151,19 +197,30 @@ export class LedgerAdapter
     connectId: string,
   ): Promise<Response<{ connectId: string; deviceId: string }>> {
     defaultLogger.hardware.sdkLog.log(
-      `[3rdPartyHW][Ledger] connectDevice connectId=${connectId}`,
+      `[SESS-DBG][UP] connectDevice ENTER callerConnectId=${connectId || '(empty)'}`,
     );
     try {
       const result = await this.hw.connectDevice(connectId);
       defaultLogger.hardware.sdkLog.log(
-        `[3rdPartyHW][Ledger] connectDevice result success=${String(
+        `[SESS-DBG][UP] connectDevice result success=${String(
           result.success,
-        )}`,
+        )} payload=${JSON.stringify(result.payload)}`,
       );
       if (result.success) {
         const info = await this.hw.getDeviceInfo(connectId, result.payload);
         defaultLogger.hardware.sdkLog.log(
-          `[3rdPartyHW][Ledger] getDeviceInfo success=${String(info.success)}`,
+          `[SESS-DBG][UP] getDeviceInfo success=${String(
+            info.success,
+          )} info=${JSON.stringify(
+            info.success
+              ? {
+                  connectId: info.payload.connectId,
+                  deviceId: info.payload.deviceId,
+                  label: info.payload.label,
+                  serial: info.payload.serialNumber,
+                }
+              : info.payload,
+          )}`,
         );
         void thirdPartyHardwareUiStateAtom.set(undefined);
         if (info.success) {

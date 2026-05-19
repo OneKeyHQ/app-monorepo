@@ -373,6 +373,15 @@ export interface IAppEventBusPayload {
     vendor: EHardwareVendor;
     reason: EThirdPartyDevicePermissionDeniedReason;
   };
+  [EAppEventBusNames.ThirdPartyHardwareAppInstallProgress]: {
+    vendor: EHardwareVendor;
+    connectId: string;
+    appName: string;
+    /** 0..1 install progress reported by DMK. */
+    progress: number;
+    /** DMK UserInteractionRequired (e.g. 'allow-secure-connection'). */
+    requiredUserInteraction?: string;
+  };
   [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
   [EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice]: undefined;
   [EAppEventBusNames.EnabledNetworksChanged]: undefined;

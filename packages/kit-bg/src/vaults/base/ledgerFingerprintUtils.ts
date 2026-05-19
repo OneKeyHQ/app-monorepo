@@ -168,12 +168,23 @@ export async function callLedgerWithFingerprint<T>(
   chain: ChainForFingerprint,
   fn: (deviceId: string) => Promise<Response<T>>,
 ): Promise<Response<T>> {
+  defaultLogger.hardware.sdkLog.log(
+    `[SESS-DBG][UP] callLedgerWithFingerprint ENTER chain=${chain} dbDevice={ id: ${dbDevice.id}, connectId: ${dbDevice.connectId || '(empty)'}, deviceId: ${dbDevice.deviceId || '(empty)'} }`,
+  );
   const deviceId = await ensureLedgerChainFingerprint(
     backgroundApi,
     dbDevice,
     chain,
   );
+  defaultLogger.hardware.sdkLog.log(
+    `[SESS-DBG][UP] callLedgerWithFingerprint ABOUT_TO_CALL chain=${chain} dbDevice.connectId=${dbDevice.connectId || '(empty)'} fingerprintDeviceId=${deviceId || '(empty)'}`,
+  );
   const result = await fn(deviceId);
+  defaultLogger.hardware.sdkLog.log(
+    `[SESS-DBG][UP] callLedgerWithFingerprint RETURN chain=${chain} success=${String(
+      result.success,
+    )}`,
+  );
 
   // Bootstrap path: main call ran without a stored FP. The post-success FP
   // generation MUST succeed and persist before the result is allowed to flow
