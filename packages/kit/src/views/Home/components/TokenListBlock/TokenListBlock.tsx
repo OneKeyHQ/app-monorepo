@@ -449,7 +449,9 @@ function TokenListBlock({
         });
         tokenListRefreshEventStarted = true;
 
-        await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
+        await backgroundApiProxy.serviceToken.abortFetchAccountTokens({
+          excludedFlags: ['token-selector'],
+        });
 
         let r: IFetchAccountTokensResp = getEmptyTokenData();
 
@@ -759,7 +761,11 @@ function TokenListBlock({
         setScopedLpTokenList(tokenList);
         setScopedLpTokenListMap(tokenListMap);
       } catch (e) {
-        console.error(e);
+        if (e instanceof CanceledError) {
+          console.log('fetchFilteredTokenSelectorTokens canceled');
+        } else {
+          console.error(e);
+        }
       } finally {
         if (isLatestRequest()) {
           setScopedLpTokenListState({
