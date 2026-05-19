@@ -293,8 +293,10 @@ export function PrimeTransferDirection({
     if (!roomId) return;
     if (peerPresenceCheckedRoomId.current === roomId) return;
 
+    let cancelled = false;
     const timer = setTimeout(() => {
       void (async () => {
+        if (cancelled) return;
         if (peerPresenceCheckedRoomId.current === roomId) return;
         peerPresenceCheckedRoomId.current = roomId;
         try {
@@ -302,6 +304,10 @@ export function PrimeTransferDirection({
             await backgroundApiProxy.servicePrimeTransfer.getRoomUsers({
               roomId,
             });
+          // Bail out if the room/status changed while the request was in
+          // flight — otherwise a stale `users.length < 2` from the previous
+          // pairing session could force-exit a new valid session.
+          if (cancelled) return;
           if (users.length < 2) {
             appEventBus.emit(EAppEventBusNames.PrimeTransferForceExit, {
               title: intl.formatMessage({
@@ -316,7 +322,10 @@ export function PrimeTransferDirection({
       })();
     }, 3000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [primeTransferAtom.status, primeTransferAtom.pairedRoomId, intl]);
 
   // Bot wallet export: auto-fix direction so current device is always the sender
