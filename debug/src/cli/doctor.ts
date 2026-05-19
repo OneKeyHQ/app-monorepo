@@ -146,6 +146,11 @@ export async function runAll(): Promise<Check[]> {
     ok: (await hasBinary("perfetto")) || (await hasBinary("traceconv")),
     fix: "optional: install perfetto tools for host-side trace conversion",
   });
+  checks.push({
+    name: "insert_dylib or optool",
+    ok: (await hasBinary("insert_dylib")) || (await hasBinary("optool")),
+    fix: "brew install --HEAD insert-dylib  (only needed for real-iOS Frida gadget injection)",
+  });
 
   return checks;
 }

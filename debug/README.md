@@ -88,6 +88,13 @@ tools will be available to the model. The daemon must already be running
 
 For Codex: equivalent stanza in `~/.codex/config.toml` (the CLI/MCP shape is the same).
 
+## Real-iOS Frida setup
+
+To attach Frida to OneKey on a non-jailbroken iOS device, you need to inject
+`FridaGadget.dylib` into the Debug-signed `.app` once per build. See
+[`docs/ios-gadget-setup.md`](./docs/ios-gadget-setup.md) for the one-line
+script + install flow.
+
 ## Architecture
 
 See `docs/plans/2026-05-19-native-debug-bridge-design.md` for the full design.
