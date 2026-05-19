@@ -53,6 +53,11 @@ function BaseHomeHeaderContainer() {
   const shouldShowInitBlock =
     !isWalletNotBackedUp && (showReceiveInfo || showReferralCodeBlock);
 
+  let nativeMinHeight: number | undefined;
+  if (platformEnv.isNative && !isWalletNotBackedUp) {
+    nativeMinHeight = hasWalletBannerContent ? 312 : 182;
+  }
+
   const renderWalletInitBlock = useCallback(() => {
     if (isWalletNotBackedUp) {
       return null;
@@ -120,13 +125,7 @@ function BaseHomeHeaderContainer() {
       <YStack
         pb="$8"
         gap="$5"
-        minHeight={
-          platformEnv.isNative && !isWalletNotBackedUp
-            ? hasWalletBannerContent
-              ? 312
-              : 182
-            : undefined
-        }
+        minHeight={nativeMinHeight}
         $gtMd={{ gap: '$8' }}
         bg="$bgApp"
         pointerEvents="box-none"
