@@ -11,6 +11,7 @@ export enum EAppCryptoSharedEncryptScene {
   keylessWalletCloudKeyPack = 'keyless-wallet-cloud-key-pack',
   keylessWalletDeviceKeyPack = 'keyless-wallet-device-key-pack',
   primeCloudSyncItem = 'prime-cloud-sync-item',
+  primeMasterPasswordLocalCache = 'prime-master-password-local-cache',
   primeMasterPasswordServerPayload = 'prime-master-password-server-payload',
   primeTransferCredentials = 'prime-transfer-credentials',
   primeTransferPayload = 'prime-transfer-payload',

@@ -81,14 +81,12 @@ function _aesGcmInvokeCheck({ nonce, key, data, aad }: IAesGcmInvokeParams) {
   if (!data || data.length <= 0) {
     throw new OneKeyLocalError('Zero-length data is not supported');
   }
-  // Align with the native guard introduced upstream in
-  // OneKeyHQ/app-modules#55: every production GCM call site supplies a
-  // concrete AAD (v2 envelope header bytes, keyless fixed constants),
-  // so rejecting zero-length AAD here matches the native contract and
-  // keeps noble/native behavior identical across platforms. Callers
-  // that intentionally want "no AAD binding" must supply an explicit
-  // context marker instead of an empty buffer.
-  if (!aad || aad.length <= 0) {
+  // Reject only an *explicit* zero-length Buffer AAD (passing
+  // Buffer.alloc(0) is almost always a bug — the native guard introduced
+  // upstream in OneKeyHQ/app-modules#55 rejects it too). Undefined AAD
+  // means "no AAD binding" and remains supported so legacy `1K_AES_GCM`
+  // payloads originally encrypted without AAD stay decryptable.
+  if (aad !== undefined && aad.length <= 0) {
     throw new OneKeyLocalError('Zero-length aad is not supported');
   }
 }
