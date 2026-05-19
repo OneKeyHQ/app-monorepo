@@ -8,8 +8,13 @@
     "node": ">=22"
   },
   "description": "AI-accessible debug bridge for OneKey iOS/Android (CDP/Frida/Native unified)",
+  "bin": {
+    "odbd": "./bin/odbd.js"
+  },
   "scripts": {
+    "dev": "tsx watch src/daemon/main.ts",
     "build": "tsc -p tsconfig.json",
+    "start": "node dist/daemon/main.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
