@@ -122,7 +122,7 @@ export function List<Item>({
     return tabWidth - horizontalPadding;
   }, [tabWidth, horizontalPadding]);
   const currentTabName = useTabNameContext();
-  const { focusedTab } = useTabsContext();
+  const { focusedTab, requestRemeasure } = useTabsContext();
 
   const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
 
@@ -240,11 +240,23 @@ export function List<Item>({
       ) {
         scrollTabElementsRef.current[currentTabName] = {} as any;
       }
-      scrollTabElementsRef.current[currentTabName].element =
-        ref.current as HTMLElement;
-      registerChild(ref.current);
+      const next = ref.current as HTMLElement;
+      const prev = scrollTabElementsRef.current[currentTabName].element;
+      scrollTabElementsRef.current[currentTabName].element = next;
+      registerChild(next);
+      // Notify the Container so it can attach its ResizeObserver to this
+      // element immediately, instead of polling for it.
+      if (next && next !== prev) {
+        requestRemeasure?.();
+      }
     }
-  }, [focusedTabValue, currentTabName, registerChild, scrollTabElementsRef]);
+  }, [
+    focusedTabValue,
+    currentTabName,
+    registerChild,
+    scrollTabElementsRef,
+    requestRemeasure,
+  ]);
 
   const listRef = useRef<typeof VirtualizedList>(null);
 
