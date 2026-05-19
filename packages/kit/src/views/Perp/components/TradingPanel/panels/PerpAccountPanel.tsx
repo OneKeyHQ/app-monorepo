@@ -283,6 +283,7 @@ function PerpAccountPanel() {
                   actionType: 'withdraw',
                 },
                 dialogInTab,
+                intl.formatMessage({ id: ETranslations.perp_trade_withdraw }),
               )
             }
           />

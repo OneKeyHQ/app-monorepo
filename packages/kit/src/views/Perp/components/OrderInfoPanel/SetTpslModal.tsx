@@ -33,6 +33,7 @@ import {
   parseDexCoin,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { ISetTpslParams } from '@onekeyhq/shared/types/hyperliquid/routes';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
@@ -45,13 +46,6 @@ import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { IntlShape } from 'react-intl';
-
-export interface ISetTpslParams {
-  coin: string;
-  szDecimals: number;
-  assetId: number;
-  isMobile?: boolean;
-}
 
 interface ISetTpslFormProps extends ISetTpslParams {
   onClose: () => void;

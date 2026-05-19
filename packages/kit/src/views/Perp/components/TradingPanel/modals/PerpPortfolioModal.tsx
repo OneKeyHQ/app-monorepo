@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 import { Dialog, Page, YStack } from '@onekeyhq/components';
 import {
@@ -8,35 +9,25 @@ import {
   usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IPerpsDepositWithdrawActionType } from '@onekeyhq/shared/types/hyperliquid/routes';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 
 import { DepositWithdrawContent } from './DepositWithdrawModal';
 
-import type { IPerpsDepositWithdrawActionType } from './DepositWithdrawModal';
-
 function showPortfolioSubDialog(
   actionType: IPerpsDepositWithdrawActionType,
   selectedAccount: IPerpsActiveAccountAtom,
+  title?: string,
 ) {
   const isDepositRelated =
     actionType === 'depositSelect' ||
     actionType === 'walletDeposit' ||
     actionType === 'relay';
 
-  const getTitle = () => {
-    if (actionType === 'withdraw') {
-      return appLocale.intl.formatMessage({
-        id: ETranslations.perp_trade_withdraw,
-      });
-    }
-    return undefined;
-  };
-
   const dialogInstance = Dialog.show({
-    title: getTitle(),
+    title: actionType === 'withdraw' ? title : undefined,
     showExitButton: !isDepositRelated,
     renderContent: (
       <PerpsProviderMirror>
@@ -54,6 +45,7 @@ function showPortfolioSubDialog(
 }
 
 function PerpPortfolioModal() {
+  const intl = useIntl();
   const navigation = useNavigation();
   const [selectedAccount] = usePerpsActiveAccountAtom();
 
@@ -68,9 +60,13 @@ function PerpPortfolioModal() {
 
   const handleNavigate = useCallback(
     (actionType: IPerpsDepositWithdrawActionType) => {
-      showPortfolioSubDialog(actionType, selectedAccount);
+      showPortfolioSubDialog(
+        actionType,
+        selectedAccount,
+        intl.formatMessage({ id: ETranslations.perp_trade_withdraw }),
+      );
     },
-    [selectedAccount],
+    [intl, selectedAccount],
   );
 
   if (!selectedAccount?.accountId || !selectedAccount?.accountAddress) {
@@ -84,7 +80,7 @@ function PerpPortfolioModal() {
   return (
     <Page>
       <Page.Header
-        title={appLocale.intl.formatMessage({
+        title={intl.formatMessage({
           id: ETranslations.perp_trade_account_overview,
         })}
       />

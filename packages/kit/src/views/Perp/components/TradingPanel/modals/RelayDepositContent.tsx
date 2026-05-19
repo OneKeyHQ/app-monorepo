@@ -19,6 +19,7 @@ import {
 import { useTheme } from '@onekeyhq/components/src/hooks/useStyle';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HighlightAddress } from '@onekeyhq/kit/src/components/HighlightAddress';
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { IPerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -55,6 +56,7 @@ const DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID =
   'perp-deposit-withdraw-accessory-view';
 const DEBOUNCE_MS = 1000;
 const DEFAULT_RECEIVE_AMOUNT = '100';
+const DEFAULT_RECEIVE_DECIMALS = 8;
 const PERPS_USDC_LOGO =
   'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png';
 
@@ -183,6 +185,9 @@ function RelayDepositContent({
   const handleSendAmountChange = useCallback(
     (text: string) => {
       const raw = text.replace(/,/g, '');
+      if (!validateAmountInput(raw, selectedCurrency?.decimals)) {
+        return;
+      }
       setSendAmount(raw);
       lastEditedRef.current = 'send';
 
@@ -206,6 +211,9 @@ function RelayDepositContent({
   const handleReceiveAmountChange = useCallback(
     (text: string) => {
       const raw = text.replace(/,/g, '');
+      if (!validateAmountInput(raw, DEFAULT_RECEIVE_DECIMALS)) {
+        return;
+      }
       setReceiveAmount(raw);
       lastEditedRef.current = 'receive';
 
@@ -224,11 +232,24 @@ function RelayDepositContent({
     [fetchQuote, selectedChainId, selectedCurrencyAddress],
   );
 
-  // Load chains on mount, then auto-fetch first quote
+  // Load chains and fetch the default quote for the active recipient.
   useEffect(() => {
+    let isCancelled = false;
+    fetchIdRef.current += 1;
+    setQuoteResult(null);
+    setError('');
+
+    if (!recipientAddress) {
+      setChainsLoading(false);
+      return undefined;
+    }
+
     void (async () => {
+      setChainsLoading(true);
       try {
         const result = await backgroundApiProxy.serviceRelay.getRelayChains();
+        if (isCancelled) return;
+
         setChains(result.chains);
         setCurrencies(result.currencies);
 
@@ -268,12 +289,18 @@ function RelayDepositContent({
           });
         }
       } catch (e) {
-        console.error('Failed to load relay chains', e);
+        if (isCancelled) return;
+        const raw = e instanceof Error ? e.message : 'Failed to load chains';
+        setError(parseErrorMessage(raw));
         setChainsLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+    return () => {
+      isCancelled = true;
+      fetchIdRef.current += 1;
+    };
+  }, [fetchQuote, recipientAddress]);
 
   const handleChainChange = useCallback(
     (chainId: number) => {

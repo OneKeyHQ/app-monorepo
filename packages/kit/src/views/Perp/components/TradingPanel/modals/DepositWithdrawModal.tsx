@@ -59,7 +59,6 @@ import {
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -82,6 +81,7 @@ import {
   USDC_TOKEN_INFO,
   WITHDRAW_FEE,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IPerpsDepositWithdrawActionType } from '@onekeyhq/shared/types/hyperliquid/routes';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapNativeTokenConfig,
@@ -99,13 +99,6 @@ import RelayDepositContent from './RelayDepositContent';
 
 import type { RouteProp } from '@react-navigation/native';
 import type { ListRenderItem } from 'react-native';
-
-export type IPerpsDepositWithdrawActionType =
-  | 'deposit'
-  | 'depositSelect'
-  | 'withdraw'
-  | 'walletDeposit'
-  | 'relay';
 
 const DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID =
   'perp-deposit-withdraw-accessory-view';
@@ -2117,6 +2110,7 @@ export function DepositWithdrawContent({
 }
 
 function MobileDepositWithdrawModal() {
+  const intl = useIntl();
   const navigation = useNavigation();
   const route =
     useRoute<
@@ -2167,7 +2161,7 @@ function MobileDepositWithdrawModal() {
   return (
     <Page>
       <Page.Header
-        title={appLocale.intl.formatMessage({
+        title={intl.formatMessage({
           id: ETranslations.perp_trade_account_overview,
         })}
       />
@@ -2192,6 +2186,7 @@ export default MobileDepositWithdrawModal;
 export async function showDepositWithdrawDialog(
   params: IDepositWithdrawParams,
   dialogInTab: ReturnType<typeof useInTabDialog>,
+  title?: string,
 ) {
   const selectedAccount = await perpsActiveAccountAtom.get();
   if (!selectedAccount.accountId || !selectedAccount.accountAddress) {
@@ -2207,17 +2202,8 @@ export async function showDepositWithdrawDialog(
     params.actionType === 'walletDeposit' ||
     params.actionType === 'relay';
 
-  const getDialogTitle = () => {
-    if (params.actionType === 'withdraw') {
-      return appLocale.intl.formatMessage({
-        id: ETranslations.perp_trade_withdraw,
-      });
-    }
-    return undefined;
-  };
-
   const dialogInTabRef = dialogInTab.show({
-    title: getDialogTitle(),
+    title: params.actionType === 'withdraw' ? title : undefined,
     showExitButton: !isDepositRelated,
     renderContent: (
       <PerpsProviderMirror>
@@ -2230,7 +2216,11 @@ export async function showDepositWithdrawDialog(
           onNavigate={(actionType) => {
             void dialogInTabRef.close();
             setTimeout(() => {
-              void showDepositWithdrawDialog({ actionType }, dialogInTab);
+              void showDepositWithdrawDialog(
+                { actionType },
+                dialogInTab,
+                title,
+              );
             }, 100);
           }}
         />

@@ -1,4 +1,7 @@
-import type { ISetTpslParams } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
+import type {
+  IPerpsDepositWithdrawActionType,
+  ISetTpslParams,
+} from '@onekeyhq/shared/types/hyperliquid/routes';
 
 export enum EModalPerpRoutes {
   PerpTradersHistoryList = 'PerpTradersHistoryList',
@@ -18,12 +21,7 @@ export type IModalPerpParamList = {
   [EModalPerpRoutes.MobileTokenSelector]: undefined;
   [EModalPerpRoutes.MobileSetTpsl]: ISetTpslParams;
   [EModalPerpRoutes.MobileDepositWithdrawModal]: {
-    actionType?:
-      | 'deposit'
-      | 'depositSelect'
-      | 'withdraw'
-      | 'walletDeposit'
-      | 'relay';
+    actionType?: IPerpsDepositWithdrawActionType;
   };
   [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;
   [EModalPerpRoutes.MobilePortfolioPage]: undefined;

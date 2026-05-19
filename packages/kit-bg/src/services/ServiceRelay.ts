@@ -17,8 +17,7 @@ import ServiceBase from './ServiceBase';
 // --- Relay protocol constants ---
 const RELAY_API_BASE = 'https://api.relay.link';
 const HYPERLIQUID_CHAIN_ID = 1337;
-const HYPERLIQUID_DESTINATION_CURRENCY =
-  '0x00000000000000000000000000000000';
+const HYPERLIQUID_DESTINATION_CURRENCY = '0x00000000000000000000000000000000';
 // Hyperliquid uses 8-decimal USDC for EXACT_OUTPUT amount encoding
 const DESTINATION_DECIMALS = 8;
 const DEFAULT_EVM_DECIMALS = 18;
@@ -176,6 +175,13 @@ class ServiceRelay extends ServiceBase {
     }
 
     const response = await fetch(`${RELAY_API_BASE}/chains`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new OneKeyError({
+        message: errorText || 'Failed to load Relay chains',
+      });
+    }
+
     const data = (await response.json()) as IRelayChainsResponse;
 
     const chains: IRelayChain[] = [];
@@ -200,14 +206,14 @@ class ServiceRelay extends ServiceBase {
             vmType: chain.vmType,
           });
           currencies[chain.id] = filteredCurrencies.map((c) => ({
-            chainId: c.chainId,
+            chainId: c.chainId ?? chain.id,
             address: c.address,
             symbol: c.symbol,
             name: c.name,
             decimals: c.decimals,
             logoURI: ServiceRelay._resolveTokenLogo(
               c.symbol,
-              c.logoURI,
+              c.logoURI ?? c.metadata?.logoURI ?? '',
               chain.id,
               c.address,
             ),
@@ -249,7 +255,12 @@ class ServiceRelay extends ServiceBase {
    * Uses string splitting instead of floating-point to avoid precision loss.
    */
   private static _toSmallestUnit(amount: string, decimals: number): string {
-    const [intPart, decPart = ''] = amount.split('.');
+    const normalizedAmount = amount.trim();
+    if (!/^(?:0|[1-9]\d*)(?:\.\d*)?$/.test(normalizedAmount)) {
+      throw new OneKeyError({ message: 'Invalid Relay quote amount' });
+    }
+
+    const [intPart, decPart = ''] = normalizedAmount.split('.');
     const paddedDec = decPart.slice(0, decimals).padEnd(decimals, '0');
     const raw = `${intPart}${paddedDec}`.replace(/^0+/, '') || '0';
     return raw;
@@ -370,8 +381,7 @@ class ServiceRelay extends ServiceBase {
 
     return {
       depositAddress,
-      sendAmount:
-        data.details?.currencyIn?.amountFormatted ?? fallbackAmount,
+      sendAmount: data.details?.currencyIn?.amountFormatted ?? fallbackAmount,
       sendSymbol: data.details?.currencyIn?.currency?.symbol ?? '',
       receiveAmount: data.details?.currencyOut?.amountFormatted ?? '0',
       receiveSymbol: data.details?.currencyOut?.currency?.symbol ?? 'USDC',

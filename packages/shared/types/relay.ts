@@ -14,6 +14,18 @@ export interface IRelayCurrency {
   logoURI: string;
 }
 
+export interface IRelaySolverCurrency {
+  chainId?: number;
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  logoURI?: string;
+  metadata?: {
+    logoURI?: string;
+  };
+}
+
 export interface IRelayQuoteRequest {
   user: string;
   originChainId: number;
@@ -120,14 +132,7 @@ export interface IRelayChainsResponse {
     name: string;
     icon: string;
     vmType: string;
-    solverCurrencies?: Array<{
-      chainId: number;
-      address: string;
-      symbol: string;
-      name: string;
-      decimals: number;
-      logoURI: string;
-    }>;
+    solverCurrencies?: IRelaySolverCurrency[];
     [key: string]: unknown;
   }>;
 }
