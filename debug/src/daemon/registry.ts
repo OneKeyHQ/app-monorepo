@@ -1,3 +1,4 @@
+import { FridaAdapter } from "../adapters/frida.js";
 import { JsonRpcException } from "../shared/jsonRpc.js";
 import {
   Session,
@@ -31,6 +32,16 @@ export class Registry {
       params.platform as Platform,
       params.deviceId,
       params.appBundle ?? "com.onekey.wallet",
+    );
+    // FridaAdapter is best-effort: attachAll never throws; the adapter
+    // surfaces success/failure via health() instead.
+    session.adapters.set(
+      "frida",
+      new FridaAdapter(
+        session.platform,
+        session.deviceId,
+        session.appBundle,
+      ),
     );
     await session.attachAll();
     this.sessions.set(session.id, session);

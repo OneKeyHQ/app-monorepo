@@ -16,7 +16,7 @@
   "scripts": {
     "dev": "tsx watch src/daemon/main.ts",
     "doctor": "tsx src/cli/main.ts doctor",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && mkdir -p dist/agents && cp src/agents/agent.js dist/agents/agent.js",
     "start": "node dist/daemon/main.js",
     "test": "vitest run",
     "test:watch": "vitest",

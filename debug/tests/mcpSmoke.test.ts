@@ -9,7 +9,7 @@ describe("MCP server module", () => {
     expect(typeof m.run).toBe("function");
   });
 
-  it("exposes all MVP tools", async () => {
+  it("exposes all MVP + V1 tools", async () => {
     const { tools } = await import("../src/mcp/server.ts");
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
@@ -18,6 +18,12 @@ describe("MCP server module", () => {
         "js.eval",
         "js.network.body",
         "js.network.list",
+        "native.call",
+        "native.events",
+        "native.hook",
+        "native.listHooks",
+        "native.script.run",
+        "native.unhook",
         "screenshot",
         "session.attach",
         "session.detach",

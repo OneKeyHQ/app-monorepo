@@ -2,6 +2,14 @@ import { pino } from "pino";
 import { consoleTail } from "../tools/jsConsole.js";
 import { jsEval } from "../tools/jsEval.js";
 import { networkBody, networkList } from "../tools/jsNetwork.js";
+import {
+  nativeCall,
+  nativeEvents,
+  nativeHook,
+  nativeListHooks,
+  nativeScriptRun,
+  nativeUnhook,
+} from "../tools/native.js";
 import { screenshot } from "../tools/screenshot.js";
 import { uiTree } from "../tools/uiTree.js";
 import {
@@ -35,6 +43,12 @@ async function main(): Promise<void> {
   d.register("webview.list", (p) => webviewList(registry, p as never));
   d.register("webview.eval", (p) => webviewEval(registry, p as never));
   d.register("webview.dom.query", (p) => webviewDomQuery(registry, p as never));
+  d.register("native.call", (p) => nativeCall(registry, p as never));
+  d.register("native.hook", (p) => nativeHook(registry, p as never));
+  d.register("native.unhook", (p) => nativeUnhook(registry, p as never));
+  d.register("native.listHooks", (p) => nativeListHooks(registry, p as never));
+  d.register("native.events", (p) => nativeEvents(registry, p as never));
+  d.register("native.script.run", (p) => nativeScriptRun(registry, p as never));
 
   const server = new UnixSocketServer(DEFAULT_SOCKET, d);
   await server.start();

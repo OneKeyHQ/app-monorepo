@@ -17,6 +17,6 @@
     "rootDir": "src",
     "lib": ["ES2023"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "tests"]
 }

@@ -30,11 +30,14 @@ describe("Registry", () => {
       .toMatchObject({ code: -32004 });
   });
 
-  it("status returns empty adapters in MVP", async () => {
+  it("status reports adapter health (frida always wired, best-effort)", async () => {
     const r = new Registry();
     const s = await r.attach({ platform: "android", deviceId: "emu-5554" });
     const st = await r.status({ sessionId: s.id });
-    expect(st.adapters).toEqual({});
+    // FridaAdapter is wired into every session. It is best-effort: when no
+    // device is reachable, `connected` is false and `detail` carries the
+    // reason — but the adapter is always present so AI can introspect.
+    expect(st.adapters).toHaveProperty("frida");
     expect(st.id).toBe(s.id);
   });
 

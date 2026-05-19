@@ -206,6 +206,77 @@ program
   );
 
 program
+  .command("native-call <sessionId> <selector>")
+  .description("Call an ObjC selector or Java static method via Frida")
+  .option("--args <json>", "JSON array of arguments", "[]")
+  .action(async (sessionId: string, selector: string, opts: { args: string }) => {
+    const args = JSON.parse(opts.args) as unknown[];
+    process.stdout.write(
+      JSON.stringify(await call("native.call", { sessionId, selector, args }), null, 2) + "\n",
+    );
+  });
+
+program
+  .command("native-hook <sessionId> <method>")
+  .description("Attach a hook to a native method; returns hookId")
+  .action(async (sessionId: string, method: string) => {
+    process.stdout.write(
+      JSON.stringify(await call("native.hook", { sessionId, method }), null, 2) + "\n",
+    );
+  });
+
+program
+  .command("native-unhook <sessionId> <hookId>")
+  .description("Detach a previously installed hook")
+  .action(async (sessionId: string, hookId: string) => {
+    process.stdout.write(
+      JSON.stringify(
+        await call("native.unhook", { sessionId, hookId: parseInt(hookId, 10) }),
+        null,
+        2,
+      ) + "\n",
+    );
+  });
+
+program
+  .command("native-list-hooks <sessionId>")
+  .description("List active hook ids")
+  .action(async (sessionId: string) => {
+    process.stdout.write(
+      JSON.stringify(await call("native.listHooks", { sessionId }), null, 2) + "\n",
+    );
+  });
+
+program
+  .command("native-events <sessionId>")
+  .option("--max <n>", "max events to drain", (v) => parseInt(v, 10))
+  .description("Drain queued hook events (FIFO, ring-buffer of 1000)")
+  .action(async (sessionId: string, opts: { max?: number }) => {
+    process.stdout.write(
+      JSON.stringify(
+        await call("native.events", { sessionId, max: opts.max }),
+        null,
+        2,
+      ) + "\n",
+    );
+  });
+
+program
+  .command("native-script-run <sessionId> <sourceFile>")
+  .description("Load + run a Frida JS script (path to a .js file)")
+  .action(async (sessionId: string, sourceFile: string) => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(sourceFile, "utf8");
+    process.stdout.write(
+      JSON.stringify(
+        await call("native.script.run", { sessionId, source }),
+        null,
+        2,
+      ) + "\n",
+    );
+  });
+
+program
   .command("doctor")
   .description("Pre-flight checks (adb, xcrun, lldb, Hermes, devices, frida)")
   .action(async () => {

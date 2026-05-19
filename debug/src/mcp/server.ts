@@ -184,6 +184,80 @@ const TOOLS: ToolSpec[] = [
       required: ["sessionId", "targetId", "selector"],
     },
   },
+  {
+    name: "native.call",
+    description:
+      "Call an ObjC selector or Java static method via Frida. Selectors look like \"-[UIApplication sharedApplication]\" (iOS) or \"android.app.ActivityThread.currentApplication\" (Android).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        selector: { type: "string" },
+        args: { type: "array", default: [] },
+      },
+      required: ["sessionId", "selector"],
+    },
+  },
+  {
+    name: "native.hook",
+    description:
+      "Attach an enter/leave hook to a native method via Frida. Returns a hookId — events stream into the session's ring buffer; drain with native.events.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        method: { type: "string" },
+      },
+      required: ["sessionId", "method"],
+    },
+  },
+  {
+    name: "native.unhook",
+    description: "Detach a previously installed hook.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        hookId: { type: "number" },
+      },
+      required: ["sessionId", "hookId"],
+    },
+  },
+  {
+    name: "native.listHooks",
+    description: "List active native hooks for the session.",
+    inputSchema: {
+      type: "object",
+      properties: { sessionId: { type: "string" } },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "native.events",
+    description:
+      "Drain queued native hook fire events (FIFO; ring buffer caps at 1000).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        max: { type: "number", default: 100, maximum: 1000 },
+      },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "native.script.run",
+    description:
+      "Load and run an arbitrary Frida JS script in the agent's context. The script receives an `exports` object; returns {ok, exports} or {ok:false, error}.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        source: { type: "string" },
+      },
+      required: ["sessionId", "source"],
+    },
+  },
 ];
 
 export const server = new Server(
