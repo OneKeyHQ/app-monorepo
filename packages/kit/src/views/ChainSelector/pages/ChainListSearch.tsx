@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -108,14 +109,7 @@ function ChainListSearch() {
   // Synchronous guard so a fast onEndReached burst doesn't fan out duplicate
   // requests before isLoadingMore state has propagated.
   const loadingMoreRef = useRef(false);
-  const mountedRef = useRef(true);
-
-  useEffect(
-    () => () => {
-      mountedRef.current = false;
-    },
-    [],
-  );
+  const mountedRef = useIsMounted();
 
   const refreshExistingNetworks = useCallback(async () => {
     try {
@@ -144,33 +138,34 @@ function ChainListSearch() {
     };
   }, [refreshExistingNetworks]);
 
-  // Load first page on mount
-  useEffect(() => {
-    async function loadFirstPage() {
-      listReqIdRef.current += 1;
-      const reqId = listReqIdRef.current;
-      try {
-        setIsInitialLoading(true);
-        setHasError(false);
-        const result =
-          await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords({
-            page: 1,
-          });
-        if (!mountedRef.current || reqId !== listReqIdRef.current) return;
-        setItems(result);
-        setHasMore(result.length > 0);
-        setCurrentPage(1);
-      } catch {
-        if (!mountedRef.current || reqId !== listReqIdRef.current) return;
-        setHasError(true);
-      } finally {
-        if (mountedRef.current && reqId === listReqIdRef.current) {
-          setIsInitialLoading(false);
-        }
+  const reloadDefaultList = useCallback(async () => {
+    listReqIdRef.current += 1;
+    const reqId = listReqIdRef.current;
+    try {
+      setIsInitialLoading(true);
+      setHasError(false);
+      const result =
+        await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords({
+          page: 1,
+        });
+      if (!mountedRef.current || reqId !== listReqIdRef.current) return;
+      setItems(result);
+      setHasMore(result.length > 0);
+      setCurrentPage(1);
+    } catch {
+      if (!mountedRef.current || reqId !== listReqIdRef.current) return;
+      setHasError(true);
+    } finally {
+      if (mountedRef.current && reqId === listReqIdRef.current) {
+        setIsInitialLoading(false);
       }
     }
-    void loadFirstPage();
-  }, []);
+  }, [mountedRef]);
+
+  // Load first page on mount
+  useEffect(() => {
+    void reloadDefaultList();
+  }, [reloadDefaultList]);
 
   // Load more pages (pagination)
   const handleEndReached = useCallback(async () => {
@@ -208,31 +203,7 @@ function ChainListSearch() {
         setIsLoadingMore(false);
       }
     }
-  }, [isLoadingMore, hasMore, searchText, currentPage]);
-
-  const reloadDefaultList = useCallback(async () => {
-    listReqIdRef.current += 1;
-    const reqId = listReqIdRef.current;
-    try {
-      setIsInitialLoading(true);
-      setHasError(false);
-      const result =
-        await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords({
-          page: 1,
-        });
-      if (!mountedRef.current || reqId !== listReqIdRef.current) return;
-      setItems(result);
-      setHasMore(result.length > 0);
-      setCurrentPage(1);
-    } catch {
-      if (!mountedRef.current || reqId !== listReqIdRef.current) return;
-      setHasError(true);
-    } finally {
-      if (mountedRef.current && reqId === listReqIdRef.current) {
-        setIsInitialLoading(false);
-      }
-    }
-  }, []);
+  }, [isLoadingMore, hasMore, searchText, currentPage, mountedRef]);
 
   // Handle search text change with debounce
   const handleSearchTextChange = useCallback(
@@ -281,7 +252,7 @@ function ChainListSearch() {
         }
       }, 1500);
     },
-    [reloadDefaultList],
+    [reloadDefaultList, mountedRef],
   );
 
   // Clean up debounce timer

@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import type { IChainListItem } from '@onekeyhq/shared/types/customNetwork';
@@ -33,21 +34,21 @@ import ServiceBase from './ServiceBase';
 class ServiceCustomRpc extends ServiceBase {
   private semaphore = new Semaphore(1);
 
-  private chainListCache: {
-    data: Map<number, IChainListItem[]>;
-    fetchedAt: number;
-  } = { data: new Map(), fetchedAt: 0 };
-
-  // Coalesce concurrent first-time loads for the same page so we don't fan-out
-  // duplicate `/wallet/v1/network/chainlist` requests during cold start.
-  private chainListPendingRequests = new Map<
-    number,
-    Promise<IChainListItem[]>
-  >();
-
-  private readonly chainListCacheTTL = timerUtils.getTimeDurationMs({
-    minute: 15,
-  });
+  private fetchChainListPage = memoizee(
+    async (page: number): Promise<IChainListItem[]> => {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.get<{ data: IChainListItem[] }>(
+        '/wallet/v1/network/chainlist',
+        { params: { page, showTestNet: true } },
+      );
+      return resp.data.data || [];
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 15 }),
+      max: 20,
+    },
+  );
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -542,13 +543,6 @@ class ServiceCustomRpc extends ServiceBase {
     return usedNetworks;
   }
 
-  private isChainListCacheValid() {
-    return (
-      this.chainListCache.fetchedAt > 0 &&
-      Date.now() - this.chainListCache.fetchedAt < this.chainListCacheTTL
-    );
-  }
-
   @backgroundMethod()
   async searchChainListByKeywords(params: {
     keywords?: string;
@@ -566,41 +560,8 @@ class ServiceCustomRpc extends ServiceBase {
       return resp.data.data || [];
     }
 
-    // Default list: use in-memory cache per page (TTL 15min).
     const page = Math.max(1, Math.floor(params.page ?? 1));
-    if (this.isChainListCacheValid() && this.chainListCache.data.has(page)) {
-      return this.chainListCache.data.get(page) ?? [];
-    }
-
-    // Coalesce concurrent first-time loads for the same page.
-    const pending = this.chainListPendingRequests.get(page);
-    if (pending) {
-      return pending;
-    }
-
-    const request = (async () => {
-      const client = await this.getClient(EServiceEndpointEnum.Wallet);
-      const resp = await client.get<{ data: IChainListItem[] }>(
-        '/wallet/v1/network/chainlist',
-        { params: { page, showTestNet: true } },
-      );
-      const result = resp.data.data || [];
-
-      // Reset cache if expired
-      if (!this.isChainListCacheValid()) {
-        this.chainListCache = { data: new Map(), fetchedAt: Date.now() };
-      }
-      this.chainListCache.data.set(page, result);
-
-      return result;
-    })();
-
-    this.chainListPendingRequests.set(page, request);
-    try {
-      return await request;
-    } finally {
-      this.chainListPendingRequests.delete(page);
-    }
+    return this.fetchChainListPage(page);
   }
 
   @backgroundMethod()
