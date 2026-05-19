@@ -110,7 +110,8 @@ import {
   sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
-  isValidNumberValue,
+  isUnavailableOrZeroFiatValue,
+  sumFiatValuesFromTokens,
   sumTokenGroupsFiatValueIgnoringUnavailable,
 } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
@@ -1882,13 +1883,9 @@ function TokenListBlock({
         },
       });
 
-      // Mirror the partition rule in tokenList/actions.ts: treat unavailable
-      // fiatValue the same as 0 so the row sinks to the bottom and avoids
-      // `new BigNumber('NaN')` poisoning the partition decision.
-      const index = mergedTokens.findIndex((token) => {
-        const v = mergeTokenListMap[token.$key]?.fiatValue;
-        return !isValidNumberValue(v) || new BigNumber(v).isZero();
-      });
+      const index = mergedTokens.findIndex((token) =>
+        isUnavailableOrZeroFiatValue(mergeTokenListMap[token.$key]?.fiatValue),
+      );
 
       if (index > -1) {
         const tokensWithBalance = mergedTokens.slice(0, index);
@@ -1907,13 +1904,10 @@ function TokenListBlock({
         TOKEN_LIST_HIGH_VALUE_MAX,
       );
 
-      // Skip unavailable entries so the small-balance subtotal stays a
-      // partial sum of known-good values rather than NaN.
-      smallBalanceTokensFiatValue =
-        smallBalanceTokenList.smallBalanceTokens.reduce((acc, token) => {
-          const v = mergeTokenListMap[token.$key]?.fiatValue;
-          return isValidNumberValue(v) ? acc.plus(v) : acc;
-        }, new BigNumber(0));
+      smallBalanceTokensFiatValue = sumFiatValuesFromTokens(
+        smallBalanceTokenList.smallBalanceTokens,
+        mergeTokenListMap,
+      );
 
       riskyTokenList.riskyTokens = sortTokensByFiatValue({
         tokens: riskyTokenList.riskyTokens,

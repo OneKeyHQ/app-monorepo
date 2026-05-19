@@ -39,10 +39,9 @@ export const { atom: walletStatusAtom, use: useWalletStatusAtom } =
     referralCodeBlockInit: false,
   });
 
-// `worth[networkKey]` is a partial sum: tokens with unavailable
-// fiatValue/balanceParsed (OK-46226 backend compat window) are silently
-// dropped from the per-network total. Row-level rendering still surfaces the
-// broken entry as '--' via displayOrUnavailable.
+// `worth[networkKey]` is a partial sum: tokens with unavailable fiatValue are
+// dropped so a single broken upstream provider does not poison the total with
+// NaN. Row-level rendering still surfaces those entries as '--'.
 export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
   contextAtom<{
     worth: Record<string, string>;

@@ -254,9 +254,8 @@ function TokenDetailsHeader(props: IProps) {
 
         const data = tokensDetails?.[0];
 
-        // Chart price-line surface cannot render '--', so coerce to 0 here.
-        // The header price/balance read from tokenDetails directly and still
-        // render '--' via displayOrUnavailable below.
+        // Chart price-line surface cannot render '--'; coerce to 0. Header
+        // price/balance render '--' via displayOrUnavailable below.
         updateTokenMetadata({
           price: data?.price ?? 0,
           priceChange24h: data?.price24h ?? 0,
@@ -295,8 +294,7 @@ function TokenDetailsHeader(props: IProps) {
       return;
     }
 
-    // Chart price-line surface cannot render '--'; coerce to 0 (see sibling
-    // updateTokenMetadata above for the full rationale).
+    // Cached-only path: same '--' coercion rationale as the fetch path above.
     updateTokenMetadata({
       price: cachedTokenDetails.price ?? 0,
       priceChange24h: cachedTokenDetails.price24h ?? 0,

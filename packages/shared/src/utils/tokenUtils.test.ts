@@ -190,11 +190,6 @@ describe('calculateAccountTokensValue', () => {
     initialized: true,
   };
 
-  // Unavailable token poisoning is now filtered upstream by
-  // sumTokenGroupsFiatValueIgnoringUnavailable at every write site, so
-  // every value in `worth` here is already a numeric string. These tests
-  // pin the aggregation/lookup behavior on top of that contract.
-
   test('All Networks: sums all map entries', () => {
     expect(
       calculateAccountTokensValue({

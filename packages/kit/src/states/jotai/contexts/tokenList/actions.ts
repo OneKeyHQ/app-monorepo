@@ -12,7 +12,10 @@ import {
   sortTokensByFiatValue,
   sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { isValidNumberValue } from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import {
+  isUnavailableOrZeroFiatValue,
+  sumFiatValuesFromTokens,
+} from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type {
   ETokenListSortType,
   IAccountToken,
@@ -204,14 +207,11 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             map: mergedTokenListMap,
           });
 
-          // Treat unavailable fiatValue (OK-46226 compat) the same as 0 for
-          // sort placement so the row sinks to the bottom alongside zero-value
-          // tokens. `new BigNumber(null)` would yield NaN and break the
-          // partition, so detect with isValidNumberValue first.
-          const index = newTokens.findIndex((token) => {
-            const v = mergedTokenListMap[token.$key]?.fiatValue;
-            return !isValidNumberValue(v) || new BigNumber(v).isZero();
-          });
+          const index = newTokens.findIndex((token) =>
+            isUnavailableOrZeroFiatValue(
+              mergedTokenListMap[token.$key]?.fiatValue,
+            ),
+          );
 
           if (index > -1) {
             const tokensWithBalance = newTokens.slice(0, index);
@@ -231,14 +231,9 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             );
             const lowValueTokens = newTokens.slice(TOKEN_LIST_HIGH_VALUE_MAX);
 
-            // Skip unavailable entries so the small-balance subtotal stays a
-            // partial sum of the known-good values rather than NaN.
-            const lowValueTokensFiatValue = lowValueTokens.reduce(
-              (acc, item) => {
-                const v = mergedTokenListMap[item.$key]?.fiatValue;
-                return isValidNumberValue(v) ? acc.plus(v) : acc;
-              },
-              new BigNumber(0),
+            const lowValueTokensFiatValue = sumFiatValuesFromTokens(
+              lowValueTokens,
+              mergedTokenListMap,
             );
 
             set(tokenListAtom(), {

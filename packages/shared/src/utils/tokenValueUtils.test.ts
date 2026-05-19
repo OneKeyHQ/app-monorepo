@@ -1,7 +1,9 @@
 import {
   UNAVAILABLE_DISPLAY,
   displayOrUnavailable,
+  isUnavailableOrZeroFiatValue,
   isValidNumberValue,
+  sumFiatValuesFromTokens,
   sumFiatValuesIgnoringUnavailable,
   sumTokenGroupsFiatValueIgnoringUnavailable,
 } from './tokenValueUtils';
@@ -88,6 +90,58 @@ describe('sumFiatValuesIgnoringUnavailable', () => {
         b: { fiatValue: 'NaN' },
       }),
     ).toBe('0');
+  });
+});
+
+describe('isUnavailableOrZeroFiatValue', () => {
+  test('treats unavailable values as zero-equivalents', () => {
+    expect(isUnavailableOrZeroFiatValue(null)).toBe(true);
+    expect(isUnavailableOrZeroFiatValue(undefined)).toBe(true);
+    expect(isUnavailableOrZeroFiatValue('')).toBe(true);
+    expect(isUnavailableOrZeroFiatValue('NaN')).toBe(true);
+    expect(isUnavailableOrZeroFiatValue(Number.NaN)).toBe(true);
+  });
+
+  test('matches numeric zero', () => {
+    expect(isUnavailableOrZeroFiatValue('0')).toBe(true);
+    expect(isUnavailableOrZeroFiatValue(0)).toBe(true);
+    expect(isUnavailableOrZeroFiatValue('0.0')).toBe(true);
+  });
+
+  test('rejects positive and negative non-zero values', () => {
+    expect(isUnavailableOrZeroFiatValue('0.01')).toBe(false);
+    expect(isUnavailableOrZeroFiatValue('-1')).toBe(false);
+    expect(isUnavailableOrZeroFiatValue(42)).toBe(false);
+  });
+});
+
+describe('sumFiatValuesFromTokens', () => {
+  test('returns 0 when map is missing or empty', () => {
+    expect(sumFiatValuesFromTokens([], undefined).toFixed()).toBe('0');
+    expect(sumFiatValuesFromTokens([{ $key: 'a' }], {}).toFixed()).toBe('0');
+  });
+
+  test('sums valid fiat values keyed by $key', () => {
+    expect(
+      sumFiatValuesFromTokens([{ $key: 'a' }, { $key: 'b' }], {
+        a: { fiatValue: '1.5' },
+        b: { fiatValue: '2.25' },
+      }).toFixed(),
+    ).toBe('3.75');
+  });
+
+  test('skips entries whose fiatValue is unavailable', () => {
+    expect(
+      sumFiatValuesFromTokens(
+        [{ $key: 'a' }, { $key: 'b' }, { $key: 'c' }, { $key: 'd' }],
+        {
+          a: { fiatValue: '10' },
+          b: { fiatValue: null },
+          c: { fiatValue: 'NaN' },
+          d: { fiatValue: '5' },
+        },
+      ).toFixed(),
+    ).toBe('15');
   });
 });
 

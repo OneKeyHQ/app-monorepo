@@ -2,11 +2,9 @@ import BigNumber from 'bignumber.js';
 
 export const UNAVAILABLE_DISPLAY = '--';
 
-// Why loose runtime type: during the OK-46226 backend compatibility window,
-// fields typed as `string`/`number` on ITokenFiat may arrive as null/undefined
-// when an upstream provider (indexer/onchain/wallet) fails to return data.
-// NaN/'NaN' must also be rejected because downstream BigNumber math would
-// otherwise propagate NaN through aggregate sums.
+// Fields typed as `string`/`number` on ITokenFiat may arrive null/undefined
+// when an upstream provider fails. NaN/'NaN' must also be rejected so
+// downstream BigNumber math does not propagate NaN through aggregate sums.
 export function isValidNumberValue(
   v: string | number | null | undefined,
 ): v is string | number {
@@ -21,9 +19,33 @@ export function displayOrUnavailable(
   return isValidNumberValue(v) ? v : UNAVAILABLE_DISPLAY;
 }
 
+// For sort-partition placement: tokens with unavailable fiatValue sink to the
+// bottom alongside zero-value tokens. `new BigNumber('NaN').isZero()` is
+// false, so a raw BigNumber check would mis-classify unavailable rows.
+export function isUnavailableOrZeroFiatValue(
+  v: string | number | null | undefined,
+): boolean {
+  return !isValidNumberValue(v) || new BigNumber(v).isZero();
+}
+
 type ITokenFiatValueShape = {
   fiatValue?: string | null;
 };
+
+type IFiatValueIndexed = { $key: string };
+
+// Sum tokens[i].$key → map[$key].fiatValue, silently dropping entries whose
+// value is unavailable so the subtotal stays a partial sum rather than NaN.
+export function sumFiatValuesFromTokens(
+  tokens: IFiatValueIndexed[],
+  map: Record<string, ITokenFiatValueShape | undefined> | undefined,
+): BigNumber {
+  if (!map) return new BigNumber(0);
+  return tokens.reduce<BigNumber>((acc, token) => {
+    const v = map[token.$key]?.fiatValue;
+    return isValidNumberValue(v) ? acc.plus(v) : acc;
+  }, new BigNumber(0));
+}
 
 // Sum map.fiatValue while silently dropping entries whose value is unavailable
 // (null/undefined/''/NaN). Mirrors the partial-sum semantics already used in
@@ -43,14 +65,26 @@ export function sumFiatValuesIgnoringUnavailable(
 
 // Convenience for the per-network shape produced by token list fetches:
 // collapses the duplicated `tokens.map + smallBalanceTokens.map` sum at every
-// accountWorth write site.
+// accountWorth write site. Single pass over both maps to avoid the
+// toFixed → reparse round trip.
 export function sumTokenGroupsFiatValueIgnoringUnavailable(r: {
   tokens?: { map?: Record<string, ITokenFiatValueShape | undefined> };
   smallBalanceTokens?: {
     map?: Record<string, ITokenFiatValueShape | undefined>;
   };
 }): string {
-  return new BigNumber(sumFiatValuesIgnoringUnavailable(r.tokens?.map))
-    .plus(sumFiatValuesIgnoringUnavailable(r.smallBalanceTokens?.map))
-    .toFixed();
+  let acc = new BigNumber(0);
+  const addAll = (
+    map: Record<string, ITokenFiatValueShape | undefined> | undefined,
+  ) => {
+    if (!map) return;
+    for (const entry of Object.values(map)) {
+      if (entry && isValidNumberValue(entry.fiatValue)) {
+        acc = acc.plus(entry.fiatValue);
+      }
+    }
+  };
+  addAll(r.tokens?.map);
+  addAll(r.smallBalanceTokens?.map);
+  return acc.toFixed();
 }

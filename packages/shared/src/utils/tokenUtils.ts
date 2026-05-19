@@ -318,10 +318,8 @@ export function mergeDeriveTokenListMap({
           .plus(value.totalBalanceParsed ?? 0)
           .toFixed();
 
-        // OK-46491: any merge participant with unavailable fiatValue would
-        // otherwise propagate 'NaN' through the toFixed() string. Skip it so
-        // the merged value stays a partial sum — matches the aggregation
-        // semantics in calculateAccountTokensValue.
+        // Drop unavailable participants so the merged value is a partial sum
+        // instead of propagating NaN through toFixed().
         mergedToken.fiatValue = new BigNumber(
           isValidNumberValue(mergedToken.fiatValue) ? mergedToken.fiatValue : 0,
         )
@@ -1139,11 +1137,7 @@ export function calculateAccountTokensValue({
       .reduce<BigNumber>((acc, cur) => acc.plus(cur), new BigNumber(0))
       .toFixed();
 
-  if (networkUtils.isAllNetwork({ networkId })) {
-    return sumValues(Object.values(tokensWorth.worth));
-  }
-
-  if (mergeDeriveAssetsEnabled) {
+  if (networkUtils.isAllNetwork({ networkId }) || mergeDeriveAssetsEnabled) {
     return sumValues(Object.values(tokensWorth.worth));
   }
 
