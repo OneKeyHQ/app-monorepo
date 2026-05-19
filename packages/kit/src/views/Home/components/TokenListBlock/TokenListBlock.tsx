@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -2866,17 +2865,6 @@ function TokenListBlock({
     showLpTokensOnly,
   ]);
 
-  // Render the heavy <TokenListView /> tree at low priority. When the
-  // Wallet tab regains focus (or any of TokenListBlock's many hook deps
-  // tick), React can paint the surrounding page chrome (balance, action
-  // buttons, RichBlock header) first and only commit the new token list
-  // sub-tree in a follow-up low-priority pass. CDP profile of
-  // Market -> Wallet showed the TokenListView sub-tree dominating the
-  // single sync render burst; deferring it converts one big task into
-  // chrome-first / list-second commits without changing total work.
-  const content = renderContent();
-  const deferredContent = useDeferredValue(content);
-
   return (
     <RichBlock
       withTitleSeparator
@@ -2886,7 +2874,7 @@ function TokenListBlock({
       subTitle={renderSubTitle()}
       headerActions={renderHeaderActions()}
       headerContainerProps={{ px: '$pagePadding' }}
-      content={deferredContent}
+      content={renderContent()}
       plainContentContainer
     />
   );
