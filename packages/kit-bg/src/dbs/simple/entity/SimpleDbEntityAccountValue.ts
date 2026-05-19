@@ -343,7 +343,7 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
               const existing = allByAddress[addressKey];
               allByAddress[addressKey] = {
                 value: {
-                  ...(existing?.value ?? {}),
+                  ...existing?.value,
                   [parsed.networkId]: worth,
                 },
                 currency: 'usd',
