@@ -56,6 +56,21 @@ import { HomeTestIDs } from '../testIDs';
 // balance is shown as a placeholder to avoid a skeleton flash.
 const BALANCE_REUSE_GRACE_MS = 180;
 
+const HOME_OVERVIEW_REFRESH_TABS = [
+  EHomeTab.TOKENS,
+  EHomeTab.NFT,
+  EHomeTab.HISTORY,
+  EHomeTab.DEFI,
+] as const;
+
+type IHomeOverviewRefreshTab = (typeof HOME_OVERVIEW_REFRESH_TABS)[number];
+
+function isHomeOverviewRefreshTab(
+  type: EHomeTab,
+): type is IHomeOverviewRefreshTab {
+  return HOME_OVERVIEW_REFRESH_TABS.includes(type as IHomeOverviewRefreshTab);
+}
+
 function HomeOverviewContainer() {
   const num = 0;
   const { activeAccount } = useActiveAccount({ num });
@@ -80,7 +95,9 @@ function HomeOverviewContainer() {
   const [isRefreshingDeFiList, setIsRefreshingDeFiList] = useState(false);
   const [isRefreshingHistoryList, setIsRefreshingHistoryList] = useState(false);
 
-  const listRefreshKey = useRef('');
+  const listRefreshKeys = useRef<
+    Partial<Record<IHomeOverviewRefreshTab, string>>
+  >({});
 
   const [accountWorth] = useAccountWorthAtom();
   const [accountDeFiOverview] = useAccountDeFiOverviewAtom();
@@ -220,6 +237,51 @@ function HomeOverviewContainer() {
   ]);
 
   useEffect(() => {
+    const refreshStateSetters: Record<
+      IHomeOverviewRefreshTab,
+      (isRefreshing: boolean) => void
+    > = {
+      [EHomeTab.TOKENS]: setIsRefreshingTokenList,
+      [EHomeTab.NFT]: setIsRefreshingNftList,
+      [EHomeTab.HISTORY]: setIsRefreshingHistoryList,
+      [EHomeTab.DEFI]: setIsRefreshingDeFiList,
+    };
+
+    const syncWorthRefreshingState = () => {
+      setIsRefreshingWorth(
+        HOME_OVERVIEW_REFRESH_TABS.some((refreshType) =>
+          Boolean(listRefreshKeys.current[refreshType]),
+        ),
+      );
+    };
+
+    const updateRefreshState = ({
+      refreshType,
+      isRefreshing,
+      key,
+    }: {
+      refreshType: IHomeOverviewRefreshTab;
+      isRefreshing: boolean;
+      key: string;
+    }) => {
+      if (isRefreshing) {
+        listRefreshKeys.current[refreshType] = key;
+        refreshStateSetters[refreshType](true);
+        return true;
+      }
+
+      if (
+        listRefreshKeys.current[refreshType] &&
+        listRefreshKeys.current[refreshType] !== key
+      ) {
+        return false;
+      }
+
+      delete listRefreshKeys.current[refreshType];
+      refreshStateSetters[refreshType](false);
+      return true;
+    };
+
     const fn = ({
       isRefreshing,
       type,
@@ -232,35 +294,27 @@ function HomeOverviewContainer() {
       networkId: string;
     }) => {
       const key = `${accountId}-${networkId}`;
-      if (
-        !isRefreshing &&
-        listRefreshKey.current &&
-        listRefreshKey.current !== key
-      ) {
-        return;
-      }
-
-      listRefreshKey.current = key;
+      let didUpdateState = false;
 
       if (type === EHomeTab.ALL) {
-        setIsRefreshingTokenList(isRefreshing);
-        setIsRefreshingNftList(isRefreshing);
-        setIsRefreshingHistoryList(isRefreshing);
-        setIsRefreshingWorth(isRefreshing);
-        setIsRefreshingDeFiList(isRefreshing);
+        HOME_OVERVIEW_REFRESH_TABS.forEach((refreshType) => {
+          didUpdateState =
+            updateRefreshState({ refreshType, isRefreshing, key }) ||
+            didUpdateState;
+        });
+      } else if (isHomeOverviewRefreshTab(type)) {
+        didUpdateState = updateRefreshState({
+          refreshType: type,
+          isRefreshing,
+          key,
+        });
+      }
+
+      if (!didUpdateState) {
         return;
       }
 
-      if (type === EHomeTab.TOKENS) {
-        setIsRefreshingTokenList(isRefreshing);
-      } else if (type === EHomeTab.NFT) {
-        setIsRefreshingNftList(isRefreshing);
-      } else if (type === EHomeTab.HISTORY) {
-        setIsRefreshingHistoryList(isRefreshing);
-      } else if (type === EHomeTab.DEFI) {
-        setIsRefreshingDeFiList(isRefreshing);
-      }
-      setIsRefreshingWorth(isRefreshing);
+      syncWorthRefreshingState();
       if (isRefreshing) {
         perfMark(`Home:refresh:start:${type}`, {
           refreshType: type,
@@ -279,6 +333,15 @@ function HomeOverviewContainer() {
       appEventBus.off(EAppEventBusNames.TabListStateUpdate, fn);
     };
   }, []);
+
+  useEffect(() => {
+    listRefreshKeys.current = {};
+    setIsRefreshingWorth(false);
+    setIsRefreshingTokenList(false);
+    setIsRefreshingNftList(false);
+    setIsRefreshingHistoryList(false);
+    setIsRefreshingDeFiList(false);
+  }, [account?.id, account?.indexedAccountId, network?.id, wallet?.id]);
 
   useEffect(() => {
     const updateAccountValue = async () => {
