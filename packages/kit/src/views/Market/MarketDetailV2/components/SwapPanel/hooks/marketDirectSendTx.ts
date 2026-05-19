@@ -2,7 +2,10 @@ import BigNumber from 'bignumber.js';
 
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IBuildUnsignedTxParams } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IBuildUnsignedTxParams,
+  ITransferInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { BTC_TX_PLACEHOLDER_VSIZE } from '@onekeyhq/shared/src/consts/chainConsts';
 import {
   BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
@@ -31,6 +34,7 @@ import type {
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 import { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
+import type { IToken } from '@onekeyhq/shared/types/token';
 import type {
   ISendTxBaseParams,
   ISendTxOnSuccessData,
@@ -62,6 +66,17 @@ type IMarketDirectSendParams = {
 type IEstimateMarketDirectGasInfosParams = Omit<
   IMarketDirectSendParams,
   'gasInfos'
+>;
+
+export type IMarketPresetFeeEstimateFakeTxToken = Pick<
+  ISwapTokenBase,
+  | 'contractAddress'
+  | 'decimals'
+  | 'isNative'
+  | 'logoURI'
+  | 'name'
+  | 'networkId'
+  | 'symbol'
 >;
 
 const MARKET_PRESET_SOL_DEFAULT_COMPUTE_UNIT_LIMIT = '200000';
@@ -665,23 +680,110 @@ function buildGasFeeFiatValue(
   return gasFeeFiatValue.isZero() ? undefined : gasFeeFiatValue.toFixed();
 }
 
-export async function estimateMarketPresetGasFeeFiatValues({
+function buildMarketPresetFakeTxAmount(amount?: string) {
+  const amountBN = new BigNumber(amount ?? 0);
+
+  return amountBN.isNaN() || !amountBN.isFinite() || amountBN.lt(0)
+    ? '0'
+    : amountBN.toFixed();
+}
+
+function buildMarketPresetFakeTxTokenInfo(
+  token: IMarketPresetFeeEstimateFakeTxToken,
+): IToken | undefined {
+  if (!token.networkId || (!token.isNative && !token.contractAddress)) {
+    return undefined;
+  }
+
+  return {
+    address: token.contractAddress ?? '',
+    decimals: token.decimals,
+    isNative: !!token.isNative,
+    logoURI: token.logoURI,
+    name: token.name ?? token.symbol,
+    networkId: token.networkId,
+    symbol: token.symbol,
+  };
+}
+
+export function buildMarketPresetFeeEstimateFakeTransferInfo({
+  accountAddress,
+  amount,
+  token,
+}: {
+  accountAddress: string;
+  amount?: string;
+  token: IMarketPresetFeeEstimateFakeTxToken;
+}): ITransferInfo | undefined {
+  const tokenInfo = buildMarketPresetFakeTxTokenInfo(token);
+  if (!accountAddress || !tokenInfo) {
+    return undefined;
+  }
+
+  return {
+    amount: buildMarketPresetFakeTxAmount(amount),
+    from: accountAddress,
+    to: accountAddress,
+    tokenInfo,
+  };
+}
+
+export async function buildMarketPresetFeeEstimateFakeUnsignedTx({
   accountAddress,
   accountId,
-  gasLimitForDisplay,
-  items,
-  nativeTokenPrice,
+  amount,
   networkId,
+  token,
 }: {
   accountAddress: string;
   accountId: string;
-  gasLimitForDisplay?: string | number;
+  amount?: string;
+  networkId: string;
+  token: IMarketPresetFeeEstimateFakeTxToken;
+}): Promise<IUnsignedTxPro | undefined> {
+  if (!accountId || !networkId) {
+    return undefined;
+  }
+
+  const transferInfo = buildMarketPresetFeeEstimateFakeTransferInfo({
+    accountAddress,
+    amount,
+    token,
+  });
+  if (!transferInfo) {
+    return undefined;
+  }
+
+  try {
+    return await backgroundApiProxy.serviceSend.buildUnsignedTx({
+      accountId,
+      networkId,
+      transfersInfo: [transferInfo],
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+export async function estimateMarketPresetGasFeeFiatValues({
+  accountAddress,
+  accountId,
+  amount,
+  items,
+  nativeTokenPrice,
+  networkId,
+  token,
+}: {
+  accountAddress: string;
+  accountId: string;
+  amount?: string;
   items: {
     customPriorityFee?: IMarketPresetPriorityFeeOverride;
     networkFeeLevel?: ESwapNetworkFeeLevel;
   }[];
   nativeTokenPrice?: string | number;
   networkId: string;
+  token: IMarketPresetFeeEstimateFakeTxToken;
 }) {
   if (!accountId || !networkId || !accountAddress) {
     return items.map(() => undefined);
@@ -692,12 +794,27 @@ export async function estimateMarketPresetGasFeeFiatValues({
   }
 
   try {
+    const fakeUnsignedTx = await buildMarketPresetFeeEstimateFakeUnsignedTx({
+      accountAddress,
+      accountId,
+      amount,
+      networkId,
+      token,
+    });
+    const estimateFeeParamsResult =
+      await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+        networkId,
+        accountId,
+        encodedTx: fakeUnsignedTx?.encodedTx,
+      });
     const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
+      ...estimateFeeParamsResult,
       accountAddress,
       accountId,
       gasAccountEnabled: false,
       networkId,
       scenario: 'swap',
+      transfersInfo: fakeUnsignedTx?.transfersInfo,
     });
     const fallbackNativeTokenPrice = buildNativeTokenPrice(nativeTokenPrice);
     const gasCommon = {
@@ -711,10 +828,11 @@ export async function estimateMarketPresetGasFeeFiatValues({
 
     return items.map((item) => {
       const baseGasInfo = normalizeMarketPresetGasLimitForDisplay({
-        gasLimitForDisplay,
         gasInfo: buildGasInfo(gasRes, gasCommon, item.networkFeeLevel),
       });
-      const estimateFeeParams = buildMarketPresetEstimateFeeParams(baseGasInfo);
+      const estimateFeeParams =
+        estimateFeeParamsResult.estimateFeeParams ??
+        buildMarketPresetEstimateFeeParams(baseGasInfo);
       const gasInfo = applyCustomPriorityFeeToGasInfo({
         gasInfo: baseGasInfo,
         customPriorityFee: item.customPriorityFee,
@@ -725,7 +843,7 @@ export async function estimateMarketPresetGasFeeFiatValues({
         {
           gasInfo,
           estimateFeeParams,
-          txSize: getMarketPresetFeeTxSize(gasInfo),
+          txSize: fakeUnsignedTx?.txSize ?? getMarketPresetFeeTxSize(gasInfo),
         },
       ]);
     });

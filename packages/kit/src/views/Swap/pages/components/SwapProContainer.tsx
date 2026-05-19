@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { RefreshControl, ScrollView } from 'react-native';
 
 import {
@@ -11,7 +10,6 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { EPageType } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProErrorAlertAtom,
@@ -23,15 +21,10 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchLimitOrderRes,
-  IFetchQuoteResult,
   ISwapProSpeedConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapProTradeType,
-  ESwapQuoteKind,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   type IEstimateMarketPresetPriorityFeeFiatValues,
@@ -59,20 +52,6 @@ import SwapProTradingPanel from './SwapProTradingPanel';
 import SwapTipsContainer from './SwapTipsContainer';
 
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
-
-function getSwapProMarketPresetGasLimitForDisplay(
-  quotes?: IFetchQuoteResult[],
-) {
-  const quoteWithGasLimit = quotes?.find((quote) => {
-    const gasLimitBN = new BigNumber(quote.gasLimit ?? 0);
-    return gasLimitBN.isFinite() && !gasLimitBN.isNaN() && gasLimitBN.gt(0);
-  });
-  const gasLimitBN = new BigNumber(quoteWithGasLimit?.gasLimit ?? 0);
-
-  return gasLimitBN.isFinite() && !gasLimitBN.isNaN() && gasLimitBN.gt(0)
-    ? gasLimitBN.toFixed(0)
-    : undefined;
-}
 
 interface ISwapProContainerProps {
   pageType?: EPageType;
@@ -216,7 +195,7 @@ const SwapProContainer = ({
         const accountId = netAccountRes.result?.id ?? '';
         const networkId = inputToken?.networkId ?? '';
 
-        if (!accountAddress || !accountId || !networkId) {
+        if (!accountAddress || !accountId || !networkId || !inputToken) {
           items.forEach((item) => {
             estimates[item.type] = undefined;
           });
@@ -228,45 +207,14 @@ const SwapProContainer = ({
           currencyId: settingsAtom.currencyInfo.id,
           tokens: [inputToken, toToken],
         });
-        let gasLimitForDisplay: string | undefined;
-        const amountBN = new BigNumber(swapProInputAmount || 0);
-
-        if (
-          inputToken &&
-          toToken &&
-          !amountBN.isNaN() &&
-          amountBN.isFinite() &&
-          amountBN.gt(0)
-        ) {
-          try {
-            gasLimitForDisplay = getSwapProMarketPresetGasLimitForDisplay(
-              await backgroundApiProxy.serviceSwap.fetchSpeedSwapQuote({
-                accountId,
-                autoSlippage: false,
-                fromToken: inputToken,
-                fromTokenAmount: swapProInputAmount,
-                kind: ESwapQuoteKind.SELL,
-                protocol: ESwapTabSwitchType.SWAP,
-                receivingAddress: accountAddress,
-                slippagePercentage:
-                  marketPresetSettings?.selectedSlippageValue ??
-                  speedConfig.slippage ??
-                  1,
-                toToken,
-                userAddress: accountAddress,
-              }),
-            );
-          } catch {
-            gasLimitForDisplay = undefined;
-          }
-        }
 
         const feeValues = await estimateMarketPresetGasFeeFiatValues({
           accountAddress,
           accountId,
-          gasLimitForDisplay,
+          amount: swapProInputAmount,
           networkId,
           nativeTokenPrice,
+          token: inputToken,
           items: items.map((item) => ({
             customPriorityFee: item.customPriorityFee,
             networkFeeLevel: item.networkFeeLevel,
@@ -281,11 +229,9 @@ const SwapProContainer = ({
       },
       [
         inputToken,
-        marketPresetSettings?.selectedSlippageValue,
         netAccountRes.result?.addressDetail.address,
         netAccountRes.result?.id,
         settingsAtom.currencyInfo.id,
-        speedConfig.slippage,
         swapProInputAmount,
         toToken,
       ],

@@ -194,40 +194,6 @@ export function buildMarketReviewTokens({
   };
 }
 
-function getMarketPresetQuoteGasLimitForDisplay(
-  quoteResult?: IFetchQuoteResult,
-) {
-  const gasLimitBN = new BigNumber(quoteResult?.gasLimit ?? 0);
-  if (gasLimitBN.isNaN() || !gasLimitBN.isFinite() || gasLimitBN.lte(0)) {
-    return undefined;
-  }
-
-  return gasLimitBN.toFixed(0);
-}
-
-function pickMarketPresetQuoteGasLimitForDisplay({
-  provider,
-  providerName,
-  quotes,
-}: {
-  provider?: string;
-  providerName?: string;
-  quotes?: IFetchQuoteResult[];
-}) {
-  const selectedQuote = pickMarketQuoteResultByProvider({
-    provider,
-    providerName,
-    quotes,
-  });
-
-  return (
-    getMarketPresetQuoteGasLimitForDisplay(selectedQuote) ??
-    getMarketPresetQuoteGasLimitForDisplay(
-      quotes?.find((quote) => getMarketPresetQuoteGasLimitForDisplay(quote)),
-    )
-  );
-}
-
 export function useSpeedSwapActions(props: {
   marketToken: ISwapToken;
   tradeToken: ISwapTokenBase;
@@ -1271,59 +1237,15 @@ export function useSpeedSwapActions(props: {
         currencyId: settingsAtom.currencyInfo.id,
         tokens: [fromToken, toToken],
       });
-      let gasLimitForDisplay: string | undefined;
-      const amountBN = new BigNumber(fromTokenAmountDebounced || 0);
-
-      if (
-        !amountBN.isNaN() &&
-        amountBN.isFinite() &&
-        amountBN.gt(0) &&
-        !isWrapped
-      ) {
-        try {
-          if (isStock) {
-            gasLimitForDisplay = getMarketPresetQuoteGasLimitForDisplay(
-              await backgroundApiProxy.serviceSwap.fetchSpeedMarketQuote({
-                accountId,
-                fromToken,
-                fromTokenAmount: fromTokenAmountDebounced,
-                receivingAddress: accountAddress,
-                slippagePercentage: slippage,
-                toToken,
-                userAddress: accountAddress,
-              }),
-            );
-          } else {
-            const quotes =
-              await backgroundApiProxy.serviceSwap.fetchSpeedSwapQuote({
-                accountId,
-                autoSlippage: false,
-                fromToken,
-                fromTokenAmount: fromTokenAmountDebounced,
-                kind: ESwapQuoteKind.SELL,
-                protocol: ESwapTabSwitchType.SWAP,
-                receivingAddress: accountAddress,
-                slippagePercentage: slippage,
-                toToken,
-                userAddress: accountAddress,
-              });
-            gasLimitForDisplay = pickMarketPresetQuoteGasLimitForDisplay({
-              provider,
-              quotes,
-            });
-          }
-        } catch {
-          gasLimitForDisplay = undefined;
-        }
-      }
 
       return estimateMarketPresetGasFeeFiatValues({
         accountAddress,
         accountId,
-        gasLimitForDisplay,
+        amount: fromTokenAmountDebounced,
         items,
         nativeTokenPrice,
         networkId,
+        token: fromToken,
       });
     },
     [
@@ -1331,13 +1253,9 @@ export function useSpeedSwapActions(props: {
       fromTokenAmountDebounced,
       account?.account?.address,
       account?.account?.id,
-      isStock,
-      isWrapped,
       netAccountRes.result?.addressDetail.address,
       netAccountRes.result?.id,
-      provider,
       settingsAtom.currencyInfo.id,
-      slippage,
       toToken,
     ],
   );
