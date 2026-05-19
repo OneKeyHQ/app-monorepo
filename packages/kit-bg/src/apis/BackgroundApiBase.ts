@@ -17,8 +17,12 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ensurePromiseObject,
@@ -217,6 +221,22 @@ class BackgroundApiBase implements IBackgroundApiBridge {
           params,
         });
       },
+    });
+
+    // Symmetric counterpart to the Main-side GC trigger in Bootstrap.tsx.
+    // On native (Hermes split-runtime), the Main forceGarbageCollection()
+    // only reclaims Main's heap — Background services' memoize/socket caches
+    // live in this runtime's heap and need a local GC pass after their
+    // synchronous `.clear()` handlers run. setTimeout(0) defers GC past the
+    // current macrotask so every other listener on this runtime finishes
+    // first. On Standalone (web/desktop) and Extension, the native memory-
+    // warning event never fires (the shared performance shim is a no-op),
+    // so this handler is dormant.
+    appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
+      if (event.level !== 'critical') return;
+      setTimeout(() => {
+        performance.forceGarbageCollection();
+      }, 0);
     });
   }
 

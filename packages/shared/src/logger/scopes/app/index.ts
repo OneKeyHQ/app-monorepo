@@ -3,6 +3,7 @@ import { EScopeName } from '../../types';
 
 import { AppUpdateScene } from './scenes/appUpdate';
 import { BackgroundScene } from './scenes/background';
+import { BootRecoveryScene } from './scenes/bootRecovery';
 import { BootstrapScene } from './scenes/bootstrap';
 import { ComponentScene } from './scenes/component';
 import { CustomUAScene } from './scenes/customUA';
@@ -42,6 +43,8 @@ export class AppScope extends BaseScope {
   router = this.createScene('router', RouterScene);
 
   appUpdate = this.createScene('appUpdate', AppUpdateScene);
+
+  bootRecovery = this.createScene('bootRecovery', BootRecoveryScene);
 
   jsBundleDev = this.createScene('jsBundleDev', JsBundleDevScene);
 

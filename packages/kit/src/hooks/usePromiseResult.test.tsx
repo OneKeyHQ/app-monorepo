@@ -36,9 +36,43 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => {
   };
 });
 
-jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
-}));
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+  const ReactModule = require('react') as typeof import('react');
+  let currentFocus = true;
+  const listeners: Array<(v: boolean) => void> = [];
+
+  const __setFocus = (v: boolean) => {
+    if (currentFocus === v) return;
+    currentFocus = v;
+    listeners.slice().forEach((l) => l(v));
+  };
+
+  const __resetFocus = () => {
+    currentFocus = true;
+    listeners.slice().forEach((l) => l(true));
+  };
+
+  const useRouteIsFocused = () => {
+    const [v, setV] = ReactModule.useState<boolean>(currentFocus);
+    ReactModule.useEffect(() => {
+      listeners.push(setV);
+      // Sync any value that changed between render-init and effect-attach.
+      setV(currentFocus);
+      return () => {
+        const idx = listeners.indexOf(setV);
+        if (idx >= 0) listeners.splice(idx, 1);
+      };
+    }, []);
+    return v;
+  };
+
+  return {
+    useRouteIsFocused,
+    __setFocus,
+    __resetFocus,
+  };
+});
 
 jest.mock('@onekeyhq/components', () => {
   const deferredPromiseModule = require('../../../components/src/hooks/useDeferredPromise');
@@ -59,6 +93,12 @@ import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { globalNetInfo } from '../../../components/src/hooks/useNetInfo';
 
 import { usePromiseResult } from './usePromiseResult';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const focusControl = require('@onekeyhq/kit/src/hooks/useRouteIsFocused') as {
+  __setFocus: (v: boolean) => void;
+  __resetFocus: () => void;
+};
 
 function usePromiseResultWithRenderCount(
   method: () => Promise<string>,
@@ -472,6 +512,272 @@ describe('usePromiseResult', () => {
 
       await tick(POLLING_MS);
       expect(method.mock.calls.length).toBeGreaterThan(callsAfterResume);
+    });
+  });
+
+  describe('focus gating', () => {
+    beforeEach(() => {
+      focusControl.__resetFocus();
+    });
+
+    it('applies result when focused throughout the fetch', async () => {
+      const method = jest.fn(async () => 'data');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], { initResult: 'init' }),
+      );
+
+      await waitFor(() => {
+        expect(result.current.result).toBe('data');
+      });
+      expect(method).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not start fetch when not focused at mount (default checkIsFocused: true)', async () => {
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+
+      const method = jest.fn(async () => 'data');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], { initResult: 'init' }),
+      );
+
+      // Let any synchronous async cycles flush.
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(method).not.toHaveBeenCalled();
+      expect(result.current.result).toBe('init');
+    });
+
+    it('fires the deferred fetch once focus is regained', async () => {
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+
+      const method = jest.fn(async () => 'data');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], { initResult: 'init' }),
+      );
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(method).not.toHaveBeenCalled();
+
+      act(() => {
+        focusControl.__setFocus(true);
+      });
+
+      await waitFor(() => {
+        expect(result.current.result).toBe('data');
+      });
+      expect(method).toHaveBeenCalledTimes(1);
+    });
+
+    it('alwaysSetState: true bypasses focus gate at fetch resolution', async () => {
+      let resolveFetch!: (v: string) => void;
+      const method = jest.fn(
+        () =>
+          new Promise<string>((res) => {
+            resolveFetch = res;
+          }),
+      );
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], {
+          initResult: 'init',
+          alwaysSetState: true,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(1);
+      });
+
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+
+      await act(async () => {
+        resolveFetch('fresh');
+        await Promise.resolve();
+      });
+
+      // alwaysSetState forces the result through even while blurred.
+      await waitFor(() => {
+        expect(result.current.result).toBe('fresh');
+      });
+    });
+
+    // The "Freeze absorbs the render" property of react-native-screens
+    // is a production runtime behavior — jest has no Freeze, so we can
+    // only verify the hook's own contribution: blur-time fetch resolution
+    // should call setResult exactly once, no thrashing. In production
+    // that single render is queued by Freeze and flushed on unfreeze.
+    it('issues at most one extra setResult per fetch when blurred mid-flight (perf bound)', async () => {
+      let resolveFetch!: (v: string) => void;
+      const method = jest.fn(
+        () =>
+          new Promise<string>((res) => {
+            resolveFetch = res;
+          }),
+      );
+
+      const { result } = renderHook(() =>
+        usePromiseResultWithRenderCount(method, { initResult: 'init' }),
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(1);
+      });
+
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+      const rendersAfterBlur = result.current.renderCount;
+
+      await act(async () => {
+        resolveFetch('fresh');
+        await Promise.resolve();
+      });
+
+      // Blur-time renders attributable to the fix: at most one for the
+      // setResult that preserves the in-flight result. Anything beyond
+      // that would mean we are doing extra work the Freeze cannot absorb.
+      const blurRenderDelta = result.current.renderCount - rendersAfterBlur;
+      expect(blurRenderDelta).toBeLessThanOrEqual(1);
+
+      act(() => {
+        focusControl.__setFocus(true);
+      });
+
+      await waitFor(() => {
+        expect(result.current.result).toBe('fresh');
+      });
+
+      // No follow-up fetch is needed — the in-flight one delivered.
+      expect(method).toHaveBeenCalledTimes(1);
+    });
+
+    // Cross-scope guard (PR #11681 review): when deps change while the
+    // route is blurred, the new triggerByDeps run is gated by focus and
+    // does not mint a fresh nonce. Without invalidation, an in-flight
+    // stale request from the previous scope (matching the original
+    // nonce) would satisfy shouldApplyResult (mount-only) and overwrite
+    // the new scope's init / cached state. Bumping nonceRef on the
+    // gated run prevents this cross-scope leak.
+    it('discards in-flight result when deps change during blur (cross-scope guard)', async () => {
+      const resolvers: Record<string, (v: string) => void> = {};
+      const method = jest.fn(
+        (id: string) =>
+          new Promise<string>((res) => {
+            resolvers[id] = res;
+          }),
+      );
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { id: string }
+      >(
+        ({ id }) =>
+          usePromiseResult(() => method(id), [id], { initResult: 'init' }),
+        { initialProps: { id: 'A' } },
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledWith('A');
+      });
+      expect(result.current.result).toBe('init');
+
+      // Blur, then deps change to B. The triggerByDeps run for B is
+      // gated by focus and no fetch is dispatched yet.
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+      rerender({ id: 'B' });
+
+      // A's stale in-flight request resolves while the new scope is B.
+      await act(async () => {
+        resolvers.A('A-data');
+        await Promise.resolve();
+      });
+
+      // The previous scope's data must not land on the new scope.
+      expect(result.current.result).toBe('init');
+
+      // Refocus → B's deferred fetch fires → result reflects new scope.
+      act(() => {
+        focusControl.__setFocus(true);
+      });
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledWith('B');
+      });
+
+      await act(async () => {
+        resolvers.B('B-data');
+        await Promise.resolve();
+      });
+
+      await waitFor(() => {
+        expect(result.current.result).toBe('B-data');
+      });
+    });
+
+    // Regression for the cold-start tab-switch data-loss bug. A fetch
+    // started while focused must deliver its result even if the route
+    // blurs before resolution — there is otherwise no recovery path on
+    // refocus (deps did not change during blur and revalidateOnFocus is
+    // not set), so a discarded result is permanently lost.
+    it('preserves fetch result when route blurs during in-flight request', async () => {
+      let resolveFetch!: (v: string) => void;
+      const method = jest.fn(
+        () =>
+          new Promise<string>((res) => {
+            resolveFetch = res;
+          }),
+      );
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], { initResult: 'init' }),
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(1);
+      });
+      expect(result.current.result).toBe('init');
+
+      // Tab switch happens before fetch completes.
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+
+      // Fetch resolves while the route is blurred.
+      await act(async () => {
+        resolveFetch('fresh');
+        await Promise.resolve();
+      });
+
+      // User switches back. No deps changed during blur and
+      // revalidateOnFocus is not set, so no recovery run will fire — the
+      // result must already be applied from the in-flight resolution.
+      act(() => {
+        focusControl.__setFocus(true);
+      });
+
+      await waitFor(() => {
+        expect(result.current.result).toBe('fresh');
+      });
+
+      // The original in-flight fetch delivered the result; no extra fetch
+      // was needed.
+      expect(method).toHaveBeenCalledTimes(1);
     });
   });
 });

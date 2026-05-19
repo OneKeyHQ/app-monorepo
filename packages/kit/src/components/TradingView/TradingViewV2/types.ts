@@ -10,8 +10,22 @@ export interface ITradingViewLayoutData {
   layout: string; // JSON string format of layout data
 }
 
+export interface ITradingViewTouchScrollData {
+  deltaY?: number;
+}
+
+export interface ITradingViewIndicatorsDialogData {
+  action?: 'open' | 'close';
+  isOpen?: boolean;
+  timestamp?: number;
+}
+
 // Union type to support different data structures
-type ITradingViewData = ITradingViewHistoryData | ITradingViewLayoutData;
+type ITradingViewData =
+  | ITradingViewHistoryData
+  | ITradingViewLayoutData
+  | ITradingViewTouchScrollData
+  | ITradingViewIndicatorsDialogData;
 
 interface ITradingViewMessage {
   scope: string;

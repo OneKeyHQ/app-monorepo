@@ -41,20 +41,20 @@ function formatStartedAt(value) {
   if (!value) return 'n/a';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mi = String(date.getMinutes()).padStart(2, '0');
-  const ss = String(date.getSeconds()).padStart(2, '0');
-  const tzOffsetMin = -date.getTimezoneOffset();
-  const sign = tzOffsetMin >= 0 ? '+' : '-';
-  const tzHour = String(Math.floor(Math.abs(tzOffsetMin) / 60)).padStart(
-    2,
-    '0',
-  );
-  const tzMin = String(Math.abs(tzOffsetMin) % 60).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss} UTC${sign}${tzHour}:${tzMin}`;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const pick = (type) => parts.find((part) => part.type === type)?.value;
+  return `${pick('year')}-${pick('month')}-${pick('day')} ${pick(
+    'hour',
+  )}:${pick('minute')}:${pick('second')} UTC+08:00`;
 }
 
 function shortSha(sha) {
@@ -96,7 +96,7 @@ function getMetricDetails(report) {
 
 function buildMetricLine(detail) {
   let icon;
-  if (!detail.enabled) {
+  if (detail.enabled !== true) {
     icon = '➖';
   } else if (detail.triggered) {
     icon = '🔴';
@@ -130,17 +130,6 @@ function pickRepresentativeRun(report, metricDetails) {
   });
   scored.sort((a, b) => a.score - b.score || a.run.runIndex - b.run.runIndex);
   return scored[0]?.run || runs[0];
-}
-
-function formatRunLine(run) {
-  const metrics = run?.metrics || {};
-  return `#${run?.runIndex ?? '?'} ${run?.sessionId || 'n/a'}  start=${formatMetricValue(
-    'tokensStartMs',
-    metrics.tokensStartMs,
-  )}  span=${formatMetricValue(
-    'tokensSpanMs',
-    metrics.tokensSpanMs,
-  )}  fc=${formatMetricValue('functionCallCount', metrics.functionCallCount)}`;
 }
 
 function summarizeFunction(item) {
@@ -275,7 +264,7 @@ function buildRegressionSummary(metricDetails) {
 }
 
 function buildRecoverySummary(metricDetails, previousState) {
-  const currentOk = metricDetails.every((item) => !item.triggered);
+  const currentOk = metricDetails.every((item) => item.triggered !== true);
   if (!currentOk) return '当前结果仍未恢复正常。';
   const previous = previousState?.status
     ? `上次状态：${previousState.status}`
@@ -313,23 +302,13 @@ function buildSignature(kind, metricDetails) {
   return `${kind}:${triggered.join(',') || 'none'}`;
 }
 
-function buildContextFields(model) {
-  return [
-    {
-      type: 'mrkdwn',
-      text: `*平台*\n${escapeMrkdwn(model.targetLabel)}`,
-    },
-    {
-      type: 'mrkdwn',
-      text: `*分支 / Commit*\n${escapeMrkdwn(
-        `${model.branch || 'n/a'} @ ${shortSha(model.commitSha)}`,
-      )}`,
-    },
-    {
-      type: 'mrkdwn',
-      text: `*时间*\n${escapeMrkdwn(formatStartedAt(model.startedAt))}`,
-    },
+function buildContextLine(model) {
+  const parts = [
+    `端: ${model.targetLabel || 'n/a'}`,
+    `开始时间: ${formatStartedAt(model.startedAt)}`,
+    `Git: ${model.branch || 'n/a'} @ ${shortSha(model.commitSha)}`,
   ];
+  return escapeMrkdwn(parts.join(' | '));
 }
 
 function buildActionText(model) {
@@ -358,11 +337,7 @@ function buildFallbackText(model) {
     }
   }
   if (model.errorSummary) lines.push(`失败原因: ${model.errorSummary}`);
-  lines.push(`平台: ${model.targetLabel}`);
-  lines.push(
-    `分支 / Commit: ${model.branch || 'n/a'} @ ${shortSha(model.commitSha)}`,
-  );
-  lines.push(`时间: ${formatStartedAt(model.startedAt)}`);
+  lines.push(buildContextLine(model));
   const actionText = buildActionText(model);
   if (actionText) lines.push(`链接: ${actionText}`);
   return lines.join('\n');
@@ -413,7 +388,10 @@ function buildSlackPayload(model) {
 
   blocks.push({
     type: 'section',
-    fields: buildContextFields(model),
+    text: {
+      type: 'mrkdwn',
+      text: buildContextLine(model),
+    },
   });
 
   const actionText = buildActionText(model);
@@ -500,10 +478,8 @@ function buildPerfAlertModel({
     commitSha: report?.meta?.git?.sha || null,
     branch: report?.meta?.git?.branch || null,
     jobId,
-    outputDir: report?.outputDir || 'n/a',
     representativeRun,
     representativeSessionId: representativeRun?.sessionId || null,
-    runLines: (report?.runs || []).map(formatRunLine).slice(0, 5),
     links,
   };
 }

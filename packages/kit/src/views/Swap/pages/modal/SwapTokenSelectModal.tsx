@@ -39,7 +39,10 @@ import {
   useSwapSelectTokenNetworkAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsPersistAtom,
+  useTokenSelectorFilterPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -48,7 +51,10 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
+import {
+  SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
+  TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
+} from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
@@ -106,7 +112,11 @@ const SwapTokenSelectPage = ({
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const [showLpTokensOnly, setShowLpTokensOnly] = useState(false);
+  const [tokenSelectorFilter, setTokenSelectorFilter] =
+    useTokenSelectorFilterPersistAtom();
+  const showLpTokensOnly = TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED
+    ? tokenSelectorFilter.swapShowLpTokensOnly
+    : false;
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
   if (fromTokenRef.current !== fromToken) {
@@ -165,13 +175,19 @@ const SwapTokenSelectPage = ({
   const [currentSelectNetwork, setCurrentSelectNetwork] =
     useSwapSelectTokenNetworkAtom();
   const listViewRef = useRef<FlatList>(null);
-  const handleLpTokenFilterChange = useCallback((value: boolean) => {
-    setShowLpTokensOnly(value);
-    listViewRef.current?.scrollToOffset({
-      offset: 0,
-      animated: false,
-    });
-  }, []);
+  const handleLpTokenFilterChange = useCallback(
+    (value: boolean) => {
+      setTokenSelectorFilter((prev) => ({
+        ...prev,
+        swapShowLpTokensOnly: value,
+      }));
+      listViewRef.current?.scrollToOffset({
+        offset: 0,
+        animated: false,
+      });
+    },
+    [setTokenSelectorFilter],
+  );
 
   useEffect(() => {
     setCurrentSelectNetwork(syncDefaultNetworkSelect);
@@ -203,7 +219,7 @@ const SwapTokenSelectPage = ({
     currentSelectNetwork?.networkId,
     requestedSearchKeyword,
     swapTypeSwitch,
-    showLpTokensOnly,
+    TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED ? showLpTokensOnly : undefined,
   );
   const alertIndex = useMemo(
     () =>
@@ -559,9 +575,7 @@ const SwapTokenSelectPage = ({
     return popularTokens;
   }, [currentSelectNetwork?.networkId, swapTypeSwitch]);
   const shouldShowPopularTokens =
-    !showLpTokensOnly &&
-    currentNetworkPopularTokens.length > 0 &&
-    !requestedSearchKeyword;
+    currentNetworkPopularTokens.length > 0 && !requestedSearchKeyword;
   return (
     <Page lazyLoad={!platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
@@ -612,11 +626,13 @@ const SwapTokenSelectPage = ({
               </SizableText>
             </XStack>
           </XStack>
-          <TokenSelectorLpTokenSwitch
-            value={showLpTokensOnly}
-            onChange={handleLpTokenFilterChange}
-            disabled={!SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED}
-          />
+          {TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED ? (
+            <TokenSelectorLpTokenSwitch
+              value={showLpTokensOnly}
+              onChange={handleLpTokenFilterChange}
+              disabled={!SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED}
+            />
+          ) : null}
         </XStack>
         <NetworkToggleGroup
           onMoreNetwork={() => {

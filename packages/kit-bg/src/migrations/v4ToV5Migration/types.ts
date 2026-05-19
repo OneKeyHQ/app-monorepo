@@ -1,5 +1,3 @@
-import type { IServerNetwork } from '@onekeyhq/shared/types';
-
 import type {
   IV4DBAccount,
   IV4DBHdCredentialRaw,
@@ -58,19 +56,3 @@ export type IV4MigrationImportedCredential = {
   account: IV4DBAccount;
   dbCredentialRaw: IV4DBImportedCredentialRaw;
 };
-
-export type IV4MigrationBackupItem = {
-  backupId: string;
-  title: string;
-  subTitle: string;
-  hdWallet?: IV4DBWallet;
-  importedAccount?: IV4DBAccount;
-  network?: IServerNetwork;
-  networkId?: string;
-};
-export type IV4MigrationBackupSectionDataItem = {
-  title: string;
-  data: Array<IV4MigrationBackupItem>;
-};
-export type IV4MigrationBackupSectionData =
-  Array<IV4MigrationBackupSectionDataItem>;

@@ -718,6 +718,14 @@ async function createMainWindow() {
     handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
   }
 
+  browserWindow.webContents.on('unresponsive', () => {
+    logger.warn('[CPU Watchdog] renderer webContents unresponsive');
+    triggerCpuWatchdog({ reason: 'unresponsive' });
+  });
+  browserWindow.webContents.on('responsive', () => {
+    logger.info('[CPU Watchdog] renderer webContents responsive again');
+  });
+
   browserWindow.webContents.on('did-finish-load', () => {
     logger.info('browserWindow >>>> did-finish-load');
     // fix white flicker on Windows & Linux
@@ -799,6 +807,46 @@ async function createMainWindow() {
   ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
     throw new OneKeyLocalError('Test Electron Native crash 996');
   });
+
+  // Dev-only backdoor: force the CPU watchdog dialog to appear immediately,
+  // bypassing the sustained-CPU threshold and 30-minute cooldown. Used by
+  // the "Force trigger CPU Watchdog Dialog" entries under Dev Mode.
+  //
+  // SECURITY: registration is gated to dev builds so the channel does not
+  // exist on the production IPC surface — a tainted renderer (XSS, malicious
+  // DApp webview) cannot spam-pop a system dialog containing a Restart
+  // button. Handlers also re-check the gate as backstop and validate the
+  // reason against the enum to drop garbage payloads.
+  if (isDevServer && !app.isPackaged) {
+    ipcMain.removeAllListeners(ipcMessageKeys.CPU_WATCHDOG_FORCE_TRIGGER);
+    ipcMain.on(
+      ipcMessageKeys.CPU_WATCHDOG_FORCE_TRIGGER,
+      (_event, reason: unknown) => {
+        if (!isDevServer || app.isPackaged) return;
+        if (!isCpuWatchdogReason(reason)) {
+          logger.warn(
+            '[CPU Watchdog] force-trigger rejected — invalid reason',
+            {
+              reason,
+            },
+          );
+          return;
+        }
+        logger.warn('[CPU Watchdog] force-trigger via IPC', { reason });
+        triggerCpuWatchdog({
+          reason,
+          cpuTrend: [99, 99, 99],
+          bypassCooldown: true,
+        });
+      },
+    );
+
+    ipcMain.removeAllListeners(ipcMessageKeys.CPU_WATCHDOG_RESET_COOLDOWN);
+    ipcMain.on(ipcMessageKeys.CPU_WATCHDOG_RESET_COOLDOWN, () => {
+      if (!isDevServer || app.isPackaged) return;
+      resetCpuWatchdogStateForTesting();
+    });
+  }
 
   // System Resources
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
@@ -1881,6 +1929,7 @@ app.on('ready', async () => {
   startProcessMetricsMonitoring();
   startV8HeapMonitoring();
   startWebviewMemoryMonitoring();
+  startCpuWatchdog();
   scheduleCrashDumpCleanup();
   await collectGPUInfo();
 });
@@ -1895,6 +1944,248 @@ app.on('before-quit', () => {
 });
 
 // ==================== End Memory Protection ====================
+
+// ==================== CPU Watchdog ====================
+// Detects sustained renderer CPU saturation (the symptom seen in
+// long-uptime users whose JS main thread hot-loops). Pairs with the
+// webContents 'unresponsive' event for the "stuck, not acknowledging
+// input" symptom. Both converge here so the dialog and cooldown are
+// shared.
+
+// Sample at the faster cadence; both tiers read from the same history.
+const CPU_WATCHDOG_SAMPLE_INTERVAL_MS = 10_000;
+
+// Severe tier — catches extreme pegging fast.
+// 3 × 10 s = 30 s sustained above 95% → essentially fully pegged for half
+// a minute, well past any legitimate hot path (signing, V8 turbofan
+// re-optimization, bundle decode, mass import).
+const CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT = 95;
+const CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES = 3;
+
+// Mild tier — catches slower drift (the original 22h-uptime symptom).
+// 30 × 10 s = 5 minutes sustained above 80%.
+const CPU_WATCHDOG_MILD_THRESHOLD_PERCENT = 80;
+const CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES = 30;
+
+const CPU_WATCHDOG_HISTORY_SIZE = CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES;
+const CPU_WATCHDOG_COOLDOWN_MS = 30 * 60_000;
+
+const cpuHistoryByPid = new Map<number, number[]>();
+// Cumulative CPU seconds per pid at the previous tick. Delta of these
+// divided by wall-clock delta gives the true "fraction of one core" used,
+// independent of how many cores the machine has — matching the DevTools
+// Performance Monitor reading.
+const prevCumCpuByPid = new Map<number, number>();
+let lastSampleAt: number | null = null;
+let lastWatchdogFiredAt = 0;
+let cpuWatchdogInterval: ReturnType<typeof setInterval> | null = null;
+
+type ICpuWatchdogReason =
+  | 'sustained-high-cpu-severe'
+  | 'sustained-high-cpu-mild'
+  | 'unresponsive';
+
+const CPU_WATCHDOG_REASONS = new Set<ICpuWatchdogReason>([
+  'sustained-high-cpu-severe',
+  'sustained-high-cpu-mild',
+  'unresponsive',
+]);
+
+function isCpuWatchdogReason(value: unknown): value is ICpuWatchdogReason {
+  return (
+    typeof value === 'string' &&
+    CPU_WATCHDOG_REASONS.has(value as ICpuWatchdogReason)
+  );
+}
+
+function startCpuWatchdog() {
+  if (cpuWatchdogInterval) {
+    clearInterval(cpuWatchdogInterval);
+  }
+  cpuWatchdogInterval = setInterval(() => {
+    try {
+      const metrics = app.getAppMetrics();
+      const now = Date.now();
+      const wallDeltaSec =
+        lastSampleAt === null
+          ? CPU_WATCHDOG_SAMPLE_INTERVAL_MS / 1000
+          : (now - lastSampleAt) / 1000;
+      lastSampleAt = now;
+
+      // Step 1: compute effective % (= fraction of one core, 100 = one core
+      // fully busy) for every process using the cumulativeCPUUsage delta.
+      // This matches what Chrome DevTools Performance Monitor shows and is
+      // independent of total core count — Electron's percentCPUUsage divides
+      // by cores and is therefore unusable for "main thread saturated".
+      const annotated = metrics.map((m) => {
+        const cum =
+          (m.cpu as { cumulativeCPUUsage?: number }).cumulativeCPUUsage ?? 0;
+        const prev = prevCumCpuByPid.get(m.pid);
+        let effectivePercent = 0;
+        if (prev !== undefined && wallDeltaSec > 0) {
+          effectivePercent = ((cum - prev) / wallDeltaSec) * 100;
+          if (effectivePercent < 0) effectivePercent = 0;
+        }
+        prevCumCpuByPid.set(m.pid, cum);
+        return {
+          pid: m.pid,
+          type: m.type,
+          name: m.name,
+          electronPct: Number(m.cpu.percentCPUUsage.toFixed(2)),
+          effectivePct: Number(effectivePercent.toFixed(1)),
+          cum: Number(cum.toFixed(2)),
+        };
+      });
+
+      // Step 2: log every process sorted by effective CPU descending so
+      // when "who's burning" is the question, the top line answers it.
+      const sortedForLog = [...annotated].toSorted(
+        (a, b) => b.effectivePct - a.effectivePct,
+      );
+      logger.info(
+        `[CPU Watchdog] tick cores=${os.cpus().length} wallΔ=${wallDeltaSec.toFixed(
+          1,
+        )}s processes=${JSON.stringify(sortedForLog)}`,
+      );
+
+      // Step 3: only Tab processes feed the sliding window for severe/mild
+      // detection. effectivePct is the right metric: 100 = one core fully
+      // busy = JS main thread saturated.
+      const seenPids = new Set<number>();
+      for (const a of annotated) {
+        if (a.type === 'Tab') {
+          seenPids.add(a.pid);
+          // Skip the very first sample for a new pid — no delta available
+          // (prev was undefined → effectivePct defaulted to 0).
+          if (prevCumCpuByPid.has(a.pid) && a.effectivePct === 0) {
+            // proceed with 0 — actually idle
+          }
+          const history = cpuHistoryByPid.get(a.pid) ?? [];
+          history.push(a.effectivePct);
+          if (history.length > CPU_WATCHDOG_HISTORY_SIZE) history.shift();
+          cpuHistoryByPid.set(a.pid, history);
+
+          const severeWindow = history.slice(
+            -CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
+          );
+          const severe =
+            severeWindow.length === CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES &&
+            severeWindow.every(
+              (v) => v > CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
+            );
+          if (severe) {
+            triggerCpuWatchdog({
+              reason: 'sustained-high-cpu-severe',
+              pid: a.pid,
+              cpuTrend: severeWindow,
+            });
+          } else {
+            const mild =
+              history.length === CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES &&
+              history.every((v) => v > CPU_WATCHDOG_MILD_THRESHOLD_PERCENT);
+            if (mild) {
+              triggerCpuWatchdog({
+                reason: 'sustained-high-cpu-mild',
+                pid: a.pid,
+                cpuTrend: [...history],
+              });
+            }
+          }
+        }
+      }
+      // Forget pids that no longer exist (renderer restarted / process gone).
+      for (const pid of cpuHistoryByPid.keys()) {
+        if (!seenPids.has(pid)) cpuHistoryByPid.delete(pid);
+      }
+      // Also prune prev cum cache for vanished pids to avoid unbounded growth.
+      for (const pid of prevCumCpuByPid.keys()) {
+        if (!annotated.some((a) => a.pid === pid)) prevCumCpuByPid.delete(pid);
+      }
+    } catch (error) {
+      logger.warn('[CPU Watchdog] sample failed', error);
+    }
+  }, CPU_WATCHDOG_SAMPLE_INTERVAL_MS);
+  logger.info('[CPU Watchdog] started', {
+    sampleIntervalMs: CPU_WATCHDOG_SAMPLE_INTERVAL_MS,
+    severe: {
+      thresholdPercent: CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
+      sustainedSamples: CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
+    },
+    mild: {
+      thresholdPercent: CPU_WATCHDOG_MILD_THRESHOLD_PERCENT,
+      sustainedSamples: CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES,
+    },
+    cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
+  });
+}
+
+function reportWatchdogToSentry(params: {
+  reason: ICpuWatchdogReason;
+  pid?: number;
+  cpuTrend?: number[];
+}) {
+  try {
+    const { captureMessage, setContext } = require('@sentry/electron/main') as {
+      captureMessage: (msg: string, level?: string) => void;
+      setContext: (name: string, data: Record<string, unknown> | null) => void;
+    };
+    setContext('cpuWatchdog', {
+      reason: params.reason,
+      pid: params.pid,
+      cpuTrend: params.cpuTrend,
+      uptimeMs: Math.round(process.uptime() * 1000),
+    });
+    captureMessage(`desktop:cpu-watchdog:${params.reason}`, 'warning');
+  } catch {
+    // Sentry not initialized — ignore.
+  }
+}
+
+function triggerCpuWatchdog(params: {
+  reason: ICpuWatchdogReason;
+  pid?: number;
+  cpuTrend?: number[];
+  bypassCooldown?: boolean;
+}) {
+  const now = Date.now();
+  if (
+    !params.bypassCooldown &&
+    now - lastWatchdogFiredAt < CPU_WATCHDOG_COOLDOWN_MS
+  ) {
+    logger.warn('[CPU Watchdog] trigger ignored — cooldown active', {
+      reason: params.reason,
+      msSinceLastFire: now - lastWatchdogFiredAt,
+      cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
+    });
+    return;
+  }
+  lastWatchdogFiredAt = now;
+
+  // UI suppressed: only collect local logs + Sentry telemetry while we
+  // investigate the underlying CPU regression. Re-enable surface (status
+  // indicator / non-blocking card) once root cause is identified.
+  logger.warn('[CPU Watchdog] fired (UI suppressed)', params);
+  reportWatchdogToSentry(params);
+}
+
+function resetCpuWatchdogStateForTesting() {
+  logger.warn('[CPU Watchdog] cooldown reset via IPC', {
+    previousLastFiredAt: lastWatchdogFiredAt,
+  });
+  lastWatchdogFiredAt = 0;
+  cpuHistoryByPid.clear();
+  prevCumCpuByPid.clear();
+  lastSampleAt = null;
+}
+
+app.on('before-quit', () => {
+  if (cpuWatchdogInterval) {
+    clearInterval(cpuWatchdogInterval);
+    cpuWatchdogInterval = null;
+  }
+});
+
+// ==================== End CPU Watchdog ====================
 
 // Dev-only switches — NEVER run in production builds
 if (isDevServer && !app.isPackaged) {

@@ -83,7 +83,12 @@ import {
   usePerpsFavorites,
 } from '../../hooks';
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
-import { getTokenSelectorFavoriteItems } from '../../utils/tokenSelectorFavorites';
+import {
+  getTokenSelectorFavoriteItems,
+  getTokenSelectorFavoriteSortEntry,
+  getTokenSelectorListItemKey,
+  sortTokenSelectorFavoriteItems,
+} from '../../utils/tokenSelectorFavorites';
 import {
   markTokenSelectorPerfMeasure,
   startTokenSelectorPerfMeasure,
@@ -111,6 +116,8 @@ import { SortableHeaderCell } from './SortableHeaderCell';
 export const SPOT_DEX_INDEX = -1;
 const DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH = 800;
 const TOKEN_SELECTOR_TABLE_HORIZONTAL_PADDING = 32;
+const TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT = 48;
+const TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE = 20;
 const PERP_TOKEN_SELECTOR_DESKTOP_TABLE_MIN_WIDTH =
   180 + 110 + 150 + 110 + 110 + 120 + TOKEN_SELECTOR_TABLE_HORIZONTAL_PADDING;
 
@@ -901,6 +908,22 @@ function BasePerpTokenSelectorContent({
         perpItems: perpSortedList,
         spotItems: spotFavoriteSortedList,
       });
+      if (sortField) {
+        result = sortTokenSelectorFavoriteItems({
+          items: result,
+          sortField,
+          sortDirection,
+          getSortEntry: (item, order) =>
+            getTokenSelectorFavoriteSortEntry({
+              item,
+              order,
+              spotPriceSnapshot,
+              spotMarketCaps,
+              perpAssetCtxsByDex: ctxSnapshotRef.current,
+              computePerpSortValues: computeSortValues,
+            }),
+        });
+      }
     } else if (isPerpTokenSelectorPerpsTab(displayActiveTab)) {
       result = perpSortedList;
     } else {
@@ -945,10 +968,13 @@ function BasePerpTokenSelectorContent({
     displayPrimaryTab,
     assetsByDex,
     categoryTabs,
+    computeSortValues,
     favoritesOrder.sequence,
     favoriteItems,
     perpSortedList,
     spotFavoriteSortedList,
+    spotMarketCaps,
+    spotPriceSnapshot,
     spotSortedList,
     searchQuery,
     selectorConfig?.direction,
@@ -964,10 +990,7 @@ function BasePerpTokenSelectorContent({
   });
 
   const keyExtractor = useCallback(
-    (item: { dexIndex: number; index: number; assetId?: number }) => {
-      const assetId = item.assetId ?? item.index;
-      return `${item.dexIndex}-${assetId}`;
-    },
+    (item: ITokenSelectorListItem) => getTokenSelectorListItemKey(item),
     [],
   );
   const desktopListLayout = useMemo((): 'perp' | 'spot' | 'mixed' => {
@@ -1150,8 +1173,14 @@ function BasePerpTokenSelectorContent({
                   <ListView
                     ref={listRef}
                     keyExtractor={keyExtractor}
-                    windowSize={3}
-                    initialNumToRender={12}
+                    estimatedItemSize={TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT}
+                    windowSize={5}
+                    initialNumToRender={
+                      TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE
+                    }
+                    maxToRenderPerBatch={
+                      TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE
+                    }
                     data={activeTabData}
                     renderItem={renderItem}
                     ListEmptyComponent={listEmptyComponent}

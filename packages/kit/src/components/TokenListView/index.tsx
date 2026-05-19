@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   buildHomeDefaultTokenMapKey,
   getFilteredTokenBySearchKey,
@@ -71,6 +72,11 @@ import { TokenListItem } from './TokenListItem';
 import { TokenListViewContext } from './TokenListViewContext';
 import { getTokenListOwnerCacheAccountId } from './utils';
 
+import type {
+  IScopedActiveTokenList,
+  IScopedActiveTokenListState,
+} from '../TokenSelectorFilter/utils';
+
 type IProps = {
   accountId: string;
   networkId: string;
@@ -106,6 +112,9 @@ type IProps = {
   };
   emptyAccountView?: ReactNode;
   showActiveAccountTokenList?: boolean;
+  scopedActiveAccountTokenList?: IScopedActiveTokenList;
+  scopedActiveAccountTokenListState?: IScopedActiveTokenListState;
+  scopedActiveAccountTokenListMap?: Record<string, ITokenFiat>;
   onRefresh?: () => void;
   listViewStyleProps?: Pick<
     ComponentProps<typeof ListView>,
@@ -194,7 +203,7 @@ function TokenListViewCmp(props: IProps) {
     isSliced: true,
   });
 
-  const [activeAccountTokenList] = useActiveAccountTokenListAtom();
+  const [activeAccountTokenListAtomValue] = useActiveAccountTokenListAtom();
   const [tokenList] = useTokenListAtom();
   const [allTokenList] = useAllTokenListAtom();
   const [tokenListMap] = useTokenListMapAtom();
@@ -211,7 +220,18 @@ function TokenListViewCmp(props: IProps) {
   // Use ref to avoid useMemo→useEffect→setState cycle
   const renderedTokenListCacheRef = useRef(renderedTokenListCache);
   renderedTokenListCacheRef.current = renderedTokenListCache;
-  const [activeAccountTokenListState] = useActiveAccountTokenListStateAtom();
+  const [activeAccountTokenListStateAtomValue] =
+    useActiveAccountTokenListStateAtom();
+  const activeAccountTokenList =
+    props.scopedActiveAccountTokenList ?? activeAccountTokenListAtomValue;
+  const activeAccountTokenListState =
+    props.scopedActiveAccountTokenListState ??
+    activeAccountTokenListStateAtomValue;
+  const activeAccountTokenListMap =
+    props.scopedActiveAccountTokenListMap ?? tokenListMap;
+  const visibleTokenListMap = showActiveAccountTokenList
+    ? activeAccountTokenListMap
+    : tokenListMap;
 
   const tokenManagementEnabled =
     !deferTokenManagement || tokenListState.initialized;
@@ -282,7 +302,7 @@ function TokenListViewCmp(props: IProps) {
     if (hideZeroBalanceTokens) {
       resultTokens = resultTokens.filter((item) => {
         const tokenBalance = new BigNumber(
-          tokenListMap[item.$key]?.balance ??
+          visibleTokenListMap[item.$key]?.balance ??
             aggregateTokenMap[item.$key]?.balance ??
             0,
         );
@@ -321,7 +341,9 @@ function TokenListViewCmp(props: IProps) {
     }
 
     if (hideDeFiMarkedTokens) {
-      resultTokens = resultTokens.filter((item) => !item.defiMarked);
+      resultTokens = resultTokens.filter(
+        (item) => !isTokenSelectorDappToken(item),
+      );
     }
 
     if (exchangeFilter?.supportedAssets) {
@@ -373,7 +395,7 @@ function TokenListViewCmp(props: IProps) {
     activeAccountTokenList.tokens,
     tokenList.tokens,
     smallBalanceTokenList.smallBalanceTokens,
-    tokenListMap,
+    visibleTokenListMap,
     aggregateTokenMap,
     keepDefaultZeroBalanceTokens,
     homeDefaultTokenMap,
@@ -512,7 +534,7 @@ function TokenListViewCmp(props: IProps) {
           tokens: resp,
           sortDirection,
           map: {
-            ...tokenListMap,
+            ...visibleTokenListMap,
             ...aggregateTokenMap,
           },
         });
@@ -521,7 +543,7 @@ function TokenListViewCmp(props: IProps) {
           tokens: resp,
           sortDirection,
           map: {
-            ...tokenListMap,
+            ...visibleTokenListMap,
             ...aggregateTokenMap,
           },
         });
@@ -546,7 +568,7 @@ function TokenListViewCmp(props: IProps) {
     searchKeyLengthThreshold,
     sortType,
     sortDirection,
-    tokenListMap,
+    visibleTokenListMap,
     aggregateTokenMap,
   ]);
 
@@ -934,6 +956,12 @@ function TokenListViewCmp(props: IProps) {
 }
 
 const TokenListView = memo((props: IProps) => {
+  const [tokenListMap] = useTokenListMapAtom();
+  const activeAccountTokenListMap =
+    props.scopedActiveAccountTokenListMap ?? tokenListMap;
+  const visibleTokenListMap = props.showActiveAccountTokenList
+    ? activeAccountTokenListMap
+    : tokenListMap;
   const needNetworksMap =
     !!props.isAllNetworks && (!!props.showNetworkIcon || !!props.withNetwork);
   const { result: allNetworksResp } = usePromiseResult<{
@@ -966,8 +994,9 @@ const TokenListView = memo((props: IProps) => {
     return {
       allAggregateTokenMap: props.allAggregateTokenMap,
       networksMap,
+      tokenListMap: visibleTokenListMap,
     };
-  }, [props.allAggregateTokenMap, networksMap]);
+  }, [props.allAggregateTokenMap, networksMap, visibleTokenListMap]);
 
   return (
     <TokenListViewContext.Provider value={contextValue}>

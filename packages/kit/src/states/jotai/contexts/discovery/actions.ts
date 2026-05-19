@@ -100,10 +100,11 @@ function isNewTabPositionTop() {
 
 function isLocalhostUrlAllowedInDAppBrowser() {
   const devSettings = jotaiDefaultStore.get(devSettingsPersistAtom.atom());
-  return Boolean(
+  const result = Boolean(
     devSettings?.enabled &&
     devSettings.settings?.allowLocalhostUrlInDAppBrowser,
   );
+  return result;
 }
 
 export const homeResettingFlags: Record<string, number> = {};
@@ -281,7 +282,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   addWebTab = contextAtomMethod((get, set, payload: Partial<IWebTab>) => {
-    const startTime = performance.now();
     const { tabs } = get(webTabsAtom());
     if (!payload.id || payload.id === homeTab.id) {
       payload.id = generateUUID();
@@ -297,8 +297,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     }
     this.buildWebTabs.call(set, { data: [...tabs, payload as IWebTab] });
     this.setCurrentWebTab.call(set, payload.id ?? '');
-    const endTime = performance.now();
-    console.log(`addBlankWebTab took ${endTime - startTime} milliseconds.`);
   });
 
   addBlankWebTab = contextAtomMethod((_, set) => {
@@ -363,6 +361,48 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     }
   });
 
+  openUrlInHomeTab = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        id: string;
+        url: string;
+        title?: string;
+        favicon?: string;
+        isBookmark?: boolean;
+        siteMode?: ESiteMode;
+      },
+    ) => {
+      const { tabs } = get(webTabsAtom());
+      const tabIndex = tabs.findIndex((t) => t.id === payload.id);
+      if (tabIndex === -1) {
+        return;
+      }
+
+      const previousTab = tabs[tabIndex];
+      const nextTab: IWebTab = {
+        ...previousTab,
+        url: payload.url,
+        title: payload.title || previousTab.title,
+        favicon: payload.favicon ?? previousTab.favicon,
+        isBookmark: payload.isBookmark,
+        siteMode: payload.siteMode,
+        type: 'normal',
+        timestamp: previousTab.timestamp ?? Date.now(),
+      };
+
+      lastNavigationFlags[payload.id] = Date.now();
+
+      const nextTabs = [...tabs];
+      nextTabs[tabIndex] = nextTab;
+      this.buildWebTabs.call(set, {
+        data: nextTabs,
+        options: { forceUpdate: true },
+      });
+    },
+  );
+
   buildClosedTabData = contextAtomMethod((get, set, payload: IWebTab[]) => {
     const isReady = get(browserDataReadyAtom());
     if (!isReady) {
@@ -413,6 +453,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
       if (targetIndex !== -1) {
         const closedTab = tabs[targetIndex];
+        const activeTabId = get(activeTabIdAtom());
+        const isClosingCurrentTab =
+          closedTab.isActive || activeTabId === closedTab.id;
         tabs.splice(targetIndex, 1);
 
         // Add to browser history when tab is closed
@@ -425,6 +468,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
 
         const activateAdjacentTab = () => {
+          if (platformEnv.isNative) {
+            if (isClosingCurrentTab || !activeTabId) {
+              this.setCurrentWebTab.call(set, null);
+              return;
+            }
+          }
+
           let newActiveTabIndex = targetIndex - 1;
 
           if (newActiveTabIndex < 0 && tabs.length > 0) {
@@ -699,7 +749,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         next: IBrowserBookmark | undefined;
       },
     ) => {
-      console.log('sortBrowserBookmark_____', payload);
       const { target, prev, next } = payload;
       const newSortIndex = sortUtils.buildNewSortIndex({
         target,
@@ -807,11 +856,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         isInPlace,
       }: IGotoSiteFnParams,
     ) => {
-      const tab = this.getWebTabById.call(set, id ?? '');
       if (url) {
         const allowLocalhostUrl = isLocalhostUrlAllowedInDAppBrowser();
-        const shouldBlockLocalhostUrl =
-          !allowLocalhostUrl && uriUtils.isLocalhostUrl(url);
+        const isLocalhost = uriUtils.isLocalhostUrl(url);
+        const shouldBlockLocalhostUrl = !allowLocalhostUrl && isLocalhost;
         const validatedUrl = shouldBlockLocalhostUrl
           ? uriUtils.ensureHttpPrefix(url)
           : uriUtils.validateUrl(url, {
@@ -825,6 +873,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           return openUrlInApp(validatedUrl);
         }
 
+        const tab = this.getWebTabById.call(set, id ?? '');
         const tabId = tab?.id;
 
         const thisTab = this.getWebTabById.call(set, tabId ?? '');
@@ -834,7 +883,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             : (isNewWindow || !tabId || tabId === 'home') &&
               browserTypeHandler === 'MultiTabBrowser';
 
-        if (thisTab?.type === 'home') {
+        const shouldOpenInHomeTab = thisTab?.type === 'home';
+        if (shouldOpenInHomeTab) {
           isNewTab = false;
         }
 
@@ -851,6 +901,18 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             siteMode,
             type: 'normal',
           });
+        } else if (shouldOpenInHomeTab && tabId) {
+          this.openUrlInHomeTab.call(set, {
+            id: tabId,
+            url: validatedUrl,
+            title,
+            favicon,
+            isBookmark,
+            siteMode,
+          });
+          if (!isInPlace) {
+            this.setCurrentWebTab.call(set, tabId);
+          }
         } else {
           this.setWebTabData.call(set, {
             id: tabId,
@@ -865,7 +927,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           }
         }
 
-        if (!isNewTab && !isInPlace) {
+        if (!isNewTab && !isInPlace && !shouldBlockLocalhostUrl) {
           crossWebviewLoadUrl({
             url: validatedUrl,
             tabId,
@@ -920,7 +982,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         webSite,
         dApp,
       }: {
-        navigation: ReturnType<typeof useAppNavigation>;
+        navigation?: ReturnType<typeof useAppNavigation>;
         useCurrentWindow?: boolean;
         tabId?: string;
         webSite?: IMatchDAppItemType['webSite'];
@@ -965,7 +1027,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
                 { number: MaximumNumberOfTabs },
               ),
             });
-            return;
+            return false;
           }
         }
         const opened = await this.openMatchDApp.call(set, {
@@ -977,12 +1039,31 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         if (opened) {
           this.setDisplayHomePage.call(set, false);
         }
+        return opened;
       };
 
       if (needsSwitchTab) {
         const targetTab = platformEnv.isDesktop
           ? ETabRoutes.MultiTabBrowser
           : ETabRoutes.Discovery;
+
+        if (platformEnv.isDesktop) {
+          // Desktop renders the previous active web tab immediately after
+          // switching to MultiTabBrowser. Create and activate the destination
+          // tab first, then reveal MultiTabBrowser to avoid a visible flash of
+          // the old active tab.
+          void (async () => {
+            const opened = await openDApp();
+            if (opened) {
+              appEventBus.emit(
+                EAppEventBusNames.ClearSavedBrowserActiveTab,
+                undefined,
+              );
+              await switchTabAsync(targetTab);
+            }
+          })();
+          return;
+        }
 
         // Serialize: dismiss any overlay (e.g. UniversalSearchModal) first,
         // then switch tab, wait for settle, then open the DApp page.
@@ -1044,11 +1125,12 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
       if (url) {
         const cache = get(phishingLruCacheAtom());
+        const allowLocalhostUrl = isLocalhostUrlAllowedInDAppBrowser();
         const { action } = uriUtils.parseDappRedirect(
           url,
           Array.from(cache.keys()),
           {
-            allowLocalhostUrl: isLocalhostUrlAllowedInDAppBrowser(),
+            allowLocalhostUrl,
           },
         );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
@@ -1065,7 +1147,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (isValidNewUrl) {
         const lastNav = lastNavigationFlags[tab.id];
         if (lastNav && now - lastNav < 500) {
-          // ignore url change if it's too fast to avoid back & forth loop
           return;
         }
         if (
@@ -1184,14 +1265,17 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   validateWebviewSrc = contextAtomMethod(
     (get, _, payload: { url: string; isTopFrame?: boolean }) => {
       const { url, isTopFrame = true } = payload;
-      if (!url) return EValidateUrlEnum.InvalidUrl;
+      if (!url) {
+        return EValidateUrlEnum.InvalidUrl;
+      }
       const cache = get(phishingLruCacheAtom());
+      const allowLocalhostUrl = isLocalhostUrlAllowedInDAppBrowser();
       const { action } = uriUtils.parseDappRedirect(
         url,
         Array.from(cache.keys()),
         {
           isTopFrame,
-          allowLocalhostUrl: isLocalhostUrlAllowedInDAppBrowser(),
+          allowLocalhostUrl,
         },
       );
       if (action === uriUtils.EDAppOpenActionEnum.DENY) {
@@ -1211,7 +1295,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 }
 
 const createActions = memoFn(() => {
-  console.log('new ContextJotaiActionsDiscovery()', Date.now());
   return new ContextJotaiActionsDiscovery();
 });
 

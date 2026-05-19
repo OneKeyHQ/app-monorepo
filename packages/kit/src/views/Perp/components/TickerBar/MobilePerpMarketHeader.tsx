@@ -59,7 +59,9 @@ function MobilePerpMarketHeader() {
   const isSpot = mode === 'spot';
   const spotCtxForActiveCoin =
     spotAssetCtx?.coin === coin ? spotAssetCtx.ctx : undefined;
-  const currentCtx = isSpot ? spotCtxForActiveCoin : assetCtx?.ctx;
+  const perpCtxForActiveCoin =
+    assetCtx?.coin === coin ? assetCtx.ctx : undefined;
+  const currentCtx = isSpot ? spotCtxForActiveCoin : perpCtxForActiveCoin;
 
   useEffect(() => {
     void backgroundApiProxy.simpleDb.perp
@@ -82,7 +84,7 @@ function MobilePerpMarketHeader() {
   const volume24h = currentCtx?.volume24h ?? '0';
   const change24hPercent = currentCtx?.change24hPercent ?? 0;
   // Perp-only fields
-  const perpCtx = assetCtx?.ctx;
+  const perpCtx = perpCtxForActiveCoin;
   const fundingRate = perpCtx?.fundingRate ?? '0';
   const openInterest = perpCtx?.openInterest ?? '0';
   // Spot-only fields

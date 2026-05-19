@@ -198,6 +198,7 @@ function ReceiveSelectorContent() {
         accountId,
         indexedAccountId,
         closeAfterSelect: false,
+        showDeFiTokenSwitch: true,
         aggregateTokenSelectorScreen:
           EModalReceiveRoutes.ReceiveSelectAggregateToken,
         exchangeFilter: {
@@ -289,6 +290,7 @@ function ReceiveSelectorContent() {
           accountId,
           indexedAccountId,
           closeAfterSelect: false,
+          showDeFiTokenSwitch: true,
           aggregateTokenSelectorScreen:
             EModalReceiveRoutes.ReceiveSelectAggregateToken,
           onSelect: async (selectedToken: IToken) => {
@@ -454,10 +456,10 @@ function ReceiveSelectorContent() {
                 testID={ReceiveTestIDs.ReceiveFromWalletOption}
                 icon="QrCodeOutline"
                 title={intl.formatMessage({
-                  id: ETranslations.receive_from_another_wallet,
+                  id: ETranslations.receive_transfer,
                 })}
                 subtitle={intl.formatMessage({
-                  id: ETranslations.receive_from_another_wallet_desc,
+                  id: ETranslations.receive_transfer_desc,
                 })}
                 onPress={() =>
                   handleReceiveOnPress({

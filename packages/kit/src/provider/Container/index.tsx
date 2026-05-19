@@ -1,8 +1,11 @@
+import { useEffect } from 'react';
+
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { ESplitViewType, SplitViewContext } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { setSplitViewLayoutDisabled } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
 import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
@@ -97,6 +100,15 @@ export function Container() {
     debugLandingLog('Container render');
   }
   const shouldUseSplitView = useShouldUseSplitView();
+
+  // Tell the dual-screen width helper whether the app is rendering as a single
+  // logical pane. Without this, a foldable Android in spanning mode would
+  // always halve the tab-container width even after the user disabled the
+  // split-view setting — leaving Wallet/Home content stuck on the left half.
+  useEffect(() => {
+    setSplitViewLayoutDisabled(!shouldUseSplitView);
+  }, [shouldUseSplitView]);
+
   if (shouldUseSplitView) {
     return (
       <RootSiblingParent>
