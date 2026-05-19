@@ -36,6 +36,36 @@ import type {
 
 type IListProps<Item> = FlashListProps<Item>;
 
+// Web-only fast-path hook: callers that know each row's height ahead of time
+// can return a number here to bypass react-virtualized's CellMeasurer entirely
+// for that row. Skipping CellMeasurer eliminates async measurement, the
+// recomputeRowHeights cascade it triggers, and the resulting visual blank on
+// fast scroll where rows render at stale absolute positions.
+//
+// IMPORTANT: this prop is a no-op on native — native tabs go through
+// `index.native.tsx` (FlashList / SectionList), not through this file. Use
+// `estimatedItemSize` / `overrideItemLayout` for native sizing.
+//
+// Return `undefined` for any row type whose height isn't statically known;
+// those rows fall back to CellMeasurer.
+export type IWebRowHeightInfo<Item> = {
+  type:
+    | 'item'
+    | 'section-item'
+    | 'section-header'
+    | 'section-footer'
+    | 'header'
+    | 'footer';
+  rowIndex: number;
+  item?: Item;
+  itemIndex?: number;
+  sectionIndex?: number;
+};
+
+export type IGetWebRowHeight<Item> = (
+  info: IWebRowHeightInfo<Item>,
+) => number | undefined;
+
 type IListData<Item> =
   | {
       type: 'header';
@@ -99,6 +129,7 @@ export function List<Item>({
   onEndReachedThreshold = 0.5,
   onMouseEnter,
   onMouseLeave,
+  getWebRowHeight,
 }: Omit<IListProps<Item>, 'ListEmptyComponent'> &
   Omit<ISectionListProps<Item>, 'ListEmptyComponent'> & {
     ListEmptyComponent?: ReactNode | ComponentType<any>;
@@ -108,6 +139,10 @@ export function List<Item>({
     onEndReachedThreshold?: number;
     onMouseEnter?: MouseEventHandler<HTMLDivElement>;
     onMouseLeave?: MouseEventHandler<HTMLDivElement>;
+    /**
+     * Web-only fast path. See `IGetWebRowHeight` doc above. No-op on native.
+     */
+    getWebRowHeight?: IGetWebRowHeight<Item>;
   }) {
   const {
     registerChild,
@@ -230,6 +265,60 @@ export function List<Item>({
     [keyExtractor],
   );
 
+  // Resolve a caller-supplied static height for a row, or undefined if the
+  // caller didn't provide one (or returned undefined for this row).
+  const resolveStaticHeight = useCallback(
+    (
+      item: IListData<Item> | undefined,
+      rowIndex: number,
+    ): number | undefined => {
+      if (!getWebRowHeight || !item) return undefined;
+      let info: IWebRowHeightInfo<Item>;
+      if (item.type === 'section-item') {
+        info = {
+          type: item.type,
+          rowIndex,
+          item: item.data.item,
+          itemIndex: item.data.itemIndex,
+          sectionIndex: item.data.sectionIndex,
+        };
+      } else if (
+        item.type === 'section-header' ||
+        item.type === 'section-footer'
+      ) {
+        info = {
+          type: item.type,
+          rowIndex,
+          sectionIndex: item.data.sectionIndex,
+        };
+      } else if (item.type === 'item') {
+        info = {
+          type: item.type,
+          rowIndex,
+          item: item.data,
+          itemIndex: rowIndex,
+        };
+      } else {
+        info = { type: item.type, rowIndex };
+      }
+      const h = getWebRowHeight(info);
+      return typeof h === 'number' ? h : undefined;
+    },
+    [getWebRowHeight],
+  );
+
+  // rowHeight resolver passed to VirtualizedList. Prefer the static height
+  // when known (fast path), otherwise fall back to CellMeasurer's cache.
+  const getRowHeight = useCallback(
+    ({ index }: { index: number }) => {
+      const item = listData[index];
+      const staticH = resolveStaticHeight(item, index);
+      if (typeof staticH === 'number') return staticH;
+      return cache.rowHeight({ index });
+    },
+    [listData, resolveStaticHeight, cache],
+  );
+
   const isVisible = useMemo(() => {
     return focusedTabValue === currentTabName;
   }, [focusedTabValue, currentTabName]);
@@ -326,6 +415,19 @@ export function List<Item>({
             : null;
       }
 
+      // Fast path: if the caller declared this row's height statically, we
+      // can render the row plainly and skip CellMeasurer entirely. That
+      // avoids the async getBoundingClientRect + recomputeRowHeights cascade
+      // that drives the "blank during fast scroll" symptom.
+      const staticH = resolveStaticHeight(item, index);
+      if (typeof staticH === 'number') {
+        return (
+          <div key={key || index} style={style}>
+            {element as React.ReactNode}
+          </div>
+        );
+      }
+
       if (parent) {
         return (
           <CellMeasurer
@@ -357,6 +459,7 @@ export function List<Item>({
       renderItem,
       data,
       cache,
+      resolveStaticHeight,
     ],
   );
 
@@ -512,7 +615,7 @@ export function List<Item>({
   );
 
   const listProps = useMemo(() => {
-    return {
+    const base = {
       ref: listRef as any,
       autoHeight: true,
       height,
@@ -522,8 +625,15 @@ export function List<Item>({
       onScroll: isVisible ? handleScroll : undefined,
       scrollTop: isVisible && listData.length > 0 ? scrollTop : 0,
       overscanRowCount: 25,
-      deferredMeasurementCache: cache,
     };
+    // When the caller provides static heights via getWebRowHeight we want the
+    // rowHeight prop to be the source of truth. Passing deferredMeasurementCache
+    // here causes react-virtualized's Grid to consult the cache instead of
+    // rowHeight for layout offsets, which collapses every row to top=0 when
+    // the cache has no entry yet (fast path skipped CellMeasurer entirely).
+    return getWebRowHeight
+      ? base
+      : { ...base, deferredMeasurementCache: cache };
   }, [
     height,
     listData,
@@ -532,6 +642,7 @@ export function List<Item>({
     handleScroll,
     scrollTop,
     cache,
+    getWebRowHeight,
   ]);
 
   if (numColumns > 1) {
@@ -575,7 +686,7 @@ export function List<Item>({
               {...listProps}
               width={autoSizerWidth}
               height={autoSizerHeight || height || 400}
-              rowHeight={cache.rowHeight}
+              rowHeight={getRowHeight}
               rowRenderer={rowRenderer}
               noRowsRenderer={noContentRenderer}
             />
