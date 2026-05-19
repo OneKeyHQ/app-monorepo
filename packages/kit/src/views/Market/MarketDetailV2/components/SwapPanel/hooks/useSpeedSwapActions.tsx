@@ -86,6 +86,8 @@ import {
   buildMarketGasInfoFeeInfo,
   estimateMarketApproveGasInfos,
   estimateMarketDirectGasInfos,
+  estimateMarketPresetGasFeeFiatValues,
+  resolveMarketPresetNativeTokenPrice,
   sendMarketDirectUnsignedTxs,
 } from './marketDirectSendTx';
 import { resolveMarketReviewAllowanceState } from './marketReviewAllowance';
@@ -117,6 +119,8 @@ import {
 } from './marketSwapReviewUtils';
 import { usePaymentTokenPrice } from './usePaymentTokenPrice';
 import { ESwapDirection } from './useTradeType';
+
+import type { IMarketPresetPriorityFeeOverride } from './marketPresetSettings';
 
 export type IMarketSwapReviewAdapter = ISwapReviewAdapter;
 
@@ -188,6 +192,40 @@ export function buildMarketReviewTokens({
       price: resolvedPrice,
     },
   };
+}
+
+function getMarketPresetQuoteGasLimitForDisplay(
+  quoteResult?: IFetchQuoteResult,
+) {
+  const gasLimitBN = new BigNumber(quoteResult?.gasLimit ?? 0);
+  if (gasLimitBN.isNaN() || !gasLimitBN.isFinite() || gasLimitBN.lte(0)) {
+    return undefined;
+  }
+
+  return gasLimitBN.toFixed(0);
+}
+
+function pickMarketPresetQuoteGasLimitForDisplay({
+  provider,
+  providerName,
+  quotes,
+}: {
+  provider?: string;
+  providerName?: string;
+  quotes?: IFetchQuoteResult[];
+}) {
+  const selectedQuote = pickMarketQuoteResultByProvider({
+    provider,
+    providerName,
+    quotes,
+  });
+
+  return (
+    getMarketPresetQuoteGasLimitForDisplay(selectedQuote) ??
+    getMarketPresetQuoteGasLimitForDisplay(
+      quotes?.find((quote) => getMarketPresetQuoteGasLimitForDisplay(quote)),
+    )
+  );
 }
 
 export function useSpeedSwapActions(props: {
@@ -1206,6 +1244,102 @@ export function useSpeedSwapActions(props: {
       };
     },
     [buildMarketApproveUnsignedTxArr, buildReviewStepTexts, slippage],
+  );
+
+  const estimateMarketPresetNetworkFees = useCallback(
+    async ({
+      items,
+    }: {
+      items: {
+        customPriorityFee?: IMarketPresetPriorityFeeOverride;
+        networkFeeLevel?: ESwapNetworkFeeLevel;
+      }[];
+    }) => {
+      const accountAddress =
+        netAccountRes.result?.addressDetail.address ??
+        account?.account?.address ??
+        '';
+      const accountId = netAccountRes.result?.id ?? account?.account?.id ?? '';
+      const networkId = fromToken.networkId;
+
+      if (!accountAddress || !accountId || !networkId) {
+        return items.map(() => undefined);
+      }
+
+      const nativeTokenPrice = await resolveMarketPresetNativeTokenPrice({
+        networkId,
+        currencyId: settingsAtom.currencyInfo.id,
+        tokens: [fromToken, toToken],
+      });
+      let gasLimitForDisplay: string | undefined;
+      const amountBN = new BigNumber(fromTokenAmountDebounced || 0);
+
+      if (
+        !amountBN.isNaN() &&
+        amountBN.isFinite() &&
+        amountBN.gt(0) &&
+        !isWrapped
+      ) {
+        try {
+          if (isStock) {
+            gasLimitForDisplay = getMarketPresetQuoteGasLimitForDisplay(
+              await backgroundApiProxy.serviceSwap.fetchSpeedMarketQuote({
+                accountId,
+                fromToken,
+                fromTokenAmount: fromTokenAmountDebounced,
+                receivingAddress: accountAddress,
+                slippagePercentage: slippage,
+                toToken,
+                userAddress: accountAddress,
+              }),
+            );
+          } else {
+            const quotes =
+              await backgroundApiProxy.serviceSwap.fetchSpeedSwapQuote({
+                accountId,
+                autoSlippage: false,
+                fromToken,
+                fromTokenAmount: fromTokenAmountDebounced,
+                kind: ESwapQuoteKind.SELL,
+                protocol: ESwapTabSwitchType.SWAP,
+                receivingAddress: accountAddress,
+                slippagePercentage: slippage,
+                toToken,
+                userAddress: accountAddress,
+              });
+            gasLimitForDisplay = pickMarketPresetQuoteGasLimitForDisplay({
+              provider,
+              quotes,
+            });
+          }
+        } catch {
+          gasLimitForDisplay = undefined;
+        }
+      }
+
+      return estimateMarketPresetGasFeeFiatValues({
+        accountAddress,
+        accountId,
+        gasLimitForDisplay,
+        items,
+        nativeTokenPrice,
+        networkId,
+      });
+    },
+    [
+      fromToken,
+      fromTokenAmountDebounced,
+      account?.account?.address,
+      account?.account?.id,
+      isStock,
+      isWrapped,
+      netAccountRes.result?.addressDetail.address,
+      netAccountRes.result?.id,
+      provider,
+      settingsAtom.currencyInfo.id,
+      slippage,
+      toToken,
+    ],
   );
 
   const prepareMarketSwapReview = useCallback<
@@ -2861,6 +2995,7 @@ export function useSpeedSwapActions(props: {
     isWrapped,
     speedCheckError,
     speedCheckLoading,
+    estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,
     sendMarketApproveTx,
     sendMarketSwapTx,

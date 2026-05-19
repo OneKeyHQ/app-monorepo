@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { RefreshControl, ScrollView } from 'react-native';
 
 import {
@@ -10,6 +11,7 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { EPageType } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProErrorAlertAtom,
@@ -17,18 +19,34 @@ import {
   useSwapProSliderValueAtom,
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchLimitOrderRes,
+  IFetchQuoteResult,
   ISwapProSpeedConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapProTradeType,
+  ESwapQuoteKind,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
-import { MarketPresetSelector } from '../../../Market/MarketDetailV2/components/SwapPanel/components/MarketPresetSelector';
+import {
+  type IEstimateMarketPresetPriorityFeeFiatValues,
+  type IMarketPresetPriorityFeeFiatEstimateMap,
+  MarketPresetSelector,
+} from '../../../Market/MarketDetailV2/components/SwapPanel/components/MarketPresetSelector';
+import {
+  estimateMarketPresetGasFeeFiatValues,
+  resolveMarketPresetNativeTokenPrice,
+} from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
 import SwapProErrorAlert from '../../components/SwapProErrorAlert';
 import {
   useSwapPositionsSupportTokenListAction,
+  useSwapProInputToken,
+  useSwapProToToken,
   useSwapProTokenDetailInfo,
   useSwapProTokenInfoSync,
 } from '../../hooks/useSwapPro';
@@ -41,6 +59,20 @@ import SwapProTradingPanel from './SwapProTradingPanel';
 import SwapTipsContainer from './SwapTipsContainer';
 
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
+
+function getSwapProMarketPresetGasLimitForDisplay(
+  quotes?: IFetchQuoteResult[],
+) {
+  const quoteWithGasLimit = quotes?.find((quote) => {
+    const gasLimitBN = new BigNumber(quote.gasLimit ?? 0);
+    return gasLimitBN.isFinite() && !gasLimitBN.isNaN() && gasLimitBN.gt(0);
+  });
+  const gasLimitBN = new BigNumber(quoteWithGasLimit?.gasLimit ?? 0);
+
+  return gasLimitBN.isFinite() && !gasLimitBN.isNaN() && gasLimitBN.gt(0)
+    ? gasLimitBN.toFixed(0)
+    : undefined;
+}
 
 interface ISwapProContainerProps {
   pageType?: EPageType;
@@ -93,7 +125,8 @@ const SwapProContainer = ({
     value: '',
     change: false,
   });
-  const [, setSwapProInputAmount] = useSwapProInputAmountAtom();
+  const [swapProInputAmount, setSwapProInputAmount] =
+    useSwapProInputAmountAtom();
   const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapProSliderValue] = useSwapProSliderValueAtom();
   const tabBarHeight = useScrollContentTabBarOffset();
@@ -101,8 +134,11 @@ const SwapProContainer = ({
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [settingsAtom] = useSettingsPersistAtom();
   const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
     useSwapProTokenInfoSync();
+  const inputToken = useSwapProInputToken();
+  const toToken = useSwapProToToken();
   // Delay rendering heavy components to improve initial render performance
   const [shouldRenderHeavyComponents, setShouldRenderHeavyComponents] =
     useState(false);
@@ -171,6 +207,89 @@ const SwapProContainer = ({
     shouldRenderHeavyComponents &&
     swapProTradeType === ESwapProTradeType.MARKET &&
     !!marketPresetSettings?.enabled;
+  const estimatePriorityFeeFiatValues =
+    useCallback<IEstimateMarketPresetPriorityFeeFiatValues>(
+      async ({ items }) => {
+        const estimates: IMarketPresetPriorityFeeFiatEstimateMap = {};
+        const accountAddress =
+          netAccountRes.result?.addressDetail.address ?? '';
+        const accountId = netAccountRes.result?.id ?? '';
+        const networkId = inputToken?.networkId ?? '';
+
+        if (!accountAddress || !accountId || !networkId) {
+          items.forEach((item) => {
+            estimates[item.type] = undefined;
+          });
+          return estimates;
+        }
+
+        const nativeTokenPrice = await resolveMarketPresetNativeTokenPrice({
+          networkId,
+          currencyId: settingsAtom.currencyInfo.id,
+          tokens: [inputToken, toToken],
+        });
+        let gasLimitForDisplay: string | undefined;
+        const amountBN = new BigNumber(swapProInputAmount || 0);
+
+        if (
+          inputToken &&
+          toToken &&
+          !amountBN.isNaN() &&
+          amountBN.isFinite() &&
+          amountBN.gt(0)
+        ) {
+          try {
+            gasLimitForDisplay = getSwapProMarketPresetGasLimitForDisplay(
+              await backgroundApiProxy.serviceSwap.fetchSpeedSwapQuote({
+                accountId,
+                autoSlippage: false,
+                fromToken: inputToken,
+                fromTokenAmount: swapProInputAmount,
+                kind: ESwapQuoteKind.SELL,
+                protocol: ESwapTabSwitchType.SWAP,
+                receivingAddress: accountAddress,
+                slippagePercentage:
+                  marketPresetSettings?.selectedSlippageValue ??
+                  speedConfig.slippage ??
+                  1,
+                toToken,
+                userAddress: accountAddress,
+              }),
+            );
+          } catch {
+            gasLimitForDisplay = undefined;
+          }
+        }
+
+        const feeValues = await estimateMarketPresetGasFeeFiatValues({
+          accountAddress,
+          accountId,
+          gasLimitForDisplay,
+          networkId,
+          nativeTokenPrice,
+          items: items.map((item) => ({
+            customPriorityFee: item.customPriorityFee,
+            networkFeeLevel: item.networkFeeLevel,
+          })),
+        });
+
+        items.forEach((item, index) => {
+          estimates[item.type] = feeValues[index];
+        });
+
+        return estimates;
+      },
+      [
+        inputToken,
+        marketPresetSettings?.selectedSlippageValue,
+        netAccountRes.result?.addressDetail.address,
+        netAccountRes.result?.id,
+        settingsAtom.currencyInfo.id,
+        speedConfig.slippage,
+        swapProInputAmount,
+        toToken,
+      ],
+    );
 
   return (
     <ScrollView
@@ -275,6 +394,7 @@ const SwapProContainer = ({
         <YStack pb="$3">
           <MarketPresetSelector
             antiMEV={isMEV}
+            estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
             presetSettings={marketPresetSettings}
             showAutoSlippageLabel
           />
