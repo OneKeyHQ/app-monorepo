@@ -153,3 +153,7 @@ apps/mobile/android/app/src/main/assets/modules.json
 /_bmad/
 /_bmad-output/
 /.skillshare/skills/bmad-*
+
+# native-debug-bridge standalone project
+debug/node_modules/
+debug/dist/

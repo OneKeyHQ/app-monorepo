@@ -1,0 +1,42 @@
+{
+  "name": "@onekey/native-debug-bridge",
+  "version": "0.1.0-mvp",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "description": "AI-accessible debug bridge for OneKey iOS/Android (CDP/Frida/Native unified)",
+  "bin": {
+    "odb": "./bin/odb.js",
+    "odb-mcp": "./bin/odb-mcp.js",
+    "odbd": "./bin/odbd.js"
+  },
+  "scripts": {
+    "dev": "tsx watch src/daemon/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/daemon/main.js",
+    "doctor": "tsx src/cli/main.ts doctor",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "chrome-remote-interface": "^0.33.2",
+    "commander": "^12.1.0",
+    "execa": "^9.5.1",
+    "frida": "^16.5.6",
+    "pino": "^9.5.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/chrome-remote-interface": "^0.31.14",
+    "@types/node": "^22.10.1",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

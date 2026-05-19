@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.log
+.pnp.*
+.yarn/cache
+.yarn/install-state.gz
+.vscode/
+.DS_Store
