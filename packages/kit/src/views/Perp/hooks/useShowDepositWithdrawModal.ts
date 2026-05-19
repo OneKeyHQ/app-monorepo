@@ -17,12 +17,18 @@ export function useShowDepositWithdrawModal() {
   const showModal = useCallback(
     async (actionType: IPerpsDepositWithdrawActionType = 'deposit') => {
       if (gtMd) {
-        await showDepositWithdrawDialog(
-          {
-            actionType,
-          },
-          dialogInTab,
-        );
+        if (actionType === 'deposit') {
+          navigation.pushModal(EModalRoutes.PerpModal, {
+            screen: EModalPerpRoutes.PerpPortfolioModal,
+          });
+        } else {
+          await showDepositWithdrawDialog(
+            {
+              actionType,
+            },
+            dialogInTab,
+          );
+        }
       } else {
         navigation.pushModal(EModalRoutes.PerpModal, {
           screen: EModalPerpRoutes.MobileDepositWithdrawModal,

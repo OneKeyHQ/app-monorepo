@@ -46,6 +46,10 @@ const PerpGuidePage = LazyLoadPage(
   () => import('../components/Guide/PerpGuidePage'),
 );
 
+const PerpPortfolioModal = LazyLoadPage(
+  () => import('../components/TradingPanel/modals/PerpPortfolioModal'),
+);
+
 export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     rewrite: '/',
@@ -79,6 +83,10 @@ export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: EModalPerpRoutes.PerpGuidePage,
     component: PerpGuidePage,
+  },
+  {
+    name: EModalPerpRoutes.PerpPortfolioModal,
+    component: PerpPortfolioModal,
   },
 ];
 
@@ -118,5 +126,9 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   {
     name: EModalPerpRoutes.PerpGuidePage,
     component: PerpGuidePage,
+  },
+  {
+    name: EModalPerpRoutes.PerpPortfolioModal,
+    component: PerpPortfolioModal,
   },
 ];

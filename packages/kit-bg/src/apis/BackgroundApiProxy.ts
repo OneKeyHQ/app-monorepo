@@ -73,6 +73,7 @@ import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceReferralCode from '../services/ServiceReferralCode';
+import type ServiceRelay from '../services/ServiceRelay';
 import type ServiceRookieGuide from '../services/ServiceRookieGuide';
 import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
@@ -407,6 +408,8 @@ class BackgroundApiProxy
   serviceRookieGuide = this._createProxyService(
     'serviceRookieGuide',
   ) as ServiceRookieGuide;
+
+  serviceRelay = this._createProxyService('serviceRelay') as ServiceRelay;
 }
 
 export default BackgroundApiProxy;

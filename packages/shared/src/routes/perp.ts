@@ -9,6 +9,7 @@ export enum EModalPerpRoutes {
   PerpsInviteeRewardModal = 'PerpsInviteeRewardModal',
   MobilePortfolioPage = 'MobilePortfolioPage',
   PerpGuidePage = 'PerpGuidePage',
+  PerpPortfolioModal = 'PerpPortfolioModal',
 }
 
 export type IModalPerpParamList = {
@@ -17,9 +18,15 @@ export type IModalPerpParamList = {
   [EModalPerpRoutes.MobileTokenSelector]: undefined;
   [EModalPerpRoutes.MobileSetTpsl]: ISetTpslParams;
   [EModalPerpRoutes.MobileDepositWithdrawModal]: {
-    actionType?: 'deposit' | 'withdraw';
+    actionType?:
+      | 'deposit'
+      | 'depositSelect'
+      | 'withdraw'
+      | 'walletDeposit'
+      | 'relay';
   };
   [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;
   [EModalPerpRoutes.MobilePortfolioPage]: undefined;
   [EModalPerpRoutes.PerpGuidePage]: undefined;
+  [EModalPerpRoutes.PerpPortfolioModal]: undefined;
 };
