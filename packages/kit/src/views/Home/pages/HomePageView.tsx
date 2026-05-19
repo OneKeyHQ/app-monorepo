@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
+  DelayedFreeze,
   Icon,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
@@ -153,6 +154,28 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
     <Stack flex={1} {...homePageContentMaxWidthSx}>
       {children}
     </Stack>
+  );
+}
+
+// Tabs.Container mounts all 4 home tabs (Spot, DeFi, NFT, History) as
+// peer panes in a horizontal scroller, so React reconciles every block
+// on each Wallet unfreeze (or any HomePageView re-render) — including
+// the DeFi / NFT / History trees the user is not currently looking at.
+// Freezing the inactive panes drops that work back to the focused tab
+// only, which is what visibly happens already and matches the
+// freeze-on-blur strategy used at the outer tab-navigator level.
+function FreezeInactiveHomeTab({
+  tabName,
+  children,
+}: {
+  tabName: string;
+  children: React.ReactNode;
+}) {
+  const focusedTab = useFocusedTab();
+  return (
+    <DelayedFreeze freeze={!!focusedTab && focusedTab !== tabName}>
+      {children}
+    </DelayedFreeze>
   );
 }
 
@@ -693,7 +716,9 @@ export function HomePageView({
       >
         {tabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
-            {tab.component}
+            <FreezeInactiveHomeTab tabName={tab.name}>
+              {tab.component}
+            </FreezeInactiveHomeTab>
           </Tabs.Tab>
         ))}
       </Tabs.Container>
