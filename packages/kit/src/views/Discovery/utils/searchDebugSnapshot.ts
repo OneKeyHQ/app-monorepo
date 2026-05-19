@@ -189,7 +189,6 @@ export interface IDiscoverySearchDebugSnapshot {
 interface IBuildDiscoverySearchListParams {
   searchValue: string;
   searchActionTitle: string;
-  showSearchResult: boolean;
   searchResult?: IDApp[];
   rankingHistoryData?: IBrowserHistory[];
   localSearchData: IDiscoverySearchLocalData;
@@ -198,6 +197,7 @@ interface IBuildDiscoverySearchListParams {
 
 interface IBuildDiscoverySearchDebugSnapshotParams extends IBuildDiscoverySearchListParams {
   source: IDiscoverySearchDebugSnapshot['source'];
+  showSearchResult: boolean;
   shouldSkipRemoteSearch: boolean;
   localData: IDiscoverySearchLocalData | null;
 }
@@ -357,7 +357,6 @@ function buildSearchListDebugItem(
 export function buildDiscoverySearchListFromFactors({
   searchValue,
   searchActionTitle,
-  showSearchResult,
   searchResult,
   rankingHistoryData,
   localSearchData,
@@ -370,12 +369,10 @@ export function buildDiscoverySearchListFromFactors({
     };
   }
 
-  const trendingSearchData = showSearchResult
-    ? searchTrendingDappsByKeyword({
-        keyword: searchValue,
-        trendingData,
-      })
-    : [];
+  const trendingSearchData = searchTrendingDappsByKeyword({
+    keyword: searchValue,
+    trendingData,
+  });
   const searchResultWithExactUrl = prependSearchValueExactUrlResult({
     searchValue,
     searchResult,
@@ -425,7 +422,6 @@ export function buildDiscoverySearchDebugSnapshot({
     buildDiscoverySearchListFromFactors({
       searchValue,
       searchActionTitle,
-      showSearchResult,
       searchResult: searchResultWithExactUrl,
       rankingHistoryData,
       localSearchData,
@@ -533,11 +529,9 @@ export async function collectDiscoverySearchDebugSnapshot({
     sliceCount: DISCOVERY_RANKING_HISTORY_LIMIT,
   });
 
-  const trendingDataPromise = showSearchResult
-    ? serviceDiscovery
-        .fetchDiscoveryHomePageData()
-        .then((data) => data?.trending ?? [])
-    : Promise.resolve([]);
+  const trendingDataPromise = serviceDiscovery
+    .fetchDiscoveryHomePageData()
+    .then((data) => data?.trending ?? []);
 
   const remoteSearchResultPromise =
     showSearchResult && !shouldSkipRemoteSearch

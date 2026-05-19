@@ -218,6 +218,23 @@ export function usePromiseResult<T>(
         return flag;
       };
 
+      // Focus is only relevant for deciding whether to *start* a fetch (and
+      // for surfacing loading UI). Once a fetch is in flight, its result
+      // must always be applied — dropping it on blur loses data with no
+      // recovery path when neither `revalidateOnFocus` is set nor deps
+      // change during blur. Mount check still applies to avoid setState on
+      // an unmounted component.
+      const shouldApplyResult = (config?: IRunnerConfig) => {
+        let flag = true;
+        if (checkIsMounted && !isMountedRef.current) {
+          flag = false;
+        }
+        if (alwaysSetState || config?.alwaysSetState) {
+          flag = true;
+        }
+        return flag;
+      };
+
       const methodWithNonce = async ({ nonce }: { nonce: number }) => {
         const r = await methodRef?.current?.();
         return {
@@ -233,6 +250,13 @@ export function usePromiseResult<T>(
         const { pollingInterval } = optionsRef.current;
         if (config?.triggerByDeps && !isFocusedRef.current) {
           isDepsChangedOnBlur.current = true;
+          // Deps changed but the new run was blocked by the focus gate,
+          // so we never minted a fresh nonce for the new scope. Bump
+          // here to invalidate any in-flight request from the previous
+          // scope — otherwise its stale result would still satisfy
+          // `shouldApplyResult` (mount-only) and overwrite the new
+          // scope's init / cached state until refocus re-fetches.
+          nonceRef.current += 1;
         }
         try {
           if (shouldSetState(config)) {
@@ -253,7 +277,7 @@ export function usePromiseResult<T>(
             const { r, nonce } = await methodWithNonce({
               nonce: requestNonce,
             });
-            if (shouldSetState(config) && nonceRef.current === nonce) {
+            if (shouldApplyResult(config) && nonceRef.current === nonce) {
               setResult(r);
               // Only persist if (1) swrKey is still the one we dispatched
               // under, and (2) the result is defined — writing `undefined`
