@@ -26,7 +26,9 @@ export const TabsContainerContext = createContext<ITabsContainerContext>({
   width: 0,
 });
 
-export type ITabsScrollContext = Omit<WindowScrollerChildProps, 'children'>;
+export type ITabsScrollContext = Omit<WindowScrollerChildProps, 'children'> & {
+  updateListContainerHeight?: () => void;
+};
 
 export const TabsScrollContext = createContext<ITabsScrollContext>({
   height: 0,

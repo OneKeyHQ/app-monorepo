@@ -19,6 +19,8 @@ import { XStack, YStack } from '../../primitives';
 
 import { TabsContext, TabsScrollContext } from './context';
 import { TabBar } from './TabBar';
+import { useConvertAnimatedToValue } from './useFocusedTab';
+import { parseCssSize } from './utils';
 
 import type { LayoutChangeEvent } from 'react-native';
 import type {
@@ -30,17 +32,6 @@ import type { WindowScrollerChildProps } from 'react-virtualized';
 
 const overflowYScrollStyle = { overflowY: 'scroll' } as const;
 const scrollSnapStyle = { scrollSnapType: 'x' } as const;
-// During fast scroll, CellMeasurer re-measures rows and recomputeRowHeights
-// makes the virtualized Grid's height oscillate. The ResizeObserver below
-// would echo that oscillation into listContainerRef.style.height, which
-// changes the outer scroll metrics, which in turn re-fires WindowScroller's
-// scrollTop, which kicks off another measurement pass. Two knobs break the
-// loop without losing correctness on tab switches:
-//   - HEIGHT_EPSILON_PX: ignore sub-pixel-ish jitter from CellMeasurer.
-//   - SCROLL_END_DEBOUNCE_MS: while the outer scroller is actively scrolling,
-//     defer height writes; flush the latest target once scrolling settles.
-const HEIGHT_EPSILON_PX = 8;
-const SCROLL_END_DEBOUNCE_MS = 150;
 const childDivStyle = {
   width: '100%',
   flexShrink: 0,
@@ -59,29 +50,35 @@ export function ContainerChild({
   containerWidth: number | string | undefined;
   focusedTab: SharedValue<string>;
   tabNames: (string | null)[];
+  updateListContainerHeight: () => void;
 }) {
-  // Re-install the reaction when tabNames changes so the closure
-  // doesn't keep a stale list (previously deps were auto-detected and
-  // tabNames updates - e.g. Perps being enabled/disabled - were missed).
+  const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
+
+  const syncFocusedTabVisibility = useCallback(
+    (tabName: string) => {
+      const focusedIndex = tabNames.findIndex((name) => name === tabName);
+      if (focusedIndex < 0 || !listContainerRef.current) return;
+      listContainerRef.current.childNodes.forEach((element, index) => {
+        if (!element) return;
+        (element as HTMLElement).style.setProperty(
+          'content-visibility',
+          focusedIndex === index ? 'visible' : 'hidden',
+        );
+      });
+    },
+    [listContainerRef, tabNames],
+  );
+
   useAnimatedReaction(
     () => focusedTab.value,
     (tabName) => {
-      const focusedIndex = tabNames.findIndex((name) => name === tabName);
-      if (focusedIndex > -1 && listContainerRef.current) {
-        listContainerRef.current.childNodes.forEach((element, index) => {
-          if (!element) return;
-          const style = (element as HTMLDivElement).style as unknown as {
-            contentVisibility: 'hidden' | 'visible';
-          };
-          const next = focusedIndex === index ? 'visible' : 'hidden';
-          // Avoid redundant style writes during rapid focus changes.
-          if (style.contentVisibility !== next) {
-            style.contentVisibility = next;
-          }
-        });
-      }
+      syncFocusedTabVisibility(tabName);
     },
-    [tabNames, focusedTab, listContainerRef],
+  );
+
+  useEffect(
+    () => syncFocusedTabVisibility(focusedTabValue ?? ''),
+    [focusedTabValue, syncFocusedTabVisibility],
   );
   return (
     <TabsScrollContext.Provider value={props}>
@@ -92,8 +89,15 @@ export function ContainerChild({
         style={scrollSnapStyle}
       >
         {Children.map(children, (child, index) => {
+          const key =
+            isValidElement(child) &&
+            child.props !== null &&
+            typeof child.props === 'object' &&
+            'name' in child.props
+              ? (child.props as { name: string }).name
+              : index;
           return (
-            <div style={childDivStyle} key={index}>
+            <div style={childDivStyle} key={key}>
               {child}
             </div>
           );
@@ -166,14 +170,33 @@ export function Container({
     if (!htmlElement) {
       return 0;
     }
-    // Try cheap reads first; only force a synchronous layout via
-    // getBoundingClientRect when scrollHeight/clientHeight both come back 0.
-    const cheap = Math.max(
+
+    const style = globalThis.getComputedStyle(htmlElement);
+    const verticalSpacing =
+      parseCssSize(style.marginTop) +
+      parseCssSize(style.marginBottom) +
+      parseCssSize(style.paddingTop) +
+      parseCssSize(style.paddingBottom);
+    const virtualizedInnerElement = htmlElement.querySelector<HTMLElement>(
+      [
+        '.ReactVirtualized__Grid__innerScrollContainer',
+        '.ReactVirtualized__Collection__innerScrollContainer',
+      ].join(','),
+    );
+    const virtualizedHeight = virtualizedInnerElement
+      ? Math.max(
+          virtualizedInnerElement.scrollHeight || 0,
+          virtualizedInnerElement.clientHeight || 0,
+          virtualizedInnerElement.getBoundingClientRect().height || 0,
+        ) + verticalSpacing
+      : 0;
+
+    return Math.max(
       htmlElement.scrollHeight || 0,
       htmlElement.clientHeight || 0,
+      htmlElement.getBoundingClientRect().height || 0,
+      virtualizedHeight,
     );
-    if (cheap) return cheap;
-    return htmlElement.getBoundingClientRect().height || 0;
   }, []);
 
   // Get tab names from children props
@@ -182,47 +205,42 @@ export function Container({
     return Children.map(children, (child) => {
       if (
         isValidElement(child) &&
-        'name' in (child.props as { name: string })
+        child.props !== null &&
+        typeof child.props === 'object' &&
+        'name' in child.props
       ) {
         return (child.props as { name: string }).name;
       }
       return null;
     }).filter(Boolean);
   }, [children]);
-  // Keep current tabNames reachable from stable callbacks (onTabPress)
-  // without invalidating their identity on every parent re-render.
-  const tabNamesRef = useRef(tabNames);
-  tabNamesRef.current = tabNames;
   const sharedTabNames = useSharedValue<string[]>(tabNames);
-  // useSharedValue only captures the initial value - sync subsequent changes
-  // so consumers reading sharedTabNames.value (worklets) don't see stale lists
-  // when tabs are added/removed (e.g. Perps tab being toggled).
-  useEffect(() => {
-    sharedTabNames.value = tabNames;
-  }, [sharedTabNames, tabNames]);
   const focusedTab = useSharedValue<string>(
     initialTabName || tabNames[0] || '',
   );
-  // Lazy: List.tsx fills missing entries itself. Avoid recomputing a fresh
-  // dict on every tabNames change (the result was never written into the ref
-  // after the initial render anyway).
+  useEffect(() => {
+    sharedTabNames.value = tabNames;
+  }, [sharedTabNames, tabNames]);
+  const scrollTabElementDict = useMemo(() => {
+    return tabNames.reduce(
+      (acc, name) => {
+        acc[name] = {
+          element: null,
+          height: 0,
+        };
+        return acc;
+      },
+      {} as { [key: string]: { element: HTMLElement | null; height: number } },
+    );
+  }, [tabNames]);
   const scrollTabElementsRef = useRef<{
     [key: string]: {
       element: HTMLElement | null;
       height?: number;
     };
-  }>({});
-  // requestRemeasure lets List.tsx / ScrollView.tsx signal "I just wrote a
-  // new element into scrollTabElementsRef" so Container can attach its
-  // ResizeObserver immediately, without polling.
-  const requestRemeasureRef = useRef<() => void>(() => {});
+  }>(scrollTabElementDict);
   const contextValue = useMemo(
-    () => ({
-      focusedTab,
-      tabNames: sharedTabNames,
-      scrollTabElementsRef,
-      requestRemeasure: () => requestRemeasureRef.current(),
-    }),
+    () => ({ focusedTab, tabNames: sharedTabNames, scrollTabElementsRef }),
     [focusedTab, sharedTabNames],
   );
   const isEffectValid = useRef(true);
@@ -238,177 +256,134 @@ export function Container({
   const isSwitchingTabRef = useRef(false);
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
-  const observedElementRef = useRef<HTMLElement | null>(null);
-  // Scroll-aware throttling state for the apply() loop below. isScrollingRef
-  // is flipped by the outer scroller's scroll listener (installed in the
-  // useEffect that depends on scrollElement). pendingHeightRef holds the
-  // most recent target height observed while scrolling so it can be flushed
-  // on settle.
-  const isScrollingRef = useRef(false);
-  const scrollEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingHeightRef = useRef<number | null>(null);
-
-  // Force-write: used by tab switches and initial measurement, where the
-  // target represents a real content change (different tab, different data).
-  const writeHeightForce = useCallback((h: number) => {
-    if (!listContainerRef.current) return;
-    const el = listContainerRef.current as HTMLElement;
-    if (Math.abs(h - el.clientHeight) < HEIGHT_EPSILON_PX) return;
-    el.style.height = `${h}px`;
-  }, []);
-
-  // Monotonic write: used by the ResizeObserver throttled path. CellMeasurer's
-  // estimated totalHeight oscillates while the user scrolls (because the set
-  // of measured rows shifts), so a smaller-than-current value is almost always
-  // a stale estimate, not a real shrinkage. Accept only growth here; genuine
-  // shrinkage (data cleared, tab switched) lands via writeHeightForce.
-  const writeHeightMonotonic = useCallback((h: number) => {
-    if (!listContainerRef.current) return;
-    const el = listContainerRef.current as HTMLElement;
-    if (h <= el.clientHeight + HEIGHT_EPSILON_PX) return;
-    el.style.height = `${h}px`;
-  }, []);
-
-  const flushPendingHeight = useCallback(() => {
-    if (pendingHeightRef.current != null) {
-      writeHeightMonotonic(pendingHeightRef.current);
-      pendingHeightRef.current = null;
-    }
-  }, [writeHeightMonotonic]);
-
-  // Attach (or re-attach) a ResizeObserver to the focused tab's scroll
-  // element so listContainerRef height follows it. Replaces the previous
-  // 250ms-polling retry loop entirely:
-  //  - if the inner Tabs.List hasn't registered yet, this is a no-op; it
-  //    will be re-invoked via the `requestRemeasure` context callback the
-  //    moment List.tsx / ScrollView.tsx writes the element ref.
-  //  - if the element is registered but currently 0-height, the observer
-  //    sits idle until content lands, then fires once and the height is
-  //    written. No console spam, no forced layout flushes, no retries.
-  const attachObserverForFocusedTab = useCallback(() => {
-    if (!isEffectValid.current) return;
-    if (!listContainerRef.current) return;
-    const element =
-      scrollTabElementsRef.current?.[focusedTab.value]?.element ?? null;
-    // Same element + already observing -> nothing to do.
-    if (element && observedElementRef.current === element) {
-      return;
-    }
-    if (resizeObserverRef.current) {
-      resizeObserverRef.current.disconnect();
-      resizeObserverRef.current = null;
-    }
-    observedElementRef.current = element;
-    if (!element) return;
-    const applyImmediate = () => {
-      if (!listContainerRef.current) return;
-      const h = getTabContentHeight(element);
-      if (h > 0) writeHeightForce(h);
-    };
-    const applyThrottled = () => {
-      if (!listContainerRef.current) return;
-      const h = getTabContentHeight(element);
-      if (h <= 0) return;
-      // While the user is actively scrolling, the height jitter we see is
-      // a measurement artifact, not a real content change. Stash the latest
-      // target and let the scroll-end debounce flush it.
-      if (isScrollingRef.current) {
-        pendingHeightRef.current = h;
+  const updateListContainerHeightTimerId = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const updateListContainerHeight = useCallback(
+    (times = 0) => {
+      if (times > 100) {
         return;
       }
-      writeHeightMonotonic(h);
-    };
-    // Initial measurement is always immediate: tab switches and first paint
-    // must not be deferred by an in-flight scroll on another tab.
-    applyImmediate();
-    const ro = new ResizeObserver(applyThrottled);
-    ro.observe(element);
-    resizeObserverRef.current = ro;
-  }, [focusedTab, getTabContentHeight, writeHeightForce, writeHeightMonotonic]);
 
-  // Keep the requestRemeasure context callback pointing at the latest
-  // attach function. We use an indirection ref so contextValue identity
-  // stays stable across re-renders.
-  requestRemeasureRef.current = attachObserverForFocusedTab;
+      const retryNext = () => {
+        updateListContainerHeightTimerId.current = setTimeout(() => {
+          updateListContainerHeight(times + 1);
+        }, 250);
+      };
+
+      if (listContainerRef.current) {
+        if (resizeObserverRef.current) {
+          resizeObserverRef.current.disconnect();
+        }
+        const height = getTabContentHeight(
+          scrollTabElementsRef.current?.[focusedTab.value]?.element ?? null,
+        );
+
+        if (height) {
+          (listContainerRef.current as HTMLElement).style.height =
+            `${height}px`;
+          setTimeout(() => {
+            resizeObserverRef.current = new ResizeObserver((entries) => {
+              const entry = entries[0];
+              const borderBoxHeight = getTabContentHeight(
+                (entry?.target as HTMLElement) ?? null,
+              );
+              if (borderBoxHeight) {
+                (listContainerRef.current as HTMLElement).style.height =
+                  `${borderBoxHeight}px`;
+              } else {
+                // When quickly removing and adding observer nodes, ResizeObserver API has a delay
+                // and there's a chance it won't get the current node height, so we need delayed retries
+                retryNext();
+              }
+            });
+            const element =
+              scrollTabElementsRef.current?.[focusedTab.value]?.element;
+            if (element) {
+              resizeObserverRef.current.observe(element);
+            }
+          }, 100);
+        } else {
+          console.error(
+            `cannot update tab ${focusedTab.value} list container height: ${
+              height || 0
+            }`,
+          );
+          retryNext();
+        }
+      }
+    },
+    [focusedTab, getTabContentHeight],
+  );
 
   useLayoutEffect(() => {
     setScrollElement(ref.current);
-    // First attach attempt. If the focused tab's inner element isn't
-    // registered yet, List.tsx/ScrollView.tsx will call requestRemeasure
-    // once it is.
-    attachObserverForFocusedTab();
+    setTimeout(updateListContainerHeight, 250);
     return () => {
       isEffectValid.current = false;
       if (resizeObserverRef.current) {
         resizeObserverRef.current.disconnect();
-        resizeObserverRef.current = null;
       }
-      observedElementRef.current = null;
-      if (scrollEndTimerRef.current) {
-        clearTimeout(scrollEndTimerRef.current);
-        scrollEndTimerRef.current = null;
+      if (updateListContainerHeightTimerId.current) {
+        clearTimeout(updateListContainerHeightTimerId.current);
       }
     };
-  }, [attachObserverForFocusedTab]);
+  }, [updateListContainerHeight]);
 
-  // Track the outer scroller's scrolling state so applyThrottled() above can
-  // defer ResizeObserver-driven height writes until the user settles. Passive
-  // listener: must not block scroll. Debounced 150ms which is short enough to
-  // feel instant and long enough to absorb a flick.
-  useEffect(() => {
-    if (!scrollElement) return undefined;
-    const onScroll = () => {
-      isScrollingRef.current = true;
-      if (scrollEndTimerRef.current) {
-        clearTimeout(scrollEndTimerRef.current);
+  useLayoutEffect(() => {
+    const index = tabNames.findIndex((name) => name === focusedTab.value);
+    if (index < 0) {
+      const firstTabName = tabNames[0];
+      if (firstTabName) {
+        focusedTab.set(firstTabName);
       }
-      scrollEndTimerRef.current = setTimeout(() => {
-        isScrollingRef.current = false;
-        flushPendingHeight();
-      }, SCROLL_END_DEBOUNCE_MS);
-    };
-    scrollElement.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      scrollElement.removeEventListener('scroll', onScroll);
-    };
-  }, [scrollElement, flushPendingHeight]);
+      return;
+    }
+
+    updateListContainerHeight();
+    const width = scrollElement?.clientWidth || 0;
+    if (width) {
+      listContainerRef.current?.scrollTo({
+        left: width * index,
+        behavior: 'instant',
+      });
+    }
+  }, [focusedTab, scrollElement, tabNames, updateListContainerHeight]);
 
   useLayoutEffect(() => {
     const callback = debounce(() => {
       if (listContainerRef.current) {
-        const tabIndex = tabNamesRef.current.findIndex(
+        const tabIndex = tabNames.findIndex(
           (name) => name === focusedTab.value,
         );
         listContainerRef.current.scrollTo({
           left: (scrollElement?.clientWidth || 0) * tabIndex,
           behavior: 'instant',
         });
-        // ResizeObserver will fire on its own if the viewport change
-        // altered the observed element's size, but force a re-attach
-        // here in case the focused element changed identity due to a
-        // remount during the resize.
-        attachObserverForFocusedTab();
+        setTimeout(() => {
+          updateListContainerHeight();
+        });
       }
     }, 350);
     window.addEventListener('resize', callback);
     return () => {
       window.removeEventListener('resize', callback);
     };
-  }, [focusedTab, scrollElement, attachObserverForFocusedTab]);
+  }, [focusedTab, scrollElement, tabNames, updateListContainerHeight]);
 
   useAnimatedReaction(
     () => focusedTab.value,
     (tabName, prevTabName) => {
       if (isEffectValid.current && prevTabName && tabName !== prevTabName) {
         isSwitchingTabRef.current = true;
-        const index = tabNamesRef.current.findIndex((name) => name === tabName);
+        const index = tabNames.findIndex((name) => name === tabName);
         let scrollTop = scrollTopRef.current[tabName] || 0;
 
         // Execute DOM updates synchronously instead of inside startViewTransition.
         // startViewTransition's callback runs asynchronously and gets aborted when
         // a new transition starts during rapid switching, which causes scrollTo
         // to never execute and the tab switch to visually fail.
-        attachObserverForFocusedTab();
+        updateListContainerHeight();
         const width = scrollElement?.clientWidth || 0;
         listContainerRef.current?.scrollTo({
           left: width * index,
@@ -427,18 +402,12 @@ export function Container({
         isSwitchingTabRef.current = false;
       }
     },
-    // Explicit deps prevent the reaction from rebuilding on every render
-    // (auto-detect kept rebuilding because the worklet closed over JS state)
-    // and ensure scrollElement / attachObserverForFocusedTab aren't stale.
-    [focusedTab, scrollElement, attachObserverForFocusedTab],
   );
 
   useEffect(() => {
     setTimeout(() => {
       if (initialTabName) {
-        const index = tabNamesRef.current.findIndex(
-          (name) => name === initialTabName,
-        );
+        const index = tabNames.findIndex((name) => name === initialTabName);
         if (index !== -1) {
           const width = ref.current?.clientWidth || 0;
           listContainerRef.current?.scrollTo({
@@ -456,10 +425,9 @@ export function Container({
       if (!isEffectValid.current) {
         return;
       }
-      const names = tabNamesRef.current;
-      const index = names.findIndex((name) => name === tabName);
+      const index = tabNames.findIndex((name) => name === tabName);
       const prevTabName = focusedTab.value;
-      const prevIndex = names.findIndex((name) => name === prevTabName);
+      const prevIndex = tabNames.findIndex((name) => name === prevTabName);
       const onTabChangeData = {
         prevIndex,
         index,
@@ -474,53 +442,26 @@ export function Container({
       }
       focusedTab.set(tabName);
     },
-    // Read tabNames via ref so onTabPress identity stays stable across
-    // parent renders that would otherwise produce structurally-equal but
-    // new-identity tabNames arrays.
-    [focusedTab, onIndexChange, onTabChange],
+    [focusedTab, onIndexChange, onTabChange, tabNames],
   );
 
-  useImperativeHandle(
-    containerRef,
-    () => ({
-      jumpToTab: (tabName: string) => {
-        onTabPress(tabName);
-      },
-      setIndex: (index: number) => {
-        onTabPress(tabNamesRef.current[index]);
-      },
-      getFocusedTab: () => {
-        return focusedTab.value;
-      },
-      getCurrentIndex: () => {
-        return tabNamesRef.current.findIndex(
-          (name) => name === focusedTab.value,
-        );
-      },
-      syncCurrentPage: () => {
-        // no-op on web, only needed for native PagerView
-      },
-    }),
-    [containerRef, focusedTab, onTabPress],
-  );
-
-  // Memoised args for renderHeader/renderTabBar. tabNames identity may
-  // legitimately change when children change; that's the only time these
-  // need to be rebuilt (focusedTab and onTabPress are stable refs).
-  const headerArgs = useMemo(
-    () => ({ focusedTab, tabNames, onTabPress }) as any,
-    [focusedTab, tabNames, onTabPress],
-  );
-  const tabBarArgs = useMemo(
-    () =>
-      ({
-        focusedTab,
-        tabNames,
-        onTabPress,
-        containerWidth,
-      }) as any,
-    [focusedTab, tabNames, onTabPress, containerWidth],
-  );
+  useImperativeHandle(containerRef, () => ({
+    jumpToTab: (tabName: string) => {
+      onTabPress(tabName);
+    },
+    setIndex: (index: number) => {
+      onTabPress(tabNames[index]);
+    },
+    getFocusedTab: () => {
+      return focusedTab.value;
+    },
+    getCurrentIndex: () => {
+      return tabNames.findIndex((name) => name === focusedTab.value);
+    },
+    syncCurrentPage: () => {
+      // no-op on web, only needed for native PagerView
+    },
+  }));
 
   return (
     <YStack
@@ -532,18 +473,6 @@ export function Container({
     >
       {scrollElement ? (
         <TabsContext.Provider value={contextValue as any}>
-          {/* renderHeader / renderTabBar / renderSubHeader live OUTSIDE the
-              WindowScroller children fn so they are not re-invoked on every
-              scroll event. Only ContainerChild needs scroll-derived props. */}
-          <YStack
-            position="relative"
-            width={containerWidth || '100%'}
-            onLayout={handlerStickyHeaderLayout}
-          >
-            {renderHeader?.(headerArgs)}
-          </YStack>
-          {renderTabBar?.(tabBarArgs)}
-          {renderSubHeader?.()}
           <WindowScroller scrollElement={scrollElement}>
             {({
               height,
@@ -562,21 +491,42 @@ export function Container({
                   scrollElement.scrollTop;
               }
               return (
-                <ContainerChild
-                  containerWidth={containerWidth}
-                  height={height}
-                  isScrolling={isScrolling}
-                  scrollLeft={scrollLeft}
-                  scrollTop={scrollTop}
-                  width={scrollElement?.clientWidth || width || 0}
-                  onChildScroll={onChildScroll}
-                  registerChild={registerChild}
-                  listContainerRef={listContainerRef as any}
-                  focusedTab={focusedTab}
-                  tabNames={tabNames}
-                >
-                  {children}
-                </ContainerChild>
+                <>
+                  <YStack
+                    position="relative"
+                    width={containerWidth || width}
+                    onLayout={handlerStickyHeaderLayout}
+                  >
+                    {renderHeader?.({
+                      focusedTab,
+                      tabNames,
+                      onTabPress,
+                    } as any)}
+                  </YStack>
+                  {renderTabBar?.({
+                    focusedTab,
+                    tabNames,
+                    onTabPress,
+                    containerWidth,
+                  } as any)}
+                  {renderSubHeader?.()}
+                  <ContainerChild
+                    containerWidth={containerWidth}
+                    height={height}
+                    isScrolling={isScrolling}
+                    scrollLeft={scrollLeft}
+                    scrollTop={scrollTop}
+                    width={scrollElement?.clientWidth || width || 0}
+                    onChildScroll={onChildScroll}
+                    registerChild={registerChild}
+                    listContainerRef={listContainerRef as any}
+                    focusedTab={focusedTab}
+                    tabNames={tabNames}
+                    updateListContainerHeight={updateListContainerHeight}
+                  >
+                    {children}
+                  </ContainerChild>
+                </>
               );
             }}
           </WindowScroller>
