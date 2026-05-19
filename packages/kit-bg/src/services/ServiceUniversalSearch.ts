@@ -705,11 +705,20 @@ class ServiceUniversalSearch extends ServiceBase {
             })
           )?.[0]?.account;
           if (account?.id) {
-            // Use the address-keyed aggregate so wallets sharing the same
-            // chain address can read each other's already-loaded worth.
+            // Scope the worth lookup to the matched (address, xpub) — not the
+            // whole indexedAccount — so wallets that share the same chain
+            // address (HW devices initialized from the same seed, etc.) all
+            // read the same SimpleDb entry and surface identical balances.
+            // Using `getAllNetworkAccountsValueByIndexedAccount` here would
+            // fold in unrelated chain addresses under the indexedAccount,
+            // causing identical-address rows to disagree.
             accountsValue =
-              await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByIndexedAccount(
-                { indexedAccountId: indexedAccount.id },
+              await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByAddress(
+                {
+                  networkAccountId: account.id,
+                  accountAddress: account.address,
+                  xpub: (account as { xpub?: string }).xpub,
+                },
               );
           }
         }
@@ -923,13 +932,17 @@ class ServiceUniversalSearch extends ServiceBase {
           const wallet = await serviceAccount.getWalletSafe({
             walletId: i.item.walletId,
           });
-          // Aggregate across all known chain addresses for this indexedAccount
-          // by querying the address-keyed store, so wallets that share an
-          // address with one another inherit each other's loaded worth.
+          // Name search needs the legacy compound-key shape
+          // `Record<${networkAccountId}_${networkId}, worth>` so the
+          // `AccountValue` render path (branch 3 / branch 4 in
+          // `calculateAccountTotalValue`) can match the row's linkedAccountId.
+          // The per-networkId shape returned by the indexed-account aggregator
+          // silently fails those lookups and would leave the row showing only
+          // DeFi worth.
           const accountsValue =
-            await serviceAccountProfile.getAllNetworkAccountsValueByIndexedAccount(
-              { indexedAccountId: i.item.id },
-            );
+            await serviceAccountProfile.getAllNetworkAccountsValueByAccountId({
+              accountId: i.item.id,
+            });
 
           let account: INetworkAccount | undefined;
           let addressInfo: IAddressValidation | undefined;
