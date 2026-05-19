@@ -68,6 +68,14 @@ session
     );
   });
 
+program
+  .command("screenshot <sessionId>")
+  .description("Capture the device screen; returns saved PNG path")
+  .action(async (sessionId: string) => {
+    const out = await call("screenshot", { sessionId });
+    process.stdout.write(JSON.stringify(out, null, 2) + "\n");
+  });
+
 program.parseAsync(process.argv).catch((e: unknown) => {
   process.stderr.write((e instanceof Error ? e.message : String(e)) + "\n");
   process.exit(1);
