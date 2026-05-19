@@ -134,9 +134,35 @@ export enum EAtomNames {
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<
-  Record<IAtomNameKeys, { deepCompare?: boolean }>
+  Record<IAtomNameKeys, { deepCompare?: boolean; mergeInitialValue?: boolean }>
 > = {
   [EAtomNames.notificationsAtom]: {
     deepCompare: true,
+  },
+  [EAtomNames.primePersistAtom]: {
+    mergeInitialValue: false,
+  },
+  // These Perps states are written as complete snapshots. Lodash merge keeps
+  // old array tails and ignores undefined, which can resurrect stale fields.
+  [EAtomNames.perpsActiveAssetAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.spotActiveAssetAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsCommonConfigPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpTokenFavoritesPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.spotTokenFavoritesPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsFavoritesOrderPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsDepositOrderAtom]: {
+    mergeInitialValue: false,
   },
 };

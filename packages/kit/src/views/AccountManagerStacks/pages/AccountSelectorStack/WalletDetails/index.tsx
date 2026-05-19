@@ -22,6 +22,7 @@ import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
+  useAccountSelectorStorageReadyAtom,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import qrHiddenCreateGuideDialog from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/qrHiddenCreateGuideDialog';
@@ -46,6 +47,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import { HiddenWalletRememberSwitch } from '../../../components/WalletEdit/HiddenWalletRememberSwitch';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
@@ -123,6 +125,24 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const selectedNetworkId = selectedAccount?.networkId;
   const [searchText, setSearchText] = useState('');
   const { createQrWallet } = useCreateQrWallet();
+  const [storageReady] = useAccountSelectorStorageReadyAtom();
+
+  const accountsListSwrKey = useMemo(() => {
+    if (!selectedAccount?.focusedWallet || !usedDeriveType) return undefined;
+    return swrKeys.accountSelectorList({
+      focusedWallet: selectedAccount.focusedWallet,
+      deriveType: usedDeriveType,
+      linkedNetworkId,
+      selectedNetworkId,
+      keepAllOtherAccounts,
+    });
+  }, [
+    selectedAccount?.focusedWallet,
+    usedDeriveType,
+    linkedNetworkId,
+    selectedNetworkId,
+    keepAllOtherAccounts,
+  ]);
 
   defaultLogger.accountSelector.perf.renderAccountsList({
     selectedAccount,
@@ -181,12 +201,25 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       // debounced: 100,
       checkIsFocused: false,
       watchLoading: false,
+      swrKey: accountsListSwrKey,
       onIsLoadingChange(loading) {
         // setIsLoading(loading);
         void accountSelectorAccountsListIsLoadingAtom.set(loading);
       },
     },
   );
+
+  // Drives EmptyView's skeleton-vs-no-wallet decision. We're "resolved" when
+  // either: (a) we already have a result (real fetch or SWR cache hit), or
+  // (b) storage finished hydrating and confirmed there's no focused wallet
+  // — i.e. the user truly has none. The early-return path inside the
+  // usePromiseResult method also resolves to undefined, so without (b) the
+  // genuine "no wallets" case would render an infinite skeleton.
+  const hasResolved = useMemo(() => {
+    if (listDataResult !== undefined) return true;
+    if (storageReady && !selectedAccount?.focusedWallet) return true;
+    return false;
+  }, [listDataResult, storageReady, selectedAccount?.focusedWallet]);
 
   const sectionDataOriginal = useMemo(
     () => listDataResult?.sectionData || [],
@@ -593,7 +626,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               (item as IDBIndexedAccount | IDBAccount).id
             }`
           }
-          ListEmptyComponent={<EmptyView />}
+          ListEmptyComponent={<EmptyView hasResolved={hasResolved} />}
           contentContainerStyle={{ pb: '$3' }}
           extraData={[
             selectedAccount.indexedAccountId,
@@ -705,6 +738,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     handleLayoutForContainer,
     handleLayoutForHeader,
     handleLayoutForSectionList,
+    hasResolved,
     hideAddress,
     initialScrollIndex,
     intl,

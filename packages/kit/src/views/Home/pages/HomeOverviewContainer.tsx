@@ -385,11 +385,11 @@ function HomeOverviewContainer() {
   const refreshButton = useMemo(() => {
     return platformEnv.isNative || isWalletNotBackedUp ? undefined : (
       <IconButton
-        testID="home-refresh-button-icon-btn"
         icon="RefreshCcwOutline"
         variant="tertiary"
         loading={isLoading}
         onPress={handleRefreshWorth}
+        testID="wallet-refresh-manually"
         trackID="wallet-refresh-manually"
       />
     );

@@ -3,9 +3,8 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -14,11 +13,11 @@ import {
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IWalletActionBaseParams } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/walletActions';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { HomeTestIDs } from '../../testIDs';
 
@@ -58,26 +57,11 @@ function WalletActionReceive({
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
   const [tokenListState] = useTokenListStateAtom();
-  const isBotWallet = useMemo(
-    () => accountUtils.isBotWallet({ walletId: wallet?.id }),
-    [wallet?.id],
-  );
-  const { result: isBotWalletDeactivatedResult } = usePromiseResult(
-    async () => {
-      if (!wallet?.id || !isBotWallet) {
-        return false;
-      }
-
-      return backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
-        walletId: wallet.id,
-      });
-    },
-    [wallet?.id, isBotWallet],
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
     {
-      checkIsFocused: false,
+      walletId: wallet?.id,
     },
   );
-  const isBotWalletDeactivated = !!isBotWalletDeactivatedResult;
 
   const isReceiveDisabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING) {
@@ -111,9 +95,7 @@ function WalletActionReceive({
         isBotWalletDeactivated,
       })
     ) {
-      Toast.error({
-        title: '该钱包已停用，无法接收资产',
-      });
+      showBotWalletDisabledToast('receive');
       return;
     }
 

@@ -240,6 +240,16 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
     }
   });
 
+  useEffect(() => {
+    const listener = () => {
+      savedActiveTabId = '';
+    };
+    appEventBus.on(EAppEventBusNames.ClearSavedBrowserActiveTab, listener);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ClearSavedBrowserActiveTab, listener);
+    };
+  }, []);
+
   // For risk detection
   useEffect(() => {
     const listener = () => {

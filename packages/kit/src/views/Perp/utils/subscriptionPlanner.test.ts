@@ -86,6 +86,33 @@ describe('planTradeSubscriptions', () => {
     expect(plan.shouldSyncSubscriptions).toBe(true);
   });
 
+  it('syncs a focused perp market before order book options arrive', () => {
+    const plan = planTradeSubscriptions({
+      activeInstrument: baseInstrument,
+      hasAccount: true,
+      viewState: {
+        ...baseViewState,
+        routeFocused: true,
+      },
+    });
+
+    expect(plan.shouldSyncSubscriptions).toBe(true);
+  });
+
+  it('syncs a focused perp market while order book options lag behind the active coin', () => {
+    const plan = planTradeSubscriptions({
+      activeInstrument: baseInstrument,
+      hasAccount: true,
+      orderBookOptions: { coin: 'ETH', assetId: 1 },
+      viewState: {
+        ...baseViewState,
+        routeFocused: true,
+      },
+    });
+
+    expect(plan.shouldSyncSubscriptions).toBe(true);
+  });
+
   it('does not sync subscriptions for a hidden perps-only selector tab', () => {
     const plan = planTradeSubscriptions({
       activeInstrument: baseInstrument,

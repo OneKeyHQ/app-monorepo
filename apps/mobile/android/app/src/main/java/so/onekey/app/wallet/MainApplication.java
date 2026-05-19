@@ -273,24 +273,38 @@ public class MainApplication extends Application implements ReactApplication {
     // Recovery check
     SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
 
-    // Version-aware counter reset
+    // Version-aware counter reset — clears the Activity-stage counter when
+    // the installed app version changes (an upgrade resets the crash-loop
+    // history because the failing code path may be gone). Timestamps don't
+    // need an explicit clear; the freshness signal (integer == 0) handles it.
     String currentVersion = BuildConfig.VERSION_NAME;
     String storedVersion = prefs.getString(BootRecoveryKeys.BOOT_FAIL_APP_VERSION, "");
     if (!storedVersion.isEmpty() && !storedVersion.equals(currentVersion)) {
-        prefs.edit().putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0).commit();
+        prefs.edit()
+            .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0)
+            .commit();
     }
     prefs.edit().putString(BootRecoveryKeys.BOOT_FAIL_APP_VERSION, currentVersion).commit();
-
-    // Increment boot fail count; counter is reset in MainActivity.onStop()
-    // on graceful exit, so only consecutive crashes accumulate
-    int oldCount = prefs.getInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0);
-    int newCount = oldCount + 1;
-    prefs.edit().putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, newCount).commit();
 
     // Harness tests create this marker file via globalSetup so the recovery
     // page never blocks React Native from starting during test runs.
     boolean isHarnessMode = new java.io.File(getFilesDir(), "harness_mode").exists();
-    shouldShowRecovery = !isHarnessMode && newCount >= 3;
+
+    // Read-only here. MainApplication never increments — that's MainActivity's
+    // job (`recordBootAttempt`). System-initiated process launches (JPush
+    // wakeups, foreground-service callbacks, broadcast receivers, post-
+    // download relaunches) run Application.onCreate but NOT MainActivity,
+    // so the counter stays untouched and bg-launches don't count as failures.
+    //
+    // No +1 prediction either: predicting `(windowed + 1) >= threshold` would
+    // skip RN/JPush init on bg-launches when the previous user-launches were
+    // already approaching the threshold, silently dropping the wakeup. We
+    // take the small cost of running RN init on the strike that triggers
+    // recovery — MainActivity re-evaluates post-increment and launches
+    // RecoveryActivity itself.
+    int windowedFailures = BootRecoveryStore.readWindowedCount(prefs);
+    shouldShowRecovery = !isHarnessMode
+        && windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD;
 
     long tBeforeSuper = System.currentTimeMillis();
     super.onCreate();
@@ -323,7 +337,11 @@ public class MainApplication extends Application implements ReactApplication {
       "android.app.new_arch_load: " + (tAfterNewArch - tAfterSoLoader) + "ms (+" + (tAfterNewArch - appLaunchMs) + "ms from launch)"
     );
 
-    OneKeyLog.info("BootRecovery", "boot_fail_count: " + oldCount + " -> " + newCount + ", shouldShowRecovery: " + shouldShowRecovery);
+    OneKeyLog.info(
+      "BootRecovery",
+      "boot_fail_count(activity.windowed): " + windowedFailures
+        + ", shouldShowRecovery: " + shouldShowRecovery
+    );
 
     if (shouldShowRecovery) {
         // Skip heavy initialization (React Native, Expo, JPush).

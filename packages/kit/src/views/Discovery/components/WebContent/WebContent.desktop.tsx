@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { Stack } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { PageFaviconUpdatedEvent } from '@onekeyhq/kit/src/components/WebView/DesktopWebView';
 import {
@@ -8,6 +9,7 @@ import {
 } from '@onekeyhq/kit/src/components/WebView/translateBridge';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import {
   useBrowserAction,
   useBrowserTabActions,
@@ -27,6 +29,7 @@ import type { IWebTab } from '../../types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { DidStartNavigationEvent, PageTitleUpdatedEvent } from 'electron';
 import type { WebViewProps } from 'react-native-webview';
+import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 
 type IWebContentProps = IWebTab &
   WebViewProps & {
@@ -50,24 +53,40 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
     useState(false);
   const [navigationUrlValidateState, setNavigationUrlValidateState] =
     useState<EValidateUrlEnum>();
+  const [navigationBlockedUrl, setNavigationBlockedUrl] = useState<string>();
   const { setWebTabData, closeWebTab, setCurrentWebTab, getWebTabById } =
     useBrowserTabActions().current;
   const { onNavigation, validateWebviewSrc } = useBrowserAction().current;
-  const currentUrlValidateState = useMemo(
-    () => validateWebviewSrc({ url, isTopFrame: true }),
-    [url, validateWebviewSrc],
-  );
+  const currentUrlValidateState = useMemo(() => {
+    const result = validateWebviewSrc({ url, isTopFrame: true });
+    return result;
+  }, [url, validateWebviewSrc]);
   const shouldBlockCurrentUrl = shouldBlockAccess(currentUrlValidateState);
   const showBlockAccessView =
     shouldBlockCurrentUrl || navigationBlockAccessView;
   const urlValidateState = shouldBlockCurrentUrl
     ? currentUrlValidateState
     : navigationUrlValidateState;
+  const blockedUrl = shouldBlockCurrentUrl ? url : navigationBlockedUrl;
 
   useEffect(() => {
     setNavigationBlockAccessView(false);
     setNavigationUrlValidateState(undefined);
-  }, [url]);
+    setNavigationBlockedUrl(undefined);
+  }, [id, url]);
+
+  useEffect(() => {
+    if (!shouldBlockCurrentUrl) {
+      return;
+    }
+    const ref = webviewRefs[id]?.innerRef as IElectronWebView | undefined;
+    try {
+      ref?.stop?.();
+    } catch {
+      // noop
+    }
+    delete webviewRefs[id];
+  }, [id, shouldBlockCurrentUrl]);
 
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
@@ -94,6 +113,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       if (isMainFrame) {
         setNavigationBlockAccessView(false);
         setNavigationUrlValidateState(undefined);
+        setNavigationBlockedUrl(undefined);
         notifyTabNavigation(id);
         onNavigation({
           id,
@@ -102,9 +122,9 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
           isInPlace: true,
           ...getNavStatusInfo(),
           handlePhishingUrl: (illegalUrl) => {
-            console.log('=====>>>>: handlePhishingUrl', illegalUrl);
             setNavigationBlockAccessView(true);
             setNavigationUrlValidateState(EValidateUrlEnum.NotSupportProtocol);
+            setNavigationBlockedUrl(illegalUrl);
             phishingUrlRef.current = illegalUrl;
           },
         });
@@ -144,6 +164,28 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       }
     },
     [getWebTabById, id, setWebTabData],
+  );
+  const onShouldStartLoadWithRequest = useCallback(
+    (navigationStateChangeEvent: ShouldStartLoadRequest) => {
+      const { url: navUrl, isTopFrame } = navigationStateChangeEvent;
+      const validateState = validateWebviewSrc({
+        url: navUrl,
+        isTopFrame,
+      });
+      if (validateState === EValidateUrlEnum.Valid) {
+        return true;
+      }
+      if (validateState === EValidateUrlEnum.ValidDeeplink) {
+        handleDeepLinkUrl({ url: navUrl });
+        return false;
+      }
+      setNavigationBlockAccessView(true);
+      setNavigationUrlValidateState(validateState);
+      setNavigationBlockedUrl(navUrl);
+      phishingUrlRef.current = navUrl;
+      return false;
+    },
+    [validateWebviewSrc],
   );
   // Keep a ref to the latest url so onDomReady can read it without depending
   // on `url`. Making `url` a dep of onDomReady invalidates the `webview`
@@ -208,9 +250,11 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
           onDidFinishLoad={onDidFinishLoad}
           onDidStopLoading={onDidFinishLoad}
           onDidFailLoad={onDidFinishLoad}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           onPageTitleUpdated={onPageTitleUpdated}
           onPageFaviconUpdated={onPageFaviconUpdated}
           onDomReady={onDomReady}
+          displayProgressBar
         />
       );
     },
@@ -220,6 +264,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       onDidFinishLoad,
       onDidStartLoading,
       onDidStartNavigation,
+      onShouldStartLoadWithRequest,
       onDomReady,
       shouldBlockCurrentUrl,
       customReceiveHandler,
@@ -230,27 +275,45 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
 
   const blockAccessView = useMemo(
     () => (
-      <BlockAccessView
-        urlValidateState={urlValidateState}
-        onCloseTab={() => {
-          closeWebTab({ tabId: id, entry: 'BlockView' });
-          setCurrentWebTab(null);
-          navigation.switchTab(ETabRoutes.Discovery);
-        }}
-        // onContinue={() => {
-        //   addUrlToPhishingCache({ url: phishingUrlRef.current });
-        //   setShowPhishingView(false);
-        // }}
-      />
+      <Stack
+        position="absolute"
+        top={0}
+        bottom={0}
+        left={0}
+        right={0}
+        zIndex={1}
+        bg="$bgApp"
+      >
+        <BlockAccessView
+          url={blockedUrl}
+          urlValidateState={urlValidateState}
+          onCloseTab={() => {
+            closeWebTab({ tabId: id, entry: 'BlockView' });
+            setCurrentWebTab(null);
+            navigation.switchTab(ETabRoutes.Discovery);
+          }}
+          // onContinue={() => {
+          //   addUrlToPhishingCache({ url: phishingUrlRef.current });
+          //   setShowPhishingView(false);
+          // }}
+        />
+      </Stack>
     ),
-    [closeWebTab, setCurrentWebTab, id, navigation, urlValidateState],
+    [
+      blockedUrl,
+      closeWebTab,
+      setCurrentWebTab,
+      id,
+      navigation,
+      urlValidateState,
+    ],
   );
 
   return (
-    <>
+    <Stack flex={1} position="relative" bg="$bgApp">
       {webview}
       {showBlockAccessView ? blockAccessView : null}
-    </>
+    </Stack>
   );
 }
 

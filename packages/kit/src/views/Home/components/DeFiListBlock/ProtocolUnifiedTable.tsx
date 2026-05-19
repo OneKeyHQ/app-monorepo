@@ -3,10 +3,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
-import {
-  ProtocolValueCell,
-  isProtocolValueUnavailable,
-} from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
+import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import type { IProtocolUnifiedRow } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
@@ -14,35 +11,7 @@ import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 import { ProtocolAssetBalanceText } from './ProtocolAssetBalanceText';
 import { ProtocolPositionCell } from './ProtocolPositionCell';
 import { ProtocolRewardsCell } from './ProtocolRewardsCell';
-
-// Position-level USD total = supplied assets + reward assets. The Rewards
-// column already itemizes the reward USD separately; the Value column on
-// the right is a "what's this position worth as a whole" single number,
-// which is why rewards still add into it.
-function sumPositionUsd(
-  primaryAssets: IDeFiAsset[],
-  rewardsExtraAssets: IDeFiAsset[],
-): number {
-  let total = 0;
-  for (const asset of primaryAssets) {
-    total += asset.value;
-  }
-  for (const asset of rewardsExtraAssets) {
-    total += asset.value;
-  }
-  return total;
-}
-
-function hasUnavailableAssetValue(...assetGroups: IDeFiAsset[][]): boolean {
-  for (const assets of assetGroups) {
-    for (const asset of assets) {
-      if (isProtocolValueUnavailable(asset.value)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
+import { getPositionUsdState } from './ProtocolUnifiedTableUtils';
 
 // Returns the most valuable up to `max` assets in USD-descending order.
 // Used for the Balance column when a position has more rows than we want
@@ -68,6 +37,7 @@ function topAssetsByValue(assets: IDeFiAsset[], max: number): IDeFiAsset[] {
 // percent split and the columns visibly jagged across categories.
 // Exported so the sectioned table can align its first column too.
 export const POSITION_COLUMN_WIDTH = 240;
+export const PROTOCOL_TABLE_COLUMN_GAP = '$5' as const;
 
 // Flex weights for the trailing columns. Balance leads (amounts can be
 // long, especially when stacked); Value gets less because it's a single
@@ -92,6 +62,7 @@ type IProtocolUnifiedTableProps = {
   rows: IProtocolUnifiedRow[];
   currencySymbol: string;
   priceUnavailableLabel: string;
+  partialPriceUnavailableLabel: string;
 };
 
 const ProtocolUnifiedTable = memo(
@@ -99,6 +70,7 @@ const ProtocolUnifiedTable = memo(
     rows,
     currencySymbol,
     priceUnavailableLabel,
+    partialPriceUnavailableLabel,
   }: IProtocolUnifiedTableProps) => {
     const intl = useIntl();
 
@@ -147,7 +119,14 @@ const ProtocolUnifiedTable = memo(
 
     return (
       <YStack>
-        <XStack mx="$5" px="$2" py="$2" alignItems="center" bg="$bgSubdued">
+        <XStack
+          mx="$5"
+          px="$2"
+          py="$2"
+          alignItems="center"
+          bg="$bgSubdued"
+          gap={PROTOCOL_TABLE_COLUMN_GAP}
+        >
           <Stack width={POSITION_COLUMN_WIDTH} flexShrink={0} minWidth={0}>
             <SizableText size="$headingXs" color="$textSubdued">
               {labels.position}
@@ -178,14 +157,14 @@ const ProtocolUnifiedTable = memo(
         </XStack>
 
         {rows.map((row, rowIndex) => {
-          const positionUsd = sumPositionUsd(
+          const positionUsdState = getPositionUsdState(
             row.primaryAssets,
             row.rewardsExtraAssets,
           );
-          const isPositionUsdUnavailable = hasUnavailableAssetValue(
-            row.primaryAssets,
-            row.rewardsExtraAssets,
-          );
+          const isPositionUsdUnavailable = !positionUsdState.hasAvailableValue;
+          const hasPartialUnavailableValue =
+            positionUsdState.hasAvailableValue &&
+            positionUsdState.hasUnavailableValue;
           const isExpanded = expandedRows.has(row.rowKey);
           const visibleBalanceAssets = isExpanded
             ? row.primaryAssets
@@ -207,6 +186,7 @@ const ProtocolUnifiedTable = memo(
               alignItems="flex-start"
               minHeight={44}
               mt={rowIndex === 0 ? '$0' : '$3'}
+              gap={PROTOCOL_TABLE_COLUMN_GAP}
             >
               <Stack
                 width={POSITION_COLUMN_WIDTH}
@@ -305,10 +285,12 @@ const ProtocolUnifiedTable = memo(
                 pt="$1"
               >
                 <ProtocolValueCell
-                  value={positionUsd}
+                  value={positionUsdState.value}
                   currencySymbol={currencySymbol}
                   priceUnavailableLabel={priceUnavailableLabel}
+                  partialPriceUnavailableLabel={partialPriceUnavailableLabel}
                   isUnavailable={isPositionUsdUnavailable}
+                  showPriceUnavailableTooltip={hasPartialUnavailableValue}
                   size="$bodyMdMedium"
                   textAlign="right"
                   numberOfLines={1}

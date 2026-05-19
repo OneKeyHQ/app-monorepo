@@ -101,7 +101,7 @@ class ServiceAppUpdate extends ServiceBase {
 
   private isResetting = false;
 
-  private updateAt = 0;
+  updateAt = 0;
 
   cachedUpdateInfo: IResponseAppUpdateInfo | undefined;
 
@@ -698,6 +698,55 @@ class ServiceAppUpdate extends ServiceBase {
     }));
   }
 
+  /**
+   * Self-heal hook for the failed → resuming race. Native progress events
+   * keep firing while status sits at downloadPackageFailed when the
+   * previous attempt rejected JS-side but native's transfer outlived the
+   * rejection, or the AppState 'active' resume path didn't propagate
+   * cleanly through serviceAppUpdate.downloadPackage. Flipping status
+   * back here lets the UI catch up with reality.
+   *
+   * No-op unless status is exactly downloadPackageFailed — never touches
+   * a healthy in-progress or post-download state. Idempotent against
+   * repeat calls because the second one reads status === downloadPackage
+   * and returns immediately.
+   */
+  @backgroundMethod()
+  async onDownloadProgressHeartbeat(): Promise<void> {
+    // Functional set with a re-check inside the updater closes the
+    // get-then-set window: status may have already advanced to
+    // downloadASC / verifyASC / done by the time we set, and we must
+    // not regress those healthy states back to downloadPackage.
+    let healed = false;
+    await appUpdatePersistAtom.set((prev) => {
+      if (prev.status !== EAppUpdateStatus.downloadPackageFailed) return prev;
+      healed = true;
+      return {
+        ...prev,
+        status: EAppUpdateStatus.downloadPackage,
+        errorText: undefined,
+      };
+    });
+    if (!healed) return;
+    defaultLogger.app.appUpdate.log(
+      'onDownloadProgressHeartbeat: native still progressing while status=failed → healing to downloadPackage',
+    );
+    // Restart the 30-min watchdog so we never get stuck silently when
+    // native progress stalls or the JS download Promise is dead (e.g.,
+    // the previous JS instance was killed and the foreground download
+    // outlived it). Without this, percent could hit 100% but no further
+    // step transitions would ever fire.
+    clearTimeout(downloadTimeoutId);
+    downloadTimeoutId = setTimeout(
+      async () => {
+        await this.downloadPackageFailed({
+          message: ETranslations.update_download_timed_out_check_connection,
+        });
+      },
+      timerUtils.getTimeDurationMs({ minute: 30 }),
+    );
+  }
+
   @backgroundMethod()
   updateErrorText(status: EAppUpdateStatus, errorText: string) {
     void appUpdatePersistAtom.set((prev) => ({
@@ -1067,6 +1116,12 @@ class ServiceAppUpdate extends ServiceBase {
     await AppUpdate.clearPackage();
     await BundleUpdate.clearDownload();
     await this.backgroundApi.servicePendingInstallTask.clearPendingInstallTask();
+    // reset() below schedules an immediate fetchAppUpdateInfo(forceUpdate=false)
+    // which would hit getAppLatestInfo's 5-min in-memory cache and replay the
+    // release the user just asked us to clear straight back onto the atom.
+    this.cachedUpdateInfo = undefined;
+    this.updateAt = 0;
+    void this.fetchAppChangeLog.clear();
     await this.reset();
   }
 

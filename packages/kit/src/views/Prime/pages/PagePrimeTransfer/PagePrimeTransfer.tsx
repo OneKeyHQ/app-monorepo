@@ -96,7 +96,16 @@ export default function PagePrimeTransfer() {
       // Disconnect WebSocket
       void backgroundApiProxy.servicePrimeTransfer.disconnectWebSocket();
     };
-  }, [result?.endpoint, result?.serverConfig?.serverType, isBotWalletExport]);
+    // websocketEndpointUpdatedAt is intentionally part of the deps so that
+    // user-triggered retries (which bump the timestamp without changing the
+    // endpoint URL) actually tear down the old socket and call initWebSocket
+    // again — same-endpoint retry would otherwise be a no-op.
+  }, [
+    result?.endpoint,
+    result?.serverConfig?.serverType,
+    isBotWalletExport,
+    primeTransferAtom.websocketEndpointUpdatedAt,
+  ]);
 
   useEffect(() => {
     if (platformEnv.isExtension) {
