@@ -46,12 +46,9 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
-import type { IDBAccount, IDBUtxoAccount } from '../dbs/local/types';
+import type { IDBUtxoAccount } from '../dbs/local/types';
 import type BTCVault from '../vaults/impls/btc/Vault';
 
-// Shape of `/wallet/v1/account/badges` response after local mapping.
-// Declared at module level so the xpub fan-out merge helper can be a
-// pure function (easier to test, no class coupling).
 type IAccountBadgeResult = {
   isScam: boolean;
   isContract: boolean;
@@ -61,24 +58,6 @@ type IAccountBadgeResult = {
   badges: IAddressBadge[];
   similarAddress?: string;
 };
-
-// Address-keyed storage hashes by xpub (or address). On the write path, the
-// BTC vault returns `xpubSegwit || xpub` from `getAccountXpub`, so nested-segwit
-// (P2SH-P2WPKH) entries land under `xpubSegwit`. Readers that look up DBAccounts
-// directly must use the same precedence; reading raw `.xpub` instead would miss
-// nested-segwit derive types and the chain selector / account selector would
-// show a total $X.XX below the live main view.
-function pickAccountXpubForAssetsKey(
-  account:
-    | IDBAccount
-    | { xpub?: string; xpubSegwit?: string }
-    | undefined
-    | null,
-): string | undefined {
-  if (!account) return undefined;
-  const a = account as { xpub?: string; xpubSegwit?: string };
-  return a.xpubSegwit || a.xpub;
-}
 
 function emptyAccountBadgeResult(): IAccountBadgeResult {
   return {
@@ -1047,38 +1026,46 @@ class ServiceAccountProfile extends ServiceBase {
 
     const usdValueMap = await this.convertMapToUsd(value, currency);
 
-    // Parse each accountValueKey back to (networkAccountId, networkId) only to
-    // resolve the chain identifiers for the SimpleDb write. The atom snapshot
-    // stays in the original compound-key shape `Record<${networkAccountId}_${networkId}, worth>`
-    // because `AccountValue.tsx` / `calculateAccountTotalValue` look it up via
-    // `buildAccountValueKey(accountId, networkId)` — replacing it with a
-    // per-networkId map would silently break the active-account row display.
-    const writeItems: {
+    // Atom snapshot stays in the compound-key shape because consumers look
+    // entries up via `buildAccountValueKey(accountId, networkId)`.
+    type IWriteItem = {
       accountAddress?: string;
       xpub?: string;
       networkId: string;
       value: string;
-    }[] = [];
-
-    for (const [accountValueKey, usdValue] of Object.entries(usdValueMap)) {
-      const parsed = accountUtils.parseAccountValueKey({
-        key: accountValueKey,
-      });
-      if (parsed.accountId && parsed.networkId) {
-        const resolved = await this.resolveAddressKey({
-          accountId: parsed.accountId,
-          networkId: parsed.networkId,
-        });
-        if (resolved) {
-          writeItems.push({
-            accountAddress: resolved.accountAddress,
-            xpub: resolved.xpub,
+    };
+    const resolveCache = new Map<
+      string,
+      Promise<{ accountAddress?: string; xpub?: string } | null>
+    >();
+    const resolved = await Promise.all(
+      Object.entries(usdValueMap).map<Promise<IWriteItem | null>>(
+        async ([accountValueKey, usdValue]) => {
+          const parsed = accountUtils.parseAccountValueKey({
+            key: accountValueKey,
+          });
+          if (!parsed.accountId || !parsed.networkId) return null;
+          const cacheKey = `${parsed.accountId}:${parsed.networkId}`;
+          let pending = resolveCache.get(cacheKey);
+          if (!pending) {
+            pending = this.resolveAddressKey({
+              accountId: parsed.accountId,
+              networkId: parsed.networkId,
+            });
+            resolveCache.set(cacheKey, pending);
+          }
+          const r = await pending;
+          if (!r) return null;
+          return {
+            accountAddress: r.accountAddress,
+            xpub: r.xpub,
             networkId: parsed.networkId,
             value: usdValue,
-          });
-        }
-      }
-    }
+          };
+        },
+      ),
+    );
+    const writeItems = resolved.filter((x): x is IWriteItem => x !== null);
 
     if (updateAll) {
       await activeAccountValueAtom.set({
@@ -1159,8 +1146,7 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   // Aggregate "All Networks" worth for a single indexedAccount when the caller
-  // does not already know each network's address — used by global search where
-  // only indexedAccountId is available.
+  // doesn't already know each network's address.
   @backgroundMethod()
   async getAllNetworkAccountsValueByIndexedAccount(params: {
     indexedAccountId: string;
@@ -1175,7 +1161,7 @@ class ServiceAccountProfile extends ServiceBase {
       const items: { accountAddress?: string; xpub?: string }[] = [];
       const seen = new Set<string>();
       for (const acc of dbAccounts ?? []) {
-        const xpub = pickAccountXpubForAssetsKey(acc);
+        const xpub = accountUtils.pickXpubFromDBAccount(acc);
         if (acc.address || xpub) {
           const ak = accountUtils.buildAccountLocalAssetsKey({
             accountAddress: acc.address,
@@ -1241,17 +1227,11 @@ class ServiceAccountProfile extends ServiceBase {
     }
   }
 
-  // Address-search result flow.
-  //
-  // Returns the worth at a specific (accountAddress, xpub) pair, shaped as
-  // `Record<${networkAccountId}_${networkId}, value>` using the caller-supplied
-  // `networkAccountId` as the compound-key prefix. The underlying SimpleDb
-  // entry is keyed only by (address, xpub), so multiple wallets that share a
-  // chain address read the same entry and see the same per-network worth —
-  // the per-wallet prefix only changes the emitted compound key, not the
-  // worth values themselves. Use this for global-search address rows where
-  // each row must show the worth at *that exact address*, not the whole
-  // indexed account.
+  // Returns worth for a specific (accountAddress, xpub) pair, shaped as
+  // `Record<${networkAccountId}_${networkId}, value>` with the caller-supplied
+  // `networkAccountId` as the compound-key prefix. SimpleDb entries are keyed
+  // only by (address, xpub), so identical-address rows from different wallets
+  // read the same entry; the per-wallet prefix only re-labels the output key.
   @backgroundMethod()
   async getAllNetworkAccountsValueByAddress(params: {
     networkAccountId: string;
@@ -1288,23 +1268,11 @@ class ServiceAccountProfile extends ServiceBase {
     }
   }
 
-  // Chain selector / network selector flow.
-  //
-  // Returns the per-network worth for a logical account using the legacy
-  // compound-key shape `Record<${networkAccountId}_${networkId}, value>` so
-  // existing consumers — both `ServiceNetwork.sortChainSelectorNetworksByValue`
-  // and the inline parser in `ChainSelector.tsx` — keep working unchanged.
-  //
-  // Routes by accountId:
-  //   - Others account: looks up the single (address, xpub) entry. Emits
-  //     compound keys with the Others accountId as the prefix, matching the
-  //     pre-migration write shape from `HomeOverviewContainer`.
-  //   - Indexed (HD/HW): walks every DBAccount under the indexedAccountId,
-  //     loads its address-keyed entry, and emits one compound key per
-  //     (dbAccount.id, networkId). Multiple derive types under one indexed
-  //     account each produce their own compound keys — `sortChainSelectorNetworksByValue`
-  //     uses that to honor the global deriveType filter (or merge-derive-assets,
-  //     or Others) just like before.
+  // Returns per-network worth for a logical account in the compound-key shape
+  // `Record<${networkAccountId}_${networkId}, value>` consumed by
+  // `sortChainSelectorNetworksByValue` and `ChainSelector.tsx`. For HD/HW the
+  // compound prefix is the per-derive `dbAccount.id` so the deriveType filter
+  // and merge-derive-assets paths keep working.
   @backgroundMethod()
   async getAllNetworkAccountsValueByAccountId(params: { accountId: string }) {
     const { accountId } = params;
@@ -1323,7 +1291,7 @@ class ServiceAccountProfile extends ServiceBase {
           await this.backgroundApi.serviceAccount.getDBAccountSafe({
             accountId,
           });
-        const xpub = pickAccountXpubForAssetsKey(account);
+        const xpub = accountUtils.pickXpubFromDBAccount(account);
         if (!account || (!account.address && !xpub)) {
           return empty;
         }
@@ -1356,7 +1324,7 @@ class ServiceAccountProfile extends ServiceBase {
         xpub?: string;
       }[] = [];
       for (const acc of dbAccounts ?? []) {
-        const xpub = pickAccountXpubForAssetsKey(acc);
+        const xpub = accountUtils.pickXpubFromDBAccount(acc);
         if (acc.address || xpub) {
           items.push({
             dbAccountId: acc.id,
@@ -1444,14 +1412,12 @@ class ServiceAccountProfile extends ServiceBase {
 
   @backgroundMethod()
   async updateAccountValue(params: {
-    // The logical account id used for the activeAccountValueAtom snapshot — it
-    // is indexedAccountId for HD/HW wallets and account.id for Others, matching
-    // the keying convention used by the account selector.
+    // Logical account id for the activeAccountValueAtom — indexedAccountId for
+    // HD/HW, account.id for Others (matches the account selector's keying).
     accountId: string;
-    // The network-specific account id (always account.id of the active
-    // networkAccount), used to resolve the chain address/xpub for SimpleDb.
-    // Defaults to `accountId` (correct for Others accounts).
-    networkAccountId?: string;
+    // The active networkAccount's account.id; required because HD/HW callers
+    // pass indexedAccountId as `accountId` which can't resolve a chain address.
+    networkAccountId: string;
     networkId: string;
     value: string;
     currency: string;
@@ -1467,7 +1433,7 @@ class ServiceAccountProfile extends ServiceBase {
 
     const usdValue = await this.convertOneToUsd(params.value, params.currency);
     const resolved = await this.resolveAddressKey({
-      accountId: params.networkAccountId ?? params.accountId,
+      accountId: params.networkAccountId,
       networkId: params.networkId,
     });
     if (!resolved) return;
@@ -1484,13 +1450,13 @@ class ServiceAccountProfile extends ServiceBase {
   @backgroundMethod()
   async updateAccountValueForSingleNetwork(params: {
     accountId: string;
-    networkAccountId?: string;
+    networkAccountId: string;
     networkId: string;
     value: string;
     currency: string;
   }) {
     const resolved = await this.resolveAddressKey({
-      accountId: params.networkAccountId ?? params.accountId,
+      accountId: params.networkAccountId,
       networkId: params.networkId,
     });
     if (!resolved) return;

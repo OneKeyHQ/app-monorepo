@@ -986,15 +986,9 @@ class ServiceAccountSelector extends ServiceBase {
       await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
         accounts,
       });
-    // Per-row aggregation. Each row's `accountId` is the indexedAccountId for
-    // HD/HW or the Others accountId — exactly what
-    // `getAllNetworkAccountsValueByAccountId` expects. The returned value is
-    // shaped as Record<${networkAccountId}_${networkId}, worth>, which is what
-    // `AccountValue.tsx` / `calculateAccountTotalValue` consume (branch 3 looks
-    // up a compound key, branch 4 filters compound keys by walletId+deriveType).
-    // Using the per-address `getAllNetworkAccountsValue` here would return
-    // Record<networkId, worth> instead, which silently fails every compound-key
-    // lookup downstream — so the selector would show only DeFi worth.
+    // Compound-key shape consumed by `calculateAccountTotalValue`; the
+    // per-address `getAllNetworkAccountsValue` would yield Record<networkId,
+    // worth> and silently miss every compound-key lookup downstream.
     const accountsValue = await Promise.all(
       accounts.map((a) =>
         this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByAccountId(

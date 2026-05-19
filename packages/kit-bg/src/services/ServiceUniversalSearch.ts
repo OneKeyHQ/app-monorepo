@@ -687,9 +687,7 @@ class ServiceUniversalSearch extends ServiceBase {
                     accountId: account.id,
                     networkId: networkId || '',
                     accountAddress: account.address,
-                    xpub:
-                      (account as { xpubSegwit?: string }).xpubSegwit ||
-                      (account as { xpub?: string }).xpub,
+                    xpub: accountUtils.pickXpubFromDBAccount(account),
                   },
                 ],
               })
@@ -708,20 +706,14 @@ class ServiceUniversalSearch extends ServiceBase {
           )?.[0]?.account;
           if (account?.id) {
             // Scope the worth lookup to the matched (address, xpub) — not the
-            // whole indexedAccount — so wallets that share the same chain
-            // address (HW devices initialized from the same seed, etc.) all
-            // read the same SimpleDb entry and surface identical balances.
-            // Using `getAllNetworkAccountsValueByIndexedAccount` here would
-            // fold in unrelated chain addresses under the indexedAccount,
-            // causing identical-address rows to disagree.
+            // whole indexedAccount — so identical-address rows from different
+            // wallets read the same SimpleDb entry and agree.
             accountsValue =
               await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByAddress(
                 {
                   networkAccountId: account.id,
                   accountAddress: account.address,
-                  xpub:
-                    (account as { xpubSegwit?: string }).xpubSegwit ||
-                    (account as { xpub?: string }).xpub,
+                  xpub: accountUtils.pickXpubFromDBAccount(account),
                 },
               );
           }
@@ -936,13 +928,9 @@ class ServiceUniversalSearch extends ServiceBase {
           const wallet = await serviceAccount.getWalletSafe({
             walletId: i.item.walletId,
           });
-          // Name search needs the legacy compound-key shape
-          // `Record<${networkAccountId}_${networkId}, worth>` so the
-          // `AccountValue` render path (branch 3 / branch 4 in
-          // `calculateAccountTotalValue`) can match the row's linkedAccountId.
-          // The per-networkId shape returned by the indexed-account aggregator
-          // silently fails those lookups and would leave the row showing only
-          // DeFi worth.
+          // Compound-key shape consumed by `calculateAccountTotalValue`; the
+          // per-networkId shape from the indexed-account aggregator would not
+          // match the row's linkedAccountId.
           const accountsValue =
             await serviceAccountProfile.getAllNetworkAccountsValueByAccountId({
               accountId: i.item.id,
@@ -1039,9 +1027,7 @@ class ServiceUniversalSearch extends ServiceBase {
                   accountId: i.item.id,
                   networkId: i.item.createAtNetwork ?? network?.id ?? '',
                   accountAddress: account.address,
-                  xpub:
-                    (account as { xpubSegwit?: string }).xpubSegwit ||
-                    (account as { xpub?: string }).xpub,
+                  xpub: accountUtils.pickXpubFromDBAccount(account),
                 },
               ],
             })

@@ -126,6 +126,10 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     if (!key) {
       return;
     }
+    const existing = (await this.getRawData())?.byAddress?.[key];
+    if (existing?.value === value && existing?.currency === currency) {
+      return;
+    }
     await this.setRawData((rawData) => {
       const base = rawData ?? emptyData();
       return {
@@ -134,7 +138,6 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
           ...base.byAddress,
           [key]: { value, currency },
         },
-        allByAddress: base.allByAddress ?? {},
       };
     });
   }
@@ -177,9 +180,26 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       return;
     }
 
+    const existingMap = (await this.getRawData())?.allByAddress ?? {};
+    const isNoop = Object.entries(grouped).every(([key, valueMap]) => {
+      const prev = existingMap[key];
+      if (!prev || prev.currency !== currency) return false;
+      if (updateAll) {
+        const prevKeys = Object.keys(prev.value);
+        const nextKeys = Object.keys(valueMap);
+        if (prevKeys.length !== nextKeys.length) return false;
+      }
+      return Object.entries(valueMap).every(
+        ([nId, v]) => prev.value[nId] === v,
+      );
+    });
+    if (isNoop) {
+      return;
+    }
+
     await this.setRawData((rawData) => {
       const base = rawData ?? emptyData();
-      const existing = base.allByAddress ?? {};
+      const existing = base.allByAddress;
       const next: Record<string, IAllNetworkAccountValueEntry> = {
         ...existing,
       };
@@ -195,32 +215,15 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       }
       return {
         ...base,
-        byAddress: base.byAddress ?? {},
         allByAddress: next,
       };
     });
   }
 
-  // One-shot migration from the legacy `data` / `all` shape (keyed by accountId)
-  // to the new address-keyed shape. Safe to invoke on every startup — idempotent
-  // via `_migrationVersion`.
-  //
-  // Versioning:
-  //   v1 (buggy): mis-read the inner `value` map of legacy `all` as
-  //     Record<networkId, worth>, but it is actually Record<${networkAccountId}_${networkId}, worth>
-  //     produced by `buildAccountValueKey`. This dropped all HD/HW worth and
-  //     wrote compound-keyed entries for Others.
-  //   v2 (buggy): parses each inner key correctly with `parseAccountValueKey`,
-  //     but used the raw `account.xpub` when building the addressKey, while
-  //     the BTC vault's `getAccountXpub` returns `xpubSegwit || xpub` — so
-  //     nested-segwit (P2SH-P2WPKH) entries were written to a different key
-  //     than v2 itself wrote, leaving that derive type's worth orphaned.
-  //   v3 (current): uses `xpubSegwit || xpub` when resolving the addressKey,
-  //     matching the write path. Re-runs against `_legacy_*` so v1 / v2
-  //     users recover correctly.
-  //
-  // When `_legacy_all` / `_legacy_data` are present (set by v1+), we re-run
-  // against them so users who already migrated can recover.
+  // One-shot migration from the legacy accountId-keyed `data` / `all` shape
+  // to the address-keyed shape. Idempotent via `_migrationVersion`; bump
+  // `CURRENT_MIGRATION_VERSION` to re-run against the preserved `_legacy_*`
+  // snapshot when the migration logic itself changes.
   async migrateFromAccountIdToAddressKey({
     serviceAccount,
   }: {
@@ -238,28 +241,15 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       | undefined;
 
     if (!raw) {
-      console.log(
-        '[accountValue migration] skip: no rawData (fresh install or storage empty)',
-      );
       return;
     }
     if ((raw._migrationVersion ?? 0) >= CURRENT_MIGRATION_VERSION) {
-      console.log('[accountValue migration] skip: already at current version', {
-        migrationVersion: raw._migrationVersion,
-        migratedAt: raw._migratedAt,
-        migratedAtISO: raw._migratedAt
-          ? new Date(raw._migratedAt).toISOString()
-          : undefined,
-        byAddress: Object.keys(raw.byAddress ?? {}).length,
-        allByAddress: Object.keys(raw.allByAddress ?? {}).length,
-      });
       return;
     }
 
-    // Source the legacy snapshot. For v0 (never migrated) it lives under
-    // `data` / `all`. For v1 (buggy migration already ran) the originals were
-    // preserved into `_legacy_data` / `_legacy_all`.
-    const previousVersion = raw._migrationVersion ?? (raw._migratedAt ? 1 : 0);
+    // For v0 (never migrated) the snapshot lives under `data` / `all`; for
+    // earlier buggy migration versions the originals were preserved into
+    // `_legacy_*` so we can re-run.
     const legacyData = raw.data ?? raw._legacy_data ?? {};
     const legacyAll = raw.all ?? raw._legacy_all ?? {};
     if (
@@ -273,16 +263,11 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
         _migratedAt: Date.now(),
         _migrationVersion: CURRENT_MIGRATION_VERSION,
       }));
-      console.log(
-        '[accountValue migration] skip: no legacy data, stamped current version',
-        { previousVersion },
-      );
       return;
     }
 
     const byAddress: Record<string, IAccountValueEntry> = {};
     const allByAddress: Record<string, IAllNetworkAccountValueEntry> = {};
-    const failures: string[] = [];
 
     // Cache DB-account lookups; the same networkAccountId can appear under
     // many networkIds in legacy `all`.
@@ -299,12 +284,7 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
           accountResolveCache.set(accountId, null);
           return null;
         }
-        // Match the BTC vault's `getAccountXpub` precedence (`xpubSegwit ||
-        // xpub`) so nested-segwit derive types land at the same addressKey
-        // their post-migration writes use; otherwise migrated worth would be
-        // unreadable for that derive type.
-        const utxoAcc = account as { xpub?: string; xpubSegwit?: string };
-        const xpub = utxoAcc.xpubSegwit || utxoAcc.xpub;
+        const xpub = accountUtils.pickXpubFromDBAccount(account);
         if (!account.address && !xpub) {
           accountResolveCache.set(accountId, null);
           return null;
@@ -329,43 +309,33 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
           const account = await serviceAccount.getDBAccount({
             accountId: oldKey,
           });
-          if (account && account.createAtNetwork) {
-            const utxoAcc = account as {
-              xpub?: string;
-              xpubSegwit?: string;
-            };
+          if (account?.createAtNetwork) {
             const addressKey = accountUtils.buildAccountLocalAssetsKey({
               networkId: account.createAtNetwork,
               accountAddress: account.address,
-              xpub: utxoAcc.xpubSegwit || utxoAcc.xpub,
+              xpub: accountUtils.pickXpubFromDBAccount(account),
             });
             byAddress[addressKey] = { value: entry.value, currency: 'usd' };
-          } else {
-            failures.push(oldKey);
           }
         } catch {
-          failures.push(oldKey);
+          // Skip records that fail to resolve; legacy snapshot stays preserved
+          // in `_legacy_data` so a later version can retry.
         }
       }
     }
 
     // Legacy `all` inner map keys are `${networkAccountId}_${networkId}` from
-    // `buildAccountValueKey` (see pre-migration HomeOverviewContainer and
-    // TokenSelector write paths). Resolve each inner accountId to its
-    // address/xpub and emit one address-keyed entry per (address, networkId).
-    for (const [oldKey, entry] of Object.entries(legacyAll)) {
+    // `buildAccountValueKey`. Resolve each inner accountId to its address/xpub
+    // and emit one address-keyed entry per (address, networkId).
+    for (const [, entry] of Object.entries(legacyAll)) {
       if (entry?.currency === 'usd') {
         for (const [compoundKey, worth] of Object.entries(entry.value)) {
           const parsed = accountUtils.parseAccountValueKey({
             key: compoundKey,
           });
-          if (!parsed.accountId || !parsed.networkId) {
-            failures.push(`${oldKey}#${compoundKey}`);
-          } else {
+          if (parsed.accountId && parsed.networkId) {
             const resolved = await resolveByAccountId(parsed.accountId);
-            if (!resolved) {
-              failures.push(`${oldKey}#${compoundKey}`);
-            } else {
+            if (resolved) {
               const addressKey = accountUtils.buildAccountLocalAssetsKey({
                 accountAddress: resolved.accountAddress,
                 xpub: resolved.xpub,
@@ -388,22 +358,12 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       ...(current ?? emptyData()),
       byAddress,
       allByAddress,
-      // Preserve legacy snapshot once, even on re-run, so a future v3 can
-      // re-derive without losing data.
+      // Preserve legacy snapshot once, even on re-run, so a future migration
+      // version can re-derive without losing data.
       _legacy_data: current?._legacy_data ?? legacyData,
       _legacy_all: current?._legacy_all ?? legacyAll,
       _migratedAt: Date.now(),
       _migrationVersion: CURRENT_MIGRATION_VERSION,
     }));
-
-    console.log('[accountValue migration]', {
-      previousVersion,
-      migrationVersion: CURRENT_MIGRATION_VERSION,
-      legacyData: Object.keys(legacyData).length,
-      legacyAll: Object.keys(legacyAll).length,
-      byAddress: Object.keys(byAddress).length,
-      allByAddress: Object.keys(allByAddress).length,
-      failures: failures.length,
-    });
   }
 }
