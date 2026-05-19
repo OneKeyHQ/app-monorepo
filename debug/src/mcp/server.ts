@@ -97,6 +97,45 @@ const TOOLS: ToolSpec[] = [
       required: ["sessionId", "expression"],
     },
   },
+  {
+    name: "js.console.tail",
+    description:
+      "Return recent Hermes console entries (last N, optional since-filter).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        since: { type: "number", description: "unix ms" },
+        limit: { type: "number", default: 200, maximum: 500 },
+      },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "js.network.list",
+    description: "List captured network requests for the session.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        since: { type: "number", description: "unix ms" },
+        limit: { type: "number", default: 100, maximum: 500 },
+      },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "js.network.body",
+    description: "Fetch a captured response body by requestId.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        requestId: { type: "string" },
+      },
+      required: ["sessionId", "requestId"],
+    },
+  },
 ];
 
 export const server = new Server(

@@ -1,5 +1,6 @@
 import { attachHermes, type CdpHandle } from "../adapters/cdp.js";
 import { injectBootstrap } from "../adapters/cdpBootstrap.js";
+import { attachEvents } from "../adapters/cdpEvents.js";
 import type { Registry } from "../daemon/registry.js";
 
 const handles = new Map<string, CdpHandle>();
@@ -18,6 +19,14 @@ async function ensureCdp(sessionId: string, port?: number): Promise<CdpHandle> {
     } catch {
       // Swallow — bootstrap script catches internally; this guards against
       // unexpected CDP/transport-level rejections.
+    }
+    // Best-effort CDP event subscriptions for js.console.tail and
+    // js.network.*. Network domain may not exist on Hermes — attachEvents
+    // tolerates that internally. Failures must not break js.eval.
+    try {
+      await attachEvents(sessionId, h.client);
+    } catch {
+      // Swallow — event capture is supplementary, not essential.
     }
   }
   return h;

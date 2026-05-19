@@ -14,7 +14,10 @@ describe("MCP server module", () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
+        "js.console.tail",
         "js.eval",
+        "js.network.body",
+        "js.network.list",
         "screenshot",
         "session.attach",
         "session.detach",

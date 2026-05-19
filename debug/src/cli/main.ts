@@ -97,6 +97,67 @@ program
   });
 
 program
+  .command("console-tail <sessionId>")
+  .option("--since <ts>", "unix ms timestamp", (v) => parseInt(v, 10))
+  .option("--limit <n>", "max entries", (v) => parseInt(v, 10))
+  .description("Last N console entries from Hermes")
+  .action(
+    async (
+      sessionId: string,
+      opts: { since?: number; limit?: number },
+    ) => {
+      process.stdout.write(
+        JSON.stringify(
+          await call("js.console.tail", {
+            sessionId,
+            since: opts.since,
+            limit: opts.limit,
+          }),
+          null,
+          2,
+        ) + "\n",
+      );
+    },
+  );
+
+program
+  .command("network-list <sessionId>")
+  .option("--since <ts>", "unix ms", (v) => parseInt(v, 10))
+  .option("--limit <n>", "max", (v) => parseInt(v, 10))
+  .description("List network requests captured in this session")
+  .action(
+    async (
+      sessionId: string,
+      opts: { since?: number; limit?: number },
+    ) => {
+      process.stdout.write(
+        JSON.stringify(
+          await call("js.network.list", {
+            sessionId,
+            since: opts.since,
+            limit: opts.limit,
+          }),
+          null,
+          2,
+        ) + "\n",
+      );
+    },
+  );
+
+program
+  .command("network-body <sessionId> <requestId>")
+  .description("Fetch a request body by its CDP requestId")
+  .action(async (sessionId: string, requestId: string) => {
+    process.stdout.write(
+      JSON.stringify(
+        await call("js.network.body", { sessionId, requestId }),
+        null,
+        2,
+      ) + "\n",
+    );
+  });
+
+program
   .command("doctor")
   .description("Pre-flight checks (adb, xcrun, lldb, Hermes, devices, frida)")
   .action(async () => {

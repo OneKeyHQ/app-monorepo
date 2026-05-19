@@ -1,5 +1,7 @@
 import { pino } from "pino";
+import { consoleTail } from "../tools/jsConsole.js";
 import { jsEval } from "../tools/jsEval.js";
+import { networkBody, networkList } from "../tools/jsNetwork.js";
 import { screenshot } from "../tools/screenshot.js";
 import { uiTree } from "../tools/uiTree.js";
 import { Dispatcher } from "./dispatcher.js";
@@ -22,6 +24,9 @@ async function main(): Promise<void> {
   d.register("screenshot", (p) => screenshot(registry, p as never));
   d.register("ui.tree", (p) => uiTree(registry, p as never));
   d.register("js.eval", (p) => jsEval(registry, p as never));
+  d.register("js.console.tail", (p) => consoleTail(registry, p as never));
+  d.register("js.network.list", (p) => networkList(registry, p as never));
+  d.register("js.network.body", (p) => networkBody(registry, p as never));
 
   const server = new UnixSocketServer(DEFAULT_SOCKET, d);
   await server.start();
