@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { runAll as runDoctor } from "./doctor.js";
 import { call, RpcClientError } from "./rpcClient.js";
 
 const program = new Command("odb")
@@ -93,6 +94,23 @@ program
       JSON.stringify(await call("js.eval", { sessionId, expression }), null, 2) +
         "\n",
     );
+  });
+
+program
+  .command("doctor")
+  .description("Pre-flight checks (adb, xcrun, lldb, Hermes, devices, frida)")
+  .action(async () => {
+    const checks = await runDoctor();
+    for (const c of checks) {
+      const mark = c.ok ? "✓" : "✗";
+      const detail = c.detail ? `  (${c.detail})` : "";
+      process.stdout.write(`  ${mark} ${c.name}${detail}\n`);
+      if (!c.ok && c.fix) {
+        process.stdout.write(`      fix: ${c.fix}\n`);
+      }
+    }
+    const fails = checks.filter((c) => !c.ok).length;
+    process.exit(fails === 0 ? 0 : 1);
   });
 
 program.parseAsync(process.argv).catch((e: unknown) => {

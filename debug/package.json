@@ -15,6 +15,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/daemon/main.ts",
+    "doctor": "tsx src/cli/main.ts doctor",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/daemon/main.js",
     "test": "vitest run",
