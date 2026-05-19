@@ -1,5 +1,6 @@
 import { pino } from "pino";
 import { Dispatcher } from "./dispatcher.js";
+import { Registry } from "./registry.js";
 import { UnixSocketServer } from "./server.js";
 
 const log = pino({ name: "daemon-main" });
@@ -8,8 +9,13 @@ const DEFAULT_SOCKET =
   process.env.ODB_SOCKET ?? "/tmp/onekey-debug-bridge.sock";
 
 async function main(): Promise<void> {
+  const registry = new Registry();
   const d = new Dispatcher();
   d.register("ping", () => ({ pong: true, pid: process.pid }));
+  d.register("session.attach", (p) => registry.attach(p as never));
+  d.register("session.detach", (p) => registry.detach(p as never));
+  d.register("session.list", () => registry.list());
+  d.register("session.status", (p) => registry.status(p as never));
 
   const server = new UnixSocketServer(DEFAULT_SOCKET, d);
   await server.start();
