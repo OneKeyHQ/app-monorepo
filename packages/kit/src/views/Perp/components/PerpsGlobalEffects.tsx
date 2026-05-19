@@ -888,13 +888,17 @@ function useHyperliquidNetworkReachabilityRecovery() {
 
   isFocusedRef.current = isFocused;
 
-  const recoverSubscriptions = useCallback(async () => {
+  const recoverSubscriptions = useCallback(async (): Promise<boolean> => {
     if (recoveryPromiseRef.current) {
-      await recoveryPromiseRef.current;
-      return;
+      try {
+        await recoveryPromiseRef.current;
+        return true;
+      } catch {
+        return false;
+      }
     }
 
-    recoveryPromiseRef.current = (async () => {
+    const recoveryPromise = (async () => {
       const switchParams = await buildActiveInstrumentSwitchParamsFromGlobal();
       await Promise.all([
         (async () => {
@@ -912,14 +916,20 @@ function useHyperliquidNetworkReachabilityRecovery() {
           : Promise.resolve(false),
       ]);
       await actions.current.updateSubscriptions();
-    })()
-      .catch((error) => {
-        console.error('perps network reachability recovery failed:', error);
-      })
-      .finally(() => {
+      await backgroundApiProxy.serviceHyperliquidSubscription.forceReloadCandlesWebview();
+    })();
+    recoveryPromiseRef.current = recoveryPromise;
+    try {
+      await recoveryPromise;
+      return true;
+    } catch (error) {
+      console.error('perps network reachability recovery failed:', error);
+      return false;
+    } finally {
+      if (recoveryPromiseRef.current === recoveryPromise) {
         recoveryPromiseRef.current = null;
-      });
-    await recoveryPromiseRef.current;
+      }
+    }
   }, [actions]);
 
   const handleReachabilityChange = useCallback(
@@ -934,8 +944,12 @@ function useHyperliquidNetworkReachabilityRecovery() {
         return;
       }
       if (isFocusedRef.current && wasOfflineRef.current) {
-        wasOfflineRef.current = false;
-        void recoverSubscriptions();
+        void (async () => {
+          const recovered = await recoverSubscriptions();
+          if (recovered) {
+            wasOfflineRef.current = false;
+          }
+        })();
       }
     },
     [recoverSubscriptions],
