@@ -13,8 +13,13 @@ const {
   contextAtom,
   contextAtomComputed,
   contextAtomMethod,
+  useContextData: useDiscoveryContextData,
 } = createJotaiContext();
-export { ProviderJotaiContextDiscovery, contextAtomMethod };
+export {
+  ProviderJotaiContextDiscovery,
+  contextAtomMethod,
+  useDiscoveryContextData,
+};
 
 /**
  * WebTabs Atom

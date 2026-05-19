@@ -23,7 +23,9 @@ import {
   useBrowserBookmarkAction,
   useBrowserDataReadyAtom,
   useBrowserTabActions,
+  useDiscoveryContextData,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { getJotaiContextStoreDebugId } from '@onekeyhq/kit/src/states/jotai/utils/jotaiContextStore';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
@@ -118,6 +120,11 @@ function MobileTabListModal() {
   );
   const { disabledAddedNewTab } = useDisabledAddedNewTab();
   const [browserDataReady] = useBrowserDataReadyAtom();
+  const { store } = useDiscoveryContextData();
+  const storeIdentity = useMemo(
+    () => getJotaiContextStoreDebugId(store),
+    [store],
+  );
 
   const { activeTabId } = useActiveTabId();
 
@@ -142,10 +149,12 @@ function MobileTabListModal() {
     defaultLogger.discovery.browser.browserTabsLifecycle({
       step: 'mobileTabListEmptyDetected',
       source: 'MobileTabListModal',
+      storeIdentity,
       tabsCount: tabs.length,
       pinnedTabsCount: pinnedData.length,
       unpinnedTabsCount: data.length,
       hasActiveTabId: Boolean(activeTabId),
+      activeTabExists: tabs.some((tab) => tab.id === activeTabId),
       isReady: browserDataReady,
     });
   }, [
@@ -153,6 +162,8 @@ function MobileTabListModal() {
     browserDataReady,
     data.length,
     pinnedData.length,
+    storeIdentity,
+    tabs,
     tabs.length,
   ]);
 

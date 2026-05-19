@@ -14,6 +14,7 @@ import {
   useJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
@@ -80,6 +81,20 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
         ...mapCache,
         ...toMergeMap,
       });
+
+      if (storeName === EJotaiContextStoreNames.discoveryBrowser) {
+        defaultLogger.discovery.browser.browserTabsLifecycle({
+          step:
+            action === 'add'
+              ? 'jotaiMirrorTrackerAdd'
+              : 'jotaiMirrorTrackerRemove',
+          source: 'JotaiContextStoreMirrorTracker',
+          storeName,
+          logicalStoreId: storeId,
+          mirrorCount: value.count,
+          result: value.count > 0 ? 'success' : 'skipped',
+        });
+      }
     };
 
     processMapCount('add');

@@ -4,7 +4,9 @@ import {
   // useBrowserBookmarkAction,
   // useBrowserHistoryAction,
   useBrowserTabActions,
+  useDiscoveryContextData,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { getJotaiContextStoreDebugId } from '@onekeyhq/kit/src/states/jotai/utils/jotaiContextStore';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 function getLogErrorName(error: unknown) {
@@ -13,6 +15,8 @@ function getLogErrorName(error: unknown) {
 
 export function HandleRebuildBrowserData() {
   const { buildWebTabs, setBrowserDataReady } = useBrowserTabActions().current;
+  const { store } = useDiscoveryContextData();
+  const storeIdentity = getJotaiContextStoreDebugId(store);
   // const { buildBookmarkData } = useBrowserBookmarkAction().current;
   // const { buildHistoryData } = useBrowserHistoryAction().current;
 
@@ -20,6 +24,7 @@ export function HandleRebuildBrowserData() {
     defaultLogger.discovery.browser.browserTabsLifecycle({
       step: 'rebuildBrowserDataStart',
       source: 'HandleRebuildBrowserData',
+      storeIdentity,
     });
     try {
       // Tabs
@@ -33,6 +38,7 @@ export function HandleRebuildBrowserData() {
       defaultLogger.discovery.browser.browserTabsLifecycle({
         step: 'rebuildBrowserDataReadSuccess',
         source: 'HandleRebuildBrowserData',
+        storeIdentity,
         tabsCount: tabs.length,
       });
       defaultLogger.discovery.browser.setTabsDataFunctionName(
@@ -41,6 +47,7 @@ export function HandleRebuildBrowserData() {
       defaultLogger.discovery.browser.browserTabsLifecycle({
         step: 'rebuildBrowserDataApply',
         source: 'HandleRebuildBrowserData',
+        storeIdentity,
         tabsCount: tabs.length,
         isInitFromStorage: true,
       });
@@ -68,6 +75,7 @@ export function HandleRebuildBrowserData() {
       defaultLogger.discovery.browser.browserTabsLifecycle({
         step: 'rebuildBrowserDataReady',
         source: 'HandleRebuildBrowserData',
+        storeIdentity,
         tabsCount: tabs.length,
       });
 
@@ -83,12 +91,13 @@ export function HandleRebuildBrowserData() {
       defaultLogger.discovery.browser.browserTabsLifecycle({
         step: 'rebuildBrowserDataReadError',
         source: 'HandleRebuildBrowserData',
+        storeIdentity,
         result: 'error',
         errorName: getLogErrorName(error),
       });
       throw error;
     }
-  }, [buildWebTabs, setBrowserDataReady]);
+  }, [buildWebTabs, setBrowserDataReady, storeIdentity]);
 
   return null;
 }

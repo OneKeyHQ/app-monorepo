@@ -8,6 +8,12 @@ const BROWSER_TABS_LIFECYCLE_LOG_PREFIX = 'browser_tabs_lifecycle';
 type IBrowserTabsLifecycleParams = {
   step:
     | 'languageChangeRestart'
+    | 'jotaiContextStoreCreate'
+    | 'jotaiContextStoreGet'
+    | 'jotaiContextStoreGetOrCreate'
+    | 'jotaiContextStoreRemove'
+    | 'jotaiMirrorTrackerAdd'
+    | 'jotaiMirrorTrackerRemove'
     | 'browserProviderRootMounted'
     | 'browserProviderMirrorMounted'
     | 'withBrowserProviderMounted'
@@ -46,6 +52,9 @@ type IBrowserTabsLifecycleParams = {
   source?: string;
   componentName?: string;
   storeName?: string;
+  logicalStoreId?: string;
+  storeIdentity?: string;
+  mirrorCount?: number;
   platform?: string;
   browserType?: string;
   restartMode?: string;
@@ -71,6 +80,7 @@ type IBrowserTabsLifecycleParams = {
   shouldUpdateAtom?: boolean;
   shouldPersist?: boolean;
   hasCache?: boolean;
+  hadCachedStore?: boolean;
   isDataNullish?: boolean;
   isBuilderPayload?: boolean;
   updatedAt?: number;
