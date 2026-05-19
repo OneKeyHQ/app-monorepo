@@ -10,6 +10,13 @@ import {
   nativeScriptRun,
   nativeUnhook,
 } from "../tools/native.js";
+import {
+  perfFpsTail,
+  perfMemoryClasses,
+  perfMetrics,
+  perfTraceStart,
+  perfTraceStop,
+} from "../tools/perf.js";
 import { screenshot } from "../tools/screenshot.js";
 import { uiTree } from "../tools/uiTree.js";
 import {
@@ -49,6 +56,13 @@ async function main(): Promise<void> {
   d.register("native.listHooks", (p) => nativeListHooks(registry, p as never));
   d.register("native.events", (p) => nativeEvents(registry, p as never));
   d.register("native.script.run", (p) => nativeScriptRun(registry, p as never));
+  d.register("perf.metrics", (p) => perfMetrics(registry, p as never));
+  d.register("perf.fps.tail", (p) => perfFpsTail(registry, p as never));
+  d.register("perf.memory.classes", (p) =>
+    perfMemoryClasses(registry, p as never),
+  );
+  d.register("perf.trace.start", (p) => perfTraceStart(registry, p as never));
+  d.register("perf.trace.stop", (p) => perfTraceStop(registry, p as never));
 
   const server = new UnixSocketServer(DEFAULT_SOCKET, d);
   await server.start();

@@ -1,0 +1,10 @@
+Name:	com.onekey.wallet
+Umask:	0077
+State:	S (sleeping)
+Tgid:	12345
+Pid:	12345
+PPid:	1
+TracerPid:	0
+Uid:	10123	10123	10123	10123
+Gid:	10123	10123	10123	10123
+Threads:	47

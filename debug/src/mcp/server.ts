@@ -258,6 +258,70 @@ const TOOLS: ToolSpec[] = [
       required: ["sessionId", "source"],
     },
   },
+  {
+    name: "perf.metrics",
+    description:
+      "One-shot perf snapshot in a unified shape: {cpu_pct, mem_rss_mb, mem_js_heap_mb, fps, jank_pct, thread_count}. Missing readings are null. iOS FPS/jank are null outside an active trace window.",
+    inputSchema: {
+      type: "object",
+      properties: { sessionId: { type: "string" } },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "perf.fps.tail",
+    description:
+      "Sample FPS over a short window and return the time series. Defaults: 5 seconds at 2 Hz.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        durationSeconds: { type: "number", default: 5 },
+        sampleHz: { type: "number", default: 2 },
+      },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "perf.memory.classes",
+    description:
+      "Top N memory-consuming categories from `dumpsys meminfo -d` (Android). iOS returns an empty list in MVP.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        top: { type: "number", default: 20 },
+      },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "perf.trace.start",
+    description:
+      "Spawn `xctrace record` (iOS) or `perfetto -c` (Android) for `durationSeconds` and write to ~/.onekey-debug/traces. Returns a traceId; pair with perf.trace.stop to finalize.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        kind: { type: "string", enum: ["xctrace", "perfetto"] },
+        durationSeconds: { type: "number", default: 10 },
+      },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "perf.trace.stop",
+    description:
+      "Finalize the active trace window. Returns the saved trace path; with convertToChromeTrace=true, attempts an xctrace export → chrome trace JSON conversion (perfetto requires host `traceconv`).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        convertToChromeTrace: { type: "boolean", default: false },
+      },
+      required: ["sessionId"],
+    },
+  },
 ];
 
 export const server = new Server(

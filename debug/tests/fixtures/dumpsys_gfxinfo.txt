@@ -1,0 +1,14 @@
+Graphics info for pid 12345 [com.onekey.wallet]
+
+Stats since: 1234567890ns
+Total frames rendered: 600
+Janky frames: 24 (4.00%)
+50th percentile: 5ms
+90th percentile: 12ms
+95th percentile: 18ms
+99th percentile: 35ms
+Number Missed Vsync: 5
+Number High input latency: 0
+Number Slow UI thread: 10
+Number Slow bitmap uploads: 2
+Number Slow issue draw commands: 1

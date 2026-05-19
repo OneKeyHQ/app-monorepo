@@ -134,5 +134,18 @@ export async function runAll(): Promise<Check[]> {
     fix: "yarn install (should already be a dep)",
   });
 
+  // Optional host tools for perf.trace.* — informational only. Missing
+  // entries don't fail the doctor run.
+  checks.push({
+    name: "xctrace",
+    ok: await hasBinary("xctrace"),
+    fix: "ships with Xcode (only needed for iOS perf traces)",
+  });
+  checks.push({
+    name: "perfetto host",
+    ok: (await hasBinary("perfetto")) || (await hasBinary("traceconv")),
+    fix: "optional: install perfetto tools for host-side trace conversion",
+  });
+
   return checks;
 }

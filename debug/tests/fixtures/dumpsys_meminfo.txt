@@ -1,0 +1,11 @@
+Applications Memory Usage (in Kilobytes):
+Uptime: 12345 Realtime: 12345
+
+** MEMINFO in pid 12345 [com.onekey.wallet] **
+                   Pss  Private  Private  SwapPss     Rss     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty   Total     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------   ------
+  Native Heap   45123    44000      300       50    50000   100000    80000    20000
+  Dalvik Heap   12300    12000      100       10    14000    20000    15000     5000
+  Stack          1100     1100        0        0     1200        0        0        0
+       TOTAL    98765    78000     2500      300   120000   120000    95000    25000

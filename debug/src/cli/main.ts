@@ -277,6 +277,94 @@ program
   });
 
 program
+  .command("perf-metrics <sessionId>")
+  .description("One-shot performance snapshot (cpu/rss/fps/jank/threads)")
+  .action(async (sessionId: string) => {
+    process.stdout.write(
+      JSON.stringify(await call("perf.metrics", { sessionId }), null, 2) + "\n",
+    );
+  });
+
+program
+  .command("perf-fps-tail <sessionId>")
+  .option("--duration <s>", "window in seconds", (v) => parseInt(v, 10))
+  .option("--hz <n>", "sample frequency Hz", (v) => parseInt(v, 10))
+  .description("Collect FPS samples over a window")
+  .action(
+    async (
+      sessionId: string,
+      opts: { duration?: number; hz?: number },
+    ) => {
+      process.stdout.write(
+        JSON.stringify(
+          await call("perf.fps.tail", {
+            sessionId,
+            durationSeconds: opts.duration,
+            sampleHz: opts.hz,
+          }),
+          null,
+          2,
+        ) + "\n",
+      );
+    },
+  );
+
+program
+  .command("perf-memory-classes <sessionId>")
+  .option("--top <n>", "top N classes", (v) => parseInt(v, 10))
+  .description("Top N memory-consuming classes (Android-only for MVP)")
+  .action(async (sessionId: string, opts: { top?: number }) => {
+    process.stdout.write(
+      JSON.stringify(
+        await call("perf.memory.classes", { sessionId, top: opts.top }),
+        null,
+        2,
+      ) + "\n",
+    );
+  });
+
+program
+  .command("perf-trace-start <sessionId>")
+  .option("--kind <xctrace|perfetto>", "trace backend")
+  .option("--duration <s>", "duration in seconds", (v) => parseInt(v, 10))
+  .description("Start an xctrace (iOS) or perfetto (Android) trace window")
+  .action(
+    async (
+      sessionId: string,
+      opts: { kind?: "xctrace" | "perfetto"; duration?: number },
+    ) => {
+      process.stdout.write(
+        JSON.stringify(
+          await call("perf.trace.start", {
+            sessionId,
+            kind: opts.kind,
+            durationSeconds: opts.duration,
+          }),
+          null,
+          2,
+        ) + "\n",
+      );
+    },
+  );
+
+program
+  .command("perf-trace-stop <sessionId>")
+  .option("--convert", "convert to chrome trace JSON when possible", false)
+  .description("Stop the active trace window and return saved path")
+  .action(async (sessionId: string, opts: { convert?: boolean }) => {
+    process.stdout.write(
+      JSON.stringify(
+        await call("perf.trace.stop", {
+          sessionId,
+          convertToChromeTrace: opts.convert,
+        }),
+        null,
+        2,
+      ) + "\n",
+    );
+  });
+
+program
   .command("doctor")
   .description("Pre-flight checks (adb, xcrun, lldb, Hermes, devices, frida)")
   .action(async () => {
