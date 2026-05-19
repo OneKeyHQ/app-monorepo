@@ -122,16 +122,8 @@ async function createLedgerHwWallet({
       features: params.features,
       hardwareTransportType,
       isSoftwareWalletOnlyUser,
-      vendor,
     });
   } catch (error) {
-    await trackHardwareWalletConnection({
-      status: 'failure',
-      deviceType: device.deviceType,
-      hardwareTransportType,
-      isSoftwareWalletOnlyUser,
-      vendor,
-    });
     errorToastUtils.toastIfError(error);
     navigation.pop();
     throw error;
@@ -436,17 +428,6 @@ export function useDeviceConnect({
       const deviceVendor = (device as SearchDevice & { vendor?: string })
         ?.vendor;
       if (deviceVendor === EHardwareVendor.ledger) {
-        defaultLogger.account.wallet.addWalletStarted({
-          addMethod: 'ConnectHWWallet',
-          details: {
-            hardwareWalletType: 'Standard',
-            communication: getHardwareCommunicationTypeString(
-              hardwareTransportType,
-            ),
-            vendor: EHardwareVendor.ledger,
-          },
-          isSoftwareWalletOnlyUser,
-        });
         return verifyLedgerDevice(device);
       }
 

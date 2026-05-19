@@ -29,6 +29,7 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -55,6 +56,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { getKeylessOnboardingPin } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
@@ -69,6 +71,7 @@ import {
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
 import { OnboardingTestIDs } from '../testIDs';
+import { trackHardwareWalletConnection } from '../utils';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -226,6 +229,8 @@ function FinalizeWalletSetupPage({
   );
 
   const actions = useAccountSelectorActions();
+  const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const { connectDevice, createHWWallet } = useDeviceConnect();
   const createWallet = useCallback(async () => {
@@ -338,17 +343,49 @@ function FinalizeWalletSetupPage({
           // createHWWalletWithoutHidden directly to avoid the
           // onSelectAddWalletType path which would push another
           // FinalizeWalletSetup page on top of this one.
-          await actions.current.createHWWalletWithoutHidden({
-            device: deviceData.device as SearchDevice,
-            hideCheckingDeviceLoading: true,
-            features: {
-              device_id: (deviceData.device as SearchDevice)?.deviceId || '',
+          //
+          // Analytics: this branch is the real Ledger creation site —
+          // the useDeviceConnect tracking calls never reach Ledger because
+          // verifyHardware/onSelectAddWalletType are bypassed. Mirror the
+          // OneKey-side `addWalletStarted` + success/failure tracking here.
+          const ledgerDevice = deviceData.device as SearchDevice;
+          defaultLogger.account.wallet.addWalletStarted({
+            addMethod: 'ConnectHWWallet',
+            details: {
+              hardwareWalletType: 'Standard',
               vendor: deviceData.vendor,
-            } as IOneKeyDeviceFeatures,
-            isFirmwareVerified: true,
-            defaultIsTemp: true,
-            vendor: deviceData.vendor,
+            },
+            isSoftwareWalletOnlyUser,
           });
+          try {
+            await actions.current.createHWWalletWithoutHidden({
+              device: ledgerDevice,
+              hideCheckingDeviceLoading: true,
+              features: {
+                device_id: ledgerDevice?.deviceId || '',
+                vendor: deviceData.vendor,
+              } as IOneKeyDeviceFeatures,
+              isFirmwareVerified: true,
+              defaultIsTemp: true,
+              vendor: deviceData.vendor,
+            });
+            await trackHardwareWalletConnection({
+              status: 'success',
+              deviceType: ledgerDevice.deviceType,
+              hardwareTransportType,
+              isSoftwareWalletOnlyUser,
+              vendor: deviceData.vendor,
+            });
+          } catch (createError) {
+            await trackHardwareWalletConnection({
+              status: 'failure',
+              deviceType: ledgerDevice.deviceType,
+              hardwareTransportType,
+              isSoftwareWalletOnlyUser,
+              vendor: deviceData.vendor,
+            });
+            throw createError;
+          }
         } else {
           goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
           await connectDevice(deviceData.device as SearchDevice);
@@ -408,6 +445,8 @@ function FinalizeWalletSetupPage({
     createHWWallet,
     setPendingKeylessAutoConnectWalletId,
     goNextStep,
+    hardwareTransportType,
+    isSoftwareWalletOnlyUser,
   ]);
 
   useEffect(() => {
