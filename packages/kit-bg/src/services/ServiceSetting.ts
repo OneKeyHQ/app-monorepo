@@ -84,10 +84,6 @@ export type IAccountDerivationConfigItem = {
   defaultNetworkId: string;
 };
 
-function getLogErrorName(error: unknown) {
-  return error instanceof Error ? error.name : typeof error;
-}
-
 @backgroundClass()
 class ServiceSetting extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -293,28 +289,7 @@ class ServiceSetting extends ServiceBase {
     }
     if (values.browserHistory) {
       // clear Browser History, Bookmarks, Pins
-      defaultLogger.discovery.browser.browserTabsLifecycle({
-        step: 'serviceClearBrowserTabsStart',
-        source: 'ServiceSetting.clearCacheOnApp',
-        reason: 'browserHistory',
-      });
-      try {
-        await this.backgroundApi.simpleDb.browserTabs.clearRawData();
-        defaultLogger.discovery.browser.browserTabsLifecycle({
-          step: 'serviceClearBrowserTabsSuccess',
-          source: 'ServiceSetting.clearCacheOnApp',
-          reason: 'browserHistory',
-        });
-      } catch (error) {
-        defaultLogger.discovery.browser.browserTabsLifecycle({
-          step: 'serviceClearBrowserTabsError',
-          source: 'ServiceSetting.clearCacheOnApp',
-          reason: 'browserHistory',
-          result: 'error',
-          errorName: getLogErrorName(error),
-        });
-        throw error;
-      }
+      await this.backgroundApi.simpleDb.browserTabs.clearRawData();
       await this.backgroundApi.simpleDb.browserHistory.clearRawData();
       await this.backgroundApi.simpleDb.browserBookmarks.clearRawData();
       await this.backgroundApi.simpleDb.browserRiskWhiteList.clearRawData();

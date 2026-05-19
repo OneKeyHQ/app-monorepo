@@ -1,6 +1,3 @@
-import { useEffect } from 'react';
-
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DiscoveryBrowserProviderMirror } from '../../components/DiscoveryBrowserProviderMirror';
@@ -33,19 +30,7 @@ function PendingUrlHandler<T extends object>({
 export function withBrowserProvider<T extends object>(
   WrappedComponent: React.ComponentType<T>,
 ): React.ComponentType<T> {
-  const wrappedComponentName =
-    WrappedComponent.displayName || WrappedComponent.name || 'Unknown';
-
   return function WithBrowserProvider(props: T): JSX.Element {
-    useEffect(() => {
-      defaultLogger.discovery.browser.browserTabsLifecycle({
-        step: 'withBrowserProviderMounted',
-        source: 'withBrowserProvider',
-        componentName: wrappedComponentName,
-        platform: platformEnv.appPlatform ?? 'unknown',
-      });
-    }, []);
-
     return (
       <DiscoveryBrowserProviderMirror>
         <PendingUrlHandler Component={WrappedComponent} props={props} />

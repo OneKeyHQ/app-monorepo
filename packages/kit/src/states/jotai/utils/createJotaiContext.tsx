@@ -84,26 +84,21 @@ export function createJotaiContext<TContextConfig = undefined>() {
     };
   }
 
-  function useContextData(): {
-    store: IJotaiContextStore;
-    config: TContextConfig | undefined;
-  } {
+  function useContextData() {
     const data = useContext(Context);
     if (!data?.store) {
       throw new OneKeyLocalError(
         'useContextStore ERROR: store not initialized',
       );
     }
-    return {
-      store: data.store,
-      config: data.config,
-    };
+    return data;
   }
   function useContextAtom<Value, Args extends any[], Result>(
     atomInstance: WritableAtom<Value, Args, Result>,
   ) {
     const data = useContextData();
-    return useAtom(atomInstance, { store: data.store });
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    return useAtom(atomInstance, { store: data.store! });
   }
   function useColdStartScopeKey() {
     const data = useContextData();

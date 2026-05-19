@@ -72,29 +72,6 @@ function loggerForEmptyData(tabs: IWebTab[], fnName: string) {
   }
 }
 
-function getBrowserTabsLogPlatform() {
-  if (platformEnv.isDesktop) {
-    return 'desktop';
-  }
-  if (platformEnv.isNativeIOS) {
-    return 'ios';
-  }
-  if (platformEnv.isNativeAndroid) {
-    return 'android';
-  }
-  if (platformEnv.isExtension) {
-    return 'extension';
-  }
-  if (platformEnv.isWeb) {
-    return 'web';
-  }
-  return 'unknown';
-}
-
-function getLogErrorName(error: unknown) {
-  return error instanceof Error ? error.name : typeof error;
-}
-
 // Gap between timestamps when placing a tab above the current unpinned min.
 // Must exceed the drag-reorder midpoint precision: `onDragEnd` inserts
 // `Math.round((a + b) / 2)`, so a 1ms gap collapses to the neighbor and
@@ -178,13 +155,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   setBrowserDataReady = contextAtomMethod((_, set) => {
-    defaultLogger.discovery.browser.browserTabsLifecycle({
-      step: 'setBrowserDataReady',
-      source: 'actions',
-      platform: getBrowserTabsLogPlatform(),
-      browserType: browserTypeHandler,
-      result: 'success',
-    });
     set(browserDataReadyAtom(), true);
   });
 
@@ -199,33 +169,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     ) => {
       const { data, options } = payload;
       const isReady = get(browserDataReadyAtom());
-      const shouldLogBuildWebTabs =
-        Boolean(options?.isInitFromStorage) || !isReady || !data?.length;
-      if (shouldLogBuildWebTabs) {
-        defaultLogger.discovery.browser.browserTabsLifecycle({
-          step: 'buildWebTabsEntry',
-          source: 'actions',
-          platform: getBrowserTabsLogPlatform(),
-          browserType: browserTypeHandler,
-          tabsCount: Array.isArray(data) ? data.length : undefined,
-          isReady,
-          isInitFromStorage: Boolean(options?.isInitFromStorage),
-          forceUpdate: Boolean(options?.forceUpdate),
-        });
-      }
       if (!isReady && !options?.isInitFromStorage) {
-        defaultLogger.discovery.browser.browserTabsLifecycle({
-          step: 'buildWebTabsBlocked',
-          source: 'actions',
-          platform: getBrowserTabsLogPlatform(),
-          browserType: browserTypeHandler,
-          tabsCount: Array.isArray(data) ? data.length : undefined,
-          isReady,
-          isInitFromStorage: Boolean(options?.isInitFromStorage),
-          forceUpdate: Boolean(options?.forceUpdate),
-          result: 'skipped',
-          reason: 'browserDataNotReady',
-        });
         return;
       }
       const webTabs = get(webTabsAtom());
@@ -239,44 +183,15 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         newTabs = [];
       }
       const result = buildWebTabData(newTabs);
-      const shouldUpdateAtom =
-        !isEqual(result.keys, webTabs.keys) || Boolean(options?.forceUpdate);
       // Should update tabs
-      if (shouldUpdateAtom) {
+      if (!isEqual(result.keys, webTabs.keys) || options?.forceUpdate) {
         set(webTabsAtom(), { keys: result.keys, tabs: result.data });
       }
 
       set(webTabsMapAtom(), () => result.map);
       loggerForEmptyData(result.data, 'buildWebTabs->saveToSimpleDB');
-      if (shouldLogBuildWebTabs || result.data.length === 0) {
-        defaultLogger.discovery.browser.browserTabsLifecycle({
-          step: 'buildWebTabsPersist',
-          source: 'actions',
-          platform: getBrowserTabsLogPlatform(),
-          browserType: browserTypeHandler,
-          tabsCount: result.data.length,
-          previousTabsCount: webTabs.tabs.length,
-          isReady,
-          isInitFromStorage: Boolean(options?.isInitFromStorage),
-          forceUpdate: Boolean(options?.forceUpdate),
-          shouldUpdateAtom,
-          shouldPersist: true,
-        });
-      }
-      void Promise.resolve(
-        backgroundApiProxy.simpleDb.browserTabs.setRawData({
-          tabs: result.data,
-        }),
-      ).catch((error: unknown) => {
-        defaultLogger.discovery.browser.browserTabsLifecycle({
-          step: 'buildWebTabsPersistError',
-          source: 'actions',
-          platform: getBrowserTabsLogPlatform(),
-          browserType: browserTypeHandler,
-          tabsCount: result.data.length,
-          result: 'error',
-          errorName: getLogErrorName(error),
-        });
+      void backgroundApiProxy.simpleDb.browserTabs.setRawData({
+        tabs: result.data,
       });
     },
   );
@@ -887,7 +802,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   gotoSite = contextAtomMethod(
     async (
-      get,
+      _,
       set,
       {
         id,
@@ -899,22 +814,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         isInPlace,
       }: IGotoSiteFnParams,
     ) => {
-      const { tabs } = get(webTabsAtom());
       const tab = this.getWebTabById.call(set, id ?? '');
-      const shouldLogGotoSite = tabs.length === 0 || !tab?.id;
-      if (shouldLogGotoSite) {
-        defaultLogger.discovery.browser.browserTabsLifecycle({
-          step: 'gotoSiteEntry',
-          source: 'actions',
-          platform: getBrowserTabsLogPlatform(),
-          browserType: browserTypeHandler,
-          tabsCount: tabs.length,
-          hasTabId: Boolean(id),
-          hasUrl: Boolean(url),
-          isNewWindow,
-          isInPlace,
-        });
-      }
       if (url) {
         const allowLocalhostUrl = isLocalhostUrlAllowedInDAppBrowser();
         const isLocalhost = uriUtils.isLocalhostUrl(url);
@@ -925,17 +825,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
               allowLocalhostUrl,
             });
         if (!validatedUrl) {
-          if (shouldLogGotoSite) {
-            defaultLogger.discovery.browser.browserTabsLifecycle({
-              step: 'gotoSiteInvalidUrl',
-              source: 'actions',
-              platform: getBrowserTabsLogPlatform(),
-              browserType: browserTypeHandler,
-              tabsCount: tabs.length,
-              hasTabId: Boolean(id),
-              result: 'skipped',
-            });
-          }
           return;
         }
 
@@ -960,21 +849,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const isBookmark = bookmarks?.some((item) =>
           item.url.includes(validatedUrl),
         );
-        if (shouldLogGotoSite) {
-          defaultLogger.discovery.browser.browserTabsLifecycle({
-            step: 'gotoSiteResolved',
-            source: 'actions',
-            platform: getBrowserTabsLogPlatform(),
-            browserType: browserTypeHandler,
-            tabsCount: tabs.length,
-            hasTabId: Boolean(tabId),
-            isNewWindow,
-            isNewTab,
-            isInPlace,
-            isBookmark,
-            shouldBlockLocalhostUrl,
-          });
-        }
         if (isNewTab) {
           this.addWebTab.call(set, {
             title,
@@ -998,31 +872,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           }
         }
 
-        if (shouldLogGotoSite) {
-          defaultLogger.discovery.browser.browserTabsLifecycle({
-            step: 'gotoSiteWriteTab',
-            source: 'actions',
-            platform: getBrowserTabsLogPlatform(),
-            browserType: browserTypeHandler,
-            tabsCount: tabs.length,
-            hasTabId: Boolean(tabId),
-            isNewTab,
-            isInPlace,
-            result: 'success',
-          });
-        }
-
         if (!isNewTab && !isInPlace && !shouldBlockLocalhostUrl) {
-          if (shouldLogGotoSite) {
-            defaultLogger.discovery.browser.browserTabsLifecycle({
-              step: 'gotoSiteCrossWebviewLoad',
-              source: 'actions',
-              platform: getBrowserTabsLogPlatform(),
-              browserType: browserTypeHandler,
-              tabsCount: tabs.length,
-              hasTabId: Boolean(tabId),
-            });
-          }
           crossWebviewLoadUrl({
             url: validatedUrl,
             tabId,
@@ -1086,12 +936,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     ) => {
       // Auto-detect if already on Discovery/MultiTabBrowser tab
       let needsSwitchTab = true;
-      let currentTabName: string | undefined;
       try {
         const rootState = rootNavigationRef.current?.getRootState();
         const currentIndex = rootState?.index || 0;
         const currentRoute = rootState?.routes?.[currentIndex];
-        currentTabName =
+        const currentTabName =
           currentRoute?.name === ERootRoutes.Main
             ? currentRoute.state?.routes?.[currentRoute.state?.index || 0]?.name
             : undefined;
@@ -1111,32 +960,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }
 
       const isNewWindow = !useCurrentWindow;
-      defaultLogger.discovery.browser.browserTabsLifecycle({
-        step: 'handleOpenWebSiteEntry',
-        source: 'actions',
-        platform: getBrowserTabsLogPlatform(),
-        browserType: browserTypeHandler,
-        hasTabId: Boolean(tabId),
-        hasWebSite: Boolean(webSite),
-        hasDApp: Boolean(dApp),
-        useCurrentWindow,
-        needsSwitchTab,
-        currentTabName,
-        isNewWindow,
-      });
 
       const openDApp = async () => {
-        defaultLogger.discovery.browser.browserTabsLifecycle({
-          step: 'handleOpenWebSiteOpenDappStart',
-          source: 'actions',
-          platform: getBrowserTabsLogPlatform(),
-          browserType: browserTypeHandler,
-          hasTabId: Boolean(tabId),
-          hasWebSite: Boolean(webSite),
-          hasDApp: Boolean(dApp),
-          useCurrentWindow,
-          isNewWindow,
-        });
         if (!useCurrentWindow) {
           const disabledAddedNewTab = get(disabledAddedNewTabAtom());
           if (disabledAddedNewTab) {
@@ -1146,19 +971,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
                 { id: ETranslations.explore_toast_tab_limit_reached },
                 { number: MaximumNumberOfTabs },
               ),
-            });
-            defaultLogger.discovery.browser.browserTabsLifecycle({
-              step: 'handleOpenWebSiteOpenDappResult',
-              source: 'actions',
-              platform: getBrowserTabsLogPlatform(),
-              browserType: browserTypeHandler,
-              result: 'skipped',
-              reason: 'tabLimitReached',
-              hasTabId: Boolean(tabId),
-              hasWebSite: Boolean(webSite),
-              hasDApp: Boolean(dApp),
-              useCurrentWindow,
-              isNewWindow,
             });
             return false;
           }
@@ -1172,18 +984,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         if (opened) {
           this.setDisplayHomePage.call(set, false);
         }
-        defaultLogger.discovery.browser.browserTabsLifecycle({
-          step: 'handleOpenWebSiteOpenDappResult',
-          source: 'actions',
-          platform: getBrowserTabsLogPlatform(),
-          browserType: browserTypeHandler,
-          result: opened ? 'success' : 'failure',
-          hasTabId: Boolean(tabId),
-          hasWebSite: Boolean(webSite),
-          hasDApp: Boolean(dApp),
-          useCurrentWindow,
-          isNewWindow,
-        });
         return opened;
       };
 
@@ -1191,15 +991,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const targetTab = platformEnv.isDesktop
           ? ETabRoutes.MultiTabBrowser
           : ETabRoutes.Discovery;
-        defaultLogger.discovery.browser.browserTabsLifecycle({
-          step: 'handleOpenWebSiteSwitchTab',
-          source: 'actions.switchTab',
-          platform: getBrowserTabsLogPlatform(),
-          browserType: browserTypeHandler,
-          needsSwitchTab,
-          currentTabName,
-          targetTabName: targetTab,
-        });
 
         if (platformEnv.isDesktop) {
           // Desktop renders the previous active web tab immediately after

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -21,13 +21,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useBrowserBookmarkAction,
-  useBrowserDataReadyAtom,
   useBrowserTabActions,
-  useDiscoveryContextData,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { getJotaiContextStoreDebugId } from '@onekeyhq/kit/src/states/jotai/utils/jotaiContextStore';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -119,12 +115,6 @@ function MobileTabListModal() {
     [tabs],
   );
   const { disabledAddedNewTab } = useDisabledAddedNewTab();
-  const [browserDataReady] = useBrowserDataReadyAtom();
-  const { store } = useDiscoveryContextData();
-  const storeIdentity = useMemo(
-    () => getJotaiContextStoreDebugId(store),
-    [store],
-  );
 
   const { activeTabId } = useActiveTabId();
 
@@ -140,32 +130,6 @@ function MobileTabListModal() {
     setPinnedTab,
     setDisplayHomePage,
   } = useBrowserTabActions().current;
-
-  useEffect(() => {
-    if (tabs.length > 0) {
-      return;
-    }
-
-    defaultLogger.discovery.browser.browserTabsLifecycle({
-      step: 'mobileTabListEmptyDetected',
-      source: 'MobileTabListModal',
-      storeIdentity,
-      tabsCount: tabs.length,
-      pinnedTabsCount: pinnedData.length,
-      unpinnedTabsCount: data.length,
-      hasActiveTabId: Boolean(activeTabId),
-      activeTabExists: tabs.some((tab) => tab.id === activeTabId),
-      isReady: browserDataReady,
-    });
-  }, [
-    activeTabId,
-    browserDataReady,
-    data.length,
-    pinnedData.length,
-    storeIdentity,
-    tabs,
-    tabs.length,
-  ]);
 
   const initialScrollIndex = useMemo(() => {
     const index = data.findIndex((t) => t.id === activeTabId);

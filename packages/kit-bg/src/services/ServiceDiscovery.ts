@@ -15,7 +15,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IChangeHistoryUpdateItem } from '@onekeyhq/shared/src/types/changeHistory';
@@ -46,10 +45,6 @@ import { type IDBCloudSyncItem } from '../dbs/local/types';
 import { getEndpoints } from '../endpoints';
 
 import ServiceBase from './ServiceBase';
-
-function getLogErrorName(error: unknown) {
-  return error instanceof Error ? error.name : typeof error;
-}
 
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
@@ -370,34 +365,13 @@ class ServiceDiscovery extends ServiceBase {
   @backgroundMethod()
   async clearDiscoveryPageData() {
     const { simpleDb } = this.backgroundApi;
-    defaultLogger.discovery.browser.browserTabsLifecycle({
-      step: 'serviceClearBrowserTabsStart',
-      source: 'ServiceDiscovery.clearDiscoveryPageData',
-      reason: 'clearDiscoveryPageData',
-    });
-    try {
-      await Promise.all([
-        simpleDb.browserTabs.clearRawData(),
-        simpleDb.browserBookmarks.clearRawData(),
-        simpleDb.browserHistory.clearRawData(),
-        simpleDb.dappConnection.clearRawData(),
-        simpleDb.browserRiskWhiteList.clearRawData(),
-      ]);
-      defaultLogger.discovery.browser.browserTabsLifecycle({
-        step: 'serviceClearBrowserTabsSuccess',
-        source: 'ServiceDiscovery.clearDiscoveryPageData',
-        reason: 'clearDiscoveryPageData',
-      });
-    } catch (error) {
-      defaultLogger.discovery.browser.browserTabsLifecycle({
-        step: 'serviceClearBrowserTabsError',
-        source: 'ServiceDiscovery.clearDiscoveryPageData',
-        reason: 'clearDiscoveryPageData',
-        result: 'error',
-        errorName: getLogErrorName(error),
-      });
-      throw error;
-    }
+    await Promise.all([
+      simpleDb.browserTabs.clearRawData(),
+      simpleDb.browserBookmarks.clearRawData(),
+      simpleDb.browserHistory.clearRawData(),
+      simpleDb.dappConnection.clearRawData(),
+      simpleDb.browserRiskWhiteList.clearRawData(),
+    ]);
     this._isUrlExistInRiskWhiteList.clear();
   }
 
