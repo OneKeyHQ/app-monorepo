@@ -154,6 +154,31 @@ class ServiceAllNetwork extends ServiceBase {
     await Promise.all(workers);
   }
 
+  // Per-deriveInfoMap cache for the entries() array + an LRU-ish lookup by
+  // (accountId, template). getAllNetworkAccounts runs this once per network
+  // per account (50+ times on a normal wallet), so the Object.entries() call
+  // and the for-loop scan dominate CPU on cold-cache runs.
+  // - WeakMap keyed by deriveInfoMap reference auto-evicts when the map is
+  //   GC'd, so we don't grow unbounded across reloads.
+  // - The inner Map's keys (accountId + template) are bounded by the
+  //   number of (account, template) pairs a wallet actually has — a few
+  //   dozen at most, well under any LRU threshold.
+  private _deriveInfoMapEntriesCache = new WeakMap<
+    Record<string, IAccountDeriveInfo>,
+    [string, IAccountDeriveInfo][]
+  >();
+
+  private _deriveTypeLookupCache = new WeakMap<
+    Record<string, IAccountDeriveInfo>,
+    Map<
+      string,
+      {
+        deriveType: IAccountDeriveTypes;
+        deriveInfo: IAccountDeriveInfo | undefined;
+      }
+    >
+  >();
+
   private getDeriveTypeByTemplateFromDeriveInfoMap({
     accountId,
     template,
@@ -170,9 +195,29 @@ class ServiceAllNetwork extends ServiceBase {
       return { deriveType: 'default', deriveInfo: undefined };
     }
 
-    const entries = Object.entries(deriveInfoMap);
+    let lookupCache = this._deriveTypeLookupCache.get(deriveInfoMap);
+    if (!lookupCache) {
+      lookupCache = new Map();
+      this._deriveTypeLookupCache.set(deriveInfoMap, lookupCache);
+    }
+    const cacheKey = `${accountId}::${template}`;
+    const cached = lookupCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    let entries = this._deriveInfoMapEntriesCache.get(deriveInfoMap);
+    if (!entries) {
+      entries = Object.entries(deriveInfoMap);
+      this._deriveInfoMapEntriesCache.set(deriveInfoMap, entries);
+    }
     if (!entries.length) {
-      return { deriveType: 'default', deriveInfo: undefined };
+      const result = {
+        deriveType: 'default' as IAccountDeriveTypes,
+        deriveInfo: undefined,
+      };
+      lookupCache.set(cacheKey, result);
+      return result;
     }
 
     const useAddressEncodingDerive = Boolean(
@@ -188,24 +233,33 @@ class ServiceAllNetwork extends ServiceBase {
           info.addressEncoding &&
           accountId.endsWith(info.addressEncoding)
         ) {
-          return {
+          const result = {
             deriveType: deriveType as IAccountDeriveTypes,
             deriveInfo: info,
           };
+          lookupCache.set(cacheKey, result);
+          return result;
         }
       }
     }
 
     for (const [deriveType, info] of entries) {
       if (info.template === template) {
-        return {
+        const result = {
           deriveType: deriveType as IAccountDeriveTypes,
           deriveInfo: info,
         };
+        lookupCache.set(cacheKey, result);
+        return result;
       }
     }
 
-    return { deriveType: 'default', deriveInfo: undefined };
+    const fallback = {
+      deriveType: 'default' as IAccountDeriveTypes,
+      deriveInfo: undefined,
+    };
+    lookupCache.set(cacheKey, fallback);
+    return fallback;
   }
 
   @backgroundMethod()
