@@ -80,8 +80,11 @@ import {
 
 const TRAY_ROUTE_HOME = '/main/tab-home';
 const TRAY_ROUTE_MARKET = '/main/tab-market';
-// Fires while pending txs exist even when panel is closed and home is unfocused.
-const TRAY_PENDING_TX_RECHECK_INTERVAL_MS = 12_000;
+// Pending-tx tail recheck. Fires only when pending txs still exist after a
+// gather, regardless of panel visibility. Kept long because panel-open
+// updates are already covered by the main-process 30s poll, and panel-closed
+// data isn't visible to the user — so server-side cost dominates freshness.
+const TRAY_PENDING_TX_RECHECK_INTERVAL_MS = 120_000;
 
 async function refreshTrayPendingTxStatuses(
   txs: IAccountHistoryTx[],
