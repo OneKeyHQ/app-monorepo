@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
@@ -10,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { DelayedFreeze } from '../../../hocs/DelayedFreeze';
 import { useTheme } from '../../../hooks';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
@@ -27,41 +29,48 @@ function BasicTabSubStackNavigator({
 }) {
   const theme = useTheme();
   const intl = useIntl();
+  // @react-navigation/bottom-tabs ignores `freezeOnBlur` on the outer Tab.Screen
+  // (it's a native-stack option), so on desktop/web the blurred tab's whole
+  // React tree keeps re-rendering on every tab switch. Freeze it ourselves
+  // here so only the focused tab does real reconciliation work.
+  const isFocused = useIsFocused();
 
   if (!config || config.length === 0) {
     return null;
   }
 
   return (
-    <Stack.Navigator>
-      {config
-        .filter(({ disable }) => !disable)
-        .map(({ name, component, translationId, headerShown = true }) => {
-          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
-          const screenOptions = ({ navigation }: { navigation: any }) => ({
-            freezeOnBlur: true,
-            title: translationId
-              ? intl.formatMessage({
-                  id: translationId,
-                })
-              : '',
-            ...makeTabScreenOptions({
-              navigation,
-              bgColor: theme.bgApp.val,
-              titleColor: theme.text.val,
-            }),
-            headerShown,
-          });
-          return (
-            <Stack.Screen
-              key={name}
-              name={name}
-              component={component}
-              options={screenOptions}
-            />
-          );
-        })}
-    </Stack.Navigator>
+    <DelayedFreeze freeze={!isFocused}>
+      <Stack.Navigator>
+        {config
+          .filter(({ disable }) => !disable)
+          .map(({ name, component, translationId, headerShown = true }) => {
+            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+            const screenOptions = ({ navigation }: { navigation: any }) => ({
+              freezeOnBlur: true,
+              title: translationId
+                ? intl.formatMessage({
+                    id: translationId,
+                  })
+                : '',
+              ...makeTabScreenOptions({
+                navigation,
+                bgColor: theme.bgApp.val,
+                titleColor: theme.text.val,
+              }),
+              headerShown,
+            });
+            return (
+              <Stack.Screen
+                key={name}
+                name={name}
+                component={component}
+                options={screenOptions}
+              />
+            );
+          })}
+      </Stack.Navigator>
+    </DelayedFreeze>
   );
 }
 
