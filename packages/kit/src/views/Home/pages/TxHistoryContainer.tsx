@@ -401,17 +401,24 @@ function TxHistoryListContainer(
   // invalid). Async reads compare their captured identity against this ref
   // to bail out if a faster identity switch already took ownership.
   const lastInitIdentityRef = useRef<string | null>(null);
+  // Monotonic request id bumped on every `initHistoryState` launch. Combined
+  // with `lastInitIdentityRef`, this lets a same-identity dep change (e.g.
+  // filter/currency/limit) re-read the local cache while preventing an older
+  // slow fetch from clobbering newer results after they resolve out of order.
+  const initRequestIdRef = useRef(0);
   useEffect(() => {
     const initHistoryState = async ({
       accountId,
       networkId,
       indexedAccountId,
       capturedIdentity,
+      requestId,
     }: {
       accountId: string;
       networkId: string;
       indexedAccountId?: string;
       capturedIdentity: string;
+      requestId: number;
     }) => {
       let accountHistoryTxs: IAccountHistoryTx[] = [];
 
@@ -458,9 +465,15 @@ function TxHistoryListContainer(
           });
       }
 
-      // Bail out if a faster identity switch already took ownership while we
-      // were awaiting — same rationale as the monotonic guard in `run()`.
-      if (lastInitIdentityRef.current !== capturedIdentity) {
+      // Bail out if either:
+      //   (a) a faster identity switch took ownership during the await, OR
+      //   (b) a newer same-identity effect run (e.g. filter/currency/limit
+      //       change) superseded this one — without (b), an older slow fetch
+      //       could clobber newer filter results after both resolve.
+      if (
+        lastInitIdentityRef.current !== capturedIdentity ||
+        initRequestIdRef.current !== requestId
+      ) {
         return;
       }
 
@@ -471,8 +484,9 @@ function TxHistoryListContainer(
           isRefreshing: false,
         });
       } else {
-        // No local cache for the new identity — drop any rows still hanging
-        // around from the previous account so the user sees a clean skeleton
+        // No local cache for the current identity/filter combo — drop any
+        // rows still hanging around (from the previous account, or from a
+        // prior filter/currency setting) so the user sees a clean skeleton
         // (driven by initialized=false) instead of stale data while the
         // first-page fetch is in flight. Same-reference short-circuit avoids
         // a redundant re-render when state is already empty.
@@ -487,17 +501,19 @@ function TxHistoryListContainer(
       refreshAllNetworksHistory.current = false;
     };
     if ((account?.id || mergeDeriveAddressData) && network?.id && wallet?.id) {
-      if (lastInitIdentityRef.current === identityKey) {
-        // Same identity — let the body refresh; no need to re-clear local
-        // state.
-        return;
-      }
+      // Always re-run on every dep change (filter/currency/limit included) so
+      // the local cache view stays in sync with the latest filter inputs.
+      // Concurrent runs are disambiguated by `initRequestIdRef`; old-identity
+      // writes are still blocked by the `capturedIdentity` check above.
       lastInitIdentityRef.current = identityKey;
+      initRequestIdRef.current += 1;
+      const requestId = initRequestIdRef.current;
       void initHistoryState({
         accountId: account?.id ?? '',
         networkId: network.id,
         indexedAccountId: indexedAccount?.id ?? '',
         capturedIdentity: identityKey,
+        requestId,
       });
     } else {
       // Identity went invalid (account/network/wallet became null during a
