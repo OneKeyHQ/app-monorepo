@@ -624,7 +624,35 @@ export function List<Item>({
       isScrolling: isVisible ? isScrolling : false,
       onScroll: isVisible ? handleScroll : undefined,
       scrollTop: isVisible && listData.length > 0 ? scrollTop : 0,
-      overscanRowCount: 25,
+      // 60 rows ≈ 4kpx buffer. Sized so the rendered window can absorb a
+      // single fast-scroll jump (~1.5–2k px on desktop drag) without leaving
+      // a frame where committed rows sit outside the viewport. Heavy lists
+      // pay one extra commit at mount; fast scroll then never needs another.
+      overscanRowCount: 60,
+      // react-virtualized's default overscan getter only adds buffer in the
+      // direction the user is scrolling — the opposite direction is hard-coded
+      // to 1 row. When the user reverses direction (e.g. flicks back to the
+      // top after a downward drag) only a single row is rendered ahead of the
+      // new scrollTop and a 500ms+ blank slot appears while React commits the
+      // larger window. Override with a symmetric getter so both ends always
+      // keep `overscanRowCount` rows in the DOM.
+      overscanIndicesGetter: ({
+        cellCount,
+        overscanCellsCount,
+        startIndex,
+        stopIndex,
+      }: {
+        cellCount: number;
+        overscanCellsCount: number;
+        startIndex: number;
+        stopIndex: number;
+      }) => ({
+        overscanStartIndex: Math.max(0, startIndex - overscanCellsCount),
+        overscanStopIndex: Math.min(
+          cellCount - 1,
+          stopIndex + overscanCellsCount,
+        ),
+      }),
     };
     // When the caller provides static heights via getWebRowHeight we want the
     // rowHeight prop to be the source of truth. Passing deferredMeasurementCache
