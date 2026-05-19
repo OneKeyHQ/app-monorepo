@@ -45,7 +45,7 @@ export interface IAccountValueDb {
   _migrationVersion?: number;
 }
 
-const CURRENT_MIGRATION_VERSION = 3;
+const CURRENT_MIGRATION_VERSION = 1;
 
 export interface IAccountValueSingleItem {
   networkId: string;
