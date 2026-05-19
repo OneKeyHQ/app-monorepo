@@ -10,6 +10,7 @@ import type {
   IRelayDepositInfo,
   IRelayQuoteRequest,
   IRelayQuoteResponse,
+  IRelayQuoteStep,
 } from '@onekeyhq/shared/types/relay';
 
 import ServiceBase from './ServiceBase';
@@ -18,21 +19,8 @@ import ServiceBase from './ServiceBase';
 const RELAY_API_BASE = 'https://api.relay.link';
 const HYPERLIQUID_CHAIN_ID = 1337;
 const HYPERLIQUID_DESTINATION_CURRENCY = '0x00000000000000000000000000000000';
-// Hyperliquid uses 8-decimal USDC for EXACT_OUTPUT amount encoding
-const DESTINATION_DECIMALS = 8;
-const DEFAULT_EVM_DECIMALS = 18;
-const MAX_PROBE_AMOUNT = '10000000'; // 10M USD probe to find max liquidity
-
-// Non-EVM chain IDs
-const BITCOIN_CHAIN_ID = 8_253_038;
-const TRON_CHAIN_ID = 728_126_428;
-
-// Dummy users for non-EVM quote requests (API requires a valid address format)
-const NON_EVM_DUMMY_USERS: Record<number, string> = {
-  [BITCOIN_CHAIN_ID]: 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4',
-  [TRON_CHAIN_ID]: 'TCWTKkQUNJw5rUersaecwkGKkxpU5amwmJ',
-};
-const EVM_DUMMY_USER = '0x0000000000000000000000000000000000000001';
+const DEFAULT_ORIGIN_DECIMALS = 18;
+const MAX_EXACT_INPUT_PROBE_AMOUNT = '10000000';
 
 @backgroundClass()
 class ServiceRelay extends ServiceBase {
@@ -40,7 +28,9 @@ class ServiceRelay extends ServiceBase {
     super({ backgroundApi });
   }
 
-  // Major chains supported for Relay deposit
+  // Curated EVM origins for the first Relay deposit UI. Relay also exposes
+  // non-EVM origins, but they need origin-specific refund address UX; using
+  // dummy BTC/TRON users would make refunds unsafe.
   private static readonly SUPPORTED_CHAIN_IDS = new Set([
     1, // Ethereum
     10, // Optimism
@@ -49,8 +39,6 @@ class ServiceRelay extends ServiceBase {
     8453, // Base
     42_161, // Arbitrum
     43_114, // Avalanche
-    BITCOIN_CHAIN_ID,
-    TRON_CHAIN_ID,
   ]);
 
   // Major currencies to keep (by symbol, case-insensitive)
@@ -59,106 +47,17 @@ class ServiceRelay extends ServiceBase {
     'usdt',
     'eth',
     'weth',
-    'btc',
     'wbtc',
   ]);
-
-  // Chain display info overrides
-  private static readonly CHAIN_INFO_MAP: Record<
-    number,
-    { logo: string; displayName: string }
-  > = {
-    1: {
-      logo: 'https://uni.onekey-asset.com/static/chain/eth.png',
-      displayName: 'Ethereum',
-    },
-    10: {
-      logo: 'https://uni.onekey-asset.com/static/chain/optimism.png',
-      displayName: 'Optimism',
-    },
-    56: {
-      logo: 'https://uni.onekey-asset.com/static/chain/bsc.png',
-      displayName: 'BNB Chain',
-    },
-    137: {
-      logo: 'https://uni.onekey-asset.com/static/chain/polygon.png',
-      displayName: 'Polygon',
-    },
-    8453: {
-      logo: 'https://uni.onekey-asset.com/static/chain/base.png',
-      displayName: 'Base',
-    },
-    42_161: {
-      logo: 'https://uni.onekey-asset.com/static/chain/arbitrum.png',
-      displayName: 'Arbitrum',
-    },
-    43_114: {
-      logo: 'https://uni.onekey-asset.com/static/chain/avalanche.png',
-      displayName: 'Avalanche',
-    },
-    [BITCOIN_CHAIN_ID]: {
-      logo: 'https://uni.onekey-asset.com/static/chain/btc.png',
-      displayName: 'Bitcoin',
-    },
-    [TRON_CHAIN_ID]: {
-      logo: 'https://uni.onekey-asset.com/static/chain/tron.png',
-      displayName: 'Tron',
-    },
-  };
 
   // Well-known token logos — takes priority over API-provided logoURI
   private static readonly TOKEN_LOGO_MAP: Record<string, string> = {
     eth: 'https://uni.onekey-asset.com/static/chain/eth.png',
     weth: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2.png',
-    btc: 'https://uni.onekey-asset.com/static/chain/btc.png',
     wbtc: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0x2260fac5e5542a773aa44fbcfedf7c193bc2c599.png',
     usdt: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xdac17f958d2ee523a2206206994597c13d831ec7.png',
     usdc: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png',
   };
-
-  // Chains not returned by /chains API, hardcoded
-  private static readonly EXTRA_CHAINS: {
-    chain: IRelayChain;
-    currencies: IRelayCurrency[];
-  }[] = [
-    {
-      chain: {
-        id: BITCOIN_CHAIN_ID,
-        name: 'Bitcoin',
-        icon: 'https://uni.onekey-asset.com/static/chain/btc.png',
-        vmType: 'btc',
-      },
-      currencies: [
-        {
-          chainId: BITCOIN_CHAIN_ID,
-          address: 'bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqmql8k8',
-          symbol: 'BTC',
-          name: 'Bitcoin',
-          decimals: 8,
-          logoURI: 'https://uni.onekey-asset.com/static/chain/btc.png',
-        },
-      ],
-    },
-    {
-      chain: {
-        id: TRON_CHAIN_ID,
-        name: 'Tron',
-        icon: 'https://uni.onekey-asset.com/static/chain/tron.png',
-        vmType: 'tvm',
-      },
-      currencies: [
-        {
-          chainId: TRON_CHAIN_ID,
-          address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
-          symbol: 'USDT',
-          name: 'Tether USD',
-          decimals: 6,
-          logoURI:
-            'https://uni.onekey-asset.com/server-service-indexer/tron--0x2b6653dc/tokens/address-TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t.png',
-        },
-      ],
-    },
-  ];
 
   private _chainsCache: {
     chains: IRelayChain[];
@@ -198,11 +97,10 @@ class ServiceRelay extends ServiceBase {
           ServiceRelay.SUPPORTED_CURRENCY_SYMBOLS.has(c.symbol.toLowerCase()),
         );
         if (filteredCurrencies.length > 0) {
-          const chainInfo = ServiceRelay.CHAIN_INFO_MAP[chain.id];
           chains.push({
             id: chain.id,
-            name: chainInfo?.displayName || chain.name,
-            icon: chainInfo?.logo || chain.icon || '',
+            name: chain.displayName || chain.name,
+            icon: chain.iconUrl || chain.icon || '',
             vmType: chain.vmType,
           });
           currencies[chain.id] = filteredCurrencies.map((c) => ({
@@ -220,12 +118,6 @@ class ServiceRelay extends ServiceBase {
           }));
         }
       }
-    }
-
-    // Add chains not returned by /chains API (BTC, Tron, etc.)
-    for (const extra of ServiceRelay.EXTRA_CHAINS) {
-      chains.push(extra.chain);
-      currencies[extra.chain.id] = extra.currencies;
     }
 
     this._chainsCache = { chains, currencies };
@@ -270,69 +162,59 @@ class ServiceRelay extends ServiceBase {
     originChainId: number;
     originCurrency: string;
     recipient: string;
+    user?: string;
+    refundTo?: string;
     amount: string;
-    tradeType?: 'EXACT_INPUT' | 'EXACT_OUTPUT';
     decimals?: number;
+    useDepositAddress?: boolean;
   }): IRelayQuoteRequest {
     const { originChainId, originCurrency, recipient, amount } = params;
-    const amountDecimals =
-      params.tradeType === 'EXACT_INPUT'
-        ? (params.decimals ?? DEFAULT_EVM_DECIMALS)
-        : DESTINATION_DECIMALS;
+    const refundTo = params.refundTo ?? recipient;
     const amountInSmallestUnit = ServiceRelay._toSmallestUnit(
       amount,
-      amountDecimals,
+      params.decimals ?? DEFAULT_ORIGIN_DECIMALS,
     );
 
-    const dummyUser = NON_EVM_DUMMY_USERS[originChainId];
-    const isNonEvm = !!dummyUser;
-
-    const baseRequest = {
+    return {
       originChainId,
       destinationChainId: HYPERLIQUID_CHAIN_ID,
       originCurrency,
       destinationCurrency: HYPERLIQUID_DESTINATION_CURRENCY,
+      user: params.user ?? refundTo,
       recipient,
       amount: amountInSmallestUnit,
-      useDepositAddress: true,
-    };
-
-    if (isNonEvm) {
-      return {
-        ...baseRequest,
-        user: dummyUser,
-        tradeType:
-          params.tradeType === 'EXACT_INPUT'
-            ? 'EXACT_INPUT'
-            : 'EXPECTED_OUTPUT',
-      };
-    }
-
-    return {
-      ...baseRequest,
-      user: EVM_DUMMY_USER,
-      tradeType: params.tradeType || 'EXACT_OUTPUT',
-      refundTo: recipient,
+      tradeType: 'EXACT_INPUT',
+      useDepositAddress: params.useDepositAddress ?? true,
+      refundTo,
     };
   }
 
-  private _parseDepositAddress(data: IRelayQuoteResponse): string {
+  private _parseDepositStep(data: IRelayQuoteResponse): {
+    depositAddress: string;
+    requestId?: string;
+  } {
     for (const step of data.steps ?? []) {
       if (step.depositAddress) {
-        return step.depositAddress;
+        return {
+          depositAddress: step.depositAddress,
+          requestId: ServiceRelay._parseRequestId(step),
+        };
       }
-      let fallback = '';
+
       for (const item of step.items ?? []) {
         if (item.data?.depositAddress) {
-          return item.data.depositAddress;
-        }
-        if (!fallback && item.data?.to) {
-          fallback = item.data.to;
+          return {
+            depositAddress: item.data.depositAddress,
+            requestId: ServiceRelay._parseRequestId(step),
+          };
         }
       }
-      if (fallback) return fallback;
     }
-    return '';
+    return { depositAddress: '' };
+  }
+
+  private static _parseRequestId(step: IRelayQuoteStep): string | undefined {
+    return step.requestId;
   }
 
   private _parseMaxAmountFromError(errorText: string): string | null {
@@ -367,7 +249,7 @@ class ServiceRelay extends ServiceBase {
     data: IRelayQuoteResponse,
     fallbackAmount: string,
   ): Omit<IRelayDepositInfo, 'maxReceiveAmount'> {
-    const depositAddress = this._parseDepositAddress(data);
+    const { depositAddress, requestId } = this._parseDepositStep(data);
     if (!depositAddress) {
       throw new OneKeyError({
         message: 'No deposit address found in relay quote response',
@@ -381,6 +263,7 @@ class ServiceRelay extends ServiceBase {
 
     return {
       depositAddress,
+      requestId,
       sendAmount: data.details?.currencyIn?.amountFormatted ?? fallbackAmount,
       sendSymbol: data.details?.currencyIn?.currency?.symbol ?? '',
       receiveAmount: data.details?.currencyOut?.amountFormatted ?? '0',
@@ -396,7 +279,10 @@ class ServiceRelay extends ServiceBase {
     originChainId: number;
     originCurrency: string;
     recipient: string;
+    user?: string;
+    refundTo?: string;
     amount: string;
+    decimals?: number;
   }): Promise<IRelayDepositInfo> {
     const requestBody = this._buildQuoteRequest(params);
     const data = await this._fetchQuote(requestBody);
@@ -408,8 +294,9 @@ class ServiceRelay extends ServiceBase {
     originChainId: number;
     originCurrency: string;
     recipient: string;
+    user?: string;
+    refundTo?: string;
     amount?: string;
-    tradeType?: 'EXACT_INPUT' | 'EXACT_OUTPUT';
     decimals?: number;
   }): Promise<IRelayDepositInfo> {
     const quoteAmount = params.amount || '100';
@@ -421,8 +308,9 @@ class ServiceRelay extends ServiceBase {
           originChainId: params.originChainId,
           originCurrency: params.originCurrency,
           recipient: params.recipient,
+          user: params.user,
+          refundTo: params.refundTo,
           amount: quoteAmount,
-          tradeType: params.tradeType,
           decimals: params.decimals,
         }),
       ),
@@ -431,7 +319,11 @@ class ServiceRelay extends ServiceBase {
           originChainId: params.originChainId,
           originCurrency: params.originCurrency,
           recipient: params.recipient,
-          amount: MAX_PROBE_AMOUNT,
+          user: params.user,
+          refundTo: params.refundTo,
+          amount: MAX_EXACT_INPUT_PROBE_AMOUNT,
+          useDepositAddress: false,
+          decimals: params.decimals,
         }),
       ),
     ]);

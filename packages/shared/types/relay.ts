@@ -36,7 +36,7 @@ export interface IRelayQuoteRequest {
   tradeType: 'EXACT_INPUT' | 'EXACT_OUTPUT' | 'EXPECTED_OUTPUT';
   amount: string;
   useDepositAddress: boolean;
-  refundTo?: string;
+  refundTo: string;
 }
 
 export interface IRelayQuoteStep {
@@ -44,6 +44,7 @@ export interface IRelayQuoteStep {
   action: string;
   description: string;
   depositAddress?: string;
+  requestId?: string;
   items?: Array<{
     status: string;
     data?: {
@@ -116,6 +117,7 @@ export interface IRelayQuoteResponse {
 
 export interface IRelayDepositInfo {
   depositAddress: string;
+  requestId?: string;
   sendAmount: string;
   sendSymbol: string;
   receiveAmount: string;
@@ -130,7 +132,9 @@ export interface IRelayChainsResponse {
   chains: Array<{
     id: number;
     name: string;
-    icon: string;
+    displayName?: string;
+    icon?: string;
+    iconUrl?: string;
     vmType: string;
     solverCurrencies?: IRelaySolverCurrency[];
     [key: string]: unknown;

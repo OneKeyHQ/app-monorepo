@@ -55,8 +55,7 @@ function parseErrorMessage(raw: string): string {
 const DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID =
   'perp-deposit-withdraw-accessory-view';
 const DEBOUNCE_MS = 1000;
-const DEFAULT_RECEIVE_AMOUNT = '100';
-const DEFAULT_RECEIVE_DECIMALS = 8;
+const DEFAULT_SEND_AMOUNT = '100';
 const PERPS_USDC_LOGO =
   'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png';
 
@@ -83,14 +82,13 @@ function RelayDepositContent({
   const [quoteResult, setQuoteResult] = useState<IRelayDepositInfo | null>(
     null,
   );
-  const [sendAmount, setSendAmount] = useState('');
-  const [receiveAmount, setReceiveAmount] = useState(DEFAULT_RECEIVE_AMOUNT);
+  const [sendAmount, setSendAmount] = useState(DEFAULT_SEND_AMOUNT);
+  const [receiveAmount, setReceiveAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [chainsLoading, setChainsLoading] = useState(true);
   const [error, setError] = useState('');
 
   const recipientAddress = selectedAccount.accountAddress ?? '';
-  const lastEditedRef = useRef<'send' | 'receive'>('receive');
 
   const currentCurrencies = useMemo(
     () => currencies[selectedChainId] ?? [],
@@ -133,7 +131,6 @@ function RelayDepositContent({
       chainId: number;
       currencyAddress: string;
       amount: string;
-      tradeType?: 'EXACT_INPUT' | 'EXACT_OUTPUT';
       decimals?: number;
     }) => {
       if (!recipientAddress) return;
@@ -148,8 +145,9 @@ function RelayDepositContent({
           originChainId: params.chainId,
           originCurrency: params.currencyAddress,
           recipient: recipientAddress,
+          user: recipientAddress,
+          refundTo: recipientAddress,
           amount: params.amount,
-          tradeType: params.tradeType,
           decimals: params.decimals,
         });
         if (id === fetchIdRef.current) {
@@ -188,8 +186,11 @@ function RelayDepositContent({
       if (!validateAmountInput(raw, selectedCurrency?.decimals)) {
         return;
       }
+      fetchIdRef.current += 1;
       setSendAmount(raw);
-      lastEditedRef.current = 'send';
+      setReceiveAmount('');
+      setLoading(false);
+      setError('');
 
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = setTimeout(() => {
@@ -199,37 +200,12 @@ function RelayDepositContent({
             chainId: selectedChainId,
             currencyAddress: selectedCurrencyAddress,
             amount: raw,
-            tradeType: 'EXACT_INPUT',
             decimals: selectedCurrency?.decimals,
           });
         }
       }, DEBOUNCE_MS);
     },
     [fetchQuote, selectedChainId, selectedCurrencyAddress, selectedCurrency],
-  );
-
-  const handleReceiveAmountChange = useCallback(
-    (text: string) => {
-      const raw = text.replace(/,/g, '');
-      if (!validateAmountInput(raw, DEFAULT_RECEIVE_DECIMALS)) {
-        return;
-      }
-      setReceiveAmount(raw);
-      lastEditedRef.current = 'receive';
-
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = setTimeout(() => {
-        const parsed = parseFloat(raw);
-        if (!Number.isNaN(parsed) && parsed > 0) {
-          void fetchQuote({
-            chainId: selectedChainId,
-            currencyAddress: selectedCurrencyAddress,
-            amount: raw,
-          });
-        }
-      }, DEBOUNCE_MS);
-    },
-    [fetchQuote, selectedChainId, selectedCurrencyAddress],
   );
 
   // Load chains and fetch the default quote for the active recipient.
@@ -256,6 +232,7 @@ function RelayDepositContent({
         // Set defaults
         let defaultChainId = 1;
         let defaultCurrencyAddr = '';
+        let defaultCurrencyDecimals: number | undefined;
 
         const ethChain = result.chains.find((c) => c.id === 1);
         if (ethChain) {
@@ -265,14 +242,17 @@ function RelayDepositContent({
           );
           if (usdc) {
             defaultCurrencyAddr = usdc.address;
+            defaultCurrencyDecimals = usdc.decimals;
           } else if (ethCurrencies?.[0]) {
             defaultCurrencyAddr = ethCurrencies[0].address;
+            defaultCurrencyDecimals = ethCurrencies[0].decimals;
           }
         } else if (result.chains[0]) {
           defaultChainId = result.chains[0].id;
           const firstCurrencies = result.currencies[defaultChainId];
           if (firstCurrencies?.[0]) {
             defaultCurrencyAddr = firstCurrencies[0].address;
+            defaultCurrencyDecimals = firstCurrencies[0].decimals;
           }
         }
 
@@ -280,12 +260,13 @@ function RelayDepositContent({
         setSelectedCurrencyAddress(defaultCurrencyAddr);
         setChainsLoading(false);
 
-        // Auto-fetch quote with defaults (EXACT_OUTPUT, receive 100 USDC)
+        // Deposit-address quotes use exact-input semantics.
         if (defaultCurrencyAddr) {
           void fetchQuote({
             chainId: defaultChainId,
             currencyAddress: defaultCurrencyAddr,
-            amount: DEFAULT_RECEIVE_AMOUNT,
+            amount: DEFAULT_SEND_AMOUNT,
+            decimals: defaultCurrencyDecimals,
           });
         }
       } catch (e) {
@@ -317,7 +298,8 @@ function RelayDepositContent({
         void fetchQuote({
           chainId,
           currencyAddress: picked.address,
-          amount: DEFAULT_RECEIVE_AMOUNT,
+          amount: DEFAULT_SEND_AMOUNT,
+          decimals: picked.decimals,
         });
       }
     },
@@ -334,7 +316,8 @@ function RelayDepositContent({
         void fetchQuote({
           chainId: selectedChainId,
           currencyAddress: currency.address,
-          amount: DEFAULT_RECEIVE_AMOUNT,
+          amount: DEFAULT_SEND_AMOUNT,
+          decimals: currency.decimals,
         });
       }
     },
@@ -434,7 +417,7 @@ function RelayDepositContent({
               }
               value={formatWithCommas(sendAmount)}
               onChangeText={handleSendAmountChange}
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               placeholder="0"
               placeholderTextColor={theme.textDisabled.val}
               style={{
@@ -484,20 +467,20 @@ function RelayDepositContent({
               }}
               pointerEvents="none"
             >
-              {formatWithCommas(receiveAmount) || DEFAULT_RECEIVE_AMOUNT}
+              {formatWithCommas(receiveAmount) || '0'}
             </Text>
             <TextInput
               accessible
               accessibilityLabel="Receive amount"
+              editable={false}
               inputAccessoryViewID={
                 platformEnv.isNativeIOS
                   ? DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID
                   : undefined
               }
               value={formatWithCommas(receiveAmount)}
-              onChangeText={handleReceiveAmountChange}
-              keyboardType="numeric"
-              placeholder={DEFAULT_RECEIVE_AMOUNT}
+              keyboardType="decimal-pad"
+              placeholder="0"
               placeholderTextColor={theme.textDisabled.val}
               style={{
                 position: 'absolute',
