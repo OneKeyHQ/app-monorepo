@@ -116,6 +116,17 @@ function hasSpotVolumeData(
   );
 }
 
+// Android FlashList can preserve the pre-sort anchor, which defeats the
+// selector's explicit scroll-to-top contract.
+const androidSortScrollBehaviorProps: Record<string, unknown> =
+  platformEnv.isNativeAndroid
+    ? {
+        maintainVisibleContentPosition: {
+          disabled: true,
+        },
+      }
+    : {};
+
 const PrimaryTabItem = memo(
   ({
     id,
@@ -1051,6 +1062,7 @@ function MobileTokenSelectorModal({
               decelerationRate="normal"
               showsVerticalScrollIndicator
               nestedScrollEnabled={platformEnv.isNativeAndroid}
+              {...androidSortScrollBehaviorProps}
               contentContainerStyle={{
                 paddingBottom: 10,
               }}
