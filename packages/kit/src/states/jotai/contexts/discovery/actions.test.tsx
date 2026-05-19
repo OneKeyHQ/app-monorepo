@@ -6,6 +6,7 @@ import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import { rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
+import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import {
@@ -54,6 +55,9 @@ const mockRootNavigationRef = rootNavigationRef as typeof rootNavigationRef & {
     getRootState: jest.Mock;
   };
 };
+const mockHandleDeepLinkUrl = handleDeepLinkUrl as jest.MockedFunction<
+  typeof handleDeepLinkUrl
+>;
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -567,6 +571,83 @@ describe('useBrowserTabActions', () => {
         isTopFrame: true,
       }),
     ).toBe(EValidateUrlEnum.NotSupportProtocol);
+  });
+
+  it('treats OneKey referral landing URLs as app routes in the browser', async () => {
+    const referralUrl = 'https://app.onekey.so/r/R7EKUT/app/perps';
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    expect(
+      result.current.actions.validateWebviewSrc({
+        url: referralUrl,
+        isTopFrame: true,
+      }),
+    ).toBe(EValidateUrlEnum.ValidDeeplink);
+
+    let opened: boolean | void = undefined;
+    await act(async () => {
+      opened = await result.current.actions.gotoSite({
+        id: 'tab-1',
+        url: referralUrl,
+        title: 'Referral',
+      });
+    });
+
+    expect(opened).toBe(false);
+    expect(mockHandleDeepLinkUrl).toHaveBeenCalledWith({ url: referralUrl });
+    expect(mockCrossWebviewLoadUrl).not.toHaveBeenCalled();
+    expect(result.current.tabs.find((tab) => tab.id === 'tab-1')).toEqual(
+      expect.objectContaining({
+        url: 'https://previous.example',
+      }),
+    );
+  });
+
+  it('does not switch to the browser when opening a OneKey referral landing URL', () => {
+    const referralUrl = 'https://onekey.so/r/R7EKUT';
+    mockRootNavigationRef.current.getRootState.mockReturnValue({
+      index: 0,
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: {
+            index: 0,
+            routes: [{ name: ETabRoutes.Home }],
+          },
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useBrowserAction().current, {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.handleOpenWebSite({
+        webSite: {
+          title: 'Referral',
+          url: referralUrl,
+          logo: undefined,
+          sortIndex: undefined,
+        },
+      });
+    });
+
+    expect(mockHandleDeepLinkUrl).toHaveBeenCalledWith({ url: referralUrl });
+    expect(mockSwitchTabAsync).not.toHaveBeenCalled();
   });
 
   it('keeps blocked localhost gotoSite in the browser so the block page is shown', async () => {
