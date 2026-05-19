@@ -43,6 +43,8 @@ export function BulkCopyAddressesButton({
       label={intl.formatMessage({
         id: ETranslations.global_bulk_copy_addresses,
       })}
+      disabled={isBulkCopyBlocked}
+      allowPressWhenDisabled={isBulkCopyBlocked}
       onPress={async (close) => {
         if (isBulkCopyBlocked) {
           // Keep the entry interactive so users get feedback instead of a
