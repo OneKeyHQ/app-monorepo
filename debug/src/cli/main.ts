@@ -158,6 +158,54 @@ program
   });
 
 program
+  .command("webview-list <sessionId>")
+  .description("List WebView CDP targets")
+  .option("-p, --port <port>", "iOS only — iwdp HTTP port (default 27753)", (v) =>
+    parseInt(v, 10),
+  )
+  .action(async (sessionId: string, opts: { port?: number }) => {
+    process.stdout.write(
+      JSON.stringify(
+        await call("webview.list", { sessionId, port: opts.port }),
+        null,
+        2,
+      ) + "\n",
+    );
+  });
+
+program
+  .command("webview-eval <sessionId> <targetId> <expression>")
+  .description("Evaluate JS inside a WebView")
+  .action(
+    async (sessionId: string, targetId: string, expression: string) => {
+      process.stdout.write(
+        JSON.stringify(
+          await call("webview.eval", { sessionId, targetId, expression }),
+          null,
+          2,
+        ) + "\n",
+      );
+    },
+  );
+
+program
+  .command("webview-dom-query <sessionId> <targetId> <selector>")
+  .description(
+    "DOM.querySelectorAll inside a WebView (returns first outerHTML + count)",
+  )
+  .action(
+    async (sessionId: string, targetId: string, selector: string) => {
+      process.stdout.write(
+        JSON.stringify(
+          await call("webview.dom.query", { sessionId, targetId, selector }),
+          null,
+          2,
+        ) + "\n",
+      );
+    },
+  );
+
+program
   .command("doctor")
   .description("Pre-flight checks (adb, xcrun, lldb, Hermes, devices, frida)")
   .action(async () => {

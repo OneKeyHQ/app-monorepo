@@ -136,6 +136,54 @@ const TOOLS: ToolSpec[] = [
       required: ["sessionId", "requestId"],
     },
   },
+  {
+    name: "webview.list",
+    description:
+      "List WebView CDP targets for the session (iOS via ios-webkit-debug-proxy, Android via adb forward).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        port: {
+          type: "number",
+          description: "iOS only — iwdp HTTP port (default 27753)",
+        },
+      },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "webview.eval",
+    description: "Evaluate a JS expression inside a specific WebView target.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        targetId: {
+          type: "string",
+          description: "CDP target id from webview.list",
+        },
+        expression: { type: "string" },
+        returnByValue: { type: "boolean", default: true },
+        awaitPromise: { type: "boolean", default: true },
+      },
+      required: ["sessionId", "targetId", "expression"],
+    },
+  },
+  {
+    name: "webview.dom.query",
+    description:
+      "DOM.querySelectorAll inside a WebView; returns first match outerHTML + total count.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        targetId: { type: "string" },
+        selector: { type: "string" },
+      },
+      required: ["sessionId", "targetId", "selector"],
+    },
+  },
 ];
 
 export const server = new Server(

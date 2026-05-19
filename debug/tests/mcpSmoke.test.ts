@@ -24,6 +24,9 @@ describe("MCP server module", () => {
         "session.list",
         "session.status",
         "ui.tree",
+        "webview.dom.query",
+        "webview.eval",
+        "webview.list",
       ].sort(),
     );
   });

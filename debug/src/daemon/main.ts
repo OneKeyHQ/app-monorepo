@@ -4,6 +4,11 @@ import { jsEval } from "../tools/jsEval.js";
 import { networkBody, networkList } from "../tools/jsNetwork.js";
 import { screenshot } from "../tools/screenshot.js";
 import { uiTree } from "../tools/uiTree.js";
+import {
+  webviewDomQuery,
+  webviewEval,
+  webviewList,
+} from "../tools/webview.js";
 import { Dispatcher } from "./dispatcher.js";
 import { Registry } from "./registry.js";
 import { UnixSocketServer } from "./server.js";
@@ -27,6 +32,9 @@ async function main(): Promise<void> {
   d.register("js.console.tail", (p) => consoleTail(registry, p as never));
   d.register("js.network.list", (p) => networkList(registry, p as never));
   d.register("js.network.body", (p) => networkBody(registry, p as never));
+  d.register("webview.list", (p) => webviewList(registry, p as never));
+  d.register("webview.eval", (p) => webviewEval(registry, p as never));
+  d.register("webview.dom.query", (p) => webviewDomQuery(registry, p as never));
 
   const server = new UnixSocketServer(DEFAULT_SOCKET, d);
   await server.start();

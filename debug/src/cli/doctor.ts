@@ -72,6 +72,12 @@ export async function runAll(): Promise<Check[]> {
     ok: await hasBinary("lldb"),
     fix: "ships with Xcode",
   });
+  // brew installs the binary with underscores: ios_webkit_debug_proxy
+  checks.push({
+    name: "ios-webkit-debug-proxy",
+    ok: await hasBinary("ios_webkit_debug_proxy"),
+    fix: "brew install ios-webkit-debug-proxy (only needed for iOS WebView debugging)",
+  });
 
   const h = await hermesReachable();
   checks.push({
