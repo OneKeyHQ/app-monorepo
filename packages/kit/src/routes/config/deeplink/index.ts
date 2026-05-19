@@ -17,7 +17,6 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
-  ETabHomeRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -31,6 +30,10 @@ import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 
 import { registerHandler } from './handler';
 import { parseWebViewDeepLink } from './parseWebViewDeepLink';
+import {
+  handleReferralLandingUrl,
+  navigateToReferralLanding,
+} from './referralLandingLink';
 
 type IDeepLinkUrlParsedResult = {
   type: 'walletConnect';
@@ -126,12 +129,10 @@ async function processDeepLinkUrlAccount(
               break;
             }
             if (navigation) {
-              // Navigate to ReferralLandingPage which handles the modal opening
-              navigation.switchTab(ETabRoutes.Home);
-              await timerUtils.wait(50);
-              navigation.push(ETabHomeRoutes.TabHomeReferralLanding, {
+              await navigateToReferralLanding({
                 code,
                 page: page ?? '',
+                navigation,
                 fromDeepLink: true,
               });
             }
@@ -264,6 +265,10 @@ const processDeepLinkUrl = memoizee(
 
     try {
       console.log('processDeepLinkUrl: >>>>> ', url);
+      if (await handleReferralLandingUrl({ url })) {
+        return;
+      }
+
       const parsedUrl = Linking.parse(url);
       const { hostname, path, queryParams, scheme } = parsedUrl;
       if (process.env.NODE_ENV !== 'production') {
