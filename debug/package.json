@@ -3,23 +3,15 @@
   "version": "0.1.0-mvp",
   "type": "module",
   "private": true,
+  "packageManager": "yarn@4.12.0",
   "engines": {
     "node": ">=22"
   },
   "description": "AI-accessible debug bridge for OneKey iOS/Android (CDP/Frida/Native unified)",
-  "bin": {
-    "odb": "./bin/odb.js",
-    "odb-mcp": "./bin/odb-mcp.js",
-    "odbd": "./bin/odbd.js"
-  },
   "scripts": {
-    "dev": "tsx watch src/daemon/main.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/daemon/main.js",
-    "doctor": "tsx src/cli/main.ts doctor",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
