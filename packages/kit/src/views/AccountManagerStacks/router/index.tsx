@@ -38,6 +38,9 @@ export const AccountManagerStacks: IModalFlowNavigatorConfig<
   {
     name: EAccountManagerStacksRoutes.AccountSelectorStack,
     component: AccountSelectorStackPage,
+    options: {
+      headerShown: false,
+    },
   },
   {
     name: EAccountManagerStacksRoutes.ExportPrivateKeysPage,

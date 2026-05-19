@@ -2,12 +2,8 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  HeaderScrollGestureWrapper,
-  Tabs,
-  YStack,
-  useTabContainerWidth,
-} from '@onekeyhq/components';
+import { HeaderScrollGestureWrapper, Tabs, YStack } from '@onekeyhq/components';
+import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
