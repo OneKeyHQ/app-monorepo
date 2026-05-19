@@ -10,6 +10,7 @@
   "description": "AI-accessible debug bridge for OneKey iOS/Android (CDP/Frida/Native unified)",
   "bin": {
     "odb": "./bin/odb.js",
+    "odb-mcp": "./bin/odb-mcp.js",
     "odbd": "./bin/odbd.js"
   },
   "scripts": {
