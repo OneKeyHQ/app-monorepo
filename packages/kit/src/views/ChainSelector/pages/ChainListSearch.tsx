@@ -305,7 +305,12 @@ function ChainListSearch() {
 
   const headerRight = useCallback(
     () => (
-      <Button variant="tertiary" size="medium" onPress={handleManualAdd}>
+      <Button
+        testID="chain-list-search-manual-add"
+        variant="tertiary"
+        size="medium"
+        onPress={handleManualAdd}
+      >
         {intl.formatMessage({
           id: ETranslations.custom_network_manual_add,
         })}
