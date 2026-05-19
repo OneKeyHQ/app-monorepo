@@ -93,12 +93,19 @@ export function getDefaultShareText({
   side,
   coin,
   displayName,
+  mode = 'perp',
 }: {
-  side: string;
+  side: IShareData['side'];
   coin: string;
   displayName?: string;
+  mode?: IShareData['mode'];
 }): string {
   const name = displayName || coin;
+  if (mode === 'spot') {
+    const action = side === 'long' ? 'BUY' : 'SELL';
+    return `Check out my ${action} spot trade on ${name}! 🚀`;
+  }
+
   return `Check out my ${side.toUpperCase()} position on ${name}! 🚀`;
 }
 
