@@ -23,7 +23,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EChainSelectorPages,
+  EModalSettingRoutes,
   IChainSelectorParamList,
+  IModalSettingParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -50,7 +52,11 @@ function AddCustomNetwork() {
   const navigation = useAppNavigation();
   const route =
     useRoute<
-      RouteProp<IChainSelectorParamList, EChainSelectorPages.AddCustomNetwork>
+      RouteProp<
+        IChainSelectorParamList & IModalSettingParamList,
+        | EChainSelectorPages.AddCustomNetwork
+        | EModalSettingRoutes.SettingCustomNetwork
+      >
     >();
   const {
     state,
@@ -236,16 +242,20 @@ function AddCustomNetwork() {
       void dappApprove.resolve({ result: network });
       setTimeout(() => {
         onSuccess?.(network);
-        let source: 'manual' | 'chainList' | 'dapp' = 'manual';
-        if ($sourceInfo?.id) {
-          source = 'dapp';
-        } else if (routeNetworkName) {
-          source = 'chainList';
+        // Skip add-analytics for edit saves to avoid polluting `customNetworkAdded`
+        // with edit events (routeNetworkName is also present in edit mode).
+        if (!isEditMode) {
+          let source: 'manual' | 'chainList' | 'dapp' = 'manual';
+          if ($sourceInfo?.id) {
+            source = 'dapp';
+          } else if (routeNetworkName) {
+            source = 'chainList';
+          }
+          defaultLogger.account.wallet.customNetworkAdded({
+            chainID: String(finalChainId),
+            source,
+          });
         }
-        defaultLogger.account.wallet.customNetworkAdded({
-          chainID: String(finalChainId),
-          source,
-        });
       }, 500);
       Toast.success({
         title: intl.formatMessage({

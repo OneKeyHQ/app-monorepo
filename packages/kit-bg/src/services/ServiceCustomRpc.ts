@@ -38,6 +38,13 @@ class ServiceCustomRpc extends ServiceBase {
     fetchedAt: number;
   } = { data: new Map(), fetchedAt: 0 };
 
+  // Coalesce concurrent first-time loads for the same page so we don't fan-out
+  // duplicate `/wallet/v1/network/chainlist` requests during cold start.
+  private chainListPendingRequests = new Map<
+    number,
+    Promise<IChainListItem[]>
+  >();
+
   private readonly chainListCacheTTL = timerUtils.getTimeDurationMs({
     minute: 15,
   });
@@ -547,27 +554,31 @@ class ServiceCustomRpc extends ServiceBase {
     keywords?: string;
     page?: number;
   }): Promise<IChainListItem[]> {
-    // Keyword search: always hit API, no cache
+    // Keyword search: always hit API, no cache.
+    // Errors are propagated so callers can distinguish network failures
+    // from genuinely empty result sets.
     if (params.keywords) {
-      try {
-        const client = await this.getClient(EServiceEndpointEnum.Wallet);
-        const resp = await client.get<{ data: IChainListItem[] }>(
-          '/wallet/v1/network/chainlist',
-          { params: { keywords: params.keywords, showTestNet: true } },
-        );
-        return resp.data.data || [];
-      } catch {
-        return [];
-      }
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.get<{ data: IChainListItem[] }>(
+        '/wallet/v1/network/chainlist',
+        { params: { keywords: params.keywords, showTestNet: true } },
+      );
+      return resp.data.data || [];
     }
 
-    // Default list: use in-memory cache per page (TTL 15min)
-    const page = params.page ?? 1;
+    // Default list: use in-memory cache per page (TTL 15min).
+    const page = Math.max(1, Math.floor(params.page ?? 1));
     if (this.isChainListCacheValid() && this.chainListCache.data.has(page)) {
       return this.chainListCache.data.get(page) ?? [];
     }
 
-    try {
+    // Coalesce concurrent first-time loads for the same page.
+    const pending = this.chainListPendingRequests.get(page);
+    if (pending) {
+      return pending;
+    }
+
+    const request = (async () => {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IChainListItem[] }>(
         '/wallet/v1/network/chainlist',
@@ -582,8 +593,13 @@ class ServiceCustomRpc extends ServiceBase {
       this.chainListCache.data.set(page, result);
 
       return result;
-    } catch {
-      return [];
+    })();
+
+    this.chainListPendingRequests.set(page, request);
+    try {
+      return await request;
+    } finally {
+      this.chainListPendingRequests.delete(page);
     }
   }
 

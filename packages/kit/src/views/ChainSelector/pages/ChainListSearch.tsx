@@ -102,6 +102,20 @@ function ChainListSearch() {
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSearchingRef = useRef(false);
+  // Monotonic id bumped on every list-replacing op (initial load, reload,
+  // search, pagination); used to discard stale async results.
+  const listReqIdRef = useRef(0);
+  // Synchronous guard so a fast onEndReached burst doesn't fan out duplicate
+  // requests before isLoadingMore state has propagated.
+  const loadingMoreRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
 
   const refreshExistingNetworks = useCallback(async () => {
     try {
@@ -133,6 +147,8 @@ function ChainListSearch() {
   // Load first page on mount
   useEffect(() => {
     async function loadFirstPage() {
+      listReqIdRef.current += 1;
+      const reqId = listReqIdRef.current;
       try {
         setIsInitialLoading(true);
         setHasError(false);
@@ -140,13 +156,17 @@ function ChainListSearch() {
           await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords({
             page: 1,
           });
+        if (!mountedRef.current || reqId !== listReqIdRef.current) return;
         setItems(result);
         setHasMore(result.length > 0);
         setCurrentPage(1);
       } catch {
+        if (!mountedRef.current || reqId !== listReqIdRef.current) return;
         setHasError(true);
       } finally {
-        setIsInitialLoading(false);
+        if (mountedRef.current && reqId === listReqIdRef.current) {
+          setIsInitialLoading(false);
+        }
       }
     }
     void loadFirstPage();
@@ -154,16 +174,26 @@ function ChainListSearch() {
 
   // Load more pages (pagination)
   const handleEndReached = useCallback(async () => {
-    if (isLoadingMore || !hasMore || searchText || isSearchingRef.current) {
+    if (
+      loadingMoreRef.current ||
+      isLoadingMore ||
+      !hasMore ||
+      searchText ||
+      isSearchingRef.current
+    ) {
       return;
     }
+    loadingMoreRef.current = true;
+    listReqIdRef.current += 1;
+    const reqId = listReqIdRef.current;
+    const nextPage = currentPage + 1;
     try {
       setIsLoadingMore(true);
-      const nextPage = currentPage + 1;
       const result =
         await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords({
           page: nextPage,
         });
+      if (!mountedRef.current || reqId !== listReqIdRef.current) return;
       if (result.length === 0) {
         setHasMore(false);
       } else {
@@ -173,11 +203,16 @@ function ChainListSearch() {
     } catch {
       // Silently fail on pagination
     } finally {
-      setIsLoadingMore(false);
+      loadingMoreRef.current = false;
+      if (mountedRef.current && reqId === listReqIdRef.current) {
+        setIsLoadingMore(false);
+      }
     }
   }, [isLoadingMore, hasMore, searchText, currentPage]);
 
   const reloadDefaultList = useCallback(async () => {
+    listReqIdRef.current += 1;
+    const reqId = listReqIdRef.current;
     try {
       setIsInitialLoading(true);
       setHasError(false);
@@ -185,13 +220,17 @@ function ChainListSearch() {
         await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords({
           page: 1,
         });
+      if (!mountedRef.current || reqId !== listReqIdRef.current) return;
       setItems(result);
       setHasMore(result.length > 0);
       setCurrentPage(1);
     } catch {
+      if (!mountedRef.current || reqId !== listReqIdRef.current) return;
       setHasError(true);
     } finally {
-      setIsInitialLoading(false);
+      if (mountedRef.current && reqId === listReqIdRef.current) {
+        setIsInitialLoading(false);
+      }
     }
   }, []);
 
@@ -213,6 +252,8 @@ function ChainListSearch() {
       }
 
       debounceTimerRef.current = setTimeout(async () => {
+        listReqIdRef.current += 1;
+        const reqId = listReqIdRef.current;
         try {
           isSearchingRef.current = true;
           setIsSearching(true);
@@ -226,13 +267,17 @@ function ChainListSearch() {
                 keywords: text,
               },
             );
+          if (!mountedRef.current || reqId !== listReqIdRef.current) return;
           setItems(result);
           setHasMore(false); // search results are not paginated
         } catch {
+          if (!mountedRef.current || reqId !== listReqIdRef.current) return;
           setHasError(true);
         } finally {
-          isSearchingRef.current = false;
-          setIsSearching(false);
+          if (mountedRef.current && reqId === listReqIdRef.current) {
+            isSearchingRef.current = false;
+            setIsSearching(false);
+          }
         }
       }, 1500);
     },
