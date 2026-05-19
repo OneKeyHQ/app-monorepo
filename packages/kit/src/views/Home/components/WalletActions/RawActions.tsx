@@ -23,13 +23,15 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export type IActionItemsProps = {
-  icon?: IKeyOfIcons;
+  icon?: IKeyOfIcons | null;
   label?: string | ReactNode;
   showButtonStyle?: boolean;
   hiddenIfDisabled?: boolean;
   allowPressWhenDisabled?: boolean;
   verticalContainerProps?: IStackProps;
-} & Partial<Omit<IButtonProps, 'type'> & Omit<IIconButtonProps, 'type'>>;
+} & Partial<
+  Omit<IButtonProps, 'type' | 'icon'> & Omit<IIconButtonProps, 'type' | 'icon'>
+>;
 
 function ActionItem({
   icon = 'PlaceholderOutline',
@@ -47,7 +49,8 @@ function ActionItem({
   if (showButtonStyle) {
     return (
       <Button
-        icon={icon}
+        testID="home-action-item-btn"
+        icon={icon || undefined}
         {...(!label && {
           py: '$2',
           pl: '$2.5',
@@ -91,13 +94,15 @@ function ActionItem({
         onPress={onPress}
         {...rest}
       >
-        <Stack>
-          <Icon
-            name={icon}
-            size="$6"
-            color={visualDisabled ? '$iconDisabled' : '$icon'}
-          />
-        </Stack>
+        {icon ? (
+          <Stack>
+            <Icon
+              name={icon}
+              size="$6"
+              color={visualDisabled ? '$iconDisabled' : '$icon'}
+            />
+          </Stack>
+        ) : null}
         <SizableText
           my="$1"
           textAlign="center"
@@ -110,9 +115,10 @@ function ActionItem({
 
       {/* Desktop: Pill button */}
       <Button
+        testID="home-btn"
         variant="secondary"
         size="large"
-        icon={icon}
+        icon={icon || undefined}
         display="none"
         $gtSm={{ display: 'flex' }}
         onPress={onPress}
@@ -219,8 +225,10 @@ function ActionStaking(props: IActionItemsProps) {
 
 function ActionMore({
   renderItemsAsync,
+  testID,
 }: {
   renderItemsAsync: IActionListProps['renderItemsAsync'];
+  testID?: string;
 }) {
   const intl = useIntl();
   const label = intl.formatMessage({ id: ETranslations.global_more });
@@ -257,6 +265,7 @@ function ActionMore({
         }}
         $gtSm={{ display: 'none' }}
         onPress={handleMobilePress}
+        testID={testID}
       >
         <Stack>
           <Icon name="DotHorOutline" size="$6" color="$icon" />
@@ -272,7 +281,12 @@ function ActionMore({
           title={label}
           floatingPanelProps={{ w: '$60' }}
           renderTrigger={
-            <IconButton variant="secondary" size="large" icon="DotHorOutline" />
+            <IconButton
+              variant="secondary"
+              size="large"
+              icon="DotHorOutline"
+              testID={testID}
+            />
           }
           renderItemsAsync={renderItemsAsync}
         />

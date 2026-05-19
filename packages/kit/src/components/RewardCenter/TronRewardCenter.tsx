@@ -22,7 +22,7 @@ import {
 import {
   TRON_SOURCE_FLAG_MAINNET,
   TRON_SOURCE_FLAG_TESTNET,
-} from '@onekeyhq/core/src/chains/tron/constants';
+} from '@onekeyhq/shared/src/consts/chainConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -282,6 +282,7 @@ function RewardCenterContent({
               </SizableText>
             )}
             <Button
+              testID="reward-center-btn"
               size="medium"
               variant="primary"
               loading={isClaiming}
@@ -308,6 +309,7 @@ function RewardCenterContent({
             <Stack flex={1}>
               <Form.Field name="code" rules={{ required: true }}>
                 <Input
+                  testID="reward-center-input"
                   w="100%"
                   backgroundColor="$bgStrong"
                   placeholder={intl.formatMessage({
@@ -317,6 +319,7 @@ function RewardCenterContent({
               </Form.Field>
             </Stack>
             <Button
+              testID="reward-center-btn"
               size="medium"
               variant="primary"
               onPress={handleRedeemCode}
@@ -355,15 +358,19 @@ export const showTronRewardCenter = ({
   }) => void;
 }) =>
   Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.wallet_subsidy_redeem_title,
     }),
     tone: 'info',
     description: (
       <SizableText size="$bodyLg" color="$textSubdued">
-        {appLocale.intl.formatMessage({
-          id: ETranslations.wallet_subsidy_description,
-        })}
+        {
+          // eslint-disable-next-line onekey/no-app-locale-main-thread
+          appLocale.intl.formatMessage({
+            id: ETranslations.wallet_subsidy_description,
+          })
+        }
       </SizableText>
     ),
     icon: 'GiftSolid',

@@ -33,6 +33,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { LightningUnitSwitch } from '../../../components/UnitSwitch';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { ReceiveTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -151,6 +152,7 @@ function CreateInvoice() {
 
   return (
     <Page
+      testID={ReceiveTestIDs.CreateInvoicePage}
       scrollEnabled
       scrollProps={{
         keyboardDismissMode: 'on-drag',
@@ -223,6 +225,7 @@ function CreateInvoice() {
             }}
             labelAddon={
               <LightningUnitSwitch
+                testID={ReceiveTestIDs.LightningUnitSwitch}
                 value={lnUnit}
                 onChange={(v) => {
                   setLnUnit(v as ELightningUnit);
@@ -244,6 +247,7 @@ function CreateInvoice() {
             }
           >
             <Input
+              testID={ReceiveTestIDs.AmountInput}
               placeholder={intl.formatMessage({
                 id: ETranslations.form_amount_placeholder,
               })}
@@ -280,6 +284,7 @@ function CreateInvoice() {
             }}
           >
             <TextArea
+              testID={ReceiveTestIDs.DescriptionInput}
               size={media.gtMd ? 'medium' : 'large'}
               $gtMd={{
                 size: 'medium',
@@ -319,6 +324,7 @@ function CreateInvoice() {
             borderTopColor="$borderSubdued"
           >
             <Button
+              testID="receive-btn"
               variant="tertiary"
               onPress={() => void dismissKeyboardWithDelay(100)}
             >

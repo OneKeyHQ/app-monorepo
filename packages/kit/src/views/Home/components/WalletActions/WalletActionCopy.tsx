@@ -6,9 +6,12 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useCopyAddressWithDeriveType } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
+import { shouldBlockBotWalletCopyAddress } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -42,7 +45,22 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+
   const handleCopyAddress = useCallback(async () => {
+    if (
+      shouldBlockBotWalletCopyAddress({
+        isBotWallet,
+        isBotWalletDeactivated,
+      })
+    ) {
+      showBotWalletDisabledToast('copyAddress');
+      return;
+    }
     if (
       await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: wallet?.id ?? '',
@@ -131,6 +149,8 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
     indexedAccount?.id,
     copyAddressWithDeriveType,
     deriveInfoItems,
+    isBotWallet,
+    isBotWalletDeactivated,
   ]);
 
   return (

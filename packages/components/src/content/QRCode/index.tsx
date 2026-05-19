@@ -18,7 +18,7 @@ import {
   TamaguiTheme as Theme,
   getTokenValue,
 } from '@onekeyhq/components/src/shared/tamagui';
-import { type IAirGapUrJson, airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
+import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { Icon } from '../../primitives/Icon';
@@ -294,27 +294,38 @@ export function QRCode({
   const isAnimatedCode = useMemo(() => drawType === 'animated', [drawType]);
 
   useEffect(() => {
-    let timerId: ReturnType<typeof setInterval>;
+    let timerId: ReturnType<typeof setInterval> | undefined;
+    let cancelled = false;
     if (isAnimatedCode) {
       if (!valueUr) {
         throw new OneKeyLocalError('valueUr is required for animated QRCode');
       }
-      const { nextPart, encodeWhole } = airGapUrUtils.createAnimatedUREncoder({
-        ur: valueUr,
-        maxFragmentLength: 30,
-        firstSeqNum: 0,
-      });
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('QRCode >>>> encodeWhole', encodeWhole());
-        console.log(`\n\n ${encodeWhole().join('\n\n').toUpperCase()} \n\n`);
-      }
-      // const urEncoder = new UREncoder(UR.fromBuffer(Buffer.from(value)));
-      timerId = setInterval(() => {
-        const part = nextPart();
-        setPartValue(part);
-      }, interval);
+      void (async () => {
+        const { airGapUrUtils } = await import('@onekeyhq/qr-wallet-sdk');
+        // Guard against unmount/deps-change during the async import so we
+        // don't create an interval that no cleanup will ever reach.
+        if (cancelled) return;
+        const { nextPart, encodeWhole } = airGapUrUtils.createAnimatedUREncoder(
+          {
+            ur: valueUr,
+            maxFragmentLength: 30,
+            firstSeqNum: 0,
+          },
+        );
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('QRCode >>>> encodeWhole', encodeWhole());
+          console.log(`\n\n ${encodeWhole().join('\n\n').toUpperCase()} \n\n`);
+        }
+        timerId = setInterval(() => {
+          const part = nextPart();
+          setPartValue(part);
+        }, interval);
+      })();
     }
-    return () => clearInterval(timerId);
+    return () => {
+      cancelled = true;
+      if (timerId) clearInterval(timerId);
+    };
   }, [value, interval, isAnimatedCode, valueUr]);
 
   if (!partValue) {

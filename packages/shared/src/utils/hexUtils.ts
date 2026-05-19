@@ -1,12 +1,19 @@
-import { utils } from 'ethers';
+// Import specific @ethersproject sub-packages instead of the full 'ethers'
+// barrel to avoid pulling 126 modules into the common startup bundle.
+import {
+  hexlify as ethersHexlifyFn,
+  isHexString as ethersIsHexString,
+  hexStripZeros,
+} from '@ethersproject/bytes';
+import { toUtf8Bytes } from '@ethersproject/strings';
 
-import type { BytesLike } from 'ethers';
+import type { BytesLike } from '@ethersproject/bytes';
 
-const ethersHexlify = (...args: Parameters<typeof utils.hexlify>) =>
-  utils.hexlify.apply(utils.hexlify, args);
+const ethersHexlify = (...args: Parameters<typeof ethersHexlifyFn>) =>
+  ethersHexlifyFn.apply(ethersHexlifyFn, args);
 
-const stripHexZeros = (...args: Parameters<typeof utils.hexStripZeros>) =>
-  utils.hexStripZeros.apply(utils.hexStripZeros, args);
+const stripHexZeros = (...args: Parameters<typeof hexStripZeros>) =>
+  hexStripZeros.apply(hexStripZeros, args);
 
 const hasHexPrefix = (str: string) =>
   str.startsWith('0x') || str.startsWith('0X');
@@ -36,7 +43,7 @@ const hexlify = (
 };
 
 function isHexString(value: string, length?: number): boolean {
-  return utils.isHexString(addHexPrefix(value), length);
+  return ethersIsHexString(addHexPrefix(value), length);
 }
 
 function hexStringToUtf8String(hexString: string): string {
@@ -55,13 +62,13 @@ function hexStringToUtf8String(hexString: string): string {
 }
 
 function stringToUtf8Bytes(str: string): Buffer {
-  return Buffer.from(utils.toUtf8Bytes(str));
+  return Buffer.from(toUtf8Bytes(str));
 }
 
 function utf8StringToHexString(utf8String: string): string {
   const encoder = new TextEncoder();
   const bytes = encoder.encode(utf8String);
-  return utils.hexlify(bytes);
+  return ethersHexlifyFn(bytes);
 }
 
 export default {

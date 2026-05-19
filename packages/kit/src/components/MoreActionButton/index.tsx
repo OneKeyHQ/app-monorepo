@@ -88,12 +88,9 @@ import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { OneKeyIdAvatar } from '../../views/Setting/pages/OneKeyId';
 import { ESettingsTabNames } from '../../views/Setting/pages/Tab/config';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
+import { isShowAppUpdateUIWhenUpdating, useAppUpdateInfo } from '../AppUpdate';
 import { useEditPrimeProfileDialog } from '../RenameDialog';
 import { UpdateReminder } from '../UpdateReminder';
-import {
-  isShowAppUpdateUIWhenUpdating,
-  useAppUpdateInfo,
-} from '../UpdateReminder/hooks';
 import { WalletAvatar } from '../WalletAvatar';
 
 import type { IDeviceManagementListItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
@@ -124,6 +121,7 @@ function MoreActionContentHeaderItem({ onPress, ...props }: IIconButtonProps) {
   );
   return (
     <IconButton
+      testID="more-action-button-handle-press-icon-btn"
       {...props}
       variant="tertiary"
       size="medium"
@@ -382,6 +380,7 @@ interface IMoreActionContentGridItemProps {
   badges?: number;
   lottieSrc?: any;
   isPrimeFeature?: boolean;
+  hidePrimeBadge?: boolean;
 }
 
 function MoreActionContentGridItem({
@@ -395,6 +394,7 @@ function MoreActionContentGridItem({
   badges = 0,
   lottieSrc,
   isPrimeFeature,
+  hidePrimeBadge,
 }: IMoreActionContentGridItemProps) {
   const { closePopover } = usePopoverContext();
   const { isPrimeAvailable } = usePrimeAvailable();
@@ -486,7 +486,7 @@ function MoreActionContentGridItem({
           </Stack>
         ) : null}
         {/* Only show Prime badge for non-Prime users */}
-        {isPrimeFeature && !isPrimeUser ? (
+        {isPrimeFeature && !hidePrimeBadge && !isPrimeUser ? (
           <Stack
             position="absolute"
             right={-10}
@@ -958,6 +958,8 @@ function MoreActionGeneralGrid() {
             icon: 'PrimeOutline' as const,
             onPress: handlePrime,
             trackID: 'wallet-prime',
+            isPrimeFeature: true,
+            hidePrimeBadge: true,
           }
         : undefined,
       !platformEnv.isWebDappMode
@@ -1187,7 +1189,6 @@ const MoreActionWalletGrid = () => {
 const MoreActionMoreGrid = () => {
   const intl = useIntl();
   const { closePopover } = usePopoverContext();
-  const { loginOneKeyId } = useOneKeyAuth();
   const handleHelpAndSupport = useCallback(() => {
     void showIntercom();
   }, []);
@@ -1199,13 +1200,8 @@ const MoreActionMoreGrid = () => {
 
   const handleRedeem = useCallback(async () => {
     await closePopover?.();
-    try {
-      await loginOneKeyId();
-      showRedemptionCenterDialog();
-    } catch {
-      // User cancelled login, do nothing
-    }
-  }, [closePopover, loginOneKeyId]);
+    showRedemptionCenterDialog();
+  }, [closePopover]);
 
   const items = useMemo(() => {
     return [

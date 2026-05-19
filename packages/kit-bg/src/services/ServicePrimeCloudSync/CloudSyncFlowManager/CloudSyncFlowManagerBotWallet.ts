@@ -33,6 +33,10 @@ export class CloudSyncFlowManagerBotWallet extends CloudSyncFlowManagerBase<
     return Boolean(
       target.walletId &&
       target.parentKeylessWalletId &&
+      // OK-53558: skip orphan metadata whose localDb wallet has been
+      // removed without a tombstone. Without walletHash, buildSyncRawKey
+      // would throw "keyHash is required" and abort the whole init flow.
+      target.walletHash &&
       accountUtils.isKeylessWallet({
         walletId: target.parentKeylessWalletId,
       }),
@@ -44,7 +48,7 @@ export class CloudSyncFlowManagerBotWallet extends CloudSyncFlowManagerBase<
   }: {
     target: ICloudSyncTargetBotWallet;
   }): Promise<string> {
-    const { rawKey } = cloudSyncItemBuilder.buildWalletSyncKey({
+    const result = cloudSyncItemBuilder.buildWalletSyncKey({
       dataType: EPrimeCloudSyncDataType.BotWallet,
       wallet: (target.wallet ??
         ({
@@ -58,7 +62,9 @@ export class CloudSyncFlowManagerBotWallet extends CloudSyncFlowManagerBase<
       accountIndex: undefined,
     });
 
-    return rawKey;
+    if (!result) return '';
+
+    return result.rawKey;
   }
 
   override async buildSyncPayload({

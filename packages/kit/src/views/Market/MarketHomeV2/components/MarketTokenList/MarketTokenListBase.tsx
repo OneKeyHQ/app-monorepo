@@ -36,6 +36,7 @@ import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
+import { shouldShowStockSubtitleForTokens } from './utils/tokenListHelpers';
 
 const SPINNER_HEIGHT = 52;
 // Watchlist mode: only these 3 columns are sortable (server-side sort)
@@ -131,10 +132,11 @@ type IMarketTokenListBaseProps = {
     position?: { x: number; y: number },
   ) => void;
   onScrollBegin?: () => void;
-  showStockSubtitle?: boolean;
+  showStockSubtitle?: boolean | 'auto';
   hiddenDesktopColumns?: readonly string[];
   liveTokenOverride?: IMarketTokenListLiveOverride;
   rowBg?: string;
+  testID?: string;
 };
 
 function MarketTokenListBase({
@@ -161,6 +163,7 @@ function MarketTokenListBase({
   hiddenDesktopColumns,
   liveTokenOverride,
   rowBg,
+  testID,
 }: IMarketTokenListBaseProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
@@ -186,6 +189,13 @@ function MarketTokenListBase({
     () => rawData.some((item) => !!item.stock),
     [rawData],
   );
+  const resolvedShowStockSubtitle = useMemo(() => {
+    if (showStockSubtitle !== 'auto') {
+      return showStockSubtitle;
+    }
+
+    return shouldShowStockSubtitleForTokens(rawData);
+  }, [rawData, showStockSubtitle]);
 
   const marketTokenColumns = useMarketTokenColumns(
     networkId,
@@ -194,7 +204,7 @@ function MarketTokenListBase({
     watchlistFrom,
     copyFrom,
     hasStock,
-    showStockSubtitle,
+    resolvedShowStockSubtitle,
     hiddenDesktopColumns,
   );
 
@@ -213,7 +223,10 @@ function MarketTokenListBase({
       }
     }
 
-    if (!liveTokenOverride?.networkId || !liveTokenOverride.address) {
+    if (
+      !liveTokenOverride?.networkId ||
+      liveTokenOverride.address === undefined
+    ) {
       return nextData;
     }
 
@@ -518,7 +531,7 @@ function MarketTokenListBase({
   ]);
 
   return (
-    <Stack flex={1} width="100%">
+    <Stack flex={1} width="100%" testID={testID}>
       {portalContent}
       {/* render custom toolbar if provided (only when not in desktop portal mode) */}
       {!useDesktopPortal ? toolbar : null}

@@ -30,6 +30,7 @@ import {
   EModalAssetListRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -141,7 +142,9 @@ function TokenListFooter(props: IProps) {
     }
 
     if (hideDeFiMarkedTokens) {
-      resultTokens = resultTokens.filter((token) => !token.defiMarked);
+      resultTokens = resultTokens.filter(
+        (token) => !isTokenSelectorDappToken(token),
+      );
     }
 
     return resultTokens;
@@ -368,6 +371,7 @@ function TokenListFooter(props: IProps) {
                 })}
                 renderTrigger={
                   <IconButton
+                    testID="token-list-footer-help-btn"
                     size="small"
                     variant="tertiary"
                     icon="QuestionmarkOutline"
@@ -451,6 +455,7 @@ function TokenListFooter(props: IProps) {
             {intl.formatMessage({ id: ETranslations.add_token_instruction })}
           </SizableText>
           <Button
+            testID="token-list-footer-add-token-btn"
             size="small"
             variant="tertiary"
             onPress={handleOnPressManageTokens}

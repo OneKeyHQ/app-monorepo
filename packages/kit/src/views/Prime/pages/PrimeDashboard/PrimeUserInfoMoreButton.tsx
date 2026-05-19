@@ -25,6 +25,7 @@ import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
+import { PrimeTestIDs } from '../../testIDs';
 
 function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose,
@@ -35,7 +36,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   onBeforeLogout?: () => void;
   onLogoutSuccess?: () => Promise<void>;
 }) {
-  const { logout, user } = useOneKeyAuth();
+  const { logoutWithPurchasesSdk, user } = useOneKeyAuth();
   const isPrime = user?.primeSubscription?.isActive;
   const primeExpiredAt = user?.primeSubscription?.expiresAt;
   const { getCustomerInfo } = usePrimePayment();
@@ -198,7 +199,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
               defaultLogger.prime.subscription.onekeyIdLogout({
                 reason: 'PrimeUserInfoMoreButton Logout Button',
               });
-              await logout();
+              await logoutWithPurchasesSdk();
               await onLogoutSuccess?.();
             },
           });
@@ -239,6 +240,7 @@ export function PrimeUserInfoMoreButton({
       renderItems={renderItems}
       renderTrigger={
         <IconButton
+          testID={PrimeTestIDs.userInfoMoreBtn}
           icon="DotHorOutline"
           variant="tertiary"
           size="small"

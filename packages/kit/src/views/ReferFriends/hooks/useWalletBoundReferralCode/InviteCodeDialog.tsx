@@ -25,7 +25,12 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { AllWalletsBoundEmpty } from './AllWalletsBoundEmpty';
+import { ReferFriendsTestIDs } from '../../testIDs';
+
+import {
+  AllWalletsBoundEmpty,
+  AllWalletsUnavailableEmpty,
+} from './AllWalletsBoundEmpty';
 import { NoWalletEmpty } from './NoWalletEmpty';
 import { useFetchWalletsWithBoundStatus } from './useFetchWalletsWithBoundStatus';
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
@@ -59,10 +64,11 @@ export function InviteCodeDialog({
   });
 
   // Fetch cached invite code on mount
-  const { result: cachedCode } = usePromiseResult(
-    () => backgroundApiProxy.serviceReferralCode.getCachedInviteCode(),
-    [],
-  );
+  const { result: cachedCode } = usePromiseResult(async () => {
+    const code =
+      await backgroundApiProxy.serviceReferralCode.getCachedInviteCode();
+    return code;
+  }, []);
 
   // Update form default value when cachedCode loads
   useEffect(() => {
@@ -108,17 +114,33 @@ export function InviteCodeDialog({
   const walletItems = useMemo(() => {
     if (!walletsWithStatus) return [];
 
-    return walletsWithStatus.map((item) => ({
-      label: item.wallet.name,
-      value: item.wallet.id,
-      leading: <WalletAvatar wallet={item.wallet} size="$6" />,
-      description: item.isBound
-        ? intl.formatMessage({
-            id: ETranslations.referral_wallet_bind_code_finish,
-          })
-        : undefined,
-      disabled: item.isBound,
-    }));
+    return walletsWithStatus.map((item) => {
+      let description: string | undefined;
+      const isDisabled =
+        item.status === 'bound' ||
+        item.status === 'expired' ||
+        item.status === 'unknown';
+      if (item.status === 'bound') {
+        description = intl.formatMessage({
+          id: ETranslations.referral_wallet_bind_code_finish,
+        });
+      } else if (item.status === 'expired') {
+        description = intl.formatMessage({
+          id: ETranslations.referral_not_applicable,
+        });
+      } else if (item.status === 'unknown') {
+        description = intl.formatMessage({
+          id: ETranslations.global_unknown,
+        });
+      }
+      return {
+        label: item.wallet.name,
+        value: item.wallet.id,
+        leading: <WalletAvatar wallet={item.wallet} size="$6" />,
+        description,
+        disabled: isDisabled,
+      };
+    });
   }, [walletsWithStatus, intl]);
 
   // Check if data is ready (loaded and not undefined)
@@ -133,6 +155,17 @@ export function InviteCodeDialog({
     return walletsWithStatus.every((w) => w.isBound);
   }, [walletsWithStatus]);
 
+  // Check if all wallets are unavailable (bound, window expired, or unknown)
+  const allWalletsUnavailable = useMemo(() => {
+    if (!walletsWithStatus || walletsWithStatus.length === 0) return false;
+    return walletsWithStatus.every(
+      (w) =>
+        w.status === 'bound' ||
+        w.status === 'expired' ||
+        w.status === 'unknown',
+    );
+  }, [walletsWithStatus]);
+
   // Check if the selected wallet is already bound
   const isSelectedWalletBound = useMemo(() => {
     if (!walletsWithStatus || !selectedWalletId) return false;
@@ -140,6 +173,23 @@ export function InviteCodeDialog({
       (w) => w.wallet.id === selectedWalletId,
     );
     return found?.isBound ?? false;
+  }, [walletsWithStatus, selectedWalletId]);
+
+  // Check if the selected wallet is not bindable (window expired)
+  const isSelectedWalletNotBindable = useMemo(() => {
+    if (!walletsWithStatus || !selectedWalletId) return false;
+    const found = walletsWithStatus.find(
+      (w) => w.wallet.id === selectedWalletId,
+    );
+    return found?.status === 'expired';
+  }, [walletsWithStatus, selectedWalletId]);
+
+  const isSelectedWalletStatusUnknown = useMemo(() => {
+    if (!walletsWithStatus || !selectedWalletId) return false;
+    const found = walletsWithStatus.find(
+      (w) => w.wallet.id === selectedWalletId,
+    );
+    return found?.status === 'unknown';
   }, [walletsWithStatus, selectedWalletId]);
 
   const { result: walletInfo } = usePromiseResult(async () => {
@@ -171,12 +221,24 @@ export function InviteCodeDialog({
           onSuccess,
         });
       } catch (e) {
-        if (
-          (e as OneKeyError).className === 'OneKeyServerApiError' &&
-          (e as OneKeyError).message
-        ) {
+        const err = e as OneKeyError<
+          unknown,
+          {
+            message?: string;
+            messageId?: string;
+          }
+        >;
+        if (err.className === 'OneKeyServerApiError' && err.message) {
+          const isBindWindowExpired =
+            err.data?.messageId === 'exceeded_bind_window' ||
+            err.data?.message === 'exceeded_bind_window' ||
+            err.message === 'exceeded_bind_window';
           form.setError('referralCode', {
-            message: (e as OneKeyError).message,
+            message: isBindWindowExpired
+              ? intl.formatMessage({
+                  id: ETranslations.referral_not_applicable_desc,
+                })
+              : err.message,
           });
         }
         throw e;
@@ -188,6 +250,7 @@ export function InviteCodeDialog({
       confirmBindReferralCode,
       navigationToMessageConfirmAsync,
       onSuccess,
+      intl,
     ],
   );
 
@@ -213,6 +276,11 @@ export function InviteCodeDialog({
     return <AllWalletsBoundEmpty />;
   }
 
+  // All wallets unavailable state
+  if (allWalletsUnavailable) {
+    return <AllWalletsUnavailableEmpty />;
+  }
+
   // Normal state with wallet selector and form
   return (
     <YStack mt="$-3">
@@ -223,6 +291,7 @@ export function InviteCodeDialog({
           })}
         </SizableText>
         <Select
+          testID="refer-friends-select"
           title={intl.formatMessage({
             id: ETranslations.referral_select_wallet,
           })}
@@ -253,13 +322,36 @@ export function InviteCodeDialog({
             </XStack>
           )}
         />
-        {isSelectedWalletBound ? (
-          <SizableText size="$bodySm" color="$textCritical" mt="$1">
-            {intl.formatMessage({
-              id: ETranslations.referral_already_bound,
-            })}
-          </SizableText>
-        ) : null}
+        {(() => {
+          if (isSelectedWalletBound) {
+            return (
+              <SizableText size="$bodySm" color="$textCritical" mt="$1">
+                {intl.formatMessage({
+                  id: ETranslations.referral_already_bound,
+                })}
+              </SizableText>
+            );
+          }
+          if (isSelectedWalletNotBindable) {
+            return (
+              <SizableText size="$bodySm" color="$textSubdued" mt="$1">
+                {intl.formatMessage({
+                  id: ETranslations.referral_not_applicable_desc,
+                })}
+              </SizableText>
+            );
+          }
+          if (isSelectedWalletStatusUnknown) {
+            return (
+              <SizableText size="$bodySm" color="$textSubdued" mt="$1">
+                {intl.formatMessage({
+                  id: ETranslations.global_unknown,
+                })}
+              </SizableText>
+            );
+          }
+          return null;
+        })()}
       </YStack>
       <YStack gap="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -281,6 +373,7 @@ export function InviteCodeDialog({
             }}
           >
             <Input
+              testID={ReferFriendsTestIDs.referralCodeInput}
               placeholder={intl.formatMessage({
                 id: ETranslations.referral_wallet_code_placeholder,
               })}
@@ -301,7 +394,11 @@ export function InviteCodeDialog({
           id: ETranslations.global_apply,
         })}
         confirmButtonProps={{
-          disabled: isSelectedWalletBound || !selectedWallet,
+          disabled:
+            isSelectedWalletBound ||
+            isSelectedWalletNotBindable ||
+            isSelectedWalletStatusUnknown ||
+            !selectedWallet,
         }}
       />
     </YStack>

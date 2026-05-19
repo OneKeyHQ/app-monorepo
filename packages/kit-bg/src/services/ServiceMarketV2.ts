@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { dedupeTokenSelectorFavoriteCoins } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -31,6 +32,8 @@ import type {
   IMarketTokenListItem,
   IMarketTokenListResponse,
   IMarketTokenSecurityBatchResponse,
+  IMarketTokenTopLiquidityItem,
+  IMarketTokenTopLiquidityResponse,
   IMarketTokenTransactionsResponse,
 } from '@onekeyhq/shared/types/marketV2';
 import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notification';
@@ -44,6 +47,7 @@ import { perpTokenFavoritesPersistAtom } from '../states/jotai/atoms/perps';
 
 import ServiceBase from './ServiceBase';
 import { MOCK_MARKET_BANNER_LIST } from './ServiceMarketV2.const';
+import { resolveMarketTokenDetailRequestTokenAddress } from './utils/marketTokenDetailUtils';
 
 type IMarketTokenListRequestParams = {
   networkId: string;
@@ -66,6 +70,17 @@ type INormalizedMarketTokenListRequestParams = IMarketTokenListRequestParams & {
 class ServiceMarketV2 extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+    // Drop the in-memory market data cache + memoized batch fetchers on
+    // critical memory pressure. These are the largest known per-route
+    // cache footprints (token logos + pricing for 218 batch fetches in
+    // 27 min in observed sessions).
+    appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
+      if (event.level !== 'critical') return;
+      this._marketTokenBatchCache.clear();
+      void this.memoizedFetchMarketTokenList.clear();
+      void this.memoizedFetchMarketChains.clear();
+      void this.memoizedFetchMarketBasicConfig.clear();
+    });
   }
 
   // Cache for batch token list items with auto-expiration
@@ -155,8 +170,15 @@ class ServiceMarketV2 extends ServiceBase {
     const settings = await settingsPersistAtom.get();
     const selectedCurrencyId = settings.currencyInfo?.id ?? 'usd';
     const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestTokenAddress =
+      await resolveMarketTokenDetailRequestTokenAddress({
+        tokenAddress,
+        networkId,
+        getNativeTokenAddress: (params) =>
+          this.backgroundApi.serviceToken.getNativeTokenAddress(params),
+      });
     const params: Record<string, string> = {
-      tokenAddress,
+      tokenAddress: requestTokenAddress,
       networkId,
       currency: 'usd',
     };
@@ -377,6 +399,32 @@ class ServiceMarketV2 extends ServiceBase {
     });
     const { data } = response.data;
     return data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketTokenTopLiquidity({
+    tokenAddress,
+    networkId,
+  }: {
+    tokenAddress: string;
+    networkId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketTokenTopLiquidityResponse | IMarketTokenTopLiquidityItem[];
+    }>('/utility/v1/market/token/top-liquidity', {
+      params: {
+        tokenAddress,
+        networkId,
+      },
+    });
+    const { data } = response.data;
+    if (Array.isArray(data)) {
+      return { list: data };
+    }
+    return data ?? { list: [] };
   }
 
   @backgroundMethod()
@@ -873,17 +921,23 @@ class ServiceMarketV2 extends ServiceBase {
   }) {
     try {
       const current = await perpTokenFavoritesPersistAtom.get();
-      const hasCoin = current.favorites.includes(coin);
+      const favorites = dedupeTokenSelectorFavoriteCoins(current.favorites);
+      const hasCoin = favorites.includes(coin);
 
       if (action === 'add' && !hasCoin) {
         await perpTokenFavoritesPersistAtom.set({
           ...current,
-          favorites: [...current.favorites, coin],
+          favorites: [...favorites, coin],
         });
       } else if (action === 'remove' && hasCoin) {
         await perpTokenFavoritesPersistAtom.set({
           ...current,
-          favorites: current.favorites.filter((f) => f !== coin),
+          favorites: favorites.filter((f) => f !== coin),
+        });
+      } else if (favorites.length !== current.favorites.length) {
+        await perpTokenFavoritesPersistAtom.set({
+          ...current,
+          favorites,
         });
       }
     } catch (error) {
@@ -938,7 +992,10 @@ class ServiceMarketV2 extends ServiceBase {
           .filter((item) => !!item.perpsCoin)
           .map((item) => item.perpsCoin ?? ''),
       );
-      const perpsCoins = new Set(perpsFavorites.favorites);
+      const dedupedPerpsFavorites = dedupeTokenSelectorFavoriteCoins(
+        perpsFavorites.favorites,
+      );
+      const perpsCoins = new Set(dedupedPerpsFavorites);
 
       // Market has but Perps doesn't
       const missingInPerps = [...marketPerpsCoins].filter(
@@ -949,6 +1006,16 @@ class ServiceMarketV2 extends ServiceBase {
         (c) => !marketPerpsCoins.has(c),
       );
 
+      if (
+        dedupedPerpsFavorites.length !== perpsFavorites.favorites.length &&
+        missingInPerps.length === 0
+      ) {
+        await perpTokenFavoritesPersistAtom.set({
+          ...perpsFavorites,
+          favorites: dedupedPerpsFavorites,
+        });
+      }
+
       if (missingInPerps.length === 0 && missingInMarket.length === 0) {
         return;
       }
@@ -956,12 +1023,18 @@ class ServiceMarketV2 extends ServiceBase {
       // Sync missing items to Perps atom
       if (missingInPerps.length > 0) {
         const current = await perpTokenFavoritesPersistAtom.get();
-        const existingSet = new Set(current.favorites);
+        const favorites = dedupeTokenSelectorFavoriteCoins(current.favorites);
+        const existingSet = new Set(favorites);
         const toAdd = missingInPerps.filter((c) => !existingSet.has(c));
         if (toAdd.length > 0) {
           await perpTokenFavoritesPersistAtom.set({
             ...current,
-            favorites: [...current.favorites, ...toAdd],
+            favorites: [...favorites, ...toAdd],
+          });
+        } else if (favorites.length !== current.favorites.length) {
+          await perpTokenFavoritesPersistAtom.set({
+            ...current,
+            favorites,
           });
         }
       }

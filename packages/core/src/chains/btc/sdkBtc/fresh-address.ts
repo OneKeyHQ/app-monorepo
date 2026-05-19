@@ -85,7 +85,7 @@ export async function transformAddress({
 
     if (derivedAddress.addresses[relativePath] !== firstAddress.name) {
       throw new OneKeyInternalError(
-        `transformAddress: derived address not match, xpub: ${xpub}, path: ${firstAddress.path}, address: ${firstAddress.name}, generatedAddress: ${derivedAddress.addresses[0]}`,
+        `transformAddress: derived address not match, xpub: ${xpub}, path: ${firstAddress.path}, address: ${firstAddress.name}, generatedAddress: ${derivedAddress.addresses[relativePath]}, addressEncoding: ${addressEncoding}`,
       );
     }
 

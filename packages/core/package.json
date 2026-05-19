@@ -5,7 +5,6 @@
   "main": "index.js",
   "description": "",
   "scripts": {
-    "_folderslint": "yarn folderslint",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
@@ -24,6 +23,7 @@
     "@metaplex-foundation/mpl-token-metadata": "^2.7.0",
     "@mymonero/mymonero-app-bridge": "^3.0.0",
     "@mymonero/mymonero-keyimage-cache": "^3.0.0",
+    "@noble/hashes": "^1.4.0",
     "@noble/secp256k1": "1.7.1",
     "@onekeyfe/bitcoinforksjs-lib": "7.0.0-rc.0",
     "@onekeyfe/cardano-coin-selection-asmjs": "1.1.11",
@@ -66,7 +66,6 @@
   "devDependencies": {
     "@types/bchaddrjs": "^0.4.2",
     "@types/bs58": "^4.0.3",
-    "@types/jsrsasign": "^10.5.11",
-    "folderslint": "1.2.0"
+    "@types/jsrsasign": "^10.5.11"
   }
 }

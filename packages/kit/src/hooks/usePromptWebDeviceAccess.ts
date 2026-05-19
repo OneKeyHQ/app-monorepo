@@ -24,7 +24,13 @@ export function usePromptWebDeviceAccess() {
     }
   }, []);
 
-  return { promptWebUsbDeviceAccess };
+  const promptHidDeviceAccess = useCallback(async () => {
+    const filters: HIDDeviceFilter[] = [{ vendorId: 0x2c_97 }]; // Ledger vendor ID
+    const [device] = await navigator.hid.requestDevice({ filters });
+    return device;
+  }, []);
+
+  return { promptWebUsbDeviceAccess, promptHidDeviceAccess };
 }
 
 export function useToPromptWebDeviceAccessPage() {

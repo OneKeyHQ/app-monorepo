@@ -7,15 +7,19 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsCtxByCoin } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   type IPerpFavoritesDisplayMode,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
+  useSpotActiveAssetCtxAtom,
+  useSpotAssetCtxsMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perpsUtils, {
   formatPriceToSignificantDigits,
+  formatSpotPriceEntry,
   getHyperliquidTokenImageUrl,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
@@ -68,32 +72,44 @@ interface IFavoriteTokenItemProps {
   coinName: string;
   dexIndex: number;
   assetId: number;
+  imageTokenName: string;
+  mode: 'perp' | 'spot';
   onPress: () => void;
   displayMode?: IPerpFavoritesDisplayMode;
 }
 
 const CtxPriceDisplay = memo(
   ({
+    coinName,
     dexIndex,
     assetId,
     displayMode = 'price',
+    mode,
   }: {
+    coinName: string;
     dexIndex: number;
     assetId: number;
     displayMode?: IPerpFavoritesDisplayMode;
+    mode: 'perp' | 'spot';
   }) => {
     const ctx = usePerpsCtxByCoin(dexIndex, assetId);
+    const [spotPriceMap] = useSpotAssetCtxsMapAtom();
     const formattedCtx = useMemo(() => perpsUtils.formatAssetCtx(ctx), [ctx]);
+    const formattedSpotCtx = useMemo(
+      () => formatSpotPriceEntry(spotPriceMap[coinName]),
+      [coinName, spotPriceMap],
+    );
+    const displayCtx = mode === 'spot' ? formattedSpotCtx : formattedCtx;
 
-    const priceDisplay = formattedCtx?.markPrice
-      ? formatPriceToSignificantDigits(formattedCtx.markPrice)
+    const priceDisplay = displayCtx?.markPrice
+      ? formatPriceToSignificantDigits(displayCtx.markPrice)
       : '-';
 
-    const change24hPercent = formattedCtx?.change24hPercent ?? 0;
+    const change24hPercent = displayCtx?.change24hPercent ?? 0;
     const color = change24hPercent >= 0 ? '$textSuccess' : '$textCritical';
 
     const skeletonWidth = displayMode === 'price' ? 46 : 60;
-    if (formattedCtx?.markPrice === '0') {
+    if (displayCtx?.markPrice === '0') {
       return <Skeleton width={skeletonWidth} height={16} />;
     }
 
@@ -129,23 +145,38 @@ CtxPriceDisplay.displayName = 'CtxPriceDisplay';
 
 const ActiveAssetPriceDisplay = memo(
   ({
+    coinName,
     dexIndex,
     assetId,
     displayMode = 'price',
+    mode,
   }: {
+    coinName: string;
     dexIndex: number;
     assetId: number;
     displayMode?: IPerpFavoritesDisplayMode;
+    mode: 'perp' | 'spot';
   }) => {
     const [assetCtx] = usePerpsActiveAssetCtxAtom();
+    const [spotActiveAssetCtx] = useSpotActiveAssetCtxAtom();
     const fallbackCtx = usePerpsCtxByCoin(dexIndex, assetId);
+    const [spotPriceMap] = useSpotAssetCtxsMapAtom();
     const formattedFallback = useMemo(
       () => perpsUtils.formatAssetCtx(fallbackCtx),
       [fallbackCtx],
     );
+    const formattedSpotFallback = useMemo(
+      () => formatSpotPriceEntry(spotPriceMap[coinName]),
+      [coinName, spotPriceMap],
+    );
 
     const activeCtx = assetCtx?.ctx;
-    const ctx = activeCtx?.markPrice ? activeCtx : formattedFallback;
+    const spotCtx = spotActiveAssetCtx?.ctx;
+    let ctx: { markPrice?: string; change24hPercent?: number } =
+      activeCtx?.markPrice ? activeCtx : formattedFallback;
+    if (mode === 'spot') {
+      ctx = spotCtx?.markPrice ? spotCtx : formattedSpotFallback;
+    }
 
     const priceDisplay = ctx?.markPrice
       ? formatPriceToSignificantDigits(ctx.markPrice)
@@ -219,11 +250,18 @@ function FavoriteTokenItem({
   coinName,
   dexIndex,
   assetId,
+  imageTokenName,
+  mode,
   onPress,
   displayMode = 'price',
 }: IFavoriteTokenItemProps) {
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
-  const isActiveToken = activeAsset?.coin === coinName;
+  const isActiveToken =
+    mode === 'spot'
+      ? activeTradeInstrument.mode === 'spot' &&
+        activeTradeInstrument.coin === coinName
+      : activeAsset?.coin === coinName;
 
   return (
     <XStack
@@ -242,7 +280,7 @@ function FavoriteTokenItem({
       <Token
         size="xs"
         borderRadius="$full"
-        tokenImageUri={getHyperliquidTokenImageUrl(displayName)}
+        tokenImageUri={getHyperliquidTokenImageUrl(imageTokenName)}
         fallbackIcon="CryptoCoinOutline"
       />
       <SizableText size="$bodySmMedium" color="$text">
@@ -250,15 +288,19 @@ function FavoriteTokenItem({
       </SizableText>
       {isActiveToken ? (
         <ActiveAssetPriceDisplay
+          coinName={coinName}
           dexIndex={dexIndex}
           assetId={assetId}
           displayMode={displayMode}
+          mode={mode}
         />
       ) : (
         <CtxPriceDisplay
+          coinName={coinName}
           dexIndex={dexIndex}
           assetId={assetId}
           displayMode={displayMode}
+          mode={mode}
         />
       )}
     </XStack>

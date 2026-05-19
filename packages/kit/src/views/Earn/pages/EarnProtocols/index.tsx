@@ -43,9 +43,11 @@ import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/Di
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { AprText } from '../../components/AprText';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
-import { EarnNavigation } from '../../earnUtils';
+import { EarnNavigation, parseFormattedLiquidityValue } from '../../earnUtils';
 
 import type { RouteProp } from '@react-navigation/core';
+
+type IEarnSortDirection = 'asc' | 'desc';
 
 type IRouteProps = RouteProp<ITabEarnParamList, ETabEarnRoutes.EarnProtocols>;
 
@@ -108,7 +110,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const customHeaderLeft = useMemo(
     () => (
       <>
-        <Token source={logoURI} size="md" />
+        <Token tokenImageUri={logoURI} size="md" />
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {symbol ||
             intl.formatMessage({
@@ -123,12 +125,41 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const [protocolData, setProtocolData] = useState<IStakeProtocolListItem[]>(
     [],
   );
-  const [selectedCategory, setSelectedCategory] = useState<EProtocolCategory>(
-    (defaultCategoryParam as EProtocolCategory) || EProtocolCategory.SimpleEarn,
+  const initialCategory =
+    (defaultCategoryParam as EProtocolCategory) || EProtocolCategory.SimpleEarn;
+  const [selectedCategory, setSelectedCategory] =
+    useState<EProtocolCategory>(initialCategory);
+  const isInitialFixedRateCategory =
+    initialCategory === EProtocolCategory.FixedRate;
+  const [sortKey, setSortKey] = useState(
+    isInitialFixedRateCategory ? 'protocol' : 'yield',
+  );
+  const [sortDirection, setSortDirection] = useState<IEarnSortDirection>(
+    isInitialFixedRateCategory ? 'asc' : 'desc',
   );
   const [isLoading, setIsLoading] = useState(true);
   const accountId = activeAccount.account?.id;
   const accountNetworkId = filterNetworkId ?? activeAccount.network?.id;
+  const isFixedRateCategory = selectedCategory === EProtocolCategory.FixedRate;
+
+  const handleSortChange = useCallback(
+    (key: string, direction: IEarnSortDirection) => {
+      setSortKey(key);
+      setSortDirection(direction);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (selectedCategory === EProtocolCategory.FixedRate) {
+      setSortKey('protocol');
+      setSortDirection('asc');
+      return;
+    }
+
+    setSortKey('yield');
+    setSortDirection('desc');
+  }, [selectedCategory]);
 
   const fetchProtocolData = useCallback(async () => {
     if (!activeAccount.ready) {
@@ -248,19 +279,15 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   );
 
   const protocolDisplayData = useMemo(() => {
-    const isFixedRate = selectedCategory === EProtocolCategory.FixedRate;
     return protocolData.filter((item) => {
       const category = getProtocolCategory(item);
-      return isFixedRate
+      return isFixedRateCategory
         ? category === EProtocolCategory.FixedRate
         : category === EProtocolCategory.SimpleEarn;
     });
-  }, [protocolData, selectedCategory]);
+  }, [isFixedRateCategory, protocolData]);
 
   const columns: ITableColumn<IStakeProtocolListItem>[] = useMemo(() => {
-    const isFixedRateCategory =
-      selectedCategory === EProtocolCategory.FixedRate;
-
     const getMaturityDisplay = (item: IStakeProtocolListItem) => {
       const providerName = normalizeToEarnProvider(item.provider.name);
       const maturityTitle =
@@ -383,6 +410,31 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           </SizableText>
         ),
       },
+      ...(isFixedRateCategory
+        ? [
+            {
+              key: 'liquidity',
+              label: intl.formatMessage({
+                id: ETranslations.global_liquidity,
+              }),
+              flex: 2,
+              hideInMobile: true,
+              align: 'flex-end' as const,
+              sortable: true,
+              comparator: (
+                a: IStakeProtocolListItem,
+                b: IStakeProtocolListItem,
+              ) =>
+                parseFormattedLiquidityValue(a.provider.liquidity) -
+                parseFormattedLiquidityValue(b.provider.liquidity),
+              render: (item: IStakeProtocolListItem) => (
+                <SizableText size="$bodyLgMedium">
+                  {item.provider.liquidity || '-'}
+                </SizableText>
+              ),
+            },
+          ]
+        : []),
       {
         key: 'yield',
         label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
@@ -395,28 +447,46 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           return aprA - aprB;
         },
         render: (item) => {
+          const showMobileLiquidity =
+            isFixedRateCategory &&
+            !isDesktopLayout &&
+            Boolean(item.provider.liquidity);
+          const mobileLiquidity = showMobileLiquidity ? (
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              {`${intl.formatMessage({
+                id: ETranslations.global_liquidity,
+              })} ${item.provider.liquidity}`}
+            </SizableText>
+          ) : null;
+
           if (item.aprInfo?.button?.type === 'redeem') {
             return (
-              <SizableText size="$bodyLgMedium" color="$textInfo">
-                {item.aprInfo.button.text?.text ||
-                  intl.formatMessage({ id: ETranslations.defi_redeemable })}
-              </SizableText>
+              <YStack ai="flex-end" gap="$0.5">
+                <SizableText size="$bodyLgMedium" color="$textInfo">
+                  {item.aprInfo.button.text?.text ||
+                    intl.formatMessage({ id: ETranslations.defi_redeemable })}
+                </SizableText>
+                {mobileLiquidity}
+              </YStack>
             );
           }
           return (
-            <AprText
-              hideSuffix={isDesktopLayout}
-              asset={{
-                aprWithoutFee: item?.provider?.aprWithoutFee ?? '',
-                aprInfo: item?.aprInfo,
-                rewardUnit: item?.provider?.rewardUnit,
-              }}
-            />
+            <YStack ai="flex-end" gap="$0.5">
+              <AprText
+                hideSuffix={isDesktopLayout}
+                asset={{
+                  aprWithoutFee: item?.provider?.aprWithoutFee ?? '',
+                  aprInfo: item?.aprInfo,
+                  rewardUnit: item?.provider?.rewardUnit,
+                }}
+              />
+              {mobileLiquidity}
+            </YStack>
           );
         },
       },
     ];
-  }, [intl, isDesktopLayout, selectedCategory]);
+  }, [intl, isDesktopLayout, isFixedRateCategory]);
 
   const shouldShowCategoryTabs =
     protocolCategoryCounts.simpleEarnCount > 0 &&
@@ -583,14 +653,9 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           key={selectedCategory}
           data={protocolDisplayData}
           columns={columns}
-          defaultSortKey={
-            selectedCategory === EProtocolCategory.FixedRate
-              ? 'protocol'
-              : 'yield'
-          }
-          defaultSortDirection={
-            selectedCategory === EProtocolCategory.FixedRate ? 'asc' : 'desc'
-          }
+          sortKey={sortKey}
+          sortDirection={sortDirection}
+          onSortChange={handleSortChange}
           onPressRow={handleProtocolPress}
           enableDrillIn={isDesktopLayout}
           isLoading={isLoading}
@@ -602,6 +667,9 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     protocolData,
     protocolDisplayData,
     categoryTabs,
+    sortKey,
+    sortDirection,
+    handleSortChange,
     columns,
     selectedCategory,
     handleProtocolPress,

@@ -320,6 +320,7 @@ function AddCustomNetwork() {
     }
     return (
       <IconButton
+        testID="setting-header-right-icon-btn"
         title={intl.formatMessage({ id: ETranslations.global_remove })}
         icon="DeleteOutline"
         variant="tertiary"
@@ -363,6 +364,7 @@ function AddCustomNetwork() {
             }}
           >
             <Input
+              testID="setting-input"
               size="large"
               $gtMd={{
                 size: 'medium',
@@ -408,6 +410,7 @@ function AddCustomNetwork() {
             }}
           >
             <Input
+              testID="setting-chain-id-input"
               size="large"
               $gtMd={{
                 size: 'medium',
@@ -417,6 +420,7 @@ function AddCustomNetwork() {
           </Form.Field>
           <Form.Field name="chainId" label="Chain ID" disabled>
             <Input
+              testID="setting-chain-id-input"
               size="large"
               $gtMd={{
                 size: 'medium',
@@ -440,6 +444,7 @@ function AddCustomNetwork() {
             }}
           >
             <Input
+              testID="setting-input"
               size="large"
               $gtMd={{
                 size: 'medium',
@@ -470,6 +475,7 @@ function AddCustomNetwork() {
             }}
           >
             <Input
+              testID="setting-input"
               size="large"
               $gtMd={{
                 size: 'medium',

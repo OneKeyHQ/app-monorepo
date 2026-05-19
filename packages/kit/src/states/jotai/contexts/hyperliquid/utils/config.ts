@@ -1,3 +1,4 @@
+/* eslint-disable onekey/no-app-locale-main-thread -- non-React util consumed by jotai actions */
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
@@ -17,7 +18,7 @@ export const ERROR_MESSAGES: Record<EErrorType, () => string> = {
 
 export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
   [EActionType.PLACE_ORDER]: {
-    loading: t(ETranslations.perp_toast_opening_order),
+    loading: t(ETranslations.perp_toast_placing_order),
     successTitle: t(ETranslations.perp_toast_order_submitted),
   },
 
@@ -92,6 +93,13 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
         { count },
       ),
     successTitle: t(ETranslations.perp_toast_canceling_order_sucess),
+  },
+
+  [EActionType.MODIFY_ORDER]: {
+    // TODO(i18n): swap for ETranslations.perp_toast_modifying_order once PM adds the key.
+    loading: 'Modifying order…',
+    // TODO(i18n): swap for ETranslations.perp_toast_order_modified once PM adds the key.
+    successTitle: 'Order modified',
   },
 
   [EActionType.WITHDRAW]: {

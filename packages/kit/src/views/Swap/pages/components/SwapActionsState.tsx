@@ -69,10 +69,10 @@ import {
 } from '../../hooks/useSwapIncognitoRecipientInput';
 import {
   useSwapActionState,
-  useSwapQuoteEventFetching,
-  useSwapQuoteLoading,
+  useSwapQuoteProgressState,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 import { buildSwapIncognitoSettingsUpdate } from '../../utils/incognitoSettings';
 
 import { SwapIncognitoRecipientInput } from './SwapIncognitoRecipientInput';
@@ -121,7 +121,8 @@ const SwapActionsState = ({
     setSettings,
   ] = useSettingsAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const quoteLoading = useSwapQuoteLoading();
+  const { quoteLoading, quoteEventFetching, isWaitingActionableQuote } =
+    useSwapQuoteProgressState();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
@@ -129,7 +130,6 @@ const SwapActionsState = ({
     swapSlippageRef.current = slippageItem;
   }
   const themeVariant = useThemeVariant();
-  const quoting = useSwapQuoteEventFetching();
   const [desktopActionWidth, setDesktopActionWidth] = useState<number>();
 
   const isModalPage = useIsOverlayPage();
@@ -139,12 +139,12 @@ const SwapActionsState = ({
     path: 'articles/14430164',
   });
   const incognitoTitle = intl.formatMessage({
-    id: ETranslations.trade_incognito_incognito_mode,
+    id: ETranslations.trade_privacy_mode,
   });
   const incognitoTooltipDescription = useMemo(
     () =>
       `${intl.formatMessage({
-        id: ETranslations.trade_incognito_tooltips_new,
+        id: ETranslations.trade_privacy_mode_tooltips,
       })} <url>${incognitoHelpLink}<underline>${intl.formatMessage({
         id: ETranslations.trade_incognito_read_more,
       })}</underline></url>`,
@@ -487,6 +487,7 @@ const SwapActionsState = ({
           </XStack>
           <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
             <Switch
+              testID={SwapTestIDs.incognitoModeSwitch}
               size={ESwitchSize.extraSmall}
               value={swapIncognitoMode}
               onChange={onIncognitoModeChange}
@@ -728,7 +729,7 @@ const SwapActionsState = ({
       new BigNumber(currentQuoteRes?.fee?.costSavings || 0).gt(0);
 
     if (hasCostSavings) {
-      const isLoadingQuote = quoting || quoteLoading;
+      const isLoadingQuote = quoteEventFetching || quoteLoading;
       const shouldShow = hasEverShownCostSavingsRef.current || !isLoadingQuote;
 
       if (shouldShow) {
@@ -770,7 +771,7 @@ const SwapActionsState = ({
   }, [
     currentQuoteRes?.fee?.costSavings,
     settingsPersistAtom.currencyInfo.symbol,
-    quoting,
+    quoteEventFetching,
     quoteLoading,
     intl,
   ]);
@@ -809,7 +810,7 @@ const SwapActionsState = ({
 
   const actionButtonChildren = useMemo(
     () =>
-      quoting || quoteLoading ? (
+      isWaitingActionableQuote || swapActionState.isWaitingAutoSlippage ? (
         <LottieView
           source={
             themeVariant === 'light'
@@ -824,9 +825,24 @@ const SwapActionsState = ({
           }}
         />
       ) : (
-        swapActionState.label
+        <SizableText
+          flex={platformEnv.isNativeAndroid ? 1 : undefined}
+          flexShrink={1}
+          minWidth={0}
+          maxWidth="100%"
+          size="$bodyLgMedium"
+          color="$textInverse"
+          textAlign="center"
+        >
+          {swapActionState.label}
+        </SizableText>
       ),
-    [quoteLoading, quoting, swapActionState.label, themeVariant],
+    [
+      isWaitingActionableQuote,
+      swapActionState.isWaitingAutoSlippage,
+      swapActionState.label,
+      themeVariant,
+    ],
   );
 
   const actionRowComponent = useMemo(
@@ -848,11 +864,13 @@ const SwapActionsState = ({
           {/* In desktop modal: show savings above button; otherwise show below */}
           {isDesktopModalPage ? costSavingsComponent : null}
           <Button
+            testID={SwapTestIDs.swapButton}
             onPress={onActionHandlerBefore}
             size={isDesktopModalPage ? 'medium' : 'large'}
             variant="primary"
             disabled={isActionDisabled}
             borderRadius="$full"
+            childrenAsText={false}
           >
             {actionButtonChildren}
           </Button>
@@ -966,6 +984,7 @@ const SwapActionsState = ({
               {...desktopActionWidthProps}
             >
               <Button
+                testID={SwapTestIDs.actionPrimaryButton}
                 onPress={onActionHandlerBefore}
                 size="medium"
                 variant="primary"

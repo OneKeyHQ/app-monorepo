@@ -146,6 +146,13 @@ export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
 };
 export type IKeyringMapKey = IDBWalletType;
+export type IKeyringMap = Record<
+  IKeyringMapKey,
+  typeof KeyringBase | undefined
+> & {
+  hwLedger?: typeof KeyringBase | undefined;
+  hwTrezor?: typeof KeyringBase | undefined;
+};
 
 if (platformEnv.isExtensionUi) {
   throw new OneKeyLocalError(
@@ -409,7 +416,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   keyring!: KeyringBase;
 
-  abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBase | undefined>;
+  abstract keyringMap: IKeyringMap;
 
   async init(config: IVaultInitConfig) {
     await this.initKeyring(config);

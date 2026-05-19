@@ -11,6 +11,7 @@ import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { LightningUnitSwitch } from '../../../components/UnitSwitch';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { LightningNetworkTestIDs } from '../testIDs';
 
 import type { UseFormReturn } from 'react-hook-form';
 import type { MessageDescriptor } from 'react-intl';
@@ -259,7 +260,12 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
                 name={name}
                 key={content}
               >
-                <TextArea editable={false} disabled numberOfLines={2} />
+                <TextArea
+                  editable={false}
+                  disabled
+                  numberOfLines={2}
+                  testID="lightning-network-name-textarea"
+                />
               </Form.Field>
             );
           }
@@ -303,6 +309,7 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
         description={amountDescription}
       >
         <Input
+          testID={LightningNetworkTestIDs.sendAmountInput}
           editable={!amountReadOnly}
           readonly={amountReadOnly}
           placeholder={intl.formatMessage({
@@ -337,7 +344,11 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
           }}
           defaultValue=""
         >
-          <TextArea editable={!commentReadOnly} disabled={commentReadOnly} />
+          <TextArea
+            testID={LightningNetworkTestIDs.sendCommentInput}
+            editable={!commentReadOnly}
+            disabled={commentReadOnly}
+          />
         </Form.Field>
       ) : null}
     </Form>

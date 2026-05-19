@@ -1,12 +1,16 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { Spinner, Stack } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useHyperliquidActions,
   useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  EActionType,
+  withToast,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils';
 import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -19,18 +23,29 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
+import { MESSAGE_TYPES } from './constants/messageTypes';
 import { useChartLines, useTradeUpdates } from './hooks';
 import { usePerpsTradingViewMessageHandler } from './messageHandlers';
 
-import type { ITVOrderCancelPayload, ITradeEvent } from './types';
+import type {
+  ITVOrderCancelPayload,
+  ITVOrderDraftCreatePayload,
+  ITVOrderPriceUpdatePayload,
+  ITradeEvent,
+} from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 interface IBaseTradingViewPerpsV2Props {
   symbol: string;
+  // Spot-only normalized labels; perp omits and the TV side falls back to symbol.
+  displayPair?: string;
+  displayCoin?: string;
   userAddress: IHex | undefined | null;
+  enablePerpsTradingUi?: boolean;
   webviewKey?: string;
+  reloadOnSymbolChange?: boolean;
   onLoadEnd?: () => void;
   onTradeUpdate?: (trade: ITradeEvent) => void;
   onTouchScroll?: (deltaY: number) => void;
@@ -43,44 +58,98 @@ export type ITradingViewPerpsV2Props = IBaseTradingViewPerpsV2Props &
 const useSymbolSync = ({
   webRef,
   symbol,
+  displayPair,
+  displayCoin,
   isChartReady,
+  enabled,
+  syncOnReady = enabled,
 }: {
   webRef: React.RefObject<IWebViewRef | null>;
   symbol: string;
+  displayPair: string | undefined;
+  displayCoin: string | undefined;
   isChartReady: boolean;
+  enabled: boolean;
+  syncOnReady?: boolean;
 }) => {
-  const prevSymbolRef = useRef<string>(symbol);
+  const prevParamsRef = useRef({
+    displayCoin,
+    displayPair,
+    symbol,
+  });
+  const readySyncKeyRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    const prevSymbol = prevSymbolRef.current;
-    const hasSymbolChanged = prevSymbol !== symbol;
-
-    if (hasSymbolChanged && webRef.current) {
-      // Sync symbol changes via message communication instead of WebView reload
-      webRef.current.sendMessageViaInjectedScript({
+  const sendSymbolChange = useCallback(
+    ({ force }: { force: boolean }) => {
+      webRef.current?.sendMessageViaInjectedScript({
         type: 'SYMBOL_CHANGE',
         payload: {
           symbol,
-          force: true,
+          displayPair,
+          displayCoin,
+          force,
         },
       });
+    },
+    [displayCoin, displayPair, symbol, webRef],
+  );
 
-      prevSymbolRef.current = symbol;
+  useEffect(() => {
+    if (!enabled) {
+      prevParamsRef.current = {
+        displayCoin,
+        displayPair,
+        symbol,
+      };
+      return;
     }
-  }, [symbol, webRef]);
+
+    const prevParams = prevParamsRef.current;
+    const hasSymbolChanged = prevParams.symbol !== symbol;
+    const hasDisplayParamsChanged =
+      prevParams.displayPair !== displayPair ||
+      prevParams.displayCoin !== displayCoin;
+
+    if ((hasSymbolChanged || hasDisplayParamsChanged) && webRef.current) {
+      // Sync symbol changes via message communication instead of WebView reload
+      sendSymbolChange({ force: hasSymbolChanged });
+
+      prevParamsRef.current = {
+        displayCoin,
+        displayPair,
+        symbol,
+      };
+    }
+  }, [displayCoin, displayPair, enabled, sendSymbolChange, symbol, webRef]);
 
   // Re-sync symbol when chart becomes ready to catch messages lost during iframe load
   useEffect(() => {
-    if (isChartReady && webRef.current) {
-      webRef.current.sendMessageViaInjectedScript({
-        type: 'SYMBOL_CHANGE',
-        payload: {
-          symbol,
-          force: false,
-        },
-      });
+    if (!syncOnReady) {
+      readySyncKeyRef.current = null;
+      return;
     }
-  }, [isChartReady, symbol, webRef]);
+
+    if (!isChartReady) {
+      readySyncKeyRef.current = null;
+      return;
+    }
+
+    const readySyncKey = `${symbol}:${displayPair ?? ''}:${displayCoin ?? ''}`;
+    if (readySyncKeyRef.current === readySyncKey || !webRef.current) {
+      return;
+    }
+
+    sendSymbolChange({ force: false });
+    readySyncKeyRef.current = readySyncKey;
+  }, [
+    displayCoin,
+    displayPair,
+    isChartReady,
+    sendSymbolChange,
+    symbol,
+    syncOnReady,
+    webRef,
+  ]);
 };
 
 // WebView Memoized component to prevent unnecessary re-renders
@@ -119,12 +188,69 @@ const WebViewMemoized = memo(
 
 WebViewMemoized.displayName = 'WebViewMemoized';
 
+const hideTradingViewBuiltInLoadingScript = `
+  ;(function() {
+    var styleText = [
+      '#loading-indicator',
+      '.loading-indicator',
+      '.tv-spinner',
+      '.spinner.tv-spinner'
+    ].join(',') + '{display:none!important;visibility:hidden!important;opacity:0!important;}';
+
+    function applyStyle(doc) {
+      try {
+        if (!doc || !doc.documentElement) {
+          return;
+        }
+        if (!doc.getElementById('onekey-hide-tradingview-loading')) {
+          var style = doc.createElement('style');
+          style.id = 'onekey-hide-tradingview-loading';
+          style.textContent = styleText;
+          doc.documentElement.appendChild(style);
+        }
+      } catch (error) {
+        // noop
+      }
+    }
+
+    function applyToFrames() {
+      applyStyle(document);
+      try {
+        var frames = document.querySelectorAll('iframe');
+        for (var i = 0; i < frames.length; i += 1) {
+          var frame = frames[i];
+          applyStyle(frame.contentDocument);
+        }
+      } catch (error) {
+        // noop
+      }
+    }
+
+    applyToFrames();
+    var observer = new MutationObserver(applyToFrames);
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+    var intervalId = setInterval(applyToFrames, 100);
+    setTimeout(function() {
+      clearInterval(intervalId);
+      observer.disconnect();
+    }, 5000);
+  })();
+  true;
+`;
+
 export function TradingViewPerpsV2(
   props: ITradingViewPerpsV2Props & WebViewProps,
 ) {
   const {
     symbol,
+    displayPair,
+    displayCoin,
     userAddress,
+    enablePerpsTradingUi = false,
+    reloadOnSymbolChange = false,
     onLoadEnd,
     onTradeUpdate,
     onTouchScroll,
@@ -136,12 +262,14 @@ export function TradingViewPerpsV2(
   const theme = useThemeVariant();
   const actions = useHyperliquidActions();
 
-  // Chart lines state
-  const [isChartLinesReady, setIsChartLinesReady] = useState(false);
   const [{ szDecimals }] = useTradingFormEnvAtom();
   const _webviewKey = useMemo(() => {
-    return `${theme}-${webviewKey || ''}`;
-  }, [theme, webviewKey]);
+    return `${theme}-${webviewKey || ''}${
+      reloadOnSymbolChange ? `-${symbol}` : ''
+    }`;
+  }, [reloadOnSymbolChange, symbol, theme, webviewKey]);
+  const [isChartLinesReady, setIsChartLinesReady] = useState(false);
+  const [isChartContentReady, setIsChartContentReady] = useState(false);
 
   // Track webviewKey changes and reset isChartLinesReady when it changes
   const prevWebviewKeyRef = useRef(_webviewKey);
@@ -149,6 +277,7 @@ export function TradingViewPerpsV2(
     if (prevWebviewKeyRef.current !== _webviewKey) {
       // WebView will reload due to key change, reset ready state
       setIsChartLinesReady(false);
+      setIsChartContentReady(false);
       prevWebviewKeyRef.current = _webviewKey;
     }
   }, [_webviewKey]);
@@ -160,37 +289,45 @@ export function TradingViewPerpsV2(
     };
   }, [setMounted]);
 
-  // Freeze initial symbol to prevent URL regeneration on symbol changes
-  const initialSymbolRef = useRef(symbol);
-
   const { handleNavigation } = useNavigationHandler();
 
   // Optimization: Static URL with only initialization params to avoid WebView reload
   // Memoize additionalParams to prevent useTradingViewUrl from regenerating URL
-  const additionalParams = useMemo(
-    () => ({
-      symbol: initialSymbolRef.current, // Use frozen initial symbol
-      type: 'perps' as const,
-      storageNamespace: 'perps' as const,
-    }),
-    // Empty deps: only regenerate when component mounts or webviewKey changes (via external reloadHook)
+  const staticUrlSymbol = useMemo(
+    () => symbol,
+    // Symbol-only changes are sent through SYMBOL_CHANGE. Recompute only when
+    // the WebView is intentionally re-keyed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [_webviewKey],
   );
-
-  useEffect(() => {
-    initialSymbolRef.current = symbol;
-  }, [symbol]);
+  const urlSymbol = reloadOnSymbolChange ? symbol : staticUrlSymbol;
+  const additionalParams = useMemo(
+    () => ({
+      symbol: urlSymbol,
+      type: 'perps' as const,
+      storageNamespace: 'perps' as const,
+      enablePerpsTradingUi: enablePerpsTradingUi ? '1' : '0',
+    }),
+    [enablePerpsTradingUi, urlSymbol],
+  );
 
   const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
     additionalParams,
   });
+  const isSpotDisplayNameSyncRequired =
+    reloadOnSymbolChange && (!!displayPair || !!displayCoin);
 
   // Optimization: Dynamic symbol parameter sync mechanism
   useSymbolSync({
     webRef,
     symbol,
-    isChartReady: isChartLinesReady,
+    displayPair,
+    displayCoin,
+    isChartReady: reloadOnSymbolChange
+      ? isChartContentReady
+      : isChartLinesReady,
+    enabled: !reloadOnSymbolChange,
+    syncOnReady: !reloadOnSymbolChange || isSpotDisplayNameSyncRequired,
   });
 
   const pendingRecoverRef = useRef(false);
@@ -222,59 +359,106 @@ export function TradingViewPerpsV2(
 
   // Callback when TradingView iframe signals chart lines are ready
   const onChartLinesReady = useCallback(() => {
+    setIsChartContentReady(true);
     setIsChartLinesReady(true);
   }, []);
 
-  // Callback when user clicks cancel button on order line in TradingView chart
+  const onChartReady = useCallback(() => {
+    setIsChartContentReady(true);
+  }, []);
+
   const onOrderCancel = useCallback(
     async (payload: ITVOrderCancelPayload) => {
-      const { symbol: orderSymbol, orderId } = payload;
+      const oid = Number.parseInt(payload.orderId ?? '', 10);
+      if (!Number.isFinite(oid)) return;
+      if (!enablePerpsTradingUi) return;
 
-      if (!orderId) {
-        console.warn('[TradingViewPerpsV2] Order cancel: missing orderId');
+      // Message handler invokes this without await — swallow rejections to
+      // avoid leaking them as unhandled; errors are already surfaced via
+      // withToast inside cancelChartOrder / ensureTradingEnabled.
+      try {
+        await actions.current.ensureTradingEnabled();
+        await actions.current.cancelChartOrder({ oid });
+      } catch {
+        // intentional: toast owns the user-facing message
+      }
+    },
+    [actions, enablePerpsTradingUi],
+  );
+
+  const onOrderDraftCreate = useCallback(
+    async (payload: ITVOrderDraftCreatePayload) => {
+      if (!enablePerpsTradingUi) return;
+
+      try {
+        await actions.current.ensureTradingEnabled();
+        await withToast({
+          asyncFn: () =>
+            backgroundApiProxy.serviceHyperliquidExchange.placeLimitOrderByCoin(
+              {
+                coin: payload.symbol,
+                isBuy: payload.side === 'buy',
+                size: payload.quantity,
+                price: payload.price,
+              },
+            ),
+          actionType: EActionType.PLACE_ORDER,
+        });
+      } catch {
+        // intentional: withToast owns the user-facing error message
+      }
+    },
+    [actions, enablePerpsTradingUi],
+  );
+
+  const onOrderPriceUpdate = useCallback(
+    async (payload: ITVOrderPriceUpdatePayload) => {
+      const oid = Number.parseInt(payload.orderId ?? '', 10);
+      if (!Number.isFinite(oid)) return;
+      if (!enablePerpsTradingUi) {
+        webRef.current?.sendMessageViaInjectedScript({
+          type: MESSAGE_TYPES.PERPS_TV_ORDER_PRICE_UPDATE_REJECTED,
+          payload: {
+            requestId: payload.requestId,
+            lineId: payload.lineId,
+            symbol: payload.symbol,
+            orderId: payload.orderId,
+          },
+        });
         return;
       }
 
       try {
-        // Ensure trading is enabled before canceling
         await actions.current.ensureTradingEnabled();
-
-        // Get symbol metadata to obtain assetId
-        const symbolMeta =
-          await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
-            coin: orderSymbol,
-          });
-
-        if (!symbolMeta) {
-          console.warn(
-            '[TradingViewPerpsV2] Token info not found for coin:',
-            orderSymbol,
-          );
-          return;
-        }
-
-        // Cancel the order
-        await actions.current.cancelOrder({
-          orders: [
-            {
-              assetId: symbolMeta.assetId,
-              oid: parseInt(orderId, 10),
-            },
-          ],
+        await actions.current.amendChartOrder({
+          coin: payload.symbol,
+          oid,
+          newPrice: payload.price,
         });
-      } catch (error) {
-        console.error('[TradingViewPerpsV2] Failed to cancel order:', error);
+      } catch {
+        webRef.current?.sendMessageViaInjectedScript({
+          type: MESSAGE_TYPES.PERPS_TV_ORDER_PRICE_UPDATE_REJECTED,
+          payload: {
+            requestId: payload.requestId,
+            lineId: payload.lineId,
+            symbol: payload.symbol,
+            orderId: payload.orderId,
+          },
+        });
       }
     },
-    [actions],
+    [actions, enablePerpsTradingUi, webRef],
   );
 
   const { customReceiveHandler } = usePerpsTradingViewMessageHandler({
     symbol,
     userAddress,
     webRef,
+    onChartReady,
     onChartLinesReady,
     onOrderCancel,
+    onOrderDraftCreate,
+    onOrderPriceUpdate,
     onTouchScroll,
   });
 
@@ -301,6 +485,7 @@ export function TradingViewPerpsV2(
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
   );
+  const showSymbolReloadMask = reloadOnSymbolChange && !isChartContentReady;
 
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
@@ -311,6 +496,11 @@ export function TradingViewPerpsV2(
         onWebViewRef={onWebViewRef}
         onLoadEnd={onLoadEnd}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+        nativeInjectedJavaScriptBeforeContentLoaded={
+          platformEnv.isNativeAndroid
+            ? hideTradingViewBuiltInLoadingScript
+            : undefined
+        }
         allowsBackForwardNavigationGestures={false}
         displayProgressBar={false}
         pullToRefreshEnabled={false}
@@ -321,6 +511,23 @@ export function TradingViewPerpsV2(
         showsVerticalScrollIndicator={false}
         decelerationRate="normal"
       />
+
+      {showSymbolReloadMask ? (
+        <Stack
+          position="absolute"
+          left={0}
+          top={0}
+          right={0}
+          bottom={0}
+          zIndex={2}
+          bg="$bgApp"
+          alignItems="center"
+          justifyContent="center"
+          pointerEvents="none"
+        >
+          <Spinner size="large" />
+        </Stack>
+      ) : null}
 
       {platformEnv.isNativeIOS ? (
         <Stack

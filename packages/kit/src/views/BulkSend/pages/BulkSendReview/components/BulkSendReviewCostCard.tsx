@@ -6,7 +6,6 @@ import {
   Alert,
   Icon,
   NumberSizeableText,
-  Popover,
   SizableText,
   Skeleton,
   XStack,
@@ -22,7 +21,7 @@ import {
 } from '@onekeyhq/shared/types/bulkSend';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
-import { INTERVAL_SETTINGS_TITLE } from '../../../components/IntervalSettingsContent';
+import { useIntervalLabels } from '../../../components/IntervalSettingsContent';
 import { formatIntervalSecondsRange } from '../../../utils';
 
 import { useBulkSendReviewContext } from './Context';
@@ -48,6 +47,7 @@ function BulkSendReviewCostCard({
   intervalSettings,
 }: Props) {
   const intl = useIntl();
+  const { title: intervalSettingsTitle } = useIntervalLabels();
   const [settings] = useSettingsPersistAtom();
   const { feeState, ataCount, bulkSendMode } = useBulkSendReviewContext();
   const {
@@ -96,33 +96,6 @@ function BulkSendReviewCostCard({
                   )})`
                 : ''}
             </SizableText>
-            {showSplit ? (
-              <Popover
-                title={intl.formatMessage(
-                  { id: ETranslations.wallet_bulk_send_split_txns_title },
-                  { count: displayTxCount },
-                )}
-                renderTrigger={
-                  <Icon
-                    name="InfoCircleOutline"
-                    size="$4"
-                    color="$iconSubdued"
-                  />
-                }
-                renderContent={
-                  <YStack p="$5">
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage(
-                        {
-                          id: ETranslations.wallet_bulk_send_split_txns_description,
-                        },
-                        { count: displayTxCount },
-                      )}
-                    </SizableText>
-                  </YStack>
-                }
-              />
-            ) : null}
           </XStack>
           <YStack alignItems="flex-end">
             {isLoading ? (
@@ -238,12 +211,13 @@ function BulkSendReviewCostCard({
         {intervalSettings?.mode === EIntervalMode.Specified ? (
           <XStack gap="$2" px="$4" py="$2" alignItems="center">
             <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-              {INTERVAL_SETTINGS_TITLE}
+              {intervalSettingsTitle}
             </SizableText>
             <SizableText size="$bodyMdMedium">
               {formatIntervalSecondsRange({
                 minSeconds: intervalSettings.minSeconds,
                 maxSeconds: intervalSettings.maxSeconds,
+                intl,
               })}
             </SizableText>
           </XStack>

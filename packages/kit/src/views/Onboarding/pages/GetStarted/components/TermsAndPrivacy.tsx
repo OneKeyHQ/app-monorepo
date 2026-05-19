@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { Anchor, SizableText } from '@onekeyhq/components';
+import { Anchor, SizableText, useMedia } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -13,10 +13,12 @@ import type { FormatXMLElementFn } from 'intl-messageformat';
 
 interface ITermsAndPrivacyProps {
   contentContainerProps?: Omit<IStackProps, 'children'>;
+  testID?: string;
 }
 
 export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const termsLink = useHelpLink({
     path: 'articles/11461297',
   });
@@ -33,11 +35,21 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
           }}
           size="$bodySm"
           textDecorationLine="underline"
+          color="$textDisabled"
         >
-          {chunks[0]} ↗
+          {chunks[0]}
         </SizableText>
       ) : (
-        <Anchor href={link} size="$bodySm" color="$textSubdued" target="_blank">
+        <Anchor
+          href={link}
+          size="$bodySm"
+          color="$textDisabled"
+          target="_blank"
+          showExternalIndicator={false}
+          $gtMd={{
+            size: '$bodyMd',
+          }}
+        >
           {chunks}
         </Anchor>
       ),
@@ -54,22 +66,29 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
     [privacyLink, renderAnchor],
   );
 
+  const { $gtMd: userGtMd, ...restContentProps } =
+    props?.contentContainerProps ?? {};
+
   return (
     <SizableText
+      testID={props?.testID}
       alignSelf="center"
       size="$bodySm"
       color="$textDisabled"
       textAlign="center"
-      $md={{
-        maxWidth: '$80',
+      $gtMd={{
+        size: '$bodyMd',
+        alignSelf: 'flex-start',
+        ...(userGtMd as any),
       }}
-      {...(props?.contentContainerProps as any)}
+      {...(restContentProps as any)}
     >
       {intl.formatMessage(
         { id: ETranslations.terms_privacy },
         {
           termsTag: renderTermsTag,
           privacyTag: renderPrivacyTag,
+          br: () => (gtMd ? ' ' : '\n'),
         },
       )}
     </SizableText>

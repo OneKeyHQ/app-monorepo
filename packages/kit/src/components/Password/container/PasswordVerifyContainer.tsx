@@ -54,7 +54,8 @@ const PasswordVerifyContainer = ({
   pageMode,
 }: IPasswordVerifyProps) => {
   const intl = useIntl();
-  const [{ authType, isEnable }] = usePasswordBiologyAuthInfoAtom();
+  const [{ authType, isEnable, isSupport: biologyAuthIsSupport }] =
+    usePasswordBiologyAuthInfoAtom();
   const { verifiedPasswordWebAuth, checkWebAuth } = useWebAuthActions();
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
@@ -164,6 +165,38 @@ const PasswordVerifyContainer = ({
       hasCachedPassword,
     ],
   );
+
+  // TODO(biologyAuth-debug): temporary log to diagnose biology auth visibility
+  useEffect(() => {
+    defaultLogger.setting.page.biologyAuthDebug('PasswordVerifyContainer', {
+      platform: platformEnv.symbol,
+      isLock,
+      pageMode: !!pageMode,
+      isExtLockAndNoCachePassword,
+      isBiologyAuthSwitchOn,
+      verifyPeriodBiologyEnable,
+      biologyAuthIsSupport,
+      biologyAuthIsEnable: isEnable,
+      authType,
+      hasSecurePassword,
+      hasCachedPassword,
+      hasWebAuthCredentialId: !!webAuthCredentialId,
+      isBiologyAuthEnable,
+    });
+  }, [
+    isLock,
+    pageMode,
+    isExtLockAndNoCachePassword,
+    isBiologyAuthSwitchOn,
+    verifyPeriodBiologyEnable,
+    biologyAuthIsSupport,
+    isEnable,
+    authType,
+    hasSecurePassword,
+    hasCachedPassword,
+    webAuthCredentialId,
+    isBiologyAuthEnable,
+  ]);
 
   const resetPasswordErrorAttempts = useCallback(() => {
     if (isLock && enablePasswordErrorProtection) {

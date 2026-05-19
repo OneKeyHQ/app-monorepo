@@ -1,4 +1,6 @@
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
+import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import { ENFTType } from '@onekeyhq/shared/types/nft';
 
 export function normalizeOptionalRecipientText(value?: string) {
   return value ?? '';
@@ -32,4 +34,14 @@ export function shouldSkipResolvedRecipientUpdate({
     selected.length > 0 &&
     (selected === currentRaw || selected === currentResolved)
   );
+}
+
+export function shouldSkipAmountInputForNFT({
+  isNFT,
+  nft,
+}: {
+  isNFT: boolean;
+  nft?: Pick<IAccountNFT, 'collectionType'>;
+}) {
+  return !!(isNFT && nft && nft.collectionType !== ENFTType.ERC1155);
 }

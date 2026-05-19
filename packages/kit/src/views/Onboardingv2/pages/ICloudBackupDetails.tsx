@@ -8,11 +8,11 @@ import {
   Button,
   Dialog,
   Icon,
-  Page,
   SizableText,
   Toast,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
@@ -37,8 +37,9 @@ import { CloudAccountBar } from '../components/CloudAccountBar';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 import { CloudBackupDetailsEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
-import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingPage } from '../components/Layout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
+import { OnboardingTestIDs } from '../testIDs';
 
 export default function ICloudBackupDetails({
   route,
@@ -47,6 +48,7 @@ export default function ICloudBackupDetails({
   EOnboardingPagesV2.ICloudBackupDetails
 >) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const _backupTime = route.params?.backupTime;
   const actionType = route.params?.actionType;
   const hideRestoreButton = route.params?.hideRestoreButton;
@@ -189,143 +191,150 @@ export default function ICloudBackupDetails({
   const isButtonDisabled = useMemo(() => {
     return fetchLoading || checkLoading || !backupData || !walletData.length;
   }, [fetchLoading, checkLoading, backupData, walletData.length]);
-  return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header title={formattedDate} />
-        <OnboardingLayout.Body>
-          <YStack gap="$3">
-            <CloudAccountBar />
-            {renderContent()}
-            <MultipleClickStack
-              h="$10"
-              showDevBgColor
-              debugComponent={
-                <YStack gap="$2">
-                  <Button
-                    onPress={async () => {
-                      Dialog.debugMessage({
-                        debugMessage: backupData,
-                      });
-                    }}
-                  >
-                    showBackupData
-                  </Button>
-                  <Button
-                    onPress={async () => {
-                      showCloudBackupPasswordDialog({
-                        onSubmit: async (password) => {
-                          const privateData =
-                            await backgroundApiProxy.serviceCloudBackupV2.restorePreparePrivateData(
-                              {
-                                payload:
-                                  backupData as IBackupDataEncryptedPayload,
-                                password,
-                              },
-                            );
-                          Dialog.debugMessage({
-                            debugMessage: privateData,
-                          });
-                        },
-                      });
-                    }}
-                  >
-                    showBackupPrivateData
-                  </Button>
-                  <Button
-                    onPress={async () => {
-                      setWalletDataMocked([]);
-                    }}
-                  >
-                    Mock Empty Wallets
-                  </Button>
-                  <Button
-                    loading={checkLoading}
-                    disabled={isButtonDisabled}
-                    flex={1}
-                    onPress={async () => {
-                      await doBackup({
-                        data: backupData as IPrimeTransferData,
-                        backupTimes: 30,
-                      });
-                    }}
-                  >
-                    备份 30 份
-                  </Button>
-                </YStack>
-              }
-            />
-          </YStack>
-        </OnboardingLayout.Body>
-        <OnboardingLayout.Footer>
-          <XStack
-            gap="$3"
-            w="100%"
-            $gtMd={{
-              maxWidth: 400,
-            }}
-            py="$3"
-          >
-            {actionType === 'backup' ? (
-              <>
-                <Button
-                  loading={checkLoading}
-                  disabled={isButtonDisabled}
-                  flex={1}
-                  variant="primary"
-                  size="large"
-                  onPress={handleBackup}
-                >
-                  {intl.formatMessage({ id: ETranslations.backup_backup_now })}
-                </Button>
-                <Button
-                  loading={checkLoading}
-                  size="large"
-                  onPress={async () => {
-                    await goToPageBackupList({
-                      hideRestoreButton: true,
-                    });
-                  }}
-                  childrenAsText={false}
-                >
-                  <Icon name="SettingsOutline" />
-                </Button>
-              </>
-            ) : null}
 
-            {actionType === 'restore' ? (
-              <>
-                {!hideRestoreButton ? (
-                  <Button
-                    loading={checkLoading}
-                    disabled={isButtonDisabled}
-                    flex={1}
-                    variant="primary"
-                    size="large"
-                    onPress={handleImport}
-                  >
-                    {intl.formatMessage({ id: ETranslations.global_import })}
-                  </Button>
-                ) : null}
-                <Button
-                  loading={checkLoading}
-                  disabled={!route.params?.backupId}
-                  size="large"
-                  flex={hideRestoreButton ? 1 : undefined}
-                  onPress={async () => {
-                    doDeleteBackup({
-                      recordID: route.params?.backupId ?? '',
+  const actionButtons = (
+    <XStack gap="$3" w="100%" py="$3">
+      {actionType === 'backup' ? (
+        <>
+          <Button
+            testID={OnboardingTestIDs.iCloudBackupDetailsBackupNowBtn}
+            loading={checkLoading}
+            disabled={isButtonDisabled}
+            flex={1}
+            variant="primary"
+            size="large"
+            onPress={handleBackup}
+          >
+            {intl.formatMessage({ id: ETranslations.backup_backup_now })}
+          </Button>
+          <Button
+            testID={OnboardingTestIDs.iCloudBackupDetailsSettingsBtn}
+            loading={checkLoading}
+            size="large"
+            onPress={async () => {
+              await goToPageBackupList({
+                hideRestoreButton: true,
+              });
+            }}
+            childrenAsText={false}
+          >
+            <Icon name="SettingsOutline" />
+          </Button>
+        </>
+      ) : null}
+
+      {actionType === 'restore' ? (
+        <>
+          {!hideRestoreButton ? (
+            <Button
+              testID={OnboardingTestIDs.iCloudBackupDetailsImportBtn}
+              loading={checkLoading}
+              disabled={isButtonDisabled}
+              flex={1}
+              variant="primary"
+              size="large"
+              onPress={handleImport}
+            >
+              {intl.formatMessage({ id: ETranslations.global_import })}
+            </Button>
+          ) : null}
+          <Button
+            testID={OnboardingTestIDs.iCloudBackupDetailsDeleteBtn}
+            loading={checkLoading}
+            disabled={!route.params?.backupId}
+            size="large"
+            flex={hideRestoreButton ? 1 : undefined}
+            onPress={async () => {
+              doDeleteBackup({
+                recordID: route.params?.backupId ?? '',
+              });
+            }}
+            childrenAsText={false}
+          >
+            <Icon name="DeleteOutline" />
+          </Button>
+        </>
+      ) : null}
+    </XStack>
+  );
+
+  return (
+    <OnboardingPage
+      testID={OnboardingTestIDs.iCloudBackupDetailsPage}
+      safeAreaEnabled={false}
+      scrollable
+      headerTitle={formattedDate}
+      contentContainerProps={{ maxWidth: 480, gap: '$3', paddingVertical: 20 }}
+    >
+      <CloudAccountBar />
+      {renderContent()}
+      <MultipleClickStack
+        h="$10"
+        showDevBgColor
+        debugComponent={
+          <YStack gap="$2">
+            <Button
+              testID={OnboardingTestIDs.iCloudBackupDetailsDevShowBackupDataBtn}
+              onPress={async () => {
+                Dialog.debugMessage({
+                  debugMessage: backupData,
+                });
+              }}
+            >
+              showBackupData
+            </Button>
+            <Button
+              testID={
+                OnboardingTestIDs.iCloudBackupDetailsDevShowPrivateDataBtn
+              }
+              onPress={async () => {
+                showCloudBackupPasswordDialog({
+                  intl,
+                  onSubmit: async (password) => {
+                    const privateData =
+                      await backgroundApiProxy.serviceCloudBackupV2.restorePreparePrivateData(
+                        {
+                          payload: backupData as IBackupDataEncryptedPayload,
+                          password,
+                        },
+                      );
+                    Dialog.debugMessage({
+                      debugMessage: privateData,
                     });
-                  }}
-                  childrenAsText={false}
-                >
-                  <Icon name="DeleteOutline" />
-                </Button>
-              </>
-            ) : null}
-          </XStack>
-        </OnboardingLayout.Footer>
-      </OnboardingLayout>
-    </Page>
+                  },
+                });
+              }}
+            >
+              showBackupPrivateData
+            </Button>
+            <Button
+              testID={
+                OnboardingTestIDs.iCloudBackupDetailsDevMockEmptyWalletsBtn
+              }
+              onPress={async () => {
+                setWalletDataMocked([]);
+              }}
+            >
+              Mock Empty Wallets
+            </Button>
+            <Button
+              testID={OnboardingTestIDs.iCloudBackupDetailsDevBackup30Btn}
+              loading={checkLoading}
+              disabled={isButtonDisabled}
+              flex={1}
+              onPress={async () => {
+                await doBackup({
+                  data: backupData as IPrimeTransferData,
+                  backupTimes: 30,
+                });
+              }}
+            >
+              备份 30 份
+            </Button>
+          </YStack>
+        }
+      />
+      <YStack {...(!gtMd && { mt: 'auto' })}>{actionButtons}</YStack>
+    </OnboardingPage>
   );
 }

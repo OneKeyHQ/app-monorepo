@@ -17,12 +17,15 @@ export type IOptions = {
   startupThrottleTime?: number;
   stopWaitTimes?: number;
   autoRestart?: number;
+  supportedSystems?: string[];
+  unsupportedSystemLogLevel?: 'error' | 'info';
 };
 
 const defaultOptions: IOptions = {
   startupThrottleTime: 0,
   stopWaitTimes: 10,
   autoRestart: 2,
+  unsupportedSystemLogLevel: 'error',
 } as const;
 
 export default abstract class BaseProcess {
@@ -59,10 +62,17 @@ export default abstract class BaseProcess {
       ...defaultOptions,
       ...options,
     };
+    if (options.supportedSystems) {
+      this.supportedSystems = options.supportedSystems;
+    }
 
     const { system } = this.getPlatformInfo();
     if (!this.isSystemSupported(system)) {
-      logger.error('Unsupported system:', system);
+      if (this.options.unsupportedSystemLogLevel === 'info') {
+        logger.info('Unsupported system:', system);
+      } else {
+        logger.error('Unsupported system:', system);
+      }
     }
   }
 
@@ -70,6 +80,13 @@ export default abstract class BaseProcess {
 
   async start(params: string[] = []) {
     const { system, ext } = this.getPlatformInfo();
+    if (!this.isSystemSupported(system)) {
+      logger.info(
+        `Skipping process ${this.processName}, unsupported system: ${system}`,
+      );
+      return;
+    }
+
     if (this.launchThrottle) {
       logger.debug('Throttling launch, cancel process');
       return;
@@ -210,6 +227,11 @@ export default abstract class BaseProcess {
 
   isSystemSupported(system: string) {
     return this.supportedSystems.includes(system);
+  }
+
+  isCurrentSystemSupported() {
+    const { system } = this.getPlatformInfo();
+    return this.isSystemSupported(system);
   }
 
   getPlatformInfo() {

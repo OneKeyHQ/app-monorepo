@@ -6,10 +6,12 @@ import { useIntl } from 'react-intl';
 import { ActionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import {
   useFiatCrypto,
   useSupportNetworkId,
@@ -63,6 +65,13 @@ export function WalletActionBuy({
     [network?.id, account?.id],
   );
 
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  const isAddMoneyBlockedByBotWallet = isBotWallet && isBotWalletDeactivated;
+
   const isBuyDisabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING && !platformEnv.isDev) {
       return true;
@@ -72,11 +81,24 @@ export function WalletActionBuy({
       return true;
     }
 
+    if (isAddMoneyBlockedByBotWallet) {
+      return true;
+    }
+
     return false;
-  }, [isBuySupported, isSellSupported, wallet?.type]);
+  }, [
+    isBuySupported,
+    isSellSupported,
+    wallet?.type,
+    isAddMoneyBlockedByBotWallet,
+  ]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleBuyToken = useCallback(async () => {
+    if (isAddMoneyBlockedByBotWallet) {
+      showBotWalletDisabledToast('addMoney');
+      return;
+    }
     if (isBuyDisabled) return;
 
     if (
@@ -97,6 +119,7 @@ export function WalletActionBuy({
     handleFiatCrypto({ sameModal });
     onClose();
   }, [
+    isAddMoneyBlockedByBotWallet,
     isBuyDisabled,
     handleFiatCrypto,
     network,
@@ -186,7 +209,10 @@ export function WalletActionBuy({
       label={intl.formatMessage({ id: ETranslations.buy_and_sell })}
       onClose={() => {}}
       onPress={handleBuyToken}
-      disabled={isBuyDisabled}
+      // Stay tappable for the deactivated-bot-wallet path so handleBuyToken
+      // can surface the disabled-bot-wallet toast (ActionList.Item suppresses
+      // onPress when `disabled` is true).
+      disabled={Boolean(isBuyDisabled && !isAddMoneyBlockedByBotWallet)}
     />
   );
 }

@@ -100,6 +100,39 @@ describe('parseLockfileDiff', () => {
     expect(result).toEqual([{ name: '@babel/core', version: '7.24.0' }]);
   });
 
+  test('resolves npm aliases to real package name', () => {
+    const diff = `
++"react-native-aes-crypto@npm:@onekeyfe/react-native-aes-crypto@3.0.15":
++  version: 3.0.15
++  resolution: "@onekeyfe/react-native-aes-crypto@npm:3.0.15"
++  peerDependencies:
++    react: "*"
++    react-native: "*"
++  checksum: 10-abc123
++  languageName: node
++  linkType: hard
+`;
+    const result = parseLockfileDiff(diff);
+    expect(result).toEqual([
+      { name: '@onekeyfe/react-native-aes-crypto', version: '3.0.15' },
+    ]);
+  });
+
+  test('resolves scoped npm alias with scoped target', () => {
+    const diff = `
++"@react-native-async-storage/async-storage@npm:@onekeyfe/react-native-async-storage@3.0.15":
++  version: 3.0.15
++  resolution: "@onekeyfe/react-native-async-storage@npm:3.0.15"
++  checksum: 10-xyz789
++  languageName: node
++  linkType: hard
+`;
+    const result = parseLockfileDiff(diff);
+    expect(result).toEqual([
+      { name: '@onekeyfe/react-native-async-storage', version: '3.0.15' },
+    ]);
+  });
+
   test('handles realistic yarn.lock diff snippet', () => {
     const diff = `
 diff --git a/yarn.lock b/yarn.lock
@@ -171,6 +204,24 @@ __metadata:
     const result = parseFullLockfile(content);
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({ name: 'lodash', version: '4.17.21' });
+  });
+
+  test('resolves npm aliases to real package name', () => {
+    const content = `
+"react-native-cloud-fs@npm:@onekeyfe/react-native-cloud-fs@3.0.15":
+  version: 3.0.15
+  resolution: "@onekeyfe/react-native-cloud-fs@npm:3.0.15"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10-abc123
+  languageName: node
+  linkType: hard
+`;
+    const result = parseFullLockfile(content);
+    expect(result).toEqual([
+      { name: '@onekeyfe/react-native-cloud-fs', version: '3.0.15' },
+    ]);
   });
 
   test('returns empty array for empty content', () => {

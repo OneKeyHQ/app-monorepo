@@ -63,6 +63,31 @@ export const ERROR_CODES = {
     code: 'PARAM_REQUIRES_TTY',
     exitCode: EXIT_CODES.PARAM,
   },
+  INVALID_TX: { code: 'INVALID_TX', exitCode: EXIT_CODES.BIZ },
+  INVALID_PAYLOAD: { code: 'INVALID_PAYLOAD', exitCode: EXIT_CODES.PARAM },
+  SESSION_EXPIRED: { code: 'SESSION_EXPIRED', exitCode: EXIT_CODES.BIZ },
+  SERVICE_UNREACHABLE: {
+    code: 'SERVICE_UNREACHABLE',
+    exitCode: EXIT_CODES.NET,
+  },
+  SERVICE_KEY_NOT_FOUND: {
+    code: 'SERVICE_KEY_NOT_FOUND',
+    exitCode: EXIT_CODES.BIZ,
+  },
+  VAULT_MISSING: { code: 'VAULT_MISSING', exitCode: EXIT_CODES.BIZ },
+  VAULT_CORRUPT: { code: 'VAULT_CORRUPT', exitCode: EXIT_CODES.SEC },
+  VAULT_WRITE_FAILED: {
+    code: 'VAULT_WRITE_FAILED',
+    exitCode: EXIT_CODES.SEC,
+  },
+  ADDRESS_NOT_DERIVED: {
+    code: 'ADDRESS_NOT_DERIVED',
+    exitCode: EXIT_CODES.BIZ,
+  },
+  NOT_AUTHENTICATED: {
+    code: 'NOT_AUTHENTICATED',
+    exitCode: EXIT_CODES.BIZ,
+  },
   USER_CANCELLED: { code: 'USER_CANCELLED', exitCode: EXIT_CODES.BIZ },
   BIZ_UNKNOWN: { code: 'BIZ_UNKNOWN', exitCode: EXIT_CODES.BIZ },
   BIZ_INSUFFICIENT_BALANCE: {

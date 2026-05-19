@@ -26,6 +26,11 @@ import {
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
+import {
+  EMarketPresetTradeSide,
+  shouldShowMarketPresetReviewCustomNetworkFeeOption,
+} from './hooks/marketPresetSettings';
+import { useMarketPresetSettings } from './hooks/useMarketPresetSettings';
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
@@ -77,12 +82,23 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const {
     isLoading: speedSwapInitLoading,
     speedConfig,
+    speedConfigReady,
     supportSpeedSwap: originalSupportSpeedSwap,
     onlySupportCrossChain,
     defaultTokens,
     provider,
     swapMevNetConfig,
   } = useSpeedSwapInit(networkId || '', true);
+  const marketPresetSettings = useMarketPresetSettings({
+    networkId: networkId || '',
+    defaultSlippage: speedConfig?.slippage,
+    tradeSide:
+      tradeType === ESwapDirection.SELL
+        ? EMarketPresetTradeSide.SELL
+        : EMarketPresetTradeSide.BUY,
+    speedConfig,
+    speedConfigReady,
+  });
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
@@ -182,8 +198,17 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     tokenDetail?.symbol,
   ]);
 
+  const effectiveSlippage = marketPresetSettings.enabled
+    ? marketPresetSettings.selectedSlippageValue
+    : slippage;
+  const effectiveNetworkFeeLevel = marketPresetSettings.enabled
+    ? marketPresetSettings.selectedNetworkFeeLevel
+    : ESwapNetworkFeeLevel.MEDIUM;
+  const effectiveCustomPriorityFee = marketPresetSettings.enabled
+    ? marketPresetSettings.selectedPriorityFeeOverride
+    : undefined;
   const useSpeedSwapActionsParams = {
-    slippage,
+    slippage: effectiveSlippage,
     spenderAddress: speedConfig.spenderAddress,
     marketToken: {
       networkId: networkId || '',
@@ -209,7 +234,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       tradeType === ESwapDirection.BUY
         ? paymentAmount.toFixed()
         : sellAmount.toFixed(),
-    antiMEV: swapMevNetConfig?.includes(swapPanel.networkId ?? ''),
+    antiMEV: Array.isArray(swapMevNetConfig)
+      ? swapMevNetConfig.includes(swapPanel.networkId ?? '')
+      : false,
     isCustomRpcUnavailable,
     isReviewDialogOpen,
     onCloseDialog,
@@ -406,10 +433,24 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   ]);
 
   useEffect(() => {
-    if (speedConfig?.slippage) {
-      setSlippage(speedConfig.slippage);
+    if (!marketPresetSettings.enabled) {
+      return;
     }
-  }, [speedConfig?.slippage, setSlippage]);
+
+    setSlippage(marketPresetSettings.selectedSlippageValue);
+  }, [
+    marketPresetSettings.enabled,
+    marketPresetSettings.selectedSlippageValue,
+    setSlippage,
+  ]);
+
+  useEffect(() => {
+    if (marketPresetSettings.enabled || !speedConfig?.slippage) {
+      return;
+    }
+
+    setSlippage(speedConfig.slippage);
+  }, [marketPresetSettings.enabled, speedConfig?.slippage, setSlippage]);
 
   const reviewAdapter = useMemo<ISwapReviewAdapter>(
     () => ({
@@ -446,18 +487,27 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
 
   const openReviewDialog = useCallback(
     async (isWrap?: boolean) => {
-      if (isActionLoading || isReviewOpening) {
+      if (
+        isActionLoading ||
+        isReviewOpening ||
+        marketPresetSettings.isLoading
+      ) {
         return;
       }
 
       const requestId = reviewDialogRequestIdRef.current + 1;
       reviewDialogRequestIdRef.current = requestId;
       setIsReviewOpening(true);
+      const showReviewCustomNetworkFeeOption =
+        shouldShowMarketPresetReviewCustomNetworkFeeOption(
+          marketPresetSettings,
+        );
 
       try {
         const nextReviewState = await prepareMarketSwapReview({
           isWrap,
-          networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+          networkFeeLevel: effectiveNetworkFeeLevel,
+          customPriorityFee: effectiveCustomPriorityFee,
         });
         if (reviewDialogRequestIdRef.current !== requestId) {
           return;
@@ -486,6 +536,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
           renderContent: (
             <MarketSwapReviewDialog
               adapter={reviewAdapter}
+              defaultNetworkFeeLevel={effectiveNetworkFeeLevel}
+              defaultCustomPriorityFee={effectiveCustomPriorityFee}
+              showCustomNetworkFeeOption={showReviewCustomNetworkFeeOption}
               reviewState={nextReviewState}
               onDone={() => void dialog?.close()}
             />
@@ -520,6 +573,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       intl,
       isActionLoading,
       isReviewOpening,
+      effectiveCustomPriorityFee,
+      effectiveNetworkFeeLevel,
+      marketPresetSettings,
       prepareMarketSwapReview,
       reviewAdapter,
     ],
@@ -587,6 +643,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       balanceToken={balanceToken as IToken}
       balanceLoading={fetchBalanceLoading}
       isLoading={isActionLoading || isReviewOpening}
+      isActionDisabled={marketPresetSettings.isLoading}
       hasInitialReady={hasInitialReady}
       onSwap={handleSwap}
       slippageAutoValue={speedConfig?.slippage}
@@ -596,6 +653,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       isWrapped={isWrapped}
       speedCheckError={speedCheckError}
       disableNativeToken={disableNativeToken}
+      marketPresetSettings={marketPresetSettings}
     />
   );
 }

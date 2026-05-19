@@ -44,6 +44,7 @@ import { MessageConfirmDetails } from '../../components/SignatureConfirmDetails'
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import SwapInfo from '../../components/SwapInfo';
+import { SignatureConfirmTestIDs } from '../../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -98,7 +99,11 @@ function MessageConfirm() {
     setContinueOperate,
     urlSecurityInfo,
     isRiskSignMethod,
-  } = useRiskDetection({ origin: sourceInfo?.origin ?? '', unsignedMessage });
+  } = useRiskDetection({
+    origin: sourceInfo?.origin ?? '',
+    unsignedMessage,
+    walletConnectVerifyContext: sourceInfo?.walletConnectVerifyContext,
+  });
 
   const { result, isLoading } = usePromiseResult(
     async () => {
@@ -116,6 +121,7 @@ function MessageConfirm() {
             accountAddress,
             message: unsignedMessage.message,
             swapInfo,
+            origin: sourceInfo?.origin,
           }),
         ],
         {
@@ -163,7 +169,13 @@ function MessageConfirm() {
         isConfirmationRequired: m?.isConfirmationRequired,
       };
     },
-    [networkId, accountId, unsignedMessage.message, swapInfo],
+    [
+      networkId,
+      accountId,
+      unsignedMessage.message,
+      swapInfo,
+      sourceInfo?.origin,
+    ],
     {
       watchLoading: true,
     },
@@ -296,14 +308,21 @@ function MessageConfirm() {
   }, [sourceInfo, accountId, skipBackupCheck]);
 
   return (
-    <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
+    <Page
+      scrollEnabled
+      onClose={handleOnClose}
+      safeAreaEnabled
+      testID={SignatureConfirmTestIDs.MessageConfirmPage}
+    >
       <Page.Header
         title={
           parsedMessage?.title ||
           intl.formatMessage({ id: ETranslations.sig_signature_request_label })
         }
       />
-      <Page.Body px="$5">{renderMessageConfirmContent()}</Page.Body>
+      <Page.Body testID={SignatureConfirmTestIDs.MessageConfirmBody} px="$5">
+        {renderMessageConfirmContent()}
+      </Page.Body>
       <MessageConfirmActions
         accountId={accountId}
         networkId={networkId}

@@ -118,8 +118,11 @@ export class PageScene extends BaseScene {
   }
 
   @LogToLocal({ level: 'info' })
-  public restartApp() {
-    return {};
+  public restartApp(args?: { mode?: string; reason?: string }) {
+    return {
+      mode: args?.mode ?? 'unknown',
+      reason: args?.reason ?? 'unknown',
+    };
   }
 
   @LogToServer()
@@ -198,5 +201,11 @@ export class PageScene extends BaseScene {
   @LogToLocal({ level: 'info' })
   public chainListManualAdd() {
     return {};
+  }
+
+  // TODO(biologyAuth-debug): temporary log to diagnose biology auth visibility
+  @LogToLocal({ level: 'info' })
+  public biologyAuthDebug(tag: string, state: Record<string, unknown>) {
+    return { tag, ...state };
   }
 }

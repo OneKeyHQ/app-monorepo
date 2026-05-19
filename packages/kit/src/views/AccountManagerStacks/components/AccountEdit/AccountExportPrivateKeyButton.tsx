@@ -1,10 +1,12 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
-import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { IExportKeyType } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { navigateToBackupWalletReminderPage } from '@onekeyhq/kit/src/hooks/usePageNavigation';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
+import { shouldHideBotWalletExport } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -14,6 +16,7 @@ import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 
 export function AccountExportPrivateKeyButton({
   testID,
@@ -38,6 +41,16 @@ export function AccountExportPrivateKeyButton({
 }) {
   const navigation = useAppNavigation();
 
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  const isExportBlocked = shouldHideBotWalletExport({
+    isBotWallet,
+    isBotWalletDeactivated,
+  });
+
   return (
     <ActionList.Item
       testID={testID}
@@ -45,6 +58,13 @@ export function AccountExportPrivateKeyButton({
       label={label}
       onClose={onClose}
       onPress={async () => {
+        if (isExportBlocked) {
+          // Stay clickable so users get feedback instead of a silent
+          // dead-click. Keep the visual cue minimal — `disabled` would
+          // also suppress onPress in ActionList.Item.
+          showBotWalletDisabledToast('export');
+          return;
+        }
         if (
           await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
             walletId: wallet?.id ?? '',

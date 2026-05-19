@@ -26,6 +26,7 @@ import {
   getMergedDeriveTokenData,
   sortTokensByFiatValue,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
@@ -78,7 +79,7 @@ class ServiceUniversalSearch extends ServiceBase {
     if (!searchTypes.length) {
       return [] as IUniversalSearchBatchResult;
     }
-    if (searchTypes.includes(EUniversalSearchType.MarketToken)) {
+    if (searchTypes.includes(EUniversalSearchType.V2MarketToken)) {
       try {
         // Prefer V2 trending endpoint (has network badge, dynamic data)
         const trendingItems =
@@ -1166,7 +1167,7 @@ class ServiceUniversalSearch extends ServiceBase {
           name: `${appLocale.intl.formatMessage({
             id: ETranslations.explore_search_placeholder,
           })} "${input}"`,
-          url: '',
+          url: uriUtils.buildGoogleSearchUrl(input),
           logo: GOOGLE_LOGO_URL,
           description: '',
           networkIds: [],

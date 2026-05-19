@@ -5,13 +5,8 @@ import { usePreventRemove } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import {
-  Markdown,
-  Page,
-  ScrollView,
-  SizableText,
-  YStack,
-} from '@onekeyhq/components';
+import { Page, ScrollView, SizableText, YStack } from '@onekeyhq/components';
+import { Markdown } from '@onekeyhq/components/src/content/Markdown';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   type IAppUpdateInfo,
@@ -26,7 +21,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { isForceUpdateStrategy } from '../../../components/UpdateReminder/hooks';
+import { isForceUpdateStrategy } from '../../../components/AppUpdate';
 import { UpdatePreviewActionButton } from '../components/UpdatePreviewActionButton';
 import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 

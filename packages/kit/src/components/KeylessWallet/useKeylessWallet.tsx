@@ -940,7 +940,7 @@ export function useKeylessWallet() {
   );
 
   const finalizeKeylessWalletV2 = useCallback(
-    async ({ action }: { action: EKeylessFinalizeAction }) => {
+    async ({ action }: { action?: EKeylessFinalizeAction }) => {
       const token = await getKeylessOnboardingToken();
       if (!token) {
         handleKeylessOnboardingTimeout();

@@ -1,13 +1,14 @@
 import { memo, useMemo } from 'react';
 
 import {
+  Icon,
   Image,
   SizableText,
   Stack,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { IXStackProps } from '@onekeyhq/components';
+import type { IIconProps, IXStackProps } from '@onekeyhq/components';
 import { useScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 
 const ICON_FALLBACK = <Stack w="$4.5" h="$4.5" />;
@@ -17,11 +18,15 @@ export const CategoryFilterItem = memo(
     name,
     isSelected,
     icon,
+    iconName,
+    iconOnly,
     ...rest
   }: {
     name: string;
     isSelected: boolean;
     icon?: string;
+    iconName?: IIconProps['name'];
+    iconOnly?: boolean;
   } & IXStackProps) => {
     const { md } = useMedia();
     const imageSource = useMemo(
@@ -54,7 +59,14 @@ export const CategoryFilterItem = memo(
         })}
         {...rest}
       >
-        {imageSource ? (
+        {iconName ? (
+          <Icon
+            name={iconName}
+            size="$4.5"
+            color={isSelected ? '$icon' : '$iconSubdued'}
+          />
+        ) : null}
+        {!iconName && imageSource ? (
           <Image
             source={imageSource}
             w="$4.5"
@@ -62,13 +74,15 @@ export const CategoryFilterItem = memo(
             fallback={ICON_FALLBACK}
           />
         ) : null}
-        <SizableText
-          numberOfLines={1}
-          color={isSelected ? '$text' : '$textSubdued'}
-          size="$bodyMdMedium"
-        >
-          {name}
-        </SizableText>
+        {iconOnly ? null : (
+          <SizableText
+            numberOfLines={1}
+            color={isSelected ? '$text' : '$textSubdued'}
+            size="$bodyMdMedium"
+          >
+            {name}
+          </SizableText>
+        )}
       </XStack>
     );
   },
@@ -80,6 +94,8 @@ export function CategoryFilterItemWithLayout({
   name,
   isSelected,
   icon,
+  iconName,
+  iconOnly,
   onLayout,
   ...rest
 }: {
@@ -87,6 +103,8 @@ export function CategoryFilterItemWithLayout({
   name: string;
   isSelected: boolean;
   icon?: string;
+  iconName?: IIconProps['name'];
+  iconOnly?: boolean;
 } & IXStackProps) {
   const { handleItemLayout } = useScrollableFilterBar();
   return (
@@ -94,6 +112,8 @@ export function CategoryFilterItemWithLayout({
       name={name}
       isSelected={isSelected}
       icon={icon}
+      iconName={iconName}
+      iconOnly={iconOnly}
       {...rest}
       onLayout={(event) => {
         handleItemLayout(id, event);

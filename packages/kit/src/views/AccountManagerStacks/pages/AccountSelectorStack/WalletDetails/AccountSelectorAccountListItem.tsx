@@ -1,11 +1,16 @@
 import { useCallback, useMemo } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
-import { IconButton, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  SizableText,
+  Stack,
+  XStack,
+  resetAccountManagerStacksModal,
+} from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useAccountSelectorActions,
   useActiveAccount,
@@ -33,6 +38,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { AccountEditButton } from '../../../components/AccountEdit';
 import { useAccountSelectorAvatarNetwork } from '../../../hooks/useAccountSelectorAvatarNetwork';
+import { AccountManagerTestIDs } from '../../../testIDs';
 
 import { AccountAddress } from './AccountAddress';
 import { AccountValueWithSpotlight } from './AccountValue';
@@ -40,6 +46,7 @@ import { AccountValueWithSpotlight } from './AccountValue';
 function PlusButton({ onPress, loading }: IButtonProps) {
   return (
     <IconButton
+      testID="account-manager-plus-button-icon-btn"
       borderWidth={0}
       borderRadius="$2"
       variant="tertiary"
@@ -98,7 +105,6 @@ export function AccountSelectorAccountListItem({
   >;
 }) {
   const actions = useAccountSelectorActions();
-  const navigation = useAppNavigation();
   const {
     activeAccount: { network },
   } = useActiveAccount({
@@ -361,7 +367,7 @@ export function AccountSelectorAccountListItem({
   return (
     <Stack>
       <ListItem
-        testID={`account-item-index-${index}`}
+        testID={AccountManagerTestIDs.accountItem(index)}
         key={item.id}
         renderAvatar={
           <AccountAvatar
@@ -426,7 +432,7 @@ export function AccountSelectorAccountListItem({
                 autoChangeToAccountMatchedNetworkId: undefined,
               });
             }
-            navigation.popStack();
+            resetAccountManagerStacksModal();
           },
           isLoading: isCreatingAddress,
           userSelect: 'none',

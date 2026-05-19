@@ -36,6 +36,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
+import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
+import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/botWalletWarningDialog';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
@@ -52,7 +54,6 @@ import {
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -85,6 +86,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import usePerpDeposit from '../../../hooks/usePerpDeposit';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
@@ -418,12 +420,30 @@ function DepositWithdrawContent({
 
   const accountResult = usePerpsAccountResult(selectedAccount);
 
+  const checkDepositWalletNotBackedUp = useCallback(async () => {
+    const walletId =
+      accountResult?.wallet?.id ??
+      (selectedAccount.accountId
+        ? accountUtils.getWalletIdFromAccountId({
+            accountId: selectedAccount.accountId,
+          })
+        : undefined);
+    if (!walletId) return false;
+
+    return backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+      walletId,
+    });
+  }, [accountResult?.wallet?.id, selectedAccount.accountId]);
+
   const handleBuyPress = useCallback(async () => {
     if (!currentPerpsDepositSelectedToken || !accountResult) {
       return;
     }
 
     await dismissKeyboardWithDelay();
+    if (await checkDepositWalletNotBackedUp()) {
+      return;
+    }
 
     defaultLogger.wallet.walletActions.buyOnLowBalance({
       source: 'perp',
@@ -458,6 +478,7 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken,
     selectedAccount,
     accountResult,
+    checkDepositWalletNotBackedUp,
   ]);
 
   const checkAccountSupport = useMemo(() => {
@@ -1098,9 +1119,28 @@ function DepositWithdrawContent({
     const canSubmit = validateAmountBeforeSubmit();
     if (!canSubmit) return;
 
+    // Bot Wallet deactivated warning
+    if (selectedAccount.accountId) {
+      const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
+        accountId: selectedAccount.accountId,
+      });
+      if (isDeactivatedBot) {
+        const confirmed = await showBotWalletDeactivatedWarningDialog();
+        if (!confirmed) {
+          return;
+        }
+      }
+    }
+
     try {
       if (checkRefreshQuote) {
         void perpDepositQuoteAction();
+        return;
+      }
+      if (
+        selectedAction === 'deposit' &&
+        (await checkDepositWalletNotBackedUp())
+      ) {
         return;
       }
       setIsSubmitting(true);
@@ -1143,6 +1183,7 @@ function DepositWithdrawContent({
                 tokenInfo: USDC_TOKEN_INFO,
               },
             ],
+            gasAccountScenario: 'perps',
           });
         } else {
           await buildPerpDepositTx();
@@ -1171,6 +1212,7 @@ function DepositWithdrawContent({
     validateAmountBeforeSubmit,
     checkRefreshQuote,
     selectedAction,
+    checkDepositWalletNotBackedUp,
     perpDepositQuoteAction,
     isArbitrumUsdcToken,
     normalizeTxConfirm,
@@ -1470,7 +1512,7 @@ function DepositWithdrawContent({
           >
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
-                id: ETranslations.perp_account_panel_account_value,
+                id: ETranslations.perp_portfolio_value,
               })}
             </SizableText>
             <PerpsAccountNumberValue
@@ -1577,6 +1619,7 @@ function DepositWithdrawContent({
             ) : null}
           </XStack>
           <Input
+            testID="perp-input"
             alignItems="center"
             flex={1}
             placeholder={intl.formatMessage({
@@ -1852,11 +1895,17 @@ function DepositWithdrawContent({
       </YStack>
 
       {shouldShowBuyButton ? (
-        <Button variant="primary" size="medium" onPress={handleBuyPress}>
+        <Button
+          testID="perp-btn"
+          variant="primary"
+          size="medium"
+          onPress={handleBuyPress}
+        >
           {intl.formatMessage({ id: ETranslations.global_top_up })}
         </Button>
       ) : (
         <Button
+          testID="perp-btn"
           variant="primary"
           size="medium"
           disabled={
@@ -1904,6 +1953,7 @@ function DepositWithdrawContent({
 }
 
 function MobileDepositWithdrawModal() {
+  const intl = useIntl();
   const navigation = useNavigation();
   const route =
     useRoute<
@@ -1954,7 +2004,7 @@ function MobileDepositWithdrawModal() {
   return (
     <Page>
       <Page.Header
-        title={appLocale.intl.formatMessage({
+        title={intl.formatMessage({
           id: ETranslations.perp_trade_account_overview,
         })}
       />
@@ -2001,6 +2051,7 @@ export async function showDepositWithdrawDialog(
         />
       </PerpsProviderMirror>
     ),
+    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInTabRef.close();

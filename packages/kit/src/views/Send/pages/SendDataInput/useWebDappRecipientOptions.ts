@@ -10,16 +10,19 @@ import type { IRecipientQuickSelectTab } from './recipientQuickSelectTabUtils';
 export function useWebDappRecipientOptions({
   baseHiddenTabs,
 }: { baseHiddenTabs?: IRecipientQuickSelectTab[] } = {}) {
-  const { result: hasKeylessWallet = true } = usePromiseResult(async () => {
-    if (!platformEnv.isWebDappMode) return true;
-    const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
-      ignoreNonBackedUpWallets: true,
-      nestedHiddenWallets: true,
-    });
-    return wallets.some((w) =>
-      accountUtils.isKeylessWallet({ walletId: w.id }),
-    );
-  }, []);
+  // Default false in dapp mode so all tabs start hidden (no flash);
+  // default true elsewhere so tabs are visible immediately.
+  const { result: hasKeylessWallet = !platformEnv.isWebDappMode } =
+    usePromiseResult(async () => {
+      if (!platformEnv.isWebDappMode) return true;
+      const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
+        ignoreNonBackedUpWallets: true,
+        nestedHiddenWallets: true,
+      });
+      return wallets.some((w) =>
+        accountUtils.isKeylessWallet({ walletId: w.id }),
+      );
+    }, []);
 
   const hiddenTabs = useMemo<IRecipientQuickSelectTab[]>(() => {
     const base = baseHiddenTabs ?? [];

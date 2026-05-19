@@ -85,15 +85,13 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         // Clear token detail before navigation
         tokenDetailActions.current.clearTokenDetail();
 
-        // First switch to the appropriate tab to highlight it
         const targetTab = platformEnv.isNative
           ? ETabRoutes.Discovery
           : ETabRoutes.Market;
-        navigation.switchTab(targetTab);
 
-        // Then navigate to detail page using rootNavigationRef
-        // because the current navigation context is from modal, not from the target tab
-        setTimeout(() => {
+        if (platformEnv.isNative) {
+          // Navigate directly to the nested detail route to avoid briefly
+          // revealing the Discovery root page before entering Market detail.
           rootNavigationRef.current?.navigate(ERootRoutes.Main, {
             screen: targetTab,
             params: {
@@ -101,7 +99,22 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
               params,
             },
           });
-        }, 500);
+        } else {
+          // First switch to the appropriate tab to highlight it
+          navigation.switchTab(targetTab);
+
+          // Then navigate to detail page using rootNavigationRef
+          // because the current navigation context is from modal, not from the target tab
+          setTimeout(() => {
+            rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+              screen: targetTab,
+              params: {
+                screen: ETabMarketRoutes.MarketDetailV2,
+                params,
+              },
+            });
+          }, 500);
+        }
       } else {
         // Clear token detail before navigation
         tokenDetailActions.current.clearTokenDetail();

@@ -9,6 +9,8 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { ReferFriendsTestIDs } from '../../testIDs';
+
 export function AllWalletsBoundEmpty() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -26,6 +28,46 @@ export function AllWalletsBoundEmpty() {
           })}
         />
         <Button
+          testID="refer-friends-navigation-btn"
+          mt="$5"
+          onPress={() => {
+            navigation.pushModal(EModalRoutes.AccountManagerStacks, {
+              screen: EAccountManagerStacksRoutes.AccountSelectorStack,
+              params: {
+                num: 0,
+                sceneName: EAccountSelectorSceneName.home,
+                sceneUrl: '',
+                editable: true,
+              },
+            });
+          }}
+        >
+          {intl.formatMessage({ id: ETranslations.global_create_wallet })}
+        </Button>
+      </YStack>
+      <Dialog.Footer showConfirmButton={false} showCancelButton={false} />
+    </>
+  );
+}
+
+export function AllWalletsUnavailableEmpty() {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+
+  return (
+    <>
+      <YStack flex={1} jc="center" ai="center" py="$10">
+        <Empty
+          icon="WalletOutline"
+          title={intl.formatMessage({
+            id: ETranslations.referral_apply_code_no_wallet,
+          })}
+          description={intl.formatMessage({
+            id: ETranslations.referral_not_applicable_desc,
+          })}
+        />
+        <Button
+          testID={ReferFriendsTestIDs.allWalletsUnavailableCreateWalletBtn}
           mt="$5"
           onPress={() => {
             navigation.pushModal(EModalRoutes.AccountManagerStacks, {

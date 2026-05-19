@@ -280,7 +280,7 @@ export function MarketDetailPools({
         inPageDialog.show({
           showFooter: false,
           title: intl.formatMessage({
-            id: ETranslations.market_pool_details,
+            id: ETranslations.dexmarket_pool_details,
           }),
           renderContent: isCEXSelected ? (
             <PairDetailDialog item={item as IMarketDetailTicker} />

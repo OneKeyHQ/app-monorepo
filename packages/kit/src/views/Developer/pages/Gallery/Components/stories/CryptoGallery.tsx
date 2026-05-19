@@ -18,18 +18,6 @@ import {
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
 import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
-import {
-  batchGetPublicKeys,
-  decodeSensitiveTextAsync,
-  decryptAsync,
-  encodeSensitiveTextAsync,
-  encryptAsync,
-  encryptRevealableSeed,
-  generateRootFingerprintHexAsync,
-  mnemonicFromEntropyAsync,
-  mnemonicToRevealableSeed,
-  mnemonicToSeedAsync,
-} from '@onekeyhq/core/src/secret';
 import type { ICurveName } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDemoPriceInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/demo';
@@ -43,6 +31,11 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { Layout } from './utils/Layout';
+
+// Core secret functions are loaded dynamically to avoid kit->core value import
+async function loadCoreSecret() {
+  return import('@onekeyhq/core/src/secret');
+}
 
 function PartContainer({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -386,6 +379,18 @@ function SecretFunctionsTest() {
 
   const testSecretFunctions = async () => {
     try {
+      const {
+        batchGetPublicKeys,
+        decodeSensitiveTextAsync,
+        decryptAsync,
+        encodeSensitiveTextAsync,
+        encryptAsync,
+        encryptRevealableSeed,
+        generateRootFingerprintHexAsync,
+        mnemonicFromEntropyAsync,
+        mnemonicToRevealableSeed,
+        mnemonicToSeedAsync,
+      } = await loadCoreSecret();
       const tasks: IRunAppCryptoTestTaskResult[] = [];
 
       const testPasswordRaw = 'password123';
@@ -769,6 +774,11 @@ function SecretFunctionsTest() {
 
   const testSecretFunctions2 = async () => {
     try {
+      const {
+        encryptRevealableSeed,
+        generateRootFingerprintHexAsync,
+        mnemonicToRevealableSeed,
+      } = await loadCoreSecret();
       const tasks: IRunAppCryptoTestTaskResult[] = [];
       const testPasswordRaw = 'password123';
 

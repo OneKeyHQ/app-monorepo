@@ -126,6 +126,10 @@ export default function PrimeDashboard({
     IPrimeServerUserInfo | undefined
   >(undefined);
 
+  const handleLogoutSuccess = useCallback(async () => {
+    setServerUserInfo(undefined);
+  }, []);
+
   const { top } = useSafeAreaInsets();
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
@@ -146,6 +150,16 @@ export default function PrimeDashboard({
 
   const prevIsLoggedInRef = useRef(isLoggedIn);
 
+  const dashboardShownRef = useRef(false);
+  useEffect(() => {
+    if (dashboardShownRef.current) return;
+    dashboardShownRef.current = true;
+    defaultLogger.prime.subscription.primeDashboardShow({
+      featureName: fromFeature,
+      isPrimeActive: !!isPrimeSubscriptionActive,
+    });
+  }, [fromFeature, isPrimeSubscriptionActive]);
+
   useEffect(() => {
     const fn = async () => {
       // isFocused won't be triggered when Login Dialog is open or closed
@@ -162,6 +176,23 @@ export default function PrimeDashboard({
     };
     void fn();
   }, [isFocused, isAuthReady]);
+
+  // Clear local serverUserInfo state on real logout transition (true -> false).
+  // Gated by isAuthReady to avoid acting on the initial pre-hydration value
+  // of isLoggedIn (which can be false before Supabase / atom restore). And
+  // tracked via a ref of the previous value so we only clear on a real
+  // transition, not on the initial render when isLoggedIn happens to be false.
+  const prevIsLoggedInForClearRef = useRef(isLoggedIn);
+  useEffect(() => {
+    if (!isAuthReady) {
+      return;
+    }
+    const wasLoggedIn = prevIsLoggedInForClearRef.current;
+    prevIsLoggedInForClearRef.current = isLoggedIn;
+    if (wasLoggedIn && !isLoggedIn) {
+      setServerUserInfo(undefined);
+    }
+  }, [isAuthReady, isLoggedIn]);
 
   const shouldShowConfirmButton = useMemo(() => {
     if (!isLoggedIn || !isPrimeSubscriptionActive) {
@@ -337,6 +368,17 @@ export default function PrimeDashboard({
     if (!selectedPackage) {
       return intl.formatMessage({ id: ETranslations.prime_subscribe });
     }
+    if (selectedPackage.freeTrial?.periodUnit === 'day') {
+      return intl.formatMessage(
+        { id: ETranslations.prime_start_free_trial_days },
+        { count: selectedPackage.freeTrial.periodNumber },
+      );
+    }
+    if (selectedPackage.freeTrial) {
+      return intl.formatMessage({
+        id: ETranslations.prime_start_free_trial,
+      });
+    }
     const isYearly = selectedPackage.subscriptionPeriod === 'P1Y';
     return intl.formatMessage(
       {
@@ -359,6 +401,12 @@ export default function PrimeDashboard({
     if (isSubscribeLazyLoadingRef.current) {
       return;
     }
+
+    defaultLogger.prime.subscription.primeSubscribeButtonClick({
+      subscriptionPeriod: selectedSubscriptionPeriod,
+      featureName: fromFeature,
+      isLoggedIn,
+    });
 
     // If not logged in, store intent so we can resume after login
     if (!isLoggedIn) {
@@ -484,6 +532,7 @@ export default function PrimeDashboard({
         </Stack>
         <Stack position="absolute" right="$5" top={top || '$5'} zIndex="$5">
           <IconButton
+            testID="prime-action-icon-btn"
             onPress={() => {
               // navigation.push(EModalRoutes.PrimeModal, {
               //   screen: EPrimePages.PrimeFeatures,
@@ -514,7 +563,9 @@ export default function PrimeDashboard({
             >
               <PrimeLottieAnimation />
               <PrimeBanner isPrimeActive={isPrimeSubscriptionActive} />
-              {isLoggedInMaybe ? <PrimeUserInfo /> : null}
+              {isLoggedInMaybe ? (
+                <PrimeUserInfo onLogoutSuccess={handleLogoutSuccess} />
+              ) : null}
             </Stack>
 
             {shouldShowSubscriptionPlans ? (

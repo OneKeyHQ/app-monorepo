@@ -78,6 +78,7 @@ const SignTextItem = ({ item }: { item: ISignedMessage }) => {
             {item.title}
           </SizableText>
           <IconButton
+            testID="setting-result-icon-btn"
             variant="tertiary"
             icon="Copy3Outline"
             size="small"
@@ -86,6 +87,7 @@ const SignTextItem = ({ item }: { item: ISignedMessage }) => {
         </XStack>
         <XStack justifyContent="space-between" p="$3">
           <TextArea
+            testID="setting-textarea"
             maxHeight="$24"
             editable={false}
             scrollEnabled

@@ -3,7 +3,9 @@ import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import type { IChainSelectorParamList } from '@onekeyhq/shared/src/routes';
 import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
 
-import TokenSelector from '../../AssetSelector/pages/TokenSelector';
+const TokenSelector = LazyLoadPage(
+  () => import('../../AssetSelector/pages/TokenSelector'),
+);
 
 const AccountChainSelector = LazyLoadPage(
   () => import('../pages/AccountChainSelector'),

@@ -56,6 +56,20 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
+const appEventBus = {
+  emit: jest.fn(),
+};
+
+const EAppEventBusNames = {
+  PendingInstallTaskProcessFinished: 'PendingInstallTaskProcessFinished',
+};
+
+jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
+  __esModule: true,
+  appEventBus,
+  EAppEventBusNames,
+}));
+
 jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
   AppUpdate: {
     installPackage: jest.fn(async () => undefined),
@@ -182,6 +196,45 @@ describe('servicePendingInstallTask', () => {
     platformEnvMock.bundleVersion = '1';
     pendingTaskValue = undefined;
     setState({});
+  });
+
+  test('emits process finished event when there is no pending task', async () => {
+    const service = createService();
+
+    await service.processPendingInstallTask();
+
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.PendingInstallTaskProcessFinished,
+      undefined,
+    );
+  });
+
+  test('does not emit process finished event when bundle switch succeeds and restart is expected', async () => {
+    const service = createService();
+    pendingTaskValue = makeSwitchTask();
+
+    await service.processPendingInstallTask();
+
+    expect(appEventBus.emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.PendingInstallTaskProcessFinished,
+      undefined,
+    );
+  });
+
+  test('emits process finished event when bundle switch fails without scheduling restart', async () => {
+    const service = createService();
+    const {
+      BundleUpdate,
+    } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    pendingTaskValue = makeSwitchTask();
+    BundleUpdate.switchBundle.mockRejectedValueOnce(new Error('switch failed'));
+
+    await service.processPendingInstallTask();
+
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.PendingInstallTaskProcessFinished,
+      undefined,
+    );
   });
 
   test('fetch stage does not create pending task before resources are ready', async () => {

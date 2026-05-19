@@ -150,6 +150,17 @@ export function useAccountSelectorCreateAddress() {
           throw new OneKeyErrorAirGapAccountNotFound();
         }
 
+        if (
+          result?.failedAccounts?.length &&
+          !accountUtils.isQrWallet({ walletId: account.walletId })
+        ) {
+          for (const failedAccount of result.failedAccounts) {
+            Toast.error({
+              title: failedAccount.error.message || 'Unknown error',
+            });
+          }
+        }
+
         // If indexedAccountId was empty, get the first indexed account from wallet
         let resultIndexedAccountId = account?.indexedAccountId;
         if (!resultIndexedAccountId && account?.walletId) {
@@ -258,6 +269,7 @@ export function useAccountSelectorCreateAddress() {
                           children: (
                             <Stack>
                               <Button
+                                testID="account-selector-is-btc-only-wallet-btn"
                                 size="small"
                                 mt="$2"
                                 iconAfter="OpenOutline"
@@ -282,7 +294,11 @@ export function useAccountSelectorCreateAddress() {
                           id: ETranslations.contact_us_instruction,
                         })}
                       </SizableText>
-                      <Button variant="tertiary" onPress={() => showIntercom()}>
+                      <Button
+                        variant="tertiary"
+                        onPress={() => showIntercom()}
+                        testID="account-selector-btn"
+                      >
                         {intl.formatMessage({
                           id: ETranslations.global_contact_us,
                         })}

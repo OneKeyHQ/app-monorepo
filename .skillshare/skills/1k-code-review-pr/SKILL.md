@@ -130,6 +130,7 @@ Run `git diff origin/x...HEAD --name-only` and match:
 **Always check** regardless of file type:
 - Accidental file commits (`.DS_Store`, `.env`, `node_modules`)
 - Import hierarchy violations (see below)
+- Avoidable reimplementation when stable existing helpers, hooks, services, or components already cover the same behavior (see below)
 - PR description matches actual changes
 - Run relevant commands from [quick-commands.md]
 
@@ -156,6 +157,14 @@ git diff origin/x...HEAD --name-only | grep -E '\.tsx?$' | \
   while IFS= read -r f; do echo "=== $f ==="; grep "from.*@onekeyhq" "$f"; done
 ```
 
+## Existing Implementation Reuse (ALWAYS verify)
+
+For newly added helpers, hooks, services, components, constants, formatters, validators, or business logic:
+- Search the codebase for existing implementations with the same intent before accepting the new code.
+- Prefer established OneKey APIs, components, hooks, utilities, and service methods over local reimplementation.
+- Flag reimplementation only when the existing abstraction is semantically equivalent, stable, and does not introduce worse coupling.
+- In each reuse finding, include the existing file/function to reuse and explain why it covers the new behavior.
+
 ## File Risk Classification
 
 | Risk | Patterns | Action |
@@ -174,7 +183,7 @@ Rate the PR on 4 dimensions (1-10 each):
 | Dimension | Weight | What to evaluate |
 |-----------|--------|-----------------|
 | **🔒 安全性** | 35% | Secret leakage, auth bypass, supply-chain risk, input validation |
-| **💎 代码质量** | 30% | Hooks safety, error handling, race conditions, null safety, DRY |
+| **💎 代码质量** | 30% | Hooks safety, error handling, race conditions, null safety, DRY, reuse of existing implementations |
 | **🏛️ 架构合理性** | 20% | Import hierarchy, separation of concerns, cross-platform consistency |
 | **✅ 完整性** | 15% | Edge cases handled, test coverage, migration paths, docs |
 
@@ -362,6 +371,7 @@ _— Auto-review by Claude_" \
 - **No false positives** — only report issues you're confident about. Uncertain? Lower the confidence.
 - **No style nitpicks** — focus on security, correctness, architecture, performance.
 - **Context matters** — understand why the code was written this way before suggesting changes.
+- **Reuse first** — before accepting new abstractions or duplicated business logic, search for existing local implementations and flag unnecessary reimplementation with concrete reuse targets.
 - **Prioritize** — 3 high-quality findings beats 20 marginal complaints.
 - **Score honestly** — the score reflects reality, not diplomacy.
 - **Auto-fix aggressively** — when the fix is clear, always include a diff patch. Reviewers prefer actionable suggestions.

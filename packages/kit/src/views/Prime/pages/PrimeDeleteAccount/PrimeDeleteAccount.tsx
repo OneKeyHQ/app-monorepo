@@ -7,13 +7,13 @@ import {
   Checkbox,
   Dialog,
   Illustration,
-  Markdown,
   Page,
   SizableText,
   Stack,
   Toast,
   YStack,
 } from '@onekeyhq/components';
+import { Markdown } from '@onekeyhq/components/src/content/Markdown';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -24,7 +24,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 export default function PrimeDeleteAccount() {
-  const { logout, user, getAccessToken, sendEmailOTP } = useOneKeyAuth();
+  const { logoutWithPurchasesSdk, user, getAccessToken, sendEmailOTP } =
+    useOneKeyAuth();
   const navigation = useAppNavigation();
   const intl = useIntl();
 
@@ -88,7 +89,7 @@ export default function PrimeDeleteAccount() {
           defaultLogger.prime.subscription.onekeyIdLogout({
             reason: 'PrimeDeleteAccount: handleDeleteAccount',
           });
-          await logout();
+          await logoutWithPurchasesSdk();
         } catch (error) {
           console.error('logout error', error);
         }
@@ -182,7 +183,7 @@ export default function PrimeDeleteAccount() {
     //     }),
     //   });
     // }
-  }, [intl, navigation, sendEmailOTP, logout]);
+  }, [intl, logoutWithPurchasesSdk, navigation, sendEmailOTP]);
 
   const [checked, changeChecked] = useState(false);
 
@@ -247,6 +248,7 @@ export default function PrimeDeleteAccount() {
             }}
           >
             <Checkbox
+              testID="prime-checkbox"
               value={checked}
               onChange={(value) => {
                 changeChecked(!!value);

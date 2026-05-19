@@ -22,6 +22,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
+import { SettingTestIDs } from '../../testIDs';
 import { TabSettingsListItem, TabSettingsSection } from '../Tab/ListItem';
 import { useIsTabNavigator } from '../Tab/useIsTabNavigator';
 
@@ -54,6 +55,7 @@ function OneKeyIdUserProfile() {
   if (!isLoggedIn) {
     return (
       <XStack
+        testID={SettingTestIDs.oneKeyIdSignIn}
         alignItems="center"
         gap="$3"
         p="$4"
@@ -169,7 +171,7 @@ function OneKeyIdSettingsPageView() {
   }, [navigation]);
 
   return (
-    <Page>
+    <Page testID={SettingTestIDs.oneKeyIdPage}>
       <Page.Header title="OneKey ID" />
       <Page.Body>
         <YStack px="$4" pt="$3" gap="$6">
@@ -179,8 +181,9 @@ function OneKeyIdSettingsPageView() {
 
           {/* Menu Items - only show when logged in */}
           {isLoggedIn ? (
-            <TabSettingsSection>
+            <TabSettingsSection testID={SettingTestIDs.oneKeyIdSettings}>
               <TabSettingsListItem
+                testID={SettingTestIDs.oneKeyIdPersonalInfo}
                 icon="PeopleOutline"
                 iconProps={iconProps}
                 title="Personal information"
@@ -192,6 +195,7 @@ function OneKeyIdSettingsPageView() {
                 <Divider borderColor="$neutral3" />
               </XStack>
               <TabSettingsListItem
+                testID={SettingTestIDs.oneKeyIdSignInSecurity}
                 icon="LockOutline"
                 iconProps={iconProps}
                 title="Sign-In & Security"

@@ -60,10 +60,6 @@ export default function DemoHomePageHeaderView() {
     });
   }, [navigation]);
 
-  const navigateFullScreenSimpleModal = useCallback(() => {
-    void toOnBoardingPage({ isFullModal: true });
-  }, [toOnBoardingPage]);
-
   const navigateOnboardingModal = useCallback(() => {
     void toOnBoardingPage();
   }, [toOnBoardingPage]);
@@ -88,9 +84,6 @@ export default function DemoHomePageHeaderView() {
         <Button onPress={onNextPageCall}>下一页</Button>
         <Button onPress={navigateTestSimpleModal}>to TestSimpleModal</Button>
         <Button onPress={navigateOnboardingModal}>Onboarding</Button>
-        <Button onPress={navigateFullScreenSimpleModal}>
-          to fullScreen Onboarding
-        </Button>
       </YStack>
     ),
     [
@@ -98,7 +91,6 @@ export default function DemoHomePageHeaderView() {
       headerHeightCall,
       onNextPageCall,
       navigateTestSimpleModal,
-      navigateFullScreenSimpleModal,
       navigateOnboardingModal,
     ],
   );

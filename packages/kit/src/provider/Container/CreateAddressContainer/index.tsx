@@ -23,6 +23,7 @@ function CreateAddressButton(props: IButtonProps) {
   const intl = useIntl();
   return (
     <Button
+      testID="create-address-btn"
       $md={
         {
           flexGrow: 1,
@@ -146,6 +147,9 @@ function BasicCreateAddressContainer() {
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_switch,
         }),
+        confirmButtonProps: {
+          testID: 'create-address-switch-confirm-btn',
+        },
       });
     },
     [intl, showAccountSelector],

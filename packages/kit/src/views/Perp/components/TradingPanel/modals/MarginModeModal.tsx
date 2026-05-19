@@ -17,12 +17,14 @@ import {
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
+
+import type { IntlShape } from 'react-intl';
 
 type IMarginMode = 'isolated' | 'cross';
 
@@ -83,7 +85,10 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
         cursor="default"
       >
         <XStack alignItems="center" gap="$3">
-          <Checkbox value={selectedMode === 'cross'} />
+          <Checkbox
+            value={selectedMode === 'cross'}
+            testID="perp-button-text-checkbox"
+          />
           <SizableText size="$headingMd" fontWeight="600">
             {intl.formatMessage({ id: ETranslations.perp_trade_cross })}
           </SizableText>
@@ -104,7 +109,10 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
         cursor="default"
       >
         <XStack alignItems="center" gap="$3">
-          <Checkbox value={selectedMode === 'isolated'} />
+          <Checkbox
+            value={selectedMode === 'isolated'}
+            testID="perp-checkbox"
+          />
           <SizableText size="$headingMd" fontWeight="600">
             {intl.formatMessage({ id: ETranslations.perp_trade_isolated })}
           </SizableText>
@@ -118,6 +126,7 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
 
       <TradingGuardWrapper>
         <Button
+          testID="perp-btn"
           variant="primary"
           size="medium"
           disabled={loading}
@@ -133,11 +142,10 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
 
 export function showMarginModeDialog(
   symbolCoin: string,
+  intl: IntlShape,
   dialog?: ReturnType<typeof useInPageDialog>,
 ) {
-  const title = `${
-    parseDexCoin(symbolCoin).displayName
-  } ${appLocale.intl.formatMessage({
+  const title = `${parseDexCoin(symbolCoin).displayName} ${intl.formatMessage({
     id: ETranslations.perp_trade_margin_type,
   })}`;
 
@@ -160,6 +168,7 @@ export function showMarginModeDialog(
         />
       </PerpsProviderMirror>
     ),
+    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();

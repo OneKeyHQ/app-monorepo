@@ -50,6 +50,8 @@ type IAlertActionProps = {
   isSecondaryDisabled?: boolean;
   primaryVariant?: IButtonProps['variant'];
   secondaryVariant?: IButtonProps['variant'];
+  primaryTestID?: string;
+  secondaryTestID?: string;
 };
 
 interface IAlertContext {
@@ -244,6 +246,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
       {action ? (
         <XStack gap="$4" alignItems="center">
           <Button
+            testID={action.primaryTestID ?? 'alert-primary-btn'}
             size="small"
             variant={action.primaryVariant}
             onPress={action.onPrimaryPress}
@@ -254,6 +257,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
           </Button>
           {action.secondary ? (
             <Button
+              testID={action.secondaryTestID ?? 'alert-secondary-btn'}
               size="small"
               variant={action.secondaryVariant ?? 'tertiary'}
               onPress={action.onSecondaryPress}
@@ -266,6 +270,8 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
         </XStack>
       ) : null}
       {closable ? (
+        // Internal alert close affordance.
+        // oxlint-disable-next-line onekey/require-testid
         <IconButton
           title={intl.formatMessage({ id: ETranslations.explore_dismiss })}
           icon="CrossedSmallSolid"

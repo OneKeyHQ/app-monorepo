@@ -8,9 +8,11 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
+import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
+import { ERROR_CODES } from '../errors';
 import {
   AUTH_SESSION_SCHEMA_VERSION,
   AuthSessionStore,
@@ -23,11 +25,11 @@ function makeSession(
 ): AuthSessionMetadata {
   return {
     schemaVersion: AUTH_SESSION_SCHEMA_VERSION,
-    loginMethod: 'mnemonic',
+    loginMethod: 'app_transfer',
     walletKind: 'hd',
     displayAddress: '0x1234567890abcdef1234567890abcdef12345678',
     importedAt: '2026-04-06T05:35:44.000Z',
-    sourceLabel: 'Mnemonic Import',
+    sourceLabel: 'Bot Wallet (abcd1234)',
     ...overrides,
   };
 }
@@ -119,5 +121,23 @@ describe('AuthSessionStore', () => {
 
     expect(getPermissionMode(tempDir)).toBe(0o700);
     expect(getPermissionMode(sessionPath)).toBe(0o600);
+  });
+
+  it('rejects load when persisted session uses the legacy mnemonic loginMethod', async () => {
+    const store = new AuthSessionStore(sessionPath);
+    const legacyRaw = {
+      schema_version: 1,
+      login_method: 'mnemonic',
+      wallet_kind: 'hd',
+      display_address: '0x1234567890abcdef1234567890abcdef12345678',
+      imported_at: '2026-01-01T00:00:00.000Z',
+      source_label: 'Mnemonic Import',
+    };
+    await fs.mkdir(dirname(sessionPath), { recursive: true });
+    await fs.writeFile(sessionPath, `${JSON.stringify(legacyRaw, null, 2)}\n`);
+
+    await expect(store.load()).rejects.toMatchObject({
+      code: ERROR_CODES.AUTH_SESSION_INVALID.code,
+    });
   });
 });

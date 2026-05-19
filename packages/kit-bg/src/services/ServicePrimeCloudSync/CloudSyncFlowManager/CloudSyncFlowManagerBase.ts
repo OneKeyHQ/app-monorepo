@@ -713,7 +713,8 @@ export abstract class CloudSyncFlowManagerBase<
               //     });
               //   }
               // }
-              if (target) {
+              // Mirror the isSupportSync gate used on the upload side.
+              if (target && (await this.isSupportSync(target))) {
                 const keyInfo = await this.buildSyncKeyAndPayload({
                   target,
                   callerName: 'syncToScene',

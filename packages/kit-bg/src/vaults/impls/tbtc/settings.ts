@@ -64,6 +64,8 @@ const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
 
 const settings: IVaultSettings = {
   ...settingsBtc,
+  // Clear inherited [ledger] — testnet not exposed for third-party vendors.
+  supportedThirdPartyVendors: undefined,
   accountDeriveInfo,
   impl: IMPL_TBTC,
   coinTypeDefault: COINTYPE_TBTC,

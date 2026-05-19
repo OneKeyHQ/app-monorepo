@@ -1,6 +1,8 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   IFeeInfoUnit,
+  IGasAccountQuote,
+  IGasPayer,
   ISendSelectedFeeInfo,
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
@@ -201,6 +203,49 @@ export const { atom: megafuelEligibleAtom, use: useMegafuelEligibleAtom } =
     sponsorable: boolean;
     sponsorName: string;
   }>({ ...defaultMegafuelEligible });
+
+export const defaultEffectiveFeePayer = 'user' as IGasPayer;
+
+// `effectiveFeePayerAtom` is the authoritative "who pays the fee" signal the
+// UI renders from (sponsor badges, free copy, fee hiding). It mirrors the
+// server's `payer` field with two narrow overrides to `'user'`:
+//   - when a custom RPC is active (all sponsors disabled), and
+//   - when the server indicates `'gasAccount'` while gas account is
+//     temporarily disabled after a fallback (the gas-account path only;
+//     a concurrent `'megafuel'` payer still surfaces).
+//
+// This is intentionally separate from `gasAccountUiState.selectedPayer` below:
+//   - `effectiveFeePayer` drives *display* (can be `'megafuel'` even when gas
+//     account quote exists — megafuel wins UI-wise).
+//   - `selectedPayer` drives *submit wiring* (whether to attach `quoteId` /
+//     `idempotencyKey` to the broadcast request).
+// Keep them aligned in TxFeeInfo's estimate handler.
+export const { atom: effectiveFeePayerAtom, use: useEffectiveFeePayerAtom } =
+  contextAtom<IGasPayer>(defaultEffectiveFeePayer);
+
+export const defaultGasAccountUiState = {
+  payer: undefined as IGasPayer | undefined,
+  gasAccountEligible: false,
+  gasAccountQuote: undefined as IGasAccountQuote | undefined,
+  selectedPayer: 'user' as const,
+  lockedUserNonce: undefined as number | undefined,
+  idempotencyKey: '',
+};
+
+export const { atom: gasAccountUiStateAtom, use: useGasAccountUiStateAtom } =
+  contextAtom<{
+    payer?: IGasPayer;
+    gasAccountEligible: boolean;
+    gasAccountQuote?: IGasAccountQuote;
+    selectedPayer: 'user' | 'gasAccount';
+    lockedUserNonce?: number;
+    idempotencyKey: string;
+  }>({ ...defaultGasAccountUiState });
+
+export const {
+  atom: gasAccountTemporarilyDisabledAtom,
+  use: useGasAccountTemporarilyDisabledAtom,
+} = contextAtom<boolean>(false);
 
 export const defaultPayWithTokenInfo = {
   enabled: false,

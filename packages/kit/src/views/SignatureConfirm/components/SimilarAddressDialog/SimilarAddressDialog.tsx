@@ -193,6 +193,7 @@ function SimilarAddressContent({
       </XStack>
       <YStack gap="$6">
         <Checkbox
+          testID="signature-confirm-checkbox"
           value={checkState}
           label={intl.formatMessage({
             id: ETranslations.wallet_i_understand_risks_and_proceed,
@@ -226,6 +227,7 @@ export const showSimilarAddressDialog = async ({
 }) => {
   return new Promise((resolve, reject) => {
     const dialog = Dialog.show({
+      // eslint-disable-next-line onekey/no-app-locale-main-thread
       title: appLocale.intl.formatMessage({
         id: ETranslations.wallet_high_risk_address_detected,
       }),

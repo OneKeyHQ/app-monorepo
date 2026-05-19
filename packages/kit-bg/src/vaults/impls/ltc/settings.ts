@@ -61,6 +61,8 @@ const accountDeriveInfo: IAccountDeriveInfoMapLtc = {
 
 const settings: IVaultSettings = {
   ...settingsBtc,
+  // Clear inherited [ledger] — Ledger does not support LTC.
+  supportedThirdPartyVendors: undefined,
   accountDeriveInfo,
   impl: IMPL_LTC,
   coinTypeDefault: COINTYPE_LTC,

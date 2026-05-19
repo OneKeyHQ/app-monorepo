@@ -11,6 +11,7 @@ import type {
 import { usePerpsTradingPreferencesAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  formatHlSize,
   formatWithPrecision,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -38,6 +39,7 @@ interface ISizeInputProps {
   label?: string;
   isMobile?: boolean;
   leverage: number;
+  allowMarginInput?: boolean;
 }
 
 export const SizeInput = memo(
@@ -57,6 +59,7 @@ export const SizeInput = memo(
     label,
     isMobile = false,
     leverage,
+    allowMarginInput = true,
   }: ISizeInputProps) => {
     const intl = useIntl();
     const szDecimals = activeAsset?.universe?.szDecimals ?? 2;
@@ -64,12 +67,17 @@ export const SizeInput = memo(
 
     const [tradingPreferences, setTradingPreferences] =
       usePerpsTradingPreferencesAtom();
-    const inputMode = tradingPreferences.sizeInputUnit ?? 'usd';
+    const rawInputMode = tradingPreferences.sizeInputUnit ?? 'usd';
+    const inputMode =
+      !allowMarginInput && rawInputMode === 'margin' ? 'usd' : rawInputMode;
     const setInputMode = useCallback(
       (mode: 'token' | 'usd' | 'margin') => {
-        setTradingPreferences((prev) => ({ ...prev, sizeInputUnit: mode }));
+        setTradingPreferences((prev) => ({
+          ...prev,
+          sizeInputUnit: !allowMarginInput && mode === 'margin' ? 'usd' : mode,
+        }));
       },
-      [setTradingPreferences],
+      [allowMarginInput, setTradingPreferences],
     );
 
     const [tokenAmount, setTokenAmount] = useState('');
@@ -94,23 +102,32 @@ export const SizeInput = memo(
     const leverageBN = useMemo(() => new BigNumber(leverage || 1), [leverage]);
 
     // Helper: Calculate USD from Token
+    // Use ROUND_DOWN to match HL website behavior (truncate, never round up).
     const calcUsdFromToken = useCallback(
       (tokenValue: string) => {
         if (!hasValidPrice) return '';
         const tokenBN = new BigNumber(tokenValue);
         if (!tokenBN.isFinite()) return '';
-        return formatWithPrecision(tokenBN.multipliedBy(priceBN), 2, true);
+        return formatWithPrecision(
+          tokenBN.multipliedBy(priceBN),
+          2,
+          true,
+          BigNumber.ROUND_DOWN,
+        );
       },
       [hasValidPrice, priceBN],
     );
 
     // Helper: Calculate Token from USD
+    // Wire-safe size MUST be floor-truncated to szDecimals (HL lot size rule),
+    // otherwise we may submit a size whose actual notional exceeds the user's
+    // typed USD amount (root cause of the "input $10 → estimate $10.44" bug).
     const calcTokenFromUsd = useCallback(
       (usdValue: string) => {
         if (!hasValidPrice) return '';
         const usdBN = new BigNumber(usdValue);
         if (!usdBN.isFinite()) return '';
-        return formatWithPrecision(usdBN.dividedBy(priceBN), szDecimals, true);
+        return formatHlSize(usdBN.dividedBy(priceBN), szDecimals);
       },
       [hasValidPrice, priceBN, szDecimals],
     );
@@ -121,7 +138,7 @@ export const SizeInput = memo(
         const tokenBN = new BigNumber(tokenValue);
         if (!tokenBN.isFinite()) return '';
         const marginValue = tokenBN.multipliedBy(priceBN).dividedBy(leverageBN);
-        return formatWithPrecision(marginValue, 2, true);
+        return formatWithPrecision(marginValue, 2, true, BigNumber.ROUND_DOWN);
       },
       [hasValidPrice, priceBN, leverageBN],
     );
@@ -132,7 +149,7 @@ export const SizeInput = memo(
         const marginBN = new BigNumber(marginValue);
         if (!marginBN.isFinite()) return '';
         const tokenValue = marginBN.multipliedBy(leverageBN).dividedBy(priceBN);
-        return formatWithPrecision(tokenValue, szDecimals, true);
+        return formatHlSize(tokenValue, szDecimals);
       },
       [hasValidPrice, priceBN, leverageBN, szDecimals],
     );
@@ -397,10 +414,11 @@ export const SizeInput = memo(
             value={inputMode}
             onChange={handleModeChange}
             tokenSymbol={symbol || ''}
+            allowMarginInput={allowMarginInput}
           />
         </XStack>
       ),
-      [inputMode, handleModeChange, symbol, isMobile],
+      [inputMode, handleModeChange, symbol, isMobile, allowMarginInput],
     );
 
     const displayValue = useMemo(() => {

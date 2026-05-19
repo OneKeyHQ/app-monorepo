@@ -24,7 +24,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IXprvtValidation,
@@ -35,6 +34,7 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
   BaseBip32KeyDeriver,
+  batchGetPrivateKeys,
   batchGetPublicKeys,
   decryptAsync,
   encryptAsync,
@@ -64,6 +64,11 @@ import {
   validateBtcXpub,
 } from './sdkBtc';
 import { isTaprootInput } from './sdkBtc/bip371';
+import {
+  DERIVE_CONTEXT_HASH_BIP32_PATH,
+  deriveContextHash,
+  parseHexContext,
+} from './sdkBtc/deriveContextHash';
 import { buildPsbt } from './sdkBtc/providerUtils';
 
 import type { IGetAddressFromXpubResult } from './sdkBtc';
@@ -84,6 +89,7 @@ import type {
   ICoreApiSignTxPayload,
   ICoreApiValidateXprvtParams,
   ICoreApiValidateXpubParams,
+  ICoreCredentialsInfo,
   ICurveName,
   IEncodedTx,
   ISignedTxPro,
@@ -318,9 +324,6 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     // 4236794462
     const fingerprintBuf = ripemd160Buf.slice(0, 4);
     const fingerprintHex = bufferUtils.bytesToHex(fingerprintBuf);
-    // const fingerprintInt = fingerprintBuf.readUInt32BE(0);
-    const fingerprintInt = numberUtils.hexToDecimal(fingerprintHex);
-    const fingerprintHexCheck = numberUtils.numberToHex(fingerprintInt);
 
     const taprootChild = root.derivePath(BTC_FIRST_TAPROOT_PATH);
     const firstTaprootXpub = taprootChild.neutered().toBase58();
@@ -328,14 +331,6 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     const fullXfp = accountUtils.buildFullXfp({
       xfp: fingerprintHex,
       firstTaprootXpub,
-    });
-
-    console.log('generateXfpFromMnemonic', {
-      fulXfp: fullXfp,
-      firstTaprootXpub,
-      fingerprintHex,
-      fingerprintInt,
-      fingerprintHexCheck,
     });
 
     if (!fullXfp) {
@@ -784,6 +779,62 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     return privateKeys;
   }
 
+  async deriveContextHashBtc(payload: {
+    credentials: ICoreCredentialsInfo;
+    password: string;
+    appName: string;
+    canonicalNetworkName: string;
+    connectedPubkey: string;
+    context: string;
+  }): Promise<string> {
+    const {
+      credentials,
+      password,
+      appName,
+      canonicalNetworkName,
+      connectedPubkey,
+      context,
+    } = payload;
+    if (!credentials.hd) {
+      throw new OneKeyLocalError('deriveContextHash requires an HD credential');
+    }
+    if (connectedPubkey.length !== 66 || !/^[0-9a-f]+$/.test(connectedPubkey)) {
+      throw new OneKeyLocalError(
+        'connectedPubkey must be a 66-char lowercase hex compressed SEC1 pubkey',
+      );
+    }
+    const pathComponents = DERIVE_CONTEXT_HASH_BIP32_PATH.split('/');
+    const relPath = pathComponents.pop() as string;
+    const prefix = pathComponents.join('/');
+    const keys = await batchGetPrivateKeys(
+      curveName,
+      credentials.hd,
+      password,
+      prefix,
+      [relPath],
+    );
+    const encryptedKey = keys[0]?.extendedKey.key;
+    if (!encryptedKey) {
+      throw new OneKeyLocalError('BIP-32 derivation produced no private key');
+    }
+    const ikmBuf = await decryptAsync({ password, data: encryptedKey });
+    const ikm = new Uint8Array(ikmBuf);
+    const pubkeyBytes = Uint8Array.from(Buffer.from(connectedPubkey, 'hex'));
+    const contextBytes = parseHexContext(context);
+    try {
+      return deriveContextHash(
+        ikm,
+        appName,
+        canonicalNetworkName,
+        pubkeyBytes,
+        contextBytes,
+      );
+    } finally {
+      ikm.fill(0);
+      ikmBuf.fill(0);
+    }
+  }
+
   override async getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImportedBtc,
   ): Promise<ICoreApiGetAddressItem> {
@@ -1081,11 +1132,6 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       signers,
       payload,
     });
-
-    if (process.env.NODE_ENV !== 'production') {
-      const buildPsbtHex = psbt.toHex();
-      console.log('BTC buildPsbtHex:', buildPsbtHex);
-    }
 
     // eslint-disable-next-line no-plusplus
     for (let i = 0; i < encodedTx.inputs.length; ++i) {

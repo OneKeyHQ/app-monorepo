@@ -1,15 +1,19 @@
-import { randomUUID } from 'node:crypto';
-
 import axios from 'axios';
 
 import { getHost } from '../config';
 import { AppError, ERROR_CODES } from '../errors';
 
+import { buildCliAppRequestHeaders } from './app-request-headers';
+
 import type { IEndpointEnv } from '../config';
 import type { Logger } from '../utils/logger';
 import type { AxiosInstance } from 'axios';
 
-const VERSION = '0.1.0';
+type IApiRequestOptions = {
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+  timeout?: number;
+};
 
 export interface IOneKeyApiResponse<T> {
   code: number;
@@ -22,7 +26,7 @@ export class ApiClient {
 
   private logger?: Logger;
 
-  constructor(env: IEndpointEnv = 'test') {
+  constructor(env: IEndpointEnv = 'prod') {
     this.env = env;
   }
 
@@ -41,12 +45,7 @@ export class ApiClient {
     const client = axios.create({
       baseURL,
       timeout: 30_000,
-      headers: {
-        'X-Onekey-Request-ID': randomUUID(),
-        'X-Onekey-Request-Platform': 'cli',
-        'X-Onekey-Request-Version': VERSION,
-        'X-Onekey-Request-Locale': 'en',
-      },
+      headers: buildCliAppRequestHeaders(),
     });
 
     client.interceptors.response.use(
@@ -111,13 +110,19 @@ export class ApiClient {
     service: string,
     path: string,
     params?: Record<string, unknown>,
+    options?: IApiRequestOptions,
   ): Promise<T> {
     const client = this.createClient(service);
     this.logger?.debug(
       `[API] GET ${service}${path}`,
       JSON.stringify(params ?? {}),
     );
-    const response = await client.get<IOneKeyApiResponse<T>>(path, { params });
+    const response = await client.get<IOneKeyApiResponse<T>>(path, {
+      params,
+      headers: options?.headers,
+      signal: options?.signal,
+      timeout: options?.timeout,
+    });
     return this.unwrap(response.data, `GET ${path}`);
   }
 
@@ -126,6 +131,7 @@ export class ApiClient {
     path: string,
     body?: unknown,
     headers?: Record<string, string>,
+    options?: IApiRequestOptions,
   ): Promise<T> {
     const client = this.createClient(service);
     this.logger?.debug(
@@ -133,7 +139,12 @@ export class ApiClient {
       JSON.stringify(body ?? {}),
     );
     const response = await client.post<IOneKeyApiResponse<T>>(path, body, {
-      headers,
+      headers: {
+        ...headers,
+        ...options?.headers,
+      },
+      signal: options?.signal,
+      timeout: options?.timeout,
     });
     return this.unwrap(response.data, `POST ${path}`);
   }

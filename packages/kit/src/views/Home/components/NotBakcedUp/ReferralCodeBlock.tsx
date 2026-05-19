@@ -141,17 +141,10 @@ function ReferralCodeBlock({
         return false;
       }
 
-      const referralCodeInfo =
-        await backgroundApiProxy.serviceReferralCode.getWalletReferralCode({
-          walletId: wallet?.id || '',
-        });
-      if (!referralCodeInfo) {
-        const shouldBound = await getReferralCodeBondStatus({
-          walletId: wallet?.id,
-        });
-        return shouldBound;
-      }
-      return referralCodeInfo?.walletId && !referralCodeInfo?.isBound;
+      const shouldBound = await getReferralCodeBondStatus({
+        walletId: wallet?.id,
+      });
+      return shouldBound;
     },
     [isHdOrHwWallet, wallet?.id, wallet?.xfp, getReferralCodeBondStatus],
     {
@@ -167,7 +160,7 @@ function ReferralCodeBlock({
         referralCodeBlockInit: true,
       });
     }
-  }, [shouldBoundReferralCode, updateWalletStatus]);
+  }, [shouldBoundReferralCode, updateWalletStatus, wallet?.id]);
 
   useEffect(() => {
     if (walletStatus.referralCodeBlockInit) {
@@ -177,6 +170,7 @@ function ReferralCodeBlock({
     walletStatus.referralCodeBlockInit,
     walletStatus.showReferralCodeBlock,
     setShowReferralCodeBlock,
+    wallet?.id,
   ]);
 
   useEffect(() => {
@@ -194,6 +188,7 @@ function ReferralCodeBlock({
     refreshDisplayReferralCodeButton,
     shouldBoundReferralCode,
     updateWalletStatus,
+    wallet?.id,
   ]);
 
   // Keyboard avoidance: scroll collapsible tab header when input is covered
@@ -274,7 +269,9 @@ function ReferralCodeBlock({
         navigationToMessageConfirmAsync,
         referralCode: form.getValues().referralCode,
         onSuccess: () => {
-          setTimeout(() => refreshDisplayReferralCodeButton(), 200);
+          setTimeout(() => {
+            void refreshDisplayReferralCodeButton();
+          }, 200);
         },
       });
     } finally {
@@ -293,7 +290,6 @@ function ReferralCodeBlock({
     if (isLoadingReferralCodeButton) {
       return <Skeleton.HeadingXl />;
     }
-
     return shouldBoundReferralCode ? (
       <XStack alignItems="center" gap="$2" alignSelf="stretch">
         <Stack
@@ -314,6 +310,7 @@ function ReferralCodeBlock({
             renderErrorMessage={() => <></>}
           >
             <Input
+              testID="home-render-referral-code-actions-input"
               h={48}
               size="large"
               // w="100%"
@@ -332,6 +329,7 @@ function ReferralCodeBlock({
           </Form.Field>
         </Stack>
         <Button
+          testID="home-btn"
           size="large"
           variant="secondary"
           onPress={handleJoinReferral}
@@ -456,7 +454,6 @@ function ReferralCodeBlock({
   if (!walletStatus.showReferralCodeBlock) {
     return null;
   }
-
   return inTabList ? (
     <Stack height={360}>{renderReferralCodeBlock()}</Stack>
   ) : (

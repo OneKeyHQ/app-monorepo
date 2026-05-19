@@ -45,11 +45,16 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { headerPlatform } from '@onekeyhq/shared/src/request/InterceptorConsts';
+import type { ICliBotWalletRevealableSeed } from '@onekeyhq/shared/src/types/cliBotWallet';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { exportBotWalletToCli } from '@onekeyhq/shared/src/utils/cliBotWalletExport/exportToCli';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -78,6 +83,7 @@ import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTran
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
+import { checkIsOneKeyDomain } from '../../endpoints';
 import {
   devSettingsPersistAtom,
   perpsActiveAccountRefreshHookAtom,
@@ -97,7 +103,8 @@ import { createE2EEClientToClientApiProxy } from './e2ee/e2eeClientToClientApiPr
 import { createE2EEServerApiProxy } from './e2ee/e2eeServerApiProxy';
 import {
   filterTransferWallets,
-  shouldUseCliTransportDecryptedCredentials,
+  getCliBotWalletTransferWalletId,
+  shouldUseCliBotWalletEncryptedCredential,
 } from './servicePrimeTransferUtils';
 
 import type {
@@ -159,8 +166,21 @@ class ServicePrimeTransfer extends ServiceBase {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10_000); // 5 second timeout
 
-          const response = await fetch(`${url}/health`, {
+          const healthUrl = `${url}/health`;
+          // User-supplied custom Prime Transfer servers must not receive
+          // X-Onekey-* fingerprint headers (instanceId, device, locale,
+          // version, etc.) — and the no-protocol path probes http:// in
+          // parallel, so any leak would also go in plaintext. Only attach
+          // app headers + UA when the target is on the OneKey official
+          // whitelist.
+          const isOneKeyEndpoint = await checkIsOneKeyDomain(healthUrl);
+          const headers: Record<string, string> = isOneKeyEndpoint
+            ? await withCustomUAHeaders(healthUrl, await getRequestHeaders())
+            : {};
+
+          const response = await fetch(healthUrl, {
             method: 'GET',
+            headers,
             signal: controller.signal,
           });
 
@@ -246,13 +266,38 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async retryWebSocket() {
+    defaultLogger.prime.transfer.initWebSocket({ endpoint: '(retry)' });
+    // Clear terminal-failed state and switch to "reconnecting" so the UI
+    // flips back to "Connecting..." immediately. We set websocketReconnecting
+    // (not just clear error) for two reasons:
+    //   1. The page's init effect cleanup runs disconnectWebSocket, which
+    //      calls handleDisconnect — under reconnecting=true that path skips
+    //      writing 'WebSocket disconnected' so the UI doesn't flicker red.
+    //   2. The page also reacts to websocketEndpointUpdatedAt and will
+    //      re-resolve the endpoint, then re-run the init effect to call
+    //      initWebSocket again (which clears reconnecting=false at start).
+    await primeTransferAtom.set(
+      (v): IPrimeTransferAtomData => ({
+        ...v,
+        websocketConnected: false,
+        websocketReconnecting: true,
+        websocketError: undefined,
+        websocketEndpointUpdatedAt: Date.now(),
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async initWebSocket({ endpoint }: { endpoint: string }) {
-    console.log('initWebSocket', endpoint);
+    defaultLogger.prime.transfer.initWebSocket({ endpoint });
     await this.initWebsocketMutex.runExclusive(async () => {
       void primeTransferAtom.set(
         (v): IPrimeTransferAtomData => ({
           ...v,
           websocketError: undefined,
+          websocketReconnecting: false,
         }),
       );
 
@@ -264,8 +309,20 @@ class ServicePrimeTransfer extends ServiceBase {
         (v): IPrimeTransferAtomData => ({
           ...v,
           websocketError: undefined,
+          websocketReconnecting: false,
         }),
       );
+
+      const RECONNECTION_ATTEMPTS = 5;
+      const RECONNECTION_DELAY = 1000;
+      const RECONNECTION_DELAY_MAX = 5000;
+      // First-connect grace period: while connecting for the first time, do
+      // not flip UI to "failed" on transient connect_error — socket.io will
+      // auto-retry and usually succeed. Only show failed after retries are
+      // truly exhausted or grace period passes without success.
+      const FIRST_CONNECT_GRACE_PERIOD_MS = 8000;
+      const connectStartedAt = Date.now();
+      let connectErrorCount = 0;
 
       this.socket = io(endpoint, {
         transports: [
@@ -278,6 +335,10 @@ class ServicePrimeTransfer extends ServiceBase {
         ].filter(Boolean),
         upgrade: true,
         timeout: 10_000,
+        reconnection: true,
+        reconnectionAttempts: RECONNECTION_ATTEMPTS,
+        reconnectionDelay: RECONNECTION_DELAY,
+        reconnectionDelayMax: RECONNECTION_DELAY_MAX,
         auth: {
           // instanceId: settings.instanceId,
         },
@@ -289,6 +350,10 @@ class ServicePrimeTransfer extends ServiceBase {
 
         // Listen to socket connection events
         this.socket.on('connect', () => {
+          defaultLogger.prime.transfer.socketConnect({
+            transport: this.socket?.io?.engine?.transport?.name,
+            elapsedMs: Date.now() - connectStartedAt,
+          });
           connectedPairingCode = null;
           connectedEncryptedKey = null;
           void primeTransferAtom.set(
@@ -296,12 +361,14 @@ class ServicePrimeTransfer extends ServiceBase {
               ...v,
               shouldPreventExit: true,
               websocketConnected: true,
+              websocketReconnecting: false,
               websocketError: undefined,
             }),
           );
         });
 
-        this.socket.on('disconnect', () => {
+        this.socket.on('disconnect', (reason: string) => {
+          defaultLogger.prime.transfer.socketDisconnect({ reason });
           void this.handleDisconnect();
         });
 
@@ -309,17 +376,45 @@ class ServicePrimeTransfer extends ServiceBase {
           const e = error as unknown as
             | { message: string; type: string; description: string }
             | undefined;
-          console.log('connect_error', e?.message, e?.type, e?.description);
-          console.log(
-            'Socket.IO transport:',
-            this.socket?.io?.engine?.transport?.name,
-          );
+          connectErrorCount += 1;
+          const elapsedMs = Date.now() - connectStartedAt;
+          const withinGracePeriod =
+            elapsedMs < FIRST_CONNECT_GRACE_PERIOD_MS &&
+            connectErrorCount < RECONNECTION_ATTEMPTS;
+          defaultLogger.prime.transfer.socketConnectError({
+            message: e?.message,
+            type: e?.type,
+            description: e?.description,
+            transport: this.socket?.io?.engine?.transport?.name,
+            attempt: connectErrorCount,
+            withinGracePeriod,
+            elapsedMs,
+          });
           connectedPairingCode = null;
           connectedEncryptedKey = null;
+          // While socket.io is still going to auto-retry (within the grace
+          // period and reconnection budget), surface the state as
+          // "reconnecting" instead of "failed" so the UI does not flash a
+          // misleading red error to the user.
+          if (withinGracePeriod) {
+            void primeTransferAtom.set(
+              (v): IPrimeTransferAtomData => ({
+                ...v,
+                websocketConnected: false,
+                websocketReconnecting: true,
+                websocketError: undefined,
+                status: EPrimeTransferStatus.init,
+                pairedRoomId: undefined,
+                myUserId: undefined,
+              }),
+            );
+            return;
+          }
           void primeTransferAtom.set(
             (v): IPrimeTransferAtomData => ({
               ...v,
               websocketConnected: false,
+              websocketReconnecting: false,
               websocketError: e?.message || 'WebSocket connection error',
               status: EPrimeTransferStatus.init,
               pairedRoomId: undefined,
@@ -327,6 +422,51 @@ class ServicePrimeTransfer extends ServiceBase {
             }),
           );
         });
+
+        // socket.io Manager events (fired on the underlying manager, not the
+        // socket itself) — expose retry lifecycle to logs + UI.
+        const manager = this.socket.io;
+        if (manager) {
+          manager.on('reconnect_attempt', (attempt: number) => {
+            defaultLogger.prime.transfer.socketReconnectAttempt({ attempt });
+            void primeTransferAtom.set(
+              (v): IPrimeTransferAtomData => ({
+                ...v,
+                websocketReconnecting: true,
+                websocketError: undefined,
+              }),
+            );
+          });
+          manager.on('reconnect', (attempt: number) => {
+            defaultLogger.prime.transfer.socketReconnect({ attempt });
+            // The 'connect' event will fire too and clear the flags, but
+            // clear here as well for safety in case 'connect' is delayed.
+            void primeTransferAtom.set(
+              (v): IPrimeTransferAtomData => ({
+                ...v,
+                websocketReconnecting: false,
+                websocketError: undefined,
+              }),
+            );
+          });
+          manager.on('reconnect_failed', () => {
+            defaultLogger.prime.transfer.socketReconnectFailed({
+              attempts: connectErrorCount,
+              elapsedMs: Date.now() - connectStartedAt,
+            });
+            void primeTransferAtom.set(
+              (v): IPrimeTransferAtomData => ({
+                ...v,
+                websocketConnected: false,
+                websocketReconnecting: false,
+                websocketError: 'WebSocket reconnection failed',
+                status: EPrimeTransferStatus.init,
+                pairedRoomId: undefined,
+                myUserId: undefined,
+              }),
+            );
+          });
+        }
 
         this.socket.on(
           'user-left',
@@ -1352,58 +1492,45 @@ class ServicePrimeTransfer extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  @toastIfError()
-  async sendTransferData({
+  private normalizeTransferCredential(
+    credential: { credential?: string } | string | null | undefined,
+  ) {
+    if (typeof credential === 'string') {
+      return credential;
+    }
+    if (typeof credential?.credential === 'string') {
+      return credential.credential;
+    }
+    return undefined;
+  }
+
+  private async buildCliBotWalletExportInput({
     transferData,
-    allowCliImportableCredentials,
+    walletId,
   }: {
     transferData: IPrimeTransferData;
-    allowCliImportableCredentials?: boolean;
+    walletId: string;
   }) {
-    // eslint-disable-next-line no-param-reassign
-    transferData = cloneDeep(transferData);
-    this.checkWebSocketConnected();
+    const transferWallet = transferData.privateData.wallets[walletId];
+    const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+      walletId,
+    });
+    const walletName = wallet?.name || transferWallet?.name || walletId;
 
-    if (!transferData.isWatchingOnly) {
-      const shouldSendDecryptedCredentialsToCli =
-        shouldUseCliTransportDecryptedCredentials({
-          transferData,
-          allowCliImportableCredentials,
-        });
-      const { password } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify({
-          reason: EReasonForNeedPassword.Security,
-        });
+    // displayAddress is intentionally NOT included in the export input.
+    // The CLI receiver derives the first EVM address itself from the
+    // decrypted seed; trust nothing the sender claims about chain identity.
+    return {
+      walletId,
+      sourceLabel: `bot-wallet:${walletName}`.slice(0, 128),
+    };
+  }
 
-      if (!password) {
-        throw new OneKeyLocalError('Password is required');
-      }
-
-      await this.decryptTransferDataCredentials({
-        data: transferData,
-        clearWrappedCredentialsAfterDecrypt:
-          shouldSendDecryptedCredentialsToCli,
-      });
-      if (shouldSendDecryptedCredentialsToCli) {
-        // CLI bot-wallet import intentionally relies on the pairing-session
-        // E2EE payload and skips an extra receiver-side passcode prompt.
-        // Keep the decrypted credential only for this constrained CLI path.
-        transferData.privateData.decryptedCredentialsHex = undefined;
-      } else {
-        transferData.privateData.decryptedCredentialsHex =
-          await encryptStringAsync({
-            dataEncoding: 'utf8',
-            data: stringUtils.stableStringify(
-              transferData.privateData.decryptedCredentials,
-            ),
-            password,
-            allowRawPassword: true,
-          });
-        transferData.privateData.decryptedCredentials = undefined;
-      }
-    }
-
+  private async sendPreparedTransferData({
+    transferData,
+  }: {
+    transferData: IPrimeTransferData;
+  }) {
     const currentState = await primeTransferAtom.get();
     const pairedRoomId = currentState.pairedRoomId;
     if (!pairedRoomId) {
@@ -1432,10 +1559,139 @@ class ServicePrimeTransfer extends ServiceBase {
       password: encryptionKey,
       allowRawPassword: true,
     });
-    const result = await this.e2eeClientToClientApiProxy?.api.sendTransferData({
+    if (!this.e2eeClientToClientApiProxy) {
+      throw new OneKeyLocalError('Client to Client API not initialized');
+    }
+    return this.e2eeClientToClientApiProxy.api.sendTransferData({
       rawData: encryptedData.toString('base64'),
     });
-    return result;
+  }
+
+  private async sendCliBotWalletEncryptedCredentialTransferData({
+    transferData,
+    walletId,
+    password,
+  }: {
+    transferData: IPrimeTransferData;
+    walletId: string;
+    password: string;
+  }) {
+    const credential = this.normalizeTransferCredential(
+      transferData.privateData.credentials?.[walletId],
+    );
+    if (!credential) {
+      throw new OneKeyLocalError('Bot wallet credential is required');
+    }
+
+    const revealableSeed = (await decryptRevealableSeed({
+      rs: credential,
+      password,
+    })) as ICliBotWalletRevealableSeed;
+
+    const input = await this.buildCliBotWalletExportInput({
+      transferData,
+      walletId,
+    });
+
+    let sendResult: unknown;
+    try {
+      // BotWallet -> CLI export is intentionally Transfer-only. The encrypted
+      // credential payload must be embedded in Prime Transfer data and sent
+      // through the paired E2EE channel, not shown as Base64/QR/manual input.
+      await exportBotWalletToCli(input, {
+        getRevealableSeed: async () => revealableSeed,
+        onPayloadReady: async (payload) => {
+          transferData.privateData.cliBotWalletEncryptedCredential = payload;
+          transferData.privateData.credentials = {};
+          transferData.privateData.decryptedCredentials = undefined;
+          transferData.privateData.decryptedCredentialsHex = undefined;
+          try {
+            sendResult = await this.sendPreparedTransferData({ transferData });
+          } finally {
+            transferData.privateData.cliBotWalletEncryptedCredential =
+              undefined;
+          }
+        },
+      });
+    } finally {
+      revealableSeed.entropyWithLangPrefixed = '';
+      revealableSeed.seed = '';
+    }
+
+    return sendResult;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async sendTransferData({
+    transferData,
+    allowCliImportableCredentials,
+  }: {
+    transferData: IPrimeTransferData;
+    allowCliImportableCredentials?: boolean;
+  }) {
+    // eslint-disable-next-line no-param-reassign
+    transferData = cloneDeep(transferData);
+    this.checkWebSocketConnected();
+
+    // OK-53601: Bot Wallets are export-only to OneKey CLI via the dedicated
+    // single-wallet path below. Reject any other delivery whose payload
+    // includes a Bot Wallet — even if a caller bypassed the UI guard.
+    // Pairs with filterTransferWallets, which keeps Bot Wallets out of the
+    // default "transfer all" payload.
+    const shouldSendCliBotWalletEncryptedCredential =
+      shouldUseCliBotWalletEncryptedCredential({
+        transferData,
+        allowCliImportableCredentials,
+      });
+    const includesBotWallet = Object.keys(
+      transferData.privateData?.wallets ?? {},
+    ).some((id) => accountUtils.isBotWallet({ walletId: id }));
+    if (includesBotWallet && !shouldSendCliBotWalletEncryptedCredential) {
+      throw new OneKeyLocalError(
+        'Bot Wallet can only be transferred to OneKey CLI',
+      );
+    }
+
+    if (!transferData.isWatchingOnly) {
+      const { password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerify({
+          reason: EReasonForNeedPassword.Security,
+        });
+
+      if (!password) {
+        throw new OneKeyLocalError('Password is required');
+      }
+
+      if (shouldSendCliBotWalletEncryptedCredential) {
+        const walletId = getCliBotWalletTransferWalletId({ transferData });
+        if (!walletId) {
+          throw new OneKeyLocalError('Bot wallet transfer data is invalid');
+        }
+        return this.sendCliBotWalletEncryptedCredentialTransferData({
+          transferData,
+          walletId,
+          password,
+        });
+      }
+
+      await this.decryptTransferDataCredentials({
+        data: transferData,
+        clearWrappedCredentialsAfterDecrypt: false,
+      });
+      transferData.privateData.decryptedCredentialsHex =
+        await encryptStringAsync({
+          dataEncoding: 'utf8',
+          data: stringUtils.stableStringify(
+            transferData.privateData.decryptedCredentials,
+          ),
+          password,
+          allowRawPassword: true,
+        });
+      transferData.privateData.decryptedCredentials = undefined;
+    }
+
+    return this.sendPreparedTransferData({ transferData });
   }
 
   @backgroundMethod()
@@ -1507,7 +1763,12 @@ class ServicePrimeTransfer extends ServiceBase {
       (v): IPrimeTransferAtomData => ({
         ...v,
         websocketConnected: false,
-        websocketError: 'WebSocket disconnected',
+        // Keep websocketReconnecting as-is: if socket.io is mid-reconnect, a
+        // disconnect event will fire between attempts and we don't want to
+        // flip the UI to "failed" during that window.
+        websocketError: v.websocketReconnecting
+          ? undefined
+          : 'WebSocket disconnected',
         status: EPrimeTransferStatus.init,
         myCreatedRoomId: undefined,
         pairedRoomId: undefined,
@@ -1581,30 +1842,45 @@ class ServicePrimeTransfer extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async disconnectWebSocket() {
+    defaultLogger.prime.transfer.disconnectWebSocket({
+      caller: this.socket ? 'active' : 'noop',
+    });
     // Stop heartbeat monitoring
     this.stopHeartbeatCheck();
 
     try {
       if (this.socket) {
         try {
+          this.socket.io?.removeAllListeners?.();
+        } catch (e) {
+          defaultLogger.prime.transfer.disconnectError({
+            stage: 'managerRemoveAllListeners',
+            error: (e as Error)?.message || String(e),
+          });
+        }
+        try {
           this.socket.removeAllListeners();
         } catch (e) {
-          console.error('disconnectWebSocket error', e);
+          defaultLogger.prime.transfer.disconnectError({
+            stage: 'removeAllListeners',
+            error: (e as Error)?.message || String(e),
+          });
         }
         try {
           this.socket.disconnect();
         } catch (e) {
-          console.error('disconnectWebSocket error', e);
+          defaultLogger.prime.transfer.disconnectError({
+            stage: 'disconnect',
+            error: (e as Error)?.message || String(e),
+          });
         }
         try {
           this.socket.close();
         } catch (e) {
-          console.error('disconnectWebSocket error', e);
-        }
-        try {
-          this.socket.disconnect();
-        } catch (e) {
-          console.error('disconnectWebSocket error', e);
+          defaultLogger.prime.transfer.disconnectError({
+            stage: 'close',
+            error: (e as Error)?.message || String(e),
+          });
         }
         this.socket = null;
 
@@ -1612,10 +1888,21 @@ class ServicePrimeTransfer extends ServiceBase {
         connectedEncryptedKey = null;
         e2eeClientToClientApi.setSelfPairingCode({ pairingCode: '' });
         e2eeClientToClientApi.clearSensitiveData();
+        // Force-clear reconnecting flag on explicit disconnect — the user is
+        // leaving the page / aborting on purpose, no further retry expected.
+        void primeTransferAtom.set(
+          (v): IPrimeTransferAtomData => ({
+            ...v,
+            websocketReconnecting: false,
+          }),
+        );
         await this.handleDisconnect();
       }
     } catch (error) {
-      console.error('disconnectWebSocket error', error);
+      defaultLogger.prime.transfer.disconnectError({
+        stage: 'outer',
+        error: (error as Error)?.message || String(error),
+      });
     }
   }
 
@@ -2480,11 +2767,6 @@ class ServicePrimeTransfer extends ServiceBase {
               accountId: addedAccounts?.[0]?.id,
               rs: tonRsEncrypted,
             });
-            // const tonMnemonic2 = await tonMnemonicFromEntropy(
-            //   tonMnemonicCredential,
-            //   password,
-            // );
-            // console.log('tonMnemonic2', tonMnemonic2);
           }
         } catch (e) {
           console.error('tonMnemonicCredential error', e);

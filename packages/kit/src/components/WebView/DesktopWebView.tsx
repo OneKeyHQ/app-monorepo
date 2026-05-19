@@ -52,6 +52,9 @@ export type {
 };
 
 const isDev = process.env.NODE_ENV !== 'production';
+type IDesktopDidFailLoadEvent = DidFailLoadEvent & {
+  url?: string;
+};
 
 let preloadJsUrl = '';
 
@@ -72,6 +75,8 @@ const DesktopWebView = forwardRef(
       style,
       receiveHandler,
       allowpopups,
+      disableBridge,
+      partition: partitionProp,
       onDidStartLoading,
       onDidStartNavigation,
       onDidFinishLoad,
@@ -99,6 +104,15 @@ const DesktopWebView = forwardRef(
     const isUnmountingRef = useRef(false);
 
     const [desktopLoadError, setDesktopLoadError] = useState(false);
+    const [desktopLoadErrorCode, setDesktopLoadErrorCode] = useState<number>();
+    const lastMainFrameLoadErrorRef = useRef<
+      | {
+          url?: string;
+          errorCode?: number;
+          errorDescription?: string;
+        }
+      | undefined
+    >(undefined);
     const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const clearLoadTimeout = useCallback(() => {
@@ -113,6 +127,7 @@ const DesktopWebView = forwardRef(
       loadTimeoutRef.current = setTimeout(() => {
         if (!isUnmountingRef.current) {
           setDesktopLoadError(true);
+          setDesktopLoadErrorCode(undefined);
         }
       }, WEBVIEW_LOAD_TIMEOUT_MS);
     }, [clearLoadTimeout]);
@@ -176,7 +191,8 @@ const DesktopWebView = forwardRef(
           }
         };
 
-        const innerHandleDidFailLoad = (event: any) => {
+        const innerHandleDidFailLoad = (event: IDesktopDidFailLoadEvent) => {
+          const failedUrl = event?.validatedURL ?? event?.url;
           if (event.isMainFrame) {
             clearLoadTimeout();
           }
@@ -184,7 +200,13 @@ const DesktopWebView = forwardRef(
             // TODO iframe error also show ErrorView
             //      testing www.163.com
             if (event.isMainFrame) {
+              lastMainFrameLoadErrorRef.current = {
+                url: failedUrl,
+                errorCode: event.errorCode,
+                errorDescription: event.errorDescription,
+              };
               setDesktopLoadError(true);
+              setDesktopLoadErrorCode(event.errorCode);
             }
           }
           onDidFailLoad?.(event);
@@ -205,7 +227,9 @@ const DesktopWebView = forwardRef(
             }
           }
           if (isMainFrame) {
+            lastMainFrameLoadErrorRef.current = undefined;
             setDesktopLoadError(false);
+            setDesktopLoadErrorCode(undefined);
             setIsDomReady(false);
             startLoadTimeout();
           }
@@ -216,7 +240,10 @@ const DesktopWebView = forwardRef(
 
         const didFinishLoad = (e: any) => {
           clearLoadTimeout();
-          setDesktopLoadError(false);
+          if (!lastMainFrameLoadErrorRef.current) {
+            setDesktopLoadError(false);
+            setDesktopLoadErrorCode(undefined);
+          }
           onDidFinishLoad?.();
           onLoadEnd?.(e);
         };
@@ -226,10 +253,33 @@ const DesktopWebView = forwardRef(
           onDidStopLoading?.();
         };
 
+        // Server-side HTTP redirects (302 / 301) reach the new URL through
+        // `did-redirect-navigation`. Without an explicit listener the safety
+        // check in `did-start-navigation` may fire too late to abort the
+        // redirected request, so re-run the URL guard and stop the load if
+        // the target is not allowed.
+        const innerHandleDidRedirectNavigation = (
+          event: DidStartNavigationEvent,
+        ) => {
+          const { isMainFrame, url } = event ?? {};
+          if (
+            isMainFrame &&
+            onShouldStartLoadWithRequest &&
+            url &&
+            !onShouldStartLoadWithRequest({ url, isTopFrame: true })
+          ) {
+            webviewRef.current?.stop();
+          }
+        };
+
         webview.addEventListener('did-start-loading', onDidStartLoading);
         webview.addEventListener(
           'did-start-navigation',
           innerHandleDidStartNavigationNavigation,
+        );
+        webview.addEventListener(
+          'did-redirect-navigation',
+          innerHandleDidRedirectNavigation,
         );
         webview.addEventListener('did-finish-load', didFinishLoad);
         webview.addEventListener('did-stop-loading', innerHandleDidStopLoading);
@@ -250,6 +300,10 @@ const DesktopWebView = forwardRef(
           webview.removeEventListener(
             'did-start-navigation',
             innerHandleDidStartNavigationNavigation,
+          );
+          webview.removeEventListener(
+            'did-redirect-navigation',
+            innerHandleDidRedirectNavigation,
           );
           webview.removeEventListener('did-finish-load', didFinishLoad);
           webview.removeEventListener(
@@ -364,7 +418,7 @@ const DesktopWebView = forwardRef(
 
     useEffect(() => {
       const webview = webviewRef.current;
-      if (!webview || !isWebviewReady) {
+      if (!webview || !isWebviewReady || disableBridge) {
         return;
       }
 
@@ -435,20 +489,18 @@ const DesktopWebView = forwardRef(
       return () => {
         webview.removeEventListener('ipc-message', handleMessage);
       };
-    }, [jsBridgeHost, isWebviewReady, src]);
+    }, [jsBridgeHost, isWebviewReady, src, disableBridge]);
 
     useEffect(() => {
       flushPendingScripts();
     }, [flushPendingScripts, isWebviewReady]);
 
-    if (!preloadJsUrl) {
+    if (!preloadJsUrl && !disableBridge) {
       return null;
     }
 
-    console.log('preloadJsUrl', preloadJsUrl);
-
     return (
-      <>
+      <Stack flex={1} position="relative" bg="$bgApp">
         {devSettings?.enabled && devSettings?.settings?.showWebviewDevTools ? (
           <button
             data-testid="webview-dev-tools"
@@ -471,9 +523,9 @@ const DesktopWebView = forwardRef(
         ) : null}
         <webview
           ref={initWebviewByRef}
-          preload={preloadJsUrl}
+          {...(disableBridge ? {} : { preload: preloadJsUrl })}
           src={src}
-          partition="persist:onekey"
+          partition={partitionProp ?? 'persist:onekey'}
           style={{
             'width': '100%',
             'height': '100%',
@@ -494,15 +546,26 @@ const DesktopWebView = forwardRef(
           {...props}
         />
         {desktopLoadError ? (
-          <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
+          <Stack
+            position="absolute"
+            top={0}
+            bottom={0}
+            left={0}
+            right={0}
+            zIndex={1}
+            bg="$bgApp"
+          >
             <ErrorView
+              errorCode={desktopLoadErrorCode}
               onRefresh={() => {
+                setDesktopLoadError(false);
+                setDesktopLoadErrorCode(undefined);
                 webviewRef.current?.reload();
               }}
             />
           </Stack>
         ) : null}
-      </>
+      </Stack>
     );
   },
 );

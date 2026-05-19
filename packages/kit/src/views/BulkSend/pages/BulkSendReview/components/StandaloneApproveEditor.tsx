@@ -168,6 +168,7 @@ function StandaloneApproveEditorContent(props: IStandaloneApproveEditorProps) {
               <Skeleton height={20} width={100} />
             ) : (
               <Button
+                testID="bulk-send-dp-btn"
                 size="small"
                 variant="tertiary"
                 icon="WalletOutline"
@@ -194,6 +195,7 @@ function StandaloneApproveEditorContent(props: IStandaloneApproveEditorProps) {
           }
         >
           <Input
+            testID="bulk-send-input"
             flex={1}
             editable={!watchAllFields.isUnlimited}
             addOns={[{ label: tokenSymbol }]}
@@ -224,7 +226,7 @@ function StandaloneApproveEditorContent(props: IStandaloneApproveEditorProps) {
             },
           }}
         >
-          <Switch size="small" />
+          <Switch size="small" testID="bulk-send-value-switch" />
         </Form.Field>
       </Form>
       <Dialog.Footer
@@ -264,6 +266,7 @@ function StandaloneApproveEditorContent(props: IStandaloneApproveEditorProps) {
 
 const showStandaloneApproveEditor = (props: IStandaloneApproveEditorProps) => {
   Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.approve_edit_title,
     }),

@@ -28,7 +28,11 @@ import type {
 } from '@onekeyhq/shared/types/signatureConfirm';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { ESwapProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { IDecodedTx, ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
+import {
+  EApproveType,
+  type IDecodedTx,
+  type ISendTxBaseParams,
+} from '@onekeyhq/shared/types/tx';
 
 import {
   type IRecentRecipientEntry,
@@ -39,6 +43,40 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IBuildDecodedTxParams } from '../vaults/types';
+
+function mergeAddressComponentTags(
+  results: IParseTransactionResp[],
+): IParseTransactionResp {
+  const base = results[0];
+
+  if (!base.display?.components?.length) {
+    return base;
+  }
+
+  base.display.components.forEach((component, index) => {
+    if (component.type !== EParseTxComponentType.Address) {
+      return;
+    }
+
+    const addressComponents = results
+      .map((result) => result.display?.components?.[index])
+      .filter(
+        (candidate): candidate is typeof component =>
+          candidate?.type === EParseTxComponentType.Address,
+      );
+
+    const preferredTags =
+      addressComponents.find((candidate) =>
+        candidate.tags?.some((tag) => tag.key === 'transferred'),
+      )?.tags ?? addressComponents[0]?.tags;
+
+    if (preferredTags) {
+      component.tags = preferredTags;
+    }
+  });
+
+  return base;
+}
 
 @backgroundClass()
 class ServiceSignatureConfirm extends ServiceBase {
@@ -241,6 +279,63 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.isLocalParsed = true;
     }
 
+    // Backfill approveType/spender/amount on server-built Approve components
+    // from the local decoder, which always reflects current calldata (the
+    // server's amountParsed lags re-encoding after the user edits the delta).
+    if (decodedTx.txDisplay?.components) {
+      const localApproves = decodedTx.actions
+        .map((a) => a.tokenApprove)
+        .filter((a): a is NonNullable<typeof a> => Boolean(a));
+      if (localApproves.length > 0) {
+        const localByToken = new Map<string, (typeof localApproves)[number]>();
+        for (const a of localApproves) {
+          if (a.tokenIdOnNetwork) {
+            localByToken.set(a.tokenIdOnNetwork.toLowerCase(), a);
+          }
+        }
+        // Prevent double-attribution: token-keyed hits must not be re-handed
+        // out by the positional fallback to a later component.
+        const usedLocal = new Set<(typeof localApproves)[number]>();
+        let fallbackIdx = 0;
+        for (const c of decodedTx.txDisplay.components) {
+          if (c.type === EParseTxComponentType.Approve) {
+            const tokenAddr = c.token?.info?.address?.toLowerCase();
+            let localApprove: (typeof localApproves)[number] | undefined;
+            const byToken = tokenAddr ? localByToken.get(tokenAddr) : undefined;
+            if (byToken && !usedLocal.has(byToken)) {
+              localApprove = byToken;
+            } else {
+              while (
+                fallbackIdx < localApproves.length &&
+                usedLocal.has(localApproves[fallbackIdx])
+              ) {
+                fallbackIdx += 1;
+              }
+              localApprove = localApproves[fallbackIdx];
+              fallbackIdx += 1;
+            }
+            if (localApprove) {
+              usedLocal.add(localApprove);
+              if (!c.approveType && localApprove.approveType) {
+                c.approveType = localApprove.approveType;
+              }
+              if (!c.spender && localApprove.spender) {
+                c.spender = localApprove.spender;
+              }
+              const localApproveType =
+                localApprove.approveType ?? c.approveType;
+              if (
+                localApproveType === EApproveType.IncreaseAllowance ||
+                localApproveType === EApproveType.IncreaseApproval
+              ) {
+                c.amountParsed = localApprove.amount;
+              }
+            }
+          }
+        }
+      }
+    }
+
     if (transferPayload?.isCustomHexData) {
       decodedTx.isCustomHexData = true;
     }
@@ -250,7 +345,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
   @backgroundMethod()
   async parseTransaction(params: IParseTransactionParams) {
-    const { accountId, networkId, encodedTx } = params;
+    const { accountId, networkId, encodedTx, origin } = params;
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
@@ -269,41 +364,93 @@ class ServiceSignatureConfirm extends ServiceBase {
         encodedTx,
       });
 
-    let xpub: string | undefined;
+    // For BTC/LTC merge-derive accounts, the server's parse-transaction
+    // API only accepts a single xpub per call. Call once per derive type
+    // and merge interaction results (same as fetchBadgesDeduped).
+    let xpubs: string[] = [];
     try {
-      xpub =
-        (await this.backgroundApi.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        })) || undefined;
+      const xpubEntries =
+        await this.backgroundApi.serviceAccount.safeGetAccountXpubsForAllDeriveTypes(
+          { accountId, networkId },
+        );
+      xpubs = xpubEntries.map((e) => e.xpub).filter((x): x is string => !!x);
     } catch {
-      // non-fatal: backend parses from encodedTx, xpub is an identity hint
+      // non-fatal
+    }
+    if (xpubs.length === 0) {
+      try {
+        const singleXpub =
+          (await this.backgroundApi.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          })) || undefined;
+        if (singleXpub) {
+          xpubs = [singleXpub];
+        }
+      } catch {
+        // non-fatal
+      }
     }
 
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );
-    const resp = await client.post<{ data: IParseTransactionResp }>(
-      '/wallet/v1/account/parse-transaction',
-      {
-        networkId,
-        accountAddress,
-        encodedTx: encodedTxToParse,
-        xpub,
-      },
-      {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
+    const walletTypeHeaders =
+      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      });
+
+    const callParseTransaction = async (xpub?: string) => {
+      const resp = await client.post<{ data: IParseTransactionResp }>(
+        '/wallet/v1/account/parse-transaction',
+        {
+          networkId,
+          accountAddress,
+          encodedTx: encodedTxToParse,
+          xpub,
+          origin,
+        },
+        { headers: walletTypeHeaders },
+      );
+      return resp.data.data;
+    };
+
+    if (xpubs.length <= 1) {
+      return callParseTransaction(xpubs[0]);
+    }
+
+    // Multiple xpubs: call once per xpub, merge interaction results.
+    const settled = await Promise.allSettled(
+      xpubs.map((xpub) => callParseTransaction(xpub)),
     );
-    return resp.data.data;
+    const validResults = settled
+      .filter(
+        (r): r is PromiseFulfilledResult<IParseTransactionResp> =>
+          r.status === 'fulfilled',
+      )
+      .map((r) => r.value);
+    if (validResults.length === 0) {
+      // All xpub-scoped calls failed; retry without xpub so the server
+      // still parses the tx from encodedTx alone.
+      return callParseTransaction(undefined);
+    }
+    // Use the first result as base, merge riskLevel across xpubs
+    // (take the highest risk seen from any derive path).
+    const base = mergeAddressComponentTags(validResults);
+    if (base.parsedTx?.to) {
+      const maxRiskLevel = Math.max(
+        ...validResults.map((r) => r.parsedTx?.to?.riskLevel ?? 0),
+      );
+      if (maxRiskLevel > (base.parsedTx.to.riskLevel ?? 0)) {
+        base.parsedTx.to.riskLevel = maxRiskLevel;
+      }
+    }
+    return base;
   }
 
   @backgroundMethod()
   async parseMessage(params: IParseMessageParams) {
-    const { accountId, networkId, message, swapInfo } = params;
+    const { accountId, networkId, message, swapInfo, origin } = params;
 
     // if the network is custom network, disable parse message through api
     if (
@@ -338,6 +485,7 @@ class ServiceSignatureConfirm extends ServiceBase {
           networkId,
           accountAddress,
           data: messageToParse,
+          origin,
         },
         {
           headers:

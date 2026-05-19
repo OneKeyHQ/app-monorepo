@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  ActionList,
   Divider,
   Icon,
   SizableText,
@@ -11,8 +12,12 @@ import {
   XStack,
   useShortcuts,
 } from '@onekeyhq/components';
-import type { ISortableListViewRef } from '@onekeyhq/components';
+import type {
+  IActionListSection,
+  ISortableListViewRef,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import { useBrowserSubmenu } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/BrowserSubmenuColumn/BrowserSubmenuContext';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -24,6 +29,8 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { HandleRebuildBrowserData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
 import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { INewBrowserTabPosition } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -43,6 +50,7 @@ import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import { useDesktopNewWindow } from '../../hooks/useDesktopNewWindow';
 import { useDiscoveryShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
+import { DiscoveryTestIDs } from '../../testIDs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 const TIMESTAMP_DIFF_MULTIPLIER = 2;
@@ -73,6 +81,70 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
   const { addOrUpdateBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction().current;
 
+  const { reportPopoverOpen } = useBrowserSubmenu();
+  // Guard against unbalanced onOpenChange calls from the ActionList.
+  // Without this, a duplicate open / missing close would leak the popover
+  // count in BrowserSubmenuColumn and the sidebar would never collapse again.
+  const newTabMenuOpenRef = useRef(false);
+  const handleNewTabMenuOpenChange = useCallback(
+    (isOpen: boolean) => {
+      if (isOpen && !newTabMenuOpenRef.current) {
+        newTabMenuOpenRef.current = true;
+        reportPopoverOpen(true);
+      } else if (!isOpen && newTabMenuOpenRef.current) {
+        newTabMenuOpenRef.current = false;
+        reportPopoverOpen(false);
+      }
+    },
+    [reportPopoverOpen],
+  );
+  useEffect(
+    () => () => {
+      if (newTabMenuOpenRef.current) {
+        newTabMenuOpenRef.current = false;
+        reportPopoverOpen(false);
+      }
+    },
+    [reportPopoverOpen],
+  );
+  const [{ newBrowserTabPosition }] = useSettingsPersistAtom();
+  const currentTabPosition = newBrowserTabPosition ?? 'bottom';
+  const newTabPositionSections = useMemo<IActionListSection[]>(() => {
+    const options = [
+      {
+        value: 'top' as INewBrowserTabPosition,
+        labelId: 'global_top' as ETranslations,
+        icon: 'ArrowTopOutline' as const,
+      },
+      {
+        value: 'bottom' as INewBrowserTabPosition,
+        labelId: 'global_bottom' as ETranslations,
+        icon: 'ArrowBottomOutline' as const,
+      },
+    ];
+    return [
+      {
+        title: intl.formatMessage({
+          id: 'settings_browser_new_tab_position' as ETranslations,
+        }),
+        items: options.map(({ value, labelId, icon }) => ({
+          label: intl.formatMessage({ id: labelId }),
+          icon,
+          extra:
+            currentTabPosition === value ? (
+              <Icon name="CheckRadioSolid" color="$iconActive" size="$5" />
+            ) : null,
+          onPress: () => {
+            void backgroundApiProxy.serviceSetting.setNewBrowserTabPosition(
+              value,
+            );
+          },
+          testID: `browser-sidebar-new-tab-position-${value}`,
+        })),
+      },
+    ];
+  }, [currentTabPosition, intl]);
+
   const { pinnedTabs, unpinnedTabs } = useMemo(() => {
     const allTabs = tabs ?? [];
     return {
@@ -86,10 +158,22 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
   useEffect(() => {
     if (previousTabsLength && tabs?.length > previousTabsLength) {
       if (unpinnedTabs.length > 0) {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
+        if (currentTabPosition === 'top') {
+          scrollViewRef.current?.scrollToOffset({
+            offset: 0,
+            animated: true,
+          });
+        } else {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }
       }
     }
-  }, [previousTabsLength, tabs?.length, unpinnedTabs.length]);
+  }, [
+    previousTabsLength,
+    tabs?.length,
+    unpinnedTabs.length,
+    currentTabPosition,
+  ]);
 
   const handlePinnedPress = useCallback(
     (id: string, pinned: boolean) => {
@@ -155,6 +239,16 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
       savedActiveTabId = '';
     }
   });
+
+  useEffect(() => {
+    const listener = () => {
+      savedActiveTabId = '';
+    };
+    appEventBus.on(EAppEventBusNames.ClearSavedBrowserActiveTab, listener);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ClearSavedBrowserActiveTab, listener);
+    };
+  }, []);
 
   // For risk detection
   useEffect(() => {
@@ -301,7 +395,7 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
           }
           icon="PlusSmallOutline"
           showTooltip={false}
-          testID="browser-bar-add"
+          testID={DiscoveryTestIDs.newTabButton}
           tabBarStyle={isCollapsed ? { justifyContent: 'center' } : undefined}
           onPress={(e) => {
             e.stopPropagation();
@@ -441,6 +535,29 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
         onDragEnd={onDragEnd}
         contentContainerStyle={{ pb: '$2' }}
       />
+      {!isCollapsed ? (
+        <XStack flexShrink={0} justifyContent="flex-end" px="$2" pb="$3">
+          <ActionList
+            title=""
+            placement="top-end"
+            sections={newTabPositionSections}
+            onOpenChange={handleNewTabMenuOpenChange}
+            renderTrigger={
+              <Stack
+                p="$1"
+                borderRadius="$2"
+                hoverStyle={{ bg: '$bgHover' }}
+                pressStyle={{ bg: '$bgActive' }}
+                cursor="default"
+                testID="browser-sidebar-more"
+                onPress={() => {}}
+              >
+                <Icon name="SettingsOutline" size="$5" color="$iconSubdued" />
+              </Stack>
+            }
+          />
+        </XStack>
+      ) : null}
     </Stack>
   );
 }

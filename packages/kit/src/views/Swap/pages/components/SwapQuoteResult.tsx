@@ -48,9 +48,10 @@ import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
 import { useSwapLimitConfigMaps } from '../../hooks/useSwapGlobal';
 import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
 import {
-  useSwapQuoteEventFetching,
   useSwapQuoteLoading,
+  useSwapQuoteProgressState,
 } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
@@ -85,6 +86,7 @@ const SwapQuoteResult = ({
   const [swapLimitPartiallyFill, setSwapLimitPartiallyFill] =
     useSwapLimitPartiallyFillAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
+  const { isWaitingActionableQuote } = useSwapQuoteProgressState();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
@@ -161,7 +163,7 @@ const SwapQuoteResult = ({
     [calculateTaxItem],
   );
 
-  const quoting = useSwapQuoteEventFetching();
+  const quoting = isWaitingActionableQuote;
 
   const { limitOrderExpiryStepMap, limitOrderPartiallyFillStepMap } =
     useSwapLimitConfigMaps();
@@ -186,6 +188,7 @@ const SwapQuoteResult = ({
   if (swapApprovingTransaction && swapApprovingLoading) {
     return (
       <SwapApprovingItem
+        testID={SwapTestIDs.approveButton}
         approvingTransaction={swapApprovingTransaction}
         onComplete={() => {
           setInAppNotificationAtom((pre) => ({
@@ -197,7 +200,7 @@ const SwapQuoteResult = ({
     );
   }
   if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
-    if (quoting || swapQuoteLoading) {
+    if (isWaitingActionableQuote) {
       return (
         <XStack alignItems="center">
           <XStack gap="$2">
@@ -228,6 +231,7 @@ const SwapQuoteResult = ({
       return !quoteResult?.shouldWrappedToken && quoteResult?.info.provider ? (
         <YStack gap="$3">
           <SwapProviderInfoItem
+            testID={SwapTestIDs.providerSelector}
             providerIcon={quoteResult?.info.providerLogo ?? ''}
             providerName={quoteResult?.info.providerName ?? ''}
             isBest={quoteResult?.isBest}

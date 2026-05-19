@@ -5,12 +5,16 @@ import { debounce } from 'lodash';
 import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
@@ -20,12 +24,18 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import {
+  useSwapProDirectionAtom,
+  useSwapProSelectTokenAtom,
+  useSwapProSellToTokenAtom,
+  useSwapProUseSelectBuyTokenAtom,
   useSwapProviderSupportReceiveAddressAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenNetworkAtom,
   useSwapToAnotherAccountAddressAtom,
+  useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 
 import {
   shouldShowSwapRecipientAddressInfo,
@@ -197,9 +207,20 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
+  const [swapTabSwitchType] = useSwapTypeSwitchAtom();
+  const [swapProDirection] = useSwapProDirectionAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
+  const [swapProSellToToken] = useSwapProSellToTokenAtom();
   const [accountForTargetNetwork, setAccountForTargetNetwork] = useState<
     INetworkAccount | undefined
   >(undefined);
+
+  const focusSwapPro = useMemo(() => {
+    return (
+      platformEnv.isNative && swapTabSwitchType === ESwapTabSwitchType.LIMIT
+    );
+  }, [swapTabSwitchType]);
 
   const isAllNetwork = useMemo(() => {
     return networkUtils.isAllNetwork({
@@ -208,14 +229,30 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
   }, [activeAccount.network?.id]);
 
   const tokenNetworkId = useMemo(() => {
+    if (focusSwapPro) {
+      return type === ESwapDirectionType.FROM
+        ? ((swapProDirection === ESwapDirection.BUY
+            ? swapProUseSelectBuyToken
+            : swapProSelectToken
+          )?.networkId ?? '')
+        : ((swapProDirection === ESwapDirection.BUY
+            ? swapProSelectToken
+            : swapProSellToToken
+          )?.networkId ?? '');
+    }
     return type === ESwapDirectionType.FROM
       ? (currentSelectNetwork?.networkId ?? fromToken?.networkId ?? '')
       : (currentSelectNetwork?.networkId ?? toToken?.networkId ?? '');
   }, [
+    focusSwapPro,
     type,
     fromToken?.networkId,
     toToken?.networkId,
     currentSelectNetwork?.networkId,
+    swapProDirection,
+    swapProSelectToken,
+    swapProUseSelectBuyToken,
+    swapProSellToToken,
   ]);
 
   const shouldResolveTargetNetworkAccount = useMemo(() => {

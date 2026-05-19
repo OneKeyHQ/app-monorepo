@@ -23,44 +23,46 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
+import { SignatureConfirmTestIDs } from '../../testIDs';
 import { DataViewerTab } from '../SignatureConfirmDataViewer';
 
 import { AdvancedSettings } from './AdvancedSettings';
+
+import type { IntlShape } from 'react-intl';
 
 type IProps = {
   accountId: string;
   networkId: string;
 };
 
-const showNonceFaq = () => {
+const showNonceFaq = (intl: IntlShape) => {
   Dialog.show({
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.global_nonce,
     }),
     icon: 'LabOutline',
-    description: appLocale.intl.formatMessage({
+    description: intl.formatMessage({
       id: ETranslations.global_nonce_faq_desc,
     }),
     showCancelButton: false,
-    onConfirmText: appLocale.intl.formatMessage({
+    onConfirmText: intl.formatMessage({
       id: ETranslations.global_ok,
     }),
   });
 };
 
-export const showHexDataFaq = () => {
+export const showHexDataFaq = (intl: IntlShape) => {
   Dialog.show({
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.global_hex_data_default,
     }),
     icon: 'ConsoleOutline',
-    description: appLocale.intl.formatMessage({
+    description: intl.formatMessage({
       id: ETranslations.global_hex_data_faq_desc,
     }),
     showCancelButton: false,
-    onConfirmText: appLocale.intl.formatMessage({
+    onConfirmText: intl.formatMessage({
       id: ETranslations.global_ok,
     }),
   });
@@ -262,9 +264,10 @@ function TxAdvancedSettings(props: IProps) {
               )}
               labelAddon={
                 <Button
+                  testID="signature-confirm-formatted-value-btn"
                   size="small"
                   variant="tertiary"
-                  onPress={() => showNonceFaq()}
+                  onPress={() => showNonceFaq(intl)}
                 >
                   {intl.formatMessage({
                     id: ETranslations.global_nonce_faq,
@@ -272,7 +275,11 @@ function TxAdvancedSettings(props: IProps) {
                 </Button>
               }
             >
-              <Input flex={1} placeholder={currentNonce} />
+              <Input
+                testID={SignatureConfirmTestIDs.NonceInput}
+                flex={1}
+                placeholder={currentNonce}
+              />
             </Form.Field>
           </Form>
         ) : null}
@@ -304,7 +311,11 @@ function TxAdvancedSettings(props: IProps) {
     return null;
   }
 
-  return <AdvancedSettings>{renderAdvancedSettings()}</AdvancedSettings>;
+  return (
+    <AdvancedSettings testID={SignatureConfirmTestIDs.TxAdvancedSettings}>
+      {renderAdvancedSettings()}
+    </AdvancedSettings>
+  );
 }
 
 export { TxAdvancedSettings };

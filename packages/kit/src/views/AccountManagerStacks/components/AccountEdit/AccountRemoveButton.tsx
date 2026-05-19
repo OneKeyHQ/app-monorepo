@@ -17,6 +17,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { AccountManagerTestIDs } from '../../testIDs';
+
 let shouldShowHdOrHwAccountRemoveDialog = true;
 
 function useRemoveAccountFn() {
@@ -77,6 +79,7 @@ export function AccountRemoveDialog({
       confirmButtonProps={{
         variant: indexedAccount && !account ? 'primary' : 'destructive',
         loading,
+        testID: AccountManagerTestIDs.accountRemoveConfirm,
       }}
       onConfirmText={intl.formatMessage({
         id: ETranslations.global_remove,
@@ -182,6 +185,7 @@ export function AccountRemoveButton({
 
   return (
     <ActionList.Item
+      testID={AccountManagerTestIDs.accountRemoveButton}
       icon={icon}
       label={label}
       destructive

@@ -32,6 +32,7 @@ export type IManagePositionProtocolSwitchConfig = {
   isLoading?: boolean;
   protocols: IStakeProtocolListItem[];
   selectedProtocol: IManagePositionSelectedProtocol;
+  indexedAccountId?: string;
   onProtocolSelect: (protocol: IStakeProtocolListItem) => void | Promise<void>;
 };
 

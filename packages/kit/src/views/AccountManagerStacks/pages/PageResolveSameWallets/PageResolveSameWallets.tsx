@@ -10,10 +10,10 @@ import {
   SizableText,
   Stack,
   XStack,
+  resetAccountManagerStacksModal,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -61,7 +61,10 @@ function SameWalletItem({
           >
             <Stack w="$10" h="$10">
               {isChecked ? (
-                <Checkbox value={wallet.id === checkedWalletId} />
+                <Checkbox
+                  value={wallet.id === checkedWalletId}
+                  testID="account-manager-is-checked-checkbox"
+                />
               ) : null}
             </Stack>
             <WalletAvatar wallet={wallet} />
@@ -89,8 +92,6 @@ export default function PageResolveSameWallets({
   const selectedWalletsMap = useRef<{
     [walletHash: string]: string; // walletId
   }>({});
-
-  const navigation = useAppNavigation();
 
   return (
     <Page scrollEnabled safeAreaEnabled>
@@ -148,7 +149,7 @@ export default function PageResolveSameWallets({
                   { password: '' },
                 );
                 // TODO accountSelector action autoSelect next wallet
-                navigation.popStack();
+                resetAccountManagerStacksModal();
               } finally {
                 setIsRemoving(false);
               }

@@ -20,6 +20,7 @@ import {
   type IExchangeConfig,
 } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
@@ -43,6 +44,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActionBuy';
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
+import { ReceiveTestIDs } from '../testIDs';
 
 import type { IListItemProps } from '../../../components/ListItem';
 import type { RouteProp } from '@react-navigation/core';
@@ -196,6 +198,7 @@ function ReceiveSelectorContent() {
         accountId,
         indexedAccountId,
         closeAfterSelect: false,
+        showDeFiTokenSwitch: true,
         aggregateTokenSelectorScreen:
           EModalReceiveRoutes.ReceiveSelectAggregateToken,
         exchangeFilter: {
@@ -265,6 +268,10 @@ function ReceiveSelectorContent() {
 
   const handleExchangePress = useCallback(
     async (config: IExchangeConfig) => {
+      defaultLogger.transaction.receive.clickExchangeEntry({
+        exchangeSource: config.id,
+        walletType: wallet?.type,
+      });
       const isInstalled = isExchangeInstalled(config.id);
       const shouldUseBinancePreOrder =
         !platformEnv.isWebDappMode && (!platformEnv.isNative || isInstalled);
@@ -283,6 +290,7 @@ function ReceiveSelectorContent() {
           accountId,
           indexedAccountId,
           closeAfterSelect: false,
+          showDeFiTokenSwitch: true,
           aggregateTokenSelectorScreen:
             EModalReceiveRoutes.ReceiveSelectAggregateToken,
           onSelect: async (selectedToken: IToken) => {
@@ -344,13 +352,14 @@ function ReceiveSelectorContent() {
       accountId,
       indexedAccountId,
       walletId,
+      wallet?.type,
     ],
   );
 
   useEffect(() => () => void onClose?.(), [onClose]);
 
   return (
-    <Page>
+    <Page testID={ReceiveTestIDs.ReceiveSelectorPage}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_receive })}
       />
@@ -363,6 +372,7 @@ function ReceiveSelectorContent() {
               source="receiveSelector"
               renderTrigger={({ onPress, disabled }) => (
                 <ReceiveOptions
+                  testID={ReceiveTestIDs.BuyCryptoOption}
                   icon="CurrencyDollarOutline"
                   title={intl.formatMessage({
                     id: ETranslations.global_buy_crypto,
@@ -443,12 +453,13 @@ function ReceiveSelectorContent() {
             source="receiveSelector"
             renderTrigger={({ onPress, disabled }) => (
               <ReceiveOptions
+                testID={ReceiveTestIDs.ReceiveFromWalletOption}
                 icon="QrCodeOutline"
                 title={intl.formatMessage({
-                  id: ETranslations.receive_from_another_wallet,
+                  id: ETranslations.receive_transfer,
                 })}
                 subtitle={intl.formatMessage({
-                  id: ETranslations.receive_from_another_wallet_desc,
+                  id: ETranslations.receive_transfer_desc,
                 })}
                 onPress={() =>
                   handleReceiveOnPress({
@@ -460,6 +471,7 @@ function ReceiveSelectorContent() {
             )}
           />
           <YStack
+            testID={ReceiveTestIDs.ExchangeList}
             bg="$neutral2"
             borderRadius="$4"
             borderCurve="continuous"
@@ -489,6 +501,7 @@ function ReceiveSelectorContent() {
             </SizableText>
             {sortedExchanges.map((config) => (
               <ListItem
+                testID={ReceiveTestIDs.ExchangeItem}
                 key={config.id}
                 drillIn
                 onPress={() => handleExchangePress(config)}
@@ -505,6 +518,43 @@ function ReceiveSelectorContent() {
                 <ListItem.Text flex={1} primary={config.name} />
               </ListItem>
             ))}
+            <WalletActionReceive
+              sameModal
+              source="receiveSelector"
+              renderTrigger={({ onPress, disabled }) => (
+                <ListItem
+                  drillIn
+                  onPress={() => {
+                    defaultLogger.transaction.receive.clickExchangeEntry({
+                      exchangeSource: 'others',
+                      walletType: wallet?.type,
+                    });
+                    handleReceiveOnPress({ onPress });
+                  }}
+                  disabled={disabled}
+                  gap="$4"
+                  nativePressableStyle={{ flexShrink: 0 }}
+                  userSelect="none"
+                >
+                  <YStack
+                    w="$10"
+                    h="$10"
+                    borderRadius="$full"
+                    bg="$bgStrong"
+                    justifyContent="center"
+                    alignItems="center"
+                  >
+                    <Icon name="BankOutline" color="$iconActive" />
+                  </YStack>
+                  <ListItem.Text
+                    flex={1}
+                    primary={intl.formatMessage({
+                      id: ETranslations.receive_other_exchanges,
+                    })}
+                  />
+                </ListItem>
+              )}
+            />
           </YStack>
         </YStack>
       </Page.Body>

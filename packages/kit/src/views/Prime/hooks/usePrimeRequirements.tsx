@@ -7,7 +7,6 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -94,14 +93,11 @@ export function usePrimeRequirements() {
           const { isSandboxKey } = await getPrimePaymentApiKey({
             apiKeyType: 'web',
           });
-          if (
-            platformEnv.isRuntimeBrowser &&
-            isSandboxKey &&
-            !user.isEnableSandboxPay
-          ) {
+          if (isSandboxKey && !user.isEnableSandboxPay) {
             Toast.error({
               title: 'Your account is not eligible for sandbox payment',
             });
+            return;
           }
           if (selectedSubscriptionPeriod) {
             await purchase({

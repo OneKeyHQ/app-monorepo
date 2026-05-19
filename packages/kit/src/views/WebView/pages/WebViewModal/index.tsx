@@ -28,6 +28,8 @@ import type {
 } from '@onekeyhq/shared/src/routes/webView';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { WebViewTestIDs } from '../../testIDs';
+
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -85,7 +87,12 @@ export default function WebViewModal() {
   const headerRight = useCallback(
     () => (
       <ActionList
-        renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
+        renderTrigger={
+          <HeaderIconButton
+            icon="DotHorOutline"
+            testID={WebViewTestIDs.optionsMenuBtn}
+          />
+        }
         title={intl.formatMessage({ id: ETranslations.explore_options })}
         sections={[
           {
@@ -93,6 +100,7 @@ export default function WebViewModal() {
               {
                 label: intl.formatMessage({ id: ETranslations.global_refresh }),
                 icon: 'RefreshCwOutline',
+                testID: WebViewTestIDs.refreshBtn,
                 onPress: async () => {
                   if (isUnmounting.current) return;
                   webviewRef?.current?.reload?.();
@@ -104,6 +112,7 @@ export default function WebViewModal() {
                       id: ETranslations.explore_share,
                     }),
                     icon: 'ShareOutline',
+                    testID: WebViewTestIDs.shareBtn,
                     onPress: () => {
                       Share.share(
                         platformEnv.isNativeIOS
@@ -123,6 +132,7 @@ export default function WebViewModal() {
                   id: ETranslations.global_copy_url,
                 }),
                 icon: 'LinkOutline',
+                testID: WebViewTestIDs.copyUrlBtn,
                 onPress: async () => {
                   copyText(currentUrl);
                 },
@@ -132,6 +142,7 @@ export default function WebViewModal() {
                   id: ETranslations.explore_open_in_browser,
                 }),
                 icon: 'GlobusOutline',
+                testID: WebViewTestIDs.openInBrowserBtn,
                 onPress: async () => {
                   openUrlExternal(currentUrl);
                 },

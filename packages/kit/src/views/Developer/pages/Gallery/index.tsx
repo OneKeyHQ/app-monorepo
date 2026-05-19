@@ -73,11 +73,6 @@ const ErrorToastGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ErrorToastGallery'),
 );
 
-const FirmwareUpdateGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/FirmwareUpdateGallery'),
-);
-
 const QRWalletGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/QRWalletGallery'),
@@ -267,6 +262,10 @@ const TypographyGallery = LazyLoadPage(
 const WebviewGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebView'),
+);
+const WebViewOverlayGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebViewOverlay'),
 );
 const AddressInputGallery = LazyLoadPage(
   () =>
@@ -628,10 +627,6 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentLocalDB, component: LocalDBGallery },
   { name: EGalleryRoutes.ComponentErrorToast, component: ErrorToastGallery },
   {
-    name: EGalleryRoutes.ComponentFirmwareUpdate,
-    component: FirmwareUpdateGallery,
-  },
-  {
     name: EGalleryRoutes.ComponentQRWallet,
     component: QRWalletGallery,
   },
@@ -658,6 +653,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentWebview,
     component: WebviewGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentWebViewOverlay,
+    component: WebViewOverlayGallery,
   },
   {
     name: EGalleryRoutes.ComponentRefreshControl,

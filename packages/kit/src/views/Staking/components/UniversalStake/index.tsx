@@ -40,6 +40,8 @@ import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRo
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
+import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
+import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/botWalletWarningDialog';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ProtocolListContent } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -189,9 +191,10 @@ function ProtocolSwitchTriggerRow({
   const providerName = capitalizeString(
     currentProtocol?.provider.name || fallbackProviderName || '',
   );
+  const tvlText = formatTvl(currentProtocol?.provider.tvl);
   const subtitle = [
-    formatTvl(currentProtocol?.provider.tvl),
     currentProtocol?.provider.vaultName,
+    tvlText ? `TVL ${tvlText}` : undefined,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -223,9 +226,9 @@ function ProtocolSwitchTriggerRow({
       alignItems="center"
       justifyContent="space-between"
       gap="$3"
-      px="$2"
-      mx="$-2"
-      py="$1"
+      px="$3"
+      py="$2"
+      bg="$bgSubdued"
       borderRadius="$2"
       hoverStyle={isSwitchEnabled ? { bg: '$bgHover' } : undefined}
       pressStyle={isSwitchEnabled ? { bg: '$bgActive' } : undefined}
@@ -255,7 +258,7 @@ function ProtocolSwitchTriggerRow({
         {aprElement}
         {showChevron ? (
           <Icon
-            name="ChevronDownSmallOutline"
+            name="ChevronGrabberVerSolid"
             color={isSwitchEnabled ? '$iconSubdued' : '$iconDisabled'}
             size="$5"
           />
@@ -307,11 +310,13 @@ function ProtocolSwitcher({
         w: 360,
         p: '$0',
       }}
-      renderContent={({ closePopover }) => (
+      renderContent={({ closePopover, isOpen }) => (
         <ProtocolListContent
           variant="switcher"
+          isOpen={isOpen}
           symbol={tokenSymbol}
           accountId={accountId}
+          indexedAccountId={protocolSwitchConfig.indexedAccountId}
           protocols={protocolSwitchConfig.protocols}
           isLoading={protocolSwitchConfig.isLoading}
           selectedProtocol={protocolSwitchConfig.selectedProtocol}
@@ -994,6 +999,17 @@ export function UniversalStake({
 
   const onSubmit = useCallback(async () => {
     Keyboard.dismiss();
+
+    // Bot Wallet deactivated warning
+    const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
+      accountId,
+    });
+    if (isDeactivatedBot) {
+      const confirmed = await showBotWalletDeactivatedWarningDialog();
+      if (!confirmed) {
+        return;
+      }
+    }
 
     // Stakefish: get permit signature for create new validator
     if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
@@ -1855,6 +1871,7 @@ export function UniversalStake({
             style={receiveArrowOverlayStyle}
           >
             <IconButton
+              testID="staking-icon-btn"
               alignSelf="center"
               bg="$bgApp"
               variant="tertiary"

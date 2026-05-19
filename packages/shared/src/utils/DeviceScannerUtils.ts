@@ -2,6 +2,7 @@ import { createDeferred } from '@onekeyfe/hd-shared';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { SearchDevice, Success, Unsuccessful } from '@onekeyfe/hd-core';
 import type { Deferred } from '@onekeyfe/hd-shared';
@@ -12,6 +13,9 @@ const POLL_INTERVAL_RATE = 1.5;
 
 let searchPromise: Deferred<void> | null = null;
 type IPollFn<T> = (time?: number, index?: number, rate?: number) => T;
+type IDeviceScanOptions = {
+  resetSession?: boolean;
+};
 
 export class DeviceScannerUtils {
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
@@ -32,8 +36,11 @@ export class DeviceScannerUtils {
     pollIntervalRate = POLL_INTERVAL_RATE,
     pollInterval = POLL_INTERVAL,
     maxTryCount = MAX_SEARCH_TRY_COUNT,
+    vendor?: EHardwareVendor,
+    options?: IDeviceScanOptions,
   ) {
     const MaxTryCount = maxTryCount ?? MAX_SEARCH_TRY_COUNT;
+    let shouldResetSession = options?.resetSession ?? false;
     const searchDevices = async () => {
       // Should search Throttling
       if (searchPromise) {
@@ -46,8 +53,12 @@ export class DeviceScannerUtils {
 
       let searchResponse;
       try {
-        searchResponse =
-          await this.backgroundApi.serviceHardware.searchDevices();
+        searchResponse = await this.backgroundApi.serviceHardware.searchDevices(
+          vendor || shouldResetSession
+            ? { vendor, resetSession: shouldResetSession }
+            : undefined,
+        );
+        shouldResetSession = false;
       } finally {
         searchPromise?.resolve();
         searchPromise = null;

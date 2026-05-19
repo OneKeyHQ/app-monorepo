@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { NumberSizeableText, XStack, useThemeName } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { MarketTestIDs } from '../../../testIDs';
 import { PriceChangeBadge } from '../../PriceChangeBadge';
 
 import { TokenIdentityItem } from './TokenIdentityItem';
@@ -63,6 +64,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
   const isHighlighted = Boolean(isPrimed || (isDragging && isDarkMode));
   return (
     <XStack
+      testID={MarketTestIDs.tokenListItem(item.symbol)}
       pressStyle={{ opacity: 0.8 }}
       onPress={onPress}
       onLongPress={onLongPress}

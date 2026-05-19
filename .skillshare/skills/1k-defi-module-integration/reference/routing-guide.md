@@ -399,8 +399,8 @@ navigation.navigate(ERootRoutes.Main, {
   pop: true,  // IMPORTANT: Always include pop: true
 });
 
-// Switch tab
-navigation.switchTab(ETabRoutes.Earn);
+// Switch tab (prefer switchTabAsync when an overlay might be present)
+await navigation.switchTabAsync(ETabRoutes.Earn);
 
 // Go back
 navigation.goBack();

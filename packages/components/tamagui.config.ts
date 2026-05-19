@@ -211,6 +211,7 @@ const animations = createAnimations({
     type: 'spring',
     damping: 20,
     mass: 0.1,
+    stiffness: 100,
   },
   popoverQuick: {
     type: 'timing',

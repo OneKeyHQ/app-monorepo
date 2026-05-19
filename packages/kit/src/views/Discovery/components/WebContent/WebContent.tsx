@@ -8,6 +8,7 @@ import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/di
 import { webviewRefs } from '../../utils/explorerUtils';
 
 import type { IWebTab } from '../../types';
+import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 
 type IWebContentProps = IWebTab &
@@ -15,9 +16,10 @@ type IWebContentProps = IWebTab &
     isCurrent: boolean;
     setBackEnabled?: Dispatch<SetStateAction<boolean>>;
     setForwardEnabled?: Dispatch<SetStateAction<boolean>>;
+    customReceiveHandler?: IJsBridgeReceiveHandler;
   };
 
-function WebContent({ id, url }: IWebContentProps) {
+function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   const { setWebTabData } = useBrowserTabActions().current;
 
   const handleMessage = useCallback(
@@ -32,6 +34,7 @@ function WebContent({ id, url }: IWebContentProps) {
       <WebView
         id={id}
         src={url}
+        customReceiveHandler={customReceiveHandler}
         onMessage={handleMessage}
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
@@ -48,7 +51,7 @@ function WebContent({ id, url }: IWebContentProps) {
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id],
+    [id, customReceiveHandler],
   );
 
   return webview;

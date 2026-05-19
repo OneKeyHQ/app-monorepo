@@ -80,12 +80,14 @@ export function useTickOptions({
 
     // Use selected option or default
     const defaultTickOption = getDefaultTickOption(tickOptions);
+    const tickLabelDecimals =
+      new BigNumber(defaultTickOption.label).decimalPlaces() ?? 0;
 
     const result = {
       symbol,
       tickOptions,
       defaultTickOption,
-      priceDecimals,
+      priceDecimals: Math.max(priceDecimals, tickLabelDecimals),
     };
 
     // Cache the result

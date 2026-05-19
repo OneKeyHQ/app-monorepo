@@ -22,6 +22,7 @@ import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConst
 import {
   EKeylessWebPrivateRpcMethod,
   type IKeylessWebOpenSidePanelPayload,
+  type IKeylessWebSessionState,
   KEYLESS_WEB_LEGACY_EXTENSION_VERSION_MAX,
   KEYLESS_WEB_OPEN_SIDE_PANEL_EVENT,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWebTypes';
@@ -240,12 +241,8 @@ function OneKeyWalletItem({ networkType }: { networkType?: string }) {
         pl="$3"
         pr="$5"
         cursor="pointer"
-        hoverStyle={{
-          bg: '$bgStrong',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
+        hoverStyle={{ bg: '$bgStrong' }}
+        pressStyle={{ bg: '$bgActive' }}
         onPress={handlePress}
         focusable
         focusVisibleStyle={{
@@ -279,7 +276,9 @@ function OneKeyWalletItem({ networkType }: { networkType?: string }) {
                 OneKey
               </SizableText>
               <Badge badgeType="success" badgeSize="sm">
-                {intl.formatMessage({ id: ETranslations.earn_recommended })}
+                {intl.formatMessage({
+                  id: ETranslations.earn_recommended,
+                })}
               </Badge>
             </XStack>
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -296,7 +295,7 @@ function OneKeyWalletItem({ networkType }: { networkType?: string }) {
   );
 }
 
-function KeylessProviderButtons() {
+function KeylessProviderButtons({ shouldShow }: { shouldShow: boolean }) {
   const intl = useIntl();
   const { isOneKeyInstalled, getOneKeyConnectionInfo } =
     useOneKeyWalletDetection();
@@ -432,10 +431,7 @@ function KeylessProviderButtons() {
       } else {
         const oneKeyPrivateProvider = getOneKeyPrivateProvider();
         const keylessStatus = await oneKeyPrivateProvider
-          ?.request?.<{
-            walletExists?: boolean;
-            walletType?: EOAuthSocialLoginProvider;
-          }>({
+          ?.request?.<IKeylessWebSessionState>({
             method: EKeylessWebPrivateRpcMethod.GetStatus,
             params: { provider },
           })
@@ -491,6 +487,10 @@ function KeylessProviderButtons() {
     return null;
   }
 
+  if (!shouldShow) {
+    return null;
+  }
+
   return (
     <YStack gap="$2">
       <XStack gap="$2">
@@ -498,6 +498,7 @@ function KeylessProviderButtons() {
           ({ provider, iconName, platformLabel }) => (
             <Button
               key={provider}
+              testID={`web-dapp-keyless-${provider}-btn`}
               flex={1}
               bg="$gray3"
               hoverStyle={{ bg: '$gray4' }}
@@ -580,6 +581,30 @@ function WalletConnectItem({ impl }: { impl?: string }) {
 }
 
 function ExternalWalletList({ impl }: { impl?: string }) {
+  const { isOneKeyInstalled } = useOneKeyWalletDetection();
+
+  const {
+    result: { walletExists: keylessWalletExists, siteConnected },
+  } = usePromiseResult(
+    async () => {
+      if (!platformEnv.isWebDappMode || !isOneKeyInstalled) {
+        return { walletExists: false, siteConnected: false };
+      }
+      const status = await getOneKeyPrivateProvider()
+        ?.request?.<IKeylessWebSessionState>({
+          method: EKeylessWebPrivateRpcMethod.GetStatus,
+        })
+        .catch(() => undefined);
+      return {
+        walletExists: Boolean(status?.walletExists),
+        siteConnected: Boolean(status?.siteConnected),
+      };
+    },
+    [isOneKeyInstalled],
+    { initResult: { walletExists: false, siteConnected: false } },
+  );
+  const shouldShowKeylessProviders = !keylessWalletExists && !siteConnected;
+
   // detect available wallets
   const { result: allWallets = { wallets: {} } } = usePromiseResult(
     () =>
@@ -644,7 +669,7 @@ function ExternalWalletList({ impl }: { impl?: string }) {
 
   return (
     <Stack px="$5" pt="$2" pb="$4">
-      <KeylessProviderButtons />
+      <KeylessProviderButtons shouldShow={shouldShowKeylessProviders} />
       <XStack flexWrap="wrap" mx="$-1.5">
         <OneKeyWalletItem networkType={networkLabel} />
         {walletItems}

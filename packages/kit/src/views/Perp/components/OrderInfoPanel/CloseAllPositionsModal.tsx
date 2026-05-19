@@ -15,6 +15,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 
 type ICloseType = 'market' | 'limit';
@@ -80,6 +81,7 @@ function CloseAllPositionsContent({
         {/* Market Close */}
         <XStack>
           <Checkbox
+            testID="perp-button-text-checkbox"
             labelProps={{
               fontSize: '$bodyMd',
             }}
@@ -98,6 +100,7 @@ function CloseAllPositionsContent({
         {/* Limit Close at Mid Price */}
         <XStack>
           <Checkbox
+            testID="perp-checkbox"
             labelProps={{
               fontSize: '$bodyMd',
             }}
@@ -116,6 +119,7 @@ function CloseAllPositionsContent({
 
       <TradingGuardWrapper>
         <Button
+          testID="perp-btn"
           variant="primary"
           size="medium"
           disabled={isSubmitting}
@@ -131,6 +135,7 @@ function CloseAllPositionsContent({
 
 export function showCloseAllPositionsDialog(filterByCoin?: string) {
   const dialogInstance = Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.perp_position_close,
     }),
@@ -144,6 +149,7 @@ export function showCloseAllPositionsDialog(filterByCoin?: string) {
         />
       </PerpsProviderMirror>
     ),
+    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();

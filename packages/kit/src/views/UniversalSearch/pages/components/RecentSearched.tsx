@@ -22,6 +22,8 @@ import {
   type IIUniversalRecentSearchItem,
 } from '@onekeyhq/shared/types/search';
 
+import { UniversalSearchTestIDs } from '../../testIDs';
+
 function SearchTextItem({
   item,
   onPress,
@@ -67,6 +69,7 @@ function SearchTextItem({
       mr="$2"
       cursor="pointer"
       onPress={handlePress}
+      testID={`${UniversalSearchTestIDs.recentSearchItem}-${item.id}`}
     >
       {text}
     </Button>
@@ -100,8 +103,10 @@ export function RecentSearched({
     actions.current.clearAllRecentSearch();
   }, [actions]);
 
-  return recentSearch.length &&
-    filterTypes?.includes(EUniversalSearchType.MarketToken) ? (
+  const shouldShowRecentSearch =
+    recentSearch.length > 0 && !!filterTypes?.length;
+
+  return shouldShowRecentSearch ? (
     <YStack px="$5" pb="$5">
       <XStack jc="space-between" pt="$5">
         <SizableText size="$headingSm" color="$textSubdued">
@@ -113,6 +118,7 @@ export function RecentSearched({
           color="$textSubdued"
           iconSize="$5"
           onPress={handleDeleteAll}
+          testID={UniversalSearchTestIDs.clearRecentBtn}
         />
       </XStack>
       <Stack

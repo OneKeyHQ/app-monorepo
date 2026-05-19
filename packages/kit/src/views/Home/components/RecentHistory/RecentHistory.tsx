@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,14 +13,35 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 import { TxHistoryListContainer } from '../../pages/TxHistoryContainer';
 import { RichBlock } from '../RichBlock';
 
-function RecentHistory() {
+function RecentHistoryTitle() {
   const intl = useIntl();
-
   const handleNavigateToHistory = useCallback(() => {
     appEventBus.emit(EAppEventBusNames.SwitchWalletHomeTab, {
       id: EHomeWalletTab.History,
     });
   }, []);
+
+  return (
+    <XStack
+      alignItems="center"
+      gap="$1"
+      onPress={handleNavigateToHistory}
+      cursor="pointer"
+      hoverStyle={{ opacity: 0.8 }}
+      pressStyle={{ opacity: 0.6 }}
+    >
+      <SizableText size="$headingXl" color="$text">
+        {intl.formatMessage({
+          id: ETranslations.wallet_recent_transaction_history_title,
+        })}
+      </SizableText>
+      <Icon name="ChevronRightOutline" color="$iconSubdued" size="$5" />
+    </XStack>
+  );
+}
+
+const RecentHistory = memo(() => {
+  const intl = useIntl();
 
   const renderContent = useCallback(() => {
     return (
@@ -39,28 +60,13 @@ function RecentHistory() {
   }, [intl]);
   return (
     <RichBlock
-      title={
-        <XStack
-          alignItems="center"
-          gap="$1"
-          onPress={handleNavigateToHistory}
-          cursor="pointer"
-          hoverStyle={{ opacity: 0.8 }}
-          pressStyle={{ opacity: 0.6 }}
-        >
-          <SizableText size="$headingXl" color="$text">
-            {intl.formatMessage({
-              id: ETranslations.wallet_recent_transaction_history_title,
-            })}
-          </SizableText>
-          <Icon name="ChevronRightOutline" color="$iconSubdued" size="$5" />
-        </XStack>
-      }
+      title={<RecentHistoryTitle />}
       headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
       plainContentContainer
     />
   );
-}
+});
+RecentHistory.displayName = 'RecentHistory';
 
 export { RecentHistory };

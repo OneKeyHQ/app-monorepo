@@ -148,6 +148,7 @@ function AddHiddenWalletDialogContent() {
               </SizableText>
             </YStack>
             <Switch
+              testID="account-manager-switch"
               size={ESwitchSize.small}
               value={settings.showAddHiddenInWalletSidebar}
               onChange={(value) => {

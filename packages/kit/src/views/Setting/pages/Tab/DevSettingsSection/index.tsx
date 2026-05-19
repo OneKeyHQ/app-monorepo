@@ -1,5 +1,11 @@
-import { useCallback, useMemo, useState } from 'react';
-import type { ComponentProps } from 'react';
+import {
+  Children,
+  isValidElement,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { random } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -7,6 +13,7 @@ import { Dimensions, I18nManager } from 'react-native';
 
 import {
   Accordion,
+  Checkbox,
   Dialog,
   ESwitchSize,
   Icon,
@@ -24,6 +31,7 @@ import {
   useClipboard,
   useInPageDialog,
 } from '@onekeyhq/components';
+import type { ICheckedState } from '@onekeyhq/components';
 import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import {
   ANIMATE_ONLY_OPACITY,
@@ -34,11 +42,13 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -81,6 +91,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
+import { SettingTestIDs } from '../../../testIDs';
 import {
   cacheDevOnlyPassword,
   clearCachedDevOnlyPassword,
@@ -90,18 +101,22 @@ import {
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
 import { BundleCommitSearch } from './BundleCommitSearch';
+import { CpuWatchdogDevSettings } from './CpuWatchdogDevSettings';
 import { CrashDevSettings } from './CrashDevSettings';
 import { DeviceToken } from './DeviceToken';
 import {
   DevSettingsSearchProvider,
   SearchFilterItem,
+  matchesDevSearchQuery,
 } from './DevSettingsSearchContext';
+import { DiscoverySearchDebugTool } from './DiscoverySearchDebugTool';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
 import { IpTableSelector } from './IpTableSelector';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { NotificationPayloadTest } from './NotificationPayloadTest';
+import { ReferralCodeDebugPanel } from './ReferralCodeDebugPanel';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
@@ -137,7 +152,10 @@ export function showDevOnlyPasswordDialog({
             required: { value: true, message: 'password is required.' },
           }}
         >
-          <Input testID="dev-only-password" placeholder="devOnlyPassword" />
+          <Input
+            testID={SettingTestIDs.devOnlyPassword}
+            placeholder="devOnlyPassword"
+          />
         </Dialog.FormField>
       </Dialog.Form>
     ),
@@ -225,6 +243,194 @@ const DevSettingsAccordionTrigger = ({
   </Accordion.Trigger>
 );
 
+function getSearchableString(value: unknown) {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function hasMatchingDevSettingsSearchItem(node: ReactNode, query: string) {
+  if (!query) return true;
+
+  let hasMatch = false;
+
+  Children.forEach(node, (child) => {
+    if (hasMatch || !isValidElement(child)) {
+      return;
+    }
+
+    const props = child.props as {
+      children?: ReactNode;
+      keywords?: string;
+      searchKeywords?: string;
+      subtitle?: unknown;
+      title?: unknown;
+    };
+
+    if (child.type === SearchFilterItem) {
+      hasMatch = matchesDevSearchQuery(query, props.keywords);
+      return;
+    }
+
+    if (child.type === SectionPressItem || child.type === SectionFieldItem) {
+      hasMatch = matchesDevSearchQuery(
+        query,
+        getSearchableString(props.title),
+        getSearchableString(props.subtitle),
+        props.searchKeywords,
+      );
+      return;
+    }
+
+    if (props.children) {
+      hasMatch = hasMatchingDevSettingsSearchItem(props.children, query);
+    }
+  });
+
+  return hasMatch;
+}
+
+const TRADING_VIEW_KLINE_EMPTY_MOCK_INTERVAL_ITEMS: {
+  label: string;
+  value: ITradingViewKLineMockEmptyInterval;
+}[] = [
+  { label: '1 minute', value: '1m' },
+  { label: '5 minutes', value: '5m' },
+  { label: '15 minutes', value: '15m' },
+  { label: '30 minutes', value: '30m' },
+  { label: '1 hour', value: '1H' },
+  { label: '4 hours', value: '4H' },
+  { label: '1 day', value: '1D' },
+  { label: '1 week', value: '1W' },
+];
+
+function getTradingViewKLineMockIntervalsText(
+  intervals: ITradingViewKLineMockEmptyInterval[],
+) {
+  if (!intervals.length) {
+    return '未选择周期';
+  }
+
+  const labelMap = new Map(
+    TRADING_VIEW_KLINE_EMPTY_MOCK_INTERVAL_ITEMS.map((item) => [
+      item.value,
+      item.label,
+    ]),
+  );
+
+  return intervals
+    .map((interval) => labelMap.get(interval) ?? interval)
+    .join(', ');
+}
+
+function TradingViewKLineEmptyMockIntervalsDialogContent({
+  initialEnabled,
+  initialValue,
+  onConfirm,
+}: {
+  initialEnabled: boolean;
+  initialValue: ITradingViewKLineMockEmptyInterval[];
+  onConfirm: (params: {
+    enabled: boolean;
+    intervals: ITradingViewKLineMockEmptyInterval[];
+  }) => Promise<void>;
+}) {
+  const [enabled, setEnabled] = useState(initialEnabled);
+  const [selectedIntervals, setSelectedIntervals] =
+    useState<ITradingViewKLineMockEmptyInterval[]>(initialValue);
+  const allIntervals = useMemo(
+    () =>
+      TRADING_VIEW_KLINE_EMPTY_MOCK_INTERVAL_ITEMS.map((item) => item.value),
+    [],
+  );
+  const allSelected = selectedIntervals.length === allIntervals.length;
+
+  const handleEnabledChange = useCallback(
+    (checked: boolean) => {
+      setEnabled(checked);
+
+      if (checked && !selectedIntervals.length) {
+        setSelectedIntervals(['1m']);
+      }
+    },
+    [selectedIntervals.length],
+  );
+
+  const handleSelectAllChange = useCallback(
+    (checked: ICheckedState) => {
+      setSelectedIntervals(checked === true ? allIntervals : []);
+    },
+    [allIntervals],
+  );
+
+  const handleIntervalChange = useCallback(
+    (interval: ITradingViewKLineMockEmptyInterval, checked: ICheckedState) => {
+      setSelectedIntervals((prev) => {
+        if (checked === true) {
+          return prev.includes(interval) ? prev : [...prev, interval];
+        }
+
+        return prev.filter((item) => item !== interval);
+      });
+    },
+    [],
+  );
+
+  const handleConfirm = useCallback(
+    () =>
+      onConfirm({
+        enabled,
+        intervals: selectedIntervals,
+      }),
+    [enabled, onConfirm, selectedIntervals],
+  );
+
+  return (
+    <YStack gap="$3">
+      <XStack alignItems="center" justifyContent="space-between" gap="$4">
+        <YStack flex={1}>
+          <SizableText size="$bodyMdMedium">启用 Mock</SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            开启后，命中的 K 线 history 请求会返回空数据
+          </SizableText>
+        </YStack>
+        <Switch
+          size={ESwitchSize.small}
+          value={enabled}
+          onChange={handleEnabledChange}
+        />
+      </XStack>
+      {enabled ? (
+        <>
+          <Checkbox
+            label="All intervals"
+            value={allSelected}
+            onChange={handleSelectAllChange}
+          />
+          <YStack gap="$2">
+            {TRADING_VIEW_KLINE_EMPTY_MOCK_INTERVAL_ITEMS.map((item) => (
+              <Checkbox
+                key={item.value}
+                label={item.label}
+                value={selectedIntervals.includes(item.value)}
+                onChange={(checked) => {
+                  handleIntervalChange(item.value, checked);
+                }}
+              />
+            ))}
+          </YStack>
+        </>
+      ) : null}
+      <Dialog.Footer
+        showConfirmButton
+        showCancelButton
+        onConfirm={handleConfirm}
+        confirmButtonProps={{
+          disabled: enabled && selectedIntervals.length === 0,
+        }}
+      />
+    </YStack>
+  );
+}
+
 const BaseDevSettingsSection = () => {
   const [settings] = useSettingsPersistAtom();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -234,6 +440,22 @@ const BaseDevSettingsSection = () => {
   const localTradingViewUrlSubtitle = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
+  const mockTradingViewKLineEmptyEnabled =
+    devSettings.settings?.mockTradingViewKLineEmptyEnabled ?? false;
+  const rawMockTradingViewKLineEmptyIntervals =
+    devSettings.settings?.mockTradingViewKLineEmptyIntervals;
+  const mockTradingViewKLineEmptyIntervals = useMemo(
+    () => rawMockTradingViewKLineEmptyIntervals ?? [],
+    [rawMockTradingViewKLineEmptyIntervals],
+  );
+  const mockTradingViewKLineEmptyIntervalsText = useMemo(
+    () =>
+      getTradingViewKLineMockIntervalsText(mockTradingViewKLineEmptyIntervals),
+    [mockTradingViewKLineEmptyIntervals],
+  );
+  const mockTradingViewKLineEmptySubtitle = mockTradingViewKLineEmptyEnabled
+    ? mockTradingViewKLineEmptyIntervalsText
+    : '已关闭';
 
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
@@ -255,6 +477,29 @@ const BaseDevSettingsSection = () => {
       },
     });
   }, []);
+
+  const handleOpenMockTradingViewKLineEmptyIntervalsDialog = useCallback(() => {
+    Dialog.show({
+      title: 'Mock 空 K 线周期',
+      description: '选择一个或多个周期，命中后 history 请求会返回空数据。',
+      renderContent: (
+        <TradingViewKLineEmptyMockIntervalsDialogContent
+          initialEnabled={mockTradingViewKLineEmptyEnabled}
+          initialValue={mockTradingViewKLineEmptyIntervals}
+          onConfirm={async ({ enabled, intervals }) => {
+            await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'mockTradingViewKLineEmptyEnabled',
+              enabled,
+            );
+            await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'mockTradingViewKLineEmptyIntervals',
+              intervals,
+            );
+          }}
+        />
+      ),
+    });
+  }, [mockTradingViewKLineEmptyEnabled, mockTradingViewKLineEmptyIntervals]);
 
   const forceIntoRTL = useCallback(() => {
     I18nManager.forceRTL(!I18nManager.isRTL);
@@ -327,6 +572,10 @@ const BaseDevSettingsSection = () => {
   const PINNED_STORAGE_KEY = 'onekey_dev_settings_pinned_sections';
 
   const [searchText, setSearchText] = useState('');
+  const debouncedSearchText = useDebounce(searchText, 300);
+  const normalizedSearchText = (searchText.trim() ? debouncedSearchText : '')
+    .toLowerCase()
+    .trim();
   const [pinnedSections, setPinnedSections] = useState<string[]>(() => {
     try {
       const raw = appStorage.syncStorage.getString(PINNED_STORAGE_KEY as any);
@@ -382,14 +631,14 @@ const BaseDevSettingsSection = () => {
         title: 'Performance & Crash & Error & Unit Tests',
         description: '性能 崩溃 错误 单元测试',
         keywords:
-          'Performance Monitor UI FPS JS FPS 性能监控 DebugRenderTracker 组件渲染高亮 Perps渲染统计 Bg Api 可序列化检测 Analytics Dev Unit Tests Show Recovery Page crash counter',
+          'Performance Monitor UI FPS JS FPS 性能监控 DebugRenderTracker 组件渲染高亮 Perps渲染统计 Bg Api 可序列化检测 Analytics Dev Unit Tests Show Recovery Page crash counter CPU Watchdog Burn long task unresponsive severe mild',
       },
       {
         key: 'data',
         title: 'Data Management',
         description: '数据重置 清理 导出',
         keywords:
-          '清空Market收藏数据 WatchList Mock Market Banner Data Clear App Data E2E Clear Discovery Data Clear Address Book Data Clear Wallets Accounts Data Clear Password Clear History Clear Settings Clear Wallet Connect Sessions Clear HD Wallet Hash XFP Clear Last DB Backup Timestamp Clear Cached Password Reset Spotlight Reset Invite Code Reset Hidden Sites Floating icon',
+          '清空Market收藏数据 WatchList Mock Market Banner Data Discovery Search Factors Browser Search QA Export Analysis 联想 因素 分析 Clear App Data E2E Clear Discovery Data Clear Address Book Data Clear Wallets Accounts Data Clear Password Clear History Clear Settings Clear Wallet Connect Sessions Clear HD Wallet Hash XFP Clear Last DB Backup Timestamp Clear Cached Password Reset Spotlight Reset Invite Code Reset Hidden Sites Floating icon',
       },
       {
         key: 'webview',
@@ -424,9 +673,6 @@ const BaseDevSettingsSection = () => {
   );
 
   const visibleSectionKeys = useMemo(() => {
-    // Show all sections — individual items are filtered by SearchFilterItem.
-    // This avoids the problem where item keywords missing from section-level
-    // keywords would make those items unreachable via search.
     const keys = sectionMeta.map((s) => s.key);
     // Sort: pinned first
     const pinSet = new Set(pinnedSections);
@@ -456,16 +702,18 @@ const BaseDevSettingsSection = () => {
           leftIconName="SearchOutline"
         />
       </Stack>
-      {searchText.trim() ? (
-        <BundleCommitSearch searchText={searchText} />
+      {normalizedSearchText ? (
+        <BundleCommitSearch searchText={debouncedSearchText} />
       ) : null}
       <Accordion
         width="100%"
         type="multiple"
         defaultValue={
-          searchText ? visibleSectionKeys : visibleSectionKeys.slice(0, 1)
+          normalizedSearchText
+            ? visibleSectionKeys
+            : visibleSectionKeys.slice(0, 1)
         }
-        key={`${searchText.trim() ? 'searching' : 'idle'}-${visibleSectionKeys.join(',')}`}
+        key={`${normalizedSearchText ? 'searching' : 'idle'}-${visibleSectionKeys.join(',')}`}
       >
         {visibleSectionKeys.map((sectionKey) => {
           const isPinned = pinnedSections.includes(sectionKey);
@@ -473,14 +721,19 @@ const BaseDevSettingsSection = () => {
             pinned: isPinned,
             onTogglePin: () => togglePin(sectionKey),
           };
-          const wrapWithSearch = (node: React.ReactNode) => (
-            <DevSettingsSearchProvider
-              key={sectionKey}
-              value={searchText.toLowerCase().trim()}
-            >
-              {node}
-            </DevSettingsSearchProvider>
-          );
+          const wrapWithSearch = (node: React.ReactNode) =>
+            normalizedSearchText &&
+            !hasMatchingDevSettingsSearchItem(
+              node,
+              normalizedSearchText,
+            ) ? null : (
+              <DevSettingsSearchProvider
+                key={sectionKey}
+                value={normalizedSearchText}
+              >
+                {node}
+              </DevSettingsSearchProvider>
+            );
           switch (sectionKey) {
             case 'basic':
               return wrapWithSearch(
@@ -1109,6 +1362,17 @@ const BaseDevSettingsSection = () => {
                       </SectionFieldItem>
 
                       <SectionPressItem
+                        icon="RepeatOutline"
+                        title="Split Bundle & Background Thread"
+                        subtitle="Check dual-thread mode & test service RPC"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevSplitBundleTestModal,
+                          );
+                        }}
+                      />
+
+                      <SectionPressItem
                         icon="Lab2Outline"
                         title="Dev Unit Tests"
                         testID="dev-unit-tests-menu"
@@ -1138,6 +1402,9 @@ const BaseDevSettingsSection = () => {
                       />
                       <SearchFilterItem keywords="CrashDevSettings Crash Test 崩溃测试">
                         <CrashDevSettings />
+                      </SearchFilterItem>
+                      <SearchFilterItem keywords="CPU Watchdog Burn long task unresponsive severe mild 性能监视 测试">
+                        <CpuWatchdogDevSettings />
                       </SearchFilterItem>
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
@@ -1199,6 +1466,10 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+
+                      <SearchFilterItem keywords="Discovery Search Factors Browser Search QA Export Analysis 联想 因素 分析">
+                        <DiscoverySearchDebugTool />
+                      </SearchFilterItem>
 
                       <SectionPressItem
                         icon="DeleteOutline"
@@ -1467,6 +1738,22 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      <SectionPressItem
+                        icon="TradeOutline"
+                        title="Mock TradingView 空 K 线"
+                        subtitle={mockTradingViewKLineEmptySubtitle}
+                        onPress={
+                          handleOpenMockTradingViewKLineEmptyIntervalsDialog
+                        }
+                      />
+                      <SectionFieldItem
+                        icon="BrowserOutline"
+                        name="allowLocalhostUrlInDAppBrowser"
+                        title="Allow local URLs in DApp Browser"
+                        subtitle="Allow http://localhost and http://127.0.0.1"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
                 </Accordion.Item>,
@@ -1606,6 +1893,24 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+
+                      <SectionPressItem
+                        icon="GiftOutline"
+                        title="Referral Bind Debug"
+                        subtitle="Reset the selected wallet referral bind status"
+                        searchKeywords="referral rebate bind wallet dev unbind creation record"
+                        onPress={() => {
+                          Dialog.cancel({
+                            title: 'Referral Bind Debug',
+                            renderContent: (
+                              <ReferralCodeDebugPanel
+                                activeWalletId={activeAccount.wallet?.id}
+                                activeWalletName={activeAccount.wallet?.name}
+                              />
+                            ),
+                          });
+                        }}
+                      />
 
                       <SectionPressItem
                         icon="ServerOutline"
@@ -1771,12 +2076,37 @@ const BaseDevSettingsSection = () => {
                           value={devSettings.settings?.enableMockHighTxFee}
                         />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="GlobusOutline"
+                        name="disableCustomUA"
+                        title="禁用自定义 User-Agent"
+                        subtitle="dev 调试用：开启后回退到 runtime 默认 UA"
+                      >
+                        <Switch
+                          size={ESwitchSize.small}
+                          onChange={() => {
+                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                              'disableCustomUA',
+                              !devSettings.settings?.disableCustomUA,
+                            );
+                          }}
+                          value={devSettings.settings?.disableCustomUA}
+                        />
+                      </SectionFieldItem>
 
                       <SectionFieldItem
                         icon="SignatureOutline"
                         name="alwaysSignOnlySendTx"
                         title="始终只签名不广播"
                         testID="always-sign-only-send-tx"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="EyeOutline"
+                        name="allowBulkSendWatchingAccount"
+                        title="批量转账允许观察账户进入前置流程"
+                        subtitle="仅放行前置校验，实际发送仍会在提交时拦截"
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>

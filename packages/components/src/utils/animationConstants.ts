@@ -8,3 +8,7 @@ export const ANIMATE_ONLY_OPACITY_TRANSFORM = [
 export const ANIMATE_ONLY_WIDTH = ['width'] as string[];
 export const ANIMATE_ONLY_BORDER_COLOR = ['borderColor'] as string[];
 export const ANIMATE_ONLY_BACKGROUND_COLOR = ['backgroundColor'] as string[];
+export const ANIMATE_ONLY_BG_BORDER_COLOR = [
+  'backgroundColor',
+  'borderColor',
+] as string[];

@@ -57,6 +57,7 @@ import {
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapLimitOrderStatus,
   ESwapProTradeType,
   ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
@@ -65,10 +66,13 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
+
+import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 
 const SwapSettingsCommonItem = ({
   value,
@@ -97,7 +101,11 @@ const SwapSettingsCommonItem = ({
         {content}
       </SizableText>
     </YStack>
-    <Switch value={value} onChange={onChange} />
+    <Switch
+      value={value}
+      onChange={onChange}
+      testID="swap-swap-settings-common-item-switch"
+    />
   </XStack>
 );
 
@@ -210,11 +218,13 @@ const SwapSlippageCustomContent = ({
         <SlippageInput
           swapSlippage={swapSlippage}
           onChangeText={handleSlippageChange}
+          testID={SwapTestIDs.slippageCustomInput}
         />
         <XStack>
           {swapSlippageCustomDefaultList.map((item, index) => (
             <>
               <Button
+                testID="swap-btn"
                 key={item}
                 variant="secondary"
                 size="medium"
@@ -260,7 +270,11 @@ const SwapSlippageCustomContent = ({
   );
 };
 
-const SwapSettingsDialogContent = () => {
+const SwapSettingsDialogContent = ({
+  marketPresetSettings,
+}: {
+  marketPresetSettings?: IMarketPresetSettingsState;
+}) => {
   const intl = useIntl();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [{ swapEnableRecipientAddress }, setNoPersistSettings] =
@@ -274,6 +288,14 @@ const SwapSettingsDialogContent = () => {
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
+  const showSwapProSlippageSetting =
+    focusSwapPro &&
+    (!marketPresetSettings ||
+      (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
+  const showSwapSettingsSlippage =
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT || showSwapProSlippageSetting;
+  const showSmartModeSetting =
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT || focusSwapPro;
   const dialogContentMaxHeight = useMemo(() => {
     if (!platformEnv.isNative || keyboardHeight <= 0) {
       return undefined;
@@ -343,7 +365,7 @@ const SwapSettingsDialogContent = () => {
       showsVerticalScrollIndicator={false}
     >
       <YStack gap="$5">
-        {swapTypeSwitch !== ESwapTabSwitchType.LIMIT || focusSwapPro ? (
+        {showSwapSettingsSlippage ? (
           <>
             <HeightTransition>
               <YStack gap="$5">
@@ -359,23 +381,25 @@ const SwapSettingsDialogContent = () => {
               </YStack>
             </HeightTransition>
             <Divider />
-            <SwapSettingsCommonItem
-              title={intl.formatMessage({
-                id: ETranslations.swap_page_settings_simple_mode,
-              })}
-              content={intl.formatMessage({
-                id: ETranslations.swap_page_settings_simple_mode_content,
-              })}
-              badgeContent="Beta"
-              value={swapBatchApproveAndSwap}
-              onChange={(v) => {
-                setPersistSettings((s) => ({
-                  ...s,
-                  swapBatchApproveAndSwap: v,
-                }));
-              }}
-            />
           </>
+        ) : null}
+        {showSmartModeSetting ? (
+          <SwapSettingsCommonItem
+            title={intl.formatMessage({
+              id: ETranslations.swap_page_settings_simple_mode,
+            })}
+            content={intl.formatMessage({
+              id: ETranslations.swap_page_settings_simple_mode_content,
+            })}
+            badgeContent="Beta"
+            value={swapBatchApproveAndSwap}
+            onChange={(v) => {
+              setPersistSettings((s) => ({
+                ...s,
+                swapBatchApproveAndSwap: v,
+              }));
+            }}
+          />
         ) : null}
         {focusSwapPro ? null : (
           <SwapSettingsCommonItem
@@ -452,14 +476,17 @@ const SwapHeaderRightActionContainer = ({
   pageType,
   iconSize,
   iconColor,
+  marketPresetSettings,
 }: {
   pageType?: EPageType;
   iconSize?: number | `$${string}`;
   iconColor?: ColorTokens;
+  marketPresetSettings?: IMarketPresetSettingsState;
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
+  const [{ swapHistoryPendingList, swapLimitOrders }] =
+    useInAppNotificationAtom();
   const intl = useIntl();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -473,7 +500,29 @@ const SwapHeaderRightActionContainer = ({
       ),
     [swapHistoryPendingList],
   );
+  const limitOpenStatusList = useMemo(
+    () =>
+      swapLimitOrders.filter(
+        (i) =>
+          i.status === ESwapLimitOrderStatus.OPEN ||
+          i.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
+      ),
+    [swapLimitOrders],
+  );
+  const historyBadgeCount =
+    swapPendingStatusList.length + limitOpenStatusList.length;
+  const focusSwapPro =
+    platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+  const showSwapProSlippageSetting =
+    focusSwapPro &&
+    (!marketPresetSettings ||
+      (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
+  const showHeaderSlippageValue =
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT || showSwapProSlippageSetting;
   const slippageTitle = useMemo(() => {
+    if (!showHeaderSlippageValue) {
+      return null;
+    }
     if (slippageItem.key === ESwapSlippageSegmentKey.CUSTOM) {
       return (
         <SizableText
@@ -487,7 +536,7 @@ const SwapHeaderRightActionContainer = ({
       );
     }
     return null;
-  }, [slippageItem.key, slippageItem.value]);
+  }, [showHeaderSlippageValue, slippageItem.key, slippageItem.value]);
   const onOpenHistoryListModal = useCallback(() => {
     dismissKeyboard();
     navigation.pushModal(EModalRoutes.SwapModal, {
@@ -520,7 +569,9 @@ const SwapHeaderRightActionContainer = ({
               : EJotaiContextStoreNames.swap
           }
         >
-          <SwapSettingsDialogContent />
+          <SwapSettingsDialogContent
+            marketPresetSettings={marketPresetSettings}
+          />
         </SwapProviderMirror>
       ),
       showConfirmButton: false,
@@ -530,11 +581,12 @@ const SwapHeaderRightActionContainer = ({
       }),
       showFooter: true,
     });
-  }, [intl, pageType]);
+  }, [intl, marketPresetSettings, pageType]);
   return (
     <HeaderButtonGroup>
       {slippageTitle ? (
         <XStack
+          testID={SwapTestIDs.settingsButton}
           onPress={onOpenSwapSettings}
           borderRadius="$3"
           bg="$bgSubdued"
@@ -560,6 +612,7 @@ const SwapHeaderRightActionContainer = ({
         </XStack>
       ) : (
         <HeaderIconButton
+          testID={SwapTestIDs.settingsButton}
           icon="SliderHorOutline"
           onPress={onOpenSwapSettings}
           iconProps={{ size: iconSize ?? 20, color: iconColor }}
@@ -567,7 +620,7 @@ const SwapHeaderRightActionContainer = ({
         />
       )}
 
-      {swapPendingStatusList.length > 0 ? (
+      {historyBadgeCount > 0 ? (
         <Stack
           m="$0.5"
           w="$5"
@@ -593,7 +646,7 @@ const SwapHeaderRightActionContainer = ({
           onPress={onOpenHistoryListModal}
         >
           <SizableText color="$text" size="$bodySm">
-            {`${swapPendingStatusList.length}`}
+            {`${historyBadgeCount}`}
           </SizableText>
         </Stack>
       ) : (

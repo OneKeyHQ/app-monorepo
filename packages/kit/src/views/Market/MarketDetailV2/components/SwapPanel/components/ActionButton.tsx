@@ -135,6 +135,13 @@ export function ActionButton({
           ? ESwapTabSwitchType.BRIDGE
           : ESwapTabSwitchType.SWAP,
         swapSource: ESwapSource.MARKET,
+        marketPresetToken: actionToken
+          ? {
+              networkId: actionToken.networkId,
+              contractAddress: actionToken.contractAddress,
+              isNative: actionToken.isNative,
+            }
+          : undefined,
       },
     });
   }, [
@@ -393,6 +400,7 @@ export function ActionButton({
 
   return (
     <Button
+      testID="market-btn"
       size={gtMd ? 'medium' : 'large'}
       disabled={isButtonDisabled}
       onPress={handlePress}

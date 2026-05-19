@@ -40,6 +40,7 @@ function SectionHeader() {
         </SizableText>
       </YStack>
       <IconButton
+        testID="device-management-on-add-device-icon-btn"
         icon="PlusLargeOutline"
         size="small"
         variant="primary"

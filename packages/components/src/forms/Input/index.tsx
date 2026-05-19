@@ -1,9 +1,4 @@
-import type {
-  ComponentType,
-  CompositionEventHandler,
-  ForwardedRef,
-  RefObject,
-} from 'react';
+import type { CompositionEventHandler, ForwardedRef, RefObject } from 'react';
 import {
   forwardRef,
   useCallback,
@@ -64,7 +59,7 @@ export type {
 } from '@onekeyfe/react-native-text-input';
 
 export type IInputProps = {
-  InputComponent?: ComponentType;
+  InputComponent?: typeof TMInput;
   InputComponentStyle?: IStackStyle;
   addOnsContainerProps?: IStackProps;
   addOnsItemProps?: IStackProps;
@@ -128,7 +123,7 @@ export const useAutoScrollToTop = platformEnv.isNativeAndroid
   ? (ref: RefObject<TextInput | null>, waitMs = 250) => {
       useEffect(() => {
         setTimeout(() => {
-          ref.current?.setSelection(0, 0);
+          ref.current?.setSelection?.(0, 0);
         }, waitMs);
       }, [ref, waitMs]);
     }
@@ -392,8 +387,6 @@ function BaseInput(
   useAutoScrollToTop(inputRef, autoScrollTopDelayMs);
 
   useImperativeHandle(forwardedRef, () => ({
-    // oxlint-disable-next-line no-misused-spread
-    ...inputRef.current,
     focus: () => {
       inputRef.current?.focus();
     },
@@ -487,7 +480,6 @@ function BaseInput(
       <Group.Item>
         <InputComponent
           unstyled
-          // @ts-expect-error - ref type mismatch between platforms
           ref={inputRef}
           keyboardType={keyboardType}
           flex={1}
@@ -634,6 +626,8 @@ function BaseInputUnControlled(
   );
 
   return (
+    // testID flows through {...inputProps}; caller supplies it via the page registry.
+    // oxlint-disable-next-line onekey/require-testid
     <Input
       ref={inputRef}
       allowFontScaling={false}

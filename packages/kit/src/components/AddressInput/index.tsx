@@ -86,6 +86,7 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
   }
   return (
     <Select
+      testID="address-input-intl-select"
       title={intl.formatMessage({
         id: ETranslations.send_ens_choose_address_title,
       })}
@@ -220,6 +221,7 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   if (result?.validStatus === 'unknown') {
     return (
       <IconButton
+        testID="address-input-refresh-btn"
         variant="tertiary"
         icon="RotateClockwiseSolid"
         size="small"
@@ -377,6 +379,7 @@ function AddressInputWarnings({
           ))}
           {showAddToAddressBook ? (
             <Button
+              testID="address-input-add-to-address-book-btn"
               variant="tertiary"
               size="small"
               onPress={onAddToAddressBook}

@@ -74,6 +74,7 @@ function LanguageListItem({
   }, [intl]);
   return (
     <Select
+      testID="tab-page-header-title-select"
       title={title}
       items={options}
       value={value}
@@ -152,6 +153,7 @@ function CurrencyListItem({
   );
   return (
     <Select
+      testID="tab-page-header-item-select"
       title={title}
       sections={formatSections}
       value={settings.currencyInfo.id}
@@ -270,6 +272,7 @@ function DownloadAppButton() {
 
   return (
     <Button
+      testID="tab-page-header-handle-press-btn"
       size="small"
       h="$8"
       icon="DownloadOutline"

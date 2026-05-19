@@ -3,7 +3,41 @@ import path from 'path';
 import { ipcMain } from 'electron';
 import logger from 'electron-log/main';
 
+import type { IDesktopApiPlatformInfo } from '@onekeyhq/shared/types/desktopApiPlatformInfo';
+
 import { ipcMessageKeys } from '../config';
+
+// Exported for the contract test in desktopApiContract.test.ts so drift
+// between this builder and IDesktopApiPlatformInfo is caught at test time
+// in addition to compile time.
+export const buildPlatformInfoForIpc = (): IDesktopApiPlatformInfo => {
+  let channel: string | undefined;
+  if (process.platform === 'linux') {
+    // AppImage is detected via the build-time `DESK_CHANNEL=appImage` flag
+    // (set in release-desktop-all.yml and baked in by esbuild `define`).
+    // We deliberately do not use the runtime `APPIMAGE` env for detection —
+    // it can be empty when a wrapper launcher strips it, giving a false
+    // negative for what is in fact an AppImage build.
+    if (process.env.DESK_CHANNEL === 'appImage') {
+      channel = 'appImage';
+    } else if (process.env.SNAP) {
+      channel = 'snap';
+    } else if (process.env.FLATPAK) {
+      channel = 'flatpak';
+    }
+  }
+  return {
+    arch: process.arch,
+    platform: process.platform,
+    systemVersion:
+      typeof process.getSystemVersion === 'function'
+        ? process.getSystemVersion()
+        : '',
+    isMas: Boolean((process as { mas?: boolean }).mas),
+    channel,
+    deskChannel: process.env.DESK_CHANNEL || '',
+  };
+};
 
 /**
  * Register the sync IPC handlers that preload.js calls at module load time.
@@ -26,24 +60,7 @@ export function registerInfoHandlers(
 
   ipcMain.removeAllListeners(ipcMessageKeys.GET_PLATFORM_INFO);
   ipcMain.on(ipcMessageKeys.GET_PLATFORM_INFO, (event) => {
-    let channel: string | undefined;
-    if (process.platform === 'linux') {
-      if (process.env.APPIMAGE) {
-        channel = 'appImage';
-      } else if (process.env.SNAP) {
-        channel = 'snap';
-      } else if (process.env.FLATPAK) {
-        channel = 'flatpak';
-      }
-    }
-    event.returnValue = {
-      arch: process.arch,
-      platform: process.platform,
-      systemVersion: process.getSystemVersion(),
-      isMas: !!(process as any).mas,
-      channel,
-      deskChannel: process.env.DESK_CHANNEL || '',
-    };
+    event.returnValue = buildPlatformInfoForIpc();
   });
 
   ipcMain.removeAllListeners(ipcMessageKeys.LOG_DIRECTORY);

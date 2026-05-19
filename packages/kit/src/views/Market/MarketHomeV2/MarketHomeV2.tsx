@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import {
+  EJotaiContextStoreNames,
+  useMarketSelectedTabAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -12,10 +16,14 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { useSelectedNetworkIdAtom } from '../../../states/jotai/contexts/marketV2';
+import {
+  useSelectedNetworkIdAtom,
+  useWatchListV2Actions,
+} from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '../hooks';
 import { useMarketHomePageEnterAnalytics } from '../hooks/useMarketEnterAnalytics';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
+import { MarketTestIDs } from '../testIDs';
 
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
@@ -24,13 +32,28 @@ import { MobileLayout } from './layouts/MobileLayout';
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
 
+function useRefreshWatchListV2OnFocus(isFocused: boolean) {
+  const actions = useWatchListV2Actions();
+
+  useEffect(() => {
+    if (isFocused) {
+      void actions.current.refreshWatchListV2();
+    }
+  }, [actions, isFocused]);
+}
+
 const useMarketHomeLayoutProps = () => {
   const { md } = useMedia();
 
   // Load market basic config using the new hook
-  const { formattedMinLiquidity, spotCategories: apiSpotCategories } =
-    useMarketBasicConfig();
+  const {
+    formattedMinLiquidity,
+    spotCategories: apiSpotCategories,
+    isLoading: isMarketBasicConfigLoading,
+  } = useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
+  const [{ spotCategoryToSelect }, setMarketSelectedTab] =
+    useMarketSelectedTabAtom();
 
   // Track market entry analytics
   useMarketHomePageEnterAnalytics();
@@ -78,6 +101,39 @@ const useMarketHomeLayoutProps = () => {
     ];
   }, [apiSpotCategories]);
 
+  useEffect(() => {
+    if (!spotCategoryToSelect) {
+      return;
+    }
+
+    const hasTargetCategory = categories.some(
+      (item) => item.id === spotCategoryToSelect,
+    );
+    if (!hasTargetCategory) {
+      if (isMarketBasicConfigLoading !== false) {
+        return;
+      }
+
+      setMarketSelectedTab((prev) => ({
+        ...prev,
+        spotCategoryToSelect: undefined,
+      }));
+      return;
+    }
+
+    setSelectedCategory(spotCategoryToSelect);
+    setMarketSelectedTab((prev) => ({
+      ...prev,
+      tab: 'trending',
+      spotCategoryToSelect: undefined,
+    }));
+  }, [
+    categories,
+    isMarketBasicConfigLoading,
+    setMarketSelectedTab,
+    spotCategoryToSelect,
+  ]);
+
   const handleNetworkIdChange = useCallback(
     (networkId: string) => {
       handleNetworkChange(networkId, setSelectedNetworkId);
@@ -124,6 +180,8 @@ const useMarketHomeLayoutProps = () => {
 
 function BaseMarketHomeLayout() {
   const { md, layoutProps } = useMarketHomeLayoutProps();
+  const isFocused = useRouteIsFocused();
+  useRefreshWatchListV2OnFocus(isFocused);
 
   return (
     <LazyPageContainer>
@@ -143,7 +201,7 @@ function BaseMarketHome() {
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
       />
-      <Page.Body>
+      <Page.Body testID={MarketTestIDs.marketPage}>
         <BaseMarketHomeLayout />
       </Page.Body>
     </Page>
@@ -181,6 +239,7 @@ function BaseMarketHomeWithProvider({
   nestedPager?: boolean;
 }) {
   const { layoutProps } = useMarketHomeLayoutProps();
+  useRefreshWatchListV2OnFocus(isFocused);
   // In nested outer pagers (Discovery: Market/Earn/Browser), keep Market mounted
   // and let Freeze control inactive-page performance. Unmounting here causes
   // visible flashes when the outer pager finishes settling.
@@ -190,6 +249,7 @@ function BaseMarketHomeWithProvider({
   return (
     <MobileLayout
       {...layoutProps}
+      isFocused={isFocused}
       tabsRef={tabsRef}
       nestedPager={nestedPager}
     />

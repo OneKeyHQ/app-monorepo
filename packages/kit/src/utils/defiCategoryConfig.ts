@@ -1,29 +1,37 @@
 import type { ColorTokens } from '@onekeyhq/components';
 
-const CATEGORY_CONFIG: Record<
-  string,
-  { bg: ColorTokens; text: ColorTokens; emoji: string }
-> = {
-  yield: { bg: '$blue4', text: '$blue12', emoji: '📈' },
-  liquidity: { bg: '$cyan4', text: '$cyan12', emoji: '💧' },
-  lending: { bg: '$green4', text: '$green12', emoji: '🏦' },
-  supplied: { bg: '$lime4', text: '$lime12', emoji: '📥' },
-  deposit: { bg: '$jade4', text: '$jade12', emoji: '🏧' },
-  borrowed: { bg: '$orange4', text: '$orange12', emoji: '📤' },
-  locked: { bg: '$amber4', text: '$amber12', emoji: '🔒' },
-  rewards: { bg: '$teal4', text: '$teal12', emoji: '🎁' },
-  staking: { bg: '$purple4', text: '$purple12', emoji: '⛏️' },
-  farming: { bg: '$pink4', text: '$pink12', emoji: '🌾' },
-};
-
 const DEFAULT_CATEGORY_CONFIG = {
-  bg: '$neutral4',
-  text: '$neutral12',
-  emoji: '📊',
+  bg: '$green9',
+  text: '$whiteA12',
 } as const;
 
+const CATEGORY_CONFIG: Record<string, { bg: ColorTokens; text: ColorTokens }> =
+  {
+    yield: DEFAULT_CATEGORY_CONFIG,
+    investment: DEFAULT_CATEGORY_CONFIG,
+    liquidity: DEFAULT_CATEGORY_CONFIG,
+    liquidity_pool: DEFAULT_CATEGORY_CONFIG,
+    lending: DEFAULT_CATEGORY_CONFIG,
+    supplied: DEFAULT_CATEGORY_CONFIG,
+    deposit: DEFAULT_CATEGORY_CONFIG,
+    borrowed: DEFAULT_CATEGORY_CONFIG,
+    locked: DEFAULT_CATEGORY_CONFIG,
+    vesting: DEFAULT_CATEGORY_CONFIG,
+    rewards: DEFAULT_CATEGORY_CONFIG,
+    staking: DEFAULT_CATEGORY_CONFIG,
+    staked: DEFAULT_CATEGORY_CONFIG,
+    nft_staked: DEFAULT_CATEGORY_CONFIG,
+    farming: DEFAULT_CATEGORY_CONFIG,
+    leveraged_farming: DEFAULT_CATEGORY_CONFIG,
+  };
+
 function getCategoryConfig(category: string) {
-  return CATEGORY_CONFIG[category.toLowerCase()] ?? DEFAULT_CATEGORY_CONFIG;
+  const normalizedCategory = category
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  return CATEGORY_CONFIG[normalizedCategory] ?? DEFAULT_CATEGORY_CONFIG;
 }
 
 export { CATEGORY_CONFIG, DEFAULT_CATEGORY_CONFIG, getCategoryConfig };

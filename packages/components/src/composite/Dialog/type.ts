@@ -95,6 +95,11 @@ interface IBasicDialogProps extends TMDialogProps {
   floatingPanelProps?: TMDialogContentProps;
   contextValue?: IDialogContextType;
   disableDrag?: boolean; // Disable drag gesture to close
+  // When true, system-level close paths (Android hardware back, Escape) do
+  // not trigger onClose. Use for blocking dialogs (force-update, etc.) that
+  // already opt out of dismissOnOverlayPress + disableDrag.
+  disableSystemClose?: boolean;
+  showHeader?: boolean; // When false, the header container is not rendered at all (defaults to true)
   trapFocus?: boolean; // Enable focus trapping within the dialog
   testID?: string;
   onConfirm?: IOnDialogConfirm;

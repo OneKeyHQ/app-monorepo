@@ -9,7 +9,6 @@
     { "name": "import-js", "specifier": "eslint-plugin-import" },
     "./development/plugins/eslint-plugin-onekey.js"
   ],
-  "extends": ["eslint-config-prettier"],
   "plugins": [
     "unicorn",
     "typescript",
@@ -311,6 +310,21 @@
       }
     ],
 
+    // Rules newly enabled by default in oxlint 1.57-1.62 that conflict with
+    // existing project conventions or are too noisy to fix wholesale.
+    // Codebase widely uses `_foo` naming for private-like identifiers.
+    "no-underscore-dangle": "off",
+    // Many functions intentionally fall through with implicit undefined returns.
+    "typescript/consistent-return": "off",
+    // Defensive `Boolean(x)` / `Number(x)` / `String(x)` calls are intentional.
+    "typescript/no-unnecessary-type-conversion": "off",
+    // Generic helpers sometimes use a single type param for readability.
+    "typescript/no-unnecessary-type-parameters": "off",
+    // Destructuring defaults like `tokens = []` are intentional runtime guards
+    // against API responses / async results that TypeScript types claim are
+    // required but may be undefined at runtime. Removing them is unsafe.
+    "typescript/no-useless-default-assignment": "off",
+
     // ============================================
     // Unicorn rules (matching ESLint config)
     // ============================================
@@ -450,7 +464,15 @@
     // Custom OneKey rules (JS plugin)
     // ============================================
     // Enforce OneKeyLocalError/OneKeyError instead of raw Error
-    "onekey/no-raw-error": "error"
+    "onekey/no-raw-error": "error",
+    // ============================================
+    // Require testID prop on interactive components for QA automation
+    "onekey/require-testid": "warn",
+    // Block helpers without 'worklet'; from being called inside Reanimated
+    // worklet hooks (regression: REACT-NATIVE-4FJ / 3RG)
+    "onekey/no-non-worklet-call-in-worklet": "error",
+    // Prevent DEP0005 warnings from new Buffer()/Buffer() in source.
+    "onekey/no-deprecated-buffer-constructor": "error"
   },
   // Package-specific rules (migrated from ESLint overrides)
   "overrides": [
@@ -476,11 +498,12 @@
         "react_perf/jsx-no-new-function-as-prop": "error",
         "react_perf/jsx-no-new-object-as-prop": "error",
         "react_perf/jsx-no-new-array-as-prop": "error",
-        "react_perf/jsx-no-jsx-as-prop": "error"
+        "react_perf/jsx-no-jsx-as-prop": "error",
+        "onekey/no-app-locale-main-thread": "error"
       }
     },
     {
-      // packages/shared - cannot import from kit, kit-bg, or components
+      // packages/shared - cannot import from kit, kit-bg, components, or core
       "files": ["packages/shared/src/**/*.ts", "packages/shared/src/**/*.tsx"],
       "rules": {
         "no-restricted-imports": [
@@ -494,6 +517,11 @@
                   "@onekeyhq/components"
                 ],
                 "message": "Please avoid using @onekeyhq/kit, @onekeyhq/kit-bg, and @onekeyhq/components in this folder",
+                "allowTypeImports": true
+              },
+              {
+                "group": ["@onekeyhq/core", "@onekeyhq/core/**"],
+                "message": "shared layer must not value-import from core — only kit-bg may import core. Use import type for types.",
                 "allowTypeImports": true
               }
             ]
@@ -525,7 +553,7 @@
       }
     },
     {
-      // packages/kit - cannot import from tamagui or kit-bg internal paths
+      // packages/kit - cannot import from tamagui, kit-bg internal paths, or core
       "files": ["packages/kit/src/**/*.ts", "packages/kit/src/**/*.tsx"],
       "rules": {
         "no-restricted-imports": [
@@ -551,10 +579,16 @@
                 ],
                 "message": "Please avoid using @onekeyhq/kit-bg internal paths in this folder",
                 "allowTypeImports": true
+              },
+              {
+                "group": ["@onekeyhq/core", "@onekeyhq/core/**"],
+                "message": "kit layer must not value-import from core — use shared re-exports or kit-bg service RPC. Use import type for types.",
+                "allowTypeImports": true
               }
             ]
           }
-        ]
+        ],
+        "onekey/no-app-locale-main-thread": "error"
       }
     },
     {
@@ -593,7 +627,44 @@
         "apps/desktop/native-modules/**/*.js"
       ],
       "rules": {
-        "onekey/no-raw-error": "off"
+        "onekey/no-raw-error": "off",
+        "onekey/require-testid": "off"
+      }
+    },
+    {
+      // Developer Gallery/stories, DevSettings, debug panels — not user-facing UI
+      "files": [
+        "packages/kit/src/views/Developer/pages/Gallery/**/*.tsx",
+        "packages/kit/src/views/Developer/pages/Gallery/**/*.ts",
+        "packages/kit/src/views/Setting/pages/DevUnitTests/**/*.tsx",
+        "packages/kit/src/views/Setting/pages/DevAppUpdateModalSettingModal/**/*.tsx",
+        "packages/kit/src/views/Setting/pages/ClearAppCache/**/*.tsx",
+        "packages/kit/src/views/Prime/pages/PrimeDashboard/PrimeDebugPanel.tsx",
+        "packages/kit/src/views/Prime/pages/PrimeCloudSync/PagePrimeCloudSyncDebug.tsx",
+        "packages/kit/src/views/Setting/pages/Tab/DevSettingsSection/**/*.tsx",
+        "packages/kit/src/views/Setting/pages/DevUnitTests/**/*.tsx",
+        "packages/kit/src/views/Setting/pages/DevBundleManagerModal/**/*.tsx",
+        "packages/kit/src/views/Onboardingv2/pages/KeylessOnboardingDebugPanel.tsx",
+        "packages/kit/src/views/Developer/pages/**/*.tsx",
+        "packages/kit/src/provider/Container/FullWindowOverlayContainer/DevOverlayWindow.tsx"
+      ],
+      "rules": {
+        "onekey/require-testid": "off"
+      }
+    },
+    {
+      // Non-UI packages — no interactive components, testID rule doesn't apply
+      "files": [
+        "packages/shared/src/**/*.ts",
+        "packages/shared/src/**/*.tsx",
+        "packages/core/src/**/*.ts",
+        "packages/core/src/**/*.tsx",
+        "packages/kit-bg/src/**/*.ts",
+        "packages/kit-bg/src/**/*.tsx",
+        "packages/qr-wallet-sdk/src/**/*.ts"
+      ],
+      "rules": {
+        "onekey/require-testid": "off"
       }
     },
     {

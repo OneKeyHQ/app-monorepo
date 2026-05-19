@@ -28,12 +28,23 @@ const sentryConfig = getSentryExpoConfig(projectRoot);
 const config = mergeConfig(defaultConfig, sentryConfig);
 
 config.projectRoot = projectRoot;
+config.watchFolders = Array.from(
+  new Set([...(config.watchFolders || []), monorepoRoot]),
+);
+config.resolver = config.resolver || {};
+config.resolver.nodeModulesPaths = Array.from(
+  new Set([
+    path.resolve(projectRoot, 'node_modules'),
+    path.resolve(monorepoRoot, 'node_modules'),
+    ...(config.resolver.nodeModulesPaths || []),
+  ]),
+);
 
 // When running under React Native Harness, set unstable_serverRoot to the monorepo root
 // so Metro can resolve test files from packages/ (e.g. packages/shared/src/**/*.test.ts).
-// Rewrite the Expo virtual metro entry to apps/mobile/harness-entry.js (a thin wrapper
-// that require('./index.ts')). The harness resolver intercepts that require and replaces
-// it with the harness runtime entry point.
+// Rewrite app entry bundle requests to apps/mobile/harness-entry.js (a thin wrapper
+// that require('./index.ts')). The harness config must still keep entryPoint='./index.ts'
+// so the harness resolver can replace that require with the runtime entry point.
 if (process.env.RN_HARNESS === 'true') {
   config.server = config.server || {};
   config.server.unstable_serverRoot = monorepoRoot;
@@ -56,7 +67,11 @@ if (process.env.RN_HARNESS === 'true') {
     //   /../../packages/core/x.bundle -> /packages/core/x.bundle
     const bundleMatch = url.match(/^(\/[^?]*\.bundle)(.*)/);
     if (bundleMatch) {
-      const normalized = path.posix.normalize(`/apps/mobile${bundleMatch[1]}`);
+      let bundlePath = bundleMatch[1];
+      if (bundlePath === '/index.bundle') {
+        bundlePath = '/harness-entry.bundle';
+      }
+      const normalized = path.posix.normalize(`/apps/mobile${bundlePath}`);
       // oxlint-disable-next-line no-param-reassign
       url = normalized + bundleMatch[2];
     }
@@ -103,11 +118,70 @@ config.resolver.unstable_enablePackageExports = false;
 
 // Manual alias for a subpath export when package exports are disabled.
 const hyperliquidSigningPath = require.resolve('@nktkas/hyperliquid/signing');
+// In production builds, redirect Developer/router to an empty stub so that
+// Gallery pages and all their background-only transitive dependencies
+// (core/chains, kit-bg/vaults, qr-wallet-sdk, bitcoinjs-lib, etc.) are
+// completely excluded from the Metro graph — they never appear in any bundle,
+// segment, or manifest.
+const devRouterStub = path.resolve(
+  monorepoRoot,
+  'packages/kit/src/views/Developer/router.empty.ts',
+);
+
+// Ledger DMK packages only declare `exports` (no `main`). With
+// unstable_enablePackageExports=false above, Metro can't find the entry
+// for the bare specifier. Resolve each to its CJS entry directly.
+const LEDGER_CJS_ENTRY_PACKAGES = [
+  '@ledgerhq/device-management-kit',
+  '@ledgerhq/device-signer-kit-ethereum',
+  '@ledgerhq/device-signer-kit-solana',
+  '@ledgerhq/device-transport-kit-react-native-ble',
+  '@ledgerhq/context-module',
+  '@ledgerhq/signer-utils',
+];
+// Ledger DMK packages restrict `exports` and do not expose `./package.json`,
+// so `require.resolve('<pkg>/package.json')` throws ERR_PACKAGE_PATH_NOT_EXPORTED.
+// Resolve via the filesystem layout in node_modules instead.
+const ledgerCjsByPackage = new Map(
+  LEDGER_CJS_ENTRY_PACKAGES.map((pkg) => {
+    const pkgRoot = path.join(monorepoRoot, 'node_modules', pkg);
+    return [pkg, path.join(pkgRoot, 'lib/cjs/index.js')];
+  }),
+);
+
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === '@nktkas/hyperliquid/signing') {
     return {
       type: 'sourceFile',
       filePath: hyperliquidSigningPath,
+    };
+  }
+  // Strip Developer/Gallery from production union builds
+  if (
+    (process.env.UNION_BUILD === 'true' ||
+      process.env.SPLIT_BUNDLE_SEGMENTS === 'true') &&
+    context.originModulePath &&
+    (moduleName.includes('/Developer/router') ||
+      moduleName.includes('/Developer/pages/Gallery'))
+  ) {
+    return {
+      type: 'sourceFile',
+      filePath: devRouterStub,
+    };
+  }
+  // Deduplicate lodash: redirect lodash-es → lodash (CJS).
+  // Both versions co-exist in common (640 + 241 = 881 modules).
+  // CJS lodash is already required by project code and @onekeyfe/hd-core,
+  // so aliasing lodash-es to lodash eliminates ~640 redundant modules.
+  if (moduleName === 'lodash-es' || moduleName.startsWith('lodash-es/')) {
+    const cjsName = moduleName.replace('lodash-es', 'lodash');
+    return resolve(context, cjsName, platform);
+  }
+  const ledgerCjs = ledgerCjsByPackage.get(moduleName);
+  if (ledgerCjs) {
+    return {
+      type: 'sourceFile',
+      filePath: ledgerCjs,
     };
   }
   return resolve(context, moduleName, platform);
@@ -175,10 +249,14 @@ if (process.env.RN_HARNESS === 'true') {
         filePath: path.resolve(projectRoot, 'harness/mmkvMock.js'),
       };
     }
-    // Replace @testing-library/react-native with a lightweight shim that uses
-    // react-test-renderer. @testing-library/react-native imports Node.js built-ins (console, util) that
-    // Metro can't resolve, so we provide renderHook/act/waitFor without them.
-    if (moduleName === '@testing-library/react-native') {
+    // Replace Testing Library with a lightweight shim that uses
+    // react-test-renderer. The DOM/native packages import platform-specific
+    // internals that are not suitable for the on-device Hermes harness, while
+    // hook-focused tests only need renderHook/act/waitFor.
+    if (
+      moduleName === '@testing-library/react-native' ||
+      moduleName === '@testing-library/react'
+    ) {
       return {
         type: 'sourceFile',
         filePath: path.resolve(
@@ -203,6 +281,48 @@ if (process.env.RN_HARNESS === 'true') {
       }
     }
     return prevResolveRequest(context, moduleName, platform);
+  };
+}
+
+const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
+const getMetroRuntimeTarget = (context) =>
+  context.customResolverOptions?.runtimeTarget ||
+  process.env.METRO_RUNTIME_TARGET ||
+  'main';
+
+// --- Native background thread: prefer `.native-ui` in the main runtime ---
+// In native background-thread mode, main-thread JS should prefer the
+// `backgroundApiInit.native-ui.*` variant, then fall back to Metro's normal
+// resolution for `backgroundApiInit` (`.native.*` -> plain source files).
+//
+// Runtime target is resolved per Metro request first, then from the build-time
+// env for release bundle builds.
+if (buildTimeEnv.enableNativeBackgroundThread) {
+  const prevResolveRequestForNativeUi = config.resolver.resolveRequest;
+  config.resolver.resolveRequest = (context, moduleName, platform) => {
+    const runtimeTarget = getMetroRuntimeTarget(context);
+    const isMainRuntime = runtimeTarget === 'main';
+
+    if (
+      isMainRuntime &&
+      moduleName === './backgroundApiInit' &&
+      context.originModulePath &&
+      context.originModulePath.includes(
+        'background/instance/backgroundApiProxy',
+      )
+    ) {
+      try {
+        return prevResolveRequestForNativeUi(
+          context,
+          './backgroundApiInit.native-ui',
+          platform,
+        );
+      } catch {
+        // Fall through to Metro's default priority:
+        // `.native.*` -> plain source file.
+      }
+    }
+    return prevResolveRequestForNativeUi(context, moduleName, platform);
   };
 }
 
@@ -243,8 +363,35 @@ const originalRewriteRequestUrl =
     ? config.server.rewriteRequestUrl
     : (url) => url;
 config.server = config.server || {};
-config.server.rewriteRequestUrl = (url) =>
-  originalRewriteRequestUrl(url).replace('&lazy=true', '&lazy=false');
+config.server.rewriteRequestUrl = (url) => {
+  let rewrittenUrl = originalRewriteRequestUrl(url).replace(
+    '&lazy=true',
+    '&lazy=false',
+  );
+
+  if (rewrittenUrl.startsWith('/background.bundle')) {
+    rewrittenUrl = rewrittenUrl.replace(
+      '/background.bundle',
+      '/apps/mobile/background.bundle',
+    );
+  }
+
+  if (
+    buildTimeEnv.enableNativeBackgroundThread &&
+    !rewrittenUrl.includes('resolver.runtimeTarget=')
+  ) {
+    const runtimeTarget = rewrittenUrl.startsWith(
+      '/apps/mobile/background.bundle',
+    )
+      ? 'background'
+      : 'main';
+    rewrittenUrl = `${rewrittenUrl}${
+      rewrittenUrl.includes('?') ? '&' : '?'
+    }resolver.runtimeTarget=${runtimeTarget}`;
+  }
+
+  return rewrittenUrl;
+};
 
 // Apply split code plugin, then wrap with Rozenite plugin
 const splitCodePlugin = require('./plugins');

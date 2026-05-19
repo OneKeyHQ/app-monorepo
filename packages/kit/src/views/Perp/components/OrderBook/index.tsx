@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { colorTokens } from '@tamagui/themes';
 import BigNumber from 'bignumber.js';
@@ -10,6 +10,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import {
   DashText,
@@ -24,15 +31,21 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  usePerpsActiveAssetCtxAtom,
+  useSpotActiveAssetCtxAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   calculateSpreadPercentage,
-  parseDexCoin,
+  getOrderBookSizeDisplaySymbol,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { useTradingPrice } from '../../hooks/useTradingPrice';
 import {
   ORDER_BOOK_SIDE_RATIO_GAP,
   ORDER_BOOK_SIDE_RATIO_RESERVED_HEIGHT,
@@ -66,6 +79,8 @@ export function PerpBookText({ children, style, ...props }: TextProps) {
 export const rowHeight = 24;
 
 type IWebPointerStyle = ViewStyle & { cursor?: string };
+const ORDER_BOOK_DEPTH_WIDTH_TRANSITION_MS = 260;
+const ORDER_BOOK_SIDE_RATIO_TRANSITION_MS = 300;
 
 const getPressableHoverState = (state: PressableStateCallbackType): boolean => {
   if (!platformEnv.isNative) {
@@ -167,7 +182,6 @@ const styles = StyleSheet.create({
   },
   interactiveRow: {
     height: rowHeight,
-    marginTop: 1,
     position: 'relative',
     justifyContent: 'center',
     paddingHorizontal: 4,
@@ -180,8 +194,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   colorBlock: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  colorBlockContainer: {
     position: 'relative',
-    height: rowHeight,
+    width: '100%',
+    overflow: 'hidden',
   },
   verticalHeaderContainer: {
     flex: 1,
@@ -351,6 +373,7 @@ type IColorBlockProps = {
   left?: number;
   right?: number;
   height?: number;
+  origin?: 'left' | 'right';
 };
 
 export type IOrderBookSelection = {
@@ -361,20 +384,104 @@ export type IOrderBookSelection = {
   index: number;
 };
 
-function ColorBlock({ color, width, left, right, height }: IColorBlockProps) {
+function normalizeDepthWidth(width: DimensionValue) {
+  let numericWidth = 0;
+
+  if (typeof width === 'number') {
+    numericWidth = width;
+  } else if (typeof width === 'string') {
+    numericWidth = Number.parseFloat(width);
+  }
+
+  if (!Number.isFinite(numericWidth)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, numericWidth));
+}
+
+function useAnimatedOrderBookPercentage({
+  duration,
+  value,
+}: {
+  duration: number;
+  value: number;
+}) {
+  const targetValue = Math.max(0, Math.min(100, value));
+  const reducedMotion = useReducedMotion();
+  const animatedValue = useSharedValue(targetValue);
+  const isFirstRenderRef = useRef(true);
+
+  useEffect(() => {
+    if (isFirstRenderRef.current || reducedMotion) {
+      isFirstRenderRef.current = false;
+      animatedValue.value = targetValue;
+      return;
+    }
+
+    animatedValue.value = withTiming(targetValue, {
+      duration,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [animatedValue, duration, reducedMotion, targetValue]);
+
+  return animatedValue;
+}
+
+function ColorBlock({
+  color,
+  width,
+  left,
+  right,
+  height,
+  origin = 'left',
+}: IColorBlockProps) {
+  const targetWidth = useMemo(() => normalizeDepthWidth(width), [width]);
+  const widthAnim = useAnimatedOrderBookPercentage({
+    duration: ORDER_BOOK_DEPTH_WIDTH_TRANSITION_MS,
+    value: targetWidth,
+  });
+  const blockWidth = useSharedValue(0);
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      blockWidth.value = event.nativeEvent.layout.width;
+    },
+    [blockWidth],
+  );
+  const animatedStyle = useAnimatedStyle(() => {
+    const scale = widthAnim.value / 100;
+    const translateX =
+      origin === 'right'
+        ? ((1 - scale) * blockWidth.value) / 2
+        : ((scale - 1) * blockWidth.value) / 2;
+
+    return {
+      transform: [{ translateX }, { scaleX: scale }],
+    };
+  });
+
   return (
     <View
+      onLayout={handleLayout}
       style={[
-        styles.colorBlock,
+        styles.colorBlockContainer,
         {
           height: height ?? rowHeight,
           right,
           left,
-          width,
-          backgroundColor: color,
         },
       ]}
-    />
+    >
+      <Animated.View
+        style={[
+          styles.colorBlock,
+          {
+            backgroundColor: color,
+          },
+          animatedStyle,
+        ]}
+      />
+    </View>
   );
 }
 
@@ -529,6 +636,20 @@ function OrderBookSideRatio({
       askPercentage: 100 - bid,
     };
   }, [bidDepth, totalDepth]);
+  const bidSegmentFlex = useAnimatedOrderBookPercentage({
+    duration: ORDER_BOOK_SIDE_RATIO_TRANSITION_MS,
+    value: Math.max(bidPercentage, 1),
+  });
+  const askSegmentFlex = useAnimatedOrderBookPercentage({
+    duration: ORDER_BOOK_SIDE_RATIO_TRANSITION_MS,
+    value: Math.max(askPercentage, 1),
+  });
+  const bidSegmentStyle = useAnimatedStyle(() => ({
+    flex: bidSegmentFlex.value,
+  }));
+  const askSegmentStyle = useAnimatedStyle(() => ({
+    flex: askSegmentFlex.value,
+  }));
   const isCompact = size === 'compact' || size === 'mobile';
   const isMobile = size === 'mobile';
 
@@ -559,22 +680,22 @@ function OrderBookSideRatio({
           isMobile ? styles.sideRatioTrackMobile : null,
         ]}
       >
-        <View
+        <Animated.View
           style={[
             styles.sideRatioSegment,
             styles.sideRatioSegmentStart,
+            bidSegmentStyle,
             {
-              flex: Math.max(bidPercentage, 1),
               backgroundColor: sideRatioColors.long,
             },
           ]}
         />
-        <View
+        <Animated.View
           style={[
             styles.sideRatioSegment,
             styles.sideRatioSegmentEnd,
+            askSegmentStyle,
             {
-              flex: Math.max(askPercentage, 1),
               backgroundColor: sideRatioColors.short,
             },
           ]}
@@ -733,6 +854,7 @@ export function OrderBook({
               </PerpBookText>
               {showTickSelector ? (
                 <Select
+                  testID="perp-select"
                   floatingPanelProps={{
                     width: 150,
                   }}
@@ -802,12 +924,12 @@ export function OrderBook({
                     style={{
                       height: 24,
                       alignItems: 'flex-end',
-                      marginTop: 1,
                       position: 'relative',
                     }}
                   >
                     <ColorBlock
                       color={blockColors.green}
+                      origin="right"
                       right={0}
                       width={`${calculatePercentage(item.cumSize, bidDepth)}%`}
                     />
@@ -820,7 +942,6 @@ export function OrderBook({
                     key={index}
                     style={{
                       height: 24,
-                      marginTop: 1,
                       position: 'relative',
                     }}
                   >
@@ -904,7 +1025,7 @@ export function OrderBook({
                               <PerpBookText
                                 style={[
                                   styles.monospaceText,
-                                  { color: textColor.text },
+                                  { color: textColor.textSubdued },
                                   isHovered ? styles.monospaceTextBold : null,
                                 ]}
                               >
@@ -1030,7 +1151,7 @@ export function OrderBook({
                   <OrderBookVerticalRow
                     item={itemData}
                     priceColor={textColor.red}
-                    sizeColor={textColor.textSubdued}
+                    sizeColor={textColor.text}
                     isHovered={getPressableHoverState(state)}
                   />
                 )}
@@ -1053,6 +1174,7 @@ export function OrderBook({
               </PerpBookText>
               {showTickSelector ? (
                 <Select
+                  testID="perp-select"
                   floatingPanelProps={{
                     width: 150,
                   }}
@@ -1117,7 +1239,7 @@ export function OrderBook({
                 <OrderBookVerticalRow
                   item={itemData}
                   priceColor={textColor.green}
-                  sizeColor={textColor.textSubdued}
+                  sizeColor={textColor.text}
                   isHovered={getPressableHoverState(state)}
                 />
               )}
@@ -1359,6 +1481,56 @@ const MOBILE_ROW_HEIGHT = 20;
 const MOBILE_SPREAD_ROW_HEIGHT = 60;
 const MOBILE_PRICE_FLEX = 0.5;
 const MOBILE_SIZE_FLEX = 0.5;
+
+const MobileEmptyRow = ({
+  priceColor,
+  sizeColor,
+}: {
+  priceColor: string;
+  sizeColor: string;
+}) => (
+  <DebugRenderTracker name="OrderBookMobileEmptyRow" position="right-center">
+    <View
+      style={{
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: MOBILE_ROW_HEIGHT,
+        paddingHorizontal: 4,
+      }}
+    >
+      <View style={{ flex: MOBILE_PRICE_FLEX }}>
+        <PerpBookText
+          style={[
+            styles.monospaceText,
+            {
+              color: priceColor,
+              fontSize: 11,
+              lineHeight: 14,
+            },
+          ]}
+        >
+          --
+        </PerpBookText>
+      </View>
+      <View style={{ flex: MOBILE_SIZE_FLEX, alignItems: 'flex-end' }}>
+        <PerpBookText
+          style={[
+            styles.monospaceText,
+            {
+              color: sizeColor,
+              fontSize: 11,
+              lineHeight: 14,
+            },
+          ]}
+        >
+          --
+        </PerpBookText>
+      </View>
+    </View>
+  </DebugRenderTracker>
+);
+
 const MobileRow = ({
   item,
   priceFontSize,
@@ -1435,11 +1607,30 @@ export function OrderBookMobile({
   onTickOptionChange,
 }: IOrderBookProps) {
   const intl = useIntl();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const { markPrice } = assetCtx?.ctx || {
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const { midPrice: tradingMidPrice, isValid: hasTradingMidPrice } =
+    useTradingPrice();
+  const isSpot = activeTradeInstrument.mode === 'spot';
+  const currentCtx = isSpot ? spotAssetCtx?.ctx : assetCtx?.ctx;
+  const sizeDisplaySymbol = getOrderBookSizeDisplaySymbol({
+    coin: _symbol ?? activeTradeInstrument.coin,
+    isSpot,
+    spotUniverse:
+      activeTradeInstrument.mode === 'spot'
+        ? activeTradeInstrument.universe
+        : undefined,
+  });
+  const { markPrice } = currentCtx || {
     markPrice: '0',
     oraclePrice: '0',
   };
+  const markPriceNumber = Number.parseFloat(markPrice);
+  const hasMarkPrice = Number.isFinite(markPriceNumber) && markPriceNumber > 0;
+  const localizedMarkPrice = hasMarkPrice
+    ? formatLocalizedNumberString(markPrice)
+    : '--';
   const aggregatedData = useAggregatedBook(
     variant,
     bids,
@@ -1449,6 +1640,19 @@ export function OrderBookMobile({
     priceDecimals,
     sizeDecimals,
   );
+  const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
+  const emptyRowIndexes = useMemo(
+    () => Array.from({ length: maxLevelsPerSide }, (_, index) => index),
+    [maxLevelsPerSide],
+  );
+  let referencePriceDisplay = '--';
+  if (!isEmpty && hasMarkPrice) {
+    referencePriceDisplay = isSpot ? `≈$${localizedMarkPrice}` : markPrice;
+  }
+  const emptyMidPrice =
+    hasTradingMidPrice && tradingMidPrice
+      ? formatLocalizedNumberString(tradingMidPrice)
+      : localizedMarkPrice;
 
   const bidDepth = useMemo(() => {
     return new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
@@ -1457,10 +1661,12 @@ export function OrderBookMobile({
     return new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
   }, [aggregatedData.asks]);
 
-  const midPrice = getMidPrice(
-    parseFloat(bids[0]?.px ?? '0'),
-    parseFloat(asks[0]?.px ?? '0'),
-  );
+  const midPrice = isEmpty
+    ? emptyMidPrice
+    : getMidPrice(
+        parseFloat(bids[0]?.px ?? '0'),
+        parseFloat(asks[0]?.px ?? '0'),
+      );
 
   const priceFontSize = useMemo(() => {
     if (!asks.length) {
@@ -1567,7 +1773,7 @@ export function OrderBookMobile({
                   },
                 ]}
               >
-                ({_symbol ? parseDexCoin(_symbol).displayName : ''})
+                ({sizeDisplaySymbol})
               </PerpBookText>
             </View>
           </View>
@@ -1576,19 +1782,26 @@ export function OrderBookMobile({
       <View style={styles.relativeContainer}>
         {/* background depth bars */}
         <View style={styles.relativeContainer}>
-          {aggregatedData.asks.toReversed().map((itemData, index) => (
-            <View
-              key={index}
-              style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
-            >
-              <ColorBlock
-                color={blockColors.red}
-                left={0}
-                height={MOBILE_ROW_HEIGHT - MOBILE_ROW_GAP}
-                width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
-              />
-            </View>
-          ))}
+          {isEmpty
+            ? emptyRowIndexes.map((index) => (
+                <View
+                  key={`ask-empty-bg-${index}`}
+                  style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
+                />
+              ))
+            : aggregatedData.asks.toReversed().map((itemData, index) => (
+                <View
+                  key={index}
+                  style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
+                >
+                  <ColorBlock
+                    color={blockColors.red}
+                    left={0}
+                    height={MOBILE_ROW_HEIGHT - MOBILE_ROW_GAP}
+                    width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
+                  />
+                </View>
+              ))}
           <View
             style={{
               flexDirection: 'row',
@@ -1598,55 +1811,70 @@ export function OrderBookMobile({
               justifyContent: 'center',
             }}
           />
-          {aggregatedData.bids.map((itemData, index) => (
-            <View
-              key={index}
-              style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
-            >
-              <ColorBlock
-                color={blockColors.green}
-                left={0}
-                height={MOBILE_ROW_HEIGHT - MOBILE_ROW_GAP}
-                width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
-              />
-            </View>
-          ))}
+          {isEmpty
+            ? emptyRowIndexes.map((index) => (
+                <View
+                  key={`bid-empty-bg-${index}`}
+                  style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
+                />
+              ))
+            : aggregatedData.bids.map((itemData, index) => (
+                <View
+                  key={index}
+                  style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
+                >
+                  <ColorBlock
+                    color={blockColors.green}
+                    left={0}
+                    height={MOBILE_ROW_HEIGHT - MOBILE_ROW_GAP}
+                    width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
+                  />
+                </View>
+              ))}
         </View>
 
         {/* foreground texts */}
         <View style={styles.absoluteContainer}>
-          {aggregatedData.asks.toReversed().map((itemData, index) => {
-            const originalIndex = aggregatedData.asks.length - 1 - index;
-            return (
-              <Pressable
-                key={index}
-                disabled={!isInteractive}
-                onPress={() =>
-                  handleSelectLevel('ask', itemData, originalIndex)
-                }
-                style={() => [
-                  {
-                    height: MOBILE_ROW_HEIGHT,
-                    justifyContent: 'center',
-                    paddingHorizontal: 4,
-                  },
-                  isInteractive && !platformEnv.isNative
-                    ? styles.pointer
-                    : null,
-                ]}
-              >
-                {(state) => (
-                  <MobileRow
-                    priceFontSize={priceFontSize}
-                    item={itemData}
-                    priceColor={textColor.red}
-                    sizeColor={textColor.textSubdued}
-                    isHovered={getPressableHoverState(state)}
-                  />
-                )}
-              </Pressable>
-            );
-          })}
+          {isEmpty
+            ? emptyRowIndexes.map((index) => (
+                <MobileEmptyRow
+                  key={`ask-empty-${index}`}
+                  priceColor={textColor.red}
+                  sizeColor={textColor.textSubdued}
+                />
+              ))
+            : aggregatedData.asks.toReversed().map((itemData, index) => {
+                const originalIndex = aggregatedData.asks.length - 1 - index;
+                return (
+                  <Pressable
+                    key={index}
+                    disabled={!isInteractive}
+                    onPress={() =>
+                      handleSelectLevel('ask', itemData, originalIndex)
+                    }
+                    style={() => [
+                      {
+                        height: MOBILE_ROW_HEIGHT,
+                        justifyContent: 'center',
+                        paddingHorizontal: 4,
+                      },
+                      isInteractive && !platformEnv.isNative
+                        ? styles.pointer
+                        : null,
+                    ]}
+                  >
+                    {(state) => (
+                      <MobileRow
+                        priceFontSize={priceFontSize}
+                        item={itemData}
+                        priceColor={textColor.red}
+                        sizeColor={textColor.textSubdued}
+                        isHovered={getPressableHoverState(state)}
+                      />
+                    )}
+                  </Pressable>
+                );
+              })}
           <DebugRenderTracker
             name="OrderBookMobileSpreadRow"
             position="right-center"
@@ -1670,7 +1898,7 @@ export function OrderBookMobile({
                     style={[
                       styles.monospaceText,
                       {
-                        color: textColor.red,
+                        color: textColor.text,
                         fontSize: 20,
                         fontWeight: '600',
                         lineHeight: 24,
@@ -1692,30 +1920,50 @@ export function OrderBookMobile({
               />
               <Popover
                 title={intl.formatMessage({
-                  id: ETranslations.perp_position_mark_price,
+                  id: isSpot
+                    ? ETranslations.perp_spot_reference_price__title
+                    : ETranslations.perp_position_mark_price,
                 })}
                 renderTrigger={
-                  <DashText
-                    style={[
-                      styles.monospaceText,
-                      {
-                        color: textColor.textSubdued,
-                        fontSize: 10,
-                        fontWeight: '400',
-                        lineHeight: 14,
-                      },
-                    ]}
-                    dashColor="$textDisabled"
-                    dashThickness={0.5}
-                  >
-                    {markPrice}
-                  </DashText>
+                  isSpot ? (
+                    <PerpBookText
+                      style={[
+                        styles.monospaceText,
+                        {
+                          color: textColor.textSubdued,
+                          fontSize: 11,
+                          fontWeight: '400',
+                          lineHeight: 16,
+                        },
+                      ]}
+                    >
+                      {referencePriceDisplay}
+                    </PerpBookText>
+                  ) : (
+                    <DashText
+                      style={[
+                        styles.monospaceText,
+                        {
+                          color: textColor.textSubdued,
+                          fontSize: 10,
+                          fontWeight: '400',
+                          lineHeight: 14,
+                        },
+                      ]}
+                      dashColor="$textDisabled"
+                      dashThickness={0.5}
+                    >
+                      {referencePriceDisplay}
+                    </DashText>
+                  )
                 }
                 renderContent={
                   <YStack px="$5" pb="$4">
                     <SizableText>
                       {intl.formatMessage({
-                        id: ETranslations.perp_mark_price_tooltip,
+                        id: isSpot
+                          ? ETranslations.perp_spot_reference_price__desc
+                          : ETranslations.perp_mark_price_tooltip,
                       })}
                     </SizableText>
                   </YStack>
@@ -1723,31 +1971,41 @@ export function OrderBookMobile({
               />
             </View>
           </DebugRenderTracker>
-          {aggregatedData.bids.map((itemData, index) => (
-            <Pressable
-              key={index}
-              disabled={!isInteractive}
-              onPress={() => handleSelectLevel('bid', itemData, index)}
-              style={() => [
-                {
-                  height: MOBILE_ROW_HEIGHT,
-                  justifyContent: 'center',
-                  paddingHorizontal: 4,
-                },
-                isInteractive && !platformEnv.isNative ? styles.pointer : null,
-              ]}
-            >
-              {(state) => (
-                <MobileRow
-                  item={itemData}
-                  priceFontSize={priceFontSize}
+          {isEmpty
+            ? emptyRowIndexes.map((index) => (
+                <MobileEmptyRow
+                  key={`bid-empty-${index}`}
                   priceColor={textColor.green}
                   sizeColor={textColor.textSubdued}
-                  isHovered={getPressableHoverState(state)}
                 />
-              )}
-            </Pressable>
-          ))}
+              ))
+            : aggregatedData.bids.map((itemData, index) => (
+                <Pressable
+                  key={index}
+                  disabled={!isInteractive}
+                  onPress={() => handleSelectLevel('bid', itemData, index)}
+                  style={() => [
+                    {
+                      height: MOBILE_ROW_HEIGHT,
+                      justifyContent: 'center',
+                      paddingHorizontal: 4,
+                    },
+                    isInteractive && !platformEnv.isNative
+                      ? styles.pointer
+                      : null,
+                  ]}
+                >
+                  {(state) => (
+                    <MobileRow
+                      item={itemData}
+                      priceFontSize={priceFontSize}
+                      priceColor={textColor.green}
+                      sizeColor={textColor.textSubdued}
+                      isHovered={getPressableHoverState(state)}
+                    />
+                  )}
+                </Pressable>
+              ))}
         </View>
       </View>
       <OrderBookSideRatio
@@ -1757,6 +2015,7 @@ export function OrderBookMobile({
       />
       {showTickSelector ? (
         <Select
+          testID="perp-select"
           floatingPanelProps={{
             width: 150,
           }}

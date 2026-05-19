@@ -288,9 +288,13 @@ export default class ServicePassword extends ServiceBase {
         : '';
       if (password && prevPasswordRaw !== newPasswordRaw) {
         await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+        // forceSync re-applies items already marked localSceneUpdated, so bot
+        // wallet sync items that were skipped earlier (parent KW or password
+        // not yet ready) get reprocessed once the password is cached.
         await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently(
           {
             callerName: 'setCachedPassword',
+            forceSync: true,
           },
         );
       }
@@ -386,6 +390,12 @@ export default class ServicePassword extends ServiceBase {
     enable: boolean,
     skipAuth?: boolean,
   ): Promise<void> {
+    // TODO(biologyAuth-debug): temporary log to diagnose biometric disappearing
+    defaultLogger.setting.page.biologyAuthDebug('setBiologyAuthEnable', {
+      enable,
+      skipAuth: !!skipAuth,
+      stack: new Error('trace').stack?.split('\n').slice(1, 6).join(' | '),
+    });
     if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {

@@ -105,6 +105,7 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
           </XStack>
           {item.txId ? (
             <Button
+              testID="staking-intl-btn"
               onPress={onPress}
               size="small"
               variant="tertiary"

@@ -95,6 +95,7 @@ export function TabBarItem({
   animatedPillIndicator,
   indexDecimal,
   index: tabIndex,
+  testID,
 }: ITabBarItemProps) {
   const handlePress = useCallback(() => {
     onPress(name);
@@ -105,10 +106,8 @@ export function TabBarItem({
   if (variant === 'pill') {
     // When animatedPillIndicator is active, the sliding background is rendered
     // by AnimatedPillIndicator — items should be transparent so it shows through.
-    let pillBg: string = '$bgStrong';
-    if (animatedPillIndicator) {
-      pillBg = 'transparent';
-    } else if (isFocused) {
+    let pillBg: string = 'transparent';
+    if (!animatedPillIndicator && isFocused) {
       pillBg = '$bgPrimary';
     }
 
@@ -119,6 +118,7 @@ export function TabBarItem({
 
     return (
       <YStack
+        testID={testID}
         ai="center"
         jc="center"
         px="$3.5"
@@ -159,6 +159,7 @@ export function TabBarItem({
 
   return (
     <YStack
+      testID={testID}
       h={44}
       // minWidth={52}
       ai="center"
@@ -516,6 +517,7 @@ export interface ITabBarItemProps {
   // Provided when animatedPillIndicator is true for UI-thread text color.
   indexDecimal?: SharedValue<number>;
   index?: number;
+  testID?: string;
 }
 
 const PILL_GRADIENT_THRESHOLD = 2;
@@ -746,8 +748,14 @@ export function TabBar({
         />
       ));
     }
+    // Only activate animated pill text/bg on items once the pill indicator
+    // background is ready (all items have reported layout).  Before that,
+    // the focused tab would get textInverse (white) color with no dark
+    // background behind it, making the label invisible on cold start.
+    const pillIndicatorReady = itemsLayout.length === tabNames.length;
     return tabNames.map((name, index) => {
-      const hasAnimatedIndicator = useAnimatedPillIndicator && !!renderItem;
+      const hasAnimatedIndicator =
+        useAnimatedPillIndicator && !!renderItem && pillIndicatorReady;
       const itemNode = renderItem ? (
         renderItem(
           {
@@ -802,6 +810,7 @@ export function TabBar({
     focusedTabStyle,
     handleTabPress,
     handleItemLayout,
+    itemsLayout,
     renderItem,
     tabItemStyle,
     tabNames,

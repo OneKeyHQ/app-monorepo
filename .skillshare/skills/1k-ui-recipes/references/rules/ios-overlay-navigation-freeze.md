@@ -1,23 +1,80 @@
-# iOS Overlay Navigation Freeze (atomic or surgical reset)
+# iOS Modal Dismiss UI Freeze
 
 ## Symptom
 
-On iOS (with native `UITabBarController` + react-native-screens), closing an overlay route — Modal, FullScreenPush — by calling `goBack()` / `navigation.pop()` / `navigation.popStack()` leaves the underlying tab page unresponsive for ~5 seconds:
+On iOS (native `UITabBarController` + react-native-screens + Fabric), closing an overlay route — Modal, FullScreenPush — leaves the underlying tab page visually stale:
 
 - Animated dismiss completes, user is back on a tab page (e.g. Home).
-- The page does not reflect any state change committed just before the dismiss (e.g. the newly selected chain, account, or network).
-- **A single touch anywhere on the screen "unsticks" the UI** and all pending state flushes at once.
-- JS FPS counter may look normal — the JS thread is not blocked; the native side is.
+- The page does not reflect state changes made just before the dismiss (e.g. newly selected chain).
+- **A single touch anywhere on the screen "unsticks" the UI** and pending state flushes at once.
+- JS thread continues to run (background service calls, network requests are logged). JS FPS looks normal.
 
-## Root Cause
+## Root Cause (corrected after multiple investigation rounds)
 
-`goBack()` on the root navigator triggers an **animated** `UIViewController.dismissViewControllerAnimated:`. During that animation, `RNSScreenStack` instances inside **detached tab views** lose their `UIWindow` reference (`window=NIL, scene=nil`).
+### Primary: `react-freeze` suspends tab content during modal display
 
-The patched `RNSScreenStack` in this repo retries its pending container update every 100ms, up to 50 times (~5s). If no `UIView.didMoveToWindow:` fires during that window — and it usually does not, because the stack sits inside a detached tab VC — every retry fails identically, then the stack gives up. The page stays visually stale until any event (touch, scene activation) forces a relayout.
+When a Modal is pushed on the Root native-stack, React Navigation propagates `unfocused` state to all screens below it. The NativeTab navigator has `freezeOnBlur: true` (`TabStackNavigator.native.tsx:85`), which triggers `react-freeze` to suspend the entire tab content via `<Suspense>` + `throw Promise`.
 
-### Key insight
+During freeze: React does **not** reconcile or commit the frozen subtree. State updates (e.g., Jotai atom changes from `updateSelectedAccountNetwork`) are queued but not rendered.
 
-The freeze is driven by `setPushViewControllers: SKIPPED - container window not ready` on an **inner tab's** screen stack, not by the modal dismiss itself. The modal is already gone; the underlying tab stack is the one that cannot commit the update it was queued to run.
+On modal dismiss: `freezeOnBlur` should unfreeze → React resumes reconciliation → reads latest state → commits to Fabric → native view updates. **But the unfreeze → commit pipeline can fail to flush**, leaving the UI showing the pre-freeze CALayer cache. A touch event forces React to re-evaluate, triggering the pending commit.
+
+**Fix**: Disable `freezeOnBlur` on iOS NativeTab level (`TabStackNavigator.native.tsx`):
+```ts
+const nativeTabScreenOptions = {
+  freezeOnBlur: !platformEnv.isNativeIOS,  // iOS: false, Android: true
+};
+```
+
+### Why `detachInactiveScreens` is NOT the cause (corrected)
+
+Earlier investigation hypothesized that `detachInactiveScreens` (default true) was detaching Main from the native view hierarchy during modal display. **This is wrong.** Native-stack (`@react-navigation/native-stack`) uses `<ScreenStack>` from react-native-screens, NOT `<ScreenContainer>`. `ScreenStack` does **not** support `detachInactiveScreens` — it always keeps all screens in the native view hierarchy. Main's UIView stays in the window during modal display (visible behind the pageSheet).
+
+The `setPushViewControllers: SKIPPED - container window not ready` + `giving up after 50 retries` log entries are from the **modal's own inner stack** being torn down during dismiss — a doomed stack with `controllers=0, window=NIL`. These retries are CPU noise, not the freeze cause.
+
+### Secondary: `navigate(Main, {pop:true})` overlapping transitions
+
+`switchTab()` (deprecated) uses `navigate(Main, {pop:true})` which combines modal dismiss + tab switch in one React Navigation dispatch. While this creates overlapping UIKit transitions and orphan retry storms on doomed stacks, it is a **secondary contributor** (CPU waste, sluggishness) not the primary freeze cause. The primary cause is react-freeze.
+
+## Investigation timeline (what was tried and why it failed)
+
+| Round | Hypothesis | Fix attempted | Result | Why it failed |
+|---|---|---|---|---|
+| 1 | `popStack()` animated dismiss causes window-NIL on tab stacks | `resetChainSelectorModal()` — atomic `CommonActions.reset` | ❌ Still freezes | `CommonActions.reset` still triggers `dismissViewControllerAnimated:YES` at native level — RN Screens diffs state regardless of JS dispatch method |
+| 2 | `detachInactiveScreens` detaches Main during modal | Proposed `detachInactiveScreens: false` on Root stack | ❌ Not applicable | Native-stack uses `ScreenStack` not `ScreenContainer` — no `detachInactiveScreens` prop |
+| 3 | `navigate(Main, {pop:true})` triple-overlap creates orphans | `switchTabAsync` serializes overlay dismiss + tab switch; `navigate` interceptor in `useAppNavigation` | ⚠️ Helps with CPU waste but doesn't fix the freeze | Orphan retries are on doomed modal inner stacks, not Home tab stacks |
+| 4 | JS-side force setState / Jotai atom bump | Tried programmatic state refresh | ❌ No effect | Fabric commits to correct shadow node, but frozen React subtree doesn't process the commit |
+| 5 | **`react-freeze` (`freezeOnBlur: true`) suspends tab during modal** | `freezeOnBlur: !platformEnv.isNativeIOS` on NativeTab | **🔍 Under verification** | Unfreeze → commit pipeline is the suspected break point |
+
+## Flow diagram
+
+```
+Modal opens on Root stack
+│
+├─ React Navigation: Main screen becomes unfocused
+│  └─ Focus propagates down: Main → TabNavigator → Home tab → all unfocused
+│
+├─ NativeTab (freezeOnBlur: true):
+│  └─ Home tab content wrapped in <Freeze freeze={true}>
+│     └─ throw Promise → React Suspense catches → subtree SUSPENDED
+│        └─ No more renders, no Fabric commits for Home
+│
+│  ... user interacts with modal (e.g. picks a chain) ...
+│  ... Jotai atom updates (networkId changes) ...
+│  ... React tries to re-render Home → but frozen → SKIPPED ...
+│
+Modal closes (any method: goBack / pop / resetAboveMainRoute / resetModalRouteByName)
+│
+├─ React Navigation: Main regains focus
+│  └─ NativeTab: freezeOnBlur → freeze=false
+│     └─ Suspense resolves → React SHOULD resume reconciliation
+│
+├─ Expected: React reads latest atoms → re-renders → Fabric commits → UI updates
+│
+├─ Actual (bug): unfreeze fires but pending Fabric commit doesn't flush
+│  └─ UI shows pre-freeze CALayer cache (old network, old balances)
+│  └─ Touch → React event dispatch → forces scheduler tick → commit lands → UI refreshes
+```
 
 ## Useful navigation primitives (from `@onekeyhq/components`)
 
@@ -30,10 +87,13 @@ The freeze is driven by `setPushViewControllers: SKIPPED - container window not 
 | `resetChainSelectorModal()` | Thin wrapper → `resetModalRouteByName(ChainSelectorModal)` | Close chain selector from **any** context (Home, DApp, Settings, BulkSend, Onboarding) |
 | `resetPrimeModal()` | Thin wrapper → `resetModalRouteByName(PrimeModal)` | Close Prime modal from any context (Prime can be pushed from AccountManagerStacks, Setting, ApprovalManagement, etc.) |
 | `resetOnboardingModal()` | Thin wrapper → `resetModalRouteByName(OnboardingModal)` | Close onboarding from any context (onboarding can be pushed from LiteCard, KeyTag, Swap, Perp, AccountManagerStacks, etc.) |
+| `resetAccountManagerStacksModal()` | Thin wrapper → `resetModalRouteByName(AccountManagerStacks)` | Close account manager from any context (add account, select account, export keys, batch create, wallet edit, resolve wallets) |
 | `resetScanModalRoute()` | Specialized: drops `ScanQrCodeModal` **and** the `ActionCenter` FullScreenPush route | Close scan modal (handles an extra FullScreenPush sibling that the generic does not) |
+| `switchTabAsync(route)` | **Async tab switch**: if overlay present, `resetAboveMainRoute()` → `wait(100ms)` → `navigate(Main, {screen: route})`. If no overlay, plain navigate. | ✅ **Preferred** for any tab switch that might happen while a modal is open |
+| `switchTab(route)` | **@deprecated** Sync tab switch using `navigate(Main, {pop:true})` — overlaps modal dismiss + tab switch + Main re-attach in one UIKit tick → creates orphan RNSScreenStack instances | ❌ Legacy, keep only in fire-and-forget paths (tab bar press, bootstrap) |
 | `popToMainRoute()` | `resetAboveMainRoute()` + `await 100ms` | When you truly need to clear every overlay with a settle barrier |
 | `resetToRoute(name, params)` | `reset` that replaces overlay routes with a specified target | Dismiss current overlay **and** open another one in a single dispatch |
-| `navigateFromOverlayToTab({ targetTab, switchTab })` | Reset above Main + switch tab + wait | Jumping to a different tab from inside an overlay |
+| `navigateFromOverlayToTab({ targetTab })` | Delegates to `switchTabAsync` internally | Convenience wrapper with explicit "from overlay" semantics |
 
 ### Atomic vs surgical reset — picking the right tool
 
@@ -181,23 +241,27 @@ resetToRoute(ERootRoutes.Modal, {
 ### When you are in an overlay and need to end up on a tab
 
 ```ts
-import { navigateFromOverlayToTab } from '@onekeyhq/components';
-
-await navigateFromOverlayToTab({
-  targetTab: ETabRoutes.Home,
-  switchTab: (tab) => navigation.switchTab(tab),
-});
+// ✅ PREFERRED: switchTabAsync handles everything
+await navigation.switchTabAsync(ETabRoutes.Home);
 // Now safe to push/navigate inside the Home tab.
+
+// ✅ ALSO OK: navigateFromOverlayToTab (wraps switchTabAsync)
+import { navigateFromOverlayToTab } from '@onekeyhq/components';
+await navigateFromOverlayToTab({ targetTab: ETabRoutes.Home });
 ```
 
-## What does NOT work
+## What does NOT work (and why — lessons from this investigation)
 
 | Approach | Why it fails |
 |---|---|
-| Adding `await timerUtils.wait(N)` before `goBack()` | The animated dismiss itself is what drops `window`. Waiting longer just delays the freeze. |
-| Sequential `goBack()` with retries | Each animated dismiss triggers another window-nil round. Makes the storm worse. |
-| `setTimeout` to nudge state after `popStack()` | JS runs fine; the native stack is the one stuck. Re-rendering JS does not re-attach the iOS window. |
-| `navigation.pop()` assuming "it's just one screen" | When the current navigator is the modal root, `pop()` falls through to `popStack()` → same freeze. |
+| `resetAboveMainRoute()` / `resetModalRouteByName()` | Does NOT prevent the freeze. RN Screens still calls `dismissViewControllerAnimated:YES` regardless of JS dispatch method. The freeze root cause is react-freeze, not the dismiss animation. |
+| `switchTabAsync` / `navigate` interceptor (serializing overlay dismiss + tab switch) | Reduces CPU waste from overlapping UIKit transitions but does NOT fix the visible freeze. The frozen React subtree (react-freeze) doesn't process commits regardless of native transition timing. |
+| `detachInactiveScreens: false` on Root stack | **Not applicable** — native-stack uses `ScreenStack`, not `ScreenContainer`. There is no `detachInactiveScreens` prop on native-stack. |
+| JS-side force setState / Jotai atom bump | Frozen subtree doesn't process the state change. React suspends the entire render tree under `<Freeze>`. |
+| Adding `await timerUtils.wait(N)` before dismiss | The freeze is caused by react-freeze, not by dismiss timing. Waiting doesn't help. |
+| Sequential `goBack()` with retries | Creates more doomed orphan stacks (CPU waste) without addressing the react-freeze issue. |
+
+**Key learning**: The `RNSScreenStack` retry storm (`giving up after 50 retries`) in the native logs is a **red herring**. It occurs on the **modal's own inner stack** being torn down (controllers=0, window=NIL), not on the Home tab's stack. The visible freeze is a React-level issue (frozen subtree not flushing commits on unfreeze), not a native view hierarchy issue.
 
 ## Scope guidance
 
@@ -219,10 +283,38 @@ Rule of thumb:
 - Prime / OneKey ID logout — this doc, via `resetPrimeModal()`
 - Prime transfer exit — this doc, via `resetPrimeModal()` (partial-close) / `resetAboveMainRoute()` (full-close)
 - External wallet connect onboarding — this doc, via `resetOnboardingModal()`
+- Account manager stacks (add account, select account, export keys, batch create, wallet edit, resolve wallets) — OK-52482, via `resetAccountManagerStacksModal()`
+
+## RNSScreenStack retry storm — a red herring (but still worth fixing)
+
+The native logs show `giving up after 50 retries` and `setPushViewControllers: SKIPPED - container window not ready`. These are from the **modal's own inner stack** being torn down during dismiss (controllers=0, window=NIL, superview=NIL). This stack is being deallocated — the retries are wasted CPU but do NOT cause the visible UI freeze.
+
+The retries add CPU contention on the main thread (~50 × dispatch_after per doomed stack per dismiss). `switchTabAsync` and the `navigate(Main, {pop:true})` interceptor serialize overlay dismiss + tab switch, reducing overlapping UIKit transitions and the number of doomed stacks created. This is a performance improvement, not a freeze fix.
+
+## react-freeze explained
+
+`react-freeze` wraps screen content in `<Suspense>` and throws a never-resolving Promise when `freeze=true`:
+
+```tsx
+// react-freeze internals (simplified)
+function Freeze({ freeze, children }) {
+  if (freeze) throw suspendedPromise;  // React Suspense catches this
+  return children;
+}
+```
+
+**`freezeOnBlur: true`** on NativeTab means: when a tab loses focus (including when a Modal is pushed on the Root stack above Main), react-freeze suspends all of that tab's React rendering. No state updates, no effects, no Fabric commits. The native UIView stays in the hierarchy showing its last-rendered CALayer.
+
+**Performance benefit**: only the active tab renders. With 5+ tabs subscribing to WebSocket data (prices, order books, balances), this saves significant JS thread time.
+
+**The bug**: on modal dismiss, the tab should unfreeze → React resumes → reads latest state → commits. But the commit pipeline can fail to flush, leaving stale UI until a touch event forces React to re-evaluate.
+
+**Fix**: disable `freezeOnBlur` on iOS NativeTab level. Tab-internal `freezeOnBlur` (line 48, for inner stack push/pop) is unaffected and continues to provide performance benefit.
 
 ## Key files
 
-- `packages/components/src/layouts/Navigation/Navigator/NavigationContainer.tsx` — `resetAboveMainRoute`, `resetChainSelectorModal`, `resetScanModalRoute`, `resetToRoute`, `navigateFromOverlayToTab`, `popToMainRoute`
-- `packages/kit/src/hooks/useAppNavigation.ts` — `popStack` (`getParent()?.goBack()`) and `pop` (`canGoBack() ? goBack() : popStack()`)
+- `packages/components/src/layouts/Navigation/Navigator/NavigationContainer.tsx` — `switchTabAsync`, `switchTab` (deprecated), `resetAboveMainRoute`, `resetChainSelectorModal`, `resetScanModalRoute`, `resetToRoute`, `navigateFromOverlayToTab`, `popToMainRoute`
+- `packages/kit/src/hooks/useAppNavigation.ts` — `switchTabAsync` + `switchTab` (deprecated), `popStack`, `pop`
+- `packages/kit/src/states/jotai/contexts/discovery/actions.ts` — `handleOpenWebSite` (the UniversalSearch → DApp flow, fixed to use `switchTabAsync`)
 - `patches/react-native-screens+4.23.0.patch` — the native retry + `[RNSScreenStack]` diagnostic logger
 - `node_modules/@onekeyfe/react-native-native-logger/ios/OneKeyLog.swift` — writes `{Caches}/logs/app-latest.log`

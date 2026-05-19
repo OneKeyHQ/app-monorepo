@@ -1,12 +1,3 @@
-import {
-  decryptAsync,
-  encryptAsync,
-  entropyToMnemonic,
-  generateMnemonic,
-  mnemonicToEntropy,
-  sha256,
-} from '@onekeyhq/core/src/secret';
-
 import appCrypto from '../appCrypto';
 import { OneKeyLocalError } from '../errors';
 import bufferUtils from '../utils/bufferUtils';
@@ -26,6 +17,12 @@ import type {
   IKeylessWalletRestoredData,
   IKeylessWalletUserInfo,
 } from './keylessWalletTypes';
+
+// Lazy-loaded crypto functions from core (to avoid shared->core import violation)
+async function loadCoreSecret() {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return import('@onekeyhq/core/src/secret');
+}
 
 // TODO packs use base64 instead of hex for less storage space
 
@@ -85,6 +82,7 @@ function deriveAuthKeyPwd(
 }
 
 async function hashPassword(pwd: string): Promise<string> {
+  const { sha256 } = await loadCoreSecret();
   // pwd is base64 string, decode it to bytes
   const pwdBytes = bufferUtils.base64ToBytes(pwd);
   const hashBytes = await sha256(pwdBytes);
@@ -109,6 +107,7 @@ async function restoreMnemonicFromShareKey(params: {
   shares: string[];
   mnemonic: string;
 }> {
+  const { entropyToMnemonic } = await loadCoreSecret();
   const { deviceKey, cloudKey, authKey } = params;
   const shares = [deviceKey, cloudKey, authKey].filter(Boolean);
   if (shares.length < 2) {
@@ -128,6 +127,7 @@ async function decryptPackData<T>(params: {
   encrypted: string;
   password: string;
 }): Promise<T> {
+  const { decryptAsync } = await loadCoreSecret();
   const { encrypted, password } = params;
   // encrypted is base64 string, decode it to buffer
   const encryptedBuffer = bufferUtils.base64ToBytes(encrypted);
@@ -143,6 +143,7 @@ async function decryptPackData<T>(params: {
 async function generateKeylessMnemonic(params?: {
   customMnemonic?: string;
 }): Promise<IKeylessMnemonicInfo> {
+  const { generateMnemonic, mnemonicToEntropy } = await loadCoreSecret();
   // 1. Generate Random Mnemonic (24 words) or use custom mnemonic
   const mnemonic = params?.customMnemonic ?? generateMnemonic(256);
   const entropyHex = mnemonicToEntropy(mnemonic);
@@ -202,6 +203,7 @@ async function generateKeylessWalletPacks(params: {
   mnemonicInfo: IKeylessMnemonicInfo;
   packSetId: string;
 }): Promise<IKeylessWalletPacks> {
+  const { encryptAsync } = await loadCoreSecret();
   const { userInfo, mnemonicInfo, packSetId } = params;
   // Validate the packSetId with regex: must match UUID (v4) without dashes (32 lowercase hex characters)
   if (!/^[0-9a-f]{32}$/.test(packSetId)) {
@@ -390,6 +392,7 @@ async function restoreFromDeviceAndAuth(params: {
   deviceKeyPack: IDeviceKeyPack;
   authKeyPack: IAuthKeyPack;
 }): Promise<IKeylessWalletRestoredData> {
+  const { mnemonicToEntropy } = await loadCoreSecret();
   const { deviceKeyPack, authKeyPack } = params;
   const { authKeyPwdSlice } = deviceKeyPack;
   // Step 1: Use authKeyPwd from DeviceKeyPack to decrypt AuthKeyPack
@@ -475,6 +478,7 @@ async function restoreFromDeviceAndCloud(params: {
   deviceKeyPack: IDeviceKeyPack;
   cloudKeyPack: ICloudKeyPack;
 }): Promise<IKeylessWalletRestoredData> {
+  const { mnemonicToEntropy } = await loadCoreSecret();
   const { deviceKeyPack, cloudKeyPack } = params;
   // Step 1: Use cloudKeyPwd from DeviceKeyPack to decrypt CloudKeyPack
   const cloudKeyPwd = deviceKeyPack.cloudKeyPwd;
@@ -558,6 +562,7 @@ async function restoreFromAuthAndCloud(params: {
   authKeyPack: IAuthKeyPack;
   cloudKeyPack: ICloudKeyPack;
 }): Promise<IKeylessWalletRestoredData> {
+  const { mnemonicToEntropy } = await loadCoreSecret();
   // Step 1: Get cloudKeyUserId to derive authKeyPwd
   const { authKeyPack, cloudKeyPack } = params;
 

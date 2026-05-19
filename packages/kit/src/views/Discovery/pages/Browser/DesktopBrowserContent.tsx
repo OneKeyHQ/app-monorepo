@@ -20,6 +20,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebContent from '../../components/WebContent/WebContent';
+import { useDiscoveryMessageHandler } from '../../hooks/useDiscoveryMessageHandler';
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
@@ -174,6 +175,7 @@ function BasicFind({ id }: { id: string }) {
             gap="$4"
           >
             <Input
+              testID="discovery-input"
               autoFocus
               onChangeText={handleTextChange}
               containerProps={{
@@ -226,6 +228,8 @@ function BasicFind({ id }: { id: string }) {
 
 const Find = memo(BasicFind);
 
+const DESKTOP_HOME_PAGE_VISIBLE_DELAY_MS = 200;
+
 function BasicDesktopBrowserContent({
   id,
   activeTabId,
@@ -235,6 +239,8 @@ function BasicDesktopBrowserContent({
 }) {
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
+  const isHomeTab = !tab?.url;
+  const [homePageReady, setHomePageReady] = useState(!isHomeTab);
 
   // Memory Cleanup - Aggressively release all resources when tab is closed
   useEffect(() => {
@@ -304,13 +310,38 @@ function BasicDesktopBrowserContent({
     };
   }, [id]);
 
+  useEffect(() => {
+    if (!isHomeTab) {
+      setHomePageReady(true);
+      return undefined;
+    }
+
+    setHomePageReady(false);
+    const timer = setTimeout(() => {
+      setHomePageReady(true);
+    }, DESKTOP_HOME_PAGE_VISIBLE_DELAY_MS);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [isHomeTab]);
+
+  const { customReceiveHandler } = useDiscoveryMessageHandler();
+
   return (
     <Freeze key={id} freeze={!isActive}>
       {platformEnv.isDesktop ? <Find id={id} /> : null}
       {tab?.url ? (
-        <WebContent id={id} url={tab.url} isCurrent={isActive} />
+        <WebContent
+          id={id}
+          url={tab.url}
+          isCurrent={isActive}
+          customReceiveHandler={customReceiveHandler}
+        />
       ) : (
-        <DashboardContent />
+        <Stack flex={1} opacity={homePageReady ? 1 : 0}>
+          <DashboardContent />
+        </Stack>
       )}
     </Freeze>
   );

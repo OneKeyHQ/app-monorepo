@@ -1,0 +1,23 @@
+diff --git a/node_modules/bigint-buffer/dist/node.js b/node_modules/bigint-buffer/dist/node.js
+index 513168c..4ccc5c6 100644
+--- a/node_modules/bigint-buffer/dist/node.js
++++ b/node_modules/bigint-buffer/dist/node.js
+@@ -1,15 +1,9 @@
+ 'use strict';
+
+ Object.defineProperty(exports, "__esModule", { value: true });
+-let converter;
+-{
+-    try {
+-        converter = require('bindings')('bigint_buffer');
+-    }
+-    catch (e) {
+-        console.warn('bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)');
+-    }
+-}
++// Native addon disabled: GHSA-3gc7-fjrx-p6mg buffer-overflow in bigint-buffer
++// C++ addon. Pure JS fallback below is not affected. Patch via patch-package.
++let converter = undefined;
+ /**
+  * Convert a little-endian buffer into a BigInt.
+  * @param buf The little-endian buffer to convert

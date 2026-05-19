@@ -1,6 +1,6 @@
-import RNRestart from 'react-native-restart';
-
 import { Button } from '@onekeyhq/components';
+import { appRestart } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
+import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 
 import { Layout } from './utils/Layout';
 
@@ -11,14 +11,32 @@ const RestartGallery = () => {
       componentName="SecureQRToast"
       elements={[
         {
-          title: 'restartApp',
+          title: 'restart (mode=ui)',
           element: (
             <Button
               onPress={() => {
-                RNRestart.restart();
+                void appRestart({
+                  mode: EAppRestartMode.UI,
+                  reason: 'dev.gallery.ui',
+                });
               }}
             >
-              restart app
+              restart UI runtime
+            </Button>
+          ),
+        },
+        {
+          title: 'restart (mode=all)',
+          element: (
+            <Button
+              onPress={() => {
+                void appRestart({
+                  mode: EAppRestartMode.All,
+                  reason: 'dev.gallery.all',
+                });
+              }}
+            >
+              restart all runtimes
             </Button>
           ),
         },

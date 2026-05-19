@@ -29,8 +29,8 @@ export const securitySimulateInputSchema = z.object({
 
 export const securitySimulateOutputSchema = z.object({
   type: z.string().nullable(),
-  display: z.unknown(),
-  parsedTx: z.unknown().nullable(),
+  display: z.unknown().nullable().optional(),
+  parsedTx: z.unknown().nullable().optional(),
   accountAddress: z.string(),
   isConfirmationRequired: z.boolean(),
 });

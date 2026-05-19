@@ -5,6 +5,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -29,6 +30,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
   qrAccountEnabled: true,
+
+  supportedThirdPartyVendors: [EHardwareVendor.ledger],
 
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,

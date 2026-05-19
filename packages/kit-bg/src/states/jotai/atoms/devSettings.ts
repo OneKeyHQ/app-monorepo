@@ -13,6 +13,16 @@ export interface IApiEndpointConfig {
   enabled: boolean;
 }
 
+export type ITradingViewKLineMockEmptyInterval =
+  | '1m'
+  | '5m'
+  | '15m'
+  | '30m'
+  | '1H'
+  | '4H'
+  | '1D'
+  | '1W';
+
 // Test account for dev login testing
 export interface ITestAccount {
   id: string;
@@ -67,6 +77,8 @@ export interface IDevSettings {
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
   showPerpsRenderStats?: boolean;
+  mockTradingViewKLineEmptyEnabled?: boolean;
+  mockTradingViewKLineEmptyIntervals?: ITradingViewKLineMockEmptyInterval[];
 
   usbCommunicationMode?: 'webusb' | 'bridge';
 
@@ -82,6 +94,16 @@ export interface IDevSettings {
   testAccounts?: ITestAccount[];
   // Ignore server bundle update info (prevents rollback when dev-switching bundles)
   ignoreServerBundleUpdate?: boolean;
+  // Allow watching accounts to pass through bulk-send pre-flight validation.
+  // Submission remains blocked; this only lets QA walk through the UI flow
+  // (e.g. BTC 200+ split cases that need high balances) without a signer.
+  allowBulkSendWatchingAccount?: boolean;
+  // Disable custom User-Agent injection (debug only).
+  // When true, buildCustomUA() returns null, all call sites fall back to
+  // the runtime default UA.
+  disableCustomUA?: boolean;
+  // Allow Discovery browser to load local development URLs.
+  allowLocalhostUrlInDAppBrowser?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -117,6 +139,9 @@ export const {
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
+      mockTradingViewKLineEmptyEnabled: false,
+      mockTradingViewKLineEmptyIntervals: ['1m'],
+      allowLocalhostUrlInDAppBrowser: false,
       // Linux Desktop use Bridge，avoiding WebUSB permission problem
       usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default

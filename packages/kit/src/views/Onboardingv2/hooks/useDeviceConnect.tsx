@@ -35,6 +35,7 @@ import type {
 } from '@onekeyhq/shared/types/device';
 import {
   EHardwareCallContext,
+  EHardwareVendor,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
 
@@ -55,6 +56,79 @@ import {
 import { usePrepareUSBConnectForFirmwareUpdate } from './usePrepareUSBConnectForFirmwareUpdate';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+
+// ---------------------------------------------------------------------------
+// Third-party vendor helpers (Ledger today; Trezor would add sibling helpers
+// here, NOT modify these). Kept as plain module-level functions so the
+// useDeviceConnect hook stays focused on the OneKey path.
+// ---------------------------------------------------------------------------
+
+async function verifyLedgerDevice(
+  device: SearchDevice,
+): Promise<IFirmwareVerifyResult> {
+  // Third-party devices do not go through OneKey firmware verify /
+  // bootloader checks; return a synthetic verified result.
+  return {
+    verified: true,
+    device,
+    payload: {
+      deviceType: device.deviceType,
+      data: '',
+      cert: '',
+      signature: '',
+    },
+    result: {
+      message: '',
+    },
+  };
+}
+
+async function createLedgerHwWallet({
+  device,
+  vendor,
+  actions,
+  navigation,
+  hardwareTransportType,
+  isSoftwareWalletOnlyUser,
+}: {
+  device: SearchDevice;
+  vendor: EHardwareVendor;
+  actions: ReturnType<typeof useAccountSelectorActions>;
+  navigation: ReturnType<typeof useAppNavigation>;
+  hardwareTransportType: EHardwareTransportType | undefined;
+  isSoftwareWalletOnlyUser: boolean;
+}): Promise<void> {
+  try {
+    navigation.push(EOnboardingPages.FinalizeWalletSetup);
+
+    const params: IDBCreateHwWalletParamsBase & {
+      vendor?: EHardwareVendor;
+    } = {
+      device,
+      hideCheckingDeviceLoading: true,
+      features: {
+        device_id: device.deviceId || '',
+        vendor,
+      } as IOneKeyDeviceFeatures,
+      isFirmwareVerified: true,
+      defaultIsTemp: true,
+      vendor,
+    };
+    await actions.current.createHWWalletWithoutHidden(params);
+
+    await trackHardwareWalletConnection({
+      status: 'success',
+      deviceType: device.deviceType,
+      features: params.features,
+      hardwareTransportType,
+      isSoftwareWalletOnlyUser,
+    });
+  } catch (error) {
+    errorToastUtils.toastIfError(error);
+    navigation.pop();
+    throw error;
+  }
+}
 
 export function useDeviceConnect({
   setCurrentDevice,
@@ -299,6 +373,7 @@ export function useDeviceConnect({
                   renderContent: (
                     <XStack gap="$2.5">
                       <Button
+                        testID="onboardingv2-package-alert-dialog-btn"
                         flex={1}
                         size="large"
                         $gtMd={{ size: 'medium' } as any}
@@ -309,6 +384,7 @@ export function useDeviceConnect({
                         })}
                       </Button>
                       <Button
+                        testID="onboardingv2-package-alert-dialog-btn"
                         flex={1}
                         variant="primary"
                         size="large"
@@ -347,6 +423,14 @@ export function useDeviceConnect({
       // Ensure all scanning and polling activities are stopped before connecting
       console.log('handleDeviceConnect: Starting device connection process');
 
+      // Third-party vendor short-circuit: skip OneKey-specific verify
+      // (firmware verify, bootloader check, etc.).
+      const deviceVendor = (device as SearchDevice & { vendor?: string })
+        ?.vendor;
+      if (deviceVendor === EHardwareVendor.ledger) {
+        return verifyLedgerDevice(device);
+      }
+
       defaultLogger.account.wallet.addWalletStarted({
         addMethod: 'ConnectHWWallet',
         details: {
@@ -371,6 +455,8 @@ export function useDeviceConnect({
         );
       }
 
+      let connectionFailureTracked = false;
+      let forceTransportType: EHardwareTransportType | undefined;
       try {
         void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
           connectId: device.connectId ?? '',
@@ -415,6 +501,9 @@ export function useDeviceConnect({
             onBeforeUpdate: prepareUSBForUpdate,
           });
           console.log('Device is in bootloader mode', device);
+          // Bootloader mode hands off to the firmware-update flow, so the throw
+          // below is not a connection failure — suppress the catch-block tracking.
+          connectionFailureTracked = true;
           throw new OneKeyLocalError('Device is in bootloader mode');
         };
 
@@ -436,7 +525,6 @@ export function useDeviceConnect({
         }
 
         // Set global transport type based on selected channel before connecting
-        let forceTransportType: EHardwareTransportType | undefined;
         if (tabValue === EConnectDeviceChannel.bluetooth) {
           forceTransportType = EHardwareTransportType.DesktopWebBle;
         } else {
@@ -460,6 +548,7 @@ export function useDeviceConnect({
             features,
             hardwareTransportType: forceTransportType || hardwareTransportType,
           });
+          connectionFailureTracked = true;
           throw new OneKeyHardwareError(
             'connect device failed, no features returned',
           );
@@ -492,6 +581,7 @@ export function useDeviceConnect({
             features,
             hardwareTransportType: forceTransportType || hardwareTransportType,
           });
+          connectionFailureTracked = true;
           Toast.error({
             title: 'Device is in backup mode',
           });
@@ -602,6 +692,18 @@ export function useDeviceConnect({
         // Clear force transport type on device connection error
         void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
         console.error('handleDeviceConnect error:', error);
+        if (!connectionFailureTracked) {
+          // Fire-and-forget; an analytics rejection must not mask the original error
+          // in the catch, so we cannot await here.
+          trackHardwareWalletConnection({
+            status: 'failure',
+            isSoftwareWalletOnlyUser,
+            deviceType: device.deviceType,
+            hardwareTransportType: forceTransportType || hardwareTransportType,
+          }).catch((e) =>
+            console.error('trackHardwareWalletConnection failed:', e),
+          );
+        }
         throw error;
       }
     },
@@ -766,10 +868,25 @@ export function useDeviceConnect({
     async ({
       device,
       isFirmwareVerified,
+      vendor,
     }: {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
+      vendor?: EHardwareVendor;
     }) => {
+      // For third-party vendor devices (Ledger), skip OneKey SDK
+      // connection/features flow and create wallet directly.
+      if (vendor === EHardwareVendor.ledger) {
+        return createLedgerHwWallet({
+          device,
+          vendor,
+          actions,
+          navigation,
+          hardwareTransportType,
+          isSoftwareWalletOnlyUser,
+        });
+      }
+
       await ensureActiveConnection(device);
       const currentDevice = getActiveDevice() ?? device;
       void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
@@ -820,6 +937,10 @@ export function useDeviceConnect({
       createHwWallet,
       closeDialogAndReturn,
       intl,
+      navigation,
+      actions,
+      hardwareTransportType,
+      isSoftwareWalletOnlyUser,
     ],
   );
   return useMemo(

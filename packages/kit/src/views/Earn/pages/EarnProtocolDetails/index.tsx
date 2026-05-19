@@ -78,6 +78,7 @@ import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 
 import { ApyChart } from './components/ApyChart';
+import { ProtocolIntroSection } from './components/ProtocolIntroSection';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
 import { useProtocolDetailData } from './hooks/useProtocolDetailData';
 
@@ -187,6 +188,7 @@ const ProtocolHeader = ({
         />
         {onShare ? (
           <IconButton
+            testID="earn-icon-btn"
             icon="ShareOutline"
             size="small"
             variant="tertiary"
@@ -532,6 +534,7 @@ const DetailsPartComponent = ({
               />
             </YStack>
             <GridSection data={detailInfo.intro} />
+            <ProtocolIntroSection protocolInfo={detailInfo.protocolInfo} />
             {earnUtils.isPendleProvider({
               providerName: provider,
             }) ? (
@@ -723,7 +726,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const pageTitle = useMemo(
     () => (
       <XStack gap="$3" ai="center">
-        <Token size="md" source={tokenInfo?.token?.logoURI} />
+        <Token size="md" tokenImageUri={tokenInfo?.token?.logoURI} />
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {symbol}
         </SizableText>
@@ -779,6 +782,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     if (gtMd || !shareUrl) return null;
     return (
       <IconButton
+        testID="earn-header-right-icon-btn"
         icon="ShareOutline"
         variant="tertiary"
         onPress={handleShare}

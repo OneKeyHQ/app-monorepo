@@ -78,12 +78,16 @@ export function resolveQuoteShowTip({
   }
 
   if (quoteShowTip.type === EQuoteShowTipType.TRADE_UNKNOWN) {
-    return getTokenFiatValue({
+    const fromFiatValueBN = getTokenFiatValue({
+      token: fromToken,
+      amount: fromAmount,
+    });
+    const toFiatValueBN = getTokenFiatValue({
       token: toToken,
       amount: toAmount,
-    })
-      ? undefined
-      : quoteShowTip;
+    });
+
+    return fromFiatValueBN && toFiatValueBN ? undefined : quoteShowTip;
   }
 
   if (quoteShowTip.type !== EQuoteShowTipType.PRICE_IMPACT) {

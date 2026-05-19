@@ -72,7 +72,7 @@ function PerpAccountMMRView() {
               color="$textSubdued"
               cursor="help"
               dashColor="$textDisabled"
-              dashThickness={0.5}
+              dashThickness={1}
             >
               {intl.formatMessage({
                 id: ETranslations.perp_account_cross_margin_ration,
@@ -127,7 +127,7 @@ function PerpAccountPanel() {
           <Tooltip
             placement="top"
             renderContent={intl.formatMessage({
-              id: ETranslations.perp_account_panel_account_value_tooltip,
+              id: ETranslations.perp_portfolio_value_tooltip,
             })}
             renderTrigger={
               <DashText
@@ -135,10 +135,10 @@ function PerpAccountPanel() {
                 color="$textSubdued"
                 cursor="help"
                 dashColor="$textDisabled"
-                dashThickness={0.5}
+                dashThickness={1}
               >
                 {intl.formatMessage({
-                  id: ETranslations.perp_account_panel_account_value,
+                  id: ETranslations.perp_portfolio_value,
                 })}
               </DashText>
             }
@@ -181,7 +181,7 @@ function PerpAccountPanel() {
                 color="$textSubdued"
                 cursor="help"
                 dashColor="$textDisabled"
-                dashThickness={0.5}
+                dashThickness={1}
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_account_panel_account_maintenance_margin,
@@ -219,6 +219,7 @@ function PerpAccountPanel() {
                   : ''}
               </SizableText>
               <IconButton
+                testID="perp-icon-btn"
                 icon="OpenOutline"
                 color="$iconSubdued"
                 variant="tertiary"
@@ -240,6 +241,7 @@ function PerpAccountPanel() {
       {userAddress ? (
         <XStack gap="$2.5" alignItems="center">
           <Button
+            testID="perp-btn"
             borderRadius="$full"
             flex={1}
             size="medium"
@@ -261,6 +263,7 @@ function PerpAccountPanel() {
             </SizableText>
           </Button>
           <IconButton
+            testID="perp-icon-btn"
             borderRadius="$full"
             size="medium"
             h={36}
@@ -281,6 +284,7 @@ function PerpAccountPanel() {
             }
           />
           <IconButton
+            testID="perp-icon-btn"
             borderRadius="$full"
             size="medium"
             h={36}
@@ -288,7 +292,7 @@ function PerpAccountPanel() {
             variant="secondary"
             icon="ChartLine2Outline"
             iconSize="$4.5"
-            title={getPortfolioTitle()}
+            title={getPortfolioTitle(intl)}
             onPress={showPortfolio}
           />
         </XStack>

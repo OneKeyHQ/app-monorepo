@@ -1,4 +1,6 @@
-import type { ESubscriptionType } from './types';
+/* cspell:ignore Fundings */
+
+import type { ESubscriptionType, IPerpsFormattedAssetCtx } from './types';
 import type * as HL from '@nktkas/hyperliquid';
 
 // WebSocket event types
@@ -15,10 +17,15 @@ export type IWsAllDexsClearinghouseState = HL.AllDexsClearinghouseStateWsEvent;
 export type IWsAllDexsAssetCtxs = HL.AllDexsAssetCtxsWsEvent;
 export type IWsBbo = HL.BboWsEvent;
 
-// Spot state types
+// Spot WebSocket event types
 export type IWsSpotState = HL.SpotStateWsEvent;
+export type IWsSpotAssetCtxs = HL.SpotAssetCtxsWsEvent;
+export type IWsActiveSpotAssetCtx = HL.ActiveSpotAssetCtxWsEvent;
 export type ISpotBalance = IWsSpotState['spotState']['balances'][number];
 export type IEventSpotStateParameters = HL.SpotStateWsParameters;
+export type IEventSpotAssetCtxsParameters = Record<string, never>;
+export type IEventActiveSpotAssetCtxParameters =
+  HL.ActiveSpotAssetCtxWsParameters;
 
 // Abstraction query types
 export type IUserAbstractionResponse = HL.UserAbstractionResponse;
@@ -56,14 +63,64 @@ export type IPerpsActiveAssetData = Omit<IActiveAssetData, 'user'> & {
   assetId: number | undefined;
 };
 export type IAllPerpMetasResponse = HL.AllPerpMetasResponse;
+
+// Spot info types
+export type ISpotMetaResponse = HL.SpotMetaResponse;
+export type ISpotMetaAndAssetCtxsResponse = HL.SpotMetaAndAssetCtxsResponse;
+export type ISpotClearinghouseStateResponse = HL.SpotClearinghouseStateResponse;
+export type ISpotToken = ISpotMetaResponse['tokens'][number];
+export type ISpotUniverseRaw = ISpotMetaResponse['universe'][number];
+export type ISpotUniverse = ISpotUniverseRaw & {
+  assetId: number;
+  baseName: string;
+  quoteName: string;
+  displayName: string;
+  baseSzDecimals: number;
+};
+export type ISpotAssetCtx = IWsSpotAssetCtxs[number];
+
 export type IMarginTable = HL.MarginTableResponse;
 export type IMarginTableMap = Partial<Record<number, IMarginTable>>;
+export type IMetaAndAssetCtxsResponse = HL.MetaAndAssetCtxsResponse;
+export type IFundingHistoryRecord = HL.FundingHistoryResponse[number];
+export type IRecentTrade = HL.RecentTradesResponse[number];
+export type IPerpAnnotation = HL.PerpAnnotationResponse;
+export type IPerpsAtOpenInterestCapResponse = HL.PerpsAtOpenInterestCapResponse;
+export type IPredictedFundingEntry = HL.PredictedFundingsResponse[number];
+
+export interface IPerpPredictedFundingVenue {
+  exchange: string;
+  fundingRate: string | null;
+  nextFundingTime: number | null;
+  fundingIntervalHours?: number;
+}
+
+export interface IPerpMarketOverview {
+  coin: string;
+  assetId: number | undefined;
+  ctx: IPerpsFormattedAssetCtx;
+  premium: string | null;
+  dayBaseVolume: string;
+  openInterestNotional: string | null;
+}
+
+export interface IPerpContractInfo {
+  coin: string;
+  assetId: number | undefined;
+  szDecimals?: number;
+  maxLeverage?: number;
+  marginMode?: string;
+  onlyIsolated?: boolean;
+  marginTable?: IMarginTable;
+  isAtOpenInterestCap: boolean;
+}
 
 // Orders
 export type IPerpsFrontendOrder = HL.OpenOrdersWsEvent['orders'][number];
 export type IOrderParams = HL.OrderParameters['orders'][number];
 export type IOrderResponse = HL.OrderSuccessResponse;
 export type ICancelResponse = HL.CancelSuccessResponse;
+export type IModifyResponse = HL.ModifySuccessResponse;
 export type ITIF = 'Gtc' | 'Ioc' | 'Alo';
 
 // Account and asset states
@@ -147,6 +204,8 @@ export type IPerpsSubscriptionParams = {
   [ESubscriptionType.ALL_DEXS_ASSET_CTXS]: IEventAllDexsAssetCtxsParameters;
   [ESubscriptionType.TWAP_STATES]: IEventTwapStatesParameters;
   [ESubscriptionType.SPOT_STATE]: IEventSpotStateParameters;
+  [ESubscriptionType.SPOT_ASSET_CTXS]: IEventSpotAssetCtxsParameters;
+  [ESubscriptionType.ACTIVE_SPOT_ASSET_CTX]: IEventActiveSpotAssetCtxParameters;
 };
 
 export type IWebSocketTransportOptions = HL.WebSocketTransportOptions;

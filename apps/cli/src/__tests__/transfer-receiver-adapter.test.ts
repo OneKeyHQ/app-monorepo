@@ -17,7 +17,10 @@ import {
   parseTransferRoomIdFromPairingCode,
 } from '../core/prime-transfer/pairing-code';
 import { getTransferPairingRuntimeError } from '../core/prime-transfer/pairing-session-runtime';
-import { TransferReceiverAdapter } from '../core/prime-transfer/transfer-receiver-adapter';
+import {
+  TRANSFER_SOCKET_TRANSPORTS,
+  TransferReceiverAdapter,
+} from '../core/prime-transfer/transfer-receiver-adapter';
 import { AppError, ERROR_CODES } from '../errors';
 
 import type {
@@ -217,6 +220,10 @@ async function deriveLocalSharedSecret({
 }
 
 describe('TransferReceiverAdapter', () => {
+  it('uses websocket-only transport to avoid Node url.parse deprecation warnings', () => {
+    expect(TRANSFER_SOCKET_TRANSPORTS).toEqual(['websocket']);
+  });
+
   it('creates normalized pairing session data in under one second', async () => {
     const socket = createMockSocket();
     const connectSocket = jest.fn(async () => socket);
@@ -268,8 +275,8 @@ describe('TransferReceiverAdapter', () => {
       status: 'pairing',
       loginMethod: 'app_transfer',
       createdAt: '2026-04-06T07:00:00.000Z',
-      timeoutMs: 120_000,
-      expiresAt: '2026-04-06T07:02:00.000Z',
+      timeoutMs: 300_000,
+      expiresAt: '2026-04-06T07:05:00.000Z',
       pairingPayload: {
         roomId: 'ABCDE-FGHIJ',
         transferType: EPrimeTransferDataType.keylessWallet,

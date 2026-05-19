@@ -133,6 +133,12 @@ function JotaiContextRootProvidersAutoMountCmp() {
               />
             );
           }
+          case EJotaiContextStoreNames.homeAccountOverview:
+          case EJotaiContextStoreNames.urlAccountOverview: {
+            // AccountOverview is mounted by page-level root providers, so
+            // it does not use global mirror auto-mount here.
+            return null;
+          }
           case EJotaiContextStoreNames.homeTokenList: {
             return <HomeTokenListRootProvider key={key} />;
           }

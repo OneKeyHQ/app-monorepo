@@ -43,6 +43,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { useHandleDiscoveryAccountChanged } from '../../hooks/useHandleAccountChanged';
+import { DAppConnectionTestIDs } from '../../testIDs';
 
 import type { IHandleAccountChanged } from '../../hooks/useHandleAccountChanged';
 
@@ -175,6 +176,7 @@ function DAppAccountListItem({
         borderWidth={StyleSheet.hairlineWidth}
         separator={<Divider />}
         disabled={readonly}
+        testID={DAppConnectionTestIDs.AccountListItem}
       >
         <YGroup.Item>
           <NetworkSelectorTriggerDappConnection
@@ -282,7 +284,7 @@ function DAppAccountListStandAloneItem({
   ]);
 
   return (
-    <YStack gap="$2" testID="DAppAccountListStandAloneItem">
+    <YStack gap="$2" testID={DAppConnectionTestIDs.AccountListStandAlone}>
       <SizableText size="$headingMd" color="$text">
         {intl.formatMessage({ id: ETranslations.global_accounts })}
       </SizableText>
@@ -314,7 +316,7 @@ function DAppAccountListStandAloneItem({
 function DAppAccountListStandAloneItemForHomeScene() {
   const intl = useIntl();
   return (
-    <YStack gap="$2" testID="DAppAccountListStandAloneItem">
+    <YStack gap="$2" testID={DAppConnectionTestIDs.AccountListStandAlone}>
       <SizableText size="$headingMd" color="$text">
         {intl.formatMessage({ id: ETranslations.global_accounts })}
       </SizableText>
@@ -382,7 +384,7 @@ function DAppAccountListStandAloneItemReadonly({
   );
 
   return (
-    <YStack gap="$2" testID="DAppAccountListStandAloneItem">
+    <YStack gap="$2" testID={DAppConnectionTestIDs.AccountListStandAlone}>
       <SizableText size="$headingMd" color="$text">
         {intl.formatMessage({ id: ETranslations.global_accounts })}
       </SizableText>

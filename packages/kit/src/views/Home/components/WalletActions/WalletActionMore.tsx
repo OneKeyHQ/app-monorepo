@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { getRewardCenterConfig } from '@onekeyhq/kit/src/components/RewardCenter';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorSceneInfo,
@@ -18,6 +19,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { HomeTestIDs } from '../../testIDs';
 import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
 import { RawActions } from './RawActions';
@@ -39,9 +41,6 @@ export function WalletActionMore() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { account, network } = activeAccount;
-  const isBotWallet = accountUtils.isBotWallet({
-    walletId: activeAccount?.wallet?.id,
-  });
 
   const show = useReviewControl();
   const { config, getMoreActionGroups, getActionCustomization } =
@@ -62,22 +61,11 @@ export function WalletActionMore() {
   const displaySignAndVerify = usePromiseResult(async () => {
     return vaultSettings?.enabledInternalSignAndVerify;
   }, [vaultSettings]);
-  const { result: isBotWalletDeactivatedResult } = usePromiseResult(
-    async () => {
-      if (!activeAccount?.wallet?.id || !isBotWallet) {
-        return false;
-      }
-
-      return backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
-        walletId: activeAccount.wallet.id,
-      });
-    },
-    [activeAccount?.wallet?.id, isBotWallet],
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
     {
-      checkIsFocused: false,
+      walletId: activeAccount?.wallet?.id,
     },
   );
-  const isBotWalletDeactivated = !!isBotWalletDeactivatedResult;
 
   const isApprovalEnabled = useMemo(() => {
     const networksSupportApproval = getNetworksSupportBulkRevokeApproval();
@@ -323,5 +311,10 @@ export function WalletActionMore() {
     ],
   );
 
-  return <RawActions.More renderItemsAsync={renderItemsAsync} />;
+  return (
+    <RawActions.More
+      renderItemsAsync={renderItemsAsync}
+      testID={HomeTestIDs.moreButton}
+    />
+  );
 }

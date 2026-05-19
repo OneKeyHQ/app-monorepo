@@ -20,11 +20,11 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   TRON_SOURCE_FLAG_MAINNET,
   TRON_SOURCE_FLAG_TESTNET,
-} from '@onekeyhq/core/src/chains/tron/constants';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+} from '@onekeyhq/shared/src/consts/chainConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -55,6 +55,7 @@ import {
   useAccountSelectorActions,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+import { RewardCenterTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -532,6 +533,7 @@ function RewardCenterDetails() {
     if (!account && !isLoadingResourceState) {
       return (
         <Button
+          testID={RewardCenterTestIDs.addAccountBtn}
           size="medium"
           variant="primary"
           loading={isCreatingTronAccount}
@@ -547,6 +549,7 @@ function RewardCenterDetails() {
 
     return (
       <Button
+        testID={RewardCenterTestIDs.claimBtn}
         size="medium"
         variant="primary"
         loading={isClaiming}
@@ -604,6 +607,7 @@ function RewardCenterDetails() {
               <Stack flex={1}>
                 <Form.Field name="code" rules={{ required: true }}>
                   <Input
+                    testID={RewardCenterTestIDs.redeemCodeInput}
                     w="100%"
                     backgroundColor="$bgStrong"
                     placeholder={intl.formatMessage({
@@ -613,6 +617,7 @@ function RewardCenterDetails() {
                 </Form.Field>
               </Stack>
               <Button
+                testID={RewardCenterTestIDs.redeemBtn}
                 size="medium"
                 variant="primary"
                 onPress={handleRedeemCode}

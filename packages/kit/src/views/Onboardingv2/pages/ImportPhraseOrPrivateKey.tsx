@@ -2,27 +2,23 @@ import type { ReactNode, RefObject } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import type { IInputRef, ITextAreaInputProps } from '@onekeyhq/components';
 import {
   Button,
   HeightTransition,
   Icon,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Page,
   Portal,
   SegmentControl,
   SizableText,
-  Stack,
   TextAreaInput,
   XStack,
   YStack,
-  useKeyboardEvent,
   useMedia,
-  useReanimatedKeyboardAnimation,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
@@ -40,8 +36,14 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/ImportSingleChainBase';
 import useScanQrCode from '../../ScanQrCode/hooks/useScanQrCode';
-import { OnboardingLayout } from '../components/OnboardingLayout';
+import {
+  OnboardingHeading,
+  OnboardingIconBadge,
+  OnboardingPage,
+  OnboardingSidebar,
+} from '../components/Layout';
 import { PhaseInputArea } from '../components/PhaseInputArea';
+import { OnboardingTestIDs } from '../testIDs';
 
 import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
 import type { RouteProp } from '@react-navigation/core';
@@ -202,6 +204,33 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   );
 }
 
+type IFaqItem = {
+  titleId: ETranslations;
+  descriptionId: ETranslations;
+};
+
+const phraseFaqs: ReadonlyArray<IFaqItem> = [
+  {
+    titleId: ETranslations.faq_recovery_phrase,
+    descriptionId: ETranslations.faq_recovery_phrase_explaination,
+  },
+  {
+    titleId: ETranslations.faq_recovery_phrase_safe_store,
+    descriptionId: ETranslations.faq_recovery_phrase_safe_store_desc,
+  },
+];
+
+const privateKeyFaqs: ReadonlyArray<IFaqItem> = [
+  {
+    titleId: ETranslations.faq_private_key,
+    descriptionId: ETranslations.faq_private_key_desc,
+  },
+  {
+    titleId: ETranslations.faq_recovery_phrase_safe_store,
+    descriptionId: ETranslations.faq_recovery_phrase_safe_store_desc,
+  },
+];
+
 export default function ImportPhraseOrPrivateKey() {
   const navigation = useAppNavigation();
   const routeParams =
@@ -220,6 +249,12 @@ export default function ImportPhraseOrPrivateKey() {
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();
   const [privateKey, setPrivateKey] = useState('');
+  const { bottom: safeAreaBottom } = useSafeAreaInsets();
+
+  const sidebarFaqs =
+    selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase
+      ? phraseFaqs
+      : privateKeyFaqs;
 
   const handleConfirm = async () => {
     if (selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase) {
@@ -263,28 +298,6 @@ export default function ImportPhraseOrPrivateKey() {
     }
   };
 
-  const { height } = useReanimatedKeyboardAnimation();
-  const { bottom: safeAreaBottom } = useSafeAreaInsets();
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(
-    selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase,
-  );
-  useKeyboardEvent({
-    keyboardWillShow: () => setIsKeyboardVisible(true),
-    keyboardWillHide: () => setIsKeyboardVisible(false),
-  });
-
-  // The root layout adds pb: safeAreaBottom + 10 which creates a gap below
-  // the footer when keyboard is up. Compensate by translating down half that
-  // distance so the footer content is vertically centered.
-  const rootBottomPadding = safeAreaBottom + 10;
-  const footerAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY: height.value < 0 ? height.value + rootBottomPadding / 2 : 0,
-      },
-    ],
-  }));
-
   const renderHardwarePhrasesWarningTag = useCallback(
     (chunks: ReactNode[]) => (
       <SizableText
@@ -309,15 +322,19 @@ export default function ImportPhraseOrPrivateKey() {
   );
 
   return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header
-          title={intl.formatMessage({
-            id: ETranslations.import_phrase_or_private_key,
-          })}
-        />
-        <OnboardingLayout.Body constrained={false} bottomOffset={200}>
-          <OnboardingLayout.ConstrainedContent gap="$5">
+    <OnboardingPage
+      testID={OnboardingTestIDs.importPhrasePage}
+      scrollable
+      keyboardBottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 80}
+    >
+      <YStack $gtMd={{ flexDirection: 'row' }}>
+        <YStack gap="$8" $gtMd={{ flex: 1, gap: '$12' }}>
+          <OnboardingHeading>
+            {intl.formatMessage({
+              id: ETranslations.global_import_wallet,
+            })}
+          </OnboardingHeading>
+          <YStack gap="$5" pb="$5">
             <SegmentControl
               value={selected}
               fullWidth
@@ -396,75 +413,54 @@ export default function ImportPhraseOrPrivateKey() {
               )}
             </HeightTransition>
             {gtMd ? (
-              <Button size="large" variant="primary" onPress={handleConfirm}>
+              <Button
+                testID={OnboardingTestIDs.importPhraseConfirmBtn}
+                size="large"
+                variant="primary"
+                onPress={handleConfirm}
+              >
                 {intl.formatMessage({ id: ETranslations.global_confirm })}
               </Button>
             ) : null}
-          </OnboardingLayout.ConstrainedContent>
-        </OnboardingLayout.Body>
-        {!gtMd ? (
-          <OnboardingLayout.Footer>
-            {platformEnv.isNative ? (
-              <YStack>
-                <Animated.View style={footerAnimatedStyle}>
-                  <YStack>
-                    {isKeyboardVisible ? (
-                      <Stack
-                        mx="$-5"
-                        borderTopWidth={StyleSheet.hairlineWidth}
-                        borderColor="$borderSubdued"
-                      />
-                    ) : null}
-                    <XStack
-                      bg="$bgApp"
-                      alignItems="center"
-                      justifyContent="center"
-                      pt="$3"
-                      pb={500}
-                      mb={-500}
-                    >
-                      <YStack w="100%" gap="$3">
-                        <HeightTransition>
-                          <XStack onPress={noop}>
-                            <Portal.Container
-                              name={Portal.Constant.SUGGESTION_LIST}
-                            />
-                          </XStack>
-                        </HeightTransition>
-                        <Button
-                          size="large"
-                          variant="primary"
-                          onPress={handleConfirm}
-                          loading={isConfirming}
-                          w="100%"
-                        >
-                          {intl.formatMessage({
-                            id: ETranslations.global_confirm,
-                          })}
-                        </Button>
-                      </YStack>
-                    </XStack>
-                  </YStack>
-                </Animated.View>
-              </YStack>
-            ) : (
-              <YStack w="100%" pb="$5">
-                <Button
-                  size="large"
-                  variant="primary"
-                  onPress={handleConfirm}
-                  loading={isConfirming}
-                  w="100%"
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.global_confirm,
-                  })}
-                </Button>
-              </YStack>
-            )}
-          </OnboardingLayout.Footer>
+          </YStack>
+        </YStack>
+        {gtMd ? (
+          <OnboardingSidebar>
+            <OnboardingIconBadge icon="DotHorSolid" />
+            <YStack gap="$6">
+              {sidebarFaqs.map((item) => (
+                <YStack key={item.titleId} gap="$1">
+                  <SizableText size="$bodyLgMedium">
+                    {intl.formatMessage({ id: item.titleId })}
+                  </SizableText>
+                  <SizableText size="$bodyLg" color="$textSubdued">
+                    {intl.formatMessage({ id: item.descriptionId })}
+                  </SizableText>
+                </YStack>
+              ))}
+            </YStack>
+          </OnboardingSidebar>
         ) : null}
-      </OnboardingLayout>
-    </Page>
+      </YStack>
+      {!gtMd ? (
+        <Page.Footer>
+          <Page.FooterActions
+            pb={safeAreaBottom ? safeAreaBottom + 8 : 20}
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.global_confirm,
+            })}
+            confirmButtonProps={{
+              testID: OnboardingTestIDs.importPhraseConfirmBtn,
+              onPress: handleConfirm,
+              loading: isConfirming,
+            }}
+          >
+            <HeightTransition>
+              <Portal.Container name={Portal.Constant.SUGGESTION_LIST} />
+            </HeightTransition>
+          </Page.FooterActions>
+        </Page.Footer>
+      ) : null}
+    </OnboardingPage>
   );
 }

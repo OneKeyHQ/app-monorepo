@@ -13,6 +13,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { LetterAvatar } from '../LetterAvatar';
+import { useTokenListViewContext } from '../TokenListView/TokenListViewContext';
 
 import type { FontSizeTokens } from 'tamagui';
 
@@ -86,21 +87,29 @@ export function NetworkAvatar({
   allNetworksIconProps,
 }: INetworkAvatarProps) {
   const { serviceNetwork } = backgroundApiProxy;
+  const { networksMap } = useTokenListViewContext();
+  const cachedNetwork = networkId ? networksMap?.[networkId] : undefined;
   const res = usePromiseResult(
-    () =>
-      networkId
+    () => {
+      if (cachedNetwork) {
+        return Promise.resolve(cachedNetwork);
+      }
+      return networkId
         ? serviceNetwork.getNetwork({ networkId })
         : Promise.resolve({
             logoURI: '',
             isCustomNetwork: false,
             name: '',
-          } as IServerNetwork),
-    [networkId, serviceNetwork],
+          } as IServerNetwork);
+    },
+    [networkId, serviceNetwork, cachedNetwork],
     {
       checkIsFocused: false,
+      initResult: cachedNetwork,
     },
   );
-  const { logoURI, isCustomNetwork, name, isAllNetworks } = res.result || {};
+  const { logoURI, isCustomNetwork, name, isAllNetworks } =
+    cachedNetwork ?? res.result ?? {};
 
   if (isCustomNetwork) {
     return <LetterAvatar letter={name?.[0]} size={size} />;

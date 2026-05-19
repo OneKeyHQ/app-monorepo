@@ -192,7 +192,14 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 // Mock cacheUtils (memoizee + memoFn)
 // ---------------------------------------------------------------------------
 jest.mock('@onekeyhq/shared/src/utils/cacheUtils', () => ({
-  memoizee: (fn: any) => fn,
+  // Wrap so the returned function still has a `.clear()` like real memoizee,
+  // which ServiceAppUpdate.clearCache calls to invalidate the 5-minute
+  // changelog cache.
+  memoizee: (fn: any) => {
+    const wrapped: any = (...args: any[]) => fn(...args);
+    wrapped.clear = () => undefined;
+    return wrapped;
+  },
   memoFn: (fn: any) => fn,
 }));
 
@@ -240,6 +247,11 @@ function createService() {
   return new ServiceAppUpdate({
     backgroundApi,
   });
+}
+
+function resetFirstLaunchForTest() {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('./ServiceAppUpdate').resetFirstLaunchForTest();
 }
 
 function resetAtom(overrides?: Partial<IAppUpdateInfo>) {
@@ -732,6 +744,27 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.jsBundle).toBeUndefined();
     });
 
+    test('reset rewrites lastUpdateDialogShownAt to 0 so the 24h dialog throttle re-arms', async () => {
+      // Settings → Clear update cache funnels through clearCache → reset.
+      // The user-visible expectation is that after clearing, the next cold
+      // launch shows the upgrade reminder dialog again (subject to other
+      // gates: server has new version, manual strategy, native/desktop).
+      //
+      // Sentinel value 0 (not undefined): jotai persist's JSON.stringify
+      // drops undefined keys, so a missing field would leave the previous
+      // timestamp on disk and silently re-suppress the dialog. 0 survives
+      // serialization and showUpdateDialogUI's truthy gate still treats it
+      // as "never shown".
+      resetAtom({
+        status: EAppUpdateStatus.ready,
+        lastUpdateDialogShownAt: Date.now() - 60_000, // shown 1 min ago
+      });
+
+      await service.reset();
+
+      expect(atomValue.lastUpdateDialogShownAt).toBe(0);
+    });
+
     test('resetToManualInstall sets manualInstall status and clears error', async () => {
       resetAtom({
         status: EAppUpdateStatus.verifyPackageFailed,
@@ -937,6 +970,104 @@ describe('ServiceAppUpdate state transitions', () => {
   });
 
   // =========================================================================
+  // shouldResumeStalledDownload — pure eligibility query for AppState 'active'
+  // =========================================================================
+  describe('shouldResumeStalledDownload', () => {
+    test("returns 'downloadPackage' when status is 'downloadPackageFailed'", async () => {
+      resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
+      const step = await service.shouldResumeStalledDownload();
+      expect(step).toBe('downloadPackage');
+      // Pure query — atom must NOT be mutated.
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
+    });
+
+    test("returns 'downloadASC' when status is 'downloadASCFailed'", async () => {
+      // Critical: ASC-only failures must NOT route through downloadPackage,
+      // which would clear downloadedEvent and force a full package
+      // re-download even though the bytes are already on disk.
+      resetAtom({ status: EAppUpdateStatus.downloadASCFailed });
+      const step = await service.shouldResumeStalledDownload();
+      expect(step).toBe('downloadASC');
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadASCFailed);
+    });
+
+    test("returns null when status is 'downloadPackage' (in-flight)", async () => {
+      // Critical regression guard: foreground transitions during an
+      // in-flight download must NOT re-fire downloadPackage(); the native
+      // module's isDownloading guard would throw "Already downloading"
+      // (unrecoverable in the JS retry layer) and corrupt the active flow.
+      resetAtom({ status: EAppUpdateStatus.downloadPackage });
+      const step = await service.shouldResumeStalledDownload();
+      expect(step).toBeNull();
+    });
+
+    test('returns null for verify-failed / install-failed / terminal states', async () => {
+      for (const status of [
+        EAppUpdateStatus.verifyASCFailed,
+        EAppUpdateStatus.verifyPackageFailed,
+        EAppUpdateStatus.failed,
+        EAppUpdateStatus.updateIncomplete,
+        EAppUpdateStatus.done,
+        EAppUpdateStatus.notify,
+        EAppUpdateStatus.ready,
+        EAppUpdateStatus.verifyASC,
+        EAppUpdateStatus.verifyPackage,
+      ]) {
+        resetAtom({ status });
+        // eslint-disable-next-line no-await-in-loop
+        const step = await service.shouldResumeStalledDownload();
+        expect(step).toBeNull();
+      }
+    });
+
+    test('30s cooldown serializes burst foreground events', async () => {
+      resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
+
+      // First call passes — cooldown consumed.
+      expect(await service.shouldResumeStalledDownload()).toBe(
+        'downloadPackage',
+      );
+
+      // Second call <30s later is rejected even though status is still
+      // eligible. Mirrors the AppState 'change' burst that fires multiple
+      // 'active' events on iOS scene transitions.
+      expect(await service.shouldResumeStalledDownload()).toBeNull();
+
+      // Past the cooldown — passes again.
+      await jest.advanceTimersByTimeAsync(30_000);
+      expect(await service.shouldResumeStalledDownload()).toBe(
+        'downloadPackage',
+      );
+    });
+
+    test('cooldown is consumed only when the call returns a step', async () => {
+      // Sequence: ineligible → eligible → ineligible.
+      // The first ineligible call must NOT consume cooldown, so the
+      // immediately-following eligible call still passes.
+      resetAtom({ status: EAppUpdateStatus.downloadPackage });
+      expect(await service.shouldResumeStalledDownload()).toBeNull();
+
+      resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
+      expect(await service.shouldResumeStalledDownload()).toBe(
+        'downloadPackage',
+      );
+    });
+
+    test('concurrent callers race-safely: only one passes the gate', async () => {
+      // Two AppState listeners (UpdateReminder + MoreActionButton) race
+      // into shouldResumeStalledDownload on the same 'active' event. With
+      // a non-atomic gate both passed; with the claim-before-await guard
+      // only the first should return a non-null step.
+      resetAtom({ status: EAppUpdateStatus.downloadPackageFailed });
+      const [a, b] = await Promise.all([
+        service.shouldResumeStalledDownload(),
+        service.shouldResumeStalledDownload(),
+      ]);
+      expect([a, b].filter((v) => v !== null).length).toBe(1);
+    });
+  });
+
+  // =========================================================================
   // updateLastDialogShownAt / clearLastDialogShownAt
   // =========================================================================
   describe('dialog shown tracking', () => {
@@ -949,12 +1080,58 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.lastUpdateDialogShownAt).toBeGreaterThanOrEqual(before);
     });
 
-    test('clearLastDialogShownAt removes timestamp', async () => {
+    test('clearLastDialogShownAt resets timestamp to 0 (persist-safe sentinel)', async () => {
+      // We write 0 instead of undefined because jotai persist drops
+      // undefined keys during JSON serialization, which would leave the
+      // previous timestamp on disk. 0 round-trips through persist and
+      // showUpdateDialogUI's `if (lastUpdateDialogShownAt && ...)` truthy
+      // gate still treats it as "never shown".
       resetAtom({ lastUpdateDialogShownAt: Date.now() });
 
       await service.clearLastDialogShownAt();
 
-      expect(atomValue.lastUpdateDialogShownAt).toBeUndefined();
+      expect(atomValue.lastUpdateDialogShownAt).toBe(0);
+    });
+  });
+
+  // =========================================================================
+  // setCurrentUpdateAttemptId — persist attemptId across install / relaunch so
+  // the post-restart success event can re-emit the same id as
+  // softwareUpdateStarted.
+  // =========================================================================
+  describe('setCurrentUpdateAttemptId', () => {
+    test('persists the attemptId into the atom', async () => {
+      resetAtom({ currentUpdateAttemptId: undefined });
+
+      await service.setCurrentUpdateAttemptId('attempt-uuid-1');
+
+      expect(atomValue.currentUpdateAttemptId).toBe('attempt-uuid-1');
+    });
+
+    test('overwrites a previously persisted attemptId on next rotation', async () => {
+      resetAtom({ currentUpdateAttemptId: 'attempt-uuid-1' });
+
+      await service.setCurrentUpdateAttemptId('attempt-uuid-2');
+
+      expect(atomValue.currentUpdateAttemptId).toBe('attempt-uuid-2');
+    });
+
+    test('passing undefined clears the persisted id', async () => {
+      resetAtom({ currentUpdateAttemptId: 'attempt-uuid-1' });
+
+      await service.setCurrentUpdateAttemptId(undefined);
+
+      expect(atomValue.currentUpdateAttemptId).toBeUndefined();
+    });
+
+    test('reset() clears the persisted attemptId so the next cycle starts clean', async () => {
+      resetAtom({ currentUpdateAttemptId: 'attempt-uuid-1' });
+
+      await service.reset();
+
+      // reset() is a full-replace set; any field absent from the literal
+      // becomes undefined, which is exactly what we want here.
+      expect(atomValue.currentUpdateAttemptId).toBeUndefined();
     });
   });
 
@@ -998,6 +1175,46 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(AppUpdate.clearPackage).toHaveBeenCalled();
       expect(BundleUpdate.clearDownload).toHaveBeenCalled();
       expect(atomValue.status).toBe(EAppUpdateStatus.done);
+    });
+
+    test('also rewrites lastUpdateDialogShownAt to 0 (re-arms the 24h dialog)', async () => {
+      // End-to-end guarantee for "Settings → Clear update cache":
+      // pressing it must reset the dialog throttle so the user sees
+      // the upgrade reminder again on the next cold launch. clearCache
+      // delegates to reset() for this; this test pins the contract at
+      // the public-API level so a refactor that breaks the chain is
+      // caught here, not by an end-user not seeing the dialog.
+      // 0 (not undefined) — see the matching reset() test for the
+      // jotai-persist serialization rationale.
+      resetAtom({
+        status: EAppUpdateStatus.ready,
+        lastUpdateDialogShownAt: Date.now() - 5 * 60_000,
+        downloadedEvent: { downloadedFile: '/tmp/old.zip' },
+      });
+
+      await service.clearCache();
+
+      expect(atomValue.lastUpdateDialogShownAt).toBe(0);
+    });
+
+    test('wipes in-memory fetch caches so the post-reset check cannot replay a stale featuredChangelog (OK-54862)', async () => {
+      service.cachedUpdateInfo = {
+        version: '9906.15.1',
+        updateStrategy: EUpdateStrategy.manual,
+        featuredChangelog: {
+          version: '9906.15.1',
+          features: [{ mediaUrl: 'https://x/a.png', mediaType: 'image' }],
+        },
+      };
+      service.updateAt = Date.now();
+
+      // Isolate the invalidation step from the post-reset fetch flow.
+      jest.spyOn(service, 'fetchAppUpdateInfo').mockResolvedValue(atomValue);
+
+      await service.clearCache();
+
+      expect(service.cachedUpdateInfo).toBeUndefined();
+      expect(service.updateAt).toBe(0);
     });
   });
 
@@ -1124,7 +1341,7 @@ describe('ServiceAppUpdate state transitions', () => {
     }
 
     test('firstLaunch flag returns true regardless of recent updateAt', async () => {
-      jest.resetModules();
+      resetFirstLaunchForTest();
       const freshService = createService();
       resetAtom({
         status: EAppUpdateStatus.done,
@@ -1137,7 +1354,7 @@ describe('ServiceAppUpdate state transitions', () => {
     });
 
     test('after firstLaunch consumed, recent updateAt returns false', async () => {
-      jest.resetModules();
+      resetFirstLaunchForTest();
       const freshService = createService();
       await consumeFirstLaunch(freshService);
 
@@ -1148,7 +1365,7 @@ describe('ServiceAppUpdate state transitions', () => {
     });
 
     test('returns true when updateAt exceeds 1 hour', async () => {
-      jest.resetModules();
+      resetFirstLaunchForTest();
       const freshService = createService();
       await consumeFirstLaunch(freshService);
 
@@ -1161,7 +1378,7 @@ describe('ServiceAppUpdate state transitions', () => {
     });
 
     test('returns false when updateAt is within 1 hour', async () => {
-      jest.resetModules();
+      resetFirstLaunchForTest();
       const freshService = createService();
       await consumeFirstLaunch(freshService);
 
@@ -1174,7 +1391,7 @@ describe('ServiceAppUpdate state transitions', () => {
     });
 
     test('Extension platform uses 24-hour window instead of 1-hour', async () => {
-      jest.resetModules();
+      resetFirstLaunchForTest();
       const freshService = createService();
       const pEnv = require('@onekeyhq/shared/src/platformEnv').default;
       pEnv.isExtension = true;
@@ -1199,7 +1416,7 @@ describe('ServiceAppUpdate state transitions', () => {
     });
 
     test('no status blocks sync — all statuses allow metadata refresh', async () => {
-      jest.resetModules();
+      resetFirstLaunchForTest();
       const freshService = createService();
       await consumeFirstLaunch(freshService);
 
@@ -1904,7 +2121,7 @@ describe('ServiceAppUpdate state transitions', () => {
     }
 
     test('isNeedSyncAppUpdateInfo returns true during downloadPackage when time window exceeded', async () => {
-      jest.resetModules();
+      resetFirstLaunchForTest();
       const freshService = createService();
       await consumeFirstLaunch(freshService);
 
@@ -1920,7 +2137,7 @@ describe('ServiceAppUpdate state transitions', () => {
     });
 
     test('isNeedSyncAppUpdateInfo returns true during ready when time window exceeded', async () => {
-      jest.resetModules();
+      resetFirstLaunchForTest();
       const freshService = createService();
       await consumeFirstLaunch(freshService);
 
@@ -1942,11 +2159,11 @@ describe('ServiceAppUpdate state transitions', () => {
 
       resetAtom({
         status: EAppUpdateStatus.downloadPackage,
-        latestVersion: '2.0.0',
+        latestVersion: '998.0.0',
         updateAt: 0,
       });
       mockLatestInfo({
-        version: '3.0.0',
+        version: '999.0.0',
         updateStrategy: EUpdateStrategy.force,
         summary: 'Critical security fix',
       });
@@ -1958,7 +2175,7 @@ describe('ServiceAppUpdate state transitions', () => {
       // Status preserved — download continues
       expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
       // But latest info is silently updated for later use
-      expect(atomValue.latestVersion).toBe('3.0.0');
+      expect(atomValue.latestVersion).toBe('999.0.0');
       expect(atomValue.updateStrategy).toBe(EUpdateStrategy.force);
     });
   });
@@ -1968,6 +2185,9 @@ describe('ServiceAppUpdate state transitions', () => {
   // Rationale: no point retrying v2.0.0 download when v3.0.0 exists.
   // -------------------------------------------------------------------------
   describe('P0: failed state recovery to newer version', () => {
+    const ATTEMPTED_VERSION = '998.0.0';
+    const NEWER_VERSION = '999.0.0';
+
     function mockLatestInfo(info: any) {
       jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue(info);
     }
@@ -1986,12 +2206,12 @@ describe('ServiceAppUpdate state transitions', () => {
       async (failedStatus) => {
         resetAtom({
           status: failedStatus,
-          latestVersion: '2.0.0',
+          latestVersion: ATTEMPTED_VERSION,
           errorText: ETranslations.update_network_exception_check_connection,
           updateAt: 0,
         });
         mockLatestInfo({
-          version: '3.0.0',
+          version: NEWER_VERSION,
           updateStrategy: EUpdateStrategy.manual,
         });
         jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
@@ -2000,7 +2220,7 @@ describe('ServiceAppUpdate state transitions', () => {
         await service.fetchAppUpdateInfo(true);
 
         expect(atomValue.status).toBe(EAppUpdateStatus.notify);
-        expect(atomValue.latestVersion).toBe('3.0.0');
+        expect(atomValue.latestVersion).toBe(NEWER_VERSION);
         expect(atomValue.errorText).toBeUndefined();
       },
     );
@@ -2035,12 +2255,12 @@ describe('ServiceAppUpdate state transitions', () => {
     test('keeps failed status when server app version is same (user should retry)', async () => {
       resetAtom({
         status: EAppUpdateStatus.downloadPackageFailed,
-        latestVersion: '2.0.0',
+        latestVersion: ATTEMPTED_VERSION,
         errorText: ETranslations.update_network_exception_check_connection,
         updateAt: 0,
       });
       mockLatestInfo({
-        version: '2.0.0',
+        version: ATTEMPTED_VERSION,
         updateStrategy: EUpdateStrategy.manual,
       });
       jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
@@ -2085,11 +2305,11 @@ describe('ServiceAppUpdate state transitions', () => {
       // downloadPackage (in-progress) should NOT be reset — download is active
       resetAtom({
         status: EAppUpdateStatus.downloadPackage,
-        latestVersion: '2.0.0',
+        latestVersion: ATTEMPTED_VERSION,
         updateAt: 0,
       });
       mockLatestInfo({
-        version: '3.0.0',
+        version: NEWER_VERSION,
         updateStrategy: EUpdateStrategy.manual,
       });
       jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
@@ -2150,14 +2370,12 @@ describe('ServiceAppUpdate state transitions', () => {
       jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
 
       await service.reset();
+      jest.clearAllTimers();
+      await service.fetchAppUpdateInfo(true);
 
-      // Wait for the scheduled check
-      await jest.advanceTimersByTimeAsync(100);
-
-      // After reset + immediate check, should discover v3.0.0
-      // (the exact atom state depends on fetchAppUpdateInfo flow,
-      // but fetchAppUpdateInfo should have been called)
       expect(mockClient.get).toHaveBeenCalled();
+      expect(atomValue.latestVersion).toBe('3.0.0');
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
     });
   });
 
@@ -2165,6 +2383,11 @@ describe('ServiceAppUpdate state transitions', () => {
   // refreshUpdateStatus: reset failed states on app launch / foreground
   // -------------------------------------------------------------------------
   describe('refreshUpdateStatus: failed state recovery on launch', () => {
+    beforeEach(() => {
+      jest.spyOn(service, 'computeUpdateTargetKey').mockReturnValue(null);
+    });
+
+    const FUTURE_VERSION = '999.0.0';
     const FAILED_STATUSES = [
       EAppUpdateStatus.downloadPackageFailed,
       EAppUpdateStatus.downloadASCFailed,
@@ -2179,7 +2402,7 @@ describe('ServiceAppUpdate state transitions', () => {
       async (failedStatus) => {
         resetAtom({
           status: failedStatus,
-          latestVersion: '2.0.0',
+          latestVersion: FUTURE_VERSION,
           errorText: ETranslations.update_network_exception_check_connection,
           updateStrategy: EUpdateStrategy.force,
           summary: 'Important update',
@@ -2191,7 +2414,7 @@ describe('ServiceAppUpdate state transitions', () => {
         expect(atomValue.status).toBe(EAppUpdateStatus.notify);
         expect(atomValue.errorText).toBeUndefined();
         // version info preserved
-        expect(atomValue.latestVersion).toBe('2.0.0');
+        expect(atomValue.latestVersion).toBe(FUTURE_VERSION);
         expect(atomValue.updateStrategy).toBe(EUpdateStrategy.force);
         expect(atomValue.summary).toBe('Important update');
       },
@@ -2200,7 +2423,7 @@ describe('ServiceAppUpdate state transitions', () => {
     test('clears downloadedEvent for verifyASCFailed (corrupted package)', async () => {
       resetAtom({
         status: EAppUpdateStatus.verifyASCFailed,
-        latestVersion: '2.0.0',
+        latestVersion: FUTURE_VERSION,
         downloadedEvent: { downloadedFile: '/tmp/corrupted.zip' },
       });
 
@@ -2213,7 +2436,7 @@ describe('ServiceAppUpdate state transitions', () => {
     test('clears downloadedEvent for verifyPackageFailed (corrupted package)', async () => {
       resetAtom({
         status: EAppUpdateStatus.verifyPackageFailed,
-        latestVersion: '2.0.0',
+        latestVersion: FUTURE_VERSION,
         downloadedEvent: { downloadedFile: '/tmp/bad.zip' },
       });
 
@@ -2226,7 +2449,7 @@ describe('ServiceAppUpdate state transitions', () => {
     test('clears downloadedEvent for failed (install failure)', async () => {
       resetAtom({
         status: EAppUpdateStatus.failed,
-        latestVersion: '2.0.0',
+        latestVersion: FUTURE_VERSION,
         downloadedEvent: { downloadedFile: '/tmp/failed-install.zip' },
       });
 
@@ -2239,7 +2462,7 @@ describe('ServiceAppUpdate state transitions', () => {
     test('clears downloadedEvent for updateIncomplete', async () => {
       resetAtom({
         status: EAppUpdateStatus.updateIncomplete,
-        latestVersion: '2.0.0',
+        latestVersion: FUTURE_VERSION,
         downloadedEvent: { downloadedFile: '/tmp/incomplete.zip' },
       });
 
@@ -2252,7 +2475,7 @@ describe('ServiceAppUpdate state transitions', () => {
     test('preserves downloadedEvent for download failures (partial data may be reusable)', async () => {
       resetAtom({
         status: EAppUpdateStatus.downloadPackageFailed,
-        latestVersion: '2.0.0',
+        latestVersion: FUTURE_VERSION,
         downloadedEvent: { downloadedFile: '/tmp/partial.zip' },
       });
 
@@ -2289,7 +2512,7 @@ describe('ServiceAppUpdate state transitions', () => {
       ];
 
       for (const status of nonFailedStatuses) {
-        resetAtom({ status, latestVersion: '2.0.0' });
+        resetAtom({ status, latestVersion: FUTURE_VERSION });
         await service.refreshUpdateStatus();
         expect(atomValue.status).toBe(status);
       }
@@ -2569,13 +2792,44 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.status).toBe(EAppUpdateStatus.notify);
     });
 
-    test('downloadASC is rejected from failed states', async () => {
+    test('downloadASC is rejected from downloadPackageFailed (package itself failed)', async () => {
+      // A failed package download must NOT short-cut to ASC — the package
+      // bytes aren't on disk. Only downloadPackage() can recover from this.
       resetAtom({
         status: EAppUpdateStatus.downloadPackageFailed,
         latestVersion: '2.0.0',
       });
       await service.downloadASC();
       expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
+    });
+
+    test('downloadASC allows retry from downloadASCFailed (foreground resume)', async () => {
+      // Foreground-resume routes ASC-only failures back into downloadASC()
+      // so the already-downloaded package bytes are reused. The previous
+      // implementation rejected this transition and forced callers to
+      // funnel through downloadPackage(), which wiped downloadedEvent and
+      // re-downloaded the full package — wasted bandwidth, especially
+      // under repeated foreground churn or a permanent ASC 403/404.
+      resetAtom({
+        status: EAppUpdateStatus.downloadASCFailed,
+        latestVersion: '2.0.0',
+      });
+      await service.downloadASC();
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadASC);
+    });
+
+    test('downloadASC is rejected from other failed states', async () => {
+      for (const status of [
+        EAppUpdateStatus.verifyASCFailed,
+        EAppUpdateStatus.verifyPackageFailed,
+        EAppUpdateStatus.failed,
+        EAppUpdateStatus.updateIncomplete,
+      ]) {
+        resetAtom({ status, latestVersion: '2.0.0' });
+        // eslint-disable-next-line no-await-in-loop
+        await service.downloadASC();
+        expect(atomValue.status).toBe(status);
+      }
     });
 
     test('downloadASC is allowed from downloadPackage', async () => {
@@ -3143,6 +3397,8 @@ describe('ServiceAppUpdate failedRecoveryTimer retry limit', () => {
 // ---------------------------------------------------------------------------
 describe('ServiceAppUpdate refreshUpdateStatus failed branches', () => {
   let service: ReturnType<typeof createService>;
+  const FUTURE_VERSION = '999.0.0';
+
   beforeEach(() => {
     jest.useFakeTimers();
     resetAtom();
@@ -3158,7 +3414,7 @@ describe('ServiceAppUpdate refreshUpdateStatus failed branches', () => {
   test('downloadPackageFailed → notify, preserves downloadedEvent', async () => {
     resetAtom({
       status: EAppUpdateStatus.downloadPackageFailed,
-      latestVersion: '2.0.0',
+      latestVersion: FUTURE_VERSION,
       errorText: 'some error' as any,
       downloadedEvent: { downloadedFile: '/tmp/f' },
     });
@@ -3171,7 +3427,7 @@ describe('ServiceAppUpdate refreshUpdateStatus failed branches', () => {
   test('downloadASCFailed → notify, preserves downloadedEvent', async () => {
     resetAtom({
       status: EAppUpdateStatus.downloadASCFailed,
-      latestVersion: '2.0.0',
+      latestVersion: FUTURE_VERSION,
       downloadedEvent: { downloadedFile: '/tmp/f' },
     });
     await service.refreshUpdateStatus();
@@ -3182,7 +3438,7 @@ describe('ServiceAppUpdate refreshUpdateStatus failed branches', () => {
   test('verifyASCFailed → notify, clears downloadedEvent', async () => {
     resetAtom({
       status: EAppUpdateStatus.verifyASCFailed,
-      latestVersion: '2.0.0',
+      latestVersion: FUTURE_VERSION,
       downloadedEvent: { downloadedFile: '/tmp/f' },
     });
     await service.refreshUpdateStatus();
@@ -3193,7 +3449,7 @@ describe('ServiceAppUpdate refreshUpdateStatus failed branches', () => {
   test('verifyPackageFailed → notify, clears downloadedEvent', async () => {
     resetAtom({
       status: EAppUpdateStatus.verifyPackageFailed,
-      latestVersion: '2.0.0',
+      latestVersion: FUTURE_VERSION,
       downloadedEvent: { downloadedFile: '/tmp/f' },
     });
     await service.refreshUpdateStatus();
@@ -3204,7 +3460,7 @@ describe('ServiceAppUpdate refreshUpdateStatus failed branches', () => {
   test('notify status (non-failed) → no change', async () => {
     resetAtom({
       status: EAppUpdateStatus.notify,
-      latestVersion: '2.0.0',
+      latestVersion: FUTURE_VERSION,
       errorText: 'old error' as any,
     });
     await service.refreshUpdateStatus();
@@ -3215,7 +3471,7 @@ describe('ServiceAppUpdate refreshUpdateStatus failed branches', () => {
   test('downloadPackage status → no change', async () => {
     resetAtom({
       status: EAppUpdateStatus.downloadPackage,
-      latestVersion: '2.0.0',
+      latestVersion: FUTURE_VERSION,
     });
     await service.refreshUpdateStatus();
     expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
@@ -3271,12 +3527,11 @@ describe('refreshUpdateStatus safety net retry limit', () => {
   });
 
   test('safety net branch respects MAX_FAILED_RECOVERY_RETRY', async () => {
-    // Set up a failed state with appShellUpdate target (1.0.0 → 2.0.0)
-    // platformEnv.version = '1.0.0', bundleVersion = '1'
-    // So target key = '2.0.0:1'
+    // Set up a failed state with an appShellUpdate target that is newer than
+    // whatever app version the iOS harness build is currently running.
     resetAtom({
       status: EAppUpdateStatus.downloadPackageFailed,
-      latestVersion: '2.0.0',
+      latestVersion: '999.0.0',
     });
 
     // First 3 calls should reset to notify
@@ -3352,14 +3607,15 @@ describe('computeUpdateTargetKey consistency', () => {
   test('appShellUpdate with no jsBundleVersion uses bundleVersion fallback', async () => {
     // latestVersion > current (appShellUpdate decision), jsBundleVersion undefined
     // computeUpdateTargetKey falls back to platformEnv.bundleVersion = '1'
-    // So target key = '2.0.0:1', matching buildPendingAppShellTask behavior
+    // So target key uses the current bundle version fallback, matching
+    // buildPendingAppShellTask behavior.
     resetAtom({
       status: EAppUpdateStatus.downloadPackageFailed,
-      latestVersion: '2.0.0',
+      latestVersion: '999.0.0',
       jsBundleVersion: undefined,
     });
 
-    // The safety net should reset to notify (appShellUpdate target key = '2.0.0:1')
+    // The safety net should reset to notify.
     await service.refreshUpdateStatus();
     expect(atomValue.status).toBe(EAppUpdateStatus.notify);
   });

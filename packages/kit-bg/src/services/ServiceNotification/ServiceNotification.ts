@@ -178,7 +178,7 @@ export default class ServiceNotification extends ServiceBase {
       // register when webSocket or jpush established
       void this.registerClientWithOverrideAllAccounts();
     } else {
-      void this.updateClientBasicAppInfo();
+      void this.updateClientBasicAppInfoDebounced();
     }
   };
 
@@ -537,7 +537,12 @@ export default class ServiceNotification extends ServiceBase {
     const notificationSettingsRawData =
       await this.backgroundApi.simpleDb.notificationSettings.getRawData();
 
-    for (const account of dbAccounts) {
+    // Bot wallets must not occupy notification quota.
+    const filteredDbAccounts = dbAccounts.filter(
+      (account) => !accountUtils.isBotAccount({ accountId: account.id }),
+    );
+
+    for (const account of filteredDbAccounts) {
       const walletId = accountUtils.getWalletIdFromAccountId({
         accountId: account.id,
       });
@@ -740,7 +745,10 @@ export default class ServiceNotification extends ServiceBase {
       allWallets,
       allDevices,
     });
-    return result.wallets;
+    // Bot wallets must not occupy notification quota.
+    return result.wallets.filter(
+      (wallet) => !accountUtils.isBotWallet({ walletId: wallet.id }),
+    );
   }
 
   getNotificationWalletName({

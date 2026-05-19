@@ -66,6 +66,18 @@ env:
   NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
 
+# Mirror release-native-bundle.yml: explicitly downgrade GITHUB_TOKEN from the
+# default contents:write to read-only scopes that this workflow actually
+# uses, so CodeQL stops flagging the workflow_run trigger as a privileged
+# context with implicit write access.
+#   - contents: read   → actions/checkout, downloading source.
+#   - packages: read   → yarn install from npm.pkg.github.com (NODE_AUTH_TOKEN).
+#   - actions: read    → reading github.event.workflow_run metadata.
+permissions:
+  contents: read
+  packages: read
+  actions: read
+
 jobs:
   release-desktop-bundle:
     runs-on: ubuntu-24.04
@@ -279,15 +291,27 @@ jobs:
             ./apps/desktop/bundle-zip/*
             !**/.DS_Store
 
-      - name: Upload QA Bundles
-        uses: onekeyhq/actions/qa-bundle-upload@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+      # Stash the metadata the downstream qa-upload job needs. Lifting QA
+      # upload out of this build job means a flaky QA server no longer forces
+      # a full re-bundle on rerun-failed-jobs.
+      - name: Stash QA upload metadata
+        run: |
+          mkdir -p ./qa-upload-meta
+          jq -n \
+            --arg artifact_name "onekey-desktop-bundle-${BUILD_APP_VERSION}-${BUILD_NUMBER}-${BUILD_BUNDLE_VERSION}-${{ github.sha }}" \
+            --arg commit "$COMMIT" \
+            --arg branch "$BRANCH" \
+            --arg commit_message "$COMMIT_MESSAGE" \
+            '{artifact_name:$artifact_name, commit:$commit, branch:$branch, commit_message:$commit_message}' \
+            > ./qa-upload-meta/meta.json
+
+      - name: Upload QA metadata artifact
+        uses: actions/upload-artifact@v4
         with:
-          server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
-          upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
-          bundle-dir: ./apps/desktop/bundle-zip
-          commit-hash: ${{ env.COMMIT }}
-          branch: ${{ env.BRANCH }}
-          pr-title: ${{ env.COMMIT_MESSAGE }}
+          name: onekey-desktop-bundle-qa-upload-meta-${{ github.run_id }}
+          path: ./qa-upload-meta
+          retention-days: 1
+          if-no-files-found: error
 
       - name: 'Notify to Slack'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
@@ -304,3 +328,54 @@ jobs:
           artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
           artifact-branch: '${{ env.BRANCH }}'
           artifact-commit: '${{ env.COMMIT }}'
+
+  # Separate job so a transient QA server failure can be retried via
+  # rerun-failed-jobs without triggering another full desktop bundle build.
+  #
+  # Gate explicitly on `result == 'success'`. `!cancelled() && !failure()`
+  # alone treats a skipped upstream as "not failed" — when this workflow is
+  # triggered via workflow_run after a failed daily-build, the build job's
+  # `if:` at line 88 evaluates false, the build job is *skipped*, and
+  # qa-upload would otherwise run and fail at "Download QA upload metadata".
+  qa-upload:
+    needs: release-desktop-bundle
+    if: ${{ needs.release-desktop-bundle.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download QA upload metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: onekey-desktop-bundle-qa-upload-meta-${{ github.run_id }}
+          path: ./qa-upload-meta
+
+      - name: Read metadata
+        id: meta
+        run: |
+          meta=./qa-upload-meta/meta.json
+          {
+            echo "artifact_name=$(jq -r .artifact_name "$meta")"
+            echo "commit=$(jq -r .commit "$meta")"
+            echo "branch=$(jq -r .branch "$meta")"
+          } >> "$GITHUB_OUTPUT"
+          DELIMITER=$(uuidgen)
+          {
+            echo "commit_message<<${DELIMITER}"
+            jq -r .commit_message "$meta"
+            echo "${DELIMITER}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}
+          path: ./bundle-zip
+
+      - name: Upload QA Bundles
+        uses: onekeyhq/actions/qa-bundle-upload@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+        with:
+          server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
+          upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
+          bundle-dir: ./bundle-zip
+          commit-hash: ${{ steps.meta.outputs.commit }}
+          branch: ${{ steps.meta.outputs.branch }}
+          pr-title: ${{ steps.meta.outputs.commit_message }}

@@ -1,7 +1,6 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useDebouncedCallback } from 'use-debounce';
 
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { useMarketSelectedTabAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -16,6 +15,7 @@ export interface IMarketTabsLogicReturn {
   showPerpsTab: boolean;
   handleTabChange: (tabName: string) => void;
   selectedTab: string;
+  selectedTabName: string;
 }
 
 export function useMarketTabsLogic(
@@ -46,11 +46,20 @@ export function useMarketTabsLogic(
     [watchlistTabName, spotTabName, perpsTabName],
   );
 
-  const handleTabChange = useDebouncedCallback((tabName: string) => {
-    const tabValue = nameToValueMap[tabName] ?? 'trending';
-    setSelectedTabAtom({ tab: tabValue });
-    onTabChange(tabValue);
-  }, 50);
+  const handleTabChange = useCallback(
+    (tabName: string) => {
+      const tabValue = nameToValueMap[tabName] ?? 'trending';
+      setSelectedTabAtom({ tab: tabValue });
+      onTabChange(tabValue);
+    },
+    [nameToValueMap, onTabChange, setSelectedTabAtom],
+  );
+
+  const selectedTabName = useMemo(() => {
+    if (selectedTab === 'watchlist') return watchlistTabName;
+    if (selectedTab === 'perps' && showPerpsTab) return perpsTabName;
+    return spotTabName;
+  }, [selectedTab, watchlistTabName, spotTabName, perpsTabName, showPerpsTab]);
 
   return {
     watchlistTabName,
@@ -59,5 +68,6 @@ export function useMarketTabsLogic(
     showPerpsTab,
     handleTabChange,
     selectedTab,
+    selectedTabName,
   };
 }

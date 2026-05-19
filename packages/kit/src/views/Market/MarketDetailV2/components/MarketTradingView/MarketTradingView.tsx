@@ -2,6 +2,7 @@ import { memo } from 'react';
 
 import { TradingViewV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 
+import { MarketTestIDs } from '../../../testIDs';
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
 
 interface IMarketTradingViewProps {
@@ -14,6 +15,7 @@ interface IMarketTradingViewProps {
   dataSource: 'websocket' | 'polling';
   pageWidth?: number;
   onTouchScroll?: (deltaY: number) => void;
+  onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
 }
 
 export const MarketTradingView = memo(
@@ -25,11 +27,13 @@ export const MarketTradingView = memo(
     dataSource,
     pageWidth,
     onTouchScroll,
+    onIndicatorsDialogOpenChange,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
 
     return (
       <TradingViewV2
+        testID={MarketTestIDs.detailChart}
         symbol={tokenSymbol}
         tokenAddress={tokenAddress}
         networkId={networkId}
@@ -38,6 +42,7 @@ export const MarketTradingView = memo(
         accountAddress={accountAddress}
         w={pageWidth}
         onTouchScroll={onTouchScroll}
+        onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
       />
     );
   },

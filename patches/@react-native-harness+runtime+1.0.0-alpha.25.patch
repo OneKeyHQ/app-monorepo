@@ -10,14 +10,54 @@ index a30ddd2..d2442da 100644
 +        configurable: true,
      });
  };
+diff --git a/node_modules/@react-native-harness/runtime/dist/mocker/registry.js b/node_modules/@react-native-harness/runtime/dist/mocker/registry.js
+index f430780..f31e6a8 100644
+--- a/node_modules/@react-native-harness/runtime/dist/mocker/registry.js
++++ b/node_modules/@react-native-harness/runtime/dist/mocker/registry.js
+@@ -40,6 +40,30 @@ const mockRequire = (moduleId) => {
+     modulesCache.set(moduleIdNumber, originalModule);
+     return originalModule;
+ };
++const mockImportDefault = (moduleId) => {
++    const module = mockRequire(moduleId);
++    return module && module.__esModule ? module.default : module;
++};
++const mockImportAll = (moduleId) => {
++    const module = mockRequire(moduleId);
++    if (module && module.__esModule) {
++        return module;
++    }
++    return {
++        ...module,
++        default: module,
++    };
++};
+ Object.setPrototypeOf(mockRequire, Object.getPrototypeOf(originalRequire));
+ Object.defineProperties(mockRequire, Object.getOwnPropertyDescriptors(originalRequire));
++Object.defineProperty(mockRequire, 'importDefault', {
++    value: mockImportDefault,
++    writable: true,
++    configurable: true,
++});
++Object.defineProperty(mockRequire, 'importAll', {
++    value: mockImportAll,
++    writable: true,
++    configurable: true,
++});
+ global.__r = mockRequire;
 diff --git a/node_modules/@react-native-harness/runtime/dist/runner/factory.js b/node_modules/@react-native-harness/runtime/dist/runner/factory.js
 index 477d4e2..9bfc163 100644
 --- a/node_modules/@react-native-harness/runtime/dist/runner/factory.js
 +++ b/node_modules/@react-native-harness/runtime/dist/runner/factory.js
-@@ -14,6 +14,23 @@ export const getTestRunner = () => {
+@@ -14,6 +14,28 @@ export const getTestRunner = () => {
                  events,
                  testFilePath,
              });
++            // Restore fake timers before bridge/runtime cleanup. Leaving fake
++            // setTimeout installed breaks the harness bridge for later files.
++            if (typeof globalThis.__harness_use_real_timers__ === 'function') {
++                globalThis.__harness_use_real_timers__();
++            }
 +            // Restore modules mutated by jest.mock() during this test file
 +            // to prevent mock leakage into subsequent test files.
 +            if (typeof globalThis.__harness_restore_mocks__ === 'function') {

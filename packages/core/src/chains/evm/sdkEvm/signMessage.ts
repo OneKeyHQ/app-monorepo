@@ -1,22 +1,9 @@
-import * as ethUtils from 'ethereumjs-util';
+import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 
 import { ethers } from './ethers';
 
-export function autoFixPersonalSignMessage({ message }: { message: string }) {
-  let messageFixed = message;
-  try {
-    ethUtils.toBuffer(message);
-  } catch (_error) {
-    const tmpMsg = `0x${message}`;
-    try {
-      ethUtils.toBuffer(tmpMsg);
-      messageFixed = tmpMsg;
-    } catch (_err) {
-      // message not including valid hex character
-    }
-  }
-  return messageFixed;
-}
+// Re-export from shared for backward compatibility
+export { autoFixPersonalSignMessage };
 
 export function verifyPersonalSignMessage({
   message,

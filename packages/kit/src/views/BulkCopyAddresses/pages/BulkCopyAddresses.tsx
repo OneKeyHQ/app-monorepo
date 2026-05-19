@@ -65,6 +65,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EmptyNoWalletView } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 import { BATCH_CREATE_ACCONT_MAX_COUNT } from '../../AccountManagerStacks/pages/BatchCreateAccount/BatchCreateAccountFormBase';
 import { showBatchCreateAccountProcessingDialog } from '../../AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
+import { BulkCopyAddressesTestIDs } from '../testIDs';
 
 enum EBulkCopyType {
   Account = 'account',
@@ -139,47 +140,94 @@ function BulkCopyAddresses({
 
   const isHwWallet = accountUtils.isHwWallet({ walletId: selectedWalletId });
 
-  const { result: availableWallets } = usePromiseResult(async () => {
-    const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
-      ignoreEmptySingletonWalletAccounts: true,
-      ignoreNonBackedUpWallets: true,
-      nestedHiddenWallets: true,
-      includingAccounts: true,
-    });
+  const { result: availableWallets, run: refreshAvailableWallets } =
+    usePromiseResult(async () => {
+      const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
+        ignoreEmptySingletonWalletAccounts: true,
+        ignoreNonBackedUpWallets: true,
+        nestedHiddenWallets: true,
+        includingAccounts: true,
+      });
 
-    const availableWalletsTemp: (IDBWallet & {
-      parentWalletName?: string;
-    })[] = [];
+      const availableWalletsTemp: (IDBWallet & {
+        parentWalletName?: string;
+      })[] = [];
 
-    wallets.forEach((wallet) => {
-      if (
-        !accountUtils.isQrWallet({ walletId: wallet.id }) &&
-        !accountUtils.isOthersWallet({ walletId: wallet.id }) &&
-        !wallet.deprecated
-      ) {
-        if (!wallet.isMocked) {
-          availableWalletsTemp.push(wallet);
+      const isWalletDeactivatedBotWallet = async (id: string) => {
+        if (!accountUtils.isBotWallet({ walletId: id })) {
+          return false;
         }
-        walletsMap.current[wallet.id] = wallet;
-        if (wallet.hiddenWallets?.length) {
-          wallet.hiddenWallets.forEach((hiddenWallet) => {
-            if (!hiddenWallet.deprecated && !hiddenWallet.isMocked) {
-              availableWalletsTemp.push({
-                ...hiddenWallet,
-                parentWalletName: wallet.name,
-              });
-              walletsMap.current[hiddenWallet.id] = {
-                ...hiddenWallet,
-                parentWalletName: wallet.name,
-              };
+        return backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
+          walletId: id,
+        });
+      };
+
+      // Reset the map alongside the list so a deactivated wallet that was
+      // previously selectable cannot stay reachable through walletsMap when its
+      // status flips.
+      walletsMap.current = {};
+
+      for (const wallet of wallets) {
+        if (
+          !accountUtils.isQrWallet({ walletId: wallet.id }) &&
+          !accountUtils.isOthersWallet({ walletId: wallet.id }) &&
+          !wallet.deprecated
+        ) {
+          // eslint-disable-next-line no-await-in-loop
+          const isWalletDeactivated = await isWalletDeactivatedBotWallet(
+            wallet.id,
+          );
+          if (!wallet.isMocked && !isWalletDeactivated) {
+            availableWalletsTemp.push(wallet);
+            walletsMap.current[wallet.id] = wallet;
+          }
+          if (wallet.hiddenWallets?.length) {
+            for (const hiddenWallet of wallet.hiddenWallets) {
+              if (!hiddenWallet.deprecated && !hiddenWallet.isMocked) {
+                // eslint-disable-next-line no-await-in-loop
+                const isHiddenWalletDeactivated =
+                  await isWalletDeactivatedBotWallet(hiddenWallet.id);
+                if (!isHiddenWalletDeactivated) {
+                  availableWalletsTemp.push({
+                    ...hiddenWallet,
+                    parentWalletName: wallet.name,
+                  });
+                  walletsMap.current[hiddenWallet.id] = {
+                    ...hiddenWallet,
+                    parentWalletName: wallet.name,
+                  };
+                }
+              }
             }
-          });
+          }
         }
       }
-    });
 
-    return availableWalletsTemp;
-  }, []);
+      return availableWalletsTemp;
+    }, []);
+
+  // Keep the available-wallet list reactive: bot wallet activate /
+  // deactivate emits WalletUpdate (debounced) — without this the picker
+  // would still show the wallet until the user navigates away and back.
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refreshAvailableWallets);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refreshAvailableWallets);
+    };
+  }, [refreshAvailableWallets]);
+
+  // If the wallet that was passed in via route params (or previously selected)
+  // is no longer available — e.g. it became a deactivated Bot Wallet and was
+  // filtered out — fall back to the first available wallet so the page does
+  // not silently keep operating on a hidden, blocked wallet.
+  useEffect(() => {
+    if (!availableWallets || availableWallets.length === 0) {
+      return;
+    }
+    if (!selectedWalletId || !walletsMap.current[selectedWalletId]) {
+      form.setValue('selectedWalletId', availableWallets[0].id);
+    }
+  }, [availableWallets, selectedWalletId, form]);
 
   const selectedWallet = walletsMap.current[selectedWalletId ?? ''];
 
@@ -603,6 +651,7 @@ function BulkCopyAddresses({
               })}
             >
               <Select
+                testID={BulkCopyAddressesTestIDs.deriveTypeSelect}
                 title={intl.formatMessage({
                   id: ETranslations.global_derivation_path,
                 })}
@@ -651,7 +700,7 @@ function BulkCopyAddresses({
               },
             }}
           >
-            <Input />
+            <Input testID={BulkCopyAddressesTestIDs.startIndexInput} />
           </Form.Field>
           <Form.Field
             name="amount"
@@ -684,6 +733,7 @@ function BulkCopyAddresses({
             }}
           >
             <Input
+              testID={BulkCopyAddressesTestIDs.amountInput}
               addOns={[
                 {
                   label: '1',
@@ -848,6 +898,7 @@ function BulkCopyAddresses({
               })}
             >
               <Select
+                testID={BulkCopyAddressesTestIDs.walletSelect}
                 title={intl.formatMessage({
                   id: ETranslations.global_select_wallet,
                 })}
@@ -911,12 +962,14 @@ function BulkCopyAddresses({
               })}
             >
               <ControlledNetworkSelectorTrigger
+                testID={BulkCopyAddressesTestIDs.networkSelect}
                 networkIds={availableNetworksIds}
               />
             </Form.Field>
           </Form>
           <YStack gap="$5">
             <SegmentControl
+              testID={BulkCopyAddressesTestIDs.copyTypeSegment}
               fullWidth
               value={copyType}
               onChange={(v) => {
@@ -956,6 +1009,7 @@ function BulkCopyAddresses({
           }}
         >
           <Button
+            testID={BulkCopyAddressesTestIDs.exportBtn}
             variant="primary"
             size="medium"
             onPress={() =>
@@ -978,6 +1032,7 @@ function BulkCopyAddresses({
           </Button>
           {isHwWallet && copyType === EBulkCopyType.Account ? (
             <Button
+              testID={BulkCopyAddressesTestIDs.exportWithoutDeviceBtn}
               size="medium"
               variant="tertiary"
               disabled={isDisabled}

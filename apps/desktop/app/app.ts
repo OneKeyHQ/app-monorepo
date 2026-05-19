@@ -37,8 +37,10 @@ import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
 import {
@@ -62,6 +64,7 @@ import { getBackgroundColor } from './libs/utils';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
 import initProcess from './process';
+import { setMainWindowForHttpServer } from './process/HttpServer';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
   getAppStaticResourcesPath,
@@ -72,6 +75,7 @@ import { initSentry } from './sentry';
 import { startServices } from './service';
 // eslint-disable-next-line import-js/order
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
+import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
 
 initSentry();
 
@@ -703,6 +707,9 @@ async function createMainWindow() {
 
   // Set main window reference for OAuth server
   setMainWindowForOAuthServer(browserWindow);
+  // Tray shares the same preload, so SERVER_* must be scoped to the main
+  // renderer via sender-id checks in HttpServer.
+  setMainWindowForHttpServer(browserWindow);
 
   // Protocol handler for win32
   if (isWin || isMac) {
@@ -710,6 +717,14 @@ async function createMainWindow() {
     const deeplinkingUrl = process.argv[1];
     handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
   }
+
+  browserWindow.webContents.on('unresponsive', () => {
+    logger.warn('[CPU Watchdog] renderer webContents unresponsive');
+    triggerCpuWatchdog({ reason: 'unresponsive' });
+  });
+  browserWindow.webContents.on('responsive', () => {
+    logger.info('[CPU Watchdog] renderer webContents responsive again');
+  });
 
   browserWindow.webContents.on('did-finish-load', () => {
     logger.info('browserWindow >>>> did-finish-load');
@@ -792,6 +807,46 @@ async function createMainWindow() {
   ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
     throw new OneKeyLocalError('Test Electron Native crash 996');
   });
+
+  // Dev-only backdoor: force the CPU watchdog dialog to appear immediately,
+  // bypassing the sustained-CPU threshold and 30-minute cooldown. Used by
+  // the "Force trigger CPU Watchdog Dialog" entries under Dev Mode.
+  //
+  // SECURITY: registration is gated to dev builds so the channel does not
+  // exist on the production IPC surface — a tainted renderer (XSS, malicious
+  // DApp webview) cannot spam-pop a system dialog containing a Restart
+  // button. Handlers also re-check the gate as backstop and validate the
+  // reason against the enum to drop garbage payloads.
+  if (isDevServer && !app.isPackaged) {
+    ipcMain.removeAllListeners(ipcMessageKeys.CPU_WATCHDOG_FORCE_TRIGGER);
+    ipcMain.on(
+      ipcMessageKeys.CPU_WATCHDOG_FORCE_TRIGGER,
+      (_event, reason: unknown) => {
+        if (!isDevServer || app.isPackaged) return;
+        if (!isCpuWatchdogReason(reason)) {
+          logger.warn(
+            '[CPU Watchdog] force-trigger rejected — invalid reason',
+            {
+              reason,
+            },
+          );
+          return;
+        }
+        logger.warn('[CPU Watchdog] force-trigger via IPC', { reason });
+        triggerCpuWatchdog({
+          reason,
+          cpuTrend: [99, 99, 99],
+          bypassCooldown: true,
+        });
+      },
+    );
+
+    ipcMain.removeAllListeners(ipcMessageKeys.CPU_WATCHDOG_RESET_COOLDOWN);
+    ipcMain.on(ipcMessageKeys.CPU_WATCHDOG_RESET_COOLDOWN, () => {
+      if (!isDevServer || app.isPackaged) return;
+      resetCpuWatchdogStateForTesting();
+    });
+  }
 
   // System Resources
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
@@ -968,16 +1023,57 @@ async function createMainWindow() {
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
   });
 
+  // The overlay route uses a dedicated <webview> partition; matching the
+  // session reference here lets the main process recognize overlay
+  // webviews at creation time — BEFORE any navigation event can fire —
+  // and apply the strict overlay URL policy in `will-redirect` /
+  // `will-navigate`. These events are the only stage where SSRF-class
+  // targets (loopback / private / metadata IPs) can actually be blocked;
+  // the renderer's `did-redirect-navigation` fires too late.
+  const overlaySession = session.fromPartition(
+    DESKTOP_WEBVIEW_OVERLAY_PARTITION,
+  );
+  // Overlay loads arbitrary external https pages from deeplinks /
+  // notifications; the renderer's media-permission whitelist already
+  // denies getUserMedia at the react-native-webview layer, but the
+  // desktop session needs its own deny handlers because Electron
+  // defaults to granting permission requests when none are set
+  // (https://www.electronjs.org/docs/latest/tutorial/security#5-handle-session-permission-requests-from-remote-content).
+  overlaySession.setPermissionCheckHandler(() => false);
+  overlaySession.setPermissionRequestHandler(
+    (_webContents, _permission, callback) => {
+      callback(false);
+    },
+  );
+  overlaySession.setDevicePermissionHandler(() => false);
+
   // Prevents clicking on links to open new Windows
   app.removeAllListeners('web-contents-created');
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
+      const isOverlayWebview = contents.session === overlaySession;
+      if (isOverlayWebview) {
+        const guardOverlayPreNavigation = (
+          navigationEvent: Electron.Event,
+          url: string,
+        ) => {
+          if (isAllowedWebViewUrl(url)) return;
+          navigationEvent.preventDefault();
+          logger.info('overlay pre-navigation block (main process):', url);
+        };
+        contents.on('will-redirect', guardOverlayPreNavigation);
+        contents.on('will-navigate', guardOverlayPreNavigation);
+      }
       contents.setWindowOpenHandler((handleDetails) => {
         const safelyMainWindow = getSafelyMainWindow();
-        safelyMainWindow?.webContents.send(
-          ipcMessageKeys.WEBVIEW_NEW_WINDOW,
-          handleDetails,
-        );
+        // Forward the source webContents id so renderer listeners can
+        // distinguish overlay-route webviews (strict policy: https-only,
+        // no local addresses, no deeplinks) from Discovery tabs (which
+        // intentionally allow http and onekey-wallet:// deeplinks).
+        safelyMainWindow?.webContents.send(ipcMessageKeys.WEBVIEW_NEW_WINDOW, {
+          ...handleDetails,
+          sourceWebContentsId: contents.id,
+        });
         return { action: 'deny' };
       });
       contents.on('will-frame-navigate', (e) => {
@@ -1018,8 +1114,27 @@ async function createMainWindow() {
     if (details.deviceType === 'usb') {
       return true;
     }
+    if (details.deviceType === 'hid') {
+      // WebHID has no protected-class blocklist (unlike WebUSB), so tighten
+      // to Ledger vendorId only.
+      return details.device?.vendorId === 0x2c_97;
+    }
     return false;
   });
+
+  browserWindow.webContents.session.on(
+    'select-hid-device',
+    (event, details, callback) => {
+      // preventDefault is required; otherwise Electron auto-picks the first
+      // device and ignores the callback — see Electron Session docs.
+      event.preventDefault();
+      // Only auto-select Ledger devices (vendorId 0x2c97)
+      const ledgerDevice = details.deviceList.find(
+        (d) => d.vendorId === 0x2c_97,
+      );
+      callback(ledgerDevice ? ledgerDevice.deviceId : '');
+    },
+  );
 
   // Permission handler for webview (partition: persist:onekey)
   //
@@ -1164,8 +1279,14 @@ async function createMainWindow() {
           return;
         }
 
-        // move to parent folder
-        const url = request.url.substring(PROTOCOL.length + 1);
+        // Strip the query string before path resolution — without this the
+        // tray window's `?render=tray` gets concatenated into the resolved
+        // filename and fs misses. Guarded by indexOf so the common
+        // no-query case (main window resources) stays allocation-free.
+        const queryIdx = request.url.indexOf('?');
+        const rawUrl =
+          queryIdx === -1 ? request.url : request.url.substring(0, queryIdx);
+        const url = rawUrl.substring(PROTOCOL.length + 1);
         if (useJsBundle && indexHtmlPath && bundleDirPath) {
           const decodedUrl = decodeURIComponent(url);
           if (decodedUrl.includes(bundleDirPath)) {
@@ -1328,6 +1449,50 @@ if (!singleInstance && !process.mas) {
       return;
     }
 
+    if (isMac) {
+      const loadTrayUrl = (win: BrowserWindow) => {
+        if (isDev) {
+          const port = process.env.PORT || 3001;
+          void win.loadURL(`http://localhost:${port}?render=tray`);
+          return;
+        }
+        // Mirror createMainWindow's URL builder — the interceptFileProtocol
+        // handler only resolves the relative `file://index.html` form.
+        const bundleData = store.getUpdateBundleData();
+        const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
+        void win.loadURL(
+          formatUrl({
+            pathname: bundleIndexHtmlPath || 'index.html',
+            protocol: 'file',
+            slashes: true,
+            query: { render: 'tray' },
+          }),
+        );
+      };
+
+      // Default to on; renderer sends TRAY_TOGGLE(false) on startup if
+      // the user had previously disabled it.
+      initTrayManager(getSafelyMainWindow, showMainWindow, loadTrayUrl);
+
+      // Sender gate: tray window shares the main preload and also exposes
+      // `toggleTray`, so without this a tray-side caller could disable itself.
+      ipcMain.on(ipcMessageKeys.TRAY_TOGGLE, (event, enabled: boolean) => {
+        const senderMainWindow = getSafelyMainWindow();
+        if (
+          !senderMainWindow ||
+          event.sender.id !== senderMainWindow.webContents.id
+        ) {
+          logger.warn('[TrayToggle] rejected TRAY_TOGGLE from non-main window');
+          return;
+        }
+        if (enabled) {
+          initTrayManager(getSafelyMainWindow, showMainWindow, loadTrayUrl);
+        } else {
+          destroyTrayManager();
+        }
+      });
+    }
+
     startServices();
     void initChildProcess();
   });
@@ -1345,6 +1510,10 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', () => {
+  if (isMac) {
+    destroyTrayManager();
+  }
+
   // Reset crash counter on graceful shutdown so normal close
   // is not mistaken for a crash on next boot.
   // Skip reset when in recovery mode (count >= 3) so recovery is still
@@ -1392,9 +1561,12 @@ app.on('child-process-gone', async (event, details) => {
 
     // Track GPU crash in Sentry for monitoring
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const { captureException } = require('@sentry/electron/main');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      const { captureException } = require('@sentry/electron/main') as {
+        captureException: (
+          error: Error,
+          options: Record<string, unknown>,
+        ) => void;
+      };
       captureException(new Error('GPU Process Crashed'), {
         level: 'fatal',
         tags: {
@@ -1552,9 +1724,12 @@ function startMemoryMonitoring() {
 
         // Track critical memory events in Sentry
         try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          const { captureException } = require('@sentry/electron/main');
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          const { captureException } = require('@sentry/electron/main') as {
+            captureException: (
+              error: Error,
+              options: Record<string, unknown>,
+            ) => void;
+          };
           captureException(new Error('Critical Memory Usage Detected'), {
             level: 'warning',
             tags: {
@@ -1716,12 +1891,45 @@ function startWebviewMemoryMonitoring() {
 }
 /* oxlint-enable typescript/no-unsafe-call */
 
+// In dev, app.getVersion() falls back to the electron binary version because
+// no packaged app/package.json is on disk. Chromium builds the UA product
+// token from app.getName() verbatim, so the actual default UA contains
+// `OneKey Wallet/<electronVer>` (with the space from APP_NAME above) — and
+// some packaging paths can also surface the no-space `OneKeyWallet/` form.
+// Match both, and normalize to the canonical no-space `OneKeyWallet/<APP_VERSION>`
+// that buildCustomUA() emits, so chromium and our X-Onekey-* injection agree.
+// Run synchronously at module load (before `ready` fires) so the very first
+// webContents created in the ready handler already sees the patched UA —
+// `app.userAgentFallback` is readable/writable before `ready`.
+try {
+  // Escape every regex meta character (including backslash) before
+  // interpolating into a RegExp source — process.versions.electron is
+  // well-formed in practice, but CodeQL flags partial escapes and the
+  // strict version is a one-liner.
+  const electronVer = process.versions.electron.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    '\\$&',
+  );
+  // process.env.VERSION is substituted at build time by webpack DefinePlugin
+  // (apps/desktop/scripts/build.js) — the same path every other call site
+  // uses. Falls back to '1' to match buildCustomUA()'s fallback in
+  // packages/shared/src/request/customUA.ts.
+  const appVersion = process.env.VERSION || '1';
+  app.userAgentFallback = app.userAgentFallback.replace(
+    new RegExp(`OneKey ?Wallet/${electronVer}\\b`),
+    `OneKeyWallet/${appVersion}`,
+  );
+} catch (error) {
+  logger.warn('[user-agent] failed to align chromium UA version', error);
+}
+
 // Start monitoring when app is ready
 app.on('ready', async () => {
   startMemoryMonitoring();
   startProcessMetricsMonitoring();
   startV8HeapMonitoring();
   startWebviewMemoryMonitoring();
+  startCpuWatchdog();
   scheduleCrashDumpCleanup();
   await collectGPUInfo();
 });
@@ -1736,6 +1944,248 @@ app.on('before-quit', () => {
 });
 
 // ==================== End Memory Protection ====================
+
+// ==================== CPU Watchdog ====================
+// Detects sustained renderer CPU saturation (the symptom seen in
+// long-uptime users whose JS main thread hot-loops). Pairs with the
+// webContents 'unresponsive' event for the "stuck, not acknowledging
+// input" symptom. Both converge here so the dialog and cooldown are
+// shared.
+
+// Sample at the faster cadence; both tiers read from the same history.
+const CPU_WATCHDOG_SAMPLE_INTERVAL_MS = 10_000;
+
+// Severe tier — catches extreme pegging fast.
+// 3 × 10 s = 30 s sustained above 95% → essentially fully pegged for half
+// a minute, well past any legitimate hot path (signing, V8 turbofan
+// re-optimization, bundle decode, mass import).
+const CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT = 95;
+const CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES = 3;
+
+// Mild tier — catches slower drift (the original 22h-uptime symptom).
+// 30 × 10 s = 5 minutes sustained above 80%.
+const CPU_WATCHDOG_MILD_THRESHOLD_PERCENT = 80;
+const CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES = 30;
+
+const CPU_WATCHDOG_HISTORY_SIZE = CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES;
+const CPU_WATCHDOG_COOLDOWN_MS = 30 * 60_000;
+
+const cpuHistoryByPid = new Map<number, number[]>();
+// Cumulative CPU seconds per pid at the previous tick. Delta of these
+// divided by wall-clock delta gives the true "fraction of one core" used,
+// independent of how many cores the machine has — matching the DevTools
+// Performance Monitor reading.
+const prevCumCpuByPid = new Map<number, number>();
+let lastSampleAt: number | null = null;
+let lastWatchdogFiredAt = 0;
+let cpuWatchdogInterval: ReturnType<typeof setInterval> | null = null;
+
+type ICpuWatchdogReason =
+  | 'sustained-high-cpu-severe'
+  | 'sustained-high-cpu-mild'
+  | 'unresponsive';
+
+const CPU_WATCHDOG_REASONS = new Set<ICpuWatchdogReason>([
+  'sustained-high-cpu-severe',
+  'sustained-high-cpu-mild',
+  'unresponsive',
+]);
+
+function isCpuWatchdogReason(value: unknown): value is ICpuWatchdogReason {
+  return (
+    typeof value === 'string' &&
+    CPU_WATCHDOG_REASONS.has(value as ICpuWatchdogReason)
+  );
+}
+
+function startCpuWatchdog() {
+  if (cpuWatchdogInterval) {
+    clearInterval(cpuWatchdogInterval);
+  }
+  cpuWatchdogInterval = setInterval(() => {
+    try {
+      const metrics = app.getAppMetrics();
+      const now = Date.now();
+      const wallDeltaSec =
+        lastSampleAt === null
+          ? CPU_WATCHDOG_SAMPLE_INTERVAL_MS / 1000
+          : (now - lastSampleAt) / 1000;
+      lastSampleAt = now;
+
+      // Step 1: compute effective % (= fraction of one core, 100 = one core
+      // fully busy) for every process using the cumulativeCPUUsage delta.
+      // This matches what Chrome DevTools Performance Monitor shows and is
+      // independent of total core count — Electron's percentCPUUsage divides
+      // by cores and is therefore unusable for "main thread saturated".
+      const annotated = metrics.map((m) => {
+        const cum =
+          (m.cpu as { cumulativeCPUUsage?: number }).cumulativeCPUUsage ?? 0;
+        const prev = prevCumCpuByPid.get(m.pid);
+        let effectivePercent = 0;
+        if (prev !== undefined && wallDeltaSec > 0) {
+          effectivePercent = ((cum - prev) / wallDeltaSec) * 100;
+          if (effectivePercent < 0) effectivePercent = 0;
+        }
+        prevCumCpuByPid.set(m.pid, cum);
+        return {
+          pid: m.pid,
+          type: m.type,
+          name: m.name,
+          electronPct: Number(m.cpu.percentCPUUsage.toFixed(2)),
+          effectivePct: Number(effectivePercent.toFixed(1)),
+          cum: Number(cum.toFixed(2)),
+        };
+      });
+
+      // Step 2: log every process sorted by effective CPU descending so
+      // when "who's burning" is the question, the top line answers it.
+      const sortedForLog = [...annotated].toSorted(
+        (a, b) => b.effectivePct - a.effectivePct,
+      );
+      logger.info(
+        `[CPU Watchdog] tick cores=${os.cpus().length} wallΔ=${wallDeltaSec.toFixed(
+          1,
+        )}s processes=${JSON.stringify(sortedForLog)}`,
+      );
+
+      // Step 3: only Tab processes feed the sliding window for severe/mild
+      // detection. effectivePct is the right metric: 100 = one core fully
+      // busy = JS main thread saturated.
+      const seenPids = new Set<number>();
+      for (const a of annotated) {
+        if (a.type === 'Tab') {
+          seenPids.add(a.pid);
+          // Skip the very first sample for a new pid — no delta available
+          // (prev was undefined → effectivePct defaulted to 0).
+          if (prevCumCpuByPid.has(a.pid) && a.effectivePct === 0) {
+            // proceed with 0 — actually idle
+          }
+          const history = cpuHistoryByPid.get(a.pid) ?? [];
+          history.push(a.effectivePct);
+          if (history.length > CPU_WATCHDOG_HISTORY_SIZE) history.shift();
+          cpuHistoryByPid.set(a.pid, history);
+
+          const severeWindow = history.slice(
+            -CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
+          );
+          const severe =
+            severeWindow.length === CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES &&
+            severeWindow.every(
+              (v) => v > CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
+            );
+          if (severe) {
+            triggerCpuWatchdog({
+              reason: 'sustained-high-cpu-severe',
+              pid: a.pid,
+              cpuTrend: severeWindow,
+            });
+          } else {
+            const mild =
+              history.length === CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES &&
+              history.every((v) => v > CPU_WATCHDOG_MILD_THRESHOLD_PERCENT);
+            if (mild) {
+              triggerCpuWatchdog({
+                reason: 'sustained-high-cpu-mild',
+                pid: a.pid,
+                cpuTrend: [...history],
+              });
+            }
+          }
+        }
+      }
+      // Forget pids that no longer exist (renderer restarted / process gone).
+      for (const pid of cpuHistoryByPid.keys()) {
+        if (!seenPids.has(pid)) cpuHistoryByPid.delete(pid);
+      }
+      // Also prune prev cum cache for vanished pids to avoid unbounded growth.
+      for (const pid of prevCumCpuByPid.keys()) {
+        if (!annotated.some((a) => a.pid === pid)) prevCumCpuByPid.delete(pid);
+      }
+    } catch (error) {
+      logger.warn('[CPU Watchdog] sample failed', error);
+    }
+  }, CPU_WATCHDOG_SAMPLE_INTERVAL_MS);
+  logger.info('[CPU Watchdog] started', {
+    sampleIntervalMs: CPU_WATCHDOG_SAMPLE_INTERVAL_MS,
+    severe: {
+      thresholdPercent: CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
+      sustainedSamples: CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
+    },
+    mild: {
+      thresholdPercent: CPU_WATCHDOG_MILD_THRESHOLD_PERCENT,
+      sustainedSamples: CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES,
+    },
+    cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
+  });
+}
+
+function reportWatchdogToSentry(params: {
+  reason: ICpuWatchdogReason;
+  pid?: number;
+  cpuTrend?: number[];
+}) {
+  try {
+    const { captureMessage, setContext } = require('@sentry/electron/main') as {
+      captureMessage: (msg: string, level?: string) => void;
+      setContext: (name: string, data: Record<string, unknown> | null) => void;
+    };
+    setContext('cpuWatchdog', {
+      reason: params.reason,
+      pid: params.pid,
+      cpuTrend: params.cpuTrend,
+      uptimeMs: Math.round(process.uptime() * 1000),
+    });
+    captureMessage(`desktop:cpu-watchdog:${params.reason}`, 'warning');
+  } catch {
+    // Sentry not initialized — ignore.
+  }
+}
+
+function triggerCpuWatchdog(params: {
+  reason: ICpuWatchdogReason;
+  pid?: number;
+  cpuTrend?: number[];
+  bypassCooldown?: boolean;
+}) {
+  const now = Date.now();
+  if (
+    !params.bypassCooldown &&
+    now - lastWatchdogFiredAt < CPU_WATCHDOG_COOLDOWN_MS
+  ) {
+    logger.warn('[CPU Watchdog] trigger ignored — cooldown active', {
+      reason: params.reason,
+      msSinceLastFire: now - lastWatchdogFiredAt,
+      cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
+    });
+    return;
+  }
+  lastWatchdogFiredAt = now;
+
+  // UI suppressed: only collect local logs + Sentry telemetry while we
+  // investigate the underlying CPU regression. Re-enable surface (status
+  // indicator / non-blocking card) once root cause is identified.
+  logger.warn('[CPU Watchdog] fired (UI suppressed)', params);
+  reportWatchdogToSentry(params);
+}
+
+function resetCpuWatchdogStateForTesting() {
+  logger.warn('[CPU Watchdog] cooldown reset via IPC', {
+    previousLastFiredAt: lastWatchdogFiredAt,
+  });
+  lastWatchdogFiredAt = 0;
+  cpuHistoryByPid.clear();
+  prevCumCpuByPid.clear();
+  lastSampleAt = null;
+}
+
+app.on('before-quit', () => {
+  if (cpuWatchdogInterval) {
+    clearInterval(cpuWatchdogInterval);
+    cpuWatchdogInterval = null;
+  }
+});
+
+// ==================== End CPU Watchdog ====================
 
 // Dev-only switches — NEVER run in production builds
 if (isDevServer && !app.isPackaged) {

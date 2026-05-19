@@ -18,6 +18,8 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { HomeTestIDs } from '../../testIDs';
+
 import { RawActions } from './RawActions';
 
 import type { IActionCustomization } from './types';
@@ -82,10 +84,9 @@ function WalletActionSwap({
       <ActionList.Item
         trackID="wallet-trade"
         icon={customization?.icon ?? 'SwitchHorOutline'}
-        label={
-          customization?.label ??
-          intl.formatMessage({ id: ETranslations.global_trade })
-        }
+        label={intl.formatMessage({
+          id: customization?.labelId ?? ETranslations.global_trade,
+        })}
         onClose={() => {}}
         onPress={handleOnSwap}
         disabled={
@@ -100,7 +101,11 @@ function WalletActionSwap({
   return (
     <RawActions.Swap
       onPress={handleOnSwap}
-      label={customization?.label}
+      label={
+        customization?.labelId
+          ? intl.formatMessage({ id: customization.labelId })
+          : undefined
+      }
       icon={customization?.icon}
       showButtonStyle={showButtonStyle}
       disabled={
@@ -109,6 +114,7 @@ function WalletActionSwap({
           accountUtils.isUrlAccountFn({ accountId: account?.id ?? '' }))
       }
       trackID="wallet-trade"
+      testID={HomeTestIDs.swapButton}
     />
   );
 }

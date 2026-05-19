@@ -5,7 +5,7 @@ export function useLiveTokenOverride():
   | IMarketTokenListLiveOverride
   | undefined {
   const [liveData] = useMarketCurrentTokenLiveDataAtom();
-  if (!liveData?.networkId || !liveData?.address) {
+  if (!liveData?.networkId || liveData.address === undefined) {
     return undefined;
   }
   return liveData;

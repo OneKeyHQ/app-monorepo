@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { Dialog, Heading, Icon, Stack } from '@onekeyhq/components';
 import {
@@ -8,8 +9,8 @@ import {
   usePerpsTradesHistoryDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
@@ -27,6 +28,7 @@ function calculateTotalVolume(fills: { sz: string; px: string }[]): BigNumber {
 }
 
 export function usePerpsSharePrompt() {
+  const intl = useIntl();
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [tradesData] = usePerpsTradesHistoryDataAtom();
   const { shareReferRewards } = useReferFriends();
@@ -72,7 +74,9 @@ export function usePerpsSharePrompt() {
       return;
     }
 
-    const fills = tradesData?.fills;
+    const fills = tradesData?.fills?.filter(
+      (fill) => !isSpotInstrument(fill.coin),
+    );
     if (
       !fills ||
       !tradesData?.isLoaded ||
@@ -129,16 +133,16 @@ export function usePerpsSharePrompt() {
               py="$px"
               style={{ whiteSpace: 'pre-line' }}
             >
-              {appLocale.intl.formatMessage({
+              {intl.formatMessage({
                 id: ETranslations.perps_enjoy_perps,
               })}
             </Heading>
           </>
         ),
-        onCancelText: appLocale.intl.formatMessage({
+        onCancelText: intl.formatMessage({
           id: ETranslations.global_later,
         }),
-        onConfirmText: appLocale.intl.formatMessage({
+        onConfirmText: intl.formatMessage({
           id: ETranslations.explore_share,
         }),
         onClose: () => {
@@ -151,7 +155,7 @@ export function usePerpsSharePrompt() {
     } finally {
       checkingRef.current = false;
     }
-  }, [currentAccount?.accountAddress, tradesData, shareReferRewards]);
+  }, [currentAccount?.accountAddress, tradesData, shareReferRewards, intl]);
 
   const checkAndShowPromptRef = useRef(checkAndShowPrompt);
   checkAndShowPromptRef.current = checkAndShowPrompt;

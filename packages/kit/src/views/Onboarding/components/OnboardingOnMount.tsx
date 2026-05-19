@@ -57,6 +57,7 @@ function DowngradeWarningDialogContent({
         })}
       </Dialog.Description>
       <Checkbox
+        testID="onboarding-handle-confirm-checkbox"
         value={checkState}
         label={intl.formatMessage({
           id: ETranslations.downgrade_warning_checkbox_label,
@@ -147,9 +148,7 @@ function OnboardingOnMountCmp() {
         !platformEnv.isWebDappMode &&
         !platformEnv.isExtensionUiSidePanel
       ) {
-        void toOnBoardingPage({
-          isFullModal: true,
-        });
+        void toOnBoardingPage();
       }
     },
     [

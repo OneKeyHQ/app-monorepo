@@ -9,10 +9,12 @@ import {
   useHyperliquidActions,
   usePerpsActiveOpenOrdersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useSpotActiveOpenOrdersAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 
 interface ICancelAllOrdersContentProps {
@@ -26,16 +28,14 @@ function CancelAllOrdersContent({
 }: ICancelAllOrdersContentProps) {
   const actions = useHyperliquidActions();
   const intl = useIntl();
-  const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
+  const [{ openOrders: perpOpenOrders }] = usePerpsActiveOpenOrdersAtom();
+  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const ordersToProcess = useMemo(
-    () =>
-      filterByCoin
-        ? openOrders.filter((o) => o.coin === filterByCoin)
-        : openOrders,
-    [openOrders, filterByCoin],
-  );
+  const ordersToProcess = useMemo(() => {
+    const all = [...perpOpenOrders, ...spotOpenOrders];
+    return filterByCoin ? all.filter((o) => o.coin === filterByCoin) : all;
+  }, [perpOpenOrders, spotOpenOrders, filterByCoin]);
 
   const handleConfirm = useCallback(async () => {
     if (isSubmitting) return;
@@ -98,6 +98,7 @@ function CancelAllOrdersContent({
 
       <TradingGuardWrapper>
         <Button
+          testID="perp-button-text-btn"
           variant="primary"
           size="medium"
           disabled={isSubmitting}
@@ -113,6 +114,7 @@ function CancelAllOrdersContent({
 
 export function showCancelAllOrdersDialog(filterByCoin?: string) {
   const dialogInstance = Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.perp_cacenl_all_order_title,
     }),
@@ -126,6 +128,7 @@ export function showCancelAllOrdersDialog(filterByCoin?: string) {
         />
       </PerpsProviderMirror>
     ),
+    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();

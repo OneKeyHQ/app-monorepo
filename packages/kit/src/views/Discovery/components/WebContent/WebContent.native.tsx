@@ -5,6 +5,7 @@ import { Progress, Stack, useBackHandler } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import {
   notifyTabNavigation,
+  notifyTabNavigationEnd,
   tryDispatchTranslateMessage,
 } from '@onekeyhq/kit/src/components/WebView/translateBridge';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
@@ -17,11 +18,16 @@ import { useSettingsFiatPaySiteWhitelistPersistAtom } from '@onekeyhq/kit-bg/src
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
+import {
+  BITREFILL_BRIDGE_SCRIPT,
+  isBitrefillEmbedUrl,
+} from '../../utils/bitrefillUtils';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { showTabBar } from '../../utils/tabBarUtils';
 import BlockAccessView from '../BlockAccessView';
 
 import type { IWebTab } from '../../types';
+import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type {
   WebView as ReactNativeWebview,
   WebViewMessageEvent,
@@ -38,6 +44,7 @@ type IWebContentProps = IWebTab &
     isCurrent: boolean;
     setBackEnabled: Dispatch<SetStateAction<boolean>>;
     setForwardEnabled: Dispatch<SetStateAction<boolean>>;
+    customReceiveHandler?: IJsBridgeReceiveHandler;
   };
 
 function WebContent({
@@ -50,12 +57,14 @@ function WebContent({
   setForwardEnabled,
   onScroll,
   siteMode,
+  customReceiveHandler,
 }: IWebContentProps) {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
   const [progress, setProgress] = useState(5);
   const [showBlockAccessView, setShowBlockAccessView] = useState(false);
   const [urlValidateState, setUrlValidateState] = useState<EValidateUrlEnum>();
+  const [blockedUrl, setBlockedUrl] = useState<string>();
   const [{ fiatPaySiteWhitelist }] =
     useSettingsFiatPaySiteWhitelistPersistAtom();
   const { onNavigation, gotoSite, validateWebviewSrc } =
@@ -84,7 +93,19 @@ function WebContent({
     if (nativeEvent.loading) {
       return;
     }
+    notifyTabNavigationEnd(id);
     changeNavigationInfo({ ...nativeEvent });
+    // Inject Bitrefill bridge for raw postMessage → JSBridge forwarding.
+    if (isBitrefillEmbedUrl(nativeEvent.url)) {
+      const webview = webviewRefs[id]?.innerRef as
+        | ReactNativeWebview
+        | undefined;
+      try {
+        webview?.injectJavaScript?.(BITREFILL_BRIDGE_SCRIPT);
+      } catch {
+        // best-effort injection
+      }
+    }
   };
 
   const onNavigationStateChange = useCallback(
@@ -133,6 +154,7 @@ function WebContent({
       }
       setShowBlockAccessView(true);
       setUrlValidateState(validateState);
+      setBlockedUrl(navUrl);
       return false;
     },
     [validateWebviewSrc],
@@ -164,6 +186,7 @@ function WebContent({
         pullToRefreshEnabled={!platformEnv.isNativeAndroid}
         src={url}
         mediaPermissionWhitelist={fiatPaySiteWhitelist}
+        customReceiveHandler={customReceiveHandler}
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
@@ -212,6 +235,7 @@ function WebContent({
       showHome,
       siteMode,
       url,
+      customReceiveHandler,
     ],
   );
 
@@ -237,6 +261,7 @@ function WebContent({
     () => (
       <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
         <BlockAccessView
+          url={blockedUrl}
           urlValidateState={urlValidateState}
           onCloseTab={() => {
             closeWebTab({ tabId: id, entry: 'BlockView' });
@@ -251,7 +276,7 @@ function WebContent({
         />
       </Stack>
     ),
-    [id, closeWebTab, setCurrentWebTab, urlValidateState],
+    [blockedUrl, id, closeWebTab, setCurrentWebTab, urlValidateState],
   );
 
   return (

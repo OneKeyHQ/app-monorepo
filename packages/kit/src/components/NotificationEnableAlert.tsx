@@ -1,6 +1,6 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
-import { isUndefined, noop } from 'lodash';
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Alert, Stack } from '@onekeyhq/components';
@@ -38,14 +38,8 @@ const i18nKeyMap: Record<INotificationAlertScene, ETranslations> = {
 
 function BasicNotificationEnableAlert({
   scene,
-  recomputeLayout,
-  opacity,
-  setOpacity,
 }: {
   scene: INotificationAlertScene;
-  recomputeLayout?: () => void;
-  opacity?: number;
-  setOpacity?: (opacity: number) => void;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -86,10 +80,7 @@ function BasicNotificationEnableAlert({
       ...v,
       [dismissedKey]: true,
     }));
-    setTimeout(() => {
-      recomputeLayout?.();
-    }, 350);
-  }, [setNotificationsData, dismissedKey, recomputeLayout]);
+  }, [setNotificationsData, dismissedKey]);
 
   const handleEnablePress = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
@@ -110,24 +101,14 @@ function BasicNotificationEnableAlert({
     [isDismissed, result?.shouldShow],
   );
 
-  useEffect(() => {
-    setTimeout(() => {
-      recomputeLayout?.();
-      if (shouldShowAlert) {
-        setOpacity?.(1);
-      }
-    }, 350);
-  }, [recomputeLayout, shouldShowAlert, setOpacity]);
-
   if (!shouldShowAlert) {
     return null;
   }
 
   return (
-    <Stack px="$2" pb="$2">
+    <Stack px="$2" pt="$2">
       <Alert
         type="info"
-        opacity={isUndefined(opacity) ? 1 : opacity}
         icon="InfoCircleOutline"
         title={intl.formatMessage({
           id: i18nKeyMap[scene],

@@ -2,34 +2,114 @@ import { useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 
-import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useActiveTradeInstrumentAtom,
+  useTradingFormAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetDataAtom,
+  useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   computeMaxTradeSize,
   resolveTradingSizeBN,
+  sanitizeManualSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useLiquidationPrice } from './useLiquidationPrice';
 import { useOrderPrice } from './useOrderPrice';
+import { useTradingPrice } from './useTradingPrice';
 
 export function useTradingCalculationsForSide(side: 'long' | 'short') {
   const [formData] = useTradingFormAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
+  const [{ balances: spotBalances }] = useSpotBalancesAtom();
 
   const { price: effectivePriceBN, error: priceError } = useOrderPrice(side);
+  const { midPriceBN } = useTradingPrice();
   const liquidationPrice = useLiquidationPrice(side);
+  const isSpot = activeTradeInstrument.mode === 'spot';
+  const spotUniverse =
+    activeTradeInstrument.mode === 'spot'
+      ? activeTradeInstrument.universe
+      : undefined;
+  const spotSzDecimals = spotUniverse?.baseSzDecimals ?? 2;
+
+  const spotAvailableBaseBN = useMemo(() => {
+    if (!spotUniverse?.baseName) {
+      return new BigNumber(0);
+    }
+    const balance = spotBalances.find(
+      (item) => item.coin === spotUniverse.baseName,
+    );
+    if (!balance) {
+      return new BigNumber(0);
+    }
+    return BigNumber.max(
+      new BigNumber(balance.total).minus(balance.hold ?? 0),
+      0,
+    );
+  }, [spotBalances, spotUniverse?.baseName]);
+
+  const spotAvailableQuoteBN = useMemo(() => {
+    if (!spotUniverse?.quoteName) {
+      return new BigNumber(0);
+    }
+    const balance = spotBalances.find(
+      (item) => item.coin === spotUniverse.quoteName,
+    );
+    if (!balance) {
+      return new BigNumber(0);
+    }
+    return BigNumber.max(
+      new BigNumber(balance.total).minus(balance.hold ?? 0),
+      0,
+    );
+  }, [spotBalances, spotUniverse?.quoteName]);
 
   const leverage = useMemo(
-    () => activeAssetData?.leverage?.value || 1,
-    [activeAssetData?.leverage?.value],
+    () => (isSpot ? 1 : activeAssetData?.leverage?.value || 1),
+    [isSpot, activeAssetData?.leverage?.value],
   );
 
+  const effectiveSpotPriceBN = useMemo(() => {
+    if (effectivePriceBN.isFinite() && effectivePriceBN.gt(0)) {
+      return effectivePriceBN;
+    }
+    return midPriceBN.isFinite() && midPriceBN.gt(0)
+      ? midPriceBN
+      : new BigNumber(0);
+  }, [effectivePriceBN, midPriceBN]);
+
+  const spotMaxTradeSzs = useMemo(() => {
+    if (!isSpot) {
+      return undefined;
+    }
+    const buyMax = effectiveSpotPriceBN.gt(0)
+      ? spotAvailableQuoteBN.dividedBy(effectiveSpotPriceBN)
+      : new BigNumber(0);
+    return [
+      buyMax.decimalPlaces(spotSzDecimals, BigNumber.ROUND_FLOOR).toFixed(),
+      spotAvailableBaseBN
+        .decimalPlaces(spotSzDecimals, BigNumber.ROUND_FLOOR)
+        .toFixed(),
+    ] as [string, string];
+  }, [
+    isSpot,
+    effectiveSpotPriceBN,
+    spotAvailableQuoteBN,
+    spotAvailableBaseBN,
+    spotSzDecimals,
+  ]);
+
   const effectiveMaxTradeSzs = useMemo(() => {
+    if (isSpot) {
+      return spotMaxTradeSzs;
+    }
     if (formData.orderMode !== 'trigger') {
       return activeAssetData?.maxTradeSzs;
     }
@@ -75,7 +155,9 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     activeAssetData?.markPx,
     activeAsset?.universe?.maxLeverage,
     effectivePriceBN,
+    isSpot,
     side,
+    spotMaxTradeSzs,
   ]);
 
   const maxTradeSzBN = useMemo(() => {
@@ -84,11 +166,23 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   }, [effectiveMaxTradeSzs, side]);
 
   const markPxBN = useMemo(() => {
-    const markPx = activeAssetData?.markPx;
+    const markPx = isSpot
+      ? effectiveSpotPriceBN.toFixed()
+      : activeAssetData?.markPx;
     return new BigNumber(markPx ?? 0);
-  }, [activeAssetData?.markPx]);
+  }, [activeAssetData?.markPx, effectiveSpotPriceBN, isSpot]);
 
   const availableMarginBN = useMemo(() => {
+    if (isSpot) {
+      if (side === 'long') {
+        return spotAvailableQuoteBN;
+      }
+      if (!markPxBN.gt(0)) {
+        return new BigNumber(0);
+      }
+      return spotAvailableBaseBN.multipliedBy(markPxBN);
+    }
+
     if (formData.orderMode === 'trigger') {
       const availableIdx = side === 'long' ? 0 : 1;
       return new BigNumber(
@@ -103,10 +197,13 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   }, [
     formData.orderMode,
     activeAssetData?.availableToTrade,
+    isSpot,
     side,
     maxTradeSzBN,
     markPxBN,
     leverage,
+    spotAvailableBaseBN,
+    spotAvailableQuoteBN,
   ]);
 
   const availableToTrade = useMemo(
@@ -117,27 +214,31 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     [availableMarginBN],
   );
 
-  const maxPositionSizeBN = useMemo(
-    () =>
-      computeMaxTradeSize({
-        side,
-        price: effectivePriceBN.isFinite() ? effectivePriceBN.toFixed() : '',
-        markPrice: activeAssetData?.markPx,
-        maxTradeSzs: effectiveMaxTradeSzs,
-        leverageValue: activeAssetData?.leverage?.value,
-        fallbackLeverage: activeAsset?.universe?.maxLeverage,
-        szDecimals: activeAsset?.universe?.szDecimals,
-      }),
-    [
+  const maxPositionSizeBN = useMemo(() => {
+    if (isSpot) {
+      return maxTradeSzBN.decimalPlaces(spotSzDecimals, BigNumber.ROUND_FLOOR);
+    }
+    return computeMaxTradeSize({
       side,
-      effectivePriceBN,
-      activeAssetData?.markPx,
-      effectiveMaxTradeSzs,
-      activeAssetData?.leverage?.value,
-      activeAsset?.universe?.maxLeverage,
-      activeAsset?.universe?.szDecimals,
-    ],
-  );
+      price: effectivePriceBN.isFinite() ? effectivePriceBN.toFixed() : '',
+      markPrice: activeAssetData?.markPx,
+      maxTradeSzs: effectiveMaxTradeSzs,
+      leverageValue: activeAssetData?.leverage?.value,
+      fallbackLeverage: activeAsset?.universe?.maxLeverage,
+      szDecimals: activeAsset?.universe?.szDecimals,
+    });
+  }, [
+    side,
+    effectivePriceBN,
+    activeAssetData?.markPx,
+    effectiveMaxTradeSzs,
+    activeAssetData?.leverage?.value,
+    activeAsset?.universe?.maxLeverage,
+    activeAsset?.universe?.szDecimals,
+    isSpot,
+    maxTradeSzBN,
+    spotSzDecimals,
+  ]);
 
   const maxPositionSize = useMemo(
     () => maxPositionSizeBN.toNumber(),
@@ -145,6 +246,24 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   );
 
   const computedSizeForSide = useMemo(() => {
+    if (isSpot) {
+      if (
+        (formData.sizeInputMode ?? EPerpsSizeInputMode.MANUAL) ===
+        EPerpsSizeInputMode.SLIDER
+      ) {
+        const sliderPercent = Number.isFinite(formData.sizePercent)
+          ? Math.max(0, Math.min(100, formData.sizePercent ?? 0))
+          : 0;
+        return maxPositionSizeBN
+          .multipliedBy(sliderPercent)
+          .dividedBy(100)
+          .decimalPlaces(spotSzDecimals, BigNumber.ROUND_FLOOR);
+      }
+      const manualBN = new BigNumber(sanitizeManualSize(formData.size));
+      return manualBN.isFinite() && manualBN.gte(0)
+        ? manualBN.decimalPlaces(spotSzDecimals, BigNumber.ROUND_FLOOR)
+        : new BigNumber(0);
+    }
     return resolveTradingSizeBN({
       sizeInputMode: formData.sizeInputMode ?? EPerpsSizeInputMode.MANUAL,
       manualSize: formData.size,
@@ -168,6 +287,9 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     activeAssetData?.leverage?.value,
     activeAsset?.universe?.maxLeverage,
     activeAsset?.universe?.szDecimals,
+    isSpot,
+    maxPositionSizeBN,
+    spotSzDecimals,
   ]);
 
   const orderValue = useMemo(
@@ -181,6 +303,31 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   );
 
   const isNoEnoughMargin = useMemo(() => {
+    if (isSpot) {
+      const isSlider =
+        (formData.sizeInputMode ?? EPerpsSizeInputMode.MANUAL) ===
+        EPerpsSizeInputMode.SLIDER;
+      if (
+        isSlider &&
+        (formData.sizePercent ?? 0) > 0 &&
+        computedSizeForSide.lte(0)
+      ) {
+        return true;
+      }
+      if (
+        !computedSizeForSide.isFinite() ||
+        computedSizeForSide.lte(0) ||
+        !effectivePriceBN.isFinite() ||
+        effectivePriceBN.lte(0)
+      ) {
+        return false;
+      }
+      if (side === 'long') {
+        return orderValue.isFinite() && orderValue.gt(spotAvailableQuoteBN);
+      }
+      return computedSizeForSide.gt(spotAvailableBaseBN);
+    }
+
     // Trigger orders do not lock margin at placement time (HL checks margin
     // only when the trigger fires). Reduce-only triggers need no margin at all.
     if (formData.orderMode === 'trigger') {
@@ -227,6 +374,11 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     formData.orderMode,
     formData.sizeInputMode,
     formData.sizePercent,
+    isSpot,
+    orderValue,
+    side,
+    spotAvailableBaseBN,
+    spotAvailableQuoteBN,
   ]);
 
   return {

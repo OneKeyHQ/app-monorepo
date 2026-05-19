@@ -18,6 +18,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
+import { isAccountIdDeactivatedBotWallet } from '../../../utils/botWalletAccountUtils';
+import { shouldWarnBotWalletInteract } from '../../../utils/botWalletStatusUtils';
+import { showBotWalletDeactivatedWarningDialog } from '../../../utils/botWalletWarningDialog';
 import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
 import { DAppRequestedPermissionContent } from '../components/DAppRequestContent';
 import { DAppRequestedDappList } from '../components/DAppRequestContent/DAppRequestedDappList';
@@ -26,6 +29,7 @@ import {
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
 import { useRiskDetection } from '../hooks/useRiskDetection';
+import { DAppConnectionTestIDs } from '../testIDs';
 
 import DappOpenModalPage from './DappOpenModalPage';
 
@@ -126,6 +130,20 @@ function ConnectionModal() {
         });
         return;
       }
+      const isDeactivatedBotWallet = await isAccountIdDeactivatedBotWallet({
+        accountId: selectedAccount.account.id,
+      });
+      if (
+        shouldWarnBotWalletInteract({
+          isBotWallet: isDeactivatedBotWallet,
+          isBotWalletDeactivated: isDeactivatedBotWallet,
+        })
+      ) {
+        const confirmed = await showBotWalletDeactivatedWarningDialog();
+        if (!confirmed) {
+          return;
+        }
+      }
       const {
         wallet,
         account,
@@ -210,7 +228,10 @@ function ConnectionModal() {
   );
 
   return (
-    <DappOpenModalPage dappApprove={dappApprove}>
+    <DappOpenModalPage
+      dappApprove={dappApprove}
+      testID={DAppConnectionTestIDs.ConnectionModal}
+    >
       <>
         <Page.Header headerShown={false} />
         <Page.Body>
@@ -238,6 +259,10 @@ function ConnectionModal() {
             onCancel={() => dappApprove.reject()}
             confirmButtonProps={{
               disabled: confirmDisabled,
+              testID: DAppConnectionTestIDs.ConnectionApproveButton,
+            }}
+            cancelButtonProps={{
+              testID: DAppConnectionTestIDs.ConnectionRejectButton,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}

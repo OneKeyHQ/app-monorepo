@@ -47,6 +47,7 @@ type IQuickSelectListItemFrameProps = {
   address: string;
   walletId?: string;
   wallet?: IDBWallet;
+  customRenderAvatar?: () => ReactNode;
   onPress?: () => void;
   onLongPress?: () => void;
   onHoverIn?: () => void;
@@ -61,6 +62,7 @@ function QuickSelectListItemFrame({
   address,
   walletId,
   wallet,
+  customRenderAvatar,
   onPress,
   onLongPress,
   onHoverIn,
@@ -70,7 +72,7 @@ function QuickSelectListItemFrame({
   secondary,
   trailing,
 }: IQuickSelectListItemFrameProps) {
-  const renderAvatar = useCallback(
+  const defaultRenderAvatar = useCallback(
     () => (
       <MemoizedAccountAvatarWithWallet
         address={address}
@@ -80,6 +82,7 @@ function QuickSelectListItemFrame({
     ),
     [address, wallet, walletId],
   );
+  const renderAvatar = customRenderAvatar ?? defaultRenderAvatar;
 
   return (
     <ListItem

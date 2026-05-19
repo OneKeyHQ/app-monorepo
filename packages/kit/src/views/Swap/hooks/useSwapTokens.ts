@@ -15,6 +15,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { buildSwapAllNetworkTokenListCacheKey } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ESwapCrossChainStatus,
@@ -44,6 +45,7 @@ export function useSwapTokenList(
   currentNetworkId?: string,
   keywords?: string,
   from?: ESwapTabSwitchType,
+  lpToken?: boolean,
 ) {
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
@@ -99,6 +101,7 @@ export function useSwapTokenList(
         accountAddress: swapAddressInfo?.address,
         accountNetworkId: swapAddressInfo?.networkId,
         accountId: swapAddressInfo?.accountInfo?.account?.id,
+        lpToken,
       };
     }
     return {
@@ -107,6 +110,7 @@ export function useSwapTokenList(
       accountAddress: findNetInfo?.apiAddress,
       accountNetworkId: findNetInfo?.networkId,
       accountId: findNetInfo?.accountId,
+      lpToken,
     };
   }, [
     currentNetworkId,
@@ -116,22 +120,30 @@ export function useSwapTokenList(
     swapAddressInfo?.accountInfo?.account?.id,
     keywords,
     currentSelectNetwork?.networkId,
+    lpToken,
   ]);
 
-  const swapAllNetworkTokenList = useMemo(
+  const swapAllNetworkTokenListCacheKey = useMemo(
     () =>
-      swapAllNetworkTokenListMap[
-        swapAddressInfo?.accountInfo?.indexedAccount?.id ??
+      buildSwapAllNetworkTokenListCacheKey({
+        accountId:
+          swapAddressInfo?.accountInfo?.indexedAccount?.id ??
           swapAddressInfo?.accountInfo?.account?.id ??
           swapAddressInfo?.accountInfo?.dbAccount?.id ??
-          'noAccountId'
-      ],
+          'noAccountId',
+        lpToken,
+      }),
     [
-      swapAllNetworkTokenListMap,
+      lpToken,
       swapAddressInfo?.accountInfo?.indexedAccount?.id,
       swapAddressInfo?.accountInfo?.account?.id,
       swapAddressInfo?.accountInfo?.dbAccount?.id,
     ],
+  );
+
+  const swapAllNetworkTokenList = useMemo(
+    () => swapAllNetworkTokenListMap[swapAllNetworkTokenListCacheKey],
+    [swapAllNetworkTokenListMap, swapAllNetworkTokenListCacheKey],
   );
   const sortAllNetworkTokens = useCallback((tokens: ISwapToken[]) => {
     const havePriceTokens = tokens
@@ -286,6 +298,7 @@ export function useSwapTokenList(
           ? (swapAddressInfo?.accountInfo?.account?.id ??
               swapAddressInfo?.accountInfo?.dbAccount?.id)
           : undefined,
+        lpToken,
       );
     }
     void tokenListFetchAction(tokenFetchParams);
@@ -297,6 +310,7 @@ export function useSwapTokenList(
     tokenFetchParams,
     tokenListFetchAction,
     keywords,
+    lpToken,
   ]);
 
   useEffect(() => {

@@ -1,0 +1,259 @@
+name: cli-macos-standalone
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_to_npm:
+        description: 'Publish generated darwin packages to npm'
+        required: false
+        type: boolean
+        default: false
+      npm_tag:
+        description: 'npm dist-tag used when publishing'
+        required: false
+        type: string
+        default: next
+      notarize:
+        description: 'Submit the signed macOS CLI zip to Apple notarization'
+        required: false
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      publish_to_npm:
+        description: 'Publish generated darwin packages to npm'
+        required: false
+        type: boolean
+        default: false
+      npm_tag:
+        description: 'npm dist-tag used when publishing'
+        required: false
+        type: string
+        default: next
+      notarize:
+        description: 'Submit the signed macOS CLI zip to Apple notarization'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  package:
+    name: package macOS standalone CLI (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-26
+          - arch: x64
+            runner: macos-26-intel
+    runs-on: ${{ matrix.runner }}
+    env:
+      NODE_ENV: production
+      YARN_ENABLE_GLOBAL_CACHE: true
+      CLI_MACOS_ARCH: ${{ matrix.arch }}
+      CLI_MACOS_BUNDLE_ID: so.onekey.cli
+      CLI_MACOS_HARDENED_RUNTIME: true
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: yarn
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify Node SEA runtime
+        run: |
+          node -p "process.version + ' ' + process.platform + ' ' + process.arch"
+          test "$(node -p "process.arch")" = "$CLI_MACOS_ARCH"
+          node -e "const fs=require('node:fs');const fuse='NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';if(!fs.readFileSync(process.execPath).includes(Buffer.from(fuse))){throw new Error('Node binary does not contain the SEA fuse: '+process.execPath)}"
+
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
+
+      - name: Setup Developer ID signing
+        env:
+          DESKTOP_KEYS_SECRET: ${{ secrets.DESKTOP_KEYS_SECRET }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          PUBLISH_TO_NPM: ${{ inputs.publish_to_npm }}
+          NOTARIZE: ${{ inputs.notarize }}
+        run: |
+          if [ -z "$DESKTOP_KEYS_SECRET" ] || [ -z "$CSC_KEY_PASSWORD" ]; then
+            if [ "$PUBLISH_TO_NPM" = "true" ] || [ "$NOTARIZE" = "true" ]; then
+              echo "::error::Developer ID signing secrets are required before publishing or notarizing macOS standalone CLI packages."
+              exit 1
+            fi
+            echo "::warning::Developer ID signing secrets are missing; using ad-hoc signing for this artifact."
+            echo "CLI_MACOS_SIGN_IDENTITY=-" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          KEYCHAIN_PASSWORD="${KEYCHAIN_PASSWORD:-cli-signing-keychain}"
+          KEYCHAIN_PATH="$RUNNER_TEMP/cli-signing.keychain-db"
+          P12_PATH="$RUNNER_TEMP/cli-sign.p12"
+
+          echo "$DESKTOP_KEYS_SECRET" | base64 -d > "$P12_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$P12_PATH" -P "$CSC_KEY_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | sed -n 's/.*"\(Developer ID Application:.*\)".*/\1/p' | head -n 1)
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::No Developer ID Application signing identity found in imported certificate."
+            security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+            exit 1
+          fi
+
+          echo "CLI_MACOS_SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          echo "CLI_MACOS_SIGNING_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      - name: Package standalone CLI
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn workspace @onekeyfe/cli package:macos-standalone
+
+      - name: Verify standalone CLI
+        run: |
+          set -euo pipefail
+          BIN="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/onekey"
+          TARBALL_DIR="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/npm-tarball"
+          file "$BIN"
+          if [ "$CLI_MACOS_ARCH" = "arm64" ]; then
+            file "$BIN" | grep -q "arm64"
+          else
+            file "$BIN" | grep -q "x86_64"
+          fi
+          "$BIN" --version
+          "$BIN" --help
+          if grep -a -q "NODE_OPTIONS" "$BIN"; then
+            echo "::error::Standalone binary still contains NODE_OPTIONS references."
+            exit 1
+          fi
+          NODE_OPTIONS="--require=$RUNNER_TEMP/onekey-missing-preload.cjs" "$BIN" --version
+          INSPECT_LOG="$RUNNER_TEMP/onekey-node-options-inspect.log"
+          NODE_OPTIONS="--inspect=0" "$BIN" --version > "$INSPECT_LOG" 2>&1
+          cat "$INSPECT_LOG"
+          if grep -E "Debugger listening|Starting inspector" "$INSPECT_LOG"; then
+            echo "::error::Standalone binary consumed NODE_OPTIONS inspector flags."
+            exit 1
+          fi
+          cp "$BIN" "$RUNNER_TEMP/onekey-standalone-test"
+          HOME="$RUNNER_TEMP/onekey-cli-home" "$RUNNER_TEMP/onekey-standalone-test" auth status --json
+          codesign --verify --verbose=2 "$BIN"
+          codesign -d --entitlements - "$BIN"
+          ls "$TARBALL_DIR"/*.tgz
+
+      - name: Notarize standalone CLI
+        if: ${{ inputs.notarize }}
+        env:
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APPLEID:-}" ] || [ -z "${APPLEIDPASS:-}" ] || [ -z "${ASC_PROVIDER:-}" ]; then
+            echo "::error::APPLEID, APPLEIDPASS, and ASC_PROVIDER are required to notarize macOS standalone CLI packages."
+            exit 1
+          fi
+
+          BIN="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/onekey"
+          TARBALL_DIR="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/npm-tarball"
+          ZIP="apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/onekey-cli-darwin-${CLI_MACOS_ARCH}.zip"
+          TARBALL=$(ls "$TARBALL_DIR"/*.tgz)
+          xcrun notarytool submit "$ZIP" \
+            --apple-id "$APPLEID" \
+            --password "$APPLEIDPASS" \
+            --team-id "$ASC_PROVIDER" \
+            --wait
+
+          codesign --verify --check-notarization --verbose=4 "$BIN"
+
+          ARTIFACT_VERIFY_DIR="$RUNNER_TEMP/onekey-notarized-artifacts"
+          rm -rf "$ARTIFACT_VERIFY_DIR"
+          mkdir -p "$ARTIFACT_VERIFY_DIR/zip" "$ARTIFACT_VERIFY_DIR/tarball"
+          ditto -x -k "$ZIP" "$ARTIFACT_VERIFY_DIR/zip"
+          tar -xzf "$TARBALL" -C "$ARTIFACT_VERIFY_DIR/tarball"
+
+          ZIP_BIN=$(find "$ARTIFACT_VERIFY_DIR/zip" -type f -name onekey -print -quit)
+          TARBALL_BIN="$ARTIFACT_VERIFY_DIR/tarball/package/bin/onekey"
+          if [ -z "$ZIP_BIN" ] || [ ! -x "$ZIP_BIN" ]; then
+            echo "::error::Distribution zip does not contain an executable onekey binary."
+            exit 1
+          fi
+          if [ ! -x "$TARBALL_BIN" ]; then
+            echo "::error::NPM tarball does not contain an executable package/bin/onekey binary."
+            exit 1
+          fi
+
+          for PACKAGE_BIN in "$BIN" "$ZIP_BIN" "$TARBALL_BIN"; do
+            file "$PACKAGE_BIN"
+            codesign --verify --check-notarization --verbose=4 "$PACKAGE_BIN"
+          done
+
+          GATEKEEPER_INDEX=0
+          for PACKAGE_BIN in "$ZIP_BIN" "$TARBALL_BIN"; do
+            GATEKEEPER_TEST_BIN="$RUNNER_TEMP/onekey-gatekeeper-test-$GATEKEEPER_INDEX"
+            cp "$PACKAGE_BIN" "$GATEKEEPER_TEST_BIN"
+            QUARANTINE_TS="$(printf '%x' "$(date +%s)")"
+            xattr -w com.apple.quarantine \
+              "0081;$QUARANTINE_TS;onekey-ci;https://github.com/OneKeyHQ/app-monorepo" \
+              "$GATEKEEPER_TEST_BIN"
+            xattr -p com.apple.quarantine "$GATEKEEPER_TEST_BIN"
+            codesign --verify --check-notarization --verbose=4 "$GATEKEEPER_TEST_BIN"
+            "$GATEKEEPER_TEST_BIN" --version
+            GATEKEEPER_INDEX=$((GATEKEEPER_INDEX + 1))
+          done
+
+      - name: Upload standalone package
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-cli-macos-standalone-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            apps/cli/build/macos-standalone/darwin-${{ matrix.arch }}/onekey
+            apps/cli/build/macos-standalone/darwin-${{ matrix.arch }}/onekey-cli-darwin-${{ matrix.arch }}.zip
+            apps/cli/build/macos-standalone/darwin-${{ matrix.arch }}/npm-tarball/*.tgz
+
+      - name: Publish standalone package to npm
+        if: ${{ inputs.publish_to_npm }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TAG: ${{ inputs.npm_tag }}
+        run: |
+          set -euo pipefail
+          TARBALL=$(ls apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/npm-tarball/*.tgz)
+          # Idempotency: npm refuses to overwrite an existing version, so if
+          # the standalone subpackage is already on npm for this version
+          # (e.g. a previous run published it but the main package failed),
+          # skip the publish so the pipeline can be re-run end-to-end.
+          PKG_META=$(tar -xzf "$TARBALL" --to-stdout package/package.json)
+          PKG_NAME=$(printf '%s' "$PKG_META" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).name")
+          PKG_VERSION=$(printf '%s' "$PKG_META" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+          if npm view "${PKG_NAME}@${PKG_VERSION}" version >/dev/null 2>&1; then
+            echo "::notice::${PKG_NAME}@${PKG_VERSION} already published — skipping (idempotent retry)"
+            exit 0
+          fi
+          npm publish "$TARBALL" --access public --tag "$NPM_TAG"
+
+      - name: Clean up signing keychain
+        if: ${{ always() }}
+        run: |
+          if [ -n "${CLI_MACOS_SIGNING_KEYCHAIN:-}" ]; then
+            security delete-keychain "$CLI_MACOS_SIGNING_KEYCHAIN" 2>/dev/null || true
+          fi

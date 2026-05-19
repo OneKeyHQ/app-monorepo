@@ -3,10 +3,20 @@ import type { IManualBackupParamList } from '@onekeyhq/shared/src/routes/manualB
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes/onboarding';
 
-import OnboardingBeforeShowRecoveryPhrase from '../../Onboarding/pages/CreateWalet/BeforeShowRecoveryPhrase';
-import OnboardingRecoveryPhrase from '../../Onboarding/pages/CreateWalet/RecoveryPhrase';
-import OnboardingVerifyRecoverPhrase from '../../Onboarding/pages/CreateWalet/VerifyRecoverPhrase';
-import ManualBackupSelectWalletPage from '../pages/SelectWallet';
+import { LazyLoadPage } from '../../../components/LazyLoadPage';
+
+const OnboardingBeforeShowRecoveryPhrase = LazyLoadPage(
+  () => import('../../Onboarding/pages/CreateWalet/BeforeShowRecoveryPhrase'),
+);
+const OnboardingRecoveryPhrase = LazyLoadPage(
+  () => import('../../Onboarding/pages/CreateWalet/RecoveryPhrase'),
+);
+const OnboardingVerifyRecoverPhrase = LazyLoadPage(
+  () => import('../../Onboarding/pages/CreateWalet/VerifyRecoverPhrase'),
+);
+const ManualBackupSelectWalletPage = LazyLoadPage(
+  () => import('../pages/SelectWallet'),
+);
 
 export const ManualBackupRouter: IModalFlowNavigatorConfig<
   EManualBackupRoutes | EOnboardingPages,

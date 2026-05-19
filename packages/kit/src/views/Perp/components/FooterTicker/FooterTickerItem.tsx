@@ -1,12 +1,17 @@
 import { memo, useMemo } from 'react';
 
 import { SizableText, XStack } from '@onekeyhq/components';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsCtxByCoin } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
+  useSpotActiveAssetCtxAtom,
+  useSpotAssetCtxsMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import perpsUtils from '@onekeyhq/shared/src/utils/perpsUtils';
+import perpsUtils, {
+  formatSpotPriceEntry,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PriceChangeDisplay } from '../FavoritesBar/FavoriteTokenItem';
 
@@ -15,18 +20,36 @@ interface IFooterTickerItemProps {
   coinName: string;
   dexIndex: number;
   assetId: number;
+  mode: 'perp' | 'spot';
   onPress: () => void;
 }
 
 // Price display for non-active tokens (reads from batch asset ctxs)
 const CtxPrice = memo(
-  ({ dexIndex, assetId }: { dexIndex: number; assetId: number }) => {
+  ({
+    coinName,
+    dexIndex,
+    assetId,
+    mode,
+  }: {
+    coinName: string;
+    dexIndex: number;
+    assetId: number;
+    mode: 'perp' | 'spot';
+  }) => {
     const ctx = usePerpsCtxByCoin(dexIndex, assetId);
+    const [spotPriceMap] = useSpotAssetCtxsMapAtom();
     const formatted = useMemo(() => perpsUtils.formatAssetCtx(ctx), [ctx]);
+    const formattedSpot = useMemo(
+      () => formatSpotPriceEntry(spotPriceMap[coinName]),
+      [coinName, spotPriceMap],
+    );
+    const displayCtx = mode === 'spot' ? formattedSpot : formatted;
+
     return (
       <PriceChangeDisplay
-        change={formatted?.change24hPercent ?? 0}
-        markPrice={formatted?.markPrice}
+        change={displayCtx?.change24hPercent ?? 0}
+        markPrice={displayCtx?.markPrice}
       />
     );
   },
@@ -35,16 +58,37 @@ CtxPrice.displayName = 'CtxPrice';
 
 // Price display for the currently active token (higher update frequency)
 const ActivePrice = memo(
-  ({ dexIndex, assetId }: { dexIndex: number; assetId: number }) => {
+  ({
+    coinName,
+    dexIndex,
+    assetId,
+    mode,
+  }: {
+    coinName: string;
+    dexIndex: number;
+    assetId: number;
+    mode: 'perp' | 'spot';
+  }) => {
     const [assetCtx] = usePerpsActiveAssetCtxAtom();
+    const [spotActiveAssetCtx] = useSpotActiveAssetCtxAtom();
     const fallbackCtx = usePerpsCtxByCoin(dexIndex, assetId);
+    const [spotPriceMap] = useSpotAssetCtxsMapAtom();
     const formattedFallback = useMemo(
       () => perpsUtils.formatAssetCtx(fallbackCtx),
       [fallbackCtx],
     );
+    const formattedSpotFallback = useMemo(
+      () => formatSpotPriceEntry(spotPriceMap[coinName]),
+      [coinName, spotPriceMap],
+    );
 
     const activeCtx = assetCtx?.ctx;
-    const ctx = activeCtx?.markPrice ? activeCtx : formattedFallback;
+    const spotCtx = spotActiveAssetCtx?.ctx;
+    let ctx: { markPrice?: string; change24hPercent?: number } =
+      activeCtx?.markPrice ? activeCtx : formattedFallback;
+    if (mode === 'spot') {
+      ctx = spotCtx?.markPrice ? spotCtx : formattedSpotFallback;
+    }
 
     return (
       <PriceChangeDisplay
@@ -61,10 +105,16 @@ function FooterTickerItem({
   coinName,
   dexIndex,
   assetId,
+  mode,
   onPress,
 }: IFooterTickerItemProps) {
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
-  const isActive = activeAsset?.coin === coinName;
+  const isActive =
+    mode === 'spot'
+      ? activeTradeInstrument.mode === 'spot' &&
+        activeTradeInstrument.coin === coinName
+      : activeAsset?.coin === coinName;
 
   return (
     <XStack
@@ -84,9 +134,19 @@ function FooterTickerItem({
         {displayName}
       </SizableText>
       {isActive ? (
-        <ActivePrice dexIndex={dexIndex} assetId={assetId} />
+        <ActivePrice
+          coinName={coinName}
+          dexIndex={dexIndex}
+          assetId={assetId}
+          mode={mode}
+        />
       ) : (
-        <CtxPrice dexIndex={dexIndex} assetId={assetId} />
+        <CtxPrice
+          coinName={coinName}
+          dexIndex={dexIndex}
+          assetId={assetId}
+          mode={mode}
+        />
       )}
     </XStack>
   );

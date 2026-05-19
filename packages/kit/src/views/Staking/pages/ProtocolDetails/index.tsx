@@ -37,6 +37,7 @@ import { StakedValueSection } from '../../components/ProtocolDetails/StakedValue
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { useEarnSignMessage } from '../../hooks/useEarnSignMessage';
+import { StakingTestIDs } from '../../testIDs';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 const ProtocolDetailsPage = () => {
@@ -354,7 +355,10 @@ const ProtocolDetailsPage = () => {
           onConfirmText={intl.formatMessage({
             id: ETranslations.earn_register,
           })}
-          confirmButtonProps={registerButtonProps}
+          confirmButtonProps={{
+            ...registerButtonProps,
+            testID: StakingTestIDs.protocolDetailsRegisterBtn,
+          }}
         />
       );
     }
@@ -363,11 +367,17 @@ const ProtocolDetailsPage = () => {
         onConfirmText={intl.formatMessage({
           id: ETranslations.earn_deposit,
         })}
-        confirmButtonProps={stakeButtonProps}
+        confirmButtonProps={{
+          ...stakeButtonProps,
+          testID: StakingTestIDs.protocolDetailsStakeBtn,
+        }}
         onCancelText={intl.formatMessage({
           id: ETranslations.global_withdraw,
         })}
-        cancelButtonProps={withdrawButtonProps}
+        cancelButtonProps={{
+          ...withdrawButtonProps,
+          testID: StakingTestIDs.protocolDetailsWithdrawBtn,
+        }}
       />
     );
   }, [
@@ -386,7 +396,7 @@ const ProtocolDetailsPage = () => {
     [onHistory],
   );
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled testID={StakingTestIDs.protocolDetailsPage}>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_earn_symbol },

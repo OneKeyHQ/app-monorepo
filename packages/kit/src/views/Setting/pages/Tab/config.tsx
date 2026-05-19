@@ -9,12 +9,13 @@ import type {
   ISizableTextProps,
   IStackStyle,
 } from '@onekeyhq/components';
-import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { isNativeTablet } from '@onekeyhq/components';
 import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
-} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+} from '@onekeyhq/kit/src/components/AppUpdate';
+import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -53,6 +54,7 @@ import {
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
+import { SettingTestIDs } from '../../testIDs';
 
 import {
   AutoLockListItem,
@@ -66,9 +68,12 @@ import {
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
+  MenuBarTrayListItem,
   ResetAppListItem,
   ResetPinListItem,
+  SplitViewListItem,
   ThemeListItem,
+  UseGasAccountByDefaultListItem,
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
@@ -83,6 +88,7 @@ export interface ISubSettingConfig {
   title: string;
   subtitle?: string;
   keywords?: string[];
+  testID?: string;
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
     badgeText: string;
@@ -113,6 +119,7 @@ export type ISettingsConfig = (
       title: string;
       subtitle?: string;
       name: ESettingsTabNames;
+      testID?: string;
       isHidden?: boolean;
       showDot?: boolean;
       tabBarItemStyle?: IStackStyle;
@@ -325,6 +332,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_notifications,
                   }),
+                  testID: SettingTestIDs.notificationsItem,
                   settingRoute: EModalSettingRoutes.SettingNotifications,
                   onPress: (
                     navigation?: ReturnType<typeof useAppNavigation>,
@@ -345,6 +353,34 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 }
               : undefined,
           ],
+          [
+            platformEnv.isDesktopMac
+              ? {
+                  icon: 'DockOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_menu_bar_tray,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_menu_bar_tray_desc,
+                  }),
+                  renderElement: <MenuBarTrayListItem />,
+                }
+              : undefined,
+          ],
+          [
+            isNativeTablet()
+              ? {
+                  icon: 'LayoutColumnOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_split_view,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_split_view_desc,
+                  }),
+                  renderElement: <SplitViewListItem />,
+                }
+              : undefined,
+          ],
         ],
       },
       platformEnv.isWebDappMode
@@ -362,6 +398,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_address_book,
                   }),
+                  testID: SettingTestIDs.addressBookItem,
                   onPress: (navigation) => {
                     void onPressAddressBook(navigation);
                   },
@@ -434,11 +471,24 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   renderElement: <BTCFreshAddressListItem />,
                 },
               ],
+              [
+                {
+                  icon: 'GasOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__title,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__desc,
+                  }),
+                  renderElement: <UseGasAccountByDefaultListItem />,
+                },
+              ],
             ],
           },
       {
         name: ESettingsTabNames.Security,
         icon: 'Shield2CheckSolid',
+        testID: SettingTestIDs.securityItem,
         title: intl.formatMessage({
           id: ETranslations.global_security,
         }),
@@ -672,6 +722,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       {
         name: ESettingsTabNames.About,
         icon: 'InfoCircleSolid',
+        testID: SettingTestIDs.aboutItem,
         title: intl.formatMessage({
           id: ETranslations.global_about,
         }),

@@ -101,6 +101,7 @@ export function PerpetualTradingBanner({
           </SizableText>
         </XStack>
         <IconButton
+          testID="market-title-icon-btn"
           icon="CrossedSmallOutline"
           size="small"
           variant="tertiary"
