@@ -253,6 +253,7 @@ function NextAddressRow({
         {row.displayAddress}
       </SizableText>
       <IconButton
+        testID={ReceiveTestIDs.BtcNextAddressCopyButton}
         variant="tertiary"
         size="small"
         icon="Copy3Outline"
@@ -519,6 +520,8 @@ function BtcAddresses() {
     [copyAddressWithDeriveType, effectiveDeriveInfo, network?.name],
   );
 
+  const copyAddress = isHardwareAccount ? copyAndShowOnDevice : copyOnly;
+
   const receivedHeader = intl.formatMessage({
     id: ETranslations.wallet_total_received,
   });
@@ -627,8 +630,8 @@ function BtcAddresses() {
                 <NextAddressRow
                   row={nextReceiveRow}
                   nextLabel={nextLabel}
-                  onCopy={copyOnly}
-                  onRowPress={copyAndShowOnDevice}
+                  onCopy={copyAddress}
+                  onRowPress={copyAddress}
                 />
               ) : (
                 <Stack px="$5">
@@ -656,8 +659,8 @@ function BtcAddresses() {
                     rows={usedRows}
                     addressHeader={`${usedLabel} · ${usedResult.total}`}
                     receivedHeader={receivedHeader}
-                    onCopy={copyOnly}
-                    onRowPress={copyAndShowOnDevice}
+                    onCopy={copyAddress}
+                    onRowPress={copyAddress}
                   />
                 ) : null}
                 {!receiveLoading && usedRows.length === 0 ? (
@@ -681,8 +684,8 @@ function BtcAddresses() {
                 <NextAddressRow
                   row={nextChangeRow}
                   nextLabel={nextLabel}
-                  onCopy={copyOnly}
-                  onRowPress={copyOnly}
+                  onCopy={copyAddress}
+                  onRowPress={copyAddress}
                 />
               ) : (
                 <Stack px="$5">
@@ -710,8 +713,8 @@ function BtcAddresses() {
                     rows={changeRows}
                     addressHeader={`${usedLabel} · ${changeResult.total}`}
                     receivedHeader={receivedHeader}
-                    onCopy={copyOnly}
-                    onRowPress={copyOnly}
+                    onCopy={copyAddress}
+                    onRowPress={copyAddress}
                   />
                 ) : null}
                 {!changeLoadingInitial && changeRows.length === 0 ? (

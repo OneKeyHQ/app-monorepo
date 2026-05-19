@@ -37,6 +37,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
+import { SendTestIDs } from '../../testIDs';
 
 import CoinControlStrategyPopover from './CoinControlStrategyPopover';
 import { EUtxoSortType, UTXOListItem, generateUtxoKey } from './UTXOListItem';
@@ -346,6 +347,7 @@ function CoinControlPage() {
               {intl.formatMessage({ id: ETranslations.wallet_sort_coins })}
             </SizableText>
             <Select
+              testID={SendTestIDs.coinControlSortSelect}
               title={intl.formatMessage({ id: ETranslations.market_sort_by })}
               value={sortType}
               onChange={setSortType}
@@ -407,6 +409,7 @@ function CoinControlPage() {
         <XStack px="$5" py="$5" gap="$3" ai="center" bg="$bgApp">
           {/* Select all checkbox */}
           <Checkbox
+            testID={SendTestIDs.coinControlSelectAllCheckbox}
             value={checkboxValue}
             onChange={handleSelectAll}
             shouldStopPropagation
@@ -426,7 +429,11 @@ function CoinControlPage() {
           </YStack>
 
           {/* Done button */}
-          <Button variant="primary" onPress={handleDone}>
+          <Button
+            testID={SendTestIDs.coinControlDoneButton}
+            variant="primary"
+            onPress={handleDone}
+          >
             {intl.formatMessage({
               id: ETranslations.global_done,
             })}

@@ -36,6 +36,7 @@ import {
   UTXOListItem,
   isChangeUtxoPath,
 } from '../../Send/pages/CoinControl/UTXOListItem';
+import { ReceiveTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -258,6 +259,7 @@ function BtcCoinsPage() {
               {totalAmount} {symbol}
             </SizableText>
             <Select
+              testID={ReceiveTestIDs.BtcCoinsSortSelect}
               title={intl.formatMessage({ id: ETranslations.market_sort_by })}
               value={sortType}
               onChange={setSortType}
