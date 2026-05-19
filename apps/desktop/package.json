@@ -13,7 +13,7 @@
     "install-app-deps": "electron-builder install-app-deps",
     "dev": "npx concurrently \"yarn build:main:dev\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
     "dev:rspack": "npx concurrently \"yarn build:main:dev\" \"yarn dev:renderer:rspack\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
-    "dev:main": "electron --inspect=5858 app/dist/app.js",
+    "dev:main": "electron --inspect=5858 --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 app/dist/app.js",
     "dev:renderer": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 webpack serve",
     "dev:renderer:rspack": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 rspack serve",
     "build:main:dev": "rimraf ./app/dist && cross-env node scripts/build.js",
