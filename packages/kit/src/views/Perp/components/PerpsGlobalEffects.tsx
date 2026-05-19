@@ -181,6 +181,36 @@ function useTradeRouteViewStateSync() {
   }, [actions]);
 }
 
+// Caps the perp UI at ~20 Hz for high-frequency channels. Hyperliquid pushes
+// l2Book / bbo / allMids many times per second; without this every push
+// cascades through every memoized Perp surface (OrderBook, price labels,
+// ticker, Wallet USD totals). Leading edge fires instantly so the first value
+// after idle lands without delay; trailing edge guarantees the final value
+// always lands once the burst stops.
+const HIGH_FREQ_CHANNEL_THROTTLE_MS = 50;
+
+function scheduleThrottledDispatch<T>(
+  dirtyRef: { current: T | null },
+  timerRef: { current: ReturnType<typeof setTimeout> | null },
+  intervalMs: number,
+  dispatch: (data: T) => void,
+  data: T,
+): void {
+  dirtyRef.current = data;
+  if (timerRef.current) return;
+  const pending = dirtyRef.current;
+  dirtyRef.current = null;
+  startTransition(() => dispatch(pending));
+  timerRef.current = setTimeout(() => {
+    timerRef.current = null;
+    if (dirtyRef.current) {
+      const trailing = dirtyRef.current;
+      dirtyRef.current = null;
+      startTransition(() => dispatch(trailing));
+    }
+  }, intervalMs);
+}
+
 function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
 
@@ -189,6 +219,13 @@ function useHyperliquidEventBusListener() {
   // to user interactions.
   const assetCtxsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const assetCtxsDirtyRef = useRef<IWsAllDexsAssetCtxs | null>(null);
+
+  const l2BookTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const l2BookDirtyRef = useRef<IBook | null>(null);
+  const bboTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bboDirtyRef = useRef<IWsBbo | null>(null);
+  const allMidsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const allMidsDirtyRef = useRef<IWsAllMids | null>(null);
 
   useEffect(() => {
     const handleDataUpdate = (payload: unknown) => {
@@ -203,7 +240,13 @@ function useHyperliquidEventBusListener() {
       try {
         switch (subType) {
           case ESubscriptionType.ALL_MIDS:
-            void actions.current.updateAllMids(data as IWsAllMids);
+            scheduleThrottledDispatch(
+              allMidsDirtyRef,
+              allMidsTimerRef,
+              HIGH_FREQ_CHANNEL_THROTTLE_MS,
+              (mids) => void actions.current.updateAllMids(mids),
+              data as IWsAllMids,
+            );
             break;
 
           case ESubscriptionType.WEB_DATA2: {
@@ -246,11 +289,23 @@ function useHyperliquidEventBusListener() {
           }
 
           case ESubscriptionType.L2_BOOK:
-            void actions.current.updateL2Book(data as IBook);
+            scheduleThrottledDispatch(
+              l2BookDirtyRef,
+              l2BookTimerRef,
+              HIGH_FREQ_CHANNEL_THROTTLE_MS,
+              (book) => void actions.current.updateL2Book(book),
+              data as IBook,
+            );
             break;
 
           case ESubscriptionType.BBO:
-            void actions.current.updateBbo(data as IWsBbo);
+            scheduleThrottledDispatch(
+              bboDirtyRef,
+              bboTimerRef,
+              HIGH_FREQ_CHANNEL_THROTTLE_MS,
+              (bbo) => void actions.current.updateBbo(bbo),
+              data as IWsBbo,
+            );
             break;
 
           case ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES:
@@ -318,6 +373,21 @@ function useHyperliquidEventBusListener() {
         clearTimeout(assetCtxsTimerRef.current);
         assetCtxsTimerRef.current = null;
       }
+      if (l2BookTimerRef.current) {
+        clearTimeout(l2BookTimerRef.current);
+        l2BookTimerRef.current = null;
+      }
+      if (bboTimerRef.current) {
+        clearTimeout(bboTimerRef.current);
+        bboTimerRef.current = null;
+      }
+      if (allMidsTimerRef.current) {
+        clearTimeout(allMidsTimerRef.current);
+        allMidsTimerRef.current = null;
+      }
+      l2BookDirtyRef.current = null;
+      bboDirtyRef.current = null;
+      allMidsDirtyRef.current = null;
       appEventBus.off(
         EAppEventBusNames.HyperliquidDataUpdate,
         handleDataUpdate,
