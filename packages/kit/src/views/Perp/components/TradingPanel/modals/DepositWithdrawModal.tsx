@@ -92,6 +92,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import usePerpDeposit from '../../../hooks/usePerpDeposit';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { PerpTestIDs } from '../../../testIDs';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
@@ -354,6 +355,7 @@ export function DepositWithdrawContent({
         // eslint-disable-next-line react/no-unstable-nested-components
         headerLeft: () => (
           <IconButton
+            testID={PerpTestIDs.DepositModalMobileBackButton}
             icon="ChevronLeftOutline"
             size="small"
             variant="tertiary"
@@ -366,6 +368,7 @@ export function DepositWithdrawContent({
         // eslint-disable-next-line react/no-unstable-nested-components
         headerLeft: () => (
           <IconButton
+            testID={PerpTestIDs.DepositModalMobileCloseButton}
             icon="CrossedLargeOutline"
             size="small"
             variant="tertiary"
@@ -1535,6 +1538,7 @@ export function DepositWithdrawContent({
             {selectedAction === 'walletDeposit' ||
             selectedAction === 'relay' ? (
               <IconButton
+                testID={PerpTestIDs.DepositModalDialogBackButton}
                 icon="ChevronLeftOutline"
                 size="small"
                 variant="tertiary"
@@ -1545,6 +1549,7 @@ export function DepositWithdrawContent({
           </XStack>
           {onClose ? (
             <IconButton
+              testID={PerpTestIDs.DepositModalDialogCloseButton}
               icon="CrossedSmallOutline"
               iconProps={{
                 color: '$iconSubdued',
@@ -1601,6 +1606,7 @@ export function DepositWithdrawContent({
           </YStack>
           <XStack gap="$2.5">
             <Button
+              testID={PerpTestIDs.DepositModalDepositButton}
               flex={1}
               size="medium"
               variant="primary"
@@ -1618,6 +1624,7 @@ export function DepositWithdrawContent({
               })}
             </Button>
             <Button
+              testID={PerpTestIDs.DepositModalWithdrawButton}
               flex={1}
               size="medium"
               variant="secondary"
@@ -1642,6 +1649,7 @@ export function DepositWithdrawContent({
       {selectedAction === 'depositSelect' ? (
         <YStack gap="$4">
           <XStack
+            testID={PerpTestIDs.DepositModalWalletOption}
             alignItems="center"
             px="$4"
             py="$4"
@@ -1667,6 +1675,7 @@ export function DepositWithdrawContent({
             </YStack>
           </XStack>
           <XStack
+            testID={PerpTestIDs.DepositModalRelayOption}
             alignItems="center"
             px="$4"
             py="$4"

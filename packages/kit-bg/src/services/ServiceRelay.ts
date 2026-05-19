@@ -22,6 +22,22 @@ const HYPERLIQUID_DESTINATION_CURRENCY = '0x00000000000000000000000000000000';
 const DEFAULT_ORIGIN_DECIMALS = 18;
 const MAX_EXACT_INPUT_PROBE_AMOUNT = '10000000';
 
+type IRelayQuoteParams = {
+  originChainId: number;
+  originCurrency: string;
+  recipient: string;
+  user?: string;
+  refundTo?: string;
+  amount: string;
+  decimals?: number;
+};
+
+type IRelayQuoteRouteParams = Omit<IRelayQuoteParams, 'amount' | 'decimals'>;
+
+type IRelayQuoteRequestParams = IRelayQuoteParams & {
+  useDepositAddress?: boolean;
+};
+
 @backgroundClass()
 class ServiceRelay extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -142,6 +158,45 @@ class ServiceRelay extends ServiceBase {
     );
   }
 
+  private static _isEvmAddress(address: string): boolean {
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
+  }
+
+  private static _assertEvmAddress(address: string, fieldName: string) {
+    if (!ServiceRelay._isEvmAddress(address)) {
+      throw new OneKeyError({ message: `Invalid Relay ${fieldName} address` });
+    }
+  }
+
+  private async _validateQuoteRoute(
+    params: IRelayQuoteRouteParams,
+  ): Promise<IRelayCurrency> {
+    const { originChainId, originCurrency, recipient, user, refundTo } = params;
+
+    if (!ServiceRelay.SUPPORTED_CHAIN_IDS.has(originChainId)) {
+      throw new OneKeyError({ message: 'Unsupported Relay origin chain' });
+    }
+
+    ServiceRelay._assertEvmAddress(recipient, 'recipient');
+    ServiceRelay._assertEvmAddress(user ?? refundTo ?? recipient, 'user');
+    if (refundTo) {
+      ServiceRelay._assertEvmAddress(refundTo, 'refundTo');
+    }
+
+    const { currencies } = await this.getRelayChains();
+    const currency = currencies[originChainId]?.find(
+      (item) =>
+        item.address.toLowerCase() === originCurrency.toLowerCase() &&
+        ServiceRelay.SUPPORTED_CURRENCY_SYMBOLS.has(item.symbol.toLowerCase()),
+    );
+
+    if (!currency) {
+      throw new OneKeyError({ message: 'Unsupported Relay origin currency' });
+    }
+
+    return currency;
+  }
+
   /**
    * Convert a human-readable amount string to smallest-unit integer string.
    * Uses string splitting instead of floating-point to avoid precision loss.
@@ -158,16 +213,9 @@ class ServiceRelay extends ServiceBase {
     return raw;
   }
 
-  private _buildQuoteRequest(params: {
-    originChainId: number;
-    originCurrency: string;
-    recipient: string;
-    user?: string;
-    refundTo?: string;
-    amount: string;
-    decimals?: number;
-    useDepositAddress?: boolean;
-  }): IRelayQuoteRequest {
+  private _buildQuoteRequest(
+    params: IRelayQuoteRequestParams,
+  ): IRelayQuoteRequest {
     const { originChainId, originCurrency, recipient, amount } = params;
     const refundTo = params.refundTo ?? recipient;
     const amountInSmallestUnit = ServiceRelay._toSmallestUnit(
@@ -275,16 +323,12 @@ class ServiceRelay extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getRelayQuote(params: {
-    originChainId: number;
-    originCurrency: string;
-    recipient: string;
-    user?: string;
-    refundTo?: string;
-    amount: string;
-    decimals?: number;
-  }): Promise<IRelayDepositInfo> {
-    const requestBody = this._buildQuoteRequest(params);
+  async getRelayQuote(params: IRelayQuoteParams): Promise<IRelayDepositInfo> {
+    const currency = await this._validateQuoteRoute(params);
+    const requestBody = this._buildQuoteRequest({
+      ...params,
+      decimals: currency.decimals,
+    });
     const data = await this._fetchQuote(requestBody);
     return this._buildDepositInfo(data, params.amount);
   }
@@ -300,6 +344,7 @@ class ServiceRelay extends ServiceBase {
     decimals?: number;
   }): Promise<IRelayDepositInfo> {
     const quoteAmount = params.amount || '100';
+    const currency = await this._validateQuoteRoute(params);
 
     // Parallel: quote for deposit address + fees, large probe for max amount
     const [quoteResult, probeResult] = await Promise.allSettled([
@@ -311,7 +356,7 @@ class ServiceRelay extends ServiceBase {
           user: params.user,
           refundTo: params.refundTo,
           amount: quoteAmount,
-          decimals: params.decimals,
+          decimals: currency.decimals,
         }),
       ),
       this._fetchQuote(
@@ -323,7 +368,7 @@ class ServiceRelay extends ServiceBase {
           refundTo: params.refundTo,
           amount: MAX_EXACT_INPUT_PROBE_AMOUNT,
           useDepositAddress: false,
-          decimals: params.decimals,
+          decimals: currency.decimals,
         }),
       ),
     ]);

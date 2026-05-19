@@ -45,6 +45,18 @@ export const PerpTestIDs = {
   // -- Deposit --
   DepositButton: 'perp-deposit-button',
   MobileDepositButton: 'perp-trading-form-mobile-deposit-button',
+  DepositModalMobileBackButton: 'perp-deposit-modal-mobile-back-button',
+  DepositModalMobileCloseButton: 'perp-deposit-modal-mobile-close-button',
+  DepositModalDialogBackButton: 'perp-deposit-modal-dialog-back-button',
+  DepositModalDialogCloseButton: 'perp-deposit-modal-dialog-close-button',
+  DepositModalDepositButton: 'perp-deposit-modal-deposit-button',
+  DepositModalWithdrawButton: 'perp-deposit-modal-withdraw-button',
+  DepositModalWalletOption: 'perp-deposit-modal-wallet-option',
+  DepositModalRelayOption: 'perp-deposit-modal-relay-option',
+  RelayDepositSendAmountInput: 'perp-relay-deposit-send-amount-input',
+  RelayDepositCopyAddressButton: 'perp-relay-deposit-copy-address-button',
+  RelayDepositNetworkSelector: 'perp-relay-deposit-network-selector',
+  RelayDepositTokenSelector: 'perp-relay-deposit-token-selector',
 
   // -- Order info panel tabs --
   PositionsTab: 'perp-positions-tab',

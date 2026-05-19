@@ -20,6 +20,7 @@ import { useTheme } from '@onekeyhq/components/src/hooks/useStyle';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HighlightAddress } from '@onekeyhq/kit/src/components/HighlightAddress';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
 import type { IPerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -89,6 +90,14 @@ function RelayDepositContent({
   const [error, setError] = useState('');
 
   const recipientAddress = selectedAccount.accountAddress ?? '';
+  const fetchIdRef = useRef(0);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestQuoteInputRef = useRef({
+    recipientAddress,
+    chainId: selectedChainId,
+    currencyAddress: selectedCurrencyAddress,
+    amount: sendAmount,
+  });
 
   const currentCurrencies = useMemo(
     () => currencies[selectedChainId] ?? [],
@@ -124,8 +133,26 @@ function RelayDepositContent({
     [currentCurrencies],
   );
 
+  const clearPendingQuoteDebounce = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+  }, []);
+
+  const updateLatestQuoteInput = useCallback(
+    (params: { chainId: number; currencyAddress: string; amount: string }) => {
+      latestQuoteInputRef.current = {
+        recipientAddress,
+        chainId: params.chainId,
+        currencyAddress: params.currencyAddress,
+        amount: params.amount,
+      };
+    },
+    [recipientAddress],
+  );
+
   // --- Fetch quote logic ---
-  const fetchIdRef = useRef(0);
   const fetchQuote = useCallback(
     async (params: {
       chainId: number;
@@ -140,6 +167,17 @@ function RelayDepositContent({
       setLoading(true);
       setError('');
 
+      const isCurrentQuoteRequest = () => {
+        const latest = latestQuoteInputRef.current;
+        return (
+          id === fetchIdRef.current &&
+          latest.recipientAddress === recipientAddress &&
+          latest.chainId === params.chainId &&
+          latest.currencyAddress === params.currencyAddress &&
+          latest.amount === params.amount
+        );
+      };
+
       try {
         const result = await backgroundApiProxy.serviceRelay.getRelayMaxQuote({
           originChainId: params.chainId,
@@ -150,19 +188,19 @@ function RelayDepositContent({
           amount: params.amount,
           decimals: params.decimals,
         });
-        if (id === fetchIdRef.current) {
+        if (isCurrentQuoteRequest()) {
           setQuoteResult(result);
           setSendAmount(result.sendAmount);
           setReceiveAmount(result.receiveAmount);
         }
       } catch (e: unknown) {
-        if (id === fetchIdRef.current) {
+        if (isCurrentQuoteRequest()) {
           const raw = e instanceof Error ? e.message : 'Failed to get quote';
           setError(parseErrorMessage(raw));
           // Keep previous quoteResult so QR code stays visible
         }
       } finally {
-        if (id === fetchIdRef.current) {
+        if (isCurrentQuoteRequest()) {
           setLoading(false);
         }
       }
@@ -170,14 +208,11 @@ function RelayDepositContent({
     [recipientAddress],
   );
 
-  // Debounce amount changes
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   useEffect(
     () => () => {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      clearPendingQuoteDebounce();
     },
-    [],
+    [clearPendingQuoteDebounce],
   );
 
   const handleSendAmountChange = useCallback(
@@ -191,8 +226,13 @@ function RelayDepositContent({
       setReceiveAmount('');
       setLoading(false);
       setError('');
+      updateLatestQuoteInput({
+        chainId: selectedChainId,
+        currencyAddress: selectedCurrencyAddress,
+        amount: raw,
+      });
 
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      clearPendingQuoteDebounce();
       debounceTimerRef.current = setTimeout(() => {
         const parsed = parseFloat(raw);
         if (!Number.isNaN(parsed) && parsed > 0) {
@@ -205,7 +245,14 @@ function RelayDepositContent({
         }
       }, DEBOUNCE_MS);
     },
-    [fetchQuote, selectedChainId, selectedCurrencyAddress, selectedCurrency],
+    [
+      clearPendingQuoteDebounce,
+      fetchQuote,
+      selectedChainId,
+      selectedCurrencyAddress,
+      selectedCurrency,
+      updateLatestQuoteInput,
+    ],
   );
 
   // Load chains and fetch the default quote for the active recipient.
@@ -262,6 +309,11 @@ function RelayDepositContent({
 
         // Deposit-address quotes use exact-input semantics.
         if (defaultCurrencyAddr) {
+          updateLatestQuoteInput({
+            chainId: defaultChainId,
+            currencyAddress: defaultCurrencyAddr,
+            amount: DEFAULT_SEND_AMOUNT,
+          });
           void fetchQuote({
             chainId: defaultChainId,
             currencyAddress: defaultCurrencyAddr,
@@ -279,14 +331,24 @@ function RelayDepositContent({
 
     return () => {
       isCancelled = true;
+      clearPendingQuoteDebounce();
       fetchIdRef.current += 1;
     };
-  }, [fetchQuote, recipientAddress]);
+  }, [
+    clearPendingQuoteDebounce,
+    fetchQuote,
+    recipientAddress,
+    updateLatestQuoteInput,
+  ]);
 
   const handleChainChange = useCallback(
     (chainId: number) => {
+      clearPendingQuoteDebounce();
+      fetchIdRef.current += 1;
       setSelectedChainId(chainId);
       setQuoteResult(null);
+      setSendAmount(DEFAULT_SEND_AMOUNT);
+      setReceiveAmount('');
       setError('');
       const chainCurrencies = currencies[chainId];
       const usdc = chainCurrencies?.find(
@@ -295,6 +357,11 @@ function RelayDepositContent({
       const picked = usdc ?? chainCurrencies?.[0];
       if (picked) {
         setSelectedCurrencyAddress(picked.address);
+        updateLatestQuoteInput({
+          chainId,
+          currencyAddress: picked.address,
+          amount: DEFAULT_SEND_AMOUNT,
+        });
         void fetchQuote({
           chainId,
           currencyAddress: picked.address,
@@ -303,16 +370,25 @@ function RelayDepositContent({
         });
       }
     },
-    [currencies, fetchQuote],
+    [clearPendingQuoteDebounce, currencies, fetchQuote, updateLatestQuoteInput],
   );
 
   const handleCurrencyChange = useCallback(
     (address: string) => {
+      clearPendingQuoteDebounce();
+      fetchIdRef.current += 1;
       setSelectedCurrencyAddress(address);
       setQuoteResult(null);
+      setSendAmount(DEFAULT_SEND_AMOUNT);
+      setReceiveAmount('');
       setError('');
       const currency = currentCurrencies.find((c) => c.address === address);
       if (currency) {
+        updateLatestQuoteInput({
+          chainId: selectedChainId,
+          currencyAddress: currency.address,
+          amount: DEFAULT_SEND_AMOUNT,
+        });
         void fetchQuote({
           chainId: selectedChainId,
           currencyAddress: currency.address,
@@ -321,7 +397,13 @@ function RelayDepositContent({
         });
       }
     },
-    [currentCurrencies, selectedChainId, fetchQuote],
+    [
+      clearPendingQuoteDebounce,
+      currentCurrencies,
+      selectedChainId,
+      fetchQuote,
+      updateLatestQuoteInput,
+    ],
   );
 
   const handleCopyAddress = useCallback(() => {
@@ -410,6 +492,7 @@ function RelayDepositContent({
             <TextInput
               accessible
               accessibilityLabel="Send amount"
+              testID={PerpTestIDs.RelayDepositSendAmountInput}
               inputAccessoryViewID={
                 platformEnv.isNativeIOS
                   ? DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID
@@ -539,6 +622,7 @@ function RelayDepositContent({
             <HighlightAddress address={quoteResult.depositAddress} />
           </YStack>
           <IconButton
+            testID={PerpTestIDs.RelayDepositCopyAddressButton}
             size="small"
             variant="primary"
             icon="Copy1Outline"
@@ -558,6 +642,7 @@ function RelayDepositContent({
             {intl.formatMessage({ id: ETranslations.global_network })}
           </SizableText>
           <Select
+            testID={PerpTestIDs.RelayDepositNetworkSelector}
             title={intl.formatMessage({ id: ETranslations.global_network })}
             value={selectedChainId}
             onChange={handleChainChange}
@@ -600,6 +685,7 @@ function RelayDepositContent({
             {intl.formatMessage({ id: ETranslations.perp_relay_token__title })}
           </SizableText>
           <Select
+            testID={PerpTestIDs.RelayDepositTokenSelector}
             title={intl.formatMessage({
               id: ETranslations.perp_relay_token__title,
             })}
