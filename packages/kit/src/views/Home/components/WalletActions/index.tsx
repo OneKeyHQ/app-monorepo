@@ -12,6 +12,7 @@ import {
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
+import { useHomeBalanceState } from '@onekeyhq/kit/src/hooks/useHomeBalanceState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -47,7 +48,7 @@ import { WalletActionReceive } from './WalletActionReceive';
 import { WalletActionStaking } from './WalletActionStaking';
 import { WalletActionSwap } from './WalletActionSwap';
 
-import type { IActionCustomization } from './types';
+import type { IActionCustomization, IWalletActionType } from './types';
 
 function WalletActionSend({
   customization,
@@ -412,10 +413,17 @@ function WalletActionSend({
 }
 
 function WalletActions({ ...rest }: IXStackProps) {
+  const intl = useIntl();
   const { config, getActionCustomization } = useWalletActionConfig();
+  const balanceState = useHomeBalanceState();
 
-  const renderActionComponent = (actionType: string) => {
-    const customization = getActionCustomization(actionType as any);
+  // True cold-start with no cached balance: render nothing rather than guess
+  // a state. Sticky fallback in `useHomeBalanceState` keeps subsequent account
+  // switches from re-entering this branch.
+  if (balanceState === 'unknown') return null;
+
+  const renderActionComponent = (actionType: IWalletActionType) => {
+    const customization = getActionCustomization(actionType);
 
     switch (actionType) {
       case 'send':
@@ -463,8 +471,30 @@ function WalletActions({ ...rest }: IXStackProps) {
         gap: '$2.5',
       }}
     >
-      {config.mainActions.map(renderActionComponent).filter(Boolean)}
-      <WalletActionMore />
+      {balanceState === 'positive' ? (
+        <>
+          {config.mainActions.map(renderActionComponent).filter(Boolean)}
+          <WalletActionMore />
+        </>
+      ) : (
+        <WalletActionReceive
+          key="receive"
+          useSelector
+          renderTrigger={({ onPress, disabled }) => (
+            <Button
+              flex={1}
+              size="large"
+              variant="primary"
+              icon="PlusLargeOutline"
+              onPress={onPress}
+              disabled={disabled}
+              $gtSm={{ flex: 0, alignSelf: 'flex-start', minWidth: 200 }}
+            >
+              {intl.formatMessage({ id: ETranslations.global_add_money })}
+            </Button>
+          )}
+        />
+      )}
     </RawActions>
   );
 }
