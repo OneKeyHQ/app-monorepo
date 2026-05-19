@@ -67,4 +67,69 @@ describe("UnixSocketServer", () => {
     });
     expect(raw).toContain("-32700");
   });
+
+  it("socket file has 0700 perms", async () => {
+    const { statSync } = await import("node:fs");
+    const mode = statSync(socketPath).mode & 0o777;
+    expect(mode).toBe(0o700);
+  });
+
+  it("rejects oversized line with -32700 and closes", async () => {
+    const { connect } = await import("node:net");
+    const chunk = "x".repeat(100_000);
+    const raw = await new Promise<string>((resolve) => {
+      const c = connect(socketPath);
+      let buf = "";
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        resolve(buf);
+      };
+      c.on("data", (b) => {
+        buf += b.toString();
+        // The server writes the -32700 line then destroys; once we see it
+        // we don't need to wait for any further close/error event.
+        if (buf.includes("-32700")) {
+          c.destroy();
+          finish();
+        }
+      });
+      c.on("close", finish);
+      // Server destroys the socket mid-stream, which yields EPIPE/ECONNRESET
+      // on the client side once the kernel discovers the closed peer. That
+      // is part of the expected close path here, not a test failure.
+      c.on("error", finish);
+      // Write in chunks > 1 MB total so the server's MAX_LINE_BYTES guard
+      // trips. Spread writes across event-loop ticks so the server has a
+      // chance to read, respond, and destroy before the client write side
+      // backs up enough to surface an error.
+      let sent = 0;
+      const tick = () => {
+        if (done) return;
+        if (sent >= 1_200_000) return; // > MAX_LINE_BYTES
+        if (!c.writable) return;
+        c.write(chunk);
+        sent += chunk.length;
+        setImmediate(tick);
+      };
+      tick();
+    });
+    expect(raw).toContain("-32700");
+  });
+
+  it("start twice throws", async () => {
+    const { Dispatcher } = await import("../src/daemon/dispatcher.js");
+    const { UnixSocketServer } = await import("../src/daemon/server.js");
+    const { mkdtempSync, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const path = await import("node:path");
+    const d2 = mkdtempSync(path.join(tmpdir(), "odb-twice-"));
+    const sp = path.join(d2, "twice.sock");
+    const srv = new UnixSocketServer(sp, new Dispatcher());
+    await srv.start();
+    await expect(srv.start()).rejects.toThrow(/already started/);
+    await srv.stop();
+    rmSync(d2, { recursive: true, force: true });
+  });
 });

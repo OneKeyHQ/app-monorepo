@@ -20,7 +20,10 @@ async function main(): Promise<void> {
   const server = new UnixSocketServer(DEFAULT_SOCKET, d);
   await server.start();
 
+  let shuttingDown = false;
   const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     log.info({ signal }, "shutting down");
     await server.stop();
     process.exit(0);
