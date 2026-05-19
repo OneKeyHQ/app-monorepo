@@ -40,7 +40,7 @@ export interface IAccountValueDb {
   _migrationVersion?: number;
 }
 
-const CURRENT_MIGRATION_VERSION = 2;
+const CURRENT_MIGRATION_VERSION = 3;
 
 export interface IAccountValueSingleItem {
   networkId: string;
@@ -210,11 +210,16 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   //     Record<networkId, worth>, but it is actually Record<${networkAccountId}_${networkId}, worth>
   //     produced by `buildAccountValueKey`. This dropped all HD/HW worth and
   //     wrote compound-keyed entries for Others.
-  //   v2 (current): parses each inner key with `parseAccountValueKey` and
-  //     resolves the address via the embedded networkAccountId, working
-  //     uniformly for Others and HD/HW.
+  //   v2 (buggy): parses each inner key correctly with `parseAccountValueKey`,
+  //     but used the raw `account.xpub` when building the addressKey, while
+  //     the BTC vault's `getAccountXpub` returns `xpubSegwit || xpub` — so
+  //     nested-segwit (P2SH-P2WPKH) entries were written to a different key
+  //     than v2 itself wrote, leaving that derive type's worth orphaned.
+  //   v3 (current): uses `xpubSegwit || xpub` when resolving the addressKey,
+  //     matching the write path. Re-runs against `_legacy_*` so v1 / v2
+  //     users recover correctly.
   //
-  // When `_legacy_all` / `_legacy_data` are present (set by v1), we re-run
+  // When `_legacy_all` / `_legacy_data` are present (set by v1+), we re-run
   // against them so users who already migrated can recover.
   async migrateFromAccountIdToAddressKey({
     serviceAccount,
@@ -294,7 +299,12 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
           accountResolveCache.set(accountId, null);
           return null;
         }
-        const xpub = (account as { xpub?: string }).xpub;
+        // Match the BTC vault's `getAccountXpub` precedence (`xpubSegwit ||
+        // xpub`) so nested-segwit derive types land at the same addressKey
+        // their post-migration writes use; otherwise migrated worth would be
+        // unreadable for that derive type.
+        const utxoAcc = account as { xpub?: string; xpubSegwit?: string };
+        const xpub = utxoAcc.xpubSegwit || utxoAcc.xpub;
         if (!account.address && !xpub) {
           accountResolveCache.set(accountId, null);
           return null;
@@ -320,10 +330,14 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
             accountId: oldKey,
           });
           if (account && account.createAtNetwork) {
+            const utxoAcc = account as {
+              xpub?: string;
+              xpubSegwit?: string;
+            };
             const addressKey = accountUtils.buildAccountLocalAssetsKey({
               networkId: account.createAtNetwork,
               accountAddress: account.address,
-              xpub: (account as { xpub?: string }).xpub,
+              xpub: utxoAcc.xpubSegwit || utxoAcc.xpub,
             });
             byAddress[addressKey] = { value: entry.value, currency: 'usd' };
           } else {

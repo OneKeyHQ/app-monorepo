@@ -687,7 +687,9 @@ class ServiceUniversalSearch extends ServiceBase {
                     accountId: account.id,
                     networkId: networkId || '',
                     accountAddress: account.address,
-                    xpub: (account as { xpub?: string }).xpub,
+                    xpub:
+                      (account as { xpubSegwit?: string }).xpubSegwit ||
+                      (account as { xpub?: string }).xpub,
                   },
                 ],
               })
@@ -717,7 +719,9 @@ class ServiceUniversalSearch extends ServiceBase {
                 {
                   networkAccountId: account.id,
                   accountAddress: account.address,
-                  xpub: (account as { xpub?: string }).xpub,
+                  xpub:
+                    (account as { xpubSegwit?: string }).xpubSegwit ||
+                    (account as { xpub?: string }).xpub,
                 },
               );
           }
@@ -1035,7 +1039,9 @@ class ServiceUniversalSearch extends ServiceBase {
                   accountId: i.item.id,
                   networkId: i.item.createAtNetwork ?? network?.id ?? '',
                   accountAddress: account.address,
-                  xpub: (account as { xpub?: string }).xpub,
+                  xpub:
+                    (account as { xpubSegwit?: string }).xpubSegwit ||
+                    (account as { xpub?: string }).xpub,
                 },
               ],
             })

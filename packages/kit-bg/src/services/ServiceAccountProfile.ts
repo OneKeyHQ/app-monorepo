@@ -46,7 +46,7 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
-import type { IDBUtxoAccount } from '../dbs/local/types';
+import type { IDBAccount, IDBUtxoAccount } from '../dbs/local/types';
 import type BTCVault from '../vaults/impls/btc/Vault';
 
 // Shape of `/wallet/v1/account/badges` response after local mapping.
@@ -61,6 +61,24 @@ type IAccountBadgeResult = {
   badges: IAddressBadge[];
   similarAddress?: string;
 };
+
+// Address-keyed storage hashes by xpub (or address). On the write path, the
+// BTC vault returns `xpubSegwit || xpub` from `getAccountXpub`, so nested-segwit
+// (P2SH-P2WPKH) entries land under `xpubSegwit`. Readers that look up DBAccounts
+// directly must use the same precedence; reading raw `.xpub` instead would miss
+// nested-segwit derive types and the chain selector / account selector would
+// show a total $X.XX below the live main view.
+function pickAccountXpubForAssetsKey(
+  account:
+    | IDBAccount
+    | { xpub?: string; xpubSegwit?: string }
+    | undefined
+    | null,
+): string | undefined {
+  if (!account) return undefined;
+  const a = account as { xpub?: string; xpubSegwit?: string };
+  return a.xpubSegwit || a.xpub;
+}
 
 function emptyAccountBadgeResult(): IAccountBadgeResult {
   return {
@@ -1157,7 +1175,7 @@ class ServiceAccountProfile extends ServiceBase {
       const items: { accountAddress?: string; xpub?: string }[] = [];
       const seen = new Set<string>();
       for (const acc of dbAccounts ?? []) {
-        const xpub = (acc as IDBUtxoAccount).xpub;
+        const xpub = pickAccountXpubForAssetsKey(acc);
         if (acc.address || xpub) {
           const ak = accountUtils.buildAccountLocalAssetsKey({
             accountAddress: acc.address,
@@ -1305,7 +1323,7 @@ class ServiceAccountProfile extends ServiceBase {
           await this.backgroundApi.serviceAccount.getDBAccountSafe({
             accountId,
           });
-        const xpub = account ? (account as IDBUtxoAccount).xpub : undefined;
+        const xpub = pickAccountXpubForAssetsKey(account);
         if (!account || (!account.address && !xpub)) {
           return empty;
         }
@@ -1338,7 +1356,7 @@ class ServiceAccountProfile extends ServiceBase {
         xpub?: string;
       }[] = [];
       for (const acc of dbAccounts ?? []) {
-        const xpub = (acc as IDBUtxoAccount).xpub;
+        const xpub = pickAccountXpubForAssetsKey(acc);
         if (acc.address || xpub) {
           items.push({
             dbAccountId: acc.id,
