@@ -361,6 +361,48 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     }
   });
 
+  openUrlInHomeTab = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        id: string;
+        url: string;
+        title?: string;
+        favicon?: string;
+        isBookmark?: boolean;
+        siteMode?: ESiteMode;
+      },
+    ) => {
+      const { tabs } = get(webTabsAtom());
+      const tabIndex = tabs.findIndex((t) => t.id === payload.id);
+      if (tabIndex === -1) {
+        return;
+      }
+
+      const previousTab = tabs[tabIndex];
+      const nextTab: IWebTab = {
+        ...previousTab,
+        url: payload.url,
+        title: payload.title || previousTab.title,
+        favicon: payload.favicon ?? previousTab.favicon,
+        isBookmark: payload.isBookmark,
+        siteMode: payload.siteMode,
+        type: 'normal',
+        timestamp: previousTab.timestamp ?? Date.now(),
+      };
+
+      lastNavigationFlags[payload.id] = Date.now();
+
+      const nextTabs = [...tabs];
+      nextTabs[tabIndex] = nextTab;
+      this.buildWebTabs.call(set, {
+        data: nextTabs,
+        options: { forceUpdate: true },
+      });
+    },
+  );
+
   buildClosedTabData = contextAtomMethod((get, set, payload: IWebTab[]) => {
     const isReady = get(browserDataReadyAtom());
     if (!isReady) {
@@ -814,7 +856,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         isInPlace,
       }: IGotoSiteFnParams,
     ) => {
-      const tab = this.getWebTabById.call(set, id ?? '');
       if (url) {
         const allowLocalhostUrl = isLocalhostUrlAllowedInDAppBrowser();
         const isLocalhost = uriUtils.isLocalhostUrl(url);
@@ -832,6 +873,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           return openUrlInApp(validatedUrl);
         }
 
+        const tab = this.getWebTabById.call(set, id ?? '');
         const tabId = tab?.id;
 
         const thisTab = this.getWebTabById.call(set, tabId ?? '');
@@ -841,7 +883,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             : (isNewWindow || !tabId || tabId === 'home') &&
               browserTypeHandler === 'MultiTabBrowser';
 
-        if (thisTab?.type === 'home') {
+        const shouldOpenInHomeTab = thisTab?.type === 'home';
+        if (shouldOpenInHomeTab) {
           isNewTab = false;
         }
 
@@ -858,6 +901,18 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             siteMode,
             type: 'normal',
           });
+        } else if (shouldOpenInHomeTab && tabId) {
+          this.openUrlInHomeTab.call(set, {
+            id: tabId,
+            url: validatedUrl,
+            title,
+            favicon,
+            isBookmark,
+            siteMode,
+          });
+          if (!isInPlace) {
+            this.setCurrentWebTab.call(set, tabId);
+          }
         } else {
           this.setWebTabData.call(set, {
             id: tabId,

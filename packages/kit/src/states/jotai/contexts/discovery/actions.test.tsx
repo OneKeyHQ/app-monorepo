@@ -26,6 +26,7 @@ import {
   useDisplayHomePageAtom,
   useWebTabsAtom,
   webTabsAtom,
+  webTabsMapAtom,
 } from './atoms';
 
 const mockSetBrowserTabsRawData = jest.fn();
@@ -164,6 +165,10 @@ function createWrapper({
     keys: tabs.map((tab) => tab.id),
     tabs,
   });
+  store.set(
+    webTabsMapAtom(),
+    Object.fromEntries(tabs.map((tab) => [tab.id, tab])),
+  );
 
   return function Wrapper({ children }: { children?: ReactNode }) {
     return (
@@ -236,6 +241,95 @@ describe('useBrowserTabActions', () => {
         }),
       ],
     });
+  });
+
+  it('keeps a desktop home tab in place when it opens its first page and still allows drag sorting', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+
+    const { result } = renderHook(
+      () => {
+        const tabActions = useBrowserTabActions().current;
+        const browserActions = useBrowserAction().current;
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          browserActions,
+          tabActions,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'tab-1',
+              url: 'https://previous.example',
+              title: 'Previous',
+              timestamp: 100,
+            },
+            {
+              id: 'home-tab',
+              url: '',
+              title: 'Start Tab',
+              timestamp: 200,
+              type: 'home',
+              isActive: true,
+            },
+            {
+              id: 'tab-2',
+              url: 'https://next.example',
+              title: 'Next',
+              timestamp: 300,
+            },
+          ],
+          activeTabId: 'home-tab',
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    await act(async () => {
+      await result.current.browserActions.gotoSite({
+        id: 'home-tab',
+        url: 'https://bookmark.example',
+        title: 'Bookmark',
+      });
+    });
+
+    expect(result.current.tabs.map((tab) => tab.id)).toEqual([
+      'tab-1',
+      'home-tab',
+      'tab-2',
+    ]);
+    expect(result.current.tabs.find((tab) => tab.id === 'home-tab')).toEqual(
+      expect.objectContaining({
+        timestamp: 200,
+        type: 'normal',
+        url: 'https://bookmark.example',
+      }),
+    );
+
+    act(() => {
+      result.current.tabActions.setTabsByIds({
+        pinnedTabs: [],
+        unpinnedTabs: [
+          { id: 'tab-1', timestamp: 100 },
+          { id: 'tab-2', timestamp: 300 },
+          { id: 'home-tab', timestamp: 302 },
+        ],
+      });
+    });
+
+    expect(result.current.tabs.map((tab) => tab.id)).toEqual([
+      'tab-1',
+      'tab-2',
+      'home-tab',
+    ]);
   });
 
   it('selects a replacement tab after closing the current tab outside native', () => {
