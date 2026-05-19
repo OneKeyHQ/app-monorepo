@@ -1,0 +1,10 @@
+##ODB_START##<UIWindow: 0x150d28000; frame = (0 0; 393 852); gestureRecognizers = <NSArray: 0x600003fa0000>; layer = <UIWindowLayer: 0x600002a48000>>
+   | <UITransitionView: 0x150c12000; frame = (0 0; 393 852); autoresize = W+H; layer = <CALayer: 0x600002a48060>>
+   |    | <UIDropShadowView: 0x150e07000; frame = (0 0; 393 852); autoresize = W+H; layer = <CALayer: 0x600002a48120>>
+   |    |    | <RCTRootView: 0x150d50000; frame = (0 0; 393 852); autoresize = W+H; gestureRecognizers = <NSArray: 0x600003fa01a0>; layer = <CALayer: 0x600002a48180>>
+   |    |    |    | <RCTRootContentView: 0x151005000; frame = (0 0; 393 852); layer = <CALayer: 0x600002a481e0>>
+   |    |    |    |    | <RCTView: 0x151200000; frame = (0 0; 393 852); layer = <CALayer: 0x600002a48240>>
+   |    |    |    |    |    | <RCTText: 0x151301000; frame = (40 120; 200 30); text = 'Wallets'; layer = <CALayer: 0x600002a482a0>>
+   |    |    |    |    |    | <RCTView: 0x151400000; frame = (60 2200; 200 50); layer = <CALayer: 0x600002a48300>>
+   |    |    |    |    |    |    | <RCTText: 0x151500000; frame = (0 0; 200 50); text = 'Send'; layer = <CALayer: 0x600002a48360>>
+##ODB_END##

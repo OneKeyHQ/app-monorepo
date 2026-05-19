@@ -76,6 +76,15 @@ program
     process.stdout.write(JSON.stringify(out, null, 2) + "\n");
   });
 
+program
+  .command("ui-tree <sessionId>")
+  .description("Native UI hierarchy as JSON tree")
+  .action(async (sessionId: string) => {
+    process.stdout.write(
+      JSON.stringify(await call("ui.tree", { sessionId }), null, 2) + "\n",
+    );
+  });
+
 program.parseAsync(process.argv).catch((e: unknown) => {
   process.stderr.write((e instanceof Error ? e.message : String(e)) + "\n");
   process.exit(1);

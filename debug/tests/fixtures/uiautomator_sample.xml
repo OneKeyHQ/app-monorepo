@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<hierarchy rotation="0">
+  <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.onekey.wallet" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[0,0][1080,2400]">
+    <node index="0" text="" resource-id="android:id/content" class="android.widget.FrameLayout" package="com.onekey.wallet" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[0,80][1080,2400]">
+      <node index="0" text="Wallets" resource-id="com.onekey.wallet:id/header_title" class="android.widget.TextView" package="com.onekey.wallet" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[40,120][400,200]" />
+      <node index="1" text="Send" resource-id="com.onekey.wallet:id/btn_send" class="android.widget.Button" package="com.onekey.wallet" content-desc="Send tokens" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[60,2200][520,2300]" />
+      <node index="2" text="Receive" resource-id="com.onekey.wallet:id/btn_receive" class="android.widget.Button" package="com.onekey.wallet" content-desc="Receive tokens" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[560,2200][1020,2300]" />
+    </node>
+  </node>
+</hierarchy>
