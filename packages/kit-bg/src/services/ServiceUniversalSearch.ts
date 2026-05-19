@@ -577,6 +577,7 @@ class ServiceUniversalSearch extends ServiceBase {
         const internalItems = await this.findInternalWalletAccounts({
           address: localValidateResult.displayAddress,
           networkId: validNetworkId,
+          searchedEncoding: localValidateResult.encoding,
         });
 
         if (internalItems.length > 0) {
@@ -617,11 +618,14 @@ class ServiceUniversalSearch extends ServiceBase {
   private async findInternalWalletAccounts({
     address,
     networkId,
+    searchedEncoding,
   }: {
     address: string;
     networkId?: string;
+    searchedEncoding?: EAddressEncodings;
   }): Promise<IUniversalSearchResultItem[]> {
-    const { serviceNetwork, serviceAccount } = this.backgroundApi;
+    const { serviceNetwork, serviceAccount, serviceValidator } =
+      this.backgroundApi;
     const items: IUniversalSearchResultItem[] = [];
 
     // Get all accounts with this address
@@ -713,6 +717,41 @@ class ServiceUniversalSearch extends ServiceBase {
           let matchedDbAccount = allDbAccounts.find(
             (a) => a.address?.toLowerCase() === normalizedAddress,
           );
+
+          // For BTC and forks with `enableBTCFreshAddress` (default ON), the
+          // searched address can be a non-0/0 fresh receive address that
+          // ServiceAllNetwork registered against the indexedAccountId. But
+          // `dbAccount.address` is fixed to the derive type's 0/0 master, so
+          // the exact-address match above misses. Each BTC derive type owns a
+          // unique address encoding (P2PKH/P2SH_P2WPKH/P2WPKH/P2TR), so match
+          // by encoding before falling back to "first compatible" — otherwise
+          // a Taproot search row would resolve to e.g. the Nested SegWit
+          // dbAccount's xpub and show that derive type's balance instead.
+          if (!matchedDbAccount && networkId && searchedEncoding) {
+            const candidates = allDbAccounts.filter(
+              (a) =>
+                a.address &&
+                accountUtils.isAccountCompatibleWithNetwork({
+                  account: a,
+                  networkId,
+                }),
+            );
+            const candidateEncodings = await Promise.all(
+              candidates.map((a) =>
+                serviceValidator
+                  .localValidateAddress({ networkId, address: a.address })
+                  .then((r) => r.encoding)
+                  .catch(() => undefined),
+              ),
+            );
+            const idx = candidateEncodings.findIndex(
+              (e) => e === searchedEncoding,
+            );
+            if (idx >= 0) {
+              matchedDbAccount = candidates[idx];
+            }
+          }
+
           if (!matchedDbAccount) {
             matchedDbAccount = allDbAccounts.find((a) =>
               accountUtils.isAccountCompatibleWithNetwork({
