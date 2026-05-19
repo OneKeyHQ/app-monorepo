@@ -85,7 +85,7 @@ function _aesGcmInvokeCheck({ nonce, key, data, aad }: IAesGcmInvokeParams) {
   // Buffer.alloc(0) is almost always a bug — the native guard introduced
   // upstream in OneKeyHQ/app-modules#55 rejects it too). Undefined AAD
   // means "no AAD binding" and remains supported so legacy `1K_AES_GCM`
-  // payloads originally encrypted without AAD stay decryptable.
+  // payloads originally encrypted without AAD can still be decrypted.
   if (aad !== undefined && aad.length <= 0) {
     throw new OneKeyLocalError('Zero-length aad is not supported');
   }
