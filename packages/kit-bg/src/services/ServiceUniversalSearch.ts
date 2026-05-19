@@ -698,12 +698,41 @@ class ServiceUniversalSearch extends ServiceBase {
             id: accountItem.accountId,
           });
 
-          account = (
-            await serviceAccount.getNetworkAccountsInSameIndexedAccountId({
+          // Locate the dbAccount that actually owns the searched address.
+          // `getNetworkAccountsInSameIndexedAccountId` picks the first
+          // network-compatible dbAccount, which for chains with multiple
+          // derive types under one indexed account (e.g. BTC
+          // legacy/nested-segwit/native-segwit/taproot) is not necessarily
+          // the one whose address matched the search — leading to a worth
+          // lookup against the wrong xpub.
+          const { accounts: allDbAccounts } =
+            await serviceAccount.getAccountsInSameIndexedAccountId({
               indexedAccountId: accountItem.accountId,
-              networkIds: [networkId || ''],
-            })
-          )?.[0]?.account;
+            });
+          const normalizedAddress = address.toLowerCase();
+          let matchedDbAccount = allDbAccounts.find(
+            (a) => a.address?.toLowerCase() === normalizedAddress,
+          );
+          if (!matchedDbAccount) {
+            matchedDbAccount = allDbAccounts.find((a) =>
+              accountUtils.isAccountCompatibleWithNetwork({
+                account: a,
+                networkId: networkId || '',
+              }),
+            );
+          }
+
+          if (matchedDbAccount) {
+            try {
+              account = await serviceAccount.getAccount({
+                accountId: matchedDbAccount.id,
+                networkId: networkId || '',
+              });
+            } catch {
+              // Fall through with no account — accountsValue stays undefined.
+            }
+          }
+
           if (account?.id) {
             // Scope the worth lookup to the matched (address, xpub) — not the
             // whole indexedAccount — so identical-address rows from different
@@ -712,8 +741,10 @@ class ServiceUniversalSearch extends ServiceBase {
               await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByAddress(
                 {
                   networkAccountId: account.id,
-                  accountAddress: account.address,
-                  xpub: accountUtils.pickXpubFromDBAccount(account),
+                  accountAddress: matchedDbAccount?.address,
+                  xpub: matchedDbAccount
+                    ? accountUtils.pickXpubFromDBAccount(matchedDbAccount)
+                    : undefined,
                 },
               );
           }

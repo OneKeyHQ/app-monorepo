@@ -988,14 +988,21 @@ class ServiceAccountSelector extends ServiceBase {
       });
     // Compound-key shape consumed by `calculateAccountTotalValue`; the
     // per-address `getAllNetworkAccountsValue` would yield Record<networkId,
-    // worth> and silently miss every compound-key lookup downstream.
-    const accountsValue = await Promise.all(
-      accounts.map((a) =>
-        this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByAccountId(
-          { accountId: a.accountId },
-        ),
-      ),
-    );
+    // worth> and silently miss every compound-key lookup downstream. The
+    // batched form folds N storage reads into one (the SimpleDb entity has
+    // caching disabled, so the per-account form paid a fresh
+    // deserialization per row — a 50-row selector batch turned into 50
+    // reads).
+    const accountsValue =
+      await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByAccountIdBatch(
+        {
+          accounts: accounts.map((a) => ({
+            accountId: a.accountId,
+            accountAddress: a.accountAddress,
+            xpub: a.xpub,
+          })),
+        },
+      );
     return { accountsValue, accountsDeFiOverview };
   }
 }

@@ -1268,6 +1268,148 @@ class ServiceAccountProfile extends ServiceBase {
     }
   }
 
+  // Batched variant of `getAllNetworkAccountsValueByAccountId` for callers
+  // like the account selector that resolve worth for tens of accounts at a
+  // time. Folds the per-account `simpleDb.accountValue.getAllNetworkAccountsValue`
+  // call into a single read (the SimpleDb entity has caching disabled, so
+  // each per-account call previously paid a fresh storage deserialization).
+  @backgroundMethod()
+  async getAllNetworkAccountsValueByAccountIdBatch(params: {
+    accounts: {
+      accountId: string;
+      accountAddress?: string;
+      xpub?: string;
+    }[];
+  }): Promise<
+    Array<{
+      accountId: string;
+      value: Record<string, string> | undefined;
+      currency: 'usd' | undefined;
+    }>
+  > {
+    const { accounts } = params;
+    if (!accounts.length) return [];
+
+    type IResolved = {
+      ownerAccountId: string;
+      // Account id used as the compound-key prefix. For Others, this is the
+      // owner accountId; for HD, it is the per-derive dbAccount.id so the
+      // deriveType filter and merge-derive-assets paths keep working.
+      compoundKeyAccountId: string;
+      accountAddress?: string;
+      xpub?: string;
+    };
+    const resolved: IResolved[] = [];
+
+    await Promise.all(
+      accounts.map(async (a) => {
+        if (!a.accountId) return;
+        try {
+          if (accountUtils.isOthersAccount({ accountId: a.accountId })) {
+            // Others: reuse pre-resolved address/xpub if upstream supplied
+            // it, otherwise fetch the dbAccount once.
+            if (a.accountAddress || a.xpub) {
+              resolved.push({
+                ownerAccountId: a.accountId,
+                compoundKeyAccountId: a.accountId,
+                accountAddress: a.accountAddress,
+                xpub: a.xpub,
+              });
+              return;
+            }
+            const acc =
+              await this.backgroundApi.serviceAccount.getDBAccountSafe({
+                accountId: a.accountId,
+              });
+            const xpub = accountUtils.pickXpubFromDBAccount(acc);
+            if (acc && (acc.address || xpub)) {
+              resolved.push({
+                ownerAccountId: a.accountId,
+                compoundKeyAccountId: a.accountId,
+                accountAddress: acc.address,
+                xpub,
+              });
+            }
+            return;
+          }
+
+          // HD/HW indexed account: expand to all derives so ChainSelector
+          // can use per-derive compound keys.
+          const { accounts: dbAccountsList } =
+            await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+              { indexedAccountId: a.accountId },
+            );
+          for (const dbAcc of dbAccountsList ?? []) {
+            const xpub = accountUtils.pickXpubFromDBAccount(dbAcc);
+            if (dbAcc.address || xpub) {
+              resolved.push({
+                ownerAccountId: a.accountId,
+                compoundKeyAccountId: dbAcc.id,
+                accountAddress: dbAcc.address,
+                xpub,
+              });
+            }
+          }
+        } catch {
+          // Skip this account; its slot in the result will fall back to
+          // the empty shape below.
+        }
+      }),
+    );
+
+    if (resolved.length === 0) {
+      return accounts.map((a) => ({
+        accountId: a.accountId,
+        value: undefined,
+        currency: undefined,
+      }));
+    }
+
+    // Single SimpleDb read for the whole batch.
+    const entries = await simpleDb.accountValue.getAllNetworkAccountsValue({
+      items: resolved.map((r) => ({
+        accountAddress: r.accountAddress,
+        xpub: r.xpub,
+      })),
+    });
+
+    const grouped = new Map<
+      string,
+      { value: Record<string, string>; currency?: 'usd' }
+    >();
+    resolved.forEach((r, i) => {
+      const entry = entries[i];
+      if (!entry?.value) return;
+      let agg = grouped.get(r.ownerAccountId);
+      if (!agg) {
+        agg = { value: {} };
+        grouped.set(r.ownerAccountId, agg);
+      }
+      for (const [nId, v] of Object.entries(entry.value)) {
+        const compoundKey = accountUtils.buildAccountValueKey({
+          accountId: r.compoundKeyAccountId,
+          networkId: nId,
+        });
+        agg.value[compoundKey] = v;
+      }
+      agg.currency = entry.currency;
+    });
+
+    return accounts.map((a) => {
+      const g = grouped.get(a.accountId);
+      const hasValue = g && Object.keys(g.value).length > 0;
+      return {
+        accountId: a.accountId,
+        value: hasValue ? g.value : undefined,
+        currency: g?.currency,
+      } as {
+        accountId: string;
+        value: Record<string, string> | undefined;
+        currency: 'usd' | undefined;
+      };
+    });
+  }
+
   // Returns per-network worth for a logical account in the compound-key shape
   // `Record<${networkAccountId}_${networkId}, value>` consumed by
   // `sortChainSelectorNetworksByValue` and `ChainSelector.tsx`. For HD/HW the
