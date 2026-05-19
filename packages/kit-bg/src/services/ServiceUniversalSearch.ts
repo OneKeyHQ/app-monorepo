@@ -624,8 +624,7 @@ class ServiceUniversalSearch extends ServiceBase {
     networkId?: string;
     searchedEncoding?: EAddressEncodings;
   }): Promise<IUniversalSearchResultItem[]> {
-    const { serviceNetwork, serviceAccount, serviceValidator } =
-      this.backgroundApi;
+    const { serviceNetwork, serviceAccount } = this.backgroundApi;
     const items: IUniversalSearchResultItem[] = [];
 
     // Get all accounts with this address
@@ -718,47 +717,42 @@ class ServiceUniversalSearch extends ServiceBase {
             (a) => a.address?.toLowerCase() === normalizedAddress,
           );
 
-          // For BTC and forks with `enableBTCFreshAddress` (default ON), the
-          // searched address can be a non-0/0 fresh receive address that
-          // ServiceAllNetwork registered against the indexedAccountId. But
-          // `dbAccount.address` is fixed to the derive type's 0/0 master, so
-          // the exact-address match above misses. Each BTC derive type owns a
-          // unique address encoding (P2PKH/P2SH_P2WPKH/P2WPKH/P2TR), so match
-          // by encoding before falling back to "first compatible" — otherwise
-          // a Taproot search row would resolve to e.g. the Nested SegWit
-          // dbAccount's xpub and show that derive type's balance instead.
-          if (!matchedDbAccount && networkId && searchedEncoding) {
-            const candidates = allDbAccounts.filter(
-              (a) =>
-                a.address &&
-                accountUtils.isAccountCompatibleWithNetwork({
-                  account: a,
-                  networkId,
-                }),
-            );
-            const candidateEncodings = await Promise.all(
-              candidates.map((a) =>
-                serviceValidator
-                  .localValidateAddress({ networkId, address: a.address })
-                  .then((r) => r.encoding)
-                  .catch(() => undefined),
-              ),
-            );
-            const idx = candidateEncodings.findIndex(
-              (e) => e === searchedEncoding,
-            );
-            if (idx >= 0) {
-              matchedDbAccount = candidates[idx];
-            }
-          }
-
           if (!matchedDbAccount) {
-            matchedDbAccount = allDbAccounts.find((a) =>
+            const compatibles = allDbAccounts.filter((a) =>
               accountUtils.isAccountCompatibleWithNetwork({
                 account: a,
                 networkId: networkId || '',
               }),
             );
+
+            // BTC fresh-address mode registers non-0/0 receive addresses
+            // against the indexedAccountId, but `dbAccount.address` stays at
+            // the derive type's 0/0 master — so the exact match above misses.
+            // Each derive type owns a unique encoding, so resolve via the
+            // dbAccount's `template` before the "first compatible" fallback,
+            // otherwise the row would show the wrong derive type's balance.
+            if (networkId && searchedEncoding) {
+              const deriveInfoMap =
+                await serviceNetwork.getDeriveInfoMapOfNetwork({ networkId });
+              const templateToEncoding = new Map<
+                string,
+                EAddressEncodings | undefined
+              >();
+              for (const info of Object.values(deriveInfoMap)) {
+                if (info?.template) {
+                  templateToEncoding.set(info.template, info.addressEncoding);
+                }
+              }
+              matchedDbAccount = compatibles.find(
+                (a) =>
+                  a.template &&
+                  templateToEncoding.get(a.template) === searchedEncoding,
+              );
+            }
+
+            if (!matchedDbAccount) {
+              matchedDbAccount = compatibles[0];
+            }
           }
 
           if (matchedDbAccount) {
