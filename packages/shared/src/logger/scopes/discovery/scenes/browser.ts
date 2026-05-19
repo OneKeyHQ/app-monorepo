@@ -12,6 +12,7 @@ type IBrowserTabsLifecycleParams = {
     | 'jotaiContextStoreGet'
     | 'jotaiContextStoreGetOrCreate'
     | 'jotaiContextStoreRemove'
+    | 'jotaiContextRootStoreRemoveSkipped'
     | 'jotaiMirrorTrackerAdd'
     | 'jotaiMirrorTrackerRemove'
     | 'browserProviderRootMounted'
