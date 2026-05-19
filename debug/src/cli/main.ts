@@ -85,6 +85,16 @@ program
     );
   });
 
+program
+  .command("js-eval <sessionId> <expression>")
+  .description("Evaluate a JS expression in Hermes; returns {value, type}")
+  .action(async (sessionId: string, expression: string) => {
+    process.stdout.write(
+      JSON.stringify(await call("js.eval", { sessionId, expression }), null, 2) +
+        "\n",
+    );
+  });
+
 program.parseAsync(process.argv).catch((e: unknown) => {
   process.stderr.write((e instanceof Error ? e.message : String(e)) + "\n");
   process.exit(1);

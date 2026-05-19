@@ -1,4 +1,5 @@
 import { pino } from "pino";
+import { jsEval } from "../tools/jsEval.js";
 import { screenshot } from "../tools/screenshot.js";
 import { uiTree } from "../tools/uiTree.js";
 import { Dispatcher } from "./dispatcher.js";
@@ -20,6 +21,7 @@ async function main(): Promise<void> {
   d.register("session.status", (p) => registry.status(p as never));
   d.register("screenshot", (p) => screenshot(registry, p as never));
   d.register("ui.tree", (p) => uiTree(registry, p as never));
+  d.register("js.eval", (p) => jsEval(registry, p as never));
 
   const server = new UnixSocketServer(DEFAULT_SOCKET, d);
   await server.start();
