@@ -1,3 +1,8 @@
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -161,10 +166,15 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   async updateAllNetworkAccountValue({
     items,
     currency,
-    updateAll,
   }: {
     items: IAccountValueAllWriteItem[];
     currency: 'usd';
+    // `updateAll` is accepted by upstream callers but intentionally ignored
+    // here: address-keyed entries are shared across every wallet that
+    // resolves to the same on-chain identifier, so a destructive "replace
+    // the whole network set" write would erase another wallet's per-network
+    // values. All writes now merge by networkId; callers that need to drop
+    // stale networks should issue an explicit clear instead.
     updateAll?: boolean;
   }) {
     // Group write items by addressKey so a single setRawData call handles
@@ -184,11 +194,6 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     const isNoop = Object.entries(grouped).every(([key, valueMap]) => {
       const prev = existingMap[key];
       if (!prev || prev.currency !== currency) return false;
-      if (updateAll) {
-        const prevKeys = Object.keys(prev.value);
-        const nextKeys = Object.keys(valueMap);
-        if (prevKeys.length !== nextKeys.length) return false;
-      }
       return Object.entries(valueMap).every(
         ([nId, v]) => prev.value[nId] === v,
       );
@@ -204,14 +209,10 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
         ...existing,
       };
       for (const [key, valueMap] of Object.entries(grouped)) {
-        if (updateAll) {
-          next[key] = { value: valueMap, currency };
-        } else {
-          next[key] = {
-            value: { ...existing[key]?.value, ...valueMap },
-            currency,
-          };
-        }
+        next[key] = {
+          value: { ...existing[key]?.value, ...valueMap },
+          currency,
+        };
       }
       return {
         ...base,
@@ -269,6 +270,11 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     const byAddress: Record<string, IAccountValueEntry> = {};
     const allByAddress: Record<string, IAllNetworkAccountValueEntry> = {};
 
+    // Track transient resolve failures so we can hold back the migration
+    // version bump and retry on a later launch instead of permanently
+    // dropping a legacy entry.
+    let hadResolveError = false;
+
     // Cache DB-account lookups; the same networkAccountId can appear under
     // many networkIds in legacy `all`.
     const accountResolveCache = new Map<
@@ -293,6 +299,11 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
         accountResolveCache.set(accountId, resolved);
         return resolved;
       } catch {
+        hadResolveError = true;
+        defaultLogger.app.bootstrap.initDeferredStepFailed(
+          `accountValue.migrate.resolveAccount[${accountId}]`,
+          0,
+        );
         accountResolveCache.set(accountId, null);
         return null;
       }
@@ -318,6 +329,11 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
             byAddress[addressKey] = { value: entry.value, currency: 'usd' };
           }
         } catch {
+          hadResolveError = true;
+          defaultLogger.app.bootstrap.initDeferredStepFailed(
+            `accountValue.migrate.legacyData[${oldKey}]`,
+            0,
+          );
           // Skip records that fail to resolve; legacy snapshot stays preserved
           // in `_legacy_data` so a later version can retry.
         }
@@ -354,16 +370,48 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       }
     }
 
-    await this.setRawData((current) => ({
-      ...(current ?? emptyData()),
-      byAddress,
-      allByAddress,
-      // Preserve legacy snapshot once, even on re-run, so a future migration
-      // version can re-derive without losing data.
-      _legacy_data: current?._legacy_data ?? legacyData,
-      _legacy_all: current?._legacy_all ?? legacyAll,
-      _migratedAt: Date.now(),
-      _migrationVersion: CURRENT_MIGRATION_VERSION,
-    }));
+    await this.setRawData((current) => {
+      // Merge so that any writes that landed during the migration window —
+      // and any post-migration writes preserved across a version-bump
+      // re-run — survive. `current` wins over the legacy-derived snapshot;
+      // legacy values only fill keys that don't already exist.
+      const mergedByAddress: Record<string, IAccountValueEntry> = {
+        ...byAddress,
+        ...current?.byAddress,
+      };
+      const mergedAllByAddress: Record<string, IAllNetworkAccountValueEntry> = {
+        ...current?.allByAddress,
+      };
+      for (const [key, legacyEntry] of Object.entries(allByAddress)) {
+        const cur = mergedAllByAddress[key];
+        mergedAllByAddress[key] = cur
+          ? {
+              value: { ...legacyEntry.value, ...cur.value },
+              currency: cur.currency,
+            }
+          : legacyEntry;
+      }
+
+      return {
+        ...(current ?? emptyData()),
+        byAddress: mergedByAddress,
+        allByAddress: mergedAllByAddress,
+        // Preserve legacy snapshot once, even on re-run, so a future
+        // migration version can re-derive without losing data.
+        _legacy_data: current?._legacy_data ?? legacyData,
+        _legacy_all: current?._legacy_all ?? legacyAll,
+        _migratedAt: Date.now(),
+        // Hold the version back when any legacy entry failed to resolve so
+        // a later launch retries; otherwise a single transient DB error
+        // would permanently strip that account's cached worth.
+        _migrationVersion: hadResolveError
+          ? (current?._migrationVersion ?? 0)
+          : CURRENT_MIGRATION_VERSION,
+      };
+    });
+
+    // Nudge consumers that already read the empty buckets during the
+    // pre-migration window to re-fetch and pick up the freshly-merged data.
+    appEventBus.emit(EAppEventBusNames.AccountValueUpdate, undefined);
   }
 }
