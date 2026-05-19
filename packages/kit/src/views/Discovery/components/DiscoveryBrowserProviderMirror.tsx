@@ -1,4 +1,6 @@
-import { type PropsWithChildren, memo } from 'react';
+import { type PropsWithChildren, memo, useEffect } from 'react';
+
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { ProviderJotaiContextDiscovery } from '../../../states/jotai/contexts/discovery/atoms';
 import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
@@ -12,6 +14,14 @@ export const DiscoveryBrowserProviderMirror = memo(
 
     const data = useDiscoveryBrowserContextStoreInitData();
     const store = jotaiContextStore.getOrCreateStore(data);
+
+    useEffect(() => {
+      defaultLogger.discovery.browser.browserTabsLifecycle({
+        step: 'browserProviderMirrorMounted',
+        source: 'DiscoveryBrowserProviderMirror',
+        storeName: data.storeName,
+      });
+    }, [data.storeName]);
 
     return (
       <>

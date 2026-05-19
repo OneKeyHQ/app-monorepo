@@ -3,9 +3,14 @@ import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+const BROWSER_TABS_LIFECYCLE_LOG_PREFIX = 'browser_tabs_lifecycle';
+
 type IBrowserTabsLifecycleParams = {
   step:
     | 'languageChangeRestart'
+    | 'browserProviderRootMounted'
+    | 'browserProviderMirrorMounted'
+    | 'withBrowserProviderMounted'
     | 'setBrowserDataReady'
     | 'buildWebTabsEntry'
     | 'buildWebTabsBlocked'
@@ -26,6 +31,9 @@ type IBrowserTabsLifecycleParams = {
     | 'simpleDbBrowserTabsClearRawDataStart'
     | 'simpleDbBrowserTabsClearRawDataSuccess'
     | 'simpleDbBrowserTabsClearRawDataError'
+    | 'serviceClearBrowserTabsStart'
+    | 'serviceClearBrowserTabsSuccess'
+    | 'serviceClearBrowserTabsError'
     | 'handleOpenWebSiteEntry'
     | 'handleOpenWebSiteSwitchTab'
     | 'handleOpenWebSiteOpenDappStart'
@@ -36,6 +44,8 @@ type IBrowserTabsLifecycleParams = {
     | 'gotoSiteWriteTab'
     | 'gotoSiteCrossWebviewLoad';
   source?: string;
+  componentName?: string;
+  storeName?: string;
   platform?: string;
   browserType?: string;
   restartMode?: string;
@@ -93,7 +103,10 @@ export class BrowserScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public browserTabsLifecycle(params: IBrowserTabsLifecycleParams) {
-    return params;
+    return {
+      logPrefix: BROWSER_TABS_LIFECYCLE_LOG_PREFIX,
+      ...params,
+    };
   }
 
   @LogToServer()

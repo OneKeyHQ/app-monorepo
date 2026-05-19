@@ -21,6 +21,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useBrowserBookmarkAction,
+  useBrowserDataReadyAtom,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -116,6 +117,7 @@ function MobileTabListModal() {
     [tabs],
   );
   const { disabledAddedNewTab } = useDisabledAddedNewTab();
+  const [browserDataReady] = useBrowserDataReadyAtom();
 
   const { activeTabId } = useActiveTabId();
 
@@ -144,8 +146,15 @@ function MobileTabListModal() {
       pinnedTabsCount: pinnedData.length,
       unpinnedTabsCount: data.length,
       hasActiveTabId: Boolean(activeTabId),
+      isReady: browserDataReady,
     });
-  }, [activeTabId, data.length, pinnedData.length, tabs.length]);
+  }, [
+    activeTabId,
+    browserDataReady,
+    data.length,
+    pinnedData.length,
+    tabs.length,
+  ]);
 
   const initialScrollIndex = useMemo(() => {
     const index = data.findIndex((t) => t.id === activeTabId);
