@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { startTransition, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 
@@ -26,7 +26,18 @@ export function DelayedFreeze({
     // setImmediate is executed at the end of the JS execution block.
     // Used here for changing the state right after the render.
     setImmediate(() => {
-      setFreezeState(!!freeze);
+      if (freeze) {
+        // Freezing must be urgent so the blurred tab stops rendering
+        // immediately on tab switch.
+        setFreezeState(true);
+      } else {
+        // Unfreezing (a tab regaining focus) triggers a full re-render of
+        // the previously frozen sub-tree. Mark it as a transition so React
+        // can yield to higher-priority work (the click handler ack, the
+        // sidebar's active-state highlight) before re-mounting the heavy
+        // page content.
+        startTransition(() => setFreezeState(false));
+      }
     });
   }
 
