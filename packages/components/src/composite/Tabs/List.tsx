@@ -12,6 +12,7 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import { View } from 'react-native';
@@ -26,6 +27,7 @@ import {
 import { useTabsContext, useTabsScrollContext } from './context';
 import { useTabNameContext } from './TabNameContext';
 import { useConvertAnimatedToValue } from './useFocusedTab';
+import { parseCssSize } from './utils';
 
 import type { ISectionListProps } from '../../layouts';
 import type { FlashListProps } from '@shopify/flash-list';
@@ -116,6 +118,7 @@ export function List<Item>({
     isScrolling,
     onChildScroll,
     scrollTop,
+    updateListContainerHeight,
   } = useTabsScrollContext();
 
   const width = useMemo(() => {
@@ -127,6 +130,7 @@ export function List<Item>({
   const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
 
   const ref = useRef<Element>(null);
+  const [contentHeight, setContentHeight] = useState<number | undefined>();
 
   const scrollTabElementsRef = useTabsContext().scrollTabElementsRef;
 
@@ -383,7 +387,87 @@ export function List<Item>({
     [cache],
   );
 
+  const estimateContentHeight = useCallback(() => {
+    if (!listData.length) {
+      return 0;
+    }
+
+    if (numColumns > 1) {
+      const clientWidth = width / numColumns || 0;
+      const clientHeight = clientWidth + 60;
+      return Math.ceil(listData.length / numColumns) * clientHeight;
+    }
+
+    return listData.reduce((total, _item, index) => {
+      const rowHeight = Number(cache.rowHeight({ index }) ?? 60);
+      return total + (Number.isFinite(rowHeight) ? rowHeight : 60);
+    }, 0);
+  }, [cache, listData, numColumns, width]);
+
+  const updateMeasuredContentHeight = useCallback(() => {
+    if (!listData.length) {
+      setContentHeight(undefined);
+      updateListContainerHeight?.();
+      return;
+    }
+
+    const htmlElement = ref.current as HTMLElement | null;
+    const style =
+      htmlElement && typeof globalThis.getComputedStyle === 'function'
+        ? globalThis.getComputedStyle(htmlElement)
+        : undefined;
+    const verticalSpacing = style
+      ? parseCssSize(style.marginTop) +
+        parseCssSize(style.marginBottom) +
+        parseCssSize(style.paddingTop) +
+        parseCssSize(style.paddingBottom)
+      : 0;
+    const virtualizedInnerElement = htmlElement?.querySelector(
+      [
+        '.ReactVirtualized__Grid__innerScrollContainer',
+        '.ReactVirtualized__Collection__innerScrollContainer',
+      ].join(','),
+    ) as HTMLElement | null;
+    const virtualizedHeight = virtualizedInnerElement
+      ? Math.max(
+          virtualizedInnerElement.scrollHeight || 0,
+          virtualizedInnerElement.clientHeight || 0,
+          virtualizedInnerElement.getBoundingClientRect().height || 0,
+        )
+      : 0;
+    const nextHeight =
+      Math.max(virtualizedHeight, estimateContentHeight()) + verticalSpacing;
+
+    setContentHeight((previousHeight) =>
+      Math.abs((previousHeight ?? 0) - nextHeight) > 1
+        ? nextHeight
+        : previousHeight,
+    );
+    updateListContainerHeight?.();
+  }, [estimateContentHeight, listData.length, updateListContainerHeight]);
+
+  const scheduleListContainerHeightUpdate = useCallback(() => {
+    let timerShort: ReturnType<typeof setTimeout> | undefined;
+    let timerLong: ReturnType<typeof setTimeout> | undefined;
+    const frame = requestAnimationFrame(() => {
+      updateMeasuredContentHeight();
+      timerShort = setTimeout(updateMeasuredContentHeight, 100);
+      timerLong = setTimeout(updateMeasuredContentHeight, 350);
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      if (timerShort) {
+        clearTimeout(timerShort);
+      }
+      if (timerLong) {
+        clearTimeout(timerLong);
+      }
+    };
+  }, [updateMeasuredContentHeight]);
+
   useEffect(() => {
+    let cleanup: (() => void) | undefined;
     if (keyExtractor) {
       // With keyExtractor, the cache is stable (not recreated on data changes).
       // Only recompute row positions for new rows without clearing measured heights.
@@ -396,11 +480,14 @@ export function List<Item>({
           (listRef.current as any)?.recomputeRowHeights();
         }
       }
-      return;
+      cleanup = scheduleListContainerHeightUpdate();
+      return cleanup;
     }
     if (data?.length || sections?.length || numColumns || width || extraData) {
       recompute({ numColumns, width });
+      cleanup = scheduleListContainerHeightUpdate();
     }
+    return cleanup;
   }, [
     data?.length,
     sections?.length,
@@ -409,6 +496,16 @@ export function List<Item>({
     extraData,
     recompute,
     keyExtractor,
+    scheduleListContainerHeightUpdate,
+  ]);
+
+  useEffect(() => {
+    return scheduleListContainerHeightUpdate();
+  }, [
+    extraData,
+    isVisible,
+    listData.length,
+    scheduleListContainerHeightUpdate,
   ]);
 
   // Recompute row heights when tab becomes visible to fix stale
@@ -460,11 +557,29 @@ export function List<Item>({
     );
   }, [HeaderElement, ListEmptyComponent, FooterElement]);
 
-  useImperativeHandle(parentRef as any, () => ({
-    recomputeLayout: () => {
-      recompute({ numColumns, width });
-    },
-  }));
+  // Imperative `recomputeLayout` runs outside React's effect lifecycle, so the
+  // rAF + setTimeout chain it spawns can outlive the component. We hold the
+  // latest cleanup in a ref and clear it on unmount (and before scheduling a
+  // new one) to avoid `setContentHeight` firing on an unmounted instance.
+  const pendingScheduleCleanupRef = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => {
+    return () => {
+      pendingScheduleCleanupRef.current?.();
+      pendingScheduleCleanupRef.current = undefined;
+    };
+  }, []);
+
+  useImperativeHandle(
+    parentRef as any,
+    () => ({
+      recomputeLayout: () => {
+        recompute({ numColumns, width });
+        pendingScheduleCleanupRef.current?.();
+        pendingScheduleCleanupRef.current = scheduleListContainerHeightUpdate();
+      },
+    }),
+    [numColumns, recompute, scheduleListContainerHeightUpdate, width],
+  );
 
   const handleScroll = useCallback(
     (params: {
@@ -518,6 +633,17 @@ export function List<Item>({
     cache,
   ]);
 
+  const baseContentContainerStyle = contentContainerStyle as unknown as
+    | CSSProperties
+    | undefined;
+  const resolvedContentContainerStyle = useMemo<CSSProperties | undefined>(
+    () =>
+      contentHeight
+        ? { ...baseContentContainerStyle, minHeight: contentHeight }
+        : baseContentContainerStyle,
+    [baseContentContainerStyle, contentHeight],
+  );
+
   if (numColumns > 1) {
     return (
       <AutoSizer disableHeight>
@@ -525,7 +651,7 @@ export function List<Item>({
           return (
             <div
               ref={ref as React.RefObject<HTMLDivElement>}
-              style={contentContainerStyle as any}
+              style={resolvedContentContainerStyle as any}
               onMouseEnter={onMouseEnter}
               onMouseLeave={onMouseLeave}
             >
@@ -551,7 +677,7 @@ export function List<Item>({
         return (
           <div
             ref={ref as React.RefObject<HTMLDivElement>}
-            style={contentContainerStyle as any}
+            style={resolvedContentContainerStyle as any}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
           >
