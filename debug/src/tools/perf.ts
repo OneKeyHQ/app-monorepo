@@ -185,9 +185,13 @@ export async function perfTraceStop(
           ],
           { reject: false },
         );
-        // Dump the XML for now. A real xctrace → chrome trace converter is
-        // a follow-up; the xctrace XML schema is non-trivial.
-        await fs.writeFile(out, r.stdout || "");
+        // Convert xctrace XML → chrome trace JSON. Best-effort; the xctrace
+        // schema is undocumented and version-fragile — see xctraceConvert.ts.
+        const { xmlToChromeTrace } = await import(
+          "../perf/xctraceConvert.js"
+        );
+        const chromeTrace = xmlToChromeTrace(r.stdout || "");
+        await fs.writeFile(out, JSON.stringify(chromeTrace));
         converted = out;
       } catch {
         // Best-effort.

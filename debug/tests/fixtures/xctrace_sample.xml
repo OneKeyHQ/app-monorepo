@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<trace-query-result>
+  <node>
+    <run-instrument name="Time Profile">
+      <target>
+        <process-list>
+          <process pid="12345" name="OneKey" />
+        </process-list>
+      </target>
+      <sample>
+        <start-time>1000000000</start-time>
+        <duration>2000000</duration>
+        <thread tid="259">
+          <name>com.apple.main-thread</name>
+        </thread>
+        <backtrace>
+          <frame name="main" address="0x100200" />
+          <frame name="UIApplicationMain" address="0x100150" />
+          <frame name="-[UIApplication _run]" address="0x100120" />
+          <frame name="-[UIView layoutSubviews]" address="0x100000" />
+        </backtrace>
+      </sample>
+      <sample>
+        <start-time>1003000000</start-time>
+        <duration>1500000</duration>
+        <thread tid="259">
+          <name>com.apple.main-thread</name>
+        </thread>
+        <backtrace>
+          <frame name="main" address="0x100200" />
+          <frame name="UIApplicationMain" address="0x100150" />
+        </backtrace>
+      </sample>
+      <sample>
+        <start-time>1005000000</start-time>
+        <duration>500000</duration>
+        <thread tid="260">
+          <name>com.facebook.react.JavaScript</name>
+        </thread>
+        <backtrace>
+          <frame name="hermes::vm::Runtime::run" address="0x200000" />
+          <frame name="-[RCTBridge invokeJSCall]" address="0x200100" />
+        </backtrace>
+      </sample>
+    </run-instrument>
+  </node>
+</trace-query-result>
