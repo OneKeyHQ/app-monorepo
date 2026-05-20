@@ -632,14 +632,19 @@ const SwapTokenSelectPage = ({
           justifyContent="space-between"
           gap="$3"
         >
-          <XStack alignItems="center" flexShrink={1}>
-            <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
+          <XStack alignItems="center" flexShrink={1} h="$8" minWidth={0}>
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              pr="$2"
+              lineHeight={32}
+            >
               {intl.formatMessage({
                 id: ETranslations.token_selector_network,
               })}
             </SizableText>
-            <XStack flexShrink={1}>
-              <SizableText size="$bodyMd" numberOfLines={1}>
+            <XStack alignItems="center" flexShrink={1} h="$8" minWidth={0}>
+              <SizableText size="$bodyMd" numberOfLines={1} lineHeight={32}>
                 {currentSelectNetwork?.isAllNetworks
                   ? intl.formatMessage({
                       id: ETranslations.global_all_networks,

@@ -30,7 +30,7 @@ function BasicTokenSelectorLpTokenSwitch({
       alignItems="center"
       justifyContent="center"
       minWidth="$10"
-      minHeight="$8"
+      h="$8"
       flexShrink={0}
       gap="$2"
     >
