@@ -93,6 +93,15 @@ function HomeOverviewContainer() {
   const [overviewTokenCacheState] = useOverviewTokenCacheStateAtom();
   const [overviewDeFiDataState] = useOverviewDeFiDataStateAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  // Mirrors `currencyMap` so background effects can read the latest rates
+  // without being reactive to every periodic rate refresh — putting
+  // `currencyMap` directly in a worth-persist effect's deps would re-fire
+  // SimpleDB writes every time rates poll, even when the underlying worth
+  // hasn't changed.
+  const currencyMapRef = useRef(currencyMap);
+  useEffect(() => {
+    currencyMapRef.current = currencyMap;
+  }, [currencyMap]);
   const {
     updateAccountOverviewState,
     updateAccountWorth,
@@ -298,12 +307,13 @@ function HomeOverviewContainer() {
         );
         // Threshold is named "_USD" — compare in USD basis. accountWorth is
         // already USD for new data; legacy hydrate falls back to display
-        // currency and needs conversion.
+        // currency and needs conversion. Read currencyMap via the ref so
+        // periodic rate refreshes don't re-trigger this side-effect.
         const allWorthUsd = convertFiat({
           value: allWorth,
           sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
           targetCurrency: 'usd',
-          currencyMap,
+          currencyMap: currencyMapRef.current,
         });
 
         if (
@@ -388,7 +398,6 @@ function HomeOverviewContainer() {
     accountWorth.initialized,
     accountWorth.updateAll,
     accountWorth.worth,
-    currencyMap,
     network,
     settings.currencyInfo.id,
     wallet,
