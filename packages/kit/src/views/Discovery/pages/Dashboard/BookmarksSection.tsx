@@ -18,6 +18,7 @@ import {
   EModalRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 import { DiscoveryTestIDs } from '../../testIDs';
@@ -47,6 +48,7 @@ export function BookmarksSection() {
       watchLoading: true,
       checkIsMounted: false,
       checkIsFocused: false,
+      swrKey: swrKeys.discoveryHomeBookmarks(),
     },
   );
 

@@ -161,6 +161,8 @@ const NS = {
   recentNetworks: 'recentNets',
   walletListSideBar: 'walletList',
   accountSelectorList: 'accSelList',
+  discoveryHomePageData: 'disHomePage',
+  discoveryHomeBookmarks: 'disHomeBookmarks',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
@@ -270,6 +272,8 @@ export const swrKeys = {
       accountId ?? '',
     ].join(':'),
   defiEnabled: (networkId: string) => `defiEnabled:${networkId}`,
+  discoveryHomePageData: () => [NS.discoveryHomePageData, 'v1'].join(':'),
+  discoveryHomeBookmarks: () => [NS.discoveryHomeBookmarks, 'v1'].join(':'),
   // Account selector left sidebar wallet list. One slot per
   // `hideNonBackedUpWallet` variant — every selector instance (main /
   // send-target / dapp-connect) shares the same wallets data, so we

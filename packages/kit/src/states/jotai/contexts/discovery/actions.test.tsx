@@ -34,6 +34,13 @@ const mockSetBrowserTabsRawData = jest.fn();
 const mockSetBrowserHistoryRawData = jest.fn();
 const mockSetBrowserClosedTabsRawData = jest.fn();
 const mockCrossWebviewLoadUrl = jest.fn();
+const mockFetchDiscoveryHomePageData = jest.fn(async () => ({
+  banners: [],
+  categories: [],
+  trending: [],
+}));
+const mockGetDiscoveryBookmarkData = jest.fn(async (_options?: unknown) => []);
+const mockSwrCacheSet = jest.fn();
 
 jest.mock('@onekeyhq/components', () => ({
   Toast: {
@@ -70,6 +77,18 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
+  swrCacheUtils: {
+    set: (key: string, data: unknown) => {
+      mockSwrCacheSet(key, data);
+    },
+  },
+  swrKeys: {
+    discoveryHomePageData: () => 'discovery-home-page-data',
+    discoveryHomeBookmarks: () => 'discovery-home-bookmarks',
+  },
+}));
+
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
@@ -96,6 +115,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceDiscovery: {
       buildWebsiteIconUrl: jest.fn(async () => ''),
+      fetchDiscoveryHomePageData: () => mockFetchDiscoveryHomePageData(),
+      getBookmarkData: (options: unknown) =>
+        mockGetDiscoveryBookmarkData(options),
     },
   },
 }));
@@ -334,6 +356,76 @@ describe('useBrowserTabActions', () => {
       'tab-2',
       'home-tab',
     ]);
+  });
+
+  it('does not activate a new desktop home tab when the current tab is already home', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserTabActions().current;
+        const [activeTabId] = useActiveTabIdAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          activeTabId,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'home-tab',
+              url: '',
+              title: 'Start Tab',
+              timestamp: 100,
+              type: 'home',
+              isActive: true,
+            },
+          ],
+          activeTabId: 'home-tab',
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    await act(async () => {
+      result.current.actions.addBrowserHomeTab();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const homeTabs = result.current.tabs.filter((tab) => tab.type === 'home');
+    expect(homeTabs).toHaveLength(2);
+    expect(result.current.activeTabId).toBe('home-tab');
+    expect(result.current.tabs.find((tab) => tab.id === 'home-tab')).toEqual(
+      expect.objectContaining({
+        isActive: true,
+      }),
+    );
+    expect(homeTabs.find((tab) => tab.id !== 'home-tab')?.isActive).toBe(false);
+    expect(mockFetchDiscoveryHomePageData).toHaveBeenCalledTimes(1);
+    expect(mockGetDiscoveryBookmarkData).toHaveBeenCalledWith({
+      generateIcon: true,
+      sliceCount: 14,
+    });
+    expect(mockSwrCacheSet).toHaveBeenCalledWith(
+      'discovery-home-page-data',
+      expect.objectContaining({
+        trending: [],
+      }),
+    );
+    expect(mockSwrCacheSet).toHaveBeenCalledWith(
+      'discovery-home-bookmarks',
+      [],
+    );
   });
 
   it('selects a replacement tab after closing the current tab outside native', () => {
@@ -597,7 +689,7 @@ describe('useBrowserTabActions', () => {
       }),
     ).toBe(EValidateUrlEnum.ValidDeeplink);
 
-    let opened: boolean | void = undefined;
+    let opened: boolean | void;
     await act(async () => {
       opened = await result.current.actions.gotoSite({
         id: 'tab-1',
@@ -666,7 +758,7 @@ describe('useBrowserTabActions', () => {
       },
     );
 
-    let opened: boolean | void = undefined;
+    let opened: boolean | void;
     await act(async () => {
       opened = await result.current.actions.gotoSite({
         id: 'tab-1',

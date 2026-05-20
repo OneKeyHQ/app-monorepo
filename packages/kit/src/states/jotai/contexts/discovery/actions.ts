@@ -47,6 +47,10 @@ import {
   openUrlInApp,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -144,6 +148,29 @@ export const homeTab: IWebTab = {
   loading: false,
   favicon: '',
 };
+
+type IAddWebTabPayload = Partial<IWebTab> & {
+  shouldActivate?: boolean;
+};
+
+function prefetchDiscoveryHomePageData() {
+  const { serviceDiscovery } = backgroundApiProxy;
+  void Promise.allSettled([
+    serviceDiscovery.fetchDiscoveryHomePageData().then((data) => {
+      if (data) {
+        swrCacheUtils.set(swrKeys.discoveryHomePageData(), data);
+      }
+    }),
+    serviceDiscovery
+      .getBookmarkData({
+        generateIcon: true,
+        sliceCount: 14,
+      })
+      .then((data) => {
+        swrCacheUtils.set(swrKeys.discoveryHomeBookmarks(), data);
+      }),
+  ]);
+}
 
 class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   closeTimeId: ReturnType<typeof setTimeout> | null = null;
@@ -282,29 +309,38 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     }
   });
 
-  addWebTab = contextAtomMethod((get, set, payload: Partial<IWebTab>) => {
+  addWebTab = contextAtomMethod((get, set, payload: IAddWebTabPayload) => {
+    const { shouldActivate = true, ...tabPayload } = payload;
     const { tabs } = get(webTabsAtom());
-    if (!payload.id || payload.id === homeTab.id) {
-      payload.id = generateUUID();
+    if (!tabPayload.id || tabPayload.id === homeTab.id) {
+      tabPayload.id = generateUUID();
     }
     if (isNewTabPositionTop()) {
       const minTs = getMinUnpinnedTimestamp(tabs);
-      payload.timestamp =
+      tabPayload.timestamp =
         minTs < Number.MAX_SAFE_INTEGER
           ? minTs - TOP_POSITION_TIMESTAMP_GAP
           : Date.now();
     } else {
-      payload.timestamp = Date.now();
+      tabPayload.timestamp = Date.now();
     }
-    this.buildWebTabs.call(set, { data: [...tabs, payload as IWebTab] });
-    this.setCurrentWebTab.call(set, payload.id ?? '');
+    this.buildWebTabs.call(set, { data: [...tabs, tabPayload as IWebTab] });
+    if (shouldActivate) {
+      this.setCurrentWebTab.call(set, tabPayload.id ?? '');
+    }
   });
 
   addBlankWebTab = contextAtomMethod((_, set) => {
     this.addWebTab.call(set, { ...homeTab, isActive: true, type: 'normal' });
   });
 
-  addBrowserHomeTab = contextAtomMethod((_, set) => {
+  addBrowserHomeTab = contextAtomMethod((get, set) => {
+    const { tabs } = get(webTabsAtom());
+    const activeTabId = get(activeTabIdAtom());
+    const activeTab = tabs.find((t) => t.id === activeTabId);
+    const shouldActivate = !(
+      platformEnv.isDesktop && activeTab?.type === 'home'
+    );
     const id = generateUUID();
     this.addWebTab.call(set, {
       id,
@@ -316,10 +352,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       canGoBack: false,
       loading: false,
       favicon: '',
-      isActive: true,
+      isActive: shouldActivate,
       type: 'home',
+      shouldActivate,
     });
-    this.setCurrentWebTab.call(set, id);
+    if (!shouldActivate) {
+      prefetchDiscoveryHomePageData();
+    }
   });
 
   setWebTabData = contextAtomMethod((get, set, payload: Partial<IWebTab>) => {
