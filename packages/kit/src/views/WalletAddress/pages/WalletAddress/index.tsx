@@ -144,9 +144,6 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
       walletId,
     },
   );
-  // Block both copy and "create / + " actions for deactivated bot wallets:
-  // they shouldn't be able to add new addresses or expose existing ones.
-  // Reading-only actions (e.g. ViewInExplorer) stay enabled.
   const isBotWalletAddressBlocked =
     isBotWallet &&
     isBotWalletDeactivated &&
@@ -198,9 +195,6 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     }
 
     if (isBotWalletAddressBlocked) {
-      // Both copy and add-address paths route through this onPress; surface
-      // a single toast here rather than gating the row visually so users
-      // get explicit feedback instead of a silent dead-click.
       showBotWalletDisabledToast(account ? 'copyAddress' : 'receive');
       return;
     }
@@ -318,7 +312,8 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
             primary={
               <XStack alignItems="center" gap="$2">
                 <SizableText size="$bodyLgMedium">{network.name}</SizableText>
-                {networkUtils
+                {!isBotWalletAddressBlocked &&
+                networkUtils
                   .getDefaultDeriveTypeVisibleNetworks()
                   .includes(network.id) ? (
                   <AddressTypeSelector

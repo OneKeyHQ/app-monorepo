@@ -3523,6 +3523,7 @@ class ServiceAccount extends ServiceBase {
         .syncNowKeyless({
           callerName: 'Keyless Wallet Login Success',
           noDebounceUpload: true,
+          forceSync: true,
         })
         .catch((error) => {
           errorUtils.autoPrintErrorIgnore(error);
@@ -3674,7 +3675,7 @@ class ServiceAccount extends ServiceBase {
       await this.backgroundApi.servicePassword.getCachedPassword();
     if (!password) {
       // Password not cached. Pending bot wallet items are reprocessed by the
-      // forceSync pass triggered from setCachedPassword once it lands.
+      // forceSync passes triggered after Keyless login/sync readiness.
       console.warn(
         'createBotWalletFromCloudSync skipped: cached password missing',
         {
