@@ -30,7 +30,6 @@ import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
@@ -117,26 +116,27 @@ const SwapTokenSelectPage = ({
     useTokenSelectorFilterPersistAtom();
   const [currentSelectNetwork, setCurrentSelectNetwork] =
     useSwapSelectTokenNetworkAtom();
-  const { result: currentSelectServerNetwork } = usePromiseResult(async () => {
-    if (
-      !currentSelectNetwork?.networkId ||
-      currentSelectNetwork.isAllNetworks
-    ) {
+  const currentSelectNetworkForDappTokenFilter = useMemo(() => {
+    if (!currentSelectNetwork) {
       return undefined;
     }
-    return backgroundApiProxy.serviceNetwork.getNetwork({
-      networkId: currentSelectNetwork.networkId,
-    });
-  }, [currentSelectNetwork?.isAllNetworks, currentSelectNetwork?.networkId]);
+
+    if (currentSelectNetwork.isAllNetworks) {
+      return {
+        id: currentSelectNetwork.networkId,
+        isAllNetworks: true,
+      };
+    }
+
+    return {
+      id: currentSelectNetwork.networkId,
+      backendIndex: currentSelectNetwork.backendIndex,
+    };
+  }, [currentSelectNetwork]);
   const showLpTokenFilterSwitch =
     SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED &&
     isTokenSelectorDappTokenFilterSupportedNetwork({
-      network: currentSelectNetwork?.isAllNetworks
-        ? {
-            id: currentSelectNetwork.networkId,
-            isAllNetworks: true,
-          }
-        : currentSelectServerNetwork,
+      network: currentSelectNetworkForDappTokenFilter,
     });
   const showLpTokensOnly = showLpTokenFilterSwitch
     ? tokenSelectorFilter.swapShowLpTokensOnly
