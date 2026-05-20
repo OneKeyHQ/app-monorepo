@@ -379,7 +379,7 @@ class ServiceToken extends ServiceBase {
       signal: controller.signal,
       // Pin the server pricing currency at capture time — the axios
       // interceptor would otherwise re-read settings.currencyInfo.id at send
-      // time, and a mid-flight currency switch would mistag the cache.
+      // time, and a mid-flight currency switch would tag the cache wrongly.
       requestCurrency,
     });
 
