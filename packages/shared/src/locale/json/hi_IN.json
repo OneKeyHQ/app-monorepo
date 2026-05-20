@@ -4052,6 +4052,8 @@
   "send_token_selector.search_placeholder": "संकेत या संविदा पते की खोज करें",
   "send_token_selector.select_token": "टोकन चुनें",
   "sending_krc20_warning_text": "KRC20 टोकन भेजने के लिए आपके हार्डवेयर पर दो पुष्टियों की आवश्यकता होती है। दूसरी पुष्टि को रद्द न करें, अन्यथा पहली पुष्टि में भेजे गए KAS को पुनः प्राप्त करना कठिन होगा।",
+  "sensitive_information_screenshot_protected__desc": "आपकी संपत्ति की सुरक्षा के लिए, संवेदनशील जानकारी <tag>कभी भी स्क्रीनशॉट में नहीं दिखाई देगी</tag>।",
+  "sensitive_information_screenshot_protected__title": "संवेदनशील जानकारी सुरक्षित",
   "set_new_backup_password": "नया बैकअप पासवर्ड सेट करें",
   "set_new_backup_password_desc": "नई बैकअप पासवर्ड आपके अगले बैकअप रिकॉर्ड के लिए उपयोग किया जाएगा। मौजूदा बैकअप रिकॉर्ड और उनके पासवर्ड पहले जैसे ही रहेंगे।",
   "set_new_backup_password_fist_time": "यह पासवर्ड आपके बैकअप रिकॉर्ड्स की सुरक्षा के लिए उपयोग किया जाएगा।",
