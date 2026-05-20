@@ -671,6 +671,19 @@ export function useSwapQuote() {
       } else if (providerQuoteResult?.some((item) => !item.toAmount)) {
         finalStatus = ESwapEventAPIStatus.PARTIAL_SUCCESS;
       }
+      let finalMessage = errorMessage;
+      if (!finalMessage && finalStatus !== ESwapEventAPIStatus.SUCCESS) {
+        if (!providerQuoteResult?.length) {
+          finalMessage = 'no provider result';
+        } else {
+          const failedProviders = providerQuoteResult.filter(
+            (p) => !p.toAmount,
+          );
+          finalMessage = failedProviders
+            .map((p) => `${p.providerName}: ${p.errorMessage ?? 'no quote'}`)
+            .join('; ');
+        }
+      }
       defaultLogger.swap.swapQuote.swapQuote({
         fromAddress: swapAddressInfo.address ?? '',
         toAddress: swapToAddressInfo.address ?? '',
@@ -689,7 +702,7 @@ export function useSwapQuote() {
         isSmartMode: settingsPersistAtomRef.current.swapBatchApproveAndSwap,
         status: finalStatus,
         providerQuoteResult,
-        message: errorMessage,
+        message: finalMessage,
       });
     },
     [swapAddressInfo.address, swapToAddressInfo.address],

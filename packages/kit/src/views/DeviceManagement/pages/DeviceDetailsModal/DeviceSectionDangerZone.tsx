@@ -13,6 +13,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
+import { getTargetFirmwareTypeLabel } from '../../../FirmwareUpdate/utils';
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
@@ -81,10 +82,13 @@ function DeviceSectionDangerZone({
             id: ETranslations.device_settings_switch_firmware_type,
           },
           {
-            type:
-              deviceMetaStatic.firmwareType === EFirmwareType.BitcoinOnly
-                ? 'Universal'
-                : 'Bitcoin-only',
+            type: getTargetFirmwareTypeLabel({
+              firmwareType:
+                deviceMetaStatic.firmwareType === EFirmwareType.BitcoinOnly
+                  ? EFirmwareType.Universal
+                  : EFirmwareType.BitcoinOnly,
+              intl,
+            }),
           },
         )}
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}

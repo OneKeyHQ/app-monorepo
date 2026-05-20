@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Accordion,
   type IYStackProps,
   Icon,
   IconButton,
@@ -14,11 +15,13 @@ import {
   Stack,
   Toast,
   Tooltip,
+  View,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
 import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -85,6 +88,10 @@ type IProps = {
   senderBalances?: Record<string, string>;
   senderBalancesLoading?: boolean;
   senderBalancesFailed?: Set<string>;
+  // When the receiving list is split into multiple transactions (OneToMany
+  // native batch), each entry is the transfers of one transaction batch and
+  // the groups concatenate to match `transfersInfo` in order.
+  receiverGroups?: ITransferInfo[][];
 };
 
 type ITransferListItemProps = {
@@ -441,6 +448,143 @@ function TransferSection({ title, count, children }: ITransferSectionProps) {
   );
 }
 
+type ITransferEntry = {
+  address: string;
+  amount?: string;
+  indices: number[];
+};
+
+type IReceiverGroupSectionProps = {
+  entries: ITransferEntry[];
+  tokenSymbol: string;
+  getError: (indices: number[], field: 'to' | 'amount') => string | undefined;
+  editMode?: boolean;
+  deleteDisabled?: boolean;
+  canDelete?: boolean;
+  onDeleteTransfers?: (indices: number[]) => void;
+  onAmountChangeByIndex?: (index: number, amount: string) => void;
+};
+
+function ReceiverEntriesList({
+  entries,
+  tokenSymbol,
+  getError,
+  editMode = false,
+  deleteDisabled,
+  canDelete,
+  onDeleteTransfers,
+  onAmountChangeByIndex,
+}: IReceiverGroupSectionProps) {
+  const visible = useProgressiveList(entries);
+  return (
+    <>
+      {visible.map((entry) => (
+        <TransferListItem
+          key={`receiver-${entry.indices[0]}`}
+          address={entry.address}
+          amount={entry.amount}
+          tokenSymbol={tokenSymbol}
+          type="receive"
+          addressError={getError(entry.indices, 'to')}
+          amountError={getError(entry.indices, 'amount')}
+          editMode={editMode}
+          deleteDisabled={deleteDisabled}
+          indices={entry.indices}
+          canDelete={canDelete}
+          onDeleteTransfers={onDeleteTransfers}
+          onAmountChangeByIndex={onAmountChangeByIndex}
+        />
+      ))}
+      {visible.length < entries.length ? (
+        <SizableText size="$bodyMd" color="$textSubdued" py="$2">
+          ...
+        </SizableText>
+      ) : null}
+    </>
+  );
+}
+
+type IBatchAccordionItemProps = IReceiverGroupSectionProps & {
+  groupIndex: number;
+};
+
+function BatchAccordionItem({
+  groupIndex,
+  entries,
+  tokenSymbol,
+  getError,
+}: IBatchAccordionItemProps) {
+  const intl = useIntl();
+  return (
+    <Accordion.Item
+      value={`tx-${groupIndex}`}
+      bg="$bgSubdued"
+      borderRadius="$3"
+      borderWidth={1}
+      borderColor="$borderSubdued"
+      overflow="hidden"
+    >
+      <Accordion.Trigger
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+        px="$3"
+        py="$2.5"
+        unstyled
+        focusStyle={{}}
+        pressStyle={{}}
+        borderWidth={0}
+        outlineWidth={0}
+        backgroundColor="$bgSubdued"
+      >
+        {({ open }: { open: boolean }) => (
+          <>
+            <XStack alignItems="center" gap="$1">
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id: ETranslations.swap_history_detail_title,
+                })}{' '}
+                {groupIndex + 1}
+              </SizableText>
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                ({entries.length})
+              </SizableText>
+            </XStack>
+            <View
+              animation="quick"
+              animateOnly={ANIMATE_ONLY_TRANSFORM}
+              rotate={open ? '180deg' : '0deg'}
+              transformOrigin="center"
+            >
+              <Icon
+                name="ChevronDownSmallOutline"
+                size="$5"
+                color="$iconSubdued"
+              />
+            </View>
+          </>
+        )}
+      </Accordion.Trigger>
+      <Accordion.Content
+        backgroundColor="$bg"
+        borderTopWidth={1}
+        borderTopColor="$borderSubdued"
+        px="$3"
+        pb="$2"
+        pt="$1"
+        borderBottomLeftRadius="$3"
+        borderBottomRightRadius="$3"
+      >
+        <ReceiverEntriesList
+          entries={entries}
+          tokenSymbol={tokenSymbol}
+          getError={getError}
+        />
+      </Accordion.Content>
+    </Accordion.Item>
+  );
+}
+
 function BulkSendTxDetails(props: IProps) {
   const {
     tokenInfo,
@@ -455,6 +599,7 @@ function BulkSendTxDetails(props: IProps) {
     senderBalances,
     senderBalancesLoading,
     senderBalancesFailed,
+    receiverGroups,
   } = props;
 
   const intl = useIntl();
@@ -472,24 +617,46 @@ function BulkSendTxDetails(props: IProps) {
 
   const tokenSymbol = tokenInfo.symbol;
 
+  const resolveTransferAmount = useCallback(
+    (transfer: ITransferInfo) =>
+      shouldResolveMaxAmounts
+        ? senderBalances?.[transfer.from]
+        : transfer.amount,
+    [shouldResolveMaxAmounts, senderBalances],
+  );
+
+  const buildTransferEntry = useCallback(
+    (
+      transfer: ITransferInfo,
+      index: number,
+      addressKey: 'from' | 'to',
+    ): ITransferEntry => ({
+      address: transfer[addressKey],
+      amount: resolveTransferAmount(transfer) ?? '',
+      indices: [index],
+    }),
+    [resolveTransferAmount],
+  );
+
+  const shouldGroupReceivers =
+    !editMode &&
+    canEditReceiver &&
+    !!receiverGroups &&
+    receiverGroups.length > 1;
+
   // Don't merge multi-input entries so duplicate addresses show as separate rows.
   // The single-input side is still grouped by address.
-  const { senders, receivers } = useMemo(() => {
-    type IEntry = { address: string; amount?: string; indices: number[] };
-
-    const collectEntries = (canEdit: boolean, addressKey: 'from' | 'to') => {
-      const map = new Map<string, IEntry>();
-      const list: IEntry[] = [];
+  const collectEntries = useCallback(
+    (canEdit: boolean, addressKey: 'from' | 'to'): ITransferEntry[] => {
+      const map = new Map<string, ITransferEntry>();
+      const list: ITransferEntry[] = [];
 
       transfersInfo.forEach((transfer, index) => {
-        const address = transfer[addressKey];
-        const resolvedAmount = shouldResolveMaxAmounts
-          ? senderBalances?.[transfer.from]
-          : transfer.amount;
-        const amount = resolvedAmount ?? '';
+        const entry = buildTransferEntry(transfer, index, addressKey);
+        const { address, amount } = entry;
 
         if (canEdit) {
-          list.push({ address, amount, indices: [index] });
+          list.push(entry);
         } else {
           const existing = map.get(address);
           if (existing) {
@@ -506,28 +673,39 @@ function BulkSendTxDetails(props: IProps) {
             }
             existing.indices.push(index);
           } else {
-            map.set(address, { address, amount, indices: [index] });
+            map.set(address, entry);
           }
         }
       });
 
       return canEdit ? list : Array.from(map.values());
-    };
+    },
+    [transfersInfo, buildTransferEntry],
+  );
 
-    return {
-      senders: collectEntries(canEditSender, 'from'),
-      receivers: collectEntries(canEditReceiver, 'to'),
-    };
-  }, [
-    transfersInfo,
-    canEditSender,
-    canEditReceiver,
-    shouldResolveMaxAmounts,
-    senderBalances,
-  ]);
+  const senders = useMemo(
+    () => collectEntries(canEditSender, 'from'),
+    [collectEntries, canEditSender],
+  );
+
+  const receivers = useMemo(
+    () => (shouldGroupReceivers ? [] : collectEntries(canEditReceiver, 'to')),
+    [collectEntries, canEditReceiver, shouldGroupReceivers],
+  );
+
+  const receiverGroupEntries = useMemo<ITransferEntry[][]>(() => {
+    if (!shouldGroupReceivers || !receiverGroups) return [];
+    let offset = 0;
+    return receiverGroups.map((group) => {
+      const entries = group.map((transfer, i) =>
+        buildTransferEntry(transfer, offset + i, 'to'),
+      );
+      offset += group.length;
+      return entries;
+    });
+  }, [shouldGroupReceivers, receiverGroups, buildTransferEntry]);
 
   const visibleSenders = useProgressiveList(senders);
-  const visibleReceivers = useProgressiveList(receivers);
 
   const handleDeleteTransfers = useCallback(
     (indices: number[]) => {
@@ -606,28 +784,53 @@ function BulkSendTxDetails(props: IProps) {
         ) : null}
       </TransferSection>
 
-      <TransferSection
-        title={intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_section_receiving_address,
-        })}
-        count={receivers.length}
-      >
-        {visibleReceivers.map((receiver) => (
-          <TransferListItem
-            key={
-              canEditReceiver
-                ? `receiver-${receiver.indices[0]}`
-                : receiver.address
-            }
-            address={receiver.address}
-            amount={receiver.amount}
+      {shouldGroupReceivers ? (
+        <TransferSection
+          title={intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_section_receiving_address,
+          })}
+          count={transfersInfo.length}
+        >
+          <YStack gap="$2" pt="$2">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.wallet_bulk_send_split_txns_description,
+                },
+                { count: receiverGroupEntries.length },
+              )}
+            </SizableText>
+            <Accordion
+              type="multiple"
+              defaultValue={['tx-0']}
+              bg="transparent"
+              gap="$2"
+            >
+              {receiverGroupEntries.map((entries, groupIndex) => (
+                <BatchAccordionItem
+                  key={`tx-${groupIndex}`}
+                  groupIndex={groupIndex}
+                  entries={entries}
+                  tokenSymbol={tokenSymbol}
+                  getError={getTransferError}
+                />
+              ))}
+            </Accordion>
+          </YStack>
+        </TransferSection>
+      ) : (
+        <TransferSection
+          title={intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_section_receiving_address,
+          })}
+          count={receivers.length}
+        >
+          <ReceiverEntriesList
+            entries={receivers}
             tokenSymbol={tokenSymbol}
-            type="receive"
-            addressError={getTransferError(receiver.indices, 'to')}
-            amountError={getTransferError(receiver.indices, 'amount')}
+            getError={getTransferError}
             editMode={Boolean(editMode && canEditReceiver)}
             deleteDisabled={isDeleteDisabled}
-            indices={receiver.indices}
             canDelete={
               !!onDeleteTransfer && canEditReceiver
                 ? !isDeleteDisabled
@@ -636,13 +839,8 @@ function BulkSendTxDetails(props: IProps) {
             onDeleteTransfers={handleDeleteTransfers}
             onAmountChangeByIndex={handleAmountChange}
           />
-        ))}
-        {visibleReceivers.length < receivers.length ? (
-          <SizableText size="$bodyMd" color="$textSubdued" py="$2">
-            ...
-          </SizableText>
-        ) : null}
-      </TransferSection>
+        </TransferSection>
+      )}
     </YStack>
   );
 }
