@@ -87,12 +87,17 @@ const TOOLS: ToolSpec[] = [
   {
     name: "js.eval",
     description:
-      "Evaluate a JavaScript expression in the Hermes runtime via CDP. Returns {value, type}. Awaits promises by default.",
+      "Evaluate a JavaScript expression in the Hermes runtime via CDP. Returns {value, type}. Awaits promises by default. The CDP port (Metro) defaults to 8081 and is cached on first use per session; callers attaching multiple Hermes targets on the same host (e.g. two Android devices both forwarding 8081) MUST pass a distinct `port` on each session's first js.eval call.",
     inputSchema: {
       type: "object",
       properties: {
         sessionId: { type: "string" },
         expression: { type: "string" },
+        port: {
+          type: "number",
+          description:
+            "Optional CDP/Metro port override. Cached on first call per session; defaults to 8081. Required when running concurrent sessions whose Metro forwards otherwise share the same port.",
+        },
       },
       required: ["sessionId", "expression"],
     },

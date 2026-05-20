@@ -9,9 +9,11 @@ import {
   type WebViewPage,
 } from "../adapters/webview.js";
 import type { Registry } from "../daemon/registry.js";
+import { pickFreePort } from "../shared/freePort.js";
 
 interface SessionWvState {
   iwdpStop?: () => Promise<void>;
+  iwdpPort?: number;
   androidUnforward?: () => Promise<void>;
   androidPort?: number;
   attached: Map<string, WebViewAttachHandle>; // targetId -> handle
@@ -41,11 +43,19 @@ export async function webviewList(
   const st = getOrInit(params.sessionId);
 
   if (s.platform === "ios") {
-    const port = params.port ?? 27753;
+    // Multi-device safety: when the caller doesn't pin a port, reuse the
+    // port already spawned for this session, else pick a free one. Two
+    // concurrent iOS sessions on the default 27753 would otherwise collide
+    // at the iwdp HTTP listener.
+    let port = params.port;
+    if (!port) {
+      port = st.iwdpPort ?? (await pickFreePort());
+    }
     if (!st.iwdpStop) {
       try {
         const { stop } = await spawnIWDP(s.deviceId, port);
         st.iwdpStop = stop;
+        st.iwdpPort = port;
       } catch (e) {
         // Clean up partial state if spawn aborted mid-way; spawnIWDP throws
         // only after killing its own child, so nothing extra to reap here.

@@ -105,19 +105,31 @@ export class FridaAdapter extends Adapter {
       }
     }
     try {
-      // Prefer USB; fall back to whichever device the manager surfaces. On a
-      // sim/emulator host the local device is usable but `getUsbDevice` will
-      // reject — we tolerate and continue.
-      const device = await fridaModule
-        .getUsbDevice({ timeout: 1_000 })
-        .catch(async () => {
-          const devs = await fridaModule.getDeviceManager().enumerateDevices();
-          const pick =
-            devs.find((d) => d.type !== "remote" && d.id !== "social") ??
-            devs[0];
-          if (!pick) throw new Error("no frida device available");
-          return pick;
-        });
+      // Multi-device safety: prefer the device whose id matches the session's
+      // deviceId so two concurrent sessions on different USB devices don't
+      // both end up attached to whichever device `getUsbDevice()` returns
+      // first. If no exact match (e.g. tests using "booted" as a sentinel
+      // for the active simulator), fall back to the existing USB-then-any
+      // heuristic so single-device flows still work unchanged.
+      const devs = await fridaModule
+        .getDeviceManager()
+        .enumerateDevices()
+        .catch(() => [] as FridaDeviceHandle[]);
+      const exactMatch = devs.find((d) => d.id === this.deviceId);
+      let device: FridaDeviceHandle | undefined;
+      if (exactMatch) {
+        device = exactMatch;
+      } else {
+        device = await fridaModule
+          .getUsbDevice({ timeout: 1_000 })
+          .catch(async () => {
+            const pick =
+              devs.find((d) => d.type !== "remote" && d.id !== "social") ??
+              devs[0];
+            return pick;
+          });
+      }
+      if (!device) throw new Error("no frida device available");
       const apps = await device.enumerateApplications();
       const app = apps.find((a) => a.identifier === this.appBundle);
       if (!app || !app.pid) {
