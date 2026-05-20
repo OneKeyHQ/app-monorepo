@@ -43,8 +43,14 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
     }
     // Fallback: when native startupTime is unavailable, anchor on
     // __BUNDLE_START_TIME__ (same performance.now() base as $$…FromPerformanceNow).
+    // Guard __BUNDLE_START_TIME__ with `|| 0` so an undefined anchor (e.g. test
+    // harness, bg-thread runtime, partial OTA boot) reports 0 instead of NaN
+    // polluting the metric.
     const jsReadyPerf = globalThis.$$onekeyJsReadyFromPerformanceNow || 0;
-    return jsReadyPerf ? Math.round(jsReadyPerf - __BUNDLE_START_TIME__) : 0;
+    const bundleStart = __BUNDLE_START_TIME__ || 0;
+    return jsReadyPerf && bundleStart
+      ? Math.round(jsReadyPerf - bundleStart)
+      : 0;
   },
   getUIVisibleTime: async () => {
     const uiVisibleAt = getUIVisibleTimeAt();
@@ -54,8 +60,9 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
       return uiVisibleAt - startupAt;
     }
     const uiVisiblePerf = globalThis.$$onekeyUIVisibleFromPerformanceNow || 0;
-    return uiVisiblePerf
-      ? Math.round(uiVisiblePerf - __BUNDLE_START_TIME__)
+    const bundleStart = __BUNDLE_START_TIME__ || 0;
+    return uiVisiblePerf && bundleStart
+      ? Math.round(uiVisiblePerf - bundleStart)
       : 0;
   },
   getBundleStartTime: () => {

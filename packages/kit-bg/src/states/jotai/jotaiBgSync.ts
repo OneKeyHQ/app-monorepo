@@ -307,9 +307,15 @@ export class JotaiBgSync {
       return;
     }
 
-    // Defensive fallback: bridge ready signal raced ahead of bg handler
-    // install, or the batch fn was hot-stripped by a partial OTA. Send
-    // items individually so no atom write is lost.
+    // Fallback: only safe when `broadcastStateUpdateBatchFromBgToUi` is
+    // missing on the bg side (e.g. partial OTA where the new caller bundle
+    // ships before the bg handler is updated). When the bridge object
+    // itself is unavailable, `deliverBroadcast` throws OneKeyLocalError on
+    // the first item and the rest of the batch will be lost; this is
+    // accepted because in dual-thread native mode the bridge is wired up
+    // in `setupBackgroundThreadRPCHandler` before any atom broadcast can
+    // fire, so a missing bridge indicates a genuine setup failure that
+    // shouldn't be silently absorbed.
     for (const item of items) {
       this.deliverBroadcast(item);
     }
