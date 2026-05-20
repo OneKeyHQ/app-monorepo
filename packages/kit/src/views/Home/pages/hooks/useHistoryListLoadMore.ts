@@ -5,6 +5,7 @@ import { unionBy } from 'lodash';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isHistoryCursorAdvanced } from '@onekeyhq/shared/src/utils/historyUtils';
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
@@ -35,6 +36,11 @@ export type IUseHistoryListLoadMoreParams = {
   // (BTC/LTC etc.) and uses `indexedAccountId` instead of `accountId`.
   mergeDerive?: boolean;
   indexedAccountId?: string;
+  // Forwarded `addressMap` from each load-more response. The first-page
+  // caller writes addressMap into the shared historyList context directly;
+  // without this callback, load-more rows would render without server-side
+  // address labels, contacts, or risk badges.
+  onAddressMap?: (addressMap: Record<string, IAddressBadge>) => void;
 };
 
 export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
@@ -52,6 +58,7 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
     limit,
     mergeDerive,
     indexedAccountId,
+    onAddressMap,
   } = params;
 
   const [appendedTxs, setAppendedTxs] = useState<IAccountHistoryTx[]>([]);
@@ -104,14 +111,24 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
         setHasMore(false);
         return;
       }
-      if (initializedRef.current) {
-        return;
-      }
+      // Every first-page response defines a fresh pagination generation:
+      // polling / HistoryTxStatusChanged / visibility refresh can shift the
+      // first-page boundary, so any previously-appended load-more rows are
+      // no longer aligned with the new `meta.next` cursor (gap on the new
+      // boundary tx, or dupes against the new first page). Reset cursor +
+      // appended rows so the next load-more starts from the boundary of
+      // exactly this response. Bumping `generationRef` discards any
+      // in-flight load-more that was anchored to the previous generation.
       initializedRef.current = true;
       pageRef.current = 1;
       // Indexer chains return a timestamp; non-indexer return opaque.
       cursorRef.current = normalizeCursor(meta.next);
       isIndexerCursorRef.current = !!meta.isIndexer;
+      loadCountRef.current = 0;
+      pendingLoadMoreRef.current = false;
+      generationRef.current += 1;
+      appendedIdsRef.current = new Set();
+      setAppendedTxs([]);
       setHasMore(!!meta.hasMore);
     },
     [enabled],
@@ -185,6 +202,12 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
         isIndexerCursorRef.current = r.isIndexer;
       }
       loadCountRef.current += 1;
+      // Surface load-more `addressMap` (labels / contacts / risk badges) to
+      // the consumer; without this the appended rows would fall back to
+      // plain-address rendering even when the backend returned metadata.
+      if (onAddressMap && r.addressMap) {
+        onAddressMap(r.addressMap);
+      }
       const incomingTxs = r.txs ?? [];
       const newRows = incomingTxs.filter(
         (tx) => !appendedIdsRef.current.has(tx.id),
@@ -232,6 +255,7 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
     limit,
     mergeDerive,
     indexedAccountId,
+    onAddressMap,
   ]);
 
   // If onEndReached fired before we were ready (or while a request was in

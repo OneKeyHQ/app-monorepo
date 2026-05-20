@@ -142,6 +142,12 @@ function TxHistoryListContainer(
   // recent-history block). Merge-derive chains (BTC/LTC) now route through
   // ServiceHistory.fetchAccountHistoryForMergeDerive so they participate too.
   const loadMoreEnabled = !isAllNetworksList && !limit && !plainMode;
+  const handleLoadMoreAddressMap = useCallback(
+    (addressMap: Record<string, IAddressBadge>) => {
+      updateAddressesInfo({ data: addressMap });
+    },
+    [updateAddressesInfo],
+  );
   const {
     appendedTxs,
     hasMore: loadMoreHasMore,
@@ -161,6 +167,7 @@ function TxHistoryListContainer(
     limit,
     mergeDerive: mergeDeriveAddressData,
     indexedAccountId: indexedAccount?.id ?? '',
+    onAddressMap: handleLoadMoreAddressMap,
   });
 
   const handleHistoryItemPress = useCallback(
