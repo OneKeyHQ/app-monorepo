@@ -150,9 +150,9 @@ class ServiceToken extends ServiceBase {
       if (typeof fiat.price === 'number' && Number.isFinite(fiat.price)) {
         fiat.price = new BigNumber(fiat.price).div(rate).toNumber();
       }
-      if (typeof fiat.price24h === 'number' && Number.isFinite(fiat.price24h)) {
-        fiat.price24h = new BigNumber(fiat.price24h).div(rate).toNumber();
-      }
+      // price24h is a 24h percentage change (rendered with formatter
+      // 'priceChange' which appends '%'), not a fiat amount — leave it
+      // untouched.
       fiat.currency = 'usd';
     };
 
@@ -627,6 +627,9 @@ class ServiceToken extends ServiceBase {
       accountId,
       networkId,
     });
+    const requestCurrency =
+      (await settingsPersistAtom.get())?.currencyInfo?.id ?? 'usd';
+
     const resp = await vault.fetchTokenDetails({
       accountId,
       networkId,
@@ -636,6 +639,45 @@ class ServiceToken extends ServiceBase {
       withCheckInscription,
       withFrozenBalance,
     });
+
+    // Mirror the fetchAccountTokens path: normalize per-token fiat fields to
+    // USD so downstream consumers (TokenDetailsHeader, asset details cache,
+    // <Currency sourceCurrency='usd'>) see a single basis regardless of which
+    // currency the request used.
+    if (requestCurrency !== 'usd' && resp.data.data?.length) {
+      const { currencyMap } = await currencyPersistAtom.get();
+      const rateItem = currencyMap[requestCurrency];
+      const rate = rateItem ? new BigNumber(rateItem.value) : null;
+      if (rate && rate.isFinite() && !rate.isZero()) {
+        for (const item of resp.data.data) {
+          if (item.fiatValue) {
+            item.fiatValue = new BigNumber(item.fiatValue).div(rate).toFixed();
+          }
+          if (item.frozenBalanceFiatValue) {
+            item.frozenBalanceFiatValue = new BigNumber(
+              item.frozenBalanceFiatValue,
+            )
+              .div(rate)
+              .toFixed();
+          }
+          if (item.totalBalanceFiatValue) {
+            item.totalBalanceFiatValue = new BigNumber(
+              item.totalBalanceFiatValue,
+            )
+              .div(rate)
+              .toFixed();
+          }
+          if (typeof item.price === 'number' && Number.isFinite(item.price)) {
+            item.price = new BigNumber(item.price).div(rate).toNumber();
+          }
+          item.currency = 'usd';
+        }
+      }
+    } else if (resp.data.data?.length) {
+      for (const item of resp.data.data) {
+        item.currency = 'usd';
+      }
+    }
 
     return vault.fillTokensDetails({
       tokensDetails: resp.data.data,

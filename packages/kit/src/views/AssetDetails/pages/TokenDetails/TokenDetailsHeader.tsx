@@ -18,6 +18,7 @@ import {
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -508,19 +509,17 @@ function TokenDetailsHeader(props: IProps) {
               </Skeleton.Group>
             ) : (
               <>
-                <NumberSizeableTextWrapper
+                <Currency
                   hideValue
                   splitDecimal
                   formatter="value"
-                  formatterOptions={{
-                    currency: settings.currencyInfo.symbol,
-                  }}
+                  sourceCurrency={tokenDetails?.currency}
                   fontSize={48}
                   lineHeight={48}
                   fontWeight={500}
                 >
                   {tokenDetails?.fiatValue ?? '0'}
-                </NumberSizeableTextWrapper>
+                </Currency>
                 <NumberSizeableTextWrapper
                   hideValue
                   formatter="balance"

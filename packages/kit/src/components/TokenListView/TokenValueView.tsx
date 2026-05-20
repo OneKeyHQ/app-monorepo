@@ -3,13 +3,12 @@ import { memo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
   useFlattenAggregateTokensMapAtom,
   useTokenListMapAtom,
 } from '../../states/jotai/contexts/tokenList';
-import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
+import { Currency } from '../Currency';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
@@ -20,7 +19,6 @@ type IProps = {
 
 function TokenValueView(props: IProps) {
   const { $key, ...rest } = props;
-  const [settings] = useSettingsPersistAtom();
   const { tokenListMap: contextTokenListMap } = useTokenListViewContext();
   const [globalTokenListMap] = useTokenListMapAtom();
   const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
@@ -33,14 +31,18 @@ function TokenValueView(props: IProps) {
     return <SizableText {...rest}>-</SizableText>;
   }
 
+  // token.currency is tagged at fetch time (USD for new data) or filled in
+  // by the local-cache lazy fallback. <Currency> reads the source tag and
+  // converts to settings.currencyInfo.id at render — so a currency switch
+  // re-renders this row without invalidating the cache.
   return (
-    <NumberSizeableTextWrapper
+    <Currency
       formatter="value"
-      formatterOptions={{ currency: settings.currencyInfo.symbol }}
-      {...rest}
+      sourceCurrency={token.currency}
+      {...(rest as React.ComponentProps<typeof Currency>)}
     >
       {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
-    </NumberSizeableTextWrapper>
+    </Currency>
   );
 }
 
