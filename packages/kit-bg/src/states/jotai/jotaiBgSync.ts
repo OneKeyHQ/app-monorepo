@@ -21,6 +21,15 @@ export class JotaiBgSync {
 
   private pendingBroadcasts: Array<{ name: EAtomNames; payload: any }> = [];
 
+  // Micro-batch broadcast: same-microtask atom writes coalesce into one
+  // SharedRPC slot via the native batch broadcast bridge. This is the
+  // primary lever for the bg→main cascade storm — see OK-perp/swap freeze
+  // case where 2395 setAtomValue + their reverse broadcasts saturated the
+  // main JS thread.
+  private microBatchBuffer: Array<{ name: EAtomNames; payload: any }> = [];
+
+  private microBatchFlushScheduled = false;
+
   pauseBroadcast() {
     this.broadcastPaused = true;
     this.pendingBroadcasts = [];
@@ -37,6 +46,44 @@ export class JotaiBgSync {
     for (const item of pending) {
       await this.broadcastStateUpdateFromBgToUi(item);
     }
+  }
+
+  /**
+   * Drain `microBatchBuffer` and either:
+   *   - noop (empty buffer),
+   *   - emit a single broadcast via the legacy path (size 1), or
+   *   - emit a batch broadcast (size >1).
+   *
+   * Same-named writes are deduplicated last-write-wins; insertion order is
+   * preserved by `Map` so derived UI subscribers observe values in the same
+   * sequence as without micro-batch coalescing.
+   */
+  private flushBroadcastMicroBatch() {
+    this.microBatchFlushScheduled = false;
+    const buffer = this.microBatchBuffer.splice(0);
+    if (buffer.length === 0) {
+      return;
+    }
+
+    const dedup = new Map<EAtomNames, any>();
+    for (const item of buffer) {
+      dedup.set(item.name, item.payload);
+    }
+    if (dedup.size === 0) {
+      return;
+    }
+
+    if (dedup.size === 1) {
+      const [name, payload] = dedup.entries().next().value as [EAtomNames, any];
+      this.deliverBroadcast({ name, payload });
+      return;
+    }
+
+    const items: Array<{ name: EAtomNames; payload: any }> = [];
+    dedup.forEach((payload, name) => {
+      items.push({ name, payload });
+    });
+    this.deliverBroadcastBatch(items);
   }
 
   private get shouldSyncFromUiToBg() {
@@ -161,6 +208,43 @@ export class JotaiBgSync {
       this.pendingBroadcasts.push({ name, payload });
       return;
     }
+
+    // Native dual-thread: enqueue into a same-microtask micro-batch so the N
+    // setAtomValue writes triggered by a single service response collapse
+    // into one (or a few) SharedRPC slot writes. Cross-tab cascade storms
+    // (e.g. 2395 setAtomValue in 13s during the OK-perp/swap freeze case)
+    // pay the bridge cost ~once instead of N times.
+    //
+    // Extension background path keeps the immediate-send behavior: the
+    // ext bridge already supports requestToAllUi batching internally and
+    // we have no measured cascade pressure there yet.
+    if (
+      platformEnv.isNativeBackgroundThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      this.microBatchBuffer.push({ name, payload });
+      if (!this.microBatchFlushScheduled) {
+        this.microBatchFlushScheduled = true;
+        queueMicrotask(() => this.flushBroadcastMicroBatch());
+      }
+      return;
+    }
+
+    this.deliverBroadcast({ name, payload });
+  }
+
+  /**
+   * Send one atom broadcast to all UI runtimes. Equivalent to the
+   * pre-micro-batch behavior — used both for non-native bridge mode and as
+   * the single-item flush path.
+   */
+  private deliverBroadcast({
+    name,
+    payload,
+  }: {
+    name: EAtomNames;
+    payload: any;
+  }) {
     const p: IGlobalStatesSyncBroadcastParams = {
       $$isFromBgStatesSyncBroadcast: true,
       name,
@@ -198,6 +282,37 @@ export class JotaiBgSync {
       method: GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME,
       params: p,
     });
+  }
+
+  /**
+   * Native batch broadcast — only invoked from `flushBroadcastMicroBatch`
+   * once it has accumulated >1 deduped items. Falls back to per-item
+   * `deliverBroadcast` if the batch bridge fn is unavailable (defensive;
+   * the bridge is wired in `setupBackgroundThreadRPCHandler`).
+   */
+  private deliverBroadcastBatch(
+    items: Array<{ name: EAtomNames; payload: any }>,
+  ) {
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __onekeyNativeBackgroundThreadJotaiBridge?: {
+        broadcastStateUpdateBatchFromBgToUi?: (params: {
+          items: Array<{ name: string; payload: any }>;
+        }) => boolean;
+      };
+    };
+
+    const bridge = runtimeGlobal.__onekeyNativeBackgroundThreadJotaiBridge;
+    if (bridge?.broadcastStateUpdateBatchFromBgToUi) {
+      bridge.broadcastStateUpdateBatchFromBgToUi({ items });
+      return;
+    }
+
+    // Defensive fallback: bridge ready signal raced ahead of bg handler
+    // install, or the batch fn was hot-stripped by a partial OTA. Send
+    // items individually so no atom write is lost.
+    for (const item of items) {
+      this.deliverBroadcast(item);
+    }
   }
 }
 

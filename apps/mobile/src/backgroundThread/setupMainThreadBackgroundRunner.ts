@@ -21,6 +21,7 @@ import { registerImageEmbedBridge } from '@onekeyhq/shared/src/utils/imageUtils.
 import {
   BACKGROUND_THREAD_APP_EVENT_KEY_PREFIX,
   BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX,
+  BACKGROUND_THREAD_JOTAI_STATE_BATCH_KEY_PREFIX,
   BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX,
   BACKGROUND_THREAD_RESPONSE_KEY_PREFIX,
   type IBackgroundThreadBridgeCallRequest,
@@ -34,6 +35,7 @@ import {
   parseBackgroundThreadAppEventBroadcastPayload,
   parseBackgroundThreadBridgeSendPayload,
   parseBackgroundThreadCallId,
+  parseBackgroundThreadJotaiStateBroadcastBatchPayload,
   parseBackgroundThreadJotaiStateBroadcastPayload,
   parseBackgroundThreadResponse,
   serializeBackgroundThreadRequest,
@@ -481,6 +483,33 @@ function handleBackgroundThreadJotaiStateUpdate(
   });
 }
 
+/**
+ * Apply a batched jotai broadcast. Bg side coalesces same-microtask atom
+ * writes into one SharedRPC slot to keep main JS thread task pressure low
+ * during cascade bursts. Items are iterated in insertion order so derived
+ * subscribers observe values in the same order as if each item had been
+ * delivered via the single-broadcast path.
+ */
+function handleBackgroundThreadJotaiStateBatchUpdate(
+  sharedRPC: ISharedRPC,
+  key: string,
+) {
+  const payload = parseBackgroundThreadJotaiStateBroadcastBatchPayload(
+    sharedRPC.read(key),
+  );
+  if (!payload) {
+    return;
+  }
+
+  for (const item of payload.items) {
+    void jotaiUpdateFromUiByBgBroadcast({
+      $$isFromBgStatesSyncBroadcast: true,
+      name: item.name,
+      payload: item.payload,
+    });
+  }
+}
+
 function handleBackgroundThreadAppEventUpdate(
   sharedRPC: ISharedRPC,
   key: string,
@@ -572,6 +601,11 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
 
       if (callId.startsWith(BACKGROUND_THREAD_RESPONSE_KEY_PREFIX)) {
         handleBackgroundThreadResponse(sharedRPC, callId);
+        return;
+      }
+
+      if (callId.startsWith(BACKGROUND_THREAD_JOTAI_STATE_BATCH_KEY_PREFIX)) {
+        handleBackgroundThreadJotaiStateBatchUpdate(sharedRPC, callId);
         return;
       }
 
