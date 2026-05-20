@@ -4,7 +4,7 @@ export const UNAVAILABLE_DISPLAY = '--';
 
 // Fields typed as `string`/`number` on ITokenFiat may arrive null/undefined
 // when an upstream provider fails. Non-finite values (NaN, Infinity) and any
-// unparseable string must be rejected so downstream BigNumber math does not
+// non-parseable string must be rejected so downstream BigNumber math does not
 // propagate NaN through aggregate sums.
 export function isValidNumberValue(
   v: string | number | null | undefined,
