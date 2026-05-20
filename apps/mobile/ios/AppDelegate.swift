@@ -135,6 +135,15 @@ public class AppDelegate: ExpoAppDelegate {
       "StartupTiming",
       "ios.app.did_finish_launching.start: +\(String(format: "%.0f", (didFinishLaunchingStartAt - AppDelegate.appLaunchCFTime) * 1000))ms from launch"
     )
+
+    // Disable persistent URL cache so auth/keyless responses (access_token,
+    // refresh_token, backendShare, pinHash, etc.) are never written to
+    // Library/Caches/<bundle>/Cache.db. Keeping a small memory cache for
+    // in-session reuse is UX-neutral. Must run before any URLSession.shared
+    // request (incl. recovery-mode path below). See SlowMist audit iOS-9.1.
+    URLCache.shared.removeAllCachedResponses()
+    URLCache.shared = URLCache(memoryCapacity: 4 * 1024 * 1024, diskCapacity: 0, diskPath: nil)
+
     // === Recovery Check ===
     let defaults = UserDefaults.standard
 

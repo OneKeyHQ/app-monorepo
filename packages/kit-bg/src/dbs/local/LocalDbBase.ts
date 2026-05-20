@@ -22,14 +22,19 @@ import type {
 import {
   decryptHyperLiquidAgentCredential,
   decryptImportedCredential,
+  decryptImportedCredentialWithMetadata,
   decryptRevealableSeed,
+  decryptRevealableSeedWithMetadata,
   decryptVerifyString,
+  decryptVerifyStringWithMetadata,
   encryptHyperLiquidAgentCredential,
   encryptImportedCredential,
   encryptRevealableSeed,
   encryptVerifyString,
   ensureSensitiveTextEncoded,
+  getSecretEncryptV2LocalTargetIterations,
   sha256,
+  shouldUpgradeSecretEncryptPayload,
 } from '@onekeyhq/core/src/secret';
 import type {
   ICoreHyperLiquidAgentCredential,
@@ -161,6 +166,16 @@ import type {
 } from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDeviceType } from '@onekeyfe/hd-core';
+
+const LOCAL_PASSWORD_KDF_LAZY_UPGRADE_CREDENTIAL_BATCH_SIZE = 3;
+
+function stripLocalSecretPrefix(text: string): string {
+  const prefixEnd = text.indexOf('|', 1);
+  if (text.startsWith('|') && prefixEnd > 0) {
+    return text.slice(prefixEnd + 1);
+  }
+  return text;
+}
 
 const getOrderByWalletType = (walletType: IDBWalletType): number => {
   switch (walletType) {
@@ -372,11 +387,332 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         context: ctx,
       });
       if (isValid) {
+        void this.lazyUpgradeLocalPasswordEncryptedRecords({ password });
         return;
       }
       throw new WrongPassword();
     }
     throw new PasswordNotSet();
+  }
+
+  _localPasswordKdfLazyUpgradeExecuted = false;
+
+  _localPasswordKdfLazyUpgradePromise: Promise<void> | undefined;
+
+  async lazyUpgradeLocalPasswordEncryptedRecords({
+    password,
+  }: {
+    password: string;
+  }) {
+    if (
+      this._localPasswordKdfLazyUpgradeExecuted ||
+      (await this.isLocalPasswordKdfLazyUpgradeCompleted())
+    ) {
+      this._localPasswordKdfLazyUpgradeExecuted = true;
+      return;
+    }
+    if (this._localPasswordKdfLazyUpgradePromise) {
+      return this._localPasswordKdfLazyUpgradePromise;
+    }
+
+    this._localPasswordKdfLazyUpgradePromise = (async () => {
+      let failedCount = 0;
+      let credentialsResult: {
+        upgradedCount: number;
+        failedCount: number;
+        remainingCount: number;
+      } = {
+        upgradedCount: 0,
+        failedCount: 0,
+        remainingCount: 1,
+      };
+      try {
+        ensureSensitiveTextEncoded(password);
+        const verifyStringUpgraded =
+          await this.lazyUpgradeContextVerifyStringIfNeeded({ password });
+        credentialsResult = await this.lazyUpgradeCredentialsIfNeeded({
+          password,
+        });
+        failedCount += credentialsResult.failedCount;
+        if (
+          verifyStringUpgraded ||
+          credentialsResult.upgradedCount > 0 ||
+          credentialsResult.remainingCount > 0
+        ) {
+          console.log('localPasswordKdfLazyUpgrade done', {
+            verifyStringUpgraded,
+            credentialUpgradedCount: credentialsResult.upgradedCount,
+            credentialFailedCount: credentialsResult.failedCount,
+            credentialRemainingCount: credentialsResult.remainingCount,
+          });
+        }
+      } catch (error) {
+        failedCount += 1;
+        console.error('localPasswordKdfLazyUpgrade error', error);
+      } finally {
+        const completed =
+          failedCount === 0 && credentialsResult.remainingCount === 0;
+        if (completed) {
+          await this.markLocalPasswordKdfLazyUpgradeCompleted();
+        }
+        this._localPasswordKdfLazyUpgradeExecuted = completed;
+        this._localPasswordKdfLazyUpgradePromise = undefined;
+      }
+    })();
+
+    return this._localPasswordKdfLazyUpgradePromise;
+  }
+
+  async isLocalPasswordKdfLazyUpgradeCompleted(): Promise<boolean> {
+    const ctx = await this.getContext();
+    return (
+      Boolean(ctx.localPasswordKdfUpgraded) &&
+      (ctx.localPasswordKdfUpgradedTargetIterations || 0) >=
+        getSecretEncryptV2LocalTargetIterations()
+    );
+  }
+
+  async markLocalPasswordKdfLazyUpgradeCompleted(): Promise<void> {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateContext({
+        tx,
+        updater: (record) => {
+          record.localPasswordKdfUpgraded = true;
+          record.localPasswordKdfUpgradedTargetIterations =
+            getSecretEncryptV2LocalTargetIterations();
+          record.localPasswordKdfUpgradeLastScannedCredentialId = '';
+          return record;
+        },
+      });
+    });
+  }
+
+  async updateLocalPasswordKdfLazyUpgradeLastScannedCredentialId({
+    lastScannedCredentialId,
+  }: {
+    lastScannedCredentialId: string;
+  }): Promise<void> {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateContext({
+        tx,
+        updater: (record) => {
+          record.localPasswordKdfUpgradeLastScannedCredentialId =
+            lastScannedCredentialId;
+          return record;
+        },
+      });
+    });
+  }
+
+  async lazyUpgradeContextVerifyStringIfNeeded({
+    password,
+  }: {
+    password: string;
+  }): Promise<boolean> {
+    const ctx = await this.getContext();
+    const originalVerifyString = ctx.verifyString;
+    if (originalVerifyString === DEFAULT_VERIFY_STRING) {
+      return false;
+    }
+
+    const result = await decryptVerifyStringWithMetadata({
+      password,
+      verifyString: originalVerifyString,
+    });
+    if (result.plaintext !== DEFAULT_VERIFY_STRING || !result.needsUpgrade) {
+      return false;
+    }
+
+    const nextVerifyString = await encryptVerifyString({ password });
+    let upgraded = false;
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateContext({
+        tx,
+        updater: (record) => {
+          if (record.verifyString === originalVerifyString) {
+            record.verifyString = nextVerifyString;
+            upgraded = true;
+          }
+          return record;
+        },
+      });
+    });
+    return upgraded;
+  }
+
+  isLocalPasswordKdfCredentialUpgradeCandidate({
+    credential,
+  }: {
+    credential: IDBCredentialBase;
+  }): boolean {
+    if (
+      !credential.id.startsWith('hd') &&
+      !credential.id.startsWith('imported')
+    ) {
+      return false;
+    }
+
+    return shouldUpgradeSecretEncryptPayload({
+      data: stripLocalSecretPrefix(credential.credential),
+    });
+  }
+
+  async getLocalPasswordKdfLazyUpgradeRemainingCount(): Promise<number> {
+    const credentials = await this.getAllCredentials();
+    return credentials.filter((credential) =>
+      this.isLocalPasswordKdfCredentialUpgradeCandidate({ credential }),
+    ).length;
+  }
+
+  async lazyUpgradeCredentialsIfNeeded({
+    password,
+  }: {
+    password: string;
+  }): Promise<{
+    upgradedCount: number;
+    failedCount: number;
+    remainingCount: number;
+  }> {
+    const ctx = await this.getContext();
+    const lastScannedCredentialId =
+      ctx.localPasswordKdfUpgradeLastScannedCredentialId || '';
+    // This checkpoint is not an IndexedDB cursor. It is a DB-engine-neutral
+    // credential id checkpoint, so IndexedDB and Realm both use the same
+    // deterministic in-memory ordering before continuing a batch.
+    const credentials = (await this.getAllCredentials()).toSorted((a, b) =>
+      a.id.localeCompare(b.id),
+    );
+    const startIndex = lastScannedCredentialId
+      ? credentials.findIndex(
+          (credential) => credential.id > lastScannedCredentialId,
+        )
+      : 0;
+    const credentialsToScan =
+      startIndex >= 0 ? credentials.slice(startIndex) : [];
+    let upgradedCount = 0;
+    let failedCount = 0;
+    let processedCount = 0;
+    let nextLastScannedCredentialId = lastScannedCredentialId;
+    let reachedEnd = true;
+
+    for (const credential of credentialsToScan) {
+      if (
+        processedCount >= LOCAL_PASSWORD_KDF_LAZY_UPGRADE_CREDENTIAL_BATCH_SIZE
+      ) {
+        reachedEnd = false;
+        break;
+      }
+      if (this.isLocalPasswordKdfCredentialUpgradeCandidate({ credential })) {
+        processedCount += 1;
+        try {
+          const upgraded = await this.lazyUpgradeCredentialIfNeeded({
+            credential,
+            password,
+          });
+          if (upgraded) {
+            upgradedCount += 1;
+          }
+          nextLastScannedCredentialId = credential.id;
+        } catch (error) {
+          failedCount += 1;
+          reachedEnd = false;
+          console.error('localPasswordKdfLazyUpgrade credential error', {
+            credentialId: credential.id,
+            error,
+          });
+          break;
+        }
+      } else {
+        nextLastScannedCredentialId = credential.id;
+      }
+    }
+
+    const remainingCount = reachedEnd && failedCount === 0 ? 0 : 1;
+    let nextCheckpoint = nextLastScannedCredentialId;
+    if (remainingCount === 0) {
+      nextCheckpoint = '';
+    }
+    if (nextCheckpoint !== lastScannedCredentialId) {
+      await this.updateLocalPasswordKdfLazyUpgradeLastScannedCredentialId({
+        lastScannedCredentialId: nextCheckpoint,
+      });
+    }
+    return { upgradedCount, failedCount, remainingCount };
+  }
+
+  async lazyUpgradeCredentialIfNeeded({
+    credential,
+    password,
+  }: {
+    credential: IDBCredentialBase;
+    password: string;
+  }): Promise<boolean> {
+    let nextCredential: string | undefined;
+    const originalCredential = credential.credential;
+
+    if (credential.id.startsWith('imported')) {
+      if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
+        const result = await decryptRevealableSeedWithMetadata({
+          rs: originalCredential,
+          password,
+        });
+        if (!result.needsUpgrade) {
+          return false;
+        }
+        nextCredential = await encryptRevealableSeed({
+          rs: result.plaintext,
+          password,
+        });
+      } else {
+        const result = await decryptImportedCredentialWithMetadata({
+          credential: originalCredential,
+          password,
+        });
+        if (!result.needsUpgrade) {
+          return false;
+        }
+        nextCredential = await encryptImportedCredential({
+          credential: result.plaintext,
+          password,
+        });
+      }
+    } else if (credential.id.startsWith('hd')) {
+      const result = await decryptRevealableSeedWithMetadata({
+        rs: originalCredential,
+        password,
+      });
+      if (!result.needsUpgrade) {
+        return false;
+      }
+      nextCredential = await encryptRevealableSeed({
+        rs: result.plaintext,
+        password,
+      });
+    } else {
+      return false;
+    }
+
+    if (!nextCredential) {
+      return false;
+    }
+
+    let upgraded = false;
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        ids: [credential.id],
+        updater: (record) => {
+          if (record.credential === originalCredential) {
+            record.credential = nextCredential;
+            upgraded = true;
+          }
+          return record;
+        },
+      });
+    });
+
+    return upgraded;
   }
 
   async isPasswordSet(): Promise<boolean> {
