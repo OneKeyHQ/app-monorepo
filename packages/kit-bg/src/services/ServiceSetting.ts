@@ -266,11 +266,17 @@ class ServiceSetting extends ServiceBase {
     }
     await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
     // Refresh the local exchange-rates map so render-time conversion uses
-    // up-to-date rates. Without this, freshly-displayed amounts under the
-    // new currency would be computed against a possibly-stale snapshot of
-    // currencyMap. Best effort: a network failure here doesn't block the
-    // switch (memoized map still serves the last good values).
-    void this.fetchCurrencyList();
+    // up-to-date rates. We await it before kicking the token-list refresh
+    // below — otherwise the resulting fetchAccountTokens can race with the
+    // new currency missing from `currencyMap`, which forces the normalize
+    // path to fall back to caching values under the request currency
+    // instead of USD. Failures aren't fatal (the memoized map still serves
+    // the last good values), so swallow them and proceed.
+    try {
+      await this.fetchCurrencyList();
+    } catch {
+      // best-effort
+    }
     await this.backgroundApi.serviceStaking.resetEarnCache();
     // Background refresh of the token list so server-side prices in the new
     // currency replace the client-converted USD values. The UI has already

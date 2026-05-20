@@ -381,15 +381,24 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     const client = await this.backgroundApi.serviceToken.getClient(
       EServiceEndpointEnum.Wallet,
     );
+    const walletTypeHeader =
+      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId: params.accountId,
+        walletId: params.walletId,
+      });
+    // Mirror fetchTokenListByApi: pin the server-side pricing currency so the
+    // caller's captured currency matches what's actually requested.
+    const headers: Record<string, string> = {
+      ...walletTypeHeader,
+      ...(params.requestCurrency
+        ? { 'x-onekey-request-currency': params.requestCurrency }
+        : {}),
+    };
     const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
       '/wallet/v1/account/token/search',
-      omit(params, ['walletId', 'accountId', 'signal']),
+      omit(params, ['walletId', 'accountId', 'signal', 'requestCurrency']),
       {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId: params.accountId,
-            walletId: params.walletId,
-          }),
+        headers,
         signal: params.signal ?? undefined,
       },
     );
@@ -1430,7 +1439,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
     const { serviceToken, serviceAccountProfile } = this.backgroundApi;
-    const { requestApiParams, flag, signal, accountId } = params;
+    const { requestApiParams, flag, signal, accountId, requestCurrency } =
+      params;
     if (requestApiParams.contractList) {
       requestApiParams.contractList = requestApiParams.contractList.filter(
         (contract): contract is string =>
@@ -1438,13 +1448,23 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       );
     }
     const client = await serviceToken.getClient(EServiceEndpointEnum.Wallet);
+    const walletTypeHeader = await serviceAccountProfile._getWalletTypeHeader({
+      accountId,
+    });
+    // Lock the server-side pricing currency so the captured `requestCurrency`
+    // on the caller side stays in sync with the actual HTTP request, even if
+    // settings.currencyInfo.id changes mid-flight.
+    const headers: Record<string, string> = {
+      ...walletTypeHeader,
+      ...(requestCurrency
+        ? { 'x-onekey-request-currency': requestCurrency }
+        : {}),
+    };
     const resp = await client.post<{
       data: IFetchAccountTokensResp;
     }>(`/wallet/v1/account/token/list?flag=${flag || ''}`, requestApiParams, {
       signal,
-      headers: await serviceAccountProfile._getWalletTypeHeader({
-        accountId,
-      }),
+      headers,
     });
     return resp;
   }
