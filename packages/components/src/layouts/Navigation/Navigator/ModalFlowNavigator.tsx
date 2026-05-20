@@ -27,10 +27,13 @@ export interface IModalFlowNavigatorConfig<
   shouldPopOnClickBackdrop?: boolean;
   dismissOnOverlayPress?: boolean;
   /**
-   * Web-only. Skip the modal `scale(0.95) -> 1` enter/exit transform
-   * for this screen and keep only the opacity fade. Set for popover-like
-   * modals where the bouncy scale animation causes row content to appear
-   * to jump outward during easing. Ignored on native.
+   * Web-only. Skip the modal `scale(0.95) -> scale(1)` transform on
+   * **both enter and exit** for this screen and keep only the opacity
+   * fade. Setting it on any screen of an inner stack causes the whole
+   * navigator instance to opt out (so navigating deeper inside the
+   * modal does not re-enable scale for a later modal-on-modal push).
+   * Use for popover-like modals where the bouncy easing makes row
+   * content visibly jump outward. Ignored on native.
    */
   disableEnterScaleAnimation?: boolean;
 }

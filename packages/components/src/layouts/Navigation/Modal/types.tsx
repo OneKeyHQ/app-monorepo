@@ -22,11 +22,20 @@ export type IModalNavigationOptions = IStackNavigationOptions & {
   shouldPopOnClickBackdrop?: boolean;
   dismissOnOverlayPress?: boolean;
   /**
-   * Web-only. When true, the modal enter/exit animation skips the
-   * `scale(0.95) -> scale(1)` transform and keeps only the opacity fade.
-   * Use for modals that visually behave like popovers where the scale
-   * animation causes child elements (e.g. avatars, right-edge buttons)
-   * to appear to "jump" outward during the bouncy easing.
+   * Web-only. When true, the modal skips the `scale(0.95) -> scale(1)`
+   * transform and keeps only the opacity fade.
+   *
+   * Despite the `Enter` in the name, this disables the scale on **both
+   * enter and exit** — entering opens to `scale(1)` directly, and on
+   * exit / push-over the screen fades out without shrinking. The flag
+   * also propagates to any inner-stack screen pushed inside the same
+   * modal navigator (e.g. AccountSelectorStack -> ExportPrivateKeysPage)
+   * so a subsequent modal-on-modal push does not retroactively shrink
+   * the underlying screen.
+   *
+   * Use for modals that visually behave like popovers where the bouncy
+   * scale animation makes child elements (avatars, right-edge buttons,
+   * etc.) appear to "jump" outward during the overshoot easing.
    *
    * Only consumed by `createWebModalNavigator` (desktop/web). On native,
    * this flag is ignored because the modal uses translateY-based

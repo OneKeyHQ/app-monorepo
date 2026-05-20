@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 import CreateAvatarListWorker from './createAvatarList.worker.js';
 
 import type { IUseBlockieImageUri } from './type.js';
@@ -31,6 +33,13 @@ worker.onmessage = (event: MessageEvent<{ id: string; data: string }>) => {
       mainThreadCache.clear();
     }
     mainThreadCache.set(id, data);
+  } else {
+    // Worker returned empty data — don't poison the cache, but log so
+    // we notice if this regresses into a silent retry loop (every new
+    // mount of the same id would re-post since we never cache "").
+    defaultLogger.app.error.log(
+      `blockie worker returned empty data for id=${id}`,
+    );
   }
   const callbacks = events.get(id);
   callbacks?.forEach((callback) => {
@@ -68,6 +77,8 @@ export const useBlockieImageUri: IUseBlockieImageUri = (id?: string) => {
       setUri('');
       return;
     }
+    // Fast path: cache hit. No async work is started here, so no
+    // cleanup is needed — the early return is intentional.
     const cached = mainThreadCache.get(id);
     if (cached) {
       setUri((prev) => (prev === cached ? prev : cached));
@@ -80,7 +91,11 @@ export const useBlockieImageUri: IUseBlockieImageUri = (id?: string) => {
         setUri(imageUri);
       })
       .catch((error) => {
-        console.error(error);
+        defaultLogger.app.error.log(
+          `makeBlockieImageUri rejected for id=${id}: ${
+            (error as Error)?.message ?? String(error)
+          }`,
+        );
       });
     return () => {
       cancelled = true;

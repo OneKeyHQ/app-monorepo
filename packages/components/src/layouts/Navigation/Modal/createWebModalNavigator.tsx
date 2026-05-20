@@ -283,8 +283,18 @@ function WebModalNavigator({
 
   const stackChildrenRefList = useRef<TamaguiElement[]>([]);
 
-  const disableEnterScaleAnimation =
-    !!descriptor?.options?.disableEnterScaleAnimation;
+  // Hoist the opt-out to the WHOLE inner stack rather than just the
+  // active descriptor. Otherwise navigating into a child screen
+  // (e.g. AccountSelectorStack -> ExportPrivateKeysPage) re-runs the
+  // ref callback with the child's descriptor (which usually has the
+  // option unset) and flips the slot's `noScale` back to `false` — so
+  // a subsequent modal-on-modal push would shrink the underlying stack
+  // with `scale(0.95)`, breaking the visual contract of "this modal
+  // never scales". If any route in the stack opted out, the whole
+  // stack opts out.
+  const disableEnterScaleAnimation = state.routes.some(
+    (route) => !!descriptors[route.key]?.options?.disableEnterScaleAnimation,
+  );
 
   useLayoutEffect(() => {
     const element = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex];
