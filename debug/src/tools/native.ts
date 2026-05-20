@@ -1,5 +1,9 @@
 import { FridaAdapter, type FridaEvent } from "../adapters/frida.js";
 import type { Registry } from "../daemon/registry.js";
+import {
+  isRecordingLayer,
+  recordExternalEvent,
+} from "../record/recorder.js";
 import { JsonRpcException } from "../shared/jsonRpc.js";
 
 function fridaFor(registry: Registry, sessionId: string): FridaAdapter {
@@ -25,7 +29,35 @@ export async function nativeCall(
   p: { sessionId: string; selector: string; args?: unknown[] },
 ): Promise<{ result: unknown }> {
   const f = fridaFor(r, p.sessionId);
-  return { result: await f.call(p.selector, p.args ?? []) };
+  const args = p.args ?? [];
+  try {
+    const result = await f.call(p.selector, args);
+    // Record the call (with its return value) so replay can re-issue it
+    // when the recording's native layer is active.
+    if (isRecordingLayer(p.sessionId, "native")) {
+      await recordExternalEvent(p.sessionId, {
+        ts: Date.now(),
+        layer: "native",
+        kind: "call",
+        selector: p.selector,
+        args,
+        result,
+      });
+    }
+    return { result };
+  } catch (e) {
+    if (isRecordingLayer(p.sessionId, "native")) {
+      await recordExternalEvent(p.sessionId, {
+        ts: Date.now(),
+        layer: "native",
+        kind: "call",
+        selector: p.selector,
+        args,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+    throw e;
+  }
 }
 
 export async function nativeHook(

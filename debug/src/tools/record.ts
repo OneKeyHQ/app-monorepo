@@ -4,6 +4,7 @@ import type { Registry } from "../daemon/registry.js";
 import type { Layer } from "../record/format.js";
 import {
   replay,
+  replayConfirmToken,
   timeline,
   type ReplayParams,
   type ReplayResult,
@@ -48,6 +49,23 @@ export async function recordReplay(
   p: ReplayParams,
 ): Promise<ReplayResult> {
   return await replay(r, p);
+}
+
+// Compute the deterministic confirm token required for a destructive
+// native-layer replay. Callers fetch it via `replay.token` (or directly
+// via this helper from a CLI), then pass it back to `replay --apply` so
+// the player can verify they meant it.
+export function recordReplayToken(
+  _r: Registry,
+  p: { path: string; targetSessionId?: string; layers?: Layer[] },
+): { token: string } {
+  return {
+    token: replayConfirmToken({
+      path: p.path,
+      targetSessionId: p.targetSessionId,
+      layers: p.layers,
+    }),
+  };
 }
 
 export async function recordTimeline(

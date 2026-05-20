@@ -19,6 +19,7 @@ import {
 } from "../tools/perf.js";
 import {
   recordReplay,
+  recordReplayToken,
   recordStart,
   recordStatus,
   recordStop,
@@ -74,6 +75,7 @@ async function main(): Promise<void> {
   d.register("record.stop", (p) => recordStop(registry, p as never));
   d.register("record.status", (p) => recordStatus(registry, p as never));
   d.register("replay", (p) => recordReplay(registry, p as never));
+  d.register("replay.token", (p) => recordReplayToken(registry, p as never));
   d.register("timeline", (p) => recordTimeline(registry, p as never));
 
   const server = new UnixSocketServer(DEFAULT_SOCKET, d);

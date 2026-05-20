@@ -20,6 +20,43 @@ vi.mock("../src/tools/jsEval.js", () => ({
   jsEval: vi.fn(async () => ({ value: 1, type: "number" })),
 }));
 
+// Mock the `frida` module so Registry.attach() can wire a "connected"
+// FridaAdapter we can verify replay --apply forwards calls to.
+const mockFridaCall = vi.fn(async () => "native-result");
+const mockFridaExports = {
+  platform: vi.fn(async () => "ios"),
+  call: mockFridaCall,
+  hook: vi.fn(async () => 1),
+  unhook: vi.fn(async () => true),
+  listHooks: vi.fn(async () => []),
+  drainEvents: vi.fn(async () => []),
+  runScript: vi.fn(async () => ({ ok: true, exports: [] })),
+  memoryClasses: vi.fn(async () => []),
+};
+vi.mock("frida", () => ({
+  default: {
+    getUsbDevice: vi.fn(async () => ({
+      id: "test-device",
+      type: "usb",
+      enumerateApplications: async () => [
+        { identifier: "com.onekey.wallet", pid: 1, name: "OneKey" },
+      ],
+      attach: async () => ({
+        createScript: async () => ({
+          load: async () => undefined,
+          unload: async () => undefined,
+          message: { connect: () => undefined },
+          exports: mockFridaExports,
+        }),
+        detach: async () => undefined,
+      }),
+    })),
+    getDeviceManager: () => ({
+      enumerateDevices: async () => [],
+    }),
+  },
+}));
+
 let dir: string;
 
 beforeEach(() => {
@@ -356,5 +393,140 @@ describe("record with zstd codec (if available)", () => {
     await expect(
       fs.stat(path.join(out, "events.ndjson.zst")),
     ).rejects.toThrow();
+  });
+});
+
+describe("replay native layer", () => {
+  beforeEach(() => mockFridaCall.mockClear());
+
+  it("dry-run does not call into Frida", async () => {
+    const out = path.join(dir, "rec-native.odb");
+    const m: OdbManifest = {
+      version: 1,
+      recordId: "R-n",
+      sessionId: "S-x",
+      platform: "ios",
+      appBundle: "x",
+      layers: ["native"],
+      startedAt: 0,
+      endedAt: 100,
+      eventCount: 1,
+      compression: "none",
+    };
+    await createOdbDir(out, m);
+    await appendEvent(out, {
+      ts: 0,
+      layer: "native",
+      kind: "call",
+      selector: "-[Foo bar]",
+      args: [],
+    });
+    await finalize(out, m);
+
+    const { replay } = await import("../src/record/player.js");
+    const r = await replay({} as never, {
+      path: out,
+      targetSessionId: "S-target",
+      layers: ["native"],
+      speed: 1000,
+      // no apply — dry-run
+    });
+    expect(r.replayed).toBe(0);
+    expect(r.skipped).toBeGreaterThanOrEqual(1);
+    expect(mockFridaCall).not.toHaveBeenCalled();
+  });
+
+  it("apply without confirmToken throws", async () => {
+    const out = path.join(dir, "rec-native-2.odb");
+    const m: OdbManifest = {
+      version: 1,
+      recordId: "R-n2",
+      sessionId: "S-x",
+      platform: "ios",
+      appBundle: "x",
+      layers: ["native"],
+      startedAt: 0,
+      endedAt: 100,
+      eventCount: 1,
+      compression: "none",
+    };
+    await createOdbDir(out, m);
+    await appendEvent(out, {
+      ts: 0,
+      layer: "native",
+      kind: "call",
+      selector: "-[X y]",
+      args: [],
+    });
+    await finalize(out, m);
+
+    const { replay } = await import("../src/record/player.js");
+    await expect(
+      replay({} as never, {
+        path: out,
+        targetSessionId: "S-target",
+        layers: ["native"],
+        apply: true,
+        speed: 1000,
+      }),
+    ).rejects.toThrow(/confirmToken=rct-/);
+  });
+
+  it("apply with matching confirmToken executes via FridaAdapter", async () => {
+    const out = path.join(dir, "rec-native-3.odb");
+    const m: OdbManifest = {
+      version: 1,
+      recordId: "R-n3",
+      sessionId: "S-x",
+      platform: "ios",
+      appBundle: "x",
+      layers: ["native"],
+      startedAt: 0,
+      endedAt: 100,
+      eventCount: 1,
+      compression: "none",
+    };
+    await createOdbDir(out, m);
+    await appendEvent(out, {
+      ts: 0,
+      layer: "native",
+      kind: "call",
+      selector: "-[Foo bar]",
+      args: [42],
+    });
+    await finalize(out, m);
+
+    const { replay, replayConfirmToken } = await import(
+      "../src/record/player.js"
+    );
+    const { Registry } = await import("../src/daemon/registry.js");
+    const reg = new Registry();
+    const s = await reg.attach({ platform: "ios", deviceId: "booted" });
+
+    const token = replayConfirmToken({
+      path: out,
+      targetSessionId: s.id,
+      layers: ["native"],
+    });
+    // Token is deterministic — same inputs yield the same token.
+    expect(token).toMatch(/^rct-[0-9a-f]{16}$/);
+    expect(
+      replayConfirmToken({
+        path: out,
+        targetSessionId: s.id,
+        layers: ["native"],
+      }),
+    ).toBe(token);
+
+    const r = await replay(reg, {
+      path: out,
+      targetSessionId: s.id,
+      layers: ["native"],
+      apply: true,
+      confirmToken: token,
+      speed: 1000,
+    });
+    expect(r.replayed).toBe(1);
+    expect(mockFridaCall).toHaveBeenCalledWith("-[Foo bar]", [42]);
   });
 });

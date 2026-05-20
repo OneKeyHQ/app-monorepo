@@ -33,6 +33,7 @@ describe("MCP server module", () => {
         "record.status",
         "record.stop",
         "replay",
+        "replay.token",
         "screenshot",
         "session.attach",
         "session.detach",

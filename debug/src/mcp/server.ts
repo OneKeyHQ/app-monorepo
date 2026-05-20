@@ -364,14 +364,15 @@ const TOOLS: ToolSpec[] = [
   {
     name: "replay",
     description:
-      "Replay a recorded .odb directory. Only js.eval events are re-executed (on `targetSessionId`); other layers are dry-run. Returns counts {replayed, skipped, errors}.",
+      "Replay events from a .odb recording. js.eval events are re-executed on `targetSessionId`. Pass `apply: true` together with a `confirmToken` (from `replay.token`) to re-execute recorded native.call events — note this can mutate device state. Returns counts {replayed, skipped, errors}.",
     inputSchema: {
       type: "object",
       properties: {
         path: { type: "string", description: "Path to the .odb directory." },
         targetSessionId: {
           type: "string",
-          description: "Session to re-execute js.eval events against.",
+          description:
+            "Session to re-execute js.eval / native.call events against.",
         },
         layers: {
           type: "array",
@@ -379,6 +380,34 @@ const TOOLS: ToolSpec[] = [
           default: ["js"],
         },
         speed: { type: "number", description: "1.0 = real time" },
+        apply: {
+          type: "boolean",
+          default: false,
+          description:
+            "When true, actually re-execute (native is destructive — requires confirmToken).",
+        },
+        confirmToken: {
+          type: "string",
+          description:
+            "Required when apply=true AND layers contains 'native'. Fetch via `replay.token`.",
+        },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "replay.token",
+    description:
+      "Compute the confirm token required to call `replay` with `apply:true` and a native layer included. The token is deterministic — same {path, target, layers} always produces the same token.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string" },
+        targetSessionId: { type: "string" },
+        layers: {
+          type: "array",
+          items: { type: "string", enum: ["js", "network", "native", "ui"] },
+        },
       },
       required: ["path"],
     },

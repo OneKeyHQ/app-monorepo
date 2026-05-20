@@ -76,6 +76,18 @@ export interface OdbNativeEvent extends OdbEventBase {
   method: string;
   retval?: string;
 }
+// Discrete `native call` event — recorded at tool-invocation time (not
+// hook-fire time) so we can re-issue the exact selector + args at replay.
+// Result/error fields are best-effort: result is captured on success, error
+// on failure, mirroring the runtime nativeCall semantics.
+export interface OdbNativeCallEvent extends OdbEventBase {
+  layer: "native";
+  kind: "call";
+  selector: string;
+  args?: unknown[];
+  result?: unknown;
+  error?: unknown;
+}
 export interface OdbUiEvent extends OdbEventBase {
   layer: "ui";
   kind: "snapshot";
@@ -87,6 +99,7 @@ export type OdbEvent =
   | OdbJsEvalEvent
   | OdbNetworkEvent
   | OdbNativeEvent
+  | OdbNativeCallEvent
   | OdbUiEvent;
 
 const NDJSON_NAME = "events.ndjson";

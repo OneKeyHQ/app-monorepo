@@ -18,6 +18,7 @@ import {
   createOdbDir,
   finalize,
   type Layer,
+  type OdbEvent,
   type OdbManifest,
 } from "./format.js";
 
@@ -260,6 +261,29 @@ export async function stopRecording(
 
 export function isRecording(sessionId: string): boolean {
   return activeBySession.has(sessionId);
+}
+
+// True when the session has an active recording AND that recording was
+// configured to capture events on `layer`. Used by tools that want to
+// stream extra events (e.g. native.call) into the .odb out-of-band from
+// the timer-driven pollers.
+export function isRecordingLayer(sessionId: string, layer: Layer): boolean {
+  const a = activeBySession.get(sessionId);
+  return !!a && a.manifest.layers.includes(layer);
+}
+
+// Append an event from outside the recorder's own polling loops. Silently
+// no-ops when the session isn't recording or the event's layer isn't part
+// of the active manifest — callers don't need to gate themselves.
+export async function recordExternalEvent(
+  sessionId: string,
+  ev: OdbEvent,
+): Promise<void> {
+  const a = activeBySession.get(sessionId);
+  if (!a) return;
+  if (!a.manifest.layers.includes(ev.layer)) return;
+  await appendEvent(a.dir, ev);
+  a.manifest.eventCount += 1;
 }
 
 // Test helper — clear active recordings and their timers between tests.

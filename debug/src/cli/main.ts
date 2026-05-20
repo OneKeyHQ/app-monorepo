@@ -419,16 +419,33 @@ program
 
 program
   .command("replay <path>")
-  .option("--target <sessionId>", "target session for js re-execution")
+  .option(
+    "--target <sessionId>",
+    "target session for js / native re-execution",
+  )
   .option("--layers <csv>", "layers to replay", "js")
   .option("--speed <n>", "speed multiplier (1.0 = real time)", (v) =>
     parseFloat(v),
+  )
+  .option(
+    "--apply",
+    "actually execute native calls (default: dry-run; native is destructive)",
+  )
+  .option(
+    "--confirm-token <t>",
+    "required when --apply and --layers includes native",
   )
   .description("Replay a recorded .odb directory onto a live session")
   .action(
     async (
       p: string,
-      opts: { target?: string; layers: string; speed?: number },
+      opts: {
+        target?: string;
+        layers: string;
+        speed?: number;
+        apply?: boolean;
+        confirmToken?: string;
+      },
     ) => {
       process.stdout.write(
         JSON.stringify(
@@ -437,6 +454,8 @@ program
             targetSessionId: opts.target,
             layers: opts.layers.split(","),
             speed: opts.speed,
+            apply: opts.apply,
+            confirmToken: opts.confirmToken,
           }),
           null,
           2,
@@ -444,6 +463,27 @@ program
       );
     },
   );
+
+program
+  .command("replay-token <path>")
+  .option("--target <sessionId>", "target session id")
+  .option("--layers <csv>", "layers to replay", "js,native")
+  .description(
+    "Compute the confirm token required for `replay --apply --layers native`",
+  )
+  .action(async (p: string, opts: { target?: string; layers: string }) => {
+    process.stdout.write(
+      JSON.stringify(
+        await call("replay.token", {
+          path: p,
+          targetSessionId: opts.target,
+          layers: opts.layers.split(","),
+        }),
+        null,
+        2,
+      ) + "\n",
+    );
+  });
 
 program
   .command("timeline <path>")
