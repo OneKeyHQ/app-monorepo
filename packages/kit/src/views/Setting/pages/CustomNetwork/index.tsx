@@ -70,7 +70,7 @@ function AddCustomNetwork() {
     blockExplorerUrl: routeBlockExplorerUrl,
   } = route.params ?? {};
 
-  const isEditMode = !!(route.params ?? {}).chainId;
+  const isEditMode = state === 'edit' || !!routeNetworkId;
 
   const { $sourceInfo, networkInfo } = useDappQuery<{
     networkInfo: IAddEthereumChainParameter;
@@ -242,8 +242,8 @@ function AddCustomNetwork() {
       void dappApprove.resolve({ result: network });
       setTimeout(() => {
         onSuccess?.(network);
-        // Skip add-analytics for edit saves to avoid polluting `customNetworkAdded`
-        // with edit events (routeNetworkName is also present in edit mode).
+        // Skip add-analytics for edit saves only (`state === 'edit'`).
+        // ChainList pre-fills `chainId`, so we must not use it as the edit signal.
         if (!isEditMode) {
           let source: 'manual' | 'chainList' | 'dapp' = 'manual';
           if ($sourceInfo?.id) {
