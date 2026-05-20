@@ -31,10 +31,6 @@ function TokenValueView(props: IProps) {
     return <SizableText {...rest}>-</SizableText>;
   }
 
-  // token.currency is tagged at fetch time (USD for new data) or filled in
-  // by the local-cache lazy fallback. <Currency> reads the source tag and
-  // converts to settings.currencyInfo.id at render — so a currency switch
-  // re-renders this row without invalidating the cache.
   return (
     <Currency
       formatter="value"

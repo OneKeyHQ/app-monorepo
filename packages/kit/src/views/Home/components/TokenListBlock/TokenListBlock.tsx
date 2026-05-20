@@ -64,6 +64,7 @@ import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simp
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useTokenSelectorFilterPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
@@ -1411,10 +1412,6 @@ function TokenListBlock({
         networkId: string;
         accountId: string;
         hasCache: boolean;
-        // Resolved storage currency for this entry. ServiceToken sets this
-        // to 'usd' for new writes and to the user's then-active display
-        // currency for pre-migration entries (so legacy data still renders
-        // correctly before the first post-upgrade fetch).
         currency?: string;
       }[];
       accountId: string;
@@ -1590,11 +1587,10 @@ function TokenListBlock({
 
       if (hasAnyCache) {
         if (syncTokenFilterToOverview) {
-          // All items in `data` come from the same multi-network fetch and
-          // share the same storage currency. Reading the first one is
-          // sufficient; fall back to USD only when nothing has been written
-          // yet (empty cache).
-          const cacheCurrency = data.find((d) => d.currency)?.currency ?? 'usd';
+          // All items share the storage currency (same multi-network fetch);
+          // fall back to USD when the cache is empty.
+          const cacheCurrency =
+            data.find((d) => d.currency)?.currency ?? USD_CURRENCY_ID;
           updateAccountWorth({
             accountId: mergeDeriveAddressData
               ? (indexedAccount?.id ?? '')
@@ -2170,10 +2166,6 @@ function TokenListBlock({
       let tokenListValue = '0';
       let tokenListWorth: Record<string, string> = {};
       let hasLocalTokenCache = false;
-      // Storage currency from the local cache (USD for post-migration data,
-      // user's then-active display currency for legacy entries). Propagated
-      // into accountWorthAtom so HomeOverviewContainer's render-time
-      // conversion knows what basis these worth values are in.
       let cachedWorthCurrency: string | undefined;
 
       if (mergeDeriveAddressData) {

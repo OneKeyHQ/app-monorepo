@@ -386,8 +386,6 @@ export abstract class VaultBaseChainOnly extends VaultContext {
         accountId: params.accountId,
         walletId: params.walletId,
       });
-    // Mirror fetchTokenListByApi: pin the server-side pricing currency so the
-    // caller's captured currency matches what's actually requested.
     const headers: Record<string, string> = {
       ...walletTypeHeader,
       ...(params.requestCurrency
@@ -1451,9 +1449,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const walletTypeHeader = await serviceAccountProfile._getWalletTypeHeader({
       accountId,
     });
-    // Lock the server-side pricing currency so the captured `requestCurrency`
-    // on the caller side stays in sync with the actual HTTP request, even if
-    // settings.currencyInfo.id changes mid-flight.
     const headers: Record<string, string> = {
       ...walletTypeHeader,
       ...(requestCurrency

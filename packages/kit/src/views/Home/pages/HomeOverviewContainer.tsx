@@ -16,6 +16,7 @@ import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
@@ -305,14 +306,12 @@ function HomeOverviewContainer() {
           (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
           '0',
         );
-        // Threshold is named "_USD" — compare in USD basis. accountWorth is
-        // already USD for new data; legacy hydrate falls back to display
-        // currency and needs conversion. Read currencyMap via the ref so
-        // periodic rate refreshes don't re-trigger this side-effect.
+        // Threshold is "_USD" so compare in USD basis. currencyMap is read
+        // via the ref so periodic rate refreshes don't re-trigger this effect.
         const allWorthUsd = convertFiat({
           value: allWorth,
           sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
-          targetCurrency: 'usd',
+          targetCurrency: USD_CURRENCY_ID,
           currencyMap: currencyMapRef.current,
         });
 
@@ -339,10 +338,8 @@ function HomeOverviewContainer() {
           ? account.id
           : (account.indexedAccountId as string);
 
-        // accountWorth values are USD post-commit-1; legacy hydrate without a
-        // currency tag carries the user's then-active display currency.
         // ServiceAccountProfile.convertMapToUsd uses this tag to reverse the
-        // conversion back to USD before persisting — so passing the WRONG tag
+        // conversion back to USD before persisting — passing the wrong tag
         // here would re-divide a USD value by a foreign rate and corrupt the
         // accountValue SimpleDB.
         const accountWorthCurrency =
@@ -529,11 +526,8 @@ function HomeOverviewContainer() {
     overviewDeFiDataState.ownerKey,
   ]);
 
-  // The returned string is in USD basis. The home overview stores all worth
-  // values in USD so a currency switch can re-render via client-side
-  // conversion (see render-time convertFiat call below) instead of forcing a
-  // cache wipe + refetch. DeFi data still arrives in display currency from
-  // DeFiListBlock, so we convert it back to USD here before summing.
+  // Returns a USD-basis string. DeFi data arrives in display currency from
+  // DeFiListBlock, so it's converted back to USD here before summing.
   const resolvedBalanceString = useMemo(() => {
     const isAllNetworks = !!network?.isAllNetworks;
 
@@ -547,10 +541,6 @@ function HomeOverviewContainer() {
       return undefined;
     }
 
-    // tokenWorth is already in USD (ServiceToken normalized fiat fields and
-    // accountWorthAtom.currency is 'usd' on every new write). Legacy hydrate
-    // before the first post-upgrade fetch may still be in the user's display
-    // currency — accountWorth.currency surfaces that for client conversion.
     const tokenWorth =
       !isAllNetworks || isCurrentAccountWorthReady
         ? calculateAccountTokensValue({
@@ -563,13 +553,10 @@ function HomeOverviewContainer() {
     const tokenWorthUsd = convertFiat({
       value: tokenWorth,
       sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
-      targetCurrency: 'usd',
+      targetCurrency: USD_CURRENCY_ID,
       currencyMap,
     });
 
-    // accountDeFiOverview.netWorth is stored in its source currency at write
-    // time (see DeFiListBlock). Convert to USD so it can be summed with
-    // tokenWorthUsd.
     const deFiWorthRaw =
       !isAllNetworks || isCurrentAccountDeFiReady
         ? (accountDeFiOverview.netWorth ?? 0)
@@ -577,7 +564,7 @@ function HomeOverviewContainer() {
     const deFiWorthUsd = convertFiat({
       value: deFiWorthRaw,
       sourceCurrency: accountDeFiOverview.currency || settings.currencyInfo.id,
-      targetCurrency: 'usd',
+      targetCurrency: USD_CURRENCY_ID,
       currencyMap,
     });
 
@@ -622,16 +609,13 @@ function HomeOverviewContainer() {
       currentOverviewOwnerKey &&
       isCurrentAllNetworksBalanceFullyReady
     ) {
-      // resolvedBalanceString is USD-basis (see comment on its useMemo).
-      // Tag the atom with `currency: 'usd'` so the cold-start hydrate path
-      // can decide what to convert the cached value to on next launch.
       setLastConfirmedOverviewBalance((prev) => ({
         latest: resolvedBalanceString,
         byOwner: {
           ...prev.byOwner,
           [currentOverviewOwnerKey]: resolvedBalanceString,
         },
-        currency: 'usd',
+        currency: USD_CURRENCY_ID,
       }));
     }
   }, [
@@ -642,21 +626,17 @@ function HomeOverviewContainer() {
   ]);
 
   const effectiveOwnerKey = currentOverviewOwnerKey || bootstrapOwnerKey;
-  // Legacy hydrate (pre-USD-basis migration) has no currency tag — those
-  // values were written in the user's then-active display currency. Use
-  // settings.currencyInfo.id as the source-of-truth fallback so the conversion
-  // to USD below is a no-op when the user hasn't switched currency yet.
+  // Pre-migration hydrate has no currency tag; values were written in the
+  // user's then-active display currency.
   const lastConfirmedCurrency =
     lastConfirmedOverviewBalance.currency ?? settings.currencyInfo.id;
   const rawCurrentConfirmedBalance =
     lastConfirmedOverviewBalance.byOwner[effectiveOwnerKey];
-  // Normalize cached confirmed balances to USD so they can flow through the
-  // same conversion path as resolvedBalanceString.
   const currentConfirmedBalance = rawCurrentConfirmedBalance
     ? convertFiat({
         value: rawCurrentConfirmedBalance,
         sourceCurrency: lastConfirmedCurrency,
-        targetCurrency: 'usd',
+        targetCurrency: USD_CURRENCY_ID,
         currencyMap,
       })
     : undefined;
@@ -705,17 +685,12 @@ function HomeOverviewContainer() {
     !!currentConfirmedBalance &&
     !isCurrentAllNetworksBalanceFullyReady;
 
-  // All three inputs are USD-basis here:
-  //  - resolvedBalanceString: sum of USD-normalized worth + USD-converted DeFi
-  //  - currentConfirmedBalance: already converted to USD above
-  //  - lastConfirmedOverviewBalance.latest: stored raw, convert at use site
-  //    via the same lazy-migration source currency.
   const lastConfirmedLatestUsd =
     canReuseLatestDisplayedBalance && lastConfirmedOverviewBalance.latest
       ? convertFiat({
           value: lastConfirmedOverviewBalance.latest,
           sourceCurrency: lastConfirmedCurrency,
-          targetCurrency: 'usd',
+          targetCurrency: USD_CURRENCY_ID,
           currencyMap,
         })
       : undefined;
@@ -797,21 +772,17 @@ function HomeOverviewContainer() {
       ? debouncedBalancePayload.value
       : undefined;
 
-  // USD-basis throughout the home overview pipeline. Persistence to
-  // lastConfirmedOverviewBalance also uses this USD form.
   const renderedBalanceString = displayBalanceString ?? debouncedBalanceString;
 
-  // Final conversion: USD → user's active display currency. This is the only
-  // place the on-screen number depends on the current settings.currencyInfo.id,
-  // so a currency switch reflows the visible balance instantly without
-  // touching any cached state.
+  // The single USD → display-currency conversion point; a currency switch
+  // reflows the visible balance without touching cached state.
   const renderedBalanceStringDisplay = useMemo(() => {
     if (renderedBalanceString === undefined || renderedBalanceString === null) {
       return renderedBalanceString;
     }
     return convertFiat({
       value: renderedBalanceString,
-      sourceCurrency: 'usd',
+      sourceCurrency: USD_CURRENCY_ID,
       targetCurrency: settings.currencyInfo.id,
       currencyMap,
     });
@@ -839,16 +810,13 @@ function HomeOverviewContainer() {
           balanceToPersist !== null &&
           currentOverviewOwnerKey
         ) {
-          // renderedBalanceString is USD-basis (it flows through
-          // displayBalanceString from resolvedBalanceString / currentConfirmedBalance,
-          // all of which are USD strings).
           setLastConfirmedOverviewBalance((prev) => ({
             latest: balanceToPersist,
             byOwner: {
               ...prev.byOwner,
               [currentOverviewOwnerKey]: balanceToPersist,
             },
-            currency: 'usd',
+            currency: USD_CURRENCY_ID,
           }));
         }
       } catch {

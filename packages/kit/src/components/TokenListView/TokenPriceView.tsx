@@ -22,9 +22,6 @@ function TokenPriceView(props: IProps) {
   const tokenListMap = contextTokenListMap ?? globalTokenListMap;
   const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
 
-  // token.price is now USD-normalized for new data (currency='usd'); legacy
-  // hydrate is tagged with the user's then-active display currency.
-  // <Currency> converts the source tag to settings.currencyInfo.id at render.
   return (
     <Currency
       formatter="price"

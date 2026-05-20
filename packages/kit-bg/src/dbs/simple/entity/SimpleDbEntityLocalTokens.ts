@@ -22,11 +22,9 @@ export interface ISimpleDBLocalTokens {
   riskyTokenList: Record<string, IAccountToken[]>; // <networkId_accountAddress/xpub, IAccountToken[]>
   tokenListMap: Record<string, Record<string, ITokenFiat>>; // <networkId_accountAddress/xpub, Record<string, ITokenFiat>>
   tokenListValue: Record<string, string>; // <networkId_accountAddress/xpub, string>
-  // Per-key currency tag for tokenListMap / tokenListValue. New writes
-  // normalize fiat fields to 'usd' so a currency switch can re-render via
-  // client-side conversion. Keys missing here are pre-migration entries
-  // still in the user's display currency; callers (ServiceToken) supply the
-  // lazy fallback (current settings.currencyInfo.id).
+  // Per-key currency tag for tokenListMap / tokenListValue. Missing keys are
+  // pre-migration entries in the user's then-active display currency;
+  // ServiceToken supplies the lazy fallback.
   tokenListCurrency?: Record<string, string>;
 }
 
@@ -289,9 +287,6 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
         rawData?.tokenList ?? {},
         key,
       ),
-      // undefined means a pre-migration entry stored in the user's display
-      // currency. ServiceToken applies the lazy fallback (current
-      // settings.currencyInfo.id) before exposing the value to the UI.
       currency: rawData?.tokenListCurrency?.[key],
     };
 

@@ -2,6 +2,7 @@ import { useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
@@ -50,13 +51,10 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         accountId: string;
         updateAll?: boolean;
         merge?: boolean;
-        // Source currency of `worth` / `createAtNetworkWorth`. Defaults to
-        // 'usd' since all upstream producers (ServiceToken) now normalize
-        // server fiat values to USD before they reach this action.
         currency?: string;
       },
     ) => {
-      const currency = payload.currency ?? 'usd';
+      const currency = payload.currency ?? USD_CURRENCY_ID;
       if (payload.merge) {
         const { worth, createAtNetworkWorth } = get(accountWorthAtom());
         set(accountWorthAtom(), {
@@ -160,9 +158,8 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
             .plus(value.overview.totalReward ?? 0)
             .toNumber(),
           // Honor the producer's currency on first merge into an empty atom
-          // (overview.currency defaults to ''). Without this, the consumer
-          // falls back to settings.currencyInfo.id, which silently misreads
-          // the basis after a later currency switch.
+          // (overview.currency defaults to ''); otherwise a later currency
+          // switch silently misreads the basis.
           currency: value.currency ?? overview.currency,
           accountId: value.accountId ?? overview.accountId,
           networkId: value.networkId ?? overview.networkId,
