@@ -199,9 +199,8 @@ function TxHistoryListContainer(
 
   const isManualRefresh = useRef(false);
 
-  // Stable string capturing the source identity tuple. Both the init effect
-  // (short-circuit guard) and the dep-change effect (counter bump) consume
-  // this so they cannot drift apart on what counts as an identity change.
+  // Stable identity tuple shared by the init guard and request-id effect so
+  // they can't drift on what counts as an identity change.
   const identityKey = useMemo(
     () =>
       [
@@ -220,18 +219,12 @@ function TxHistoryListContainer(
     ],
   );
 
-  // Monotonic request id. Bumped on identity dep changes (via the effect
-  // below) AND at the start of every `run()` body — so old in-flight fetches
-  // are invalidated *before* the next debounced runner even starts, and
-  // early-return runs (no network / no account) still produce a fresh id
-  // that older runs can compare against.
+  // Monotonic request id; bumped on identity change AND at the start of every
+  // `run()` body (before any early return) so older in-flight fetches can't
+  // outlive an identity switch.
   const fetchRequestIdRef = useRef(0);
   const { run } = usePromiseResult(
     async () => {
-      // Bump UNCONDITIONALLY, before any early return, so an older in-flight
-      // run cannot survive across an identity change just because the new
-      // run happened to early-return (no account/network). The captured
-      // `requestId` is used everywhere below to gate state writes.
       fetchRequestIdRef.current += 1;
       const requestId = fetchRequestIdRef.current;
       const isCurrentRequest = () => fetchRequestIdRef.current === requestId;
@@ -274,8 +267,6 @@ function TxHistoryListContainer(
         };
         let aggregatedHasMoreOnChainHistory = false;
 
-        // Set BEFORE emit so a throwing handler can't strand earlier
-        // subscribers that already received the `true` event.
         emittedTrue = true;
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: true,
@@ -328,9 +319,6 @@ function TxHistoryListContainer(
         updateAddressesInfo({
           data: r.addressMap ?? {},
         });
-        // Seed the load-more hook with the freshest cursor/hasMore. Must be
-        // gated behind isCurrentRequest() (above) so a superseded fetch can't
-        // overwrite the new identity's load-more state.
         onFirstPageResponse({
           next: r.next,
           hasMore: aggregatedHasMoreOnChainHistory,
@@ -353,11 +341,9 @@ function TxHistoryListContainer(
           });
         }
       } finally {
-        // Always release the request-level latch regardless of error / abort
-        // / supersession, otherwise the next polling tick would be wrongly
-        // marked as a manual refresh (forcing an on-chain fetch).
+        // Must clear unconditionally — otherwise the next polling tick would
+        // be wrongly treated as a manual refresh.
         isManualRefresh.current = false;
-        // emit-false must mirror emit-true so subscribers are released.
         if (emittedTrue) {
           appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
             isRefreshing: false,
@@ -366,7 +352,6 @@ function TxHistoryListContainer(
             networkId: refreshNetworkId,
           });
         }
-        // Only the freshest run owns the header refresh indicator.
         if (isCurrentRequest()) {
           setIsHeaderRefreshing(false);
         }
@@ -396,15 +381,12 @@ function TxHistoryListContainer(
     },
   );
 
-  // Identity of the last in-flight `initHistoryState`. `null` means no init
-  // is owned by the current identity (initial mount or identity went
-  // invalid). Async reads compare their captured identity against this ref
-  // to bail out if a faster identity switch already took ownership.
+  // Owner of the current `initHistoryState`. `null` means no valid identity
+  // (initial mount or transition); async reads bail when this no longer
+  // matches their captured identity.
   const lastInitIdentityRef = useRef<string | null>(null);
-  // Monotonic request id bumped on every `initHistoryState` launch. Combined
-  // with `lastInitIdentityRef`, this lets a same-identity dep change (e.g.
-  // filter/currency/limit) re-read the local cache while preventing an older
-  // slow fetch from clobbering newer results after they resolve out of order.
+  // Bumped on every `initHistoryState` launch so a same-identity rerun (e.g.
+  // filter/currency change) supersedes any older slow read.
   const initRequestIdRef = useRef(0);
   useEffect(() => {
     const initHistoryState = async ({
@@ -465,11 +447,8 @@ function TxHistoryListContainer(
           });
       }
 
-      // Bail out if either:
-      //   (a) a faster identity switch took ownership during the await, OR
-      //   (b) a newer same-identity effect run (e.g. filter/currency/limit
-      //       change) superseded this one — without (b), an older slow fetch
-      //       could clobber newer filter results after both resolve.
+      // Bail if a faster identity switch or a newer same-identity rerun took
+      // ownership during the await — stale rows must not clobber fresh state.
       if (
         lastInitIdentityRef.current !== capturedIdentity ||
         initRequestIdRef.current !== requestId
@@ -484,12 +463,9 @@ function TxHistoryListContainer(
           isRefreshing: false,
         });
       } else {
-        // No local cache for the current identity/filter combo — drop any
-        // rows still hanging around (from the previous account, or from a
-        // prior filter/currency setting) so the user sees a clean skeleton
-        // (driven by initialized=false) instead of stale data while the
-        // first-page fetch is in flight. Same-reference short-circuit avoids
-        // a redundant re-render when state is already empty.
+        // No local cache — drop stale rows so the skeleton shows instead of
+        // the previous identity's data while the first-page fetch is in
+        // flight. Same-reference short-circuit avoids a redundant render.
         setHistoryData((prev) => (prev.length === 0 ? prev : []));
         setHistoryState({
           initialized: false,
@@ -501,10 +477,8 @@ function TxHistoryListContainer(
       refreshAllNetworksHistory.current = false;
     };
     if ((account?.id || mergeDeriveAddressData) && network?.id && wallet?.id) {
-      // Always re-run on every dep change (filter/currency/limit included) so
-      // the local cache view stays in sync with the latest filter inputs.
-      // Concurrent runs are disambiguated by `initRequestIdRef`; old-identity
-      // writes are still blocked by the `capturedIdentity` check above.
+      // Rerun on every dep change so the local cache view stays in sync with
+      // the latest filter inputs; older runs bail via the guards above.
       lastInitIdentityRef.current = identityKey;
       initRequestIdRef.current += 1;
       const requestId = initRequestIdRef.current;
@@ -516,10 +490,8 @@ function TxHistoryListContainer(
         requestId,
       });
     } else {
-      // Identity went invalid (account/network/wallet became null during a
-      // transition). Release ownership so any awaiting `initHistoryState`
-      // from the previous valid identity bails out instead of writing stale
-      // rows into the new identity's state.
+      // Identity went invalid — release ownership so the prior identity's
+      // awaiting init bails out instead of writing into the new state.
       lastInitIdentityRef.current = null;
     }
   }, [
@@ -534,14 +506,11 @@ function TxHistoryListContainer(
     wallet?.id,
     settings.currencyInfo.id,
     currencyMap,
-    limit,
     identityKey,
   ]);
 
-  // Invalidate in-flight `run()` synchronously on identity change, so an
-  // old run resolving during the ~1s `usePromiseResult` debounce window
-  // can't write into the new identity's state before the next runner even
-  // starts. The runner-body bump alone cannot cover this window.
+  // Invalidate in-flight `run()` synchronously on identity change — covers the
+  // ~1s `usePromiseResult` debounce window where the runner-body bump can't.
   useEffect(() => {
     fetchRequestIdRef.current += 1;
   }, [identityKey]);
@@ -553,10 +522,7 @@ function TxHistoryListContainer(
     }
   }, [isHeaderRefreshing, run, resetLoadMore]);
 
-  // Wipe paginated state whenever the source identity changes; first-page fetch
-  // will re-initialize it via onFirstPageResponse. The request-id effect above
-  // already invalidates any in-flight run, so this only needs to drop the
-  // load-more cursor/state.
+  // Drop load-more cursor on identity change; first-page fetch re-seeds it.
   useEffect(() => {
     resetLoadMore();
   }, [

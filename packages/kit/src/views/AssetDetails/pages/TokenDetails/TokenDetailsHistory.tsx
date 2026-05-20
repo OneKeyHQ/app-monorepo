@@ -130,13 +130,9 @@ function TokenDetailsHistory(props: IProps) {
     currencyMap,
   });
 
-  // Monotonic request id. Bumped on identity dep changes (via the effect
-  // below) AND at the start of every `run()` body, mirroring
-  // TxHistoryContainer's pattern — without this, a slow first-page response
-  // from a prior token/account could resolve after `resetLoadMore()` has
-  // cleared the hook state and re-seed the load-more cursor with the wrong
-  // identity's data (`useHistoryListLoadMore` short-circuits subsequent
-  // `onFirstPageResponse` calls via `initializedRef`).
+  // Monotonic request id; bumped on identity change AND at the start of every
+  // `run()` body so a slow stale response can't re-seed the load-more cursor
+  // after `resetLoadMore()` ran.
   const fetchRequestIdRef = useRef(0);
   const { result: tokenHistory, run } = usePromiseResult(
     async () => {
@@ -153,9 +149,7 @@ function TokenDetailsHistory(props: IProps) {
           sourceCurrency: settings.currencyInfo.id,
           currencyMap,
         });
-        // Drop every side effect past this point if a newer fetch already
-        // took over — stale cursor/hasMore would otherwise be seeded into the
-        // load-more hook for the new identity.
+        // Skip side effects if a newer fetch superseded this one.
         if (!isCurrentRequest()) {
           return r.txs ?? [];
         }
@@ -196,10 +190,8 @@ function TokenDetailsHistory(props: IProps) {
     historyPromiseOptions,
   );
 
-  // Reset paginated state whenever the source identity changes; the next first
-  // page response will re-initialize it. Also bump the fetch request id so an
-  // in-flight `usePromiseResult` body resolving during the debounce window can
-  // detect supersession and skip seeding the load-more cursor.
+  // Reset load-more on identity change; bump the request id so an in-flight
+  // body resolving during the debounce window detects supersession.
   useEffect(() => {
     fetchRequestIdRef.current += 1;
     resetLoadMore();

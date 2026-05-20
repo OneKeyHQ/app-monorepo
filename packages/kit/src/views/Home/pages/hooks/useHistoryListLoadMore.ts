@@ -61,10 +61,8 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
   const initializedRef = useRef(false);
   const pageRef = useRef(1);
   const cursorRef = useRef<string | undefined>(undefined);
-  // Indexer chains feed `next` back as `maxTimestampMs` (a strictly
-  // decreasing ms timestamp); non-indexer chains treat `next` as opaque (and
-  // some emit monotonically increasing offsets). Stamped on first-page
-  // response so the cursor-advancement check can pick the right rule below.
+  // Stamped from the first-page response; consumed by `isHistoryCursorAdvanced`
+  // to pick between timestamp and opaque-cursor advancement rules.
   const isIndexerCursorRef = useRef(false);
   const loadCountRef = useRef(0);
   // Tracks an onEndReached call that arrived before pagination state was
@@ -111,9 +109,7 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       }
       initializedRef.current = true;
       pageRef.current = 1;
-      // Cursor is opportunistic — indexer chains feed it back as
-      // `maxTimestampMs`; non-indexer chains pass it as opaque `cursor`.
-      // Either way, hasMore is the backend's word.
+      // Indexer chains return a timestamp; non-indexer return opaque.
       cursorRef.current = normalizeCursor(meta.next);
       isIndexerCursorRef.current = !!meta.isIndexer;
       setHasMore(!!meta.hasMore);
@@ -185,9 +181,6 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       const previousCursor = cursor;
       const nextCursor = normalizeCursor(r.next);
       cursorRef.current = nextCursor;
-      // Keep the indexer flag in sync defensively — the network shouldn't
-      // switch mid-pagination, but if the service ever resolves it later
-      // than the first page we still want to pick the right rule.
       if (typeof r.isIndexer === 'boolean') {
         isIndexerCursorRef.current = r.isIndexer;
       }
