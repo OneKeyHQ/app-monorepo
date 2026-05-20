@@ -23,6 +23,7 @@ Automates the complete PR creation workflow for OneKey app-monorepo changes.
 | 9 | Update branch | `gh pr update-branch <number>` |
 | 10 | Enable auto-merge | `gh pr merge <number> --auto --squash` |
 | 11 | Update Jira issue | Update `1k-github-branch` and `1k-github-pr-url` fields |
+| 12 | Bundle Release Info (only when BASE is `release/v*`) | Trigger `release-app-bundles` + post Bundle Release Info comment |
 
 ## Workflow
 
@@ -220,7 +221,47 @@ fields: {
 }
 ```
 
-### 12. Return PR URL
+### 12. Bundle Release Info Comment (热更流程 only)
+
+**Trigger condition:** `BASE` from step 2 matches `release/v*` (i.e. this PR is part of the bundle hot-update flow). For PRs targeting `x`, **skip this entire step**.
+
+**Why:** Bundle hot-update PRs need a single canonical comment with PR / Bundle / BUILD_NUMBER / BUILD_BUNDLE_VERSION / BUILD_SOURCE / BRANCH / COMMIT / JIRA so QA can validate against the exact bundle artifact.
+
+**Ask the user first — this step is opt-in:**
+
+> "This PR targets `$BASE` (bundle hot-update). Run the Bundle Release Info step? It triggers the `release-app-bundles` workflow (if needed) and posts a comment on the PR.
+> Requires GitHub repo write access — skip if you don't have permission to trigger Actions or comment.
+> [Y] run / [n] skip"
+
+If the user says no, skip directly to step 13. Never auto-run this step without an explicit yes.
+
+**What to do (only after the user confirms):**
+
+1. Check whether a `release-app-bundles` run already exists for `$HEAD_BRANCH`:
+
+   ```bash
+   gh run list --repo OneKeyHQ/app-monorepo \
+     --branch "$HEAD_BRANCH" \
+     --workflow release-app-bundles \
+     --limit 1 \
+     --json databaseId,status,conclusion
+   ```
+
+2. If none exists → trigger one, **ref must match the PR head branch**:
+
+   ```bash
+   gh workflow run release-app-bundles.yml \
+     --repo OneKeyHQ/app-monorepo \
+     --ref "$HEAD_BRANCH"
+   ```
+
+   Ask the user before triggering — it's a shared-state action that costs ~25-30 min of CI time.
+
+3. Once a successful run exists, hand off to `/1k-pr-bundle-info <PR_NUMBER>` for the full flow (parse `prepare-params` logs → derive Jira key → format → post/update comment).
+
+See [/1k-pr-bundle-info](../1k-pr-bundle-info/SKILL.md) for the canonical comment format, parsing logic, and idempotent update behavior. Do not reimplement here.
+
+### 13. Return PR URL
 
 Display PR URL to user and open in browser:
 ```bash
