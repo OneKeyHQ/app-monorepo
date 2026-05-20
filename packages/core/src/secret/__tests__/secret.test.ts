@@ -230,7 +230,7 @@ describe('Secret Module Tests', () => {
         hardenedIndex,
         testPassword,
       );
-      expect(childKey.key.length).toBe(96);
+      expect(childKey.key.length).toBe(109);
       expect(childKey.chainCode.length).toBe(32);
     });
 
@@ -1705,7 +1705,7 @@ describe('Secret Module Tests', () => {
       );
       expect(masterKey.key).toBeInstanceOf(Buffer);
       expect(masterKey.chainCode).toBeInstanceOf(Buffer);
-      expect(masterKey.key.length).toBe(96);
+      expect(masterKey.key.length).toBe(109);
       expect(masterKey.chainCode.length).toBe(32);
     });
 
@@ -1721,7 +1721,7 @@ describe('Secret Module Tests', () => {
       );
       expect(masterKey.key).toBeInstanceOf(Buffer);
       expect(masterKey.chainCode).toBeInstanceOf(Buffer);
-      expect(masterKey.key.length).toBe(96);
+      expect(masterKey.key.length).toBe(109);
       expect(masterKey.chainCode.length).toBe(32);
     });
 
@@ -1737,7 +1737,7 @@ describe('Secret Module Tests', () => {
       );
       expect(masterKey.key).toBeInstanceOf(Buffer);
       expect(masterKey.chainCode).toBeInstanceOf(Buffer);
-      expect(masterKey.key.length).toBe(96);
+      expect(masterKey.key.length).toBe(109);
       expect(masterKey.chainCode.length).toBe(32);
     });
 

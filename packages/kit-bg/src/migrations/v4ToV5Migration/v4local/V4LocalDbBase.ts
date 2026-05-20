@@ -1,4 +1,5 @@
 import {
+  ESecretEncryptPayloadFormat,
   decryptAsync,
   decryptVerifyString,
   encryptAsync,
@@ -207,9 +208,14 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
           });
           const importedCredentialRebuild: IV4DBImportedCredentialRaw = {
             privateKey: bufferUtils.bytesToHex(
+              // V4→V5 migration intentionally keeps legacy AES-CBC + 5k PBKDF2.
+              // Lazy upgrade after first unlock will rewrite these credentials
+              // to v2; doing the heavy KDF here would block migration on
+              // low-end Android (~120× slowdown per credential).
               await encryptAsync({
                 password: newPassword,
                 data: privateKeyDecrypt,
+                format: ESecretEncryptPayloadFormat.legacy,
               }),
             ),
           };
@@ -232,12 +238,19 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
 
           const hdCredentialRebuild: IV4DBHdCredentialRaw = {
             seed: bufferUtils.bytesToHex(
-              await encryptAsync({ password: newPassword, data: seedDecrypt }),
+              // See note above on importedCredentialRebuild — keep legacy
+              // format during migration; lazy upgrade promotes to v2 later.
+              await encryptAsync({
+                password: newPassword,
+                data: seedDecrypt,
+                format: ESecretEncryptPayloadFormat.legacy,
+              }),
             ),
             entropy: bufferUtils.bytesToHex(
               await encryptAsync({
                 password: newPassword,
                 data: entropyDecrypt,
+                format: ESecretEncryptPayloadFormat.legacy,
               }),
             ),
           };

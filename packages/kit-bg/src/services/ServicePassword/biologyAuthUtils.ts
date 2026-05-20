@@ -1,5 +1,6 @@
 import {
   decodeSensitiveTextAsync,
+  decodeSensitiveTextAsyncWithMetadata,
   encodeKeyPrefix,
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret/encryptors/aes256';
@@ -61,13 +62,29 @@ class BiologyAuthUtils implements IBiologyAuth {
     );
     if (text) {
       const settings = await settingsPersistAtom.get();
-      text = await decodeSensitiveTextAsync({
+      const decodeResult = await decodeSensitiveTextAsyncWithMetadata({
         encodedText: text,
         key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
       });
+      if (decodeResult.needsUpgrade) {
+        try {
+          await appStorage.secureStorage.setSecureItem(
+            SECURE_STORAGE_PASSWORD_KEY,
+            await encodeSensitiveTextAsync({
+              text: decodeResult.text,
+              key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
+            }),
+          );
+        } catch (error) {
+          console.error(
+            'Failed to upgrade biology auth password storage',
+            error,
+          );
+        }
+      }
       const key =
         await appGlobals.$backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey();
-      text = await encodeSensitiveTextAsync({ text, key });
+      text = await encodeSensitiveTextAsync({ text: decodeResult.text, key });
       return text;
     }
     throw new OneKeyLocalError('No password');

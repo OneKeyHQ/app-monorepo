@@ -1,4 +1,5 @@
 import { analytics } from '@onekeyhq/shared/src/analytics';
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
   backgroundClass,
   backgroundMethod,
@@ -46,6 +47,15 @@ class ServiceDevSetting extends ServiceBase {
     );
   }
 
+  async syncCryptoSettings() {
+    const devSettings = await devSettingsPersistAtom.get();
+    appCrypto.pbkdf2.setPbkdf2NativeBackend(
+      devSettings.enabled && devSettings.settings?.useFastPbkdf2NativeBackend
+        ? 'react-native-fast-pbkdf2'
+        : 'react-native-aes-crypto',
+    );
+  }
+
   @backgroundMethod()
   public async switchDevMode(isOpen: boolean) {
     await devSettingsPersistAtom.set((prev) => ({
@@ -53,6 +63,7 @@ class ServiceDevSetting extends ServiceBase {
       settings: isOpen ? prev.settings : {},
     }));
     void this.saveDevModeToSyncStorage();
+    void this.syncCryptoSettings();
   }
 
   @backgroundMethod()
@@ -65,6 +76,7 @@ class ServiceDevSetting extends ServiceBase {
       },
     }));
     void this.saveDevModeToSyncStorage();
+    void this.syncCryptoSettings();
   }
 
   @backgroundMethod()
