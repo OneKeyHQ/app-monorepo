@@ -29,6 +29,11 @@ import {
   promiseAllSettledEnhanced,
 } from '@onekeyhq/shared/src/utils/promiseUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
+import {
+  prefixOf,
+  swrCacheNamespaces,
+  swrCacheUtils,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
@@ -48,6 +53,13 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
+  _clearDiscoveryHomeBookmarksSwr() {
+    swrCacheUtils.removeByPrefix(
+      prefixOf(swrCacheNamespaces.discoveryHomeBookmarks),
+    );
+    swrCacheUtils.flushNow();
+  }
+
   @backgroundMethod()
   async fetchHistoryData(page = 1, pageSize = 15) {
     const start = (page - 1) * pageSize;
@@ -452,6 +464,10 @@ class ServiceDiscovery extends ServiceBase {
         // Trigger bookmark list refresh after building bookmark data
         appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
       }, 200);
+    }
+
+    if (savedSuccess) {
+      this._clearDiscoveryHomeBookmarksSwr();
     }
 
     if (savedSuccess && !isRemove) {

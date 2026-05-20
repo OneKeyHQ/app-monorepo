@@ -43,16 +43,16 @@ function DashboardContent({
   } = usePromiseResult(
     async () => {
       try {
-        const result = await pRetry(
+        return await pRetry(
           () =>
             backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData(),
           {
             retries: 3,
           },
         );
-        return result;
       } catch (error) {
         console.error(error);
+        throw error;
       } finally {
         setIsRefreshing(false);
       }
