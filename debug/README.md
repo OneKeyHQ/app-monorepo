@@ -5,39 +5,47 @@ and any MCP-aware agent a unified, CDP-like surface — `screenshot`,
 `ui.tree`, `js.eval`, WebView CDP, Frida native hooks, performance metrics,
 record / replay — no Xcode, no Android Studio, no GUI required.
 
-## Status (V1)
+## Status (V2)
 
 ### Shipped
 
 - Daemon over Unix socket (JSON-RPC 2.0), idempotent start, back-pressure
 - Sessions (multi-device aware) with adapter health (CDP / Frida / Native)
+  — Frida device picked by `deviceId` so two concurrent sessions never
+  cross-attach
 - **JS layer**: `js.eval`, `js.console.tail`, `js.network.list`, `js.network.body`
 - **WebView**: `webview.list`, `webview.eval`, `webview.dom.query`
-  (iOS via `ios-webkit-debug-proxy`, Android via `adb forward` to
-  `chrome://inspect`-style CDP endpoints)
+  (iOS via `ios-webkit-debug-proxy` on a per-session free port, Android
+  via `adb forward` to `chrome://inspect`-style CDP endpoints)
 - **Native UI**: `ui.tree` (Android `uiautomator` + iOS sim `lldb`
   `recursiveDescription`), `screenshot`
 - **Native injection (Frida)**: `native.call`, `native.hook`,
   `native.unhook`, `native.listHooks`, `native.events`, `native.script.run`
-- **Performance**: `perf.metrics`, `perf.fps.tail`, `perf.memory.classes`,
-  `perf.trace.start`, `perf.trace.stop`
+- **Performance**: `perf.metrics`, `perf.fps.tail`, `perf.memory.classes`
+  (iOS via Frida ObjC enum; Android via `dumpsys meminfo`),
+  `perf.trace.start`, `perf.trace.stop` — emits Chrome-trace JSON via real
+  `xctrace export` → schema conversion (viewable in `ui.perfetto.dev`)
 - **Record / replay**: `record.start`, `record.stop`, `record.status`,
-  `replay`, `timeline` — multi-layer `.odb` directories
+  `replay`, `timeline`, `replay.token` — multi-layer `.odb` directories
+  with **zstd**-compressed event streams (via Node 22 `node:zlib`), live
+  `replay --apply --layers native` gated by a deterministic confirm-token
 - **Safety**: secret scrubber middleware (mnemonics, hex keys, xpub/xprv,
-  sensitive key names), opt out via `ODB_SCRUB=0`
+  sensitive key names), opt out via `ODB_SCRUB=0`; destructive replay
+  requires `replay.token` round-trip
 - **Bootstrap**: `__onekey_debug__` exposed inside Hermes at session attach
   (`store`, `queryClient`, `navigation`, `version`)
 - **iOS real device**: `scripts/inject-gadget-ios.sh` for Debug-signed apps
-- **29 MCP tools**, **92 tests**, full typecheck clean
+- **30 MCP tools**, **113 tests + 1 skipped**, full typecheck clean
 
-### Deferred (V2)
+### Deferred (V3+)
 
-- Frida-based memory class enumeration on iOS (Android only in V1)
-- `xctrace` → Chrome trace JSON conversion (currently dumps raw XML;
-  Perfetto host conversion via `traceconv` works)
-- `zstd` compression for `.odb` traces (raw JSONL today)
-- Live `replay --layers native` (recorded, but currently dry-run)
-- Multi-device parallel sessions (one-device-at-a-time tested only)
+- `class_getInstanceSize` binding for accurate iOS `perf.memory.classes`
+  byte counts (currently a 200B/instance heuristic)
+- Streaming multi-frame zstd (currently one frame at finalize — see
+  `src/record/codec.ts` for the rationale)
+- Live `replay --layers network` (currently dry-run; replay would
+  re-issue requests which is rarely useful for debugging)
+- Cross-session video capture / synchronization
 
 ## Install
 
