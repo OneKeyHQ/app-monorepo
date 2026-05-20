@@ -115,7 +115,12 @@ function NotBackedUp() {
       </YStack>
 
       <YStack gap="$4" w="100%" $gtMd={{ w: 280 }}>
-        <Button variant="primary" size="large" onPress={handlePrimaryBackup}>
+        <Button
+          variant="primary"
+          size="large"
+          onPress={handlePrimaryBackup}
+          testID="home-not-backed-up-primary-backup"
+        >
           {primaryButtonText}
         </Button>
         <WalletBackupActions
@@ -123,7 +128,7 @@ function NotBackedUp() {
           hidePhrase={!enableCloudBackup}
           hideCloud={!!enableCloudBackup}
         >
-          <Button size="large">
+          <Button size="large" testID="home-not-backed-up-more-backup-options">
             {intl.formatMessage({ id: ETranslations.more_backup_options })}
           </Button>
         </WalletBackupActions>

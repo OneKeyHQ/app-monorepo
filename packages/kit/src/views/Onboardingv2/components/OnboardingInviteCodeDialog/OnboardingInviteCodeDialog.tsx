@@ -79,7 +79,7 @@ const SPINNER_MIN_HOLD_AFTER_SHOWN_MS = 1000;
 // continuous motion rather than a swap.
 // Blur softens the in/out — without it, the spring snap reads as harsh
 // because there's no other surface motion to absorb it. OneKey uses the
-// same opacity+transform+blur(2px) recipe in Onboardingv2 layout enter
+// same opacity+transform+blur(2px) recipe in Onboarding v2 layout enter
 // transitions (filter is web-only, but harmless on native — Tamagui treats
 // it as a no-op when the animateOnly list excludes it).
 const APPLY_ENTER_STYLE = {
@@ -320,6 +320,7 @@ function OnboardingInviteCodeDialogContent({
           })}
           maxLength={30}
           autoCapitalize="none"
+          testID="onboarding-invite-code-input"
         />
       </Form.Field>
       {/* Custom footer: matches Dialog.Footer's layout but renders the Apply
@@ -338,6 +339,7 @@ function OnboardingInviteCodeDialogContent({
           // only the inner label animates.
           opacity={1}
           onPress={handleSkip}
+          testID="onboarding-invite-code-skip"
         >
           {intl.formatMessage({ id: ETranslations.global_skip })}
         </Button>
@@ -353,6 +355,7 @@ function OnboardingInviteCodeDialogContent({
           opacity={1}
           onPress={handleApply}
           childrenAsText={false}
+          testID="onboarding-invite-code-apply"
         >
           {/* 3-state label: idle (Apply) → submitting (Spinner) → success
               (Check). Each state is wrapped in <Stack> so Tamagui animation
