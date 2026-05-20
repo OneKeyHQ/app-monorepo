@@ -78,6 +78,12 @@ export enum EEarnLabels {
   Buy = 'Buy',
 }
 
+export interface IEarnOrderTrackingInfo {
+  stakingLabel?: EEarnLabels;
+  stakingProtocol?: string;
+  stakingTags?: IStakeTag[];
+}
+
 export type IStakingInfo = {
   protocol: string;
   protocolLogoURI?: string;
