@@ -6,6 +6,7 @@ import { Toast, rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
+import { parseReferralLandingUrl } from '@onekeyhq/kit/src/routes/config/deeplink/referralLandingLink';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { MaximumNumberOfTabs } from '@onekeyhq/kit/src/views/Discovery/config/Discovery.constants';
 import type {
@@ -857,6 +858,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }: IGotoSiteFnParams,
     ) => {
       if (url) {
+        if (parseReferralLandingUrl(url)) {
+          handleDeepLinkUrl({ url });
+          return false;
+        }
+
         const allowLocalhostUrl = isLocalhostUrlAllowedInDAppBrowser();
         const isLocalhost = uriUtils.isLocalhostUrl(url);
         const shouldBlockLocalhostUrl = !allowLocalhostUrl && isLocalhost;
@@ -989,6 +995,12 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         dApp?: IMatchDAppItemType['dApp'];
       },
     ) => {
+      const url = dApp?.url ?? webSite?.url;
+      if (url && parseReferralLandingUrl(url)) {
+        handleDeepLinkUrl({ url });
+        return;
+      }
+
       // Auto-detect if already on Discovery/MultiTabBrowser tab
       let needsSwitchTab = true;
       try {
@@ -1124,6 +1136,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const isValidNewUrl = typeof url === 'string' && url !== tab.url;
 
       if (url) {
+        if (parseReferralLandingUrl(url)) {
+          handleDeepLinkUrl({ url });
+          return;
+        }
+
         const cache = get(phishingLruCacheAtom());
         const allowLocalhostUrl = isLocalhostUrlAllowedInDAppBrowser();
         const { action } = uriUtils.parseDappRedirect(
@@ -1285,6 +1302,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (uriUtils.containsPunycode(url)) {
         defaultLogger.discovery.browser.logRejectUrl(url);
         return EValidateUrlEnum.InvalidPunycode;
+      }
+      if (parseReferralLandingUrl(url)) {
+        return EValidateUrlEnum.ValidDeeplink;
       }
       if (uriUtils.isValidDeepLink(url)) {
         return EValidateUrlEnum.ValidDeeplink;

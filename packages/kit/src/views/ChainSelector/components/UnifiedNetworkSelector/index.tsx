@@ -295,9 +295,9 @@ function UnifiedNetworkSelector() {
     if (!accountId && !indexedAccountId) return;
 
     const [_accountsValue, _localDeFiOverview] = await Promise.all([
-      backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValue({
-        accounts: [{ accountId: indexedAccountId ?? accountId ?? '' }],
-      }),
+      backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValueByAccountId(
+        { accountId: indexedAccountId ?? accountId ?? '' },
+      ),
       backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
         accounts: [
           {
@@ -310,7 +310,7 @@ function UnifiedNetworkSelector() {
       }),
     ]);
 
-    if (_accountsValue[0] || _localDeFiOverview[0]) {
+    if (_accountsValue || _localDeFiOverview[0]) {
       const {
         formattedAccountNetworkValues,
         accountDeFiOverview: _accountDeFiOverview,
@@ -318,16 +318,16 @@ function UnifiedNetworkSelector() {
         await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
           {
             walletId: accountUtils.getWalletIdFromAccountId({
-              accountId: _accountsValue[0]?.accountId ?? '',
+              accountId: _accountsValue?.accountId ?? '',
             }),
             chainSelectorNetworks: compatibleNetworks,
-            accountNetworkValues: _accountsValue[0]?.value ?? {},
+            accountNetworkValues: _accountsValue?.value ?? {},
             localDeFiOverview: _localDeFiOverview[0]?.overview ?? {},
           },
         );
 
       setAccountNetworkValues(formattedAccountNetworkValues ?? {});
-      setAccountNetworkValueCurrency(_accountsValue[0]?.currency);
+      setAccountNetworkValueCurrency(_accountsValue?.currency);
       setAccountDeFiOverview(_accountDeFiOverview ?? {});
     }
   }, [accountId, indexedAccountId, compatibleNetworks]);

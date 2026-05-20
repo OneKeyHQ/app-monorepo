@@ -671,6 +671,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
                 {
                   setUndefinedTimeToNow: true,
                   callerName: 'Enable Keyless Cloud Sync',
+                  // Re-apply scene updates after the Keyless wallet,
+                  // credential, and cached password are all ready. Bot Wallet
+                  // items can be skipped during the earlier login window.
+                  forceSync: true,
                 },
               );
             } finally {
@@ -681,6 +685,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
             await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
               setUndefinedTimeToNow: true,
               callerName: 'Enable Keyless Cloud Sync',
+              forceSync: true,
             });
           }
         }

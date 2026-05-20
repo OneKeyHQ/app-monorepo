@@ -82,9 +82,9 @@ const EditableAccountChainSelector = ({
     async () => {
       const [_accountsValue, _chainSelectorNetworks, _localDeFiOverview] =
         await Promise.all([
-          backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValue({
-            accounts: [{ accountId: indexedAccount?.id ?? account?.id ?? '' }],
-          }),
+          backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValueByAccountId(
+            { accountId: indexedAccount?.id ?? account?.id ?? '' },
+          ),
           backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
             {
               accountId: account?.id,
@@ -105,7 +105,7 @@ const EditableAccountChainSelector = ({
           }),
         ]);
 
-      if (_accountsValue[0] || _localDeFiOverview[0]) {
+      if (_accountsValue || _localDeFiOverview[0]) {
         const {
           chainSelectorNetworks: sortedChainSelectorNetworks,
           formattedAccountNetworkValues,
@@ -113,10 +113,10 @@ const EditableAccountChainSelector = ({
         } = await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
           {
             walletId: accountUtils.getWalletIdFromAccountId({
-              accountId: _accountsValue[0].accountId,
+              accountId: _accountsValue?.accountId ?? '',
             }),
             chainSelectorNetworks: _chainSelectorNetworks,
-            accountNetworkValues: _accountsValue[0].value ?? {},
+            accountNetworkValues: _accountsValue?.value ?? {},
             localDeFiOverview: _localDeFiOverview[0]?.overview ?? {},
           },
         );
@@ -124,7 +124,7 @@ const EditableAccountChainSelector = ({
         return {
           chainSelectorNetworks: sortedChainSelectorNetworks,
           accountNetworkValues: formattedAccountNetworkValues,
-          accountNetworkValueCurrency: _accountsValue[0].currency,
+          accountNetworkValueCurrency: _accountsValue?.currency,
           accountDeFiOverview: _accountDeFiOverview,
         };
       }
