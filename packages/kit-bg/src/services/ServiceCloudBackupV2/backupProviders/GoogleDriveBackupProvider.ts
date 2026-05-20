@@ -1,10 +1,7 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { omit } from 'lodash';
 
-import {
-  decryptStringAsync,
-  encryptStringAsync,
-} from '@onekeyhq/core/src/secret';
+import { decryptStringAsync } from '@onekeyhq/core/src/secret';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import {
   CLOUD_BACKUP_PASSWORD_SALT,
@@ -31,6 +28,11 @@ import type {
   IGoogleUserInfo,
 } from '@onekeyhq/shared/src/storage/GoogleDriveStorage/types';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+
+import {
+  EAppCryptoSharedEncryptScene,
+  encryptStringAsyncWithFormat,
+} from '../../../utils/secretEncryptFormat';
 
 import type { IOneKeyBackupProvider } from './IOneKeyBackupProvider';
 
@@ -64,11 +66,12 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     }
     const manifest = await this.getManifest();
     const content: IBackupDataPasswordVerify = {
-      content: await encryptStringAsync({
+      content: await encryptStringAsyncWithFormat({
         allowRawPassword: true,
         password: params.password + CLOUD_BACKUP_PASSWORD_SALT,
         data: CLOUD_BACKUP_PASSWORD_VERIFY_TEXT,
         dataEncoding: 'utf8',
+        sharedScene: EAppCryptoSharedEncryptScene.cloudBackupV2PasswordVerify,
       }),
     };
     manifest.backupPasswordVerify = content;
