@@ -21,6 +21,10 @@ import {
   IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { ETranslations, ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -261,7 +265,18 @@ class ServiceSetting extends ServiceBase {
       return;
     }
     await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
+    // Refresh the local exchange-rates map so render-time conversion uses
+    // up-to-date rates. Without this, freshly-displayed amounts under the
+    // new currency would be computed against a possibly-stale snapshot of
+    // currencyMap. Best effort: a network failure here doesn't block the
+    // switch (memoized map still serves the last good values).
+    void this.fetchCurrencyList();
     await this.backgroundApi.serviceStaking.resetEarnCache();
+    // Background refresh of the token list so server-side prices in the new
+    // currency replace the client-converted USD values. The UI has already
+    // re-rendered under the new currency via <Currency sourceCurrency='usd'>
+    // by the time this lands.
+    appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
   }
 
   @backgroundMethod()
