@@ -44,6 +44,10 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import {
+  currencyPersistAtom,
+  settingsPersistAtom,
+} from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 import { getVaultSettings } from '../vaults/settings';
 
@@ -93,13 +97,106 @@ class ServiceToken extends ServiceBase {
     riskyTokenList: Record<string, IAccountToken[]>;
     tokenListValue: Record<string, string>;
     tokenListMap: Record<string, Record<string, ITokenFiat>>;
+    // Per-key currency tag mirroring the SimpleDB schema. All entries
+    // buffered here are post-normalization, so values are always 'usd'.
+    tokenListCurrency: Record<string, string>;
   } = {
     tokenList: {},
     smallBalanceTokenList: {},
     riskyTokenList: {},
     tokenListValue: {},
     tokenListMap: {},
+    tokenListCurrency: {},
   };
+
+  // Normalize all fiat fields in a fetchAccountTokens response from the
+  // request-time display currency to USD. Lets the cache layer store a single
+  // currency-agnostic basis so a later currency switch can re-render via
+  // <Currency sourceCurrency="usd"> instead of invalidating the cache.
+  private async normalizeTokensRespToUsd(
+    data: IFetchAccountTokensResp,
+    requestCurrency: string,
+  ): Promise<void> {
+    if (requestCurrency === 'usd') {
+      this.tagTokensRespCurrency(data, 'usd');
+      return;
+    }
+    const { currencyMap } = await currencyPersistAtom.get();
+    const rateItem = currencyMap[requestCurrency];
+    if (!rateItem) {
+      // Unknown currency in the local map — leave values untagged so the
+      // read side falls back to treating them as display-currency.
+      return;
+    }
+    const rate = new BigNumber(rateItem.value);
+    if (!rate.isFinite() || rate.isZero()) {
+      return;
+    }
+
+    const convertFiat = (fiat: ITokenFiat): void => {
+      if (fiat.fiatValue) {
+        fiat.fiatValue = new BigNumber(fiat.fiatValue).div(rate).toFixed();
+      }
+      if (fiat.frozenBalanceFiatValue) {
+        fiat.frozenBalanceFiatValue = new BigNumber(fiat.frozenBalanceFiatValue)
+          .div(rate)
+          .toFixed();
+      }
+      if (fiat.totalBalanceFiatValue) {
+        fiat.totalBalanceFiatValue = new BigNumber(fiat.totalBalanceFiatValue)
+          .div(rate)
+          .toFixed();
+      }
+      if (typeof fiat.price === 'number' && Number.isFinite(fiat.price)) {
+        fiat.price = new BigNumber(fiat.price).div(rate).toNumber();
+      }
+      if (typeof fiat.price24h === 'number' && Number.isFinite(fiat.price24h)) {
+        fiat.price24h = new BigNumber(fiat.price24h).div(rate).toNumber();
+      }
+      fiat.currency = 'usd';
+    };
+
+    const convertTokenData = (td: ITokenData | undefined): void => {
+      if (!td) return;
+      Object.values(td.map ?? {}).forEach(convertFiat);
+      if (td.fiatValue) {
+        td.fiatValue = new BigNumber(td.fiatValue).div(rate).toFixed();
+      }
+      td.currency = 'usd';
+    };
+
+    convertTokenData(data.tokens);
+    convertTokenData(data.smallBalanceTokens);
+    convertTokenData(data.riskTokens);
+    convertTokenData(data.allTokens);
+
+    if (data.aggregateTokenMap) {
+      Object.values(data.aggregateTokenMap).forEach(convertFiat);
+    }
+  }
+
+  // Tag every fiat entry with `currency` without mutating amounts. Used when
+  // the response is already in USD so callers can still read the tag.
+  private tagTokensRespCurrency(
+    data: IFetchAccountTokensResp,
+    currency: string,
+  ): void {
+    const tagFiat = (fiat: ITokenFiat): void => {
+      fiat.currency = currency;
+    };
+    const tagTokenData = (td: ITokenData | undefined): void => {
+      if (!td) return;
+      Object.values(td.map ?? {}).forEach(tagFiat);
+      td.currency = currency;
+    };
+    tagTokenData(data.tokens);
+    tagTokenData(data.smallBalanceTokens);
+    tagTokenData(data.riskTokens);
+    tagTokenData(data.allTokens);
+    if (data.aggregateTokenMap) {
+      Object.values(data.aggregateTokenMap).forEach(tagFiat);
+    }
+  }
 
   @backgroundMethod()
   public async fetchAccountTokens(
@@ -281,6 +378,9 @@ class ServiceToken extends ServiceBase {
       accountId,
       networkId,
     });
+    const requestCurrency =
+      (await settingsPersistAtom.get())?.currencyInfo?.id ?? 'usd';
+
     const resp = await vault.fetchTokenList({
       accountId,
       requestApiParams: {
@@ -293,6 +393,11 @@ class ServiceToken extends ServiceBase {
       flag,
       signal: controller.signal,
     });
+
+    // Normalize fiat fields to USD before any downstream caching/aggregation.
+    // After this point, every fiat number in `resp.data.data` is USD-based.
+    await this.normalizeTokensRespToUsd(resp.data.data, requestCurrency);
+
     let allTokens: ITokenData | undefined;
 
     resp.data.data.tokens.data = resp.data.data.tokens.data.map((token) => {
@@ -353,6 +458,10 @@ class ServiceToken extends ServiceBase {
           networkName: network?.name,
           mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
         }));
+        // map entries inherit the USD tag from the upstream normalization;
+        // tag the outer currency here so callers reading `allTokens.currency`
+        // see the same value.
+        allTokens.currency = 'usd';
       }
       resp.data.data.allTokens = allTokens;
     }
@@ -395,6 +504,7 @@ class ServiceToken extends ServiceBase {
         this.localAccountTokensCache.tokenListValue[key] =
           tokenListValue.toFixed();
         this.localAccountTokensCache.tokenListMap[key] = filteredTokenListMap;
+        this.localAccountTokensCache.tokenListCurrency[key] = 'usd';
 
         await this._updateAccountLocalTokensDebounced();
       } else {
@@ -407,6 +517,7 @@ class ServiceToken extends ServiceBase {
           riskyTokenList: filteredRiskyTokenList,
           tokenListValue: tokenListValue.toFixed(),
           tokenListMap: filteredTokenListMap,
+          currency: 'usd',
         });
       }
     }
@@ -469,6 +580,7 @@ class ServiceToken extends ServiceBase {
         riskyTokenList: {},
         tokenListValue: {},
         tokenListMap: {},
+        tokenListCurrency: {},
       };
     },
     3000,
@@ -769,6 +881,7 @@ class ServiceToken extends ServiceBase {
     riskyTokenList: IAccountToken[];
     tokenListMap: Record<string, ITokenFiat>;
     tokenListValue: string;
+    currency: string;
   }) {
     const {
       dbAccount,
@@ -779,6 +892,7 @@ class ServiceToken extends ServiceBase {
       riskyTokenList,
       tokenListMap,
       tokenListValue,
+      currency,
     } = params;
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
@@ -802,6 +916,7 @@ class ServiceToken extends ServiceBase {
       riskyTokenList,
       tokenListMap,
       tokenListValue,
+      currency,
     });
   }
 
@@ -886,12 +1001,37 @@ class ServiceToken extends ServiceBase {
       perf.markEnd('mapAccountTokenList');
     }
 
+    // Lazy migration: legacy entries (written before the USD-basis migration)
+    // have no `tokenListCurrency` tag. Treat them as the user's current
+    // display currency — that's the only thing we know about how they were
+    // stored, and it makes <Currency> render them as a no-op until the next
+    // fetchAccountTokens overwrites the entry with USD-normalized data.
+    let resolvedCurrency = localTokens.currency;
+    if (!resolvedCurrency && localTokens.hasCache) {
+      resolvedCurrency =
+        (await settingsPersistAtom.get())?.currencyInfo?.id ?? 'usd';
+    }
+
+    // Decorate ITokenFiat entries with the resolved currency tag so UI
+    // callers can pass it to <Currency sourceCurrency=...> without having to
+    // thread the outer tag through every component.
+    const tokenListMap = resolvedCurrency
+      ? Object.fromEntries(
+          Object.entries(localTokens.tokenListMap).map(([k, fiat]) => [
+            k,
+            { ...fiat, currency: fiat.currency ?? resolvedCurrency },
+          ]),
+        )
+      : localTokens.tokenListMap;
+
     perf.done();
     return {
       ...localTokens,
       tokenList,
       smallBalanceTokenList,
       riskyTokenList,
+      tokenListMap,
+      currency: resolvedCurrency,
       hasCache: localTokens.hasCache,
       accountId,
       networkId,

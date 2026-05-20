@@ -22,6 +22,12 @@ export interface ISimpleDBLocalTokens {
   riskyTokenList: Record<string, IAccountToken[]>; // <networkId_accountAddress/xpub, IAccountToken[]>
   tokenListMap: Record<string, Record<string, ITokenFiat>>; // <networkId_accountAddress/xpub, Record<string, ITokenFiat>>
   tokenListValue: Record<string, string>; // <networkId_accountAddress/xpub, string>
+  // Per-key currency tag for tokenListMap / tokenListValue. New writes
+  // normalize fiat fields to 'usd' so a currency switch can re-render via
+  // client-side conversion. Keys missing here are pre-migration entries
+  // still in the user's display currency; callers (ServiceToken) supply the
+  // lazy fallback (current settings.currencyInfo.id).
+  tokenListCurrency?: Record<string, string>;
 }
 
 export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocalTokens> {
@@ -54,6 +60,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       riskyTokenList: rawData?.riskyTokenList ?? {},
       tokenListMap: rawData?.tokenListMap ?? {},
       tokenListValue: rawData?.tokenListValue ?? {},
+      tokenListCurrency: rawData?.tokenListCurrency ?? {},
     }));
   }
 
@@ -129,6 +136,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     riskyTokenList,
     tokenListMap,
     tokenListValue,
+    currency,
   }: {
     networkId: string;
     accountAddress?: string;
@@ -138,6 +146,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     riskyTokenList: IAccountToken[];
     tokenListMap: Record<string, ITokenFiat>;
     tokenListValue: string;
+    currency: string;
   }) {
     if (!accountAddress && !xpub) {
       throw new OneKeyInternalError('accountAddress or xpub is required');
@@ -183,6 +192,10 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
         ...rawData?.tokenListValue,
         [key]: tokenListValue,
       },
+      tokenListCurrency: {
+        ...rawData?.tokenListCurrency,
+        [key]: currency,
+      },
     }));
     perf.markEnd('setRawData');
     perf.done();
@@ -195,6 +208,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     riskyTokenList: Record<string, IAccountToken[]>;
     tokenListValue: Record<string, string>;
     tokenListMap: Record<string, Record<string, ITokenFiat>>;
+    tokenListCurrency: Record<string, string>;
   }) {
     await this.setRawData((rawData) => ({
       data: rawData?.data ?? {},
@@ -217,6 +231,10 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       tokenListValue: {
         ...rawData?.tokenListValue,
         ...tokenListCache.tokenListValue,
+      },
+      tokenListCurrency: {
+        ...rawData?.tokenListCurrency,
+        ...tokenListCache.tokenListCurrency,
       },
     }));
   }
@@ -271,6 +289,10 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
         rawData?.tokenList ?? {},
         key,
       ),
+      // undefined means a pre-migration entry stored in the user's display
+      // currency. ServiceToken applies the lazy fallback (current
+      // settings.currencyInfo.id) before exposing the value to the UI.
+      currency: rawData?.tokenListCurrency?.[key],
     };
 
     perf.done();
@@ -287,6 +309,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       riskyTokenList: {},
       tokenListMap: {},
       tokenListValue: {},
+      tokenListCurrency: {},
     });
   }
 }
