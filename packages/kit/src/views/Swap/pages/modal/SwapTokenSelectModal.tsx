@@ -30,6 +30,7 @@ import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
@@ -53,7 +54,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
-  TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
+  isTokenSelectorDappTokenFilterSupportedNetwork,
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -114,7 +115,30 @@ const SwapTokenSelectPage = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
-  const showLpTokensOnly = TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED
+  const [currentSelectNetwork, setCurrentSelectNetwork] =
+    useSwapSelectTokenNetworkAtom();
+  const { result: currentSelectServerNetwork } = usePromiseResult(async () => {
+    if (
+      !currentSelectNetwork?.networkId ||
+      currentSelectNetwork.isAllNetworks
+    ) {
+      return undefined;
+    }
+    return backgroundApiProxy.serviceNetwork.getNetwork({
+      networkId: currentSelectNetwork.networkId,
+    });
+  }, [currentSelectNetwork?.isAllNetworks, currentSelectNetwork?.networkId]);
+  const showLpTokenFilterSwitch =
+    SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED &&
+    isTokenSelectorDappTokenFilterSupportedNetwork({
+      network: currentSelectNetwork?.isAllNetworks
+        ? {
+            id: currentSelectNetwork.networkId,
+            isAllNetworks: true,
+          }
+        : currentSelectServerNetwork,
+    });
+  const showLpTokensOnly = showLpTokenFilterSwitch
     ? tokenSelectorFilter.swapShowLpTokensOnly
     : false;
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
@@ -172,8 +196,6 @@ const SwapTokenSelectPage = ({
     toToken?.networkId,
     type,
   ]);
-  const [currentSelectNetwork, setCurrentSelectNetwork] =
-    useSwapSelectTokenNetworkAtom();
   const listViewRef = useRef<FlatList>(null);
   const handleLpTokenFilterChange = useCallback(
     (value: boolean) => {
@@ -219,7 +241,7 @@ const SwapTokenSelectPage = ({
     currentSelectNetwork?.networkId,
     requestedSearchKeyword,
     swapTypeSwitch,
-    TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED ? showLpTokensOnly : undefined,
+    showLpTokenFilterSwitch ? showLpTokensOnly : undefined,
   );
   const alertIndex = useMemo(
     () =>
@@ -626,7 +648,7 @@ const SwapTokenSelectPage = ({
               </SizableText>
             </XStack>
           </XStack>
-          {TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED ? (
+          {showLpTokenFilterSwitch ? (
             <TokenSelectorLpTokenSwitch
               value={showLpTokensOnly}
               onChange={handleLpTokenFilterChange}
