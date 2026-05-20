@@ -66,8 +66,7 @@ function TokenDetailsHistory(props: IProps) {
   const { isFocused } = useTabIsRefreshingFocused();
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
-  const { updateAddressesInfo, setHasMoreOnChainHistory } =
-    useHistoryListActions().current;
+  const { updateAddressesInfo } = useHistoryListActions().current;
   const historyCacheKey = useMemo(
     () =>
       [
@@ -131,8 +130,19 @@ function TokenDetailsHistory(props: IProps) {
     currencyMap,
   });
 
+  // Monotonic request id. Bumped on identity dep changes (via the effect
+  // below) AND at the start of every `run()` body, mirroring
+  // TxHistoryContainer's pattern — without this, a slow first-page response
+  // from a prior token/account could resolve after `resetLoadMore()` has
+  // cleared the hook state and re-seed the load-more cursor with the wrong
+  // identity's data (`useHistoryListLoadMore` short-circuits subsequent
+  // `onFirstPageResponse` calls via `initializedRef`).
+  const fetchRequestIdRef = useRef(0);
   const { result: tokenHistory, run } = usePromiseResult(
     async () => {
+      fetchRequestIdRef.current += 1;
+      const requestId = fetchRequestIdRef.current;
+      const isCurrentRequest = () => fetchRequestIdRef.current === requestId;
       try {
         const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
           accountId,
@@ -143,23 +153,31 @@ function TokenDetailsHistory(props: IProps) {
           sourceCurrency: settings.currencyInfo.id,
           currencyMap,
         });
+        // Drop every side effect past this point if a newer fetch already
+        // took over — stale cursor/hasMore would otherwise be seeded into the
+        // load-more hook for the new identity.
+        if (!isCurrentRequest()) {
+          return r.txs ?? [];
+        }
         updateAddressesInfo({
           data: r.addressMap ?? {},
         });
-        setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
         // Persist only first-page rows in the LRU cache; appended pages are
         // session-scoped and would bloat the cache if stored here.
         tokenHistoryCache.set(historyCacheKey, r.txs ?? []);
         onFirstPageResponse({
           next: r.next,
           hasMore: r.hasMoreOnChainHistory,
+          isIndexer: r.isIndexer,
         });
         setTimeout(() => {
           recomputeLayout();
         }, 300);
         return r.txs ?? [];
       } finally {
-        setHistoryInit(true);
+        if (isCurrentRequest()) {
+          setHistoryInit(true);
+        }
       }
     },
     [
@@ -171,7 +189,6 @@ function TokenDetailsHistory(props: IProps) {
       settings.currencyInfo.id,
       currencyMap,
       updateAddressesInfo,
-      setHasMoreOnChainHistory,
       recomputeLayout,
       historyCacheKey,
       onFirstPageResponse,
@@ -180,8 +197,11 @@ function TokenDetailsHistory(props: IProps) {
   );
 
   // Reset paginated state whenever the source identity changes; the next first
-  // page response will re-initialize it.
+  // page response will re-initialize it. Also bump the fetch request id so an
+  // in-flight `usePromiseResult` body resolving during the debounce window can
+  // detect supersession and skip seeding the load-more cursor.
   useEffect(() => {
+    fetchRequestIdRef.current += 1;
     resetLoadMore();
   }, [historyCacheKey, resetLoadMore]);
 

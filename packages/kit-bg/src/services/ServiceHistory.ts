@@ -232,6 +232,10 @@ class ServiceHistory extends ServiceBase {
     return {
       hasMoreOnChainHistory: !!onChainResult.hasMore,
       next: onChainResult.next,
+      // Indexer chains feed `next` back as `maxTimestampMs` (a strictly
+      // decreasing ms timestamp); non-indexer chains treat `next` as opaque.
+      // Surface this so the UI hook can pick the right cursor-advancement rule.
+      isIndexer: !!onChainResult.isIndexer,
       accounts: [] as IAllNetworkAccountInfo[],
       allAccounts: [] as IAllNetworkAccountInfo[],
       txs: filtered,
@@ -452,6 +456,7 @@ class ServiceHistory extends ServiceBase {
       addressMap,
       hasMore: hasMoreOnChainHistory,
       next,
+      isIndexer: isIndexerChain,
     } = await this.fetchAccountOnChainHistory({
       ...resolvedParams,
       isAllNetworks,
@@ -622,6 +627,10 @@ class ServiceHistory extends ServiceBase {
     return {
       hasMoreOnChainHistory,
       next,
+      // AllNetworks aggregates server-side and is not paginated, so it's
+      // never an "indexer cursor" path; only the single-network branch
+      // carries the upstream flag.
+      isIndexer: !isAllNetworks && !!isIndexerChain,
       accounts,
       allAccounts,
       txs: result,
@@ -795,7 +804,12 @@ class ServiceHistory extends ServiceBase {
           typeof response.next === 'string' && response.next.length > 0
             ? response.next
             : undefined;
-        const advanced = isHistoryCursorAdvanced(prevCursor, nextCursor);
+        // Per-deriveType advancement rule depends on whether the underlying
+        // chain is an indexer chain (timestamp cursor, strictly decreasing)
+        // or not (opaque/offset cursor — any change is forward).
+        const advanced = isHistoryCursorAdvanced(prevCursor, nextCursor, {
+          indexerTimestampCursor: !!response.isIndexer,
+        });
         const keepCursor =
           response.hasMoreOnChainHistory &&
           response.txs.length > 0 &&
@@ -826,10 +840,19 @@ class ServiceHistory extends ServiceBase {
     const nextOpaque = hasMore
       ? this._encodeMergeDeriveCursor(nextCursorMap)
       : undefined;
+    // All deriveTypes target the same networkId, so they all share the same
+    // backendIndex flag — the cursor encoded here is the merge-derive opaque
+    // map, not the upstream timestamp, but downstream callers (the load-more
+    // hook) still need to know whether per-deriveType cursors were timestamps
+    // so they don't have to look the network up themselves.
+    const aggregatedIsIndexer = perTypeOutcomes.some(
+      (o) => o.kind === 'fetched' && !!o.response.isIndexer,
+    );
 
     return {
       hasMoreOnChainHistory: hasMore,
       next: nextOpaque,
+      isIndexer: aggregatedIsIndexer,
       accounts: [] as IAllNetworkAccountInfo[],
       allAccounts: uniqBy(aggregatedAllAccounts, 'networkId'),
       txs: mergedTxs,
@@ -1192,6 +1215,7 @@ class ServiceHistory extends ServiceBase {
         addressMap: {},
         hasMore: false,
         next: undefined as string | undefined,
+        isIndexer: false,
       };
     }
 
@@ -1336,6 +1360,7 @@ class ServiceHistory extends ServiceBase {
       addressMap,
       hasMore,
       next,
+      isIndexer: isIndexerChain,
     };
   }
 

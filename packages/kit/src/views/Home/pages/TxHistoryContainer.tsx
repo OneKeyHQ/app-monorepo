@@ -77,7 +77,6 @@ function TxHistoryListContainer(
     updateSearchKey,
     updateAddressesInfo,
     initAddressesInfoDataFromStorage,
-    setHasMoreOnChainHistory,
   } = useHistoryListActions().current;
   const { updateAllNetworksState } = useAccountOverviewActions().current;
 
@@ -263,6 +262,7 @@ function TxHistoryListContainer(
           addressMap?: Record<string, IAddressBadge>;
           hasMoreOnChainHistory?: boolean;
           next?: string;
+          isIndexer?: boolean;
         } = {
           allAccounts: [],
           txs: [],
@@ -270,6 +270,7 @@ function TxHistoryListContainer(
           addressMap: {},
           hasMoreOnChainHistory: false,
           next: undefined,
+          isIndexer: false,
         };
         let aggregatedHasMoreOnChainHistory = false;
 
@@ -324,7 +325,6 @@ function TxHistoryListContainer(
           return;
         }
 
-        setHasMoreOnChainHistory(aggregatedHasMoreOnChainHistory);
         updateAddressesInfo({
           data: r.addressMap ?? {},
         });
@@ -334,6 +334,7 @@ function TxHistoryListContainer(
         onFirstPageResponse({
           next: r.next,
           hasMore: aggregatedHasMoreOnChainHistory,
+          isIndexer: r.isIndexer,
         });
 
         updateAllNetworksState({
@@ -383,7 +384,6 @@ function TxHistoryListContainer(
       settings.isFilterLowValueHistoryEnabled,
       settings.currencyInfo.id,
       currencyMap,
-      setHasMoreOnChainHistory,
       limit,
       updateHistoryData,
       onFirstPageResponse,
