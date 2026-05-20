@@ -307,29 +307,36 @@ function HomeOverviewContainer() {
           });
           appEventBus.emit(EAppEventBusNames.AccountValueUpdate, undefined);
         }
-        let accountValueId = '';
-        if (accountUtils.isOthersAccount({ accountId: account.id })) {
-          accountValueId = account.id;
+        const isOthers = accountUtils.isOthersAccount({
+          accountId: account.id,
+        });
+        // Logical account id for the active value atom & rookie guide: matches
+        // the keying convention used by the account selector (indexedAccountId
+        // for HD/HW, account.id for Others).
+        const accountValueId = isOthers
+          ? account.id
+          : (account.indexedAccountId as string);
 
-          if (network.isAllNetworks || account.createAtNetwork === network.id) {
+        if (isOthers) {
+          if (
+            account.createAtNetwork &&
+            (network.isAllNetworks || account.createAtNetwork === network.id)
+          ) {
             void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
               accountId: accountValueId,
+              networkAccountId: account.id,
+              networkId: account.createAtNetwork,
               value: accountWorth.createAtNetworkWorth,
               currency: settings.currencyInfo.id,
               shouldUpdateActiveAccountValue: true,
             });
           }
-        } else {
-          accountValueId = account.indexedAccountId as string;
-        }
-
-        if (
-          !accountUtils.isOthersAccount({ accountId: account.id }) &&
-          !network.isAllNetworks
-        ) {
+        } else if (!network.isAllNetworks) {
           void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
             {
               accountId: accountValueId,
+              networkAccountId: account.id,
+              networkId: network.id,
               value:
                 accountWorth.worth[
                   accountUtils.buildAccountValueKey({

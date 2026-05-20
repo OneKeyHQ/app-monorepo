@@ -1,4 +1,4 @@
-import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type { IStackProps } from '@onekeyhq/components';
@@ -8,6 +8,7 @@ import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/devi
 
 import { DeviceAvatarWithColor } from '../../../components/DeviceAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { getTargetFirmwareTypeLabel } from '../utils';
 
 export function FirmwareUpdatePageHeaderTitle(props: {
   result: ICheckAllFirmwareReleaseResult | undefined;
@@ -30,10 +31,10 @@ export function FirmwareUpdatePageHeaderTitle(props: {
         id: ETranslations.device_settings_switch_firmware_type,
       },
       {
-        type:
-          updateFirmwareInfo?.toFirmwareType === EFirmwareType.BitcoinOnly
-            ? 'Bitcoin-only'
-            : 'Universal',
+        type: getTargetFirmwareTypeLabel({
+          firmwareType: updateFirmwareInfo?.toFirmwareType,
+          intl,
+        }),
       },
     );
   } else {

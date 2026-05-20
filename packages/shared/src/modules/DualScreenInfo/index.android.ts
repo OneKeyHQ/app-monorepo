@@ -93,3 +93,15 @@ export const useDualScreenWidth = () => {
   }, []);
   return width;
 };
+
+export const useIsSplitViewLayoutDisabled = () => {
+  const [disabled, setDisabled] = useState(splitViewLayoutDisabled);
+  useEffect(() => {
+    const update = () => setDisabled(splitViewLayoutDisabled);
+    splitViewLayoutListeners.add(update);
+    return () => {
+      splitViewLayoutListeners.delete(update);
+    };
+  }, []);
+  return disabled;
+};
