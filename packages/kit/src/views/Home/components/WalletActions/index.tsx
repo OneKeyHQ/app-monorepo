@@ -3,7 +3,13 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
-import { Button, Dialog, Toast, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  SizableText,
+  Toast,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   OptionCard,
@@ -434,6 +440,7 @@ function WalletActions({ ...rest }: IXStackProps) {
             key="receive"
             customization={customization}
             useSelector
+            variant="home_full_row"
           />
         );
       case 'buy':
@@ -460,26 +467,35 @@ function WalletActions({ ...rest }: IXStackProps) {
     }
   };
 
+  const rawActionsLayout = {
+    justifyContent: 'flex-start',
+    gap: '$2.5',
+    $gtSm: {
+      flexDirection: 'row',
+      justifyContent: 'flex-start',
+      gap: '$2.5',
+    },
+  } as const;
+
+  if (balanceState === 'positive') {
+    return (
+      <RawActions {...rest} {...rawActionsLayout}>
+        {config.mainActions.map(renderActionComponent).filter(Boolean)}
+        <WalletActionMore />
+      </RawActions>
+    );
+  }
+
   return (
-    <RawActions
-      {...rest}
-      justifyContent="flex-start"
-      gap="$2.5"
-      $gtSm={{
-        flexDirection: 'row',
-        justifyContent: 'flex-start',
-        gap: '$2.5',
-      }}
-    >
-      {balanceState === 'positive' ? (
-        <>
-          {config.mainActions.map(renderActionComponent).filter(Boolean)}
-          <WalletActionMore />
-        </>
-      ) : (
+    <YStack {...rest} gap="$3">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.add_money_to_get_started })}
+      </SizableText>
+      <RawActions {...rawActionsLayout}>
         <WalletActionReceive
           key="receive"
           useSelector
+          variant="home_add_money"
           renderTrigger={({ onPress, disabled }) => (
             <Button
               flex={1}
@@ -488,14 +504,16 @@ function WalletActions({ ...rest }: IXStackProps) {
               icon="PlusLargeOutline"
               onPress={onPress}
               disabled={disabled}
+              testID={HomeTestIDs.addMoneyButton}
               $gtSm={{ flex: 0, alignSelf: 'flex-start', minWidth: 200 }}
             >
               {intl.formatMessage({ id: ETranslations.global_add_money })}
             </Button>
           )}
         />
-      )}
-    </RawActions>
+        <WalletActionMore iconOnly />
+      </RawActions>
+    </YStack>
   );
 }
 

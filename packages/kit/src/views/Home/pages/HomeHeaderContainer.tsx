@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 
 import {
   HeaderScrollGestureWrapper,
@@ -6,6 +6,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/account/scenes/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useHomeBalanceState } from '../../../hooks/useHomeBalanceState';
@@ -60,6 +62,30 @@ function BaseHomeHeaderContainer() {
   if (platformEnv.isNative && !isWalletNotBackedUp) {
     nativeMinHeight = shouldShowBanner ? 312 : 182;
   }
+
+  // Funnel denominator for backup / receive completion rates: log once per
+  // (walletId, state) tuple seen this session. Skip `unknown` so we don't
+  // record the loading window as a real impression.
+  const homePageViewedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!wallet?.id) return;
+    let state: IHomePageViewedState | undefined;
+    if (isWalletNotBackedUp) {
+      state = 'notBackedUp';
+    } else if (homeBalanceState === 'positive') {
+      state = 'fundedWallet';
+    } else if (homeBalanceState === 'zero') {
+      state = 'emptyWallet';
+    }
+    if (!state) return;
+    const key = `${wallet.id}__${state}`;
+    if (homePageViewedKeyRef.current === key) return;
+    homePageViewedKeyRef.current = key;
+    defaultLogger.account.wallet.homePageViewed({
+      state,
+      walletType: wallet.type,
+    });
+  }, [wallet?.id, wallet?.type, isWalletNotBackedUp, homeBalanceState]);
 
   return (
     <HomeTokenListProviderMirror>

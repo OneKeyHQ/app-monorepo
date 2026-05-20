@@ -237,9 +237,14 @@ function ActionStaking(props: IActionItemsProps) {
 function ActionMore({
   renderItemsAsync,
   testID,
+  iconOnly = false,
 }: {
   renderItemsAsync: IActionListProps['renderItemsAsync'];
   testID?: string;
+  // When true, render the icon-only trigger on both mobile and desktop. Used
+  // by the collapsed Add-Money home action row, where the secondary menu
+  // should not steal flex space from the primary CTA.
+  iconOnly?: boolean;
 }) {
   const intl = useIntl();
   const label = intl.formatMessage({ id: ETranslations.global_more });
@@ -251,6 +256,24 @@ function ActionMore({
       renderItemsAsync,
     });
   };
+
+  if (iconOnly) {
+    return (
+      <ActionList
+        title={label}
+        floatingPanelProps={{ w: '$60' }}
+        renderTrigger={
+          <IconButton
+            variant="secondary"
+            size="large"
+            icon="DotHorOutline"
+            testID={testID}
+          />
+        }
+        renderItemsAsync={renderItemsAsync}
+      />
+    );
+  }
 
   return (
     <>

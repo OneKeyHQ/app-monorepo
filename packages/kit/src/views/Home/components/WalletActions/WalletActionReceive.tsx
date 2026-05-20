@@ -29,6 +29,7 @@ function WalletActionReceive({
   customization,
   renderTrigger,
   source,
+  variant,
   sameModal,
   useSelector,
   showButtonStyle,
@@ -40,6 +41,7 @@ function WalletActionReceive({
     disabled: boolean;
   }) => ReactElement;
   source?: IWalletActionBaseParams['source'];
+  variant?: IWalletActionBaseParams['variant'];
   sameModal?: boolean;
   useSelector?: boolean;
   showButtonStyle?: boolean;
@@ -112,6 +114,7 @@ function WalletActionReceive({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: source ?? 'homePage',
+      variant,
       isSoftwareWalletOnlyUser,
     });
     if (customization?.onPress) {
@@ -131,6 +134,7 @@ function WalletActionReceive({
     isBotWallet,
     isBotWalletDeactivated,
     source,
+    variant,
     isSoftwareWalletOnlyUser,
     customization,
     handleOnReceive,
