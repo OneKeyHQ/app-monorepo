@@ -85,12 +85,6 @@ function ExportPrivateKeysPage({
   title,
   exportType,
 }: IExportAccountSecretKeysRouteParams) {
-  // Block screenshot/recording and blur background preview while the
-  // private key / public key view is mounted. On native this also covers
-  // the App Switcher snapshot via FLAG_SECURE (Android) and SecureTextEntry
-  // (iOS). See SlowMist audit iOS-22 / iOS-26 / AND-26.
-  useRecoveryPhraseProtected();
-
   const { activeAccount } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
 
@@ -162,6 +156,17 @@ function ExportPrivateKeysPage({
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
+  });
+  const rawKeyContent = form.watch('rawKeyContent');
+
+  const isKeyContentVisible =
+    !secureEntry &&
+    Boolean(rawKeyContent) &&
+    rawKeyContent !== SECURE_ENTRY_PLACEHOLDER;
+
+  useRecoveryPhraseProtected({
+    enabled: isKeyContentVisible,
+    dialogType: 'sensitiveInformation',
   });
 
   const networkIdValue = form.watch('networkId');
