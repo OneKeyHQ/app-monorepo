@@ -52,6 +52,7 @@ export interface IActionListItemProps {
   onPress?: (close: () => void) => void | Promise<boolean | void>;
   onClose?: () => void;
   disabled?: boolean;
+  allowPressWhenDisabled?: boolean;
   extraInteractiveWhenDisabled?: boolean;
   testID?: string;
   trackID?: string;
@@ -114,6 +115,7 @@ export function ActionListItem(
     onPress,
     destructive,
     disabled,
+    allowPressWhenDisabled,
     extraInteractiveWhenDisabled,
     onClose,
     testID,
@@ -123,6 +125,14 @@ export function ActionListItem(
   const isActionDisabled = Boolean(disabled);
   const shouldKeepExtraInteractive = Boolean(
     isActionDisabled && extraInteractiveWhenDisabled,
+  );
+  const shouldAllowPressWhenDisabled = Boolean(
+    isActionDisabled && allowPressWhenDisabled,
+  );
+  const shouldSetAriaDisabled = Boolean(
+    isActionDisabled &&
+    !shouldAllowPressWhenDisabled &&
+    !shouldKeepExtraInteractive,
   );
 
   const handlePress = useCallback(
@@ -148,6 +158,7 @@ export function ActionListItem(
 
   const { onPress: sharedOnPress } = useSharedPress({
     ...props,
+    disabled: isActionDisabled && !shouldAllowPressWhenDisabled,
     onPress: handlePress,
   });
 
@@ -162,10 +173,18 @@ export function ActionListItem(
       $md={ACTION_LIST_ITEM_MD}
       borderCurve="continuous"
       opacity={disabled ? 0.5 : 1}
-      disabled={shouldKeepExtraInteractive ? false : disabled}
-      aria-disabled={disabled}
+      disabled={
+        shouldKeepExtraInteractive || shouldAllowPressWhenDisabled
+          ? false
+          : disabled
+      }
+      aria-disabled={shouldSetAriaDisabled}
       {...(!disabled && ACTION_LIST_ENABLED_STYLE)}
-      onPress={isLoading || isActionDisabled ? undefined : sharedOnPress}
+      onPress={
+        isLoading || (isActionDisabled && !allowPressWhenDisabled)
+          ? undefined
+          : sharedOnPress
+      }
       testID={testID}
     >
       <XStack jc="space-between" flex={1} alignItems="center">

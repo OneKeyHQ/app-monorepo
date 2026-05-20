@@ -3,6 +3,8 @@ import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import simpleDb from '../../../dbs/simple/simpleDb';
+import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
+import keylessCloudSyncUtils from '../keylessCloudSyncUtils';
 
 import { CloudSyncFlowManagerBotWallet } from './CloudSyncFlowManagerBotWallet';
 
@@ -22,12 +24,14 @@ describe('CloudSyncFlowManagerBotWallet', () => {
     setMetadata: jest.Mock;
   };
   const getWalletSafe = jest.fn();
+  const updateSyncItem = jest.fn(async () => undefined);
   const createBotWalletFromCloudSync = jest.fn(async () => true);
   const setWalletNameAndAvatar = jest.fn(async () => undefined);
   const manager = new CloudSyncFlowManagerBotWallet({
     backgroundApi: {
       localDb: {
         getWalletSafe,
+        updateSyncItem,
       },
       serviceAccount: {
         createBotWalletFromCloudSync,
@@ -242,5 +246,117 @@ describe('CloudSyncFlowManagerBotWallet', () => {
       createdAt: payload.createdAt,
     });
     expect(setWalletNameAndAvatar).not.toHaveBeenCalled();
+  });
+
+  test('force sync replays previously skipped bot wallets after late keyless login', async () => {
+    getWalletSafe.mockImplementation(async ({ walletId: currentWalletId }) => {
+      if (currentWalletId === 'hd-keyless-parent') {
+        return {
+          id: 'hd-keyless-parent',
+          isKeyless: true,
+        };
+      }
+      return undefined;
+    });
+    createBotWalletFromCloudSync.mockResolvedValue(true);
+
+    const encryptionKey = '11'.repeat(32);
+    const syncCredential = {
+      primeAccountSalt: '',
+      securityPasswordR1: '',
+      masterPasswordUUID: '',
+      keylessCredential: {
+        keylessWalletId: 'hd-keyless-parent',
+        signingPrivateKey: '',
+        signingPublicKey: '',
+        encryptionKey,
+        pwdHash: keylessCloudSyncUtils.computeKeylessPwdHash(encryptionKey),
+      },
+    };
+
+    const items = await Promise.all(
+      [0, 1, 2].map(async (index) => {
+        const currentWalletId = accountUtils.buildBotWalletId({
+          parentKeylessWalletId: 'hd-keyless-parent',
+          index,
+        });
+        const currentPayload = {
+          ...payload,
+          walletId: currentWalletId,
+          index,
+          name: `Bot #${index + 1}`,
+          createdAt: 100 + index,
+        };
+        const target = await manager.buildSyncTargetByPayload({
+          payload: currentPayload,
+        });
+        const keyInfo = await manager.buildSyncKeyAndPayload({
+          target: target as any,
+        });
+        const item = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+          key: keyInfo.key,
+          rawDataJson: {
+            rawKey: keyInfo.rawKey,
+            dataType: EPrimeCloudSyncDataType.BotWallet,
+            payload: currentPayload,
+          },
+          syncCredential,
+          dataTime: 1000 + index,
+        });
+        item.localSceneUpdated = true;
+        return item;
+      }),
+    );
+
+    await manager.syncToScene({
+      syncCredential,
+      items,
+    });
+
+    expect(createBotWalletFromCloudSync).not.toHaveBeenCalled();
+
+    await manager.syncToScene({
+      syncCredential,
+      items,
+      forceSync: true,
+    });
+
+    expect(createBotWalletFromCloudSync).toHaveBeenCalledTimes(3);
+    expect(createBotWalletFromCloudSync).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        walletId: accountUtils.buildBotWalletId({
+          parentKeylessWalletId: 'hd-keyless-parent',
+          index: 0,
+        }),
+        parentKeylessWalletId: 'hd-keyless-parent',
+        index: 0,
+        name: 'Bot #1',
+      }),
+    );
+    expect(createBotWalletFromCloudSync).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        walletId: accountUtils.buildBotWalletId({
+          parentKeylessWalletId: 'hd-keyless-parent',
+          index: 1,
+        }),
+        parentKeylessWalletId: 'hd-keyless-parent',
+        index: 1,
+        name: 'Bot #2',
+      }),
+    );
+    expect(createBotWalletFromCloudSync).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        walletId: accountUtils.buildBotWalletId({
+          parentKeylessWalletId: 'hd-keyless-parent',
+          index: 2,
+        }),
+        parentKeylessWalletId: 'hd-keyless-parent',
+        index: 2,
+        name: 'Bot #3',
+      }),
+    );
   });
 });
