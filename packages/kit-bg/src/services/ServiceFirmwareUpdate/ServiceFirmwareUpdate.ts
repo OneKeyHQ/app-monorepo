@@ -821,6 +821,24 @@ class ServiceFirmwareUpdate extends ServiceBase {
     retryCount?: number;
     silentMode?: boolean;
   }) {
+    const protocolContext = connectProtocol
+      ? undefined
+      : await this.getFirmwareUpdateProtocolContext({ connectId });
+    const resolvedConnectProtocol =
+      connectProtocol ?? protocolContext?.connectProtocol;
+    if (resolvedConnectProtocol === HARDWARE_CONNECT_PROTOCOL.V2) {
+      return {
+        firmware: {
+          status: 'valid',
+          release: 'valid',
+        },
+        ble: {
+          status: 'valid',
+          release: 'valid',
+        },
+      } as AllFirmwareRelease;
+    }
+
     const hardwareSDK = await this.getSDKInstance({
       connectId,
     });
@@ -838,7 +856,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       () =>
         // method fail if device on boot mode
         hardwareSDK.checkAllFirmwareRelease(currentConnectId, {
-          ...(connectProtocol ? { connectProtocol } : {}),
+          ...(resolvedConnectProtocol
+            ? { connectProtocol: resolvedConnectProtocol }
+            : {}),
           checkBridgeRelease,
           firmwareType,
           retryCount,
@@ -861,6 +881,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
     deviceType: IDeviceType;
     firmwareType: EFirmwareType;
   }) {
+    if (
+      getHardwareConnectProtocolFromDeviceType(deviceType) ===
+      HARDWARE_CONNECT_PROTOCOL.V2
+    ) {
+      return false;
+    }
     const hardwareSDK = await this.getSDKInstance({
       connectId,
     });
@@ -1131,6 +1157,29 @@ class ServiceFirmwareUpdate extends ServiceBase {
       );
     }
     const connectId = await this.getConnectIdFromReleaseInfo(payload);
+    const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+      features: payload.features,
+    });
+    if (
+      getHardwareConnectProtocolFromDeviceType(deviceType) ===
+      HARDWARE_CONNECT_PROTOCOL.V2
+    ) {
+      if (connectId) {
+        await this.detectMap.deleteUpdateInfo({ connectId });
+      }
+      return {
+        connectId,
+        hasUpgrade: false,
+        hasUpgradeForce: false,
+        fromVersion: '',
+        fromFirmwareType: undefined,
+        toVersion: '',
+        toFirmwareType: undefined,
+        releasePayload: payload,
+        changelog: undefined,
+        firmwareType: 'firmware',
+      };
+    }
 
     const { firmwareVersion } = await deviceUtils.getDeviceVersion({
       device: undefined,
@@ -1179,7 +1228,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setBleFirmwareUpdateInfo(payload: IBleFirmwareReleasePayload) {
+  async setBleFirmwareUpdateInfo(
+    payload: IBleFirmwareReleasePayload,
+  ): Promise<IBleFirmwareUpdateInfo> {
     serviceHardwareUtils.hardwareLog('showBleFirmwareReleaseInfo', payload);
     if (!payload.features) {
       throw new OneKeyLocalError(
@@ -1187,6 +1238,29 @@ class ServiceFirmwareUpdate extends ServiceBase {
       );
     }
     const connectId = await this.getConnectIdFromReleaseInfo(payload);
+    const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+      features: payload.features,
+    });
+    if (
+      getHardwareConnectProtocolFromDeviceType(deviceType) ===
+      HARDWARE_CONNECT_PROTOCOL.V2
+    ) {
+      if (connectId) {
+        await this.detectMap.deleteUpdateInfo({ connectId });
+      }
+      return {
+        connectId,
+        hasUpgrade: false,
+        hasUpgradeForce: false,
+        fromVersion: '',
+        fromFirmwareType: undefined,
+        toVersion: '',
+        toFirmwareType: undefined,
+        releasePayload: payload,
+        changelog: undefined,
+        firmwareType: 'ble',
+      };
+    }
     const { bleVersion } = await deviceUtils.getDeviceVersion({
       device: undefined,
       features: payload.features,

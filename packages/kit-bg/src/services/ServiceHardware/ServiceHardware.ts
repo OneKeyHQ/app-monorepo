@@ -23,7 +23,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { getHardwareConnectProtocolFromDevice } from '@onekeyhq/shared/src/hardware/connectProtocol';
+import {
+  getHardwareConnectProtocolFromDevice,
+  getHardwareConnectProtocolFromDeviceType,
+} from '@onekeyhq/shared/src/hardware/connectProtocol';
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,
@@ -474,6 +477,25 @@ class ServiceHardware extends ServiceBase {
         title: (error as Error)?.message || 'Hardware SDK init failed',
       });
       throw error;
+    }
+  }
+
+  async getDeviceProtocolContextByConnectId({
+    connectId,
+  }: {
+    connectId: string | undefined;
+  }) {
+    if (!connectId) {
+      return { connectProtocol: undefined, dbDevice: undefined };
+    }
+    try {
+      const dbDevice = await localDb.getDeviceByQuery({ connectId });
+      return {
+        dbDevice,
+        connectProtocol: getHardwareConnectProtocolFromDevice(dbDevice),
+      };
+    } catch {
+      return { connectProtocol: undefined, dbDevice: undefined };
     }
   }
 
@@ -985,16 +1007,26 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     params?: IDeviceProtocolParams;
   }) {
+    const protocolContext = await this.getDeviceProtocolContextByConnectId({
+      connectId,
+    });
+    const connectProtocol =
+      params?.connectProtocol ?? protocolContext.connectProtocol;
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      featuresDeviceId: protocolContext.dbDevice?.deviceId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    const deviceUnlockParams = connectProtocol ? { connectProtocol } : {};
+    if (connectProtocol === HARDWARE_CONNECT_PROTOCOL.V2) {
+      return this.getFeaturesWithoutCache({
+        connectId: compatibleConnectId,
+        params: deviceUnlockParams,
+      });
+    }
     const hardwareSDK = await this.getSDKInstance({
       connectId,
     });
-    const compatibleConnectId = await this.getCompatibleConnectId({
-      connectId,
-      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-    });
-    const deviceUnlockParams = params?.connectProtocol
-      ? { connectProtocol: params.connectProtocol }
-      : {};
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceUnlock(compatibleConnectId, deviceUnlockParams),
     );
@@ -1008,16 +1040,30 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     params?: IDeviceProtocolParams;
   }) {
+    const protocolContext = await this.getDeviceProtocolContextByConnectId({
+      connectId,
+    });
+    const connectProtocol =
+      params?.connectProtocol ?? protocolContext.connectProtocol;
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
+      featuresDeviceId: protocolContext.dbDevice?.deviceId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     let features = await this.getFeaturesWithoutCache({
       connectId: compatibleConnectId,
-      params: params?.connectProtocol
-        ? { connectProtocol: params.connectProtocol }
-        : undefined,
+      params: connectProtocol ? { connectProtocol } : undefined,
     });
+    const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+      features,
+    });
+    if (
+      connectProtocol === HARDWARE_CONNECT_PROTOCOL.V2 ||
+      getHardwareConnectProtocolFromDeviceType(deviceType) ===
+        HARDWARE_CONNECT_PROTOCOL.V2
+    ) {
+      return features;
+    }
 
     if (!features.unlocked) {
       // unlock device
@@ -1145,8 +1191,15 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async getDeviceSupportFeatures(connectId: string) {
+    const protocolContext = await this.getDeviceProtocolContextByConnectId({
+      connectId,
+    });
+    if (protocolContext.connectProtocol === HARDWARE_CONNECT_PROTOCOL.V2) {
+      return undefined;
+    }
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
+      featuresDeviceId: protocolContext.dbDevice?.deviceId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     const hardwareSDK = await this.getSDKInstance({

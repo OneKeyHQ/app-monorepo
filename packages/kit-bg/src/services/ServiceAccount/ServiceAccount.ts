@@ -1,4 +1,4 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EFirmwareType, HARDWARE_CONNECT_PROTOCOL } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { ethers } from 'ethers';
 import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
@@ -2372,8 +2372,13 @@ class ServiceAccount extends ServiceBase {
         indexedAccountId: newIndexedAccountId,
       });
       if (allNetworkAccount.id !== accountId) {
-        throw new OneKeyLocalError(
-          'getAccount ERROR: allNetworkAccount accountId not match',
+        console.warn(
+          'getAccount WARNING: allNetworkAccount accountId not match',
+          {
+            accountId,
+            allNetworkAccountId: allNetworkAccount.id,
+            indexedAccountId: newIndexedAccountId,
+          },
         );
       }
       return allNetworkAccount;
@@ -3160,9 +3165,16 @@ class ServiceAccount extends ServiceBase {
       device: params.device,
       features,
     });
+    const isProtocolV2Device =
+      getHardwareConnectProtocolFromDevice(params.device) ===
+      HARDWARE_CONNECT_PROTOCOL.V2;
 
     let xfp: string | undefined;
-    if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
+    if (
+      fillingXfpByCallingSdk &&
+      !isMockedStandardHwWallet &&
+      !isProtocolV2Device
+    ) {
       xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
         connectId: compatibleConnectId,
         deviceId,
@@ -3189,6 +3201,9 @@ class ServiceAccount extends ServiceBase {
       xfp,
       passphraseState: passphraseState || '',
       getFirstEvmAddressFn: async (): Promise<string | null> => {
+        if (isProtocolV2Device) {
+          return null;
+        }
         if (isMockedStandardHwWallet) {
           return '';
         }

@@ -1,4 +1,7 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import {
+  HARDWARE_CONNECT_PROTOCOL,
+  HardwareErrorCode,
+} from '@onekeyfe/hd-shared';
 import { ORPHAN_ELIGIBLE_ERROR_CODES } from '@onekeyfe/hwk-adapter-core';
 import { chunk, isNil, range, uniqBy } from 'lodash';
 
@@ -23,6 +26,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getHardwareConnectProtocolFromDevice } from '@onekeyhq/shared/src/hardware/connectProtocol';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -608,6 +612,24 @@ class ServiceBatchCreateAccount extends ServiceBase {
           walletId: params.walletId,
         })),
       );
+    }
+
+    if (accountUtils.isHwWallet({ walletId: params.walletId })) {
+      const dbDevice = await this.backgroundApi.serviceAccount.getWalletDevice({
+        walletId: params.walletId,
+      });
+      if (
+        getHardwareConnectProtocolFromDevice(dbDevice) ===
+        HARDWARE_CONNECT_PROTOCOL.V2
+      ) {
+        const protocolV2SupportedNetworkIds = new Set([
+          getNetworkIdsMap().sol,
+          getNetworkIdsMap().trx,
+        ]);
+        networksParams = networksParams.filter((p) =>
+          protocolV2SupportedNetworkIds.has(p.networkId),
+        );
+      }
     }
 
     const networksParamsFiltered: IBatchBuildAccountsBaseParams[] = [];
