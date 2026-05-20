@@ -56,12 +56,11 @@ export function AccountExportPrivateKeyButton({
       testID={testID}
       icon={icon}
       label={label}
-      onClose={onClose}
+      onClose={() => {}}
+      disabled={isExportBlocked}
+      allowPressWhenDisabled={isExportBlocked}
       onPress={async () => {
         if (isExportBlocked) {
-          // Stay clickable so users get feedback instead of a silent
-          // dead-click. Keep the visual cue minimal — `disabled` would
-          // also suppress onPress in ActionList.Item.
           showBotWalletDisabledToast('export');
           return;
         }
@@ -91,6 +90,7 @@ export function AccountExportPrivateKeyButton({
           });
           return;
         }
+        onClose?.();
         navigation.pushModal(EModalRoutes.AccountManagerStacks, {
           screen: EAccountManagerStacksRoutes.ExportPrivateKeysPage,
           params: {
