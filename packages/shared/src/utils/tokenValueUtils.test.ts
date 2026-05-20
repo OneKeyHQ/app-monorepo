@@ -20,6 +20,20 @@ describe('isValidNumberValue', () => {
     expect(isValidNumberValue('NaN')).toBe(false);
   });
 
+  test('rejects unparseable strings — BigNumber("abc") is NaN', () => {
+    expect(isValidNumberValue('abc')).toBe(false);
+    expect(isValidNumberValue('1.2.3')).toBe(false);
+    expect(isValidNumberValue('--')).toBe(false);
+    expect(isValidNumberValue('$10')).toBe(false);
+  });
+
+  test('rejects non-finite values (Infinity)', () => {
+    expect(isValidNumberValue('Infinity')).toBe(false);
+    expect(isValidNumberValue('-Infinity')).toBe(false);
+    expect(isValidNumberValue(Number.POSITIVE_INFINITY)).toBe(false);
+    expect(isValidNumberValue(Number.NEGATIVE_INFINITY)).toBe(false);
+  });
+
   test('accepts real zero (string and number)', () => {
     expect(isValidNumberValue('0')).toBe(true);
     expect(isValidNumberValue(0)).toBe(true);
@@ -70,6 +84,18 @@ describe('sumFiatValuesIgnoringUnavailable', () => {
         d: { fiatValue: '' },
         e: { fiatValue: 'NaN' },
         f: { fiatValue: '5' },
+      }),
+    ).toBe('15');
+  });
+
+  test('skips unparseable strings so BigNumber.plus does not produce NaN', () => {
+    expect(
+      sumFiatValuesIgnoringUnavailable({
+        a: { fiatValue: '10' },
+        b: { fiatValue: 'abc' },
+        c: { fiatValue: '1.2.3' },
+        d: { fiatValue: 'Infinity' },
+        e: { fiatValue: '5' },
       }),
     ).toBe('15');
   });

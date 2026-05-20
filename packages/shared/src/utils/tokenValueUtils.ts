@@ -3,14 +3,15 @@ import BigNumber from 'bignumber.js';
 export const UNAVAILABLE_DISPLAY = '--';
 
 // Fields typed as `string`/`number` on ITokenFiat may arrive null/undefined
-// when an upstream provider fails. NaN/'NaN' must also be rejected so
-// downstream BigNumber math does not propagate NaN through aggregate sums.
+// when an upstream provider fails. Non-finite values (NaN, Infinity) and any
+// unparseable string must be rejected so downstream BigNumber math does not
+// propagate NaN through aggregate sums.
 export function isValidNumberValue(
   v: string | number | null | undefined,
 ): v is string | number {
   if (v === null || v === undefined || v === '') return false;
-  if (typeof v === 'number') return !Number.isNaN(v);
-  return v !== 'NaN';
+  if (typeof v === 'number') return Number.isFinite(v);
+  return new BigNumber(v).isFinite();
 }
 
 export function displayOrUnavailable(
