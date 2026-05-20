@@ -50,6 +50,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -359,9 +360,23 @@ function FinalizeWalletSetupPage({
           // (`forceTransportType || hardwareTransportType`) so the analytics
           // event reflects the channel actually used for this connection, not
           // the stale persisted setting.
-          const forceTransportType = ledgerTabValue
-            ? await getForceTransportType(ledgerTabValue)
-            : undefined;
+          //
+          // The resolver calls background services (devSetting / setting) over
+          // IPC and can fail. Per-session attribution is an analytics nice-to-
+          // have; it must not block Ledger wallet creation or suppress the
+          // walletAdded failure event. Fall back to the persisted setting on
+          // any error so the create + tracking pipeline runs unconditionally.
+          let forceTransportType: EHardwareTransportType | undefined;
+          if (ledgerTabValue) {
+            try {
+              forceTransportType = await getForceTransportType(ledgerTabValue);
+            } catch (transportResolveError) {
+              console.warn(
+                '[Ledger analytics] getForceTransportType failed; falling back to persisted hardwareTransportType',
+                transportResolveError,
+              );
+            }
+          }
           const resolvedTransportType =
             forceTransportType || hardwareTransportType;
           defaultLogger.account.wallet.addWalletStarted({
