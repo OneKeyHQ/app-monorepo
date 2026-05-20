@@ -262,6 +262,7 @@ function TokenDetailsHeader(props: IProps) {
           price: data?.price ?? 0,
           priceChange24h: data?.price24h ?? 0,
           coingeckoId: data?.info?.coingeckoId ?? '',
+          currency: data?.currency,
         });
 
         if (!data) {
@@ -305,6 +306,7 @@ function TokenDetailsHeader(props: IProps) {
       priceChange24h: cachedTokenDetails.price24h ?? 0,
       coingeckoId:
         cachedTokenDetails.info?.coingeckoId ?? tokenInfo.coingeckoId ?? '',
+      currency: cachedTokenDetails.currency,
     });
   }, [
     cachedTokenDetails,

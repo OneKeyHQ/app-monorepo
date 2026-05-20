@@ -23,8 +23,8 @@ import {
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { EmptyAccount } from '@onekeyhq/kit/src/components/Empty';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { perfTokenListView } from '@onekeyhq/kit/src/components/TokenListView/perfTokenListView';
 import { getTokenListOwnerCacheAccountId } from '@onekeyhq/kit/src/components/TokenListView/utils';
@@ -62,10 +62,7 @@ import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import {
-  useSettingsPersistAtom,
-  useTokenSelectorFilterPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useTokenSelectorFilterPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -161,8 +158,6 @@ function TokenListBlock({
   tableLayout?: boolean;
   showRecentHistory?: boolean;
 }) {
-  const [settings] = useSettingsPersistAtom();
-
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
   // Outer-route focus: false when user is on Market/Swap (Home tab inactive),
@@ -2734,24 +2729,22 @@ function TokenListBlock({
       }
 
       return (
-        <NumberSizeableTextWrapper
+        <Currency
           hideValue
           size="$headingXl"
           color="$textSubdued"
           formatter="value"
-          formatterOptions={{
-            currency: settings.currencyInfo.symbol,
-          }}
+          sourceCurrency={accountTokensWorth.currency}
         >
           {accountTokensValue}
-        </NumberSizeableTextWrapper>
+        </Currency>
       );
     }
 
     return null;
   }, [
     tableLayout,
-    settings.currencyInfo.symbol,
+    accountTokensWorth.currency,
     accountTokensValue,
     tokenListState.initialized,
     tokenListState.isRefreshing,
