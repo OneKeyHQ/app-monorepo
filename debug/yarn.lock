@@ -433,6 +433,7 @@ __metadata:
     ws: "npm:^8.18.0"
   bin:
     odb: ./bin/odb.js
+    odb-mcp: ./bin/odb-mcp.js
     odbd: ./bin/odbd.js
   languageName: unknown
   linkType: soft

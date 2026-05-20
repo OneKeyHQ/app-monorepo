@@ -3,9 +3,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { bestAvailableCodec } from "../src/record/codec.js";
 import {
   appendEvent,
   createOdbDir,
+  finalize,
   readAllEvents,
   readManifest,
   type OdbManifest,
@@ -265,5 +267,94 @@ describe("replay", () => {
     });
     expect(r.errors).toBe(1);
     expect(r.replayed).toBe(0);
+  });
+});
+
+describe("record with zstd codec (if available)", () => {
+  it("writes events.ndjson.zst when codec is zstd", async () => {
+    const codec = await bestAvailableCodec();
+    if (codec !== "zstd") return; // skip if codec unavailable
+
+    const out = path.join(dir, "rec.zstd.odb");
+    const m: OdbManifest = {
+      version: 1,
+      recordId: "R-zz",
+      sessionId: "S-z",
+      platform: "ios",
+      appBundle: "x",
+      layers: ["js"],
+      startedAt: 0,
+      endedAt: null,
+      eventCount: 0,
+      compression: "zstd",
+    };
+    await createOdbDir(out, m);
+    for (let i = 0; i < 250; i++) {
+      await appendEvent(out, {
+        ts: i,
+        layer: "js",
+        kind: "console",
+        type: "log",
+        args: [i],
+      });
+    }
+    m.endedAt = 1000;
+    m.eventCount = 250;
+    await finalize(out, m);
+
+    const evs = await readAllEvents(out);
+    expect(evs.length).toBe(250);
+    expect((evs[249] as { ts: number }).ts).toBe(249);
+
+    // .zst file actually exists and the plain NDJSON does not.
+    const zstStat = await fs.stat(path.join(out, "events.ndjson.zst"));
+    expect(zstStat.size).toBeGreaterThan(0);
+    await expect(fs.stat(path.join(out, "events.ndjson"))).rejects.toThrow();
+
+    // Manifest round-trips its compression="zstd" field.
+    const persisted = await readManifest(out);
+    expect(persisted.compression).toBe("zstd");
+  });
+
+  it("reads legacy compression=none recordings even with zstd available", async () => {
+    // Forward-compat / backward-compat guard: a recording written by an older
+    // version (plain NDJSON, compression="none") must still read cleanly when
+    // the newer reader is available.
+    const out = path.join(dir, "rec.legacy.odb");
+    const m: OdbManifest = {
+      version: 1,
+      recordId: "R-legacy",
+      sessionId: "S-l",
+      platform: "ios",
+      appBundle: "x",
+      layers: ["js"],
+      startedAt: 0,
+      endedAt: 100,
+      eventCount: 2,
+      compression: "none",
+    };
+    await createOdbDir(out, m);
+    await appendEvent(out, {
+      ts: 1,
+      layer: "js",
+      kind: "console",
+      type: "log",
+      args: ["a"],
+    });
+    await appendEvent(out, {
+      ts: 2,
+      layer: "js",
+      kind: "console",
+      type: "log",
+      args: ["b"],
+    });
+    await finalize(out, m);
+
+    const evs = await readAllEvents(out);
+    expect(evs.length).toBe(2);
+    // No .zst file should have been written.
+    await expect(
+      fs.stat(path.join(out, "events.ndjson.zst")),
+    ).rejects.toThrow();
   });
 });

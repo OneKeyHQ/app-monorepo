@@ -12,6 +12,7 @@ import { FridaAdapter, type FridaEvent } from "../adapters/frida.js";
 import type { Registry } from "../daemon/registry.js";
 import { screenshot } from "../tools/screenshot.js";
 import { uiTree } from "../tools/uiTree.js";
+import { bestAvailableCodec } from "./codec.js";
 import {
   appendEvent,
   createOdbDir,
@@ -76,7 +77,7 @@ export async function startRecording(
     startedAt: Date.now(),
     endedAt: null,
     eventCount: 0,
-    compression: "none",
+    compression: await bestAvailableCodec(),
   };
   await createOdbDir(dir, manifest);
 
