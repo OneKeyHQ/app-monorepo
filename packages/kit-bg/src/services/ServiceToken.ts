@@ -109,31 +109,31 @@ class ServiceToken extends ServiceBase {
     tokenListCurrency: {},
   };
 
-  // Normalize all fiat fields in a fetchAccountTokens response from the
-  // request-time display currency to USD. Lets the cache layer store a single
-  // currency-agnostic basis so a later currency switch can re-render via
-  // <Currency sourceCurrency="usd"> instead of invalidating the cache.
-  private async normalizeTokensRespToUsd(
-    data: IFetchAccountTokensResp,
-    requestCurrency: string,
-  ): Promise<void> {
-    if (requestCurrency === 'usd') {
-      this.tagTokensRespCurrency(data, 'usd');
-      return;
-    }
+  // Look up the conversion rate for `currency`. Returns `null` when the
+  // currency is missing from `currencyMap` or the stored rate is unusable
+  // (non-finite / zero); callers use this signal to decide whether to skip
+  // conversion and tag entries with the source currency instead.
+  private async resolveCurrencyRate(
+    currency: string,
+  ): Promise<BigNumber | null> {
+    if (currency === 'usd') return new BigNumber(1);
     const { currencyMap } = await currencyPersistAtom.get();
-    const rateItem = currencyMap[requestCurrency];
-    if (!rateItem) {
-      // Unknown currency in the local map — leave values untagged so the
-      // read side falls back to treating them as display-currency.
-      return;
-    }
+    const rateItem = currencyMap[currency];
+    if (!rateItem) return null;
     const rate = new BigNumber(rateItem.value);
-    if (!rate.isFinite() || rate.isZero()) {
-      return;
-    }
+    if (!rate.isFinite() || rate.isZero()) return null;
+    return rate;
+  }
 
-    const convertFiat = (fiat: ITokenFiat): void => {
+  // Divide a single ITokenFiat's fiat fields by `rate` (no-op when rate is 1)
+  // and tag with `targetCurrency`. `price24h` is a percentage and is left
+  // untouched.
+  private convertFiatToCurrency(
+    fiat: ITokenFiat,
+    rate: BigNumber,
+    targetCurrency: string,
+  ): void {
+    if (!rate.eq(1)) {
       if (fiat.fiatValue) {
         fiat.fiatValue = new BigNumber(fiat.fiatValue).div(rate).toFixed();
       }
@@ -150,52 +150,50 @@ class ServiceToken extends ServiceBase {
       if (typeof fiat.price === 'number' && Number.isFinite(fiat.price)) {
         fiat.price = new BigNumber(fiat.price).div(rate).toNumber();
       }
-      // price24h is a 24h percentage change (rendered with formatter
-      // 'priceChange' which appends '%'), not a fiat amount — leave it
-      // untouched.
-      fiat.currency = 'usd';
-    };
-
-    const convertTokenData = (td: ITokenData | undefined): void => {
-      if (!td) return;
-      Object.values(td.map ?? {}).forEach(convertFiat);
-      if (td.fiatValue) {
-        td.fiatValue = new BigNumber(td.fiatValue).div(rate).toFixed();
-      }
-      td.currency = 'usd';
-    };
-
-    convertTokenData(data.tokens);
-    convertTokenData(data.smallBalanceTokens);
-    convertTokenData(data.riskTokens);
-    convertTokenData(data.allTokens);
-
-    if (data.aggregateTokenMap) {
-      Object.values(data.aggregateTokenMap).forEach(convertFiat);
     }
+    fiat.currency = targetCurrency;
   }
 
-  // Tag every fiat entry with `currency` without mutating amounts. Used when
-  // the response is already in USD so callers can still read the tag.
-  private tagTokensRespCurrency(
+  // Normalize all fiat fields in a fetchAccountTokens response from the
+  // request-time display currency to USD. Lets the cache layer store a single
+  // currency-agnostic basis so a later currency switch can re-render via
+  // <Currency sourceCurrency="usd"> instead of invalidating the cache.
+  //
+  // Returns the currency the response was actually normalized to. When the
+  // rate for `requestCurrency` is missing/invalid, conversion is skipped and
+  // values are tagged with the source currency itself — callers must use the
+  // returned value as the cache-tag source of truth instead of hard-coding
+  // 'usd', otherwise the cache will misrepresent the actual basis.
+  private async normalizeTokensRespToUsd(
     data: IFetchAccountTokensResp,
-    currency: string,
-  ): void {
-    const tagFiat = (fiat: ITokenFiat): void => {
-      fiat.currency = currency;
-    };
-    const tagTokenData = (td: ITokenData | undefined): void => {
+    requestCurrency: string,
+  ): Promise<string> {
+    const rate = await this.resolveCurrencyRate(requestCurrency);
+    // Falling back to `requestCurrency` keeps the cache truthful when rates
+    // aren't loaded yet: values stay in the request currency and downstream
+    // `<Currency sourceCurrency=...>` can still render them correctly.
+    const resolvedCurrency = rate ? 'usd' : requestCurrency;
+    const effectiveRate = rate ?? new BigNumber(1);
+
+    const visitFiat = (fiat: ITokenFiat): void =>
+      this.convertFiatToCurrency(fiat, effectiveRate, resolvedCurrency);
+    const visitTokenData = (td: ITokenData | undefined): void => {
       if (!td) return;
-      Object.values(td.map ?? {}).forEach(tagFiat);
-      td.currency = currency;
+      Object.values(td.map ?? {}).forEach(visitFiat);
+      if (!effectiveRate.eq(1) && td.fiatValue) {
+        td.fiatValue = new BigNumber(td.fiatValue).div(effectiveRate).toFixed();
+      }
+      td.currency = resolvedCurrency;
     };
-    tagTokenData(data.tokens);
-    tagTokenData(data.smallBalanceTokens);
-    tagTokenData(data.riskTokens);
-    tagTokenData(data.allTokens);
+
+    visitTokenData(data.tokens);
+    visitTokenData(data.smallBalanceTokens);
+    visitTokenData(data.riskTokens);
+    visitTokenData(data.allTokens);
     if (data.aggregateTokenMap) {
-      Object.values(data.aggregateTokenMap).forEach(tagFiat);
+      Object.values(data.aggregateTokenMap).forEach(visitFiat);
     }
+    return resolvedCurrency;
   }
 
   @backgroundMethod()
@@ -392,11 +390,21 @@ class ServiceToken extends ServiceBase {
       },
       flag,
       signal: controller.signal,
+      // Pin the server-side pricing currency so it can't drift between this
+      // capture point and the actual HTTP send (axios interceptor would
+      // otherwise read settings.currencyInfo.id again at send time).
+      requestCurrency,
     });
 
     // Normalize fiat fields to USD before any downstream caching/aggregation.
-    // After this point, every fiat number in `resp.data.data` is USD-based.
-    await this.normalizeTokensRespToUsd(resp.data.data, requestCurrency);
+    // `resolvedCurrency` is 'usd' on success, or `requestCurrency` when the
+    // local rate map is missing the entry (in which case the response is
+    // left in the request currency and downstream cache writes must use
+    // this tag instead of hard-coding 'usd').
+    const resolvedCurrency = await this.normalizeTokensRespToUsd(
+      resp.data.data,
+      requestCurrency,
+    );
 
     let allTokens: ITokenData | undefined;
 
@@ -458,10 +466,11 @@ class ServiceToken extends ServiceBase {
           networkName: network?.name,
           mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
         }));
-        // map entries inherit the USD tag from the upstream normalization;
-        // tag the outer currency here so callers reading `allTokens.currency`
-        // see the same value.
-        allTokens.currency = 'usd';
+        // map entries inherit the resolved tag from the upstream normalization;
+        // mirror it on the outer container so callers reading
+        // `allTokens.currency` see the same value (USD on success, otherwise
+        // the request currency).
+        allTokens.currency = resolvedCurrency;
       }
       resp.data.data.allTokens = allTokens;
     }
@@ -504,7 +513,7 @@ class ServiceToken extends ServiceBase {
         this.localAccountTokensCache.tokenListValue[key] =
           tokenListValue.toFixed();
         this.localAccountTokensCache.tokenListMap[key] = filteredTokenListMap;
-        this.localAccountTokensCache.tokenListCurrency[key] = 'usd';
+        this.localAccountTokensCache.tokenListCurrency[key] = resolvedCurrency;
 
         await this._updateAccountLocalTokensDebounced();
       } else {
@@ -517,7 +526,7 @@ class ServiceToken extends ServiceBase {
           riskyTokenList: filteredRiskyTokenList,
           tokenListValue: tokenListValue.toFixed(),
           tokenListMap: filteredTokenListMap,
-          currency: 'usd',
+          currency: resolvedCurrency,
         });
       }
     }
@@ -638,44 +647,20 @@ class ServiceToken extends ServiceBase {
       contractList,
       withCheckInscription,
       withFrozenBalance,
+      // Same currency-pinning rationale as fetchAccountTokens — keeps the
+      // server response and our normalization basis on the same currency.
+      requestCurrency,
     });
 
-    // Mirror the fetchAccountTokens path: normalize per-token fiat fields to
-    // USD so downstream consumers (TokenDetailsHeader, asset details cache,
-    // <Currency sourceCurrency='usd'>) see a single basis regardless of which
-    // currency the request used.
-    if (requestCurrency !== 'usd' && resp.data.data?.length) {
-      const { currencyMap } = await currencyPersistAtom.get();
-      const rateItem = currencyMap[requestCurrency];
-      const rate = rateItem ? new BigNumber(rateItem.value) : null;
-      if (rate && rate.isFinite() && !rate.isZero()) {
-        for (const item of resp.data.data) {
-          if (item.fiatValue) {
-            item.fiatValue = new BigNumber(item.fiatValue).div(rate).toFixed();
-          }
-          if (item.frozenBalanceFiatValue) {
-            item.frozenBalanceFiatValue = new BigNumber(
-              item.frozenBalanceFiatValue,
-            )
-              .div(rate)
-              .toFixed();
-          }
-          if (item.totalBalanceFiatValue) {
-            item.totalBalanceFiatValue = new BigNumber(
-              item.totalBalanceFiatValue,
-            )
-              .div(rate)
-              .toFixed();
-          }
-          if (typeof item.price === 'number' && Number.isFinite(item.price)) {
-            item.price = new BigNumber(item.price).div(rate).toNumber();
-          }
-          item.currency = 'usd';
-        }
-      }
-    } else if (resp.data.data?.length) {
+    // Mirror the fetchAccountTokens normalization. When the rate map lacks
+    // an entry for `requestCurrency`, fall back to tagging with the request
+    // currency itself so the cache stays truthful instead of falsely USD.
+    if (resp.data.data?.length) {
+      const rate = await this.resolveCurrencyRate(requestCurrency);
+      const resolvedCurrency = rate ? 'usd' : requestCurrency;
+      const effectiveRate = rate ?? new BigNumber(1);
       for (const item of resp.data.data) {
-        item.currency = 'usd';
+        this.convertFiatToCurrency(item, effectiveRate, resolvedCurrency);
       }
     }
 
