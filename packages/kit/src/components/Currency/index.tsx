@@ -43,6 +43,11 @@ function BasicCurrency({
   );
 
   const value = useMemo(() => {
+    // Guard nullish/empty children — otherwise `BigNumber(String(undefined))`
+    // becomes NaN and propagates through the formatter.
+    if (children === undefined || children === null || children === '') {
+      return '0';
+    }
     if (sourceCurrencyInfo?.id === targetCurrencyInfo?.id) {
       return BigNumber(String(children)).toFixed();
     }
@@ -54,18 +59,25 @@ function BasicCurrency({
       : children;
   }, [children, sourceCurrencyInfo, targetCurrencyInfo]);
 
+  // When the rate map can't resolve the target unit yet (cold-start window
+  // before currencyMap hydrates), fall back to the source unit. This keeps
+  // the rendered symbol consistent with the numeric basis instead of showing
+  // a USD amount labeled with the user's display currency.
+  const formatterCurrencyUnit =
+    targetCurrencyInfo?.unit ?? sourceCurrencyInfo?.unit;
+
   return (
     <NumberSizeableTextWrapper
       formatter={formatter}
       formatterOptions={{
-        currency: targetCurrencyInfo?.unit,
+        currency: formatterCurrencyUnit,
         ...formatterOptions,
       }}
       {...props}
       width={
         props.w ||
         props.width ||
-        dynamicWidth?.(String(value || 0), targetCurrencyInfo?.unit || '')
+        dynamicWidth?.(String(value || 0), formatterCurrencyUnit || '')
       }
     >
       {value}
