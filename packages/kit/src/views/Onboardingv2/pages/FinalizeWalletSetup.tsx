@@ -71,7 +71,11 @@ import {
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
 import { OnboardingTestIDs } from '../testIDs';
-import { trackHardwareWalletConnection } from '../utils';
+import {
+  getForceTransportType,
+  getHardwareCommunicationTypeString,
+  trackHardwareWalletConnection,
+} from '../utils';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -151,6 +155,7 @@ function FinalizeWalletSetupPage({
   const mnemonicType = route?.params?.mnemonicType;
   const keylessPackSetId = route?.params?.keylessPackSetId;
   const deviceData = route?.params?.deviceData;
+  const ledgerTabValue = route?.params?.tabValue;
   const isFirmwareVerified = route?.params?.isFirmwareVerified;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
   const isKeylessWallet = route?.params?.isKeylessWallet;
@@ -349,10 +354,23 @@ function FinalizeWalletSetupPage({
           // verifyHardware/onSelectAddWalletType are bypassed. Mirror the
           // OneKey-side `addWalletStarted` + success/failure tracking here.
           const ledgerDevice = deviceData.device as SearchDevice;
+          // Resolve the per-session transport from the tabValue passed by the
+          // Ledger entry points. Mirrors the OneKey pattern in useDeviceConnect
+          // (`forceTransportType || hardwareTransportType`) so the analytics
+          // event reflects the channel actually used for this connection, not
+          // the stale persisted setting.
+          const forceTransportType = ledgerTabValue
+            ? await getForceTransportType(ledgerTabValue)
+            : undefined;
+          const resolvedTransportType =
+            forceTransportType || hardwareTransportType;
           defaultLogger.account.wallet.addWalletStarted({
             addMethod: 'ConnectHWWallet',
             details: {
               hardwareWalletType: 'Standard',
+              communication: getHardwareCommunicationTypeString(
+                resolvedTransportType,
+              ),
               vendor: deviceData.vendor,
             },
             isSoftwareWalletOnlyUser,
@@ -372,7 +390,7 @@ function FinalizeWalletSetupPage({
             await trackHardwareWalletConnection({
               status: 'success',
               deviceType: ledgerDevice.deviceType,
-              hardwareTransportType,
+              hardwareTransportType: resolvedTransportType,
               isSoftwareWalletOnlyUser,
               vendor: deviceData.vendor,
             });
@@ -380,7 +398,7 @@ function FinalizeWalletSetupPage({
             await trackHardwareWalletConnection({
               status: 'failure',
               deviceType: ledgerDevice.deviceType,
-              hardwareTransportType,
+              hardwareTransportType: resolvedTransportType,
               isSoftwareWalletOnlyUser,
               vendor: deviceData.vendor,
             });
@@ -447,6 +465,7 @@ function FinalizeWalletSetupPage({
     goNextStep,
     hardwareTransportType,
     isSoftwareWalletOnlyUser,
+    ledgerTabValue,
   ]);
 
   useEffect(() => {
