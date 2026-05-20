@@ -24,6 +24,7 @@ export interface ISegmentControlProps extends IXStackProps {
     label: string | ReactElement;
     value: string | number;
     testID?: string;
+    disabled?: boolean;
   }[];
   onChange: (value: string | number) => void;
   segmentControlItemStyleProps?: GetProps<typeof YStack>;
@@ -131,13 +132,14 @@ function SegmentControlFrame({
       h={32}
       {...rest}
     >
-      {options.map(({ label, value: v, testID }, index) => (
+      {options.map(({ label, value: v, testID, disabled }, index) => (
         <SegmentControlItem
           testID={testID}
           key={index}
           label={label}
           value={v}
           active={value === v}
+          disabled={disabled}
           onChange={handleChange}
           activeBackgroundColor={activeBackgroundColor}
           activeTextColor={activeTextColor}

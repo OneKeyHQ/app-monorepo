@@ -82,6 +82,7 @@ type ITokenDetailsAddressBlockProps = {
   address: string;
   onPress: () => void;
   testID?: string;
+  disabled?: boolean;
 };
 
 const TokenDetailsAddressBlock = memo(
@@ -91,6 +92,7 @@ const TokenDetailsAddressBlock = memo(
     address,
     onPress,
     testID,
+    disabled,
   }: ITokenDetailsAddressBlockProps) => {
     if (!shouldShow) {
       return null;
@@ -103,6 +105,7 @@ const TokenDetailsAddressBlock = memo(
           testID={testID}
           userSelect="none"
           onPress={onPress}
+          opacity={disabled ? 0.5 : 1}
           px="$5"
           py="$3"
           gap="$1"
@@ -602,6 +605,7 @@ function TokenDetailsHeader(props: IProps) {
           address={addressBlockValue}
           onPress={handleCopyAddressPress}
           testID={AssetDetailsTestIDs.copyAddressBtn}
+          disabled={isBotWalletCopyBlocked}
         />
         {/* History */}
         <Divider mb="$3" />

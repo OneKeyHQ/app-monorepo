@@ -4,10 +4,12 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, SegmentControl, Stack } from '@onekeyhq/components';
+import { Empty, Page, SegmentControl, Stack } from '@onekeyhq/components';
 import { PagerView } from '@onekeyhq/components/src/composite/Carousel/pager';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
+import { getBotWalletDisabledMessage } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import {
   BUY_GUIDE_URL,
   SELL_GUIDE_URL,
@@ -18,6 +20,7 @@ import type {
   EModalFiatCryptoRoutes,
   IModalFiatCryptoParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   openUrlExternal,
   openUrlInDiscovery,
@@ -41,6 +44,17 @@ const TAB_GUIDE_URLS: Record<ITabType, string> = {
   sell: SELL_GUIDE_URL,
 };
 
+function BotWalletBuyBlockedPlaceholder() {
+  return (
+    <Stack flex={1} justifyContent="center" px="$5">
+      <Empty
+        illustration="WalletAdd"
+        title={getBotWalletDisabledMessage('addMoney')}
+      />
+    </Stack>
+  );
+}
+
 const BuyPage = () => {
   const route =
     useRoute<
@@ -54,6 +68,19 @@ const BuyPage = () => {
     defaultTab,
   } = route.params;
   const intl = useIntl();
+  const walletId = useMemo(
+    () =>
+      accountUtils.getWalletIdFromAccountId({
+        accountId: accountId ?? '',
+      }),
+    [accountId],
+  );
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId,
+    },
+  );
+  const isBuyBlockedByBotWallet = isBotWallet && isBotWalletDeactivated;
 
   const initialTab: ITabType = defaultTab ?? 'buy';
   const [activeTab, setActiveTab] = useState<ITabType>(initialTab);
@@ -62,13 +89,20 @@ const BuyPage = () => {
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
 
-  const handleTabChange = useCallback((value: string | number) => {
-    const tab = value as ITabType;
+  const switchToTab = useCallback((tab: ITabType) => {
     setActiveTab(tab);
     if (platformEnv.isNative) {
       pagerRef.current?.setPage(TAB_TO_INDEX[tab]);
     }
   }, []);
+
+  const handleTabChange = useCallback(
+    (value: string | number) => {
+      const tab = value as ITabType;
+      switchToTab(tab);
+    },
+    [switchToTab],
+  );
 
   const handlePageSelected = useCallback(
     (e: { nativeEvent: { position: number } }) => {
@@ -123,6 +157,23 @@ const BuyPage = () => {
     [activeTab, handleTabChange, segmentOptions],
   );
 
+  const buyContent = isBuyBlockedByBotWallet ? (
+    <BotWalletBuyBlockedPlaceholder />
+  ) : (
+    <SellOrBuyContent type="buy" networkId={networkId} accountId={accountId} />
+  );
+
+  const activeTabContent =
+    activeTab === 'buy' ? (
+      buyContent
+    ) : (
+      <SellOrBuyContent
+        type="sell"
+        networkId={networkId}
+        accountId={accountId}
+      />
+    );
+
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -154,13 +205,7 @@ const BuyPage = () => {
                   keyboardDismissMode="on-drag"
                   pageWidth="100%"
                 >
-                  <Stack flex={1}>
-                    <SellOrBuyContent
-                      type="buy"
-                      networkId={networkId}
-                      accountId={accountId}
-                    />
-                  </Stack>
+                  <Stack flex={1}>{buyContent}</Stack>
                   <Stack flex={1}>
                     <SellOrBuyContent
                       type="sell"
@@ -170,11 +215,7 @@ const BuyPage = () => {
                   </Stack>
                 </PagerView>
               ) : (
-                <SellOrBuyContent
-                  type={activeTab}
-                  networkId={networkId}
-                  accountId={accountId}
-                />
+                activeTabContent
               )}
             </Page.Body>
           </Page>
