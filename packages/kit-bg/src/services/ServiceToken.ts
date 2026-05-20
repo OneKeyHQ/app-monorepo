@@ -478,6 +478,21 @@ class ServiceToken extends ServiceBase {
     },
   );
 
+  // Drop any in-flight debounced write and the in-memory buffer so a
+  // pending flush can't rewrite caches that the caller is about to clear
+  // (e.g. currency switch wiping fiat fields).
+  @backgroundMethod()
+  public async cancelPendingLocalTokensWrite() {
+    this._updateAccountLocalTokensDebounced.cancel();
+    this.localAccountTokensCache = {
+      tokenList: {},
+      smallBalanceTokenList: {},
+      riskyTokenList: {},
+      tokenListValue: {},
+      tokenListMap: {},
+    };
+  }
+
   @backgroundMethod()
   public async fetchTokensDetails(
     params: IFetchTokenDetailParams,
@@ -893,6 +908,7 @@ class ServiceToken extends ServiceBase {
       smallBalanceTokenList,
       riskyTokenList,
       hasCache: localTokens.hasCache,
+      fiatHasCache: localTokens.fiatHasCache,
       accountId,
       networkId,
     };

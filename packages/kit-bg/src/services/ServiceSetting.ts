@@ -274,6 +274,13 @@ class ServiceSetting extends ServiceBase {
   // the post-restart UI shows a placeholder until fresh data arrives instead of
   // displaying stale numbers under the new currency symbol.
   private async clearCurrencyDependentCaches() {
+    // Must run BEFORE the SimpleDB wipes: an All Networks fetch buffers
+    // tokenListMap/tokenListValue in ServiceToken.localAccountTokensCache and
+    // flushes after a 3s debounce. If the user switches currency inside that
+    // window, the trailing flush would write old-currency fiat fields back
+    // over what we just cleared.
+    await this.backgroundApi.serviceToken.cancelPendingLocalTokensWrite();
+
     await Promise.all([
       this.backgroundApi.simpleDb.accountValue.clearRawData(),
       this.backgroundApi.simpleDb.localTokens.clearFiatData(),

@@ -271,6 +271,14 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
         rawData?.tokenList ?? {},
         key,
       ),
+      // Distinct from `hasCache`: token metadata can persist (e.g. across a
+      // currency switch where `clearFiatData()` keeps `tokenList` but drops
+      // `tokenListValue`/`tokenListMap`). Without this, callers would treat
+      // the fallback `'0'` as a real balance under the new currency.
+      fiatHasCache: Object.prototype.hasOwnProperty.call(
+        rawData?.tokenListValue ?? {},
+        key,
+      ),
     };
 
     perf.done();

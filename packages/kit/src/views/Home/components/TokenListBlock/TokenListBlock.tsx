@@ -2164,6 +2164,10 @@ function TokenListBlock({
       let tokenListValue = '0';
       let tokenListWorth: Record<string, string> = {};
       let hasLocalTokenCache = false;
+      // Distinct from hasLocalTokenCache: a currency switch keeps token
+      // metadata but drops fiat fields. Without this we'd commit the
+      // fallback '0' worth as a real balance under the new currency.
+      let hasLocalFiatCache = false;
 
       if (mergeDeriveAddressData) {
         const { networkAccounts } =
@@ -2190,6 +2194,7 @@ function TokenListBlock({
           ),
         );
         hasLocalTokenCache = resp.some((item) => item.hasCache);
+        hasLocalFiatCache = resp.some((item) => item.fiatHasCache);
 
         const params = resp.map((r) => {
           if (r.accountId && r.networkId) {
@@ -2242,6 +2247,7 @@ function TokenListBlock({
             xpub,
           });
         hasLocalTokenCache = localTokens.hasCache;
+        hasLocalFiatCache = localTokens.fiatHasCache;
 
         tokenList = localTokens.tokenList;
         smallBalanceTokenList = localTokens.smallBalanceTokenList;
@@ -2271,7 +2277,7 @@ function TokenListBlock({
         isEmpty(smallBalanceTokenList) &&
         isEmpty(riskyTokenList)
       ) {
-        if (hasLocalTokenCache) {
+        if (hasLocalTokenCache && hasLocalFiatCache) {
           setOverviewTokenCacheState({
             ownerKey: buildOverviewOwnerKey(account?.id, networkId),
             hasCache: true,
@@ -2341,19 +2347,26 @@ function TokenListBlock({
           handleClearAllNetworkData();
         }
       } else {
+        // After a currency switch we may have token metadata cached but no
+        // fiat values for the new currency yet. Commit the metadata to the
+        // token list atoms (so names/icons render immediately), but keep the
+        // overview in a refreshing state so we don't flash a stale '0'
+        // balance — the fresh fetch will commit the real worth.
         setOverviewTokenCacheState({
           ownerKey: buildOverviewOwnerKey(account?.id, networkId),
-          hasCache: true,
+          hasCache: hasLocalFiatCache,
         });
-        updateAccountWorth({
-          accountId: mergeDeriveAddressData
-            ? (indexedAccount?.id ?? '')
-            : (account?.id ?? ''),
-          initialized: true,
-          worth: tokenListWorth,
-          createAtNetworkWorth: tokenListValue,
-          merge: false,
-        });
+        if (hasLocalFiatCache) {
+          updateAccountWorth({
+            accountId: mergeDeriveAddressData
+              ? (indexedAccount?.id ?? '')
+              : (account?.id ?? ''),
+            initialized: true,
+            worth: tokenListWorth,
+            createAtNetworkWorth: tokenListValue,
+            merge: false,
+          });
+        }
         refreshTokenList({
           tokens: tokenList,
           keys: `${accountId}_${networkId}_local`,
@@ -2392,8 +2405,8 @@ function TokenListBlock({
         });
 
         updateAccountOverviewState({
-          isRefreshing: false,
-          initialized: true,
+          isRefreshing: !hasLocalFiatCache,
+          initialized: hasLocalFiatCache,
         });
 
         perfTokenListView.markEnd('tokenListRefreshing_initTokenListData');
