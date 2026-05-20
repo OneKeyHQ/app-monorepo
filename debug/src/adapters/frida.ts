@@ -215,6 +215,16 @@ export class FridaAdapter extends Adapter {
     return await this.exports().runScript(source);
   }
 
+  async memoryClasses(
+    top = 20,
+  ): Promise<Array<{ name: string; count: number; rss_kb: number }>> {
+    return (await this.exports().memoryClasses(top)) as Array<{
+      name: string;
+      count: number;
+      rss_kb: number;
+    }>;
+  }
+
   drainEvents(max = 100): FridaEvent[] {
     return this.events.splice(0, Math.min(max, this.events.length));
   }

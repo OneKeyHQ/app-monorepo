@@ -183,6 +183,57 @@ rpc.exports = {
     return pendingEvents.splice(0, n);
   },
 
+  // Enumerate live ObjC class instance counts (iOS only). For each loaded
+  // class that isn't part of an Apple framework, count its live instances via
+  // ObjC.chooseSync and return the top N by count.
+  //
+  // Caveats:
+  //  - ObjC.chooseSync is expensive; we filter system-framework class names
+  //    (NS*, UI*, CF*, CA*, _*, etc.) by regex up-front to keep the scan
+  //    affordable on a real app with thousands of loaded classes.
+  //  - rss_kb is a rough heuristic: count * 200B. Wiring a real
+  //    class_getInstanceSize via NativeFunction is a follow-up.
+  //  - Some classes (toll-free-bridged CF types, singletons) refuse
+  //    enumeration; those are silently skipped.
+  memoryClasses: function (top) {
+    if (platform() !== 'ios') {
+      throw new Error('memoryClasses currently iOS-only (Android: TODO)');
+    }
+    const limit = top || 20;
+    const out = [];
+    const names = Object.keys(ObjC.classes);
+    // Skip Apple framework classes by name prefix to keep enumeration fast.
+    // The user's own / OneKey-bundled classes are typically prefixed with
+    // RCT*, ONE*, OneKey*, or app-specific names — those get enumerated.
+    const SYSTEM_RE = /^(NS|UI|CF|CA|CL|MK|AV|MP|GLK|SK|SC|CK|CN|CB|CMK|CG|CT|CX|HK|MTL|WK|_|__)/;
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i];
+      if (SYSTEM_RE.test(name)) continue;
+      try {
+        const found = ObjC.chooseSync({
+          class: ObjC.classes[name],
+          subclasses: false,
+        });
+        if (found && found.length > 0) {
+          out.push({
+            name: name,
+            count: found.length,
+            // 200 bytes/instance is a rough heuristic until we wire
+            // class_getInstanceSize via NativeFunction.
+            rss_kb: Math.round((found.length * 200) / 1024),
+          });
+        }
+      } catch (e) {
+        // Some classes can't be enumerated (CoreFoundation toll-free,
+        // singleton-only, etc.) — skip silently.
+      }
+    }
+    out.sort(function (a, b) {
+      return b.count - a.count;
+    });
+    return out.slice(0, limit);
+  },
+
   // Run user-supplied source inside this agent. The source is wrapped in a
   // function with an `exports` parameter so callers can opt-in to publishing
   // values back to the daemon.

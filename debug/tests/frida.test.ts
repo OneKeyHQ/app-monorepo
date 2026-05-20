@@ -9,6 +9,12 @@ const mockExports = {
   listHooks: vi.fn(async () => [{ id: 42, method: "-[Foo bar]" }]),
   drainEvents: vi.fn(async () => []),
   runScript: vi.fn(async () => ({ ok: true, exports: [] })),
+  memoryClasses: vi.fn(async (top: number) =>
+    [
+      { name: "ONEKeyWalletViewController", count: 12, rss_kb: 3 },
+      { name: "RCTBridge", count: 4, rss_kb: 1 },
+    ].slice(0, top),
+  ),
 };
 
 const mockScript = {
@@ -109,6 +115,19 @@ describe("FridaAdapter", () => {
     const drained = a.drainEvents(3);
     expect(drained.length).toBe(3);
     expect(a.drainEvents(100).length).toBe(2);
+  });
+
+  it("memoryClasses proxies through rpc.exports", async () => {
+    const { FridaAdapter } = await import("../src/adapters/frida.js");
+    const a = new FridaAdapter("ios", "booted", "com.onekey.wallet");
+    await a.attach();
+    const classes = await a.memoryClasses(2);
+    expect(classes.length).toBe(2);
+    expect(classes[0]).toMatchObject({
+      name: "ONEKeyWalletViewController",
+      count: 12,
+    });
+    expect(mockExports.memoryClasses).toHaveBeenCalledWith(2);
   });
 
   it("detach unloads + clears state", async () => {

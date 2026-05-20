@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { execa, type ResultPromise } from "execa";
 import { Adb } from "../adapters/androidNative.js";
+import { FridaAdapter } from "../adapters/frida.js";
 import type { Registry } from "../daemon/registry.js";
 import { snapshotAndroid } from "../perf/androidMetrics.js";
 import { snapshotIos } from "../perf/iosMetrics.js";
@@ -54,12 +55,20 @@ export async function perfFpsTail(
 export async function perfMemoryClasses(
   registry: Registry,
   params: { sessionId: string; top?: number },
-): Promise<{ classes: Array<{ name: string; rss_kb: number }> }> {
+): Promise<{ classes: Array<{ name: string; rss_kb: number; count?: number }> }> {
   const s = registry.get(params.sessionId);
   const top = params.top ?? 20;
-  if (s.platform !== "android") {
-    // V2: iOS via Frida ObjC class enum. MVP returns an empty list so
-    // callers can still rely on a stable shape.
+  if (s.platform === "ios") {
+    // iOS: live Frida ObjC enum. `rss_kb` here is a count × 200B heuristic,
+    // not real resident memory — see agent.js memoryClasses docstring.
+    const frida = s.adapters.get("frida");
+    if (frida instanceof FridaAdapter && frida.isConnected()) {
+      const list = await frida.memoryClasses(top);
+      return { classes: list };
+    }
+    // Frida not attached (e.g. simulator without the daemon or attach
+    // failed) — return empty rather than throwing so AI clients can still
+    // call this without surprises.
     return { classes: [] };
   }
   const adb = new Adb(s.deviceId);

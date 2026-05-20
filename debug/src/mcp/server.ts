@@ -285,12 +285,12 @@ const TOOLS: ToolSpec[] = [
   {
     name: "perf.memory.classes",
     description:
-      "Top N memory-consuming categories from `dumpsys meminfo -d` (Android). iOS returns an empty list in MVP.",
+      "Top N largest object classes. iOS: live Frida ObjC enum (instance count × 200B estimate; skips Apple framework classes like NS*/UI*/CF*). Android: dumpsys meminfo parsing. `rss_kb` is approximate on iOS — sort key, not real RSS.",
     inputSchema: {
       type: "object",
       properties: {
         sessionId: { type: "string" },
-        top: { type: "number", default: 20 },
+        top: { type: "number", default: 20, maximum: 200 },
       },
       required: ["sessionId"],
     },
