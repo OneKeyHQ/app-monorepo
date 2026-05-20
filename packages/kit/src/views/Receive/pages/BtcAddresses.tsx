@@ -48,7 +48,7 @@ type ITabKey = 'receive' | 'change';
 
 type IBtcAddressRow = {
   key: string;
-  address: string;
+  address: string | undefined;
   displayAddress: string;
   formattedReceived: string;
   transfers: number;
@@ -91,15 +91,18 @@ function toRow({
   symbol: string;
   receivedAsDash?: boolean;
 }): IBtcAddressRow {
-  const address = item.address ?? '-';
+  const address = item.address;
+  const displayAddress = address
+    ? accountUtils.shortenAddress({
+        address,
+        leadingLength: 8,
+        trailingLength: 6,
+      })
+    : '-';
   return {
     key: `${item.name}-${item.path}`,
     address,
-    displayAddress: accountUtils.shortenAddress({
-      address,
-      leadingLength: 8,
-      trailingLength: 6,
-    }),
+    displayAddress,
     formattedReceived: receivedAsDash
       ? RECEIVED_DASH
       : formatAmount({
@@ -184,6 +187,7 @@ function AddressTable({
                 variant="tertiary"
                 size="small"
                 icon="Copy3Outline"
+                disabled={!record.address}
                 onPress={(e) => {
                   e?.stopPropagation?.();
                   onCopy(record);
@@ -244,7 +248,10 @@ function NextAddressRow({
       borderColor="$borderSubdued"
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
-      onPress={() => onRowPress(row)}
+      onPress={() => {
+        if (!row.address) return;
+        onRowPress(row);
+      }}
     >
       <Badge badgeType="info" badgeSize="sm">
         <Badge.Text>{nextLabel}</Badge.Text>
@@ -257,6 +264,7 @@ function NextAddressRow({
         variant="tertiary"
         size="small"
         icon="Copy3Outline"
+        disabled={!row.address}
         onPress={(e) => {
           e?.stopPropagation?.();
           onCopy(row);

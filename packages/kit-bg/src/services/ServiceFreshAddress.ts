@@ -534,7 +534,8 @@ class ServiceFreshAddress extends ServiceBase {
       },
     });
 
-    return { next: items[0], totalFresh };
+    const next = items[0];
+    return { next: next?.address ? next : undefined, totalFresh };
   }
 
   @backgroundMethod()
@@ -585,7 +586,8 @@ class ServiceFreshAddress extends ServiceBase {
       },
     });
 
-    return { next: items[0] };
+    const next = items[0];
+    return { next: next?.address ? next : undefined };
   }
 
   @backgroundMethod()
