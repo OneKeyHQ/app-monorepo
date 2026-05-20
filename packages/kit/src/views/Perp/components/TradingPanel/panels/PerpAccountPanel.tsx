@@ -1,9 +1,10 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   DashText,
   DebugRenderTracker,
@@ -15,6 +16,7 @@ import {
   useClipboard,
   useInTabDialog,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { openHyperLiquidExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import {
@@ -22,6 +24,7 @@ import {
   usePerpsActiveAccountMmrAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsComputedAccountValueAtom,
+  usePerpsRelayDepositSessionsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -31,6 +34,12 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useShowPortfolio } from '../../../hooks/useShowPortfolio';
+import {
+  RELAY_DEPOSIT_PANEL_POLL_INTERVAL_MS,
+  getRelayDepositBadgeType,
+  getRelayDepositStatusLabel,
+  isRelayDepositTerminalStatus,
+} from '../../../utils/relayDepositTracking';
 import { getPortfolioTitle } from '../../Portfolio/PerpPortfolioModal';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
@@ -96,6 +105,8 @@ function PerpAccountPanel() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [selectedAccount] = usePerpsActiveAccountAtom();
+  const [{ sessions: relayDepositSessions }, setRelayDepositSessions] =
+    usePerpsRelayDepositSessionsAtom();
   const userAddress = selectedAccount.accountAddress;
   const dialogInTab = useInTabDialog();
   const navigation = useAppNavigation();
@@ -103,11 +114,98 @@ function PerpAccountPanel() {
   const { copyText } = useClipboard();
   const { showPortfolio } = useShowPortfolio();
 
+  const activeRelayDepositSession = useMemo(() => {
+    if (!userAddress) return undefined;
+    return relayDepositSessions.reduce<
+      (typeof relayDepositSessions)[number] | undefined
+    >((latest, session) => {
+      if (
+        session.accountAddress?.toLowerCase() !== userAddress.toLowerCase() ||
+        isRelayDepositTerminalStatus(session.status)
+      ) {
+        return latest;
+      }
+      if (!latest || session.updatedAt > latest.updatedAt) {
+        return session;
+      }
+      return latest;
+    }, undefined);
+  }, [relayDepositSessions, userAddress]);
+
   const handleOpenPortfolio = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.PerpPortfolioModal,
     });
   }, [navigation]);
+
+  const activeRelayDepositSessionId = activeRelayDepositSession?.id;
+  const activeRelayDepositAddress = activeRelayDepositSession?.depositAddress;
+  const activeRelayDepositRequestId = activeRelayDepositSession?.requestId;
+
+  useEffect(() => {
+    if (!activeRelayDepositSessionId || !activeRelayDepositAddress) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+    const refresh = async () => {
+      try {
+        const result =
+          await backgroundApiProxy.serviceRelay.getRelayDepositStatus({
+            depositAddress: activeRelayDepositAddress,
+            requestId: activeRelayDepositRequestId,
+          });
+        if (isCancelled) return;
+        setRelayDepositSessions((prev) => ({
+          sessions: prev.sessions.map((session) =>
+            session.id === activeRelayDepositSessionId
+              ? {
+                  ...session,
+                  requestId: result.requestId ?? session.requestId,
+                  status: result.status,
+                  inTxs: result.inTxs,
+                  outTxs: result.outTxs,
+                  lastCheckedAt: result.lastCheckedAt,
+                  updatedAt: Date.now(),
+                  error: undefined,
+                }
+              : session,
+          ),
+        }));
+      } catch (e) {
+        if (isCancelled) return;
+        const message =
+          e instanceof Error ? e.message : 'Failed to load Relay status';
+        setRelayDepositSessions((prev) => ({
+          sessions: prev.sessions.map((session) =>
+            session.id === activeRelayDepositSessionId
+              ? {
+                  ...session,
+                  error: message,
+                  lastCheckedAt: Date.now(),
+                  updatedAt: Date.now(),
+                }
+              : session,
+          ),
+        }));
+      }
+    };
+
+    void refresh();
+    const timer = setInterval(() => {
+      void refresh();
+    }, RELAY_DEPOSIT_PANEL_POLL_INTERVAL_MS);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(timer);
+    };
+  }, [
+    activeRelayDepositAddress,
+    activeRelayDepositRequestId,
+    activeRelayDepositSessionId,
+    setRelayDepositSessions,
+  ]);
 
   const unrealizedPnlInfo = useMemo(() => {
     const pnlBn = new BigNumber(accountSummary?.totalUnrealizedPnl || '0');
@@ -247,6 +345,39 @@ function PerpAccountPanel() {
           </XStack>
         ) : null}
       </YStack>
+      {activeRelayDepositSession ? (
+        <YStack bg="$bgSubdued" borderRadius="$3" p="$3" gap="$2">
+          <XStack justifyContent="space-between" alignItems="center" gap="$2">
+            <YStack gap="$0.5" flex={1}>
+              <SizableText size="$bodySmMedium">Relay deposit</SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {activeRelayDepositSession.originChainName} → Hyperliquid
+              </SizableText>
+            </YStack>
+            <Badge
+              badgeType={getRelayDepositBadgeType(
+                activeRelayDepositSession.status,
+                activeRelayDepositSession.inTxs.length > 0,
+              )}
+              badgeSize="sm"
+            >
+              {getRelayDepositStatusLabel(activeRelayDepositSession.status, {
+                hasSourceTx: activeRelayDepositSession.inTxs.length > 0,
+                compact: true,
+              })}
+            </Badge>
+          </XStack>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodySm" color="$textSubdued">
+              Expected
+            </SizableText>
+            <SizableText size="$bodySmMedium">
+              {activeRelayDepositSession.receiveAmount}{' '}
+              {activeRelayDepositSession.receiveSymbol || 'USDC'}
+            </SizableText>
+          </XStack>
+        </YStack>
+      ) : null}
       {/* Action Buttons */}
       {userAddress ? (
         <XStack gap="$2.5" alignItems="center">

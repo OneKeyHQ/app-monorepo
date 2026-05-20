@@ -57,6 +57,9 @@ export const PerpTestIDs = {
   RelayDepositCopyAddressButton: 'perp-relay-deposit-copy-address-button',
   RelayDepositNetworkSelector: 'perp-relay-deposit-network-selector',
   RelayDepositTokenSelector: 'perp-relay-deposit-token-selector',
+  RelayDepositTrackingCard: 'perp-relay-deposit-tracking-card',
+  RelayDepositTrackingRefreshButton:
+    'perp-relay-deposit-tracking-refresh-button',
 
   // -- Order info panel tabs --
   PositionsTab: 'perp-positions-tab',

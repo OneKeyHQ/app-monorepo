@@ -128,6 +128,79 @@ export interface IRelayDepositInfo {
   maxReceiveAmount?: string;
 }
 
+export type IRelayDepositStatus =
+  | 'waiting'
+  | 'depositing'
+  | 'pending'
+  | 'submitted'
+  | 'success'
+  | 'refund'
+  | 'failure'
+  | 'unknown'
+  | (string & {});
+
+export interface IRelayDepositTx {
+  hash?: string;
+  type?: string;
+  chainId?: number;
+  timestamp?: number;
+  data?: {
+    from?: string;
+    to?: string;
+    value?: string;
+    data?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+export interface IRelayRequest {
+  id?: string;
+  requestId?: string;
+  status?: IRelayDepositStatus;
+  user?: string;
+  recipient?: string;
+  depositAddress?: {
+    address?: string;
+    depositAddressType?: string;
+    depositor?: string;
+  };
+  data?: {
+    inTxs?: IRelayDepositTx[];
+    outTxs?: IRelayDepositTx[];
+    [key: string]: unknown;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+  childRequests?: IRelayRequest[];
+  [key: string]: unknown;
+}
+
+export interface IRelayRequestsResponse {
+  requests?: IRelayRequest[] | IRelayRequest;
+  continuation?: string;
+}
+
+export interface IRelayIntentStatusResponse {
+  status?: IRelayDepositStatus;
+  quoteCreatedAt?: number;
+  [key: string]: unknown;
+}
+
+export interface IRelayDepositStatusInfo {
+  status: IRelayDepositStatus;
+  requestId?: string;
+  depositAddress: string;
+  inTxs: IRelayDepositTx[];
+  outTxs: IRelayDepositTx[];
+  createdAt?: string;
+  updatedAt?: string;
+  quoteCreatedAt?: number;
+  lastCheckedAt: number;
+  request?: IRelayRequest;
+  intentStatus?: IRelayIntentStatusResponse;
+}
+
 export interface IRelayChainsResponse {
   chains: Array<{
     id: number;

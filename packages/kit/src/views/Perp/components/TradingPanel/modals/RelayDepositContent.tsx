@@ -21,7 +21,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { HighlightAddress } from '@onekeyhq/kit/src/components/HighlightAddress';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
-import type { IPerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  type IPerpsActiveAccountAtom,
+  type IPerpsRelayDepositSessionAtom,
+  usePerpsRelayDepositSessionsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -30,6 +34,13 @@ import type {
   IRelayCurrency,
   IRelayDepositInfo,
 } from '@onekeyhq/shared/types/relay';
+
+import {
+  RELAY_DEPOSIT_DIALOG_POLL_INTERVAL_MS,
+  buildRelayDepositSessionId,
+  isRelayDepositTerminalStatus,
+} from '../../../utils/relayDepositTracking';
+import { RelayDepositTrackingCard } from '../components/RelayDepositTrackingCard';
 
 // Pure utility — format raw numeric string with thousands commas, preserving decimals
 function formatWithCommas(raw: string): string {
@@ -72,6 +83,8 @@ function RelayDepositContent({
   const intl = useIntl();
   const { copyText } = useClipboard();
   const theme = useTheme();
+  const [{ sessions: relayDepositSessions }, setRelayDepositSessions] =
+    usePerpsRelayDepositSessionsAtom();
 
   const [chains, setChains] = useState<IRelayChain[]>([]);
   const [currencies, setCurrencies] = useState<
@@ -86,11 +99,13 @@ function RelayDepositContent({
   const [sendAmount, setSendAmount] = useState(DEFAULT_SEND_AMOUNT);
   const [receiveAmount, setReceiveAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
   const [chainsLoading, setChainsLoading] = useState(true);
   const [error, setError] = useState('');
 
   const recipientAddress = selectedAccount.accountAddress ?? '';
   const fetchIdRef = useRef(0);
+  const statusFetchIdRef = useRef(0);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestQuoteInputRef = useRef({
     recipientAddress,
@@ -107,6 +122,25 @@ function RelayDepositContent({
   const selectedCurrency = useMemo(
     () => currentCurrencies.find((c) => c.address === selectedCurrencyAddress),
     [currentCurrencies, selectedCurrencyAddress],
+  );
+
+  const selectedChain = useMemo(
+    () => chains.find((c) => c.id === selectedChainId),
+    [chains, selectedChainId],
+  );
+
+  const currentSessionId = useMemo(() => {
+    if (!recipientAddress || !quoteResult?.depositAddress) return '';
+    return buildRelayDepositSessionId({
+      accountAddress: recipientAddress,
+      depositAddress: quoteResult.depositAddress,
+    });
+  }, [quoteResult?.depositAddress, recipientAddress]);
+
+  const currentRelayDepositSession = useMemo(
+    () =>
+      relayDepositSessions.find((session) => session.id === currentSessionId),
+    [currentSessionId, relayDepositSessions],
   );
 
   const chainOptions = useMemo(
@@ -406,6 +440,161 @@ function RelayDepositContent({
     ],
   );
 
+  useEffect(() => {
+    if (
+      !currentSessionId ||
+      !quoteResult?.depositAddress ||
+      !selectedCurrency ||
+      !selectedChain
+    ) {
+      return;
+    }
+
+    const now = Date.now();
+    setRelayDepositSessions((prev) => {
+      const existing = prev.sessions.find(
+        (session) => session.id === currentSessionId,
+      );
+      const isSameRequest =
+        !quoteResult.requestId || quoteResult.requestId === existing?.requestId;
+      const nextSession: IPerpsRelayDepositSessionAtom = {
+        id: currentSessionId,
+        accountId: selectedAccount.accountId,
+        indexedAccountId: selectedAccount.indexedAccountId,
+        accountAddress: selectedAccount.accountAddress,
+        originChainId: selectedChain.id,
+        originChainName: selectedChain.name,
+        originCurrency: selectedCurrency.address,
+        originCurrencySymbol: selectedCurrency.symbol,
+        depositAddress: quoteResult.depositAddress,
+        requestId:
+          quoteResult.requestId ??
+          (isSameRequest ? existing?.requestId : undefined),
+        sendAmount: quoteResult.sendAmount,
+        receiveAmount: quoteResult.receiveAmount,
+        receiveSymbol: quoteResult.receiveSymbol,
+        status: isSameRequest ? (existing?.status ?? 'waiting') : 'waiting',
+        inTxs: isSameRequest ? (existing?.inTxs ?? []) : [],
+        outTxs: isSameRequest ? (existing?.outTxs ?? []) : [],
+        createdAt: isSameRequest ? (existing?.createdAt ?? now) : now,
+        updatedAt: now,
+        lastCheckedAt: isSameRequest ? existing?.lastCheckedAt : undefined,
+        error: isSameRequest ? existing?.error : undefined,
+      };
+      const sessions = [
+        nextSession,
+        ...prev.sessions.filter((session) => session.id !== currentSessionId),
+      ];
+      return {
+        sessions: sessions.slice(0, 20),
+      };
+    });
+  }, [
+    currentSessionId,
+    quoteResult,
+    selectedAccount.accountAddress,
+    selectedAccount.accountId,
+    selectedAccount.indexedAccountId,
+    selectedChain,
+    selectedCurrency,
+    setRelayDepositSessions,
+  ]);
+
+  const refreshRelayDepositStatus = useCallback(async () => {
+    if (!currentSessionId || !quoteResult?.depositAddress) {
+      return undefined;
+    }
+
+    statusFetchIdRef.current += 1;
+    const id = statusFetchIdRef.current;
+    setStatusLoading(true);
+
+    try {
+      const result =
+        await backgroundApiProxy.serviceRelay.getRelayDepositStatus({
+          depositAddress: quoteResult.depositAddress,
+          requestId: quoteResult.requestId,
+        });
+      if (id !== statusFetchIdRef.current) {
+        return undefined;
+      }
+      setRelayDepositSessions((prev) => ({
+        sessions: prev.sessions.map((session) =>
+          session.id === currentSessionId
+            ? {
+                ...session,
+                requestId: result.requestId ?? session.requestId,
+                status: result.status,
+                inTxs: result.inTxs,
+                outTxs: result.outTxs,
+                lastCheckedAt: result.lastCheckedAt,
+                updatedAt: Date.now(),
+                error: undefined,
+              }
+            : session,
+        ),
+      }));
+      return result.status;
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : 'Failed to load status';
+      if (id === statusFetchIdRef.current) {
+        setRelayDepositSessions((prev) => ({
+          sessions: prev.sessions.map((session) =>
+            session.id === currentSessionId
+              ? {
+                  ...session,
+                  lastCheckedAt: Date.now(),
+                  updatedAt: Date.now(),
+                  error: parseErrorMessage(raw),
+                }
+              : session,
+          ),
+        }));
+      }
+      return undefined;
+    } finally {
+      if (id === statusFetchIdRef.current) {
+        setStatusLoading(false);
+      }
+    }
+  }, [
+    currentSessionId,
+    quoteResult?.depositAddress,
+    quoteResult?.requestId,
+    setRelayDepositSessions,
+  ]);
+
+  useEffect(() => {
+    if (!currentSessionId || !quoteResult?.depositAddress) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const run = async () => {
+      const status = await refreshRelayDepositStatus();
+      if (isCancelled || isRelayDepositTerminalStatus(status)) return;
+      timer = setTimeout(() => {
+        void run();
+      }, RELAY_DEPOSIT_DIALOG_POLL_INTERVAL_MS);
+    };
+
+    void run();
+
+    return () => {
+      isCancelled = true;
+      if (timer) {
+        clearTimeout(timer);
+      }
+      statusFetchIdRef.current += 1;
+    };
+  }, [
+    currentSessionId,
+    quoteResult?.depositAddress,
+    refreshRelayDepositStatus,
+  ]);
+
   const handleCopyAddress = useCallback(() => {
     if (quoteResult?.depositAddress) {
       copyText(quoteResult.depositAddress);
@@ -633,6 +822,16 @@ function RelayDepositContent({
     </YStack>
   ) : null;
 
+  const trackingSection = currentRelayDepositSession ? (
+    <RelayDepositTrackingCard
+      session={currentRelayDepositSession}
+      loading={statusLoading}
+      onRefresh={() => {
+        void refreshRelayDepositStatus();
+      }}
+    />
+  ) : null;
+
   return (
     <YStack gap="$4">
       {/* Chain & Token selectors */}
@@ -752,7 +951,8 @@ function RelayDepositContent({
       {!isMobile ? (
         <>
           {addressSection}
-          {addressSection ? <Divider /> : null}
+          {addressSection ? trackingSection : null}
+          {addressSection || trackingSection ? <Divider /> : null}
           {amountSection}
         </>
       ) : (
@@ -760,6 +960,7 @@ function RelayDepositContent({
           {amountSection}
           {amountSection ? <Divider /> : null}
           {addressSection}
+          {addressSection ? trackingSection : null}
         </>
       )}
     </YStack>

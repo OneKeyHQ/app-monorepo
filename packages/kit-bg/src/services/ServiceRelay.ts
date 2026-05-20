@@ -8,9 +8,13 @@ import type {
   IRelayChainsResponse,
   IRelayCurrency,
   IRelayDepositInfo,
+  IRelayDepositStatusInfo,
+  IRelayIntentStatusResponse,
   IRelayQuoteRequest,
   IRelayQuoteResponse,
   IRelayQuoteStep,
+  IRelayRequest,
+  IRelayRequestsResponse,
 } from '@onekeyhq/shared/types/relay';
 
 import ServiceBase from './ServiceBase';
@@ -293,6 +297,57 @@ class ServiceRelay extends ServiceBase {
     return (await response.json()) as IRelayQuoteResponse;
   }
 
+  private static _buildUrl(
+    path: string,
+    params: Record<string, string | number | boolean | undefined>,
+  ) {
+    const url = new URL(`${RELAY_API_BASE}${path}`);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        url.searchParams.set(key, String(value));
+      }
+    });
+    return url.toString();
+  }
+
+  private async _fetchRelayJson<T>(url: string): Promise<T> {
+    const response = await fetch(url);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new OneKeyError({ message: errorText || 'Relay request failed' });
+    }
+    return (await response.json()) as T;
+  }
+
+  private static _normalizeRequestsResponse(
+    data: IRelayRequestsResponse,
+  ): IRelayRequest[] {
+    if (Array.isArray(data.requests)) {
+      return data.requests;
+    }
+    if (data.requests) {
+      return [data.requests];
+    }
+    return [];
+  }
+
+  private static _flattenRelayRequests(
+    requests: IRelayRequest[],
+  ): IRelayRequest[] {
+    return requests.flatMap((request) => [
+      request,
+      ...ServiceRelay._flattenRelayRequests(request.childRequests ?? []),
+    ]);
+  }
+
+  private static _getRequestId(request?: IRelayRequest): string | undefined {
+    return request?.id ?? request?.requestId;
+  }
+
+  private static _isRelayTerminalStatus(status?: string) {
+    return status === 'success' || status === 'refund' || status === 'failure';
+  }
+
   private _buildDepositInfo(
     data: IRelayQuoteResponse,
     fallbackAmount: string,
@@ -331,6 +386,72 @@ class ServiceRelay extends ServiceBase {
     });
     const data = await this._fetchQuote(requestBody);
     return this._buildDepositInfo(data, params.amount);
+  }
+
+  @backgroundMethod()
+  async getRelayRequestsByDepositAddress(params: {
+    depositAddress: string;
+    requestId?: string;
+  }): Promise<IRelayRequest[]> {
+    ServiceRelay._assertEvmAddress(params.depositAddress, 'deposit');
+
+    const url = ServiceRelay._buildUrl('/requests/v2', {
+      depositAddress: params.depositAddress,
+      includeChildRequests: true,
+      sortBy: 'updatedAt',
+      sortDirection: 'desc',
+      limit: 20,
+    });
+    const data = await this._fetchRelayJson<IRelayRequestsResponse>(url);
+    return ServiceRelay._normalizeRequestsResponse(data);
+  }
+
+  @backgroundMethod()
+  async getRelayIntentStatus(params: {
+    requestId: string;
+  }): Promise<IRelayIntentStatusResponse> {
+    if (!params.requestId) {
+      throw new OneKeyError({ message: 'Missing Relay requestId' });
+    }
+    const url = ServiceRelay._buildUrl('/intents/status/v3', {
+      requestId: params.requestId,
+    });
+    return this._fetchRelayJson<IRelayIntentStatusResponse>(url);
+  }
+
+  @backgroundMethod()
+  async getRelayDepositStatus(params: {
+    depositAddress: string;
+    requestId?: string;
+  }): Promise<IRelayDepositStatusInfo> {
+    const requests = ServiceRelay._flattenRelayRequests(
+      await this.getRelayRequestsByDepositAddress(params),
+    );
+    const request = params.requestId
+      ? requests.find(
+          (item) => ServiceRelay._getRequestId(item) === params.requestId,
+        )
+      : requests[0];
+    const requestId = ServiceRelay._getRequestId(request) ?? params.requestId;
+
+    let intentStatus: IRelayIntentStatusResponse | undefined;
+    if (requestId && !ServiceRelay._isRelayTerminalStatus(request?.status)) {
+      intentStatus = await this.getRelayIntentStatus({ requestId });
+    }
+
+    return {
+      status: request?.status ?? intentStatus?.status ?? 'waiting',
+      requestId,
+      depositAddress: params.depositAddress,
+      inTxs: request?.data?.inTxs ?? [],
+      outTxs: request?.data?.outTxs ?? [],
+      createdAt: request?.createdAt,
+      updatedAt: request?.updatedAt,
+      quoteCreatedAt: intentStatus?.quoteCreatedAt,
+      lastCheckedAt: Date.now(),
+      request,
+      intentStatus,
+    };
   }
 
   @backgroundMethod()

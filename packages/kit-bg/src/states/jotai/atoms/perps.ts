@@ -20,6 +20,10 @@ import {
   ETriggerOrderType,
 } from '@onekeyhq/shared/types/hyperliquid';
 import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type {
+  IRelayDepositStatus,
+  IRelayDepositTx,
+} from '@onekeyhq/shared/types/relay';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { EAtomNames } from '../atomNames';
@@ -533,6 +537,40 @@ export const { target: perpsDepositOrderAtom, use: usePerpsDepositOrderAtom } =
       orders: [],
     },
   });
+
+export interface IPerpsRelayDepositSessionAtom {
+  id: string;
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+  accountAddress?: IHex | null;
+  originChainId: number;
+  originChainName: string;
+  originCurrency: string;
+  originCurrencySymbol: string;
+  depositAddress: string;
+  requestId?: string;
+  sendAmount: string;
+  receiveAmount: string;
+  receiveSymbol: string;
+  status: IRelayDepositStatus;
+  inTxs: IRelayDepositTx[];
+  outTxs: IRelayDepositTx[];
+  createdAt: number;
+  updatedAt: number;
+  lastCheckedAt?: number;
+  error?: string;
+}
+
+export const {
+  target: perpsRelayDepositSessionsAtom,
+  use: usePerpsRelayDepositSessionsAtom,
+} = globalAtom<{ sessions: IPerpsRelayDepositSessionAtom[] }>({
+  name: EAtomNames.perpsRelayDepositSessionsAtom,
+  persist: true,
+  initialValue: {
+    sessions: [],
+  },
+});
 
 export interface IPerpsUserConfigPersistAtom {
   perpUserConfig: IPerpUserConfig;

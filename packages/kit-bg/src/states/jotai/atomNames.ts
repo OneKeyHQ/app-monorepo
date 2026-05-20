@@ -95,6 +95,7 @@ export enum EAtomNames {
   perpTokenSelectorTabsAtom = 'perpTokenSelectorTabsAtom',
   perpTokenFavoritesPersistAtom = 'perpTokenFavoritesPersistAtom',
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
+  perpsRelayDepositSessionsAtom = 'perpsRelayDepositSessionsAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   perpsLayoutStateAtom = 'perpsLayoutStateAtom',
   perpsAbstractionModeAtom = 'perpsAbstractionModeAtom',
@@ -163,6 +164,9 @@ export const atomsConfig: Partial<
     mergeInitialValue: false,
   },
   [EAtomNames.perpsDepositOrderAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsRelayDepositSessionsAtom]: {
     mergeInitialValue: false,
   },
 };
