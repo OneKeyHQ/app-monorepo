@@ -306,9 +306,11 @@ export function AccountSelectorAccountListItem({
 
     // Reserve a stable width so the trailing address doesn't shift right
     // when "--" becomes the loaded value (e.g. "$10.82"). 56px covers
-    // typical fiat balances; rare longer values still flexShrink.
+    // typical fiat balances; rare longer values still flexShrink so the
+    // address keeps a usable amount of space (Stack defaults flexShrink: 0
+    // on RN/Tamagui, so the prop must be explicit).
     return (
-      <Stack minWidth="$14">
+      <Stack minWidth="$14" flexShrink={1}>
         <AccountValueWithSpotlight
           walletId={focusedWalletInfo?.wallet?.id ?? ''}
           enabledNetworksCompatibleWithWalletId={

@@ -30,7 +30,6 @@ import {
 import { Stack, XStack, YStack } from '../../../primitives/Stack';
 
 import type {
-  IModalDescriptor,
   IModalNavigationConfig,
   IModalNavigationEventMap,
   IModalNavigationOptions,
@@ -284,9 +283,8 @@ function WebModalNavigator({
 
   const stackChildrenRefList = useRef<TamaguiElement[]>([]);
 
-  const disableEnterScaleAnimation = !!(
-    descriptor as IModalDescriptor | undefined
-  )?.options?.disableEnterScaleAnimation;
+  const disableEnterScaleAnimation =
+    !!descriptor?.options?.disableEnterScaleAnimation;
 
   useLayoutEffect(() => {
     const element = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex];

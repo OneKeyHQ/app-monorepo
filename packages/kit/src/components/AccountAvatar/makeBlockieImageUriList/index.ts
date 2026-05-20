@@ -19,11 +19,17 @@ const events = new Map<string, ((data: string) => void)[]>();
 // "blank avatar -> blockie" flash whenever the same address is rendered
 // again (re-open the account selector, scroll a row back into view, the
 // same address shown in another panel, etc.).
+// Mirrors the eviction policy of `shownAvatarSourcesCache` in
+// AccountAvatar.tsx so both caches stay symmetric and bounded.
+const MAIN_THREAD_CACHE_LIMIT = 500;
 const mainThreadCache = new Map<string, string>();
 
 worker.onmessage = (event: MessageEvent<{ id: string; data: string }>) => {
   const { id, data } = event.data;
   if (data) {
+    if (mainThreadCache.size >= MAIN_THREAD_CACHE_LIMIT) {
+      mainThreadCache.clear();
+    }
     mainThreadCache.set(id, data);
   }
   const callbacks = events.get(id);
