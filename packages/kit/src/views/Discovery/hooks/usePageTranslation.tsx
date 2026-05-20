@@ -19,6 +19,7 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { useWebViewTranslate } from '@onekeyhq/kit/src/components/WebView/useWebViewTranslate';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { DiscoveryTestIDs } from '@onekeyhq/kit/src/views/Discovery/testIDs';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 // import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
@@ -155,6 +156,7 @@ function TranslateSettings({
         />
         {isCustomMode ? (
           <Select
+            testID="discovery-select"
             title={intl.formatMessage({
               id: ETranslations.browser_translate_target_language,
             })}
@@ -294,6 +296,7 @@ export function TranslatePopoverContent({
         pt={platformEnv.isDesktop ? '$5' : undefined}
       >
         <Button
+          testID="discovery-handle-action-btn"
           variant="tertiary"
           size="small"
           icon="ChevronLeftOutline"
@@ -322,6 +325,7 @@ export function TranslatePopoverContent({
           {targetLanguageLabel}
         </SizableText>
         <IconButton
+          testID="discovery-icon-btn"
           icon="SettingsOutline"
           variant="tertiary"
           size="small"
@@ -335,6 +339,7 @@ export function TranslatePopoverContent({
             variant="primary"
             size="medium"
             onPress={handleAction}
+            testID="discovery-btn"
           >
             {intl.formatMessage({
               id: isTranslated
@@ -344,6 +349,7 @@ export function TranslatePopoverContent({
           </Button>
           {isTranslated && onRetranslate ? (
             <IconButton
+              testID={DiscoveryTestIDs.pageTranslationRetryBtn}
               icon="RotateClockwiseOutline"
               variant="secondary"
               size="medium"
@@ -482,6 +488,7 @@ export function usePageTranslation(tabId: string) {
           actions: [
             <Button
               key="switch"
+              testID={DiscoveryTestIDs.pageTranslationSwitchEngineBtn}
               variant="primary"
               size="small"
               onPressIn={() => {

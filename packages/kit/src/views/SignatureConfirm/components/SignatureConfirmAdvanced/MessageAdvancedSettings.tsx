@@ -4,6 +4,7 @@ import { YStack } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
+import { SignatureConfirmTestIDs } from '../../testIDs';
 import { DataViewerTab } from '../SignatureConfirmDataViewer';
 
 import { AdvancedSettings } from './AdvancedSettings';
@@ -46,7 +47,11 @@ function MessageAdvancedSettings(props: IProps) {
     [rawMessage],
   );
 
-  return <AdvancedSettings>{renderAdvancedSettings()}</AdvancedSettings>;
+  return (
+    <AdvancedSettings testID={SignatureConfirmTestIDs.MessageAdvancedSettings}>
+      {renderAdvancedSettings()}
+    </AdvancedSettings>
+  );
 }
 
 export { MessageAdvancedSettings };

@@ -13,7 +13,6 @@ import {
   SizableText,
   Skeleton,
   Stack,
-  Toast,
   XStack,
   YStack,
   useTabIsRefreshingFocused,
@@ -29,6 +28,7 @@ import { useDisplayAccountAddress } from '@onekeyhq/kit/src/hooks/useDisplayAcco
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import {
   shouldBlockBotWalletCopyAddress,
   shouldBlockBotWalletReceive,
@@ -61,6 +61,8 @@ import type {
   IFetchTokenDetailItem,
 } from '@onekeyhq/shared/types/token';
 
+import { AssetDetailsTestIDs } from '../../testIDs';
+
 import ActionBuy from './ActionBuy';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
@@ -79,10 +81,19 @@ type ITokenDetailsAddressBlockProps = {
   label: string;
   address: string;
   onPress: () => void;
+  testID?: string;
+  disabled?: boolean;
 };
 
 const TokenDetailsAddressBlock = memo(
-  ({ shouldShow, label, address, onPress }: ITokenDetailsAddressBlockProps) => {
+  ({
+    shouldShow,
+    label,
+    address,
+    onPress,
+    testID,
+    disabled,
+  }: ITokenDetailsAddressBlockProps) => {
     if (!shouldShow) {
       return null;
     }
@@ -91,8 +102,10 @@ const TokenDetailsAddressBlock = memo(
       <>
         <Divider />
         <YStack
+          testID={testID}
           userSelect="none"
           onPress={onPress}
+          opacity={disabled ? 0.5 : 1}
           px="$5"
           py="$3"
           gap="$1"
@@ -432,6 +445,14 @@ function TokenDetailsHeader(props: IProps) {
   const addressBlockValue = useMemo(() => {
     const address = account?.address ?? '';
 
+    // For deactivated bot wallets the address must not be exposed in full —
+    // copying is blocked, and showing the full string would let users still
+    // grab the address via long-press / OS-level select. Mask it the same
+    // way the account selector shortens addresses.
+    if (isBotWalletCopyBlocked) {
+      return accountUtils.shortenAddress({ address });
+    }
+
     if (
       accountUtils.isHwWallet({ walletId }) ||
       accountUtils.isQrWallet({ walletId })
@@ -440,13 +461,11 @@ function TokenDetailsHeader(props: IProps) {
     }
 
     return address;
-  }, [account?.address, walletId]);
+  }, [account?.address, walletId, isBotWalletCopyBlocked]);
 
   const handleCopyAddressPress = useCallback(() => {
     if (isBotWalletCopyBlocked) {
-      Toast.error({
-        title: '该钱包已停用，无法复制地址',
-      });
+      showBotWalletDisabledToast('copyAddress');
       return;
     }
     void copyAccountAddress({
@@ -516,17 +535,17 @@ function TokenDetailsHeader(props: IProps) {
           {/* Actions */}
           <RawActions>
             <RawActions.Send
+              testID={AssetDetailsTestIDs.sendBtn}
               onPress={handleSendPress}
               trackID="wallet-token-details-send"
             />
             <RawActions.Receive
+              testID={AssetDetailsTestIDs.receiveBtn}
               disabled={isWatchOnly || isBotWalletReceiveBlocked}
               allowPressWhenDisabled={isBotWalletReceiveBlocked}
               onPress={async () => {
                 if (isBotWalletReceiveBlocked) {
-                  Toast.error({
-                    title: '该钱包已停用，无法接收资产',
-                  });
+                  showBotWalletDisabledToast('receive');
                   return;
                 }
                 if (
@@ -551,6 +570,7 @@ function TokenDetailsHeader(props: IProps) {
               trackID="wallet-token-details-receive"
             />
             <RawActions.Swap
+              testID={AssetDetailsTestIDs.swapBtn}
               onPress={handleOnSwap}
               disabled={disableSwapAction}
               trackID="wallet-token-details-swap"
@@ -584,6 +604,8 @@ function TokenDetailsHeader(props: IProps) {
           label={addressBlockLabel}
           address={addressBlockValue}
           onPress={handleCopyAddressPress}
+          testID={AssetDetailsTestIDs.copyAddressBtn}
+          disabled={isBotWalletCopyBlocked}
         />
         {/* History */}
         <Divider mb="$3" />

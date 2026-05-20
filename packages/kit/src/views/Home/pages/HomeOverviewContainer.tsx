@@ -50,6 +50,7 @@ import {
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
+import { HomeTestIDs } from '../testIDs';
 
 // Grace period (ms) after an account switch during which the previous
 // balance is shown as a placeholder to avoid a skeleton flash.
@@ -369,29 +370,36 @@ function HomeOverviewContainer() {
           });
           appEventBus.emit(EAppEventBusNames.AccountValueUpdate, undefined);
         }
-        let accountValueId = '';
-        if (accountUtils.isOthersAccount({ accountId: account.id })) {
-          accountValueId = account.id;
+        const isOthers = accountUtils.isOthersAccount({
+          accountId: account.id,
+        });
+        // Logical account id for the active value atom & rookie guide: matches
+        // the keying convention used by the account selector (indexedAccountId
+        // for HD/HW, account.id for Others).
+        const accountValueId = isOthers
+          ? account.id
+          : (account.indexedAccountId as string);
 
-          if (network.isAllNetworks || account.createAtNetwork === network.id) {
+        if (isOthers) {
+          if (
+            account.createAtNetwork &&
+            (network.isAllNetworks || account.createAtNetwork === network.id)
+          ) {
             void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
               accountId: accountValueId,
+              networkAccountId: account.id,
+              networkId: account.createAtNetwork,
               value: accountWorth.createAtNetworkWorth,
               currency: settings.currencyInfo.id,
               shouldUpdateActiveAccountValue: true,
             });
           }
-        } else {
-          accountValueId = account.indexedAccountId as string;
-        }
-
-        if (
-          !accountUtils.isOthersAccount({ accountId: account.id }) &&
-          !network.isAllNetworks
-        ) {
+        } else if (!network.isAllNetworks) {
           void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
             {
               accountId: accountValueId,
+              networkAccountId: account.id,
+              networkId: network.id,
               value:
                 accountWorth.worth[
                   accountUtils.buildAccountValueKey({
@@ -451,6 +459,7 @@ function HomeOverviewContainer() {
         variant="tertiary"
         loading={isLoading}
         onPress={handleRefreshWorth}
+        testID="wallet-refresh-manually"
         trackID="wallet-refresh-manually"
       />
     );
@@ -821,7 +830,11 @@ function HomeOverviewContainer() {
   ]);
 
   return (
-    <YStack gap="$2.5" alignItems="flex-start">
+    <YStack
+      gap="$2.5"
+      alignItems="flex-start"
+      testID={HomeTestIDs.walletOverview}
+    >
       <YStack w="100%" gap="$2">
         {showSkeleton ? (
           <Skeleton.Heading5Xl />
@@ -849,6 +862,7 @@ function HomeOverviewContainer() {
                 outlineStyle: 'solid',
               }}
               onPress={handleBalanceOnPress}
+              testID={HomeTestIDs.totalBalance}
             >
               <NumberSizeableTextWrapper
                 hideValue
@@ -869,6 +883,7 @@ function HomeOverviewContainer() {
       </YStack>
       {vaultSettings?.hasFrozenBalance ? (
         <Button
+          testID="home-btn"
           onPress={handleBalanceDetailsOnPress}
           variant="tertiary"
           size="small"
@@ -881,6 +896,7 @@ function HomeOverviewContainer() {
       ) : undefined}
       {isWalletNotBackedUp && vaultSettings?.hasResource ? (
         <Button
+          testID="home-btn"
           onPress={handleResourceDetailsOnPress}
           variant="tertiary"
           size="small"

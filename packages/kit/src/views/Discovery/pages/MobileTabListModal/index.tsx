@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -39,6 +39,7 @@ import {
   useDisabledAddedNewTab,
   useWebTabs,
 } from '../../hooks/useWebTabs';
+import { DiscoveryTestIDs } from '../../testIDs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IWebTab } from '../../types';
@@ -84,7 +85,7 @@ function TabToolBar({
           variant="secondary"
           size="medium"
           icon="PlusLargeOutline"
-          testID="browser-bar-add"
+          testID={DiscoveryTestIDs.newTabButton}
           onPress={onAddTab}
         />
       </Stack>
@@ -129,15 +130,6 @@ function MobileTabListModal() {
     setPinnedTab,
     setDisplayHomePage,
   } = useBrowserTabActions().current;
-
-  const triggerCloseTab = useRef(false);
-  useEffect(() => {
-    if (triggerCloseTab.current && !tabs.length) {
-      setDisplayHomePage(true);
-      navigation.pop();
-    }
-    triggerCloseTab.current = false;
-  }, [tabs, setDisplayHomePage, navigation]);
 
   const initialScrollIndex = useMemo(() => {
     const index = data.findIndex((t) => t.id === activeTabId);
@@ -217,10 +209,16 @@ function MobileTabListModal() {
   );
   const handleCloseTab = useCallback(
     (id: string) => {
-      triggerCloseTab.current = true;
+      const isClosingActiveTab = id === activeTabId;
+      const hasRemainingTabs = tabs.some((tab) => tab.id !== id);
       void closeWebTab({ tabId: id, entry: 'Menu' });
+
+      if (isClosingActiveTab || !hasRemainingTabs) {
+        setDisplayHomePage(true);
+        navigation.pop();
+      }
     },
-    [closeWebTab],
+    [activeTabId, closeWebTab, navigation, setDisplayHomePage, tabs],
   );
 
   const handleAddNewTab = useCallback(() => {
@@ -283,7 +281,7 @@ function MobileTabListModal() {
                 }),
                 icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
                 onPress: () => handlePinnedPress(id, !tab.isPinned),
-                testID: `action-list-item-${!tab.isPinned ? 'pin' : 'un-pin'}`,
+                testID: DiscoveryTestIDs.tabActionPin(tab.isPinned ?? false),
               },
               {
                 label: intl.formatMessage({
@@ -336,7 +334,7 @@ function MobileTabListModal() {
                 }),
                 icon: 'CrossedLargeOutline',
                 onPress: () => handleCloseTab(id),
-                testID: `action-list-item-close-close-tab`,
+                testID: DiscoveryTestIDs.tabActionClose,
               },
             ].filter(Boolean) as IActionListItemProps[],
           },
@@ -446,8 +444,11 @@ function MobileTabListModal() {
           closeAllDisabled={data.length <= 0}
           onAddTab={handleAddNewTab}
           onCloseAll={() => {
-            triggerCloseTab.current = true;
             void closeAllWebTabs({ navigation });
+            if (pinnedData.length === 0) {
+              setDisplayHomePage(true);
+              navigation.pop();
+            }
           }}
           onDone={() => {
             navigation.pop();

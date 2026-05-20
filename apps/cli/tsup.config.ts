@@ -459,6 +459,7 @@ const deprecatedBufferPatchFilter = new RegExp(
     ['form-data', 'lib', 'form_data'].join(pathSeparatorPattern),
     ['tweetnacl-util', 'nacl-util'].join(pathSeparatorPattern),
     ['wif', 'index'].join(pathSeparatorPattern),
+    ['whatwg-url', 'lib', 'url-state-machine'].join(pathSeparatorPattern),
   ].join('|')})\\.js$`,
 );
 
@@ -586,6 +587,37 @@ const patchDeprecatedBufferConstructorPlugin: Plugin = {
           {
             search: 'var result = new Buffer(compressed ? 34 : 33)',
             replace: 'var result = Buffer.alloc(compressed ? 34 : 33)',
+          },
+        ]);
+        patched = true;
+      }
+
+      if (
+        isNodeModuleFile(args.path, [
+          'node_modules',
+          'whatwg-url',
+          'lib',
+          'url-state-machine.js',
+        ])
+      ) {
+        contents = replaceExact(contents, args.path, [
+          {
+            search: 'const buf = new Buffer(c);',
+            replace: 'const buf = Buffer.from(c);',
+          },
+          {
+            search: 'const input = new Buffer(str);',
+            replace: 'const input = Buffer.from(str);',
+          },
+          {
+            search: 'return new Buffer(output).toString();',
+            replace: 'return Buffer.from(output).toString();',
+          },
+          {
+            search:
+              'const buffer = new Buffer(this.buffer); // TODO: Use encoding override instead',
+            replace:
+              'const buffer = Buffer.from(this.buffer); // TODO: Use encoding override instead',
           },
         ]);
         patched = true;

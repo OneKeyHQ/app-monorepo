@@ -30,6 +30,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -325,8 +326,28 @@ export default class Vault extends VaultBase {
         reject(new Error('Invalid nonce'));
         return;
       }
+      // Defense: cap the polling loop so a stuck NOT_FOUND_ORDER response or
+      // a server that never returns SUCCESS/FAILED cannot keep a 1.5 s timer
+      // alive for the rest of the renderer's uptime.
+      const MAX_POLL_ATTEMPTS = 240; // 240 * 1.5 s ≈ 6 minutes
+      let attempts = 0;
       const intervalId = setInterval(async () => {
         try {
+          attempts += 1;
+          if (attempts > MAX_POLL_ATTEMPTS) {
+            clearInterval(intervalId);
+            defaultLogger.app.perf.defensiveTriggered({
+              source: 'lightning:pollBolt11Status',
+              reason: 'max-attempts-exceeded',
+              details: {
+                maxAttempts: MAX_POLL_ATTEMPTS,
+                intervalMs: 1500,
+                networkId: this.networkId,
+              },
+            });
+            reject(new Error('Lightning payment status polling timed out'));
+            return;
+          }
           const client = await this.getClient();
           const response = await client.checkBolt11({
             nonce: Number(nonce),

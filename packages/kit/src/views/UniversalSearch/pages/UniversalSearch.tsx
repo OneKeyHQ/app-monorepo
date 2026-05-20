@@ -65,6 +65,7 @@ import {
   UniversalSearchV2MarketTokenItem,
 } from '../components/SearchResultItems';
 import { useSettingsSearch } from '../hooks/useSettingsSearch';
+import { UniversalSearchTestIDs } from '../testIDs';
 
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
@@ -637,6 +638,7 @@ export function UniversalSearch({
       if (section.showMore) {
         return (
           <ListItem
+            testID={UniversalSearchTestIDs.showMoreBtn}
             onPress={() => {
               handleTabPress(section.title);
             }}
@@ -902,6 +904,7 @@ export function UniversalSearch({
         <View px="$5" pb="$2">
           <SearchBar
             autoFocus
+            testID={UniversalSearchTestIDs.searchBar}
             value={searchValue}
             placeholder={intl.formatMessage({
               id: platformEnv.isWebDappMode

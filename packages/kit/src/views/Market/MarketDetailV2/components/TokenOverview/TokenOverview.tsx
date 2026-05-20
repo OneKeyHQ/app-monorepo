@@ -8,6 +8,7 @@ import { openBlockExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import { MarketTestIDs } from '../../../testIDs';
 import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
@@ -107,7 +108,7 @@ export function TokenOverview() {
   }
 
   return (
-    <Stack gap="$2" px="$5" pt="$5" pb="$3">
+    <Stack testID={MarketTestIDs.detailAbout} gap="$2" px="$5" pt="$5" pb="$3">
       <XStack alignItems="center" gap="$3" mb="$3">
         <Token size="lg" tokenImageUri={tokenDetail.logoUrl} />
         <Stack flex={1}>

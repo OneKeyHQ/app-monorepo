@@ -32,6 +32,8 @@ import {
 } from '../../states/jotai/contexts/sendConfirm';
 import { SendConfirmProviderMirror } from '../Send/components/SendConfirmProvider/SendConfirmProviderMirror';
 
+import { ApproveEditorTestIDs } from './testIDs';
+
 export type IProps = {
   accountId: string;
   networkId: string;
@@ -247,6 +249,7 @@ function ApproveEditor(props: IProps) {
               <Skeleton height={20} width={100} />
             ) : (
               <Button
+                testID={ApproveEditorTestIDs.balanceBtn}
                 size="small"
                 variant="tertiary"
                 icon="WalletOutline"
@@ -271,6 +274,7 @@ function ApproveEditor(props: IProps) {
           }
         >
           <Input
+            testID={ApproveEditorTestIDs.allowanceInput}
             flex={1}
             editable={!watchAllFields.isUnlimited}
             addOns={[
@@ -306,7 +310,10 @@ function ApproveEditor(props: IProps) {
               },
             }}
           >
-            <Switch size="small" />
+            <Switch
+              testID={ApproveEditorTestIDs.unlimitedSwitch}
+              size="small"
+            />
           </Form.Field>
         ) : null}
       </Form>

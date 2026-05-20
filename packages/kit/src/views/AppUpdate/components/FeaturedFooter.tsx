@@ -10,10 +10,14 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { appUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
+import { isForceUpdateStrategy } from '../../../components/AppUpdate/updateStrategy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { AppUpdateTestIDs } from '../testIDs';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -21,6 +25,7 @@ interface IFeaturedFooterProps {
   ctaText: string;
   onCtaPress: () => void;
   showFullChangelog?: boolean;
+  isPreInstall: boolean;
   closeDialog: () => Promise<void>;
   onLayout?: (event: LayoutChangeEvent) => void;
 }
@@ -29,6 +34,7 @@ function FeaturedFooter({
   ctaText,
   onCtaPress,
   showFullChangelog = true,
+  isPreInstall,
   closeDialog,
   onLayout,
 }: IFeaturedFooterProps) {
@@ -42,10 +48,24 @@ function FeaturedFooter({
 
   const handleViewChangelog = useCallback(async () => {
     await closeDialog();
+    if (isPreInstall) {
+      // WhatsNew hard-codes its title to APP_VERSION (currently installed);
+      // pre-install featured changelog targets a future version, so route to
+      // UpdatePreview which renders the target version end-to-end.
+      const info = jotaiDefaultStore.get(appUpdatePersistAtom.atom());
+      navigation.pushModal(EModalRoutes.AppUpdateModal, {
+        screen: EAppUpdateRoutes.UpdatePreview,
+        params: {
+          latestVersion: info.latestVersion,
+          isForceUpdate: isForceUpdateStrategy(info.updateStrategy),
+        },
+      });
+      return;
+    }
     navigation.pushModal(EModalRoutes.AppUpdateModal, {
       screen: EAppUpdateRoutes.WhatsNew,
     });
-  }, [navigation, closeDialog]);
+  }, [navigation, closeDialog, isPreInstall]);
 
   if (md) {
     return (
@@ -55,11 +75,17 @@ function FeaturedFooter({
         paddingBottom={paddingBottom + 20}
         onLayout={onLayout}
       >
-        <Button size="large" variant="primary" onPress={onCtaPress}>
+        <Button
+          testID={AppUpdateTestIDs.featuredFooterCtaBtn}
+          size="large"
+          variant="primary"
+          onPress={onCtaPress}
+        >
           {ctaText}
         </Button>
         {showFullChangelog ? (
           <Button
+            testID={AppUpdateTestIDs.featuredFooterViewChangelogBtn}
             size="medium"
             variant="tertiary"
             onPress={handleViewChangelog}
@@ -80,13 +106,23 @@ function FeaturedFooter({
       onLayout={onLayout}
     >
       {showFullChangelog ? (
-        <Button size="small" variant="tertiary" onPress={handleViewChangelog}>
+        <Button
+          testID={AppUpdateTestIDs.featuredFooterViewChangelogBtn}
+          size="small"
+          variant="tertiary"
+          onPress={handleViewChangelog}
+        >
           {intl.formatMessage({ id: ETranslations.view_full_changelog })}
         </Button>
       ) : (
         <Stack />
       )}
-      <Button size="medium" variant="primary" onPress={onCtaPress}>
+      <Button
+        testID={AppUpdateTestIDs.featuredFooterCtaBtn}
+        size="medium"
+        variant="primary"
+        onPress={onCtaPress}
+      >
         {ctaText}
       </Button>
     </XStack>

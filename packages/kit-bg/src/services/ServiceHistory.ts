@@ -85,6 +85,13 @@ const MERGE_DERIVE_EXHAUSTED = '__exhausted__' as const;
 class ServiceHistory extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+    // Clear the BTC replace-state memo on critical memory pressure;
+    // pending-tx state in simpleDb is the authoritative source and
+    // does not need an in-process cache.
+    appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
+      if (event.level !== 'critical') return;
+      this.memoizedFetchBtcReplaceState.clear();
+    });
   }
 
   private async _resolveHistoryRequestParams(

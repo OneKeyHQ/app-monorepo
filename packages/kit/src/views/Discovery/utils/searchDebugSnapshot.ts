@@ -26,6 +26,70 @@ export const DISCOVERY_SEARCH_DEBUG_SNAPSHOT_TYPE =
   'onekey.discovery.search.debugSnapshot';
 export const DISCOVERY_SEARCH_DEBUG_SNAPSHOT_VERSION = 1;
 
+function normalizeExactUrlKey(url?: string) {
+  return (url ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//u, '')
+    .replace(/^www\./u, '')
+    .replace(/\/$/u, '');
+}
+
+function buildSearchValueExactUrlDapp(searchValue: string): IDApp | undefined {
+  const trimmedSearchValue = searchValue.trim();
+  if (!trimmedSearchValue) {
+    return undefined;
+  }
+
+  const shouldUseHttpPrefix =
+    uriUtils.isLocalhostUrl(trimmedSearchValue) ||
+    uriUtils.isIpAddressUrl(trimmedSearchValue);
+  if (!shouldUseHttpPrefix) {
+    return undefined;
+  }
+
+  const normalizedUrl = uriUtils.ensureHttpPrefix(trimmedSearchValue);
+  const parsedUrl = uriUtils.safeParseURL(normalizedUrl);
+  if (!parsedUrl || !['http:', 'https:'].includes(parsedUrl.protocol)) {
+    return undefined;
+  }
+
+  const origin = uriUtils.getOriginFromUrl({ url: normalizedUrl });
+  return {
+    dappId: `exact-url:${normalizedUrl}`,
+    name: normalizedUrl,
+    url: normalizedUrl,
+    logo: '',
+    description: '',
+    networkIds: [],
+    tags: [],
+    origins: origin ? [origin] : undefined,
+    keyword: trimmedSearchValue,
+    isExactUrl: true,
+  };
+}
+
+function prependSearchValueExactUrlResult({
+  searchValue,
+  searchResult,
+}: {
+  searchValue: string;
+  searchResult?: IDApp[];
+}) {
+  const exactUrlDapp = buildSearchValueExactUrlDapp(searchValue);
+  if (!exactUrlDapp) {
+    return searchResult;
+  }
+
+  const exactUrlKey = normalizeExactUrlKey(exactUrlDapp.url);
+  return [
+    exactUrlDapp,
+    ...(searchResult ?? []).filter(
+      (item) => normalizeExactUrlKey(item.url) !== exactUrlKey,
+    ),
+  ];
+}
+
 export interface IDiscoverySearchLocalData {
   bookmarkData: IBrowserBookmark[];
   historyData: IBrowserHistory[];
@@ -125,7 +189,6 @@ export interface IDiscoverySearchDebugSnapshot {
 interface IBuildDiscoverySearchListParams {
   searchValue: string;
   searchActionTitle: string;
-  showSearchResult: boolean;
   searchResult?: IDApp[];
   rankingHistoryData?: IBrowserHistory[];
   localSearchData: IDiscoverySearchLocalData;
@@ -134,6 +197,7 @@ interface IBuildDiscoverySearchListParams {
 
 interface IBuildDiscoverySearchDebugSnapshotParams extends IBuildDiscoverySearchListParams {
   source: IDiscoverySearchDebugSnapshot['source'];
+  showSearchResult: boolean;
   shouldSkipRemoteSearch: boolean;
   localData: IDiscoverySearchLocalData | null;
 }
@@ -293,7 +357,6 @@ function buildSearchListDebugItem(
 export function buildDiscoverySearchListFromFactors({
   searchValue,
   searchActionTitle,
-  showSearchResult,
   searchResult,
   rankingHistoryData,
   localSearchData,
@@ -306,17 +369,19 @@ export function buildDiscoverySearchListFromFactors({
     };
   }
 
-  const trendingSearchData = showSearchResult
-    ? searchTrendingDappsByKeyword({
-        keyword: searchValue,
-        trendingData,
-      })
-    : [];
+  const trendingSearchData = searchTrendingDappsByKeyword({
+    keyword: searchValue,
+    trendingData,
+  });
+  const searchResultWithExactUrl = prependSearchValueExactUrlResult({
+    searchValue,
+    searchResult,
+  });
 
   const searchList: IDiscoverySearchListItem[] = [
     ...mergeSearchResultsWithLocalData({
       keyword: searchValue,
-      searchResult,
+      searchResult: searchResultWithExactUrl,
       rankingHistoryData,
       bookmarkSearchData: localSearchData.bookmarkData,
       historySearchData: localSearchData.historyData,
@@ -349,12 +414,15 @@ export function buildDiscoverySearchDebugSnapshot({
   trendingData,
   searchResult,
 }: IBuildDiscoverySearchDebugSnapshotParams): IDiscoverySearchDebugSnapshot {
+  const searchResultWithExactUrl = prependSearchValueExactUrlResult({
+    searchValue,
+    searchResult,
+  });
   const { searchList, trendingSearchData } =
     buildDiscoverySearchListFromFactors({
       searchValue,
       searchActionTitle,
-      showSearchResult,
-      searchResult,
+      searchResult: searchResultWithExactUrl,
       rankingHistoryData,
       localSearchData,
       trendingData,
@@ -372,7 +440,7 @@ export function buildDiscoverySearchDebugSnapshot({
   const rankingEntries = searchValue
     ? buildSearchRankingDebugEntries({
         keyword: searchValue,
-        searchResult,
+        searchResult: searchResultWithExactUrl,
         rankingHistoryData,
         bookmarkSearchData: localSearchData.bookmarkData,
         historySearchData: localSearchData.historyData,
@@ -461,11 +529,9 @@ export async function collectDiscoverySearchDebugSnapshot({
     sliceCount: DISCOVERY_RANKING_HISTORY_LIMIT,
   });
 
-  const trendingDataPromise = showSearchResult
-    ? serviceDiscovery
-        .fetchDiscoveryHomePageData()
-        .then((data) => data?.trending ?? [])
-    : Promise.resolve([]);
+  const trendingDataPromise = serviceDiscovery
+    .fetchDiscoveryHomePageData()
+    .then((data) => data?.trending ?? []);
 
   const remoteSearchResultPromise =
     showSearchResult && !shouldSkipRemoteSearch

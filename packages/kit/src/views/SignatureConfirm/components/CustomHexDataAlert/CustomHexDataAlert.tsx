@@ -101,6 +101,7 @@ function HexDataAlert({
           />
         ))}
         <Checkbox
+          testID="signature-confirm-checkbox"
           label={intl.formatMessage({
             id: ETranslations.send_hex_data_user_understand_risk,
           })}
@@ -112,6 +113,7 @@ function HexDataAlert({
       </YStack>
       <XStack>
         <Button
+          testID="signature-confirm-btn"
           variant="primary"
           flexGrow={1}
           flexBasis={0}

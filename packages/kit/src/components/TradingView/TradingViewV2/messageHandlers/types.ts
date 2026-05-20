@@ -26,6 +26,7 @@ export interface IMessageHandlerContext {
   accountAddress?: string;
   tokenSymbol?: string;
   marksTimeRange?: React.MutableRefObject<IMarksTimeRange | null>;
+  currentKLineResolution?: React.MutableRefObject<string>;
 }
 
 export interface IMessageHandlerParams {

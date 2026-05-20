@@ -219,6 +219,7 @@ function PerpAccountPanel() {
                   : ''}
               </SizableText>
               <IconButton
+                testID="perp-icon-btn"
                 icon="OpenOutline"
                 color="$iconSubdued"
                 variant="tertiary"
@@ -240,6 +241,7 @@ function PerpAccountPanel() {
       {userAddress ? (
         <XStack gap="$2.5" alignItems="center">
           <Button
+            testID="perp-btn"
             borderRadius="$full"
             flex={1}
             size="medium"
@@ -261,6 +263,7 @@ function PerpAccountPanel() {
             </SizableText>
           </Button>
           <IconButton
+            testID="perp-icon-btn"
             borderRadius="$full"
             size="medium"
             h={36}
@@ -281,6 +284,7 @@ function PerpAccountPanel() {
             }
           />
           <IconButton
+            testID="perp-icon-btn"
             borderRadius="$full"
             size="medium"
             h={36}

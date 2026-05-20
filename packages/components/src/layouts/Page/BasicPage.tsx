@@ -38,7 +38,7 @@ const useHeightStyle = () => {
   };
 };
 
-export function BasicPage({ children }: IBasicPageProps) {
+export function BasicPage({ children, testID }: IBasicPageProps) {
   // fix scrolling issues on md Web
   const heightStyle = useHeightStyle();
 
@@ -62,7 +62,13 @@ export function BasicPage({ children }: IBasicPageProps) {
       : undefined;
   }, [isDesktopLayout]);
   return isLayoutMount ? (
-    <Stack bg="$bgApp" flex={1} {...heightStyle} {...desktopProps}>
+    <Stack
+      bg="$bgApp"
+      flex={1}
+      testID={testID}
+      {...heightStyle}
+      {...desktopProps}
+    >
       {children}
     </Stack>
   ) : null;

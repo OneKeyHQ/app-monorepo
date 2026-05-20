@@ -22,7 +22,7 @@ export function planTradeSubscriptions(params: {
   orderBookOptions?: IPerpsActiveOrderBookOptionsAtom;
   viewState: ITradeRouteViewState;
 }): ITradeSubscriptionPlan {
-  const { activeInstrument, hasAccount, orderBookOptions, viewState } = params;
+  const { activeInstrument, hasAccount, viewState } = params;
   const instrumentCoin = activeInstrument?.coin ?? '';
   const isSpot = activeInstrument?.mode === 'spot';
   const isSpotSelectorOpen =
@@ -52,8 +52,7 @@ export function planTradeSubscriptions(params: {
         shouldSyncSelectorSubscriptions || Boolean(instrumentCoin);
     } else {
       shouldSyncSubscriptions =
-        shouldSyncSelectorSubscriptions ||
-        (Boolean(instrumentCoin) && orderBookOptions?.coin === instrumentCoin);
+        shouldSyncSelectorSubscriptions || Boolean(instrumentCoin);
     }
   }
 

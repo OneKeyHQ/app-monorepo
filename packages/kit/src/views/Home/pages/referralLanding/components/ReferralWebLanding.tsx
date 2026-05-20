@@ -19,6 +19,7 @@ import type {
   ISizableTextProps,
 } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
 import { LayoutHeaderLanguageSelector } from '@onekeyhq/kit/src/views/Onboardingv2/components/Layout';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -245,6 +246,7 @@ function Step1Download({
     >
       <YStack gap="$3">
         <Button
+          testID={HomeTestIDs.referralLandingDownloadBtn}
           variant="accent"
           {...STEP_BUTTON_SIZE}
           icon={DOWNLOAD_COPY.icon}
@@ -336,6 +338,7 @@ function Step2BindCode({
         </XStack>
       </XStack>
       <Button
+        testID={HomeTestIDs.referralLandingBindBtn}
         variant="primary"
         {...STEP_BUTTON_SIZE}
         onPress={onBind}
@@ -367,7 +370,12 @@ function Step2DownloadHint({ onDownload }: { onDownload: () => void }) {
           id: ETranslations.referral_web_landing_app_open_hint,
         })}
       </SizableText>
-      <Button size="small" variant="tertiary" onPress={onDownload}>
+      <Button
+        size="small"
+        variant="tertiary"
+        onPress={onDownload}
+        testID={HomeTestIDs.referralLandingDownloadHintBtn}
+      >
         {intl.formatMessage({
           id: ETranslations.referral_web_landing_step1_title,
         })}
@@ -401,7 +409,12 @@ function Step3Trade({
         },
       )}
     >
-      <Button variant="secondary" {...STEP_BUTTON_SIZE} onPress={onTrade}>
+      <Button
+        testID={HomeTestIDs.referralLandingTradeBtn}
+        variant="secondary"
+        {...STEP_BUTTON_SIZE}
+        onPress={onTrade}
+      >
         {intl.formatMessage({
           id: copy.step3CtaId,
         })}

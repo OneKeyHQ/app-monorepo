@@ -5,6 +5,7 @@ import type { IEarnClaimActionIcon } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { useBorrowActions } from '../hooks/useBorrowActions';
+import { BorrowTestIDs } from '../testIDs';
 
 type IBorrowActionProps = {
   action?: IEarnClaimActionIcon;
@@ -49,6 +50,7 @@ const BorrowActionCmp = ({
 
   return (
     <Button
+      testID={BorrowTestIDs.borrowActionBtn}
       p="0"
       ai="center"
       size="small"

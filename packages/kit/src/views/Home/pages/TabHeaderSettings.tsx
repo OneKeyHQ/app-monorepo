@@ -51,6 +51,7 @@ function TokenListSettings() {
 
   return manageTokenEnabled ? (
     <IconButton
+      testID="home-media-icon-btn"
       title={intl.formatMessage({
         id: ETranslations.manage_token_title,
       })}
@@ -109,6 +110,7 @@ function TxHistorySettings() {
         title={intl.formatMessage({ id: ETranslations.global_filter })}
         renderTrigger={
           <IconButton
+            testID="home-filter-scam-history-supported-icon-btn"
             title={intl.formatMessage({
               id: ETranslations.global_filter,
             })}
@@ -138,6 +140,7 @@ function TxHistorySettings() {
               }
             >
               <Switch
+                testID="home-switch"
                 isUncontrolled
                 disabled={!filterScamHistorySupported}
                 size={ESwitchSize.small}
@@ -158,6 +161,7 @@ function TxHistorySettings() {
               })}
             >
               <Switch
+                testID="home-switch"
                 isUncontrolled
                 size={ESwitchSize.small}
                 onChange={handleFilterLowValueHistoryOnChange}

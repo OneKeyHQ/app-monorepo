@@ -21,6 +21,7 @@ import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils'
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
+import { PerpTestIDs } from '../../testIDs';
 import { PerpsActivityCenterAction } from '../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
@@ -37,6 +38,7 @@ function PerpCandleChartButtonMobile() {
   return (
     <DebugRenderTracker name="PerpCandleChartButtonMobile">
       <IconButton
+        testID={PerpTestIDs.CandleChartButton}
         icon="TradingViewCandlesOutline"
         size="small"
         iconProps={{ color: '$iconSubdued' }}
@@ -186,7 +188,7 @@ export function PerpTickerBarMobile() {
         <PerpsActivityCenterAction size="small" copyAsUrl />
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton
-          testID="perp-mobile-settings-button"
+          testID={PerpTestIDs.MobileSettingsButton}
           showGuideEntry
         />
       </XStack>

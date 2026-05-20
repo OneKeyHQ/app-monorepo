@@ -115,6 +115,7 @@ function TxConfirmHeaderRight(props: {
         title={intl.formatMessage({ id: ETranslations.mev_protection_label })}
         renderTrigger={
           <Button
+            testID="signature-confirm-ratio-btn"
             variant="tertiary"
             icon="ShieldCheckDoneSolid"
             iconColor="$iconSuccess"

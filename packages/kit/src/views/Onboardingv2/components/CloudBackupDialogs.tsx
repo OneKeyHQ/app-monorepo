@@ -35,6 +35,7 @@ function DialogInput({
     <>
       <Stack>
         <Input
+          testID="onboardingv2-dialog-input-input"
           placeholder={placeholder}
           size="large"
           $gtMd={{ size: 'medium' }}
@@ -155,6 +156,7 @@ function ForgotPasswordButton({
 
   return (
     <Button
+      testID="onboardingv2-intl-btn"
       alignSelf="flex-start"
       size="small"
       variant="tertiary"

@@ -175,6 +175,7 @@ function BasicFind({ id }: { id: string }) {
             gap="$4"
           >
             <Input
+              testID="discovery-input"
               autoFocus
               onChangeText={handleTextChange}
               containerProps={{
@@ -227,6 +228,8 @@ function BasicFind({ id }: { id: string }) {
 
 const Find = memo(BasicFind);
 
+const DESKTOP_HOME_PAGE_VISIBLE_DELAY_MS = 200;
+
 function BasicDesktopBrowserContent({
   id,
   activeTabId,
@@ -236,6 +239,8 @@ function BasicDesktopBrowserContent({
 }) {
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
+  const isHomeTab = !tab?.url;
+  const [homePageReady, setHomePageReady] = useState(!isHomeTab);
 
   // Memory Cleanup - Aggressively release all resources when tab is closed
   useEffect(() => {
@@ -305,6 +310,22 @@ function BasicDesktopBrowserContent({
     };
   }, [id]);
 
+  useEffect(() => {
+    if (!isHomeTab) {
+      setHomePageReady(true);
+      return undefined;
+    }
+
+    setHomePageReady(false);
+    const timer = setTimeout(() => {
+      setHomePageReady(true);
+    }, DESKTOP_HOME_PAGE_VISIBLE_DELAY_MS);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [isHomeTab]);
+
   const { customReceiveHandler } = useDiscoveryMessageHandler();
 
   return (
@@ -318,7 +339,9 @@ function BasicDesktopBrowserContent({
           customReceiveHandler={customReceiveHandler}
         />
       ) : (
-        <DashboardContent />
+        <Stack flex={1} opacity={homePageReady ? 1 : 0}>
+          <DashboardContent />
+        </Stack>
       )}
     </Freeze>
   );

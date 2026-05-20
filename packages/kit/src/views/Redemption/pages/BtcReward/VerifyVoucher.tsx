@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { RedemptionTestIDs } from '@onekeyhq/kit/src/views/Redemption/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import type { IBtcRewardCodeInfoParam } from '@onekeyhq/shared/src/routes';
@@ -116,6 +117,7 @@ function VerifyVoucherPage() {
               })}
             >
               <Input
+                testID={RedemptionTestIDs.verifyVoucherInput}
                 size="large"
                 placeholder={intl.formatMessage(
                   {

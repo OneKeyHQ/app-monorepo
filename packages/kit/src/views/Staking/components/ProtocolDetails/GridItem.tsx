@@ -49,6 +49,7 @@ export function GridItem({
             title={title}
             renderTrigger={
               <IconButton
+                testID="staking-open-link-icon-btn"
                 iconColor="$iconSubdued"
                 size="small"
                 icon="InfoCircleOutline"

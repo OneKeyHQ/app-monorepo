@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/components/src/utils/animationConstants';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { buildProtocolDisplayInfo } from '@onekeyhq/kit/src/utils/defiPositionUtils';
+import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
@@ -81,6 +82,7 @@ type IProtocolChipProps = {
   protocol: IDeFiProtocol;
   name: string;
   logo?: string;
+  isAllNetworks?: boolean;
   isActive: boolean;
   reducedMotion: boolean;
   onPress: (protocol: IDeFiProtocol) => void;
@@ -94,6 +96,7 @@ function ProtocolChipBase({
   protocol,
   name,
   logo,
+  isAllNetworks,
   isActive,
   reducedMotion,
   onPress,
@@ -158,7 +161,12 @@ function ProtocolChipBase({
         p={LOGO_HALO_PAD}
         bg={isActive ? '$textInverse' : 'transparent'}
       >
-        <Token size="xs" tokenImageUri={logo} />
+        <Token
+          size="xs"
+          tokenImageUri={logo}
+          networkId={protocol.networkId}
+          showNetworkIcon={Boolean(isAllNetworks && protocol.networkId)}
+        />
       </Stack>
       <SizableText
         size="$bodyMdMedium"
@@ -205,6 +213,7 @@ function ArrowAffordance({ side, visible, onPress }: IArrowAffordanceProps) {
       style={{ background: isLeft ? FADE_LEFT : FADE_RIGHT }}
     >
       <IconButton
+        testID={HomeTestIDs.defiProtocolChipScrollBtn(side)}
         size="small"
         icon={isLeft ? 'ChevronLeftOutline' : 'ChevronRightOutline'}
         bg="$gray3"
@@ -226,6 +235,7 @@ function ArrowAffordance({ side, visible, onPress }: IArrowAffordanceProps) {
 type IProtocolChipStripProps = {
   protocols: IDeFiProtocol[];
   protocolMap: Record<string, IProtocolSummary>;
+  isAllNetworks?: boolean;
   activeKey: string | null;
   onPressChip: (protocol: IDeFiProtocol) => void;
   onHeightChange?: (height: number) => void;
@@ -238,6 +248,7 @@ type IProtocolChipStripProps = {
 function ProtocolChipStripBase({
   protocols,
   protocolMap,
+  isAllNetworks,
   activeKey,
   onPressChip,
   onHeightChange,
@@ -584,6 +595,7 @@ function ProtocolChipStripBase({
               protocol={chip.protocol}
               name={chip.name}
               logo={chip.logo}
+              isAllNetworks={isAllNetworks}
               isActive={chip.key === activeKey}
               reducedMotion={reducedMotion}
               onPress={onPressChip}

@@ -1,6 +1,6 @@
 import { AppError, ERROR_CODES } from '../../../errors';
 import { apiClient } from '../../api-client';
-import { LOCK_TIMEOUT_MS, REVOKE_TIMEOUT_MS } from '../constants';
+import { KEY_API_TIMEOUT_MS, REVOKE_TIMEOUT_MS } from '../constants';
 import {
   BOT_WALLET_KEY_API_PATH,
   BOT_WALLET_KEY_API_TOKEN_HEADER,
@@ -49,7 +49,7 @@ describe('service-client', () => {
       serviceFetch({ keyId: 'key-1', accessToken: 'token-1' }),
     ).resolves.toEqual({ kind: 'ok', keyBase64: 'abc' });
 
-    expect(timeoutSpy).toHaveBeenCalledWith(LOCK_TIMEOUT_MS);
+    expect(timeoutSpy).toHaveBeenCalledWith(KEY_API_TIMEOUT_MS);
     expect(getSpy).toHaveBeenCalledWith(
       'prime',
       `${BOT_WALLET_KEY_API_PATH}/key-1`,

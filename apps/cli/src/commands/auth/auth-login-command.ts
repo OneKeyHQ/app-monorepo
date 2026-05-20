@@ -211,6 +211,8 @@ function writeHeadlessAppTransferInstructions(
   stderr.write(
     [
       'Complete App Transfer pairing in OneKey App with the details below.',
+      'Open Bot Wallet export to CLI in OneKey App, then enter the pairing code there.',
+      'Opening the Pairing URI on desktop may not complete the export flow.',
       `Pairing code: ${pairingSession.pairingCode}`,
       `Pairing URI: ${pairingSession.pairingPayload.uri}`,
       '',

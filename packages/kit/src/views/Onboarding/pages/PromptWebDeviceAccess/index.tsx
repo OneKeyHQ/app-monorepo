@@ -30,7 +30,12 @@ function PromptWebDeviceAccessPage() {
         <SizableText textAlign="center">
           Click the "Connect" button to allow OneKey to access your USB device
         </SizableText>
-        <Button size="large" onPress={handleConnect} loading={isConnecting}>
+        <Button
+          size="large"
+          onPress={handleConnect}
+          loading={isConnecting}
+          testID="onboarding-content-btn"
+        >
           Connect
         </Button>
       </Stack>

@@ -15,7 +15,6 @@ import {
   YStack,
   rootNavigationRef,
   useScrollContentTabBarOffset,
-  useTabContainerWidth,
   useTheme,
 } from '@onekeyhq/components';
 import {
@@ -28,6 +27,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ListItem } from '../../../components/ListItem';
 import { useIsFirstFocused } from '../../../hooks/useIsFirstFocused';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
+import { useTabContainerWidth } from '../../../hooks/useTabContainerWidth';
 import { useEarnHideSmallAssets } from '../hooks/useEarnHideSmallAssets';
 
 import { FAQContent } from './FAQContent';
@@ -200,6 +200,7 @@ const EarnMainTabsComponent = ({
                   })}
                   renderTrigger={
                     <IconButton
+                      testID="earn-handle-tab-press-icon-btn"
                       variant="tertiary"
                       icon="SliderHorOutline"
                       iconSize="$6"
@@ -218,6 +219,7 @@ const EarnMainTabsComponent = ({
                         }}
                         childrenBefore={
                           <Switch
+                            testID="earn-switch"
                             size={ESwitchSize.small}
                             value={hideSmallAssets}
                             onChange={setHideSmallAssets}

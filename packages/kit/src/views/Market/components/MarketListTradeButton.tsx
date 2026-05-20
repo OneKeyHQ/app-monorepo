@@ -12,6 +12,7 @@ import { isSupportStaking } from '@onekeyhq/shared/types/earn/earnProvider.const
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountSelectorTrigger } from '../../../components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { ReviewControl } from '../../../components/ReviewControl';
+import { MarketTestIDs } from '../testIDs';
 
 import { useLazyMarketTradeActions } from './tradeHook';
 
@@ -70,23 +71,43 @@ export function MarketListTradeButton({
   return (
     <XStack gap="$1.5">
       {platformEnv.isWeb && !wallet ? (
-        <Button variant="primary" size="small" onPress={showAccountSelector}>
+        <Button
+          variant="primary"
+          size="small"
+          onPress={showAccountSelector}
+          testID={MarketTestIDs.listConnectBtn}
+        >
           {intl.formatMessage({ id: ETranslations.global_connect })}
         </Button>
       ) : (
         <>
-          <Button variant="secondary" size="small" onPress={onSwap}>
+          <Button
+            variant="secondary"
+            size="small"
+            onPress={onSwap}
+            testID={MarketTestIDs.listTradeBtn}
+          >
             {intl.formatMessage({ id: ETranslations.global_trade })}
           </Button>
           {isSupportBuy ? (
             <ReviewControl>
-              <Button variant="secondary" size="small" onPress={onBuy}>
+              <Button
+                variant="secondary"
+                size="small"
+                onPress={onBuy}
+                testID={MarketTestIDs.listBuyBtn}
+              >
                 {intl.formatMessage({ id: ETranslations.global_buy })}
               </Button>
             </ReviewControl>
           ) : null}
           {canStaking ? (
-            <Button variant="secondary" size="small" onPress={onStaking}>
+            <Button
+              variant="secondary"
+              size="small"
+              onPress={onStaking}
+              testID={MarketTestIDs.listEarnBtn}
+            >
               {intl.formatMessage({ id: ETranslations.global_earn })}
             </Button>
           ) : null}

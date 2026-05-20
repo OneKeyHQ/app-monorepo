@@ -128,6 +128,7 @@ function IntervalRangeInputs({
     <YStack mt={mt} w="100%" minWidth={0} gap="$2">
       <XStack gap="$3" alignItems="center" w="100%" minWidth={0}>
         <Input
+          testID="bulk-send-filter-integer-input-input"
           containerProps={{
             flex: 1,
             minWidth: 0,
@@ -145,6 +146,7 @@ function IntervalRangeInputs({
           -
         </SizableText>
         <Input
+          testID="bulk-send-filter-integer-input-input"
           containerProps={{
             flex: 1,
             minWidth: 0,

@@ -253,6 +253,7 @@ function NostrSignEventModal() {
     return (
       <YStack gap="$2">
         <Button
+          testID="d-app-connection-render-event-details-btn"
           variant="secondary"
           onPress={() => setDisplayDetails(!displayDetails)}
         >
@@ -268,6 +269,7 @@ function NostrSignEventModal() {
           <TextArea
             editable={false}
             numberOfLines={11}
+            testID="d-app-connection-render-event-details-textarea"
             value={JSON.stringify(event, null, 2)}
           />
         ) : null}
@@ -309,6 +311,7 @@ function NostrSignEventModal() {
           <TextArea
             editable={false}
             numberOfLines={5}
+            testID="d-app-connection-render-encrypt-sign-event-plaintext-textarea"
             value={savedPlaintext ?? ''}
           />
         </YStack>
@@ -332,12 +335,18 @@ function NostrSignEventModal() {
             {/* Content Start */}
             <YStack gap="$2">
               <SizableText>{eventKindText}</SizableText>
-              <TextArea editable={false} numberOfLines={5} value={content} />
+              <TextArea
+                editable={false}
+                numberOfLines={5}
+                testID="d-app-connection-textarea"
+                value={content}
+              />
               {renderEncryptSignEventPlaintext()}
               {renderEventDetails()}
             </YStack>
             {signType === ENostrSignType.signEvent ? (
               <Checkbox
+                testID="d-app-connection-checkbox"
                 label={intl.formatMessage({
                   id: ETranslations.dapp_connect_do_not_ask_again,
                 })}

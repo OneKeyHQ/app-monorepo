@@ -8,12 +8,18 @@ import { handleAnalyticsEvent } from './analyticsHandler';
 import {
   fetchAccountTransactionMarks,
   handleKLineDataRequest,
+  sendClearAccountMarks,
+  shouldMockEmptyKLineData,
 } from './klineDataHandler';
 import { handleLayoutUpdate } from './layoutUpdateHandler';
 
 import type { IMarksTimeRange, IMessageHandlerContext } from './types';
 import type { IWebViewRef } from '../../../WebView/types';
-import type { ICustomReceiveHandlerData } from '../types';
+import type {
+  ICustomReceiveHandlerData,
+  ITradingViewIndicatorsDialogData,
+  ITradingViewTouchScrollData,
+} from '../types';
 
 const DEFAULT_HYPERLIQUID_PRICE_SCALE = 100;
 
@@ -25,7 +31,9 @@ interface IUseTradingViewMessageHandlerParams {
   accountAddress?: string;
   tokenSymbol?: string;
   marksTimeRange?: React.MutableRefObject<IMarksTimeRange | null>;
+  currentKLineResolution?: React.MutableRefObject<string>;
   onTouchScroll?: (deltaY: number) => void;
+  onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -123,21 +131,41 @@ async function handleGetMarks({
   accountAddress,
   tokenAddress,
   networkId,
+  resolution,
   webRef,
 }: {
   request: {
     requestId?: string;
     from?: number;
     to?: number;
+    symbol?: string;
+    resolution?: string;
   };
   accountAddress?: string;
   tokenAddress: string;
   networkId: string;
+  resolution?: string;
   webRef: React.RefObject<IWebViewRef | null>;
 }) {
   const requestId = request.requestId;
 
   if (!requestId) {
+    return;
+  }
+
+  if (await shouldMockEmptyKLineData(resolution)) {
+    webRef.current?.sendMessageViaInjectedScript({
+      type: 'MARKS_RESPONSE',
+      payload: {
+        marks: [],
+        requestId,
+      },
+    });
+    sendClearAccountMarks({
+      tokenAddress,
+      symbol: request.symbol,
+      webRef,
+    });
     return;
   }
 
@@ -180,6 +208,21 @@ async function handleGetMarks({
   }
 }
 
+function getIndicatorsDialogOpenState(
+  dialogData: ITradingViewIndicatorsDialogData | undefined,
+): boolean | undefined {
+  if (typeof dialogData?.isOpen === 'boolean') {
+    return dialogData.isOpen;
+  }
+  if (dialogData?.action === 'open') {
+    return true;
+  }
+  if (dialogData?.action === 'close') {
+    return false;
+  }
+  return undefined;
+}
+
 export function useTradingViewMessageHandler({
   tokenAddress = '',
   networkId = '',
@@ -188,7 +231,9 @@ export function useTradingViewMessageHandler({
   accountAddress,
   tokenSymbol,
   marksTimeRange,
+  currentKLineResolution,
   onTouchScroll,
+  onIndicatorsDialogOpenChange,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
@@ -209,6 +254,7 @@ export function useTradingViewMessageHandler({
         accountAddress,
         tokenSymbol,
         marksTimeRange,
+        currentKLineResolution,
       };
 
       // Handle TradingView private API requests
@@ -248,15 +294,22 @@ export function useTradingViewMessageHandler({
       }
 
       if (data.scope === '$private' && data.method === 'tradingview_getMarks') {
+        const marksRequest = data.data as {
+          requestId?: string;
+          from?: number;
+          to?: number;
+          symbol?: string;
+          resolution?: string;
+        };
+        const resolution =
+          marksRequest.resolution || currentKLineResolution?.current;
+
         await handleGetMarks({
-          request: data.data as {
-            requestId?: string;
-            from?: number;
-            to?: number;
-          },
+          request: marksRequest,
           accountAddress,
           tokenAddress,
           networkId,
+          resolution,
           webRef,
         });
       }
@@ -265,10 +318,24 @@ export function useTradingViewMessageHandler({
         data.scope === '$private' &&
         data.method === 'tradingview_touchScroll'
       ) {
-        const touchData = data.data as { deltaY?: number } | undefined;
+        const touchData = data.data as ITradingViewTouchScrollData | undefined;
         const deltaY = Number(touchData?.deltaY ?? 0);
         if (Number.isFinite(deltaY) && deltaY !== 0) {
           onTouchScroll?.(deltaY);
+        }
+      }
+
+      if (
+        data.scope === '$private' &&
+        data.method === 'tradingview_indicatorsDialog'
+      ) {
+        const dialogData = data.data as
+          | ITradingViewIndicatorsDialogData
+          | undefined;
+        const isOpen = getIndicatorsDialogOpenState(dialogData);
+
+        if (typeof isOpen === 'boolean') {
+          onIndicatorsDialogOpenChange?.(isOpen);
         }
       }
     },
@@ -280,7 +347,9 @@ export function useTradingViewMessageHandler({
       accountAddress,
       tokenSymbol,
       marksTimeRange,
+      currentKLineResolution,
       onTouchScroll,
+      onIndicatorsDialogOpenChange,
     ],
   );
 

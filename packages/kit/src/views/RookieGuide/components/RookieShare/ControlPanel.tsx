@@ -3,6 +3,8 @@ import { useIntl } from 'react-intl';
 import { IconButton, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { RookieGuideTestIDs } from '../../testIDs';
+
 interface IControlPanelProps {
   onSaveImage: () => void;
   onShareImage: () => void;
@@ -33,6 +35,7 @@ export function ControlPanel({
     >
       <YStack gap="$1" alignItems="center">
         <IconButton
+          testID={RookieGuideTestIDs.saveImageBtn}
           title={intl.formatMessage({
             id: ETranslations.perps_share_position_btn_save_img,
           })}
@@ -58,6 +61,7 @@ export function ControlPanel({
       {isMobile ? (
         <YStack gap="$1" alignItems="center">
           <IconButton
+            testID={RookieGuideTestIDs.shareImageBtn}
             title={intl.formatMessage({
               id: ETranslations.explore_share,
             })}
@@ -84,6 +88,7 @@ export function ControlPanel({
       {hasReferralUrl ? (
         <YStack gap="$1" alignItems="center">
           <IconButton
+            testID={RookieGuideTestIDs.copyLinkBtn}
             title={intl.formatMessage({
               id: ETranslations.perps_share_position_btn_copy_link,
             })}
@@ -110,6 +115,7 @@ export function ControlPanel({
 
       <YStack gap="$1" alignItems="center">
         <IconButton
+          testID={RookieGuideTestIDs.shareToXBtn}
           title={intl.formatMessage({
             id: ETranslations.perps_share_position_btn_Share_on_x,
           })}

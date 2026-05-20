@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
+import { SwapTestIDs } from '../../testIDs';
 
 const SwapPendingHistoryListComponent = ({
   pageType,
@@ -71,7 +72,12 @@ const SwapPendingHistoryListComponent = ({
     return null;
   }
   return (
-    <YStack gap="$2" flex={1} overflow="visible">
+    <YStack
+      testID={SwapTestIDs.pendingHistoryList}
+      gap="$2"
+      flex={1}
+      overflow="visible"
+    >
       <XStack justifyContent="space-between" flex={1} alignItems="center">
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({

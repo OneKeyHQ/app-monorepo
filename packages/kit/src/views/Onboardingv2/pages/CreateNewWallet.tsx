@@ -33,6 +33,7 @@ import {
 } from '../components/Layout';
 import { useAutoStartKeylessProvider } from '../hooks/useAutoStartKeylessProvider';
 import { useKeylessLocalExistenceLogin } from '../hooks/useKeylessLocalExistenceLogin';
+import { OnboardingTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -180,6 +181,7 @@ function CreateNewWallet() {
           }}
         >
           <Button
+            testID={OnboardingTestIDs.googleSignInButton}
             variant="primary"
             size="large"
             alignSelf="stretch"
@@ -202,6 +204,7 @@ function CreateNewWallet() {
             </SizableText>
           </Button>
           <Button
+            testID={OnboardingTestIDs.appleSignInButton}
             variant="primary"
             size="large"
             alignSelf="stretch"
@@ -227,6 +230,7 @@ function CreateNewWallet() {
             <>
               {!md ? <OnboardingOrDivider /> : null}
               <Button
+                testID={OnboardingTestIDs.createNewWalletSeedPhraseBtn}
                 size="large"
                 alignSelf="stretch"
                 childrenAsText={false}

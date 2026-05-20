@@ -255,7 +255,11 @@ function TokenDetailsTabToolbar(props: IProps) {
           id: ETranslations.global_select_network,
         })}
         renderTrigger={
-          <IconButton variant="tertiary" icon="ChevronDownSmallOutline" />
+          <IconButton
+            variant="tertiary"
+            icon="ChevronDownSmallOutline"
+            testID="asset-details-icon-btn"
+          />
         }
         renderContent={renderContent}
       />

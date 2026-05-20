@@ -37,6 +37,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useValidateMemoField } from '@onekeyhq/kit/src/hooks/useValidateMemoField';
 import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
+import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import type {
   IChainValue,
   IQRCodeHandlerParseResult,
@@ -653,6 +654,7 @@ function SendDataInputContainer() {
           }}
         >
           <TextArea
+            testID={SendTestIDs.memoTextarea}
             numberOfLines={memoInputLines}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder={intl.formatMessage({
@@ -717,6 +719,7 @@ function SendDataInputContainer() {
           }}
         >
           <TextArea
+            testID={SendTestIDs.paymentIdTextarea}
             numberOfLines={2}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder="Payment ID"
@@ -766,6 +769,7 @@ function SendDataInputContainer() {
         }}
       >
         <TextArea
+          testID={SendTestIDs.noteTextarea}
           numberOfLines={2}
           size={media.gtMd ? 'medium' : 'large'}
           placeholder={intl.formatMessage({
@@ -928,6 +932,7 @@ function SendDataInputContainer() {
     }) => {
       if (isNavigatingRef.current) return;
       isNavigatingRef.current = true;
+      setIsSubmitting(true);
       try {
         const queryResult =
           await backgroundApiProxy.serviceAccountProfile.queryAddress({
@@ -1041,6 +1046,7 @@ function SendDataInputContainer() {
         });
       } finally {
         isNavigatingRef.current = false;
+        setIsSubmitting(false);
       }
     },
     [
@@ -1305,7 +1311,7 @@ function SendDataInputContainer() {
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>
-      {toResolved && !toPending ? (
+      {(toResolved && !toPending) || isSubmitting ? (
         <Page.Footer>
           <Page.FooterActions
             onConfirm={handleNavigateToAmountInput}

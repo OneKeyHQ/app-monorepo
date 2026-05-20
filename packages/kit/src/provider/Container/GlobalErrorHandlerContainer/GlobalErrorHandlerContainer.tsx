@@ -23,12 +23,8 @@ export function GlobalErrorHandlerContainer() {
           className: EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
         })
       ) {
-        const p = error.payload as
-          | {
-              connectId: string;
-              deviceId: string;
-            }
-          | undefined;
+        const p = error.payload;
+        const walletId = p?.params?.walletId;
         Dialog.show({
           title: intl.formatMessage({
             id: ETranslations.passphrase_disabled_dialog_title,
@@ -41,9 +37,9 @@ export function GlobalErrorHandlerContainer() {
           }),
           onConfirm: async () => {
             await backgroundApiProxy.serviceHardware.setPassphraseEnabled({
-              walletId: '',
-              connectId: p?.connectId,
-              featuresDeviceId: p?.deviceId,
+              walletId: walletId || '',
+              connectId: walletId ? undefined : p?.connectId,
+              featuresDeviceId: walletId ? undefined : p?.deviceId,
               passphraseEnabled: true,
             });
           },

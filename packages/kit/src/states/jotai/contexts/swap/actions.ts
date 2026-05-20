@@ -16,6 +16,7 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import { buildSwapAllNetworkTokenListCacheKey } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -1935,6 +1936,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountAddress?: string,
       isFirstFetch?: boolean,
       allNetAccountId?: string,
+      lpToken?: boolean,
     ) => {
       const protocol = get(swapTypeSwitchAtom());
       const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
@@ -1945,6 +1947,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         onlyAccountTokens: true,
         isAllNetworkFetchAccountTokens: true,
         protocol,
+        lpToken,
       });
       if (result?.length) {
         if (isFirstFetch && allNetAccountId) {
@@ -2002,11 +2005,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set,
       indexedAccountId?: string,
       otherWalletTypeAccountId?: string,
+      lpToken?: boolean,
     ) => {
       const swapAllNetworkActionLock = get(swapAllNetworkActionLockAtom());
-      if (swapAllNetworkActionLock) {
-        return;
-      }
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       const swapSupportNetworks = get(swapNetworks());
       const currentTypeSupportNetworks =
@@ -2020,11 +2021,21 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           otherWalletTypeAccountId,
           swapSupportNetworks: currentTypeSupportNetworks,
         });
+      const tokenListCacheKey = buildSwapAllNetworkTokenListCacheKey({
+        accountId: accountIdKey,
+        lpToken,
+      });
+      if (swapAllNetworkActionLock[tokenListCacheKey]) {
+        return;
+      }
       if (swapSupportAccounts.length > 0) {
-        set(swapAllNetworkActionLockAtom(), true);
+        set(swapAllNetworkActionLockAtom(), (v) => ({
+          ...v,
+          [tokenListCacheKey]: true,
+        }));
         const currentSwapAllNetworkTokenList = get(
           swapAllNetworkTokenListMapAtom(),
-        )[accountIdKey];
+        )[tokenListCacheKey];
         const accountAddressList = swapSupportAccounts
           .filter((item) => item.apiAddress)
           .filter(
@@ -2045,33 +2056,48 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               accountId,
               apiAddress,
               !currentSwapAllNetworkTokenList,
-              indexedAccountId ?? otherWalletTypeAccountId ?? '',
+              tokenListCacheKey,
+              lpToken,
             );
         });
 
-        // Execute requests in batches of 3 to prevent UI thread blocking
-        const results = await this.executeBatched(tasks, 3);
+        try {
+          // Execute requests in batches of 3 to prevent UI thread blocking
+          const results = await this.executeBatched(tasks, 3);
 
-        if (!currentSwapAllNetworkTokenList) {
-          // First fetch: just wait for completion, updates happen in updateAllNetworkTokenList
-        } else {
-          // Subsequent fetches: collect results and update atom
-          const allTokensResult = results
-            .filter((r) => r.status === 'fulfilled' && r.value)
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-            .map((r) => (r as PromiseFulfilledResult<any>).value)
-            .filter(Boolean)
-            .flat();
-          set(swapAllNetworkTokenListMapAtom(), (v) => ({
+          if (!currentSwapAllNetworkTokenList) {
+            set(swapAllNetworkTokenListMapAtom(), (v) => {
+              if (v[tokenListCacheKey] !== undefined) {
+                return v;
+              }
+              return {
+                ...v,
+                [tokenListCacheKey]: [],
+              };
+            });
+          } else {
+            // Subsequent fetches: collect results and update atom
+            const allTokensResult = results
+              .filter((r) => r.status === 'fulfilled' && r.value)
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+              .map((r) => (r as PromiseFulfilledResult<any>).value)
+              .filter(Boolean)
+              .flat();
+            set(swapAllNetworkTokenListMapAtom(), (v) => ({
+              ...v,
+              [tokenListCacheKey]: allTokensResult,
+            }));
+          }
+        } finally {
+          set(swapAllNetworkActionLockAtom(), (v) => ({
             ...v,
-            [accountIdKey]: allTokensResult,
+            [tokenListCacheKey]: false,
           }));
         }
-        set(swapAllNetworkActionLockAtom(), false);
       } else {
         set(swapAllNetworkTokenListMapAtom(), (v) => ({
           ...v,
-          [accountIdKey]: [],
+          [tokenListCacheKey]: [],
         }));
       }
     },

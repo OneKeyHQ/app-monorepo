@@ -8,6 +8,7 @@ import {
   Dialog,
   Divider,
   Icon,
+  IconButton,
   Image,
   InteractiveIcon,
   NumberSizeableText,
@@ -23,6 +24,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
@@ -96,6 +98,7 @@ const ADDRESS_ACTION_ICON_SIZE = '$4';
 const DESKTOP_CONTENT_MIN_WIDTH = 960;
 const MIN_DISPLAY_PERCENTAGE_TEXT = '< 0.01%';
 const TOKEN_AMOUNT_COMPACT_THRESHOLD = 1000;
+const POOL_DETAIL_DIALOG_DISABLE_DRAG_TOKEN_THRESHOLD = 2;
 const POOL_DETAIL_TOKEN_LIST_SCROLL_THRESHOLD = 6;
 const POOL_DETAIL_TOKEN_LIST_MAX_HEIGHT = '$64';
 const POOL_DETAIL_PAIR_NAME_COMPACT_THRESHOLD = 10;
@@ -780,11 +783,13 @@ function AddressActions({
       </SizableText>
       <XStack gap={ADDRESS_ACTION_GAP} flexShrink={0}>
         <InteractiveIcon
+          testID={MarketTestIDs.liquidityPoolCopyAddressBtn}
           icon="Copy3Outline"
           onPress={handleCopy}
           size={ADDRESS_ACTION_ICON_SIZE}
         />
         <InteractiveIcon
+          testID={MarketTestIDs.liquidityPoolOpenAddressBtn}
           icon="OpenOutline"
           onPress={handleOpenAddress}
           size={ADDRESS_ACTION_ICON_SIZE}
@@ -795,6 +800,18 @@ function AddressActions({
 }
 
 function TokenAmountLines({ tokens }: { tokens: IDisplayPoolToken[] }) {
+  const labels = useLiquidityPoolLabels();
+
+  const handleShowAllTokenAmounts = useCallback(() => {
+    Dialog.show({
+      title: labels.tokenAmount,
+      renderContent: <TokenAmountListDialogContent tokens={tokens} />,
+      showFooter: false,
+      disableDrag:
+        tokens.length > POOL_DETAIL_DIALOG_DISABLE_DRAG_TOKEN_THRESHOLD,
+    });
+  }, [labels.tokenAmount, tokens]);
+
   if (!tokens.length) {
     return (
       <SizableText size="$bodyMd" color="$text">
@@ -804,40 +821,90 @@ function TokenAmountLines({ tokens }: { tokens: IDisplayPoolToken[] }) {
   }
 
   return (
-    <YStack>
-      {tokens.slice(0, 2).map((token) =>
-        token.amount === FALLBACK_VALUE ? (
-          <SizableText
-            key={token.key}
-            size="$bodyMd"
-            color="$text"
-            numberOfLines={1}
-          >
-            {FALLBACK_VALUE}
-          </SizableText>
-        ) : (
-          <XStack key={token.key} ai="center" gap="$1" minWidth={0}>
-            <NumberSizeableText
+    <XStack ai="center" gap="$1" minWidth={0}>
+      <YStack minWidth={0} flexShrink={1}>
+        {tokens.slice(0, 2).map((token) =>
+          token.amount === FALLBACK_VALUE ? (
+            <SizableText
+              key={token.key}
               size="$bodyMd"
               color="$text"
-              autoFormatter="balance-marketCap"
-              autoFormatterThreshold={TOKEN_AMOUNT_COMPACT_THRESHOLD}
               numberOfLines={1}
-              ellipsizeMode="tail"
-              flexShrink={1}
             >
-              {token.amount}
-            </NumberSizeableText>
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              numberOfLines={1}
-              flexShrink={1}
-            >
-              {token.symbol}
+              {FALLBACK_VALUE}
             </SizableText>
-          </XStack>
-        ),
+          ) : (
+            <XStack key={token.key} ai="center" gap="$1" minWidth={0}>
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$text"
+                autoFormatter="balance-marketCap"
+                autoFormatterThreshold={TOKEN_AMOUNT_COMPACT_THRESHOLD}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                flexShrink={1}
+              >
+                {token.amount}
+              </NumberSizeableText>
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {token.symbol}
+              </SizableText>
+            </XStack>
+          ),
+        )}
+      </YStack>
+      {tokens.length > 2 ? (
+        <IconButton
+          testID={MarketTestIDs.liquidityPoolExpandTokenAmountsBtn}
+          icon="ChevronDownSmallOutline"
+          title={labels.tokenAmount}
+          variant="tertiary"
+          size="small"
+          iconSize="$4"
+          onPress={handleShowAllTokenAmounts}
+          flexShrink={0}
+          m="$0"
+        />
+      ) : null}
+    </XStack>
+  );
+}
+
+function TokenAmountListDialogContent({
+  tokens,
+}: {
+  tokens: IDisplayPoolToken[];
+}) {
+  const intl = useIntl();
+  const labels = useLiquidityPoolLabels();
+  const shouldScrollTokenRows =
+    tokens.length > POOL_DETAIL_TOKEN_LIST_SCROLL_THRESHOLD;
+  const tokenRows = <DetailTokenRows tokens={tokens} />;
+
+  return (
+    <YStack pb="$5" gap="$4">
+      <XStack ai="center" jc="space-between">
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.dexmarket_select_token })}
+        </SizableText>
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {labels.tokenAmount}
+        </SizableText>
+      </XStack>
+      {shouldScrollTokenRows ? (
+        <ScrollView
+          maxHeight={POOL_DETAIL_TOKEN_LIST_MAX_HEIGHT}
+          nestedScrollEnabled
+        >
+          {tokenRows}
+        </ScrollView>
+      ) : (
+        tokenRows
       )}
     </YStack>
   );
@@ -1121,6 +1188,9 @@ function MobilePoolRow({ item }: { item: IDisplayPool }) {
       title: intl.formatMessage({ id: ETranslations.dexmarket_pool_details }),
       renderContent: <PoolDetailsContent item={item} />,
       showFooter: false,
+      disableDrag:
+        item.tokenAmounts.length >
+        POOL_DETAIL_DIALOG_DISABLE_DRAG_TOKEN_THRESHOLD,
     });
   }, [intl, item]);
 

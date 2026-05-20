@@ -117,6 +117,7 @@ export function MarketRecommendList({
     () =>
       enableSelection ? (
         <Button
+          testID="market-confirm-button-btn"
           width="100%"
           size="large"
           disabled={!selectedTokens.length}

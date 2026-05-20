@@ -104,6 +104,7 @@ function ContactSupportButton({ requestId }: { requestId: string }) {
 
   return (
     <Button
+      testID="provider-token-btn"
       icon="HelpSupportOutline"
       size="small"
       loading={isUploading}
@@ -123,6 +124,7 @@ function CopyDiagnosticButton({ diagnosticText }: { diagnosticText: string }) {
 
   return (
     <Button
+      testID="provider-intl-btn"
       variant="primary"
       size="small"
       onPress={() => {
@@ -139,6 +141,7 @@ function NeedFirmwareUpgradeFromWebButton() {
 
   return (
     <Button
+      testID="provider-intl-btn"
       size="small"
       onPress={() => {
         openUrlExternal('https://firmware.onekey.so/');
@@ -154,6 +157,7 @@ function NavigateToCloudSyncSwitchButton() {
 
   return (
     <Button
+      testID="provider-intl-btn"
       variant="primary"
       size="small"
       onPress={() => {
@@ -174,6 +178,7 @@ function ClearPendingTransactionsButton() {
 
   return (
     <Button
+      testID="error-toast-clear-pending-tx-btn"
       variant="primary"
       size="small"
       onPress={() => {

@@ -33,6 +33,8 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISignAccount } from '@onekeyhq/shared/types/signAndVerify';
 
+import { SignAndVerifyMessageTestIDs } from '../testIDs';
+
 type ISignFormData = {
   message: string;
   address: string;
@@ -391,6 +393,7 @@ export const SignForm = ({
               })}
               renderTrigger={
                 <Button
+                  testID="sign-and-verify-message-hex-format-btn"
                   size="small"
                   variant="tertiary"
                   iconAfter="QuestionmarkOutline"
@@ -451,15 +454,19 @@ export const SignForm = ({
               )}
             />
             <Form.Field name="hexFormat">
-              <Switch size="small" />
+              <Switch
+                testID={SignAndVerifyMessageTestIDs.signHexFormatSwitch}
+                size="small"
+              />
             </Form.Field>
           </XStack>
         }
       >
         <TextAreaInput
-        // placeholder={intl.formatMessage({
-        //   id: ETranslations.message_signing_address_placeholder,
-        // })}
+          testID={SignAndVerifyMessageTestIDs.signMessageInput}
+          // placeholder={intl.formatMessage({
+          //   id: ETranslations.message_signing_address_placeholder,
+          // })}
         />
       </Form.Field>
 
@@ -476,6 +483,7 @@ export const SignForm = ({
         }}
       >
         <Select
+          testID={SignAndVerifyMessageTestIDs.signAddressSelect}
           usingPercentSnapPoints
           title={intl.formatMessage({
             id: ETranslations.global_address,
@@ -546,6 +554,7 @@ export const SignForm = ({
                 })}
                 renderTrigger={
                   <Button
+                    testID="sign-and-verify-message-btn"
                     iconAfter="QuestionmarkOutline"
                     size="small"
                     variant="tertiary"
@@ -604,6 +613,7 @@ export const SignForm = ({
             name="format"
           >
             <Radio
+              testID={SignAndVerifyMessageTestIDs.signFormatRadio}
               orientation="horizontal"
               gap="$5"
               options={formatRadioOptions}
@@ -674,6 +684,7 @@ export const SignForm = ({
                   {rawMessage}
                 </SizableText>
                 <Button
+                  testID={SignAndVerifyMessageTestIDs.signCopyMessageBtn}
                   size="small"
                   variant="tertiary"
                   onPress={handleCopyWithStopPropagation(rawMessage)}
@@ -701,6 +712,7 @@ export const SignForm = ({
                   {selectedAddress}
                 </SizableText>
                 <Button
+                  testID={SignAndVerifyMessageTestIDs.signCopyAddressBtn}
                   size="small"
                   variant="tertiary"
                   flexShrink={0}
@@ -732,6 +744,7 @@ export const SignForm = ({
                   {signature}
                 </SizableText>
                 <Button
+                  testID={SignAndVerifyMessageTestIDs.signCopySignatureBtn}
                   size="small"
                   variant="tertiary"
                   onPress={handleCopyWithStopPropagation(signature)}
@@ -744,7 +757,12 @@ export const SignForm = ({
             <Divider />
 
             <YStack py="$2" px="$3">
-              <Button onPress={onCopySignature} size="small" variant="tertiary">
+              <Button
+                testID={SignAndVerifyMessageTestIDs.signCopyAllBtn}
+                onPress={onCopySignature}
+                size="small"
+                variant="tertiary"
+              >
                 {intl.formatMessage({ id: ETranslations.global_copy_all })}
               </Button>
             </YStack>

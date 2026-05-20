@@ -400,6 +400,7 @@ export function ActionButton({
 
   return (
     <Button
+      testID="market-btn"
       size={gtMd ? 'medium' : 'large'}
       disabled={isButtonDisabled}
       onPress={handlePress}

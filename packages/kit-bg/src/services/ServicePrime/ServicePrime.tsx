@@ -186,6 +186,11 @@ class ServicePrime extends ServiceBase {
 
   @backgroundMethod()
   async apiLogout() {
+    const currentAtomValue = await primePersistAtom.get();
+    defaultLogger.prime.subscription.onekeyIdLogout({
+      reason: `ServicePrime.apiLogout: starting logout for user ${currentAtomValue.onekeyUserId}`,
+    });
+
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authToken) {
       defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
@@ -197,8 +202,14 @@ class ServicePrime extends ServiceBase {
     const client = await this.getPrimeClient();
     try {
       await client.post('/prime/v1/user/logout');
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason: 'ServicePrime.apiLogout: server logout success',
+      });
     } catch (e) {
       console.error(e);
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason: `ServicePrime.apiLogout: server logout failed: ${String(e)}`,
+      });
       const error = e as OneKeyError | undefined;
       if (error && error?.key === 'id.login_expired_description') {
         error.autoToast = false;
@@ -207,8 +218,15 @@ class ServicePrime extends ServiceBase {
     } finally {
       // Server logout is best-effort; local state must always clear so
       // the UI cannot keep rendering the previously-logged-in account.
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason: 'ServicePrime.apiLogout: clearing local token and atom',
+      });
       await this.backgroundApi.simpleDb.prime.saveAuthToken('');
       await this.setPrimePersistAtomNotLoggedIn();
+      const clearedAtomValue = await primePersistAtom.get();
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason: `ServicePrime.apiLogout: atom cleared, isLoggedIn=${clearedAtomValue.isLoggedIn}, onekeyUserId=${clearedAtomValue.onekeyUserId}`,
+      });
     }
   }
 
@@ -307,6 +325,11 @@ class ServicePrime extends ServiceBase {
   }: {
     serverUserInfo: IPrimeServerUserInfo;
   }) {
+    const beforeValue = await primePersistAtom.get();
+    defaultLogger.prime.subscription.onekeyIdLogout({
+      reason: `updatePrimeAtomByServerUserInfo: before update, atom isPrime=${beforeValue.primeSubscription?.isActive}, atom userId=${beforeValue.onekeyUserId}, server isPrime=${serverUserInfo?.isPrime}, server userId=${serverUserInfo?.userId}`,
+    });
+
     let primeSubscription: IPrimeSubscriptionInfo | undefined;
     if (serverUserInfo.isPrime) {
       primeSubscription = {
@@ -343,6 +366,11 @@ class ServicePrime extends ServiceBase {
         // salt: serverUserInfo.salt,
         // pwdHash: serverUserInfo.pwdHash,
       };
+    });
+
+    const afterValue = await primePersistAtom.get();
+    defaultLogger.prime.subscription.onekeyIdLogout({
+      reason: `updatePrimeAtomByServerUserInfo: after update, atom isPrime=${afterValue.primeSubscription?.isActive}, atom userId=${afterValue.onekeyUserId}`,
     });
 
     if (serverUserInfo?.inviteCode) {
@@ -389,6 +417,28 @@ class ServicePrime extends ServiceBase {
       };
     }
     const serverUserInfo = await this.callApiFetchPrimeUserInfo();
+
+    // Re-check auth token after the network request returns. If the user
+    // logged out while this request was in flight, the simpleDb token will
+    // have been cleared. Discarding the response prevents an in-flight
+    // request from writing the previous account's data back into the atom
+    // after logout.
+    const authTokenAfterFetch =
+      await this.backgroundApi.simpleDb.prime.getAuthToken();
+    if (!authTokenAfterFetch) {
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason:
+          'ServicePrime.apiFetchPrimeUserInfo: auth token cleared during request, discarding response',
+      });
+      await this.setPrimePersistAtomNotLoggedIn();
+      const localUserInfo = await primePersistAtom.get();
+      return {
+        userInfo: localUserInfo,
+        serverUserInfo: undefined,
+        primeSubscription: undefined,
+      };
+    }
+
     void this.backgroundApi.servicePrimeCloudSync.showAlertDialogIfServerPasswordNotSet(
       {
         serverUserInfo,
@@ -425,10 +475,20 @@ class ServicePrime extends ServiceBase {
 
   @backgroundMethod()
   async setPrimePersistAtomNotLoggedIn() {
-    console.log('servicePrime.setPrimePersistAtomNotLoggedIn');
+    const beforeValue = await primePersistAtom.get();
+    defaultLogger.prime.subscription.onekeyIdLogout({
+      reason: `setPrimePersistAtomNotLoggedIn: before clear, isLoggedIn=${beforeValue.isLoggedIn}, onekeyUserId=${beforeValue.onekeyUserId}, isPrime=${beforeValue.primeSubscription?.isActive}`,
+    });
+
     await primePersistAtom.set(
       (): IPrimePersistAtomData => cloneDeep(primePersistAtomInitialValue),
     );
+
+    const afterValue = await primePersistAtom.get();
+    defaultLogger.prime.subscription.onekeyIdLogout({
+      reason: `setPrimePersistAtomNotLoggedIn: after clear, isLoggedIn=${afterValue.isLoggedIn}, onekeyUserId=${afterValue.onekeyUserId}, isPrime=${afterValue.primeSubscription?.isActive}`,
+    });
+
     await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();
     await primeServerMasterPasswordStatusAtom.set((v) => ({
       ...v,

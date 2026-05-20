@@ -1,5 +1,6 @@
 import {
   ABSOLUTE_MAX_TTL_MS,
+  KEY_API_TIMEOUT_MS,
   LOCK_TIMEOUT_MS,
   REFRESH_THRESHOLD_MS,
   REVOKE_TIMEOUT_MS,
@@ -19,6 +20,7 @@ describe('vault constants', () => {
 
   it('uses the required lock and revoke timeouts', () => {
     expect(LOCK_TIMEOUT_MS).toBe(5000);
+    expect(KEY_API_TIMEOUT_MS).toBe(30_000);
     expect(REVOKE_TIMEOUT_MS).toBe(3000);
   });
 

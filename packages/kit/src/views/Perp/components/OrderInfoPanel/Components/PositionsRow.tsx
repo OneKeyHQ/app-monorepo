@@ -310,6 +310,7 @@ const PositionRowDesktopPnL = memo(
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl}(${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%)`}
           </SizableText>
           <IconButton
+            testID="perp-position-row-desktop-pn-l-icon-btn"
             variant="tertiary"
             size="small"
             icon="ShareOutline"
@@ -354,6 +355,7 @@ const PositionRowDesktopMargin = memo(
             >{`${otherInfo.marginUsedFormatted}`}</SizableText>
             {isIsolatedMode ? (
               <IconButton
+                testID="perp-position-row-desktop-margin-icon-btn"
                 variant="tertiary"
                 size="small"
                 icon="PencilOutline"
@@ -515,6 +517,7 @@ const PositionRowDesktopTPSL = memo(
           {tpslInfo.showOrder ? (
             <XStack alignItems="center" gap="$1" cursor="default">
               <IconButton
+                testID="perp-icon-btn"
                 variant="tertiary"
                 size="small"
                 icon="HighlightOutline"
@@ -537,6 +540,7 @@ const PositionRowDesktopTPSL = memo(
           ) : (
             <XStack alignItems="center" gap="$1" cursor="default">
               <IconButton
+                testID="perp-icon-btn"
                 variant="tertiary"
                 size="small"
                 icon="HighlightOutline"
@@ -793,6 +797,7 @@ const PositionRowMobileHeader = memo(
           </SizableText>
         </XStack>
         <IconButton
+          testID="perp-icon-btn"
           variant="tertiary"
           size="small"
           icon="ShareOutline"
@@ -912,6 +917,7 @@ const PositionRowMobileMargin = memo(
           </SizableText>
           {isIsolatedMode ? (
             <IconButton
+              testID="perp-intl-icon-btn"
               variant="tertiary"
               size="small"
               icon="PencilOutline"
@@ -1156,7 +1162,13 @@ const PositionRowMobileActions = memo(
         justifyContent="space-between"
         position="relative"
       >
-        <Button size="medium" variant="secondary" onPress={onSetTpsl} flex={1}>
+        <Button
+          size="medium"
+          variant="secondary"
+          onPress={onSetTpsl}
+          flex={1}
+          testID="perp-intl-btn"
+        >
           <SizableText size="$bodySm">
             {intl.formatMessage({
               id: ETranslations.perp_trade_set_tp_sl,
@@ -1164,6 +1176,7 @@ const PositionRowMobileActions = memo(
           </SizableText>
         </Button>
         <Button
+          testID="perp-intl-btn"
           size="medium"
           variant="secondary"
           onPress={() => onClosePosition('market')}

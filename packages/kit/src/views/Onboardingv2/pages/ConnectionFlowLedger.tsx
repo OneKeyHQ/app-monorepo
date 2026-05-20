@@ -31,6 +31,7 @@ import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { OnboardingTestIDs } from '../testIDs';
 import { getForceTransportType, sortDevicesData } from '../utils';
 
 import { ConnectionIndicator } from './ConnectYourDevice';
@@ -167,6 +168,7 @@ export default function LedgerConnectionFlow() {
       1500, // pollInterval — 1.5s between polls
       MAX_TRY_COUNT, // maxTryCount — search for up to ~90s
       vendor,
+      { resetSession: true },
     );
   }, [deviceScanner, vendor, tabValue, intl]);
 
@@ -304,6 +306,7 @@ export default function LedgerConnectionFlow() {
             {connectStatus === EConnectionStatus.init ? (
               <>
                 <Button
+                  testID={OnboardingTestIDs.connectionFlowLedgerStartBtn}
                   variant="primary"
                   mt="$2"
                   onPress={onStartConnection}

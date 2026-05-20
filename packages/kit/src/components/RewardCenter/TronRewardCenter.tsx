@@ -282,6 +282,7 @@ function RewardCenterContent({
               </SizableText>
             )}
             <Button
+              testID="reward-center-btn"
               size="medium"
               variant="primary"
               loading={isClaiming}
@@ -308,6 +309,7 @@ function RewardCenterContent({
             <Stack flex={1}>
               <Form.Field name="code" rules={{ required: true }}>
                 <Input
+                  testID="reward-center-input"
                   w="100%"
                   backgroundColor="$bgStrong"
                   placeholder={intl.formatMessage({
@@ -317,6 +319,7 @@ function RewardCenterContent({
               </Form.Field>
             </Stack>
             <Button
+              testID="reward-center-btn"
               size="medium"
               variant="primary"
               onPress={handleRedeemCode}

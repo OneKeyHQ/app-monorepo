@@ -121,6 +121,7 @@ function MoreActionContentHeaderItem({ onPress, ...props }: IIconButtonProps) {
   );
   return (
     <IconButton
+      testID="more-action-button-handle-press-icon-btn"
       {...props}
       variant="tertiary"
       size="medium"
@@ -379,6 +380,7 @@ interface IMoreActionContentGridItemProps {
   badges?: number;
   lottieSrc?: any;
   isPrimeFeature?: boolean;
+  hidePrimeBadge?: boolean;
 }
 
 function MoreActionContentGridItem({
@@ -392,6 +394,7 @@ function MoreActionContentGridItem({
   badges = 0,
   lottieSrc,
   isPrimeFeature,
+  hidePrimeBadge,
 }: IMoreActionContentGridItemProps) {
   const { closePopover } = usePopoverContext();
   const { isPrimeAvailable } = usePrimeAvailable();
@@ -483,7 +486,7 @@ function MoreActionContentGridItem({
           </Stack>
         ) : null}
         {/* Only show Prime badge for non-Prime users */}
-        {isPrimeFeature && !isPrimeUser ? (
+        {isPrimeFeature && !hidePrimeBadge && !isPrimeUser ? (
           <Stack
             position="absolute"
             right={-10}
@@ -956,6 +959,7 @@ function MoreActionGeneralGrid() {
             onPress: handlePrime,
             trackID: 'wallet-prime',
             isPrimeFeature: true,
+            hidePrimeBadge: true,
           }
         : undefined,
       !platformEnv.isWebDappMode

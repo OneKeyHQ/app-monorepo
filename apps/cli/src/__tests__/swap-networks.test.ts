@@ -22,7 +22,7 @@ describe('swap-networks', () => {
   });
 
   describe('fetchSwapNetworks', () => {
-    it('returns API-supported EVM and BTC swap networks from preset metadata', async () => {
+    it('returns API-supported EVM, BTC, and SOL swap networks from preset metadata', async () => {
       mockGet.mockResolvedValueOnce([
         {
           networkId: 'evm--1',
@@ -43,6 +43,12 @@ describe('swap-networks', () => {
           supportLimit: false,
         },
         {
+          networkId: 'sol--101',
+          supportSingleSwap: true,
+          supportCrossChainSwap: false,
+          supportLimit: false,
+        },
+        {
           networkId: 'tbtc--0',
           supportSingleSwap: false,
           supportCrossChainSwap: true,
@@ -51,7 +57,7 @@ describe('swap-networks', () => {
       ]);
 
       const networks = await fetchSwapNetworks();
-      expect(networks).toHaveLength(3);
+      expect(networks).toHaveLength(4);
       expect(networks[0].networkId).toBe('evm--1');
       expect(networks[0].supportSingleSwap).toBe(true);
       expect(networks[0].supportCrossChainSwap).toBe(true);
@@ -63,6 +69,15 @@ describe('swap-networks', () => {
         nativeSymbol: 'BTC',
         supportSingleSwap: true,
         supportCrossChainSwap: true,
+        supportLimit: false,
+      });
+      expect(networks[3]).toMatchObject({
+        networkId: 'sol--101',
+        name: 'Solana',
+        chainId: '101',
+        nativeSymbol: 'SOL',
+        supportSingleSwap: true,
+        supportCrossChainSwap: false,
         supportLimit: false,
       });
       expect(networks.map((n) => n.networkId)).not.toContain('tbtc--0');
@@ -77,8 +92,8 @@ describe('swap-networks', () => {
           supportLimit: false,
         },
         {
-          networkId: 'sol--101',
-          supportSingleSwap: true,
+          networkId: 'tbtc--0',
+          supportSingleSwap: false,
           supportCrossChainSwap: false,
           supportLimit: false,
         },

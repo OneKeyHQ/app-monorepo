@@ -28,6 +28,22 @@ export type ISwapLatestBalanceCheckResult =
       tokenSymbol: string;
     };
 
+async function getSwapTokenBalanceContractAddress(token: ISwapToken) {
+  if (!token.isNative || token.contractAddress) {
+    return token.contractAddress ?? '';
+  }
+
+  try {
+    return (
+      (await backgroundApiProxy.serviceToken.getNativeTokenAddress({
+        networkId: token.networkId,
+      })) ?? ''
+    );
+  } catch {
+    return token.contractAddress ?? '';
+  }
+}
+
 type ISwapGasInfoEntry = {
   gasInfo?: ISwapGasInfo;
 };
@@ -176,10 +192,11 @@ export async function checkSwapLatestBalanceSufficient({
   }
 
   try {
+    const contractAddress = await getSwapTokenBalanceContractAddress(token);
     const tokenBalanceInfo =
       await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
         networkId: token.networkId,
-        contractAddress: token.contractAddress ?? '',
+        contractAddress,
         accountAddress,
         accountId,
         currency: 'usd',

@@ -22,6 +22,8 @@ import type {
   IEarnTokenItem,
 } from '@onekeyhq/shared/types/staking';
 
+import { StakingTestIDs } from '../../testIDs';
+
 function RewardItem({
   rewardTokenAddress,
   rewardData,
@@ -114,6 +116,7 @@ function RewardItem({
             size="small"
             variant="primary"
             disabled={validClaimableNow.isZero()}
+            testID={StakingTestIDs.protocolRewardsClaimBtn}
             onPress={() => {
               onClaim?.({
                 amount: validClaimableNow.toFixed(),
@@ -200,6 +203,7 @@ export function ProtocolRewards({
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       bg="$bgSubdued"
+      testID={StakingTestIDs.protocolRewardsSection}
     >
       <XStack alignItems="center" gap="$1">
         <SizableText color="$textSubdued" size="$bodyMd">
@@ -214,6 +218,7 @@ export function ProtocolRewards({
           placement="top"
           renderTrigger={
             <IconButton
+              testID="staking-icon-btn"
               iconColor="$iconSubdued"
               size="small"
               icon="InfoCircleOutline"

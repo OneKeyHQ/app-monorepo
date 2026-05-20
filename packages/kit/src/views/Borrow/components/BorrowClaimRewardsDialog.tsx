@@ -23,6 +23,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { BorrowTestIDs } from '../testIDs';
 
 type IClaimItemProps = {
   item: IEarnRewardClaimItem;
@@ -64,6 +65,7 @@ function ClaimItem({
         ) : null}
       </YStack>
       <Button
+        testID={BorrowTestIDs.claimItemBtn}
         size="small"
         variant="primary"
         disabled={disabled}
@@ -141,6 +143,7 @@ function UnclaimableItem({ item }: IUnclaimableItemProps) {
       </YStack>
       {item.button?.text ? (
         <Button
+          testID={BorrowTestIDs.unclaimableItemBtn}
           size="small"
           variant="primary"
           onPress={handlePress}

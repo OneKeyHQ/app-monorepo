@@ -129,7 +129,12 @@ const WebView: FC<IWebViewProps> = ({
   ) {
     return (
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <Button onPress={() => extUtils.openUrlInTab(src)}>Open</Button>
+        <Button
+          testID="web-view-open-btn"
+          onPress={() => extUtils.openUrlInTab(src)}
+        >
+          Open
+        </Button>
       </Stack>
     );
   }

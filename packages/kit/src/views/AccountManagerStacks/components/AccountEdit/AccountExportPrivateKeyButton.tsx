@@ -5,6 +5,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { navigateToBackupWalletReminderPage } from '@onekeyhq/kit/src/hooks/usePageNavigation';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { shouldHideBotWalletExport } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type {
   IDBAccount,
@@ -45,22 +46,24 @@ export function AccountExportPrivateKeyButton({
       walletId: wallet?.id,
     },
   );
-  if (
-    shouldHideBotWalletExport({
-      isBotWallet,
-      isBotWalletDeactivated,
-    })
-  ) {
-    return null;
-  }
+  const isExportBlocked = shouldHideBotWalletExport({
+    isBotWallet,
+    isBotWalletDeactivated,
+  });
 
   return (
     <ActionList.Item
       testID={testID}
       icon={icon}
       label={label}
-      onClose={onClose}
+      onClose={() => {}}
+      disabled={isExportBlocked}
+      allowPressWhenDisabled={isExportBlocked}
       onPress={async () => {
+        if (isExportBlocked) {
+          showBotWalletDisabledToast('export');
+          return;
+        }
         if (
           await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
             walletId: wallet?.id ?? '',
@@ -87,6 +90,7 @@ export function AccountExportPrivateKeyButton({
           });
           return;
         }
+        onClose?.();
         navigation.pushModal(EModalRoutes.AccountManagerStacks, {
           screen: EAccountManagerStacksRoutes.ExportPrivateKeysPage,
           params: {

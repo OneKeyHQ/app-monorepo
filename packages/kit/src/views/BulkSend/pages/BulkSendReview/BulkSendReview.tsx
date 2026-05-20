@@ -41,6 +41,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import { usePreCheckFeeInfo } from '../../../SignatureConfirm/hooks/usePreCheckFeeInfo';
 import BulkSendTxDetails from '../../components/BulkSendTxDetails';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
+import { BulkSendTestIDs } from '../../testIDs';
 
 import BulkSendApprovalCard from './components/BulkSendApprovalCard';
 import BulkSendReviewAlert from './components/BulkSendReviewAlert';
@@ -90,6 +91,20 @@ function BaseBulkSendReview({
   const isMultiTxs = unsignedTxs.length > 1;
   const transferTxCount = unsignedTxs.length - approvesInfo.length;
   const isTransferSplit = transferTxCount > 1;
+
+  const receiverGroups = useMemo(() => {
+    if (
+      bulkSendMode !== EBulkSendMode.OneToMany ||
+      !isTransferSplit ||
+      unsignedTxs.length === 0
+    ) {
+      return undefined;
+    }
+    const txBatches = unsignedTxs
+      .map((tx) => tx.transfersInfo ?? [])
+      .filter((batch) => batch.length > 0);
+    return txBatches.length > 1 ? txBatches : undefined;
+  }, [bulkSendMode, isTransferSplit, unsignedTxs]);
 
   // Use fee estimation hook
   const { feeLabel, handleFeeChange, vaultSettings, forceRefreshFee } =
@@ -687,6 +702,7 @@ function BaseBulkSendReview({
             tokenInfo={tokenInfo}
             transfersInfo={transfersInfo}
             bulkSendMode={bulkSendMode}
+            receiverGroups={receiverGroups}
             containerProps={{
               px: '$5',
             }}
@@ -698,6 +714,7 @@ function BaseBulkSendReview({
           <Page.FooterActions
             onConfirmText={confirmButtonText}
             confirmButtonProps={{
+              testID: BulkSendTestIDs.reviewConfirmBtn,
               onPress: handleConfirm,
               disabled: isConfirmDisabled,
               loading: isSubmitting || isRecheckingApproval,

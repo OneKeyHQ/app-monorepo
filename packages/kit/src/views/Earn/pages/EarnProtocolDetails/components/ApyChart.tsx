@@ -322,6 +322,7 @@ const ApyChartComponent = ({
 
           {showUnderlyingApyToggle ? (
             <Checkbox
+              testID="earn-checkbox"
               value={showUnderlyingApy}
               onChange={(value) => setShowUnderlyingApy(Boolean(value))}
               label={intl.formatMessage({

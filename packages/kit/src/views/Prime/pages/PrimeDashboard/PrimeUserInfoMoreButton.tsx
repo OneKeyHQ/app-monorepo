@@ -25,6 +25,7 @@ import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
+import { PrimeTestIDs } from '../../testIDs';
 
 function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose,
@@ -239,6 +240,7 @@ export function PrimeUserInfoMoreButton({
       renderItems={renderItems}
       renderTrigger={
         <IconButton
+          testID={PrimeTestIDs.userInfoMoreBtn}
           icon="DotHorOutline"
           variant="tertiary"
           size="small"

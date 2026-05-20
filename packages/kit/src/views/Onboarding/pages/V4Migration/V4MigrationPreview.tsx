@@ -24,16 +24,15 @@ import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import type { IV4MigrationBackupItem } from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/types';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import type { IV4DBAvatarParsed } from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/v4local/v4localDBTypes';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import v4MigrationUtils from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/v4MigrationUtils';
 import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getV4UnsupportedNetworkInfo } from '@onekeyhq/shared/src/consts/v4MigrationNetworkInfo';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import type {
+  IV4DBAvatarParsed,
+  IV4MigrationBackupItem,
+} from '@onekeyhq/shared/types/v4Migration';
 
 import {
   V4MigrationLogCopy,
@@ -191,7 +190,11 @@ function BackupDialogContent({
         ) : null}
 
         <Stack p="$2">
-          <Button onPress={() => copyText(secretText)} variant="tertiary">
+          <Button
+            onPress={() => copyText(secretText)}
+            variant="tertiary"
+            testID="onboarding-btn"
+          >
             {intl.formatMessage({ id: ETranslations.global_copy })}
           </Button>
         </Stack>
@@ -304,7 +307,7 @@ function AccountsSectionList() {
           avatar = <NetworkAvatar size="$8" networkId={item.network.id} />;
         }
         if (!avatar && item.networkId) {
-          const networkInfo = v4MigrationUtils.getNotSupportNetworkInfo({
+          const networkInfo = getV4UnsupportedNetworkInfo({
             networkId: item.networkId,
           });
           avatar = <Image size="$8" src={networkInfo?.logo || ''} />;

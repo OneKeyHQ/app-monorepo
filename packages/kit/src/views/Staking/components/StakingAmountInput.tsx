@@ -17,6 +17,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { BlurEvent, StyleProp, TextStyle } from 'react-native';
 
+// Note: testIDs are passed through inputProps from parent components
+
 export const stakingInputAccessoryViewID =
   'staking-amount-input-accessory-view';
 

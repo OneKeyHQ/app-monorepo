@@ -8,6 +8,12 @@ export enum ETokenListSortType {
   Value = 'value',
 }
 
+export enum ETokenDappType {
+  WalletToken = 'walletToken',
+}
+
+export type ITokenDappType = ETokenDappType | (string & {});
+
 export type IToken = {
   decimals: number;
   name: string;
@@ -34,6 +40,8 @@ export type IToken = {
 
   // for defi
   defiMarked?: boolean;
+  dappName?: string | null;
+  dappType?: ITokenDappType;
 };
 
 export type ITokenFiat = {
@@ -90,6 +98,8 @@ export type IFetchAccountTokensParams = {
   blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
   unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
   excludeDeFiMarkedTokens?: boolean;
+  withoutDappToken?: boolean;
+  withoutWalletToken?: boolean;
 };
 
 export type ITokenData = {
