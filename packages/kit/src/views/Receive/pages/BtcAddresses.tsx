@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useThrottledCallback } from 'use-debounce';
 
 import {
   Badge,
@@ -25,11 +26,16 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
@@ -349,7 +355,7 @@ function BtcAddresses() {
   const decimals = network?.decimals ?? 8;
   const symbol = network?.symbol ?? 'BTC';
 
-  const { result: nextFresh } = usePromiseResult(
+  const { result: nextFresh, run: refreshNextFresh } = usePromiseResult(
     async () => {
       if (!effectiveAccountId || !networkId)
         return { next: undefined, totalFresh: 0 };
@@ -366,7 +372,7 @@ function BtcAddresses() {
     { initResult: { next: undefined, totalFresh: 0 } },
   );
 
-  const { result: nextChange } = usePromiseResult(
+  const { result: nextChange, run: refreshNextChange } = usePromiseResult(
     async () => {
       if (!effectiveAccountId || !networkId) return { next: undefined };
       try {
@@ -382,49 +388,84 @@ function BtcAddresses() {
     { initResult: { next: undefined } },
   );
 
-  const { result: usedResult, isLoading: usedLoading } =
-    usePromiseResult<IAddressesPageResult>(
-      async () => {
-        if (!effectiveAccountId || !networkId) return { total: 0, items: [] };
-        try {
-          return await backgroundApiProxy.serviceFreshAddress.getBtcUsedAddressesByPage(
-            {
-              accountId: effectiveAccountId,
-              networkId,
-              page: receivePage,
-              pageSize: PAGE_SIZE,
-            },
-          );
-        } catch (error) {
-          console.error(error);
-          return { total: 0, items: [] };
-        }
-      },
-      [effectiveAccountId, networkId, receivePage],
-      { initResult: { total: 0, items: [] }, watchLoading: true },
-    );
+  const {
+    result: usedResult,
+    isLoading: usedLoading,
+    run: refreshUsedAddresses,
+  } = usePromiseResult<IAddressesPageResult>(
+    async () => {
+      if (!effectiveAccountId || !networkId) return { total: 0, items: [] };
+      try {
+        return await backgroundApiProxy.serviceFreshAddress.getBtcUsedAddressesByPage(
+          {
+            accountId: effectiveAccountId,
+            networkId,
+            page: receivePage,
+            pageSize: PAGE_SIZE,
+          },
+        );
+      } catch (error) {
+        console.error(error);
+        return { total: 0, items: [] };
+      }
+    },
+    [effectiveAccountId, networkId, receivePage],
+    { initResult: { total: 0, items: [] }, watchLoading: true },
+  );
 
-  const { result: changeResult, isLoading: changeLoading } =
-    usePromiseResult<IAddressesPageResult>(
-      async () => {
-        if (!effectiveAccountId || !networkId) return { total: 0, items: [] };
-        try {
-          return await backgroundApiProxy.serviceFreshAddress.getBtcChangeAddressesByPage(
-            {
-              accountId: effectiveAccountId,
-              networkId,
-              page: changePage,
-              pageSize: PAGE_SIZE,
-            },
-          );
-        } catch (error) {
-          console.error(error);
-          return { total: 0, items: [] };
-        }
-      },
-      [effectiveAccountId, networkId, changePage],
-      { initResult: { total: 0, items: [] }, watchLoading: true },
-    );
+  const {
+    result: changeResult,
+    isLoading: changeLoading,
+    run: refreshChangeAddresses,
+  } = usePromiseResult<IAddressesPageResult>(
+    async () => {
+      if (!effectiveAccountId || !networkId) return { total: 0, items: [] };
+      try {
+        return await backgroundApiProxy.serviceFreshAddress.getBtcChangeAddressesByPage(
+          {
+            accountId: effectiveAccountId,
+            networkId,
+            page: changePage,
+            pageSize: PAGE_SIZE,
+          },
+        );
+      } catch (error) {
+        console.error(error);
+        return { total: 0, items: [] };
+      }
+    },
+    [effectiveAccountId, networkId, changePage],
+    { initResult: { total: 0, items: [] }, watchLoading: true },
+  );
+
+  useEffect(() => {
+    if (!effectiveAccountId || !networkId) return;
+    void backgroundApiProxy.serviceFreshAddress.syncBTCFreshAddressByAccountId({
+      accountId: effectiveAccountId,
+      networkId,
+    });
+  }, [effectiveAccountId, networkId]);
+
+  const throttledRefreshOnEvent = useThrottledCallback(
+    () => {
+      void refreshNextFresh();
+      void refreshNextChange();
+      void refreshUsedAddresses();
+      void refreshChangeAddresses();
+    },
+    timerUtils.getTimeDurationMs({ seconds: 1 }),
+    { leading: true, trailing: true },
+  );
+
+  useEffect(() => {
+    const handler = () => {
+      throttledRefreshOnEvent();
+    };
+    appEventBus.on(EAppEventBusNames.BtcFreshAddressUpdated, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.BtcFreshAddressUpdated, handler);
+    };
+  }, [throttledRefreshOnEvent]);
 
   const usedRows = useMemo(
     () => usedResult.items.map((item) => toRow({ item, decimals, symbol })),
