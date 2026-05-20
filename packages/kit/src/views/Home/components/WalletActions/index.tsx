@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
-import { Button, Dialog, Toast, YStack } from '@onekeyhq/components';
+import { Button, Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   OptionCard,
@@ -20,6 +20,7 @@ import {
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -159,13 +160,10 @@ function WalletActionSend({
                   subtitle={intl.formatMessage({
                     id: ETranslations.receive_from_another_wallet_desc,
                   })}
-                  disabled={isBotWalletReceiveBlocked}
                   opacity={isBotWalletReceiveBlocked ? 0.5 : 1}
                   onPress={() => {
                     if (isBotWalletReceiveBlocked) {
-                      Toast.error({
-                        title: '该钱包已停用，无法接收资产',
-                      });
+                      showBotWalletDisabledToast('receive');
                       return;
                     }
                     logZeroGas('receive');
@@ -183,7 +181,12 @@ function WalletActionSend({
                       id: ETranslations.global_buy,
                     })}
                     subtitle={<PaymentMethodBadges />}
+                    opacity={isBotWalletReceiveBlocked ? 0.5 : 1}
                     onPress={async () => {
+                      if (isBotWalletReceiveBlocked) {
+                        showBotWalletDisabledToast('addMoney');
+                        return;
+                      }
                       logZeroGas('buy');
                       safeResolve(false);
                       void dialogRef.close();

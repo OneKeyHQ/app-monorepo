@@ -7,10 +7,7 @@ import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWal
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
-import {
-  useFiatCrypto,
-  useSupportNetworkId,
-} from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -30,12 +27,20 @@ function WalletActionBuyMain({
   const {
     activeAccount: { network, wallet, account },
   } = useActiveAccount({ num: 0 });
-  const { isSupported: isBuySupported, handleFiatCrypto } = useFiatCrypto({
+  const { isSupported: isBuySupported, handleFiatCrypto: handleBuyFiatCrypto } =
+    useFiatCrypto({
+      networkId: network?.id ?? '',
+      accountId: account?.id ?? '',
+      fiatCryptoType: 'buy',
+    });
+  const {
+    isSupported: isSellSupported,
+    handleFiatCrypto: handleSellFiatCrypto,
+  } = useFiatCrypto({
     networkId: network?.id ?? '',
     accountId: account?.id ?? '',
-    fiatCryptoType: 'buy',
+    fiatCryptoType: 'sell',
   });
-  const { result: isSellSupported } = useSupportNetworkId('sell', network?.id);
 
   const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
     {
@@ -44,7 +49,10 @@ function WalletActionBuyMain({
   );
   const isAddMoneyBlockedByBotWallet = isBotWallet && isBotWalletDeactivated;
 
-  const isBuyDisabled = useMemo(() => {
+  const shouldOpenSellForBotWallet =
+    !customization?.onPress && isAddMoneyBlockedByBotWallet && isSellSupported;
+
+  const isBuyAndSellDisabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING && !platformEnv.isDev) {
       return true;
     }
@@ -53,7 +61,7 @@ function WalletActionBuyMain({
       return true;
     }
 
-    if (isAddMoneyBlockedByBotWallet) {
+    if (isAddMoneyBlockedByBotWallet && !isSellSupported) {
       return true;
     }
 
@@ -68,11 +76,11 @@ function WalletActionBuyMain({
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const handleBuyToken = useCallback(async () => {
-    if (isAddMoneyBlockedByBotWallet) {
+    if (isAddMoneyBlockedByBotWallet && !shouldOpenSellForBotWallet) {
       showBotWalletDisabledToast('addMoney');
       return;
     }
-    if (isBuyDisabled) return;
+    if (isBuyAndSellDisabled) return;
 
     if (
       await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
@@ -91,13 +99,17 @@ function WalletActionBuyMain({
 
     if (customization?.onPress) {
       void customization.onPress();
+    } else if (shouldOpenSellForBotWallet) {
+      handleSellFiatCrypto({});
     } else {
-      handleFiatCrypto({});
+      handleBuyFiatCrypto({});
     }
   }, [
     isAddMoneyBlockedByBotWallet,
-    isBuyDisabled,
-    handleFiatCrypto,
+    shouldOpenSellForBotWallet,
+    isBuyAndSellDisabled,
+    handleBuyFiatCrypto,
+    handleSellFiatCrypto,
     network,
     wallet,
     isSoftwareWalletOnlyUser,
@@ -113,10 +125,10 @@ function WalletActionBuyMain({
           : undefined
       }
       icon={customization?.icon}
-      disabled={customization?.disabled ?? isBuyDisabled}
-      // Keep the deactivated-bot-wallet branch tappable so users get a
-      // toast instead of a silent dead-click.
-      allowPressWhenDisabled={isAddMoneyBlockedByBotWallet}
+      disabled={customization?.disabled ?? isBuyAndSellDisabled}
+      allowPressWhenDisabled={
+        isAddMoneyBlockedByBotWallet && !shouldOpenSellForBotWallet
+      }
       trackID="wallet-buy"
       testID={HomeTestIDs.buyButton}
     />
