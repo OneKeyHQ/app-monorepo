@@ -38,16 +38,25 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
   getJSReadyTime: async () => {
     const jsReadyAt = getJSReadyTimeAt();
     const startupAt = await getStartupTimeAt();
-    return jsReadyAt && startupAt
-      ? Promise.resolve(jsReadyAt - startupAt)
-      : Promise.resolve(0);
+    if (startupAt && jsReadyAt && jsReadyAt > startupAt) {
+      return jsReadyAt - startupAt;
+    }
+    // Fallback: when native startupTime is unavailable, anchor on
+    // __BUNDLE_START_TIME__ (same performance.now() base as $$…FromPerformanceNow).
+    const jsReadyPerf = globalThis.$$onekeyJsReadyFromPerformanceNow || 0;
+    return jsReadyPerf ? Math.round(jsReadyPerf - __BUNDLE_START_TIME__) : 0;
   },
   getUIVisibleTime: async () => {
-    const startupAt = await getStartupTimeAt();
     const uiVisibleAt = getUIVisibleTimeAt();
-    return startupAt && uiVisibleAt
-      ? Promise.resolve(uiVisibleAt - startupAt)
-      : Promise.resolve(0);
+    if (!uiVisibleAt) return 0;
+    const startupAt = await getStartupTimeAt();
+    if (startupAt && uiVisibleAt > startupAt) {
+      return uiVisibleAt - startupAt;
+    }
+    const uiVisiblePerf = globalThis.$$onekeyUIVisibleFromPerformanceNow || 0;
+    return uiVisiblePerf
+      ? Math.round(uiVisiblePerf - __BUNDLE_START_TIME__)
+      : 0;
   },
   getBundleStartTime: () => {
     return Promise.resolve(Math.round(__BUNDLE_START_TIME__ || 0));
