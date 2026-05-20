@@ -14,6 +14,7 @@ import {
   type IScopedActiveTokenListState,
   buildScopedActiveTokenListFromResponses,
   fetchFilteredTokenSelectorTokens,
+  filterTokenSelectorSearchTokensByBackendIndexedNetworks,
 } from '@onekeyhq/kit/src/components/TokenSelectorFilter/utils';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -33,6 +34,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
   buildTokenSelectorDappTokenFilterParams,
+  isTokenSelectorDappTokenFilterSupportedNetwork,
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -206,8 +208,18 @@ function TokenSelector() {
   const [searchKey, setSearchKey] = useState('');
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
+  const isSelectorAllNetworks = isAllNetworks ?? network?.isAllNetworks;
   const showTokenSelectorFilter =
-    TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED && showDeFiTokenSwitch;
+    !!showDeFiTokenSwitch &&
+    isTokenSelectorDappTokenFilterSupportedNetwork({
+      network: network
+        ? {
+            id: network.id,
+            isAllNetworks: isSelectorAllNetworks,
+            backendIndex: network.backendIndex,
+          }
+        : undefined,
+    });
   const showLpTokensOnly = showTokenSelectorFilter
     ? tokenSelectorFilter.sendTokenShowLpTokensOnly
     : false;
@@ -527,18 +539,24 @@ function TokenSelector() {
       setSearchTokenState({ isSearching: true });
       await backgroundApiProxy.serviceToken.abortSearchTokens();
       try {
-        const result = await backgroundApiProxy.serviceToken.searchTokens({
+        let result = await backgroundApiProxy.serviceToken.searchTokens({
           accountId,
           networkId,
           keywords,
         });
+        if (showLpTokensOnly && isSelectorAllNetworks) {
+          result =
+            await filterTokenSelectorSearchTokensByBackendIndexedNetworks({
+              tokens: result,
+            });
+        }
         setSearchTokenList({ tokens: result });
       } catch (e) {
         console.log(e);
       }
       setSearchTokenState({ isSearching: false });
     },
-    [accountId, networkId],
+    [accountId, isSelectorAllNetworks, networkId, showLpTokensOnly],
   );
 
   const showActiveAccountTokenList = useMemo(() => {
@@ -559,7 +577,6 @@ function TokenSelector() {
     networkId,
   ]);
 
-  const isSelectorAllNetworks = isAllNetworks ?? network?.isAllNetworks;
   const mergeDeriveAddressData =
     !!selectorVaultSettings?.mergeDeriveAssetsEnabled &&
     !!indexedAccountId &&
@@ -644,6 +661,7 @@ function TokenSelector() {
         indexedAccountId,
         isAllNetworks: !!isSelectorAllNetworks,
         mergeDeriveAddressData,
+        onlyBackendIndexedNetworks: showLpTokensOnly,
         tokenSelectorFilterParams,
       });
 
@@ -719,6 +737,27 @@ function TokenSelector() {
         keys: '',
       });
       setScopedActiveTokenListMap({});
+
+      if (showLpTokensOnly) {
+        const activeNetwork =
+          await backgroundApiProxy.serviceNetwork.getNetwork({
+            networkId: activeNetworkId,
+          });
+        if (
+          !isTokenSelectorDappTokenFilterSupportedNetwork({
+            network: activeNetwork,
+          })
+        ) {
+          if (isLatestRequest()) {
+            setScopedActiveTokenListState({
+              isRefreshing: false,
+              initialized: true,
+            });
+          }
+          return;
+        }
+      }
+
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
         accountId: activeAccountId,
         networkId: activeNetworkId,

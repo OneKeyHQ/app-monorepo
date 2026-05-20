@@ -90,8 +90,8 @@ import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import {
-  TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
   buildTokenSelectorDappTokenFilterParams,
+  isTokenSelectorDappTokenFilterSupportedNetwork,
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   buildAggregateTokenListData,
@@ -188,7 +188,11 @@ function TokenListBlock({
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
-  const showLpTokensOnly = TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED
+  const showLpTokenFilterSwitch =
+    isTokenSelectorDappTokenFilterSupportedNetwork({
+      network,
+    });
+  const showLpTokensOnly = showLpTokenFilterSwitch
     ? tokenSelectorFilter.homeShowLpTokensOnly
     : false;
   const [scopedLpTokenList, setScopedLpTokenList] =
@@ -745,6 +749,7 @@ function TokenListBlock({
           indexedAccountId: indexedAccount?.id,
           isAllNetworks: network.isAllNetworks,
           mergeDeriveAddressData: !!mergeDeriveAddressData,
+          onlyBackendIndexedNetworks: showLpTokensOnly,
           tokenSelectorFilterParams,
         });
 
@@ -2746,7 +2751,7 @@ function TokenListBlock({
   ]);
 
   const renderHeaderActions = useCallback(() => {
-    const filterSwitch = TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED ? (
+    const filterSwitch = showLpTokenFilterSwitch ? (
       <TokenSelectorLpTokenSwitch
         value={showLpTokensOnly}
         onChange={handleLpTokenFilterChange}
@@ -2778,6 +2783,7 @@ function TokenListBlock({
     manageTokenEnabled,
     handleOnManageToken,
     showLpTokensOnly,
+    showLpTokenFilterSwitch,
     handleLpTokenFilterChange,
   ]);
 

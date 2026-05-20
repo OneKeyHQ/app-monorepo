@@ -1,10 +1,12 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
+import { filterTokenSelectorTokensByBackendIndexedNetworks } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import type {
   IAccountToken,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
+  IToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
@@ -19,6 +21,7 @@ type IFetchFilteredTokenSelectorTokensParams = {
   indexedAccountId?: string;
   isAllNetworks?: boolean;
   mergeDeriveAddressData?: boolean;
+  onlyBackendIndexedNetworks?: boolean;
   tokenSelectorFilterParams: ITokenSelectorFilterParams;
 };
 
@@ -32,16 +35,46 @@ export type IScopedActiveTokenListState = {
   initialized: boolean;
 };
 
+export async function filterTokenSelectorSearchTokensByBackendIndexedNetworks<
+  T extends IToken,
+>({ tokens }: { tokens: T[] }) {
+  const networkIds = Array.from(
+    new Set(
+      tokens
+        .map((token) => token.networkId)
+        .filter((networkId): networkId is string => Boolean(networkId)),
+    ),
+  );
+
+  if (!networkIds.length) {
+    return [];
+  }
+
+  const { networks } = await backgroundApiProxy.serviceNetwork.getNetworksByIds(
+    {
+      networkIds,
+    },
+  );
+
+  return filterTokenSelectorTokensByBackendIndexedNetworks({
+    tokens,
+    backendIndexedNetworkIds: networks
+      .filter((network) => network.backendIndex === true)
+      .map((network) => network.id),
+  });
+}
+
 export async function fetchFilteredTokenSelectorTokens({
   accountId,
   networkId,
   indexedAccountId,
   isAllNetworks,
   mergeDeriveAddressData,
+  onlyBackendIndexedNetworks,
   tokenSelectorFilterParams,
 }: IFetchFilteredTokenSelectorTokensParams) {
   if (isAllNetworks) {
-    const { accountsInfo } =
+    const { accountsInfo, accountsInfoBackendIndexed } =
       await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
         accountId,
         networkId,
@@ -50,7 +83,11 @@ export async function fetchFilteredTokenSelectorTokens({
         networksEnabledOnly: !accountUtils.isOthersAccount({ accountId }),
       });
 
-    const requestFactories = accountsInfo.map(
+    const filteredAccountsInfo = onlyBackendIndexedNetworks
+      ? accountsInfoBackendIndexed
+      : accountsInfo;
+
+    const requestFactories = filteredAccountsInfo.map(
       ({ accountId: itemAccountId, networkId: itemNetworkId, dbAccount }) =>
         () =>
           backgroundApiProxy.serviceToken.fetchAccountTokens({
