@@ -507,7 +507,6 @@ class ServiceFreshAddress extends ServiceBase {
     const first = unused[0];
     const seed: IBtcFreshAddress = {
       ...first,
-      address: first.address ?? first.name,
     };
 
     const items = await this.deriveAndPersistFreshAddresses({
@@ -559,7 +558,6 @@ class ServiceFreshAddress extends ServiceBase {
     const first = unused[0];
     const seed: IBtcFreshAddress = {
       ...first,
-      address: first.address ?? first.name,
     };
 
     const items = await this.deriveAndPersistFreshAddresses({
