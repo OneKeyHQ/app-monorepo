@@ -206,7 +206,19 @@ function useReceiverSelectorAccountItems() {
   >({});
 
   const handleActiveAccountChange = useCallback(
-    (activeAccount: IAccountSelectorActiveAccountInfo) => {
+    async (activeAccount: IAccountSelectorActiveAccountInfo) => {
+      const walletId = activeAccount.wallet?.id;
+      if (
+        accountUtils.isBotWallet({ walletId }) &&
+        walletId &&
+        (await backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
+          walletId,
+        }))
+      ) {
+        showBotWalletDisabledToast('beReceiver');
+        return false;
+      }
+
       const selectorAccountItem =
         buildReceiverSelectorAccountItem(activeAccount);
       if (selectorAccountItem) {
@@ -215,6 +227,7 @@ function useReceiverSelectorAccountItems() {
         ] = selectorAccountItem;
         void backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
       }
+      return true;
     },
     [],
   );
@@ -458,6 +471,7 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     selectedAccountId,
     selectorAccountItemsRef,
     onErrorsChange: setReceiverValidationErrors,
+    rejectDeactivatedBotWalletReceiver: true,
   });
 
   const validate = useCallback(
@@ -594,6 +608,7 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     onDuplicateAddressCountChange: setDuplicateAddressCount,
     selectorAccountItemsRef,
     onErrorsChange: setReceiverValidationErrors,
+    rejectDeactivatedBotWalletReceiver: true,
   });
 
   const validate = useCallback(

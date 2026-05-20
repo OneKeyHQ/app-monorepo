@@ -7,6 +7,7 @@ import type { IYStackProps } from '@onekeyhq/components';
 import { Button, Icon, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
@@ -14,6 +15,7 @@ import {
   useWalletStatusAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -44,6 +46,12 @@ function ReceiveInfo({
   const {
     activeAccount: { wallet },
   } = useActiveAccount({ num: 0 });
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  const isAddMoneyBlockedByBotWallet = isBotWallet && isBotWalletDeactivated;
 
   const { run: refreshShouldShowReceiveInfo } = usePromiseResult(async () => {
     let shouldShowReceiveInfo = false;
@@ -69,10 +77,14 @@ function ReceiveInfo({
   }, [wallet?.id, wallet?.xfp, updateWalletStatus]);
 
   const handleAddMoney = useCallback(async () => {
+    if (isAddMoneyBlockedByBotWallet) {
+      showBotWalletDisabledToast('addMoney');
+      return;
+    }
     navigation.pushModal(EModalRoutes.ReceiveModal, {
       screen: EModalReceiveRoutes.ReceiveSelector,
     });
-  }, [navigation]);
+  }, [isAddMoneyBlockedByBotWallet, navigation]);
 
   const handleClose = useCallback(async () => {
     if (!closable) return;
@@ -240,6 +252,7 @@ function ReceiveInfo({
             size="large"
             variant="primary"
             onPress={handleAddMoney}
+            opacity={isAddMoneyBlockedByBotWallet ? 0.4 : undefined}
             minWidth={120}
           >
             {intl.formatMessage({ id: ETranslations.global_add_money })}
