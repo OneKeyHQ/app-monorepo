@@ -1416,6 +1416,11 @@ function TokenListBlock({
         networkId: string;
         accountId: string;
         hasCache: boolean;
+        // Resolved storage currency for this entry. ServiceToken sets this
+        // to 'usd' for new writes and to the user's then-active display
+        // currency for pre-migration entries (so legacy data still renders
+        // correctly before the first post-upgrade fetch).
+        currency?: string;
       }[];
       accountId: string;
       networkId: string;
@@ -1590,6 +1595,11 @@ function TokenListBlock({
 
       if (hasAnyCache) {
         if (syncTokenFilterToOverview) {
+          // All items in `data` come from the same multi-network fetch and
+          // share the same storage currency. Reading the first one is
+          // sufficient; fall back to USD only when nothing has been written
+          // yet (empty cache).
+          const cacheCurrency = data.find((d) => d.currency)?.currency ?? 'usd';
           updateAccountWorth({
             accountId: mergeDeriveAddressData
               ? (indexedAccount?.id ?? '')
@@ -1604,6 +1614,7 @@ function TokenListBlock({
                 })
               ],
             updateAll: true,
+            currency: cacheCurrency,
           });
           updateAccountOverviewState({
             isRefreshing: false,

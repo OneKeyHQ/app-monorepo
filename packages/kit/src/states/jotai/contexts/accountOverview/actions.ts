@@ -50,8 +50,13 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         accountId: string;
         updateAll?: boolean;
         merge?: boolean;
+        // Source currency of `worth` / `createAtNetworkWorth`. Defaults to
+        // 'usd' since all upstream producers (ServiceToken) now normalize
+        // server fiat values to USD before they reach this action.
+        currency?: string;
       },
     ) => {
+      const currency = payload.currency ?? 'usd';
       if (payload.merge) {
         const { worth, createAtNetworkWorth } = get(accountWorthAtom());
         set(accountWorthAtom(), {
@@ -65,6 +70,7 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
           initialized: payload.initialized,
           accountId: payload.accountId,
           updateAll: payload.updateAll,
+          currency,
         });
         return;
       }
@@ -75,6 +81,7 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         initialized: payload.initialized,
         accountId: payload.accountId,
         updateAll: payload.updateAll,
+        currency,
       });
     },
   );

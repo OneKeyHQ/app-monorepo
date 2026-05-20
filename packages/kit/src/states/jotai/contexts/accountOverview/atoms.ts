@@ -46,6 +46,13 @@ export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
     accountId: string;
     initialized: boolean;
     updateAll?: boolean;
+    // Source currency of the values in `worth` / `createAtNetworkWorth`.
+    // New writes use 'usd' so the home overview can re-render under any
+    // display currency via client-side conversion without invalidating
+    // the cache on currency switch. Undefined means a pre-migration
+    // hydrate where the values are in the user's then-active display
+    // currency; consumers fall back to settings.currencyInfo.id.
+    currency?: string;
   }>(
     {
       worth: {},
@@ -77,6 +84,10 @@ export const {
 } = contextAtom<{
   latest: string;
   byOwner: Record<string, string>;
+  // Same lazy-migration semantics as accountWorthAtom.currency. Stored
+  // values are USD-basis number strings; the splash + first-frame consumer
+  // converts to the active display currency at render time.
+  currency?: string;
 }>(
   {
     latest: '',
