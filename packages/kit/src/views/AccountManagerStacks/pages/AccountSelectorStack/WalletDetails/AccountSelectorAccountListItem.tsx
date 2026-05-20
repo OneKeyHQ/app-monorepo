@@ -304,8 +304,11 @@ export function AccountSelectorAccountListItem({
     )
       return null;
 
+    // Reserve a stable width so the trailing address doesn't shift right
+    // when "--" becomes the loaded value (e.g. "$10.82"). 56px covers
+    // typical fiat balances; rare longer values still flexShrink.
     return (
-      <>
+      <Stack minWidth="$14">
         <AccountValueWithSpotlight
           walletId={focusedWalletInfo?.wallet?.id ?? ''}
           enabledNetworksCompatibleWithWalletId={
@@ -321,7 +324,7 @@ export function AccountSelectorAccountListItem({
           linkedNetworkId={avatarNetworkId ?? network?.id}
           mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
         />
-      </>
+      </Stack>
     );
   }, [
     linkNetwork,

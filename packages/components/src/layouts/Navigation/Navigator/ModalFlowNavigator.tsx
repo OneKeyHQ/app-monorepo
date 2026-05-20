@@ -26,6 +26,13 @@ export interface IModalFlowNavigatorConfig<
   translationId?: ETranslations | string;
   shouldPopOnClickBackdrop?: boolean;
   dismissOnOverlayPress?: boolean;
+  /**
+   * Web-only. Skip the modal `scale(0.95) -> 1` enter/exit transform
+   * for this screen and keep only the opacity fade. Set for popover-like
+   * modals where the bouncy scale animation causes row content to appear
+   * to jump outward during easing. Ignored on native.
+   */
+  disableEnterScaleAnimation?: boolean;
 }
 
 interface IModalFlowNavigatorProps<
@@ -119,12 +126,14 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             translationId,
             shouldPopOnClickBackdrop,
             dismissOnOverlayPress,
+            disableEnterScaleAnimation,
           }) => {
             // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
             const customOptions: IModalNavigationOptions = {
               ...(typeof options === 'function' ? {} : options),
               shouldPopOnClickBackdrop,
               dismissOnOverlayPress,
+              disableEnterScaleAnimation,
               title: translationId
                 ? intl.formatMessage({
                     id: translationId as ETranslations,

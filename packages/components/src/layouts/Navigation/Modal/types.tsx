@@ -21,6 +21,18 @@ export type IModalNavigationConfig = NonNullable<unknown>;
 export type IModalNavigationOptions = IStackNavigationOptions & {
   shouldPopOnClickBackdrop?: boolean;
   dismissOnOverlayPress?: boolean;
+  /**
+   * Web-only. When true, the modal enter/exit animation skips the
+   * `scale(0.95) -> scale(1)` transform and keeps only the opacity fade.
+   * Use for modals that visually behave like popovers where the scale
+   * animation causes child elements (e.g. avatars, right-edge buttons)
+   * to appear to "jump" outward during the bouncy easing.
+   *
+   * Only consumed by `createWebModalNavigator` (desktop/web). On native,
+   * this flag is ignored because the modal uses translateY-based
+   * animation instead of scale.
+   */
+  disableEnterScaleAnimation?: boolean;
 };
 
 export type IModalNavigationEventMap = {
