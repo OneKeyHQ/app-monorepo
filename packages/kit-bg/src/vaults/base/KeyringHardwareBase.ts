@@ -71,6 +71,24 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     return r;
   }
 
+  buildHardwareExtraInfoFromSdkResult(
+    result?: unknown,
+  ): IHardwareGetPubOrAddressExtraInfo {
+    const extraInfo = result as
+      | {
+          rootFingerprint?: number;
+          root_fingerprint?: number;
+          __hwExtraInfo__?: IHardwareGetPubOrAddressExtraInfo;
+        }
+      | undefined;
+    return (
+      extraInfo?.__hwExtraInfo__ ?? {
+        rootFingerprint:
+          extraInfo?.rootFingerprint ?? extraInfo?.root_fingerprint,
+      }
+    );
+  }
+
   async baseGetDeviceAccountData<T>({
     params,
     usedIndexes,

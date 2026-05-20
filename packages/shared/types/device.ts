@@ -17,7 +17,10 @@ import type {
   Success,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
-import type { EFirmwareType } from '@onekeyfe/hd-shared';
+import type {
+  EFirmwareType,
+  HardwareConnectProtocol,
+} from '@onekeyfe/hd-shared';
 import type { Features as FeaturesTransport } from '@onekeyfe/hd-transport';
 import type { ImageSourcePropType } from 'react-native';
 
@@ -105,6 +108,7 @@ export type IBootloaderUpdateInfo =
 export type ICheckAllFirmwareReleaseResult = {
   hasUpgrade: boolean | undefined;
   features: IOneKeyDeviceFeatures | undefined;
+  connectProtocol?: HardwareConnectProtocol;
   isBootloaderMode: boolean;
   deviceType: IDeviceType | undefined;
   deviceUUID: string;
@@ -133,6 +137,7 @@ export type IDevicePassphraseParams = {
 };
 export type IDeviceWebUSBParams = {
   skipWebDevicePrompt?: boolean;
+  connectProtocol?: HardwareConnectProtocol;
 };
 export type IDeviceCommonParams = IDevicePassphraseParams & IDeviceWebUSBParams;
 export type IDeviceCommonParamsFull = CommonParams;
@@ -408,6 +413,7 @@ export type IDeviceVersionCacheInfo = {
 
 export type IFirmwareUpdateV3VersionParams = {
   connectId: string | undefined;
+  connectProtocol?: HardwareConnectProtocol;
   bleVersion: string | undefined;
   firmwareVersion: string | undefined;
   bootloaderVersion: string | undefined;

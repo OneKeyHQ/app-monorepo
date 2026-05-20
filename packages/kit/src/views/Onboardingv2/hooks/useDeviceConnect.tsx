@@ -21,6 +21,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getHardwareConnectProtocolFromDevice } from '@onekeyhq/shared/src/hardware/connectProtocol';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -901,11 +902,14 @@ export function useDeviceConnect({
       });
 
       let features: IOneKeyDeviceFeatures | undefined;
+      const connectProtocol =
+        getHardwareConnectProtocolFromDevice(currentDevice);
 
       try {
         features =
           await backgroundApiProxy.serviceHardware.getFeaturesWithUnlock({
             connectId: currentDevice.connectId ?? '',
+            params: connectProtocol ? { connectProtocol } : undefined,
           });
       } catch (error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });

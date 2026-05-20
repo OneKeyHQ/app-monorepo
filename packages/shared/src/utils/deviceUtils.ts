@@ -11,6 +11,7 @@ import {
   EFirmwareVerifyType,
   EOneKeyDeviceMode,
 } from '../../types/device';
+import { getHardwareConnectProtocolFromDeviceType } from '../hardware/connectProtocol';
 import { CoreSDKLoader } from '../hardware/instance';
 import platformEnv from '../platformEnv';
 
@@ -572,6 +573,9 @@ async function shouldUseV2FirmwareUpdateFlow({
 
   const { getDeviceBootloaderVersion, getDeviceType } = await CoreSDKLoader();
   const deviceType = getDeviceType(features);
+  if (getHardwareConnectProtocolFromDeviceType(deviceType)) {
+    return true;
+  }
   if (deviceType !== EDeviceType.Pro) {
     return false;
   }

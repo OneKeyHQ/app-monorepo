@@ -27,6 +27,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  getHardwareConnectProtocolFromDevice,
+  isHardwareConnectProtocolV2Device,
+} from '@onekeyhq/shared/src/hardware/connectProtocol';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -82,9 +86,17 @@ function CheckAndUpdatePage({
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
   const deviceFeaturesRef = useRef<Features | undefined>(undefined);
   const hasUpgradeForceRef = useRef(false);
+  const skipProtocolV2CheckAndUpdateRef = useRef(false);
 
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData.device as SearchDevice | undefined,
+  );
+  const isProtocolV2Device = useMemo(
+    () =>
+      isHardwareConnectProtocolV2Device(
+        currentDevice ?? (deviceData.device as SearchDevice | undefined),
+      ),
+    [currentDevice, deviceData.device],
   );
 
   const deviceLabel = useMemo(() => {
@@ -115,6 +127,27 @@ function CheckAndUpdatePage({
       });
     }
   }, [tabValue]);
+
+  const skipProtocolV2CheckAndUpdate = useCallback(() => {
+    if (!isProtocolV2Device || skipProtocolV2CheckAndUpdateRef.current) {
+      return false;
+    }
+    skipProtocolV2CheckAndUpdateRef.current = true;
+    const device =
+      currentDevice ?? (deviceData.device as SearchDevice | undefined);
+    navigation.replace(EOnboardingPagesV2.FinalizeWalletSetup, {
+      deviceData: {
+        ...deviceData,
+        device: device as SearchDevice,
+      },
+      isFirmwareVerified: false,
+    });
+    return true;
+  }, [currentDevice, deviceData, isProtocolV2Device, navigation]);
+
+  useEffect(() => {
+    skipProtocolV2CheckAndUpdate();
+  }, [skipProtocolV2CheckAndUpdate]);
 
   const deviceImage = useMemo(() => {
     const device = currentDevice as SearchDevice;
@@ -252,9 +285,12 @@ function CheckAndUpdatePage({
       const latestDevice = getActiveDevice() ?? baseDevice;
       setCurrentDevice(latestDevice);
       if (latestDevice.connectId) {
+        const connectProtocol =
+          getHardwareConnectProtocolFromDevice(latestDevice);
         const [features] = await Promise.all([
           backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
             connectId: latestDevice.connectId,
+            params: connectProtocol ? { connectProtocol } : undefined,
           }),
           new Promise<void>((resolve) => {
             setTimeout(resolve, 1200);
@@ -308,6 +344,11 @@ function CheckAndUpdatePage({
   // Retry connecting to device after firmware update
   const retryDeviceConnectionAfterUpdate = useCallback(
     async (connectId: string) => {
+      const connectProtocol = getHardwareConnectProtocolFromDevice(
+        getActiveDevice() ??
+          currentDevice ??
+          (deviceData.device as SearchDevice | undefined),
+      );
       try {
         await pRetry(
           async (attemptCount) => {
@@ -318,6 +359,7 @@ function CheckAndUpdatePage({
             await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
               connectId,
               params: {
+                ...(connectProtocol ? { connectProtocol } : {}),
                 retryCount: 1,
                 skipWebDevicePrompt: true,
               },
@@ -370,7 +412,7 @@ function CheckAndUpdatePage({
         );
       }
     },
-    [intl],
+    [currentDevice, deviceData, getActiveDevice, intl],
   );
 
   const checkFirmwareUpdate = useCallback(
@@ -406,6 +448,8 @@ function CheckAndUpdatePage({
         setDeviceNotFoundErrorMessageStep();
         return;
       }
+      const connectProtocol =
+        getHardwareConnectProtocolFromDevice(latestDevice);
       const compatibleConnectId =
         await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
           connectId: latestDevice.connectId,
@@ -420,6 +464,7 @@ function CheckAndUpdatePage({
       const r =
         await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
           connectId: compatibleConnectId,
+          connectProtocol,
           skipCancel: true,
           firmwareType: undefined,
         });
@@ -562,6 +607,9 @@ function CheckAndUpdatePage({
   }, [reactNavigation]);
 
   const handleVerifyHardware = useCallback(async () => {
+    if (skipProtocolV2CheckAndUpdate()) {
+      return;
+    }
     // Double-check: ensure device scanning is fully stopped before starting verification
     await ensureStopScan();
     await ensureTransportType();
@@ -637,6 +685,7 @@ function CheckAndUpdatePage({
     checkFirmwareUpdate,
     getActiveDevice,
     currentDevice,
+    skipProtocolV2CheckAndUpdate,
   ]);
 
   const handleDeviceSetupDone = useCallback(() => {

@@ -1,4 +1,4 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EFirmwareType, HARDWARE_CONNECT_PROTOCOL } from '@onekeyfe/hd-shared';
 
 import {
   backgroundMethod,
@@ -13,6 +13,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  getHardwareConnectProtocolFromDevice,
+  getHardwareConnectProtocolFromDeviceType,
+  isHardwareConnectProtocolV2Device,
+} from '@onekeyhq/shared/src/hardware/connectProtocol';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -44,6 +49,7 @@ import type {
   OnekeyFeatures,
   SearchDevice,
 } from '@onekeyfe/hd-core';
+import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 
 export type IShouldAuthenticateFirmwareParams = { device: SearchDevice };
 export type IFirmwareAuthenticateParams = {
@@ -58,9 +64,11 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async getDeviceCertWithSig({
     connectId,
     dataHex,
+    connectProtocol,
   }: {
     connectId: string;
     dataHex: string;
+    connectProtocol?: HardwareConnectProtocol;
   }): Promise<DeviceVerifySignature> {
     const compatibleConnectId =
       await this.serviceHardware.getCompatibleConnectId({
@@ -71,7 +79,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       connectId: compatibleConnectId,
     });
     return convertDeviceResponse(() =>
-      hardwareSDK?.deviceVerify(compatibleConnectId, { dataHex }),
+      hardwareSDK?.deviceVerify(compatibleConnectId, {
+        dataHex,
+        ...(connectProtocol ? { connectProtocol } : {}),
+      }),
     );
   }
 
@@ -79,6 +90,9 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async shouldAuthenticateFirmware({
     device,
   }: IShouldAuthenticateFirmwareParams) {
+    if (isHardwareConnectProtocolV2Device(device)) {
+      return false;
+    }
     const dbDevice: IDBDevice | undefined = await localDb.getExistingDevice({
       rawDeviceId: device.deviceId || '',
       uuid: device.uuid,
@@ -102,6 +116,23 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     skipDeviceCancel,
   }: IFirmwareAuthenticateParams): Promise<IFirmwareVerifyResult> {
     const { connectId, deviceType } = device;
+    const connectProtocol = getHardwareConnectProtocolFromDevice(device);
+    if (isHardwareConnectProtocolV2Device(device)) {
+      return {
+        verified: false,
+        skipVerification: true,
+        device,
+        payload: {
+          deviceType,
+          data: '',
+          cert: '',
+          signature: '',
+        },
+        result: {
+          message: 'Protocol V2 firmware verification skipped',
+        },
+      };
+    }
     if (!connectId) {
       throw new OneKeyLocalError(
         'firmwareAuthenticate ERROR: device connectId is undefined',
@@ -120,6 +151,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
           await this.getDeviceCertWithSig({
             connectId,
             dataHex,
+            connectProtocol,
           });
         const { cert, signature } = verifySig;
         // always close dialog only without cancel device
@@ -211,6 +243,15 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     // onekey_boot_version
     // onekey_boot_hash
     if (!features) {
+      return false;
+    }
+    const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+      features,
+    });
+    if (
+      getHardwareConnectProtocolFromDeviceType(deviceType) ===
+      HARDWARE_CONNECT_PROTOCOL.V2
+    ) {
       return false;
     }
     const verifyVersions =
@@ -322,6 +363,22 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       bluetooth: { isMatch: false, format: '' },
       bootloader: { isMatch: false, format: '' },
     };
+    const skippedResult = {
+      certificate: {
+        isMatch: true,
+        format: onekeyFeatures?.onekey_serial_no ?? '',
+      },
+      firmware: { isMatch: true, format: '' },
+      bluetooth: { isMatch: true, format: '' },
+      bootloader: { isMatch: true, format: '' },
+    };
+
+    if (
+      getHardwareConnectProtocolFromDeviceType(deviceType) ===
+      HARDWARE_CONNECT_PROTOCOL.V2
+    ) {
+      return skippedResult;
+    }
 
     if (!onekeyFeatures) {
       return defaultResult;

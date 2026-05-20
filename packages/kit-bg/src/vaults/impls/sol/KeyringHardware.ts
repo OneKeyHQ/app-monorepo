@@ -96,33 +96,18 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
-
-            // const sdk = await this.getHardwareSDKInstance();
-            // const response = await sdk.solGetAddress(connectId, deviceId, {
-            //   ...params.deviceParams.deviceCommonParams,
-            //   bundle: usedIndexes.map((index, arrIndex) => ({
-            //     path: `${pathPrefix}/${pathSuffix.replace(
-            //       '{index}',
-            //       `${index}`,
-            //     )}`,
-
-            //     showOnOneKey: showOnOnekeyFn(arrIndex),
-            //     chainId: Number(chainId),
-            //   })),
-            // });
-
-            // if (
-            //   !response.success &&
-            //   response.payload.code === HardwareErrorCode.RuntimeError &&
-            //   response.payload.error.indexOf(
-            //     'Failure_DataError,Forbidden key path',
-            //   ) !== -1
-            // ) {
-            //   throw new UnsupportedAddressTypeError();
-            // }
-
-            // return response;
+            const sdk = await this.getHardwareSDKInstance({ connectId });
+            return sdk.solGetAddress(connectId, deviceId, {
+              ...params.deviceParams.deviceCommonParams,
+              bundle: usedIndexes.map((index, arrIndex) => ({
+                path: `${pathPrefix}/${pathSuffix.replace(
+                  '{index}',
+                  `${index}`,
+                )}`,
+                showOnOneKey: showOnOnekeyFn(arrIndex),
+                chainId: Number(chainId),
+              })),
+            });
           },
         });
 
@@ -133,7 +118,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
-          const { path, address, __hwExtraInfo__ } = item;
+          const { path, address } = item;
           const { normalizedAddress } = await this.vault.validateAddress(
             address || '',
           );
@@ -141,7 +126,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             address: normalizedAddress || address || '',
             path,
             publicKey: '',
-            __hwExtraInfo__,
+            __hwExtraInfo__: this.buildHardwareExtraInfoFromSdkResult(item),
           };
           ret.push(addressInfo);
         }

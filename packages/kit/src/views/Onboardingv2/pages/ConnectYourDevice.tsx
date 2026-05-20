@@ -52,6 +52,10 @@ import {
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
+import {
+  getHardwareConnectProtocolFromDevice,
+  isHardwareConnectProtocolV2Device,
+} from '@onekeyhq/shared/src/hardware/connectProtocol';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -92,7 +96,7 @@ import {
   sortDevicesData,
 } from '../utils';
 
-import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { IDeviceType, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
 
 const LedgerConnectionFlow = lazy(() => import('./ConnectionFlowLedger'));
@@ -101,6 +105,29 @@ enum EConnectionStatus {
   init = 'init',
   searching = 'searching',
   listing = 'listing',
+}
+
+function getProtocolV2FinalizeWalletSetupParams(
+  item: IConnectYourDeviceItem,
+): IOnboardingParamListV2[EOnboardingPagesV2.FinalizeWalletSetup] {
+  return {
+    deviceData: item,
+    isFirmwareVerified: false,
+  };
+}
+
+function buildConnectYourDeviceItem(
+  device: SearchDevice | KnownDevice | null | undefined,
+): IConnectYourDeviceItem | undefined {
+  if (!device) {
+    return undefined;
+  }
+  const deviceType = device.deviceType || EDeviceType.Pro;
+  return {
+    title: device.name,
+    src: HwWalletAvatarImages[getDeviceAvatarImage(deviceType)],
+    device,
+  };
 }
 
 function BridgeNotInstalledDialogContent(_props: { error: NeedOneKeyBridge }) {
@@ -830,8 +857,21 @@ function USBOrBLEConnectionIndicator({
             deviceSerialNumberFromUI: device.serialNumber,
           });
         if (connectedDevice.device) {
+          const connectedDeviceItem = buildConnectYourDeviceItem(
+            connectedDevice.device,
+          );
+          if (!connectedDeviceItem) {
+            return;
+          }
+          if (isHardwareConnectProtocolV2Device(connectedDeviceItem.device)) {
+            navigation.push(
+              EOnboardingPagesV2.FinalizeWalletSetup,
+              getProtocolV2FinalizeWalletSetupParams(connectedDeviceItem),
+            );
+            return;
+          }
           navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-            deviceData: connectedDevice,
+            deviceData: connectedDeviceItem,
             tabValue,
           });
         }
@@ -1268,13 +1308,24 @@ function ConnectYourDevicePage({
           void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
             connectId,
           });
+          const connectProtocol = getHardwareConnectProtocolFromDevice(
+            item.device,
+          );
           await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
             connectId,
             params: {
+              ...(connectProtocol ? { connectProtocol } : {}),
               retryCount: 0,
               onlyConnectBleDevice: true,
             },
           });
+        }
+        if (isHardwareConnectProtocolV2Device(item.device)) {
+          navigation.push(
+            EOnboardingPagesV2.FinalizeWalletSetup,
+            getProtocolV2FinalizeWalletSetupParams(item),
+          );
+          return;
         }
         navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
           deviceData: item,

@@ -51,6 +51,8 @@ import type {
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
+const ENABLE_HW_ALL_NETWORK_GET_ADDRESS = false;
+
 export type IBatchCreateAccountProgressInfo = {
   totalCount: number;
   progressTotal: number;
@@ -655,7 +657,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
     showOnOneKey?: boolean;
     saveToCache?: boolean;
     loopMode?: boolean;
-  }) {
+  }): Promise<IHwAllNetworkPrepareAccountsResponse | undefined> {
+    if (!ENABLE_HW_ALL_NETWORK_GET_ADDRESS) {
+      defaultLogger.hardware.sdkLog.consoleLog(
+        'skip getHwAllNetworkPrepareAccountsResponse',
+      );
+      return undefined;
+    }
+
     const hwAllNetworkPrepareAccountsResponse =
       new HardwareAllNetworkGetAddressResponse();
 

@@ -37,7 +37,6 @@ export * from './tabEarn';
 export * from './tabHome';
 export * from './tabMarket';
 export * from './tabMultiTabBrowser';
-export * from './tabPro2Debug';
 export * from './tabReferFriends';
 export * from './tabSwap';
 export * from './testModal';

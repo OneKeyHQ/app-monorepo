@@ -9,7 +9,6 @@ import type {
 import type { ITabDeviceManagementParamList } from './tabDeviceManagement';
 import type { ITabEarnParamList } from './tabEarn';
 import type { ITabMarketParamList } from './tabMarket';
-import type { ITabPro2DebugParamList } from './tabPro2Debug';
 import type { ITabReferFriendsParamList } from './tabReferFriends';
 
 export enum ETabRoutes {
@@ -24,7 +23,6 @@ export enum ETabRoutes {
   MultiTabBrowser = 'MultiTabBrowser',
   DeviceManagement = 'DeviceManagement',
   ReferFriends = 'ReferFriends',
-  Pro2Debug = 'Pro2Debug',
   BulkSend = 'BulkSend',
   // Used by sub-pages (e.g. ApprovalList, BulkSend) that render a clean
   // TabPageHeader without the parent tab's account-selector controls.
@@ -43,7 +41,6 @@ export type ITabStackParamList = {
   [ETabRoutes.MultiTabBrowser]: IMultiTabBrowserParamList;
   [ETabRoutes.DeviceManagement]: ITabDeviceManagementParamList;
   [ETabRoutes.ReferFriends]: ITabReferFriendsParamList;
-  [ETabRoutes.Pro2Debug]: ITabPro2DebugParamList;
   [ETabRoutes.BulkSend]: undefined;
   [ETabRoutes.SubPage]: undefined;
 };

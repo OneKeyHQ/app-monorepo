@@ -72,6 +72,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getHardwareConnectProtocolFromDevice } from '@onekeyhq/shared/src/hardware/connectProtocol';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -2958,6 +2959,8 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
+    const connectProtocol = getHardwareConnectProtocolFromDevice(dbDevice);
+
     return {
       confirmOnDevice: EConfirmOnDeviceType.LastItem,
       dbDevice,
@@ -2965,6 +2968,7 @@ class ServiceAccount extends ServiceBase {
       deviceCommonParams: {
         passphraseState: wallet?.passphraseState,
         useEmptyPassphrase: !wallet.passphraseState,
+        ...(connectProtocol ? { connectProtocol } : {}),
       },
     };
   }

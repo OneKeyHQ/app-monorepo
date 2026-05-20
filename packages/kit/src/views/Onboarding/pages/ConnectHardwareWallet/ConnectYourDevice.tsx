@@ -73,6 +73,7 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
+import { getHardwareConnectProtocolFromDevice } from '@onekeyhq/shared/src/hardware/connectProtocol';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -1498,11 +1499,13 @@ export function ConnectYourDevicePage() {
       });
 
       let features: IOneKeyDeviceFeatures | undefined;
+      const connectProtocol = getHardwareConnectProtocolFromDevice(device);
 
       try {
         features =
           await backgroundApiProxy.serviceHardware.getFeaturesWithUnlock({
             connectId: device.connectId ?? '',
+            params: connectProtocol ? { connectProtocol } : undefined,
           });
       } catch (_error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });

@@ -1,4 +1,8 @@
-import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import {
+  EDeviceType,
+  EFirmwareType,
+  HARDWARE_CONNECT_PROTOCOL,
+} from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 import semver from 'semver';
@@ -19,6 +23,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getHardwareConnectProtocolFromDevice } from '@onekeyhq/shared/src/hardware/connectProtocol';
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,
@@ -42,7 +47,6 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   IBleFirmwareReleasePayload,
   IDeviceHomeScreen,
-  IDeviceResponseResult,
   IDeviceVerifyVersionCompareResult,
   IDeviceVersionCacheInfo,
   IFirmwareReleasePayload,
@@ -128,6 +132,18 @@ import type {
   SearchDevice,
   UiEvent,
 } from '@onekeyfe/hd-core';
+import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
+
+type IDeviceProtocolParams = {
+  connectProtocol?: HardwareConnectProtocol;
+};
+
+type IGetPassphraseStateResult =
+  | string
+  | {
+      passphrase_state?: string;
+      passphraseState?: string;
+    };
 
 export type IDeviceGetFeaturesOptions = {
   connectId: string | undefined;
@@ -154,56 +170,6 @@ const NEW_DIALOG_EVENTS = new Set([
   EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
   EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION,
 ]);
-
-const PRO2_DEBUG_SDK_METHODS = [
-  'getProtoVersion',
-  'ping',
-  'devGetDeviceInfo',
-  'devGetOnboardingStatus',
-  'devGetFirmwareUpdateStatus',
-  'factoryGetDeviceInfo',
-  'factoryDeviceInfoSettings',
-  'filesystemPathInfoQuery',
-  'filesystemDirList',
-  'filesystemDirMake',
-  'filesystemDirRemove',
-  'filesystemFileWrite',
-  'filesystemFileRead',
-  'filesystemFileDelete',
-  'filesystemFixPermission',
-  'devFirmwareUpdate',
-  'devReboot',
-  'filesystemFormat',
-] as const;
-
-type IPro2DebugSdkMethod = (typeof PRO2_DEBUG_SDK_METHODS)[number];
-
-type IPro2DebugCallParams = {
-  connectId: string;
-  method: string;
-  payload?: Record<string, unknown>;
-};
-
-type IPro2DebugFirmwareUpdateParams = {
-  connectId: string;
-  bleFirmwareBase64: string;
-  chunkSize?: number;
-};
-
-const PRO2_DEBUG_NO_PARAM_METHODS = new Set<IPro2DebugSdkMethod>([
-  'factoryGetDeviceInfo',
-  'filesystemFixPermission',
-  'filesystemFormat',
-]);
-
-const PRO2_DEBUG_BLE_TUNING_PROFILE = {
-  key: 'default-1800',
-  tuning: {},
-};
-
-function isPro2DebugSdkMethod(method: string): method is IPro2DebugSdkMethod {
-  return PRO2_DEBUG_SDK_METHODS.some((item) => item === method);
-}
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -920,75 +886,6 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async pro2DebugCallSdkMethod(params: IPro2DebugCallParams) {
-    const { connectId, method, payload } = params;
-    if (!connectId) {
-      throw new OneKeyLocalError('Pro2 debug connectId is required');
-    }
-    if (!isPro2DebugSdkMethod(method)) {
-      throw new OneKeyLocalError(
-        `Unsupported Pro2 debug method: ${String(method)}`,
-      );
-    }
-
-    const hardwareSDK = await this.getSDKInstance({
-      connectId,
-    });
-    const sdkMethod = hardwareSDK[method] as unknown as (
-      sdkConnectId: string,
-      sdkPayload?: Record<string, unknown>,
-    ) => Promise<IDeviceResponseResult<unknown>>;
-    const sdkPayload = PRO2_DEBUG_NO_PARAM_METHODS.has(method)
-      ? undefined
-      : {
-          connectProtocol: 'V2',
-          ...payload,
-        };
-
-    return convertDeviceResponse(async () => sdkMethod(connectId, sdkPayload));
-  }
-
-  @backgroundMethod()
-  async pro2DebugFirmwareUpdateV4(params: IPro2DebugFirmwareUpdateParams) {
-    const { connectId, bleFirmwareBase64, chunkSize } = params;
-    if (!connectId) {
-      throw new OneKeyLocalError('Pro2 debug connectId is required');
-    }
-    if (!bleFirmwareBase64) {
-      throw new OneKeyLocalError('Pro2 debug BLE firmware binary is required');
-    }
-
-    const hardwareSDK = await this.getSDKInstance({
-      connectId,
-    });
-    const bleBinary = Uint8Array.from(
-      Buffer.from(bleFirmwareBase64, 'base64'),
-    ).buffer;
-    if (platformEnv.isNative) {
-      const { configureProtocolV2BleTuning, resetProtocolV2BleTuning } =
-        require('@onekeyfe/hd-transport-react-native') as {
-          configureProtocolV2BleTuning?: (
-            tuning?: Record<string, unknown>,
-          ) => void;
-          resetProtocolV2BleTuning?: () => void;
-        };
-      resetProtocolV2BleTuning?.();
-      configureProtocolV2BleTuning?.(PRO2_DEBUG_BLE_TUNING_PROFILE.tuning);
-    }
-    const updateParams: Parameters<CoreApi['firmwareUpdateV4']>[1] = {
-      platform: 'native',
-      forcedUpdateRes: true,
-      bleBinary,
-      chunkSize,
-      connectProtocol: 'V2',
-    };
-
-    return convertDeviceResponse(async () =>
-      hardwareSDK.firmwareUpdateV4(connectId, updateParams),
-    );
-  }
-
-  @backgroundMethod()
   async connectDevice(params: IDeviceGetFeaturesOptions) {
     if (params.vendor && params.vendor !== EHardwareVendor.onekey) {
       throw new OneKeyLocalError(
@@ -1033,6 +930,7 @@ class ServiceHardware extends ServiceBase {
     }
 
     const { connectId } = device;
+    const connectProtocol = getHardwareConnectProtocolFromDevice(device);
     if (
       !connectId &&
       hardwareCallContext !== EHardwareCallContext.UPDATE_FIRMWARE
@@ -1054,6 +952,7 @@ class ServiceHardware extends ServiceBase {
       try {
         return await this.connectDevice({
           connectId: compatibleConnectId,
+          params: connectProtocol ? { connectProtocol } : undefined,
         });
       } catch (e: any) {
         this.handlerConnectError(e);
@@ -1066,6 +965,7 @@ class ServiceHardware extends ServiceBase {
         return await this.connectDevice({
           connectId: compatibleConnectId,
           params: {
+            ...(connectProtocol ? { connectProtocol } : {}),
             allowEmptyConnectId:
               hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE,
           },
@@ -1078,7 +978,13 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async unlockDevice({ connectId }: { connectId: string }) {
+  async unlockDevice({
+    connectId,
+    params,
+  }: {
+    connectId: string;
+    params?: IDeviceProtocolParams;
+  }) {
     const hardwareSDK = await this.getSDKInstance({
       connectId,
     });
@@ -1086,25 +992,38 @@ class ServiceHardware extends ServiceBase {
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
+    const deviceUnlockParams = params?.connectProtocol
+      ? { connectProtocol: params.connectProtocol }
+      : {};
     return convertDeviceResponse(() =>
-      hardwareSDK?.deviceUnlock(compatibleConnectId, {}),
+      hardwareSDK?.deviceUnlock(compatibleConnectId, deviceUnlockParams),
     );
   }
 
   @backgroundMethod()
-  async getFeaturesWithUnlock({ connectId }: { connectId: string }) {
+  async getFeaturesWithUnlock({
+    connectId,
+    params,
+  }: {
+    connectId: string;
+    params?: IDeviceProtocolParams;
+  }) {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     let features = await this.getFeaturesWithoutCache({
       connectId: compatibleConnectId,
+      params: params?.connectProtocol
+        ? { connectProtocol: params.connectProtocol }
+        : undefined,
     });
 
     if (!features.unlocked) {
       // unlock device
       features = await this.unlockDevice({
         connectId: compatibleConnectId,
+        params,
       });
     }
 
@@ -1326,11 +1245,15 @@ class ServiceHardware extends ServiceBase {
       featuresDeviceId: dbDevice.deviceId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
+    const connectProtocol = getHardwareConnectProtocolFromDevice(dbDevice);
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
         this.getFeaturesWithoutCache({
           connectId: compatibleConnectId,
-          params: { retryCount: 1 },
+          params: {
+            retryCount: 1,
+            ...(connectProtocol ? { connectProtocol } : {}),
+          },
         }),
       {
         deviceParams: {
@@ -1352,6 +1275,10 @@ class ServiceHardware extends ServiceBase {
       // update modal proceed.
       return;
     }
+    const connectProtocol = getHardwareConnectProtocolFromDevice(dbDevice);
+    if (connectProtocol === HARDWARE_CONNECT_PROTOCOL.V2) {
+      return;
+    }
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId: params.connectId,
       featuresDeviceId: dbDevice.deviceId,
@@ -1361,7 +1288,10 @@ class ServiceHardware extends ServiceBase {
       () =>
         this.getFeaturesWithoutCache({
           connectId: compatibleConnectId,
-          params: { retryCount: 1 },
+          params: {
+            retryCount: 1,
+            ...(connectProtocol ? { connectProtocol } : {}),
+          },
         }),
       {
         deviceParams: {
@@ -1396,13 +1326,18 @@ class ServiceHardware extends ServiceBase {
       connectId,
     });
 
-    return convertDeviceResponse(() =>
+    const result = (await convertDeviceResponse(() =>
       hardwareSDK?.getPassphraseState(connectId, {
         initSession: forceInputPassphrase, // always re-input passphrase on device
         useEmptyPassphrase,
         // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
       }),
-    );
+    )) as IGetPassphraseStateResult | undefined;
+
+    if (typeof result === 'string') {
+      return result;
+    }
+    return result?.passphrase_state ?? result?.passphraseState;
   }
 
   @backgroundMethod()
