@@ -1967,7 +1967,12 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async addEarnOrder(order: IAddEarnOrderParams) {
-    defaultLogger.staking.order.addOrder(order);
+    defaultLogger.staking.order.addOrder({
+      status: order.status,
+      stakingLabel: order.stakingLabel,
+      stakingProtocol: order.stakingProtocol,
+      stakingTags: order.stakingTags,
+    });
     await simpleDb.earnOrders.addOrder(order);
     try {
       await this.updateEarnOrderStatusToServer({
@@ -1976,7 +1981,6 @@ class ServiceStaking extends ServiceBase {
     } catch (_e) {
       // ignore error, continue
       defaultLogger.staking.order.updateOrderStatusError({
-        txId: order.txId,
         status: order.status,
       });
     }
@@ -2007,7 +2011,6 @@ class ServiceStaking extends ServiceBase {
             status: tx.status,
           });
           defaultLogger.staking.order.updateOrderStatus({
-            txId: tx.txId,
             status: tx.status,
             stakingLabel: order.stakingLabel,
             stakingProtocol: order.stakingProtocol,
@@ -2017,7 +2020,6 @@ class ServiceStaking extends ServiceBase {
       } catch (_e) {
         // ignore error, continue loop
         defaultLogger.staking.order.updateOrderStatusError({
-          txId: tx.txId,
           status: tx.status,
         });
       }
@@ -2058,11 +2060,14 @@ class ServiceStaking extends ServiceBase {
       await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
         params,
       );
+    if (!result.success || !result.order) {
+      return;
+    }
     defaultLogger.staking.order.updateOrderStatusByTxId({
-      ...params,
-      stakingLabel: result.order?.stakingLabel,
-      stakingProtocol: result.order?.stakingProtocol,
-      stakingTags: result.order?.stakingTags,
+      status: params.status,
+      stakingLabel: result.order.stakingLabel,
+      stakingProtocol: result.order.stakingProtocol,
+      stakingTags: result.order.stakingTags,
     });
   }
 

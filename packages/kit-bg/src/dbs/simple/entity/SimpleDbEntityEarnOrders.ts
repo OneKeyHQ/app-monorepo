@@ -1,14 +1,8 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { EEarnLabels, IStakeTag } from '@onekeyhq/shared/types/staking';
+import type { IEarnOrderTrackingInfo } from '@onekeyhq/shared/types/staking';
 import type { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
-
-export interface IEarnOrderTrackingInfo {
-  stakingLabel?: EEarnLabels;
-  stakingProtocol?: string;
-  stakingTags?: IStakeTag[];
-}
 
 export interface IEarnOrderItem {
   orderId: string;
