@@ -4592,6 +4592,7 @@ export enum ETranslations {
   trade_private_mode = 'trade.private_mode',
   trade_private_mode_tooltips = 'trade.private_mode_tooltips',
   trade_slip_huge_checkbox = 'trade.slip_huge_checkbox',
+  trade_time_variability_notice = 'trade.time_variability_notice',
   trade_unable_to_obtain_token_value = 'trade.unable_to_obtain_token_value',
   trade_unknown_token_value = 'trade.unknown_token_value',
   trade_incognito_description = 'trade_incognito.description',

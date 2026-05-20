@@ -4587,6 +4587,7 @@
   "trade.private_mode": "プライベートモード",
   "trade.private_mode_tooltips": "プライベートモードは、スワップやブリッジ中に送信者と受信者のアドレス間の直接的なオンチェーンリンクを隠すことができます。",
   "trade.slip_huge_checkbox": "承認して続行します",
+  "trade.time_variability_notice": "このプロバイダーの最近の取引データに基づき、実際の時間は変動する場合があります",
   "trade.unable_to_obtain_token_value": "現在、トークンの実際の価値を取得できません。このスワップは大きな損失を招く可能性があります。スワップを続行するかどうかを確認してください。",
   "trade.unknown_token_value": "不明なトークンの値",
   "trade_incognito.description": "送信先と受信先のアドレス間に直接的なオンチェーンリンクを持たずにトークンをスワップおよびブリッジします。異なる2つのアドレスを推奨します。",

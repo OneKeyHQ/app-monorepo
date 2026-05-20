@@ -4587,6 +4587,7 @@
   "trade.private_mode": "Private mode",
   "trade.private_mode_tooltips": "Private mode can hide the direct on-chain link between sender and recipient addresses during swaps or bridges.",
   "trade.slip_huge_checkbox": "I acknowledge and want to proceed",
+  "trade.time_variability_notice": "Based on recent transaction data for this provider, actual times may vary",
   "trade.unable_to_obtain_token_value": "We are currently unable to obtain the actual value of the token, this swap may result in significant losses. Please confirm whether you want to proceed with the swap.",
   "trade.unknown_token_value": "Unknown Token Value",
   "trade_incognito.description": "Swap and bridge tokens without a direct on-chain link between your sending and receiving address, two different addresses are recommended,",

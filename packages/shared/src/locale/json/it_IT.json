@@ -4587,6 +4587,7 @@
   "trade.private_mode": "Modalità privata",
   "trade.private_mode_tooltips": "La modalità privata può nascondere il collegamento diretto sulla blockchain tra gli indirizzi del mittente e del destinatario durante gli scambi o i ponti.",
   "trade.slip_huge_checkbox": "Riconosco e voglio procedere",
+  "trade.time_variability_notice": "In base ai dati delle transazioni recenti per questo fornitore, i tempi effettivi possono variare",
   "trade.unable_to_obtain_token_value": "Al momento non possiamo ottenere il valore effettivo del token. Questo swap potrebbe comportare perdite significative. Confermare se si desidera procedere.",
   "trade.unknown_token_value": "Valore del token sconosciuto",
   "trade_incognito.description": "Scambia e collega token senza un collegamento diretto on-chain tra il tuo indirizzo di invio e ricezione, sono consigliati due indirizzi diversi.",

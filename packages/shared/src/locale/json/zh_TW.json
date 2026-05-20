@@ -4587,6 +4587,7 @@
   "trade.private_mode": "隱私模式",
   "trade.private_mode_tooltips": "隱私模式可隱藏兌換或跨鏈時，發送與接收位址之間的鏈上關聯。",
   "trade.slip_huge_checkbox": "我確認並希望繼續",
+  "trade.time_variability_notice": "根據此渠道商的最近交易計算，實際時間可能會有所不同",
   "trade.unable_to_obtain_token_value": "我們目前無法獲取該代幣的實際價值，此交換可能會導致重大損失。請確認您是否要繼續進行交換。",
   "trade.unknown_token_value": "未知的代幣價值",
   "trade_incognito.description": "交易代幣時，發送和接收地址之間沒有直接的鏈上關聯，建議使用兩個不同的地址。",

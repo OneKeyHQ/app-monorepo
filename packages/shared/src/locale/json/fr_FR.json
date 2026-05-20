@@ -4587,6 +4587,7 @@
   "trade.private_mode": "Mode privé",
   "trade.private_mode_tooltips": "Le mode privé peut masquer le lien direct sur la chaîne entre les adresses de l'expéditeur et du destinataire lors des échanges ou des ponts.",
   "trade.slip_huge_checkbox": "Je reconnais et je veux continuer",
+  "trade.time_variability_notice": "D'après les données de transaction récentes pour ce fournisseur, les délais réels peuvent varier",
   "trade.unable_to_obtain_token_value": "Nous ne pouvons pas obtenir la valeur réelle du jeton actuellement. Cet échange peut entraîner des pertes importantes. Veuillez confirmer si vous souhaitez continuer.",
   "trade.unknown_token_value": "Valeur de jeton inconnue",
   "trade_incognito.description": "Échangez et transférez des tokens sans lien direct sur la chaîne entre votre adresse d'envoi et de réception, deux adresses différentes sont recommandées,",

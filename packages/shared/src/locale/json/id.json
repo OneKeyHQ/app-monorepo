@@ -4587,6 +4587,7 @@
   "trade.private_mode": "Mode pribadi",
   "trade.private_mode_tooltips": "Mode pribadi dapat menyembunyikan tautan langsung di blockchain antara alamat pengirim dan penerima selama swap atau bridge.",
   "trade.slip_huge_checkbox": "Saya mengakui dan ingin melanjutkan",
+  "trade.time_variability_notice": "Berdasarkan data transaksi terbaru untuk penyedia ini, waktu aktual dapat bervariasi",
   "trade.unable_to_obtain_token_value": "Kami tidak dapat memperoleh nilai aktual token saat ini. Pertukaran ini dapat menyebabkan kerugian signifikan. Harap konfirmasi apakah Anda ingin melanjutkan.",
   "trade.unknown_token_value": "Nilai Token Tidak Diketahui",
   "trade_incognito.description": "Swap dan bridge token tanpa tautan langsung on-chain antara alamat pengirim dan penerima Anda, dua alamat yang berbeda direkomendasikan,",

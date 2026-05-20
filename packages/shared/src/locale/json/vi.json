@@ -4587,6 +4587,7 @@
   "trade.private_mode": "Chế độ riêng tư",
   "trade.private_mode_tooltips": "Chế độ riêng tư có thể ẩn liên kết trực tiếp trên chuỗi giữa địa chỉ người gửi và người nhận trong quá trình hoán đổi hoặc cầu nối.",
   "trade.slip_huge_checkbox": "Tôi xác nhận và muốn tiếp tục",
+  "trade.time_variability_notice": "Dựa trên dữ liệu giao dịch gần đây cho nhà cung cấp này, thời gian thực tế có thể thay đổi",
   "trade.unable_to_obtain_token_value": "Hiện tại chúng tôi không thể xác định giá trị thực của token, giao dịch này có thể dẫn đến tổn thất đáng kể. Vui lòng xác nhận xem bạn có muốn tiếp tục giao dịch không",
   "trade.unknown_token_value": "Giá trị token không xác định",
   "trade_incognito.description": "Hoán đổi và cầu nối token mà không có liên kết trực tiếp trên chuỗi giữa địa chỉ gửi và nhận của bạn, hai địa chỉ khác nhau được khuyến nghị,",

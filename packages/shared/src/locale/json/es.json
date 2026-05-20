@@ -4587,6 +4587,7 @@
   "trade.private_mode": "Modo privado",
   "trade.private_mode_tooltips": "El modo privado puede ocultar el enlace directo en la cadena entre las direcciones del remitente y del destinatario durante intercambios o puentes.",
   "trade.slip_huge_checkbox": "Reconozco y quiero proceder",
+  "trade.time_variability_notice": "Según los datos de transacciones recientes de este proveedor, los tiempos reales pueden variar",
   "trade.unable_to_obtain_token_value": "Actualmente no podemos obtener el valor real del token, este intercambio puede resultar en pérdidas significativas. Por favor, confirme si desea proceder con el intercambio",
   "trade.unknown_token_value": "Valor de token desconocido",
   "trade_incognito.description": "Intercambia y conecta tokens sin un enlace directo en la cadena entre tu dirección de envío y recepción, se recomiendan dos direcciones diferentes.",
