@@ -44,7 +44,6 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
-import { useCurrency } from '../../../components/Currency';
 import { NetworkAvatarBase } from '../../../components/NetworkAvatar/NetworkAvatar';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -169,8 +168,6 @@ function TokenSelector() {
   const { createAddress } = useAccountSelectorCreateAddress();
 
   const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
-
-  const currencyInfo = useCurrency();
 
   const {
     title,
@@ -771,8 +768,12 @@ function TokenSelector() {
         void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
           {
             accountId: valueAccountId,
+            // `r.tokens.fiatValue` is normalized to USD by ServiceToken
+            // (or stays in the request currency when rates were missing).
+            // Use the response's own tag so the receiver doesn't re-divide a
+            // USD value by the active display rate when settings != USD.
             value: { [valueKey]: totalFiatValue },
-            currency: currencyInfo.id,
+            currency: r.tokens.currency ?? 'usd',
           },
         );
       }
@@ -788,7 +789,6 @@ function TokenSelector() {
     showActiveAccountTokenList,
     showLpTokensOnly,
     tokenSelectorFilterParams,
-    currencyInfo.id,
     useSelectorFilteredTokenList,
   ]);
 

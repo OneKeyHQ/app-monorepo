@@ -159,7 +159,11 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
           totalReward: new BigNumber(overview.totalReward ?? 0)
             .plus(value.overview.totalReward ?? 0)
             .toNumber(),
-          currency: overview.currency,
+          // Honor the producer's currency on first merge into an empty atom
+          // (overview.currency defaults to ''). Without this, the consumer
+          // falls back to settings.currencyInfo.id, which silently misreads
+          // the basis after a later currency switch.
+          currency: value.currency ?? overview.currency,
           accountId: value.accountId ?? overview.accountId,
           networkId: value.networkId ?? overview.networkId,
         };

@@ -2170,6 +2170,11 @@ function TokenListBlock({
       let tokenListValue = '0';
       let tokenListWorth: Record<string, string> = {};
       let hasLocalTokenCache = false;
+      // Storage currency from the local cache (USD for post-migration data,
+      // user's then-active display currency for legacy entries). Propagated
+      // into accountWorthAtom so HomeOverviewContainer's render-time
+      // conversion knows what basis these worth values are in.
+      let cachedWorthCurrency: string | undefined;
 
       if (mergeDeriveAddressData) {
         const { networkAccounts } =
@@ -2196,6 +2201,9 @@ function TokenListBlock({
           ),
         );
         hasLocalTokenCache = resp.some((item) => item.hasCache);
+        // All `resp` entries come from the same multi-network request and
+        // share the storage currency; pick the first non-empty tag.
+        cachedWorthCurrency = resp.find((r) => r.currency)?.currency;
 
         const params = resp.map((r) => {
           if (r.accountId && r.networkId) {
@@ -2248,6 +2256,7 @@ function TokenListBlock({
             xpub,
           });
         hasLocalTokenCache = localTokens.hasCache;
+        cachedWorthCurrency = localTokens.currency;
 
         tokenList = localTokens.tokenList;
         smallBalanceTokenList = localTokens.smallBalanceTokenList;
@@ -2290,6 +2299,7 @@ function TokenListBlock({
             worth: tokenListWorth,
             createAtNetworkWorth: tokenListValue,
             merge: false,
+            currency: cachedWorthCurrency,
           });
           // Without these refresh calls the token list atoms keep the
           // previous owner's data, leaving allTokenList.accountId/networkId
@@ -2359,6 +2369,7 @@ function TokenListBlock({
           worth: tokenListWorth,
           createAtNetworkWorth: tokenListValue,
           merge: false,
+          currency: cachedWorthCurrency,
         });
         refreshTokenList({
           tokens: tokenList,
