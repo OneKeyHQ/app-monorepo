@@ -15,6 +15,10 @@ const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
+const HARDWARE_SDK_NODE_MODULES_RE =
+  /[\\/]node_modules[\\/]@onekeyfe[\\/](?:hd-|hwk-)/;
+const WATCH_IGNORED_EXCEPT_HARDWARE_SDK_RE =
+  /[\\/](?:\.git|\.expo|\.expo-shared|web-build)[\\/]|[\\/]node_modules[\\/](?!@onekeyfe[\\/](?:hd-|hwk-))|[\\/]\.#/;
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
@@ -158,14 +162,10 @@ module.exports = ({ platform, basePath, configName }) => {
     target: ['web'],
     watchOptions: {
       aggregateTimeout: 5,
-      ignored: [
-        '**/.git/**',
-        '**/node_modules/**',
-        '**/.expo/**',
-        '**/.expo-shared/**',
-        '**/web-build/**',
-        '**/.#*',
-      ],
+      ignored: WATCH_IGNORED_EXCEPT_HARDWARE_SDK_RE,
+    },
+    snapshot: {
+      unmanagedPaths: [HARDWARE_SDK_NODE_MODULES_RE],
     },
     stats: 'errors-warnings',
     infrastructureLogging: { 'debug': false, 'level': 'none' },
