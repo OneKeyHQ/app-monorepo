@@ -9,6 +9,7 @@ type ITokenSelectorLpTokenSwitchProps = {
   value: boolean;
   onChange: (value: boolean) => void;
   disabled?: boolean;
+  loading?: boolean;
   label?: string;
 };
 
@@ -16,6 +17,7 @@ function BasicTokenSelectorLpTokenSwitch({
   value,
   onChange,
   disabled,
+  loading,
   label,
 }: ITokenSelectorLpTokenSwitchProps) {
   const intl = useIntl();
@@ -36,7 +38,7 @@ function BasicTokenSelectorLpTokenSwitch({
     >
       <SizableText
         size="$bodySm"
-        color={disabled ? '$textDisabled' : '$textSubdued'}
+        color={disabled || loading ? '$textDisabled' : '$textSubdued'}
         numberOfLines={1}
       >
         {displayLabel}
@@ -47,6 +49,7 @@ function BasicTokenSelectorLpTokenSwitch({
         value={value}
         onChange={onChange}
         disabled={disabled}
+        loading={loading}
       />
     </XStack>
   );

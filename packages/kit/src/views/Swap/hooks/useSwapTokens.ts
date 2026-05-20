@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
@@ -60,6 +60,8 @@ export function useSwapTokenList(
   const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
   const [swapTokenFetching] = useSwapTokenFetchingAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
+  const [lpTokenRequestLoading, setLpTokenRequestLoading] = useState(false);
+  const latestLpTokenRef = useRef(lpToken);
   const searchLogStateRef = useRef<{
     key: string;
     phase: 'idle' | 'fetching' | 'done';
@@ -329,18 +331,36 @@ export function useSwapTokenList(
       return;
     }
     latestTokenListFetchEffectKeyRef.current = tokenListFetchEffectKey;
-
-    if (tokenFetchParams.networkId && !keywords && isTokenFetchAllNetworks) {
-      void swapLoadAllNetworkTokenList(
-        swapAddressInfo?.accountInfo?.indexedAccount?.id,
-        !swapAddressInfo?.accountInfo?.indexedAccount?.id
-          ? (swapAddressInfo?.accountInfo?.account?.id ??
-              swapAddressInfo?.accountInfo?.dbAccount?.id)
-          : undefined,
-        lpToken,
-      );
+    const isLpTokenSwitchRequest = latestLpTokenRef.current !== lpToken;
+    latestLpTokenRef.current = lpToken;
+    if (isLpTokenSwitchRequest) {
+      setLpTokenRequestLoading(true);
     }
-    void tokenListFetchAction(tokenFetchParams);
+
+    void (async () => {
+      try {
+        await Promise.all([
+          tokenFetchParams.networkId && !keywords && isTokenFetchAllNetworks
+            ? swapLoadAllNetworkTokenList(
+                swapAddressInfo?.accountInfo?.indexedAccount?.id,
+                !swapAddressInfo?.accountInfo?.indexedAccount?.id
+                  ? (swapAddressInfo?.accountInfo?.account?.id ??
+                      swapAddressInfo?.accountInfo?.dbAccount?.id)
+                  : undefined,
+                lpToken,
+              )
+            : undefined,
+          tokenListFetchAction(tokenFetchParams),
+        ]);
+      } finally {
+        if (
+          isLpTokenSwitchRequest &&
+          latestTokenListFetchEffectKeyRef.current === tokenListFetchEffectKey
+        ) {
+          setLpTokenRequestLoading(false);
+        }
+      }
+    })();
   }, [
     swapAddressInfo?.accountInfo?.account?.id,
     swapAddressInfo?.accountInfo?.dbAccount?.id,
@@ -435,6 +455,7 @@ export function useSwapTokenList(
       (swapTokenFetching && currentTokens.length === 0) ||
       (networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId }) &&
         !swapAllNetworkTokenList),
+    lpTokenRequestLoading,
     currentTokens,
   };
 }
