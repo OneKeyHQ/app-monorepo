@@ -1,8 +1,14 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ESwitchSize, SizableText, Switch, XStack } from '@onekeyhq/components';
+import {
+  ESwitchSize,
+  SizableText,
+  Spinner,
+  Switch,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type ITokenSelectorLpTokenSwitchProps = {
@@ -26,6 +32,19 @@ function BasicTokenSelectorLpTokenSwitch({
     intl.formatMessage({
       id: ETranslations.wallet_defi_tokens__action,
     });
+  const thumbProps = useMemo(
+    () =>
+      loading
+        ? {
+            alignItems: 'center' as const,
+            justifyContent: 'center' as const,
+            children: (
+              <Spinner size="small" color="$iconSubdued" scale={0.65} />
+            ),
+          }
+        : undefined,
+    [loading],
+  );
 
   return (
     <XStack
@@ -48,8 +67,9 @@ function BasicTokenSelectorLpTokenSwitch({
         size={ESwitchSize.extraSmall}
         value={value}
         onChange={onChange}
-        disabled={disabled}
-        loading={loading}
+        disabled={disabled || loading}
+        native={false}
+        thumbProps={thumbProps}
       />
     </XStack>
   );
