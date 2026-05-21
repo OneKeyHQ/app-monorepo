@@ -65,7 +65,7 @@ import {
   setExistingWalletSwitchToastDeferred,
 } from '../../../utils/toastExistingWalletSwitch';
 import { OnboardingPage } from '../components/Layout';
-import { showOnboardingInviteCodeDialog } from '../components/OnboardingInviteCodeDialog';
+import { useShowOnboardingInviteCodeDialog } from '../components/OnboardingInviteCodeDialog';
 import { OrbShader } from '../components/OrbShader';
 import {
   useConnectDeviceError,
@@ -195,6 +195,7 @@ function FinalizeWalletSetupPage({
     setPendingKeylessAutoConnectWalletId,
     openKeylessAutoConnectDappModal,
   } = useKeylessWebFlowAutoConnectDapp();
+  const showInviteCodeDialog = useShowOnboardingInviteCodeDialog();
   const readyReferralCheckHandledRef = useRef(false);
 
   // Hold the "existing wallet switched" toast until the user confirms with
@@ -251,7 +252,7 @@ function FinalizeWalletSetupPage({
           const isExpired = checkResp.reason === 'exceeded_bind_window';
 
           if (!isBound && !isExpired) {
-            showOnboardingInviteCodeDialog({
+            showInviteCodeDialog({
               wallet: createdWallet,
               onDone: proceedToWallet,
             });
@@ -265,7 +266,7 @@ function FinalizeWalletSetupPage({
     }
 
     proceedToWallet();
-  }, [closePage, openKeylessAutoConnectDappModal]);
+  }, [closePage, openKeylessAutoConnectDappModal, showInviteCodeDialog]);
 
   const processNextStep = useCallback(() => {
     while (stepQueue.current.length > 0) {

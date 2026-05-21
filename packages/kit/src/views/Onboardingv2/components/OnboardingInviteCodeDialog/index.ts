@@ -1,1 +1,1 @@
-export { showOnboardingInviteCodeDialog } from './OnboardingInviteCodeDialog';
+export { useShowOnboardingInviteCodeDialog } from './OnboardingInviteCodeDialog';

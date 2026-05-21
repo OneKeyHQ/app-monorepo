@@ -1,16 +1,12 @@
-import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  IDialogContainerProps,
-  IDialogInstance,
-} from '@onekeyhq/components';
 import {
   AnimatePresence,
   Button,
-  Dialog,
   DialogContainer,
+  EInPageDialogType,
   Form,
   Icon,
   Illustration,
@@ -24,6 +20,7 @@ import {
   YStack,
   useDialogInstance,
   useForm,
+  useInPageDialog,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -33,7 +30,6 @@ import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -402,101 +398,77 @@ function OnboardingInviteCodeDialogContent({
   );
 }
 
-// Forwarded container so we can wrap the entire DialogContainer (chrome +
-// content) in <Theme name="dark">. Dialog.show portals the dialog out of
-// OnboardingNavigator's dark Theme wrapper, so we re-apply it here to keep
-// the onboarding flow visually continuous (matches the surrounding
-// onboarding pages, which are locked to dark mode).
-const OnboardingInviteCodeDialogContainer = forwardRef<
-  IDialogInstance,
-  {
-    wallet: IDBWallet;
-    onDone: () => void;
-    // Injected by Dialog.show's cloneElement at runtime; declared optional so
-    // the JSX caller in `dialogContainer` doesn't need to pass it explicitly.
-    onClose?: IDialogContainerProps['onClose'];
-  }
->(({ wallet, onDone, onClose }, ref) => {
-  return (
-    <Theme name="dark">
-      <DialogContainer
-        ref={ref}
-        showExitButton={false}
-        // We render Skip + Apply inside renderContent (Apply needs an
-        // animated label, which the built-in footer doesn't allow), so
-        // suppress the default Confirm/Cancel footer.
-        showFooter={false}
-        // Prevent Radix FocusScope (Tamagui Dialog on web) from
-        // auto-focusing the first focusable element — we don't want the
-        // invite code input grabbing focus the moment the dialog opens.
-        floatingPanelProps={{
-          onOpenAutoFocus: (e) => e.preventDefault(),
-        }}
-        // eslint-disable-next-line onekey/no-app-locale-main-thread
-        title={appLocale.intl.formatMessage({
-          id: ETranslations.onboarding_invite_code_dialog_title,
-        })}
-        // eslint-disable-next-line onekey/no-app-locale-main-thread
-        description={appLocale.intl.formatMessage({
-          id: ETranslations.onboarding_invite_code_dialog_description,
-        })}
-        renderIcon={
-          <YStack m={-13}>
-            <Illustration name="Referred" size={90} />
-          </YStack>
-        }
-        renderContent={
-          <OnboardingInviteCodeDialogContent wallet={wallet} onDone={onDone} />
-        }
-        // Required by IDialogContainerProps. The real handler comes from
-        // cloneElement; this no-op satisfies the type when not yet injected.
-        onClose={onClose ?? (async () => undefined)}
-      />
-    </Theme>
-  );
-});
-OnboardingInviteCodeDialogContainer.displayName =
-  'OnboardingInviteCodeDialogContainer';
+// Anchor the dialog to the current modal page's portal (via useInPageDialog)
+// instead of the global Dialog.show portal. The HW signature confirmation
+// modal is pushed onto the same modal navigator, so an in-page-anchored
+// dialog lets the signature page naturally layer on top of it. The global
+// portal would otherwise occlude the signature page and block interaction.
+// `Theme name="dark"` is re-applied inside dialogContainer because the
+// portal lives outside the OnboardingV2 navigator's dark-mode wrapper.
+export function useShowOnboardingInviteCodeDialog() {
+  const intl = useIntl();
+  const dialog = useInPageDialog(EInPageDialogType.inModalPage);
 
-export function showOnboardingInviteCodeDialog({
-  wallet,
-  onDone,
-}: {
-  wallet: IDBWallet;
-  onDone: () => void;
-}): void {
-  defaultLogger.referral.page.onboardingDialogShown({
-    walletId: wallet.id,
-    walletType: wallet.type,
-  });
+  return useCallback(
+    ({ wallet, onDone }: { wallet: IDBWallet; onDone: () => void }) => {
+      defaultLogger.referral.page.onboardingDialogShown({
+        walletId: wallet.id,
+        walletType: wallet.type,
+      });
 
-  let onDoneCalled = false;
-  const callOnDoneOnce = () => {
-    if (onDoneCalled) return;
-    onDoneCalled = true;
-    onDone();
-  };
+      let onDoneCalled = false;
+      const callOnDoneOnce = () => {
+        if (onDoneCalled) return;
+        onDoneCalled = true;
+        onDone();
+      };
 
-  Dialog.show({
-    dialogContainer: ({ ref }) => (
-      <OnboardingInviteCodeDialogContainer
-        ref={ref}
-        wallet={wallet}
-        onDone={callOnDoneOnce}
-      />
-    ),
-    onClose: () => {
-      // Safety net for system-level dismiss paths (overlay tap, Android
-      // hardware back, Esc key). If onDone() already ran via Skip or Apply
-      // this no-ops; otherwise we still need to let the caller proceed
-      // (fire Skipped + onDone).
-      if (!onDoneCalled) {
-        defaultLogger.referral.page.onboardingDialogSkipped({
-          walletId: wallet.id,
-          walletType: wallet.type,
-        });
-        callOnDoneOnce();
-      }
+      dialog.show({
+        dialogContainer: ({ ref }) => (
+          <Theme name="dark">
+            <DialogContainer
+              ref={ref}
+              showExitButton={false}
+              showFooter={false}
+              floatingPanelProps={{
+                onOpenAutoFocus: (e) => e.preventDefault(),
+              }}
+              title={intl.formatMessage({
+                id: ETranslations.onboarding_invite_code_dialog_title,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.onboarding_invite_code_dialog_description,
+              })}
+              renderIcon={
+                <YStack m={-13}>
+                  <Illustration name="Referred" size={90} />
+                </YStack>
+              }
+              renderContent={
+                <OnboardingInviteCodeDialogContent
+                  wallet={wallet}
+                  onDone={callOnDoneOnce}
+                />
+              }
+              onClose={async () => undefined}
+            />
+          </Theme>
+        ),
+        onClose: () => {
+          // Safety net for system-level dismiss paths (overlay tap, Android
+          // hardware back, Esc key). If onDone() already ran via Skip or
+          // Apply this no-ops; otherwise we still need to let the caller
+          // proceed (fire Skipped + onDone).
+          if (!onDoneCalled) {
+            defaultLogger.referral.page.onboardingDialogSkipped({
+              walletId: wallet.id,
+              walletType: wallet.type,
+            });
+            callOnDoneOnce();
+          }
+        },
+      });
     },
-  });
+    [dialog, intl],
+  );
 }
