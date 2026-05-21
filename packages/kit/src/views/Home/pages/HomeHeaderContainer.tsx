@@ -119,7 +119,15 @@ function BaseHomeHeaderContainer() {
             </HeaderScrollGestureWrapper>
           )}
         </Stack>
-        {shouldShowBanner ? <WalletBanner /> : null}
+        {/* Always mount so initLocalBanners + remote fetch effects run.
+            Without this, gating on `shouldShowBanner` (which requires
+            banners.length > 0) creates a deadlock — banner data is only
+            written to the atom from WalletBanner's own useEffect, so the
+            atom would stay empty and the banner would never appear after
+            a fresh install + first import. The visual hide on
+            zero-balance / not-backed-up still works via the `hidden`
+            prop. */}
+        <WalletBanner hidden={!shouldShowBanner} />
       </YStack>
     </HomeTokenListProviderMirror>
   );
