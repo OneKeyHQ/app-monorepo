@@ -117,7 +117,6 @@ import type {
   DeviceSupportFeaturesPayload,
   DeviceUploadResourceParams,
   Features,
-  GetPassphraseStatePayload,
   IDeviceType,
   KnownDevice,
   OnekeyFeatures,
@@ -151,6 +150,12 @@ const NEW_DIALOG_EVENTS = new Set([
   EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
   EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION,
 ]);
+
+type IGetPassphraseStatePayload =
+  | string
+  | {
+      passphrase_state?: string;
+    };
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -1279,7 +1284,7 @@ class ServiceHardware extends ServiceBase {
     });
 
     const passphraseState =
-      await convertDeviceResponse<GetPassphraseStatePayload>(() =>
+      await convertDeviceResponse<IGetPassphraseStatePayload>(() =>
         hardwareSDK.getPassphraseState(connectId, {
           initSession: forceInputPassphrase, // always re-input passphrase on device
           useEmptyPassphrase,
