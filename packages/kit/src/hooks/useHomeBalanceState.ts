@@ -65,10 +65,24 @@ export function useHomeBalanceState(): IHomeBalanceState {
     return liveIsPositive ? 'positive' : 'zero';
   }, [wallet, cached, liveIsPositive]);
 
-  const stickyRef = useRef<IHomeBalanceState>('unknown');
-  if (computed !== 'unknown') {
-    stickyRef.current = computed;
+  // Sticky must be wallet-scoped. Without the key check, switching from a
+  // funded wallet to a freshly-imported $0 wallet keeps reporting 'positive'
+  // until the new owner's `byOwner` cache and `accountWorth` both land
+  // (OK-54527 upgrade-then-import regression). Keying on `wallet?.id`
+  // (not `ownerKey`) preserves the original bridging intent for
+  // account/network switches inside the same wallet — WalletActions relies
+  // on that to avoid blanking the action row each tab switch.
+  const walletKey = wallet?.id;
+  const stickyRef = useRef<{
+    key: string | undefined;
+    state: IHomeBalanceState;
+  }>({ key: undefined, state: 'unknown' });
+  if (stickyRef.current.key !== walletKey) {
+    stickyRef.current = { key: walletKey, state: 'unknown' };
+  }
+  if (computed !== 'unknown' && stickyRef.current.state !== computed) {
+    stickyRef.current = { key: walletKey, state: computed };
   }
 
-  return computed === 'unknown' ? stickyRef.current : computed;
+  return computed === 'unknown' ? stickyRef.current.state : computed;
 }
