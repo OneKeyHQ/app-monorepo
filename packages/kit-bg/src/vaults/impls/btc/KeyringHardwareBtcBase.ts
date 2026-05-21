@@ -398,7 +398,6 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
           sdkGetPublicKeysFn: async ({
             connectId,
             deviceId,
-            pathPrefix,
             template,
             coinName,
             showOnOnekeyFn,
@@ -430,23 +429,31 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
             if (allNetworkAccounts) {
               return allNetworkAccounts;
             }
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
-            const sdk = await this.getHardwareSDKInstance({ connectId });
-            return sdk.btcGetPublicKey(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams,
-              bundle: usedIndexes.map((index, arrIndex) => ({
-                path: `${pathPrefix}/${index}'`,
-                coin: coinName?.toLowerCase(),
-                showOnOneKey: showOnOnekeyFn(arrIndex),
-              })),
-            });
+            // const sdk = await this.getHardwareSDKInstance();
+            // defaultLogger.account.accountCreatePerf.sdkBtcGetPublicKey();
+            // const response = await sdk.btcGetPublicKey(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams, // passpharse params
+            //   bundle: usedIndexes.map((index, arrIndex) => ({
+            //     path: `${pathPrefix}/${index}'`,
+            //     coin: coinName?.toLowerCase(),
+            //     showOnOneKey: showOnOnekeyFn(arrIndex),
+            //   })),
+            // });
+            // defaultLogger.account.accountCreatePerf.sdkBtcGetPublicKeyDone({
+            //   deriveTypeLabel: params.deriveInfo?.label ?? '',
+            //   indexes: usedIndexes,
+            //   coinName,
+            // });
+            // return response;
           },
         });
 
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
-          const { path, xpub, xpubSegwit } = item;
+          const { path, xpub, xpubSegwit, __hwExtraInfo__ } = item;
 
           const { addresses: addressFromXpub, publicKeys: publicKeysMap } =
             await checkIsDefined(this.coreApi).getAddressFromXpub({
@@ -468,7 +475,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
             addresses: {
               [addressRelPath]: address,
             },
-            __hwExtraInfo__: this.buildHardwareExtraInfoFromSdkResult(item),
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }

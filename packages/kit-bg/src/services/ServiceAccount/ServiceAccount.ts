@@ -1,4 +1,4 @@
-import { EFirmwareType, HARDWARE_CONNECT_PROTOCOL } from '@onekeyfe/hd-shared';
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { ethers } from 'ethers';
 import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
@@ -72,7 +72,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { getHardwareConnectProtocolFromDevice } from '@onekeyhq/shared/src/hardware/connectProtocol';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -2372,13 +2371,8 @@ class ServiceAccount extends ServiceBase {
         indexedAccountId: newIndexedAccountId,
       });
       if (allNetworkAccount.id !== accountId) {
-        console.warn(
-          'getAccount WARNING: allNetworkAccount accountId not match',
-          {
-            accountId,
-            allNetworkAccountId: allNetworkAccount.id,
-            indexedAccountId: newIndexedAccountId,
-          },
+        throw new OneKeyLocalError(
+          'getAccount ERROR: allNetworkAccount accountId not match',
         );
       }
       return allNetworkAccount;
@@ -2964,8 +2958,6 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
-    const connectProtocol = getHardwareConnectProtocolFromDevice(dbDevice);
-
     return {
       confirmOnDevice: EConfirmOnDeviceType.LastItem,
       dbDevice,
@@ -2973,7 +2965,6 @@ class ServiceAccount extends ServiceBase {
       deviceCommonParams: {
         passphraseState: wallet?.passphraseState,
         useEmptyPassphrase: !wallet.passphraseState,
-        ...(connectProtocol ? { connectProtocol } : {}),
       },
     };
   }
@@ -3165,16 +3156,9 @@ class ServiceAccount extends ServiceBase {
       device: params.device,
       features,
     });
-    const isProtocolV2Device =
-      getHardwareConnectProtocolFromDevice(params.device) ===
-      HARDWARE_CONNECT_PROTOCOL.V2;
 
     let xfp: string | undefined;
-    if (
-      fillingXfpByCallingSdk &&
-      !isMockedStandardHwWallet &&
-      !isProtocolV2Device
-    ) {
+    if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
       xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
         connectId: compatibleConnectId,
         deviceId,
@@ -3201,9 +3185,6 @@ class ServiceAccount extends ServiceBase {
       xfp,
       passphraseState: passphraseState || '',
       getFirstEvmAddressFn: async (): Promise<string | null> => {
-        if (isProtocolV2Device) {
-          return null;
-        }
         if (isMockedStandardHwWallet) {
           return '';
         }

@@ -1,7 +1,4 @@
-import {
-  HARDWARE_CONNECT_PROTOCOL,
-  HardwareErrorCode,
-} from '@onekeyfe/hd-shared';
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { ORPHAN_ELIGIBLE_ERROR_CODES } from '@onekeyfe/hwk-adapter-core';
 import { chunk, isNil, range, uniqBy } from 'lodash';
 
@@ -26,7 +23,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { getHardwareConnectProtocolFromDevice } from '@onekeyhq/shared/src/hardware/connectProtocol';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -54,8 +50,6 @@ import type {
 } from '../../vaults/types';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
-
-const ENABLE_HW_ALL_NETWORK_GET_ADDRESS = false;
 
 export type IBatchCreateAccountProgressInfo = {
   totalCount: number;
@@ -614,24 +608,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
       );
     }
 
-    if (accountUtils.isHwWallet({ walletId: params.walletId })) {
-      const dbDevice = await this.backgroundApi.serviceAccount.getWalletDevice({
-        walletId: params.walletId,
-      });
-      if (
-        getHardwareConnectProtocolFromDevice(dbDevice) ===
-        HARDWARE_CONNECT_PROTOCOL.V2
-      ) {
-        const protocolV2SupportedNetworkIds = new Set([
-          getNetworkIdsMap().sol,
-          getNetworkIdsMap().trx,
-        ]);
-        networksParams = networksParams.filter((p) =>
-          protocolV2SupportedNetworkIds.has(p.networkId),
-        );
-      }
-    }
-
     const networksParamsFiltered: IBatchBuildAccountsBaseParams[] = [];
     const evmNetworksMap: {
       [implDeriveTypeWalletId: string]: boolean;
@@ -679,14 +655,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     showOnOneKey?: boolean;
     saveToCache?: boolean;
     loopMode?: boolean;
-  }): Promise<IHwAllNetworkPrepareAccountsResponse | undefined> {
-    if (!ENABLE_HW_ALL_NETWORK_GET_ADDRESS) {
-      defaultLogger.hardware.sdkLog.consoleLog(
-        'skip getHwAllNetworkPrepareAccountsResponse',
-      );
-      return undefined;
-    }
-
+  }) {
     const hwAllNetworkPrepareAccountsResponse =
       new HardwareAllNetworkGetAddressResponse();
 

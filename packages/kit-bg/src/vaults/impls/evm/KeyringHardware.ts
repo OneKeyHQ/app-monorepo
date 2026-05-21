@@ -262,18 +262,32 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            const sdk = await this.getHardwareSDKInstance({ connectId });
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
-            return sdk.evmGetAddress(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams,
-              bundle: usedIndexes.map((index, arrIndex) => ({
-                path: buildFullPath({
-                  index,
-                }),
-                showOnOneKey: showOnOnekeyFn(arrIndex),
-                chainId: Number(chainId),
-              })),
-            });
+            // const sdk = await this.getHardwareSDKInstance();
+
+            // defaultLogger.account.accountCreatePerf.sdkEvmGetAddress();
+            // const response = await sdk.evmGetAddress(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams, // passpharse params
+            //   bundle: usedIndexes.map((index, arrIndex) => ({
+            //     path: buildFullPath({
+            //       index,
+            //     }),
+            //     /**
+            //      * Search accounts not show detail at device.Only show on device when add accounts into wallet.
+            //      */
+            //     showOnOneKey: showOnOnekeyFn(arrIndex),
+            //     chainId: Number(chainId),
+            //   })),
+            // });
+            // defaultLogger.account.accountCreatePerf.sdkEvmGetAddressDone({
+            //   deriveTypeLabel: params.deriveInfo?.label ?? '',
+            //   indexes: usedIndexes,
+            //   coinName,
+            //   chainId,
+            // });
+
+            // return response;
           },
         });
 
@@ -284,14 +298,14 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
-          const { path, address } = item;
+          const { path, address, __hwExtraInfo__ } = item;
           const { normalizedAddress } =
             await this.vault.validateAddress(address);
           const addressInfo: ICoreApiGetAddressItem = {
             address: normalizedAddress || address,
             path,
             publicKey: '', // TODO return pub from hardware?
-            __hwExtraInfo__: this.buildHardwareExtraInfoFromSdkResult(item),
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }
