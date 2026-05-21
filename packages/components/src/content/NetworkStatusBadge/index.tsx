@@ -87,6 +87,7 @@ export function NetworkStatusBadge({
       <Badge.Text size="$bodySmMedium">{badgeLabel}</Badge.Text>
       {monoLabel ? (
         <Badge.Text
+          flex={1}
           size="$bodySmMedium"
           fontFamily="$monoRegular"
           fontVariant={fontVariant}
