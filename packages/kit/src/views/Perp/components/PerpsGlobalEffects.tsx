@@ -404,12 +404,29 @@ function useHyperliquidAccountSelect() {
     usePerpsActiveAccountRefreshHookAtom();
   const hasBeenFocusedRef = useRef(shouldTreatPerpAsFocusedOnMount);
   const pendingSelectRef = useRef(false);
+  // Dedupe by business-semantic params: the callback's deps include several
+  // refs that resolve in separate ticks during mount (account.address after
+  // id, async globalDeriveType), so the effect would otherwise re-fire the
+  // network check each time. refreshHook is included so manual refresh still
+  // triggers; account.address is intentionally excluded — it follows id.
+  const lastSelectParamsRef = useRef<string | null>(null);
 
   const selectPerpsAccount = useCallback(async () => {
     if (!globalDeriveType) {
       return;
     }
-    noop(activeAccountRefreshHook);
+    const params = JSON.stringify({
+      indexedAccountId: activeAccount?.indexedAccount?.id || null,
+      accountId: activeAccount?.account?.id || null,
+      walletId: activeAccount?.wallet?.id || null,
+      deriveType: globalDeriveType,
+      refreshHook: activeAccountRefreshHook,
+    });
+    if (lastSelectParamsRef.current === params) {
+      return;
+    }
+    lastSelectParamsRef.current = params;
+
     noop(activeAccount.account?.address);
     await actions.current.changeActivePerpsAccount({
       indexedAccountId: activeAccount?.indexedAccount?.id || null,
