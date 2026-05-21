@@ -1,21 +1,17 @@
 import type { ReactNode } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Button, SizableText, Spinner } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   usePerpsAccountLoadingInfoAtom,
-  usePerpsActiveAccountAtom,
   usePerpsActiveAccountIsAgentReadyAtom,
   usePerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
-
-import { showHyperliquidTermsDialog } from './HyperliquidTerms';
+import { useEnableTradingWithDepositFallback } from '../hooks/useEnableTradingWithDepositFallback';
 
 interface ITradingGuardWrapperProps {
   children?: ReactNode;
@@ -29,43 +25,10 @@ function TradingGuardWrapperInternal({
   disabled = false,
 }: ITradingGuardWrapperProps) {
   const intl = useIntl();
-  const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
-  // Memoize account info to optimize callback dependencies
-  const accountInfo = useMemo(
-    () => ({
-      accountAddress: perpsAccount.accountAddress,
-      accountId: perpsAccount.accountId,
-    }),
-    [perpsAccount.accountAddress, perpsAccount.accountId],
-  );
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
-  const enableTrading = useCallback(async () => {
-    try {
-      const didAcceptTerms = await showHyperliquidTermsDialog();
-      if (!didAcceptTerms) {
-        return;
-      }
-
-      const status =
-        await backgroundApiProxy.serviceHyperliquid.enableTrading();
-      if (
-        status?.details?.activatedOk === false &&
-        accountInfo.accountAddress &&
-        accountInfo.accountId
-      ) {
-        await showDepositWithdrawModal('deposit');
-      }
-    } catch (error) {
-      console.error('[TradingGuardWrapper] Enable trading failed:', error);
-    }
-  }, [
-    accountInfo.accountAddress,
-    accountInfo.accountId,
-    showDepositWithdrawModal,
-  ]);
+  const enableTrading = useEnableTradingWithDepositFallback();
 
   const shouldShowEnableTrading = useMemo(() => {
     return forceShowEnableTrading || isAgentReady === false;
