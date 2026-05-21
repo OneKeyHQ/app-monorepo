@@ -47,8 +47,11 @@ import {
   buildAggregateTokenMapKeyForAggregateConfig,
   buildHomeDefaultTokenMapKey,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { EHardwareTransportType } from '@onekeyhq/shared/types';
-import type { ICurrencyItem, IServerNetwork } from '@onekeyhq/shared/types';
+import type {
+  EHardwareTransportType,
+  ICurrencyItem,
+  IServerNetwork,
+} from '@onekeyhq/shared/types';
 import type { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -670,24 +673,14 @@ class ServiceSetting extends ServiceBase {
   public async setHardwareTransportType(
     hardwareTransportType: EHardwareTransportType,
   ) {
-    const nextHardwareTransportType =
-      platformEnv.isDesktopLinux &&
-      hardwareTransportType === EHardwareTransportType.Bridge
-        ? EHardwareTransportType.WEBUSB
-        : hardwareTransportType;
-
     await settingsPersistAtom.set((prev) => ({
       ...prev,
-      hardwareTransportType: nextHardwareTransportType,
+      hardwareTransportType,
     }));
   }
 
   @backgroundMethod()
   public async getHardwareTransportType(): Promise<EHardwareTransportType> {
-    if (platformEnv.isDesktopLinux) {
-      return EHardwareTransportType.WEBUSB;
-    }
-
     const { hardwareTransportType } = await settingsPersistAtom.get();
     if (hardwareTransportType) {
       return hardwareTransportType;

@@ -346,9 +346,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     if (platformEnv.isDesktop) {
-      const usb = platformEnv.isDesktopLinux
-        ? 'webusb'
-        : devPersist?.settings?.usbCommunicationMode;
+      const usb = devPersist?.settings?.usbCommunicationMode;
       const desktopTransportList: ISelectItem[] = [];
       if (usb === 'bridge') {
         desktopTransportList.push({

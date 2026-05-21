@@ -796,8 +796,7 @@ class ServiceHardware extends ServiceBase {
     }
     console.log('searchDevices response: ', response);
     if (
-      (this.isEmptySearchDevicesResponse(response) ||
-        this.isUsbAccessErrorSearchDevicesResponse(response)) &&
+      this.isUsbAccessErrorSearchDevicesResponse(response) &&
       (await this.ensureLinuxWebUsbPermissionsForSearch())
     ) {
       const retryResponse = await hardwareSDK?.searchDevices();
@@ -805,12 +804,6 @@ class ServiceHardware extends ServiceBase {
       return retryResponse;
     }
     return response;
-  }
-
-  private isEmptySearchDevicesResponse(
-    response: Awaited<Response<Array<SearchDevice>>> | undefined,
-  ) {
-    return response?.success === true && response.payload.length === 0;
   }
 
   private isUsbAccessError(error: unknown) {
@@ -838,33 +831,42 @@ class ServiceHardware extends ServiceBase {
       return false;
     }
 
-    this.linuxUdevRulesInstallPromise ??= (async () => {
-      try {
-        const result =
-          await globalThis.desktopApiProxy?.system?.installOneKeyUdevRules?.();
-        if (result?.installed) {
+    if (!this.linuxUdevRulesInstallPromise) {
+      this.linuxUdevRulesInstallPromise = (async () => {
+        try {
+          const result =
+            await globalThis.desktopApiProxy?.system?.installOneKeyUdevRules?.();
+          if (result?.installed) {
+            defaultLogger.hardware.sdkLog.log(
+              '[LinuxWebUSB] OneKey udev rules ready',
+              JSON.stringify(result),
+            );
+            return true;
+          }
+          if (result) {
+            defaultLogger.hardware.sdkLog.log(
+              '[LinuxWebUSB] OneKey udev rules not installed',
+              JSON.stringify(result),
+            );
+          }
+        } catch (error) {
           defaultLogger.hardware.sdkLog.log(
-            '[LinuxWebUSB] OneKey udev rules ready',
-            JSON.stringify(result),
-          );
-          return true;
-        }
-        if (result) {
-          defaultLogger.hardware.sdkLog.log(
-            '[LinuxWebUSB] OneKey udev rules not installed',
-            JSON.stringify(result),
+            '[LinuxWebUSB] Failed to install OneKey udev rules',
+            error instanceof Error ? error.message : String(error),
           );
         }
-      } catch (error) {
-        defaultLogger.hardware.sdkLog.log(
-          '[LinuxWebUSB] Failed to install OneKey udev rules',
-          error instanceof Error ? error.message : String(error),
-        );
-      }
-      return false;
-    })();
+        return false;
+      })().finally(() => {
+        this.linuxUdevRulesInstallPromise = undefined;
+      });
+    }
 
-    return this.linuxUdevRulesInstallPromise;
+    const installed = await this.linuxUdevRulesInstallPromise;
+    if (!installed) {
+      return false;
+    }
+
+    return true;
   }
 
   @backgroundMethod()
@@ -1275,13 +1277,16 @@ class ServiceHardware extends ServiceBase {
       connectId,
     });
 
-    return convertDeviceResponse(() =>
+    const passphraseState = await convertDeviceResponse(() =>
       hardwareSDK?.getPassphraseState(connectId, {
         initSession: forceInputPassphrase, // always re-input passphrase on device
         useEmptyPassphrase,
         // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
       }),
     );
+    return typeof passphraseState === 'string'
+      ? passphraseState
+      : passphraseState?.passphrase_state;
   }
 
   @backgroundMethod()

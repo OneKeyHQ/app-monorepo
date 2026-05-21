@@ -47,14 +47,6 @@ function createCustomAgent(): https.Agent {
   return agent;
 }
 
-function normalizeRequestHeaders(headers: Record<string, string>) {
-  return Object.fromEntries(
-    Object.entries(headers).filter(
-      ([, value]) => value !== undefined && value !== null,
-    ),
-  );
-}
-
 class DesktopApiSniRequest {
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
@@ -85,10 +77,10 @@ class DesktopApiSniRequest {
           port,
           path: config.path,
           servername: config.hostname, // CRITICAL: SNI must use domain name for TLS handshake
-          headers: normalizeRequestHeaders({
+          headers: {
             Host: config.hostname, // Set Host header to original domain
             ...config.headers,
-          }),
+          },
           // Use custom agent for connection reuse
           agent: this.agent,
           // Ensure SSL/TLS validation

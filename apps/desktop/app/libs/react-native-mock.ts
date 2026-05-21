@@ -18,13 +18,6 @@ export const InteractionManager = {};
 
 export const NativeEventEmitter = {};
 
-const isFlatpakRuntime = () =>
-  Boolean(
-    process.env.FLATPAK ||
-    process.env.FLATPAK_ID ||
-    process.env.container === 'flatpak',
-  );
-
 const getChannel = (): string | undefined => {
   let channel: string | undefined;
   try {
@@ -38,7 +31,7 @@ const getChannel = (): string | undefined => {
       channel = 'appImage';
     } else if (process.env.SNAP) {
       channel = 'snap';
-    } else if (isFlatpakRuntime()) {
+    } else if (process.env.FLATPAK) {
       channel = 'flatpak';
     }
   } catch (_e) {
