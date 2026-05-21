@@ -85,6 +85,8 @@ function BasicEarnHome({
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
   const [isEarnTabFocused, setIsEarnTabFocused] = useState(false);
   const wasFocusedRef = useRef(false);
+  const wasHiddenByModalRef = useRef(false);
+  const shouldLogEnterEarnRef = useRef(false);
   const portfolioData = useEarnPortfolio({ isActive: isEarnTabFocused });
   const { refresh: refreshEarnDataRaw, isLoading: portfolioLoading } =
     portfolioData;
@@ -250,6 +252,8 @@ function BasicEarnHome({
   const isBorrowMode = defaultMode === 'borrow';
   const earnModeSwitchTypeRef = useRef<IEarnModeSwitchType>('default');
   const hasLoggedEarnModeSwitchRef = useRef(false);
+  const defaultModeRef = useRef(defaultMode);
+  defaultModeRef.current = defaultMode;
 
   const earnBorrowScrollPosition = useSharedValue(
     defaultMode === 'borrow' ? 1 : 0,
@@ -273,6 +277,11 @@ function BasicEarnHome({
       ? earnModeSwitchTypeRef.current
       : 'default';
 
+    const shouldLogEnterEarn = shouldLogEnterEarnRef.current;
+    shouldLogEnterEarnRef.current = false;
+    if (shouldLogEnterEarn && defaultMode === 'earn') {
+      defaultLogger.staking.page.enterEarn();
+    }
     hasLoggedEarnModeSwitchRef.current = true;
     defaultLogger.staking.page.earnModeSwitch({
       mode: defaultMode,
@@ -311,7 +320,14 @@ function BasicEarnHome({
   const handleListenTabFocusState = useCallback(
     (isFocus: boolean, isHideByModal: boolean) => {
       const actualFocus = isFocus && !isHideByModal;
+      const wasFocused = wasFocusedRef.current;
+      const wasHiddenByModal = wasHiddenByModalRef.current;
+      wasHiddenByModalRef.current = isFocus && isHideByModal;
       wasFocusedRef.current = actualFocus;
+      // Closing a modal restores focus, but is not a fresh Earn entry.
+      if (actualFocus && !wasFocused && !wasHiddenByModal) {
+        shouldLogEnterEarnRef.current = true;
+      }
       setIsEarnTabFocused(actualFocus);
       if (!actualFocus) return;
 
@@ -340,9 +356,6 @@ function BasicEarnHome({
   );
 
   useListenTabFocusState(earnFocusTabRoutes, handleListenTabFocusState);
-
-  const defaultModeRef = useRef(defaultMode);
-  defaultModeRef.current = defaultMode;
 
   const handleHeaderHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
