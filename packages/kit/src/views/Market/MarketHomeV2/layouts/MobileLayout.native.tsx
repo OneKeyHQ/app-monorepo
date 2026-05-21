@@ -10,15 +10,10 @@ import {
 } from 'react';
 import type { RefObject } from 'react';
 
-import {
-  IconButton,
-  Tabs,
-  XStack,
-  YStack,
-  useTabContainerWidth,
-} from '@onekeyhq/components';
+import { IconButton, Tabs, XStack, YStack } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
+import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
