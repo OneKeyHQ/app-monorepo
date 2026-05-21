@@ -11,6 +11,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 
@@ -64,6 +65,8 @@ function TokenNameView(props: IProps) {
     [aggregateTokensListMap, $key],
   );
   const firstAggregateToken = aggregateTokenList?.[0];
+  const shouldShowDeFiReceiptTokenBadge =
+    showDeFiReceiptTokenBadge && !platformEnv.isNative;
 
   const { tokenHasBalance, tokenHasBalanceCount } = useMemo(() => {
     return checkIsOnlyOneTokenHasBalance({
@@ -97,7 +100,7 @@ function TokenNameView(props: IProps) {
       <SizableText minWidth={0} numberOfLines={1} {...textProps}>
         {name}
       </SizableText>
-      {showDeFiReceiptTokenBadge ? (
+      {shouldShowDeFiReceiptTokenBadge ? (
         <Tooltip
           renderContent={intl.formatMessage({
             id: ETranslations.wallet_defi_receipt_token__desc,

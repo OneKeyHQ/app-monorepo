@@ -22,7 +22,13 @@ function PerpNetworkStatus() {
     return undefined;
   }, [connected, pingMs]);
 
-  return <NetworkStatusBadge connected={connected} monoLabel={monoLabel} />;
+  return (
+    <NetworkStatusBadge
+      connected={connected}
+      monoLabel={monoLabel}
+      minWidth={135}
+    />
+  );
 }
 
 export function PerpContentFooter() {
