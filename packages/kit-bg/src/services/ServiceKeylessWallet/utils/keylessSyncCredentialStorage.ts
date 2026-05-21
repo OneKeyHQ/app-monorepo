@@ -1,7 +1,4 @@
-import {
-  decryptStringAsync,
-  encryptStringAsync,
-} from '@onekeyhq/core/src/secret';
+import { decryptStringAsync } from '@onekeyhq/core/src/secret';
 import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
 import {
   KEYLESS_SYNC_CREDENTIAL_STORAGE_AAD,
@@ -9,6 +6,11 @@ import {
 } from '@onekeyhq/shared/src/consts/keylessCloudSyncConsts';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
+
+import {
+  EAppCryptoSharedEncryptScene,
+  encryptStringAsyncWithFormat,
+} from '../../../utils/secretEncryptFormat';
 
 import keylessStorageUtils from './keylessStorageUtils';
 
@@ -46,7 +48,7 @@ async function writeMap(map: ICredentialMap): Promise<void> {
     return;
   }
   const json = JSON.stringify(map);
-  const encryptedHex = await encryptStringAsync({
+  const encryptedHex = await encryptStringAsyncWithFormat({
     password: KEYLESS_SYNC_CREDENTIAL_STORAGE_KEY,
     data: json,
     dataEncoding: 'utf8',
@@ -54,6 +56,7 @@ async function writeMap(map: ICredentialMap): Promise<void> {
     iterations: 1,
     mode: EAppCryptoAesEncryptionMode.gcm,
     aad: KEYLESS_SYNC_CREDENTIAL_STORAGE_AAD,
+    sharedScene: EAppCryptoSharedEncryptScene.keylessCloudSyncCredentialStorage,
   });
   const base64 = bufferUtils.bytesToBase64(
     bufferUtils.hexToBytes(encryptedHex),

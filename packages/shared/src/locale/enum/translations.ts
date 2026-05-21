@@ -4057,6 +4057,8 @@ export enum ETranslations {
   send_token_selector_search_placeholder = 'send_token_selector.search_placeholder',
   send_token_selector_select_token = 'send_token_selector.select_token',
   sending_krc20_warning_text = 'sending_krc20_warning_text',
+  sensitive_information_screenshot_protected__desc = 'sensitive_information_screenshot_protected__desc',
+  sensitive_information_screenshot_protected__title = 'sensitive_information_screenshot_protected__title',
   set_new_backup_password = 'set_new_backup_password',
   set_new_backup_password_desc = 'set_new_backup_password_desc',
   set_new_backup_password_fist_time = 'set_new_backup_password_fist_time',

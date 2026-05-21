@@ -23,7 +23,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useTokenSelectorFilterPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveTypes,
+  IVaultSettings,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAssetSelectorParamList } from '@onekeyhq/shared/src/routes';
@@ -392,18 +395,11 @@ function TokenSelector() {
             : true && item.networkId === token.networkId,
         );
 
-        if (
-          vaultSettings?.mergeDeriveAssetsEnabled ||
-          matchedAccount?.accountId
-        ) {
-          if (matchedAccount?.accountId) {
-            await executeOnSelect({
-              ...token,
-              accountId: matchedAccount.accountId,
-            });
-          } else {
-            await executeOnSelect(token);
-          }
+        if (matchedAccount?.accountId) {
+          await executeOnSelect({
+            ...token,
+            accountId: matchedAccount.accountId,
+          });
         } else if (account) {
           updateCreateAccountState({
             isCreating: true,
@@ -413,13 +409,24 @@ function TokenSelector() {
             accountId: account.id,
           });
           try {
+            // For multi-derive networks (e.g. BTC/LTC) align the new account's
+            // derive type with the network's global default so the downstream
+            // ReceiveToken lookup (getAccountsByIndexedAccounts) can find it.
+            const deriveType: IAccountDeriveTypes =
+              vaultSettings?.mergeDeriveAssetsEnabled && token.networkId
+                ? await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                    {
+                      networkId: token.networkId,
+                    },
+                  )
+                : 'default';
             const resp = await createAddress({
               num: 0,
               account: {
                 walletId,
                 networkId: token.networkId,
                 indexedAccountId: account.indexedAccountId,
-                deriveType: 'default',
+                deriveType,
               },
             });
 
@@ -440,6 +447,8 @@ function TokenSelector() {
               token: null,
             });
           }
+        } else if (vaultSettings?.mergeDeriveAssetsEnabled) {
+          await executeOnSelect(token);
         }
       } else {
         await executeOnSelect(token);

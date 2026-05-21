@@ -3,6 +3,8 @@ import crypto from 'crypto';
 
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
+import type { IAesGcmDispatchBackend } from '@onekeyhq/shared/src/appCrypto/modules/aesGcm';
+import type { IPbkdf2DispatchBackend } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   IncorrectPassword,
   OneKeyLocalError,
@@ -24,8 +26,11 @@ const {
   AES_GCM_ENCRYPTION_MAGIC: AES_GCM_ENCRYPTION_MAGIC_TEXT,
   AES_GCM_NONCE_LENGTH,
   AES_GCM_TAG_LENGTH,
+  PBKDF2_ANDROID_LOCAL_NUM_OF_ITERATIONS,
   PBKDF2_KEY_LENGTH,
   PBKDF2_SALT_LENGTH,
+  PBKDF2_CURRENT_NUM_OF_ITERATIONS,
+  PBKDF2_LEGACY_NUM_OF_ITERATIONS,
   ENCRYPTED_DATA_OFFSET,
 } = appCrypto.consts;
 
@@ -40,6 +45,19 @@ const AES_GCM_ENCRYPTION_MAGIC = Buffer.from(
   AES_GCM_ENCRYPTION_MAGIC_TEXT,
   'utf8',
 );
+const ENCRYPTION_V2_MAGIC = Buffer.from('1K_ENC_V2', 'utf8');
+const ENCRYPTION_V2_VERSION = 2;
+const ENCRYPTION_V2_CIPHER_AES_256_GCM = 1;
+const ENCRYPTION_V2_KDF_PBKDF2_SHA256 = 1;
+const ENCRYPTION_V2_FIXED_HEADER_LENGTH =
+  ENCRYPTION_V2_MAGIC.length +
+  1 + // version
+  1 + // cipher
+  1 + // kdf
+  4 + // iterations
+  PBKDF2_SALT_LENGTH +
+  AES_GCM_NONCE_LENGTH +
+  1; // dataType length
 
 function normalizeAad(aad?: Buffer | string): Buffer | undefined {
   if (!aad) {
@@ -49,6 +67,111 @@ function normalizeAad(aad?: Buffer | string): Buffer | undefined {
     return Buffer.from(aad, 'utf8');
   }
   return Buffer.from(aad);
+}
+
+function isV2Payload(dataBuffer: Buffer): boolean {
+  return (
+    dataBuffer.length > ENCRYPTION_V2_FIXED_HEADER_LENGTH &&
+    dataBuffer.slice(0, ENCRYPTION_V2_MAGIC.length).equals(ENCRYPTION_V2_MAGIC)
+  );
+}
+
+function isLegacyGcmPayload(dataBuffer: Buffer): boolean {
+  return (
+    dataBuffer.length >
+      AES_GCM_ENCRYPTION_MAGIC.length +
+        PBKDF2_SALT_LENGTH +
+        AES_GCM_NONCE_LENGTH &&
+    dataBuffer
+      .slice(0, AES_GCM_ENCRYPTION_MAGIC.length)
+      .equals(AES_GCM_ENCRYPTION_MAGIC)
+  );
+}
+
+function getSecretEncryptV2LocalTargetIterations(): number {
+  return platformEnv.isNativeAndroid
+    ? PBKDF2_ANDROID_LOCAL_NUM_OF_ITERATIONS
+    : PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+}
+
+function shouldUpgradeSecretEncryptPayload({
+  data,
+  targetIterations = getSecretEncryptV2LocalTargetIterations(),
+}: {
+  data: Buffer | string;
+  targetIterations?: number;
+}): boolean {
+  let dataBuffer: Buffer;
+  try {
+    dataBuffer = bufferUtils.toBuffer(data);
+  } catch {
+    return true;
+  }
+  if (!isV2Payload(dataBuffer)) {
+    return true;
+  }
+
+  try {
+    const parsedV2Payload = parseV2Payload(dataBuffer);
+    return parsedV2Payload.iterations < targetIterations;
+  } catch {
+    return true;
+  }
+}
+
+function parseV2Payload(dataBuffer: Buffer): {
+  aad: Buffer;
+  ciphertextWithTag: Buffer;
+  dataType?: string;
+  iterations: number;
+  nonce: Buffer;
+  salt: Buffer;
+} {
+  if (!isV2Payload(dataBuffer)) {
+    throw new OneKeyLocalError('decryptAsync ERROR: invalid v2 payload');
+  }
+
+  let offset = ENCRYPTION_V2_MAGIC.length;
+  const version = dataBuffer.readUInt8(offset);
+  offset += 1;
+  const cipher = dataBuffer.readUInt8(offset);
+  offset += 1;
+  const kdf = dataBuffer.readUInt8(offset);
+  offset += 1;
+  const iterations = dataBuffer.readUInt32BE(offset);
+  offset += 4;
+  const salt = dataBuffer.slice(offset, offset + PBKDF2_SALT_LENGTH);
+  offset += PBKDF2_SALT_LENGTH;
+  const nonce = dataBuffer.slice(offset, offset + AES_GCM_NONCE_LENGTH);
+  offset += AES_GCM_NONCE_LENGTH;
+  const dataTypeLength = dataBuffer.readUInt8(offset);
+  offset += 1;
+  const dataTypeEnd = offset + dataTypeLength;
+
+  if (
+    version !== ENCRYPTION_V2_VERSION ||
+    cipher !== ENCRYPTION_V2_CIPHER_AES_256_GCM ||
+    kdf !== ENCRYPTION_V2_KDF_PBKDF2_SHA256 ||
+    iterations <= 0 ||
+    dataBuffer.length <= dataTypeEnd + AES_GCM_TAG_LENGTH
+  ) {
+    throw new OneKeyLocalError('decryptAsync ERROR: unsupported v2 payload');
+  }
+
+  const dataTypeBuffer = dataBuffer.slice(offset, dataTypeEnd);
+  const aad = dataBuffer.slice(0, dataTypeEnd);
+  const ciphertextWithTag = dataBuffer.slice(dataTypeEnd);
+
+  return {
+    aad,
+    ciphertextWithTag,
+    dataType: dataTypeBuffer.length
+      ? dataTypeBuffer.toString('utf8')
+      : undefined,
+    iterations,
+    nonce,
+    salt,
+  };
 }
 
 export const encodeKeyPrefix =
@@ -134,9 +257,53 @@ export type IEncryptStringParams = {
   iterations?: number;
   mode?: EAppCryptoAesEncryptionMode;
   aad?: Buffer | string;
+  format?: ESecretEncryptPayloadFormat;
+  dataType?: string;
 };
 
 // ------------------------------------------------------------
+export enum ESecretEncryptPayloadFormat {
+  legacy = 'legacy',
+  v2 = 'v2',
+}
+
+// The decrypt metadata uses this enum to distinguish the three supported
+// payload modes during read dispatch.
+export enum ESecretEncryptPayloadVersion {
+  // The oldest payload format: salt + iv + ciphertext. It has no magic header,
+  // no version marker, no cipher/KDF metadata, and no authenticated header.
+  legacyCbc = 'legacy-cbc',
+  // Legacy AES-GCM payload with the 1K_AES_GCM magic header. It authenticates
+  // ciphertext/AAD, but still does not carry version, KDF, or iteration metadata.
+  // This format is only used by specific Keyless paths such as keyless cloud
+  // sync items, keyless mnemonic payloads, and keyless backend share payloads.
+  // Most legacy payloads in the app are still legacyCbc.
+  legacyGcm = 'legacy-gcm',
+  // Current v2 envelope with the 1K_ENC_V2 magic header. It stores version,
+  // cipher, KDF, iterations, salt, nonce, and authenticated dataType metadata.
+  v2 = 'v2',
+}
+
+export type IDecryptAsyncResultWithMetadata = {
+  plaintext: Buffer;
+  format: ESecretEncryptPayloadFormat;
+  version: ESecretEncryptPayloadVersion;
+  cipher: EAppCryptoAesEncryptionMode;
+  kdf: 'pbkdf2-sha256';
+  iterations: number;
+  dataType?: string;
+  needsUpgrade: boolean;
+};
+
+export type IDecodeSensitiveTextAsyncResultWithMetadata = {
+  text: string;
+  encoding: 'aes' | 'xor' | 'plain';
+  format?: ESecretEncryptPayloadFormat;
+  version?: ESecretEncryptPayloadVersion;
+  iterations?: number;
+  needsUpgrade: boolean;
+};
+
 export type IEncryptAsyncParams = {
   password: string;
   data: Buffer | string;
@@ -148,6 +315,14 @@ export type IEncryptAsyncParams = {
   iterations?: number;
   mode?: EAppCryptoAesEncryptionMode;
   aad?: Buffer | string;
+  format?: ESecretEncryptPayloadFormat;
+  dataType?: string;
+  debugCryptoProbeId?: string;
+  // Dev-only: force a specific PBKDF2 / AES-GCM backend. Production callers
+  // MUST leave these undefined — only the CryptoGallery benchmark sets them
+  // to compare noble vs native implementations on the same device.
+  kdfBackend?: IPbkdf2DispatchBackend;
+  gcmBackend?: IAesGcmDispatchBackend;
 };
 async function encryptAsync({
   password,
@@ -160,6 +335,11 @@ async function encryptAsync({
   iterations,
   mode = EAppCryptoAesEncryptionMode.cbc,
   aad,
+  format = ESecretEncryptPayloadFormat.v2,
+  dataType,
+  debugCryptoProbeId,
+  kdfBackend,
+  gcmBackend,
 }: IEncryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
@@ -167,6 +347,7 @@ async function encryptAsync({
 
   if (
     useWebembedApi &&
+    format === ESecretEncryptPayloadFormat.legacy &&
     mode !== EAppCryptoAesEncryptionMode.gcm &&
     platformEnv.isNative &&
     !platformEnv.isJest &&
@@ -182,7 +363,7 @@ async function encryptAsync({
       allowRawPassword,
       customIv: customIv ? bufferUtils.bytesToHex(customIv) : undefined,
       customSalt: customSalt ? bufferUtils.bytesToHex(customSalt) : undefined,
-      iterations,
+      iterations: iterations ?? PBKDF2_LEGACY_NUM_OF_ITERATIONS,
     });
     return bufferUtils.toBuffer(str, 'hex');
   }
@@ -210,10 +391,16 @@ async function encryptAsync({
   //   ? await keyFromPasswordAndSalt(passwordDecoded, salt)
   //   : keyFromPasswordAndSaltSync(passwordDecoded, salt);
   // const key: Buffer = await keyFromPasswordAndSalt(passwordDecoded, salt);
+  const resolvedIterations =
+    format === ESecretEncryptPayloadFormat.v2
+      ? iterations || getSecretEncryptV2LocalTargetIterations()
+      : (iterations ?? PBKDF2_LEGACY_NUM_OF_ITERATIONS);
   const key: Buffer = await keyFromPasswordAndSalt({
     password: passwordDecoded,
     salt,
-    iterations,
+    iterations: resolvedIterations,
+    debugCryptoProbeId,
+    kdfBackend,
   });
 
   // const dataEncrypted = platformEnv.isNative
@@ -235,6 +422,52 @@ async function encryptAsync({
   //   //
   // });
 
+  if (format === ESecretEncryptPayloadFormat.v2) {
+    const nonce: Buffer = bufferUtils.toBuffer(
+      customIv || crypto.randomBytes(AES_GCM_NONCE_LENGTH),
+    );
+    const dataTypeBuffer = dataType
+      ? Buffer.from(dataType, 'utf8')
+      : Buffer.alloc(0);
+    if (dataTypeBuffer.length > 255) {
+      throw new OneKeyLocalError('encryptAsync ERROR: v2 dataType is too long');
+    }
+    const header = Buffer.alloc(ENCRYPTION_V2_FIXED_HEADER_LENGTH);
+    let offset = 0;
+    ENCRYPTION_V2_MAGIC.copy(header, offset);
+    offset += ENCRYPTION_V2_MAGIC.length;
+    header.writeUInt8(ENCRYPTION_V2_VERSION, offset);
+    offset += 1;
+    header.writeUInt8(ENCRYPTION_V2_CIPHER_AES_256_GCM, offset);
+    offset += 1;
+    header.writeUInt8(ENCRYPTION_V2_KDF_PBKDF2_SHA256, offset);
+    offset += 1;
+    header.writeUInt32BE(
+      resolvedIterations || getSecretEncryptV2LocalTargetIterations(),
+      offset,
+    );
+    offset += 4;
+    salt.copy(header, offset);
+    offset += PBKDF2_SALT_LENGTH;
+    nonce.copy(header, offset);
+    offset += AES_GCM_NONCE_LENGTH;
+    header.writeUInt8(dataTypeBuffer.length, offset);
+    const headerAadBuffer = Buffer.concat([header, dataTypeBuffer]);
+    const additionalAadBuffer = normalizeAad(aad);
+    const aadBuffer = additionalAadBuffer
+      ? Buffer.concat([headerAadBuffer, additionalAadBuffer])
+      : headerAadBuffer;
+    const dataEncrypted = await aesGcmEncrypt({
+      data: dataBuffer,
+      key,
+      nonce,
+      aad: aadBuffer,
+      debugCryptoProbeId,
+      backend: gcmBackend,
+    });
+    return Buffer.concat([headerAadBuffer, dataEncrypted]);
+  }
+
   if (mode === EAppCryptoAesEncryptionMode.gcm) {
     const nonce: Buffer = bufferUtils.toBuffer(
       customIv || crypto.randomBytes(AES_GCM_NONCE_LENGTH),
@@ -245,6 +478,8 @@ async function encryptAsync({
       key,
       nonce,
       aad: aadBuffer,
+      debugCryptoProbeId,
+      backend: gcmBackend,
     });
     return Buffer.concat([
       AES_GCM_ENCRYPTION_MAGIC,
@@ -276,6 +511,14 @@ export type IDecryptAsyncParams = {
   iterations?: number;
   mode?: EAppCryptoAesEncryptionMode;
   aad?: Buffer | string;
+  dataType?: string;
+  debugCryptoProbeId?: string;
+  upgradeTargetIterations?: number;
+  // Dev-only: force a specific PBKDF2 / AES-GCM backend. Production callers
+  // MUST leave these undefined — only the CryptoGallery benchmark sets them
+  // to compare noble vs native implementations on the same device.
+  kdfBackend?: IPbkdf2DispatchBackend;
+  gcmBackend?: IAesGcmDispatchBackend;
 };
 /**
  * The recommended asynchronous decryption method
@@ -293,29 +536,67 @@ async function decryptAsync({
   iterations,
   mode,
   aad,
+  dataType,
+  debugCryptoProbeId,
+  upgradeTargetIterations,
+  kdfBackend,
+  gcmBackend,
 }: IDecryptAsyncParams): Promise<Buffer> {
+  const result = await decryptAsyncWithMetadata({
+    password,
+    data,
+    allowRawPassword,
+    ignoreLogger,
+    useWebembedApi,
+    iterations,
+    mode,
+    aad,
+    dataType,
+    debugCryptoProbeId,
+    upgradeTargetIterations,
+    kdfBackend,
+    gcmBackend,
+  });
+  return result.plaintext;
+}
+
+async function decryptAsyncWithMetadata({
+  password,
+  data,
+  allowRawPassword,
+  ignoreLogger,
+  useWebembedApi,
+  iterations,
+  mode,
+  aad,
+  dataType,
+  debugCryptoProbeId,
+  upgradeTargetIterations,
+  kdfBackend,
+  gcmBackend,
+}: IDecryptAsyncParams): Promise<IDecryptAsyncResultWithMetadata> {
   if (!password) {
     throw new IncorrectPassword();
   }
 
   const dataBuffer = bufferUtils.toBuffer(data);
-  const isGcmData =
-    dataBuffer.length >
-      AES_GCM_ENCRYPTION_MAGIC.length +
-        PBKDF2_SALT_LENGTH +
-        AES_GCM_NONCE_LENGTH &&
-    dataBuffer
-      .slice(0, AES_GCM_ENCRYPTION_MAGIC.length)
-      .equals(AES_GCM_ENCRYPTION_MAGIC);
+  const isV2Data = isV2Payload(dataBuffer);
+  const isGcmData = isLegacyGcmPayload(dataBuffer);
   let resolvedMode: EAppCryptoAesEncryptionMode =
     EAppCryptoAesEncryptionMode.cbc;
-  if (mode) {
+  if (isV2Data) {
+    resolvedMode = EAppCryptoAesEncryptionMode.gcm;
+  } else if (mode) {
     resolvedMode = mode;
   } else if (isGcmData) {
     resolvedMode = EAppCryptoAesEncryptionMode.gcm;
   }
 
-  if (resolvedMode === EAppCryptoAesEncryptionMode.gcm && !isGcmData) {
+  if (
+    resolvedMode === EAppCryptoAesEncryptionMode.gcm &&
+    !isGcmData &&
+    !isV2Data
+  ) {
     throw new OneKeyLocalError(
       'decryptAsync ERROR: encryption mode mismatch, expected AES-GCM payload',
     );
@@ -324,6 +605,7 @@ async function decryptAsync({
   if (
     useWebembedApi &&
     resolvedMode !== EAppCryptoAesEncryptionMode.gcm &&
+    !isV2Data &&
     platformEnv.isNative &&
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
@@ -337,9 +619,17 @@ async function decryptAsync({
       data: bufferUtils.bytesToHex(data),
       allowRawPassword,
       ignoreLogger,
-      iterations,
+      iterations: iterations ?? PBKDF2_LEGACY_NUM_OF_ITERATIONS,
     });
-    return bufferUtils.toBuffer(str, 'hex');
+    return {
+      plaintext: bufferUtils.toBuffer(str, 'hex'),
+      format: ESecretEncryptPayloadFormat.legacy,
+      version: ESecretEncryptPayloadVersion.legacyCbc,
+      cipher: EAppCryptoAesEncryptionMode.cbc,
+      kdf: 'pbkdf2-sha256',
+      iterations: iterations ?? PBKDF2_LEGACY_NUM_OF_ITERATIONS,
+      needsUpgrade: true,
+    };
   }
 
   if (!ignoreLogger) {
@@ -359,7 +649,13 @@ async function decryptAsync({
   }
 
   let dataAfterMagic = dataBuffer;
-  if (resolvedMode === EAppCryptoAesEncryptionMode.gcm) {
+  let parsedV2Payload: ReturnType<typeof parseV2Payload> | undefined;
+  if (isV2Data) {
+    parsedV2Payload = parseV2Payload(dataBuffer);
+    if (dataType && parsedV2Payload.dataType !== dataType) {
+      throw new OneKeyLocalError('decryptAsync ERROR: v2 dataType mismatch');
+    }
+  } else if (resolvedMode === EAppCryptoAesEncryptionMode.gcm) {
     if (dataBuffer.length <= AES_GCM_ENCRYPTION_MAGIC.length) {
       throw new OneKeyLocalError('decryptAsync ERROR: encrypted data is empty');
     }
@@ -368,7 +664,8 @@ async function decryptAsync({
       throw new OneKeyLocalError('decryptAsync ERROR: encrypted data is empty');
     }
   }
-  const salt: Buffer = dataAfterMagic.slice(0, PBKDF2_SALT_LENGTH);
+  const salt: Buffer =
+    parsedV2Payload?.salt ?? dataAfterMagic.slice(0, PBKDF2_SALT_LENGTH);
 
   if (!ignoreLogger) {
     defaultLogger.account.secretPerf.keyFromPasswordAndSalt();
@@ -380,7 +677,12 @@ async function decryptAsync({
   const key: Buffer = await keyFromPasswordAndSalt({
     password: passwordDecoded,
     salt,
-    iterations,
+    iterations:
+      parsedV2Payload?.iterations ??
+      iterations ??
+      PBKDF2_LEGACY_NUM_OF_ITERATIONS,
+    debugCryptoProbeId,
+    kdfBackend,
   });
 
   if (!ignoreLogger) {
@@ -405,7 +707,35 @@ async function decryptAsync({
     //       iv,
     //     });
 
-    if (resolvedMode === EAppCryptoAesEncryptionMode.gcm) {
+    if (parsedV2Payload) {
+      const additionalAadBuffer = normalizeAad(aad);
+      const aadBuffer = additionalAadBuffer
+        ? Buffer.concat([parsedV2Payload.aad, additionalAadBuffer])
+        : parsedV2Payload.aad;
+      try {
+        aesDecryptData = await aesGcmDecrypt({
+          data: parsedV2Payload.ciphertextWithTag,
+          key,
+          nonce: parsedV2Payload.nonce,
+          aad: aadBuffer,
+          debugCryptoProbeId,
+          backend: gcmBackend,
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message.toLowerCase() : '';
+        if (
+          errorMessage.includes('tag') ||
+          errorMessage.includes('authentication') ||
+          errorMessage.includes('auth')
+        ) {
+          throw new OneKeyLocalError(
+            'AES-GCM authentication failed: data may be tampered or AAD mismatch',
+          );
+        }
+        throw error;
+      }
+    } else if (resolvedMode === EAppCryptoAesEncryptionMode.gcm) {
       if (
         dataAfterMagic.length <
         PBKDF2_SALT_LENGTH + AES_GCM_NONCE_LENGTH + AES_GCM_TAG_LENGTH
@@ -429,6 +759,8 @@ async function decryptAsync({
           key,
           nonce,
           aad: aadBuffer,
+          debugCryptoProbeId,
+          backend: gcmBackend,
         });
       } catch (error) {
         // Noble/GCM throws error on authentication failure (wrong AAD or tampered data)
@@ -480,7 +812,35 @@ async function decryptAsync({
   if (!aesDecryptData || !aesDecryptData.length) {
     throw new OneKeyLocalError('decryptAsync ERROR: decrypted data is empty');
   }
-  return Buffer.from(aesDecryptData);
+  let version: ESecretEncryptPayloadVersion;
+  if (parsedV2Payload) {
+    version = ESecretEncryptPayloadVersion.v2;
+  } else if (resolvedMode === EAppCryptoAesEncryptionMode.gcm) {
+    version = ESecretEncryptPayloadVersion.legacyGcm;
+  } else {
+    version = ESecretEncryptPayloadVersion.legacyCbc;
+  }
+
+  return {
+    plaintext: Buffer.from(aesDecryptData),
+    format: parsedV2Payload
+      ? ESecretEncryptPayloadFormat.v2
+      : ESecretEncryptPayloadFormat.legacy,
+    version,
+    cipher: resolvedMode,
+    kdf: 'pbkdf2-sha256',
+    iterations:
+      parsedV2Payload?.iterations ??
+      iterations ??
+      PBKDF2_LEGACY_NUM_OF_ITERATIONS,
+    dataType: parsedV2Payload?.dataType,
+    needsUpgrade: parsedV2Payload
+      ? Boolean(
+          upgradeTargetIterations &&
+          parsedV2Payload.iterations < upgradeTargetIterations,
+        )
+      : true,
+  };
 }
 
 export type IDecryptStringParams = {
@@ -492,6 +852,7 @@ export type IDecryptStringParams = {
   iterations?: number;
   mode?: EAppCryptoAesEncryptionMode;
   aad?: Buffer | string;
+  dataType?: string;
 };
 
 async function decryptStringAsync({
@@ -503,6 +864,7 @@ async function decryptStringAsync({
   iterations,
   mode,
   aad,
+  dataType,
 }: IDecryptStringParams): Promise<string> {
   const bytes = await decryptAsync({
     password,
@@ -512,6 +874,7 @@ async function decryptStringAsync({
     iterations,
     mode,
     aad,
+    dataType,
   });
   if (resultEncoding === 'hex') {
     return bufferUtils.bytesToHex(bytes);
@@ -527,6 +890,8 @@ async function encryptStringAsync({
   iterations,
   mode,
   aad,
+  format,
+  dataType,
 }: IEncryptStringParams): Promise<string> {
   const bufferData = bufferUtils.toBuffer(data, dataEncoding);
   const bytes = await encryptAsync({
@@ -536,6 +901,8 @@ async function encryptStringAsync({
     iterations,
     mode,
     aad,
+    format,
+    dataType,
   });
   return bufferUtils.bytesToHex(bytes);
 }
@@ -588,16 +955,75 @@ async function decodeSensitiveTextAsync({
   return encodedText;
 }
 
+async function decodeSensitiveTextAsyncWithMetadata({
+  encodedText,
+  key,
+  ignoreLogger,
+  allowRawPassword,
+}: {
+  encodedText: string;
+  key?: string;
+  // avoid recursive call log output order confusion
+  ignoreLogger?: boolean;
+  allowRawPassword?: boolean;
+}): Promise<IDecodeSensitiveTextAsyncResultWithMetadata> {
+  checkKeyPassedOnExtUi(key);
+  const theKey = key || encodeKey;
+  ensureEncodeKeyExists(theKey);
+  if (isEncodedSensitiveText(encodedText)) {
+    if (encodedText.startsWith(ENCODE_TEXT_PREFIX.aes)) {
+      const result = await decryptAsyncWithMetadata({
+        password: theKey,
+        data: Buffer.from(
+          encodedText.slice(ENCODE_TEXT_PREFIX.aes.length),
+          'hex',
+        ),
+        ignoreLogger,
+        allowRawPassword,
+        upgradeTargetIterations: getSecretEncryptV2LocalTargetIterations(),
+      });
+      return {
+        text: result.plaintext.toString('utf-8'),
+        encoding: 'aes',
+        format: result.format,
+        version: result.version,
+        iterations: result.iterations,
+        needsUpgrade: result.needsUpgrade,
+      };
+    }
+    if (encodedText.startsWith(ENCODE_TEXT_PREFIX.xor)) {
+      const text = xorDecrypt({
+        encryptedDataHex: encodedText.slice(ENCODE_TEXT_PREFIX.xor.length),
+        key: theKey,
+      });
+      return {
+        text,
+        encoding: 'xor',
+        needsUpgrade: true,
+      };
+    }
+  }
+  // Plaintext is accepted for backward compatibility, but local owners should
+  // rewrite it through the current sensitive-text encoder after a successful read.
+  return {
+    text: encodedText,
+    encoding: 'plain',
+    needsUpgrade: true,
+  };
+}
+
 async function encodeSensitiveTextAsync({
   text,
   key,
   customIv,
   customSalt,
+  format,
 }: {
   text: string;
   key?: string;
   customSalt?: Buffer;
   customIv?: Buffer;
+  format?: ESecretEncryptPayloadFormat;
 }) {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
@@ -627,6 +1053,7 @@ async function encodeSensitiveTextAsync({
         allowRawPassword: true,
         customSalt,
         customIv,
+        format,
       })
     ).toString('hex');
     return `${ENCODE_TEXT_PREFIX.aes}${encoded}`;
@@ -670,14 +1097,18 @@ function setBgSensitiveTextEncodeKey(key: string) {
 export {
   decodePasswordAsync,
   decodeSensitiveTextAsync,
+  decodeSensitiveTextAsyncWithMetadata,
   decryptAsync,
+  decryptAsyncWithMetadata,
   decryptStringAsync,
   encodePasswordAsync,
   encodeSensitiveTextAsync,
   encryptAsync,
   encryptStringAsync,
   ensureSensitiveTextEncoded,
+  getSecretEncryptV2LocalTargetIterations,
   getBgSensitiveTextEncodeKey,
   isEncodedSensitiveText,
   setBgSensitiveTextEncodeKey,
+  shouldUpgradeSecretEncryptPayload,
 };
