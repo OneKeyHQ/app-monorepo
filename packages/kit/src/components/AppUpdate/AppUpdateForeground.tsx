@@ -96,6 +96,13 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     installPackage,
   } = useDownloadPackage();
 
+  // Pure web build (apps/web) has no installable artifact — never run the
+  // first-launch dispatch / AppState resume listener, so users can't see the
+  // "update available", "update success" or "check for updates" surfaces.
+  // Desktop renderer (isDesktop) and extension (isExtension) are NOT isWeb,
+  // so this only suppresses the bundle.onekey.so / web2 flavor.
+  const effectsEnabled = enabled && !platformEnv.isWeb;
+
   const onViewReleaseInfo = useCallback(() => {
     if (platformEnv.isE2E) return;
     setTimeout(async () => {
@@ -234,7 +241,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
 
   // First-launch dispatch — runs once per app lifecycle.
   useEffect(() => {
-    if (!enabled) return;
+    if (!effectsEnabled) return;
     if (didRunFirstLaunchDispatch) return;
     didRunFirstLaunchDispatch = true;
 
@@ -393,7 +400,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
   // exactly one listener, the multi-mount race that motivated the
   // 30s cooldown band-aid no longer exists in practice.
   useEffect(() => {
-    if (!enabled) return undefined;
+    if (!effectsEnabled) return undefined;
     const sub = AppState.addEventListener('change', async (state) => {
       if (state !== 'active') return;
       const step =
@@ -410,7 +417,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       }
     });
     return () => sub.remove();
-  }, [downloadASC, downloadPackage, enabled]);
+  }, [downloadASC, downloadPackage, effectsEnabled]);
 }
 
 /**

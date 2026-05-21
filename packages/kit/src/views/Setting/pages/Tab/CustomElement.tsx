@@ -438,6 +438,19 @@ export function ListVersionItem(props: ICustomElementProps) {
       updateStatus: appUpdateInfo.data.status,
     });
   }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
+  // Pure web build has no installable artifact: never expose the
+  // "update available" badge or the WhatsNew / UpdatePreview entry points.
+  if (platformEnv.isWeb) {
+    return (
+      <TabSettingsListItem {...props}>
+        <ListItem.Text
+          primaryTextProps={props?.titleProps}
+          primary={platformEnv.version}
+          align="right"
+        />
+      </TabSettingsListItem>
+    );
+  }
   return isShowAppUpdateUI && appUpdateInfo.isNeedUpdate ? (
     <TabSettingsListItem
       {...props}
