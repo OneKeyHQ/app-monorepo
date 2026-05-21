@@ -3104,6 +3104,8 @@
   "perp_relay_deposit_hint_with_max__desc": "Anda dapat menerima hingga {amount} USDC. Anda dapat mengirim jumlah berapa pun dalam batas. Ubah jumlah di atas untuk memperkirakan biaya.",
   "perp_relay_token__title": "Token",
   "perp_relay_wallet_deposit__desc": "Transfer langsung dari dompet Anda",
+  "perp_spot_average_cost_price__title": "Harga Biaya Rata-rata",
+  "perp_spot_current_price__title": "Harga Saat Ini",
   "perp_spot_max_buy": "Beli maks.",
   "perp_spot_max_buy_sell_tooltip": "Jumlah maksimum beli atau jual bergantung pada saldo tersedia dan harga order Anda. Untuk order limit, nilainya akan diperbarui otomatis setelah Anda memasukkan harga.",
   "perp_spot_max_sell": "Jual maks.",

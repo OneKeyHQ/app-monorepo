@@ -3104,6 +3104,8 @@
   "perp_relay_deposit_hint_with_max__desc": "您最多可接收 {amount} USDC，在限制數量內您可發送任意數量。修改上方數量以估算手續費。",
   "perp_relay_token__title": "代幣",
   "perp_relay_wallet_deposit__desc": "從錢包直接轉帳",
+  "perp_spot_average_cost_price__title": "平均成本價格",
+  "perp_spot_current_price__title": "當前價格",
   "perp_spot_max_buy": "可買",
   "perp_spot_max_buy_sell_tooltip": "最大可買或可賣數量取決於可用餘額和委託價格。限價單輸入價格後會自動更新。",
   "perp_spot_max_sell": "可賣",

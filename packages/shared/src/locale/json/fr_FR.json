@@ -3104,6 +3104,8 @@
   "perp_relay_deposit_hint_with_max__desc": "Vous pouvez recevoir jusqu'à {amount} USDC. Vous pouvez envoyer n'importe quel montant dans la limite. Modifiez le montant ci-dessus pour estimer les frais.",
   "perp_relay_token__title": "Jeton",
   "perp_relay_wallet_deposit__desc": "Transférer directement depuis votre portefeuille",
+  "perp_spot_average_cost_price__title": "Prix de revient moyen",
+  "perp_spot_current_price__title": "Prix actuel",
   "perp_spot_max_buy": "Achat max.",
   "perp_spot_max_buy_sell_tooltip": "Le montant maximal achetable ou vendable dépend de votre solde disponible et du prix de l’ordre. Pour les ordres à cours limité, il se met à jour automatiquement après saisie du prix.",
   "perp_spot_max_sell": "Vente max.",

@@ -3104,6 +3104,8 @@
   "perp_relay_deposit_hint_with_max__desc": "Bạn có thể nhận tối đa {amount} USDC. Bạn có thể gửi bất kỳ số tiền nào trong giới hạn. Thay đổi số tiền ở trên để ước tính phí.",
   "perp_relay_token__title": "Token",
   "perp_relay_wallet_deposit__desc": "Chuyển trực tiếp từ ví của bạn",
+  "perp_spot_average_cost_price__title": "Giá vốn trung bình",
+  "perp_spot_current_price__title": "Giá hiện tại",
   "perp_spot_max_buy": "Mua tối đa",
   "perp_spot_max_buy_sell_tooltip": "Số lượng mua hoặc bán tối đa phụ thuộc vào số dư khả dụng và giá lệnh. Với lệnh giới hạn, giá trị này sẽ tự động cập nhật sau khi bạn nhập giá.",
   "perp_spot_max_sell": "Bán tối đa",

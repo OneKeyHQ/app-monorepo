@@ -1,5 +1,7 @@
 import BigNumber from 'bignumber.js';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import type { ICanvasConfig, IPnlDisplayMode, IShareData } from './types';
 
 export const SHOW_REFERRAL_CODE = true;
@@ -107,6 +109,29 @@ export function getDefaultShareText({
   }
 
   return `Check out my ${side.toUpperCase()} position on ${name}! 🚀`;
+}
+
+export function getSharePriceLabelIds({
+  mode,
+  priceType = 'mark',
+}: Pick<IShareData, 'mode' | 'priceType'>): {
+  entryPriceLabelId: ETranslations;
+  markPriceLabelId: ETranslations;
+} {
+  if (mode === 'spot') {
+    return {
+      entryPriceLabelId: ETranslations.perp_spot_average_cost_price__title,
+      markPriceLabelId: ETranslations.perp_spot_current_price__title,
+    };
+  }
+
+  return {
+    entryPriceLabelId: ETranslations.perp_position_entry_price,
+    markPriceLabelId:
+      priceType === 'exit'
+        ? ETranslations.perp_position_exit_price
+        : ETranslations.perp_position_mark_price,
+  };
 }
 
 const BASE_SIZE = 1080;

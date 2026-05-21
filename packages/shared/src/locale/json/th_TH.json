@@ -3104,6 +3104,8 @@
   "perp_relay_deposit_hint_with_max__desc": "คุณสามารถรับได้สูงสุด {amount} USDC คุณสามารถส่งจำนวนใดก็ได้ภายในขีดจำกัด แก้ไขจำนวนด้านบนเพื่อประมาณค่าธรรมเนียม",
   "perp_relay_token__title": "โทเค็น",
   "perp_relay_wallet_deposit__desc": "โอนโดยตรงจากกระเป๋าของคุณ",
+  "perp_spot_average_cost_price__title": "ราคาต้นทุนเฉลี่ย",
+  "perp_spot_current_price__title": "ราคาปัจจุบัน",
   "perp_spot_max_buy": "ซื้อสูงสุด",
   "perp_spot_max_buy_sell_tooltip": "จำนวนซื้อหรือขายสูงสุดขึ้นอยู่กับยอดคงเหลือที่ใช้ได้และราคาคำสั่งของคุณ สำหรับคำสั่งลิมิต ระบบจะอัปเดตให้อัตโนมัติหลังจากคุณกรอกราคา",
   "perp_spot_max_sell": "ขายสูงสุด",

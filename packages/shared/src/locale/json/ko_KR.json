@@ -3104,6 +3104,8 @@
   "perp_relay_deposit_hint_with_max__desc": "최대 {amount} USDC를 수신할 수 있습니다. 한도 내에서 원하는 금액을 보낼 수 있습니다. 수수료를 추정하려면 위의 금액을 수정하세요.",
   "perp_relay_token__title": "토큰",
   "perp_relay_wallet_deposit__desc": "지갑에서 직접 전송",
+  "perp_spot_average_cost_price__title": "평균 매입가",
+  "perp_spot_current_price__title": "현재 가격",
   "perp_spot_max_buy": "최대 매수",
   "perp_spot_max_buy_sell_tooltip": "최대 매수 또는 최대 매도 수량은 사용 가능한 잔액과 주문 가격에 따라 달라집니다. 지정가 주문에서는 가격을 입력하면 자동으로 업데이트됩니다.",
   "perp_spot_max_sell": "최대 매도",

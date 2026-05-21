@@ -3109,6 +3109,8 @@ export enum ETranslations {
   perp_relay_deposit_hint_with_max__desc = 'perp_relay_deposit_hint_with_max__desc',
   perp_relay_token__title = 'perp_relay_token__title',
   perp_relay_wallet_deposit__desc = 'perp_relay_wallet_deposit__desc',
+  perp_spot_average_cost_price__title = 'perp_spot_average_cost_price__title',
+  perp_spot_current_price__title = 'perp_spot_current_price__title',
   perp_spot_max_buy = 'perp_spot_max_buy',
   perp_spot_max_buy_sell_tooltip = 'perp_spot_max_buy_sell_tooltip',
   perp_spot_max_sell = 'perp_spot_max_sell',

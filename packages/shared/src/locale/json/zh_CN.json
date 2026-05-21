@@ -3104,6 +3104,8 @@
   "perp_relay_deposit_hint_with_max__desc": "您最多可接收 {amount} USDC，在限制数量内您可发送任意数量。修改上方数量以估算手续费。",
   "perp_relay_token__title": "代币",
   "perp_relay_wallet_deposit__desc": "从钱包直接转账",
+  "perp_spot_average_cost_price__title": "平均成本价格",
+  "perp_spot_current_price__title": "当前价格",
   "perp_spot_max_buy": "可买",
   "perp_spot_max_buy_sell_tooltip": "最大可买或最大可卖数量取决于可用余额和委托价格。限价单输入价格后会自动更新。",
   "perp_spot_max_sell": "可卖",

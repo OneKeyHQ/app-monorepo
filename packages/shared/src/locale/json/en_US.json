@@ -3104,6 +3104,8 @@
   "perp_relay_deposit_hint_with_max__desc": "You can receive up to {amount} USDC. You may send any amount within the limit. Modify the amount above to estimate fees.",
   "perp_relay_token__title": "Token",
   "perp_relay_wallet_deposit__desc": "Transfer directly from your wallet",
+  "perp_spot_average_cost_price__title": "Average Cost Price",
+  "perp_spot_current_price__title": "Current Price",
   "perp_spot_max_buy": "Max buy",
   "perp_spot_max_buy_sell_tooltip": "The max buy or max sell amount depends on your available balance and the order price. For limit orders, it updates automatically after you enter a price.",
   "perp_spot_max_sell": "Max sell",

@@ -3104,6 +3104,8 @@
   "perp_relay_deposit_hint_with_max__desc": "आप अधिकतम {amount} USDC प्राप्त कर सकते हैं। आप सीमा के भीतर कोई भी राशि भेज सकते हैं। शुल्क का अनुमान लगाने के लिए ऊपर की राशि बदलें।",
   "perp_relay_token__title": "टोकन",
   "perp_relay_wallet_deposit__desc": "अपने वॉलेट से सीधे ट्रांसफर करें",
+  "perp_spot_average_cost_price__title": "औसत लागत मूल्य",
+  "perp_spot_current_price__title": "वर्तमान मूल्य",
   "perp_spot_max_buy": "अधिकतम खरीद",
   "perp_spot_max_buy_sell_tooltip": "अधिकतम खरीद या बिक्री मात्रा आपके उपलब्ध बैलेंस और ऑर्डर प्राइस पर निर्भर करती है। लिमिट ऑर्डर में कीमत दर्ज करने के बाद यह अपने आप अपडेट हो जाती है।",
   "perp_spot_max_sell": "अधिकतम बिक्री",
