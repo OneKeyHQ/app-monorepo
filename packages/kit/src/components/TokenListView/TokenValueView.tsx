@@ -1,8 +1,7 @@
 import { memo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
+import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import {
   useFlattenAggregateTokensMapAtom,
@@ -25,8 +24,6 @@ function TokenValueView(props: IProps) {
   const tokenListMap = contextTokenListMap ?? globalTokenListMap;
   const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
 
-  const fiatValue = new BigNumber(token?.fiatValue || 0);
-
   if (!token) {
     return <SizableText {...rest}>-</SizableText>;
   }
@@ -37,7 +34,7 @@ function TokenValueView(props: IProps) {
       sourceCurrency={token.currency}
       {...(rest as React.ComponentProps<typeof Currency>)}
     >
-      {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
+      {displayOrUnavailable(token.fiatValue)}
     </Currency>
   );
 }

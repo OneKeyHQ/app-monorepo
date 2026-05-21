@@ -1,6 +1,7 @@
 import { memo } from 'react';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
+import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import {
   useFlattenAggregateTokensMapAtom,
@@ -28,7 +29,7 @@ function TokenPriceView(props: IProps) {
       sourceCurrency={token?.currency}
       {...(rest as React.ComponentProps<typeof Currency>)}
     >
-      {token?.price ?? 0}
+      {displayOrUnavailable(token?.price)}
     </Currency>
   );
 }

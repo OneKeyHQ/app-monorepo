@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { type IProps } from '.';
 
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -53,6 +52,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -258,6 +258,8 @@ function TokenDetailsHeader(props: IProps) {
 
         const data = tokensDetails?.[0];
 
+        // Chart price-line surface cannot render '--'; coerce to 0. Header
+        // price/balance render '--' via displayOrUnavailable below.
         updateTokenMetadata({
           price: data?.price ?? 0,
           priceChange24h: data?.price24h ?? 0,
@@ -268,10 +270,6 @@ function TokenDetailsHeader(props: IProps) {
         if (!data) {
           tokenDetailsCache.delete(tokenDetailsCacheKey);
           return undefined;
-        }
-
-        if (isNil(data.fiatValue)) {
-          data.fiatValue = '0';
         }
 
         tokenDetailsCache.set(tokenDetailsCacheKey, data);
@@ -301,6 +299,7 @@ function TokenDetailsHeader(props: IProps) {
       return;
     }
 
+    // Cached-only path: same '--' coercion rationale as the fetch path above.
     updateTokenMetadata({
       price: cachedTokenDetails.price ?? 0,
       priceChange24h: cachedTokenDetails.price24h ?? 0,
@@ -520,7 +519,7 @@ function TokenDetailsHeader(props: IProps) {
                   lineHeight={48}
                   fontWeight={500}
                 >
-                  {tokenDetails?.fiatValue ?? '0'}
+                  {displayOrUnavailable(tokenDetails?.fiatValue)}
                 </Currency>
                 <NumberSizeableTextWrapper
                   hideValue
@@ -528,7 +527,7 @@ function TokenDetailsHeader(props: IProps) {
                   color="$textSubdued"
                   size="$bodyLg"
                 >
-                  {tokenDetails?.balanceParsed ?? '0'}
+                  {displayOrUnavailable(tokenDetails?.balanceParsed)}
                 </NumberSizeableTextWrapper>
               </>
             )}

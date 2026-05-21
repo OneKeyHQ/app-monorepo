@@ -107,6 +107,11 @@ import {
   sortTokensByFiatValue,
   sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  isUnavailableOrZeroFiatValue,
+  sumFiatValuesFromTokens,
+  sumTokenGroupsFiatValueIgnoringUnavailable,
+} from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
@@ -253,19 +258,21 @@ function TokenListBlock({
   const forceWalletTokenModeRef = useRef(false);
   const syncTokenFilterToOverview = true;
 
-  const accountTokensValue = useMemo(() => {
-    return calculateAccountTokensValue({
-      accountId: account?.id ?? '',
-      networkId: network?.id ?? '',
-      tokensWorth: accountTokensWorth,
-      mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
-    });
-  }, [
-    account?.id,
-    network?.id,
-    accountTokensWorth,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-  ]);
+  const accountTokensValue = useMemo(
+    () =>
+      calculateAccountTokensValue({
+        accountId: account?.id ?? '',
+        networkId: network?.id ?? '',
+        tokensWorth: accountTokensWorth,
+        mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+      }),
+    [
+      account?.id,
+      network?.id,
+      accountTokensWorth,
+      vaultSettings?.mergeDeriveAssetsEnabled,
+    ],
+  );
 
   const tokenListRef = useRef<{
     keys: string;
@@ -516,17 +523,15 @@ function TokenListBlock({
 
           resp.forEach((item) => {
             if (item.accountId && item.networkId) {
-              let accountWorthValue = new BigNumber(0);
-              accountWorthValue = accountWorthValue
-                .plus(item.tokens.fiatValue ?? '0')
-                .plus(item.smallBalanceTokens.fiatValue ?? '0');
-
-              accountWorth[
-                accountUtils.buildAccountValueKey({
-                  accountId: item.accountId,
-                  networkId: item.networkId,
-                })
-              ] = accountWorthValue.toFixed();
+              const key = accountUtils.buildAccountValueKey({
+                accountId: item.accountId,
+                networkId: item.networkId,
+              });
+              // Unavailable tokens are silently dropped from the per-network
+              // total — partial sum keeps the top balance trustworthy while
+              // the row-level '--' still surfaces the broken entry.
+              accountWorth[key] =
+                sumTokenGroupsFiatValueIgnoringUnavailable(item);
             }
           });
 
@@ -563,10 +568,7 @@ function TokenListBlock({
             ...walletTokenFilterParams,
           });
 
-          let accountWorth = new BigNumber(0);
-          accountWorth = accountWorth
-            .plus(r.tokens.fiatValue ?? '0')
-            .plus(r.smallBalanceTokens.fiatValue ?? '0');
+          const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
 
           if (
             !forceWalletTokenMode &&
@@ -589,9 +591,9 @@ function TokenListBlock({
                 [accountUtils.buildAccountValueKey({
                   accountId,
                   networkId: network.id,
-                })]: accountWorth.toFixed(),
+                })]: accountWorth,
               },
-              createAtNetworkWorth: accountWorth.toFixed(),
+              createAtNetworkWorth: accountWorth,
               merge: false,
             });
           }
@@ -1012,12 +1014,8 @@ function TokenListBlock({
       r.allTokens = allTokens;
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
-        let accountWorth = new BigNumber(0);
-        let createAtNetworkWorth = new BigNumber(0);
-
-        accountWorth = accountWorth
-          .plus(r.tokens.fiatValue ?? '0')
-          .plus(r.smallBalanceTokens.fiatValue ?? '0');
+        const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
+        let createAtNetworkWorth = '0';
 
         perfTokenListView.markEnd('tokenListRefreshing_allNetworkRequests');
         updateTokenListState({
@@ -1050,9 +1048,9 @@ function TokenListBlock({
               [accountUtils.buildAccountValueKey({
                 accountId,
                 networkId,
-              })]: accountWorth.toFixed(),
+              })]: accountWorth,
             },
-            createAtNetworkWorth: createAtNetworkWorth.toFixed(),
+            createAtNetworkWorth,
             merge: true,
           });
         }
@@ -1824,16 +1822,14 @@ function TokenListBlock({
           mergeDeriveAssets: mergeDeriveAssetsEnabled,
         });
 
-        const accountWorth = new BigNumber(r.tokens.fiatValue ?? '0').plus(
-          r.smallBalanceTokens.fiatValue ?? '0',
-        );
+        const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
 
         accountsWorth[
           accountUtils.buildAccountValueKey({
             accountId: r.accountId ?? '',
             networkId: r.networkId ?? '',
           })
-        ] = accountWorth.toFixed();
+        ] = accountWorth;
 
         if (
           account?.id &&
@@ -1842,9 +1838,7 @@ function TokenListBlock({
               account?.createAtNetwork &&
               account.createAtNetwork === r.networkId))
         ) {
-          createAtNetworkWorth = createAtNetworkWorth
-            .plus(r.tokens.fiatValue ?? '0')
-            .plus(r.smallBalanceTokens.fiatValue ?? '0');
+          createAtNetworkWorth = createAtNetworkWorth.plus(accountWorth);
         }
       }
 
@@ -1892,7 +1886,7 @@ function TokenListBlock({
       });
 
       const index = mergedTokens.findIndex((token) =>
-        new BigNumber(mergeTokenListMap[token.$key]?.fiatValue ?? 0).isZero(),
+        isUnavailableOrZeroFiatValue(mergeTokenListMap[token.$key]?.fiatValue),
       );
 
       if (index > -1) {
@@ -1912,12 +1906,10 @@ function TokenListBlock({
         TOKEN_LIST_HIGH_VALUE_MAX,
       );
 
-      smallBalanceTokensFiatValue =
-        smallBalanceTokenList.smallBalanceTokens.reduce(
-          (acc, token) =>
-            acc.plus(mergeTokenListMap[token.$key].fiatValue ?? '0'),
-          new BigNumber(0),
-        );
+      smallBalanceTokensFiatValue = sumFiatValuesFromTokens(
+        smallBalanceTokenList.smallBalanceTokens,
+        mergeTokenListMap,
+      );
 
       riskyTokenList.riskyTokens = sortTokensByFiatValue({
         tokens: riskyTokenList.riskyTokens,

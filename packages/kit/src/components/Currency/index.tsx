@@ -5,6 +5,7 @@ import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import { convertFiat } from '../../utils/fiatConvert';
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
@@ -38,6 +39,11 @@ function BasicCurrency({
   const value = useMemo(() => {
     if (children === undefined || children === null || children === '') {
       return '0';
+    }
+    // Pass the unavailable sentinel through unchanged so NumberSizeableText
+    // can render the literal placeholder instead of formatting NaN.
+    if (children === UNAVAILABLE_DISPLAY) {
+      return UNAVAILABLE_DISPLAY;
     }
     return convertFiat({
       value: String(children),
