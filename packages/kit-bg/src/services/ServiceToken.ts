@@ -53,6 +53,11 @@ import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 
+type IFetchAccountTokensController = {
+  controller: AbortController;
+  flag?: string;
+};
+
 @backgroundClass()
 class ServiceToken extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -69,7 +74,7 @@ class ServiceToken extends ServiceBase {
     });
   }
 
-  _fetchAccountTokensControllers: AbortController[] = [];
+  _fetchAccountTokensControllers: IFetchAccountTokensController[] = [];
 
   _searchTokensControllers: AbortController[] = [];
 
@@ -80,11 +85,25 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async abortFetchAccountTokens() {
-    this._fetchAccountTokensControllers.forEach((controller) =>
-      controller.abort(),
-    );
-    this._fetchAccountTokensControllers = [];
+  public async abortFetchAccountTokens(options?: { excludedFlags?: string[] }) {
+    const excludedFlags = options?.excludedFlags ?? [];
+    const nextControllers: IFetchAccountTokensController[] = [];
+
+    this._fetchAccountTokensControllers.forEach((item) => {
+      if (item.flag && excludedFlags.includes(item.flag)) {
+        nextControllers.push(item);
+        return;
+      }
+      item.controller.abort();
+    });
+    this._fetchAccountTokensControllers = nextControllers;
+  }
+
+  private removeFetchAccountTokensController(controller: AbortController) {
+    this._fetchAccountTokensControllers =
+      this._fetchAccountTokensControllers.filter(
+        (item) => item.controller !== controller,
+      );
   }
 
   localAccountTokensCache: {
@@ -257,7 +276,10 @@ class ServiceToken extends ServiceBase {
 
     // const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
-    this._fetchAccountTokensControllers.push(controller);
+    this._fetchAccountTokensControllers.push({
+      controller,
+      flag,
+    });
     // const resp = await client.post<{
     //   data: IFetchAccountTokensResp;
     // }>(
@@ -277,22 +299,28 @@ class ServiceToken extends ServiceBase {
     //       }),
     //   },
     // );
-    const vault = await vaultFactory.getVault({
-      accountId,
-      networkId,
-    });
-    const resp = await vault.fetchTokenList({
-      accountId,
-      requestApiParams: {
-        ...rest,
-        accountAddress,
-        xpub,
-        isAllNetwork: isAllNetworks,
-        isForceRefresh: isManualRefresh,
-      },
-      flag,
-      signal: controller.signal,
-    });
+    const resp = await (async () => {
+      try {
+        const vault = await vaultFactory.getVault({
+          accountId,
+          networkId,
+        });
+        return await vault.fetchTokenList({
+          accountId,
+          requestApiParams: {
+            ...rest,
+            accountAddress,
+            xpub,
+            isAllNetwork: isAllNetworks,
+            isForceRefresh: isManualRefresh,
+          },
+          flag,
+          signal: controller.signal,
+        });
+      } finally {
+        this.removeFetchAccountTokensController(controller);
+      }
+    })();
     let allTokens: ITokenData | undefined;
 
     resp.data.data.tokens.data = resp.data.data.tokens.data.map((token) => {
