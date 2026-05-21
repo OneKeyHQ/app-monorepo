@@ -11,6 +11,7 @@ import {
   Icon,
   Illustration,
   Input,
+  Keyboard,
   SizableText,
   Spinner,
   Stack,
@@ -175,6 +176,10 @@ function OnboardingInviteCodeDialogContent({
   const handleApply = useCallback(async () => {
     if (isPending || isSuccess) return;
 
+    // Mobile: dismiss the keyboard so the dialog footer + any inline error
+    // are fully visible while the bind RPC is in flight.
+    Keyboard.dismiss();
+
     const isValid = await form.trigger();
     if (!isValid) return;
     const referralCode = form.getValues().referralCode?.trim();
@@ -301,6 +306,17 @@ function OnboardingInviteCodeDialogContent({
       <Form.Field
         name="referralCode"
         rules={{
+          // Empty value bypasses `pattern` in react-hook-form, so we need
+          // `required` to catch the "user pressed Apply with nothing typed"
+          // case. Reuse the same invalid-code message — "invalid" reads
+          // sensibly for both empty and malformed input, and avoids adding
+          // a new i18n key.
+          required: {
+            value: true,
+            message: intl.formatMessage({
+              id: ETranslations.referral_invalid_code,
+            }),
+          },
           pattern: {
             value: /^[a-zA-Z0-9]{1,30}$/,
             message: intl.formatMessage({
