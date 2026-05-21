@@ -100,7 +100,7 @@ const UTXOListItemInner = ({
     <XStack
       px="$5"
       py="$1"
-      gap="$3"
+      gap={readOnly ? '$2' : '$3'}
       ai="center"
       onPress={readOnly ? undefined : handlePress}
       {...(readOnly
@@ -110,24 +110,24 @@ const UTXOListItemInner = ({
             pressStyle: { bg: '$bgActive' },
           })}
     >
-      <XStack ai="center" gap="$2" w={80} $md={{ w: 60 }}>
-        {readOnly ? null : (
+      {readOnly ? null : (
+        <XStack ai="center" gap="$2" w={80} $md={{ w: 60 }}>
           <Checkbox
             testID="send-shortened-address-checkbox"
             value={isSelected}
             onChange={handlePress}
             shouldStopPropagation
           />
-        )}
-        <SizableText size="$bodyMd" color="$text">
-          {index + 1}
-        </SizableText>
-      </XStack>
+          <SizableText size="$bodyMd" color="$text">
+            {index + 1}
+          </SizableText>
+        </XStack>
+      )}
 
       <SizableText
         size="$bodyMd"
         color="$text"
-        textAlign="right"
+        textAlign={readOnly ? 'left' : 'right'}
         minWidth={120}
       >
         {formattedAmount} {symbol}

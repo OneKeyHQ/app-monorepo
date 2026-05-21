@@ -789,7 +789,6 @@ function BtcAddresses() {
               current={footerCurrent}
               total={footerTotal}
               onChange={footerOnChange}
-              showControls={false}
               siblingCount={0}
               pageButtonSize="small"
             />

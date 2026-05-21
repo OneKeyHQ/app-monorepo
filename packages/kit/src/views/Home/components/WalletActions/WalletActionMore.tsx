@@ -82,6 +82,20 @@ export function WalletActionMore() {
     return settings;
   }, [network?.id]).result;
 
+  const isCoinsEnabled = useMemo(
+    () =>
+      Boolean(account?.id) &&
+      Boolean(network?.id) &&
+      Boolean(activeAccount?.wallet?.id) &&
+      Boolean(vaultSettings?.coinControlEnabled),
+    [
+      account?.id,
+      activeAccount?.wallet?.id,
+      network?.id,
+      vaultSettings?.coinControlEnabled,
+    ],
+  );
+
   const displaySignAndVerify = usePromiseResult(async () => {
     return vaultSettings?.enabledInternalSignAndVerify;
   }, [vaultSettings]);
@@ -181,7 +195,7 @@ export function WalletActionMore() {
             case 'addressList':
               return isAddressListEnabled;
             case 'coins':
-              return isAddressListEnabled;
+              return isCoinsEnabled;
             default:
               return config.moreActions.includes(action);
           }
@@ -345,6 +359,7 @@ export function WalletActionMore() {
       rewardCenterConfig,
       isApprovalEnabled,
       isAddressListEnabled,
+      isCoinsEnabled,
       getActionCustomization,
       devSettings?.settings?.showDevExportPrivateKey,
       isBotWallet,

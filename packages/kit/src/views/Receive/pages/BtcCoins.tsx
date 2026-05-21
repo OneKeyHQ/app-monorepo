@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Empty,
   Icon,
   ListView,
   Page,
@@ -34,7 +35,6 @@ import { useAccountData } from '../../../hooks/useAccountData';
 import {
   EUtxoSortType,
   UTXOListItem,
-  isChangeUtxoPath,
 } from '../../Send/pages/CoinControl/UTXOListItem';
 import { ReceiveTestIDs } from '../testIDs';
 
@@ -177,10 +177,6 @@ function BtcCoinsPage() {
     [sortType, sortOptions],
   );
 
-  const changeLabel = intl.formatMessage({
-    id: ETranslations.address_list_tab_change__action,
-  });
-
   const renderItem = useCallback(
     ({ item, index }: { item: IUtxoInfo; index: number }) => (
       <UTXOListItem
@@ -190,11 +186,9 @@ function BtcCoinsPage() {
         symbol={symbol}
         intl={intl}
         readOnly
-        isChange={isChangeUtxoPath(item.path)}
-        changeLabel={changeLabel}
       />
     ),
-    [decimals, symbol, intl, changeLabel],
+    [decimals, symbol, intl],
   );
 
   const keyExtractor = useCallback(
@@ -303,7 +297,18 @@ function BtcCoinsPage() {
             >
               <Spinner size="large" />
             </Stack>
-          ) : (
+          ) : null}
+          {!isLoading && sortedData.length === 0 ? (
+            <Stack flex={1} px="$5" py="$8" alignItems="center">
+              <Empty
+                illustration="QuestionMark"
+                title={intl.formatMessage({
+                  id: ETranslations.global_no_results,
+                })}
+              />
+            </Stack>
+          ) : null}
+          {!isLoading && sortedData.length > 0 ? (
             <ListView
               flex={1}
               estimatedItemSize={60}
@@ -312,7 +317,7 @@ function BtcCoinsPage() {
               keyExtractor={keyExtractor}
               extraData={sortType}
             />
-          )}
+          ) : null}
         </YStack>
       </Page.Body>
     </Page>
