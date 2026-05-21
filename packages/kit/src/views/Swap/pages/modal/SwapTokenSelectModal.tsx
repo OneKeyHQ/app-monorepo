@@ -236,13 +236,14 @@ const SwapTokenSelectPage = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSelectNetwork?.networkId]);
 
-  const { fetchLoading, currentTokens } = useSwapTokenList(
-    type,
-    currentSelectNetwork?.networkId,
-    requestedSearchKeyword,
-    swapTypeSwitch,
-    showLpTokenFilterSwitch ? showLpTokensOnly : undefined,
-  );
+  const { fetchLoading, lpTokenRequestLoading, currentTokens } =
+    useSwapTokenList(
+      type,
+      currentSelectNetwork?.networkId,
+      requestedSearchKeyword,
+      swapTypeSwitch,
+      showLpTokenFilterSwitch ? showLpTokensOnly : undefined,
+    );
   const alertIndex = useMemo(
     () =>
       currentTokens.findIndex((item) => {
@@ -657,6 +658,7 @@ const SwapTokenSelectPage = ({
             <TokenSelectorLpTokenSwitch
               value={showLpTokensOnly}
               onChange={handleLpTokenFilterChange}
+              loading={lpTokenRequestLoading}
               disabled={!SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED}
             />
           ) : null}
