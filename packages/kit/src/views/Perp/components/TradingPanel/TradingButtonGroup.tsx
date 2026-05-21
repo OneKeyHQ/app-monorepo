@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -38,6 +38,7 @@ import {
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm } from '../../hooks';
+import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
@@ -90,6 +91,7 @@ function SideButtonInternal({
 
   const { handleConfirm } = useOrderConfirm();
   const { midPriceBN } = useTradingPrice();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
 
   const szDecimals = useMemo(() => {
     if (isSpot && activeTradeInstrument.mode === 'spot') {
@@ -148,7 +150,6 @@ function SideButtonInternal({
   const buttonDisabled = useMemo(() => {
     return (
       !perpsAccountStatus.canTrade ||
-      isNoEnoughMargin ||
       isAccountLoading ||
       priceError === 'bbo_unavailable' ||
       (perpsAccountStatus.canTrade &&
@@ -157,12 +158,39 @@ function SideButtonInternal({
     );
   }, [
     perpsAccountStatus.canTrade,
-    isNoEnoughMargin,
     isAccountLoading,
     priceError,
     perpConfigCommon?.disablePerpActionPerp,
     perpConfigCommon?.ipDisablePerp,
   ]);
+
+  const handleDepositFromToast = useCallback(() => {
+    void showDepositWithdrawModal('deposit');
+  }, [showDepositWithdrawModal]);
+
+  const showNoEnoughMarginToast = useCallback(() => {
+    Toast.error({
+      title: isSpot
+        ? intl.formatMessage({
+            id: ETranslations.dexmarket_insufficient_balance,
+          })
+        : intl.formatMessage({
+            id: ETranslations.perp_insufficient_margin__title,
+          }),
+      actions: (
+        <Button
+          testID={PerpTestIDs.MarginToastDepositButton}
+          size="small"
+          variant="primary"
+          onPress={handleDepositFromToast}
+        >
+          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+        </Button>
+      ),
+      actionsAlign: 'left',
+      toastId: `perp-no-enough-margin-${isSpot ? 'spot' : 'perp'}`,
+    });
+  }, [handleDepositFromToast, intl, isSpot]);
 
   const buttonSecondaryText = useMemo(() => {
     if (orderValue.isZero() || !orderValue.isFinite()) return null;
@@ -218,12 +246,6 @@ function SideButtonInternal({
       return intl.formatMessage({
         id: ETranslations.perp_button_disable_perp,
       });
-    if (isNoEnoughMargin)
-      return intl.formatMessage({
-        id: isSpot
-          ? ETranslations.dexmarket_insufficient_balance
-          : ETranslations.perp_trading_button_no_enough_margin,
-      });
     if (isSpot) {
       if (!spotTradeSymbol) {
         return side === 'long'
@@ -253,7 +275,6 @@ function SideButtonInternal({
       : intl.formatMessage({ id: ETranslations.perp_trade_short });
   }, [
     priceError,
-    isNoEnoughMargin,
     isSpot,
     side,
     spotTradeSymbol,
@@ -419,6 +440,11 @@ function SideButtonInternal({
             { amount: minAmount },
           ),
         });
+        return;
+      }
+
+      if (isNoEnoughMargin) {
+        showNoEnoughMarginToast();
         return;
       }
 
