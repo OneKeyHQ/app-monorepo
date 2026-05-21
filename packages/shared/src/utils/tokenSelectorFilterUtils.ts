@@ -1,4 +1,39 @@
-export const TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED = false;
+import type { IServerNetwork } from '../../types';
+
+export const TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED = true;
+
+export function isTokenSelectorDappTokenFilterSupportedNetwork({
+  network,
+}: {
+  network?: Pick<
+    IServerNetwork,
+    'id' | 'isAllNetworks' | 'backendIndex'
+  > | null;
+}) {
+  if (!TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED || !network) {
+    return false;
+  }
+  if (network.isAllNetworks) {
+    return true;
+  }
+  return network.backendIndex === true;
+}
+
+export function filterTokenSelectorTokensByBackendIndexedNetworks<
+  T extends { networkId?: string },
+>({
+  tokens,
+  backendIndexedNetworkIds,
+}: {
+  tokens: T[];
+  backendIndexedNetworkIds: string[];
+}) {
+  const backendIndexedNetworkIdSet = new Set(backendIndexedNetworkIds);
+  return tokens.filter(
+    (token) =>
+      !!token.networkId && backendIndexedNetworkIdSet.has(token.networkId),
+  );
+}
 
 export function buildTokenSelectorDappTokenFilterParams({
   lpToken,
