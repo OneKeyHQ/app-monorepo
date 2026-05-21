@@ -557,11 +557,34 @@ function SideButtonInternal({
 
       // Validation passed, proceed with order
       if (shouldAutoEnableTrading) {
+        console.log('[OK-55089][PerpsAutoEnableTrading] triggered', {
+          side,
+          canTrade: perpsAccountStatus.canTrade,
+          isSoftwareAccount: enableTradingMode.isSoftwareAccount,
+          accountAddress: perpsAccountStatus.accountAddress
+            ? `${perpsAccountStatus.accountAddress.slice(
+                0,
+                6,
+              )}...${perpsAccountStatus.accountAddress.slice(-4)}`
+            : undefined,
+        });
         const result = await enableTradingWithDepositFallback();
+        console.log('[OK-55089][PerpsAutoEnableTrading] result', {
+          side,
+          shouldContinue: result.shouldContinue,
+          canTrade: result.status?.canTrade,
+          activatedOk: result.status?.details?.activatedOk,
+        });
         if (!result.shouldContinue) {
           return;
         }
         if (isNoEnoughMargin) {
+          console.log(
+            '[OK-55089][PerpsAutoEnableTrading] blocked after enable by margin check',
+            {
+              side,
+            },
+          );
           Toast.message({
             title: intl.formatMessage({
               id: isSpot
@@ -576,8 +599,24 @@ function SideButtonInternal({
       }
 
       if (perpsCustomSettings.skipOrderConfirm) {
+        if (shouldAutoEnableTrading) {
+          console.log(
+            '[OK-55089][PerpsAutoEnableTrading] proceed to direct order confirm',
+            {
+              side,
+            },
+          );
+        }
         void handleConfirm(side);
       } else {
+        if (shouldAutoEnableTrading) {
+          console.log(
+            '[OK-55089][PerpsAutoEnableTrading] proceed to order confirm dialog',
+            {
+              side,
+            },
+          );
+        }
         showOrderConfirmDialog({ overrideSide: side, intl });
       }
     },
