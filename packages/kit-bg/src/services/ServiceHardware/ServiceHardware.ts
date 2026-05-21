@@ -965,9 +965,24 @@ class ServiceHardware extends ServiceBase {
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
+    defaultLogger.hardware.sdkLog.log(
+      `[DEV-DBG] getFeaturesWithUnlock inConnectId=${
+        connectId || '(empty)'
+      } compatibleConnectId=${compatibleConnectId || '(empty)'}`,
+    );
     let features = await this.getFeaturesWithoutCache({
       connectId: compatibleConnectId,
     });
+    defaultLogger.hardware.sdkLog.log(
+      `[DEV-DBG] getFeaturesWithUnlock RESULT compatibleConnectId=${
+        compatibleConnectId || '(empty)'
+      } device_id=${features.device_id ?? '(none)'} ble_name=${
+        (features as { ble_name?: string }).ble_name ?? '(none)'
+      } onekey_device_type=${
+        (features as { onekey_device_type?: string }).onekey_device_type ??
+        '(none)'
+      } model=${(features as { model?: string }).model ?? '(none)'}`,
+    );
 
     if (!features.unlocked) {
       // unlock device

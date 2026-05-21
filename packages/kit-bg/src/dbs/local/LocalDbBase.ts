@@ -3210,6 +3210,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       device,
       features,
     });
+    defaultLogger.hardware.sdkLog.log(
+      `[DEV-DBG] buildHwWalletId IN vendor=${vendor ?? '(none)'} connectId=${
+        device.connectId ?? '(none)'
+      } rawDeviceId=${rawDeviceId || '(empty)'} deviceUUID=${
+        deviceUUID || '(empty)'
+      } passphraseState=${passphraseState || '(none)'}`,
+    );
     const existingDevice = await this.getExistingDevice({
       rawDeviceId,
       uuid: deviceUUID,
@@ -3219,6 +3226,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       vendor,
     });
     const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
+    defaultLogger.hardware.sdkLog.log(
+      `[DEV-DBG] buildHwWalletId OUT existingDeviceFound=${
+        existingDevice ? `YES(id=${existingDevice.id})` : 'NO -> NEW DEVICE'
+      } dbDeviceId=${dbDeviceId}`,
+    );
     const dbWalletId = accountUtils.buildHwWalletId({
       dbDeviceId,
       passphraseState,
@@ -3292,13 +3304,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     deviceName: string;
     featuresInfo: IOneKeyDeviceFeatures;
   } {
+    const resolvedName = device.name || `${profile.defaultDeviceName} Device`;
+    defaultLogger.hardware.sdkLog.log(
+      `[DEV-DBG] buildThirdPartyFields device.name=${
+        device.name ?? '(none)'
+      } resolvedDeviceName=${resolvedName} device.connectId=${
+        device.connectId ?? '(none)'
+      } features.ble_name=${
+        (features as { ble_name?: string }).ble_name ?? '(none)'
+      } features.onekey_device_type=${
+        (features as { onekey_device_type?: string }).onekey_device_type ??
+        '(none)'
+      } features.model=${(features as { model?: string }).model ?? '(none)'}`,
+    );
     return {
       deviceType: EDeviceType.Unknown,
       firmwareType: undefined,
       avatar: {
         img: profile.avatarKey as IAllWalletAvatarImageNamesWithoutDividers,
       },
-      deviceName: device.name || `${profile.defaultDeviceName} Device`,
+      deviceName: resolvedName,
       featuresInfo: features,
     };
   }
@@ -5445,6 +5470,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // is reliable enough to identify an existing device.
     if (!rawDeviceId) {
       const profile = getVendorProfile(vendor ?? EHardwareVendor.onekey);
+      const canMatch = connectId
+        ? profile.canMatchDeviceByConnectId(connectId)
+        : false;
+      defaultLogger.hardware.sdkLog.log(
+        `[DEV-DBG] getExistingDevice noRawDeviceId vendor=${
+          vendor ?? '(none)'
+        } connectId=${connectId ?? '(none)'} canMatchByConnectId=${String(
+          canMatch,
+        )}`,
+      );
 
       if (connectId && profile.canMatchDeviceByConnectId(connectId)) {
         const normalizedVendor = vendor ?? EHardwareVendor.onekey;
@@ -5460,6 +5495,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             item.usbConnectId?.toLowerCase() === connId
           );
         });
+        defaultLogger.hardware.sdkLog.log(
+          `[DEV-DBG] getExistingDevice connectId-match candidates=${
+            devices.filter(
+              (d) => (d.vendor ?? EHardwareVendor.onekey) === normalizedVendor,
+            ).length
+          } matched=${matched ? `YES(id=${matched.id})` : 'NO'} storedConnectIds=[${devices
+            .filter(
+              (d) => (d.vendor ?? EHardwareVendor.onekey) === normalizedVendor,
+            )
+            .map((d) => d.connectId ?? d.bleConnectId ?? d.usbConnectId ?? '?')
+            .join(',')}]`,
+        );
         if (matched) {
           const refilled = this.refillDeviceInfo({ device: matched });
           // Ledger BLE connectId survives wipe-and-reseed; require a positive
@@ -5467,12 +5514,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           // re-association of a new seed onto an old wallet is not.
           if (verifySeedMatchFn) {
             const seedCheck = await verifySeedMatchFn(refilled);
+            defaultLogger.hardware.sdkLog.log(
+              `[DEV-DBG] getExistingDevice seedCheck=${seedCheck} (matchedId=${matched.id})`,
+            );
             if (seedCheck !== 'match') return undefined;
           }
           return refilled;
         }
       }
 
+      defaultLogger.hardware.sdkLog.log(
+        '[DEV-DBG] getExistingDevice -> undefined (no connectId match path) => caller creates NEW device',
+      );
       return undefined;
     }
     const normalizedVendor = vendor ?? EHardwareVendor.onekey;

@@ -99,6 +99,13 @@ async function createLedgerHwWallet({
   isSoftwareWalletOnlyUser: boolean;
 }): Promise<void> {
   try {
+    defaultLogger.hardware.sdkLog.log(
+      `[DEV-DBG] createLedgerHwWallet ENTER device.name=${
+        device.name ?? '(none)'
+      } device.connectId=${device.connectId ?? '(none)'} device.deviceId=${
+        device.deviceId ?? '(none)'
+      } device.deviceType=${device.deviceType ?? '(none)'} vendor=${vendor}`,
+    );
     navigation.push(EOnboardingPages.FinalizeWalletSetup);
 
     const params: IDBCreateHwWalletParamsBase & {

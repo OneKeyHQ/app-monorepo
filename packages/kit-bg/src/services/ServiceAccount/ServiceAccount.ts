@@ -3226,6 +3226,43 @@ class ServiceAccount extends ServiceBase {
       features,
     });
 
+    {
+      const d = params.device as {
+        name?: string;
+        deviceType?: string;
+        deviceId?: string;
+        connectId?: string;
+        uuid?: string;
+        bleConnectId?: string;
+        usbConnectId?: string;
+        label?: string;
+        mode?: string;
+      };
+      defaultLogger.hardware.sdkLog.log(
+        `[DEV-DBG] createHWWalletBase CHOKEPOINT vendor=${
+          vendor ?? '(none)'
+        } isThirdParty=${String(
+          vendorProfile?.isThirdParty ?? false,
+        )} compatibleConnectId=${compatibleConnectId || '(empty)'} rawDeviceId=${
+          deviceId || '(empty)'
+        } passphraseState=${passphraseState || '(none)'} device=${JSON.stringify({
+          name: d.name,
+          label: d.label,
+          deviceType: d.deviceType,
+          connectId: d.connectId,
+          deviceId: d.deviceId,
+          bleConnectId: d.bleConnectId,
+          usbConnectId: d.usbConnectId,
+          uuid: d.uuid,
+        })} features={ device_id: ${features.device_id ?? '(none)'}, ble_name: ${
+          (features as { ble_name?: string }).ble_name ?? '(none)'
+        }, onekey_device_type: ${
+          (features as { onekey_device_type?: string }).onekey_device_type ??
+          '(none)'
+        }, model: ${(features as { model?: string }).model ?? '(none)'} }`,
+      );
+    }
+
     let xfp: string | undefined;
     if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
       xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({

@@ -338,6 +338,16 @@ function FinalizeWalletSetupPage({
           // createHWWalletWithoutHidden directly to avoid the
           // onSelectAddWalletType path which would push another
           // FinalizeWalletSetup page on top of this one.
+          const ledgerDevice = deviceData.device as SearchDevice;
+          defaultLogger.hardware.sdkLog.log(
+            `[DEV-DBG] FinalizeWalletSetup createHWWallet(thirdParty) vendor=${
+              deviceData.vendor
+            } device.name=${ledgerDevice?.name ?? '(none)'} device.connectId=${
+              ledgerDevice?.connectId ?? '(none)'
+            } device.deviceId=${ledgerDevice?.deviceId ?? '(none)'} device.deviceType=${
+              ledgerDevice?.deviceType ?? '(none)'
+            }`,
+          );
           await actions.current.createHWWalletWithoutHidden({
             device: deviceData.device as SearchDevice,
             hideCheckingDeviceLoading: true,

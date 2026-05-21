@@ -51,6 +51,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -1265,6 +1266,13 @@ function ConnectYourDevicePage({
       try {
         // For third-party devices, skip CheckAndUpdate and go directly to FinalizeWalletSetup
         if (item.vendor === EHardwareVendor.ledger) {
+          defaultLogger.hardware.sdkLog.log(
+            `[DEV-DBG] v2 connectDevice SELECT ledger device.name=${
+              item.device.name ?? '(none)'
+            } device.connectId=${item.device.connectId ?? '(none)'} device.deviceId=${
+              item.device.deviceId ?? '(none)'
+            } device.deviceType=${item.device.deviceType ?? '(none)'}`,
+          );
           navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
             deviceData: {
               ...item,

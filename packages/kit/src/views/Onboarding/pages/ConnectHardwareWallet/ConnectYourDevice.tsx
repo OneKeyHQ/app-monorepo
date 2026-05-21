@@ -1439,6 +1439,15 @@ export function ConnectYourDevicePage() {
       deviceState?: ReturnType<typeof extractDeviceState>,
     ) => {
       try {
+        defaultLogger.hardware.sdkLog.log(
+          `[DEV-DBG] onboarding createHwWallet ENTER device.connectId=${
+            device.connectId ?? '(none)'
+          } device.deviceId=${device.deviceId ?? '(none)'} device.name=${
+            device.name ?? '(none)'
+          } features.device_id=${
+            features.device_id ?? '(none)'
+          } standardOnly=${String(strategy.createStandardWalletOnly)}`,
+        );
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
 
         const params: IDBCreateHwWalletParamsBase = {
