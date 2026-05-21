@@ -9,6 +9,21 @@ import {
   isPerpTokenSelectorSpotTab,
 } from './tokenSelectorTabs';
 
+export function isTradeInstrumentBackedBySubscriptionState(params: {
+  activeInstrument: IActiveTradeInstrument;
+  tradingMode: IActiveTradeInstrument['mode'];
+  perpCoin?: string;
+  spotCoin?: string;
+}): boolean {
+  const { activeInstrument, tradingMode, perpCoin, spotCoin } = params;
+  const instrumentCoin = activeInstrument?.coin ?? '';
+  if (!instrumentCoin || activeInstrument.mode !== tradingMode) {
+    return false;
+  }
+  const authoritativeCoin = tradingMode === 'spot' ? spotCoin : perpCoin;
+  return instrumentCoin === authoritativeCoin;
+}
+
 export interface ITradeSubscriptionPlan {
   enableLedgerUpdates: boolean;
   shouldSyncSubscriptions: boolean;

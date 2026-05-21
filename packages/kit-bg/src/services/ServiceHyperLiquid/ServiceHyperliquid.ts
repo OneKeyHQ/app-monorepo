@@ -1680,63 +1680,93 @@ export default class ServiceHyperliquid extends ServiceBase {
     const oldActiveAsset = await perpsActiveAssetAtom.get();
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
-    const { universesByDex, marginTablesMapByDex } =
-      await this.getTradingUniverse();
+    const shouldSeedSubscriptionTarget = oldCoin !== newCoin;
 
-    const targetDexIndex = this.detectDexIndexByCoin(newCoin);
-    const dexUniverses: IPerpsUniverse[] | undefined =
-      universesByDex?.[targetDexIndex];
-    const dexMarginTables: IMarginTableMap | undefined =
-      marginTablesMapByDex?.[targetDexIndex];
+    try {
+      if (shouldSeedSubscriptionTarget) {
+        // The subscription runtime cannot see the UI-only optimistic
+        // instrument, so seed the target before trading metadata finishes.
+        await perpsActiveAssetAtom.set({
+          coin: newCoin,
+          assetId: undefined,
+          universe: undefined,
+          margin: undefined,
+        });
+      }
 
-    if (dexUniverses?.length === 0) {
-      return {
-        coin: oldActiveAsset?.coin || newCoin || '',
-        assetId: oldActiveAsset?.assetId,
-        universe: oldActiveAsset?.universe,
-        margin: oldActiveAsset?.margin,
+      const { universesByDex, marginTablesMapByDex } =
+        await this.getTradingUniverse();
+
+      const targetDexIndex = this.detectDexIndexByCoin(newCoin);
+      const dexUniverses: IPerpsUniverse[] | undefined =
+        universesByDex?.[targetDexIndex];
+      const dexMarginTables: IMarginTableMap | undefined =
+        marginTablesMapByDex?.[targetDexIndex];
+
+      if (dexUniverses?.length === 0) {
+        if (
+          shouldSeedSubscriptionTarget &&
+          requestId === this.activeAssetChangeRequestId
+        ) {
+          await perpsActiveAssetAtom.set(oldActiveAsset);
+        }
+        return {
+          coin: oldActiveAsset?.coin || newCoin || '',
+          assetId: oldActiveAsset?.assetId,
+          universe: oldActiveAsset?.universe,
+          margin: oldActiveAsset?.margin,
+        };
+      }
+
+      const selectedUniverse: IPerpsUniverse | undefined =
+        dexUniverses?.find((item) => item.name === newCoin) ||
+        dexUniverses?.[0];
+      if (requestId !== this.activeAssetChangeRequestId) {
+        return {
+          coin: oldActiveAsset?.coin || newCoin || '',
+          assetId: oldActiveAsset?.assetId,
+          universe: oldActiveAsset?.universe,
+          margin: oldActiveAsset?.margin,
+        };
+      }
+
+      const assetId =
+        selectedUniverse?.assetId ??
+        dexUniverses?.findIndex(
+          (token) => token.name === selectedUniverse?.name,
+        ) ??
+        -1;
+      const selectedMargin = dexMarginTables?.[selectedUniverse?.marginTableId];
+      if (requestId !== this.activeAssetChangeRequestId) {
+        return {
+          coin: oldActiveAsset?.coin || newCoin || '',
+          assetId: oldActiveAsset?.assetId,
+          universe: oldActiveAsset?.universe,
+          margin: oldActiveAsset?.margin,
+        };
+      }
+
+      const nextActiveAsset = {
+        coin: selectedUniverse?.name || newCoin || '',
+        assetId,
+        universe: selectedUniverse,
+        margin: selectedMargin,
       };
-    }
 
-    const selectedUniverse: IPerpsUniverse | undefined =
-      dexUniverses?.find((item) => item.name === newCoin) || dexUniverses?.[0];
-    if (requestId !== this.activeAssetChangeRequestId) {
-      return {
-        coin: oldActiveAsset?.coin || newCoin || '',
-        assetId: oldActiveAsset?.assetId,
-        universe: oldActiveAsset?.universe,
-        margin: oldActiveAsset?.margin,
-      };
+      await perpsActiveAssetAtom.set(nextActiveAsset);
+      if (oldCoin !== newCoin) {
+        await perpsActiveAssetCtxAtom.set(undefined);
+      }
+      return nextActiveAsset;
+    } catch (error) {
+      if (
+        shouldSeedSubscriptionTarget &&
+        requestId === this.activeAssetChangeRequestId
+      ) {
+        await perpsActiveAssetAtom.set(oldActiveAsset);
+      }
+      throw error;
     }
-
-    const assetId =
-      selectedUniverse?.assetId ??
-      dexUniverses?.findIndex(
-        (token) => token.name === selectedUniverse?.name,
-      ) ??
-      -1;
-    const selectedMargin = dexMarginTables?.[selectedUniverse?.marginTableId];
-    if (requestId !== this.activeAssetChangeRequestId) {
-      return {
-        coin: oldActiveAsset?.coin || newCoin || '',
-        assetId: oldActiveAsset?.assetId,
-        universe: oldActiveAsset?.universe,
-        margin: oldActiveAsset?.margin,
-      };
-    }
-
-    const nextActiveAsset = {
-      coin: selectedUniverse?.name || newCoin || '',
-      assetId,
-      universe: selectedUniverse,
-      margin: selectedMargin,
-    };
-
-    await perpsActiveAssetAtom.set(nextActiveAsset);
-    if (oldCoin !== newCoin) {
-      await perpsActiveAssetCtxAtom.set(undefined);
-    }
-    return nextActiveAsset;
   }
 
   @backgroundMethod()
