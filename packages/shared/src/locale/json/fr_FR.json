@@ -4052,6 +4052,8 @@
   "send_token_selector.search_placeholder": "Rechercher un symbole ou une adresse de contrat",
   "send_token_selector.select_token": "Sélectionner le jeton",
   "sending_krc20_warning_text": "L'envoi de jetons KRC20 nécessite deux confirmations sur votre matériel. Ne pas annuler la deuxième confirmation, sinon le KAS envoyé lors de la première confirmation sera difficile à récupérer.",
+  "sensitive_information_screenshot_protected__desc": "Pour votre sécurité des actifs, les informations sensibles <tag>n'apparaîtront jamais dans les captures d'écran</tag>.",
+  "sensitive_information_screenshot_protected__title": "Informations sensibles protégées",
   "set_new_backup_password": "Définir un nouveau mot de passe de sauvegarde",
   "set_new_backup_password_desc": "Le nouveau mot de passe de sauvegarde est utilisé pour votre prochain enregistrement de sauvegarde. Les enregistrements de sauvegarde existants et leurs mots de passe resteront inchangés.",
   "set_new_backup_password_fist_time": "Ce mot de passe sera utilisé pour protéger vos enregistrements de sauvegarde.",

@@ -4052,6 +4052,8 @@
   "send_token_selector.search_placeholder": "Buscar símbolo o dirección de contrato",
   "send_token_selector.select_token": "Seleccionar Token",
   "sending_krc20_warning_text": "Enviar tokens KRC20 requiere dos confirmaciones en su hardware. No cancele la segunda confirmación, o el KAS enviado en la primera confirmación será difícil de recuperar.",
+  "sensitive_information_screenshot_protected__desc": "Para su seguridad de activos, la información sensible <tag>nunca aparecerá en capturas de pantalla</tag>.",
+  "sensitive_information_screenshot_protected__title": "Información sensible protegida",
   "set_new_backup_password": "Establecer nueva contraseña de copia de seguridad",
   "set_new_backup_password_desc": "La nueva contraseña de copia de seguridad se usará para tu próximo registro de copia de seguridad. Los registros de copia de seguridad existentes y sus contraseñas permanecerán iguales.",
   "set_new_backup_password_fist_time": "Esta contraseña se usará para proteger tus registros de copia de seguridad.",

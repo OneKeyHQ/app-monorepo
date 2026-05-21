@@ -4052,6 +4052,8 @@
   "send_token_selector.search_placeholder": "Cari simbol atau alamat kontrak",
   "send_token_selector.select_token": "Pilih Token",
   "sending_krc20_warning_text": "Mengirim token KRC20 memerlukan dua konfirmasi pada perangkat keras Anda. Jangan batalkan konfirmasi kedua, atau KAS yang dikirim pada konfirmasi pertama akan sulit untuk dipulihkan.",
+  "sensitive_information_screenshot_protected__desc": "Untuk keamanan aset Anda, informasi sensitif akan <tag>tidak pernah muncul dalam tangkapan layar</tag>.",
+  "sensitive_information_screenshot_protected__title": "Informasi sensitif dilindungi",
   "set_new_backup_password": "Atur sandi cadangan baru",
   "set_new_backup_password_desc": "Kata sandi cadangan baru akan digunakan untuk catatan cadangan Anda berikutnya. Catatan cadangan yang sudah ada beserta kata sandinya akan tetap sama.",
   "set_new_backup_password_fist_time": "Kata sandi ini akan digunakan untuk melindungi catatan cadangan Anda.",

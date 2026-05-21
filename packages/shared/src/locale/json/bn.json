@@ -4052,6 +4052,8 @@
   "send_token_selector.search_placeholder": "সিম্বল বা কন্ট্রাক্ট ঠিকানা অনুসন্ধান করুন",
   "send_token_selector.select_token": "টোকেন নির্বাচন করুন",
   "sending_krc20_warning_text": "KRC20 টোকেন পাঠাতে আপনার হার্ডওয়্যারে দুটি নিশ্চিতকরণ প্রয়োজন। দ্বিতীয় নিশ্চিতকরণ বাতিল করবেন না, নতুবা প্রথম নিশ্চিতকরণে পাঠানো KAS পুনরুদ্ধার করা কঠিন হবে।",
+  "sensitive_information_screenshot_protected__desc": "আপনার সম্পদের নিরাপত্তার জন্য, সংবেদনশীল তথ্য <tag>কখনো স্ক্রিনশটে প্রদর্শিত হবে না</tag>।",
+  "sensitive_information_screenshot_protected__title": "সংবেদনশীল তথ্য সুরক্ষিত",
   "set_new_backup_password": "নতুন ব্যাকআপ পাসওয়ার্ড সেট করুন",
   "set_new_backup_password_desc": "নতুন ব্যাকআপ পাসওয়ার্ডটি আপনার পরবর্তী ব্যাকআপ রেকর্ডের জন্য ব্যবহার করা হবে। বিদ্যমান ব্যাকআপ রেকর্ড এবং তাদের পাসওয়ার্ড একই থাকবে।",
   "set_new_backup_password_fist_time": "এই পাসওয়ার্ডটি আপনার ব্যাকআপ রেকর্ড সুরক্ষিত রাখতে ব্যবহৃত হবে।",

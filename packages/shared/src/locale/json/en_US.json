@@ -4052,6 +4052,8 @@
   "send_token_selector.search_placeholder": "Search symbol or contract address",
   "send_token_selector.select_token": "Select Token",
   "sending_krc20_warning_text": "Sending KRC20 tokens requires two confirmations on your hardware. Do not cancel the second confirmation, or the KAS sent in the first confirmation will be difficult to recover.",
+  "sensitive_information_screenshot_protected__desc": "For your asset security, sensitive information will <tag>never appear in screenshots</tag>.",
+  "sensitive_information_screenshot_protected__title": "Sensitive information protected",
   "set_new_backup_password": "Set new backup password",
   "set_new_backup_password_desc": "The new backup password is used for your next backup record. Existing backup records and their passwords will stay the same.",
   "set_new_backup_password_fist_time": "This password will be used to protect your backup records.",

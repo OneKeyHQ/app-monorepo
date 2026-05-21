@@ -4052,6 +4052,8 @@
   "send_token_selector.search_placeholder": "Tìm kiếm biểu tượng hoặc địa chỉ hợp đồng",
   "send_token_selector.select_token": "Chọn Token",
   "sending_krc20_warning_text": "Gửi token KRC20 yêu cầu hai lần xác nhận trên phần cứng của bạn. Không hủy lần xác nhận thứ hai, nếu không KAS đã gửi trong lần xác nhận đầu tiên sẽ khó khôi phục.",
+  "sensitive_information_screenshot_protected__desc": "Để bảo mật tài sản của bạn, thông tin nhạy cảm sẽ <tag>không bao giờ xuất hiện trong ảnh chụp màn hình</tag>.",
+  "sensitive_information_screenshot_protected__title": "Thông tin nhạy cảm đã được bảo vệ",
   "set_new_backup_password": "Đặt mật khẩu sao lưu mới",
   "set_new_backup_password_desc": "Mật khẩu sao lưu mới sẽ được dùng cho bản ghi sao lưu tiếp theo của bạn. Các bản ghi sao lưu hiện có và mật khẩu của chúng sẽ giữ nguyên.",
   "set_new_backup_password_fist_time": "Mật khẩu này sẽ được dùng để bảo vệ hồ sơ sao lưu của bạn.",
