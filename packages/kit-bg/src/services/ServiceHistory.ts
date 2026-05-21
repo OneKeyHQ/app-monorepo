@@ -1,4 +1,4 @@
-import { isNil, unionBy } from 'lodash';
+import { isNil, unionBy, uniqBy } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
@@ -7,6 +7,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { HISTORY_TIME_RANGE_MONTHS } from '@onekeyhq/shared/src/consts/walletConsts';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -18,6 +19,8 @@ import {
   filterHistoryTxs,
   getOnChainHistoryTxStatus,
   isAccountCompatibleWithTx,
+  isHistoryCursorAdvanced,
+  sortHistoryTxsByTime,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -25,7 +28,10 @@ import {
   promiseAllSettledEnhanced,
 } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IAddressInfo } from '@onekeyhq/shared/types/address';
+import type {
+  IAddressBadge,
+  IAddressInfo,
+} from '@onekeyhq/shared/types/address';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -35,6 +41,7 @@ import type {
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
   IFetchHistoryTxDetailsParams,
+  IFetchMergeDeriveAccountHistoryParams,
   IFetchTransferRecipientsResp,
   IFetchTxDetailsParams,
   IOnChainHistoryTx,
@@ -65,6 +72,15 @@ import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type { IAccountDeriveTypes } from '../vaults/types';
 
+const HISTORY_TIME_RANGE_MS = timerUtils.getTimeDurationMs({
+  month: HISTORY_TIME_RANGE_MONTHS,
+});
+
+// Sentinel value stored inside a merge-derive opaque cursor map to mark a
+// deriveType that has finished paginating. Future pages skip it entirely
+// instead of issuing a request that would just return an empty page.
+const MERGE_DERIVE_EXHAUSTED = '__exhausted__' as const;
+
 @backgroundClass()
 class ServiceHistory extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -78,8 +94,170 @@ class ServiceHistory extends ServiceBase {
     });
   }
 
+  private async _resolveHistoryRequestParams(
+    params: IFetchAccountHistoryParams,
+  ): Promise<IFetchAccountHistoryParams> {
+    // AllNetworks aggregates server-side and does not accept the new pagination
+    // contract — keep its request body untouched.
+    if (networkUtils.isAllNetwork({ networkId: params.networkId })) {
+      return params;
+    }
+    // First-page callers omit `page`; the new contract requires page=1 so the
+    // backend can route consistently. Load-more callers already set page>1.
+    const resolved: IFetchAccountHistoryParams =
+      typeof params.page === 'number' ? params : { ...params, page: 1 };
+    if (resolved.minTimestampMs || resolved.maxTimestampMs) {
+      return resolved;
+    }
+    let network;
+    try {
+      network = await this.backgroundApi.serviceNetwork.getNetwork({
+        networkId: resolved.networkId,
+      });
+    } catch {
+      network = undefined;
+    }
+    // Indexer-backed chains (only EVM-like presets opt-in via
+    // `backendIndex: true`) paginate without a time window. Everything else —
+    // explicit `false`, or undefined — is treated as non-indexer so RPC-based
+    // scans stay bounded by a 6-month window.
+    if (network?.backendIndex === true) {
+      return resolved;
+    }
+    const now = Date.now();
+    return {
+      ...resolved,
+      minTimestampMs: now - HISTORY_TIME_RANGE_MS,
+      maxTimestampMs: now,
+    };
+  }
+
+  private _isHistoryLoadMoreParams(
+    params: IFetchAccountHistoryParams,
+  ): boolean {
+    if (networkUtils.isAllNetwork({ networkId: params.networkId })) {
+      return false;
+    }
+    if (typeof params.cursor === 'string' && params.cursor.length > 0) {
+      return true;
+    }
+    if (typeof params.page === 'number' && params.page > 1) return true;
+    return false;
+  }
+
+  // Opaque cursor for merge-derive aggregation: a JSON-encoded map from
+  // deriveType to that deriveType's per-chain cursor (or '__exhausted__' once
+  // the deriveType has run out of pages). The hook treats the whole string as
+  // an opaque token; only this service encodes/decodes it.
+  private _decodeMergeDeriveCursor(
+    cursor: string | undefined,
+  ): Record<string, string | typeof MERGE_DERIVE_EXHAUSTED> {
+    if (!cursor) return {};
+    try {
+      const parsed = JSON.parse(cursor) as Record<string, string>;
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch {
+      // fall through — a malformed cursor is treated as a first-page request.
+    }
+    return {};
+  }
+
+  private _encodeMergeDeriveCursor(
+    cursorMap: Record<string, string | typeof MERGE_DERIVE_EXHAUSTED>,
+  ): string | undefined {
+    const entries = Object.entries(cursorMap);
+    if (entries.length === 0) return undefined;
+    const hasAny = entries.some(([, v]) => v !== MERGE_DERIVE_EXHAUSTED);
+    if (!hasAny) return undefined;
+    return JSON.stringify(cursorMap);
+  }
+
+  private async _fetchMoreAccountHistory(params: IFetchAccountHistoryParams) {
+    const {
+      accountId,
+      networkId,
+      filterScam,
+      filterLowValue,
+      sourceCurrency,
+      targetCurrency,
+      currencyMap,
+    } = params;
+    let dbAccount;
+    try {
+      dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId,
+      });
+    } catch {
+      dbAccount = undefined;
+    }
+    const [accountAddress, xpub] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        dbAccount,
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        dbAccount,
+        accountId,
+        networkId,
+      }),
+    ]);
+
+    const onChainResult = await this.fetchAccountOnChainHistory({
+      ...params,
+      isAllNetworks: false,
+      isManualRefresh: false,
+      accountAddress,
+      xpub,
+    });
+
+    const filtered = filterHistoryTxs({
+      txs: onChainResult.txs,
+      sourceCurrency,
+      targetCurrency,
+      currencyMap,
+      filterScam,
+      filterLowValue,
+    });
+
+    // Load-more is single-network (the AllNetworks branch never reaches here),
+    // so resolve the logo once and stamp every tx instead of per-tx fetching.
+    const logoNetwork = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
+    });
+    for (const tx of filtered) {
+      tx.decodedTx.networkLogoURI = logoNetwork.logoURI;
+    }
+
+    return {
+      hasMoreOnChainHistory: !!onChainResult.hasMore,
+      next: onChainResult.next,
+      // Indexer chains feed `next` back as `maxTimestampMs` (a strictly
+      // decreasing ms timestamp); non-indexer chains treat `next` as opaque.
+      // Surface this so the UI hook can pick the right cursor-advancement rule.
+      isIndexer: !!onChainResult.isIndexer,
+      accounts: [] as IAllNetworkAccountInfo[],
+      allAccounts: [] as IAllNetworkAccountInfo[],
+      txs: filtered,
+      addressMap: onChainResult.addressMap,
+      accountsWithChangedPendingTxs: [] as {
+        accountId: string;
+        networkId: string;
+      }[],
+      accountsWithChangedConfirmedTxs: [] as {
+        accountId: string;
+        networkId: string;
+      }[],
+      accountsWithChangedTxs: [] as { accountId: string; networkId: string }[],
+    };
+  }
+
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
+    const resolvedParams = await this._resolveHistoryRequestParams(params);
+    if (this._isHistoryLoadMoreParams(resolvedParams)) {
+      return this._fetchMoreAccountHistory(resolvedParams);
+    }
     const {
       accountId,
       networkId,
@@ -91,7 +269,7 @@ class ServiceHistory extends ServiceBase {
       currencyMap,
       excludeTestNetwork,
       limit: _limit,
-    } = params;
+    } = resolvedParams;
     let dbAccount;
     try {
       dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
@@ -277,8 +455,10 @@ class ServiceHistory extends ServiceBase {
       txs,
       addressMap,
       hasMore: hasMoreOnChainHistory,
+      next,
+      isIndexer: isIndexerChain,
     } = await this.fetchAccountOnChainHistory({
-      ...params,
+      ...resolvedParams,
       isAllNetworks,
       accountAddress,
       xpub,
@@ -446,6 +626,10 @@ class ServiceHistory extends ServiceBase {
 
     return {
       hasMoreOnChainHistory,
+      next,
+      // AllNetworks isn't paginated, so only the single-network branch
+      // carries an indexer cursor.
+      isIndexer: !isAllNetworks && !!isIndexerChain,
       accounts,
       allAccounts,
       txs: result,
@@ -480,6 +664,195 @@ class ServiceHistory extends ServiceBase {
           networkId: n,
         };
       }),
+    };
+  }
+
+  // Aggregated history fetch for chains whose vault opts into
+  // `mergeDeriveAssetsEnabled` (currently BTC / LTC). One indexed account fans
+  // out into multiple deriveType-specific network accounts, each paginated
+  // independently. Callers see a single `txs` list and a single opaque cursor;
+  // this service handles the per-deriveType cursor bookkeeping internally so
+  // the UI hook (useHistoryListLoadMore) stays uniform across chain types.
+  @backgroundMethod()
+  public async fetchAccountHistoryForMergeDerive(
+    params: IFetchMergeDeriveAccountHistoryParams,
+  ) {
+    const {
+      indexedAccountId,
+      networkId,
+      tokenIdOnNetwork,
+      isManualRefresh,
+      filterScam,
+      filterLowValue,
+      excludeTestNetwork,
+      sourceCurrency,
+      targetCurrency,
+      currencyMap,
+      limit,
+      page,
+      cursor,
+    } = params;
+
+    const { networkAccounts } =
+      await this.backgroundApi.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+        {
+          networkId,
+          indexedAccountId,
+          excludeEmptyAccount: true,
+        },
+      );
+
+    const cursorMap = this._decodeMergeDeriveCursor(cursor);
+    // Derive load-more from the decoded map, not the raw `cursor` string —
+    // a malformed cursor decodes to {} and must restart from page 1,
+    // otherwise every deriveType would be requested with page=2 and no
+    // per-deriveType cursor, which is an unsupported wire combination.
+    const isLoadMore = Object.keys(cursorMap).length > 0;
+
+    type IFetchedOutcome = {
+      kind: 'fetched';
+      deriveType: IAccountDeriveTypes;
+      prevCursor: string | undefined;
+      response: Awaited<ReturnType<ServiceHistory['fetchAccountHistory']>>;
+    };
+    type IPerTypeOutcome =
+      | { kind: 'skipped'; deriveType: IAccountDeriveTypes }
+      | IFetchedOutcome;
+
+    const perTypeOutcomes = (
+      await Promise.all(
+        networkAccounts.map(async (na): Promise<IPerTypeOutcome | null> => {
+          const accountId = na.account?.id;
+          const { deriveType } = na;
+          if (!accountId) return null;
+
+          const stored = cursorMap[deriveType];
+          // Already finished paginating this deriveType in a prior page — skip
+          // outright so we neither issue a request nor count it toward
+          // `hasMore`.
+          if (stored === MERGE_DERIVE_EXHAUSTED) {
+            return { kind: 'skipped', deriveType };
+          }
+
+          const perCursor =
+            typeof stored === 'string' && stored.length > 0
+              ? stored
+              : undefined;
+
+          const subParams: IFetchAccountHistoryParams = {
+            accountId,
+            networkId,
+            tokenIdOnNetwork,
+            isManualRefresh,
+            filterScam,
+            filterLowValue,
+            excludeTestNetwork,
+            sourceCurrency,
+            targetCurrency,
+            currencyMap,
+            limit,
+            page: isLoadMore ? (page ?? 2) : 1,
+            ...(perCursor ? { cursor: perCursor } : {}),
+          };
+
+          const response = await this.fetchAccountHistory(subParams);
+          return {
+            kind: 'fetched',
+            deriveType,
+            prevCursor: perCursor,
+            response,
+          };
+        }),
+      )
+    ).filter((o): o is IPerTypeOutcome => o !== null);
+
+    const nextCursorMap: Record<
+      string,
+      string | typeof MERGE_DERIVE_EXHAUSTED
+    > = {};
+    const aggregatedTxs: IAccountHistoryTx[] = [];
+    const aggregatedAddressMap: Record<string, IAddressBadge> = {};
+    const pendingByKey = new Map<
+      string,
+      { accountId: string; networkId: string }
+    >();
+    const confirmedByKey = new Map<
+      string,
+      { accountId: string; networkId: string }
+    >();
+    const aggregatedAllAccounts: IAllNetworkAccountInfo[] = [];
+    const keyOf = (i: { accountId: string; networkId: string }) =>
+      `${i.accountId}_${i.networkId}`;
+
+    for (const outcome of perTypeOutcomes) {
+      if (outcome.kind === 'skipped') {
+        nextCursorMap[outcome.deriveType] = MERGE_DERIVE_EXHAUSTED;
+      } else {
+        const { deriveType, prevCursor, response } = outcome;
+        aggregatedTxs.push(...response.txs);
+        Object.assign(aggregatedAddressMap, response.addressMap);
+        for (const item of response.accountsWithChangedPendingTxs) {
+          pendingByKey.set(keyOf(item), item);
+        }
+        for (const item of response.accountsWithChangedConfirmedTxs) {
+          confirmedByKey.set(keyOf(item), item);
+        }
+        aggregatedAllAccounts.push(...response.allAccounts);
+
+        const nextCursor =
+          typeof response.next === 'string' && response.next.length > 0
+            ? response.next
+            : undefined;
+        const advanced = isHistoryCursorAdvanced(prevCursor, nextCursor, {
+          indexerTimestampCursor: !!response.isIndexer,
+        });
+        const keepCursor =
+          response.hasMoreOnChainHistory &&
+          response.txs.length > 0 &&
+          nextCursor &&
+          advanced;
+        nextCursorMap[deriveType] = keepCursor
+          ? nextCursor
+          : MERGE_DERIVE_EXHAUSTED;
+      }
+    }
+
+    // BTC/LTC deriveTypes own disjoint xpubs so tx ids do not overlap in
+    // practice, but defensively dedupe by id before sorting so future chains
+    // with overlapping derive paths don't surface duplicates here.
+    const mergedTxs = sortHistoryTxsByTime({
+      txs: unionBy(aggregatedTxs, (tx) => tx.id),
+    });
+
+    const dedupedPending = Array.from(pendingByKey.values());
+    const dedupedConfirmed = Array.from(confirmedByKey.values());
+    const dedupedAll = Array.from(
+      new Map([...pendingByKey, ...confirmedByKey]).values(),
+    );
+
+    const hasMore = Object.values(nextCursorMap).some(
+      (v) => v !== MERGE_DERIVE_EXHAUSTED,
+    );
+    const nextOpaque = hasMore
+      ? this._encodeMergeDeriveCursor(nextCursorMap)
+      : undefined;
+    // Surfaced so downstream callers know whether per-deriveType cursors were
+    // timestamps without re-deriving it from the network.
+    const aggregatedIsIndexer = perTypeOutcomes.some(
+      (o) => o.kind === 'fetched' && !!o.response.isIndexer,
+    );
+
+    return {
+      hasMoreOnChainHistory: hasMore,
+      next: nextOpaque,
+      isIndexer: aggregatedIsIndexer,
+      accounts: [] as IAllNetworkAccountInfo[],
+      allAccounts: uniqBy(aggregatedAllAccounts, 'networkId'),
+      txs: mergedTxs,
+      addressMap: aggregatedAddressMap,
+      accountsWithChangedPendingTxs: dedupedPending,
+      accountsWithChangedConfirmedTxs: dedupedConfirmed,
+      accountsWithChangedTxs: dedupedAll,
     };
   }
 
@@ -815,6 +1188,10 @@ class ServiceHistory extends ServiceBase {
       filterScam,
       filterLowValue,
       limit,
+      page,
+      cursor,
+      minTimestampMs,
+      maxTimestampMs,
     } = params;
     const vault = await vaultFactory.getVault({
       accountId,
@@ -829,8 +1206,21 @@ class ServiceHistory extends ServiceBase {
       return {
         txs: [],
         addressMap: {},
+        hasMore: false,
+        next: undefined as string | undefined,
+        isIndexer: false,
       };
     }
+
+    let networkInfo;
+    try {
+      networkInfo = await this.backgroundApi.serviceNetwork.getNetwork({
+        networkId,
+      });
+    } catch {
+      networkInfo = undefined;
+    }
+    const isIndexerChain = networkInfo?.backendIndex === true;
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     let resp;
@@ -851,6 +1241,34 @@ class ServiceHistory extends ServiceBase {
           })),
         };
       }
+      const normalizedCursor =
+        typeof cursor === 'string' && cursor.length > 0 ? cursor : undefined;
+
+      // Indexer chains paginate via maxTimestampMs only — the backend's
+      // `next` is a millisecond timestamp that we feed back as the upper
+      // bound of the next request. They never carry `page` or `cursor` on
+      // the wire. Non-indexer chains keep the page+cursor contract.
+      const paginationBody: Record<string, number | string> = {};
+      if (isIndexerChain) {
+        if (normalizedCursor) {
+          const ts = Number(normalizedCursor);
+          if (Number.isFinite(ts)) {
+            paginationBody.maxTimestampMs = ts;
+          }
+        } else if (typeof maxTimestampMs === 'number') {
+          paginationBody.maxTimestampMs = maxTimestampMs;
+        }
+      } else {
+        if (typeof page === 'number') paginationBody.page = page;
+        if (normalizedCursor) paginationBody.cursor = normalizedCursor;
+        if (typeof minTimestampMs === 'number') {
+          paginationBody.minTimestampMs = minTimestampMs;
+        }
+        if (typeof maxTimestampMs === 'number') {
+          paginationBody.maxTimestampMs = maxTimestampMs;
+        }
+      }
+
       return client.post<{ data: IFetchAccountHistoryResp }>(
         '/wallet/v1/account/history/list',
         {
@@ -864,6 +1282,7 @@ class ServiceHistory extends ServiceBase {
           onlySafe: filterScam,
           withoutDust: filterLowValue,
           limit,
+          ...paginationBody,
         },
         {
           headers:
@@ -895,7 +1314,15 @@ class ServiceHistory extends ServiceBase {
       nfts,
       addressMap,
       hasMore,
+      next: rawNext,
     } = resp.data.data;
+    // Backend contract: `next` is a string cursor, but some chains return a
+    // numeric offset that needs string-coercion before being sent back as the
+    // next request's `cursor`. null / undefined / empty string mean "no more".
+    const next =
+      rawNext === null || rawNext === undefined || (rawNext as unknown) === ''
+        ? undefined
+        : String(rawNext);
 
     const dbAccountCache: {
       [accountId: string]: IDBAccount;
@@ -925,6 +1352,8 @@ class ServiceHistory extends ServiceBase {
       txs,
       addressMap,
       hasMore,
+      next,
+      isIndexer: isIndexerChain,
     };
   }
 

@@ -15,7 +15,6 @@ import {
   useAppUpdateInfo,
 } from '@onekeyhq/kit/src/components/AppUpdate';
 import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -160,7 +159,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const privacyPolicyUrl = useHelpLink({ path: 'articles/11461298' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
-  const { isLoggedIn } = useOneKeyAuth();
   const [settings] = useSettingsPersistAtom();
 
   const { cloudBackupFeatureInfo, startBackup } = useCloudBackup();
@@ -604,21 +602,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
           ],
           [
-            isLoggedIn
-              ? {
-                  icon: 'RemovePeopleOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.id_delete_onekey_id,
-                  }),
-                  onPress: (navigation) => {
-                    navigation?.pushModal(EModalRoutes.PrimeModal, {
-                      screen: EPrimePages.PrimeDeleteAccount,
-                    });
-                  },
-                }
-              : null,
-          ],
-          [
             {
               icon: 'BroomOutline',
               title: intl.formatMessage({
@@ -896,7 +879,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       webAuthIsSupport,
       biometricAuthInfo.title,
       biometricAuthInfo.icon,
-      isLoggedIn,
       settings.hardwareTransportType,
       isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
