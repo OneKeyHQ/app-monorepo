@@ -1,34 +1,35 @@
-import type { IAddEarnOrderParams } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityEarnOrders';
+import type { IEarnOrderTrackingInfo } from '@onekeyhq/shared/types/staking';
 import type { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../base/decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
+
+type IEarnOrderServerLogParams = IEarnOrderTrackingInfo & {
+  status: EDecodedTxStatus;
+};
 
 export class OrderScene extends BaseScene {
+  @LogToServer()
   @LogToLocal()
-  public addOrder(order: IAddEarnOrderParams) {
-    return order;
-  }
-
-  @LogToLocal()
-  public updateOrderStatus(params: { txId: string; status: EDecodedTxStatus }) {
+  public addOrder(params: IEarnOrderServerLogParams) {
     return params;
   }
 
+  @LogToServer()
   @LogToLocal()
-  public updateOrderStatusError(params: {
-    txId: string;
-    status: EDecodedTxStatus;
-  }) {
+  public updateOrderStatus(params: IEarnOrderServerLogParams) {
     return params;
   }
 
+  @LogToServer()
   @LogToLocal()
-  public updateOrderStatusByTxId(params: {
-    currentTxId: string;
-    newTxId?: string;
-    status: EDecodedTxStatus;
-  }) {
+  public updateOrderStatusError(params: { status: EDecodedTxStatus }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public updateOrderStatusByTxId(params: IEarnOrderServerLogParams) {
     return params;
   }
 }
