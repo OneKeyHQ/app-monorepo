@@ -125,7 +125,14 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       cursorRef.current = normalizeCursor(meta.next);
       isIndexerCursorRef.current = !!meta.isIndexer;
       loadCountRef.current = 0;
-      pendingLoadMoreRef.current = false;
+      // Preserve any pending replay intent when there's still a next page:
+      // if onEndReached fired before pagination was armed (short list / fast
+      // scroll), RN's SectionList won't refire and the effect below is the
+      // only thing that will kick off page 2. Only drop the flag when we
+      // know there's nothing more to load.
+      if (!meta.hasMore) {
+        pendingLoadMoreRef.current = false;
+      }
       generationRef.current += 1;
       appendedIdsRef.current = new Set();
       setAppendedTxs([]);
