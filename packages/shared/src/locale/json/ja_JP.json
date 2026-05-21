@@ -708,6 +708,7 @@
   "dexmarket.audit_safe_desc": "リスクは検出されませんでした。この結果は、いかなる形での支持や推奨を意味するものではありません。",
   "dexmarket.audit_unknown": "不明なリスク",
   "dexmarket.audit_unknown_desc": "このトークンのリスク監査を実施できません。取引リスクにご注意ください。",
+  "dexmarket.btc_circulating": "流通中",
   "dexmarket.buy_tap": "購入",
   "dexmarket.buy_token_default": "{TokenName}を購入",
   "dexmarket.buysell_loading": "見積もりを確定中...",

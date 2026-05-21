@@ -708,6 +708,7 @@
   "dexmarket.audit_safe_desc": "Không phát hiện rủi ro. Kết quả này không cấu thành bất kỳ hình thức xác nhận hay khuyến nghị nào.",
   "dexmarket.audit_unknown": "Rủi ro không xác định",
   "dexmarket.audit_unknown_desc": "Không thể tiến hành kiểm toán rủi ro cho token này. Hãy cẩn trọng với các rủi ro giao dịch tiềm ẩn.",
+  "dexmarket.btc_circulating": "Lưu thông",
   "dexmarket.buy_tap": "Mua",
   "dexmarket.buy_token_default": "Mua {TokenName}",
   "dexmarket.buysell_loading": "Đang hoàn tất báo giá...",

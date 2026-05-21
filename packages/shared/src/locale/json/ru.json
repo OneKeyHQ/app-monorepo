@@ -708,6 +708,7 @@
   "dexmarket.audit_safe_desc": "Рисков не обнаружено. Этот результат не является какой-либо формой одобрения или рекомендации.",
   "dexmarket.audit_unknown": "Неизвестный риск",
   "dexmarket.audit_unknown_desc": "Невозможно провести аудит рисков для этого токена. Остерегайтесь потенциальных торговых рисков.",
+  "dexmarket.btc_circulating": "В обращении",
   "dexmarket.buy_tap": "Купить",
   "dexmarket.buy_token_default": "Купить {TokenName}",
   "dexmarket.buysell_loading": "Завершается оформление предложения...",

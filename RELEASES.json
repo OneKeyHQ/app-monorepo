@@ -1,0 +1,22 @@
+[
+  {
+    "seq": 1,
+    "commit": "af76984d8cf8c21f37d6376d24c92b6eee1987a7",
+    "date": "2026-05-21T11:01:20Z",
+    "prs": [
+      "#11683",
+      "#11699",
+      "#11705",
+      "#11710",
+      "#11711",
+      "#11714",
+      "#11722",
+      "#11725",
+      "#11726",
+      "#11730",
+      "#11735",
+      "#11743"
+    ],
+    "notes": "Keep swap LP switch interactive (#11743); LP filter and Trade/DeFi fixes (#11683); Eliminate avatar/balance/3-dot flicker on account selector open (#11735); Home banner placeholder + iPad split-view + HW popover (#11699); Add perps referral landing benefits (#11730); Recover perps candles and selector issues (#11714); Add earn analytics order tracking (#11711); Preserve browser store during active mirrors (#11725); Disable pool detail dialog drag for long token lists (#11722); Mirror desktop header no-drag regions to body (#11705); Stabilize history list & overview spinner on network switch (#11710); BUILD_NUMBER=2026051841"
+  }
+]

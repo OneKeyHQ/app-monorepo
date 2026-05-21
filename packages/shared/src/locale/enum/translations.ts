@@ -713,6 +713,7 @@ export enum ETranslations {
   dexmarket_audit_safe_desc = 'dexmarket.audit_safe_desc',
   dexmarket_audit_unknown = 'dexmarket.audit_unknown',
   dexmarket_audit_unknown_desc = 'dexmarket.audit_unknown_desc',
+  dexmarket_btc_circulating = 'dexmarket.btc_circulating',
   dexmarket_buy_tap = 'dexmarket.buy_tap',
   dexmarket_buy_token_default = 'dexmarket.buy_token_default',
   dexmarket_buysell_loading = 'dexmarket.buysell_loading',
