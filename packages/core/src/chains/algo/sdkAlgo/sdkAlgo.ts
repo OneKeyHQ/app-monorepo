@@ -1,5 +1,7 @@
-// @ts-ignore algosdk does not publish typings for the ESM bundle entry; Rspack needs the namespace import shape.
-import * as sdk from 'algosdk/dist/esm/index.js';
+// import * as sdk from 'algosdk/dist/esm/index.js';
+// export default sdk as typeof import('algosdk');
+
+import sdk from 'algosdk';
 
 export type {
   EncodedTransaction as ISdkAlgoEncodedTransaction,
@@ -7,4 +9,4 @@ export type {
   TransactionType as ISdkAlgoTransactionType,
 } from 'algosdk';
 
-export default sdk as typeof import('algosdk');
+export default sdk;
