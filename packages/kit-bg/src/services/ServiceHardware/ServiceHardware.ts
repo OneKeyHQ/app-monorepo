@@ -117,6 +117,7 @@ import type {
   DeviceSupportFeaturesPayload,
   DeviceUploadResourceParams,
   Features,
+  GetPassphraseStatePayload,
   IDeviceType,
   KnownDevice,
   OnekeyFeatures,
@@ -1277,13 +1278,14 @@ class ServiceHardware extends ServiceBase {
       connectId,
     });
 
-    const passphraseState = await convertDeviceResponse(() =>
-      hardwareSDK?.getPassphraseState(connectId, {
-        initSession: forceInputPassphrase, // always re-input passphrase on device
-        useEmptyPassphrase,
-        // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
-      }),
-    );
+    const passphraseState =
+      await convertDeviceResponse<GetPassphraseStatePayload>(() =>
+        hardwareSDK.getPassphraseState(connectId, {
+          initSession: forceInputPassphrase, // always re-input passphrase on device
+          useEmptyPassphrase,
+          // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
+        }),
+      );
     return typeof passphraseState === 'string'
       ? passphraseState
       : passphraseState?.passphrase_state;
