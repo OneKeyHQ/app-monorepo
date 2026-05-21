@@ -1,6 +1,6 @@
 import { cloneDeep } from 'lodash';
 
-import { decryptAsync, encryptAsync } from '@onekeyhq/core/src/secret';
+import { decryptAsync } from '@onekeyhq/core/src/secret';
 import {
   backgroundClass,
   backgroundMethod,
@@ -25,6 +25,10 @@ import type {
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { cloudBackupStatusAtom } from '../../states/jotai/atoms/cloudBackup';
+import {
+  EAppCryptoSharedEncryptScene,
+  encryptAsyncWithFormat,
+} from '../../utils/secretEncryptFormat';
 import ServiceBase from '../ServiceBase';
 
 import { OneKeyBackupProvider } from './backupProviders/OneKeyBackupProvider';
@@ -242,12 +246,13 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const privateData = stringUtils.stableStringify(data.privateData);
 
     console.log('serviceCloudBackupV2__encryptPayload');
-    const privateDataEncryptedBuffer = await encryptAsync({
+    const privateDataEncryptedBuffer = await encryptAsyncWithFormat({
       data: Buffer.from(privateData, 'utf8'),
       password: await this.buildFullBackupPassword({
         password: backupPassword,
       }),
       allowRawPassword: true,
+      sharedScene: EAppCryptoSharedEncryptScene.cloudBackupV2PrivateData,
     });
 
     console.log('serviceCloudBackupV2__toBase64');

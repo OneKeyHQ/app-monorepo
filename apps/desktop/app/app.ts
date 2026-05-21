@@ -774,8 +774,24 @@ async function createMainWindow() {
     isAppReady = true;
   });
 
+  // Gate shell.openExternal behind a protocol whitelist so a tainted main
+  // renderer (XSS) cannot weaponize window.open() into phishing redirects
+  // via javascript:/file:/data: URIs. Only https:// (and mailto:) are
+  // forwarded to the OS browser. See SlowMist audit Desktop-14.
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'mailto:') {
+        logger.warn(
+          '[setWindowOpenHandler] blocked non-https url:',
+          parsed.protocol,
+        );
+        return { action: 'deny' };
+      }
+      void shell.openExternal(url);
+    } catch {
+      logger.warn('[setWindowOpenHandler] blocked malformed url');
+    }
     return { action: 'deny' };
   });
 
@@ -1138,12 +1154,28 @@ async function createMainWindow() {
 
   // Permission handler for webview (partition: persist:onekey)
   //
-  // - media: only allowed for whitelisted fiat pay sites (camera/microphone for KYC, etc.)
-  // - notifications: already disabled at the webview tag level via
-  //   disableBlinkFeatures="Notifications" in DesktopWebView.tsx,
-  //   so the Notification API is completely unavailable and this handler
-  //   will never receive a 'notifications' permission request.
-  // - all other permissions: allowed to preserve default Electron behavior.
+  // Default policy: DENY all permissions. Only types explicitly listed in
+  // WEBVIEW_ALLOWED_PERMISSIONS are granted. Previously the handler fell
+  // through to `callback(true)` for anything other than `media`, which let
+  // any dapp silently read the user's clipboard, geolocation, screen
+  // capture, etc. See SlowMist audit Desktop-10.1.
+  //
+  // - media: whitelisted fiat pay sites only (camera/microphone for KYC)
+  // - clipboard-sanitized-write: allowed (no information disclosure)
+  // - fullscreen / pointerLock: allowed (legitimate dapp UX for video/games);
+  //   revisit if business confirms they are unused
+  // - clipboard-read: DENIED at the Electron level so dapps cannot bypass
+  //   the `wallet_requestClipboardPermission` modal via
+  //   `navigator.clipboard.readText()`
+  // - notifications: already disabled at the Blink engine level via
+  //   `disableBlinkFeatures="Notifications"` in DesktopWebView.tsx
+  // - all other permissions (geolocation, display-capture, idle-detection,
+  //   midi, serial/usb/hid/bluetooth, etc.): DENIED
+  const WEBVIEW_ALLOWED_PERMISSIONS = new Set([
+    'fullscreen',
+    'pointerLock',
+    'clipboard-sanitized-write',
+  ]);
   const webviewSession = session.fromPartition('persist:onekey');
   webviewSession.setPermissionRequestHandler(
     (webContents, permission, callback, details) => {
@@ -1171,12 +1203,32 @@ async function createMainWindow() {
         callback(false);
         return;
       }
-      // Allow all non-media permissions to preserve default Electron behavior.
-      // Note: 'notifications' is never requested here because it is disabled
-      // at the Blink engine level (see disableBlinkFeatures in DesktopWebView.tsx).
-      callback(true);
+      if (WEBVIEW_ALLOWED_PERMISSIONS.has(permission)) {
+        callback(true);
+        return;
+      }
+      // Log only the origin — full URLs can carry session tokens or
+      // dapp-specific query strings that should not leak into log files.
+      let deniedOrigin = '<malformed>';
+      try {
+        deniedOrigin = new URL(requestingUrl || topLevelUrl).origin;
+      } catch {
+        // keep '<malformed>' fallback
+      }
+      logger.info('[webview] permission denied:', permission, deniedOrigin);
+      callback(false);
     },
   );
+  // Some permissions (notably clipboard) reach the renderer via the
+  // synchronous PermissionCheck path rather than PermissionRequest; without a
+  // check handler Electron's default is `true`, which would silently let
+  // dapps bypass the request-time policy above. Mirror the allowlist here.
+  // `media` keeps a true default so the dynamic fiat-pay whitelist still
+  // runs at request time.
+  webviewSession.setPermissionCheckHandler((_webContents, permission) => {
+    if (permission === 'media') return true;
+    return WEBVIEW_ALLOWED_PERMISSIONS.has(permission);
+  });
 
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,

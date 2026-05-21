@@ -4052,6 +4052,8 @@
   "send_token_selector.search_placeholder": "搜尋代幣符號或合約地址",
   "send_token_selector.select_token": "選擇代幣",
   "sending_krc20_warning_text": "發送 KRC20 代幣需在硬件確認兩次。請勿取消第二次確認，否則第一次確認發出的 KAS 將難以找回。",
+  "sensitive_information_screenshot_protected__desc": "為了您的資產安全，敏感資訊<tag>永遠不會出現在截圖中</tag>。",
+  "sensitive_information_screenshot_protected__title": "敏感資訊已受保護",
   "set_new_backup_password": "設定新的備份密碼",
   "set_new_backup_password_desc": "新的備份密碼將用於您的下一個備份記錄。現有的備份記錄及其密碼將保持不變。",
   "set_new_backup_password_fist_time": "此密碼將用於保護您的備份記錄。",

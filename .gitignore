@@ -130,15 +130,17 @@ debug.log
 
 # Personal process assets (local only, not committed)
 /local/
+/ignore/
 *.local.md
 .playwright-cli/
 # Local documentation files
 .local_docs/
 /.claude/worktrees
+.claude/worktrees
 /.worktree
 .worktree
-.claude/worktrees
 /.worktrees
+.worktrees
 .skillshare/logs/operations.log
 .gstack/
 .codex/
