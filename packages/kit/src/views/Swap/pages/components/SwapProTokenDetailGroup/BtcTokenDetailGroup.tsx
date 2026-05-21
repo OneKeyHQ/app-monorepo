@@ -21,12 +21,12 @@ export function BtcTokenDetailGroup({
           valueComponent: renderCurrencyValue(btcMetadata.volume24h),
         },
         {
-          titleId: ETranslations.dexmarket_btc_circulating_supply,
-          valueComponent: renderAmountValue(btcMetadata.circulatingSupply),
+          titleId: ETranslations.dexmarket_btc_total_supply,
+          valueComponent: renderAmountValue(btcMetadata.totalSupply),
         },
         {
-          titleId: ETranslations.dexmarket_btc_remaining_supply,
-          valueComponent: renderAmountValue(btcMetadata.remainingSupply),
+          titleId: ETranslations.dexmarket_btc_circulating,
+          valueComponent: renderAmountValue(btcMetadata.circulatingSupply),
         },
       ]}
     />
