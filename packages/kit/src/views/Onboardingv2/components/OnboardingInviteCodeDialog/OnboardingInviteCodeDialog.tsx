@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -84,6 +84,8 @@ const APPLY_EXIT_STYLE = {
   opacity: 0,
 } as const;
 
+const REFERRAL_CODE_PATTERN = /^[a-zA-Z0-9]+$/;
+
 // Shared transition props for the three Apply-button label variants
 // (idle text, submitting spinner, success check). Keeps the three
 // <AnimatePresence> branches structurally identical so the only
@@ -148,6 +150,20 @@ function OnboardingInviteCodeDialogContent({
     mode: 'onChange',
   });
 
+  // Empty value bypasses `pattern` in react-hook-form, so `required` is the
+  // only check that catches an empty Apply. Reuse the invalid-code message —
+  // it reads sensibly for both empty and malformed input and avoids a new
+  // i18n key. Length upper bound is enforced by `maxLength={30}` on Input.
+  const codeRules = useMemo(() => {
+    const message = intl.formatMessage({
+      id: ETranslations.referral_invalid_code,
+    });
+    return {
+      required: { value: true, message },
+      pattern: { value: REFERRAL_CODE_PATTERN, message },
+    };
+  }, [intl]);
+
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
   const { confirmBindReferralCode } = useWalletBoundReferralCode({
     entry: 'modal',
@@ -176,8 +192,7 @@ function OnboardingInviteCodeDialogContent({
   const handleApply = useCallback(async () => {
     if (isPending || isSuccess) return;
 
-    // Mobile: dismiss the keyboard so the dialog footer + any inline error
-    // are fully visible while the bind RPC is in flight.
+    // Keep footer + inline error visible while the bind RPC is in flight.
     Keyboard.dismiss();
 
     const isValid = await form.trigger();
@@ -303,28 +318,7 @@ function OnboardingInviteCodeDialogContent({
 
   return (
     <Form form={form}>
-      <Form.Field
-        name="referralCode"
-        rules={{
-          // Empty value bypasses `pattern` in react-hook-form, so we need
-          // `required` to catch the "user pressed Apply with nothing typed"
-          // case. Reuse the same invalid-code message — "invalid" reads
-          // sensibly for both empty and malformed input, and avoids adding
-          // a new i18n key.
-          required: {
-            value: true,
-            message: intl.formatMessage({
-              id: ETranslations.referral_invalid_code,
-            }),
-          },
-          pattern: {
-            value: /^[a-zA-Z0-9]{1,30}$/,
-            message: intl.formatMessage({
-              id: ETranslations.referral_invalid_code,
-            }),
-          },
-        }}
-      >
+      <Form.Field name="referralCode" rules={codeRules}>
         <Input
           size="large"
           $gtMd={{ size: 'medium' }}
@@ -419,8 +413,9 @@ function OnboardingInviteCodeDialogContent({
 // modal is pushed onto the same modal navigator, so an in-page-anchored
 // dialog lets the signature page naturally layer on top of it. The global
 // portal would otherwise occlude the signature page and block interaction.
-// `Theme name="dark"` is re-applied inside dialogContainer because the
-// portal lives outside the OnboardingV2 navigator's dark-mode wrapper.
+// `Theme name="dark"` is kept as defense-in-depth — the modal navigator
+// portal currently mounts inside the OnboardingV2 dark Theme wrapper
+// (routes/Modal/Navigator.tsx), so this is redundant today but cheap.
 export function useShowOnboardingInviteCodeDialog() {
   const intl = useIntl();
   const dialog = useInPageDialog(EInPageDialogType.inModalPage);
