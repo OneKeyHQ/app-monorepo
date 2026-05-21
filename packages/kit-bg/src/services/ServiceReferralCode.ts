@@ -12,6 +12,7 @@ import {
   FIRST_EVM_ADDRESS_PATH,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { resolveWalletCreatedAtForCreationRecord } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
 import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';
@@ -837,6 +838,13 @@ class ServiceReferralCode extends ServiceBase {
     try {
       wallet = await this.backgroundApi.serviceAccount.getWallet({ walletId });
       if (accountUtils.isHwHiddenWallet({ wallet })) {
+        return null;
+      }
+      // Referral binding is a OneKey-specific feature. Third-party hardware
+      // (Ledger / Trezor) hides the ActionList entry in WalletEditButton via
+      // `isThirdPartyVendorWallet`; mirror that here so the onboarding
+      // invite-code dialog also skips these wallets.
+      if (getVendorProfile(wallet?.associatedDeviceInfo?.vendor).isThirdParty) {
         return null;
       }
     } catch {
