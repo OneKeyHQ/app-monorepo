@@ -3,6 +3,7 @@ import { memo } from 'react';
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { NumberSizeableText } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import {
   useFlattenAggregateTokensMapAtom,
@@ -30,7 +31,7 @@ function TokenPriceView(props: IProps) {
       formatterOptions={{ currency: settings.currencyInfo.symbol }}
       {...rest}
     >
-      {token?.price ?? 0}
+      {displayOrUnavailable(token?.price)}
     </NumberSizeableText>
   );
 }

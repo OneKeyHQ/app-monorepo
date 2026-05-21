@@ -289,10 +289,9 @@ function HomeOverviewContainer() {
         (account.id === accountWorth.accountId ||
           account.indexedAccountId === accountWorth.accountId)
       ) {
-        const allWorth = Object.values(accountWorth.worth).reduce(
-          (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
-          '0',
-        );
+        const allWorth = Object.values(accountWorth.worth)
+          .reduce<BigNumber>((acc, cur) => acc.plus(cur), new BigNumber(0))
+          .toFixed();
 
         if (
           new BigNumber(allWorth).gt(
@@ -332,18 +331,19 @@ function HomeOverviewContainer() {
             });
           }
         } else if (!network.isAllNetworks) {
+          const singleNetworkValue =
+            accountWorth.worth[
+              accountUtils.buildAccountValueKey({
+                accountId: account.id,
+                networkId: network.id,
+              })
+            ];
           void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
             {
               accountId: accountValueId,
               networkAccountId: account.id,
               networkId: network.id,
-              value:
-                accountWorth.worth[
-                  accountUtils.buildAccountValueKey({
-                    accountId: account.id,
-                    networkId: network.id,
-                  })
-                ],
+              value: singleNetworkValue ?? '0',
               currency: settings.currencyInfo.id,
             },
           );
