@@ -58,7 +58,7 @@ When fixing bugs, do NOT remove existing code/components that weren't part of th
 
 ## Database Schema Changes
 
-When modifying local database schema-related code, always keep Realm DB and IndexedDB definitions in sync and bump `LOCAL_DB_VERSION` in `packages/kit-bg/src/dbs/local/consts.ts` in the same change. This includes Realm schema properties, IndexedDB store names or bucket assignments, local DB schema maps, and persisted model fields. Verify that neither the Realm schema files nor the IndexedDB schema/type maps are missing the corresponding update. Do not rely on optional fields or default values to skip the version bump.
+When modifying local database schema-related code, always keep Realm DB and IndexedDB definitions in sync and bump `LOCAL_DB_VERSION` in `packages/kit-bg/src/dbs/local/consts.ts` in the same change. This includes Realm schema properties, Realm `record` getters that convert objects to plain JSON records, IndexedDB store names or bucket assignments, local DB schema maps, and persisted model fields. Verify that neither the Realm schema files nor the IndexedDB schema/type maps are missing the corresponding update. Do not rely on optional fields or default values to skip the version bump.
 
 ## Dependencies & Patching
 
