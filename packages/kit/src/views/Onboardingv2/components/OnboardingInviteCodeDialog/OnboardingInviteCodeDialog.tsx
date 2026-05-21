@@ -19,6 +19,7 @@ import {
   Spinner,
   Stack,
   Theme,
+  Toast,
   XStack,
   YStack,
   useDialogInstance,
@@ -48,7 +49,7 @@ type IBindStatus = 'idle' | 'submitting' | 'success';
 // How long the success state stays visible before the dialog auto-closes.
 // Long enough that the user has time to register the check icon as a
 // distinct stage (not just a flash before close).
-const SUCCESS_HOLD_MS = 1200;
+const SUCCESS_HOLD_MS = 900;
 // Threshold-based loading pattern (Linear / Stripe / GitHub style):
 // If the bind RPC settles within SHOW_SPINNER_AFTER_MS, skip the spinner
 // entirely and go straight idle → success. 250ms is at the upper edge of
@@ -62,35 +63,28 @@ const SHOW_SPINNER_AFTER_MS = 250;
 // AnimatePresence runs in `exitBeforeEnter`, so 'submitting' only becomes
 // visible *after* the outgoing 'apply' label finishes exiting:
 //
-//   T=0     setBindStatus('submitting'); 'apply' starts exit (350ms smooth)
-//   T=350   'apply' unmounts; 'submitting' starts enter (350ms smooth)
-//   T=700   spinner fully visible
-//   T=...   transition out to 'success' (another 350+350ms)
+//   T=0     setBindStatus('submitting'); 'apply' starts exit (~200ms quick)
+//   T=200   'apply' unmounts; 'submitting' starts enter (~200ms quick)
+//   T=400   spinner fully visible
+//   T=...   transition out to 'success' (another 200+200ms)
 //
-// To get ~300ms of stable, readable spinner we need MIN_HOLD ≈ 350 + 350 +
-// 300 ≈ 1000ms. Anything shorter and the spinner is mid-enter when we yank
+// To get ~200ms of stable, readable spinner we need MIN_HOLD ≈ 200 + 200 +
+// 200 ≈ 600ms. Anything shorter and the spinner is mid-enter when we yank
 // it back out — which was causing the "sometimes the spinner doesn't show
 // up" reports.
-const SPINNER_MIN_HOLD_AFTER_SHOWN_MS = 1000;
+const SPINNER_MIN_HOLD_AFTER_SHOWN_MS = 600;
 
 // Direction matches the reference (Sonner / Linear "slot-machine" pattern):
 // the new label slides down from above; the old label slides down off the
 // bottom. Both elements travel in the same direction, which reads as
 // continuous motion rather than a swap.
-// Blur softens the in/out — without it, the spring snap reads as harsh
-// because there's no other surface motion to absorb it. OneKey uses the
-// same opacity+transform+blur(2px) recipe in Onboarding v2 layout enter
-// transitions (filter is web-only, but harmless on native — Tamagui treats
-// it as a no-op when the animateOnly list excludes it).
 const APPLY_ENTER_STYLE = {
-  y: -16,
+  y: -8,
   opacity: 0,
-  filter: 'blur(2px)',
 } as const;
 const APPLY_EXIT_STYLE = {
-  y: 16,
+  y: 8,
   opacity: 0,
-  filter: 'blur(2px)',
 } as const;
 
 // Shared transition props for the three Apply-button label variants
@@ -98,7 +92,7 @@ const APPLY_EXIT_STYLE = {
 // <AnimatePresence> branches structurally identical so the only
 // difference between them is the child element.
 const APPLY_LABEL_MOTION_PROPS = {
-  animation: 'smooth',
+  animation: 'quick',
   animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
   enterStyle: APPLY_ENTER_STYLE,
   exitStyle: APPLY_EXIT_STYLE,
@@ -279,6 +273,13 @@ function OnboardingInviteCodeDialogContent({
               })
             : err.message,
         });
+      } else if (err?.message) {
+        // Non-business errors (network failure, signature cancel, unknown)
+        // surface as a Toast. `suppressErrorToast: true` above keeps the
+        // business-error path inline-only; this branch matches the Settings
+        // InviteCodeDialog UX where confirmBindReferralCode's default Toast
+        // catches the same failures.
+        Toast.error({ title: err.message });
       }
 
       setBindStatus('idle');
