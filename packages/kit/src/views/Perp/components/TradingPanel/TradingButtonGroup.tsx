@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetAtom,
   usePerpsCommonConfigPersistAtom,
@@ -38,6 +39,7 @@ import {
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm } from '../../hooks';
+import { useEnableTradingWithDepositFallback } from '../../hooks/useEnableTradingWithDepositFallback';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
@@ -72,6 +74,7 @@ function SideButtonInternal({
   const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
@@ -90,6 +93,8 @@ function SideButtonInternal({
 
   const { handleConfirm } = useOrderConfirm();
   const { midPriceBN } = useTradingPrice();
+  const enableTradingWithDepositFallback =
+    useEnableTradingWithDepositFallback();
 
   const szDecimals = useMemo(() => {
     if (isSpot && activeTradeInstrument.mode === 'spot') {
@@ -145,23 +150,40 @@ function SideButtonInternal({
     perpsAccountLoading.selectAccountLoading,
   ]);
 
+  const isServerActionDisabled = useMemo(
+    () =>
+      Boolean(
+        perpConfigCommon?.disablePerpActionPerp ||
+        perpConfigCommon?.ipDisablePerp,
+      ),
+    [perpConfigCommon?.disablePerpActionPerp, perpConfigCommon?.ipDisablePerp],
+  );
+
+  const isTradingStatusDisabled = useMemo(
+    () => !perpsAccountStatus.canTrade && !enableTradingMode.isSoftwareAccount,
+    [enableTradingMode.isSoftwareAccount, perpsAccountStatus.canTrade],
+  );
+
+  const shouldAutoEnableTrading = useMemo(
+    () => !perpsAccountStatus.canTrade && enableTradingMode.isSoftwareAccount,
+    [enableTradingMode.isSoftwareAccount, perpsAccountStatus.canTrade],
+  );
+
   const buttonDisabled = useMemo(() => {
     return (
-      !perpsAccountStatus.canTrade ||
-      isNoEnoughMargin ||
+      isTradingStatusDisabled ||
+      (!shouldAutoEnableTrading && isNoEnoughMargin) ||
       isAccountLoading ||
       priceError === 'bbo_unavailable' ||
-      (perpsAccountStatus.canTrade &&
-        (perpConfigCommon?.disablePerpActionPerp ||
-          perpConfigCommon?.ipDisablePerp))
+      isServerActionDisabled
     );
   }, [
-    perpsAccountStatus.canTrade,
+    isTradingStatusDisabled,
+    shouldAutoEnableTrading,
     isNoEnoughMargin,
     isAccountLoading,
     priceError,
-    perpConfigCommon?.disablePerpActionPerp,
-    perpConfigCommon?.ipDisablePerp,
+    isServerActionDisabled,
   ]);
 
   const buttonSecondaryText = useMemo(() => {
@@ -218,7 +240,7 @@ function SideButtonInternal({
       return intl.formatMessage({
         id: ETranslations.perp_button_disable_perp,
       });
-    if (isNoEnoughMargin)
+    if (!shouldAutoEnableTrading && isNoEnoughMargin)
       return intl.formatMessage({
         id: isSpot
           ? ETranslations.dexmarket_insufficient_balance
@@ -260,6 +282,7 @@ function SideButtonInternal({
     intl,
     perpConfigCommon?.ipDisablePerp,
     perpConfigCommon?.disablePerpActionPerp,
+    shouldAutoEnableTrading,
   ]);
 
   const isLong = side === 'long';
@@ -316,7 +339,7 @@ function SideButtonInternal({
   }, [isAccountLoading, isLong, themeVariant]);
 
   const handlePress = useDebouncedCallback(
-    (): void => {
+    async (): Promise<void> => {
       // ── Trigger mode validation ──
       if (isTriggerMode && formData.triggerOrderType) {
         const tp = formData.triggerPrice?.trim();
@@ -533,6 +556,25 @@ function SideButtonInternal({
       }
 
       // Validation passed, proceed with order
+      if (shouldAutoEnableTrading) {
+        const result = await enableTradingWithDepositFallback();
+        if (!result.shouldContinue) {
+          return;
+        }
+        if (isNoEnoughMargin) {
+          Toast.message({
+            title: intl.formatMessage({
+              id: isSpot
+                ? ETranslations.dexmarket_insufficient_balance
+                : ETranslations.perp_trading_button_no_enough_margin,
+            }),
+          });
+          return;
+        }
+      } else if (!perpsAccountStatus.canTrade) {
+        return;
+      }
+
       if (perpsCustomSettings.skipOrderConfirm) {
         void handleConfirm(side);
       } else {
@@ -648,6 +690,7 @@ function SideButtonInternal({
             !buttonDisabled ? { bg: buttonStyles.pressBg } : undefined
           }
           disabled={buttonDisabled}
+          loading={isAccountLoading}
           onPress={handlePress}
           h={36}
           py={
@@ -690,6 +733,7 @@ function SideButtonInternal({
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
         disabled={buttonDisabled}
+        loading={isAccountLoading}
         onPress={handlePress}
         h={36}
         py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
