@@ -126,10 +126,6 @@ export default function PrimeDashboard({
     IPrimeServerUserInfo | undefined
   >(undefined);
 
-  const handleLogoutSuccess = useCallback(async () => {
-    setServerUserInfo(undefined);
-  }, []);
-
   const { top } = useSafeAreaInsets();
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
@@ -473,6 +469,10 @@ export default function PrimeDashboard({
     user?.isLoggedIn ||
     user?.isLoggedInOnServer ||
     isLoggedIn;
+
+  const handleLogoutSuccess = useCallback(async () => {
+    setServerUserInfo(undefined);
+  }, []);
 
   // const shouldShowIOSAppStoreHint = useMemo(() => {
   //   // return true;
