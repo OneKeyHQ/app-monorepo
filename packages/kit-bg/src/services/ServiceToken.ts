@@ -1030,6 +1030,30 @@ class ServiceToken extends ServiceBase {
       }
     }
 
+    // Hoist legacy (non-USD) cache to USD basis before returning, so callers
+    // that merge results from multiple (account, network) pairs can rely on a
+    // single basis. Without this, an All Networks batch may contain entries
+    // tagged 'usd' (post-migration) alongside entries tagged in the user's
+    // display currency (pre-migration), and downstream sums would silently
+    // mix bases.
+    let tokenListValue = localTokens.tokenListValue;
+    if (resolvedCurrency && resolvedCurrency !== USD_CURRENCY_ID) {
+      const rate = await this.resolveCurrencyRate(resolvedCurrency);
+      if (rate && !rate.eq(1)) {
+        tokenListMap = Object.fromEntries(
+          Object.entries(tokenListMap).map(([k, fiat]) => {
+            const next: ITokenFiat = { ...fiat };
+            this.convertFiatToCurrency(next, rate, USD_CURRENCY_ID);
+            return [k, next];
+          }),
+        );
+        if (tokenListValue) {
+          tokenListValue = new BigNumber(tokenListValue).div(rate).toFixed();
+        }
+        resolvedCurrency = USD_CURRENCY_ID;
+      }
+    }
+
     perf.done();
     return {
       ...localTokens,
@@ -1037,6 +1061,7 @@ class ServiceToken extends ServiceBase {
       smallBalanceTokenList,
       riskyTokenList,
       tokenListMap,
+      tokenListValue,
       currency: resolvedCurrency,
       hasCache: localTokens.hasCache,
       accountId,
