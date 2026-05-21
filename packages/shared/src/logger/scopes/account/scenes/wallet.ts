@@ -210,7 +210,10 @@ export class WalletScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
-  public customNetworkAdded(params: { chainID: string }) {
+  public customNetworkAdded(params: {
+    chainID: string;
+    source?: 'manual' | 'chainList' | 'dapp';
+  }) {
     return params;
   }
 

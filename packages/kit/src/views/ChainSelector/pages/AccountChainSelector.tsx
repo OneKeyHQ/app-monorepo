@@ -278,8 +278,7 @@ function AccountChainSelector({
     [actions, num, recordNetworkHistoryEnabled, activeNetwork, sceneName],
   );
   const onAddCustomNetwork = useCallback(() => {
-    navigation.push(EChainSelectorPages.AddCustomNetwork, {
-      state: 'add',
+    navigation.push(EChainSelectorPages.ChainListSearch, {
       onSuccess: (network: IServerNetwork) => {
         handleListItemPress(network);
       },

@@ -660,10 +660,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.custom_network_add_network_action_text,
                   }),
-                  settingRoute: EModalSettingRoutes.SettingCustomNetwork,
+                  settingRoute: EModalSettingRoutes.SettingChainListSearch,
                   onPress: (navigation) => {
                     defaultLogger.setting.page.enterCustomRPC();
-                    navigation?.push(EModalSettingRoutes.SettingCustomNetwork);
+                    navigation?.push(
+                      EModalSettingRoutes.SettingChainListSearch,
+                    );
                   },
                 },
                 {
