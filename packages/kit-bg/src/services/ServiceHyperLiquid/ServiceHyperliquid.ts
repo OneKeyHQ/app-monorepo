@@ -25,6 +25,11 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  IPerpEnableTradingStepName,
+  IPerpEnableTradingStepResult,
+} from '@onekeyhq/shared/src/logger/scopes/perp/scenes/enableTradingTiming';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -86,6 +91,7 @@ import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliqui
 
 import localDb from '../../dbs/local/localDb';
 import {
+  devSettingsPersistAtom,
   perpTokenFavoritesPersistAtom,
   perpTokenSelectorTabsAtom,
   perpsAbstractionModeAtom,
@@ -1747,11 +1753,107 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async enableTrading() {
-    await this.checkPerpsAccountStatus({
-      isEnableTradingTrigger: true,
-    });
+    await this.measureEnableTradingStep(
+      'enableTrading.total',
+      { isEnableTradingTrigger: true },
+      () =>
+        this.checkPerpsAccountStatus({
+          isEnableTradingTrigger: true,
+        }),
+    );
     const status = await perpsActiveAccountStatusAtom.get();
+
+    // OK-55089 BENCH: when the dev toggle forces canTrade=false at the atom
+    // derivation layer (so each click on long/short replays the full enable
+    // flow), the status returned here would also carry canTrade=false and
+    // short-circuit useEnableTradingWithDepositFallback — the order confirm
+    // dialog would never open. Restore the real canTrade for callers based on
+    // status.details. Keep aligned with the derivation in
+    // perpsActiveAccountStatusAtom (packages/kit-bg/src/states/jotai/atoms/perps.ts).
+    if (platformEnv.isDev) {
+      const devSettings = await devSettingsPersistAtom.get();
+      if (
+        devSettings?.enabled &&
+        devSettings.settings?.forcePerpsCanTradeFalse
+      ) {
+        const realCanTrade = Boolean(
+          status?.accountAddress &&
+          status?.details?.agentOk &&
+          status?.details?.builderFeeOk &&
+          status?.details?.referralCodeOk &&
+          status?.details?.activatedOk &&
+          status?.details?.internalRebateBoundOk &&
+          status?.details?.abstractionOk,
+        );
+        // eslint-disable-next-line no-console
+        console.log(
+          `[OK-55089][BENCH] enableTrading canTrade override ${JSON.stringify({
+            atomCanTrade: status?.canTrade,
+            realCanTrade,
+            details: status?.details,
+          })}`,
+        );
+        return { ...status, canTrade: realCanTrade };
+      }
+    }
+
     return status;
+  }
+
+  // OK-55089 BENCH: wipe every cache / local state that gates the enable
+  // trading flow so the next click re-runs the full path (including
+  // approveAgent signature). Used by the BENCH-only "Reset HL Cache" button.
+  // - activatedUser cache: forces userRole re-query
+  // - agent credentials + extraAgents cache: forces approveAgent (signature)
+  // - builderFee cache: forces re-query (re-approve only if chain state diverges)
+  // - rebate binding cache: forces re-query
+  // - abstraction mode + status info atoms: resets details.* baseline
+  // Note: setAbstraction / approveBuilderFee only re-trigger if chain state
+  // diverges from local expectation, which clearing local caches alone can't
+  // force. approveAgent is the only signature step this reliably reproduces.
+  @backgroundMethod()
+  async resetEnableTradingCachesForBench() {
+    if (!platformEnv.isDev) {
+      return;
+    }
+    await this.removeAllAgentCredentialsAndResetStatus();
+    this.checkInternalRebateBindingStatusWithCache.clear();
+    await perpsAbstractionModeAtom.set(undefined);
+    await perpsActiveAccountStatusInfoAtom.set(undefined);
+    // eslint-disable-next-line no-console
+    console.log('[OK-55089][BENCH] enable trading caches reset');
+  }
+
+  // OK-55089 BENCH: measure a single step of the enable trading flow and emit
+  // a perp.enableTradingTiming.trackStep event. Re-throws errors verbatim so
+  // upstream control flow (try/finally / catch) is unaffected.
+  private async measureEnableTradingStep<T>(
+    step: IPerpEnableTradingStepName,
+    context: { isEnableTradingTrigger?: boolean },
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const start = Date.now();
+    let stepResult: IPerpEnableTradingStepResult = 'success';
+    try {
+      return await fn();
+    } catch (err) {
+      stepResult = 'failure';
+      throw err;
+    } finally {
+      const payload = {
+        step,
+        durationMs: Date.now() - start,
+        stepResult,
+        isEnableTradingTrigger: context.isEnableTradingTrigger,
+      };
+      defaultLogger.perp.enableTradingTiming.trackStep(payload);
+      if (platformEnv.isDev) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[OK-55089][enableTradingTiming] ${JSON.stringify(payload)}`,
+        );
+      }
+    }
   }
 
   hideEnableTradingLoadingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1870,7 +1972,11 @@ export default class ServiceHyperliquid extends ServiceBase {
           userAccountId: selectedAccount.accountId ?? undefined,
         }),
         !isActivated
-          ? infoClient.userRole({ user: accountAddress })
+          ? this.measureEnableTradingStep(
+              'checkStatus.userRole',
+              { isEnableTradingTrigger },
+              () => infoClient.userRole({ user: accountAddress }),
+            )
           : Promise.resolve(null),
       ]);
       if (!isActivated && userRoleResult) {
@@ -1896,22 +2002,36 @@ export default class ServiceHyperliquid extends ServiceBase {
 
         // Read abstraction mode early (no signing needed)
         // So account value displays correctly before enable trading
-        void this.fetchUserAbstraction(accountAddress);
+        void this.measureEnableTradingStep(
+          'checkStatus.fetchUserAbstraction',
+          { isEnableTradingTrigger },
+          () => this.fetchUserAbstraction(accountAddress),
+        );
 
         // Builder fee check and rebate binding check are independent — run in parallel.
         // Both must complete before checkAgentStatus (builder fee must be approved,
         // and credentials may be cleared based on rebate result).
         const [, isRebateBound] = await Promise.all([
-          this.checkBuilderFeeStatus({
-            accountAddress,
-            accountId: selectedAccount.accountId,
-            isEnableTradingTrigger,
-            statusDetails,
-          }),
-          this.checkInternalRebateBindingStatusWithCache({
-            accountId: selectedAccount.accountId,
-            accountAddress,
-          }),
+          this.measureEnableTradingStep(
+            'checkStatus.builderFee',
+            { isEnableTradingTrigger },
+            () =>
+              this.checkBuilderFeeStatus({
+                accountAddress,
+                accountId: selectedAccount.accountId,
+                isEnableTradingTrigger,
+                statusDetails,
+              }),
+          ),
+          this.measureEnableTradingStep(
+            'checkStatus.rebateBinding',
+            { isEnableTradingTrigger },
+            () =>
+              this.checkInternalRebateBindingStatusWithCache({
+                accountId: selectedAccount.accountId,
+                accountAddress,
+              }),
+          ),
         ]);
 
         // Clear local credentials to force new agent creation for rebate binding
@@ -1951,7 +2071,11 @@ export default class ServiceHyperliquid extends ServiceBase {
 
           // Check abstraction mode — requires user wallet signature
           // Placed after referralCodeOk so a signature rejection doesn't block other status
-          const currentMode = await this.fetchUserAbstraction(accountAddress);
+          const currentMode = await this.measureEnableTradingStep(
+            'checkStatus.fetchUserAbstraction',
+            { isEnableTradingTrigger },
+            () => this.fetchUserAbstraction(accountAddress),
+          );
           const isAbstractionCorrect =
             currentMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
             currentMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
@@ -1960,13 +2084,21 @@ export default class ServiceHyperliquid extends ServiceBase {
           } else if (isEnableTradingTrigger && selectedAccount.accountId) {
             // Only set abstraction when user explicitly clicks Enable Trading
             // User wallet signature required — will prompt user
-            await this.exchangeService.setAbstractionWithUserWallet({
-              userAccountId: selectedAccount.accountId,
-              userAddress: accountAddress,
-              abstraction: 'unifiedAccount',
-            });
-            const verifiedMode =
-              await this.fetchUserAbstraction(accountAddress);
+            await this.measureEnableTradingStep(
+              'checkStatus.setAbstraction',
+              { isEnableTradingTrigger },
+              () =>
+                this.exchangeService.setAbstractionWithUserWallet({
+                  userAccountId: selectedAccount.accountId as string,
+                  userAddress: accountAddress,
+                  abstraction: 'unifiedAccount',
+                }),
+            );
+            const verifiedMode = await this.measureEnableTradingStep(
+              'checkStatus.fetchUserAbstraction',
+              { isEnableTradingTrigger },
+              () => this.fetchUserAbstraction(accountAddress),
+            );
             statusDetails.abstractionOk =
               verifiedMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
               verifiedMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
@@ -1978,7 +2110,11 @@ export default class ServiceHyperliquid extends ServiceBase {
         accountAddress: accountAddress || null,
         details: statusDetails,
       };
-      await perpsActiveAccountStatusInfoAtom.set(status);
+      await this.measureEnableTradingStep(
+        'checkStatus.persistStatus',
+        { isEnableTradingTrigger },
+        () => perpsActiveAccountStatusInfoAtom.set(status),
+      );
 
       clearTimeout(this.hideEnableTradingLoadingTimer);
       this.hideEnableTradingLoadingTimer = setTimeout(async () => {
@@ -2063,9 +2199,11 @@ export default class ServiceHyperliquid extends ServiceBase {
     statusDetails: IPerpsActiveAccountStatusDetails;
   }) {
     let agentCredential: ICoreHyperLiquidAgentCredential | undefined;
-    const extraAgents = await this.fetchExtraAgentsWithCache({
-      user: accountAddress,
-    });
+    const extraAgents = await this.measureEnableTradingStep(
+      'checkStatus.extraAgents',
+      { isEnableTradingTrigger },
+      () => this.fetchExtraAgentsWithCache({ user: accountAddress }),
+    );
     const now = Date.now();
     const validThreshold =
       now +
@@ -2208,56 +2346,61 @@ export default class ServiceHyperliquid extends ServiceBase {
             ) {
               agentNameToApprove = agentNameToRemove;
             } else {
-              const approveAgentResult = await this.exchangeService.removeAgent(
-                {
-                  agentName: agentNameToRemove,
+              await this.measureEnableTradingStep(
+                'checkStatus.agentSlotRecovery',
+                { isEnableTradingTrigger },
+                async () => {
+                  const approveAgentResult =
+                    await this.exchangeService.removeAgent({
+                      agentName: agentNameToRemove,
+                    });
+                  defaultLogger.perp.agentLifeCycle.trackReason({
+                    reason: 'agent_removed_for_slot_recovery',
+                    accountAddress,
+                    accountId,
+                    isEnableTradingTrigger,
+                    statusDetails: {
+                      ...statusDetails,
+                      agentName: agentNameToRemove,
+                      removeResultStatus: approveAgentResult?.status,
+                    },
+                  });
+                  await timerUtils.wait(4000);
+
+                  // Poll to verify agent removal instead of fixed delay
+                  const pollStartTime = Date.now();
+                  const pollTimeoutMs = 10_000; // 10 seconds total polling timeout
+                  const requestTimeoutMs = 3000; // 3 seconds per request timeout
+                  const { infoClient } = hyperLiquidApiClients;
+
+                  while (Date.now() - pollStartTime < pollTimeoutMs) {
+                    try {
+                      const currentExtraAgents = await pTimeout(
+                        infoClient.extraAgents({
+                          user: accountAddress,
+                        }),
+                        {
+                          milliseconds: requestTimeoutMs,
+                        },
+                      );
+
+                      // Check if the agent was successfully removed
+                      if (
+                        !currentExtraAgents.some(
+                          (agent) => agent.name === agentNameToRemove,
+                        )
+                      ) {
+                        break;
+                      }
+                    } catch (error) {
+                      console.error('Polling request failed:', error);
+                    }
+
+                    // Wait 500ms before next poll attempt
+                    await timerUtils.wait(500);
+                  }
                 },
               );
-              defaultLogger.perp.agentLifeCycle.trackReason({
-                reason: 'agent_removed_for_slot_recovery',
-                accountAddress,
-                accountId,
-                isEnableTradingTrigger,
-                statusDetails: {
-                  ...statusDetails,
-                  agentName: agentNameToRemove,
-                  removeResultStatus: approveAgentResult?.status,
-                },
-              });
-              await timerUtils.wait(4000);
-
-              // Poll to verify agent removal instead of fixed delay
-              const pollStartTime = Date.now();
-              const pollTimeoutMs = 10_000; // 10 seconds total polling timeout
-              const requestTimeoutMs = 3000; // 3 seconds per request timeout
-              const { infoClient } = hyperLiquidApiClients;
-
-              while (Date.now() - pollStartTime < pollTimeoutMs) {
-                try {
-                  const currentExtraAgents = await pTimeout(
-                    infoClient.extraAgents({
-                      user: accountAddress,
-                    }),
-                    {
-                      milliseconds: requestTimeoutMs,
-                    },
-                  );
-
-                  // Check if the agent was successfully removed
-                  if (
-                    !currentExtraAgents.some(
-                      (agent) => agent.name === agentNameToRemove,
-                    )
-                  ) {
-                    break;
-                  }
-                } catch (error) {
-                  console.error('Polling request failed:', error);
-                }
-
-                // Wait 500ms before next poll attempt
-                await timerUtils.wait(500);
-              }
             }
           }
         }
@@ -2287,46 +2430,53 @@ export default class ServiceHyperliquid extends ServiceBase {
             // agentName: EHyperLiquidAgentName.Official,
             authorize: true,
           });
-        let retryTimes = 5;
-        let approveAgentResult: IApiRequestResult | undefined;
-        while (retryTimes >= 0) {
-          try {
-            retryTimes -= 1;
-            approveAgentResult = await approveAgentFn();
-            const approveOk =
-              approveAgentResult &&
-              typeof approveAgentResult === 'object' &&
-              'status' in approveAgentResult &&
-              (approveAgentResult as { status?: string }).status === 'ok';
-            const approveDefaultResponse =
-              approveAgentResult &&
-              typeof approveAgentResult === 'object' &&
-              'response' in approveAgentResult &&
-              (approveAgentResult as { response?: { type?: string } }).response
-                ?.type === 'default';
-            if (approveOk && approveDefaultResponse) {
-              break;
-            }
-          } catch (error) {
-            const requestError = error as IApiRequestError | undefined;
-            const errorResponse = (
-              requestError as {
-                response?: { status?: string; response?: string };
+        const approveAgentResult = await this.measureEnableTradingStep(
+          'checkStatus.approveAgent',
+          { isEnableTradingTrigger },
+          async () => {
+            let retryTimes = 5;
+            let lastResult: IApiRequestResult | undefined;
+            while (retryTimes >= 0) {
+              try {
+                retryTimes -= 1;
+                lastResult = await approveAgentFn();
+                const approveOk =
+                  lastResult &&
+                  typeof lastResult === 'object' &&
+                  'status' in lastResult &&
+                  (lastResult as { status?: string }).status === 'ok';
+                const approveDefaultResponse =
+                  lastResult &&
+                  typeof lastResult === 'object' &&
+                  'response' in lastResult &&
+                  (lastResult as { response?: { type?: string } }).response
+                    ?.type === 'default';
+                if (approveOk && approveDefaultResponse) {
+                  break;
+                }
+              } catch (error) {
+                const requestError = error as IApiRequestError | undefined;
+                const errorResponse = (
+                  requestError as {
+                    response?: { status?: string; response?: string };
+                  }
+                )?.response;
+                if (
+                  errorResponse?.status === 'err' &&
+                  errorResponse?.response === 'User has pending agent removal'
+                ) {
+                  if (retryTimes <= 0) {
+                    throw error;
+                  }
+                } else {
+                  throw error;
+                }
               }
-            )?.response;
-            if (
-              errorResponse?.status === 'err' &&
-              errorResponse?.response === 'User has pending agent removal'
-            ) {
-              if (retryTimes <= 0) {
-                throw error;
-              }
-            } else {
-              throw error;
+              await timerUtils.wait(500);
             }
-          }
-          await timerUtils.wait(500);
-        }
+            return lastResult;
+          },
+        );
 
         if (
           approveAgentResult &&
@@ -2579,13 +2729,17 @@ export default class ServiceHyperliquid extends ServiceBase {
       }
       if (maxBuilderFee !== expectMaxBuilderFee && isEnableTradingTrigger) {
         this.getUserApprovedMaxBuilderFeeWithCache.clear();
-        const approveBuilderFeeResult =
-          await this.exchangeService.approveBuilderFee({
-            builder: expectBuilderAddress as IHex,
-            maxFeeRate: `${new BigNumber(expectMaxBuilderFee)
-              .div(1000)
-              .toFixed()}%`,
-          });
+        const approveBuilderFeeResult = await this.measureEnableTradingStep(
+          'checkStatus.approveBuilderFee',
+          { isEnableTradingTrigger },
+          () =>
+            this.exchangeService.approveBuilderFee({
+              builder: expectBuilderAddress as IHex,
+              maxFeeRate: `${new BigNumber(expectMaxBuilderFee)
+                .div(1000)
+                .toFixed()}%`,
+            }),
+        );
         if (
           approveBuilderFeeResult.status === 'ok' &&
           approveBuilderFeeResult.response.type === 'default'

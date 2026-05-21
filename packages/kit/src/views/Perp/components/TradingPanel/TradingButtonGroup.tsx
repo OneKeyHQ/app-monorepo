@@ -15,6 +15,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
@@ -22,6 +23,7 @@ import {
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  useDevSettingsPersistAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountStatusAtom,
@@ -32,6 +34,7 @@ import {
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   getSpotTokenDisplayName,
   parseDexCoin,
@@ -877,41 +880,79 @@ function SideButtonInternal({
 
 const SideButton = memo(SideButtonInternal);
 
+// OK-55089 BENCH: dev-only button to wipe enable trading caches so the next
+// click on long/short re-runs the full flow (including approveAgent signature).
+// Only renders when dev is enabled AND forcePerpsCanTradeFalse toggle is on.
+function BenchResetEnableTradingButton() {
+  const [devSetting] = useDevSettingsPersistAtom();
+  const visible =
+    platformEnv.isDev &&
+    Boolean(devSetting?.enabled) &&
+    Boolean(devSetting?.settings?.forcePerpsCanTradeFalse);
+  if (!visible) {
+    return null;
+  }
+  return (
+    <Button
+      testID="perp-bench-reset-enable-trading-cache-btn"
+      variant="tertiary"
+      size="small"
+      mt="$2"
+      onPress={() => {
+        void backgroundApiProxy.serviceHyperliquid.resetEnableTradingCachesForBench();
+      }}
+    >
+      Reset HL Cache (BENCH)
+    </Button>
+  );
+}
+
 function TradingButtonGroup({ isMobile }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
   const [formData] = useTradingFormAtom();
   const isSpot = tradingMode === 'spot';
 
-  if (isSpot) {
+  const renderSideButtons = () => {
+    if (isSpot) {
+      return (
+        <YStack {...(!isMobile && { mt: '$4' })}>
+          <SideButton side={formData.side} isMobile={isMobile} />
+        </YStack>
+      );
+    }
+    if (isMobile) {
+      return (
+        <YStack gap="$3">
+          <SideButton side="long" isMobile={isMobile} />
+          <SideButton side="short" isMobile={isMobile} />
+        </YStack>
+      );
+    }
     return (
-      <YStack {...(!isMobile && { mt: '$4' })}>
-        <SideButton side={formData.side} isMobile={isMobile} />
-      </YStack>
+      <XStack gap="$2.5" mt="$4">
+        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+          <SideButton
+            side="long"
+            isMobile={isMobile}
+            justifyContent="flex-start"
+          />
+        </XStack>
+        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+          <SideButton
+            side="short"
+            isMobile={isMobile}
+            justifyContent="flex-end"
+          />
+        </XStack>
+      </XStack>
     );
-  }
+  };
 
-  return isMobile ? (
-    <YStack gap="$3">
-      <SideButton side="long" isMobile={isMobile} />
-      <SideButton side="short" isMobile={isMobile} />
+  return (
+    <YStack>
+      {renderSideButtons()}
+      <BenchResetEnableTradingButton />
     </YStack>
-  ) : (
-    <XStack gap="$2.5" mt="$4">
-      <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
-        <SideButton
-          side="long"
-          isMobile={isMobile}
-          justifyContent="flex-start"
-        />
-      </XStack>
-      <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
-        <SideButton
-          side="short"
-          isMobile={isMobile}
-          justifyContent="flex-end"
-        />
-      </XStack>
-    </XStack>
   );
 }
 
