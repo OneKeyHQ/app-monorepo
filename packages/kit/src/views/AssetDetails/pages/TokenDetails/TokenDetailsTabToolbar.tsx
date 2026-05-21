@@ -1,7 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -22,6 +21,7 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { sortTokensByOrder } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useTokenDetailsContext } from './TokenDetailsContext';
@@ -164,7 +164,7 @@ function TokenDetailsTabToolbar(props: IProps) {
                 >
                   {token.networkName}
                 </SizableText>
-                {isNil(tokenDetail?.fiatValue) ? (
+                {!tokenDetail ? (
                   <Tooltip
                     renderTrigger={
                       <Icon
@@ -193,7 +193,7 @@ function TokenDetailsTabToolbar(props: IProps) {
                           currency: settings.currencyInfo.symbol,
                         }}
                       >
-                        {tokenDetail?.fiatValue}
+                        {displayOrUnavailable(tokenDetail.fiatValue)}
                       </NumberSizeableTextWrapper>
                     }
                   />

@@ -69,6 +69,9 @@ export type IDBContext = {
   nextHD: number; // HD wallet counter: used to generate HD wallet ID (hd-{nextHD}) and default wallet name (Wallet {nextHD})
   nextWalletNo: number; // Global wallet number counter: used for sorting and displaying all wallet types (HD/HW/QR use auto-increment, Imported/Watching/External/Keyless use fixed numbers)
   verifyString: string;
+  localPasswordKdfUpgraded?: boolean;
+  localPasswordKdfUpgradedTargetIterations?: number;
+  localPasswordKdfUpgradeLastScannedCredentialId?: string;
   networkOrderChanged?: boolean;
   backupUUID: string; // deprecated
   nextSignatureMessageId: number;

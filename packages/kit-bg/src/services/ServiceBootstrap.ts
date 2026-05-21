@@ -132,6 +132,9 @@ class ServiceBootstrap extends ServiceBase {
       timedDeferred('serviceDevSetting.saveDevModeToSyncStorage', () =>
         this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage(),
       ),
+      timedDeferred('serviceDevSetting.syncCryptoSettings', () =>
+        this.backgroundApi.serviceDevSetting.syncCryptoSettings(),
+      ),
       timedDeferred('customTokens.migrateFromV1LegacyData', () =>
         this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData(),
       ),

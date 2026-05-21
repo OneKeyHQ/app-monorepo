@@ -32,10 +32,7 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
-import {
-  useHasMoreOnChainHistoryAtom,
-  useSearchKeyAtom,
-} from '../../states/jotai/contexts/historyList';
+import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
 import { openExplorerAddressUrl } from '../../utils/explorerUtils';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { withBrowserProvider } from '../../views/Discovery/pages/Browser/WithBrowserProvider';
@@ -77,6 +74,10 @@ type IProps = {
   plainMode?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
+  onEndReached?: () => void;
+  onEndReachedThreshold?: number;
+  isLoadingMore?: boolean;
+  hasMore?: boolean;
 };
 
 const ListFooterComponent = ({
@@ -85,16 +86,20 @@ const ListFooterComponent = ({
   walletId,
   indexedAccountId,
   showFooter,
-  hasMoreOnChainHistory,
+  hasItems,
   isSingleAccount,
+  isLoadingMore,
+  hasMore,
 }: {
   accountId?: string;
   networkId?: string;
   walletId?: string;
   indexedAccountId?: string;
   showFooter?: boolean;
-  hasMoreOnChainHistory?: boolean;
+  hasItems?: boolean;
   isSingleAccount?: boolean;
+  isLoadingMore?: boolean;
+  hasMore?: boolean;
 }) => {
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const intl = useIntl();
@@ -128,11 +133,26 @@ const ListFooterComponent = ({
     network?.id,
   ]);
 
-  if (
+  if (isLoadingMore) {
+    return (
+      <YStack alignItems="center" justifyContent="center" py="$4" gap="$2">
+        <Spinner size="small" />
+        {addPaddingOnListFooter ? <Stack h="$16" /> : null}
+      </YStack>
+    );
+  }
+
+  // The "view on block explorer" button is the permanent end-of-list affordance
+  // — show it whenever the list has any items and the user has truly bottomed
+  // out (no more pages to fetch locally). Hide while pagination is in flight
+  // (handled above) and on empty / cap-suppressed lists.
+  const showExplorerFooter =
     showFooter &&
-    hasMoreOnChainHistory &&
-    (network?.isAllNetworks || !vaultSettings?.hideBlockExplorer)
-  ) {
+    hasItems &&
+    !hasMore &&
+    (network?.isAllNetworks || !vaultSettings?.hideBlockExplorer);
+
+  if (showExplorerFooter) {
     return (
       <>
         <YStack
@@ -284,10 +304,13 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     ref,
     plainMode,
+    onEndReached,
+    onEndReachedThreshold,
+    isLoadingMore,
+    hasMore,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
-  const [hasMoreOnChainHistory] = useHasMoreOnChainHistoryAtom();
 
   const filteredHistory = useMemo(
     () =>
@@ -479,17 +502,19 @@ function BaseTxHistoryListView(props: IProps) {
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader as any}
+      onEndReached={onEndReached}
+      onEndReachedThreshold={onEndReachedThreshold ?? 0.2}
       ListFooterComponent={
         <ListFooterComponent
           showFooter={showFooter}
-          hasMoreOnChainHistory={
-            sections.length > 0 ? hasMoreOnChainHistory : false
-          }
+          hasItems={sections.length > 0}
           accountId={accountId}
           networkId={networkId}
           walletId={walletId}
           indexedAccountId={indexedAccountId}
           isSingleAccount={isSingleAccount}
+          isLoadingMore={isLoadingMore}
+          hasMore={hasMore}
         />
       }
       ListHeaderComponent={ListHeaderComponent}

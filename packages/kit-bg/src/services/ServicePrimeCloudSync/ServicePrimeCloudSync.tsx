@@ -85,6 +85,7 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import { filterBotWalletRecordsByCurrentKeylessSyncScope } from './botWalletCloudSyncUtils';
+import { buildOnlyCheckLocalDataTypes } from './cloudSyncCheckUtils';
 import { CloudSyncFlowManagerAccount } from './CloudSyncFlowManager/CloudSyncFlowManagerAccount';
 import { CloudSyncFlowManagerAddressBook } from './CloudSyncFlowManager/CloudSyncFlowManagerAddressBook';
 import { CloudSyncFlowManagerBotWallet } from './CloudSyncFlowManager/CloudSyncFlowManagerBotWallet';
@@ -412,15 +413,9 @@ class ServicePrimeCloudSync extends ServiceBase {
     isFullDBChecking?: boolean;
   } = {}): Promise<ICloudSyncCheckServerStatusResult> {
     const items = localItems || [];
-    const onlyCheckLocalDataType = isFullDBChecking
-      ? [
-          EPrimeCloudSyncDataType.Lock,
-          EPrimeCloudSyncDataType.Wallet,
-          EPrimeCloudSyncDataType.BotWallet,
-          EPrimeCloudSyncDataType.Account,
-          EPrimeCloudSyncDataType.IndexedAccount,
-        ]
-      : Object.values(EPrimeCloudSyncDataType);
+    const onlyCheckLocalDataType = buildOnlyCheckLocalDataTypes({
+      isFullDBChecking,
+    });
     const postData: ICloudSyncCheckServerStatusPostData = {
       localData: items.map((item) => ({
         key: item.id,

@@ -82,14 +82,14 @@ import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/u
 import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { useOnPrimeButtonPressed } from '../../views/Prime/components/PrimeHeaderIconButton/PrimeHeaderIconButton';
+import { PrimeBadge } from '../../views/Prime/components/PrimeUserBadge';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import { showRedemptionCenterDialog } from '../../views/Redemption/components/RedemptionCenterDialog';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
-import { OneKeyIdAvatar } from '../../views/Setting/pages/OneKeyId';
 import { ESettingsTabNames } from '../../views/Setting/pages/Tab/config';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { isShowAppUpdateUIWhenUpdating, useAppUpdateInfo } from '../AppUpdate';
-import { useEditPrimeProfileDialog } from '../RenameDialog';
+import { OneKeyIdAvatar } from '../OneKeyIdAvatar';
 import { UpdateReminder } from '../UpdateReminder';
 import { WalletAvatar } from '../WalletAvatar';
 
@@ -551,16 +551,6 @@ function MoreActionOneKeyId() {
   }, [isLoggedIn, user?.displayEmail, intl]);
 
   const navigation = useAppNavigation();
-  const showEditPrimeProfileDialog = useEditPrimeProfileDialog();
-
-  const handleAvatarPress = useCallback(
-    async (e: GestureResponderEvent) => {
-      e.stopPropagation();
-      await closePopover?.();
-      await showEditPrimeProfileDialog();
-    },
-    [closePopover, showEditPrimeProfileDialog],
-  );
 
   const handleNavigateToOneKeyId = useCallback(async () => {
     await closePopover?.();
@@ -667,9 +657,7 @@ function MoreActionOneKeyId() {
       }}
     >
       <XStack alignItems="center" gap="$3" flex={1}>
-        <Stack onPress={handleAvatarPress}>
-          <OneKeyIdAvatar size="$14" />
-        </Stack>
+        <OneKeyIdAvatar size="$14" />
 
         <YStack flex={1} gap="$1">
           <XStack
@@ -689,42 +677,11 @@ function MoreActionOneKeyId() {
               {displayName}
             </SizableText>
             {isPrimeUser ? (
-              <XStack
-                ai="center"
-                jc="center"
-                gap="$1"
-                px="$2"
-                h={22}
-                opacity={isPrimeDeviceLimitExceeded ? 0.7 : 1}
-                bg={
-                  isPrimeDeviceLimitExceeded ? '$bgCautionSubdued' : '$brand2'
-                }
-                borderRadius="$full"
-                borderWidth={StyleSheet.hairlineWidth}
-                borderColor={
-                  isPrimeDeviceLimitExceeded
-                    ? '$borderCautionSubdued'
-                    : '$brand4'
-                }
-                flexShrink={0}
+              <PrimeBadge
+                icon={icon}
+                isDeviceLimitExceeded={isPrimeDeviceLimitExceeded}
                 onPress={handlePrimeButtonPressed}
-              >
-                <Icon
-                  name={isPrimeDeviceLimitExceeded ? 'PrimeSolid' : icon}
-                  size="$4"
-                  color={
-                    isPrimeDeviceLimitExceeded ? '$iconCaution' : undefined
-                  }
-                />
-                <SizableText
-                  size="$bodyMdMedium"
-                  color={
-                    isPrimeDeviceLimitExceeded ? '$textCaution' : '$brand12'
-                  }
-                >
-                  Prime
-                </SizableText>
-              </XStack>
+              />
             ) : null}
           </XStack>
           <SizableText
