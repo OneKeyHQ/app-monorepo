@@ -177,6 +177,12 @@ import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessS
 import { isBotWalletInCurrentKeylessSyncScope } from '../ServicePrimeCloudSync/botWalletCloudSyncUtils';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
+import {
+  buildDefaultBotWalletName,
+  isDefaultBotWalletName,
+  resolveBotWalletSyncItemDataTime,
+} from './botWalletCreateUtils';
+
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
   IAccountDeriveInfo,
@@ -3564,7 +3570,11 @@ class ServiceAccount extends ServiceBase {
       const nextIndex = await simpleDb.botWallet.getNextIndex(
         parentKeylessWalletId,
       );
-      const botName = name || `Bot #${nextIndex + 1}`;
+      const botName = name || buildDefaultBotWalletName(nextIndex);
+      const shouldUseCreateGenesisTime = isDefaultBotWalletName({
+        index: nextIndex,
+        name: botName,
+      });
       const metadata: IBotWalletMetadata = {
         index: nextIndex,
         name: botName,
@@ -3582,6 +3592,7 @@ class ServiceAccount extends ServiceBase {
       });
       await this.syncBotWalletSyncItem({
         walletId: result.wallet.id,
+        shouldUseCreateGenesisTime,
       });
 
       await timerUtils.wait(100);
@@ -3710,10 +3721,12 @@ class ServiceAccount extends ServiceBase {
     walletId,
     metadataOverride,
     isDeleted = false,
+    shouldUseCreateGenesisTime,
   }: {
     walletId: string;
     metadataOverride?: IBotWalletMetadata;
     isDeleted?: boolean;
+    shouldUseCreateGenesisTime?: boolean;
   }): Promise<void> {
     if (
       (await this.backgroundApi.serviceKeylessCloudSync.getActiveSyncMode()) !==
@@ -3755,7 +3768,10 @@ class ServiceAccount extends ServiceBase {
             walletId,
             metadata,
           },
-          dataTime: await this.backgroundApi.servicePrimeCloudSync.timeNow(),
+          dataTime: await resolveBotWalletSyncItemDataTime({
+            shouldUseCreateGenesisTime,
+            timeNow: () => this.backgroundApi.servicePrimeCloudSync.timeNow(),
+          }),
           isDeleted,
         },
       );

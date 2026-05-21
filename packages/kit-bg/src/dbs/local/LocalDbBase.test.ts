@@ -50,6 +50,8 @@ class TestLocalDb extends LocalDbBase {
 
   credentials: IDBCredentialBase[] = [];
 
+  addHDNextIndexedAccountCalls = 0;
+
   constructor() {
     super();
 
@@ -104,6 +106,7 @@ class TestLocalDb extends LocalDbBase {
     nextIndex: number;
     indexedAccountId: string;
   }> {
+    this.addHDNextIndexedAccountCalls += 1;
     return { nextIndex: 0, indexedAccountId: 'indexed-account-0' };
   }
 
@@ -184,6 +187,7 @@ describe('LocalDbBase.createHDWallet', () => {
     expect(regularWallet.wallet.walletNo).toBe(1);
     expect(db.context.nextHD).toBe(2);
     expect(db.context.nextWalletNo).toBe(2);
+    expect(db.addHDNextIndexedAccountCalls).toBe(1);
 
     const botWallet = await db.createHDWallet(
       buildParams({
@@ -194,12 +198,14 @@ describe('LocalDbBase.createHDWallet', () => {
     expect(botWallet.wallet.walletNo).toBe(2);
     expect(db.context.nextHD).toBe(2);
     expect(db.context.nextWalletNo).toBe(3);
+    expect(db.addHDNextIndexedAccountCalls).toBe(1);
 
     const nextRegularWallet = await db.createHDWallet(buildParams());
     expect(nextRegularWallet.wallet.id).toBe('hd-2');
     expect(nextRegularWallet.wallet.walletNo).toBe(3);
     expect(db.context.nextHD).toBe(3);
     expect(db.context.nextWalletNo).toBe(4);
+    expect(db.addHDNextIndexedAccountCalls).toBe(2);
   });
 });
 
