@@ -25,6 +25,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const SettingProtectionModal = () => {
@@ -40,6 +41,8 @@ const SettingProtectionModal = () => {
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const [enableProtection, setEnableProtection] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  // Mock state — backend wiring lands once the KYT API is ready.
+  const [receiveRiskMonitoring, setReceiveRiskMonitoring] = useState(false);
   const navigation = useAppNavigation();
 
   const useIsFocused = useRouteIsFocused();
@@ -186,6 +189,34 @@ const SettingProtectionModal = () => {
             })}
           </SizableText>
           <Divider my="$5" mx="$5" />
+          <SectionList.SectionHeader title="Receive risk monitoring" />
+          <ListItem title="Receive risk monitoring">
+            <Switch
+              testID="setting-receive-risk-monitoring-switch"
+              size={ESwitchSize.small}
+              value={receiveRiskMonitoring}
+              onChange={(value) => {
+                handleTransition(async () => {
+                  setReceiveRiskMonitoring(!!value);
+                });
+              }}
+            />
+          </ListItem>
+          <SizableText px="$5" size="$bodySm" color="$textSubdued">
+            Detect risky inbound transfers on supported networks and notify you
+            when high-risk funds arrive.
+          </SizableText>
+          <ListItem
+            testID="setting-receive-risk-supported-assets"
+            title="Supported assets"
+            drillIn
+            onPress={() => {
+              navigation.push(
+                EModalSettingRoutes.SettingReceiveRiskSupportedAssets,
+              );
+            }}
+          />
+          <Divider my="$5" mx="$5" />
           <SectionList.SectionHeader
             title={intl.formatMessage({
               id: ETranslations.settings_passcode_bypass,
@@ -267,8 +298,10 @@ const SettingProtectionModal = () => {
     intl,
     isEnableTransferAllowList,
     isLocked,
+    navigation,
     protectCreateOrRemoveWallet,
     protectCreateTransaction,
+    receiveRiskMonitoring,
     setSettings,
     tokenRiskReminder,
   ]);
