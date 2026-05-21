@@ -38,6 +38,10 @@ import { ESwapDirection } from './hooks/useTradeType';
 import { MarketSwapReviewDialog } from './MarketSwapReviewDialog';
 import { SwapPanelContent } from './SwapPanelContent';
 
+import type {
+  IEstimateMarketPresetPriorityFeeFiatValues,
+  IMarketPresetPriorityFeeFiatEstimateMap,
+} from './components/MarketPresetSelector';
 import type { IToken } from './types';
 
 interface ISwapPanelWrapProps {
@@ -207,6 +211,10 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const effectiveCustomPriorityFee = marketPresetSettings.enabled
     ? marketPresetSettings.selectedPriorityFeeOverride
     : undefined;
+  const currentFromTokenAmount =
+    tradeType === ESwapDirection.BUY
+      ? paymentAmount.toFixed()
+      : sellAmount.toFixed();
   const useSpeedSwapActionsParams = {
     slippage: effectiveSlippage,
     spenderAddress: speedConfig.spenderAddress,
@@ -230,10 +238,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     },
     provider,
     tradeType: tradeType || ESwapDirection.BUY,
-    fromTokenAmount:
-      tradeType === ESwapDirection.BUY
-        ? paymentAmount.toFixed()
-        : sellAmount.toFixed(),
+    fromTokenAmount: currentFromTokenAmount,
     antiMEV: Array.isArray(swapMevNetConfig)
       ? swapMevNetConfig.includes(swapPanel.networkId ?? '')
       : false,
@@ -256,6 +261,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     isWrapped,
     speedCheckError,
     speedCheckLoading,
+    estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,
     sendMarketApproveTx,
     sendMarketSwapTx,
@@ -471,6 +477,26 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     ],
   );
 
+  const estimatePriorityFeeFiatValues =
+    useCallback<IEstimateMarketPresetPriorityFeeFiatValues>(
+      async ({ items }) => {
+        const estimates: IMarketPresetPriorityFeeFiatEstimateMap = {};
+        const feeValues = await estimateMarketPresetNetworkFees({
+          items: items.map((item) => ({
+            customPriorityFee: item.customPriorityFee,
+            networkFeeLevel: item.networkFeeLevel,
+          })),
+        });
+
+        items.forEach((item, index) => {
+          estimates[item.type] = feeValues[index];
+        });
+
+        return estimates;
+      },
+      [estimateMarketPresetNetworkFees],
+    );
+
   const isActionLoading = useMemo(() => {
     return (
       speedSwapBuildTxLoading ||
@@ -654,6 +680,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       speedCheckError={speedCheckError}
       disableNativeToken={disableNativeToken}
       marketPresetSettings={marketPresetSettings}
+      estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
     />
   );
 }
