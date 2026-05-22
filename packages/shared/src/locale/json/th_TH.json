@@ -708,6 +708,7 @@
   "dexmarket.audit_safe_desc": "ไม่พบความเสี่ยง ผลลัพธ์นี้ไม่ถือเป็นการรับรองหรือคำแนะนำในรูปแบบใดๆ",
   "dexmarket.audit_unknown": "ความเสี่ยงที่ไม่ทราบ",
   "dexmarket.audit_unknown_desc": "ไม่สามารถดำเนินการตรวจสอบความเสี่ยงสำหรับโทเค็นนี้ได้ โปรดระวังความเสี่ยงที่อาจเกิดขึ้นในการซื้อขาย",
+  "dexmarket.btc_circulating": "หมุนเวียน",
   "dexmarket.buy_tap": "ซื้อ",
   "dexmarket.buy_token_default": "ซื้อ {TokenName}",
   "dexmarket.buysell_loading": "กำลังจัดทำใบเสนอราคา...",

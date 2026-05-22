@@ -708,6 +708,7 @@
   "dexmarket.audit_safe_desc": "कोई जोखिम नहीं मिला। यह परिणाम किसी भी प्रकार के समर्थन या सिफारिश का प्रतिनिधित्व नहीं करता है।",
   "dexmarket.audit_unknown": "अज्ञात जोखिम",
   "dexmarket.audit_unknown_desc": "इस टोकन के लिए जोखिम ऑडिट करना संभव नहीं है। संभावित ट्रेडिंग जोखिमों से सावधान रहें।",
+  "dexmarket.btc_circulating": "प्रचलन में",
   "dexmarket.buy_tap": "खरीदें",
   "dexmarket.buy_token_default": "{TokenName} खरीदें",
   "dexmarket.buysell_loading": "कोटेशन अंतिम रूप दिया जा रहा है...",
