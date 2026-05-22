@@ -4,8 +4,6 @@ import { EScopeName } from '../../types';
 import { AgentLifeCycleScene } from './scenes/agentLifeCycle';
 import { CommonScene } from './scenes/common';
 import { PerpDepositScene } from './scenes/deposit';
-import { EnableTradingFlowScene } from './scenes/enableTradingFlow';
-import { EnableTradingTimingScene } from './scenes/enableTradingTiming';
 import { HyperLiquidScene } from './scenes/hyperliquid';
 import { PerpTokenSelectorScene } from './scenes/tokenSelector';
 
@@ -17,16 +15,6 @@ export class PerpScope extends BaseScope {
   hyperliquid = this.createScene('hyperliquid', HyperLiquidScene);
 
   agentLifeCycle = this.createScene('agentLifeCycle', AgentLifeCycleScene);
-
-  enableTradingTiming = this.createScene(
-    'enableTradingTiming',
-    EnableTradingTimingScene,
-  );
-
-  enableTradingFlow = this.createScene(
-    'enableTradingFlow',
-    EnableTradingFlowScene,
-  );
 
   deposit = this.createScene('deposit', PerpDepositScene);
 

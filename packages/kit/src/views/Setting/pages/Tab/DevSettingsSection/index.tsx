@@ -1329,16 +1329,6 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
-                      <SectionFieldItem
-                        icon="CreditCardOutline"
-                        name="forcePerpsCanTradeFalse"
-                        title="Perps: Force canTrade=false (BENCH)"
-                        subtitle="OK-55089 benchmark: 强制 canTrade=false，每次点 long/short 都重跑完整 enable trading 流程，便于采集 enableTradingTiming 数据。仅 dev 生效。"
-                        searchKeywords="Perps canTrade enable trading benchmark OK-55089 enableTradingTiming"
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
-
                       <SearchFilterItem keywords="Bg Api 可序列化检测 serializable">
                         <ListItem
                           icon="LabOutline"

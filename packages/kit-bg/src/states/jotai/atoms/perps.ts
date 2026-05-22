@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import BigNumber from 'bignumber.js';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   IFill,
@@ -25,9 +24,6 @@ import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
-import { getPerpsEnableTradingRealCanTrade } from '../utils/perpsEnableTradingStatus';
-
-import { devSettingsPersistAtom } from './devSettings';
 
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
@@ -267,7 +263,7 @@ export const {
         abstractionMode.mode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
     }
 
-    let canTrade =
+    const canTrade =
       account?.accountAddress &&
       details?.agentOk &&
       details?.builderFeeOk &&
@@ -275,19 +271,6 @@ export const {
       details?.activatedOk &&
       details?.internalRebateBoundOk &&
       abstractionOk;
-
-    // OK-55089 BENCH: dev-only toggle to force canTrade=false so every
-    // click on long/short replays the full enable trading flow. Used to
-    // collect timing baselines; never read in prod builds.
-    if (platformEnv.isDev) {
-      const devSettings = get(devSettingsPersistAtom.atom());
-      if (
-        devSettings?.enabled &&
-        devSettings.settings?.forcePerpsCanTradeFalse
-      ) {
-        canTrade = false;
-      }
-    }
 
     const isReadOnlyAccount = account?.accountId
       ? accountUtils.isWatchingAccount({ accountId: account.accountId })
@@ -316,18 +299,6 @@ export const {
     const isAtomReady = Boolean(status?.details?.agentOk && status?.canTrade);
     if (isAtomReady) {
       return { isAgentReady: true };
-    }
-
-    if (platformEnv.isDev) {
-      const devSettings = get(devSettingsPersistAtom.atom());
-      if (
-        devSettings?.enabled &&
-        devSettings.settings?.forcePerpsCanTradeFalse
-      ) {
-        return {
-          isAgentReady: getPerpsEnableTradingRealCanTrade(status),
-        };
-      }
     }
 
     return {

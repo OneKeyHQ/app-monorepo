@@ -15,7 +15,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
@@ -23,7 +22,6 @@ import {
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  useDevSettingsPersistAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountEnableTradingModeAtom,
@@ -35,8 +33,6 @@ import {
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   getSpotTokenDisplayName,
   parseDexCoin,
@@ -72,15 +68,6 @@ interface ISideButtonProps {
     | 'space-around'
     | 'space-evenly'
     | undefined;
-}
-
-function logOk55089AutoEnableTrading(payload: Record<string, unknown>) {
-  if (platformEnv.isDev) {
-    // eslint-disable-next-line no-console
-    console.log(
-      `[OK-55089][PerpsAutoEnableTrading] ${JSON.stringify(payload)}`,
-    );
-  }
 }
 
 function getPerpsAccountKey(account: {
@@ -595,58 +582,12 @@ function SideButtonInternal({
 
       // Validation passed, proceed with order
       if (shouldAutoEnableTrading) {
-        defaultLogger.perp.enableTradingFlow.track({
-          event: 'autoEnableTriggered',
-          side,
-          canTrade: perpsAccountStatus.canTrade,
-          isSoftwareAccount: enableTradingMode.isSoftwareAccount,
-          accountAddress: perpsAccountStatus.accountAddress
-            ? `${perpsAccountStatus.accountAddress.slice(
-                0,
-                6,
-              )}...${perpsAccountStatus.accountAddress.slice(-4)}`
-            : undefined,
-        });
-        logOk55089AutoEnableTrading({
-          event: 'triggered',
-          side,
-          canTrade: perpsAccountStatus.canTrade,
-          isSoftwareAccount: enableTradingMode.isSoftwareAccount,
-          accountAddress: perpsAccountStatus.accountAddress
-            ? `${perpsAccountStatus.accountAddress.slice(
-                0,
-                6,
-              )}...${perpsAccountStatus.accountAddress.slice(-4)}`
-            : undefined,
-        });
         if (perpsCustomSettings.skipOrderConfirm) {
           const result = await enableTradingWithDepositFallback();
-          defaultLogger.perp.enableTradingFlow.track({
-            event: 'autoEnableResult',
-            side,
-            shouldContinue: result.shouldContinue,
-            canTrade: result.status?.canTrade,
-            activatedOk: result.status?.details?.activatedOk,
-          });
-          logOk55089AutoEnableTrading({
-            event: 'result',
-            side,
-            shouldContinue: result.shouldContinue,
-            canTrade: result.status?.canTrade,
-            activatedOk: result.status?.details?.activatedOk,
-          });
           if (!result.shouldContinue) {
             return;
           }
           if (isNoEnoughMargin) {
-            defaultLogger.perp.enableTradingFlow.track({
-              event: 'blockedByMargin',
-              side,
-            });
-            logOk55089AutoEnableTrading({
-              event: 'blockedAfterEnableByMarginCheck',
-              side,
-            });
             Toast.message({
               title: intl.formatMessage({
                 id: isSpot
@@ -667,28 +608,8 @@ function SideButtonInternal({
       }
 
       if (perpsCustomSettings.skipOrderConfirm) {
-        if (shouldAutoEnableTrading) {
-          defaultLogger.perp.enableTradingFlow.track({
-            event: 'proceedDirectConfirm',
-            side,
-          });
-          logOk55089AutoEnableTrading({
-            event: 'proceedToDirectOrderConfirm',
-            side,
-          });
-        }
         void handleConfirm(side);
       } else {
-        if (shouldAutoEnableTrading) {
-          defaultLogger.perp.enableTradingFlow.track({
-            event: 'proceedConfirmDialog',
-            side,
-          });
-          logOk55089AutoEnableTrading({
-            event: 'proceedToOrderConfirmDialog',
-            side,
-          });
-        }
         showOrderConfirmDialog({
           overrideSide: side,
           intl,
@@ -697,46 +618,15 @@ function SideButtonInternal({
             : undefined,
           enableTradingBeforeConfirm: shouldAutoEnableTrading
             ? async ({ closeDialog, shouldIgnoreResult }) => {
-                defaultLogger.perp.enableTradingFlow.track({
-                  event: 'confirmDialogEnableTradingRequested',
-                  side,
-                });
-                logOk55089AutoEnableTrading({
-                  event: 'confirmDialogEnableTradingRequested',
-                  side,
-                });
-
                 const result = await requestEnableTradingWithDepositFallback({
                   beforeDeposit: closeDialog,
                   shouldIgnoreResult,
-                });
-                defaultLogger.perp.enableTradingFlow.track({
-                  event: 'autoEnableResult',
-                  side,
-                  shouldContinue: result.shouldContinue,
-                  canTrade: result.status?.canTrade,
-                  activatedOk: result.status?.details?.activatedOk,
-                });
-                logOk55089AutoEnableTrading({
-                  event: 'result',
-                  side,
-                  shouldContinue: result.shouldContinue,
-                  canTrade: result.status?.canTrade,
-                  activatedOk: result.status?.details?.activatedOk,
                 });
 
                 if (!result.shouldContinue) {
                   return result;
                 }
                 if (isNoEnoughMargin) {
-                  defaultLogger.perp.enableTradingFlow.track({
-                    event: 'blockedByMargin',
-                    side,
-                  });
-                  logOk55089AutoEnableTrading({
-                    event: 'blockedAfterEnableByMarginCheck',
-                    side,
-                  });
                   Toast.message({
                     title: intl.formatMessage({
                       id: isSpot
@@ -1009,33 +899,6 @@ function SideButtonInternal({
 
 const SideButton = memo(SideButtonInternal);
 
-// OK-55089 BENCH: dev-only button to wipe enable trading caches so the next
-// click on long/short re-runs the full flow (including approveAgent signature).
-// Only renders when dev is enabled AND forcePerpsCanTradeFalse toggle is on.
-function BenchResetEnableTradingButton() {
-  const [devSetting] = useDevSettingsPersistAtom();
-  const visible =
-    platformEnv.isDev &&
-    Boolean(devSetting?.enabled) &&
-    Boolean(devSetting?.settings?.forcePerpsCanTradeFalse);
-  if (!visible) {
-    return null;
-  }
-  return (
-    <Button
-      testID="perp-bench-reset-enable-trading-cache-btn"
-      variant="tertiary"
-      size="small"
-      mt="$2"
-      onPress={() => {
-        void backgroundApiProxy.serviceHyperliquid.resetEnableTradingCachesForBench();
-      }}
-    >
-      Reset HL Cache (BENCH)
-    </Button>
-  );
-}
-
 function TradingButtonGroup({ isMobile }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
   const [formData] = useTradingFormAtom();
@@ -1077,12 +940,7 @@ function TradingButtonGroup({ isMobile }: ITradingButtonGroupProps) {
     );
   };
 
-  return (
-    <YStack>
-      {renderSideButtons()}
-      <BenchResetEnableTradingButton />
-    </YStack>
-  );
+  return <YStack>{renderSideButtons()}</YStack>;
 }
 
 const TradingButtonGroupMemo = memo(TradingButtonGroup);

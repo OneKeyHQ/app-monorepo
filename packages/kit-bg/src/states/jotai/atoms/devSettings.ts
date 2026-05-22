@@ -106,9 +106,6 @@ export interface IDevSettings {
   allowLocalhostUrlInDAppBrowser?: boolean;
   // Use react-native-fast-pbkdf2 for native PBKDF2 calls (debug only).
   useFastPbkdf2NativeBackend?: boolean;
-  // Force perps `canTrade` to false to repeatedly trigger the full enable
-  // trading flow for benchmarking. Dev-only; ignored in prod builds.
-  forcePerpsCanTradeFalse?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
