@@ -25,6 +25,7 @@ import {
 import {
   useDevSettingsPersistAtom,
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountAtom,
   usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetAtom,
@@ -43,7 +44,11 @@ import {
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm } from '../../hooks';
-import { useEnableTradingWithDepositFallback } from '../../hooks/useEnableTradingWithDepositFallback';
+import {
+  useConfirmHyperliquidTerms,
+  useEnableTradingWithDepositFallback,
+  useRequestEnableTradingWithDepositFallback,
+} from '../../hooks/useEnableTradingWithDepositFallback';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
@@ -78,6 +83,18 @@ function logOk55089AutoEnableTrading(payload: Record<string, unknown>) {
   }
 }
 
+function getPerpsAccountKey(account: {
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+  accountAddress?: string | null;
+}) {
+  const accountId = account.accountId ?? account.indexedAccountId;
+  if (!accountId && !account.accountAddress) {
+    return undefined;
+  }
+  return `${accountId ?? ''}:${account.accountAddress ?? ''}`;
+}
+
 function SideButtonInternal({
   side,
   isMobile,
@@ -86,6 +103,7 @@ function SideButtonInternal({
   const intl = useIntl();
   const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
@@ -108,6 +126,13 @@ function SideButtonInternal({
   const { midPriceBN } = useTradingPrice();
   const enableTradingWithDepositFallback =
     useEnableTradingWithDepositFallback();
+  const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
+  const requestEnableTradingWithDepositFallback =
+    useRequestEnableTradingWithDepositFallback();
+  const perpsAccountKey = useMemo(
+    () => getPerpsAccountKey(perpsAccount),
+    [perpsAccount],
+  );
 
   const szDecimals = useMemo(() => {
     if (isSpot && activeTradeInstrument.mode === 'spot') {
@@ -594,41 +619,48 @@ function SideButtonInternal({
               )}...${perpsAccountStatus.accountAddress.slice(-4)}`
             : undefined,
         });
-        const result = await enableTradingWithDepositFallback();
-        defaultLogger.perp.enableTradingFlow.track({
-          event: 'autoEnableResult',
-          side,
-          shouldContinue: result.shouldContinue,
-          canTrade: result.status?.canTrade,
-          activatedOk: result.status?.details?.activatedOk,
-        });
-        logOk55089AutoEnableTrading({
-          event: 'result',
-          side,
-          shouldContinue: result.shouldContinue,
-          canTrade: result.status?.canTrade,
-          activatedOk: result.status?.details?.activatedOk,
-        });
-        if (!result.shouldContinue) {
-          return;
-        }
-        if (isNoEnoughMargin) {
+        if (perpsCustomSettings.skipOrderConfirm) {
+          const result = await enableTradingWithDepositFallback();
           defaultLogger.perp.enableTradingFlow.track({
-            event: 'blockedByMargin',
+            event: 'autoEnableResult',
             side,
+            shouldContinue: result.shouldContinue,
+            canTrade: result.status?.canTrade,
+            activatedOk: result.status?.details?.activatedOk,
           });
           logOk55089AutoEnableTrading({
-            event: 'blockedAfterEnableByMarginCheck',
+            event: 'result',
             side,
+            shouldContinue: result.shouldContinue,
+            canTrade: result.status?.canTrade,
+            activatedOk: result.status?.details?.activatedOk,
           });
-          Toast.message({
-            title: intl.formatMessage({
-              id: isSpot
-                ? ETranslations.dexmarket_insufficient_balance
-                : ETranslations.perp_trading_button_no_enough_margin,
-            }),
-          });
-          return;
+          if (!result.shouldContinue) {
+            return;
+          }
+          if (isNoEnoughMargin) {
+            defaultLogger.perp.enableTradingFlow.track({
+              event: 'blockedByMargin',
+              side,
+            });
+            logOk55089AutoEnableTrading({
+              event: 'blockedAfterEnableByMarginCheck',
+              side,
+            });
+            Toast.message({
+              title: intl.formatMessage({
+                id: isSpot
+                  ? ETranslations.dexmarket_insufficient_balance
+                  : ETranslations.perp_trading_button_no_enough_margin,
+              }),
+            });
+            return;
+          }
+        } else {
+          const didAcceptTerms = await confirmHyperliquidTerms();
+          if (!didAcceptTerms) {
+            return;
+          }
         }
       } else if (!perpsAccountStatus.canTrade) {
         return;
@@ -657,7 +689,67 @@ function SideButtonInternal({
             side,
           });
         }
-        showOrderConfirmDialog({ overrideSide: side, intl });
+        showOrderConfirmDialog({
+          overrideSide: side,
+          intl,
+          enableTradingAccountKey: shouldAutoEnableTrading
+            ? perpsAccountKey
+            : undefined,
+          enableTradingBeforeConfirm: shouldAutoEnableTrading
+            ? async ({ closeDialog, shouldIgnoreResult }) => {
+                defaultLogger.perp.enableTradingFlow.track({
+                  event: 'confirmDialogEnableTradingRequested',
+                  side,
+                });
+                logOk55089AutoEnableTrading({
+                  event: 'confirmDialogEnableTradingRequested',
+                  side,
+                });
+
+                const result = await requestEnableTradingWithDepositFallback({
+                  beforeDeposit: closeDialog,
+                  shouldIgnoreResult,
+                });
+                defaultLogger.perp.enableTradingFlow.track({
+                  event: 'autoEnableResult',
+                  side,
+                  shouldContinue: result.shouldContinue,
+                  canTrade: result.status?.canTrade,
+                  activatedOk: result.status?.details?.activatedOk,
+                });
+                logOk55089AutoEnableTrading({
+                  event: 'result',
+                  side,
+                  shouldContinue: result.shouldContinue,
+                  canTrade: result.status?.canTrade,
+                  activatedOk: result.status?.details?.activatedOk,
+                });
+
+                if (!result.shouldContinue) {
+                  return result;
+                }
+                if (isNoEnoughMargin) {
+                  defaultLogger.perp.enableTradingFlow.track({
+                    event: 'blockedByMargin',
+                    side,
+                  });
+                  logOk55089AutoEnableTrading({
+                    event: 'blockedAfterEnableByMarginCheck',
+                    side,
+                  });
+                  Toast.message({
+                    title: intl.formatMessage({
+                      id: isSpot
+                        ? ETranslations.dexmarket_insufficient_balance
+                        : ETranslations.perp_trading_button_no_enough_margin,
+                    }),
+                  });
+                  return { ...result, shouldContinue: false };
+                }
+                return result;
+              }
+            : undefined,
+        });
       }
     },
     1000,

@@ -16,12 +16,14 @@ import { useEnableTradingWithDepositFallback } from '../hooks/useEnableTradingWi
 interface ITradingGuardWrapperProps {
   children?: ReactNode;
   forceShowEnableTrading?: boolean;
+  bypassEnableTradingGuard?: boolean;
   disabled?: boolean;
 }
 
 function TradingGuardWrapperInternal({
   children,
   forceShowEnableTrading = false,
+  bypassEnableTradingGuard = false,
   disabled = false,
 }: ITradingGuardWrapperProps) {
   const intl = useIntl();
@@ -31,8 +33,11 @@ function TradingGuardWrapperInternal({
   const enableTrading = useEnableTradingWithDepositFallback();
 
   const shouldShowEnableTrading = useMemo(() => {
+    if (bypassEnableTradingGuard) {
+      return forceShowEnableTrading;
+    }
     return forceShowEnableTrading || isAgentReady === false;
-  }, [forceShowEnableTrading, isAgentReady]);
+  }, [bypassEnableTradingGuard, forceShowEnableTrading, isAgentReady]);
 
   const isEnableTradingLoading = perpsAccountLoading.enableTradingLoading;
 

@@ -9,6 +9,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { showHyperliquidTermsDialog } from '../components/HyperliquidTerms';
+import { getEnableTradingDialogConfirmDecision } from '../utils/enableTradingDialogConfirm';
 
 import { useShowDepositWithdrawModal } from './useShowDepositWithdrawModal';
 
@@ -18,6 +19,22 @@ export type IEnableTradingWithDepositFallbackResult = {
 };
 
 const ENABLE_TRADING_FLOW_LOG_PREFIX = '[OK-55089][PerpsEnableTradingFlow]';
+
+type IEnableTradingFlowLogContext = {
+  accountId: string | undefined;
+  accountAddress: string | undefined;
+};
+
+type IEnableTradingAccountForLog = {
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+  accountAddress?: string | null;
+};
+
+export type IRequestEnableTradingWithDepositFallbackOptions = {
+  beforeDeposit?: () => void;
+  shouldIgnoreResult?: () => boolean;
+};
 
 function maskLogValue(value: string | null | undefined) {
   if (!value) {
@@ -36,91 +53,67 @@ function logOk55089EnableTradingFlow(payload: Record<string, unknown>) {
   }
 }
 
-export function useEnableTradingWithDepositFallback() {
+function getEnableTradingFlowLogContext(
+  perpsAccount: IEnableTradingAccountForLog,
+): IEnableTradingFlowLogContext {
+  const accountId = perpsAccount.accountId ?? perpsAccount.indexedAccountId;
+  return {
+    accountId: maskLogValue(accountId),
+    accountAddress: maskLogValue(perpsAccount.accountAddress),
+  };
+}
+
+function trackEnableTradingFlow(
+  event: Parameters<
+    typeof defaultLogger.perp.enableTradingFlow.track
+  >[0]['event'],
+  logContext: IEnableTradingFlowLogContext,
+  payload?: Record<string, unknown>,
+) {
+  defaultLogger.perp.enableTradingFlow.track({
+    event,
+    ...logContext,
+    ...payload,
+  });
+  logOk55089EnableTradingFlow({
+    event,
+    ...logContext,
+    ...payload,
+  });
+}
+
+export function useConfirmHyperliquidTerms() {
   const [perpsAccount] = usePerpsActiveAccountAtom();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
 
-  return useCallback(async (): Promise<IEnableTradingWithDepositFallbackResult> => {
-    const accountId = perpsAccount.accountId ?? perpsAccount.indexedAccountId;
-    const logContext = {
-      accountId: maskLogValue(accountId),
-      accountAddress: maskLogValue(perpsAccount.accountAddress),
-    };
+  return useCallback(async (): Promise<boolean> => {
+    const logContext = getEnableTradingFlowLogContext(perpsAccount);
 
-    defaultLogger.perp.enableTradingFlow.track({
-      event: 'termsDialogRequested',
-      ...logContext,
-    });
-    logOk55089EnableTradingFlow({
-      event: 'termsDialogRequested',
-      ...logContext,
-    });
+    trackEnableTradingFlow('termsDialogRequested', logContext);
     const didAcceptTerms = await showHyperliquidTermsDialog();
     if (!didAcceptTerms) {
-      defaultLogger.perp.enableTradingFlow.track({
-        event: 'termsNotAccepted',
-        ...logContext,
-      });
-      logOk55089EnableTradingFlow({
-        event: 'termsNotAccepted',
-        ...logContext,
-      });
-      return { shouldContinue: false, status: undefined };
+      trackEnableTradingFlow('termsNotAccepted', logContext);
     }
+    return didAcceptTerms;
+  }, [perpsAccount]);
+}
+
+export function useRequestEnableTrading() {
+  const [perpsAccount] = usePerpsActiveAccountAtom();
+
+  return useCallback(async (): Promise<
+    IPerpsActiveAccountStatusAtom | undefined
+  > => {
+    const logContext = getEnableTradingFlowLogContext(perpsAccount);
 
     try {
-      defaultLogger.perp.enableTradingFlow.track({
-        event: 'requestStarted',
-        ...logContext,
-      });
-      logOk55089EnableTradingFlow({
-        event: 'requestStarted',
-        ...logContext,
-      });
+      trackEnableTradingFlow('requestStarted', logContext);
       const status =
         await backgroundApiProxy.serviceHyperliquid.enableTrading();
-      defaultLogger.perp.enableTradingFlow.track({
-        event: 'responseReceived',
-        ...logContext,
+      trackEnableTradingFlow('responseReceived', logContext, {
         canTrade: status?.canTrade,
         activatedOk: status?.details?.activatedOk,
       });
-      logOk55089EnableTradingFlow({
-        event: 'responseReceived',
-        ...logContext,
-        canTrade: status?.canTrade,
-        activatedOk: status?.details?.activatedOk,
-      });
-
-      if (
-        status?.details?.activatedOk === false &&
-        perpsAccount.accountAddress &&
-        accountId
-      ) {
-        defaultLogger.perp.enableTradingFlow.track({
-          event: 'depositRequired',
-          ...logContext,
-        });
-        logOk55089EnableTradingFlow({
-          event: 'depositRequired',
-          ...logContext,
-        });
-        await showDepositWithdrawModal('deposit');
-        return { shouldContinue: false, status };
-      }
-
-      const shouldContinue = Boolean(status?.canTrade);
-      defaultLogger.perp.enableTradingFlow.track({
-        event: 'flowCompleted',
-        ...logContext,
-        shouldContinue,
-      });
-      logOk55089EnableTradingFlow({
-        event: 'flowCompleted',
-        ...logContext,
-        shouldContinue,
-      });
-      return { shouldContinue, status };
+      return status;
     } catch (error) {
       defaultLogger.perp.enableTradingFlow.error({
         event: 'flowFailed',
@@ -132,12 +125,74 @@ export function useEnableTradingWithDepositFallback() {
         ...logContext,
         errorMessage: error instanceof Error ? error.message : String(error),
       });
+      return undefined;
+    }
+  }, [perpsAccount]);
+}
+
+export function useHandleEnableTradingPostStatus() {
+  const [perpsAccount] = usePerpsActiveAccountAtom();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+
+  return useCallback(
+    async (
+      status: IPerpsActiveAccountStatusAtom | undefined,
+      options?: IRequestEnableTradingWithDepositFallbackOptions,
+    ): Promise<IEnableTradingWithDepositFallbackResult> => {
+      const accountId = perpsAccount.accountId ?? perpsAccount.indexedAccountId;
+      const logContext = getEnableTradingFlowLogContext(perpsAccount);
+
+      if (options?.shouldIgnoreResult?.()) {
+        trackEnableTradingFlow('resultIgnored', logContext, {
+          canTrade: status?.canTrade,
+          activatedOk: status?.details?.activatedOk,
+        });
+        return { shouldContinue: false, status };
+      }
+
+      const decision = getEnableTradingDialogConfirmDecision(status);
+      if (decision === 'deposit' && perpsAccount.accountAddress && accountId) {
+        trackEnableTradingFlow('depositRequired', logContext);
+        options?.beforeDeposit?.();
+        await showDepositWithdrawModal('deposit');
+        return { shouldContinue: false, status };
+      }
+
+      const shouldContinue = decision === 'continue';
+      trackEnableTradingFlow('flowCompleted', logContext, {
+        shouldContinue,
+      });
+      return { shouldContinue, status };
+    },
+    [perpsAccount, showDepositWithdrawModal],
+  );
+}
+
+export function useRequestEnableTradingWithDepositFallback() {
+  const requestEnableTrading = useRequestEnableTrading();
+  const handleEnableTradingPostStatus = useHandleEnableTradingPostStatus();
+
+  return useCallback(
+    async (
+      options?: IRequestEnableTradingWithDepositFallbackOptions,
+    ): Promise<IEnableTradingWithDepositFallbackResult> => {
+      const status = await requestEnableTrading();
+      return handleEnableTradingPostStatus(status, options);
+    },
+    [handleEnableTradingPostStatus, requestEnableTrading],
+  );
+}
+
+export function useEnableTradingWithDepositFallback() {
+  const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
+  const requestEnableTradingWithDepositFallback =
+    useRequestEnableTradingWithDepositFallback();
+
+  return useCallback(async (): Promise<IEnableTradingWithDepositFallbackResult> => {
+    const didAcceptTerms = await confirmHyperliquidTerms();
+    if (!didAcceptTerms) {
       return { shouldContinue: false, status: undefined };
     }
-  }, [
-    perpsAccount.accountAddress,
-    perpsAccount.accountId,
-    perpsAccount.indexedAccountId,
-    showDepositWithdrawModal,
-  ]);
+    return requestEnableTradingWithDepositFallback();
+  }, [confirmHyperliquidTerms, requestEnableTradingWithDepositFallback]);
 }

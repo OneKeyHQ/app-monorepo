@@ -11,11 +11,13 @@ export type IPerpEnableTradingFlowEvent =
   | 'depositRequired'
   | 'flowCompleted'
   | 'flowFailed'
+  | 'resultIgnored'
   | 'autoEnableTriggered'
   | 'autoEnableResult'
   | 'blockedByMargin'
   | 'proceedDirectConfirm'
-  | 'proceedConfirmDialog';
+  | 'proceedConfirmDialog'
+  | 'confirmDialogEnableTradingRequested';
 
 export type IPerpEnableTradingFlowTrackParams = {
   event: IPerpEnableTradingFlowEvent;
