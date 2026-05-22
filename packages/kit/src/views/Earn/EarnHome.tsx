@@ -119,20 +119,23 @@ function BasicEarnHome({
       portfolioData.investments.length,
     ],
   );
-  const isLoading = useMemo(() => {
+  const shouldShowPortfolioSkeleton = useMemo(() => {
     if (platformEnv.isNative && !showContent) {
       return false;
     }
-    if (isManualRefreshing) {
-      return true;
-    }
     return portfolioLoading && !hasVisiblePortfolioValue;
-  }, [
-    hasVisiblePortfolioValue,
-    isManualRefreshing,
-    portfolioLoading,
-    showContent,
-  ]);
+  }, [hasVisiblePortfolioValue, portfolioLoading, showContent]);
+  const isLoading = useMemo(
+    () => isManualRefreshing || shouldShowPortfolioSkeleton,
+    [isManualRefreshing, shouldShowPortfolioSkeleton],
+  );
+  const portfolioDisplayData = useMemo(
+    () => ({
+      ...portfolioData,
+      isLoading: shouldShowPortfolioSkeleton,
+    }),
+    [portfolioData, shouldShowPortfolioSkeleton],
+  );
 
   const { hideSmallAssets } = useEarnHideSmallAssets();
 
@@ -505,7 +508,7 @@ function BasicEarnHome({
                   faqList={faqList || []}
                   isFaqLoading={isFaqLoading}
                   defaultTab={defaultTab}
-                  portfolioData={portfolioData}
+                  portfolioData={portfolioDisplayData}
                   containerProps={mobileContainerProps}
                   tabsRef={tabsRef}
                   nestedPager={useSwipePager}
@@ -556,7 +559,7 @@ function BasicEarnHome({
             faqList={faqList || []}
             isFaqLoading={isFaqLoading}
             defaultTab={defaultTab}
-            portfolioData={portfolioData}
+            portfolioData={portfolioDisplayData}
             containerProps={mobileContainerProps}
             header={marketSelectorHeader}
             tabsRef={tabsRef}
@@ -627,7 +630,7 @@ function BasicEarnHome({
                 faqList={faqList || []}
                 isFaqLoading={isFaqLoading}
                 defaultTab={defaultTab}
-                portfolioData={portfolioData}
+                portfolioData={portfolioDisplayData}
               />
             </YStack>
           }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { IYStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -197,25 +197,32 @@ function useRecommendedTokens({
       },
       revalidateOnFocus: true,
       watchLoading: true,
-      alwaysSetState: true,
+      alwaysSetState: shouldFetchAccountRecommendedTokens,
       overrideIsFocused: (isFocused) =>
         isFocused && shouldFetchAccountRecommendedTokens,
     },
   );
 
-  const accountRecommendedResultMatchesCurrentScope =
-    accountRecommendedResult.refreshVersion === refreshVersion &&
+  const accountRecommendedResultMatchesAccountScope =
     accountRecommendedResult.scopeNetworkKey === recommendedNetworkScopeKey &&
     accountRecommendedResult.accountKey === accountKey;
+  const accountRecommendedResultMatchesCurrentScope =
+    accountRecommendedResult.refreshVersion === refreshVersion &&
+    accountRecommendedResultMatchesAccountScope;
   const hasSettledAccountRecommendedTokens =
     shouldFetchAccountRecommendedTokens &&
     accountRecommendedResultMatchesCurrentScope &&
     isAccountLoading === false;
   const accountRecommendedTokens = accountRecommendedResult.tokens;
-  const canUseAccountRecommendedTokens =
+  const hasAccountRecommendedTokens =
     Boolean(accountId) &&
-    accountRecommendedResultMatchesCurrentScope &&
+    accountRecommendedResultMatchesAccountScope &&
     accountRecommendedTokens.length > 0;
+  // Keep the previous account-scoped balances visible while the next refresh is in flight.
+  const canUseAccountRecommendedTokens =
+    hasAccountRecommendedTokens &&
+    (accountRecommendedResultMatchesCurrentScope ||
+      !hasSettledAccountRecommendedTokens);
   const recommendedTokens = canUseAccountRecommendedTokens
     ? accountRecommendedTokens
     : baseRecommendedTokens;
@@ -228,6 +235,9 @@ function useRecommendedTokens({
       !canUseAccountRecommendedTokens &&
       (!hasSettledBaseRecommendedTokens || !hasSettledAccountRecommendedTokens),
     recommendedTokens,
+    hasSettledBaseRecommendedTokens,
+    hasSettledAccountRecommendedTokens,
+    canUseAccountRecommendedTokens,
   };
 }
 
@@ -275,16 +285,22 @@ export function Recommended(
     [actions, cachedRecommendedTokens],
   );
 
-  const { recommendedTokens, isLoading, isBalanceLoading } =
-    useRecommendedTokens({
-      accountId: account?.id,
-      indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
-      networkId: allNetworkId,
-      enableFetch,
-      refreshVersion,
-      cachedRecommendedTokens,
-      onBaseRecommendedTokensLoaded: handleBaseRecommendedTokensLoaded,
-    });
+  const {
+    recommendedTokens,
+    isLoading,
+    isBalanceLoading,
+    hasSettledBaseRecommendedTokens,
+    hasSettledAccountRecommendedTokens,
+    canUseAccountRecommendedTokens,
+  } = useRecommendedTokens({
+    accountId: account?.id,
+    indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
+    networkId: allNetworkId,
+    enableFetch,
+    refreshVersion,
+    cachedRecommendedTokens,
+    onBaseRecommendedTokensLoaded: handleBaseRecommendedTokensLoaded,
+  });
 
   useRecommendedRefreshTrigger({
     accountId: account?.id,
@@ -296,6 +312,36 @@ export function Recommended(
   });
 
   const noWalletConnected = !account && !indexedAccount;
+  const hasCompletedInitialRecommendedLoadRef = useRef(false);
+  const hasCompletedInitialBalanceLoadRef = useRef(false);
+
+  useEffect(() => {
+    if (enableFetch && hasSettledBaseRecommendedTokens) {
+      hasCompletedInitialRecommendedLoadRef.current = true;
+    }
+  }, [enableFetch, hasSettledBaseRecommendedTokens]);
+
+  useEffect(() => {
+    if (
+      enableFetch &&
+      !noWalletConnected &&
+      (hasSettledAccountRecommendedTokens || canUseAccountRecommendedTokens)
+    ) {
+      hasCompletedInitialBalanceLoadRef.current = true;
+    }
+  }, [
+    canUseAccountRecommendedTokens,
+    enableFetch,
+    hasSettledAccountRecommendedTokens,
+    noWalletConnected,
+  ]);
+
+  const showInitialSkeleton =
+    isLoading === true &&
+    recommendedTokens.length === 0 &&
+    !hasCompletedInitialRecommendedLoadRef.current;
+  const showInitialBalanceSkeleton =
+    isBalanceLoading && !hasCompletedInitialBalanceLoadRef.current;
 
   return (
     <RecommendedSection
@@ -304,10 +350,8 @@ export function Recommended(
       withHeader={withHeader}
       disableHorizontalBleed={disableHorizontalBleed}
       recommendedItemContainerProps={recommendedItemContainerProps}
-      showSkeleton={
-        isLoading === true ? recommendedTokens.length === 0 : undefined
-      }
-      isBalanceLoading={isBalanceLoading}
+      showSkeleton={showInitialSkeleton}
+      isBalanceLoading={showInitialBalanceSkeleton}
     />
   );
 }
