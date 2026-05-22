@@ -187,6 +187,35 @@ export type IFetchAccountHistoryParams = {
   targetCurrency?: string;
   currencyMap?: Record<string, ICurrencyItem>;
   limit?: number;
+  // Pagination & time range. First page passes page=1 and no cursor.
+  // Subsequent pages pass page=N and cursor=previous response.next.
+  page?: number;
+  cursor?: string;
+  minTimestampMs?: number;
+  maxTimestampMs?: number;
+};
+
+// Aggregated history fetch for chains whose vault has
+// `mergeDeriveAssetsEnabled: true` (e.g. BTC / LTC). One indexed account fans
+// out into multiple network accounts (one per deriveType), each with its own
+// xpub and its own pagination cursor. The opaque `cursor` returned to callers
+// is a JSON-encoded Record<deriveType, perTypeCursor | '__exhausted__'> — the
+// background service decodes it, calls each non-exhausted deriveType in
+// parallel, and re-encodes the next cursor map for the next page.
+export type IFetchMergeDeriveAccountHistoryParams = {
+  indexedAccountId: string;
+  networkId: string;
+  tokenIdOnNetwork?: string;
+  isManualRefresh?: boolean;
+  filterScam?: boolean;
+  filterLowValue?: boolean;
+  excludeTestNetwork?: boolean;
+  sourceCurrency?: string;
+  targetCurrency?: string;
+  currencyMap?: Record<string, ICurrencyItem>;
+  limit?: number;
+  page?: number;
+  cursor?: string;
 };
 
 export type IOnChainHistoryTxToken = {
@@ -202,6 +231,7 @@ export type IFetchAccountHistoryResp = {
   nfts: Record<string, IOnChainHistoryTxNFT>; // <nftAddress, nft>
   addressMap?: Record<string, IAddressBadge>; // <networkId_address, {label, tip, type}>
   hasMore?: boolean;
+  next?: string; // Cursor for the next page; pass back as request `cursor`.
 };
 
 export type IFetchHistoryTxDetailsParams = {

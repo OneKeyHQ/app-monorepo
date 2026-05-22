@@ -14,11 +14,10 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { sortTokensByOrder } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
@@ -37,7 +36,6 @@ function TokenDetailsTabToolbar(props: IProps) {
   const themeVariant = useThemeVariant();
   const intl = useIntl();
   const { tokenDetails, tokenAccountMap } = useTokenDetailsContext();
-  const [settings] = useSettingsPersistAtom();
 
   const sortedTokensByFiatValue = useMemo(() => {
     let sortedTokens = tokens?.toSorted((a, b) => {
@@ -181,7 +179,7 @@ function TokenDetailsTabToolbar(props: IProps) {
                   <ListItem.Text
                     align="right"
                     primary={
-                      <NumberSizeableTextWrapper
+                      <Currency
                         hideValue
                         size="$bodyLg"
                         $gtMd={{
@@ -189,12 +187,10 @@ function TokenDetailsTabToolbar(props: IProps) {
                         }}
                         color="$textSubdued"
                         formatter="value"
-                        formatterOptions={{
-                          currency: settings.currencyInfo.symbol,
-                        }}
+                        sourceCurrency={tokenDetail?.currency}
                       >
                         {displayOrUnavailable(tokenDetail.fiatValue)}
-                      </NumberSizeableTextWrapper>
+                      </Currency>
                     }
                   />
                 )}
@@ -209,7 +205,6 @@ function TokenDetailsTabToolbar(props: IProps) {
       tokenAccountMap,
       tokenDetails,
       gtMd,
-      settings.currencyInfo.symbol,
       intl,
       onSelected,
     ],

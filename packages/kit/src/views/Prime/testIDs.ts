@@ -22,4 +22,10 @@ export const PrimeTestIDs = {
   // --- Cloud sync settings ---
   cloudSyncKeylessSwitch: 'prime-cloud-sync-keyless-switch',
   cloudSyncIdSyncSwitch: 'prime-cloud-sync-id-sync-switch',
+
+  // --- OneKey ID ---
+  oneKeyIdEditProfileBtn: 'prime-onekey-id-edit-profile-btn',
+  oneKeyIdLogoutBtn: 'prime-onekey-id-logout-btn',
+  oneKeyIdProfileNicknameInput: 'prime-onekey-id-profile-nickname-input',
+  oneKeyIdProfileSaveBtn: 'prime-onekey-id-profile-save-btn',
 } as const;

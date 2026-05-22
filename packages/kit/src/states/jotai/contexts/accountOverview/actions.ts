@@ -2,6 +2,7 @@ import { useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
@@ -50,8 +51,10 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         accountId: string;
         updateAll?: boolean;
         merge?: boolean;
+        currency?: string;
       },
     ) => {
+      const currency = payload.currency ?? USD_CURRENCY_ID;
       if (payload.merge) {
         const { worth, createAtNetworkWorth } = get(accountWorthAtom());
         set(accountWorthAtom(), {
@@ -65,6 +68,7 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
           initialized: payload.initialized,
           accountId: payload.accountId,
           updateAll: payload.updateAll,
+          currency,
         });
         return;
       }
@@ -75,6 +79,7 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         initialized: payload.initialized,
         accountId: payload.accountId,
         updateAll: payload.updateAll,
+        currency,
       });
     },
   );
@@ -152,7 +157,10 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
           totalReward: new BigNumber(overview.totalReward ?? 0)
             .plus(value.overview.totalReward ?? 0)
             .toNumber(),
-          currency: overview.currency,
+          // Honor the producer's currency on first merge into an empty atom
+          // (overview.currency defaults to ''); otherwise a later currency
+          // switch silently misreads the basis.
+          currency: value.currency ?? overview.currency,
           accountId: value.accountId ?? overview.accountId,
           networkId: value.networkId ?? overview.networkId,
         };

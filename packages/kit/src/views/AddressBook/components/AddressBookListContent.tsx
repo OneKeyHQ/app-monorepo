@@ -84,6 +84,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
           h="$10"
           borderRadius="$2"
           address={item.address}
+          enableEnterAnimation
         />
       </Stack>
     ),

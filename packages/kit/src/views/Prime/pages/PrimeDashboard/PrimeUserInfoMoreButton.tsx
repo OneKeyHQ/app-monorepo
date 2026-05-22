@@ -8,18 +8,14 @@ import {
   IconButton,
   SizableText,
   Stack,
-  Toast,
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAuth/useConfirmOneKeyIdLogout';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -36,12 +32,12 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   onBeforeLogout?: () => void;
   onLogoutSuccess?: () => Promise<void>;
 }) {
-  const { logoutWithPurchasesSdk, user } = useOneKeyAuth();
+  const { user } = useOneKeyAuth();
   const isPrime = user?.primeSubscription?.isActive;
   const primeExpiredAt = user?.primeSubscription?.expiresAt;
+  const subscriptionManageUrl = user?.subscriptionManageUrl;
   const { getCustomerInfo } = usePrimePayment();
   const [devSettings] = useDevSettingsPersistAtom();
-  const navigation = useAppNavigation();
   const intl = useIntl();
   const { purchase } = usePrimePurchaseCallback();
 
@@ -51,8 +47,16 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   }, [getCustomerInfo]);
 
   useEffect(() => {
-    void refreshUserInfo();
-  }, [refreshUserInfo]);
+    if (isPrime && !subscriptionManageUrl) {
+      void refreshUserInfo();
+    }
+  }, [isPrime, refreshUserInfo, subscriptionManageUrl]);
+
+  const handleLogout = useConfirmOneKeyIdLogout({
+    reason: 'PrimeUserInfoMoreButton Logout Button',
+    onBeforeLogout,
+    onSuccess: onLogoutSuccess,
+  });
 
   const userInfoView = (
     <Stack px="$2" py="$2.5" gap="$1">
@@ -80,18 +84,6 @@ function PrimeUserInfoMoreButtonDropDownMenu({
             {user?.email}
           </SizableText>
         </MultipleClickStack>
-
-        {/* {isPrime ? (
-          <Badge bg="$brand3" badgeSize="sm">
-            <Badge.Text color="$brand11">Prime</Badge.Text>
-          </Badge>
-        ) : (
-          <Badge badgeType="default" badgeSize="sm">
-            {intl.formatMessage({
-              id: ETranslations.prime_status_free,
-            })}
-          </Badge>
-        )} */}
       </XStack>
       {primeExpiredAt && isPrime ? (
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -115,22 +107,15 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       {/* 
        Sometimes, the local payment is successful (for example, sandbox payment), but the server status is incorrect, so even if the subscriptionManageUrl exists, you need to expose the management subscription entry to allow the user to cancel the subscription
       */}
-      {isPrime && user.subscriptionManageUrl ? (
+      {isPrime && subscriptionManageUrl ? (
         <ActionList.Item
           label={intl.formatMessage({
             id: ETranslations.prime_manage_subscription,
           })}
           icon="CreditCardOutline"
           onClose={handleActionListClose}
-          onPress={async () => {
-            if (user.subscriptionManageUrl) {
-              openUrlUtils.openUrlExternal(user.subscriptionManageUrl);
-            } else {
-              Toast.message({
-                title: 'Please try again later',
-              });
-              await refreshUserInfo();
-            }
+          onPress={() => {
+            openUrlUtils.openUrlExternal(subscriptionManageUrl);
           }}
         />
       ) : null}
@@ -154,56 +139,11 @@ function PrimeUserInfoMoreButtonDropDownMenu({
 
       <ActionList.Item
         label={intl.formatMessage({
-          id: ETranslations.prime_device_management,
-        })}
-        icon="MultipleDevicesOutline"
-        onClose={handleActionListClose}
-        onPress={() => {
-          navigation.pushModal(EModalRoutes.PrimeModal, {
-            screen: EPrimePages.PrimeDeviceLimit,
-          });
-        }}
-      />
-      <ActionList.Item
-        label={intl.formatMessage({
-          id: ETranslations.prime_my_order,
-        })}
-        icon="CartOutline"
-        onClose={handleActionListClose}
-        onPress={() => {
-          navigation.pushModal(EModalRoutes.PrimeModal, {
-            screen: EPrimePages.PrimeMyOrders,
-          });
-        }}
-      />
-      <ActionList.Item
-        label={intl.formatMessage({
           id: ETranslations.prime_log_out,
         })}
         icon="LogoutOutline"
         onClose={handleActionListClose}
-        onPress={() => {
-          Dialog.show({
-            icon: 'InfoCircleOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_onekeyid_log_out,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_onekeyid_log_out_description,
-            }),
-            onConfirmText: intl.formatMessage({
-              id: ETranslations.prime_log_out,
-            }),
-            onConfirm: async () => {
-              onBeforeLogout?.();
-              defaultLogger.prime.subscription.onekeyIdLogout({
-                reason: 'PrimeUserInfoMoreButton Logout Button',
-              });
-              await logoutWithPurchasesSdk();
-              await onLogoutSuccess?.();
-            },
-          });
-        }}
+        onPress={handleLogout}
       />
     </>
   );
@@ -244,9 +184,6 @@ export function PrimeUserInfoMoreButton({
           icon="DotHorOutline"
           variant="tertiary"
           size="small"
-          onPress={() => {
-            console.log('1');
-          }}
         />
       }
     />

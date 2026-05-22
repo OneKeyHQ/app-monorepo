@@ -107,7 +107,7 @@ function BaseFAQContent({
               </>
             )}
           </Accordion.Trigger>
-          <Accordion.HeightAnimator animation="quick">
+          <Accordion.HeightAnimator animation="quick" overflow="hidden">
             <Accordion.Content
               unstyled
               pt="$2"

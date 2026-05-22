@@ -32,7 +32,10 @@ import {
 } from '../../../views/Swap/pages/SwapRootProvider';
 import { UniversalSearchProvider } from '../../../views/UniversalSearch/pages/UniversalSearchProvider';
 
-import { buildJotaiContextStoreId } from './jotaiContextStore';
+import {
+  buildJotaiContextStoreId,
+  jotaiContextStore,
+} from './jotaiContextStore';
 
 // AccountSelectorMapTracker
 export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
@@ -80,6 +83,10 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
         ...mapCache,
         ...toMergeMap,
       });
+
+      if (action === 'remove' && value.count <= 0) {
+        jotaiContextStore.completeStoreResetIfRequestedById(storeId);
+      }
     };
 
     processMapCount('add');
