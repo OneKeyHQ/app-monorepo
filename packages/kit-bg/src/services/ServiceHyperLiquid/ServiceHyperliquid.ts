@@ -123,6 +123,10 @@ import ServiceBase from '../ServiceBase';
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
+import {
+  createFetchUserAbstractionRawWithCache,
+  invalidateUserAbstractionRawCache,
+} from './userAbstractionCache';
 
 import type ServiceHyperliquidExchange from './ServiceHyperliquidExchange';
 import type ServiceHyperliquidWallet from './ServiceHyperliquidWallet';
@@ -1671,6 +1675,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     await perpsAbstractionModeAtom.set(undefined);
     await perpsSpotBalancesAtom.set(undefined);
+    this.fetchUserAbstractionRawWithCache.clear();
     // Also reset the UI-facing spot balances atom so stale balances from
     // the previous account don't flash before the new SPOT_STATE arrives.
     await spotBalancesAtom.set({ balances: [], isLoaded: false });
@@ -1807,6 +1812,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   // - agent credentials + extraAgents cache: forces approveAgent (signature)
   // - builderFee cache: forces re-query (re-approve only if chain state diverges)
   // - rebate binding cache: forces re-query
+  // - userAbstraction raw cache: forces re-query
   // - abstraction mode + status info atoms: resets details.* baseline
   // Note: setAbstraction / approveBuilderFee only re-trigger if chain state
   // diverges from local expectation, which clearing local caches alone can't
@@ -1818,6 +1824,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
     await this.removeAllAgentCredentialsAndResetStatus();
     this.checkInternalRebateBindingStatusWithCache.clear();
+    this.fetchUserAbstractionRawWithCache.clear();
     await perpsAbstractionModeAtom.set(undefined);
     await perpsActiveAccountStatusInfoAtom.set(undefined);
     // eslint-disable-next-line no-console
@@ -1858,6 +1865,13 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   hideEnableTradingLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
+  fetchUserAbstractionRawWithCache = createFetchUserAbstractionRawWithCache(
+    async (accountAddress) => {
+      const { infoClient } = hyperLiquidApiClients;
+      return infoClient.userAbstraction({ user: accountAddress });
+    },
+  );
+
   @backgroundMethod()
   async fetchUserAbstraction(userAddress: IHex): Promise<string | undefined> {
     // Active-account alignment check
@@ -1868,9 +1882,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       return undefined;
     }
 
-    const { infoClient } = hyperLiquidApiClients;
     try {
-      const mode = await infoClient.userAbstraction({ user: userAddress });
+      const mode = await this.fetchUserAbstractionRawWithCache({
+        accountAddress: userAddress,
+      });
 
       // Re-check alignment after async call
       const currentAccount = await perpsActiveAccountAtom.get();
@@ -2093,6 +2108,10 @@ export default class ServiceHyperliquid extends ServiceBase {
                   userAddress: accountAddress,
                   abstraction: 'unifiedAccount',
                 }),
+            );
+            invalidateUserAbstractionRawCache(
+              this.fetchUserAbstractionRawWithCache,
+              accountAddress,
             );
             const verifiedMode = await this.measureEnableTradingStep(
               'checkStatus.fetchUserAbstraction',
