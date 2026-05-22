@@ -25,6 +25,7 @@ import {
   KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX_V2,
   KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
   KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD_V2_PREFIX,
+  KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_FIXED_UUID,
   KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_PREFIX,
   KEYLESS_ENCRYPTION_ITERATIONS,
   KEYLESS_MNEMONIC_GCM_AAD,
@@ -172,6 +173,20 @@ type IKeylessBackendShareUploadParams = {
   encryptedMnemonic: string;
   backendShare: string;
   juiceboxShareX: number;
+  keylessBackendShareV1Mirror?: string;
+};
+
+type IKeylessBackendShareCreationLock = {
+  hashId: string;
+  lockId: string;
+  expiresAt: number;
+};
+
+type IKeylessBackendShareCreationLockResponse = {
+  hashId?: string;
+  lockId?: string;
+  expire_time?: number;
+  expiresAt?: number;
 };
 
 type IKeylessBackendShareV2MigrationIdentity = {
@@ -1591,6 +1606,33 @@ class ServiceKeylessWallet extends ServiceBase {
     return this.assertKeylessBackendSharePayload(JSON.parse(decryptedJson));
   }
 
+  private async encryptKeylessBackendSharePayloadV1(params: {
+    backendShareData: IKeylessBackendShare;
+  }): Promise<string> {
+    const { backendShareData } = params;
+    const jsonPayload = stringUtils.stableStringify(
+      this.assertKeylessBackendSharePayload(backendShareData),
+    );
+    const encryptedPayload = await encryptStringAsync({
+      data: jsonPayload,
+      dataEncoding: 'utf-8',
+      password: KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
+      allowRawPassword: true,
+      iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+      mode: EAppCryptoAesEncryptionMode.gcm,
+      aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
+    });
+
+    return `${KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX}${encryptedPayload}`;
+  }
+
+  private buildKeylessBackendSharePayloadV2Password(params: {
+    ownerId: string;
+  }): string {
+    const password = `${KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_PREFIX}${params.ownerId}`;
+    return `${password}:${KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_FIXED_UUID}`;
+  }
+
   private async decryptKeylessBackendSharePayloadV2(params: {
     token: string;
     hashId: string;
@@ -1628,7 +1670,9 @@ class ServiceKeylessWallet extends ServiceBase {
           data: encryptedPayload,
           dataEncoding: 'hex',
           resultEncoding: 'utf-8',
-          password: `${KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_PREFIX}${candidate.ownerId}`,
+          password: this.buildKeylessBackendSharePayloadV2Password({
+            ownerId: candidate.ownerId,
+          }),
           allowRawPassword: true,
           iterations: KEYLESS_ENCRYPTION_ITERATIONS,
           mode: EAppCryptoAesEncryptionMode.gcm,
@@ -1661,7 +1705,7 @@ class ServiceKeylessWallet extends ServiceBase {
     const encryptedPayload = await encryptStringAsync({
       data: jsonPayload,
       dataEncoding: 'utf-8',
-      password: `${KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_PREFIX}${ownerId}`,
+      password: this.buildKeylessBackendSharePayloadV2Password({ ownerId }),
       allowRawPassword: true,
       iterations: KEYLESS_ENCRYPTION_ITERATIONS,
       mode: EAppCryptoAesEncryptionMode.gcm,
@@ -1794,24 +1838,31 @@ class ServiceKeylessWallet extends ServiceBase {
 
   private async apiAcquireCreationLock(params: {
     token: string;
-  }): Promise<{ hashId: string; lockId: string; expiresAt: number }> {
+  }): Promise<IKeylessBackendShareCreationLock> {
     const { token } = params;
     const client = await this.getClient(EServiceEndpointEnum.Prime);
     const res = await client.post<
-      IApiClientResponse<{
-        hashId: string;
-        lockId: string;
-        expiresAt: number;
-      }>
+      IApiClientResponse<IKeylessBackendShareCreationLockResponse>
     >('/prime/v1/keyless-wallet/acquireCreationLock', {
       token,
     });
 
     const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
     const lockData = res?.data?.data;
+    const expiresAt = lockData?.expiresAt ?? lockData?.expire_time;
 
-    if (isSuccess && lockData?.lockId) {
-      return lockData;
+    if (
+      isSuccess &&
+      lockData?.hashId &&
+      lockData.lockId &&
+      typeof expiresAt === 'number' &&
+      Number.isFinite(expiresAt)
+    ) {
+      return {
+        hashId: lockData.hashId,
+        lockId: lockData.lockId,
+        expiresAt,
+      };
     }
 
     throw new OneKeyLocalError('Failed to acquire creation lock');
@@ -1925,6 +1976,7 @@ class ServiceKeylessWallet extends ServiceBase {
       encryptedMnemonic,
       backendShare,
       juiceboxShareX,
+      keylessBackendShareV1Mirror,
     } = params;
     const backendShareData: IKeylessBackendShare = {
       encryptedMnemonic,
@@ -1948,6 +2000,25 @@ class ServiceKeylessWallet extends ServiceBase {
         'Keyless backend share v2 verification mismatch',
       );
     }
+    let encryptedPayloadV1Mirror: string;
+    if (keylessBackendShareV1Mirror !== undefined) {
+      const mirrorBackendShareData =
+        await this.decryptKeylessBackendSharePayloadV1({
+          backendShare: keylessBackendShareV1Mirror,
+        });
+      if (!isEqual(mirrorBackendShareData, backendShareData)) {
+        throw new OneKeyLocalError(
+          'Keyless backend share v1 mirror verification mismatch',
+        );
+      }
+      encryptedPayloadV1Mirror = keylessBackendShareV1Mirror;
+    } else {
+      encryptedPayloadV1Mirror = await this.encryptKeylessBackendSharePayloadV1(
+        {
+          backendShareData,
+        },
+      );
+    }
 
     const client = await this.getClient(EServiceEndpointEnum.Prime);
     const res = await client.post<
@@ -1961,9 +2032,19 @@ class ServiceKeylessWallet extends ServiceBase {
       lockId,
       baseRevision,
       keylessBackendShareV2: encryptedPayloadWithPrefix,
+      keylessBackendShareV1Mirror: encryptedPayloadV1Mirror,
     });
 
-    if (res?.data?.data?.ok === true) {
+    const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
+    const uploadData = res?.data?.data;
+    if (
+      isSuccess &&
+      uploadData?.ok === true &&
+      uploadData.hashId === hashId &&
+      typeof uploadData.revision === 'number' &&
+      Number.isFinite(uploadData.revision) &&
+      uploadData.revision > baseRevision
+    ) {
       return backendShareData;
     }
 
@@ -2020,6 +2101,10 @@ class ServiceKeylessWallet extends ServiceBase {
               encryptedMnemonic: current.backendShareData.encryptedMnemonic,
               backendShare: current.backendShareData.backendShare,
               juiceboxShareX: current.backendShareData.juiceboxShareX,
+              keylessBackendShareV1Mirror:
+                current.canonicalFormat === 'v1'
+                  ? current.backendShare
+                  : undefined,
             });
           },
         );
@@ -2673,7 +2758,7 @@ class ServiceKeylessWallet extends ServiceBase {
     mode?: EOnboardingV2OneKeyIDLoginMode;
     dangerousRetryByFixedProvider: boolean;
     providerOverride?: EOAuthSocialLoginProvider;
-  }): Promise<void> {
+  }): Promise<{ pinConfirmStatusUpdated: boolean }> {
     const { token, pin, refreshToken, mode, dangerousRetryByFixedProvider } =
       params;
     let providerOverride = params.providerOverride;
@@ -2800,8 +2885,12 @@ class ServiceKeylessWallet extends ServiceBase {
       });
       defaultLogger.wallet.keyless.verifyKeylessTokensStored();
     }
-    void this.apiUpdatePinConfirmStatus({ token });
-    defaultLogger.wallet.keyless.verifyKeylessPinConfirmStatusUpdated();
+    const pinConfirmStatusUpdated =
+      await this.updatePinConfirmStatusAfterSuccessfulPin({ token });
+    if (pinConfirmStatusUpdated) {
+      defaultLogger.wallet.keyless.verifyKeylessPinConfirmStatusUpdated();
+    }
+    return { pinConfirmStatusUpdated };
   }
 
   @backgroundMethod()
@@ -3037,7 +3126,7 @@ class ServiceKeylessWallet extends ServiceBase {
       });
     }
 
-    void this.apiResetPinConfirmStatus({ token });
+    await this.apiResetPinConfirmStatus({ token });
     defaultLogger.wallet.keyless.resetKeylessPinConfirmStatusUpdated();
 
     this.fixedKeylessProviderMap = {};
@@ -3110,12 +3199,13 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string | undefined;
     refreshToken?: string | undefined;
     pin: string | undefined;
+    pinConfirmStatusAlreadyUpdated?: boolean;
   }): Promise<{
     ownerId: string;
     mnemonic: string;
     keylessDetailsInfo: IKeylessWalletDetailsInfo;
   }> {
-    const { token, refreshToken, pin } = params;
+    const { token, refreshToken, pin, pinConfirmStatusAlreadyUpdated } = params;
     if (!token) {
       throw new OneKeyLocalError('social login token is required');
     }
@@ -3198,8 +3288,12 @@ class ServiceKeylessWallet extends ServiceBase {
       defaultLogger.wallet.keyless.restoreKeylessTokensStored();
     }
 
-    void this.apiUpdatePinConfirmStatus({ token });
-    defaultLogger.wallet.keyless.restorePinConfirmStatusUpdated();
+    if (
+      !pinConfirmStatusAlreadyUpdated &&
+      (await this.updatePinConfirmStatusAfterSuccessfulPin({ token }))
+    ) {
+      defaultLogger.wallet.keyless.restorePinConfirmStatusUpdated();
+    }
 
     if (backendShareResult.canonicalFormat === 'v1') {
       void this.migrateKeylessBackendShareToV2({
@@ -3610,6 +3704,19 @@ class ServiceKeylessWallet extends ServiceBase {
 
     if (!isSuccess) {
       throw new OneKeyLocalError('Failed to update pin confirm status');
+    }
+  }
+
+  private async updatePinConfirmStatusAfterSuccessfulPin(params: {
+    token: string;
+  }): Promise<boolean> {
+    try {
+      await this.updatePinConfirmStatusMutex.runExclusive(async () => {
+        await this.apiUpdatePinConfirmStatus({ token: params.token });
+      });
+      return true;
+    } catch (_error) {
+      return false;
     }
   }
 
