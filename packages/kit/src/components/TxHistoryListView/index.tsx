@@ -415,7 +415,12 @@ function BaseTxHistoryListView(props: IProps) {
                 ? SECTION_HEADER_HEIGHT_FIRST
                 : SECTION_HEADER_HEIGHT_NEXT;
             }
-            if (info.type === 'section-item') return TX_ROW_HEIGHT;
+            if (info.type === 'section-item') {
+              if (info.item?.decodedTx?.status === EDecodedTxStatus.Pending) {
+                return undefined;
+              }
+              return TX_ROW_HEIGHT;
+            }
             // header / footer (loading / "load more" buttons) aren't a fixed
             // height — let CellMeasurer handle them.
             return undefined;
