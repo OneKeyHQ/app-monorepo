@@ -2384,8 +2384,6 @@ export default class ServiceHyperliquid extends ServiceBase {
                       removeResultStatus: approveAgentResult?.status,
                     },
                   });
-                  await timerUtils.wait(4000);
-
                   // Poll to verify agent removal instead of fixed delay
                   const pollStartTime = Date.now();
                   const pollTimeoutMs = 10_000; // 10 seconds total polling timeout
