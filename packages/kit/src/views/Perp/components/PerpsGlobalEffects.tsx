@@ -35,7 +35,11 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  ERootRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { useDebugHooksDepsChangedChecker } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
