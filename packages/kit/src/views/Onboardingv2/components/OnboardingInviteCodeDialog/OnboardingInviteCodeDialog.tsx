@@ -408,6 +408,11 @@ function OnboardingInviteCodeDialogContent({
   );
 }
 
+export type IShowOnboardingInviteCodeDialog = (opts: {
+  wallet: IDBWallet;
+  onDone: () => void;
+}) => void;
+
 // Anchor the dialog to the current modal page's portal (via useInPageDialog)
 // instead of the global Dialog.show portal. The HW signature confirmation
 // modal is pushed onto the same modal navigator, so an in-page-anchored
@@ -416,7 +421,7 @@ function OnboardingInviteCodeDialogContent({
 // `Theme name="dark"` is kept as defense-in-depth — the modal navigator
 // portal currently mounts inside the OnboardingV2 dark Theme wrapper
 // (routes/Modal/Navigator.tsx), so this is redundant today but cheap.
-export function useShowOnboardingInviteCodeDialog() {
+export function useShowOnboardingInviteCodeDialog(): IShowOnboardingInviteCodeDialog {
   const intl = useIntl();
   const dialog = useInPageDialog(EInPageDialogType.inModalPage);
 

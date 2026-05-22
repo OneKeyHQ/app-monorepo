@@ -65,7 +65,10 @@ import {
   setExistingWalletSwitchToastDeferred,
 } from '../../../utils/toastExistingWalletSwitch';
 import { OnboardingPage } from '../components/Layout';
-import { useShowOnboardingInviteCodeDialog } from '../components/OnboardingInviteCodeDialog';
+import {
+  type IShowOnboardingInviteCodeDialog,
+  useShowOnboardingInviteCodeDialog,
+} from '../components/OnboardingInviteCodeDialog';
 import { OrbShader } from '../components/OrbShader';
 import {
   useConnectDeviceError,
@@ -126,6 +129,29 @@ function StepTextSwap({ text }: { text: string }) {
       </AnimatePresence>
     </YStack>
   );
+}
+
+// Invisible child of `<OnboardingPage>` whose only job is to call
+// `useShowOnboardingInviteCodeDialog()` from a position where `PageContext`
+// is available, so `useInPageDialog` can capture the page's `pagePortalId`.
+// Without this, the hook captures `pagePortalId = undefined` and falls back
+// to `FULL_WINDOW_OVERLAY_PORTAL` on iOS, which is rendered above the
+// signature-confirm modal pushed by Apply.
+function OnboardingInviteCodeDialogBridge({
+  bridgeRef,
+}: {
+  bridgeRef: React.MutableRefObject<IShowOnboardingInviteCodeDialog | null>;
+}) {
+  const show = useShowOnboardingInviteCodeDialog();
+  useEffect(() => {
+    bridgeRef.current = show;
+    return () => {
+      if (bridgeRef.current === show) {
+        bridgeRef.current = null;
+      }
+    };
+  }, [show, bridgeRef]);
+  return null;
 }
 
 function FinalizeWalletSetupPage({
@@ -195,7 +221,17 @@ function FinalizeWalletSetupPage({
     setPendingKeylessAutoConnectWalletId,
     openKeylessAutoConnectDappModal,
   } = useKeylessWebFlowAutoConnectDapp();
-  const showInviteCodeDialog = useShowOnboardingInviteCodeDialog();
+  // The show function captures `pagePortalId` at hook-call time via
+  // `usePageContext()` inside `useInPageDialog`. This call site sits OUTSIDE
+  // the `<OnboardingPage>` (= `<Page>`) wrapper rendered below, so the
+  // context is empty and the dialog would fall back to
+  // `FULL_WINDOW_OVERLAY_PORTAL` on iOS — which sits above the signature
+  // confirm modal and re-introduces the occlusion that 176b3c556c set out
+  // to fix. Defer the hook to a bridge component mounted inside
+  // `<OnboardingPage>` (Page context is available there); the ref carries
+  // the captured callback back here so `handleLetsGo` can invoke it.
+  const showInviteCodeDialogRef =
+    useRef<IShowOnboardingInviteCodeDialog | null>(null);
   const readyReferralCheckHandledRef = useRef(false);
 
   // Hold the "existing wallet switched" toast until the user confirms with
@@ -252,7 +288,7 @@ function FinalizeWalletSetupPage({
           const isExpired = checkResp.reason === 'exceeded_bind_window';
 
           if (!isBound && !isExpired) {
-            showInviteCodeDialog({
+            showInviteCodeDialogRef.current?.({
               wallet: createdWallet,
               onDone: proceedToWallet,
             });
@@ -266,7 +302,7 @@ function FinalizeWalletSetupPage({
     }
 
     proceedToWallet();
-  }, [closePage, openKeylessAutoConnectDappModal, showInviteCodeDialog]);
+  }, [closePage, openKeylessAutoConnectDappModal]);
 
   const processNextStep = useCallback(() => {
     while (stepQueue.current.length > 0) {
@@ -700,6 +736,7 @@ function FinalizeWalletSetupPage({
       showLanguageSelector={false}
       enterAnimation={false}
     >
+      <OnboardingInviteCodeDialogBridge bridgeRef={showInviteCodeDialogRef} />
       <YStack flex={1}>
         {platformEnv.isExtension && isExtensionTopRightVisible ? (
           <YStack
