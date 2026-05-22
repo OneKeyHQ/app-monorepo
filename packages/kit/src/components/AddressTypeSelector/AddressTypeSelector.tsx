@@ -192,6 +192,13 @@ function AddressTypeSelectorContent(
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId: indexedAccountId,
           });
+          // Hardware wallets open the Enter PIN / Passphrase dialog during
+          // createAddress. Close this popover first so its Tamagui default
+          // z-index (150_000) does not hide those dialogs (z-index 100_000).
+          // Software wallets keep the popover open to show inline loading.
+          if (accountUtils.isHwWallet({ walletId })) {
+            closePopover();
+          }
           const createAddressResult = await createAddress({
             selectAfterCreate: false,
             num: 0,
