@@ -4,11 +4,14 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
+  ESplitViewType,
   Page,
   SizableText,
   Stack,
   YStack,
+  useIsSplitView,
   useMedia,
+  useSplitViewType,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
@@ -27,6 +30,7 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
 import { PerpGuidePopover } from '../components/Guide/PerpGuidePopover';
 import { PerpContentFooter } from '../components/PerpContentFooter';
+
 import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
@@ -38,6 +42,7 @@ import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { PerpTestIDs } from '../testIDs';
 
 import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
+import MobilePerpMarketWithProvider from './MobilePerpMarket';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -177,9 +182,19 @@ function ExtPerpNull() {
 
 export default function Perp() {
   const canRenderPerp = useNativePerpFeatureGuard();
+  const splitViewType = useSplitViewType();
+  const isLandscape = useIsSplitView();
 
   if (!canRenderPerp) {
     return shouldOpenExpandExtPerp ? <ExtPerpNull /> : null;
+  }
+
+  // In the dual-pane layout the right (SUB) pane would otherwise render the
+  // generic OneKey-logo placeholder from TabletHomeContainer. Fill it with
+  // the chart detail directly so the trading form on the left always sits
+  // beside the active pair's K-line — no navigation, no modal.
+  if (splitViewType === ESplitViewType.SUB && isLandscape) {
+    return <MobilePerpMarketWithProvider />;
   }
 
   return (

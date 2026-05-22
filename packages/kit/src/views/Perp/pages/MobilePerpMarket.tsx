@@ -265,6 +265,8 @@ function MobilePerpMarket() {
     navigation.pop();
   }, [navigation]);
 
+  const isSplitDetailActive = useIsSplitDetailActive();
+
   const renderHeaderTitle = useCallback(() => {
     let pairLabel: string;
     if (mode === 'spot') {
@@ -276,11 +278,13 @@ function MobilePerpMarket() {
     }
     return (
       <XStack alignItems="center" gap="$2">
-        <NavBackButton
-          hoverStyle={{ opacity: 0.8 }}
-          pressStyle={{ opacity: 0.6 }}
-          onPress={onPageGoBack}
-        />
+        {isSplitDetailActive ? null : (
+          <NavBackButton
+            hoverStyle={{ opacity: 0.8 }}
+            pressStyle={{ opacity: 0.6 }}
+            onPress={onPageGoBack}
+          />
+        )}
         <XStack
           alignItems="center"
           gap="$2"
@@ -307,13 +311,12 @@ function MobilePerpMarket() {
   }, [
     baseName,
     displayName,
+    isSplitDetailActive,
     mode,
     onPageGoBack,
     onPressTokenSelector,
     themeVariant,
   ]);
-
-  const isSplitDetailActive = useIsSplitDetailActive();
   useEffect(() => {
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 

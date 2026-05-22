@@ -51,3 +51,13 @@ export function useIsSplitDetailActive() {
   const isLandscape = useIsSplitView();
   return isSubView && isLandscape;
 }
+
+// Symmetric counterpart to useIsSplitDetailActive: true when the current
+// component is being rendered inside the main pane while the dual-pane layout
+// is visible. Use to hide UI in the main (master) pane that becomes
+// redundant once the detail pane is showing alongside it.
+export function useIsSplitMainActive() {
+  const isMainView = useSplitMainView();
+  const isLandscape = useIsSplitView();
+  return isMainView && isLandscape;
+}
