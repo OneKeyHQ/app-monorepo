@@ -73,7 +73,8 @@ export abstract class KeyringHardwareBase extends KeyringBase {
 
   buildHardwareExtraInfoFromSdkResult(
     result?: unknown,
-  ): IHardwareGetPubOrAddressExtraInfo {
+    fallbackRootFingerprint?: number,
+  ): IHardwareGetPubOrAddressExtraInfo | undefined {
     const extraInfo = result as
       | {
           rootFingerprint?: number;
@@ -81,12 +82,31 @@ export abstract class KeyringHardwareBase extends KeyringBase {
           __hwExtraInfo__?: IHardwareGetPubOrAddressExtraInfo;
         }
       | undefined;
-    return (
-      extraInfo?.__hwExtraInfo__ ?? {
-        rootFingerprint:
-          extraInfo?.rootFingerprint ?? extraInfo?.root_fingerprint,
-      }
-    );
+    const rootFingerprint =
+      extraInfo?.__hwExtraInfo__?.rootFingerprint ??
+      extraInfo?.rootFingerprint ??
+      extraInfo?.root_fingerprint ??
+      fallbackRootFingerprint;
+    if (rootFingerprint === undefined) {
+      return undefined;
+    }
+    return { rootFingerprint };
+  }
+
+  buildHardwareExtraInfoFromWalletXfp({
+    xfp,
+  }: {
+    xfp?: string;
+  }): IHardwareGetPubOrAddressExtraInfo | undefined {
+    const shortXfp = xfp?.split('--')[0];
+    if (!shortXfp) {
+      return undefined;
+    }
+    const rootFingerprint = Number.parseInt(shortXfp, 16);
+    if (!Number.isFinite(rootFingerprint)) {
+      return undefined;
+    }
+    return { rootFingerprint };
   }
 
   async baseGetDeviceAccountData<T>({

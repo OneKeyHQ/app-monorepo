@@ -1,4 +1,4 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EFirmwareType, HARDWARE_CONNECT_PROTOCOL } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { ethers } from 'ethers';
 import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
@@ -72,6 +72,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  getHardwareConnectProtocolFromDevice,
+  getHardwareConnectProtocolFromDeviceType,
+} from '@onekeyhq/shared/src/hardware/connectProtocol';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -347,6 +351,23 @@ class ServiceAccount extends ServiceBase {
     walletId: string;
   }) {
     return localDb.getWalletDeviceSafe({ dbWallet, walletId });
+  }
+
+  async getConnectProtocolFromDeviceAndFeatures({
+    device,
+    features,
+  }: {
+    device?: object | null;
+    features?: IOneKeyDeviceFeatures;
+  }) {
+    const connectProtocol = getHardwareConnectProtocolFromDevice(device);
+    if (connectProtocol || !features) {
+      return connectProtocol;
+    }
+    const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+      features,
+    });
+    return getHardwareConnectProtocolFromDeviceType(deviceType);
   }
 
   @backgroundMethod()
@@ -2371,6 +2392,15 @@ class ServiceAccount extends ServiceBase {
         indexedAccountId: newIndexedAccountId,
       });
       if (allNetworkAccount.id !== accountId) {
+        const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+        if (accountUtils.isHwWallet({ walletId })) {
+          const dbDevice = await this.getWalletDeviceSafe({ walletId });
+          const connectProtocol =
+            getHardwareConnectProtocolFromDevice(dbDevice);
+          if (connectProtocol === HARDWARE_CONNECT_PROTOCOL.V2) {
+            return allNetworkAccount;
+          }
+        }
         throw new OneKeyLocalError(
           'getAccount ERROR: allNetworkAccount accountId not match',
         );
@@ -2958,6 +2988,8 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
+    const connectProtocol = getHardwareConnectProtocolFromDevice(dbDevice);
+
     return {
       confirmOnDevice: EConfirmOnDeviceType.LastItem,
       dbDevice,
@@ -2965,6 +2997,7 @@ class ServiceAccount extends ServiceBase {
       deviceCommonParams: {
         passphraseState: wallet?.passphraseState,
         useEmptyPassphrase: !wallet.passphraseState,
+        ...(connectProtocol ? { connectProtocol } : {}),
       },
     };
   }
@@ -3156,6 +3189,10 @@ class ServiceAccount extends ServiceBase {
       device: params.device,
       features,
     });
+    const connectProtocol = await this.getConnectProtocolFromDeviceAndFeatures({
+      device: params.device,
+      features,
+    });
 
     let xfp: string | undefined;
     if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
@@ -3166,6 +3203,7 @@ class ServiceAccount extends ServiceBase {
         throwError: true,
         withUserInteraction: true,
         vendor,
+        connectProtocol,
       });
     }
     // Refresh DB info when compatibility lookup resolves to another connectId.
@@ -3195,6 +3233,7 @@ class ServiceAccount extends ServiceBase {
               deviceId,
               path: FIRST_EVM_ADDRESS_PATH,
               vendor,
+              connectProtocol,
             },
           );
         return r;
@@ -5581,6 +5620,11 @@ class ServiceAccount extends ServiceBase {
       // eslint-disable-next-line no-param-reassign
       deviceId = device?.deviceId;
     }
+    const dbDevice = await localDb.getWalletDeviceSafe({
+      dbWallet: wallet,
+      walletId: wallet.id,
+    });
+    const connectProtocol = getHardwareConnectProtocolFromDevice(dbDevice);
 
     const xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
       connectId,
@@ -5589,6 +5633,7 @@ class ServiceAccount extends ServiceBase {
       throwError: throwError ?? false,
       withUserInteraction,
       vendor: wallet?.associatedDeviceInfo?.vendor,
+      connectProtocol,
     });
     if (xfp) {
       await localDb.updateWalletsHashAndXfp({

@@ -1870,6 +1870,7 @@ class ServiceHardware extends ServiceBase {
     deviceId: string;
     path: string;
     vendor?: EHardwareVendor;
+    connectProtocol?: HardwareConnectProtocol;
   }): Promise<string | null> {
     const evmProfile = params.vendor
       ? getVendorProfile(params.vendor)
@@ -1914,6 +1915,9 @@ class ServiceHardware extends ServiceBase {
           path: params.path,
           showOnOneKey: false,
           useEmptyPassphrase: true,
+          ...(params.connectProtocol
+            ? { connectProtocol: params.connectProtocol }
+            : {}),
         }),
       );
       if (evmAddressResponse.address && evmAddressResponse.address.length > 0) {
@@ -1936,6 +1940,7 @@ class ServiceHardware extends ServiceBase {
     throwError,
     withUserInteraction,
     vendor,
+    connectProtocol,
   }: {
     connectId: string | undefined | null;
     deviceId: string | undefined | null;
@@ -1943,6 +1948,7 @@ class ServiceHardware extends ServiceBase {
     throwError: boolean;
     withUserInteraction: boolean;
     vendor?: EHardwareVendor;
+    connectProtocol?: HardwareConnectProtocol;
   }): Promise<string | undefined> {
     if (!connectId) {
       return;
@@ -1973,6 +1979,7 @@ class ServiceHardware extends ServiceBase {
             showOnOneKey: false,
             useEmptyPassphrase: passphraseState ? undefined : true,
             passphraseState: passphraseState || undefined,
+            ...(connectProtocol ? { connectProtocol } : {}),
           },
         );
       });

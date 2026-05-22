@@ -1,8 +1,10 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EFirmwareType, HARDWARE_CONNECT_PROTOCOL } from '@onekeyfe/hd-shared';
 import { uniqBy } from 'lodash';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import { getHardwareConnectProtocolFromDevice } from '@onekeyhq/shared/src/hardware/connectProtocol';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -174,6 +176,22 @@ export async function buildDefaultAddAccountNetworks(
   params: IBuildDefaultAddAccountNetworksParams,
 ) {
   const { backgroundApi, walletId } = params;
+
+  if (accountUtils.isHwWallet({ walletId })) {
+    const dbDevice = await backgroundApi.serviceAccount.getWalletDeviceSafe({
+      walletId,
+    });
+    if (
+      getHardwareConnectProtocolFromDevice(dbDevice) ===
+      HARDWARE_CONNECT_PROTOCOL.V2
+    ) {
+      return buildAddAccountsNetworks({
+        ...params,
+        tron: true,
+        sol: true,
+      });
+    }
+  }
 
   // BTC-only firmware → only BTC (regardless of create/add scenario)
   const isBtcOnlyFirmware =

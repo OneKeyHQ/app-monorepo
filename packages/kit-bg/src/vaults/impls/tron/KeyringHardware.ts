@@ -108,6 +108,9 @@ export class KeyringHardware extends KeyringHardwareBase {
         }
 
         const ret: ICoreApiGetAddressItem[] = [];
+        const walletExtraInfo = this.buildHardwareExtraInfoFromWalletXfp({
+          xfp: params.deviceParams.dbWallet?.xfp,
+        });
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
           const { path, address } = item;
@@ -118,7 +121,10 @@ export class KeyringHardware extends KeyringHardwareBase {
             address: normalizedAddress || address || '',
             path,
             publicKey: '',
-            __hwExtraInfo__: this.buildHardwareExtraInfoFromSdkResult(item),
+            __hwExtraInfo__: this.buildHardwareExtraInfoFromSdkResult(
+              item,
+              walletExtraInfo?.rootFingerprint,
+            ),
           };
           ret.push(addressInfo);
         }
