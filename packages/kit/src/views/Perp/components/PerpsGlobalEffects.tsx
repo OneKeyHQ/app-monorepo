@@ -402,20 +402,49 @@ function useHyperliquidEventBusListener() {
         clearTimeout(assetCtxsTimerRef.current);
         assetCtxsTimerRef.current = null;
       }
+      if (assetCtxsDirtyRef.current) {
+        try {
+          void actions.current.updateAllDexsAssetCtxs(assetCtxsDirtyRef.current);
+        } catch {
+          // unmount path; swallow
+        }
+      }
+      assetCtxsDirtyRef.current = null;
       if (l2BookTimerRef.current) {
         clearTimeout(l2BookTimerRef.current);
         l2BookTimerRef.current = null;
       }
+      if (l2BookDirtyRef.current) {
+        try {
+          void actions.current.updateL2Book(l2BookDirtyRef.current);
+        } catch {
+          // unmount path; swallow
+        }
+      }
+      l2BookDirtyRef.current = null;
       if (bboTimerRef.current) {
         clearTimeout(bboTimerRef.current);
         bboTimerRef.current = null;
       }
+      if (bboDirtyRef.current) {
+        try {
+          void actions.current.updateBbo(bboDirtyRef.current);
+        } catch {
+          // unmount path; swallow
+        }
+      }
+      bboDirtyRef.current = null;
       if (allMidsTimerRef.current) {
         clearTimeout(allMidsTimerRef.current);
         allMidsTimerRef.current = null;
       }
-      l2BookDirtyRef.current = null;
-      bboDirtyRef.current = null;
+      if (allMidsDirtyRef.current) {
+        try {
+          void actions.current.updateAllMids(allMidsDirtyRef.current);
+        } catch {
+          // unmount path; swallow
+        }
+      }
       allMidsDirtyRef.current = null;
       appEventBus.off(
         EAppEventBusNames.HyperliquidDataUpdate,
