@@ -346,7 +346,7 @@ function AddCustomNetwork() {
     <Page scrollEnabled onClose={handleOnClose}>
       <Page.Header
         title={intl.formatMessage({
-          id: ETranslations.custom_network_add_network_action_text,
+          id: ETranslations.custom_network_network_details,
         })}
         headerRight={headerRight}
       />
