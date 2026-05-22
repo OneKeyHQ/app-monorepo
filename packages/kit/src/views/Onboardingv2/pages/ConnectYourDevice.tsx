@@ -1271,6 +1271,7 @@ function ConnectYourDevicePage({
               vendor: item.vendor,
             },
             isFirmwareVerified: true,
+            tabValue: innerTabValue,
           });
           return;
         }
