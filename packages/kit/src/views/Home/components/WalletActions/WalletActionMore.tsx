@@ -36,7 +36,7 @@ import { WalletActionSwap } from './WalletActionSwap';
 import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 import { WalletActionVote } from './WalletActionVote';
 
-export function WalletActionMore() {
+export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
@@ -315,6 +315,7 @@ export function WalletActionMore() {
     <RawActions.More
       renderItemsAsync={renderItemsAsync}
       testID={HomeTestIDs.moreButton}
+      iconOnly={iconOnly}
     />
   );
 }

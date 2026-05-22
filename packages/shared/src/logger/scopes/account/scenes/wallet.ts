@@ -14,6 +14,11 @@ interface IToken {
   tokenAddress: string;
 }
 
+export type IHomePageViewedState =
+  | 'notBackedUp'
+  | 'emptyWallet'
+  | 'fundedWallet';
+
 export class WalletScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
@@ -172,6 +177,25 @@ export class WalletScene extends BaseScene {
     return {
       backupMethod,
     };
+  }
+
+  // Funnel numerator. Distinct from `backupWallet` (which fires when the user
+  // picks a method) — this fires only when wallet.backuped flips true.
+  @LogToServer()
+  @LogToLocal()
+  public backupCompleted(params: { walletId: string; walletType: string }) {
+    return params;
+  }
+
+  // Funnel denominator. Deduped to once per (wallet, state) tuple per session
+  // by the caller.
+  @LogToServer()
+  @LogToLocal()
+  public homePageViewed(params: {
+    state: IHomePageViewedState;
+    walletType: string;
+  }) {
+    return params;
   }
 
   @LogToServer()
