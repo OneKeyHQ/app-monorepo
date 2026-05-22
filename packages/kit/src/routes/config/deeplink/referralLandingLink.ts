@@ -5,8 +5,18 @@ import {
   ONEKEY_URL,
   WEB_APP_URL_SHORT,
 } from '@onekeyhq/shared/src/config/appConfig';
-import { ETabHomeRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ERootRoutes,
+  ETabHomeRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { showReferralBlockingOverlayToast } from './referralLandingOverlayGuard';
+import {
+  createReferralLandingRequestId,
+  isReferralLandingRequestActive,
+} from './referralLandingRequestGuard';
 
 const URL_PROTOCOL_PREFIX_REGEXP = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//u;
 const VALID_REFERRAL_CODE = /^[a-zA-Z0-9_-]{1,32}$/;
@@ -27,6 +37,27 @@ export type IReferralLandingLinkParams = {
   code: string;
   page: string;
 };
+
+type IReferralLandingRouteParams = IReferralLandingLinkParams & {
+  fromDeepLink: boolean;
+  referralRequestId: number;
+};
+
+function navigateToReferralLandingRoute({
+  navigation,
+  params,
+}: {
+  navigation: IAppNavigation;
+  params: IReferralLandingRouteParams;
+}) {
+  navigation.navigate(ERootRoutes.Main, {
+    screen: ETabRoutes.Home,
+    params: {
+      screen: ETabHomeRoutes.TabHomeReferralLanding,
+      params,
+    },
+  });
+}
 
 function safeDecodeURIComponent(value: string): string {
   try {
@@ -90,34 +121,83 @@ export async function navigateToReferralLanding({
   navigation,
   fromDeepLink = true,
   times = 0,
+  skipOverlayGuard,
+  shouldContinue,
+  referralRequestId,
 }: IReferralLandingLinkParams & {
   navigation?: IAppNavigation;
   fromDeepLink?: boolean;
   times?: number;
+  skipOverlayGuard?: boolean;
+  shouldContinue?: () => boolean;
+  referralRequestId?: number;
 }): Promise<boolean> {
+  const currentReferralRequestId =
+    referralRequestId ?? createReferralLandingRequestId();
+  const isCurrentReferralRequest = () =>
+    isReferralLandingRequestActive(currentReferralRequestId) &&
+    (!shouldContinue || shouldContinue());
+
   if (times > 10) {
     return false;
   }
 
   const appNavigation = navigation ?? appGlobals.$rootAppNavigation;
   if (!appNavigation) {
+    if (!isCurrentReferralRequest()) {
+      return false;
+    }
     setTimeout(() => {
       void navigateToReferralLanding({
         code,
         page,
         fromDeepLink,
         times: times + 1,
+        skipOverlayGuard,
+        shouldContinue,
+        referralRequestId: currentReferralRequestId,
       });
     }, 1500);
     return true;
   }
 
-  appNavigation.switchTab(ETabRoutes.Home);
+  if (!isCurrentReferralRequest()) {
+    return false;
+  }
+
+  if (
+    !skipOverlayGuard &&
+    showReferralBlockingOverlayToast({
+      shouldContinue: isCurrentReferralRequest,
+      onContinue: async ({ shouldContinue: shouldContinueAfterToast }) => {
+        await navigateToReferralLanding({
+          code,
+          page,
+          navigation: appGlobals.$rootAppNavigation ?? appNavigation,
+          fromDeepLink,
+          skipOverlayGuard: true,
+          shouldContinue: () =>
+            isCurrentReferralRequest() && shouldContinueAfterToast(),
+          referralRequestId: currentReferralRequestId,
+        });
+      },
+    })
+  ) {
+    return true;
+  }
+
   await timerUtils.wait(50);
-  appNavigation.push(ETabHomeRoutes.TabHomeReferralLanding, {
-    code,
-    page,
-    fromDeepLink,
+  if (!isCurrentReferralRequest()) {
+    return false;
+  }
+  navigateToReferralLandingRoute({
+    navigation: appNavigation,
+    params: {
+      code,
+      page,
+      fromDeepLink,
+      referralRequestId: currentReferralRequestId,
+    },
   });
   return true;
 }
