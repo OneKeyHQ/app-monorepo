@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { IYStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -7,6 +7,10 @@ import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useEarnActions,
+  useEarnAtom,
+} from '../../../states/jotai/contexts/earn';
 import { useRecommendedRefreshTrigger } from '../hooks/useRecommendedRefreshTrigger';
 
 import { RecommendedSection } from './RecommendedSection';
@@ -20,6 +24,25 @@ type IAccountRecommendedTokensResult = IRecommendedTokensResult & {
   accountKey: string;
   scopeNetworkKey: string;
 };
+
+function getRecommendedTokensCacheKey(tokens: IRecommendAsset[]) {
+  return tokens
+    .map((token) =>
+      [
+        token.symbol,
+        token.aprWithoutFee,
+        token.available.text,
+        token.protocols
+          .map((protocol) =>
+            [protocol.networkId, protocol.provider, protocol.vault ?? ''].join(
+              ':',
+            ),
+          )
+          .join(','),
+      ].join('|'),
+    )
+    .join(';');
+}
 
 function getRecommendedProtocolNetworkIds(tokens: IRecommendAsset[]) {
   const networkIds = new Set<string>();
@@ -37,12 +60,16 @@ function useRecommendedTokens({
   networkId,
   enableFetch,
   refreshVersion,
+  cachedRecommendedTokens,
+  onBaseRecommendedTokensLoaded,
 }: {
   accountId?: string;
   indexedAccountId?: string;
   networkId: string;
   enableFetch: boolean;
   refreshVersion: number;
+  cachedRecommendedTokens: IRecommendAsset[];
+  onBaseRecommendedTokensLoaded: (tokens: IRecommendAsset[]) => void;
 }) {
   const fetchBaseRecommendedTokens = useCallback(async () => {
     if (!enableFetch) {
@@ -71,14 +98,38 @@ function useRecommendedTokens({
       initResult: { tokens: [], refreshVersion: -1 },
       revalidateOnFocus: true,
       watchLoading: true,
+      alwaysSetState: true,
       overrideIsFocused: (isFocused) => isFocused && enableFetch,
     },
   );
 
-  const baseRecommendedTokens = baseRecommendedResult.tokens;
+  const freshBaseRecommendedTokens = baseRecommendedResult.tokens;
+  const canUseCachedRecommendedTokens =
+    cachedRecommendedTokens.length > 0 &&
+    freshBaseRecommendedTokens.length === 0;
+  const baseRecommendedTokens = canUseCachedRecommendedTokens
+    ? cachedRecommendedTokens
+    : freshBaseRecommendedTokens;
   const hasSettledBaseRecommendedTokens =
     baseRecommendedResult.refreshVersion === refreshVersion &&
-    isBaseLoading === false;
+    (isBaseLoading === false || baseRecommendedTokens.length > 0);
+
+  useEffect(() => {
+    if (
+      baseRecommendedResult.refreshVersion !== refreshVersion ||
+      freshBaseRecommendedTokens.length === 0
+    ) {
+      return;
+    }
+
+    onBaseRecommendedTokensLoaded(freshBaseRecommendedTokens);
+  }, [
+    baseRecommendedResult.refreshVersion,
+    freshBaseRecommendedTokens,
+    onBaseRecommendedTokensLoaded,
+    refreshVersion,
+  ]);
+
   const recommendedNetworkIds = useMemo(
     () => getRecommendedProtocolNetworkIds(baseRecommendedTokens),
     [baseRecommendedTokens],
@@ -146,6 +197,7 @@ function useRecommendedTokens({
       },
       revalidateOnFocus: true,
       watchLoading: true,
+      alwaysSetState: true,
       overrideIsFocused: (isFocused) =>
         isFocused && shouldFetchAccountRecommendedTokens,
     },
@@ -197,6 +249,8 @@ export function Recommended(
   } = props ?? {};
 
   const allNetworkId = getNetworkIdsMap().onekeyall;
+  const actions = useEarnActions();
+  const [{ recommendedTokens: cachedRecommendedTokens = [] }] = useEarnAtom();
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -207,6 +261,20 @@ export function Recommended(
     setRefreshVersion((prev) => prev + 1);
   }, []);
 
+  const handleBaseRecommendedTokensLoaded = useCallback(
+    (tokens: IRecommendAsset[]) => {
+      if (
+        getRecommendedTokensCacheKey(tokens) ===
+        getRecommendedTokensCacheKey(cachedRecommendedTokens)
+      ) {
+        return;
+      }
+
+      actions.current.updateRecommendedTokens(tokens);
+    },
+    [actions, cachedRecommendedTokens],
+  );
+
   const { recommendedTokens, isLoading, isBalanceLoading } =
     useRecommendedTokens({
       accountId: account?.id,
@@ -214,6 +282,8 @@ export function Recommended(
       networkId: allNetworkId,
       enableFetch,
       refreshVersion,
+      cachedRecommendedTokens,
+      onBaseRecommendedTokensLoaded: handleBaseRecommendedTokensLoaded,
     });
 
   useRecommendedRefreshTrigger({
