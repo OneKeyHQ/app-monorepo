@@ -14,8 +14,7 @@ import {
   Tabs,
   XStack,
   YStack,
-  isNativeTablet,
-  useIsSplitView,
+  useIsSplitDetailActive,
   usePageWidth,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -314,18 +313,14 @@ function MobilePerpMarket() {
     themeVariant,
   ]);
 
-  const isTablet = isNativeTablet();
-  const isLandscape = useIsSplitView();
+  const isSplitDetailActive = useIsSplitDetailActive();
   useEffect(() => {
-    if (isTablet && isLandscape) {
-      return;
-    }
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 
     return () => {
       appEventBus.emit(EAppEventBusNames.HideTabBar, false);
     };
-  }, [isLandscape, isTablet]);
+  }, []);
 
   const scrollToTab = useCallback(
     (tab: IMobilePerpMarketTab, animated = true) => {
@@ -474,7 +469,7 @@ function MobilePerpMarket() {
           </ScrollView>
         </YStack>
       </Page.Body>
-      {pageFooter}
+      {isSplitDetailActive ? null : pageFooter}
     </Page>
   );
 }
