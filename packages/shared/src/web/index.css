@@ -237,7 +237,12 @@ textarea {
   max-width: calc(100vw - 32px);
 }
 
-.app-region-no-drag {
+.app-region-no-drag,
+.app-region-drag button,
+.app-region-drag input,
+.app-region-drag textarea,
+.app-region-drag a,
+.app-region-drag [role='button'] {
   -webkit-app-region: no-drag;
 }
 .app-region-drag {

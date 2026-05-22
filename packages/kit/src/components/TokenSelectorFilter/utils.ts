@@ -1,10 +1,12 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
+import { filterTokenSelectorTokensByBackendIndexedNetworks } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import type {
   IAccountToken,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
+  IToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
@@ -19,6 +21,7 @@ type IFetchFilteredTokenSelectorTokensParams = {
   indexedAccountId?: string;
   isAllNetworks?: boolean;
   mergeDeriveAddressData?: boolean;
+  onlyBackendIndexedNetworks?: boolean;
   tokenSelectorFilterParams: ITokenSelectorFilterParams;
 };
 
@@ -32,35 +35,150 @@ export type IScopedActiveTokenListState = {
   initialized: boolean;
 };
 
+function isValidIndexedAccountId(indexedAccountId: string | undefined) {
+  if (!indexedAccountId) {
+    return false;
+  }
+  const { walletId, index } = accountUtils.parseIndexedAccountId({
+    indexedAccountId,
+  });
+  return Boolean(walletId) && Number.isFinite(index);
+}
+
+function getIndexedAccountIdForAllNetworks({
+  accountId,
+  indexedAccountId,
+}: {
+  accountId: string;
+  indexedAccountId: string | undefined;
+}) {
+  if (isValidIndexedAccountId(indexedAccountId)) {
+    return indexedAccountId;
+  }
+
+  if (isValidIndexedAccountId(accountId)) {
+    return accountId;
+  }
+
+  const resolvedIndexedAccountId =
+    accountUtils.buildAllNetworkIndexedAccountIdFromAccountId({
+      accountId,
+    });
+  return isValidIndexedAccountId(resolvedIndexedAccountId)
+    ? resolvedIndexedAccountId
+    : indexedAccountId;
+}
+
+async function normalizeAllNetworksOwner({
+  accountId,
+  indexedAccountId,
+  isAllNetworks,
+}: {
+  accountId: string;
+  indexedAccountId: string | undefined;
+  isAllNetworks: boolean | undefined;
+}) {
+  if (!isAllNetworks || accountUtils.isOthersAccount({ accountId })) {
+    return { accountId, indexedAccountId };
+  }
+
+  const allNetworksIndexedAccountId = getIndexedAccountIdForAllNetworks({
+    accountId,
+    indexedAccountId,
+  });
+  if (!allNetworksIndexedAccountId) {
+    return { accountId, indexedAccountId };
+  }
+
+  const allNetworksAccount =
+    await backgroundApiProxy.serviceAccount.getMockedAllNetworkAccount({
+      indexedAccountId: allNetworksIndexedAccountId,
+    });
+
+  return {
+    accountId: allNetworksAccount.id,
+    indexedAccountId: allNetworksIndexedAccountId,
+  };
+}
+
+export async function filterTokenSelectorSearchTokensByBackendIndexedNetworks<
+  T extends IToken,
+>({ tokens }: { tokens: T[] }) {
+  const networkIds = Array.from(
+    new Set(
+      tokens
+        .map((token) => token.networkId)
+        .filter((networkId): networkId is string => Boolean(networkId)),
+    ),
+  );
+
+  if (!networkIds.length) {
+    return [];
+  }
+
+  const { networks } = await backgroundApiProxy.serviceNetwork.getNetworksByIds(
+    {
+      networkIds,
+    },
+  );
+
+  return filterTokenSelectorTokensByBackendIndexedNetworks({
+    tokens,
+    backendIndexedNetworkIds: networks
+      .filter((network) => network.backendIndex === true)
+      .map((network) => network.id),
+  });
+}
+
 export async function fetchFilteredTokenSelectorTokens({
   accountId,
   networkId,
   indexedAccountId,
   isAllNetworks,
   mergeDeriveAddressData,
+  onlyBackendIndexedNetworks,
   tokenSelectorFilterParams,
 }: IFetchFilteredTokenSelectorTokensParams) {
   if (isAllNetworks) {
-    const { accountsInfo } =
+    const {
+      accountId: allNetworksAccountId,
+      indexedAccountId: allNetworksIndexedAccountId,
+    } = await normalizeAllNetworksOwner({
+      accountId,
+      indexedAccountId,
+      isAllNetworks,
+    });
+
+    const { accountsInfo, accountsInfoBackendIndexed } =
       await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-        accountId,
+        accountId: allNetworksAccountId,
         networkId,
-        indexedAccountId,
+        indexedAccountId: allNetworksIndexedAccountId,
         excludeTestNetwork: true,
-        networksEnabledOnly: !accountUtils.isOthersAccount({ accountId }),
+        networksEnabledOnly: !accountUtils.isOthersAccount({
+          accountId: allNetworksAccountId,
+        }),
       });
 
-    const requestFactories = accountsInfo.map(
+    const filteredAccountsInfo = onlyBackendIndexedNetworks
+      ? accountsInfoBackendIndexed
+      : accountsInfo;
+    // DeFi-token mode aggregates per-network token-list responses on the client.
+    // The wallet API returns dApp-only tokens only when each child request stays single-network.
+    const shouldFetchAsAllNetworks =
+      !tokenSelectorFilterParams.withoutWalletToken;
+
+    const requestFactories = filteredAccountsInfo.map(
       ({ accountId: itemAccountId, networkId: itemNetworkId, dbAccount }) =>
         () =>
           backgroundApiProxy.serviceToken.fetchAccountTokens({
             accountId: itemAccountId,
             networkId: itemNetworkId,
             dbAccount,
-            indexedAccountId,
+            indexedAccountId: allNetworksIndexedAccountId,
             flag: 'token-selector',
-            isAllNetworks: true,
-            allNetworksAccountId: accountId,
+            isAllNetworks: shouldFetchAsAllNetworks,
+            allNetworksAccountId,
             allNetworksNetworkId: networkId,
             saveToLocal: false,
             ...tokenSelectorFilterParams,

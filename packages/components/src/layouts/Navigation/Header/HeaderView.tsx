@@ -1,16 +1,14 @@
 import type { ReactNode } from 'react';
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import * as React from 'react';
 
 import { Header } from '@react-navigation/elements';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsOverlayPage } from '../../../hocs';
 import { useIsDesktopModeUIInTabPages } from '../../../hooks';
 import { Stack, XStack } from '../../../primitives';
 import { WINDOWS_OVERLAY_BUTTONS_WIDTH } from '../../../utils/sidebar';
@@ -20,7 +18,6 @@ import HeaderBackButton from './HeaderBackButton';
 import HeaderSearchBar from './HeaderSearchBar';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
-import type { IDesktopDragZoneBoxProps } from '../../DesktopDragZoneBox';
 import type { IStackHeaderProps } from '../ScreenProps';
 import type {
   HeaderBackButtonProps,
@@ -57,28 +54,14 @@ function getHeaderTitle(
       : fallback;
 }
 
-const DesktopDragZoneBoxView = platformEnv.isDesktopWithCustomTitleBar
-  ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
-      const isModalPage = useIsOverlayPage();
-
-      const [isFocus, setIsFocus] = useState(false);
-
-      const handlePageEffect = useCallback(() => {
-        setIsFocus(true);
-        return () => {
-          setIsFocus(false);
-        };
-      }, []);
-
-      useFocusEffect(handlePageEffect);
-
-      return (
-        <DesktopDragZoneBox disabled={disabled || !isFocus || isModalPage}>
-          {children}
-        </DesktopDragZoneBox>
-      );
-    }
-  : DesktopDragZoneBox;
+// Keep the drag region attached to the rendered header at all times. The
+// previous version toggled it via useFocusEffect/useIsOverlayPage, which left
+// a one-frame gap during route/modal transitions where the title bar was no
+// longer draggable — that was the source of the "header sometimes can't be
+// dragged" reports on macOS and Windows. Stacked overlays sit above this
+// header, so their clicks never reach the drag region anyway; the
+// `isModelScreen` prop already disables drag for genuine modal screens.
+const DesktopDragZoneBoxView = DesktopDragZoneBox;
 
 const useHeaderHeight = platformEnv.isNativeIOS
   ? () => 52
@@ -223,10 +206,14 @@ function HeaderView({
 
   const headerRightView = useCallback(
     ({ tintColor }: { tintColor?: string }) => {
-      if (typeof headerRight === 'function') {
-        return headerRight({ tintColor, canGoBack });
+      const node =
+        typeof headerRight === 'function'
+          ? headerRight({ tintColor, canGoBack })
+          : (headerRight as React.ReactNode);
+      if (!node) {
+        return node ?? null;
       }
-      return headerRight as React.ReactNode;
+      return <XStack className="app-region-no-drag">{node}</XStack>;
     },
     [headerRight, canGoBack],
   );
