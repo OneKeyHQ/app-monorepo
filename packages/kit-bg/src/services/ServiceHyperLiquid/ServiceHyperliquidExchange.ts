@@ -29,6 +29,7 @@ import type {
   IHyperLiquidOrderAction,
   IHyperLiquidOrderRequestPayload,
 } from '@onekeyhq/shared/src/logger/scopes/perp/scenes/hyperliquid';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { convertHyperLiquidResponse } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 import {
@@ -72,10 +73,13 @@ import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliqui
 import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 
 import {
+  devSettingsPersistAtom,
   perpsActiveAccountAtom,
   perpsActiveAccountStatusAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
+
+import { getPerpsEnableTradingRealCanTrade } from './enableTradingBenchUtils';
 
 import type {
   WalletHyperliquidOnekey,
@@ -109,6 +113,16 @@ function normalizePerpsCoin(coin: string): string {
   const xyzMatch = coin.match(/^xyz:(.*)$/i);
   if (xyzMatch) return `xyz:${xyzMatch[1].toUpperCase()}`;
   return coin.toUpperCase();
+}
+
+function logOk55089ExchangeBench(
+  prefix: string,
+  payload: Record<string, unknown>,
+) {
+  if (platformEnv.isDev) {
+    // eslint-disable-next-line no-console
+    console.log(`${prefix} ${JSON.stringify(payload)}`);
+  }
 }
 
 @backgroundClass()
@@ -384,7 +398,41 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
    */
   private async _ensureAgentReady(): Promise<boolean> {
     const accountStatus = await perpsActiveAccountStatusAtom.get();
-    return Boolean(accountStatus?.details?.agentOk && accountStatus?.canTrade);
+    const isAtomReady = Boolean(
+      accountStatus?.details?.agentOk && accountStatus?.canTrade,
+    );
+    if (isAtomReady) {
+      return true;
+    }
+
+    if (platformEnv.isDev) {
+      const devSettings = await devSettingsPersistAtom.get();
+      if (
+        devSettings?.enabled &&
+        devSettings.settings?.forcePerpsCanTradeFalse
+      ) {
+        const realCanTrade = getPerpsEnableTradingRealCanTrade(accountStatus);
+        if (realCanTrade) {
+          defaultLogger.perp.enableTradingFlow.track({
+            event: 'benchCanTradeOverride',
+            atomCanTrade: accountStatus?.canTrade,
+            realCanTrade,
+            details: accountStatus?.details,
+          });
+          logOk55089ExchangeBench(
+            '[OK-55089][BENCH] exchange canTrade override',
+            {
+              atomCanTrade: accountStatus?.canTrade,
+              realCanTrade,
+              details: accountStatus?.details,
+            },
+          );
+        }
+        return realCanTrade;
+      }
+    }
+
+    return false;
   }
 
   /**

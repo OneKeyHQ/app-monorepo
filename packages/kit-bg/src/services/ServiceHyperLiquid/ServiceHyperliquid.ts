@@ -121,6 +121,7 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import { getPerpsEnableTradingRealCanTrade } from './enableTradingBenchUtils';
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
 import {
@@ -1788,15 +1789,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         devSettings?.enabled &&
         devSettings.settings?.forcePerpsCanTradeFalse
       ) {
-        const realCanTrade = Boolean(
-          status?.accountAddress &&
-          status?.details?.agentOk &&
-          status?.details?.builderFeeOk &&
-          status?.details?.referralCodeOk &&
-          status?.details?.activatedOk &&
-          status?.details?.internalRebateBoundOk &&
-          status?.details?.abstractionOk,
-        );
+        const realCanTrade = getPerpsEnableTradingRealCanTrade(status);
         defaultLogger.perp.enableTradingFlow.track({
           event: 'benchCanTradeOverride',
           atomCanTrade: status?.canTrade,
