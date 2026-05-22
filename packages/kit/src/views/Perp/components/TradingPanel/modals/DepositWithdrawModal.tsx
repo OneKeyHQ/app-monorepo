@@ -1797,7 +1797,6 @@ function DepositWithdrawContent({
                   <DashText
                     size="$bodyMd"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.3}
                     cursor="help"
                   >
@@ -1823,7 +1822,6 @@ function DepositWithdrawContent({
                   <DashText
                     size="$bodyMd"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.3}
                   >
                     {intl.formatMessage({

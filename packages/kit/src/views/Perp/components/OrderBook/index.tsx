@@ -1950,7 +1950,6 @@ export function OrderBookMobile({
                           lineHeight: 14,
                         },
                       ]}
-                      dashColor="$textDisabled"
                       dashThickness={0.5}
                     >
                       {referencePriceDisplay}

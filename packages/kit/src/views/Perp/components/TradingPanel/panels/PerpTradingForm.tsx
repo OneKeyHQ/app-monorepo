@@ -1193,12 +1193,7 @@ function PerpTradingForm({
                 id: ETranslations.perp_tp_sl_tooltip,
               })}
               renderTrigger={
-                <DashText
-                  size="$bodyMd"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  cursor="help"
-                >
+                <DashText size="$bodyMd" dashThickness={0.5} cursor="help">
                   {intl.formatMessage({
                     id: ETranslations.perp_position_tp_sl,
                   })}
@@ -1281,12 +1276,7 @@ function PerpTradingForm({
           <Popover
             title={spotMaxTradeLabel}
             renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-              >
+              <DashText size="$bodySm" color="$textSubdued" dashThickness={0.5}>
                 {spotMaxTradeLabel}
               </DashText>
             }
@@ -1303,7 +1293,6 @@ function PerpTradingForm({
               <DashText
                 size="$bodySm"
                 color="$textSubdued"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
                 cursor="help"
               >

@@ -808,7 +808,6 @@ function PerpPortfolioContentComponent({
             <DashText
               size="$bodyXs"
               color="$textDisabled"
-              dashColor="$textDisabled"
               dashThickness={0.5}
               tooltip={totalPnlTooltip}
             >
@@ -973,7 +972,6 @@ function PerpPortfolioContentComponent({
               <DashText
                 size="$bodyXs"
                 color="$textDisabled"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
                 textTransform="uppercase"
                 letterSpacing={0.8}
@@ -996,7 +994,6 @@ function PerpPortfolioContentComponent({
               <DashText
                 size="$bodyXs"
                 color="$textDisabled"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
                 textTransform="uppercase"
                 letterSpacing={0.8}
@@ -1066,7 +1063,6 @@ function PerpPortfolioContentComponent({
             <DashText
               size="$bodyXs"
               color="$textDisabled"
-              dashColor="$textDisabled"
               dashThickness={0.5}
               tooltip={intl.formatMessage({
                 id: ETranslations.perp_portfolio_net_deposits_tooltip,
@@ -1105,7 +1101,6 @@ function PerpPortfolioContentComponent({
               <DashText
                 size="$bodyXs"
                 color="$textDisabled"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
                 tooltip={winRateTooltip}
               >
@@ -1121,7 +1116,6 @@ function PerpPortfolioContentComponent({
               <DashText
                 size="$bodyXs"
                 color="$textDisabled"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
                 tooltip={intl.formatMessage({
                   id: ETranslations.perp_portfolio_profit_factor_tooltip,
