@@ -71,6 +71,46 @@ class ServiceAllNetwork extends ServiceBase {
     super({ backgroundApi });
   }
 
+  private isValidIndexedAccountId(indexedAccountId: string | undefined) {
+    if (!indexedAccountId) {
+      return false;
+    }
+    const { walletId, index } = accountUtils.parseIndexedAccountId({
+      indexedAccountId,
+    });
+    return Boolean(walletId) && Number.isFinite(index);
+  }
+
+  private getIndexedAccountIdForAllNetwork({
+    accountId,
+    indexedAccountId,
+    isAllNetwork,
+  }: {
+    accountId: string;
+    indexedAccountId: string | undefined;
+    isAllNetwork: boolean;
+  }) {
+    if (
+      !isAllNetwork ||
+      accountUtils.isOthersAccount({ accountId }) ||
+      this.isValidIndexedAccountId(indexedAccountId)
+    ) {
+      return indexedAccountId;
+    }
+
+    if (this.isValidIndexedAccountId(accountId)) {
+      return accountId;
+    }
+
+    const resolvedIndexedAccountId =
+      accountUtils.buildAllNetworkIndexedAccountIdFromAccountId({
+        accountId,
+      });
+    return this.isValidIndexedAccountId(resolvedIndexedAccountId)
+      ? resolvedIndexedAccountId
+      : indexedAccountId;
+  }
+
   private async forEachWithConcurrency<T>(
     items: T[],
     concurrency: number,
@@ -261,18 +301,31 @@ class ServiceAllNetwork extends ServiceBase {
 
     const isAllNetwork =
       fetchAllNetworkAccounts || networkUtils.isAllNetwork({ networkId });
+    const resolvedIndexedAccountId = this.getIndexedAccountIdForAllNetwork({
+      accountId,
+      indexedAccountId,
+      isAllNetwork,
+    });
 
     defaultLogger.account.allNetworkAccountPerf.consoleLog('getAccount');
     let networkAccount: INetworkAccount | undefined;
-    try {
-      // single network account or all network mocked account
-      networkAccount = await this.backgroundApi.serviceAccount.getAccount({
-        accountId,
-        networkId,
-        indexedAccountId,
-      });
-    } catch (error) {
-      console.log('getAccount error', error);
+    if (
+      !(
+        isAllNetwork &&
+        resolvedIndexedAccountId &&
+        !accountUtils.isOthersAccount({ accountId })
+      )
+    ) {
+      try {
+        // single network account or all network mocked account
+        networkAccount = await this.backgroundApi.serviceAccount.getAccount({
+          accountId,
+          networkId,
+          indexedAccountId: resolvedIndexedAccountId ?? indexedAccountId,
+        });
+      } catch (error) {
+        console.log('getAccount error', error);
+      }
     }
 
     defaultLogger.account.allNetworkAccountPerf.consoleLog('getAccount done');
@@ -283,7 +336,10 @@ class ServiceAllNetwork extends ServiceBase {
     const dbAccounts = await this.getAllNetworkDbAccounts({
       networkId,
       singleNetworkDeriveType,
-      indexedAccountId: indexedAccountId ?? networkAccount?.indexedAccountId,
+      indexedAccountId:
+        resolvedIndexedAccountId ??
+        indexedAccountId ??
+        networkAccount?.indexedAccountId,
       othersWalletAccountId: accountId,
       fetchAllNetworkAccounts,
     });
