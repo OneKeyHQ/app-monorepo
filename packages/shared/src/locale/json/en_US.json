@@ -708,6 +708,7 @@
   "dexmarket.audit_safe_desc": "No risks detected. This result does not constitute any form of endorsement or recommendation.",
   "dexmarket.audit_unknown": "Unknown risk",
   "dexmarket.audit_unknown_desc": "Unable to conduct risk audit for this token. Beware of potential trading risks.",
+  "dexmarket.btc_circulating": "Circulating",
   "dexmarket.buy_tap": "Buy",
   "dexmarket.buy_token_default": "Buy {TokenName}",
   "dexmarket.buysell_loading": "Finalizing quote...",

@@ -708,6 +708,7 @@
   "dexmarket.audit_safe_desc": "কোনো ঝুঁকি শনাক্ত করা হয়নি। এই ফলাফল কোনো ধরনের অনুমোদন বা সুপারিশ হিসেবে গণ্য হয় না।",
   "dexmarket.audit_unknown": "অজানা ঝুঁকি",
   "dexmarket.audit_unknown_desc": "এই টোকেনের জন্য ঝুঁকি নিরীক্ষা করা সম্ভব নয়। সম্ভাব্য ট্রেডিং ঝুঁকির ব্যাপারে সতর্ক থাকুন।",
+  "dexmarket.btc_circulating": "প্রচলিত",
   "dexmarket.buy_tap": "কিনুন",
   "dexmarket.buy_token_default": "{TokenName} কিনুন",
   "dexmarket.buysell_loading": "উদ্ধৃতি চূড়ান্ত করা হচ্ছে...",

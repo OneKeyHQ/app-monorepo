@@ -708,6 +708,7 @@
   "dexmarket.audit_safe_desc": "Ризиків не виявлено. Цей результат не є жодною формою схвалення чи рекомендації.",
   "dexmarket.audit_unknown": "Невідомий ризик",
   "dexmarket.audit_unknown_desc": "Неможливо провести аудит ризиків для цього токена. Остерігайтеся потенційних ризиків торгівлі.",
+  "dexmarket.btc_circulating": "В обігу",
   "dexmarket.buy_tap": "Купити",
   "dexmarket.buy_token_default": "Купити {TokenName}",
   "dexmarket.buysell_loading": "Завершення цитати...",

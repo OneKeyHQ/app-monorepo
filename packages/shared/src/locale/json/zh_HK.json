@@ -708,6 +708,7 @@
   "dexmarket.audit_safe_desc": "未檢測到風險，此結果不構成任何形式的認可或推薦。",
   "dexmarket.audit_unknown": "未知風險",
   "dexmarket.audit_unknown_desc": "無法為此代幣進行風險審核，請注意潛在的交易風險。",
+  "dexmarket.btc_circulating": "流通量",
   "dexmarket.buy_tap": "購買",
   "dexmarket.buy_token_default": "買 {TokenName}",
   "dexmarket.buysell_loading": "正在詢價中...",

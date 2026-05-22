@@ -708,6 +708,7 @@
   "dexmarket.audit_safe_desc": "Tidak ada risiko yang terdeteksi. Hasil ini tidak merupakan bentuk dukungan atau rekomendasi apa pun.",
   "dexmarket.audit_unknown": "Risiko tidak diketahui",
   "dexmarket.audit_unknown_desc": "Tidak dapat melakukan audit risiko untuk token ini. Waspadai potensi risiko perdagangan.",
+  "dexmarket.btc_circulating": "Beredar",
   "dexmarket.buy_tap": "Beli",
   "dexmarket.buy_token_default": "Beli {TokenName}",
   "dexmarket.buysell_loading": "Menyelesaikan penawaran...",
