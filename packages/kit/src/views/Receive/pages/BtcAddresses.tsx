@@ -350,7 +350,7 @@ function BtcAddresses() {
   useEffect(() => {
     setReceivePage(1);
     setChangePage(1);
-  }, [effectiveAccountId, networkId]);
+  }, [effectiveAccountId, networkId, currentDeriveType]);
 
   const decimals = network?.decimals ?? 8;
   const symbol = network?.symbol ?? 'BTC';
@@ -361,14 +361,18 @@ function BtcAddresses() {
         return { next: undefined, totalFresh: 0 };
       try {
         return await backgroundApiProxy.serviceFreshAddress.getBtcNextFreshAddress(
-          { accountId: effectiveAccountId, networkId },
+          {
+            accountId: effectiveAccountId,
+            networkId,
+            deriveType: currentDeriveType,
+          },
         );
       } catch (error) {
         console.error(error);
         return { next: undefined, totalFresh: 0 };
       }
     },
-    [effectiveAccountId, networkId],
+    [effectiveAccountId, networkId, currentDeriveType],
     { initResult: { next: undefined, totalFresh: 0 } },
   );
 
@@ -377,14 +381,18 @@ function BtcAddresses() {
       if (!effectiveAccountId || !networkId) return { next: undefined };
       try {
         return await backgroundApiProxy.serviceFreshAddress.getBtcNextChangeAddress(
-          { accountId: effectiveAccountId, networkId },
+          {
+            accountId: effectiveAccountId,
+            networkId,
+            deriveType: currentDeriveType,
+          },
         );
       } catch (error) {
         console.error(error);
         return { next: undefined };
       }
     },
-    [effectiveAccountId, networkId],
+    [effectiveAccountId, networkId, currentDeriveType],
     { initResult: { next: undefined } },
   );
 
@@ -400,6 +408,7 @@ function BtcAddresses() {
           {
             accountId: effectiveAccountId,
             networkId,
+            deriveType: currentDeriveType,
             page: receivePage,
             pageSize: PAGE_SIZE,
           },
@@ -409,7 +418,7 @@ function BtcAddresses() {
         return { total: 0, items: [] };
       }
     },
-    [effectiveAccountId, networkId, receivePage],
+    [effectiveAccountId, networkId, receivePage, currentDeriveType],
     { initResult: { total: 0, items: [] }, watchLoading: true },
   );
 
@@ -425,6 +434,7 @@ function BtcAddresses() {
           {
             accountId: effectiveAccountId,
             networkId,
+            deriveType: currentDeriveType,
             page: changePage,
             pageSize: PAGE_SIZE,
           },
@@ -434,7 +444,7 @@ function BtcAddresses() {
         return { total: 0, items: [] };
       }
     },
-    [effectiveAccountId, networkId, changePage],
+    [effectiveAccountId, networkId, changePage, currentDeriveType],
     { initResult: { total: 0, items: [] }, watchLoading: true },
   );
 

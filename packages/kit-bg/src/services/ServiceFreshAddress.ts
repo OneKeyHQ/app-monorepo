@@ -324,9 +324,11 @@ class ServiceFreshAddress extends ServiceBase {
   private async resolveBtcAddressContext({
     accountId,
     networkId,
+    deriveType,
   }: {
     accountId: string;
     networkId: string;
+    deriveType?: IAccountDeriveTypes;
   }): Promise<
     | {
         dbAccount: IDBUtxoAccount;
@@ -343,7 +345,19 @@ class ServiceFreshAddress extends ServiceBase {
     })) as IDBUtxoAccount | undefined;
     if (!dbAccount) return undefined;
 
-    const xpubSegwit = dbAccount.xpubSegwit ?? dbAccount.xpub;
+    let xpubSegwit =
+      deriveType === 'BIP86' ? dbAccount.xpubSegwit : dbAccount.xpub;
+    if (!deriveType) {
+      const vault = (await vaultFactory.getVault({
+        networkId,
+        accountId,
+      })) as VaultBtc;
+      const { encoding } = await vault.validateAddress(dbAccount.address);
+      xpubSegwit =
+        encoding === EAddressEncodings.P2TR
+          ? dbAccount.xpubSegwit
+          : dbAccount.xpub;
+    }
     if (!xpubSegwit) return undefined;
 
     const freshAddresses =
@@ -430,11 +444,13 @@ class ServiceFreshAddress extends ServiceBase {
     networkId,
     page,
     pageSize,
+    deriveType,
   }: {
     accountId: string;
     networkId: string;
     page: number;
     pageSize: number;
+    deriveType?: IAccountDeriveTypes;
   }): Promise<{ total: number; items: IBtcFreshAddress[] }> {
     const emptyResult = { total: 0, items: [] as IBtcFreshAddress[] };
 
@@ -442,7 +458,11 @@ class ServiceFreshAddress extends ServiceBase {
       return emptyResult;
     }
 
-    const ctx = await this.resolveBtcAddressContext({ accountId, networkId });
+    const ctx = await this.resolveBtcAddressContext({
+      accountId,
+      networkId,
+      deriveType,
+    });
     if (!ctx) return emptyResult;
     const { dbAccount, xpubSegwit, freshAddresses } = ctx;
 
@@ -489,14 +509,20 @@ class ServiceFreshAddress extends ServiceBase {
   async getBtcNextFreshAddress({
     accountId,
     networkId,
+    deriveType,
   }: {
     accountId: string;
     networkId: string;
+    deriveType?: IAccountDeriveTypes;
   }): Promise<{ next: IBtcFreshAddress | undefined; totalFresh: number }> {
     const empty = { next: undefined, totalFresh: 0 };
     if (!accountId || !networkId) return empty;
 
-    const ctx = await this.resolveBtcAddressContext({ accountId, networkId });
+    const ctx = await this.resolveBtcAddressContext({
+      accountId,
+      networkId,
+      deriveType,
+    });
     if (!ctx) return empty;
     const { dbAccount, xpubSegwit, freshAddresses } = ctx;
 
@@ -542,14 +568,20 @@ class ServiceFreshAddress extends ServiceBase {
   async getBtcNextChangeAddress({
     accountId,
     networkId,
+    deriveType,
   }: {
     accountId: string;
     networkId: string;
+    deriveType?: IAccountDeriveTypes;
   }): Promise<{ next: IBtcFreshAddress | undefined }> {
     const empty = { next: undefined };
     if (!accountId || !networkId) return empty;
 
-    const ctx = await this.resolveBtcAddressContext({ accountId, networkId });
+    const ctx = await this.resolveBtcAddressContext({
+      accountId,
+      networkId,
+      deriveType,
+    });
     if (!ctx) return empty;
     const { dbAccount, xpubSegwit, freshAddresses } = ctx;
 
@@ -596,11 +628,13 @@ class ServiceFreshAddress extends ServiceBase {
     networkId,
     page,
     pageSize,
+    deriveType,
   }: {
     accountId: string;
     networkId: string;
     page: number;
     pageSize: number;
+    deriveType?: IAccountDeriveTypes;
   }): Promise<{ total: number; items: IBtcFreshAddress[] }> {
     const emptyResult = { total: 0, items: [] as IBtcFreshAddress[] };
 
@@ -608,7 +642,11 @@ class ServiceFreshAddress extends ServiceBase {
       return emptyResult;
     }
 
-    const ctx = await this.resolveBtcAddressContext({ accountId, networkId });
+    const ctx = await this.resolveBtcAddressContext({
+      accountId,
+      networkId,
+      deriveType,
+    });
     if (!ctx) return emptyResult;
     const { dbAccount, xpubSegwit, freshAddresses } = ctx;
 
