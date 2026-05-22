@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -28,6 +28,7 @@ import { SectionHeader } from '@onekeyhq/kit/src/views/ReferFriends/pages/Invite
 import { ResponsiveTwoColumnLayout } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared';
 import { SuspensionAlert } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/SuspensionAlert';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -36,14 +37,27 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useNavigateToRewardHistory } from '../RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 
+import {
+  CreatorProgramBanner,
+  formatCreatorProgramLocale,
+  shouldShowCreatorProgramBanner,
+} from './components/CreatorProgramBanner';
 import { ReferralListButton } from './components/ReferralListButton';
+
+import type {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from 'react-native';
 
 function InviteRewardContent({
   summaryInfo,
   fetchSummaryInfo,
+  onCreatorProgramBannerLayout,
 }: {
   summaryInfo: IInviteSummary;
   fetchSummaryInfo: () => void;
+  onCreatorProgramBannerLayout: (event: LayoutChangeEvent) => void;
 }) {
   const {
     inviteUrl,
@@ -103,6 +117,8 @@ function InviteRewardContent({
         summaryInfo={summaryInfo}
         fetchSummaryInfo={fetchSummaryInfo}
       />
+
+      <CreatorProgramBanner onLayout={onCreatorProgramBannerLayout} />
     </>
   );
 }
@@ -112,11 +128,80 @@ function InviteRewardPage() {
   const { md } = useMedia();
   const navigation = useAppNavigation();
   const navigateToRewardHistory = useNavigateToRewardHistory();
+  const creatorProgramBannerLayoutRef = useRef<
+    { y: number; height: number } | undefined
+  >(undefined);
+  const scrollViewportHeightRef = useRef(0);
+  const scrollYRef = useRef(0);
+  const didTrackCreatorProgramBannerViewRef = useRef(false);
   const route = useRoute<{
     key: string;
     name: string;
     params?: { showRewardDistributionHistory?: boolean };
   }>();
+  const creatorProgramLocale = useMemo(
+    () => formatCreatorProgramLocale(intl.locale),
+    [intl.locale],
+  );
+  const showCreatorProgramBanner = useMemo(
+    () => shouldShowCreatorProgramBanner(intl.locale),
+    [intl.locale],
+  );
+
+  const trackCreatorProgramBannerViewIfVisible = useCallback(() => {
+    const layout = creatorProgramBannerLayoutRef.current;
+    const viewportHeight = scrollViewportHeightRef.current;
+
+    if (
+      !showCreatorProgramBanner ||
+      didTrackCreatorProgramBannerViewRef.current ||
+      !layout ||
+      !viewportHeight
+    ) {
+      return;
+    }
+
+    const viewportTop = scrollYRef.current;
+    const viewportBottom = viewportTop + viewportHeight;
+    const bannerTop = layout.y;
+    const bannerBottom = bannerTop + layout.height;
+
+    if (bannerTop < viewportBottom && bannerBottom > viewportTop) {
+      didTrackCreatorProgramBannerViewRef.current = true;
+      defaultLogger.referral.page.viewCreatorProgramBanner({
+        locale: creatorProgramLocale,
+      });
+    }
+  }, [creatorProgramLocale, showCreatorProgramBanner]);
+
+  const handleScrollViewLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      scrollViewportHeightRef.current = event.nativeEvent.layout.height;
+      trackCreatorProgramBannerViewIfVisible();
+    },
+    [trackCreatorProgramBannerViewIfVisible],
+  );
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollYRef.current = event.nativeEvent.contentOffset.y;
+      scrollViewportHeightRef.current =
+        event.nativeEvent.layoutMeasurement.height;
+      trackCreatorProgramBannerViewIfVisible();
+    },
+    [trackCreatorProgramBannerViewIfVisible],
+  );
+
+  const handleCreatorProgramBannerLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      creatorProgramBannerLayoutRef.current = {
+        y: event.nativeEvent.layout.y,
+        height: event.nativeEvent.layout.height,
+      };
+      trackCreatorProgramBannerViewIfVisible();
+    },
+    [trackCreatorProgramBannerViewIfVisible],
+  );
 
   // Handle showRewardDistributionHistory param - open modal once when param is set
   useFocusEffect(
@@ -204,11 +289,17 @@ function InviteRewardPage() {
 
           if (summaryInfo) {
             return (
-              <ScrollView>
+              <ScrollView
+                onLayout={handleScrollViewLayout}
+                onScroll={handleScroll}
+              >
                 <Page.Container padded={false}>
                   <InviteRewardContent
                     summaryInfo={summaryInfo}
                     fetchSummaryInfo={fetchSummaryInfo}
+                    onCreatorProgramBannerLayout={
+                      handleCreatorProgramBannerLayout
+                    }
                   />
                 </Page.Container>
               </ScrollView>

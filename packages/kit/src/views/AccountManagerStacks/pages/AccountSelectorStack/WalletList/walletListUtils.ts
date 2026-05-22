@@ -2,8 +2,10 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   BOT_WALLET_STATUS_ACTIVE,
   BOT_WALLET_STATUS_DEACTIVATED,
+  WALLET_TYPE_HW,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { IAccountSelectorWalletInfo } from '../../../type';
 
@@ -120,4 +122,34 @@ export function buildGroupedAccountSelectorWallets(
   });
 
   return [...topLevelWallets, ...orphanBotWallets];
+}
+
+// Aggregate hardware-wallet vendor info for analytics user profile.
+// Legacy hw wallets without `associatedDeviceInfo.vendor` are counted as
+// 'onekey' (vendor is a runtime field; older device records may not have it
+// populated until next connect). Returns sorted unique vendor list and the
+// vendor with the most wallets (deterministic tiebreak via lexical sort).
+type IHwVendorProfileWallet = Pick<IDBWallet, 'type' | 'associatedDeviceInfo'>;
+
+export function computeHwVendorProfile(
+  wallets: readonly IHwVendorProfileWallet[],
+): {
+  hwVendors: string[];
+  primaryHwVendor: string | undefined;
+} {
+  const hwWallets = wallets.filter((w) => w.type === WALLET_TYPE_HW);
+  if (hwWallets.length === 0) {
+    return { hwVendors: [], primaryHwVendor: undefined };
+  }
+  const counts = hwWallets.reduce<Record<string, number>>((acc, wallet) => {
+    const vendor =
+      wallet.associatedDeviceInfo?.vendor ?? EHardwareVendor.onekey;
+    acc[vendor] = (acc[vendor] ?? 0) + 1;
+    return acc;
+  }, {});
+  const hwVendors = Object.keys(counts).toSorted();
+  const primaryHwVendor = hwVendors.reduce((leader, v) =>
+    counts[v] > counts[leader] ? v : leader,
+  );
+  return { hwVendors, primaryHwVendor };
 }
