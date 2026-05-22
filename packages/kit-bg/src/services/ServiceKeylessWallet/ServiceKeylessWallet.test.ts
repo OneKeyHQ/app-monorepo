@@ -137,18 +137,48 @@ jest.mock('../ServicePrimeCloudSync/keylessCloudSyncUtils', () => ({
   },
 }));
 
-const { EOAuthSocialLoginProvider } =
+jest.mock('@onekeyhq/shared/src/keylessWallet/shamirUtils', () => ({
+  __esModule: true,
+  default: {
+    combine: jest.fn(async () => new Uint8Array([1, 2, 3])),
+  },
+}));
+
+const {
+  decryptRevealableSeed,
+  decryptStringAsync,
+  encryptStringAsync,
+  revealEntropyToMnemonic,
+} =
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('@onekeyhq/core/src/secret');
+const {
+  EOAuthSocialLoginProvider,
+  KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX_V2,
+  KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_FIXED_UUID,
+} =
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('@onekeyhq/shared/src/consts/authConsts');
+const { OneKeyLocalError } =
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('@onekeyhq/shared/src/errors');
+
+const localDb =
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('../../dbs/local/localDb').default;
 
 const ServiceKeylessWallet =
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('./ServiceKeylessWallet').default;
+const keylessMnemonicPasswordStorage =
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('./utils/keylessMnemonicPasswordStorage').default;
 
 const NOW = 1_800_000_000_000;
 const TOKEN = 'access-token';
 const REFRESH_TOKEN = 'refresh-token';
 const PASSWORD = 'encoded-password';
+const PIN = '1234';
 const WALLET_ID = 'keyless-wallet-1';
 const OWNER_ID = 'owner-1';
 const SOCIAL_USER_ID_HASH = 'social-user-hash-1';
@@ -159,6 +189,8 @@ const backendShareData: IKeylessBackendShare = {
   backendShare: 'backend-share',
   juiceboxShareX: 2,
 };
+
+const backendSharePayloadV2Password = `keyless-backend-share-v2:${OWNER_ID}:${KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_FIXED_UUID}`;
 
 let migrationPersist: IMigrationPersistForTest;
 
@@ -193,6 +225,8 @@ function createService(params: { wallet?: any; password?: string } = {}) {
     },
     servicePassword: {
       getCachedPassword: jest.fn(async () => params.password ?? PASSWORD),
+      promptPasswordVerify: jest.fn(async () => ({ password: PASSWORD })),
+      encodeSensitiveText: jest.fn(async ({ text }: { text: string }) => text),
     },
   };
   const service = new ServiceKeylessWallet({ backgroundApi });
@@ -222,6 +256,51 @@ function mockPassiveV1HappyPath(serviceAny: any) {
     async () => undefined,
   );
   serviceAny.migrateKeylessBackendShareToV2 = jest.fn(async () => undefined);
+}
+
+function mockResetPinHappyPath(
+  serviceAny: any,
+  params: {
+    backendOwnerId?: string;
+    canonicalFormat?: 'v1' | 'v2';
+  } = {},
+) {
+  const resetBackendShareData: IKeylessBackendShare = {
+    ...backendShareData,
+    backendShare: 'AQ==',
+  };
+  serviceAny.apiGetKeylessBackendShare = jest.fn(async () => ({
+    backendShare: 'backend-share-raw-v2',
+    hashId: HASH_ID,
+    revision: 2,
+    canonicalFormat: params.canonicalFormat ?? 'v2',
+    backendShareData: resetBackendShareData,
+    ownerId: params.backendOwnerId ?? OWNER_ID,
+    ownerProvider: EOAuthSocialLoginProvider.Google,
+  }));
+  serviceAny.buildKeylessProviderFromSocialToken = jest.fn(
+    () => EOAuthSocialLoginProvider.Google,
+  );
+  serviceAny.buildKeylessOwnerIdFromSocialToken = jest.fn(async () => OWNER_ID);
+  keylessMnemonicPasswordStorage.getMnemonicPasswordFromStorage.mockResolvedValue(
+    'mnemonic-password',
+  );
+  keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorage.mockResolvedValue(
+    undefined,
+  );
+  serviceAny.decryptKeylessMnemonic = jest.fn(async () => 'mnemonic');
+  localDb.getCredential.mockResolvedValue({ credential: 'credential' });
+  localDb.updateKeylessWalletDetailsInfo.mockResolvedValue(undefined);
+  decryptRevealableSeed.mockResolvedValue({
+    entropyWithLangPrefixed: 'entropy',
+  });
+  revealEntropyToMnemonic.mockReturnValue('mnemonic');
+  serviceAny.recoverMissingShareFromSecret = jest.fn(async () => 'Ag==');
+  serviceAny.apiUploadKeylessJuiceboxShare = jest.fn(async () => undefined);
+  serviceAny.migrateKeylessBackendShareToV2 = jest.fn(async () => undefined);
+  serviceAny.buildKeylessSocialUserIdFromToken = jest.fn(() => 'social-id');
+
+  return resetBackendShareData;
 }
 
 describe('ServiceKeylessWallet passive backend share v2 migration', () => {
@@ -554,5 +633,474 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     ).rejects.toThrow('Keyless backend share changed before migration');
 
     expect(serviceAny.uploadKeylessBackendShare).not.toHaveBeenCalled();
+  });
+
+  test('normalizes creation lock expire_time from backend response', async () => {
+    const { serviceAny } = createService();
+    const post = jest.fn(async () => ({
+      data: {
+        code: 0,
+        message: 'success',
+        data: {
+          lockId: 'lock-1',
+          hashId: HASH_ID,
+          expire_time: NOW + 60_000,
+        },
+      },
+    }));
+    serviceAny.getClient = jest.fn(async () => ({ post }));
+
+    await expect(
+      serviceAny.apiAcquireCreationLock({ token: TOKEN }),
+    ).resolves.toEqual({
+      lockId: 'lock-1',
+      hashId: HASH_ID,
+      expiresAt: NOW + 60_000,
+    });
+  });
+
+  test('encrypts backend share v2 with owner password and fixed uuid', async () => {
+    const { serviceAny } = createService();
+    encryptStringAsync.mockResolvedValue('encrypted-payload');
+
+    await expect(
+      serviceAny.encryptKeylessBackendSharePayloadV2({
+        hashId: HASH_ID,
+        ownerId: OWNER_ID,
+        backendShareData,
+      }),
+    ).resolves.toBe(
+      `${KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX_V2}encrypted-payload`,
+    );
+
+    expect(encryptStringAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        password: backendSharePayloadV2Password,
+      }),
+    );
+  });
+
+  test('decrypts backend share v2 only with owner password and fixed uuid', async () => {
+    const { serviceAny } = createService();
+    serviceAny.buildKeylessBackendShareOwnerIdCandidates = jest.fn(async () => [
+      {
+        ownerId: OWNER_ID,
+        provider: EOAuthSocialLoginProvider.Google,
+      },
+    ]);
+    decryptStringAsync.mockRejectedValue(new Error('decrypt failed'));
+
+    await expect(
+      serviceAny.decryptKeylessBackendSharePayloadV2({
+        token: TOKEN,
+        hashId: HASH_ID,
+        backendShare: `${KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX_V2}cipher`,
+      }),
+    ).rejects.toThrow('Failed to decrypt keyless backend share');
+
+    expect(decryptStringAsync).toHaveBeenCalledTimes(1);
+    expect(decryptStringAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        password: backendSharePayloadV2Password,
+      }),
+    );
+  });
+
+  test('submits v1 mirror when uploading keyless backend share v2', async () => {
+    const { serviceAny } = createService();
+    const post = jest.fn(async () => ({
+      data: {
+        code: 0,
+        message: 'success',
+        data: {
+          ok: true,
+          revision: 1,
+          hashId: HASH_ID,
+        },
+      },
+    }));
+    serviceAny.getClient = jest.fn(async () => ({ post }));
+    serviceAny.encryptKeylessBackendSharePayloadV2 = jest.fn(
+      async () => 'backend-share-raw-v2',
+    );
+    serviceAny.decryptKeylessBackendSharePayloadV2 = jest.fn(async () => ({
+      backendShareData,
+      ownerId: OWNER_ID,
+      ownerProvider: EOAuthSocialLoginProvider.Google,
+    }));
+    serviceAny.encryptKeylessBackendSharePayloadV1 = jest.fn(
+      async () => 'backend-share-raw-v1-mirror',
+    );
+
+    await expect(
+      serviceAny.uploadKeylessBackendShare({
+        token: TOKEN,
+        lockId: 'lock-1',
+        hashId: HASH_ID,
+        ownerId: OWNER_ID,
+        baseRevision: 0,
+        encryptedMnemonic: backendShareData.encryptedMnemonic,
+        backendShare: backendShareData.backendShare,
+        juiceboxShareX: backendShareData.juiceboxShareX,
+      }),
+    ).resolves.toEqual(backendShareData);
+
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/keyless-wallet/createKeylessBackendShareV2',
+      {
+        token: TOKEN,
+        lockId: 'lock-1',
+        baseRevision: 0,
+        keylessBackendShareV2: 'backend-share-raw-v2',
+        keylessBackendShareV1Mirror: 'backend-share-raw-v1-mirror',
+      },
+    );
+  });
+
+  test('rejects supplied v1 mirror when it does not match upload payload', async () => {
+    const { serviceAny } = createService();
+    const post = jest.fn();
+    serviceAny.getClient = jest.fn(async () => ({ post }));
+    serviceAny.encryptKeylessBackendSharePayloadV2 = jest.fn(
+      async () => 'backend-share-raw-v2',
+    );
+    serviceAny.decryptKeylessBackendSharePayloadV2 = jest.fn(async () => ({
+      backendShareData,
+      ownerId: OWNER_ID,
+      ownerProvider: EOAuthSocialLoginProvider.Google,
+    }));
+    serviceAny.decryptKeylessBackendSharePayloadV1 = jest.fn(async () => ({
+      ...backendShareData,
+      backendShare: 'changed-backend-share',
+    }));
+
+    await expect(
+      serviceAny.uploadKeylessBackendShare({
+        token: TOKEN,
+        lockId: 'lock-1',
+        hashId: HASH_ID,
+        ownerId: OWNER_ID,
+        baseRevision: 0,
+        encryptedMnemonic: backendShareData.encryptedMnemonic,
+        backendShare: backendShareData.backendShare,
+        juiceboxShareX: backendShareData.juiceboxShareX,
+        keylessBackendShareV1Mirror: 'backend-share-raw-v1',
+      }),
+    ).rejects.toThrow('Keyless backend share v1 mirror verification mismatch');
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  test('rejects upload when server response hash or revision is inconsistent', async () => {
+    const { serviceAny } = createService();
+    const post = jest
+      .fn()
+      .mockResolvedValueOnce({
+        data: {
+          code: 0,
+          message: 'success',
+          data: {
+            ok: true,
+            revision: 1,
+            hashId: 'other-hash-id',
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          code: 0,
+          message: 'success',
+          data: {
+            ok: true,
+            revision: 0,
+            hashId: HASH_ID,
+          },
+        },
+      });
+    serviceAny.getClient = jest.fn(async () => ({ post }));
+    serviceAny.encryptKeylessBackendSharePayloadV2 = jest.fn(
+      async () => 'backend-share-raw-v2',
+    );
+    serviceAny.decryptKeylessBackendSharePayloadV2 = jest.fn(async () => ({
+      backendShareData,
+      ownerId: OWNER_ID,
+      ownerProvider: EOAuthSocialLoginProvider.Google,
+    }));
+    serviceAny.encryptKeylessBackendSharePayloadV1 = jest.fn(
+      async () => 'backend-share-raw-v1-mirror',
+    );
+
+    const params = {
+      token: TOKEN,
+      lockId: 'lock-1',
+      hashId: HASH_ID,
+      ownerId: OWNER_ID,
+      baseRevision: 0,
+      encryptedMnemonic: backendShareData.encryptedMnemonic,
+      backendShare: backendShareData.backendShare,
+      juiceboxShareX: backendShareData.juiceboxShareX,
+    };
+
+    await expect(serviceAny.uploadKeylessBackendShare(params)).rejects.toThrow(
+      'Failed to upload keyless backend share',
+    );
+    await expect(serviceAny.uploadKeylessBackendShare(params)).rejects.toThrow(
+      'Failed to upload keyless backend share',
+    );
+
+    expect(post).toHaveBeenCalledTimes(2);
+  });
+
+  test('reuses existing v1 payload as mirror when migrating to v2', async () => {
+    const { serviceAny } = createService();
+    serviceAny.apiAcquireCreationLock = jest.fn(async () => ({
+      lockId: 'lock-1',
+      hashId: HASH_ID,
+      expiresAt: NOW + 60_000,
+    }));
+    serviceAny.apiReleaseCreationLock = jest.fn(async () => undefined);
+    serviceAny.apiGetKeylessBackendShare = jest.fn(async () => ({
+      backendShare: 'backend-share-raw-v1',
+      hashId: HASH_ID,
+      revision: 2,
+      canonicalFormat: 'v1',
+      backendShareData,
+    }));
+    serviceAny.uploadKeylessBackendShare = jest.fn(
+      async () => backendShareData,
+    );
+
+    await expect(
+      serviceAny.migrateKeylessBackendShareToV2({
+        token: TOKEN,
+        ownerId: OWNER_ID,
+        expectedHashId: HASH_ID,
+        expectedBackendShareData: backendShareData,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(serviceAny.uploadKeylessBackendShare).toHaveBeenCalledWith(
+      expect.objectContaining({
+        keylessBackendShareV1Mirror: 'backend-share-raw-v1',
+      }),
+    );
+  });
+
+  test('waits for pin confirm status update and holds the status mutex', async () => {
+    const { serviceAny } = createService();
+    const deferred = createDeferred<void>();
+    serviceAny.apiUpdatePinConfirmStatus = jest.fn(() => deferred.promise);
+
+    let syncResolved = false;
+    const syncPromise = serviceAny
+      .updatePinConfirmStatusAfterSuccessfulPin({ token: TOKEN })
+      .then((result: boolean) => {
+        syncResolved = true;
+        return result;
+      });
+
+    await Promise.resolve();
+
+    expect(serviceAny.apiUpdatePinConfirmStatus).toHaveBeenCalledWith({
+      token: TOKEN,
+    });
+    expect(syncResolved).toBe(false);
+
+    let mutexReleased = false;
+    const mutexPromise = serviceAny.updatePinConfirmStatusMutex
+      .waitForUnlock()
+      .then(() => {
+        mutexReleased = true;
+      });
+
+    await Promise.resolve();
+
+    expect(mutexReleased).toBe(false);
+
+    deferred.resolve(undefined);
+
+    await expect(syncPromise).resolves.toBe(true);
+    await mutexPromise;
+    expect(mutexReleased).toBe(true);
+  });
+
+  test('does not reject successful pin flow when pin confirm status update fails', async () => {
+    const { serviceAny } = createService();
+    serviceAny.apiUpdatePinConfirmStatus = jest.fn(async () => {
+      throw new OneKeyLocalError('network error');
+    });
+
+    await expect(
+      serviceAny.updatePinConfirmStatusAfterSuccessfulPin({ token: TOKEN }),
+    ).resolves.toBe(false);
+  });
+
+  test('waits for reset pin confirm status before reporting success', async () => {
+    const { serviceAny } = createService();
+    mockResetPinHappyPath(serviceAny);
+    const deferred = createDeferred<void>();
+    serviceAny.apiResetPinConfirmStatus = jest.fn(() => deferred.promise);
+
+    let resetResolved = false;
+    const resetPromise = serviceAny
+      .resetKeylessWalletPin({
+        token: TOKEN,
+        refreshToken: REFRESH_TOKEN,
+        newPin: PIN,
+      })
+      .then((result: { success: true }) => {
+        resetResolved = true;
+        return result;
+      });
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    expect(serviceAny.apiResetPinConfirmStatus).toHaveBeenCalledWith({
+      token: TOKEN,
+    });
+    expect(resetResolved).toBe(false);
+
+    deferred.resolve(undefined);
+
+    await expect(resetPromise).resolves.toEqual({ success: true });
+    expect(resetResolved).toBe(true);
+  });
+
+  test('rejects reset pin when reset pin confirm status update fails', async () => {
+    const { serviceAny } = createService();
+    mockResetPinHappyPath(serviceAny);
+    serviceAny.apiResetPinConfirmStatus = jest.fn(async () => {
+      throw new OneKeyLocalError('reset pin confirm status failed');
+    });
+
+    await expect(
+      serviceAny.resetKeylessWalletPin({
+        token: TOKEN,
+        refreshToken: REFRESH_TOKEN,
+        newPin: PIN,
+      }),
+    ).rejects.toThrow('reset pin confirm status failed');
+  });
+
+  test('rewrites backend share v2 when reset pin target owner changes', async () => {
+    const { serviceAny } = createService();
+    const resetBackendShareData = mockResetPinHappyPath(serviceAny, {
+      backendOwnerId: 'legacy-owner-id',
+    });
+    serviceAny.apiResetPinConfirmStatus = jest.fn(async () => undefined);
+
+    await expect(
+      serviceAny.resetKeylessWalletPin({
+        token: TOKEN,
+        refreshToken: REFRESH_TOKEN,
+        newPin: PIN,
+      }),
+    ).resolves.toEqual({ success: true });
+
+    expect(serviceAny.migrateKeylessBackendShareToV2).toHaveBeenCalledWith({
+      token: TOKEN,
+      ownerId: OWNER_ID,
+      expectedHashId: HASH_ID,
+      expectedBackendShareData: resetBackendShareData,
+    });
+  });
+
+  test('returns whether verify pin updated confirm status', async () => {
+    const { serviceAny } = createService();
+    serviceAny.apiGetKeylessBackendShare = jest.fn(async () => ({
+      backendShare: 'backend-share-raw-v2',
+      hashId: HASH_ID,
+      revision: 2,
+      canonicalFormat: 'v2',
+      backendShareData,
+    }));
+    serviceAny.buildKeylessProviderFromSocialToken = jest.fn(
+      () => EOAuthSocialLoginProvider.Google,
+    );
+    serviceAny.buildKeylessOwnerIdFromSocialToken = jest.fn(
+      async () => OWNER_ID,
+    );
+    serviceAny.buildKeylessSocialUserIdFromToken = jest.fn(() => 'social-id');
+    serviceAny.apiGetKeylessJuiceboxShare = jest.fn(async () => ({
+      ownerId: OWNER_ID,
+      pin: PIN,
+      juiceboxShare: 'juicebox-share',
+      backendShareX: 1,
+    }));
+    serviceAny.updatePinConfirmStatusAfterSuccessfulPin = jest.fn(
+      async () => true,
+    );
+
+    await expect(
+      serviceAny.apiVerifyKeylessJuiceboxPin({
+        token: TOKEN,
+        pin: PIN,
+        dangerousRetryByFixedProvider: false,
+      }),
+    ).resolves.toEqual({ pinConfirmStatusUpdated: true });
+    expect(
+      serviceAny.updatePinConfirmStatusAfterSuccessfulPin,
+    ).toHaveBeenCalledWith({ token: TOKEN });
+  });
+
+  test('skips restore pin confirm status update only when it was already updated', async () => {
+    const { serviceAny } = createService();
+    const restoreBackendShareData: IKeylessBackendShare = {
+      ...backendShareData,
+      backendShare: 'AQ==',
+    };
+
+    serviceAny.apiGetKeylessBackendShare = jest.fn(async () => ({
+      backendShare: 'backend-share-raw-v2',
+      hashId: HASH_ID,
+      revision: 2,
+      canonicalFormat: 'v2',
+      backendShareData: restoreBackendShareData,
+      ownerId: OWNER_ID,
+      ownerProvider: EOAuthSocialLoginProvider.Google,
+    }));
+    serviceAny.apiGetKeylessJuiceboxShare = jest.fn(async () => ({
+      ownerId: OWNER_ID,
+      pin: PIN,
+      juiceboxShare: 'Ag==',
+      backendShareX: 1,
+    }));
+    serviceAny.decryptKeylessMnemonic = jest.fn(async () => 'mnemonic');
+    serviceAny.buildKeylessSocialUserIdFromToken = jest.fn(() => 'social-id');
+    serviceAny.updatePinConfirmStatusAfterSuccessfulPin = jest.fn(
+      async () => true,
+    );
+
+    await expect(
+      serviceAny.restoreKeylessWalletFromServer({
+        token: TOKEN,
+        refreshToken: REFRESH_TOKEN,
+        pin: PIN,
+        pinConfirmStatusAlreadyUpdated: true,
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        ownerId: OWNER_ID,
+        mnemonic: 'mnemonic',
+      }),
+    );
+    expect(
+      serviceAny.updatePinConfirmStatusAfterSuccessfulPin,
+    ).not.toHaveBeenCalled();
+
+    await serviceAny.restoreKeylessWalletFromServer({
+      token: TOKEN,
+      refreshToken: REFRESH_TOKEN,
+      pin: PIN,
+      pinConfirmStatusAlreadyUpdated: false,
+    });
+    expect(
+      serviceAny.updatePinConfirmStatusAfterSuccessfulPin,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      serviceAny.updatePinConfirmStatusAfterSuccessfulPin,
+    ).toHaveBeenCalledWith({ token: TOKEN });
   });
 });

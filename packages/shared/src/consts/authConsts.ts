@@ -264,7 +264,9 @@ export const KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX =
 export const KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX_V2 =
   'backend_share_enc_v2:';
 export const KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_PREFIX =
-  'keyless-backend-share-owner-v2:';
+  'keyless-backend-share-v2:';
+export const KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_FIXED_UUID =
+  KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY;
 
 // Keyless encryption iterations (PBKDF2 iterations for key derivation)
 export const KEYLESS_ENCRYPTION_ITERATIONS = 600_000;
