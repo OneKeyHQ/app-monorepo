@@ -45,6 +45,7 @@ import { EarnMainTabs } from './components/EarnMainTabs';
 import { EarnPageContainer } from './components/EarnPageContainer';
 import { MarketSelector } from './components/MarketSelector';
 import { Overview } from './components/Overview';
+import { getEarnFocusState } from './EarnHome.utils';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { useBlockRegion } from './hooks/useBlockRegion';
 import { useEarnHideSmallAssets } from './hooks/useEarnHideSmallAssets';
@@ -84,10 +85,11 @@ function BasicEarnHome({
 
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
   const [isEarnTabFocused, setIsEarnTabFocused] = useState(false);
+  const [isEarnDataActive, setIsEarnDataActive] = useState(false);
   const wasFocusedRef = useRef(false);
   const wasHiddenByModalRef = useRef(false);
   const shouldLogEnterEarnRef = useRef(false);
-  const portfolioData = useEarnPortfolio({ isActive: isEarnTabFocused });
+  const portfolioData = useEarnPortfolio({ isActive: isEarnDataActive });
   const { refresh: refreshEarnDataRaw, isLoading: portfolioLoading } =
     portfolioData;
 
@@ -319,17 +321,21 @@ function BasicEarnHome({
 
   const handleListenTabFocusState = useCallback(
     (isFocus: boolean, isHideByModal: boolean) => {
-      const actualFocus = isFocus && !isHideByModal;
+      const { isVisibleFocus, isDataActive } = getEarnFocusState({
+        isFocus,
+        isHideByModal,
+      });
       const wasFocused = wasFocusedRef.current;
       const wasHiddenByModal = wasHiddenByModalRef.current;
       wasHiddenByModalRef.current = isFocus && isHideByModal;
-      wasFocusedRef.current = actualFocus;
+      wasFocusedRef.current = isVisibleFocus;
       // Closing a modal restores focus, but is not a fresh Earn entry.
-      if (actualFocus && !wasFocused && !wasHiddenByModal) {
+      if (isVisibleFocus && !wasFocused && !wasHiddenByModal) {
         shouldLogEnterEarnRef.current = true;
       }
-      setIsEarnTabFocused(actualFocus);
-      if (!actualFocus) return;
+      setIsEarnTabFocused(isVisibleFocus);
+      setIsEarnDataActive(isDataActive);
+      if (!isVisibleFocus) return;
 
       void prefetchEarnAvailableAssets();
 
