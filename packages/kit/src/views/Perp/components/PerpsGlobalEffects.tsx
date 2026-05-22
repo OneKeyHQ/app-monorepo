@@ -68,6 +68,7 @@ import {
 import { usePerpsSharePrompt } from '../hooks/usePerpsSharePrompt';
 import { planTradeSubscriptions } from '../utils/subscriptionPlanner';
 
+import { shouldCheckPerpsAccountStatusOnFocus } from './PerpsGlobalEffects.utils';
 import { usePerpTokenUrlSync } from './usePerpTokenUrlSync';
 
 const shouldTreatPerpAsFocusedOnMount = !!(
@@ -410,6 +411,8 @@ function useHyperliquidAccountSelect() {
   // network check each time. refreshHook is included so manual refresh still
   // triggers; account.address is intentionally excluded — it follows id.
   const lastSelectParamsRef = useRef<string | null>(null);
+  const isSelectingAccountRef = useRef(false);
+  const selectAccountRunIdRef = useRef(0);
 
   const selectPerpsAccount = useCallback(async () => {
     if (!globalDeriveType) {
@@ -427,14 +430,23 @@ function useHyperliquidAccountSelect() {
     }
     lastSelectParamsRef.current = params;
 
-    noop(activeAccount.account?.address);
-    await actions.current.changeActivePerpsAccount({
-      indexedAccountId: activeAccount?.indexedAccount?.id || null,
-      accountId: activeAccount?.account?.id || null,
-      walletId: activeAccount?.wallet?.id || null,
-      deriveType: globalDeriveType,
-    });
-    await checkPerpsAccountStatus();
+    const runId = selectAccountRunIdRef.current + 1;
+    selectAccountRunIdRef.current = runId;
+    isSelectingAccountRef.current = true;
+    try {
+      noop(activeAccount.account?.address);
+      await actions.current.changeActivePerpsAccount({
+        indexedAccountId: activeAccount?.indexedAccount?.id || null,
+        accountId: activeAccount?.account?.id || null,
+        walletId: activeAccount?.wallet?.id || null,
+        deriveType: globalDeriveType,
+      });
+      await checkPerpsAccountStatus();
+    } finally {
+      if (selectAccountRunIdRef.current === runId) {
+        isSelectingAccountRef.current = false;
+      }
+    }
   }, [
     actions,
     activeAccount.account?.address,
@@ -500,16 +512,23 @@ function useHyperliquidAccountSelect() {
 
   useUpdateEffect(() => {
     void (async () => {
+      if (!isFocused) {
+        return;
+      }
+      await timerUtils.wait(600);
       if (
-        isFocused &&
-        lastCheckTimeRef.current +
-          timerUtils.getTimeDurationMs({
+        shouldCheckPerpsAccountStatusOnFocus({
+          isFocused,
+          hasSelectedAccountParams: Boolean(lastSelectParamsRef.current),
+          isSelectingAccount: isSelectingAccountRef.current,
+          lastCheckTimeMs: lastCheckTimeRef.current,
+          nowMs: Date.now(),
+          staleMs: timerUtils.getTimeDurationMs({
             // seconds: 10,
             hour: 1,
-          }) <
-          Date.now()
+          }),
+        })
       ) {
-        await timerUtils.wait(600);
         await checkPerpsAccountStatus();
       }
     })();
