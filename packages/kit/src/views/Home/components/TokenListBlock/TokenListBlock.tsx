@@ -23,8 +23,8 @@ import {
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { EmptyAccount } from '@onekeyhq/kit/src/components/Empty';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { perfTokenListView } from '@onekeyhq/kit/src/components/TokenListView/perfTokenListView';
 import { getTokenListOwnerCacheAccountId } from '@onekeyhq/kit/src/components/TokenListView/utils';
@@ -62,11 +62,9 @@ import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import {
-  useSettingsPersistAtom,
-  useTokenSelectorFilterPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useTokenSelectorFilterPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
@@ -166,8 +164,6 @@ function TokenListBlock({
   tableLayout?: boolean;
   showRecentHistory?: boolean;
 }) {
-  const [settings] = useSettingsPersistAtom();
-
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
   // Outer-route focus: false when user is on Market/Swap (Home tab inactive),
@@ -1353,6 +1349,7 @@ function TokenListBlock({
         networkId: string;
         accountId: string;
         hasCache: boolean;
+        currency?: string;
       }[];
       accountId: string;
       networkId: string;
@@ -1520,6 +1517,10 @@ function TokenListBlock({
 
       if (hasAnyCache) {
         if (syncTokenFilterToOverview) {
+          // All items share the storage currency (same multi-network fetch);
+          // fall back to USD when the cache is empty.
+          const cacheCurrency =
+            data.find((d) => d.currency)?.currency ?? USD_CURRENCY_ID;
           updateAccountWorth({
             accountId: mergeDeriveAddressData
               ? (indexedAccount?.id ?? '')
@@ -1534,6 +1535,7 @@ function TokenListBlock({
                 })
               ],
             updateAll: true,
+            currency: cacheCurrency,
           });
           updateAccountOverviewState({
             isRefreshing: false,
@@ -2077,6 +2079,7 @@ function TokenListBlock({
       let tokenListValue = '0';
       let tokenListWorth: Record<string, string> = {};
       let hasLocalTokenCache = false;
+      let cachedWorthCurrency: string | undefined;
 
       if (mergeDeriveAddressData) {
         const { networkAccounts } =
@@ -2103,6 +2106,9 @@ function TokenListBlock({
           ),
         );
         hasLocalTokenCache = resp.some((item) => item.hasCache);
+        // All `resp` entries come from the same multi-network request and
+        // share the storage currency; pick the first non-empty tag.
+        cachedWorthCurrency = resp.find((r) => r.currency)?.currency;
 
         const params = resp.map((r) => {
           if (r.accountId && r.networkId) {
@@ -2155,6 +2161,7 @@ function TokenListBlock({
             xpub,
           });
         hasLocalTokenCache = localTokens.hasCache;
+        cachedWorthCurrency = localTokens.currency;
 
         tokenList = localTokens.tokenList;
         smallBalanceTokenList = localTokens.smallBalanceTokenList;
@@ -2192,6 +2199,7 @@ function TokenListBlock({
             worth: tokenListWorth,
             createAtNetworkWorth: tokenListValue,
             merge: false,
+            currency: cachedWorthCurrency,
           });
           // Without these refresh calls the token list atoms keep the
           // previous owner's data, leaving allTokenList.accountId/networkId
@@ -2261,6 +2269,7 @@ function TokenListBlock({
           worth: tokenListWorth,
           createAtNetworkWorth: tokenListValue,
           merge: false,
+          currency: cachedWorthCurrency,
         });
         refreshTokenList({
           tokens: tokenList,
@@ -2600,24 +2609,22 @@ function TokenListBlock({
       }
 
       return (
-        <NumberSizeableTextWrapper
+        <Currency
           hideValue
           size="$headingXl"
           color="$textSubdued"
           formatter="value"
-          formatterOptions={{
-            currency: settings.currencyInfo.symbol,
-          }}
+          sourceCurrency={accountTokensWorth.currency}
         >
           {accountTokensValue}
-        </NumberSizeableTextWrapper>
+        </Currency>
       );
     }
 
     return null;
   }, [
     tableLayout,
-    settings.currencyInfo.symbol,
+    accountTokensWorth.currency,
     accountTokensValue,
     tokenListState.initialized,
     tokenListState.isRefreshing,

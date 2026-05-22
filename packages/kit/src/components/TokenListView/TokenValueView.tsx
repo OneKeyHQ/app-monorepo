@@ -1,19 +1,13 @@
 import { memo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  UNAVAILABLE_DISPLAY,
-  isValidNumberValue,
-} from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import {
   useFlattenAggregateTokensMapAtom,
   useTokenListMapAtom,
 } from '../../states/jotai/contexts/tokenList';
-import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
+import { Currency } from '../Currency';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
@@ -24,7 +18,6 @@ type IProps = {
 
 function TokenValueView(props: IProps) {
   const { $key, ...rest } = props;
-  const [settings] = useSettingsPersistAtom();
   const { tokenListMap: contextTokenListMap } = useTokenListViewContext();
   const [globalTokenListMap] = useTokenListMapAtom();
   const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
@@ -35,28 +28,14 @@ function TokenValueView(props: IProps) {
     return <SizableText {...rest}>-</SizableText>;
   }
 
-  if (!isValidNumberValue(token.fiatValue)) {
-    return (
-      <NumberSizeableTextWrapper
-        formatter="value"
-        formatterOptions={{ currency: settings.currencyInfo.symbol }}
-        {...rest}
-      >
-        {UNAVAILABLE_DISPLAY}
-      </NumberSizeableTextWrapper>
-    );
-  }
-
-  const fiatValue = new BigNumber(token.fiatValue);
-
   return (
-    <NumberSizeableTextWrapper
+    <Currency
       formatter="value"
-      formatterOptions={{ currency: settings.currencyInfo.symbol }}
-      {...rest}
+      sourceCurrency={token.currency}
+      {...(rest as React.ComponentProps<typeof Currency>)}
     >
-      {fiatValue.toFixed()}
-    </NumberSizeableTextWrapper>
+      {displayOrUnavailable(token.fiatValue)}
+    </Currency>
   );
 }
 

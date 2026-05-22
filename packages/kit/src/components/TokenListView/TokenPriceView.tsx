@@ -1,14 +1,13 @@
 import { memo } from 'react';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
-import { NumberSizeableText } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import {
   useFlattenAggregateTokensMapAtom,
   useTokenListMapAtom,
 } from '../../states/jotai/contexts/tokenList';
+import { Currency } from '../Currency';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
@@ -18,7 +17,6 @@ type IProps = {
 
 function TokenPriceView(props: IProps) {
   const { $key, ...rest } = props;
-  const [settings] = useSettingsPersistAtom();
   const { tokenListMap: contextTokenListMap } = useTokenListViewContext();
   const [globalTokenListMap] = useTokenListMapAtom();
   const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
@@ -26,13 +24,13 @@ function TokenPriceView(props: IProps) {
   const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
 
   return (
-    <NumberSizeableText
+    <Currency
       formatter="price"
-      formatterOptions={{ currency: settings.currencyInfo.symbol }}
-      {...rest}
+      sourceCurrency={token?.currency}
+      {...(rest as React.ComponentProps<typeof Currency>)}
     >
       {displayOrUnavailable(token?.price)}
-    </NumberSizeableText>
+    </Currency>
   );
 }
 

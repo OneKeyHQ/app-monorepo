@@ -59,6 +59,13 @@ export interface IFetchServerTokenListParams {
   requestApiParams: IFetchServerTokenListApiParams;
   flag?: string;
   signal?: AbortSignal;
+  // Pins the currency the server should return data in. When set, the value
+  // is sent as the `x-onekey-request-currency` header override so the actual
+  // HTTP request can't drift to a different currency between when the caller
+  // captured it and when axios issues the call (e.g. user switching currency
+  // mid-flight). Caller is expected to use this same value for downstream
+  // normalization to keep the basis consistent.
+  requestCurrency?: string;
 }
 
 export type IFetchServerTokenListApiParams = {
@@ -95,6 +102,9 @@ export interface IFetchServerTokenDetailParams {
   withFrozenBalance?: boolean;
   keywords?: string;
   signal?: AbortSignal;
+  // Same purpose as in IFetchServerTokenListParams: pin the server-side
+  // pricing currency via an explicit header override so it can't drift.
+  requestCurrency?: string;
 }
 
 export interface IFetchServerTokenDetailResponse {

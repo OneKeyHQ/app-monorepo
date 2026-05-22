@@ -13,8 +13,10 @@ import {
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
   settingsValuePersistAtom,
+  useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
@@ -49,6 +51,7 @@ import {
 } from '../../../states/jotai/contexts/accountOverview';
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { convertFiat } from '../../../utils/fiatConvert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 import { HomeTestIDs } from '../testIDs';
 
@@ -107,6 +110,16 @@ function HomeOverviewContainer() {
     useLastConfirmedOverviewBalanceAtom();
   const [overviewTokenCacheState] = useOverviewTokenCacheStateAtom();
   const [overviewDeFiDataState] = useOverviewDeFiDataStateAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  // Mirrors `currencyMap` so background effects can read the latest rates
+  // without being reactive to every periodic rate refresh — putting
+  // `currencyMap` directly in a worth-persist effect's deps would re-fire
+  // SimpleDB writes every time rates poll, even when the underlying worth
+  // hasn't changed.
+  const currencyMapRef = useRef(currencyMap);
+  useEffect(() => {
+    currencyMapRef.current = currencyMap;
+  }, [currencyMap]);
   const {
     updateAccountOverviewState,
     updateAccountWorth,
@@ -355,9 +368,17 @@ function HomeOverviewContainer() {
         const allWorth = Object.values(accountWorth.worth)
           .reduce<BigNumber>((acc, cur) => acc.plus(cur), new BigNumber(0))
           .toFixed();
+        // Threshold is "_USD" so compare in USD basis. currencyMap is read
+        // via the ref so periodic rate refreshes don't re-trigger this effect.
+        const allWorthUsd = convertFiat({
+          value: allWorth,
+          sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
+          targetCurrency: USD_CURRENCY_ID,
+          currencyMap: currencyMapRef.current,
+        });
 
         if (
-          new BigNumber(allWorth).gt(
+          new BigNumber(allWorthUsd).gt(
             SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD,
           )
         ) {
@@ -379,6 +400,12 @@ function HomeOverviewContainer() {
           ? account.id
           : (account.indexedAccountId as string);
 
+        // ServiceAccountProfile.convertMapToUsd uses this tag to reverse the
+        // conversion back to USD before persisting — passing the wrong tag
+        // here would re-divide a USD value by a foreign rate and corrupt the
+        // accountValue SimpleDB.
+        const accountWorthCurrency =
+          accountWorth.currency ?? settings.currencyInfo.id;
         if (isOthers) {
           if (
             account.createAtNetwork &&
@@ -389,7 +416,7 @@ function HomeOverviewContainer() {
               networkAccountId: account.id,
               networkId: account.createAtNetwork,
               value: accountWorth.createAtNetworkWorth,
-              currency: settings.currencyInfo.id,
+              currency: accountWorthCurrency,
               shouldUpdateActiveAccountValue: true,
             });
           }
@@ -407,7 +434,7 @@ function HomeOverviewContainer() {
               networkAccountId: account.id,
               networkId: network.id,
               value: singleNetworkValue ?? '0',
-              currency: settings.currencyInfo.id,
+              currency: accountWorthCurrency,
             },
           );
         }
@@ -416,7 +443,7 @@ function HomeOverviewContainer() {
           {
             accountId: accountValueId,
             value: accountWorth.worth,
-            currency: settings.currencyInfo.id,
+            currency: accountWorthCurrency,
             updateAll: accountWorth.updateAll,
           },
         );
@@ -562,6 +589,8 @@ function HomeOverviewContainer() {
     overviewDeFiDataState.ownerKey,
   ]);
 
+  // Returns a USD-basis string. DeFi data arrives in display currency from
+  // DeFiListBlock, so it's converted back to USD here before summing.
   const resolvedBalanceString = useMemo(() => {
     const isAllNetworks = !!network?.isAllNetworks;
 
@@ -584,24 +613,39 @@ function HomeOverviewContainer() {
             mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
           })
         : '0';
+    const tokenWorthUsd = convertFiat({
+      value: tokenWorth,
+      sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
+      targetCurrency: USD_CURRENCY_ID,
+      currencyMap,
+    });
 
-    const deFiWorth =
+    const deFiWorthRaw =
       !isAllNetworks || isCurrentAccountDeFiReady
         ? (accountDeFiOverview.netWorth ?? 0)
         : 0;
+    const deFiWorthUsd = convertFiat({
+      value: deFiWorthRaw,
+      sourceCurrency: accountDeFiOverview.currency || settings.currencyInfo.id,
+      targetCurrency: USD_CURRENCY_ID,
+      currencyMap,
+    });
 
     return calculateAccountTotalValue({
-      tokensValue: tokenWorth,
-      deFiNetWorth: deFiWorth,
+      tokensValue: tokenWorthUsd,
+      deFiNetWorth: deFiWorthUsd,
     });
   }, [
     account?.id,
     network?.id,
     accountWorth,
     accountDeFiOverview.netWorth,
+    accountDeFiOverview.currency,
+    currencyMap,
     isCurrentAccountDeFiReady,
     isCurrentAccountWorthReady,
     network?.isAllNetworks,
+    settings.currencyInfo.id,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
@@ -634,6 +678,7 @@ function HomeOverviewContainer() {
           ...prev.byOwner,
           [currentOverviewOwnerKey]: resolvedBalanceString,
         },
+        currency: USD_CURRENCY_ID,
       }));
     }
   }, [
@@ -644,8 +689,20 @@ function HomeOverviewContainer() {
   ]);
 
   const effectiveOwnerKey = currentOverviewOwnerKey || bootstrapOwnerKey;
-  const currentConfirmedBalance =
+  // Pre-migration hydrate has no currency tag; values were written in the
+  // user's then-active display currency.
+  const lastConfirmedCurrency =
+    lastConfirmedOverviewBalance.currency ?? settings.currencyInfo.id;
+  const rawCurrentConfirmedBalance =
     lastConfirmedOverviewBalance.byOwner[effectiveOwnerKey];
+  const currentConfirmedBalance = rawCurrentConfirmedBalance
+    ? convertFiat({
+        value: rawCurrentConfirmedBalance,
+        sourceCurrency: lastConfirmedCurrency,
+        targetCurrency: USD_CURRENCY_ID,
+        currencyMap,
+      })
+    : undefined;
   const isCurrentTokenCacheStateMatched =
     overviewTokenCacheState.ownerKey === currentOverviewOwnerKey;
   const isCurrentDeFiDataStateMatched =
@@ -691,13 +748,20 @@ function HomeOverviewContainer() {
     !!currentConfirmedBalance &&
     !isCurrentAllNetworksBalanceFullyReady;
 
+  const lastConfirmedLatestUsd =
+    canReuseLatestDisplayedBalance && lastConfirmedOverviewBalance.latest
+      ? convertFiat({
+          value: lastConfirmedOverviewBalance.latest,
+          sourceCurrency: lastConfirmedCurrency,
+          targetCurrency: USD_CURRENCY_ID,
+          currencyMap,
+        })
+      : undefined;
   const displayBalanceString = shouldHoldCurrentConfirmedBalance
     ? currentConfirmedBalance
     : (resolvedBalanceString ??
       currentConfirmedBalance ??
-      (canReuseLatestDisplayedBalance
-        ? lastConfirmedOverviewBalance.latest
-        : undefined));
+      lastConfirmedLatestUsd);
 
   const balancePayload = useMemo(
     () => ({
@@ -773,6 +837,20 @@ function HomeOverviewContainer() {
 
   const renderedBalanceString = displayBalanceString ?? debouncedBalanceString;
 
+  // The single USD → display-currency conversion point; a currency switch
+  // reflows the visible balance without touching cached state.
+  const renderedBalanceStringDisplay = useMemo(() => {
+    if (renderedBalanceString === undefined || renderedBalanceString === null) {
+      return renderedBalanceString;
+    }
+    return convertFiat({
+      value: renderedBalanceString,
+      sourceCurrency: USD_CURRENCY_ID,
+      targetCurrency: settings.currencyInfo.id,
+      currencyMap,
+    });
+  }, [renderedBalanceString, settings.currencyInfo.id, currencyMap]);
+
   // Track when balance is first displayed
   const balanceReady =
     !showSkeleton &&
@@ -801,6 +879,7 @@ function HomeOverviewContainer() {
               ...prev.byOwner,
               [currentOverviewOwnerKey]: balanceToPersist,
             },
+            currency: USD_CURRENCY_ID,
           }));
         }
       } catch {
@@ -874,7 +953,7 @@ function HomeOverviewContainer() {
                 fontWeight={500}
                 {...numberFormatter}
               >
-                {renderedBalanceString ?? '0'}
+                {renderedBalanceStringDisplay ?? '0'}
               </NumberSizeableTextWrapper>
             </XStack>
             {refreshButton}
