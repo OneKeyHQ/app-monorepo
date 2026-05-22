@@ -6,6 +6,7 @@ import {
   usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { showHyperliquidTermsDialog } from '../components/HyperliquidTerms';
 
@@ -16,6 +17,8 @@ export type IEnableTradingWithDepositFallbackResult = {
   status: IPerpsActiveAccountStatusAtom | undefined;
 };
 
+const ENABLE_TRADING_FLOW_LOG_PREFIX = '[OK-55089][PerpsEnableTradingFlow]';
+
 function maskLogValue(value: string | null | undefined) {
   if (!value) {
     return undefined;
@@ -24,6 +27,13 @@ function maskLogValue(value: string | null | undefined) {
     return value;
   }
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
+function logOk55089EnableTradingFlow(payload: Record<string, unknown>) {
+  if (platformEnv.isDev) {
+    // eslint-disable-next-line no-console
+    console.log(`${ENABLE_TRADING_FLOW_LOG_PREFIX} ${JSON.stringify(payload)}`);
+  }
 }
 
 export function useEnableTradingWithDepositFallback() {
@@ -41,9 +51,17 @@ export function useEnableTradingWithDepositFallback() {
       event: 'termsDialogRequested',
       ...logContext,
     });
+    logOk55089EnableTradingFlow({
+      event: 'termsDialogRequested',
+      ...logContext,
+    });
     const didAcceptTerms = await showHyperliquidTermsDialog();
     if (!didAcceptTerms) {
       defaultLogger.perp.enableTradingFlow.track({
+        event: 'termsNotAccepted',
+        ...logContext,
+      });
+      logOk55089EnableTradingFlow({
         event: 'termsNotAccepted',
         ...logContext,
       });
@@ -55,9 +73,19 @@ export function useEnableTradingWithDepositFallback() {
         event: 'requestStarted',
         ...logContext,
       });
+      logOk55089EnableTradingFlow({
+        event: 'requestStarted',
+        ...logContext,
+      });
       const status =
         await backgroundApiProxy.serviceHyperliquid.enableTrading();
       defaultLogger.perp.enableTradingFlow.track({
+        event: 'responseReceived',
+        ...logContext,
+        canTrade: status?.canTrade,
+        activatedOk: status?.details?.activatedOk,
+      });
+      logOk55089EnableTradingFlow({
         event: 'responseReceived',
         ...logContext,
         canTrade: status?.canTrade,
@@ -73,6 +101,10 @@ export function useEnableTradingWithDepositFallback() {
           event: 'depositRequired',
           ...logContext,
         });
+        logOk55089EnableTradingFlow({
+          event: 'depositRequired',
+          ...logContext,
+        });
         await showDepositWithdrawModal('deposit');
         return { shouldContinue: false, status };
       }
@@ -83,9 +115,19 @@ export function useEnableTradingWithDepositFallback() {
         ...logContext,
         shouldContinue,
       });
+      logOk55089EnableTradingFlow({
+        event: 'flowCompleted',
+        ...logContext,
+        shouldContinue,
+      });
       return { shouldContinue, status };
     } catch (error) {
       defaultLogger.perp.enableTradingFlow.error({
+        event: 'flowFailed',
+        ...logContext,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      logOk55089EnableTradingFlow({
         event: 'flowFailed',
         ...logContext,
         errorMessage: error instanceof Error ? error.message : String(error),

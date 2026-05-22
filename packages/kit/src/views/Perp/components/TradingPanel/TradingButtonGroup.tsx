@@ -69,6 +69,15 @@ interface ISideButtonProps {
     | undefined;
 }
 
+function logOk55089AutoEnableTrading(payload: Record<string, unknown>) {
+  if (platformEnv.isDev) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[OK-55089][PerpsAutoEnableTrading] ${JSON.stringify(payload)}`,
+    );
+  }
+}
+
 function SideButtonInternal({
   side,
   isMobile,
@@ -573,9 +582,28 @@ function SideButtonInternal({
               )}...${perpsAccountStatus.accountAddress.slice(-4)}`
             : undefined,
         });
+        logOk55089AutoEnableTrading({
+          event: 'triggered',
+          side,
+          canTrade: perpsAccountStatus.canTrade,
+          isSoftwareAccount: enableTradingMode.isSoftwareAccount,
+          accountAddress: perpsAccountStatus.accountAddress
+            ? `${perpsAccountStatus.accountAddress.slice(
+                0,
+                6,
+              )}...${perpsAccountStatus.accountAddress.slice(-4)}`
+            : undefined,
+        });
         const result = await enableTradingWithDepositFallback();
         defaultLogger.perp.enableTradingFlow.track({
           event: 'autoEnableResult',
+          side,
+          shouldContinue: result.shouldContinue,
+          canTrade: result.status?.canTrade,
+          activatedOk: result.status?.details?.activatedOk,
+        });
+        logOk55089AutoEnableTrading({
+          event: 'result',
           side,
           shouldContinue: result.shouldContinue,
           canTrade: result.status?.canTrade,
@@ -587,6 +615,10 @@ function SideButtonInternal({
         if (isNoEnoughMargin) {
           defaultLogger.perp.enableTradingFlow.track({
             event: 'blockedByMargin',
+            side,
+          });
+          logOk55089AutoEnableTrading({
+            event: 'blockedAfterEnableByMarginCheck',
             side,
           });
           Toast.message({
@@ -608,12 +640,20 @@ function SideButtonInternal({
             event: 'proceedDirectConfirm',
             side,
           });
+          logOk55089AutoEnableTrading({
+            event: 'proceedToDirectOrderConfirm',
+            side,
+          });
         }
         void handleConfirm(side);
       } else {
         if (shouldAutoEnableTrading) {
           defaultLogger.perp.enableTradingFlow.track({
             event: 'proceedConfirmDialog',
+            side,
+          });
+          logOk55089AutoEnableTrading({
+            event: 'proceedToOrderConfirmDialog',
             side,
           });
         }
