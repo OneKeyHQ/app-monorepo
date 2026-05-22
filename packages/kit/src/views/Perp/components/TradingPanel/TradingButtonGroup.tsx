@@ -34,6 +34,7 @@ import {
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   getSpotTokenDisplayName,
@@ -560,7 +561,8 @@ function SideButtonInternal({
 
       // Validation passed, proceed with order
       if (shouldAutoEnableTrading) {
-        console.log('[OK-55089][PerpsAutoEnableTrading] triggered', {
+        defaultLogger.perp.enableTradingFlow.track({
+          event: 'autoEnableTriggered',
           side,
           canTrade: perpsAccountStatus.canTrade,
           isSoftwareAccount: enableTradingMode.isSoftwareAccount,
@@ -572,7 +574,8 @@ function SideButtonInternal({
             : undefined,
         });
         const result = await enableTradingWithDepositFallback();
-        console.log('[OK-55089][PerpsAutoEnableTrading] result', {
+        defaultLogger.perp.enableTradingFlow.track({
+          event: 'autoEnableResult',
           side,
           shouldContinue: result.shouldContinue,
           canTrade: result.status?.canTrade,
@@ -582,12 +585,10 @@ function SideButtonInternal({
           return;
         }
         if (isNoEnoughMargin) {
-          console.log(
-            '[OK-55089][PerpsAutoEnableTrading] blocked after enable by margin check',
-            {
-              side,
-            },
-          );
+          defaultLogger.perp.enableTradingFlow.track({
+            event: 'blockedByMargin',
+            side,
+          });
           Toast.message({
             title: intl.formatMessage({
               id: isSpot
@@ -603,22 +604,18 @@ function SideButtonInternal({
 
       if (perpsCustomSettings.skipOrderConfirm) {
         if (shouldAutoEnableTrading) {
-          console.log(
-            '[OK-55089][PerpsAutoEnableTrading] proceed to direct order confirm',
-            {
-              side,
-            },
-          );
+          defaultLogger.perp.enableTradingFlow.track({
+            event: 'proceedDirectConfirm',
+            side,
+          });
         }
         void handleConfirm(side);
       } else {
         if (shouldAutoEnableTrading) {
-          console.log(
-            '[OK-55089][PerpsAutoEnableTrading] proceed to order confirm dialog',
-            {
-              side,
-            },
-          );
+          defaultLogger.perp.enableTradingFlow.track({
+            event: 'proceedConfirmDialog',
+            side,
+          });
         }
         showOrderConfirmDialog({ overrideSide: side, intl });
       }

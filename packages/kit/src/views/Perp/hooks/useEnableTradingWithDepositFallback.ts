@@ -5,6 +5,7 @@ import {
   type IPerpsActiveAccountStatusAtom,
   usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { showHyperliquidTermsDialog } from '../components/HyperliquidTerms';
 
@@ -14,8 +15,6 @@ export type IEnableTradingWithDepositFallbackResult = {
   shouldContinue: boolean;
   status: IPerpsActiveAccountStatusAtom | undefined;
 };
-
-const ENABLE_TRADING_FLOW_LOG_PREFIX = '[OK-55089][PerpsEnableTradingFlow]';
 
 function maskLogValue(value: string | null | undefined) {
   if (!value) {
@@ -38,61 +37,59 @@ export function useEnableTradingWithDepositFallback() {
       accountAddress: maskLogValue(perpsAccount.accountAddress),
     };
 
-    console.log(`${ENABLE_TRADING_FLOW_LOG_PREFIX} terms dialog requested`, {
+    defaultLogger.perp.enableTradingFlow.track({
+      event: 'termsDialogRequested',
       ...logContext,
     });
     const didAcceptTerms = await showHyperliquidTermsDialog();
     if (!didAcceptTerms) {
-      console.log(`${ENABLE_TRADING_FLOW_LOG_PREFIX} terms not accepted`, {
+      defaultLogger.perp.enableTradingFlow.track({
+        event: 'termsNotAccepted',
         ...logContext,
       });
       return { shouldContinue: false, status: undefined };
     }
 
     try {
-      console.log(
-        `${ENABLE_TRADING_FLOW_LOG_PREFIX} enableTrading request started`,
-        {
-          ...logContext,
-        },
-      );
+      defaultLogger.perp.enableTradingFlow.track({
+        event: 'requestStarted',
+        ...logContext,
+      });
       const status =
         await backgroundApiProxy.serviceHyperliquid.enableTrading();
-      console.log(
-        `${ENABLE_TRADING_FLOW_LOG_PREFIX} enableTrading response received`,
-        {
-          ...logContext,
-          canTrade: status?.canTrade,
-          activatedOk: status?.details?.activatedOk,
-        },
-      );
+      defaultLogger.perp.enableTradingFlow.track({
+        event: 'responseReceived',
+        ...logContext,
+        canTrade: status?.canTrade,
+        activatedOk: status?.details?.activatedOk,
+      });
 
       if (
         status?.details?.activatedOk === false &&
         perpsAccount.accountAddress &&
         accountId
       ) {
-        console.log(
-          `${ENABLE_TRADING_FLOW_LOG_PREFIX} account activation requires deposit`,
-          {
-            ...logContext,
-          },
-        );
+        defaultLogger.perp.enableTradingFlow.track({
+          event: 'depositRequired',
+          ...logContext,
+        });
         await showDepositWithdrawModal('deposit');
         return { shouldContinue: false, status };
       }
 
       const shouldContinue = Boolean(status?.canTrade);
-      console.log(`${ENABLE_TRADING_FLOW_LOG_PREFIX} flow completed`, {
+      defaultLogger.perp.enableTradingFlow.track({
+        event: 'flowCompleted',
         ...logContext,
         shouldContinue,
       });
       return { shouldContinue, status };
     } catch (error) {
-      console.error(
-        '[useEnableTradingWithDepositFallback] Enable trading failed:',
-        error,
-      );
+      defaultLogger.perp.enableTradingFlow.error({
+        event: 'flowFailed',
+        ...logContext,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
       return { shouldContinue: false, status: undefined };
     }
   }, [

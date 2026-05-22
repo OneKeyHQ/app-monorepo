@@ -1790,14 +1790,12 @@ export default class ServiceHyperliquid extends ServiceBase {
           status?.details?.internalRebateBoundOk &&
           status?.details?.abstractionOk,
         );
-        // eslint-disable-next-line no-console
-        console.log(
-          `[OK-55089][BENCH] enableTrading canTrade override ${JSON.stringify({
-            atomCanTrade: status?.canTrade,
-            realCanTrade,
-            details: status?.details,
-          })}`,
-        );
+        defaultLogger.perp.enableTradingFlow.track({
+          event: 'benchCanTradeOverride',
+          atomCanTrade: status?.canTrade,
+          realCanTrade,
+          details: status?.details,
+        });
         return { ...status, canTrade: realCanTrade };
       }
     }
@@ -1827,8 +1825,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     this.fetchUserAbstractionRawWithCache.clear();
     await perpsAbstractionModeAtom.set(undefined);
     await perpsActiveAccountStatusInfoAtom.set(undefined);
-    // eslint-disable-next-line no-console
-    console.log('[OK-55089][BENCH] enable trading caches reset');
+    defaultLogger.perp.enableTradingFlow.track({
+      event: 'benchCachesReset',
+    });
   }
 
   // OK-55089 BENCH: measure a single step of the enable trading flow and emit
@@ -1854,12 +1853,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         isEnableTradingTrigger: context.isEnableTradingTrigger,
       };
       defaultLogger.perp.enableTradingTiming.trackStep(payload);
-      if (platformEnv.isDev) {
-        // eslint-disable-next-line no-console
-        console.log(
-          `[OK-55089][enableTradingTiming] ${JSON.stringify(payload)}`,
-        );
-      }
     }
   }
 
