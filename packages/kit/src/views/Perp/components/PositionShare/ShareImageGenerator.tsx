@@ -14,6 +14,7 @@ import {
   SHOW_REFERRAL_CODE,
   getCanvasConfig,
   getPnlDisplayInfo,
+  getSharePriceLabelIds,
 } from './constants';
 
 import type {
@@ -104,6 +105,10 @@ export const ShareImageGenerator = forwardRef<
         pnlDisplayText.length > 6
           ? fonts.pnl * (1 - (pnlDisplayText.length - 6) * 0.06)
           : fonts.pnl;
+      const { entryPriceLabelId, markPriceLabelId } = getSharePriceLabelIds({
+        mode,
+        priceType,
+      });
 
       const selectedBackground = isProfit
         ? BACKGROUNDS.profit[0]
@@ -244,7 +249,7 @@ export const ShareImageGenerator = forwardRef<
             ctx.globalAlpha = layout.labelOpacity;
             ctx.fillText(
               intl.formatMessage({
-                id: ETranslations.perp_position_entry_price,
+                id: entryPriceLabelId,
               }),
               padding,
               entryPriceY,
@@ -265,13 +270,9 @@ export const ShareImageGenerator = forwardRef<
             ctx.font = toCanvasFont(fonts.priceLabel);
             ctx.globalAlpha = layout.labelOpacity;
             ctx.fillText(
-              priceType === 'exit'
-                ? intl.formatMessage({
-                    id: ETranslations.perp_position_exit_price,
-                  })
-                : intl.formatMessage({
-                    id: ETranslations.perp_position_mark_price,
-                  }),
+              intl.formatMessage({
+                id: markPriceLabelId,
+              }),
               padding,
               markPriceY,
             );
