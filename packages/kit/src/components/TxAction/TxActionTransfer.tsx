@@ -87,11 +87,19 @@ function getTxActionTransferInfo(
       transferTarget = to;
     }
   } else if (isEmpty(sends) && !isEmpty(receives)) {
-    const targets = uniq(map(receives, 'from'));
+    // Ignore zero-address sources (e.g. debt/aToken mints) so that protocol
+    // interactions like Aave Borrow don't end up with an ambiguous source set.
+    const targets = uniq(
+      map(receives, 'from').filter(
+        (addr) => addr && addr !== '0x0000000000000000000000000000000000000000',
+      ),
+    );
     if (targets.length === 1) {
       [transferTarget] = targets;
     } else {
-      transferTarget = from;
+      // Fall back to the contract being interacted with (e.g. Aave Pool)
+      // instead of the user's own address.
+      transferTarget = to;
     }
   } else if (isUTXO) {
     if (type === EOnChainHistoryTxType.Send) {
