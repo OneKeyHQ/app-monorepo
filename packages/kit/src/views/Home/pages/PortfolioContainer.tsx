@@ -223,7 +223,7 @@ function PortfolioContainer() {
           />
           <DeFiListBlock refreshCacheOnly />
           <PopularTrading tableLayout={tableLayout || undefined} />
-          <EarnListView />
+          <EarnListView isActive={isTabFocused} />
           <Upgrade />
           <SupportHub />
         </YStack>
