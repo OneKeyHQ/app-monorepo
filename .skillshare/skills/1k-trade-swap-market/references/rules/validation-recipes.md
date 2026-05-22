@@ -33,12 +33,33 @@ Validate Market Detail selector, normal Swap/Swap Pro visibility, review fee/sli
 
 Do not treat `$0.00` as proof of zero estimate without inspecting the payload.
 
+When route gas limits are provided by quote/preset data, inspect estimate-fee and send-time params to confirm route `gasLimitForDisplay` or the chain equivalent wins over generic estimate defaults.
+
 ## Quote / Provider
 
 - Test first actionable quote under slow/throttled network when possible.
 - Confirm manual provider selection survives later events.
 - Confirm execution quote and displayed quote list agree.
 - Verify no-route/provider-error copy.
+
+## Cross-Surface Entry
+
+- From DeFi/Earn or portfolio funding CTAs, open `Trade`, `Buy`, `Swap`, and
+  `Wrap` paths from a fresh app state when the issue started outside Swap.
+- Confirm the target route carries the intended token direction, `swapSource`,
+  `ESwapTabSwitchType`, account, network, and native/wrapped token identity.
+- For ETH/WETH cases, test native ETH, WETH, insufficient-balance, unsupported
+  Limit, and explicit wrap/unwrap paths separately.
+- Inspect quote/build requests after the jump. Source-screen validation is not
+  proof that the target surface will execute the same token form.
+
+## Private Send / Incognito
+
+- Toggle Public/Private mode and verify settings persistence, recipient input visibility, and account/network/token invalidation.
+- Confirm quote/build requests carry the intended `incognito` param and provider fields.
+- Validate recipient input loading and stale validation result handling after hide/show, clear/retype, and account/network change.
+- For analytics tasks, capture both success and failure paths for quote, value-drop warning dedupe, create order, and final status.
+- For RocketX, confirm ETA, min/max units, received-token identity, and final status from provider/backend payloads before logging or displaying them.
 
 ## History / Pending
 
@@ -54,4 +75,3 @@ Do not treat `$0.00` as proof of zero estimate without inspecting the payload.
 - `npx oxlint --tsconfig ./tsconfig.json --type-aware <files>`
 - Targeted Jest for changed utilities/tests
 - `yarn lint:staged` and `yarn tsc:staged` before commit unless the user explicitly asks not to commit or only wants read-only analysis
-

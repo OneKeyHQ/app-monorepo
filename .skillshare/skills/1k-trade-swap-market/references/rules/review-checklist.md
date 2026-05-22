@@ -22,6 +22,7 @@ Use this with `/1k-code-review-pr` for Trade/Swap/Market PRs.
 | Provider | Are provider-specific fields preserved through quote/build/sign/history? |
 | Fee | Are missing fee, real zero fee, display fee, estimate fee, and send-time fee distinct? |
 | Network | Are EVM and non-EVM identities compared correctly? |
+| Cross-surface entry | Do external DeFi/Earn/Market CTAs preserve token direction, source, mode, and native/wrapped identity? |
 | Imports | Does the change respect OneKey import hierarchy? |
 | Shared components | Is a shared primitive changed for a local business bug? Require strong justification. |
 
@@ -30,6 +31,7 @@ Use this with `/1k-code-review-pr` for Trade/Swap/Market PRs.
 - Market preset: UI, saved settings, review option, gas estimate params, and execution params agree.
 - Quote progress: current event, manual provider, execution quote, and display list cannot drift.
 - Token selector: Home, Send/Receive, and Swap have separate loading/data ownership where their request models differ.
+- DeFi/Earn handoff: `Trade`, `Buy`, `Swap`, or `Wrap` CTAs land on a target surface that supports the exact native/wrapped token and mode.
 - Recipient/incognito: account/network change does not preserve invalid stale address state.
 - History: `rawStatus` and `finalStatus` are not accidentally merged.
 - Provider: provider adapter fields survive signed rebuilds and history persistence.

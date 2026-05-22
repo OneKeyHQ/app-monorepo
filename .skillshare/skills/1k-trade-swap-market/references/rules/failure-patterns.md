@@ -26,7 +26,7 @@ Check event id/current-event scoping, execution quote ownership, manual provider
 
 - Home DeFi token state is reused for Send/Receive or Swap selector.
 - Filter UI changes but selector request key/cache does not.
-- Switch remains interactive while filtered request is in flight.
+- Shared switch loading behavior is copied across surfaces without checking the owner. Home and Send/Receive may intentionally disable while their list is loading; Swap may need the switch to stay interactive while only the token-list request refreshes.
 - Refresh/restart enters an empty selector because `flag=token-selector` was never fetched.
 - Swap token list is assumed to match wallet token list.
 
@@ -35,6 +35,7 @@ Check Home, Send/Receive, normal Swap, and Swap Pro independently. Verify reques
 ## Review, Fee, Balance, And Toast
 
 - Review reads outer page atoms instead of a frozen quote/build snapshot.
+- Market preset or quote route `gasLimitForDisplay` is treated as a fallback behind generic estimate-fee defaults, so displayed priority-fee fiat cost can drift from the real route.
 - Same-native-token gas, sell amount, and other fees are not aggregated.
 - Duplicate toasts stack because repeated validation lacks a stable `toastId`.
 - `$0.00` display hides the difference between missing provider fee and real zero.
@@ -51,6 +52,16 @@ Build review state from quote/build snapshots. Inspect quote/build payloads befo
 
 Keep internal numeric state separate from display formatting. Verify token-pair identity before reusing stored prices.
 
+## Cross-Surface Entry And Native/Wrapped Tokens
+
+- DeFi/Earn, Market, or portfolio CTAs reuse Trade/Swap button copy but pass the wrong execution mode, token direction, or source.
+- Native ETH and WETH are treated as interchangeable after a surface handoff, so Limit tries to sell native ETH or Swap tries to wrap without an explicit wrap path.
+- Unsupported-token warnings are hidden because the source surface already showed an insufficient-balance or "Buy/Trade" state.
+- The source screen validates wallet balance for one token form while the target screen validates another token form.
+- `swapSource`, `ESwapTabSwitchType`, token direction, and native/wrapped identity are not frozen when jumping into the Swap modal or tab.
+
+For Earn funding CTAs, test the target surface, not only the source button. If Limit cannot sell native ETH, show an explicit wrap or unsupported-token path instead of silently switching semantics.
+
 ## History, Pending, And Status
 
 - Terminal status stops polling too early or clears local pending history before refresh signals.
@@ -66,8 +77,8 @@ Preserve raw provider status where UI or refresh logic needs it. Use chain-aware
 - Provider field units are guessed on the frontend.
 - BTC/UTXO plans are lost during signed rebuild.
 - Refund address and receiving address are conflated.
+- Private Send/incognito mode changes quote/build params but analytics, recipient validation, value-drop warning dedupe, and final-status mapping are not updated together.
 - Provider status mapping is treated as generic Swap status.
 - Provider min/max limits are compared against the wrong unit.
 
 Confirm the contract with backend/service code, Jira, or Slack before changing display, validation, analytics, or history behavior.
-

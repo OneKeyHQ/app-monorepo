@@ -12,6 +12,8 @@ Start with symbols and `rg`; do not assume exact paths if files moved.
 | Build hook | `useSwapBuiltTx`, `checkSwapLatestBalanceSufficient`, `swapBalanceUtils` |
 | Review state | `buildSwapReviewState`, `swapReviewState`, `PreSwapDialogContent`, `SwapReviewDialog`, `SwapReviewInitializer` |
 | Provider UI | `SwapQuoteResult`, `SwapProviderListPanel`, `SwapProviderSelectModal`, `ProviderManageContainer` |
+| Private Send / incognito | `swapIncognitoMode`, `SwapActionsState`, `SwapIncognitoRecipientInput`, `useSwapIncognitoRecipientInput`, `buildSwapIncognitoSettingsUpdate`, `incognito` quote/build param |
+| External DeFi/Earn handoffs | `EModalSwapRoutes.SwapMainLand`, `ESwapSource.MARKET`, `ESwapTabSwitchType`, `swapFromMarketJumpTokenAtom`, `useMarketTradeActions`, `UnsupportedSwapWarning`, `SwitchToTradePrompt`, `ActionButton` |
 
 ## Market Speed-Swap
 
@@ -32,6 +34,7 @@ Start with symbols and `rg`; do not assume exact paths if files moved.
 | Slippage | `SwapProSlippageSetting`, `useSwapSlippageActions`, `slippageItem` |
 | Limit price | `useSwapLimitRate`, `swapLimitPriceMarketPriceAtom`, `limitOrderMarketPriceIntervalAction`, `LimitRateInput` |
 | Limit history | `LimitOrderOpenItem`, `LimitOrderList`, `LimitOrderDetailModal`, `LimitOrderCancelDialog` |
+| Unsupported native/wrapped token | `SellAmountDoesNotCoverFee`, `NoLiquidity`, `unsupported`, `isWrapped`, `global_wrap`, `swap_page_button_insufficient_balance` |
 
 ## Token Selector And Filters
 
@@ -55,6 +58,6 @@ Start with symbols and `rg`; do not assume exact paths if files moved.
 | --- | --- |
 | SWFT BTC | `selectedUtxoKeys`, `ForceSelected`, `btcSwapSingleAddressUtxoPlan`, `refundAddress`, `refundAddr` |
 | Houdini | `Houdini`, `Privacy`, `receivingAddress`, provider status mapping |
-| RocketX | `RocketX`, `limit.max`, `limit.min`, fixed rate, max amount |
+| RocketX | `RocketX`, `limit.max`, `limit.min`, fixed rate, max amount, Private Send analytics |
 | LiFi | `Li.fi`, `lifiFee`, `feeSplit`, long pending, cross-chain status |
 | Cow Limit | `SellAmountDoesNotCoverFee`, `NoLiquidity` |

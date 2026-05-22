@@ -1,6 +1,6 @@
 ---
 name: 1k-trade-swap-market
-description: OneKey Trade/Swap/Market playbook for implementation, debugging, PR review, and validation. Always use when work touches Swap, Swap Pro, Market speed-swap, presets, limit orders, token selectors, providers, quotes, fees, slippage, history, pending status, Houdini, RocketX, LiFi, SWFT, Cow Limit, 交易, 兑换, 限价, 预设, 报价, 手续费, 交易历史, or provider integration.
+description: OneKey Trade/Swap/Market playbook for implementation, debugging, PR review, and validation. Always use when work touches Swap, Swap Pro, Market speed-swap, Private Send/incognito, DeFi/Earn funding handoffs into Trade/Swap/Limit, presets, limit orders, token selectors, providers, quotes, fees, slippage, history, pending status, Houdini, RocketX, LiFi, SWFT, Cow Limit, 交易, 兑换, 隐私发送, 限价, 预设, 报价, 手续费, 交易历史, or provider integration.
 allowed-tools: Read, Grep, Glob, Bash
 ---
 
