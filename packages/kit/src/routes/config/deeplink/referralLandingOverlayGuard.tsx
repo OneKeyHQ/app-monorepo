@@ -14,6 +14,14 @@ import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const REFERRAL_BIND_BLOCKED_TOAST_DURATION = 60 * 60 * 1000;
+const REFERRAL_BLOCKING_ROOT_ROUTE_NAMES = new Set<string>([
+  ERootRoutes.Modal,
+  ERootRoutes.iOSFullScreen,
+  ERootRoutes.FullScreenPush,
+  ERootRoutes.WebView,
+  ERootRoutes.Onboarding,
+  ERootRoutes.PermissionWebDevice,
+]);
 
 let referralBlockingToast: ReturnType<typeof Toast.message> | undefined;
 let referralBlockingToastToken = 0;
@@ -49,14 +57,7 @@ function ReferralBlockingOverlayToastAction({
 }
 
 function isReferralBlockingRootRouteName(routeName?: string) {
-  return (
-    routeName === ERootRoutes.Modal ||
-    routeName === ERootRoutes.iOSFullScreen ||
-    routeName === ERootRoutes.FullScreenPush ||
-    routeName === ERootRoutes.WebView ||
-    routeName === ERootRoutes.Onboarding ||
-    routeName === ERootRoutes.PermissionWebDevice
-  );
+  return !!routeName && REFERRAL_BLOCKING_ROOT_ROUTE_NAMES.has(routeName);
 }
 
 function isReferralBlockingRootOverlayOpen() {

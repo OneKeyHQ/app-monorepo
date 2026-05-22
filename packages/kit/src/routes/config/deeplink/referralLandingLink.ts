@@ -13,10 +13,7 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { showReferralBlockingOverlayToast } from './referralLandingOverlayGuard';
-import {
-  createReferralLandingRequestId,
-  isReferralLandingRequestActive,
-} from './referralLandingRequestGuard';
+import { createReferralLandingRequestGuard } from './referralLandingRequestGuard';
 
 const URL_PROTOCOL_PREFIX_REGEXP = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//u;
 const VALID_REFERRAL_CODE = /^[a-zA-Z0-9_-]{1,32}$/;
@@ -132,11 +129,13 @@ export async function navigateToReferralLanding({
   shouldContinue?: () => boolean;
   referralRequestId?: number;
 }): Promise<boolean> {
-  const currentReferralRequestId =
-    referralRequestId ?? createReferralLandingRequestId();
-  const isCurrentReferralRequest = () =>
-    isReferralLandingRequestActive(currentReferralRequestId) &&
-    (!shouldContinue || shouldContinue());
+  const {
+    requestId: currentReferralRequestId,
+    shouldContinue: isCurrentReferralRequest,
+  } = createReferralLandingRequestGuard({
+    requestId: referralRequestId,
+    shouldContinue,
+  });
 
   if (times > 10) {
     return false;
