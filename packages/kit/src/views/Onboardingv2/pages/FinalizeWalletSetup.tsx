@@ -350,7 +350,14 @@ function FinalizeWalletSetupPage({
               isKeylessWallet,
               keylessDetailsInfo,
             });
-            createdWalletRef.current = hdWalletCreatedResult.wallet;
+            // `isOverrideWallet` is set by serviceAccount when the same-hash
+            // dedup branch ran — i.e. the mnemonic matches an existing
+            // wallet. The invite-code dialog is a setup ritual for first-
+            // time creation only, so skip the bind check on re-imports.
+            // Mirrors the HW branch's `existingWalletIds` filter.
+            if (!hdWalletCreatedResult.isOverrideWallet) {
+              createdWalletRef.current = hdWalletCreatedResult.wallet;
+            }
             if (shouldRunAutoReset) {
               void (async () => {
                 try {
