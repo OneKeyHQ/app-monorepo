@@ -14,6 +14,8 @@ import {
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { buildSwapRateDifference } from './swapRateDifferenceUtils';
+
 export type ISwapReviewStepTexts = {
   wrap: string;
   approveAndSwap: string;
@@ -217,6 +219,13 @@ export function buildSwapReviewState({
       batchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP ||
       batchTransferType === ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP
     );
+  const reviewRateDifference =
+    rateDifference ??
+    buildSwapRateDifference({
+      fromTokenPrice: fromToken?.price,
+      toTokenPrice: toToken?.price,
+      instantRate: quoteResult?.instantRate,
+    });
 
   let steps: ISwapStep[] = [];
 
@@ -302,7 +311,7 @@ export function buildSwapReviewState({
     rateDifference:
       quoteResult?.protocol === EProtocolOfExchange.LIMIT
         ? undefined
-        : rateDifference,
+        : reviewRateDifference,
     unSupportSlippage: quoteResult?.unSupportSlippage ?? false,
     isHWAndExBatchTransfer: shouldSignEveryTime,
     fee: quoteResult?.fee,

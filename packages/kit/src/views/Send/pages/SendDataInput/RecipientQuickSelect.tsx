@@ -830,6 +830,7 @@ function AccountRecipients({
                   indexedAccount={itemIndexedAccount}
                   account={account}
                   networkId={networkId}
+                  enableEnterAnimation
                 />
               ),
             }}
