@@ -3,7 +3,12 @@ import { memo, startTransition, useCallback, useEffect, useRef } from 'react';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { isEqual, noop } from 'lodash';
 
-import { useUpdateEffect } from '@onekeyhq/components';
+import {
+  rootNavigationRef,
+  useIsSplitView,
+  useSplitMainView,
+  useUpdateEffect,
+} from '@onekeyhq/components';
 import {
   useAccountIsAutoCreatingAtom,
   useAppIsLockedAtom,
@@ -30,7 +35,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { useDebugHooksDepsChangedChecker } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -50,6 +56,7 @@ import type {
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
@@ -994,6 +1001,66 @@ function useHyperliquidInstrumentSwitchRequest() {
   }, [actions]);
 }
 
+// Auto-open MobilePerpMarket in the sub pane when the Perp tab is focused in
+// the dual-pane layout, so the chart context the user expects appears next to
+// the order form without manual navigation.
+//
+// Constraints:
+//   - Only triggers from the MAIN pane in landscape split view; portrait or
+//     single-pane mode shows the form full-screen and needs no detail push.
+//   - Skips when the active trading pair atom is empty (cold start before
+//     symbol selection finishes) — a later activeCoin update re-attempts.
+//   - Respects user navigation: if the sub pane already has any overlay
+//     pushed (our chart, a modal the user opened, etc.), we don't pile on.
+//     The chart's content tracks activeTradeInstrumentAtom directly, so pair
+//     changes update the existing screen instead of needing a new push.
+function usePerpSplitDetailSync() {
+  const isSplitMain = useSplitMainView();
+  const isLandscape = useIsSplitView();
+  const navigation = useAppNavigation();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const activeCoin = activeTradeInstrument?.coin;
+
+  const isSplitMainRef = useRef(isSplitMain);
+  isSplitMainRef.current = isSplitMain;
+  const isLandscapeRef = useRef(isLandscape);
+  isLandscapeRef.current = isLandscape;
+  const activeCoinRef = useRef(activeCoin);
+  activeCoinRef.current = activeCoin;
+  const navigationRef = useRef(navigation);
+  navigationRef.current = navigation;
+  const isPerpFocusedRef = useRef(false);
+
+  const tryClaimSubPane = useCallback(() => {
+    if (!isPerpFocusedRef.current) return;
+    if (!isSplitMainRef.current) return;
+    if (!isLandscapeRef.current) return;
+    if (!activeCoinRef.current) return;
+
+    const subState = rootNavigationRef.current?.getRootState();
+    if (!subState) return;
+    const topRoute = subState.routes[subState.index ?? 0];
+    if (topRoute?.name !== ERootRoutes.Main) return;
+
+    navigationRef.current.pushModal(EModalRoutes.PerpModal, {
+      screen: EModalPerpRoutes.MobilePerpMarket,
+    });
+  }, []);
+
+  useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
+    isPerpFocusedRef.current = resolvePerpRouteFocused(isFocus);
+    if (isPerpFocusedRef.current) {
+      tryClaimSubPane();
+    }
+  });
+
+  useEffect(() => {
+    if (activeCoin) {
+      tryClaimSubPane();
+    }
+  }, [activeCoin, tryClaimSubPane]);
+}
+
 function PerpsGlobalEffectsView() {
   useHyperliquidEventBusListener();
   useHyperliquidSession();
@@ -1006,6 +1073,7 @@ function PerpsGlobalEffectsView() {
   useHyperliquidNetworkReachabilityRecovery();
   useSyncContextOrderBookOptionsToGlobal();
   useTradeRouteViewStateSync();
+  usePerpSplitDetailSync();
   usePerpsSharePrompt();
 
   return (
