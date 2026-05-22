@@ -77,9 +77,8 @@ import {
   perpsActiveAccountAtom,
   perpsActiveAccountStatusAtom,
 } from '../../states/jotai/atoms';
+import { getPerpsEnableTradingRealCanTrade } from '../../states/jotai/utils/perpsEnableTradingStatus';
 import ServiceBase from '../ServiceBase';
-
-import { getPerpsEnableTradingRealCanTrade } from './enableTradingBenchUtils';
 
 import type {
   WalletHyperliquidOnekey,

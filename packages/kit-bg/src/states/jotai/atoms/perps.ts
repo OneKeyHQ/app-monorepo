@@ -25,6 +25,7 @@ import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
+import { getPerpsEnableTradingRealCanTrade } from '../utils/perpsEnableTradingStatus';
 
 import { devSettingsPersistAtom } from './devSettings';
 
@@ -312,8 +313,25 @@ export const {
 } = globalAtomComputedR<{ isAgentReady: boolean }>({
   read: (get) => {
     const status = get(perpsActiveAccountStatusAtom.atom());
+    const isAtomReady = Boolean(status?.details?.agentOk && status?.canTrade);
+    if (isAtomReady) {
+      return { isAgentReady: true };
+    }
+
+    if (platformEnv.isDev) {
+      const devSettings = get(devSettingsPersistAtom.atom());
+      if (
+        devSettings?.enabled &&
+        devSettings.settings?.forcePerpsCanTradeFalse
+      ) {
+        return {
+          isAgentReady: getPerpsEnableTradingRealCanTrade(status),
+        };
+      }
+    }
+
     return {
-      isAgentReady: Boolean(status?.details?.agentOk && status?.canTrade),
+      isAgentReady: false,
     };
   },
 });

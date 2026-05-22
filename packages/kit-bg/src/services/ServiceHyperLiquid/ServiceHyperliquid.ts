@@ -119,9 +119,9 @@ import {
   spotPairDisplayMapAtom,
   spotTokenFavoritesPersistAtom,
 } from '../../states/jotai/atoms';
+import { getPerpsEnableTradingRealCanTrade } from '../../states/jotai/utils/perpsEnableTradingStatus';
 import ServiceBase from '../ServiceBase';
 
-import { getPerpsEnableTradingRealCanTrade } from './enableTradingBenchUtils';
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
 import {

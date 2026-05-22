@@ -1,4 +1,4 @@
-import { getPerpsEnableTradingRealCanTrade } from './enableTradingBenchUtils';
+import { getPerpsEnableTradingRealCanTrade } from './perpsEnableTradingStatus';
 
 describe('getPerpsEnableTradingRealCanTrade', () => {
   it('returns true when all real enable trading gates are satisfied even if canTrade is forced false elsewhere', () => {
