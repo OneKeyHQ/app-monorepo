@@ -142,6 +142,45 @@ export class PageScene extends BaseScene {
     referralCode: string;
     address: string;
     networkId: string;
+    source?: 'onboarding_dialog' | 'home_block' | 'settings';
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public onboardingDialogShown(params: {
+    walletId: string;
+    walletType: string;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public onboardingDialogSkipped(params: {
+    walletId: string;
+    walletType: string;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public onboardingDialogSubmitted(params: {
+    walletId: string;
+    walletType: string;
+    codeLength: number;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public onboardingDialogBindFailed(params: {
+    walletId: string;
+    walletType: string;
+    errorReason: string;
   }) {
     return params;
   }
