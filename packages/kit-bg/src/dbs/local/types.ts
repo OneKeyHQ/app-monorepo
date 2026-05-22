@@ -53,7 +53,10 @@ import type { RealmSchemaHardwareHomeScreen } from './realm/schemas/RealmSchemaH
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
-import type { EFirmwareType } from '@onekeyfe/hd-shared';
+import type {
+  EFirmwareType,
+  HardwareConnectProtocol,
+} from '@onekeyfe/hd-shared';
 import type { DBSchema } from 'idb';
 
 // ---------------------------------------------- base
@@ -202,7 +205,9 @@ export type IDBCreateKeylessWalletParams = {
 };
 export type IDBCreateHwWalletParamsBase = {
   name?: string;
-  device: Omit<SearchDevice, 'commType'>;
+  device: Omit<SearchDevice, 'commType'> & {
+    protocolType?: HardwareConnectProtocol;
+  };
   features: IOneKeyDeviceFeatures;
   isFirmwareVerified?: boolean;
   skipDeviceCancel?: boolean;
@@ -396,6 +401,7 @@ export type IDBDevice = IDBBaseObjectWithName & {
   uuid: string;
   deviceId: string; // features.device_id changed after device reset, use deviceUtils.getRawDeviceId()
   deviceType: IDeviceType;
+  protocolType?: HardwareConnectProtocol;
   settingsRaw: string;
   settings?: IDBDeviceSettings;
   createdAt: number;

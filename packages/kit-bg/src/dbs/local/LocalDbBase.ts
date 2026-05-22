@@ -75,6 +75,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getHardwareConnectProtocolFromDevice } from '@onekeyhq/shared/src/hardware/connectProtocol';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -2556,6 +2557,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const featuresInfo = await deviceUtils.attachAppParamsToFeatures({
       features: updateFeatures,
     });
+    const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+      features: featuresInfo,
+    });
+    const protocolType = getHardwareConnectProtocolFromDevice({
+      ...device,
+      deviceType,
+    });
     let isUpdated = false;
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
@@ -2566,6 +2574,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           const newFeatures = stringUtils.stableStringify(featuresInfo);
           if (item.features !== newFeatures) {
             item.features = newFeatures;
+            isUpdated = true;
+          }
+          if (protocolType && item.protocolType !== protocolType) {
+            item.protocolType = protocolType;
             isUpdated = true;
           }
           return item;
@@ -3345,6 +3357,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             device,
             features,
           });
+    const protocolType = getHardwareConnectProtocolFromDevice({
+      ...device,
+      deviceType,
+    });
 
     const { dbDeviceId, dbWalletId, deviceUUID, rawDeviceId } =
       await this.buildHwWalletId(params);
@@ -3418,6 +3434,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       uuid: deviceUUID,
       deviceId: rawDeviceId,
       deviceType,
+      protocolType,
       features: featuresStr,
       settingsRaw: JSON.stringify({
         inputPinOnSoftware: profile.supportsSoftwarePin,
@@ -3524,6 +3541,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               item.uuid = deviceUUID;
               item.deviceId = rawDeviceId;
               item.deviceType = deviceType;
+              item.protocolType = protocolType ?? item.protocolType;
 
               // Update USB/BLE connectId fields
               if (!item.usbConnectId && usbConnectId !== undefined) {
@@ -5643,6 +5661,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     device.featuresInfo = JSON.parse(device.features || '{}');
     device.settings = JSON.parse(device.settingsRaw || '{}');
     device.vendor = device.settings?.vendor ?? EHardwareVendor.onekey;
+    device.protocolType =
+      device.protocolType ?? getHardwareConnectProtocolFromDevice(device);
     return device;
   }
 

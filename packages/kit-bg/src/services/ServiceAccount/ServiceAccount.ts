@@ -1,4 +1,4 @@
-import { EFirmwareType, HARDWARE_CONNECT_PROTOCOL } from '@onekeyfe/hd-shared';
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { ethers } from 'ethers';
 import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
@@ -2392,15 +2392,6 @@ class ServiceAccount extends ServiceBase {
         indexedAccountId: newIndexedAccountId,
       });
       if (allNetworkAccount.id !== accountId) {
-        const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-        if (accountUtils.isHwWallet({ walletId })) {
-          const dbDevice = await this.getWalletDeviceSafe({ walletId });
-          const connectProtocol =
-            getHardwareConnectProtocolFromDevice(dbDevice);
-          if (connectProtocol === HARDWARE_CONNECT_PROTOCOL.V2) {
-            return allNetworkAccount;
-          }
-        }
         throw new OneKeyLocalError(
           'getAccount ERROR: allNetworkAccount accountId not match',
         );
@@ -3016,6 +3007,7 @@ class ServiceAccount extends ServiceBase {
   }) {
     const dbDevice = await this.getWalletDevice({ walletId });
     const { connectId } = dbDevice;
+    const connectProtocol = getHardwareConnectProtocolFromDevice(dbDevice);
     const compatibleConnectId =
       await this.backgroundApi.serviceHardware.getCompatibleConnectId({
         connectId,
@@ -3030,6 +3022,7 @@ class ServiceAccount extends ServiceBase {
           await this.backgroundApi.serviceHardware.getPassphraseState({
             connectId: compatibleConnectId,
             forceInputPassphrase: true,
+            params: connectProtocol ? { connectProtocol } : undefined,
           });
 
         if (!passphraseState) {
@@ -3045,6 +3038,7 @@ class ServiceAccount extends ServiceBase {
         // TODO save remember states
         const features = await this.backgroundApi.serviceHardware.getFeatures({
           connectId: compatibleConnectId,
+          params: connectProtocol ? { connectProtocol } : undefined,
         });
         const dbWallet = await this.createHWWalletBase({
           device: deviceUtils.dbDeviceToSearchDevice(dbDevice),

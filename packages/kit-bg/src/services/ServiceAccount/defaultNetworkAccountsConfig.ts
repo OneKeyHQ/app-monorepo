@@ -1,10 +1,8 @@
-import { EFirmwareType, HARDWARE_CONNECT_PROTOCOL } from '@onekeyfe/hd-shared';
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { uniqBy } from 'lodash';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
-import { getHardwareConnectProtocolFromDevice } from '@onekeyhq/shared/src/hardware/connectProtocol';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -177,22 +175,6 @@ export async function buildDefaultAddAccountNetworks(
 ) {
   const { backgroundApi, walletId } = params;
 
-  if (accountUtils.isHwWallet({ walletId })) {
-    const dbDevice = await backgroundApi.serviceAccount.getWalletDeviceSafe({
-      walletId,
-    });
-    if (
-      getHardwareConnectProtocolFromDevice(dbDevice) ===
-      HARDWARE_CONNECT_PROTOCOL.V2
-    ) {
-      return buildAddAccountsNetworks({
-        ...params,
-        tron: true,
-        sol: true,
-      });
-    }
-  }
-
   // BTC-only firmware → only BTC (regardless of create/add scenario)
   const isBtcOnlyFirmware =
     await backgroundApi.serviceAccount.isBtcOnlyFirmwareByWalletId({
@@ -205,25 +187,42 @@ export async function buildDefaultAddAccountNetworks(
     });
   }
 
-  // Third-party HW (Ledger, Trezor) + add-account → only current network,
-  // but BTC need all derive types expanded
+  // Third-party HW (Ledger, Trezor) + add-account with explicit networks
+  // should only create those networks, while All Networks default add-account
+  // uses the same default network set as OneKey devices.
   if (!params.isCreateWallet) {
     const isThirdPartyHw =
       await backgroundApi.serviceAccount.isThirdPartyHwByWalletId({
         walletId,
       });
     if (isThirdPartyHw) {
-      const hasBtc = params.customNetworks?.some(
-        (n) =>
-          networkUtils.getNetworkImpl({ networkId: n.networkId }) === IMPL_BTC,
-      );
-      if (hasBtc) {
-        return buildAddAccountsNetworks({
-          ...params,
-          btc: hasBtc,
+      const isOnlyAllNetwork =
+        params.customNetworks?.length === 1 &&
+        networkUtils.isAllNetwork({
+          networkId: params.customNetworks[0].networkId,
         });
+      if (params.customNetworks?.length && !isOnlyAllNetwork) {
+        const hasBtc = params.customNetworks.some(
+          (n) =>
+            networkUtils.getNetworkImpl({ networkId: n.networkId }) ===
+            IMPL_BTC,
+        );
+        if (hasBtc) {
+          return buildAddAccountsNetworks({
+            ...params,
+            btc: hasBtc,
+          });
+        }
+        return [];
       }
-      return [];
+
+      return buildAddAccountsNetworks({
+        ...params,
+        btc: true,
+        evm: true,
+        tron: true,
+        sol: true,
+      });
     }
   }
 

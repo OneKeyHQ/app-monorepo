@@ -1260,7 +1260,12 @@ class ServiceHardware extends ServiceBase {
       promise: true,
       max: 10,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 15 }),
-      normalizer: (args) => args[0]?.connectId || '',
+      normalizer: (args) => {
+        const options = args[0];
+        return `${options?.connectId || ''}:${
+          options?.params?.connectProtocol || ''
+        }`;
+      },
     },
   );
 
@@ -1282,7 +1287,11 @@ class ServiceHardware extends ServiceBase {
       walletId,
     });
     // device.connectId is already processed by LocalDbBase.getDevice()
-    return this.getFeatures({ connectId: device.connectId });
+    const connectProtocol = getHardwareConnectProtocolFromDevice(device);
+    return this.getFeatures({
+      connectId: device.connectId,
+      params: connectProtocol ? { connectProtocol } : undefined,
+    });
   }
 
   @backgroundMethod()
@@ -1358,11 +1367,17 @@ class ServiceHardware extends ServiceBase {
   async getPassphraseState({
     connectId,
     forceInputPassphrase,
+    params,
   }: {
     connectId: string;
     forceInputPassphrase: boolean;
+    params?: IDeviceProtocolParams;
   }) {
-    return this.getPassphraseStateBase({ connectId, forceInputPassphrase });
+    return this.getPassphraseStateBase({
+      connectId,
+      forceInputPassphrase,
+      params,
+    });
   }
 
   @backgroundMethod()
@@ -1370,10 +1385,12 @@ class ServiceHardware extends ServiceBase {
     connectId,
     forceInputPassphrase,
     useEmptyPassphrase,
+    params,
   }: {
     connectId: string;
     forceInputPassphrase: boolean; // not working?
     useEmptyPassphrase?: boolean;
+    params?: IDeviceProtocolParams;
   }): Promise<string | undefined> {
     const hardwareSDK = await this.getSDKInstance({
       connectId,
@@ -1381,6 +1398,9 @@ class ServiceHardware extends ServiceBase {
 
     const result = (await convertDeviceResponse(() =>
       hardwareSDK?.getPassphraseState(connectId, {
+        ...(params?.connectProtocol
+          ? { connectProtocol: params.connectProtocol }
+          : {}),
         initSession: forceInputPassphrase, // always re-input passphrase on device
         useEmptyPassphrase,
         // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?

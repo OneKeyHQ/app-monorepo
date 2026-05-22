@@ -11,7 +11,10 @@ import {
   EFirmwareVerifyType,
   EOneKeyDeviceMode,
 } from '../../types/device';
-import { getHardwareConnectProtocolFromDeviceType } from '../hardware/connectProtocol';
+import {
+  getHardwareConnectProtocolFromDevice,
+  getHardwareConnectProtocolFromDeviceType,
+} from '../hardware/connectProtocol';
 import { CoreSDKLoader } from '../hardware/instance';
 import platformEnv from '../platformEnv';
 
@@ -82,12 +85,16 @@ type IGetDeviceVersionParams = {
 
 // TODO move to db converter
 function dbDeviceToSearchDevice(device: IDBDevice) {
-  const result: Omit<SearchDevice, 'commType'> = {
+  const result: Omit<SearchDevice, 'commType'> & {
+    protocolType?: IDBDevice['protocolType'];
+  } = {
     ...device,
     connectId: device.connectId,
     uuid: device.uuid,
     deviceId: device.deviceId,
     deviceType: device.deviceType,
+    protocolType:
+      device.protocolType ?? getHardwareConnectProtocolFromDevice(device),
     name: device.name,
   };
   return result;
