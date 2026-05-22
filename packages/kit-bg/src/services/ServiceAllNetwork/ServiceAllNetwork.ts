@@ -8,6 +8,10 @@ import {
   IMPL_EVM,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
@@ -59,6 +63,7 @@ export type IAllNetworkAccountsParams = {
   excludeTestNetwork?: boolean;
   indexedAccountId?: string;
   excludeIncompatibleWithWalletAccounts?: boolean;
+  skipCache?: boolean;
 };
 export type IAllNetworkAccountsParamsForApi = {
   networkId: string;
@@ -82,6 +87,15 @@ type IGetAllNetworkAccountsCacheEntry = {
 class ServiceAllNetwork extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+
+    const invalidate = () => this.clearGetAllNetworkAccountsCache();
+    appEventBus.on(EAppEventBusNames.AccountUpdate, invalidate);
+    appEventBus.on(EAppEventBusNames.AccountRemove, invalidate);
+    appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, invalidate);
+    appEventBus.on(EAppEventBusNames.RenameDBAccounts, invalidate);
+    appEventBus.on(EAppEventBusNames.WalletRemove, invalidate);
+    appEventBus.on(EAppEventBusNames.WalletUpdate, invalidate);
+    appEventBus.on(EAppEventBusNames.WalletClear, invalidate);
   }
 
   private _getAllNetworkAccountsCache = new Map<
@@ -399,6 +413,9 @@ class ServiceAllNetwork extends ServiceBase {
   async getAllNetworkAccounts(
     params: IAllNetworkAccountsParams,
   ): Promise<IAllNetworkAccountsInfoResult> {
+    if (params.skipCache) {
+      return this._getAllNetworkAccountsUncached(params);
+    }
     const now = Date.now();
     this._sweepGetAllNetworkAccountsCache(now);
     const cacheKey = this._buildGetAllNetworkAccountsCacheKey(params);
@@ -425,6 +442,10 @@ class ServiceAllNetwork extends ServiceBase {
       promise,
     });
     return promise;
+  }
+
+  public clearGetAllNetworkAccountsCache(): void {
+    this._getAllNetworkAccountsCache.clear();
   }
 
   private async _getAllNetworkAccountsUncached(
