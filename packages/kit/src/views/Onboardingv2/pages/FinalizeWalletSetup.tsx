@@ -29,6 +29,7 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -51,12 +52,14 @@ import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { getKeylessOnboardingPin } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
@@ -75,6 +78,11 @@ import {
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
 import { OnboardingTestIDs } from '../testIDs';
+import {
+  getForceTransportType,
+  getHardwareCommunicationTypeString,
+  trackHardwareWalletConnection,
+} from '../utils';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -182,6 +190,7 @@ function FinalizeWalletSetupPage({
   const mnemonicType = route?.params?.mnemonicType;
   const keylessPackSetId = route?.params?.keylessPackSetId;
   const deviceData = route?.params?.deviceData;
+  const ledgerTabValue = route?.params?.tabValue;
   const isFirmwareVerified = route?.params?.isFirmwareVerified;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
   const isKeylessWallet = route?.params?.isKeylessWallet;
@@ -324,6 +333,8 @@ function FinalizeWalletSetupPage({
   );
 
   const actions = useAccountSelectorActions();
+  const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const { connectDevice, createHWWallet } = useDeviceConnect();
   const createWallet = useCallback(async () => {
@@ -443,17 +454,76 @@ function FinalizeWalletSetupPage({
           // createHWWalletWithoutHidden directly to avoid the
           // onSelectAddWalletType path which would push another
           // FinalizeWalletSetup page on top of this one.
-          await actions.current.createHWWalletWithoutHidden({
-            device: deviceData.device as SearchDevice,
-            hideCheckingDeviceLoading: true,
-            features: {
-              device_id: (deviceData.device as SearchDevice)?.deviceId || '',
+          //
+          // Analytics: this branch is the real Ledger creation site —
+          // the useDeviceConnect tracking calls never reach Ledger because
+          // verifyHardware/onSelectAddWalletType are bypassed. Mirror the
+          // OneKey-side `addWalletStarted` + success/failure tracking here.
+          const ledgerDevice = deviceData.device as SearchDevice;
+          // Resolve the per-session transport from the tabValue passed by the
+          // Ledger entry points. Mirrors the OneKey pattern in useDeviceConnect
+          // (`forceTransportType || hardwareTransportType`) so the analytics
+          // event reflects the channel actually used for this connection, not
+          // the stale persisted setting.
+          //
+          // The resolver calls background services (devSetting / setting) over
+          // IPC and can fail. Per-session attribution is an analytics nice-to-
+          // have; it must not block Ledger wallet creation or suppress the
+          // walletAdded failure event. Fall back to the persisted setting on
+          // any error so the create + tracking pipeline runs unconditionally.
+          let forceTransportType: EHardwareTransportType | undefined;
+          if (ledgerTabValue) {
+            try {
+              forceTransportType = await getForceTransportType(ledgerTabValue);
+            } catch (transportResolveError) {
+              console.warn(
+                '[Ledger analytics] getForceTransportType failed; falling back to persisted hardwareTransportType',
+                transportResolveError,
+              );
+            }
+          }
+          const resolvedTransportType =
+            forceTransportType || hardwareTransportType;
+          defaultLogger.account.wallet.addWalletStarted({
+            addMethod: 'ConnectHWWallet',
+            details: {
+              hardwareWalletType: 'Standard',
+              communication: getHardwareCommunicationTypeString(
+                resolvedTransportType,
+              ),
               vendor: deviceData.vendor,
-            } as IOneKeyDeviceFeatures,
-            isFirmwareVerified: true,
-            defaultIsTemp: true,
-            vendor: deviceData.vendor,
+            },
+            isSoftwareWalletOnlyUser,
           });
+          try {
+            await actions.current.createHWWalletWithoutHidden({
+              device: ledgerDevice,
+              hideCheckingDeviceLoading: true,
+              features: {
+                device_id: ledgerDevice?.deviceId || '',
+                vendor: deviceData.vendor,
+              } as IOneKeyDeviceFeatures,
+              isFirmwareVerified: true,
+              defaultIsTemp: true,
+              vendor: deviceData.vendor,
+            });
+            await trackHardwareWalletConnection({
+              status: 'success',
+              deviceType: ledgerDevice.deviceType,
+              hardwareTransportType: resolvedTransportType,
+              isSoftwareWalletOnlyUser,
+              vendor: deviceData.vendor,
+            });
+          } catch (createError) {
+            await trackHardwareWalletConnection({
+              status: 'failure',
+              deviceType: ledgerDevice.deviceType,
+              hardwareTransportType: resolvedTransportType,
+              isSoftwareWalletOnlyUser,
+              vendor: deviceData.vendor,
+            });
+            throw createError;
+          }
         } else {
           goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
           await connectDevice(deviceData.device as SearchDevice);
@@ -513,6 +583,9 @@ function FinalizeWalletSetupPage({
     createHWWallet,
     setPendingKeylessAutoConnectWalletId,
     goNextStep,
+    hardwareTransportType,
+    isSoftwareWalletOnlyUser,
+    ledgerTabValue,
   ]);
 
   useEffect(() => {

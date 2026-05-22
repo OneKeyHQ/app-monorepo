@@ -49,6 +49,7 @@ export class WalletScene extends BaseScene {
           details: {
             communication: params.details.communication,
             hardwareWalletType: params.details.hardwareWalletType,
+            ...(params.details.vendor && { vendor: params.details.vendor }),
           },
         };
 
@@ -115,6 +116,7 @@ export class WalletScene extends BaseScene {
             communication: params.details.communication,
             deviceType: params.details.deviceType,
             hardwareWalletType: params.details.hardwareWalletType,
+            ...(params.details.vendor && { vendor: params.details.vendor }),
             ...(params.details.firmwareVersions && {
               firmwareVersions: params.details.firmwareVersions,
             }),
