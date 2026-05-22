@@ -13,7 +13,10 @@ import {
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldHideBotWalletExport } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -24,9 +27,11 @@ import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
+import { WalletActionAddressList } from './WalletActionAddressList';
 import { WalletActionApprovals } from './WalletActionApprovals';
 import { WalletActionBulkSend } from './WalletActionBulkSend';
 import { WalletActionBuy } from './WalletActionBuy';
+import { WalletActionCoins } from './WalletActionCoins';
 import { WalletActionCopy } from './WalletActionCopy';
 import { WalletActionExport } from './WalletActionExport';
 import { WalletActionPerp } from './WalletActionPerp';
@@ -46,6 +51,25 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   const { config, getMoreActionGroups, getActionCustomization } =
     useWalletActionConfig();
 
+  const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
+  const isAddressListEnabled = useMemo(
+    () =>
+      Boolean(account?.id) &&
+      Boolean(network?.id) &&
+      Boolean(activeAccount?.wallet?.id) &&
+      accountUtils.isEnabledBtcFreshAddress({
+        enableBTCFreshAddress,
+        networkId: network?.id,
+        walletId: activeAccount?.wallet?.id,
+      }),
+    [
+      account?.id,
+      network?.id,
+      activeAccount?.wallet?.id,
+      enableBTCFreshAddress,
+    ],
+  );
+
   const rewardCenterConfig = getRewardCenterConfig({
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
@@ -57,6 +81,20 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
     });
     return settings;
   }, [network?.id]).result;
+
+  const isCoinsEnabled = useMemo(
+    () =>
+      Boolean(account?.id) &&
+      Boolean(network?.id) &&
+      Boolean(activeAccount?.wallet?.id) &&
+      Boolean(vaultSettings?.coinControlEnabled),
+    [
+      account?.id,
+      activeAccount?.wallet?.id,
+      network?.id,
+      vaultSettings?.coinControlEnabled,
+    ],
+  );
 
   const displaySignAndVerify = usePromiseResult(async () => {
     return vaultSettings?.enabledInternalSignAndVerify;
@@ -154,6 +192,10 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
               return !!rewardCenterConfig;
             case 'approvals':
               return isApprovalEnabled;
+            case 'addressList':
+              return isAddressListEnabled;
+            case 'coins':
+              return isCoinsEnabled;
             default:
               return config.moreActions.includes(action);
           }
@@ -173,6 +215,20 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
             case 'copy':
               return (
                 <WalletActionCopy key="copy" onClose={handleActionListClose} />
+              );
+            case 'addressList':
+              return (
+                <WalletActionAddressList
+                  key="addressList"
+                  onClose={handleActionListClose}
+                />
+              );
+            case 'coins':
+              return (
+                <WalletActionCoins
+                  key="coins"
+                  onClose={handleActionListClose}
+                />
               );
             case 'bulkSend':
               return (
@@ -302,6 +358,8 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
       displaySignAndVerify.result,
       rewardCenterConfig,
       isApprovalEnabled,
+      isAddressListEnabled,
+      isCoinsEnabled,
       getActionCustomization,
       devSettings?.settings?.showDevExportPrivateKey,
       isBotWallet,
