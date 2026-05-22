@@ -21,6 +21,10 @@ export type ICopyReferralCodeParams = {
   landingPage: string;
 };
 
+export type ICreatorProgramBannerParams = {
+  locale: string;
+};
+
 export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
@@ -139,6 +143,18 @@ export class PageScene extends BaseScene {
     address: string;
     networkId: string;
   }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public viewCreatorProgramBanner(params: ICreatorProgramBannerParams) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public clickCreatorProgramBanner(params: ICreatorProgramBannerParams) {
     return params;
   }
 }
