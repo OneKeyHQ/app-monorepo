@@ -12,6 +12,8 @@ import {
   FIRST_EVM_ADDRESS_PATH,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { resolveWalletCreatedAtForCreationRecord } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
 import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';
 import type {
@@ -70,6 +72,14 @@ import ServiceBase from './ServiceBase';
 
 import type { IDBWallet } from '../dbs/local/types';
 import type { IWalletReferralCode } from '../dbs/simple/entity/SimpleDbEntityReferralCode';
+
+// Background best-effort referral endpoints share this options bag: in
+// production we don't want unhealthy backends to surface scary error toasts
+// to users; in dev/test we keep the toast so issues are visible during QA.
+// `as any` because `autoHandleError` is read from the axios config by
+// OneKey's interceptor but isn't on axios's own AxiosRequestConfig type.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const SILENT_IN_PROD = { autoHandleError: !platformEnv.isProduction } as any;
 
 @backgroundClass()
 class ServiceReferralCode extends ServiceBase {
@@ -677,7 +687,13 @@ class ServiceReferralCode extends ServiceBase {
       return;
     }
     const client = await this.getClient(EServiceEndpointEnum.Rebate);
-    await client.post('/rebate/v1/wallet/creation-records', { items });
+    // Best-effort background write; the startup migration retries from the
+    // cached creation timestamp on failure.
+    await client.post(
+      '/rebate/v1/wallet/creation-records',
+      { items },
+      SILENT_IN_PROD,
+    );
   }
 
   @backgroundMethod()
@@ -766,9 +782,11 @@ class ServiceReferralCode extends ServiceBase {
   @backgroundMethod()
   async batchCheckWalletsBoundReferralCodeV2(items: IBatchCheckWalletItem[]) {
     const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    // Bind-status checks gate dialogs / nudges; skip the prompt silently in
+    // production rather than toast a backend error to the user.
     const response = await client.post<{
       data: IBatchCheckWalletV2Response;
-    }>('/rebate/v1/wallet/batch-check-v2', { items });
+    }>('/rebate/v1/wallet/batch-check-v2', { items }, SILENT_IN_PROD);
     return response.data.data;
   }
 
@@ -820,6 +838,13 @@ class ServiceReferralCode extends ServiceBase {
     try {
       wallet = await this.backgroundApi.serviceAccount.getWallet({ walletId });
       if (accountUtils.isHwHiddenWallet({ wallet })) {
+        return null;
+      }
+      // Referral binding is a OneKey-specific feature. Third-party hardware
+      // (Ledger / Trezor) hides the ActionList entry in WalletEditButton via
+      // `isThirdPartyVendorWallet`; mirror that here so the onboarding
+      // invite-code dialog also skips these wallets.
+      if (getVendorProfile(wallet?.associatedDeviceInfo?.vendor).isThirdParty) {
         return null;
       }
     } catch {
