@@ -34,7 +34,7 @@ import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useAppRoute } from '../../hooks/useAppRoute';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
-import { useEarnActions } from '../../states/jotai/contexts/earn';
+import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 import { BorrowHome } from '../Borrow/pages/BorrowHome';
 import { isBorrowTag } from '../Staking/utils/utils';
 
@@ -48,6 +48,7 @@ import { Overview } from './components/Overview';
 import { getEarnFocusState } from './EarnHome.utils';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { useBlockRegion } from './hooks/useBlockRegion';
+import { useEarnAccountKey } from './hooks/useEarnAccountKey';
 import { useEarnHideSmallAssets } from './hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
@@ -79,6 +80,8 @@ function BasicEarnHome({
 }) {
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
   const actions = useEarnActions();
+  const [{ earnAccount }] = useEarnAtom();
+  const earnAccountKey = useEarnAccountKey();
 
   const { isFetchingBlockResult, refreshBlockResult, blockResult } =
     useBlockRegion();
@@ -86,6 +89,7 @@ function BasicEarnHome({
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
   const [isEarnTabFocused, setIsEarnTabFocused] = useState(false);
   const [isEarnDataActive, setIsEarnDataActive] = useState(false);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const wasFocusedRef = useRef(false);
   const wasHiddenByModalRef = useRef(false);
   const shouldLogEnterEarnRef = useRef(false);
@@ -93,12 +97,42 @@ function BasicEarnHome({
   const { refresh: refreshEarnDataRaw, isLoading: portfolioLoading } =
     portfolioData;
 
+  const hasCachedOverviewValue = useMemo(() => {
+    const currentOverviewData =
+      earnAccountKey && earnAccount ? earnAccount[earnAccountKey] : undefined;
+
+    return (
+      currentOverviewData?.totalFiatValue !== undefined ||
+      currentOverviewData?.earnings24h !== undefined
+    );
+  }, [earnAccount, earnAccountKey]);
+  const hasVisiblePortfolioValue = useMemo(
+    () =>
+      hasCachedOverviewValue ||
+      portfolioData.investments.length > 0 ||
+      !portfolioData.earnTotalFiatValue.isZero() ||
+      !portfolioData.earnTotalEarnings24hFiatValue.isZero(),
+    [
+      hasCachedOverviewValue,
+      portfolioData.earnTotalEarnings24hFiatValue,
+      portfolioData.earnTotalFiatValue,
+      portfolioData.investments.length,
+    ],
+  );
   const isLoading = useMemo(() => {
     if (platformEnv.isNative && !showContent) {
       return false;
     }
-    return portfolioLoading;
-  }, [portfolioLoading, showContent]);
+    if (isManualRefreshing) {
+      return true;
+    }
+    return portfolioLoading && !hasVisiblePortfolioValue;
+  }, [
+    hasVisiblePortfolioValue,
+    isManualRefreshing,
+    portfolioLoading,
+    showContent,
+  ]);
 
   const { hideSmallAssets } = useEarnHideSmallAssets();
 
@@ -171,12 +205,25 @@ function BasicEarnHome({
     });
   }, [actions]);
 
-  const refreshEarnData = useCallback(async () => {
-    await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
-    await prefetchEarnAvailableAssets();
-    actions.current.triggerRefresh();
-    await refreshEarnDataRaw();
-  }, [actions, prefetchEarnAvailableAssets, refreshEarnDataRaw]);
+  const refreshEarnData = useCallback(
+    async ({ silent }: { silent?: boolean } = {}) => {
+      if (!silent) {
+        setIsManualRefreshing(true);
+      }
+
+      try {
+        await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
+        await prefetchEarnAvailableAssets();
+        actions.current.triggerRefresh();
+        await refreshEarnDataRaw();
+      } finally {
+        if (!silent) {
+          setIsManualRefreshing(false);
+        }
+      }
+    },
+    [actions, prefetchEarnAvailableAssets, refreshEarnDataRaw],
+  );
 
   const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
     // Pendle redeem/unstake is recorded as Sell, but it should still trigger
@@ -195,7 +242,7 @@ function BasicEarnHome({
 
   useEffect(() => {
     if (previousIsPendingRef.current && !isPending) {
-      void refreshEarnData();
+      void refreshEarnData({ silent: true });
     }
     previousIsPendingRef.current = isPending;
   }, [isPending, refreshEarnData]);
