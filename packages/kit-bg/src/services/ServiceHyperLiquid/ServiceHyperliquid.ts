@@ -1770,11 +1770,10 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async fetchUserAbstraction(userAddress: IHex): Promise<string | undefined> {
+    const lowerUserAddress = userAddress.toLowerCase() as IHex;
     // Active-account alignment check
     const activeAccount = await perpsActiveAccountAtom.get();
-    if (
-      activeAccount?.accountAddress?.toLowerCase() !== userAddress.toLowerCase()
-    ) {
+    if (activeAccount?.accountAddress?.toLowerCase() !== lowerUserAddress) {
       return undefined;
     }
 
@@ -1785,10 +1784,21 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       // Re-check alignment after async call
       const currentAccount = await perpsActiveAccountAtom.get();
-      if (
-        currentAccount?.accountAddress?.toLowerCase() !==
-        userAddress.toLowerCase()
-      ) {
+      if (currentAccount?.accountAddress?.toLowerCase() !== lowerUserAddress) {
+        return undefined;
+      }
+
+      if (!mode) {
+        await this.backgroundApi.simpleDb.perp.clearUserAbstractionMode(
+          userAddress,
+        );
+        const postClearAccount = await perpsActiveAccountAtom.get();
+        if (
+          postClearAccount?.accountAddress?.toLowerCase() !== lowerUserAddress
+        ) {
+          return undefined;
+        }
+        await perpsAbstractionModeAtom.set(undefined);
         return undefined;
       }
 
@@ -1797,17 +1807,14 @@ export default class ServiceHyperliquid extends ServiceBase {
         mode,
       );
       await perpsAbstractionModeAtom.set({
-        accountAddress: userAddress.toLowerCase() as IHex,
+        accountAddress: lowerUserAddress,
         mode: mode as EHyperLiquidAbstractionMode,
       });
       return mode;
     } catch {
       // Fallback to SimpleDb cached value — need alignment checks around every await
       const preDbAccount = await perpsActiveAccountAtom.get();
-      if (
-        preDbAccount?.accountAddress?.toLowerCase() !==
-        userAddress.toLowerCase()
-      ) {
+      if (preDbAccount?.accountAddress?.toLowerCase() !== lowerUserAddress) {
         return undefined;
       }
       const cached =
@@ -1816,15 +1823,12 @@ export default class ServiceHyperliquid extends ServiceBase {
         );
       // Post-async alignment: user could have switched during SimpleDb read
       const postDbAccount = await perpsActiveAccountAtom.get();
-      if (
-        postDbAccount?.accountAddress?.toLowerCase() !==
-        userAddress.toLowerCase()
-      ) {
+      if (postDbAccount?.accountAddress?.toLowerCase() !== lowerUserAddress) {
         return undefined;
       }
       if (cached) {
         await perpsAbstractionModeAtom.set({
-          accountAddress: userAddress.toLowerCase() as IHex,
+          accountAddress: lowerUserAddress,
           mode: cached as EHyperLiquidAbstractionMode,
         });
         return cached;

@@ -1,4 +1,3 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -9,7 +8,7 @@ type IFetchUserAbstractionRawParams = {
 
 export type IFetchUserAbstractionRawWithCache = ((
   params: IFetchUserAbstractionRawParams,
-) => Promise<string>) & {
+) => Promise<string | undefined>) & {
   clear: () => void;
   delete: (params: IFetchUserAbstractionRawParams) => void;
 };
@@ -23,14 +22,10 @@ export function normalizeUserAbstractionRawCacheKey([{ accountAddress }]: [
 export function createFetchUserAbstractionRawWithCache(
   fetchRaw: (accountAddress: IHex) => Promise<string | undefined | null>,
 ): IFetchUserAbstractionRawWithCache {
-  return cacheUtils.memoizee(
+  const fetchWithCache = cacheUtils.memoizee(
     async ({ accountAddress }: IFetchUserAbstractionRawParams) => {
       const lowerAddress = accountAddress.toLowerCase() as IHex;
-      const mode = await fetchRaw(lowerAddress);
-      if (!mode) {
-        throw new OneKeyLocalError('userAbstraction empty result, skip cache');
-      }
-      return mode;
+      return fetchRaw(lowerAddress);
     },
     {
       max: 20,
@@ -39,6 +34,21 @@ export function createFetchUserAbstractionRawWithCache(
       promise: true,
     },
   ) as IFetchUserAbstractionRawWithCache;
+
+  const fetchWithoutEmptyCache = (async (
+    params: IFetchUserAbstractionRawParams,
+  ) => {
+    const mode = await fetchWithCache(params);
+    if (!mode) {
+      fetchWithCache.delete(params);
+      return undefined;
+    }
+    return mode;
+  }) as IFetchUserAbstractionRawWithCache;
+
+  fetchWithoutEmptyCache.clear = fetchWithCache.clear.bind(fetchWithCache);
+  fetchWithoutEmptyCache.delete = fetchWithCache.delete.bind(fetchWithCache);
+  return fetchWithoutEmptyCache;
 }
 
 export function invalidateUserAbstractionRawCache(

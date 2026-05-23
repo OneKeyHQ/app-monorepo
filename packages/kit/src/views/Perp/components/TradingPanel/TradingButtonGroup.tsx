@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useRef } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -120,6 +120,8 @@ function SideButtonInternal({
     () => getPerpsAccountKey(perpsAccount),
     [perpsAccount],
   );
+  const perpsAccountKeyRef = useRef(perpsAccountKey);
+  perpsAccountKeyRef.current = perpsAccountKey;
 
   const szDecimals = useMemo(() => {
     if (isSpot && activeTradeInstrument.mode === 'spot') {
@@ -581,10 +583,22 @@ function SideButtonInternal({
       }
 
       // Validation passed, proceed with order
+      let shouldIgnoreEnableTradingResult: (() => boolean) | undefined;
       if (shouldAutoEnableTrading) {
         if (perpsCustomSettings.skipOrderConfirm) {
-          const result = await enableTradingWithDepositFallback();
-          if (!result.shouldContinue) {
+          const enableTradingAccountKey = perpsAccountKey;
+          shouldIgnoreEnableTradingResult = () =>
+            Boolean(
+              enableTradingAccountKey &&
+              perpsAccountKeyRef.current !== enableTradingAccountKey,
+            );
+          const result = await enableTradingWithDepositFallback({
+            shouldIgnoreResult: shouldIgnoreEnableTradingResult,
+          });
+          if (
+            !result.shouldContinue ||
+            shouldIgnoreEnableTradingResult?.() === true
+          ) {
             return;
           }
           if (isNoEnoughMargin) {
@@ -608,6 +622,9 @@ function SideButtonInternal({
       }
 
       if (perpsCustomSettings.skipOrderConfirm) {
+        if (shouldIgnoreEnableTradingResult?.() === true) {
+          return;
+        }
         void handleConfirm(side);
       } else {
         showOrderConfirmDialog({

@@ -32,7 +32,7 @@ describe('userAbstraction raw cache', () => {
 
     await expect(
       fetchWithCache({ accountAddress: '0xabc' as IHex }),
-    ).rejects.toThrow('userAbstraction empty result, skip cache');
+    ).resolves.toBeUndefined();
     await new Promise((resolve) => setTimeout(resolve, 0));
     await expect(
       fetchWithCache({ accountAddress: '0xabc' as IHex }),

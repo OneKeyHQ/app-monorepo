@@ -76,6 +76,9 @@ export function useRequestEnableTradingWithDepositFallback() {
     async (
       options?: IRequestEnableTradingWithDepositFallbackOptions,
     ): Promise<IEnableTradingWithDepositFallbackResult> => {
+      if (options?.shouldIgnoreResult?.()) {
+        return { shouldContinue: false, status: undefined };
+      }
       const status = await requestEnableTrading();
       return handleEnableTradingPostStatus(status, options);
     },
@@ -88,11 +91,16 @@ export function useEnableTradingWithDepositFallback() {
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
 
-  return useCallback(async (): Promise<IEnableTradingWithDepositFallbackResult> => {
-    const didAcceptTerms = await confirmHyperliquidTerms();
-    if (!didAcceptTerms) {
-      return { shouldContinue: false, status: undefined };
-    }
-    return requestEnableTradingWithDepositFallback();
-  }, [confirmHyperliquidTerms, requestEnableTradingWithDepositFallback]);
+  return useCallback(
+    async (
+      options?: IRequestEnableTradingWithDepositFallbackOptions,
+    ): Promise<IEnableTradingWithDepositFallbackResult> => {
+      const didAcceptTerms = await confirmHyperliquidTerms();
+      if (!didAcceptTerms || options?.shouldIgnoreResult?.()) {
+        return { shouldContinue: false, status: undefined };
+      }
+      return requestEnableTradingWithDepositFallback(options);
+    },
+    [confirmHyperliquidTerms, requestEnableTradingWithDepositFallback],
+  );
 }
