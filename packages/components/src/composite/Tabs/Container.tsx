@@ -381,9 +381,7 @@ export function Container({
     (tabName, prevTabName) => {
       if (isEffectValid.current && prevTabName && tabName !== prevTabName) {
         isSwitchingTabRef.current = true;
-        const index = tabNamesRef.current.findIndex(
-          (name) => name === tabName,
-        );
+        const index = tabNamesRef.current.findIndex((name) => name === tabName);
         let scrollTop = scrollTopRef.current[tabName] || 0;
 
         // Execute DOM updates synchronously instead of inside startViewTransition.
@@ -483,14 +481,15 @@ export function Container({
         // no-op on web, only needed for native PagerView
       },
     }),
-    [containerRef, focusedTab, onTabPress],
+    [focusedTab, onTabPress],
   );
 
   // Memoised args for renderHeader/renderTabBar. tabNames identity may
   // legitimately change when children change; that's the only time these
   // need to be rebuilt (focusedTab and onTabPress are stable refs).
   const headerArgs = useMemo(
-    () => ({ focusedTab, tabNames, onTabPress } as any),
+    () =>
+      ({ focusedTab, tabNames, onTabPress }) as unknown as TabBarProps<string>,
     [focusedTab, tabNames, onTabPress],
   );
   const tabBarArgs = useMemo(
@@ -500,7 +499,7 @@ export function Container({
         tabNames,
         onTabPress,
         containerWidth,
-      } as any),
+      }) as unknown as TabBarProps<string>,
     [focusedTab, tabNames, onTabPress, containerWidth],
   );
 

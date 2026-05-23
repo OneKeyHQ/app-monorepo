@@ -397,6 +397,12 @@ function useHyperliquidEventBusListener() {
       handleConnectionChange,
     );
 
+    // Capture actions at effect setup so the cleanup path does not access
+    // ref.current directly (react-hooks lint). The store-recreation case
+    // (see comment in useHyperliquidActions) only matters for the long-lived
+    // event handlers above, which keep reading actions.current.
+    const cleanupActions = actions.current;
+
     return () => {
       if (assetCtxsTimerRef.current) {
         clearTimeout(assetCtxsTimerRef.current);
@@ -404,7 +410,7 @@ function useHyperliquidEventBusListener() {
       }
       if (assetCtxsDirtyRef.current) {
         try {
-          void actions.current.updateAllDexsAssetCtxs(assetCtxsDirtyRef.current);
+          void cleanupActions.updateAllDexsAssetCtxs(assetCtxsDirtyRef.current);
         } catch {
           // unmount path; swallow
         }
@@ -416,7 +422,7 @@ function useHyperliquidEventBusListener() {
       }
       if (l2BookDirtyRef.current) {
         try {
-          void actions.current.updateL2Book(l2BookDirtyRef.current);
+          void cleanupActions.updateL2Book(l2BookDirtyRef.current);
         } catch {
           // unmount path; swallow
         }
@@ -428,7 +434,7 @@ function useHyperliquidEventBusListener() {
       }
       if (bboDirtyRef.current) {
         try {
-          void actions.current.updateBbo(bboDirtyRef.current);
+          void cleanupActions.updateBbo(bboDirtyRef.current);
         } catch {
           // unmount path; swallow
         }
@@ -440,7 +446,7 @@ function useHyperliquidEventBusListener() {
       }
       if (allMidsDirtyRef.current) {
         try {
-          void actions.current.updateAllMids(allMidsDirtyRef.current);
+          void cleanupActions.updateAllMids(allMidsDirtyRef.current);
         } catch {
           // unmount path; swallow
         }
