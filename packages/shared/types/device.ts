@@ -133,6 +133,8 @@ export type IDevicePassphraseParams = {
 };
 export type IDeviceWebUSBParams = {
   skipWebDevicePrompt?: boolean;
+  /** Pre-warm signal; whether it takes effect is decided by the SDK method's allowUsePreInitialize (sign methods only) */
+  usePreInitialize?: boolean;
 };
 export type IDeviceCommonParams = IDevicePassphraseParams & IDeviceWebUSBParams;
 export type IDeviceCommonParamsFull = CommonParams;

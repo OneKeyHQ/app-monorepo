@@ -3037,6 +3037,8 @@ class ServiceAccount extends ServiceBase {
       deviceCommonParams: {
         passphraseState: wallet?.passphraseState,
         useEmptyPassphrase: !wallet.passphraseState,
+        // Pre-warm signal; only sign methods honor it (getAddress etc. just MISS)
+        usePreInitialize: true,
       },
     };
   }
