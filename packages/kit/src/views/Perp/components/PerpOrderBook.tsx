@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,9 +12,9 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useActiveTradeInstrumentAtom,
-  useConnectionStateAtom,
   useHyperliquidActions,
   useOrderBookTickOptionsAtom,
   useTradingFormAtom,
@@ -25,6 +25,7 @@ import {
   usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import { useL2Book } from '../hooks/usePerpMarketData';
@@ -49,10 +50,7 @@ function MobileHeader({
   const intl = useIntl();
   const countdown = useFundingCountdown();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const [connectionState] = useConnectionStateAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const hasError = connectionState.reconnectCount > 3;
-  const isReady = connectionState.isConnected && !hasError;
   const isSpot = activeTradeInstrument.mode === 'spot';
 
   const { fundingRate, markPrice } = assetCtx?.ctx || {
@@ -82,10 +80,7 @@ function MobileHeader({
     : '--';
   const markPriceNumber = parseFloat(markPrice);
   const showSkeleton =
-    !isReady ||
-    hasError ||
-    !Number.isFinite(markPriceNumber) ||
-    markPriceNumber === 0;
+    !Number.isFinite(markPriceNumber) || markPriceNumber === 0;
 
   return (
     <Popover
@@ -333,6 +328,7 @@ export function PerpOrderBook({
 }) {
   const { gtMd } = useMedia();
   const actionsRef = useHyperliquidActions();
+  const l2BookSnapshotRequestKeyRef = useRef<string | undefined>(undefined);
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
@@ -356,6 +352,101 @@ export function PerpOrderBook({
     nSigFigs: l2SubscriptionOptions.nSigFigs,
     mantissa: l2SubscriptionOptions.mantissa,
   });
+
+  useEffect(() => {
+    if (hasOrderBook && l2Book) {
+      markPerpsColdStartPerfOnce('ui_order_book_ready', {
+        coin: l2Book.coin,
+        bidLevels: l2Book.bids.length,
+        askLevels: l2Book.asks.length,
+      });
+    }
+  }, [hasOrderBook, l2Book]);
+
+  useEffect(() => {
+    if (!activeTradeInstrument.coin) {
+      return;
+    }
+    const requestKey = [
+      activeTradeInstrument.mode,
+      activeTradeInstrument.coin,
+      l2SubscriptionOptions.nSigFigs ?? '',
+      l2SubscriptionOptions.mantissa ?? '',
+    ].join(':');
+    if (l2BookSnapshotRequestKeyRef.current === requestKey) {
+      return;
+    }
+    l2BookSnapshotRequestKeyRef.current = requestKey;
+    let cancelled = false;
+    const applyBook = (
+      book: Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.serviceHyperliquid.getL2BookSnapshot
+        >
+      >,
+    ) => {
+      if (cancelled || !book) {
+        return;
+      }
+      void actionsRef.current.updateL2Book(book);
+    };
+
+    void backgroundApiProxy.serviceHyperliquid
+      .getL2BookSnapshotCache({
+        coin: activeTradeInstrument.coin,
+        nSigFigs: l2SubscriptionOptions.nSigFigs,
+        mantissa: l2SubscriptionOptions.mantissa,
+      })
+      .then((book) => {
+        applyBook(book);
+        if (book) {
+          markPerpsColdStartPerfOnce('ui_l2_book_cache_applied_first', {
+            coin: book.coin,
+            bidLevels: book.levels?.[0]?.length ?? 0,
+            askLevels: book.levels?.[1]?.length ?? 0,
+          });
+        }
+      })
+      .catch((error) => {
+        markPerpsColdStartPerfOnce('ui_l2_book_cache_error_first');
+        console.error('[PerpOrderBook] Failed to load l2Book cache:', error);
+      });
+
+    markPerpsColdStartPerfOnce('ui_l2_book_snapshot_request_first', {
+      coin: activeTradeInstrument.coin,
+      mode: activeTradeInstrument.mode,
+    });
+    void backgroundApiProxy.serviceHyperliquid
+      .getL2BookSnapshot({
+        coin: activeTradeInstrument.coin,
+        nSigFigs: l2SubscriptionOptions.nSigFigs,
+        mantissa: l2SubscriptionOptions.mantissa,
+      })
+      .then((book) => {
+        applyBook(book);
+        if (!book) {
+          return;
+        }
+        markPerpsColdStartPerfOnce('ui_l2_book_snapshot_applied_first', {
+          coin: book.coin,
+          bidLevels: book.levels?.[0]?.length ?? 0,
+          askLevels: book.levels?.[1]?.length ?? 0,
+        });
+      })
+      .catch((error) => {
+        markPerpsColdStartPerfOnce('ui_l2_book_snapshot_error_first');
+        console.error('[PerpOrderBook] Failed to load l2Book snapshot:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    actionsRef,
+    activeTradeInstrument.coin,
+    activeTradeInstrument.mode,
+    l2SubscriptionOptions.mantissa,
+    l2SubscriptionOptions.nSigFigs,
+  ]);
 
   const tickOptionsData = useTickOptions({
     symbol: l2Book?.coin,

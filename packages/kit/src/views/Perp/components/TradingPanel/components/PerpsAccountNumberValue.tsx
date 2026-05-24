@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 import {
   NumberSizeableText,
   SizableText,
@@ -8,6 +10,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 
 import type { FontSizeTokens } from 'tamagui';
 
@@ -24,6 +27,17 @@ export function PerpsAccountNumberValue({
   const [selectedAccount] = usePerpsActiveAccountAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const userAddress = selectedAccount.accountAddress;
+  useEffect(() => {
+    if (
+      !perpsAccountLoading?.selectAccountLoading &&
+      accountSummary &&
+      userAddress
+    ) {
+      markPerpsColdStartPerfOnce('ui_account_summary_ready', {
+        accountAddress: 'set',
+      });
+    }
+  }, [accountSummary, perpsAccountLoading?.selectAccountLoading, userAddress]);
   if (perpsAccountLoading?.selectAccountLoading) {
     return <Skeleton width={skeletonWidth} height={16} />;
   }

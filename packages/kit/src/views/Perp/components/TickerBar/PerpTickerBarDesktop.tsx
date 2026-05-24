@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 
 import { isString } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -31,6 +31,7 @@ import {
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -52,7 +53,7 @@ const TICKER_BAR_STAT_VALUE_TEXT_PROPS = {
 } as const;
 
 function useTickerBarIsLoading() {
-  const { isReady, hasError } = usePerpSession();
+  const { currentToken } = usePerpSession();
   const [tradingMode] = useTradingModeAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
@@ -67,7 +68,12 @@ function useTickerBarIsLoading() {
   const { markPrice } = assetCtx?.ctx || {
     markPrice: '0',
   };
-  return !isReady || hasError || parseFloat(markPrice) === 0;
+  const markPriceNumber = Number.parseFloat(markPrice);
+  return (
+    assetCtx?.coin !== currentToken ||
+    !Number.isFinite(markPriceNumber) ||
+    markPriceNumber === 0
+  );
 }
 
 const TickerBarMarkPriceView = memo(
@@ -119,6 +125,14 @@ function TickerBarMarkPrice() {
     ? formatLocalizedNumberString(spotAssetCtx?.ctx?.markPrice || '')
     : assetCtx?.ctx?.markPrice || '';
   const isLoading = useTickerBarIsLoading();
+  useEffect(() => {
+    if (!isLoading && formattedMarkPrice) {
+      markPerpsColdStartPerfOnce('ui_ticker_bar_mark_price_ready', {
+        mode: tradingMode,
+        price: formattedMarkPrice,
+      });
+    }
+  }, [formattedMarkPrice, isLoading, tradingMode]);
   return (
     <TickerBarMarkPriceView
       formattedMarkPrice={formattedMarkPrice}

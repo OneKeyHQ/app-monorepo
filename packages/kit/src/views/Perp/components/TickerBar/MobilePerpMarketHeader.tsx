@@ -14,13 +14,13 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useConnectionStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetCtxAtom,
   useSpotActiveAssetCtxAtom,
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import {
   formatLocalizedNumberString,
   numberFormat,
@@ -49,13 +49,10 @@ function StatRow({ label, children }: { label: string; children: ReactNode }) {
 function MobilePerpMarketHeader() {
   const intl = useIntl();
   const { coin, mode } = useActiveTradeDisplay();
-  const [connectionState] = useConnectionStateAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
-  const hasError = connectionState.reconnectCount > 3;
-  const isReady = connectionState.isConnected && !hasError;
   const isSpot = mode === 'spot';
   const spotCtxForActiveCoin =
     spotAssetCtx?.coin === coin ? spotAssetCtx.ctx : undefined;
@@ -96,11 +93,20 @@ function MobilePerpMarketHeader() {
     [fundingRate],
   );
 
-  const showSkeleton =
-    !isReady ||
-    hasError ||
-    !Number.isFinite(midPriceNumber) ||
-    midPriceNumber === 0;
+  const showSkeleton = !Number.isFinite(midPriceNumber) || midPriceNumber === 0;
+
+  useEffect(() => {
+    if (showSkeleton) {
+      return;
+    }
+
+    markPerpsColdStartPerfOnce('ui_mobile_market_header_ready', {
+      coin,
+      mode,
+      markPrice,
+      midPrice,
+    });
+  }, [coin, markPrice, midPrice, mode, showSkeleton]);
 
   const fundingColor = fundingRateNumber >= 0 ? '$green11' : '$red11';
   const fundingDisplay = Number.isFinite(fundingRateNumber)

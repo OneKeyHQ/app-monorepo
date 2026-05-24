@@ -5,10 +5,12 @@ import {
 } from '@onekeyhq/shared/src/consts/perp';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
+  IBook,
   IMarginTableMap as IMarginTablesMap,
   IPerpsUniverse,
   ISpotToken,
   ISpotUniverse,
+  IWsActiveAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IHyperLiquidErrorLocaleItem,
@@ -26,6 +28,18 @@ export type IHyperliquidCustomSettings = {
   hideNotOneKeyWalletConnectButton?: boolean;
   skipOrderConfirm?: boolean;
 };
+export type IPerpsActiveAssetCtxSnapshotCacheEntry = {
+  data: IWsActiveAssetCtx;
+  updatedAt: number;
+};
+
+export type IPerpsL2BookSnapshotCacheEntry = {
+  data: IBook;
+  updatedAt: number;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+};
+
 export interface ISimpleDbPerpData {
   hyperliquidBuilderAddress?: string;
   hyperliquidMaxBuilderFee?: number;
@@ -70,12 +84,47 @@ export interface ISimpleDbPerpData {
   perpsAssetMetaMap?: IPerpsAssetMetaMap; // perps asset metadata map from server
   spotTokens?: ISpotToken[]; // all spot tokens metadata
   spotUniverses?: ISpotUniverse[]; // spot trading pairs with resolved names
+  activeAssetCtxSnapshotCache?: Record<
+    string,
+    IPerpsActiveAssetCtxSnapshotCacheEntry
+  >;
+  l2BookSnapshotCache?: Record<string, IPerpsL2BookSnapshotCacheEntry>;
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   entityName = 'perp';
 
   override enableCache = true;
+
+  private _isCacheEntryFresh(updatedAt: number | undefined, maxAgeMs: number) {
+    if (!updatedAt || maxAgeMs <= 0) {
+      return false;
+    }
+    return Date.now() - updatedAt <= maxAgeMs;
+  }
+
+  private _getL2BookSnapshotCacheKey({
+    coin,
+    nSigFigs,
+    mantissa,
+  }: {
+    coin: string;
+    nSigFigs?: number | null;
+    mantissa?: number | null;
+  }) {
+    return [coin, nSigFigs ?? '', mantissa ?? ''].join(':');
+  }
+
+  private _limitSnapshotCacheEntries<T extends { updatedAt: number }>(
+    entries: Record<string, T>,
+    limit = 24,
+  ): Record<string, T> {
+    return Object.fromEntries(
+      Object.entries(entries)
+        .toSorted((a, b) => b[1].updatedAt - a[1].updatedAt)
+        .slice(0, limit),
+    );
+  }
 
   @backgroundMethod()
   async getHyperliquidTermsAccepted(): Promise<boolean> {
@@ -195,6 +244,104 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         tradingUniverse: universes?.[0],
       }),
     );
+  }
+
+  @backgroundMethod()
+  async getActiveAssetCtxSnapshotCache({
+    coin,
+    maxAgeMs,
+  }: {
+    coin: string;
+    maxAgeMs: number;
+  }): Promise<IPerpsActiveAssetCtxSnapshotCacheEntry | undefined> {
+    const config = await this.getPerpData();
+    const entry = config.activeAssetCtxSnapshotCache?.[coin];
+    if (!this._isCacheEntryFresh(entry?.updatedAt, maxAgeMs)) {
+      return undefined;
+    }
+    return entry;
+  }
+
+  @backgroundMethod()
+  async setActiveAssetCtxSnapshotCache(data: IWsActiveAssetCtx) {
+    if (!data?.coin) {
+      return;
+    }
+    await this.setPerpData((prev): ISimpleDbPerpData => {
+      const nextCache = {
+        ...prev?.activeAssetCtxSnapshotCache,
+        [data.coin]: {
+          data,
+          updatedAt: Date.now(),
+        },
+      };
+      return {
+        ...prev,
+        activeAssetCtxSnapshotCache: this._limitSnapshotCacheEntries(nextCache),
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async getL2BookSnapshotCache({
+    coin,
+    nSigFigs,
+    mantissa,
+    maxAgeMs,
+  }: {
+    coin: string;
+    nSigFigs?: number | null;
+    mantissa?: number | null;
+    maxAgeMs: number;
+  }): Promise<IPerpsL2BookSnapshotCacheEntry | undefined> {
+    const config = await this.getPerpData();
+    const key = this._getL2BookSnapshotCacheKey({
+      coin,
+      nSigFigs,
+      mantissa,
+    });
+    const entry = config.l2BookSnapshotCache?.[key];
+    if (!this._isCacheEntryFresh(entry?.updatedAt, maxAgeMs)) {
+      return undefined;
+    }
+    return entry;
+  }
+
+  @backgroundMethod()
+  async setL2BookSnapshotCache({
+    coin,
+    nSigFigs,
+    mantissa,
+    data,
+  }: {
+    coin: string;
+    nSigFigs?: number | null;
+    mantissa?: number | null;
+    data: IBook;
+  }) {
+    if (!coin || !data) {
+      return;
+    }
+    await this.setPerpData((prev): ISimpleDbPerpData => {
+      const key = this._getL2BookSnapshotCacheKey({
+        coin,
+        nSigFigs,
+        mantissa,
+      });
+      const nextCache = {
+        ...prev?.l2BookSnapshotCache,
+        [key]: {
+          data,
+          updatedAt: Date.now(),
+          nSigFigs,
+          mantissa,
+        },
+      };
+      return {
+        ...prev,
+        l2BookSnapshotCache: this._limitSnapshotCacheEntries(nextCache),
+      };
+    });
   }
 
   @backgroundMethod()

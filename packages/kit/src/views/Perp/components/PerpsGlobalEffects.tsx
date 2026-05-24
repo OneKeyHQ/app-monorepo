@@ -34,6 +34,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  markPerpsColdStartPerf,
+  markPerpsColdStartPerfOnce,
+  resetPerpsColdStartPerfSession,
+} from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { useDebugHooksDepsChangedChecker } from '@onekeyhq/shared/src/utils/debug/debugUtils';
@@ -98,6 +103,13 @@ function nextRouteSubscriptionStateVersion() {
 
 function resolvePerpRouteFocused(isFocus: boolean) {
   return shouldTreatPerpAsFocusedOnMount || isFocus;
+}
+
+function hasTradingUniverseCache(data: {
+  universesByDex?: unknown[][];
+  marginTablesMapByDex?: unknown[];
+}) {
+  return Boolean(data.universesByDex?.some((items) => items?.length > 0));
 }
 
 async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
@@ -209,12 +221,23 @@ function useTradeRouteViewStateSync() {
       actions.current.setTradeRouteViewState({
         routeFocused: resolvePerpRouteFocused(isFocus) && !isHiddenByModal,
       });
+      if (resolvePerpRouteFocused(isFocus) && !isHiddenByModal) {
+        resetPerpsColdStartPerfSession();
+        markPerpsColdStartPerf('route_focused');
+      } else {
+        markPerpsColdStartPerf('route_blurred', {
+          isFocus,
+          isHiddenByModal,
+        });
+      }
     },
   );
 
   useEffect(() => {
     const actionsRef = actions.current;
     if (shouldTreatPerpAsFocusedOnMount) {
+      resetPerpsColdStartPerfSession();
+      markPerpsColdStartPerf('route_focused_on_mount');
       actionsRef.setTradeRouteViewState({
         routeFocused: true,
       });
@@ -286,6 +309,9 @@ function useHyperliquidEventBusListener() {
         metadata?: { source?: string; timestamp?: number };
       };
       const { subType, data } = eventPayload;
+      markPerpsColdStartPerfOnce(`event_bus_first_${subType}`, {
+        source: eventPayload.metadata?.source,
+      });
 
       try {
         switch (subType) {
@@ -792,6 +818,14 @@ function WebSocketSubscriptionUpdate() {
           plan.shouldSyncSubscriptions &&
           isInstrumentBackedBySubscriptionState
         ) {
+          markPerpsColdStartPerf('ui_update_subscriptions_call', {
+            accountAddress: accountAddress ? 'set' : 'empty',
+            coin: instrumentCoin,
+            mode: instrumentMode,
+            routeFocused,
+            tokenSelectorOpen,
+            infoPanelTab,
+          });
           await actions.current.updateSubscriptions();
         }
       } catch (error) {
@@ -831,42 +865,144 @@ function useHyperliquidSymbolSelect() {
 
   const selectInitialSymbol = useCallback(async () => {
     if (isInitializingRef.current) {
+      markPerpsColdStartPerf('initial_symbol_skip_initializing');
       return;
     }
     isInitializingRef.current = true;
+    markPerpsColdStartPerf('initial_symbol_start', {
+      activeCoin: activeTradeInstrumentRef.current?.coin,
+    });
     try {
       // OK-53208: latch lives in ServiceHyperliquid (singleton) so that
       // Perp tab detach/remount does not re-trigger this init.
       const claimed =
         await backgroundApiProxy.serviceHyperliquid.tryClaimInitialSymbolSelect();
+      markPerpsColdStartPerf('initial_symbol_claimed', {
+        claimed,
+        activeCoin: activeTradeInstrumentRef.current?.coin,
+      });
       if (!claimed && activeTradeInstrumentRef.current?.coin) {
         return;
       }
       if (claimed) {
-        try {
-          await Promise.all([
-            backgroundApiProxy.serviceHyperliquid.refreshTradingMeta(),
-            // Spot meta failure must not block perps initialization.
-            backgroundApiProxy.serviceHyperliquid
-              .refreshSpotMeta()
-              .catch((e) => {
-                console.error('refreshSpotMeta failed (non-blocking):', e);
-              }),
-          ]);
-        } catch (error) {
-          // Offline entry should still hydrate UI context from persisted BG
-          // atoms.
-          console.error('refreshTradingMeta failed before symbol sync:', error);
+        markPerpsColdStartPerf('initial_symbol_refresh_meta_background_start');
+        let refreshTradingMetaPromise: Promise<void> | undefined;
+        const refreshTradingMeta = () => {
+          if (refreshTradingMetaPromise) {
+            return refreshTradingMetaPromise;
+          }
+          refreshTradingMetaPromise = (async () => {
+            markPerpsColdStartPerf('initial_symbol_refresh_trading_meta_start');
+            await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+            markPerpsColdStartPerf('initial_symbol_refresh_trading_meta_end');
+          })().catch((error) => {
+            // Offline entry should still hydrate UI context from persisted BG atoms.
+            markPerpsColdStartPerf('initial_symbol_refresh_trading_meta_error');
+            console.error(
+              'refreshTradingMeta failed before symbol sync:',
+              error,
+            );
+          });
+          return refreshTradingMetaPromise;
+        };
+        const refreshSpotMeta = (delayMs: number) => {
+          void (async () => {
+            if (delayMs > 0) {
+              markPerpsColdStartPerf('initial_symbol_defer_spot_meta_refresh', {
+                delayMs,
+              });
+              await timerUtils.wait(delayMs);
+            }
+            try {
+              markPerpsColdStartPerf('initial_symbol_refresh_spot_meta_start');
+              await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
+              markPerpsColdStartPerf('initial_symbol_refresh_spot_meta_end');
+            } catch (e) {
+              markPerpsColdStartPerf('initial_symbol_refresh_spot_meta_error');
+              console.error('refreshSpotMeta failed (non-blocking):', e);
+            }
+          })();
+        };
+        const deferTradingMetaRefresh = (delayMs: number) => {
+          void (async () => {
+            markPerpsColdStartPerf(
+              'initial_symbol_defer_trading_meta_refresh',
+              {
+                delayMs,
+              },
+            );
+            await timerUtils.wait(delayMs);
+            await refreshTradingMeta();
+          })();
+        };
+
+        const tradingUniverse =
+          await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+        const hasCachedTradingUniverse =
+          hasTradingUniverseCache(tradingUniverse);
+        markPerpsColdStartPerf('initial_symbol_trading_universe_cache', {
+          hasCachedTradingUniverse,
+          universeCounts: tradingUniverse.universesByDex?.map(
+            (items) => items?.length ?? 0,
+          ),
+        });
+        if (!hasCachedTradingUniverse) {
+          markPerpsColdStartPerf('initial_symbol_wait_trading_meta_no_cache');
+          await refreshTradingMeta();
+        } else {
+          deferTradingMetaRefresh(1200);
         }
+        refreshSpotMeta(1800);
       }
+      markPerpsColdStartPerf('initial_symbol_build_switch_params_start');
       const switchParams = await buildActiveInstrumentSwitchParamsFromGlobal({
         force: true,
+      });
+      markPerpsColdStartPerf('initial_symbol_build_switch_params_end', {
+        hasSwitchParams: !!switchParams,
+        coin: switchParams?.coin,
+        mode: switchParams?.mode,
       });
       if (!switchParams) {
         return;
       }
+      if (switchParams.mode === 'perp') {
+        void backgroundApiProxy.serviceHyperliquid
+          .refreshActiveAssetCtxSnapshot({ coin: switchParams.coin })
+          .catch((error) => {
+            markPerpsColdStartPerf('initial_symbol_active_ctx_snapshot_error', {
+              coin: switchParams.coin,
+            });
+            console.error(
+              'refreshActiveAssetCtxSnapshot failed (non-blocking):',
+              error,
+            );
+          });
+      }
+      markPerpsColdStartPerf('initial_symbol_switch_trade_instrument_start', {
+        coin: switchParams.coin,
+        mode: switchParams.mode,
+      });
       await actions.current.switchTradeInstrument(switchParams);
+      markPerpsColdStartPerf('initial_symbol_switch_trade_instrument_end', {
+        coin: switchParams.coin,
+        mode: switchParams.mode,
+      });
+      if (switchParams.mode === 'perp') {
+        void backgroundApiProxy.serviceHyperliquid
+          .hydrateActiveAssetCtxSnapshotCache({ coin: switchParams.coin })
+          .catch((error) => {
+            markPerpsColdStartPerf('initial_symbol_active_ctx_cache_error', {
+              coin: switchParams.coin,
+            });
+            console.error(
+              'hydrateActiveAssetCtxSnapshotCache failed (non-blocking):',
+              error,
+            );
+          });
+      }
     } finally {
+      markPerpsColdStartPerf('initial_symbol_end');
       isInitializingRef.current = false;
     }
   }, [actions]);

@@ -32,6 +32,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  markPerpsColdStartPerf,
+  markPerpsColdStartPerfOnce,
+} from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -322,6 +326,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   }
 
   updateAllMids = contextAtomMethod((_, set, data: HL.IWsAllMids) => {
+    markPerpsColdStartPerfOnce('atom_set_all_mids_first', {
+      midsCount: Object.keys(data?.mids ?? {}).length,
+    });
     set(perpsAllMidsAtom(), data);
   });
 
@@ -341,10 +348,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateAllAssetCtxs = contextAtomMethod((_, set, data: HL.IWsWebData2) => {
     if (this.allAssetCtxsRequiredNumber <= 0) {
       // skip update if not required for better performance
+      markPerpsColdStartPerfOnce('atom_set_web_data2_asset_ctxs_skipped_first');
       return;
     }
     // just save raw ctxs here
     // use usePerpsAssetCtx() for single asset ctx with ctx formatted
+    markPerpsColdStartPerfOnce('atom_set_web_data2_asset_ctxs_first', {
+      ctxCount: data.assetCtxs?.length ?? 0,
+    });
     set(perpsAllAssetCtxsAtom(), {
       assetCtxsByDex: [data.assetCtxs || []],
     });
@@ -618,6 +629,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const xyzCtx = ctxMap.get('xyz') ?? [];
       ctxsByDex[0] = perpsCtx;
       ctxsByDex[1] = xyzCtx;
+      markPerpsColdStartPerfOnce('atom_set_all_dexs_asset_ctxs_first', {
+        perpsCtxCount: perpsCtx.length,
+        xyzCtxCount: xyzCtx.length,
+      });
       set(perpsAllAssetCtxsAtom(), {
         assetCtxsByDex: ctxsByDex,
       });
@@ -828,6 +843,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (ContextJotaiActionsHyperliquid._isL2BookEqual(currentBook, data)) {
         return;
       }
+      markPerpsColdStartPerfOnce('atom_set_l2_book_first', {
+        coin: data.coin,
+        bidLevels: data.levels?.[0]?.length ?? 0,
+        askLevels: data.levels?.[1]?.length ?? 0,
+      });
       set(l2BookAtom(), data);
     } else {
       const currentBook = get(l2BookAtom());
@@ -1232,6 +1252,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         spotUniverse?: ISpotUniverse;
       },
     ) => {
+      markPerpsColdStartPerf('action_switch_trade_instrument_start', {
+        mode: params.mode,
+        coin: params.coin,
+        force: !!params.force,
+      });
       const requestId = this.beginActiveInstrumentChange();
       if (params.mode === 'spot') {
         let spotUniverse = params.spotUniverse;
@@ -1243,18 +1268,30 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
           spotUniverse = universes.find((item) => item.name === params.coin);
         }
-        return this.changeActiveSpotAsset.call(set, {
+        const result = await this.changeActiveSpotAsset.call(set, {
           coin: params.coin,
           spotUniverse,
           requestId,
         });
+        markPerpsColdStartPerf('action_switch_trade_instrument_end', {
+          mode: params.mode,
+          coin: params.coin,
+          result,
+        });
+        return result;
       }
 
-      return this.changeActiveAsset.call(set, {
+      const result = await this.changeActiveAsset.call(set, {
         coin: params.coin,
         force: params.force,
         requestId,
       });
+      markPerpsColdStartPerf('action_switch_trade_instrument_end', {
+        mode: params.mode,
+        coin: params.coin,
+        result,
+      });
+      return result;
     },
   );
 
@@ -1295,6 +1332,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   );
 
   updateSubscriptions = contextAtomMethod(async (_get, _set) => {
+    markPerpsColdStartPerf('action_update_subscriptions_start');
     try {
       // UI/BG split means this UI-local flag can be stale while the BG socket
       // is already open. Let the BG service own socket recovery; calling
@@ -1305,6 +1343,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         '[HyperliquidActions.updateSubscriptions] Failed to update subscriptions:',
         error,
       );
+    } finally {
+      markPerpsColdStartPerf('action_update_subscriptions_end');
     }
   });
 

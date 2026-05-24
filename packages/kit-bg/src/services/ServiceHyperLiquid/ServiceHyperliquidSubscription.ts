@@ -14,6 +14,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  markPerpsColdStartPerf,
+  markPerpsColdStartPerfOnce,
+} from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isAppVisible } from '@onekeyhq/shared/src/utils/appVisibility';
@@ -388,11 +392,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async updateSubscriptions(): Promise<void> {
+    markPerpsColdStartPerf('service_update_subscriptions_start');
     if (this.subscriptionsHandlerDisabled) {
+      markPerpsColdStartPerf('service_update_subscriptions_skipped_disabled');
       return;
     }
     const client = await this.getWebSocketClient();
+    markPerpsColdStartPerf('service_update_subscriptions_client_ready', {
+      clientId: client.clientId,
+      readyState: client.transport?.socket?.readyState,
+    });
     if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
+      markPerpsColdStartPerf('service_update_subscriptions_socket_not_open', {
+        clientId: client.clientId,
+        readyState: client.transport?.socket?.readyState,
+      });
       await this._recoverNotOpenSocketBeforeSubscriptionUpdate({
         client,
         reason: 'update_subscriptions_not_open',
@@ -406,7 +420,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (!requiredSubInfo) {
         return;
       }
+      markPerpsColdStartPerf('service_update_subscriptions_core_first_start');
       await this._updateSubscriptionsCore(requiredSubInfo);
+      markPerpsColdStartPerf('service_update_subscriptions_core_first_end');
       return;
     }
 
@@ -418,9 +434,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       this._updateSubscriptionsDebounced.cancel();
       this._hasInitialSubscription = true;
       await this._updateSubscriptionsCore(requiredSubInfo);
+      markPerpsColdStartPerf('service_update_subscriptions_end');
       return;
     }
     await this._updateSubscriptionsDebounced();
+    markPerpsColdStartPerf('service_update_subscriptions_end');
   }
 
   @backgroundMethod()
@@ -1172,6 +1190,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // Catch-all here keeps the WS lifecycle robust regardless of which atom
     // write or update fails.
     try {
+      markPerpsColdStartPerfOnce('service_ws_open_first');
       const socket = event.target as WebSocket | undefined;
       const readyState = socket?.readyState;
       this._lastReadyState = readyState;
@@ -1185,7 +1204,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const wasConnected = prevNetworkStatus?.connected;
       const openClient = this._client;
 
-      await timerUtils.wait(600); // wait network status atom update
+      await timerUtils.wait(50); // let readyState atom update before reconcile
       const currentClient = this._client;
       if (
         !currentClient ||
@@ -1243,15 +1262,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private async getWebSocketClient(): Promise<IHyperliquidWsClient> {
     if (this._client) {
+      markPerpsColdStartPerfOnce('service_ws_client_reuse_first', {
+        clientId: this._client.clientId,
+        readyState: this._client.transport?.socket?.readyState,
+      });
       return this._client;
     }
     if (this._clientInitPromise) {
+      markPerpsColdStartPerf('service_ws_client_init_join');
       return this._clientInitPromise;
     }
     this._clientInitPromise = (async () => {
       const clientId = `hl-ws-${Date.now()}-${Math.random()
         .toString(16)
         .slice(2, 8)}`;
+      markPerpsColdStartPerf('service_ws_client_create_start', {
+        clientId,
+      });
       const transportOptions: IWebSocketTransportOptions = {
         url: 'wss://api.hyperliquid.xyz/ws',
         /* spell-checker:disable */
@@ -1439,6 +1466,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           }
         },
       };
+      markPerpsColdStartPerf('service_ws_client_create_end', {
+        clientId,
+        readyState: transport.socket?.readyState,
+      });
       return this._client;
     })();
     return this._clientInitPromise;
@@ -1737,6 +1768,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
       const messageTimestamp = Date.now();
       this._markSubscriptionActivity(subscriptionType, messageTimestamp);
+      markPerpsColdStartPerfOnce(`service_ws_first_${subscriptionType}`, {
+        subscriptionType,
+      });
 
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
         // Cache allMids in background for spot balance USD calculation
