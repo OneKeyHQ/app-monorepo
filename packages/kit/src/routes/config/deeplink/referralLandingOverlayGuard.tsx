@@ -9,6 +9,7 @@ import {
   rootNavigationRef,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -225,8 +226,14 @@ export function showReferralBlockingOverlayToast({
 
   currentToastRef.current = Toast.message({
     duration: REFERRAL_BIND_BLOCKED_TOAST_DURATION,
-    title: ETranslations.referral_close_current_popup_title,
-    message: ETranslations.referral_close_current_popup_desc,
+    // eslint-disable-next-line onekey/no-app-locale-main-thread -- deep-link overlay guard can run outside React render.
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.referral_close_current_popup_title,
+    }),
+    // eslint-disable-next-line onekey/no-app-locale-main-thread -- deep-link overlay guard can run outside React render.
+    message: appLocale.intl.formatMessage({
+      id: ETranslations.referral_close_current_popup_desc,
+    }),
     actionsAlign: 'left',
     onClose: () => {
       if (

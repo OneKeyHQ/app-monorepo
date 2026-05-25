@@ -47,6 +47,14 @@ jest.mock('@react-navigation/native', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
+  appLocale: {
+    intl: {
+      formatMessage: jest.fn(({ id }) => `translated:${id}`),
+    },
+  },
+}));
+
 type IRootRoute = {
   key?: string;
   name: ERootRoutes;
@@ -192,8 +200,8 @@ describe('referralLandingOverlayGuard', () => {
       expect.objectContaining({
         actionsAlign: 'left',
         duration: 60 * 60 * 1000,
-        message: ETranslations.referral_close_current_popup_desc,
-        title: ETranslations.referral_close_current_popup_title,
+        message: `translated:${ETranslations.referral_close_current_popup_desc}`,
+        title: `translated:${ETranslations.referral_close_current_popup_title}`,
       }),
     );
 

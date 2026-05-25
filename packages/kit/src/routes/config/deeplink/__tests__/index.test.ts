@@ -50,6 +50,10 @@ jest.mock('../../../../views/WebView/utils/webViewNavigation', () => ({
 
 jest.mock('../referralLandingLink', () => ({
   handleReferralLandingUrl: jest.fn(async () => false),
+  isValidReferralCode: jest.fn(
+    (code: unknown) =>
+      typeof code === 'string' && /^[a-zA-Z0-9_-]{1,32}$/u.test(code),
+  ),
   navigateToReferralLanding: jest.fn(async () => true),
 }));
 
@@ -99,5 +103,17 @@ describe('handleDeepLinkUrl', () => {
         page: 'perps',
       }),
     );
+  });
+
+  it.each([
+    'onekey-wallet://invited_by_friend',
+    'onekey-wallet://invited_by_friend?code=',
+    'onekey-wallet://invited_by_friend?code=INVALID%21',
+    `onekey-wallet://invited_by_friend?code=${'A'.repeat(33)}`,
+  ])('skips invalid invited_by_friend app deep link code: %s', async (url) => {
+    handleDeepLinkUrl({ url });
+    await flushAsyncTasks();
+
+    expect(mockedNavigateToReferralLanding).not.toHaveBeenCalled();
   });
 });

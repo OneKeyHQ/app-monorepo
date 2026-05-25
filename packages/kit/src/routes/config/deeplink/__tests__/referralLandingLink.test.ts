@@ -31,6 +31,12 @@ type IReferralLandingNavigationMock = Pick<
   'switchTab' | 'push' | 'navigate'
 >;
 
+async function flushAsyncTasks() {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 describe('parseReferralLandingUrl', () => {
   it('parses supported OneKey referral landing URLs', () => {
     expect(parseReferralLandingUrl('https://onekey.so/r/R7EKUT')).toEqual({
@@ -254,7 +260,7 @@ describe('navigateToReferralLanding', () => {
       fromDeepLink: true,
       shouldContinue: () => isLatestReferral,
     });
-    await Promise.resolve();
+    await flushAsyncTasks();
 
     expect(navigation.navigate).not.toHaveBeenCalled();
     isLatestReferral = false;
@@ -286,7 +292,7 @@ describe('navigateToReferralLanding', () => {
       navigation: asReferralLandingNavigation(firstNavigation),
       fromDeepLink: true,
     });
-    await Promise.resolve();
+    await flushAsyncTasks();
 
     await navigateToReferralLanding({
       code: 'NEW',

@@ -12,7 +12,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { showReferralBlockingOverlayToast } from './referralLandingOverlayGuard';
 import { createReferralLandingRequestGuard } from './referralLandingRequestGuard';
 
 const URL_PROTOCOL_PREFIX_REGEXP = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//u;
@@ -28,6 +27,10 @@ function isReferralLandingHost(hostname: string): boolean {
   return REFERRAL_LANDING_ROOT_HOSTS.some(
     (host) => hostname === host || hostname.endsWith(`.${host}`),
   );
+}
+
+export function isValidReferralCode(code: unknown): code is string {
+  return typeof code === 'string' && VALID_REFERRAL_CODE.test(code);
 }
 
 export type IReferralLandingLinkParams = {
@@ -100,7 +103,7 @@ export function parseReferralLandingUrl(
   if (prefix !== 'r' || !code || extraSegment) {
     return undefined;
   }
-  if (!VALID_REFERRAL_CODE.test(code)) {
+  if (!isValidReferralCode(code)) {
     return undefined;
   }
   if (!appSegment) {
@@ -164,25 +167,31 @@ export async function navigateToReferralLanding({
     return false;
   }
 
-  if (
-    !skipOverlayGuard &&
-    showReferralBlockingOverlayToast({
-      shouldContinue: isCurrentReferralRequest,
-      onContinue: async ({ shouldContinue: shouldContinueAfterToast }) => {
-        await navigateToReferralLanding({
-          code,
-          page,
-          navigation: appGlobals.$rootAppNavigation ?? appNavigation,
-          fromDeepLink,
-          skipOverlayGuard: true,
-          shouldContinue: () =>
-            isCurrentReferralRequest() && shouldContinueAfterToast(),
-          referralRequestId: currentReferralRequestId,
-        });
-      },
-    })
-  ) {
-    return true;
+  if (!skipOverlayGuard) {
+    const { showReferralBlockingOverlayToast } =
+      await import('./referralLandingOverlayGuard');
+    if (!isCurrentReferralRequest()) {
+      return false;
+    }
+    if (
+      showReferralBlockingOverlayToast({
+        shouldContinue: isCurrentReferralRequest,
+        onContinue: async ({ shouldContinue: shouldContinueAfterToast }) => {
+          await navigateToReferralLanding({
+            code,
+            page,
+            navigation: appGlobals.$rootAppNavigation ?? appNavigation,
+            fromDeepLink,
+            skipOverlayGuard: true,
+            shouldContinue: () =>
+              isCurrentReferralRequest() && shouldContinueAfterToast(),
+            referralRequestId: currentReferralRequestId,
+          });
+        },
+      })
+    ) {
+      return true;
+    }
   }
 
   await timerUtils.wait(50);
