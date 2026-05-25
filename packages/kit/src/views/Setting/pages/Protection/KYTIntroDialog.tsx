@@ -14,11 +14,11 @@ import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/set
 function KYTIntroDialogContent() {
   return (
     <YStack>
-      <SizableText size="$bodyLg" color="$textSubdued">
+      <SizableText size="$bodyLg">
         Check supported incoming token transfers for fund-source risk after they
         are confirmed.
       </SizableText>
-      <SizableText size="$bodyLg" color="$textSubdued" mt="$3">
+      <SizableText size="$bodyLg" mt="$3">
         High and severe risks will trigger a notification. You can turn this off
         anytime in Settings.
       </SizableText>
@@ -31,7 +31,7 @@ function KYTIntroDialogContent() {
         }}
         cursor="pointer"
       >
-        <SizableText size="$bodyLg" color="$textSuccess">
+        <SizableText size="$bodyMdMedium" color="$textSuccess">
           Learn more
         </SizableText>
         <Icon name="ArrowTopRightOutline" size="$4.5" color="$iconSuccess" />

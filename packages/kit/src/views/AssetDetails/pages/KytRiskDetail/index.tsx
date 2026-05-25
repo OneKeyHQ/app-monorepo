@@ -13,23 +13,30 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IBadgeType } from '@onekeyhq/components/src/content/Badge';
+import type { ColorTokens } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 import type { IKytRiskFactor } from '@onekeyhq/shared/types/kyt';
+import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 
 import type { RouteProp } from '@react-navigation/core';
 
-const LEVEL_BADGE_MAP: Record<string, IBadgeType> = {
-  [EKytRiskLevel.Low]: 'success',
-  [EKytRiskLevel.Moderate]: 'warning',
-  [EKytRiskLevel.High]: 'critical',
-  [EKytRiskLevel.Severe]: 'critical',
+const LEVEL_TEXT_COLOR: Record<string, ColorTokens> = {
+  [EKytRiskLevel.Low]: '$textSuccess',
+  [EKytRiskLevel.Moderate]: '$textCaution',
+  [EKytRiskLevel.High]: '$textCaution',
+  [EKytRiskLevel.Severe]: '$textCritical',
+};
+
+const LEVEL_LABEL: Record<string, string> = {
+  [EKytRiskLevel.Low]: 'Low',
+  [EKytRiskLevel.Moderate]: 'Moderate',
+  [EKytRiskLevel.High]: 'High',
+  [EKytRiskLevel.Severe]: 'Severe',
 };
 
 const LEVEL_CONTENT: Record<string, { title: string; description: string }> = {
@@ -49,12 +56,11 @@ const LEVEL_CONTENT: Record<string, { title: string; description: string }> = {
   },
   [EKytRiskLevel.Severe]: {
     title: 'Severe risk detected',
-    description:
-      'Severe fund-source risk was detected for this incoming transfer.',
+    description: 'This incoming transfer is linked to high-risk fund sources.',
   },
 };
 
-function OverviewRow({
+function CardRow({
   label,
   children,
 }: {
@@ -62,8 +68,8 @@ function OverviewRow({
   children: React.ReactNode;
 }) {
   return (
-    <XStack py="$2.5" ai="center" jc="space-between">
-      <SizableText size="$bodyMd" color="$textSubdued">
+    <XStack px="$4" py="$2.5" ai="center" jc="space-between" gap="$2">
+      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
         {label}
       </SizableText>
       {children}
@@ -71,36 +77,44 @@ function OverviewRow({
   );
 }
 
-function FactorRow({ label, value }: { label: string; value: string }) {
-  return (
-    <XStack py="$1.5" ai="center" jc="space-between">
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {label}
-      </SizableText>
-      <SizableText size="$bodyMd">{value}</SizableText>
-    </XStack>
-  );
-}
-
 function RiskFactorCard({ factor }: { factor: IKytRiskFactor }) {
+  const rows: { label: string; value: string }[] = [];
+  if (factor.entity) {
+    rows.push({ label: 'Entity', value: factor.entity });
+  }
+  if (factor.exposureType) {
+    rows.push({ label: 'Exposure', value: factor.exposureType });
+  }
+  if (factor.hops !== undefined) {
+    rows.push({ label: 'Distance', value: `${factor.hops} hops` });
+  }
+  if (factor.amountUsd || factor.percent) {
+    rows.push({
+      label: 'Exposure / Share',
+      value: [factor.amountUsd, factor.percent].filter(Boolean).join(' / '),
+    });
+  }
+
   return (
-    <YStack bg="$bgSubdued" borderRadius="$3" px="$3.5" py="$2.5" gap="$0.5">
-      <SizableText size="$bodyMdMedium">{factor.category}</SizableText>
-      {factor.entity ? (
-        <FactorRow label="Entity" value={factor.entity} />
-      ) : null}
-      {factor.exposureType ? (
-        <FactorRow label="Exposure" value={factor.exposureType} />
-      ) : null}
-      {factor.hops !== undefined ? (
-        <FactorRow label="Distance" value={`${factor.hops} hops`} />
-      ) : null}
-      {factor.amountUsd || factor.percent ? (
-        <FactorRow
-          label="Exposure / Share"
-          value={[factor.amountUsd, factor.percent].filter(Boolean).join(' / ')}
-        />
-      ) : null}
+    <YStack
+      borderWidth={1}
+      borderColor="$borderSubdued"
+      borderRadius="$3"
+      overflow="hidden"
+    >
+      <XStack px="$4" py="$2.5" bg="$bgSubdued">
+        <SizableText size="$bodyMdMedium">{factor.category}</SizableText>
+      </XStack>
+      {rows.map((row) => (
+        <YStack key={row.label}>
+          <Divider />
+          <CardRow label={row.label}>
+            <SizableText size="$bodyMdMedium" textAlign="right">
+              {row.value}
+            </SizableText>
+          </CardRow>
+        </YStack>
+      ))}
     </YStack>
   );
 }
@@ -122,21 +136,6 @@ function KytRiskDetail() {
     [riskDetail.level],
   );
 
-  const badgeType = useMemo(
-    () => LEVEL_BADGE_MAP[riskDetail.level] ?? ('default' as IBadgeType),
-    [riskDetail.level],
-  );
-
-  const levelLabel = useMemo(() => {
-    const map: Record<string, string> = {
-      [EKytRiskLevel.Low]: 'Low',
-      [EKytRiskLevel.Moderate]: 'Moderate',
-      [EKytRiskLevel.High]: 'High',
-      [EKytRiskLevel.Severe]: 'Severe',
-    };
-    return map[riskDetail.level] ?? riskDetail.level;
-  }, [riskDetail.level]);
-
   const visibleFactors = useMemo(() => {
     if (showAllFactors) return riskDetail.factors;
     return riskDetail.factors.slice(0, 1);
@@ -155,92 +154,101 @@ function KytRiskDetail() {
       <Page.Header title="Fund-source risk check" />
       <Page.Body>
         <ScrollView>
-          <YStack px="$5" pb="$10" gap="$5">
-            <YStack gap="$2">
-              <Heading size="$headingLg">{content.title}</Heading>
-              <SizableText size="$bodyLg" color="$textSubdued">
-                {content.description}
-              </SizableText>
-            </YStack>
+          <YStack px="$5" py="$3" gap="$1.5">
+            <Heading size="$headingXl">{content.title}</Heading>
+            <SizableText size="$bodyLg">{content.description}</SizableText>
+          </YStack>
 
+          <YStack px="$5" pb="$5" gap="$2">
+            {/* Overview */}
             <YStack
               borderWidth={1}
               borderColor="$borderSubdued"
               borderRadius="$3"
-              px="$3.5"
-              py="$1"
+              overflow="hidden"
             >
-              <OverviewRow label="Risk level">
-                <Badge badgeType={badgeType} badgeSize="sm">
-                  {levelLabel}
-                </Badge>
-              </OverviewRow>
+              <CardRow label="Risk level">
+                <SizableText
+                  size="$bodyMdMedium"
+                  color={LEVEL_TEXT_COLOR[riskDetail.level] ?? '$text'}
+                  textAlign="right"
+                >
+                  {LEVEL_LABEL[riskDetail.level] ?? riskDetail.level}
+                </SizableText>
+              </CardRow>
               <Divider />
-              <OverviewRow label="Last checked">
-                <SizableText size="$bodyMd">{riskDetail.checkedAt}</SizableText>
-              </OverviewRow>
+              <CardRow label="Last checked">
+                <SizableText size="$bodyMdMedium" textAlign="right">
+                  {riskDetail.checkedAt}
+                </SizableText>
+              </CardRow>
               <Divider />
-              <OverviewRow label="Asset">
-                <XStack ai="center" gap="$2">
+              <CardRow label="Asset">
+                <XStack ai="center" gap="$1.5">
                   <Token
                     size="sm"
                     tokenImageUri={riskDetail.asset.tokenImageUri}
                   />
-                  <SizableText size="$bodyMd">
+                  <SizableText size="$bodyMdMedium">
                     {riskDetail.asset.symbol}
                   </SizableText>
                   <Badge badgeType="default" badgeSize="sm">
                     {riskDetail.asset.networkName}
                   </Badge>
                 </XStack>
-              </OverviewRow>
+              </CardRow>
               <Divider />
-              <OverviewRow label="Transfer">
-                <SizableText size="$bodyMd">
+              <CardRow label="Transfer">
+                <SizableText size="$bodyMdMedium" textAlign="right">
                   {riskDetail.transferAmount}
                 </SizableText>
-              </OverviewRow>
+              </CardRow>
             </YStack>
 
+            {/* Risk Factors */}
             {riskDetail.factors.length > 0 ? (
-              <YStack gap="$3">
-                <XStack ai="center" jc="space-between">
-                  <SizableText size="$bodyMdMedium">Risk factors</SizableText>
-                  <SizableText size="$bodyMd" color="$textSubdued">
+              <YStack gap="$1">
+                <XStack ai="center" jc="space-between" py="$2">
+                  <SizableText size="$headingSm" color="$textSubdued">
+                    Risk factors
+                  </SizableText>
+                  <SizableText size="$bodyMdMedium" color="$textSubdued">
                     {riskDetail.factors.length} found
                   </SizableText>
                 </XStack>
-                {visibleFactors.map((factor, index) => (
-                  <RiskFactorCard key={index} factor={factor} />
-                ))}
-                {hasMoreFactors && !showAllFactors ? (
-                  <XStack>
+                <YStack gap="$1">
+                  {visibleFactors.map((factor, index) => (
+                    <RiskFactorCard key={index} factor={factor} />
+                  ))}
+                </YStack>
+                {hasMoreFactors ? (
+                  <XStack py="$2">
                     <SizableText
-                      size="$bodyMd"
+                      size="$bodyMdMedium"
                       color="$textSuccess"
                       cursor="pointer"
-                      onPress={() => setShowAllFactors(true)}
+                      onPress={() => setShowAllFactors((v) => !v)}
                     >
-                      Show more
+                      {showAllFactors ? 'Show less' : 'Show more'}
                     </SizableText>
                   </XStack>
                 ) : null}
               </YStack>
             ) : null}
+          </YStack>
 
-            {riskDetail.reportUrl ? (
-              <Button
-                testID="kyt-view-report"
-                variant="secondary"
-                size="large"
-                icon="ArrowTopRightOutline"
-                iconAfter
-                onPress={handleViewReport}
-              >
-                View report
-              </Button>
-            ) : null}
-
+          {/* Footer */}
+          <YStack px="$5" pb="$5" gap="$2.5">
+            <Button
+              testID="kyt-view-report"
+              variant="secondary"
+              size="large"
+              icon="ArrowTopRightOutline"
+              iconAfter
+              onPress={handleViewReport}
+            >
+              View report
+            </Button>
             <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
               Risk results are informational and do not block incoming
               transfers.

@@ -32,7 +32,7 @@ const RISK_LEVEL_CONFIG: Record<
   }
 > = {
   [EKytRiskLevel.Checking]: {
-    badgeType: 'default',
+    badgeType: 'info',
     label: 'Checking',
     subtitle: 'Checking fund-source risk',
     drillIn: false,
@@ -56,7 +56,7 @@ const RISK_LEVEL_CONFIG: Record<
     drillIn: true,
   },
   [EKytRiskLevel.High]: {
-    badgeType: 'critical',
+    badgeType: 'warning',
     label: 'High',
     subtitle: 'High fund-source risk',
     drillIn: true,
@@ -114,8 +114,24 @@ const MOCK_KYT_DETAIL_MAP: Record<string, IKytRiskDetail> = {
         amountUsd: '$120.00',
         percent: '8.20%',
       },
+      {
+        category: 'High-risk exchange deposit',
+        entity: 'garantex',
+        exposureType: 'Indirect exposure',
+        hops: 3,
+        amountUsd: '$45.00',
+        percent: '3.10%',
+      },
+      {
+        category: 'Gambling service association',
+        entity: 'stake.com',
+        exposureType: 'Direct exposure',
+        hops: 1,
+        amountUsd: '$200.00',
+        percent: '15.00%',
+      },
     ],
-    reportUrl: '',
+    reportUrl: 'https://misttrack.io/report/usdc-example',
   },
   USDT: {
     level: EKytRiskLevel.Severe,
