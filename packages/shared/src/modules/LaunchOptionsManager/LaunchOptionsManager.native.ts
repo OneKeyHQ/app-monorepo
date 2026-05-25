@@ -17,6 +17,13 @@ const getUIVisibleTimeAt = () => {
   return globalThis.$$onekeyUIVisibleAt || 0;
 };
 
+// `__BUNDLE_START_TIME__` is injected by the Metro/RN bundle. In test harness,
+// bg-thread runtime, or partial OTA boot it may not be declared at all — and
+// `__BUNDLE_START_TIME__ || 0` would throw `ReferenceError` on an undeclared
+// identifier, not fall back to 0. `typeof` is the only safe probe.
+const getBundleStartTimeSafe = (): number =>
+  typeof __BUNDLE_START_TIME__ !== 'undefined' ? __BUNDLE_START_TIME__ : 0;
+
 const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
   getLaunchOptions: () =>
     ReactNativeDeviceUtils.getLaunchOptions() as Promise<ILaunchOptions | null>,
@@ -43,11 +50,8 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
     }
     // Fallback: when native startupTime is unavailable, anchor on
     // __BUNDLE_START_TIME__ (same performance.now() base as $$…FromPerformanceNow).
-    // Guard __BUNDLE_START_TIME__ with `|| 0` so an undefined anchor (e.g. test
-    // harness, bg-thread runtime, partial OTA boot) reports 0 instead of NaN
-    // polluting the metric.
     const jsReadyPerf = globalThis.$$onekeyJsReadyFromPerformanceNow || 0;
-    const bundleStart = __BUNDLE_START_TIME__ || 0;
+    const bundleStart = getBundleStartTimeSafe();
     return jsReadyPerf && bundleStart
       ? Math.round(jsReadyPerf - bundleStart)
       : 0;
@@ -60,27 +64,27 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
       return uiVisibleAt - startupAt;
     }
     const uiVisiblePerf = globalThis.$$onekeyUIVisibleFromPerformanceNow || 0;
-    const bundleStart = __BUNDLE_START_TIME__ || 0;
+    const bundleStart = getBundleStartTimeSafe();
     return uiVisiblePerf && bundleStart
       ? Math.round(uiVisiblePerf - bundleStart)
       : 0;
   },
   getBundleStartTime: () => {
-    return Promise.resolve(Math.round(__BUNDLE_START_TIME__ || 0));
+    return Promise.resolve(Math.round(getBundleStartTimeSafe()));
   },
   getJsReadyFromPerformanceNow: () => {
+    const bundleStart = getBundleStartTimeSafe();
     return Promise.resolve(
       Math.round(
-        (globalThis.$$onekeyJsReadyFromPerformanceNow || 0) -
-          __BUNDLE_START_TIME__,
+        (globalThis.$$onekeyJsReadyFromPerformanceNow || 0) - bundleStart,
       ),
     );
   },
   getUIVisibleFromPerformanceNow: () => {
+    const bundleStart = getBundleStartTimeSafe();
     return Promise.resolve(
       Math.round(
-        (globalThis.$$onekeyUIVisibleFromPerformanceNow || 0) -
-          __BUNDLE_START_TIME__,
+        (globalThis.$$onekeyUIVisibleFromPerformanceNow || 0) - bundleStart,
       ),
     );
   },

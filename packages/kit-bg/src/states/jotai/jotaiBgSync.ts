@@ -54,9 +54,12 @@ export class JotaiBgSync {
    *   - emit a single broadcast via the legacy path (size 1), or
    *   - emit a batch broadcast (size >1).
    *
-   * Same-named writes are deduplicated last-write-wins; insertion order is
-   * preserved by `Map` so derived UI subscribers observe values in the same
-   * sequence as without micro-batch coalescing.
+   * Same-named writes are deduplicated last-write-wins; the surviving write's
+   * position follows the LAST occurrence of each atom so derived UI subscribers
+   * observe values in the same sequence as without micro-batch coalescing.
+   * `Map#set` alone preserves first-insertion position, which would re-order
+   * sequences like `A1 -> B -> A2` into `[A2, B]` instead of `[B, A2]`; delete
+   * before set to refresh the insertion slot.
    */
   private flushBroadcastMicroBatch() {
     this.microBatchFlushScheduled = false;
@@ -67,6 +70,7 @@ export class JotaiBgSync {
 
     const dedup = new Map<EAtomNames, any>();
     for (const item of buffer) {
+      dedup.delete(item.name);
       dedup.set(item.name, item.payload);
     }
     if (dedup.size === 0) {
