@@ -2,6 +2,7 @@ import { BigNumber } from 'bignumber.js';
 import { selectAtom } from 'jotai/utils';
 
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import {
   computeMaxTradeSize,
   getTriggerEffectivePrice,
@@ -77,12 +78,22 @@ export const {
   );
 });
 
+export type IPerpsAllAssetCtxsAtomValue = {
+  assetCtxsByDex: HL.IPerpsAssetCtx[][];
+  updatedAt?: number;
+};
+
 export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
-  contextAtom<{
-    assetCtxsByDex: HL.IPerpsAssetCtx[][];
-  }>({
-    assetCtxsByDex: [],
-  });
+  contextAtom<IPerpsAllAssetCtxsAtomValue>(
+    {
+      assetCtxsByDex: [],
+    },
+    {
+      coldStartCache: true,
+      coldStartCacheKey:
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsAllAssetCtxsAtom,
+    },
+  );
 
 export const {
   atom: perpsTokenSearchAliasesAtom,
@@ -90,7 +101,10 @@ export const {
 } = contextAtom<ITokenSearchAliases | undefined>(undefined);
 
 export const { atom: l2BookAtom, use: useL2BookAtom } =
-  contextAtom<HL.IBook | null>(null);
+  contextAtom<HL.IBook | null>(null, {
+    coldStartCache: true,
+    coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsL2BookAtom,
+  });
 
 export const { atom: bboAtom, use: useBboAtom } = contextAtom<HL.IWsBbo | null>(
   null,
@@ -129,12 +143,19 @@ export type IActiveTradeInstrument =
 export const {
   atom: activeTradeInstrumentAtom,
   use: useActiveTradeInstrumentAtom,
-} = contextAtom<IActiveTradeInstrument>({
-  mode: 'perp',
-  coin: '',
-  assetId: undefined,
-  universe: undefined,
-});
+} = contextAtom<IActiveTradeInstrument>(
+  {
+    mode: 'perp',
+    coin: '',
+    assetId: undefined,
+    universe: undefined,
+  },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveTradeInstrumentAtom,
+  },
+);
 
 export interface ITradeRouteViewState {
   routeFocused: boolean;

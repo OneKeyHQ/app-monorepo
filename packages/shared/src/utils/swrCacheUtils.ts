@@ -161,6 +161,7 @@ const NS = {
   recentNetworks: 'recentNets',
   walletListSideBar: 'walletList',
   accountSelectorList: 'accSelList',
+  perpsL2BookSnapshot: 'perpsL2Book',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
@@ -310,6 +311,18 @@ export const swrKeys = {
       selectedNetworkId ?? '',
       keepAllOtherAccounts ? '1' : '0',
     ].join(':'),
+  perpsL2BookSnapshot: ({
+    coin,
+    nSigFigs,
+    mantissa,
+  }: {
+    coin: string;
+    nSigFigs?: number | null;
+    mantissa?: number | null;
+  }) =>
+    [NS.perpsL2BookSnapshot, 'v1', coin, nSigFigs ?? '', mantissa ?? ''].join(
+      ':',
+    ),
 };
 
 export const swrCacheUtils = {

@@ -50,6 +50,10 @@ import {
   resolveTradingSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IPerpsAssetPosition,
@@ -99,6 +103,117 @@ type IChStateLite = {
 type IChPositionLite = HL.IPerpsAssetPosition;
 
 const MAX_LEDGER_UPDATES = 200;
+
+const L2_BOOK_SWR_CACHE_MIN_INTERVAL_MS = timerUtils.getTimeDurationMs({
+  seconds: 5,
+});
+const L2_BOOK_SWR_CACHE_MAX_AGE_MS = timerUtils.getTimeDurationMs({
+  minute: 10,
+});
+
+let lastL2BookSwrCacheAt = 0;
+let lastL2BookSwrCacheKey: string | undefined;
+
+const PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS =
+  timerUtils.getTimeDurationMs({
+    minute: 5,
+  });
+
+function buildAllDexsAssetCtxsByDex(data: HL.IWsAllDexsAssetCtxs) {
+  const incoming = data?.ctxs || [];
+  const ctxMap = new Map<string, HL.IPerpsAssetCtx[]>();
+  incoming.forEach(([dexName, ctxList]) => {
+    ctxMap.set(dexName, ctxList || []);
+  });
+
+  const ctxsByDex: HL.IPerpsAssetCtx[][] = [];
+  const perpsCtx = ctxMap.get('') ?? ctxMap.get('perps') ?? [];
+  const xyzCtx = ctxMap.get('xyz') ?? [];
+  ctxsByDex[0] = perpsCtx;
+  ctxsByDex[1] = xyzCtx;
+
+  return {
+    ctxsByDex,
+    perpsCtxCount: perpsCtx.length,
+    xyzCtxCount: xyzCtx.length,
+  };
+}
+
+function hasAnyAssetCtxs(ctxsByDex: HL.IPerpsAssetCtx[][] | undefined) {
+  return Boolean(ctxsByDex?.some((ctxs) => ctxs?.length > 0));
+}
+
+function getL2BookSwrCacheKeys({
+  coin,
+  nSigFigs,
+  mantissa,
+}: {
+  coin: string;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+}) {
+  const exactKey = swrKeys.perpsL2BookSnapshot({
+    coin,
+    nSigFigs,
+    mantissa,
+  });
+  const defaultKey = swrKeys.perpsL2BookSnapshot({ coin });
+  return exactKey === defaultKey ? [exactKey] : [exactKey, defaultKey];
+}
+
+function cacheL2BookSnapshotToSwr({
+  book,
+  nSigFigs,
+  mantissa,
+}: {
+  book: HL.IBook;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+}) {
+  const keys = getL2BookSwrCacheKeys({
+    coin: book.coin,
+    nSigFigs,
+    mantissa,
+  });
+  const primaryKey = keys[0];
+  const now = Date.now();
+  if (
+    lastL2BookSwrCacheKey === primaryKey &&
+    now - lastL2BookSwrCacheAt < L2_BOOK_SWR_CACHE_MIN_INTERVAL_MS
+  ) {
+    return;
+  }
+
+  lastL2BookSwrCacheKey = primaryKey;
+  lastL2BookSwrCacheAt = now;
+  keys.forEach((key) => swrCacheUtils.set(key, book));
+}
+
+function getFreshL2BookSnapshotFromSwr({
+  coin,
+  nSigFigs,
+  mantissa,
+}: {
+  coin: string;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+}) {
+  const keys = getL2BookSwrCacheKeys({
+    coin,
+    nSigFigs,
+    mantissa,
+  });
+  for (const key of keys) {
+    const entry = swrCacheUtils.getWithTimestamp<HL.IBook>(key);
+    if (
+      entry?.data?.coin === coin &&
+      Date.now() - entry.updatedAt <= L2_BOOK_SWR_CACHE_MAX_AGE_MS
+    ) {
+      return entry.data;
+    }
+  }
+  return undefined;
+}
 
 function getLedgerUpdateKey(update: HL.IUserNonFundingLedgerUpdate): string {
   return (
@@ -616,25 +731,71 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  hydrateAllDexsAssetCtxsSnapshotCache = contextAtomMethod(async (get, set) => {
+    const current = get(perpsAllAssetCtxsAtom());
+    if (hasAnyAssetCtxs(current.assetCtxsByDex)) {
+      markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_skip', {
+        reason: 'atom_ready',
+      });
+      return false;
+    }
+
+    markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_start');
+    const entry =
+      await backgroundApiProxy.simpleDb.perp.getAllDexsAssetCtxsSnapshotCache({
+        maxAgeMs: PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS,
+      });
+    if (!entry?.data) {
+      markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_miss');
+      return false;
+    }
+
+    const latest = get(perpsAllAssetCtxsAtom());
+    if (hasAnyAssetCtxs(latest.assetCtxsByDex)) {
+      markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_skip', {
+        reason: 'live_data_ready',
+      });
+      return false;
+    }
+
+    const { ctxsByDex, perpsCtxCount, xyzCtxCount } =
+      buildAllDexsAssetCtxsByDex(entry.data);
+    if (!hasAnyAssetCtxs(ctxsByDex)) {
+      markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_miss', {
+        reason: 'empty_snapshot',
+      });
+      return false;
+    }
+
+    set(perpsAllAssetCtxsAtom(), {
+      assetCtxsByDex: ctxsByDex,
+      updatedAt: entry.updatedAt,
+    });
+    markPerpsColdStartPerfOnce('atom_set_all_dexs_asset_ctxs_first', {
+      source: 'cache',
+      perpsCtxCount,
+      xyzCtxCount,
+    });
+    markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_hit', {
+      ageMs: Date.now() - entry.updatedAt,
+      perpsCtxCount,
+      xyzCtxCount,
+    });
+    return true;
+  });
+
   updateAllDexsAssetCtxs = contextAtomMethod(
     (_, set, data: HL.IWsAllDexsAssetCtxs) => {
-      const incoming = data?.ctxs || [];
-      const ctxMap = new Map<string, HL.IPerpsAssetCtx[]>();
-      incoming.forEach(([dexName, ctxList]) => {
-        ctxMap.set(dexName, ctxList || []);
-      });
-
-      const ctxsByDex: HL.IPerpsAssetCtx[][] = [];
-      const perpsCtx = ctxMap.get('') ?? ctxMap.get('perps') ?? [];
-      const xyzCtx = ctxMap.get('xyz') ?? [];
-      ctxsByDex[0] = perpsCtx;
-      ctxsByDex[1] = xyzCtx;
+      const { ctxsByDex, perpsCtxCount, xyzCtxCount } =
+        buildAllDexsAssetCtxsByDex(data);
       markPerpsColdStartPerfOnce('atom_set_all_dexs_asset_ctxs_first', {
-        perpsCtxCount: perpsCtx.length,
-        xyzCtxCount: xyzCtx.length,
+        source: 'ws',
+        perpsCtxCount,
+        xyzCtxCount,
       });
       set(perpsAllAssetCtxsAtom(), {
         assetCtxsByDex: ctxsByDex,
+        updatedAt: Date.now(),
       });
     },
   );
@@ -849,6 +1010,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         askLevels: data.levels?.[1]?.length ?? 0,
       });
       set(l2BookAtom(), data);
+      const storedTickOptions = get(orderBookTickOptionsAtom())[data.coin];
+      cacheL2BookSnapshotToSwr({
+        book: data,
+        nSigFigs: storedTickOptions?.nSigFigs ?? null,
+        mantissa:
+          storedTickOptions?.mantissa === undefined
+            ? undefined
+            : storedTickOptions.mantissa,
+      });
     } else {
       const currentBook = get(l2BookAtom());
       if (currentBook?.coin && currentBook?.coin !== activeCoin) {
@@ -996,6 +1166,25 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         assetId: undefined,
         universe: undefined,
       };
+      const hydrateL2BookFromSwr = (targetCoin: string) => {
+        const storedTickOptions = get(orderBookTickOptionsAtom())[targetCoin];
+        const cachedBook = getFreshL2BookSnapshotFromSwr({
+          coin: targetCoin,
+          nSigFigs: storedTickOptions?.nSigFigs ?? null,
+          mantissa:
+            storedTickOptions?.mantissa === undefined
+              ? undefined
+              : storedTickOptions.mantissa,
+        });
+        if (cachedBook) {
+          set(l2BookAtom(), cachedBook);
+          markPerpsColdStartPerfOnce('action_l2_book_swr_hydrated_first', {
+            coin: cachedBook.coin,
+            bidLevels: cachedBook.levels?.[0]?.length ?? 0,
+            askLevels: cachedBook.levels?.[1]?.length ?? 0,
+          });
+        }
+      };
       const prevInstrument = get(activeTradeInstrumentAtom());
       const shouldSetOptimisticInstrument =
         prevInstrument.mode !== 'perp' || prevInstrument.coin !== coin;
@@ -1010,6 +1199,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         set(l2BookAtom(), null);
         set(bboAtom(), null);
       }
+      hydrateL2BookFromSwr(coin);
       await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const activeAsset = await perpsActiveAssetAtom.get();
       if (activeAsset?.coin === coin && !force) {
@@ -1090,6 +1280,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         requestId,
         viewState: get(tradeRouteViewStateAtom()),
       });
+      hydrateL2BookFromSwr(nextInstrument.coin);
       return true;
     },
   );
@@ -2452,6 +2643,8 @@ export function useHyperliquidActions() {
     actions.updateAllDexsClearinghouseState.use();
   const updateOpenOrders = actions.updateOpenOrders.use();
   const updateAllDexsAssetCtxs = actions.updateAllDexsAssetCtxs.use();
+  const hydrateAllDexsAssetCtxsSnapshotCache =
+    actions.hydrateAllDexsAssetCtxsSnapshotCache.use();
 
   const currentActions = {
     updateAllAssetsFiltered,
@@ -2470,6 +2663,7 @@ export function useHyperliquidActions() {
     updateAllDexsClearinghouseState,
     updateOpenOrders,
     updateAllDexsAssetCtxs,
+    hydrateAllDexsAssetCtxsSnapshotCache,
 
     updateSubscriptions,
     startSubscriptions,

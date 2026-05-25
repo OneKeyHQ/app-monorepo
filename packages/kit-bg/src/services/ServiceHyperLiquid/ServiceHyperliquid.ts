@@ -49,6 +49,10 @@ import {
 import perpsUtils, {
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -166,8 +170,61 @@ type IChangeActiveAssetResult = {
 };
 
 const PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS = timerUtils.getTimeDurationMs({
-  minute: 2,
+  minute: 10,
 });
+
+function setL2BookSnapshotSwrCache({
+  coin,
+  nSigFigs,
+  mantissa,
+  data,
+}: {
+  coin: string;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+  data: IBook;
+}) {
+  const exactKey = swrKeys.perpsL2BookSnapshot({
+    coin,
+    nSigFigs,
+    mantissa,
+  });
+  const defaultKey = swrKeys.perpsL2BookSnapshot({ coin });
+  swrCacheUtils.set(exactKey, data);
+  if (defaultKey !== exactKey) {
+    swrCacheUtils.set(defaultKey, data);
+  }
+}
+
+function getL2BookSnapshotSwrCache({
+  coin,
+  nSigFigs,
+  mantissa,
+  maxAgeMs,
+}: {
+  coin: string;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+  maxAgeMs: number;
+}): { data: IBook; updatedAt: number } | undefined {
+  const exactKey = swrKeys.perpsL2BookSnapshot({
+    coin,
+    nSigFigs,
+    mantissa,
+  });
+  const defaultKey = swrKeys.perpsL2BookSnapshot({ coin });
+  const keys = exactKey === defaultKey ? [exactKey] : [exactKey, defaultKey];
+  for (const key of keys) {
+    const entry = swrCacheUtils.getWithTimestamp<IBook>(key);
+    if (
+      entry?.data?.coin === coin &&
+      Date.now() - entry.updatedAt <= maxAgeMs
+    ) {
+      return entry;
+    }
+  }
+  return undefined;
+}
 
 function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
   return fills.filter(
@@ -1183,6 +1240,12 @@ export default class ServiceHyperliquid extends ServiceBase {
       .catch((error) => {
         console.error('Failed to cache l2Book snapshot:', error);
       });
+    setL2BookSnapshotSwrCache({
+      coin,
+      nSigFigs,
+      mantissa,
+      data: result as IBook,
+    });
     return result as IBook;
   }
 
@@ -1209,7 +1272,17 @@ export default class ServiceHyperliquid extends ServiceBase {
         maxAgeMs: PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
       },
     );
-    if (!entry?.data) {
+    const swrEntry =
+      entry?.data === undefined
+        ? getL2BookSnapshotSwrCache({
+            coin,
+            nSigFigs,
+            mantissa,
+            maxAgeMs: PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
+          })
+        : undefined;
+    const cacheEntry = entry?.data ? entry : swrEntry;
+    if (!cacheEntry?.data) {
       markPerpsColdStartPerf('service_l2_book_cache_miss', {
         coin,
       });
@@ -1217,11 +1290,12 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
     markPerpsColdStartPerf('service_l2_book_cache_hit', {
       coin,
-      ageMs: Date.now() - entry.updatedAt,
-      bidLevels: entry.data.levels?.[0]?.length ?? 0,
-      askLevels: entry.data.levels?.[1]?.length ?? 0,
+      source: entry?.data ? 'simpleDb' : 'swr',
+      ageMs: Date.now() - cacheEntry.updatedAt,
+      bidLevels: cacheEntry.data.levels?.[0]?.length ?? 0,
+      askLevels: cacheEntry.data.levels?.[1]?.length ?? 0,
     });
-    return entry.data;
+    return cacheEntry.data;
   }
 
   @backgroundMethod()

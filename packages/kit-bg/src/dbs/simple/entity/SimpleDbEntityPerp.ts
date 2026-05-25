@@ -11,6 +11,7 @@ import type {
   ISpotToken,
   ISpotUniverse,
   IWsActiveAssetCtx,
+  IWsAllDexsAssetCtxs,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IHyperLiquidErrorLocaleItem,
@@ -38,6 +39,11 @@ export type IPerpsL2BookSnapshotCacheEntry = {
   updatedAt: number;
   nSigFigs?: number | null;
   mantissa?: number | null;
+};
+
+export type IPerpsAllDexsAssetCtxsSnapshotCacheEntry = {
+  data: IWsAllDexsAssetCtxs;
+  updatedAt: number;
 };
 
 export interface ISimpleDbPerpData {
@@ -89,6 +95,7 @@ export interface ISimpleDbPerpData {
     IPerpsActiveAssetCtxSnapshotCacheEntry
   >;
   l2BookSnapshotCache?: Record<string, IPerpsL2BookSnapshotCacheEntry>;
+  allDexsAssetCtxsSnapshotCache?: IPerpsAllDexsAssetCtxsSnapshotCacheEntry;
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
@@ -342,6 +349,38 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         l2BookSnapshotCache: this._limitSnapshotCacheEntries(nextCache),
       };
     });
+  }
+
+  @backgroundMethod()
+  async getAllDexsAssetCtxsSnapshotCache({
+    maxAgeMs,
+  }: {
+    maxAgeMs: number;
+  }): Promise<IPerpsAllDexsAssetCtxsSnapshotCacheEntry | undefined> {
+    const config = await this.getPerpData();
+    const entry = config.allDexsAssetCtxsSnapshotCache;
+    if (!this._isCacheEntryFresh(entry?.updatedAt, maxAgeMs)) {
+      return undefined;
+    }
+    return entry;
+  }
+
+  @backgroundMethod()
+  async setAllDexsAssetCtxsSnapshotCache(data: IWsAllDexsAssetCtxs) {
+    const ctxCount =
+      data?.ctxs?.reduce((sum, [, ctxs]) => sum + (ctxs?.length ?? 0), 0) ?? 0;
+    if (ctxCount <= 0) {
+      return;
+    }
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        allDexsAssetCtxsSnapshotCache: {
+          data,
+          updatedAt: Date.now(),
+        },
+      }),
+    );
   }
 
   @backgroundMethod()

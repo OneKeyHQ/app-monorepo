@@ -19,9 +19,11 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsAllAssetCtxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
 import {
+  usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -37,8 +39,14 @@ import {
   formatDisplayNumber,
   formatLocalizedNumberString,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import { getSpotMarketCapValue } from '@onekeyhq/shared/src/utils/perpsUtils';
-import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  formatAssetCtx,
+  getSpotMarketCapValue,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  PERP_LAYOUT_CONFIG,
+  XYZ_ASSET_ID_OFFSET,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
 import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
@@ -52,10 +60,78 @@ const TICKER_BAR_STAT_VALUE_TEXT_PROPS = {
   letterSpacing: 0,
 } as const;
 
+function isValidPerpFormattedCtx(
+  ctx: ReturnType<typeof formatAssetCtx> | undefined,
+) {
+  const markPriceNumber = Number.parseFloat(ctx?.markPrice ?? '0');
+  return Number.isFinite(markPriceNumber) && markPriceNumber > 0;
+}
+
+function useTickerBarPerpAssetCtx() {
+  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
+
+  const resolved = useMemo(() => {
+    if (
+      assetCtx?.coin === activeAsset.coin &&
+      isValidPerpFormattedCtx(assetCtx.ctx)
+    ) {
+      return {
+        assetCtx,
+        source: 'active' as const,
+      };
+    }
+
+    if (activeAsset.assetId === undefined) {
+      return {
+        assetCtx,
+        source: 'empty' as const,
+      };
+    }
+
+    const dexIndex = activeAsset.assetId >= XYZ_ASSET_ID_OFFSET ? 1 : 0;
+    const ctxIndex =
+      dexIndex === 1
+        ? activeAsset.assetId - XYZ_ASSET_ID_OFFSET
+        : activeAsset.assetId;
+    const cachedCtx = allAssetCtxs.assetCtxsByDex?.[dexIndex]?.[ctxIndex];
+    const formattedCachedCtx = cachedCtx
+      ? formatAssetCtx(cachedCtx)
+      : undefined;
+    if (!isValidPerpFormattedCtx(formattedCachedCtx)) {
+      return {
+        assetCtx,
+        source: 'empty' as const,
+      };
+    }
+
+    return {
+      assetCtx: {
+        coin: activeAsset.coin,
+        assetId: activeAsset.assetId,
+        ctx: formattedCachedCtx,
+      },
+      source: 'allDexsAssetCtxs' as const,
+    };
+  }, [activeAsset.assetId, activeAsset.coin, allAssetCtxs, assetCtx]);
+
+  useEffect(() => {
+    if (resolved.source === 'allDexsAssetCtxs') {
+      markPerpsColdStartPerfOnce('ui_ticker_bar_all_dexs_ctx_ready', {
+        coin: resolved.assetCtx.coin,
+        markPrice: resolved.assetCtx.ctx?.markPrice,
+      });
+    }
+  }, [resolved]);
+
+  return resolved.assetCtx;
+}
+
 function useTickerBarIsLoading() {
   const { currentToken } = usePerpSession();
   const [tradingMode] = useTradingModeAtom();
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const isSpot = tradingMode === 'spot';
   if (isSpot) {
@@ -118,7 +194,7 @@ TickerBarMarkPriceView.displayName = 'TickerBarMarkPriceView';
 
 function TickerBarMarkPrice() {
   const [tradingMode] = useTradingModeAtom();
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const isSpot = tradingMode === 'spot';
   const formattedMarkPrice = isSpot
@@ -183,7 +259,7 @@ TickerBarChange24hPercentView.displayName = 'TickerBarChange24hPercentView';
 export function TickerBarChange24hPercent() {
   const { gtMd } = useMedia();
   const [tradingMode] = useTradingModeAtom();
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const change24hPercent =
     tradingMode === 'spot'
@@ -251,7 +327,7 @@ const TickerBarOraclePriceView = memo(
 TickerBarOraclePriceView.displayName = 'TickerBarOraclePriceView';
 
 function TickerBarOraclePrice() {
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
   const formattedOraclePrice = assetCtx?.ctx?.oraclePrice || '';
   const isLoading = useTickerBarIsLoading();
 
@@ -297,7 +373,7 @@ TickerBar24hVolumeView.displayName = 'TickerBar24hVolumeView';
 
 function TickerBar24hVolume() {
   const [tradingMode] = useTradingModeAtom();
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const isSpot = tradingMode === 'spot';
   const volume24h = isSpot
@@ -369,7 +445,7 @@ const TickerBarOpenInterestView = memo(
 TickerBarOpenInterestView.displayName = 'TickerBarOpenInterestView';
 
 function TickerBarOpenInterest() {
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
   const { openInterest = '0', markPrice = '0' } = assetCtx?.ctx || {};
   const formattedOpenInterest = formatDisplayNumber(
     NUMBER_FORMATTER.marketCap(

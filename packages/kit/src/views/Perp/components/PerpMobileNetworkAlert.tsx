@@ -2,7 +2,7 @@ import { memo, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, SizableText } from '@onekeyhq/components';
+import { Alert, SizableText, YStack } from '@onekeyhq/components';
 import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -40,20 +40,22 @@ function PerpMobileNetworkAlertComponent() {
   }
 
   return (
-    <Alert
-      type="default"
-      fullBleed
-      icon="SignalOutline"
-      descriptionComponent={
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perps_offline_moblie,
-          })}
-        </SizableText>
-      }
-      closable={false}
-      px="$4"
-    />
+    <YStack height={0} overflow="visible" zIndex={10}>
+      <Alert
+        type="default"
+        fullBleed
+        icon="SignalOutline"
+        descriptionComponent={
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perps_offline_moblie,
+            })}
+          </SizableText>
+        }
+        closable={false}
+        px="$4"
+      />
+    </YStack>
   );
 }
 

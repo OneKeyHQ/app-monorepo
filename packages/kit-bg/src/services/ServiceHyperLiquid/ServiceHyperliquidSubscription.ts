@@ -128,6 +128,11 @@ interface IRequiredSubscriptionInfo {
   params: ISubscriptionState;
 }
 
+const ALL_DEXS_ASSET_CTXS_CACHE_WRITE_INTERVAL_MS =
+  timerUtils.getTimeDurationMs({
+    minute: 1,
+  });
+
 @backgroundClass()
 export default class ServiceHyperliquidSubscription extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
@@ -1918,6 +1923,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           data as IWsOpenOrders,
         );
       } else if (subscriptionType === ESubscriptionType.ALL_DEXS_ASSET_CTXS) {
+        this._cacheAllDexsAssetCtxsSnapshot(data as IWsAllDexsAssetCtxs);
         this._emitHyperliquidDataUpdate(
           subscriptionType,
           data as IWsAllDexsAssetCtxs,
@@ -1950,6 +1956,38 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private _lastLivenessAtomUpdate = 0;
+
+  private _lastAllDexsAssetCtxsCacheWriteAt = 0;
+
+  private _cacheAllDexsAssetCtxsSnapshot(data: IWsAllDexsAssetCtxs) {
+    const now = Date.now();
+    if (
+      now - this._lastAllDexsAssetCtxsCacheWriteAt <
+      ALL_DEXS_ASSET_CTXS_CACHE_WRITE_INTERVAL_MS
+    ) {
+      return;
+    }
+
+    const ctxCount =
+      data?.ctxs?.reduce((sum, [, ctxs]) => sum + (ctxs?.length ?? 0), 0) ?? 0;
+    if (ctxCount <= 0) {
+      return;
+    }
+
+    this._lastAllDexsAssetCtxsCacheWriteAt = now;
+    markPerpsColdStartPerfOnce(
+      'service_all_dexs_asset_ctxs_cache_write_first',
+      {
+        dexCount: data.ctxs.length,
+        ctxCount,
+      },
+    );
+    void this.backgroundApi.simpleDb.perp
+      .setAllDexsAssetCtxsSnapshotCache(data)
+      .catch((error) => {
+        console.error('Failed to cache allDexsAssetCtxs snapshot:', error);
+      });
+  }
 
   private _updateNetworkLiveness() {
     const now = Date.now();

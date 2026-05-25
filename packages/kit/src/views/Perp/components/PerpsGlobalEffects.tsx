@@ -74,6 +74,7 @@ import {
 } from '../../../states/jotai/contexts/hyperliquid';
 import {
   useOrderBookTickOptionsAtom,
+  usePerpsAllAssetCtxsAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import {
@@ -282,6 +283,15 @@ function scheduleThrottledDispatch<T>(
       startTransition(() => dispatch(trailing));
     }
   }, intervalMs);
+}
+
+function useHydrateFavoritesBarMarketCache() {
+  const actions = useHyperliquidActions();
+  usePerpsAllAssetCtxsAtom();
+
+  useEffect(() => {
+    void actions.current.hydrateAllDexsAssetCtxsSnapshotCache();
+  }, [actions]);
 }
 
 function useHyperliquidEventBusListener() {
@@ -1328,6 +1338,7 @@ function useHyperliquidInstrumentSwitchRequest() {
 }
 
 function PerpsGlobalEffectsView() {
+  useHydrateFavoritesBarMarketCache();
   useHyperliquidEventBusListener();
   useHyperliquidSession();
   useHyperliquidAccountSelect();
