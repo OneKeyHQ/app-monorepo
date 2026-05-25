@@ -1350,6 +1350,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  async getWalletByHash({
+    hash,
+    excludeKeylessWallet,
+  }: {
+    hash: string;
+    excludeKeylessWallet?: boolean;
+  }): Promise<IDBWallet | undefined> {
+    if (!hash) {
+      return undefined;
+    }
+    const { wallets } = await this.getAllWallets();
+    return wallets.find((wallet) => {
+      if (excludeKeylessWallet && wallet.isKeyless) {
+        return false;
+      }
+      return Boolean(wallet.hash && wallet.hash === hash);
+    });
+  }
+
   async getWalletBySyncPayload({
     payload,
   }: {

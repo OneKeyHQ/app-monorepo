@@ -5,16 +5,21 @@ import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
 import { convertLtcXpub } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
+import type {
+  IBip39RevealableSeed,
+  IBip39RevealableSeedEncryptHex,
+} from '@onekeyhq/core/src/secret';
 import {
   decodeSensitiveTextAsync,
   decryptImportedCredential,
   decryptRevealableSeed,
   deriveBotMnemonic,
   encryptImportedCredential,
+  encryptRevealableSeed,
   ensureSensitiveTextEncoded,
   generateMnemonic,
   mnemonicFromEntropy,
+  mnemonicToRevealableSeed,
   revealEntropyToMnemonic,
   revealableSeedFromMnemonic,
   revealableSeedFromTonMnemonic,
@@ -3297,6 +3302,7 @@ class ServiceAccount extends ServiceBase {
 
   hdWalletHashAndXfpBuilder = async (options: {
     realMnemonic: string;
+    seed?: string | Buffer;
   }): Promise<{
     hash: string;
     xfp: string;
@@ -3305,9 +3311,13 @@ class ServiceAccount extends ServiceBase {
       mnemonic: options.realMnemonic,
     });
 
-    const { fullXfp: fulXfp } = await coreChainApi.btc.hd.buildXfpFromMnemonic({
-      mnemonic: options.realMnemonic,
-    });
+    const { fullXfp: fulXfp } = options.seed
+      ? await coreChainApi.btc.hd.buildXfpFromSeed({
+          seed: options.seed,
+        })
+      : await coreChainApi.btc.hd.buildXfpFromMnemonic({
+          mnemonic: options.realMnemonic,
+        });
     return { hash, xfp: fulXfp };
   };
 
@@ -3334,6 +3344,7 @@ class ServiceAccount extends ServiceBase {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
       reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+      skipPostVerifyBackgroundTasks: true,
     });
 
     ensureSensitiveTextEncoded(mnemonic); // TODO also add check for imported account
@@ -3347,20 +3358,28 @@ class ServiceAccount extends ServiceBase {
 
     await this.generateAllHdAndQrWalletsHashAndXfp({ password });
 
-    const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
-      realMnemonic,
-    });
-
-    let rs: IBip39RevealableSeedEncryptHex | undefined;
+    let revealableSeed: IBip39RevealableSeed;
     try {
-      rs = await revealableSeedFromMnemonic(realMnemonic, password);
+      revealableSeed = mnemonicToRevealableSeed(realMnemonic);
     } catch {
       throw new InvalidMnemonic();
     }
-    const mnemonicFromRs = await mnemonicFromEntropy(rs, password);
+    const mnemonicFromRs = revealEntropyToMnemonic(
+      revealableSeed.entropyWithLangPrefixed,
+    );
     if (realMnemonic !== mnemonicFromRs) {
       throw new InvalidMnemonic();
     }
+
+    const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
+      realMnemonic,
+      seed: revealableSeed.seed,
+    });
+
+    const rs: IBip39RevealableSeedEncryptHex = await encryptRevealableSeed({
+      rs: revealableSeed,
+      password,
+    });
 
     return this.createHDWalletWithRs({
       rs,
@@ -3459,13 +3478,10 @@ class ServiceAccount extends ServiceBase {
     }
 
     if (walletHash && shouldCheckDuplicate) {
-      // TODO performance issue
-      const { wallets } = await this.getAllWallets({
+      const existsSameHashWallet = await localDb.getWalletByHash({
+        hash: walletHash,
         excludeKeylessWallet: true,
       });
-      const existsSameHashWallet = wallets.find(
-        (item) => walletHash && item.hash && item.hash === walletHash,
-      );
       if (existsSameHashWallet) {
         const indexedAccounts = await this.addIndexedAccount({
           walletId: existsSameHashWallet.id,
@@ -5650,6 +5666,13 @@ class ServiceAccount extends ServiceBase {
       try {
         const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
         if (isHdWallet) {
+          if (
+            wallet.hash &&
+            accountUtils.isValidWalletXfp({ xfp: wallet.xfp })
+          ) {
+            // eslint-disable-next-line no-continue
+            continue;
+          }
           const credentialInfo = await localDb.getCredential(wallet.id);
           if (!credentialInfo) {
             // eslint-disable-next-line no-continue

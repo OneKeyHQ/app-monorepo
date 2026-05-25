@@ -682,10 +682,12 @@ export default class ServicePassword extends ServiceBase {
     password,
     passwordMode,
     isBiologyAuth,
+    skipPostVerifyBackgroundTasks,
   }: {
     password: string;
     passwordMode: EPasswordMode;
     isBiologyAuth?: boolean;
+    skipPostVerifyBackgroundTasks?: boolean;
   }): Promise<string> {
     let verifyingPassword = password;
     if (isBiologyAuth) {
@@ -702,58 +704,66 @@ export default class ServicePassword extends ServiceBase {
     if (verifyingPassword) {
       void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
     }
-    if (verifyingPassword) {
-      void (async () => {
-        try {
-          await this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(
-            {
-              password: verifyingPassword,
-            },
-          );
-        } catch (e) {
-          console.error(e);
-        }
-        try {
-          let skipAppStatusCheck = false;
-          if (
-            !this._mergeDuplicateHDWalletsExecuted &&
-            globalThis?.$indexedDBIsMigratedToBucket?.isMigrated === false
-          ) {
-            console.log('verifyPassword__mergeDuplicateHDWallets', {
-              skipAppStatusCheck,
-            });
-            skipAppStatusCheck = true;
-          }
-          await this.backgroundApi.serviceAccount.mergeDuplicateHDWallets({
-            password: verifyingPassword,
-            skipAppStatusCheck,
-          });
-        } catch (e) {
-          console.error(e);
-        } finally {
-          this._mergeDuplicateHDWalletsExecuted = true;
-        }
-        try {
-          await this.backgroundApi.serviceKeylessCloudSync.repairKeylessSyncCredentialIfNeeded(
-            { password: verifyingPassword },
-          );
-        } catch (e) {
-          console.error(e);
-        }
-        if (!this._migrateRemoveHashExecuted) {
-          try {
-            await this.backgroundApi.serviceAddressBook.migrateRemoveHash({
-              password: verifyingPassword,
-            });
-          } catch (e) {
-            console.error('Address book migration error', e);
-          } finally {
-            this._migrateRemoveHashExecuted = true;
-          }
-        }
-      })();
+    if (verifyingPassword && !skipPostVerifyBackgroundTasks) {
+      void this.runPostPasswordVerifyBackgroundTasks({
+        password: verifyingPassword,
+      });
     }
     return verifyingPassword;
+  }
+
+  async runPostPasswordVerifyBackgroundTasks({
+    password,
+  }: {
+    password: string;
+  }) {
+    try {
+      await this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(
+        {
+          password,
+        },
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      let skipAppStatusCheck = false;
+      if (
+        !this._mergeDuplicateHDWalletsExecuted &&
+        globalThis?.$indexedDBIsMigratedToBucket?.isMigrated === false
+      ) {
+        console.log('verifyPassword__mergeDuplicateHDWallets', {
+          skipAppStatusCheck,
+        });
+        skipAppStatusCheck = true;
+      }
+      await this.backgroundApi.serviceAccount.mergeDuplicateHDWallets({
+        password,
+        skipAppStatusCheck,
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      this._mergeDuplicateHDWalletsExecuted = true;
+    }
+    try {
+      await this.backgroundApi.serviceKeylessCloudSync.repairKeylessSyncCredentialIfNeeded(
+        { password },
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    if (!this._migrateRemoveHashExecuted) {
+      try {
+        await this.backgroundApi.serviceAddressBook.migrateRemoveHash({
+          password,
+        });
+      } catch (e) {
+        console.error('Address book migration error', e);
+      } finally {
+        this._migrateRemoveHashExecuted = true;
+      }
+    }
   }
 
   _mergeDuplicateHDWalletsExecuted = false;
@@ -767,6 +777,7 @@ export default class ServicePassword extends ServiceBase {
   async promptPasswordVerify(options?: {
     reason?: EReasonForNeedPassword;
     dialogProps?: IDialogShowProps;
+    skipPostVerifyBackgroundTasks?: boolean;
   }): Promise<IPasswordRes> {
     // console.log('promptPasswordVerify call');
     return this.promptPasswordVerifyMutex.runExclusive(async () => {
@@ -821,6 +832,8 @@ export default class ServicePassword extends ServiceBase {
               ? EPasswordPromptType.PASSWORD_VERIFY
               : EPasswordPromptType.PASSWORD_SETUP,
             dialogProps: options?.dialogProps,
+            skipPostVerifyBackgroundTasks:
+              options?.skipPostVerifyBackgroundTasks,
           });
         });
         const result = await (res as Promise<IPasswordRes>);
@@ -911,6 +924,7 @@ export default class ServicePassword extends ServiceBase {
     idNumber: number;
     type: EPasswordPromptType;
     dialogProps?: IDialogShowProps;
+    skipPostVerifyBackgroundTasks?: boolean;
   }) {
     await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,
