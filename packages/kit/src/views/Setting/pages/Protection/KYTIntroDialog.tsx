@@ -1,43 +1,41 @@
 import { memo, useCallback, useEffect, useRef } from 'react';
 
-import { Button, Dialog, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Icon,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 
-function KYTIntroDialogContent({
-  onEnable,
-  onLearnMore,
-}: {
-  onEnable: () => void;
-  onLearnMore: () => void;
-}) {
+function KYTIntroDialogContent() {
   return (
     <YStack>
       <SizableText size="$bodyLg" color="$textSubdued">
-        When enabled, OneKey will automatically check inbound transfers on
-        supported networks for risky fund sources — such as sanctioned
-        addresses, mixers, or stolen assets — and notify you when high-risk
-        funds arrive.
+        Check supported incoming token transfers for fund-source risk after they
+        are confirmed.
       </SizableText>
-      <YStack gap="$3" mt="$5">
-        <Button
-          testID="kyt-intro-enable"
-          variant="primary"
-          size="large"
-          onPress={onEnable}
-        >
-          Enable
-        </Button>
-        <Button
-          testID="kyt-intro-learn-more"
-          variant="tertiary"
-          size="large"
-          onPress={onLearnMore}
-        >
+      <SizableText size="$bodyLg" color="$textSubdued" mt="$3">
+        High and severe risks will trigger a notification. You can turn this off
+        anytime in Settings.
+      </SizableText>
+      <XStack
+        mt="$3"
+        ai="center"
+        gap="$1"
+        onPress={() => {
+          // TODO: open learn more link once content is ready
+        }}
+        cursor="pointer"
+      >
+        <SizableText size="$bodyLg" color="$textSuccess">
           Learn more
-        </Button>
-      </YStack>
+        </SizableText>
+        <Icon name="ArrowTopRightOutline" size="$4.5" color="$iconSuccess" />
+      </XStack>
     </YStack>
   );
 }
@@ -47,25 +45,20 @@ function useKYTIntroDialog() {
   const shownRef = useRef(false);
 
   const showDialog = useCallback(() => {
-    const dialogInstance = Dialog.show({
+    Dialog.show({
       icon: 'ShieldCheckDoneOutline',
-      tone: 'success',
-      title: 'Receive Risk Monitoring',
-      showFooter: false,
-      renderContent: (
-        <KYTIntroDialogContent
-          onEnable={() => {
-            void settingsPersistAtom.set((v) => ({
-              ...v,
-              receiveRiskMonitoring: true,
-            }));
-            void dialogInstance.close();
-          }}
-          onLearnMore={() => {
-            // TODO: open learn more link once content is ready
-          }}
-        />
-      ),
+      title: 'Receive risk monitoring',
+      showFooter: true,
+      onConfirmText: 'Enable monitoring',
+      onCancelText: 'Not now',
+      renderContent: <KYTIntroDialogContent />,
+      onConfirm: async (dialogInstance) => {
+        void settingsPersistAtom.set((v) => ({
+          ...v,
+          receiveRiskMonitoring: true,
+        }));
+        await dialogInstance.close();
+      },
     });
   }, []);
 
