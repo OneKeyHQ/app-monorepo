@@ -62,6 +62,7 @@ export type ITxActionCommonListViewProps = {
   networkId: string;
   networkLogoURI?: string;
   riskyLevel?: number;
+  kytRiskLevel?: string;
   compact?: boolean;
 };
 

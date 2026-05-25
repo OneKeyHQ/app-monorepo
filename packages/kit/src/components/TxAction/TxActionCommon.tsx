@@ -164,10 +164,17 @@ function TxActionCommonTitle({
   replaceType,
   status,
   riskyLevel,
+  kytRiskLevel,
   compact: _compact,
 }: Pick<
   ITxActionCommonListViewProps,
-  'title' | 'tableLayout' | 'replaceType' | 'status' | 'riskyLevel' | 'compact'
+  | 'title'
+  | 'tableLayout'
+  | 'replaceType'
+  | 'status'
+  | 'riskyLevel'
+  | 'kytRiskLevel'
+  | 'compact'
 >) {
   const intl = useIntl();
 
@@ -208,6 +215,16 @@ function TxActionCommonTitle({
       {riskyLevel && riskyLevel === TX_RISKY_LEVEL_SCAM ? (
         <Badge badgeSize="sm" badgeType="critical" ml="$2">
           {intl.formatMessage({ id: ETranslations.global_scam })}
+        </Badge>
+      ) : null}
+      {kytRiskLevel === 'severe' ? (
+        <Badge badgeSize="sm" badgeType="critical" ml="$2">
+          Severe risk
+        </Badge>
+      ) : null}
+      {kytRiskLevel === 'high' ? (
+        <Badge badgeSize="sm" badgeType="warning" ml="$2">
+          High risk
         </Badge>
       ) : null}
     </XStack>
@@ -425,6 +442,7 @@ function TxActionCommonListView(
     networkId,
     networkLogoURI,
     riskyLevel,
+    kytRiskLevel,
     compact,
     ...rest
   } = props;
@@ -481,6 +499,7 @@ function TxActionCommonListView(
               tableLayout={tableLayout}
               replaceType={replaceType}
               riskyLevel={riskyLevel}
+              kytRiskLevel={kytRiskLevel}
               compact={compact}
             />
             <XStack alignSelf="stretch" minWidth={0}>

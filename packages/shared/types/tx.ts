@@ -154,6 +154,7 @@ export type IDecodedTx = {
   nativeAmount?: string;
   nativeAmountValue?: string;
   riskyLevel?: number;
+  kytRiskLevel?: string;
 
   originalTxId?: string; // for ton
 
