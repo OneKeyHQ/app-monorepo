@@ -518,7 +518,35 @@ type IAccountProfileResponse = {
 
 ## API-03 🆕 `POST /prime/v1/account/identities/oauth/bind`
 
-接口性质：**新增接口**。用于当前已经登录 OneKeyID 的用户，把一个新的 Google / Apple OAuth identity 绑定到当前 OneKeyID。Keyless create / restore / upgrade 只是可能触发这个接口的客户端场景；接口本身只表达账户身份绑定，不写入本地 Keyless wallet 关系，也不建立 OneKeyID 到 `keylessWalletId` 的服务端归属关系。
+接口性质：**新增接口**。用于当前已经登录的 legacy email OneKeyID 用户，在 Account Security / Login methods 之类的主动入口里，把一个新的 Google / Apple OAuth identity 绑定为当前 legacy OneKeyID 的登录方式。
+
+这个接口**绑定的是 OAuth 登录方式，不是绑定 legacy email**。target 必须是当前 session 对应的 legacy email OneKeyID。legacy email 只作为老账号已有的 proof 参与：当本次要添加的 OAuth identity 不能同 email 静默绑定时，legacy email OTP 用来证明用户确实控制这个老账号。
+
+它解决的问题是：老 Email + OTP 用户主动给当前 legacy OneKeyID 增加一个新的 Google / Apple 登录方式，避免后续继续依赖 legacy Email + OTP。target OneKeyID 一律来自 `X-Onekey-Request-Token` 对应的当前 session，不能由 request body 指定。
+
+它不参与普通登录流程，也不是 API-01 `manual_merge_required` 的后续接口。API-01 已经负责登录时的 OAuth identity 校验、自动绑定、创建 OneKeyID 和 pending merge 判断；API-03 只处理“用户已经有一个明确的当前 OneKeyID session，现在想把另一个 OAuth identity 绑定到这个当前账号”的主动绑定场景。
+
+典型使用场景：
+
+- 主场景：当前 session 是 legacy email OneKeyID，用户主动点击 `Add Google` / `Add Apple`，把 Google / Apple OAuth identity 加成这个老 OneKeyID 的新登录方式。
+- 迁移场景：当前 session 是 legacy email OneKeyID，用户在 Keyless create / restore / upgrade 前，需要先把当前 Google / Apple OAuth identity 归属到这个老 OneKeyID。
+- 幂等场景：当前 OAuth identity 已经绑定到当前 OneKeyID，服务端幂等返回成功。
+
+不是本接口处理的场景：
+
+- 不创建、绑定或恢复 legacy email identity；legacy email 只作为老账号已有的 proof。
+- 不给 OAuth-only OneKeyID 提供显式入口去添加另一个 Google / Apple OAuth provider；即使另一个 provider 返回相同 verified email，也不走 API-03。
+- 不处理未登录用户的 Google / Apple 普通登录；该场景走 API-01。
+- 不处理 OAuth 新账号合并到 legacy 账号的显式合并流程；该场景走 API-04 到 API-06，最终由 API-06 `/merge/confirm` 改写 OAuth binding。
+- 不处理“某个 OAuth identity 已经绑定到 OneKeyID A，现在要转移到 legacy email OneKeyID B”的场景。API-03 必须返回 `oauth_identity_bound_to_another_account`，不能直接转移；该场景属于显式账号合并，最终由 API-06 执行 binding retarget。
+
+绑定规则：
+
+- 当前 OneKeyID 必须有 `legacy_email` identity。同 email 静默绑定；跨 email、Apple private relay 或无 verified email 时，才允许返回 `legacy_email_otp_required`，要求用户验证当前 legacy email。
+- 当前 OneKeyID 没有 `legacy_email` identity（OAuth-only 账号）时，本接口不提供绑定能力。客户端不应该展示入口；服务端如果收到请求，返回终止类错误 `oauth_bind_requires_legacy_email`。
+- 如果当前 OAuth identity 已经绑定到另一个 active OneKeyID，本接口不能转移 binding，必须返回 `oauth_identity_bound_to_another_account`，提示客户端走显式账号合并或支持流程。
+
+本接口不写入本地 Keyless wallet 关系，也不建立 OneKeyID 到 `keylessWalletId` 的服务端归属关系。
 
 ### Request
 
@@ -551,17 +579,18 @@ type IAccountOAuthBindRequest = {
   // 客户端不单独传 provider、idToken、authorizationCode 或 refreshToken。
   token: string;
 
-  // 手动绑定确认参数。
+  // OTP 验证确认参数。
   // 首次调用本接口时不传该字段；服务端能静默绑定则直接 success，
-  // 不能静默绑定但允许用户验证当前 legacy OneKeyID 时，返回 manual_oauth_bind_required。
+  // 不能静默绑定、且当前 OneKeyID 有 legacy_email identity 可验证时，
+  // 返回 legacy_email_otp_required。
   // 客户端随后调用 API-09 /prime/v1/general/emailOTP 发送 OTP，
-  // 再把 manualOAuthBindHandle + otpUuid + otpCode 回传到本接口完成确认。
-  manualConfirm?: {
-    // API-03 返回 manual_oauth_bind_required 时签发的短期加密签名 token。
+  // 再把 oauthBindVerificationHandle + otpUuid + otpCode 回传到本接口完成确认。
+  confirmation?: {
+    // API-03 返回 legacy_email_otp_required 时签发的短期加密签名 token。
     // 客户端只当作 opaque string 保存和回传。
     // token 内容至少包含 oauthIdentityId、provider、providerSubject、normalizedEmail?、
     // targetOneKeyUserId、target legacy email、iat、exp。
-    manualOAuthBindHandle: string;
+    oauthBindVerificationHandle: string;
 
     // API-09 /prime/v1/general/emailOTP 返回的 uuid。
     otpUuid: string;
@@ -580,20 +609,22 @@ type IAccountOAuthBindRequest = {
 type IAccountOAuthBindResponse = {
   // 本接口固定返回同一个 response shape。
   // 这里的 status 是 2xx 成功响应内的 workflow status，不是错误码。
-  // status = success 时，oauthIdentityBinding 必须有值，manualOAuthBind 必须为 null。
-  // status = manual_oauth_bind_required 时，manualOAuthBind 必须有值，
+  // status = success 时，oauthIdentityBinding 必须有值，oauthBindVerification 必须为 null。
+  // status = legacy_email_otp_required 时，oauthBindVerification 必须有值，
   // oauthIdentityBinding 必须为 null；服务端不能创建 OAuth binding 或 email claim。
   status:
     // 当前 OAuth identity 已经绑定到当前 OneKeyID。
-    // 可能是命中既有绑定、同 email 静默绑定，或 manualConfirm 验证通过后的绑定。
+    // 可能是命中既有绑定、同 email 静默绑定，或 confirmation 验证通过后的绑定。
     | 'success'
     // 当前 OAuth credential 合法，但不能静默绑定到当前 OneKeyID。
-    // 客户端必须进入手动绑定流程，通过 API-09 发送 legacy Email OTP，
-    // 再用 manualConfirm 回调本接口完成绑定。
-    | 'manual_oauth_bind_required';
+    // 该状态只允许在当前 OneKeyID 有 legacy_email identity 时返回。
+    // 客户端必须通过 API-09 发送 legacy Email OTP，
+    // 再用 confirmation 回调本接口完成绑定。
+    // 这不是“让客户端去调用另一个手动绑定接口”，而是本接口的 OTP 验证阶段。
+    | 'legacy_email_otp_required';
 
   // 本次提交的 OAuth token 解析出的 identity 摘要。
-  // 无论 status 是 success 还是 manual_oauth_bind_required 都必须返回。
+  // 无论 status 是 success 还是 legacy_email_otp_required 都必须返回。
   // 字段语义与 API-01 的 oauthIdentity 完全一致。
   oauthIdentity: {
     // 服务端为 OAuth identity 生成的稳定 ID。
@@ -628,7 +659,7 @@ type IAccountOAuthBindResponse = {
   // 当前 session 对应的 active OneKeyID。
   // 2xx response 中始终返回，因为本接口必须由已登录 OneKeyID session 调用。
   // status = success 时，identities 必须包含本次绑定成功的 OAuth identity。
-  // status = manual_oauth_bind_required 时，identities 不包含本次待确认的 OAuth identity。
+  // status = legacy_email_otp_required 时，identities 不包含本次待确认的 OAuth identity。
   onekeyAccount: {
     // 当前 session 绑定的 active OneKeyID。
     onekeyUserId: string;
@@ -662,20 +693,20 @@ type IAccountOAuthBindResponse = {
   };
 
   // OAuth identity 的绑定结果。
-  // 仅 status = success 时有值；manual_oauth_bind_required 时必须为 null。
+  // 仅 status = success 时有值；legacy_email_otp_required 时必须为 null。
   oauthIdentityBinding: {
     // OAuth identity 绑定状态完整枚举。
     // 注意：这是通用枚举全集；本接口的 oauthIdentityBinding 仅 status = success 时返回，
     // 所以本字段在本接口实际只能返回 bound。
-    // status = manual_oauth_bind_required 时 oauthIdentityBinding 必须为 null。
+    // status = legacy_email_otp_required 时 oauthIdentityBinding 必须为 null。
     bindingStatus:
       // 已绑定。当前 OAuth identity 已经绑定到当前 OneKeyID。
       // API-03 success payload 只允许返回该值。
       | 'bound'
       // 待处理。表示当前 OAuth identity 还没有完成绑定，
-      // 需要用户继续 manual OAuth bind 等流程。
+      // 需要用户继续 OTP 验证流程。
       // API-03 不在 oauthIdentityBinding.bindingStatus 中返回该值；
-      // 对应场景使用顶层 status = manual_oauth_bind_required，并把 oauthIdentityBinding 置为 null。
+      // 对应场景使用顶层 status = legacy_email_otp_required，并把 oauthIdentityBinding 置为 null。
       | 'pending'
       // 冲突。表示当前 OAuth identity 与当前 OneKeyID 不能直接绑定，
       // 例如已绑定到另一个 active OneKeyID，或 email claim owner 不是当前 OneKeyID。
@@ -691,23 +722,20 @@ type IAccountOAuthBindResponse = {
     // 绑定来源：
     // - existing_oauth_binding：OAuth identity 已经绑定到当前 OneKeyID，本次幂等返回成功。
     // - legacy_email_auto_bind：OAuth verified email 命中当前 OneKeyID 的 legacy_email identity。
-    // - email_claim_auto_bind：OAuth verified email 命中 active email claim owner，
-    //   且 owner 就是当前 OneKeyID。
-    // - manual_oauth_bind_confirmed：manualConfirm 中 legacy Email OTP 验证通过后绑定。
+    // - legacy_email_otp_confirmed：confirmation 中 legacy Email OTP 验证通过后绑定。
     bindReason:
       | 'existing_oauth_binding'
       | 'legacy_email_auto_bind'
-      | 'email_claim_auto_bind'
-      | 'manual_oauth_bind_confirmed';
+      | 'legacy_email_otp_confirmed';
   } | null;
 
-  // 手动 OAuth 绑定上下文。
-  // 仅 status = manual_oauth_bind_required 时有值；success 时必须为 null。
-  manualOAuthBind: {
+  // OAuth 绑定 OTP 验证上下文。
+  // 仅 status = legacy_email_otp_required 时有值；success 时必须为 null。
+  oauthBindVerification: {
     // 短期加密签名 token，客户端只当作 opaque string 保存和回传。
     // 后续通过 API-09 发送 OTP 时，作为 otpPurposeToken 传入；
-    // 回调本接口 manualConfirm 时，作为 manualOAuthBindHandle 传回。
-    manualOAuthBindHandle: string;
+    // 回调本接口 confirmation 时，作为 oauthBindVerificationHandle 传回。
+    oauthBindVerificationHandle: string;
 
     // 需要完成的验证类型枚举列表。
     // 完整枚举当前只有 legacy_email_otp，后续如果增加其他 proof，
@@ -718,6 +746,7 @@ type IAccountOAuthBindResponse = {
     >;
 
     // API-09 发码时必须使用的 scene。
+    // scene 名称沿用 ManualOAuthBind，表示“OAuth 绑定需要人工验证 legacy email OTP”。
     otpScene: 'ManualOAuthBind';
 
     // 当前 session 对应的 target OneKeyID。
@@ -730,7 +759,7 @@ type IAccountOAuthBindResponse = {
     // 当前 OAuth identity 的脱敏展示值；没有 verified email 时可以为 null。
     oauthDisplayEmail?: string | null;
 
-    // 需要手动绑定的原因：
+    // 需要 OTP 验证的原因：
     // - oauth_email_mismatch：OAuth verified email 与当前 legacy OneKeyID email 不一致。
     // - apple_private_relay：Apple private relay 不能静默绑定到真实 legacy email。
     // - missing_or_unverified_email：OAuth credential 没有可用于静默绑定的 verified email。
@@ -739,7 +768,7 @@ type IAccountOAuthBindResponse = {
       | 'apple_private_relay'
       | 'missing_or_unverified_email';
 
-    // manualOAuthBindHandle 的过期时间，ISO 8601 字符串。
+    // oauthBindVerificationHandle 的过期时间，ISO 8601 字符串。
     // 过期后客户端必须重新发起 API-03 首次绑定请求。
     expiresAt: string;
   } | null;
@@ -756,14 +785,20 @@ type IAccountOAuthBindTerminalErrorCode =
   // 客户端处理：清理本次 OAuth 临时 credential，报错并让用户手动重新发起 OAuth。
   | 'oauth_credential_invalid'
   // 当前 OAuth identity 已绑定到另一个 active OneKeyID。
-  // 客户端不能把它强行绑定到当前 OneKeyID；应提示切换账号、走显式账号合并或联系客服。
+  // API-03 不能把它强行绑定或转移到当前 OneKeyID。
+  // 如果用户要把 OAuth identity 从 OneKeyID A 转移到 legacy OneKeyID B，
+  // 必须走 API-04 / API-05 / API-06 的显式账号合并流程，最终由 API-06 改写 binding。
   | 'oauth_identity_bound_to_another_account'
   // 当前 OAuth verified email 的 active email claim owner 不是当前 OneKeyID。
   // 服务端不能覆盖该 claim；客户端应进入显式账号合并或客服流程。
   | 'oauth_email_claim_conflict'
-  // manualConfirm 提交的 manualOAuthBindHandle 过期、被篡改或与当前 session / OAuth identity 不匹配。
+  // 当前 OneKeyID 没有 legacy_email identity。
+  // API-03 只服务 legacy email OneKeyID 添加 OAuth 登录方式；
+  // OAuth-only OneKeyID 不提供显式入口绑定另一个 OAuth provider。
+  | 'oauth_bind_requires_legacy_email'
+  // confirmation 提交的 oauthBindVerificationHandle 过期、被篡改或与当前 session / OAuth identity 不匹配。
   // 客户端清理本地 manual bind state，由用户重新触发绑定流程；不要自动循环重试。
-  | 'manual_oauth_bind_expired'
+  | 'oauth_bind_verification_expired'
   // 历史数据存在无法自动判定的问题，例如 OAuth binding / email claim 唯一性异常。
   // 客户端展示客服 / 风控处理入口。
   | 'support_required';
@@ -772,7 +807,7 @@ type IAccountOAuthBindTerminalErrorCode =
 终止类错误通过业务错误码返回，不作为 `IAccountOAuthBindResponse.status` 返回：
 
 - 具体错误码含义见上面的 `IAccountOAuthBindTerminalErrorCode` 注释。
-- `manual_oauth_bind_required` 不属于终止类错误；它是 2xx workflow status，因为客户端需要从 response data 读取 `manualOAuthBind.manualOAuthBindHandle` / `otpScene` / `requiredVerification` 后继续发码和确认流程。
+- `legacy_email_otp_required` 不属于终止类错误；它是 2xx workflow status，因为客户端需要从 response data 读取 `oauthBindVerification.oauthBindVerificationHandle` / `otpScene` / `requiredVerification` 后继续发码和确认流程。
 
 ### Examples
 
@@ -805,6 +840,7 @@ API-03 示例已拆分到 [api-03-onekeyid-keyless-unified-login-server-oauth-bi
 ## API-06 🆕 `POST /prime/v1/account/merge/confirm`
 
 - 用于用户确认后的账号合并执行。
+- 如果某个 OAuth identity 已经绑定到 OneKeyID A，现在要转移到 legacy email OneKeyID B，最终就是本接口执行：把 source A 标记为 `merged`，并把 source OAuth binding retarget 到 target B。
 - 输入 `mergeRequestId`、`finalConfirmHandle` 和 source proof：如果 source 是当前 OAuth 新建 OneKeyID，提交当前 OneKeyID session 和当前 OAuth credential；如果来自 `sourceOauthHandle` 路径，提交当前 OAuth credential。
 - 服务端按 `mergeRequestId` 幂等执行：先查询 execution record；若已存在 record，无论状态是 `processing`、`merged`、`failed` 还是 `support_required`，都必须先校验 source proof、target session 或客服 / 风控 scoped auth；source proof 中的 OAuth credential 必须解析为该 record 已落库的 canonical source。校验失败统一返回 404 / not found，不暴露 record 是否存在或状态。校验通过后，按 record 当前状态返回结果，不要求 `finalConfirmHandle` 仍未过期。若不存在 execution record，则必须验签且确认 `finalConfirmHandle` 未过期，并校验 handle 内的 `mergeRequestId` 与输入一致 → 重新校验当前 OAuth credential / OneKeyID session（防止 token 已撤销或 session 失效）并把本次提交的 OAuth identity 作为 canonical source → 创建或锁定 `IOneKeyAccountMergeRelation` execution record（初始 `status = 'processing'`）→ 在主事务中执行合并、OAuth binding retarget / 绑定和必要的 active email claim upsert / 迁移 → 成功后更新为 `merged`。如果用户在 confirm 时提交的是另一个合法 OAuth identity，服务端合并的是 confirm 时提交的这个 identity，而不是 `verify-target` 展示摘要里的旧 identity。
 - 除了 `mergeRequestId` 唯一约束，`/merge/confirm` 还必须按 canonical source 建立 source-level execution lock。canonical source key 为 `provider + providerSubject`（`pending_oauth_bind`）或 `sourceOneKeyUserId`（已存在 source OneKeyID）。若同一 source 已有未完成 `processing` relation，授权通过后直接拒绝本次新请求并返回 `source_merge_in_progress`，不创建第二条执行记录，也不尝试合并到另一个 target。若同一 `mergeRequestId` 重试命中已有 record，则按该 record 当前状态返回。
@@ -839,9 +875,9 @@ API-03 示例已拆分到 [api-03-onekeyid-keyless-unified-login-server-oauth-bi
 - 复用现有独立发码接口。
 - 现有代码已经把发送 Email OTP 做成独立接口：客户端先调用该接口拿到 `uuid`，再在业务确认接口提交 `uuid + code`。本迁移继续沿用这个模型，不能让 `/merge/prepare`、`/merge/verify-target` 或 OAuth bind 接口承担发码副作用。
 - 请求保留 `scene`，并扩展可选的 `otpPurposeToken`。`otpPurposeToken` 是服务端签发的短期不透明 token，用于把本次 OTP 绑定到具体业务目的，例如 `MergeExistingOneKeyId` 或 `ManualOAuthBind`。
-- 新增 OTP scene：`MergeExistingOneKeyId` 用于显式合并 target legacy email 验证；`ManualOAuthBind` 用于已登录 legacy OneKeyID 主动绑定跨 email / 无 verified email OAuth identity。
+- 新增 OTP scene：`MergeExistingOneKeyId` 用于显式合并 target legacy email 验证；`ManualOAuthBind` 用于已登录 legacy OneKeyID 主动绑定跨 email、Apple private relay 或无 verified email OAuth identity。
 - `MergeExistingOneKeyId` 场景必须要求 `otpPurposeToken`，由 `/merge/prepare` 签发；发码接口验签后按 token 内的 target legacy email 发码或返回中性结果，不能通过错误码、文案或时序泄露 target 是否存在。
-- `ManualOAuthBind` 场景必须要求 `otpPurposeToken = manualOAuthBindHandle`；发码接口验签后只向 handle 绑定的 target legacy email 发码，避免普通账户 OTP 被复用到 OAuth 绑定确认。
+- `ManualOAuthBind` 场景必须要求 `otpPurposeToken = oauthBindVerificationHandle`；该 handle 来自 API-03 `legacy_email_otp_required` 响应里的 `oauthBindVerification.oauthBindVerificationHandle`。发码接口验签后只向 handle 绑定的 target legacy email 发码，避免普通账户 OTP 被复用到 OAuth 绑定确认。
 
 ---------------------------------------------------------
 

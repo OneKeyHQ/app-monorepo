@@ -33,10 +33,15 @@ Response:
     "displayEmail": "n***@gmail.com"
   },
   "onekeyAccount": {
-    "onekeyUserId": "onekey_A",
+    "onekeyUserId": "onekey_legacy_A",
     "status": "active",
     "displayEmail": "n***@gmail.com",
     "identities": [
+      {
+        "identityType": "legacy_email",
+        "normalizedEmail": "neo@gmail.com",
+        "displayEmail": "n***@gmail.com"
+      },
       {
         "identityType": "oauth",
         "oauthIdentityId": "hash_google_1082048571",
@@ -51,10 +56,10 @@ Response:
   },
   "oauthIdentityBinding": {
     "bindingStatus": "bound",
-    "boundOneKeyUserId": "onekey_A",
+    "boundOneKeyUserId": "onekey_legacy_A",
     "bindReason": "existing_oauth_binding"
   },
-  "manualOAuthBind": null
+  "oauthBindVerification": null
 }
 ```
 
@@ -115,11 +120,11 @@ Response:
     "boundOneKeyUserId": "onekey_legacy_A",
     "bindReason": "legacy_email_auto_bind"
   },
-  "manualOAuthBind": null
+  "oauthBindVerification": null
 }
 ```
 
-## API-03 / Example 03. OAuth email 与当前 legacy email 不同，返回 `manual_oauth_bind_required`
+## API-03 / Example 03. OAuth email 与当前 legacy email 不同，返回 `legacy_email_otp_required`
 
 Request Header:
 
@@ -139,7 +144,7 @@ Response:
 
 ```json
 {
-  "status": "manual_oauth_bind_required",
+  "status": "legacy_email_otp_required",
   "oauthIdentity": {
     "oauthIdentityId": "hash_google_2099999999",
     "provider": "google",
@@ -162,8 +167,8 @@ Response:
     ]
   },
   "oauthIdentityBinding": null,
-  "manualOAuthBind": {
-    "manualOAuthBindHandle": "signed-manual-oauth-bind-handle",
+  "oauthBindVerification": {
+    "oauthBindVerificationHandle": "signed-oauth-bind-verification-handle",
     "requiredVerification": ["legacy_email_otp"],
     "otpScene": "ManualOAuthBind",
     "targetOneKeyUserId": "onekey_legacy_A",
@@ -175,9 +180,9 @@ Response:
 }
 ```
 
-客户端随后调用 API-09 `POST /prime/v1/general/emailOTP`，传 `scene = "ManualOAuthBind"` 和 `otpPurposeToken = manualOAuthBind.manualOAuthBindHandle` 发送 OTP。
+客户端随后调用 API-09 `POST /prime/v1/general/emailOTP`，传 `scene = "ManualOAuthBind"` 和 `otpPurposeToken = oauthBindVerification.oauthBindVerificationHandle` 发送 OTP。
 
-## API-03 / Example 04. 提交 legacy Email OTP 后，手动绑定成功
+## API-03 / Example 04. 提交 legacy Email OTP 后，绑定成功
 
 Request Header:
 
@@ -190,8 +195,8 @@ Request Body:
 ```json
 {
   "token": "supabase-oauth-access-token",
-  "manualConfirm": {
-    "manualOAuthBindHandle": "signed-manual-oauth-bind-handle",
+  "confirmation": {
+    "oauthBindVerificationHandle": "signed-oauth-bind-verification-handle",
     "otpUuid": "otp_uuid_123",
     "otpCode": "123456"
   }
@@ -237,9 +242,9 @@ Response:
   "oauthIdentityBinding": {
     "bindingStatus": "bound",
     "boundOneKeyUserId": "onekey_legacy_A",
-    "bindReason": "manual_oauth_bind_confirmed"
+    "bindReason": "legacy_email_otp_confirmed"
   },
-  "manualOAuthBind": null
+  "oauthBindVerification": null
 }
 ```
 
@@ -272,4 +277,4 @@ Response:
 }
 ```
 
-客户端处理：不能把该 OAuth identity 强行绑定到当前 OneKeyID；提示用户切换 OneKeyID、走显式账号合并，或联系支持。
+客户端处理：不能把该 OAuth identity 通过 API-03 强行绑定或转移到当前 OneKeyID。如果用户要把这个 OAuth identity 从 OneKeyID A 转移到 legacy email OneKeyID B，必须走 API-04 / API-05 / API-06 的显式账号合并流程，最终由 API-06 `/merge/confirm` 改写 binding；也可以提示用户切换账号或联系支持。

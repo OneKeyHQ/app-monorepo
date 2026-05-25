@@ -394,18 +394,20 @@ OAuth identity 归属只表示当前设备 Keyless 流程使用的 OAuth identit
 
 1. 如果本地 Keyless session 中的 OAuth credential 可用，登录页 / OneKeyID 登录弹窗展示“已登录的 Keyless wallet”继续入口，例如 `Continue with existing Keyless wallet`。用户点击继续后，客户端复用该 OAuth credential 调用 OneKeyID login / upsert，建立 OneKeyID 登录态，不重复拉起 Google / Apple，也不要求用户手动选择 Apple / Google。
 2. 如果本地 OAuth credential 不可用或刷新失败，保持未登录状态，等待用户主动走 Google / Apple 登录。
-3. OneKeyID 登录态建立后，不触发 Keyless PIN。后续如果需要把当前 OAuth identity 归属到 OneKeyID，同 email 静默绑定，跨 email 手动升级才要求 legacy OneKeyID Email OTP；只有用户进入创建、恢复或验证 Keyless wallet 时，才进入 PIN。
+3. OneKeyID 登录态建立后，不触发 Keyless PIN。后续如果需要把当前 OAuth identity 归属到 OneKeyID，同 email 静默绑定；只有当前 OneKeyID 是 legacy email OneKeyID，且用户主动跨 email 绑定当前 OAuth identity 时，才要求 legacy OneKeyID Email OTP。OAuth-only OneKeyID 没有 legacy Email OTP proof，不能进入该 OTP 流程。只有用户进入创建、恢复或验证 Keyless wallet 时，才进入 PIN。
 4. 如果本地 OAuth credential 已绑定或解析到当前 OneKeyID，即使 provider / subject 与当前登录使用的 OAuth identity 不同，也视为同一 OneKeyID 下的有效 OAuth identity。只有当该 OAuth identity 已绑定或解析到另一个 active OneKeyID 时，本地 Keyless wallet 才保持未归属当前 OneKeyID，并在 Keyless 场景中提示账号不匹配。**钱包列表不展示不属于当前 OneKeyID 的 wallet**：UI 按"当前 OneKeyID 已归属的 OAuth identity"过滤；用户切回原 OneKeyID 才能看到。本地 Keyless wallet 数据本身仍保留在 secure storage 中，**不删除**，避免切换登录态导致资产无法找回。
 
 ### 手动跨 email OAuth 绑定例外
 
-自动绑定仍然只允许 verified `normalizedEmail` 命中目标 OneKeyID 的 `normalizedLegacyEmail` 或 active email claim owner。同 email 绑定静默完成，不要求 Email OTP。唯一需要 Email OTP 的例外是：用户已经登录 legacy OneKeyID，并且明确要把当前 OAuth identity 绑定到这个 OneKeyID，但该 OAuth email 与 legacy OneKeyID email 不同。
+这里讨论的是“给当前 legacy email OneKeyID 添加 Google / Apple OAuth 登录方式”，不是给账号绑定新的 legacy email，也不是给 OAuth-only OneKeyID 添加另一个 OAuth provider。当前登录的 OneKeyID 必须是 legacy email OneKeyID，因为只有它才有 legacy Email OTP 这个 proof。
+
+自动绑定只允许 verified `normalizedEmail` 命中目标 OneKeyID 的 `normalizedLegacyEmail`。同 email 绑定静默完成，不要求 Email OTP。唯一需要 Email OTP 的例外是：用户已经登录 legacy OneKeyID，并且明确要把当前 OAuth identity 绑定到这个 OneKeyID，但该 OAuth email 与 legacy OneKeyID email 不同。
 
 该例外必须同时满足：
 
 1. 目标 OneKeyID 必须是当前设备上已经登录的 legacy OneKeyID，不能由服务端自动挑选。
 2. 用户必须从账户安全或升级入口主动发起，不能在登录、启动或后台同步中静默触发。
-3. 服务端必须通过 `manual_oauth_bind_required` 明确告知客户端进入手动流程。客户端不能只根据本地 email mismatch 自行进入绑定确认，也不能在未收到该状态时要求用户输入 OTP。
+3. 服务端必须通过 API-03 的 `legacy_email_otp_required` 明确告知客户端进入 legacy Email OTP 验证阶段。客户端不能只根据本地 email mismatch 自行进入绑定确认，也不能在未收到该状态时要求用户输入 OTP。该状态只允许在当前已登录 OneKeyID 有 `legacy_email` identity 时返回；OAuth-only OneKeyID 不能使用 legacy Email OTP。
 4. UI 必须同时展示当前 OneKeyID email 和将绑定的 OAuth identity display，并要求用户明确确认；如果 OAuth identity 没有 verified email，UI 只能展示 provider / identity display，不能用本地缓存 email 补文案。
 5. 服务端必须校验 OAuth credential 合法性。
 6. 用户必须完成 legacy OneKeyID Email OTP；绑定本身不要求 Keyless PIN。
@@ -414,6 +416,8 @@ OAuth identity 归属只表示当前设备 Keyless 流程使用的 OAuth identit
 9. 绑定完成后，当前 legacy OneKeyID 保持为主账号；绑定只改变 OAuth identity 归属，不迁移任何 OneKeyID 业务数据。Cloud Sync 不随 OneKeyID 绑定处理，仍由 Keyless wallet / Cloud Sync 流程决定。
 
 该例外只用于“已登录 legacy OneKeyID 主动绑定当前 OAuth identity”这一条路径；Keyless 创建 / 恢复入口可以触发它，但它不是 Keyless wallet 绑定。其他跨 email 合并诉求仍然不进入自动流程。
+
+如果 OAuth identity 已经绑定到另一个 OneKeyID A，再转移到当前 legacy email OneKeyID B，这不是本接口的手动绑定例外，而是显式账号合并。客户端必须走 `/merge/prepare`、`/merge/verify-target`、`/merge/confirm`；最终由 `/merge/confirm` 把 source A 标记为 `merged`，并把 OAuth binding 改写到 target B。
 
 ### OAuth 新建账户后的显式合并
 
@@ -615,7 +619,7 @@ OAuth 账户绑定只解决 OneKeyID 身份。Keyless wallet 本身不作为 One
 - 跨 email 绑定不是当前已登录 legacy OneKeyID 用户主动发起，或没有完成 legacy OneKeyID Email OTP。
 - OAuth credential 校验失败、过期或 provider subject 与服务端记录不一致。
 
-OAuth identity 归属不使用 `socialUserIdHash`、`keylessWalletId` 或任何 Keyless wallet metadata。多个设备在 Keyless 流程中使用的 OAuth identity、以及普通 Google / Apple OAuth identity，只要 verified email 相同，都可以绑定到同一个 legacy OneKeyID。OneKeyID 自动合并只看 verified email 严格相同；Keyless 场景的同 email 绑定只看当前 OAuth credential，跨 email 手动升级才额外要求 legacy OneKeyID Email OTP。
+OAuth identity 归属不使用 `socialUserIdHash`、`keylessWalletId` 或任何 Keyless wallet metadata。多个设备在 Keyless 流程中使用的 OAuth identity、以及普通 Google / Apple OAuth identity，只要 verified email 相同，都可以绑定到同一个 legacy OneKeyID。OneKeyID 自动合并只看 verified email 严格相同；Keyless 场景的同 email 绑定只看当前 OAuth credential。只有目标是当前已登录 legacy OneKeyID 的主动跨 email 绑定，才额外要求 legacy OneKeyID Email OTP。
 
 ### 客服或人工流程
 
@@ -663,10 +667,10 @@ Keyless sync 是否真正执行，只和本地 Keyless wallet / Keyless sync cre
 
 ### 已有 Keyless wallet 的老用户
 
-- 如果 legacy OneKeyID 已登录，按当前 OneKeyID 作为迁移目标；同 email 的 OAuth identity 可以静默绑定到当前 OneKeyID，不要求 Email OTP；不同 email 不自动绑定，但用户可以主动进入手动跨 email OAuth identity 绑定流程。
+- 如果 legacy OneKeyID 已登录，按当前 OneKeyID 作为迁移目标；同 email 的 OAuth identity 可以静默绑定到当前 OneKeyID，不要求 Email OTP；不同 email 不自动绑定，但用户可以主动进入手动跨 email OAuth identity 绑定流程，并通过该 legacy OneKeyID 的 Email OTP 证明 target。
 - 如果 legacy OneKeyID 未登录，登录页优先展示已登录 Keyless wallet 的继续入口；用户点击后复用本地 OAuth credential 建立 OneKeyID 登录态。credential 不可用时等待用户主动 Google / Apple 登录。
 - 启动流程只读取本地 Keyless 状态并决定是否展示继续入口，不后台静默登录 OneKeyID，也不弹 Keyless PIN。
-- 将 OAuth identity 归属到 legacy OneKeyID 时，复用已登录 OAuth credential，不要求 PIN；只有跨 email 手动升级才要求 legacy OneKeyID Email OTP。
+- 将 OAuth identity 归属到 legacy OneKeyID 时，复用已登录 OAuth credential，不要求 PIN；只有跨 email 手动升级才要求该 legacy OneKeyID 的 Email OTP。
 - 创建、恢复、重置 PIN 或验证 Keyless wallet 时，才进入 Keyless PIN。
 - 保持本地 wallet id、账户、DApp 连接和 Bot Wallet 关系不变。
 
@@ -703,7 +707,7 @@ Keyless sync 是否真正执行，只和本地 Keyless wallet / Keyless sync cre
 ### Phase 3: Keyless 场景 OAuth 归属灰度
 
 - 登录后只刷新当前设备 Keyless 流程使用的 OAuth identity 归属状态，不触发 PIN。
-- 用户进入 Keyless 场景时，复用当前 OAuth credential；本设备尚未有可用 OAuth credential 时，才拉起 Google / Apple 进入 Keyless 创建 / 恢复。同 email 静默绑定，跨 email 手动升级才要求 legacy OneKeyID Email OTP。
+- 用户进入 Keyless 场景时，复用当前 OAuth credential；本设备尚未有可用 OAuth credential 时，才拉起 Google / Apple 进入 Keyless 创建 / 恢复。同 email 静默绑定；只有目标是当前已登录 legacy OneKeyID 的主动跨 email 绑定，才要求 legacy OneKeyID Email OTP。
 - 用户进入 Keyless 创建、恢复、同步或验证场景时，复用当前设备可用 OAuth credential；只有钱包能力需要 PIN。
 - 记录绑定成功率、冲突率、失败原因。
 - 不触发 Cloud Sync，也不处理 Keyless sync credential 或同步数据。
@@ -747,7 +751,7 @@ Keyless sync 是否真正执行，只和本地 Keyless wallet / Keyless sync cre
 - 显式合并在 legacy Email OTP 通过前不能返回 target 是否存在或 target 数据摘要，避免把合并入口变成账号枚举接口。
 - 同 email 绑定不能要求 Email OTP，否则会把普通 Google / Apple 登录变回迁移流程。
 - 跨 email 绑定必须限制在已登录 legacy OneKeyID 的主动升级路径内，并要求 legacy OneKeyID Email OTP。
-- 手动 OAuth 绑定必须由服务端返回 `manual_oauth_bind_required` 触发；客户端不能只靠本地 email 判断进入 OTP 流程。`manualOAuthBindHandle` 必须短期有效并绑定 OAuth identity、target OneKeyID 和 target legacy email；发送 OTP 时作为 `otpPurposeToken` 传给独立发码接口，确认时必须重新校验 OAuth credential、`manualOAuthBindHandle`、`otpUuid` 和 legacy Email OTP。
+- 手动 OAuth 绑定必须由服务端返回 API-03 的 `legacy_email_otp_required` 触发；客户端不能只靠本地 email 判断进入 OTP 流程。`oauthBindVerificationHandle` 必须短期有效并绑定 OAuth identity、target OneKeyID 和 target legacy email；发送 OTP 时作为 `otpPurposeToken` 传给独立发码接口，确认时必须重新校验 OAuth credential、`oauthBindVerificationHandle`、`otpUuid` 和 legacy Email OTP。OAuth-only 当前账号没有 legacy Email OTP proof，跨 email / Apple private relay / missing verified email 不能进入该流程。
 - 手动跨 email OAuth identity 绑定例外必须保持在已登录 legacy OneKeyID 的主动绑定路径内，不能复用到普通登录或后台自动绑定。
 - 两个 OneKeyID 都有数据时，不能静默合并；必须经过显式账号合并确认，并保留 source merged archive / merge relation。
 - source OneKeyID 合并完成后必须 revoke 旧 AUTH token / session / scoped token；写入接口遇到 source 旧 session 必须返回 `account_merged_reauth_required` / 401，不允许透明写入 target。客户端必须清理本地 OneKeyID token / `primePersistAtom`，报错并回到登录界面，让用户手动重新登录。
@@ -835,7 +839,7 @@ Keyless sync 是否真正执行，只和本地 Keyless wallet / Keyless sync cre
 | pending merge state | 客户端本地的临时合并流程状态。 | 由 `manual_merge_required` 触发；客户端缓存当前 OAuth credential 与 `sourceOauthHandle`，继续调用 `/merge/prepare`、`/merge/verify-target`、`/merge/confirm`。它不是服务端持久化状态。 |
 | `pending_oauth_bind` | 后续 merge API 的 `sourceType`，也是 `/merge/confirm` 成功后落库的 `relationType`。 | 表示 source 还没有 OneKeyID，只是 confirm 时提交并校验通过的 OAuth identity；成功后直接绑定到 target legacy OneKeyID。不要把它当作 OAuth 登录接口的 `status`。 |
 | `merged_source` | `/merge/confirm` 成功后落库的另一种 `relationType`。 | 表示 source 是一个已经存在的 OAuth 新 OneKeyID；合并后 source 被标记为 `merged`，OAuth binding retarget 到 target。它不是 `POST /prime/v1/account/oauth/login` 的 `manualMerge.sourceType` 返回值。 |
-| `manual_oauth_bind_required` | `POST /prime/v1/account/identities/oauth/bind` 返回的业务状态。 | 只用于用户已经登录 legacy OneKeyID，并主动绑定当前 OAuth identity 但不能静默绑定的场景；不要和 OAuth 登录返回的 `manual_merge_required` 混用。 |
+| `legacy_email_otp_required` | `POST /prime/v1/account/identities/oauth/bind` 返回的业务状态。 | 只用于用户已经登录 legacy OneKeyID，并主动绑定当前 OAuth identity 但不能静默绑定、需要验证当前 legacy email 的场景；不要和 OAuth 登录返回的 `manual_merge_required` 混用。OAuth-only OneKeyID 不进入该状态。 |
 | source | 合并中被废弃登录主体的一方。 | 可以是已存在的 OAuth 新 OneKeyID，也可以只是 confirm 时提交的 pending OAuth identity。`sourceOauthHandle` 只用于 confirm 前的短期流程状态，不是最终 source 权威。source 不等于 email claim owner。 |
 | target | 合并后保留为主账号的一方。 | 当前显式合并只接受 target 是 legacy email OneKeyID。 |
 | canonical source | `/merge/confirm` 用于互斥的 source key。 | `pending_oauth_bind` 使用 `provider + providerSubject`；已存在 source OneKeyID 使用 `sourceOneKeyUserId`。同一个 canonical source 同时只能有一个未完成合并任务。 |
