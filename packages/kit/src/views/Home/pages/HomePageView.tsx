@@ -296,33 +296,6 @@ export function HomePageView({
     },
   );
 
-  // DEBUG: trace tab config state changes
-  useEffect(() => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { NativeLogger: NL, LogLevel: LL } =
-        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-      const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${network?.id ?? ''}-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}`;
-      NL.write(
-        LL.Info,
-        `[LayoutDiag] HomePageView: ready=${ready}, isDeFi=${isDeFiEnabled}, isNFT=${isNFTEnabled}, ` +
-          `cachedVS=${!!cachedVaultSettings}, fetchedVS=${!!fetchedVaultSettings}, ` +
-          `networkId=${network?.id?.slice(-10) ?? 'nil'}, key=${key}`,
-      );
-    } catch {
-      /* */
-    }
-  }, [
-    ready,
-    isDeFiEnabled,
-    isNFTEnabled,
-    cachedVaultSettings,
-    fetchedVaultSettings,
-    network?.id,
-    account?.id,
-    account?.indexedAccountId,
-  ]);
-
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
       return true;
