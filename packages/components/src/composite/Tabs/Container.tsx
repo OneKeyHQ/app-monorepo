@@ -19,6 +19,8 @@ import { XStack, YStack } from '../../primitives';
 
 import { TabsContext, TabsScrollContext } from './context';
 import { TabBar } from './TabBar';
+import { useConvertAnimatedToValue } from './useFocusedTab';
+import { parseCssSize } from './utils';
 
 import type { LayoutChangeEvent } from 'react-native';
 import type {
@@ -48,23 +50,35 @@ export function ContainerChild({
   containerWidth: number | string | undefined;
   focusedTab: SharedValue<string>;
   tabNames: (string | null)[];
+  updateListContainerHeight: () => void;
 }) {
+  const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
+
+  const syncFocusedTabVisibility = useCallback(
+    (tabName: string) => {
+      const focusedIndex = tabNames.findIndex((name) => name === tabName);
+      if (focusedIndex < 0 || !listContainerRef.current) return;
+      listContainerRef.current.childNodes.forEach((element, index) => {
+        if (!element) return;
+        (element as HTMLElement).style.setProperty(
+          'content-visibility',
+          focusedIndex === index ? 'visible' : 'hidden',
+        );
+      });
+    },
+    [listContainerRef, tabNames],
+  );
+
   useAnimatedReaction(
     () => focusedTab.value,
     (tabName) => {
-      const focusedIndex = tabNames.findIndex((name) => name === tabName);
-      if (focusedIndex > -1 && listContainerRef.current) {
-        listContainerRef.current.childNodes.forEach((element, index) => {
-          if (element) {
-            (
-              (element as HTMLDivElement).style as unknown as {
-                contentVisibility: 'hidden' | 'visible';
-              }
-            ).contentVisibility = focusedIndex === index ? 'visible' : 'hidden';
-          }
-        });
-      }
+      syncFocusedTabVisibility(tabName);
     },
+  );
+
+  useEffect(
+    () => syncFocusedTabVisibility(focusedTabValue ?? ''),
+    [focusedTabValue, syncFocusedTabVisibility],
   );
   return (
     <TabsScrollContext.Provider value={props}>
@@ -75,8 +89,15 @@ export function ContainerChild({
         style={scrollSnapStyle}
       >
         {Children.map(children, (child, index) => {
+          const key =
+            isValidElement(child) &&
+            child.props !== null &&
+            typeof child.props === 'object' &&
+            'name' in child.props
+              ? (child.props as { name: string }).name
+              : index;
           return (
-            <div style={childDivStyle} key={index}>
+            <div style={childDivStyle} key={key}>
               {child}
             </div>
           );
@@ -150,10 +171,31 @@ export function Container({
       return 0;
     }
 
+    const style = globalThis.getComputedStyle(htmlElement);
+    const verticalSpacing =
+      parseCssSize(style.marginTop) +
+      parseCssSize(style.marginBottom) +
+      parseCssSize(style.paddingTop) +
+      parseCssSize(style.paddingBottom);
+    const virtualizedInnerElement = htmlElement.querySelector<HTMLElement>(
+      [
+        '.ReactVirtualized__Grid__innerScrollContainer',
+        '.ReactVirtualized__Collection__innerScrollContainer',
+      ].join(','),
+    );
+    const virtualizedHeight = virtualizedInnerElement
+      ? Math.max(
+          virtualizedInnerElement.scrollHeight || 0,
+          virtualizedInnerElement.clientHeight || 0,
+          virtualizedInnerElement.getBoundingClientRect().height || 0,
+        ) + verticalSpacing
+      : 0;
+
     return Math.max(
       htmlElement.scrollHeight || 0,
       htmlElement.clientHeight || 0,
       htmlElement.getBoundingClientRect().height || 0,
+      virtualizedHeight,
     );
   }, []);
 
@@ -163,7 +205,9 @@ export function Container({
     return Children.map(children, (child) => {
       if (
         isValidElement(child) &&
-        'name' in (child.props as { name: string })
+        child.props !== null &&
+        typeof child.props === 'object' &&
+        'name' in child.props
       ) {
         return (child.props as { name: string }).name;
       }
@@ -174,6 +218,15 @@ export function Container({
   const focusedTab = useSharedValue<string>(
     initialTabName || tabNames[0] || '',
   );
+  // `tabNames` is recreated every render via `Children.map`, so depending on
+  // the array reference would re-fire the effect on every parent render even
+  // when the tab list hasn't actually changed. Key off a stable signature
+  // instead so we only write to the shared value when the names truly differ.
+  const tabNamesKey = useMemo(() => tabNames.join('\u0000'), [tabNames]);
+  useEffect(() => {
+    sharedTabNames.value = tabNames;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedTabNames, tabNamesKey]);
   const scrollTabElementDict = useMemo(() => {
     return tabNames.reduce(
       (acc, name) => {
@@ -282,6 +335,26 @@ export function Container({
       }
     };
   }, [updateListContainerHeight]);
+
+  useLayoutEffect(() => {
+    const index = tabNames.findIndex((name) => name === focusedTab.value);
+    if (index < 0) {
+      const firstTabName = tabNames[0];
+      if (firstTabName) {
+        focusedTab.set(firstTabName);
+      }
+      return;
+    }
+
+    updateListContainerHeight();
+    const width = scrollElement?.clientWidth || 0;
+    if (width) {
+      listContainerRef.current?.scrollTo({
+        left: width * index,
+        behavior: 'instant',
+      });
+    }
+  }, [focusedTab, scrollElement, tabNames, updateListContainerHeight]);
 
   useLayoutEffect(() => {
     const callback = debounce(() => {
@@ -455,6 +528,7 @@ export function Container({
                     listContainerRef={listContainerRef as any}
                     focusedTab={focusedTab}
                     tabNames={tabNames}
+                    updateListContainerHeight={updateListContainerHeight}
                   >
                     {children}
                   </ContainerChild>

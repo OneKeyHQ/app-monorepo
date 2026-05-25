@@ -56,6 +56,10 @@ export type ITokenFiat = {
   totalBalanceFiatValue?: string;
   price: number;
   price24h?: number;
+  // Currency id (e.g. 'usd', 'eur') the above fiat fields are stored in.
+  // Internal cache writes normalize to 'usd' so a currency switch can re-render
+  // existing data via client-side conversion instead of clearing the cache.
+  currency?: string;
 };
 
 export enum ECustomTokenStatus {
@@ -107,6 +111,7 @@ export type ITokenData = {
   keys: string;
   map: Record<string, ITokenFiat>; // key: networkId_tokenAddress
   fiatValue?: string;
+  currency?: string;
 };
 
 export type IFetchAccountTokensResp = {

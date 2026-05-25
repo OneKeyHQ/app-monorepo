@@ -173,6 +173,36 @@ export class PageScene extends BaseScene {
     return { enabled };
   }
 
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public enterChainListSearch() {
+    return {};
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public chainListSearchPerformed({ keywords }: { keywords: string }) {
+    return { keywords };
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public chainListNetworkSelected({
+    chainId,
+    networkName,
+  }: {
+    chainId: string;
+    networkName: string;
+  }) {
+    return { chainId, networkName };
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public chainListManualAdd() {
+    return {};
+  }
+
   // TODO(biologyAuth-debug): temporary log to diagnose biology auth visibility
   @LogToLocal({ level: 'info' })
   public biologyAuthDebug(tag: string, state: Record<string, unknown>) {

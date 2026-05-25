@@ -382,8 +382,7 @@ function UnifiedNetworkSelector() {
   );
 
   const handleAddCustomNetwork = useCallback(() => {
-    navigation.push(EChainSelectorPagesEnum.AddCustomNetwork, {
-      state: 'add',
+    navigation.push(EChainSelectorPagesEnum.ChainListSearch, {
       onSuccess: async (network: IServerNetwork) => {
         if (activeTabRef.current === 'portfolio') {
           // Portfolio tab: enable the new network and persist to backend.

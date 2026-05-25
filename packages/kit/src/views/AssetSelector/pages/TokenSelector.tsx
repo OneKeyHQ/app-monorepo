@@ -14,6 +14,7 @@ import {
   type IScopedActiveTokenListState,
   buildScopedActiveTokenListFromResponses,
   fetchFilteredTokenSelectorTokens,
+  filterTokenSelectorSearchTokensByBackendIndexedNetworks,
 } from '@onekeyhq/kit/src/components/TokenSelectorFilter/utils';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -36,6 +37,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
   buildTokenSelectorDappTokenFilterParams,
+  isTokenSelectorDappTokenFilterSupportedNetwork,
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -44,7 +46,6 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
-import { useCurrency } from '../../../components/Currency';
 import { NetworkAvatarBase } from '../../../components/NetworkAvatar/NetworkAvatar';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -71,6 +72,7 @@ type ISelectorTokenListRequestContext = {
 
 type ITokenSelectorHeaderRightProps = {
   showDeFiTokenSwitch?: boolean;
+  loading?: boolean;
   onLpTokenFilterChange: (value: boolean) => void;
   onSwitchNetwork?: () => void;
   networkLogoURI?: string;
@@ -81,6 +83,7 @@ type ITokenSelectorHeaderRightProps = {
 
 const TokenSelectorHeaderRight = memo(function TokenSelectorHeaderRight({
   showDeFiTokenSwitch,
+  loading,
   onLpTokenFilterChange,
   onSwitchNetwork,
   networkLogoURI,
@@ -106,6 +109,7 @@ const TokenSelectorHeaderRight = memo(function TokenSelectorHeaderRight({
         <TokenSelectorLpTokenSwitch
           value={showLpTokensOnly}
           onChange={onLpTokenFilterChange}
+          loading={loading}
         />
       ) : null}
       {shouldShowNetworkSwitch ? (
@@ -170,8 +174,6 @@ function TokenSelector() {
 
   const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
 
-  const currencyInfo = useCurrency();
-
   const {
     title,
     networkId,
@@ -209,12 +211,21 @@ function TokenSelector() {
   const [searchKey, setSearchKey] = useState('');
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
+  const isSelectorAllNetworks = isAllNetworks ?? network?.isAllNetworks;
   const showTokenSelectorFilter =
-    TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED && showDeFiTokenSwitch;
+    !!showDeFiTokenSwitch &&
+    isTokenSelectorDappTokenFilterSupportedNetwork({
+      network: network
+        ? {
+            id: network.id,
+            isAllNetworks: isSelectorAllNetworks,
+            backendIndex: network.backendIndex,
+          }
+        : undefined,
+    });
   const showLpTokensOnly = showTokenSelectorFilter
     ? tokenSelectorFilter.sendTokenShowLpTokensOnly
     : false;
-  const [hasTokenFilterChanged, setHasTokenFilterChanged] = useState(false);
   const [scopedActiveTokenList, setScopedActiveTokenList] =
     useState<IScopedActiveTokenList>({
       tokens: [],
@@ -228,6 +239,7 @@ function TokenSelector() {
       isRefreshing: false,
       initialized: false,
     });
+  const [isLpTokenSwitchLoading, setIsLpTokenSwitchLoading] = useState(false);
   const [allTokenListMap] = useAllTokenListMapAtom();
   const [searchTokenState, setSearchTokenState] = useState({
     isSearching: false,
@@ -248,13 +260,16 @@ function TokenSelector() {
 
   const handleLpTokenFilterChange = useCallback(
     (value: boolean) => {
-      setHasTokenFilterChanged(true);
+      if (value === showLpTokensOnly) {
+        return;
+      }
+      setIsLpTokenSwitchLoading(!!value && !!accountId && !!networkId);
       setTokenSelectorFilter((prev) => ({
         ...prev,
         sendTokenShowLpTokensOnly: value,
       }));
     },
-    [setTokenSelectorFilter],
+    [accountId, networkId, setTokenSelectorFilter, showLpTokensOnly],
   );
 
   const executeOnSelect = useCallback(
@@ -512,6 +527,7 @@ function TokenSelector() {
       return (
         <TokenSelectorHeaderRight
           showDeFiTokenSwitch={showTokenSelectorFilter}
+          loading={isLpTokenSwitchLoading}
           onLpTokenFilterChange={handleLpTokenFilterChange}
           onSwitchNetwork={onSwitchNetwork}
           networkLogoURI={network?.logoURI}
@@ -523,6 +539,7 @@ function TokenSelector() {
     };
   }, [
     handleLpTokenFilterChange,
+    isLpTokenSwitchLoading,
     onSwitchNetwork,
     showTokenSelectorFilter,
     network?.name,
@@ -536,18 +553,24 @@ function TokenSelector() {
       setSearchTokenState({ isSearching: true });
       await backgroundApiProxy.serviceToken.abortSearchTokens();
       try {
-        const result = await backgroundApiProxy.serviceToken.searchTokens({
+        let result = await backgroundApiProxy.serviceToken.searchTokens({
           accountId,
           networkId,
           keywords,
         });
+        if (showLpTokensOnly && isSelectorAllNetworks) {
+          result =
+            await filterTokenSelectorSearchTokensByBackendIndexedNetworks({
+              tokens: result,
+            });
+        }
         setSearchTokenList({ tokens: result });
       } catch (e) {
         console.log(e);
       }
       setSearchTokenState({ isSearching: false });
     },
-    [accountId, networkId],
+    [accountId, isSelectorAllNetworks, networkId, showLpTokensOnly],
   );
 
   const showActiveAccountTokenList = useMemo(() => {
@@ -568,13 +591,12 @@ function TokenSelector() {
     networkId,
   ]);
 
-  const isSelectorAllNetworks = isAllNetworks ?? network?.isAllNetworks;
   const mergeDeriveAddressData =
     !!selectorVaultSettings?.mergeDeriveAssetsEnabled &&
     !!indexedAccountId &&
     !accountUtils.isOthersAccount({ accountId });
   const useSelectorFilteredTokenList =
-    !!showTokenSelectorFilter && (hasTokenFilterChanged || showLpTokensOnly);
+    !!showTokenSelectorFilter && showLpTokensOnly;
   const effectiveShowActiveAccountTokenList =
     showActiveAccountTokenList || useSelectorFilteredTokenList;
   const effectiveHideZeroBalanceTokens =
@@ -607,10 +629,14 @@ function TokenSelector() {
 
   usePromiseResult(async () => {
     if (!useSelectorFilteredTokenList || showActiveAccountTokenList) {
+      if (!useSelectorFilteredTokenList) {
+        setIsLpTokenSwitchLoading(false);
+      }
       return;
     }
 
     if (!accountId || !networkId) {
+      setIsLpTokenSwitchLoading(false);
       return;
     }
 
@@ -653,6 +679,7 @@ function TokenSelector() {
         indexedAccountId,
         isAllNetworks: !!isSelectorAllNetworks,
         mergeDeriveAddressData,
+        onlyBackendIndexedNetworks: showLpTokensOnly,
         tokenSelectorFilterParams,
       });
 
@@ -679,6 +706,7 @@ function TokenSelector() {
           initialized: true,
           isRefreshing: false,
         });
+        setIsLpTokenSwitchLoading(false);
       }
     }
   }, [
@@ -728,54 +756,87 @@ function TokenSelector() {
         keys: '',
       });
       setScopedActiveTokenListMap({});
-      const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-        accountId: activeAccountId,
-        networkId: activeNetworkId,
-        indexedAccountId,
-        flag: 'token-selector',
-        ...tokenSelectorFilterParams,
-      });
 
-      if (!isLatestRequest()) {
-        return;
-      }
-
-      setScopedActiveTokenList({
-        tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
-        keys: `${r.tokens.keys}_${r.smallBalanceTokens.keys}`,
-      });
-      setScopedActiveTokenListMap({
-        ...r.tokens.map,
-        ...r.smallBalanceTokens.map,
-      });
-      setScopedActiveTokenListState({
-        isRefreshing: false,
-        initialized: true,
-      });
-
-      // Update network value cache so ChainSelector shows fresh values on back
-      const totalFiatValue = new BigNumber(r.tokens.fiatValue ?? '0')
-        .plus(r.smallBalanceTokens.fiatValue ?? '0')
-        .toFixed();
-      let valueAccountId = indexedAccountId || '';
-      if (!valueAccountId && activeAccountId) {
-        if (accountUtils.isOthersAccount({ accountId: activeAccountId })) {
-          valueAccountId = activeAccountId;
+      try {
+        if (showLpTokensOnly) {
+          const activeNetwork =
+            await backgroundApiProxy.serviceNetwork.getNetwork({
+              networkId: activeNetworkId,
+            });
+          if (
+            !isTokenSelectorDappTokenFilterSupportedNetwork({
+              network: activeNetwork,
+            })
+          ) {
+            if (isLatestRequest()) {
+              setScopedActiveTokenListState({
+                isRefreshing: false,
+                initialized: true,
+              });
+            }
+            return;
+          }
         }
-      }
-      if (valueAccountId && activeNetworkId) {
-        const valueKey = accountUtils.buildAccountValueKey({
+
+        const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
           accountId: activeAccountId,
           networkId: activeNetworkId,
+          indexedAccountId,
+          flag: 'token-selector',
+          ...tokenSelectorFilterParams,
         });
-        void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
-          {
-            accountId: valueAccountId,
-            value: { [valueKey]: totalFiatValue },
-            currency: currencyInfo.id,
-          },
-        );
+
+        if (!isLatestRequest()) {
+          return;
+        }
+
+        setScopedActiveTokenList({
+          tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
+          keys: `${r.tokens.keys}_${r.smallBalanceTokens.keys}`,
+        });
+        setScopedActiveTokenListMap({
+          ...r.tokens.map,
+          ...r.smallBalanceTokens.map,
+        });
+        setScopedActiveTokenListState({
+          isRefreshing: false,
+          initialized: true,
+        });
+
+        // Update network value cache so ChainSelector shows fresh values on back
+        const totalFiatValue = new BigNumber(r.tokens.fiatValue ?? '0')
+          .plus(r.smallBalanceTokens.fiatValue ?? '0')
+          .toFixed();
+        let valueAccountId = indexedAccountId || '';
+        if (!valueAccountId && activeAccountId) {
+          if (accountUtils.isOthersAccount({ accountId: activeAccountId })) {
+            valueAccountId = activeAccountId;
+          }
+        }
+        if (valueAccountId && activeNetworkId) {
+          const valueKey = accountUtils.buildAccountValueKey({
+            accountId: activeAccountId,
+            networkId: activeNetworkId,
+          });
+          void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
+            {
+              accountId: valueAccountId,
+              // `r.tokens.fiatValue` is normalized to USD by ServiceToken
+              // (or stays in the request currency when rates were missing).
+              // Use the response's own tag so the receiver doesn't re-divide a
+              // USD value by the active display rate when settings != USD.
+              value: { [valueKey]: totalFiatValue },
+              currency: r.tokens.currency ?? 'usd',
+            },
+          );
+        }
+      } finally {
+        if (isLatestRequest()) {
+          setIsLpTokenSwitchLoading(false);
+        }
       }
+    } else if (showActiveAccountTokenList) {
+      setIsLpTokenSwitchLoading(false);
     }
   }, [
     activeAccountId,
@@ -788,7 +849,6 @@ function TokenSelector() {
     showActiveAccountTokenList,
     showLpTokensOnly,
     tokenSelectorFilterParams,
-    currencyInfo.id,
     useSelectorFilteredTokenList,
   ]);
 

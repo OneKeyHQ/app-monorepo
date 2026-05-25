@@ -86,6 +86,8 @@ import {
   buildMarketGasInfoFeeInfo,
   estimateMarketApproveGasInfos,
   estimateMarketDirectGasInfos,
+  estimateMarketPresetGasFeeFiatValues,
+  resolveMarketPresetNativeTokenPrice,
   sendMarketDirectUnsignedTxs,
 } from './marketDirectSendTx';
 import { resolveMarketReviewAllowanceState } from './marketReviewAllowance';
@@ -117,6 +119,8 @@ import {
 } from './marketSwapReviewUtils';
 import { usePaymentTokenPrice } from './usePaymentTokenPrice';
 import { ESwapDirection } from './useTradeType';
+
+import type { IMarketPresetPriorityFeeOverride } from './marketPresetSettings';
 
 export type IMarketSwapReviewAdapter = ISwapReviewAdapter;
 
@@ -1206,6 +1210,54 @@ export function useSpeedSwapActions(props: {
       };
     },
     [buildMarketApproveUnsignedTxArr, buildReviewStepTexts, slippage],
+  );
+
+  const estimateMarketPresetNetworkFees = useCallback(
+    async ({
+      items,
+    }: {
+      items: {
+        customPriorityFee?: IMarketPresetPriorityFeeOverride;
+        networkFeeLevel?: ESwapNetworkFeeLevel;
+      }[];
+    }) => {
+      const accountAddress =
+        netAccountRes.result?.addressDetail.address ??
+        account?.account?.address ??
+        '';
+      const accountId = netAccountRes.result?.id ?? account?.account?.id ?? '';
+      const networkId = fromToken.networkId;
+
+      if (!accountAddress || !accountId || !networkId) {
+        return items.map(() => undefined);
+      }
+
+      const nativeTokenPrice = await resolveMarketPresetNativeTokenPrice({
+        networkId,
+        currencyId: settingsAtom.currencyInfo.id,
+        tokens: [fromToken, toToken],
+      });
+
+      return estimateMarketPresetGasFeeFiatValues({
+        accountAddress,
+        accountId,
+        amount: fromTokenAmountDebounced,
+        items,
+        nativeTokenPrice,
+        networkId,
+        token: fromToken,
+      });
+    },
+    [
+      fromToken,
+      fromTokenAmountDebounced,
+      account?.account?.address,
+      account?.account?.id,
+      netAccountRes.result?.addressDetail.address,
+      netAccountRes.result?.id,
+      settingsAtom.currencyInfo.id,
+      toToken,
+    ],
   );
 
   const prepareMarketSwapReview = useCallback<
@@ -2861,6 +2913,7 @@ export function useSpeedSwapActions(props: {
     isWrapped,
     speedCheckError,
     speedCheckLoading,
+    estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,
     sendMarketApproveTx,
     sendMarketSwapTx,

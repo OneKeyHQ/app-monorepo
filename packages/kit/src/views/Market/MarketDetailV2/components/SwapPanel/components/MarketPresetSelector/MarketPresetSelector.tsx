@@ -6,14 +6,17 @@ import { useWindowDimensions } from 'react-native';
 
 import {
   Button,
+  DashText,
   Dialog,
   Divider,
   Heading,
   Icon,
   Input,
+  NumberSizeableText,
   ScrollView,
   SegmentControl,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
   useKeyboardHeight,
@@ -23,8 +26,10 @@ import {
 import type { IIconProps } from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -33,6 +38,7 @@ import {
   swapSlippageWillFailMinValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
+  type ESwapNetworkFeeLevel,
   ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
 } from '@onekeyhq/shared/types/swap/types';
@@ -43,14 +49,18 @@ import {
   EMarketPresetSlippageWarningType,
   EMarketPresetTradeSide,
   type IMarketPresetDirectionSettings,
+  type IMarketPresetPriorityFeeOverride,
   getMarketPresetDefaultDirectionSettings,
   getMarketPresetDefaultEditableDirectionSettingsForPreset,
+  getMarketPresetNetworkFeeLevel,
+  getMarketPresetPriorityFeeOverride,
   getMarketPresetSlippageCustomStatus,
   isInvalidMarketPresetDirectionSettings,
   isInvalidMarketPresetPriorityFeeSettings,
   isInvalidMarketPresetSlippageSettings,
   isMarketPresetConfirmDisabled,
   normalizeMarketPresetDirectionSettings,
+  shouldShowMarketPresetPriorityFeeTooltip,
 } from '../../hooks/marketPresetSettings';
 
 import {
@@ -61,9 +71,30 @@ import {
 
 import type { IMarketPresetSettingsState } from '../../hooks/useMarketPresetSettings';
 
+export type IMarketPresetPriorityFeeFiatEstimateItem = {
+  type: EMarketPresetPriorityFeeType;
+  networkFeeLevel: ESwapNetworkFeeLevel;
+  customPriorityFee?: IMarketPresetPriorityFeeOverride;
+};
+
+export type IMarketPresetPriorityFeeFiatEstimateMap = Partial<
+  Record<EMarketPresetPriorityFeeType, string | undefined>
+>;
+
+export type IEstimateMarketPresetPriorityFeeFiatValues = (params: {
+  currencyId?: string;
+  items: IMarketPresetPriorityFeeFiatEstimateItem[];
+}) => Promise<IMarketPresetPriorityFeeFiatEstimateMap>;
+
+type IMarketPresetPriorityFeeFiatEstimateResult = {
+  estimateKey: string;
+  estimates: IMarketPresetPriorityFeeFiatEstimateMap;
+};
+
 type IMarketPresetSelectorProps = {
   // Only `true` is surfaced because anti-MEV is read-only when supported.
   antiMEV?: boolean;
+  estimatePriorityFeeFiatValues?: IEstimateMarketPresetPriorityFeeFiatValues;
   presetSettings: IMarketPresetSettingsState;
   slippageIconName?: IIconProps['name'];
   showAutoSlippageLabel?: boolean;
@@ -81,6 +112,13 @@ const MARKET_PRESET_DIALOG_TOP_SAFE_GAP = 16;
 const MARKET_PRESET_DIALOG_CHROME_HEIGHT = 176;
 const MARKET_PRESET_DIALOG_MIN_CONTENT_HEIGHT = 120;
 const MARKET_PRESET_SLIPPAGE_INPUT_PROPS = { autoFocus: false } as const;
+const EMPTY_PRIORITY_FEE_FIAT_ESTIMATES: IMarketPresetPriorityFeeFiatEstimateMap =
+  {};
+const EMPTY_PRIORITY_FEE_FIAT_ESTIMATE_RESULT: IMarketPresetPriorityFeeFiatEstimateResult =
+  {
+    estimateKey: '',
+    estimates: EMPTY_PRIORITY_FEE_FIAT_ESTIMATES,
+  };
 
 function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
   if (type === EMarketPresetPriorityFeeType.AUTO) {
@@ -137,6 +175,183 @@ function getPriorityFeeLabel({
   return intl.formatMessage({
     id: getPriorityFeeTranslationId(settings?.priorityFee.type),
   });
+}
+
+function getPriorityFeeTooltip({ intl }: { intl: ReturnType<typeof useIntl> }) {
+  return [
+    intl.formatMessage({
+      id: ETranslations.dexmarket_preset_priority_fee_description,
+    }),
+    intl.formatMessage({
+      id: ETranslations.dexmarket_preset_priority_fee_description_p2,
+    }),
+  ].join('\n\n');
+}
+
+function getPriorityFeeSettingsForEstimate({
+  settings,
+  type,
+}: {
+  settings: IMarketPresetDirectionSettings;
+  type: EMarketPresetPriorityFeeType;
+}): IMarketPresetDirectionSettings {
+  return {
+    ...settings,
+    priorityFee: {
+      type,
+      customValue:
+        type === EMarketPresetPriorityFeeType.CUSTOM
+          ? (settings.priorityFee.customValue ?? '')
+          : undefined,
+    },
+  };
+}
+
+function getPriorityFeeEstimateKey({
+  currencyId,
+  items,
+}: {
+  currencyId?: string;
+  items: IMarketPresetPriorityFeeFiatEstimateItem[];
+}) {
+  return items
+    .map((item) =>
+      [
+        currencyId ?? '',
+        item.type,
+        item.networkFeeLevel,
+        item.customPriorityFee?.customValue ?? '',
+        item.customPriorityFee?.customRange?.min ?? '',
+        item.customPriorityFee?.customRange?.max ?? '',
+      ].join(':'),
+    )
+    .join('|');
+}
+
+function useMarketPresetPriorityFeeFiatEstimates({
+  currencyId,
+  enabled,
+  estimatePriorityFeeFiatValues,
+  items,
+}: {
+  currencyId?: string;
+  enabled: boolean;
+  estimatePriorityFeeFiatValues?: IEstimateMarketPresetPriorityFeeFiatValues;
+  items: IMarketPresetPriorityFeeFiatEstimateItem[];
+}) {
+  const estimateKey = useMemo(
+    () => getPriorityFeeEstimateKey({ currencyId, items }),
+    [currencyId, items],
+  );
+  const hasEstimateRequest =
+    enabled && !!estimatePriorityFeeFiatValues && items.length > 0;
+  const { result, isLoading } =
+    usePromiseResult<IMarketPresetPriorityFeeFiatEstimateResult>(
+      async () => {
+        if (!hasEstimateRequest) {
+          return {
+            estimateKey,
+            estimates: EMPTY_PRIORITY_FEE_FIAT_ESTIMATES,
+          };
+        }
+
+        try {
+          return {
+            estimateKey,
+            estimates: await estimatePriorityFeeFiatValues({
+              currencyId,
+              items,
+            }),
+          };
+        } catch {
+          return {
+            estimateKey,
+            estimates: EMPTY_PRIORITY_FEE_FIAT_ESTIMATES,
+          };
+        }
+      },
+      [
+        currencyId,
+        estimateKey,
+        estimatePriorityFeeFiatValues,
+        hasEstimateRequest,
+        items,
+      ],
+      {
+        initResult: EMPTY_PRIORITY_FEE_FIAT_ESTIMATE_RESULT,
+        watchLoading: true,
+      },
+    );
+  const matchedResult = result?.estimateKey === estimateKey;
+
+  return {
+    estimates: matchedResult
+      ? result.estimates
+      : EMPTY_PRIORITY_FEE_FIAT_ESTIMATES,
+    isLoading:
+      hasEstimateRequest &&
+      (!!isLoading || result?.estimateKey !== estimateKey),
+  };
+}
+
+function PriorityFeeSegmentLabel({
+  active,
+  currencySymbol,
+  estimateValue,
+  isLoading,
+  label,
+}: {
+  active: boolean;
+  currencySymbol: string;
+  estimateValue?: string;
+  isLoading: boolean;
+  label: string;
+}) {
+  let estimateContent: ReactNode;
+
+  if (isLoading) {
+    estimateContent = <Skeleton height="$3" width="$10" />;
+  } else if (estimateValue) {
+    estimateContent = (
+      <NumberSizeableText
+        size="$bodySm"
+        color="$textSubdued"
+        formatter="value"
+        formatterOptions={{
+          currency: currencySymbol,
+        }}
+        numberOfLines={1}
+        textAlign="center"
+      >
+        {estimateValue}
+      </NumberSizeableText>
+    );
+  } else {
+    estimateContent = (
+      <SizableText
+        size="$bodySm"
+        color="$textSubdued"
+        numberOfLines={1}
+        textAlign="center"
+      >
+        --
+      </SizableText>
+    );
+  }
+
+  return (
+    <YStack alignItems="center" justifyContent="center" minHeight="$9">
+      <SizableText
+        size="$bodyMdMedium"
+        color={active ? '$text' : '$textSubdued'}
+        numberOfLines={1}
+        textAlign="center"
+      >
+        {label}
+      </SizableText>
+      {estimateContent}
+    </YStack>
+  );
 }
 
 function buildDraftSettings(presetSettings: IMarketPresetSettingsState) {
@@ -251,14 +466,26 @@ function MarketPresetDialogHeader({ networkId }: { networkId?: string }) {
 
 function MarketPresetReadonlyRow({
   label,
+  labelTooltip,
   value,
 }: {
   label: string;
+  labelTooltip?: string;
   value: string;
 }) {
   return (
     <XStack alignItems="center" justifyContent="space-between" gap="$3">
-      <SizableText size="$bodyMdMedium">{label}</SizableText>
+      {labelTooltip ? (
+        <DashText
+          size="$bodyMdMedium"
+          tooltip={labelTooltip}
+          tooltipTitle={label}
+        >
+          {label}
+        </DashText>
+      ) : (
+        <SizableText size="$bodyMdMedium">{label}</SizableText>
+      )}
       <SizableText size="$bodyMdMedium" color="$textSubdued">
         {value}
       </SizableText>
@@ -466,13 +693,16 @@ function MarketPresetTabBar({
 function MarketPresetSettingsDialog({
   antiMEV,
   close,
+  estimatePriorityFeeFiatValues,
   presetSettings,
 }: {
   antiMEV?: boolean;
   close: () => void;
+  estimatePriorityFeeFiatValues?: IEstimateMarketPresetPriorityFeeFiatValues;
   presetSettings: IMarketPresetSettingsState;
 }) {
   const intl = useIntl();
+  const [settingsPersistAtom] = useSettingsPersistAtom();
   const [activePresetKey, setActivePresetKey] = useState(
     presetSettings.selectedPresetKey,
   );
@@ -513,15 +743,13 @@ function MarketPresetSettingsDialog({
     [intl],
   );
 
-  const priorityFeeOptions = useMemo(() => {
-    const supportedTypes = presetSettings.config?.priorityFee
-      .supportedTypes ?? [EMarketPresetPriorityFeeType.MARKET];
-
-    return supportedTypes.map((type) => ({
-      label: intl.formatMessage({ id: getPriorityFeeTranslationId(type) }),
-      value: type,
-    }));
-  }, [intl, presetSettings.config?.priorityFee.supportedTypes]);
+  const priorityFeeTypes = useMemo(
+    () =>
+      presetSettings.config?.priorityFee.supportedTypes ?? [
+        EMarketPresetPriorityFeeType.MARKET,
+      ],
+    [presetSettings.config?.priorityFee.supportedTypes],
+  );
   const isReadonlyPreset =
     !presetSettings.config?.slippage.editable &&
     !presetSettings.config?.priorityFee.editable;
@@ -616,6 +844,98 @@ function MarketPresetSettingsDialog({
     );
   const currentPriorityFeeCustomValue =
     currentSettings.priorityFee.customValue ?? '';
+  const priorityFeeTitle = intl.formatMessage({
+    id: ETranslations.marketdex_priority_fee,
+  });
+  const shouldShowPriorityFeeTooltip = shouldShowMarketPresetPriorityFeeTooltip(
+    presetSettings.config,
+  );
+  const priorityFeeTooltip = useMemo(
+    () => getPriorityFeeTooltip({ intl }),
+    [intl],
+  );
+  const priorityFeeEstimateItems = useMemo(() => {
+    if (!isPriorityFeeEditable || activePresetKey === EMarketPresetKey.AUTO) {
+      return [];
+    }
+
+    return priorityFeeTypes.reduce<IMarketPresetPriorityFeeFiatEstimateItem[]>(
+      (acc, type) => {
+        const estimateSettings = getPriorityFeeSettingsForEstimate({
+          settings: currentSettings,
+          type,
+        });
+        const customPriorityFee = getMarketPresetPriorityFeeOverride(
+          estimateSettings,
+          presetSettings.config,
+        );
+
+        if (
+          type === EMarketPresetPriorityFeeType.CUSTOM &&
+          !customPriorityFee
+        ) {
+          return acc;
+        }
+
+        acc.push({
+          type,
+          networkFeeLevel: getMarketPresetNetworkFeeLevel(
+            estimateSettings,
+            presetSettings.config,
+          ),
+          customPriorityFee,
+        });
+        return acc;
+      },
+      [],
+    );
+  }, [
+    activePresetKey,
+    currentSettings,
+    isPriorityFeeEditable,
+    presetSettings.config,
+    priorityFeeTypes,
+  ]);
+  const { estimates: priorityFeeFiatEstimates, isLoading: priorityFeeLoading } =
+    useMarketPresetPriorityFeeFiatEstimates({
+      currencyId: settingsPersistAtom.currencyInfo.id,
+      enabled: isPriorityFeeEditable,
+      estimatePriorityFeeFiatValues,
+      items: priorityFeeEstimateItems,
+    });
+  const priorityFeeOptions = useMemo(
+    () =>
+      priorityFeeTypes.map((type) => {
+        const selected = currentSettings.priorityFee.type === type;
+        const estimateRequested = priorityFeeEstimateItems.some(
+          (item) => item.type === type,
+        );
+
+        return {
+          label: (
+            <PriorityFeeSegmentLabel
+              active={selected}
+              currencySymbol={settingsPersistAtom.currencyInfo.symbol}
+              estimateValue={priorityFeeFiatEstimates[type]}
+              isLoading={!!priorityFeeLoading && estimateRequested}
+              label={intl.formatMessage({
+                id: getPriorityFeeTranslationId(type),
+              })}
+            />
+          ),
+          value: type,
+        };
+      }),
+    [
+      currentSettings.priorityFee.type,
+      intl,
+      priorityFeeFiatEstimates,
+      priorityFeeEstimateItems,
+      priorityFeeLoading,
+      priorityFeeTypes,
+      settingsPersistAtom.currencyInfo.symbol,
+    ],
+  );
   const currentSettingsInvalid =
     !currentDirectionPendingReset &&
     (currentSlippageInvalid || currentPriorityFeeInvalid);
@@ -1046,15 +1366,25 @@ function MarketPresetSettingsDialog({
             <>
               <Divider />
               <YStack gap="$2">
-                <SizableText size="$bodyMdMedium">
-                  {intl.formatMessage({
-                    id: ETranslations.marketdex_priority_fee,
-                  })}
-                </SizableText>
+                {shouldShowPriorityFeeTooltip ? (
+                  <DashText
+                    size="$bodyMdMedium"
+                    tooltip={priorityFeeTooltip}
+                    tooltipTitle={priorityFeeTitle}
+                  >
+                    {priorityFeeTitle}
+                  </DashText>
+                ) : (
+                  <SizableText size="$bodyMdMedium">
+                    {priorityFeeTitle}
+                  </SizableText>
+                )}
                 <SegmentControl
                   fullWidth
                   value={currentSettings.priorityFee.type}
                   options={priorityFeeOptions}
+                  h="auto"
+                  minHeight="$11"
                   borderRadius="$2.5"
                   gap="$0.5"
                   p="$0.5"
@@ -1131,9 +1461,10 @@ function MarketPresetSettingsDialog({
 
           {showPriorityFeeSettings && !isPriorityFeeEditable ? (
             <MarketPresetReadonlyRow
-              label={intl.formatMessage({
-                id: ETranslations.marketdex_priority_fee,
-              })}
+              label={priorityFeeTitle}
+              labelTooltip={
+                shouldShowPriorityFeeTooltip ? priorityFeeTooltip : undefined
+              }
               value={intl.formatMessage({ id: ETranslations.global_auto })}
             />
           ) : null}
@@ -1158,6 +1489,7 @@ function MarketPresetSettingsDialog({
 
 export function MarketPresetSelector({
   antiMEV,
+  estimatePriorityFeeFiatValues,
   presetSettings,
   slippageIconName = 'SliderVerOutline',
   showAutoSlippageLabel = false,
@@ -1201,12 +1533,13 @@ export function MarketPresetSelector({
             void dialog.close();
           }}
           antiMEV={antiMEV}
+          estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
           presetSettings={presetSettings}
         />
       ),
       showFooter: false,
     });
-  }, [antiMEV, intl, presetSettings]);
+  }, [antiMEV, estimatePriorityFeeFiatValues, intl, presetSettings]);
 
   const handleQuickPresetSwitch = useCallback(
     (event?: ITradingWidgetMainButtonPressEvent) => {

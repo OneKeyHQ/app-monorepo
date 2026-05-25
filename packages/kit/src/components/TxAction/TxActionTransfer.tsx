@@ -79,19 +79,34 @@ function getTxActionTransferInfo(
     !isEmpty(sends) &&
     sends[0]?.tokenIdOnNetwork === receives[0]?.tokenIdOnNetwork;
 
+  // Drop EVM mint/burn sentinels (zero address) so protocol interactions
+  // like Aave Borrow (debt-token mint) or wrap/burn flows don't end up with
+  // an ambiguous endpoint set. The literal is harmless on non-EVM chains
+  // (their addresses can't collide with this 20-byte hex form).
+  const isZeroAddress = (addr?: string) =>
+    !!addr &&
+    addr.toLowerCase() === '0x0000000000000000000000000000000000000000';
+
   if (!isEmpty(sends) && isEmpty(receives)) {
-    const targets = uniq(map(sends, 'to'));
+    const targets = uniq(
+      map(sends, 'to').filter((addr) => !isZeroAddress(addr)),
+    );
     if (targets.length === 1) {
       [transferTarget] = targets;
     } else {
       transferTarget = to;
     }
   } else if (isEmpty(sends) && !isEmpty(receives)) {
-    const targets = uniq(map(receives, 'from'));
+    const targets = uniq(
+      map(receives, 'from').filter((addr) => !isZeroAddress(addr)),
+    );
     if (targets.length === 1) {
       [transferTarget] = targets;
     } else {
-      transferTarget = from;
+      // Fall back to the contract being interacted with (e.g. Aave Pool).
+      // `from` here is the user's own address and never the right
+      // counterparty in a receive-only tx; only use it if `to` is empty.
+      transferTarget = to || from;
     }
   } else if (isUTXO) {
     if (type === EOnChainHistoryTxType.Send) {

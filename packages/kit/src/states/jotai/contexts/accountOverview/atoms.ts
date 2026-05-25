@@ -39,6 +39,9 @@ export const { atom: walletStatusAtom, use: useWalletStatusAtom } =
     referralCodeBlockInit: false,
   });
 
+// `worth[networkKey]` is a partial sum: tokens with unavailable fiatValue are
+// dropped so a single broken upstream provider does not poison the total with
+// NaN. Row-level rendering still surfaces those entries as '--'.
 export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
   contextAtom<{
     worth: Record<string, string>;
@@ -46,6 +49,10 @@ export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
     accountId: string;
     initialized: boolean;
     updateAll?: boolean;
+    // Source currency for values in `worth` / `createAtNetworkWorth`.
+    // Undefined means pre-migration hydrate stored in the user's then-active
+    // display currency; consumers fall back to settings.currencyInfo.id.
+    currency?: string;
   }>(
     {
       worth: {},
@@ -77,6 +84,8 @@ export const {
 } = contextAtom<{
   latest: string;
   byOwner: Record<string, string>;
+  // See accountWorthAtom.currency.
+  currency?: string;
 }>(
   {
     latest: '',

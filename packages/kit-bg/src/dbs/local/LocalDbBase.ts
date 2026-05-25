@@ -2537,12 +2537,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       applyRestoreSyncPolicy,
     } = params;
     const { overrideWalletId } = params;
+    const isBotWalletOverride = Boolean(
+      overrideWalletId &&
+      accountUtils.isBotWallet({ walletId: overrideWalletId }),
+    );
     const shouldConsumeNextHD = !overrideWalletId;
     // Bot wallets reuse the parent-derived wallet id, but still need a unique
     // walletNo for sorting and fallback ordering.
-    const shouldConsumeNextWalletNo =
-      !overrideWalletId ||
-      accountUtils.isBotWallet({ walletId: overrideWalletId });
+    const shouldConsumeNextWalletNo = !overrideWalletId || isBotWalletOverride;
     const context = await this.getContext({ verifyPassword: password });
     let walletId = accountUtils.buildHdWalletId({
       nextHD: context.nextHD,
@@ -2712,7 +2714,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
 
           // add first indexed account
-          if (!skipAddHDNextIndexedAccount) {
+          if (!skipAddHDNextIndexedAccount && !isBotWalletOverride) {
             console.log('add first indexed account');
             const { nextIndex } = await this.txAddHDNextIndexedAccount({
               tx,
