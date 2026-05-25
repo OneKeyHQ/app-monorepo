@@ -765,6 +765,23 @@ export default class ServiceHyperliquid extends ServiceBase {
     );
   }
 
+  private async _syncScaleOrderGroupsWithFills({
+    accountAddress,
+    fills,
+  }: {
+    accountAddress: string;
+    fills: IFill[];
+  }) {
+    try {
+      await this.backgroundApi.simpleDb.perp.syncScaleOrderGroupsWithFills({
+        accountAddress,
+        fills,
+      });
+    } catch (error) {
+      console.error('Failed to sync scale order groups with fills:', error);
+    }
+  }
+
   _getUserFillsByTimeMemo = cacheUtils.memoizee(
     async (params: IUserFillsByTimeParameters) => {
       const { infoClient } = hyperLiquidApiClients;
@@ -869,6 +886,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       latestTime: sorted[0]?.time ?? 0,
       accountAddress: normalizedAccountAddress,
     });
+    await this._syncScaleOrderGroupsWithFills({
+      accountAddress: normalizedAccountAddress,
+      fills: sorted,
+    });
 
     return sorted;
   }
@@ -911,6 +932,12 @@ export default class ServiceHyperliquid extends ServiceBase {
       fills,
       latestTime: fills[0]?.time ?? current.latestTime,
     });
+    if (current.accountAddress) {
+      await this._syncScaleOrderGroupsWithFills({
+        accountAddress: current.accountAddress,
+        fills,
+      });
+    }
   }
 
   @backgroundMethod()

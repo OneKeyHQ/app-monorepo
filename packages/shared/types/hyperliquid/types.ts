@@ -1,6 +1,6 @@
 import type { IPerpServerBannerConfig } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 
-import type { IFill, IHex, IWithdraw3Request } from './sdk';
+import type { IFill, IHex, IOrderResponse, IWithdraw3Request } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
 export enum EPerpsSubscriptionCategory {
@@ -185,6 +185,92 @@ export interface ITriggerOrderParams {
   executionPx?: string; // required for limit triggers
   reduceOnly: boolean;
   slippage?: number;
+}
+
+// ── Scale Order Types ──
+
+export type IScaleOrderTif = 'Gtc' | 'Alo';
+export type IScaleOrderStatus =
+  | 'placing'
+  | 'active'
+  | 'partiallyFilled'
+  | 'filled'
+  | 'partiallyFailed'
+  | 'failed'
+  | 'canceled';
+export type IScaleOrderChildStatus =
+  | 'placing'
+  | 'resting'
+  | 'partiallyFilled'
+  | 'filled'
+  | 'error'
+  | 'canceled';
+
+export interface IScaleOrderBuildParams {
+  totalSize: string;
+  lowerPrice: string;
+  upperPrice: string;
+  orderCount: number;
+  szDecimals: number;
+  side: 'long' | 'short';
+}
+
+export interface IScaleOrderLeg {
+  index: number;
+  price: string;
+  size: string;
+}
+
+export interface IScaleOrderValidationResult {
+  isValid: boolean;
+  errors: string[];
+}
+
+export interface IScaleOrderChild extends IScaleOrderLeg {
+  cloid: `0x${string}`;
+  oid?: number;
+  status: IScaleOrderChildStatus;
+  error?: string;
+  filledSize?: string;
+  avgPx?: string;
+}
+
+export interface IScaleOrderGroup {
+  id: string;
+  accountAddress: string;
+  assetId: number;
+  coin: string;
+  side: 'long' | 'short';
+  isBuy: boolean;
+  totalSize: string;
+  lowerPrice: string;
+  upperPrice: string;
+  orderCount: number;
+  reduceOnly: boolean;
+  tif: IScaleOrderTif;
+  status: IScaleOrderStatus;
+  children: IScaleOrderChild[];
+  createdAt: number;
+  updatedAt: number;
+  error?: string;
+}
+
+export interface IPlaceScaleOrderParams {
+  assetId: number;
+  coin: string;
+  isBuy: boolean;
+  size: string;
+  lowerPrice: string;
+  upperPrice: string;
+  orderCount: number;
+  reduceOnly?: boolean;
+  tif?: IScaleOrderTif;
+  szDecimals?: number;
+}
+
+export interface IPlaceScaleOrderResult {
+  group: IScaleOrderGroup;
+  response: IOrderResponse;
 }
 
 export interface ISpotOrderParams {

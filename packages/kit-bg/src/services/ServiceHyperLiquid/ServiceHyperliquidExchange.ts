@@ -32,6 +32,12 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { convertHyperLiquidResponse } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 import {
+  assertValidScaleOrderLegs,
+  buildScaleOrderLegs,
+  resolveScaleOrderGroupStatus,
+} from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import {
   MAX_DECIMALS_PERP,
   formatHlPrice,
   formatHlSize,
@@ -61,7 +67,11 @@ import type {
   IOrderCloseParams,
   IOrderOpenParams,
   IPlaceOrderParams,
+  IPlaceScaleOrderParams,
+  IPlaceScaleOrderResult,
   IPositionTpslOrderParams,
+  IScaleOrderChild,
+  IScaleOrderGroup,
   ISetReferrerRequest,
   ISpotOrderParams,
   ITriggerOrderParams,
@@ -857,6 +867,164 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return response;
     } catch (error) {
       throw new OneKeyLocalError(`Failed to place order: ${String(error)}`);
+    }
+  }
+
+  private _createScaleCloid(): `0x${string}` {
+    return `0x${generateUUID({ removeDashes: true }).slice(0, 32)}`;
+  }
+
+  private _applyScaleOrderResponse(
+    group: IScaleOrderGroup,
+    response: IOrderResponse,
+  ): IScaleOrderGroup {
+    const statuses = response.response.data.statuses;
+    const children = group.children.map((child, index): IScaleOrderChild => {
+      const status = statuses[index];
+      if (!status) {
+        return child;
+      }
+      if (typeof status === 'string') {
+        return {
+          ...child,
+          status: status === 'waitingForFill' ? 'placing' : child.status,
+        };
+      }
+      if ('resting' in status) {
+        return {
+          ...child,
+          oid: status.resting.oid,
+          cloid: status.resting.cloid ?? child.cloid,
+          status: 'resting',
+        };
+      }
+      if ('filled' in status) {
+        return {
+          ...child,
+          oid: status.filled.oid,
+          cloid: status.filled.cloid ?? child.cloid,
+          status: 'filled',
+          filledSize: status.filled.totalSz,
+          avgPx: status.filled.avgPx,
+        };
+      }
+      return child;
+    });
+
+    return {
+      ...group,
+      children,
+      status: resolveScaleOrderGroupStatus(children),
+      updatedAt: Date.now(),
+    };
+  }
+
+  @backgroundMethod()
+  async placeScaleOrder(
+    params: IPlaceScaleOrderParams,
+  ): Promise<IPlaceScaleOrderResult> {
+    await this.checkAccountCanTrade();
+    if (!this._account) {
+      throw new OneKeyLocalError(
+        'Exchange client not setup. Call setup() first.',
+      );
+    }
+
+    const now = Date.now();
+    const szDecimals = params.szDecimals ?? 2;
+    const side = params.isBuy ? 'long' : 'short';
+    const tif = params.tif ?? 'Gtc';
+    const legs = buildScaleOrderLegs({
+      totalSize: params.size,
+      lowerPrice: params.lowerPrice,
+      upperPrice: params.upperPrice,
+      orderCount: params.orderCount,
+      szDecimals,
+      side,
+    });
+    assertValidScaleOrderLegs({ legs });
+
+    const groupId = `scale-${now}-${generateUUID({ removeDashes: true }).slice(
+      0,
+      8,
+    )}`;
+    const accountAddress = this._account.toLowerCase();
+    const children: IScaleOrderChild[] = legs.map((leg) => ({
+      ...leg,
+      cloid: this._createScaleCloid(),
+      status: 'placing',
+    }));
+    const group: IScaleOrderGroup = {
+      id: groupId,
+      accountAddress,
+      assetId: params.assetId,
+      coin: normalizePerpsCoin(params.coin),
+      side,
+      isBuy: params.isBuy,
+      totalSize: params.size,
+      lowerPrice: params.lowerPrice,
+      upperPrice: params.upperPrice,
+      orderCount: params.orderCount,
+      reduceOnly: Boolean(params.reduceOnly),
+      tif,
+      status: 'placing',
+      children,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await this.backgroundApi.simpleDb.perp.saveScaleOrderGroup(group);
+
+    const orders: IOrderParams[] = children.map((child) => ({
+      a: params.assetId,
+      b: params.isBuy,
+      p: child.price,
+      s: child.size,
+      r: Boolean(params.reduceOnly),
+      t: { limit: { tif } },
+      c: child.cloid,
+    }));
+
+    try {
+      const response = await this.placeOrderRaw(
+        {
+          orders,
+          grouping: 'na',
+        },
+        {
+          action: 'multiOrder',
+          originalParams: params,
+          extra: {
+            orderMode: 'scale',
+            groupId,
+            orderCount: orders.length,
+            reduceOnly: Boolean(params.reduceOnly),
+            tif,
+          },
+        },
+      );
+      const nextGroup = this._applyScaleOrderResponse(group, response);
+      await this.backgroundApi.simpleDb.perp.saveScaleOrderGroup(nextGroup);
+      return {
+        group: nextGroup,
+        response,
+      };
+    } catch (error) {
+      const failedGroup: IScaleOrderGroup = {
+        ...group,
+        status: 'failed',
+        error: String(error),
+        children: group.children.map((child) => ({
+          ...child,
+          status: 'error',
+          error: String(error),
+        })),
+        updatedAt: Date.now(),
+      };
+      await this.backgroundApi.simpleDb.perp.saveScaleOrderGroup(failedGroup);
+      throw new OneKeyLocalError(
+        `Failed to place scale order: ${String(error)}`,
+      );
     }
   }
 

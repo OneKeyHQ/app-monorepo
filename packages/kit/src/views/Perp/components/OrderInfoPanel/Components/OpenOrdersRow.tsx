@@ -52,6 +52,8 @@ interface IOpenOrdersRowProps {
   renderMode?: IRenderMode;
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
+  isScaleChild?: boolean;
+  scaleLegIndex?: number;
 }
 
 const OpenOrdersRow = memo(
@@ -65,6 +67,8 @@ const OpenOrdersRow = memo(
     renderMode = 'full',
     isHovered,
     onHoverChange,
+    isScaleChild,
+    scaleLegIndex,
   }: IOpenOrdersRowProps) => {
     const actions = useHyperliquidActions();
     const intl = useIntl();
@@ -261,6 +265,16 @@ const OpenOrdersRow = memo(
                 >
                   {`${assetInfo.orderType} / ${assetInfo.type}`}
                 </SizableText>
+                {isScaleChild ? (
+                  <SizableText
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    size="$bodySm"
+                    color="$textSubdued"
+                  >
+                    {`Scale #${(scaleLegIndex ?? 0) + 1}`}
+                  </SizableText>
+                ) : null}
                 <SizableText
                   numberOfLines={1}
                   ellipsizeMode="tail"
@@ -374,6 +388,7 @@ const OpenOrdersRow = memo(
         onHoverIn={() => onHoverChange?.(index)}
         onHoverOut={() => onHoverChange?.(null)}
         minWidth={renderMode === 'full' ? cellMinWidth : undefined}
+        {...(isScaleChild && shouldRenderLeft ? { pl: '$8' } : undefined)}
       >
         {shouldRenderLeft ? (
           <>
@@ -432,13 +447,33 @@ const OpenOrdersRow = memo(
               justifyContent={calcCellAlign(columnConfigs[2].align)}
               alignItems="center"
             >
-              <SizableText
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                size="$bodySm"
-              >
-                {assetInfo.orderType}
-              </SizableText>
+              {isScaleChild ? (
+                <YStack>
+                  <SizableText
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    size="$bodySm"
+                  >
+                    {assetInfo.orderType}
+                  </SizableText>
+                  <SizableText
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    size="$bodySm"
+                    color="$textSubdued"
+                  >
+                    {`Scale #${(scaleLegIndex ?? 0) + 1}`}
+                  </SizableText>
+                </YStack>
+              ) : (
+                <SizableText
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  size="$bodySm"
+                >
+                  {assetInfo.orderType}
+                </SizableText>
+              )}
             </XStack>
 
             {/*  size */}

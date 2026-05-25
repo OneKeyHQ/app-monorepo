@@ -35,6 +35,13 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  SCALE_ORDER_MAX_COUNT,
+  SCALE_ORDER_MIN_COUNT,
+  buildScaleOrderLegs,
+  normalizeScaleOrderCount,
+  validateScaleOrderLegs,
+} from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
   getSpotTokenDisplayName,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -421,6 +428,9 @@ function SideButtonInternal({
 
   const isLong = side === 'long';
   const isTriggerMode = formData.orderMode === 'trigger';
+  const isScaleMode = formData.orderMode === 'scale';
+  const isTwapMode = formData.orderMode === 'twap';
+  const shouldShowCostAndLiqPrice = !isSpot && !isScaleMode && !isTwapMode;
   const latestOrderPanelStateRef = useRef({
     activeAsset,
     activeTradeInstrument,
@@ -430,7 +440,9 @@ function SideButtonInternal({
     isMinimumOrderNotMetForSide,
     isNoEnoughMargin,
     isSpot,
+    isScaleMode,
     isTriggerMode,
+    isTwapMode,
     leverage,
     marketDataFreshness,
     midPriceBN,
@@ -451,7 +463,9 @@ function SideButtonInternal({
     isMinimumOrderNotMetForSide,
     isNoEnoughMargin,
     isSpot,
+    isScaleMode,
     isTriggerMode,
+    isTwapMode,
     leverage,
     marketDataFreshness,
     midPriceBN,
@@ -484,7 +498,9 @@ function SideButtonInternal({
         formData: latestFormData,
         isMinimumOrderNotMetForSide: latestIsMinimumOrderNotMetForSide,
         isSpot: latestIsSpot,
+        isScaleMode: latestIsScaleMode,
         isTriggerMode: latestIsTriggerMode,
+        isTwapMode: latestIsTwapMode,
         leverage: latestLeverage,
         midPriceBN: latestMidPriceBN,
         priceError: latestPriceError,
@@ -554,6 +570,8 @@ function SideButtonInternal({
 
       if (
         !latestIsTriggerMode &&
+        !latestIsScaleMode &&
+        !latestIsTwapMode &&
         latestFormData.type === 'limit' &&
         (!latestFormData.price || latestFormData.price.trim() === '')
       ) {
@@ -563,6 +581,40 @@ function SideButtonInternal({
           }),
         });
         return false;
+      }
+
+      if (latestIsScaleMode) {
+        const lowerPrice = new BigNumber(latestFormData.scaleLowerPrice ?? 0);
+        const upperPrice = new BigNumber(latestFormData.scaleUpperPrice ?? 0);
+        if (
+          !lowerPrice.isFinite() ||
+          lowerPrice.lte(0) ||
+          !upperPrice.isFinite() ||
+          upperPrice.lte(0)
+        ) {
+          Toast.message({
+            title: 'Scale price range is required',
+          });
+          return false;
+        }
+        if (lowerPrice.eq(upperPrice)) {
+          Toast.message({
+            title: 'Scale lower and upper prices must be different',
+          });
+          return false;
+        }
+        const orderCount = normalizeScaleOrderCount(
+          latestFormData.scaleOrderCount ?? 0,
+        );
+        if (
+          orderCount < SCALE_ORDER_MIN_COUNT ||
+          orderCount > SCALE_ORDER_MAX_COUNT
+        ) {
+          Toast.message({
+            title: `Scale orders must be ${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT} orders`,
+          });
+          return false;
+        }
       }
 
       const isSliderMode = latestFormData.sizeInputMode === 'slider';
@@ -619,6 +671,27 @@ function SideButtonInternal({
         return false;
       }
 
+      if (latestIsScaleMode) {
+        const legs = buildScaleOrderLegs({
+          totalSize: latestComputedSizeForSide.toFixed(),
+          lowerPrice: latestFormData.scaleLowerPrice ?? '',
+          upperPrice: latestFormData.scaleUpperPrice ?? '',
+          orderCount: normalizeScaleOrderCount(
+            latestFormData.scaleOrderCount ?? 0,
+          ),
+          szDecimals: latestSzDecimals,
+          side: validationSide,
+          assetType: latestIsSpot ? 'spot' : 'perp',
+        });
+        const validation = validateScaleOrderLegs({ legs });
+        if (!validation.isValid) {
+          Toast.message({
+            title: validation.errors[0] ?? 'Invalid scale order',
+          });
+          return false;
+        }
+      }
+
       const tpValue = latestFormData.tpValue?.trim();
       const slValue = latestFormData.slValue?.trim();
       const hasTpValue = Boolean(tpValue);
@@ -626,6 +699,8 @@ function SideButtonInternal({
 
       if (
         !latestIsTriggerMode &&
+        !latestIsScaleMode &&
+        !latestIsTwapMode &&
         latestFormData.hasTpsl &&
         (hasTpValue || hasSlValue)
       ) {
@@ -1040,7 +1115,7 @@ function SideButtonInternal({
   if (isMobile) {
     return (
       <YStack gap="$2" flex={1} onLayout={handleLayout}>
-        {isSpot ? null : (
+        {shouldShowCostAndLiqPrice ? (
           <YStack gap="$1.5">
             {/* <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
@@ -1215,7 +1290,7 @@ function SideButtonInternal({
           ) : null}
         </YStack>
       </Button>
-      {isSpot ? null : (
+      {shouldShowCostAndLiqPrice ? (
         <YStack gap="$1.5">
           {/* <XStack justifyContent="space-between">
             <SizableText size="$bodySm" color="$textSubdued">
