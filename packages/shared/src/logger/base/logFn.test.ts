@@ -9,6 +9,11 @@ import type { Analytics } from '../../analytics';
 
 class ServerLogScene extends BaseScene {
   @LogToServer()
+  utmParamsCaptured(params: Record<string, string>) {
+    return params;
+  }
+
+  @LogToServer()
   campaignEvent(params: Record<string, string>) {
     return params;
   }
@@ -35,13 +40,15 @@ describe('logFn', () => {
     jest.useRealTimers();
   });
 
-  it('uses the utm snapshot captured when the log entry is emitted', () => {
-    captureLoggerUtmParamsFromUrl(
-      'https://app.onekey.so/perps?utm_source=before',
+  it('reports utm params through a dedicated event only', () => {
+    const captured = captureLoggerUtmParamsFromUrl(
+      'https://app.onekey.so/perps?utm_source=dedicated',
     );
+    expect(captured?.params).toEqual({ utm_source: 'dedicated' });
 
     const scene = new ServerLogScene();
     scene.campaignEvent({ value: 'event' });
+    scene.utmParamsCaptured(captured?.params ?? {});
 
     captureLoggerUtmParamsFromUrl(
       'https://app.onekey.so/perps?utm_source=later',
@@ -49,8 +56,10 @@ describe('logFn', () => {
     jest.runOnlyPendingTimers();
 
     expect(trackEvent).toHaveBeenCalledWith('campaignEvent', {
-      utm_source: 'before',
       value: 'event',
+    });
+    expect(trackEvent).toHaveBeenCalledWith('utmParamsCaptured', {
+      utm_source: 'dedicated',
     });
   });
 });

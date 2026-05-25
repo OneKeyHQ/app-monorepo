@@ -6,7 +6,6 @@ import { loggerRuntime } from '../runtime/loggerRuntime';
 import { stringifyFunc } from '../stringifyFunc';
 
 import type { IMethodDecoratorMetadata } from '../types';
-import type { ILoggerUtmParams } from '../utmParams';
 
 export type ILogEntry = {
   scopeName: string;
@@ -21,7 +20,6 @@ export type ILogEntry = {
   };
   timestamp: () => string;
   rawArgs: unknown[];
-  utmParams: ILoggerUtmParams;
 };
 
 // ---------------------------------------------------------------------------
@@ -43,7 +41,6 @@ function handleServerLog(entry: ILogEntry) {
     {} as Record<string, string>,
   );
   appGlobals?.$analytics?.trackEvent(entry.methodName, {
-    ...entry.utmParams,
     ...eventProps,
   });
 }
