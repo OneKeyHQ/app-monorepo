@@ -34,7 +34,7 @@ import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useAppRoute } from '../../hooks/useAppRoute';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
-import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
+import { useEarnActions } from '../../states/jotai/contexts/earn';
 import { BorrowHome } from '../Borrow/pages/BorrowHome';
 import { isBorrowTag } from '../Staking/utils/utils';
 
@@ -48,7 +48,6 @@ import { Overview } from './components/Overview';
 import { getEarnFocusState } from './EarnHome.utils';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { useBlockRegion } from './hooks/useBlockRegion';
-import { useEarnAccountKey } from './hooks/useEarnAccountKey';
 import { useEarnHideSmallAssets } from './hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
@@ -80,8 +79,6 @@ function BasicEarnHome({
 }) {
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
   const actions = useEarnActions();
-  const [{ earnAccount }] = useEarnAtom();
-  const earnAccountKey = useEarnAccountKey();
 
   const { isFetchingBlockResult, refreshBlockResult, blockResult } =
     useBlockRegion();
@@ -97,46 +94,10 @@ function BasicEarnHome({
   const { refresh: refreshEarnDataRaw, isLoading: portfolioLoading } =
     portfolioData;
 
-  const hasCachedOverviewValue = useMemo(() => {
-    const currentOverviewData =
-      earnAccountKey && earnAccount ? earnAccount[earnAccountKey] : undefined;
-
-    return (
-      currentOverviewData?.totalFiatValue !== undefined ||
-      currentOverviewData?.earnings24h !== undefined
-    );
-  }, [earnAccount, earnAccountKey]);
-  const hasVisiblePortfolioValue = useMemo(
-    () =>
-      hasCachedOverviewValue ||
-      portfolioData.investments.length > 0 ||
-      !portfolioData.earnTotalFiatValue.isZero() ||
-      !portfolioData.earnTotalEarnings24hFiatValue.isZero(),
-    [
-      hasCachedOverviewValue,
-      portfolioData.earnTotalEarnings24hFiatValue,
-      portfolioData.earnTotalFiatValue,
-      portfolioData.investments.length,
-    ],
-  );
-  const shouldShowPortfolioSkeleton = useMemo(() => {
-    if (platformEnv.isNative && !showContent) {
-      return false;
-    }
-    return portfolioLoading && !hasVisiblePortfolioValue;
-  }, [hasVisiblePortfolioValue, portfolioLoading, showContent]);
-  const isLoading = useMemo(
-    () => isManualRefreshing || shouldShowPortfolioSkeleton,
-    [isManualRefreshing, shouldShowPortfolioSkeleton],
-  );
-  const portfolioDisplayData = useMemo(
-    () => ({
-      ...portfolioData,
-      isLoading: shouldShowPortfolioSkeleton,
-    }),
-    [portfolioData, shouldShowPortfolioSkeleton],
-  );
-
+  const hasPortfolioRows = portfolioData.investments.length > 0;
+  const isOverviewRefreshing =
+    !(platformEnv.isNative && !showContent) &&
+    (isManualRefreshing || (!!portfolioLoading && !hasPortfolioRows));
   const { hideSmallAssets } = useEarnHideSmallAssets();
 
   // Calculate filtered total fiat value when hiding small assets
@@ -175,6 +136,36 @@ function BasicEarnHome({
 
     return total.toFixed();
   }, [hideSmallAssets, portfolioData]);
+
+  const displayTotalFiatValue = useMemo(() => {
+    if (filteredTotalFiatValue !== undefined || !hasPortfolioRows) {
+      return filteredTotalFiatValue;
+    }
+
+    return portfolioData.investments
+      .reduce((sum, inv) => {
+        if (inv.assets.length === 0 && inv.airdropAssets.length > 0) {
+          return sum;
+        }
+        return sum.plus(new BigNumber(inv.totalFiatValue || '0'));
+      }, new BigNumber(0))
+      .toFixed();
+  }, [filteredTotalFiatValue, hasPortfolioRows, portfolioData.investments]);
+
+  const displayEarnings24h = useMemo(() => {
+    if (filteredEarnings24h !== undefined || !hasPortfolioRows) {
+      return filteredEarnings24h;
+    }
+
+    return portfolioData.investments
+      .reduce((sum, inv) => {
+        if (inv.assets.length === 0 && inv.airdropAssets.length > 0) {
+          return sum;
+        }
+        return sum.plus(new BigNumber(inv.earnings24hFiatValue || '0'));
+      }, new BigNumber(0))
+      .toFixed();
+  }, [filteredEarnings24h, hasPortfolioRows, portfolioData.investments]);
 
   const prefetchEarnAvailableAssets = useCallback(async () => {
     const types = [
@@ -445,9 +436,9 @@ function BasicEarnHome({
               <YStack px="$pagePadding">
                 <Overview
                   onRefresh={refreshEarnData}
-                  isLoading={isLoading}
-                  filteredTotalFiatValue={filteredTotalFiatValue}
-                  filteredEarnings24h={filteredEarnings24h}
+                  isLoading={isOverviewRefreshing}
+                  displayTotalFiatValue={displayTotalFiatValue}
+                  displayEarnings24h={displayEarnings24h}
                 />
               </YStack>
             </YStack>
@@ -458,9 +449,9 @@ function BasicEarnHome({
     [
       showContent,
       refreshEarnData,
-      isLoading,
-      filteredTotalFiatValue,
-      filteredEarnings24h,
+      isOverviewRefreshing,
+      displayTotalFiatValue,
+      displayEarnings24h,
       handleHeaderHorizontalSwipe,
     ],
   );
@@ -508,7 +499,7 @@ function BasicEarnHome({
                   faqList={faqList || []}
                   isFaqLoading={isFaqLoading}
                   defaultTab={defaultTab}
-                  portfolioData={portfolioDisplayData}
+                  portfolioData={portfolioData}
                   containerProps={mobileContainerProps}
                   tabsRef={tabsRef}
                   nestedPager={useSwipePager}
@@ -559,7 +550,7 @@ function BasicEarnHome({
             faqList={faqList || []}
             isFaqLoading={isFaqLoading}
             defaultTab={defaultTab}
-            portfolioData={portfolioDisplayData}
+            portfolioData={portfolioData}
             containerProps={mobileContainerProps}
             header={marketSelectorHeader}
             tabsRef={tabsRef}
@@ -608,7 +599,10 @@ function BasicEarnHome({
           py: 0,
         }}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
+          <RefreshControl
+            refreshing={isOverviewRefreshing}
+            onRefresh={refreshEarnData}
+          />
         }
       >
         <EarnHomeTabs
@@ -620,9 +614,9 @@ function BasicEarnHome({
                 <XStack px="$pagePadding">
                   <Overview
                     onRefresh={refreshEarnData}
-                    isLoading={isLoading}
-                    filteredTotalFiatValue={filteredTotalFiatValue}
-                    filteredEarnings24h={filteredEarnings24h}
+                    isLoading={isOverviewRefreshing}
+                    displayTotalFiatValue={displayTotalFiatValue}
+                    displayEarnings24h={displayEarnings24h}
                   />
                 </XStack>
               </YStack>
@@ -630,7 +624,7 @@ function BasicEarnHome({
                 faqList={faqList || []}
                 isFaqLoading={isFaqLoading}
                 defaultTab={defaultTab}
-                portfolioData={portfolioDisplayData}
+                portfolioData={portfolioData}
               />
             </YStack>
           }
