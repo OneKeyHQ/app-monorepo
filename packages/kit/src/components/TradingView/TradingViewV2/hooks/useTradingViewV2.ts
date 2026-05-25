@@ -3,6 +3,8 @@ import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2'
 
 import { sliceRequest } from '../sliceRequest';
 
+const MIN_TRADING_VIEW_KLINE_TIME_SPAN_SECONDS = 2 * 24 * 60 * 60;
+
 interface ITradingViewV2Params {
   tokenAddress: string;
   networkId: string;
@@ -48,7 +50,12 @@ export async function fetchTradingViewV2DataWithSlicing({
     // Native tokens typically have empty or undefined tokenAddress
     const isNativeToken = !tokenAddress || tokenAddress === '';
 
-    const slices = sliceRequest(interval, timeFrom, timeTo, { isNativeToken });
+    const slices = sliceRequest(interval, timeFrom, timeTo, {
+      isNativeToken,
+      minTimeSpanSeconds: isNativeToken
+        ? undefined
+        : MIN_TRADING_VIEW_KLINE_TIME_SPAN_SECONDS,
+    });
 
     const dataPromises = slices.map((slice) =>
       backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
