@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Divider,
   ESwitchSize,
@@ -20,12 +21,14 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import PassCodeProtectionSwitch from '@onekeyhq/kit/src/components/Password/container/PassCodeProtectionSwitch';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const SettingProtectionModal = () => {
@@ -39,6 +42,7 @@ const SettingProtectionModal = () => {
     },
     setSettings,
   ] = useSettingsPersistAtom();
+  const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const [enableProtection, setEnableProtection] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -189,11 +193,33 @@ const SettingProtectionModal = () => {
           </SizableText>
           <Divider my="$5" mx="$5" />
           <SectionList.SectionHeader title="Receive risk monitoring" />
-          <ListItem title="Receive risk monitoring">
+          <ListItem
+            title="Receive risk monitoring"
+            {...(!isPrimeSubscriptionActive && {
+              onPress: () => {
+                navigation.pushModal(EModalRoutes.PrimeModal, {
+                  screen: EPrimePages.PrimeDashboard,
+                  params: {
+                    fromFeature: EPrimeFeatures.ReceiveRiskMonitoring,
+                  },
+                });
+              },
+            })}
+          >
+            {isPrimeSubscriptionActive ? null : (
+              <Badge badgeSize="sm" badgeType="default">
+                <Badge.Text size="$bodySmMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.prime_status_prime,
+                  })}
+                </Badge.Text>
+              </Badge>
+            )}
             <Switch
               testID="setting-receive-risk-monitoring-switch"
               size={ESwitchSize.small}
-              value={receiveRiskMonitoring}
+              value={isPrimeSubscriptionActive ? receiveRiskMonitoring : false}
+              disabled={!isPrimeSubscriptionActive}
               onChange={(value) => {
                 handleTransition(async () => {
                   setSettings((v) => ({
@@ -300,6 +326,7 @@ const SettingProtectionModal = () => {
     intl,
     isEnableTransferAllowList,
     isLocked,
+    isPrimeSubscriptionActive,
     navigation,
     protectCreateOrRemoveWallet,
     protectCreateTransaction,
