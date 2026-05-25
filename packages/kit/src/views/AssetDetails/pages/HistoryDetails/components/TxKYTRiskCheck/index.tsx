@@ -151,10 +151,13 @@ export function TxKYTRiskCheck({
     <>
       <Divider mx="$5" />
       <XStack
-        px="$5"
-        py="$3.5"
+        px="$3"
+        py="$2.5"
         ai="center"
         gap="$3"
+        borderRadius="$3"
+        mx="$2"
+        my="$1"
         {...(showDrillIn && {
           onPress: handlePress,
           cursor: 'pointer',
