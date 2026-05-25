@@ -11,13 +11,13 @@ import {
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type {
-  IConnectionState,
-  IPerpOrderBookTickOptionPersist,
-} from '@onekeyhq/shared/types/hyperliquid/types';
 import {
   EPerpsSizeInputMode,
   ETriggerOrderType,
+  type IConnectionState,
+  type IPerpOrderBookTickOptionPersist,
+  type IScaleOrderGroup,
+  type IScaleOrderTif,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 const {
@@ -186,11 +186,18 @@ export interface ITradingFormData {
   slValue?: string;
 
   // ── Standalone Trigger Order Fields ──
-  orderMode: 'standard' | 'trigger';
+  orderMode: 'standard' | 'trigger' | 'scale' | 'twap';
   triggerOrderType?: ETriggerOrderType;
   triggerPrice?: string;
   executionPrice?: string;
   triggerReduceOnly?: boolean;
+
+  // ── Scale Order Fields ──
+  scaleLowerPrice?: string;
+  scaleUpperPrice?: string;
+  scaleOrderCount?: string;
+  scaleReduceOnly?: boolean;
+  scaleTif?: IScaleOrderTif;
 }
 
 export const { atom: tradingFormAtom, use: useTradingFormAtom } =
@@ -218,6 +225,11 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     triggerPrice: '',
     executionPrice: '',
     triggerReduceOnly: true,
+    scaleLowerPrice: '',
+    scaleUpperPrice: '',
+    scaleOrderCount: '5',
+    scaleReduceOnly: false,
+    scaleTif: 'Gtc',
   });
 
 export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =
@@ -262,6 +274,18 @@ export const {
   accountAddress: undefined,
   openOrders: [],
   openOrdersByCoin: {},
+});
+
+export type IPerpsScaleOrderGroupsAtom = {
+  accountAddress: string | undefined;
+  groups: IScaleOrderGroup[];
+};
+export const {
+  atom: perpsScaleOrderGroupsAtom,
+  use: usePerpsScaleOrderGroupsAtom,
+} = contextAtom<IPerpsScaleOrderGroupsAtom>({
+  accountAddress: undefined,
+  groups: [],
 });
 
 export const {
@@ -361,6 +385,16 @@ export const {
       midPrice: env.markPrice,
     });
     price = triggerEffective.gt(0) ? triggerEffective.toFixed() : '';
+  } else if (form.orderMode === 'scale') {
+    const lowerPrice = new BigNumber(form.scaleLowerPrice ?? 0);
+    const upperPrice = new BigNumber(form.scaleUpperPrice ?? 0);
+    price =
+      lowerPrice.isFinite() &&
+      lowerPrice.gt(0) &&
+      upperPrice.isFinite() &&
+      upperPrice.gt(0)
+        ? lowerPrice.plus(upperPrice).dividedBy(2).toFixed()
+        : '';
   } else {
     price = form.type === 'limit' ? form.price : '';
   }

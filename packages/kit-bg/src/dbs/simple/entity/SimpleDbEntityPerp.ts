@@ -3,8 +3,10 @@ import {
   HYPERLIQUID_AGENT_TTL_DEFAULT,
   HYPERLIQUID_REFERRAL_CODE,
 } from '@onekeyhq/shared/src/consts/perp';
+import { applyScaleOrderFillsToGroup } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
+  IFill,
   IMarginTableMap as IMarginTablesMap,
   IPerpsUniverse,
   ISpotToken,
@@ -14,6 +16,7 @@ import type {
   IHyperLiquidErrorLocaleItem,
   IPerpOrderBookTickOptionPersist,
   IPerpsAssetMetaMap,
+  IScaleOrderGroup,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -71,6 +74,7 @@ export interface ISimpleDbPerpData {
   perpsAssetMetaMap?: IPerpsAssetMetaMap; // perps asset metadata map from server
   spotTokens?: ISpotToken[]; // all spot tokens metadata
   spotUniverses?: ISpotUniverse[]; // spot trading pairs with resolved names
+  scaleOrderGroups?: Record<string, Record<string, IScaleOrderGroup>>; // user address -> groupId -> Scale metadata
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
@@ -119,6 +123,128 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         },
       }),
     );
+  }
+
+  @backgroundMethod()
+  async getScaleOrderGroups(userAddress: string): Promise<IScaleOrderGroup[]> {
+    const key = userAddress.toLowerCase();
+    if (!key) {
+      return [];
+    }
+    const config = await this.getPerpData();
+    const groups = config.scaleOrderGroups?.[key] ?? {};
+    return Object.values(groups).toSorted((a, b) => b.createdAt - a.createdAt);
+  }
+
+  @backgroundMethod()
+  async saveScaleOrderGroup(group: IScaleOrderGroup): Promise<void> {
+    const key = group.accountAddress.toLowerCase();
+    if (!key) {
+      return;
+    }
+    await this.setPerpData(
+      (prevConfig): ISimpleDbPerpData => ({
+        ...prevConfig,
+        scaleOrderGroups: {
+          ...prevConfig?.scaleOrderGroups,
+          [key]: {
+            ...prevConfig?.scaleOrderGroups?.[key],
+            [group.id]: group,
+          },
+        },
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async updateScaleOrderGroup({
+    accountAddress,
+    groupId,
+    updates,
+  }: {
+    accountAddress: string;
+    groupId: string;
+    updates: Partial<IScaleOrderGroup>;
+  }): Promise<IScaleOrderGroup | undefined> {
+    const key = accountAddress.toLowerCase();
+    if (!key || !groupId) {
+      return undefined;
+    }
+    let nextGroup: IScaleOrderGroup | undefined;
+    await this.setPerpData((prevConfig): ISimpleDbPerpData => {
+      const currentGroup = prevConfig?.scaleOrderGroups?.[key]?.[groupId];
+      if (!currentGroup) {
+        return {
+          ...prevConfig,
+        };
+      }
+      nextGroup = {
+        ...currentGroup,
+        ...updates,
+        updatedAt: updates.updatedAt ?? Date.now(),
+      };
+      return {
+        ...prevConfig,
+        scaleOrderGroups: {
+          ...prevConfig?.scaleOrderGroups,
+          [key]: {
+            ...prevConfig?.scaleOrderGroups?.[key],
+            [groupId]: nextGroup,
+          },
+        },
+      };
+    });
+    return nextGroup;
+  }
+
+  @backgroundMethod()
+  async syncScaleOrderGroupsWithFills({
+    accountAddress,
+    fills,
+  }: {
+    accountAddress: string;
+    fills: IFill[];
+  }): Promise<IScaleOrderGroup[]> {
+    const key = accountAddress.toLowerCase();
+    if (!key || fills.length === 0) {
+      return [];
+    }
+
+    const changedGroups: IScaleOrderGroup[] = [];
+    await this.setPerpData((prevConfig): ISimpleDbPerpData => {
+      const groups = prevConfig?.scaleOrderGroups?.[key];
+      if (!groups) {
+        return {
+          ...prevConfig,
+        };
+      }
+
+      let changed = false;
+      const nextGroups: Record<string, IScaleOrderGroup> = {};
+      Object.entries(groups).forEach(([groupId, group]) => {
+        const result = applyScaleOrderFillsToGroup({ group, fills });
+        nextGroups[groupId] = result.group;
+        if (result.changed) {
+          changed = true;
+          changedGroups.push(result.group);
+        }
+      });
+
+      if (!changed) {
+        return {
+          ...prevConfig,
+        };
+      }
+
+      return {
+        ...prevConfig,
+        scaleOrderGroups: {
+          ...prevConfig?.scaleOrderGroups,
+          [key]: nextGroups,
+        },
+      };
+    });
+    return changedGroups.toSorted((a, b) => b.createdAt - a.createdAt);
   }
 
   @backgroundMethod()

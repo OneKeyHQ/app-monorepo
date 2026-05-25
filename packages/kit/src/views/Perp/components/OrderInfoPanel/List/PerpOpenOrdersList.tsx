@@ -12,6 +12,7 @@ import {
 import {
   useOrderFilterByCurrentTokenAtom,
   usePerpsActiveOpenOrdersAtom,
+  usePerpsScaleOrderGroupsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAccountAtom,
@@ -19,10 +20,15 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IScaleOrderChild,
+  IScaleOrderGroup,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
+import { ScaleOpenOrdersGroupRow } from '../Components/ScaleOpenOrdersGroupRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -30,6 +36,32 @@ interface IPerpOpenOrdersListProps {
   isMobile?: boolean;
   useTabsList?: boolean;
   disableListScroll?: boolean;
+}
+
+type IFrontendOrderWithCloid = IPerpsFrontendOrder & {
+  cloid?: string | null;
+};
+
+type IOpenOrdersDisplayRow =
+  | {
+      type: 'single';
+      order: IPerpsFrontendOrder;
+    }
+  | {
+      type: 'scaleGroup';
+      group: IScaleOrderGroup;
+      childOrders: IPerpsFrontendOrder[];
+      expanded: boolean;
+    }
+  | {
+      type: 'scaleChild';
+      group: IScaleOrderGroup;
+      child: IScaleOrderChild;
+      order: IPerpsFrontendOrder;
+    };
+
+function getFrontendOrderCloid(order: IPerpsFrontendOrder): string | undefined {
+  return (order as IFrontendOrderWithCloid).cloid ?? undefined;
 }
 
 function PerpOpenOrdersList({
@@ -40,11 +72,14 @@ function PerpOpenOrdersList({
   const intl = useIntl();
   const [{ openOrders: perpOpenOrders }] = usePerpsActiveOpenOrdersAtom();
   const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
+  const [{ groups: scaleOrderGroups }] = usePerpsScaleOrderGroupsAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
+  const [scaleGroupExpandedOverrides, setScaleGroupExpandedOverrides] =
+    useState<Record<string, boolean>>({});
   const openOrders = useMemo(
     () =>
       [...perpOpenOrders, ...spotOpenOrders].toSorted(
@@ -55,7 +90,8 @@ function PerpOpenOrdersList({
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);
-  }, [currentUser?.accountAddress]);
+    void actions.current.loadScaleOrderGroups();
+  }, [actions, currentUser?.accountAddress]);
   useEffect(() => {
     if (isMobile) {
       setCurrentListPage(1);
@@ -75,6 +111,97 @@ function PerpOpenOrdersList({
       (order) => order.coin === activeTradeInstrument.coin,
     );
   }, [openOrders, isMobile, filterByCurrentToken, activeTradeInstrument]);
+
+  const displayRows = useMemo<IOpenOrdersDisplayRow[]>(() => {
+    const childByCloid = new Map<
+      string,
+      { group: IScaleOrderGroup; child: IScaleOrderChild }
+    >();
+    const childByOid = new Map<
+      number,
+      { group: IScaleOrderGroup; child: IScaleOrderChild }
+    >();
+    scaleOrderGroups.forEach((group) => {
+      group.children.forEach((child) => {
+        childByCloid.set(child.cloid, { group, child });
+        if (child.oid) {
+          childByOid.set(child.oid, { group, child });
+        }
+      });
+    });
+    const getScaleInfo = (order: IPerpsFrontendOrder) => {
+      const cloid = getFrontendOrderCloid(order);
+      return (
+        (cloid ? childByCloid.get(cloid) : undefined) ??
+        childByOid.get(order.oid)
+      );
+    };
+
+    const openOrdersByGroupId = new Map<string, IPerpsFrontendOrder[]>();
+    filteredOrders.forEach((order) => {
+      const scaleInfo = getScaleInfo(order);
+      if (!scaleInfo) {
+        return;
+      }
+      const orders = openOrdersByGroupId.get(scaleInfo.group.id) ?? [];
+      orders.push(order);
+      openOrdersByGroupId.set(scaleInfo.group.id, orders);
+    });
+
+    const emittedGroups = new Set<string>();
+    const rows: IOpenOrdersDisplayRow[] = [];
+    let defaultExpandedChildRows = 0;
+
+    filteredOrders.forEach((order) => {
+      const scaleInfo = getScaleInfo(order);
+      if (!scaleInfo) {
+        rows.push({ type: 'single', order });
+        return;
+      }
+
+      const groupId = scaleInfo.group.id;
+      if (emittedGroups.has(groupId)) {
+        return;
+      }
+      emittedGroups.add(groupId);
+
+      const childOrders =
+        openOrdersByGroupId.get(groupId)?.toSorted((a, b) => {
+          const aChild = getScaleInfo(a);
+          const bChild = getScaleInfo(b);
+          return (aChild?.child.index ?? 0) - (bChild?.child.index ?? 0);
+        }) ?? [];
+      const defaultExpanded =
+        !isMobile &&
+        childOrders.length <= 10 &&
+        defaultExpandedChildRows + childOrders.length <= 50;
+      if (defaultExpanded) {
+        defaultExpandedChildRows += childOrders.length;
+      }
+      const expanded = scaleGroupExpandedOverrides[groupId] ?? defaultExpanded;
+      rows.push({
+        type: 'scaleGroup',
+        group: scaleInfo.group,
+        childOrders,
+        expanded,
+      });
+      if (expanded) {
+        childOrders.forEach((childOrder) => {
+          const childInfo = getScaleInfo(childOrder);
+          if (childInfo) {
+            rows.push({
+              type: 'scaleChild',
+              group: childInfo.group,
+              child: childInfo.child,
+              order: childOrder,
+            });
+          }
+        });
+      }
+    });
+
+    return rows;
+  }, [filteredOrders, isMobile, scaleGroupExpandedOverrides, scaleOrderGroups]);
 
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -200,6 +327,45 @@ function PerpOpenOrdersList({
     [actions],
   );
 
+  const handleCancelScaleGroup = useCallback(
+    async (group: IScaleOrderGroup, childOrders: IPerpsFrontendOrder[]) => {
+      await actions.current.ensureTradingEnabled();
+      void actions.current.cancelScaleOrderGroup({
+        groupId: group.id,
+        orders: childOrders.map((order) => ({
+          assetId: group.assetId,
+          oid: order.oid,
+        })),
+      });
+    },
+    [actions],
+  );
+  const handleCancelScaleChild = useCallback(
+    async (group: IScaleOrderGroup, order: IPerpsFrontendOrder) => {
+      await actions.current.ensureTradingEnabled();
+      void actions.current.cancelScaleOrderGroup({
+        groupId: group.id,
+        orders: [
+          {
+            assetId: group.assetId,
+            oid: order.oid,
+          },
+        ],
+      });
+    },
+    [actions],
+  );
+
+  const toggleScaleGroupExpanded = useCallback(
+    (groupId: string, currentExpanded: boolean) => {
+      setScaleGroupExpandedOverrides((prev) => ({
+        ...prev,
+        [groupId]: !currentExpanded,
+      }));
+    },
+    [],
+  );
+
   const totalMinWidth = useMemo(
     () =>
       columnsConfig.reduce(
@@ -209,28 +375,62 @@ function PerpOpenOrdersList({
     [columnsConfig],
   );
   const renderOrderRow = (
-    item: IPerpsFrontendOrder,
+    item: IOpenOrdersDisplayRow,
     _index: number,
     renderMode?: 'full' | 'left' | 'right',
     isHovered?: boolean,
     onHoverChange?: (index: number | null) => void,
-  ) => (
-    <OpenOrdersRow
-      order={item}
-      isMobile={isMobile}
-      cellMinWidth={totalMinWidth}
-      columnConfigs={columnsConfig}
-      handleCancelOrder={() => handleCancelOrder(item)}
-      index={_index}
-      renderMode={renderMode}
-      isHovered={isHovered}
-      onHoverChange={onHoverChange}
-    />
-  );
+  ) => {
+    if (item.type === 'scaleGroup') {
+      return (
+        <ScaleOpenOrdersGroupRow
+          group={item.group}
+          childOrders={item.childOrders}
+          isMobile={isMobile}
+          cellMinWidth={totalMinWidth}
+          columnConfigs={columnsConfig}
+          index={_index}
+          renderMode={renderMode}
+          isHovered={isHovered}
+          onHoverChange={onHoverChange}
+          expanded={item.expanded}
+          onToggleExpand={() =>
+            toggleScaleGroupExpanded(item.group.id, item.expanded)
+          }
+          onCancelGroup={() =>
+            void handleCancelScaleGroup(item.group, item.childOrders)
+          }
+        />
+      );
+    }
+    const order = item.type === 'single' ? item.order : item.order;
+    return (
+      <OpenOrdersRow
+        order={order}
+        isMobile={isMobile}
+        cellMinWidth={totalMinWidth}
+        columnConfigs={columnsConfig}
+        handleCancelOrder={() =>
+          item.type === 'scaleChild'
+            ? void handleCancelScaleChild(item.group, order)
+            : void handleCancelOrder(order)
+        }
+        index={_index}
+        renderMode={renderMode}
+        isHovered={isHovered}
+        onHoverChange={onHoverChange}
+        isScaleChild={item.type === 'scaleChild'}
+        scaleLegIndex={
+          item.type === 'scaleChild' ? item.child.index : undefined
+        }
+      />
+    );
+  };
   return (
     <CommonTableListView
       onPullToRefresh={async () => {
         await actions.current.refreshAllPerpsData();
+        await actions.current.loadScaleOrderGroups();
       }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
@@ -248,7 +448,7 @@ function PerpOpenOrdersList({
       setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
-      data={filteredOrders}
+      data={displayRows}
       isMobile={isMobile}
       renderRow={renderOrderRow}
       emptyMessage={intl.formatMessage({
@@ -259,7 +459,7 @@ function PerpOpenOrdersList({
       })}
       ListHeaderComponent={
         isMobile ? (
-          <MobileOpenOrdersListHeader totalOrderCount={openOrders.length} />
+          <MobileOpenOrdersListHeader totalOrderCount={filteredOrders.length} />
         ) : null
       }
     />

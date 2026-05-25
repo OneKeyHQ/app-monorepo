@@ -7,6 +7,7 @@ export {
   useConnectionStateAtom,
   useOrderBookTickOptionsAtom,
   usePerpsActiveOpenOrdersAtom,
+  usePerpsScaleOrderGroupsAtom,
   usePerpsOpenOrdersByCoin,
   useActiveTradeInstrumentAtom,
   useTradeRouteViewStateAtom,
@@ -25,6 +26,7 @@ export type {
   IBBOPriceMode,
   IActiveTradeInstrument,
   ITradeRouteViewState,
+  IPerpsScaleOrderGroupsAtom,
 } from './atoms';
 
 export { useHyperliquidActions } from './actions';

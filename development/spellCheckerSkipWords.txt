@@ -1471,6 +1471,7 @@ plaintexts
 ciphertexts
 unpadded
 spyable
+cloid
 loopback
 tombstoned
 bento

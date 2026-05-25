@@ -10,12 +10,21 @@ import {
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  SCALE_ORDER_MAX_COUNT,
+  SCALE_ORDER_MIN_COUNT,
+  buildScaleOrderLegs,
+  getScaleOrderReferencePrice,
+  normalizeScaleOrderCount,
+  validateScaleOrderLegs,
+} from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderPrice } from './useOrderPrice';
+import { useTradingCalculationsForSide } from './useTradingCalculationsForSide';
 import { useTradingPrice } from './useTradingPrice';
 
 interface IUseOrderConfirmOptions {
@@ -39,6 +48,8 @@ export function useOrderConfirm(
 
   const longOrderPrice = useOrderPrice('long');
   const shortOrderPrice = useOrderPrice('short');
+  const longCalculations = useTradingCalculationsForSide('long');
+  const shortCalculations = useTradingCalculationsForSide('short');
 
   const handleConfirm = useCallback(
     async (overrideSide?: 'long' | 'short') => {
@@ -63,6 +74,17 @@ export function useOrderConfirm(
         Toast.error({
           title: 'Order Failed',
           message: 'Trigger orders are not supported in spot mode',
+        });
+        return;
+      }
+
+      if (
+        activeTradeInstrument.mode === 'spot' &&
+        formDataSnapshot.orderMode === 'scale'
+      ) {
+        Toast.error({
+          title: 'Order Failed',
+          message: 'Scale orders are not supported in spot mode',
         });
         return;
       }
@@ -111,6 +133,96 @@ export function useOrderConfirm(
             assetId: activeTradeInstrument.assetId,
             formData: formDataSnapshot,
             price: '0', // not used for trigger orders
+          });
+          options?.onSuccess?.();
+        } catch (error) {
+          options?.onError?.(error);
+        }
+        return;
+      }
+
+      if (formDataSnapshot.orderMode === 'scale') {
+        const referencePrice = getScaleOrderReferencePrice({
+          lowerPrice: formDataSnapshot.scaleLowerPrice,
+          upperPrice: formDataSnapshot.scaleUpperPrice,
+        });
+        if (!referencePrice.isFinite() || referencePrice.lte(0)) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Scale price range is required',
+          });
+          return;
+        }
+        if (
+          new BigNumber(formDataSnapshot.scaleLowerPrice ?? 0).eq(
+            formDataSnapshot.scaleUpperPrice ?? 0,
+          )
+        ) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Scale lower and upper prices must be different',
+          });
+          return;
+        }
+        const orderCount = normalizeScaleOrderCount(
+          formDataSnapshot.scaleOrderCount ?? 0,
+        );
+        if (
+          orderCount < SCALE_ORDER_MIN_COUNT ||
+          orderCount > SCALE_ORDER_MAX_COUNT
+        ) {
+          Toast.error({
+            title: 'Order Failed',
+            message: `Scale orders must be ${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT} orders`,
+          });
+          return;
+        }
+        const scaleSize =
+          side === 'long'
+            ? longCalculations.computedSizeForSide
+            : shortCalculations.computedSizeForSide;
+        if (!scaleSize.isFinite() || scaleSize.lte(0)) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Order size is required',
+          });
+          return;
+        }
+        const szDecimals =
+          activeTradeInstrument.mode === 'spot'
+            ? (activeTradeInstrument.universe?.baseSzDecimals ?? 2)
+            : (activeTradeInstrument.universe?.szDecimals ?? 2);
+        const scaleLegs = buildScaleOrderLegs({
+          totalSize: scaleSize.toFixed(),
+          lowerPrice: formDataSnapshot.scaleLowerPrice ?? '',
+          upperPrice: formDataSnapshot.scaleUpperPrice ?? '',
+          orderCount,
+          szDecimals,
+          side,
+        });
+        const scaleValidation = validateScaleOrderLegs({ legs: scaleLegs });
+        if (!scaleValidation.isValid) {
+          Toast.error({
+            title: 'Order Failed',
+            message: scaleValidation.errors[0] ?? 'Invalid scale order',
+          });
+          return;
+        }
+
+        const effectiveFormData = {
+          ...formDataSnapshot,
+          type: 'limit' as const,
+          price: referencePrice.toFixed(),
+          bboPriceMode: null,
+          hasTpsl: false,
+        };
+
+        hyperliquidActions.current.resetTradingForm();
+        try {
+          await hyperliquidActions.current.submitOrder({
+            assetId: activeTradeInstrument.assetId,
+            formData: effectiveFormData,
+            price: referencePrice.toFixed(),
           });
           options?.onSuccess?.();
         } catch (error) {
@@ -243,7 +355,9 @@ export function useOrderConfirm(
       formData,
       hyperliquidActions,
       options,
+      longCalculations.computedSizeForSide,
       longOrderPrice,
+      shortCalculations.computedSizeForSide,
       shortOrderPrice,
     ],
   );

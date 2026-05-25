@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   DashText,
   Divider,
   IconButton,
@@ -27,6 +28,10 @@ import {
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IScaleOrderChild,
+  IScaleOrderGroup,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   calcCellAlign,
@@ -53,6 +58,10 @@ export type ITradesHistoryRowProps = {
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
   builderFeeRate?: number;
+  scaleInfo?: {
+    group: IScaleOrderGroup;
+    child: IScaleOrderChild;
+  };
 };
 
 const TradesHistoryRow = memo(
@@ -67,6 +76,7 @@ const TradesHistoryRow = memo(
     isHovered,
     onHoverChange,
     builderFeeRate,
+    scaleInfo,
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
       return (
@@ -261,6 +271,11 @@ const TradesHistoryRow = memo(
                 >
                   {directionInfo.directionStr}
                 </SizableText>
+                {scaleInfo ? (
+                  <Badge badgeType="info" badgeSize="sm">
+                    {`Scale #${scaleInfo.child.index + 1}`}
+                  </Badge>
+                ) : null}
               </XStack>
               <SizableText size="$bodySm" color="$textSubdued">
                 {dateInfo.date} {dateInfo.time}
@@ -426,14 +441,21 @@ const TradesHistoryRow = memo(
               justifyContent={calcCellAlign(columnConfigs[2].align)}
               alignItems="center"
             >
-              <SizableText
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                size="$bodySm"
-                color={directionInfo.directionColor}
-              >
-                {directionInfo.directionStr}
-              </SizableText>
+              <XStack gap="$1.5" alignItems="center">
+                <SizableText
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  size="$bodySm"
+                  color={directionInfo.directionColor}
+                >
+                  {directionInfo.directionStr}
+                </SizableText>
+                {scaleInfo ? (
+                  <Badge badgeType="info" badgeSize="sm">
+                    {`Scale #${scaleInfo.child.index + 1}`}
+                  </Badge>
+                ) : null}
+              </XStack>
             </XStack>
 
             {/* Price */}

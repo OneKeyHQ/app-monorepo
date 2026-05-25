@@ -35,6 +35,13 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  SCALE_ORDER_MAX_COUNT,
+  SCALE_ORDER_MIN_COUNT,
+  buildScaleOrderLegs,
+  normalizeScaleOrderCount,
+  validateScaleOrderLegs,
+} from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
   getSpotTokenDisplayName,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -327,6 +334,7 @@ function SideButtonInternal({
 
   const isLong = side === 'long';
   const isTriggerMode = formData.orderMode === 'trigger';
+  const isScaleMode = formData.orderMode === 'scale';
 
   const renderLiquidationPrice = () => {
     if (liquidationPrice) {
@@ -421,6 +429,7 @@ function SideButtonInternal({
       // For limit orders (standard mode), check price first
       if (
         !isTriggerMode &&
+        !isScaleMode &&
         formData.type === 'limit' &&
         (!formData.price || formData.price.trim() === '')
       ) {
@@ -430,6 +439,39 @@ function SideButtonInternal({
           }),
         });
         return;
+      }
+      if (isScaleMode) {
+        const lowerPrice = new BigNumber(formData.scaleLowerPrice ?? 0);
+        const upperPrice = new BigNumber(formData.scaleUpperPrice ?? 0);
+        if (
+          !lowerPrice.isFinite() ||
+          lowerPrice.lte(0) ||
+          !upperPrice.isFinite() ||
+          upperPrice.lte(0)
+        ) {
+          Toast.message({
+            title: 'Scale price range is required',
+          });
+          return;
+        }
+        if (lowerPrice.eq(upperPrice)) {
+          Toast.message({
+            title: 'Scale lower and upper prices must be different',
+          });
+          return;
+        }
+        const orderCount = normalizeScaleOrderCount(
+          formData.scaleOrderCount ?? 0,
+        );
+        if (
+          orderCount < SCALE_ORDER_MIN_COUNT ||
+          orderCount > SCALE_ORDER_MAX_COUNT
+        ) {
+          Toast.message({
+            title: `Scale orders must be ${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT} orders`,
+          });
+          return;
+        }
       }
       // Then check size for all order types
       const isSliderMode = formData.sizeInputMode === 'slider';
@@ -483,6 +525,24 @@ function SideButtonInternal({
           ),
         });
         return;
+      }
+
+      if (isScaleMode) {
+        const legs = buildScaleOrderLegs({
+          totalSize: computedSizeForSide.toFixed(),
+          lowerPrice: formData.scaleLowerPrice ?? '',
+          upperPrice: formData.scaleUpperPrice ?? '',
+          orderCount: normalizeScaleOrderCount(formData.scaleOrderCount ?? 0),
+          szDecimals,
+          side,
+        });
+        const validation = validateScaleOrderLegs({ legs });
+        if (!validation.isValid) {
+          Toast.message({
+            title: validation.errors[0] ?? 'Invalid scale order',
+          });
+          return;
+        }
       }
 
       // Validate TPSL only if user has filled in values
