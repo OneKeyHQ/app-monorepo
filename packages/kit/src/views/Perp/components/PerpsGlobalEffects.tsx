@@ -71,7 +71,6 @@ import {
   useOrderBookTickOptionsAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
-import { usePerpsSharePrompt } from '../hooks/usePerpsSharePrompt';
 import {
   isTradeInstrumentBackedBySubscriptionState,
   planTradeSubscriptions,
@@ -1062,7 +1061,6 @@ function PerpsGlobalEffectsView() {
   useHyperliquidNetworkReachabilityRecovery();
   useSyncContextOrderBookOptionsToGlobal();
   useTradeRouteViewStateSync();
-  usePerpsSharePrompt();
 
   return (
     <>
