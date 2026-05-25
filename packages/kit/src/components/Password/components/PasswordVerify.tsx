@@ -249,6 +249,9 @@ function PasswordVerify({
       if (changed) {
         return;
       }
+      // Skip auto-trigger in MV3 sidepanel: WebAuthn modal can deadlock when
+      // bound to Google Password Manager, and sidepanel lacks the popup
+      // focus-loss escape that lets users recover. See PR #11125.
       if (
         !platformEnv.isExtensionUiSidePanel &&
         isEnable &&
@@ -275,6 +278,7 @@ function PasswordVerify({
   }, [isEnable, manualLocking]);
 
   // Perform biology verification upon returning to the backend after a 1-second interval.
+  // Same sidepanel carve-out as the mount-time effect above.
   const onActive = useCallback(() => {
     const now = Date.now();
     if (now - lastTime.current > 1000) {
