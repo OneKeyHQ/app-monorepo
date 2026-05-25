@@ -46,6 +46,46 @@ index 0000000..2222222 100644
        YStack,
        {
          contain: "strict",
+diff --git a/node_modules/@tamagui/portal/dist/esm/Portal.mjs b/node_modules/@tamagui/portal/dist/esm/Portal.mjs
+index 0000000..4444444 100644
+--- a/node_modules/@tamagui/portal/dist/esm/Portal.mjs
++++ b/node_modules/@tamagui/portal/dist/esm/Portal.mjs
+@@ -5,20 +5,25 @@
+ import { createPortal } from "react-dom";
+ import { useDidFinishSSR } from "@tamagui/use-did-finish-ssr";
+ import { jsx } from "react/jsx-runtime";
++const isIOSWebKit = typeof navigator !== "undefined" && (/iP(ad|hone|od)/.test(navigator.userAgent) || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+ const Portal = React.memo(({
+   host = globalThis.document?.body,
+   ...props
+ }) => {
+   if (isServer) return null;
+-  const didFinishSSR = useDidFinishSSR(),
+-    contents = /* @__PURE__ */jsx(YStack, {
+-      contain: "strict",
+-      fullscreen: !0,
+-      position: "fixed",
+-      maxWidth: "100vw",
+-      maxHeight: "100vh",
+-      pointerEvents: "none",
+-      ...props
+-    });
++  const didFinishSSR = useDidFinishSSR();
++  if (isIOSWebKit) {
++    const hasContent = React.Children.toArray(props.children).some((c) => c !== null && c !== !1 && c !== void 0);
++    if (!hasContent) return null;
++  }
++  const contents = /* @__PURE__ */jsx(YStack, {
++    contain: "strict",
++    fullscreen: !0,
++    position: "fixed",
++    maxWidth: "100vw",
++    maxHeight: "100vh",
++    pointerEvents: "none",
++    ...props
++  });
+   return createPortal(didFinishSSR ? contents : null, host);
+ });
 diff --git a/node_modules/@tamagui/portal/src/Portal.tsx b/node_modules/@tamagui/portal/src/Portal.tsx
 index 0000000..3333333 100644
 --- a/node_modules/@tamagui/portal/src/Portal.tsx
