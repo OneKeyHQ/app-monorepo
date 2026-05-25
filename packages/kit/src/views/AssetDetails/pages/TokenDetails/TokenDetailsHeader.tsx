@@ -17,6 +17,7 @@ import {
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -263,6 +264,7 @@ function TokenDetailsHeader(props: IProps) {
           price: data?.price ?? 0,
           priceChange24h: data?.price24h ?? 0,
           coingeckoId: data?.info?.coingeckoId ?? '',
+          currency: data?.currency,
         });
 
         if (!data) {
@@ -303,6 +305,7 @@ function TokenDetailsHeader(props: IProps) {
       priceChange24h: cachedTokenDetails.price24h ?? 0,
       coingeckoId:
         cachedTokenDetails.info?.coingeckoId ?? tokenInfo.coingeckoId ?? '',
+      currency: cachedTokenDetails.currency,
     });
   }, [
     cachedTokenDetails,
@@ -507,19 +510,17 @@ function TokenDetailsHeader(props: IProps) {
               </Skeleton.Group>
             ) : (
               <>
-                <NumberSizeableTextWrapper
+                <Currency
                   hideValue
                   splitDecimal
                   formatter="value"
-                  formatterOptions={{
-                    currency: settings.currencyInfo.symbol,
-                  }}
+                  sourceCurrency={tokenDetails?.currency}
                   fontSize={48}
                   lineHeight={48}
                   fontWeight={500}
                 >
                   {displayOrUnavailable(tokenDetails?.fiatValue)}
-                </NumberSizeableTextWrapper>
+                </Currency>
                 <NumberSizeableTextWrapper
                   hideValue
                   formatter="balance"

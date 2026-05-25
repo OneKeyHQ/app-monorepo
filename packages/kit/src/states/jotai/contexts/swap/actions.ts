@@ -2015,11 +2015,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         swapTypeSwitchValue === ESwapTabSwitchType.BRIDGE
           ? swapSupportNetworks
           : swapSupportNetworks.filter((item) => item.supportLimit);
+      const tokenListSupportNetworks = lpToken
+        ? currentTypeSupportNetworks.filter((item) => item.backendIndex)
+        : currentTypeSupportNetworks;
       const { accountIdKey, swapSupportAccounts } =
         await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
           indexedAccountId,
           otherWalletTypeAccountId,
-          swapSupportNetworks: currentTypeSupportNetworks,
+          swapSupportNetworks: tokenListSupportNetworks,
         });
       const tokenListCacheKey = buildSwapAllNetworkTokenListCacheKey({
         accountId: accountIdKey,

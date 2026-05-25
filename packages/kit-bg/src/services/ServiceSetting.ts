@@ -21,6 +21,10 @@ import {
   IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { ETranslations, ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -261,7 +265,16 @@ class ServiceSetting extends ServiceBase {
       return;
     }
     await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
+    // Refresh the rate map before the token-list refresh — otherwise the
+    // resulting fetchAccountTokens may see the new currency missing from
+    // currencyMap and tag the cache with the request currency instead of USD.
+    try {
+      await this.fetchCurrencyList();
+    } catch {
+      // best-effort
+    }
     await this.backgroundApi.serviceStaking.resetEarnCache();
+    appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
   }
 
   @backgroundMethod()

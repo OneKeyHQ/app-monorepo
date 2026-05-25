@@ -537,6 +537,12 @@ export function useSwapBuildTx() {
         accountId: fromAccountId,
       });
       if (!checkResult.isSufficient) {
+        const toastId = [
+          'swap-native-balance-insufficient',
+          nativeBalanceRequirement.token.networkId,
+          checkResult.tokenSymbol,
+          nativeBalanceRequirement.reserveAmount,
+        ].join('-');
         const reserveAmountMessage = nativeBalanceRequirement.includesFromAmount
           ? undefined
           : intl.formatMessage(
@@ -559,6 +565,7 @@ export function useSwapBuildTx() {
             { token: checkResult.tokenSymbol },
           ),
           message: reserveAmountMessage,
+          toastId,
         });
         return false;
       }

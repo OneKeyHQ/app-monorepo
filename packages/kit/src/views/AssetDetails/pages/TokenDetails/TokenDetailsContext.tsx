@@ -7,6 +7,9 @@ export interface ITokenDetailsContextValue {
     price?: number;
     priceChange24h?: number;
     coingeckoId?: string;
+    // Source currency of `price` — 'usd' for new data (post-normalize),
+    // user's then-active display currency for pre-migration hydrate.
+    currency?: string;
   };
   updateTokenMetadata: (
     data: Partial<ITokenDetailsContextValue['tokenMetadata']>,

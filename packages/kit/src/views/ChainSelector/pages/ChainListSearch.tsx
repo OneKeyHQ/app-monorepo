@@ -346,13 +346,13 @@ function ChainListSearch() {
         >
           {isExisting ? (
             <SizableText size="$bodyMd" color="$textSubdued">
-              Added
+              {intl.formatMessage({ id: ETranslations.added })}
             </SizableText>
           ) : null}
         </ListItem>
       );
     },
-    [isNetworkExisting, handleSelectNetwork],
+    [isNetworkExisting, intl, handleSelectNetwork],
   );
 
   const listFooter = useMemo(() => {
@@ -374,7 +374,7 @@ function ChainListSearch() {
       return (
         <Empty
           illustration="GlobeError"
-          title="Network error. Please try again."
+          title={intl.formatMessage({ id: ETranslations.global_network_error })}
         />
       );
     }
