@@ -999,6 +999,16 @@ class ServiceSetting extends ServiceBase {
       }),
     );
   }
+
+  @backgroundMethod()
+  async resetKytIntroShown() {
+    await this.backgroundApi.simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        kytIntroShown: false,
+      }),
+    );
+  }
 }
 
 export default ServiceSetting;
