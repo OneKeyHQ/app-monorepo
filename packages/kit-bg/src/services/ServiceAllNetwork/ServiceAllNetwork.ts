@@ -809,6 +809,7 @@ class ServiceAllNetwork extends ServiceBase {
     await this.backgroundApi.simpleDb.allNetworks.updateAllNetworksState(
       params,
     );
+    this.clearGetAllNetworkAccountsCache();
     const { cacheContext } = params;
     if (cacheContext?.walletId) {
       void this.backgroundApi.serviceNetwork.primeUnifiedNetworkSelectorMetaCache(
