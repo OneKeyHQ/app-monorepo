@@ -52,7 +52,7 @@ interface ISegmentMarkProps {
   hoverGlowColor: string;
   disabled: boolean;
   registerRef: (index: number, el: HTMLDivElement | null) => void;
-  onSnap: (index: number) => void;
+  reportPointerDown: (index: number) => void;
   children?: ReactNode;
 }
 
@@ -64,7 +64,7 @@ const SegmentMark = memo(function SegmentMarkInner({
   hoverGlowColor,
   disabled,
   registerRef,
-  onSnap,
+  reportPointerDown,
   children,
 }: ISegmentMarkProps) {
   const [hovered, setHovered] = useState(false);
@@ -74,17 +74,14 @@ const SegmentMark = memo(function SegmentMarkInner({
     [index, registerRef],
   );
 
-  const handlePointerDown = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      // Stop the event from reaching the container so the container's drag
-      // logic doesn't kick in (this mark is acting as a button, not a drag
-      // origin). Snap immediately so the value lands on the exact step.
-      e.stopPropagation();
-      if (disabled) return;
-      onSnap(index);
-    },
-    [index, onSnap, disabled],
-  );
+  const handlePointerDown = useCallback(() => {
+    // Don't stop propagation — the container needs to set up pointer capture
+    // so drag continues to work even when the press starts on a mark.
+    // Just hand off the mark index; the container will use that to snap the
+    // initial value to the exact step instead of clientX-based raw value.
+    if (disabled) return;
+    reportPointerDown(index);
+  }, [index, reportPointerDown, disabled]);
 
   const handleMouseEnter = useCallback(() => {
     if (!disabled) setHovered(true);
@@ -164,6 +161,11 @@ function SegmentSliderComponent({
   const draggingRef = useRef(false);
   const pointerIdRef = useRef<number | null>(null);
   const lastEmittedRef = useRef<number>(value);
+  // When a pointerdown originates on a mark, the mark's handler runs first
+  // (event capture/bubbling order) and stashes its index here. The
+  // container's handler then reads this to know it should snap the initial
+  // value to that exact step instead of using the raw clientX position.
+  const markOriginRef = useRef<number | null>(null);
   const [focusVisible, setFocusVisible] = useState(false);
 
   const theme = useTheme();
@@ -319,6 +321,19 @@ function SegmentSliderComponent({
     bubble.style.opacity = visible ? '1' : '0';
   }, []);
 
+  const snapToStep = useCallback(
+    (idx: number) => {
+      if (!hasSegments) return;
+      const snapped = Math.round(min + idx * stepValue);
+      applyVisual(snapped);
+      if (snapped !== lastEmittedRef.current) {
+        lastEmittedRef.current = snapped;
+        onChange(snapped);
+      }
+    },
+    [hasSegments, min, stepValue, applyVisual, onChange],
+  );
+
   const handlePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (disabled) return;
@@ -332,10 +347,31 @@ function SegmentSliderComponent({
       draggingRef.current = true;
       onSlideStart?.();
       setBubbleVisible(true);
-      emit(valueFromClientX(e.clientX));
+      // Mark-originated pointerdown: use the exact step value so a tap on a
+      // mark always lands precisely (no off-by-one from clientX rounding).
+      // Drag continues to work because we still set pointer capture above.
+      const markIdx = markOriginRef.current;
+      markOriginRef.current = null;
+      if (markIdx !== null && hasSegments) {
+        snapToStep(markIdx);
+      } else {
+        emit(valueFromClientX(e.clientX));
+      }
     },
-    [disabled, onSlideStart, emit, valueFromClientX, setBubbleVisible],
+    [
+      disabled,
+      onSlideStart,
+      setBubbleVisible,
+      hasSegments,
+      snapToStep,
+      emit,
+      valueFromClientX,
+    ],
   );
+
+  const reportMarkPointerDown = useCallback((idx: number) => {
+    markOriginRef.current = idx;
+  }, []);
 
   const handlePointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -366,19 +402,6 @@ function SegmentSliderComponent({
       onSlideComplete?.();
     },
     [onSlideComplete, setBubbleVisible],
-  );
-
-  const snapToMarkIndex = useCallback(
-    (idx: number) => {
-      if (!hasSegments) return;
-      const snapped = Math.round(min + idx * stepValue);
-      applyVisual(snapped);
-      if (snapped !== lastEmittedRef.current) {
-        lastEmittedRef.current = snapped;
-        onChange(snapped);
-      }
-    },
-    [hasSegments, min, stepValue, applyVisual, onChange],
   );
 
   const handleKeyDown = useCallback(
@@ -568,7 +591,7 @@ function SegmentSliderComponent({
             hoverGlowColor={markHoverGlow}
             disabled={disabled}
             registerRef={registerMarkRef}
-            onSnap={snapToMarkIndex}
+            reportPointerDown={reportMarkPointerDown}
           >
             {renderMark ? renderMark({ index: idx }) : null}
           </SegmentMark>
