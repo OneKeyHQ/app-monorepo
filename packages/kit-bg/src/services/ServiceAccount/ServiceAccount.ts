@@ -208,6 +208,7 @@ export type IAddHDOrHWAccountsParams = {
   hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
   isVerifyAddressAction?: boolean;
   createAllDeriveTypes?: boolean;
+  hdCredentialCacheScopeId?: string;
 
   // purpose?: number;
   // skipRepeat?: boolean;
@@ -825,6 +826,7 @@ class ServiceAccount extends ServiceBase {
     hwAllNetworkPrepareAccountsResponse,
     isVerifyAddressAction,
     customReceiveAddressPath,
+    hdCredentialCacheScopeId,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
@@ -836,6 +838,7 @@ class ServiceAccount extends ServiceBase {
     hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
     isVerifyAddressAction?: boolean;
     customReceiveAddressPath?: string;
+    hdCredentialCacheScopeId?: string;
   }) {
     if (!walletId) {
       throw new OneKeyLocalError('walletId is required');
@@ -915,6 +918,7 @@ class ServiceAccount extends ServiceBase {
         indexes: usedIndexes,
         names,
         deriveInfo,
+        hdCredentialCacheScopeId,
         // purpose: usedPurpose,
         // deriveInfo, // TODO pass deriveInfo to generate id and name
         // skipCheckAccountExist, // BTC required

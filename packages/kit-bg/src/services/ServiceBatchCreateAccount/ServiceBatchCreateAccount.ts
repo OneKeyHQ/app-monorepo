@@ -2,6 +2,7 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { ORPHAN_ELIGIBLE_ERROR_CODES } from '@onekeyfe/hwk-adapter-core';
 import { chunk, isNil, range, uniqBy } from 'lodash';
 
+import { clearHdCredentialDecryptCache } from '@onekeyhq/core/src/secret';
 import {
   backgroundClass,
   backgroundMethod,
@@ -85,6 +86,7 @@ export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
     rootFingerprint: number | undefined;
   };
   applyRestoreSyncPolicy?: boolean;
+  hdCredentialCacheScopeId?: string;
 };
 
 export type IBatchBuildAccountsNormalFlowParams =
@@ -123,6 +125,39 @@ export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
 class ServiceBatchCreateAccount extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  private buildHdCredentialCacheScopeId({
+    walletId,
+    reason,
+  }: {
+    walletId: string | undefined;
+    reason: string;
+  }): string | undefined {
+    if (!walletId || !accountUtils.isHdWallet({ walletId })) {
+      return undefined;
+    }
+    return [
+      reason,
+      walletId,
+      Date.now().toString(36),
+      Math.random().toString(36).slice(2),
+    ].join(':');
+  }
+
+  private clearHdCredentialCacheScope({
+    hdCredentialCacheScopeId,
+  }: {
+    hdCredentialCacheScopeId: string | undefined;
+  }) {
+    if (!hdCredentialCacheScopeId) {
+      return;
+    }
+    void clearHdCredentialDecryptCache({
+      hdCredentialCacheScopeId,
+    }).catch((error) => {
+      console.error(error);
+    });
   }
 
   networkAccountsCache: Partial<{
@@ -220,6 +255,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
     } = {
       rootFingerprint: undefined,
     };
+    const hdCredentialCacheScopeId = this.buildHdCredentialCacheScopeId({
+      walletId: payload.params.walletId,
+      reason: 'startBatchCreateAccountsFlow',
+    });
 
     let hwAllNetworkPrepareAccountsResponse:
       | IHwAllNetworkPrepareAccountsResponse
@@ -303,6 +342,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               saveToCache: payload.saveToCache,
               hwAllNetworkPrepareAccountsResponse,
               hwRootFingerprintInfo,
+              hdCredentialCacheScopeId,
             });
             result.accountsForCreate = result.accountsForCreate.concat(
               resp.accountsForCreate,
@@ -332,6 +372,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         hideCheckingDeviceLoading: payload.params.hideCheckingDeviceLoading,
         onFinally: () => {
           hwAllNetworkPrepareAccountsResponse?.destroy();
+          this.clearHdCredentialCacheScope({ hdCredentialCacheScopeId });
         },
       },
     );
@@ -364,6 +405,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
     let hwAllNetworkPrepareAccountsResponse:
       | IHwAllNetworkPrepareAccountsResponse
       | undefined;
+    const hdCredentialCacheScopeId = this.buildHdCredentialCacheScopeId({
+      walletId,
+      reason: 'previewBatchBuildAccounts',
+    });
 
     const result =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -401,6 +446,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             hwAllNetworkPrepareAccountsResponse,
             skipDeviceCancel: true,
             isVerifyAddressAction,
+            hdCredentialCacheScopeId,
           });
         },
         {
@@ -408,6 +454,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           skipDeviceCancel: true,
           onFinally: () => {
             hwAllNetworkPrepareAccountsResponse?.destroy();
+            this.clearHdCredentialCacheScope({ hdCredentialCacheScopeId });
           },
         },
       );
@@ -928,6 +975,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
     let hwAllNetworkPrepareAccountsResponse:
       | IHwAllNetworkPrepareAccountsResponse
       | undefined;
+    const hdCredentialCacheScopeId = this.buildHdCredentialCacheScopeId({
+      walletId: params.walletId,
+      reason: 'startBatchCreateAccountsFlowForAllNetwork',
+    });
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
@@ -995,6 +1046,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               saveToDb: true,
               hwAllNetworkPrepareAccountsResponse,
               indexedAccountNames: params.indexedAccountNames,
+              hdCredentialCacheScopeId,
             });
             addedAccounts.push({
               networkId: networkParams.networkId,
@@ -1035,6 +1087,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
         onFinally: () => {
           hwAllNetworkPrepareAccountsResponse?.destroy();
+          this.clearHdCredentialCacheScope({ hdCredentialCacheScopeId });
         },
       },
     );
@@ -1251,6 +1304,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     indexedAccountNames,
     hwRootFingerprintInfo,
     applyRestoreSyncPolicy,
+    hdCredentialCacheScopeId,
   }: IBatchBuildAccountsParams): Promise<{
     accountsForCreate: IBatchCreateAccount[];
   }> {
@@ -1445,6 +1499,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               skipWaitingAnimationAtFirst: true,
               hideCheckingDeviceLoading,
               hwAllNetworkPrepareAccountsResponse,
+              hdCredentialCacheScopeId,
             });
 
           // if (i !== indexesChunks.length - 1) {
