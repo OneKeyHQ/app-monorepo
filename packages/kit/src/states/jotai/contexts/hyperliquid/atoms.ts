@@ -84,16 +84,9 @@ export type IPerpsAllAssetCtxsAtomValue = {
 };
 
 export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
-  contextAtom<IPerpsAllAssetCtxsAtomValue>(
-    {
-      assetCtxsByDex: [],
-    },
-    {
-      coldStartCache: true,
-      coldStartCacheKey:
-        CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsAllAssetCtxsAtom,
-    },
-  );
+  contextAtom<IPerpsAllAssetCtxsAtomValue>({
+    assetCtxsByDex: [],
+  });
 
 export const {
   atom: perpsTokenSearchAliasesAtom,
@@ -101,10 +94,7 @@ export const {
 } = contextAtom<ITokenSearchAliases | undefined>(undefined);
 
 export const { atom: l2BookAtom, use: useL2BookAtom } =
-  contextAtom<HL.IBook | null>(null, {
-    coldStartCache: true,
-    coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsL2BookAtom,
-  });
+  contextAtom<HL.IBook | null>(null);
 
 export const { atom: bboAtom, use: useBboAtom } = contextAtom<HL.IWsBbo | null>(
   null,

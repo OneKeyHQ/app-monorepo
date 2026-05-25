@@ -52,9 +52,7 @@ function hasPerpsColdStartSnapshot() {
   }
 
   const perpsColdStartCacheKeys = [
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsAllAssetCtxsAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveTradeInstrumentAtom,
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsL2BookAtom,
   ];
   return Object.keys(snapshot).some((key) =>
     perpsColdStartCacheKeys.some((cacheKey) => key.endsWith(`::${cacheKey}`)),

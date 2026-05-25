@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useConnectionStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetCtxAtom,
   useSpotActiveAssetCtxAtom,
@@ -49,10 +50,13 @@ function StatRow({ label, children }: { label: string; children: ReactNode }) {
 function MobilePerpMarketHeader() {
   const intl = useIntl();
   const { coin, mode } = useActiveTradeDisplay();
+  const [connectionState] = useConnectionStateAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+  const hasError = connectionState.reconnectCount > 3;
+  const isReady = connectionState.isConnected && !hasError;
   const isSpot = mode === 'spot';
   const spotCtxForActiveCoin =
     spotAssetCtx?.coin === coin ? spotAssetCtx.ctx : undefined;
@@ -93,7 +97,10 @@ function MobilePerpMarketHeader() {
     [fundingRate],
   );
 
-  const showSkeleton = !Number.isFinite(midPriceNumber) || midPriceNumber === 0;
+  const showSkeleton =
+    (!isSpot && (!isReady || hasError)) ||
+    !Number.isFinite(midPriceNumber) ||
+    midPriceNumber === 0;
 
   useEffect(() => {
     if (showSkeleton) {

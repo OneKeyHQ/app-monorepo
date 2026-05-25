@@ -15,6 +15,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useActiveTradeInstrumentAtom,
+  useConnectionStateAtom,
   useHyperliquidActions,
   useOrderBookTickOptionsAtom,
   useTradingFormAtom,
@@ -25,6 +26,7 @@ import {
   usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
@@ -50,7 +52,10 @@ function MobileHeader({
   const intl = useIntl();
   const countdown = useFundingCountdown();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [connectionState] = useConnectionStateAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const hasError = connectionState.reconnectCount > 3;
+  const isReady = connectionState.isConnected && !hasError;
   const isSpot = activeTradeInstrument.mode === 'spot';
 
   const { fundingRate, markPrice } = assetCtx?.ctx || {
@@ -80,7 +85,10 @@ function MobileHeader({
     : '--';
   const markPriceNumber = parseFloat(markPrice);
   const showSkeleton =
-    !Number.isFinite(markPriceNumber) || markPriceNumber === 0;
+    !isReady ||
+    hasError ||
+    !Number.isFinite(markPriceNumber) ||
+    markPriceNumber === 0;
 
   return (
     <Popover
@@ -433,7 +441,10 @@ export function PerpOrderBook({
         }
       } catch (error) {
         markPerpsColdStartPerfOnce('ui_l2_book_cache_error_first');
-        console.error('[PerpOrderBook] Failed to load l2Book cache:', error);
+        defaultLogger.perp.hyperliquid.cacheSnapshotError({
+          type: 'l2_book_ui_cache',
+          error,
+        });
       }
     })();
     return () => {

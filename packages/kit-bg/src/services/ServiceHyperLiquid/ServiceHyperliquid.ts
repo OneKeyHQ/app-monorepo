@@ -1346,7 +1346,10 @@ export default class ServiceHyperliquid extends ServiceBase {
     void this.backgroundApi.simpleDb.perp
       .setActiveAssetCtxSnapshotCache(data)
       .catch((error) => {
-        console.error('Failed to cache active asset ctx snapshot:', error);
+        defaultLogger.perp.hyperliquid.cacheSnapshotError({
+          type: 'active_asset_ctx_simple_db',
+          error,
+        });
       });
     return data;
   }
@@ -1360,6 +1363,18 @@ export default class ServiceHyperliquid extends ServiceBase {
     markPerpsColdStartPerf('service_active_asset_ctx_cache_start', {
       coin,
     });
+    const currentCtx = await perpsActiveAssetCtxAtom.get();
+    const hasCurrentMarketPrice =
+      currentCtx?.coin === coin &&
+      [currentCtx?.ctx?.markPrice, currentCtx?.ctx?.midPrice].some(
+        (price) => Number.parseFloat(price ?? '') > 0,
+      );
+    if (hasCurrentMarketPrice) {
+      markPerpsColdStartPerf('service_active_asset_ctx_cache_skip_fresh', {
+        coin,
+      });
+      return undefined;
+    }
     const entry =
       await this.backgroundApi.simpleDb.perp.getActiveAssetCtxSnapshotCache({
         coin,

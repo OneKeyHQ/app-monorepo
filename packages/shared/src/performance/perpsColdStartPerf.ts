@@ -1,5 +1,7 @@
-const PERPS_COLD_START_PREFIX = '[PERPS_COLD_START]';
-const PERPS_COLD_START_STORAGE_KEY = 'ONEKEY_PERPS_COLD_START_LOG';
+import { isPerfMonitorEnabled } from './enabled';
+import { perfMark } from './mark';
+
+const PERPS_COLD_START_MARK_PREFIX = 'perps:cold_start:';
 
 type IPerpsColdStartPerfDetail = Record<string, unknown>;
 
@@ -38,32 +40,8 @@ function getOnceKeys() {
   return state.__perpsColdStartPerfOnceKeys;
 }
 
-function readStorageFlag() {
-  try {
-    const storage = (
-      globalThis as {
-        localStorage?: { getItem?: (key: string) => string | null };
-      }
-    ).localStorage;
-    if (!storage) {
-      return undefined;
-    }
-    return storage.getItem?.(PERPS_COLD_START_STORAGE_KEY) ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 export function isPerpsColdStartPerfEnabled() {
-  if (process.env.NODE_ENV === 'production') {
-    return false;
-  }
-
-  const flag = readStorageFlag();
-  if (flag === '0' || flag === 'false') {
-    return false;
-  }
-  return true;
+  return isPerfMonitorEnabled();
 }
 
 export function resetPerpsColdStartPerfSession() {
@@ -87,17 +65,14 @@ export function markPerpsColdStartPerf(
   const now = getNow();
   const start = getSessionStart();
   const elapsed = Math.round(now - start);
-  const absolute = Math.round(now);
-
   const payload: IPerpsColdStartPerfDetail = {
-    t: absolute,
     elapsed,
   };
   if (detail) {
     Object.assign(payload, detail);
   }
 
-  console.log(PERPS_COLD_START_PREFIX, label, payload);
+  perfMark(`${PERPS_COLD_START_MARK_PREFIX}${label}`, payload);
 }
 
 export function markPerpsColdStartPerfOnce(

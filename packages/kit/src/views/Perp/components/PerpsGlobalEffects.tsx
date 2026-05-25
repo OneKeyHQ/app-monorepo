@@ -34,6 +34,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   markPerpsColdStartPerf,
   markPerpsColdStartPerfOnce,
@@ -106,10 +107,7 @@ function resolvePerpRouteFocused(isFocus: boolean) {
   return shouldTreatPerpAsFocusedOnMount || isFocus;
 }
 
-function hasTradingUniverseCache(data: {
-  universesByDex?: unknown[][];
-  marginTablesMapByDex?: unknown[];
-}) {
+function hasTradingUniverseCache(data: { universesByDex?: unknown[][] }) {
   return Boolean(data.universesByDex?.some((items) => items?.length > 0));
 }
 
@@ -908,10 +906,10 @@ function useHyperliquidSymbolSelect() {
           })().catch((error) => {
             // Offline entry should still hydrate UI context from persisted BG atoms.
             markPerpsColdStartPerf('initial_symbol_refresh_trading_meta_error');
-            console.error(
-              'refreshTradingMeta failed before symbol sync:',
+            defaultLogger.perp.hyperliquid.coldStartInitializationError({
+              type: 'refresh_trading_meta',
               error,
-            );
+            });
           });
           return refreshTradingMetaPromise;
         };
@@ -929,7 +927,10 @@ function useHyperliquidSymbolSelect() {
               markPerpsColdStartPerf('initial_symbol_refresh_spot_meta_end');
             } catch (e) {
               markPerpsColdStartPerf('initial_symbol_refresh_spot_meta_error');
-              console.error('refreshSpotMeta failed (non-blocking):', e);
+              defaultLogger.perp.hyperliquid.coldStartInitializationError({
+                type: 'refresh_spot_meta',
+                error: e,
+              });
             }
           })();
         };
@@ -983,10 +984,11 @@ function useHyperliquidSymbolSelect() {
             markPerpsColdStartPerf('initial_symbol_active_ctx_snapshot_error', {
               coin: switchParams.coin,
             });
-            console.error(
-              'refreshActiveAssetCtxSnapshot failed (non-blocking):',
+            defaultLogger.perp.hyperliquid.coldStartInitializationError({
+              type: 'active_asset_ctx_snapshot',
+              coin: switchParams.coin,
               error,
-            );
+            });
           });
       }
       markPerpsColdStartPerf('initial_symbol_switch_trade_instrument_start', {
@@ -1005,10 +1007,11 @@ function useHyperliquidSymbolSelect() {
             markPerpsColdStartPerf('initial_symbol_active_ctx_cache_error', {
               coin: switchParams.coin,
             });
-            console.error(
-              'hydrateActiveAssetCtxSnapshotCache failed (non-blocking):',
+            defaultLogger.perp.hyperliquid.coldStartInitializationError({
+              type: 'active_asset_ctx_cache',
+              coin: switchParams.coin,
               error,
-            );
+            });
           });
       }
     } finally {

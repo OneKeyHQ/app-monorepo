@@ -187,6 +187,7 @@ function cacheL2BookSnapshotToSwr({
   lastL2BookSwrCacheKey = primaryKey;
   lastL2BookSwrCacheAt = now;
   keys.forEach((key) => swrCacheUtils.set(key, book));
+  swrCacheUtils.flushNow();
 }
 
 function getFreshL2BookSnapshotFromSwr({

@@ -167,7 +167,10 @@ function setL2BookSnapshotSwrCache({
     swrCacheUtils.flushNow();
     return true;
   } catch (error) {
-    console.error('Failed to cache l2Book websocket snapshot to SWR:', error);
+    defaultLogger.perp.hyperliquid.cacheSnapshotError({
+      type: 'l2_book_swr',
+      error,
+    });
     return false;
   }
 }
@@ -1243,7 +1246,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       this._lastReadyState = readyState;
       // OK-53208: SDK transport wrapper reports readyState=undefined in the
       // open event, which keeps perpsWebSocketConnectedAtom false forever.
-      void perpsWebSocketReadyStateAtom.set({
+      await perpsWebSocketReadyStateAtom.set({
         readyState: readyState ?? WebSocket.OPEN,
       });
 
@@ -1251,7 +1254,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const wasConnected = prevNetworkStatus?.connected;
       const openClient = this._client;
 
-      await timerUtils.wait(50); // let readyState atom update before reconcile
       const currentClient = this._client;
       if (
         !currentClient ||
@@ -2044,7 +2046,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     void this.backgroundApi.simpleDb.perp
       .setAllDexsAssetCtxsSnapshotCache(data)
       .catch((error) => {
-        console.error('Failed to cache allDexsAssetCtxs snapshot:', error);
+        defaultLogger.perp.hyperliquid.cacheSnapshotError({
+          type: 'all_dexs_asset_ctxs_simple_db',
+          error,
+        });
       });
   }
 
@@ -2064,7 +2069,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     void this.backgroundApi.simpleDb.perp
       .setL2BookSnapshotCache(payload)
       .catch((error) => {
-        console.error('Failed to cache l2Book websocket snapshot:', error);
+        defaultLogger.perp.hyperliquid.cacheSnapshotError({
+          type: 'l2_book_simple_db',
+          error,
+        });
       });
   }
 
