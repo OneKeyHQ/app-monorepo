@@ -20,6 +20,7 @@ export interface ISimpleDBAppStatus {
   fixHardwareLtcXPubMigrated?: boolean;
   btcFreshAddressSettingMigrated?: boolean;
   removeDeviceHomeScreenMigrated?: boolean;
+  kytIntroShown?: boolean;
 }
 
 export class SimpleDbEntityAppStatus extends SimpleDbEntityBase<ISimpleDBAppStatus> {

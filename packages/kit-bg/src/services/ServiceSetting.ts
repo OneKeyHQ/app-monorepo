@@ -970,6 +970,22 @@ class ServiceSetting extends ServiceBase {
 
     return aggregateTokenConfigMap;
   }
+
+  @backgroundMethod()
+  async isKytIntroShown() {
+    const v = await this.backgroundApi.simpleDb.appStatus.getRawData();
+    return v?.kytIntroShown ?? false;
+  }
+
+  @backgroundMethod()
+  async setKytIntroShown() {
+    await this.backgroundApi.simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        kytIntroShown: true,
+      }),
+    );
+  }
 }
 
 export default ServiceSetting;

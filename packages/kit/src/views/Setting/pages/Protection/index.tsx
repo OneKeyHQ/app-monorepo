@@ -35,14 +35,13 @@ const SettingProtectionModal = () => {
       tokenRiskReminder,
       protectCreateTransaction,
       protectCreateOrRemoveWallet,
+      receiveRiskMonitoring,
     },
     setSettings,
   ] = useSettingsPersistAtom();
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const [enableProtection, setEnableProtection] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
-  // Mock state — backend wiring lands once the KYT API is ready.
-  const [receiveRiskMonitoring, setReceiveRiskMonitoring] = useState(false);
   const navigation = useAppNavigation();
 
   const useIsFocused = useRouteIsFocused();
@@ -197,7 +196,10 @@ const SettingProtectionModal = () => {
               value={receiveRiskMonitoring}
               onChange={(value) => {
                 handleTransition(async () => {
-                  setReceiveRiskMonitoring(!!value);
+                  setSettings((v) => ({
+                    ...v,
+                    receiveRiskMonitoring: !!value,
+                  }));
                 });
               }}
             />

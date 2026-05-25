@@ -79,6 +79,7 @@ export type ISettingsPersistAtom = {
   // turning this off makes ServiceGas.estimateFee force gasAccountEnabled=false
   // for every caller (Send / Swap / Perps / Earn / dApp ...).
   useGasAccountByDefault?: boolean;
+  receiveRiskMonitoring?: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
