@@ -59,6 +59,7 @@ import type {
   IEarnEstimateFeeResp,
   IEarnPermit2ApproveSignData,
   IEarnSelectField,
+  IEarnStakeType,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeTransactionConfirmation,
@@ -373,6 +374,7 @@ type IUniversalStakeProps = {
   transactionInputTokenAddress?: string;
   transactionOutputTokenAddress?: string;
   requestSymbol?: string;
+  stakeType?: IEarnStakeType;
   inputTitle?: string;
   tokenSelectorTriggerProps?: Partial<
     NonNullable<IAmountInputFormItemProps['tokenSelectorTriggerProps']>
@@ -412,6 +414,7 @@ export function UniversalStake({
   transactionInputTokenAddress,
   transactionOutputTokenAddress,
   requestSymbol,
+  stakeType,
   inputTitle,
   tokenSelectorTriggerProps,
   isQuoteExpired,
@@ -436,8 +439,8 @@ export function UniversalStake({
     setSelectedValidator(ongoingValidator?.select?.defaultValue);
   }, [ongoingValidator?.select?.defaultValue]);
 
-  const useVaultProvider = useMemo(
-    () => earnUtils.isVaultBasedProvider({ providerName }),
+  const shouldSendProtocolVault = useMemo(
+    () => earnUtils.shouldSendEarnProtocolVault({ providerName }),
     [providerName],
   );
   const [
@@ -517,14 +520,11 @@ export function UniversalStake({
     initialValue: currentAllowance ?? '0',
     approveType,
   });
-  const shouldApprove = useMemo(() => {
+  const shouldApproveWhenFocused = useMemo(() => {
     if (!useApprove) {
       return false;
     }
 
-    if (!isFocus) {
-      return true;
-    }
     const amountValueBN = BigNumber(amountValue);
     const allowanceBN = new BigNumber(allowance);
 
@@ -546,7 +546,6 @@ export function UniversalStake({
     return !amountValueBN.isNaN() && allowanceBN.lt(amountValue);
   }, [
     useApprove,
-    isFocus,
     amountValue,
     allowance,
     usePermit2Approve,
@@ -555,6 +554,13 @@ export function UniversalStake({
     approveTarget.networkId,
     approveTarget.token?.address,
   ]);
+  const lastFocusedShouldApproveRef = useRef(shouldApproveWhenFocused);
+  if (isFocus) {
+    lastFocusedShouldApproveRef.current = shouldApproveWhenFocused;
+  }
+  const shouldApprove = isFocus
+    ? shouldApproveWhenFocused
+    : useApprove && lastFocusedShouldApproveRef.current;
 
   const [transactionConfirmation, setTransactionConfirmation] = useState<
     IStakeTransactionConfirmation | undefined
@@ -575,7 +581,7 @@ export function UniversalStake({
           networkId,
           provider: providerName,
           symbol: actionSymbol,
-          vault: useVaultProvider ? protocolInfo?.vault || '' : '',
+          vault: shouldSendProtocolVault ? protocolInfo?.vault || '' : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
           action: ECheckAmountActionType.STAKING,
           amount,
@@ -591,7 +597,7 @@ export function UniversalStake({
       networkId,
       providerName,
       actionSymbol,
-      useVaultProvider,
+      shouldSendProtocolVault,
       protocolInfo?.vault,
       protocolInfo?.earnAccount?.accountAddress,
       stakefishIdentity,
@@ -622,7 +628,7 @@ export function UniversalStake({
     350,
   );
 
-  const protocolVault = useVaultProvider
+  const protocolVault = shouldSendProtocolVault
     ? protocolInfo?.vault || ''
     : undefined;
 
@@ -669,6 +675,7 @@ export function UniversalStake({
         accountAddress: account?.address,
         inputTokenAddress: transactionInputTokenAddress,
         outputTokenAddress: transactionOutputTokenAddress,
+        stakeType,
         ...permitParams,
       });
       return resp;
@@ -683,6 +690,7 @@ export function UniversalStake({
       actionSymbol,
       transactionInputTokenAddress,
       transactionOutputTokenAddress,
+      stakeType,
       usePermit2Approve,
     ],
   );
@@ -735,6 +743,15 @@ export function UniversalStake({
   );
 
   const prevShouldApproveRef = useRef<boolean | undefined>(undefined);
+  const isWrapStake = stakeType === 'wrap';
+  const wrapStakeLabel = useMemo(
+    () =>
+      intl.formatMessage(
+        { id: ETranslations.Limit_native_token_no_sell_wrap },
+        { token: actionSymbol || tokenInfo?.token.symbol || tokenSymbol || '' },
+      ),
+    [actionSymbol, intl, tokenInfo?.token.symbol, tokenSymbol],
+  );
 
   useEffect(() => {
     const amountValueBN = new BigNumber(amountValue);
@@ -810,6 +827,7 @@ export function UniversalStake({
           inputTokenAddress: transactionInputTokenAddress,
           outputTokenAddress: transactionOutputTokenAddress,
           slippage: pendleSlippage,
+          stakeType,
         });
 
         if (Number(response.code) === 0) {
@@ -1074,6 +1092,7 @@ export function UniversalStake({
         await onConfirm?.({
           amount: amountValue,
           effectiveApy: transactionConfirmation?.effectiveApy,
+          stakeType,
           ...permitSignatureParams,
           ...stakefishParams,
         });
@@ -1117,7 +1136,10 @@ export function UniversalStake({
             estimateFeeResp.coverFeeSeconds,
           ),
           estFiatValue: estimateFeeResp.feeFiatValue,
-          onConfirm: handleConfirm,
+          onConfirm: async (dialogInstance: IDialogInstance) => {
+            await dialogInstance.close();
+            await handleConfirm();
+          },
         });
         return;
       }
@@ -1154,6 +1176,7 @@ export function UniversalStake({
     receiveInputConfig,
     transactionConfirmation?.effectiveApy,
     transactionConfirmation?.receive,
+    stakeType,
   ]);
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
@@ -1573,16 +1596,24 @@ export function UniversalStake({
     transactionConfirmation?.receive,
   ]);
   const isAccordionTriggerDisabled = !amountValue;
+  const isPositiveAmount = useMemo(() => {
+    const amountBN = new BigNumber(amountValue);
+    return !amountBN.isNaN() && amountBN.gt(0);
+  }, [amountValue]);
   const isShowStakeProgress =
-    useApprove &&
-    !!amountValue &&
-    (shouldApprove || showStakeProgressRef.current[amountValue]);
+    isPositiveAmount &&
+    (isWrapStake ||
+      (useApprove &&
+        (shouldApprove || showStakeProgressRef.current[amountValue])));
 
   const onConfirmText = useMemo(() => {
     if (effectiveShowExpiredRefresh) {
       return intl.formatMessage({ id: ETranslations.global_refresh });
     }
     if (!useApprove) {
+      if (isWrapStake) {
+        return wrapStakeLabel;
+      }
       return intl.formatMessage({
         id: isPendleProvider
           ? ETranslations.global_swap
@@ -1609,6 +1640,8 @@ export function UniversalStake({
     useApprove,
     shouldApprove,
     intl,
+    isWrapStake,
+    wrapStakeLabel,
     usePermit2Approve,
     amountValue,
     tokenInfo?.token.symbol,
@@ -1634,10 +1667,11 @@ export function UniversalStake({
           <StakeProgress
             approveType={approveType}
             currentStep={
-              isDisable || shouldApprove
+              isWrapStake || isDisable || shouldApprove
                 ? EStakeProgressStep.approve
                 : EStakeProgressStep.deposit
             }
+            step1Label={isWrapStake ? wrapStakeLabel : undefined}
             step2LabelId={
               isPendleProvider ? ETranslations.global_swap : undefined
             }
@@ -2091,10 +2125,11 @@ export function UniversalStake({
                 <StakeProgress
                   approveType={approveType}
                   currentStep={
-                    isDisable || shouldApprove
+                    isWrapStake || isDisable || shouldApprove
                       ? EStakeProgressStep.approve
                       : EStakeProgressStep.deposit
                   }
+                  step1Label={isWrapStake ? wrapStakeLabel : undefined}
                   step2LabelId={
                     isPendleProvider ? ETranslations.global_swap : undefined
                   }

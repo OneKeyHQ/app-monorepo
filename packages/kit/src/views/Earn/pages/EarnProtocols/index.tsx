@@ -250,7 +250,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
               networkId: protocol.network.networkId,
               symbol,
               provider: protocol.provider.name,
-              vault: earnUtils.isVaultBasedProvider({
+              vault: earnUtils.shouldSendEarnProtocolVault({
                 providerName: protocol.provider.name,
               })
                 ? protocol.provider.vault
@@ -265,7 +265,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           networkId: protocol.network.networkId,
           symbol,
           provider: protocol.provider.name,
-          vault: earnUtils.isVaultBasedProvider({
+          vault: earnUtils.shouldSendEarnProtocolVault({
             providerName: protocol.provider.name,
           })
             ? protocol.provider.vault
