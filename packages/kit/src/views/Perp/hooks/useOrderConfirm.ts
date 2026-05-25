@@ -27,6 +27,9 @@ import { useOrderPrice } from './useOrderPrice';
 import { useTradingCalculationsForSide } from './useTradingCalculationsForSide';
 import { useTradingPrice } from './useTradingPrice';
 
+const TWAP_MIN_DURATION_MINUTES = 5;
+const TWAP_MAX_DURATION_MINUTES = 1440;
+
 interface IUseOrderConfirmOptions {
   onSuccess?: () => void;
   onError?: (error: unknown) => void;
@@ -89,10 +92,13 @@ export function useOrderConfirm(
         return;
       }
 
-      if (formDataSnapshot.orderMode === 'twap') {
+      if (
+        activeTradeInstrument.mode === 'spot' &&
+        formDataSnapshot.orderMode === 'twap'
+      ) {
         Toast.error({
           title: 'Order Failed',
-          message: 'TWAP order placement is not available yet',
+          message: 'TWAP orders are not supported in spot mode',
         });
         return;
       }
@@ -231,6 +237,60 @@ export function useOrderConfirm(
             assetId: activeTradeInstrument.assetId,
             formData: effectiveFormData,
             price: referencePrice.toFixed(),
+          });
+          options?.onSuccess?.();
+        } catch (error) {
+          options?.onError?.(error);
+        }
+        return;
+      }
+
+      if (formDataSnapshot.orderMode === 'twap') {
+        const duration = Number(formDataSnapshot.twapDurationMinutes ?? 0);
+        if (
+          !Number.isInteger(duration) ||
+          duration < TWAP_MIN_DURATION_MINUTES ||
+          duration > TWAP_MAX_DURATION_MINUTES
+        ) {
+          Toast.error({
+            title: 'Order Failed',
+            message: `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
+          });
+          return;
+        }
+        const twapSize =
+          side === 'long'
+            ? longCalculations.computedSizeForSide
+            : shortCalculations.computedSizeForSide;
+        if (!twapSize.isFinite() || twapSize.lte(0)) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Order size is required',
+          });
+          return;
+        }
+        if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Market price is not available. Please try again.',
+          });
+          return;
+        }
+
+        const effectiveFormData = {
+          ...formDataSnapshot,
+          type: 'market' as const,
+          price: '',
+          bboPriceMode: null,
+          hasTpsl: false,
+        };
+
+        hyperliquidActions.current.resetTradingForm();
+        try {
+          await hyperliquidActions.current.submitOrder({
+            assetId: activeTradeInstrument.assetId,
+            formData: effectiveFormData,
+            price: midPrice || '0',
           });
           options?.onSuccess?.();
         } catch (error) {

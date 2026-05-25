@@ -15,6 +15,7 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
+  usePerpsActiveTwapOrdersLengthAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsAbstractionModeAtom,
@@ -54,8 +55,10 @@ function TabBarItem({
   const intl = useIntl();
 
   const [perpOpenOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [perpTwapOrdersLength] = usePerpsActiveTwapOrdersLengthAtom();
   const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
-  const openOrdersLength = perpOpenOrdersLength + spotOpenOrders.length;
+  const openOrdersLength =
+    perpOpenOrdersLength + perpTwapOrdersLength + spotOpenOrders.length;
   const [positionsLength] = usePerpsActivePositionLengthAtom();
   const [{ balances }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();

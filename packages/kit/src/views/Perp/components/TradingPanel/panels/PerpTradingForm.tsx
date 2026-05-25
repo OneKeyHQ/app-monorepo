@@ -440,7 +440,7 @@ function PerpTradingForm({
       updateForm({
         price: isSpot
           ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-          : formatPriceToSignificantDigits(midPrice),
+          : formatPriceToSignificantDigits(midPrice, sizeSzDecimals),
       });
     }
 
@@ -1039,7 +1039,7 @@ function PerpTradingForm({
     if (value === '') {
       return true;
     }
-    if (!/^\d{0,2}$/.test(value)) {
+    if (!/^\d*$/.test(value)) {
       return false;
     }
     const nextValue = Number(value);
@@ -1171,39 +1171,48 @@ function PerpTradingForm({
     if (isScaleMode) {
       return (
         <YStack gap={isMobile ? '$2.5' : '$3'}>
-          <XStack
-            gap={isMobile ? '$2.5' : '$3'}
-            flexDirection={isMobile ? 'column' : 'row'}
-          >
-            <YStack flex={1}>
-              <PriceInput
-                label="Lower Price"
-                placeholder={intl.formatMessage({
-                  id: ETranslations.perp_trade_price_place_holder,
-                })}
-                value={formData.scaleLowerPrice ?? ''}
-                onChange={(value) => updateForm({ scaleLowerPrice: value })}
-                szDecimals={sizeSzDecimals}
-                isSpot={isSpot}
-                isMobile={isMobile}
-                disabled={isSubmitting}
-              />
-            </YStack>
-            <YStack flex={1}>
-              <PriceInput
-                label="Upper Price"
-                placeholder={intl.formatMessage({
-                  id: ETranslations.perp_trade_price_place_holder,
-                })}
-                value={formData.scaleUpperPrice ?? ''}
-                onChange={(value) => updateForm({ scaleUpperPrice: value })}
-                szDecimals={sizeSzDecimals}
-                isSpot={isSpot}
-                isMobile={isMobile}
-                disabled={isSubmitting}
-              />
-            </YStack>
-          </XStack>
+          <PriceInput
+            label="Lower Price"
+            onUseMidPrice={() => {
+              if (midPrice) {
+                updateForm({
+                  scaleLowerPrice: isSpot
+                    ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
+                    : formatPriceToSignificantDigits(midPrice, sizeSzDecimals),
+                });
+              }
+            }}
+            placeholder={intl.formatMessage({
+              id: ETranslations.perp_trade_price_place_holder,
+            })}
+            value={formData.scaleLowerPrice ?? ''}
+            onChange={(value) => updateForm({ scaleLowerPrice: value })}
+            szDecimals={sizeSzDecimals}
+            isSpot={isSpot}
+            isMobile={isMobile}
+            disabled={isSubmitting}
+          />
+          <PriceInput
+            label="Upper Price"
+            onUseMidPrice={() => {
+              if (midPrice) {
+                updateForm({
+                  scaleUpperPrice: isSpot
+                    ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
+                    : formatPriceToSignificantDigits(midPrice, sizeSzDecimals),
+                });
+              }
+            }}
+            placeholder={intl.formatMessage({
+              id: ETranslations.perp_trade_price_place_holder,
+            })}
+            value={formData.scaleUpperPrice ?? ''}
+            onChange={(value) => updateForm({ scaleUpperPrice: value })}
+            szDecimals={sizeSzDecimals}
+            isSpot={isSpot}
+            isMobile={isMobile}
+            disabled={isSubmitting}
+          />
           <TradingFormInput
             label="Orders"
             placeholder={`${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT}`}
@@ -1214,7 +1223,6 @@ function PerpTradingForm({
             }}
             validator={scaleOrderCountValidator}
             keyboardType="numeric"
-            suffix={`${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT}`}
             isMobile={isMobile}
             disabled={isSubmitting}
           />
@@ -1289,7 +1297,10 @@ function PerpTradingForm({
                   updateForm({
                     executionPrice: isSpot
                       ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-                      : formatPriceToSignificantDigits(midPrice),
+                      : formatPriceToSignificantDigits(
+                          midPrice,
+                          sizeSzDecimals,
+                        ),
                   });
                 }
               }}
@@ -1331,7 +1342,10 @@ function PerpTradingForm({
                     updateForm({
                       price: isSpot
                         ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-                        : formatPriceToSignificantDigits(midPrice),
+                        : formatPriceToSignificantDigits(
+                            midPrice,
+                            sizeSzDecimals,
+                          ),
                     });
                   }
                 }}

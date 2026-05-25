@@ -5,8 +5,11 @@ import type {
   IEventAllDexsClearinghouseStateParameters,
   IEventL2BookParameters,
   IEventOpenOrdersParameters,
+  IEventTwapStatesParameters,
   IEventUserFillsParameters,
   IEventUserNonFundingLedgerUpdatesParameters,
+  IEventUserTwapHistoryParameters,
+  IEventUserTwapSliceFillsParameters,
   IHex,
   IPerpsSubscriptionParams,
   IWsAllMidsParameters,
@@ -52,6 +55,14 @@ export const SUBSCRIPTION_TYPE_INFO: {
     priority: 2,
   },
   [ESubscriptionType.TWAP_STATES]: {
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
+    priority: 2,
+  },
+  [ESubscriptionType.USER_TWAP_HISTORY]: {
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
+    priority: 2,
+  },
+  [ESubscriptionType.USER_TWAP_SLICE_FILLS]: {
     eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 2,
   },
@@ -260,6 +271,16 @@ export function calculateRequiredSubscriptions(
           params: openOrdersParams,
         }),
       );
+      const twapStatesParams: IEventTwapStatesParameters = {
+        user: state.currentUser as IHex,
+        dex,
+      };
+      specs.push(
+        buildSubscriptionSpec({
+          type: ESubscriptionType.TWAP_STATES,
+          params: twapStatesParams,
+        }),
+      );
     });
     specs.push(
       buildSubscriptionSpec({
@@ -267,6 +288,24 @@ export function calculateRequiredSubscriptions(
         params: {
           user: state.currentUser,
         },
+      }),
+    );
+    const userTwapHistoryParams: IEventUserTwapHistoryParameters = {
+      user: state.currentUser,
+    };
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.USER_TWAP_HISTORY,
+        params: userTwapHistoryParams,
+      }),
+    );
+    const userTwapSliceFillsParams: IEventUserTwapSliceFillsParameters = {
+      user: state.currentUser,
+    };
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.USER_TWAP_SLICE_FILLS,
+        params: userTwapSliceFillsParams,
       }),
     );
     if (state.spotEnabled) {

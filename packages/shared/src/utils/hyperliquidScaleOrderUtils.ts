@@ -16,7 +16,7 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 export const SCALE_ORDER_MIN_COUNT = 2;
-export const SCALE_ORDER_MAX_COUNT = 20;
+export const SCALE_ORDER_MAX_COUNT = 100;
 export const SCALE_ORDER_MIN_NOTIONAL = '10';
 
 export function normalizeScaleOrderCount(orderCount: string | number): number {

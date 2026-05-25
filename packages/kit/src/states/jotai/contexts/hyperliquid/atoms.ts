@@ -296,6 +296,54 @@ export const {
   groups: [],
 });
 
+export type IPerpsActiveTwapOrder = {
+  twapId: number;
+  state: HL.ITwapState;
+  dex?: string;
+};
+
+export type IPerpsActiveTwapOrdersAtom = {
+  accountAddress: string | undefined;
+  twapOrders: IPerpsActiveTwapOrder[];
+  twapOrdersByCoin: Record<string, IPerpsActiveTwapOrder[]>;
+};
+export const {
+  atom: perpsActiveTwapOrdersAtom,
+  use: usePerpsActiveTwapOrdersAtom,
+} = contextAtom<IPerpsActiveTwapOrdersAtom>({
+  accountAddress: undefined,
+  twapOrders: [],
+  twapOrdersByCoin: {},
+});
+
+export type IPerpsTwapHistoryAtom = {
+  accountAddress: string | undefined;
+  history: HL.ITwapHistoryRecord[];
+  isLoaded: boolean;
+};
+export const { atom: perpsTwapHistoryAtom, use: usePerpsTwapHistoryAtom } =
+  contextAtom<IPerpsTwapHistoryAtom>({
+    accountAddress: undefined,
+    history: [],
+    isLoaded: false,
+  });
+
+export type IPerpsTwapSliceFillsAtom = {
+  accountAddress: string | undefined;
+  fills: HL.ITwapSliceFill[];
+  isLoaded: boolean;
+  latestTime: number;
+};
+export const {
+  atom: perpsTwapSliceFillsAtom,
+  use: usePerpsTwapSliceFillsAtom,
+} = contextAtom<IPerpsTwapSliceFillsAtom>({
+  accountAddress: undefined,
+  fills: [],
+  isLoaded: false,
+  latestTime: 0,
+});
+
 export const {
   atom: perpsActiveOpenOrdersLengthAtom,
   use: usePerpsActiveOpenOrdersLengthAtom,
@@ -303,6 +351,14 @@ export const {
   const { openOrders } = get(perpsActiveOpenOrdersAtom());
   const filteredOpenOrders = openOrders.filter((o) => !o.coin.startsWith('@'));
   return filteredOpenOrders.length ?? 0;
+});
+
+export const {
+  atom: perpsActiveTwapOrdersLengthAtom,
+  use: usePerpsActiveTwapOrdersLengthAtom,
+} = contextAtomComputed((get) => {
+  const { twapOrders } = get(perpsActiveTwapOrdersAtom());
+  return twapOrders.length;
 });
 
 export const {

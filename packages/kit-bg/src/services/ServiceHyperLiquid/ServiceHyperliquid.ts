@@ -58,6 +58,7 @@ import {
 import type {
   IApiRequestError,
   IApiRequestResult,
+  IEventWebData2Parameters,
   IFill,
   IFundingHistoryRecord,
   IHex,
@@ -72,9 +73,14 @@ import type {
   IPerpsUniverse,
   IRecentTrade,
   ISpotUniverse,
+  ITwapHistoryParameters,
+  ITwapHistoryRecord,
+  ITwapSliceFill,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
   IUserNonFundingLedgerUpdate,
+  IUserTwapSliceFillsByTimeParameters,
+  IUserTwapSliceFillsParameters,
   IWsActiveAssetCtx,
   IWsActiveSpotAssetCtx,
   IWsAllDexsClearinghouseState,
@@ -914,6 +920,36 @@ export default class ServiceHyperliquid extends ServiceBase {
     const { infoClient } = hyperLiquidApiClients;
 
     return infoClient.userFills(params);
+  }
+
+  @backgroundMethod()
+  async getWebData2(params: IEventWebData2Parameters): Promise<IWsWebData2> {
+    const { infoClient } = hyperLiquidApiClients;
+    return infoClient.webData2(params);
+  }
+
+  @backgroundMethod()
+  async getTwapHistory(
+    params: ITwapHistoryParameters,
+  ): Promise<ITwapHistoryRecord[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    return infoClient.twapHistory(params);
+  }
+
+  @backgroundMethod()
+  async getUserTwapSliceFills(
+    params: IUserTwapSliceFillsParameters,
+  ): Promise<ITwapSliceFill[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    return infoClient.userTwapSliceFills(params);
+  }
+
+  @backgroundMethod()
+  async getUserTwapSliceFillsByTime(
+    params: IUserTwapSliceFillsByTimeParameters,
+  ): Promise<ITwapSliceFill[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    return infoClient.userTwapSliceFillsByTime(params);
   }
 
   @backgroundMethod()

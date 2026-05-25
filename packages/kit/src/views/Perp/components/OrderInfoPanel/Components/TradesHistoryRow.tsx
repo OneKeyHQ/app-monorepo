@@ -62,6 +62,7 @@ export type ITradesHistoryRowProps = {
     group: IScaleOrderGroup;
     child: IScaleOrderChild;
   };
+  twapId?: number;
 };
 
 const TradesHistoryRow = memo(
@@ -77,6 +78,7 @@ const TradesHistoryRow = memo(
     onHoverChange,
     builderFeeRate,
     scaleInfo,
+    twapId,
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
       return (
@@ -276,6 +278,11 @@ const TradesHistoryRow = memo(
                     {`Scale #${scaleInfo.child.index + 1}`}
                   </Badge>
                 ) : null}
+                {twapId !== undefined ? (
+                  <Badge badgeType="info" badgeSize="sm">
+                    {`TWAP #${twapId}`}
+                  </Badge>
+                ) : null}
               </XStack>
               <SizableText size="$bodySm" color="$textSubdued">
                 {dateInfo.date} {dateInfo.time}
@@ -453,6 +460,11 @@ const TradesHistoryRow = memo(
                 {scaleInfo ? (
                   <Badge badgeType="info" badgeSize="sm">
                     {`Scale #${scaleInfo.child.index + 1}`}
+                  </Badge>
+                ) : null}
+                {twapId !== undefined ? (
+                  <Badge badgeType="info" badgeSize="sm">
+                    {`TWAP #${twapId}`}
                   </Badge>
                 ) : null}
               </XStack>

@@ -63,6 +63,8 @@ import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 
 const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
+const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
+const TWAP_MIN_SLICE_NOTIONAL = 10;
 
 interface ITradingButtonGroupProps {
   isMobile: boolean;
@@ -567,10 +569,24 @@ function SideButtonInternal({
       }
 
       if (isTwapMode) {
-        Toast.message({
-          title: 'TWAP order placement is not available yet',
-        });
-        return;
+        const duration = Number(formData.twapDurationMinutes ?? 0);
+        const estimatedSlices = Math.max(
+          1,
+          Math.ceil((duration * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
+        );
+        const totalNotional =
+          computedSizeForSide.multipliedBy(effectivePriceBN);
+        const averageSliceNotional = totalNotional.dividedBy(estimatedSlices);
+        if (
+          !averageSliceNotional.isFinite() ||
+          averageSliceNotional.lt(TWAP_MIN_SLICE_NOTIONAL)
+        ) {
+          Toast.message({
+            title:
+              'TWAP slice size is too small. Increase size or shorten duration.',
+          });
+          return;
+        }
       }
 
       // Validate TPSL only if user has filled in values

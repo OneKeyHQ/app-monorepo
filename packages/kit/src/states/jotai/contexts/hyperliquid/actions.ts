@@ -76,6 +76,7 @@ import {
   orderBookTickOptionsAtom,
   perpsActiveOpenOrdersAtom,
   perpsActivePositionAtom,
+  perpsActiveTwapOrdersAtom,
   perpsAllAssetCtxsAtom,
   perpsAllAssetsFilteredAtom,
   perpsAllMidsAtom,
@@ -83,6 +84,8 @@ import {
   perpsOpenOrdersByCoinAtomCache,
   perpsScaleOrderGroupsAtom,
   perpsTokenSearchAliasesAtom,
+  perpsTwapHistoryAtom,
+  perpsTwapSliceFillsAtom,
   subscriptionActiveAtom,
   tradeRouteViewStateAtom,
   tradingFormAtom,
@@ -93,6 +96,7 @@ import { EActionType, withToast } from './utils';
 
 import type {
   IActiveTradeInstrument,
+  IPerpsActiveTwapOrder,
   IPerpsScaleOrderGroupsAtom,
   ITradeRouteViewState,
   ITradingFormData,
@@ -110,6 +114,10 @@ type IFrontendOrderWithCloid = HL.IPerpsFrontendOrder & {
 
 const MAX_LEDGER_UPDATES = 200;
 const SCALE_ORDER_MISSING_OPEN_ORDER_GRACE_MS = 10_000;
+const TWAP_MIN_DURATION_MINUTES = 5;
+const TWAP_MAX_DURATION_MINUTES = 1440;
+const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
+const TWAP_MIN_SLICE_NOTIONAL = 10;
 
 function getFrontendOrderCloid(
   order: HL.IPerpsFrontendOrder,
@@ -148,6 +156,68 @@ function mergeLedgerUpdates(
   }
 
   return sortAndLimitLedgerUpdates(mergedUpdates);
+}
+
+function buildTwapOrdersByCoinMap(
+  orders: IPerpsActiveTwapOrder[],
+): Record<string, IPerpsActiveTwapOrder[]> {
+  return orders.reduce<Record<string, IPerpsActiveTwapOrder[]>>(
+    (acc, order) => {
+      if (!acc[order.state.coin]) {
+        acc[order.state.coin] = [];
+      }
+      acc[order.state.coin].push(order);
+      return acc;
+    },
+    {},
+  );
+}
+
+function sortTwapOrders(
+  orders: IPerpsActiveTwapOrder[],
+): IPerpsActiveTwapOrder[] {
+  return orders.toSorted(
+    (a, b) => b.state.timestamp - a.state.timestamp || b.twapId - a.twapId,
+  );
+}
+
+function getTwapHistoryKey(record: HL.ITwapHistoryRecord): string {
+  return `${record.twapId ?? 'unknown'}:${record.time}:${record.state.coin}`;
+}
+
+function sortAndDedupeTwapHistory(
+  records: HL.ITwapHistoryRecord[],
+): HL.ITwapHistoryRecord[] {
+  const map = new Map<string, HL.ITwapHistoryRecord>();
+  for (const record of records) {
+    map.set(getTwapHistoryKey(record), record);
+  }
+  return Array.from(map.values()).toSorted(
+    (a, b) => b.time - a.time || (b.twapId ?? 0) - (a.twapId ?? 0),
+  );
+}
+
+function getTwapSliceFillKey(record: HL.ITwapSliceFill): string {
+  const { fill } = record;
+  if (typeof fill.tid === 'number') {
+    return `tid:${fill.tid}:${record.twapId}`;
+  }
+  return `${record.twapId}:${fill.hash}:${fill.oid}:${fill.time}:${fill.coin}:${fill.side}:${fill.px}:${fill.sz}`;
+}
+
+function sortAndDedupeTwapSliceFills(
+  records: HL.ITwapSliceFill[],
+): HL.ITwapSliceFill[] {
+  const map = new Map<string, HL.ITwapSliceFill>();
+  for (const record of records) {
+    map.set(getTwapSliceFillKey(record), record);
+  }
+  return Array.from(map.values()).toSorted(
+    (a, b) =>
+      b.fill.time - a.fill.time ||
+      (b.fill.tid ?? 0) - (a.fill.tid ?? 0) ||
+      b.twapId - a.twapId,
+  );
 }
 
 async function clearMatchedDepositOrders(
@@ -548,6 +618,27 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         openOrders: perpOrders,
         openOrdersByCoin,
       });
+      const prevTwapOrders = get(perpsActiveTwapOrdersAtom());
+      const twapOrders = sortTwapOrders([
+        ...(prevTwapOrders.accountAddress?.toLowerCase() ===
+        activeAccountAddress
+          ? prevTwapOrders.twapOrders.filter(
+              (order) => (order.dex ?? '') !== '',
+            )
+          : []),
+        ...(data?.twapStates ?? []).map(
+          ([twapId, state]): IPerpsActiveTwapOrder => ({
+            twapId,
+            state,
+            dex: '',
+          }),
+        ),
+      ]);
+      set(perpsActiveTwapOrdersAtom(), {
+        accountAddress: activeAccountAddress,
+        twapOrders,
+        twapOrdersByCoin: buildTwapOrdersByCoinMap(twapOrders),
+      });
       const tradesHistoryData = await perpsTradesHistoryDataAtom.get();
       const scaleFills =
         tradesHistoryData.accountAddress?.toLowerCase() === activeAccountAddress
@@ -586,6 +677,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           accountAddress: activeAccountAddress,
           openOrders: [],
           openOrdersByCoin: {},
+        });
+      }
+      const activeTwapOrders = get(perpsActiveTwapOrdersAtom());
+      if (
+        activeTwapOrders?.accountAddress?.toLowerCase() !== activeAccountAddress
+      ) {
+        set(perpsActiveTwapOrdersAtom(), {
+          accountAddress: activeAccountAddress,
+          twapOrders: [],
+          twapOrdersByCoin: {},
         });
       }
       void spotActiveOpenOrdersAtom.set({
@@ -730,6 +831,114 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       void spotActiveOpenOrdersAtom.set({
         accountAddress: activeAccountAddress,
         openOrders: spotOrders,
+      });
+    },
+  );
+
+  updateTwapStates = contextAtomMethod(
+    async (get, set, data: HL.IWsTwapStates) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+      const dataUser = data?.user?.toLowerCase();
+      if (!activeAccountAddress || activeAccountAddress !== dataUser) {
+        const current = get(perpsActiveTwapOrdersAtom());
+        if (current.accountAddress?.toLowerCase() !== activeAccountAddress) {
+          set(perpsActiveTwapOrdersAtom(), {
+            accountAddress: activeAccountAddress,
+            twapOrders: [],
+            twapOrdersByCoin: {},
+          });
+        }
+        return;
+      }
+
+      const dex = data.dex ?? '';
+      const prev = get(perpsActiveTwapOrdersAtom());
+      const nextForDex = (data.states ?? []).map(
+        ([twapId, state]): IPerpsActiveTwapOrder => ({
+          twapId,
+          state,
+          dex,
+        }),
+      );
+      const previousOtherDex =
+        prev.accountAddress?.toLowerCase() === activeAccountAddress
+          ? prev.twapOrders.filter((order) => (order.dex ?? '') !== dex)
+          : [];
+      const twapOrders = sortTwapOrders([...previousOtherDex, ...nextForDex]);
+      set(perpsActiveTwapOrdersAtom(), {
+        accountAddress: activeAccountAddress,
+        twapOrders,
+        twapOrdersByCoin: buildTwapOrdersByCoinMap(twapOrders),
+      });
+    },
+  );
+
+  updateTwapHistory = contextAtomMethod(
+    async (get, set, data: HL.IWsUserTwapHistory) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+      const dataUser = data?.user?.toLowerCase();
+      if (!activeAccountAddress) {
+        set(perpsTwapHistoryAtom(), {
+          accountAddress: activeAccountAddress,
+          history: [],
+          isLoaded: false,
+        });
+        return;
+      }
+      if (activeAccountAddress !== dataUser) {
+        return;
+      }
+      const prev = get(perpsTwapHistoryAtom());
+      const previousHistory =
+        prev.accountAddress?.toLowerCase() === activeAccountAddress &&
+        !data.isSnapshot
+          ? prev.history
+          : [];
+      set(perpsTwapHistoryAtom(), {
+        accountAddress: activeAccountAddress,
+        history: sortAndDedupeTwapHistory([
+          ...(data.history ?? []),
+          ...previousHistory,
+        ]),
+        isLoaded: true,
+      });
+    },
+  );
+
+  updateTwapSliceFills = contextAtomMethod(
+    async (get, set, data: HL.IWsUserTwapSliceFills) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+      const dataUser = data?.user?.toLowerCase();
+      if (!activeAccountAddress) {
+        set(perpsTwapSliceFillsAtom(), {
+          accountAddress: activeAccountAddress,
+          fills: [],
+          isLoaded: false,
+          latestTime: 0,
+        });
+        return;
+      }
+      if (activeAccountAddress !== dataUser) {
+        return;
+      }
+      const prev = get(perpsTwapSliceFillsAtom());
+      const previousFills =
+        prev.accountAddress?.toLowerCase() === activeAccountAddress &&
+        !data.isSnapshot
+          ? prev.fills
+          : [];
+      const fills = sortAndDedupeTwapSliceFills([
+        ...(data.twapSliceFills ?? []),
+        ...previousFills,
+      ]);
+      set(perpsTwapSliceFillsAtom(), {
+        accountAddress: activeAccountAddress,
+        fills,
+        isLoaded: true,
+        latestTime: fills[0]?.fill.time ?? 0,
       });
     },
   );
@@ -1378,6 +1587,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           params,
         );
       await this.loadScaleOrderGroups.call(set);
+      await this.loadTwapData.call(set);
       return account;
     },
   );
@@ -1515,6 +1725,77 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     });
   });
 
+  loadTwapData = contextAtomMethod(async (get, set) => {
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const accountAddress = activeAccount?.accountAddress?.toLowerCase();
+    if (!accountAddress) {
+      set(perpsTwapHistoryAtom(), {
+        accountAddress: undefined,
+        history: [],
+        isLoaded: false,
+      });
+      set(perpsTwapSliceFillsAtom(), {
+        accountAddress: undefined,
+        fills: [],
+        isLoaded: false,
+        latestTime: 0,
+      });
+      return;
+    }
+
+    const [webData2, history, fills] = await Promise.all([
+      backgroundApiProxy.serviceHyperliquid
+        .getWebData2({
+          user: accountAddress as HL.IHex,
+        })
+        .catch(() => undefined),
+      backgroundApiProxy.serviceHyperliquid.getTwapHistory({
+        user: accountAddress as HL.IHex,
+      }),
+      backgroundApiProxy.serviceHyperliquid.getUserTwapSliceFills({
+        user: accountAddress as HL.IHex,
+      }),
+    ]);
+    const latestActiveAccount = await perpsActiveAccountAtom.get();
+    if (latestActiveAccount?.accountAddress?.toLowerCase() !== accountAddress) {
+      return;
+    }
+    if (webData2?.user?.toLowerCase() === accountAddress) {
+      const prevTwapOrders = get(perpsActiveTwapOrdersAtom());
+      const twapOrders = sortTwapOrders([
+        ...(prevTwapOrders.accountAddress?.toLowerCase() === accountAddress
+          ? prevTwapOrders.twapOrders.filter(
+              (order) => (order.dex ?? '') !== '',
+            )
+          : []),
+        ...(webData2.twapStates ?? []).map(
+          ([twapId, state]): IPerpsActiveTwapOrder => ({
+            twapId,
+            state,
+            dex: '',
+          }),
+        ),
+      ]);
+      set(perpsActiveTwapOrdersAtom(), {
+        accountAddress,
+        twapOrders,
+        twapOrdersByCoin: buildTwapOrdersByCoinMap(twapOrders),
+      });
+    }
+    const sortedFills = sortAndDedupeTwapSliceFills(fills);
+    set(perpsTwapHistoryAtom(), {
+      accountAddress,
+      history: sortAndDedupeTwapHistory(history),
+      isLoaded: true,
+    });
+    set(perpsTwapSliceFillsAtom(), {
+      accountAddress,
+      fills: sortedFills,
+      isLoaded: true,
+      latestTime: sortedFills[0]?.fill.time ?? 0,
+    });
+  });
+
   upsertScaleOrderGroupToAtom = contextAtomMethod(
     (get, set, group: IScaleOrderGroup) => {
       set(
@@ -1557,6 +1838,22 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       accountAddress: undefined,
       groups: [],
     });
+    set(perpsActiveTwapOrdersAtom(), {
+      accountAddress: undefined,
+      twapOrders: [],
+      twapOrdersByCoin: {},
+    });
+    set(perpsTwapHistoryAtom(), {
+      accountAddress: undefined,
+      history: [],
+      isLoaded: false,
+    });
+    set(perpsTwapSliceFillsAtom(), {
+      accountAddress: undefined,
+      fills: [],
+      isLoaded: false,
+      latestTime: 0,
+    });
     this.resetOpenOrdersByDexCache();
     perpsOpenOrdersByCoinAtomCache.clear();
     this.canceledOrderIds.clear();
@@ -1597,6 +1894,22 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     set(perpsScaleOrderGroupsAtom(), {
       accountAddress: undefined,
       groups: [],
+    });
+    set(perpsActiveTwapOrdersAtom(), {
+      accountAddress: undefined,
+      twapOrders: [],
+      twapOrdersByCoin: {},
+    });
+    set(perpsTwapHistoryAtom(), {
+      accountAddress: undefined,
+      history: [],
+      isLoaded: false,
+    });
+    set(perpsTwapSliceFillsAtom(), {
+      accountAddress: undefined,
+      fills: [],
+      isLoaded: false,
+      latestTime: 0,
     });
     this.canceledOrderIds.clear();
     await this.changeActiveAsset.call(set, { coin: 'ETH', force: true });
@@ -1982,6 +2295,143 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  placeTwapOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        formData?: ITradingFormData;
+      },
+    ) => {
+      const formData = params.formData || get(tradingFormAtom());
+
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const [
+              activeTradeInstrument,
+              activeAssetValue,
+              activeAssetCtxValue,
+              activeAssetDataValue,
+              activePositionsValue,
+              env,
+            ] = await Promise.all([
+              Promise.resolve(get(activeTradeInstrumentAtom())),
+              perpsActiveAssetAtom.get(),
+              perpsActiveAssetCtxAtom.get(),
+              perpsActiveAssetDataAtom.get(),
+              Promise.resolve(get(perpsActivePositionAtom())),
+              Promise.resolve(get(tradingFormEnvAtom())),
+            ]);
+
+            if (activeTradeInstrument.mode === 'spot') {
+              throw new OneKeyLocalError(
+                'TWAP orders are not supported in spot mode',
+              );
+            }
+
+            const minutes = Number(formData.twapDurationMinutes ?? 0);
+            if (
+              !Number.isInteger(minutes) ||
+              minutes < TWAP_MIN_DURATION_MINUTES ||
+              minutes > TWAP_MAX_DURATION_MINUTES
+            ) {
+              throw new OneKeyLocalError(
+                `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
+              );
+            }
+
+            const markPrice =
+              activeAssetCtxValue?.ctx?.markPrice ?? env.markPrice ?? '';
+            const markPriceBN = new BigNumber(markPrice);
+            if (!markPriceBN.isFinite() || markPriceBN.lte(0)) {
+              throw new OneKeyLocalError(
+                'Market price unavailable, please try again',
+              );
+            }
+
+            const szDecimals =
+              activeAssetValue?.universe?.szDecimals ?? env.szDecimals ?? 2;
+            const resolvedSize = resolveTradingSize({
+              sizeInputMode: formData.sizeInputMode,
+              manualSize: formData.size,
+              sizePercent: formData.sizePercent,
+              side: formData.side,
+              price: markPriceBN.toFixed(),
+              markPrice: markPriceBN.toFixed(),
+              maxTradeSzs: activeAssetDataValue?.maxTradeSzs,
+              leverageValue: activeAssetDataValue?.leverage?.value,
+              fallbackLeverage: activeAssetValue?.universe?.maxLeverage,
+              szDecimals,
+            });
+            const resolvedSizeBN = new BigNumber(resolvedSize);
+            if (!resolvedSizeBN.isFinite() || resolvedSizeBN.lte(0)) {
+              throw new OneKeyLocalError('Order size is required');
+            }
+
+            const totalNotional = resolvedSizeBN.multipliedBy(markPriceBN);
+            if (totalNotional.lt(TWAP_MIN_SLICE_NOTIONAL)) {
+              throw new OneKeyLocalError('Order value must be at least $10');
+            }
+            const estimatedSlices = Math.max(
+              1,
+              Math.ceil((minutes * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
+            );
+            const averageSliceNotional =
+              totalNotional.dividedBy(estimatedSlices);
+            if (averageSliceNotional.lt(TWAP_MIN_SLICE_NOTIONAL)) {
+              throw new OneKeyLocalError(
+                'TWAP slice size is too small. Increase size or shorten duration.',
+              );
+            }
+
+            const reduceOnly = Boolean(formData.twapReduceOnly);
+            if (reduceOnly) {
+              const position = activePositionsValue.activePositions.find(
+                (pos) => pos.position.coin === activeTradeInstrument.coin,
+              )?.position;
+              const positionSize = new BigNumber(position?.szi ?? 0);
+              const isReducing =
+                formData.side === 'long'
+                  ? positionSize.lt(0)
+                  : positionSize.gt(0);
+              if (!position || !isReducing) {
+                throw new OneKeyLocalError(
+                  'Reduce-only TWAP requires an opposite open position',
+                );
+              }
+              if (resolvedSizeBN.gt(positionSize.abs())) {
+                throw new OneKeyLocalError(
+                  'Reduce-only TWAP size exceeds the current position',
+                );
+              }
+            }
+
+            const result =
+              await backgroundApiProxy.serviceHyperliquidExchange.placeTwapOrder(
+                {
+                  assetId: params.assetId,
+                  isBuy: formData.side === 'long',
+                  size: resolvedSize,
+                  reduceOnly,
+                  minutes,
+                  randomize: formData.twapRandomize ?? true,
+                  szDecimals,
+                },
+              );
+            void this.loadTwapData.call(set);
+            return result;
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.PLACE_ORDER,
+      });
+    },
+  );
+
   placeSpotOrder = contextAtomMethod(
     async (
       get,
@@ -2058,16 +2508,24 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const formData = params.formData || get(tradingFormAtom());
       const tradingMode = await tradingModeAtom.get();
 
-      if (formData.orderMode === 'twap') {
-        throw new OneKeyLocalError('TWAP order placement is not available yet');
-      }
-
       if (tradingMode === 'spot') {
+        if (formData.orderMode === 'twap') {
+          throw new OneKeyLocalError(
+            'TWAP orders are not supported in spot mode',
+          );
+        }
         return this.placeSpotOrder.call(set, {
           assetId: params.assetId,
           formData,
           slippage: params.slippage,
           price: params.price,
+        });
+      }
+
+      if (formData.orderMode === 'twap') {
+        return this.placeTwapOrder.call(set, {
+          assetId: params.assetId,
+          formData,
         });
       }
 
@@ -2294,6 +2752,42 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         },
         actionType: EActionType.CANCEL_ORDER,
         args: [params.orders.length],
+      });
+    },
+  );
+
+  cancelTwapOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        twapId: number;
+      },
+    ) => {
+      return withToast({
+        asyncFn: async () => {
+          const result =
+            await backgroundApiProxy.serviceHyperliquidExchange.cancelTwapOrder(
+              {
+                assetId: params.assetId,
+                twapId: params.twapId,
+              },
+            );
+
+          const prev = get(perpsActiveTwapOrdersAtom());
+          const twapOrders = prev.twapOrders.filter(
+            (order) => order.twapId !== params.twapId,
+          );
+          set(perpsActiveTwapOrdersAtom(), {
+            ...prev,
+            twapOrders,
+            twapOrdersByCoin: buildTwapOrdersByCoinMap(twapOrders),
+          });
+          void this.loadTwapData.call(set);
+          return result;
+        },
+        actionType: EActionType.CANCEL_ORDER,
       });
     },
   );
@@ -2666,6 +3160,7 @@ export function useHyperliquidActions() {
 
   const clearAllData = actions.clearAllData.use();
   const loadScaleOrderGroups = actions.loadScaleOrderGroups.use();
+  const loadTwapData = actions.loadTwapData.use();
   const upsertScaleOrderGroupToAtom = actions.upsertScaleOrderGroupToAtom.use();
 
   const updateTradingForm = actions.updateTradingForm.use();
@@ -2677,6 +3172,7 @@ export function useHyperliquidActions() {
   const orderOpen = actions.orderOpen.use();
   const triggerOrder = actions.triggerOrder.use();
   const placeScaleOrder = actions.placeScaleOrder.use();
+  const placeTwapOrder = actions.placeTwapOrder.use();
   const submitOrder = actions.submitOrder.use();
   const updateLeverage = actions.updateLeverage.use();
   const updateIsolatedMargin = actions.updateIsolatedMargin.use();
@@ -2684,6 +3180,7 @@ export function useHyperliquidActions() {
   const amendChartOrder = actions.amendChartOrder.use();
   const cancelChartOrder = actions.cancelChartOrder.use();
   const cancelOrder = actions.cancelOrder.use();
+  const cancelTwapOrder = actions.cancelTwapOrder.use();
   const cancelScaleOrderGroup = actions.cancelScaleOrderGroup.use();
   const setPositionTpsl = actions.setPositionTpsl.use();
   const withdraw = actions.withdraw.use();
@@ -2706,6 +3203,9 @@ export function useHyperliquidActions() {
   const updateAllDexsClearinghouseState =
     actions.updateAllDexsClearinghouseState.use();
   const updateOpenOrders = actions.updateOpenOrders.use();
+  const updateTwapStates = actions.updateTwapStates.use();
+  const updateTwapHistory = actions.updateTwapHistory.use();
+  const updateTwapSliceFills = actions.updateTwapSliceFills.use();
   const updateAllDexsAssetCtxs = actions.updateAllDexsAssetCtxs.use();
 
   const currentActions = {
@@ -2733,6 +3233,7 @@ export function useHyperliquidActions() {
     enableTrading,
     clearAllData,
     loadScaleOrderGroups,
+    loadTwapData,
     upsertScaleOrderGroupToAtom,
 
     updateTradingForm,
@@ -2744,6 +3245,7 @@ export function useHyperliquidActions() {
     orderOpen,
     triggerOrder,
     placeScaleOrder,
+    placeTwapOrder,
     submitOrder,
     updateLeverage,
     updateIsolatedMargin,
@@ -2751,6 +3253,7 @@ export function useHyperliquidActions() {
     amendChartOrder,
     cancelChartOrder,
     cancelOrder,
+    cancelTwapOrder,
     cancelScaleOrderGroup,
     setPositionTpsl,
     withdraw,
@@ -2764,6 +3267,9 @@ export function useHyperliquidActions() {
     getMidPrice,
     switchTradeInstrument,
     setTradeRouteViewState,
+    updateTwapStates,
+    updateTwapHistory,
+    updateTwapSliceFills,
   };
 
   const actionsRef = useRef(currentActions);

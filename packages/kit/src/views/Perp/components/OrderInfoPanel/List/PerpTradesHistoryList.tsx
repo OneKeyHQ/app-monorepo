@@ -11,6 +11,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import {
   useHyperliquidActions,
   usePerpsScaleOrderGroupsAtom,
+  usePerpsTwapSliceFillsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   useAppIsLockedAtom,
@@ -26,7 +27,10 @@ import {
   isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IFill,
+  ITwapSliceFill,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IScaleOrderChild,
   IScaleOrderGroup,
@@ -53,6 +57,55 @@ export type IScaleFillInfo = {
   child: IScaleOrderChild;
 };
 
+function getFillKey(fill: IFill): string {
+  const fillWithOid = fill as IFillWithOid;
+  if (typeof fill.tid === 'number') {
+    return `tid:${fill.tid}`;
+  }
+  return `${fill.hash}-${fillWithOid.oid ?? ''}-${fill.time}-${fill.coin}-${
+    fill.side
+  }-${fill.px}-${fill.sz}`;
+}
+
+function sortTradesHistoryFills(fills: IFill[]): IFill[] {
+  return fills.toSorted(
+    (a, b) =>
+      b.time - a.time ||
+      (b.tid ?? 0) - (a.tid ?? 0) ||
+      ((b as IFillWithOid).oid ?? 0) - ((a as IFillWithOid).oid ?? 0),
+  );
+}
+
+function mergeTradesWithTwapSliceFills({
+  trades,
+  twapSliceFills,
+}: {
+  trades: IFill[];
+  twapSliceFills: ITwapSliceFill[];
+}): IFill[] {
+  if (twapSliceFills.length === 0) {
+    return trades;
+  }
+
+  const existingKeys = new Set<string>();
+  const mergedTrades: IFill[] = [];
+
+  trades.forEach((fill) => {
+    existingKeys.add(getFillKey(fill));
+    mergedTrades.push(fill);
+  });
+
+  twapSliceFills.forEach((record) => {
+    const key = getFillKey(record.fill);
+    if (!existingKeys.has(key)) {
+      existingKeys.add(key);
+      mergedTrades.push(record.fill);
+    }
+  });
+
+  return sortTradesHistoryFills(mergedTrades);
+}
+
 interface IPerpTradesHistoryListProps {
   isMobile?: boolean;
   useTabsList?: boolean;
@@ -74,6 +127,9 @@ function PerpTradesHistoryList({
   const actions = useHyperliquidActions();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [{ groups: scaleOrderGroups }] = usePerpsScaleOrderGroupsAtom();
+  const [
+    { accountAddress: twapSliceFillsAccountAddress, fills: rawTwapSliceFills },
+  ] = usePerpsTwapSliceFillsAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [lastUsedLeverage] = usePerpsLastUsedLeverageAtom();
   const [spotPairDisplayMap] = useSpotPairDisplayMapAtom();
@@ -97,7 +153,28 @@ function PerpTradesHistoryList({
 
   useEffect(() => {
     void actions.current.loadScaleOrderGroups();
+    void actions.current.loadTwapData();
   }, [actions, currentUser?.accountAddress, latestTradeKey, trades.length]);
+
+  const currentAccountAddress = currentUser?.accountAddress?.toLowerCase();
+  const twapSliceFills = useMemo(() => {
+    if (
+      !currentAccountAddress ||
+      twapSliceFillsAccountAddress?.toLowerCase() !== currentAccountAddress
+    ) {
+      return [];
+    }
+    return rawTwapSliceFills;
+  }, [currentAccountAddress, rawTwapSliceFills, twapSliceFillsAccountAddress]);
+
+  const tradesWithTwapSliceFills = useMemo(
+    () =>
+      mergeTradesWithTwapSliceFills({
+        trades,
+        twapSliceFills,
+      }),
+    [trades, twapSliceFills],
+  );
 
   const scaleFillInfoByOid = useMemo(() => {
     const map = new Map<number, IScaleFillInfo>();
@@ -110,6 +187,14 @@ function PerpTradesHistoryList({
     });
     return map;
   }, [scaleOrderGroups]);
+
+  const twapIdByFillKey = useMemo(() => {
+    const map = new Map<string, number>();
+    twapSliceFills.forEach((record) => {
+      map.set(getFillKey(record.fill), record.twapId);
+    });
+    return map;
+  }, [twapSliceFills]);
 
   const getLeverage = useCallback(
     async (coin: string): Promise<number> => {
@@ -342,6 +427,9 @@ function PerpTradesHistoryList({
         onHoverChange={onHoverChange}
         builderFeeRate={builderFeeRate}
         scaleInfo={scaleFillInfoByOid.get((item as IFillWithOid).oid ?? 0)}
+        twapId={
+          twapIdByFillKey.get(getFillKey(item)) ?? item.twapId ?? undefined
+        }
       />
     ),
     [
@@ -351,6 +439,7 @@ function PerpTradesHistoryList({
       handleShare,
       builderFeeRate,
       scaleFillInfoByOid,
+      twapIdByFillKey,
     ],
   );
   const [isLocked] = useAppIsLockedAtom();
@@ -366,6 +455,7 @@ function PerpTradesHistoryList({
       onPullToRefresh={async () => {
         await refreshTradesHistory();
         await actions.current.loadScaleOrderGroups();
+        await actions.current.loadTwapData();
       }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
@@ -378,7 +468,7 @@ function PerpTradesHistoryList({
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}
-      data={trades}
+      data={tradesWithTwapSliceFills}
       isMobile={isMobile}
       minTableWidth={totalMinWidth}
       renderRow={renderTradesHistoryRow}
@@ -393,7 +483,7 @@ function PerpTradesHistoryList({
       paginationToBottom={isMobile}
       listLoading={isLoading}
       onViewAll={
-        !isMobile && trades.length > TRADES_HISTORY_PAGE_SIZE
+        !isMobile && tradesWithTwapSliceFills.length > TRADES_HISTORY_PAGE_SIZE
           ? onViewAllUrl
           : undefined
       }
