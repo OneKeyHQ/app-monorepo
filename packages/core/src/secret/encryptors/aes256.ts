@@ -401,6 +401,7 @@ async function encryptAsync({
     iterations: resolvedIterations,
     debugCryptoProbeId,
     kdfBackend,
+    enablePbkdf2Cache: !kdfBackend,
   });
 
   // const dataEncrypted = platformEnv.isNative
@@ -683,6 +684,7 @@ async function decryptAsyncWithMetadata({
       PBKDF2_LEGACY_NUM_OF_ITERATIONS,
     debugCryptoProbeId,
     kdfBackend,
+    enablePbkdf2Cache: !kdfBackend,
   });
 
   if (!ignoreLogger) {

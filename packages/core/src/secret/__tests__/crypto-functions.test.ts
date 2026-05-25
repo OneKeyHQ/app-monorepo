@@ -17,8 +17,12 @@ const {
 const { keyFromPasswordAndSaltSync } = appCrypto.keyGen.$legacyFunctions;
 const { keyFromPasswordAndSalt: keyFromPasswordAndSaltAsync } =
   appCrypto.keyGen;
-const { clearPbkdf2InvocationByProbeId, getPbkdf2InvocationByProbeId, pbkdf2 } =
-  appCrypto.pbkdf2;
+const {
+  clearPbkdf2Cache,
+  clearPbkdf2InvocationByProbeId,
+  getPbkdf2InvocationByProbeId,
+  pbkdf2,
+} = appCrypto.pbkdf2;
 
 /*
 yarn jest packages/core/src/secret/__tests__/crypto-functions.test.ts
@@ -41,6 +45,104 @@ describe('Crypto Functions', () => {
       expect(getPbkdf2InvocationByProbeId(debugCryptoProbeId)?.iterations).toBe(
         PBKDF2_CURRENT_NUM_OF_ITERATIONS,
       );
+    });
+
+    it('should not cache by default', async () => {
+      const firstDebugCryptoProbeId = 'pbkdf2-default-cache-disabled-first';
+      const secondDebugCryptoProbeId = 'pbkdf2-default-cache-disabled-second';
+      const password = Buffer.from('test-password', 'utf8');
+      const salt = Buffer.alloc(PBKDF2_SALT_LENGTH, 'b');
+      clearPbkdf2Cache();
+      clearPbkdf2InvocationByProbeId(firstDebugCryptoProbeId);
+      clearPbkdf2InvocationByProbeId(secondDebugCryptoProbeId);
+
+      const firstResult = await pbkdf2({
+        password,
+        salt,
+        iterations: 2,
+        debugCryptoProbeId: firstDebugCryptoProbeId,
+      });
+      const secondResult = await pbkdf2({
+        password,
+        salt,
+        iterations: 2,
+        debugCryptoProbeId: secondDebugCryptoProbeId,
+      });
+
+      expect(secondResult.toString('hex')).toBe(firstResult.toString('hex'));
+      expect(
+        getPbkdf2InvocationByProbeId(firstDebugCryptoProbeId),
+      ).toBeTruthy();
+      expect(
+        getPbkdf2InvocationByProbeId(secondDebugCryptoProbeId),
+      ).toBeTruthy();
+    });
+
+    it('should cache only when explicitly enabled', async () => {
+      const firstDebugCryptoProbeId = 'pbkdf2-cache-enabled-first';
+      const secondDebugCryptoProbeId = 'pbkdf2-cache-enabled-second';
+      const password = Buffer.from('test-password', 'utf8');
+      const salt = Buffer.alloc(PBKDF2_SALT_LENGTH, 'c');
+      clearPbkdf2Cache();
+      clearPbkdf2InvocationByProbeId(firstDebugCryptoProbeId);
+      clearPbkdf2InvocationByProbeId(secondDebugCryptoProbeId);
+
+      const firstResult = await pbkdf2({
+        password,
+        salt,
+        iterations: 2,
+        debugCryptoProbeId: firstDebugCryptoProbeId,
+        enableCache: true,
+      });
+      const secondResult = await pbkdf2({
+        password,
+        salt,
+        iterations: 2,
+        debugCryptoProbeId: secondDebugCryptoProbeId,
+        enableCache: true,
+      });
+
+      expect(secondResult.toString('hex')).toBe(firstResult.toString('hex'));
+      expect(
+        getPbkdf2InvocationByProbeId(firstDebugCryptoProbeId),
+      ).toBeTruthy();
+      expect(
+        getPbkdf2InvocationByProbeId(secondDebugCryptoProbeId),
+      ).toBeUndefined();
+    });
+
+    it('should treat different salts as different cache keys', async () => {
+      const firstDebugCryptoProbeId = 'pbkdf2-cache-salt-first';
+      const secondDebugCryptoProbeId = 'pbkdf2-cache-salt-second';
+      const password = Buffer.from('test-password', 'utf8');
+      clearPbkdf2Cache();
+      clearPbkdf2InvocationByProbeId(firstDebugCryptoProbeId);
+      clearPbkdf2InvocationByProbeId(secondDebugCryptoProbeId);
+
+      const firstResult = await pbkdf2({
+        password,
+        salt: Buffer.alloc(PBKDF2_SALT_LENGTH, 'd'),
+        iterations: 2,
+        debugCryptoProbeId: firstDebugCryptoProbeId,
+        enableCache: true,
+      });
+      const secondResult = await pbkdf2({
+        password,
+        salt: Buffer.alloc(PBKDF2_SALT_LENGTH, 'e'),
+        iterations: 2,
+        debugCryptoProbeId: secondDebugCryptoProbeId,
+        enableCache: true,
+      });
+
+      expect(secondResult.toString('hex')).not.toBe(
+        firstResult.toString('hex'),
+      );
+      expect(
+        getPbkdf2InvocationByProbeId(firstDebugCryptoProbeId),
+      ).toBeTruthy();
+      expect(
+        getPbkdf2InvocationByProbeId(secondDebugCryptoProbeId),
+      ).toBeTruthy();
     });
   });
 
