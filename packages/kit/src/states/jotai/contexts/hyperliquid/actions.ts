@@ -2058,6 +2058,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const formData = params.formData || get(tradingFormAtom());
       const tradingMode = await tradingModeAtom.get();
 
+      if (formData.orderMode === 'twap') {
+        throw new OneKeyLocalError('TWAP order placement is not available yet');
+      }
+
       if (tradingMode === 'spot') {
         return this.placeSpotOrder.call(set, {
           assetId: params.assetId,

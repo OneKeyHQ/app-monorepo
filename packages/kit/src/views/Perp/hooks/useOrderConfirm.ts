@@ -89,6 +89,14 @@ export function useOrderConfirm(
         return;
       }
 
+      if (formDataSnapshot.orderMode === 'twap') {
+        Toast.error({
+          title: 'Order Failed',
+          message: 'TWAP order placement is not available yet',
+        });
+        return;
+      }
+
       // Trigger mode: validate, snapshot, and submit (no TP/SL, no standard price validation)
       if (formDataSnapshot.orderMode === 'trigger') {
         const triggerOrderType =

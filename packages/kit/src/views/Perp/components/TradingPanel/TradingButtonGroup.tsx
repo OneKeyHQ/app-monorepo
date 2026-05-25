@@ -61,6 +61,9 @@ import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 
+const TWAP_MIN_DURATION_MINUTES = 5;
+const TWAP_MAX_DURATION_MINUTES = 1440;
+
 interface ITradingButtonGroupProps {
   isMobile: boolean;
 }
@@ -317,11 +320,15 @@ function SideButtonInternal({
             { TokenName: spotTradeSymbol },
           );
     }
+    if (formData.orderMode === 'twap') {
+      return side === 'long' ? 'Long TWAP' : 'Short TWAP';
+    }
     return side === 'long'
       ? intl.formatMessage({ id: ETranslations.perp_trade_long })
       : intl.formatMessage({ id: ETranslations.perp_trade_short });
   }, [
     priceError,
+    formData.orderMode,
     isNoEnoughMargin,
     isSpot,
     side,
@@ -335,6 +342,7 @@ function SideButtonInternal({
   const isLong = side === 'long';
   const isTriggerMode = formData.orderMode === 'trigger';
   const isScaleMode = formData.orderMode === 'scale';
+  const isTwapMode = formData.orderMode === 'twap';
 
   const renderLiquidationPrice = () => {
     if (liquidationPrice) {
@@ -473,6 +481,19 @@ function SideButtonInternal({
           return;
         }
       }
+      if (isTwapMode) {
+        const duration = Number(formData.twapDurationMinutes ?? 0);
+        if (
+          !Number.isInteger(duration) ||
+          duration < TWAP_MIN_DURATION_MINUTES ||
+          duration > TWAP_MAX_DURATION_MINUTES
+        ) {
+          Toast.message({
+            title: `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
+          });
+          return;
+        }
+      }
       // Then check size for all order types
       const isSliderMode = formData.sizeInputMode === 'slider';
       const hasSizeEmpty = isSliderMode
@@ -543,6 +564,13 @@ function SideButtonInternal({
           });
           return;
         }
+      }
+
+      if (isTwapMode) {
+        Toast.message({
+          title: 'TWAP order placement is not available yet',
+        });
+        return;
       }
 
       // Validate TPSL only if user has filled in values
