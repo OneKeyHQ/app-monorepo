@@ -45,7 +45,10 @@ import type {
   IWsOpenOrders,
   IWsSpotAssetCtxs,
   IWsSpotState,
+  IWsTwapStates,
   IWsUserFills,
+  IWsUserTwapHistory,
+  IWsUserTwapSliceFills,
   IWsWebData2,
   IWsWebData3,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -1359,6 +1362,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ESubscriptionType.ALL_DEXS_CLEARINGHOUSE_STATE,
         ESubscriptionType.OPEN_ORDERS,
         ESubscriptionType.ALL_DEXS_ASSET_CTXS,
+        ESubscriptionType.TWAP_STATES,
+        ESubscriptionType.USER_TWAP_HISTORY,
+        ESubscriptionType.USER_TWAP_SLICE_FILLS,
         ESubscriptionType.USER_FILLS,
         ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
         ESubscriptionType.ACTIVE_SPOT_ASSET_CTX,
@@ -1914,6 +1920,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         this._emitHyperliquidDataUpdate(
           subscriptionType,
           data as IWsOpenOrders,
+        );
+      } else if (subscriptionType === ESubscriptionType.TWAP_STATES) {
+        this._emitHyperliquidDataUpdate(
+          subscriptionType,
+          data as IWsTwapStates,
+        );
+      } else if (subscriptionType === ESubscriptionType.USER_TWAP_HISTORY) {
+        this._emitHyperliquidDataUpdate(
+          subscriptionType,
+          data as IWsUserTwapHistory,
+        );
+      } else if (subscriptionType === ESubscriptionType.USER_TWAP_SLICE_FILLS) {
+        this._emitHyperliquidDataUpdate(
+          subscriptionType,
+          data as IWsUserTwapSliceFills,
         );
       } else if (subscriptionType === ESubscriptionType.ALL_DEXS_ASSET_CTXS) {
         this.backgroundApi.serviceHyperliquidCache.cacheAllDexsAssetCtxsSnapshot(

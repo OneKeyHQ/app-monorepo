@@ -51,6 +51,7 @@ import type { IEnableTradingWithDepositFallbackResult } from '../../../hooks/use
 import type { IntlShape } from 'react-intl';
 
 const SAVED_FEE_BENCHMARK_RATE = 0.0004;
+const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
 
 function formatOrderPriceDisplay({
   price,
@@ -168,6 +169,7 @@ function OrderConfirmContent({
 
   const isTriggerMode = formData.orderMode === 'trigger';
   const isScaleMode = formData.orderMode === 'scale';
+  const isTwapMode = formData.orderMode === 'twap';
   const isLimitTrigger =
     formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
 
@@ -210,6 +212,26 @@ function OrderConfirmContent({
     szDecimals,
     effectiveSide,
   ]);
+
+  const twapPreview = useMemo(() => {
+    if (!isTwapMode) {
+      return null;
+    }
+    const minutes = Number(formData.twapDurationMinutes ?? 0);
+    const estimatedSlices = Math.max(
+      1,
+      Math.ceil((minutes * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
+    );
+    const averageSliceValue =
+      orderValue.isFinite() && orderValue.gt(0)
+        ? orderValue.dividedBy(estimatedSlices)
+        : undefined;
+    return {
+      minutes,
+      estimatedSlices,
+      averageSliceValue,
+    };
+  }, [formData.twapDurationMinutes, isTwapMode, orderValue]);
 
   const _inferredTpslBadge = useMemo(() => {
     if (!isTriggerMode || !formData.triggerPrice) return null;
@@ -258,7 +280,15 @@ function OrderConfirmContent({
             : ETranslations.perp_trade_short,
       });
 
-  const orderTypeText = isScaleMode ? 'Scale' : actionText;
+  const orderTypeText = useMemo(() => {
+    if (isScaleMode) {
+      return 'Scale';
+    }
+    if (isTwapMode) {
+      return 'TWAP';
+    }
+    return actionText;
+  }, [actionText, isScaleMode, isTwapMode]);
 
   const sizeDisplay = useMemo(() => {
     const sizeString = computedSizeForSide.toFixed(szDecimals);
@@ -421,10 +451,12 @@ function OrderConfirmContent({
         ? ETranslations.dexmarket_details_transactions_buy
         : ETranslations.dexmarket_details_transactions_sell,
   });
-  const actionLabel = isScaleMode
-    ? orderTypeText
-    : (triggerTypeLabel ?? orderTypeText);
-  const shouldShowActionSide = isScaleMode || Boolean(triggerTypeLabel);
+  const actionLabel =
+    isScaleMode || isTwapMode
+      ? orderTypeText
+      : (triggerTypeLabel ?? orderTypeText);
+  const shouldShowActionSide =
+    isScaleMode || isTwapMode || Boolean(triggerTypeLabel);
 
   return (
     <YStack gap="$4" p="$1">
@@ -579,6 +611,68 @@ function OrderConfirmContent({
           </>
         ) : null}
 
+        {isTwapMode && twapPreview ? (
+          <>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Duration
+              </SizableText>
+              <SizableText size="$bodyMdMedium">
+                {twapPreview.minutes} min
+              </SizableText>
+            </XStack>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Estimated Slices
+              </SizableText>
+              <SizableText size="$bodyMdMedium">
+                {twapPreview.estimatedSlices}
+              </SizableText>
+            </XStack>
+            {twapPreview.averageSliceValue ? (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  Average Slice Value
+                </SizableText>
+                <SizableText size="$bodyMdMedium">
+                  {numberFormat(twapPreview.averageSliceValue.toFixed(2), {
+                    formatter: 'value',
+                    formatterOptions: { currency: '$' },
+                  })}
+                </SizableText>
+              </XStack>
+            ) : null}
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perps_reduce_only,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">
+                {formData.twapReduceOnly ? 'Yes' : 'No'}
+              </SizableText>
+            </XStack>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Randomize
+              </SizableText>
+              <SizableText size="$bodyMdMedium">
+                {formData.twapRandomize ? 'Yes' : 'No'}
+              </SizableText>
+            </XStack>
+            <YStack gap="$1">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Market slices execute about every 30s with Hyperliquid's 3%
+                per-slice slippage guard.
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                Native TWAP may not fully fill in poor liquidity and does not
+                support builder fee.
+              </SizableText>
+            </YStack>
+          </>
+        ) : null}
+
         {/* Position Size */}
         <XStack justifyContent="space-between" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -607,7 +701,7 @@ function OrderConfirmContent({
         ) : null}
 
         {/* Price (standard orders only — trigger orders show trigger/execution price above) */}
-        {!isTriggerMode && !isScaleMode ? (
+        {!isTriggerMode && !isScaleMode && !isTwapMode ? (
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
@@ -636,7 +730,7 @@ function OrderConfirmContent({
         )}
 
         {/* OneKey Fee */}
-        {onekeyFee === 0 ? (
+        {onekeyFee === 0 && !isTwapMode ? (
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({

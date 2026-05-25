@@ -15,6 +15,7 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
+  usePerpsActiveTwapOrdersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsAbstractionModeAtom,
@@ -59,6 +60,7 @@ function TabBarItem({
   const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [positionsState] = usePerpsActivePositionAtom();
+  const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
   const [{ balances }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
@@ -86,6 +88,11 @@ function TabBarItem({
       activeAccountAddress: currentAccountAddress,
       dataAccountAddress: spotOpenOrdersState.accountAddress,
       data: spotOpenOrdersState.openOrders,
+    }).length +
+    getPerpsAccountScopedListData({
+      activeAccountAddress: currentAccountAddress,
+      dataAccountAddress: twapOrdersState.accountAddress,
+      data: twapOrdersState.twapOrders,
     }).length;
 
   const holdingsCount = useMemo(() => {

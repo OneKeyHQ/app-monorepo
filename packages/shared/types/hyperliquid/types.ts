@@ -1,5 +1,3 @@
-import type { IPerpServerBannerConfig } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
-
 import type { IFill, IHex, IOrderResponse, IWithdraw3Request } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
@@ -22,6 +20,8 @@ export enum ESubscriptionType {
   OPEN_ORDERS = 'openOrders',
   ALL_DEXS_ASSET_CTXS = 'allDexsAssetCtxs',
   TWAP_STATES = 'twapStates',
+  USER_TWAP_HISTORY = 'userTwapHistory',
+  USER_TWAP_SLICE_FILLS = 'userTwapSliceFills',
   BBO = 'bbo',
   SPOT_STATE = 'spotState',
   SPOT_ASSET_CTXS = 'spotAssetCtxs',
@@ -273,6 +273,23 @@ export interface IPlaceScaleOrderResult {
   response: IOrderResponse;
 }
 
+// ── TWAP Order Types ──
+
+export interface IPlaceTwapOrderParams {
+  assetId: number;
+  isBuy: boolean;
+  size: string;
+  reduceOnly: boolean;
+  minutes: number;
+  randomize: boolean;
+  szDecimals?: number;
+}
+
+export interface ICancelTwapOrderParams {
+  assetId: number;
+  twapId: number;
+}
+
 export interface ISpotOrderParams {
   // Spot assetId = SPOT_ASSET_ID_OFFSET + spotUniverse.index
   assetId: number;
@@ -334,6 +351,26 @@ export interface IPerpAssetMeta {
 }
 
 export type IPerpsAssetMetaMap = Record<string, IPerpAssetMeta>;
+
+export type IPerpServerBannerAlertType =
+  | 'info'
+  | 'warning'
+  | 'critical'
+  | 'success'
+  | 'default'
+  | 'danger'
+  | 'caution';
+
+export interface IPerpServerBannerConfig {
+  id: string;
+  alertType: IPerpServerBannerAlertType;
+  title: string;
+  description: string;
+  href?: string;
+  hrefType?: string;
+  useSystemBrowser?: boolean;
+  canClose?: boolean;
+}
 
 export interface IPerpCommonConfig {
   disablePerp?: boolean;

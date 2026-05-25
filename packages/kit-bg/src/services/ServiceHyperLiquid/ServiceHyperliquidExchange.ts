@@ -57,11 +57,14 @@ import type {
   IOrderParams,
   IOrderRequest,
   IOrderResponse,
+  ITwapCancelResponse,
+  ITwapOrderResponse,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IAgentApprovalRequest,
   IBuilderFeeRequest,
   ICancelOrderParams,
+  ICancelTwapOrderParams,
   ILeverageUpdateRequest,
   IModifyOrderParams,
   IOrderCloseParams,
@@ -69,6 +72,7 @@ import type {
   IPlaceOrderParams,
   IPlaceScaleOrderParams,
   IPlaceScaleOrderResult,
+  IPlaceTwapOrderParams,
   IPositionTpslOrderParams,
   IScaleOrderChild,
   IScaleOrderGroup,
@@ -1549,6 +1553,124 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         >(error),
         error: serializeHyperLiquidError(error),
         extra,
+      });
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async placeTwapOrder(
+    params: IPlaceTwapOrderParams,
+  ): Promise<ITwapOrderResponse> {
+    await this.checkAccountCanTrade();
+
+    const precisionMap = await this._getOrderAssetPrecisionMap([
+      params.assetId,
+    ]);
+    const precision = precisionMap.get(params.assetId);
+    const szDecimals = params.szDecimals ?? precision?.szDecimals ?? 2;
+    const size = formatHlSize(params.size, szDecimals);
+    if (!size) {
+      throw new OneKeyLocalError('TWAP size is too small for HL lot size');
+    }
+
+    const twap = {
+      a: params.assetId,
+      b: params.isBuy,
+      s: size,
+      r: params.reduceOnly,
+      m: params.minutes,
+      t: params.randomize,
+    };
+    const client = await this.getExchangeClientForTrading();
+    const context = await this._buildLogContext();
+    const requestPayload = {
+      twap: {
+        assetId: params.assetId,
+        isBuy: params.isBuy,
+        size,
+        reduceOnly: params.reduceOnly,
+        minutes: params.minutes,
+        randomize: params.randomize,
+      },
+    };
+
+    try {
+      const response = await convertHyperLiquidResponse(() =>
+        client.twapOrder({
+          twap,
+        }),
+      );
+      defaultLogger.perp.hyperliquid.twapOrder({
+        ...context,
+        request: requestPayload,
+        response,
+        extra: {
+          originalParams: params,
+          builder: null,
+        },
+      });
+      void this.backgroundApi.serviceRookieGuide.recordTaskCompleted(
+        ERookieTaskType.PERPS,
+      );
+      return response;
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.twapOrder({
+        ...context,
+        request: requestPayload,
+        response: extractHyperLiquidErrorResponse<
+          ITwapOrderResponse | IApiErrorResponse
+        >(error),
+        error: serializeHyperLiquidError(error),
+        extra: {
+          originalParams: params,
+          builder: null,
+        },
+      });
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async cancelTwapOrder(
+    params: ICancelTwapOrderParams,
+  ): Promise<ITwapCancelResponse> {
+    await this.checkAccountCanTrade();
+
+    const client = await this.getExchangeClientForTrading();
+    const context = await this._buildLogContext();
+    const requestPayload = {
+      assetId: params.assetId,
+      twapId: params.twapId,
+    };
+
+    try {
+      const response = await convertHyperLiquidResponse(() =>
+        client.twapCancel({
+          a: params.assetId,
+          t: params.twapId,
+        }),
+      );
+      defaultLogger.perp.hyperliquid.twapCancel({
+        ...context,
+        request: requestPayload,
+        response,
+        extra: {
+          originalParams: params,
+        },
+      });
+      return response;
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.twapCancel({
+        ...context,
+        request: requestPayload,
+        response: extractHyperLiquidErrorResponse<
+          ITwapCancelResponse | IApiErrorResponse
+        >(error),
+        error: serializeHyperLiquidError(error),
+        extra: {
+          originalParams: params,
+        },
       });
       throw error;
     }

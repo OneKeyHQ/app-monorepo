@@ -86,6 +86,8 @@ import type { LayoutChangeEvent } from 'react-native';
 
 const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
+const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
+const TWAP_MIN_SLICE_NOTIONAL = 10;
 
 interface ITradingButtonGroupProps {
   isMobile: boolean;
@@ -708,6 +710,28 @@ function SideButtonInternal({
         if (!validation.isValid) {
           Toast.message({
             title: validation.errors[0] ?? 'Invalid scale order',
+          });
+          return false;
+        }
+      }
+
+      if (latestIsTwapMode) {
+        const duration = Number(latestFormData.twapDurationMinutes ?? 0);
+        const estimatedSlices = Math.max(
+          1,
+          Math.ceil((duration * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
+        );
+        const totalNotional = latestComputedSizeForSide.multipliedBy(
+          latestEffectivePriceBN,
+        );
+        const averageSliceNotional = totalNotional.dividedBy(estimatedSlices);
+        if (
+          !averageSliceNotional.isFinite() ||
+          averageSliceNotional.lt(TWAP_MIN_SLICE_NOTIONAL)
+        ) {
+          Toast.message({
+            title:
+              'TWAP slice size is too small. Increase size or shorten duration.',
           });
           return false;
         }

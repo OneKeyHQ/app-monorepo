@@ -6,12 +6,14 @@ import { useIntl } from 'react-intl';
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  type IPerpsActiveTwapOrder,
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   useOrderFilterByCurrentTokenAtom,
   usePerpsActiveOpenOrdersAtom,
+  usePerpsActiveTwapOrdersAtom,
   usePerpsScaleOrderGroupsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
@@ -35,6 +37,7 @@ import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 import { ScaleOpenOrdersGroupRow } from '../Components/ScaleOpenOrdersGroupRow';
+import { TwapOpenOrdersRow } from '../Components/TwapOpenOrdersRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -64,6 +67,10 @@ type IOpenOrdersDisplayRow =
       group: IScaleOrderGroup;
       child: IScaleOrderChild;
       order: IPerpsFrontendOrder;
+    }
+  | {
+      type: 'twap';
+      order: IPerpsActiveTwapOrder;
     };
 
 function getFrontendOrderCloid(order: IPerpsFrontendOrder): string | undefined {
@@ -78,7 +85,8 @@ function PerpOpenOrdersList({
   const intl = useIntl();
   const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
-  const [{ groups: scaleOrderGroups }] = usePerpsScaleOrderGroupsAtom();
+  const [scaleOrderGroupsState] = usePerpsScaleOrderGroupsAtom();
+  const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const accountScopedAddress = usePerpsAccountScopedCacheAddress();
   const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
@@ -117,6 +125,32 @@ function PerpOpenOrdersList({
       spotOpenOrdersState.openOrders,
     ],
   );
+  const scopedScaleOrderGroups = useMemo(
+    () =>
+      getPerpsAccountScopedListData({
+        activeAccountAddress: accountScopedAddress,
+        dataAccountAddress: scaleOrderGroupsState.accountAddress,
+        data: scaleOrderGroupsState.groups,
+      }),
+    [
+      accountScopedAddress,
+      scaleOrderGroupsState.accountAddress,
+      scaleOrderGroupsState.groups,
+    ],
+  );
+  const scopedTwapOrders = useMemo(
+    () =>
+      getPerpsAccountScopedListData({
+        activeAccountAddress: accountScopedAddress,
+        dataAccountAddress: twapOrdersState.accountAddress,
+        data: twapOrdersState.twapOrders,
+      }),
+    [
+      accountScopedAddress,
+      twapOrdersState.accountAddress,
+      twapOrdersState.twapOrders,
+    ],
+  );
   const openOrders = useMemo(
     () =>
       [...scopedPerpOpenOrders, ...scopedSpotOpenOrders].toSorted(
@@ -132,15 +166,21 @@ function PerpOpenOrdersList({
     activeAccountAddress: accountScopedAddress,
     dataAccountAddress: spotOpenOrdersState.accountAddress,
   });
+  const twapOrdersReady = isPerpsAccountScopedDataReady({
+    activeAccountAddress: accountScopedAddress,
+    dataAccountAddress: twapOrdersState.accountAddress,
+  });
   const listLoading = Boolean(
     accountScopedAddress &&
     openOrders.length === 0 &&
-    (!perpOpenOrdersReady || !spotOpenOrdersReady),
+    scopedTwapOrders.length === 0 &&
+    (!perpOpenOrdersReady || !spotOpenOrdersReady || !twapOrdersReady),
   );
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);
     void actions.current.loadScaleOrderGroups();
+    void actions.current.loadTwapData();
   }, [actions, currentUser?.accountAddress]);
   useEffect(() => {
     if (isMobile) {
@@ -162,6 +202,15 @@ function PerpOpenOrdersList({
     );
   }, [openOrders, isMobile, filterByCurrentToken, activeTradeInstrument]);
 
+  const filteredTwapOrders = useMemo(() => {
+    if (!isMobile || !filterByCurrentToken || !activeTradeInstrument?.coin) {
+      return scopedTwapOrders;
+    }
+    return scopedTwapOrders.filter(
+      (order) => order.state.coin === activeTradeInstrument.coin,
+    );
+  }, [activeTradeInstrument, filterByCurrentToken, isMobile, scopedTwapOrders]);
+
   const displayRows = useMemo<IOpenOrdersDisplayRow[]>(() => {
     const childByCloid = new Map<
       string,
@@ -171,7 +220,7 @@ function PerpOpenOrdersList({
       number,
       { group: IScaleOrderGroup; child: IScaleOrderChild }
     >();
-    scaleOrderGroups.forEach((group) => {
+    scopedScaleOrderGroups.forEach((group) => {
       group.children.forEach((child) => {
         childByCloid.set(child.cloid, { group, child });
         if (child.oid) {
@@ -250,8 +299,18 @@ function PerpOpenOrdersList({
       }
     });
 
+    filteredTwapOrders.forEach((order) => {
+      rows.push({ type: 'twap', order });
+    });
+
     return rows;
-  }, [filteredOrders, isMobile, scaleGroupExpandedOverrides, scaleOrderGroups]);
+  }, [
+    filteredOrders,
+    filteredTwapOrders,
+    isMobile,
+    scaleGroupExpandedOverrides,
+    scopedScaleOrderGroups,
+  ]);
 
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -408,6 +467,25 @@ function PerpOpenOrdersList({
     [actions],
   );
 
+  const handleCancelTwapOrder = useCallback(
+    async (order: IPerpsActiveTwapOrder) => {
+      await actions.current.ensureTradingEnabled();
+      const symbolMeta =
+        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+          coin: order.state.coin,
+        });
+      if (!symbolMeta) {
+        console.warn(`Token info not found for coin: ${order.state.coin}`);
+        return;
+      }
+      void actions.current.cancelTwapOrder({
+        assetId: symbolMeta.assetId,
+        twapId: order.twapId,
+      });
+    },
+    [actions],
+  );
+
   const toggleScaleGroupExpanded = useCallback(
     (groupId: string, currentExpanded: boolean) => {
       setScaleGroupExpandedOverrides((prev) => ({
@@ -433,6 +511,21 @@ function PerpOpenOrdersList({
     isHovered?: boolean,
     onHoverChange?: (index: number | null) => void,
   ) => {
+    if (item.type === 'twap') {
+      return (
+        <TwapOpenOrdersRow
+          order={item.order}
+          isMobile={isMobile}
+          cellMinWidth={totalMinWidth}
+          columnConfigs={columnsConfig}
+          index={_index}
+          renderMode={renderMode}
+          isHovered={isHovered}
+          onHoverChange={onHoverChange}
+          onCancelOrder={() => void handleCancelTwapOrder(item.order)}
+        />
+      );
+    }
     if (item.type === 'scaleGroup') {
       return (
         <ScaleOpenOrdersGroupRow
@@ -483,6 +576,7 @@ function PerpOpenOrdersList({
       onPullToRefresh={async () => {
         await actions.current.refreshAllPerpsData();
         await actions.current.loadScaleOrderGroups();
+        await actions.current.loadTwapData();
       }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
@@ -513,8 +607,8 @@ function PerpOpenOrdersList({
       ListHeaderComponent={
         isMobile ? (
           <MobileOpenOrdersListHeader
-            totalOrderCount={openOrders.length}
-            canCancelAll={canMutateScopedOrders}
+            totalOrderCount={openOrders.length + scopedTwapOrders.length}
+            canCancelAll={canMutateScopedOrders && openOrders.length > 0}
             scopedAccountAddress={accountScopedAddress}
           />
         ) : null
