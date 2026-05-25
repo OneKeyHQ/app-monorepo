@@ -1,5 +1,6 @@
 const MAX_UTM_VALUE_LENGTH = 128;
 const MAX_UTM_KEY_LENGTH = 64;
+const MAX_UTM_PARAM_COUNT = 8;
 const URL_PROTOCOL_PREFIX_REGEXP = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//u;
 const DUMMY_URL_ORIGIN = 'https://onekey.local';
 const UTM_KEY_REGEXP = /^utm_[a-z0-9_]+$/u;
@@ -63,12 +64,19 @@ export function normalizeLoggerUtmValue(
 
 function collectUtmParamsFromSearchParams(
   searchParams: URLSearchParams,
+  params: ILoggerUtmParams = {},
 ): ILoggerUtmParams {
-  const params: ILoggerUtmParams = {};
+  let paramCount = Object.keys(params).length;
   searchParams.forEach((value, key) => {
     const normalizedKey = normalizeUtmKey(key);
     const normalizedValue = normalizeLoggerUtmValue(value);
     if (normalizedKey && normalizedValue) {
+      if (!Object.prototype.hasOwnProperty.call(params, normalizedKey)) {
+        if (paramCount >= MAX_UTM_PARAM_COUNT) {
+          return;
+        }
+        paramCount += 1;
+      }
       params[normalizedKey] = normalizedValue;
     }
   });
@@ -105,11 +113,9 @@ export function getLoggerUtmParamsFromUrl(
   const hash = parsedUrl.hash;
   const hashQueryIndex = hash.indexOf('?');
   if (hashQueryIndex >= 0) {
-    Object.assign(
+    collectUtmParamsFromSearchParams(
+      new URLSearchParams(hash.slice(hashQueryIndex + 1)),
       params,
-      collectUtmParamsFromSearchParams(
-        new URLSearchParams(hash.slice(hashQueryIndex + 1)),
-      ),
     );
   }
 

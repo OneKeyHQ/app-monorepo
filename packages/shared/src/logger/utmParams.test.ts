@@ -33,6 +33,29 @@ describe('logger utm params helpers', () => {
     });
   });
 
+  it('caps collected utm params across search and hash params', () => {
+    const params = getLoggerUtmParamsFromUrl(
+      [
+        'https://app.onekey.so/perps?',
+        'utm_1=one&utm_2=two&utm_3=three&utm_4=four',
+        '&utm_5=five&utm_6=six&utm_7=seven&utm_8=eight',
+        '#/market?utm_9=nine&utm_1=updated',
+      ].join(''),
+    );
+
+    expect(Object.keys(params)).toHaveLength(8);
+    expect(params).toEqual({
+      utm_1: 'updated',
+      utm_2: 'two',
+      utm_3: 'three',
+      utm_4: 'four',
+      utm_5: 'five',
+      utm_6: 'six',
+      utm_7: 'seven',
+      utm_8: 'eight',
+    });
+  });
+
   it('normalizes utm values and stores them as global event props', () => {
     const captured = captureLoggerUtmParamsFromUrl(
       `https://app.onekey.so/perps?utm_kol=${encodeURIComponent(

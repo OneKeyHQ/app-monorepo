@@ -1,4 +1,5 @@
 import { formatTime } from '../../utils/dateUtils';
+import { getLoggerGlobalUtmParams } from '../utmParams';
 
 import { LogToConsole, LogToServer } from './decorators';
 import { logFn } from './logFn';
@@ -69,6 +70,7 @@ export abstract class BaseScene {
       metadataList,
       durationInfo,
       timestamp,
+      utmParams: getLoggerGlobalUtmParams(),
     });
   }
 
