@@ -1141,12 +1141,7 @@ function HistoryDetails() {
           </InfoItemGroup>
 
           {/* KYT Risk Check */}
-          <TxKYTRiskCheck
-            kytResult={MOCK_KYT_RESULT}
-            onPress={() => {
-              // TODO: navigate to KYT detail modal
-            }}
-          />
+          <TxKYTRiskCheck kytResult={MOCK_KYT_RESULT} />
 
           {/* Notification account */}
           {notificationAccountId ? (

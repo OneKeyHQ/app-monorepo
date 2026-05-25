@@ -11,6 +11,7 @@ export enum EModalAssetDetailRoutes {
   HistoryDetails = 'AssetDetail_HistoryDetails',
   UTXODetails = 'AssetDetail_UTXODetails',
   MarketDetail = 'AssetDetail_MarketDetail',
+  KytRiskDetail = 'AssetDetail_KytRiskDetail',
 }
 
 export type IModalAssetDetailsParamList = {
@@ -59,5 +60,9 @@ export type IModalAssetDetailsParamList = {
   [EModalAssetDetailRoutes.DeFiProtocolDetails]: {
     protocol: IDeFiProtocol;
     protocolInfo?: IProtocolSummary;
+  };
+  [EModalAssetDetailRoutes.KytRiskDetail]: {
+    symbol: string;
+    tokenName: string;
   };
 };

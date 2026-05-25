@@ -2,13 +2,19 @@ import { useCallback, useMemo } from 'react';
 
 import {
   Badge,
+  Dialog,
   Divider,
   Icon,
   SizableText,
   Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import type { IBadgeType } from '@onekeyhq/components/src/content/Badge';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 
 export enum EKytRiskLevel {
   Checking = 'checking',
@@ -22,6 +28,8 @@ export enum EKytRiskLevel {
 
 export type IKytAssetResult = {
   symbol: string;
+  tokenName: string;
+  tokenImageUri?: string;
   level: EKytRiskLevel;
 };
 
@@ -84,10 +92,28 @@ const RISK_LEVEL_CONFIG: Record<
   },
 };
 
-// TODO: replace with real data once backend ships
+const USDT_IMAGE =
+  'https://uni.onekey-asset.com/server-service-onekey/coin-images/Tether-USD-USDT.png';
+const USDC_IMAGE =
+  'https://uni.onekey-asset.com/server-service-onekey/coin-images/USD-Coin-USDC.png';
+
 export const MOCK_KYT_RESULT: IKytCheckResult = {
-  level: EKytRiskLevel.Low,
-  assetsChecked: 1,
+  level: EKytRiskLevel.High,
+  assetsChecked: 2,
+  assets: [
+    {
+      symbol: 'USDC',
+      tokenName: 'USD Coin',
+      tokenImageUri: USDC_IMAGE,
+      level: EKytRiskLevel.Low,
+    },
+    {
+      symbol: 'USDT',
+      tokenName: 'Tether USD',
+      tokenImageUri: USDT_IMAGE,
+      level: EKytRiskLevel.High,
+    },
+  ],
 };
 
 function KytBadge({ level }: { level: EKytRiskLevel }) {
@@ -115,13 +141,32 @@ function KytBadge({ level }: { level: EKytRiskLevel }) {
   );
 }
 
-export function TxKYTRiskCheck({
-  kytResult,
-  onPress,
+function KytAssetSelectionDialogContent({
+  assets,
+  onSelectAsset,
 }: {
-  kytResult?: IKytCheckResult;
-  onPress?: () => void;
+  assets: IKytAssetResult[];
+  onSelectAsset: (asset: IKytAssetResult) => void;
 }) {
+  return (
+    <YStack mx="$-5">
+      {assets.map((asset) => (
+        <ListItem
+          key={asset.symbol}
+          title={asset.symbol}
+          subtitle={asset.tokenName}
+          drillIn
+          onPress={() => onSelectAsset(asset)}
+          renderAvatar={<Token size="lg" tokenImageUri={asset.tokenImageUri} />}
+        />
+      ))}
+    </YStack>
+  );
+}
+
+export function TxKYTRiskCheck({ kytResult }: { kytResult?: IKytCheckResult }) {
+  const navigation = useAppNavigation();
+
   const config = useMemo(() => {
     if (!kytResult) return null;
     return RISK_LEVEL_CONFIG[kytResult.level];
@@ -135,11 +180,42 @@ export function TxKYTRiskCheck({
     return RISK_LEVEL_CONFIG[kytResult.level].subtitle;
   }, [kytResult]);
 
+  const navigateToDetail = useCallback(
+    (asset: IKytAssetResult) => {
+      navigation.push(EModalAssetDetailRoutes.KytRiskDetail, {
+        symbol: asset.symbol,
+        tokenName: asset.tokenName,
+      });
+    },
+    [navigation],
+  );
+
   const handlePress = useCallback(() => {
-    if (config?.drillIn && onPress) {
-      onPress();
+    if (!kytResult) return;
+
+    const assets = kytResult.assets ?? [];
+    if (assets.length > 1) {
+      const dialogInstance = Dialog.show({
+        title: 'Fund-source risk check',
+        description: `${kytResult.assetsChecked} assets checked`,
+        showFooter: false,
+        renderContent: (
+          <KytAssetSelectionDialogContent
+            assets={assets}
+            onSelectAsset={(asset) => {
+              void dialogInstance.close();
+              navigateToDetail(asset);
+            }}
+          />
+        ),
+      });
+      return;
     }
-  }, [config?.drillIn, onPress]);
+
+    if (assets.length === 1) {
+      navigateToDetail(assets[0]);
+    }
+  }, [kytResult, navigateToDetail]);
 
   if (!kytResult || !config) {
     return null;
