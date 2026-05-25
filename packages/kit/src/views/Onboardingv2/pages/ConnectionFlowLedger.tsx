@@ -214,9 +214,10 @@ export default function LedgerConnectionFlow() {
           vendor: EHardwareVendor.ledger,
         },
         isFirmwareVerified: true,
+        tabValue,
       });
     },
-    [ensureStopScan, navigation],
+    [ensureStopScan, navigation, tabValue],
   );
 
   // --- Listing mode ---

@@ -32,6 +32,10 @@ const BtcAddresses = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Receive/pages/BtcAddresses'),
 );
 
+const BtcCoins = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Receive/pages/BtcCoins'),
+);
+
 const ReceiveSelector = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Receive/pages/ReceiveSelector'),
 );
@@ -75,6 +79,10 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
   {
     name: EModalReceiveRoutes.BtcAddresses,
     component: BtcAddresses,
+  },
+  {
+    name: EModalReceiveRoutes.BtcCoins,
+    component: BtcCoins,
   },
   {
     name: EModalReceiveRoutes.ReceiveSelector,
