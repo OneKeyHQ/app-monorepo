@@ -609,7 +609,10 @@ function BasicEarnHome({
           defaultMode={defaultMode}
           onModeChange={handleModeChange}
           earn={
-            <YStack flex={1} gap={20}>
+            <YStack
+              {...(platformEnv.isDesktop ? undefined : { flex: 1 })}
+              gap={20}
+            >
               <YStack>
                 <XStack px="$pagePadding">
                   <Overview
