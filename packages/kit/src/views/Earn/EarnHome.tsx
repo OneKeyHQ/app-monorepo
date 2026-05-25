@@ -97,7 +97,7 @@ function BasicEarnHome({
   const hasPortfolioRows = portfolioData.investments.length > 0;
   const isOverviewRefreshing =
     !(platformEnv.isNative && !showContent) &&
-    (isManualRefreshing || (!!portfolioLoading && !hasPortfolioRows));
+    (isManualRefreshing || !!portfolioLoading);
   const { hideSmallAssets } = useEarnHideSmallAssets();
 
   // Calculate filtered total fiat value when hiding small assets

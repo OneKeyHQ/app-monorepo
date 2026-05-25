@@ -104,30 +104,28 @@ function useRecommendedTokens({
   );
 
   const freshBaseRecommendedTokens = baseRecommendedResult.tokens;
+  const baseRecommendedResultMatchesCurrentRefresh =
+    enableFetch && baseRecommendedResult.refreshVersion === refreshVersion;
+  const hasSettledBaseRecommendedTokens =
+    baseRecommendedResultMatchesCurrentRefresh && isBaseLoading === false;
   const canUseCachedRecommendedTokens =
     cachedRecommendedTokens.length > 0 &&
+    !hasSettledBaseRecommendedTokens &&
     freshBaseRecommendedTokens.length === 0;
   const baseRecommendedTokens = canUseCachedRecommendedTokens
     ? cachedRecommendedTokens
     : freshBaseRecommendedTokens;
-  const hasSettledBaseRecommendedTokens =
-    baseRecommendedResult.refreshVersion === refreshVersion &&
-    (isBaseLoading === false || baseRecommendedTokens.length > 0);
 
   useEffect(() => {
-    if (
-      baseRecommendedResult.refreshVersion !== refreshVersion ||
-      freshBaseRecommendedTokens.length === 0
-    ) {
+    if (!baseRecommendedResultMatchesCurrentRefresh) {
       return;
     }
 
     onBaseRecommendedTokensLoaded(freshBaseRecommendedTokens);
   }, [
-    baseRecommendedResult.refreshVersion,
+    baseRecommendedResultMatchesCurrentRefresh,
     freshBaseRecommendedTokens,
     onBaseRecommendedTokensLoaded,
-    refreshVersion,
   ]);
 
   const recommendedNetworkIds = useMemo(
@@ -238,6 +236,8 @@ function useRecommendedTokens({
     hasSettledBaseRecommendedTokens,
     hasSettledAccountRecommendedTokens,
     canUseAccountRecommendedTokens,
+    accountKey,
+    recommendedNetworkScopeKey,
   };
 }
 
@@ -292,6 +292,8 @@ export function Recommended(
     hasSettledBaseRecommendedTokens,
     hasSettledAccountRecommendedTokens,
     canUseAccountRecommendedTokens,
+    accountKey,
+    recommendedNetworkScopeKey,
   } = useRecommendedTokens({
     accountId: account?.id,
     indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
@@ -312,14 +314,20 @@ export function Recommended(
   });
 
   const noWalletConnected = !account && !indexedAccount;
-  const hasCompletedInitialRecommendedLoadRef = useRef(false);
-  const hasCompletedInitialBalanceLoadRef = useRef(false);
+  const recommendedLoadScopeKey = allNetworkId;
+  const accountLoadScopeKey = `${accountKey}|${recommendedNetworkScopeKey}`;
+  const hasCompletedInitialRecommendedLoadRef = useRef<string | undefined>(
+    undefined,
+  );
+  const hasCompletedInitialBalanceLoadRef = useRef<string | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     if (enableFetch && hasSettledBaseRecommendedTokens) {
-      hasCompletedInitialRecommendedLoadRef.current = true;
+      hasCompletedInitialRecommendedLoadRef.current = recommendedLoadScopeKey;
     }
-  }, [enableFetch, hasSettledBaseRecommendedTokens]);
+  }, [enableFetch, hasSettledBaseRecommendedTokens, recommendedLoadScopeKey]);
 
   useEffect(() => {
     if (
@@ -327,9 +335,10 @@ export function Recommended(
       !noWalletConnected &&
       (hasSettledAccountRecommendedTokens || canUseAccountRecommendedTokens)
     ) {
-      hasCompletedInitialBalanceLoadRef.current = true;
+      hasCompletedInitialBalanceLoadRef.current = accountLoadScopeKey;
     }
   }, [
+    accountLoadScopeKey,
     canUseAccountRecommendedTokens,
     enableFetch,
     hasSettledAccountRecommendedTokens,
@@ -339,9 +348,10 @@ export function Recommended(
   const showInitialSkeleton =
     isLoading === true &&
     recommendedTokens.length === 0 &&
-    !hasCompletedInitialRecommendedLoadRef.current;
+    hasCompletedInitialRecommendedLoadRef.current !== recommendedLoadScopeKey;
   const showInitialBalanceSkeleton =
-    isBalanceLoading && !hasCompletedInitialBalanceLoadRef.current;
+    isBalanceLoading &&
+    hasCompletedInitialBalanceLoadRef.current !== accountLoadScopeKey;
 
   return (
     <RecommendedSection
