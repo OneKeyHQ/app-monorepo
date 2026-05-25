@@ -38,6 +38,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import { useEnableTradingWithDepositFallback } from '../../hooks/useEnableTradingWithDepositFallback';
+import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
@@ -102,6 +103,7 @@ export function PerpTradingButton({
     perpsAccountLoading.selectAccountLoading,
   ]);
   const enableTrading = useEnableTradingWithDepositFallback();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
 
   const handleDepositFromToast = useCallback(() => {
     void showDepositWithdrawModal('deposit');
