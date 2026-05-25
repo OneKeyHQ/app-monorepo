@@ -95,6 +95,7 @@ export * from './hooks';
 export type {
   IDialogCancelProps,
   IDialogConfirmProps,
+  IDialogContainerProps,
   IDialogInstance,
   IDialogShowProps,
 } from './type';
