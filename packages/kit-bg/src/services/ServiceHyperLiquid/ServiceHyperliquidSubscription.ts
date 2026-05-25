@@ -257,8 +257,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const isOrderBookOptionsForCurrentCoin =
       Boolean(currentCoin) && activeOrderBookOptions?.coin === currentCoin;
 
-    // TODO update isConnected by websocket connect/disconnect event
-    const isConnected = this._currentState.isConnected;
+    const isConnected =
+      client?.transport?.socket?.readyState === WebSocket.OPEN;
 
     // Validate parameters before proceeding
     if (
