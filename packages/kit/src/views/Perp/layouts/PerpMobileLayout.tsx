@@ -198,10 +198,19 @@ export function PerpMobileLayout() {
 
       <PerpTickerBar />
       <XStack gap="$2.5" px="$4" pb="$4">
-        <YStack flexBasis="35%" flexShrink={1}>
+        {/*
+          OK-55214 follow-up: use flex-grow ratio (35:65) instead of
+          flexBasis="35%" / "65%" — on iPad iOS the percentage-basis path
+          caches the parent width captured during a landscape → portrait
+          rotation transient (the SUB pane was briefly ~515.5pt), so the
+          children render at the old half-width even after the XStack
+          itself measures the full 1032pt parent. Switching to flex-grow
+          ratio bypasses the basis cache.
+        */}
+        <YStack flex={35} minWidth={0}>
           <PerpOrderBook />
         </YStack>
-        <YStack flexBasis="65%" flexShrink={1}>
+        <YStack flex={65} minWidth={0}>
           <PerpTradingPanel isMobile />
         </YStack>
       </XStack>
