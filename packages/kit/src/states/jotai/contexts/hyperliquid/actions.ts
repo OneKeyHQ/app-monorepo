@@ -1970,6 +1970,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               );
             this.upsertScaleOrderGroupToAtom.call(set, result.group);
             return result;
+          } catch (error) {
+            await this.loadScaleOrderGroups.call(set);
+            throw error;
           } finally {
             set(tradingLoadingAtom(), false);
           }
