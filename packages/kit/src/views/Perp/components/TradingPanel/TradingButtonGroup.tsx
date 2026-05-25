@@ -84,6 +84,9 @@ import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 
 import type { LayoutChangeEvent } from 'react-native';
 
+const TWAP_MIN_DURATION_MINUTES = 5;
+const TWAP_MAX_DURATION_MINUTES = 1440;
+
 interface ITradingButtonGroupProps {
   isMobile: boolean;
   isLiveStatusPending?: boolean;
@@ -411,11 +414,15 @@ function SideButtonInternal({
             { TokenName: spotTradeSymbol },
           );
     }
+    if (formData.orderMode === 'twap') {
+      return side === 'long' ? 'Long TWAP' : 'Short TWAP';
+    }
     return side === 'long'
       ? intl.formatMessage({ id: ETranslations.perp_trade_long })
       : intl.formatMessage({ id: ETranslations.perp_trade_short });
   }, [
     priceError,
+    formData.orderMode,
     isNoEnoughMargin,
     isSpot,
     side,
@@ -612,6 +619,20 @@ function SideButtonInternal({
         ) {
           Toast.message({
             title: `Scale orders must be ${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT} orders`,
+          });
+          return false;
+        }
+      }
+
+      if (latestIsTwapMode) {
+        const duration = Number(latestFormData.twapDurationMinutes ?? 0);
+        if (
+          !Number.isInteger(duration) ||
+          duration < TWAP_MIN_DURATION_MINUTES ||
+          duration > TWAP_MAX_DURATION_MINUTES
+        ) {
+          Toast.message({
+            title: `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
           });
           return false;
         }

@@ -253,6 +253,11 @@ export interface ITradingFormData {
   scaleOrderCount?: string;
   scaleReduceOnly?: boolean;
   scaleTif?: IScaleOrderTif;
+
+  // ── TWAP Order Fields ──
+  twapDurationMinutes?: string;
+  twapRandomize?: boolean;
+  twapReduceOnly?: boolean;
 }
 
 export const { atom: tradingFormAtom, use: useTradingFormAtom } =
@@ -285,6 +290,9 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     scaleOrderCount: '5',
     scaleReduceOnly: false,
     scaleTif: 'Gtc',
+    twapDurationMinutes: '10',
+    twapRandomize: true,
+    twapReduceOnly: false,
   });
 
 export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =

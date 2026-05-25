@@ -127,6 +127,8 @@ const TRIGGER_MODE_TPSL_RESET: Partial<ITradingFormData> = {
   slValue: '',
 };
 const USDC_TOKEN_SYMBOL = 'USDC';
+const TWAP_MIN_DURATION_MINUTES = 5;
+const TWAP_MAX_DURATION_MINUTES = 1440;
 
 function SpotAvailableActionIcon({
   icon,
@@ -707,6 +709,37 @@ function PerpTradingForm({
     tradingComputed.computedSizeBN,
   ]);
 
+  const twapDurationInputMessage = useMemo(() => {
+    if (!isTwapMode) {
+      return undefined;
+    }
+
+    const rawDuration = formData.twapDurationMinutes ?? '';
+    if (!rawDuration) {
+      return {
+        text: 'Duration is required',
+        tone: 'error' as const,
+      };
+    }
+
+    const duration = Number(rawDuration);
+    if (
+      !Number.isInteger(duration) ||
+      duration < TWAP_MIN_DURATION_MINUTES ||
+      duration > TWAP_MAX_DURATION_MINUTES
+    ) {
+      return {
+        text: `Duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
+        tone: 'error' as const,
+      };
+    }
+
+    return {
+      text: 'Hyperliquid TWAP executes market slices over time; no limit price is set.',
+      tone: 'helper' as const,
+    };
+  }, [formData.twapDurationMinutes, isTwapMode]);
+
   const [selectedSymbolPositionValue, selectedSymbolPositionSide] =
     useMemo(() => {
       const value = Number(
@@ -1041,6 +1074,10 @@ function PerpTradingForm({
         label: 'Scale',
         value: 'scale' as ITriggerDropdownValue,
       },
+      {
+        label: 'TWAP',
+        value: 'twap' as ITriggerDropdownValue,
+      },
     ],
     [intl],
   );
@@ -1066,6 +1103,18 @@ function PerpTradingForm({
     }
     const nextValue = Number(value);
     return Number.isInteger(nextValue) && nextValue <= SCALE_ORDER_MAX_COUNT;
+  }, []);
+  const twapDurationValidator = useCallback((value: string) => {
+    if (value === '') {
+      return true;
+    }
+    if (!/^\d{0,4}$/.test(value)) {
+      return false;
+    }
+    const nextValue = Number(value);
+    return (
+      Number.isInteger(nextValue) && nextValue <= TWAP_MAX_DURATION_MINUTES
+    );
   }, []);
   const mobileOrderTypeOptions = useMemo(() => {
     const base = [
@@ -1096,6 +1145,10 @@ function PerpTradingForm({
       {
         label: 'Scale',
         value: 'scale',
+      },
+      {
+        label: 'TWAP',
+        value: 'twap',
       },
     ];
   }, [intl, isSpot]);
@@ -1143,6 +1196,13 @@ function PerpTradingForm({
         return;
       }
       if (nextType === 'twap') {
+        updateForm({
+          ...TRIGGER_MODE_TPSL_RESET,
+          orderMode: 'twap',
+          type: 'market',
+          bboPriceMode: null,
+          hasTpsl: false,
+        });
         return;
       }
       const migrated = migrateTriggerOrderType(nextType);
@@ -1227,6 +1287,38 @@ function PerpTradingForm({
               }
             >
               {scaleOrderInputMessage.text}
+            </SizableText>
+          ) : null}
+        </YStack>
+      );
+    }
+    if (isTwapMode) {
+      return (
+        <YStack gap={isMobile ? '$2.5' : '$3'}>
+          <TradingFormInput
+            label="Duration"
+            placeholder={`${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES}`}
+            value={formData.twapDurationMinutes ?? ''}
+            onChange={(value) => {
+              const nextValue = value.replace(/[^\d]/g, '');
+              updateForm({ twapDurationMinutes: nextValue });
+            }}
+            validator={twapDurationValidator}
+            keyboardType="numeric"
+            suffix="min"
+            isMobile={isMobile}
+            disabled={isSubmitting}
+          />
+          {twapDurationInputMessage ? (
+            <SizableText
+              size="$bodySm"
+              color={
+                twapDurationInputMessage.tone === 'error'
+                  ? '$red10'
+                  : '$textSubdued'
+              }
+            >
+              {twapDurationInputMessage.text}
             </SizableText>
           ) : null}
         </YStack>
@@ -1386,6 +1478,60 @@ function PerpTradingForm({
     if (isSpot) return null;
     if (shouldShowEnableTradingButton && isMobile) {
       return null;
+    }
+    if (isTwapMode) {
+      return (
+        <YStack gap="$1.5" {...(isMobile && { mt: '$1' })} p="$0">
+          <XStack alignItems="center" justifyContent="space-between" gap="$3">
+            <XStack alignItems="center" gap="$2">
+              <Checkbox
+                testID="perp-twap-reduce-only-checkbox"
+                value={formData.twapReduceOnly ?? false}
+                onChange={(checked) =>
+                  updateForm({ twapReduceOnly: !!checked })
+                }
+                disabled={isSubmitting}
+                containerProps={{
+                  p: 0,
+                  alignItems: 'center',
+                  ...(!isMobile && { cursor: 'pointer' }),
+                }}
+                width={checkboxSizeVal}
+                height={checkboxSizeVal}
+                {...(isMobile && { p: '$0' })}
+              />
+              <SizableText
+                size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                color="$text"
+              >
+                {intl.formatMessage({ id: ETranslations.perps_reduce_only })}
+              </SizableText>
+            </XStack>
+            <XStack alignItems="center" gap="$2">
+              <Checkbox
+                testID="perp-twap-randomize-checkbox"
+                value={formData.twapRandomize ?? true}
+                onChange={(checked) => updateForm({ twapRandomize: !!checked })}
+                disabled={isSubmitting}
+                containerProps={{
+                  p: 0,
+                  alignItems: 'center',
+                  ...(!isMobile && { cursor: 'pointer' }),
+                }}
+                width={checkboxSizeVal}
+                height={checkboxSizeVal}
+                {...(isMobile && { p: '$0' })}
+              />
+              <SizableText
+                size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                color="$text"
+              >
+                Randomize
+              </SizableText>
+            </XStack>
+          </XStack>
+        </YStack>
+      );
     }
     if (isScaleMode) {
       return (
