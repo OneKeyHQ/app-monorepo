@@ -53,7 +53,7 @@ interface ISegmentMarkProps {
   disabled: boolean;
   registerRef: (index: number, el: HTMLDivElement | null) => void;
   reportPointerDown: (index: number) => void;
-  children?: ReactNode;
+  customNode?: ReactNode;
 }
 
 const SegmentMark = memo(function SegmentMarkInner({
@@ -65,9 +65,10 @@ const SegmentMark = memo(function SegmentMarkInner({
   disabled,
   registerRef,
   reportPointerDown,
-  children,
+  customNode,
 }: ISegmentMarkProps) {
   const [hovered, setHovered] = useState(false);
+  const hasCustom = customNode !== undefined && customNode !== null;
 
   const handleRef = useCallback(
     (el: HTMLDivElement | null) => registerRef(index, el),
@@ -122,6 +123,10 @@ const SegmentMark = memo(function SegmentMarkInner({
     [defaultBackground, defaultBorder, hovered, hoverGlowColor],
   );
 
+  // When a custom renderMark is provided, it replaces the default visual
+  // entirely (matches native: `if (renderMark) return renderMark({ index })`).
+  // We skip the default circle wrapper AND skip ref registration so
+  // applyMarkActiveStates can't mutate the custom node's styles.
   return (
     <div
       style={hitAreaStyle}
@@ -129,9 +134,7 @@ const SegmentMark = memo(function SegmentMarkInner({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div ref={handleRef} style={visualStyle}>
-        {children}
-      </div>
+      {hasCustom ? customNode : <div ref={handleRef} style={visualStyle} />}
     </div>
   );
 });
@@ -290,16 +293,25 @@ function SegmentSliderComponent({
     [min, range],
   );
 
+  const clampValue = useCallback(
+    (v: number) => Math.max(min, Math.min(max, v)),
+    [min, max],
+  );
+
   const snap = useCallback(
     (v: number): number => {
-      if (!hasSegments) return v;
+      // Guard against min===max (stepValue=0) and other degenerate ranges so
+      // we never hand NaN/Infinity to onChange.
+      if (!hasSegments || stepValue <= 0 || !Number.isFinite(stepValue)) {
+        return clampValue(v);
+      }
       const idx = Math.round((v - min) / stepValue);
       const snapped = min + idx * stepValue;
-      if (forceSnapToStep) return snapped;
-      if (Math.abs(snapped - v) <= snapThreshold) return snapped;
-      return v;
+      if (forceSnapToStep) return clampValue(snapped);
+      if (Math.abs(snapped - v) <= snapThreshold) return clampValue(snapped);
+      return clampValue(v);
     },
-    [hasSegments, min, stepValue, forceSnapToStep, snapThreshold],
+    [hasSegments, min, stepValue, forceSnapToStep, snapThreshold, clampValue],
   );
 
   const emit = useCallback(
@@ -338,13 +350,14 @@ function SegmentSliderComponent({
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (disabled) return;
       const target = e.currentTarget;
+      let captured = false;
       try {
         target.setPointerCapture(e.pointerId);
         pointerIdRef.current = e.pointerId;
+        captured = true;
       } catch {
         /* setPointerCapture can throw on some browsers; ignore */
       }
-      draggingRef.current = true;
       onSlideStart?.();
       setBubbleVisible(true);
       // Mark-originated pointerdown: use the exact step value so a tap on a
@@ -357,10 +370,20 @@ function SegmentSliderComponent({
       } else {
         emit(valueFromClientX(e.clientX));
       }
+      if (!captured) {
+        // Without pointer capture, pointermove/pointerup may never reach the
+        // container if the user drags outside, leaving draggingRef stuck.
+        // Treat this as a single tap: emit once above, then finalize.
+        setBubbleVisible(false);
+        onSlideComplete?.();
+        return;
+      }
+      draggingRef.current = true;
     },
     [
       disabled,
       onSlideStart,
+      onSlideComplete,
       setBubbleVisible,
       hasSegments,
       snapToStep,
@@ -395,8 +418,9 @@ function SegmentSliderComponent({
       pointerIdRef.current = null;
       // No tap-snap here. Marks themselves are the click targets — taps on
       // bare track keep whatever value the click landed at; taps on a mark
-      // are handled by the SegmentMark component (which stops propagation
-      // before this handler runs).
+      // also bubble to this handler, but `markOriginRef` was set by
+      // SegmentMark first and consumed inside handlePointerDown to snap to
+      // the exact step rather than the raw clientX value.
       draggingRef.current = false;
       setBubbleVisible(false);
       onSlideComplete?.();
@@ -574,6 +598,7 @@ function SegmentSliderComponent({
       onPointerMove={handlePointerMove}
       onPointerUp={finishDrag}
       onPointerCancel={finishDrag}
+      onLostPointerCapture={finishDrag}
       onFocus={handleFocus}
       onBlur={handleBlur}
       style={containerStyle}
@@ -592,9 +617,8 @@ function SegmentSliderComponent({
             disabled={disabled}
             registerRef={registerMarkRef}
             reportPointerDown={reportMarkPointerDown}
-          >
-            {renderMark ? renderMark({ index: idx }) : null}
-          </SegmentMark>
+            customNode={renderMark ? renderMark({ index: idx }) : undefined}
+          />
         ))}
 
         <div ref={thumbRef} style={thumbWrapperStyle}>
