@@ -15,29 +15,12 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
-
-export enum EKytRiskLevel {
-  Checking = 'checking',
-  None = 'none',
-  Low = 'low',
-  Moderate = 'moderate',
-  High = 'high',
-  Severe = 'severe',
-  Failed = 'failed',
-}
-
-export type IKytAssetResult = {
-  symbol: string;
-  tokenName: string;
-  tokenImageUri?: string;
-  level: EKytRiskLevel;
-};
-
-export type IKytCheckResult = {
-  level: EKytRiskLevel;
-  assetsChecked?: number;
-  assets?: IKytAssetResult[];
-};
+import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
+import type {
+  IKytAssetResult,
+  IKytCheckResult,
+  IKytRiskDetail,
+} from '@onekeyhq/shared/types/kyt';
 
 const RISK_LEVEL_CONFIG: Record<
   EKytRiskLevel,
@@ -116,6 +99,59 @@ export const MOCK_KYT_RESULT: IKytCheckResult = {
   ],
 };
 
+const MOCK_KYT_DETAIL_MAP: Record<string, IKytRiskDetail> = {
+  USDC: {
+    level: EKytRiskLevel.Low,
+    checkedAt: 'May 19, 2026 14:30',
+    asset: { symbol: 'USDC', tokenImageUri: USDC_IMAGE, networkName: 'Tron' },
+    transferAmount: '+500 USDC',
+    factors: [
+      {
+        category: 'Indirect risk exposure',
+        entity: 'unknown mixer',
+        exposureType: 'Indirect exposure',
+        hops: 4,
+        amountUsd: '$120.00',
+        percent: '8.20%',
+      },
+    ],
+    reportUrl: '',
+  },
+  USDT: {
+    level: EKytRiskLevel.Severe,
+    checkedAt: 'May 19, 2026 14:30',
+    asset: { symbol: 'USDT', tokenImageUri: USDT_IMAGE, networkName: 'Tron' },
+    transferAmount: '+1,250 USDT',
+    factors: [
+      {
+        category: 'Sanctioned entity association',
+        entity: 'huionepay',
+        exposureType: 'Indirect exposure',
+        hops: 2,
+        amountUsd: '$2,373.90',
+        percent: '45.65%',
+      },
+      {
+        category: 'Illicit activity association',
+        entity: 'huionepay',
+        exposureType: 'Indirect exposure',
+        hops: 2,
+        amountUsd: '$2,373.90',
+        percent: '45.65%',
+      },
+      {
+        category: 'Darknet market exposure',
+        entity: 'hydra',
+        exposureType: 'Direct exposure',
+        hops: 1,
+        amountUsd: '$890.00',
+        percent: '12.30%',
+      },
+    ],
+    reportUrl: 'https://misttrack.io/report/example',
+  },
+};
+
 function KytBadge({ level }: { level: EKytRiskLevel }) {
   const config = RISK_LEVEL_CONFIG[level];
 
@@ -182,10 +218,9 @@ export function TxKYTRiskCheck({ kytResult }: { kytResult?: IKytCheckResult }) {
 
   const navigateToDetail = useCallback(
     (asset: IKytAssetResult) => {
-      navigation.push(EModalAssetDetailRoutes.KytRiskDetail, {
-        symbol: asset.symbol,
-        tokenName: asset.tokenName,
-      });
+      const riskDetail = MOCK_KYT_DETAIL_MAP[asset.symbol];
+      if (!riskDetail) return;
+      navigation.push(EModalAssetDetailRoutes.KytRiskDetail, { riskDetail });
     },
     [navigation],
   );

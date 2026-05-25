@@ -1,4 +1,5 @@
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type { IKytRiskDetail } from '@onekeyhq/shared/types/kyt';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import type { IDeFiProtocol, IProtocolSummary } from '../../types/defi';
@@ -62,7 +63,6 @@ export type IModalAssetDetailsParamList = {
     protocolInfo?: IProtocolSummary;
   };
   [EModalAssetDetailRoutes.KytRiskDetail]: {
-    symbol: string;
-    tokenName: string;
+    riskDetail: IKytRiskDetail;
   };
 };
