@@ -680,8 +680,14 @@ export function OrderBook({
   );
   const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
 
-  const bidDepth = new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
-  const askDepth = new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
+  const bidDepth = useMemo(
+    () => new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0'),
+    [aggregatedData.bids],
+  );
+  const askDepth = useMemo(
+    () => new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0'),
+    [aggregatedData.asks],
+  );
 
   const blockColors = useBlockColors();
   const textColor = useTextColor();

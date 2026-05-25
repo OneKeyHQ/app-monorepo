@@ -218,6 +218,9 @@ function useTradeRouteViewStateSync() {
 // always lands once the burst stops.
 const HIGH_FREQ_CHANNEL_THROTTLE_MS = 50;
 
+// ALL_DEXS_ASSET_CTXS fires ~every 500ms; 1s coalesces token-selector row re-renders.
+const ASSET_CTXS_THROTTLE_MS = 1000;
+
 function scheduleThrottledDispatch<T>(
   dirtyRef: { current: T | null },
   timerRef: { current: ReturnType<typeof setTimeout> | null },
@@ -296,24 +299,13 @@ function useHyperliquidEventBusListener() {
           }
 
           case ESubscriptionType.ALL_DEXS_ASSET_CTXS: {
-            assetCtxsDirtyRef.current = data as IWsAllDexsAssetCtxs;
-            if (!assetCtxsTimerRef.current) {
-              const pending = assetCtxsDirtyRef.current;
-              assetCtxsDirtyRef.current = null;
-              startTransition(() => {
-                void actions.current.updateAllDexsAssetCtxs(pending);
-              });
-              assetCtxsTimerRef.current = setTimeout(() => {
-                assetCtxsTimerRef.current = null;
-                if (assetCtxsDirtyRef.current) {
-                  const trailing = assetCtxsDirtyRef.current;
-                  assetCtxsDirtyRef.current = null;
-                  startTransition(() => {
-                    void actions.current.updateAllDexsAssetCtxs(trailing);
-                  });
-                }
-              }, 1000);
-            }
+            scheduleThrottledDispatch(
+              assetCtxsDirtyRef,
+              assetCtxsTimerRef,
+              ASSET_CTXS_THROTTLE_MS,
+              (ctxs) => void actions.current.updateAllDexsAssetCtxs(ctxs),
+              data as IWsAllDexsAssetCtxs,
+            );
             break;
           }
 
