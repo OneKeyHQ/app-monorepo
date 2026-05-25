@@ -20,6 +20,7 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useActiveTradeInstrumentAtom,
   useTradingFormAtom,
+  useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
@@ -110,6 +111,7 @@ function SideButtonInternal({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
 
   const { handleConfirm } = useOrderConfirm();
+  const [isSubmitting] = useTradingLoadingAtom();
   const { midPriceBN } = useTradingPrice();
   const enableTradingWithDepositFallback =
     useEnableTradingWithDepositFallback();
@@ -122,6 +124,10 @@ function SideButtonInternal({
   );
   const perpsAccountKeyRef = useRef(perpsAccountKey);
   perpsAccountKeyRef.current = perpsAccountKey;
+  // handleConfirmRef: always points to the latest handleConfirm so that
+  // after an async await we use fresh formData, not a stale closure.
+  const handleConfirmRef = useRef(handleConfirm);
+  handleConfirmRef.current = handleConfirm;
 
   const szDecimals = useMemo(() => {
     if (isSpot && activeTradeInstrument.mode === 'spot') {
@@ -141,6 +147,11 @@ function SideButtonInternal({
     priceError,
     leverage,
   } = calculations;
+
+  // isNoEnoughMarginRef: always reflects the latest margin state so that
+  // after an async await the guard reads fresh values, not stale closure.
+  const isNoEnoughMarginRef = useRef(isNoEnoughMargin);
+  isNoEnoughMarginRef.current = isNoEnoughMargin;
 
   const marginRequired = useDebounce(marginRequiredRaw, 100);
   const liquidationPrice = useDebounce(liquidationPriceRaw, 100);
@@ -201,6 +212,7 @@ function SideButtonInternal({
       isTradingStatusDisabled ||
       (!shouldAutoEnableTrading && isNoEnoughMargin) ||
       isAccountLoading ||
+      isSubmitting ||
       priceError === 'bbo_unavailable' ||
       isServerActionDisabled
     );
@@ -209,6 +221,7 @@ function SideButtonInternal({
     shouldAutoEnableTrading,
     isNoEnoughMargin,
     isAccountLoading,
+    isSubmitting,
     priceError,
     isServerActionDisabled,
   ]);
@@ -601,7 +614,10 @@ function SideButtonInternal({
           ) {
             return;
           }
-          if (isNoEnoughMargin) {
+          // Use ref so we read the latest form/margin state after the async
+          // enable-trading flow — the render-time closure may be stale if the
+          // user edited the form while the modal was open.
+          if (isNoEnoughMarginRef.current) {
             Toast.message({
               title: intl.formatMessage({
                 id: isSpot
@@ -625,7 +641,9 @@ function SideButtonInternal({
         if (shouldIgnoreEnableTradingResult?.() === true) {
           return;
         }
-        void handleConfirm(side);
+        // Use ref so handleConfirm carries the latest formData snapshot,
+        // not the one captured at click time.
+        void handleConfirmRef.current(side);
       } else {
         showOrderConfirmDialog({
           overrideSide: side,
@@ -768,7 +786,7 @@ function SideButtonInternal({
             !buttonDisabled ? { bg: buttonStyles.pressBg } : undefined
           }
           disabled={buttonDisabled}
-          loading={isAccountLoading}
+          loading={isAccountLoading || isSubmitting}
           onPress={handlePress}
           h={36}
           py={

@@ -519,6 +519,12 @@ function useHyperliquidAccountSelect() {
             pendingSelectRef.current = true;
             return;
           }
+          // The dedup key intentionally excludes account.address (it resolves
+          // asynchronously after account id). Clear it here so that
+          // selectPerpsAccount actually runs for the "same indexed account now
+          // has an ETH address" case — otherwise the unchanged key causes an
+          // early return and the new address is never picked up.
+          lastSelectParamsRef.current = null;
           await selectPerpsAccountRef.current();
         }
       }
