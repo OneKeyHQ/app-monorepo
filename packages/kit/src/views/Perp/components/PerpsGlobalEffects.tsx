@@ -75,7 +75,6 @@ import {
 } from '../../../states/jotai/contexts/hyperliquid';
 import {
   useOrderBookTickOptionsAtom,
-  usePerpsAllAssetCtxsAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import {
@@ -285,7 +284,6 @@ function scheduleThrottledDispatch<T>(
 
 function useHydrateFavoritesBarMarketCache() {
   const actions = useHyperliquidActions();
-  usePerpsAllAssetCtxsAtom();
 
   useEffect(() => {
     void actions.current.hydrateAllDexsAssetCtxsSnapshotCache();
