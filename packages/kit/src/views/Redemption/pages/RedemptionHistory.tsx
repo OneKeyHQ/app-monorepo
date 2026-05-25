@@ -77,21 +77,23 @@ function BtcRewardRecordRow({
     statusConfigs[record.status] ?? statusConfigs[EBtcRewardStatus.Wait];
   const handlePress = useCallback(() => onPress(record), [onPress, record]);
   const hasBtcSnapshot = isBtcRewardSnapshotStatus(record.status);
+  const hasBtcAmount = hasBtcSnapshot && record.btcAmount;
+  const displayDate = formatDate(
+    hasBtcAmount ? record.paidAt || record.submittedAt : record.submittedAt,
+    { hideSeconds: true },
+  );
 
-  const subtitle =
-    hasBtcSnapshot && record.btcAmount
-      ? `${record.btcAmount} cbBTC · ${formatDate(
-          record.paidAt || record.submittedAt,
-          { hideSeconds: true },
-        )}`
-      : `${formatUsd(record.rewardUsd)} · ${formatDate(record.submittedAt, {
-          hideSeconds: true,
-        })}`;
+  const title = hasBtcAmount
+    ? `${record.btcAmount} cbBTC`
+    : formatUsd(record.rewardUsd);
+  const subtitle = hasBtcAmount
+    ? `${formatUsd(record.rewardUsd)} · ${displayDate}`
+    : displayDate;
 
   return (
     <ListItem
       icon="TicketOutline"
-      title={record.batchName}
+      title={title}
       subtitle={subtitle}
       drillIn
       onPress={handlePress}
