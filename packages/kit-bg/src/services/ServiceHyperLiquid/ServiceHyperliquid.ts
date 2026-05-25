@@ -169,11 +169,25 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private activeAssetChangeRequestId = 0;
 
+  private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
+
   private tokenSelectorFavoriteUpdateQueue = Promise.resolve();
 
   @backgroundMethod()
   async cancelPendingActiveAssetChange(): Promise<void> {
     this.activeAssetChangeRequestId += 1;
+  }
+
+  private rememberCommittedActiveAsset(
+    activeAsset: IChangeActiveAssetResult | undefined,
+  ): void {
+    if (
+      activeAsset?.coin &&
+      activeAsset.assetId !== undefined &&
+      activeAsset.universe
+    ) {
+      this.lastCommittedActiveAsset = activeAsset;
+    }
   }
 
   private async updateTokenSelectorFavoriteInBg({
@@ -1678,6 +1692,8 @@ export default class ServiceHyperliquid extends ServiceBase {
   }): Promise<IChangeActiveAssetResult> {
     const requestId = (this.activeAssetChangeRequestId += 1);
     const oldActiveAsset = await perpsActiveAssetAtom.get();
+    this.rememberCommittedActiveAsset(oldActiveAsset);
+    const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
     const shouldSeedSubscriptionTarget = oldCoin !== newCoin;
@@ -1708,13 +1724,13 @@ export default class ServiceHyperliquid extends ServiceBase {
           shouldSeedSubscriptionTarget &&
           requestId === this.activeAssetChangeRequestId
         ) {
-          await perpsActiveAssetAtom.set(oldActiveAsset);
+          await perpsActiveAssetAtom.set(rollbackActiveAsset);
         }
         return {
-          coin: oldActiveAsset?.coin || newCoin || '',
-          assetId: oldActiveAsset?.assetId,
-          universe: oldActiveAsset?.universe,
-          margin: oldActiveAsset?.margin,
+          coin: rollbackActiveAsset?.coin || newCoin || '',
+          assetId: rollbackActiveAsset?.assetId,
+          universe: rollbackActiveAsset?.universe,
+          margin: rollbackActiveAsset?.margin,
         };
       }
 
@@ -1754,6 +1770,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       };
 
       await perpsActiveAssetAtom.set(nextActiveAsset);
+      this.rememberCommittedActiveAsset(nextActiveAsset);
       if (oldCoin !== newCoin) {
         await perpsActiveAssetCtxAtom.set(undefined);
       }
@@ -1763,7 +1780,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         shouldSeedSubscriptionTarget &&
         requestId === this.activeAssetChangeRequestId
       ) {
-        await perpsActiveAssetAtom.set(oldActiveAsset);
+        await perpsActiveAssetAtom.set(rollbackActiveAsset);
       }
       throw error;
     }
