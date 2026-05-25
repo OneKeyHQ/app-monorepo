@@ -62,6 +62,7 @@ import {
 import { getHistoryTxMeta } from '../../utils';
 
 import { InfoItem, InfoItemGroup } from './components/TxDetailsInfoItem';
+import { MOCK_KYT_RESULT, TxKYTRiskCheck } from './components/TxKYTRiskCheck';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
@@ -1138,6 +1139,14 @@ function HistoryDetails() {
               compact
             />
           </InfoItemGroup>
+
+          {/* KYT Risk Check */}
+          <TxKYTRiskCheck
+            kytResult={MOCK_KYT_RESULT}
+            onPress={() => {
+              // TODO: navigate to KYT detail modal
+            }}
+          />
 
           {/* Notification account */}
           {notificationAccountId ? (
