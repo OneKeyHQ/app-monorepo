@@ -1,13 +1,13 @@
-import { isPerfMonitorEnabled } from './enabled';
-import { perfMark } from './mark';
+import { defaultLogger } from '../logger/logger';
 
-const PERPS_COLD_START_MARK_PREFIX = 'perps:cold_start:';
+const PERPS_COLD_START_BENCHMARK_TAG = 'PerpsColdStartBenchmark';
 
 type IPerpsColdStartPerfDetail = Record<string, unknown>;
 
 type IPerpsColdStartPerfGlobal = {
   __perpsColdStartPerfStart?: number;
   __perpsColdStartPerfOnceKeys?: Set<string>;
+  __perpsColdStartPerfSessionId?: number;
 };
 
 function getGlobalPerfState() {
@@ -41,15 +41,22 @@ function getOnceKeys() {
 }
 
 export function isPerpsColdStartPerfEnabled() {
-  return isPerfMonitorEnabled();
+  return true;
+}
+
+function getSessionId() {
+  const state = getGlobalPerfState();
+  if (!state.__perpsColdStartPerfSessionId) {
+    state.__perpsColdStartPerfSessionId = 1;
+  }
+  return state.__perpsColdStartPerfSessionId;
 }
 
 export function resetPerpsColdStartPerfSession() {
-  if (!isPerpsColdStartPerfEnabled()) {
-    return;
-  }
   const state = getGlobalPerfState();
   state.__perpsColdStartPerfStart = getNow();
+  state.__perpsColdStartPerfSessionId =
+    (state.__perpsColdStartPerfSessionId ?? 0) + 1;
   state.__perpsColdStartPerfOnceKeys = new Set<string>();
   markPerpsColdStartPerf('session_reset');
 }
@@ -58,31 +65,31 @@ export function markPerpsColdStartPerf(
   label: string,
   detail?: IPerpsColdStartPerfDetail,
 ) {
-  if (!isPerpsColdStartPerfEnabled()) {
-    return;
-  }
-
   const now = getNow();
   const start = getSessionStart();
   const elapsed = Math.round(now - start);
-  const payload: IPerpsColdStartPerfDetail = {
+  const params: {
+    tag: typeof PERPS_COLD_START_BENCHMARK_TAG;
+    label: string;
+    elapsed: number;
+    sessionId: number;
+    detail?: IPerpsColdStartPerfDetail;
+  } = {
+    tag: PERPS_COLD_START_BENCHMARK_TAG,
+    label,
     elapsed,
+    sessionId: getSessionId(),
   };
   if (detail) {
-    Object.assign(payload, detail);
+    params.detail = detail;
   }
-
-  perfMark(`${PERPS_COLD_START_MARK_PREFIX}${label}`, payload);
+  defaultLogger.perp.hyperliquid.coldStartBenchmark(params);
 }
 
 export function markPerpsColdStartPerfOnce(
   label: string,
   detail?: IPerpsColdStartPerfDetail,
 ) {
-  if (!isPerpsColdStartPerfEnabled()) {
-    return;
-  }
-
   const onceKeys = getOnceKeys();
   if (onceKeys.has(label)) {
     return;

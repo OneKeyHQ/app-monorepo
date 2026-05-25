@@ -354,6 +354,17 @@ export class HyperLiquidScene extends BaseScene {
   }) {
     return params;
   }
+
+  @LogToLocal({ level: 'info' })
+  public coldStartBenchmark(params: {
+    tag: 'PerpsColdStartBenchmark';
+    label: string;
+    elapsed: number;
+    sessionId: number;
+    detail?: Record<string, unknown>;
+  }) {
+    return params;
+  }
 }
 
 export type IHyperLiquidOrderAction =
