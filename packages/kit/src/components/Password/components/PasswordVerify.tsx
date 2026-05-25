@@ -250,7 +250,7 @@ function PasswordVerify({
         return;
       }
       if (
-        !platformEnv.isExtension &&
+        !platformEnv.isExtensionUiSidePanel &&
         isEnable &&
         !passwordInput &&
         status.value === EPasswordVerifyStatus.DEFAULT &&
@@ -280,7 +280,7 @@ function PasswordVerify({
     if (now - lastTime.current > 1000) {
       lastTime.current = now;
       if (
-        !platformEnv.isExtension &&
+        !platformEnv.isExtensionUiSidePanel &&
         isEnable &&
         !passwordInput &&
         status.value === EPasswordVerifyStatus.DEFAULT &&
