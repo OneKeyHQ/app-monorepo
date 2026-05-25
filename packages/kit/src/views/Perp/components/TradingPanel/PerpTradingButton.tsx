@@ -124,12 +124,39 @@ export function PerpTradingButton({
     showDepositWithdrawModal,
   ]);
 
+  const handleDepositFromToast = useCallback(() => {
+    void showDepositWithdrawModal('deposit');
+  }, [showDepositWithdrawModal]);
+
+  const showNoEnoughMarginToast = useCallback(() => {
+    Toast.error({
+      title: isSpot
+        ? intl.formatMessage({
+            id: ETranslations.dexmarket_insufficient_balance,
+          })
+        : intl.formatMessage({
+            id: ETranslations.perp_insufficient_margin__title,
+          }),
+      actions: (
+        <Button
+          testID={PerpTestIDs.MarginToastDepositButton}
+          size="small"
+          variant="primary"
+          onPress={handleDepositFromToast}
+        >
+          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+        </Button>
+      ),
+      actionsAlign: 'left',
+      toastId: `perp-no-enough-margin-${isSpot ? 'spot' : 'perp'}`,
+    });
+  }, [handleDepositFromToast, intl, isSpot]);
+
   const buttonDisabled = useMemo(() => {
     return (
       !computedSize.gt(0) ||
       !perpsAccountStatus.canTrade ||
       isSubmitting ||
-      isNoEnoughMargin ||
       isAccountLoading ||
       isMinimumOrderNotMet ||
       (perpsAccountStatus.canTrade &&
@@ -140,7 +167,6 @@ export function PerpTradingButton({
     computedSize,
     perpsAccountStatus.canTrade,
     isSubmitting,
-    isNoEnoughMargin,
     isAccountLoading,
     isMinimumOrderNotMet,
     perpConfigCommon?.disablePerpActionPerp,
@@ -150,12 +176,6 @@ export function PerpTradingButton({
     if (isSubmitting)
       return intl.formatMessage({
         id: ETranslations.perp_trading_button_placing,
-      });
-    if (isNoEnoughMargin)
-      return intl.formatMessage({
-        id: isSpot
-          ? ETranslations.dexmarket_insufficient_balance
-          : ETranslations.perp_trading_button_no_enough_margin,
       });
     if (isMinimumOrderNotMet)
       return intl.formatMessage(
@@ -169,7 +189,7 @@ export function PerpTradingButton({
     return intl.formatMessage({
       id: ETranslations.perp_trade_button_place_order,
     });
-  }, [isSpot, isSubmitting, isNoEnoughMargin, isMinimumOrderNotMet, intl]);
+  }, [isSubmitting, isMinimumOrderNotMet, intl]);
 
   const isLong = useMemo(() => formData.side === 'long', [formData.side]);
   const buttonStyles = useMemo(() => {
@@ -275,13 +295,23 @@ export function PerpTradingButton({
   ]);
 
   const orderConfirm = useCallback(async () => {
+    if (isNoEnoughMargin) {
+      showNoEnoughMarginToast();
+      return;
+    }
+
     // Validate TPSL prices before proceeding
     if (!(await validateTpslPrices())) {
       return;
     }
 
     handleShowConfirm();
-  }, [validateTpslPrices, handleShowConfirm]);
+  }, [
+    isNoEnoughMargin,
+    showNoEnoughMarginToast,
+    validateTpslPrices,
+    handleShowConfirm,
+  ]);
 
   if (loading || perpsAccountLoading?.selectAccountLoading) {
     return (

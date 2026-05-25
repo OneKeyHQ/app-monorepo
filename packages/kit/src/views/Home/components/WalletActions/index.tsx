@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
-import { Button, Dialog, YStack } from '@onekeyhq/components';
+import { Button, Dialog, SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   OptionCard,
@@ -12,6 +12,7 @@ import {
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
+import { useHomeBalanceState } from '@onekeyhq/kit/src/hooks/useHomeBalanceState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -48,7 +49,7 @@ import { WalletActionReceive } from './WalletActionReceive';
 import { WalletActionStaking } from './WalletActionStaking';
 import { WalletActionSwap } from './WalletActionSwap';
 
-import type { IActionCustomization } from './types';
+import type { IActionCustomization, IWalletActionType } from './types';
 
 function WalletActionSend({
   customization,
@@ -415,10 +416,17 @@ function WalletActionSend({
 }
 
 function WalletActions({ ...rest }: IXStackProps) {
+  const intl = useIntl();
   const { config, getActionCustomization } = useWalletActionConfig();
+  const balanceState = useHomeBalanceState();
 
-  const renderActionComponent = (actionType: string) => {
-    const customization = getActionCustomization(actionType as any);
+  // True cold-start with no cached balance: render nothing rather than guess
+  // a state. Sticky fallback in `useHomeBalanceState` keeps subsequent account
+  // switches from re-entering this branch.
+  if (balanceState === 'unknown') return null;
+
+  const renderActionComponent = (actionType: IWalletActionType) => {
+    const customization = getActionCustomization(actionType);
 
     switch (actionType) {
       case 'send':
@@ -429,6 +437,7 @@ function WalletActions({ ...rest }: IXStackProps) {
             key="receive"
             customization={customization}
             useSelector
+            variant="home_full_row"
           />
         );
       case 'buy':
@@ -455,20 +464,53 @@ function WalletActions({ ...rest }: IXStackProps) {
     }
   };
 
+  const rawActionsLayout = {
+    justifyContent: 'flex-start',
+    gap: '$2.5',
+    $gtSm: {
+      flexDirection: 'row',
+      justifyContent: 'flex-start',
+      gap: '$2.5',
+    },
+  } as const;
+
+  if (balanceState === 'positive') {
+    return (
+      <RawActions {...rest} {...rawActionsLayout}>
+        {config.mainActions.map(renderActionComponent).filter(Boolean)}
+        <WalletActionMore />
+      </RawActions>
+    );
+  }
+
   return (
-    <RawActions
-      {...rest}
-      justifyContent="flex-start"
-      gap="$2.5"
-      $gtSm={{
-        flexDirection: 'row',
-        justifyContent: 'flex-start',
-        gap: '$2.5',
-      }}
-    >
-      {config.mainActions.map(renderActionComponent).filter(Boolean)}
-      <WalletActionMore />
-    </RawActions>
+    <YStack {...rest} gap="$3">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.add_money_to_get_started })}
+      </SizableText>
+      <RawActions {...rawActionsLayout}>
+        <WalletActionReceive
+          key="receive"
+          useSelector
+          variant="home_add_money"
+          renderTrigger={({ onPress, disabled }) => (
+            <Button
+              flex={1}
+              size="large"
+              variant="primary"
+              icon="PlusLargeOutline"
+              onPress={onPress}
+              disabled={disabled}
+              testID={HomeTestIDs.addMoneyButton}
+              $gtSm={{ flex: 0, alignSelf: 'flex-start', minWidth: 200 }}
+            >
+              {intl.formatMessage({ id: ETranslations.global_add_money })}
+            </Button>
+          )}
+        />
+        <WalletActionMore iconOnly />
+      </RawActions>
+    </YStack>
   );
 }
 
