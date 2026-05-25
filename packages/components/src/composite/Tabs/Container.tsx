@@ -318,13 +318,13 @@ export function Container({
   requestRemeasureRef.current = attachObserverForFocusedTab;
 
   useLayoutEffect(() => {
+    isEffectValid.current = true;
     setScrollElement(ref.current);
     // First attach attempt. If the focused tab's inner element isn't
     // registered yet, List.tsx/ScrollView.tsx will call requestRemeasure
     // once it is.
     attachObserverForFocusedTab();
     return () => {
-      isEffectValid.current = false;
       if (resizeObserverRef.current) {
         resizeObserverRef.current.disconnect();
         resizeObserverRef.current = null;
@@ -332,6 +332,16 @@ export function Container({
       observedElementRef.current = null;
     };
   }, [attachObserverForFocusedTab]);
+
+  // isEffectValid lives independently of the ResizeObserver lifecycle so
+  // that re-runs of the attach effect (deps change) don't permanently
+  // disable the component via the cleanup path.
+  useEffect(
+    () => () => {
+      isEffectValid.current = false;
+    },
+    [],
+  );
 
   useLayoutEffect(() => {
     const index = tabNames.findIndex((name) => name === focusedTab.value);
@@ -414,7 +424,7 @@ export function Container({
   );
 
   useEffect(() => {
-    setTimeout(() => {
+    const t = setTimeout(() => {
       if (initialTabName) {
         const index = tabNamesRef.current.findIndex(
           (name) => name === initialTabName,
@@ -428,6 +438,7 @@ export function Container({
         }
       }
     }, 300);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
