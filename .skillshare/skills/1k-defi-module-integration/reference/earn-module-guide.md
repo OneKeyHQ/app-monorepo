@@ -566,9 +566,17 @@ Location: `packages/kit/src/views/Staking/components/StakingActivityIndicator/`
 
 ## Adding a New Protocol
 
+Before implementation or review, also run the regression-oriented checks in
+[earn-regression-playbook.md](earn-regression-playbook.md). Recent Earn
+integrations show that most bugs appear at provider boundaries: order tracking,
+pending tags, claim/withdraw parameter isolation, asset selector state, and
+shared `UniversalStake` / `UniversalWithdraw` behavior.
+
 ### Step 1: Backend API
 
 Ensure the backend supports the new protocol:
+- Provider identity round-trips through API provider values, frontend enum
+  mapping, route params, and share/deep-link URLs
 - `serviceStaking.getAvailableAssetsV2()` returns the protocol
 - `serviceStaking.fetchInvestmentDetailV2()` returns user's position
 - Protocol-specific actions are implemented
