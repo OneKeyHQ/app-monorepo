@@ -388,7 +388,12 @@ function MobilePerpMarket() {
   // Page.Body in that mode, and keep `Page.Header` for the modal route case.
   const pageHeader = useMemo(
     () =>
-      isSplitDetailActive ? null : (
+      isSplitDetailActive ? (
+        // Inline render in the SUB pane: explicitly suppress the navigator's
+        // default header so it doesn't reserve top-of-pane space on top of
+        // our `inlineHeader` XStack inside Page.Body.
+        <Page.Header headerShown={false} />
+      ) : (
         <Page.Header
           headerLeft={renderHeaderTitle}
           headerRight={renderHeaderRight}
