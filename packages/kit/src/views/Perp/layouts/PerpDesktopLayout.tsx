@@ -192,7 +192,11 @@ function PerpDesktopLayout() {
                       </SizableText>
                     </XStack>
                     <YStack flex={1} overflow="hidden">
-                      <PerpOrderBook />
+                      <PerpOrderBook
+                        initialOrderBookHeight={
+                          layout.marketContentHeight - layout.panelHeaderHeight
+                        }
+                      />
                     </YStack>
                   </YStack>
                 ) : null}

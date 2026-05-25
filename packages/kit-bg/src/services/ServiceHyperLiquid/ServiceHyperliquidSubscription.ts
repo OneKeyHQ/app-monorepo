@@ -22,6 +22,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isAppVisible } from '@onekeyhq/shared/src/utils/appVisibility';
 import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import {
   clearTrackedInterval,
   trackedSetInterval,
 } from '@onekeyhq/shared/src/utils/timerRegistry';
@@ -31,6 +35,7 @@ import {
   HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
+  IBook,
   IHex,
   IHyperliquidEventTarget,
   IPerpsActiveAssetDataRaw,
@@ -132,6 +137,40 @@ const ALL_DEXS_ASSET_CTXS_CACHE_WRITE_INTERVAL_MS =
   timerUtils.getTimeDurationMs({
     minute: 1,
   });
+
+const L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS = timerUtils.getTimeDurationMs({
+  seconds: 30,
+});
+
+function setL2BookSnapshotSwrCache({
+  coin,
+  nSigFigs,
+  mantissa,
+  data,
+}: {
+  coin: string;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+  data: IBook;
+}): boolean {
+  try {
+    const exactKey = swrKeys.perpsL2BookSnapshot({
+      coin,
+      nSigFigs,
+      mantissa,
+    });
+    const defaultKey = swrKeys.perpsL2BookSnapshot({ coin });
+    swrCacheUtils.set(exactKey, data);
+    if (defaultKey !== exactKey) {
+      swrCacheUtils.set(defaultKey, data);
+    }
+    swrCacheUtils.flushNow();
+    return true;
+  } catch (error) {
+    console.error('Failed to cache l2Book websocket snapshot to SWR:', error);
+    return false;
+  }
+}
 
 @backgroundClass()
 export default class ServiceHyperliquidSubscription extends ServiceBase {
@@ -926,6 +965,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async disconnect(): Promise<void> {
+    this._flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
     this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
@@ -951,6 +991,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async cleanup(): Promise<void> {
+    this._flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
     this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
@@ -963,6 +1004,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   // Skip per-subscription unsubscribe to avoid async race where stale
   // _destroySubscription completion deletes newly created tracking entries
   private async _forceReconnectTransport(): Promise<void> {
+    this._flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
     this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
@@ -1928,6 +1970,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           subscriptionType,
           data as IWsAllDexsAssetCtxs,
         );
+      } else if (subscriptionType === ESubscriptionType.L2_BOOK) {
+        this._cacheL2BookSnapshot(data as IBook);
+        this._emitHyperliquidDataUpdate(subscriptionType, data);
       } else {
         this._emitHyperliquidDataUpdate(subscriptionType, data);
       }
@@ -1959,6 +2004,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _lastAllDexsAssetCtxsCacheWriteAt = 0;
 
+  private _lastL2BookSnapshotCacheWriteAt = 0;
+
+  private _l2BookSnapshotCacheTimer: ReturnType<typeof setTimeout> | null =
+    null;
+
+  private _pendingL2BookSnapshotCache:
+    | {
+        coin: string;
+        nSigFigs?: number | null;
+        mantissa?: number | null;
+        data: IBook;
+      }
+    | undefined;
+
   private _cacheAllDexsAssetCtxsSnapshot(data: IWsAllDexsAssetCtxs) {
     const now = Date.now();
     if (
@@ -1987,6 +2046,82 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       .catch((error) => {
         console.error('Failed to cache allDexsAssetCtxs snapshot:', error);
       });
+  }
+
+  private _writeL2BookSnapshotCache(
+    payload: NonNullable<typeof this._pendingL2BookSnapshotCache>,
+  ) {
+    this._lastL2BookSnapshotCacheWriteAt = Date.now();
+    const didWriteSwrCache = setL2BookSnapshotSwrCache(payload);
+    markPerpsColdStartPerfOnce('service_l2_book_ws_cache_write_first', {
+      coin: payload.coin,
+      bidLevels: payload.data.levels?.[0]?.length ?? 0,
+      askLevels: payload.data.levels?.[1]?.length ?? 0,
+      nSigFigs: payload.nSigFigs,
+      mantissa: payload.mantissa,
+      swr: didWriteSwrCache,
+    });
+    void this.backgroundApi.simpleDb.perp
+      .setL2BookSnapshotCache(payload)
+      .catch((error) => {
+        console.error('Failed to cache l2Book websocket snapshot:', error);
+      });
+  }
+
+  private _flushPendingL2BookSnapshotCache() {
+    if (this._l2BookSnapshotCacheTimer) {
+      clearTimeout(this._l2BookSnapshotCacheTimer);
+      this._l2BookSnapshotCacheTimer = null;
+    }
+    const pending = this._pendingL2BookSnapshotCache;
+    this._pendingL2BookSnapshotCache = undefined;
+    if (pending) {
+      this._writeL2BookSnapshotCache(pending);
+    }
+  }
+
+  private _cacheL2BookSnapshot(data: IBook) {
+    const coin = data?.coin;
+    const hasLevels = Boolean(
+      data?.levels?.[0]?.length && data?.levels?.[1]?.length,
+    );
+    if (!coin || !hasLevels) {
+      return;
+    }
+
+    const activeOptions = this._currentState.l2BookOptions;
+    const activeBookCoin =
+      this._currentState.tradingMode === 'spot'
+        ? this._currentState.currentSpotSymbol
+        : this._currentState.currentSymbol;
+    const isActiveBook = activeBookCoin === coin;
+    const payload = {
+      coin,
+      nSigFigs: isActiveBook ? (activeOptions?.nSigFigs ?? null) : null,
+      mantissa: isActiveBook ? (activeOptions?.mantissa ?? null) : null,
+      data,
+    };
+    const now = Date.now();
+    const elapsed = now - this._lastL2BookSnapshotCacheWriteAt;
+    if (elapsed >= L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS) {
+      this._pendingL2BookSnapshotCache = undefined;
+      this._writeL2BookSnapshotCache(payload);
+      return;
+    }
+
+    this._pendingL2BookSnapshotCache = payload;
+    if (this._l2BookSnapshotCacheTimer) {
+      return;
+    }
+
+    this._l2BookSnapshotCacheTimer = setTimeout(() => {
+      this._l2BookSnapshotCacheTimer = null;
+      const pending = this._pendingL2BookSnapshotCache;
+      this._pendingL2BookSnapshotCache = undefined;
+      if (pending) {
+        this._writeL2BookSnapshotCache(pending);
+      }
+    }, L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS - elapsed);
   }
 
   private _updateNetworkLiveness() {

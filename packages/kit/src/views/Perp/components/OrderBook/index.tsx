@@ -148,6 +148,8 @@ interface IOrderBookProps {
   asks: IBookLevel[];
   /** The maximum price levels to render per side */
   maxLevelsPerSide?: number;
+  /** Initial container height for the first vertical render before onLayout fires */
+  initialContainerHeight?: number;
   /** Styles for the container (outer) view */
   style?: StyleProp<ViewStyle>;
   /** A function which receives the mid price and can return a
@@ -620,6 +622,7 @@ export function OrderBook({
   bids,
   asks,
   maxLevelsPerSide = 30,
+  initialContainerHeight,
   style,
   midPriceNode: _midPriceNode = defaultMidPriceNode,
   loadingNode = <DefaultLoadingNode variant="web" />,
@@ -632,7 +635,21 @@ export function OrderBook({
   sizeDecimals = 4,
   onSelectLevel,
 }: IOrderBookProps) {
-  const [containerHeight, setContainerHeight] = useState(0);
+  const hasMeasuredHeightRef = useRef(false);
+  const [containerHeight, setContainerHeight] = useState(() =>
+    horizontal ? 0 : (initialContainerHeight ?? 0),
+  );
+  useEffect(() => {
+    if (
+      horizontal ||
+      hasMeasuredHeightRef.current ||
+      !initialContainerHeight ||
+      Math.abs(containerHeight - initialContainerHeight) < 0.5
+    ) {
+      return;
+    }
+    setContainerHeight(initialContainerHeight);
+  }, [containerHeight, horizontal, initialContainerHeight]);
   const verticalLayout = useMemo(
     () =>
       horizontal
@@ -651,6 +668,7 @@ export function OrderBook({
   );
 
   const handleVerticalLayout = useCallback((event: LayoutChangeEvent) => {
+    hasMeasuredHeightRef.current = true;
     const nextHeight = event.nativeEvent.layout.height;
     setContainerHeight((prev) =>
       Math.abs(prev - nextHeight) < 0.5 ? prev : nextHeight,

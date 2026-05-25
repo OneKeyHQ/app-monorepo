@@ -133,7 +133,10 @@ import {
 
 import type ServiceHyperliquidExchange from './ServiceHyperliquidExchange';
 import type ServiceHyperliquidWallet from './ServiceHyperliquidWallet';
-import type { ISimpleDbPerpData } from '../../dbs/simple/entity/SimpleDbEntityPerp';
+import type {
+  IPerpsL2BookSnapshotCacheEntry,
+  ISimpleDbPerpData,
+} from '../../dbs/simple/entity/SimpleDbEntityPerp';
 import type {
   IPerpsAccountLoadingInfo,
   IPerpsActiveAccountAtom,
@@ -172,28 +175,41 @@ type IChangeActiveAssetResult = {
 const PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS = timerUtils.getTimeDurationMs({
   minute: 10,
 });
+const PERPS_L2_BOOK_SNAPSHOT_CACHE_MIN_LEVELS_PER_SIDE = 16;
 
-function setL2BookSnapshotSwrCache({
-  coin,
-  nSigFigs,
-  mantissa,
-  data,
+function getL2BookSnapshotLevelCount(data: IBook | undefined) {
+  return Math.min(
+    data?.levels?.[0]?.length ?? 0,
+    data?.levels?.[1]?.length ?? 0,
+  );
+}
+
+function getL2BookSnapshotCacheEntryLevelCount(
+  entry: IPerpsL2BookSnapshotCacheEntry | undefined,
+) {
+  return getL2BookSnapshotLevelCount(entry?.data);
+}
+
+function isL2BookSnapshotCacheEntryComplete(
+  entry: IPerpsL2BookSnapshotCacheEntry | undefined,
+): entry is IPerpsL2BookSnapshotCacheEntry {
+  return (
+    getL2BookSnapshotCacheEntryLevelCount(entry) >=
+    PERPS_L2_BOOK_SNAPSHOT_CACHE_MIN_LEVELS_PER_SIDE
+  );
+}
+
+function selectL2BookSnapshotCacheEntry({
+  simpleDbEntry,
+  swrEntry,
 }: {
-  coin: string;
-  nSigFigs?: number | null;
-  mantissa?: number | null;
-  data: IBook;
+  simpleDbEntry: IPerpsL2BookSnapshotCacheEntry | undefined;
+  swrEntry: IPerpsL2BookSnapshotCacheEntry | undefined;
 }) {
-  const exactKey = swrKeys.perpsL2BookSnapshot({
-    coin,
-    nSigFigs,
-    mantissa,
-  });
-  const defaultKey = swrKeys.perpsL2BookSnapshot({ coin });
-  swrCacheUtils.set(exactKey, data);
-  if (defaultKey !== exactKey) {
-    swrCacheUtils.set(defaultKey, data);
-  }
+  const candidates = [simpleDbEntry, swrEntry].filter(
+    isL2BookSnapshotCacheEntryComplete,
+  );
+  return candidates.toSorted((a, b) => b.updatedAt - a.updatedAt)[0];
 }
 
 function getL2BookSnapshotSwrCache({
@@ -206,7 +222,7 @@ function getL2BookSnapshotSwrCache({
   nSigFigs?: number | null;
   mantissa?: number | null;
   maxAgeMs: number;
-}): { data: IBook; updatedAt: number } | undefined {
+}): IPerpsL2BookSnapshotCacheEntry | undefined {
   const exactKey = swrKeys.perpsL2BookSnapshot({
     coin,
     nSigFigs,
@@ -220,7 +236,12 @@ function getL2BookSnapshotSwrCache({
       entry?.data?.coin === coin &&
       Date.now() - entry.updatedAt <= maxAgeMs
     ) {
-      return entry;
+      return {
+        data: entry.data,
+        updatedAt: entry.updatedAt,
+        nSigFigs,
+        mantissa,
+      };
     }
   }
   return undefined;
@@ -1189,67 +1210,6 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getL2BookSnapshot({
-    coin,
-    nSigFigs,
-    mantissa,
-  }: {
-    coin: string;
-    nSigFigs?: number | null;
-    mantissa?: number | null;
-  }): Promise<IBook | undefined> {
-    const { infoClient } = hyperLiquidApiClients;
-    const { apiCoin } = this.resolveInfoRequestCoin(coin);
-    markPerpsColdStartPerf('service_l2_book_snapshot_start', {
-      coin,
-      nSigFigs,
-      mantissa,
-    });
-    const params: {
-      coin: string;
-      nSigFigs?: 2 | 3 | 4 | 5;
-      mantissa?: 2 | 5;
-    } = {
-      coin: apiCoin,
-    };
-    if (nSigFigs === 2 || nSigFigs === 3 || nSigFigs === 4 || nSigFigs === 5) {
-      params.nSigFigs = nSigFigs;
-    }
-    if (mantissa === 2 || mantissa === 5) {
-      params.mantissa = mantissa;
-    }
-    const result = await infoClient.l2Book(params);
-    if (!result) {
-      markPerpsColdStartPerf('service_l2_book_snapshot_empty', {
-        coin,
-      });
-      return undefined;
-    }
-    markPerpsColdStartPerf('service_l2_book_snapshot_end', {
-      coin,
-      bidLevels: result.levels?.[0]?.length ?? 0,
-      askLevels: result.levels?.[1]?.length ?? 0,
-    });
-    void this.backgroundApi.simpleDb.perp
-      .setL2BookSnapshotCache({
-        coin,
-        nSigFigs,
-        mantissa,
-        data: result as IBook,
-      })
-      .catch((error) => {
-        console.error('Failed to cache l2Book snapshot:', error);
-      });
-    setL2BookSnapshotSwrCache({
-      coin,
-      nSigFigs,
-      mantissa,
-      data: result as IBook,
-    });
-    return result as IBook;
-  }
-
-  @backgroundMethod()
   async getL2BookSnapshotCache({
     coin,
     nSigFigs,
@@ -1272,28 +1232,32 @@ export default class ServiceHyperliquid extends ServiceBase {
         maxAgeMs: PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
       },
     );
-    const swrEntry =
-      entry?.data === undefined
-        ? getL2BookSnapshotSwrCache({
-            coin,
-            nSigFigs,
-            mantissa,
-            maxAgeMs: PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
-          })
-        : undefined;
-    const cacheEntry = entry?.data ? entry : swrEntry;
+    const swrEntry = getL2BookSnapshotSwrCache({
+      coin,
+      nSigFigs,
+      mantissa,
+      maxAgeMs: PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
+    });
+    const cacheEntry = selectL2BookSnapshotCacheEntry({
+      simpleDbEntry: entry,
+      swrEntry,
+    });
     if (!cacheEntry?.data) {
       markPerpsColdStartPerf('service_l2_book_cache_miss', {
         coin,
+        simpleDbLevels: getL2BookSnapshotCacheEntryLevelCount(entry),
+        swrLevels: getL2BookSnapshotCacheEntryLevelCount(swrEntry),
       });
       return undefined;
     }
     markPerpsColdStartPerf('service_l2_book_cache_hit', {
       coin,
-      source: entry?.data ? 'simpleDb' : 'swr',
+      source: cacheEntry === entry ? 'simpleDb' : 'swr',
       ageMs: Date.now() - cacheEntry.updatedAt,
       bidLevels: cacheEntry.data.levels?.[0]?.length ?? 0,
       askLevels: cacheEntry.data.levels?.[1]?.length ?? 0,
+      simpleDbLevels: getL2BookSnapshotCacheEntryLevelCount(entry),
+      swrLevels: getL2BookSnapshotCacheEntryLevelCount(swrEntry),
     });
     return cacheEntry.data;
   }

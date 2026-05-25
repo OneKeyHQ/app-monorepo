@@ -322,9 +322,11 @@ const MOBILE_SPOT_MAX_LEVELS_PER_SIDE = 4;
 export function PerpOrderBook({
   entry,
   maxLevelsPerSide: propMaxLevelsPerSide,
+  initialOrderBookHeight,
 }: {
   entry?: 'perpTab' | 'perpMobileMarket';
   maxLevelsPerSide?: number;
+  initialOrderBookHeight?: number;
 }) {
   const { gtMd } = useMedia();
   const actionsRef = useHyperliquidActions();
@@ -364,24 +366,35 @@ export function PerpOrderBook({
   }, [hasOrderBook, l2Book]);
 
   useEffect(() => {
-    if (!activeTradeInstrument.coin) {
+    const coin = activeTradeInstrument.coin;
+    if (!coin) {
       return;
     }
-    const requestKey = [
-      activeTradeInstrument.mode,
-      activeTradeInstrument.coin,
-      l2SubscriptionOptions.nSigFigs ?? '',
-      l2SubscriptionOptions.mantissa ?? '',
-    ].join(':');
-    if (l2BookSnapshotRequestKeyRef.current === requestKey) {
-      return;
-    }
-    l2BookSnapshotRequestKeyRef.current = requestKey;
     let cancelled = false;
+    const getRequestOptions = async () => {
+      if (orderBookTickOptions[coin]) {
+        return l2SubscriptionOptions;
+      }
+      const storedOptions =
+        await backgroundApiProxy.simpleDb.perp.getOrderBookTickOptions();
+      const stored = storedOptions[coin];
+      if (!stored) {
+        return l2SubscriptionOptions;
+      }
+      markPerpsColdStartPerfOnce('ui_l2_book_persisted_tick_loaded_first', {
+        coin,
+        nSigFigs: stored.nSigFigs,
+        mantissa: stored.mantissa,
+      });
+      return {
+        nSigFigs: stored.nSigFigs ?? null,
+        mantissa: stored.mantissa === undefined ? undefined : stored.mantissa,
+      };
+    };
     const applyBook = (
       book: Awaited<
         ReturnType<
-          typeof backgroundApiProxy.serviceHyperliquid.getL2BookSnapshot
+          typeof backgroundApiProxy.serviceHyperliquid.getL2BookSnapshotCache
         >
       >,
     ) => {
@@ -391,13 +404,25 @@ export function PerpOrderBook({
       void actionsRef.current.updateL2Book(book);
     };
 
-    void backgroundApiProxy.serviceHyperliquid
-      .getL2BookSnapshotCache({
-        coin: activeTradeInstrument.coin,
-        nSigFigs: l2SubscriptionOptions.nSigFigs,
-        mantissa: l2SubscriptionOptions.mantissa,
-      })
-      .then((book) => {
+    void (async () => {
+      const requestOptions = await getRequestOptions();
+      const requestKey = [
+        activeTradeInstrument.mode,
+        coin,
+        requestOptions.nSigFigs ?? '',
+        requestOptions.mantissa ?? '',
+      ].join(':');
+      if (cancelled || l2BookSnapshotRequestKeyRef.current === requestKey) {
+        return;
+      }
+      l2BookSnapshotRequestKeyRef.current = requestKey;
+      try {
+        const book =
+          await backgroundApiProxy.serviceHyperliquid.getL2BookSnapshotCache({
+            coin,
+            nSigFigs: requestOptions.nSigFigs,
+            mantissa: requestOptions.mantissa,
+          });
         applyBook(book);
         if (book) {
           markPerpsColdStartPerfOnce('ui_l2_book_cache_applied_first', {
@@ -406,37 +431,11 @@ export function PerpOrderBook({
             askLevels: book.levels?.[1]?.length ?? 0,
           });
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         markPerpsColdStartPerfOnce('ui_l2_book_cache_error_first');
         console.error('[PerpOrderBook] Failed to load l2Book cache:', error);
-      });
-
-    markPerpsColdStartPerfOnce('ui_l2_book_snapshot_request_first', {
-      coin: activeTradeInstrument.coin,
-      mode: activeTradeInstrument.mode,
-    });
-    void backgroundApiProxy.serviceHyperliquid
-      .getL2BookSnapshot({
-        coin: activeTradeInstrument.coin,
-        nSigFigs: l2SubscriptionOptions.nSigFigs,
-        mantissa: l2SubscriptionOptions.mantissa,
-      })
-      .then((book) => {
-        applyBook(book);
-        if (!book) {
-          return;
-        }
-        markPerpsColdStartPerfOnce('ui_l2_book_snapshot_applied_first', {
-          coin: book.coin,
-          bidLevels: book.levels?.[0]?.length ?? 0,
-          askLevels: book.levels?.[1]?.length ?? 0,
-        });
-      })
-      .catch((error) => {
-        markPerpsColdStartPerfOnce('ui_l2_book_snapshot_error_first');
-        console.error('[PerpOrderBook] Failed to load l2Book snapshot:', error);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -444,8 +443,8 @@ export function PerpOrderBook({
     actionsRef,
     activeTradeInstrument.coin,
     activeTradeInstrument.mode,
-    l2SubscriptionOptions.mantissa,
-    l2SubscriptionOptions.nSigFigs,
+    orderBookTickOptions,
+    l2SubscriptionOptions,
   ]);
 
   const tickOptionsData = useTickOptions({
@@ -656,6 +655,7 @@ export function PerpOrderBook({
           bids={l2Book.bids}
           asks={l2Book.asks}
           maxLevelsPerSide={desktopMaxLevelsPerSide}
+          initialContainerHeight={initialOrderBookHeight}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
           tickOptions={tickOptions}
