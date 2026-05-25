@@ -30,7 +30,6 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
 import { PerpGuidePopover } from '../components/Guide/PerpGuidePopover';
 import { PerpContentFooter } from '../components/PerpContentFooter';
-
 import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
