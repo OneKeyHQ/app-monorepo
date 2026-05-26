@@ -536,8 +536,12 @@ export function SearchResultContent({
       {showLocalhostDevSettingHint ? (
         <ListItem
           icon="CodeOutline"
-          title="Local URLs are blocked by default"
-          subtitle='Enable "Allow local URLs in DApp Browser" in Developer settings'
+          title={intl.formatMessage({
+            id: ETranslations.browser_local_urls_blocked__title,
+          })}
+          subtitle={intl.formatMessage({
+            id: ETranslations.browser_local_urls_dev_setting__desc,
+          })}
           subtitleProps={{
             numberOfLines: 2,
           }}

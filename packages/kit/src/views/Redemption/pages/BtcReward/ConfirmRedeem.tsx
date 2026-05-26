@@ -29,7 +29,6 @@ type IRouteParams = RouteProp<
     BtcRewardConfirm: {
       codeInfo: IBtcRewardCodeInfoParam;
       voucherCode: string;
-      displayTitle: string;
       walletAddress: string;
     };
   },
@@ -40,7 +39,7 @@ function ConfirmRedeemPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const route = useRoute<IRouteParams>();
-  const { codeInfo, voucherCode, displayTitle, walletAddress } = route.params;
+  const { codeInfo, voucherCode, walletAddress } = route.params;
   const { codeId, rewardUsd } = codeInfo;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -134,11 +133,9 @@ function ConfirmRedeemPage() {
           <YStack bg="$bgSubdued" borderRadius="$3" p="$4" gap="$2.5">
             <XStack justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.redemption_btc_label_product,
-                })}
+                {intl.formatMessage({ id: ETranslations.global_network })}
               </SizableText>
-              <SizableText size="$bodyMdMedium">{displayTitle}</SizableText>
+              <SizableText size="$bodyMdMedium">Base</SizableText>
             </XStack>
 
             <Divider />

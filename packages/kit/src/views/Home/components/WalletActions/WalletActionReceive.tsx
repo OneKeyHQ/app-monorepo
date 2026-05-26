@@ -29,9 +29,11 @@ function WalletActionReceive({
   customization,
   renderTrigger,
   source,
+  variant,
   sameModal,
   useSelector,
   showButtonStyle,
+  highlighted,
 }: {
   customization?: IActionCustomization;
   renderTrigger?: (props: {
@@ -39,9 +41,11 @@ function WalletActionReceive({
     disabled: boolean;
   }) => ReactElement;
   source?: IWalletActionBaseParams['source'];
+  variant?: IWalletActionBaseParams['variant'];
   sameModal?: boolean;
   useSelector?: boolean;
   showButtonStyle?: boolean;
+  highlighted?: boolean;
 } = {}) {
   const intl = useIntl();
   const {
@@ -110,6 +114,7 @@ function WalletActionReceive({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: source ?? 'homePage',
+      variant,
       isSoftwareWalletOnlyUser,
     });
     if (customization?.onPress) {
@@ -129,6 +134,7 @@ function WalletActionReceive({
     isBotWallet,
     isBotWalletDeactivated,
     source,
+    variant,
     isSoftwareWalletOnlyUser,
     customization,
     handleOnReceive,
@@ -147,6 +153,7 @@ function WalletActionReceive({
     <RawActions.Receive
       disabled={customization?.disabled ?? isReceiveDisabled}
       allowPressWhenDisabled={isBotWalletDeactivated}
+      highlighted={Boolean(highlighted && !isReceiveDisabled)}
       onPress={handleReceiveOnPress}
       label={
         customization?.labelId
