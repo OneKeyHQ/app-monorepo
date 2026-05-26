@@ -47,21 +47,35 @@ type IChainListSearchRoute = RouteProp<
   | EModalSettingRoutes.SettingChainListSearch
 >;
 
-function pickBestRpcUrl(rpcUrls: string[]): string {
-  const httpUrls = rpcUrls.filter(
+type IMeasuredRpcUrl = {
+  rpcUrl: string;
+  responseTime: number;
+};
+
+function getCandidateRpcUrls(rpcUrls: string[]): string[] {
+  return rpcUrls.filter(
     (url) =>
       !url.includes('${') &&
       (url.startsWith('https://') || url.startsWith('http://')),
   );
-  const httpsUrl = httpUrls.find((url) => url.startsWith('https://'));
-  if (httpsUrl) return httpsUrl;
-  if (httpUrls.length > 0) return httpUrls[0];
-  // Fallback: leave empty so user fills it manually
-  return '';
 }
 
 function normalizeSearchKeywords(text?: string): string {
   return text?.trim() ?? '';
+}
+
+function pickFastestRpcUrl({
+  results,
+  fallbackRpcUrl,
+}: {
+  results: PromiseSettledResult<IMeasuredRpcUrl>[];
+  fallbackRpcUrl: string;
+}): string {
+  const availableRpcUrls = results
+    .filter((result) => result.status === 'fulfilled')
+    .map((result) => result.value)
+    .toSorted((a, b) => a.responseTime - b.responseTime);
+  return availableRpcUrls[0]?.rpcUrl ?? fallbackRpcUrl;
 }
 
 function ChainListSearchSkeletonList() {
@@ -104,6 +118,9 @@ function ChainListSearch() {
     new Set(),
   );
   const [hasError, setHasError] = useState(false);
+  const [measuringChainId, setMeasuringChainId] = useState<
+    number | undefined
+  >();
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSearchingRef = useRef(false);
@@ -172,6 +189,13 @@ function ChainListSearch() {
   useEffect(() => {
     void reloadDefaultList();
   }, [reloadDefaultList]);
+
+  const visibleItems = useMemo(
+    () => items.filter((item) => getCandidateRpcUrls(item.rpc).length > 0),
+    [items],
+  );
+
+  const isMeasuringRpc = measuringChainId !== undefined;
 
   // Load more pages (pagination)
   const handleEndReached = useCallback(async () => {
@@ -304,20 +328,59 @@ function ChainListSearch() {
   );
 
   const handleSelectNetwork = useCallback(
-    (item: IChainListItem) => {
+    async (item: IChainListItem) => {
+      if (isMeasuringRpc) {
+        return;
+      }
+      const candidateRpcUrls = getCandidateRpcUrls(item.rpc);
+      if (!candidateRpcUrls.length) {
+        return;
+      }
       defaultLogger.setting.page.chainListNetworkSelected({
         chainId: String(item.chainId),
         networkName: item.name,
       });
+      let rpcUrl = candidateRpcUrls[0];
+      if (candidateRpcUrls.length > 1) {
+        setMeasuringChainId(item.chainId);
+        try {
+          const results = await Promise.allSettled(
+            candidateRpcUrls.map(async (candidateRpcUrl) => {
+              const result =
+                await backgroundApiProxy.serviceCustomRpc.measureCustomNetworkRpcStatus(
+                  {
+                    rpcUrl: candidateRpcUrl,
+                    chainId: item.chainId,
+                  },
+                );
+              return {
+                rpcUrl: candidateRpcUrl,
+                responseTime: result.responseTime,
+              };
+            }),
+          );
+          rpcUrl = pickFastestRpcUrl({
+            results,
+            fallbackRpcUrl: candidateRpcUrls[0],
+          });
+        } finally {
+          if (mountedRef.current) {
+            setMeasuringChainId(undefined);
+          }
+        }
+      }
+      if (!mountedRef.current) {
+        return;
+      }
       pushFormPage({
         networkName: item.name,
-        rpcUrl: pickBestRpcUrl(item.rpc),
+        rpcUrl,
         chainId: item.chainId,
         symbol: item.nativeCurrency?.symbol ?? '',
         blockExplorerUrl: item.explorers?.[0]?.url ?? '',
       });
     },
-    [pushFormPage],
+    [isMeasuringRpc, pushFormPage, mountedRef],
   );
 
   const handleManualAdd = useCallback(() => {
@@ -356,25 +419,43 @@ function ChainListSearch() {
   const renderItem = useCallback(
     ({ item }: { item: IChainListItem }) => {
       const isExisting = isNetworkExisting(item.chainId);
+      const isMeasuring = measuringChainId === item.chainId;
+      const rightContent = (() => {
+        if (isMeasuring) {
+          return <Spinner size="small" />;
+        }
+        if (isExisting) {
+          return (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.added })}
+            </SizableText>
+          );
+        }
+        return null;
+      })();
       return (
         <ListItem
           h={60}
-          disabled={isExisting}
+          disabled={isExisting || isMeasuringRpc}
           opacity={isExisting ? 0.5 : 1}
           renderAvatar={<LetterAvatar letter={item.name?.[0]} size="$10" />}
           title={item.name}
           subtitle={`Symbol: ${item.nativeCurrency?.symbol ?? '-'}    ID: ${item.chainId}`}
-          onPress={() => handleSelectNetwork(item)}
+          onPress={() => {
+            void handleSelectNetwork(item);
+          }}
         >
-          {isExisting ? (
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.added })}
-            </SizableText>
-          ) : null}
+          {rightContent}
         </ListItem>
       );
     },
-    [isNetworkExisting, intl, handleSelectNetwork],
+    [
+      isNetworkExisting,
+      measuringChainId,
+      isMeasuringRpc,
+      intl,
+      handleSelectNetwork,
+    ],
   );
 
   const listFooter = useMemo(() => {
@@ -430,7 +511,7 @@ function ChainListSearch() {
           <ChainListSearchSkeletonList />
         ) : (
           <ListView
-            data={items}
+            data={visibleItems}
             estimatedItemSize={60}
             keyExtractor={(item) => String(item.chainId)}
             renderItem={renderItem}

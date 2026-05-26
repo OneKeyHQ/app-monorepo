@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -308,6 +309,24 @@ class ServiceCustomRpc extends ServiceBase {
     return {
       chainId: result.chainId,
     };
+  }
+
+  @backgroundMethod()
+  public async measureCustomNetworkRpcStatus(params: {
+    rpcUrl: string;
+    chainId: number;
+  }) {
+    const vault = await vaultFactory.getChainOnlyVault({
+      networkId: getNetworkIdsMap().eth,
+    });
+    const result = await vault.getCustomRpcEndpointStatus({
+      rpcUrl: params.rpcUrl,
+      validateChainId: false,
+    });
+    if (Number(result.chainId) !== Number(params.chainId)) {
+      throw new OneKeyError('Invalid chainId');
+    }
+    return result;
   }
 
   async upsertCustomNetworkInfo({
