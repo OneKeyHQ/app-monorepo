@@ -31,6 +31,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
@@ -141,7 +142,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       reason,
       walletId,
       Date.now().toString(36),
-      Math.random().toString(36).slice(2),
+      stringUtils.randomString(24),
     ].join(':');
   }
 
