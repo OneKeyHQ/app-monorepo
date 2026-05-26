@@ -1,5 +1,6 @@
 import {
   ESecretEncryptPayloadFormat,
+  decryptImportedCredentialWithMetadata,
   decryptRevealableSeedWithMetadata,
   decryptVerifyStringWithMetadata,
   encodePasswordAsync,
@@ -28,6 +29,8 @@ import type {
   IDBWallet,
   ILocalDBTxAddRecordsParams,
   ILocalDBTxAddRecordsResult,
+  ILocalDBTxGetAllRecordsParams,
+  ILocalDBTxGetAllRecordsResult,
   ILocalDBTxUpdateRecordsParams,
 } from './types';
 
@@ -122,9 +125,33 @@ class TestLocalDb extends LocalDbBase {
     return this.credentials.map((credential) => ({ ...credential }));
   }
 
+  override async txGetAllRecords<T extends ELocalDBStoreNames>({
+    name,
+  }: ILocalDBTxGetAllRecordsParams<T>): Promise<
+    ILocalDBTxGetAllRecordsResult<T>
+  > {
+    if (name === ELocalDBStoreNames.Credential) {
+      const records = this.credentials.map((credential) => ({
+        ...credential,
+      }));
+      return {
+        records: records as ILocalDBTxGetAllRecordsResult<T>['records'],
+        recordPairs: records.map((record) => [
+          record,
+          null,
+        ]) as ILocalDBTxGetAllRecordsResult<T>['recordPairs'],
+      };
+    }
+    return {
+      records: [],
+      recordPairs: [],
+    };
+  }
+
   override async txUpdateRecords<T extends ELocalDBStoreNames>({
     name,
     ids = [],
+    recordPairs,
     updater,
   }: ILocalDBTxUpdateRecordsParams<T>): Promise<void> {
     if (name === ELocalDBStoreNames.Context) {
@@ -139,9 +166,12 @@ class TestLocalDb extends LocalDbBase {
       const updateCredential = updater as (
         credential: IDBCredentialBase,
       ) => IDBCredentialBase | Promise<IDBCredentialBase>;
+      const recordPairIds =
+        recordPairs?.map((pair) => pair[0].id).filter(Boolean) ?? [];
+      const targetIds = ids.length ? ids : recordPairIds;
       this.credentials = await Promise.all(
         this.credentials.map(async (credential) => {
-          if (ids.includes(credential.id)) {
+          if (targetIds.includes(credential.id)) {
             return updateCredential({ ...credential });
           }
           return credential;
@@ -481,5 +511,151 @@ describe('LocalDbBase.lazyUpgradeLocalPasswordEncryptedRecords', () => {
     expect(hdCredentialResult.iterations).toBe(
       PBKDF2_CURRENT_NUM_OF_ITERATIONS,
     );
+  });
+});
+
+describe('LocalDbBase.updatePassword', () => {
+  it('precomputes credential encryption before transaction and updates records', async () => {
+    const db = new TestLocalDb();
+    const oldPassword = await encodePasswordAsync({ password: 'old-password' });
+    const newPassword = await encodePasswordAsync({ password: 'new-password' });
+    const revealableSeed = {
+      entropyWithLangPrefixed: 'english:00010203',
+      seed: 'seed-hex',
+    };
+    const importedCredential = {
+      privateKey: 'private-key-hex',
+    };
+    db.context.verifyString = await encryptVerifyString({
+      password: oldPassword,
+    });
+    db.credentials = [
+      {
+        id: 'hd-1',
+        credential: await encryptRevealableSeed({
+          rs: revealableSeed,
+          password: oldPassword,
+        }),
+      },
+      {
+        id: 'imported-1',
+        credential: await encryptImportedCredential({
+          credential: importedCredential,
+          password: oldPassword,
+        }),
+      },
+      {
+        id: 'hyperliquid-agent-1',
+        credential: '|HLP|{"privateKey":"plain","userAddress":"0x1"}',
+      },
+    ];
+
+    const credentialUpdaterReturnedPromise: boolean[] = [];
+    const txUpdateRecords = db.txUpdateRecords.bind(db);
+    db.txUpdateRecords = jest.fn(
+      async <T extends ELocalDBStoreNames>(
+        params: ILocalDBTxUpdateRecordsParams<T>,
+      ) => {
+        if (params.name === ELocalDBStoreNames.Credential) {
+          const originalUpdater = params.updater;
+          await txUpdateRecords({
+            ...params,
+            updater: ((record) => {
+              const result = originalUpdater(record);
+              credentialUpdaterReturnedPromise.push(
+                Boolean(
+                  result &&
+                  typeof (result as { then?: unknown }).then === 'function',
+                ),
+              );
+              return result;
+            }) as ILocalDBTxUpdateRecordsParams<T>['updater'],
+          });
+          return undefined;
+        }
+        return txUpdateRecords(params);
+      },
+    ) as TestLocalDb['txUpdateRecords'];
+
+    await db.updatePassword({ oldPassword, newPassword });
+
+    expect(credentialUpdaterReturnedPromise).toEqual([false, false]);
+    const verifyStringResult = await decryptVerifyStringWithMetadata({
+      password: newPassword,
+      verifyString: db.context.verifyString,
+    });
+    expect(verifyStringResult.plaintext).toBe(DEFAULT_VERIFY_STRING);
+
+    const hdCredentialResult = await decryptRevealableSeedWithMetadata({
+      password: newPassword,
+      rs: db.credentials[0].credential,
+    });
+    expect(hdCredentialResult.plaintext).toEqual(revealableSeed);
+
+    const importedCredentialResult =
+      await decryptImportedCredentialWithMetadata({
+        password: newPassword,
+        credential: db.credentials[1].credential,
+      });
+    expect(importedCredentialResult.plaintext).toEqual(importedCredential);
+    expect(db.credentials[2].credential).toBe(
+      '|HLP|{"privateKey":"plain","userAddress":"0x1"}',
+    );
+  });
+
+  it('aborts if credentials change after password update precomputation', async () => {
+    const db = new TestLocalDb();
+    const oldPassword = await encodePasswordAsync({ password: 'old-password' });
+    const newPassword = await encodePasswordAsync({ password: 'new-password' });
+    const revealableSeed = {
+      entropyWithLangPrefixed: 'english:00010203',
+      seed: 'seed-hex',
+    };
+    const concurrentRevealableSeed = {
+      entropyWithLangPrefixed: 'english:04050607',
+      seed: 'seed-hex-2',
+    };
+    db.context.verifyString = await encryptVerifyString({
+      password: oldPassword,
+    });
+    db.credentials = [
+      {
+        id: 'hd-1',
+        credential: await encryptRevealableSeed({
+          rs: revealableSeed,
+          password: oldPassword,
+        }),
+      },
+    ];
+
+    const buildAllCredentialsPasswordUpdates =
+      db.buildAllCredentialsPasswordUpdates.bind(db);
+    db.buildAllCredentialsPasswordUpdates = jest.fn(async (params) => {
+      const prepared = await buildAllCredentialsPasswordUpdates(params);
+      db.credentials.push({
+        id: 'hd-2',
+        credential: await encryptRevealableSeed({
+          rs: concurrentRevealableSeed,
+          password: oldPassword,
+        }),
+      });
+      return prepared;
+    }) as TestLocalDb['buildAllCredentialsPasswordUpdates'];
+
+    await expect(
+      db.updatePassword({ oldPassword, newPassword }),
+    ).rejects.toThrow('credentials changed during password update');
+
+    const verifyStringResult = await decryptVerifyStringWithMetadata({
+      password: oldPassword,
+      verifyString: db.context.verifyString,
+    });
+    expect(verifyStringResult.plaintext).toBe(DEFAULT_VERIFY_STRING);
+
+    const hdCredentialResult = await decryptRevealableSeedWithMetadata({
+      password: oldPassword,
+      rs: db.credentials[0].credential,
+    });
+    expect(hdCredentialResult.plaintext).toEqual(revealableSeed);
   });
 });

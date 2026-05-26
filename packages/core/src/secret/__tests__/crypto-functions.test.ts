@@ -21,6 +21,7 @@ const {
   clearPbkdf2Cache,
   clearPbkdf2InvocationByProbeId,
   getPbkdf2InvocationByProbeId,
+  isWebCryptoPbkdf2Supported,
   pbkdf2,
 } = appCrypto.pbkdf2;
 
@@ -143,6 +144,37 @@ describe('Crypto Functions', () => {
       expect(
         getPbkdf2InvocationByProbeId(secondDebugCryptoProbeId),
       ).toBeTruthy();
+    });
+
+    it('should use explicit WebCrypto backend when supported', async () => {
+      if (!isWebCryptoPbkdf2Supported()) {
+        return;
+      }
+
+      const debugCryptoProbeId = 'pbkdf2-explicit-webcrypto-test';
+      const password = Buffer.from('test-password', 'utf8');
+      const salt = Buffer.alloc(PBKDF2_SALT_LENGTH, 'f');
+      clearPbkdf2InvocationByProbeId(debugCryptoProbeId);
+
+      const asmcryptoResult = await pbkdf2({
+        password,
+        salt,
+        iterations: 2,
+      });
+      const webcryptoResult = await pbkdf2({
+        password,
+        salt,
+        iterations: 2,
+        backend: 'webcrypto',
+        debugCryptoProbeId,
+      });
+
+      expect(webcryptoResult.toString('hex')).toBe(
+        asmcryptoResult.toString('hex'),
+      );
+      expect(getPbkdf2InvocationByProbeId(debugCryptoProbeId)?.backend).toBe(
+        'webcrypto',
+      );
     });
   });
 

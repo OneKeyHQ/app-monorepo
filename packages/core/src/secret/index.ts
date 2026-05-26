@@ -1,3 +1,4 @@
+import type { IPbkdf2DispatchBackend } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { InvalidMnemonic, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -103,6 +104,11 @@ export type IClearHdCredentialDecryptCacheParams = {
   hdCredentialCacheScopeId: string;
 };
 
+type ISecretKdfParams = {
+  kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
+};
+
 type IHdCredentialDecryptCacheEntry = {
   revealableSeed?: IBip39RevealableSeed;
   revealableSeedPromise?: Promise<IBip39RevealableSeed>;
@@ -195,16 +201,20 @@ function fixV4VerifyStringToV5({ verifyString }: { verifyString: string }) {
 async function decryptVerifyString({
   password,
   verifyString,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   verifyString: string;
   password: string;
-}) {
+} & ISecretKdfParams) {
   const decrypted = await decryptAsync({
     password,
     data: Buffer.from(
       verifyString.replace(EncryptPrefixVerifyString, ''),
       'hex',
     ),
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   return decrypted.toString();
 }
@@ -212,10 +222,12 @@ async function decryptVerifyString({
 async function decryptVerifyStringWithMetadata({
   password,
   verifyString,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   verifyString: string;
   password: string;
-}) {
+} & ISecretKdfParams) {
   const result = await decryptAsyncWithMetadata({
     password,
     data: Buffer.from(
@@ -224,6 +236,8 @@ async function decryptVerifyStringWithMetadata({
     ),
     dataType: 'local-verify-string',
     upgradeTargetIterations: getSecretEncryptV2LocalTargetIterations(),
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   return {
     ...result,
@@ -236,12 +250,14 @@ async function encryptVerifyString({
   addPrefixString = true,
   allowRawPassword,
   format = ESecretEncryptPayloadFormat.v2,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   password: string;
   addPrefixString?: boolean;
   allowRawPassword?: boolean;
   format?: ESecretEncryptPayloadFormat;
-}): Promise<string> {
+} & ISecretKdfParams): Promise<string> {
   const encrypted = await encryptAsync({
     password,
     data: Buffer.from(DEFAULT_VERIFY_STRING),
@@ -252,6 +268,8 @@ async function encryptVerifyString({
       format === ESecretEncryptPayloadFormat.v2
         ? getSecretEncryptV2LocalTargetIterations()
         : undefined,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   return (
     (addPrefixString ? EncryptPrefixVerifyString : '') +
@@ -263,15 +281,19 @@ async function decryptRevealableSeed({
   rs,
   password,
   allowRawPassword,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   rs: IBip39RevealableSeedEncryptHex;
   password: string;
   allowRawPassword?: boolean;
-}): Promise<IBip39RevealableSeed> {
+} & ISecretKdfParams): Promise<IBip39RevealableSeed> {
   const decrypted = await decryptAsync({
     allowRawPassword,
     password,
     data: rs.replace(EncryptPrefixHdCredential, ''),
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   const rsJsonStr = bufferUtils.bytesToUtf8(decrypted);
   return JSON.parse(rsJsonStr) as IBip39RevealableSeed;
@@ -281,17 +303,21 @@ async function decryptRevealableSeedWithMetadata({
   rs,
   password,
   allowRawPassword,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   rs: IBip39RevealableSeedEncryptHex;
   password: string;
   allowRawPassword?: boolean;
-}) {
+} & ISecretKdfParams) {
   const result = await decryptAsyncWithMetadata({
     allowRawPassword,
     password,
     data: rs.replace(EncryptPrefixHdCredential, ''),
     dataType: 'local-revealable-seed',
     upgradeTargetIterations: getSecretEncryptV2LocalTargetIterations(),
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   const rsJsonStr = bufferUtils.bytesToUtf8(result.plaintext);
   return {
@@ -339,18 +365,27 @@ async function decryptRevealableSeedWithCache({
   password,
   allowRawPassword,
   hdCredentialCacheScopeId,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   rs: IBip39RevealableSeedEncryptHex;
   password: string;
   allowRawPassword?: boolean;
-} & IHdCredentialDecryptCacheParams): Promise<IBip39RevealableSeed> {
+} & IHdCredentialDecryptCacheParams &
+  ISecretKdfParams): Promise<IBip39RevealableSeed> {
   const cacheEntry = await getHdCredentialDecryptCacheEntry({
     hdCredentialCacheScopeId,
     hdCredential: rs,
     password,
   });
   if (!cacheEntry) {
-    return decryptRevealableSeed({ rs, password, allowRawPassword });
+    return decryptRevealableSeed({
+      rs,
+      password,
+      allowRawPassword,
+      kdfBackend,
+      enablePbkdf2Cache,
+    });
   }
   if (cacheEntry.revealableSeed) {
     return cacheEntry.revealableSeed;
@@ -360,6 +395,8 @@ async function decryptRevealableSeedWithCache({
       rs,
       password,
       allowRawPassword,
+      kdfBackend,
+      enablePbkdf2Cache,
     })
       .then((revealableSeed) => {
         cacheEntry.revealableSeed = revealableSeed;
@@ -439,11 +476,13 @@ async function encryptRevealableSeed({
   rs,
   password,
   format = ESecretEncryptPayloadFormat.v2,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   rs: IBip39RevealableSeed;
   password: string;
   format?: ESecretEncryptPayloadFormat;
-}): Promise<IBip39RevealableSeedEncryptHex> {
+} & ISecretKdfParams): Promise<IBip39RevealableSeedEncryptHex> {
   if (!rs || !rs.entropyWithLangPrefixed || !rs.seed) {
     throw new OneKeyLocalError('Invalid seed object');
   }
@@ -457,6 +496,8 @@ async function encryptRevealableSeed({
       format === ESecretEncryptPayloadFormat.v2
         ? getSecretEncryptV2LocalTargetIterations()
         : undefined,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   return EncryptPrefixHdCredential + bufferUtils.bytesToHex(encrypted);
 }
@@ -465,11 +506,13 @@ async function decryptImportedCredential({
   credential,
   password,
   allowRawPassword,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   credential: ICoreImportedCredentialEncryptHex;
   password: string;
   allowRawPassword?: boolean;
-}): Promise<ICoreImportedCredential> {
+} & ISecretKdfParams): Promise<ICoreImportedCredential> {
   const decrypted = await decryptAsync({
     allowRawPassword,
     password,
@@ -477,6 +520,8 @@ async function decryptImportedCredential({
       typeof credential === 'string'
         ? credential.replace(EncryptPrefixImportedCredential, '')
         : credential,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   const text = bufferUtils.bytesToUtf8(decrypted);
   return JSON.parse(text) as ICoreImportedCredential;
@@ -486,11 +531,13 @@ async function decryptImportedCredentialWithMetadata({
   credential,
   password,
   allowRawPassword,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   credential: ICoreImportedCredentialEncryptHex;
   password: string;
   allowRawPassword?: boolean;
-}) {
+} & ISecretKdfParams) {
   const result = await decryptAsyncWithMetadata({
     allowRawPassword,
     password,
@@ -500,6 +547,8 @@ async function decryptImportedCredentialWithMetadata({
         : credential,
     dataType: 'local-imported-credential',
     upgradeTargetIterations: getSecretEncryptV2LocalTargetIterations(),
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   const text = bufferUtils.bytesToUtf8(result.plaintext);
   return {
@@ -513,12 +562,14 @@ async function encryptImportedCredential({
   password,
   allowRawPassword,
   format = ESecretEncryptPayloadFormat.v2,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   credential: ICoreImportedCredential;
   password: string;
   allowRawPassword?: boolean;
   format?: ESecretEncryptPayloadFormat;
-}): Promise<ICoreImportedCredentialEncryptHex> {
+} & ISecretKdfParams): Promise<ICoreImportedCredentialEncryptHex> {
   if (!credential || !credential.privateKey) {
     throw new OneKeyLocalError('Invalid credential object');
   }
@@ -533,6 +584,8 @@ async function encryptImportedCredential({
       format === ESecretEncryptPayloadFormat.v2
         ? getSecretEncryptV2LocalTargetIterations()
         : undefined,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   return EncryptPrefixImportedCredential + encrypted;
 }

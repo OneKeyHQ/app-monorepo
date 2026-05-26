@@ -44,11 +44,13 @@ type IPbkdf2NativeBackend =
   | 'react-native-aes-crypto'
   | 'react-native-fast-pbkdf2';
 
-// Dev-only override: callers (e.g. CryptoGallery) can force a specific
-// PBKDF2 backend for benchmarking / correctness comparison. Production
-// callers should NEVER set this — leave undefined to use the platform
-// default chosen by the dispatcher below.
-type IPbkdf2DispatchBackend = 'noble' | 'native' | IPbkdf2NativeBackend;
+// Explicit override for callers that already know they are outside IndexedDB
+// transactions. Leave undefined to use the transaction-safe platform default.
+type IPbkdf2DispatchBackend =
+  | 'noble'
+  | 'native'
+  | 'webcrypto'
+  | IPbkdf2NativeBackend;
 type IPbkdf2DispatchParams = IPbkdf2Params & {
   backend?: IPbkdf2DispatchBackend;
 };
@@ -137,6 +139,9 @@ function schedulePbkdf2CacheEntryRemoval(
 function getPbkdf2CacheBackend(params: IPbkdf2DispatchParams): IPbkdf2Backend {
   if (params.backend === 'noble') {
     return 'noble';
+  }
+  if (params.backend === 'webcrypto') {
+    return 'webcrypto';
   }
   if (
     params.backend === 'react-native-aes-crypto' ||
@@ -420,6 +425,15 @@ function pbkdf2ByNodeCryptoSync({
   return bufferUtils.toBuffer(key);
 }
 
+function isWebCryptoPbkdf2Supported(): boolean {
+  const subtle = globalThis.crypto?.subtle as Partial<SubtleCrypto> | undefined;
+  return Boolean(
+    subtle &&
+    typeof subtle.importKey === 'function' &&
+    typeof subtle.deriveBits === 'function',
+  );
+}
+
 async function pbkdf2ByWebCrypto({
   password,
   salt,
@@ -427,6 +441,9 @@ async function pbkdf2ByWebCrypto({
   keyLength = PBKDF2_KEY_LENGTH,
   debugCryptoProbeId,
 }: IPbkdf2Params): Promise<Buffer> {
+  if (!isWebCryptoPbkdf2Supported()) {
+    throw new OneKeyLocalError('WebCrypto PBKDF2 is not supported');
+  }
   const key = await globalThis.crypto.subtle.importKey(
     'raw',
     password as unknown as ArrayBuffer,
@@ -597,6 +614,9 @@ async function pbkdf2(params: IPbkdf2DispatchParams): Promise<Buffer> {
   return runPbkdf2WithCache(params, async () => {
     if (params.backend === 'noble') {
       return pbkdf2ByNoble(params);
+    }
+    if (params.backend === 'webcrypto') {
+      return pbkdf2ByWebCrypto(params);
     }
     if (
       params.backend === 'react-native-aes-crypto' ||
@@ -818,6 +838,7 @@ export {
   getPbkdf2InvocationByProbeId,
   getPbkdf2BackendForCurrentPlatform,
   getPbkdf2NativeBackend,
+  isWebCryptoPbkdf2Supported,
   setPbkdf2NativeBackend,
   pbkdf2ByNoble,
   pbkdf2ByRNFastPbkdf2,

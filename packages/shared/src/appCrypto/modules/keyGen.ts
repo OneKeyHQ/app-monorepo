@@ -37,8 +37,8 @@ async function keyFromPasswordAndSaltAsync({
   salt: Buffer;
   iterations?: number;
   debugCryptoProbeId?: string;
-  // Dev-only: forwarded to the pbkdf2 dispatcher. Leave undefined in
-  // production callers — only the CryptoGallery benchmark sets this.
+  // Explicit backend override for callers that are known to run outside
+  // IndexedDB transactions.
   kdfBackend?: IPbkdf2DispatchBackend;
   enablePbkdf2Cache?: boolean;
 }): Promise<Buffer> {
@@ -100,8 +100,8 @@ async function keyFromPasswordAndSalt({
   salt: Buffer;
   iterations?: number;
   debugCryptoProbeId?: string;
-  // Dev-only: forwarded to the pbkdf2 dispatcher. Leave undefined in
-  // production callers — only the CryptoGallery benchmark sets this.
+  // Explicit backend override for callers that are known to run outside
+  // IndexedDB transactions.
   kdfBackend?: IPbkdf2DispatchBackend;
   enablePbkdf2Cache?: boolean;
 }): Promise<Buffer> {
