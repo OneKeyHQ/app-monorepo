@@ -259,6 +259,8 @@ export type IEncryptStringParams = {
   aad?: Buffer | string;
   format?: ESecretEncryptPayloadFormat;
   dataType?: string;
+  kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
 };
 
 // ------------------------------------------------------------
@@ -318,10 +320,11 @@ export type IEncryptAsyncParams = {
   format?: ESecretEncryptPayloadFormat;
   dataType?: string;
   debugCryptoProbeId?: string;
-  // Dev-only: force a specific PBKDF2 / AES-GCM backend. Production callers
-  // MUST leave these undefined — only the CryptoGallery benchmark sets them
-  // to compare noble vs native implementations on the same device.
+  // Force PBKDF2 outside IndexedDB transactions, or compare implementations in
+  // developer tools. Leave undefined for transaction-safe defaults.
   kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
+  // Dev-only: force a specific AES-GCM backend for implementation comparison.
   gcmBackend?: IAesGcmDispatchBackend;
 };
 async function encryptAsync({
@@ -339,6 +342,7 @@ async function encryptAsync({
   dataType,
   debugCryptoProbeId,
   kdfBackend,
+  enablePbkdf2Cache,
   gcmBackend,
 }: IEncryptAsyncParams): Promise<Buffer> {
   if (!password) {
@@ -401,6 +405,7 @@ async function encryptAsync({
     iterations: resolvedIterations,
     debugCryptoProbeId,
     kdfBackend,
+    enablePbkdf2Cache: enablePbkdf2Cache ?? !kdfBackend,
   });
 
   // const dataEncrypted = platformEnv.isNative
@@ -514,10 +519,11 @@ export type IDecryptAsyncParams = {
   dataType?: string;
   debugCryptoProbeId?: string;
   upgradeTargetIterations?: number;
-  // Dev-only: force a specific PBKDF2 / AES-GCM backend. Production callers
-  // MUST leave these undefined — only the CryptoGallery benchmark sets them
-  // to compare noble vs native implementations on the same device.
+  // Force PBKDF2 outside IndexedDB transactions, or compare implementations in
+  // developer tools. Leave undefined for transaction-safe defaults.
   kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
+  // Dev-only: force a specific AES-GCM backend for implementation comparison.
   gcmBackend?: IAesGcmDispatchBackend;
 };
 /**
@@ -540,6 +546,7 @@ async function decryptAsync({
   debugCryptoProbeId,
   upgradeTargetIterations,
   kdfBackend,
+  enablePbkdf2Cache,
   gcmBackend,
 }: IDecryptAsyncParams): Promise<Buffer> {
   const result = await decryptAsyncWithMetadata({
@@ -555,6 +562,7 @@ async function decryptAsync({
     debugCryptoProbeId,
     upgradeTargetIterations,
     kdfBackend,
+    enablePbkdf2Cache,
     gcmBackend,
   });
   return result.plaintext;
@@ -573,6 +581,7 @@ async function decryptAsyncWithMetadata({
   debugCryptoProbeId,
   upgradeTargetIterations,
   kdfBackend,
+  enablePbkdf2Cache,
   gcmBackend,
 }: IDecryptAsyncParams): Promise<IDecryptAsyncResultWithMetadata> {
   if (!password) {
@@ -683,6 +692,7 @@ async function decryptAsyncWithMetadata({
       PBKDF2_LEGACY_NUM_OF_ITERATIONS,
     debugCryptoProbeId,
     kdfBackend,
+    enablePbkdf2Cache: enablePbkdf2Cache ?? !kdfBackend,
   });
 
   if (!ignoreLogger) {
@@ -853,6 +863,8 @@ export type IDecryptStringParams = {
   mode?: EAppCryptoAesEncryptionMode;
   aad?: Buffer | string;
   dataType?: string;
+  kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
 };
 
 async function decryptStringAsync({
@@ -865,6 +877,8 @@ async function decryptStringAsync({
   mode,
   aad,
   dataType,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: IDecryptStringParams): Promise<string> {
   const bytes = await decryptAsync({
     password,
@@ -875,6 +889,8 @@ async function decryptStringAsync({
     mode,
     aad,
     dataType,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   if (resultEncoding === 'hex') {
     return bufferUtils.bytesToHex(bytes);
@@ -892,6 +908,8 @@ async function encryptStringAsync({
   aad,
   format,
   dataType,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: IEncryptStringParams): Promise<string> {
   const bufferData = bufferUtils.toBuffer(data, dataEncoding);
   const bytes = await encryptAsync({
@@ -903,6 +921,8 @@ async function encryptStringAsync({
     aad,
     format,
     dataType,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   return bufferUtils.bytesToHex(bytes);
 }

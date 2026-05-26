@@ -10,7 +10,6 @@ import {
   decryptRevealableSeed,
   decryptStringAsync,
   encryptRevealableSeed,
-  mnemonicFromEntropy,
   revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
 import type { ICoreImportedCredential } from '@onekeyhq/core/src/types';
@@ -2449,12 +2448,14 @@ class ServicePrimeTransfer extends ServiceBase {
     includingDefaultNetworks = false,
     isFromCloudBackupRestore: _isFromCloudBackupRestore,
     password,
+    localPassword,
   }: {
     decryptedCredentialsHex?: string;
     selectedTransferData: IPrimeTransferSelectedData;
     includingDefaultNetworks?: boolean;
     isFromCloudBackupRestore?: boolean;
     password: string;
+    localPassword?: string;
   }): Promise<{
     success: boolean;
     errorsInfo: {
@@ -2521,14 +2522,13 @@ class ServicePrimeTransfer extends ServiceBase {
           }),
         );
         let mnemonicFromRs = '';
+        let revealableSeedUsed: IBip39RevealableSeed | undefined;
         const credentialDecryptedUsed =
           credentialDecrypted || decryptedCredentials?.[wallet.id];
         if (credentialDecryptedUsed) {
+          revealableSeedUsed = credentialDecryptedUsed as IBip39RevealableSeed;
           mnemonicFromRs = revealEntropyToMnemonic(
-            bufferUtils.toBuffer(
-              (credentialDecryptedUsed as IBip39RevealableSeed)
-                .entropyWithLangPrefixed,
-            ),
+            revealableSeedUsed.entropyWithLangPrefixed,
           );
         } else {
           if (!credential) {
@@ -2537,23 +2537,39 @@ class ServicePrimeTransfer extends ServiceBase {
           if (!password) {
             throw new OneKeyLocalError('Password is required');
           }
-          mnemonicFromRs = await mnemonicFromEntropy(credential, password);
+          revealableSeedUsed = await decryptRevealableSeed({
+            rs: credential,
+            password,
+          });
+          mnemonicFromRs = revealEntropyToMnemonic(
+            revealableSeedUsed.entropyWithLangPrefixed,
+          );
         }
         if (!mnemonicFromRs) {
           throw new OneKeyLocalError('Mnemonic is required');
         }
         // serviceAccount.createAddressIfNotExists
         const { wallet: newWalletData, isOverrideWallet } =
-          await serviceAccount.createHDWallet({
-            mnemonic: await servicePassword.encodeSensitiveText({
-              text: mnemonicFromRs,
-            }),
-            name: wallet.name,
-            avatarInfo: wallet.avatarInfo,
-            isWalletBackedUp: wallet.backuped,
-            skipAddHDNextIndexedAccount: true,
-            applyRestoreSyncPolicy: true,
-          });
+          localPassword && revealableSeedUsed
+            ? await serviceAccount.createHDWalletWithRevealableSeed({
+                revealableSeed: revealableSeedUsed,
+                password: localPassword,
+                name: wallet.name,
+                avatarInfo: wallet.avatarInfo,
+                isWalletBackedUp: wallet.backuped,
+                skipAddHDNextIndexedAccount: true,
+                applyRestoreSyncPolicy: true,
+              })
+            : await serviceAccount.createHDWallet({
+                mnemonic: await servicePassword.encodeSensitiveText({
+                  text: mnemonicFromRs,
+                }),
+                name: wallet.name,
+                avatarInfo: wallet.avatarInfo,
+                isWalletBackedUp: wallet.backuped,
+                skipAddHDNextIndexedAccount: true,
+                applyRestoreSyncPolicy: true,
+              });
         newWallet = newWalletData;
         if (isOverrideWallet && newWallet?.id) {
           await serviceAccount.setWalletNameAndAvatar({
@@ -2732,6 +2748,7 @@ class ServicePrimeTransfer extends ServiceBase {
           input: exportedPrivateKey,
           privateKey,
           networkId,
+          password: localPassword,
           skipEventEmit: true,
           applyRestoreSyncPolicy: true,
         });
@@ -2764,13 +2781,16 @@ class ServicePrimeTransfer extends ServiceBase {
                 'startImport error: Ton mnemonic credential is required',
               );
             }
-            const { password: localPassword } =
-              await this.backgroundApi.servicePassword.promptPasswordVerify({
-                reason: EReasonForNeedPassword.Default,
-              });
+            let localPasswordForTon = localPassword;
+            if (!localPasswordForTon) {
+              ({ password: localPasswordForTon } =
+                await this.backgroundApi.servicePassword.promptPasswordVerify({
+                  reason: EReasonForNeedPassword.Default,
+                }));
+            }
             const tonRsEncrypted = await encryptRevealableSeed({
               rs: tonRs,
-              password: localPassword,
+              password: localPasswordForTon,
             });
             await localDb.saveTonImportedAccountMnemonic({
               accountId: addedAccounts?.[0]?.id,
