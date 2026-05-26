@@ -69,6 +69,7 @@ import {
 import { usePerpsSharePrompt } from '../hooks/usePerpsSharePrompt';
 import { planTradeSubscriptions } from '../utils/subscriptionPlanner';
 
+import { shouldCheckPerpsAccountStatusOnFocus } from './PerpsGlobalEffects.utils';
 import { usePerpTokenUrlSync } from './usePerpTokenUrlSync';
 
 const shouldTreatPerpAsFocusedOnMount = !!(
@@ -400,8 +401,8 @@ function useHyperliquidAccountSelect() {
 
   const lastCheckTimeRef = useRef(0);
   const checkPerpsAccountStatus = useCallback(async () => {
-    lastCheckTimeRef.current = Date.now();
     await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+    lastCheckTimeRef.current = Date.now();
   }, []);
 
   const { result: globalDeriveType, run: refreshGlobalDeriveType } =
@@ -433,20 +434,51 @@ function useHyperliquidAccountSelect() {
     usePerpsActiveAccountRefreshHookAtom();
   const hasBeenFocusedRef = useRef(shouldTreatPerpAsFocusedOnMount);
   const pendingSelectRef = useRef(false);
+  // Dedupe by business-semantic params: the callback's deps include several
+  // refs that resolve in separate ticks during mount (account.address after
+  // id, async globalDeriveType), so the effect would otherwise re-fire the
+  // network check each time. refreshHook is included so manual refresh still
+  // triggers; account.address is intentionally excluded — it follows id.
+  const lastSelectParamsRef = useRef<string | null>(null);
+  const isSelectingAccountRef = useRef(false);
+  const selectAccountRunIdRef = useRef(0);
 
   const selectPerpsAccount = useCallback(async () => {
     if (!globalDeriveType) {
       return;
     }
-    noop(activeAccountRefreshHook);
-    noop(activeAccount.account?.address);
-    await actions.current.changeActivePerpsAccount({
+    const params = JSON.stringify({
       indexedAccountId: activeAccount?.indexedAccount?.id || null,
       accountId: activeAccount?.account?.id || null,
       walletId: activeAccount?.wallet?.id || null,
       deriveType: globalDeriveType,
+      refreshHook: activeAccountRefreshHook,
     });
-    await checkPerpsAccountStatus();
+    if (lastSelectParamsRef.current === params) {
+      return;
+    }
+    lastSelectParamsRef.current = params;
+
+    const runId = selectAccountRunIdRef.current + 1;
+    selectAccountRunIdRef.current = runId;
+    isSelectingAccountRef.current = true;
+    try {
+      noop(activeAccount.account?.address);
+      await actions.current.changeActivePerpsAccount({
+        indexedAccountId: activeAccount?.indexedAccount?.id || null,
+        accountId: activeAccount?.account?.id || null,
+        walletId: activeAccount?.wallet?.id || null,
+        deriveType: globalDeriveType,
+      });
+      await checkPerpsAccountStatus();
+    } catch (error) {
+      lastSelectParamsRef.current = null;
+      throw error;
+    } finally {
+      if (selectAccountRunIdRef.current === runId) {
+        isSelectingAccountRef.current = false;
+      }
+    }
   }, [
     actions,
     activeAccount.account?.address,
@@ -490,6 +522,12 @@ function useHyperliquidAccountSelect() {
             pendingSelectRef.current = true;
             return;
           }
+          // The dedup key intentionally excludes account.address (it resolves
+          // asynchronously after account id). Clear it here so that
+          // selectPerpsAccount actually runs for the "same indexed account now
+          // has an ETH address" case — otherwise the unchanged key causes an
+          // early return and the new address is never picked up.
+          lastSelectParamsRef.current = null;
           await selectPerpsAccountRef.current();
         }
       }
@@ -512,16 +550,23 @@ function useHyperliquidAccountSelect() {
 
   useUpdateEffect(() => {
     void (async () => {
+      if (!isFocused) {
+        return;
+      }
+      await timerUtils.wait(600);
       if (
-        isFocused &&
-        lastCheckTimeRef.current +
-          timerUtils.getTimeDurationMs({
+        shouldCheckPerpsAccountStatusOnFocus({
+          isFocused,
+          hasSelectedAccountParams: Boolean(lastSelectParamsRef.current),
+          isSelectingAccount: isSelectingAccountRef.current,
+          lastCheckTimeMs: lastCheckTimeRef.current,
+          nowMs: Date.now(),
+          staleMs: timerUtils.getTimeDurationMs({
             // seconds: 10,
             hour: 1,
-          }) <
-          Date.now()
+          }),
+        })
       ) {
-        await timerUtils.wait(600);
         await checkPerpsAccountStatus();
       }
     })();
