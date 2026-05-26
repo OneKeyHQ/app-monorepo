@@ -179,26 +179,36 @@ export async function executeHardwareLoginCommand({
   output.info('Searching for OneKey hardware device...');
   const { connectId, deviceId } = await searchDevice({ deviceIdHint });
 
-  // Get device features for label
+  // 通过统一设备信息读取标签和状态。
   const sdk = await ensureSDKReady();
-  const featuresResult = await sdk.getFeatures(connectId);
-  let features = unwrapSDKResult(featuresResult, 'getFeatures') as {
-    label?: string;
-    device_id?: string;
-    model?: string;
-    unlocked?: boolean | null;
-    passphrase_protection?: boolean | null;
+  const getDeviceInfo = async () => {
+    const deviceInfoResult = await sdk.getDeviceInfo(connectId, {
+      scope: 'basic',
+      refresh: true,
+    });
+    return unwrapSDKResult(deviceInfoResult, 'getDeviceInfo') as {
+      label?: string | null;
+      deviceType?: string;
+      status?: {
+        unlocked?: boolean | null;
+        passphraseProtection?: boolean | null;
+      };
+    };
   };
+  let deviceInfo = await getDeviceInfo();
 
   // Unlock if locked (matches app-monorepo ServiceHardware.getFeaturesWithUnlock)
-  if (features.unlocked === false) {
+  if (deviceInfo.status?.unlocked === false) {
     output.info('Device is locked. Please enter PIN on device...');
     const unlockResult = await sdk.deviceUnlock(connectId, {});
-    features = unwrapSDKResult(unlockResult, 'deviceUnlock') as typeof features;
+    unwrapSDKResult(unlockResult, 'deviceUnlock');
+    deviceInfo = await getDeviceInfo();
   }
 
   const deviceLabel =
-    features.label || features.model || `OneKey-${deviceId.slice(0, 8)}`;
+    deviceInfo.label ||
+    deviceInfo.deviceType ||
+    `OneKey-${deviceId.slice(0, 8)}`;
 
   output.info(`Found device: ${deviceLabel} (${deviceId})`);
 
@@ -207,11 +217,10 @@ export async function executeHardwareLoginCommand({
   // Only offer the hidden-wallet choice when the device has passphrase
   // protection turned on. If it's off, a hidden wallet cannot be derived on
   // this device — prompting would just trap the user into invalid choices.
-  // Mirrors app-monorepo's `Boolean(features.passphrase_protection)` gate in
-  // DeviceSettingsManager.
+  // 与 DeviceSettingsManager 的设备 passphraseProtection 判断保持一致。
   let passphraseMode: PassphraseMode = PASSPHRASE_MODE_NONE;
   let passphraseState: string | undefined;
-  const passphraseEnabled = Boolean(features.passphrase_protection);
+  const passphraseEnabled = Boolean(deviceInfo.status?.passphraseProtection);
   const requestedPassphraseMode = assertValidExplicitPassphraseMode(
     normalizeExplicitPassphraseMode(explicitPassphraseMode),
   );

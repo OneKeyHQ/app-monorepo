@@ -273,11 +273,18 @@ export abstract class SignerHardwareBase implements ISigner {
   private async ensureDeviceUnlocked(): Promise<void> {
     try {
       const sdk = await this.deps.ensureSDKReady();
-      const featResult = await sdk.getFeatures(this.device.connectId);
+      const deviceInfoResult = await sdk.getDeviceInfo(this.device.connectId, {
+        scope: 'basic',
+        refresh: true,
+      });
       if (
-        featResult?.success &&
-        featResult.payload &&
-        (featResult.payload as { unlocked?: boolean }).unlocked === false
+        deviceInfoResult?.success &&
+        deviceInfoResult.payload &&
+        (
+          deviceInfoResult.payload as {
+            status?: { unlocked?: boolean | null };
+          }
+        ).status?.unlocked === false
       ) {
         this.deviceWasLocked = true;
         this.deps.stderr.write(

@@ -3335,11 +3335,12 @@ class ServiceAccount extends ServiceBase {
     // createHWHiddenWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const passphraseState =
+        const passphraseStatePayload =
           await this.backgroundApi.serviceHardware.getPassphraseState({
             connectId: compatibleConnectId,
             forceInputPassphrase: true,
           });
+        const passphraseState = passphraseStatePayload?.passphrase_state;
 
         if (!passphraseState) {
           const deviceNotOpenedPassphraseError = new DeviceNotOpenedPassphrase({
@@ -3391,7 +3392,9 @@ class ServiceAccount extends ServiceBase {
 
         return {
           ...dbWallet,
-          isAttachPinMode: features.unlocked_attach_pin,
+          isAttachPinMode:
+            passphraseStatePayload?.unlocked_attach_pin ??
+            features.unlocked_attach_pin,
         };
       },
       {

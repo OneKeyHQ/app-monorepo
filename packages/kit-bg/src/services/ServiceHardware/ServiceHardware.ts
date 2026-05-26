@@ -120,12 +120,14 @@ import type {
   DeviceSupportFeaturesPayload,
   DeviceUploadResourceParams,
   Features,
+  GetDeviceInfoParams,
+  GetPassphraseStatePayload,
   IDeviceType,
   KnownDevice,
   OnekeyFeatures,
-  Response,
   SearchDevice,
   UiEvent,
+  UnifiedDeviceInfo,
 } from '@onekeyfe/hd-core';
 
 export type IDeviceGetFeaturesOptions = {
@@ -138,6 +140,104 @@ export type IDeviceGetFeaturesOptions = {
   };
   hardwareCallContext?: IHardwareCallContext;
 };
+
+export type IDeviceGetInfoOptions = Omit<
+  IDeviceGetFeaturesOptions,
+  'params'
+> & {
+  params?: CommonParams &
+    GetDeviceInfoParams & {
+      allowEmptyConnectId?: boolean;
+    };
+};
+
+const nullableToUndefined = (value?: string | null) => value ?? undefined;
+
+function buildOnekeyFeaturesFromDeviceInfo(
+  deviceInfo: UnifiedDeviceInfo,
+): OnekeyFeatures {
+  const rawFeatures = {
+    ...deviceInfo.raw?.features,
+    ...deviceInfo.raw?.onekeyFeatures,
+  } as OnekeyFeatures;
+  const { verify, versions } = deviceInfo;
+
+  return {
+    ...rawFeatures,
+    onekey_serial_no: rawFeatures.onekey_serial_no || deviceInfo.serialNo,
+    onekey_ble_name: rawFeatures.onekey_ble_name || deviceInfo.bleName || '',
+    onekey_firmware_version:
+      rawFeatures.onekey_firmware_version ??
+      nullableToUndefined(versions.firmware),
+    onekey_boot_version:
+      rawFeatures.onekey_boot_version ??
+      nullableToUndefined(versions.bootloader),
+    onekey_board_version:
+      rawFeatures.onekey_board_version ?? nullableToUndefined(versions.board),
+    onekey_ble_version:
+      rawFeatures.onekey_ble_version ?? nullableToUndefined(versions.ble),
+    onekey_firmware_hash:
+      rawFeatures.onekey_firmware_hash ?? verify?.firmwareHash,
+    onekey_boot_hash: rawFeatures.onekey_boot_hash ?? verify?.bootloaderHash,
+    onekey_board_hash: rawFeatures.onekey_board_hash ?? verify?.boardHash,
+    onekey_ble_hash: rawFeatures.onekey_ble_hash ?? verify?.bleHash,
+    onekey_firmware_build_id:
+      rawFeatures.onekey_firmware_build_id ?? verify?.firmwareBuildId,
+    onekey_boot_build_id:
+      rawFeatures.onekey_boot_build_id ?? verify?.bootloaderBuildId,
+    onekey_board_build_id:
+      rawFeatures.onekey_board_build_id ?? verify?.boardBuildId,
+    onekey_ble_build_id: rawFeatures.onekey_ble_build_id ?? verify?.bleBuildId,
+    onekey_se01_version:
+      rawFeatures.onekey_se01_version ?? nullableToUndefined(versions.se01),
+    onekey_se02_version:
+      rawFeatures.onekey_se02_version ?? nullableToUndefined(versions.se02),
+    onekey_se03_version:
+      rawFeatures.onekey_se03_version ?? nullableToUndefined(versions.se03),
+    onekey_se04_version:
+      rawFeatures.onekey_se04_version ?? nullableToUndefined(versions.se04),
+    onekey_se01_hash: rawFeatures.onekey_se01_hash ?? verify?.se01Hash,
+    onekey_se02_hash: rawFeatures.onekey_se02_hash ?? verify?.se02Hash,
+    onekey_se03_hash: rawFeatures.onekey_se03_hash ?? verify?.se03Hash,
+    onekey_se04_hash: rawFeatures.onekey_se04_hash ?? verify?.se04Hash,
+    onekey_se01_build_id:
+      rawFeatures.onekey_se01_build_id ?? verify?.se01BuildId,
+    onekey_se02_build_id:
+      rawFeatures.onekey_se02_build_id ?? verify?.se02BuildId,
+    onekey_se03_build_id:
+      rawFeatures.onekey_se03_build_id ?? verify?.se03BuildId,
+    onekey_se04_build_id:
+      rawFeatures.onekey_se04_build_id ?? verify?.se04BuildId,
+    onekey_se01_boot_version:
+      rawFeatures.onekey_se01_boot_version ??
+      nullableToUndefined(versions.se01Boot),
+    onekey_se02_boot_version:
+      rawFeatures.onekey_se02_boot_version ??
+      nullableToUndefined(versions.se02Boot),
+    onekey_se03_boot_version:
+      rawFeatures.onekey_se03_boot_version ??
+      nullableToUndefined(versions.se03Boot),
+    onekey_se04_boot_version:
+      rawFeatures.onekey_se04_boot_version ??
+      nullableToUndefined(versions.se04Boot),
+    onekey_se01_boot_hash:
+      rawFeatures.onekey_se01_boot_hash ?? verify?.se01BootHash,
+    onekey_se02_boot_hash:
+      rawFeatures.onekey_se02_boot_hash ?? verify?.se02BootHash,
+    onekey_se03_boot_hash:
+      rawFeatures.onekey_se03_boot_hash ?? verify?.se03BootHash,
+    onekey_se04_boot_hash:
+      rawFeatures.onekey_se04_boot_hash ?? verify?.se04BootHash,
+    onekey_se01_boot_build_id:
+      rawFeatures.onekey_se01_boot_build_id ?? verify?.se01BootBuildId,
+    onekey_se02_boot_build_id:
+      rawFeatures.onekey_se02_boot_build_id ?? verify?.se02BootBuildId,
+    onekey_se03_boot_build_id:
+      rawFeatures.onekey_se03_boot_build_id ?? verify?.se03BootBuildId,
+    onekey_se04_boot_build_id:
+      rawFeatures.onekey_se04_boot_build_id ?? verify?.se04BootBuildId,
+  };
+}
 
 // skip events
 const SKIPPED_EVENTS = new Set([
@@ -1200,6 +1300,44 @@ class ServiceHardware extends ServiceBase {
     },
   );
 
+  _getDeviceInfoLowLevel = async (options: IDeviceGetInfoOptions) => {
+    const { connectId, params, silentMode, hardwareCallContext } = options;
+    const { allowEmptyConnectId, ...sdkParams } = params ?? {};
+    serviceHardwareUtils.hardwareLog('call getDeviceInfo()', connectId);
+    if (!allowEmptyConnectId && !connectId) {
+      throw new OneKeyLocalError(
+        'hardware getDeviceInfo ERROR: connectId is undefined',
+      );
+    }
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+      hardwareCallContext,
+    });
+    const deviceInfo = await convertDeviceResponse(
+      () => hardwareSDK?.getDeviceInfo(connectId, sdkParams),
+      { silentMode },
+    );
+    return deviceInfo;
+  };
+
+  _getDeviceInfoWithTimeout = makeTimeoutPromise({
+    asyncFunc: this._getDeviceInfoLowLevel,
+    timeout: timerUtils.getTimeDurationMs({ seconds: 60 }),
+    timeoutRejectError: new deviceErrors.DeviceMethodCallTimeout(),
+  });
+
+  _getDeviceInfoWithMutex = async (
+    options: IDeviceGetInfoOptions,
+  ): Promise<UnifiedDeviceInfo> =>
+    this.getFeaturesMutex.runExclusive(async () =>
+      this._getDeviceInfoWithTimeout(options),
+    );
+
+  @backgroundMethod()
+  async getDeviceInfo(options: IDeviceGetInfoOptions) {
+    return this._getDeviceInfoWithMutex(options);
+  }
+
   @backgroundMethod()
   async getFeatures(options: IDeviceGetFeaturesOptions) {
     const features = await this._getFeaturesWithCache(options);
@@ -1299,7 +1437,7 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     forceInputPassphrase: boolean; // not working?
     useEmptyPassphrase?: boolean;
-  }): Promise<string | undefined> {
+  }): Promise<GetPassphraseStatePayload | undefined> {
     const hardwareSDK = await this.getSDKInstance({
       connectId,
     });
@@ -1577,25 +1715,21 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     deviceType: IDeviceType;
   }): Promise<OnekeyFeatures> {
+    void deviceType;
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
-    const hardwareSDK = await this.getSDKInstance({
+    const deviceInfo = await this.getDeviceInfo({
       connectId: compatibleConnectId,
+      params: {
+        scope: 'verify',
+        refresh: true,
+        includeRaw: true,
+      },
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
-    return convertDeviceResponse(() => {
-      // classic1s does not support getOnekeyFeatures method
-      if (
-        deviceType === EDeviceType.Classic1s ||
-        deviceType === EDeviceType.ClassicPure
-      ) {
-        return hardwareSDK?.getFeatures(
-          compatibleConnectId,
-        ) as unknown as Response<OnekeyFeatures>;
-      }
-      return hardwareSDK?.getOnekeyFeatures(compatibleConnectId);
-    });
+    return buildOnekeyFeaturesFromDeviceInfo(deviceInfo);
   }
 
   private fixHardwareBitcoinOnlyState(params: IUpdateFirmwareWorkflowParams) {

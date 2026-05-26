@@ -9,7 +9,13 @@
 import { AppError, ERROR_CODES } from '../../errors';
 
 import type { PassphraseMode } from '../../core/auth/auth-types';
-import type { CoreApi } from '@onekeyfe/hd-core';
+import type { CoreApi, GetPassphraseStatePayload } from '@onekeyfe/hd-core';
+
+export function extractPassphraseStateFromPayload(
+  payload: GetPassphraseStatePayload | undefined,
+): string | undefined {
+  return payload?.passphrase_state || undefined;
+}
 
 /**
  * CLI-local analogue of `@onekeyhq/shared` `CoreSDKLoader`.
@@ -397,8 +403,7 @@ export async function resolvePassphraseState(
         'Check device connection and passphrase, then retry',
       );
     }
-    // SDK returns the passphraseState token (a short hex string like "abc12345")
-    return typeof result.payload === 'string' ? result.payload : undefined;
+    return extractPassphraseStateFromPayload(result.payload);
   } finally {
     setPassphraseProvider(undefined);
   }
@@ -459,7 +464,7 @@ export async function resolvePassphraseStateByMode(
         'Check device connection and passphrase, then retry',
       );
     }
-    return typeof result.payload === 'string' ? result.payload : undefined;
+    return extractPassphraseStateFromPayload(result.payload);
   } finally {
     // Don't clear provider here — keep it active for subsequent SDK calls.
     // The SDK fires REQUEST_PASSPHRASE on every new USB connection, so the

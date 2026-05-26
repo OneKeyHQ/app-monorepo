@@ -1,6 +1,9 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { createQueuedHardwareSDK } from '../commands/device/hardware-sdk';
+import {
+  createQueuedHardwareSDK,
+  extractPassphraseStateFromPayload,
+} from '../commands/device/hardware-sdk';
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -121,5 +124,18 @@ describe('createQueuedHardwareSDK', () => {
       'btc-address-end',
       'sol-address-start',
     ]);
+  });
+});
+
+describe('extractPassphraseStateFromPayload', () => {
+  it('reads passphrase_state from the unified SDK payload', () => {
+    expect(
+      extractPassphraseStateFromPayload({
+        passphrase_state: 'state-1',
+        session_id: 'session-1',
+        unlocked_attach_pin: false,
+        passphrase_protection: true,
+      }),
+    ).toBe('state-1');
   });
 });

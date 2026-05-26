@@ -90,8 +90,8 @@ function makeDeps(
   });
 
   const sdk = {
-    getFeatures: jest.fn(async () =>
-      makeSuccess({ unlocked: overrides.unlocked ?? true }),
+    getDeviceInfo: jest.fn(async () =>
+      makeSuccess({ status: { unlocked: overrides.unlocked ?? true } }),
     ),
     deviceUnlock: jest.fn(async () => makeSuccess({})),
     // searchDevices is invoked by persistPassphraseState to discover the

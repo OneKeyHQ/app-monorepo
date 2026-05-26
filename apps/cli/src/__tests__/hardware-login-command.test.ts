@@ -99,12 +99,14 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
       deviceId: 'device-1',
     });
     hardwareSdkMocks.mockEnsureSDKReady.mockResolvedValue({
-      getFeatures: jest.fn(async () => ({
+      getDeviceInfo: jest.fn(async () => ({
         success: true,
         payload: {
           label: 'OneKey',
-          unlocked: true,
-          passphrase_protection: true,
+          status: {
+            unlocked: true,
+            passphraseProtection: true,
+          },
         },
       })),
       evmGetAddress: jest.fn(async () => ({
@@ -182,12 +184,14 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
     const getStatus = jest.fn(async () => makeUnauthenticatedStatus());
     const persistSession = jest.fn(async () => undefined);
     hardwareSdkMocks.mockEnsureSDKReady.mockResolvedValueOnce({
-      getFeatures: jest.fn(async () => ({
+      getDeviceInfo: jest.fn(async () => ({
         success: true,
         payload: {
           label: 'OneKey',
-          unlocked: true,
-          passphrase_protection: false,
+          status: {
+            unlocked: true,
+            passphraseProtection: false,
+          },
         },
       })),
       evmGetAddress: jest.fn(),
