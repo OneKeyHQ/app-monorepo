@@ -385,6 +385,7 @@ class ServiceDiscovery extends ServiceBase {
       simpleDb.browserRiskWhiteList.clearRawData(),
     ]);
     this._isUrlExistInRiskWhiteList.clear();
+    this._clearDiscoveryHomeBookmarksSwr();
   }
 
   @backgroundMethod()

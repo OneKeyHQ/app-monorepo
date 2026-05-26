@@ -137,4 +137,40 @@ describe('ServiceDiscovery', () => {
     );
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
   });
+
+  it('invalidates cached discovery home bookmarks after clearing discovery data', async () => {
+    const clearRawData = jest.fn().mockResolvedValue(undefined);
+    const service = Object.assign(Object.create(ServiceDiscovery.prototype), {
+      backgroundApi: {
+        simpleDb: {
+          browserTabs: {
+            clearRawData,
+          },
+          browserBookmarks: {
+            clearRawData,
+          },
+          browserHistory: {
+            clearRawData,
+          },
+          dappConnection: {
+            clearRawData,
+          },
+          browserRiskWhiteList: {
+            clearRawData,
+          },
+        },
+      },
+      _isUrlExistInRiskWhiteList: {
+        clear: jest.fn(),
+      },
+    }) as ServiceDiscovery;
+
+    await ServiceDiscovery.prototype.clearDiscoveryPageData.call(service);
+
+    expect(clearRawData).toHaveBeenCalledTimes(5);
+    expect(swrCacheUtils.removeByPrefix).toHaveBeenCalledWith(
+      `${swrCacheNamespaces.discoveryHomeBookmarks}:`,
+    );
+    expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
+  });
 });

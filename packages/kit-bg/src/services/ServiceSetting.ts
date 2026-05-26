@@ -307,6 +307,7 @@ class ServiceSetting extends ServiceBase {
       await this.backgroundApi.simpleDb.browserBookmarks.clearRawData();
       await this.backgroundApi.simpleDb.browserRiskWhiteList.clearRawData();
       this.backgroundApi.serviceDiscovery._isUrlExistInRiskWhiteList.clear();
+      this.backgroundApi.serviceDiscovery._clearDiscoveryHomeBookmarksSwr();
     }
     if (values.connectSites) {
       // clear connect sites

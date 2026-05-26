@@ -52,7 +52,7 @@ function DashboardContent({
         );
       } catch (error) {
         console.error(error);
-        throw error;
+        return undefined;
       } finally {
         setIsRefreshing(false);
       }
