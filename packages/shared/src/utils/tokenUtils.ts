@@ -171,6 +171,7 @@ export function getFilteredTokenBySearchKey({
   networksMap,
   enableNetworkSearch,
   tokenFiatMap,
+  localAggregateTokenListMap,
 }: {
   tokens: IAccountToken[];
   searchKey: string;
@@ -182,6 +183,7 @@ export function getFilteredTokenBySearchKey({
   networksMap?: Record<string, IServerNetwork>;
   enableNetworkSearch?: boolean;
   tokenFiatMap?: Record<string, ITokenFiat>;
+  localAggregateTokenListMap?: Record<string, { tokens: IAccountToken[] }>;
 }) {
   let mergedTokens = tokens;
 
@@ -261,7 +263,13 @@ export function getFilteredTokenBySearchKey({
           network,
         );
         if (matched) {
-          matchedSubs.push({ ...sub, _searchStrength: strength });
+          const localSub = localAggregateTokenListMap?.[
+            token.$key
+          ]?.tokens?.find((t) => t.networkId === sub.networkId);
+          matchedSubs.push({
+            ...(localSub ?? sub),
+            _searchStrength: strength,
+          });
           if (
             strength === ESearchStrength.BOTH ||
             strength === ESearchStrength.NETWORK_ONLY

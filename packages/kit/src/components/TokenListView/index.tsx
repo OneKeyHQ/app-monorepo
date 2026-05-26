@@ -45,6 +45,7 @@ import {
   RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS,
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
+  useAggregateTokensListMapAtom,
   useAggregateTokensMapAtom,
   useAllTokenListAtom,
   useFlattenAggregateTokensMapAtom,
@@ -520,6 +521,7 @@ function TokenListViewCmp(props: IProps) {
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
 
   const { networksMap } = useTokenListViewContext();
+  const [localAggregateTokensListMap] = useAggregateTokensListMapAtom();
 
   const filteredTokens = useMemo(() => {
     const useNetworkSearch = !!isTokenSelector && !!searchAll;
@@ -536,6 +538,9 @@ function TokenListViewCmp(props: IProps) {
       enableNetworkSearch: useNetworkSearch,
       tokenFiatMap: useNetworkSearch
         ? { ...visibleTokenListMap, ...aggregateTokenMap }
+        : undefined,
+      localAggregateTokenListMap: useNetworkSearch
+        ? localAggregateTokensListMap
         : undefined,
     });
 
@@ -578,6 +583,7 @@ function TokenListViewCmp(props: IProps) {
     allAggregateTokenMap,
     searchKeyLengthThreshold,
     networksMap,
+    localAggregateTokensListMap,
     sortType,
     sortDirection,
     visibleTokenListMap,
