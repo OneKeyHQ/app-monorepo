@@ -28,6 +28,7 @@ import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
+import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
 import { registerHandler } from './handler';
 import { parseWebViewDeepLink } from './parseWebViewDeepLink';
@@ -308,6 +309,7 @@ const processDeepLinkUrl = memoizee(
 
     try {
       console.log('processDeepLinkUrl: >>>>> ', url);
+      captureAndReportLoggerUtmParamsFromUrl(url);
       if (await handleReferralLandingUrl({ url })) {
         return;
       }
