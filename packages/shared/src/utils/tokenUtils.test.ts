@@ -162,7 +162,7 @@ describe('calculateAccountTotalValue — wallet-scoped derive matching branch', 
     expect(
       calculateAccountTotalValue({
         tokensValue: {
-          'hd-1--m/44\'/111111\'/0\'/0/0--KaspaOrg_kaspa--kaspa': '38',
+          "hd-1--m/44'/111111'/0'/0/0--KaspaOrg_kaspa--kaspa": '38',
         },
         deFiNetWorth: 0,
         walletId: 'hd-1',
@@ -171,6 +171,7 @@ describe('calculateAccountTotalValue — wallet-scoped derive matching branch', 
           'kaspa--kaspa': {
             deriveType: 'kaspaOfficial',
             mergeDeriveAssetsEnabled: false,
+            // cspell:ignore kaspaorg
             suffixToDeriveType: { kaspaorg: 'kaspaOfficial' },
           },
         },

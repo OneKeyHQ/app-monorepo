@@ -8,10 +8,7 @@ import type {
   IAllNetworkAccountsInfoResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type {
-  IAccountDeriveTypes,
-  INetworkDeriveInfo,
-} from '@onekeyhq/kit-bg/src/vaults/types';
+import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
