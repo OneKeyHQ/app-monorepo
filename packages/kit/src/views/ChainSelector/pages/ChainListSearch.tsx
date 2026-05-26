@@ -52,6 +52,22 @@ type IMeasuredRpcUrl = {
   responseTime: number;
 };
 
+const CHAIN_LIST_RETRY_DELAYS_MS = [2000, 5000, 10_000] as const;
+const CHAIN_LIST_RETRY_INTERVAL_MS = 60_000;
+
+type IChainListLoadRequest = {
+  append: boolean;
+  isRetry?: boolean;
+  keywords?: string;
+  page: number;
+};
+
+function getChainListRetryDelayMs(retryAttempt: number): number {
+  return (
+    CHAIN_LIST_RETRY_DELAYS_MS[retryAttempt] ?? CHAIN_LIST_RETRY_INTERVAL_MS
+  );
+}
+
 function getCandidateRpcUrls(rpcUrls: string[]): string[] {
   return rpcUrls.filter(
     (url) =>
@@ -123,6 +139,14 @@ function ChainListSearch() {
   >();
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chainListRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const chainListRetryAttemptRef = useRef(0);
+  const chainListRetryRequestRef = useRef<IChainListLoadRequest | null>(null);
+  const loadChainListRef = useRef<
+    ((request: IChainListLoadRequest) => Promise<void>) | null
+  >(null);
   const isSearchingRef = useRef(false);
   const activeKeywordsRef = useRef('');
   // Monotonic id bumped on every list-replacing op (initial load, reload,
@@ -132,6 +156,131 @@ function ChainListSearch() {
   // requests before isLoadingMore state has propagated.
   const loadingMoreRef = useRef(false);
   const mountedRef = useIsMounted();
+
+  const clearChainListRetryTimer = useCallback(() => {
+    if (chainListRetryTimerRef.current) {
+      clearTimeout(chainListRetryTimerRef.current);
+      chainListRetryTimerRef.current = null;
+    }
+    chainListRetryAttemptRef.current = 0;
+    chainListRetryRequestRef.current = null;
+  }, []);
+
+  const scheduleChainListRetry = useCallback(
+    (request: IChainListLoadRequest) => {
+      if (!mountedRef.current) {
+        return;
+      }
+      if (chainListRetryTimerRef.current) {
+        clearTimeout(chainListRetryTimerRef.current);
+      }
+      const delay = getChainListRetryDelayMs(chainListRetryAttemptRef.current);
+      chainListRetryRequestRef.current = {
+        ...request,
+        isRetry: true,
+      };
+      chainListRetryTimerRef.current = setTimeout(() => {
+        chainListRetryTimerRef.current = null;
+        chainListRetryAttemptRef.current += 1;
+        const retryRequest = chainListRetryRequestRef.current;
+        if (!retryRequest) {
+          return;
+        }
+        void loadChainListRef.current?.({
+          ...retryRequest,
+          isRetry: true,
+        });
+      }, delay);
+    },
+    [mountedRef],
+  );
+
+  const loadChainList = useCallback(
+    async (request: IChainListLoadRequest) => {
+      const keywords = normalizeSearchKeywords(request.keywords);
+      if (!request.isRetry) {
+        clearChainListRetryTimer();
+      }
+      listReqIdRef.current += 1;
+      const reqId = listReqIdRef.current;
+      const isFirstPage = !request.append && request.page === 1;
+      const isSearchRequest = !!keywords;
+      try {
+        if (!request.isRetry) {
+          setHasError(false);
+          if (isFirstPage) {
+            setIsInitialLoading(!isSearchRequest);
+            isSearchingRef.current = isSearchRequest;
+            setIsSearching(isSearchRequest);
+          }
+        }
+        if (request.append) {
+          loadingMoreRef.current = true;
+          setIsLoadingMore(true);
+        }
+        const result =
+          await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords({
+            keywords: keywords || undefined,
+            page: request.page,
+          });
+        if (!mountedRef.current || reqId !== listReqIdRef.current) return;
+        setHasError(false);
+        clearChainListRetryTimer();
+        if (request.append) {
+          if (result.length === 0) {
+            setHasMore(false);
+          } else {
+            setItems((prev) => [...prev, ...result]);
+            setHasMore(true);
+            setCurrentPage(request.page);
+          }
+          return;
+        }
+        activeKeywordsRef.current = keywords;
+        setItems(result);
+        setHasMore(result.length > 0);
+        setCurrentPage(request.page);
+      } catch {
+        if (!mountedRef.current || reqId !== listReqIdRef.current) return;
+        if (request.append) {
+          setHasMore(false);
+        } else {
+          setHasError(true);
+          activeKeywordsRef.current = keywords;
+          setItems([]);
+          setHasMore(false);
+          setCurrentPage(1);
+        }
+        scheduleChainListRetry({
+          append: request.append,
+          keywords,
+          page: request.page,
+        });
+      } finally {
+        if (request.append) {
+          loadingMoreRef.current = false;
+          if (mountedRef.current) {
+            setIsLoadingMore(false);
+          }
+        }
+        if (
+          !request.append &&
+          !request.isRetry &&
+          mountedRef.current &&
+          reqId === listReqIdRef.current
+        ) {
+          setIsInitialLoading(false);
+          isSearchingRef.current = false;
+          setIsSearching(false);
+        }
+      }
+    },
+    [clearChainListRetryTimer, mountedRef, scheduleChainListRetry],
+  );
+
+  useEffect(() => {
+    loadChainListRef.current = loadChainList;
+  }, [loadChainList]);
 
   const refreshExistingNetworks = useCallback(async () => {
     try {
@@ -161,29 +310,11 @@ function ChainListSearch() {
   }, [refreshExistingNetworks]);
 
   const reloadDefaultList = useCallback(async () => {
-    listReqIdRef.current += 1;
-    const reqId = listReqIdRef.current;
-    try {
-      setIsInitialLoading(true);
-      setHasError(false);
-      const result =
-        await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords({
-          page: 1,
-        });
-      if (!mountedRef.current || reqId !== listReqIdRef.current) return;
-      activeKeywordsRef.current = '';
-      setItems(result);
-      setHasMore(result.length > 0);
-      setCurrentPage(1);
-    } catch {
-      if (!mountedRef.current || reqId !== listReqIdRef.current) return;
-      setHasError(true);
-    } finally {
-      if (mountedRef.current && reqId === listReqIdRef.current) {
-        setIsInitialLoading(false);
-      }
-    }
-  }, [mountedRef]);
+    await loadChainList({
+      append: false,
+      page: 1,
+    });
+  }, [loadChainList]);
 
   // Load first page on mount
   useEffect(() => {
@@ -203,6 +334,7 @@ function ChainListSearch() {
       loadingMoreRef.current ||
       isLoadingMore ||
       !hasMore ||
+      hasError ||
       isSearchingRef.current
     ) {
       return;
@@ -211,44 +343,26 @@ function ChainListSearch() {
     if (normalizeSearchKeywords(searchText) !== keywords) {
       return;
     }
-    loadingMoreRef.current = true;
-    listReqIdRef.current += 1;
-    const reqId = listReqIdRef.current;
     const nextPage = currentPage + 1;
-    try {
-      setIsLoadingMore(true);
-      const result =
-        await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords({
-          keywords: keywords || undefined,
-          page: nextPage,
-        });
-      if (
-        !mountedRef.current ||
-        reqId !== listReqIdRef.current ||
-        keywords !== activeKeywordsRef.current
-      ) {
-        return;
-      }
-      if (result.length === 0) {
-        setHasMore(false);
-      } else {
-        setItems((prev) => [...prev, ...result]);
-        setCurrentPage(nextPage);
-      }
-    } catch {
-      // Silently fail on pagination
-    } finally {
-      loadingMoreRef.current = false;
-      if (mountedRef.current) {
-        setIsLoadingMore(false);
-      }
-    }
-  }, [isLoadingMore, hasMore, searchText, currentPage, mountedRef]);
+    void loadChainList({
+      append: true,
+      keywords: keywords || undefined,
+      page: nextPage,
+    });
+  }, [
+    isLoadingMore,
+    hasMore,
+    hasError,
+    searchText,
+    currentPage,
+    loadChainList,
+  ]);
 
   // Handle search text change with debounce
   const handleSearchTextChange = useCallback(
     (text: string) => {
       listReqIdRef.current += 1;
+      clearChainListRetryTimer();
       setSearchText(text);
       const keywords = normalizeSearchKeywords(text);
 
@@ -265,40 +379,17 @@ function ChainListSearch() {
       }
 
       debounceTimerRef.current = setTimeout(async () => {
-        listReqIdRef.current += 1;
-        const reqId = listReqIdRef.current;
-        try {
-          isSearchingRef.current = true;
-          setIsSearching(true);
-          setHasError(false);
-          defaultLogger.setting.page.chainListSearchPerformed({
-            keywords,
-          });
-          const result =
-            await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords(
-              {
-                keywords,
-                page: 1,
-              },
-            );
-          if (!mountedRef.current || reqId !== listReqIdRef.current) return;
-          activeKeywordsRef.current = keywords;
-          setItems(result);
-          setHasMore(result.length > 0);
-          setCurrentPage(1);
-        } catch {
-          if (!mountedRef.current || reqId !== listReqIdRef.current) return;
-          setHasError(true);
-          setHasMore(false);
-        } finally {
-          if (mountedRef.current && reqId === listReqIdRef.current) {
-            isSearchingRef.current = false;
-            setIsSearching(false);
-          }
-        }
+        defaultLogger.setting.page.chainListSearchPerformed({
+          keywords,
+        });
+        await loadChainList({
+          append: false,
+          keywords,
+          page: 1,
+        });
       }, 1500);
     },
-    [reloadDefaultList, mountedRef],
+    [reloadDefaultList, loadChainList, clearChainListRetryTimer],
   );
 
   // Clean up debounce timer
@@ -307,8 +398,9 @@ function ChainListSearch() {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
+      clearChainListRetryTimer();
     },
-    [],
+    [clearChainListRetryTimer],
   );
 
   const pushFormPage = useCallback(
