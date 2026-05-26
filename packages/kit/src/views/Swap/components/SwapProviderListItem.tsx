@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useLayoutEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { MotiView } from 'moti';
@@ -42,6 +42,9 @@ export type ISwapProviderListItemProps = {
   toToken?: ISwapToken;
   selected?: boolean;
   disabled?: boolean;
+  autoOpenRoute?: boolean;
+  autoOpenRouteTrigger?: unknown;
+  routeCollapseTrigger?: unknown;
 } & IListItemProps;
 const SwapProviderListItem = ({
   providerResult,
@@ -51,6 +54,9 @@ const SwapProviderListItem = ({
   toToken,
   selected,
   disabled,
+  autoOpenRoute,
+  autoOpenRouteTrigger,
+  routeCollapseTrigger,
   ...rest
 }: ISwapProviderListItemProps) => {
   const intl = useIntl();
@@ -216,7 +222,20 @@ const SwapProviderListItem = ({
     toToken?.symbol,
   ]);
 
-  const [routeOpen, setRouteOpen] = useState(false);
+  const providerKey = `${providerResult.info.provider}-${providerResult.info.providerName}`;
+  const [routeOpen, setRouteOpen] = useState(Boolean(autoOpenRoute));
+
+  useLayoutEffect(() => {
+    if (autoOpenRoute) {
+      setRouteOpen(true);
+    }
+  }, [autoOpenRoute, autoOpenRouteTrigger, providerKey]);
+
+  useLayoutEffect(() => {
+    if (!autoOpenRoute) {
+      setRouteOpen(false);
+    }
+  }, [autoOpenRoute, providerKey, routeCollapseTrigger]);
 
   const routeContent = useMemo<IRouteRows>(() => {
     const routeRows: IRouteRows =
