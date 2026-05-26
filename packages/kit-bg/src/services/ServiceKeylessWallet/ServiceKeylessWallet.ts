@@ -85,6 +85,7 @@ import {
 import ServiceBase from '../ServiceBase';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
+import { KeylessPassiveMigrationNetworkError } from './keylessPassiveMigrationErrors';
 import keylessAuthPackCache from './utils/keylessAuthPackCache';
 import keylessDeviceKeyStorage from './utils/keylessDeviceKeyStorage';
 import keylessMnemonicPasswordStorage from './utils/keylessMnemonicPasswordStorage';
@@ -151,6 +152,7 @@ type IKeylessBackendShareV2MigrationResult = {
     | 'local_keyless_wallet_missing'
     | 'mnemonic_mismatch'
     | 'mnemonic_password_missing'
+    | 'network_unavailable'
     | 'owner_id_missing'
     | 'owner_id_mismatch'
     | 'password_not_cached'
@@ -1729,26 +1731,21 @@ class ServiceKeylessWallet extends ServiceBase {
 
     const client = await this.getClient(EServiceEndpointEnum.Prime);
     const res = await client.post<
-      IApiClientResponse<{
-        backendShare: string;
-        hashId: string;
-        revision: number;
-        canonicalFormat: IKeylessBackendShareCanonicalFormat;
-      }>
+      IApiClientResponse<
+        | {
+            backendShare: string;
+            hashId: string;
+            revision: number;
+            canonicalFormat: IKeylessBackendShareCanonicalFormat;
+          }
+        | ''
+      >
     >('/prime/v1/keyless-wallet/getKeylessBackendShareV2', {
       token,
     });
 
     const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
-    const responseData = res?.data?.data as
-      | {
-          backendShare?: string;
-          hashId?: string;
-          revision?: number;
-          canonicalFormat?: string;
-        }
-      | ''
-      | undefined;
+    const responseData = res?.data?.data;
 
     if (isSuccess && responseData === '') {
       return {
@@ -1902,8 +1899,18 @@ class ServiceKeylessWallet extends ServiceBase {
           };
         }
       | undefined;
-    const message = data?.message || data?.data?.message || plainError.message;
-    return messages.includes(message);
+    const rawMessage =
+      data?.message || data?.data?.message || plainError.message;
+    const message = typeof rawMessage === 'string' ? rawMessage : '';
+    if (!message) {
+      return false;
+    }
+    // Match exact codes or codes followed by `:` context, e.g.
+    // `revision_conflict` and `revision_conflict: actual=5 expected=3`.
+    return messages.some(
+      (candidate) =>
+        message === candidate || message.startsWith(`${candidate}:`),
+    );
   }
 
   private async withKeylessBackendShareWriteLock<T>(
@@ -2058,14 +2065,6 @@ class ServiceKeylessWallet extends ServiceBase {
     throw new OneKeyLocalError('Failed to upload keyless backend share');
   }
 
-  @backgroundMethod()
-  @toastIfError()
-  async apiUploadKeylessBackendShare(
-    params: IKeylessBackendShareUploadParams,
-  ): Promise<IKeylessBackendShare> {
-    return this.uploadKeylessBackendShare(params);
-  }
-
   private async migrateKeylessBackendShareToV2(params: {
     token: string;
     ownerId: string;
@@ -2155,7 +2154,11 @@ class ServiceKeylessWallet extends ServiceBase {
     }
   }
 
-  private async refreshKeylessAccessTokenFromStorageWithPassword(params: {
+  // Passive V2 migration internal helper. Translates fetch / 5xx / json-parse
+  // failures into `KeylessPassiveMigrationNetworkError` so the migration loop
+  // can roll back the 24h throttle on transient network issues. Other flows
+  // (e.g. user-driven refresh) must use `tryRefreshTokenFromStorage` instead.
+  private async refreshAccessTokenForKeylessBackendShareV2MigrationPassive(params: {
     ownerId: string;
     password: string;
   }): Promise<IKeylessAccessTokenWithoutPromptResult | null> {
@@ -2171,27 +2174,45 @@ class ServiceKeylessWallet extends ServiceBase {
     }
 
     const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
-    const response = await fetch(refreshUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    let response: Response;
+    try {
+      response = await fetch(refreshUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
 
-        // oxlint-disable-next-line @cspell/spellchecker
-        apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
-      },
-      body: JSON.stringify({
-        refresh_token: refreshToken,
-      }),
-    });
+          // oxlint-disable-next-line @cspell/spellchecker
+          apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
+        },
+        body: JSON.stringify({
+          refresh_token: refreshToken,
+        }),
+      });
+    } catch (error) {
+      // Fetch threw (offline / DNS / TLS / abort). Surface as a network
+      // error so the migration loop does not consume its 24h throttle window.
+      throw new KeylessPassiveMigrationNetworkError(error);
+    }
 
+    // 5xx indicates the auth server is unreachable or misbehaving — treat as
+    // a network-class failure. 4xx indicates the refresh token was rejected
+    // (revoked / mismatched), which is an auth failure we should throttle.
+    if (response.status >= 500) {
+      throw new KeylessPassiveMigrationNetworkError();
+    }
     if (!response.ok) {
       return null;
     }
 
-    const refreshResult = (await response.json()) as {
-      access_token?: string;
-      refresh_token?: string;
-    };
+    let refreshResult: { access_token?: string; refresh_token?: string };
+    try {
+      refreshResult = (await response.json()) as {
+        access_token?: string;
+        refresh_token?: string;
+      };
+    } catch (error) {
+      throw new KeylessPassiveMigrationNetworkError(error);
+    }
 
     if (!refreshResult?.access_token || !refreshResult?.refresh_token) {
       return null;
@@ -2203,7 +2224,12 @@ class ServiceKeylessWallet extends ServiceBase {
     };
   }
 
-  private async getKeylessAccessTokenWithoutPrompt(params: {
+  // Passive V2 migration internal helper. Returns the cached access token
+  // when still valid, otherwise delegates to the passive-migration refresh
+  // helper which may throw `KeylessPassiveMigrationNetworkError` on transient
+  // network failures. Other flows must NOT call this — use the regular
+  // `tryRefreshTokenFromStorage` path which preserves prompt-based UX.
+  private async getAccessTokenForKeylessBackendShareV2MigrationPassive(params: {
     ownerId: string;
     password: string;
   }): Promise<IKeylessAccessTokenWithoutPromptResult | null> {
@@ -2218,7 +2244,7 @@ class ServiceKeylessWallet extends ServiceBase {
         accessToken: cachedToken,
       };
     }
-    return this.refreshKeylessAccessTokenFromStorageWithPassword({
+    return this.refreshAccessTokenForKeylessBackendShareV2MigrationPassive({
       ownerId,
       password,
     });
@@ -2265,6 +2291,32 @@ class ServiceKeylessWallet extends ServiceBase {
       record?.keylessProvider === identity.keylessProvider &&
       record?.socialUserIdHash === identity.socialUserIdHash
     );
+  }
+
+  private async restoreKeylessBackendShareV2MigrationRecord(params: {
+    walletId: string;
+    previousRecord:
+      | {
+          ownerId?: string;
+          keylessProvider?: string;
+          socialUserIdHash?: string;
+          lastPassiveAttemptAt?: number;
+          lastPassiveFailedAt?: number;
+          succeededAt?: number;
+        }
+      | undefined;
+  }): Promise<void> {
+    const { walletId, previousRecord } = params;
+    await keylessBackendShareV2MigrationPersistAtom.set((prev) => {
+      const prevByWalletId = prev?.byWalletId ?? {};
+      const nextByWalletId = { ...prevByWalletId };
+      if (previousRecord) {
+        nextByWalletId[walletId] = previousRecord;
+      } else {
+        delete nextByWalletId[walletId];
+      }
+      return { byWalletId: nextByWalletId };
+    });
   }
 
   private async markKeylessBackendShareV2PassiveAttempt(params: {
@@ -2357,6 +2409,14 @@ class ServiceKeylessWallet extends ServiceBase {
         return 'token_identity_mismatch';
       }
 
+      // Compare the token's issuer-derived provider strictly against the
+      // local wallet's stored provider. Same-email both-providers wallets
+      // (whose local `keylessProvider` was rewritten by `fixedKeylessProviderMap`
+      // to the alternative provider) intentionally fall through to
+      // `token_provider_mismatch` here: passive migration must NOT auto-migrate
+      // this case. The user must first complete the manual same-email
+      // reconciliation flow; the subsequent restore/reset flow then performs
+      // the v1 -> v2 migration under user-driven context.
       const tokenProvider = this.buildKeylessProviderFromSocialToken({
         token,
         skipFixedProvider: true,
@@ -2493,6 +2553,12 @@ class ServiceKeylessWallet extends ServiceBase {
       };
     }
 
+    // Capture the previous record so we can roll back the throttle write if
+    // the migration fails with a network-class error.
+    const previousMigrationRecord = isMigrationRecordMatched
+      ? { ...migrationRecord }
+      : undefined;
+
     await this.markKeylessBackendShareV2PassiveAttempt({
       walletId: keylessWallet.id,
       identity: migrationIdentity,
@@ -2500,10 +2566,11 @@ class ServiceKeylessWallet extends ServiceBase {
     });
 
     try {
-      const tokenInfo = await this.getKeylessAccessTokenWithoutPrompt({
-        ownerId,
-        password,
-      });
+      const tokenInfo =
+        await this.getAccessTokenForKeylessBackendShareV2MigrationPassive({
+          ownerId,
+          password,
+        });
       if (!tokenInfo) {
         await this.markKeylessBackendShareV2MigrationFailed({
           walletId: keylessWallet.id,
@@ -2671,7 +2738,22 @@ class ServiceKeylessWallet extends ServiceBase {
         checked: true,
         skipped: false,
       };
-    } catch (_error) {
+    } catch (error) {
+      if (error instanceof KeylessPassiveMigrationNetworkError) {
+        // Roll back the throttle write so the next natural trigger (app
+        // launch / password cache) retries without delay once the network
+        // recovers. No `lastPassiveFailedAt` is set for network failures.
+        await this.restoreKeylessBackendShareV2MigrationRecord({
+          walletId: keylessWallet.id,
+          previousRecord: previousMigrationRecord,
+        });
+        return {
+          migrated: false,
+          checked: false,
+          skipped: true,
+          reason: 'network_unavailable',
+        };
+      }
       await this.markKeylessBackendShareV2MigrationFailed({
         walletId: keylessWallet.id,
         identity: migrationIdentity,
