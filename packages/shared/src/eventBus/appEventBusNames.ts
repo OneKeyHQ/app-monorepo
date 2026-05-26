@@ -98,6 +98,7 @@ export enum EAppEventBusNames {
   RequestHardwareUIDialog = 'RequestHardwareUIDialog',
   ShowThirdPartyHardwarePermissionDialog = 'ShowThirdPartyHardwarePermissionDialog',
   ThirdPartyHardwareAppInstallProgress = 'ThirdPartyHardwareAppInstallProgress',
+  ThirdPartyHardwareRecoveryAction = 'ThirdPartyHardwareRecoveryAction',
   RequestDeviceInBootloaderForWebDevice = 'RequestDeviceInBootloaderForWebDevice',
   RequestDeviceForSwitchFirmwareWebDevice = 'RequestDeviceForSwitchFirmwareWebDevice',
   EnabledNetworksChanged = 'EnabledNetworksChanged',

@@ -41,6 +41,7 @@ const LedgerAppOpsTester = () => {
   const [progress, setProgress] = useState<number | null>(null);
   const [progressLabel, setProgressLabel] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [recoveryEventBusy, setRecoveryEventBusy] = useState(false);
   const [logs, setLogs] = useState<ILogEntry[]>([]);
   const [installed, setInstalled] = useState<IAppMetadata[] | null>(null);
   const [available, setAvailable] = useState<IAppMetadata[] | null>(null);
@@ -247,6 +248,53 @@ const LedgerAppOpsTester = () => {
     appendLog('cancel sent');
   };
 
+  const handleEmitRecoveryEvents = async () => {
+    const eventConnectId = connectId || '';
+    const events = [
+      {
+        type: 'ledger_app_install_required',
+        vendor: EHardwareVendor.ledger,
+        connectId: eventConnectId,
+        appName: 'Bitcoin',
+        source: 'createAccount',
+      },
+      {
+        type: 'ledger_app_install_required',
+        vendor: EHardwareVendor.ledger,
+        connectId: eventConnectId,
+        appName: 'Bitcoin',
+        source: 'batchCreateAccount',
+      },
+      {
+        type: 'ledger_app_install_required',
+        vendor: EHardwareVendor.ledger,
+        connectId: eventConnectId,
+        appName: 'TON',
+        source: 'sign',
+      },
+    ] as const;
+
+    setRecoveryEventBusy(true);
+    try {
+      for (const [index, event] of events.entries()) {
+        if (index > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+        appEventBus.emit(
+          EAppEventBusNames.ThirdPartyHardwareRecoveryAction,
+          event,
+        );
+        appendLog(
+          `emit recovery event ${index + 1}/${events.length} → ${
+            event.appName
+          } connectId=${event.connectId || '(empty)'}`,
+        );
+      }
+    } finally {
+      setRecoveryEventBusy(false);
+    }
+  };
+
   return (
     <YStack gap="$4" p="$4">
       <YStack gap="$2">
@@ -304,6 +352,25 @@ const LedgerAppOpsTester = () => {
             </SizableText>
           </YStack>
         ) : null}
+      </YStack>
+
+      <Divider />
+
+      <YStack gap="$2">
+        <SizableText size="$bodyMdMedium">
+          Recovery Dialog Event Bus
+        </SizableText>
+        <XStack gap="$2" alignItems="center" flexWrap="wrap">
+          <Button
+            onPress={() => void handleEmitRecoveryEvents()}
+            disabled={recoveryEventBusy}
+          >
+            Emit 3 Recovery Events
+          </Button>
+          <SizableText size="$bodySm" color="$textSubdued">
+            Bitcoin, duplicated Bitcoin, TON
+          </SizableText>
+        </XStack>
       </YStack>
 
       <Divider />
