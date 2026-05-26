@@ -401,8 +401,8 @@ function useHyperliquidAccountSelect() {
 
   const lastCheckTimeRef = useRef(0);
   const checkPerpsAccountStatus = useCallback(async () => {
-    lastCheckTimeRef.current = Date.now();
     await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+    lastCheckTimeRef.current = Date.now();
   }, []);
 
   const { result: globalDeriveType, run: refreshGlobalDeriveType } =
@@ -471,6 +471,9 @@ function useHyperliquidAccountSelect() {
         deriveType: globalDeriveType,
       });
       await checkPerpsAccountStatus();
+    } catch (error) {
+      lastSelectParamsRef.current = null;
+      throw error;
     } finally {
       if (selectAccountRunIdRef.current === runId) {
         isSelectingAccountRef.current = false;
