@@ -64,11 +64,13 @@ import type { LayoutChangeEvent } from 'react-native';
 
 interface ITradingButtonGroupProps {
   isMobile: boolean;
+  isLiveStatusPending?: boolean;
 }
 
 interface ISideButtonProps {
   side: 'long' | 'short';
   isMobile: boolean;
+  isLiveStatusPending?: boolean;
   justifyContent?:
     | 'flex-start'
     | 'flex-end'
@@ -94,6 +96,7 @@ function getPerpsAccountKey(account: {
 function SideButtonInternal({
   side,
   isMobile,
+  isLiveStatusPending = false,
   justifyContent = 'flex-start',
 }: ISideButtonProps) {
   const intl = useIntl();
@@ -196,6 +199,7 @@ function SideButtonInternal({
     perpsAccountLoading.enableTradingLoading,
     perpsAccountLoading.selectAccountLoading,
   ]);
+  const shouldShowButtonLoading = isAccountLoading && !isLiveStatusPending;
 
   const isServerActionDisabled = useMemo(
     () =>
@@ -207,8 +211,14 @@ function SideButtonInternal({
   );
 
   const isTradingStatusDisabled = useMemo(
-    () => !perpsAccountStatus.canTrade && !enableTradingMode.isSoftwareAccount,
-    [enableTradingMode.isSoftwareAccount, perpsAccountStatus.canTrade],
+    () =>
+      isLiveStatusPending ||
+      (!perpsAccountStatus.canTrade && !enableTradingMode.isSoftwareAccount),
+    [
+      enableTradingMode.isSoftwareAccount,
+      isLiveStatusPending,
+      perpsAccountStatus.canTrade,
+    ],
   );
 
   const shouldAutoEnableTrading = useMemo(
@@ -365,21 +375,21 @@ function SideButtonInternal({
   const buttonStyles = useMemo(() => {
     const colors = PERP_TRADE_BUTTON_COLORS;
     const getBgColor = () => {
-      if (isAccountLoading) return undefined;
+      if (shouldShowButtonLoading) return undefined;
       return themeVariant === 'light'
         ? colors.light[isLong ? 'long' : 'short']
         : colors.dark[isLong ? 'long' : 'short'];
     };
 
     const getHoverBgColor = () => {
-      if (isAccountLoading) return undefined;
+      if (shouldShowButtonLoading) return undefined;
       return themeVariant === 'light'
         ? colors.light[isLong ? 'longHover' : 'shortHover']
         : colors.dark[isLong ? 'longHover' : 'shortHover'];
     };
 
     const getPressBgColor = () => {
-      if (isAccountLoading) return undefined;
+      if (shouldShowButtonLoading) return undefined;
       return themeVariant === 'light'
         ? colors.light[isLong ? 'longPress' : 'shortPress']
         : colors.dark[isLong ? 'longPress' : 'shortPress'];
@@ -390,7 +400,7 @@ function SideButtonInternal({
       hoverBg: getHoverBgColor(),
       pressBg: getPressBgColor(),
     };
-  }, [isAccountLoading, isLong, themeVariant]);
+  }, [isLong, shouldShowButtonLoading, themeVariant]);
 
   const handlePress = useDebouncedCallback(
     async (): Promise<void> => {
@@ -707,6 +717,7 @@ function SideButtonInternal({
       canTrade: perpsAccountStatus.canTrade,
       buttonDisabled,
       isAccountLoading,
+      isLiveStatusPending,
       enableTradingLoading: perpsAccountLoading.enableTradingLoading,
       selectAccountLoading: perpsAccountLoading.selectAccountLoading,
       isNoEnoughMargin,
@@ -721,6 +732,7 @@ function SideButtonInternal({
     buttonSecondaryText,
     hasOrderValue,
     isAccountLoading,
+    isLiveStatusPending,
     isMobile,
     isNoEnoughMargin,
     isSpot,
@@ -746,6 +758,7 @@ function SideButtonInternal({
           isSpot,
           buttonDisabled,
           isAccountLoading,
+          isLiveStatusPending,
           hasSecondaryText: Boolean(buttonSecondaryText),
         });
         layoutRef.current = rect;
@@ -755,6 +768,7 @@ function SideButtonInternal({
       buttonDisabled,
       buttonSecondaryText,
       isAccountLoading,
+      isLiveStatusPending,
       isMobile,
       isSpot,
       side,
@@ -864,7 +878,7 @@ function SideButtonInternal({
             !buttonDisabled ? { bg: buttonStyles.pressBg } : undefined
           }
           disabled={buttonDisabled}
-          loading={isAccountLoading || isSubmitting}
+          loading={shouldShowButtonLoading || isSubmitting}
           onPress={handlePress}
           h={36}
           py={
@@ -907,7 +921,7 @@ function SideButtonInternal({
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
         disabled={buttonDisabled}
-        loading={isAccountLoading}
+        loading={shouldShowButtonLoading}
         onPress={handlePress}
         h={36}
         py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
@@ -1012,7 +1026,10 @@ function SideButtonInternal({
 
 const SideButton = memo(SideButtonInternal);
 
-function TradingButtonGroup({ isMobile }: ITradingButtonGroupProps) {
+function TradingButtonGroup({
+  isMobile,
+  isLiveStatusPending = false,
+}: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
   const [formData] = useTradingFormAtom();
   const isSpot = tradingMode === 'spot';
@@ -1021,15 +1038,27 @@ function TradingButtonGroup({ isMobile }: ITradingButtonGroupProps) {
     if (isSpot) {
       return (
         <YStack {...(!isMobile && { mt: '$4' })}>
-          <SideButton side={formData.side} isMobile={isMobile} />
+          <SideButton
+            side={formData.side}
+            isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
+          />
         </YStack>
       );
     }
     if (isMobile) {
       return (
         <YStack gap="$3">
-          <SideButton side="long" isMobile={isMobile} />
-          <SideButton side="short" isMobile={isMobile} />
+          <SideButton
+            side="long"
+            isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
+          />
+          <SideButton
+            side="short"
+            isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
+          />
         </YStack>
       );
     }
@@ -1039,6 +1068,7 @@ function TradingButtonGroup({ isMobile }: ITradingButtonGroupProps) {
           <SideButton
             side="long"
             isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
             justifyContent="flex-start"
           />
         </XStack>
@@ -1046,6 +1076,7 @@ function TradingButtonGroup({ isMobile }: ITradingButtonGroupProps) {
           <SideButton
             side="short"
             isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
             justifyContent="flex-end"
           />
         </XStack>

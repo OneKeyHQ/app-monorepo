@@ -11,8 +11,6 @@ import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components
 import {
   perpsActiveAccountAtom,
   perpsActiveAccountIsAgentReadyAtom,
-  perpsActiveAccountStatusInfoAtom,
-  perpsActiveAccountSummaryAtom,
   perpsActiveAssetAtom,
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
@@ -1650,8 +1648,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       updates: [],
       isLoaded: false,
     });
-    await perpsActiveAccountSummaryAtom.set(undefined);
-    await perpsActiveAccountStatusInfoAtom.set(undefined);
+    // NOTE: perpsActiveAccountSummaryAtom and perpsActiveAccountStatusInfoAtom
+    // are intentionally NOT cleared here. The background service clears them
+    // inside changeActivePerpsAccount in address-aware order so the UI never
+    // sees the "active account is set, but summary/status are empty" frame.
+    // Same-account refreshes also keep their data instead of being wiped.
     await perpsActiveAssetDataAtom.set(undefined);
     // Prevent stale spot data from showing under the wrong account
     await spotBalancesAtom.set({ balances: [], isLoaded: false });

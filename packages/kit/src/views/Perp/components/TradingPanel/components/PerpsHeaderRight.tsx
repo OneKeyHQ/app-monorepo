@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -9,11 +9,13 @@ import {
   Icon,
   IconButton,
   SizableText,
+  Skeleton,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
@@ -22,6 +24,9 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useShowPortfolio } from '@onekeyhq/kit/src/views/Perp/hooks/useShowPortfolio';
 import {
+  getPerpsAccountDisplaySnapshotEntry,
+  usePerpsAccountDisplayReadyAtom,
+  usePerpsAccountDisplaySnapshotAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountIsAgentReadyAtom,
   usePerpsActiveAccountStatusAtom,
@@ -109,22 +114,91 @@ function DepositButton() {
   const { gtSm } = useMedia();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const [computedValue] = usePerpsComputedAccountValueAtom();
-  const accountValue = computedValue?.accountValue;
+  const [displayReady] = usePerpsAccountDisplayReadyAtom();
+  const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
+  const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const { showPortfolio } = useShowPortfolio();
-  const hasActiveAccount = Boolean(activeAccount?.accountAddress);
-  const isEmptyAccount = !accountValue || new BigNumber(accountValue).lte(0);
+  const snapshotLookupIndexedAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.indexedAccount?.id
+    : activeAccount?.indexedAccountId;
+  const snapshotLookupAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.account?.id
+    : activeAccount?.accountId;
+  const snapshotLookupAccountAddress =
+    !selectedWalletAccount.ready ||
+    snapshotLookupIndexedAccountId ||
+    snapshotLookupAccountId
+      ? activeAccount?.accountAddress
+      : undefined;
+  const snapshotEntry = useMemo(
+    () =>
+      getPerpsAccountDisplaySnapshotEntry({
+        snapshot: displaySnapshot,
+        accountAddress: snapshotLookupAccountAddress,
+        indexedAccountId: snapshotLookupIndexedAccountId,
+        accountId: snapshotLookupAccountId,
+        deriveType:
+          selectedWalletAccount.deriveType ?? activeAccount.deriveType,
+        allowFallbackLatest:
+          !selectedWalletAccount.ready && !activeAccount?.accountAddress,
+      }),
+    [
+      activeAccount?.accountAddress,
+      activeAccount?.deriveType,
+      displaySnapshot,
+      selectedWalletAccount.deriveType,
+      selectedWalletAccount.ready,
+      snapshotLookupAccountAddress,
+      snapshotLookupAccountId,
+      snapshotLookupIndexedAccountId,
+    ],
+  );
+  const isUsingSnapshotValue =
+    !displayReady.summaryReady && snapshotEntry?.accountValue !== undefined;
+  const accountValue = isUsingSnapshotValue
+    ? snapshotEntry?.accountValue
+    : computedValue?.accountValue;
+  const hasActiveAccount = Boolean(
+    activeAccount?.accountAddress || snapshotEntry?.account.accountAddress,
+  );
+
+  // Treat unknown as "still loading" rather than "empty" so the green
+  // Deposit badge only appears once we definitively know the account is
+  // empty. `summaryReady` is true only when the computed atom has finished
+  // loading AND summary belongs to the current address (live or hydrated
+  // from display cache), so a cache-hit cold start renders the value
+  // without first flashing a skeleton.
+  const isUnknownAccountValue = accountValue === undefined;
+  const isEmptyAccount =
+    !isUnknownAccountValue && new BigNumber(accountValue ?? '0').lte(0);
+  let badgeVariant: 'unknown' | 'deposit' | 'portfolio' = 'portfolio';
+  if (isUnknownAccountValue) {
+    badgeVariant = 'unknown';
+  } else if (isEmptyAccount) {
+    badgeVariant = 'deposit';
+  }
 
   useEffect(() => {
     tracePerpsMobileLayout('header.depositBadge.state', {
       hasActiveAccount,
       hasAccountValue: Boolean(accountValue),
       isEmptyAccount,
+      isUnknownAccountValue,
+      isUsingSnapshotValue,
       height: gtSm ? 30 : 28,
-      variant: isEmptyAccount ? 'deposit' : 'portfolio',
+      variant: badgeVariant,
     });
-  }, [accountValue, gtSm, hasActiveAccount, isEmptyAccount]);
+  }, [
+    accountValue,
+    badgeVariant,
+    gtSm,
+    hasActiveAccount,
+    isEmptyAccount,
+    isUnknownAccountValue,
+    isUsingSnapshotValue,
+  ]);
 
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
@@ -135,12 +209,21 @@ function DepositButton() {
           hasActiveAccount,
           hasAccountValue: Boolean(accountValue),
           isEmptyAccount,
-          variant: isEmptyAccount ? 'deposit' : 'portfolio',
+          isUnknownAccountValue,
+          isUsingSnapshotValue,
+          variant: badgeVariant,
         });
         layoutRef.current = rect;
       }
     },
-    [accountValue, hasActiveAccount, isEmptyAccount],
+    [
+      accountValue,
+      badgeVariant,
+      hasActiveAccount,
+      isEmptyAccount,
+      isUnknownAccountValue,
+      isUsingSnapshotValue,
+    ],
   );
 
   if (!hasActiveAccount) {
@@ -164,23 +247,38 @@ function DepositButton() {
       cursor="default"
       onLayout={handleLayout}
     >
-      {isEmptyAccount ? (
-        <>
-          <Icon name="AlignBottomOutline" size="$4" color="$iconOnColor" />
-          <SizableText size="$bodySmMedium" color="$textOnColor">
-            {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-          </SizableText>
-        </>
-      ) : (
-        <>
-          <Icon name="ChartLine2Outline" size="$4" />
-          <PerpsAccountNumberValue
-            value={accountValue ?? ''}
-            skeletonWidth={60}
-            textSize="$bodySmMedium"
-          />
-        </>
-      )}
+      {(() => {
+        if (isUnknownAccountValue) {
+          return (
+            <>
+              <Icon name="ChartLine2Outline" size="$4" />
+              <Skeleton width={60} height={16} />
+            </>
+          );
+        }
+        if (isEmptyAccount) {
+          return (
+            <>
+              <Icon name="AlignBottomOutline" size="$4" color="$iconOnColor" />
+              <SizableText size="$bodySmMedium" color="$textOnColor">
+                {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+              </SizableText>
+            </>
+          );
+        }
+        return (
+          <>
+            <Icon name="ChartLine2Outline" size="$4" />
+            <PerpsAccountNumberValue
+              value={accountValue ?? ''}
+              skeletonWidth={60}
+              textSize="$bodySmMedium"
+              allowValueDuringAccountLoading={isUsingSnapshotValue}
+              skipAccountSummaryCheck={isUsingSnapshotValue}
+            />
+          </>
+        );
+      })()}
     </Badge>
   );
   return (

@@ -98,6 +98,7 @@ import {
   perpTokenFavoritesPersistAtom,
   perpTokenSelectorTabsAtom,
   perpsAbstractionModeAtom,
+  perpsAccountDisplaySnapshotAtom,
   perpsAccountLoadingInfoAtom,
   perpsActiveAccountAtom,
   perpsActiveAccountStatusAtom,
@@ -107,6 +108,7 @@ import {
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
   perpsCommonConfigPersistAtom,
+  perpsComputedAccountValueAtom,
   perpsCustomSettingsAtom,
   perpsDepositNetworksAtom,
   perpsDepositTokensAtom,
@@ -1461,6 +1463,14 @@ export default class ServiceHyperliquid extends ServiceBase {
           assetId: activeAsset?.assetId,
         }),
       );
+      void this._writePerpsAccountDisplaySnapshot({
+        accountAddress: activeAccount.accountAddress,
+      }).catch((error: unknown) => {
+        console.warn(
+          '[updateActiveAssetData] failed to persist display snapshot:',
+          error,
+        );
+      });
 
       if (data.coin && data.leverage?.value) {
         const lastUsedLeverage = await perpsLastUsedLeverageAtom.get();
@@ -1510,6 +1520,24 @@ export default class ServiceHyperliquid extends ServiceBase {
         totalUnrealizedPnl: totalUnrealizedPnlBN.toFixed(),
       };
       await perpsActiveAccountSummaryAtom.set(summary);
+      void this._writePerpsAccountDisplaySummary(summary).catch(
+        (error: unknown) => {
+          console.warn(
+            '[updateActiveAccountSummary] failed to persist display cache:',
+            error,
+          );
+        },
+      );
+      if (summary.accountAddress) {
+        void this._writePerpsAccountDisplaySnapshot({
+          accountAddress: summary.accountAddress,
+        }).catch((error: unknown) => {
+          console.warn(
+            '[updateActiveAccountSummary] failed to persist display snapshot:',
+            error,
+          );
+        });
+      }
     } else {
       const activeAccountSummary = await perpsActiveAccountSummaryAtom.get();
       // TODO PERPS_EMPTY_ADDRESS check
@@ -1613,6 +1641,24 @@ export default class ServiceHyperliquid extends ServiceBase {
       totalUnrealizedPnl: aggregated.totalUnrealizedPnl.toFixed(),
     };
     await perpsActiveAccountSummaryAtom.set(summary);
+    void this._writePerpsAccountDisplaySummary(summary).catch(
+      (error: unknown) => {
+        console.warn(
+          '[updateActiveAccountSummaryFromClearinghouseState] failed to persist display cache:',
+          error,
+        );
+      },
+    );
+    if (summary.accountAddress) {
+      void this._writePerpsAccountDisplaySnapshot({
+        accountAddress: summary.accountAddress,
+      }).catch((error: unknown) => {
+        console.warn(
+          '[updateActiveAccountSummaryFromClearinghouseState] failed to persist display snapshot:',
+          error,
+        );
+      });
+    }
   }
 
   async updateSpotBalances(spotStateData: IWsSpotState) {
@@ -1671,17 +1717,42 @@ export default class ServiceHyperliquid extends ServiceBase {
       }
     }
 
+    const normalizedBalances = balances.map((b) => ({
+      coin: b.coin,
+      token: b.token,
+      total: b.total,
+      hold: b.hold,
+      entryNtl: b.entryNtl,
+    }));
+    const spotTotalUsd = totalUsd.toFixed();
     await perpsSpotBalancesAtom.set({
       accountAddress: activeAddress as IHex,
-      balances: balances.map((b) => ({
-        coin: b.coin,
-        token: b.token,
-        total: b.total,
-        hold: b.hold,
-        entryNtl: b.entryNtl,
-      })),
-      spotTotalUsd: totalUsd.toFixed(),
+      balances: normalizedBalances,
+      spotTotalUsd,
     });
+    void this._writePerpsAccountDisplaySnapshot({
+      accountAddress: activeAddress,
+    }).catch((error: unknown) => {
+      console.warn(
+        '[updateSpotBalances] failed to persist display snapshot:',
+        error,
+      );
+    });
+    void this.backgroundApi.simpleDb.perp
+      .setPerpsAccountDisplaySpotBalances({
+        accountAddress: activeAddress,
+        data: {
+          accountAddress: activeAddress,
+          balances: normalizedBalances,
+          spotTotalUsd,
+        },
+      })
+      .catch((error: unknown) => {
+        console.warn(
+          '[updateSpotBalances] failed to persist display cache:',
+          error,
+        );
+      });
   }
 
   // Re-calculate spotTotalUsd from cached balances when allMids becomes available
@@ -1716,10 +1787,37 @@ export default class ServiceHyperliquid extends ServiceBase {
     const computed = totalUsd.toFixed();
     // Functional updater: only write if spotTotalUsd is still undefined
     // (avoids overwriting fresher data from a concurrent SPOT_STATE event)
+    let didWrite = false;
     await perpsSpotBalancesAtom.set((prev) => {
       if (!prev || prev.spotTotalUsd !== undefined) return prev;
+      didWrite = true;
       return { ...prev, spotTotalUsd: computed };
     });
+    if (didWrite) {
+      void this._writePerpsAccountDisplaySnapshot({
+        accountAddress: activeAddress,
+      }).catch((error: unknown) => {
+        console.warn(
+          '[recalculateSpotTotalUsd] failed to persist display snapshot:',
+          error,
+        );
+      });
+      void this.backgroundApi.simpleDb.perp
+        .setPerpsAccountDisplaySpotBalances({
+          accountAddress: activeAddress,
+          data: {
+            accountAddress: activeAddress,
+            balances,
+            spotTotalUsd: computed,
+          },
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[recalculateSpotTotalUsd] failed to persist display cache:',
+            error,
+          );
+        });
+    }
   }
 
   private _rebuildSpotMappings(universes: ISpotUniverse[]) {
@@ -1920,14 +2018,255 @@ export default class ServiceHyperliquid extends ServiceBase {
       }, 300);
     }
 
-    await perpsAbstractionModeAtom.set(undefined);
-    await perpsSpotBalancesAtom.set(undefined);
-    this.fetchUserAbstractionRawWithCache.clear();
-    // Also reset the UI-facing spot balances atom so stale balances from
-    // the previous account don't flash before the new SPOT_STATE arrives.
-    await spotBalancesAtom.set({ balances: [], isLoaded: false });
+    // Only wipe stale per-account data when the address actually changes.
+    // For same-address refreshes (e.g. refreshHook bump or tab refocus) we
+    // keep the existing summary/statusInfo so the UI doesn't flash an empty
+    // frame before the next WS push.
+    const previousAccount = await perpsActiveAccountAtom.get();
+    const previousAddress =
+      previousAccount?.accountAddress?.toLowerCase() ?? null;
+    const newAddress = perpsAccount.accountAddress?.toLowerCase() ?? null;
+    const isSameAddress =
+      previousAddress !== null &&
+      newAddress !== null &&
+      previousAddress === newAddress;
+
+    if (!isSameAddress) {
+      await perpsAbstractionModeAtom.set(undefined);
+      await perpsSpotBalancesAtom.set(undefined);
+      await perpsActiveAccountSummaryAtom.set(undefined);
+      await perpsActiveAccountStatusInfoAtom.set(undefined);
+      this.fetchUserAbstractionRawWithCache.clear();
+      // Also reset the UI-facing spot balances atom so stale balances from
+      // the previous account don't flash before the new SPOT_STATE arrives.
+      await spotBalancesAtom.set({ balances: [], isLoaded: false });
+
+      // Hydrate display cache for the new address before publishing the new
+      // active account. Consumers still need address-aware reads because
+      // these atom writes are not a transaction.
+      if (perpsAccount.accountAddress) {
+        try {
+          await this._hydratePerpsAccountDisplayCache(
+            perpsAccount.accountAddress,
+          );
+        } catch (error) {
+          console.warn(
+            '[changeActivePerpsAccount] hydrate display cache failed:',
+            error,
+          );
+        }
+      }
+    }
+
+    // Expose the new active account last. Account-value consumers must still
+    // verify address alignment because multiple atom sets are observable.
     await perpsActiveAccountAtom.set(perpsAccount);
+    if (perpsAccount.accountAddress) {
+      void this._writePerpsAccountDisplaySnapshot({
+        accountAddress: perpsAccount.accountAddress,
+      }).catch((error: unknown) => {
+        console.warn(
+          '[changeActivePerpsAccount] failed to persist display snapshot:',
+          error,
+        );
+      });
+    }
     return perpsAccount;
+  }
+
+  // Maximum age for cached account data used as the cold-start first frame.
+  // Live WS / status checks overwrite atoms within seconds, so even relatively
+  // stale cache is acceptable for display; we cap it to avoid showing days-old
+  // values when the user has been away.
+  private readonly perpsAccountDisplayCacheMaxAgeMs = 6 * 60 * 60 * 1000;
+
+  private _getPerpsActiveAssetAvailableToTradeDisplay(
+    activeAssetData: IPerpsActiveAssetData | undefined,
+  ) {
+    const available = activeAssetData?.availableToTrade;
+    if (!activeAssetData?.coin || !available) {
+      return undefined;
+    }
+    const longValue = Number(available[0] ?? 0);
+    const shortValue = Number(available[1] ?? 0);
+    const safeValue =
+      Number.isFinite(longValue) && Number.isFinite(shortValue)
+        ? Math.min(longValue, shortValue)
+        : 0;
+    return {
+      coin: activeAssetData.coin,
+      value: new BigNumber(safeValue).toFixed(2, BigNumber.ROUND_DOWN),
+      updatedAt: Date.now(),
+    };
+  }
+
+  private _limitPerpsAccountDisplaySnapshotEntries<
+    T extends { updatedAt: number },
+  >(entries: Record<string, T>): Record<string, T> {
+    return Object.fromEntries(
+      Object.entries(entries)
+        .toSorted((a, b) => b[1].updatedAt - a[1].updatedAt)
+        .slice(0, 8),
+    );
+  }
+
+  private async _writePerpsAccountDisplaySnapshot({
+    accountAddress,
+  }: {
+    accountAddress: string;
+  }) {
+    const targetAddress = accountAddress.toLowerCase();
+    const activeAccount = await perpsActiveAccountAtom.get();
+    if (
+      !activeAccount.accountAddress ||
+      activeAccount.accountAddress.toLowerCase() !== targetAddress
+    ) {
+      return;
+    }
+
+    const computedValue = await perpsComputedAccountValueAtom.get();
+    const activeAssetData = await perpsActiveAssetDataAtom.get();
+    const availableToTrade =
+      activeAssetData?.accountAddress?.toLowerCase() === targetAddress
+        ? this._getPerpsActiveAssetAvailableToTradeDisplay(activeAssetData)
+        : undefined;
+    const shouldUseComputedValue =
+      computedValue?.isLoading === false &&
+      computedValue.accountValue !== undefined;
+
+    await perpsAccountDisplaySnapshotAtom.set((prev) => {
+      const prevEntries = prev?.entries ?? {};
+      const prevEntry = prevEntries[targetAddress];
+      const nextEntry = {
+        account: activeAccount,
+        accountValue: shouldUseComputedValue
+          ? computedValue.accountValue
+          : prevEntry?.accountValue,
+        withdrawable: shouldUseComputedValue
+          ? computedValue.withdrawable
+          : prevEntry?.withdrawable,
+        availableToTrade: availableToTrade ?? prevEntry?.availableToTrade,
+        updatedAt: Date.now(),
+      };
+
+      if (!nextEntry.accountValue && !nextEntry.availableToTrade) {
+        return prev;
+      }
+
+      return {
+        entries: this._limitPerpsAccountDisplaySnapshotEntries({
+          ...prevEntries,
+          [targetAddress]: nextEntry,
+        }),
+      };
+    });
+  }
+
+  private async _hydratePerpsAccountDisplayCache(accountAddress: string) {
+    const normalized = accountAddress.toLowerCase();
+    const targetAddress = normalized as IHex;
+    const now = Date.now();
+    let summaryHit = false;
+    let summaryAgeMs: number | undefined;
+    let spotHit = false;
+    let spotAgeMs: number | undefined;
+    let abstractionHit = false;
+
+    // Abstraction mode lives in its own per-address store; hydrate from
+    // there so cold start has a non-undefined mode before live fetch runs.
+    const cachedAbstraction =
+      await this.backgroundApi.simpleDb.perp.getUserAbstractionMode(
+        accountAddress,
+      );
+    if (cachedAbstraction) {
+      abstractionHit = true;
+      await perpsAbstractionModeAtom.set({
+        accountAddress: targetAddress,
+        mode: cachedAbstraction as EHyperLiquidAbstractionMode,
+      });
+    }
+
+    const cache =
+      await this.backgroundApi.simpleDb.perp.getPerpsAccountDisplayCache(
+        accountAddress,
+      );
+
+    if (cache) {
+      const summary = cache.summary;
+      if (
+        summary?.data &&
+        summary.data.accountAddress?.toLowerCase() === normalized &&
+        now - summary.updatedAt <= this.perpsAccountDisplayCacheMaxAgeMs
+      ) {
+        summaryHit = true;
+        summaryAgeMs = now - summary.updatedAt;
+        await perpsActiveAccountSummaryAtom.set({
+          ...summary.data,
+          accountAddress: targetAddress,
+        });
+      }
+
+      const spot = cache.spotBalances;
+      if (
+        spot?.data &&
+        spot.data.accountAddress.toLowerCase() === normalized &&
+        spot.data.spotTotalUsd !== undefined &&
+        now - spot.updatedAt <= this.perpsAccountDisplayCacheMaxAgeMs
+      ) {
+        spotHit = true;
+        spotAgeMs = now - spot.updatedAt;
+        await perpsSpotBalancesAtom.set({
+          accountAddress: targetAddress,
+          balances: spot.data.balances,
+          spotTotalUsd: spot.data.spotTotalUsd,
+        });
+      }
+    }
+
+    // Local-only diagnostic. Address is redacted via short suffix so logs
+    // stay non-PII while still being correlatable across events.
+    markPerpsColdStartPerf('service_account_display_cache_hydrate', {
+      addressTail: normalized.slice(-6),
+      cacheEntryExists: Boolean(cache),
+      summaryHit,
+      summaryAgeMs,
+      spotHit,
+      spotAgeMs,
+      abstractionHit,
+    });
+  }
+
+  private async _writePerpsAccountDisplaySummary(
+    summary: IPerpsActiveAccountSummaryAtom,
+  ) {
+    const summaryAddress = summary?.accountAddress?.toLowerCase();
+    if (!summary || !summaryAddress) {
+      return;
+    }
+    const activeAccount = await perpsActiveAccountAtom.get();
+    if (activeAccount?.accountAddress?.toLowerCase() !== summaryAddress) {
+      // Drop late WS frames whose owner no longer matches the active
+      // account. Writing them would let a stale snapshot persist for the
+      // wrong user.
+      return;
+    }
+    // Construct the cache payload explicitly so the structurally-stricter
+    // cache type (required keys with `undefined` values) is satisfied; a
+    // spread of the atom type produces optional keys and breaks compat.
+    await this.backgroundApi.simpleDb.perp.setPerpsAccountDisplaySummary({
+      accountAddress: summaryAddress,
+      data: {
+        accountAddress: summary.accountAddress,
+        accountValue: summary.accountValue,
+        totalMarginUsed: summary.totalMarginUsed,
+        crossAccountValue: summary.crossAccountValue,
+        crossMaintenanceMarginUsed: summary.crossMaintenanceMarginUsed,
+        totalNtlPos: summary.totalNtlPos,
+        totalRawUsd: summary.totalRawUsd,
+        withdrawable: summary.withdrawable,
+        totalUnrealizedPnl: summary.totalUnrealizedPnl,
+      },
+    });
   }
 
   @backgroundMethod()
@@ -1937,7 +2276,8 @@ export default class ServiceHyperliquid extends ServiceBase {
     markPerpsColdStartPerf('service_change_active_asset_start', {
       coin: params.coin,
     });
-    const requestId = (this.activeAssetChangeRequestId += 1);
+    this.activeAssetChangeRequestId += 1;
+    const requestId = this.activeAssetChangeRequestId;
     const oldActiveAsset = await perpsActiveAssetAtom.get();
     this.rememberCommittedActiveAsset(oldActiveAsset);
     const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
@@ -2120,6 +2460,14 @@ export default class ServiceHyperliquid extends ServiceBase {
         accountAddress: lowerUserAddress,
         mode: mode as EHyperLiquidAbstractionMode,
       });
+      void this._writePerpsAccountDisplaySnapshot({
+        accountAddress: lowerUserAddress,
+      }).catch((error: unknown) => {
+        console.warn(
+          '[fetchUserAbstraction] failed to persist display snapshot:',
+          error,
+        );
+      });
       return mode;
     } catch {
       // Fallback to SimpleDb cached value — need alignment checks around every await
@@ -2140,6 +2488,14 @@ export default class ServiceHyperliquid extends ServiceBase {
         await perpsAbstractionModeAtom.set({
           accountAddress: lowerUserAddress,
           mode: cached as EHyperLiquidAbstractionMode,
+        });
+        void this._writePerpsAccountDisplaySnapshot({
+          accountAddress: lowerUserAddress,
+        }).catch((error: unknown) => {
+          console.warn(
+            '[fetchUserAbstraction] failed to persist cached display snapshot:',
+            error,
+          );
         });
         return cached;
       }

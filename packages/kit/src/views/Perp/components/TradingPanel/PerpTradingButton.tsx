@@ -294,7 +294,16 @@ export function PerpTradingButton({
     handleShowConfirm,
   ]);
 
-  if (loading || perpsAccountLoading?.selectAccountLoading) {
+  // Once an address is resolved, keep the CTA in a neutral disabled state
+  // until live statusInfo arrives. Cached status is not used here because
+  // perpsActiveAccountStatusAtom is part of the order permission path.
+  const isWaitingForLiveStatus =
+    !perpsAccountStatus.details && Boolean(perpsAccount?.accountAddress);
+  if (
+    loading ||
+    perpsAccountLoading?.selectAccountLoading ||
+    isWaitingForLiveStatus
+  ) {
     return (
       <Button {...sharedButtonProps} disabled testID="perp-order-confirm-btn">
         <Spinner />

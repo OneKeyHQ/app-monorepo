@@ -18,10 +18,14 @@ export function PerpsAccountNumberValue({
   value,
   skeletonWidth = 60,
   textSize = '$bodySmMedium',
+  allowValueDuringAccountLoading = false,
+  skipAccountSummaryCheck = false,
 }: {
   value: string;
   skeletonWidth?: number;
   textSize?: FontSizeTokens;
+  allowValueDuringAccountLoading?: boolean;
+  skipAccountSummaryCheck?: boolean;
 }) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [selectedAccount] = usePerpsActiveAccountAtom();
@@ -38,11 +42,14 @@ export function PerpsAccountNumberValue({
       });
     }
   }, [accountSummary, perpsAccountLoading?.selectAccountLoading, userAddress]);
-  if (perpsAccountLoading?.selectAccountLoading) {
+  if (
+    perpsAccountLoading?.selectAccountLoading &&
+    !allowValueDuringAccountLoading
+  ) {
     return <Skeleton width={skeletonWidth} height={16} />;
   }
 
-  if (!accountSummary || !userAddress) {
+  if (!skipAccountSummaryCheck && (!accountSummary || !userAddress)) {
     return (
       <SizableText size={textSize} color="$textSubdued">
         N/A

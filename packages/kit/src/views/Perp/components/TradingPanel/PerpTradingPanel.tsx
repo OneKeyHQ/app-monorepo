@@ -4,13 +4,18 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { DebugRenderTracker, YStack } from '@onekeyhq/components';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useTradingFormAtom,
   useTradingFormComputedAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  getPerpsAccountDisplaySnapshotEntry,
+  usePerpsAccountDisplayReadyAtom,
+  usePerpsAccountDisplaySnapshotAtom,
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountAtom,
   usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetDataAtom,
@@ -169,10 +174,53 @@ const PerpTradingDisabledButtonMemo = memo(PerpTradingDisabledButton);
 function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [displayReady] = usePerpsAccountDisplayReadyAtom();
+  const [perpsActiveAccount] = usePerpsActiveAccountAtom();
+  const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
+  const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [tradingMode] = useTradingModeAtom();
   const [isSubmitting] = useTradingLoadingAtom();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
+  const snapshotLookupIndexedAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.indexedAccount?.id
+    : perpsActiveAccount?.indexedAccountId;
+  const snapshotLookupAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.account?.id
+    : perpsActiveAccount?.accountId;
+  const snapshotLookupAccountAddress =
+    !selectedWalletAccount.ready ||
+    snapshotLookupIndexedAccountId ||
+    snapshotLookupAccountId
+      ? perpsActiveAccount?.accountAddress
+      : undefined;
+  const snapshotEntry = useMemo(
+    () =>
+      getPerpsAccountDisplaySnapshotEntry({
+        snapshot: displaySnapshot,
+        accountAddress: snapshotLookupAccountAddress,
+        indexedAccountId: snapshotLookupIndexedAccountId,
+        accountId: snapshotLookupAccountId,
+        deriveType:
+          selectedWalletAccount.deriveType ?? perpsActiveAccount.deriveType,
+        allowFallbackLatest:
+          !selectedWalletAccount.ready && !perpsActiveAccount?.accountAddress,
+      }),
+    [
+      displaySnapshot,
+      perpsActiveAccount?.accountAddress,
+      perpsActiveAccount?.deriveType,
+      selectedWalletAccount.deriveType,
+      selectedWalletAccount.ready,
+      snapshotLookupAccountAddress,
+      snapshotLookupAccountId,
+      snapshotLookupIndexedAccountId,
+    ],
+  );
+  const canShowCachedTradingButtons = Boolean(
+    !displayReady.statusReady && snapshotEntry?.account.accountAddress,
+  );
+  const isLiveStatusPending = canShowCachedTradingButtons;
 
   useEffect(() => {
     if (!isMobile) {
@@ -182,9 +230,16 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       isMobile,
       tradingMode,
       canTrade: perpsAccountStatus.canTrade,
+      isLiveStatusPending,
       isSubmitting,
     });
-  }, [isMobile, isSubmitting, perpsAccountStatus.canTrade, tradingMode]);
+  }, [
+    isLiveStatusPending,
+    isMobile,
+    isSubmitting,
+    perpsAccountStatus.canTrade,
+    tradingMode,
+  ]);
 
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
@@ -197,31 +252,45 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
           rect,
           tradingMode,
           canTrade: perpsAccountStatus.canTrade,
+          isLiveStatusPending,
           isSubmitting,
         });
         layoutRef.current = rect;
       }
     },
-    [isMobile, isSubmitting, perpsAccountStatus.canTrade, tradingMode],
+    [
+      isLiveStatusPending,
+      isMobile,
+      isSubmitting,
+      perpsAccountStatus.canTrade,
+      tradingMode,
+    ],
   );
 
-  const canShowTradingButtons = useMemo(
-    () =>
+  const canShowTradingButtons = useMemo(() => {
+    if (canShowCachedTradingButtons) {
+      return true;
+    }
+
+    return (
       !perpsAccountLoading.selectAccountLoading &&
+      displayReady.statusReady &&
       Boolean(perpsAccountStatus.accountAddress) &&
       !perpsAccountStatus.accountNotSupport &&
       !perpsAccountStatus.canCreateAddress &&
       (Boolean(perpsAccountStatus.canTrade) ||
-        enableTradingMode.isSoftwareAccount),
-    [
-      enableTradingMode.isSoftwareAccount,
-      perpsAccountLoading.selectAccountLoading,
-      perpsAccountStatus.accountAddress,
-      perpsAccountStatus.accountNotSupport,
-      perpsAccountStatus.canCreateAddress,
-      perpsAccountStatus.canTrade,
-    ],
-  );
+        enableTradingMode.isSoftwareAccount)
+    );
+  }, [
+    canShowCachedTradingButtons,
+    displayReady.statusReady,
+    enableTradingMode.isSoftwareAccount,
+    perpsAccountLoading.selectAccountLoading,
+    perpsAccountStatus.accountAddress,
+    perpsAccountStatus.accountNotSupport,
+    perpsAccountStatus.canCreateAddress,
+    perpsAccountStatus.canTrade,
+  ]);
 
   const content = (
     <YStack
@@ -236,7 +305,10 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     >
       <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
       {canShowTradingButtons ? (
-        <TradingButtonGroup isMobile={isMobile} />
+        <TradingButtonGroup
+          isMobile={isMobile}
+          isLiveStatusPending={isLiveStatusPending}
+        />
       ) : (
         <PerpTradingDisabledButtonMemo />
       )}
