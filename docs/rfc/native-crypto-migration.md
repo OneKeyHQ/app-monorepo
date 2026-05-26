@@ -9,25 +9,72 @@
 OneKey iOS/Android 当前依赖 web-embed (WebView) 运行 PBKDF2/HMAC/secp256k1 等加密操作，依赖 WebView (JSC) 的 JIT 加速纯 JS crypto 实现。这导致：
 
 1. **Android 解锁/创建钱包卡顿约 3 秒**
-   - 600k PBKDF2 走 `react-native-aes-crypto` 的 SpongyCastle Java 实现（非真正 native C）
+   - 600k PBKDF2 走 `react-native-aes-crypto` 的 SpongyCastle Java 实现（**非真正 native C**，详见下方根因分析）
 2. **web-embed 启动/通信开销**，且增加产物体积
 3. **稳定性问题**：WebView ↔ RN bridge 不稳定，曾出现 `IncorrectPassword` 误报
 4. **跨平台不一致**：web/desktop/extension 不需要 web-embed，路径分叉，维护成本高
 
+## 根因分析（Why Android slow, iOS not）
+
+**核心结论**：Rabby Mobile 之所以 PBKDF2 快，是因为它是**真原生 C**（fastpbkdf2 via JSI）；其他 RN 钱包在 **Android 上是 Java 伪原生**（SpongyCastle Java via NativeModules bridge）。
+
+### 两个独立性能因子
+
+**因子 1：算法实现语言（C 真原生 vs Java 伪原生）**
+
+| 钱包 | Android PBKDF2 实现 | iOS PBKDF2 实现 |
+|------|--------------------|----|
+| Rabby Mobile | **fastpbkdf2 C** (JSI) ✅ 真原生 | **fastpbkdf2 C** (JSI) ✅ 真原生 |
+| MetaMask / Rainbow / OneKey | **SpongyCastle Java** ❌ 伪原生（Java bytecode 跑在 ART 虚拟机） | **CommonCrypto C** ✅ 真原生（Apple 系统库） |
+
+这解释了为什么 **OneKey 卡顿主要在 Android 反馈，iOS 用户体感正常** - iOS 走 CommonCrypto 是真 native C，60 万 iters 约 200-500ms（可接受）；Android SpongyCastle 同样 iters 要 3 秒。
+
+**因子 2：JS↔Native 通信方式（JSI vs NativeModules Bridge）**
+
+```
+传统 NativeModules Bridge (react-native-aes-crypto 用这个)：
+JS → 参数序列化 (hex string) → 跨线程发到 native → 计算 → 结果序列化 → 跨线程发回 JS
+                              ↑ 每次桥接 +2-5ms
+
+JSI (react-native-quick-crypto 用这个)：
+JS → 直接调 C++ 函数（同线程，零拷贝） → 返回
+                              ↑ 桥接 0ms
+```
+
+- **单次大计算**（PBKDF2 900k）：桥接 5ms 占比小
+- **频繁小调用**（BIP32 派生 5N 次 HMAC）：桥接 5N×5ms = 大头
+
+**Rabby 的双重优势**：C 实现（vs Java）+ JSI（vs Bridge）叠加。
+
+### iOS vs Android 性能对照（OneKey 600k PBKDF2 估算）
+
+| 平台 | 实现链路 | 耗时估算 |
+|------|---------|---------|
+| iOS | RN → react-native-aes-crypto → CommonCrypto C | 200-500ms（可接受） |
+| Android | RN → react-native-aes-crypto → SpongyCastle Java | **3000ms（卡顿）** |
+| Android（迁移后） | RN → quick-crypto → fastpbkdf2 C via JSI | **~100ms（流畅）** |
+
 ## 行业现状对比（已源码验证）
 
-| 钱包 | 是否装 quick-crypto | 新 vault 实际用的库 | Android 实际性能 | 源码链接 |
-|------|-------------------|-----------------|----------------|----------|
-| **Rabby Mobile** | ✅ | ✅ **react-native-quick-crypto** (JSI + fastpbkdf2 C) | ~100ms / 900k iters | [setup-app.ts](https://github.com/RabbyHub/rabby-mobile/blob/develop/apps/mobile/src/setup-app.ts), [scure-bip39 patch](https://github.com/RabbyHub/rabby-mobile/blob/develop/.yarn/patches/@scure-bip39-npm-1.3.0-1d74c5c469.patch) |
-| **MetaMask Mobile** | ✅ | ❌ react-native-aes-crypto（SpongyCastle Java） | ~1-3s / 900k iters（同 OneKey 量级，用 caching + loading 动画掩盖） | [Encryptor.ts](https://github.com/MetaMask/metamask-mobile/blob/main/app/core/Encryptor/Encryptor.ts), [aesforked Java](https://github.com/MetaMask/react-native-aes-crypto-forked/blob/master/android/src/main/java/com/tectiv3/aesforked/RCTAesForked.java) |
-| **OneKey 现状** | ❌ | react-native-aes-crypto（SpongyCastle Java） | **~3s / 600k iters** | `packages/shared/src/appCrypto/modules/pbkdf2.ts` |
-| Trust Wallet | - (非 React Native) | wallet-core C++ + trezor-crypto | 原生 | [wallet-core](https://github.com/trustwallet/wallet-core/tree/master/trezor-crypto/crypto) |
-| Uniswap Wallet | - | RNEthersRS (Rust ethers-rs) | 原生 | [Keyring.native.ts](https://github.com/Uniswap/wallet/blob/main/packages/wallet/src/features/wallet/Keyring/Keyring.native.ts) |
-| Rainbow | ❌ | react-native-aes-crypto + 仅 5000 iters | 快但安全性弱 | [aesEncryption.ts](https://github.com/rainbow-me/rainbow/blob/develop/src/handlers/aesEncryption.ts) |
-| BlueWallet | ❌ | crypto-js (1 iter EVP_BytesToKey) | N/A，几乎无 KDF | [encryption.ts](https://github.com/BlueWallet/BlueWallet/blob/master/blue_modules/encryption.ts) |
-| Edge | (WebView worker 方案) | scrypt 不是 PBKDF2 | 不可比 | [edge-core-js](https://github.com/EdgeApp/edge-core-js) |
+> **重要说明**：表格中所有数据均经 GitHub 源码逐文件验证，包括对每个钱包仓库的 `package.json`、加密相关 service、所有 `new Encryptor(...)` instantiation 点搜索。详细调研见 [附录 A: Rabby Mobile 深度调研](#附录-a-rabby-mobile-深度调研已源码验证) 和 [附录 B: MetaMask Mobile 深度调研](#附录-b-metamask-mobile-深度调研已源码验证)。
 
-**真正在生产环境用 quick-crypto JSI 跑 OWASP-recommended PBKDF2 iterations 的 RN 钱包，目前只有 Rabby Mobile 一家。**
+| 钱包 | 实际 PBKDF2 iters | Android 后端 | Android 估算耗时 | 安全等级 |
+|------|------------------|------------|----------------|---------|
+| **Rabby Mobile** | **900,000** ✅ OWASP 默认 | quick-crypto fastpbkdf2 C (JSI) | **~100-150ms** | 🟢 高 + 快 |
+| **OneKey 当前** | **600,000** ✅ OWASP 最低 | react-native-aes-crypto SpongyCastle Java | **~3000ms** | 🟡 高 + 慢（痛点） |
+| **MetaMask Mobile** | **5,000** ❌ Legacy | react-native-aes-crypto SpongyCastle Java | ~10-50ms | 🔴 低 + 凑合 |
+| **Rainbow** | **5,000** ❌ Legacy | react-native-aes-crypto SpongyCastle Java | ~10-50ms | 🔴 低 + 凑合 |
+| Trust Wallet | （非 React Native） | wallet-core C++ + trezor-crypto | 原生 C | 🟢 高 + 快 |
+| Uniswap Wallet | （Rust ethers-rs） | RNEthersRS via FFI | 原生 Rust | 🟢 高 + 快 |
+| BlueWallet | 1（EVP_BytesToKey，几乎无 KDF） | crypto-js 纯 JS | N/A | 🔴 极低 |
+| Edge | scrypt（不是 PBKDF2） | scrypt-js + WebView worker | 不可比 | 🟡 |
+
+### 关键结论
+
+1. **Rabby Mobile 是唯一在生产环境用 quick-crypto JSI 跑 OWASP 推荐 PBKDF2 iterations 的 RN 钱包**
+2. **MetaMask Mobile 装了 quick-crypto 但生产环境不用它**，且**新 vault PBKDF2 只跑 5000 iters**（详见附录 B）
+3. **OneKey 是行业唯一"老老实实做了高安全（600k OWASP）但没做对应性能优化"的钱包**
+4. 抄 Rabby 的方案 = 同时拿到高安全 + 快速度，**不是中庸方案，是唯一双赢方案**
 
 ## 目标
 
@@ -77,7 +124,6 @@ shim 内容：
 
 ```js
 // apps/mobile/shims/noble-pbkdf2-native.js
-const original = require.cache[require.resolve('@noble/hashes/pbkdf2')]?.exports || {};
 let quickCrypto;
 function lazyInit() {
   if (!quickCrypto) quickCrypto = require('react-native-quick-crypto');
@@ -89,7 +135,6 @@ function detectAlgorithm(hashFn) {
   throw new Error(`Unsupported noble hash (outputLen=${hashFn.outputLen})`);
 }
 module.exports = {
-  ...original,
   pbkdf2: (hashFn, pwd, salt, opts) => {
     const result = lazyInit().pbkdf2Sync(
       Buffer.from(pwd), Buffer.from(salt), opts.c, opts.dkLen, detectAlgorithm(hashFn)
@@ -159,17 +204,228 @@ MetaMask 在 quick-crypto 迁移过程中：
 - 整体下沉到 Rust（参考 Uniswap RNEthersRS 模式）- 评估为 4 周以上工作量，本 RFC 不覆盖
 - Web/Desktop/Extension 平台优化（这些平台已经有 BoringSSL/OpenSSL 通过浏览器/Node 提供）
 
-## References
+---
+
+## 附录 A: Rabby Mobile 深度调研（已源码验证）
+
+> **结论**：Rabby Mobile 是唯一在生产环境用 quick-crypto JSI + fastpbkdf2 C 跑 OWASP 推荐 900k PBKDF2 iterations 的 React Native 钱包。OneKey 应**直接抄此方案**。
+
+### A.1 PBKDF2 完整调用链（5 层源码全验证）
+
+#### 层 1：库默认值 = 900,000 iterations
+[`@metamask/browser-passworder@v6.0.0/src/index.ts:42-46`](https://github.com/MetaMask/browser-passworder/blob/v6.0.0/src/index.ts)
+```ts
+const DEFAULT_DERIVATION_PARAMS: KeyDerivationOptions = {
+  algorithm: 'PBKDF2',
+  params: {
+    iterations: 900_000,   // ← OWASP 2023 推荐值
+  },
+};
+```
+
+#### 层 2：Rabby 的 patch 不动 iterations
+[`@metamask-browser-passworder-npm-6.0.0-b3e10a0dba.patch`](https://github.com/RabbyHub/rabby-mobile/blob/develop/.yarn/patches/@metamask-browser-passworder-npm-6.0.0-b3e10a0dba.patch)
+- 仅把 `crypto.subtle.deriveKey` 拆成 `deriveBits + importKey`（让 quick-crypto polyfill 能接管）
+- 仅把 `crypto.subtle` 改成 `globalThis.crypto.subtle`
+- iteration 部分透传 `opts.params.iterations`
+
+#### 层 3：encryptor 适配器是透传
+[`packages/service-keyring/src/utils/encryptor.ts`](https://github.com/RabbyHub/rabby-mobile/blob/develop/packages/service-keyring/src/utils/encryptor.ts)
+```ts
+export const nodeEncryptor = {
+  encrypt: browserPasswordor.encrypt,           // 函数指针，无 opts
+  decrypt: browserPasswordor.decrypt,
+  decryptWithDetail: browserPasswordor.decryptWithDetail,
+  decryptWithExportedKey: async (vault, keyStr) => {
+    const key = await browserPasswordor.importKey(keyStr);
+    return browserPasswordor.decrypt('', vault, key);
+  },
+};
+```
+
+#### 层 4：password.ts 调用都是 2 参数
+[`packages/service-keyring/src/utils/password.ts`](https://github.com/RabbyHub/rabby-mobile/blob/develop/packages/service-keyring/src/utils/password.ts)
+```ts
+const { vault } = await encryptWithDetail(password, data);      // 2 args
+const { vault } = await decryptWithDetail(password, encryptedData);
+```
+
+#### 层 5：keyringService 全部 8 个加密点都是 2 参数（零 opts）
+[`packages/service-keyring/src/keyringService.ts`](https://github.com/RabbyHub/rabby-mobile/blob/develop/packages/service-keyring/src/keyringService.ts)
+- L208: `await this.encryptor.encrypt(password, 'true')`
+- L226: `await this.encryptor.decrypt(password, encryptedBooted)`
+- L263: `await this.encryptor.encrypt(this.#password, mnemonic)`
+- L267: `await this.encryptor.decrypt(this.#password, ...)`
+- L1037: `await this.encryptor.encrypt(this.#password, serializedKeyrings)`
+- L1054: `await this.encryptor.decryptWithExportedKey(...)`
+- L1083: `await this.encryptor.decryptWithDetail(password, encryptedVault)`
+- L1107: `await this.encryptor.decrypt(this.#password, encryptedVault)`
+
+**全仓搜索 `"iterations"`、`"900_000"`、`"10_000"`、`"OLD_DERIVATION_PARAMS"` 字面量：零匹配。** 所有调用透传默认值 = 900k。
+
+### A.2 quick-crypto 安装链路
+
+[`apps/mobile/src/setup-app.ts`](https://github.com/RabbyHub/rabby-mobile/blob/develop/apps/mobile/src/setup-app.ts)
+```ts
+import { install } from 'react-native-quick-crypto';
+install();   // 注入 global.crypto + global.crypto.subtle
+```
+
+调用链最终路径：
+```
+Rabby JS: encryptWithDetail(password, data)
+  ↓ @metamask/browser-passworder@6.0.0 (Yarn patched)
+  ↓ globalThis.crypto.subtle.deriveBits({ name: 'PBKDF2', iterations: 900000 })
+  ↓ react-native-quick-crypto subtle.ts (polyfill)
+  ↓ JSI → C++ HybridPbkdf2.cpp
+  ↓ fastpbkdf2_hmac_sha256(...)   ← ctz/fastpbkdf2 C + SIMD
+  → ~100-150ms on Android
+```
+
+### A.3 mnemonicToSeed 走 quick-crypto 的 patch
+[`@scure-bip39-npm-1.3.0-1d74c5c469.patch`](https://github.com/RabbyHub/rabby-mobile/blob/develop/.yarn/patches/@scure-bip39-npm-1.3.0-1d74c5c469.patch)
+
+把 `@scure/bip39` 库内部对 `@noble/hashes/pbkdf2` 的调用替换为：
+```js
+const mnemonicBuffer = new react_native_buffer.Buffer(mnemonic, "utf8");
+const saltBuffer = new react_native_buffer.Buffer(salt(passphrase), "utf8");
+return react_native_quick_crypto.pbkdf2Sync(
+  mnemonicBuffer, saltBuffer, 2048, 64, "sha512"
+);
+```
+
+注意：Rabby 选了 **patch-package 方案**，OneKey 推荐 **Metro alias 方案**（更优雅，覆盖面更广，不依赖具体库版本）。
+
+### A.4 secp256k1 / BIP32 实现
+
+Rabby 用 [`@rabby-wallet/eth-hd-keyring`](https://github.com/RabbyHub/rabby-mobile/blob/develop/apps/mobile/package.json)（fork 自 `@metamask/eth-hd-keyring`），内部用 `ethereum-cryptography` (→ `@noble/curves` + `@noble/hashes`)，这些是纯 JS。
+
+BIP32 派生本身不靠 quick-crypto，只有 PBKDF2 / AES 走 native。Rabby 不做高频批量派生（EVM 单链单地址为主），所以 BIP32 性能不是他们的痛点。
+
+---
+
+## 附录 B: MetaMask Mobile 深度调研（已源码验证）
+
+> **结论**：MetaMask Mobile 装了 quick-crypto 但**新 vault 不用**，且**生产环境只跑 5,000 iters**（不是 600k/900k）。他们快**不是因为 native 优化**，是因为**根本没做 OWASP 推荐的密码强化**。
+>
+> **OneKey 不该参考 MetaMask 的安全配置**（5k iters 比 OneKey 弱 120 倍），但可以参考他们的 backend 切换架构。
+
+### B.1 iterations 常量定义
+
+[`app/core/Encryptor/constants.ts`](https://github.com/MetaMask/metamask-mobile/blob/main/app/core/Encryptor/constants.ts)
+```ts
+export enum KeyDerivationIteration {
+  Legacy5000 = 5_000,
+  OWASP2023Minimum = 600_000,
+  OWASP2023Default = 900_000,
+}
+
+export const LEGACY_DERIVATION_OPTIONS = {
+  algorithm: 'PBKDF2',
+  params: { iterations: KeyDerivationIteration.Legacy5000 },  // 5000
+};
+
+export const DERIVATION_OPTIONS_MINIMUM_OWASP2023 = { ... };  // 600k
+export const DERIVATION_OPTIONS_DEFAULT_OWASP2023 = { ... };  // 900k
+```
+
+### B.2 全仓 `new Encryptor(...)` instantiation 调查（5 处生产 + 1 处测试 UI + 测试文件）
+
+**生产代码（5 处）- 全部用 LEGACY = 5000 iters：**
+
+| # | 文件 | 用途 |
+|---|------|-----|
+| 1 | [`keyring-controller/keyring-controller-init.ts`](https://github.com/MetaMask/metamask-mobile/blob/main/app/core/Engine/controllers/keyring-controller/keyring-controller-init.ts) | **主 vault 加密** |
+| 2 | [`app/core/SecureKeychain.ts`](https://github.com/MetaMask/metamask-mobile/blob/main/app/core/SecureKeychain.ts) | iOS/Android Keychain 凭据 |
+| 3 | [`app/util/validators/index.ts`](https://github.com/MetaMask/metamask-mobile/blob/main/app/util/validators/index.ts) | 验证 vault 格式 |
+| 4 | [`snaps/snap-controller-init.ts`](https://github.com/MetaMask/metamask-mobile/blob/main/app/core/Engine/controllers/snaps/snap-controller-init.ts) | Snaps 加密 |
+| 5 | [`seedless-onboarding-controller/index.ts`](https://github.com/MetaMask/metamask-mobile/blob/main/app/core/Engine/controllers/seedless-onboarding-controller/index.ts) | Seedless 登录 vault |
+
+每处都是：
+```ts
+const encryptor = new Encryptor({
+  keyDerivationOptions: LEGACY_DERIVATION_OPTIONS,   // 5000
+});
+```
+
+**唯一用 900k 的地方（dev 测试 UI）：**
+[`AesCryptoTestForm.tsx`](https://github.com/MetaMask/metamask-mobile/blob/main/app/components/Views/AesCryptoTestForm/AesCryptoTestForm.tsx)
+```tsx
+const encryptorInstance = new Encryptor({
+  keyDerivationOptions: DERIVATION_OPTIONS_DEFAULT_OWASP2023,  // 900k
+});
+```
+这是开发者性能测试表单，普通用户走不到。
+
+**`updateVault` 升级机制**：全仓搜索 `updateVault` 只有 1 个匹配在测试文件注释里，**没有生产代码会把 5000 iters 升级到 OWASP**。
+
+### B.3 quick-crypto 安装但闲置
+
+[`package.json`](https://github.com/MetaMask/metamask-mobile/blob/main/package.json)
+```json
+"react-native-quick-crypto": "patch:react-native-quick-crypto@npm%3A0.7.15..."
+```
+
+[`app/core/Encryptor/lib/index.ts`](https://github.com/MetaMask/metamask-mobile/blob/main/app/core/Encryptor/lib/index.ts) 有三个 backend：
+- `AesLib` (NativeModules bridge → react-native-aes-crypto)
+- `AesForkedLib` (NativeModules bridge → MetaMask 自家 fork)
+- `QuickCryptoLib` (JSI → quick-crypto)
+
+但 [`Encryptor.ts:155-160`](https://github.com/MetaMask/metamask-mobile/blob/main/app/core/Encryptor/Encryptor.ts) 的 `encrypt()` 方法**显式覆盖默认值传 `ENCRYPTION_LIBRARY.original`**（= AesLib，不是 QuickCryptoLib）：
+```ts
+const key = await this.keyFromPassword(
+  password, salt, false, this.keyDerivationOptions,
+  ENCRYPTION_LIBRARY.original,   // ← 强制走 NativeModules bridge
+);
+```
+
+所以 quick-crypto 装了但**新 vault 加密**实际还是走 `react-native-aes-crypto` NativeModules bridge → SpongyCastle Java（Android）/ CommonCrypto C（iOS）。
+
+### B.4 MetaMask 迁移踩坑历史
+
+[Encryptor 目录 commit 历史](https://github.com/MetaMask/metamask-mobile/commits/main/app/core/Encryptor)：
+```
+2025-12-08: "chore: use native utils for crypto functions"
+2025-05-06: "refactor: use react-native-quick-crypto"
+2025-02-25: "fix: Revert native HMACSHA512 usage"   ← 原生 HMAC 出 bug 回滚
+2024-12-03: "chore: Add eth hd keyring and key tree to decrease unlock time"
+```
+
+**MetaMask 在 quick-crypto 迁移上反复 2 年仍未稳定上线**，原因是踩过 native HMAC bug。这是 OneKey 迁移必须做字节级一致性测试 + 灰度回滚的重要参考。
+
+### B.5 react-native-aes-crypto 实现细节（OneKey 也用这个）
+
+Android：[`tectiv3/react-native-aes/.../Aes.java`](https://github.com/tectiv3/react-native-aes/blob/master/android/src/main/java/com/tectiv3/aes/Aes.java)
+```java
+// pbkdf2 - 纯 Java SpongyCastle
+PKCS5S2ParametersGenerator gen = new PKCS5S2ParametersGenerator(algorithmDigest);
+gen.init(pwd.getBytes("UTF_8"), salt.getBytes("UTF_8"), cost);
+byte[] key = ((KeyParameter) gen.generateDerivedParameters(length)).getKey();
+
+// hmac512 - JCA (实际是 Conscrypt/BoringSSL 原生 C)
+Mac sha_HMAC = Mac.getInstance("HmacSHA512");
+```
+
+**注意区分**：同一个库里 PBKDF2 是 SpongyCastle Java（慢），HMAC 是 JCA（Conscrypt C，快）。OneKey 的卡顿点是 PBKDF2，不是 HMAC。
+
+iOS：用 CommonCrypto `CCKeyDerivationPBKDF`（真原生 C），所以 iOS 没有这个性能问题。
+
+---
+
+## References (按类别)
 
 ### Rabby Mobile（已源码验证的最佳参考）
-- `apps/mobile/src/setup-app.ts` (quick-crypto install) - https://github.com/RabbyHub/rabby-mobile/blob/develop/apps/mobile/src/setup-app.ts
+- quick-crypto install: https://github.com/RabbyHub/rabby-mobile/blob/develop/apps/mobile/src/setup-app.ts
 - `@scure/bip39` patch (mnemonicToSeed → quick-crypto) - https://github.com/RabbyHub/rabby-mobile/blob/develop/.yarn/patches/@scure-bip39-npm-1.3.0-1d74c5c469.patch
 - `@metamask/browser-passworder` patch (subtle deriveBits → quick-crypto) - https://github.com/RabbyHub/rabby-mobile/blob/develop/.yarn/patches/@metamask-browser-passworder-npm-6.0.0-b3e10a0dba.patch
-- `packages/service-keyring/src/keyringService.ts` - https://github.com/RabbyHub/rabby-mobile/blob/develop/packages/service-keyring/src/keyringService.ts
+- keyring service: https://github.com/RabbyHub/rabby-mobile/blob/develop/packages/service-keyring/src/keyringService.ts
 
-### MetaMask Mobile（参考但未完全采用）
-- `app/core/Encryptor/Encryptor.ts` - https://github.com/MetaMask/metamask-mobile/blob/main/app/core/Encryptor/Encryptor.ts
-- `app/core/Encryptor/lib/quick-crypto.ts` (有 QuickCryptoLib 但新 vault 不用) - https://github.com/MetaMask/metamask-mobile/blob/main/app/core/Encryptor/lib/quick-crypto.ts
+### MetaMask Mobile（反面教材 - 不要抄安全配置）
+- 主 Encryptor: https://github.com/MetaMask/metamask-mobile/blob/main/app/core/Encryptor/Encryptor.ts
+- backend 选择: https://github.com/MetaMask/metamask-mobile/blob/main/app/core/Encryptor/lib/index.ts
+- 常量定义: https://github.com/MetaMask/metamask-mobile/blob/main/app/core/Encryptor/constants.ts
+- QuickCryptoLib（装了但闲置）: https://github.com/MetaMask/metamask-mobile/blob/main/app/core/Encryptor/lib/quick-crypto.ts
+- 主 vault 实例化（LEGACY 5000）: https://github.com/MetaMask/metamask-mobile/blob/main/app/core/Engine/controllers/keyring-controller/keyring-controller-init.ts
 
 ### Native library 源码
 - quick-crypto C++ PBKDF2 - https://github.com/margelo/react-native-quick-crypto/blob/main/packages/react-native-quick-crypto/cpp/pbkdf2/HybridPbkdf2.cpp
@@ -177,6 +433,13 @@ MetaMask 在 quick-crypto 迁移过程中：
 - quick-crypto subtle WebCrypto 实现 - https://github.com/margelo/react-native-quick-crypto/blob/main/packages/react-native-quick-crypto/src/subtle.ts
 
 ### SpongyCastle 性能问题溯源
-- `react-native-aes-crypto` Android Aes.java (vanilla) - https://github.com/tectiv3/react-native-aes/blob/master/android/src/main/java/com/tectiv3/aes/Aes.java
-- MetaMask `react-native-aes-crypto-forked` Android (同样 SpongyCastle) - https://github.com/MetaMask/react-native-aes-crypto-forked/blob/master/android/src/main/java/com/tectiv3/aesforked/RCTAesForked.java
-- OneKey 自家 `react-native-pbkdf2` Android (同样 SpongyCastle) - https://github.com/OneKeyHQ/app-modules/tree/main/native-modules/react-native-pbkdf2/android/src/main/java/com/pbkdf2
+- `react-native-aes-crypto` Android Aes.java (vanilla, SpongyCastle Java pbkdf2) - https://github.com/tectiv3/react-native-aes/blob/master/android/src/main/java/com/tectiv3/aes/Aes.java
+- MetaMask `react-native-aes-crypto-forked` Android (同样 SpongyCastle Java) - https://github.com/MetaMask/react-native-aes-crypto-forked/blob/master/android/src/main/java/com/tectiv3/aesforked/RCTAesForked.java
+- OneKey 自家 `react-native-pbkdf2` Android (同样 SpongyCastle Java，名为 fast 实际不 fast) - https://github.com/OneKeyHQ/app-modules/tree/main/native-modules/react-native-pbkdf2/android/src/main/java/com/pbkdf2
+
+### 其他钱包对比参考
+- Trust Wallet wallet-core（C++ + trezor-crypto）- https://github.com/trustwallet/wallet-core/tree/master/trezor-crypto/crypto
+- Uniswap Wallet RNEthersRS（Rust ethers-rs via Swift FFI）- https://github.com/Uniswap/wallet/blob/main/apps/mobile/ios/Uniswap/RNEthersRs/RNEthersRS.swift
+- Rainbow react-native-aes fork（5000 iters 硬编码）- https://github.com/rainbow-me/react-native-aes/blob/master/ios/RCTAes/lib/AesCrypt.m
+- BlueWallet encryption.ts（crypto-js, 1 iter EVP_BytesToKey）- https://github.com/BlueWallet/BlueWallet/blob/master/blue_modules/encryption.ts
+- Edge edge-core-js WebView worker - https://github.com/EdgeApp/edge-core-js/blob/master/src/io/react-native/react-native-worker.ts
