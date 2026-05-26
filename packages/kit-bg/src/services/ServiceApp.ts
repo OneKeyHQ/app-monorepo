@@ -13,6 +13,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { appRestart } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -344,6 +345,29 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async openExtensionExpandTab(routeInfo: IOpenUrlRouteInfo) {
     return extUtils.openExpandTab(routeInfo);
+  }
+
+  @backgroundMethod()
+  async openExtensionMarketTokenDetail(params: {
+    tokenAddress: string;
+    network: string;
+    isNative?: boolean;
+    from?: EEnterWay;
+  }) {
+    const { tokenAddress, network, isNative, from } = params;
+    const routeParams: IOpenUrlRouteInfo['params'] = {};
+
+    if (typeof isNative === 'boolean') {
+      routeParams.isNative = isNative;
+    }
+    if (from) {
+      routeParams.from = from;
+    }
+
+    return extUtils.openExpandTab({
+      path: `/market/token/${network}/${tokenAddress}`,
+      params: routeParams,
+    });
   }
 
   @backgroundMethod()
