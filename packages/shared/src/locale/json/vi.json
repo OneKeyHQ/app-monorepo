@@ -2296,6 +2296,7 @@
   "hardware_third_party_transport_error": "Giao tiếp phần cứng thất bại. Kiểm tra cáp USB hoặc Bluetooth và thử lại.",
   "hardware_third_party_transport_not_available": "Trình duyệt hoặc nền tảng của bạn không hỗ trợ kết nối với ví phần cứng này.",
   "hardware_third_party_unknown_error": "Lỗi phần cứng không xác định. Vui lòng thử lại.",
+  "hardware_third_party_usb_single_device_only_desc": "Chỉ có thể kết nối một thiết bị USB tại một thời điểm. Vui lòng ngắt kết nối các thiết bị khác và thử lại.",
   "hardware_third_party_user_rejected": "Thao tác đã bị từ chối trên thiết bị",
   "hardware_third_party_wrong_app": "Ứng dụng đang mở trên thiết bị không đúng",
   "havent_found_network_desc": "Chúng tôi không tìm thấy mạng nào khớp với khóa riêng của bạn. Vui lòng nhấn bên dưới để chọn một mạng.",

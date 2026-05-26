@@ -2296,6 +2296,7 @@
   "hardware_third_party_transport_error": "Komunikasi hardware gagal. Periksa kabel USB atau Bluetooth dan coba lagi.",
   "hardware_third_party_transport_not_available": "Peramban atau platform Anda tidak mendukung koneksi ke dompet hardware ini.",
   "hardware_third_party_unknown_error": "Kesalahan hardware tidak diketahui. Silakan coba lagi.",
+  "hardware_third_party_usb_single_device_only_desc": "Hanya satu perangkat USB yang dapat disambungkan dalam satu waktu. Putuskan sambungan perangkat lain dan coba lagi.",
   "hardware_third_party_user_rejected": "Operasi ditolak di perangkat",
   "hardware_third_party_wrong_app": "Aplikasi yang terbuka di perangkat salah",
   "havent_found_network_desc": "Kami tidak menemukan jaringan apa pun yang cocok dengan kunci privat Anda. Ketuk di bawah untuk memilih jaringan.",
