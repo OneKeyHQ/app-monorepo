@@ -1,3 +1,4 @@
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
   EAppCryptoAesEncryptionMode,
   PBKDF2_CURRENT_NUM_OF_ITERATIONS,
@@ -16,6 +17,12 @@ import {
   getSecretEncryptV2LocalTargetIterations,
   shouldUpgradeSecretEncryptPayload,
 } from '../aes256';
+
+const {
+  clearPbkdf2Cache,
+  clearPbkdf2InvocationByProbeId,
+  getPbkdf2InvocationByProbeId,
+} = appCrypto.pbkdf2;
 
 /* run test ==============================
 
@@ -82,6 +89,81 @@ describe('aes256', () => {
         data: testBuffer,
       });
       expect(encrypted1.toString('hex')).not.toBe(encrypted2.toString('hex'));
+    });
+
+    it('should enable pbkdf2 cache for encryptAsync KDF calls', async () => {
+      const firstDebugCryptoProbeId = 'encryptAsync-pbkdf2-cache-first';
+      const secondDebugCryptoProbeId = 'encryptAsync-pbkdf2-cache-second';
+      clearPbkdf2Cache();
+      clearPbkdf2InvocationByProbeId(firstDebugCryptoProbeId);
+      clearPbkdf2InvocationByProbeId(secondDebugCryptoProbeId);
+
+      const firstEncrypted = await encryptAsync({
+        password: testPassword,
+        data: testBuffer,
+        allowRawPassword: true,
+        customSalt: goldenVectorSalt,
+        customIv: goldenVectorGcmNonce,
+        iterations: 2,
+        debugCryptoProbeId: firstDebugCryptoProbeId,
+      });
+      const secondEncrypted = await encryptAsync({
+        password: testPassword,
+        data: testBuffer,
+        allowRawPassword: true,
+        customSalt: goldenVectorSalt,
+        customIv: goldenVectorGcmNonce,
+        iterations: 2,
+        debugCryptoProbeId: secondDebugCryptoProbeId,
+      });
+
+      expect(secondEncrypted.toString('hex')).toBe(
+        firstEncrypted.toString('hex'),
+      );
+      expect(
+        getPbkdf2InvocationByProbeId(firstDebugCryptoProbeId),
+      ).toBeTruthy();
+      expect(
+        getPbkdf2InvocationByProbeId(secondDebugCryptoProbeId),
+      ).toBeUndefined();
+    });
+
+    it('should enable pbkdf2 cache for decryptAsync KDF calls', async () => {
+      const firstDebugCryptoProbeId = 'decryptAsync-pbkdf2-cache-first';
+      const secondDebugCryptoProbeId = 'decryptAsync-pbkdf2-cache-second';
+      const encrypted = await encryptAsync({
+        password: testPassword,
+        data: testBuffer,
+        allowRawPassword: true,
+        customSalt: goldenVectorSalt,
+        customIv: goldenVectorGcmNonce,
+        iterations: 2,
+      });
+      clearPbkdf2Cache();
+      clearPbkdf2InvocationByProbeId(firstDebugCryptoProbeId);
+      clearPbkdf2InvocationByProbeId(secondDebugCryptoProbeId);
+
+      const firstDecrypted = await decryptAsync({
+        password: testPassword,
+        data: encrypted,
+        allowRawPassword: true,
+        debugCryptoProbeId: firstDebugCryptoProbeId,
+      });
+      const secondDecrypted = await decryptAsync({
+        password: testPassword,
+        data: encrypted,
+        allowRawPassword: true,
+        debugCryptoProbeId: secondDebugCryptoProbeId,
+      });
+
+      expect(firstDecrypted.toString()).toBe(testData);
+      expect(secondDecrypted.toString()).toBe(testData);
+      expect(
+        getPbkdf2InvocationByProbeId(firstDebugCryptoProbeId),
+      ).toBeTruthy();
+      expect(
+        getPbkdf2InvocationByProbeId(secondDebugCryptoProbeId),
+      ).toBeUndefined();
     });
 
     it('should encrypt and decrypt data correctly using AES-GCM mode', async () => {

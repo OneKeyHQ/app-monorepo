@@ -42,6 +42,10 @@ import type {
   ICoreImportedCredentialEncryptHex,
 } from '@onekeyhq/core/src/types';
 import {
+  type IPbkdf2DispatchBackend,
+  isWebCryptoPbkdf2Supported,
+} from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
+import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
   WALLET_NO_EXTERNAL,
@@ -85,6 +89,7 @@ import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -168,6 +173,43 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const LOCAL_PASSWORD_KDF_LAZY_UPGRADE_CREDENTIAL_BATCH_SIZE = 3;
+
+type ILocalPasswordKdfParams = {
+  kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
+};
+
+type IPreparedCredentialPasswordUpdate = {
+  id: string;
+  nextCredential: string;
+  originalCredential: string;
+};
+
+function getLocalPasswordKdfParams(): ILocalPasswordKdfParams {
+  if (
+    !platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !platformEnv.isWebEmbed &&
+    (platformEnv.isWeb || platformEnv.isDesktop || platformEnv.isExtension) &&
+    isWebCryptoPbkdf2Supported()
+  ) {
+    return {
+      kdfBackend: 'webcrypto',
+      enablePbkdf2Cache: true,
+    };
+  }
+  return {
+    enablePbkdf2Cache: true,
+  };
+}
+
+function isLocalPasswordCredentialPasswordUpdateCandidate({
+  credential,
+}: {
+  credential: IDBCredentialBase;
+}): boolean {
+  return credential.id.startsWith('imported') || credential.id.startsWith('hd');
+}
 
 function stripLocalSecretPrefix(text: string): string {
   const prefixEnd = text.indexOf('|', 1);
@@ -368,9 +410,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return false;
     }
     try {
+      const kdfParams = getLocalPasswordKdfParams();
       const decrypted = await decryptVerifyString({
         password,
         verifyString: context.verifyString,
+        ...kdfParams,
       });
       return decrypted === DEFAULT_VERIFY_STRING;
     } catch {
@@ -378,7 +422,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  async verifyPassword({ password }: { password: string }): Promise<void> {
+  async verifyPassword({
+    password,
+    skipLazyUpgrade,
+  }: {
+    password: string;
+    skipLazyUpgrade?: boolean;
+  }): Promise<void> {
     const ctx = await this.getContext();
     if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
       ensureSensitiveTextEncoded(password);
@@ -387,7 +437,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         context: ctx,
       });
       if (isValid) {
-        void this.lazyUpgradeLocalPasswordEncryptedRecords({ password });
+        if (!skipLazyUpgrade) {
+          void this.lazyUpgradeLocalPasswordEncryptedRecords({ password });
+        }
         return;
       }
       throw new WrongPassword();
@@ -515,15 +567,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return false;
     }
 
+    const kdfParams = getLocalPasswordKdfParams();
     const result = await decryptVerifyStringWithMetadata({
       password,
       verifyString: originalVerifyString,
+      ...kdfParams,
     });
     if (result.plaintext !== DEFAULT_VERIFY_STRING || !result.needsUpgrade) {
       return false;
     }
 
-    const nextVerifyString = await encryptVerifyString({ password });
+    const nextVerifyString = await encryptVerifyString({
+      password,
+      ...kdfParams,
+    });
     let upgraded = false;
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateContext({
@@ -652,9 +709,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     if (credential.id.startsWith('imported')) {
       if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
+        const kdfParams = getLocalPasswordKdfParams();
         const result = await decryptRevealableSeedWithMetadata({
           rs: originalCredential,
           password,
+          ...kdfParams,
         });
         if (!result.needsUpgrade) {
           return false;
@@ -662,11 +721,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         nextCredential = await encryptRevealableSeed({
           rs: result.plaintext,
           password,
+          ...kdfParams,
         });
       } else {
+        const kdfParams = getLocalPasswordKdfParams();
         const result = await decryptImportedCredentialWithMetadata({
           credential: originalCredential,
           password,
+          ...kdfParams,
         });
         if (!result.needsUpgrade) {
           return false;
@@ -674,12 +736,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         nextCredential = await encryptImportedCredential({
           credential: result.plaintext,
           password,
+          ...kdfParams,
         });
       }
     } else if (credential.id.startsWith('hd')) {
+      const kdfParams = getLocalPasswordKdfParams();
       const result = await decryptRevealableSeedWithMetadata({
         rs: originalCredential,
         password,
+        ...kdfParams,
       });
       if (!result.needsUpgrade) {
         return false;
@@ -687,6 +752,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       nextCredential = await encryptRevealableSeed({
         rs: result.plaintext,
         password,
+        ...kdfParams,
       });
     } else {
       return false;
@@ -809,77 +875,163 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async txUpdateAllCredentialsPassword({
     tx,
+    preparedCredentialUpdates,
+  }: {
+    tx: ILocalDBTransaction;
+    preparedCredentialUpdates: IPreparedCredentialPasswordUpdate[];
+  }) {
+    const preparedById = new Map(
+      preparedCredentialUpdates.map((prepared) => [prepared.id, prepared]),
+    );
+
+    const { recordPairs: credentialsRecordPairs, records: credentials } =
+      await this.txGetAllRecords({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+      });
+
+    for (const credential of credentials) {
+      if (
+        isLocalPasswordCredentialPasswordUpdateCandidate({
+          credential,
+        })
+      ) {
+        const prepared = preparedById.get(credential.id);
+        if (
+          !prepared ||
+          prepared.originalCredential !== credential.credential
+        ) {
+          throw new OneKeyLocalError(
+            'changePassword ERROR: credentials changed during password update',
+          );
+        }
+      }
+    }
+
+    const recordPairsToUpdate = credentialsRecordPairs.filter((pair) => {
+      const credential = pair?.[0];
+      return Boolean(
+        credential &&
+        isLocalPasswordCredentialPasswordUpdateCandidate({
+          credential,
+        }) &&
+        preparedById.has(credential.id),
+      );
+    });
+
+    if (recordPairsToUpdate.length) {
+      await this.txUpdateRecords({
+        tx,
+        recordPairs: recordPairsToUpdate,
+        name: ELocalDBStoreNames.Credential,
+        updater: (credential) => {
+          const prepared = preparedById.get(credential.id);
+          if (
+            !prepared ||
+            prepared.originalCredential !== credential.credential
+          ) {
+            throw new OneKeyLocalError(
+              'changePassword ERROR: credential changed during password update',
+            );
+          }
+          credential.credential = prepared.nextCredential;
+          return credential;
+        },
+      });
+    }
+  }
+
+  async buildCredentialPasswordUpdate({
+    credential,
     oldPassword,
     newPassword,
+    kdfParams,
+  }: {
+    credential: IDBCredentialBase;
+    oldPassword: string;
+    newPassword: string;
+    kdfParams: ILocalPasswordKdfParams;
+  }): Promise<IPreparedCredentialPasswordUpdate> {
+    const originalCredential = credential.credential;
+    let nextCredential: string | undefined;
+
+    if (credential.id.startsWith('imported')) {
+      if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
+        const revealableSeed: IBip39RevealableSeed =
+          await decryptRevealableSeed({
+            rs: originalCredential,
+            password: oldPassword,
+            ...kdfParams,
+          });
+        nextCredential = await encryptRevealableSeed({
+          rs: revealableSeed,
+          password: newPassword,
+          ...kdfParams,
+        });
+      } else {
+        const importedCredential: ICoreImportedCredential =
+          await decryptImportedCredential({
+            credential: originalCredential,
+            password: oldPassword,
+            ...kdfParams,
+          });
+        nextCredential = await encryptImportedCredential({
+          credential: importedCredential,
+          password: newPassword,
+          ...kdfParams,
+        });
+      }
+    } else if (credential.id.startsWith('hd')) {
+      const revealableSeed: IBip39RevealableSeed = await decryptRevealableSeed({
+        rs: originalCredential,
+        password: oldPassword,
+        ...kdfParams,
+      });
+      nextCredential = await encryptRevealableSeed({
+        rs: revealableSeed,
+        password: newPassword,
+        ...kdfParams,
+      });
+    }
+
+    if (!nextCredential) {
+      throw new OneKeyLocalError(
+        'changePassword ERROR: unsupported credential type',
+      );
+    }
+
+    return {
+      id: credential.id,
+      originalCredential,
+      nextCredential,
+    };
+  }
+
+  async buildAllCredentialsPasswordUpdates({
+    oldPassword,
+    newPassword,
+    kdfParams,
   }: {
     oldPassword: string;
     newPassword: string;
-    tx: ILocalDBTransaction;
-  }) {
-    if (!oldPassword || !newPassword) {
-      throw new OneKeyLocalError('password is required');
-    }
+    kdfParams: ILocalPasswordKdfParams;
+  }): Promise<IPreparedCredentialPasswordUpdate[]> {
+    const credentials = (await this.getAllCredentials()).filter((credential) =>
+      isLocalPasswordCredentialPasswordUpdateCandidate({
+        credential,
+      }),
+    );
 
-    // update all credentials
-    const { recordPairs: credentialsRecordPairs } = await this.txGetAllRecords({
-      tx,
-      name: ELocalDBStoreNames.Credential,
-    });
-
-    await this.txUpdateRecords({
-      tx,
-      recordPairs: credentialsRecordPairs.filter(Boolean),
-      name: ELocalDBStoreNames.Credential,
-      updater: async (credential) => {
-        if (credential.id.startsWith('imported')) {
-          // Ton mnemonic credential
-          if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
-            const revealableSeed: IBip39RevealableSeed =
-              await decryptRevealableSeed({
-                rs: credential.credential,
-                password: oldPassword,
-              });
-            credential.credential = await encryptRevealableSeed({
-              rs: revealableSeed,
-              password: newPassword,
-            });
-          } else {
-            const importedCredential: ICoreImportedCredential =
-              await decryptImportedCredential({
-                credential: credential.credential,
-                password: oldPassword,
-              });
-            credential.credential = await encryptImportedCredential({
-              credential: importedCredential,
-              password: newPassword,
-            });
-          }
-        }
-        if (credential.id.startsWith('hd')) {
-          const revealableSeed: IBip39RevealableSeed =
-            await decryptRevealableSeed({
-              rs: credential.credential,
-              password: oldPassword,
-            });
-          credential.credential = await encryptRevealableSeed({
-            rs: revealableSeed,
-            password: newPassword,
-          });
-        }
-        if (
-          credential.id.startsWith(
-            accountUtils.HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
-          )
-        ) {
-          // Agent credentials no longer use password-based encryption.
-          // |HLP| format: already plaintext, skip.
-          // |HL| legacy format: orphaned, will be replaced when user re-enables trading.
-          return credential;
-        }
-
-        return credential;
-      },
-    });
+    return Promise.all(
+      credentials.map((credential) =>
+        this.buildCredentialPasswordUpdate({
+          credential,
+          oldPassword,
+          newPassword,
+          kdfParams,
+        }),
+      ),
+    );
   }
 
   async setPassword({ password }: { password: string }): Promise<void> {
@@ -925,7 +1077,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     isCreateMode?: boolean;
   }): Promise<void> {
     if (oldPassword) {
-      await this.verifyPassword({ password: oldPassword });
+      await this.verifyPassword({
+        password: oldPassword,
+        skipLazyUpgrade: true,
+      });
     }
     if (!oldPassword && !isCreateMode) {
       throw new OneKeyLocalError(
@@ -933,24 +1088,28 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       );
     }
 
-    // may take too long, causing transaction to be automatically committed, so it needs to be outside the transaction
-    const verifyString = await encryptVerifyString({ password: newPassword });
+    const kdfParams = getLocalPasswordKdfParams();
+    const preparedCredentialUpdates = oldPassword
+      ? await this.buildAllCredentialsPasswordUpdates({
+          oldPassword,
+          newPassword,
+          kdfParams,
+        })
+      : [];
+
+    const verifyString = await encryptVerifyString({
+      password: newPassword,
+      ...kdfParams,
+    });
 
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       if (oldPassword) {
-        // update all credentials
         await this.txUpdateAllCredentialsPassword({
           tx,
-          oldPassword,
-          newPassword,
+          preparedCredentialUpdates,
         });
       }
 
-      let ctx = await this.txGetContext({ tx });
-
-      ctx = await this.txGetContext({ tx });
-
-      // update context verifyString
       await this.txUpdateContextVerifyString({
         tx,
         verifyString,
@@ -1348,6 +1507,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     } catch (error) {
       return [];
     }
+  }
+
+  async getWalletByHash({
+    hash,
+    excludeKeylessWallet,
+  }: {
+    hash: string;
+    excludeKeylessWallet?: boolean;
+  }): Promise<IDBWallet | undefined> {
+    if (!hash) {
+      return undefined;
+    }
+    const { wallets } = await this.getAllWallets();
+    return wallets.find((wallet) => {
+      if (excludeKeylessWallet && wallet.isKeyless) {
+        return false;
+      }
+      return Boolean(wallet.hash && wallet.hash === hash);
+    });
   }
 
   async getWalletBySyncPayload({
