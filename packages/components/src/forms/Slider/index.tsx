@@ -13,6 +13,7 @@ import type { LayoutChangeEvent } from 'react-native';
 const thumbFocusVisibleStyle = {
   outlineColor: '$borderActive' as const,
 };
+const SEGMENTED_SLIDER_DEFAULT_OFFSET = -6;
 
 function SliderSegment({
   onPress,
@@ -187,29 +188,29 @@ export const Slider = ({
   return segments ? (
     <YStack position="relative" onLayout={handleLayout}>
       {sliderContent}
-      {layout?.width && layout?.height ? (
-        <XStack
-          pointerEvents="none"
-          gap="$0.5"
-          flex={1}
-          justifyContent="space-between"
-          top={-layout.height / 2}
-        >
-          <SliderSegment key={-1} isActive onPress={handleMinPress} />
-          {segmentItems.map((item, index) => (
-            <SliderSegment
-              key={item.index}
-              isActive={item.isActive}
-              onPress={segmentPressHandlers[index]}
-            />
-          ))}
+      <XStack
+        pointerEvents="none"
+        gap="$0.5"
+        flex={1}
+        justifyContent="space-between"
+        top={
+          layout?.height ? -layout.height / 2 : SEGMENTED_SLIDER_DEFAULT_OFFSET
+        }
+      >
+        <SliderSegment key={-1} isActive onPress={handleMinPress} />
+        {segmentItems.map((item, index) => (
           <SliderSegment
-            key={segments ?? 1}
-            isActive={value === max}
-            onPress={handleMaxPress}
+            key={item.index}
+            isActive={item.isActive}
+            onPress={segmentPressHandlers[index]}
           />
-        </XStack>
-      ) : null}
+        ))}
+        <SliderSegment
+          key={segments ?? 1}
+          isActive={value === max}
+          onPress={handleMaxPress}
+        />
+      </XStack>
     </YStack>
   ) : (
     sliderContent
