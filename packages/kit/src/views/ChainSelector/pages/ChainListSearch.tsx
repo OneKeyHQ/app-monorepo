@@ -54,6 +54,8 @@ type IMeasuredRpcUrl = {
 
 const CHAIN_LIST_RETRY_DELAYS_MS = [2000, 5000, 10_000] as const;
 const CHAIN_LIST_RETRY_INTERVAL_MS = 60_000;
+const RPC_MEASURE_TIMEOUT_MS = 10_000;
+const RPC_MEASURE_MAX_CANDIDATES = 5;
 
 type IChainListLoadRequest = {
   append: boolean;
@@ -78,6 +80,32 @@ function getCandidateRpcUrls(rpcUrls: string[]): string[] {
 
 function normalizeSearchKeywords(text?: string): string {
   return text?.trim() ?? '';
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timeout')), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+function selectTopCandidateRpcUrls(
+  rpcUrls: string[],
+  max: number,
+): string[] {
+  const candidates = getCandidateRpcUrls(rpcUrls);
+  const httpsUrls = candidates.filter((url) => url.startsWith('https://'));
+  const httpUrls = candidates.filter((url) => !url.startsWith('https://'));
+  return [...httpsUrls, ...httpUrls].slice(0, max);
 }
 
 function pickFastestRpcUrl({
@@ -230,7 +258,13 @@ function ChainListSearch() {
           if (result.length === 0) {
             setHasMore(false);
           } else {
-            setItems((prev) => [...prev, ...result]);
+            setItems((prev) => {
+              const existingIds = new Set(prev.map((p) => p.chainId));
+              const newItems = result.filter(
+                (r) => !existingIds.has(r.chainId),
+              );
+              return [...prev, ...newItems];
+            });
             setHasMore(true);
             setCurrentPage(request.page);
           }
@@ -322,7 +356,7 @@ function ChainListSearch() {
   }, [reloadDefaultList]);
 
   const visibleItems = useMemo(
-    () => items.filter((item) => getCandidateRpcUrls(item.rpc).length > 0),
+    () => items.filter((item) => item.rpc.length > 0),
     [items],
   );
 
@@ -424,27 +458,29 @@ function ChainListSearch() {
       if (isMeasuringRpc) {
         return;
       }
-      const candidateRpcUrls = getCandidateRpcUrls(item.rpc);
-      if (!candidateRpcUrls.length) {
-        return;
-      }
       defaultLogger.setting.page.chainListNetworkSelected({
         chainId: String(item.chainId),
         networkName: item.name,
       });
-      let rpcUrl = candidateRpcUrls[0];
+      const candidateRpcUrls = selectTopCandidateRpcUrls(
+        item.rpc,
+        RPC_MEASURE_MAX_CANDIDATES,
+      );
+      let rpcUrl = candidateRpcUrls[0] ?? '';
       if (candidateRpcUrls.length > 1) {
         setMeasuringChainId(item.chainId);
         try {
           const results = await Promise.allSettled(
             candidateRpcUrls.map(async (candidateRpcUrl) => {
-              const result =
-                await backgroundApiProxy.serviceCustomRpc.measureCustomNetworkRpcStatus(
+              const result = await withTimeout(
+                backgroundApiProxy.serviceCustomRpc.measureCustomNetworkRpcStatus(
                   {
                     rpcUrl: candidateRpcUrl,
                     chainId: item.chainId,
                   },
-                );
+                ),
+                RPC_MEASURE_TIMEOUT_MS,
+              );
               return {
                 rpcUrl: candidateRpcUrl,
                 responseTime: result.responseTime,
@@ -455,6 +491,8 @@ function ChainListSearch() {
             results,
             fallbackRpcUrl: candidateRpcUrls[0],
           });
+        } catch {
+          rpcUrl = candidateRpcUrls[0];
         } finally {
           if (mountedRef.current) {
             setMeasuringChainId(undefined);
@@ -528,7 +566,7 @@ function ChainListSearch() {
       return (
         <ListItem
           h={60}
-          disabled={isExisting || isMeasuringRpc}
+          disabled={isExisting || isMeasuring}
           opacity={isExisting ? 0.5 : 1}
           renderAvatar={<LetterAvatar letter={item.name?.[0]} size="$10" />}
           title={item.name}
@@ -544,7 +582,6 @@ function ChainListSearch() {
     [
       isNetworkExisting,
       measuringChainId,
-      isMeasuringRpc,
       intl,
       handleSelectNetwork,
     ],

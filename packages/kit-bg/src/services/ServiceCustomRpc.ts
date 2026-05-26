@@ -38,11 +38,11 @@ class ServiceCustomRpc extends ServiceBase {
   private buildChainListRequestParams(params: {
     keywords?: string;
     page?: number;
-  }) {
-    const keywords = params.keywords?.trim();
+  }): { keywords?: string; page: number; showTestNet: boolean } {
+    const keywords = params.keywords?.trim() || undefined;
     const page = Math.max(1, Math.floor(params.page ?? 1));
     return {
-      ...(keywords ? { keywords } : {}),
+      keywords,
       page,
       showTestNet: true,
     };
@@ -584,26 +584,20 @@ class ServiceCustomRpc extends ServiceBase {
     keywords?: string;
     page?: number;
   }): Promise<IChainListItem[]> {
-    const keywords = params.keywords?.trim();
-    const page = Math.max(1, Math.floor(params.page ?? 1));
+    const requestParams = this.buildChainListRequestParams(params);
     // Keyword search: always hit API, no cache.
     // Errors are propagated so callers can distinguish network failures
     // from genuinely empty result sets.
-    if (keywords) {
+    if (requestParams.keywords) {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IChainListItem[] }>(
         '/wallet/v1/network/chainlist',
-        {
-          params: this.buildChainListRequestParams({
-            keywords,
-            page,
-          }),
-        },
+        { params: requestParams },
       );
       return resp.data.data || [];
     }
 
-    return this.fetchChainListPage(page);
+    return this.fetchChainListPage(requestParams.page);
   }
 
   @backgroundMethod()
