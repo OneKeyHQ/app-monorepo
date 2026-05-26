@@ -64,10 +64,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-import {
-  ETriggerOrderType,
-  type IScaleOrderTif,
-} from '@onekeyhq/shared/types/hyperliquid/types';
+import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
 import { useOrderPrice } from '../../../hooks/useOrderPrice';
@@ -1022,19 +1019,6 @@ function PerpTradingForm({
     ],
     [intl],
   );
-  const scaleTifOptions = useMemo(
-    () => [
-      {
-        label: 'GTC',
-        value: 'Gtc' as IScaleOrderTif,
-      },
-      {
-        label: 'Post Only',
-        value: 'Alo' as IScaleOrderTif,
-      },
-    ],
-    [],
-  );
   const scaleOrderCountValidator = useCallback((value: string) => {
     if (value === '') {
       return true;
@@ -1516,44 +1500,6 @@ function PerpTradingForm({
                 {intl.formatMessage({ id: ETranslations.perps_reduce_only })}
               </SizableText>
             </XStack>
-            <Select
-              testID="perp-scale-tif-select"
-              items={scaleTifOptions}
-              title="Time in Force"
-              value={formData.scaleTif ?? 'Gtc'}
-              disabled={isSubmitting}
-              onChange={(nextValue) => {
-                if (nextValue === 'Gtc' || nextValue === 'Alo') {
-                  updateForm({ scaleTif: nextValue });
-                }
-              }}
-              placement="bottom-end"
-              floatingPanelProps={{ width: 160 }}
-              renderTrigger={({
-                onPress,
-                label,
-                disabled: disabledTrigger,
-              }) => (
-                <XStack
-                  onPress={onPress}
-                  disabled={disabledTrigger}
-                  bg="$bgSubdued"
-                  borderRadius="$2"
-                  px="$2.5"
-                  py="$1.5"
-                  alignItems="center"
-                  gap="$1"
-                  cursor="default"
-                >
-                  <SizableText size="$bodySmMedium">{label}</SizableText>
-                  <Icon
-                    name="ChevronDownSmallOutline"
-                    color="$iconSubdued"
-                    size="$4"
-                  />
-                </XStack>
-              )}
-            />
           </XStack>
         </YStack>
       );

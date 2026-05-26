@@ -116,8 +116,7 @@ const MAX_LEDGER_UPDATES = 200;
 const SCALE_ORDER_MISSING_OPEN_ORDER_GRACE_MS = 10_000;
 const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
-const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
-const TWAP_MIN_SLICE_NOTIONAL = 10;
+const TWAP_MIN_ORDER_NOTIONAL = 10;
 
 function getFrontendOrderCloid(
   order: HL.IPerpsFrontendOrder,
@@ -1729,6 +1728,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     const activeAccount = await perpsActiveAccountAtom.get();
     const accountAddress = activeAccount?.accountAddress?.toLowerCase();
     if (!accountAddress) {
+      set(perpsActiveTwapOrdersAtom(), {
+        accountAddress: undefined,
+        twapOrders: [],
+        twapOrdersByCoin: {},
+      });
       set(perpsTwapHistoryAtom(), {
         accountAddress: undefined,
         history: [],
@@ -1743,28 +1747,51 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return;
     }
 
-    const [webData2, history, fills] = await Promise.all([
+    const [webData2, historyResult, fillsResult] = await Promise.all([
       backgroundApiProxy.serviceHyperliquid
         .getWebData2({
           user: accountAddress as HL.IHex,
         })
         .catch(() => undefined),
-      backgroundApiProxy.serviceHyperliquid.getTwapHistory({
-        user: accountAddress as HL.IHex,
-      }),
-      backgroundApiProxy.serviceHyperliquid.getUserTwapSliceFills({
-        user: accountAddress as HL.IHex,
-      }),
+      backgroundApiProxy.serviceHyperliquid
+        .getTwapHistory({
+          user: accountAddress as HL.IHex,
+        })
+        .then((history) => ({
+          ok: true as const,
+          data: history,
+        }))
+        .catch(() => ({
+          ok: false as const,
+        })),
+      backgroundApiProxy.serviceHyperliquid
+        .getUserTwapSliceFills({
+          user: accountAddress as HL.IHex,
+        })
+        .then((fills) => ({
+          ok: true as const,
+          data: fills,
+        }))
+        .catch(() => ({
+          ok: false as const,
+        })),
     ]);
     const latestActiveAccount = await perpsActiveAccountAtom.get();
     if (latestActiveAccount?.accountAddress?.toLowerCase() !== accountAddress) {
       return;
     }
+    const currentTwapOrders = get(perpsActiveTwapOrdersAtom());
+    const currentHistory = get(perpsTwapHistoryAtom());
+    const currentSliceFills = get(perpsTwapSliceFillsAtom());
+    const canReuseCurrentHistory =
+      currentHistory.accountAddress?.toLowerCase() === accountAddress;
+    const canReuseCurrentSliceFills =
+      currentSliceFills.accountAddress?.toLowerCase() === accountAddress;
+
     if (webData2?.user?.toLowerCase() === accountAddress) {
-      const prevTwapOrders = get(perpsActiveTwapOrdersAtom());
       const twapOrders = sortTwapOrders([
-        ...(prevTwapOrders.accountAddress?.toLowerCase() === accountAddress
-          ? prevTwapOrders.twapOrders.filter(
+        ...(currentTwapOrders.accountAddress?.toLowerCase() === accountAddress
+          ? currentTwapOrders.twapOrders.filter(
               (order) => (order.dex ?? '') !== '',
             )
           : []),
@@ -1781,17 +1808,43 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         twapOrders,
         twapOrdersByCoin: buildTwapOrdersByCoinMap(twapOrders),
       });
+    } else if (
+      webData2 ||
+      currentTwapOrders.accountAddress?.toLowerCase() !== accountAddress
+    ) {
+      set(perpsActiveTwapOrdersAtom(), {
+        accountAddress,
+        twapOrders: [],
+        twapOrdersByCoin: {},
+      });
     }
+    let history: typeof currentHistory.history = [];
+    if (historyResult.ok) {
+      history = historyResult.data;
+    } else if (canReuseCurrentHistory) {
+      history = currentHistory.history;
+    }
+
+    let fills: typeof currentSliceFills.fills = [];
+    if (fillsResult.ok) {
+      fills = fillsResult.data;
+    } else if (canReuseCurrentSliceFills) {
+      fills = currentSliceFills.fills;
+    }
+
     const sortedFills = sortAndDedupeTwapSliceFills(fills);
     set(perpsTwapHistoryAtom(), {
       accountAddress,
       history: sortAndDedupeTwapHistory(history),
-      isLoaded: true,
+      isLoaded:
+        historyResult.ok || (canReuseCurrentHistory && currentHistory.isLoaded),
     });
     set(perpsTwapSliceFillsAtom(), {
       accountAddress,
       fills: sortedFills,
-      isLoaded: true,
+      isLoaded:
+        fillsResult.ok ||
+        (canReuseCurrentSliceFills && currentSliceFills.isLoaded),
       latestTime: sortedFills[0]?.fill.time ?? 0,
     });
   });
@@ -2277,7 +2330,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                   upperPrice: formData.scaleUpperPrice ?? '',
                   orderCount: Number(formData.scaleOrderCount ?? 0),
                   reduceOnly: formData.scaleReduceOnly,
-                  tif: formData.scaleTif ?? 'Gtc',
+                  tif: 'Gtc',
                   szDecimals: activeAssetValue?.universe?.szDecimals,
                 },
               );
@@ -2372,19 +2425,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             }
 
             const totalNotional = resolvedSizeBN.multipliedBy(markPriceBN);
-            if (totalNotional.lt(TWAP_MIN_SLICE_NOTIONAL)) {
+            if (totalNotional.lt(TWAP_MIN_ORDER_NOTIONAL)) {
               throw new OneKeyLocalError('Order value must be at least $10');
-            }
-            const estimatedSlices = Math.max(
-              1,
-              Math.ceil((minutes * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
-            );
-            const averageSliceNotional =
-              totalNotional.dividedBy(estimatedSlices);
-            if (averageSliceNotional.lt(TWAP_MIN_SLICE_NOTIONAL)) {
-              throw new OneKeyLocalError(
-                'TWAP slice size is too small. Increase size or shorten duration.',
-              );
             }
 
             const reduceOnly = Boolean(formData.twapReduceOnly);
