@@ -87,7 +87,13 @@ function BasicEarnHome({
   const wasFocusedRef = useRef(false);
   const wasHiddenByModalRef = useRef(false);
   const shouldLogEnterEarnRef = useRef(false);
-  const portfolioData = useEarnPortfolio({ isActive: isEarnTabFocused });
+  // On native, Discovery hosts Earn as a sub-tab, so isEarnTabFocused is
+  // true whenever the Discovery top-level tab is focused — even when the
+  // user is on the Browser or Market sub-tab. Also gate on showContent so
+  // the per-asset portfolio fan-out only fires when Earn is actually visible.
+  const portfolioData = useEarnPortfolio({
+    isActive: isEarnTabFocused && showContent !== false,
+  });
   const { refresh: refreshEarnDataRaw, isLoading: portfolioLoading } =
     portfolioData;
 
