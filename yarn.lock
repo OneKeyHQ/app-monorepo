@@ -8512,8 +8512,8 @@ __metadata:
   resolution: "@onekeyfe/cli@workspace:apps/cli"
   dependencies:
     "@napi-rs/keyring": "npm:^1.3.0"
-    "@onekeyfe/hd-common-connect-sdk": "npm:1.1.26"
-    "@onekeyfe/hd-core": "npm:1.1.26"
+    "@onekeyfe/hd-common-connect-sdk": "npm:1.1.27-alpha.3"
+    "@onekeyfe/hd-core": "npm:1.1.27-alpha.3"
     "@onekeyfe/hd-transport-usb": "npm:1.1.26"
     "@onekeyhq/core": "workspace:*"
     "@onekeyhq/shared": "workspace:*"
