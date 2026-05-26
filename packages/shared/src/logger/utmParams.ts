@@ -129,11 +129,11 @@ export function captureLoggerUtmParamsFromUrl(url: string | undefined | null):
     }
   | undefined {
   const params = getLoggerUtmParamsFromUrl(url);
+  replaceLoggerGlobalUtmParams(params);
   if (Object.keys(params).length === 0) {
     return undefined;
   }
 
-  replaceLoggerGlobalUtmParams(params);
   const snapshot = buildReportSnapshot(params);
   const shouldReport = !reportedUtmParamSnapshots.has(snapshot);
   reportedUtmParamSnapshots.add(snapshot);

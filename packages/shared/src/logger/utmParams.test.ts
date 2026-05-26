@@ -96,6 +96,15 @@ describe('logger utm params helpers', () => {
     });
   });
 
+  it('clears stale global utm params when a later capture has no utm params', () => {
+    captureLoggerUtmParamsFromUrl(
+      'https://app.onekey.so/perps?utm_source=twitter&utm_campaign=old',
+    );
+
+    expect(captureLoggerUtmParamsFromUrl('/wallet')).toBeUndefined();
+    expect(getLoggerGlobalUtmParams()).toEqual({});
+  });
+
   it('marks only the first matching utm snapshot for reporting', () => {
     const url =
       'https://app.onekey.so/perps?utm_source=once&utm_campaign=report';
