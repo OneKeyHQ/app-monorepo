@@ -38,6 +38,7 @@ function AccountValue(accountValue: {
     {
       deriveType: IAccountDeriveTypes;
       mergeDeriveAssetsEnabled: boolean;
+      suffixToDeriveType?: Record<string, string>;
     }
   >;
 }) {
@@ -181,6 +182,7 @@ function AccountValueWithSpotlight({
     {
       deriveType: IAccountDeriveTypes;
       mergeDeriveAssetsEnabled: boolean;
+      suffixToDeriveType?: Record<string, string>;
     }
   >;
   accountDeFiOverview?: {

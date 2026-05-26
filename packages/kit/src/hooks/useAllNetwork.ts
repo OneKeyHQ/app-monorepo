@@ -197,7 +197,11 @@ function filterAllNetworkAccountsInfoResult({
 type IEnabledNetworksCompatResult = {
   networkInfoMap: Record<
     string,
-    { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
+    {
+      deriveType: IAccountDeriveTypes;
+      mergeDeriveAssetsEnabled: boolean;
+      suffixToDeriveType?: Record<string, string>;
+    }
   >;
   compatibleNetworks: IServerNetwork[];
   compatibleNetworksWithoutAccount: IServerNetwork[];
@@ -930,7 +934,11 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       }
       const networkInfoMap: Record<
         string,
-        { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
+        {
+          deriveType: IAccountDeriveTypes;
+          mergeDeriveAssetsEnabled: boolean;
+          suffixToDeriveType?: Record<string, string>;
+        }
       > = {};
       if (networkId && !networkUtils.isAllNetwork({ networkId })) {
         return getEmptyEnabledNetworksResult();
@@ -998,9 +1006,18 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
               networkId: network.id,
             }),
           ]);
+          const suffixToDeriveType: Record<string, string> = {};
+          for (const [dt, info] of Object.entries(
+            vaultSettings.accountDeriveInfo ?? {},
+          )) {
+            if (info.idSuffix) {
+              suffixToDeriveType[info.idSuffix.toLowerCase()] = dt;
+            }
+          }
           networkInfoMap[network.id] = {
             deriveType: globalDeriveType,
             mergeDeriveAssetsEnabled: !!vaultSettings.mergeDeriveAssetsEnabled,
+            suffixToDeriveType,
           };
         }
       }

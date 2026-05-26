@@ -101,6 +101,7 @@ export function AccountSelectorAccountListItem({
     {
       deriveType: IAccountDeriveTypes;
       mergeDeriveAssetsEnabled: boolean;
+      suffixToDeriveType?: Record<string, string>;
     }
   >;
 }) {
