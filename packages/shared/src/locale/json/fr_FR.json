@@ -2296,6 +2296,7 @@
   "hardware_third_party_transport_error": "La communication matérielle a échoué. Vérifiez le câble USB ou le Bluetooth et réessayez.",
   "hardware_third_party_transport_not_available": "Votre navigateur ou plateforme ne prend pas en charge la connexion à ce portefeuille matériel.",
   "hardware_third_party_unknown_error": "Erreur matérielle inconnue. Veuillez réessayer.",
+  "hardware_third_party_usb_single_device_only_desc": "Un seul périphérique USB peut être connecté à la fois. Veuillez déconnecter les autres appareils et réessayer.",
   "hardware_third_party_user_rejected": "Opération refusée sur l'appareil",
   "hardware_third_party_wrong_app": "La mauvaise application est ouverte sur l'appareil",
   "havent_found_network_desc": "Nous n'avons trouvé aucun réseau correspondant à votre clé privée. Veuillez appuyer ci-dessous pour sélectionner un réseau.",

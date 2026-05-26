@@ -2296,6 +2296,7 @@
   "hardware_third_party_transport_error": "Ошибка связи с оборудованием. Проверьте USB-кабель или Bluetooth и повторите попытку.",
   "hardware_third_party_transport_not_available": "Ваш браузер или платформа не поддерживает подключение к этому аппаратному кошельку.",
   "hardware_third_party_unknown_error": "Неизвестная ошибка оборудования. Повторите попытку.",
+  "hardware_third_party_usb_single_device_only_desc": "Одновременно может быть подключено только одно устройство USB. Пожалуйста, отсоедините другие устройства и повторите попытку.",
   "hardware_third_party_user_rejected": "Операция отклонена на устройстве",
   "hardware_third_party_wrong_app": "На устройстве открыто неправильное приложение",
   "havent_found_network_desc": "Мы не нашли сети, соответствующие вашему приватному ключу. Пожалуйста, нажмите ниже, чтобы выбрать сеть.",
