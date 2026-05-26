@@ -11,6 +11,7 @@ import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
 import { isValidNumberValue } from './tokenValueUtils';
 
+import type { IServerNetwork } from '../../types';
 import type {
   IAccountToken,
   IAggregateToken,
@@ -104,6 +105,61 @@ export function getEmptyTokenData() {
   };
 }
 
+function tokenFieldsContainKeyword(token: IAccountToken, kw: string): boolean {
+  return (
+    (token.name?.toLowerCase().includes(kw) ?? false) ||
+    (token.symbol?.toLowerCase().includes(kw) ?? false) ||
+    (token.commonSymbol?.toLowerCase().includes(kw) ?? false) ||
+    token.address?.toLowerCase() === kw
+  );
+}
+
+function networkFieldsContainKeyword(
+  network: IServerNetwork | undefined,
+  kw: string,
+): boolean {
+  if (!network) return false;
+  return (
+    (network.name?.toLowerCase().includes(kw) ?? false) ||
+    (network.code?.toLowerCase().includes(kw) ?? false) ||
+    (network.shortcode?.toLowerCase().includes(kw) ?? false) ||
+    (network.symbol?.toLowerCase().includes(kw) ?? false)
+  );
+}
+
+enum ESearchStrength {
+  BOTH = 1,
+  NETWORK_ONLY = 2,
+  TOKEN_ONLY = 3,
+}
+
+function computeSearchStrength(
+  token: IAccountToken,
+  keywords: string[],
+  network: IServerNetwork | undefined,
+): { matched: boolean; strength: ESearchStrength } {
+  let anyTokenHit = false;
+  let anyNetworkHit = false;
+
+  for (const kw of keywords) {
+    const hitToken = tokenFieldsContainKeyword(token, kw);
+    const hitNetwork = networkFieldsContainKeyword(network, kw);
+    if (!hitToken && !hitNetwork)
+      return { matched: false, strength: ESearchStrength.TOKEN_ONLY };
+    if (hitToken) anyTokenHit = true;
+    if (hitNetwork) anyNetworkHit = true;
+  }
+
+  let strength = ESearchStrength.TOKEN_ONLY;
+  if (anyTokenHit && anyNetworkHit) {
+    strength = ESearchStrength.BOTH;
+  } else if (anyNetworkHit) {
+    strength = ESearchStrength.NETWORK_ONLY;
+  }
+
+  return { matched: true, strength };
+}
+
 export function getFilteredTokenBySearchKey({
   tokens,
   searchKey,
@@ -112,6 +168,9 @@ export function getFilteredTokenBySearchKey({
   allowEmptyWhenBelowMinLength,
   aggregateTokenListMap,
   searchKeyLengthThreshold,
+  networksMap,
+  enableNetworkSearch,
+  tokenFiatMap,
 }: {
   tokens: IAccountToken[];
   searchKey: string;
@@ -120,6 +179,9 @@ export function getFilteredTokenBySearchKey({
   allowEmptyWhenBelowMinLength?: boolean;
   aggregateTokenListMap?: Record<string, { tokens: IAccountToken[] }>;
   searchKeyLengthThreshold?: number;
+  networksMap?: Record<string, IServerNetwork>;
+  enableNetworkSearch?: boolean;
+  tokenFiatMap?: Record<string, ITokenFiat>;
 }) {
   let mergedTokens = tokens;
 
@@ -148,33 +210,111 @@ export function getFilteredTokenBySearchKey({
     return allowEmptyWhenBelowMinLength ? [] : mergedTokens;
   }
 
-  // eslint-disable-next-line no-param-reassign
-  searchKey = searchKey.trim().toLowerCase();
+  const trimmedSearchKey = searchKey.trim().toLowerCase();
 
-  const filteredTokens = mergedTokens.filter((token) => {
-    if (token.isAggregateToken) {
-      const aggregateTokenList = aggregateTokenListMap?.[token.$key];
-      if (
-        aggregateTokenList?.tokens?.some(
-          (t) => t.address?.toLowerCase() === searchKey,
-        )
-      ) {
-        return true;
+  if (!enableNetworkSearch) {
+    const filteredTokens = mergedTokens.filter((token) => {
+      if (token.isAggregateToken) {
+        const aggregateTokenList = aggregateTokenListMap?.[token.$key];
+        if (
+          aggregateTokenList?.tokens?.some(
+            (t) => t.address?.toLowerCase() === trimmedSearchKey,
+          )
+        ) {
+          return true;
+        }
+        return (
+          token.name?.toLowerCase().includes(trimmedSearchKey) ||
+          token.symbol?.toLowerCase().includes(trimmedSearchKey) ||
+          token.commonSymbol?.toLowerCase().includes(trimmedSearchKey)
+        );
       }
       return (
-        token.name?.toLowerCase().includes(searchKey) ||
-        token.symbol?.toLowerCase().includes(searchKey) ||
-        token.commonSymbol?.toLowerCase().includes(searchKey)
+        token.name?.toLowerCase().includes(trimmedSearchKey) ||
+        token.symbol?.toLowerCase().includes(trimmedSearchKey) ||
+        token.address?.toLowerCase() === trimmedSearchKey
       );
-    }
-    return (
-      token.name?.toLowerCase().includes(searchKey) ||
-      token.symbol?.toLowerCase().includes(searchKey) ||
-      token.address?.toLowerCase() === searchKey
-    );
-  });
+    });
+    return filteredTokens;
+  }
 
-  return filteredTokens;
+  const keywords = trimmedSearchKey.split(/\s+/).filter(Boolean);
+  if (keywords.length === 0) return mergedTokens;
+
+  const results: Array<IAccountToken & { _searchStrength?: ESearchStrength }> =
+    [];
+
+  for (const token of mergedTokens) {
+    if (token.isAggregateToken) {
+      const subTokens = aggregateTokenListMap?.[token.$key]?.tokens ?? [];
+
+      const matchedSubs: Array<
+        IAccountToken & { _searchStrength: ESearchStrength }
+      > = [];
+      let hasNetworkHitInAnySub = false;
+
+      for (const sub of subTokens) {
+        const network = networksMap?.[sub.networkId ?? ''];
+        const { matched, strength } = computeSearchStrength(
+          sub,
+          keywords,
+          network,
+        );
+        if (matched) {
+          matchedSubs.push({ ...sub, _searchStrength: strength });
+          if (
+            strength === ESearchStrength.BOTH ||
+            strength === ESearchStrength.NETWORK_ONLY
+          ) {
+            hasNetworkHitInAnySub = true;
+          }
+        }
+      }
+
+      if (matchedSubs.length > 0) {
+        if (hasNetworkHitInAnySub) {
+          results.push(...matchedSubs);
+        } else {
+          results.push({
+            ...token,
+            _searchStrength: ESearchStrength.TOKEN_ONLY,
+          });
+        }
+      } else {
+        const { matched, strength } = computeSearchStrength(
+          token,
+          keywords,
+          undefined,
+        );
+        if (matched) {
+          results.push({ ...token, _searchStrength: strength });
+        }
+      }
+    } else {
+      const network = networksMap?.[token.networkId ?? ''];
+      const { matched, strength } = computeSearchStrength(
+        token,
+        keywords,
+        network,
+      );
+      if (matched) {
+        results.push({ ...token, _searchStrength: strength });
+      }
+    }
+  }
+
+  if (tokenFiatMap) {
+    results.sort((a, b) => {
+      const sa = a._searchStrength ?? ESearchStrength.TOKEN_ONLY;
+      const sb = b._searchStrength ?? ESearchStrength.TOKEN_ONLY;
+      if (sa !== sb) return sa - sb;
+      const fa = Number(tokenFiatMap[a.$key]?.fiatValue ?? -1);
+      const fb = Number(tokenFiatMap[b.$key]?.fiatValue ?? -1);
+      return fb - fa;
+    });
+  }
+
+  return results;
 }
 
 export function sortTokensByFiatValue({

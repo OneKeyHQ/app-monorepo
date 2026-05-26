@@ -69,7 +69,10 @@ import { perfTokenListView } from './perfTokenListView';
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
 import { TokenListItem } from './TokenListItem';
-import { TokenListViewContext } from './TokenListViewContext';
+import {
+  TokenListViewContext,
+  useTokenListViewContext,
+} from './TokenListViewContext';
 import { getTokenListOwnerCacheAccountId } from './utils';
 
 import type {
@@ -516,7 +519,10 @@ function TokenListViewCmp(props: IProps) {
 
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
 
+  const { networksMap } = useTokenListViewContext();
+
   const filteredTokens = useMemo(() => {
+    const useNetworkSearch = !!isTokenSelector && !!searchAll;
     let resp = getFilteredTokenBySearchKey({
       tokens,
       searchKey: isTokenSelector ? tokenSelectorSearchKey : searchKey,
@@ -526,6 +532,11 @@ function TokenListViewCmp(props: IProps) {
         : searchTokenList.tokens,
       aggregateTokenListMap: allAggregateTokenMap,
       searchKeyLengthThreshold,
+      networksMap: useNetworkSearch ? networksMap : undefined,
+      enableNetworkSearch: useNetworkSearch,
+      tokenFiatMap: useNetworkSearch
+        ? { ...visibleTokenListMap, ...aggregateTokenMap }
+        : undefined,
     });
 
     if (!isTokenSelector) {
@@ -566,6 +577,7 @@ function TokenListViewCmp(props: IProps) {
     searchTokenList.tokens,
     allAggregateTokenMap,
     searchKeyLengthThreshold,
+    networksMap,
     sortType,
     sortDirection,
     visibleTokenListMap,
