@@ -1719,8 +1719,28 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async addImportedAccountWithCredential({
+  async addImportedAccountWithCredential(params: {
+    name?: string;
+    fallbackName?: string;
+    shouldCheckDuplicateName?: boolean;
+    credential: string;
+    networkId: string;
+    deriveType: IAccountDeriveTypes | undefined;
+    skipAddIfNotEqualToAddress?: string;
+    skipEventEmit?: boolean;
+    applyRestoreSyncPolicy?: boolean;
+  }): Promise<{
+    networkId: string;
+    walletId: string;
+    accounts: IDBAccount[];
+    isOverrideAccounts: boolean;
+  }> {
+    return this.addImportedAccountWithCredentialBase(params);
+  }
+
+  async addImportedAccountWithCredentialBase({
     credential,
+    password: inputPassword,
     networkId,
     deriveType,
     name,
@@ -1734,6 +1754,7 @@ class ServiceAccount extends ServiceBase {
     fallbackName?: string;
     shouldCheckDuplicateName?: boolean;
     credential: string;
+    password?: string;
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
     skipAddIfNotEqualToAddress?: string;
@@ -1770,11 +1791,15 @@ class ServiceAccount extends ServiceBase {
       encodedText: credential,
     });
 
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-        walletId,
-        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
-      });
+    let password = inputPassword;
+    if (!password) {
+      ({ password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+          walletId,
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+        }));
+    }
+    ensureSensitiveTextEncoded(password);
     const credentialEncrypt = await encryptImportedCredential({
       credential: {
         privateKey: privateKeyDecoded,
@@ -1814,7 +1839,6 @@ class ServiceAccount extends ServiceBase {
         isOverrideAccounts: false,
       };
     }
-
     const { isOverrideAccounts, existsAccounts } =
       await localDb.addAccountsToWallet({
         skipEventEmit,
@@ -3373,6 +3397,63 @@ class ServiceAccount extends ServiceBase {
 
     const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
       realMnemonic,
+      seed: revealableSeed.seed,
+    });
+
+    const rs: IBip39RevealableSeedEncryptHex = await encryptRevealableSeed({
+      rs: revealableSeed,
+      password,
+    });
+
+    return this.createHDWalletWithRs({
+      rs,
+      password,
+      name,
+      walletHash: walletHashAndXfp.hash,
+      walletXfp: walletHashAndXfp.xfp,
+      isWalletBackedUp,
+      isKeylessWallet,
+      avatarInfo,
+      keylessDetailsInfo,
+      skipAddHDNextIndexedAccount,
+      applyRestoreSyncPolicy,
+    });
+  }
+
+  async createHDWalletWithRevealableSeed({
+    revealableSeed,
+    password,
+    name,
+    isWalletBackedUp,
+    isKeylessWallet,
+    avatarInfo,
+    keylessDetailsInfo,
+    skipAddHDNextIndexedAccount,
+    applyRestoreSyncPolicy,
+  }: {
+    revealableSeed: IBip39RevealableSeed;
+    password: string;
+    name?: string;
+    isWalletBackedUp?: boolean;
+    isKeylessWallet?: boolean;
+    avatarInfo?: IAvatarInfo;
+    keylessDetailsInfo?: IKeylessWalletDetailsInfo;
+    skipAddHDNextIndexedAccount?: boolean;
+    applyRestoreSyncPolicy?: boolean;
+  }) {
+    ensureSensitiveTextEncoded(password);
+
+    const mnemonicFromRs = revealEntropyToMnemonic(
+      revealableSeed.entropyWithLangPrefixed,
+    );
+    if (!validateMnemonic(mnemonicFromRs)) {
+      throw new InvalidMnemonic();
+    }
+
+    await this.generateAllHdAndQrWalletsHashAndXfp({ password });
+
+    const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
+      realMnemonic: mnemonicFromRs,
       seed: revealableSeed.seed,
     });
 
@@ -6617,6 +6698,7 @@ class ServiceAccount extends ServiceBase {
     importedAccount,
     input,
     privateKey,
+    password,
     networkId,
     skipEventEmit,
     applyRestoreSyncPolicy,
@@ -6624,6 +6706,7 @@ class ServiceAccount extends ServiceBase {
     importedAccount: IPrimeTransferAccount;
     input: string;
     privateKey: string;
+    password?: string;
     networkId: string;
     skipEventEmit?: boolean;
     applyRestoreSyncPolicy?: boolean;
@@ -6674,11 +6757,12 @@ class ServiceAccount extends ServiceBase {
       for (const deriveType of deriveTypes) {
         try {
           const { accounts } =
-            await serviceAccount.addImportedAccountWithCredential({
+            await serviceAccount.addImportedAccountWithCredentialBase({
               skipEventEmit,
               credential: await servicePassword.encodeSensitiveText({
                 text: privateKey,
               }),
+              password,
               fallbackName: importedAccount.name,
               networkId,
               name: importedAccount.name,

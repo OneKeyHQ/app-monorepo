@@ -572,17 +572,23 @@ export default function PagePrimeTransferPreview() {
             navigation,
           });
 
-          const usedPassword = remoteDevicePassword || localPassword;
+          const localPasswordEncoded = localPassword
+            ? await backgroundApiProxy.servicePassword.encodeSensitiveText({
+                text: localPassword,
+              })
+            : '';
+          const usedPasswordEncoded = remoteDevicePassword
+            ? await backgroundApiProxy.servicePassword.encodeSensitiveText({
+                text: remoteDevicePassword,
+              })
+            : localPasswordEncoded;
           const { success, errorsInfo } =
             await backgroundApiProxy.servicePrimeTransfer.startImport({
               decryptedCredentialsHex:
                 transferData?.privateData?.decryptedCredentialsHex,
               selectedTransferData,
-              password: usedPassword
-                ? await backgroundApiProxy.servicePassword.encodeSensitiveText({
-                    text: usedPassword,
-                  })
-                : '',
+              password: usedPasswordEncoded,
+              localPassword: localPasswordEncoded,
             });
 
           await backgroundApiProxy.servicePrimeTransfer.completeImportProgress({
