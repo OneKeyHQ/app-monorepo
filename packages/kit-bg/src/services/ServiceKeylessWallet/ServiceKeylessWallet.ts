@@ -2293,6 +2293,51 @@ class ServiceKeylessWallet extends ServiceBase {
     );
   }
 
+  // Treat fetch / 5xx / timeout failures from any step of the passive
+  // migration (token refresh, Prime API reads, Prime API writes) as a
+  // network-class error. Rolling back the throttle here means the next
+  // natural trigger retries without waiting 24h, regardless of whether the
+  // failure happened in the refresh helper or in a subsequent Prime call.
+  private isKeylessPassiveMigrationNetworkLikeError(error: unknown): boolean {
+    if (error instanceof KeylessPassiveMigrationNetworkError) {
+      return true;
+    }
+    if (
+      errorUtils.isErrorByClassName({
+        error,
+        className: EOneKeyErrorClassNames.AxiosNetworkError,
+      })
+    ) {
+      return true;
+    }
+    const httpStatusCode = (error as IOneKeyError | undefined)?.httpStatusCode;
+    if (
+      typeof httpStatusCode === 'number' &&
+      httpStatusCode >= 500 &&
+      httpStatusCode < 600
+    ) {
+      return true;
+    }
+    // Axios timeout / DNS / connection errors that the interceptor does not
+    // rewrap (e.g. ECONNABORTED, ETIMEDOUT, ENOTFOUND) bubble up as raw
+    // AxiosError. Match by `.code` so we don't depend on locale-sensitive
+    // `.message` strings.
+    const errorCode = (error as { code?: string | number } | undefined)?.code;
+    if (typeof errorCode === 'string') {
+      if (
+        errorCode === 'ECONNABORTED' ||
+        errorCode === 'ETIMEDOUT' ||
+        errorCode === 'ECONNRESET' ||
+        errorCode === 'ECONNREFUSED' ||
+        errorCode === 'ENOTFOUND' ||
+        errorCode === 'ERR_NETWORK'
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private async restoreKeylessBackendShareV2MigrationRecord(params: {
     walletId: string;
     previousRecord:
@@ -2739,10 +2784,14 @@ class ServiceKeylessWallet extends ServiceBase {
         skipped: false,
       };
     } catch (error) {
-      if (error instanceof KeylessPassiveMigrationNetworkError) {
+      if (this.isKeylessPassiveMigrationNetworkLikeError(error)) {
         // Roll back the throttle write so the next natural trigger (app
         // launch / password cache) retries without delay once the network
         // recovers. No `lastPassiveFailedAt` is set for network failures.
+        // Covers both the refresh-helper path (which throws
+        // `KeylessPassiveMigrationNetworkError`) and the cached-token path
+        // (where Prime API calls fail with AxiosNetworkError / 5xx /
+        // timeout on a flaky connection).
         await this.restoreKeylessBackendShareV2MigrationRecord({
           walletId: keylessWallet.id,
           previousRecord: previousMigrationRecord,
