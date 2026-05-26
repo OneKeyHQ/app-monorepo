@@ -3544,7 +3544,11 @@ class ServiceAccount extends ServiceBase {
 
     await timerUtils.wait(100);
 
-    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    const isInImportFlow =
+      await this.backgroundApi.servicePrimeTransfer.isInTransferImportOrBackupRestoreFlow();
+    if (!isInImportFlow) {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
     return result;
   }
 
