@@ -40,6 +40,7 @@ function handleServerLog(entry: ILogEntry) {
     },
     {} as Record<string, string>,
   );
+  // UTM attribution is emitted as its own event to avoid reading mutable route state here.
   appGlobals?.$analytics?.trackEvent(entry.methodName, {
     ...eventProps,
   });

@@ -113,6 +113,7 @@ export function getLoggerUtmParamsFromUrl(
   const hash = parsedUrl.hash;
   const hashQueryIndex = hash.indexOf('?');
   if (hashQueryIndex >= 0) {
+    // Hash routes can carry campaign params independently from the outer URL.
     collectUtmParamsFromSearchParams(
       new URLSearchParams(hash.slice(hashQueryIndex + 1)),
       params,
@@ -129,6 +130,7 @@ export function captureLoggerUtmParamsFromUrl(url: string | undefined | null):
     }
   | undefined {
   const params = getLoggerUtmParamsFromUrl(url);
+  // Replace first so a plain URL clears attribution from the previous route.
   replaceLoggerGlobalUtmParams(params);
   if (Object.keys(params).length === 0) {
     return undefined;
