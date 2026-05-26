@@ -2296,6 +2296,7 @@
   "hardware_third_party_transport_error": "ハードウェア通信に失敗しました。USB ケーブルまたは Bluetooth を確認して再試行してください",
   "hardware_third_party_transport_not_available": "ご使用のブラウザまたはプラットフォームではこのハードウェアウォレットに接続できません",
   "hardware_third_party_unknown_error": "不明なハードウェアエラーが発生しました。再試行してください",
+  "hardware_third_party_usb_single_device_only_desc": "一度に接続できるUSB機器は1台のみです。他の機器の接続を解除してから再度お試しください。",
   "hardware_third_party_user_rejected": "デバイス上で操作が拒否されました",
   "hardware_third_party_wrong_app": "デバイスで開いているアプリが正しくありません",
   "havent_found_network_desc": "プライベートキーに一致するネットワークが見つかりませんでした。下のボタンをタップしてネットワークを選択してください。",

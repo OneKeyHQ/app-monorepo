@@ -25,6 +25,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
@@ -41,6 +42,39 @@ type IProcessDeepLinkParams = {
   url: string;
   parsedUrl: Linking.ParsedURL;
 };
+
+function getStringQueryParam(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.find((item): item is string => typeof item === 'string');
+  }
+  return undefined;
+}
+
+let pendingRedeemBitcoinVoucherInitialCode: string | undefined;
+let redeemBitcoinVoucherOpenTask: Promise<void> | undefined;
+
+async function openRedeemBitcoinVoucherDialog(initialCode?: string) {
+  pendingRedeemBitcoinVoucherInitialCode = initialCode;
+
+  redeemBitcoinVoucherOpenTask ??= (async () => {
+    try {
+      await whenAppUnlocked();
+      const { showRedemptionCenterDialog } =
+        await import('../../../views/Redemption/components');
+      showRedemptionCenterDialog({
+        initialCode: pendingRedeemBitcoinVoucherInitialCode,
+      });
+    } finally {
+      pendingRedeemBitcoinVoucherInitialCode = undefined;
+      redeemBitcoinVoucherOpenTask = undefined;
+    }
+  })();
+
+  await redeemBitcoinVoucherOpenTask;
+}
 
 async function processDeepLinkUrlAccount(
   params: IProcessDeepLinkParams,
@@ -135,6 +169,15 @@ async function processDeepLinkUrlAccount(
                 fromDeepLink: true,
               });
             }
+          }
+          break;
+        case EOneKeyDeepLinkPath.redeem_bitcoin_voucher:
+          {
+            const query =
+              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.redeem_bitcoin_voucher];
+            const initialCode =
+              getStringQueryParam(query?.code)?.trim() || undefined;
+            await openRedeemBitcoinVoucherDialog(initialCode);
           }
           break;
         case EOneKeyDeepLinkPath.cross_device_transfer:

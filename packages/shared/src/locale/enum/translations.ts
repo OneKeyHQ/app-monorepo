@@ -2301,6 +2301,7 @@ export enum ETranslations {
   hardware_third_party_transport_error = 'hardware_third_party_transport_error',
   hardware_third_party_transport_not_available = 'hardware_third_party_transport_not_available',
   hardware_third_party_unknown_error = 'hardware_third_party_unknown_error',
+  hardware_third_party_usb_single_device_only_desc = 'hardware_third_party_usb_single_device_only_desc',
   hardware_third_party_user_rejected = 'hardware_third_party_user_rejected',
   hardware_third_party_wrong_app = 'hardware_third_party_wrong_app',
   havent_found_network_desc = 'havent_found_network_desc',
