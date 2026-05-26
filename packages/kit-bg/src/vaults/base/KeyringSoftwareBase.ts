@@ -355,6 +355,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
             password,
             indexes: usedIndexes,
             addressEncoding,
+            hdCredentialCacheScopeId: params.hdCredentialCacheScopeId,
           });
         return addressInfos;
       },
@@ -395,6 +396,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
             password,
             indexes: usedIndexes,
             addressEncoding,
+            hdCredentialCacheScopeId: params.hdCredentialCacheScopeId,
           });
 
         if (addressesInfo.length !== usedIndexes.length) {

@@ -5,7 +5,10 @@
 // @ts-expect-error
 import { bech32, mnemonicToRootKeypair, toPublic } from 'cardano-crypto.js';
 
-import { mnemonicFromEntropy } from '@onekeyhq/core/src/secret';
+import {
+  type IHdCredentialDecryptCacheParams,
+  mnemonicFromEntropy,
+} from '@onekeyhq/core/src/secret';
 
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
 
@@ -29,8 +32,13 @@ export function getPathIndex(path: string) {
 export async function getRootKey(
   password: string,
   hdCredential: ICoreHdCredentialEncryptHex,
+  options?: IHdCredentialDecryptCacheParams,
 ): Promise<Buffer> {
-  const mnemonic: string = await mnemonicFromEntropy(hdCredential, password);
+  const mnemonic: string = await mnemonicFromEntropy(
+    hdCredential,
+    password,
+    options,
+  );
   const rootKey = await mnemonicToRootKeypair(mnemonic, DERIVATION_SCHEME);
   return rootKey;
 }
@@ -62,9 +70,10 @@ export async function generateExportedCredential(
   password: string,
   hdCredential: ICoreHdCredentialEncryptHex,
   path: string,
+  options?: IHdCredentialDecryptCacheParams,
 ) {
   const index = getPathIndex(path);
-  const rootKey = await getRootKey(password, hdCredential);
+  const rootKey = await getRootKey(password, hdCredential, options);
   const xprv = bech32.encode(
     'xprv',
     Buffer.concat([

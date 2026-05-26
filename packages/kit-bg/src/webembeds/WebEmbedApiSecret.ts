@@ -1,22 +1,27 @@
 import type {
   IBatchGetPublicKeysParams,
+  IClearHdCredentialDecryptCacheParams,
   IDecryptAsyncParams,
   IEncryptAsyncParams,
   IGenerateRootFingerprintHexAsyncParams,
   IMnemonicFromEntropyAsyncParams,
   IMnemonicToSeedAsyncParams,
   ISecretPublicKeyInfoSerialized,
+  ISeedFromHdCredentialAsyncParams,
 } from '@onekeyhq/core/src/secret';
 import {
   batchGetPublicKeys,
+  clearHdCredentialDecryptCache,
   decryptAsync,
   encryptAsync,
   generateRootFingerprintHexAsync,
   mnemonicFromEntropyAsync,
   mnemonicToSeedAsync,
+  seedFromHdCredentialAsync,
   tonMnemonicToKeyPairFn,
   tonValidateMnemonicFn,
 } from '@onekeyhq/core/src/secret';
+import { clearPbkdf2Cache } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 
 class WebEmbedApiSecret {
   async encryptAsync(
@@ -63,10 +68,30 @@ class WebEmbedApiSecret {
     return seed.toString('hex');
   }
 
+  async seedFromHdCredentialAsync(
+    params: ISeedFromHdCredentialAsyncParams,
+  ): Promise<string> {
+    const seed = await seedFromHdCredentialAsync({
+      ...params,
+      useWebembedApi: false,
+    });
+    return seed.toString('hex');
+  }
+
   async generateRootFingerprintHexAsync(
     params: IGenerateRootFingerprintHexAsyncParams,
   ): Promise<string> {
     return generateRootFingerprintHexAsync(params);
+  }
+
+  async clearHdCredentialDecryptCache(
+    params: IClearHdCredentialDecryptCacheParams,
+  ): Promise<void> {
+    await clearHdCredentialDecryptCache(params);
+  }
+
+  async clearPbkdf2Cache(): Promise<void> {
+    clearPbkdf2Cache();
   }
 
   async tonValidateMnemonic(
