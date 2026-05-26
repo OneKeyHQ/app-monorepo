@@ -33,13 +33,14 @@ interface IShareContentProps {
 function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
   const generatorRef = useRef<IShareImageGeneratorRef | null>(null);
   const intl = useIntl();
-  const { side, token, tokenDisplayName } = data;
+  const { side, token, tokenDisplayName, mode } = data;
 
   const [config, setConfig] = useState<IShareConfig>({
     customText: getDefaultShareText({
       side,
       coin: token,
       displayName: tokenDisplayName,
+      mode,
     }),
     stickerIndex: null,
     backgroundIndex: 0,

@@ -45,6 +45,7 @@ import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWallet
 import { WalletListItem } from './WalletListItem';
 import {
   buildGroupedAccountSelectorWallets,
+  computeHwVendorProfile,
   getWalletChildrenLength,
 } from './walletListUtils';
 
@@ -229,11 +230,15 @@ export function AccountSelectorWalletListSideBar({
         (wallet) => wallet.isKeyless,
       ).length;
       const appWalletCount = walletCount - hwWalletCount;
+      const { hwVendors, primaryHwVendor } = computeHwVendorProfile(wallets);
+
       analytics.updateUserProfile({
         walletCount,
         hwWalletCount,
         appWalletCount,
         keylessWalletCount,
+        hwVendors,
+        primaryHwVendor,
       });
     }
   }, [wallets]);
