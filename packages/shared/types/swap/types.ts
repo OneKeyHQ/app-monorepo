@@ -580,6 +580,7 @@ export interface IFetchQuoteResult {
   isWrapped?: boolean;
   unSupportReceiveAddressDifferent?: boolean;
   routesData?: IQuoteRoutePath[];
+  openRouterInfo?: boolean;
   quoteExtraData?: IQuoteExtraData;
   autoSuggestedSlippage?: number;
   unSupportSlippage?: boolean;

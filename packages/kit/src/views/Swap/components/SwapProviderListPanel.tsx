@@ -418,7 +418,7 @@ const SwapProviderListPanel = ({
         item.info.provider === manualSelectQuoteProvider?.info.provider &&
         item.info.providerName === manualSelectQuoteProvider?.info.providerName,
       );
-      const autoOpenRoute = selected;
+      const autoOpenRoute = Boolean(selected && item.openRouterInfo);
       const autoOpenRouteTrigger = selectedByManual
         ? manualSelectQuoteProvider
         : selectedProviderKey;
