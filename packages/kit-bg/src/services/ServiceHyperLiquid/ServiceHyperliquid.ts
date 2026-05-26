@@ -784,7 +784,11 @@ export default class ServiceHyperliquid extends ServiceBase {
         fills,
       });
     } catch (error) {
-      console.error('Failed to sync scale order groups with fills:', error);
+      defaultLogger.app.error.log(
+        `Failed to sync scale order groups with fills: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
 

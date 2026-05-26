@@ -73,9 +73,20 @@ const TwapOpenOrdersRow = memo(
       const executedSize = new BigNumber(state.executedSz);
       const totalSize = new BigNumber(state.sz);
       const remainingSize = BigNumber.max(totalSize.minus(executedSize), 0);
+      const progressPercent =
+        totalSize.gt(0) && executedSize.gte(0)
+          ? BigNumber.min(executedSize.dividedBy(totalSize), 1)
+              .multipliedBy(100)
+              .toFixed(0)
+          : undefined;
       const progressText =
         totalSize.gt(0) && executedSize.gte(0)
-          ? `${executedSize.toFixed()} / ${totalSize.toFixed()}`
+          ? `${numberFormat(
+              executedSize.toFixed(),
+              balanceFormatter,
+            )} / ${numberFormat(totalSize.toFixed(), balanceFormatter)}${
+              progressPercent ? ` · ${progressPercent}%` : ''
+            }`
           : `${state.executedSz} / ${state.sz}`;
       const execution = `${state.minutes}m${
         state.randomize ? ' · Random' : ''
@@ -223,9 +234,14 @@ const TwapOpenOrdersRow = memo(
               justifyContent={calcCellAlign(columnConfigs[3].align)}
               alignItems="center"
             >
-              <SizableText size="$bodySm">
-                {baseInfo.remainingSizeFormatted}
-              </SizableText>
+              <YStack>
+                <SizableText size="$bodySm">
+                  {baseInfo.remainingSizeFormatted}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  Filled {baseInfo.progressText}
+                </SizableText>
+              </YStack>
             </XStack>
             <XStack
               {...getColumnStyle(columnConfigs[4])}
@@ -273,7 +289,9 @@ const TwapOpenOrdersRow = memo(
               justifyContent={calcCellAlign(columnConfigs[9].align)}
               alignItems="center"
             >
-              <SizableText size="$bodySm">{baseInfo.progressText}</SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                --
+              </SizableText>
             </XStack>
           </>
         ) : null}

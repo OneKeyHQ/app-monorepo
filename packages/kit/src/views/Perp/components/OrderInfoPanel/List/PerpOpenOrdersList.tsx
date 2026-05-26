@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
+import { type IDebugRenderTrackerProps, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   type IPerpsActiveTwapOrder,
@@ -249,7 +249,6 @@ function PerpOpenOrdersList({
 
     const emittedGroups = new Set<string>();
     const rows: IOpenOrdersDisplayRow[] = [];
-    let defaultExpandedChildRows = 0;
 
     filteredOrders.forEach((order) => {
       const scaleInfo = getScaleInfo(order);
@@ -270,14 +269,7 @@ function PerpOpenOrdersList({
           const bChild = getScaleInfo(b);
           return (aChild?.child.index ?? 0) - (bChild?.child.index ?? 0);
         }) ?? [];
-      const defaultExpanded =
-        !isMobile &&
-        childOrders.length <= 10 &&
-        defaultExpandedChildRows + childOrders.length <= 50;
-      if (defaultExpanded) {
-        defaultExpandedChildRows += childOrders.length;
-      }
-      const expanded = scaleGroupExpandedOverrides[groupId] ?? defaultExpanded;
+      const expanded = scaleGroupExpandedOverrides[groupId] ?? false;
       rows.push({
         type: 'scaleGroup',
         group: scaleInfo.group,
@@ -307,7 +299,6 @@ function PerpOpenOrdersList({
   }, [
     filteredOrders,
     filteredTwapOrders,
-    isMobile,
     scaleGroupExpandedOverrides,
     scopedScaleOrderGroups,
   ]);
@@ -423,7 +414,9 @@ function PerpOpenOrdersList({
         });
       const tokenInfo = symbolMeta;
       if (!tokenInfo) {
-        console.warn(`Token info not found for coin: ${order.coin}`);
+        Toast.message({
+          title: 'Token info not found',
+        });
         return;
       }
       void actions.current.cancelOrder({
@@ -475,7 +468,9 @@ function PerpOpenOrdersList({
           coin: order.state.coin,
         });
       if (!symbolMeta) {
-        console.warn(`Token info not found for coin: ${order.state.coin}`);
+        Toast.message({
+          title: 'Token info not found',
+        });
         return;
       }
       void actions.current.cancelTwapOrder({

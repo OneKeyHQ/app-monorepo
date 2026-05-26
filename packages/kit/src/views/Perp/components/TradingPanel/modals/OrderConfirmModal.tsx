@@ -563,9 +563,7 @@ function OrderConfirmContent({
               <SizableText size="$bodyMd" color="$textSubdued">
                 Time in Force
               </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {formData.scaleTif === 'Alo' ? 'Post Only' : 'GTC'}
-              </SizableText>
+              <SizableText size="$bodyMdMedium">GTC</SizableText>
             </XStack>
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
