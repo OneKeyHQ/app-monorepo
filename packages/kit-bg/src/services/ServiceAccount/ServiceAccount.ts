@@ -177,6 +177,12 @@ import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessS
 import { isBotWalletInCurrentKeylessSyncScope } from '../ServicePrimeCloudSync/botWalletCloudSyncUtils';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
+import {
+  buildDefaultBotWalletName,
+  isDefaultBotWalletName,
+  resolveBotWalletSyncItemDataTime,
+} from './botWalletCreateUtils';
+
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
   IAccountDeriveInfo,
@@ -3238,7 +3244,12 @@ class ServiceAccount extends ServiceBase {
       });
     }
     // Refresh DB info when compatibility lookup resolves to another connectId.
-    if (compatibleConnectId !== params.device.connectId) {
+    // Skip empty connectId: getDeviceByQuery would otherwise match by vendor
+    // alone and swap in another device of the same vendor.
+    if (
+      compatibleConnectId &&
+      compatibleConnectId !== params.device.connectId
+    ) {
       const refreshedDevice = await localDb.getDeviceByQuery({
         connectId: params.device.connectId || compatibleConnectId,
         featuresDeviceId: deviceId,
@@ -3523,6 +3534,7 @@ class ServiceAccount extends ServiceBase {
         .syncNowKeyless({
           callerName: 'Keyless Wallet Login Success',
           noDebounceUpload: true,
+          forceSync: true,
         })
         .catch((error) => {
           errorUtils.autoPrintErrorIgnore(error);
@@ -3563,7 +3575,11 @@ class ServiceAccount extends ServiceBase {
       const nextIndex = await simpleDb.botWallet.getNextIndex(
         parentKeylessWalletId,
       );
-      const botName = name || `Bot #${nextIndex + 1}`;
+      const botName = name || buildDefaultBotWalletName(nextIndex);
+      const shouldUseCreateGenesisTime = isDefaultBotWalletName({
+        index: nextIndex,
+        name: botName,
+      });
       const metadata: IBotWalletMetadata = {
         index: nextIndex,
         name: botName,
@@ -3581,6 +3597,7 @@ class ServiceAccount extends ServiceBase {
       });
       await this.syncBotWalletSyncItem({
         walletId: result.wallet.id,
+        shouldUseCreateGenesisTime,
       });
 
       await timerUtils.wait(100);
@@ -3674,7 +3691,7 @@ class ServiceAccount extends ServiceBase {
       await this.backgroundApi.servicePassword.getCachedPassword();
     if (!password) {
       // Password not cached. Pending bot wallet items are reprocessed by the
-      // forceSync pass triggered from setCachedPassword once it lands.
+      // forceSync passes triggered after Keyless login/sync readiness.
       console.warn(
         'createBotWalletFromCloudSync skipped: cached password missing',
         {
@@ -3709,10 +3726,12 @@ class ServiceAccount extends ServiceBase {
     walletId,
     metadataOverride,
     isDeleted = false,
+    shouldUseCreateGenesisTime,
   }: {
     walletId: string;
     metadataOverride?: IBotWalletMetadata;
     isDeleted?: boolean;
+    shouldUseCreateGenesisTime?: boolean;
   }): Promise<void> {
     if (
       (await this.backgroundApi.serviceKeylessCloudSync.getActiveSyncMode()) !==
@@ -3754,7 +3773,10 @@ class ServiceAccount extends ServiceBase {
             walletId,
             metadata,
           },
-          dataTime: await this.backgroundApi.servicePrimeCloudSync.timeNow(),
+          dataTime: await resolveBotWalletSyncItemDataTime({
+            shouldUseCreateGenesisTime,
+            timeNow: () => this.backgroundApi.servicePrimeCloudSync.timeNow(),
+          }),
           isDeleted,
         },
       );
@@ -6358,6 +6380,17 @@ class ServiceAccount extends ServiceBase {
       },
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+
+    // Fire backup-completion analytics here so every code path that flips
+    // wallet.backuped (manual recovery-phrase verify, future cloud / KeyTag
+    // / Lite confirmations, etc.) is covered without each caller having
+    // to remember.
+    if (isBackedUp && !wallet.backuped) {
+      defaultLogger.account.wallet.backupCompleted({
+        walletId,
+        walletType: wallet.type,
+      });
+    }
   }
 
   @backgroundMethod()

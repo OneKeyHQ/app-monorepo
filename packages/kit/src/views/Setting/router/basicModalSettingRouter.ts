@@ -32,6 +32,9 @@ const SettingSpendUTXOModal = LazyLoadPage(
 const SettingCustomRPCModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomRPC'),
 );
+const SettingChainListSearch = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/ChainSelector/pages/ChainListSearch'),
+);
 const SettingCustomNetworkModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomNetwork'),
 );
@@ -183,6 +186,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingCustomRPC,
     component: SettingCustomRPCModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingChainListSearch,
+    component: SettingChainListSearch,
   },
   {
     name: EModalSettingRoutes.SettingCustomNetwork,

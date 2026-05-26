@@ -82,7 +82,7 @@ export default function ShowRecoveryPhrase() {
     }
   }, [navigation, route.params]);
 
-  useRecoveryPhraseProtected();
+  useRecoveryPhraseProtected({ enabled: Boolean(mnemonic) });
 
   const { copyText } = useClipboard();
   const handleCopyMnemonic = useCallback(() => {

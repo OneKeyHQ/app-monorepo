@@ -56,6 +56,10 @@ This is a React Native project targeting iOS, Android, and Web. Always consider 
 
 When fixing bugs, do NOT remove existing code/components that weren't part of the request. Only modify what is explicitly asked for. If you believe something should be removed, ask first.
 
+## Database Schema Changes
+
+When modifying local database schema-related code, always keep Realm DB and IndexedDB definitions in sync and bump `LOCAL_DB_VERSION` in `packages/kit-bg/src/dbs/local/consts.ts` in the same change. This includes Realm schema properties, Realm `record` getters that convert objects to plain JSON records, IndexedDB store names or bucket assignments, local DB schema maps, and persisted model fields. Verify that neither the Realm schema files nor the IndexedDB schema/type maps are missing the corresponding update. Do not rely on optional fields or default values to skip the version bump.
+
 ## Dependencies & Patching
 
 When working with patch-package, never edit .patch files directly. Instead, modify the source files in node_modules/ and run `npx patch-package <package-name>` to regenerate the patch. Always verify the generated patch excludes build artifacts (e.g., android/build/).

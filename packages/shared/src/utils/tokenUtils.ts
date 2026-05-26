@@ -9,6 +9,7 @@ import { OneKeyInternalError } from '../errors';
 
 import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
+import { isValidNumberValue } from './tokenValueUtils';
 
 import type {
   IAccountToken,
@@ -317,9 +318,19 @@ export function mergeDeriveTokenListMap({
           .plus(value.totalBalanceParsed ?? 0)
           .toFixed();
 
-        mergedToken.fiatValue = new BigNumber(mergedToken.fiatValue)
-          .plus(value.fiatValue)
-          .toFixed();
+        // Only write a partial sum when at least one participant has a valid
+        // fiatValue. If every participant is unavailable, keep the merged
+        // token's existing unavailable marker so TokenValueView still renders
+        // '--' instead of a misleading $0.
+        const mergedFiatValid = isValidNumberValue(mergedToken.fiatValue);
+        const incomingFiatValid = isValidNumberValue(value.fiatValue);
+        if (mergedFiatValid || incomingFiatValid) {
+          mergedToken.fiatValue = new BigNumber(
+            mergedFiatValid ? mergedToken.fiatValue : 0,
+          )
+            .plus(incomingFiatValid ? value.fiatValue : 0)
+            .toFixed();
+        }
 
         mergedToken.frozenBalanceFiatValue = new BigNumber(
           mergedToken.frozenBalanceFiatValue ?? 0,
@@ -1126,33 +1137,18 @@ export function calculateAccountTokensValue({
     updateAll?: boolean;
   };
   mergeDeriveAssetsEnabled: boolean;
-}) {
-  if (networkUtils.isAllNetwork({ networkId })) {
-    const allWorth = Object.values(tokensWorth.worth).reduce(
-      (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
-      '0',
-    );
-    return allWorth;
+}): string {
+  const sumValues = (values: string[]) =>
+    values
+      .reduce<BigNumber>((acc, cur) => acc.plus(cur), new BigNumber(0))
+      .toFixed();
+
+  if (networkUtils.isAllNetwork({ networkId }) || mergeDeriveAssetsEnabled) {
+    return sumValues(Object.values(tokensWorth.worth));
   }
 
-  if (mergeDeriveAssetsEnabled) {
-    const allWorth = Object.values(tokensWorth.worth).reduce(
-      (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
-      '0',
-    );
-    return allWorth;
-  }
-
-  return (
-    tokensWorth.worth[
-      accountUtils.buildAccountValueKey({
-        accountId,
-        networkId,
-      })
-    ] ??
-    Object.values(tokensWorth.worth)[0] ??
-    '0'
-  );
+  const key = accountUtils.buildAccountValueKey({ accountId, networkId });
+  return tokensWorth.worth[key] ?? Object.values(tokensWorth.worth)[0] ?? '0';
 }
 
 export function validateTokenAmount({

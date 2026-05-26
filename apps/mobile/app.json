@@ -55,6 +55,14 @@
         {
           "captureType": "fullMediaCapture"
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Use Camera to scan QR Code.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
       ]
     ]
   }

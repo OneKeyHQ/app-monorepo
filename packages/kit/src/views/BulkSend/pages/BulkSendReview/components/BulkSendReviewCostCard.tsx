@@ -6,7 +6,6 @@ import {
   Alert,
   Icon,
   NumberSizeableText,
-  Popover,
   SizableText,
   Skeleton,
   XStack,
@@ -97,33 +96,6 @@ function BulkSendReviewCostCard({
                   )})`
                 : ''}
             </SizableText>
-            {showSplit ? (
-              <Popover
-                title={intl.formatMessage(
-                  { id: ETranslations.wallet_bulk_send_split_txns_title },
-                  { count: displayTxCount },
-                )}
-                renderTrigger={
-                  <Icon
-                    name="InfoCircleOutline"
-                    size="$4"
-                    color="$iconSubdued"
-                  />
-                }
-                renderContent={
-                  <YStack p="$5">
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage(
-                        {
-                          id: ETranslations.wallet_bulk_send_split_txns_description,
-                        },
-                        { count: displayTxCount },
-                      )}
-                    </SizableText>
-                  </YStack>
-                }
-              />
-            ) : null}
           </XStack>
           <YStack alignItems="flex-end">
             {isLoading ? (

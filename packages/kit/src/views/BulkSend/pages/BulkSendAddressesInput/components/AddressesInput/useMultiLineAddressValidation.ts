@@ -55,6 +55,7 @@ type IUseMultiLineAddressValidationParams = {
     Record<string, IBulkSendSelectorAccountItem>
   >;
   onErrorsChange?: (errors: ILineError[]) => void;
+  rejectDeactivatedBotWalletReceiver?: boolean;
 };
 
 function useMultiLineAddressValidation(
@@ -78,6 +79,7 @@ function useMultiLineAddressValidation(
     connectedDeviceIds,
     selectorAccountItemsRef,
     onErrorsChange,
+    rejectDeactivatedBotWalletReceiver = false,
   } = params;
 
   const intl = useIntl();
@@ -578,7 +580,11 @@ function useMultiLineAddressValidation(
         // account. The helper resolves owners through the regular address
         // index and falls back to fresh-address resolution for BTC, matching
         // the allowlist resolver below.
-        if (validAddresses.length > 0 && selectedNetworkId) {
+        if (
+          rejectDeactivatedBotWalletReceiver &&
+          validAddresses.length > 0 &&
+          selectedNetworkId
+        ) {
           const botWalletResults = await Promise.all(
             validAddresses.map(({ index, address }) =>
               limit(async () => {
@@ -777,6 +783,7 @@ function useMultiLineAddressValidation(
       requireAmounts,
       checkDuplicates,
       checkAllowlist,
+      rejectDeactivatedBotWalletReceiver,
       resolveAccountId,
       resolveAccountIdForAddress,
       duplicateWarningMode,

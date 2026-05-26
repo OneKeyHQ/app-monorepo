@@ -14,6 +14,11 @@ interface IToken {
   tokenAddress: string;
 }
 
+export type IHomePageViewedState =
+  | 'notBackedUp'
+  | 'emptyWallet'
+  | 'fundedWallet';
+
 export class WalletScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
@@ -44,6 +49,7 @@ export class WalletScene extends BaseScene {
           details: {
             communication: params.details.communication,
             hardwareWalletType: params.details.hardwareWalletType,
+            ...(params.details.vendor && { vendor: params.details.vendor }),
           },
         };
 
@@ -110,6 +116,7 @@ export class WalletScene extends BaseScene {
             communication: params.details.communication,
             deviceType: params.details.deviceType,
             hardwareWalletType: params.details.hardwareWalletType,
+            ...(params.details.vendor && { vendor: params.details.vendor }),
             ...(params.details.firmwareVersions && {
               firmwareVersions: params.details.firmwareVersions,
             }),
@@ -174,6 +181,25 @@ export class WalletScene extends BaseScene {
     };
   }
 
+  // Funnel numerator. Distinct from `backupWallet` (which fires when the user
+  // picks a method) — this fires only when wallet.backuped flips true.
+  @LogToServer()
+  @LogToLocal()
+  public backupCompleted(params: { walletId: string; walletType: string }) {
+    return params;
+  }
+
+  // Funnel denominator. Deduped to once per (wallet, state) tuple per session
+  // by the caller.
+  @LogToServer()
+  @LogToLocal()
+  public homePageViewed(params: {
+    state: IHomePageViewedState;
+    walletType: string;
+  }) {
+    return params;
+  }
+
   @LogToServer()
   @LogToLocal()
   public enterManageToken() {}
@@ -210,7 +236,10 @@ export class WalletScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
-  public customNetworkAdded(params: { chainID: string }) {
+  public customNetworkAdded(params: {
+    chainID: string;
+    source?: 'manual' | 'chainList' | 'dapp';
+  }) {
     return params;
   }
 

@@ -33,8 +33,6 @@ import type {
   EModalSendRoutes,
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
@@ -42,127 +40,9 @@ import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/
 import { SendTestIDs } from '../../testIDs';
 
 import CoinControlStrategyPopover from './CoinControlStrategyPopover';
+import { EUtxoSortType, UTXOListItem, generateUtxoKey } from './UTXOListItem';
 
 import type { RouteProp } from '@react-navigation/core';
-import type { IntlShape } from 'react-intl';
-
-// Sort type enum
-enum ESortType {
-  NewestFirst = 'newestFirst',
-  OldestFirst = 'oldestFirst',
-  SmallestFirst = 'smallestFirst',
-  LargestFirst = 'largestFirst',
-}
-
-// Format blockTime to readable date
-// - If no blockTime and confirmations = 0: show "Pending"
-// - Otherwise: show "-"
-function formatBlockTime(
-  blockTime: number | undefined,
-  confirmations: number | undefined,
-  intl: IntlShape,
-): string {
-  if (blockTime) {
-    return formatDate(new Date(blockTime));
-  }
-  if (confirmations === 0) {
-    return intl.formatMessage({ id: ETranslations.global_pending });
-  }
-  return '-';
-}
-
-// Generate UTXO unique key
-function generateUtxoKey(txid: string, vout: number): string {
-  return `${txid}:${vout}`;
-}
-
-// ListItem component - optimized with memo for performance
-const UTXOListItem = memo(
-  ({
-    item,
-    index,
-    isSelected,
-    onToggle,
-    decimals,
-    symbol,
-    intl,
-  }: {
-    item: IUtxoInfo;
-    index: number;
-    isSelected: boolean;
-    onToggle: (utxoKey: string) => void;
-    decimals: number;
-    symbol: string;
-    intl: IntlShape;
-  }) => {
-    const handlePress = useCallback(() => {
-      const utxoKey = generateUtxoKey(item.txid, item.vout);
-      onToggle(utxoKey);
-    }, [item.txid, item.vout, onToggle]);
-
-    const formattedInfo = useMemo(
-      () => formatBlockTime(item.blockTime, item.confirmations, intl),
-      [item.blockTime, item.confirmations, intl],
-    );
-
-    const formattedAmount = useMemo(
-      () => new BigNumber(item.value).shiftedBy(-decimals).toFixed(),
-      [item.value, decimals],
-    );
-
-    const shortenedAddress = useMemo(
-      () => accountUtils.shortenAddress({ address: item.address }),
-      [item.address],
-    );
-
-    return (
-      <XStack
-        px="$5"
-        py="$1"
-        gap="$3"
-        ai="center"
-        onPress={handlePress}
-        hoverStyle={{ bg: '$bgHover' }}
-        pressStyle={{ bg: '$bgActive' }}
-      >
-        {/* Left: Checkbox + Index number */}
-        <XStack ai="center" gap="$2" w={80} $md={{ w: 60 }}>
-          <Checkbox
-            testID="send-shortened-address-checkbox"
-            value={isSelected}
-            onChange={handlePress}
-            shouldStopPropagation
-          />
-          <SizableText size="$bodyMd" color="$text">
-            {index + 1}
-          </SizableText>
-        </XStack>
-
-        {/* Middle: Amount */}
-        <SizableText
-          size="$bodyMd"
-          color="$text"
-          textAlign="right"
-          minWidth={120}
-        >
-          {formattedAmount} {symbol}
-        </SizableText>
-
-        {/* Right: Address + Info */}
-        <YStack flex={1} ai="flex-end">
-          <SizableText size="$bodyMd" color="$text">
-            {shortenedAddress}
-          </SizableText>
-          <SizableText size="$bodySm" color="$textSubdued">
-            {formattedInfo}
-          </SizableText>
-        </YStack>
-      </XStack>
-    );
-  },
-);
-
-UTXOListItem.displayName = 'UTXOListItem';
 
 function CoinControlPage() {
   const intl = useIntl();
@@ -214,7 +94,9 @@ function CoinControlPage() {
   );
 
   // State for sort type
-  const [sortType, setSortType] = useState<ESortType>(ESortType.NewestFirst);
+  const [sortType, setSortType] = useState<EUtxoSortType>(
+    EUtxoSortType.NewestFirst,
+  );
 
   // Initialize selected UTXOs and strategy when utxoList is loaded
   // Priority: 1. Use saved selection from atom if exists 2. Default to select all
@@ -247,18 +129,18 @@ function CoinControlPage() {
   const sortedData = useMemo(() => {
     const data = [...utxoList];
     switch (sortType) {
-      case ESortType.NewestFirst:
+      case EUtxoSortType.NewestFirst:
         // Sort by height descending (newest first)
         return data.toSorted((a, b) => b.height - a.height);
-      case ESortType.OldestFirst:
+      case EUtxoSortType.OldestFirst:
         // Sort by height ascending (oldest first)
         return data.toSorted((a, b) => a.height - b.height);
-      case ESortType.LargestFirst:
+      case EUtxoSortType.LargestFirst:
         // Sort by amount descending (largest first)
         return data.toSorted((a, b) =>
           new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
         );
-      case ESortType.SmallestFirst:
+      case EUtxoSortType.SmallestFirst:
         // Sort by amount ascending (smallest first)
         return data.toSorted((a, b) =>
           new BigNumber(a.value).comparedTo(new BigNumber(b.value)),
@@ -364,25 +246,25 @@ function CoinControlPage() {
         label: intl.formatMessage({
           id: ETranslations.wallet_sort_newest_first,
         }),
-        value: ESortType.NewestFirst,
+        value: EUtxoSortType.NewestFirst,
       },
       {
         label: intl.formatMessage({
           id: ETranslations.wallet_sort_oldest_first,
         }),
-        value: ESortType.OldestFirst,
+        value: EUtxoSortType.OldestFirst,
       },
       {
         label: intl.formatMessage({
           id: ETranslations.wallet_sort_smallest_first,
         }),
-        value: ESortType.SmallestFirst,
+        value: EUtxoSortType.SmallestFirst,
       },
       {
         label: intl.formatMessage({
           id: ETranslations.wallet_sort_largest_first,
         }),
-        value: ESortType.LargestFirst,
+        value: EUtxoSortType.LargestFirst,
       },
     ],
     [intl],
@@ -465,7 +347,7 @@ function CoinControlPage() {
               {intl.formatMessage({ id: ETranslations.wallet_sort_coins })}
             </SizableText>
             <Select
-              testID="send-select"
+              testID={SendTestIDs.coinControlSortSelect}
               title={intl.formatMessage({ id: ETranslations.market_sort_by })}
               value={sortType}
               onChange={setSortType}
@@ -527,7 +409,7 @@ function CoinControlPage() {
         <XStack px="$5" py="$5" gap="$3" ai="center" bg="$bgApp">
           {/* Select all checkbox */}
           <Checkbox
-            testID="send-checkbox"
+            testID={SendTestIDs.coinControlSelectAllCheckbox}
             value={checkboxValue}
             onChange={handleSelectAll}
             shouldStopPropagation
@@ -547,7 +429,11 @@ function CoinControlPage() {
           </YStack>
 
           {/* Done button */}
-          <Button variant="primary" onPress={handleDone} testID="send-btn">
+          <Button
+            testID={SendTestIDs.coinControlDoneButton}
+            variant="primary"
+            onPress={handleDone}
+          >
             {intl.formatMessage({
               id: ETranslations.global_done,
             })}

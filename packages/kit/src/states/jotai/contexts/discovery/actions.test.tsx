@@ -6,6 +6,7 @@ import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import { rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
+import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import {
@@ -26,6 +27,7 @@ import {
   useDisplayHomePageAtom,
   useWebTabsAtom,
   webTabsAtom,
+  webTabsMapAtom,
 } from './atoms';
 
 const mockSetBrowserTabsRawData = jest.fn();
@@ -53,6 +55,9 @@ const mockRootNavigationRef = rootNavigationRef as typeof rootNavigationRef & {
     getRootState: jest.Mock;
   };
 };
+const mockHandleDeepLinkUrl = handleDeepLinkUrl as jest.MockedFunction<
+  typeof handleDeepLinkUrl
+>;
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -164,6 +169,10 @@ function createWrapper({
     keys: tabs.map((tab) => tab.id),
     tabs,
   });
+  store.set(
+    webTabsMapAtom(),
+    Object.fromEntries(tabs.map((tab) => [tab.id, tab])),
+  );
 
   return function Wrapper({ children }: { children?: ReactNode }) {
     return (
@@ -236,6 +245,95 @@ describe('useBrowserTabActions', () => {
         }),
       ],
     });
+  });
+
+  it('keeps a desktop home tab in place when it opens its first page and still allows drag sorting', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+
+    const { result } = renderHook(
+      () => {
+        const tabActions = useBrowserTabActions().current;
+        const browserActions = useBrowserAction().current;
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          browserActions,
+          tabActions,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'tab-1',
+              url: 'https://previous.example',
+              title: 'Previous',
+              timestamp: 100,
+            },
+            {
+              id: 'home-tab',
+              url: '',
+              title: 'Start Tab',
+              timestamp: 200,
+              type: 'home',
+              isActive: true,
+            },
+            {
+              id: 'tab-2',
+              url: 'https://next.example',
+              title: 'Next',
+              timestamp: 300,
+            },
+          ],
+          activeTabId: 'home-tab',
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    await act(async () => {
+      await result.current.browserActions.gotoSite({
+        id: 'home-tab',
+        url: 'https://bookmark.example',
+        title: 'Bookmark',
+      });
+    });
+
+    expect(result.current.tabs.map((tab) => tab.id)).toEqual([
+      'tab-1',
+      'home-tab',
+      'tab-2',
+    ]);
+    expect(result.current.tabs.find((tab) => tab.id === 'home-tab')).toEqual(
+      expect.objectContaining({
+        timestamp: 200,
+        type: 'normal',
+        url: 'https://bookmark.example',
+      }),
+    );
+
+    act(() => {
+      result.current.tabActions.setTabsByIds({
+        pinnedTabs: [],
+        unpinnedTabs: [
+          { id: 'tab-1', timestamp: 100 },
+          { id: 'tab-2', timestamp: 300 },
+          { id: 'home-tab', timestamp: 302 },
+        ],
+      });
+    });
+
+    expect(result.current.tabs.map((tab) => tab.id)).toEqual([
+      'tab-1',
+      'tab-2',
+      'home-tab',
+    ]);
   });
 
   it('selects a replacement tab after closing the current tab outside native', () => {
@@ -473,6 +571,83 @@ describe('useBrowserTabActions', () => {
         isTopFrame: true,
       }),
     ).toBe(EValidateUrlEnum.NotSupportProtocol);
+  });
+
+  it('treats OneKey referral landing URLs as app routes in the browser', async () => {
+    const referralUrl = 'https://app.onekey.so/r/R7EKUT/app/perps';
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    expect(
+      result.current.actions.validateWebviewSrc({
+        url: referralUrl,
+        isTopFrame: true,
+      }),
+    ).toBe(EValidateUrlEnum.ValidDeeplink);
+
+    let opened: boolean | void = undefined;
+    await act(async () => {
+      opened = await result.current.actions.gotoSite({
+        id: 'tab-1',
+        url: referralUrl,
+        title: 'Referral',
+      });
+    });
+
+    expect(opened).toBe(false);
+    expect(mockHandleDeepLinkUrl).toHaveBeenCalledWith({ url: referralUrl });
+    expect(mockCrossWebviewLoadUrl).not.toHaveBeenCalled();
+    expect(result.current.tabs.find((tab) => tab.id === 'tab-1')).toEqual(
+      expect.objectContaining({
+        url: 'https://previous.example',
+      }),
+    );
+  });
+
+  it('does not switch to the browser when opening a OneKey referral landing URL', () => {
+    const referralUrl = 'https://onekey.so/r/R7EKUT';
+    mockRootNavigationRef.current.getRootState.mockReturnValue({
+      index: 0,
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: {
+            index: 0,
+            routes: [{ name: ETabRoutes.Home }],
+          },
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useBrowserAction().current, {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.handleOpenWebSite({
+        webSite: {
+          title: 'Referral',
+          url: referralUrl,
+          logo: undefined,
+          sortIndex: undefined,
+        },
+      });
+    });
+
+    expect(mockHandleDeepLinkUrl).toHaveBeenCalledWith({ url: referralUrl });
+    expect(mockSwitchTabAsync).not.toHaveBeenCalled();
   });
 
   it('keeps blocked localhost gotoSite in the browser so the block page is shown', async () => {

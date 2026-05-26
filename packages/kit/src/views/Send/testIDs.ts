@@ -31,6 +31,9 @@ export const SendTestIDs = {
 
   // Coin control
   coinControlPage: 'send-coin-control-page',
+  coinControlSortSelect: 'send-coin-control-sort-select',
+  coinControlSelectAllCheckbox: 'send-coin-control-select-all-checkbox',
+  coinControlDoneButton: 'send-coin-control-done-button',
 
   // Amount input extras
   nftMaxButton: 'send-nft-max-button',

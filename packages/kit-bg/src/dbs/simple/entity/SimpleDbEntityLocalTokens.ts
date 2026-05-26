@@ -22,6 +22,10 @@ export interface ISimpleDBLocalTokens {
   riskyTokenList: Record<string, IAccountToken[]>; // <networkId_accountAddress/xpub, IAccountToken[]>
   tokenListMap: Record<string, Record<string, ITokenFiat>>; // <networkId_accountAddress/xpub, Record<string, ITokenFiat>>
   tokenListValue: Record<string, string>; // <networkId_accountAddress/xpub, string>
+  // Per-key currency tag for tokenListMap / tokenListValue. Missing keys are
+  // pre-migration entries in the user's then-active display currency;
+  // ServiceToken supplies the lazy fallback.
+  tokenListCurrency?: Record<string, string>;
 }
 
 export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocalTokens> {
@@ -54,6 +58,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       riskyTokenList: rawData?.riskyTokenList ?? {},
       tokenListMap: rawData?.tokenListMap ?? {},
       tokenListValue: rawData?.tokenListValue ?? {},
+      tokenListCurrency: rawData?.tokenListCurrency ?? {},
     }));
   }
 
@@ -129,6 +134,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     riskyTokenList,
     tokenListMap,
     tokenListValue,
+    currency,
   }: {
     networkId: string;
     accountAddress?: string;
@@ -138,6 +144,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     riskyTokenList: IAccountToken[];
     tokenListMap: Record<string, ITokenFiat>;
     tokenListValue: string;
+    currency: string;
   }) {
     if (!accountAddress && !xpub) {
       throw new OneKeyInternalError('accountAddress or xpub is required');
@@ -183,6 +190,10 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
         ...rawData?.tokenListValue,
         [key]: tokenListValue,
       },
+      tokenListCurrency: {
+        ...rawData?.tokenListCurrency,
+        [key]: currency,
+      },
     }));
     perf.markEnd('setRawData');
     perf.done();
@@ -195,6 +206,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     riskyTokenList: Record<string, IAccountToken[]>;
     tokenListValue: Record<string, string>;
     tokenListMap: Record<string, Record<string, ITokenFiat>>;
+    tokenListCurrency: Record<string, string>;
   }) {
     await this.setRawData((rawData) => ({
       data: rawData?.data ?? {},
@@ -217,6 +229,10 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       tokenListValue: {
         ...rawData?.tokenListValue,
         ...tokenListCache.tokenListValue,
+      },
+      tokenListCurrency: {
+        ...rawData?.tokenListCurrency,
+        ...tokenListCache.tokenListCurrency,
       },
     }));
   }
@@ -271,6 +287,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
         rawData?.tokenList ?? {},
         key,
       ),
+      currency: rawData?.tokenListCurrency?.[key],
     };
 
     perf.done();
@@ -287,6 +304,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       riskyTokenList: {},
       tokenListMap: {},
       tokenListValue: {},
+      tokenListCurrency: {},
     });
   }
 }

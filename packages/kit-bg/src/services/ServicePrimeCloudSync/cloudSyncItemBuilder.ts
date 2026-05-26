@@ -1,10 +1,7 @@
 import { sha512 } from '@noble/hashes/sha512';
 import { isNil } from 'lodash';
 
-import {
-  decryptStringAsync,
-  encryptStringAsync,
-} from '@onekeyhq/core/src/secret';
+import { decryptStringAsync } from '@onekeyhq/core/src/secret';
 import {
   WALLET_TYPE_HW,
   WALLET_TYPE_QR,
@@ -24,6 +21,11 @@ import type {
   ICloudSyncPayloadDbWalletFields,
   ICloudSyncRawDataJson,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+
+import {
+  EAppCryptoSharedEncryptScene,
+  encryptStringAsyncWithFormat,
+} from '../../utils/secretEncryptFormat';
 
 import keylessCloudSyncUtils from './keylessCloudSyncUtils';
 
@@ -235,11 +237,12 @@ class CloudSyncItemBuilder {
           primeAccountSalt,
           syncPassword,
         });
-        encryptedData = await encryptStringAsync({
+        encryptedData = await encryptStringAsyncWithFormat({
           password,
           allowRawPassword: true,
           data: rawData,
           dataEncoding: 'utf8',
+          sharedScene: EAppCryptoSharedEncryptScene.primeCloudSyncItem,
         });
       }
     }

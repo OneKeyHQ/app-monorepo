@@ -53,6 +53,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
+import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -79,6 +80,34 @@ let lastRecoveredPerpsLocaleVariant: string | undefined;
 
 function resolvePerpRouteFocused(isFocus: boolean) {
   return shouldTreatPerpAsFocusedOnMount || isFocus;
+}
+
+async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
+  force?: boolean;
+}) {
+  const currentMode = (await tradingModeAtom.get()) ?? 'perp';
+  if (currentMode === 'spot') {
+    const spotAsset = await spotActiveAssetAtom.get();
+    if (!spotAsset?.coin) {
+      return undefined;
+    }
+    return {
+      mode: 'spot' as const,
+      coin: spotAsset.coin,
+      spotUniverse: spotAsset.universe,
+      force: options?.force,
+    };
+  }
+
+  const perpAsset = await perpsActiveAssetAtom.get();
+  if (!perpAsset?.coin) {
+    return undefined;
+  }
+  return {
+    mode: 'perp' as const,
+    coin: perpAsset.coin,
+    force: options?.force,
+  };
 }
 
 function useSyncContextOrderBookOptionsToGlobal() {
@@ -617,30 +646,29 @@ function useHyperliquidSymbolSelect() {
         return;
       }
       if (claimed) {
-        await Promise.all([
-          backgroundApiProxy.serviceHyperliquid.refreshTradingMeta(),
-          // Spot meta failure must not block perps initialization
-          backgroundApiProxy.serviceHyperliquid.refreshSpotMeta().catch((e) => {
-            console.error('refreshSpotMeta failed (non-blocking):', e);
-          }),
-        ]);
+        try {
+          await Promise.all([
+            backgroundApiProxy.serviceHyperliquid.refreshTradingMeta(),
+            // Spot meta failure must not block perps initialization.
+            backgroundApiProxy.serviceHyperliquid
+              .refreshSpotMeta()
+              .catch((e) => {
+                console.error('refreshSpotMeta failed (non-blocking):', e);
+              }),
+          ]);
+        } catch (error) {
+          // Offline entry should still hydrate UI context from persisted BG
+          // atoms.
+          console.error('refreshTradingMeta failed before symbol sync:', error);
+        }
       }
-      const currentMode = await tradingModeAtom.get();
-      const currentPerpToken = await perpsActiveAssetAtom.get();
-      const currentSpotToken = await spotActiveAssetAtom.get();
-      const nextMode = currentMode === 'spot' ? 'spot' : 'perp';
-      const nextCoin =
-        nextMode === 'spot' ? currentSpotToken?.coin : currentPerpToken?.coin;
-      if (!nextCoin) {
+      const switchParams = await buildActiveInstrumentSwitchParamsFromGlobal({
+        force: true,
+      });
+      if (!switchParams) {
         return;
       }
-      await actions.current.switchTradeInstrument({
-        mode: nextMode,
-        coin: nextCoin,
-        force: true,
-        spotUniverse:
-          nextMode === 'spot' ? currentSpotToken?.universe : undefined,
-      });
+      await actions.current.switchTradeInstrument(switchParams);
     } finally {
       isInitializingRef.current = false;
     }
@@ -849,6 +877,95 @@ function AutoPauseSubscriptions() {
   return null;
 }
 
+function useHyperliquidNetworkReachabilityRecovery() {
+  const { isInternetReachable } = useNetworkRestore();
+  const actions = useHyperliquidActions();
+  const isRouteFocused = useRouteIsFocused();
+  const isFocused = resolvePerpRouteFocused(isRouteFocused);
+  const isFocusedRef = useRef(isFocused);
+  const wasOfflineRef = useRef(isInternetReachable === false);
+  const recoveryPromiseRef = useRef<Promise<void> | null>(null);
+
+  isFocusedRef.current = isFocused;
+
+  const recoverSubscriptions = useCallback(async (): Promise<boolean> => {
+    if (recoveryPromiseRef.current) {
+      try {
+        await recoveryPromiseRef.current;
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    const recoveryPromise = (async () => {
+      const switchParams = await buildActiveInstrumentSwitchParamsFromGlobal();
+      await Promise.all([
+        (async () => {
+          await backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
+          // Network restoration can leave server-side streams missing while the
+          // socket still looks open.
+          await backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions(
+            {
+              forceReconnect: true,
+            },
+          );
+        })(),
+        switchParams
+          ? actions.current.switchTradeInstrument(switchParams)
+          : Promise.resolve(false),
+      ]);
+      await actions.current.updateSubscriptions();
+      await backgroundApiProxy.serviceHyperliquidSubscription.forceReloadCandlesWebview();
+    })();
+    recoveryPromiseRef.current = recoveryPromise;
+    try {
+      await recoveryPromise;
+      return true;
+    } catch (error) {
+      console.error('perps network reachability recovery failed:', error);
+      return false;
+    } finally {
+      if (recoveryPromiseRef.current === recoveryPromise) {
+        recoveryPromiseRef.current = null;
+      }
+    }
+  }, [actions]);
+
+  const handleReachabilityChange = useCallback(
+    (nextReachable: boolean | null) => {
+      if (nextReachable === null) {
+        return;
+      }
+      if (nextReachable === false) {
+        if (isFocusedRef.current) {
+          wasOfflineRef.current = true;
+        }
+        return;
+      }
+      if (isFocusedRef.current && wasOfflineRef.current) {
+        void (async () => {
+          const recovered = await recoverSubscriptions();
+          if (recovered) {
+            wasOfflineRef.current = false;
+          }
+        })();
+      }
+    },
+    [recoverSubscriptions],
+  );
+
+  useEffect(() => {
+    handleReachabilityChange(isInternetReachable);
+  }, [handleReachabilityChange, isInternetReachable]);
+
+  useEffect(() => {
+    if (isFocused) {
+      handleReachabilityChange(isInternetReachable);
+    }
+  }, [handleReachabilityChange, isFocused, isInternetReachable]);
+}
+
 // Bridge for context-less callers (tray, notifications): the bg
 // `changeActiveAsset` alone leaves this context's
 // activeTradeInstrumentAtom / tradingModeAtom stale, so the UI keeps
@@ -886,6 +1003,7 @@ function PerpsGlobalEffectsView() {
   useHyperliquidInstrumentSwitchRequest();
   useHyperliquidScreenLockHandler();
   useHyperliquidLocaleChangeRecovery();
+  useHyperliquidNetworkReachabilityRecovery();
   useSyncContextOrderBookOptionsToGlobal();
   useTradeRouteViewStateSync();
   usePerpsSharePrompt();
