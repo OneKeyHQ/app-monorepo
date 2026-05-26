@@ -2233,6 +2233,7 @@ class ServicePrimeTransfer extends ServiceBase {
         refreshHook: prev.refreshHook + 1,
       }));
       await timerUtils.wait(300);
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     },
     1500,
@@ -2576,6 +2577,7 @@ class ServicePrimeTransfer extends ServiceBase {
             name: wallet.name,
             avatar: wallet.avatarInfo,
             applyRestoreSyncPolicy: true,
+            skipEmitEvent: true,
           });
         }
       } catch (e) {
