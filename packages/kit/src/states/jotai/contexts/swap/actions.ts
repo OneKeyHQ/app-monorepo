@@ -171,6 +171,30 @@ function buildZeroProviderQuote({
   };
 }
 
+function isQuoteResultSelectedTokenPair({
+  quoteResult,
+  fromToken,
+  toToken,
+}: {
+  quoteResult?: IFetchQuoteResult;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+}) {
+  return Boolean(
+    quoteResult &&
+    fromToken &&
+    toToken &&
+    equalTokenNoCaseSensitive({
+      token1: quoteResult.fromTokenInfo,
+      token2: fromToken,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: quoteResult.toTokenInfo,
+      token2: toToken,
+    }),
+  );
+}
+
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   private quoteInterval: ReturnType<typeof setTimeout> | undefined;
 
@@ -1486,35 +1510,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const fromTokenAmount = get(swapFromTokenAmountAtom());
       let alertsRes: ISwapAlertState[] = [];
       const quoteEventError = get(swapQuoteEventErrorAtom());
-      if (quoteEventError) {
+      const isCurrentQuoteResult = isQuoteResultSelectedTokenPair({
+        quoteResult,
+        fromToken,
+        toToken,
+      });
+      if (quoteEventError && isCurrentQuoteResult) {
         alertsRes = [
           {
             message: quoteEventError,
             alertLevel: ESwapAlertLevel.ERROR,
           },
         ];
+      } else if (quoteEventError) {
+        set(swapQuoteEventErrorAtom(), '');
       }
       let rateDifferenceRes:
         | { value: string; unit: ESwapRateDifferenceUnit }
         | undefined;
       // current quote result  current token  not match
-      if (
-        quoteResult &&
-        fromToken &&
-        toToken &&
-        (quoteResult?.fromTokenInfo?.networkId !== fromToken?.networkId ||
-          quoteResult?.toTokenInfo?.networkId !== toToken?.networkId ||
-          quoteResult?.fromTokenInfo?.contractAddress !==
-            fromToken?.contractAddress ||
-          quoteResult?.toTokenInfo?.contractAddress !==
-            toToken?.contractAddress)
-      ) {
-        if (quoteEventError) {
-          set(swapAlertsAtom(), {
-            states: alertsRes,
-            quoteId: quoteResult?.quoteId ?? '',
-          });
-        }
+      if (quoteResult && fromToken && toToken && !isCurrentQuoteResult) {
+        set(swapAlertsAtom(), {
+          states: alertsRes,
+          quoteId: '',
+        });
         set(rateDifferenceAtom(), rateDifferenceRes);
         return;
       }
@@ -1524,7 +1543,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         !swapFromAddressInfo.accountInfo?.ready ||
         isWaitingActionableQuote
       ) {
-        if (quoteEventError) {
+        if (alertsRes.length) {
           set(swapAlertsAtom(), {
             states: alertsRes,
             quoteId: '',
