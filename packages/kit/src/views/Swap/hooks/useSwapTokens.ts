@@ -39,6 +39,10 @@ import {
   useSwapTokenFetchingAtom,
   useSwapTokenMapAtom,
 } from '../../../states/jotai/contexts/swap';
+import {
+  buildSwapNetworkReadyKey,
+  isSwapNetworkCacheCompatible,
+} from '../utils/swapNetworkCacheUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { shouldUseSwapAddressForTokenFetch } from './useSwapAccount.utils';
@@ -141,10 +145,21 @@ export function useSwapTokenList(
   const isTokenFetchAllNetworks = networkUtils.isAllNetwork({
     networkId: tokenFetchParams.networkId,
   });
+  const allNetworkSwapNetworksReady = isTokenFetchAllNetworks
+    ? isSwapNetworkCacheCompatible(swapNetworks)
+    : true;
+  const allNetworkSwapNetworksReadyKey = useMemo(
+    () =>
+      isTokenFetchAllNetworks ? buildSwapNetworkReadyKey(swapNetworks) : '',
+    [isTokenFetchAllNetworks, swapNetworks],
+  );
   const tokenListFetchEffectKey = useMemo(
     () =>
       JSON.stringify({
         tokenFetchParams,
+        allNetworkSwapNetworksReadyKey: isTokenFetchAllNetworks
+          ? allNetworkSwapNetworksReadyKey
+          : undefined,
         allNetworkIndexedAccountId: isTokenFetchAllNetworks
           ? swapAddressInfo?.accountInfo?.indexedAccount?.id
           : undefined,
@@ -154,6 +169,7 @@ export function useSwapTokenList(
           : undefined,
       }),
     [
+      allNetworkSwapNetworksReadyKey,
       isTokenFetchAllNetworks,
       swapAddressInfo?.accountInfo?.account?.id,
       swapAddressInfo?.accountInfo?.dbAccount?.id,
@@ -340,7 +356,10 @@ export function useSwapTokenList(
     void (async () => {
       try {
         await Promise.all([
-          tokenFetchParams.networkId && !keywords && isTokenFetchAllNetworks
+          tokenFetchParams.networkId &&
+          !keywords &&
+          isTokenFetchAllNetworks &&
+          allNetworkSwapNetworksReady
             ? swapLoadAllNetworkTokenList(
                 swapAddressInfo?.accountInfo?.indexedAccount?.id,
                 !swapAddressInfo?.accountInfo?.indexedAccount?.id
@@ -365,6 +384,7 @@ export function useSwapTokenList(
     swapAddressInfo?.accountInfo?.account?.id,
     swapAddressInfo?.accountInfo?.dbAccount?.id,
     swapAddressInfo?.accountInfo?.indexedAccount?.id,
+    allNetworkSwapNetworksReady,
     isTokenFetchAllNetworks,
     swapLoadAllNetworkTokenList,
     tokenFetchParams,
@@ -454,7 +474,7 @@ export function useSwapTokenList(
     fetchLoading:
       (swapTokenFetching && currentTokens.length === 0) ||
       (networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId }) &&
-        !swapAllNetworkTokenList),
+        (!allNetworkSwapNetworksReady || !swapAllNetworkTokenList)),
     lpTokenRequestLoading,
     currentTokens,
   };

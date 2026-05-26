@@ -41,6 +41,10 @@ import {
   useSwapTipsAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import {
+  isSwapNetworkCacheCompatible,
+  mergeSwapNetworksWithCachedSort,
+} from '../utils/swapNetworkCacheUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapProInputToken } from './useSwapPro';
@@ -110,9 +114,13 @@ export function useSwapInit(params?: ISwapInitParams) {
   }
 
   const fetchSwapNetworks = useCallback(async () => {
-    if (swapNetworks.length) {
-      setNetworkListFetching(false);
-      return;
+    const currentSwapNetworks = swapNetworksRef.current;
+    if (currentSwapNetworks.length) {
+      if (isSwapNetworkCacheCompatible(currentSwapNetworks)) {
+        setNetworkListFetching(false);
+        return;
+      }
+      setNetworkListFetching(true);
     }
     let swapNetworksSortList =
       await backgroundApiProxy.simpleDb.swapNetworksSort.getRawData();
@@ -122,14 +130,19 @@ export function useSwapInit(params?: ISwapInitParams) {
           (isNil(net.supportCrossChainSwap) && isNil(net.supportSingleSwap)) ||
           isNil(net.supportLimit),
       );
-      if (!noSupportInfo) {
+      const canUseCachedSwapNetworks = isSwapNetworkCacheCompatible(
+        swapNetworksSortList.data,
+      );
+      if (canUseCachedSwapNetworks) {
         setSwapNetworks(swapNetworksSortList.data);
         setNetworkListFetching(false);
       } else {
+        if (noSupportInfo) {
+          void backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
+            data: [],
+          });
+        }
         swapNetworksSortList = null;
-        void backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
-          data: [],
-        });
       }
     }
     let networks: ISwapNetwork[] = [];
@@ -137,37 +150,19 @@ export function useSwapInit(params?: ISwapInitParams) {
       await backgroundApiProxy.serviceSwap.fetchSwapNetworks();
     networks = [...fetchNetworks];
     if (swapNetworksSortList?.data?.length && fetchNetworks?.length) {
-      const sortNetworks = swapNetworksSortList.data;
-      networks = sortNetworks
-        .filter((network) =>
-          fetchNetworks.find((n) => n.networkId === network.networkId),
-        )
-        .map((net) => {
-          const serverNetwork = fetchNetworks.find(
-            (n) => n.networkId === net.networkId,
-          );
-          return { ...net, ...serverNetwork };
-        })
-        .concat(
-          fetchNetworks.filter(
-            (network) =>
-              !sortNetworks.find((n) => n.networkId === network.networkId),
-          ),
-        );
+      networks = mergeSwapNetworksWithCachedSort({
+        cachedNetworks: swapNetworksSortList.data,
+        fetchedNetworks: fetchNetworks,
+      });
     }
     if (networks.length) {
       await backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
         data: networks,
       });
-      if (
-        !swapNetworksSortList?.data?.length ||
-        swapNetworksSortList?.data?.length !== networks.length
-      ) {
-        setSwapNetworks(networks);
-        setNetworkListFetching(false);
-      }
+      setSwapNetworks(networks);
+      setNetworkListFetching(false);
     }
-  }, [setSwapNetworks, swapNetworks.length]);
+  }, [setSwapNetworks]);
 
   const fetchSyncSwapProviderManager = useCallback(
     async (noFetch?: boolean) => {

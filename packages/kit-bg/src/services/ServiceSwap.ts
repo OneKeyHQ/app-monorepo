@@ -273,7 +273,7 @@ export default class ServiceSwap extends ServiceBase {
             symbol: clientNetwork.symbol,
             shortcode: clientNetwork.shortcode,
             logoURI: clientNetwork.logoURI,
-            backendIndex: clientNetwork.backendIndex,
+            backendIndex: clientNetwork.backendIndex ?? false,
             networkId: network.networkId,
             defaultSelectToken: network.defaultSelectToken,
             supportCrossChainSwap: network.supportCrossChainSwap,
