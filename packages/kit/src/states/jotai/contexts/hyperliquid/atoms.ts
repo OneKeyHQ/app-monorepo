@@ -15,6 +15,7 @@ import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IConnectionState,
   IPerpOrderBookTickOptionPersist,
+  IPerpsFormattedAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 import {
   EPerpsSizeInputMode,
@@ -91,7 +92,42 @@ export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
 export const {
   atom: perpsTokenSearchAliasesAtom,
   use: usePerpsTokenSearchAliasesAtom,
-} = contextAtom<ITokenSearchAliases | undefined>(undefined);
+} = contextAtom<ITokenSearchAliases | undefined>(undefined, {
+  coldStartCache: true,
+  coldStartCacheKey:
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsTokenSearchAliasesAtom,
+});
+
+export const { atom: perpsMaxBuilderFeeAtom, use: usePerpsMaxBuilderFeeAtom } =
+  contextAtom<number | undefined>(undefined, {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsMaxBuilderFeeAtom,
+  });
+
+export type IPerpsActiveAssetCtxColdCacheAtom = Record<
+  string,
+  {
+    data: {
+      coin: string;
+      assetId: number | undefined;
+      ctx: IPerpsFormattedAssetCtx;
+    };
+    updatedAt: number;
+  }
+>;
+
+export const {
+  atom: perpsActiveAssetCtxColdCacheAtom,
+  use: usePerpsActiveAssetCtxColdCacheAtom,
+} = contextAtom<IPerpsActiveAssetCtxColdCacheAtom>(
+  {},
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveAssetCtxColdCacheAtom,
+  },
+);
 
 export const { atom: l2BookAtom, use: useL2BookAtom } =
   contextAtom<HL.IBook | null>(null);

@@ -1,3 +1,5 @@
+import { useCallback, useEffect, useRef } from 'react';
+
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -37,11 +39,19 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { PerpTestIDs } from '../../../testIDs';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../../../utils/mobileLayoutTrace';
 import { PerpGuidePopover } from '../../Guide/PerpGuidePopover';
 import { PerpsActivityCenterAction } from '../../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
 
 import { PerpsAccountNumberValue } from './PerpsAccountNumberValue';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 function DebugButton() {
   const [allMids] = usePerpsAllMidsAtom();
@@ -97,17 +107,46 @@ function DebugButton() {
 
 function DepositButton() {
   const { gtSm } = useMedia();
+  const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const accountValue = computedValue?.accountValue;
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const { showPortfolio } = useShowPortfolio();
+  const hasActiveAccount = Boolean(activeAccount?.accountAddress);
+  const isEmptyAccount = !accountValue || new BigNumber(accountValue).lte(0);
 
-  if (!activeAccount?.accountAddress) {
+  useEffect(() => {
+    tracePerpsMobileLayout('header.depositBadge.state', {
+      hasActiveAccount,
+      hasAccountValue: Boolean(accountValue),
+      isEmptyAccount,
+      height: gtSm ? 30 : 28,
+      variant: isEmptyAccount ? 'deposit' : 'portfolio',
+    });
+  }, [accountValue, gtSm, hasActiveAccount, isEmptyAccount]);
+
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
+        tracePerpsMobileLayout('header.depositBadge.layout', {
+          rect,
+          hasActiveAccount,
+          hasAccountValue: Boolean(accountValue),
+          isEmptyAccount,
+          variant: isEmptyAccount ? 'deposit' : 'portfolio',
+        });
+        layoutRef.current = rect;
+      }
+    },
+    [accountValue, hasActiveAccount, isEmptyAccount],
+  );
+
+  if (!hasActiveAccount) {
     return null;
   }
 
-  const isEmptyAccount = !accountValue || new BigNumber(accountValue).lte(0);
   const content = (
     <Badge
       borderRadius="$full"
@@ -123,6 +162,7 @@ function DepositButton() {
       h={gtSm ? 30 : 28}
       bg={isEmptyAccount ? '$brand8' : '$bgStrong'}
       cursor="default"
+      onLayout={handleLayout}
     >
       {isEmptyAccount ? (
         <>

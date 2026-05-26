@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -50,9 +50,17 @@ import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculation
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../../utils/mobileLayoutTrace';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 interface ITradingButtonGroupProps {
   isMobile: boolean;
@@ -89,6 +97,7 @@ function SideButtonInternal({
   justifyContent = 'flex-start',
 }: ISideButtonProps) {
   const intl = useIntl();
+  const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [perpsAccount] = usePerpsActiveAccountAtom();
@@ -257,6 +266,11 @@ function SideButtonInternal({
     activeTradeInstrument,
     activeAsset?.coin,
   ]);
+
+  const hasOrderValue = useMemo(
+    () => orderValue.isFinite() && !orderValue.isZero(),
+    [orderValue],
+  );
 
   const spotTradeSymbol = useMemo(() => {
     if (!isSpot || activeTradeInstrument.mode !== 'spot') {
@@ -683,9 +697,73 @@ function SideButtonInternal({
       trailing: false,
     },
   );
+  useEffect(() => {
+    if (!isMobile) {
+      return;
+    }
+    tracePerpsMobileLayout('tradingButton.side.state', {
+      side,
+      isSpot,
+      canTrade: perpsAccountStatus.canTrade,
+      buttonDisabled,
+      isAccountLoading,
+      enableTradingLoading: perpsAccountLoading.enableTradingLoading,
+      selectAccountLoading: perpsAccountLoading.selectAccountLoading,
+      isNoEnoughMargin,
+      priceError,
+      hasSecondaryText: Boolean(buttonSecondaryText),
+      hasOrderValue,
+      disablePerpAction: Boolean(perpConfigCommon?.disablePerpActionPerp),
+      ipDisablePerp: Boolean(perpConfigCommon?.ipDisablePerp),
+    });
+  }, [
+    buttonDisabled,
+    buttonSecondaryText,
+    hasOrderValue,
+    isAccountLoading,
+    isMobile,
+    isNoEnoughMargin,
+    isSpot,
+    perpConfigCommon?.disablePerpActionPerp,
+    perpConfigCommon?.ipDisablePerp,
+    perpsAccountLoading.enableTradingLoading,
+    perpsAccountLoading.selectAccountLoading,
+    perpsAccountStatus.canTrade,
+    priceError,
+    side,
+  ]);
+
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      if (!isMobile) {
+        return;
+      }
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
+        tracePerpsMobileLayout('tradingButton.side.layout', {
+          rect,
+          side,
+          isSpot,
+          buttonDisabled,
+          isAccountLoading,
+          hasSecondaryText: Boolean(buttonSecondaryText),
+        });
+        layoutRef.current = rect;
+      }
+    },
+    [
+      buttonDisabled,
+      buttonSecondaryText,
+      isAccountLoading,
+      isMobile,
+      isSpot,
+      side,
+    ],
+  );
+
   if (isMobile) {
     return (
-      <YStack gap="$2" flex={1}>
+      <YStack gap="$2" flex={1} onLayout={handleLayout}>
         {isSpot ? null : (
           <YStack gap="$1.5">
             {/* <XStack justifyContent="space-between">
@@ -820,7 +898,7 @@ function SideButtonInternal({
     );
   }
   return (
-    <YStack gap="$2" flex={1}>
+    <YStack gap="$2" flex={1} onLayout={handleLayout}>
       <Button
         testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
         size="medium"

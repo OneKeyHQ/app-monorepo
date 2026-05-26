@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -21,11 +21,19 @@ import {
 
 import { useOrderConfirm, useTradingPrice } from '../../hooks';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../../utils/mobileLayoutTrace';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
 import { TradingButtonGroup } from './TradingButtonGroup';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 function PerpTradingDisabledButton() {
   const intl = useIntl();
@@ -164,6 +172,38 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [tradingMode] = useTradingModeAtom();
   const [isSubmitting] = useTradingLoadingAtom();
+  const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
+
+  useEffect(() => {
+    if (!isMobile) {
+      return;
+    }
+    tracePerpsMobileLayout('tradingPanel.state', {
+      isMobile,
+      tradingMode,
+      canTrade: perpsAccountStatus.canTrade,
+      isSubmitting,
+    });
+  }, [isMobile, isSubmitting, perpsAccountStatus.canTrade, tradingMode]);
+
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      if (!isMobile) {
+        return;
+      }
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
+        tracePerpsMobileLayout('tradingPanel.layout', {
+          rect,
+          tradingMode,
+          canTrade: perpsAccountStatus.canTrade,
+          isSubmitting,
+        });
+        layoutRef.current = rect;
+      }
+    },
+    [isMobile, isSubmitting, perpsAccountStatus.canTrade, tradingMode],
+  );
 
   const canShowTradingButtons = useMemo(
     () =>
@@ -192,6 +232,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       justifyContent={
         isMobile && tradingMode !== 'spot' ? 'space-between' : undefined
       }
+      onLayout={handleLayout}
     >
       <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
       {canShowTradingButtons ? (
