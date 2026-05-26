@@ -134,7 +134,11 @@ const MarkWithAnimatedView = ({
     }
 
     // Default behavior: fill from left to current value
-    const progressStep = Math.floor((progress.value / 100) * step);
+    const range = maxValue - minValue;
+    const progressStep =
+      range > 0
+        ? Math.floor(((progress.value - minValue) / range) * step)
+        : 0;
     return {
       opacity: index <= progressStep ? 1 : 0,
     };
