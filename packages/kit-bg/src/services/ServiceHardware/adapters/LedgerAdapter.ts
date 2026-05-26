@@ -168,11 +168,7 @@ export class LedgerAdapter
   async searchDevices(
     options?: IThirdPartyHardwareSearchOptions,
   ): Promise<DeviceInfo[]> {
-    defaultLogger.hardware.sdkLog.log(
-      `[SESS-DBG][UP] searchDevices ENTER resetSession=${String(
-        options?.resetSession ?? false,
-      )}`,
-    );
+    defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] searchDevices()');
     const devices = await (
       this.hw as IHardwareWallet & {
         searchDevices(
@@ -181,14 +177,7 @@ export class LedgerAdapter
       }
     ).searchDevices(options);
     defaultLogger.hardware.sdkLog.log(
-      `[SESS-DBG][UP] searchDevices RETURN count=${devices.length} list=${JSON.stringify(
-        devices.map((d) => ({
-          connectId: d.connectId,
-          deviceId: d.deviceId,
-          label: d.label,
-          serial: d.serialNumber,
-        })),
-      )}`,
+      `[3rdPartyHW][Ledger] searchDevices -> count=${devices.length}`,
     );
     return devices;
   }
@@ -197,30 +186,19 @@ export class LedgerAdapter
     connectId: string,
   ): Promise<Response<{ connectId: string; deviceId: string }>> {
     defaultLogger.hardware.sdkLog.log(
-      `[SESS-DBG][UP] connectDevice ENTER callerConnectId=${connectId || '(empty)'}`,
+      `[3rdPartyHW][Ledger] connectDevice connectId=${connectId}`,
     );
     try {
       const result = await this.hw.connectDevice(connectId);
       defaultLogger.hardware.sdkLog.log(
-        `[SESS-DBG][UP] connectDevice result success=${String(
+        `[3rdPartyHW][Ledger] connectDevice result success=${String(
           result.success,
-        )} payload=${JSON.stringify(result.payload)}`,
+        )}`,
       );
       if (result.success) {
         const info = await this.hw.getDeviceInfo(connectId, result.payload);
         defaultLogger.hardware.sdkLog.log(
-          `[SESS-DBG][UP] getDeviceInfo success=${String(
-            info.success,
-          )} info=${JSON.stringify(
-            info.success
-              ? {
-                  connectId: info.payload.connectId,
-                  deviceId: info.payload.deviceId,
-                  label: info.payload.label,
-                  serial: info.payload.serialNumber,
-                }
-              : info.payload,
-          )}`,
+          `[3rdPartyHW][Ledger] getDeviceInfo success=${String(info.success)}`,
         );
         void thirdPartyHardwareUiStateAtom.set(undefined);
         if (info.success) {
