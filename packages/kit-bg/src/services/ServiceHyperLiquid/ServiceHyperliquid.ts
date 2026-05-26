@@ -1241,7 +1241,11 @@ export default class ServiceHyperliquid extends ServiceBase {
   // two subscriptions by ~75%. Trailing call guarantees the latest payload
   // is never dropped.
   private _writeActiveSummaryThrottled = throttle(
-    (payload: NonNullable<Parameters<typeof perpsActiveAccountSummaryAtom.set>[0]>) => {
+    (
+      payload: NonNullable<
+        Parameters<typeof perpsActiveAccountSummaryAtom.set>[0]
+      >,
+    ) => {
       void perpsActiveAccountSummaryAtom.set(payload);
     },
     250,
