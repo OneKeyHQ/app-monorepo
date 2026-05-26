@@ -2,7 +2,6 @@ import crypto from 'crypto';
 
 import {
   decryptStringAsync,
-  encryptStringAsync,
   ensureSensitiveTextEncoded,
   sha512Pro,
 } from '@onekeyhq/core/src/secret';
@@ -40,6 +39,10 @@ import type {
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { primeMasterPasswordPersistAtom } from '../../states/jotai/atoms/prime';
+import {
+  EAppCryptoSharedEncryptScene,
+  encryptStringAsyncWithFormat,
+} from '../../utils/secretEncryptFormat';
 import ServiceBase from '../ServiceBase';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 
@@ -152,7 +155,7 @@ class ServiceMasterPassword extends ServiceBase {
     accountSalt: string;
     primeUserId: string;
   }): Promise<string> {
-    const r = await encryptStringAsync({
+    const r = await encryptStringAsyncWithFormat({
       password: await this.buildSecurityPasswordForServerEncryptKey({
         masterPassword,
         masterPasswordUUID,
@@ -163,6 +166,8 @@ class ServiceMasterPassword extends ServiceBase {
       data: securityPassword,
       dataEncoding: 'utf-8',
       allowRawPassword: true,
+      sharedScene:
+        EAppCryptoSharedEncryptScene.primeMasterPasswordServerPayload,
     });
     return `${ENCRYPTED_SECURITY_PASSWORD_R1_FOR_SERVER_PREFIX}${r}`;
   }
@@ -235,7 +240,12 @@ class ServiceMasterPassword extends ServiceBase {
       await this.backgroundApi.servicePassword.decodeSensitiveText({
         encodedText: localPasscode,
       });
-    const r = await encryptStringAsync({
+    // Local passcode-derived cache stays on legacy AES-CBC + 5k PBKDF2:
+    // (1) avoids a 120× KDF cost on a hot path that re-runs on every unlock,
+    // (2) keeps the local payload parseable by an older downgrade-installed
+    // client. The server-facing counterpart (encryptSecurityPasswordForServer)
+    // already uses encryptStringAsyncWithFormat with a dedicated scene.
+    const r = await encryptStringAsyncWithFormat({
       password: await this.buildSecurityPasswordEncryptKey({
         localPasscode,
         masterPasswordUUID,
@@ -245,6 +255,8 @@ class ServiceMasterPassword extends ServiceBase {
       data: securityPassword,
       dataEncoding: 'utf-8',
       allowRawPassword: true,
+      format: 'legacy',
+      sharedScene: EAppCryptoSharedEncryptScene.primeMasterPasswordLocalCache,
     });
     return `${ENCRYPTED_SECURITY_PASSWORD_R1_PREFIX}${r}`;
   }

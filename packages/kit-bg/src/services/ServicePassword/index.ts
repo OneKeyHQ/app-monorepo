@@ -6,6 +6,7 @@ import type {
   IEncryptStringParams,
 } from '@onekeyhq/core/src/secret';
 import {
+  ESecretEncryptPayloadFormat,
   decodePasswordAsync,
   decodeSensitiveTextAsync,
   decryptAsync,
@@ -182,6 +183,7 @@ export default class ServicePassword extends ServiceBase {
     const output = await encodeSensitiveTextAsync({
       text: input,
       key: instanceId,
+      format: ESecretEncryptPayloadFormat.legacy,
     });
     return Promise.resolve(output);
   }

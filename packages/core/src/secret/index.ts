@@ -14,10 +14,13 @@ import {
 } from './bip39';
 import { ed25519, nistp256, secp256k1 } from './curves';
 import {
+  ESecretEncryptPayloadFormat,
   decryptAsync,
+  decryptAsyncWithMetadata,
   encryptAsync,
   encryptStringAsync,
   ensureSensitiveTextEncoded,
+  getSecretEncryptV2LocalTargetIterations,
 } from './encryptors/aes256';
 import { hash160, hash160Sync } from './hash';
 import ecc from './nobleSecp256k1Wrapper';
@@ -185,19 +188,49 @@ async function decryptVerifyString({
   return decrypted.toString();
 }
 
+async function decryptVerifyStringWithMetadata({
+  password,
+  verifyString,
+}: {
+  verifyString: string;
+  password: string;
+}) {
+  const result = await decryptAsyncWithMetadata({
+    password,
+    data: Buffer.from(
+      verifyString.replace(EncryptPrefixVerifyString, ''),
+      'hex',
+    ),
+    dataType: 'local-verify-string',
+    upgradeTargetIterations: getSecretEncryptV2LocalTargetIterations(),
+  });
+  return {
+    ...result,
+    plaintext: result.plaintext.toString(),
+  };
+}
+
 async function encryptVerifyString({
   password,
   addPrefixString = true,
   allowRawPassword,
+  format = ESecretEncryptPayloadFormat.v2,
 }: {
   password: string;
   addPrefixString?: boolean;
   allowRawPassword?: boolean;
+  format?: ESecretEncryptPayloadFormat;
 }): Promise<string> {
   const encrypted = await encryptAsync({
     password,
     data: Buffer.from(DEFAULT_VERIFY_STRING),
     allowRawPassword,
+    format,
+    dataType: 'local-verify-string',
+    iterations:
+      format === ESecretEncryptPayloadFormat.v2
+        ? getSecretEncryptV2LocalTargetIterations()
+        : undefined,
   });
   return (
     (addPrefixString ? EncryptPrefixVerifyString : '') +
@@ -223,12 +256,37 @@ async function decryptRevealableSeed({
   return JSON.parse(rsJsonStr) as IBip39RevealableSeed;
 }
 
+async function decryptRevealableSeedWithMetadata({
+  rs,
+  password,
+  allowRawPassword,
+}: {
+  rs: IBip39RevealableSeedEncryptHex;
+  password: string;
+  allowRawPassword?: boolean;
+}) {
+  const result = await decryptAsyncWithMetadata({
+    allowRawPassword,
+    password,
+    data: rs.replace(EncryptPrefixHdCredential, ''),
+    dataType: 'local-revealable-seed',
+    upgradeTargetIterations: getSecretEncryptV2LocalTargetIterations(),
+  });
+  const rsJsonStr = bufferUtils.bytesToUtf8(result.plaintext);
+  return {
+    ...result,
+    plaintext: JSON.parse(rsJsonStr) as IBip39RevealableSeed,
+  };
+}
+
 async function encryptRevealableSeed({
   rs,
   password,
+  format = ESecretEncryptPayloadFormat.v2,
 }: {
   rs: IBip39RevealableSeed;
   password: string;
+  format?: ESecretEncryptPayloadFormat;
 }): Promise<IBip39RevealableSeedEncryptHex> {
   if (!rs || !rs.entropyWithLangPrefixed || !rs.seed) {
     throw new OneKeyLocalError('Invalid seed object');
@@ -237,6 +295,12 @@ async function encryptRevealableSeed({
     password,
     data: JSON.stringify(rs),
     dataEncoding: 'utf8',
+    format,
+    dataType: 'local-revealable-seed',
+    iterations:
+      format === ESecretEncryptPayloadFormat.v2
+        ? getSecretEncryptV2LocalTargetIterations()
+        : undefined,
   });
   return EncryptPrefixHdCredential + bufferUtils.bytesToHex(encrypted);
 }
@@ -262,14 +326,42 @@ async function decryptImportedCredential({
   return JSON.parse(text) as ICoreImportedCredential;
 }
 
-async function encryptImportedCredential({
+async function decryptImportedCredentialWithMetadata({
   credential,
   password,
   allowRawPassword,
 }: {
+  credential: ICoreImportedCredentialEncryptHex;
+  password: string;
+  allowRawPassword?: boolean;
+}) {
+  const result = await decryptAsyncWithMetadata({
+    allowRawPassword,
+    password,
+    data:
+      typeof credential === 'string'
+        ? credential.replace(EncryptPrefixImportedCredential, '')
+        : credential,
+    dataType: 'local-imported-credential',
+    upgradeTargetIterations: getSecretEncryptV2LocalTargetIterations(),
+  });
+  const text = bufferUtils.bytesToUtf8(result.plaintext);
+  return {
+    ...result,
+    plaintext: JSON.parse(text) as ICoreImportedCredential,
+  };
+}
+
+async function encryptImportedCredential({
+  credential,
+  password,
+  allowRawPassword,
+  format = ESecretEncryptPayloadFormat.v2,
+}: {
   credential: ICoreImportedCredential;
   password: string;
   allowRawPassword?: boolean;
+  format?: ESecretEncryptPayloadFormat;
 }): Promise<ICoreImportedCredentialEncryptHex> {
   if (!credential || !credential.privateKey) {
     throw new OneKeyLocalError('Invalid credential object');
@@ -279,6 +371,12 @@ async function encryptImportedCredential({
     password,
     data: JSON.stringify(credential),
     dataEncoding: 'utf8',
+    format,
+    dataType: 'local-imported-credential',
+    iterations:
+      format === ESecretEncryptPayloadFormat.v2
+        ? getSecretEncryptV2LocalTargetIterations()
+        : undefined,
   });
   return EncryptPrefixImportedCredential + encrypted;
 }
@@ -886,8 +984,11 @@ export {
   compressPublicKey,
   decryptHyperLiquidAgentCredential,
   decryptImportedCredential,
+  decryptImportedCredentialWithMetadata,
   decryptRevealableSeed,
+  decryptRevealableSeedWithMetadata,
   decryptVerifyString,
+  decryptVerifyStringWithMetadata,
   encryptHyperLiquidAgentCredential,
   encryptImportedCredential,
   encryptRevealableSeed,

@@ -1680,26 +1680,30 @@ class ServiceNetwork extends ServiceBase {
         string,
         string,
       ];
-
+      const shouldUseAccountNetworkValue = Boolean(
+        networkId && accountId && walletId === _walletId,
+      );
       const deriveType: IAccountDeriveTypes =
         accountUtils.normalizeDeriveType(_deriveType) ?? 'default';
 
-      if (!networkInfoMap[networkId]) {
-        const [globalDeriveType, vaultSettings] = await Promise.all([
-          this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId,
-            rawData: deriveTypeRawData,
-          }),
-          this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
-        ]);
-        networkInfoMap[networkId] = {
-          deriveType: globalDeriveType,
-          mergeDeriveAssetsEnabled:
-            vaultSettings.mergeDeriveAssetsEnabled ?? false,
-        };
+      if (shouldUseAccountNetworkValue) {
+        if (!networkInfoMap[networkId]) {
+          const [globalDeriveType, vaultSettings] = await Promise.all([
+            this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+              networkId,
+              rawData: deriveTypeRawData,
+            }),
+            this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
+          ]);
+          networkInfoMap[networkId] = {
+            deriveType: globalDeriveType,
+            mergeDeriveAssetsEnabled:
+              vaultSettings.mergeDeriveAssetsEnabled ?? false,
+          };
+        }
       }
       if (
-        walletId === _walletId &&
+        shouldUseAccountNetworkValue &&
         networkInfoMap[networkId] &&
         (networkInfoMap[networkId].mergeDeriveAssetsEnabled ||
           accountUtils.isOthersAccount({ accountId }) ||

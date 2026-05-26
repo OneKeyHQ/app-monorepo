@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import type { IChainListItem } from '@onekeyhq/shared/types/customNetwork';
@@ -32,6 +33,22 @@ import ServiceBase from './ServiceBase';
 @backgroundClass()
 class ServiceCustomRpc extends ServiceBase {
   private semaphore = new Semaphore(1);
+
+  private fetchChainListPage = memoizee(
+    async (page: number): Promise<IChainListItem[]> => {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.get<{ data: IChainListItem[] }>(
+        '/wallet/v1/network/chainlist',
+        { params: { page, showTestNet: true } },
+      );
+      return resp.data.data || [];
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 15 }),
+      max: 20,
+    },
+  );
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -524,6 +541,27 @@ class ServiceCustomRpc extends ServiceBase {
 
     defaultLogger.account.wallet.insertServerNetwork(usedNetworks);
     return usedNetworks;
+  }
+
+  @backgroundMethod()
+  async searchChainListByKeywords(params: {
+    keywords?: string;
+    page?: number;
+  }): Promise<IChainListItem[]> {
+    // Keyword search: always hit API, no cache.
+    // Errors are propagated so callers can distinguish network failures
+    // from genuinely empty result sets.
+    if (params.keywords) {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.get<{ data: IChainListItem[] }>(
+        '/wallet/v1/network/chainlist',
+        { params: { keywords: params.keywords, showTestNet: true } },
+      );
+      return resp.data.data || [];
+    }
+
+    const page = Math.max(1, Math.floor(params.page ?? 1));
+    return this.fetchChainListPage(page);
   }
 
   @backgroundMethod()

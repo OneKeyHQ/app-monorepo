@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { type IProps } from '.';
 
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -18,6 +17,7 @@ import {
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -52,6 +52,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -82,6 +83,7 @@ type ITokenDetailsAddressBlockProps = {
   address: string;
   onPress: () => void;
   testID?: string;
+  disabled?: boolean;
 };
 
 const TokenDetailsAddressBlock = memo(
@@ -91,6 +93,7 @@ const TokenDetailsAddressBlock = memo(
     address,
     onPress,
     testID,
+    disabled,
   }: ITokenDetailsAddressBlockProps) => {
     if (!shouldShow) {
       return null;
@@ -103,6 +106,7 @@ const TokenDetailsAddressBlock = memo(
           testID={testID}
           userSelect="none"
           onPress={onPress}
+          opacity={disabled ? 0.5 : 1}
           px="$5"
           py="$3"
           gap="$1"
@@ -254,19 +258,18 @@ function TokenDetailsHeader(props: IProps) {
 
         const data = tokensDetails?.[0];
 
+        // Chart price-line surface cannot render '--'; coerce to 0. Header
+        // price/balance render '--' via displayOrUnavailable below.
         updateTokenMetadata({
           price: data?.price ?? 0,
           priceChange24h: data?.price24h ?? 0,
           coingeckoId: data?.info?.coingeckoId ?? '',
+          currency: data?.currency,
         });
 
         if (!data) {
           tokenDetailsCache.delete(tokenDetailsCacheKey);
           return undefined;
-        }
-
-        if (isNil(data.fiatValue)) {
-          data.fiatValue = '0';
         }
 
         tokenDetailsCache.set(tokenDetailsCacheKey, data);
@@ -296,11 +299,13 @@ function TokenDetailsHeader(props: IProps) {
       return;
     }
 
+    // Cached-only path: same '--' coercion rationale as the fetch path above.
     updateTokenMetadata({
       price: cachedTokenDetails.price ?? 0,
       priceChange24h: cachedTokenDetails.price24h ?? 0,
       coingeckoId:
         cachedTokenDetails.info?.coingeckoId ?? tokenInfo.coingeckoId ?? '',
+      currency: cachedTokenDetails.currency,
     });
   }, [
     cachedTokenDetails,
@@ -505,26 +510,24 @@ function TokenDetailsHeader(props: IProps) {
               </Skeleton.Group>
             ) : (
               <>
-                <NumberSizeableTextWrapper
+                <Currency
                   hideValue
                   splitDecimal
                   formatter="value"
-                  formatterOptions={{
-                    currency: settings.currencyInfo.symbol,
-                  }}
+                  sourceCurrency={tokenDetails?.currency}
                   fontSize={48}
                   lineHeight={48}
                   fontWeight={500}
                 >
-                  {tokenDetails?.fiatValue ?? '0'}
-                </NumberSizeableTextWrapper>
+                  {displayOrUnavailable(tokenDetails?.fiatValue)}
+                </Currency>
                 <NumberSizeableTextWrapper
                   hideValue
                   formatter="balance"
                   color="$textSubdued"
                   size="$bodyLg"
                 >
-                  {tokenDetails?.balanceParsed ?? '0'}
+                  {displayOrUnavailable(tokenDetails?.balanceParsed)}
                 </NumberSizeableTextWrapper>
               </>
             )}
@@ -602,6 +605,7 @@ function TokenDetailsHeader(props: IProps) {
           address={addressBlockValue}
           onPress={handleCopyAddressPress}
           testID={AssetDetailsTestIDs.copyAddressBtn}
+          disabled={isBotWalletCopyBlocked}
         />
         {/* History */}
         <Divider mb="$3" />

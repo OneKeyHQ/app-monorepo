@@ -44,6 +44,11 @@ import type {
 import type { GestureResponderEvent } from 'react-native';
 
 const MODAL_ANIMATED_VIEW_REF_LIST: TamaguiElement[] = [];
+// Parallel to MODAL_ANIMATED_VIEW_REF_LIST. When the slot value is true,
+// the corresponding modal opts out of the `scale(0.95) -> scale(1)` enter
+// animation and uses only an opacity fade. Driven by the route option
+// `disableEnterScaleAnimation` (see IModalNavigationOptions).
+const MODAL_DISABLE_SCALE_LIST: boolean[] = [];
 let MODAL_ANIMATED_BACKDROP_VIEW_REF: TamaguiElement | null;
 let ROOT_NAVIGATION_INDEX_LISTENER: (() => void) | undefined;
 
@@ -243,6 +248,7 @@ function WebModalNavigator({
 
         MODAL_ANIMATED_VIEW_REF_LIST.forEach((element, index) => {
           const isHidden = newIndex < index;
+          const noScale = MODAL_DISABLE_SCALE_LIST[index];
           if (media.gtMd) {
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -250,11 +256,20 @@ function WebModalNavigator({
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             element.style.opacity = isHidden ? '0' : '1';
+            let nextTransform: string;
+            if (noScale) {
+              // Skip the bouncy scale; only translateY for stacked modals.
+              nextTransform = isHidden
+                ? ''
+                : `translateY(${-30 * (newIndex - index)}px)`;
+            } else {
+              nextTransform = isHidden
+                ? 'scale(0.95)'
+                : `translateY(${-30 * (newIndex - index)}px) scale(${1 - 0.05 * (newIndex - index)})`;
+            }
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            element.style.transform = isHidden
-              ? 'scale(0.95)'
-              : `translateY(${-30 * (newIndex - index)}px) scale(${1 - 0.05 * (newIndex - index)})`;
+            element.style.transform = nextTransform;
           } else {
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -268,13 +283,26 @@ function WebModalNavigator({
 
   const stackChildrenRefList = useRef<TamaguiElement[]>([]);
 
+  // Hoist the opt-out to the WHOLE inner stack rather than just the
+  // active descriptor. Otherwise navigating into a child screen
+  // (e.g. AccountSelectorStack -> ExportPrivateKeysPage) re-runs the
+  // ref callback with the child's descriptor (which usually has the
+  // option unset) and flips the slot's `noScale` back to `false` — so
+  // a subsequent modal-on-modal push would shrink the underlying stack
+  // with `scale(0.95)`, breaking the visual contract of "this modal
+  // never scales". If any route in the stack opted out, the whole
+  // stack opts out.
+  const disableEnterScaleAnimation = state.routes.some(
+    (route) => !!descriptors[route.key]?.options?.disableEnterScaleAnimation,
+  );
+
   useLayoutEffect(() => {
     const element = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex];
     if (element) {
       const el = element as HTMLElement;
       if (media.gtMd) {
         el.style.opacity = '0';
-        el.style.transform = 'scale(0.95)';
+        el.style.transform = disableEnterScaleAnimation ? '' : 'scale(0.95)';
       } else {
         el.style.transform = `translateY(${screenHeight}px)`;
       }
@@ -366,9 +394,11 @@ function WebModalNavigator({
     (ref: TamaguiElement | null) => {
       if (ref) {
         MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
+        MODAL_DISABLE_SCALE_LIST[currentRouteIndex] =
+          disableEnterScaleAnimation;
       }
     },
-    [currentRouteIndex],
+    [currentRouteIndex, disableEnterScaleAnimation],
   );
 
   state.routes.forEach((route, routeIndex) => {

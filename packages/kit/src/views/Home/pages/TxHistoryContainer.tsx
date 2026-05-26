@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { isEmpty, uniqBy } from 'lodash';
+import { isEmpty, unionBy, uniqBy } from 'lodash';
 
 import {
   onVisibilityStateChange,
@@ -49,6 +49,8 @@ import { useAllTokenListMapAtom } from '../../../states/jotai/contexts/tokenList
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
+import { useHistoryListLoadMore } from './hooks/useHistoryListLoadMore';
+
 function TxHistoryListContainer(
   params:
     | {
@@ -75,7 +77,6 @@ function TxHistoryListContainer(
     updateSearchKey,
     updateAddressesInfo,
     initAddressesInfoDataFromStorage,
-    setHasMoreOnChainHistory,
   } = useHistoryListActions().current;
   const { updateAllNetworksState } = useAccountOverviewActions().current;
 
@@ -135,6 +136,40 @@ function TxHistoryListContainer(
     deriveInfoItems.length > 1 &&
     vaultSettings?.mergeDeriveAssetsEnabled;
 
+  const isAllNetworksList = !!network?.isAllNetworks;
+  // Disable load-more for All Networks (server doesn't paginate the aggregate)
+  // and for preview lists that already enforce a fixed limit (e.g. Home
+  // recent-history block). Merge-derive chains (BTC/LTC) now route through
+  // ServiceHistory.fetchAccountHistoryForMergeDerive so they participate too.
+  const loadMoreEnabled = !isAllNetworksList && !limit && !plainMode;
+  const handleLoadMoreAddressMap = useCallback(
+    (addressMap: Record<string, IAddressBadge>) => {
+      updateAddressesInfo({ data: addressMap });
+    },
+    [updateAddressesInfo],
+  );
+  const {
+    appendedTxs,
+    hasMore: loadMoreHasMore,
+    isLoadingMore,
+    loadMore,
+    reset: resetLoadMore,
+    onFirstPageResponse,
+  } = useHistoryListLoadMore({
+    enabled: loadMoreEnabled,
+    accountId: account?.id ?? '',
+    networkId: network?.id ?? '',
+    filterScam: settings.isFilterScamHistoryEnabled,
+    filterLowValue: settings.isFilterLowValueHistoryEnabled,
+    excludeTestNetwork: true,
+    sourceCurrency: settings.currencyInfo.id,
+    currencyMap,
+    limit,
+    mergeDerive: mergeDeriveAddressData,
+    indexedAccountId: indexedAccount?.id ?? '',
+    onAddressMap: handleLoadMoreAddressMap,
+  });
+
   const handleHistoryItemPress = useCallback(
     async (history: IAccountHistoryTx) => {
       if (!account || !network) return;
@@ -170,130 +205,164 @@ function TxHistoryListContainer(
   );
 
   const isManualRefresh = useRef(false);
+
+  // Stable identity tuple shared by the init guard and request-id effect so
+  // they can't drift on what counts as an identity change.
+  const identityKey = useMemo(
+    () =>
+      [
+        account?.id ?? '',
+        indexedAccount?.id ?? '',
+        network?.id ?? '',
+        wallet?.id ?? '',
+        mergeDeriveAddressData ? '1' : '0',
+      ].join('|'),
+    [
+      account?.id,
+      indexedAccount?.id,
+      mergeDeriveAddressData,
+      network?.id,
+      wallet?.id,
+    ],
+  );
+
+  // Monotonic request id; bumped on identity change AND at the start of every
+  // `run()` body (before any early return) so older in-flight fetches can't
+  // outlive an identity switch.
+  const fetchRequestIdRef = useRef(0);
   const { run } = usePromiseResult(
     async () => {
-      if (!network) return;
+      fetchRequestIdRef.current += 1;
+      const requestId = fetchRequestIdRef.current;
+      const isCurrentRequest = () => fetchRequestIdRef.current === requestId;
 
-      let accountId = account?.id ?? '';
+      let emittedTrue = false;
+      let refreshAccountId = '';
+      let refreshNetworkId = '';
 
-      if (mergeDeriveAddressData) {
-        accountId = indexedAccount?.id ?? '';
-      } else if (!account) return;
+      try {
+        if (!network) return;
 
-      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-        isRefreshing: true,
-        type: EHomeTab.HISTORY,
-        accountId,
-        networkId: network.id,
-      });
+        let accountId = account?.id ?? '';
 
-      let r: {
-        allAccounts: IAllNetworkAccountInfo[];
-        txs: IAccountHistoryTx[];
-        accountsWithChangedTxs: {
-          accountId: string;
-          networkId: string;
-        }[];
-        addressMap?: Record<string, IAddressBadge>;
-        hasMoreOnChainHistory?: boolean;
-      } = {
-        allAccounts: [],
-        txs: [],
-        accountsWithChangedTxs: [],
-        addressMap: {},
-        hasMoreOnChainHistory: false,
-      };
+        if (mergeDeriveAddressData) {
+          accountId = indexedAccount?.id ?? '';
+        } else if (!account) return;
 
-      if (mergeDeriveAddressData) {
-        let hasMoreOnChainHistory = false;
-        const { networkAccounts } =
-          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-            {
-              networkId: network.id,
-              indexedAccountId: indexedAccount?.id ?? '',
-              excludeEmptyAccount: true,
-            },
-          );
-        const resp = await Promise.all(
-          networkAccounts.map((networkAccount) =>
-            backgroundApiProxy.serviceHistory.fetchAccountHistory({
-              accountId: networkAccount.account?.id ?? '',
-              networkId: network.id,
-              isManualRefresh: isManualRefresh.current,
-              filterScam: settings.isFilterScamHistoryEnabled,
-              filterLowValue: settings.isFilterLowValueHistoryEnabled,
-              sourceCurrency: settings.currencyInfo.id,
-              currencyMap,
-              limit,
-            }),
-          ),
-        );
+        refreshNetworkId = network.id;
+        refreshAccountId = accountId;
 
-        resp.forEach((item) => {
-          r.txs = [...r.txs, ...item.txs];
-          r.allAccounts = [...r.allAccounts, ...item.allAccounts];
-          r.accountsWithChangedTxs = [
-            ...r.accountsWithChangedTxs,
-            ...item.accountsWithChangedTxs,
-          ];
-          r.addressMap = { ...r.addressMap, ...item.addressMap };
-          if (item.hasMoreOnChainHistory) {
-            hasMoreOnChainHistory = true;
-          }
+        let r: {
+          allAccounts: IAllNetworkAccountInfo[];
+          txs: IAccountHistoryTx[];
+          accountsWithChangedTxs: {
+            accountId: string;
+            networkId: string;
+          }[];
+          addressMap?: Record<string, IAddressBadge>;
+          hasMoreOnChainHistory?: boolean;
+          next?: string;
+          isIndexer?: boolean;
+        } = {
+          allAccounts: [],
+          txs: [],
+          accountsWithChangedTxs: [],
+          addressMap: {},
+          hasMoreOnChainHistory: false,
+          next: undefined,
+          isIndexer: false,
+        };
+        let aggregatedHasMoreOnChainHistory = false;
+
+        emittedTrue = true;
+        appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+          isRefreshing: true,
+          type: EHomeTab.HISTORY,
+          accountId: refreshAccountId,
+          networkId: refreshNetworkId,
         });
 
-        r.txs = r.txs
-          .toSorted(
-            (b, a) =>
-              (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
-              (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
-          )
-          .slice(0, HISTORY_PAGE_SIZE);
-        setHasMoreOnChainHistory(hasMoreOnChainHistory);
+        if (mergeDeriveAddressData) {
+          // ServiceHistory does the per-deriveType fan-out, dedupe, sort, and
+          // cursor bookkeeping; we receive a single aggregate response shaped
+          // identically to the single-deriveType branch, so the rest of the
+          // function can treat both paths the same.
+          r =
+            await backgroundApiProxy.serviceHistory.fetchAccountHistoryForMergeDerive(
+              {
+                indexedAccountId: indexedAccount?.id ?? '',
+                networkId: network.id,
+                isManualRefresh: isManualRefresh.current,
+                filterScam: settings.isFilterScamHistoryEnabled,
+                filterLowValue: settings.isFilterLowValueHistoryEnabled,
+                excludeTestNetwork: true,
+                sourceCurrency: settings.currencyInfo.id,
+                currencyMap,
+                limit,
+              },
+            );
+          aggregatedHasMoreOnChainHistory = !!r.hasMoreOnChainHistory;
+        } else {
+          r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+            accountId,
+            networkId: network.id,
+            isManualRefresh: isManualRefresh.current,
+            filterScam: settings.isFilterScamHistoryEnabled,
+            filterLowValue: settings.isFilterLowValueHistoryEnabled,
+            excludeTestNetwork: true,
+            sourceCurrency: settings.currencyInfo.id,
+            currencyMap,
+            limit,
+          });
+          aggregatedHasMoreOnChainHistory = !!r.hasMoreOnChainHistory;
+        }
+
+        // Skip every state write past this point if a newer fetch already
+        // took over — a stale body would clobber the new identity's data.
+        if (!isCurrentRequest()) {
+          return;
+        }
+
         updateAddressesInfo({
           data: r.addressMap ?? {},
         });
-      } else {
-        r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-          accountId,
-          networkId: network.id,
-          isManualRefresh: isManualRefresh.current,
-          filterScam: settings.isFilterScamHistoryEnabled,
-          filterLowValue: settings.isFilterLowValueHistoryEnabled,
-          excludeTestNetwork: true,
-          sourceCurrency: settings.currencyInfo.id,
-          currencyMap,
-          limit,
+        onFirstPageResponse({
+          next: r.next,
+          hasMore: aggregatedHasMoreOnChainHistory,
+          isIndexer: r.isIndexer,
         });
-        setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
-        updateAddressesInfo({
-          data: r.addressMap ?? {},
+
+        updateAllNetworksState({
+          visibleCount: uniqBy(r.allAccounts, 'networkId').length,
         });
+
+        setHistoryState({
+          initialized: true,
+          isRefreshing: false,
+        });
+        updateHistoryData(r.txs);
+
+        if (r.accountsWithChangedTxs.length > 0) {
+          appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+            accounts: r.accountsWithChangedTxs,
+          });
+        }
+      } finally {
+        // Must clear unconditionally — otherwise the next polling tick would
+        // be wrongly treated as a manual refresh.
+        isManualRefresh.current = false;
+        if (emittedTrue) {
+          appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+            isRefreshing: false,
+            type: EHomeTab.HISTORY,
+            accountId: refreshAccountId,
+            networkId: refreshNetworkId,
+          });
+        }
+        if (isCurrentRequest()) {
+          setIsHeaderRefreshing(false);
+        }
       }
-
-      updateAllNetworksState({
-        visibleCount: uniqBy(r.allAccounts, 'networkId').length,
-      });
-
-      setHistoryState({
-        initialized: true,
-        isRefreshing: false,
-      });
-      setIsHeaderRefreshing(false);
-      updateHistoryData(r.txs);
-
-      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-        isRefreshing: false,
-        type: EHomeTab.HISTORY,
-        accountId,
-        networkId: network.id,
-      });
-      if (r.accountsWithChangedTxs.length > 0) {
-        appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-          accounts: r.accountsWithChangedTxs,
-        });
-      }
-      isManualRefresh.current = false;
     },
     [
       network,
@@ -307,9 +376,9 @@ function TxHistoryListContainer(
       settings.isFilterLowValueHistoryEnabled,
       settings.currencyInfo.id,
       currencyMap,
-      setHasMoreOnChainHistory,
       limit,
       updateHistoryData,
+      onFirstPageResponse,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -319,12 +388,27 @@ function TxHistoryListContainer(
     },
   );
 
+  // Owner of the current `initHistoryState`. `null` means no valid identity
+  // (initial mount or transition); async reads bail when this no longer
+  // matches their captured identity.
+  const lastInitIdentityRef = useRef<string | null>(null);
+  // Bumped on every `initHistoryState` launch so a same-identity rerun (e.g.
+  // filter/currency change) supersedes any older slow read.
+  const initRequestIdRef = useRef(0);
   useEffect(() => {
-    const initHistoryState = async (
-      accountId: string,
-      networkId: string,
-      indexedAccountId: string | undefined,
-    ) => {
+    const initHistoryState = async ({
+      accountId,
+      networkId,
+      indexedAccountId,
+      capturedIdentity,
+      requestId,
+    }: {
+      accountId: string;
+      networkId: string;
+      indexedAccountId?: string;
+      capturedIdentity: string;
+      requestId: number;
+    }) => {
       let accountHistoryTxs: IAccountHistoryTx[] = [];
 
       if (mergeDeriveAddressData) {
@@ -370,6 +454,15 @@ function TxHistoryListContainer(
           });
       }
 
+      // Bail if a faster identity switch or a newer same-identity rerun took
+      // ownership during the await — stale rows must not clobber fresh state.
+      if (
+        lastInitIdentityRef.current !== capturedIdentity ||
+        initRequestIdRef.current !== requestId
+      ) {
+        return;
+      }
+
       if (!isEmpty(accountHistoryTxs)) {
         updateHistoryData(accountHistoryTxs);
         setHistoryState({
@@ -377,6 +470,10 @@ function TxHistoryListContainer(
           isRefreshing: false,
         });
       } else {
+        // No local cache — drop stale rows so the skeleton shows instead of
+        // the previous identity's data while the first-page fetch is in
+        // flight. Same-reference short-circuit avoids a redundant render.
+        setHistoryData((prev) => (prev.length === 0 ? prev : []));
         setHistoryState({
           initialized: false,
           isRefreshing: true,
@@ -387,11 +484,22 @@ function TxHistoryListContainer(
       refreshAllNetworksHistory.current = false;
     };
     if ((account?.id || mergeDeriveAddressData) && network?.id && wallet?.id) {
-      void initHistoryState(
-        account?.id ?? '',
-        network.id,
-        indexedAccount?.id ?? '',
-      );
+      // Rerun on every dep change so the local cache view stays in sync with
+      // the latest filter inputs; older runs bail via the guards above.
+      lastInitIdentityRef.current = identityKey;
+      initRequestIdRef.current += 1;
+      const requestId = initRequestIdRef.current;
+      void initHistoryState({
+        accountId: account?.id ?? '',
+        networkId: network.id,
+        indexedAccountId: indexedAccount?.id ?? '',
+        capturedIdentity: identityKey,
+        requestId,
+      });
+    } else {
+      // Identity went invalid — release ownership so the prior identity's
+      // awaiting init bails out instead of writing into the new state.
+      lastInitIdentityRef.current = null;
     }
   }, [
     account?.id,
@@ -405,14 +513,43 @@ function TxHistoryListContainer(
     wallet?.id,
     settings.currencyInfo.id,
     currencyMap,
-    limit,
+    identityKey,
   ]);
+
+  // Invalidate in-flight `run()` synchronously on identity change — covers the
+  // ~1s `usePromiseResult` debounce window where the runner-body bump can't.
+  useEffect(() => {
+    fetchRequestIdRef.current += 1;
+  }, [identityKey]);
 
   useEffect(() => {
     if (isHeaderRefreshing) {
+      resetLoadMore();
       void run();
     }
-  }, [isHeaderRefreshing, run]);
+  }, [isHeaderRefreshing, run, resetLoadMore]);
+
+  // Drop load-more cursor on identity change; first-page fetch re-seeds it.
+  useEffect(() => {
+    resetLoadMore();
+  }, [
+    account?.id,
+    network?.id,
+    indexedAccount?.id,
+    mergeDeriveAddressData,
+    settings.isFilterScamHistoryEnabled,
+    settings.isFilterLowValueHistoryEnabled,
+    settings.currencyInfo.id,
+    resetLoadMore,
+  ]);
+
+  const combinedHistoryData = useMemo(
+    () =>
+      appendedTxs.length
+        ? unionBy([...historyData, ...appendedTxs], (tx) => tx.id)
+        : historyData,
+    [historyData, appendedTxs],
+  );
 
   const lastVisibilityRefreshAtRef = useRef(0);
   const handleRefreshOnVisibilityActive = useCallback(() => {
@@ -498,7 +635,7 @@ function TxHistoryListContainer(
       inTabList
       hideValue
       onRefresh={onHomePageRefresh}
-      data={historyData ?? []}
+      data={combinedHistoryData}
       onPressHistory={handleHistoryItemPress}
       showHeader
       showFooter
@@ -518,6 +655,9 @@ function TxHistoryListContainer(
       emptyTitle={emptyTitle}
       emptyDescription={emptyDescription}
       ListHeaderComponent={listHeaderComponent}
+      onEndReached={loadMoreEnabled ? loadMore : undefined}
+      isLoadingMore={isLoadingMore}
+      hasMore={loadMoreHasMore}
     />
   );
 }

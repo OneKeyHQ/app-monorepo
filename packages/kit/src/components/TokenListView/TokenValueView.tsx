@@ -1,15 +1,13 @@
 import { memo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import {
   useFlattenAggregateTokensMapAtom,
   useTokenListMapAtom,
 } from '../../states/jotai/contexts/tokenList';
-import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
+import { Currency } from '../Currency';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
@@ -20,27 +18,24 @@ type IProps = {
 
 function TokenValueView(props: IProps) {
   const { $key, ...rest } = props;
-  const [settings] = useSettingsPersistAtom();
   const { tokenListMap: contextTokenListMap } = useTokenListViewContext();
   const [globalTokenListMap] = useTokenListMapAtom();
   const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
   const tokenListMap = contextTokenListMap ?? globalTokenListMap;
   const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
 
-  const fiatValue = new BigNumber(token?.fiatValue || 0);
-
   if (!token) {
     return <SizableText {...rest}>-</SizableText>;
   }
 
   return (
-    <NumberSizeableTextWrapper
+    <Currency
       formatter="value"
-      formatterOptions={{ currency: settings.currencyInfo.symbol }}
-      {...rest}
+      sourceCurrency={token.currency}
+      {...(rest as React.ComponentProps<typeof Currency>)}
     >
-      {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
-    </NumberSizeableTextWrapper>
+      {displayOrUnavailable(token.fiatValue)}
+    </Currency>
   );
 }
 

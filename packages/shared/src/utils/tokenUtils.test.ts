@@ -1,7 +1,11 @@
 /*
 yarn test packages/shared/src/utils/tokenUtils.test.ts
 */
-import { calculateAccountTotalValue } from './tokenUtils';
+import {
+  calculateAccountTokensValue,
+  calculateAccountTotalValue,
+  mergeDeriveTokenListMap,
+} from './tokenUtils';
 
 describe('calculateAccountTotalValue — tray case (no filters)', () => {
   test('sums all token values + deFi when no filters passed', () => {
@@ -177,5 +181,141 @@ describe('calculateAccountTotalValue — wallet-scoped derive matching branch', 
         },
       }),
     ).toBe('100');
+  });
+});
+
+describe('calculateAccountTokensValue', () => {
+  const baseWorthMeta = {
+    createAtNetworkWorth: '0',
+    accountId: 'acct-1',
+    initialized: true,
+  };
+
+  test('All Networks: sums all map entries', () => {
+    expect(
+      calculateAccountTokensValue({
+        accountId: 'acct-1',
+        networkId: 'onekeyall--0',
+        tokensWorth: {
+          ...baseWorthMeta,
+          worth: {
+            'acct-1_evm--1': '100',
+            'acct-1_evm--195': '0',
+            'acct-1_evm--56': '50',
+          },
+        },
+        mergeDeriveAssetsEnabled: false,
+      }),
+    ).toBe('150');
+  });
+
+  test('All Networks: returns "0" when worth is empty', () => {
+    expect(
+      calculateAccountTokensValue({
+        accountId: 'acct-1',
+        networkId: 'onekeyall--0',
+        tokensWorth: {
+          ...baseWorthMeta,
+          worth: {},
+        },
+        mergeDeriveAssetsEnabled: false,
+      }),
+    ).toBe('0');
+  });
+
+  test('Single network: returns the value at the current network key', () => {
+    expect(
+      calculateAccountTokensValue({
+        accountId: 'acct-1',
+        networkId: 'evm--1',
+        tokensWorth: {
+          ...baseWorthMeta,
+          worth: {
+            'acct-1_evm--1': '42.5',
+          },
+        },
+        mergeDeriveAssetsEnabled: false,
+      }),
+    ).toBe('42.5');
+  });
+
+  test('Single network: falls back to the first map value when current key is absent', () => {
+    expect(
+      calculateAccountTokensValue({
+        accountId: 'acct-1',
+        networkId: 'evm--195',
+        tokensWorth: {
+          ...baseWorthMeta,
+          worth: {
+            'acct-1_evm--1': '100',
+          },
+        },
+        mergeDeriveAssetsEnabled: false,
+      }),
+    ).toBe('100');
+  });
+
+  test('mergeDeriveAssetsEnabled: sums all derive-keyed entries', () => {
+    expect(
+      calculateAccountTokensValue({
+        accountId: 'acct-1',
+        networkId: 'evm--1',
+        tokensWorth: {
+          ...baseWorthMeta,
+          worth: {
+            'acct-1_evm--1--default': '100',
+            'acct-1_evm--1--ledgerlive': '25',
+          },
+        },
+        mergeDeriveAssetsEnabled: true,
+      }),
+    ).toBe('125');
+  });
+});
+
+describe('mergeDeriveTokenListMap — fiatValue unavailable handling', () => {
+  const buildEntry = (fiatValue: string | null | undefined) => ({
+    balance: '0',
+    balanceParsed: '0',
+    fiatValue,
+    price: '0',
+    price24h: '0',
+  });
+
+  test('keeps fiatValue unavailable when every derive participant is unavailable', () => {
+    const targetMap = {
+      // groupDeriveKey shape: `${prefix}_${suffix}` (first and last segments).
+      'acct-1_evm--1': buildEntry(null) as any,
+    };
+    const sourceMap = {
+      'acct-1_default_evm--1': buildEntry(undefined) as any,
+    };
+
+    const merged = mergeDeriveTokenListMap({
+      sourceMap,
+      targetMap,
+      mergeDeriveAssets: true,
+    });
+
+    // fiatValue must remain unavailable (not written as '0') so the display
+    // layer keeps rendering '--' instead of a misleading $0.
+    expect(merged['acct-1_evm--1'].fiatValue).toBeNull();
+  });
+
+  test('writes partial sum when at least one derive participant is valid', () => {
+    const targetMap = {
+      'acct-1_evm--1': buildEntry(null) as any,
+    };
+    const sourceMap = {
+      'acct-1_default_evm--1': buildEntry('12.5') as any,
+    };
+
+    const merged = mergeDeriveTokenListMap({
+      sourceMap,
+      targetMap,
+      mergeDeriveAssets: true,
+    });
+
+    expect(merged['acct-1_evm--1'].fiatValue).toBe('12.5');
   });
 });

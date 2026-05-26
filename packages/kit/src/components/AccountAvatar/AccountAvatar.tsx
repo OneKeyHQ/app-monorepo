@@ -88,6 +88,15 @@ export interface IAccountAvatarProps extends IImageProps {
   fallback?: ReactElement;
   fallbackProps?: IImageFallbackProps;
   wallet?: IDBWallet;
+  /**
+   * Opt in to the 200ms opacity fade-in animation that runs the first time
+   * an avatar for a given address appears in the session. Default `false`
+   * (instant render). Originally introduced for the Send recipient quick
+   * select and Address Book panels; in list-heavy consumers like the
+   * account selector the staggered fades read as flicker, so the animation
+   * must be explicitly enabled.
+   */
+  enableEnterAnimation?: boolean;
 }
 
 const getBlockieImageId = (id?: string) => {
@@ -143,6 +152,7 @@ function BasicAccountAvatar({
   fallbackProps,
   networkId,
   wallet,
+  enableEnterAnimation = false,
   ...restProps
 }: IAccountAvatarProps) {
   const isValidSize = !!VARIANT_SIZE[size as IKeyOfVariantSize];
@@ -327,18 +337,28 @@ function BasicAccountAvatar({
     (account || dbAccount)?.address ||
     '';
 
-  // Decide animation ONCE at mount, based on address (not URI)
-  // Using lazy initialization to ensure decision is made only once per instance
+  // Decide animation ONCE at mount, based on address (not URI). Lazy
+  // initialization ensures the decision is made only once per instance.
+  //
+  // Animation is opt-in: it only runs when `enableEnterAnimation` is true at
+  // this consumer AND the address has not been shown before in this session.
+  // Callers that don't opt in render instantly and do not touch the cache,
+  // so an opt-in consumer later in the session still gets the fade for that
+  // address on its first appearance there.
   const shouldAnimateRef = useRef<boolean | undefined>(undefined);
   if (shouldAnimateRef.current === undefined && stableAddressKey) {
-    const isFirstGlobalAppearance =
-      !shownAvatarSourcesCache.has(stableAddressKey);
-    shouldAnimateRef.current = isFirstGlobalAppearance;
-    if (isFirstGlobalAppearance) {
-      if (shownAvatarSourcesCache.size >= SHOWN_AVATAR_SOURCES_CACHE_LIMIT) {
-        shownAvatarSourcesCache.clear();
+    if (!enableEnterAnimation) {
+      shouldAnimateRef.current = false;
+    } else {
+      const isFirstGlobalAppearance =
+        !shownAvatarSourcesCache.has(stableAddressKey);
+      shouldAnimateRef.current = isFirstGlobalAppearance;
+      if (isFirstGlobalAppearance) {
+        if (shownAvatarSourcesCache.size >= SHOWN_AVATAR_SOURCES_CACHE_LIMIT) {
+          shownAvatarSourcesCache.clear();
+        }
+        shownAvatarSourcesCache.add(stableAddressKey);
       }
-      shownAvatarSourcesCache.add(stableAddressKey);
     }
   }
 

@@ -137,6 +137,7 @@ function BannerItem({
           right="$2"
           size="small"
           variant="tertiary"
+          hitSlop={{ top: 12, left: 12, right: 12, bottom: 12 }}
           onPress={(event: GestureResponderEvent) => {
             event.stopPropagation();
             onDismiss(item);
@@ -211,6 +212,7 @@ function NativeBannerScroller({
       Gesture.Pan()
         .activeOffsetX([-10, 10])
         .failOffsetY([-10, 10])
+        .cancelsTouchesInView(false)
         .onStart(() => {
           'worklet';
 
@@ -507,7 +509,7 @@ function PerpsReferralDialogContent({
   );
 }
 
-function WalletBanner() {
+function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
   const {
     activeAccount: { account, network, wallet, vaultSettings, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -813,6 +815,10 @@ function WalletBanner() {
     },
     [handleBannerOnPress, handleReferralBannerPress, isBotWalletReceiveBlocked],
   );
+
+  if (hidden) {
+    return null;
+  }
 
   if (banners.length === 0 && !tronCard) {
     return null;

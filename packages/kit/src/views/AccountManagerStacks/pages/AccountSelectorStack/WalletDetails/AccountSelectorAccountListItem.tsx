@@ -305,7 +305,7 @@ export function AccountSelectorAccountListItem({
       return null;
 
     return (
-      <>
+      <Stack flexShrink={1}>
         <AccountValueWithSpotlight
           walletId={focusedWalletInfo?.wallet?.id ?? ''}
           enabledNetworksCompatibleWithWalletId={
@@ -321,7 +321,7 @@ export function AccountSelectorAccountListItem({
           linkedNetworkId={avatarNetworkId ?? network?.id}
           mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
         />
-      </>
+      </Stack>
     );
   }, [
     linkNetwork,

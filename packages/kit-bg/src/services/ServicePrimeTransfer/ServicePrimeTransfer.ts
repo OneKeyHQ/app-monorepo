@@ -9,9 +9,7 @@ import {
   decryptImportedCredential,
   decryptRevealableSeed,
   decryptStringAsync,
-  encryptAsync,
   encryptRevealableSeed,
-  encryptStringAsync,
   mnemonicFromEntropy,
   revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
@@ -93,6 +91,11 @@ import {
   EPrimeTransferStatus,
   primeTransferAtom,
 } from '../../states/jotai/atoms/prime';
+import {
+  EAppCryptoSharedEncryptScene,
+  encryptAsyncWithFormat,
+  encryptStringAsyncWithFormat,
+} from '../../utils/secretEncryptFormat';
 import ServiceBase from '../ServiceBase';
 import { HDWALLET_BACKUP_VERSION } from '../ServiceCloudBackup';
 
@@ -722,10 +725,12 @@ class ServicePrimeTransfer extends ServiceBase {
 
       // Encrypt verification data with pairing code
       const encryptedData = bufferUtils.bytesToHex(
-        await encryptAsync({
+        await encryptAsyncWithFormat({
           data: bufferUtils.utf8ToBytes(verifyString),
           password: pairingCode.toUpperCase(),
           allowRawPassword: true,
+          sharedScene:
+            EAppCryptoSharedEncryptScene.primeTransferPairingVerification,
         }),
       );
 
@@ -1554,10 +1559,11 @@ class ServicePrimeTransfer extends ServiceBase {
       throw new OneKeyLocalError('Connected encrypted key is required');
     }
 
-    const encryptedData = await encryptAsync({
+    const encryptedData = await encryptAsyncWithFormat({
       data: bufferUtils.utf8ToBytes(data),
       password: encryptionKey,
       allowRawPassword: true,
+      sharedScene: EAppCryptoSharedEncryptScene.primeTransferPayload,
     });
     if (!this.e2eeClientToClientApiProxy) {
       throw new OneKeyLocalError('Client to Client API not initialized');
@@ -1680,13 +1686,14 @@ class ServicePrimeTransfer extends ServiceBase {
         clearWrappedCredentialsAfterDecrypt: false,
       });
       transferData.privateData.decryptedCredentialsHex =
-        await encryptStringAsync({
+        await encryptStringAsyncWithFormat({
           dataEncoding: 'utf8',
           data: stringUtils.stableStringify(
             transferData.privateData.decryptedCredentials,
           ),
           password,
           allowRawPassword: true,
+          sharedScene: EAppCryptoSharedEncryptScene.primeTransferCredentials,
         });
       transferData.privateData.decryptedCredentials = undefined;
     }
