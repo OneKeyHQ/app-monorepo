@@ -26,7 +26,9 @@ function BlockAccessView({
   );
   const title = useMemo(() => {
     if (isLocalUrlBlocked) {
-      return 'Local URLs are blocked by default';
+      return intl.formatMessage({
+        id: ETranslations.browser_local_urls_blocked__title,
+      });
     }
     if (urlValidateState === EValidateUrlEnum.InvalidPunycode) {
       return intl.formatMessage({
@@ -39,7 +41,9 @@ function BlockAccessView({
   }, [isLocalUrlBlocked, urlValidateState, intl]);
   const description = useMemo(() => {
     if (isLocalUrlBlocked) {
-      return 'Enable "Allow local URLs in DApp Browser" in Developer settings';
+      return intl.formatMessage({
+        id: ETranslations.browser_local_urls_blocked__desc,
+      });
     }
     if (urlValidateState === EValidateUrlEnum.InvalidPunycode) {
       return intl.formatMessage({

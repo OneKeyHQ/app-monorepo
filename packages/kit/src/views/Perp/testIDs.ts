@@ -45,6 +45,7 @@ export const PerpTestIDs = {
   // -- Deposit --
   DepositButton: 'perp-deposit-button',
   MobileDepositButton: 'perp-trading-form-mobile-deposit-button',
+  MarginToastDepositButton: 'perp-margin-toast-deposit-button',
 
   // -- Order info panel tabs --
   PositionsTab: 'perp-positions-tab',

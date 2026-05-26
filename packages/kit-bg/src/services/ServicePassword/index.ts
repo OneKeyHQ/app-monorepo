@@ -280,6 +280,12 @@ export default class ServicePassword extends ServiceBase {
     }, this.cachedPasswordTTL);
     unrefTimeout(this.cachedPasswordTimeOutObject);
 
+    if (password) {
+      void this.backgroundApi.serviceKeylessWallet
+        .tryMigrateLocalExistingKeylessBackendShareToV2()
+        .catch(() => undefined);
+    }
+
     void (async () => {
       const prevPasswordRaw = prevPassword
         ? await this.decodeSensitiveText({

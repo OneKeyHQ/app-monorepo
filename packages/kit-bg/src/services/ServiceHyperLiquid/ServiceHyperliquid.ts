@@ -117,6 +117,10 @@ import ServiceBase from '../ServiceBase';
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
+import {
+  createFetchUserAbstractionRawWithCache,
+  invalidateUserAbstractionRawCache,
+} from './userAbstractionCache';
 
 import type ServiceHyperliquidExchange from './ServiceHyperliquidExchange';
 import type ServiceHyperliquidWallet from './ServiceHyperliquidWallet';
@@ -1665,6 +1669,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     await perpsAbstractionModeAtom.set(undefined);
     await perpsSpotBalancesAtom.set(undefined);
+    this.fetchUserAbstractionRawWithCache.clear();
     // Also reset the UI-facing spot balances atom so stale balances from
     // the previous account don't flash before the new SPOT_STATE arrives.
     await spotBalancesAtom.set({ balances: [], isLoaded: false });
@@ -1756,26 +1761,44 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   hideEnableTradingLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
+  fetchUserAbstractionRawWithCache = createFetchUserAbstractionRawWithCache(
+    async (accountAddress) => {
+      const { infoClient } = hyperLiquidApiClients;
+      return infoClient.userAbstraction({ user: accountAddress });
+    },
+  );
+
   @backgroundMethod()
   async fetchUserAbstraction(userAddress: IHex): Promise<string | undefined> {
+    const lowerUserAddress = userAddress.toLowerCase() as IHex;
     // Active-account alignment check
     const activeAccount = await perpsActiveAccountAtom.get();
-    if (
-      activeAccount?.accountAddress?.toLowerCase() !== userAddress.toLowerCase()
-    ) {
+    if (activeAccount?.accountAddress?.toLowerCase() !== lowerUserAddress) {
       return undefined;
     }
 
-    const { infoClient } = hyperLiquidApiClients;
     try {
-      const mode = await infoClient.userAbstraction({ user: userAddress });
+      const mode = await this.fetchUserAbstractionRawWithCache({
+        accountAddress: userAddress,
+      });
 
       // Re-check alignment after async call
       const currentAccount = await perpsActiveAccountAtom.get();
-      if (
-        currentAccount?.accountAddress?.toLowerCase() !==
-        userAddress.toLowerCase()
-      ) {
+      if (currentAccount?.accountAddress?.toLowerCase() !== lowerUserAddress) {
+        return undefined;
+      }
+
+      if (!mode) {
+        await this.backgroundApi.simpleDb.perp.clearUserAbstractionMode(
+          userAddress,
+        );
+        const postClearAccount = await perpsActiveAccountAtom.get();
+        if (
+          postClearAccount?.accountAddress?.toLowerCase() !== lowerUserAddress
+        ) {
+          return undefined;
+        }
+        await perpsAbstractionModeAtom.set(undefined);
         return undefined;
       }
 
@@ -1784,17 +1807,14 @@ export default class ServiceHyperliquid extends ServiceBase {
         mode,
       );
       await perpsAbstractionModeAtom.set({
-        accountAddress: userAddress.toLowerCase() as IHex,
+        accountAddress: lowerUserAddress,
         mode: mode as EHyperLiquidAbstractionMode,
       });
       return mode;
     } catch {
       // Fallback to SimpleDb cached value — need alignment checks around every await
       const preDbAccount = await perpsActiveAccountAtom.get();
-      if (
-        preDbAccount?.accountAddress?.toLowerCase() !==
-        userAddress.toLowerCase()
-      ) {
+      if (preDbAccount?.accountAddress?.toLowerCase() !== lowerUserAddress) {
         return undefined;
       }
       const cached =
@@ -1803,15 +1823,12 @@ export default class ServiceHyperliquid extends ServiceBase {
         );
       // Post-async alignment: user could have switched during SimpleDb read
       const postDbAccount = await perpsActiveAccountAtom.get();
-      if (
-        postDbAccount?.accountAddress?.toLowerCase() !==
-        userAddress.toLowerCase()
-      ) {
+      if (postDbAccount?.accountAddress?.toLowerCase() !== lowerUserAddress) {
         return undefined;
       }
       if (cached) {
         await perpsAbstractionModeAtom.set({
-          accountAddress: userAddress.toLowerCase() as IHex,
+          accountAddress: lowerUserAddress,
           mode: cached as EHyperLiquidAbstractionMode,
         });
         return cached;
@@ -1965,6 +1982,10 @@ export default class ServiceHyperliquid extends ServiceBase {
               userAddress: accountAddress,
               abstraction: 'unifiedAccount',
             });
+            invalidateUserAbstractionRawCache(
+              this.fetchUserAbstractionRawWithCache,
+              accountAddress,
+            );
             const verifiedMode =
               await this.fetchUserAbstraction(accountAddress);
             statusDetails.abstractionOk =
@@ -2224,8 +2245,6 @@ export default class ServiceHyperliquid extends ServiceBase {
                   removeResultStatus: approveAgentResult?.status,
                 },
               });
-              await timerUtils.wait(4000);
-
               // Poll to verify agent removal instead of fixed delay
               const pollStartTime = Date.now();
               const pollTimeoutMs = 10_000; // 10 seconds total polling timeout

@@ -271,6 +271,7 @@ export const {
       details?.activatedOk &&
       details?.internalRebateBoundOk &&
       abstractionOk;
+
     const isReadOnlyAccount = account?.accountId
       ? accountUtils.isWatchingAccount({ accountId: account.accountId })
       : false;
@@ -295,8 +296,13 @@ export const {
 } = globalAtomComputedR<{ isAgentReady: boolean }>({
   read: (get) => {
     const status = get(perpsActiveAccountStatusAtom.atom());
+    const isAtomReady = Boolean(status?.details?.agentOk && status?.canTrade);
+    if (isAtomReady) {
+      return { isAgentReady: true };
+    }
+
     return {
-      isAgentReady: Boolean(status?.details?.agentOk && status?.canTrade),
+      isAgentReady: false,
     };
   },
 });
@@ -317,15 +323,58 @@ export const {
 });
 
 export const {
+  target: perpsActiveAccountEnableTradingModeAtom,
+  use: usePerpsActiveAccountEnableTradingModeAtom,
+} = globalAtomComputedR<{
+  isSoftwareAccount: boolean;
+  requiresExplicitEnableTrading: boolean;
+}>({
+  read: (get) => {
+    const account = get(perpsActiveAccountAtom.atom());
+    const loading = get(perpsAccountLoadingInfoAtom.atom());
+
+    const accountId = account.accountId ?? account.indexedAccountId;
+
+    if (loading.selectAccountLoading || !accountId) {
+      return {
+        isSoftwareAccount: false,
+        requiresExplicitEnableTrading: true,
+      };
+    }
+
+    const isSoftwareAccount =
+      accountUtils.isHdAccount({ accountId }) ||
+      accountUtils.isImportedAccount({ accountId });
+
+    return {
+      isSoftwareAccount,
+      requiresExplicitEnableTrading: !isSoftwareAccount,
+    };
+  },
+});
+
+export const {
   target: perpsShouldShowEnableTradingButtonAtom,
   use: usePerpsShouldShowEnableTradingButtonAtom,
 } = globalAtomComputedR<boolean>({
   read: (get) => {
     const status = get(perpsActiveAccountStatusAtom.atom());
     const loading = get(perpsAccountLoadingInfoAtom.atom());
+    const enableTradingMode = get(
+      perpsActiveAccountEnableTradingModeAtom.atom(),
+    );
     const isAccountLoading =
       loading.enableTradingLoading || loading.selectAccountLoading;
-    return isAccountLoading || !status?.canTrade || !status?.accountAddress;
+
+    if (isAccountLoading || !status?.accountAddress) {
+      return true;
+    }
+
+    if (enableTradingMode.isSoftwareAccount && !status.accountNotSupport) {
+      return false;
+    }
+
+    return !status?.canTrade;
   },
 });
 
