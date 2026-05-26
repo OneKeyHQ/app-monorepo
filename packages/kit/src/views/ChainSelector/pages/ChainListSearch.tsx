@@ -60,6 +60,10 @@ function pickBestRpcUrl(rpcUrls: string[]): string {
   return '';
 }
 
+function normalizeSearchKeywords(text?: string): string {
+  return text?.trim() ?? '';
+}
+
 function ChainListSearchSkeletonList() {
   return (
     <Stack>
@@ -103,6 +107,7 @@ function ChainListSearch() {
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSearchingRef = useRef(false);
+  const activeKeywordsRef = useRef('');
   // Monotonic id bumped on every list-replacing op (initial load, reload,
   // search, pagination); used to discard stale async results.
   const listReqIdRef = useRef(0);
@@ -149,6 +154,7 @@ function ChainListSearch() {
           page: 1,
         });
       if (!mountedRef.current || reqId !== listReqIdRef.current) return;
+      activeKeywordsRef.current = '';
       setItems(result);
       setHasMore(result.length > 0);
       setCurrentPage(1);
@@ -173,9 +179,12 @@ function ChainListSearch() {
       loadingMoreRef.current ||
       isLoadingMore ||
       !hasMore ||
-      searchText ||
       isSearchingRef.current
     ) {
+      return;
+    }
+    const keywords = activeKeywordsRef.current;
+    if (normalizeSearchKeywords(searchText) !== keywords) {
       return;
     }
     loadingMoreRef.current = true;
@@ -186,9 +195,16 @@ function ChainListSearch() {
       setIsLoadingMore(true);
       const result =
         await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords({
+          keywords: keywords || undefined,
           page: nextPage,
         });
-      if (!mountedRef.current || reqId !== listReqIdRef.current) return;
+      if (
+        !mountedRef.current ||
+        reqId !== listReqIdRef.current ||
+        keywords !== activeKeywordsRef.current
+      ) {
+        return;
+      }
       if (result.length === 0) {
         setHasMore(false);
       } else {
@@ -199,7 +215,7 @@ function ChainListSearch() {
       // Silently fail on pagination
     } finally {
       loadingMoreRef.current = false;
-      if (mountedRef.current && reqId === listReqIdRef.current) {
+      if (mountedRef.current) {
         setIsLoadingMore(false);
       }
     }
@@ -208,13 +224,15 @@ function ChainListSearch() {
   // Handle search text change with debounce
   const handleSearchTextChange = useCallback(
     (text: string) => {
+      listReqIdRef.current += 1;
       setSearchText(text);
+      const keywords = normalizeSearchKeywords(text);
 
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
 
-      if (!text) {
+      if (!keywords) {
         // Clear search: reload default paginated list
         isSearchingRef.current = false;
         setIsSearching(false);
@@ -230,20 +248,24 @@ function ChainListSearch() {
           setIsSearching(true);
           setHasError(false);
           defaultLogger.setting.page.chainListSearchPerformed({
-            keywords: text,
+            keywords,
           });
           const result =
             await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords(
               {
-                keywords: text,
+                keywords,
+                page: 1,
               },
             );
           if (!mountedRef.current || reqId !== listReqIdRef.current) return;
+          activeKeywordsRef.current = keywords;
           setItems(result);
-          setHasMore(false); // search results are not paginated
+          setHasMore(result.length > 0);
+          setCurrentPage(1);
         } catch {
           if (!mountedRef.current || reqId !== listReqIdRef.current) return;
           setHasError(true);
+          setHasMore(false);
         } finally {
           if (mountedRef.current && reqId === listReqIdRef.current) {
             isSearchingRef.current = false;

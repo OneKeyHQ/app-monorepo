@@ -34,12 +34,25 @@ import ServiceBase from './ServiceBase';
 class ServiceCustomRpc extends ServiceBase {
   private semaphore = new Semaphore(1);
 
+  private buildChainListRequestParams(params: {
+    keywords?: string;
+    page?: number;
+  }) {
+    const keywords = params.keywords?.trim();
+    const page = Math.max(1, Math.floor(params.page ?? 1));
+    return {
+      ...(keywords ? { keywords } : {}),
+      page,
+      showTestNet: true,
+    };
+  }
+
   private fetchChainListPage = memoizee(
     async (page: number): Promise<IChainListItem[]> => {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IChainListItem[] }>(
         '/wallet/v1/network/chainlist',
-        { params: { page, showTestNet: true } },
+        { params: this.buildChainListRequestParams({ page }) },
       );
       return resp.data.data || [];
     },
@@ -548,19 +561,25 @@ class ServiceCustomRpc extends ServiceBase {
     keywords?: string;
     page?: number;
   }): Promise<IChainListItem[]> {
+    const keywords = params.keywords?.trim();
+    const page = Math.max(1, Math.floor(params.page ?? 1));
     // Keyword search: always hit API, no cache.
     // Errors are propagated so callers can distinguish network failures
     // from genuinely empty result sets.
-    if (params.keywords) {
+    if (keywords) {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IChainListItem[] }>(
         '/wallet/v1/network/chainlist',
-        { params: { keywords: params.keywords, showTestNet: true } },
+        {
+          params: this.buildChainListRequestParams({
+            keywords,
+            page,
+          }),
+        },
       );
       return resp.data.data || [];
     }
 
-    const page = Math.max(1, Math.floor(params.page ?? 1));
     return this.fetchChainListPage(page);
   }
 
@@ -572,10 +591,10 @@ class ServiceCustomRpc extends ServiceBase {
       const resp = await client.get<{ data: IChainListItem[] }>(
         '/wallet/v1/network/chainlist',
         {
-          params: {
-            keywords: chainId,
-            showTestNet: true,
-          },
+          params: this.buildChainListRequestParams({
+            keywords: String(chainId),
+            page: 1,
+          }),
         },
       );
       return (
