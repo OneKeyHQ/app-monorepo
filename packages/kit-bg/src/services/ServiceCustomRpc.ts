@@ -323,7 +323,11 @@ class ServiceCustomRpc extends ServiceBase {
       rpcUrl: params.rpcUrl,
       validateChainId: false,
     });
-    if (Number(result.chainId) !== Number(params.chainId)) {
+    if (
+      !new BigNumber(result.chainId ?? 0).isEqualTo(
+        new BigNumber(params.chainId),
+      )
+    ) {
       throw new OneKeyError('Invalid chainId');
     }
     return result;
