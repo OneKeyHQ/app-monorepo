@@ -505,6 +505,65 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     expect(migrationPersist.byWalletId[WALLET_ID]).toBeUndefined();
   });
 
+  test('does not consume the 24-hour throttle when Prime API call fails with 429 rate limit', async () => {
+    const { service, serviceAny } = createService();
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+      async () => ({ accessToken: TOKEN, refreshToken: REFRESH_TOKEN }),
+    );
+    serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
+      async () => undefined,
+    );
+    serviceAny.apiGetKeylessBackendShareMeta = jest.fn(async () => {
+      const error: Error & { httpStatusCode?: number } = new Error(
+        'rate limited',
+      );
+      error.httpStatusCode = 429;
+      throw error;
+    });
+
+    await expect(
+      service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+    ).resolves.toMatchObject({
+      skipped: true,
+      reason: 'network_unavailable',
+    });
+
+    expect(migrationPersist.byWalletId[WALLET_ID]).toBeUndefined();
+  });
+
+  test('refresh helper surfaces 429 from Supabase auth as a network error so the throttle is not consumed', async () => {
+    const { service, serviceAny } = createService();
+    mockGetRefreshTokenFromStorageWithPassword.mockResolvedValue(REFRESH_TOKEN);
+    const originalFetch = (globalThis as { fetch?: typeof fetch }).fetch;
+    const fetchMock = jest.fn(
+      async () =>
+        ({
+          ok: false,
+          status: 429,
+          json: async () => ({}),
+        }) as unknown as Response,
+    );
+    (globalThis as { fetch?: unknown }).fetch = fetchMock;
+    try {
+      const { KeylessPassiveMigrationNetworkError } =
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        require('./keylessPassiveMigrationErrors');
+      await expect(
+        serviceAny.refreshAccessTokenForKeylessBackendShareV2MigrationPassive({
+          ownerId: OWNER_ID,
+          password: PASSWORD,
+        }),
+      ).rejects.toBeInstanceOf(KeylessPassiveMigrationNetworkError);
+    } finally {
+      if (originalFetch) {
+        (globalThis as { fetch?: typeof fetch }).fetch = originalFetch;
+      } else {
+        delete (globalThis as { fetch?: unknown }).fetch;
+      }
+    }
+    expect(service).toBeDefined();
+  });
+
   test('does not consume the 24-hour throttle when Prime API call fails with a client-side timeout', async () => {
     const { service, serviceAny } = createService();
     serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(

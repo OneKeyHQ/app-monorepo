@@ -2194,10 +2194,17 @@ class ServiceKeylessWallet extends ServiceBase {
       throw new KeylessPassiveMigrationNetworkError(error);
     }
 
-    // 5xx indicates the auth server is unreachable or misbehaving — treat as
-    // a network-class failure. 4xx indicates the refresh token was rejected
-    // (revoked / mismatched), which is an auth failure we should throttle.
-    if (response.status >= 500) {
+    // Transient HTTP failures must NOT consume the 24h throttle:
+    //   5xx — auth server unreachable or misbehaving
+    //   408 — request timeout
+    //   429 — rate limited (Supabase auth limits per IP / per refresh-token)
+    // Any other 4xx (401 / 403 / 422) means the refresh token was rejected
+    // (revoked / mismatched), which is a real auth failure we should throttle.
+    if (
+      response.status >= 500 ||
+      response.status === 408 ||
+      response.status === 429
+    ) {
       throw new KeylessPassiveMigrationNetworkError();
     }
     if (!response.ok) {
@@ -2311,12 +2318,18 @@ class ServiceKeylessWallet extends ServiceBase {
       return true;
     }
     const httpStatusCode = (error as IOneKeyError | undefined)?.httpStatusCode;
-    if (
-      typeof httpStatusCode === 'number' &&
-      httpStatusCode >= 500 &&
-      httpStatusCode < 600
-    ) {
-      return true;
+    if (typeof httpStatusCode === 'number') {
+      // Allowlist of HTTP statuses that represent transient infrastructure
+      // failures (vs. real policy/auth rejections). Anything else — e.g. 401
+      // / 403 / 404 / 422 — is a real failure that should consume the
+      // throttle so we don't hammer the server on every wake.
+      if (
+        (httpStatusCode >= 500 && httpStatusCode < 600) ||
+        httpStatusCode === 408 ||
+        httpStatusCode === 429
+      ) {
+        return true;
+      }
     }
     // Axios timeout / DNS / connection errors that the interceptor does not
     // rewrap (e.g. ECONNABORTED, ETIMEDOUT, ENOTFOUND) bubble up as raw
