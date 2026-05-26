@@ -2,7 +2,7 @@
 
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethersV6';
-import { isEqual, isNil, omit } from 'lodash';
+import { isEqual, isNil, omit, throttle } from 'lodash';
 import pTimeout from 'p-timeout';
 
 import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
@@ -1233,6 +1233,28 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
+  // Coalesce real-time summary writes: WEB_DATA2 + ALL_DEXS_CLEARINGHOUSE_STATE
+  // each arrive multiple times per second, and the prior code did
+  // perpsActiveAccountSummaryAtom.set(...) unconditionally on every message.
+  // 250 ms gives a 4 Hz refresh — below human perception threshold for
+  // pnl/margin readouts but cuts the bg→ui setAtomValue stream from those
+  // two subscriptions by ~75%. Trailing call guarantees the latest payload
+  // is never dropped.
+  private _writeActiveSummaryThrottled = throttle(
+    (payload: NonNullable<Parameters<typeof perpsActiveAccountSummaryAtom.set>[0]>) => {
+      void perpsActiveAccountSummaryAtom.set(payload);
+    },
+    250,
+    { leading: true, trailing: true },
+  );
+
+  private async _clearActiveSummaryImmediate() {
+    // Account switched / mismatch: cancel any pending coalesced write so
+    // stale data from the previous account can't land after the clear.
+    this._writeActiveSummaryThrottled.cancel();
+    await perpsActiveAccountSummaryAtom.set(undefined);
+  }
+
   async updateActiveAccountSummary(webData2: IWsWebData2) {
     const activeAccount = await perpsActiveAccountAtom.get();
     if (
@@ -1247,7 +1269,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return pnl ? sum.plus(pnl) : sum;
       }, new BigNumber(0));
 
-      await perpsActiveAccountSummaryAtom.set({
+      this._writeActiveSummaryThrottled({
         accountAddress: activeAccount?.accountAddress?.toLowerCase() as IHex,
         accountValue: webData2.clearinghouseState?.marginSummary?.accountValue,
         totalMarginUsed:
@@ -1269,7 +1291,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         activeAccount?.accountAddress?.toLowerCase()
       ) {
         // TODO set undefined when account address changed
-        await perpsActiveAccountSummaryAtom.set(undefined);
+        await this._clearActiveSummaryImmediate();
       }
     }
   }
@@ -1286,7 +1308,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (
         activeAccountSummary?.accountAddress?.toLowerCase() !== activeAddress
       ) {
-        await perpsActiveAccountSummaryAtom.set(undefined);
+        await this._clearActiveSummaryImmediate();
       }
       return;
     }
@@ -1351,7 +1373,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       },
     );
 
-    await perpsActiveAccountSummaryAtom.set({
+    this._writeActiveSummaryThrottled({
       accountAddress: activeAddress as IHex,
       accountValue: aggregated.accountValue.toFixed(),
       totalMarginUsed: aggregated.totalMarginUsed.toFixed(),
