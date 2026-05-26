@@ -2296,6 +2296,7 @@
   "hardware_third_party_transport_error": "Помилка зв'язку з обладнанням. Перевірте USB-кабель або Bluetooth і спробуйте ще раз.",
   "hardware_third_party_transport_not_available": "Ваш браузер або платформа не підтримує підключення до цього апаратного гаманця.",
   "hardware_third_party_unknown_error": "Невідома апаратна помилка. Спробуйте ще раз.",
+  "hardware_third_party_usb_single_device_only_desc": "Одночасно можна підключити лише один USB-пристрій. Будь ласка, від'єднайте інші пристрої та повторіть спробу.",
   "hardware_third_party_user_rejected": "Операцію відхилено на пристрої",
   "hardware_third_party_wrong_app": "На пристрої відкрито неправильний застосунок",
   "havent_found_network_desc": "Ми не змогли знайти жодної мережі, яка відповідає вашому приватному ключу. Будь ласка, натисніть нижче, щоб вибрати мережу.",

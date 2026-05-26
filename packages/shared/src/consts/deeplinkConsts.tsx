@@ -10,6 +10,7 @@ export enum EOneKeyDeepLinkPath {
   market_detail = 'market_detail',
   invite_share = 'invite_share',
   invited_by_friend = 'invited_by_friend',
+  redeem_bitcoin_voucher = 'redeem_bitcoin_voucher',
   cross_device_transfer = 'cross_device_transfer',
   webview = 'webview',
 }
@@ -28,6 +29,9 @@ export type IEOneKeyDeepLinkParams = {
   [EOneKeyDeepLinkPath.invited_by_friend]: {
     code: string;
     page?: string;
+  };
+  [EOneKeyDeepLinkPath.redeem_bitcoin_voucher]: {
+    code?: string;
   };
   [EOneKeyDeepLinkPath.cross_device_transfer]: {
     code?: string;
