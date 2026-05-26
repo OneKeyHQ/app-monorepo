@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -34,12 +35,25 @@ import ServiceBase from './ServiceBase';
 class ServiceCustomRpc extends ServiceBase {
   private semaphore = new Semaphore(1);
 
+  private buildChainListRequestParams(params: {
+    keywords?: string;
+    page?: number;
+  }): { keywords?: string; page: number; showTestNet: boolean } {
+    const keywords = params.keywords?.trim() || undefined;
+    const page = Math.max(1, Math.floor(params.page ?? 1));
+    return {
+      keywords,
+      page,
+      showTestNet: true,
+    };
+  }
+
   private fetchChainListPage = memoizee(
     async (page: number): Promise<IChainListItem[]> => {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IChainListItem[] }>(
         '/wallet/v1/network/chainlist',
-        { params: { page, showTestNet: true } },
+        { params: this.buildChainListRequestParams({ page }) },
       );
       return resp.data.data || [];
     },
@@ -297,6 +311,28 @@ class ServiceCustomRpc extends ServiceBase {
     };
   }
 
+  @backgroundMethod()
+  public async measureCustomNetworkRpcStatus(params: {
+    rpcUrl: string;
+    chainId: number;
+  }) {
+    const vault = await vaultFactory.getChainOnlyVault({
+      networkId: getNetworkIdsMap().eth,
+    });
+    const result = await vault.getCustomRpcEndpointStatus({
+      rpcUrl: params.rpcUrl,
+      validateChainId: false,
+    });
+    if (
+      !new BigNumber(result.chainId ?? 0).isEqualTo(
+        new BigNumber(params.chainId),
+      )
+    ) {
+      throw new OneKeyError('Invalid chainId');
+    }
+    return result;
+  }
+
   async upsertCustomNetworkInfo({
     networkInfo,
     rpcUrl,
@@ -548,20 +584,20 @@ class ServiceCustomRpc extends ServiceBase {
     keywords?: string;
     page?: number;
   }): Promise<IChainListItem[]> {
+    const requestParams = this.buildChainListRequestParams(params);
     // Keyword search: always hit API, no cache.
     // Errors are propagated so callers can distinguish network failures
     // from genuinely empty result sets.
-    if (params.keywords) {
+    if (requestParams.keywords) {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IChainListItem[] }>(
         '/wallet/v1/network/chainlist',
-        { params: { keywords: params.keywords, showTestNet: true } },
+        { params: requestParams },
       );
       return resp.data.data || [];
     }
 
-    const page = Math.max(1, Math.floor(params.page ?? 1));
-    return this.fetchChainListPage(page);
+    return this.fetchChainListPage(requestParams.page);
   }
 
   @backgroundMethod()
@@ -572,10 +608,10 @@ class ServiceCustomRpc extends ServiceBase {
       const resp = await client.get<{ data: IChainListItem[] }>(
         '/wallet/v1/network/chainlist',
         {
-          params: {
-            keywords: chainId,
-            showTestNet: true,
-          },
+          params: this.buildChainListRequestParams({
+            keywords: String(chainId),
+            page: 1,
+          }),
         },
       );
       return (

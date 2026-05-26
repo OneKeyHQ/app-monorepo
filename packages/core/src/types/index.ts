@@ -37,6 +37,7 @@ export type ICoreApiGetAddressesQueryHdBase = {
   password: string;
   indexes: number[];
   addressEncoding: EAddressEncodings | undefined;
+  hdCredentialCacheScopeId?: string;
 };
 export type ICoreApiGetAddressesQueryHdEvm = ICoreApiGetAddressesQueryHdBase;
 export type ICoreApiGetAddressesQueryHdBtc = Omit<

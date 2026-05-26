@@ -1,11 +1,13 @@
 import { useCallback, useLayoutEffect } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Page,
   isNativeTablet,
+  useIsModalPage,
   useIsSplitView,
   useMedia,
 } from '@onekeyhq/components';
@@ -67,13 +69,24 @@ function MarketDetail({
   });
 
   const media = useMedia();
+  // iOS 26+ root-tab headers are translucent (Liquid Glass) so the page
+  // body extends under the bar — without an explicit top inset the
+  // chart / 图表 / 概述 tabs sit clipped behind the navbar position.
+  // The modal entry (EModalMarketRoutes.MarketDetailV2) renders against
+  // an opaque non-root header where react-native-screens already lays
+  // content out below the bar; adding headerHeight there would push the
+  // body down twice and leave a blank band at the top.
+  const isModalPage = useIsModalPage();
+  const headerHeight = useHeaderHeight();
+  const bodyPaddingTop =
+    platformEnv.isNativeIOS26Plus && !isModalPage ? headerHeight : 0;
 
   return (
     <BtcMetadataProvider>
       <Page>
         <MarketDetailHeader />
 
-        <Page.Body testID={MarketTestIDs.detailPage}>
+        <Page.Body pt={bodyPaddingTop} testID={MarketTestIDs.detailPage}>
           {media.gtLg && !platformEnv.isNative ? (
             <DesktopLayout />
           ) : (

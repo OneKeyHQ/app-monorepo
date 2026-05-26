@@ -198,8 +198,14 @@ export abstract class CoreChainApiBase {
     },
   ): Promise<ICoreApiGetAddressesResult> {
     const { curve, generateFrom } = options;
-    const { template, hdCredential, password, indexes, addressEncoding } =
-      query;
+    const {
+      template,
+      hdCredential,
+      password,
+      indexes,
+      addressEncoding,
+      hdCredentialCacheScopeId,
+    } = query;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
     const indexFormatted = indexes.map((index) =>
       pathSuffix.replace('{index}', index.toString()),
@@ -215,6 +221,7 @@ export abstract class CoreChainApiBase {
         password,
         pathPrefix,
         indexFormatted,
+        hdCredentialCacheScopeId,
       );
     } else {
       pubkeyInfos = await batchGetPublicKeys({
@@ -223,6 +230,7 @@ export abstract class CoreChainApiBase {
         password,
         prefix: pathPrefix,
         relPaths: indexFormatted,
+        hdCredentialCacheScopeId,
       });
     }
     const infos = isPrivateKeyMode ? pvtkeyInfos : pubkeyInfos;
