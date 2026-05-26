@@ -18,5 +18,23 @@
       "#11743"
     ],
     "notes": "Keep swap LP switch interactive (#11743); LP filter and Trade/DeFi fixes (#11683); Eliminate avatar/balance/3-dot flicker on account selector open (#11735); Home banner placeholder + iPad split-view + HW popover (#11699); Add perps referral landing benefits (#11730); Recover perps candles and selector issues (#11714); Add earn analytics order tracking (#11711); Preserve browser store during active mirrors (#11725); Disable pool detail dialog drag for long token lists (#11722); Mirror desktop header no-drag regions to body (#11705); Stabilize history list & overview spinner on network switch (#11710); BUILD_NUMBER=2026051841"
+  },
+  {
+    "seq": 2,
+    "commit": "8d02b2b7d1c312e316e58f6919c512bb914140c6",
+    "date": "2026-05-25T09:16:40Z",
+    "prs": [
+      "#11716",
+      "#11727",
+      "#11729",
+      "#11733",
+      "#11736",
+      "#11737",
+      "#11741",
+      "#11745",
+      "#11746",
+      "#11747"
+    ],
+    "notes": "Stop onboarding from showing a previously-added device (#11747); Update BTC reward display fields (#11737); Improve perps margin entry ux (#11745); Remove balance min width in account selector item (#11746); Update spot share default text (OK-54738) (#11736); BTC multi-address Address list + Coins (UTXO) modals (OK-54985 OK-54986) (#11716); Add hardware wallet vendor attribution (#11727); Home redesign + invite code dialog + banner hide (OK-54294)(OK-54527)(OK-54990) (#11733); Add creator program banner (#11741); Render BTC and stock specific metrics in swap pro token detail (OK-55017, OK-55029) (#11729)"
   }
 ]

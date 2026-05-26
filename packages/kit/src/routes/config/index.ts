@@ -24,6 +24,7 @@ import { rootRouter, useRootRouter } from '../router';
 
 import { registerDeepLinking } from './deeplink';
 import { getStateFromPath } from './getStateFromPath';
+import { captureAndReportLoggerUtmParamsFromUrl } from './loggerUtmParams';
 
 import type { LinkingOptions } from '@react-navigation/native';
 
@@ -66,6 +67,10 @@ const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
 const FULL_SCREEN_PUSH_PATH = `/${ERootRoutes.FullScreenPush}`;
 
 const onGetStateFromPath = (path: string, options?: any) => {
+  captureAndReportLoggerUtmParamsFromUrl(path);
+  if (platformEnv.isWeb) {
+    captureAndReportLoggerUtmParamsFromUrl(globalThis.location.href);
+  }
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('getStateFromPath', `path="${path}"`);
   }

@@ -251,6 +251,11 @@ export const buildAllowList = (
         showUrl: true,
         showParams: false,
       },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHomeRedeemBitcoinVoucher}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     // eslint-disable-next-line no-nested-ternary
     ...(perpTabShowWeb
       ? {

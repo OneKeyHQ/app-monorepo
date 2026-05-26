@@ -2296,6 +2296,7 @@
   "hardware_third_party_transport_error": "Hardware-Kommunikation fehlgeschlagen. Prüfen Sie das USB-Kabel oder Bluetooth und versuchen Sie es erneut.",
   "hardware_third_party_transport_not_available": "Ihr Browser oder Ihre Plattform unterstützt keine Verbindung zu dieser Hardware-Wallet.",
   "hardware_third_party_unknown_error": "Unbekannter Hardware-Fehler. Bitte erneut versuchen.",
+  "hardware_third_party_usb_single_device_only_desc": "Es kann jeweils nur ein USB-Gerät angeschlossen werden. Bitte trennen Sie die anderen Geräte und versuchen Sie es erneut.",
   "hardware_third_party_user_rejected": "Vorgang auf dem Gerät abgelehnt",
   "hardware_third_party_wrong_app": "Falsche App auf dem Gerät geöffnet",
   "havent_found_network_desc": "Wir konnten keine Netzwerke finden, die zu Ihrem privaten Schlüssel passen. Bitte tippen Sie unten, um ein Netzwerk auszuwählen.",
