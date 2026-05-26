@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 
-import { isEqual } from 'lodash';
+import { debounce, isEqual } from 'lodash';
 
 import { Toast, rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -98,6 +98,20 @@ function isNewTabPositionTop() {
   );
 }
 
+// Coalesce rapid persistence of browser-tab state. Each user action (open,
+// close, reorder, navigate) used to flush the full tab array to SimpleDb
+// immediately; in iPad logs we saw ~65 writes in 4 minutes, every one
+// crossing the bg bridge and re-serializing. A 500 ms trailing debounce
+// with a 2 s maxWait gives ample coalescing while still capping how long
+// state can lag if a sequence of rapid changes never stops.
+const persistTabsToSimpleDbDebounced = debounce(
+  (tabs: IWebTab[]) => {
+    void backgroundApiProxy.simpleDb.browserTabs.setRawData({ tabs });
+  },
+  500,
+  { leading: false, trailing: true, maxWait: 2000 },
+);
+
 function isLocalhostUrlAllowedInDAppBrowser() {
   const devSettings = jotaiDefaultStore.get(devSettingsPersistAtom.atom());
   const result = Boolean(
@@ -190,9 +204,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
       set(webTabsMapAtom(), () => result.map);
       loggerForEmptyData(result.data, 'buildWebTabs->saveToSimpleDB');
-      void backgroundApiProxy.simpleDb.browserTabs.setRawData({
-        tabs: result.data,
-      });
+      persistTabsToSimpleDbDebounced(result.data);
     },
   );
 
