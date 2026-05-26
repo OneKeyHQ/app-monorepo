@@ -42,6 +42,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import {
+  canUseSwapNetworkCacheAsSortSource,
   isSwapNetworkCacheCompatible,
   mergeSwapNetworksWithCachedSort,
 } from '../utils/swapNetworkCacheUtils';
@@ -125,23 +126,16 @@ export function useSwapInit(params?: ISwapInitParams) {
     let swapNetworksSortList =
       await backgroundApiProxy.simpleDb.swapNetworksSort.getRawData();
     if (swapNetworksSortList?.data?.length) {
-      const noSupportInfo = swapNetworksSortList?.data.every(
-        (net) =>
-          (isNil(net.supportCrossChainSwap) && isNil(net.supportSingleSwap)) ||
-          isNil(net.supportLimit),
-      );
-      const canUseCachedSwapNetworks = isSwapNetworkCacheCompatible(
-        swapNetworksSortList.data,
-      );
+      const cachedSwapNetworks = swapNetworksSortList.data;
+      const canUseCachedSwapNetworks =
+        isSwapNetworkCacheCompatible(cachedSwapNetworks);
       if (canUseCachedSwapNetworks) {
-        setSwapNetworks(swapNetworksSortList.data);
+        setSwapNetworks(cachedSwapNetworks);
         setNetworkListFetching(false);
-      } else {
-        if (noSupportInfo) {
-          void backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
-            data: [],
-          });
-        }
+      } else if (!canUseSwapNetworkCacheAsSortSource(cachedSwapNetworks)) {
+        void backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
+          data: [],
+        });
         swapNetworksSortList = null;
       }
     }

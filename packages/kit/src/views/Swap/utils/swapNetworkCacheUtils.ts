@@ -23,6 +23,18 @@ export function isSwapNetworkCacheCompatible(networks?: ISwapNetwork[] | null) {
   );
 }
 
+export function canUseSwapNetworkCacheAsSortSource(
+  networks?: ISwapNetwork[] | null,
+) {
+  return (
+    !!networks?.length &&
+    networks.every(
+      (network) =>
+        typeof network.networkId === 'string' && network.networkId.length > 0,
+    )
+  );
+}
+
 export function mergeSwapNetworksWithCachedSort({
   cachedNetworks,
   fetchedNetworks,

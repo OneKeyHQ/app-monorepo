@@ -1,12 +1,13 @@
-import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   ISwapAlertState,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
+import { isOndoStockSource } from '../../Market/components/utils/stockSource';
+
 export function isUSMarketStatusStockTokenSource(source?: string) {
-  return equalsIgnoreCase(source, 'coingecko');
+  return isOndoStockSource(source);
 }
 
 export function shouldCheckSwapWarningUSMarketClosed({
