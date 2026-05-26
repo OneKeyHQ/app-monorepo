@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useMemo, useRef } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -20,9 +20,12 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useActiveTradeInstrumentAtom,
   useTradingFormAtom,
+  useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetAtom,
   usePerpsCommonConfigPersistAtom,
@@ -38,7 +41,11 @@ import {
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm } from '../../hooks';
-import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
+import {
+  useConfirmHyperliquidTerms,
+  useEnableTradingWithDepositFallback,
+  useRequestEnableTradingWithDepositFallback,
+} from '../../hooks/useEnableTradingWithDepositFallback';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
@@ -64,6 +71,18 @@ interface ISideButtonProps {
     | undefined;
 }
 
+function getPerpsAccountKey(account: {
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+  accountAddress?: string | null;
+}) {
+  const accountId = account.accountId ?? account.indexedAccountId;
+  if (!accountId && !account.accountAddress) {
+    return undefined;
+  }
+  return `${accountId ?? ''}:${account.accountAddress ?? ''}`;
+}
+
 function SideButtonInternal({
   side,
   isMobile,
@@ -72,7 +91,9 @@ function SideButtonInternal({
   const intl = useIntl();
   const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
@@ -90,8 +111,23 @@ function SideButtonInternal({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
 
   const { handleConfirm } = useOrderConfirm();
+  const [isSubmitting] = useTradingLoadingAtom();
   const { midPriceBN } = useTradingPrice();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const enableTradingWithDepositFallback =
+    useEnableTradingWithDepositFallback();
+  const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
+  const requestEnableTradingWithDepositFallback =
+    useRequestEnableTradingWithDepositFallback();
+  const perpsAccountKey = useMemo(
+    () => getPerpsAccountKey(perpsAccount),
+    [perpsAccount],
+  );
+  const perpsAccountKeyRef = useRef(perpsAccountKey);
+  perpsAccountKeyRef.current = perpsAccountKey;
+  // handleConfirmRef: always points to the latest handleConfirm so that
+  // after an async await we use fresh formData, not a stale closure.
+  const handleConfirmRef = useRef(handleConfirm);
+  handleConfirmRef.current = handleConfirm;
 
   const szDecimals = useMemo(() => {
     if (isSpot && activeTradeInstrument.mode === 'spot') {
@@ -111,6 +147,11 @@ function SideButtonInternal({
     priceError,
     leverage,
   } = calculations;
+
+  // isNoEnoughMarginRef: always reflects the latest margin state so that
+  // after an async await the guard reads fresh values, not stale closure.
+  const isNoEnoughMarginRef = useRef(isNoEnoughMargin);
+  isNoEnoughMarginRef.current = isNoEnoughMargin;
 
   const marginRequired = useDebounce(marginRequiredRaw, 100);
   const liquidationPrice = useDebounce(liquidationPriceRaw, 100);
@@ -147,50 +188,43 @@ function SideButtonInternal({
     perpsAccountLoading.selectAccountLoading,
   ]);
 
+  const isServerActionDisabled = useMemo(
+    () =>
+      Boolean(
+        perpConfigCommon?.disablePerpActionPerp ||
+        perpConfigCommon?.ipDisablePerp,
+      ),
+    [perpConfigCommon?.disablePerpActionPerp, perpConfigCommon?.ipDisablePerp],
+  );
+
+  const isTradingStatusDisabled = useMemo(
+    () => !perpsAccountStatus.canTrade && !enableTradingMode.isSoftwareAccount,
+    [enableTradingMode.isSoftwareAccount, perpsAccountStatus.canTrade],
+  );
+
+  const shouldAutoEnableTrading = useMemo(
+    () => !perpsAccountStatus.canTrade && enableTradingMode.isSoftwareAccount,
+    [enableTradingMode.isSoftwareAccount, perpsAccountStatus.canTrade],
+  );
+
   const buttonDisabled = useMemo(() => {
     return (
-      !perpsAccountStatus.canTrade ||
+      isTradingStatusDisabled ||
+      (!shouldAutoEnableTrading && isNoEnoughMargin) ||
       isAccountLoading ||
+      isSubmitting ||
       priceError === 'bbo_unavailable' ||
-      (perpsAccountStatus.canTrade &&
-        (perpConfigCommon?.disablePerpActionPerp ||
-          perpConfigCommon?.ipDisablePerp))
+      isServerActionDisabled
     );
   }, [
-    perpsAccountStatus.canTrade,
+    isTradingStatusDisabled,
+    shouldAutoEnableTrading,
+    isNoEnoughMargin,
     isAccountLoading,
+    isSubmitting,
     priceError,
-    perpConfigCommon?.disablePerpActionPerp,
-    perpConfigCommon?.ipDisablePerp,
+    isServerActionDisabled,
   ]);
-
-  const handleDepositFromToast = useCallback(() => {
-    void showDepositWithdrawModal('deposit');
-  }, [showDepositWithdrawModal]);
-
-  const showNoEnoughMarginToast = useCallback(() => {
-    Toast.error({
-      title: isSpot
-        ? intl.formatMessage({
-            id: ETranslations.dexmarket_insufficient_balance,
-          })
-        : intl.formatMessage({
-            id: ETranslations.perp_insufficient_margin__title,
-          }),
-      actions: (
-        <Button
-          testID={PerpTestIDs.MarginToastDepositButton}
-          size="small"
-          variant="primary"
-          onPress={handleDepositFromToast}
-        >
-          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-        </Button>
-      ),
-      actionsAlign: 'left',
-      toastId: `perp-no-enough-margin-${isSpot ? 'spot' : 'perp'}`,
-    });
-  }, [handleDepositFromToast, intl, isSpot]);
 
   const buttonSecondaryText = useMemo(() => {
     if (orderValue.isZero() || !orderValue.isFinite()) return null;
@@ -246,6 +280,12 @@ function SideButtonInternal({
       return intl.formatMessage({
         id: ETranslations.perp_button_disable_perp,
       });
+    if (!shouldAutoEnableTrading && isNoEnoughMargin)
+      return intl.formatMessage({
+        id: isSpot
+          ? ETranslations.dexmarket_insufficient_balance
+          : ETranslations.perp_trading_button_no_enough_margin,
+      });
     if (isSpot) {
       if (!spotTradeSymbol) {
         return side === 'long'
@@ -275,12 +315,14 @@ function SideButtonInternal({
       : intl.formatMessage({ id: ETranslations.perp_trade_short });
   }, [
     priceError,
+    isNoEnoughMargin,
     isSpot,
     side,
     spotTradeSymbol,
     intl,
     perpConfigCommon?.ipDisablePerp,
     perpConfigCommon?.disablePerpActionPerp,
+    shouldAutoEnableTrading,
   ]);
 
   const isLong = side === 'long';
@@ -337,7 +379,7 @@ function SideButtonInternal({
   }, [isAccountLoading, isLong, themeVariant]);
 
   const handlePress = useDebouncedCallback(
-    (): void => {
+    async (): Promise<void> => {
       // ── Trigger mode validation ──
       if (isTriggerMode && formData.triggerOrderType) {
         const tp = formData.triggerPrice?.trim();
@@ -440,11 +482,6 @@ function SideButtonInternal({
             { amount: minAmount },
           ),
         });
-        return;
-      }
-
-      if (isNoEnoughMargin) {
-        showNoEnoughMarginToast();
         return;
       }
 
@@ -559,10 +596,85 @@ function SideButtonInternal({
       }
 
       // Validation passed, proceed with order
+      let shouldIgnoreEnableTradingResult: (() => boolean) | undefined;
+      if (shouldAutoEnableTrading) {
+        if (perpsCustomSettings.skipOrderConfirm) {
+          const enableTradingAccountKey = perpsAccountKey;
+          shouldIgnoreEnableTradingResult = () =>
+            Boolean(
+              enableTradingAccountKey &&
+              perpsAccountKeyRef.current !== enableTradingAccountKey,
+            );
+          const result = await enableTradingWithDepositFallback({
+            shouldIgnoreResult: shouldIgnoreEnableTradingResult,
+          });
+          if (
+            !result.shouldContinue ||
+            shouldIgnoreEnableTradingResult?.() === true
+          ) {
+            return;
+          }
+          // Use ref so we read the latest form/margin state after the async
+          // enable-trading flow — the render-time closure may be stale if the
+          // user edited the form while the modal was open.
+          if (isNoEnoughMarginRef.current) {
+            Toast.message({
+              title: intl.formatMessage({
+                id: isSpot
+                  ? ETranslations.dexmarket_insufficient_balance
+                  : ETranslations.perp_trading_button_no_enough_margin,
+              }),
+            });
+            return;
+          }
+        } else {
+          const didAcceptTerms = await confirmHyperliquidTerms();
+          if (!didAcceptTerms) {
+            return;
+          }
+        }
+      } else if (!perpsAccountStatus.canTrade) {
+        return;
+      }
+
       if (perpsCustomSettings.skipOrderConfirm) {
-        void handleConfirm(side);
+        if (shouldIgnoreEnableTradingResult?.() === true) {
+          return;
+        }
+        // Use ref so handleConfirm carries the latest formData snapshot,
+        // not the one captured at click time.
+        void handleConfirmRef.current(side);
       } else {
-        showOrderConfirmDialog({ overrideSide: side, intl });
+        showOrderConfirmDialog({
+          overrideSide: side,
+          intl,
+          enableTradingAccountKey: shouldAutoEnableTrading
+            ? perpsAccountKey
+            : undefined,
+          enableTradingBeforeConfirm: shouldAutoEnableTrading
+            ? async ({ closeDialog, shouldIgnoreResult }) => {
+                const result = await requestEnableTradingWithDepositFallback({
+                  beforeDeposit: closeDialog,
+                  shouldIgnoreResult,
+                });
+
+                if (!result.shouldContinue) {
+                  return result;
+                }
+                if (isNoEnoughMargin) {
+                  Toast.message({
+                    title: intl.formatMessage({
+                      id: isSpot
+                        ? ETranslations.dexmarket_insufficient_balance
+                        : ETranslations.perp_trading_button_no_enough_margin,
+                    }),
+                  });
+                  return { ...result, shouldContinue: false };
+                }
+                return result;
+              }
+            : undefined,
+        });
       }
     },
     1000,
@@ -674,6 +786,7 @@ function SideButtonInternal({
             !buttonDisabled ? { bg: buttonStyles.pressBg } : undefined
           }
           disabled={buttonDisabled}
+          loading={isAccountLoading || isSubmitting}
           onPress={handlePress}
           h={36}
           py={
@@ -716,6 +829,7 @@ function SideButtonInternal({
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
         disabled={buttonDisabled}
+        loading={isAccountLoading}
         onPress={handlePress}
         h={36}
         py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
@@ -825,37 +939,43 @@ function TradingButtonGroup({ isMobile }: ITradingButtonGroupProps) {
   const [formData] = useTradingFormAtom();
   const isSpot = tradingMode === 'spot';
 
-  if (isSpot) {
+  const renderSideButtons = () => {
+    if (isSpot) {
+      return (
+        <YStack {...(!isMobile && { mt: '$4' })}>
+          <SideButton side={formData.side} isMobile={isMobile} />
+        </YStack>
+      );
+    }
+    if (isMobile) {
+      return (
+        <YStack gap="$3">
+          <SideButton side="long" isMobile={isMobile} />
+          <SideButton side="short" isMobile={isMobile} />
+        </YStack>
+      );
+    }
     return (
-      <YStack {...(!isMobile && { mt: '$4' })}>
-        <SideButton side={formData.side} isMobile={isMobile} />
-      </YStack>
+      <XStack gap="$2.5" mt="$4">
+        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+          <SideButton
+            side="long"
+            isMobile={isMobile}
+            justifyContent="flex-start"
+          />
+        </XStack>
+        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+          <SideButton
+            side="short"
+            isMobile={isMobile}
+            justifyContent="flex-end"
+          />
+        </XStack>
+      </XStack>
     );
-  }
+  };
 
-  return isMobile ? (
-    <YStack gap="$3">
-      <SideButton side="long" isMobile={isMobile} />
-      <SideButton side="short" isMobile={isMobile} />
-    </YStack>
-  ) : (
-    <XStack gap="$2.5" mt="$4">
-      <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
-        <SideButton
-          side="long"
-          isMobile={isMobile}
-          justifyContent="flex-start"
-        />
-      </XStack>
-      <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
-        <SideButton
-          side="short"
-          isMobile={isMobile}
-          justifyContent="flex-end"
-        />
-      </XStack>
-    </XStack>
-  );
+  return <YStack>{renderSideButtons()}</YStack>;
 }
 
 const TradingButtonGroupMemo = memo(TradingButtonGroup);

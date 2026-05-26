@@ -13,7 +13,6 @@ import {
   YStack,
   resetToRoute,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -38,11 +37,11 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import { useEnableTradingWithDepositFallback } from '../../hooks/useEnableTradingWithDepositFallback';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
-import { showHyperliquidTermsDialog } from '../HyperliquidTerms';
 
 const sharedButtonProps = {
   size: 'medium',
@@ -103,26 +102,8 @@ export function PerpTradingButton({
     perpsAccountLoading.enableTradingLoading,
     perpsAccountLoading.selectAccountLoading,
   ]);
+  const enableTrading = useEnableTradingWithDepositFallback();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
-  const enableTrading = useCallback(async () => {
-    const didAcceptTerms = await showHyperliquidTermsDialog();
-    if (!didAcceptTerms) {
-      return;
-    }
-
-    const status = await backgroundApiProxy.serviceHyperliquid.enableTrading();
-    if (
-      status?.details?.activatedOk === false &&
-      perpsAccount.accountAddress &&
-      perpsAccount.accountId
-    ) {
-      await showDepositWithdrawModal('deposit');
-    }
-  }, [
-    perpsAccount.accountAddress,
-    perpsAccount.accountId,
-    showDepositWithdrawModal,
-  ]);
 
   const handleDepositFromToast = useCallback(() => {
     void showDepositWithdrawModal('deposit');

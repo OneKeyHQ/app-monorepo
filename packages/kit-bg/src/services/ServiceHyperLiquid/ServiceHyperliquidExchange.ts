@@ -384,7 +384,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
    */
   private async _ensureAgentReady(): Promise<boolean> {
     const accountStatus = await perpsActiveAccountStatusAtom.get();
-    return Boolean(accountStatus?.details?.agentOk && accountStatus?.canTrade);
+    const isAtomReady = Boolean(
+      accountStatus?.details?.agentOk && accountStatus?.canTrade,
+    );
+    if (isAtomReady) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
