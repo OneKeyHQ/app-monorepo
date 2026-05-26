@@ -183,6 +183,7 @@ export default function Perp() {
   const canRenderPerp = useNativePerpFeatureGuard();
   const splitViewType = useSplitViewType();
   const isLandscape = useIsSplitView();
+  const isFocused = useIsFocused();
 
   if (!canRenderPerp) {
     return shouldOpenExpandExtPerp ? <ExtPerpNull /> : null;
@@ -192,8 +193,14 @@ export default function Perp() {
   // generic OneKey-logo placeholder from TabletHomeContainer. Fill it with
   // the chart detail directly so the trading form on the left always sits
   // beside the active pair's K-line — no navigation, no modal.
+  //
+  // SUB router uses `lazy: false`, so every tab root pre-mounts. Without the
+  // `isFocused` guard MobilePerpMarketWithProvider would boot TradingView, set
+  // up the perps mirror store, and emit `HideTabBar=true` in the background
+  // whenever the user has another tab focused on the SUB pane. Only render
+  // the chart when this tab is actually the active SUB tab.
   if (splitViewType === ESplitViewType.SUB && isLandscape) {
-    return <MobilePerpMarketWithProvider />;
+    return isFocused ? <MobilePerpMarketWithProvider /> : null;
   }
 
   return (
