@@ -1662,7 +1662,11 @@ class ServiceNetwork extends ServiceBase {
 
     const networkInfoMap: Record<
       string,
-      { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
+      {
+        deriveType: IAccountDeriveTypes;
+        mergeDeriveAssetsEnabled: boolean;
+        suffixToDeriveType: Record<string, string>;
+      }
     > = {};
 
     const formattedAccountNetworkValues: Record<string, string> = {};
@@ -1683,9 +1687,6 @@ class ServiceNetwork extends ServiceBase {
       const shouldUseAccountNetworkValue = Boolean(
         networkId && accountId && walletId === _walletId,
       );
-      const deriveType: IAccountDeriveTypes =
-        accountUtils.normalizeDeriveType(_deriveType) ?? 'default';
-
       if (shouldUseAccountNetworkValue) {
         if (!networkInfoMap[networkId]) {
           const [globalDeriveType, vaultSettings] = await Promise.all([
@@ -1695,13 +1696,29 @@ class ServiceNetwork extends ServiceBase {
             }),
             this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
           ]);
+          const suffixToDeriveType: Record<string, string> = {};
+          for (const [dt, info] of Object.entries(
+            vaultSettings.accountDeriveInfo ?? {},
+          )) {
+            if (info.idSuffix) {
+              suffixToDeriveType[info.idSuffix.toLowerCase()] = dt;
+            }
+          }
           networkInfoMap[networkId] = {
             deriveType: globalDeriveType,
             mergeDeriveAssetsEnabled:
               vaultSettings.mergeDeriveAssetsEnabled ?? false,
+            suffixToDeriveType,
           };
         }
       }
+      const deriveType: IAccountDeriveTypes =
+        accountUtils.normalizeDeriveType(_deriveType) ??
+        (networkInfoMap[networkId]?.suffixToDeriveType?.[
+          (_deriveType ?? '').toLowerCase()
+        ] as IAccountDeriveTypes) ??
+        'default';
+
       if (
         shouldUseAccountNetworkValue &&
         networkInfoMap[networkId] &&
