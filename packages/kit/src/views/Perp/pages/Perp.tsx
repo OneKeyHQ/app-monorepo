@@ -25,6 +25,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { LazyLoadPage } from '../../../components/LazyLoadPage';
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
@@ -41,9 +42,15 @@ import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { PerpTestIDs } from '../testIDs';
 
 import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
-import MobilePerpMarketWithProvider from './MobilePerpMarket';
 
 import type { LayoutChangeEvent } from 'react-native';
+
+// MobilePerpMarket is already an async-loaded route via router/index.ts
+// (its own segment). Importing it sync from here would pull that segment's
+// shared sub-components (PerpCandles / PerpOrderBook / PerpTokenSelectorRow)
+// across the seg:Perp ↔ seg:MobilePerpMarket boundary and break the
+// split-bundle integrity check. Lazy-load here too so the edge stays async.
+const MobilePerpMarketInline = LazyLoadPage(() => import('./MobilePerpMarket'));
 
 function PerpLayout() {
   const { gtMd } = useMedia();
@@ -200,7 +207,7 @@ export default function Perp() {
   // whenever the user has another tab focused on the SUB pane. Only render
   // the chart when this tab is actually the active SUB tab.
   if (splitViewType === ESplitViewType.SUB && isLandscape) {
-    return isFocused ? <MobilePerpMarketWithProvider /> : null;
+    return isFocused ? <MobilePerpMarketInline /> : null;
   }
 
   return (
