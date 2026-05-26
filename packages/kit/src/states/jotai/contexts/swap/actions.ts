@@ -5,6 +5,10 @@ import BigNumber from 'bignumber.js';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
+import {
+  isUSMarketStatusStockTokenSource,
+  shouldCheckSwapWarningUSMarketClosed,
+} from '@onekeyhq/kit/src/views/Swap/utils/usMarketStatusUtils';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
@@ -169,6 +173,17 @@ function buildZeroProviderQuote({
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   private quoteInterval: ReturnType<typeof setTimeout> | undefined;
+
+  private stockTokenCheckCache = new Map<string, Promise<boolean>>();
+
+  private usMarketStatusCache:
+    | {
+        expiresAt: number;
+        promise: ReturnType<
+          typeof backgroundApiProxy.serviceSwap.fetchCheckUSMarketStatus
+        >;
+      }
+    | undefined;
 
   private limitOrderMarketPriceInterval:
     | ReturnType<typeof setTimeout>
@@ -1345,6 +1360,90 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     return undefined;
   };
 
+  private async checkSwapTokenIsStock(token?: ISwapToken) {
+    if (!token?.networkId) {
+      return false;
+    }
+
+    const cacheKey = `${token.networkId}:${token.contractAddress}`;
+    const cached = this.stockTokenCheckCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const checkPromise = backgroundApiProxy.serviceMarketV2
+      .fetchMarketTokenDetailByTokenAddress(
+        token.contractAddress,
+        token.networkId,
+      )
+      .then((tokenDetail) =>
+        isUSMarketStatusStockTokenSource(
+          tokenDetail?.data?.token?.stock?.source,
+        ),
+      )
+      .catch(() => {
+        this.stockTokenCheckCache.delete(cacheKey);
+        return false;
+      });
+    this.stockTokenCheckCache.set(cacheKey, checkPromise);
+    return checkPromise;
+  }
+
+  private async fetchCheckUSMarketStatus() {
+    const now = Date.now();
+    if (this.usMarketStatusCache && this.usMarketStatusCache.expiresAt > now) {
+      return this.usMarketStatusCache.promise;
+    }
+
+    const promise = backgroundApiProxy.serviceSwap
+      .fetchCheckUSMarketStatus()
+      .then((marketStatus) => {
+        if (!marketStatus) {
+          this.usMarketStatusCache = undefined;
+        }
+        return marketStatus;
+      })
+      .catch(() => {
+        this.usMarketStatusCache = undefined;
+        return null;
+      });
+    this.usMarketStatusCache = {
+      expiresAt: now + 30_000,
+      promise,
+    };
+    return promise;
+  }
+
+  private async checkSwapPairUSMarketClosed({
+    fromToken,
+    toToken,
+  }: {
+    fromToken?: ISwapToken;
+    toToken?: ISwapToken;
+  }) {
+    const [fromTokenIsStock, toTokenIsStock] = await Promise.all([
+      this.checkSwapTokenIsStock(fromToken),
+      this.checkSwapTokenIsStock(toToken),
+    ]);
+
+    if (!fromTokenIsStock && !toTokenIsStock) {
+      return false;
+    }
+
+    const marketStatus = await this.fetchCheckUSMarketStatus();
+    return marketStatus?.open === false;
+  }
+
+  private getUSMarketClosedAlert(): ISwapAlertState & { message: string } {
+    return {
+      // eslint-disable-next-line onekey/no-app-locale-main-thread
+      message: appLocale.intl.formatMessage({
+        id: ETranslations.dexmarket_stock_status_closed_error,
+      }),
+      alertLevel: ESwapAlertLevel.ERROR,
+    };
+  }
+
   checkSwapWarning = contextAtomMethod(
     async (
       get,
@@ -1441,6 +1540,42 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           quoteId: quoteResult?.quoteId ?? '',
         });
         return;
+      }
+      if (
+        shouldCheckSwapWarningUSMarketClosed({
+          alerts: alertsRes,
+          swapTypeSwitch,
+          fromToken,
+          toToken,
+          accountReady: swapFromAddressInfo.accountInfo?.ready,
+          isWaitingActionableQuote,
+          hasFromAccountWallet: Boolean(
+            swapFromAddressInfo.accountInfo?.wallet,
+          ),
+        })
+      ) {
+        const isUSMarketClosed = await this.checkSwapPairUSMarketClosed({
+          fromToken,
+          toToken,
+        });
+        const latestFromToken = get(swapSelectFromTokenAtom());
+        const latestToToken = get(swapSelectToTokenAtom());
+        const latestSwapTypeSwitch = get(swapTypeSwitchAtom());
+        const isSameTokenPair =
+          equalTokenNoCaseSensitive({
+            token1: latestFromToken,
+            token2: fromToken,
+          }) &&
+          equalTokenNoCaseSensitive({
+            token1: latestToToken,
+            token2: toToken,
+          });
+        if (!isSameTokenPair || latestSwapTypeSwitch !== swapTypeSwitch) {
+          return;
+        }
+        if (isUSMarketClosed) {
+          alertsRes = [this.getUSMarketClosedAlert()];
+        }
       }
       // eslint-disable-next-line onekey/no-app-locale-main-thread
       const notSupportSwapMessage = appLocale.intl.formatMessage({

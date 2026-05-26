@@ -1107,6 +1107,12 @@ export interface IFetchSpeedCheckResult {
   toTokenInfo?: ISwapTokenBase;
 }
 
+export interface IFetchUSMarketStatusResult {
+  open: boolean;
+  session: 'PRE_MARKET' | 'REGULAR' | 'POST_MARKET' | 'OVERNIGHT' | 'CLOSED';
+  reason: string | null;
+}
+
 export enum ESwapLimitOrderStatus {
   PRESIGNATURE_PENDING = 'presignaturePending',
   OPEN = 'open',

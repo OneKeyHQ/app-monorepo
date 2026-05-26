@@ -73,6 +73,7 @@ import type {
   IFetchTokenDetailParams,
   IFetchTokenListParams,
   IFetchTokensParams,
+  IFetchUSMarketStatusResult,
   ILMTronObject,
   IOKXTransactionObject,
   IPerpDepositQuoteResponse,
@@ -2419,6 +2420,20 @@ export default class ServiceSwap extends ServiceBase {
     } catch (error) {
       console.error(error);
       return defaultConfig;
+    }
+  }
+
+  @backgroundMethod()
+  async fetchCheckUSMarketStatus(): Promise<IFetchUSMarketStatusResult | null> {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const { data } = await client.get<
+        IFetchResponse<IFetchUSMarketStatusResult>
+      >('/swap/v1/check/us-market-status');
+      return data?.data ?? null;
+    } catch (error) {
+      console.error(error);
+      return null;
     }
   }
 
