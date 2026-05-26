@@ -806,7 +806,10 @@ class ServiceHardware extends ServiceBase {
       if (!connectId) {
         return;
       }
-      const sdk = await this.getSDKInstance({ connectId });
+      const sdk = await this.getSDKInstance({
+        connectId,
+        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+      });
       await sdk.preInitialize(connectId, {
         ...deviceParams?.deviceCommonParams,
       });
