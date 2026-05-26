@@ -793,12 +793,6 @@ class ServiceHardware extends ServiceBase {
   }: {
     walletId: string | undefined;
   }): Promise<void> {
-    // Kill switch for the whole pre-warm feature: flip to false to disable it
-    // (every sign then does a full Initialize, the original behavior).
-    const PREINIT_ENABLED = true;
-    if (!PREINIT_ENABLED) {
-      return;
-    }
     if (!walletId || !accountUtils.isHwWallet({ walletId })) {
       return;
     }
@@ -814,7 +808,6 @@ class ServiceHardware extends ServiceBase {
       }
       const sdk = await this.getSDKInstance({ connectId });
       await sdk.preInitialize(connectId, {
-        deviceId: deviceParams?.dbDevice?.deviceId,
         ...deviceParams?.deviceCommonParams,
       });
     } catch (error) {
