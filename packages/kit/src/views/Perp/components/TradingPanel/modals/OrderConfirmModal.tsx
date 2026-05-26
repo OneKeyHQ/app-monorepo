@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -17,7 +17,10 @@ import {
   useActiveTradeInstrumentAtom,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsCustomSettingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -40,6 +43,7 @@ import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayo
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 
+import type { IEnableTradingWithDepositFallbackResult } from '../../../hooks/useEnableTradingWithDepositFallback';
 import type { IntlShape } from 'react-intl';
 
 const SAVED_FEE_BENCHMARK_RATE = 0.0004;
@@ -62,18 +66,75 @@ function formatOrderPriceDisplay({
 interface IOrderConfirmContentProps {
   onClose?: () => void;
   overrideSide?: 'long' | 'short';
+  enableTradingBeforeConfirm?: (
+    context: IOrderConfirmEnableTradingBeforeConfirmContext,
+  ) => Promise<IEnableTradingWithDepositFallbackResult>;
+  enableTradingAccountKey?: string;
+}
+
+type IOrderConfirmAccountForKey = {
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+  accountAddress?: string | null;
+};
+
+interface IOrderConfirmEnableTradingBeforeConfirmContext {
+  closeDialog: () => void;
+  shouldIgnoreResult: () => boolean;
+}
+
+function getOrderConfirmAccountKey(account: IOrderConfirmAccountForKey) {
+  const accountId = account.accountId ?? account.indexedAccountId;
+  if (!accountId && !account.accountAddress) {
+    return undefined;
+  }
+  return `${accountId ?? ''}:${account.accountAddress ?? ''}`;
 }
 
 function OrderConfirmContent({
   onClose,
   overrideSide,
+  enableTradingBeforeConfirm,
+  enableTradingAccountKey,
 }: IOrderConfirmContentProps) {
+  const [isPreparingEnableTrading, setIsPreparingEnableTrading] =
+    useState(false);
+  const [perpsAccount] = usePerpsActiveAccountAtom();
+  const currentAccountKey = useMemo(
+    () => getOrderConfirmAccountKey(perpsAccount),
+    [perpsAccount],
+  );
+  const currentAccountKeyRef = useRef(currentAccountKey);
+  const isDialogClosedRef = useRef(false);
+  const closeDialog = useCallback(() => {
+    isDialogClosedRef.current = true;
+    onClose?.();
+  }, [onClose]);
+  const shouldIgnoreEnableTradingResult = useCallback(() => {
+    return Boolean(
+      isDialogClosedRef.current ||
+      (enableTradingAccountKey &&
+        currentAccountKeyRef.current !== enableTradingAccountKey),
+    );
+  }, [enableTradingAccountKey]);
+
+  useEffect(() => {
+    currentAccountKeyRef.current = currentAccountKey;
+  }, [currentAccountKey]);
+
+  useEffect(
+    () => () => {
+      isDialogClosedRef.current = true;
+    },
+    [],
+  );
+
   const { isSubmitting, handleConfirm: confirmOrder } = useOrderConfirm({
     onSuccess: () => {
-      onClose?.();
+      closeDialog();
     },
     onError: () => {
-      onClose?.();
+      closeDialog();
     },
   });
   const [perpsCustomSettings, setPerpsCustomSettings] =
@@ -257,10 +318,55 @@ function OrderConfirmContent({
     [perpsCustomSettings, setPerpsCustomSettings],
   );
 
-  const handleConfirm = useCallback(() => {
-    onClose?.();
+  const isConfirmLoading = isSubmitting || isPreparingEnableTrading;
+
+  const handleConfirm = useCallback(async () => {
+    if (isConfirmLoading) {
+      return;
+    }
+
+    if (enableTradingBeforeConfirm) {
+      if (shouldIgnoreEnableTradingResult()) {
+        closeDialog();
+        return;
+      }
+
+      let result: IEnableTradingWithDepositFallbackResult | undefined;
+      setIsPreparingEnableTrading(true);
+      try {
+        result = await enableTradingBeforeConfirm({
+          closeDialog,
+          shouldIgnoreResult: shouldIgnoreEnableTradingResult,
+        });
+      } finally {
+        if (!isDialogClosedRef.current) {
+          setIsPreparingEnableTrading(false);
+        }
+      }
+
+      if (shouldIgnoreEnableTradingResult()) {
+        if (!isDialogClosedRef.current) {
+          closeDialog();
+        }
+        return;
+      }
+
+      if (!result?.shouldContinue) {
+        closeDialog();
+        return;
+      }
+    }
+
+    closeDialog();
     void confirmOrder(overrideSide);
-  }, [confirmOrder, onClose, overrideSide]);
+  }, [
+    closeDialog,
+    confirmOrder,
+    enableTradingBeforeConfirm,
+    isConfirmLoading,
+    overrideSide,
+    shouldIgnoreEnableTradingResult,
+  ]);
 
   const savedFeeDisplay = useMemo(() => {
     if (!orderValue.isFinite() || orderValue.lte(0)) {
@@ -460,13 +566,15 @@ function OrderConfirmContent({
         </XStack>
       </YStack>
 
-      <TradingGuardWrapper>
+      <TradingGuardWrapper
+        bypassEnableTradingGuard={Boolean(enableTradingBeforeConfirm)}
+      >
         <Button
           testID="perp-btn"
           variant="primary"
           size="medium"
-          disabled={isSubmitting}
-          loading={isSubmitting}
+          disabled={isConfirmLoading}
+          loading={isConfirmLoading}
           onPress={handleConfirm}
           {...buttonStyleProps}
         >
@@ -482,9 +590,15 @@ function OrderConfirmContent({
 export function showOrderConfirmDialog({
   overrideSide,
   intl,
+  enableTradingBeforeConfirm,
+  enableTradingAccountKey,
 }: {
   overrideSide?: 'long' | 'short';
   intl: IntlShape;
+  enableTradingBeforeConfirm?: (
+    context: IOrderConfirmEnableTradingBeforeConfirmContext,
+  ) => Promise<IEnableTradingWithDepositFallbackResult>;
+  enableTradingAccountKey?: string;
 }) {
   const dialogInstance = Dialog.show({
     title: intl.formatMessage({
@@ -497,6 +611,8 @@ export function showOrderConfirmDialog({
             void dialogInstance.close();
           }}
           overrideSide={overrideSide}
+          enableTradingBeforeConfirm={enableTradingBeforeConfirm}
+          enableTradingAccountKey={enableTradingAccountKey}
         />
       </PerpsProviderMirror>
     ),
