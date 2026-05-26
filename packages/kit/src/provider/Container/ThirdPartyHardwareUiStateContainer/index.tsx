@@ -10,6 +10,7 @@ import {
   DialogContainer,
   Icon,
   IconButton,
+  Input,
   LottieView,
   Portal,
   SizableText,
@@ -363,6 +364,7 @@ function getToastLabel(
         id: ETranslations.hardware_third_party_app_not_open,
       });
     case EThirdPartyHardwareUiAction.unlockDevice:
+    case EThirdPartyHardwareUiAction.requestTrezorUnlock:
       return intl.formatMessage({
         id: ETranslations.hardware_third_party_device_locked,
       });
@@ -507,16 +509,48 @@ function getDialogContent(
         ),
         showFooter: true,
       };
+    case EThirdPartyHardwareUiAction.requestTrezorThpPairing:
+      // No localized string yet — Trezor THP pairing UX. Copy: tell the user
+      // to read the code off the device screen and type it back.
+      return {
+        title: 'Pair Trezor',
+        message: `Enter the pairing code shown on your ${device}.`,
+        showFooter: true,
+      };
     default:
       return { title: '', message: '', showFooter: false };
   }
 }
+
+const REQUEST_ACTIONS = new Set([
+  EThirdPartyHardwareUiAction.requestDeviceNotFound,
+  EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm,
+  EThirdPartyHardwareUiAction.requestTrezorThpPairing,
+]);
 
 function ThirdPartyHardwareUiStateContainerCmp() {
   const intl = useIntl();
   const [uiState] = useThirdPartyHardwareUiStateAtom();
   const uiStateRef = useRef(uiState);
   uiStateRef.current = uiState;
+
+  // Trezor THP pairing tag — user types the code shown on the device. UI
+  // value; held in state so the Input is controlled. Ref mirror keeps
+  // handleConfirm (declared above the JSX) able to read the latest value
+  // without re-creating the callback on every keystroke.
+  const [thpTagInput, setThpTagInput] = useState('');
+  const thpTagInputRef = useRef('');
+  thpTagInputRef.current = thpTagInput;
+
+  // Clear the input whenever a new request comes in (different connect
+  // attempt) or the request closes. Only fires when action changes —
+  // typing in the same dialog doesn't reset.
+  const currentAction = uiState?.action;
+  useEffect(() => {
+    if (currentAction !== EThirdPartyHardwareUiAction.requestTrezorThpPairing) {
+      setThpTagInput('');
+    }
+  }, [currentAction]);
 
   const dialogInstanceRef = useRef<IDialogInstance | null>(null);
   const permissionDialogInstanceRef = useRef<IDialogInstance | null>(null);
@@ -674,7 +708,14 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     const vendor = uiStateRef.current?.vendor;
     const action = uiStateRef.current?.action;
     if (vendor) {
-      const response = buildThirdPartyHardwareUiResponse(action, true);
+      // THP pairing carries a user-typed tag in the response. Reads the
+      // latest tag via ref so this callback identity doesn't change on
+      // every keystroke (would re-render the Dialog footer).
+      const tag =
+        action === EThirdPartyHardwareUiAction.requestTrezorThpPairing
+          ? thpTagInputRef.current.trim()
+          : undefined;
+      const response = buildThirdPartyHardwareUiResponse(action, true, { tag });
       if (response) {
         await backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse({
           vendor,
@@ -685,17 +726,31 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     await clearCurrentUiState();
   }, [clearCurrentUiState]);
 
+  const isThpPairing =
+    uiState?.action === EThirdPartyHardwareUiAction.requestTrezorThpPairing;
+
   const dialogContent = useMemo(() => {
     if (!uiState || isToastAction) return null;
     const { message } = getDialogContent(uiState, intl);
     return (
-      <YStack>
+      <YStack gap="$3">
         <SizableText size="$bodyMd" color="$textSubdued">
           {message}
         </SizableText>
+        {isThpPairing ? (
+          <Input
+            value={thpTagInput}
+            onChangeText={setThpTagInput}
+            placeholder="Pairing code"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="number-pad"
+            autoFocus
+          />
+        ) : null}
       </YStack>
     );
-  }, [uiState, isToastAction, intl]);
+  }, [uiState, isToastAction, intl, isThpPairing, thpTagInput]);
 
   const dialogTitle = useMemo(() => {
     if (!uiState || isToastAction) return '';

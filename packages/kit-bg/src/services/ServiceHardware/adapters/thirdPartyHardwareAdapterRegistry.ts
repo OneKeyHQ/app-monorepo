@@ -29,6 +29,51 @@ export type IThirdPartyHardwareAdapterFactory =
  * by appending an entry with a dynamic-import factory.
  */
 export const thirdPartyHardwareAdapterRegistry = {
+  [EHardwareVendor.trezor]: async () => {
+    defaultLogger.hardware.sdkLog.log(
+      '[3rdPartyHW][Registry] trezor factory start',
+    );
+    const { TrezorAdapter } = await import('./TrezorAdapter');
+    // webpack resolves this to the platform-specific variant:
+    //   - ext Service Worker (MV3) → `trezor.ext-bg-v3.ts` (bridges to offscreen)
+    //   - desktop / native / web   → `trezor.desktop.ts` / `.native.ts` / `.ts`
+    const { createTrezorConnector } = await import(
+      '@onekeyhq/shared/src/hardware/connector-loader/trezor'
+    );
+    const { TrezorAdapter: HwkTrezorAdapter } = await import(
+      '@onekeyfe/hwk-trezor-adapter'
+    );
+    const simpleDbModule = await import(
+      '@onekeyhq/kit-bg/src/dbs/simple/simpleDb'
+    );
+    const simpleDb = simpleDbModule.default;
+    const connector = await createTrezorConnector();
+
+    // Warm-load persisted THP credentials before the first session. On the
+    // extension path this round-trips into the offscreen connector via the
+    // bridge; on other platforms it sets directly. Either way, the next
+    // `ThpHandshakeInitRequest` ships these to the device and the device
+    // routes to autoconnect, skipping CodeEntry / QrCode / NFC.
+    try {
+      const stored = await simpleDb.trezorThpCredentials.getCredentials();
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Registry] trezor warm-load credentials count=${stored.length}`,
+      );
+      connector.setKnownCredentials?.(stored);
+    } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Registry] trezor warm-load failed: ${
+          (error as Error)?.message ?? String(error)
+        }`,
+      );
+    }
+
+    const hw = new HwkTrezorAdapter(connector);
+    defaultLogger.hardware.sdkLog.log(
+      '[3rdPartyHW][Registry] trezor adapter ready',
+    );
+    return new TrezorAdapter(hw);
+  },
   [EHardwareVendor.ledger]: async () => {
     defaultLogger.hardware.sdkLog.log(
       '[3rdPartyHW][Registry] ledger factory start',

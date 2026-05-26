@@ -1,6 +1,11 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
+import {
+  EAppEventBusNames,
+  HARDWARE_ERROR_DIALOG_TYPES,
+  appEventBus,
+} from '../../eventBus/appEventBus';
 import { ETranslations } from '../../locale';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
@@ -338,10 +343,20 @@ export class ThirdPartyDeviceNotFound extends ThirdPartyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultKey: ETranslations.hardware_third_party_device_not_found,
-        defaultAutoToast: true,
+        defaultAutoToast: false,
       }),
     );
     this.vendor = props?.vendor;
+
+    if (!props?.silentMode) {
+      appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
+        errorCode: props?.payload?.code || ThirdPartyHwErrorCode.DeviceNotFound,
+        errorMessage:
+          props?.payload?.message || props?.message || 'DeviceNotFound',
+        payload: props?.payload,
+      });
+    }
   }
 
   override code = ThirdPartyHwErrorCode.DeviceNotFound;

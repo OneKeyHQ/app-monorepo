@@ -100,6 +100,23 @@ class OffscreenHardwareBridgeClient implements IHardwareBridge {
     void offscreenApiProxy.thirdPartyHardware.reset(params);
   }
 
+  /**
+   * Forward warm-load credentials to the offscreen connector. SW persists
+   * Trezor THP credentials in secure storage; this is the path that pushes
+   * them back into the connector on SW boot or after credential updates.
+   * Returns a Promise so callers can await the offscreen ack — important
+   * to chain "load creds → first searchDevices" without racing.
+   */
+  setKnownCredentials(params: {
+    vendor: VendorType;
+    credentials: unknown[];
+  }): Promise<void> {
+    defaultLogger.hardware.sdkLog.log(
+      `[3rdPartyHW][Bridge] setKnownCredentials vendor=${params.vendor} count=${params.credentials.length}`,
+    );
+    return offscreenApiProxy.thirdPartyHardware.setKnownCredentials(params);
+  }
+
   // -------------------------------------------------------------------------
   // Event delivery (offscreen → SW)
   // -------------------------------------------------------------------------

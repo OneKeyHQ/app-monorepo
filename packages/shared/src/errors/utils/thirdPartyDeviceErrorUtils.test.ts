@@ -1,5 +1,10 @@
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
+import {
+  EAppEventBusNames,
+  HARDWARE_ERROR_DIALOG_TYPES,
+  appEventBus,
+} from '../../eventBus/appEventBus';
 import { THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE } from '../errors/thirdPartyHardwareErrors';
 
 import { convertDeviceError } from './deviceErrorUtils';
@@ -27,6 +32,30 @@ describe('convertThirdPartyDeviceError', () => {
         code: String(ThirdPartyHwErrorCode.DeviceOutOfMemory),
       }),
     ).toBe(ThirdPartyHwErrorCode.DeviceOutOfMemory);
+  });
+
+  it('routes DeviceNotFound to the hardware troubleshooting dialog', () => {
+    const emitSpy = jest.spyOn(appEventBus, 'emit').mockImplementation();
+
+    const error = convertThirdPartyDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.DeviceNotFound,
+        error: 'Trezor device not found',
+      },
+      { vendor: 'Trezor' },
+    );
+
+    expect(error.autoToast).toBe(false);
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.ShowHardwareErrorDialog,
+      expect.objectContaining({
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
+        errorCode: ThirdPartyHwErrorCode.DeviceNotFound,
+        errorMessage: 'Trezor device not found',
+      }),
+    );
+
+    emitSpy.mockRestore();
   });
 });
 

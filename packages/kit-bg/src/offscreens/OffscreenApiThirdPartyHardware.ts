@@ -72,6 +72,21 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
           await import('@onekeyfe/hwk-ledger-connector-webhid');
         return createLedgerWebHidConnector();
       }
+      case 'trezor': {
+        // THP host identity — burned in at connector construction. The
+        // device shows `hostName` on the pairing screen, so consistency
+        // across SW restarts matters for credential reuse: same hostName
+        // + persisted credentials = autoconnect path skipping CodeEntry.
+        const { createTrezorWebUsbConnector } = await import(
+          '@onekeyfe/hwk-trezor-connector-webusb'
+        );
+        return createTrezorWebUsbConnector({
+          thp: {
+            hostName: 'OneKey',
+            appName: 'OneKey Wallet',
+          },
+        });
+      }
       default:
         throw new OneKeyLocalError(
           `OffscreenApiThirdPartyHardware: unsupported vendor '${
@@ -101,6 +116,18 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
     connector.on('device-disconnect', forward('device-disconnect'));
     // ui-event also carries app install progress (AppInstallProgress variant).
     connector.on('ui-event', forward('ui-event'));
+    // ui-request: Trezor THP needs to ask the host to render UI (pairing
+    // code entry, button-press prompt). Ledger doesn't emit this but
+    // forwarding for all vendors costs nothing and keeps the IConnector
+    // contract honest.
+    connector.on('ui-request', forward('ui-request'));
+    // Trezor THP pairing credentials refresh — fire-and-forget event the
+    // SW persists to secure storage and replays on the next SW boot via
+    // setKnownCredentials(). Ledger doesn't emit it; forwarding is no-op.
+    connector.on(
+      'device-trezor-thp-credentials-changed',
+      forward('device-trezor-thp-credentials-changed'),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -158,6 +185,24 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
   reset(params: { vendor: VendorType }): void {
     const connector = this.getConnectorSync(params.vendor);
     connector?.reset();
+  }
+
+  /**
+   * Warm-load vendor-specific persisted credentials onto the connector. SW
+   * boot path calls this with Trezor THP credentials read from secure
+   * storage so the next handshake hits the autoconnect path. No-op for
+   * vendors whose connector doesn't expose `setKnownCredentials`
+   * (Ledger, etc.).
+   *
+   * Triggers connector init if it hasn't started — we want the credentials
+   * loaded before the user's first searchDevices/connect call races us.
+   */
+  async setKnownCredentials(params: {
+    vendor: VendorType;
+    credentials: unknown[];
+  }): Promise<void> {
+    const connector = await this.getConnector(params.vendor);
+    connector.setKnownCredentials?.(params.credentials);
   }
 
   /**

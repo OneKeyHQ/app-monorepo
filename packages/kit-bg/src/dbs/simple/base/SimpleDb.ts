@@ -557,4 +557,13 @@ export class SimpleDb {
     Object.defineProperty(this, 'rookieGuide', { value });
     return value;
   }
+
+  get trezorThpCredentials() {
+    const SimpleDbEntityTrezorThpCredentials = (
+      require('../entity/SimpleDbEntityTrezorThpCredentials') as unknown as typeof import('../entity/SimpleDbEntityTrezorThpCredentials')
+    ).SimpleDbEntityTrezorThpCredentials;
+    const value = new SimpleDbEntityTrezorThpCredentials();
+    Object.defineProperty(this, 'trezorThpCredentials', { value });
+    return value;
+  }
 }

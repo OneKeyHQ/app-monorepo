@@ -10,6 +10,7 @@ import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 export function buildThirdPartyHardwareUiResponse(
   action: EThirdPartyHardwareUiAction | undefined,
   confirmed: boolean,
+  extras?: { tag?: string },
 ): IAdapterUiResponse | null {
   switch (action) {
     case EThirdPartyHardwareUiAction.requestDeviceNotFound:
@@ -21,6 +22,14 @@ export function buildThirdPartyHardwareUiResponse(
       return {
         type: UI_RESPONSE.RECEIVE_BTC_HIGH_INDEX_CONFIRM,
         payload: { confirmed },
+      };
+    case EThirdPartyHardwareUiAction.requestTrezorThpPairing:
+      // No confirm/deny — the response IS the pairing tag the user typed
+      // off the device screen. `confirmed=false` is mapped to cancel.
+      if (!confirmed || !extras?.tag) return null;
+      return {
+        type: UI_RESPONSE.RECEIVE_TREZOR_THP_PAIRING,
+        payload: { tag: extras.tag },
       };
     default:
       return null;
