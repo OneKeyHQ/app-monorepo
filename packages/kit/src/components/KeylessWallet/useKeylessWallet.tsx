@@ -374,6 +374,23 @@ export async function getKeylessOnboardingPin() {
   return pin;
 }
 
+async function cacheKeylessOnboardingPinConfirmStatusUpdated({
+  updated,
+}: {
+  updated: boolean;
+}) {
+  await keylessOnboardingCacheSet(
+    'pinConfirmStatusUpdated',
+    updated ? 'true' : 'false',
+  );
+}
+
+async function getKeylessOnboardingPinConfirmStatusUpdated() {
+  return (
+    (await keylessOnboardingCacheGet('pinConfirmStatusUpdated')) === 'true'
+  );
+}
+
 async function cacheKeylessOnboardingSameEmailAccountStatus({
   status,
 }: {
@@ -681,6 +698,7 @@ export function useKeylessWallet() {
         return;
       }
       await cacheKeylessOnboardingToken({ token, refreshToken });
+      await cacheKeylessOnboardingPinConfirmStatusUpdated({ updated: false });
 
       // ResetPin or VerifyPinOnly: validate token matches local keyless wallet
       const checkLoginMatchedKeylessWallet = async () => {
@@ -1006,12 +1024,15 @@ export function useKeylessWallet() {
           keylessDetailsInfo = result.keylessDetailsInfo;
         }
         if (action === EKeylessFinalizeAction.Restore) {
+          const pinConfirmStatusAlreadyUpdated =
+            await getKeylessOnboardingPinConfirmStatusUpdated();
           const result =
             await backgroundApiProxy.serviceKeylessWallet.restoreKeylessWalletFromServer(
               {
                 token,
                 refreshToken,
                 pin,
+                pinConfirmStatusAlreadyUpdated,
               },
             );
           mnemonic = result.mnemonic;
@@ -1099,19 +1120,22 @@ export function useKeylessWallet() {
               isSameEmailAccountAtOldVersion: false,
             };
 
+      let pinConfirmStatusUpdated = false;
       try {
-        await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
-          {
-            token,
-            pin,
-            refreshToken,
-            mode,
-            dangerousRetryByFixedProvider,
-            providerOverride: dangerousRetryByFixedProvider
-              ? undefined
-              : sameEmailAccountStatus.currentProvider,
-          },
-        );
+        const verifyResult =
+          await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
+            {
+              token,
+              pin,
+              refreshToken,
+              mode,
+              dangerousRetryByFixedProvider,
+              providerOverride: dangerousRetryByFixedProvider
+                ? undefined
+                : sameEmailAccountStatus.currentProvider,
+            },
+          );
+        pinConfirmStatusUpdated = verifyResult.pinConfirmStatusUpdated;
       } catch (error) {
         const isPinErrorByInstance = error instanceof IncorrectPinError;
         const isPinErrorByClassName = errorUtils.isErrorByClassName({
@@ -1127,16 +1151,18 @@ export function useKeylessWallet() {
           !dangerousRetryByFixedProvider
         ) {
           try {
-            await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
-              {
-                token,
-                pin,
-                refreshToken,
-                mode,
-                dangerousRetryByFixedProvider: false,
-                providerOverride: sameEmailAccountStatus.retryProvider,
-              },
-            );
+            const retryVerifyResult =
+              await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
+                {
+                  token,
+                  pin,
+                  refreshToken,
+                  mode,
+                  dangerousRetryByFixedProvider: false,
+                  providerOverride: sameEmailAccountStatus.retryProvider,
+                },
+              );
+            pinConfirmStatusUpdated = retryVerifyResult.pinConfirmStatusUpdated;
           } catch (retryError) {
             void syncKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
               token,
@@ -1163,6 +1189,9 @@ export function useKeylessWallet() {
 
       // Default: continue with restore flow
       await cacheKeylessOnboardingToken({ token, refreshToken });
+      await cacheKeylessOnboardingPinConfirmStatusUpdated({
+        updated: pinConfirmStatusUpdated,
+      });
       await confirmKeylessOnboardingPin({
         pin,
         action: EKeylessFinalizeAction.Restore,

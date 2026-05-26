@@ -21,7 +21,11 @@ import {
   EOAuthSocialLoginProvider,
   KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
   KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX,
+  KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX_V2,
   KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
+  KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD_V2_PREFIX,
+  KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_FIXED_UUID,
+  KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_PREFIX,
   KEYLESS_ENCRYPTION_ITERATIONS,
   KEYLESS_MNEMONIC_GCM_AAD,
   KEYLESS_SUPABASE_PROJECT_URL,
@@ -68,6 +72,7 @@ import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransf
 
 import localDb from '../../dbs/local/localDb';
 import {
+  keylessBackendShareV2MigrationPersistAtom,
   keylessDialogAtom,
   keylessPinConfirmStatusAtom,
   primePersistAtom,
@@ -107,6 +112,91 @@ const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
     }
   },
 });
+
+const KEYLESS_BACKEND_SHARE_PASSIVE_MIGRATION_INTERVAL_MS =
+  timerUtils.getTimeDurationMs({ hour: 24 });
+
+const KEYLESS_TOKEN_VALID_BUFFER_MS = timerUtils.getTimeDurationMs({
+  minute: 5,
+});
+
+type IKeylessBackendShareCanonicalFormat = 'v1' | 'v2';
+
+type IKeylessBackendShareMeta = {
+  backendShare: string;
+  hashId: string;
+  revision: number;
+  canonicalFormat: IKeylessBackendShareCanonicalFormat;
+};
+
+type IKeylessBackendShareReadResult = IKeylessBackendShareMeta & {
+  backendShareData: IKeylessBackendShare | null;
+  ownerId?: string;
+  ownerProvider?: EOAuthSocialLoginProvider;
+};
+
+type IKeylessBackendShareOwnerIdCandidate = {
+  ownerId: string;
+  provider: EOAuthSocialLoginProvider;
+};
+
+type IKeylessBackendShareV2MigrationResult = {
+  migrated: boolean;
+  checked: boolean;
+  skipped: boolean;
+  reason?:
+    | 'already_succeeded'
+    | 'backend_share_missing'
+    | 'canonical_format_v2'
+    | 'local_keyless_wallet_missing'
+    | 'mnemonic_mismatch'
+    | 'mnemonic_password_missing'
+    | 'owner_id_missing'
+    | 'owner_id_mismatch'
+    | 'password_not_cached'
+    | 'passive_throttled'
+    | 'provider_missing'
+    | 'token_identity_mismatch'
+    | 'token_missing'
+    | 'token_provider_mismatch'
+    | 'upgrade_failed';
+};
+
+type IKeylessAccessTokenWithoutPromptResult = {
+  accessToken: string;
+  refreshToken?: string;
+};
+
+type IKeylessBackendShareUploadParams = {
+  token: string;
+  lockId: string;
+  hashId: string;
+  ownerId: string;
+  baseRevision: number;
+  encryptedMnemonic: string;
+  backendShare: string;
+  juiceboxShareX: number;
+  keylessBackendShareV1Mirror?: string;
+};
+
+type IKeylessBackendShareCreationLock = {
+  hashId: string;
+  lockId: string;
+  expiresAt: number;
+};
+
+type IKeylessBackendShareCreationLockResponse = {
+  hashId?: string;
+  lockId?: string;
+  expire_time?: number;
+  expiresAt?: number;
+};
+
+type IKeylessBackendShareV2MigrationIdentity = {
+  ownerId: string;
+  keylessProvider: string;
+  socialUserIdHash: string;
+};
 @backgroundClass()
 class ServiceKeylessWallet extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -114,6 +204,10 @@ class ServiceKeylessWallet extends ServiceBase {
   }
 
   updatePinConfirmStatusMutex = new Semaphore(1);
+
+  private passiveBackendShareV2MigrationPromise:
+    | Promise<IKeylessBackendShareV2MigrationResult>
+    | undefined;
 
   private async getJuiceboxClientFromCache(
     token: string,
@@ -1424,10 +1518,213 @@ class ServiceKeylessWallet extends ServiceBase {
     };
   }
 
-  private async apiGetKeylessBackendShare(params: { token: string }): Promise<{
-    backendShareData: IKeylessBackendShare | null;
+  private isKeylessBackendShareCanonicalFormat(
+    format: unknown,
+  ): format is IKeylessBackendShareCanonicalFormat {
+    return format === 'v1' || format === 'v2';
+  }
+
+  private assertKeylessBackendSharePayload(
+    payload: unknown,
+  ): IKeylessBackendShare {
+    const data = payload as Partial<IKeylessBackendShare> | undefined;
+    if (
+      data &&
+      typeof data.encryptedMnemonic === 'string' &&
+      data.encryptedMnemonic.length > 0 &&
+      typeof data.backendShare === 'string' &&
+      data.backendShare.length > 0 &&
+      typeof data.juiceboxShareX === 'number' &&
+      Number.isFinite(data.juiceboxShareX)
+    ) {
+      return {
+        encryptedMnemonic: data.encryptedMnemonic,
+        backendShare: data.backendShare,
+        juiceboxShareX: data.juiceboxShareX,
+      };
+    }
+    throw new OneKeyLocalError('Invalid keyless backend share payload');
+  }
+
+  private getKeylessBackendSharePayloadV2Aad(params: {
     hashId: string;
+  }): string {
+    const { hashId } = params;
+    if (!hashId) {
+      throw new OneKeyLocalError('Hash ID not found');
+    }
+    return `${KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD_V2_PREFIX}:${hashId}`;
+  }
+
+  private async buildKeylessBackendShareOwnerIdCandidates(params: {
+    token: string;
+    hashId: string;
+    providerOverride?: EOAuthSocialLoginProvider;
+  }): Promise<IKeylessBackendShareOwnerIdCandidate[]> {
+    const { token, hashId, providerOverride } = params;
+    const primaryProvider =
+      providerOverride ?? this.buildKeylessProviderFromSocialToken({ token });
+    const candidateProviders = [
+      primaryProvider,
+      this.getAlternativeKeylessProvider(primaryProvider),
+    ];
+    const uniqueProviders = Array.from(new Set(candidateProviders));
+
+    return Promise.all(
+      uniqueProviders.map(async (provider) => ({
+        provider,
+        ownerId: await this.buildKeylessOwnerIdFromSocialToken({
+          token,
+          hashId,
+          providerOverride: provider,
+        }),
+      })),
+    );
+  }
+
+  private async decryptKeylessBackendSharePayloadV1(params: {
+    backendShare: string;
+  }): Promise<IKeylessBackendShare> {
+    const { backendShare } = params;
+    if (
+      !backendShare.startsWith(KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX)
+    ) {
+      throw new OneKeyLocalError(
+        'Keyless backend share payload format mismatch',
+      );
+    }
+
+    const encryptedPayload = backendShare.slice(
+      KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX.length,
+    );
+    const decryptedJson = await decryptStringAsync({
+      data: encryptedPayload,
+      dataEncoding: 'hex',
+      resultEncoding: 'utf-8',
+      password: KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
+      allowRawPassword: true,
+      iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+      mode: EAppCryptoAesEncryptionMode.gcm,
+      aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
+    });
+
+    return this.assertKeylessBackendSharePayload(JSON.parse(decryptedJson));
+  }
+
+  private async encryptKeylessBackendSharePayloadV1(params: {
+    backendShareData: IKeylessBackendShare;
+  }): Promise<string> {
+    const { backendShareData } = params;
+    const jsonPayload = stringUtils.stableStringify(
+      this.assertKeylessBackendSharePayload(backendShareData),
+    );
+    const encryptedPayload = await encryptStringAsyncWithFormat({
+      data: jsonPayload,
+      dataEncoding: 'utf-8',
+      password: KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
+      allowRawPassword: true,
+      iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+      mode: EAppCryptoAesEncryptionMode.gcm,
+      aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
+      sharedScene: EAppCryptoSharedEncryptScene.keylessBackendSharePayload,
+    });
+
+    return `${KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX}${encryptedPayload}`;
+  }
+
+  private buildKeylessBackendSharePayloadV2Password(params: {
+    ownerId: string;
+  }): string {
+    const password = `${KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_PREFIX}${params.ownerId}`;
+    return `${password}:${KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_FIXED_UUID}`;
+  }
+
+  private async decryptKeylessBackendSharePayloadV2(params: {
+    token: string;
+    hashId: string;
+    backendShare: string;
+    providerOverride?: EOAuthSocialLoginProvider;
+  }): Promise<{
+    backendShareData: IKeylessBackendShare;
+    ownerId: string;
+    ownerProvider: EOAuthSocialLoginProvider;
   }> {
+    const { token, hashId, backendShare, providerOverride } = params;
+    if (
+      !backendShare.startsWith(
+        KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX_V2,
+      )
+    ) {
+      throw new OneKeyLocalError(
+        'Keyless backend share payload format mismatch',
+      );
+    }
+
+    const encryptedPayload = backendShare.slice(
+      KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX_V2.length,
+    );
+    const candidates = await this.buildKeylessBackendShareOwnerIdCandidates({
+      token,
+      hashId,
+      providerOverride,
+    });
+    const aad = this.getKeylessBackendSharePayloadV2Aad({ hashId });
+
+    for (const candidate of candidates) {
+      try {
+        const decryptedJson = await decryptStringAsync({
+          data: encryptedPayload,
+          dataEncoding: 'hex',
+          resultEncoding: 'utf-8',
+          password: this.buildKeylessBackendSharePayloadV2Password({
+            ownerId: candidate.ownerId,
+          }),
+          allowRawPassword: true,
+          iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+          mode: EAppCryptoAesEncryptionMode.gcm,
+          aad,
+        });
+        return {
+          backendShareData: this.assertKeylessBackendSharePayload(
+            JSON.parse(decryptedJson),
+          ),
+          ownerId: candidate.ownerId,
+          ownerProvider: candidate.provider,
+        };
+      } catch {
+        // Try the next deterministic ownerId candidate.
+      }
+    }
+
+    throw new OneKeyLocalError('Failed to decrypt keyless backend share');
+  }
+
+  private async encryptKeylessBackendSharePayloadV2(params: {
+    hashId: string;
+    ownerId: string;
+    backendShareData: IKeylessBackendShare;
+  }): Promise<string> {
+    const { hashId, ownerId, backendShareData } = params;
+    const jsonPayload = stringUtils.stableStringify(
+      this.assertKeylessBackendSharePayload(backendShareData),
+    );
+    const encryptedPayload = await encryptStringAsyncWithFormat({
+      data: jsonPayload,
+      dataEncoding: 'utf-8',
+      password: this.buildKeylessBackendSharePayloadV2Password({ ownerId }),
+      allowRawPassword: true,
+      iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+      mode: EAppCryptoAesEncryptionMode.gcm,
+      aad: this.getKeylessBackendSharePayloadV2Aad({ hashId }),
+      sharedScene: EAppCryptoSharedEncryptScene.keylessBackendSharePayload,
+    });
+
+    return `${KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX_V2}${encryptedPayload}`;
+  }
+
+  private async apiGetKeylessBackendShareMeta(params: {
+    token: string;
+  }): Promise<IKeylessBackendShareMeta> {
     const { token } = params;
 
     const client = await this.getClient(EServiceEndpointEnum.Prime);
@@ -1435,87 +1732,144 @@ class ServiceKeylessWallet extends ServiceBase {
       IApiClientResponse<{
         backendShare: string;
         hashId: string;
+        revision: number;
+        canonicalFormat: IKeylessBackendShareCanonicalFormat;
       }>
-    >('/prime/v1/keyless-wallet/getKeylessBackendShare', {
+    >('/prime/v1/keyless-wallet/getKeylessBackendShareV2', {
       token,
     });
 
     const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
-    const backendShareStr = res?.data?.data?.backendShare;
-    const hashId = res?.data?.data?.hashId;
+    const responseData = res?.data?.data as
+      | {
+          backendShare?: string;
+          hashId?: string;
+          revision?: number;
+          canonicalFormat?: string;
+        }
+      | ''
+      | undefined;
+
+    if (isSuccess && responseData === '') {
+      return {
+        backendShare: '',
+        hashId: '',
+        revision: 0,
+        canonicalFormat: 'v1',
+      };
+    }
+
+    const responseDataObj =
+      responseData && typeof responseData === 'object'
+        ? responseData
+        : undefined;
+    const backendShareStr = responseDataObj?.backendShare;
+    const hashId = responseDataObj?.hashId;
+    const revision = responseDataObj?.revision ?? 0;
+    const canonicalFormat = responseDataObj?.canonicalFormat ?? 'v1';
 
     // {"code":0,"message":"success","data":""}
     if (isSuccess && backendShareStr === '') {
       return {
-        backendShareData: null,
-        hashId,
+        backendShare: '',
+        hashId: hashId || '',
+        revision,
+        canonicalFormat: this.isKeylessBackendShareCanonicalFormat(
+          canonicalFormat,
+        )
+          ? canonicalFormat
+          : 'v1',
       };
     }
 
     if (isSuccess && backendShareStr) {
-      try {
-        // Require encrypted payload with prefix
-        if (
-          !backendShareStr.startsWith(
-            KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX,
-          )
-        ) {
-          throw new OneKeyLocalError(
-            'Keyless backend share payload is not encrypted',
-          );
-        }
-
-        // Strip prefix and decrypt
-        const encryptedPayload = backendShareStr.slice(
-          KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX.length,
-        );
-        const decryptedJson = await decryptStringAsync({
-          data: encryptedPayload,
-          dataEncoding: 'hex',
-          resultEncoding: 'utf-8',
-          password: KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
-          allowRawPassword: true,
-          iterations: KEYLESS_ENCRYPTION_ITERATIONS,
-          mode: EAppCryptoAesEncryptionMode.gcm,
-          aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
-        });
-
-        const result = JSON.parse(decryptedJson) as
-          | IKeylessBackendShare
-          | undefined;
-        if (result) {
-          return {
-            backendShareData: result,
-            hashId,
-          };
-        }
-      } catch (_e) {
-        throw new OneKeyLocalError('Failed to decrypt keyless backend share');
+      if (!hashId) {
+        throw new OneKeyLocalError('Hash ID not found');
       }
+      if (!this.isKeylessBackendShareCanonicalFormat(canonicalFormat)) {
+        throw new OneKeyLocalError(
+          'Unsupported keyless backend share canonical format',
+        );
+      }
+      if (typeof revision !== 'number' || !Number.isFinite(revision)) {
+        throw new OneKeyLocalError('Invalid keyless backend share revision');
+      }
+      return {
+        backendShare: backendShareStr,
+        hashId,
+        revision,
+        canonicalFormat,
+      };
     }
     throw new OneKeyLocalError('Failed to get keyless backend share');
   }
 
+  private async apiGetKeylessBackendShare(params: {
+    token: string;
+  }): Promise<IKeylessBackendShareReadResult> {
+    const { token } = params;
+    const meta = await this.apiGetKeylessBackendShareMeta({ token });
+
+    if (meta.backendShare === '') {
+      return {
+        ...meta,
+        backendShareData: null,
+      };
+    }
+
+    try {
+      if (meta.canonicalFormat === 'v1') {
+        return {
+          ...meta,
+          backendShareData: await this.decryptKeylessBackendSharePayloadV1({
+            backendShare: meta.backendShare,
+          }),
+        };
+      }
+
+      const result = await this.decryptKeylessBackendSharePayloadV2({
+        token,
+        hashId: meta.hashId,
+        backendShare: meta.backendShare,
+      });
+      return {
+        ...meta,
+        backendShareData: result.backendShareData,
+        ownerId: result.ownerId,
+        ownerProvider: result.ownerProvider,
+      };
+    } catch (_e) {
+      throw new OneKeyLocalError('Failed to decrypt keyless backend share');
+    }
+  }
+
   private async apiAcquireCreationLock(params: {
     token: string;
-  }): Promise<{ hashId: string; lockId: string; expiresAt: number }> {
+  }): Promise<IKeylessBackendShareCreationLock> {
     const { token } = params;
     const client = await this.getClient(EServiceEndpointEnum.Prime);
     const res = await client.post<
-      IApiClientResponse<{
-        hashId: string;
-        lockId: string;
-        expiresAt: number;
-      }>
+      IApiClientResponse<IKeylessBackendShareCreationLockResponse>
     >('/prime/v1/keyless-wallet/acquireCreationLock', {
       token,
     });
 
     const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
     const lockData = res?.data?.data;
+    const expiresAt = lockData?.expiresAt ?? lockData?.expire_time;
 
-    if (isSuccess && lockData?.lockId) {
-      return lockData;
+    if (
+      isSuccess &&
+      lockData?.hashId &&
+      lockData.lockId &&
+      typeof expiresAt === 'number' &&
+      Number.isFinite(expiresAt)
+    ) {
+      return {
+        hashId: lockData.hashId,
+        lockId: lockData.lockId,
+        expiresAt,
+      };
     }
 
     throw new OneKeyLocalError('Failed to acquire creation lock');
@@ -1532,6 +1886,61 @@ class ServiceKeylessWallet extends ServiceBase {
       { token, lockId },
     );
     // Idempotent design: silently succeed if lock doesn't exist or has expired
+  }
+
+  private isKeylessBackendShareWriteMessage(params: {
+    error: unknown;
+    messages: string[];
+  }): boolean {
+    const { error, messages } = params;
+    const plainError = errorUtils.toPlainErrorObject(error);
+    const data = plainError?.data as
+      | {
+          message?: string;
+          data?: {
+            message?: string;
+          };
+        }
+      | undefined;
+    const message = data?.message || data?.data?.message || plainError.message;
+    return messages.includes(message);
+  }
+
+  private async withKeylessBackendShareWriteLock<T>(
+    token: string,
+    fn: (lock: {
+      lockId: string;
+      hashId: string;
+      expiresAt: number;
+    }) => Promise<T>,
+  ): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const lock = await this.apiAcquireCreationLock({ token });
+      try {
+        return await fn(lock);
+      } catch (error) {
+        lastError = error;
+        const shouldRetry =
+          attempt === 0 &&
+          this.isKeylessBackendShareWriteMessage({
+            error,
+            messages: ['lock_invalid'],
+          });
+        if (!shouldRetry) {
+          throw error;
+        }
+      } finally {
+        await this.apiReleaseCreationLock({
+          token,
+          lockId: lock.lockId,
+        }).catch(() => undefined);
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new OneKeyLocalError('Failed to acquire creation lock');
   }
 
   @backgroundMethod()
@@ -1562,54 +1971,737 @@ class ServiceKeylessWallet extends ServiceBase {
     throw new OneKeyLocalError('Failed to reset keyless backend share');
   }
 
-  @backgroundMethod()
-  @toastIfError()
-  async apiUploadKeylessBackendShare(params: {
-    token: string;
-    lockId: string;
-    encryptedMnemonic: string;
-    backendShare: string;
-    juiceboxShareX: number;
-  }): Promise<IKeylessBackendShare> {
-    const { token, lockId, encryptedMnemonic, backendShare, juiceboxShareX } =
-      params;
-    // TODO: Replace with real API call
-    // For now, save to mock cache
+  private async uploadKeylessBackendShare(
+    params: IKeylessBackendShareUploadParams,
+  ): Promise<IKeylessBackendShare> {
+    const {
+      token,
+      lockId,
+      hashId,
+      ownerId,
+      baseRevision,
+      encryptedMnemonic,
+      backendShare,
+      juiceboxShareX,
+      keylessBackendShareV1Mirror,
+    } = params;
     const backendShareData: IKeylessBackendShare = {
-      encryptedMnemonic, // TODO to base64
+      encryptedMnemonic,
       backendShare,
       juiceboxShareX,
     };
 
-    // Encrypt the backend share payload before uploading
-    const jsonPayload = JSON.stringify(backendShareData);
-    const encryptedPayload = await encryptStringAsyncWithFormat({
-      data: jsonPayload,
-      dataEncoding: 'utf-8',
-      password: KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
-      allowRawPassword: true,
-      iterations: KEYLESS_ENCRYPTION_ITERATIONS,
-      mode: EAppCryptoAesEncryptionMode.gcm,
-      aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
-      sharedScene: EAppCryptoSharedEncryptScene.keylessBackendSharePayload,
+    const encryptedPayloadWithPrefix =
+      await this.encryptKeylessBackendSharePayloadV2({
+        hashId,
+        ownerId,
+        backendShareData,
+      });
+    const readBackResult = await this.decryptKeylessBackendSharePayloadV2({
+      token,
+      hashId,
+      backendShare: encryptedPayloadWithPrefix,
     });
-    const encryptedPayloadWithPrefix = `${KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX}${encryptedPayload}`;
+    if (!isEqual(readBackResult.backendShareData, backendShareData)) {
+      throw new OneKeyLocalError(
+        'Keyless backend share v2 verification mismatch',
+      );
+    }
+    let encryptedPayloadV1Mirror: string;
+    if (keylessBackendShareV1Mirror !== undefined) {
+      const mirrorBackendShareData =
+        await this.decryptKeylessBackendSharePayloadV1({
+          backendShare: keylessBackendShareV1Mirror,
+        });
+      if (!isEqual(mirrorBackendShareData, backendShareData)) {
+        throw new OneKeyLocalError(
+          'Keyless backend share v1 mirror verification mismatch',
+        );
+      }
+      encryptedPayloadV1Mirror = keylessBackendShareV1Mirror;
+    } else {
+      encryptedPayloadV1Mirror = await this.encryptKeylessBackendSharePayloadV1(
+        {
+          backendShareData,
+        },
+      );
+    }
 
     const client = await this.getClient(EServiceEndpointEnum.Prime);
-    const res = await client.post<IApiClientResponse<{ ok: boolean }>>(
-      '/prime/v1/keyless-wallet/createKeylessBackendShare',
-      {
-        token,
-        lockId,
-        keylessBackendShare: encryptedPayloadWithPrefix,
-      },
-    );
+    const res = await client.post<
+      IApiClientResponse<{
+        ok: boolean;
+        revision: number;
+        hashId: string;
+      }>
+    >('/prime/v1/keyless-wallet/createKeylessBackendShareV2', {
+      token,
+      lockId,
+      baseRevision,
+      keylessBackendShareV2: encryptedPayloadWithPrefix,
+      keylessBackendShareV1Mirror: encryptedPayloadV1Mirror,
+    });
 
-    if (res?.data?.data?.ok === true) {
+    const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
+    const uploadData = res?.data?.data;
+    if (
+      isSuccess &&
+      uploadData?.ok === true &&
+      uploadData.hashId === hashId &&
+      typeof uploadData.revision === 'number' &&
+      Number.isFinite(uploadData.revision) &&
+      uploadData.revision > baseRevision
+    ) {
       return backendShareData;
     }
 
     throw new OneKeyLocalError('Failed to upload keyless backend share');
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiUploadKeylessBackendShare(
+    params: IKeylessBackendShareUploadParams,
+  ): Promise<IKeylessBackendShare> {
+    return this.uploadKeylessBackendShare(params);
+  }
+
+  private async migrateKeylessBackendShareToV2(params: {
+    token: string;
+    ownerId: string;
+    expectedBackendShareData?: IKeylessBackendShare;
+    expectedHashId?: string;
+  }): Promise<void> {
+    const { token, ownerId, expectedBackendShareData, expectedHashId } = params;
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await this.withKeylessBackendShareWriteLock(
+          token,
+          async ({ lockId }) => {
+            const current = await this.apiGetKeylessBackendShare({ token });
+            if (!current.backendShareData) {
+              if (expectedBackendShareData) {
+                throw new OneKeyLocalError(
+                  'Keyless backend share changed before migration',
+                );
+              }
+              return;
+            }
+            if (
+              expectedBackendShareData &&
+              (!isEqual(current.backendShareData, expectedBackendShareData) ||
+                (expectedHashId && current.hashId !== expectedHashId))
+            ) {
+              throw new OneKeyLocalError(
+                'Keyless backend share changed before migration',
+              );
+            }
+            if (
+              current.canonicalFormat === 'v2' &&
+              current.ownerId === ownerId
+            ) {
+              return;
+            }
+            await this.uploadKeylessBackendShare({
+              token,
+              lockId,
+              hashId: current.hashId,
+              ownerId,
+              baseRevision: current.revision,
+              encryptedMnemonic: current.backendShareData.encryptedMnemonic,
+              backendShare: current.backendShareData.backendShare,
+              juiceboxShareX: current.backendShareData.juiceboxShareX,
+              keylessBackendShareV1Mirror:
+                current.canonicalFormat === 'v1'
+                  ? current.backendShare
+                  : undefined,
+            });
+          },
+        );
+        return;
+      } catch (error) {
+        lastError = error;
+        const shouldRetry = this.isKeylessBackendShareWriteMessage({
+          error,
+          messages: ['revision_conflict', 'unexpected_base_revision'],
+        });
+        if (!shouldRetry) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new OneKeyLocalError('Failed to migrate keyless backend share to v2');
+  }
+
+  private isKeylessAccessTokenValid(token: string | null): token is string {
+    if (!token) {
+      return false;
+    }
+    try {
+      const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
+      if (!decodedToken?.exp || typeof decodedToken.exp !== 'number') {
+        return false;
+      }
+      return (
+        Date.now() < decodedToken.exp * 1000 - KEYLESS_TOKEN_VALID_BUFFER_MS
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  private async refreshKeylessAccessTokenFromStorageWithPassword(params: {
+    ownerId: string;
+    password: string;
+  }): Promise<IKeylessAccessTokenWithoutPromptResult | null> {
+    const { ownerId, password } = params;
+    const refreshToken =
+      await keylessRefreshTokenStorage.getRefreshTokenFromStorageWithPassword({
+        ownerId,
+        password,
+        backgroundApi: this.backgroundApi,
+      });
+    if (!refreshToken) {
+      return null;
+    }
+
+    const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
+    const response = await fetch(refreshUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+
+        // oxlint-disable-next-line @cspell/spellchecker
+        apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
+      },
+      body: JSON.stringify({
+        refresh_token: refreshToken,
+      }),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const refreshResult = (await response.json()) as {
+      access_token?: string;
+      refresh_token?: string;
+    };
+
+    if (!refreshResult?.access_token || !refreshResult?.refresh_token) {
+      return null;
+    }
+
+    return {
+      accessToken: refreshResult.access_token,
+      refreshToken: refreshResult.refresh_token,
+    };
+  }
+
+  private async getKeylessAccessTokenWithoutPrompt(params: {
+    ownerId: string;
+    password: string;
+  }): Promise<IKeylessAccessTokenWithoutPromptResult | null> {
+    const { ownerId, password } = params;
+    const cachedToken =
+      await keylessRefreshTokenStorage.getAccessTokenFromStorage({
+        ownerId,
+        backgroundApi: this.backgroundApi,
+      });
+    if (this.isKeylessAccessTokenValid(cachedToken)) {
+      return {
+        accessToken: cachedToken,
+      };
+    }
+    return this.refreshKeylessAccessTokenFromStorageWithPassword({
+      ownerId,
+      password,
+    });
+  }
+
+  private async setKeylessBackendShareV2MigrationRecord(params: {
+    walletId: string;
+    identity: IKeylessBackendShareV2MigrationIdentity;
+    patch: {
+      lastPassiveAttemptAt?: number;
+      lastPassiveFailedAt?: number;
+      succeededAt?: number;
+    };
+  }): Promise<void> {
+    const { walletId, identity, patch } = params;
+    await keylessBackendShareV2MigrationPersistAtom.set((prev) => {
+      const prevByWalletId = prev?.byWalletId ?? {};
+      return {
+        byWalletId: {
+          ...prevByWalletId,
+          [walletId]: {
+            ...prevByWalletId[walletId],
+            ...identity,
+            ...patch,
+          },
+        },
+      };
+    });
+  }
+
+  private isKeylessBackendShareV2MigrationRecordMatch(params: {
+    record:
+      | {
+          ownerId?: string;
+          keylessProvider?: string;
+          socialUserIdHash?: string;
+        }
+      | undefined;
+    identity: IKeylessBackendShareV2MigrationIdentity;
+  }): boolean {
+    const { record, identity } = params;
+    return (
+      record?.ownerId === identity.ownerId &&
+      record?.keylessProvider === identity.keylessProvider &&
+      record?.socialUserIdHash === identity.socialUserIdHash
+    );
+  }
+
+  private async markKeylessBackendShareV2PassiveAttempt(params: {
+    walletId: string;
+    identity: IKeylessBackendShareV2MigrationIdentity;
+    time: number;
+  }): Promise<void> {
+    await this.setKeylessBackendShareV2MigrationRecord({
+      walletId: params.walletId,
+      identity: params.identity,
+      patch: {
+        lastPassiveAttemptAt: params.time,
+        succeededAt: undefined,
+      },
+    });
+  }
+
+  private async markKeylessBackendShareV2MigrationSucceeded(params: {
+    walletId: string;
+    identity: IKeylessBackendShareV2MigrationIdentity;
+    time: number;
+  }): Promise<void> {
+    await this.setKeylessBackendShareV2MigrationRecord({
+      walletId: params.walletId,
+      identity: params.identity,
+      patch: {
+        succeededAt: params.time,
+        lastPassiveAttemptAt: params.time,
+        lastPassiveFailedAt: undefined,
+      },
+    });
+  }
+
+  private async markKeylessBackendShareV2MigrationFailed(params: {
+    walletId: string;
+    identity: IKeylessBackendShareV2MigrationIdentity;
+    time: number;
+  }): Promise<void> {
+    await this.setKeylessBackendShareV2MigrationRecord({
+      walletId: params.walletId,
+      identity: params.identity,
+      patch: {
+        lastPassiveAttemptAt: params.time,
+        lastPassiveFailedAt: params.time,
+        succeededAt: undefined,
+      },
+    });
+  }
+
+  private async getLocalKeylessMnemonic(params: {
+    walletId: string;
+    password: string;
+  }): Promise<string> {
+    const { walletId, password } = params;
+    const credential = await localDb.getCredential(walletId);
+    const rs = await decryptRevealableSeed({
+      rs: credential.credential,
+      password,
+    });
+    return revealEntropyToMnemonic(rs.entropyWithLangPrefixed);
+  }
+
+  private async getMnemonicPasswordForLocalKeylessWallet(params: {
+    ownerId: string;
+    password: string;
+  }): Promise<string | null> {
+    const { ownerId, password } = params;
+    return keylessMnemonicPasswordStorage.getMnemonicPasswordFromStorage({
+      ownerId,
+      password,
+      backgroundApi: this.backgroundApi,
+    });
+  }
+
+  private async validateKeylessAccessTokenMatchesLocalWallet(params: {
+    token: string;
+    keylessWallet: IDBWallet;
+  }): Promise<IKeylessBackendShareV2MigrationResult['reason'] | undefined> {
+    const { token, keylessWallet } = params;
+    const keylessDetailsInfo = keylessWallet.keylessDetailsInfo;
+    if (!keylessDetailsInfo?.socialUserIdHash) {
+      return 'token_identity_mismatch';
+    }
+
+    try {
+      const socialUserIdHash = await accountUtils.hashKeylessSocialUserId({
+        socialUserId: this.buildKeylessSocialUserIdFromToken({ token }),
+      });
+      if (socialUserIdHash !== keylessDetailsInfo.socialUserIdHash) {
+        return 'token_identity_mismatch';
+      }
+
+      const tokenProvider = this.buildKeylessProviderFromSocialToken({
+        token,
+        skipFixedProvider: true,
+      });
+      if (tokenProvider !== keylessDetailsInfo.keylessProvider) {
+        return 'token_provider_mismatch';
+      }
+      return undefined;
+    } catch {
+      return 'token_identity_mismatch';
+    }
+  }
+
+  private async validateKeylessBackendShareMatchesLocalWallet(params: {
+    backendShareData: IKeylessBackendShare;
+    keylessWallet: IDBWallet;
+    ownerId: string;
+    password: string;
+  }): Promise<IKeylessBackendShareV2MigrationResult['reason'] | undefined> {
+    const { backendShareData, keylessWallet, ownerId, password } = params;
+    const mnemonicPassword =
+      await this.getMnemonicPasswordForLocalKeylessWallet({
+        ownerId,
+        password,
+      });
+    if (!mnemonicPassword) {
+      return 'mnemonic_password_missing';
+    }
+
+    const decryptedMnemonic = await this.decryptKeylessMnemonic({
+      encryptedMnemonic: backendShareData.encryptedMnemonic,
+      mnemonicPassword,
+    });
+    const localMnemonic = await this.getLocalKeylessMnemonic({
+      walletId: keylessWallet.id,
+      password,
+    });
+
+    if (decryptedMnemonic !== localMnemonic) {
+      return 'mnemonic_mismatch';
+    }
+    return undefined;
+  }
+
+  private async migrateLocalExistingKeylessBackendShareToV2Passive(): Promise<IKeylessBackendShareV2MigrationResult> {
+    const keylessWallet =
+      await this.backgroundApi.serviceAccount.getKeylessWallet();
+    if (!keylessWallet) {
+      return {
+        migrated: false,
+        checked: false,
+        skipped: true,
+        reason: 'local_keyless_wallet_missing',
+      };
+    }
+
+    const ownerId = keylessWallet.keylessDetailsInfo?.keylessOwnerId;
+    if (!ownerId) {
+      return {
+        migrated: false,
+        checked: false,
+        skipped: true,
+        reason: 'owner_id_missing',
+      };
+    }
+
+    const provider = keylessWallet.keylessDetailsInfo?.keylessProvider;
+    if (!provider) {
+      return {
+        migrated: false,
+        checked: false,
+        skipped: true,
+        reason: 'provider_missing',
+      };
+    }
+
+    const socialUserIdHash = keylessWallet.keylessDetailsInfo?.socialUserIdHash;
+    if (!socialUserIdHash) {
+      return {
+        migrated: false,
+        checked: false,
+        skipped: true,
+        reason: 'token_identity_mismatch',
+      };
+    }
+
+    const migrationIdentity: IKeylessBackendShareV2MigrationIdentity = {
+      ownerId,
+      keylessProvider: provider,
+      socialUserIdHash,
+    };
+
+    const migrationPersist =
+      await keylessBackendShareV2MigrationPersistAtom.get();
+    const migrationRecord =
+      migrationPersist?.byWalletId?.[keylessWallet.id] ?? {};
+    const isMigrationRecordMatched =
+      this.isKeylessBackendShareV2MigrationRecordMatch({
+        record: migrationRecord,
+        identity: migrationIdentity,
+      });
+    if (isMigrationRecordMatched && migrationRecord.succeededAt) {
+      return {
+        migrated: false,
+        checked: false,
+        skipped: true,
+        reason: 'already_succeeded',
+      };
+    }
+
+    const now = Date.now();
+    if (
+      isMigrationRecordMatched &&
+      migrationRecord.lastPassiveAttemptAt &&
+      now - migrationRecord.lastPassiveAttemptAt <
+        KEYLESS_BACKEND_SHARE_PASSIVE_MIGRATION_INTERVAL_MS
+    ) {
+      return {
+        migrated: false,
+        checked: false,
+        skipped: true,
+        reason: 'passive_throttled',
+      };
+    }
+
+    const password =
+      await this.backgroundApi.servicePassword.getCachedPassword();
+    if (!password) {
+      return {
+        migrated: false,
+        checked: false,
+        skipped: true,
+        reason: 'password_not_cached',
+      };
+    }
+
+    await this.markKeylessBackendShareV2PassiveAttempt({
+      walletId: keylessWallet.id,
+      identity: migrationIdentity,
+      time: now,
+    });
+
+    try {
+      const tokenInfo = await this.getKeylessAccessTokenWithoutPrompt({
+        ownerId,
+        password,
+      });
+      if (!tokenInfo) {
+        await this.markKeylessBackendShareV2MigrationFailed({
+          walletId: keylessWallet.id,
+          identity: migrationIdentity,
+          time: now,
+        });
+        return {
+          migrated: false,
+          checked: false,
+          skipped: true,
+          reason: 'token_missing',
+        };
+      }
+      const token = tokenInfo.accessToken;
+
+      const tokenValidationError =
+        await this.validateKeylessAccessTokenMatchesLocalWallet({
+          token,
+          keylessWallet,
+        });
+      if (tokenValidationError) {
+        await this.markKeylessBackendShareV2MigrationFailed({
+          walletId: keylessWallet.id,
+          identity: migrationIdentity,
+          time: now,
+        });
+        return {
+          migrated: false,
+          checked: false,
+          skipped: true,
+          reason: tokenValidationError,
+        };
+      }
+
+      const current = await this.apiGetKeylessBackendShareMeta({ token });
+      if (!current.backendShare) {
+        await this.markKeylessBackendShareV2MigrationFailed({
+          walletId: keylessWallet.id,
+          identity: migrationIdentity,
+          time: now,
+        });
+        return {
+          migrated: false,
+          checked: true,
+          skipped: true,
+          reason: 'backend_share_missing',
+        };
+      }
+
+      const expectedOwnerId = await this.buildKeylessOwnerIdFromSocialToken({
+        token,
+        hashId: current.hashId,
+        providerOverride: provider,
+      });
+      if (expectedOwnerId !== ownerId) {
+        await this.markKeylessBackendShareV2MigrationFailed({
+          walletId: keylessWallet.id,
+          identity: migrationIdentity,
+          time: now,
+        });
+        return {
+          migrated: false,
+          checked: true,
+          skipped: true,
+          reason: 'owner_id_mismatch',
+        };
+      }
+
+      if (tokenInfo.refreshToken) {
+        await keylessRefreshTokenStorage.saveTokensToStorage({
+          ownerId,
+          refreshToken: tokenInfo.refreshToken,
+          token,
+          password,
+          backgroundApi: this.backgroundApi,
+        });
+      }
+
+      if (current.canonicalFormat === 'v2') {
+        const readResult = await this.apiGetKeylessBackendShare({ token });
+        if (!readResult.backendShareData || readResult.ownerId !== ownerId) {
+          await this.markKeylessBackendShareV2MigrationFailed({
+            walletId: keylessWallet.id,
+            identity: migrationIdentity,
+            time: now,
+          });
+          return {
+            migrated: false,
+            checked: true,
+            skipped: true,
+            reason: 'owner_id_mismatch',
+          };
+        }
+        const validationError =
+          await this.validateKeylessBackendShareMatchesLocalWallet({
+            backendShareData: readResult.backendShareData,
+            keylessWallet,
+            ownerId,
+            password,
+          });
+        if (validationError) {
+          await this.markKeylessBackendShareV2MigrationFailed({
+            walletId: keylessWallet.id,
+            identity: migrationIdentity,
+            time: now,
+          });
+          return {
+            migrated: false,
+            checked: true,
+            skipped: true,
+            reason: validationError,
+          };
+        }
+
+        await this.markKeylessBackendShareV2MigrationSucceeded({
+          walletId: keylessWallet.id,
+          identity: migrationIdentity,
+          time: now,
+        });
+        return {
+          migrated: false,
+          checked: true,
+          skipped: true,
+          reason: 'canonical_format_v2',
+        };
+      }
+
+      const backendShareData = await this.decryptKeylessBackendSharePayloadV1({
+        backendShare: current.backendShare,
+      });
+      const validationError =
+        await this.validateKeylessBackendShareMatchesLocalWallet({
+          backendShareData,
+          keylessWallet,
+          ownerId,
+          password,
+        });
+      if (validationError) {
+        await this.markKeylessBackendShareV2MigrationFailed({
+          walletId: keylessWallet.id,
+          identity: migrationIdentity,
+          time: now,
+        });
+        return {
+          migrated: false,
+          checked: true,
+          skipped: true,
+          reason: validationError,
+        };
+      }
+
+      await this.migrateKeylessBackendShareToV2({
+        token,
+        ownerId,
+        expectedHashId: current.hashId,
+        expectedBackendShareData: backendShareData,
+      });
+      await this.markKeylessBackendShareV2MigrationSucceeded({
+        walletId: keylessWallet.id,
+        identity: migrationIdentity,
+        time: now,
+      });
+      return {
+        migrated: true,
+        checked: true,
+        skipped: false,
+      };
+    } catch (_error) {
+      await this.markKeylessBackendShareV2MigrationFailed({
+        walletId: keylessWallet.id,
+        identity: migrationIdentity,
+        time: now,
+      });
+      return {
+        migrated: false,
+        checked: true,
+        skipped: false,
+        reason: 'upgrade_failed',
+      };
+    }
+  }
+
+  @backgroundMethod()
+  async tryMigrateLocalExistingKeylessBackendShareToV2(): Promise<IKeylessBackendShareV2MigrationResult> {
+    if (this.passiveBackendShareV2MigrationPromise) {
+      return this.passiveBackendShareV2MigrationPromise;
+    }
+
+    const migrationPromise =
+      this.migrateLocalExistingKeylessBackendShareToV2Passive();
+    this.passiveBackendShareV2MigrationPromise = migrationPromise;
+    try {
+      return await migrationPromise;
+    } finally {
+      if (this.passiveBackendShareV2MigrationPromise === migrationPromise) {
+        this.passiveBackendShareV2MigrationPromise = undefined;
+      }
+    }
   }
 
   private async apiGetKeylessJuiceboxShare(params: {
@@ -1678,7 +2770,7 @@ class ServiceKeylessWallet extends ServiceBase {
     mode?: EOnboardingV2OneKeyIDLoginMode;
     dangerousRetryByFixedProvider: boolean;
     providerOverride?: EOAuthSocialLoginProvider;
-  }): Promise<void> {
+  }): Promise<{ pinConfirmStatusUpdated: boolean }> {
     const { token, pin, refreshToken, mode, dangerousRetryByFixedProvider } =
       params;
     let providerOverride = params.providerOverride;
@@ -1805,8 +2897,12 @@ class ServiceKeylessWallet extends ServiceBase {
       });
       defaultLogger.wallet.keyless.verifyKeylessTokensStored();
     }
-    void this.apiUpdatePinConfirmStatus({ token });
-    defaultLogger.wallet.keyless.verifyKeylessPinConfirmStatusUpdated();
+    const pinConfirmStatusUpdated =
+      await this.updatePinConfirmStatusAfterSuccessfulPin({ token });
+    if (pinConfirmStatusUpdated) {
+      defaultLogger.wallet.keyless.verifyKeylessPinConfirmStatusUpdated();
+    }
+    return { pinConfirmStatusUpdated };
   }
 
   @backgroundMethod()
@@ -1875,9 +2971,8 @@ class ServiceKeylessWallet extends ServiceBase {
       await this.backgroundApi.servicePassword.promptPasswordVerify();
 
     // 2. Get backendShare from server
-    const { backendShareData, hashId } = await this.apiGetKeylessBackendShare({
-      token,
-    });
+    const backendShareResult = await this.apiGetKeylessBackendShare({ token });
+    const { backendShareData, hashId } = backendShareResult;
     if (!backendShareData) {
       throw new OneKeyLocalError('Backend share not found');
     }
@@ -1990,6 +3085,18 @@ class ServiceKeylessWallet extends ServiceBase {
       backendShareX,
     });
 
+    if (
+      backendShareResult.canonicalFormat === 'v1' ||
+      backendShareResult.ownerId !== targetOwnerId
+    ) {
+      await this.migrateKeylessBackendShareToV2({
+        token,
+        ownerId: targetOwnerId,
+        expectedHashId: backendShareResult.hashId,
+        expectedBackendShareData: backendShareData,
+      });
+    }
+
     // Save tokens to secure storage (refreshToken with passcode, token without)
     if (refreshToken) {
       await keylessRefreshTokenStorage.saveTokensToStorage({
@@ -2031,7 +3138,7 @@ class ServiceKeylessWallet extends ServiceBase {
       });
     }
 
-    void this.apiResetPinConfirmStatus({ token });
+    await this.apiResetPinConfirmStatus({ token });
     defaultLogger.wallet.keyless.resetKeylessPinConfirmStatusUpdated();
 
     this.fixedKeylessProviderMap = {};
@@ -2104,12 +3211,13 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string | undefined;
     refreshToken?: string | undefined;
     pin: string | undefined;
+    pinConfirmStatusAlreadyUpdated?: boolean;
   }): Promise<{
     ownerId: string;
     mnemonic: string;
     keylessDetailsInfo: IKeylessWalletDetailsInfo;
   }> {
-    const { token, refreshToken, pin } = params;
+    const { token, refreshToken, pin, pinConfirmStatusAlreadyUpdated } = params;
     if (!token) {
       throw new OneKeyLocalError('social login token is required');
     }
@@ -2122,9 +3230,8 @@ class ServiceKeylessWallet extends ServiceBase {
       await this.backgroundApi.servicePassword.promptPasswordVerify();
 
     // Get backend share from server
-    const { backendShareData, hashId } = await this.apiGetKeylessBackendShare({
-      token,
-    });
+    const backendShareResult = await this.apiGetKeylessBackendShare({ token });
+    const { backendShareData, hashId } = backendShareResult;
     if (!backendShareData) {
       throw new OneKeyLocalError('Backend share not found');
     }
@@ -2134,10 +3241,12 @@ class ServiceKeylessWallet extends ServiceBase {
     defaultLogger.wallet.keyless.restoreKeylessBackendShareRetrieved();
 
     // check if keyless wallet is initialized
-    const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
-      token,
-      hashId,
-    });
+    const ownerId =
+      backendShareResult.ownerId ??
+      (await this.buildKeylessOwnerIdFromSocialToken({
+        token,
+        hashId,
+      }));
     defaultLogger.wallet.keyless.restoreKeylessOwnerIdGenerated();
 
     // Get juicebox share from juicebox network
@@ -2191,10 +3300,25 @@ class ServiceKeylessWallet extends ServiceBase {
       defaultLogger.wallet.keyless.restoreKeylessTokensStored();
     }
 
-    void this.apiUpdatePinConfirmStatus({ token });
-    defaultLogger.wallet.keyless.restorePinConfirmStatusUpdated();
+    if (
+      !pinConfirmStatusAlreadyUpdated &&
+      (await this.updatePinConfirmStatusAfterSuccessfulPin({ token }))
+    ) {
+      defaultLogger.wallet.keyless.restorePinConfirmStatusUpdated();
+    }
 
-    const keylessProvider = this.buildKeylessProviderFromSocialToken({ token });
+    if (backendShareResult.canonicalFormat === 'v1') {
+      await this.migrateKeylessBackendShareToV2({
+        token,
+        ownerId,
+        expectedHashId: backendShareResult.hashId,
+        expectedBackendShareData: backendShareData,
+      });
+    }
+
+    const keylessProvider =
+      backendShareResult.ownerProvider ??
+      this.buildKeylessProviderFromSocialToken({ token });
 
     this.fixedKeylessProviderMap = {};
     return {
@@ -2253,139 +3377,142 @@ class ServiceKeylessWallet extends ServiceBase {
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerify();
 
-    // 1. Acquire distributed lock
-    const { lockId, hashId } = await this.apiAcquireCreationLock({ token });
-    defaultLogger.wallet.keyless.createKeylessLockAcquired({ lockId });
+    return this.withKeylessBackendShareWriteLock(
+      token,
+      async ({ lockId, hashId }) => {
+        defaultLogger.wallet.keyless.createKeylessLockAcquired({ lockId });
 
-    try {
-      // 2. Double-check if already created (check inside lock for safety)
-      const isCreated = await this.isKeylessWalletCreatedOnServer({ token });
+        // 2. Double-check if already created (check inside lock for safety)
+        const isCreated = await this.isKeylessWalletCreatedOnServer({ token });
 
-      if (isCreated) {
-        throw new OneKeyLocalError('Keyless wallet already created');
-      }
-      defaultLogger.wallet.keyless.createKeylessWalletNotYetCreated();
+        if (isCreated) {
+          throw new OneKeyLocalError('Keyless wallet already created');
+        }
+        defaultLogger.wallet.keyless.createKeylessWalletNotYetCreated();
 
-      const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
-        token,
-        hashId,
-      });
-      defaultLogger.wallet.keyless.createKeylessOwnerIdGenerated();
-
-      let mnemonic = '';
-      const devSettings = await devSettingsPersistAtom.get();
-      if (devSettings.enabled && customMnemonic && customMnemonic.trim()) {
-        mnemonic = customMnemonic.trim();
-      } else {
-        mnemonic = generateMnemonic(256);
-      }
-      const mnemonicPasswordBytes = crypto.getRandomValues(new Uint8Array(32));
-      const mnemonicPassword = bufferUtils.bytesToBase64(mnemonicPasswordBytes);
-      const encryptedMnemonic: string = await this.encryptKeylessMnemonic({
-        mnemonic,
-        mnemonicPassword,
-      });
-      defaultLogger.wallet.keyless.createKeylessMnemonicEncrypted();
-
-      const mnemonicPasswordShares = await shamirUtils.split(
-        new Uint8Array(mnemonicPasswordBytes),
-        2,
-        2,
-      );
-      defaultLogger.wallet.keyless.createKeylessMnemonicPasswordShared();
-
-      const [mnemonicPasswordShare1, mnemonicPasswordShare2] =
-        mnemonicPasswordShares;
-      const backendShare: string = bufferUtils.bytesToBase64(
-        mnemonicPasswordShare1,
-      );
-      const juiceboxShare: string = bufferUtils.bytesToBase64(
-        mnemonicPasswordShare2,
-      );
-
-      // Extract x-coordinates from shares
-      const backendShareX =
-        keylessWalletUtils.getShareXCoordinate(backendShare);
-      const juiceboxShareX =
-        keylessWalletUtils.getShareXCoordinate(juiceboxShare);
-
-      // Save mnemonicPassword to secure storage for Reset PIN flow
-      await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorage({
-        ownerId,
-        mnemonicPassword,
-        password,
-        backgroundApi: this.backgroundApi,
-      });
-      defaultLogger.wallet.keyless.createKeylessMnemonicPasswordStored();
-
-      const _juiceboxShareData: IKeylessJuiceboxShare =
-        await this.apiUploadKeylessJuiceboxShare({
+        const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
           token,
-          ownerId,
-          juiceboxShare,
-          pin,
-          backendShareX, // Store the other share's x-coordinate for recovery
+          hashId,
         });
-      defaultLogger.wallet.keyless.createKeylessJuiceboxShareUploaded({
-        juiceboxShareX,
-      });
+        defaultLogger.wallet.keyless.createKeylessOwnerIdGenerated();
 
-      // Make sure juiceboxShare is uploaded successfully before uploading backend share
-      const _backendShareData: IKeylessBackendShare =
-        await this.apiUploadKeylessBackendShare({
-          token,
-          lockId,
-          encryptedMnemonic,
-          backendShare,
-          juiceboxShareX, // Store the other share's x-coordinate for recovery
+        let mnemonic = '';
+        const devSettings = await devSettingsPersistAtom.get();
+        if (devSettings.enabled && customMnemonic && customMnemonic.trim()) {
+          mnemonic = customMnemonic.trim();
+        } else {
+          mnemonic = generateMnemonic(256);
+        }
+        const mnemonicPasswordBytes = crypto.getRandomValues(
+          new Uint8Array(32),
+        );
+        const mnemonicPassword = bufferUtils.bytesToBase64(
+          mnemonicPasswordBytes,
+        );
+        const encryptedMnemonic: string = await this.encryptKeylessMnemonic({
+          mnemonic,
+          mnemonicPassword,
         });
-      defaultLogger.wallet.keyless.createKeylessBackendShareUploaded({
-        backendShareX,
-      });
+        defaultLogger.wallet.keyless.createKeylessMnemonicEncrypted();
 
-      // Save tokens to secure storage (refreshToken with passcode, token without)
-      if (refreshToken) {
-        await keylessRefreshTokenStorage.saveTokensToStorage({
+        const mnemonicPasswordShares = await shamirUtils.split(
+          new Uint8Array(mnemonicPasswordBytes),
+          2,
+          2,
+        );
+        defaultLogger.wallet.keyless.createKeylessMnemonicPasswordShared();
+
+        const [mnemonicPasswordShare1, mnemonicPasswordShare2] =
+          mnemonicPasswordShares;
+        const backendShare: string = bufferUtils.bytesToBase64(
+          mnemonicPasswordShare1,
+        );
+        const juiceboxShare: string = bufferUtils.bytesToBase64(
+          mnemonicPasswordShare2,
+        );
+
+        // Extract x-coordinates from shares
+        const backendShareX =
+          keylessWalletUtils.getShareXCoordinate(backendShare);
+        const juiceboxShareX =
+          keylessWalletUtils.getShareXCoordinate(juiceboxShare);
+
+        // Save mnemonicPassword to secure storage for Reset PIN flow
+        await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorage({
           ownerId,
-          refreshToken,
-          token,
+          mnemonicPassword,
           password,
           backgroundApi: this.backgroundApi,
         });
-        defaultLogger.wallet.keyless.createKeylessTokensStored();
-      }
+        defaultLogger.wallet.keyless.createKeylessMnemonicPasswordStored();
 
-      // void this.apiUpdatePinConfirmStatus({ token });
-
-      const keylessProvider: EOAuthSocialLoginProvider =
-        this.buildKeylessProviderFromSocialToken({
-          token,
+        const _juiceboxShareData: IKeylessJuiceboxShare =
+          await this.apiUploadKeylessJuiceboxShare({
+            token,
+            ownerId,
+            juiceboxShare,
+            pin,
+            backendShareX, // Store the other share's x-coordinate for recovery
+          });
+        defaultLogger.wallet.keyless.createKeylessJuiceboxShareUploaded({
+          juiceboxShareX,
         });
 
-      const socialUserId = this.buildKeylessSocialUserIdFromToken({ token });
+        // Make sure juiceboxShare is uploaded successfully before uploading backend share
+        const _backendShareData: IKeylessBackendShare =
+          await this.uploadKeylessBackendShare({
+            token,
+            lockId,
+            hashId,
+            ownerId,
+            baseRevision: 0,
+            encryptedMnemonic,
+            backendShare,
+            juiceboxShareX, // Store the other share's x-coordinate for recovery
+          });
+        defaultLogger.wallet.keyless.createKeylessBackendShareUploaded({
+          backendShareX,
+        });
 
-      this.fixedKeylessProviderMap = {};
+        // Save tokens to secure storage (refreshToken with passcode, token without)
+        if (refreshToken) {
+          await keylessRefreshTokenStorage.saveTokensToStorage({
+            ownerId,
+            refreshToken,
+            token,
+            password,
+            backgroundApi: this.backgroundApi,
+          });
+          defaultLogger.wallet.keyless.createKeylessTokensStored();
+        }
 
-      return {
-        ownerId,
-        mnemonic: await this.backgroundApi.servicePassword.encodeSensitiveText({
-          text: mnemonic,
-        }),
-        keylessDetailsInfo: {
-          keylessOwnerId: ownerId,
-          keylessProvider,
-          socialUserIdHash: await accountUtils.hashKeylessSocialUserId({
-            socialUserId,
-          }),
-        },
-      };
-    } finally {
-      // 3. Release lock (always release, even if error occurs)
-      await this.apiReleaseCreationLock({ token, lockId }).catch((e) => {
-        // Silently handle release failure, lock will auto-expire
-        console.error('Failed to release creation lock', e);
-      });
-    }
+        // void this.apiUpdatePinConfirmStatus({ token });
+
+        const keylessProvider: EOAuthSocialLoginProvider =
+          this.buildKeylessProviderFromSocialToken({
+            token,
+          });
+
+        const socialUserId = this.buildKeylessSocialUserIdFromToken({ token });
+
+        this.fixedKeylessProviderMap = {};
+
+        return {
+          ownerId,
+          mnemonic:
+            await this.backgroundApi.servicePassword.encodeSensitiveText({
+              text: mnemonic,
+            }),
+          keylessDetailsInfo: {
+            keylessOwnerId: ownerId,
+            keylessProvider,
+            socialUserIdHash: await accountUtils.hashKeylessSocialUserId({
+              socialUserId,
+            }),
+          },
+        };
+      },
+    );
   }
 
   @backgroundMethod()
@@ -2394,10 +3521,10 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string;
   }): Promise<boolean> {
     const { token } = params;
-    const { backendShareData } = await this.apiGetKeylessBackendShare({
+    const { backendShare } = await this.apiGetKeylessBackendShareMeta({
       token,
     });
-    const isCreated = !!backendShareData?.encryptedMnemonic;
+    const isCreated = backendShare !== '';
     return isCreated;
   }
 
@@ -2589,6 +3716,19 @@ class ServiceKeylessWallet extends ServiceBase {
 
     if (!isSuccess) {
       throw new OneKeyLocalError('Failed to update pin confirm status');
+    }
+  }
+
+  private async updatePinConfirmStatusAfterSuccessfulPin(params: {
+    token: string;
+  }): Promise<boolean> {
+    try {
+      await this.updatePinConfirmStatusMutex.runExclusive(async () => {
+        await this.apiUpdatePinConfirmStatus({ token: params.token });
+      });
+      return true;
+    } catch (_error) {
+      return false;
     }
   }
 
