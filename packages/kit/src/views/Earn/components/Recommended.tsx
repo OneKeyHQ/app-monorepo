@@ -98,7 +98,6 @@ function useRecommendedTokens({
       initResult: { tokens: [], refreshVersion: -1 },
       revalidateOnFocus: true,
       watchLoading: true,
-      alwaysSetState: true,
       overrideIsFocused: (isFocused) => isFocused && enableFetch,
     },
   );
@@ -195,7 +194,6 @@ function useRecommendedTokens({
       },
       revalidateOnFocus: true,
       watchLoading: true,
-      alwaysSetState: shouldFetchAccountRecommendedTokens,
       overrideIsFocused: (isFocused) =>
         isFocused && shouldFetchAccountRecommendedTokens,
     },

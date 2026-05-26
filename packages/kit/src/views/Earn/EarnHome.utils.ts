@@ -5,8 +5,10 @@ export function getEarnFocusState({
   isFocus: boolean;
   isHideByModal: boolean;
 }) {
+  const isVisibleFocus = isFocus && !isHideByModal;
+
   return {
-    isVisibleFocus: isFocus && !isHideByModal,
-    isDataActive: isFocus,
+    isVisibleFocus,
+    isDataActive: isVisibleFocus,
   };
 }
