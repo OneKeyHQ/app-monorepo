@@ -60,6 +60,7 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
+  INetworkDeriveInfo,
 } from '../../vaults/types';
 
 const defaultPinnedNetworkIds = [
@@ -1660,14 +1661,7 @@ class ServiceNetwork extends ServiceBase {
       };
     }
 
-    const networkInfoMap: Record<
-      string,
-      {
-        deriveType: IAccountDeriveTypes;
-        mergeDeriveAssetsEnabled: boolean;
-        suffixToDeriveType: Record<string, string>;
-      }
-    > = {};
+    const networkInfoMap: Record<string, INetworkDeriveInfo> = {};
 
     const formattedAccountNetworkValues: Record<string, string> = {};
     const allAccountValues: Record<string, string> = {};
@@ -1714,9 +1708,11 @@ class ServiceNetwork extends ServiceBase {
       }
       const deriveType: IAccountDeriveTypes =
         accountUtils.normalizeDeriveType(_deriveType) ??
-        (networkInfoMap[networkId]?.suffixToDeriveType?.[
-          (_deriveType ?? '').toLowerCase()
-        ] as IAccountDeriveTypes) ??
+        accountUtils.normalizeDeriveType(
+          networkInfoMap[networkId]?.suffixToDeriveType?.[
+            (_deriveType ?? '').toLowerCase()
+          ] ?? '',
+        ) ??
         'default';
 
       if (
