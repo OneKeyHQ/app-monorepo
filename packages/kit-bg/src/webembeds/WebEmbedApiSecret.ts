@@ -21,6 +21,7 @@ import {
   tonMnemonicToKeyPairFn,
   tonValidateMnemonicFn,
 } from '@onekeyhq/core/src/secret';
+import { clearPbkdf2Cache } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 
 class WebEmbedApiSecret {
   async encryptAsync(
@@ -87,6 +88,10 @@ class WebEmbedApiSecret {
     params: IClearHdCredentialDecryptCacheParams,
   ): Promise<void> {
     await clearHdCredentialDecryptCache(params);
+  }
+
+  async clearPbkdf2Cache(): Promise<void> {
+    clearPbkdf2Cache();
   }
 
   async tonValidateMnemonic(

@@ -1,3 +1,4 @@
+import { clearPbkdf2Cache } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import type { IPbkdf2DispatchBackend } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -437,6 +438,19 @@ async function getHdCredentialSeedBufferWithCache({
     cacheEntry.seedBuffer = seedBuffer;
   }
   return Buffer.from(seedBuffer);
+}
+
+async function clearPbkdf2CacheAsync(): Promise<void> {
+  clearPbkdf2Cache();
+
+  if (
+    platformEnv.isNative &&
+    !platformEnv.isWebEmbed &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
+    await appGlobals.$webembedApiProxy.secret.clearPbkdf2Cache();
+  }
 }
 
 async function clearHdCredentialDecryptCache({
@@ -1249,6 +1263,7 @@ export {
   CKDPriv,
   CKDPub,
   clearHdCredentialDecryptCache,
+  clearPbkdf2CacheAsync,
   compressPublicKey,
   decryptHyperLiquidAgentCredential,
   decryptImportedCredential,

@@ -7,6 +7,7 @@ import type {
 } from '@onekeyhq/core/src/secret';
 import {
   ESecretEncryptPayloadFormat,
+  clearPbkdf2CacheAsync,
   decodePasswordAsync,
   decodeSensitiveTextAsync,
   decryptAsync,
@@ -17,7 +18,6 @@ import {
   getBgSensitiveTextEncodeKey,
   revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
-import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
   backgroundClass,
   backgroundMethod,
@@ -224,7 +224,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async clearCachedPassword() {
     this.cachedPassword = undefined;
-    appCrypto.pbkdf2.clearPbkdf2Cache();
+    void clearPbkdf2CacheAsync();
     // Clear sync credential caches on lock screen (security invariant).
     // For keyless mode, credentials can be re-read from storage without password.
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
@@ -271,7 +271,7 @@ export default class ServicePassword extends ServiceBase {
     const prevPassword = this.cachedPassword;
     ensureSensitiveTextEncoded(password);
     this.cachedPassword = password;
-    appCrypto.pbkdf2.clearPbkdf2Cache();
+    void clearPbkdf2CacheAsync();
     if (this.cachedPasswordTimeOutObject) {
       clearTimeout(this.cachedPasswordTimeOutObject);
     }
