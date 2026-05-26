@@ -258,6 +258,12 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           response,
         }) => {
           if (isShowForceUpdatePreviewPage) return;
+          // Late-hydration race: persist atom may hydrate to `ready` after
+          // we queued this check, in which case the silent-ready watcher
+          // (or seamless install path) is already handling the same target.
+          // Re-downloading here would clobber the ready bundle on disk and
+          // hand the user a half-written file when they confirm install.
+          if (response?.status === EAppUpdateStatus.ready) return;
           const updateStrategy =
             response?.updateStrategy ?? EUpdateStrategy.manual;
           if (needUpdate) {
