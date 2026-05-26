@@ -98,10 +98,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-function selectTopCandidateRpcUrls(
-  rpcUrls: string[],
-  max: number,
-): string[] {
+function selectTopCandidateRpcUrls(rpcUrls: string[], max: number): string[] {
   const candidates = getCandidateRpcUrls(rpcUrls);
   const httpsUrls = candidates.filter((url) => url.startsWith('https://'));
   const httpUrls = candidates.filter((url) => !url.startsWith('https://'));
@@ -579,12 +576,7 @@ function ChainListSearch() {
         </ListItem>
       );
     },
-    [
-      isNetworkExisting,
-      measuringChainId,
-      intl,
-      handleSelectNetwork,
-    ],
+    [isNetworkExisting, measuringChainId, intl, handleSelectNetwork],
   );
 
   const listFooter = useMemo(() => {
