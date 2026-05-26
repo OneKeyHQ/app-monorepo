@@ -2296,6 +2296,7 @@
   "hardware_third_party_transport_error": "হার্ডওয়্যার যোগাযোগ ব্যর্থ হয়েছে। USB কেবল বা Bluetooth পরীক্ষা করে আবার চেষ্টা করুন।",
   "hardware_third_party_transport_not_available": "আপনার ব্রাউজার বা প্ল্যাটফর্ম এই হার্ডওয়্যার ওয়ালেটের সাথে সংযোগ সমর্থন করে না।",
   "hardware_third_party_unknown_error": "অজানা হার্ডওয়্যার ত্রুটি। অনুগ্রহ করে আবার চেষ্টা করুন।",
+  "hardware_third_party_usb_single_device_only_desc": "একবারে কেবল একটি ইউএসবি ডিভাইস সংযুক্ত করা যাবে। অনুগ্রহ করে অন্যান্য ডিভাইসগুলো সংযোগ বিচ্ছিন্ন করে আবার চেষ্টা করুন।",
   "hardware_third_party_user_rejected": "ডিভাইসে অপারেশন প্রত্যাখ্যাত হয়েছে",
   "hardware_third_party_wrong_app": "ডিভাইসে ভুল অ্যাপ খোলা আছে",
   "havent_found_network_desc": "আমরা আপনার প্রাইভেট কী-এর সঙ্গে মেলে এমন কোনো নেটওয়ার্ক খুঁজে পাইনি। অনুগ্রহ করে নিচে ট্যাপ করে একটি নেটওয়ার্ক নির্বাচন করুন।",

@@ -2296,6 +2296,7 @@
   "hardware_third_party_transport_error": "हार्डवेयर संचार विफल हुआ। USB केबल या Bluetooth जांचें और पुनः प्रयास करें।",
   "hardware_third_party_transport_not_available": "आपका ब्राउज़र या प्लेटफ़ॉर्म इस हार्डवेयर वॉलेट से कनेक्ट करने का समर्थन नहीं करता।",
   "hardware_third_party_unknown_error": "अज्ञात हार्डवेयर त्रुटि। कृपया पुनः प्रयास करें।",
+  "hardware_third_party_usb_single_device_only_desc": "एक समय में केवल एक ही USB डिवाइस कनेक्ट किया जा सकता है। कृपया अन्य डिवाइस डिस्कनेक्ट करके दोबारा प्रयास करें।",
   "hardware_third_party_user_rejected": "डिवाइस पर कार्रवाई अस्वीकृत हुई",
   "hardware_third_party_wrong_app": "डिवाइस पर गलत ऐप खुला है",
   "havent_found_network_desc": "हम आपकी प्राइवेट की से मेल खाने वाला कोई नेटवर्क नहीं ढूंढ पाए। कृपया नीचे टैप करके एक नेटवर्क चुनें।",

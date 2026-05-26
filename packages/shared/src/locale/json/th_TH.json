@@ -2296,6 +2296,7 @@
   "hardware_third_party_transport_error": "การสื่อสารกับฮาร์ดแวร์ล้มเหลว โปรดตรวจสอบสาย USB หรือ Bluetooth แล้วลองอีกครั้ง",
   "hardware_third_party_transport_not_available": "เบราว์เซอร์หรือแพลตฟอร์มของคุณไม่รองรับการเชื่อมต่อกับฮาร์ดแวร์วอลเล็ตนี้",
   "hardware_third_party_unknown_error": "เกิดข้อผิดพลาดของฮาร์ดแวร์ที่ไม่รู้จัก โปรดลองอีกครั้ง",
+  "hardware_third_party_usb_single_device_only_desc": "สามารถเชื่อมต่ออุปกรณ์ USB ได้เพียงครั้งละหนึ่งเครื่องเท่านั้น โปรดถอดอุปกรณ์อื่นๆ ออกแล้วลองใหม่อีกครั้ง",
   "hardware_third_party_user_rejected": "การดำเนินการถูกปฏิเสธบนอุปกรณ์",
   "hardware_third_party_wrong_app": "เปิดแอปไม่ถูกต้องบนอุปกรณ์",
   "havent_found_network_desc": "เราไม่พบเครือข่ายใดที่ตรงกับกุญแจส่วนตัวของคุณ โปรดแตะด้านล่างเพื่อเลือกเครือข่าย",
