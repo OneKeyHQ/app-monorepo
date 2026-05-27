@@ -154,7 +154,11 @@ function PerpTradesHistoryList({
   useEffect(() => {
     void actions.current.loadScaleOrderGroups();
     void actions.current.loadTwapData();
-  }, [actions, currentUser?.accountAddress, latestTradeKey, trades.length]);
+  }, [actions, currentUser?.accountAddress]);
+
+  useUpdateEffect(() => {
+    void actions.current.loadScaleOrderGroups();
+  }, [actions, latestTradeKey, trades.length]);
 
   const currentAccountAddress = currentUser?.accountAddress?.toLowerCase();
   const twapSliceFills = useMemo(() => {
