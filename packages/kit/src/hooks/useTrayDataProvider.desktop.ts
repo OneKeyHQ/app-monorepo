@@ -12,6 +12,7 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   useActiveAccountValueAtom,
   useAppIsLockedAtom,
@@ -342,13 +343,7 @@ async function getTrayActiveAccountScope({
 type ITrayEnabledNetworkScope = {
   enabledNetworkIds: string[];
   enabledNetworksCompatibleWithWalletId: Array<{ id: string }>;
-  networkInfoMap: Record<
-    string,
-    {
-      deriveType: string;
-      mergeDeriveAssetsEnabled: boolean;
-    }
-  >;
+  networkInfoMap: Record<string, INetworkDeriveInfo>;
 };
 
 async function getTrayEnabledNetworkScope({
@@ -408,11 +403,20 @@ async function getTrayEnabledNetworkScope({
           networkId: network.id,
         }),
       ]);
+      const suffixToDeriveType: Record<string, string> = {};
+      for (const [dt, info] of Object.entries(
+        vaultSettings.accountDeriveInfo ?? {},
+      )) {
+        if (info.idSuffix) {
+          suffixToDeriveType[info.idSuffix.toLowerCase()] = dt;
+        }
+      }
       return [
         network.id,
         {
           deriveType,
           mergeDeriveAssetsEnabled: !!vaultSettings.mergeDeriveAssetsEnabled,
+          suffixToDeriveType,
         },
       ] as const;
     }),
