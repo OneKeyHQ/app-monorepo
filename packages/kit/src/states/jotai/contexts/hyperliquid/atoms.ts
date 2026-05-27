@@ -20,7 +20,6 @@ import {
   type IConnectionState,
   type IPerpOrderBookTickOptionPersist,
   type IPerpsFormattedAssetCtx,
-  type IScaleOrderGroup,
   type IScaleOrderTif,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -352,18 +351,6 @@ export const {
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveOpenOrdersAtom,
   },
 );
-
-export type IPerpsScaleOrderGroupsAtom = {
-  accountAddress: string | undefined;
-  groups: IScaleOrderGroup[];
-};
-export const {
-  atom: perpsScaleOrderGroupsAtom,
-  use: usePerpsScaleOrderGroupsAtom,
-} = contextAtom<IPerpsScaleOrderGroupsAtom>({
-  accountAddress: undefined,
-  groups: [],
-});
 
 export type IPerpsActiveTwapOrder = {
   twapId: number;

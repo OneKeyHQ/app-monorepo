@@ -16,7 +16,6 @@ import {
   perpsActiveAssetDataAtom,
   perpsActiveOrderBookOptionsAtom,
   perpsDepositOrderAtom,
-  perpsTradesHistoryDataAtom,
   perpsTradingPreferencesAtom,
   spotActiveAssetAtom,
   spotActiveAssetCtxAtom,
@@ -43,12 +42,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import {
-  applyScaleOrderFillsToGroup,
-  getScaleOrderChildFilledSize,
-  getScaleOrderReferencePrice,
-  resolveScaleOrderGroupStatus,
-} from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import { getScaleOrderReferencePrice } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import {
   getPerpsOrderBookTickOptionWithCache,
   getPerpsOrderBookTickOptionsWithCache,
@@ -79,8 +73,6 @@ import {
   ETriggerOrderType,
   type IL2BookOptions,
   type IPerpOrderBookTickOptionPersist,
-  type IScaleOrderChildStatus,
-  type IScaleOrderGroup,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
@@ -98,7 +90,6 @@ import {
   perpsAllMidsAtom,
   perpsLedgerUpdatesAtom,
   perpsOpenOrdersByCoinAtomCache,
-  perpsScaleOrderGroupsAtom,
   perpsTokenSearchAliasesAtom,
   perpsTwapHistoryAtom,
   perpsTwapSliceFillsAtom,
@@ -131,7 +122,6 @@ import type {
   IActiveTradeInstrument,
   IPerpsActiveOpenOrdersAtom,
   IPerpsActiveTwapOrder,
-  IPerpsScaleOrderGroupsAtom,
   ITradeRouteViewState,
   ITradingFormData,
 } from './atoms';
@@ -142,21 +132,11 @@ type IChStateLite = {
 
 type IChPositionLite = HL.IPerpsAssetPosition;
 
-type IFrontendOrderWithCloid = HL.IPerpsFrontendOrder & {
-  cloid?: string | null;
-};
-
 const MAX_LEDGER_UPDATES = 200;
-const SCALE_ORDER_MISSING_OPEN_ORDER_GRACE_MS = 10_000;
 const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_MIN_ORDER_NOTIONAL = 10;
 
-function getFrontendOrderCloid(
-  order: HL.IPerpsFrontendOrder,
-): string | undefined {
-  return (order as IFrontendOrderWithCloid).cloid ?? undefined;
-}
 
 function buildAllDexsAssetCtxsByDex(data: HL.IWsAllDexsAssetCtxs) {
   const incoming = data?.ctxs || [];
@@ -526,132 +506,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   }
 
-  private sortScaleOrderGroups(groups: IScaleOrderGroup[]) {
-    return groups.toSorted((a, b) => b.createdAt - a.createdAt);
-  }
-
-  private reconcileScaleOrderGroupsWithOpenOrders(
-    current: IPerpsScaleOrderGroupsAtom,
-    openOrders: HL.IPerpsFrontendOrder[],
-    accountAddress: string | undefined,
-    fills: HL.IFill[] = [],
-  ): IPerpsScaleOrderGroupsAtom | undefined {
-    const normalizedAccount = accountAddress?.toLowerCase();
-    if (
-      !normalizedAccount ||
-      current.accountAddress?.toLowerCase() !== normalizedAccount ||
-      current.groups.length === 0
-    ) {
-      return undefined;
-    }
-
-    const openOrderByOid = new Map<number, HL.IPerpsFrontendOrder>();
-    const openOrderByCloid = new Map<string, HL.IPerpsFrontendOrder>();
-    openOrders.forEach((order) => {
-      openOrderByOid.set(order.oid, order);
-      const cloid = getFrontendOrderCloid(order);
-      if (cloid) {
-        openOrderByCloid.set(cloid, order);
-      }
-    });
-
-    const now = Date.now();
-    let hasChanges = false;
-    const groups = current.groups.map((rawGroup) => {
-      const fillApplied = applyScaleOrderFillsToGroup({
-        group: rawGroup,
-        fills,
-      });
-      const group = fillApplied.group;
-      let groupChanged = fillApplied.changed;
-      const children = group.children.map((child) => {
-        const openOrder =
-          openOrderByCloid.get(child.cloid) ??
-          (child.oid ? openOrderByOid.get(child.oid) : undefined);
-        if (openOrder) {
-          const filledSize = getScaleOrderChildFilledSize(child);
-          let nextStatus: IScaleOrderChildStatus = 'resting';
-          if (child.status === 'filled') {
-            nextStatus = 'filled';
-          } else if (filledSize.gt(0)) {
-            nextStatus = 'partiallyFilled';
-          }
-          if (child.status === nextStatus && child.oid === openOrder.oid) {
-            return child;
-          }
-          groupChanged = true;
-          return {
-            ...child,
-            oid: openOrder.oid,
-            status: nextStatus,
-          };
-        }
-
-        if (
-          child.oid &&
-          (child.status === 'resting' || child.status === 'partiallyFilled')
-        ) {
-          if (now - group.updatedAt < SCALE_ORDER_MISSING_OPEN_ORDER_GRACE_MS) {
-            return child;
-          }
-          const filledSize = getScaleOrderChildFilledSize(child);
-          const childSize = new BigNumber(child.size);
-          const nextStatus: IScaleOrderChildStatus =
-            childSize.gt(0) && filledSize.gte(childSize)
-              ? 'filled'
-              : 'canceled';
-          groupChanged = true;
-          return {
-            ...child,
-            status: nextStatus,
-          };
-        }
-
-        return child;
-      });
-
-      if (!groupChanged) {
-        return group;
-      }
-      hasChanges = true;
-      const nextGroup: IScaleOrderGroup = {
-        ...group,
-        children,
-        status: resolveScaleOrderGroupStatus(children),
-        updatedAt: now,
-      };
-      void backgroundApiProxy.simpleDb.perp.saveScaleOrderGroup(nextGroup);
-      return nextGroup;
-    });
-
-    if (!hasChanges) {
-      return undefined;
-    }
-
-    return {
-      accountAddress: normalizedAccount,
-      groups: this.sortScaleOrderGroups(groups),
-    };
-  }
-
-  private mergeScaleOrderGroup(
-    current: IPerpsScaleOrderGroupsAtom,
-    group: IScaleOrderGroup,
-  ): IPerpsScaleOrderGroupsAtom {
-    const accountAddress = group.accountAddress.toLowerCase();
-    const baseGroups =
-      current.accountAddress?.toLowerCase() === accountAddress
-        ? current.groups
-        : [];
-    const merged = new Map<string, IScaleOrderGroup>();
-    baseGroups.forEach((item) => merged.set(item.id, item));
-    merged.set(group.id, group);
-    return {
-      accountAddress,
-      groups: this.sortScaleOrderGroups(Array.from(merged.values())),
-    };
-  }
-
   updateAllMids = contextAtomMethod((_, set, data: HL.IWsAllMids) => {
     markPerpsColdStartPerfOnce('atom_set_all_mids_first', {
       midsCount: Object.keys(data?.mids ?? {}).length,
@@ -790,22 +644,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           openOrders: perpOrders,
           openOrdersByCoin,
         });
-        const tradesHistoryData = await perpsTradesHistoryDataAtom.get();
-        const scaleFills =
-          normalizePerpsAccountAddress(tradesHistoryData.accountAddress) ===
-          activeAccountAddress
-            ? tradesHistoryData.fills
-            : [];
-        const reconciledScaleGroups =
-          this.reconcileScaleOrderGroupsWithOpenOrders(
-            get(perpsScaleOrderGroupsAtom()),
-            perpOrders,
-            activeAccountAddress,
-            scaleFills,
-          );
-        if (reconciledScaleGroups) {
-          set(perpsScaleOrderGroupsAtom(), reconciledScaleGroups);
-        }
         void spotActiveOpenOrdersAtom.set({
           accountAddress: activeAccountAddress,
           openOrders: spotOrders,
@@ -834,6 +672,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           twapOrdersByCoin: buildTwapOrdersByCoinMap(twapOrders),
         });
       }
+
     } else {
       if (!activeAccountAddress) {
         return;
@@ -1012,21 +851,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         openOrders: perpOrders,
         openOrdersByCoin,
       });
-      const tradesHistoryData = await perpsTradesHistoryDataAtom.get();
-      const scaleFills =
-        tradesHistoryData.accountAddress?.toLowerCase() === activeAccountAddress
-          ? tradesHistoryData.fills
-          : [];
-      const reconciledScaleGroups =
-        this.reconcileScaleOrderGroupsWithOpenOrders(
-          get(perpsScaleOrderGroupsAtom()),
-          perpOrders,
-          activeAccountAddress,
-          scaleFills,
-        );
-      if (reconciledScaleGroups) {
-        set(perpsScaleOrderGroupsAtom(), reconciledScaleGroups);
-      }
       void spotActiveOpenOrdersAtom.set({
         accountAddress: activeAccountAddress,
         openOrders: spotOrders,
@@ -1943,7 +1767,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           this.clearActiveAccountTransientData();
         }
       }
-      await this.loadScaleOrderGroups.call(set);
+
       await this.loadTwapData.call(set);
       return account;
     },
@@ -2036,52 +1860,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       console.error('Failed to enable trading:', error);
       return { success: false };
     }
-  });
-
-  loadScaleOrderGroups = contextAtomMethod(async (_get, set) => {
-    const activeAccount = await perpsActiveAccountAtom.get();
-    const accountAddress = activeAccount?.accountAddress?.toLowerCase();
-    if (!accountAddress) {
-      set(perpsScaleOrderGroupsAtom(), {
-        accountAddress: undefined,
-        groups: [],
-      });
-      return;
-    }
-    const groups =
-      await backgroundApiProxy.simpleDb.perp.getScaleOrderGroups(
-        accountAddress,
-      );
-    const tradesHistoryData = await perpsTradesHistoryDataAtom.get();
-    const scaleFills =
-      tradesHistoryData.accountAddress?.toLowerCase() === accountAddress
-        ? tradesHistoryData.fills
-        : [];
-    const changedGroups: IScaleOrderGroup[] = [];
-    const nextGroups =
-      scaleFills.length > 0
-        ? groups.map((group) => {
-            const result = applyScaleOrderFillsToGroup({
-              group,
-              fills: scaleFills,
-            });
-            if (result.changed) {
-              changedGroups.push(result.group);
-            }
-            return result.group;
-          })
-        : groups;
-    if (changedGroups.length > 0) {
-      await Promise.all(
-        changedGroups.map((group) =>
-          backgroundApiProxy.simpleDb.perp.saveScaleOrderGroup(group),
-        ),
-      );
-    }
-    set(perpsScaleOrderGroupsAtom(), {
-      accountAddress,
-      groups: this.sortScaleOrderGroups(nextGroups),
-    });
   });
 
   loadTwapData = contextAtomMethod(async (get, set) => {
@@ -2209,15 +1987,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     });
   });
 
-  upsertScaleOrderGroupToAtom = contextAtomMethod(
-    (get, set, group: IScaleOrderGroup) => {
-      set(
-        perpsScaleOrderGroupsAtom(),
-        this.mergeScaleOrderGroup(get(perpsScaleOrderGroupsAtom()), group),
-      );
-    },
-  );
-
   clearActiveAssetData = contextAtomMethod(async (get, set) => {
     const activeInstrument = get(activeTradeInstrumentAtom());
     const currentBook = get(l2BookAtom());
@@ -2265,10 +2034,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       accountAddress: undefined,
       openOrders: [],
       openOrdersByCoin: {},
-    });
-    set(perpsScaleOrderGroupsAtom(), {
-      accountAddress: undefined,
-      groups: [],
     });
     set(perpsActiveTwapOrdersAtom(), {
       accountAddress: undefined,
@@ -2323,10 +2088,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       accountAddress: undefined,
       updates: [],
       isLoaded: false,
-    });
-    set(perpsScaleOrderGroupsAtom(), {
-      accountAddress: undefined,
-      groups: [],
     });
     set(perpsActiveTwapOrdersAtom(), {
       accountAddress: undefined,
@@ -2714,11 +2475,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                   szDecimals: activeAssetValue?.universe?.szDecimals,
                 },
               );
-            this.upsertScaleOrderGroupToAtom.call(set, result.group);
             return result;
-          } catch (error) {
-            await this.loadScaleOrderGroups.call(set);
-            throw error;
           } finally {
             set(tradingLoadingAtom(), false);
           }
@@ -3220,52 +2977,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  cancelScaleOrderGroup = contextAtomMethod(
-    async (
-      get,
-      set,
-      params: {
-        groupId: string;
-        orders: Array<{
-          assetId: number;
-          oid: number;
-        }>;
-      },
-    ) => {
-      if (params.orders.length === 0) {
-        return undefined;
-      }
-
-      const result = await this.cancelOrder.call(set, {
-        orders: params.orders,
-      });
-
-      const current = get(perpsScaleOrderGroupsAtom());
-      const group = current.groups.find((item) => item.id === params.groupId);
-      if (!group) {
-        return result;
-      }
-      const canceledOrderIds = new Set(params.orders.map((order) => order.oid));
-      const children = group.children.map((child) =>
-        child.oid && canceledOrderIds.has(child.oid)
-          ? {
-              ...child,
-              status: 'canceled' as const,
-            }
-          : child,
-      );
-      const nextGroup: IScaleOrderGroup = {
-        ...group,
-        children,
-        status: resolveScaleOrderGroupStatus(children),
-        updatedAt: Date.now(),
-      };
-      await backgroundApiProxy.simpleDb.perp.saveScaleOrderGroup(nextGroup);
-      this.upsertScaleOrderGroupToAtom.call(set, nextGroup);
-      return result;
-    },
-  );
-
   setPositionTpsl = contextAtomMethod(
     async (
       get,
@@ -3587,9 +3298,7 @@ export function useHyperliquidActions() {
   const enableTrading = actions.enableTrading.use();
 
   const clearAllData = actions.clearAllData.use();
-  const loadScaleOrderGroups = actions.loadScaleOrderGroups.use();
   const loadTwapData = actions.loadTwapData.use();
-  const upsertScaleOrderGroupToAtom = actions.upsertScaleOrderGroupToAtom.use();
 
   const updateTradingForm = actions.updateTradingForm.use();
   const resetTradingForm = actions.resetTradingForm.use();
@@ -3609,7 +3318,6 @@ export function useHyperliquidActions() {
   const cancelChartOrder = actions.cancelChartOrder.use();
   const cancelOrder = actions.cancelOrder.use();
   const cancelTwapOrder = actions.cancelTwapOrder.use();
-  const cancelScaleOrderGroup = actions.cancelScaleOrderGroup.use();
   const setPositionTpsl = actions.setPositionTpsl.use();
   const withdraw = actions.withdraw.use();
   const closeAllPositions = actions.closeAllPositions.use();
@@ -3663,9 +3371,7 @@ export function useHyperliquidActions() {
     reconnectSubscriptions,
     enableTrading,
     clearAllData,
-    loadScaleOrderGroups,
     loadTwapData,
-    upsertScaleOrderGroupToAtom,
 
     updateTradingForm,
     resetTradingForm,
@@ -3685,7 +3391,6 @@ export function useHyperliquidActions() {
     cancelChartOrder,
     cancelOrder,
     cancelTwapOrder,
-    cancelScaleOrderGroup,
     setPositionTpsl,
     withdraw,
     closeAllPositions,

@@ -28,10 +28,6 @@ import {
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type {
-  IScaleOrderChild,
-  IScaleOrderGroup,
-} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   calcCellAlign,
@@ -58,10 +54,6 @@ export type ITradesHistoryRowProps = {
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
   builderFeeRate?: number;
-  scaleInfo?: {
-    group: IScaleOrderGroup;
-    child: IScaleOrderChild;
-  };
   twapId?: number;
 };
 
@@ -77,7 +69,6 @@ const TradesHistoryRow = memo(
     isHovered,
     onHoverChange,
     builderFeeRate,
-    scaleInfo,
     twapId,
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
@@ -273,11 +264,6 @@ const TradesHistoryRow = memo(
                 >
                   {directionInfo.directionStr}
                 </SizableText>
-                {scaleInfo ? (
-                  <Badge badgeType="info" badgeSize="sm">
-                    {`Scale #${scaleInfo.child.index + 1}`}
-                  </Badge>
-                ) : null}
                 {twapId !== undefined ? (
                   <Badge badgeType="info" badgeSize="sm">
                     {`TWAP #${twapId}`}
@@ -456,11 +442,6 @@ const TradesHistoryRow = memo(
                 >
                   {directionInfo.directionStr}
                 </SizableText>
-                {scaleInfo ? (
-                  <Badge badgeType="info" badgeSize="sm">
-                    {`Scale #${scaleInfo.child.index + 1}`}
-                  </Badge>
-                ) : null}
                 {twapId !== undefined ? (
                   <Badge badgeType="info" badgeSize="sm">
                     {`TWAP #${twapId}`}
