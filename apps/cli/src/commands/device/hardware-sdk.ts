@@ -11,10 +11,24 @@ import { AppError, ERROR_CODES } from '../../errors';
 import type { PassphraseMode } from '../../core/auth/auth-types';
 import type { CoreApi, GetPassphraseStatePayload } from '@onekeyfe/hd-core';
 
+export type IResolvedPassphraseSession = {
+  passphraseState?: string;
+  sessionId?: string;
+};
+
+export function extractPassphraseSessionFromPayload(
+  payload: GetPassphraseStatePayload | undefined,
+): IResolvedPassphraseSession {
+  return {
+    passphraseState: payload?.passphrase_state || undefined,
+    sessionId: payload?.session_id || undefined,
+  };
+}
+
 export function extractPassphraseStateFromPayload(
   payload: GetPassphraseStatePayload | undefined,
 ): string | undefined {
-  return payload?.passphrase_state || undefined;
+  return extractPassphraseSessionFromPayload(payload).passphraseState;
 }
 
 /**
@@ -351,19 +365,19 @@ export async function searchDevice(opts?: { deviceIdHint?: string }): Promise<{
 }
 
 /**
- * Obtain a passphraseState session token from the device.
+ * Obtain a passphrase session token pair from the device.
  *
  * Matches the app-monorepo pattern (ServiceHardware.getPassphraseStateBase):
  * - Calls sdk.getPassphraseState with initSession=true so the device
  *   prompts for passphrase entry (host input or on-device input).
- * - Returns the session token that must be passed in all subsequent
- *   SDK calls for this hidden wallet (replaces re-sending the passphrase).
- * - Returns undefined for standard wallets (no passphrase).
+ * - Returns passphrase_state for subsequent SDK calls and session_id for
+ *   SDK session cache/keychain reuse.
+ * - Returns an empty object for standard wallets (no passphrase).
  */
-export async function resolvePassphraseState(
+export async function resolvePassphraseSession(
   connectId: string,
   opts: { passphrase?: string; passphraseOnDevice?: boolean },
-): Promise<string | undefined> {
+): Promise<IResolvedPassphraseSession> {
   // BIP-39 treats an empty-string passphrase as a distinct hidden wallet
   // from the standard (no-passphrase) wallet. A falsy check would silently
   // map `{ passphrase: '' }` onto the standard wallet and derive the wrong
@@ -377,7 +391,7 @@ export async function resolvePassphraseState(
     );
   }
   if (opts.passphrase === undefined && !opts.passphraseOnDevice) {
-    return undefined; // standard wallet — no passphrase needed
+    return {}; // standard wallet — no passphrase needed
   }
 
   const sdk = await ensureSDKReady();
@@ -403,16 +417,24 @@ export async function resolvePassphraseState(
         'Check device connection and passphrase, then retry',
       );
     }
-    return extractPassphraseStateFromPayload(result.payload);
+    return extractPassphraseSessionFromPayload(result.payload);
   } finally {
     setPassphraseProvider(undefined);
   }
 }
 
+export async function resolvePassphraseState(
+  connectId: string,
+  opts: { passphrase?: string; passphraseOnDevice?: boolean },
+): Promise<string | undefined> {
+  const session = await resolvePassphraseSession(connectId, opts);
+  return session.passphraseState;
+}
+
 /**
- * Resolve passphraseState based on session mode.
+ * Resolve passphrase session based on session mode.
  *
- * Unlike resolvePassphraseState(), this function does NOT require the
+ * Unlike resolvePassphraseSession(), this function does NOT require the
  * passphrase value upfront. Instead, it sets up a lazy provider:
  *
  * - 'none': standard wallet → useEmptyPassphrase, no prompt ever
@@ -423,14 +445,15 @@ export async function resolvePassphraseState(
  *   provider tells device to show passphrase input on its screen.
  *
  * SECURITY: passphrase exists only in memory during provider callback.
- * passphraseState is returned in memory, never persisted to disk.
+ * passphraseState/session_id are returned in memory; persistence is handled
+ * by the caller only after the downstream operation succeeds.
  */
-export async function resolvePassphraseStateByMode(
+export async function resolvePassphraseSessionByMode(
   connectId: string,
   mode: PassphraseMode,
-): Promise<string | undefined> {
+): Promise<IResolvedPassphraseSession> {
   if (mode === 'none') {
-    return undefined;
+    return {};
   }
 
   const sdk = await ensureSDKReady();
@@ -464,12 +487,20 @@ export async function resolvePassphraseStateByMode(
         'Check device connection and passphrase, then retry',
       );
     }
-    return extractPassphraseStateFromPayload(result.payload);
+    return extractPassphraseSessionFromPayload(result.payload);
   } finally {
     // Don't clear provider here — keep it active for subsequent SDK calls.
     // The SDK fires REQUEST_PASSPHRASE on every new USB connection, so the
     // provider must remain installed for the process lifetime.
   }
+}
+
+export async function resolvePassphraseStateByMode(
+  connectId: string,
+  mode: PassphraseMode,
+): Promise<string | undefined> {
+  const session = await resolvePassphraseSessionByMode(connectId, mode);
+  return session.passphraseState;
 }
 
 /**

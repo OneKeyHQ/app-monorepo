@@ -13,7 +13,7 @@ import { promptPassphraseViaPinentry } from '../../utils/pinentry';
 import {
   CoreSDKLoader,
   ensureSDKReady,
-  resolvePassphraseState,
+  resolvePassphraseSession,
   searchDevice,
   unwrapSDKResult,
 } from '../device/hardware-sdk';
@@ -253,20 +253,25 @@ export async function executeHardwareLoginCommand({
     );
   }
 
-  // Step 3: Resolve passphraseState in memory (never persisted)
+  // Step 3: Resolve passphrase session in memory (never persisted)
+  let resolvedSessionId: string | undefined;
   if (passphraseMode === PASSPHRASE_MODE_ON_HOST) {
     // Use pinentry for secure passphrase input — no terminal echo, no shell history
     const passphrase = await promptPassphraseViaPinentry();
     output.info('Resolving passphrase state on device...');
-    passphraseState = await resolvePassphraseState(connectId, {
+    const session = await resolvePassphraseSession(connectId, {
       passphrase,
     });
+    passphraseState = session.passphraseState;
+    resolvedSessionId = session.sessionId;
     // passphrase string is now eligible for GC — we only keep passphraseState in memory
   } else if (passphraseMode === PASSPHRASE_MODE_ON_DEVICE) {
     output.info('Please enter passphrase on device screen...');
-    passphraseState = await resolvePassphraseState(connectId, {
+    const session = await resolvePassphraseSession(connectId, {
       passphraseOnDevice: true,
     });
+    passphraseState = session.passphraseState;
+    resolvedSessionId = session.sessionId;
   }
   // passphraseMode === PASSPHRASE_MODE_NONE → no passphrase needed
 
@@ -283,25 +288,25 @@ export async function executeHardwareLoginCommand({
   // Keychain persistence is deferred to Step 7 (after session.json is
   // saved) so a failure in getAddress or session write doesn't leave
   // orphaned keychain entries.
-  let resolvedSessionId: string | undefined;
   if (passphraseState) {
-    // Get session_id from device features (set by resolvePassphraseState).
-    // Match by the `connectId` captured in Step 1 — never `refreshedDevices[0]`,
-    // which would write another device's session into this login's keychain
-    // when multiple OneKeys are plugged in.
-    const refreshResult = await sdk.searchDevices();
-    const refreshedDevices = unwrapSDKResult(
-      refreshResult,
-      'searchDevices',
-    ) as Array<{
-      connectId?: string;
-      features?: { session_id?: string; device_id?: string };
-    }>;
-    const targetDevice = refreshedDevices.find(
-      (d) => d.connectId === connectId,
-    );
-    resolvedSessionId = targetDevice?.features?.session_id;
-    const resolvedDeviceId = targetDevice?.features?.device_id || deviceId;
+    let resolvedDeviceId = deviceId;
+    if (!resolvedSessionId) {
+      // Backward-compatible fallback for SDK builds that only expose the
+      // passphrase state string: refresh devices and match by connectId.
+      const refreshResult = await sdk.searchDevices();
+      const refreshedDevices = unwrapSDKResult(
+        refreshResult,
+        'searchDevices',
+      ) as Array<{
+        connectId?: string;
+        features?: { session_id?: string; device_id?: string };
+      }>;
+      const targetDevice = refreshedDevices.find(
+        (d) => d.connectId === connectId,
+      );
+      resolvedSessionId = targetDevice?.features?.session_id;
+      resolvedDeviceId = targetDevice?.features?.device_id || deviceId;
+    }
     if (resolvedSessionId) {
       // In-memory only — no keychain write yet
       try {

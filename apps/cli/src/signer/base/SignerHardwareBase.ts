@@ -8,7 +8,7 @@ import {
   CoreSDKLoader,
   ensureSDKReady,
   installPassphraseProvider,
-  resolvePassphraseStateByMode,
+  resolvePassphraseSessionByMode,
 } from '../../commands/device/hardware-sdk';
 import { PASSPHRASE_MODE_NONE } from '../../core/auth/auth-types';
 import { AppError, ERROR_CODES } from '../../errors';
@@ -31,7 +31,7 @@ import type { CoreApi } from '@onekeyfe/hd-core';
 export interface ISignerHardwareDeps {
   ensureSDKReady: typeof ensureSDKReady;
   installPassphraseProvider: typeof installPassphraseProvider;
-  resolvePassphraseStateByMode: typeof resolvePassphraseStateByMode;
+  resolvePassphraseSessionByMode: typeof resolvePassphraseSessionByMode;
   keychainFactory: () => {
     get(key: string): Promise<Buffer | null>;
     set(key: string, value: Buffer): Promise<void>;
@@ -55,7 +55,7 @@ export function createDefaultSignerHardwareDeps(): ISignerHardwareDeps {
   return {
     ensureSDKReady,
     installPassphraseProvider,
-    resolvePassphraseStateByMode,
+    resolvePassphraseSessionByMode,
     keychainFactory: () => new KeychainStorage(),
     preloadSessionCache: async (deviceId, passphraseState, sessionId) => {
       const { preloadSessionCache } = await CoreSDKLoader();
@@ -168,15 +168,15 @@ export abstract class SignerHardwareBase implements ISigner {
       return fromKeychain;
     }
 
-    const fresh = await this.deps.resolvePassphraseStateByMode(
+    const fresh = await this.deps.resolvePassphraseSessionByMode(
       this.device.connectId,
       this.passphraseMode,
     );
-    if (fresh) {
-      this.cachedPassphraseState = fresh;
-      await this.persistPassphraseState(fresh);
+    if (fresh.passphraseState) {
+      this.cachedPassphraseState = fresh.passphraseState;
+      await this.persistPassphraseState(fresh.passphraseState, fresh.sessionId);
     }
-    return fresh || undefined;
+    return fresh.passphraseState || undefined;
   }
 
   private async readPassphraseStateFromKeychain(): Promise<string | undefined> {
@@ -198,22 +198,25 @@ export abstract class SignerHardwareBase implements ISigner {
   // session-id, which is now invalid on the device. We must refresh BOTH
   // keys atomically — persistKeychainSessionPair enforces this invariant.
   // Mirrors hardware-login-command.ts' post-resolve persistence step.
-  private async persistPassphraseState(state: string): Promise<void> {
+  private async persistPassphraseState(
+    state: string,
+    resolvedSessionId?: string,
+  ): Promise<void> {
     try {
-      const sdk = await this.deps.ensureSDKReady();
-      const search = await sdk.searchDevices();
-      if (!search?.success) return;
-      const devices = search.payload as Array<{
-        deviceId?: string | null;
-        features?: { device_id?: string; session_id?: string };
-      }>;
-      // Match on the stable deviceId (device UUID) rather than connectId —
-      // USB connectId is a per-session transport handle that may be reassigned
-      // across CLI invocations, so connectId-based matching breaks session
-      // reuse after a process restart. Mirrors the app-monorepo strategy of
-      // `localDb.getDeviceByQuery({ featuresDeviceId })`.
-      const match = devices.find((d) => d.deviceId === this.device.deviceId);
-      const sessionId = match?.features?.session_id;
+      let sessionId = resolvedSessionId;
+      if (!sessionId) {
+        const sdk = await this.deps.ensureSDKReady();
+        const search = await sdk.searchDevices();
+        if (!search?.success) return;
+        const devices = search.payload as Array<{
+          deviceId?: string | null;
+          features?: { device_id?: string; session_id?: string };
+        }>;
+        // Backward-compatible fallback for SDK builds that do not return
+        // session_id directly from getPassphraseState.
+        const match = devices.find((d) => d.deviceId === this.device.deviceId);
+        sessionId = match?.features?.session_id;
+      }
       if (!sessionId) return;
 
       // Write both keys as a pair — never one without the other.

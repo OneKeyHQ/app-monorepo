@@ -2,6 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
   createQueuedHardwareSDK,
+  extractPassphraseSessionFromPayload,
   extractPassphraseStateFromPayload,
 } from '../commands/device/hardware-sdk';
 
@@ -129,13 +130,16 @@ describe('createQueuedHardwareSDK', () => {
 
 describe('extractPassphraseStateFromPayload', () => {
   it('reads passphrase_state from the unified SDK payload', () => {
-    expect(
-      extractPassphraseStateFromPayload({
-        passphrase_state: 'state-1',
-        session_id: 'session-1',
-        unlocked_attach_pin: false,
-        passphrase_protection: true,
-      }),
-    ).toBe('state-1');
+    const payload = {
+      passphrase_state: 'state-1',
+      session_id: 'session-1',
+      unlocked_attach_pin: false,
+      passphrase_protection: true,
+    };
+    expect(extractPassphraseStateFromPayload(payload)).toBe('state-1');
+    expect(extractPassphraseSessionFromPayload(payload)).toEqual({
+      passphraseState: 'state-1',
+      sessionId: 'session-1',
+    });
   });
 });

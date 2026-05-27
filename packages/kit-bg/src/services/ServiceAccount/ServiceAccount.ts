@@ -3356,12 +3356,20 @@ class ServiceAccount extends ServiceBase {
         }
 
         // TODO save remember states
-        const features = await this.backgroundApi.serviceHardware.getFeatures({
-          connectId: compatibleConnectId,
-        });
+        const deviceInfo =
+          await this.backgroundApi.serviceHardware.getDeviceInfo({
+            connectId: compatibleConnectId,
+            params: {
+              scope: 'basic',
+              refresh: true,
+              includeRaw: true,
+            },
+          });
+        const features =
+          deviceInfo.raw?.features || dbDevice.featuresInfo || ({} as any);
         const dbWallet = await this.createHWWalletBase({
           device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
-          features: features || dbDevice.featuresInfo || ({} as any),
+          features,
           passphraseState,
           fillingXfpByCallingSdk: true,
         });

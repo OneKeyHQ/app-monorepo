@@ -130,6 +130,13 @@ import type {
   UnifiedDeviceInfo,
 } from '@onekeyfe/hd-core';
 
+const DEVICE_PIN_ON_DEVICE_TYPES = new Set<IDeviceType>([
+  EDeviceType.Touch,
+  EDeviceType.Pro,
+  EDeviceType.Pro2,
+]);
+const SKIP_APP_FIRMWARE_UPDATE_EVENT = true;
+
 export type IDeviceGetFeaturesOptions = {
   connectId: string | undefined;
   vendor?: EHardwareVendor;
@@ -579,13 +586,19 @@ class ServiceHardware extends ServiceBase {
     // Handler Request Pin
     // If the user set is to enter pin on the device, change the event to enter pin on the hardware
     if (originEvent.type === EHardwareUiStateAction.REQUEST_PIN) {
+      const { device, type } = originEvent.payload || {};
+      const { features } = device || {};
       const dbDevice = await localDb.getDeviceByQuery({
         connectId: newPayload.connectId,
       });
+      const payloadDeviceType = features
+        ? await deviceUtils.getDeviceTypeFromFeatures({ features })
+        : undefined;
+      const requestDeviceType = dbDevice?.deviceType || payloadDeviceType;
 
       if (
-        dbDevice?.deviceType &&
-        [EDeviceType.Touch, EDeviceType.Pro].includes(dbDevice?.deviceType)
+        requestDeviceType &&
+        DEVICE_PIN_ON_DEVICE_TYPES.has(requestDeviceType)
       ) {
         newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
         if (
@@ -600,9 +613,6 @@ class ServiceHardware extends ServiceBase {
           newPayload.requestPinType = 'AttachPin';
         }
       } else {
-        const { device, type } = originEvent.payload || {};
-        const { features } = device || {};
-
         const inputPinOnSoftware = supportInputPinOnSoftwareSdk(features);
         const supportInputPinOnSoftware =
           dbDevice?.settings?.inputPinOnSoftware !== false &&
@@ -795,6 +805,10 @@ class ServiceHardware extends ServiceBase {
       // TODO how to emit this event?
       // call getFeatures() or checkFirmwareRelease();
       instance.on(FIRMWARE_EVENT, (messages: CoreMessage) => {
+        if (SKIP_APP_FIRMWARE_UPDATE_EVENT) {
+          return;
+        }
+
         if (messages.type === FIRMWARE.RELEASE_INFO) {
           const payload: IFirmwareReleasePayload = {
             ...messages.payload,

@@ -120,6 +120,8 @@ interface IFirmwareUpdateResult {
   bootloaderVersion?: string;
 }
 
+const SKIP_APP_FIRMWARE_UPDATE_CHECK = true;
+
 @backgroundClass()
 class ServiceFirmwareUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -298,6 +300,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }: {
     connectId: string;
   }) {
+    if (SKIP_APP_FIRMWARE_UPDATE_CHECK) {
+      return;
+    }
+
     // detect certain account device firmware update, so connectId is required
     if (!connectId) {
       return;
@@ -374,6 +380,47 @@ class ServiceFirmwareUpdate extends ServiceBase {
     skipCancel?: boolean;
     baseReleaseInfoCache?: AllFirmwareRelease;
   }): Promise<ICheckAllFirmwareReleaseResult> {
+    if (SKIP_APP_FIRMWARE_UPDATE_CHECK) {
+      const features = baseReleaseInfoCache?.features;
+      const deviceType = features
+        ? await deviceUtils.getDeviceTypeFromFeatures({ features })
+        : undefined;
+      const deviceName = features
+        ? await deviceUtils.buildDeviceName({ features })
+        : undefined;
+      const deviceBleName = features
+        ? deviceUtils.buildDeviceBleName({ features })
+        : undefined;
+
+      await firmwareUpdateStepInfoAtom.set({
+        step: EFirmwareUpdateSteps.init,
+        payload: undefined,
+      });
+      await firmwareUpdateRetryAtom.set(undefined);
+      if (connectId) {
+        await this.detectMap.deleteUpdateInfo({ connectId });
+      }
+
+      return {
+        updatingConnectId: connectId,
+        originalConnectId: connectId,
+        features,
+        deviceType,
+        deviceName,
+        deviceBleName,
+        deviceUUID: '',
+        hasUpgrade: false,
+        isBootloaderMode: false,
+        updateInfos: {
+          firmware: undefined,
+          ble: undefined,
+          bootloader: undefined,
+          bridge: undefined,
+        },
+        totalPhase: [],
+      };
+    }
+
     const { getDeviceUUID } = await CoreSDKLoader();
 
     const releaseInfoCache = this._checkCacheMeetExpectations({
@@ -968,6 +1015,21 @@ class ServiceFirmwareUpdate extends ServiceBase {
     payload: IFirmwareReleasePayload,
     saveUpdateInfo = true,
   ): Promise<IFirmwareUpdateInfo> {
+    if (SKIP_APP_FIRMWARE_UPDATE_CHECK) {
+      return {
+        connectId: payload.connectId,
+        hasUpgrade: false,
+        hasUpgradeForce: false,
+        fromVersion: '',
+        fromFirmwareType: undefined,
+        toVersion: this.arrayVersionToString(payload?.release?.version),
+        toFirmwareType: payload.release?.firmwareType,
+        releasePayload: payload,
+        changelog: payload.release?.changelog,
+        firmwareType: 'firmware',
+      };
+    }
+
     serviceHardwareUtils.hardwareLog('_checkFirmwareUpdate', payload);
     if (!payload?.features) {
       throw new OneKeyLocalError(
@@ -1023,7 +1085,24 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setBleFirmwareUpdateInfo(payload: IBleFirmwareReleasePayload) {
+  async setBleFirmwareUpdateInfo(
+    payload: IBleFirmwareReleasePayload,
+  ): Promise<IBleFirmwareUpdateInfo> {
+    if (SKIP_APP_FIRMWARE_UPDATE_CHECK) {
+      return {
+        connectId: payload.connectId,
+        hasUpgrade: false,
+        hasUpgradeForce: false,
+        fromVersion: '',
+        fromFirmwareType: undefined,
+        toVersion: this.arrayVersionToString(payload?.release?.version),
+        toFirmwareType: undefined,
+        releasePayload: payload,
+        changelog: payload.release?.changelog,
+        firmwareType: 'ble',
+      };
+    }
+
     serviceHardwareUtils.hardwareLog('showBleFirmwareReleaseInfo', payload);
     if (!payload.features) {
       throw new OneKeyLocalError(

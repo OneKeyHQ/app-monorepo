@@ -574,6 +574,7 @@ export function EnterPinOnDevice({
       case EDeviceType.Touch:
         return import('@onekeyhq/kit/assets/animations/enter-pin-on-touch.json');
       case EDeviceType.Pro:
+      case EDeviceType.Pro2:
         return import('@onekeyhq/kit/assets/animations/enter-pin-on-pro-dark.json');
       default:
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations

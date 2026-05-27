@@ -103,8 +103,8 @@ function makeDeps(overrides: { sdk?: Partial<CoreApi> } = {}): {
       async () => sdk,
     ) as unknown as ISignerHardwareDeps['ensureSDKReady'],
     installPassphraseProvider,
-    resolvePassphraseStateByMode:
-      jest.fn() as unknown as ISignerHardwareDeps['resolvePassphraseStateByMode'],
+    resolvePassphraseSessionByMode:
+      jest.fn() as unknown as ISignerHardwareDeps['resolvePassphraseSessionByMode'],
     keychainFactory: () => ({
       get: jest.fn(async () => null),
       set: jest.fn(async () => undefined),

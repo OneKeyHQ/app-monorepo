@@ -7,7 +7,7 @@ jest.mock('../commands/device/hardware-sdk', () => ({
   __testMocks: {
     mockSearchDevice: jest.fn(),
     mockEnsureSDKReady: jest.fn(),
-    mockResolvePassphraseState: jest.fn(),
+    mockResolvePassphraseSession: jest.fn(),
     mockUnwrapSDKResult: jest.fn(
       <T>(result: { success: boolean; payload: T }): T => {
         return result.payload;
@@ -22,10 +22,13 @@ jest.mock('../commands/device/hardware-sdk', () => ({
       .__testMocks as IHardwareSdkTestMocks;
     return mocks.mockEnsureSDKReady(...args) as Promise<unknown>;
   },
-  resolvePassphraseState: (...args: unknown[]) => {
+  resolvePassphraseSession: (...args: unknown[]) => {
     const mocks = jest.requireMock('../commands/device/hardware-sdk')
       .__testMocks as IHardwareSdkTestMocks;
-    return mocks.mockResolvePassphraseState(...args) as Promise<string>;
+    return mocks.mockResolvePassphraseSession(...args) as Promise<{
+      passphraseState?: string;
+      sessionId?: string;
+    }>;
   },
   searchDevice: (...args: unknown[]) => {
     const mocks = jest.requireMock('../commands/device/hardware-sdk')
@@ -42,7 +45,7 @@ jest.mock('../commands/device/hardware-sdk', () => ({
 interface IHardwareSdkTestMocks {
   mockSearchDevice: jest.Mock;
   mockEnsureSDKReady: jest.Mock;
-  mockResolvePassphraseState: jest.Mock;
+  mockResolvePassphraseSession: jest.Mock;
   mockUnwrapSDKResult: jest.Mock;
 }
 
@@ -139,7 +142,9 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
         'Hardware passphrase protection is enabled, but this command cannot prompt for wallet type.',
     });
 
-    expect(hardwareSdkMocks.mockResolvePassphraseState).not.toHaveBeenCalled();
+    expect(
+      hardwareSdkMocks.mockResolvePassphraseSession,
+    ).not.toHaveBeenCalled();
     expect(persistSession).not.toHaveBeenCalled();
   });
 
@@ -179,6 +184,48 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
     expect(output.success).toHaveBeenCalled();
   });
 
+  it('uses session_id returned by getPassphraseState payload for hidden-wallet login', async () => {
+    const output = makeOutputMock();
+    const getStatus = jest
+      .fn()
+      .mockResolvedValueOnce(makeUnauthenticatedStatus())
+      .mockResolvedValueOnce(makeAuthenticatedStatus());
+    const persistSession = jest.fn(async () => undefined);
+    hardwareSdkMocks.mockResolvePassphraseSession.mockResolvedValue({
+      passphraseState: 'state-1',
+      sessionId: 'session-1',
+    });
+
+    await executeHardwareLoginCommand({
+      output: output as OutputFormatter,
+      isTTY: false,
+      isHumanMode: false,
+      passphraseMode: 'on-device',
+      getStatus,
+      persistSession,
+    });
+
+    const sdk = await hardwareSdkMocks.mockEnsureSDKReady.mock.results[0].value;
+    expect(hardwareSdkMocks.mockResolvePassphraseSession).toHaveBeenCalledWith(
+      'connect-1',
+      { passphraseOnDevice: true },
+    );
+    expect(sdk.searchDevices).not.toHaveBeenCalled();
+    expect(sdk.evmGetAddress).toHaveBeenCalledWith(
+      'connect-1',
+      'device-1',
+      expect.objectContaining({
+        passphraseState: 'state-1',
+      }),
+    );
+    expect(persistSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        passphraseState: 'state-1',
+        sessionId: 'session-1',
+      }),
+    );
+  });
+
   it('rejects explicit hidden-wallet mode when device passphrase protection is disabled', async () => {
     const output = makeOutputMock();
     const getStatus = jest.fn(async () => makeUnauthenticatedStatus());
@@ -213,7 +260,9 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
         'Device passphrase protection is disabled, so hidden-wallet passphrase mode is unavailable.',
     });
 
-    expect(hardwareSdkMocks.mockResolvePassphraseState).not.toHaveBeenCalled();
+    expect(
+      hardwareSdkMocks.mockResolvePassphraseSession,
+    ).not.toHaveBeenCalled();
     expect(persistSession).not.toHaveBeenCalled();
   });
 });

@@ -149,7 +149,9 @@ async function getDeviceVersionStr(params: IGetDeviceVersionParams) {
 }
 
 function isTouchDevice(deviceType: IDeviceType) {
-  return [EDeviceType.Touch, EDeviceType.Pro].includes(deviceType);
+  return [EDeviceType.Touch, EDeviceType.Pro, EDeviceType.Pro2].includes(
+    deviceType,
+  );
 }
 
 async function getDeviceTypeFromFeatures({

@@ -53,6 +53,38 @@ export type IFirmwareAuthenticateParams = {
 
 const deviceCheckingCodes = new Set([10_104, 10_105, 10_106, 10_107]);
 
+const SKIP_APP_FIRMWARE_VERIFY = true;
+
+function buildSkippedFirmwareHashResult(
+  onekeyFeatures: OnekeyFeatures | undefined,
+): IDeviceVerifyVersionCompareResult {
+  const localVerifyInfos = onekeyFeatures
+    ? deviceUtils.parseLocalDeviceVersions({ onekeyFeatures })
+    : undefined;
+
+  return {
+    certificate: {
+      isMatch: true,
+      format: onekeyFeatures?.onekey_serial_no ?? '',
+    },
+    firmware: {
+      isMatch: true,
+      format: localVerifyInfos?.firmware.formatted ?? '',
+      releaseUrl: localVerifyInfos?.firmware.releaseUrl,
+    },
+    bluetooth: {
+      isMatch: true,
+      format: localVerifyInfos?.bluetooth.formatted ?? '',
+      releaseUrl: localVerifyInfos?.bluetooth.releaseUrl,
+    },
+    bootloader: {
+      isMatch: true,
+      format: localVerifyInfos?.bootloader.formatted ?? '',
+      releaseUrl: localVerifyInfos?.bootloader.releaseUrl,
+    },
+  };
+}
+
 export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async getDeviceCertWithSig({
@@ -79,6 +111,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async shouldAuthenticateFirmware({
     device,
   }: IShouldAuthenticateFirmwareParams) {
+    if (SKIP_APP_FIRMWARE_VERIFY) {
+      return false;
+    }
+
     const dbDevice: IDBDevice | undefined = await localDb.getExistingDevice({
       rawDeviceId: device.deviceId || '',
       uuid: device.uuid,
@@ -204,6 +240,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   }: {
     features: IOneKeyDeviceFeatures | undefined;
   }) {
+    if (SKIP_APP_FIRMWARE_VERIFY) {
+      return false;
+    }
+
     // onekey_firmware_version
     // onekey_firmware_hash
     // onekey_ble_version
@@ -267,6 +307,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async fetchFirmwareVerifyHash(
     params: IFetchFirmwareVerifyHashParams,
   ): Promise<IFirmwareVerifyInfo[]> {
+    if (SKIP_APP_FIRMWARE_VERIFY) {
+      return [];
+    }
+
     try {
       return await this.fetchFirmwareVerifyHashWithCache(params);
     } catch {
@@ -313,6 +357,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     deviceType: IDeviceType;
     onekeyFeatures: OnekeyFeatures | undefined;
   }): Promise<IDeviceVerifyVersionCompareResult> {
+    if (SKIP_APP_FIRMWARE_VERIFY) {
+      return buildSkippedFirmwareHashResult(onekeyFeatures);
+    }
+
     const defaultResult = {
       certificate: {
         isMatch: true,
