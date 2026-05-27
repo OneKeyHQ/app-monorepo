@@ -63,3 +63,12 @@ const syncStorageDesktop: ISyncStorage = {
 
 export { syncStorageDesktop as syncStorage };
 export type { ISyncStorage };
+
+// Cold-start cache storage on desktop renderer: same backend as web (IDB-
+// backed in-memory map, see webColdStartStorage). Desktop renderer is
+// Chromium, so the IDB pipeline that hydrate.ts pre-warms at boot works
+// identically. Must mirror the export shape of syncStorageInstance.ts.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { createWebColdStartStorage } =
+  require('./webColdStartStorage') as typeof import('./webColdStartStorage');
+export const coldStartCacheStorage = createWebColdStartStorage();
