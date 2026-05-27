@@ -108,24 +108,39 @@ function parseL2CtxSnapshot(
 /**
  * Race a promise against a timeout. On timeout, resolves with `undefined`
  * instead of throwing — callers detect the timeout by the undefined return
- * value and degrade to defaults. The original promise is allowed to settle
- * in the background but its result is discarded by the caller.
+ * value and degrade to defaults.
+ *
+ * Pre-timeout rejection bubbles up so the outer try/catch records
+ * __ONEKEY_COLD_START_ERROR__. Post-timeout settlement (resolve or reject)
+ * is silently dropped so a late IDB error does not surface as an unhandled
+ * promise rejection.
  */
 function withTimeout<T>(
   promise: Promise<T>,
   ms: number,
 ): Promise<T | undefined> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeoutPromise = new Promise<undefined>((resolve) => {
-    timer = setTimeout(() => resolve(undefined), ms);
+  return new Promise<T | undefined>((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(undefined);
+    }, ms);
+    promise.then(
+      (v) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
   });
-  return Promise.race([
-    promise.then((v) => {
-      if (timer) clearTimeout(timer);
-      return v;
-    }),
-    timeoutPromise,
-  ]);
 }
 
 // ---- Main ----

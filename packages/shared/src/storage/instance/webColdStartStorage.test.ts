@@ -36,11 +36,11 @@ if (
 // jest.isolateModules) so the module-level dbPromise / dirtyKeys /
 // flushTimer state is fully reset between cases. The in-memory map lives
 // on globalThis so we wipe it explicitly too.
-type ColdStartModule = typeof import('./webColdStartStorage');
-let activeModule: ColdStartModule | undefined;
+type IColdStartModule = typeof import('./webColdStartStorage');
+let activeModule: IColdStartModule | undefined;
 
-function loadModule(): ColdStartModule {
-  let mod!: ColdStartModule;
+function loadModule(): IColdStartModule {
+  let mod!: IColdStartModule;
   jest.isolateModules(() => {
     // eslint-disable-next-line global-require
     mod = require('./webColdStartStorage');
@@ -177,9 +177,9 @@ describeIfIndexedDB('IDB-backed paths', () => {
       async function patchedPut(this: IndexedDBPromised<unknown>, ...args) {
         if (throwOnce) {
           throwOnce = false;
-          // OneKeyLocalError import is overkill for a test-only synthetic
-          // rejection; the catch site only inspects the value as `unknown`.
-          // eslint-disable-next-line onekey/no-raw-error
+          // Test-only synthetic rejection; the catch site only inspects the
+          // value as `unknown`, so a raw Error is sufficient.
+          // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error
           throw new Error('forced put failure');
         }
         return (realPut as (...a: typeof args) => Promise<unknown>).apply(
