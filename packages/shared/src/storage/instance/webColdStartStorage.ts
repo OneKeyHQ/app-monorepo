@@ -190,6 +190,20 @@ export async function readAllColdStartEntriesFromIdb(): Promise<
   return db.getAllEntries(STORE_NAME) as Promise<Map<string, string>>;
 }
 
+// ---- Test-only helpers ----
+// Reset all module-level state. Intended for unit tests so each test starts
+// from a clean slate without `jest.resetModules()` (which would also re-
+// instantiate the lodash import etc.). Not exported from the public surface.
+export function __resetForTests(): void {
+  (globalThis as Record<string, unknown>)[GLOBAL_MAP_KEY] = undefined;
+  dbPromise = undefined;
+  dirtyKeys.clear();
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = undefined;
+  }
+}
+
 // ---- ISyncStorage facade ----
 
 function toStorageString(value: string | number | boolean): string {
