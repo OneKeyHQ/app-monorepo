@@ -429,7 +429,10 @@ export const useStakingPendingTxsByInfo = ({
           await backgroundApiProxy.serviceAccount.getAccountMetaForNetworksBatch(
             { pairs: missingPairs },
           );
-        for (const { accountId: accountForNetwork, networkId } of missingPairs) {
+        for (const {
+          accountId: accountForNetwork,
+          networkId,
+        } of missingPairs) {
           const entry = batchResult[networkId];
           if (entry) {
             meta[networkId] = {
@@ -676,8 +679,7 @@ export const useEarnPendingTxsSharedMeta = ({
   }, [availableAssetsByType]);
 
   const stableExtraKey = useMemo(
-    () =>
-      [...new Set(extraNetworkIds.filter(Boolean))].sort().join('|'),
+    () => [...new Set(extraNetworkIds.filter(Boolean))].toSorted().join('|'),
     [extraNetworkIds],
   );
 
