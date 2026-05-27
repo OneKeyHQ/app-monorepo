@@ -27,6 +27,13 @@ Validate Home, Send/Receive, normal Swap, and Swap Pro separately.
 - Refresh/restart and open selector directly.
 - Confirm the expected request uses the right flag and request key.
 
+## Account / Network Compatibility
+
+- Reproduce account support bugs from the exact Jira path: select the same cross-chain pair, switch the same wallet/account type, return to Swap, and reverse direction if listed.
+- Test software/private-key, HD, and hardware-backed accounts separately when the issue mentions account support.
+- Inspect quote/build params for FROM/TO addresses, account ids, network ids, and derive type after account switch, modal close/reopen, tab focus, and All Networks selection.
+- Do not accept the unsupported-account banner as proof until the resolved target-network account and outgoing request params match the selected tokens.
+
 ## Market Preset
 
 Validate Market Detail selector, normal Swap/Swap Pro visibility, review fee/slippage display, build/estimate/send payload, Reset/Confirm, blank input, invalid input, and unsupported network states.
@@ -63,6 +70,9 @@ When route gas limits are provided by quote/preset data, inspect estimate-fee an
 
 ## History / Pending
 
+- After a successful send, verify the local pending history item exists before considering the send path complete.
+- Confirm `/swap/v1/state-tx` polling uses the correct chain tx id or provider order id for that provider.
+- Confirm the send action cannot be repeated while local tracking is missing or being created.
 - History modal refreshes on open.
 - Long-pending warning thresholds and analytics dedup are correct.
 - Limit order and Swap history counts agree.

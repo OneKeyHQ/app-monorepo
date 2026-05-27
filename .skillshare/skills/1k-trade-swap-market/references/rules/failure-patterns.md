@@ -32,6 +32,15 @@ Check event id/current-event scoping, execution quote ownership, manual provider
 
 Check Home, Send/Receive, normal Swap, and Swap Pro independently. Verify request key, cache owner, loading state, account switch, network switch, refresh/restart, and modal reopen.
 
+## Account, Network, And Address Compatibility
+
+- "Connected account does not support swap" is caused by stale account/network resolution after switching wallet/account type, not by a real provider support result.
+- Cross-chain FROM/TO tokens, account selector slots, selected network, global derive type, and resolved target-network account are invalidated on different schedules.
+- Reversing swap direction or returning from a modal reuses an address or network from the previous token pair.
+- All Networks mode resolves a target-network account, but the quote/build path still reads the old active account network.
+
+Check `useSwapFromAccountNetworkSync`, `useSwapAddressInfo`, account selector `num: 0/1`, `accountForTargetNetwork`, selected token network, global derive type, and the outgoing quote/build addresses before changing the alert copy or provider logic.
+
 ## Review, Fee, Balance, And Toast
 
 - Review reads outer page atoms instead of a frozen quote/build snapshot.
@@ -64,13 +73,14 @@ For Earn funding CTAs, test the target surface, not only the source button. If L
 
 ## History, Pending, And Status
 
+- Send success updates the UI but does not persist a local pending history item, so later status polling cannot attach and duplicate send risk remains.
 - Terminal status stops polling too early or clears local pending history before refresh signals.
 - `rawStatus` and `finalStatus` are conflated.
 - History modal opens with stale pending orders.
 - EVM tx hash comparison is applied to non-EVM tx ids.
 - Limit order and Swap history counts drift.
 
-Preserve raw provider status where UI or refresh logic needs it. Use chain-aware tx id comparison.
+Preserve raw provider status where UI or refresh logic needs it. Use chain-aware tx id comparison. Treat pending-history creation as part of the send-success safety gate: compare `/swap/v1/build-tx`, provider order id, chain tx id, `/swap/v1/state-tx` params, and the SimpleDB history item before deciding whether the backend or local tracking is missing.
 
 ## Provider-Specific Execution
 

@@ -12,6 +12,7 @@ Start with symbols and `rg`; do not assume exact paths if files moved.
 | Build hook | `useSwapBuiltTx`, `checkSwapLatestBalanceSufficient`, `swapBalanceUtils` |
 | Review state | `buildSwapReviewState`, `swapReviewState`, `PreSwapDialogContent`, `SwapReviewDialog`, `SwapReviewInitializer` |
 | Provider UI | `SwapQuoteResult`, `SwapProviderListPanel`, `SwapProviderSelectModal`, `ProviderManageContainer` |
+| Account/network compatibility | `useSwapAccount`, `useSwapAddressInfo`, `useSwapFromAccountNetworkSync`, `SwapAccountAddressContainer`, `account_does_not_support_swap` |
 | Private Send / incognito | `swapIncognitoMode`, `SwapActionsState`, `SwapIncognitoRecipientInput`, `useSwapIncognitoRecipientInput`, `buildSwapIncognitoSettingsUpdate`, `incognito` quote/build param |
 | External DeFi/Earn handoffs | `EModalSwapRoutes.SwapMainLand`, `ESwapSource.MARKET`, `ESwapTabSwitchType`, `swapFromMarketJumpTokenAtom`, `useMarketTradeActions`, `UnsupportedSwapWarning`, `SwitchToTradePrompt`, `ActionButton` |
 

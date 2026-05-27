@@ -65,6 +65,11 @@ order, which txid updates it, and which pending indicator should refresh data.
 - Only record real business orders. Setup transactions such as ETH wrap, permit,
   approve, LUT setup, or cooldown preparation should not silently become Earn
   orders unless product explicitly wants them visible.
+- Setup transactions must not inherit final business-action metadata used by
+  transaction-confirmation parsing. In batch flows, an approve/permit/wrap
+  unsigned transaction should carry only its own approve/setup metadata; the
+  final stake/withdraw/claim transaction carries `stakingInfo` and order
+  tracking metadata.
 - If backend creates an order during tx build, frontend must either update that
   order with the final txid or the backend must avoid creating an order for
   prerequisite steps.
@@ -178,7 +183,7 @@ components:
 
 | Provider/path | Minimum checks |
 | --- | --- |
-| Native | Shared URL/deep link, ETH wrap + stake, WETH/USDT normal stake, wrapped-order sync, instant withdraw, queued withdraw approval, cancel withdraw, queued claim, history filters, insufficient-balance state, loss-dialog confirmation |
+| Native | Shared URL/deep link, ETH wrap + stake, WETH/USDT normal stake, approve-required confirmation where the first row renders as approval and the final row renders as stake, wrapped-order sync, instant withdraw, queued withdraw approval, cancel withdraw, queued claim, history filters, insufficient-balance state, loss-dialog confirmation |
 | Pendle | Asset selection, quote loading/expiry, slippage, withdraw path, high-price-impact warning, claim params |
 | Ethena | Cooldown withdraw and claim-withdrawal continuation |
 | Stakefish | ETH sign-message stake/withdraw paths and validator identity |
