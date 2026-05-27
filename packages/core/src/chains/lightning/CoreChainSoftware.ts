@@ -207,6 +207,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       password,
       indexes,
       networkInfo: { networkChainCode },
+      hdCredentialCacheScopeId,
     } = query;
 
     const isTestnet = networkChainCode === IMPL_LIGHTNING_TESTNET;
@@ -216,6 +217,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       hdCredential,
       password,
       isTestnet,
+      hdCredentialCacheScopeId,
     });
 
     return {

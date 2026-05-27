@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsComputedAccountValueAtom,
@@ -159,8 +160,28 @@ const PerpTradingDisabledButtonMemo = memo(PerpTradingDisabledButton);
 
 function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [tradingMode] = useTradingModeAtom();
   const [isSubmitting] = useTradingLoadingAtom();
+
+  const canShowTradingButtons = useMemo(
+    () =>
+      !perpsAccountLoading.selectAccountLoading &&
+      Boolean(perpsAccountStatus.accountAddress) &&
+      !perpsAccountStatus.accountNotSupport &&
+      !perpsAccountStatus.canCreateAddress &&
+      (Boolean(perpsAccountStatus.canTrade) ||
+        enableTradingMode.isSoftwareAccount),
+    [
+      enableTradingMode.isSoftwareAccount,
+      perpsAccountLoading.selectAccountLoading,
+      perpsAccountStatus.accountAddress,
+      perpsAccountStatus.accountNotSupport,
+      perpsAccountStatus.canCreateAddress,
+      perpsAccountStatus.canTrade,
+    ],
+  );
 
   const content = (
     <YStack
@@ -173,7 +194,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       }
     >
       <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
-      {perpsAccountStatus.canTrade ? (
+      {canShowTradingButtons ? (
         <TradingButtonGroup isMobile={isMobile} />
       ) : (
         <PerpTradingDisabledButtonMemo />

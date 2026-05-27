@@ -131,7 +131,19 @@ function SpotAvailableActionIcon({
   );
 }
 
+function useDepositButtonIconProps() {
+  return useMemo(
+    () =>
+      ({
+        color: getTradingSideTextColor('long'),
+      }) as const,
+    [],
+  );
+}
+
 function MobileDepositButton({ onPress }: { onPress: () => void }) {
+  const depositButtonIconProps = useDepositButtonIconProps();
+
   return (
     <IconButton
       testID={PerpTestIDs.MobileDepositButton}
@@ -139,9 +151,9 @@ function MobileDepositButton({ onPress }: { onPress: () => void }) {
       variant="tertiary"
       iconSize="$3.5"
       icon="PlusCircleSolid"
+      iconProps={depositButtonIconProps}
       onPress={onPress}
-      color="$iconSubdued"
-      cursor="default"
+      cursor="pointer"
     />
   );
 }
@@ -159,6 +171,7 @@ function SpotAvailableActionPopover({
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const depositButtonIconProps = useDepositButtonIconProps();
   const sheetTitle = intl.formatMessage({
     id: ETranslations.perps_spot_add_funds__title,
   });
@@ -209,8 +222,8 @@ function SpotAvailableActionPopover({
           variant="tertiary"
           iconSize="$3.5"
           icon="PlusCircleSolid"
-          color="$iconSubdued"
-          cursor="default"
+          iconProps={depositButtonIconProps}
+          cursor="pointer"
         />
       }
       renderContent={({ closePopover }) => (
@@ -550,10 +563,13 @@ function PerpTradingForm({
           (pos) => pos.position.coin === perpsSelectedSymbol.coin,
         )?.[0]?.position.szi || '0',
       );
-      const side = value >= 0 ? 'long' : 'short';
+      const side: ITradeSide = value >= 0 ? 'long' : 'short';
 
-      return [Math.abs(value), side];
+      return [Math.abs(value), side] as const;
     }, [perpsPositions, perpsSelectedSymbol.coin]);
+  const selectedSymbolPositionColor = selectedSymbolPositionValue
+    ? getTradingSideTextColor(selectedSymbolPositionSide)
+    : '$text';
 
   const availableToTrade = useMemo(() => {
     if (isSpot) {
@@ -1556,9 +1572,7 @@ function PerpTradingForm({
                   ) : (
                     <SizableText
                       size="$bodySmMedium"
-                      color={getTradingSideTextColor(
-                        selectedSymbolPositionSide as ITradeSide,
-                      )}
+                      color={selectedSymbolPositionColor}
                     >
                       {selectedSymbolPositionValue} {perpsSelectedDisplayName}
                     </SizableText>

@@ -18,12 +18,14 @@ export const generateNativeSegwitAccounts = async ({
   hdCredential,
   password,
   isTestnet,
+  hdCredentialCacheScopeId,
 }: {
   curve: ICurveName;
   indexes: number[];
   hdCredential: string;
   password: string;
   isTestnet: boolean;
+  hdCredentialCacheScopeId?: string;
 }) => {
   const pathPrefix = `m/84'/${isTestnet ? COINTYPE_TBTC : COINTYPE_BTC}'`;
   const relPaths: string[] = indexes.map(
@@ -36,6 +38,7 @@ export const generateNativeSegwitAccounts = async ({
     password,
     prefix: pathPrefix, // m/84'/0'
     relPaths, // 0'   1'
+    hdCredentialCacheScopeId,
   });
 
   if (pubkeyInfos.length !== indexes.length) {

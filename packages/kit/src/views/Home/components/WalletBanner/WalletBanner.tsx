@@ -509,7 +509,7 @@ function PerpsReferralDialogContent({
   );
 }
 
-function WalletBanner() {
+function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
   const {
     activeAccount: { account, network, wallet, vaultSettings, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -815,6 +815,10 @@ function WalletBanner() {
     },
     [handleBannerOnPress, handleReferralBannerPress, isBotWalletReceiveBlocked],
   );
+
+  if (hidden) {
+    return null;
+  }
 
   if (banners.length === 0 && !tronCard) {
     return null;
