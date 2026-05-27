@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -33,13 +33,7 @@ function AccountValue(accountValue: {
   mergeDeriveAssetsEnabled?: boolean;
   isSingleAddress?: boolean;
   enabledNetworksCompatibleWithWalletId: IServerNetwork[];
-  networkInfoMap: Record<
-    string,
-    {
-      deriveType: IAccountDeriveTypes;
-      mergeDeriveAssetsEnabled: boolean;
-    }
-  >;
+  networkInfoMap: Record<string, INetworkDeriveInfo>;
 }) {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const isActiveAccount =
@@ -176,13 +170,7 @@ function AccountValueWithSpotlight({
   isSingleAddress?: boolean;
   walletId: string;
   enabledNetworksCompatibleWithWalletId: IServerNetwork[];
-  networkInfoMap: Record<
-    string,
-    {
-      deriveType: IAccountDeriveTypes;
-      mergeDeriveAssetsEnabled: boolean;
-    }
-  >;
+  networkInfoMap: Record<string, INetworkDeriveInfo>;
   accountDeFiOverview?: {
     overview: Record<
       string,
