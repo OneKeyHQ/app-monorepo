@@ -2296,6 +2296,7 @@
   "hardware_third_party_transport_error": "Falha na comunicação com o hardware. Verifique o cabo USB ou o Bluetooth e tente novamente.",
   "hardware_third_party_transport_not_available": "Seu navegador ou plataforma não suporta a conexão com esta carteira de hardware.",
   "hardware_third_party_unknown_error": "Erro de hardware desconhecido. Tente novamente.",
+  "hardware_third_party_usb_single_device_only_desc": "Somente um dispositivo USB pode ser conectado por vez. Desconecte os outros dispositivos e tente novamente.",
   "hardware_third_party_user_rejected": "Operação recusada no dispositivo",
   "hardware_third_party_wrong_app": "O aplicativo aberto no dispositivo está incorreto",
   "havent_found_network_desc": "Não foi possível encontrar nenhuma rede que corresponda à sua chave privada. Toque abaixo para selecionar uma rede.",
