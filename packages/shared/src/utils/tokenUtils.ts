@@ -107,10 +107,11 @@ export function getEmptyTokenData() {
 
 function tokenFieldsContainKeyword(token: IAccountToken, kw: string): boolean {
   return (
-    (token.name?.toLowerCase().includes(kw) ?? false) ||
-    (token.symbol?.toLowerCase().includes(kw) ?? false) ||
-    (token.commonSymbol?.toLowerCase().includes(kw) ?? false) ||
-    token.address?.toLowerCase() === kw
+    token.name?.toLowerCase().includes(kw) ||
+    token.symbol?.toLowerCase().includes(kw) ||
+    token.commonSymbol?.toLowerCase().includes(kw) ||
+    token.address?.toLowerCase() === kw ||
+    false
   );
 }
 
@@ -120,11 +121,12 @@ function networkFieldsContainKeyword(
 ): boolean {
   if (!network) return false;
   return (
-    (network.name?.toLowerCase().includes(kw) ?? false) ||
-    (network.code?.toLowerCase().includes(kw) ?? false) ||
-    (network.shortname?.toLowerCase().includes(kw) ?? false) ||
-    (network.shortcode?.toLowerCase().includes(kw) ?? false) ||
-    (network.symbol?.toLowerCase().includes(kw) ?? false)
+    network.name?.toLowerCase().includes(kw) ||
+    network.code?.toLowerCase().includes(kw) ||
+    network.shortname?.toLowerCase().includes(kw) ||
+    network.shortcode?.toLowerCase().includes(kw) ||
+    network.symbol?.toLowerCase().includes(kw) ||
+    false
   );
 }
 
@@ -216,7 +218,7 @@ export function getFilteredTokenBySearchKey({
   const trimmedSearchKey = searchKey.trim().toLowerCase();
 
   if (!enableNetworkSearch) {
-    const filteredTokens = mergedTokens.filter((token) => {
+    return mergedTokens.filter((token) => {
       if (token.isAggregateToken) {
         const aggregateTokenList = aggregateTokenListMap?.[token.$key];
         if (
@@ -226,35 +228,27 @@ export function getFilteredTokenBySearchKey({
         ) {
           return true;
         }
-        return (
-          token.name?.toLowerCase().includes(trimmedSearchKey) ||
-          token.symbol?.toLowerCase().includes(trimmedSearchKey) ||
-          token.commonSymbol?.toLowerCase().includes(trimmedSearchKey)
-        );
       }
-      return (
-        token.name?.toLowerCase().includes(trimmedSearchKey) ||
-        token.symbol?.toLowerCase().includes(trimmedSearchKey) ||
-        token.commonSymbol?.toLowerCase().includes(trimmedSearchKey) ||
-        token.address?.toLowerCase() === trimmedSearchKey
-      );
+      return tokenFieldsContainKeyword(token, trimmedSearchKey);
     });
-    return filteredTokens;
   }
 
   const keywords = trimmedSearchKey.split(/\s+/).filter(Boolean);
-  if (keywords.length === 0) return mergedTokens;
+  if (keywords.length === 0) return [];
 
-  const results: Array<IAccountToken & { _searchStrength?: ESearchStrength }> =
-    [];
+  const results: Array<{
+    token: IAccountToken;
+    strength: ESearchStrength;
+  }> = [];
 
   for (const token of mergedTokens) {
     if (token.isAggregateToken) {
       const subTokens = aggregateTokenListMap?.[token.$key]?.tokens ?? [];
 
-      const matchedSubs: Array<
-        IAccountToken & { _searchStrength: ESearchStrength }
-      > = [];
+      const matchedSubs: Array<{
+        token: IAccountToken;
+        strength: ESearchStrength;
+      }> = [];
       let hasNetworkHitInAnySub = false;
 
       for (const sub of subTokens) {
@@ -268,14 +262,8 @@ export function getFilteredTokenBySearchKey({
           const localSub = localAggregateTokenListMap?.[
             token.$key
           ]?.tokens?.find((t) => t.networkId === sub.networkId);
-          matchedSubs.push({
-            ...(localSub ?? sub),
-            _searchStrength: strength,
-          });
-          if (
-            strength === ESearchStrength.BOTH ||
-            strength === ESearchStrength.NETWORK_ONLY
-          ) {
+          matchedSubs.push({ token: localSub ?? sub, strength });
+          if (strength !== ESearchStrength.TOKEN_ONLY) {
             hasNetworkHitInAnySub = true;
           }
         }
@@ -286,8 +274,8 @@ export function getFilteredTokenBySearchKey({
           results.push(...matchedSubs);
         } else {
           results.push({
-            ...token,
-            _searchStrength: ESearchStrength.TOKEN_ONLY,
+            token,
+            strength: ESearchStrength.TOKEN_ONLY,
           });
         }
       } else {
@@ -297,7 +285,7 @@ export function getFilteredTokenBySearchKey({
           undefined,
         );
         if (matched) {
-          results.push({ ...token, _searchStrength: strength });
+          results.push({ token, strength });
         }
       }
     } else {
@@ -308,25 +296,23 @@ export function getFilteredTokenBySearchKey({
         network,
       );
       if (matched) {
-        results.push({ ...token, _searchStrength: strength });
+        results.push({ token, strength });
       }
     }
   }
 
   if (tokenFiatMap) {
     results.sort((a, b) => {
-      const sa = a._searchStrength ?? ESearchStrength.TOKEN_ONLY;
-      const sb = b._searchStrength ?? ESearchStrength.TOKEN_ONLY;
-      if (sa !== sb) return sa - sb;
-      const fa = new BigNumber(tokenFiatMap[a.$key]?.fiatValue ?? -1);
-      const fb = new BigNumber(tokenFiatMap[b.$key]?.fiatValue ?? -1);
-      return new BigNumber(fb.isNaN() ? -1 : fb).comparedTo(
-        new BigNumber(fa.isNaN() ? -1 : fa),
+      if (a.strength !== b.strength) return a.strength - b.strength;
+      const fa = new BigNumber(tokenFiatMap[a.token.$key]?.fiatValue ?? -1);
+      const fb = new BigNumber(tokenFiatMap[b.token.$key]?.fiatValue ?? -1);
+      return (fb.isNaN() ? new BigNumber(-1) : fb).comparedTo(
+        fa.isNaN() ? new BigNumber(-1) : fa,
       );
     });
   }
 
-  return results.map(({ _searchStrength, ...rest }) => rest);
+  return results.map((r) => r.token);
 }
 
 export function sortTokensByFiatValue({
