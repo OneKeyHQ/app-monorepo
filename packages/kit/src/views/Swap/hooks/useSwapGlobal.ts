@@ -44,6 +44,7 @@ import {
 import {
   canUseSwapNetworkCacheAsSortSource,
   isSwapNetworkCacheCompatible,
+  isSwapNetworkCacheReadyForBasicList,
   mergeSwapNetworksWithCachedSort,
 } from '../utils/swapNetworkCacheUtils';
 
@@ -121,7 +122,9 @@ export function useSwapInit(params?: ISwapInitParams) {
         setNetworkListFetching(false);
         return;
       }
-      setNetworkListFetching(true);
+      setNetworkListFetching(
+        !isSwapNetworkCacheReadyForBasicList(currentSwapNetworks),
+      );
     }
     let swapNetworksSortList =
       await backgroundApiProxy.simpleDb.swapNetworksSort.getRawData();
@@ -129,7 +132,9 @@ export function useSwapInit(params?: ISwapInitParams) {
       const cachedSwapNetworks = swapNetworksSortList.data;
       const canUseCachedSwapNetworks =
         isSwapNetworkCacheCompatible(cachedSwapNetworks);
-      if (canUseCachedSwapNetworks) {
+      const canUseCachedSwapNetworksAsBasicList =
+        isSwapNetworkCacheReadyForBasicList(cachedSwapNetworks);
+      if (canUseCachedSwapNetworks || canUseCachedSwapNetworksAsBasicList) {
         setSwapNetworks(cachedSwapNetworks);
         setNetworkListFetching(false);
       } else if (!canUseSwapNetworkCacheAsSortSource(cachedSwapNetworks)) {

@@ -1460,7 +1460,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     }
 
     const marketStatus = await this.fetchCheckUSMarketStatus();
-    return marketStatus?.open === false || marketStatus?.unavailable === true;
+    return marketStatus?.open === false && marketStatus.unavailable !== true;
   }
 
   private getUSMarketClosedAlert(): ISwapAlertState & { message: string } {
