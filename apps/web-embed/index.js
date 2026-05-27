@@ -10,6 +10,7 @@ import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { init } from './utils/init';
+import { setupNativeWebEmbedBridge } from './utils/nativeWebEmbedBridge';
 
 const PageIndex = lazy(() => import('./pages/PageIndex'));
 const PageWebEmbedApi = lazy(() => import('./pages/PageWebEmbedApi'));
@@ -21,6 +22,7 @@ const container = document.getElementById('root');
 const root = createRoot(container);
 
 init();
+setupNativeWebEmbedBridge();
 
 defaultLogger.app.webembed.renderHtmlRoot();
 
