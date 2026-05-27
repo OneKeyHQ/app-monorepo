@@ -45,7 +45,9 @@ const LedgerAppOpsTester = () => {
   const [logs, setLogs] = useState<ILogEntry[]>([]);
   const [installed, setInstalled] = useState<IAppMetadata[] | null>(null);
   const [available, setAvailable] = useState<IAppMetadata[] | null>(null);
-  const [deviceInfo, setDeviceInfo] = useState<Record<string, unknown> | null>(null);
+  const [deviceInfo, setDeviceInfo] = useState<Record<string, unknown> | null>(
+    null,
+  );
 
   const logsRef = useRef<ILogEntry[]>([]);
   logsRef.current = logs;
@@ -63,11 +65,16 @@ const LedgerAppOpsTester = () => {
       const res = (await backgroundApiProxy.serviceHardware.searchDevices({
         vendor: EHardwareVendor.ledger,
       })) as
-        | { success: true; payload: Array<{ connectId: string; name?: string }> }
+        | {
+            success: true;
+            payload: Array<{ connectId: string; name?: string }>;
+          }
         | { success: false; payload: { code: number; message?: string } };
       if (res.success) {
         if (res.payload.length === 0) {
-          appendLog('searchDevices → no Ledger found (plug in + unlock + grant WebHID permission)');
+          appendLog(
+            'searchDevices → no Ledger found (plug in + unlock + grant WebHID permission)',
+          );
         } else if (res.payload.length === 1) {
           setConnectId(res.payload[0].connectId);
           appendLog(
@@ -81,7 +88,9 @@ const LedgerAppOpsTester = () => {
           );
         }
       } else {
-        appendLog(`searchDevices FAILED → ${res.payload.message ?? res.payload.code}`);
+        appendLog(
+          `searchDevices FAILED → ${res.payload.message ?? res.payload.code}`,
+        );
       }
     } catch (err) {
       appendLog(`searchDevices threw → ${(err as Error)?.message ?? err}`);
@@ -131,9 +140,10 @@ const LedgerAppOpsTester = () => {
   const handleListInstalled = async () => {
     setBusy(true);
     try {
-      const res = (await backgroundApiProxy.serviceHardware.thirdPartyHardwareListInstalledApps(
-        { vendor: EHardwareVendor.ledger, connectId },
-      )) as { success: boolean; payload: unknown };
+      const res =
+        (await backgroundApiProxy.serviceHardware.thirdPartyHardwareListInstalledApps(
+          { vendor: EHardwareVendor.ledger, connectId },
+        )) as { success: boolean; payload: unknown };
       if (res.success) {
         const apps = res.payload as IAppMetadata[];
         setInstalled(apps);
@@ -151,9 +161,10 @@ const LedgerAppOpsTester = () => {
   const handleListAvailable = async () => {
     setBusy(true);
     try {
-      const res = (await backgroundApiProxy.serviceHardware.thirdPartyHardwareListAvailableApps(
-        { vendor: EHardwareVendor.ledger, connectId },
-      )) as { success: boolean; payload: unknown };
+      const res =
+        (await backgroundApiProxy.serviceHardware.thirdPartyHardwareListAvailableApps(
+          { vendor: EHardwareVendor.ledger, connectId },
+        )) as { success: boolean; payload: unknown };
       if (res.success) {
         const apps = res.payload as IAppMetadata[];
         setAvailable(apps);
@@ -178,9 +189,12 @@ const LedgerAppOpsTester = () => {
     setProgressLabel('starting…');
     appendLog(`installApp ${appName} → start`);
     try {
-      const res = (await backgroundApiProxy.serviceHardware.thirdPartyHardwareInstallApp(
-        { vendor: EHardwareVendor.ledger, connectId, appName },
-      )) as { success: boolean; payload: unknown };
+      const res =
+        (await backgroundApiProxy.serviceHardware.thirdPartyHardwareInstallApp({
+          vendor: EHardwareVendor.ledger,
+          connectId,
+          appName,
+        })) as { success: boolean; payload: unknown };
       if (res.success) {
         appendLog(`installApp ${appName} → SUCCESS`);
         setProgress(1);
@@ -202,13 +216,16 @@ const LedgerAppOpsTester = () => {
   const handleGetFirmwareVersion = async () => {
     setBusy(true);
     try {
-      const res = (await backgroundApiProxy.serviceHardware.thirdPartyHardwareGetFirmwareVersion(
-        { vendor: EHardwareVendor.ledger, connectId },
-      )) as { success: boolean; payload: unknown };
+      const res =
+        (await backgroundApiProxy.serviceHardware.thirdPartyHardwareGetFirmwareVersion(
+          { vendor: EHardwareVendor.ledger, connectId },
+        )) as { success: boolean; payload: unknown };
       if (res.success) {
         const v = res.payload as Record<string, unknown>;
         setDeviceInfo(v);
-        appendLog(`getFirmwareVersion → seVersion=${String(v.seVersion)} mcu=${String(v.mcuVersion)}`);
+        appendLog(
+          `getFirmwareVersion → seVersion=${String(v.seVersion)} mcu=${String(v.mcuVersion)}`,
+        );
       } else {
         appendLog(`getFirmwareVersion FAILED → ${JSON.stringify(res.payload)}`);
       }
@@ -222,9 +239,10 @@ const LedgerAppOpsTester = () => {
   const handleGetDeviceInfo = async () => {
     setBusy(true);
     try {
-      const res = (await backgroundApiProxy.serviceHardware.thirdPartyHardwareGetDeviceInfo(
-        { vendor: EHardwareVendor.ledger, connectId },
-      )) as { success: boolean; payload: unknown };
+      const res =
+        (await backgroundApiProxy.serviceHardware.thirdPartyHardwareGetDeviceInfo(
+          { vendor: EHardwareVendor.ledger, connectId },
+        )) as { success: boolean; payload: unknown };
       if (res.success) {
         const info = res.payload as Record<string, unknown>;
         setDeviceInfo(info);
@@ -380,7 +398,7 @@ const LedgerAppOpsTester = () => {
           <SizableText size="$bodyMdMedium">Device info</SizableText>
           {Object.entries(deviceInfo).map(([k, v]) => (
             <SizableText key={k} size="$bodySm">
-              · {k}: {v == null ? '—' : String(v)}
+              · {k}: {v === null || v === undefined ? '—' : String(v)}
             </SizableText>
           ))}
         </YStack>
@@ -388,7 +406,9 @@ const LedgerAppOpsTester = () => {
 
       {installed ? (
         <YStack gap="$1">
-          <SizableText size="$bodyMdMedium">Installed ({installed.length})</SizableText>
+          <SizableText size="$bodyMdMedium">
+            Installed ({installed.length})
+          </SizableText>
           {installed.map((a) => (
             <SizableText key={`${a.versionName}-${a.version}`} size="$bodySm">
               · {a.versionName} {a.version} {a.bytes ? `(${a.bytes}b)` : ''}
@@ -399,7 +419,9 @@ const LedgerAppOpsTester = () => {
 
       {available ? (
         <YStack gap="$1">
-          <SizableText size="$bodyMdMedium">Available catalog ({available.length})</SizableText>
+          <SizableText size="$bodyMdMedium">
+            Available catalog ({available.length})
+          </SizableText>
           <ScrollView maxHeight={240}>
             {available.map((a) => (
               <SizableText key={`${a.versionName}-${a.version}`} size="$bodySm">
