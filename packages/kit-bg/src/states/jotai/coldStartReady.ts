@@ -5,19 +5,36 @@
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+// Discriminated union describing the terminal state of cold-start hydration.
+// 'success' means at least one L1/L2 entry was primed from IDB; the other
+// three are degradation paths where the runtime fell back to atom defaults.
+export type IColdStartHydrationStatus =
+  | 'success'
+  | 'timeout'
+  | 'error'
+  | 'killed';
+
 class ColdStartHydrationReadyHandler {
   isReady = false;
 
-  resolveReady: (value: boolean) => void = () => {
+  // True iff hydration primed L1 or L2 from a non-empty IDB snapshot. Stays
+  // false on timeout / error / kill-switch / first-install paths. Consumed
+  // by telemetry, not by the render gate (the gate always releases).
+  didHydrate = false;
+
+  status: IColdStartHydrationStatus = 'error';
+
+  resolveReady: (didHydrate: boolean) => void = () => {
     throw new OneKeyLocalError(
       'globalColdStartHydrationReadyHandler.resolveReady called before init',
     );
   };
 
   ready: Promise<boolean> = new Promise<boolean>((resolve) => {
-    this.resolveReady = (value: boolean) => {
+    this.resolveReady = (didHydrate: boolean) => {
+      this.didHydrate = didHydrate;
       this.isReady = true;
-      resolve(value);
+      resolve(didHydrate);
     };
   });
 }
