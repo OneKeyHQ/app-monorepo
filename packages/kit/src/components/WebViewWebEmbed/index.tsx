@@ -32,6 +32,143 @@ import type { WebViewMessageEvent } from 'react-native-webview';
 import type { WebViewErrorEvent } from 'react-native-webview/lib/WebViewTypes';
 
 const initTop = '15%';
+
+const webEmbedBridgeInjectedJavaScriptBeforeContentLoaded = `
+;(function() {
+  if (window.$onekey && window.$onekey.jsBridge) {
+    return;
+  }
+
+  var callbacks = {};
+  var callbackId = 1;
+
+  function normalizeError(error) {
+    if (!error) {
+      return {
+        name: 'Error',
+        message: 'Unknown webembed bridge error',
+      };
+    }
+    return {
+      name: error.name || 'Error',
+      message: error.message || String(error),
+      stack: error.stack,
+      code: error.code,
+      data: error.data,
+    };
+  }
+
+  function postMessage(payload) {
+    if (!window.ReactNativeWebView || !window.ReactNativeWebView.postMessage) {
+      throw new Error('ReactNativeWebView.postMessage is not available');
+    }
+    window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+  }
+
+  function unwrapRpcResult(data) {
+    if (data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'result')) {
+      return data.result;
+    }
+    return data;
+  }
+
+  var bridge = {
+    receive: function(payloadReceived) {
+      var payload = payloadReceived;
+      if (typeof payloadReceived === 'string') {
+        payload = JSON.parse(payloadReceived);
+      }
+      if (!payload) {
+        return;
+      }
+      if (payload.type === 'RESPONSE') {
+        var callback = callbacks[payload.id];
+        if (!callback) {
+          return;
+        }
+        delete callbacks[payload.id];
+        if (payload.error) {
+          callback.reject(payload.error);
+        } else {
+          callback.resolve(payload.data);
+        }
+        return;
+      }
+      if (payload.type === 'REQUEST') {
+        var privateProvider = window.$onekey && window.$onekey.$private;
+        var handler = privateProvider && privateProvider.webembedReceiveHandler;
+        if (typeof handler !== 'function') {
+          postMessage({
+            id: payload.id,
+            type: 'RESPONSE',
+            scope: payload.scope,
+            error: {
+              name: 'Error',
+              message: 'webembedReceiveHandler is not ready',
+            },
+          });
+          return;
+        }
+        Promise.resolve()
+          .then(function() {
+            return handler(payload, bridge);
+          })
+          .then(
+            function(response) {
+              postMessage({
+                id: payload.id,
+                type: 'RESPONSE',
+                scope: payload.scope,
+                data: response,
+              });
+            },
+            function(error) {
+              postMessage({
+                id: payload.id,
+                type: 'RESPONSE',
+                scope: payload.scope,
+                error: normalizeError(error),
+              });
+            },
+          );
+      }
+    },
+    request: function(info) {
+      callbackId += 1;
+      var id = callbackId;
+      return new Promise(function(resolve, reject) {
+        callbacks[id] = {
+          resolve: resolve,
+          reject: reject,
+        };
+        try {
+          postMessage({
+            id: id,
+            type: 'REQUEST',
+            scope: info.scope,
+            data: info.data,
+          });
+        } catch (error) {
+          delete callbacks[id];
+          reject(error);
+        }
+      });
+    },
+  };
+
+  window.$onekey = window.$onekey || {};
+  window.$onekey.jsBridge = bridge;
+  window.$onekey.$private = window.$onekey.$private || {};
+  window.$onekey.$private.request = function(data) {
+    return bridge.request({
+      scope: '$private',
+      data: data,
+    }).then(unwrapRpcResult);
+  };
+})();
+void 0;
+`;
+
 // /onboarding/auto_typing
 export function WebViewWebEmbed({
   isSingleton,
@@ -279,6 +416,7 @@ export function WebViewWebEmbed({
         allowingReadAccessToURL={iosAllowingReadAccessToURL}
         pullToRefreshEnabled={false}
         useGeckoView={false}
+        useInjectedNativeCode={false}
         // *** use remote url
         src={remoteUrl || ''}
         // *** use web-embed local html file
@@ -288,6 +426,7 @@ export function WebViewWebEmbed({
         onMessage={handleMessage}
         onError={handleError}
         nativeInjectedJavaScriptBeforeContentLoaded={`
+            ${webEmbedBridgeInjectedJavaScriptBeforeContentLoaded}
             window.location.hash = "${fullHash}";
             const WEB_EMBED_ONEKEY_APP_SETTINGS = ${JSON.stringify(
               webEmbedAppSettings,
