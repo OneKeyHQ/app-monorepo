@@ -6,6 +6,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type {
+  IEarnClaimType,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakingInfo,
@@ -34,6 +35,7 @@ export const useHandleClaim = ({
       symbol,
       claimAmount,
       claimTokenAddress,
+      claimRequestType,
       isReward,
       stakingInfo,
       onSuccess,
@@ -46,6 +48,7 @@ export const useHandleClaim = ({
       symbol: string;
       claimAmount: string;
       claimTokenAddress?: string;
+      claimRequestType?: IEarnClaimType;
       isReward?: boolean;
       isMorphoClaim?: boolean;
       stakingInfo?: IStakingInfo;
@@ -61,6 +64,17 @@ export const useHandleClaim = ({
       })
         ? claimTokenAddress
         : undefined;
+      let effectiveClaimRequestType = claimRequestType;
+      if (!effectiveClaimRequestType) {
+        if (claimType === EClaimType.ClaimAirdrop) {
+          effectiveClaimRequestType = 'airdrop';
+        } else if (
+          claimType === EClaimType.Claim &&
+          earnUtils.isNativeProvider({ providerName: provider })
+        ) {
+          effectiveClaimRequestType = 'normal';
+        }
+      }
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
           networkId,
@@ -77,6 +91,7 @@ export const useHandleClaim = ({
           provider,
           stakingInfo,
           claimTokenAddress: claimTokenAddressForRequest,
+          claimType: effectiveClaimRequestType,
           portfolioSymbol:
             portfolioSymbol || tokenInfo?.token?.symbol || undefined,
           portfolioRewardSymbol,
@@ -118,7 +133,8 @@ export const useHandleClaim = ({
         return;
       }
       if (
-        claimType === EClaimType.Claim &&
+        (claimType === EClaimType.Claim ||
+          claimType === EClaimType.ClaimAirdrop) &&
         claimAmount &&
         Number(claimAmount) > 0
       ) {
@@ -127,6 +143,7 @@ export const useHandleClaim = ({
           symbol,
           provider,
           claimTokenAddress: claimTokenAddressForRequest,
+          claimType: effectiveClaimRequestType,
           stakingInfo,
           protocolVault: vault,
           vault,
@@ -157,6 +174,7 @@ export const useHandleClaim = ({
         symbol,
         provider,
         claimTokenAddress: claimTokenAddressForRequest,
+        claimType: effectiveClaimRequestType,
         stakingInfo,
         protocolVault: vault,
         vault,

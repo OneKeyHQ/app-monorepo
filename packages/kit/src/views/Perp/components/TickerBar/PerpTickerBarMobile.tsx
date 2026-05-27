@@ -10,6 +10,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useIsSplitMainActive,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -30,10 +31,17 @@ const MOBILE_TICKER_SUBTITLE_MAX_WIDTH = 64;
 
 function PerpCandleChartButtonMobile() {
   const navigation = useAppNavigation();
+  const isSplitMainActive = useIsSplitMainActive();
 
   const onPressCandleChart = useCallback(() => {
     navigation.push(EModalPerpRoutes.MobilePerpMarket);
   }, [navigation]);
+
+  // The chart is already rendered alongside this form in the sub pane —
+  // tapping the icon would push another instance on top of MAIN's stack.
+  if (isSplitMainActive) {
+    return null;
+  }
 
   return (
     <DebugRenderTracker name="PerpCandleChartButtonMobile">

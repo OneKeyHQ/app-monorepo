@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 
-import { isNativeTablet, useIsSplitView } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EAppEventBusNames,
@@ -30,19 +29,14 @@ export const showTabBar = () => {
 export const useNotifyTabBarDisplay = isNative
   ? (isActive: boolean) => {
       const isFocused = useIsFocused({ disableLockScreenCheck: true });
-      const isLandscape = useIsSplitView();
-      const isTablet = isNativeTablet();
 
       const hideTabBar = isActive && isFocused;
 
       useEffect(() => {
-        if (isTablet && isLandscape) {
-          return;
-        }
         if (hideTabBar) {
           cancelPendingShowTabBar();
         }
         appEventBus.emit(EAppEventBusNames.HideTabBar, hideTabBar);
-      }, [hideTabBar, isLandscape, isTablet]);
+      }, [hideTabBar]);
     }
   : () => {};
