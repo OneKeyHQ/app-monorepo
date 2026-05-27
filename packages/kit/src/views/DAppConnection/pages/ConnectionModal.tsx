@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Page, Toast } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -40,9 +41,11 @@ import type { IHandleAccountChanged } from '../hooks/useHandleAccountChanged';
 function ConnectionModal() {
   const intl = useIntl();
   const { serviceDApp } = backgroundApiProxy;
-  const { $sourceInfo, keylessAutoConnectNonce } = useDappQuery<{
-    keylessAutoConnectNonce?: string;
-  }>();
+  const { $sourceInfo, keylessAutoConnectNonce, preselectKeylessProvider } =
+    useDappQuery<{
+      keylessAutoConnectNonce?: string;
+      preselectKeylessProvider?: EOAuthSocialLoginProvider;
+    }>();
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
@@ -246,6 +249,7 @@ function ConnectionModal() {
             <DAppAccountListStandAloneItem
               handleAccountChanged={handleAccountChanged}
               onConnectedAccountInfoChanged={setConnectedAccountInfo}
+              preselectKeylessProvider={preselectKeylessProvider}
             />
             <DAppRequestedPermissionContent />
             <DAppRequestedDappList origins={urlSecurityInfo?.dapp?.origins} />

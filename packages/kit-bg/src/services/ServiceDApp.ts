@@ -13,6 +13,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import {
   IMPL_BTC,
@@ -73,6 +74,7 @@ import type { IAddEthereumChainParameter } from '../providers/ProviderApiEthereu
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type { IAccountDeriveTypes, ITransferInfo } from '../vaults/types';
 import type {
+  IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
@@ -937,6 +939,45 @@ class ServiceDApp extends ServiceBase {
         return { ...accountInfo, availableNetworkIds: networkIds };
       }),
     );
+  }
+
+  @backgroundMethod()
+  async isOriginAuthorizedKeylessProvider({
+    origin,
+    provider,
+    scope,
+  }: {
+    origin: string;
+    provider: EOAuthSocialLoginProvider;
+    scope?: IInjectedProviderNamesStrings;
+  }): Promise<boolean> {
+    // Fetch in parallel — the two reads are independent and this function
+    // runs inside the provider semaphore, so cutting one RTT keeps the
+    // hot path snappier for keyless-aware dApps.
+    const [connected, keyless] = await Promise.all([
+      this.findInjectedAccountByOrigin(origin),
+      this.backgroundApi.serviceAccount.getKeylessWallet(),
+    ]);
+    if (!connected?.length) return false;
+    // Scope-filter so a Solana/Cosmos keyless authorization doesn't satisfy
+    // an EVM eth_requestAccounts (origin-only lookup returns ALL scopes).
+    // If a scope was provided but doesn't resolve to known impls, fail
+    // closed rather than widening to all-scopes (an unknown scope must not
+    // satisfy a request it can't be matched against).
+    let candidates = connected;
+    if (scope) {
+      const impls = getNetworkImplsFromDappScope(scope);
+      if (!impls?.length) return false;
+      candidates = connected.filter((c) => impls.includes(c.networkImpl));
+    }
+    // Iterate (not connected[0]) — accountSelectorNum ordering is not
+    // semantically meaningful; the keyless entry can sit at any index.
+    const hasKeylessAuth = candidates.some(
+      (c) =>
+        c.walletId && accountUtils.isKeylessWallet({ walletId: c.walletId }),
+    );
+    if (!hasKeylessAuth) return false;
+    return keyless?.keylessDetailsInfo?.keylessProvider === provider;
   }
 
   @backgroundMethod()
