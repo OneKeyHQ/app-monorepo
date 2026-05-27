@@ -14,9 +14,9 @@ import {
   Tabs,
   XStack,
   YStack,
-  isNativeTablet,
-  useIsSplitView,
+  useIsSplitDetailActive,
   usePageWidth,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -267,6 +267,8 @@ function MobilePerpMarket() {
     });
   }, [navigation]);
 
+  const isSplitDetailActive = useIsSplitDetailActive();
+
   const renderHeaderTitle = useCallback(() => {
     let pairLabel: string;
     if (mode === 'spot') {
@@ -287,9 +289,9 @@ function MobilePerpMarket() {
       <XStack
         alignItems="center"
         gap="$2"
-        onPress={onPressTokenSelector}
-        hoverStyle={{ opacity: 0.8 }}
-        pressStyle={{ opacity: 0.6 }}
+        onPress={isSplitDetailActive ? undefined : onPressTokenSelector}
+        hoverStyle={isSplitDetailActive ? undefined : { opacity: 0.8 }}
+        pressStyle={isSplitDetailActive ? undefined : { opacity: 0.6 }}
         cursor="default"
       >
         <Token
@@ -303,23 +305,26 @@ function MobilePerpMarket() {
         />
         <SizableText size="$headingLg">{pairLabel}</SizableText>
         <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
-        <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+        {isSplitDetailActive ? null : (
+          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+        )}
       </XStack>
     );
-  }, [baseName, displayName, mode, onPressTokenSelector, themeVariant]);
-
-  const isTablet = isNativeTablet();
-  const isLandscape = useIsSplitView();
+  }, [
+    baseName,
+    displayName,
+    isSplitDetailActive,
+    mode,
+    onPressTokenSelector,
+    themeVariant,
+  ]);
   useEffect(() => {
-    if (isTablet && isLandscape) {
-      return;
-    }
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 
     return () => {
       appEventBus.emit(EAppEventBusNames.HideTabBar, false);
     };
-  }, [isLandscape, isTablet]);
+  }, []);
 
   const scrollToTab = useCallback(
     (tab: IMobilePerpMarketTab, animated = true) => {
@@ -370,15 +375,44 @@ function MobilePerpMarket() {
     [activeTradeInstrument.coin, mode],
   );
 
+  // In split-view detail (SUB) pane the page is rendered inline rather than
+  // as a navigator screen, so `Page.Header` (which goes through
+  // navigation.setOptions) is a no-op and the user loses the pair selector +
+  // favorite button. Render those controls as an inline XStack at the top of
+  // Page.Body in that mode, and keep `Page.Header` for the modal route case.
   const pageHeader = useMemo(
-    () => (
-      <Page.Header
-        headerShown
-        headerTitle={renderHeaderTitle}
-        headerRight={renderHeaderRight}
-      />
-    ),
-    [renderHeaderTitle, renderHeaderRight],
+    () =>
+      isSplitDetailActive ? (
+        // Inline render in the SUB pane: explicitly suppress the navigator's
+        // default header so it doesn't reserve top-of-pane space on top of
+        // our `inlineHeader` XStack inside Page.Body.
+        <Page.Header headerShown={false} />
+      ) : (
+        <Page.Header
+          headerShown
+          headerTitle={renderHeaderTitle}
+          headerRight={renderHeaderRight}
+        />
+      ),
+    [isSplitDetailActive, renderHeaderTitle, renderHeaderRight],
+  );
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  const inlineHeader = useMemo(
+    () =>
+      isSplitDetailActive ? (
+        <XStack
+          px="$4"
+          pt={safeAreaTop + 8}
+          pb="$2"
+          alignItems="center"
+          justifyContent="space-between"
+          bg="$bgApp"
+        >
+          {renderHeaderTitle()}
+          {renderHeaderRight()}
+        </XStack>
+      ) : null,
+    [isSplitDetailActive, renderHeaderTitle, renderHeaderRight, safeAreaTop],
   );
 
   const marketHeaderContent = useMemo(() => <MobilePerpCandlesStatic />, []);
@@ -417,11 +451,16 @@ function MobilePerpMarket() {
     <Page scrollEnabled={pageScrollEnabled}>
       {pageHeader}
       <Page.Body p="$0">
+        {inlineHeader}
         <YStack
           flex={1}
           bg="$bgApp"
           onLayout={handleContainerLayout}
-          pt={platformEnv.isNativeIOS26Plus ? headerHeight : 0}
+          pt={
+            !isSplitDetailActive && platformEnv.isNativeIOS26Plus
+              ? headerHeight
+              : 0
+          }
         >
           <MobilePerpMarketTabBar
             activeTab={activeTab}
@@ -437,8 +476,21 @@ function MobilePerpMarket() {
             bounces={false}
             contentContainerStyle={{ minHeight: '100%' }}
           >
-            <YStack w={effectivePageWidth} flex={1} minHeight={0}>
-              {platformEnv.isNativeIOS ? (
+            <YStack
+              w={effectivePageWidth}
+              flex={1}
+              minHeight={0}
+              {...(isSplitDetailActive ? { overflow: 'hidden' } : null)}
+            >
+              {/* eslint-disable-next-line no-nested-ternary */}
+              {isSplitDetailActive ? (
+                <YStack flex={1}>
+                  <MobilePerpMarketHeader />
+                  <YStack flex={1} overflow="hidden">
+                    <PerpCandles />
+                  </YStack>
+                </YStack>
+              ) : platformEnv.isNativeIOS ? (
                 <Tabs.Container
                   initialTabName="orderbook"
                   renderHeader={() => <MobilePerpCandlesTouchBridge />}
@@ -460,7 +512,12 @@ function MobilePerpMarket() {
                 </YStack>
               )}
             </YStack>
-            <YStack w={effectivePageWidth} flex={1} minHeight={0}>
+            <YStack
+              w={effectivePageWidth}
+              flex={1}
+              minHeight={0}
+              {...(isSplitDetailActive ? { overflow: 'hidden' } : null)}
+            >
               {hasInfoTabMounted ? (
                 <ScrollView
                   flex={1}
@@ -474,7 +531,7 @@ function MobilePerpMarket() {
           </ScrollView>
         </YStack>
       </Page.Body>
-      {pageFooter}
+      {isSplitDetailActive ? null : pageFooter}
     </Page>
   );
 }
