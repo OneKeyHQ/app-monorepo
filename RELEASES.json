@@ -36,5 +36,25 @@
       "#11747"
     ],
     "notes": "Stop onboarding from showing a previously-added device (#11747); Update BTC reward display fields (#11737); Improve perps margin entry ux (#11745); Remove balance min width in account selector item (#11746); Update spot share default text (OK-54738) (#11736); BTC multi-address Address list + Coins (UTXO) modals (OK-54985 OK-54986) (#11716); Add hardware wallet vendor attribution (#11727); Home redesign + invite code dialog + banner hide (OK-54294)(OK-54527)(OK-54990) (#11733); Add creator program banner (#11741); Render BTC and stock specific metrics in swap pro token detail (OK-55017, OK-55029) (#11729)"
+  },
+  {
+    "seq": 3,
+    "commit": "362fa54f5b15f511698c1cd7199d46b03be243e8",
+    "date": "2026-05-27T15:32:14Z",
+    "prs": [
+      "#11717",
+      "#11723",
+      "#11753",
+      "#11761",
+      "#11764",
+      "#11765",
+      "#11766",
+      "#11767",
+      "#11769",
+      "#11774",
+      "#11790",
+      "#11803"
+    ],
+    "notes": "Restore SegmentSlider inactive mark ring on web (#11803); Rewrite web SegmentSlider with pure-DOM impl (OK-55214) (#11774); Stabilize perps orderbook, positions, and recovery (OK-55023 OK-55030 OK-54952 OK-55026) (#11764); Split-view layout fixes for iPad / foldable detail pages (OK-54993) (#11761); Support Native Earn and Earn home flows (OK-54973, OK-55232, OK-55237, OK-55239, OK-55241, OK-54352, OK-54601, OK-55145) (#11717); Fix silent update dialog after restart (#11767); Tab switch freeze + history fast-scroll fixes (#11723); Ledger USB limit fix (#11765); Fix Kaspa balance due to deriveType mismatch in account/chain selectors (OK-55367) (#11790); Capture and report logger UTM params from URLs (OK-55267) (#11766); Support BTC voucher deeplink (OK-55177) (#11753); Remove perps referral share prompt (#11769)"
   }
 ]
