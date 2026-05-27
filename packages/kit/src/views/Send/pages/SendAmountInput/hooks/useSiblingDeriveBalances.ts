@@ -8,11 +8,6 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import type {
-  IFetchAccountTokensResp,
-  ITokenData,
-  ITokenFiat,
-} from '@onekeyhq/shared/types/token';
 
 export type ISiblingDeriveBalance = {
   accountId: string;
@@ -31,7 +26,6 @@ export type ISiblingDeriveBalancesResult = {
 };
 
 const CACHE_TTL_MS = 30_000;
-const FETCH_FLAG = 'send-auto-switch-derive';
 
 type ICache = {
   data: ISiblingDeriveBalance[];
@@ -48,36 +42,19 @@ type IParams = {
   tokenAddress: string;
 };
 
-function pickBalanceForToken({
-  resp,
-  tokenAddress,
-}: {
-  resp: IFetchAccountTokensResp;
-  tokenAddress: string;
-}): ITokenFiat | null {
-  const buckets = [resp.allTokens, resp.tokens, resp.smallBalanceTokens].filter(
-    (b): b is ITokenData => Boolean(b),
-  );
-
-  const wantNative = tokenAddress === '';
-
-  for (const bucket of buckets) {
-    const matching = bucket.data.find((t) =>
-      wantNative ? t.isNative === true : t.address === tokenAddress,
-    );
-    if (matching) {
-      const fiat = bucket.map[matching.$key];
-      if (fiat) return fiat;
-    }
-  }
-  return null;
-}
-
 // Fetches the available balance of the same token under every other deriveType
 // belonging to the same indexedAccount, so callers can offer "auto-switch to a
 // derivetype that actually has funds" UX. Lazy on purpose: only call `fetch()`
 // when there is a real reason (e.g. user typed an amount that exceeds the
 // current account's balance), to avoid 4 RPC roundtrips per page load.
+//
+// **Balance contract**: uses `fetchTokensDetails({ withFrozenBalance,
+// withCheckInscription })` — the *same* path SendAmountInputContainer uses
+// for the current account's `maxBalance`. This is load-bearing: if siblings
+// were fetched via the raw token-list API, frozen UTXOs or
+// inscription-protected UTXOs would inflate sibling balance vs. what the
+// current page would actually show after switching, causing the form to
+// auto-switch to an account that still can't cover the amount.
 export function useSiblingDeriveBalances({
   networkId,
   indexedAccountId,
@@ -102,14 +79,16 @@ export function useSiblingDeriveBalances({
     }
 
     try {
-      const { networkAccounts } =
-        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+      const [{ networkAccounts }, inscriptionProtection] = await Promise.all([
+        backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
           {
             networkId,
             indexedAccountId,
             excludeEmptyAccount: true,
           },
-        );
+        ),
+        backgroundApiProxy.serviceSetting.getInscriptionProtection(),
+      ]);
 
       const candidates = networkAccounts.filter((item) => item.account?.id);
 
@@ -119,19 +98,30 @@ export function useSiblingDeriveBalances({
           const account = item.account;
           if (!account) return null;
           try {
+            const checkInscriptionProtectionEnabled =
+              await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+                {
+                  networkId,
+                  accountId: account.id,
+                },
+              );
+            const withCheckInscription =
+              checkInscriptionProtectionEnabled && inscriptionProtection;
+
             const resp =
-              await backgroundApiProxy.serviceToken.fetchAccountTokens({
+              await backgroundApiProxy.serviceToken.fetchTokensDetails({
                 accountId: account.id,
                 networkId,
-                indexedAccountId,
-                flag: FETCH_FLAG,
+                contractList: [tokenAddress],
+                withFrozenBalance: true,
+                withCheckInscription,
               });
-            const fiat = pickBalanceForToken({ resp, tokenAddress });
-            // No entry for this token = the account genuinely holds none of
-            // it. That is a real "0", not an error.
-            if (!fiat) return null;
+            const detail = resp?.[0];
+            // No detail = the account genuinely holds none of this token.
+            // That is a real "0", not an error.
+            if (!detail) return null;
 
-            const balanceParsed = fiat.balanceParsed ?? '0';
+            const balanceParsed = detail.balanceParsed ?? '0';
 
             return {
               accountId: account.id,

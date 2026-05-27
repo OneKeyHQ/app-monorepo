@@ -185,6 +185,17 @@ export function useAutoSwitchDeriveType({
   // so generation alone won't catch this.
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
+  // Tripped on hook unmount. In-flight closures must bail before touching
+  // any shared state (`performSwitch` clears UTXOs on the shared
+  // sendConfirm context — if the page already navigated away, that would
+  // pollute a future Send mount).
+  const cancelledRef = useRef(false);
+  useEffect(
+    () => () => {
+      cancelledRef.current = true;
+    },
+    [],
+  );
   // Set when the effect wanted to run but a sibling fetch was already in
   // flight. The in-flight closure bumps `rerunTick` on settle so the effect
   // re-evaluates against whatever the user typed meanwhile — clearing a ref
@@ -283,9 +294,10 @@ export function useAutoSwitchDeriveType({
     void (async () => {
       try {
         const { siblings, hadError } = await fetchSiblings();
-        // Bail if the effect re-ran while we were fetching, the feature got
-        // disabled (fiat/coin-control toggle), the user typed a fresh amount,
-        // or manually switched.
+        // Bail if the hook unmounted, the effect re-ran while we were
+        // fetching, the feature got disabled (fiat/coin-control toggle), the
+        // user typed a fresh amount, or manually switched.
+        if (cancelledRef.current) return;
         if (generation !== fetchGenerationRef.current) return;
         if (!enabledRef.current) return;
         if (userManuallySwitchedRef.current) return;
@@ -328,8 +340,9 @@ export function useAutoSwitchDeriveType({
         setAllFormatsInsufficientAmount(null);
       } finally {
         inFlightRef.current = false;
-        // Re-evaluate anything the user typed while this fetch was in flight.
-        if (pendingRerunRef.current) {
+        // Re-evaluate anything the user typed while this fetch was in flight,
+        // unless we've unmounted (in which case there is nothing to re-render).
+        if (pendingRerunRef.current && !cancelledRef.current) {
           pendingRerunRef.current = false;
           setRerunTick((n) => n + 1);
         }
