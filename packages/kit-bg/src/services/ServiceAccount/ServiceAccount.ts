@@ -4593,31 +4593,6 @@ class ServiceAccount extends ServiceBase {
     });
   }
 
-  // EarnHome instantiates useStakingPendingTxsByInfo twice (earn + borrow)
-  // and each calls these per network on every dependency change, producing
-  // 37+/min of identical (accountId, networkId) BgTransport RPCs in logs.
-  // Both methods are derived from wallet/derivation state and can be safely
-  // cached short-term; events like account/derivation switches surface
-  // through atom/event-bus changes that re-resolve effectiveNetworkIds in
-  // the consumer, so a few seconds of caching is acceptable.
-  private _getAccountXpubMemoized = memoizee(
-    async (
-      accountId: string,
-      networkId: string,
-    ): Promise<string | undefined> => {
-      if (networkUtils.isAllNetwork({ networkId })) {
-        return '';
-      }
-      const vault = await vaultFactory.getVault({ accountId, networkId });
-      return vault.getAccountXpub({});
-    },
-    {
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
-      promise: true,
-      max: 200,
-    },
-  );
-
   @backgroundMethod()
   async getAccountXpub({
     accountId,
@@ -4628,33 +4603,19 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     dbAccount?: IDBAccount;
   }) {
-    // Skip the cache when an explicit dbAccount override is provided —
-    // memoizee keys on plain args, and callers passing a custom dbAccount
-    // expect that exact account's xpub, not whatever is in the wallet now.
-    if (dbAccount) {
-      if (networkUtils.isAllNetwork({ networkId })) {
-        return '';
-      }
-      const vault = await vaultFactory.getVault({ accountId, networkId });
-      return vault.getAccountXpub({ dbAccount });
+    if (networkUtils.isAllNetwork({ networkId })) {
+      return '';
     }
-    return this._getAccountXpubMemoized(accountId, networkId);
-  }
 
-  private _getAccountAddressForApiMemoized = memoizee(
-    async (accountId: string, networkId: string): Promise<string> => {
-      const info = await this.getAccountAddressInfoForApi({
-        accountId,
-        networkId,
-      });
-      return info.address;
-    },
-    {
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
-      promise: true,
-      max: 200,
-    },
-  );
+    const vault = await vaultFactory.getVault({
+      accountId,
+      networkId,
+    });
+
+    const xpub = await vault.getAccountXpub({ dbAccount });
+
+    return xpub;
+  }
 
   // Get Address for each chain when request the API
   @backgroundMethod()
@@ -4667,15 +4628,12 @@ class ServiceAccount extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
-    if (dbAccount) {
-      const info = await this.getAccountAddressInfoForApi({
-        dbAccount,
-        accountId,
-        networkId,
-      });
-      return info.address;
-    }
-    return this._getAccountAddressForApiMemoized(accountId, networkId);
+    const info = await this.getAccountAddressInfoForApi({
+      dbAccount,
+      accountId,
+      networkId,
+    });
+    return info.address;
   }
 
   @backgroundMethod()

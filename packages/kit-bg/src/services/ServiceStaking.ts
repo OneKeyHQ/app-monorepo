@@ -2071,27 +2071,11 @@ class ServiceStaking extends ServiceBase {
     });
   }
 
-  // Cached because EarnHome instantiates useStakingPendingTxsByInfo twice
-  // (one for Earn, one for Borrow); each hook independently queries this
-  // per network on every dependency change, producing 10+ identical calls
-  // per second. Vault settings are app-lifetime constants for a given
-  // networkId, so a long maxAge is safe.
-  private _getFetchHistoryPollingIntervalMemoized = memoizee(
-    async (networkId: string): Promise<number> => {
-      const vaultSettings =
-        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
-      return vaultSettings.stakingResultPollingInterval ?? 30;
-    },
-    {
-      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
-      promise: true,
-      max: 50,
-    },
-  );
-
   @backgroundMethod()
   async getFetchHistoryPollingInterval({ networkId }: { networkId: string }) {
-    return this._getFetchHistoryPollingIntervalMemoized(networkId);
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    return vaultSettings.stakingResultPollingInterval ?? 30;
   }
 
   @backgroundMethod()
