@@ -45,6 +45,7 @@
 
 /* eslint-disable no-console */
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   flushColdStartCacheNow,
   primeColdStartCacheMap,
@@ -75,10 +76,18 @@ const HYDRATION_TIMEOUT_MS = 300;
 // IDB connection, short enough that a wedged write cannot stall React mount.
 const BUILD_HASH_FLUSH_TIMEOUT_MS = 1000;
 
+// Schema-invalidation key for the cold-start cache. Prefer the canonical
+// commit SHA exposed via platformEnv (populated from GITHUB_SHA /
+// WORKFLOW_GITHUB_SHA on CI); fall back to the bundler-injected BUILD_HASH
+// which covers local dev (git rev-parse --short HEAD, then a timestamp).
+// A different value here on next boot triggers resetColdStartCache(), so
+// any commit change (CI or local) automatically invalidates stale L1
+// entries that may not match the new atom schema.
 const BUILD_HASH: string | undefined =
-  typeof process !== 'undefined' && process.env
+  platformEnv.githubSHA ||
+  (typeof process !== 'undefined' && process.env
     ? process.env.BUILD_HASH
-    : undefined;
+    : undefined);
 
 // ---- Helpers ----
 
