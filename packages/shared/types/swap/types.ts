@@ -1112,6 +1112,7 @@ export interface IFetchUSMarketStatusResult {
   open: boolean;
   session: 'PRE_MARKET' | 'REGULAR' | 'POST_MARKET' | 'OVERNIGHT' | 'CLOSED';
   reason: string | null;
+  unavailable?: boolean;
 }
 
 export enum ESwapLimitOrderStatus {

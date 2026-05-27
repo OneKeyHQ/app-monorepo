@@ -2424,16 +2424,22 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchCheckUSMarketStatus(): Promise<IFetchUSMarketStatusResult | null> {
+  async fetchCheckUSMarketStatus(): Promise<IFetchUSMarketStatusResult> {
+    const unavailableStatus: IFetchUSMarketStatusResult = {
+      open: false,
+      session: 'CLOSED',
+      reason: 'market-status-unavailable',
+      unavailable: true,
+    };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.get<
         IFetchResponse<IFetchUSMarketStatusResult>
       >('/swap/v1/check/us-market-status');
-      return data?.data ?? null;
+      return data?.data ?? unavailableStatus;
     } catch (error) {
       console.error(error);
-      return null;
+      return unavailableStatus;
     }
   }
 
