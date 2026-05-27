@@ -1,7 +1,15 @@
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
+
+import { jotaiDefaultStore } from '../utils/jotaiDefaultStore';
+
 import {
   type IPerpsAccountDisplaySnapshotAtom,
   type IPerpsAccountDisplaySnapshotEntry,
   getPerpsAccountDisplaySnapshotEntry,
+  perpsAbstractionModeAtom,
+  perpsActiveAccountAtom,
+  perpsActiveAccountStatusAtom,
+  perpsActiveAccountStatusInfoAtom,
 } from './perps';
 
 const now = 1_000_000;
@@ -170,5 +178,80 @@ describe('getPerpsAccountDisplaySnapshotEntry', () => {
         deriveType: 'default',
       }),
     ).toBe(latestEntry);
+  });
+});
+
+describe('perpsActiveAccountStatusAtom', () => {
+  afterEach(() => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: null,
+      indexedAccountId: null,
+      deriveType: 'default',
+      accountAddress: null,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), undefined);
+    jotaiDefaultStore.set(perpsAbstractionModeAtom.atom(), undefined);
+  });
+
+  it('ignores cached abstraction mode when deriving canTrade', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-1',
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), {
+      accountAddress: '0xabc',
+      details: {
+        activatedOk: true,
+        agentOk: true,
+        referralCodeOk: true,
+        builderFeeOk: true,
+        internalRebateBoundOk: true,
+        abstractionOk: false,
+      },
+    });
+    jotaiDefaultStore.set(perpsAbstractionModeAtom.atom(), {
+      accountAddress: '0xabc',
+      mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      source: 'cache',
+    });
+
+    expect(jotaiDefaultStore.get(perpsActiveAccountStatusAtom.atom())).toEqual(
+      expect.objectContaining({
+        canTrade: false,
+      }),
+    );
+  });
+
+  it('uses live abstraction mode to update canTrade immediately', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-1',
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), {
+      accountAddress: '0xabc',
+      details: {
+        activatedOk: true,
+        agentOk: true,
+        referralCodeOk: true,
+        builderFeeOk: true,
+        internalRebateBoundOk: true,
+        abstractionOk: false,
+      },
+    });
+    jotaiDefaultStore.set(perpsAbstractionModeAtom.atom(), {
+      accountAddress: '0xabc',
+      mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      source: 'live',
+    });
+
+    expect(jotaiDefaultStore.get(perpsActiveAccountStatusAtom.atom())).toEqual(
+      expect.objectContaining({
+        canTrade: true,
+      }),
+    );
   });
 });

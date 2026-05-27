@@ -47,6 +47,31 @@ function limitColdCacheEntries(
   );
 }
 
+export function upsertPerpsActiveAssetCtxColdCacheEntry({
+  cache,
+  data,
+  updatedAt,
+}: {
+  cache: IPerpsActiveAssetCtxColdCacheAtom;
+  data: NonNullable<IPerpsActiveAssetCtxAtom>;
+  updatedAt: number;
+}): IPerpsActiveAssetCtxColdCacheAtom {
+  if (!hasDisplayMarketPrice(data)) {
+    return cache;
+  }
+  const current = cache[data.coin];
+  if (current && current.updatedAt >= updatedAt) {
+    return cache;
+  }
+  return limitColdCacheEntries({
+    ...cache,
+    [data.coin]: {
+      data,
+      updatedAt,
+    },
+  });
+}
+
 function shouldUpdateColdCacheEntry({
   entry,
   assetCtx,

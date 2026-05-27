@@ -17,7 +17,10 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { shouldNotifyPerpsNetworkIssue } from '../utils/perpsMarketDataFreshness';
+import {
+  type IPerpsMarketDataFreshness,
+  shouldBlockPerpsTradingForMarketData,
+} from '../utils/perpsMarketDataFreshness';
 
 import { useOrderPrice } from './useOrderPrice';
 import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
@@ -36,15 +39,27 @@ export interface IUseOrderConfirmReturn {
 export function useOrderConfirm(
   options?: IUseOrderConfirmOptions,
 ): IUseOrderConfirmReturn {
+  const marketDataFreshness = usePerpsMarketDataFreshness();
+  return useOrderConfirmWithMarketDataFreshness({
+    ...options,
+    marketDataFreshness,
+  });
+}
+
+export function useOrderConfirmWithMarketDataFreshness({
+  marketDataFreshness,
+  ...options
+}: IUseOrderConfirmOptions & {
+  marketDataFreshness: IPerpsMarketDataFreshness;
+}): IUseOrderConfirmReturn {
   const intl = useIntl();
   const [formData] = useTradingFormAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPrice, midPriceBN } = useTradingPrice();
-  const marketDataFreshness = usePerpsMarketDataFreshness();
   const shouldBlockForMarketData =
-    shouldNotifyPerpsNetworkIssue(marketDataFreshness);
+    shouldBlockPerpsTradingForMarketData(marketDataFreshness);
 
   const longOrderPrice = useOrderPrice('long');
   const shortOrderPrice = useOrderPrice('short');

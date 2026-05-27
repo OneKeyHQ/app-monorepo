@@ -128,6 +128,7 @@ import {
 } from './userAbstractionCache';
 
 import type ServiceHyperliquidCache from './ServiceHyperliquidCache';
+import type { IPerpsActiveAssetCtxSnapshotCacheHydration } from './ServiceHyperliquidCache';
 import type ServiceHyperliquidExchange from './ServiceHyperliquidExchange';
 import type ServiceHyperliquidWallet from './ServiceHyperliquidWallet';
 import type { ISimpleDbPerpData } from '../../dbs/simple/entity/SimpleDbEntityPerp';
@@ -186,6 +187,8 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
 
+  private activePerpsAccountChangeRequestId = 0;
+
   private tokenSelectorFavoriteUpdateQueue = Promise.resolve();
 
   @backgroundMethod()
@@ -203,6 +206,15 @@ export default class ServiceHyperliquid extends ServiceBase {
     ) {
       this.lastCommittedActiveAsset = activeAsset;
     }
+  }
+
+  private beginActivePerpsAccountChange(): number {
+    this.activePerpsAccountChangeRequestId += 1;
+    return this.activePerpsAccountChangeRequestId;
+  }
+
+  private isLatestActivePerpsAccountChange(requestId: number): boolean {
+    return requestId === this.activePerpsAccountChangeRequestId;
   }
 
   private async updateTokenSelectorFavoriteInBg({
@@ -1243,7 +1255,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     coin,
   }: {
     coin: string;
-  }): Promise<IWsActiveAssetCtx | undefined> {
+  }): Promise<IPerpsActiveAssetCtxSnapshotCacheHydration | undefined> {
     return this.cacheService.hydrateActiveAssetCtxSnapshotCache({ coin });
   }
 
@@ -1803,7 +1815,8 @@ export default class ServiceHyperliquid extends ServiceBase {
     walletId: string | null;
     indexedAccountId: string | null;
     deriveType: IAccountDeriveTypes;
-  }) {
+  }): Promise<IPerpsActiveAccountAtom | undefined> {
+    const requestId = this.beginActivePerpsAccountChange();
     const { indexedAccountId, accountId, deriveType } = params;
 
     const perpsAccount: IPerpsActiveAccountAtom = {
@@ -1821,6 +1834,9 @@ export default class ServiceHyperliquid extends ServiceBase {
           selectAccountLoading: true,
         }),
       );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
 
       if (indexedAccountId || accountId) {
         // Check if Bitcoin Only firmware for hardware wallets
@@ -1829,6 +1845,9 @@ export default class ServiceHyperliquid extends ServiceBase {
           await this.backgroundApi.serviceAccount.isBtcOnlyFirmwareByWalletId({
             walletId: params.walletId || '',
           });
+        if (!this.isLatestActivePerpsAccountChange(requestId)) {
+          return undefined;
+        }
 
         // If Bitcoin Only firmware, mark account as unsupported by clearing indexedAccountId
         if (isBtcOnlyFirmware) {
@@ -1847,6 +1866,9 @@ export default class ServiceHyperliquid extends ServiceBase {
             await this.backgroundApi.serviceAccount.getNetworkAccount(
               getNetworkAccountParams,
             );
+          if (!this.isLatestActivePerpsAccountChange(requestId)) {
+            return undefined;
+          }
           perpsAccount.accountAddress =
             (account.address?.toLowerCase() as IHex) || null;
           if (perpsAccount.accountAddress) {
@@ -1863,6 +1885,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     } finally {
       clearTimeout(this.hideSelectAccountLoadingTimer);
       this.hideSelectAccountLoadingTimer = setTimeout(async () => {
+        if (!this.isLatestActivePerpsAccountChange(requestId)) {
+          return;
+        }
         await perpsAccountLoadingInfoAtom.set(
           (prev): IPerpsAccountLoadingInfo => ({
             ...prev,
@@ -1877,6 +1902,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     // keep the existing summary/statusInfo so the UI doesn't flash an empty
     // frame before the next WS push.
     const previousAccount = await perpsActiveAccountAtom.get();
+    if (!this.isLatestActivePerpsAccountChange(requestId)) {
+      return undefined;
+    }
     const previousAddress =
       previousAccount?.accountAddress?.toLowerCase() ?? null;
     const newAddress = perpsAccount.accountAddress?.toLowerCase() ?? null;
@@ -1886,14 +1914,41 @@ export default class ServiceHyperliquid extends ServiceBase {
       previousAddress === newAddress;
 
     if (!isSameAddress) {
-      await perpsAbstractionModeAtom.set(undefined);
-      await perpsSpotBalancesAtom.set(undefined);
-      await perpsActiveAccountSummaryAtom.set(undefined);
-      await perpsActiveAccountStatusInfoAtom.set(undefined);
+      await perpsAbstractionModeAtom.set((prev) =>
+        this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
+      );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
+      await perpsSpotBalancesAtom.set((prev) =>
+        this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
+      );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
+      await perpsActiveAccountSummaryAtom.set((prev) =>
+        this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
+      );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
+      await perpsActiveAccountStatusInfoAtom.set((prev) =>
+        this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
+      );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
       this.fetchUserAbstractionRawWithCache.clear();
       // Also reset the UI-facing spot balances atom so stale balances from
       // the previous account don't flash before the new SPOT_STATE arrives.
-      await spotBalancesAtom.set({ balances: [], isLoaded: false });
+      await spotBalancesAtom.set((prev) =>
+        this.isLatestActivePerpsAccountChange(requestId)
+          ? { balances: [], isLoaded: false }
+          : prev,
+      );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
 
       // Hydrate display cache for the new address before publishing the new
       // active account. Consumers still need address-aware reads because
@@ -1909,13 +1964,30 @@ export default class ServiceHyperliquid extends ServiceBase {
             error,
           );
         }
+        if (!this.isLatestActivePerpsAccountChange(requestId)) {
+          return undefined;
+        }
       }
     }
 
     // Expose the new active account last. Account-value consumers must still
     // verify address alignment because multiple atom sets are observable.
-    await perpsActiveAccountAtom.set(perpsAccount);
-    if (perpsAccount.accountAddress) {
+    if (!this.isLatestActivePerpsAccountChange(requestId)) {
+      return undefined;
+    }
+    await perpsActiveAccountAtom.set((prev): IPerpsActiveAccountAtom => {
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return prev;
+      }
+      return perpsAccount;
+    });
+    if (!this.isLatestActivePerpsAccountChange(requestId)) {
+      return undefined;
+    }
+    if (
+      perpsAccount.accountAddress &&
+      this.isLatestActivePerpsAccountChange(requestId)
+    ) {
       void this.cacheService
         .writePerpsAccountDisplaySnapshot({
           accountAddress: perpsAccount.accountAddress,
@@ -2080,7 +2152,12 @@ export default class ServiceHyperliquid extends ServiceBase {
   );
 
   @backgroundMethod()
-  async fetchUserAbstraction(userAddress: IHex): Promise<string | undefined> {
+  async fetchUserAbstraction(
+    userAddress: IHex,
+    options?: {
+      allowCachedFallback?: boolean;
+    },
+  ): Promise<string | undefined> {
     const lowerUserAddress = userAddress.toLowerCase() as IHex;
     // Active-account alignment check
     const activeAccount = await perpsActiveAccountAtom.get();
@@ -2120,6 +2197,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       await perpsAbstractionModeAtom.set({
         accountAddress: lowerUserAddress,
         mode: mode as EHyperLiquidAbstractionMode,
+        source: 'live',
       });
       void this.cacheService
         .writePerpsAccountDisplaySnapshot({
@@ -2151,6 +2229,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         await perpsAbstractionModeAtom.set({
           accountAddress: lowerUserAddress,
           mode: cached as EHyperLiquidAbstractionMode,
+          source: 'cache',
         });
         void this.cacheService
           .writePerpsAccountDisplaySnapshot({
@@ -2162,7 +2241,7 @@ export default class ServiceHyperliquid extends ServiceBase {
               error,
             );
           });
-        return cached;
+        return options?.allowCachedFallback ? cached : undefined;
       }
       return undefined; // NOT "default" — unknown is unknown
     }

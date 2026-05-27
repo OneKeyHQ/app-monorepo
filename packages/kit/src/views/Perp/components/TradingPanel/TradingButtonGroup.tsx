@@ -40,7 +40,10 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { useOrderConfirm, usePerpsMarketDataFreshness } from '../../hooks';
+import {
+  useOrderConfirmWithMarketDataFreshness,
+  usePerpsMarketDataFreshness,
+} from '../../hooks';
 import {
   useConfirmHyperliquidTerms,
   useEnableTradingWithDepositFallback,
@@ -56,7 +59,10 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../utils/mobileLayoutTrace';
-import { shouldNotifyPerpsNetworkIssue } from '../../utils/perpsMarketDataFreshness';
+import {
+  type IPerpsMarketDataFreshness,
+  shouldBlockPerpsTradingForMarketData,
+} from '../../utils/perpsMarketDataFreshness';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
@@ -72,6 +78,8 @@ interface ISideButtonProps {
   side: 'long' | 'short';
   isMobile: boolean;
   isLiveStatusPending?: boolean;
+  marketDataFreshness: IPerpsMarketDataFreshness;
+  handleConfirm: (overrideSide?: 'long' | 'short') => Promise<void>;
   justifyContent?:
     | 'flex-start'
     | 'flex-end'
@@ -98,6 +106,8 @@ function SideButtonInternal({
   side,
   isMobile,
   isLiveStatusPending = false,
+  marketDataFreshness,
+  handleConfirm,
   justifyContent = 'flex-start',
 }: ISideButtonProps) {
   const intl = useIntl();
@@ -123,12 +133,10 @@ function SideButtonInternal({
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
 
-  const { handleConfirm } = useOrderConfirm();
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPriceBN } = useTradingPrice();
-  const marketDataFreshness = usePerpsMarketDataFreshness();
   const shouldBlockForMarketData =
-    shouldNotifyPerpsNetworkIssue(marketDataFreshness);
+    shouldBlockPerpsTradingForMarketData(marketDataFreshness);
   const enableTradingWithDepositFallback =
     useEnableTradingWithDepositFallback();
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
@@ -1051,6 +1059,10 @@ function TradingButtonGroup({
 }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
   const [formData] = useTradingFormAtom();
+  const marketDataFreshness = usePerpsMarketDataFreshness();
+  const { handleConfirm } = useOrderConfirmWithMarketDataFreshness({
+    marketDataFreshness,
+  });
   const isSpot = tradingMode === 'spot';
 
   const renderSideButtons = () => {
@@ -1061,6 +1073,8 @@ function TradingButtonGroup({
             side={formData.side}
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            marketDataFreshness={marketDataFreshness}
+            handleConfirm={handleConfirm}
           />
         </YStack>
       );
@@ -1072,11 +1086,15 @@ function TradingButtonGroup({
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            marketDataFreshness={marketDataFreshness}
+            handleConfirm={handleConfirm}
           />
           <SideButton
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            marketDataFreshness={marketDataFreshness}
+            handleConfirm={handleConfirm}
           />
         </YStack>
       );
@@ -1088,6 +1106,8 @@ function TradingButtonGroup({
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            marketDataFreshness={marketDataFreshness}
+            handleConfirm={handleConfirm}
             justifyContent="flex-start"
           />
         </XStack>
@@ -1096,6 +1116,8 @@ function TradingButtonGroup({
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            marketDataFreshness={marketDataFreshness}
+            handleConfirm={handleConfirm}
             justifyContent="flex-end"
           />
         </XStack>

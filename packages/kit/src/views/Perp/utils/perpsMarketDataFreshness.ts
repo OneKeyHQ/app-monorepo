@@ -89,3 +89,9 @@ export function shouldNotifyPerpsNetworkIssue(
     freshness.reason === 'network_disconnected' || freshness.reason === 'stale'
   );
 }
+
+export function shouldBlockPerpsTradingForMarketData(
+  freshness: IPerpsMarketDataFreshness,
+) {
+  return !freshness.isReady;
+}

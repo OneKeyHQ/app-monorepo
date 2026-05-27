@@ -177,6 +177,8 @@ export function getPerpsAccountDisplaySnapshotEntry({
 }
 
 // #region Abstraction Mode
+export type IPerpsAbstractionModeSource = 'live' | 'cache';
+
 export const {
   target: perpsAbstractionModeAtom,
   use: usePerpsAbstractionModeAtom,
@@ -184,6 +186,7 @@ export const {
   | {
       accountAddress: IHex | undefined;
       mode: EHyperLiquidAbstractionMode | undefined;
+      source?: IPerpsAbstractionModeSource;
     }
   | undefined
 >({
@@ -367,6 +370,7 @@ export const {
     let abstractionOk = details?.abstractionOk;
     if (
       abstractionMode &&
+      abstractionMode.source !== 'cache' &&
       abstractionMode.accountAddress?.toLowerCase() ===
         account.accountAddress?.toLowerCase()
     ) {

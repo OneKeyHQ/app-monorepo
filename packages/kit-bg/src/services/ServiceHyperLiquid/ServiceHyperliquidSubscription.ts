@@ -1575,13 +1575,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const lifecycleVersion = this._subscriptionLifecycleVersion;
       const client = await this._createSubscriptionDirect(spec);
       const isCreateResultStale =
+        this.subscriptionsHandlerDisabled ||
         lifecycleVersion !== this._subscriptionLifecycleVersion ||
         client !== this._client ||
         !this._isSubscriptionSpecPending(spec);
       if (isCreateResultStale) {
         if (client) {
           await this._destroySubscriptionLocked(spec, client, {
-            removeCache: !this._isSubscriptionSpecPending(spec),
+            removeCache:
+              this.subscriptionsHandlerDisabled ||
+              !this._isSubscriptionSpecPending(spec),
           });
         }
         return;
@@ -1600,7 +1603,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         error,
       );
     } finally {
-      if (this._isSubscriptionSpecPending(spec)) {
+      if (
+        !this.subscriptionsHandlerDisabled &&
+        this._isSubscriptionSpecPending(spec)
+      ) {
         addSubCache();
       }
     }
@@ -1823,11 +1829,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             if (
               currentAbstraction?.mode !== wsAbstraction ||
               currentAbstraction?.accountAddress?.toLowerCase() !==
-                userAddress.toLowerCase()
+                userAddress.toLowerCase() ||
+              currentAbstraction?.source !== 'live'
             ) {
               await perpsAbstractionModeAtom.set({
                 accountAddress: userAddress.toLowerCase() as IHex,
                 mode: wsAbstraction as EHyperLiquidAbstractionMode,
+                source: 'live',
               });
             }
             // Persist to SimpleDb only for non-watch-only accounts

@@ -42,7 +42,7 @@ import { usePerpsMarketDataFreshness } from '../../hooks/usePerpsMarketDataFresh
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
-import { shouldNotifyPerpsNetworkIssue } from '../../utils/perpsMarketDataFreshness';
+import { shouldBlockPerpsTradingForMarketData } from '../../utils/perpsMarketDataFreshness';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 const sharedButtonProps = {
@@ -80,7 +80,7 @@ export function PerpTradingButton({
   const { midPrice } = useTradingPrice();
   const marketDataFreshness = usePerpsMarketDataFreshness();
   const shouldBlockForMarketData =
-    shouldNotifyPerpsNetworkIssue(marketDataFreshness);
+    shouldBlockPerpsTradingForMarketData(marketDataFreshness);
   const themeVariant = useThemeVariant();
   const isSpot = tradingMode === 'spot';
 

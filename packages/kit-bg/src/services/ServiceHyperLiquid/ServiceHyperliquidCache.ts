@@ -18,6 +18,7 @@ import {
   markPerpsColdStartPerf,
   markPerpsColdStartPerfOnce,
 } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import perpsUtils from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
   getPerpsL2BookSnapshotCacheKeys,
   swrCacheUtils,
@@ -37,6 +38,7 @@ import {
   perpsAccountDisplaySnapshotAtom,
   perpsActiveAccountAtom,
   perpsActiveAccountSummaryAtom,
+  perpsActiveAssetAtom,
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
   perpsComputedAccountValueAtom,
@@ -51,6 +53,7 @@ import type {
 } from '../../dbs/simple/entity/SimpleDbEntityPerp';
 import type {
   IPerpsActiveAccountSummaryAtom,
+  IPerpsActiveAssetCtxAtom,
   ISpotBalanceItem,
 } from '../../states/jotai/atoms';
 
@@ -59,6 +62,11 @@ export type IPerpsL2BookSnapshotCachePayload = {
   nSigFigs?: number | null;
   mantissa?: number | null;
   data: IBook;
+};
+
+export type IPerpsActiveAssetCtxSnapshotCacheHydration = {
+  data: NonNullable<IPerpsActiveAssetCtxAtom>;
+  updatedAt: number;
 };
 
 type IPerpsAccountDisplayCacheWriteType =
@@ -322,7 +330,7 @@ export default class ServiceHyperliquidCache extends ServiceBase {
     coin,
   }: {
     coin: string;
-  }): Promise<IWsActiveAssetCtx | undefined> {
+  }): Promise<IPerpsActiveAssetCtxSnapshotCacheHydration | undefined> {
     markPerpsColdStartPerf('service_active_asset_ctx_cache_start', {
       coin,
     });
@@ -349,15 +357,22 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       });
       return undefined;
     }
-    await this.backgroundApi.serviceHyperliquid.updateActiveAssetCtx(
-      entry.data,
-    );
+    const activeAsset = await perpsActiveAssetAtom.get();
+    const displayData: NonNullable<IPerpsActiveAssetCtxAtom> = {
+      coin: entry.data.coin,
+      assetId:
+        activeAsset?.coin === entry.data.coin ? activeAsset.assetId : undefined,
+      ctx: perpsUtils.formatAssetCtx(entry.data.ctx),
+    };
     markPerpsColdStartPerf('service_active_asset_ctx_cache_hit', {
       coin,
       ageMs: Date.now() - entry.updatedAt,
       markPx: entry.data.ctx?.markPx,
     });
-    return entry.data;
+    return {
+      data: displayData,
+      updatedAt: entry.updatedAt,
+    };
   }
 
   cacheAllDexsAssetCtxsSnapshot(data: IWsAllDexsAssetCtxs) {
@@ -579,6 +594,7 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       await perpsAbstractionModeAtom.set({
         accountAddress: targetAddress,
         mode: cachedAbstraction as EHyperLiquidAbstractionMode,
+        source: 'cache',
       });
     }
 

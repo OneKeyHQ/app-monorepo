@@ -74,8 +74,10 @@ import {
 } from '../../../states/jotai/contexts/hyperliquid';
 import {
   useOrderBookTickOptionsAtom,
+  usePerpsActiveAssetCtxColdCacheAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
+import { upsertPerpsActiveAssetCtxColdCacheEntry } from '../hooks/usePerpsActiveAssetCtxDisplay';
 import {
   isTradeInstrumentBackedBySubscriptionState,
   planTradeSubscriptions,
@@ -870,6 +872,7 @@ function WebSocketSubscriptionUpdate() {
 function useHyperliquidSymbolSelect() {
   const actions = useHyperliquidActions();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [, setActiveAssetCtxColdCache] = usePerpsActiveAssetCtxColdCacheAtom();
   const activeTradeInstrumentRef = useRef(activeTradeInstrument);
   activeTradeInstrumentRef.current = activeTradeInstrument;
   const isInitializingRef = useRef(false);
@@ -1006,6 +1009,22 @@ function useHyperliquidSymbolSelect() {
       if (switchParams.mode === 'perp') {
         void backgroundApiProxy.serviceHyperliquid
           .hydrateActiveAssetCtxSnapshotCache({ coin: switchParams.coin })
+          .then((entry) => {
+            if (!entry?.data) {
+              return;
+            }
+            markPerpsColdStartPerf('initial_symbol_active_ctx_cold_cache_set', {
+              coin: entry.data.coin,
+              ageMs: Date.now() - entry.updatedAt,
+            });
+            setActiveAssetCtxColdCache((prev) =>
+              upsertPerpsActiveAssetCtxColdCacheEntry({
+                cache: prev,
+                data: entry.data,
+                updatedAt: entry.updatedAt,
+              }),
+            );
+          })
           .catch((error) => {
             markPerpsColdStartPerf('initial_symbol_active_ctx_cache_error', {
               coin: switchParams.coin,
@@ -1021,7 +1040,7 @@ function useHyperliquidSymbolSelect() {
       markPerpsColdStartPerf('initial_symbol_end');
       isInitializingRef.current = false;
     }
-  }, [actions]);
+  }, [actions, setActiveAssetCtxColdCache]);
 
   useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
     if (!resolvePerpRouteFocused(isFocus)) return;
