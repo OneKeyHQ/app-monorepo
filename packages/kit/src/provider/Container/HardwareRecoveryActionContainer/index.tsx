@@ -18,7 +18,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IThirdPartyHardwareRecoveryAction } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -50,7 +50,10 @@ async function waitForMinimumInstallingState(startedAt: number) {
   }
 }
 
-function getInstallFailureMessage(payload: unknown): string | undefined {
+function getInstallFailureMessage(
+  payload: unknown,
+  outOfMemoryMessage: string,
+): string | undefined {
   if (!payload || typeof payload !== 'object') {
     return undefined;
   }
@@ -59,7 +62,7 @@ function getInstallFailureMessage(payload: unknown): string | undefined {
     record.code === ThirdPartyHwErrorCode.DeviceOutOfMemory ||
     record._tag === 'OutOfMemoryDAError'
   ) {
-    return ETranslationsMock.hardware_third_party_device_out_of_memory__msg;
+    return outOfMemoryMessage;
   }
   if (typeof record.message === 'string') {
     return record.message;
@@ -106,8 +109,18 @@ function HardwareRecoveryActionContainerCmp() {
     if (!items.length) {
       return undefined;
     }
-    return ETranslationsMock.hardware_third_party_app_install_required_desc;
-  }, [items]);
+    return intl.formatMessage({
+      id: ETranslations.hardware_third_party_app_install_required_desc,
+    });
+  }, [intl, items]);
+
+  const outOfMemoryMessage = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.hardware_third_party_device_out_of_memory__msg,
+      }),
+    [intl],
+  );
 
   const hasFailedItems = useMemo(
     () => items.some((item) => statusMap[item.key] === 'failed'),
@@ -226,7 +239,10 @@ function HardwareRecoveryActionContainerCmp() {
         setStatusMap((prev) => ({ ...prev, [item.key]: 'failed' }));
         setFailureMessageMap((prev) => ({
           ...prev,
-          [item.key]: getInstallFailureMessage(result.payload),
+          [item.key]: getInstallFailureMessage(
+            result.payload,
+            outOfMemoryMessage,
+          ),
         }));
         return false;
       } catch (error) {
@@ -239,7 +255,7 @@ function HardwareRecoveryActionContainerCmp() {
         return false;
       }
     },
-    [],
+    [outOfMemoryMessage],
   );
 
   const installAll = useCallback(async () => {

@@ -21,8 +21,8 @@ import type {
   Response,
 } from './types';
 
-const APP_INSTALL_PROGRESS_LOG_INTERVAL_MS = 2000;
-const APP_INSTALL_PROGRESS_LOG_STEP = 0.05;
+const APP_INSTALL_PROGRESS_LOG_INTERVAL_MS = 5000;
+const APP_INSTALL_PROGRESS_LOG_STEP = 0.1;
 
 type IAppInstallProgressLogState = {
   progress: number;
@@ -46,9 +46,7 @@ export class LedgerAdapter
   constructor(hw: IHardwareWallet) {
     super();
     this.hw = hw;
-    defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] adapter created');
 
-    // Whitelist known ui-event types; unknown ones log-only.
     this.hw.on('ui-event', (event) => {
       const eventType = (event as { type?: string }).type ?? 'unknown';
       defaultLogger.hardware.sdkLog.uiEvent(
@@ -69,7 +67,6 @@ export class LedgerAdapter
           });
           break;
         case EConnectorInteraction.UnlockDevice:
-          // Toast only; DMK handles the unlock polling and completion event.
           void thirdPartyHardwareUiStateAtom.set({
             action: EThirdPartyHardwareUiAction.unlockDevice,
             vendor: EHardwareVendor.ledger,
@@ -127,13 +124,11 @@ export class LedgerAdapter
       });
     });
 
-    // SDK signals an externally-cancelled wait → drop any open dialog/toast.
     this.hw.on(UI_REQUEST.CLOSE_UI_WINDOW, () => {
       defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] CLOSE_UI_WINDOW');
       void thirdPartyHardwareUiStateAtom.set(undefined);
     });
 
-    // Request events trust the adapter vendor, not SDK payload hints.
     this.onUiEvent((event) => {
       if (event.kind === 'request') {
         const { reason, message, path, accountIndex } = event.payload ?? {};
@@ -145,10 +140,6 @@ export class LedgerAdapter
       }
     });
 
-    // App-install progress: forward SDK `app-install-progress` events to
-    // the app-wide event bus so UI consumers (Gallery test page, future
-    // settings install UI) can render progress without subscribing into
-    // the SDK directly across the proxy boundary.
     (
       this.hw as IHardwareWallet & {
         on(
