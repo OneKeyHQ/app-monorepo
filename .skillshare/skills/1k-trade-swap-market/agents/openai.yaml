@@ -1,0 +1,4 @@
+interface:
+  display_name: "OneKey Trade Swap Market"
+  short_description: "Trade/Swap/Market workflow and review"
+  default_prompt: "Use $1k-trade-swap-market for OneKey Trade, Swap, Market, Private Send/incognito, DeFi/Earn funding handoffs into Trade/Swap/Limit, provider, fee, quote, preset, history, or token-selector implementation and review."

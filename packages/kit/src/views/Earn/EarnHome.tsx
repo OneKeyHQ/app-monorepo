@@ -45,6 +45,7 @@ import { EarnMainTabs } from './components/EarnMainTabs';
 import { EarnPageContainer } from './components/EarnPageContainer';
 import { MarketSelector } from './components/MarketSelector';
 import { Overview } from './components/Overview';
+import { getEarnFocusState } from './EarnHome.utils';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { useBlockRegion } from './hooks/useBlockRegion';
 import { useEarnHideSmallAssets } from './hooks/useEarnHideSmallAssets';
@@ -84,20 +85,19 @@ function BasicEarnHome({
 
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
   const [isEarnTabFocused, setIsEarnTabFocused] = useState(false);
+  const [isEarnDataActive, setIsEarnDataActive] = useState(false);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const wasFocusedRef = useRef(false);
   const wasHiddenByModalRef = useRef(false);
   const shouldLogEnterEarnRef = useRef(false);
-  const portfolioData = useEarnPortfolio({ isActive: isEarnTabFocused });
+  const portfolioData = useEarnPortfolio({ isActive: isEarnDataActive });
   const { refresh: refreshEarnDataRaw, isLoading: portfolioLoading } =
     portfolioData;
 
-  const isLoading = useMemo(() => {
-    if (platformEnv.isNative && !showContent) {
-      return false;
-    }
-    return portfolioLoading;
-  }, [portfolioLoading, showContent]);
-
+  const hasPortfolioRows = portfolioData.investments.length > 0;
+  const isOverviewRefreshing =
+    !(platformEnv.isNative && !showContent) &&
+    (isManualRefreshing || !!portfolioLoading);
   const { hideSmallAssets } = useEarnHideSmallAssets();
 
   // Calculate filtered total fiat value when hiding small assets
@@ -137,6 +137,36 @@ function BasicEarnHome({
     return total.toFixed();
   }, [hideSmallAssets, portfolioData]);
 
+  const displayTotalFiatValue = useMemo(() => {
+    if (filteredTotalFiatValue !== undefined || !hasPortfolioRows) {
+      return filteredTotalFiatValue;
+    }
+
+    return portfolioData.investments
+      .reduce((sum, inv) => {
+        if (inv.assets.length === 0 && inv.airdropAssets.length > 0) {
+          return sum;
+        }
+        return sum.plus(new BigNumber(inv.totalFiatValue || '0'));
+      }, new BigNumber(0))
+      .toFixed();
+  }, [filteredTotalFiatValue, hasPortfolioRows, portfolioData.investments]);
+
+  const displayEarnings24h = useMemo(() => {
+    if (filteredEarnings24h !== undefined || !hasPortfolioRows) {
+      return filteredEarnings24h;
+    }
+
+    return portfolioData.investments
+      .reduce((sum, inv) => {
+        if (inv.assets.length === 0 && inv.airdropAssets.length > 0) {
+          return sum;
+        }
+        return sum.plus(new BigNumber(inv.earnings24hFiatValue || '0'));
+      }, new BigNumber(0))
+      .toFixed();
+  }, [filteredEarnings24h, hasPortfolioRows, portfolioData.investments]);
+
   const prefetchEarnAvailableAssets = useCallback(async () => {
     const types = [
       EAvailableAssetsTypeEnum.SimpleEarn,
@@ -169,12 +199,25 @@ function BasicEarnHome({
     });
   }, [actions]);
 
-  const refreshEarnData = useCallback(async () => {
-    await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
-    await prefetchEarnAvailableAssets();
-    actions.current.triggerRefresh();
-    await refreshEarnDataRaw();
-  }, [actions, prefetchEarnAvailableAssets, refreshEarnDataRaw]);
+  const refreshEarnData = useCallback(
+    async ({ silent }: { silent?: boolean } = {}) => {
+      if (!silent) {
+        setIsManualRefreshing(true);
+      }
+
+      try {
+        await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
+        await prefetchEarnAvailableAssets();
+        actions.current.triggerRefresh();
+        await refreshEarnDataRaw();
+      } finally {
+        if (!silent) {
+          setIsManualRefreshing(false);
+        }
+      }
+    },
+    [actions, prefetchEarnAvailableAssets, refreshEarnDataRaw],
+  );
 
   const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
     // Pendle redeem/unstake is recorded as Sell, but it should still trigger
@@ -193,7 +236,7 @@ function BasicEarnHome({
 
   useEffect(() => {
     if (previousIsPendingRef.current && !isPending) {
-      void refreshEarnData();
+      void refreshEarnData({ silent: true });
     }
     previousIsPendingRef.current = isPending;
   }, [isPending, refreshEarnData]);
@@ -319,17 +362,21 @@ function BasicEarnHome({
 
   const handleListenTabFocusState = useCallback(
     (isFocus: boolean, isHideByModal: boolean) => {
-      const actualFocus = isFocus && !isHideByModal;
+      const { isVisibleFocus, isDataActive } = getEarnFocusState({
+        isFocus,
+        isHideByModal,
+      });
       const wasFocused = wasFocusedRef.current;
       const wasHiddenByModal = wasHiddenByModalRef.current;
       wasHiddenByModalRef.current = isFocus && isHideByModal;
-      wasFocusedRef.current = actualFocus;
+      wasFocusedRef.current = isVisibleFocus;
       // Closing a modal restores focus, but is not a fresh Earn entry.
-      if (actualFocus && !wasFocused && !wasHiddenByModal) {
+      if (isVisibleFocus && !wasFocused && !wasHiddenByModal) {
         shouldLogEnterEarnRef.current = true;
       }
-      setIsEarnTabFocused(actualFocus);
-      if (!actualFocus) return;
+      setIsEarnTabFocused(isVisibleFocus);
+      setIsEarnDataActive(isDataActive);
+      if (!isVisibleFocus) return;
 
       void prefetchEarnAvailableAssets();
 
@@ -389,9 +436,9 @@ function BasicEarnHome({
               <YStack px="$pagePadding">
                 <Overview
                   onRefresh={refreshEarnData}
-                  isLoading={isLoading}
-                  filteredTotalFiatValue={filteredTotalFiatValue}
-                  filteredEarnings24h={filteredEarnings24h}
+                  isLoading={isOverviewRefreshing}
+                  displayTotalFiatValue={displayTotalFiatValue}
+                  displayEarnings24h={displayEarnings24h}
                 />
               </YStack>
             </YStack>
@@ -402,9 +449,9 @@ function BasicEarnHome({
     [
       showContent,
       refreshEarnData,
-      isLoading,
-      filteredTotalFiatValue,
-      filteredEarnings24h,
+      isOverviewRefreshing,
+      displayTotalFiatValue,
+      displayEarnings24h,
       handleHeaderHorizontalSwipe,
     ],
   );
@@ -552,21 +599,27 @@ function BasicEarnHome({
           py: 0,
         }}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
+          <RefreshControl
+            refreshing={isOverviewRefreshing}
+            onRefresh={refreshEarnData}
+          />
         }
       >
         <EarnHomeTabs
           defaultMode={defaultMode}
           onModeChange={handleModeChange}
           earn={
-            <YStack flex={1} gap={20}>
+            <YStack
+              {...(platformEnv.isDesktop ? undefined : { flex: 1 })}
+              gap={20}
+            >
               <YStack>
                 <XStack px="$pagePadding">
                   <Overview
                     onRefresh={refreshEarnData}
-                    isLoading={isLoading}
-                    filteredTotalFiatValue={filteredTotalFiatValue}
-                    filteredEarnings24h={filteredEarnings24h}
+                    isLoading={isOverviewRefreshing}
+                    displayTotalFiatValue={displayTotalFiatValue}
+                    displayEarnings24h={displayEarnings24h}
                   />
                 </XStack>
               </YStack>
