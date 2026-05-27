@@ -47,7 +47,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
       ? decodeURIComponent(segments[3])
       : undefined;
 
-    if (isNativeParam === 'true' || !tokenAddress) {
+    if (!tokenAddress) {
       return {
         screen: ETabMarketRoutes.MarketNativeDetail,
         params: {

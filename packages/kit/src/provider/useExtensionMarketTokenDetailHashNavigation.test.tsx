@@ -130,6 +130,22 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     });
   });
 
+  it('preserves native token address when the hash includes one', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/token/btc--0/0xnative?isNative=true&from=ExtensionSidePanel',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'btc--0',
+        tokenAddress: '0xnative',
+        isNative: true,
+        from: 'ExtensionSidePanel',
+      },
+    });
+  });
+
   it('ignores unrelated or malformed hash', () => {
     expect(getMarketTokenDetailNavigationTargetFromHash('#/')).toBeUndefined();
     expect(
