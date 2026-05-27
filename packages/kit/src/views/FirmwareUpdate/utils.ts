@@ -11,6 +11,10 @@ export function getTargetFirmwareTypeLabel({
   firmwareType: EFirmwareType | undefined;
   intl: IntlShape;
 }) {
+  if (!firmwareType) {
+    return '';
+  }
+
   return intl.formatMessage({
     id:
       firmwareType === EFirmwareType.BitcoinOnly
