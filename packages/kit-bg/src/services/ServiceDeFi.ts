@@ -17,8 +17,11 @@ import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type {
+  IDeFiBuildTransactionParams,
+  IDeFiBuildTransactionResp,
   IFetchAccountDeFiPositionsParams,
   IFetchAccountDeFiPositionsResp,
+  IGetSupportedDeFiProtocolsResp,
 } from '@onekeyhq/shared/types/defi';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -208,6 +211,7 @@ class ServiceDeFi extends ServiceBase {
     );
 
     const parsedData = defiUtils.transformDeFiData({
+      accountId,
       positions: resp.data.data.data.positions,
       protocolSummaries: resp.data.data.data.protocolSummaries,
     });
@@ -298,6 +302,34 @@ class ServiceDeFi extends ServiceBase {
         allNetworksNetworkId === currentNetworkId
       ),
     };
+  }
+
+  @backgroundMethod()
+  public async fetchSupportedDeFiProtocols() {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: IGetSupportedDeFiProtocolsResp;
+    }>('/earn/v1/defi/supported-protocols');
+    return resp.data.data.protocols ?? [];
+  }
+
+  @backgroundMethod()
+  public async buildDeFiTransaction(params: IDeFiBuildTransactionParams) {
+    const { accountId, ...rest } = params;
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId: params.networkId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.post<{
+      data: IDeFiBuildTransactionResp;
+    }>('/earn/v1/defi/build-transaction', {
+      ...rest,
+      accountAddress,
+    });
+    return resp.data.data;
   }
 
   private _buildDeFiForceRefreshKey(accountId: string, networkId: string) {

@@ -130,6 +130,7 @@ type IGroupedPositionValue = {
   assets: (IDeFiAsset & { type: EDeFiAssetType })[];
   debts: (IDeFiAsset & { type: EDeFiAssetType })[];
   rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
+  sourcePositions: IDeFiPosition[];
   value: BigNumber;
 };
 
@@ -193,6 +194,7 @@ function transferPositionMap(positionMap: Map<string, IGroupedPositionValue>) {
         new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
       ),
       value: position.value.toFixed(),
+      sourcePositions: position.sourcePositions,
     }))
     .toSorted((a, b) =>
       new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
@@ -201,9 +203,11 @@ function transferPositionMap(positionMap: Map<string, IGroupedPositionValue>) {
 }
 
 function transformDeFiData({
+  accountId,
   positions,
   protocolSummaries,
 }: {
+  accountId?: string;
   positions: Record<string, IDeFiPosition[]>;
   protocolSummaries: IProtocolSummary[];
 }) {
@@ -212,6 +216,7 @@ function transformDeFiData({
     string,
     {
       owner: string;
+      accountId?: string;
       networkId: string;
       protocol: string;
       positionMap: Map<string, IGroupedPositionValue>; // key: groupId
@@ -234,6 +239,7 @@ function transformDeFiData({
 
       if (!protocolPositionsMap.has(protocolPositionsMapKey)) {
         protocolPositionsMap.set(protocolPositionsMapKey, {
+          accountId,
           owner: position.owner,
           networkId: position.networkId,
           protocol: position.protocol,
@@ -246,6 +252,7 @@ function transformDeFiData({
         protocolPositionsMapKey,
       ) as {
         owner: string;
+        accountId?: string;
         networkId: string;
         protocol: string;
         positionMap: Map<string, IGroupedPositionValue>; // key: groupId
@@ -271,6 +278,7 @@ function transformDeFiData({
           assets: [],
           debts: [],
           rewards: [],
+          sourcePositions: [],
           value: new BigNumber(0),
         });
       }
@@ -308,6 +316,7 @@ function transformDeFiData({
       positionValue.assets.push(...assets);
       positionValue.debts.push(...debts);
       positionValue.rewards.push(...rewards);
+      positionValue.sourcePositions.push(position);
       // calculate value
       positionValue.value = positionValue.value.plus(
         position.assets
@@ -335,6 +344,7 @@ function transformDeFiData({
     .map((value) => ({
       networkId: value.networkId,
       owner: value.owner,
+      accountId: value.accountId,
       protocol: value.protocol,
       positions: transferPositionMap(value.positionMap),
       categories: Array.from(value.categorySet),

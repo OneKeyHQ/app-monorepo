@@ -1,5 +1,7 @@
 import type { ICurrencyItem } from './currency';
 
+export type IDeFiUnknownRecord = Record<string, unknown>;
+
 export type IFetchAccountDeFiPositionsParams = {
   accountId: string;
   networkId: string;
@@ -32,6 +34,26 @@ export type IDeFiAssetMeta = {
   isVerified: boolean;
 };
 
+export type IDeFiActionExtraParams = {
+  poolAddress?: string;
+  rewards?: { tokenAddress: string; amount: string; proofs: string[] }[];
+  // oxlint-disable-next-line @cspell/spellchecker
+  unbondNonces?: string[];
+  tokenId?: string;
+  percent?: number;
+  amount0Min?: string;
+  amount1Min?: string;
+  deadline?: number;
+  currency0?: string;
+  currency1?: string;
+  signature?: string;
+} & IDeFiUnknownRecord;
+
+export type IDeFiContracts = {
+  pool?: string;
+  poolAddress?: string;
+} & IDeFiUnknownRecord;
+
 export type IDeFiAsset = {
   symbol: string;
   address: string;
@@ -40,6 +62,12 @@ export type IDeFiAsset = {
   price: number;
   category: string;
   meta: IDeFiAssetMeta;
+  contracts?: IDeFiContracts;
+  extraParams?: IDeFiActionExtraParams;
+  poolAddress?: string;
+  tokenId?: string;
+  currency0?: string;
+  currency1?: string;
 };
 
 export type IMetrics = {
@@ -67,6 +95,12 @@ export type IDeFiPosition = {
   source: IDeFiSource;
   groupId: string;
   name: string;
+  contracts?: IDeFiContracts;
+  extraParams?: IDeFiActionExtraParams;
+  poolAddress?: string;
+  tokenId?: string;
+  currency0?: string;
+  currency1?: string;
 };
 
 export type IProtocolSummary = {
@@ -114,6 +148,7 @@ export type IFetchAccountDeFiPositionsResp = {
 };
 
 export type IDeFiProtocol = {
+  accountId?: string;
   networkId: string;
   owner: string;
   protocol: string; // as protocolId
@@ -127,5 +162,72 @@ export type IDeFiProtocol = {
     groupId: string;
     poolName: string;
     poolFullName: string;
+    sourcePositions?: IDeFiPosition[];
   }[];
+};
+
+export enum EDeFiPositionAction {
+  Withdraw = 'withdraw',
+  Claim = 'claim',
+  ClaimWithdrawal = 'claimWithdrawal',
+  Permit = 'permit',
+  RemoveLiquidity = 'removeLiquidity',
+}
+
+export type IDeFiSupportedProtocolAction = {
+  protocolId: string;
+  networkId: string;
+  positionCategory: string;
+  assetCategory?: string;
+  rewardCategory?: string;
+  action: EDeFiPositionAction;
+};
+
+export type IGetSupportedDeFiProtocolsResp = {
+  protocols: IDeFiSupportedProtocolAction[];
+};
+
+export type IDeFiEvmTransaction = {
+  from: string;
+  to: string;
+  data: string;
+  value?: string;
+};
+
+export type IDeFiBuildTransactionParams = {
+  accountId: string;
+  networkId: string;
+  protocolId: string;
+  action: EDeFiPositionAction;
+  tokenAddress?: string;
+  amount?: string;
+  withdrawAll?: boolean;
+  extraParams?: IDeFiActionExtraParams;
+};
+
+export type IDeFiBuildTransactionResp = {
+  tx?: IDeFiEvmTransaction;
+  approvalTx?: IDeFiEvmTransaction;
+  permit?: {
+    message: string;
+    deadline: number;
+  };
+};
+
+export type IResolvedDeFiPositionActionAsset = {
+  asset: IDeFiAsset;
+  tokenAddress?: string;
+  amount: string;
+  symbol: string;
+  extraParams?: IDeFiActionExtraParams;
+};
+
+export type IResolvedDeFiPositionAction = {
+  action: EDeFiPositionAction;
+  protocolId: string;
+  networkId: string;
+  positionCategory: string;
+  assetCategory?: string;
+  rewardCategory?: string;
+  assets: IResolvedDeFiPositionActionAsset[];
 };

@@ -13,7 +13,10 @@ import { StyleSheet } from 'react-native';
 
 import { Accordion, Stack, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
+import {
+  useDeFiListProtocolMapAtom,
+  useDeFiListSupportedActionsAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import {
   type IDeFiProtocolDisplayInfo,
   type ILocalizedProtocolCategoryGroup,
@@ -27,6 +30,7 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetail
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
   IDeFiProtocol,
+  IDeFiSupportedProtocolAction,
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
@@ -38,6 +42,7 @@ type IProtocolProps = {
   protocol: IDeFiProtocol;
   tableLayout?: boolean;
   isAllNetworks?: boolean;
+  onActionSuccess?: () => void | Promise<void>;
 };
 
 export type IProtocolHandle = {
@@ -84,6 +89,8 @@ const ProtocolDesktopLayout = memo(
       priceUnavailableLabel: string;
       partialPriceUnavailableLabel: string;
       categoryGroups: ILocalizedProtocolCategoryGroup[];
+      supportedActions: IDeFiSupportedProtocolAction[];
+      onActionSuccess?: () => void | Promise<void>;
     }
   >(
     (
@@ -96,6 +103,8 @@ const ProtocolDesktopLayout = memo(
         priceUnavailableLabel,
         partialPriceUnavailableLabel,
         categoryGroups,
+        supportedActions,
+        onActionSuccess,
       },
       forwardedRef,
     ) => {
@@ -184,12 +193,16 @@ const ProtocolDesktopLayout = memo(
                   {categoryGroups.map((group) => (
                     <ProtocolCategoryGroup
                       key={group.groupKey}
+                      accountId={protocol.accountId}
+                      protocol={protocol}
                       group={group}
                       currencySymbol={currencySymbol}
                       priceUnavailableLabel={priceUnavailableLabel}
                       partialPriceUnavailableLabel={
                         partialPriceUnavailableLabel
                       }
+                      supportedActions={supportedActions}
+                      onActionSuccess={onActionSuccess}
                     />
                   ))}
                 </YStack>
@@ -208,6 +221,7 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
   const [{ protocolMap }] = useDeFiListProtocolMapAtom();
+  const [{ supportedActions }] = useDeFiListSupportedActionsAtom();
 
   const protocolInfo =
     protocolMap[
@@ -275,11 +289,15 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
     partialPriceUnavailableLabel,
     protocolDisplayInfo,
     protocolInfo,
+    supportedActions,
   };
 }
 
 const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
-  ({ protocol, tableLayout, isAllNetworks }: IProtocolProps, forwardedRef) => {
+  (
+    { protocol, tableLayout, isAllNetworks, onActionSuccess }: IProtocolProps,
+    forwardedRef,
+  ) => {
     const viewModel = useProtocolViewModel({ protocol });
 
     if (!tableLayout) {
@@ -308,6 +326,8 @@ const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
         priceUnavailableLabel={viewModel.priceUnavailableLabel}
         partialPriceUnavailableLabel={viewModel.partialPriceUnavailableLabel}
         categoryGroups={viewModel.categoryGroups}
+        supportedActions={viewModel.supportedActions}
+        onActionSuccess={onActionSuccess}
       />
     );
   },

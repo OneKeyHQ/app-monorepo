@@ -1,10 +1,16 @@
 import { memo } from 'react';
 
 import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ProtocolPositionActionButton } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
 import {
   type ILocalizedProtocolCategoryGroup,
+  type ILocalizedProtocolPositionItem,
   getProtocolPositionDisplayName,
 } from '@onekeyhq/kit/src/utils/defiPositionUtils';
+import type {
+  IDeFiProtocol,
+  IDeFiSupportedProtocolAction,
+} from '@onekeyhq/shared/types/defi';
 
 import { ProtocolSectionedPositionTable } from './ProtocolSectionedPositionTable';
 import { ProtocolUnifiedTable } from './ProtocolUnifiedTable';
@@ -13,19 +19,52 @@ import { ProtocolUnifiedTable } from './ProtocolUnifiedTable';
 // reserve that column for Supplied/Borrowed/Rewards, so the pool name lives
 // beside the type badge instead.
 
+function buildActionPosition(
+  position: ILocalizedProtocolPositionItem,
+): IDeFiProtocol['positions'][number] {
+  return {
+    groupId: position.groupId,
+    category: position.category,
+    poolName: position.poolName ?? '',
+    poolFullName: position.poolFullName ?? position.poolName ?? '',
+    value: position.value,
+    assets: position.sections
+      .filter(
+        (section) =>
+          section.assetType === 'supplied' || section.assetType === 'other',
+      )
+      .flatMap((section) => section.assets),
+    debts: position.sections
+      .filter((section) => section.assetType === 'borrowed')
+      .flatMap((section) => section.assets),
+    rewards: position.sections
+      .filter((section) => section.assetType === 'rewards')
+      .flatMap((section) => section.assets),
+    sourcePositions: position.sourcePositions,
+  };
+}
+
 type IProtocolCategoryGroupProps = {
+  accountId?: string;
+  protocol: IDeFiProtocol;
   group: ILocalizedProtocolCategoryGroup;
   currencySymbol: string;
   priceUnavailableLabel: string;
   partialPriceUnavailableLabel: string;
+  supportedActions: IDeFiSupportedProtocolAction[];
+  onActionSuccess?: () => void | Promise<void>;
 };
 
 const ProtocolCategoryGroup = memo(
   ({
+    accountId,
+    protocol,
     group,
     currencySymbol,
     priceUnavailableLabel,
     partialPriceUnavailableLabel,
+    supportedActions,
+    onActionSuccess,
   }: IProtocolCategoryGroupProps) => {
     if (group.kind === 'sectioned') {
       return (
@@ -62,6 +101,13 @@ const ProtocolCategoryGroup = memo(
                       {positionDisplayName}
                     </SizableText>
                   ) : null}
+                  <ProtocolPositionActionButton
+                    accountId={accountId}
+                    protocol={protocol}
+                    position={buildActionPosition(position)}
+                    supportedActions={supportedActions}
+                    onSuccess={onActionSuccess}
+                  />
                 </XStack>
                 <ProtocolSectionedPositionTable
                   position={position}
@@ -83,10 +129,14 @@ const ProtocolCategoryGroup = memo(
           </Badge>
         </YStack>
         <ProtocolUnifiedTable
+          accountId={accountId}
+          protocol={protocol}
           rows={group.rows}
           currencySymbol={currencySymbol}
           priceUnavailableLabel={priceUnavailableLabel}
           partialPriceUnavailableLabel={partialPriceUnavailableLabel}
+          supportedActions={supportedActions}
+          onActionSuccess={onActionSuccess}
         />
       </YStack>
     );

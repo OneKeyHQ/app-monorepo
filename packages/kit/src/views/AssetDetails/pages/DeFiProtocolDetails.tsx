@@ -13,12 +13,17 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ProtocolPositionActionButton } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
 import { ProtocolPositionSection } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionSection';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { getProtocolPositionSectionsValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
+  type ILocalizedProtocolPositionItem,
   buildLocalizedProtocolPositionItems,
   buildProtocolDisplayInfo,
   getProtocolPositionDisplayName,
@@ -34,6 +39,32 @@ import {
   openUrlExternal,
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { IDeFiProtocol } from '@onekeyhq/shared/types/defi';
+
+function buildActionPosition(
+  position: ILocalizedProtocolPositionItem,
+): IDeFiProtocol['positions'][number] {
+  return {
+    groupId: position.groupId,
+    category: position.category,
+    poolName: position.poolName ?? '',
+    poolFullName: position.poolFullName ?? position.poolName ?? '',
+    value: position.value,
+    assets: position.sections
+      .filter(
+        (section) =>
+          section.assetType === 'supplied' || section.assetType === 'other',
+      )
+      .flatMap((section) => section.assets),
+    debts: position.sections
+      .filter((section) => section.assetType === 'borrowed')
+      .flatMap((section) => section.assets),
+    rewards: position.sections
+      .filter((section) => section.assetType === 'rewards')
+      .flatMap((section) => section.assets),
+    sourcePositions: position.sourcePositions,
+  };
+}
 
 function DeFiProtocolDetails() {
   const route =
@@ -46,6 +77,18 @@ function DeFiProtocolDetails() {
   const { protocol, protocolInfo } = route.params;
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const {
+    activeAccount: { account },
+  } = useActiveAccount({ num: 0 });
+  const { result: supportedActions = [] } = usePromiseResult(async () => {
+    try {
+      return await backgroundApiProxy.serviceDeFi.fetchSupportedDeFiProtocols();
+    } catch (error) {
+      console.error(error);
+      return [];
+    }
+  }, []);
+  const actionAccountId = protocol.accountId ?? account?.id;
 
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
@@ -166,6 +209,12 @@ function DeFiProtocolDetails() {
                       </SizableText>
                     ) : null}
                   </XStack>
+                  <ProtocolPositionActionButton
+                    accountId={actionAccountId}
+                    protocol={protocol}
+                    position={buildActionPosition(position)}
+                    supportedActions={supportedActions}
+                  />
                   <Stack maxWidth="45%" alignItems="flex-end">
                     <ProtocolValueCell
                       value={positionValueState.value}

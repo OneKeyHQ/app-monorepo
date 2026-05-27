@@ -3,10 +3,16 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { ProtocolPositionActionButton } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import type { IProtocolUnifiedRow } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
+import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
+import type {
+  IDeFiAsset,
+  IDeFiProtocol,
+  IDeFiSupportedProtocolAction,
+} from '@onekeyhq/shared/types/defi';
 
 import { ProtocolAssetBalanceText } from './ProtocolAssetBalanceText';
 import { ProtocolPositionCell } from './ProtocolPositionCell';
@@ -55,28 +61,60 @@ export const USD_FLEX_WITHOUT_REWARDS = 1;
 // the top-by-USD rows + a "+N more" chip, so an 8-token yield position
 // settles at four lines of content instead of eight.
 const MAX_BALANCE_LINES = 3;
+const ACTION_COLUMN_WIDTH = 120;
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 type IProtocolUnifiedTableProps = {
+  accountId?: string;
+  protocol: IDeFiProtocol;
   rows: IProtocolUnifiedRow[];
   currencySymbol: string;
   priceUnavailableLabel: string;
   partialPriceUnavailableLabel: string;
+  supportedActions: IDeFiSupportedProtocolAction[];
+  onActionSuccess?: () => void | Promise<void>;
 };
 
 const ProtocolUnifiedTable = memo(
   ({
+    accountId,
+    protocol,
     rows,
     currencySymbol,
     priceUnavailableLabel,
     partialPriceUnavailableLabel,
+    supportedActions,
+    onActionSuccess,
   }: IProtocolUnifiedTableProps) => {
     const intl = useIntl();
 
     const showRewardsColumn = useMemo(
       () => rows.some((row) => row.rewardsExtraAssets.length > 0),
       [rows],
+    );
+    const showActionColumn = useMemo(
+      () =>
+        !!accountId &&
+        rows.some(
+          (row) =>
+            defiActionUtils.resolveDeFiPositionActions({
+              protocol,
+              supportedActions,
+              position: {
+                groupId: row.groupId,
+                poolName: row.positionDisplay.text,
+                poolFullName: row.positionDisplay.text,
+                category: row.category,
+                assets: row.primaryAssets,
+                debts: [],
+                rewards: row.rewardsExtraAssets,
+                value: '0',
+                sourcePositions: row.sourcePositions,
+              },
+            }).length > 0,
+        ),
+      [accountId, protocol, rows, supportedActions],
     );
 
     const labels = useMemo(
@@ -154,6 +192,9 @@ const ProtocolUnifiedTable = memo(
               {labels.value}
             </SizableText>
           </Stack>
+          {showActionColumn ? (
+            <Stack width={ACTION_COLUMN_WIDTH} flexShrink={0} />
+          ) : null}
         </XStack>
 
         {rows.map((row, rowIndex) => {
@@ -297,6 +338,32 @@ const ProtocolUnifiedTable = memo(
                   fontVariant={TABULAR_NUMS}
                 />
               </Stack>
+              {showActionColumn ? (
+                <Stack
+                  width={ACTION_COLUMN_WIDTH}
+                  flexShrink={0}
+                  alignItems="flex-end"
+                  pt="$0.5"
+                >
+                  <ProtocolPositionActionButton
+                    accountId={accountId}
+                    protocol={protocol}
+                    position={{
+                      groupId: row.groupId,
+                      poolName: row.positionDisplay.text,
+                      poolFullName: row.positionDisplay.text,
+                      category: row.category,
+                      assets: row.primaryAssets,
+                      debts: [],
+                      rewards: row.rewardsExtraAssets,
+                      value: '0',
+                      sourcePositions: row.sourcePositions,
+                    }}
+                    supportedActions={supportedActions}
+                    onSuccess={onActionSuccess}
+                  />
+                </Stack>
+              ) : null}
             </XStack>
           );
         })}
