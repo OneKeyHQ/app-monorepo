@@ -783,6 +783,46 @@ class ServiceHardware extends ServiceBase {
     });
   }
 
+  // Pre-warm the device before signing. Fire-and-forget signal; the SDK handles
+  // all concurrency (dedup + hang-up so the real Sign waits, not interrupts).
+  // Resolve the SAME connectId/passphraseState the Sign uses so the pre-init
+  // meta matches and Sign can skip Initialize. Hardware-only; failures swallowed.
+  @backgroundMethod()
+  async preInitializeDeviceForSign({
+    walletId,
+  }: {
+    walletId: string | undefined;
+  }): Promise<void> {
+    if (!walletId || !accountUtils.isHwWallet({ walletId })) {
+      return;
+    }
+    try {
+      const deviceParams =
+        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+          walletId,
+          hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+        });
+      const connectId = deviceParams?.dbDevice?.connectId;
+      if (!connectId) {
+        return;
+      }
+      const sdk = await this.getSDKInstance({
+        connectId,
+        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+      });
+      await sdk.preInitialize(connectId, {
+        ...deviceParams?.deviceCommonParams,
+      });
+    } catch (error) {
+      // Pre-warm is best-effort; a failure must never block the real Sign.
+      // Use the hardware scope (LogToLocal) so it lands in collected/exported logs.
+      defaultLogger.hardware.sdkLog.log(
+        'preInitializeDeviceForSign error',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
   // startDeviceScan
   // TODO use convertDeviceResponse()
   @backgroundMethod()
