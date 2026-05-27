@@ -70,6 +70,11 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 // but the mocked `setRawData` would fire after the assertions complete and
 // observe a stale state. Replace `debounce` with a passthrough so persistence
 // stays synchronous within `act()` — every other lodash export is untouched.
+//
+// WARNING: This mock applies to EVERY test in this file. Any future test
+// added here that depends on real `debounce` (trailing/maxWait timing,
+// `.flush()` queuing semantics, etc.) must either `jest.unmock('lodash')`
+// or override `debounce` per-test — otherwise it will silently misbehave.
 jest.mock('lodash', () => {
   const actualLodash = jest.requireActual('lodash') as Record<string, unknown>;
   return {

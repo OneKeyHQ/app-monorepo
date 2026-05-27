@@ -4659,11 +4659,7 @@ class ServiceAccount extends ServiceBase {
     await Promise.all(
       pairs.map(async ({ accountId, networkId }) => {
         try {
-          const xpubPromise = networkUtils.isAllNetwork({ networkId })
-            ? Promise.resolve('')
-            : vaultFactory
-                .getVault({ accountId, networkId })
-                .then((vault) => vault.getAccountXpub({}));
+          const xpubPromise = this.getAccountXpub({ accountId, networkId });
           const addressInfoPromise = this.getAccountAddressInfoForApi({
             accountId,
             networkId,

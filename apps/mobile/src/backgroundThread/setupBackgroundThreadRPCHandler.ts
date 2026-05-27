@@ -95,9 +95,10 @@ let handlerRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let handlerInstalled = false;
 let readySignalEmitted = false;
 let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
-// Latched true after the main runtime advertises support for the batched
-// jotai broadcast wire protocol. Stays false until then so a partial OTA
-// (new bg bundle + old main bundle) keeps using the legacy per-item path
+// Tracks the main runtime's current advertised support for the batched
+// jotai broadcast wire protocol. Mirrors whatever main last published so
+// an OTA rollback (new bg bundle + older main bundle that no longer
+// advertises batch support) flips us back to the legacy per-item path
 // instead of writing keys the main observer can't decode.
 let mainBatchProtocolReady = false;
 // Ring buffer size for broadcast sequences (#48).
@@ -521,9 +522,10 @@ function applyMainCapabilitiesFromSharedRPC(
   try {
     const raw = sharedRPC.read(BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY);
     const payload = parseBackgroundThreadMainCapabilitiesPayload(raw);
-    if (payload?.jotaiStateBatch === true) {
-      mainBatchProtocolReady = true;
-    }
+    // Reflect main's currently advertised capability (bidirectional). Don't
+    // latch — an OTA rollback can drop batch support and we must follow it
+    // back down to the legacy path on the very next capability read.
+    mainBatchProtocolReady = payload?.jotaiStateBatch === true;
   } catch (error) {
     logBgRpcTrace(
       `failed to read main capabilities: ${(error as Error)?.message || String(error)}`,

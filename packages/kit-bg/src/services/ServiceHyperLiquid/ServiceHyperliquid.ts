@@ -1260,7 +1260,15 @@ export default class ServiceHyperliquid extends ServiceBase {
         Parameters<typeof perpsActiveAccountSummaryAtom.set>[0]
       >,
     ) => {
-      void perpsActiveAccountSummaryAtom.set(payload);
+      // Surface bg→ui broadcast failures (bridge unavailable, serialize fail)
+      // instead of silently dropping them — otherwise summary writes can get
+      // stuck without any operator-visible signal.
+      perpsActiveAccountSummaryAtom.set(payload).catch((error) => {
+        console.error(
+          '[ServiceHyperliquid] perpsActiveAccountSummaryAtom.set failed:',
+          error,
+        );
+      });
     },
     250,
     { leading: true, trailing: true },

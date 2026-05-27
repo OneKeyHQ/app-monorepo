@@ -324,6 +324,17 @@ export const useStakingPendingTxsByInfo = ({
         // to be safe; falling back to per-instance resolution preserves the
         // legacy "best-effort" contract when the union missed a network.
         if (Object.keys(subset).length === effectiveNetworkIds.length) {
+          // Mirror the fallback path's synchronous activeAccount override so
+          // account switches converge one tick faster — without this, the
+          // short-circuit would briefly hold the OLD accountId for the
+          // current network until the shared resolver re-runs.
+          if (
+            accountId &&
+            currentNetworkId &&
+            effectiveNetworkIds.includes(currentNetworkId)
+          ) {
+            subset[currentNetworkId] = accountId;
+          }
           return subset;
         }
       }

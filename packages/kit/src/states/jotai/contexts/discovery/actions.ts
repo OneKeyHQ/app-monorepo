@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 
 import { debounce, isEqual } from 'lodash';
+import { AppState } from 'react-native';
 
 import { Toast, rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -111,6 +112,15 @@ const persistTabsToSimpleDbDebounced = debounce(
   500,
   { leading: false, trailing: true, maxWait: 2000 },
 );
+
+// Flush the pending debounced persist before the JS runtime can be suspended.
+// iOS may freeze the bridge in <500ms after backgrounding, which would
+// otherwise drop the last user action (open/close/reorder tab).
+AppState.addEventListener('change', (nextState) => {
+  if (nextState === 'background' || nextState === 'inactive') {
+    persistTabsToSimpleDbDebounced.flush();
+  }
+});
 
 function isLocalhostUrlAllowedInDAppBrowser() {
   const devSettings = jotaiDefaultStore.get(devSettingsPersistAtom.atom());
