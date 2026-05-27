@@ -74,6 +74,7 @@ import type { IAddEthereumChainParameter } from '../providers/ProviderApiEthereu
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type { IAccountDeriveTypes, ITransferInfo } from '../vaults/types';
 import type {
+  IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
@@ -948,7 +949,7 @@ class ServiceDApp extends ServiceBase {
   }: {
     origin: string;
     provider: EOAuthSocialLoginProvider;
-    scope?: string;
+    scope?: IInjectedProviderNamesStrings;
   }): Promise<boolean> {
     // Fetch in parallel — the two reads are independent and this function
     // runs inside the provider semaphore, so cutting one RTT keeps the
