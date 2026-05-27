@@ -105,14 +105,20 @@ const SegmentMark = memo(function SegmentMarkInner({
     [pct, disabled],
   );
 
-  // background and border are owned by applyMarkActiveStates (imperative
+  // background and borderColor are owned by applyMarkActiveStates (imperative
   // DOM mutation). Listing them here too would let a hover-triggered
   // re-render clobber the active-state fill set by the parent.
+  // borderWidth/borderStyle MUST live here: borderColor alone doesn't render a
+  // ring without a non-zero width and an explicit style, so the inactive marks
+  // would otherwise be invisible white circles on a white page.
   const visualStyle = useMemo<CSSProperties>(
     () => ({
       width: MARK_SIZE,
       height: MARK_SIZE,
       borderRadius: '50%',
+      borderWidth: 1,
+      borderStyle: 'solid',
+      borderColor: 'transparent',
       boxSizing: 'border-box',
       boxShadow: hovered ? `0 0 0 4px ${hoverGlowColor}` : 'none',
       transition: 'box-shadow 150ms ease',
