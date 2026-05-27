@@ -65,6 +65,15 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
+// `actions.ts` registers an AppState 'change' listener at module load to flush
+// the debounced tab-persist on background/inactive. jsdom doesn't ship a usable
+// AppState, so stub the minimal surface the listener touches.
+jest.mock('react-native', () => ({
+  AppState: {
+    addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+  },
+}));
+
 // `buildWebTabs` now persists tab snapshots via a lodash debounce wrapper
 // (500ms trailing / 2s maxWait). The atom state still updates synchronously,
 // but the mocked `setRawData` would fire after the assertions complete and
