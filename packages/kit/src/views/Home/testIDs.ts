@@ -42,6 +42,10 @@ export const HomeTestIDs = {
   referralLandingDownloadHintBtn: 'home-referral-landing-download-hint-btn',
   referralLandingBindBtn: 'home-referral-landing-bind-btn',
   referralLandingTradeBtn: 'home-referral-landing-trade-btn',
+  redeemBitcoinVoucherOpenAppFallbackBtn:
+    'home-redeem-bitcoin-voucher-open-app-fallback-btn',
+  redeemBitcoinVoucherDownloadFallbackBtn:
+    'home-redeem-bitcoin-voucher-download-fallback-btn',
 
   // Zero-gas continue confirmation
   walletActionsZeroGasContinueBtn: 'home-wallet-actions-zero-gas-continue-btn',

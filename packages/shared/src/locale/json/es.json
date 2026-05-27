@@ -2296,6 +2296,7 @@
   "hardware_third_party_transport_error": "Falló la comunicación con el hardware. Compruebe el cable USB o el Bluetooth y vuelva a intentarlo.",
   "hardware_third_party_transport_not_available": "Su navegador o plataforma no admite la conexión con esta billetera de hardware.",
   "hardware_third_party_unknown_error": "Error de hardware desconocido. Inténtelo de nuevo.",
+  "hardware_third_party_usb_single_device_only_desc": "Sólo se puede conectar un dispositivo USB a la vez. Desconecte otros dispositivos e inténtelo de nuevo.",
   "hardware_third_party_user_rejected": "Operación rechazada en el dispositivo",
   "hardware_third_party_wrong_app": "Hay abierta una aplicación incorrecta en el dispositivo",
   "havent_found_network_desc": "No encontramos ninguna red que coincida con tu clave privada. Toca abajo para seleccionar una red.",

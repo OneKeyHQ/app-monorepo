@@ -2296,6 +2296,7 @@
   "hardware_third_party_transport_error": "硬件通信失败，请检查 USB 连接线或蓝牙后重试",
   "hardware_third_party_transport_not_available": "当前浏览器或平台不支持连接此硬件钱包",
   "hardware_third_party_unknown_error": "未知的硬件错误，请重试",
+  "hardware_third_party_usb_single_device_only_desc": "一次只能连接一个 USB 设备。请断开其他设备并重试。",
   "hardware_third_party_user_rejected": "操作已在设备上被拒绝",
   "hardware_third_party_wrong_app": "设备上打开的应用不正确",
   "havent_found_network_desc": "我们找不到与您的私钥匹配的任何网络。请点击下方选择网络。",
