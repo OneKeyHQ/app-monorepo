@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { exit } from 'process';
@@ -16,6 +17,26 @@ import type {
   RspackPluginInstance,
   Stats,
 } from '@rspack/core';
+
+// Build identifier for the cold-start hydration cache (see
+// packages/kit-bg/src/hydration/hydrate.ts). When this value changes
+// between deploys, the cold-start IDB is wiped to prevent stale data
+// from a prior build leaking into a new code base. Prefers git HEAD
+// short hash; falls back to a timestamp so each fresh build still
+// invalidates.
+function computeBuildHash(): string {
+  if (process.env.BUILD_HASH) return process.env.BUILD_HASH;
+  try {
+    return execSync('git rev-parse --short HEAD', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return `t${Date.now()}`;
+  }
+}
+const BUILD_HASH = computeBuildHash();
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
@@ -140,6 +161,7 @@ const buildBasePlugins: (
     'process.env.VERSION': JSON.stringify(process.env.VERSION),
     'process.env.BUNDLE_VERSION': JSON.stringify(process.env.BUNDLE_VERSION),
     'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER),
+    'process.env.BUILD_HASH': JSON.stringify(BUILD_HASH),
   }),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
