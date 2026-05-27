@@ -49,10 +49,6 @@ import {
 import perpsUtils, {
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import {
-  getPerpsL2BookSnapshotCacheKeys,
-  swrCacheUtils,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -98,7 +94,6 @@ import {
   perpTokenFavoritesPersistAtom,
   perpTokenSelectorTabsAtom,
   perpsAbstractionModeAtom,
-  perpsAccountDisplaySnapshotAtom,
   perpsAccountLoadingInfoAtom,
   perpsActiveAccountAtom,
   perpsActiveAccountStatusAtom,
@@ -108,7 +103,6 @@ import {
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
   perpsCommonConfigPersistAtom,
-  perpsComputedAccountValueAtom,
   perpsCustomSettingsAtom,
   perpsDepositNetworksAtom,
   perpsDepositTokensAtom,
@@ -133,12 +127,10 @@ import {
   invalidateUserAbstractionRawCache,
 } from './userAbstractionCache';
 
+import type ServiceHyperliquidCache from './ServiceHyperliquidCache';
 import type ServiceHyperliquidExchange from './ServiceHyperliquidExchange';
 import type ServiceHyperliquidWallet from './ServiceHyperliquidWallet';
-import type {
-  IPerpsL2BookSnapshotCacheEntry,
-  ISimpleDbPerpData,
-} from '../../dbs/simple/entity/SimpleDbEntityPerp';
+import type { ISimpleDbPerpData } from '../../dbs/simple/entity/SimpleDbEntityPerp';
 import type {
   IPerpsAccountLoadingInfo,
   IPerpsActiveAccountAtom,
@@ -173,79 +165,6 @@ type IChangeActiveAssetResult = {
   universe: IPerpsUniverse | undefined;
   margin: IMarginTable | undefined;
 };
-
-const PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS = timerUtils.getTimeDurationMs({
-  minute: 10,
-});
-const PERPS_L2_BOOK_SNAPSHOT_CACHE_MIN_LEVELS_PER_SIDE = 16;
-
-function getL2BookSnapshotLevelCount(data: IBook | undefined) {
-  return Math.min(
-    data?.levels?.[0]?.length ?? 0,
-    data?.levels?.[1]?.length ?? 0,
-  );
-}
-
-function getL2BookSnapshotCacheEntryLevelCount(
-  entry: IPerpsL2BookSnapshotCacheEntry | undefined,
-) {
-  return getL2BookSnapshotLevelCount(entry?.data);
-}
-
-function isL2BookSnapshotCacheEntryComplete(
-  entry: IPerpsL2BookSnapshotCacheEntry | undefined,
-): entry is IPerpsL2BookSnapshotCacheEntry {
-  return (
-    getL2BookSnapshotCacheEntryLevelCount(entry) >=
-    PERPS_L2_BOOK_SNAPSHOT_CACHE_MIN_LEVELS_PER_SIDE
-  );
-}
-
-function selectL2BookSnapshotCacheEntry({
-  simpleDbEntry,
-  swrEntry,
-}: {
-  simpleDbEntry: IPerpsL2BookSnapshotCacheEntry | undefined;
-  swrEntry: IPerpsL2BookSnapshotCacheEntry | undefined;
-}) {
-  const candidates = [simpleDbEntry, swrEntry].filter(
-    isL2BookSnapshotCacheEntryComplete,
-  );
-  return candidates.toSorted((a, b) => b.updatedAt - a.updatedAt)[0];
-}
-
-function getL2BookSnapshotSwrCache({
-  coin,
-  nSigFigs,
-  mantissa,
-  maxAgeMs,
-}: {
-  coin: string;
-  nSigFigs?: number | null;
-  mantissa?: number | null;
-  maxAgeMs: number;
-}): IPerpsL2BookSnapshotCacheEntry | undefined {
-  const keys = getPerpsL2BookSnapshotCacheKeys({
-    coin,
-    nSigFigs,
-    mantissa,
-  });
-  for (const key of keys) {
-    const entry = swrCacheUtils.getWithTimestamp<IBook>(key);
-    if (
-      entry?.data?.coin === coin &&
-      Date.now() - entry.updatedAt <= maxAgeMs
-    ) {
-      return {
-        data: entry.data,
-        updatedAt: entry.updatedAt,
-        nSigFigs,
-        mantissa,
-      };
-    }
-  }
-  return undefined;
-}
 
 function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
   return fills.filter(
@@ -483,6 +402,10 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private get exchangeService(): ServiceHyperliquidExchange {
     return this.backgroundApi.serviceHyperliquidExchange;
+  }
+
+  private get cacheService(): ServiceHyperliquidCache {
+    return this.backgroundApi.serviceHyperliquidCache;
   }
 
   private get walletService(): ServiceHyperliquidWallet {
@@ -1219,47 +1142,11 @@ export default class ServiceHyperliquid extends ServiceBase {
     nSigFigs?: number | null;
     mantissa?: number | null;
   }): Promise<IBook | undefined> {
-    markPerpsColdStartPerf('service_l2_book_cache_start', {
+    return this.cacheService.getL2BookSnapshotCache({
       coin,
       nSigFigs,
       mantissa,
     });
-    const entry = await this.backgroundApi.simpleDb.perp.getL2BookSnapshotCache(
-      {
-        coin,
-        nSigFigs,
-        mantissa,
-        maxAgeMs: PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
-      },
-    );
-    const swrEntry = getL2BookSnapshotSwrCache({
-      coin,
-      nSigFigs,
-      mantissa,
-      maxAgeMs: PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
-    });
-    const cacheEntry = selectL2BookSnapshotCacheEntry({
-      simpleDbEntry: entry,
-      swrEntry,
-    });
-    if (!cacheEntry?.data) {
-      markPerpsColdStartPerf('service_l2_book_cache_miss', {
-        coin,
-        simpleDbLevels: getL2BookSnapshotCacheEntryLevelCount(entry),
-        swrLevels: getL2BookSnapshotCacheEntryLevelCount(swrEntry),
-      });
-      return undefined;
-    }
-    markPerpsColdStartPerf('service_l2_book_cache_hit', {
-      coin,
-      source: cacheEntry === entry ? 'simpleDb' : 'swr',
-      ageMs: Date.now() - cacheEntry.updatedAt,
-      bidLevels: cacheEntry.data.levels?.[0]?.length ?? 0,
-      askLevels: cacheEntry.data.levels?.[1]?.length ?? 0,
-      simpleDbLevels: getL2BookSnapshotCacheEntryLevelCount(entry),
-      swrLevels: getL2BookSnapshotCacheEntryLevelCount(swrEntry),
-    });
-    return cacheEntry.data;
   }
 
   @backgroundMethod()
@@ -1343,14 +1230,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       coin,
       markPx: ctx.markPx,
     });
-    void this.backgroundApi.simpleDb.perp
-      .setActiveAssetCtxSnapshotCache(data)
-      .catch((error) => {
-        defaultLogger.perp.hyperliquid.cacheSnapshotError({
-          type: 'active_asset_ctx_simple_db',
-          error,
-        });
-      });
+    this.cacheService.writeActiveAssetCtxSnapshotCache(data);
     return data;
   }
 
@@ -1360,39 +1240,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   }: {
     coin: string;
   }): Promise<IWsActiveAssetCtx | undefined> {
-    markPerpsColdStartPerf('service_active_asset_ctx_cache_start', {
-      coin,
-    });
-    const currentCtx = await perpsActiveAssetCtxAtom.get();
-    const hasCurrentMarketPrice =
-      currentCtx?.coin === coin &&
-      [currentCtx?.ctx?.markPrice, currentCtx?.ctx?.midPrice].some(
-        (price) => Number.parseFloat(price ?? '') > 0,
-      );
-    if (hasCurrentMarketPrice) {
-      markPerpsColdStartPerf('service_active_asset_ctx_cache_skip_fresh', {
-        coin,
-      });
-      return undefined;
-    }
-    const entry =
-      await this.backgroundApi.simpleDb.perp.getActiveAssetCtxSnapshotCache({
-        coin,
-        maxAgeMs: PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
-      });
-    if (!entry?.data) {
-      markPerpsColdStartPerf('service_active_asset_ctx_cache_miss', {
-        coin,
-      });
-      return undefined;
-    }
-    await this.updateActiveAssetCtx(entry.data);
-    markPerpsColdStartPerf('service_active_asset_ctx_cache_hit', {
-      coin,
-      ageMs: Date.now() - entry.updatedAt,
-      markPx: entry.data.ctx?.markPx,
-    });
-    return entry.data;
+    return this.cacheService.hydrateActiveAssetCtxSnapshotCache({ coin });
   }
 
   async updateActiveSpotAssetCtx(data: IWsActiveSpotAssetCtx | undefined) {
@@ -1461,14 +1309,16 @@ export default class ServiceHyperliquid extends ServiceBase {
           assetId: activeAsset?.assetId,
         }),
       );
-      void this._writePerpsAccountDisplaySnapshot({
-        accountAddress: activeAccount.accountAddress,
-      }).catch((error: unknown) => {
-        console.warn(
-          '[updateActiveAssetData] failed to persist display snapshot:',
-          error,
-        );
-      });
+      void this.cacheService
+        .writePerpsAccountDisplaySnapshot({
+          accountAddress: activeAccount.accountAddress,
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[updateActiveAssetData] failed to persist display snapshot:',
+            error,
+          );
+        });
 
       if (data.coin && data.leverage?.value) {
         const lastUsedLeverage = await perpsLastUsedLeverageAtom.get();
@@ -1518,23 +1368,25 @@ export default class ServiceHyperliquid extends ServiceBase {
         totalUnrealizedPnl: totalUnrealizedPnlBN.toFixed(),
       };
       await perpsActiveAccountSummaryAtom.set(summary);
-      void this._writePerpsAccountDisplaySummary(summary).catch(
-        (error: unknown) => {
+      void this.cacheService
+        .writePerpsAccountDisplaySummary(summary)
+        .catch((error: unknown) => {
           console.warn(
             '[updateActiveAccountSummary] failed to persist display cache:',
             error,
           );
-        },
-      );
-      if (summary.accountAddress) {
-        void this._writePerpsAccountDisplaySnapshot({
-          accountAddress: summary.accountAddress,
-        }).catch((error: unknown) => {
-          console.warn(
-            '[updateActiveAccountSummary] failed to persist display snapshot:',
-            error,
-          );
         });
+      if (summary.accountAddress) {
+        void this.cacheService
+          .writePerpsAccountDisplaySnapshot({
+            accountAddress: summary.accountAddress,
+          })
+          .catch((error: unknown) => {
+            console.warn(
+              '[updateActiveAccountSummary] failed to persist display snapshot:',
+              error,
+            );
+          });
       }
     } else {
       const activeAccountSummary = await perpsActiveAccountSummaryAtom.get();
@@ -1639,23 +1491,25 @@ export default class ServiceHyperliquid extends ServiceBase {
       totalUnrealizedPnl: aggregated.totalUnrealizedPnl.toFixed(),
     };
     await perpsActiveAccountSummaryAtom.set(summary);
-    void this._writePerpsAccountDisplaySummary(summary).catch(
-      (error: unknown) => {
+    void this.cacheService
+      .writePerpsAccountDisplaySummary(summary)
+      .catch((error: unknown) => {
         console.warn(
           '[updateActiveAccountSummaryFromClearinghouseState] failed to persist display cache:',
           error,
         );
-      },
-    );
-    if (summary.accountAddress) {
-      void this._writePerpsAccountDisplaySnapshot({
-        accountAddress: summary.accountAddress,
-      }).catch((error: unknown) => {
-        console.warn(
-          '[updateActiveAccountSummaryFromClearinghouseState] failed to persist display snapshot:',
-          error,
-        );
       });
+    if (summary.accountAddress) {
+      void this.cacheService
+        .writePerpsAccountDisplaySnapshot({
+          accountAddress: summary.accountAddress,
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[updateActiveAccountSummaryFromClearinghouseState] failed to persist display snapshot:',
+            error,
+          );
+        });
     }
   }
 
@@ -1728,22 +1582,21 @@ export default class ServiceHyperliquid extends ServiceBase {
       balances: normalizedBalances,
       spotTotalUsd,
     });
-    void this._writePerpsAccountDisplaySnapshot({
-      accountAddress: activeAddress,
-    }).catch((error: unknown) => {
-      console.warn(
-        '[updateSpotBalances] failed to persist display snapshot:',
-        error,
-      );
-    });
-    void this.backgroundApi.simpleDb.perp
-      .setPerpsAccountDisplaySpotBalances({
+    void this.cacheService
+      .writePerpsAccountDisplaySnapshot({
         accountAddress: activeAddress,
-        data: {
-          accountAddress: activeAddress,
-          balances: normalizedBalances,
-          spotTotalUsd,
-        },
+      })
+      .catch((error: unknown) => {
+        console.warn(
+          '[updateSpotBalances] failed to persist display snapshot:',
+          error,
+        );
+      });
+    void this.cacheService
+      .writePerpsAccountDisplaySpotBalances({
+        accountAddress: activeAddress,
+        balances: normalizedBalances,
+        spotTotalUsd,
       })
       .catch((error: unknown) => {
         console.warn(
@@ -1792,22 +1645,21 @@ export default class ServiceHyperliquid extends ServiceBase {
       return { ...prev, spotTotalUsd: computed };
     });
     if (didWrite) {
-      void this._writePerpsAccountDisplaySnapshot({
-        accountAddress: activeAddress,
-      }).catch((error: unknown) => {
-        console.warn(
-          '[recalculateSpotTotalUsd] failed to persist display snapshot:',
-          error,
-        );
-      });
-      void this.backgroundApi.simpleDb.perp
-        .setPerpsAccountDisplaySpotBalances({
+      void this.cacheService
+        .writePerpsAccountDisplaySnapshot({
           accountAddress: activeAddress,
-          data: {
-            accountAddress: activeAddress,
-            balances,
-            spotTotalUsd: computed,
-          },
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[recalculateSpotTotalUsd] failed to persist display snapshot:',
+            error,
+          );
+        });
+      void this.cacheService
+        .writePerpsAccountDisplaySpotBalances({
+          accountAddress: activeAddress,
+          balances,
+          spotTotalUsd: computed,
         })
         .catch((error: unknown) => {
           console.warn(
@@ -2044,7 +1896,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       // these atom writes are not a transaction.
       if (perpsAccount.accountAddress) {
         try {
-          await this._hydratePerpsAccountDisplayCache(
+          await this.cacheService.hydratePerpsAccountDisplayCache(
             perpsAccount.accountAddress,
           );
         } catch (error) {
@@ -2060,211 +1912,18 @@ export default class ServiceHyperliquid extends ServiceBase {
     // verify address alignment because multiple atom sets are observable.
     await perpsActiveAccountAtom.set(perpsAccount);
     if (perpsAccount.accountAddress) {
-      void this._writePerpsAccountDisplaySnapshot({
-        accountAddress: perpsAccount.accountAddress,
-      }).catch((error: unknown) => {
-        console.warn(
-          '[changeActivePerpsAccount] failed to persist display snapshot:',
-          error,
-        );
-      });
+      void this.cacheService
+        .writePerpsAccountDisplaySnapshot({
+          accountAddress: perpsAccount.accountAddress,
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[changeActivePerpsAccount] failed to persist display snapshot:',
+            error,
+          );
+        });
     }
     return perpsAccount;
-  }
-
-  // Maximum age for cached account data used as the cold-start first frame.
-  // Live WS / status checks overwrite atoms within seconds, so even relatively
-  // stale cache is acceptable for display; we cap it to avoid showing days-old
-  // values when the user has been away.
-  private readonly perpsAccountDisplayCacheMaxAgeMs = 6 * 60 * 60 * 1000;
-
-  private _getPerpsActiveAssetAvailableToTradeDisplay(
-    activeAssetData: IPerpsActiveAssetData | undefined,
-  ) {
-    const available = activeAssetData?.availableToTrade;
-    if (!activeAssetData?.coin || !available) {
-      return undefined;
-    }
-    const longValue = Number(available[0] ?? 0);
-    const shortValue = Number(available[1] ?? 0);
-    const safeValue =
-      Number.isFinite(longValue) && Number.isFinite(shortValue)
-        ? Math.min(longValue, shortValue)
-        : 0;
-    return {
-      coin: activeAssetData.coin,
-      value: new BigNumber(safeValue).toFixed(2, BigNumber.ROUND_DOWN),
-      updatedAt: Date.now(),
-    };
-  }
-
-  private _limitPerpsAccountDisplaySnapshotEntries<
-    T extends { updatedAt: number },
-  >(entries: Record<string, T>): Record<string, T> {
-    return Object.fromEntries(
-      Object.entries(entries)
-        .toSorted((a, b) => b[1].updatedAt - a[1].updatedAt)
-        .slice(0, 8),
-    );
-  }
-
-  private async _writePerpsAccountDisplaySnapshot({
-    accountAddress,
-  }: {
-    accountAddress: string;
-  }) {
-    const targetAddress = accountAddress.toLowerCase();
-    const activeAccount = await perpsActiveAccountAtom.get();
-    if (
-      !activeAccount.accountAddress ||
-      activeAccount.accountAddress.toLowerCase() !== targetAddress
-    ) {
-      return;
-    }
-
-    const computedValue = await perpsComputedAccountValueAtom.get();
-    const activeAssetData = await perpsActiveAssetDataAtom.get();
-    const availableToTrade =
-      activeAssetData?.accountAddress?.toLowerCase() === targetAddress
-        ? this._getPerpsActiveAssetAvailableToTradeDisplay(activeAssetData)
-        : undefined;
-    const shouldUseComputedValue =
-      computedValue?.isLoading === false &&
-      computedValue.accountValue !== undefined;
-
-    await perpsAccountDisplaySnapshotAtom.set((prev) => {
-      const prevEntries = prev?.entries ?? {};
-      const prevEntry = prevEntries[targetAddress];
-      const nextEntry = {
-        account: activeAccount,
-        accountValue: shouldUseComputedValue
-          ? computedValue.accountValue
-          : prevEntry?.accountValue,
-        withdrawable: shouldUseComputedValue
-          ? computedValue.withdrawable
-          : prevEntry?.withdrawable,
-        availableToTrade: availableToTrade ?? prevEntry?.availableToTrade,
-        updatedAt: Date.now(),
-      };
-
-      if (!nextEntry.accountValue && !nextEntry.availableToTrade) {
-        return prev;
-      }
-
-      return {
-        entries: this._limitPerpsAccountDisplaySnapshotEntries({
-          ...prevEntries,
-          [targetAddress]: nextEntry,
-        }),
-      };
-    });
-  }
-
-  private async _hydratePerpsAccountDisplayCache(accountAddress: string) {
-    const normalized = accountAddress.toLowerCase();
-    const targetAddress = normalized as IHex;
-    const now = Date.now();
-    let summaryHit = false;
-    let summaryAgeMs: number | undefined;
-    let spotHit = false;
-    let spotAgeMs: number | undefined;
-    let abstractionHit = false;
-
-    // Abstraction mode lives in its own per-address store; hydrate from
-    // there so cold start has a non-undefined mode before live fetch runs.
-    const cachedAbstraction =
-      await this.backgroundApi.simpleDb.perp.getUserAbstractionMode(
-        accountAddress,
-      );
-    if (cachedAbstraction) {
-      abstractionHit = true;
-      await perpsAbstractionModeAtom.set({
-        accountAddress: targetAddress,
-        mode: cachedAbstraction as EHyperLiquidAbstractionMode,
-      });
-    }
-
-    const cache =
-      await this.backgroundApi.simpleDb.perp.getPerpsAccountDisplayCache(
-        accountAddress,
-      );
-
-    if (cache) {
-      const summary = cache.summary;
-      if (
-        summary?.data &&
-        summary.data.accountAddress?.toLowerCase() === normalized &&
-        now - summary.updatedAt <= this.perpsAccountDisplayCacheMaxAgeMs
-      ) {
-        summaryHit = true;
-        summaryAgeMs = now - summary.updatedAt;
-        await perpsActiveAccountSummaryAtom.set({
-          ...summary.data,
-          accountAddress: targetAddress,
-        });
-      }
-
-      const spot = cache.spotBalances;
-      if (
-        spot?.data &&
-        spot.data.accountAddress.toLowerCase() === normalized &&
-        spot.data.spotTotalUsd !== undefined &&
-        now - spot.updatedAt <= this.perpsAccountDisplayCacheMaxAgeMs
-      ) {
-        spotHit = true;
-        spotAgeMs = now - spot.updatedAt;
-        await perpsSpotBalancesAtom.set({
-          accountAddress: targetAddress,
-          balances: spot.data.balances,
-          spotTotalUsd: spot.data.spotTotalUsd,
-        });
-      }
-    }
-
-    // Local-only diagnostic. Address is redacted via short suffix so logs
-    // stay non-PII while still being correlatable across events.
-    markPerpsColdStartPerf('service_account_display_cache_hydrate', {
-      addressTail: normalized.slice(-6),
-      cacheEntryExists: Boolean(cache),
-      summaryHit,
-      summaryAgeMs,
-      spotHit,
-      spotAgeMs,
-      abstractionHit,
-    });
-  }
-
-  private async _writePerpsAccountDisplaySummary(
-    summary: IPerpsActiveAccountSummaryAtom,
-  ) {
-    const summaryAddress = summary?.accountAddress?.toLowerCase();
-    if (!summary || !summaryAddress) {
-      return;
-    }
-    const activeAccount = await perpsActiveAccountAtom.get();
-    if (activeAccount?.accountAddress?.toLowerCase() !== summaryAddress) {
-      // Drop late WS frames whose owner no longer matches the active
-      // account. Writing them would let a stale snapshot persist for the
-      // wrong user.
-      return;
-    }
-    // Construct the cache payload explicitly so the structurally-stricter
-    // cache type (required keys with `undefined` values) is satisfied; a
-    // spread of the atom type produces optional keys and breaks compat.
-    await this.backgroundApi.simpleDb.perp.setPerpsAccountDisplaySummary({
-      accountAddress: summaryAddress,
-      data: {
-        accountAddress: summary.accountAddress,
-        accountValue: summary.accountValue,
-        totalMarginUsed: summary.totalMarginUsed,
-        crossAccountValue: summary.crossAccountValue,
-        crossMaintenanceMarginUsed: summary.crossMaintenanceMarginUsed,
-        totalNtlPos: summary.totalNtlPos,
-        totalRawUsd: summary.totalRawUsd,
-        withdrawable: summary.withdrawable,
-        totalUnrealizedPnl: summary.totalUnrealizedPnl,
-      },
-    });
   }
 
   @backgroundMethod()
@@ -2458,14 +2117,16 @@ export default class ServiceHyperliquid extends ServiceBase {
         accountAddress: lowerUserAddress,
         mode: mode as EHyperLiquidAbstractionMode,
       });
-      void this._writePerpsAccountDisplaySnapshot({
-        accountAddress: lowerUserAddress,
-      }).catch((error: unknown) => {
-        console.warn(
-          '[fetchUserAbstraction] failed to persist display snapshot:',
-          error,
-        );
-      });
+      void this.cacheService
+        .writePerpsAccountDisplaySnapshot({
+          accountAddress: lowerUserAddress,
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[fetchUserAbstraction] failed to persist display snapshot:',
+            error,
+          );
+        });
       return mode;
     } catch {
       // Fallback to SimpleDb cached value — need alignment checks around every await
@@ -2487,14 +2148,16 @@ export default class ServiceHyperliquid extends ServiceBase {
           accountAddress: lowerUserAddress,
           mode: cached as EHyperLiquidAbstractionMode,
         });
-        void this._writePerpsAccountDisplaySnapshot({
-          accountAddress: lowerUserAddress,
-        }).catch((error: unknown) => {
-          console.warn(
-            '[fetchUserAbstraction] failed to persist cached display snapshot:',
-            error,
-          );
-        });
+        void this.cacheService
+          .writePerpsAccountDisplaySnapshot({
+            accountAddress: lowerUserAddress,
+          })
+          .catch((error: unknown) => {
+            console.warn(
+              '[fetchUserAbstraction] failed to persist cached display snapshot:',
+              error,
+            );
+          });
         return cached;
       }
       return undefined; // NOT "default" — unknown is unknown

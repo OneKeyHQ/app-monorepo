@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import BigNumber from 'bignumber.js';
 
+import { PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   IFill,
@@ -107,15 +108,13 @@ export const {
   },
 });
 
-export const PERPS_ACCOUNT_DISPLAY_SNAPSHOT_MAX_AGE_MS = 6 * 60 * 60 * 1000;
-
 export function getPerpsAccountDisplaySnapshotEntry({
   snapshot,
   accountAddress,
   indexedAccountId,
   accountId,
   deriveType,
-  maxAgeMs = PERPS_ACCOUNT_DISPLAY_SNAPSHOT_MAX_AGE_MS,
+  maxAgeMs = PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS,
 }: {
   snapshot: IPerpsAccountDisplaySnapshotAtom | undefined;
   accountAddress?: string | null;

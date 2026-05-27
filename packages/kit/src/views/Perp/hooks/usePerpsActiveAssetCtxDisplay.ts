@@ -9,17 +9,11 @@ import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-const PERPS_ACTIVE_ASSET_CTX_COLD_CACHE_MAX_AGE_MS =
-  timerUtils.getTimeDurationMs({
-    minute: 10,
-  });
-const PERPS_ACTIVE_ASSET_CTX_COLD_CACHE_MIN_WRITE_INTERVAL_MS =
-  timerUtils.getTimeDurationMs({
-    seconds: 30,
-  });
-const PERPS_ACTIVE_ASSET_CTX_COLD_CACHE_MAX_ENTRIES = 24;
+import {
+  PERPS_ACTIVE_ASSET_CTX_COLD_CACHE_MAX_AGE_MS,
+  PERPS_ACTIVE_ASSET_CTX_COLD_CACHE_MAX_ENTRIES,
+  PERPS_ACTIVE_ASSET_CTX_COLD_CACHE_MIN_WRITE_INTERVAL_MS,
+} from '@onekeyhq/shared/src/consts/perpCache';
 
 function hasDisplayMarketPrice(assetCtx: IPerpsActiveAssetCtxAtom) {
   if (!assetCtx?.ctx) {

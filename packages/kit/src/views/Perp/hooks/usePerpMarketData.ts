@@ -4,11 +4,11 @@ import {
   useActiveTradeInstrumentAtom,
   useL2BookAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import {
   getPerpsL2BookSnapshotCacheKeys,
   swrCacheUtils,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -45,10 +45,6 @@ export interface IL2BookData extends HL.IBook {
   bids: HL.IBookLevel[];
   asks: HL.IBookLevel[];
 }
-
-const PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS = timerUtils.getTimeDurationMs({
-  minute: 10,
-});
 
 function getFreshL2BookSnapshotFromSwr({
   coin,

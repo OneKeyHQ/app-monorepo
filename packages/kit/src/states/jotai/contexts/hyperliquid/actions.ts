@@ -26,6 +26,11 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
+import {
+  PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
+  PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS,
+  PERPS_L2_BOOK_SWR_CACHE_MIN_INTERVAL_MS,
+} from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -102,20 +107,8 @@ type IChPositionLite = HL.IPerpsAssetPosition;
 
 const MAX_LEDGER_UPDATES = 200;
 
-const L2_BOOK_SWR_CACHE_MIN_INTERVAL_MS = timerUtils.getTimeDurationMs({
-  seconds: 5,
-});
-const L2_BOOK_SWR_CACHE_MAX_AGE_MS = timerUtils.getTimeDurationMs({
-  minute: 10,
-});
-
 let lastL2BookSwrCacheAt = 0;
 let lastL2BookSwrCacheKey: string | undefined;
-
-const PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS =
-  timerUtils.getTimeDurationMs({
-    minute: 5,
-  });
 
 function buildAllDexsAssetCtxsByDex(data: HL.IWsAllDexsAssetCtxs) {
   const incoming = data?.ctxs || [];
@@ -159,7 +152,7 @@ function cacheL2BookSnapshotToSwr({
   const now = Date.now();
   if (
     lastL2BookSwrCacheKey === primaryKey &&
-    now - lastL2BookSwrCacheAt < L2_BOOK_SWR_CACHE_MIN_INTERVAL_MS
+    now - lastL2BookSwrCacheAt < PERPS_L2_BOOK_SWR_CACHE_MIN_INTERVAL_MS
   ) {
     return;
   }
@@ -188,7 +181,7 @@ function getFreshL2BookSnapshotFromSwr({
     const entry = swrCacheUtils.getWithTimestamp<HL.IBook>(key);
     if (
       entry?.data?.coin === coin &&
-      Date.now() - entry.updatedAt <= L2_BOOK_SWR_CACHE_MAX_AGE_MS
+      Date.now() - entry.updatedAt <= PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS
     ) {
       return entry.data;
     }

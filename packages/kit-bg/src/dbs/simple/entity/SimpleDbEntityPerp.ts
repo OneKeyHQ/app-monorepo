@@ -3,6 +3,10 @@ import {
   HYPERLIQUID_AGENT_TTL_DEFAULT,
   HYPERLIQUID_REFERRAL_CODE,
 } from '@onekeyhq/shared/src/consts/perp';
+import {
+  PERPS_ACCOUNT_DISPLAY_CACHE_MAX_ENTRIES,
+  PERPS_SNAPSHOT_CACHE_MAX_ENTRIES,
+} from '@onekeyhq/shared/src/consts/perpCache';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IBook,
@@ -181,7 +185,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 
   private _limitSnapshotCacheEntries<T extends { updatedAt: number }>(
     entries: Record<string, T>,
-    limit = 24,
+    limit = PERPS_SNAPSHOT_CACHE_MAX_ENTRIES,
   ): Record<string, T> {
     return Object.fromEntries(
       Object.entries(entries)
@@ -778,9 +782,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         ...prev,
         perpsAccountDisplayCacheByAddress: this._limitSnapshotCacheEntries(
           map,
-          // Keep the most recently used accounts only; perps users typically
-          // rotate between a small number of addresses.
-          16,
+          PERPS_ACCOUNT_DISPLAY_CACHE_MAX_ENTRIES,
         ),
       };
     });
