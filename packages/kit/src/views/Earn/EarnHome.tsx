@@ -50,7 +50,10 @@ import { useBlockRegion } from './hooks/useBlockRegion';
 import { useEarnHideSmallAssets } from './hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
-import { useStakingPendingTxsByInfo } from './hooks/useStakingPendingTxs';
+import {
+  useEarnPendingTxsSharedMeta,
+  useStakingPendingTxsByInfo,
+} from './hooks/useStakingPendingTxs';
 
 import type { IEarnBorrowPagerViewRef } from './components/EarnBorrowPagerView';
 import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
@@ -189,8 +192,20 @@ function BasicEarnHome({
       tx.stakingInfo.label,
     );
   }, []);
+
+  const [borrowNetworkIds, setBorrowNetworkIds] = useState<string[]>([]);
+
+  // Resolve the (earn ∪ borrow) network meta ONCE for both hook instances
+  // below. Without this, EarnHome paid 6 BgTransport RPCs per dep change
+  // (3 per instance: network-account map + account-meta batch + polling
+  // intervals batch). The shared resolver collapses it to 3.
+  const sharedPendingTxsMeta = useEarnPendingTxsSharedMeta({
+    extraNetworkIds: borrowNetworkIds,
+  });
+
   const { filteredTxs } = useStakingPendingTxsByInfo({
     filter: pendingTxsFilter,
+    precomputed: sharedPendingTxsMeta,
   });
   const isPending = useMemo(() => {
     return filteredTxs.length > 0;
@@ -204,7 +219,6 @@ function BasicEarnHome({
     previousIsPendingRef.current = isPending;
   }, [isPending, refreshEarnData]);
 
-  const [borrowNetworkIds, setBorrowNetworkIds] = useState<string[]>([]);
   const borrowRefreshHandlerRef = useRef<(() => Promise<void>) | null>(null);
 
   const handleRegisterBorrowRefresh = useCallback(
@@ -240,6 +254,7 @@ function BasicEarnHome({
     tagMatcher: borrowPendingTagMatcher,
     onRefresh: handleBorrowPendingRefresh,
     onRefreshDelayMs: BORROW_PENDING_REFRESH_DELAY,
+    precomputed: sharedPendingTxsMeta,
   });
   const prevBorrowPendingIdsRef = useRef<string | null>(null);
 
