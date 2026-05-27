@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS,
+  PERPS_ACCOUNT_DISPLAY_CACHE_WRITE_INTERVAL_MS,
   PERPS_ACCOUNT_DISPLAY_SNAPSHOT_MAX_ENTRIES,
   PERPS_ALL_DEXS_ASSET_CTXS_CACHE_WRITE_INTERVAL_MS,
   PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
@@ -60,6 +61,11 @@ export type IPerpsL2BookSnapshotCachePayload = {
   data: IBook;
 };
 
+type IPerpsAccountDisplayCacheWriteType =
+  | 'snapshot'
+  | 'summary'
+  | 'spotBalances';
+
 export function getL2BookSnapshotLevelCount(data: IBook | undefined) {
   return Math.min(
     data?.levels?.[0]?.length ?? 0,
@@ -93,6 +99,18 @@ export function selectL2BookSnapshotCacheEntry({
     isL2BookSnapshotCacheEntryComplete,
   );
   return candidates.toSorted((a, b) => b.updatedAt - a.updatedAt)[0];
+}
+
+export function shouldWritePerpsAccountDisplayCache({
+  lastWriteAt,
+  now,
+  minIntervalMs = PERPS_ACCOUNT_DISPLAY_CACHE_WRITE_INTERVAL_MS,
+}: {
+  lastWriteAt: number | undefined;
+  now: number;
+  minIntervalMs?: number;
+}) {
+  return lastWriteAt === undefined || now - lastWriteAt >= minIntervalMs;
 }
 
 export function buildL2BookSnapshotCachePayload({
@@ -222,6 +240,11 @@ export default class ServiceHyperliquidCache extends ServiceBase {
   private _lastAllDexsAssetCtxsCacheWriteAt = 0;
 
   private _lastL2BookSnapshotCacheWriteAt = 0;
+
+  private _lastAccountDisplayCacheWriteAt: Record<
+    string,
+    Partial<Record<IPerpsAccountDisplayCacheWriteType, number>>
+  > = {};
 
   private _l2BookSnapshotCacheTimer: ReturnType<typeof setTimeout> | null =
     null;
@@ -454,6 +477,29 @@ export default class ServiceHyperliquidCache extends ServiceBase {
     );
   }
 
+  private _shouldWriteAccountDisplayCache({
+    accountAddress,
+    type,
+  }: {
+    accountAddress: string;
+    type: IPerpsAccountDisplayCacheWriteType;
+  }) {
+    const normalized = accountAddress.toLowerCase();
+    const now = Date.now();
+    const writeState = this._lastAccountDisplayCacheWriteAt[normalized] ?? {};
+    if (
+      !shouldWritePerpsAccountDisplayCache({
+        lastWriteAt: writeState[type],
+        now,
+      })
+    ) {
+      return false;
+    }
+    writeState[type] = now;
+    this._lastAccountDisplayCacheWriteAt[normalized] = writeState;
+    return true;
+  }
+
   async writePerpsAccountDisplaySnapshot({
     accountAddress,
   }: {
@@ -477,29 +523,37 @@ export default class ServiceHyperliquidCache extends ServiceBase {
     const shouldUseComputedValue =
       computedValue?.isLoading === false &&
       computedValue.accountValue !== undefined;
+    const displaySnapshot = await perpsAccountDisplaySnapshotAtom.get();
+    const prevEntries = displaySnapshot?.entries ?? {};
+    const prevEntry = prevEntries[targetAddress];
+    const nextEntry = {
+      account: activeAccount,
+      accountValue: shouldUseComputedValue
+        ? computedValue.accountValue
+        : prevEntry?.accountValue,
+      withdrawable: shouldUseComputedValue
+        ? computedValue.withdrawable
+        : prevEntry?.withdrawable,
+      availableToTrade: availableToTrade ?? prevEntry?.availableToTrade,
+      updatedAt: Date.now(),
+    };
+    if (!nextEntry.accountValue && !nextEntry.availableToTrade) {
+      return;
+    }
+    if (
+      !this._shouldWriteAccountDisplayCache({
+        accountAddress: targetAddress,
+        type: 'snapshot',
+      })
+    ) {
+      return;
+    }
 
     await perpsAccountDisplaySnapshotAtom.set((prev) => {
-      const prevEntries = prev?.entries ?? {};
-      const prevEntry = prevEntries[targetAddress];
-      const nextEntry = {
-        account: activeAccount,
-        accountValue: shouldUseComputedValue
-          ? computedValue.accountValue
-          : prevEntry?.accountValue,
-        withdrawable: shouldUseComputedValue
-          ? computedValue.withdrawable
-          : prevEntry?.withdrawable,
-        availableToTrade: availableToTrade ?? prevEntry?.availableToTrade,
-        updatedAt: Date.now(),
-      };
-
-      if (!nextEntry.accountValue && !nextEntry.availableToTrade) {
-        return prev;
-      }
-
+      const latestEntries = prev?.entries ?? {};
       return {
         entries: this._limitPerpsAccountDisplaySnapshotEntries({
-          ...prevEntries,
+          ...latestEntries,
           [targetAddress]: nextEntry,
         }),
       };
@@ -588,6 +642,14 @@ export default class ServiceHyperliquidCache extends ServiceBase {
     if (activeAccount?.accountAddress?.toLowerCase() !== summaryAddress) {
       return;
     }
+    if (
+      !this._shouldWriteAccountDisplayCache({
+        accountAddress: summaryAddress,
+        type: 'summary',
+      })
+    ) {
+      return;
+    }
     await this.backgroundApi.simpleDb.perp.setPerpsAccountDisplaySummary({
       accountAddress: summaryAddress,
       data,
@@ -608,6 +670,14 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       balances,
       spotTotalUsd,
     };
+    if (
+      !this._shouldWriteAccountDisplayCache({
+        accountAddress,
+        type: 'spotBalances',
+      })
+    ) {
+      return;
+    }
     await this.backgroundApi.simpleDb.perp.setPerpsAccountDisplaySpotBalances({
       accountAddress,
       data,

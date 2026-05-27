@@ -166,6 +166,10 @@ type IChangeActiveAssetResult = {
   margin: IMarginTable | undefined;
 };
 
+const HIDE_SELECT_ACCOUNT_LOADING_DELAY_MS = timerUtils.getTimeDurationMs({
+  seconds: 0.3,
+});
+
 function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
   return fills.filter(
     (fill) => !perpsUtils.isPredictionMarketInstrument(fill.coin),
@@ -1865,7 +1869,7 @@ export default class ServiceHyperliquid extends ServiceBase {
             selectAccountLoading: false,
           }),
         );
-      }, 300);
+      }, HIDE_SELECT_ACCOUNT_LOADING_DELAY_MS);
     }
 
     // Only wipe stale per-account data when the address actually changes.

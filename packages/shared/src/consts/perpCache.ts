@@ -10,11 +10,6 @@ export const PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS =
     minute: 5,
   });
 
-export const PERPS_L2_BOOK_SWR_CACHE_MIN_INTERVAL_MS =
-  timerUtils.getTimeDurationMs({
-    seconds: 5,
-  });
-
 export const PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS = timerUtils.getTimeDurationMs({
   minute: 10,
 });
@@ -48,6 +43,11 @@ export const PERPS_ACTIVE_ASSET_CTX_COLD_CACHE_MAX_ENTRIES = 24;
 export const PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS =
   timerUtils.getTimeDurationMs({
     hour: 6,
+  });
+
+export const PERPS_ACCOUNT_DISPLAY_CACHE_WRITE_INTERVAL_MS =
+  timerUtils.getTimeDurationMs({
+    seconds: 5,
   });
 
 export const PERPS_ACCOUNT_DISPLAY_CACHE_MAX_ENTRIES = 16;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 
 import {
   type IPerpsActiveAssetCtxColdCacheAtom,
@@ -111,45 +111,42 @@ export function usePerpsActiveAssetCtxDisplay(coin?: string): {
     });
   }, [activeAssetCtx, setColdCache]);
 
-  return useMemo(() => {
-    if (
-      isDisplayAssetCtx({
-        assetCtx: activeAssetCtx,
-        coin: activeCoin,
-      })
-    ) {
-      return {
-        assetCtx: activeAssetCtx,
-        source: 'live',
-        cacheAgeMs: undefined,
-      };
-    }
-
-    const cacheAgeMs = cacheEntry?.updatedAt
-      ? Date.now() - cacheEntry.updatedAt
-      : undefined;
-    const isFreshCache =
-      cacheAgeMs !== undefined &&
-      cacheAgeMs <= PERPS_ACTIVE_ASSET_CTX_COLD_CACHE_MAX_AGE_MS;
-    if (
-      isFreshCache &&
-      isDisplayAssetCtx({
-        assetCtx: cacheEntry?.data,
-        coin: activeCoin,
-      })
-    ) {
-      return {
-        assetCtx: cacheEntry?.data,
-        source: 'coldCache',
-        cacheAgeMs,
-      };
-    }
-
+  if (
+    isDisplayAssetCtx({
+      assetCtx: activeAssetCtx,
+      coin: activeCoin,
+    })
+  ) {
     return {
-      assetCtx:
-        activeAssetCtx?.coin === activeCoin ? activeAssetCtx : undefined,
-      source: cacheEntry ? 'staleCache' : 'empty',
+      assetCtx: activeAssetCtx,
+      source: 'live',
+      cacheAgeMs: undefined,
+    };
+  }
+
+  const cacheAgeMs = cacheEntry?.updatedAt
+    ? Date.now() - cacheEntry.updatedAt
+    : undefined;
+  const isFreshCache =
+    cacheAgeMs !== undefined &&
+    cacheAgeMs <= PERPS_ACTIVE_ASSET_CTX_COLD_CACHE_MAX_AGE_MS;
+  if (
+    isFreshCache &&
+    isDisplayAssetCtx({
+      assetCtx: cacheEntry?.data,
+      coin: activeCoin,
+    })
+  ) {
+    return {
+      assetCtx: cacheEntry?.data,
+      source: 'coldCache',
       cacheAgeMs,
     };
-  }, [activeAssetCtx, activeCoin, cacheEntry]);
+  }
+
+  return {
+    assetCtx: activeAssetCtx?.coin === activeCoin ? activeAssetCtx : undefined,
+    source: cacheEntry ? 'staleCache' : 'empty',
+    cacheAgeMs,
+  };
 }

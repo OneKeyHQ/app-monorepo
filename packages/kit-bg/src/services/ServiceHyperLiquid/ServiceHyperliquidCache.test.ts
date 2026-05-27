@@ -4,6 +4,7 @@ import {
   buildL2BookSnapshotCachePayload,
   getL2BookSnapshotCacheEntryLevelCount,
   selectL2BookSnapshotCacheEntry,
+  shouldWritePerpsAccountDisplayCache,
 } from './ServiceHyperliquidCache';
 
 import type { IPerpsL2BookSnapshotCacheEntry } from '../../dbs/simple/entity/SimpleDbEntityPerp';
@@ -112,5 +113,41 @@ describe('ServiceHyperliquidCache L2 book helpers', () => {
       nSigFigs: null,
       mantissa: null,
     });
+  });
+});
+
+describe('ServiceHyperliquidCache account display write throttle', () => {
+  it('allows the first write and later writes outside the interval', () => {
+    expect(
+      shouldWritePerpsAccountDisplayCache({
+        lastWriteAt: undefined,
+        now: 1000,
+        minIntervalMs: 5000,
+      }),
+    ).toBe(true);
+    expect(
+      shouldWritePerpsAccountDisplayCache({
+        lastWriteAt: 1000,
+        now: 6000,
+        minIntervalMs: 5000,
+      }),
+    ).toBe(true);
+  });
+
+  it('skips repeated writes inside the interval', () => {
+    expect(
+      shouldWritePerpsAccountDisplayCache({
+        lastWriteAt: 1000,
+        now: 5999,
+        minIntervalMs: 5000,
+      }),
+    ).toBe(false);
+    expect(
+      shouldWritePerpsAccountDisplayCache({
+        lastWriteAt: 0,
+        now: 4999,
+        minIntervalMs: 5000,
+      }),
+    ).toBe(false);
   });
 });

@@ -1,6 +1,5 @@
 import { memo, startTransition, useCallback, useEffect, useRef } from 'react';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { isEqual, noop } from 'lodash';
 
 import { useUpdateEffect } from '@onekeyhq/components';

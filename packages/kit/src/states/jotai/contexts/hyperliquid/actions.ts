@@ -29,7 +29,6 @@ import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
 import {
   PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
   PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS,
-  PERPS_L2_BOOK_SWR_CACHE_MIN_INTERVAL_MS,
 } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -107,9 +106,6 @@ type IChPositionLite = HL.IPerpsAssetPosition;
 
 const MAX_LEDGER_UPDATES = 200;
 
-let lastL2BookSwrCacheAt = 0;
-let lastL2BookSwrCacheKey: string | undefined;
-
 function buildAllDexsAssetCtxsByDex(data: HL.IWsAllDexsAssetCtxs) {
   const incoming = data?.ctxs || [];
   const ctxMap = new Map<string, HL.IPerpsAssetCtx[]>();
@@ -132,35 +128,6 @@ function buildAllDexsAssetCtxsByDex(data: HL.IWsAllDexsAssetCtxs) {
 
 function hasAnyAssetCtxs(ctxsByDex: HL.IPerpsAssetCtx[][] | undefined) {
   return Boolean(ctxsByDex?.some((ctxs) => ctxs?.length > 0));
-}
-
-function cacheL2BookSnapshotToSwr({
-  book,
-  nSigFigs,
-  mantissa,
-}: {
-  book: HL.IBook;
-  nSigFigs?: number | null;
-  mantissa?: number | null;
-}) {
-  const keys = getPerpsL2BookSnapshotCacheKeys({
-    coin: book.coin,
-    nSigFigs,
-    mantissa,
-  });
-  const primaryKey = keys[0];
-  const now = Date.now();
-  if (
-    lastL2BookSwrCacheKey === primaryKey &&
-    now - lastL2BookSwrCacheAt < PERPS_L2_BOOK_SWR_CACHE_MIN_INTERVAL_MS
-  ) {
-    return;
-  }
-
-  lastL2BookSwrCacheKey = primaryKey;
-  lastL2BookSwrCacheAt = now;
-  keys.forEach((key) => swrCacheUtils.set(key, book));
-  swrCacheUtils.flushNow();
 }
 
 function getFreshL2BookSnapshotFromSwr({
@@ -984,15 +951,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         askLevels: data.levels?.[1]?.length ?? 0,
       });
       set(l2BookAtom(), data);
-      const storedTickOptions = get(orderBookTickOptionsAtom())[data.coin];
-      cacheL2BookSnapshotToSwr({
-        book: data,
-        nSigFigs: storedTickOptions?.nSigFigs ?? null,
-        mantissa:
-          storedTickOptions?.mantissa === undefined
-            ? undefined
-            : storedTickOptions.mantissa,
-      });
     } else {
       const currentBook = get(l2BookAtom());
       if (currentBook?.coin && currentBook?.coin !== activeCoin) {

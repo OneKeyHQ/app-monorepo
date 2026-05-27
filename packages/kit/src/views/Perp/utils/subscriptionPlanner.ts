@@ -61,16 +61,9 @@ export function planTradeSubscriptions(params: {
   const enableLedgerUpdates =
     hasAccount && viewState.infoPanelTab === 'Account';
 
-  let shouldSyncSubscriptions = shouldSyncSelectorSubscriptions;
-  if (viewState.routeFocused) {
-    if (isSpot) {
-      shouldSyncSubscriptions =
-        shouldSyncSelectorSubscriptions || Boolean(instrumentCoin);
-    } else {
-      shouldSyncSubscriptions =
-        shouldSyncSelectorSubscriptions || Boolean(instrumentCoin);
-    }
-  }
+  const shouldSyncSubscriptions = viewState.routeFocused
+    ? shouldSyncSelectorSubscriptions || Boolean(instrumentCoin)
+    : shouldSyncSelectorSubscriptions;
 
   return {
     enableLedgerUpdates,
