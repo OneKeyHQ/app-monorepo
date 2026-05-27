@@ -1,3 +1,4 @@
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { exit } = require('process');
@@ -12,6 +13,25 @@ const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
 const { createResolveExtensions } = require('./utils');
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
+
+// Build identifier for the cold-start hydration cache (see
+// apps/web/src/hydration/hydrate.ts). When this value changes between
+// deploys, the cold-start IDB is wiped to prevent stale data from a prior
+// build leaking into a new code base. Prefers git HEAD short hash; falls
+// back to a timestamp so each fresh build still invalidates.
+function computeBuildHash() {
+  if (process.env.BUILD_HASH) return process.env.BUILD_HASH;
+  try {
+    return execSync('git rev-parse --short HEAD', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return `t${Date.now()}`;
+  }
+}
+const BUILD_HASH = computeBuildHash();
 
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
@@ -117,6 +137,7 @@ const basePlugins = [
         PERF_FUNCTION_WARN_MS: JSON.stringify(
           process.env.PERF_FUNCTION_WARN_MS || '',
         ),
+        BUILD_HASH: JSON.stringify(BUILD_HASH),
       },
     },
   }),

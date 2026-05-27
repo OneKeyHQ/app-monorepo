@@ -475,23 +475,28 @@ let coldStartAppStateListenerRegistered = false;
 function ensureColdStartAppStateListener() {
   if (coldStartAppStateListenerRegistered) return;
   coldStartAppStateListenerRegistered = true;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { AppState } =
-      require('react-native') as typeof import('react-native');
-    AppState.addEventListener('change', (state) => {
-      if (state === 'background') {
-        if (coldStartSaveTimer) {
-          clearTimeout(coldStartSaveTimer);
-          coldStartSaveTimer = undefined;
-        }
-        flushColdStartCache();
-        swrCacheUtils.flushNow();
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { registerColdStartFlushTrigger } =
+    require('@onekeyhq/shared/src/storage/coldStartFlushTrigger') as typeof import('@onekeyhq/shared/src/storage/coldStartFlushTrigger');
+  registerColdStartFlushTrigger(() => {
+    if (coldStartSaveTimer) {
+      clearTimeout(coldStartSaveTimer);
+      coldStartSaveTimer = undefined;
+    }
+    flushColdStartCache();
+    swrCacheUtils.flushNow();
+    // Web/Desktop: also push the in-memory cold-start map to IndexedDB now.
+    if (platformEnv.isWeb || platformEnv.isDesktop) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { flushColdStartCacheNow } =
+          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
+        void flushColdStartCacheNow();
+      } catch {
+        /* webColdStartStorage may not be loaded on extension UI */
       }
-    });
-  } catch {
-    /* AppState not available in non-RN env */
-  }
+    }
+  });
 }
 
 export function hydrateContextColdStartCacheForProvider({

@@ -322,6 +322,37 @@ class JotaiStorage implements AsyncStorage<any> {
   subscribe = undefined;
 }
 
+function wrapJotaiStorageWithColdStartMirror(base: JotaiStorage): JotaiStorage {
+  // Dual-write: every write to the source-of-truth JotaiStorage IDB is
+  // additionally mirrored to the cold-start cache IDB
+  // (packages/shared/src/storage/instance/webColdStartStorage.ts). The
+  // mirror is read synchronously at boot by apps/web/src/hydration/hydrate.ts
+  // to populate globalThis.__ONEKEY_JOTAI_INIT_STATES__ before React mounts.
+  //
+  // The mirror is best-effort: errors are swallowed so a failed mirror write
+  // cannot break the source-of-truth path. Future "拆线程" (move atoms into
+  // a Worker) keeps this mirror on the UI side, so cold-start hydration
+  // remains synchronous regardless of where source-of-truth lives.
+  const originalSetItem: JotaiStorage['setItem'] = base.setItem.bind(base);
+  const wrappedSetItem: JotaiStorage['setItem'] = async (key, newValue) => {
+    await originalSetItem(key, newValue);
+    try {
+      const prefix = 'g_states_v5:';
+      if (typeof key === 'string' && key.startsWith(prefix)) {
+        const atomName = key.slice(prefix.length);
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { setColdStartL1MirrorEntry } =
+          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
+        setColdStartL1MirrorEntry(atomName, newValue);
+      }
+    } catch {
+      /* best-effort: mirror failure must not break source-of-truth */
+    }
+  };
+  base.setItem = wrappedSetItem;
+  return base;
+}
+
 function createJotaiStorage() {
   if (platformEnv.isExtensionUi) {
     // extension real storage is running at bg, the ui is a mock storage
@@ -331,7 +362,11 @@ function createJotaiStorage() {
     return new JotaiStorageNativeMMKV();
   }
   // web/desktop keep IndexedDB
-  return new JotaiStorage();
+  const base = new JotaiStorage();
+  if (platformEnv.isWeb || platformEnv.isDesktop) {
+    return wrapJotaiStorageWithColdStartMirror(base);
+  }
+  return base;
 }
 
 export const onekeyJotaiStorage = createJotaiStorage();
