@@ -1,6 +1,12 @@
 // Cold-start hydration entry for web. Loaded as the first module after
-// polyfills in `apps/web/index.js`; runs at module load so the hydration
-// promise is fired before React mounts.
+// polyfills in `apps/web/index.js` (and `apps/desktop/index.js`); runs at
+// module load so the hydration promise is fired before React mounts.
+//
+// Storage isolation: the cold-start IDB lives in its own bucket on
+// Chromium (Chrome / Edge / Electron) via navigator.storageBuckets, and in
+// the default-origin IDB factory on Firefox / Safari. See
+// packages/shared/src/storage/instance/webColdStartStorage.ts for the
+// browser support matrix.
 //
 // What this module does (in module-load order):
 //   1. Opens IndexedDB('onekey-cold-start-cache') and reads all entries.

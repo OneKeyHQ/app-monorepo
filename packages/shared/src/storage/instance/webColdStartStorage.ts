@@ -11,6 +11,19 @@
 // The Map is the source-of-truth at runtime; IDB is just persistence. This
 // lets us keep ISyncStorage's synchronous contract while still using
 // IndexedDB (which has no sync API).
+//
+// Storage isolation: the IndexedDBPromised wrapper prefers
+// `navigator.storageBuckets` (Chromium only — Chrome / Edge / Electron) so
+// the cold-start DB lives in its own bucket and is GC'd independently of
+// the main app data. Firefox / Safari do not implement storageBuckets, so
+// they fall through to `globalThis.indexedDB` (the default-origin factory).
+// This still works because the database NAME ('onekey-cold-start-cache')
+// is unique within the origin — only the storage-quota grouping differs.
+//
+// Hydration timing: hydrate.ts wraps readAllColdStartEntriesFromIdb with a
+// 300ms timeout (HYDRATION_TIMEOUT_MS). On timeout, primeColdStartCacheMap
+// is NOT called, so any early setColdStartL1MirrorEntry writes survive and
+// missing keys fall through to atom defaults via jotaiInit.
 
 import { isPlainObject } from 'lodash';
 
