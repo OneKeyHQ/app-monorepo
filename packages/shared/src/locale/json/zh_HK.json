@@ -2296,7 +2296,7 @@
   "hardware_third_party_transport_error": "硬件通訊失敗，請檢查 USB 連接線或藍牙後重試",
   "hardware_third_party_transport_not_available": "目前的瀏覽器或平台不支援連接此硬件錢包",
   "hardware_third_party_unknown_error": "未知的硬件錯誤，請重試",
-  "hardware_third_party_usb_single_device_only_desc": "一次只能连接一个 USB 设备。请断开其他设备并重试。",
+  "hardware_third_party_usb_single_device_only_desc": "一次只能連接一個USB設備。請斷開其他設備，然後重試。",
   "hardware_third_party_user_rejected": "操作已在裝置上被拒絕",
   "hardware_third_party_wrong_app": "裝置上開啟的應用程式不正確",
   "havent_found_network_desc": "我們找不到與您的私鑰匹配的網絡。請點擊下方選擇網絡。",
