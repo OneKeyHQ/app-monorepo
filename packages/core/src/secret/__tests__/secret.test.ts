@@ -584,6 +584,32 @@ describe('Secret Module Tests', () => {
       expect(seedBuffer.length).toBe(64);
     });
 
+    it('should support asmcrypto backend', async () => {
+      const events: Array<{ name: string }> = [];
+      const defaultSeedBuffer = await mnemonicToSeedAsync({
+        mnemonic: testMnemonic,
+        passphrase: testPassphrase,
+      });
+      const asmcryptoSeedBuffer = await mnemonicToSeedAsync({
+        mnemonic: testMnemonic,
+        passphrase: testPassphrase,
+        kdfBackend: 'asmcrypto',
+        perfTrace: {
+          onEvent: (event) => {
+            events.push(event);
+          },
+        },
+      });
+      expect(asmcryptoSeedBuffer.toString('hex')).toBe(
+        defaultSeedBuffer.toString('hex'),
+      );
+      expect(
+        events.some(
+          (event) => event.name === 'mnemonicToSeed.asmcrypto.pbkdf2Sync',
+        ),
+      ).toBe(true);
+    });
+
     it('should throw error for invalid mnemonic', async () => {
       await expect(
         mnemonicToSeedAsync({

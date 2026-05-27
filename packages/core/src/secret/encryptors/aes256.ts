@@ -259,6 +259,7 @@ export type IEncryptStringParams = {
   aad?: Buffer | string;
   format?: ESecretEncryptPayloadFormat;
   dataType?: string;
+  debugCryptoProbeId?: string;
   kdfBackend?: IPbkdf2DispatchBackend;
   enablePbkdf2Cache?: boolean;
 };
@@ -367,6 +368,7 @@ async function encryptAsync({
       allowRawPassword,
       customIv: customIv ? bufferUtils.bytesToHex(customIv) : undefined,
       customSalt: customSalt ? bufferUtils.bytesToHex(customSalt) : undefined,
+      format: ESecretEncryptPayloadFormat.legacy,
       iterations: iterations ?? PBKDF2_LEGACY_NUM_OF_ITERATIONS,
     });
     return bufferUtils.toBuffer(str, 'hex');
@@ -908,6 +910,7 @@ async function encryptStringAsync({
   aad,
   format,
   dataType,
+  debugCryptoProbeId,
   kdfBackend,
   enablePbkdf2Cache,
 }: IEncryptStringParams): Promise<string> {
@@ -921,6 +924,7 @@ async function encryptStringAsync({
     aad,
     format,
     dataType,
+    debugCryptoProbeId,
     kdfBackend,
     enablePbkdf2Cache,
   });

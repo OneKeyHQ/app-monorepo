@@ -217,7 +217,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
-    const { hdCredential, password, indexes, hdCredentialCacheScopeId } = query;
+    const {
+      hdCredential,
+      password,
+      indexes,
+      hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
+    } = query;
 
     // const { pathPrefix, pathSuffix } = slicePathTemplate(query.template);
     // const indexFormatted = indexes.map((index) =>
@@ -229,7 +236,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       password,
       indexes,
       EAdaNetworkId.MAINNET,
-      { hdCredentialCacheScopeId },
+      { hdCredentialCacheScopeId, kdfBackend, enablePbkdf2Cache },
     );
 
     const addresses = addressInfos.map((info) => {

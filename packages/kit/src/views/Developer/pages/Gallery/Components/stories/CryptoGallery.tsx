@@ -10,6 +10,7 @@ import {
   Button,
   DebugRenderTracker,
   Icon,
+  NATIVE_HIT_SLOP,
   Select,
   SizableText,
   Stack,
@@ -23,7 +24,13 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
-import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
+import type {
+  IBatchGetPublicKeysPerfTrace,
+  IBatchGetPublicKeysPerfTraceEvent,
+  IBip39RevealableSeed,
+  IMnemonicToSeedPerfTrace,
+  IMnemonicToSeedPerfTraceEvent,
+} from '@onekeyhq/core/src/secret';
 import type { ICurveName } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDemoPriceInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/demo';
@@ -33,8 +40,10 @@ import {
   AppCryptoTestEmoji,
   runAppCryptoTestTask,
 } from '@onekeyhq/shared/src/appCrypto/utils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import RN_AES from '@onekeyhq/shared/src/modules3rdParty/react-native-aes-crypto';
 import RN_FAST_PBKDF2 from '@onekeyhq/shared/src/modules3rdParty/react-native-fast-pbkdf2';
+import RN_QUICK_CRYPTO from '@onekeyhq/shared/src/modules3rdParty/react-native-quick-crypto';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -124,6 +133,51 @@ function CustomAccordionItem({
   );
 }
 
+const CRYPTO_GALLERY_TEST_COOLDOWN_MS = 500;
+const CRYPTO_GALLERY_DEFAULT_PATH_EMOJI = '⭐';
+let cryptoGalleryTestQueue = Promise.resolve();
+let lastCryptoGalleryTestFinishedAt = 0;
+
+function waitForCryptoGalleryTestCooldown() {
+  const waitMs =
+    lastCryptoGalleryTestFinishedAt > 0
+      ? Math.max(
+          CRYPTO_GALLERY_TEST_COOLDOWN_MS -
+            (Date.now() - lastCryptoGalleryTestFinishedAt),
+          0,
+        )
+      : 0;
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, waitMs);
+  });
+}
+
+function runCryptoGalleryTestExclusive<T>(fn: () => Promise<T>): Promise<T> {
+  const run = cryptoGalleryTestQueue
+    .catch(() => undefined)
+    .then(async () => {
+      await waitForCryptoGalleryTestCooldown();
+      try {
+        return await fn();
+      } finally {
+        lastCryptoGalleryTestFinishedAt = Date.now();
+      }
+    });
+  cryptoGalleryTestQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+function stringifyCryptoGalleryTablePayload(value: unknown): string {
+  return stringUtils.stableStringify(
+    value,
+    stringUtils.STRINGIFY_REPLACER.bufferToHex,
+    2,
+  );
+}
+
 // Test Components
 function PBKDF2Test() {
   const [result, setResult] = useState('');
@@ -144,7 +198,10 @@ function PBKDF2Test() {
 
   return (
     <PartContainer title="PBKDF2 Test">
-      <Button variant="primary" onPress={testPBKDF2}>
+      <Button
+        variant="primary"
+        onPress={() => runCryptoGalleryTestExclusive(testPBKDF2)}
+      >
         Test PBKDF2
       </Button>
       {result ? <SizableText size="$bodyMd">{result}</SizableText> : null}
@@ -171,7 +228,10 @@ function HashTest() {
 
   return (
     <PartContainer title="Hash Test">
-      <Button variant="primary" onPress={testHash}>
+      <Button
+        variant="primary"
+        onPress={() => runCryptoGalleryTestExclusive(testHash)}
+      >
         Test Hash
       </Button>
       {result ? <SizableText size="$bodyMd">{result}</SizableText> : null}
@@ -198,7 +258,10 @@ function KeyGenTest() {
 
   return (
     <PartContainer title="KeyGen Test">
-      <Button variant="primary" onPress={testKeyGen}>
+      <Button
+        variant="primary"
+        onPress={() => runCryptoGalleryTestExclusive(testKeyGen)}
+      >
         Test KeyGen
       </Button>
       {result ? <SizableText size="$bodyMd">{result}</SizableText> : null}
@@ -225,7 +288,10 @@ function AESCbcTest() {
 
   return (
     <PartContainer title="AES-CBC Test">
-      <Button variant="primary" onPress={testAESCbc}>
+      <Button
+        variant="primary"
+        onPress={() => runCryptoGalleryTestExclusive(testAESCbc)}
+      >
         Test AES-CBC
       </Button>
       {result ? <SizableText size="$bodyMd">{result}</SizableText> : null}
@@ -240,7 +306,7 @@ const AES_GCM_V2_ITER_OPTIONS: number[] = [
   800_000, 1_000_000, 1_500_000, 2_000_000, 3_000_000, 5_000_000,
 ];
 const AES_GCM_V2_DEFAULT_ITER = 600_000;
-const AES_GCM_V2_BENCHMARK_COOLDOWN_MS = 500;
+const AES_GCM_V2_BENCHMARK_COOLDOWN_MS = CRYPTO_GALLERY_TEST_COOLDOWN_MS;
 
 // Canonical PBKDF2-HMAC-SHA256 vectors for the fixed gallery inputs:
 //   password = sha256('onekey-gallery-password')
@@ -315,11 +381,13 @@ type IPbkdf2ActualOutputs = {
     fastNative?: string;
     native?: string;
     noble?: string;
+    quickNative?: string;
   };
   sha512: {
     fastNative?: string;
     native?: string;
     noble?: string;
+    quickNative?: string;
   };
 };
 
@@ -353,6 +421,31 @@ async function pbkdf2Sha512ByRNFast(
   return bufferUtils.bytesToHex(bufferUtils.base64ToBytes(key));
 }
 
+async function pbkdf2Sha512ByRNQuickCrypto(
+  passwordBytes: Buffer,
+  saltBytes: Buffer,
+  iterations: number,
+): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    RN_QUICK_CRYPTO.pbkdf2(
+      passwordBytes,
+      saltBytes,
+      iterations,
+      AES_GCM_V2_PBKDF2_SHA512_KEY_LENGTH,
+      'sha512',
+      (err, key) => {
+        if (err || !key) {
+          reject(
+            err || new OneKeyLocalError('quick-crypto PBKDF2-SHA512 failed'),
+          );
+          return;
+        }
+        resolve(bufferUtils.bytesToHex(Buffer.from(key)));
+      },
+    );
+  });
+}
+
 async function pbkdf2Sha512ByNoble(
   passwordBytes: Buffer,
   saltBytes: Buffer,
@@ -373,18 +466,146 @@ function waitForAesGcmV2BenchmarkCooldown() {
 
 type IAesGcmV2TableRow = {
   opName: string;
+  actualDefaultAesGcmBackend: IAesGcmV2TableBackend | null;
   iter: number | null;
+  actualDefaultBackend: IAesGcmV2TableBackend | null;
+  asmcrypto: number | undefined;
   fastNative: number | undefined;
+  isActualDefaultIter: boolean;
   noble: number | undefined;
   native: number | undefined;
+  quickNative: number | undefined;
+  webcrypto: number | undefined;
   // 'primitive' : AES-GCM raw consistency test, no iter.
   // 'selected'  : the iter the user picked in the Select.
-  // 'default'   : production default iter (600,000) — always measured.
+  // 'default'   : probed production default iter — always measured.
   // 'both'      : selected === default (single row, treated as selected).
   category: 'primitive' | 'selected' | 'default' | 'both';
 };
 
-type IAesGcmV2TableBackend = 'fastNative' | 'noble' | 'native';
+type IAesGcmV2TableBackend =
+  | 'asmcrypto'
+  | 'fastNative'
+  | 'native'
+  | 'noble'
+  | 'quickNative'
+  | 'webcrypto';
+
+type IAesGcmV2BackendHeaderKind = 'aesGcm' | 'kdf';
+
+type IAesGcmV2DefaultProbe = {
+  aesGcmBackend?: string;
+  aesGcmOperation?: string;
+  configuredAesGcmBackend: string;
+  configuredIterations: number;
+  configuredPbkdf2Backend: string;
+  payloadIterations: number;
+  payloadVersion: string;
+  pbkdf2Backend?: string;
+  pbkdf2Iterations?: number;
+  aesGcmTableBackend: IAesGcmV2TableBackend | null;
+  pbkdf2TableBackend: IAesGcmV2TableBackend | null;
+  tableBackend: IAesGcmV2TableBackend | null;
+  time: number;
+};
+
+function getAesGcmV2TableBackendByPbkdf2Backend(
+  backend?: string,
+): IAesGcmV2TableBackend | null {
+  if (backend === 'asmcrypto') {
+    return 'asmcrypto';
+  }
+  if (backend === 'webcrypto') {
+    return 'webcrypto';
+  }
+  if (backend === 'react-native-quick-crypto') {
+    return 'quickNative';
+  }
+  if (backend === 'react-native-fast-pbkdf2') {
+    return 'fastNative';
+  }
+  if (backend === 'react-native-aes-crypto') {
+    return 'native';
+  }
+  if (backend === 'noble') {
+    return 'noble';
+  }
+  return null;
+}
+
+function getAesGcmV2TableBackendByAesGcmBackend(
+  backend?: string,
+): IAesGcmV2TableBackend | null {
+  if (backend === 'react-native-aes-crypto') {
+    return 'native';
+  }
+  if (backend === 'noble') {
+    return 'noble';
+  }
+  return null;
+}
+
+function getAesGcmV2BackendHeaderInfo({
+  backend,
+  kind,
+}: {
+  backend: IAesGcmV2TableBackend;
+  kind: IAesGcmV2BackendHeaderKind;
+}) {
+  if (kind === 'aesGcm') {
+    if (backend === 'native') {
+      return {
+        title: 'AES-GCM native',
+        message:
+          'react-native-aes-crypto: native AES-GCM encrypt/decrypt backend',
+      };
+    }
+    if (backend === 'noble') {
+      return {
+        title: 'AES-GCM noble',
+        message: '@noble/ciphers/aes: JS AES-GCM backend',
+      };
+    }
+    return {
+      title: 'AES-GCM backend',
+      message: 'This backend is not used by the AES-GCM raw table',
+    };
+  }
+  if (backend === 'asmcrypto') {
+    return {
+      title: 'PBKDF2 asm',
+      message: 'asmcrypto.js: Pbkdf2HmacSha256 implementation',
+    };
+  }
+  if (backend === 'webcrypto') {
+    return {
+      title: 'PBKDF2 webcrypto',
+      message: 'Web Crypto API: crypto.subtle PBKDF2 implementation',
+    };
+  }
+  if (backend === 'quickNative') {
+    return {
+      title: 'PBKDF2 quick',
+      message: 'react-native-quick-crypto: native PBKDF2 implementation',
+    };
+  }
+  if (backend === 'fastNative') {
+    return {
+      title: 'PBKDF2 fast',
+      message: 'react-native-fast-pbkdf2: native PBKDF2 implementation',
+    };
+  }
+  if (backend === 'native') {
+    return {
+      title: 'PBKDF2 native',
+      message: 'react-native-aes-crypto: native PBKDF2 implementation',
+    };
+  }
+  return {
+    title: 'PBKDF2 noble',
+    message: '@noble/hashes/pbkdf2: JS PBKDF2 implementation',
+  };
+}
 
 function classifyAesGcmV2TaskName(
   name: string,
@@ -422,6 +643,7 @@ function classifyAesGcmV2TaskName(
     /^encryptAsync\s+(default writes|default iterations|v2 prefix)/.test(
       name,
     ) ||
+    /^decryptAsync\s+reads v2 payload/.test(name) ||
     /^actual\s+payload|^actual\s+PBKDF2|^actual\s+AES-GCM/.test(name);
 
   let iter: number | undefined;
@@ -432,7 +654,13 @@ function classifyAesGcmV2TaskName(
   } else if (op === 'PBKDF2') {
     const m = name.match(/\b(\d{4,})\b/);
     if (m) iter = Number(m[1]);
-    if (/react-native-fast-pbkdf2|\bfast-native\b/.test(name)) {
+    if (/\basmcrypto\b/.test(name)) {
+      backend = 'asmcrypto';
+    } else if (/\bwebcrypto\b/.test(name)) {
+      backend = 'webcrypto';
+    } else if (/react-native-quick-crypto|\bquick-native\b/.test(name)) {
+      backend = 'quickNative';
+    } else if (/react-native-fast-pbkdf2|\bfast-native\b/.test(name)) {
       backend = 'fastNative';
     } else if (/\bnoble\b/.test(name)) backend = 'noble';
     else if (/\bnative\b/.test(name) || /\bdefault\b/.test(name))
@@ -440,7 +668,13 @@ function classifyAesGcmV2TaskName(
   } else if (op === 'encryptAsync' || op === 'decryptAsync') {
     const m = name.match(/\b(\d{4,})\b/);
     if (m) iter = Number(m[1]);
-    if (/react-native-fast-pbkdf2|\bfast-native\b/.test(name)) {
+    if (/\basmcrypto\b/.test(name)) {
+      backend = 'asmcrypto';
+    } else if (/\bwebcrypto\b/.test(name)) {
+      backend = 'webcrypto';
+    } else if (/react-native-quick-crypto|\bquick-native\b/.test(name)) {
+      backend = 'quickNative';
+    } else if (/react-native-fast-pbkdf2|\bfast-native\b/.test(name)) {
       backend = 'fastNative';
     } else if (/\bnoble\b/.test(name)) backend = 'noble';
     else if (/\bnative\b/.test(name)) backend = 'native';
@@ -463,8 +697,11 @@ function buildAesGcmV2TableRows(payload: {
     time: number;
     pbkdf2Invocation?: { backend?: string };
   }[];
+  defaultAesGcmBackend: IAesGcmV2TableBackend | null;
+  defaultBackend: IAesGcmV2TableBackend | null;
   selectedIter: number;
   defaultIter: number;
+  defaultIterForMarker: number | null;
 }): IAesGcmV2TableRow[] {
   const pivot: Record<string, Record<string, Record<string, number>>> = {};
   const fill = (
@@ -495,13 +732,12 @@ function buildAesGcmV2TableRows(payload: {
       run.requestedIterations === 'default'
         ? payload.defaultIter
         : Number(run.requestedIterations);
-    let backend: IAesGcmV2TableBackend = 'native';
-    if (run.pbkdf2Invocation?.backend === 'react-native-fast-pbkdf2') {
-      backend = 'fastNative';
-    } else if (run.pbkdf2Invocation?.backend === 'noble') {
-      backend = 'noble';
+    const backend = getAesGcmV2TableBackendByPbkdf2Backend(
+      run.pbkdf2Invocation?.backend,
+    );
+    if (backend) {
+      fill('encryptAsync', iter, backend, run.time);
     }
-    fill('encryptAsync', iter, backend, run.time);
   }
   const lookup = (
     op: string,
@@ -535,10 +771,18 @@ function buildAesGcmV2TableRows(payload: {
       seen.add(k);
       rows.push({
         opName: r.opName,
+        actualDefaultAesGcmBackend: payload.defaultAesGcmBackend,
         iter: r.iter,
+        actualDefaultBackend: payload.defaultBackend,
+        asmcrypto: lookup(r.op, r.iter, 'asmcrypto'),
         fastNative: lookup(r.op, r.iter, 'fastNative'),
+        isActualDefaultIter:
+          payload.defaultIterForMarker !== null &&
+          r.iter === payload.defaultIterForMarker,
         noble: lookup(r.op, r.iter, 'noble'),
         native: lookup(r.op, r.iter, 'native'),
+        quickNative: lookup(r.op, r.iter, 'quickNative'),
+        webcrypto: lookup(r.op, r.iter, 'webcrypto'),
         category: categorize(r.iter),
       });
     }
@@ -557,6 +801,8 @@ function AESGcmV2Test() {
   );
   const [lastRunDefaultTableBackend, setLastRunDefaultTableBackend] =
     useState<IAesGcmV2TableBackend | null>(null);
+  const [lastRunDefaultProbe, setLastRunDefaultProbe] =
+    useState<IAesGcmV2DefaultProbe | null>(null);
   const [selectedIter, setSelectedIter] = useState<string>(
     String(AES_GCM_V2_ITER_OPTIONS[0]),
   );
@@ -585,11 +831,11 @@ function AESGcmV2Test() {
         legacyGcmMagicText,
         'utf8',
       ).toString('hex');
-      const defaultPbkdf2Backend =
+      const configuredDefaultPbkdf2Backend =
         appCrypto.pbkdf2.getPbkdf2BackendForCurrentPlatform();
-      const defaultAesGcmBackend =
+      const configuredDefaultAesGcmBackend =
         appCrypto.aesGcm.getAesGcmBackendForCurrentPlatform();
-      const expectedDefaultIterations =
+      const configuredDefaultIterations =
         appCrypto.consts.PBKDF2_CURRENT_NUM_OF_ITERATIONS;
       const actualEncryptRuns: Array<{
         aesGcmInvocation: ReturnType<
@@ -686,6 +932,35 @@ function AESGcmV2Test() {
           encryptedHex,
           metadata,
         };
+      };
+      await waitBeforeBenchmarkTask();
+      const encryptedV2 = await encryptWithActualProbe();
+      const actualDefaultIterations =
+        encryptedV2.pbkdf2Invocation?.iterations ??
+        encryptedV2.payloadIterations;
+      const probedDefaultIterations =
+        encryptedV2.pbkdf2Invocation?.iterations ?? null;
+      const actualDefaultPbkdf2Backend = encryptedV2.pbkdf2Invocation?.backend;
+      const actualDefaultAesGcmBackend = encryptedV2.aesGcmInvocation?.backend;
+      const actualDefaultTableBackend = getAesGcmV2TableBackendByPbkdf2Backend(
+        actualDefaultPbkdf2Backend,
+      );
+      const actualDefaultAesGcmTableBackend =
+        getAesGcmV2TableBackendByAesGcmBackend(actualDefaultAesGcmBackend);
+      const actualDefaultProbe: IAesGcmV2DefaultProbe = {
+        aesGcmBackend: actualDefaultAesGcmBackend,
+        aesGcmOperation: encryptedV2.aesGcmInvocation?.operation,
+        aesGcmTableBackend: actualDefaultAesGcmTableBackend,
+        configuredAesGcmBackend: configuredDefaultAesGcmBackend,
+        configuredIterations: configuredDefaultIterations,
+        configuredPbkdf2Backend: configuredDefaultPbkdf2Backend,
+        payloadIterations: encryptedV2.payloadIterations,
+        payloadVersion: encryptedV2.payloadVersion,
+        pbkdf2Backend: actualDefaultPbkdf2Backend,
+        pbkdf2Iterations: encryptedV2.pbkdf2Invocation?.iterations,
+        pbkdf2TableBackend: actualDefaultTableBackend,
+        tableBackend: actualDefaultTableBackend,
+        time: encryptedV2.time,
       };
 
       const nobleEncrypted = appCrypto.aesGcm.aesGcmEncryptByNoble({
@@ -951,14 +1226,13 @@ function AESGcmV2Test() {
         'hex',
       );
 
-      // Always include the production default iteration count so the report
-      // shows a real number for `pbkdf2 600,000 native` / `encryptAsync
-      // 600,000 native` / etc. (the test function always probes the default
-      // path at the end anyway). Noble at 600k+ is gated below.
+      // Always include the default iteration count observed by the encrypt
+      // probe, so the table follows the path that actually ran instead of a
+      // configured constant. Noble at high iteration counts is gated below.
       const NOBLE_KDF_MAX_ITER = 10_000;
-      const userSelectedIter = iterationsToRun[0] ?? expectedDefaultIterations;
+      const userSelectedIter = iterationsToRun[0] ?? actualDefaultIterations;
       const effectiveIterations = Array.from(
-        new Set([...iterationsToRun, expectedDefaultIterations]),
+        new Set([...iterationsToRun, actualDefaultIterations]),
       ).toSorted((a, b) => a - b);
 
       const capturedOutputs: IPbkdf2ActualOutputs = {
@@ -968,7 +1242,12 @@ function AESGcmV2Test() {
       };
       const captureIfSelectedIter = (
         bucket: 'sha256' | 'sha512',
-        backend: 'defaultBackend' | 'fastNative' | 'native' | 'noble',
+        backend:
+          | 'defaultBackend'
+          | 'fastNative'
+          | 'native'
+          | 'noble'
+          | 'quickNative',
         iter: number,
         hex: string | undefined,
       ) => {
@@ -1011,7 +1290,7 @@ function AESGcmV2Test() {
         tasks.push(
           await runAppCryptoTestTask({
             expect: expectedHex,
-            name: `actual PBKDF2 canonical default(${defaultPbkdf2Backend}) ${iterations}`,
+            name: `actual PBKDF2 canonical default(${actualDefaultPbkdf2Backend ?? 'missing'}) ${iterations}`,
             fn: () => bufferUtils.bytesToHex(defaultKey),
           }),
         );
@@ -1020,7 +1299,7 @@ function AESGcmV2Test() {
         tasks.push(
           await runAppCryptoTestTask({
             expect: expectedHex,
-            name: `PBKDF2 default(${defaultPbkdf2Backend}) ${iterations}`,
+            name: `PBKDF2 default(${actualDefaultPbkdf2Backend ?? 'missing'}) ${iterations}`,
             fn: () =>
               appCrypto.pbkdf2.pbkdf2({
                 password: hashedPassword,
@@ -1050,6 +1329,25 @@ function AESGcmV2Test() {
         );
 
         if (platformEnv.isNative) {
+          await waitBeforeBenchmarkTask();
+          const quickTask = await runAppCryptoTestTask({
+            expect: expectedHex,
+            name: `PBKDF2 quick-native ${iterations}`,
+            fn: () =>
+              appCrypto.pbkdf2.pbkdf2ByRNQuickCrypto({
+                password: hashedPassword,
+                salt,
+                iterations,
+              }),
+          });
+          tasks.push(quickTask);
+          captureIfSelectedIter(
+            'sha256',
+            'quickNative',
+            iterations,
+            quickTask.result,
+          );
+
           await waitBeforeBenchmarkTask();
           const fastTask = await runAppCryptoTestTask({
             expect: expectedHex,
@@ -1092,11 +1390,10 @@ function AESGcmV2Test() {
         }
 
         // SHA-512 backends (TON / BIP39 path protection). All names are
-        // `actual ...` so they bypass the timing pivot — correctness is
-        // still recorded via tasks[] and the JSON result blob, and the
-        // selected-iter captures feed the "actual outputs" panel above the
-        // table. Skip when no canonical vector is pinned (defensive: future
-        // iter additions should not silently break the assertion).
+        // `actual ...` so they bypass the timing pivot. Correctness is still
+        // recorded via tasks[], and selected-iter captures feed the actual
+        // outputs table. Skip when no canonical vector is pinned (defensive:
+        // future iter additions should not silently break the assertion).
         const sha512Canonical: string | undefined =
           AES_GCM_V2_PBKDF2_SHA512_EXPECTED[iterations];
         if (sha512Canonical) {
@@ -1116,6 +1413,21 @@ function AESGcmV2Test() {
           );
 
           if (platformEnv.isNative) {
+            await waitBeforeBenchmarkTask();
+            const quickSha512Task = await runAppCryptoTestTask({
+              expect: sha512Canonical,
+              name: `actual PBKDF2-SHA512 quick-native ${iterations}`,
+              fn: () =>
+                pbkdf2Sha512ByRNQuickCrypto(hashedPassword, salt, iterations),
+            });
+            tasks.push(quickSha512Task);
+            captureIfSelectedIter(
+              'sha512',
+              'quickNative',
+              iterations,
+              quickSha512Task.result,
+            );
+
             await waitBeforeBenchmarkTask();
             const fastSha512Task = await runAppCryptoTestTask({
               expect: sha512Canonical,
@@ -1181,7 +1493,8 @@ function AESGcmV2Test() {
 
         tasks.push(
           await runAppCryptoTestTask({
-            expect: defaultPbkdf2Backend,
+            expect:
+              actualDefaultPbkdf2Backend ?? '__missing_default_pbkdf2_probe__',
             name: `actual PBKDF2 probe backend ${iterations}`,
             fn: () =>
               encryptedByIterations.pbkdf2Invocation?.backend ?? 'missing',
@@ -1190,7 +1503,8 @@ function AESGcmV2Test() {
 
         tasks.push(
           await runAppCryptoTestTask({
-            expect: defaultAesGcmBackend,
+            expect:
+              actualDefaultAesGcmBackend ?? '__missing_default_aes_gcm_probe__',
             name: `actual AES-GCM probe backend ${iterations}`,
             fn: () =>
               encryptedByIterations.aesGcmInvocation?.backend ?? 'missing',
@@ -1213,6 +1527,14 @@ function AESGcmV2Test() {
         // NOBLE_KDF_MAX_ITER because noble PBKDF2 above ~10k iterations
         // freezes the device for tens of seconds.
         const backendConfigs = [
+          {
+            enabled: platformEnv.isNative,
+            expectedGcmBackend: 'react-native-aes-crypto',
+            expectedPbkdf2Backend: 'react-native-quick-crypto',
+            gcmBackend: 'native',
+            kdfBackend: 'react-native-quick-crypto',
+            label: 'quick-native',
+          },
           {
             enabled: true,
             expectedGcmBackend: 'react-native-aes-crypto',
@@ -1331,9 +1653,6 @@ function AESGcmV2Test() {
         }
       }
 
-      await waitBeforeBenchmarkTask();
-      const encryptedV2 = await encryptWithActualProbe();
-
       tasks.push(
         await runAppCryptoTestTask({
           expect: 'true',
@@ -1344,7 +1663,7 @@ function AESGcmV2Test() {
 
       tasks.push(
         await runAppCryptoTestTask({
-          expect: String(expectedDefaultIterations),
+          expect: String(encryptedV2.payloadIterations),
           name: 'encryptAsync default iterations',
           fn: () => String(encryptedV2.metadata.iterations),
         }),
@@ -1352,7 +1671,7 @@ function AESGcmV2Test() {
 
       tasks.push(
         await runAppCryptoTestTask({
-          expect: String(expectedDefaultIterations),
+          expect: String(encryptedV2.payloadIterations),
           name: 'actual default PBKDF2 probe iterations',
           fn: () =>
             String(encryptedV2.pbkdf2Invocation?.iterations ?? 'missing'),
@@ -1361,7 +1680,8 @@ function AESGcmV2Test() {
 
       tasks.push(
         await runAppCryptoTestTask({
-          expect: defaultPbkdf2Backend,
+          expect:
+            actualDefaultPbkdf2Backend ?? '__missing_default_pbkdf2_probe__',
           name: 'actual default PBKDF2 probe backend',
           fn: () => encryptedV2.pbkdf2Invocation?.backend ?? 'missing',
         }),
@@ -1369,7 +1689,8 @@ function AESGcmV2Test() {
 
       tasks.push(
         await runAppCryptoTestTask({
-          expect: defaultAesGcmBackend,
+          expect:
+            actualDefaultAesGcmBackend ?? '__missing_default_aes_gcm_probe__',
           name: 'actual default AES-GCM probe backend',
           fn: () => encryptedV2.aesGcmInvocation?.backend ?? 'missing',
         }),
@@ -1397,8 +1718,17 @@ function AESGcmV2Test() {
         }),
       );
 
-      const resultPayload = stringUtils.stableStringify(
-        {
+      const nextTableRows = buildAesGcmV2TableRows({
+        tasks: tasks.map((t) => ({ name: t.name, time: t.time })),
+        actualEncryptRuns,
+        defaultAesGcmBackend: actualDefaultAesGcmTableBackend,
+        defaultBackend: actualDefaultTableBackend,
+        selectedIter: userSelectedIter,
+        defaultIter: actualDefaultIterations,
+        defaultIterForMarker: probedDefaultIterations,
+      });
+      setResultJson(
+        stringifyCryptoGalleryTablePayload({
           platform: {
             isNative: platformEnv.isNative,
             isNativeIOS: platformEnv.isNativeIOS,
@@ -1406,44 +1736,30 @@ function AESGcmV2Test() {
           },
           actualEncryptRuns,
           defaultPath: {
-            pbkdf2: defaultPbkdf2Backend,
-            aesGcm: defaultAesGcmBackend,
-            iterations: expectedDefaultIterations,
+            pbkdf2: actualDefaultPbkdf2Backend,
+            aesGcm: actualDefaultAesGcmBackend,
+            iterations: actualDefaultIterations,
+            actualProbe: actualDefaultProbe,
+            configured: {
+              pbkdf2: configuredDefaultPbkdf2Backend,
+              aesGcm: configuredDefaultAesGcmBackend,
+              iterations: configuredDefaultIterations,
+            },
           },
           v2MagicHex,
           v2MagicText,
           legacyGcmMagicHex,
           legacyGcmMagicText,
           encryptedV2Header: getKnownPayloadHeader(encryptedV2.encryptedHex),
+          tableRows: nextTableRows,
+          actualOutputs: capturedOutputs,
           tasks,
-        },
-        stringUtils.STRINGIFY_REPLACER.bufferToHex,
-        2,
-      );
-      setResultJson(resultPayload);
-      setLastRunSelectedIter(userSelectedIter);
-      setLastRunDefaultTableBackend(() => {
-        const actualDefaultPbkdf2Backend =
-          encryptedV2.pbkdf2Invocation?.backend;
-        if (actualDefaultPbkdf2Backend === 'react-native-fast-pbkdf2') {
-          return 'fastNative';
-        }
-        if (actualDefaultPbkdf2Backend === 'react-native-aes-crypto') {
-          return 'native';
-        }
-        if (actualDefaultPbkdf2Backend === 'noble') {
-          return 'noble';
-        }
-        return null;
-      });
-      setTableRows(
-        buildAesGcmV2TableRows({
-          tasks: tasks.map((t) => ({ name: t.name, time: t.time })),
-          actualEncryptRuns,
-          selectedIter: userSelectedIter,
-          defaultIter: expectedDefaultIterations,
         }),
       );
+      setLastRunSelectedIter(userSelectedIter);
+      setLastRunDefaultProbe(actualDefaultProbe);
+      setLastRunDefaultTableBackend(actualDefaultTableBackend);
+      setTableRows(nextTableRows);
       setActualOutputs(capturedOutputs);
       setErrorMessage('');
 
@@ -1452,11 +1768,11 @@ function AESGcmV2Test() {
       );
       if (allPassed) {
         Toast.success({
-          title: 'AES-GCM v2 test passed',
+          title: 'AES-GCM PBKDF2 (v2 test) passed',
         });
       } else {
         Toast.error({
-          title: 'AES-GCM v2 test failed',
+          title: 'AES-GCM PBKDF2 (v2 test) failed',
         });
       }
     } catch (error) {
@@ -1465,15 +1781,16 @@ function AESGcmV2Test() {
       setTableRows([]);
       setActualOutputs(null);
       setLastRunDefaultTableBackend(null);
+      setLastRunDefaultProbe(null);
       Toast.error({
-        title: `AES-GCM v2 failed: ${(error as Error).message}`,
+        title: `AES-GCM PBKDF2 (v2 test) failed: ${(error as Error).message}`,
       });
     }
   };
 
   const selectedIterNumber = Number(selectedIter);
   const fmtCell = (v: number | undefined) =>
-    v === undefined ? '—' : `${v} ms`;
+    v === undefined ? '-' : `${v} ms`;
   // Tiered color for ms values:
   //   undefined         → muted '—'
   //   ≤ 10 ms           → success (green)
@@ -1491,23 +1808,115 @@ function AESGcmV2Test() {
     const hex = Buffer.from(value, 'base64').toString('hex');
     return `${hex.slice(0, 8)}...${hex.slice(-8)}`;
   };
+  const backendColumns: {
+    backend: IAesGcmV2TableBackend;
+    title: string;
+  }[] = [
+    { backend: 'asmcrypto', title: 'asm' },
+    { backend: 'webcrypto', title: 'webcrypto' },
+    { backend: 'noble', title: 'noble' },
+    { backend: 'quickNative', title: 'quick' },
+    { backend: 'fastNative', title: 'fast' },
+    { backend: 'native', title: 'native' },
+  ];
+  const aesGcmTableRows = tableRows.filter((row) => row.iter === null);
+  const kdfTimingTableRows = tableRows.filter((row) => row.iter !== null);
+  const aesGcmBackendColumns = backendColumns.filter(({ backend }) => {
+    if (backend !== 'noble' && backend !== 'native') {
+      return false;
+    }
+    if (lastRunDefaultProbe?.aesGcmTableBackend === backend) {
+      return true;
+    }
+    if (aesGcmTableRows.some((row) => row[backend] !== undefined)) {
+      return true;
+    }
+    if (backend === 'noble') {
+      return true;
+    }
+    return platformEnv.isNative && backend === 'native';
+  });
+  const kdfBackendColumns = backendColumns.filter(({ backend }) => {
+    if (lastRunDefaultTableBackend === backend) {
+      return true;
+    }
+    if (kdfTimingTableRows.some((row) => row[backend] !== undefined)) {
+      return true;
+    }
+    if (platformEnv.isNative) {
+      return (
+        backend === 'quickNative' ||
+        backend === 'fastNative' ||
+        backend === 'native'
+      );
+    }
+    return backend === 'asmcrypto' || backend === 'webcrypto';
+  });
+  const operationColumnFlexBasis = '28%';
+  const aesGcmOperationColumnFlexBasis = '44%';
+  const aesGcmBackendColumnFlexBasis: `${number}%` = `${
+    56 / Math.max(aesGcmBackendColumns.length, 1)
+  }%`;
+  const kdfBackendColumnFlexBasis: `${number}%` = `${
+    72 / Math.max(kdfBackendColumns.length, 1)
+  }%`;
+  const hasCompleteDefaultProbe = Boolean(
+    lastRunDefaultProbe?.pbkdf2Backend &&
+    lastRunDefaultProbe.pbkdf2Iterations !== undefined &&
+    lastRunDefaultProbe.aesGcmBackend,
+  );
   const renderBackendHeader = (
     backend: IAesGcmV2TableBackend,
+    defaultBackend: IAesGcmV2TableBackend | null | undefined,
+    kind: IAesGcmV2BackendHeaderKind,
     title: string,
   ) => (
-    <YStack alignItems="flex-end">
-      <SizableText size="$bodySmMedium" color="$textSubdued">
-        {title}
-      </SizableText>
-      {lastRunDefaultTableBackend === backend ? (
-        <SizableText size="$bodySmMedium" color="$textSubdued">
-          (default)
+    <YStack
+      alignItems="flex-end"
+      borderBottomColor="$textInteractive"
+      borderBottomWidth={1}
+      borderStyle="dashed"
+      cursor="pointer"
+      hitSlop={NATIVE_HIT_SLOP}
+      hoverStyle={{ opacity: 0.8 }}
+      m={-4}
+      onPress={() => {
+        Toast.message(getAesGcmV2BackendHeaderInfo({ backend, kind }));
+      }}
+      p="$1"
+      pressStyle={{ opacity: 0.7 }}
+    >
+      <XStack gap="$1" alignItems="center">
+        {defaultBackend === backend ? (
+          <SizableText size="$bodySmMedium">
+            {CRYPTO_GALLERY_DEFAULT_PATH_EMOJI}
+          </SizableText>
+        ) : null}
+        <SizableText size="$bodySmMedium" color="$textInteractive">
+          {title}
         </SizableText>
-      ) : null}
+      </XStack>
     </YStack>
   );
+  const renderBackendCell = (
+    row: IAesGcmV2TableRow,
+    backend: IAesGcmV2TableBackend,
+    value: number | undefined,
+  ) => (
+    <XStack gap="$1" alignItems="center" justifyContent="flex-end">
+      {(row.iter === null && row.actualDefaultAesGcmBackend === backend) ||
+      (row.isActualDefaultIter && row.actualDefaultBackend === backend) ? (
+        <SizableText size="$bodyMd">
+          {CRYPTO_GALLERY_DEFAULT_PATH_EMOJI}
+        </SizableText>
+      ) : null}
+      <SizableText size="$bodyMd" color={msColor(value)}>
+        {fmtCell(value)}
+      </SizableText>
+    </XStack>
+  );
   return (
-    <PartContainer title="AES-GCM v2 Test">
+    <PartContainer title="AES-GCM PBKDF2 (v2 test)">
       <XStack gap="$3" alignItems="center" flexWrap="wrap">
         <Select
           items={AES_GCM_V2_ITER_OPTIONS.map((iter) => ({
@@ -1530,7 +1939,9 @@ function AESGcmV2Test() {
           onPress={async () => {
             setRunning(true);
             try {
-              await testAESGcmV2([selectedIterNumber]);
+              await runCryptoGalleryTestExclusive(() =>
+                testAESGcmV2([selectedIterNumber]),
+              );
             } finally {
               setRunning(false);
             }
@@ -1538,15 +1949,220 @@ function AESGcmV2Test() {
         >
           Run Test
         </Button>
+        {resultJson ? (
+          <Button
+            size="small"
+            onPress={() => {
+              copyText(resultJson);
+            }}
+          >
+            Copy raw JSON
+          </Button>
+        ) : null}
       </XStack>
       <SizableText size="$bodySm" color="$textSubdued">
-        Will run iter={selectedIterNumber.toLocaleString()} AND iter=
-        {AES_GCM_V2_DEFAULT_ITER.toLocaleString()} (production default is always
-        measured). Fast/native timings force concrete backends and ignore the
-        DevSettings fast switch. Fast native runs on Android/iOS. Noble is
+        Will run iter={selectedIterNumber.toLocaleString()} and the actual
+        default encrypt path detected by probe. Quick/fast/native timings force
+        concrete backends and ignore the DevSettings fast switch. Noble is
         skipped for iter &gt; 10,000. Benchmark tasks wait{' '}
-        {AES_GCM_V2_BENCHMARK_COOLDOWN_MS}ms between runs.
+        {AES_GCM_V2_BENCHMARK_COOLDOWN_MS}ms between runs. Quick/fast are
+        PBKDF2-only; AES-GCM raw uses noble/native.
       </SizableText>
+
+      {lastRunDefaultProbe ? (
+        <SizableText size="$bodySm" color="$textSubdued">
+          {hasCompleteDefaultProbe ? CRYPTO_GALLERY_DEFAULT_PATH_EMOJI : ''}
+          {hasCompleteDefaultProbe ? ' ' : ''}Actual default probe: PBKDF2{' '}
+          {lastRunDefaultProbe.pbkdf2Backend ?? '-'} @{' '}
+          {(
+            lastRunDefaultProbe.pbkdf2Iterations ??
+            lastRunDefaultProbe.payloadIterations
+          ).toLocaleString()}{' '}
+          iterations, AES-GCM {lastRunDefaultProbe.aesGcmBackend ?? '-'}.
+        </SizableText>
+      ) : null}
+
+      {aesGcmTableRows.length > 0 ? (
+        <YStack
+          borderWidth={1}
+          borderColor="$border"
+          borderRadius="$2"
+          overflow="hidden"
+        >
+          <XStack
+            backgroundColor="$bgSubdued"
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+            borderBottomWidth={1}
+            borderBottomColor="$border"
+          >
+            <Stack flexBasis={aesGcmOperationColumnFlexBasis}>
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                AES-GCM raw
+              </SizableText>
+            </Stack>
+            {aesGcmBackendColumns.map(({ backend, title }) => (
+              <Stack
+                key={backend}
+                flexBasis={aesGcmBackendColumnFlexBasis}
+                alignItems="flex-end"
+              >
+                {renderBackendHeader(
+                  backend,
+                  lastRunDefaultProbe?.aesGcmTableBackend,
+                  'aesGcm',
+                  title,
+                )}
+              </Stack>
+            ))}
+          </XStack>
+          {aesGcmTableRows.map((row, idx) => (
+            <XStack
+              // eslint-disable-next-line react/no-array-index-key
+              key={idx}
+              paddingVertical="$2.5"
+              paddingHorizontal="$3"
+              borderBottomWidth={idx === aesGcmTableRows.length - 1 ? 0 : 1}
+              borderBottomColor="$borderSubdued"
+              alignItems="center"
+            >
+              <Stack flexBasis={aesGcmOperationColumnFlexBasis}>
+                <SizableText size="$bodyMd">{row.opName}</SizableText>
+              </Stack>
+              {aesGcmBackendColumns.map(({ backend }) => (
+                <Stack
+                  key={backend}
+                  flexBasis={aesGcmBackendColumnFlexBasis}
+                  alignItems="flex-end"
+                >
+                  {renderBackendCell(row, backend, row[backend])}
+                </Stack>
+              ))}
+            </XStack>
+          ))}
+          <XStack
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+            borderTopWidth={1}
+            borderTopColor="$borderSubdued"
+          >
+            <Button
+              size="small"
+              onPress={() => {
+                copyText(
+                  stringifyCryptoGalleryTablePayload({
+                    defaultProbe: lastRunDefaultProbe,
+                    rows: aesGcmTableRows,
+                  }),
+                );
+              }}
+            >
+              Copy AES-GCM table
+            </Button>
+          </XStack>
+        </YStack>
+      ) : null}
+
+      {kdfTimingTableRows.length > 0 ? (
+        <YStack
+          borderWidth={1}
+          borderColor="$border"
+          borderRadius="$2"
+          overflow="hidden"
+        >
+          <XStack
+            backgroundColor="$bgSubdued"
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+            borderBottomWidth={1}
+            borderBottomColor="$border"
+          >
+            <Stack flexBasis={operationColumnFlexBasis}>
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                PBKDF2 / wrapper timing
+              </SizableText>
+            </Stack>
+            {kdfBackendColumns.map(({ backend, title }) => (
+              <Stack
+                key={backend}
+                flexBasis={kdfBackendColumnFlexBasis}
+                alignItems="flex-end"
+              >
+                {renderBackendHeader(
+                  backend,
+                  lastRunDefaultTableBackend,
+                  'kdf',
+                  title,
+                )}
+              </Stack>
+            ))}
+          </XStack>
+          {kdfTimingTableRows.map((row, idx) => (
+            <XStack
+              // eslint-disable-next-line react/no-array-index-key
+              key={idx}
+              paddingVertical="$2.5"
+              paddingHorizontal="$3"
+              borderBottomWidth={idx === kdfTimingTableRows.length - 1 ? 0 : 1}
+              borderBottomColor="$borderSubdued"
+              alignItems="center"
+            >
+              <Stack flexBasis={operationColumnFlexBasis}>
+                <SizableText size="$bodyMd">{row.opName}</SizableText>
+                {row.iter !== null ? (
+                  <XStack gap="$1" alignItems="center">
+                    {row.isActualDefaultIter ? (
+                      <SizableText size="$bodySmMedium">
+                        {CRYPTO_GALLERY_DEFAULT_PATH_EMOJI}
+                      </SizableText>
+                    ) : null}
+                    <SizableText
+                      size="$bodySmMedium"
+                      color={
+                        row.isActualDefaultIter
+                          ? '$textInteractive'
+                          : '$textSubdued'
+                      }
+                    >
+                      {row.iter.toLocaleString()}
+                    </SizableText>
+                  </XStack>
+                ) : null}
+              </Stack>
+              {kdfBackendColumns.map(({ backend }) => (
+                <Stack
+                  key={backend}
+                  flexBasis={kdfBackendColumnFlexBasis}
+                  alignItems="flex-end"
+                >
+                  {renderBackendCell(row, backend, row[backend])}
+                </Stack>
+              ))}
+            </XStack>
+          ))}
+          <XStack
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+            borderTopWidth={1}
+            borderTopColor="$borderSubdued"
+          >
+            <Button
+              size="small"
+              onPress={() => {
+                copyText(
+                  stringifyCryptoGalleryTablePayload({
+                    defaultProbe: lastRunDefaultProbe,
+                    selectedIter: lastRunSelectedIter,
+                    rows: kdfTimingTableRows,
+                  }),
+                );
+              }}
+            >
+              Copy KDF timing table
+            </Button>
+          </XStack>
+        </YStack>
+      ) : null}
 
       {actualOutputs &&
       (Object.values(actualOutputs.sha256).some(Boolean) ||
@@ -1575,10 +2191,12 @@ function AESGcmV2Test() {
               ['sha256', 'noble', 'sha-256 noble'],
               ['sha256', 'native', 'sha-256 native (aes-crypto)'],
               ['sha256', 'fastNative', 'sha-256 fast (fast-pbkdf2)'],
+              ['sha256', 'quickNative', 'sha-256 quick (quick-crypto)'],
               ['sha256', 'defaultBackend', 'sha-256 default backend'],
               ['sha512', 'noble', 'sha-512 noble'],
               ['sha512', 'native', 'sha-512 native (aes-crypto)'],
               ['sha512', 'fastNative', 'sha-512 fast (fast-pbkdf2)'],
+              ['sha512', 'quickNative', 'sha-512 quick (quick-crypto)'],
             ] as const
           ).map(([bucket, backend, label]) => {
             const value = (
@@ -1618,10 +2236,1099 @@ function AESGcmV2Test() {
             <Button
               size="small"
               onPress={() => {
-                copyText(JSON.stringify(actualOutputs, null, 2));
+                copyText(stringifyCryptoGalleryTablePayload(actualOutputs));
               }}
             >
-              Copy actual outputs
+              Copy PBKDF2 output table
+            </Button>
+          </XStack>
+        </YStack>
+      ) : null}
+
+      {lastRunSelectedIter !== null && tableRows.length > 0 ? (
+        <SizableText size="$bodySm" color="$textSubdued">
+          Last run: iter={lastRunSelectedIter.toLocaleString()} (actual default{' '}
+          {(
+            lastRunDefaultProbe?.pbkdf2Iterations ??
+            lastRunDefaultProbe?.payloadIterations ??
+            AES_GCM_V2_DEFAULT_ITER
+          ).toLocaleString()}{' '}
+          always included).
+        </SizableText>
+      ) : null}
+
+      {errorMessage ? (
+        <SizableText size="$bodyMd" color="$textCritical">
+          Error: {errorMessage}
+        </SizableText>
+      ) : null}
+    </PartContainer>
+  );
+}
+
+type INativeWebEmbedCryptoPerfRow = {
+  mode: 'cold/raw' | 'hot/cache';
+  opName: string;
+  iter: number | null;
+  defaultRuntime?: INativeWebEmbedDefaultRuntime;
+  expectedResult: string;
+  localResult: string | undefined;
+  webEmbedResult: string | undefined;
+  local: number | undefined;
+  webEmbed: number | undefined;
+  validation: string | undefined;
+  isCorrect: string | undefined;
+};
+
+type INativeWebEmbedDefaultRuntime = 'primary' | 'secondary';
+
+type INativeWebEmbedBatchPerfTraceSummaryRow = {
+  mode: INativeWebEmbedCryptoPerfRow['mode'];
+  source: IBatchGetPublicKeysPerfTraceEvent['source'];
+  name: string;
+  count: number;
+  totalMs: number;
+  avgMs: number;
+  maxMs: number;
+};
+
+type INativeWebEmbedBatchPerfTracePayload = {
+  mode: INativeWebEmbedCryptoPerfRow['mode'];
+  events: IBatchGetPublicKeysPerfTraceEvent[];
+  summary: INativeWebEmbedBatchPerfTraceSummaryRow[];
+};
+
+type INativeWebEmbedMnemonicPerfTraceRow = {
+  runtime: string;
+  stage: string;
+  durationMs: number;
+  result?: string;
+  validation: string;
+  isCorrect?: string;
+  metadata?: IMnemonicToSeedPerfTraceEvent['metadata'];
+};
+
+function roundPerfMs(value: number): number {
+  return Number(value.toFixed(2));
+}
+
+function detectMnemonicToSeedBackendFromTrace(
+  events: IMnemonicToSeedPerfTraceEvent[],
+): string | undefined {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const event = events[i];
+    if (event.name.startsWith('mnemonicToSeed.quickCrypto.pbkdf2')) {
+      return 'react-native-quick-crypto';
+    }
+    if (event.name === 'mnemonicToSeed.webCrypto.deriveBits') {
+      return 'webcrypto';
+    }
+    if (event.name === 'mnemonicToSeed.asmcrypto.pbkdf2Sync') {
+      return 'asmcrypto';
+    }
+    if (event.name.startsWith('mnemonicToSeed.bip39.noblePbkdf2')) {
+      return 'noble';
+    }
+  }
+  return undefined;
+}
+
+function getGalleryWebCryptoSubtle(): SubtleCrypto | undefined {
+  const subtle = globalThis.crypto?.subtle;
+  if (
+    subtle &&
+    typeof subtle.importKey === 'function' &&
+    typeof subtle.deriveBits === 'function'
+  ) {
+    return subtle;
+  }
+  return undefined;
+}
+
+function toGalleryWebCryptoArrayBuffer(buffer: Buffer): ArrayBuffer {
+  const arrayBuffer = new ArrayBuffer(buffer.length);
+  const bytes = new Uint8Array(arrayBuffer);
+  bytes.set(buffer);
+  return arrayBuffer;
+}
+
+function buildBatchPerfTraceSummary({
+  mode,
+  events,
+}: {
+  mode: INativeWebEmbedCryptoPerfRow['mode'];
+  events: IBatchGetPublicKeysPerfTraceEvent[];
+}): INativeWebEmbedBatchPerfTraceSummaryRow[] {
+  const summaryMap = new Map<
+    string,
+    Omit<INativeWebEmbedBatchPerfTraceSummaryRow, 'avgMs'>
+  >();
+  for (const event of events) {
+    const key = `${event.source}:${event.name}`;
+    const current = summaryMap.get(key);
+    if (current) {
+      current.count += 1;
+      current.totalMs += event.durationMs;
+      current.maxMs = Math.max(current.maxMs, event.durationMs);
+    } else {
+      summaryMap.set(key, {
+        mode,
+        source: event.source,
+        name: event.name,
+        count: 1,
+        totalMs: event.durationMs,
+        maxMs: event.durationMs,
+      });
+    }
+  }
+  return Array.from(summaryMap.values())
+    .map((row) => ({
+      ...row,
+      totalMs: roundPerfMs(row.totalMs),
+      avgMs: roundPerfMs(row.totalMs / row.count),
+      maxMs: roundPerfMs(row.maxMs),
+    }))
+    .toSorted((a, b) => b.totalMs - a.totalMs)
+    .slice(0, 24);
+}
+
+async function runCryptoPerfTask({
+  name,
+  expect,
+  fn,
+}: {
+  name: string;
+  expect: string;
+  fn: () => Promise<Buffer | string> | Buffer | string;
+}): Promise<IRunAppCryptoTestTaskResult> {
+  const start = Date.now();
+  let result: string | undefined = '';
+  let error: string | undefined = '';
+  let isPromise = false;
+  try {
+    const value = fn();
+    if (value instanceof Promise) {
+      result = bufferUtils.bytesToHex(await value);
+      isPromise = true;
+    } else {
+      result = bufferUtils.bytesToHex(value);
+    }
+  } catch (e) {
+    error = (e as Error | undefined)?.message ?? 'Error';
+  }
+  const time = Date.now() - start;
+  return {
+    name,
+    result: result || undefined,
+    time,
+    isSlow: time > 10 && !error ? AppCryptoTestEmoji.isSlow : undefined,
+    isPromise,
+    ERROR: error ? `${AppCryptoTestEmoji.isWarning} ${error}` : undefined,
+    isCorrect: (() => {
+      if (result === expect) return AppCryptoTestEmoji.isCorrect;
+      if (error) return AppCryptoTestEmoji.isWarning;
+      return AppCryptoTestEmoji.isIncorrect;
+    })(),
+  };
+}
+
+function NativeWebEmbedCryptoPerfTest() {
+  const [resultJson, setResultJson] = useState('');
+  const [tableRows, setTableRows] = useState<INativeWebEmbedCryptoPerfRow[]>(
+    [],
+  );
+  const [batchPerfTraceRows, setBatchPerfTraceRows] = useState<
+    INativeWebEmbedBatchPerfTraceSummaryRow[]
+  >([]);
+  const [mnemonicPerfTraceRows, setMnemonicPerfTraceRows] = useState<
+    INativeWebEmbedMnemonicPerfTraceRow[]
+  >([]);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [running, setRunning] = useState(false);
+  const { copyText } = useClipboard();
+  const primaryRuntimeName = platformEnv.isNative ? 'native' : 'asmcrypto';
+  const secondaryRuntimeName = platformEnv.isNative ? 'web-embed' : 'webcrypto';
+  const defaultPathEmoji = CRYPTO_GALLERY_DEFAULT_PATH_EMOJI;
+
+  const fmtCell = (v: number | undefined) =>
+    v === undefined ? '—' : `${v} ms`;
+  const fmtResultCell = (v: string | undefined) => v ?? '-';
+  const msColor = (v: number | undefined): string => {
+    if (v === undefined) return '$textDisabled';
+    if (v <= 10) return '$textSuccess';
+    if (v < 100) return '$text';
+    if (v < 500) return '$textCaution';
+    return '$textCritical';
+  };
+  const validationColor = (isCorrect: string | undefined): string => {
+    if (isCorrect === AppCryptoTestEmoji.isCorrect) {
+      return '$textSuccess';
+    }
+    if (isCorrect === AppCryptoTestEmoji.isWarning) {
+      return '$textCaution';
+    }
+    return '$textCritical';
+  };
+  const fmtMetadata = (
+    metadata: IMnemonicToSeedPerfTraceEvent['metadata'],
+  ): string =>
+    metadata
+      ? Object.entries(metadata)
+          .map(([key, value]) => `${key}=${String(value)}`)
+          .join(', ')
+      : '';
+  const getDefaultRuntimeByBackend = (
+    backend: string | undefined,
+  ): INativeWebEmbedDefaultRuntime | undefined => {
+    if (!backend) {
+      return undefined;
+    }
+    if (backend === primaryRuntimeName) {
+      return 'primary';
+    }
+    if (backend === secondaryRuntimeName) {
+      return 'secondary';
+    }
+    if (platformEnv.isNative && backend.startsWith('react-native-')) {
+      return 'primary';
+    }
+    if (!platformEnv.isNative && backend === 'asmcrypto') {
+      return 'primary';
+    }
+    if (!platformEnv.isNative && backend === 'webcrypto') {
+      return 'secondary';
+    }
+    return undefined;
+  };
+  const renderRuntimeCell = ({
+    row,
+    runtime,
+    value,
+  }: {
+    row: INativeWebEmbedCryptoPerfRow;
+    runtime: INativeWebEmbedDefaultRuntime;
+    value: number | undefined;
+  }) => (
+    <XStack gap="$1" alignItems="center" justifyContent="flex-end">
+      {row.defaultRuntime === runtime ? (
+        <SizableText size="$bodyMd">{defaultPathEmoji}</SizableText>
+      ) : null}
+      <SizableText size="$bodyMd" color={msColor(value)}>
+        {fmtCell(value)}
+      </SizableText>
+    </XStack>
+  );
+
+  const testNativeWebEmbedPerf = async () => {
+    try {
+      const secret = await loadCoreSecret();
+      const {
+        batchGetPublicKeys,
+        clearHdCredentialDecryptCache,
+        clearPbkdf2CacheAsync,
+        encryptRevealableSeed,
+        mnemonicToRevealableSeed,
+        mnemonicToSeedAsync,
+      } = secret;
+      const tasks: IRunAppCryptoTestTaskResult[] = [];
+      const rows: INativeWebEmbedCryptoPerfRow[] = [];
+      const batchPerfTraces: INativeWebEmbedBatchPerfTracePayload[] = [];
+      const nextBatchPerfTraceRows: INativeWebEmbedBatchPerfTraceSummaryRow[] =
+        [];
+      const mnemonicPerfEvents: IMnemonicToSeedPerfTraceEvent[] = [];
+      const nextMnemonicPerfTraceRows: INativeWebEmbedMnemonicPerfTraceRow[] =
+        [];
+      const canUseWebEmbed =
+        platformEnv.isNative &&
+        !platformEnv.isJest &&
+        !(
+          globalThis as {
+            $onekeyAppWebembedApiWebviewInitFailed?: boolean;
+          }
+        ).$onekeyAppWebembedApiWebviewInitFailed;
+      const nonDbTxKdfParams = appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx();
+      const canUseWebCryptoKdf = nonDbTxKdfParams.kdfBackend === 'webcrypto';
+      const canRunSecondary = platformEnv.isNative
+        ? canUseWebEmbed
+        : canUseWebCryptoKdf;
+      let shouldCooldownBeforeBenchmarkTask = false;
+      const waitBeforeBenchmarkTask = async () => {
+        if (!shouldCooldownBeforeBenchmarkTask) {
+          shouldCooldownBeforeBenchmarkTask = true;
+          return;
+        }
+        await waitForAesGcmV2BenchmarkCooldown();
+      };
+      const runPair = async ({
+        mode,
+        opName,
+        iter,
+        expect,
+        beforeLocalFn,
+        localFn,
+        beforeSecondaryFn,
+        secondaryFn,
+        defaultRuntime,
+      }: {
+        mode: INativeWebEmbedCryptoPerfRow['mode'];
+        opName: string;
+        iter: number | null;
+        expect: string;
+        beforeLocalFn?: () => Promise<void>;
+        localFn: () => Promise<Buffer | string> | Buffer | string;
+        beforeSecondaryFn?: () => Promise<void>;
+        secondaryFn: () => Promise<Buffer | string> | Buffer | string;
+        defaultRuntime?: INativeWebEmbedDefaultRuntime;
+      }) => {
+        await waitBeforeBenchmarkTask();
+        await beforeLocalFn?.();
+        if (beforeLocalFn) {
+          await waitBeforeBenchmarkTask();
+        }
+        const localTask = await runCryptoPerfTask({
+          name: `${mode} ${opName} ${primaryRuntimeName}`,
+          expect,
+          fn: localFn,
+        });
+        tasks.push(localTask);
+
+        let secondaryTask: IRunAppCryptoTestTaskResult | undefined;
+        if (canRunSecondary) {
+          await waitBeforeBenchmarkTask();
+          await beforeSecondaryFn?.();
+          if (beforeSecondaryFn) {
+            await waitBeforeBenchmarkTask();
+          }
+          secondaryTask = await runCryptoPerfTask({
+            name: `${mode} ${opName} ${secondaryRuntimeName}`,
+            expect,
+            fn: secondaryFn,
+          });
+          if (
+            !secondaryTask.ERROR &&
+            secondaryTask.result !== localTask.result
+          ) {
+            secondaryTask.isCorrect = AppCryptoTestEmoji.isIncorrect;
+          }
+          tasks.push(secondaryTask);
+        }
+        const rowValidation = (() => {
+          if (localTask.ERROR) return localTask.ERROR;
+          if (localTask.result !== expect) {
+            return `${primaryRuntimeName} result mismatch`;
+          }
+          if (!secondaryTask) return `${primaryRuntimeName} result verified`;
+          if (secondaryTask.ERROR) return secondaryTask.ERROR;
+          if (secondaryTask.result !== expect) {
+            return `${secondaryRuntimeName} result mismatch`;
+          }
+          if (secondaryTask.result !== localTask.result) {
+            return `${primaryRuntimeName}/${secondaryRuntimeName} result mismatch`;
+          }
+          return `${primaryRuntimeName}/${secondaryRuntimeName} matched`;
+        })();
+        const rowIsCorrect = (() => {
+          if (!secondaryTask) {
+            return AppCryptoTestEmoji.isWarning;
+          }
+          return localTask.isCorrect === AppCryptoTestEmoji.isCorrect &&
+            secondaryTask.isCorrect === AppCryptoTestEmoji.isCorrect
+            ? AppCryptoTestEmoji.isCorrect
+            : AppCryptoTestEmoji.isIncorrect;
+        })();
+        rows.push({
+          mode,
+          opName,
+          iter,
+          defaultRuntime,
+          expectedResult: expect,
+          localResult: localTask.result,
+          webEmbedResult: secondaryTask?.result,
+          local: localTask.time,
+          webEmbed: secondaryTask?.time,
+          validation: rowValidation,
+          isCorrect: rowIsCorrect,
+        });
+        return {
+          localTask,
+          secondaryTask,
+        };
+      };
+
+      const password = 'onekey-gallery-password';
+      const mnemonicPerfTrace: IMnemonicToSeedPerfTrace = {
+        onEvent: (event) => {
+          const tracedEvent: IMnemonicToSeedPerfTraceEvent = {
+            ...event,
+            durationMs: roundPerfMs(event.durationMs),
+          };
+          mnemonicPerfEvents.push(tracedEvent);
+          nextMnemonicPerfTraceRows.push({
+            runtime: primaryRuntimeName,
+            stage: tracedEvent.name,
+            durationMs: tracedEvent.durationMs,
+            metadata: tracedEvent.metadata,
+            validation: 'timed',
+          });
+        },
+      };
+      const runLocalBatchGetPublicKeysWithTrace = async ({
+        mode,
+        fn,
+      }: {
+        mode: INativeWebEmbedCryptoPerfRow['mode'];
+        fn: (perfTrace: IBatchGetPublicKeysPerfTrace) => Promise<Buffer>;
+      }): Promise<Buffer> => {
+        const events: IBatchGetPublicKeysPerfTraceEvent[] = [];
+        const perfTrace: IBatchGetPublicKeysPerfTrace = {
+          onEvent: (event) => {
+            events.push({
+              ...event,
+              durationMs: roundPerfMs(event.durationMs),
+            });
+          },
+        };
+        const result = await fn(perfTrace);
+        const summary = buildBatchPerfTraceSummary({
+          mode,
+          events,
+        });
+        batchPerfTraces.push({
+          mode,
+          events,
+          summary,
+        });
+        nextBatchPerfTraceRows.push(...summary);
+        return result;
+      };
+      const clearColdCaches = async () => {
+        await clearPbkdf2CacheAsync();
+      };
+      const testMnemonic =
+        'test test test test test test test test test test test junk';
+      const testPassphrase = 'optional passphrase';
+      const mnemonicToSeedExpected =
+        'bc0d03ab4f8871dd4a7a68423894bb88fb54973899e4721c9dffd09a5b589171b5712b27da764f7be0653ba361f445b4f9251b490525833b644b7a13eebc7e2c';
+      const batchGetPublicKeysExpected =
+        '02be3c6a2aa12821e037632d30ed51a6dd2a41f2277959d56db41dfb94439e49e9';
+      const defaultPathProbe: Record<
+        string,
+        {
+          backend?: string;
+          runtime?: INativeWebEmbedDefaultRuntime;
+        }
+      > = {};
+      const bip39Pbkdf2Metadata = {
+        iterations: 2048,
+        keyLength: 64,
+        digest: 'sha512',
+      };
+      const probeDefaultMnemonicToSeedBackend = async () => {
+        await waitBeforeBenchmarkTask();
+        const probeEvents: IMnemonicToSeedPerfTraceEvent[] = [];
+        const result = await mnemonicToSeedAsync({
+          mnemonic: testMnemonic,
+          passphrase: testPassphrase,
+          useWebembedApi: false,
+          perfTrace: {
+            onEvent: (event) => {
+              probeEvents.push(event);
+            },
+          },
+        });
+        const resultHex = bufferUtils.bytesToHex(result);
+        if (resultHex !== mnemonicToSeedExpected) {
+          throw new OneKeyLocalError(
+            'mnemonicToSeedAsync default probe result mismatch',
+          );
+        }
+        return detectMnemonicToSeedBackendFromTrace(probeEvents);
+      };
+      const runMnemonicSegmentDiagnostic = async ({
+        runtime,
+        stage,
+        fn,
+      }: {
+        runtime: string;
+        stage: string;
+        fn: () => Promise<Buffer> | Buffer;
+      }) => {
+        await waitBeforeBenchmarkTask();
+        const task = await runCryptoPerfTask({
+          name: `mnemonicToSeed segment ${stage} ${runtime}`,
+          expect: mnemonicToSeedExpected,
+          fn,
+        });
+        tasks.push(task);
+        nextMnemonicPerfTraceRows.push({
+          runtime,
+          stage,
+          durationMs: task.time,
+          result: task.result,
+          metadata: bip39Pbkdf2Metadata,
+          validation:
+            task.isCorrect === AppCryptoTestEmoji.isCorrect
+              ? 'matches expected seed'
+              : task.ERROR || 'result mismatch',
+          isCorrect: task.isCorrect,
+        });
+      };
+      const defaultMnemonicBackend = await probeDefaultMnemonicToSeedBackend();
+      const defaultMnemonicRuntime = getDefaultRuntimeByBackend(
+        defaultMnemonicBackend,
+      );
+      defaultPathProbe.mnemonicToSeedAsync = {
+        backend: defaultMnemonicBackend,
+        runtime: defaultMnemonicRuntime,
+      };
+      const mnemonicPair = await runPair({
+        mode: 'cold/raw',
+        opName: 'mnemonicToSeedAsync',
+        iter: 2048,
+        expect: mnemonicToSeedExpected,
+        defaultRuntime: defaultMnemonicRuntime,
+        localFn: () =>
+          mnemonicToSeedAsync({
+            mnemonic: testMnemonic,
+            passphrase: testPassphrase,
+            perfTrace: mnemonicPerfTrace,
+            kdfBackend: platformEnv.isNative ? undefined : 'asmcrypto',
+            useWebembedApi: false,
+          }),
+        secondaryFn: () =>
+          mnemonicToSeedAsync({
+            mnemonic: testMnemonic,
+            passphrase: testPassphrase,
+            kdfBackend: platformEnv.isNative ? undefined : 'webcrypto',
+            useWebembedApi: platformEnv.isNative,
+          }),
+      });
+      if (mnemonicPair.secondaryTask) {
+        nextMnemonicPerfTraceRows.push({
+          runtime: secondaryRuntimeName,
+          stage: 'mnemonicToSeedAsync.total',
+          durationMs: mnemonicPair.secondaryTask.time,
+          result: mnemonicPair.secondaryTask.result,
+          metadata: bip39Pbkdf2Metadata,
+          validation:
+            mnemonicPair.secondaryTask.isCorrect ===
+            AppCryptoTestEmoji.isCorrect
+              ? 'matches expected seed'
+              : mnemonicPair.secondaryTask.ERROR || 'result mismatch',
+          isCorrect: mnemonicPair.secondaryTask.isCorrect,
+        });
+      } else if (platformEnv.isNative) {
+        nextMnemonicPerfTraceRows.push({
+          runtime: secondaryRuntimeName,
+          stage: 'mnemonicToSeedAsync.total',
+          durationMs: 0,
+          metadata: {
+            reason: 'web-embed unavailable',
+          },
+          validation: 'web-embed unavailable',
+          isCorrect: AppCryptoTestEmoji.isWarning,
+        });
+      }
+
+      const mnemonicBuffer = Buffer.from(
+        testMnemonic.normalize('NFKD'),
+        'utf8',
+      );
+      const saltBuffer = Buffer.from(
+        `mnemonic${testPassphrase.normalize('NFKD')}`,
+        'utf8',
+      );
+      const galleryWebCryptoSubtle = getGalleryWebCryptoSubtle();
+      if (galleryWebCryptoSubtle) {
+        await runMnemonicSegmentDiagnostic({
+          runtime: 'web-crypto',
+          stage: 'rawPbkdf2DeriveBits',
+          fn: async () => {
+            const key = await galleryWebCryptoSubtle.importKey(
+              'raw',
+              toGalleryWebCryptoArrayBuffer(mnemonicBuffer),
+              'PBKDF2',
+              false,
+              ['deriveBits'],
+            );
+            const derivedBits = await galleryWebCryptoSubtle.deriveBits(
+              {
+                name: 'PBKDF2',
+                salt: toGalleryWebCryptoArrayBuffer(saltBuffer),
+                iterations: 2048,
+                hash: 'SHA-512',
+              },
+              key,
+              64 * 8,
+            );
+            return Buffer.from(derivedBits);
+          },
+        });
+      }
+      await runMnemonicSegmentDiagnostic({
+        runtime: 'noble-js',
+        stage: 'rawPbkdf2Async',
+        fn: async () =>
+          Buffer.from(
+            await nobleP2Async(nobleSha512, mnemonicBuffer, saltBuffer, {
+              c: 2048,
+              dkLen: 64,
+            }),
+          ),
+      });
+      if (platformEnv.isNative) {
+        await runMnemonicSegmentDiagnostic({
+          runtime: 'quick-crypto',
+          stage: 'rawPbkdf2Async',
+          fn: () =>
+            new Promise<Buffer>((resolve, reject) => {
+              RN_QUICK_CRYPTO.pbkdf2(
+                mnemonicBuffer,
+                saltBuffer,
+                2048,
+                64,
+                'sha512',
+                (err, seed) => {
+                  if (err || !seed) {
+                    reject(
+                      err ||
+                        new OneKeyLocalError(
+                          'quick-crypto mnemonic segment failed',
+                        ),
+                    );
+                    return;
+                  }
+                  resolve(Buffer.from(seed));
+                },
+              );
+            }),
+        });
+        await runMnemonicSegmentDiagnostic({
+          runtime: 'quick-crypto',
+          stage: 'rawPbkdf2Sync',
+          fn: () =>
+            Buffer.from(
+              RN_QUICK_CRYPTO.pbkdf2Sync(
+                mnemonicBuffer,
+                saltBuffer,
+                2048,
+                64,
+                'sha512',
+              ),
+            ),
+        });
+      }
+
+      const rs = mnemonicToRevealableSeed(testMnemonic, testPassphrase);
+      const encodedPassword =
+        await backgroundApiProxy.servicePassword.encodeSensitiveText({
+          text: password,
+        });
+      const hdCredential = await encryptRevealableSeed({
+        rs,
+        password: encodedPassword,
+      });
+      const localHotScopeId = `gallery-${primaryRuntimeName}-hot:${Date.now()}`;
+      const secondaryHotScopeId = `gallery-${secondaryRuntimeName}-hot:${Date.now()}`;
+      const curveName: ICurveName = 'secp256k1';
+      const prefix = 'm';
+      const relPaths = ['0/0', '0/1', "44'/0'/0'/0/0"];
+      const primaryBatchGetPublicKeysKdfParams = platformEnv.isNative
+        ? nonDbTxKdfParams
+        : {};
+      const secondaryBatchGetPublicKeysKdfParams = platformEnv.isNative
+        ? {}
+        : nonDbTxKdfParams;
+      const batchGetPublicKeysLocalRaw = async (
+        perfTrace?: IBatchGetPublicKeysPerfTrace,
+      ) => {
+        const r = await batchGetPublicKeys({
+          curveName,
+          hdCredential,
+          password: encodedPassword,
+          prefix,
+          relPaths,
+          perfTrace,
+          useWebembedApi: false,
+          ...primaryBatchGetPublicKeysKdfParams,
+        });
+        const key = r?.[2]?.extendedKey?.key;
+        if (!key) {
+          throw new OneKeyLocalError('batchGetPublicKeys result missing');
+        }
+        return key;
+      };
+      const batchGetPublicKeysWebEmbedRaw = async () => {
+        const r = await batchGetPublicKeys({
+          curveName,
+          hdCredential,
+          password: encodedPassword,
+          prefix,
+          relPaths,
+          useWebembedApi: platformEnv.isNative,
+          ...secondaryBatchGetPublicKeysKdfParams,
+        });
+        const key = r?.[2]?.extendedKey?.key;
+        if (!key) {
+          throw new OneKeyLocalError('batchGetPublicKeys result missing');
+        }
+        return key;
+      };
+      const batchGetPublicKeysLocalHot = async (
+        perfTrace?: IBatchGetPublicKeysPerfTrace,
+      ) => {
+        const r = await batchGetPublicKeys({
+          curveName,
+          hdCredential,
+          password: encodedPassword,
+          prefix,
+          relPaths,
+          hdCredentialCacheScopeId: localHotScopeId,
+          perfTrace,
+          useWebembedApi: false,
+          ...primaryBatchGetPublicKeysKdfParams,
+        });
+        const key = r?.[2]?.extendedKey?.key;
+        if (!key) {
+          throw new OneKeyLocalError('batchGetPublicKeys result missing');
+        }
+        return key;
+      };
+      const batchGetPublicKeysWebEmbedHot = async () => {
+        const r = await batchGetPublicKeys({
+          curveName,
+          hdCredential,
+          password: encodedPassword,
+          prefix,
+          relPaths,
+          hdCredentialCacheScopeId: secondaryHotScopeId,
+          useWebembedApi: platformEnv.isNative,
+          ...secondaryBatchGetPublicKeysKdfParams,
+        });
+        const key = r?.[2]?.extendedKey?.key;
+        if (!key) {
+          throw new OneKeyLocalError('batchGetPublicKeys result missing');
+        }
+        return key;
+      };
+      const probeDefaultBatchGetPublicKeysBackend = async () => {
+        await waitBeforeBenchmarkTask();
+        await clearColdCaches();
+        const debugCryptoProbeId = `crypto-gallery-batch-default-${Date.now()}`;
+        appCrypto.pbkdf2.clearPbkdf2InvocationByProbeId(debugCryptoProbeId);
+        try {
+          const r = await batchGetPublicKeys({
+            curveName,
+            hdCredential,
+            password: encodedPassword,
+            prefix,
+            relPaths,
+            useWebembedApi: false,
+            debugCryptoProbeId,
+            ...nonDbTxKdfParams,
+          });
+          const key = r?.[2]?.extendedKey?.key;
+          if (
+            !key ||
+            bufferUtils.bytesToHex(key) !== batchGetPublicKeysExpected
+          ) {
+            throw new OneKeyLocalError(
+              'batchGetPublicKeys default probe result mismatch',
+            );
+          }
+          return appCrypto.pbkdf2.getPbkdf2InvocationByProbeId(
+            debugCryptoProbeId,
+          )?.backend;
+        } finally {
+          appCrypto.pbkdf2.clearPbkdf2InvocationByProbeId(debugCryptoProbeId);
+        }
+      };
+      const defaultBatchGetPublicKeysBackend =
+        await probeDefaultBatchGetPublicKeysBackend();
+      const defaultBatchGetPublicKeysRuntime = getDefaultRuntimeByBackend(
+        defaultBatchGetPublicKeysBackend,
+      );
+      defaultPathProbe.batchGetPublicKeys = {
+        backend: defaultBatchGetPublicKeysBackend,
+        runtime: defaultBatchGetPublicKeysRuntime,
+      };
+      try {
+        await runPair({
+          mode: 'cold/raw',
+          opName: 'batchGetPublicKeys',
+          iter: null,
+          expect: batchGetPublicKeysExpected,
+          defaultRuntime: defaultBatchGetPublicKeysRuntime,
+          beforeLocalFn: clearColdCaches,
+          localFn: () =>
+            runLocalBatchGetPublicKeysWithTrace({
+              mode: 'cold/raw',
+              fn: batchGetPublicKeysLocalRaw,
+            }),
+          beforeSecondaryFn: clearColdCaches,
+          secondaryFn: batchGetPublicKeysWebEmbedRaw,
+        });
+        await runPair({
+          mode: 'hot/cache',
+          opName: 'batchGetPublicKeys',
+          iter: null,
+          expect: batchGetPublicKeysExpected,
+          defaultRuntime: defaultBatchGetPublicKeysRuntime,
+          beforeLocalFn: async () => {
+            await clearHdCredentialDecryptCache({
+              hdCredentialCacheScopeId: localHotScopeId,
+            });
+            await batchGetPublicKeysLocalHot();
+          },
+          localFn: () =>
+            runLocalBatchGetPublicKeysWithTrace({
+              mode: 'hot/cache',
+              fn: batchGetPublicKeysLocalHot,
+            }),
+          beforeSecondaryFn: async () => {
+            await clearHdCredentialDecryptCache({
+              hdCredentialCacheScopeId: secondaryHotScopeId,
+            });
+            await batchGetPublicKeysWebEmbedHot();
+          },
+          secondaryFn: batchGetPublicKeysWebEmbedHot,
+        });
+      } finally {
+        await clearHdCredentialDecryptCache({
+          hdCredentialCacheScopeId: localHotScopeId,
+        });
+        await clearHdCredentialDecryptCache({
+          hdCredentialCacheScopeId: secondaryHotScopeId,
+        });
+      }
+
+      setTableRows(rows);
+      setBatchPerfTraceRows(nextBatchPerfTraceRows);
+      setMnemonicPerfTraceRows(nextMnemonicPerfTraceRows);
+      setResultJson(
+        stringifyCryptoGalleryTablePayload({
+          platform: {
+            isNative: platformEnv.isNative,
+            isNativeIOS: platformEnv.isNativeIOS,
+            isNativeAndroid: platformEnv.isNativeAndroid,
+            canUseWebEmbed,
+            primaryRuntime: primaryRuntimeName,
+            secondaryRuntime: secondaryRuntimeName,
+            canUseWebCryptoKdf,
+          },
+          defaultPath: {
+            pbkdf2: appCrypto.pbkdf2.getPbkdf2BackendForCurrentPlatform(),
+            aesGcm: appCrypto.aesGcm.getAesGcmBackendForCurrentPlatform(),
+            actualProbe: defaultPathProbe,
+            primaryAccountDerivationKdfParams:
+              primaryBatchGetPublicKeysKdfParams,
+            secondaryAccountDerivationKdfParams:
+              secondaryBatchGetPublicKeysKdfParams,
+          },
+          expectedResults: {
+            mnemonicToSeedAsync: mnemonicToSeedExpected,
+            batchGetPublicKeys: batchGetPublicKeysExpected,
+          },
+          resultRows: rows,
+          mnemonicToSeedLocalPerfTrace: mnemonicPerfEvents,
+          mnemonicToSeedSegmentedValidation: nextMnemonicPerfTraceRows,
+          batchGetPublicKeysLocalPerfTrace: batchPerfTraces,
+          tasks,
+        }),
+      );
+      setErrorMessage('');
+
+      const allPassed =
+        tasks.every((t) => t.isCorrect === AppCryptoTestEmoji.isCorrect) &&
+        rows.every((row) => row.isCorrect === AppCryptoTestEmoji.isCorrect);
+      if (allPassed) {
+        setErrorMessage('');
+        Toast.success({
+          title: 'Secret Functions Crypto Perf (v2 test) passed',
+        });
+      } else {
+        const failedTaskNames = tasks
+          .filter((t) => t.isCorrect !== AppCryptoTestEmoji.isCorrect)
+          .map((t) => t.name)
+          .concat(
+            rows
+              .filter((row) => row.isCorrect !== AppCryptoTestEmoji.isCorrect)
+              .map((row) => `${row.mode} ${row.opName}`),
+          )
+          .slice(0, 4);
+        setErrorMessage(
+          `Validation failed: ${failedTaskNames.join(', ')}${
+            failedTaskNames.length >= 4 ? '...' : ''
+          }`,
+        );
+        Toast.error({
+          title: 'Secret Functions Crypto Perf (v2 test) failed',
+        });
+      }
+    } catch (error) {
+      setErrorMessage((error as Error).message);
+      setResultJson('');
+      setTableRows([]);
+      setBatchPerfTraceRows([]);
+      setMnemonicPerfTraceRows([]);
+      Toast.error({
+        title: `Secret Functions Crypto Perf (v2 test) failed: ${
+          (error as Error).message
+        }`,
+      });
+    }
+  };
+
+  return (
+    <PartContainer title="Secret Functions Crypto Perf (v2 test)">
+      <XStack gap="$3" alignItems="center" flexWrap="wrap">
+        <Button
+          variant="primary"
+          loading={running}
+          disabled={running}
+          onPress={async () => {
+            setRunning(true);
+            try {
+              await runCryptoGalleryTestExclusive(testNativeWebEmbedPerf);
+            } finally {
+              setRunning(false);
+            }
+          }}
+        >
+          Run Test
+        </Button>
+        {resultJson ? (
+          <Button
+            size="small"
+            onPress={() => {
+              copyText(resultJson);
+            }}
+          >
+            Copy raw JSON
+          </Button>
+        ) : null}
+      </XStack>
+      <SizableText size="$bodySm" color="$textSubdued">
+        Compares mnemonicToSeedAsync and batchGetPublicKeys on the current local
+        runtime.
+      </SizableText>
+
+      {tableRows.length > 0 ? (
+        <YStack
+          borderWidth={1}
+          borderColor="$border"
+          borderRadius="$2"
+          overflow="hidden"
+        >
+          <XStack
+            backgroundColor="$bgSubdued"
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+            borderBottomWidth={1}
+            borderBottomColor="$border"
+          >
+            <Stack flexBasis="34%">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                operation
+              </SizableText>
+            </Stack>
+            <Stack flexBasis="22%" alignItems="flex-end">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                {primaryRuntimeName}
+              </SizableText>
+            </Stack>
+            <Stack flexBasis="22%" alignItems="flex-end">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                {secondaryRuntimeName}
+              </SizableText>
+            </Stack>
+            <Stack flexBasis="22%" alignItems="flex-end">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                validation
+              </SizableText>
+            </Stack>
+          </XStack>
+          {tableRows.map((row, idx) => (
+            <XStack
+              // eslint-disable-next-line react/no-array-index-key
+              key={idx}
+              paddingVertical="$2.5"
+              paddingHorizontal="$3"
+              borderBottomWidth={idx === tableRows.length - 1 ? 0 : 1}
+              borderBottomColor="$borderSubdued"
+              alignItems="center"
+            >
+              <Stack flexBasis="34%">
+                <SizableText size="$bodyMd">{row.opName}</SizableText>
+                <SizableText size="$bodySmMedium" color="$textSubdued">
+                  {row.mode}
+                  {row.iter !== null ? ` - ${row.iter.toLocaleString()}` : ''}
+                </SizableText>
+              </Stack>
+              <Stack flexBasis="22%" alignItems="flex-end">
+                {renderRuntimeCell({
+                  row,
+                  runtime: 'primary',
+                  value: row.local,
+                })}
+              </Stack>
+              <Stack flexBasis="22%" alignItems="flex-end">
+                {renderRuntimeCell({
+                  row,
+                  runtime: 'secondary',
+                  value: row.webEmbed,
+                })}
+              </Stack>
+              <Stack flexBasis="22%" alignItems="flex-end">
+                <SizableText
+                  size="$bodySmMedium"
+                  color={validationColor(row.isCorrect)}
+                  textAlign="right"
+                >
+                  {row.isCorrect}
+                </SizableText>
+              </Stack>
+            </XStack>
+          ))}
+          <XStack
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+            borderTopWidth={1}
+            borderTopColor="$borderSubdued"
+          >
+            <Button
+              size="small"
+              onPress={() => {
+                copyText(
+                  stringifyCryptoGalleryTablePayload({
+                    primaryRuntime: primaryRuntimeName,
+                    secondaryRuntime: secondaryRuntimeName,
+                    rows: tableRows.map(
+                      ({
+                        defaultRuntime,
+                        isCorrect,
+                        iter,
+                        local,
+                        mode,
+                        opName,
+                        validation,
+                        webEmbed,
+                      }) => ({
+                        defaultRuntime,
+                        isCorrect,
+                        iter,
+                        local,
+                        mode,
+                        opName,
+                        validation,
+                        webEmbed,
+                      }),
+                    ),
+                  }),
+                );
+              }}
+            >
+              Copy overview table
             </Button>
           </XStack>
         </YStack>
@@ -1641,86 +3348,302 @@ function AESGcmV2Test() {
             borderBottomWidth={1}
             borderBottomColor="$border"
           >
-            <Stack flexBasis="40%">
-              <SizableText size="$bodySmMedium" color="$textSubdued">
-                operation
-              </SizableText>
-            </Stack>
-            <Stack flexBasis="20%" alignItems="flex-end">
-              {renderBackendHeader('noble', 'noble')}
-            </Stack>
-            <Stack flexBasis="20%" alignItems="flex-end">
-              {renderBackendHeader('fastNative', 'fast')}
-            </Stack>
-            <Stack flexBasis="20%" alignItems="flex-end">
-              {renderBackendHeader('native', 'native')}
-            </Stack>
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              calculation results (full hex, cross-platform compare)
+            </SizableText>
           </XStack>
-          {tableRows.map((row, idx) => {
-            // Only the iter number for the production default row (600,000)
-            // gets primary color — the op name and ms values render exactly
-            // like every other row.
-            const isDefaultIterRow = row.category === 'default';
-            return (
-              <XStack
-                // eslint-disable-next-line react/no-array-index-key
-                key={idx}
-                paddingVertical="$2.5"
-                paddingHorizontal="$3"
-                borderBottomWidth={idx === tableRows.length - 1 ? 0 : 1}
-                borderBottomColor="$borderSubdued"
-                alignItems="center"
-              >
-                <Stack flexBasis="40%">
-                  <SizableText size="$bodyMd">{row.opName}</SizableText>
-                  {row.iter !== null ? (
-                    <SizableText
-                      size="$bodySmMedium"
-                      color={
-                        isDefaultIterRow ? '$textInteractive' : '$textSubdued'
-                      }
-                    >
-                      {row.iter.toLocaleString()}
-                    </SizableText>
-                  ) : null}
-                </Stack>
-                <Stack flexBasis="20%" alignItems="flex-end">
-                  <SizableText size="$bodyMd" color={msColor(row.noble)}>
-                    {fmtCell(row.noble)}
-                  </SizableText>
-                </Stack>
-                <Stack flexBasis="20%" alignItems="flex-end">
-                  <SizableText size="$bodyMd" color={msColor(row.fastNative)}>
-                    {fmtCell(row.fastNative)}
-                  </SizableText>
-                </Stack>
-                <Stack flexBasis="20%" alignItems="flex-end">
-                  <SizableText size="$bodyMd" color={msColor(row.native)}>
-                    {fmtCell(row.native)}
-                  </SizableText>
-                </Stack>
+          {tableRows.map((row, idx) => (
+            <YStack
+              // eslint-disable-next-line react/no-array-index-key
+              key={idx}
+              gap="$2"
+              paddingVertical="$2.5"
+              paddingHorizontal="$3"
+              borderBottomWidth={idx === tableRows.length - 1 ? 0 : 1}
+              borderBottomColor="$borderSubdued"
+            >
+              <XStack gap="$2" alignItems="center" flexWrap="wrap">
+                <SizableText size="$bodyMd">{row.opName}</SizableText>
+                <SizableText size="$bodySmMedium" color="$textSubdued">
+                  {row.mode}
+                  {row.iter !== null ? ` - ${row.iter.toLocaleString()}` : ''}
+                </SizableText>
               </XStack>
-            );
-          })}
+              <YStack gap="$1">
+                <SizableText size="$bodySmMedium" color="$textSubdued">
+                  expected
+                </SizableText>
+                <SizableText
+                  size="$bodySm"
+                  fontFamily="$monoRegular"
+                  selectable
+                  style={{ wordBreak: 'break-all' }}
+                >
+                  {row.expectedResult}
+                </SizableText>
+              </YStack>
+              <YStack gap="$1">
+                <SizableText size="$bodySmMedium" color="$textSubdued">
+                  {primaryRuntimeName} result
+                </SizableText>
+                <SizableText
+                  size="$bodySm"
+                  fontFamily="$monoRegular"
+                  selectable
+                  style={{ wordBreak: 'break-all' }}
+                >
+                  {fmtResultCell(row.localResult)}
+                </SizableText>
+              </YStack>
+              <YStack gap="$1">
+                <SizableText size="$bodySmMedium" color="$textSubdued">
+                  {secondaryRuntimeName} result
+                </SizableText>
+                <SizableText
+                  size="$bodySm"
+                  color={row.webEmbedResult ? '$text' : '$textDisabled'}
+                  fontFamily="$monoRegular"
+                  selectable
+                  style={{ wordBreak: 'break-all' }}
+                >
+                  {fmtResultCell(row.webEmbedResult)}
+                </SizableText>
+              </YStack>
+            </YStack>
+          ))}
+          <XStack
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+            borderTopWidth={1}
+            borderTopColor="$borderSubdued"
+          >
+            <Button
+              size="small"
+              onPress={() => {
+                copyText(
+                  stringifyCryptoGalleryTablePayload({
+                    primaryRuntime: primaryRuntimeName,
+                    secondaryRuntime: secondaryRuntimeName,
+                    rows: tableRows.map(
+                      ({
+                        expectedResult,
+                        iter,
+                        localResult,
+                        mode,
+                        opName,
+                        webEmbedResult,
+                      }) => ({
+                        expectedResult,
+                        iter,
+                        localResult,
+                        mode,
+                        opName,
+                        webEmbedResult,
+                      }),
+                    ),
+                  }),
+                );
+              }}
+            >
+              Copy calculation results table
+            </Button>
+          </XStack>
         </YStack>
       ) : null}
 
-      {resultJson ? (
-        <Button
-          size="small"
-          onPress={() => {
-            copyText(resultJson);
-          }}
+      {mnemonicPerfTraceRows.length > 0 ? (
+        <YStack
+          borderWidth={1}
+          borderColor="$border"
+          borderRadius="$2"
+          overflow="hidden"
         >
-          Copy JSON result
-        </Button>
+          <XStack
+            backgroundColor="$bgSubdued"
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+            borderBottomWidth={1}
+            borderBottomColor="$border"
+          >
+            <Stack flexBasis="20%">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                runtime
+              </SizableText>
+            </Stack>
+            <Stack flexBasis="40%">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                mnemonic stage
+              </SizableText>
+            </Stack>
+            <Stack flexBasis="18%" alignItems="flex-end">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                time
+              </SizableText>
+            </Stack>
+            <Stack flexBasis="22%" alignItems="flex-end">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                validation
+              </SizableText>
+            </Stack>
+          </XStack>
+          {mnemonicPerfTraceRows.map((row, idx) => (
+            <XStack
+              // eslint-disable-next-line react/no-array-index-key
+              key={idx}
+              paddingVertical="$2.5"
+              paddingHorizontal="$3"
+              borderBottomWidth={
+                idx === mnemonicPerfTraceRows.length - 1 ? 0 : 1
+              }
+              borderBottomColor="$borderSubdued"
+              alignItems="center"
+            >
+              <Stack flexBasis="20%">
+                <SizableText size="$bodySmMedium" color="$textSubdued">
+                  {row.runtime}
+                </SizableText>
+              </Stack>
+              <Stack flexBasis="40%">
+                <SizableText size="$bodySm" color="$text">
+                  {row.stage}
+                </SizableText>
+                {row.metadata ? (
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {fmtMetadata(row.metadata)}
+                  </SizableText>
+                ) : null}
+              </Stack>
+              <Stack flexBasis="18%" alignItems="flex-end">
+                <SizableText size="$bodySm" color={msColor(row.durationMs)}>
+                  {fmtCell(row.durationMs)}
+                </SizableText>
+              </Stack>
+              <Stack flexBasis="22%" alignItems="flex-end">
+                <SizableText
+                  size="$bodySmMedium"
+                  color={
+                    row.isCorrect ? validationColor(row.isCorrect) : '$text'
+                  }
+                  textAlign="right"
+                >
+                  {row.isCorrect ?? ''}
+                </SizableText>
+              </Stack>
+            </XStack>
+          ))}
+          <XStack
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+            borderTopWidth={1}
+            borderTopColor="$borderSubdued"
+          >
+            <Button
+              size="small"
+              onPress={() => {
+                copyText(
+                  stringifyCryptoGalleryTablePayload(mnemonicPerfTraceRows),
+                );
+              }}
+            >
+              Copy mnemonic stage table
+            </Button>
+          </XStack>
+        </YStack>
       ) : null}
 
-      {lastRunSelectedIter !== null && tableRows.length > 0 ? (
-        <SizableText size="$bodySm" color="$textSubdued">
-          Last run: iter={lastRunSelectedIter.toLocaleString()} (production
-          default {AES_GCM_V2_DEFAULT_ITER.toLocaleString()} always included).
-        </SizableText>
+      {batchPerfTraceRows.length > 0 ? (
+        <YStack
+          borderWidth={1}
+          borderColor="$border"
+          borderRadius="$2"
+          overflow="hidden"
+        >
+          <XStack
+            backgroundColor="$bgSubdued"
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+            borderBottomWidth={1}
+            borderBottomColor="$border"
+          >
+            <Stack flexBasis="20%">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                mode
+              </SizableText>
+            </Stack>
+            <Stack flexBasis="36%">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                stage
+              </SizableText>
+            </Stack>
+            <Stack flexBasis="12%" alignItems="flex-end">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                count
+              </SizableText>
+            </Stack>
+            <Stack flexBasis="16%" alignItems="flex-end">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                total
+              </SizableText>
+            </Stack>
+            <Stack flexBasis="16%" alignItems="flex-end">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                avg
+              </SizableText>
+            </Stack>
+          </XStack>
+          {batchPerfTraceRows.map((row, idx) => (
+            <XStack
+              // eslint-disable-next-line react/no-array-index-key
+              key={idx}
+              paddingVertical="$2.5"
+              paddingHorizontal="$3"
+              borderBottomWidth={idx === batchPerfTraceRows.length - 1 ? 0 : 1}
+              borderBottomColor="$borderSubdued"
+              alignItems="center"
+            >
+              <Stack flexBasis="20%">
+                <SizableText size="$bodySmMedium" color="$textSubdued">
+                  {row.mode}
+                </SizableText>
+              </Stack>
+              <Stack flexBasis="36%">
+                <SizableText size="$bodySm" color="$text">
+                  {row.source}: {row.name}
+                </SizableText>
+              </Stack>
+              <Stack flexBasis="12%" alignItems="flex-end">
+                <SizableText size="$bodySm">{row.count}</SizableText>
+              </Stack>
+              <Stack flexBasis="16%" alignItems="flex-end">
+                <SizableText size="$bodySm" color={msColor(row.totalMs)}>
+                  {fmtCell(row.totalMs)}
+                </SizableText>
+              </Stack>
+              <Stack flexBasis="16%" alignItems="flex-end">
+                <SizableText size="$bodySm" color={msColor(row.avgMs)}>
+                  {fmtCell(row.avgMs)}
+                </SizableText>
+              </Stack>
+            </XStack>
+          ))}
+          <XStack
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+            borderTopWidth={1}
+            borderTopColor="$borderSubdued"
+          >
+            <Button
+              size="small"
+              onPress={() => {
+                copyText(
+                  stringifyCryptoGalleryTablePayload(batchPerfTraceRows),
+                );
+              }}
+            >
+              Copy batch stage table
+            </Button>
+          </XStack>
+        </YStack>
       ) : null}
 
       {errorMessage ? (
@@ -1874,7 +3797,10 @@ function CryptoSubtlePolyfillTest() {
 
   return (
     <PartContainer title="crypto.subtle Polyfill Test">
-      <Button variant="primary" onPress={testCryptoSubtle}>
+      <Button
+        variant="primary"
+        onPress={() => runCryptoGalleryTestExclusive(testCryptoSubtle)}
+      >
         Test crypto.subtle Polyfill
       </Button>
       {result ? <SizableText size="$bodyMd">{result}</SizableText> : null}
@@ -2335,10 +4261,16 @@ function SecretFunctionsTest() {
 
   return (
     <PartContainer title="SecretFunctions Test">
-      <Button variant="primary" onPress={testSecretFunctions}>
+      <Button
+        variant="primary"
+        onPress={() => runCryptoGalleryTestExclusive(testSecretFunctions)}
+      >
         Test SecretFunctions
       </Button>
-      <Button variant="primary" onPress={testSecretFunctions2}>
+      <Button
+        variant="primary"
+        onPress={() => runCryptoGalleryTestExclusive(testSecretFunctions2)}
+      >
         Test SecretFunctions2
       </Button>
       {result ? <SizableText size="$bodyMd">{result}</SizableText> : null}
@@ -2387,6 +4319,12 @@ const CryptoGallery = () => (
               {JSON.stringify(AppCryptoTestEmoji, null, 2)}
             </SizableText>
             <CustomAccordion>
+              <CustomAccordionItem title="AES-GCM PBKDF2 (v2 test)">
+                <AESGcmV2Test />
+              </CustomAccordionItem>
+              <CustomAccordionItem title="Secret Functions Crypto Perf (v2 test)">
+                <NativeWebEmbedCryptoPerfTest />
+              </CustomAccordionItem>
               <CustomAccordionItem title="PBKDF2 Test">
                 <PBKDF2Test />
               </CustomAccordionItem>
@@ -2398,9 +4336,6 @@ const CryptoGallery = () => (
               </CustomAccordionItem>
               <CustomAccordionItem title="AES-CBC Test">
                 <AESCbcTest />
-              </CustomAccordionItem>
-              <CustomAccordionItem title="AES-GCM v2 Test">
-                <AESGcmV2Test />
               </CustomAccordionItem>
               <CustomAccordionItem title="crypto.subtle Polyfill Test">
                 <CryptoSubtlePolyfillTest />

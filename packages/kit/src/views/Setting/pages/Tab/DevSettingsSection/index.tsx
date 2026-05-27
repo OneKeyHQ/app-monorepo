@@ -2096,8 +2096,8 @@ const BaseDevSettingsSection = () => {
                       <SectionFieldItem
                         icon="LockOutline"
                         name="useFastPbkdf2NativeBackend"
-                        title="启用 Fast PBKDF2 Native 后端"
-                        subtitle="dev 调试用：开启后 Android/iOS PBKDF2 默认走 react-native-fast-pbkdf2"
+                        title="强制 Fast PBKDF2 Native 后端"
+                        subtitle="dev 调试用：默认走 react-native-quick-crypto；开启后改走 react-native-fast-pbkdf2"
                         searchKeywords="crypto pbkdf2 kdf encryption password"
                       >
                         <Switch size={ESwitchSize.small} />
