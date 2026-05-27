@@ -572,7 +572,8 @@ export interface IFetchQuoteResult {
   instantRate?: string;
   allowanceResult?: IAllowanceResult;
   approvedInfo?: IApprovedInfo;
-  estimatedTime?: string;
+  estimatedTime?: string | number; // legacy provider value, in seconds
+  estTime?: string | number; // server computed value, in minutes
   isBest?: boolean;
   receivedBest?: boolean;
   minGasCost?: boolean;
