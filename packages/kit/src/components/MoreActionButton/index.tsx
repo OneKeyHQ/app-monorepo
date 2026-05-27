@@ -82,8 +82,7 @@ import { useNavigateToBulkSend } from '../../views/BulkSend/hooks/useNavigateToB
 import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
 import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
-import { useOnPrimeButtonPressed } from '../../views/Prime/components/PrimeHeaderIconButton/PrimeHeaderIconButton';
-import { PrimeBadge } from '../../views/Prime/components/PrimeUserBadge';
+import { PrimeUserBadge } from '../../views/Prime/components/PrimeUserBadge';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import { showRedemptionCenterDialog } from '../../views/Redemption/components/RedemptionCenterDialog';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
@@ -563,10 +562,6 @@ function MoreActionDivider() {
 function MoreActionOneKeyId() {
   const intl = useIntl();
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
-  const {
-    activeAccount: { network },
-  } = useActiveAccount({ num: 0 });
-
   const { closePopover } = usePopoverContext();
 
   useEffect(() => {
@@ -608,22 +603,7 @@ function MoreActionOneKeyId() {
     }
   }, [isLoggedIn, handleNavigateToOneKeyId, closePopover, loginOneKeyId]);
 
-  const { icon, onPrimeButtonPressed } = useOnPrimeButtonPressed({
-    onPress: closePopover,
-    networkId: network?.id,
-  });
-
-  const handlePrimeButtonPressed = useCallback(
-    async (e: GestureResponderEvent) => {
-      e.stopPropagation();
-      await closePopover?.();
-      await onPrimeButtonPressed();
-    },
-    [closePopover, onPrimeButtonPressed],
-  );
-
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
-  const isPrimeDeviceLimitExceeded = user?.isPrimeDeviceLimitExceeded === true;
 
   if (!isLoggedIn) {
     return (
@@ -714,13 +694,7 @@ function MoreActionOneKeyId() {
             >
               {displayName}
             </SizableText>
-            {isPrimeUser ? (
-              <PrimeBadge
-                icon={icon}
-                isDeviceLimitExceeded={isPrimeDeviceLimitExceeded}
-                onPress={handlePrimeButtonPressed}
-              />
-            ) : null}
+            {isPrimeUser ? <PrimeUserBadge showFreeStatus={false} /> : null}
           </XStack>
           <SizableText
             size="$bodyMd"
