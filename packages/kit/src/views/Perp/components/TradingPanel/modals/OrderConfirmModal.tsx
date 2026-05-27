@@ -655,16 +655,6 @@ function OrderConfirmContent({
                 {formData.twapRandomize ? 'Yes' : 'No'}
               </SizableText>
             </XStack>
-            <YStack gap="$1">
-              <SizableText size="$bodySm" color="$textSubdued">
-                Market slices execute about every 30s with Hyperliquid's 3%
-                per-slice slippage guard.
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                Native TWAP may not fully fill in poor liquidity and does not
-                support builder fee.
-              </SizableText>
-            </YStack>
           </>
         ) : null}
 

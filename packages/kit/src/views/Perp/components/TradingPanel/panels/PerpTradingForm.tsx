@@ -9,6 +9,7 @@ import {
   DashText,
   Icon,
   IconButton,
+  Input,
   Popover,
   Select,
   SizableText,
@@ -93,6 +94,7 @@ interface IPerpTradingFormProps {
 }
 type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
 type ITriggerDropdownValue = ETriggerOrderType | 'scale' | 'twap';
+type ITwapDurationInputField = 'hours' | 'minutes';
 const DESKTOP_TRADING_HEADER_HEIGHT =
   PERP_LAYOUT_CONFIG.desktop.panelHeaderHeight;
 
@@ -121,6 +123,16 @@ const TRIGGER_MODE_TPSL_RESET: Partial<ITradingFormData> = {
 const USDC_TOKEN_SYMBOL = 'USDC';
 const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
+const TWAP_SLICE_INTERVAL_SECONDS = 30;
+const TWAP_DURATION_LABEL = `Duration (${TWAP_MIN_DURATION_MINUTES}m - ${
+  TWAP_MAX_DURATION_MINUTES / 60
+}h)`;
+const TWAP_DURATION_PRESET_OPTIONS = [
+  { label: '1h', minutes: 60 },
+  { label: '6h', minutes: 360 },
+  { label: '12h', minutes: 720 },
+  { label: '24h', minutes: 1440 },
+] as const;
 
 function SpotAvailableActionIcon({
   icon,
@@ -688,11 +700,55 @@ function PerpTradingForm({
         tone: 'error' as const,
       };
     }
+  }, [formData.twapDurationMinutes, isTwapMode]);
+
+  const twapPreviewMessage = useMemo(() => {
+    if (!isTwapMode) {
+      return undefined;
+    }
+
+    const durationMinutes = Number(formData.twapDurationMinutes ?? 0);
+    const orderCount =
+      Number.isInteger(durationMinutes) && durationMinutes > 0
+        ? Math.floor((durationMinutes * 60) / TWAP_SLICE_INTERVAL_SECONDS) + 1
+        : undefined;
+
+    if (!orderCount) {
+      return undefined;
+    }
 
     return {
-      text: 'Hyperliquid TWAP executes market slices over time; no limit price is set.',
-      tone: 'helper' as const,
+      orderCount,
     };
+  }, [formData.twapDurationMinutes, isTwapMode]);
+
+  const [twapDurationHoursInput, setTwapDurationHoursInput] = useState('');
+  const [twapDurationMinutesInput, setTwapDurationMinutesInput] = useState('');
+  const [focusedTwapDurationInput, setFocusedTwapDurationInput] =
+    useState<ITwapDurationInputField | null>(null);
+
+  useEffect(() => {
+    if (!isTwapMode) {
+      return;
+    }
+    const rawDuration = formData.twapDurationMinutes ?? '';
+    if (!rawDuration) {
+      setTwapDurationHoursInput('');
+      setTwapDurationMinutesInput('');
+      return;
+    }
+    const totalMinutes = Number(rawDuration);
+    if (!Number.isFinite(totalMinutes) || totalMinutes < 0) {
+      return;
+    }
+    const nextHours = String(Math.floor(totalMinutes / 60));
+    const nextMinutes = String(totalMinutes % 60);
+    setTwapDurationHoursInput((prev) =>
+      prev === nextHours ? prev : nextHours,
+    );
+    setTwapDurationMinutesInput((prev) =>
+      prev === nextMinutes ? prev : nextMinutes,
+    );
   }, [formData.twapDurationMinutes, isTwapMode]);
 
   const [selectedSymbolPositionValue, selectedSymbolPositionSide] =
@@ -1041,6 +1097,64 @@ function PerpTradingForm({
       Number.isInteger(nextValue) && nextValue <= TWAP_MAX_DURATION_MINUTES
     );
   }, []);
+  const updateTwapDurationFromParts = useCallback(
+    (hoursValue: string, minutesValue: string) => {
+      const nextHours = hoursValue.replace(/[^\d]/g, '').slice(0, 2);
+      const nextMinutes = minutesValue.replace(/[^\d]/g, '').slice(0, 2);
+
+      const hoursNumber = nextHours ? Number(nextHours) : 0;
+      const minutesNumber = nextMinutes ? Number(nextMinutes) : 0;
+
+      if (
+        !Number.isInteger(hoursNumber) ||
+        !Number.isInteger(minutesNumber) ||
+        hoursNumber > 24 ||
+        minutesNumber > 59
+      ) {
+        return false;
+      }
+
+      const totalMinutes = hoursNumber * 60 + minutesNumber;
+      if (
+        totalMinutes > TWAP_MAX_DURATION_MINUTES ||
+        (hoursNumber === 24 && minutesNumber > 0)
+      ) {
+        return false;
+      }
+
+      setTwapDurationHoursInput(nextHours);
+      setTwapDurationMinutesInput(nextMinutes);
+
+      updateForm({
+        twapDurationMinutes:
+          nextHours === '' && nextMinutes === '' ? '' : String(totalMinutes),
+      });
+      return true;
+    },
+    [updateForm],
+  );
+  const handleTwapHoursChange = useCallback(
+    (value: string) => {
+      void updateTwapDurationFromParts(value, twapDurationMinutesInput);
+    },
+    [twapDurationMinutesInput, updateTwapDurationFromParts],
+  );
+  const handleTwapMinutesChange = useCallback(
+    (value: string) => {
+      void updateTwapDurationFromParts(twapDurationHoursInput, value);
+    },
+    [twapDurationHoursInput, updateTwapDurationFromParts],
+  );
+  const handleTwapDurationPresetPress = useCallback(
+    (minutes: number) => {
+      const hours = Math.floor(minutes / 60);
+      const remainderMinutes = minutes % 60;
+      setTwapDurationHoursInput(String(hours));
+      setTwapDurationMinutesInput(String(remainderMinutes));
+      updateForm({ twapDurationMinutes: String(minutes) });
+    },
+    [updateForm],
+  );
   const mobileOrderTypeOptions = useMemo(() => {
     const base = [
       {
@@ -1225,38 +1339,6 @@ function PerpTradingForm({
         </YStack>
       );
     }
-    if (isTwapMode) {
-      return (
-        <YStack gap={isMobile ? '$2.5' : '$3'}>
-          <TradingFormInput
-            label="Duration"
-            placeholder={`${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES}`}
-            value={formData.twapDurationMinutes ?? ''}
-            onChange={(value) => {
-              const nextValue = value.replace(/[^\d]/g, '');
-              updateForm({ twapDurationMinutes: nextValue });
-            }}
-            validator={twapDurationValidator}
-            keyboardType="numeric"
-            suffix="min"
-            isMobile={isMobile}
-            disabled={isSubmitting}
-          />
-          {twapDurationInputMessage ? (
-            <SizableText
-              size="$bodySm"
-              color={
-                twapDurationInputMessage.tone === 'error'
-                  ? '$red10'
-                  : '$textSubdued'
-              }
-            >
-              {twapDurationInputMessage.text}
-            </SizableText>
-          ) : null}
-        </YStack>
-      );
-    }
     if (isTriggerMode) {
       return (
         <YStack gap={isMobile ? '$2.5' : '$3'}>
@@ -1405,6 +1487,207 @@ function PerpTradingForm({
     return null;
   };
 
+  const renderTwapDurationSection = () => {
+    if (!isTwapMode) {
+      return null;
+    }
+
+    const quickOptionHeight = isMobile ? 28 : 26;
+    const renderTwapPreviewMessage = () => {
+      if (!twapPreviewMessage) {
+        return null;
+      }
+
+      return (
+        <YStack gap="$1">
+          <SizableText size="$bodySm" color="$textSubdued">
+            Number of Orders {twapPreviewMessage.orderCount}
+          </SizableText>
+        </YStack>
+      );
+    };
+
+    if (isMobile) {
+      return (
+        <YStack gap="$2.5">
+          <TradingFormInput
+            label="Duration"
+            placeholder={TWAP_DURATION_LABEL}
+            value={formData.twapDurationMinutes ?? ''}
+            onChange={(value) => {
+              const nextValue = value.replace(/[^\d]/g, '');
+              updateForm({ twapDurationMinutes: nextValue });
+            }}
+            validator={twapDurationValidator}
+            keyboardType="numeric"
+            suffix="min"
+            isMobile
+            disabled={isSubmitting}
+          />
+          <XStack gap="$2" width="100%">
+            {TWAP_DURATION_PRESET_OPTIONS.map((option) => {
+              return (
+                <XStack
+                  key={option.minutes}
+                  flex={1}
+                  minWidth={0}
+                  h={quickOptionHeight}
+                  px="$2"
+                  bg="$bgSubdued"
+                  borderRadius="$2"
+                  alignItems="center"
+                  justifyContent="center"
+                  cursor="pointer"
+                  onPress={() => handleTwapDurationPresetPress(option.minutes)}
+                  opacity={isSubmitting ? 0.5 : 1}
+                  pointerEvents={isSubmitting ? 'none' : 'auto'}
+                >
+                  <SizableText size="$bodySmMedium" color="$textSubdued">
+                    {option.label}
+                  </SizableText>
+                </XStack>
+              );
+            })}
+          </XStack>
+          {renderTwapPreviewMessage()}
+        </YStack>
+      );
+    }
+
+    const inputHeight = 32;
+    const inputWrapperProps = {
+      bg: '$bgStrong' as const,
+      py: '$1' as const,
+      pl: '$1' as const,
+      pr: '$2.5' as const,
+    };
+
+    const renderTwapDurationInput = ({
+      field,
+      testID,
+      value,
+      unit,
+      onChangeText,
+    }: {
+      field: ITwapDurationInputField;
+      testID: string;
+      value: string;
+      unit: 'h' | 'min';
+      onChangeText: (text: string) => void;
+    }) => (
+      <YStack
+        flex={1}
+        minWidth={0}
+        borderRadius="$2"
+        borderWidth="$px"
+        borderColor={
+          focusedTwapDurationInput === field ? '$border' : '$transparent'
+        }
+        {...inputWrapperProps}
+      >
+        <Input
+          testID={testID}
+          size="small"
+          h={inputHeight}
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={() => setFocusedTwapDurationInput(field)}
+          onBlur={() =>
+            setFocusedTwapDurationInput((currentField) =>
+              currentField === field ? null : currentField,
+            )
+          }
+          keyboardType="numeric"
+          disabled={isSubmitting}
+          placeholder="0"
+          textAlign="right"
+          containerProps={{
+            bg: 'transparent',
+            borderRadius: '$2',
+            borderWidth: '$0',
+          }}
+          InputComponentStyle={{
+            bg: 'transparent',
+          }}
+          addOnsContainerProps={{
+            pr: '$0.5',
+          }}
+          addOns={[
+            {
+              renderContent: (
+                <XStack
+                  h="100%"
+                  alignItems="center"
+                  justifyContent="center"
+                  pr="$0.5"
+                >
+                  <SizableText size="$bodyMdMedium" color="$textSubdued">
+                    {unit}
+                  </SizableText>
+                </XStack>
+              ),
+            },
+          ]}
+        />
+      </YStack>
+    );
+
+    return (
+      <YStack gap="$3">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {TWAP_DURATION_LABEL}
+        </SizableText>
+        <XStack gap="$2.5">
+          {renderTwapDurationInput({
+            field: 'hours',
+            testID: 'perp-twap-duration-hours-input',
+            value: twapDurationHoursInput,
+            unit: 'h',
+            onChangeText: handleTwapHoursChange,
+          })}
+          {renderTwapDurationInput({
+            field: 'minutes',
+            testID: 'perp-twap-duration-minutes-input',
+            value: twapDurationMinutesInput,
+            unit: 'min',
+            onChangeText: handleTwapMinutesChange,
+          })}
+        </XStack>
+        <XStack gap="$2" width="100%">
+          {TWAP_DURATION_PRESET_OPTIONS.map((option) => {
+            return (
+              <XStack
+                key={option.minutes}
+                flex={1}
+                minWidth={0}
+                h={quickOptionHeight}
+                px="$2"
+                bg="$bgStrong"
+                borderRadius="$2"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                onPress={() => handleTwapDurationPresetPress(option.minutes)}
+                opacity={isSubmitting ? 0.5 : 1}
+                pointerEvents={isSubmitting ? 'none' : 'auto'}
+              >
+                <SizableText size="$bodySmMedium" color="$textSubdued">
+                  {option.label}
+                </SizableText>
+              </XStack>
+            );
+          })}
+        </XStack>
+        {renderTwapPreviewMessage()}
+        {twapDurationInputMessage ? (
+          <SizableText size="$bodySm" color="$red10">
+            {twapDurationInputMessage.text}
+          </SizableText>
+        ) : null}
+      </YStack>
+    );
+  };
+
   const checkboxSizeVal = isMobile ? '$3.5' : '$4';
   const tpLabelKey = isMobile
     ? ETranslations.perp_tp
@@ -1421,7 +1704,7 @@ function PerpTradingForm({
     if (isTwapMode) {
       return (
         <YStack gap="$1.5" {...(isMobile && { mt: '$1' })} p="$0">
-          <XStack alignItems="center" justifyContent="space-between" gap="$3">
+          <YStack alignItems="flex-start" gap="$2.5">
             <XStack alignItems="center" gap="$2">
               <Checkbox
                 testID="perp-twap-reduce-only-checkbox"
@@ -1468,7 +1751,7 @@ function PerpTradingForm({
                 Randomize
               </SizableText>
             </XStack>
-          </XStack>
+          </YStack>
         </YStack>
       );
     }
@@ -1996,7 +2279,7 @@ function PerpTradingForm({
         </YStack>
       )}
 
-      {renderPriceInputSection()}
+      {isTwapMode ? null : renderPriceInputSection()}
 
       <SizeInput
         referencePrice={referencePriceString}
@@ -2028,6 +2311,8 @@ function PerpTradingForm({
           sliderHeight={isMobile ? 2 : 4}
         />
       </YStack>
+
+      {isTwapMode ? renderTwapDurationSection() : null}
 
       {renderBottomSection()}
 
