@@ -115,9 +115,15 @@ describe('background thread RPC protocol', () => {
     });
 
     it('treats a malformed main capabilities payload as undefined', () => {
-      expect(parseBackgroundThreadMainCapabilitiesPayload('null')).toBeUndefined();
-      expect(parseBackgroundThreadMainCapabilitiesPayload('not-json')).toBeUndefined();
-      expect(parseBackgroundThreadMainCapabilitiesPayload(undefined)).toBeUndefined();
+      expect(
+        parseBackgroundThreadMainCapabilitiesPayload('null'),
+      ).toBeUndefined();
+      expect(
+        parseBackgroundThreadMainCapabilitiesPayload('not-json'),
+      ).toBeUndefined();
+      expect(
+        parseBackgroundThreadMainCapabilitiesPayload(undefined),
+      ).toBeUndefined();
     });
 
     it('fans out a batch in insertion order on the main runtime', () => {

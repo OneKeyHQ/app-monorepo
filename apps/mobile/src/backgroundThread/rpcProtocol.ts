@@ -121,8 +121,7 @@ export const WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX = 'onekey:webembed:resp:';
 // reads / observes this slot and only switches to opt-in protocols (jotai
 // batch broadcast etc.) after the matching capability bit is set, so a
 // partial OTA / split-runtime mismatch can't silently drop batched updates.
-export const BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY =
-  'onekey:bg:main-caps';
+export const BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY = 'onekey:bg:main-caps';
 
 export type IBackgroundThreadMainCapabilitiesPayload = {
   jotaiStateBatch?: boolean;
