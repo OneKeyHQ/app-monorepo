@@ -333,13 +333,13 @@ function wrapJotaiStorageWithColdStartMirror(base: JotaiStorage): JotaiStorage {
   // cannot break the source-of-truth path. Future "拆线程" (move atoms into
   // a Worker) keeps this mirror on the UI side, so cold-start hydration
   // remains synchronous regardless of where source-of-truth lives.
+  const JOTAI_KEY_PREFIX = 'g_states_v5:';
   const originalSetItem: JotaiStorage['setItem'] = base.setItem.bind(base);
   const wrappedSetItem: JotaiStorage['setItem'] = async (key, newValue) => {
     await originalSetItem(key, newValue);
     try {
-      const prefix = 'g_states_v5:';
-      if (typeof key === 'string' && key.startsWith(prefix)) {
-        const atomName = key.slice(prefix.length);
+      if (typeof key === 'string' && key.startsWith(JOTAI_KEY_PREFIX)) {
+        const atomName = key.slice(JOTAI_KEY_PREFIX.length);
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { setColdStartL1MirrorEntry } =
           require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
@@ -350,6 +350,27 @@ function wrapJotaiStorageWithColdStartMirror(base: JotaiStorage): JotaiStorage {
     }
   };
   base.setItem = wrappedSetItem;
+
+  // Mirror removeItem so JOTAI_RESET / explicit clears propagate to the
+  // cold-start cache. Without this, stale jotai entries linger in the
+  // mirror and resurrect after the next page load.
+  const originalRemoveItem: JotaiStorage['removeItem'] =
+    base.removeItem.bind(base);
+  const wrappedRemoveItem: JotaiStorage['removeItem'] = async (key) => {
+    await originalRemoveItem(key);
+    try {
+      if (typeof key === 'string' && key.startsWith(JOTAI_KEY_PREFIX)) {
+        const atomName = key.slice(JOTAI_KEY_PREFIX.length);
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { deleteColdStartL1MirrorEntry } =
+          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
+        deleteColdStartL1MirrorEntry(atomName);
+      }
+    } catch {
+      /* best-effort: mirror failure must not break source-of-truth */
+    }
+  };
+  base.removeItem = wrappedRemoveItem;
   return base;
 }
 

@@ -12,6 +12,20 @@
 // lets us keep ISyncStorage's synchronous contract while still using
 // IndexedDB (which has no sync API).
 //
+// Value fidelity: jotai L1 mirror entries are stored as RAW values (not
+// JSON-stringified). IndexedDB structured-clones values natively, which
+// preserves Date / Map / Set / BigInt round-trip — matching the source-of-
+// truth JotaiStorage which also relies on IDB structured clone. This is
+// load-bearing for the post-jotaiInit `isEqual` guard in jotai utils:
+// values that have been through a JSON round trip would diverge from the structured-cloned ones
+// the reconciler reads from the source-of-truth IDB, causing spurious
+// `store.set` calls and visible flicker.
+//
+// Meta/SWR-style entries (build hash string, SWR JSON blob, context-atom
+// snapshot JSON blob) remain stored as strings because their producers
+// (writeColdStartMeta + the ISyncStorage facade setObject/setString
+// callers) already serialize on the way in.
+//
 // Storage isolation: the IndexedDBPromised wrapper prefers
 // `navigator.storageBuckets` (Chromium only — Chrome / Edge / Electron) so
 // the cold-start DB lives in its own bucket and is GC'd independently of
@@ -45,20 +59,21 @@ const GLOBAL_MAP_KEY = '__ONEKEY_COLD_START_CACHE_MAP__';
 
 // ---- In-memory state ----
 
-function getMap(): Map<string, string> {
+function getMap(): Map<string, unknown> {
   const g = globalThis as Record<string, unknown>;
-  let map = g[GLOBAL_MAP_KEY] as Map<string, string> | undefined;
+  let map = g[GLOBAL_MAP_KEY] as Map<string, unknown> | undefined;
   if (!map) {
-    map = new Map<string, string>();
+    map = new Map<string, unknown>();
     g[GLOBAL_MAP_KEY] = map;
   }
   return map;
 }
 
 /** Merge entries loaded from IDB into the in-memory map. Called by
- *  hydrate.ts after its IDB getAll resolves. */
+ *  hydrate.ts after its IDB getAll resolves. Values are raw (whatever IDB
+ *  structured-clone returned — objects, strings, etc.). */
 export function primeColdStartCacheMap(
-  entries: Iterable<[string, string]>,
+  entries: Iterable<[string, unknown]>,
 ): void {
   const map = getMap();
   for (const [k, v] of entries) {
@@ -74,10 +89,27 @@ export function primeColdStartCacheMap(
 
 /** Write a meta entry (e.g. build hash) bypassing the EAppSyncStorageKeys
  *  type contract. Used by hydrate.ts to refresh the build-hash marker so
- *  the next cold start can detect a deploy-time schema change. */
+ *  the next cold start can detect a deploy-time schema change. The value
+ *  is stored as a raw string — the BUILD_HASH check in hydrate.ts compares
+ *  strings directly, so no JSON encoding here. */
 export function writeColdStartMeta(key: string, value: string): void {
   getMap().set(key, value);
   scheduleFlush(key);
+}
+
+/** Re-apply a snapshot of entries back into the in-memory map and schedule
+ *  them for IDB flush. Used by hydrate.ts after `resetColdStartCache` so
+ *  any setColdStartL1MirrorEntry writes that landed between module-load and
+ *  the build-hash mismatch detection are not lost. Values are raw — same
+ *  fidelity contract as setColdStartL1MirrorEntry. */
+export function replayColdStartEntries(
+  snapshot: Iterable<[string, unknown]>,
+): void {
+  const map = getMap();
+  for (const [k, v] of snapshot) {
+    map.set(k, v);
+    scheduleFlush(k);
+  }
 }
 
 const L1_KEY_PREFIX = 'jotai/';
@@ -86,20 +118,32 @@ const L1_KEY_PREFIX = 'jotai/';
  *  the web/desktop branch of jotaiStorage.ts after every successful write
  *  to the source-of-truth JotaiStorage IDB. Key shape: 'jotai/<atomName>',
  *  consumed by hydrate.ts which un-prefixes back into
- *  globalThis.__ONEKEY_JOTAI_INIT_STATES__. */
+ *  globalThis.__ONEKEY_JOTAI_INIT_STATES__.
+ *
+ *  The value is stored RAW (no JSON.stringify). IDB will structured-clone
+ *  it on flush, matching the fidelity of the source-of-truth JotaiStorage
+ *  (which also relies on IDB structured clone). This is required so the
+ *  post-jotaiInit isEqual guard in jotai utils sees identical objects on
+ *  both sides of the reconciliation and does not issue a spurious
+ *  store.set that would flicker the UI. */
 export function setColdStartL1MirrorEntry(
   atomName: string,
   value: unknown,
 ): void {
   if (!atomName) return;
-  let serialized: string;
-  try {
-    serialized = JSON.stringify(value);
-  } catch {
-    return;
-  }
   const key = `${L1_KEY_PREFIX}${atomName}`;
-  getMap().set(key, serialized);
+  getMap().set(key, value);
+  scheduleFlush(key);
+}
+
+/** Counterpart of setColdStartL1MirrorEntry: drop the mirrored entry from
+ *  both the in-memory map and (after the next flush) IDB. Called by the
+ *  web/desktop branch of jotaiStorage.ts on removeItem / JOTAI_RESET so the
+ *  cold-start cache cannot resurrect cleared atoms on the next boot. */
+export function deleteColdStartL1MirrorEntry(atomName: string): void {
+  if (!atomName) return;
+  const key = `${L1_KEY_PREFIX}${atomName}`;
+  getMap().delete(key);
   scheduleFlush(key);
 }
 
@@ -119,7 +163,15 @@ function openDb(): Promise<IndexedDBPromised<unknown>> {
         }
       },
     });
-    dbPromise = db.open().then(() => db);
+    const opening = db.open().then(() => db);
+    // Clear the cached promise on failure so the next call retries instead
+    // of permanently disabling cold-start for the session.
+    opening.catch(() => {
+      if (dbPromise === opening) {
+        dbPromise = undefined;
+      }
+    });
+    dbPromise = opening;
   }
   return dbPromise;
 }
@@ -128,8 +180,12 @@ function openDb(): Promise<IndexedDBPromised<unknown>> {
 
 const dirtyKeys = new Set<string>();
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
+// Single-slot mutex: serializes overlapping flushes and lets resetColdStartCache
+// await any pending IDB writes before issuing db.clear, so a late-landing put
+// cannot resurrect data wiped by reset.
+let inFlightFlush: Promise<void> | undefined;
 
-async function flushDirtyKeysToIdb(): Promise<void> {
+async function runFlushOnce(): Promise<void> {
   if (dirtyKeys.size === 0) return;
   const keys = Array.from(dirtyKeys);
   dirtyKeys.clear();
@@ -153,6 +209,26 @@ async function flushDirtyKeysToIdb(): Promise<void> {
       console.error('[webColdStartStorage] flush failed:', e);
     }
   }
+}
+
+async function flushDirtyKeysToIdb(): Promise<void> {
+  // Coalesce concurrent callers onto the in-flight promise, then drain any
+  // dirty keys that accumulated while it was running. flushColdStartCacheNow
+  // relies on this to guarantee IDB writes have committed before it resolves.
+  // The loop variable is mutated from runFlushOnce's .finally callback, which
+  // ESLint cannot see through.
+  // eslint-disable-next-line no-unmodified-loop-condition
+  while (inFlightFlush) {
+    await inFlightFlush;
+  }
+  if (dirtyKeys.size === 0) return;
+  const current = runFlushOnce();
+  inFlightFlush = current.finally(() => {
+    if (inFlightFlush === current) {
+      inFlightFlush = undefined;
+    }
+  });
+  await inFlightFlush;
 }
 
 function scheduleFlush(key: string): void {
@@ -183,6 +259,18 @@ export async function resetColdStartCache(): Promise<void> {
     clearTimeout(flushTimer);
     flushTimer = undefined;
   }
+  // Wait out any flush currently writing to IDB so a late-landing db.put
+  // cannot resurrect data wiped by the upcoming db.clear. The loop variable
+  // is mutated from runFlushOnce's .finally callback, which ESLint cannot
+  // see through.
+  // eslint-disable-next-line no-unmodified-loop-condition
+  while (inFlightFlush) {
+    try {
+      await inFlightFlush;
+    } catch {
+      /* flush errors are already logged inside runFlushOnce */
+    }
+  }
   try {
     const db = await openDb();
     await db.clear(STORE_NAME);
@@ -194,13 +282,25 @@ export async function resetColdStartCache(): Promise<void> {
   }
 }
 
+/** Awaitable counterpart of the synchronous ISyncStorage.clearAll() facade.
+ *  Call sites that need the cold-start cache to be fully wiped (both
+ *  in-memory map and IDB) before they reload the page should await this. */
+export function awaitColdStartCacheCleared(): Promise<void> {
+  return resetColdStartCache();
+}
+
 // ---- Direct IDB read used by hydrate.ts (avoid spinning the facade) ----
 
+// Returns raw structured-cloned values for jotai L1 entries (objects, etc.)
+// and strings for meta/SWR entries. Legacy DBs written by the previous
+// JSON-string implementation are invalidated automatically by the
+// BUILD_HASH mismatch path in hydrate.ts — the new commit produces a new
+// BUILD_HASH, so any stale JSON-string entries are cleared on first boot.
 export async function readAllColdStartEntriesFromIdb(): Promise<
-  Map<string, string>
+  Map<string, unknown>
 > {
   const db = await openDb();
-  return db.getAllEntries(STORE_NAME) as Promise<Map<string, string>>;
+  return db.getAllEntries(STORE_NAME) as Promise<Map<string, unknown>>;
 }
 
 // ---- Test-only helpers ----
@@ -211,6 +311,7 @@ export function __resetForTests(): void {
   (globalThis as Record<string, unknown>)[GLOBAL_MAP_KEY] = undefined;
   dbPromise = undefined;
   dirtyKeys.clear();
+  inFlightFlush = undefined;
   if (flushTimer) {
     clearTimeout(flushTimer);
     flushTimer = undefined;
@@ -247,30 +348,43 @@ export function createWebColdStartStorage(): ISyncStorage {
       if (!isPlainObject(value)) {
         throw new OneKeyLocalError('value must be a plain object');
       }
+      // Facade callers (e.g. swrCacheUtils, context-atom snapshot writer)
+      // already model their payload as a JSON-encoded string when reading
+      // back via getString. Keep the on-the-wire form symmetric so a write
+      // followed by a getString returns parseable JSON. Jotai L1 mirror
+      // entries take a different path (setColdStartL1MirrorEntry) and skip
+      // this stringification.
       getMap().set(key as string, JSON.stringify(value));
       scheduleFlush(key as string);
     },
     getObject<T>(key: EAppSyncStorageKeys): T | undefined {
-      try {
-        const raw = getMap().get(key as string);
-        if (!raw) return undefined;
-        return JSON.parse(raw) as T;
-      } catch {
-        return undefined;
+      const raw = getMap().get(key as string);
+      if (raw === undefined || raw === null || raw === '') return undefined;
+      // Fast path: facade writer round-trips JSON, so the common case is a
+      // string. Fallback covers the (currently unused) scenario where some
+      // future producer stashes a raw object under a facade key.
+      if (typeof raw === 'string') {
+        try {
+          return JSON.parse(raw) as T;
+        } catch {
+          return undefined;
+        }
       }
+      return raw as T;
     },
     getString(key: EAppSyncStorageKeys): string | undefined {
-      return getMap().get(key as string);
+      const raw = getMap().get(key as string);
+      return typeof raw === 'string' ? raw : undefined;
     },
     getNumber(key: EAppSyncStorageKeys): number | undefined {
       const raw = getMap().get(key as string);
-      if (raw === undefined || raw === '') return undefined;
+      if (typeof raw !== 'string' || raw === '') return undefined;
       const n = Number(raw);
       return Number.isFinite(n) ? n : undefined;
     },
     getBoolean(key: EAppSyncStorageKeys): boolean | undefined {
       const raw = getMap().get(key as string);
-      if (raw === undefined) return undefined;
+      if (typeof raw !== 'string') return undefined;
       if (raw === 'true' || raw === '1') return true;
       if (raw === 'false' || raw === '0' || raw === '') return false;
       return undefined;

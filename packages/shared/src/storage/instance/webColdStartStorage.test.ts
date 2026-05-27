@@ -77,22 +77,22 @@ describe('primeColdStartCacheMap', () => {
   it('does not clobber an entry already written by setColdStartL1MirrorEntry', () => {
     const mod = loadModule();
     mod.setColdStartL1MirrorEntry('foo', { v: 1 });
-    mod.primeColdStartCacheMap([['jotai/foo', JSON.stringify({ v: 0 })]]);
+    // Simulate the IDB getAll output: jotai entries are raw objects post-
+    // structured-clone, so the prime input mirrors that shape.
+    mod.primeColdStartCacheMap([['jotai/foo', { v: 0 }]]);
 
     const map = (globalThis as Record<string, unknown>)
-      .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, string>;
-    const raw = map.get('jotai/foo');
-    expect(raw).toBeDefined();
-    expect(JSON.parse(raw as string)).toEqual({ v: 1 });
+      .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, unknown>;
+    expect(map.get('jotai/foo')).toEqual({ v: 1 });
   });
 
   it('fills keys not yet present', () => {
     const mod = loadModule();
-    mod.primeColdStartCacheMap([['jotai/bar', JSON.stringify({ v: 42 })]]);
+    mod.primeColdStartCacheMap([['jotai/bar', { v: 42 }]]);
 
     const map = (globalThis as Record<string, unknown>)
-      .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, string>;
-    expect(JSON.parse(map.get('jotai/bar') as string)).toEqual({ v: 42 });
+      .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, unknown>;
+    expect(map.get('jotai/bar')).toEqual({ v: 42 });
   });
 });
 
@@ -101,16 +101,18 @@ describe('setColdStartL1MirrorEntry', () => {
     const mod = loadModule();
     mod.setColdStartL1MirrorEntry('myAtom', { a: 1 });
     const map = (globalThis as Record<string, unknown>)
-      .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, string>;
+      .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, unknown>;
     expect(map.has('jotai/myAtom')).toBe(true);
     expect(map.has('myAtom')).toBe(false);
+    // Raw value — no JSON serialization round-trip.
+    expect(map.get('jotai/myAtom')).toEqual({ a: 1 });
   });
 
   it('ignores empty atom names', () => {
     const mod = loadModule();
     mod.setColdStartL1MirrorEntry('', { a: 1 });
     const map = (globalThis as Record<string, unknown>)
-      .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, string> | undefined;
+      .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, unknown> | undefined;
     expect(map === undefined || map.size === 0).toBe(true);
   });
 });
@@ -159,9 +161,8 @@ describeIfIndexedDB('IDB-backed paths', () => {
     await mod.flushColdStartCacheNow();
 
     const out = await mod.readAllColdStartEntriesFromIdb();
-    const raw = out.get('jotai/foo');
-    expect(raw).toBeDefined();
-    expect(JSON.parse(raw as string)).toEqual({ v: 7 });
+    // IDB returns the structured-cloned object — no JSON.parse needed.
+    expect(out.get('jotai/foo')).toEqual({ v: 7 });
   });
 
   it('flushDirtyKeysToIdb re-queues on failure so the value lands on the next flush', async () => {
@@ -199,9 +200,7 @@ describeIfIndexedDB('IDB-backed paths', () => {
     // Second flush should succeed and the requeued key should land.
     await mod.flushColdStartCacheNow();
     const out = await mod.readAllColdStartEntriesFromIdb();
-    const raw = out.get('jotai/foo');
-    expect(raw).toBeDefined();
-    expect(JSON.parse(raw as string)).toEqual({ v: 9 });
+    expect(out.get('jotai/foo')).toEqual({ v: 9 });
   });
 
   it('resetColdStartCache wipes both map and IDB', async () => {
@@ -216,7 +215,7 @@ describeIfIndexedDB('IDB-backed paths', () => {
     await mod.resetColdStartCache();
 
     const map = (globalThis as Record<string, unknown>)
-      .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, string>;
+      .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, unknown>;
     expect(map.size).toBe(0);
 
     const after = await mod.readAllColdStartEntriesFromIdb();

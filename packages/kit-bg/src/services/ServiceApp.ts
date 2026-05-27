@@ -110,12 +110,21 @@ class ServiceApp extends ServiceBase {
       defaultLogger.setting.page.clearDataStep('jotaiMMKV-clearAll');
     }
 
-    // Clean cold-start cache MMKV (contextAtom snapshot + SWR cache)
+    // Clean cold-start cache MMKV (contextAtom snapshot + SWR cache).
+    // On native this is a synchronous MMKV wipe; on web/desktop the facade's
+    // clearAll() schedules an async IDB clear, so we additionally await the
+    // dedicated helper to ensure the IDB store is fully wiped before reload.
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { coldStartCacheStorage } =
         require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
       coldStartCacheStorage.clearAll();
+      if (platformEnv.isWeb || platformEnv.isDesktop) {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { awaitColdStartCacheCleared } =
+          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
+        await awaitColdStartCacheCleared();
+      }
     } catch {
       console.error('coldStartCacheStorage.clearAll() error');
     }
