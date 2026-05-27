@@ -2538,19 +2538,25 @@ function NativeWebEmbedCryptoPerfTest() {
       const mnemonicPerfEvents: IMnemonicToSeedPerfTraceEvent[] = [];
       const nextMnemonicPerfTraceRows: INativeWebEmbedMnemonicPerfTraceRow[] =
         [];
-      const canUseWebEmbed =
-        platformEnv.isNative &&
-        !platformEnv.isJest &&
-        !(
-          globalThis as {
-            $onekeyAppWebembedApiWebviewInitFailed?: boolean;
-          }
-        ).$onekeyAppWebembedApiWebviewInitFailed;
+      const webEmbedApiStatus = globalThis as {
+        $onekeyAppWebembedApiWebviewInitFailed?: boolean;
+      };
+      const webEmbedApiWasMarkedFailed = Boolean(
+        webEmbedApiStatus.$onekeyAppWebembedApiWebviewInitFailed,
+      );
+      const canUseWebEmbed = platformEnv.isNative && !platformEnv.isJest;
       const nonDbTxKdfParams = appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx();
       const canUseWebCryptoKdf = nonDbTxKdfParams.kdfBackend === 'webcrypto';
-      const canRunSecondary = platformEnv.isNative
+      let canRunSecondary = platformEnv.isNative
         ? canUseWebEmbed
         : canUseWebCryptoKdf;
+      const webEmbedPrewarmResults: {
+        attempt: number;
+        durationMs: number;
+        error?: string;
+        result?: string;
+        status: 'failed' | 'skipped' | 'success';
+      }[] = [];
       let shouldCooldownBeforeBenchmarkTask = false;
       const waitBeforeBenchmarkTask = async () => {
         if (!shouldCooldownBeforeBenchmarkTask) {
@@ -2701,6 +2707,72 @@ function NativeWebEmbedCryptoPerfTest() {
         nextBatchPerfTraceRows.push(...summary);
         return result;
       };
+      const prewarmWebEmbedApi = async () => {
+        if (!platformEnv.isNative || !canUseWebEmbed) {
+          webEmbedPrewarmResults.push({
+            attempt: 0,
+            durationMs: 0,
+            status: 'skipped',
+          });
+          return true;
+        }
+        const maxAttempts = 2;
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          await waitBeforeBenchmarkTask();
+          const start = Date.now();
+          try {
+            const webembedApiProxy = (
+              await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
+            ).default;
+            const result = await webembedApiProxy.test.test1(
+              'crypto-gallery-prewarm',
+              String(attempt),
+            );
+            const durationMs = Date.now() - start;
+            webEmbedApiStatus.$onekeyAppWebembedApiWebviewInitFailed = false;
+            webEmbedPrewarmResults.push({
+              attempt,
+              durationMs,
+              result,
+              status: 'success',
+            });
+            nextMnemonicPerfTraceRows.push({
+              runtime: secondaryRuntimeName,
+              stage: 'webEmbed.prewarm',
+              durationMs,
+              result,
+              metadata: {
+                attempt,
+                wasMarkedFailed: webEmbedApiWasMarkedFailed,
+              },
+              validation: 'ready',
+              isCorrect: AppCryptoTestEmoji.isCorrect,
+            });
+            return true;
+          } catch (error) {
+            const durationMs = Date.now() - start;
+            const prewarmErrorMessage = (error as Error).message;
+            webEmbedPrewarmResults.push({
+              attempt,
+              durationMs,
+              error: prewarmErrorMessage,
+              status: 'failed',
+            });
+            nextMnemonicPerfTraceRows.push({
+              runtime: secondaryRuntimeName,
+              stage: 'webEmbed.prewarm',
+              durationMs,
+              metadata: {
+                attempt,
+                wasMarkedFailed: webEmbedApiWasMarkedFailed,
+              },
+              validation: prewarmErrorMessage,
+              isCorrect: AppCryptoTestEmoji.isWarning,
+            });
+          }
+        }
+        return false;
+      };
       const clearColdCaches = async () => {
         await clearPbkdf2CacheAsync();
       };
@@ -2781,6 +2853,9 @@ function NativeWebEmbedCryptoPerfTest() {
         backend: defaultMnemonicBackend,
         runtime: defaultMnemonicRuntime,
       };
+      if (platformEnv.isNative && canRunSecondary) {
+        canRunSecondary = await prewarmWebEmbedApi();
+      }
       const mnemonicPair = await runPair({
         mode: 'cold/raw',
         opName: 'mnemonicToSeedAsync',
@@ -3112,6 +3187,7 @@ function NativeWebEmbedCryptoPerfTest() {
             isNativeIOS: platformEnv.isNativeIOS,
             isNativeAndroid: platformEnv.isNativeAndroid,
             canUseWebEmbed,
+            webEmbedApiWasMarkedFailed,
             primaryRuntime: primaryRuntimeName,
             secondaryRuntime: secondaryRuntimeName,
             canUseWebCryptoKdf,
@@ -3133,6 +3209,7 @@ function NativeWebEmbedCryptoPerfTest() {
           mnemonicToSeedLocalPerfTrace: mnemonicPerfEvents,
           mnemonicToSeedSegmentedValidation: nextMnemonicPerfTraceRows,
           batchGetPublicKeysLocalPerfTrace: batchPerfTraces,
+          webEmbedPrewarmResults,
           tasks,
         }),
       );
