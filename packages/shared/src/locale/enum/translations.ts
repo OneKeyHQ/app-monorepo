@@ -665,6 +665,7 @@ export enum ETranslations {
   defi_with_collateral = 'defi.with_collateral',
   defi_withdraw_cap_resets_in = 'defi.withdraw_cap_resets_in',
   defi_withdrawable_today = 'defi.withdrawable_today',
+  defi_withdrawal_options = 'defi.withdrawal_options',
   defi_yield_high_to_low = 'defi.yield_high_to_low',
   defi_allocation = 'defi_allocation',
   defi_n_protocols = 'defi_n_protocols',

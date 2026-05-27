@@ -18,10 +18,15 @@ import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountRefreshHookAtom,
+  usePerpsActiveAssetAtom,
   usePerpsActiveOrderBookOptionsAtom,
   usePerpsWebSocketConnectedAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
-import { spotActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
+import {
+  spotActiveAssetAtom,
+  useSpotActiveAssetAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -66,7 +71,10 @@ import {
   useOrderBookTickOptionsAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
-import { planTradeSubscriptions } from '../utils/subscriptionPlanner';
+import {
+  isTradeInstrumentBackedBySubscriptionState,
+  planTradeSubscriptions,
+} from '../utils/subscriptionPlanner';
 
 import { usePerpTokenUrlSync } from './usePerpTokenUrlSync';
 
@@ -76,6 +84,16 @@ const shouldTreatPerpAsFocusedOnMount = !!(
 );
 
 let lastRecoveredPerpsLocaleVariant: string | undefined;
+let lastRouteSubscriptionStateVersion = 0;
+
+function nextRouteSubscriptionStateVersion() {
+  const timeVersion = Date.now() * 1000;
+  lastRouteSubscriptionStateVersion = Math.max(
+    lastRouteSubscriptionStateVersion + 1,
+    timeVersion,
+  );
+  return lastRouteSubscriptionStateVersion;
+}
 
 function resolvePerpRouteFocused(isFocus: boolean) {
   return shouldTreatPerpAsFocusedOnMount || isFocus;
@@ -629,6 +647,9 @@ function WebSocketSubscriptionUpdate() {
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeOrderBookOptions] = usePerpsActiveOrderBookOptionsAtom();
+  const [perpsActiveAsset] = usePerpsActiveAssetAtom();
+  const [spotActiveAsset] = useSpotActiveAssetAtom();
+  const [tradingMode] = useTradingModeAtom();
   const [tradeRouteViewState] = useTradeRouteViewStateAtom();
   const actions = useHyperliquidActions();
   const [isWebSocketConnected] = usePerpsWebSocketConnectedAtom();
@@ -655,6 +676,8 @@ function WebSocketSubscriptionUpdate() {
   const infoPanelTab = tradeRouteViewState.infoPanelTab;
   const favoritesBarSpotActive = tradeRouteViewState.favoritesBarSpotActive;
   const accountAddress = activePerpsAccount?.accountAddress;
+  const perpsActiveAssetCoin = perpsActiveAsset?.coin;
+  const spotActiveAssetCoin = spotActiveAsset?.coin;
 
   // Refs for reading inside effect body without triggering it
   const activeTradeInstrumentRef = useRef(activeTradeInstrument);
@@ -663,6 +686,7 @@ function WebSocketSubscriptionUpdate() {
   activeOrderBookOptionsRef.current = activeOrderBookOptions;
   const tradeRouteViewStateRef = useRef(tradeRouteViewState);
   tradeRouteViewStateRef.current = tradeRouteViewState;
+  const syncSequenceRef = useRef(0);
 
   useEffect(() => {
     checkDeps({
@@ -680,6 +704,9 @@ function WebSocketSubscriptionUpdate() {
       tokenSelectorTab,
       infoPanelTab,
       favoritesBarSpotActive,
+      perpsActiveAssetCoin,
+      spotActiveAssetCoin,
+      subscriptionTradingMode: tradingMode,
     });
 
     const plan = planTradeSubscriptions({
@@ -689,17 +716,43 @@ function WebSocketSubscriptionUpdate() {
       viewState: tradeRouteViewStateRef.current,
     });
 
-    void backgroundApiProxy.serviceHyperliquidSubscription.setRouteSubscriptionState(
-      {
-        enableLedgerUpdates: plan.enableLedgerUpdates,
-        spotAssetCtxsEnabled: plan.spotAssetCtxsEnabled,
-        spotEnabled: plan.spotEnabled,
-      },
-    );
+    const isInstrumentBackedBySubscriptionState =
+      isTradeInstrumentBackedBySubscriptionState({
+        activeInstrument: activeTradeInstrumentRef.current,
+        tradingMode,
+        perpCoin: perpsActiveAssetCoin,
+        spotCoin: spotActiveAssetCoin,
+      });
 
-    if (!isLoading && plan.shouldSyncSubscriptions) {
-      void actions.current.updateSubscriptions();
-    }
+    const sequence = (syncSequenceRef.current += 1);
+    const routeStateVersion = nextRouteSubscriptionStateVersion();
+    void (async () => {
+      try {
+        const routeStateApplied =
+          await backgroundApiProxy.serviceHyperliquidSubscription.setRouteSubscriptionState(
+            {
+              enableLedgerUpdates: plan.enableLedgerUpdates,
+              routeStateVersion,
+              spotAssetCtxsEnabled: plan.spotAssetCtxsEnabled,
+              spotEnabled: plan.spotEnabled,
+            },
+          );
+
+        if (!routeStateApplied || syncSequenceRef.current !== sequence) {
+          return;
+        }
+
+        if (
+          !isLoading &&
+          plan.shouldSyncSubscriptions &&
+          isInstrumentBackedBySubscriptionState
+        ) {
+          await actions.current.updateSubscriptions();
+        }
+      } catch (error) {
+        console.error('Failed to sync Perps subscriptions:', error);
+      }
+    })();
   }, [
     checkDeps,
     isWebSocketConnected,
@@ -717,6 +770,9 @@ function WebSocketSubscriptionUpdate() {
     tokenSelectorTab,
     infoPanelTab,
     favoritesBarSpotActive,
+    perpsActiveAssetCoin,
+    spotActiveAssetCoin,
+    tradingMode,
   ]);
   return null;
 }
