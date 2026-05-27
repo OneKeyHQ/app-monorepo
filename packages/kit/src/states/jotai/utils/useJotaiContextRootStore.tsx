@@ -1,9 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import {
-  EJotaiContextStoreNames,
-  getJotaiContextTrackerMap,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getJotaiContextTrackerMap } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
@@ -17,16 +14,16 @@ export function useJotaiContextRootStore(data: IJotaiContextStoreData) {
   dataRef.current = data;
 
   useEffect(() => {
-    // console.log('JotaiContextRootStore mount', dataRef.current);
     return () => {
-      // console.log('JotaiContextRootStore unmount', dataRef.current);
       const currentData = dataRef.current;
-      if (currentData.storeName === EJotaiContextStoreNames.discoveryBrowser) {
-        const storeId = buildJotaiContextStoreId(currentData);
-        const mirrorCount = getJotaiContextTrackerMap()[storeId]?.count ?? 0;
-        if (mirrorCount > 0) {
-          return;
-        }
+      // If any mirror is still mounted for this storeId, the store is still
+      // being read from. Removing it now would force the next mirror render
+      // to build a brand-new empty store, splitting the store identity and
+      // making writes from the old store invisible to readers on the new one.
+      const storeId = buildJotaiContextStoreId(currentData);
+      const mirrorCount = getJotaiContextTrackerMap()[storeId]?.count ?? 0;
+      if (mirrorCount > 0) {
+        return;
       }
       jotaiContextStore.removeStore(currentData);
     };

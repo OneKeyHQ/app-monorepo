@@ -158,6 +158,27 @@ describe('calculateAccountTotalValue — wallet-scoped derive matching branch', 
     ).toBe('175');
   });
 
+  test('resolves idSuffix via suffixToDeriveType when normalizeDeriveType fails (Kaspa KaspaOrg → kaspaOfficial)', () => {
+    expect(
+      calculateAccountTotalValue({
+        tokensValue: {
+          "hd-1--m/44'/111111'/0'/0/0--KaspaOrg_kaspa--kaspa": '38',
+        },
+        deFiNetWorth: 0,
+        walletId: 'hd-1',
+        enabledNetworksCompatibleWithWalletId: [{ id: 'kaspa--kaspa' }],
+        networkInfoMap: {
+          'kaspa--kaspa': {
+            deriveType: 'kaspaOfficial',
+            mergeDeriveAssetsEnabled: false,
+            // cspell:ignore kaspaorg
+            suffixToDeriveType: { kaspaorg: 'kaspaOfficial' },
+          },
+        },
+      }),
+    ).toBe('38');
+  });
+
   test('normalizes unknown deriveType to "default" per allowlist (regression: AccountValue parity)', () => {
     // Original AccountValue.tsx used accountUtils.normalizeDeriveType(_deriveType) ?? 'default'.
     // normalizeDeriveType validates against an allowlist and returns undefined for unknown values,
