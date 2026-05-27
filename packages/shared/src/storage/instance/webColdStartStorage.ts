@@ -42,15 +42,20 @@ function getMap(): Map<string, string> {
   return map;
 }
 
-/** Replace the in-memory map with entries loaded from IDB. Called by
+/** Merge entries loaded from IDB into the in-memory map. Called by
  *  hydrate.ts after its IDB getAll resolves. */
 export function primeColdStartCacheMap(
   entries: Iterable<[string, string]>,
 ): void {
   const map = getMap();
-  map.clear();
   for (const [k, v] of entries) {
-    map.set(k, v);
+    // Do NOT clobber entries already written by an early
+    // setColdStartL1MirrorEntry call that fired while hydrate.ts was still
+    // awaiting IDB. The local map is treated as more authoritative than the
+    // stale IDB snapshot for keys present in both.
+    if (!map.has(k)) {
+      map.set(k, v);
+    }
   }
 }
 
