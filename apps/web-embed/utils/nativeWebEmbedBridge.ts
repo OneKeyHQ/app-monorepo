@@ -1,11 +1,20 @@
 import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
+import { EWebEmbedPrivateRequestMethod } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
-type IWebEmbedPrivateProvider = {
+const WEB_EMBED_PRIVATE_REQUEST_METHODS = new Set<string>([
+  'getSensitiveEncodeKey',
+  'webEmbedApiReady',
+  EWebEmbedPrivateRequestMethod.closeWebViewModal,
+  EWebEmbedPrivateRequestMethod.showToast,
+  EWebEmbedPrivateRequestMethod.showDebugMessageDialog,
+]);
+
+type IWebEmbedPrivateProviderFacade = {
   request?: (data: unknown) => Promise<unknown>;
   webembedReceiveHandler?: (
     payload: IJsBridgeMessagePayload,
@@ -19,7 +28,7 @@ type IWebEmbedGlobal = typeof globalThis & {
   };
   $onekey?: {
     jsBridge?: JsBridgeBase;
-    $private?: IWebEmbedPrivateProvider;
+    $private?: IWebEmbedPrivateProviderFacade;
   };
 };
 
@@ -59,6 +68,22 @@ function unwrapRpcResult(response: unknown) {
   return response;
 }
 
+function ensureSupportedPrivateRequest(data: unknown) {
+  if (!data || typeof data !== 'object') {
+    throw new OneKeyLocalError('Invalid WebEmbed private request');
+  }
+
+  const method = (data as { method?: unknown }).method;
+  if (
+    typeof method !== 'string' ||
+    !WEB_EMBED_PRIVATE_REQUEST_METHODS.has(method)
+  ) {
+    throw new OneKeyLocalError(
+      `Unsupported WebEmbed private request: ${String(method)}`,
+    );
+  }
+}
+
 export function setupNativeWebEmbedBridge() {
   const webEmbedGlobal = getWebEmbedGlobal();
   if (webEmbedGlobal.$onekey?.jsBridge) {
@@ -78,8 +103,10 @@ export function setupNativeWebEmbedBridge() {
 
   webEmbedGlobal.$onekey = webEmbedGlobal.$onekey || {};
   webEmbedGlobal.$onekey.jsBridge = bridge;
+  // This is a WebEmbed-only facade, not the full upstream injected $private provider.
   webEmbedGlobal.$onekey.$private = webEmbedGlobal.$onekey.$private || {};
   webEmbedGlobal.$onekey.$private.request = async (data) => {
+    ensureSupportedPrivateRequest(data);
     const response = await bridge.request({
       scope: IInjectedProviderNames.$private,
       data,
