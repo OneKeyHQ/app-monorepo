@@ -25,6 +25,9 @@ import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { GlobalJotaiReady } from '../GlobalJotaiReady/GlobalJotaiReady';
 import WebView from '../WebView';
 
+// @ts-expect-error text-js module imported as string by babel-plugin-inline-import / esbuild
+import injectedWebEmbedCode from './injectedWebEmbed.text-js';
+
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
@@ -290,6 +293,7 @@ export function WebViewWebEmbed({
         onMessage={handleMessage}
         onError={handleError}
         nativeInjectedJavaScriptBeforeContentLoaded={`
+            ${injectedWebEmbedCode}
             window.location.hash = "${fullHash}";
             const WEB_EMBED_ONEKEY_APP_SETTINGS = ${JSON.stringify(
               webEmbedAppSettings,

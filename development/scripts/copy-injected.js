@@ -29,6 +29,14 @@ function copyFile(src, dest) {
   console.log(`Copied ${src} to ${dest}`);
 }
 
+function copyFileIfExists(src, dest) {
+  if (fs.existsSync(src)) {
+    copyFile(src, dest);
+    return;
+  }
+  console.warn(`Skip optional injected file, source not found: ${src}`);
+}
+
 // Function to create directory if it doesn't exist
 function ensureDirectoryExistence(dirPath) {
   if (!fs.existsSync(dirPath)) {
@@ -62,6 +70,14 @@ copyFile(
 copyFile(
   './node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedNative.js',
   './packages/kit/src/components/WebView/injectedNative.text-js',
+);
+copyFileIfExists(
+  './node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedWebEmbed.js',
+  './packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.text-js',
+);
+copyFileIfExists(
+  './node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedWebEmbed.js.LICENSE.txt',
+  './packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.js.LICENSE.txt',
 );
 
 // Copy index html
