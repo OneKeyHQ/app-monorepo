@@ -10,7 +10,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useHyperliquidActions,
-  usePerpsScaleOrderGroupsAtom,
   usePerpsTwapSliceFillsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -31,10 +30,6 @@ import type {
   IFill,
   ITwapSliceFill,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type {
-  IScaleOrderChild,
-  IScaleOrderGroup,
-} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   usePerpTradesHistory,
@@ -50,11 +45,6 @@ const TRADES_HISTORY_PAGE_SIZE = 20;
 
 type IFillWithOid = IFill & {
   oid?: number;
-};
-
-export type IScaleFillInfo = {
-  group: IScaleOrderGroup;
-  child: IScaleOrderChild;
 };
 
 function getFillKey(fill: IFill): string {
@@ -126,7 +116,6 @@ function PerpTradesHistoryList({
   const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
   const actions = useHyperliquidActions();
   const [currentUser] = usePerpsActiveAccountAtom();
-  const [{ groups: scaleOrderGroups }] = usePerpsScaleOrderGroupsAtom();
   const [
     { accountAddress: twapSliceFillsAccountAddress, fills: rawTwapSliceFills },
   ] = usePerpsTwapSliceFillsAtom();
@@ -135,13 +124,6 @@ function PerpTradesHistoryList({
   const [spotPairDisplayMap] = useSpotPairDisplayMapAtom();
   const { showPositionShare } = useShowPositionShare();
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
-  const latestTradeKey = useMemo(() => {
-    const latestTrade = trades[0] as IFillWithOid | undefined;
-    if (!latestTrade) {
-      return '';
-    }
-    return `${latestTrade.oid ?? ''}-${latestTrade.time}-${latestTrade.tid ?? ''}`;
-  }, [trades]);
 
   useEffect(() => {
     void backgroundApiProxy.simpleDb.perp
@@ -152,13 +134,8 @@ function PerpTradesHistoryList({
   }, []);
 
   useEffect(() => {
-    void actions.current.loadScaleOrderGroups();
     void actions.current.loadTwapData();
   }, [actions, currentUser?.accountAddress]);
-
-  useUpdateEffect(() => {
-    void actions.current.loadScaleOrderGroups();
-  }, [actions, latestTradeKey, trades.length]);
 
   const currentAccountAddress = currentUser?.accountAddress?.toLowerCase();
   const twapSliceFills = useMemo(() => {
@@ -179,18 +156,6 @@ function PerpTradesHistoryList({
       }),
     [trades, twapSliceFills],
   );
-
-  const scaleFillInfoByOid = useMemo(() => {
-    const map = new Map<number, IScaleFillInfo>();
-    scaleOrderGroups.forEach((group) => {
-      group.children.forEach((child) => {
-        if (child.oid) {
-          map.set(child.oid, { group, child });
-        }
-      });
-    });
-    return map;
-  }, [scaleOrderGroups]);
 
   const twapIdByFillKey = useMemo(() => {
     const map = new Map<string, number>();
@@ -430,7 +395,6 @@ function PerpTradesHistoryList({
         isHovered={isHovered}
         onHoverChange={onHoverChange}
         builderFeeRate={builderFeeRate}
-        scaleInfo={scaleFillInfoByOid.get((item as IFillWithOid).oid ?? 0)}
         twapId={
           twapIdByFillKey.get(getFillKey(item)) ?? item.twapId ?? undefined
         }
@@ -442,7 +406,6 @@ function PerpTradesHistoryList({
       columnsConfig,
       handleShare,
       builderFeeRate,
-      scaleFillInfoByOid,
       twapIdByFillKey,
     ],
   );
@@ -458,7 +421,6 @@ function PerpTradesHistoryList({
     <CommonTableListView
       onPullToRefresh={async () => {
         await refreshTradesHistory();
-        await actions.current.loadScaleOrderGroups();
         await actions.current.loadTwapData();
       }}
       listViewDebugRenderTrackerProps={useMemo(

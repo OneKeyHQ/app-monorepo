@@ -34,9 +34,7 @@ import { convertHyperLiquidResponse } from '@onekeyhq/shared/src/utils/hyperLiqu
 import {
   assertValidScaleOrderLegs,
   buildScaleOrderLegs,
-  resolveScaleOrderGroupStatus,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   MAX_DECIMALS_PERP,
   formatHlPrice,
@@ -71,11 +69,8 @@ import type {
   IOrderOpenParams,
   IPlaceOrderParams,
   IPlaceScaleOrderParams,
-  IPlaceScaleOrderResult,
   IPlaceTwapOrderParams,
   IPositionTpslOrderParams,
-  IScaleOrderChild,
-  IScaleOrderGroup,
   ISetReferrerRequest,
   ISpotOrderParams,
   ITriggerOrderParams,
@@ -113,81 +108,6 @@ type IOrderAssetId = IOrderParams['a'];
 interface IOrderLogContext {
   accountAddress: string | null;
   exchangeAccountAddress: string | null;
-}
-
-type IScaleOrderResponseStatus =
-  | IOrderResponse['response']['data']['statuses'][number]
-  | { error: string };
-type IScaleOrderRestingStatus = Extract<
-  IOrderResponse['response']['data']['statuses'][number],
-  { resting: unknown }
->;
-type IScaleOrderFilledStatus = Extract<
-  IOrderResponse['response']['data']['statuses'][number],
-  { filled: unknown }
->;
-
-type IScaleOrderResponseLike = {
-  status: IOrderResponse['status'];
-  response: {
-    type: IOrderResponse['response']['type'];
-    data: {
-      statuses: IScaleOrderResponseStatus[];
-    };
-  };
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function isCloid(value: unknown): value is `0x${string}` {
-  return typeof value === 'string' && /^0x[0-9a-fA-F]{32}$/.test(value);
-}
-
-function isRestingStatus(
-  value: Record<string, unknown>,
-): value is IScaleOrderRestingStatus {
-  const resting = value.resting;
-  if (!isRecord(resting) || !Number.isInteger(resting.oid)) {
-    return false;
-  }
-  return resting.cloid === undefined || isCloid(resting.cloid);
-}
-
-function isFilledStatus(
-  value: Record<string, unknown>,
-): value is IScaleOrderFilledStatus {
-  const filled = value.filled;
-  if (!isRecord(filled) || !Number.isInteger(filled.oid)) {
-    return false;
-  }
-  return (
-    typeof filled.totalSz === 'string' &&
-    typeof filled.avgPx === 'string' &&
-    (filled.cloid === undefined || isCloid(filled.cloid))
-  );
-}
-
-function isScaleOrderResponseStatus(
-  value: unknown,
-): value is IScaleOrderResponseStatus {
-  if (value === 'waitingForFill' || value === 'waitingForTrigger') {
-    return true;
-  }
-  if (!isRecord(value)) {
-    return false;
-  }
-  if ('error' in value) {
-    return typeof value.error === 'string';
-  }
-  if ('resting' in value) {
-    return isRestingStatus(value);
-  }
-  if ('filled' in value) {
-    return isFilledStatus(value);
-  }
-  return false;
 }
 
 // TV lowercases everything; HL universe keys perps as `BTC`, spot as `@N`,
@@ -937,105 +857,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     }
   }
 
-  private _createScaleCloid(): `0x${string}` {
-    return `0x${generateUUID({ removeDashes: true }).slice(0, 32)}`;
-  }
-
-  private _applyScaleOrderResponse(
-    group: IScaleOrderGroup,
-    response: IScaleOrderResponseLike,
-  ): IScaleOrderGroup {
-    const statuses = response.response.data.statuses;
-    const children = group.children.map((child, index): IScaleOrderChild => {
-      const status = statuses[index];
-      if (!status) {
-        return child;
-      }
-      if (typeof status === 'string') {
-        return {
-          ...child,
-          status: status === 'waitingForFill' ? 'placing' : child.status,
-        };
-      }
-      if ('error' in status) {
-        return {
-          ...child,
-          status: 'error',
-          error: status.error,
-        };
-      }
-      if ('resting' in status) {
-        return {
-          ...child,
-          oid: status.resting.oid,
-          cloid: status.resting.cloid ?? child.cloid,
-          status: 'resting',
-        };
-      }
-      if ('filled' in status) {
-        return {
-          ...child,
-          oid: status.filled.oid,
-          cloid: status.filled.cloid ?? child.cloid,
-          status: 'filled',
-          filledSize: status.filled.totalSz,
-          avgPx: status.filled.avgPx,
-        };
-      }
-      return child;
-    });
-    const status = resolveScaleOrderGroupStatus(children);
-    const error = children.find((child) => child.error)?.error;
-
-    return {
-      ...group,
-      children,
-      status,
-      error,
-      updatedAt: Date.now(),
-    };
-  }
-
-  private _extractScaleOrderResponseFromError(
-    error: unknown,
-    expectedStatusCount: number,
-  ): IScaleOrderResponseLike | undefined {
-    if (!isRecord(error)) {
-      return undefined;
-    }
-    const apiResponse = error.response;
-    if (!isRecord(apiResponse) || apiResponse.status !== 'ok') {
-      return undefined;
-    }
-    const response = apiResponse.response;
-    if (!isRecord(response) || response.type !== 'order') {
-      return undefined;
-    }
-    const data = response.data;
-    if (!isRecord(data) || !Array.isArray(data.statuses)) {
-      return undefined;
-    }
-    if (data.statuses.length !== expectedStatusCount) {
-      return undefined;
-    }
-    if (!data.statuses.every(isScaleOrderResponseStatus)) {
-      return undefined;
-    }
-    return {
-      status: 'ok',
-      response: {
-        type: 'order',
-        data: {
-          statuses: data.statuses,
-        },
-      },
-    };
-  }
-
   @backgroundMethod()
   async placeScaleOrder(
     params: IPlaceScaleOrderParams,
-  ): Promise<IPlaceScaleOrderResult> {
+  ): Promise<IOrderResponse> {
     await this.checkAccountCanTrade();
     if (!this._account) {
       throw new OneKeyLocalError(
@@ -1043,7 +868,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       );
     }
 
-    const now = Date.now();
     const szDecimals = params.szDecimals ?? 2;
     const side = params.isBuy ? 'long' : 'short';
     const tif = params.tif ?? 'Gtc';
@@ -1057,49 +881,17 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     });
     assertValidScaleOrderLegs({ legs });
 
-    const groupId = `scale-${now}-${generateUUID({ removeDashes: true }).slice(
-      0,
-      8,
-    )}`;
-    const accountAddress = this._account.toLowerCase();
-    const children: IScaleOrderChild[] = legs.map((leg) => ({
-      ...leg,
-      cloid: this._createScaleCloid(),
-      status: 'placing',
-    }));
-    const group: IScaleOrderGroup = {
-      id: groupId,
-      accountAddress,
-      assetId: params.assetId,
-      coin: normalizePerpsCoin(params.coin),
-      side,
-      isBuy: params.isBuy,
-      totalSize: params.size,
-      lowerPrice: params.lowerPrice,
-      upperPrice: params.upperPrice,
-      orderCount: params.orderCount,
-      reduceOnly: Boolean(params.reduceOnly),
-      tif,
-      status: 'placing',
-      children,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    await this.backgroundApi.simpleDb.perp.saveScaleOrderGroup(group);
-
-    const orders: IOrderParams[] = children.map((child) => ({
+    const orders: IOrderParams[] = legs.map((leg) => ({
       a: params.assetId,
       b: params.isBuy,
-      p: child.price,
-      s: child.size,
+      p: leg.price,
+      s: leg.size,
       r: Boolean(params.reduceOnly),
       t: { limit: { tif } },
-      c: child.cloid,
     }));
 
     try {
-      const response = await this.placeOrderRaw(
+      return await this.placeOrderRaw(
         {
           orders,
           grouping: 'na',
@@ -1108,49 +900,16 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           action: 'multiOrder',
           originalParams: params,
           extra: {
-            orderMode: 'scale',
-            groupId,
             orderCount: orders.length,
             reduceOnly: Boolean(params.reduceOnly),
             tif,
           },
         },
       );
-      const nextGroup = this._applyScaleOrderResponse(group, response);
-      await this.backgroundApi.simpleDb.perp.saveScaleOrderGroup(nextGroup);
-      return {
-        group: nextGroup,
-        response,
-      };
     } catch (error) {
-      const errorText = String(error);
-      const errorResponse = this._extractScaleOrderResponseFromError(
-        error,
-        group.children.length,
+      throw new OneKeyLocalError(
+        `Failed to place scale order: ${String(error)}`,
       );
-      const failedGroup: IScaleOrderGroup = errorResponse
-        ? {
-            ...this._applyScaleOrderResponse(group, errorResponse),
-            error: errorText,
-          }
-        : {
-            ...group,
-            status: 'failed',
-            error: errorText,
-            children: group.children.map((child) => ({
-              ...child,
-              status: 'error',
-              error: errorText,
-            })),
-            updatedAt: Date.now(),
-          };
-      await this.backgroundApi.simpleDb.perp.saveScaleOrderGroup(failedGroup);
-      if (failedGroup.status === 'partiallyFailed') {
-        throw new OneKeyLocalError(
-          `Scale order partially placed: ${errorText}`,
-        );
-      }
-      throw new OneKeyLocalError(`Failed to place scale order: ${errorText}`);
     }
   }
 

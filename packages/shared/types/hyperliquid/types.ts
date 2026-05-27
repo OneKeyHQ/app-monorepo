@@ -1,4 +1,4 @@
-import type { IFill, IHex, IOrderResponse, IWithdraw3Request } from './sdk';
+import type { IFill, IHex, IWithdraw3Request } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
 export enum EPerpsSubscriptionCategory {
@@ -190,21 +190,6 @@ export interface ITriggerOrderParams {
 // ── Scale Order Types ──
 
 export type IScaleOrderTif = 'Gtc' | 'Alo';
-export type IScaleOrderStatus =
-  | 'placing'
-  | 'active'
-  | 'partiallyFilled'
-  | 'filled'
-  | 'partiallyFailed'
-  | 'failed'
-  | 'canceled';
-export type IScaleOrderChildStatus =
-  | 'placing'
-  | 'resting'
-  | 'partiallyFilled'
-  | 'filled'
-  | 'error'
-  | 'canceled';
 
 export interface IScaleOrderBuildParams {
   totalSize: string;
@@ -226,35 +211,6 @@ export interface IScaleOrderValidationResult {
   errors: string[];
 }
 
-export interface IScaleOrderChild extends IScaleOrderLeg {
-  cloid: `0x${string}`;
-  oid?: number;
-  status: IScaleOrderChildStatus;
-  error?: string;
-  filledSize?: string;
-  avgPx?: string;
-}
-
-export interface IScaleOrderGroup {
-  id: string;
-  accountAddress: string;
-  assetId: number;
-  coin: string;
-  side: 'long' | 'short';
-  isBuy: boolean;
-  totalSize: string;
-  lowerPrice: string;
-  upperPrice: string;
-  orderCount: number;
-  reduceOnly: boolean;
-  tif: IScaleOrderTif;
-  status: IScaleOrderStatus;
-  children: IScaleOrderChild[];
-  createdAt: number;
-  updatedAt: number;
-  error?: string;
-}
-
 export interface IPlaceScaleOrderParams {
   assetId: number;
   coin: string;
@@ -266,11 +222,6 @@ export interface IPlaceScaleOrderParams {
   reduceOnly?: boolean;
   tif?: IScaleOrderTif;
   szDecimals?: number;
-}
-
-export interface IPlaceScaleOrderResult {
-  group: IScaleOrderGroup;
-  response: IOrderResponse;
 }
 
 // ── TWAP Order Types ──
