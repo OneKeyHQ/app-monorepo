@@ -52,7 +52,7 @@ export function getSwapQuoteDurationSortValue(quote: ISwapQuoteDurationInput) {
 export function formatSwapQuoteDuration(quote: ISwapQuoteDurationInput) {
   const estTimeMinutes = toPositiveBigNumber(quote.estTime);
   if (estTimeMinutes) {
-    return formatMinutes(estTimeMinutes, BigNumber.ROUND_HALF_UP);
+    return formatMinutes(estTimeMinutes, BigNumber.ROUND_UP);
   }
 
   const estimatedTimeSeconds = toPositiveBigNumber(quote.estimatedTime);
