@@ -47,9 +47,7 @@ class ServiceCustomRpc extends ServiceBase {
     };
   }
 
-  private async fetchChainListPage(
-    page: number,
-  ): Promise<IChainListItem[]> {
+  private async fetchChainListPage(page: number): Promise<IChainListItem[]> {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.get<{ data: IChainListItem[] }>(
       '/wallet/v1/network/chainlist',
