@@ -19,6 +19,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import type {
   IFetchQuoteResult,
   ISwapToken,
@@ -54,6 +55,7 @@ const SwapProviderListItem = ({
   ...rest
 }: ISwapProviderListItemProps) => {
   const intl = useIntl();
+  const { estTime, estimatedTime } = providerResult;
   const networkFeeComponent = useMemo(() => {
     if (providerResult.fee?.estimatedFeeFiatValue) {
       return (
@@ -88,20 +90,8 @@ const SwapProviderListItem = ({
   }, [currencySymbol, intl, providerResult.fee?.estimatedFeeFiatValue]);
 
   const estimatedTimeComponent = useMemo(() => {
-    if (providerResult.estimatedTime) {
-      const timeInSeconds = new BigNumber(providerResult.estimatedTime);
-      const oneMinuteInSeconds = new BigNumber(60);
-      let displayTime;
-      if (timeInSeconds.isLessThan(oneMinuteInSeconds)) {
-        displayTime = '< 1min';
-      } else {
-        // Divide by 60 and round up to the nearest whole number
-        const timeInMinutes = timeInSeconds
-          .dividedBy(60)
-          .integerValue(BigNumber.ROUND_UP)
-          .toNumber();
-        displayTime = `${timeInMinutes}min`;
-      }
+    const displayTime = formatSwapQuoteDuration({ estTime, estimatedTime });
+    if (displayTime) {
       return (
         <XStack gap="$1" alignItems="center">
           <Tooltip
@@ -128,7 +118,7 @@ const SwapProviderListItem = ({
       );
     }
     return null;
-  }, [intl, providerResult.estimatedTime]);
+  }, [estTime, estimatedTime, intl]);
 
   const protocolFeeComponent = useMemo(
     () => (
