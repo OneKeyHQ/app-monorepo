@@ -699,6 +699,9 @@ export function useSwapInit(params?: ISwapInitParams) {
         }
       }
       if (isFocus) {
+        if (!swapNetworksRef.current.length) {
+          void fetchSwapNetworks();
+        }
         if (swapFromMarketJumpTokenRef.current?.token) {
           void swapTypeSwitchAction(swapFromMarketJumpTokenRef.current.type);
           if (swapFromMarketJumpTokenRef.current.direction === 'from') {
