@@ -1761,6 +1761,67 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data.delegations;
   }
 
+  // Memoized for a short window so concurrent callers (Earn portfolio,
+  // useRecommendedRefreshScope, getEarnAvailableAccountsParams) collapse into
+  // a single backend roundtrip instead of each firing their own
+  // serviceAllNetwork.getAllNetworkAccounts() call on every tab switch.
+  // CDP profile showed 3-4 redundant calls per Wallet/Earn focus producing
+  // ~700ms of cumulative CPU work in ServiceAllNetwork.
+  private _getEarnAvailableAccounts = memoizee(
+    async (params: {
+      accountId: string;
+      networkId: string;
+      indexedAccountId?: string;
+      excludeTestNetwork?: boolean;
+    }) => {
+      const { accountId, networkId } = params;
+      const { accountsInfo } =
+        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+          accountId,
+          networkId,
+          indexedAccountId: params.indexedAccountId,
+          fetchAllNetworkAccounts: accountUtils.isOthersAccount({ accountId })
+            ? undefined
+            : true,
+          excludeTestNetwork: params.excludeTestNetwork,
+        });
+
+      // Check if the wallet is using BTC-only firmware
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      let isBtcOnlyFirmware = false;
+      if (walletId && accountUtils.isHwWallet({ walletId })) {
+        isBtcOnlyFirmware =
+          await this.backgroundApi.serviceAccount.isBtcOnlyFirmwareByWalletId({
+            walletId,
+          });
+      }
+
+      return accountsInfo.filter((account) => {
+        // Filter out non-Taproot BTC addresses
+        if (
+          networkUtils.isBTCNetwork(account.networkId) &&
+          !isTaprootAddress(account.apiAddress)
+        ) {
+          return false;
+        }
+
+        // For BTC-only firmware, only allow BTC network accounts
+        if (
+          isBtcOnlyFirmware &&
+          !networkUtils.isBTCNetwork(account.networkId)
+        ) {
+          return false;
+        }
+
+        return true;
+      });
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+    },
+  );
+
   @backgroundMethod()
   async getEarnAvailableAccounts(params: {
     accountId: string;
@@ -1768,44 +1829,7 @@ class ServiceStaking extends ServiceBase {
     indexedAccountId?: string;
     excludeTestNetwork?: boolean;
   }) {
-    const { accountId, networkId } = params;
-    const { accountsInfo } =
-      await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
-        accountId,
-        networkId,
-        indexedAccountId: params.indexedAccountId,
-        fetchAllNetworkAccounts: accountUtils.isOthersAccount({ accountId })
-          ? undefined
-          : true,
-        excludeTestNetwork: params.excludeTestNetwork,
-      });
-
-    // Check if the wallet is using BTC-only firmware
-    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-    let isBtcOnlyFirmware = false;
-    if (walletId && accountUtils.isHwWallet({ walletId })) {
-      isBtcOnlyFirmware =
-        await this.backgroundApi.serviceAccount.isBtcOnlyFirmwareByWalletId({
-          walletId,
-        });
-    }
-
-    return accountsInfo.filter((account) => {
-      // Filter out non-Taproot BTC addresses
-      if (
-        networkUtils.isBTCNetwork(account.networkId) &&
-        !isTaprootAddress(account.apiAddress)
-      ) {
-        return false;
-      }
-
-      // For BTC-only firmware, only allow BTC network accounts
-      if (isBtcOnlyFirmware && !networkUtils.isBTCNetwork(account.networkId)) {
-        return false;
-      }
-
-      return true;
-    });
+    return this._getEarnAvailableAccounts(params);
   }
 
   _getFAQListForHome = memoizee(

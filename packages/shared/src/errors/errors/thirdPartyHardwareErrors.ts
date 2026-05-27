@@ -323,6 +323,22 @@ export class ThirdPartyDeviceBusy extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.DeviceBusy;
 }
 
+/** Multiple USB devices connected — only one allowed at a time */
+export class ThirdPartyDeviceOneDeviceOnly extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslations.hardware_third_party_usb_single_device_only_desc,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceOneDeviceOnly;
+}
+
 /** Transport-layer failure (USB / BLE communication) */
 export class ThirdPartyTransportError extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
