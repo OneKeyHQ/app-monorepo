@@ -3,12 +3,7 @@ import { useCallback, useLayoutEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import {
-  Page,
-  isNativeTablet,
-  useIsSplitView,
-  useMedia,
-} from '@onekeyhq/components';
+import { Page, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -92,8 +87,6 @@ function MarketDetailV2(
   >,
 ) {
   const { navigation } = props;
-  const isLandscape = useIsSplitView();
-  const isTablet = isNativeTablet();
   const media = useMedia();
 
   useLayoutEffect(() => {
@@ -114,7 +107,7 @@ function MarketDetailV2(
       const shouldHideTabBar =
         platformEnv.isNative || (!platformEnv.isExtension && media.md);
 
-      if (!shouldHideTabBar || (isTablet && isLandscape)) {
+      if (!shouldHideTabBar) {
         return;
       }
 
@@ -123,7 +116,7 @@ function MarketDetailV2(
       return () => {
         appEventBus.emit(EAppEventBusNames.HideTabBar, false);
       };
-    }, [isLandscape, isTablet, media.md]),
+    }, [media.md]),
   );
 
   return (

@@ -12,13 +12,43 @@ import { Recommended } from '../../../Earn/components/Recommended';
 import { safePushToEarnRoute } from '../../../Earn/earnUtils';
 import { RichBlock } from '../RichBlock';
 
-function EarnListView() {
+const HOME_EARN_FETCH_IDLE_TIMEOUT_MS = 1200;
+
+function EarnListView({ isActive = true }: { isActive?: boolean }) {
   const navigation = useAppNavigation();
+  const [enableRecommendedFetch, setEnableRecommendedFetch] = useState(false);
+
+  useEffect(() => {
+    if (!isActive) {
+      setEnableRecommendedFetch(false);
+      return undefined;
+    }
+
+    const timeoutId = setTimeout(
+      () => setEnableRecommendedFetch(true),
+      HOME_EARN_FETCH_IDLE_TIMEOUT_MS,
+    );
+    const idleId =
+      typeof requestIdleCallback === 'function'
+        ? requestIdleCallback(() => setEnableRecommendedFetch(true), {
+            timeout: HOME_EARN_FETCH_IDLE_TIMEOUT_MS,
+          })
+        : undefined;
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (idleId !== undefined && typeof cancelIdleCallback === 'function') {
+        cancelIdleCallback(idleId);
+      }
+    };
+  }, [isActive]);
+
   const renderContent = useCallback(() => {
     return (
       <Recommended
         withHeader={false}
         disableHorizontalBleed
+        enableFetch={enableRecommendedFetch}
         recommendedItemContainerProps={{
           bg: '$bgSubdued',
           borderColor: '$neutral3',
@@ -27,7 +57,7 @@ function EarnListView() {
         }}
       />
     );
-  }, []);
+  }, [enableRecommendedFetch]);
 
   const handleViewMore = useCallback(() => {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);

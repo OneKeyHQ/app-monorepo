@@ -521,7 +521,7 @@ function MarketPresetAntiMEVReadonlyRow({
   return (
     <XStack alignItems="center" justifyContent="space-between" gap="$3">
       <XStack alignItems="center" gap="$1.5" flex={1} minWidth={0}>
-        <Icon name="ShieldCheckDoneSolid" size="$3.5" color="$iconSuccess" />
+        <Icon name="ShieldCheckDoneSolid" size="$4" color="$iconSuccess" />
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
           {label}
         </SizableText>
