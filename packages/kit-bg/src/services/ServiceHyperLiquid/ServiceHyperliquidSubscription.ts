@@ -135,7 +135,7 @@ interface IRequiredSubscriptionInfo {
 
 const ALL_DEXS_ASSET_CTXS_CACHE_WRITE_INTERVAL_MS =
   timerUtils.getTimeDurationMs({
-    minute: 1,
+    seconds: 30,
   });
 
 const L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS = timerUtils.getTimeDurationMs({
@@ -1021,9 +1021,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._clientInitPromise = null;
     this._currentState.isConnected = false;
     this._hasInitialSubscription = false;
-    await perpsNetworkStatusAtom.set(
-      (prev): IPerpsNetworkStatus => ({ ...prev, connected: false }),
-    );
+    this._markNetworkStatusPending();
     this._emitConnectionStatus();
     await this.getWebSocketClient();
   }
@@ -1218,13 +1216,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // watcher will be installed by socketOpenHandler on the next successful
     // open to catch late-arriving atom writes.
     this._unwatchSubscriptionAtoms();
-    void perpsNetworkStatusAtom.set((prev): IPerpsNetworkStatus => {
-      return {
-        ...prev,
-        connected: false,
-        pingMs: null,
-      };
-    });
+    this._markNetworkStatusPending();
   };
 
   socketOpenHandler: (event: WebSocketEventMap['open']) => void = async (
@@ -1752,12 +1744,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this.allSubSpecsMap = {};
     this.pendingSubSpecsMap = {};
     this._activeSubscriptions.clear();
-    void perpsNetworkStatusAtom.set((prev): IPerpsNetworkStatus => {
-      return {
-        ...prev,
-        connected: false,
-      };
-    });
+    this._markNetworkStatusPending();
   }
 
   subscriptionHandlerByType: Partial<
@@ -2170,6 +2157,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       clearTimeout(this._networkTimeoutTimer);
       this._networkTimeoutTimer = null;
     }
+  }
+
+  private _markNetworkStatusPending(): void {
+    void perpsNetworkStatusAtom.set(
+      (prev): IPerpsNetworkStatus => ({
+        ...prev,
+        connected: undefined,
+        pingMs: null,
+      }),
+    );
   }
 
   private _emitHyperliquidDataUpdate(

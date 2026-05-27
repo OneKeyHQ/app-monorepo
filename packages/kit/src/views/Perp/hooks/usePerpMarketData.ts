@@ -12,6 +12,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
+
 export interface IPerpMarketDataReturn {
   currentTokenData: any | null;
   markPrice: string;
@@ -80,6 +82,8 @@ function getFreshL2BookSnapshotFromSwr({
 export function useL2Book(options?: IL2BookOptions): {
   l2Book: IL2BookData | null;
   hasOrderBook: boolean;
+  isMarketDataStale: boolean;
+  lastUpdate: number | null;
   getBestBid: () => string | null;
   getBestAsk: () => string | null;
   getSpread: () => number | null;
@@ -92,6 +96,7 @@ export function useL2Book(options?: IL2BookOptions): {
   const expectedCoin = activeTradeInstrument.coin;
   const nSigFigs = options?.nSigFigs;
   const mantissa = options?.mantissa;
+  const marketDataFreshness = usePerpsMarketDataFreshness();
 
   const l2Book = useMemo((): IL2BookData | null => {
     let bookData: HL.IBook | null | undefined;
@@ -167,6 +172,8 @@ export function useL2Book(options?: IL2BookOptions): {
   return {
     l2Book,
     hasOrderBook: !!l2Book,
+    isMarketDataStale: marketDataFreshness.isStale,
+    lastUpdate: marketDataFreshness.lastMessageAt,
     getBestBid,
     getBestAsk,
     getSpread,

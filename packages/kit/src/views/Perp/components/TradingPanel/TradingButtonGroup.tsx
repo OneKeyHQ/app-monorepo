@@ -40,7 +40,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { useOrderConfirm } from '../../hooks';
+import { useOrderConfirm, usePerpsMarketDataFreshness } from '../../hooks';
 import {
   useConfirmHyperliquidTerms,
   useEnableTradingWithDepositFallback,
@@ -56,6 +56,7 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../utils/mobileLayoutTrace';
+import { shouldNotifyPerpsNetworkIssue } from '../../utils/perpsMarketDataFreshness';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
@@ -125,6 +126,9 @@ function SideButtonInternal({
   const { handleConfirm } = useOrderConfirm();
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPriceBN } = useTradingPrice();
+  const marketDataFreshness = usePerpsMarketDataFreshness();
+  const shouldBlockForMarketData =
+    shouldNotifyPerpsNetworkIssue(marketDataFreshness);
   const enableTradingWithDepositFallback =
     useEnableTradingWithDepositFallback();
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
@@ -404,6 +408,18 @@ function SideButtonInternal({
 
   const handlePress = useDebouncedCallback(
     async (): Promise<void> => {
+      if (shouldBlockForMarketData) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.perp_offline,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.perps_offline_moblie,
+          }),
+        });
+        return;
+      }
+
       // ── Trigger mode validation ──
       if (isTriggerMode && formData.triggerOrderType) {
         const tp = formData.triggerPrice?.trim();
@@ -726,6 +742,7 @@ function SideButtonInternal({
       hasOrderValue,
       disablePerpAction: Boolean(perpConfigCommon?.disablePerpActionPerp),
       ipDisablePerp: Boolean(perpConfigCommon?.ipDisablePerp),
+      marketDataFreshness: marketDataFreshness.reason,
     });
   }, [
     buttonDisabled,
@@ -743,6 +760,7 @@ function SideButtonInternal({
     perpsAccountStatus.canTrade,
     priceError,
     side,
+    marketDataFreshness.reason,
   ]);
 
   const handleLayout = useCallback(
@@ -916,6 +934,7 @@ function SideButtonInternal({
       <Button
         testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
         size="medium"
+        childrenAsText={false}
         borderRadius="$4"
         bg={buttonStyles.bg}
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}

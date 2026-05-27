@@ -294,8 +294,7 @@ function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
 
   // Throttle ALL_DEXS_ASSET_CTXS to 1s (leading + trailing) — fires every
-  // ~500ms and causes token-selector row re-renders; startTransition yields
-  // to user interactions.
+  // ~500ms and causes high fan-out market row updates.
   const assetCtxsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const assetCtxsDirtyRef = useRef<IWsAllDexsAssetCtxs | null>(null);
 
@@ -737,8 +736,6 @@ function WebSocketSubscriptionUpdate() {
 
   // eslint-disable-next-line @typescript-eslint/no-inferrable-types
   const isLoading: boolean = !!loadingInfo?.selectAccountLoading;
-  const isLoadingRef = useRef(isLoading);
-  isLoadingRef.current = isLoading;
 
   // Primitives as deps — avoids re-running on same-value object changes
   const instrumentCoin = activeTradeInstrument?.coin;
@@ -765,6 +762,21 @@ function WebSocketSubscriptionUpdate() {
   tradeRouteViewStateRef.current = tradeRouteViewState;
   const syncSequenceRef = useRef(0);
 
+  const subscriptionPlan = planTradeSubscriptions({
+    activeInstrument: activeTradeInstrumentRef.current,
+    hasAccount: !!accountAddress,
+    orderBookOptions: activeOrderBookOptionsRef.current,
+    viewState: tradeRouteViewStateRef.current,
+  });
+
+  const isInstrumentBackedBySubscriptionState =
+    isTradeInstrumentBackedBySubscriptionState({
+      activeInstrument: activeTradeInstrumentRef.current,
+      tradingMode,
+      perpCoin: perpsActiveAssetCoin,
+      spotCoin: spotActiveAssetCoin,
+    });
+
   useEffect(() => {
     checkDeps({
       isWebSocketConnected,
@@ -773,6 +785,7 @@ function WebSocketSubscriptionUpdate() {
       address: accountAddress,
       coin: instrumentCoin,
       tradingMode: instrumentMode,
+      assetId: instrumentAssetId,
       mantissa: orderBookMantissa,
       nSigFigs: orderBookNSigFigs,
       orderBookCoin,
@@ -784,22 +797,8 @@ function WebSocketSubscriptionUpdate() {
       perpsActiveAssetCoin,
       spotActiveAssetCoin,
       subscriptionTradingMode: tradingMode,
+      shouldSyncSubscriptions: subscriptionPlan.shouldSyncSubscriptions,
     });
-
-    const plan = planTradeSubscriptions({
-      activeInstrument: activeTradeInstrumentRef.current,
-      hasAccount: !!accountAddress,
-      orderBookOptions: activeOrderBookOptionsRef.current,
-      viewState: tradeRouteViewStateRef.current,
-    });
-
-    const isInstrumentBackedBySubscriptionState =
-      isTradeInstrumentBackedBySubscriptionState({
-        activeInstrument: activeTradeInstrumentRef.current,
-        tradingMode,
-        perpCoin: perpsActiveAssetCoin,
-        spotCoin: spotActiveAssetCoin,
-      });
 
     const sequence = (syncSequenceRef.current += 1);
     const routeStateVersion = nextRouteSubscriptionStateVersion();
@@ -808,10 +807,10 @@ function WebSocketSubscriptionUpdate() {
         const routeStateApplied =
           await backgroundApiProxy.serviceHyperliquidSubscription.setRouteSubscriptionState(
             {
-              enableLedgerUpdates: plan.enableLedgerUpdates,
+              enableLedgerUpdates: subscriptionPlan.enableLedgerUpdates,
               routeStateVersion,
-              spotAssetCtxsEnabled: plan.spotAssetCtxsEnabled,
-              spotEnabled: plan.spotEnabled,
+              spotAssetCtxsEnabled: subscriptionPlan.spotAssetCtxsEnabled,
+              spotEnabled: subscriptionPlan.spotEnabled,
             },
           );
 
@@ -821,7 +820,7 @@ function WebSocketSubscriptionUpdate() {
 
         if (
           !isLoading &&
-          plan.shouldSyncSubscriptions &&
+          subscriptionPlan.shouldSyncSubscriptions &&
           isInstrumentBackedBySubscriptionState
         ) {
           markPerpsColdStartPerf('ui_update_subscriptions_call', {
@@ -858,6 +857,11 @@ function WebSocketSubscriptionUpdate() {
     perpsActiveAssetCoin,
     spotActiveAssetCoin,
     tradingMode,
+    isInstrumentBackedBySubscriptionState,
+    subscriptionPlan.enableLedgerUpdates,
+    subscriptionPlan.spotAssetCtxsEnabled,
+    subscriptionPlan.spotEnabled,
+    subscriptionPlan.shouldSyncSubscriptions,
   ]);
   return null;
 }

@@ -12,6 +12,7 @@ export {
   type IPopularTickerItem,
 } from './usePopularTickers';
 export { useOrderConfirm } from './useOrderConfirm';
+export { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
 export { useTradingPrice } from './useTradingPrice';
 export { useTradingCalculationsForSide } from './useTradingCalculationsForSide';
 
