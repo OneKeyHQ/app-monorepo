@@ -2201,6 +2201,10 @@ export type IApproveConfirmFnParams = {
   // Stakefish ETH validator
   validatorPubkey?: string;
   stakeType?: IEarnStakeType;
+  onStepChange?: (
+    step: number,
+    options?: { shouldShowPostWrapApproveStep?: boolean },
+  ) => void;
 };
 
 export interface IEarnSummary {

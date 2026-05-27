@@ -467,6 +467,7 @@ export const StakeSection = ({
       effectiveApy,
       validatorPubkey,
       stakeType: confirmStakeType,
+      onStepChange,
     }: IApproveConfirmFnParams) => {
       if (!hasRequiredData) return;
 
@@ -494,6 +495,7 @@ export const StakeSection = ({
             : undefined,
         postWrapApproveSpenderAddress:
           effectiveStakeType === 'wrap' ? approveSpenderAddress : undefined,
+        onStepChange,
         stakingInfo: {
           label: isPendleProvider ? EEarnLabels.Buy : EEarnLabels.Stake,
           protocol: earnUtils.getEarnProviderName({
@@ -743,6 +745,14 @@ export const StakeSection = ({
             spenderAddress: approveSpenderAddress,
             token: effectiveStakeTokenInfo?.token,
           }}
+          postWrapApproveTarget={
+            nativeStakeType === 'wrap'
+              ? {
+                  spenderAddress: approveSpenderAddress,
+                  token: nativeWrappedStakeAsset?.info,
+                }
+              : undefined
+          }
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}

@@ -365,6 +365,10 @@ type IUniversalStakeProps = {
     spenderAddress: string;
     token?: IToken;
   };
+  postWrapApproveTarget?: {
+    spenderAddress: string;
+    token?: IToken;
+  };
   beforeFooter?: ReactElement | null;
   protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   showApyDetail?: boolean;
@@ -404,6 +408,7 @@ export function UniversalStake({
   tokenInfo,
   approveType,
   approveTarget,
+  postWrapApproveTarget,
   currentAllowance,
   beforeFooter,
   protocolSwitchConfig,
@@ -753,6 +758,92 @@ export function UniversalStake({
     [actionSymbol, intl, tokenInfo?.token.symbol, tokenSymbol],
   );
 
+  const fetchPostWrapAllowance = useCallback(async () => {
+    if (
+      !isWrapStake ||
+      !postWrapApproveTarget?.token?.address ||
+      !postWrapApproveTarget.spenderAddress
+    ) {
+      return undefined;
+    }
+
+    const allowanceInfo =
+      await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+        accountId,
+        networkId,
+        spenderAddress: postWrapApproveTarget.spenderAddress,
+        tokenAddress: postWrapApproveTarget.token.address,
+      });
+
+    return allowanceInfo.allowanceParsed;
+  }, [
+    accountId,
+    isWrapStake,
+    networkId,
+    postWrapApproveTarget?.spenderAddress,
+    postWrapApproveTarget?.token?.address,
+  ]);
+
+  const getShouldShowPostWrapApproveStep = useCallback(
+    (allowanceValue?: string) => {
+      if (!isWrapStake) {
+        return false;
+      }
+
+      const amountBN = new BigNumber(amountValue);
+      if (amountBN.isNaN() || amountBN.lte(0)) {
+        return false;
+      }
+
+      if (
+        !postWrapApproveTarget?.token?.address ||
+        !postWrapApproveTarget.spenderAddress
+      ) {
+        return true;
+      }
+
+      const allowanceBN = new BigNumber(allowanceValue ?? '0');
+      return allowanceBN.isNaN() || allowanceBN.lt(amountBN);
+    },
+    [
+      amountValue,
+      isWrapStake,
+      postWrapApproveTarget?.spenderAddress,
+      postWrapApproveTarget?.token?.address,
+    ],
+  );
+
+  const { result: postWrapAllowance } = usePromiseResult(
+    fetchPostWrapAllowance,
+    [fetchPostWrapAllowance],
+    {
+      undefinedResultIfReRun: true,
+    },
+  );
+
+  const estimatedShouldShowPostWrapApproveStep = useMemo(
+    () => getShouldShowPostWrapApproveStep(postWrapAllowance),
+    [getShouldShowPostWrapApproveStep, postWrapAllowance],
+  );
+  const [
+    shouldShowPostWrapApproveStepOverride,
+    setShouldShowPostWrapApproveStepOverride,
+  ] = useState<boolean | undefined>(undefined);
+  const shouldShowPostWrapApproveStep =
+    shouldShowPostWrapApproveStepOverride ??
+    estimatedShouldShowPostWrapApproveStep;
+
+  const stakeProgressStep2LabelId = useMemo(() => {
+    if (shouldShowPostWrapApproveStep) {
+      return ETranslations.global_approve;
+    }
+    return isPendleProvider ? ETranslations.global_swap : undefined;
+  }, [isPendleProvider, shouldShowPostWrapApproveStep]);
+
+  const stakeProgressStep3LabelId = shouldShowPostWrapApproveStep
+    ? ETranslations.earn_deposit
+    : undefined;
+
   useEffect(() => {
     const amountValueBN = new BigNumber(amountValue);
     // Check if shouldApprove transitioned from true to false and amount is valid
@@ -881,6 +972,32 @@ export function UniversalStake({
   );
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
+  const [stakeProgressStep, setStakeProgressStep] = useState(
+    EStakeProgressStep.approve,
+  );
+  const handleStakeProgressChange = useCallback(
+    (step: number, options?: { shouldShowPostWrapApproveStep?: boolean }) => {
+      if (options?.shouldShowPostWrapApproveStep !== undefined) {
+        setShouldShowPostWrapApproveStepOverride(
+          options.shouldShowPostWrapApproveStep,
+        );
+      }
+      setStakeProgressStep(step);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    setShouldShowPostWrapApproveStepOverride(undefined);
+    setStakeProgressStep(EStakeProgressStep.approve);
+  }, [
+    accountId,
+    amountValue,
+    networkId,
+    postWrapApproveTarget?.spenderAddress,
+    postWrapApproveTarget?.token?.address,
+    stakeType,
+  ]);
 
   const maxAmountValue = useMemo(() => {
     const balanceBN = new BigNumber(balance);
@@ -1089,10 +1206,24 @@ export function UniversalStake({
     const handleConfirm = async () => {
       setSubmitting(true);
       try {
+        if (isWrapStake) {
+          let shouldShowApproveStep = true;
+          try {
+            const allowanceValue = await fetchPostWrapAllowance();
+            shouldShowApproveStep =
+              getShouldShowPostWrapApproveStep(allowanceValue);
+          } catch {
+            shouldShowApproveStep = true;
+          }
+          setShouldShowPostWrapApproveStepOverride(shouldShowApproveStep);
+          setStakeProgressStep(EStakeProgressStep.approve);
+        }
+
         await onConfirm?.({
           amount: amountValue,
           effectiveApy: transactionConfirmation?.effectiveApy,
           stakeType,
+          onStepChange: handleStakeProgressChange,
           ...permitSignatureParams,
           ...stakefishParams,
         });
@@ -1177,6 +1308,10 @@ export function UniversalStake({
     transactionConfirmation?.effectiveApy,
     transactionConfirmation?.receive,
     stakeType,
+    isWrapStake,
+    fetchPostWrapAllowance,
+    getShouldShowPostWrapApproveStep,
+    handleStakeProgressChange,
   ]);
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
@@ -1605,6 +1740,15 @@ export function UniversalStake({
     (isWrapStake ||
       (useApprove &&
         (shouldApprove || showStakeProgressRef.current[amountValue])));
+  const stakeProgressCurrentStep = useMemo(() => {
+    if (isWrapStake) {
+      return stakeProgressStep;
+    }
+    if (isDisable || shouldApprove) {
+      return EStakeProgressStep.approve;
+    }
+    return EStakeProgressStep.deposit;
+  }, [isDisable, isWrapStake, shouldApprove, stakeProgressStep]);
 
   const onConfirmText = useMemo(() => {
     if (effectiveShowExpiredRefresh) {
@@ -1666,15 +1810,10 @@ export function UniversalStake({
         <Stack>
           <StakeProgress
             approveType={approveType}
-            currentStep={
-              isWrapStake || isDisable || shouldApprove
-                ? EStakeProgressStep.approve
-                : EStakeProgressStep.deposit
-            }
+            currentStep={stakeProgressCurrentStep}
             step1Label={isWrapStake ? wrapStakeLabel : undefined}
-            step2LabelId={
-              isPendleProvider ? ETranslations.global_swap : undefined
-            }
+            step2LabelId={stakeProgressStep2LabelId}
+            step3LabelId={stakeProgressStep3LabelId}
           />
         </Stack>
       ) : null}
@@ -2124,15 +2263,10 @@ export function UniversalStake({
               {isShowStakeProgress ? (
                 <StakeProgress
                   approveType={approveType}
-                  currentStep={
-                    isWrapStake || isDisable || shouldApprove
-                      ? EStakeProgressStep.approve
-                      : EStakeProgressStep.deposit
-                  }
+                  currentStep={stakeProgressCurrentStep}
                   step1Label={isWrapStake ? wrapStakeLabel : undefined}
-                  step2LabelId={
-                    isPendleProvider ? ETranslations.global_swap : undefined
-                  }
+                  step2LabelId={stakeProgressStep2LabelId}
+                  step3LabelId={stakeProgressStep3LabelId}
                 />
               ) : null}
             </Stack>

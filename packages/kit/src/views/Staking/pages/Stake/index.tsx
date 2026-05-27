@@ -392,6 +392,7 @@ function BasicStakePage() {
       unsignedMessage,
       effectiveApy,
       stakeType: confirmStakeType,
+      onStepChange,
     }: IApproveConfirmFnParams) => {
       if (!token) {
         return;
@@ -420,6 +421,7 @@ function BasicStakePage() {
           send: { token, amount },
           tags: [actionTag],
         },
+        onStepChange,
         // TODO: remove term after babylon remove term
         term: undefined,
         feeRate: Number(btcFeeRate) > 0 ? Number(btcFeeRate) : undefined,
@@ -560,6 +562,14 @@ function BasicStakePage() {
             spenderAddress: approveSpenderAddress,
             token: effectiveStakeTokenInfo?.token,
           }}
+          postWrapApproveTarget={
+            nativeStakeType === 'wrap'
+              ? {
+                  spenderAddress: approveSpenderAddress,
+                  token: nativeWrappedStakeToken,
+                }
+              : undefined
+          }
           tokenSelectorTriggerProps={stakeTokenSelectorTriggerProps}
           requestSymbol={stakeRequestSymbol}
           transactionInputTokenAddress={selectedStakeTokenAddress}

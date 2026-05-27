@@ -212,6 +212,7 @@ export function useUniversalStake({
       stakingInfo,
       onSuccess,
       onFail,
+      onStepChange,
       // Stakefish specific param
       validatorPublicKey,
     }: {
@@ -237,6 +238,10 @@ export function useUniversalStake({
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      onStepChange?: (
+        step: number,
+        options?: { shouldShowPostWrapApproveStep?: boolean },
+      ) => void;
       // Stakefish specific param
       validatorPublicKey?: string;
     }) => {
@@ -365,8 +370,6 @@ export function useUniversalStake({
           return;
         }
 
-        await timerUtils.wait(150);
-
         const postWrapStakingInfo = stakingInfo
           ? {
               ...stakingInfo,
@@ -426,6 +429,11 @@ export function useUniversalStake({
         const allowanceBN = await fetchPostWrapAllowance();
         const shouldApprovePostWrapStake =
           !amountBN.isNaN() && !allowanceBN.isNaN() && allowanceBN.lt(amountBN);
+        onStepChange?.(2, {
+          shouldShowPostWrapApproveStep: shouldApprovePostWrapStake,
+        });
+
+        await timerUtils.wait(150);
 
         if (shouldApprovePostWrapStake) {
           const account = await backgroundApiProxy.serviceAccount.getAccount({
@@ -465,6 +473,8 @@ export function useUniversalStake({
             });
             return;
           }
+
+          onStepChange?.(3);
         }
 
         const normalConfirmPayload = await buildStakeConfirmPayload({
