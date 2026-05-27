@@ -125,7 +125,6 @@ function networkFieldsContainKeyword(
     network.code?.toLowerCase().includes(kw) ||
     network.shortname?.toLowerCase().includes(kw) ||
     network.shortcode?.toLowerCase().includes(kw) ||
-    network.symbol?.toLowerCase().includes(kw) ||
     false
   );
 }
@@ -271,7 +270,11 @@ export function getFilteredTokenBySearchKey({
 
       if (matchedSubs.length > 0) {
         if (hasNetworkHitInAnySub) {
-          results.push(...matchedSubs);
+          results.push(
+            ...matchedSubs.filter(
+              (s) => s.strength !== ESearchStrength.TOKEN_ONLY,
+            ),
+          );
         } else {
           results.push({
             token,
