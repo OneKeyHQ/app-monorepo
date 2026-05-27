@@ -251,18 +251,22 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async fetchSwapNetworks(): Promise<ISwapNetwork[]> {
+  async fetchSwapNetworks(options?: {
+    refreshClientNetworks?: boolean;
+  }): Promise<ISwapNetwork[]> {
     const protocol = EProtocolOfExchange.ALL;
-    const params = {
+    const requestParams = {
       protocol,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     const { data } = await client.get<IFetchResponse<ISwapNetworkBase[]>>(
       '/swap/v1/networks',
-      { params },
+      { params: requestParams },
     );
     const allClientSupportNetworks =
-      await this.backgroundApi.serviceNetwork.getAllNetworks();
+      await this.backgroundApi.serviceNetwork.getAllNetworks({
+        clearCache: options?.refreshClientNetworks,
+      });
     const swapNetworks = data?.data
       ?.map((network) => {
         const clientNetwork = allClientSupportNetworks.networks.find(
