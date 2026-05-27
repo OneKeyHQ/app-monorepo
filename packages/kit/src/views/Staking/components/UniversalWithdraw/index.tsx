@@ -9,12 +9,12 @@ import { useDebouncedCallback } from 'use-debounce';
 import {
   Accordion,
   Alert,
+  Dialog,
   Divider,
   Icon,
   IconButton,
   Image,
   Page,
-  Popover,
   SizableText,
   Stack,
   XStack,
@@ -187,24 +187,32 @@ type IWithdrawPathBox = {
   tip?: IEarnTransactionTip;
 };
 
-type IWithdrawPathPopoverRef = {
+type IWithdrawPathDialogContentProps = {
   boxes: IWithdrawPathBox[];
-  selectedIndex: number;
-  onSelect: (index: number) => void;
-  onTipAction?: (tip: IEarnTransactionTip) => void;
+  initialSelectedIndex: number;
+  selectedIndexRef: {
+    current: number;
+  };
+  onTipAction?: (tip: IEarnTransactionTip) => void | Promise<void>;
 };
 
-function WithdrawPathPopoverContent({
-  closePopover,
-  popoverRef,
-}: {
-  isOpen?: boolean;
-  closePopover: () => void;
-  popoverRef: React.MutableRefObject<IWithdrawPathPopoverRef>;
-}) {
-  const { boxes, selectedIndex, onSelect, onTipAction } = popoverRef.current;
+function WithdrawPathDialogContent({
+  boxes,
+  initialSelectedIndex,
+  selectedIndexRef,
+  onTipAction,
+}: IWithdrawPathDialogContentProps) {
+  const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
+  const handleSelect = useCallback(
+    (index: number) => {
+      selectedIndexRef.current = index;
+      setSelectedIndex(index);
+    },
+    [selectedIndexRef],
+  );
+
   return (
-    <YStack px="$5" pb="$5">
+    <YStack>
       {boxes.map((box, index) => {
         const isSelected = index === selectedIndex;
         const isDisabled = !!box.disabled;
@@ -213,9 +221,8 @@ function WithdrawPathPopoverContent({
             ? {
                 primary: box.tip.button.text.text,
                 onPrimaryPress: () => {
-                  closePopover();
                   if (box.tip) {
-                    onTipAction?.(box.tip);
+                    void onTipAction?.(box.tip);
                   }
                 },
               }
@@ -231,8 +238,7 @@ function WithdrawPathPopoverContent({
               opacity={isDisabled ? 0.5 : 1}
               onPress={() => {
                 if (isDisabled) return;
-                onSelect(index);
-                closePopover();
+                handleSelect(index);
               }}
             >
               <Stack
@@ -1249,29 +1255,45 @@ export function UniversalWithdraw({
   const shouldResumeEthenaCooldownUnstake =
     isEthenaCooldownWithdrawPath && pendingEthenaCooldownUnstake;
 
-  const withdrawPathPopoverRef = useRef<IWithdrawPathPopoverRef>({
-    boxes: [],
-    selectedIndex: 0,
-    onSelect: () => {},
-    onTipAction: () => {},
-  });
-
-  withdrawPathPopoverRef.current = {
-    boxes: withdrawPathConfirmBoxes,
-    selectedIndex: effectiveSelectedWithdrawPathIndex,
-    onSelect: handleSelectWithdrawPath,
-    onTipAction: handleTipAction,
-  };
-
-  const renderWithdrawPathPopoverContent = useCallback(
-    (props: { isOpen?: boolean; closePopover: () => void }) => (
-      <WithdrawPathPopoverContent
-        {...props}
-        popoverRef={withdrawPathPopoverRef}
-      />
-    ),
-    [],
-  );
+  const showWithdrawPathDialog = useCallback(() => {
+    const selectedIndexRef = {
+      current: effectiveSelectedWithdrawPathIndex,
+    };
+    const dialogRef: {
+      close?: () => Promise<void> | void;
+    } = {};
+    const dialog = Dialog.show({
+      title:
+        transactionConfirmation?.withdrawPath?.text?.text ||
+        intl.formatMessage({
+          id: ETranslations.defi_withdrawal_options,
+        }),
+      renderContent: (
+        <WithdrawPathDialogContent
+          boxes={withdrawPathConfirmBoxes}
+          initialSelectedIndex={effectiveSelectedWithdrawPathIndex}
+          selectedIndexRef={selectedIndexRef}
+          onTipAction={async (tip) => {
+            await dialogRef.close?.();
+            await handleTipAction(tip);
+          }}
+        />
+      ),
+      onConfirm: () => {
+        if (selectedIndexRef.current !== effectiveSelectedWithdrawPathIndex) {
+          handleSelectWithdrawPath(selectedIndexRef.current);
+        }
+      },
+    });
+    dialogRef.close = dialog.close;
+  }, [
+    effectiveSelectedWithdrawPathIndex,
+    handleSelectWithdrawPath,
+    handleTipAction,
+    intl,
+    transactionConfirmation?.withdrawPath?.text?.text,
+    withdrawPathConfirmBoxes,
+  ]);
 
   const confirmText = useMemo(() => {
     if (shouldApprove) return ETranslations.global_approve;
@@ -1406,64 +1428,55 @@ export function UniversalWithdraw({
       </Stack>
 
       {showWithdrawPathSelector && selectedWithdrawPath ? (
-        <Popover
-          title=""
-          showHeader={false}
-          placement="bottom"
-          renderTrigger={
-            <XStack
-              borderWidth={StyleSheet.hairlineWidth}
-              borderColor="$borderSubdued"
-              borderRadius="$3"
-              p="$3.5"
-              gap="$2.5"
-              ai="center"
-              userSelect="none"
-              cursor="pointer"
-              hoverStyle={{ bg: '$bgHover' }}
-            >
-              <YStack flex={1} gap="$1">
-                <SizableText size="$bodyMdMedium" color="$text">
-                  {selectedWithdrawPath.title.text}
+        <XStack
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          borderRadius="$3"
+          p="$3.5"
+          gap="$2.5"
+          ai="center"
+          userSelect="none"
+          cursor="pointer"
+          hoverStyle={{ bg: '$bgHover' }}
+          onPress={showWithdrawPathDialog}
+        >
+          <YStack flex={1} gap="$1">
+            <SizableText size="$bodyMdMedium" color="$text">
+              {selectedWithdrawPath.title.text}
+            </SizableText>
+            {selectedWithdrawPath.subtitle?.text ? (
+              <SizableText
+                size="$bodySm"
+                color={selectedWithdrawPath.subtitle?.color || '$textSubdued'}
+              >
+                {selectedWithdrawPath.subtitle.text}
+              </SizableText>
+            ) : null}
+          </YStack>
+          <YStack gap="$1" ai="flex-end">
+            <EarnAmountText size="$bodyMdMedium" color="$text">
+              {selectedWithdrawPath.description.text}
+            </EarnAmountText>
+            {selectedWithdrawPath.subtitleDescription?.text ? (
+              <XStack ai="center">
+                <SizableText
+                  size="$bodySmMedium"
+                  color={
+                    selectedWithdrawPath.subtitleDescription?.color ||
+                    '$textSubdued'
+                  }
+                >
+                  {selectedWithdrawPath.subtitleDescription.text}
                 </SizableText>
-                {selectedWithdrawPath.subtitle?.text ? (
-                  <SizableText
-                    size="$bodySm"
-                    color={
-                      selectedWithdrawPath.subtitle?.color || '$textSubdued'
-                    }
-                  >
-                    {selectedWithdrawPath.subtitle.text}
-                  </SizableText>
-                ) : null}
-              </YStack>
-              <YStack gap="$1" ai="flex-end">
-                <EarnAmountText size="$bodyMdMedium" color="$text">
-                  {selectedWithdrawPath.description.text}
-                </EarnAmountText>
-                {selectedWithdrawPath.subtitleDescription?.text ? (
-                  <XStack ai="center">
-                    <SizableText
-                      size="$bodySmMedium"
-                      color={
-                        selectedWithdrawPath.subtitleDescription?.color ||
-                        '$textSubdued'
-                      }
-                    >
-                      {selectedWithdrawPath.subtitleDescription.text}
-                    </SizableText>
-                  </XStack>
-                ) : null}
-              </YStack>
-              <Icon
-                name="ChevronRightSmallOutline"
-                size="$5"
-                color="$iconSubdued"
-              />
-            </XStack>
-          }
-          renderContent={renderWithdrawPathPopoverContent}
-        />
+              </XStack>
+            ) : null}
+          </YStack>
+          <Icon
+            name="ChevronRightSmallOutline"
+            size="$5"
+            color="$iconSubdued"
+          />
+        </XStack>
       ) : null}
 
       {formTransactionTip?.text ? (
