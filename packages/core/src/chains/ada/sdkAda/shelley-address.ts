@@ -4,6 +4,8 @@
 // @ts-expect-error
 import { derivePrivate, toPublic } from 'cardano-crypto.js';
 
+import type { IHdCredentialDecryptCacheParams } from '@onekeyhq/core/src/secret';
+
 import { baseAddressFromXpub, stakingAddressFromXpub } from './addresses';
 import { getRootKey, toBip32StringPath } from './bip32';
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
@@ -120,7 +122,8 @@ export const batchGetShelleyAddresses = async (
   password: string,
   indexes: number[],
   networkId: EAdaNetworkId,
+  options?: IHdCredentialDecryptCacheParams,
 ) => {
-  const rootKey = await getRootKey(password, hdCredential);
+  const rootKey = await getRootKey(password, hdCredential, options);
   return batchGetShelleyAddressByRootKey(rootKey, indexes, networkId);
 };

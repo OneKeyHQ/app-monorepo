@@ -375,6 +375,7 @@ export type IPrepareHdAccountsParamsBase = {
 };
 export type IPrepareHdAccountsParams = IPrepareHdAccountsParamsBase & {
   password: string;
+  hdCredentialCacheScopeId?: string;
 };
 export type IPrepareQrAccountsParams = IPrepareHdAccountsParamsBase & {
   // isVerifyAddress?: boolean;

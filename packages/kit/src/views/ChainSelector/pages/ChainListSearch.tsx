@@ -47,17 +47,76 @@ type IChainListSearchRoute = RouteProp<
   | EModalSettingRoutes.SettingChainListSearch
 >;
 
-function pickBestRpcUrl(rpcUrls: string[]): string {
-  const httpUrls = rpcUrls.filter(
+type IMeasuredRpcUrl = {
+  rpcUrl: string;
+  responseTime: number;
+};
+
+const CHAIN_LIST_RETRY_DELAYS_MS = [2000, 5000, 10_000] as const;
+const CHAIN_LIST_RETRY_INTERVAL_MS = 60_000;
+const RPC_MEASURE_TIMEOUT_MS = 10_000;
+const RPC_MEASURE_MAX_CANDIDATES = 5;
+
+type IChainListLoadRequest = {
+  append: boolean;
+  isRetry?: boolean;
+  keywords?: string;
+  page: number;
+};
+
+function getChainListRetryDelayMs(retryAttempt: number): number {
+  return (
+    CHAIN_LIST_RETRY_DELAYS_MS[retryAttempt] ?? CHAIN_LIST_RETRY_INTERVAL_MS
+  );
+}
+
+function getCandidateRpcUrls(rpcUrls: string[]): string[] {
+  return rpcUrls.filter(
     (url) =>
       !url.includes('${') &&
       (url.startsWith('https://') || url.startsWith('http://')),
   );
-  const httpsUrl = httpUrls.find((url) => url.startsWith('https://'));
-  if (httpsUrl) return httpsUrl;
-  if (httpUrls.length > 0) return httpUrls[0];
-  // Fallback: leave empty so user fills it manually
-  return '';
+}
+
+function normalizeSearchKeywords(text?: string): string {
+  return text?.trim() ?? '';
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timeout')), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+function selectTopCandidateRpcUrls(rpcUrls: string[], max: number): string[] {
+  const candidates = getCandidateRpcUrls(rpcUrls);
+  const httpsUrls = candidates.filter((url) => url.startsWith('https://'));
+  const httpUrls = candidates.filter((url) => !url.startsWith('https://'));
+  return [...httpsUrls, ...httpUrls].slice(0, max);
+}
+
+function pickFastestRpcUrl({
+  results,
+  fallbackRpcUrl,
+}: {
+  results: PromiseSettledResult<IMeasuredRpcUrl>[];
+  fallbackRpcUrl: string;
+}): string {
+  const availableRpcUrls = results
+    .filter((result) => result.status === 'fulfilled')
+    .map((result) => result.value)
+    .toSorted((a, b) => a.responseTime - b.responseTime);
+  return availableRpcUrls[0]?.rpcUrl ?? fallbackRpcUrl;
 }
 
 function ChainListSearchSkeletonList() {
@@ -100,9 +159,21 @@ function ChainListSearch() {
     new Set(),
   );
   const [hasError, setHasError] = useState(false);
+  const [measuringChainId, setMeasuringChainId] = useState<
+    number | undefined
+  >();
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chainListRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const chainListRetryAttemptRef = useRef(0);
+  const chainListRetryRequestRef = useRef<IChainListLoadRequest | null>(null);
+  const loadChainListRef = useRef<
+    ((request: IChainListLoadRequest) => Promise<void>) | null
+  >(null);
   const isSearchingRef = useRef(false);
+  const activeKeywordsRef = useRef('');
   // Monotonic id bumped on every list-replacing op (initial load, reload,
   // search, pagination); used to discard stale async results.
   const listReqIdRef = useRef(0);
@@ -110,6 +181,137 @@ function ChainListSearch() {
   // requests before isLoadingMore state has propagated.
   const loadingMoreRef = useRef(false);
   const mountedRef = useIsMounted();
+
+  const clearChainListRetryTimer = useCallback(() => {
+    if (chainListRetryTimerRef.current) {
+      clearTimeout(chainListRetryTimerRef.current);
+      chainListRetryTimerRef.current = null;
+    }
+    chainListRetryAttemptRef.current = 0;
+    chainListRetryRequestRef.current = null;
+  }, []);
+
+  const scheduleChainListRetry = useCallback(
+    (request: IChainListLoadRequest) => {
+      if (!mountedRef.current) {
+        return;
+      }
+      if (chainListRetryTimerRef.current) {
+        clearTimeout(chainListRetryTimerRef.current);
+      }
+      const delay = getChainListRetryDelayMs(chainListRetryAttemptRef.current);
+      chainListRetryRequestRef.current = {
+        ...request,
+        isRetry: true,
+      };
+      chainListRetryTimerRef.current = setTimeout(() => {
+        chainListRetryTimerRef.current = null;
+        chainListRetryAttemptRef.current += 1;
+        const retryRequest = chainListRetryRequestRef.current;
+        if (!retryRequest) {
+          return;
+        }
+        void loadChainListRef.current?.({
+          ...retryRequest,
+          isRetry: true,
+        });
+      }, delay);
+    },
+    [mountedRef],
+  );
+
+  const loadChainList = useCallback(
+    async (request: IChainListLoadRequest) => {
+      const keywords = normalizeSearchKeywords(request.keywords);
+      if (!request.isRetry) {
+        clearChainListRetryTimer();
+      }
+      listReqIdRef.current += 1;
+      const reqId = listReqIdRef.current;
+      const isFirstPage = !request.append && request.page === 1;
+      const isSearchRequest = !!keywords;
+      try {
+        if (!request.isRetry) {
+          setHasError(false);
+          if (isFirstPage) {
+            setIsInitialLoading(!isSearchRequest);
+            isSearchingRef.current = isSearchRequest;
+            setIsSearching(isSearchRequest);
+          }
+        }
+        if (request.append) {
+          loadingMoreRef.current = true;
+          setIsLoadingMore(true);
+        }
+        const result =
+          await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords({
+            keywords: keywords || undefined,
+            page: request.page,
+          });
+        if (!mountedRef.current || reqId !== listReqIdRef.current) return;
+        setHasError(false);
+        clearChainListRetryTimer();
+        if (request.append) {
+          if (result.length === 0) {
+            setHasMore(false);
+          } else {
+            setItems((prev) => {
+              const existingIds = new Set(prev.map((p) => p.chainId));
+              const newItems = result.filter(
+                (r) => !existingIds.has(r.chainId),
+              );
+              return [...prev, ...newItems];
+            });
+            setHasMore(true);
+            setCurrentPage(request.page);
+          }
+          return;
+        }
+        activeKeywordsRef.current = keywords;
+        setItems(result);
+        setHasMore(result.length > 0);
+        setCurrentPage(request.page);
+      } catch {
+        if (!mountedRef.current || reqId !== listReqIdRef.current) return;
+        if (request.append) {
+          setHasMore(false);
+        } else {
+          setHasError(true);
+          activeKeywordsRef.current = keywords;
+          setItems([]);
+          setHasMore(false);
+          setCurrentPage(1);
+        }
+        scheduleChainListRetry({
+          append: request.append,
+          keywords,
+          page: request.page,
+        });
+      } finally {
+        if (request.append) {
+          loadingMoreRef.current = false;
+          if (mountedRef.current) {
+            setIsLoadingMore(false);
+          }
+        }
+        if (
+          !request.append &&
+          !request.isRetry &&
+          mountedRef.current &&
+          reqId === listReqIdRef.current
+        ) {
+          setIsInitialLoading(false);
+          isSearchingRef.current = false;
+          setIsSearching(false);
+        }
+      }
+    },
+    [clearChainListRetryTimer, mountedRef, scheduleChainListRetry],
+  );
+
+  useEffect(() => {
+    loadChainListRef.current = loadChainList;
+  }, [loadChainList]);
 
   const refreshExistingNetworks = useCallback(async () => {
     try {
@@ -139,33 +341,23 @@ function ChainListSearch() {
   }, [refreshExistingNetworks]);
 
   const reloadDefaultList = useCallback(async () => {
-    listReqIdRef.current += 1;
-    const reqId = listReqIdRef.current;
-    try {
-      setIsInitialLoading(true);
-      setHasError(false);
-      const result =
-        await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords({
-          page: 1,
-        });
-      if (!mountedRef.current || reqId !== listReqIdRef.current) return;
-      setItems(result);
-      setHasMore(result.length > 0);
-      setCurrentPage(1);
-    } catch {
-      if (!mountedRef.current || reqId !== listReqIdRef.current) return;
-      setHasError(true);
-    } finally {
-      if (mountedRef.current && reqId === listReqIdRef.current) {
-        setIsInitialLoading(false);
-      }
-    }
-  }, [mountedRef]);
+    await loadChainList({
+      append: false,
+      page: 1,
+    });
+  }, [loadChainList]);
 
   // Load first page on mount
   useEffect(() => {
     void reloadDefaultList();
   }, [reloadDefaultList]);
+
+  const visibleItems = useMemo(
+    () => items.filter((item) => item.rpc.length > 0),
+    [items],
+  );
+
+  const isMeasuringRpc = measuringChainId !== undefined;
 
   // Load more pages (pagination)
   const handleEndReached = useCallback(async () => {
@@ -173,48 +365,43 @@ function ChainListSearch() {
       loadingMoreRef.current ||
       isLoadingMore ||
       !hasMore ||
-      searchText ||
+      hasError ||
       isSearchingRef.current
     ) {
       return;
     }
-    loadingMoreRef.current = true;
-    listReqIdRef.current += 1;
-    const reqId = listReqIdRef.current;
-    const nextPage = currentPage + 1;
-    try {
-      setIsLoadingMore(true);
-      const result =
-        await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords({
-          page: nextPage,
-        });
-      if (!mountedRef.current || reqId !== listReqIdRef.current) return;
-      if (result.length === 0) {
-        setHasMore(false);
-      } else {
-        setItems((prev) => [...prev, ...result]);
-        setCurrentPage(nextPage);
-      }
-    } catch {
-      // Silently fail on pagination
-    } finally {
-      loadingMoreRef.current = false;
-      if (mountedRef.current && reqId === listReqIdRef.current) {
-        setIsLoadingMore(false);
-      }
+    const keywords = activeKeywordsRef.current;
+    if (normalizeSearchKeywords(searchText) !== keywords) {
+      return;
     }
-  }, [isLoadingMore, hasMore, searchText, currentPage, mountedRef]);
+    const nextPage = currentPage + 1;
+    void loadChainList({
+      append: true,
+      keywords: keywords || undefined,
+      page: nextPage,
+    });
+  }, [
+    isLoadingMore,
+    hasMore,
+    hasError,
+    searchText,
+    currentPage,
+    loadChainList,
+  ]);
 
   // Handle search text change with debounce
   const handleSearchTextChange = useCallback(
     (text: string) => {
+      listReqIdRef.current += 1;
+      clearChainListRetryTimer();
       setSearchText(text);
+      const keywords = normalizeSearchKeywords(text);
 
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
 
-      if (!text) {
+      if (!keywords) {
         // Clear search: reload default paginated list
         isSearchingRef.current = false;
         setIsSearching(false);
@@ -223,36 +410,17 @@ function ChainListSearch() {
       }
 
       debounceTimerRef.current = setTimeout(async () => {
-        listReqIdRef.current += 1;
-        const reqId = listReqIdRef.current;
-        try {
-          isSearchingRef.current = true;
-          setIsSearching(true);
-          setHasError(false);
-          defaultLogger.setting.page.chainListSearchPerformed({
-            keywords: text,
-          });
-          const result =
-            await backgroundApiProxy.serviceCustomRpc.searchChainListByKeywords(
-              {
-                keywords: text,
-              },
-            );
-          if (!mountedRef.current || reqId !== listReqIdRef.current) return;
-          setItems(result);
-          setHasMore(false); // search results are not paginated
-        } catch {
-          if (!mountedRef.current || reqId !== listReqIdRef.current) return;
-          setHasError(true);
-        } finally {
-          if (mountedRef.current && reqId === listReqIdRef.current) {
-            isSearchingRef.current = false;
-            setIsSearching(false);
-          }
-        }
+        defaultLogger.setting.page.chainListSearchPerformed({
+          keywords,
+        });
+        await loadChainList({
+          append: false,
+          keywords,
+          page: 1,
+        });
       }, 1500);
     },
-    [reloadDefaultList, mountedRef],
+    [reloadDefaultList, loadChainList, clearChainListRetryTimer],
   );
 
   // Clean up debounce timer
@@ -261,8 +429,9 @@ function ChainListSearch() {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
+      clearChainListRetryTimer();
     },
-    [],
+    [clearChainListRetryTimer],
   );
 
   const pushFormPage = useCallback(
@@ -282,20 +451,63 @@ function ChainListSearch() {
   );
 
   const handleSelectNetwork = useCallback(
-    (item: IChainListItem) => {
+    async (item: IChainListItem) => {
+      if (isMeasuringRpc) {
+        return;
+      }
       defaultLogger.setting.page.chainListNetworkSelected({
         chainId: String(item.chainId),
         networkName: item.name,
       });
+      const candidateRpcUrls = selectTopCandidateRpcUrls(
+        item.rpc,
+        RPC_MEASURE_MAX_CANDIDATES,
+      );
+      let rpcUrl = candidateRpcUrls[0] ?? '';
+      if (candidateRpcUrls.length > 1) {
+        setMeasuringChainId(item.chainId);
+        try {
+          const results = await Promise.allSettled(
+            candidateRpcUrls.map(async (candidateRpcUrl) => {
+              const result = await withTimeout(
+                backgroundApiProxy.serviceCustomRpc.measureCustomNetworkRpcStatus(
+                  {
+                    rpcUrl: candidateRpcUrl,
+                    chainId: item.chainId,
+                  },
+                ),
+                RPC_MEASURE_TIMEOUT_MS,
+              );
+              return {
+                rpcUrl: candidateRpcUrl,
+                responseTime: result.responseTime,
+              };
+            }),
+          );
+          rpcUrl = pickFastestRpcUrl({
+            results,
+            fallbackRpcUrl: candidateRpcUrls[0],
+          });
+        } catch {
+          rpcUrl = candidateRpcUrls[0];
+        } finally {
+          if (mountedRef.current) {
+            setMeasuringChainId(undefined);
+          }
+        }
+      }
+      if (!mountedRef.current) {
+        return;
+      }
       pushFormPage({
         networkName: item.name,
-        rpcUrl: pickBestRpcUrl(item.rpc),
+        rpcUrl,
         chainId: item.chainId,
         symbol: item.nativeCurrency?.symbol ?? '',
         blockExplorerUrl: item.explorers?.[0]?.url ?? '',
       });
     },
-    [pushFormPage],
+    [isMeasuringRpc, pushFormPage, mountedRef],
   );
 
   const handleManualAdd = useCallback(() => {
@@ -334,25 +546,37 @@ function ChainListSearch() {
   const renderItem = useCallback(
     ({ item }: { item: IChainListItem }) => {
       const isExisting = isNetworkExisting(item.chainId);
+      const isMeasuring = measuringChainId === item.chainId;
+      const rightContent = (() => {
+        if (isMeasuring) {
+          return <Spinner size="small" />;
+        }
+        if (isExisting) {
+          return (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.added })}
+            </SizableText>
+          );
+        }
+        return null;
+      })();
       return (
         <ListItem
           h={60}
-          disabled={isExisting}
+          disabled={isExisting || isMeasuring}
           opacity={isExisting ? 0.5 : 1}
           renderAvatar={<LetterAvatar letter={item.name?.[0]} size="$10" />}
           title={item.name}
           subtitle={`Symbol: ${item.nativeCurrency?.symbol ?? '-'}    ID: ${item.chainId}`}
-          onPress={() => handleSelectNetwork(item)}
+          onPress={() => {
+            void handleSelectNetwork(item);
+          }}
         >
-          {isExisting ? (
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.added })}
-            </SizableText>
-          ) : null}
+          {rightContent}
         </ListItem>
       );
     },
-    [isNetworkExisting, intl, handleSelectNetwork],
+    [isNetworkExisting, measuringChainId, intl, handleSelectNetwork],
   );
 
   const listFooter = useMemo(() => {
@@ -408,7 +632,7 @@ function ChainListSearch() {
           <ChainListSearchSkeletonList />
         ) : (
           <ListView
-            data={items}
+            data={visibleItems}
             estimatedItemSize={60}
             keyExtractor={(item) => String(item.chainId)}
             renderItem={renderItem}

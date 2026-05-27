@@ -38,9 +38,9 @@ import {
   batchGetPublicKeys,
   decryptAsync,
   encryptAsync,
-  mnemonicFromEntropyAsync,
   mnemonicToSeedAsync,
   secp256k1,
+  seedFromHdCredentialAsync,
   verify,
 } from '../../secret';
 import { EAddressEncodings, ECoreApiExportedSecretKeyType } from '../../types';
@@ -307,8 +307,13 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
   // root fingerprint
   async buildXfpFromMnemonic({ mnemonic }: { mnemonic: string }) {
     const seed = await mnemonicToSeedAsync({ mnemonic });
+    return this.buildXfpFromSeed({ seed });
+  }
+
+  async buildXfpFromSeed({ seed }: { seed: Buffer | string }) {
+    const seedBuffer = bufferUtils.toBuffer(seed);
     const bip32 = getBitcoinBip32();
-    const root = bip32.fromSeed(seed, getBtcForkNetwork('btc'));
+    const root = bip32.fromSeed(seedBuffer, getBtcForkNetwork('btc'));
 
     // const child = root.deriveHardened(0);  // derive path m/0'
     const child = root;
@@ -897,6 +902,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       indexes,
       networkInfo: { networkChainCode },
       addressEncoding,
+      hdCredentialCacheScopeId,
     } = query;
 
     // template:  "m/49'/0'/$$INDEX$$'/0/0"
@@ -920,6 +926,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       password,
       prefix: pathPrefix, // m/49'/0'
       relPaths, // 0'   1'
+      hdCredentialCacheScopeId,
     });
     defaultLogger.account.accountCreatePerf.batchGetPublicKeysBtcDone();
 
@@ -939,15 +946,12 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       ] as typeof network.bip32) || network.bip32;
 
     defaultLogger.account.accountCreatePerf.mnemonicFromEntropy();
-    const mnemonic = await mnemonicFromEntropyAsync({
+    const seed = await seedFromHdCredentialAsync({
       hdCredential,
       password,
+      hdCredentialCacheScopeId,
     });
     defaultLogger.account.accountCreatePerf.mnemonicFromEntropyDone();
-
-    defaultLogger.account.accountCreatePerf.mnemonicToSeed();
-    const seed = await mnemonicToSeedAsync({ mnemonic });
-    defaultLogger.account.accountCreatePerf.mnemonicToSeedDone();
 
     defaultLogger.account.accountCreatePerf.seedToRootBip32();
     const root = getBitcoinBip32().fromSeed(seed);
@@ -1011,6 +1015,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
             hdCredential,
             password,
             path,
+            hdCredentialCacheScopeId,
           },
         });
         defaultLogger.account.accountCreatePerf.xpubToSegwitDone();

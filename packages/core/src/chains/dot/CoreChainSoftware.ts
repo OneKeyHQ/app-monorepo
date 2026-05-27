@@ -225,12 +225,20 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
-    const { template, hdCredential, password, indexes } = query;
+    const {
+      template,
+      hdCredential,
+      password,
+      indexes,
+      hdCredentialCacheScopeId,
+    } = query;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
     const indexFormatted = indexes.map((index) =>
       pathSuffix.replace('{index}', index.toString()),
     );
-    const mnemonic = await mnemonicFromEntropy(hdCredential, password);
+    const mnemonic = await mnemonicFromEntropy(hdCredential, password, {
+      hdCredentialCacheScopeId,
+    });
 
     const publicKeys = indexFormatted.map((index) => {
       const path = `${pathPrefix}/${index}`;

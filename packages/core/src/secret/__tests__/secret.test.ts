@@ -17,6 +17,7 @@ import {
   N,
   batchGetPrivateKeys,
   batchGetPublicKeys,
+  clearHdCredentialDecryptCache,
   compressPublicKey,
   decryptAsync,
   decryptImportedCredential,
@@ -1827,6 +1828,46 @@ describe('Secret Module Tests', () => {
         password: TEST_PASSWORD,
       });
       expect(mnemonic).toMatchSnapshot();
+    });
+
+    it('should isolate flow-scoped cache by encrypted credential', async () => {
+      const otherMnemonic =
+        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testRevealableSeed,
+        password: TEST_PASSWORD,
+      });
+      const otherEncryptedSeed = await encryptRevealableSeed({
+        rs: mnemonicToRevealableSeed(otherMnemonic),
+        password: TEST_PASSWORD,
+      });
+      const hdCredentialCacheScopeId = 'test-hd-credential-cache-scope';
+
+      try {
+        await expect(
+          mnemonicFromEntropyAsync({
+            hdCredential: encryptedSeed,
+            password: TEST_PASSWORD,
+            hdCredentialCacheScopeId,
+          }),
+        ).resolves.toBe(TEST_MNEMONIC);
+        await expect(
+          mnemonicFromEntropyAsync({
+            hdCredential: otherEncryptedSeed,
+            password: TEST_PASSWORD,
+            hdCredentialCacheScopeId,
+          }),
+        ).resolves.toBe(otherMnemonic);
+        await expect(
+          mnemonicFromEntropyAsync({
+            hdCredential: encryptedSeed,
+            password: 'wrong-password',
+            hdCredentialCacheScopeId,
+          }),
+        ).rejects.toThrow(IncorrectPassword);
+      } finally {
+        await clearHdCredentialDecryptCache({ hdCredentialCacheScopeId });
+      }
     });
   });
 
