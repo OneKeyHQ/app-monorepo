@@ -539,9 +539,10 @@ function TokenListViewCmp(props: IProps) {
       tokenFiatMap: useNetworkSearch
         ? { ...visibleTokenListMap, ...aggregateTokenMap }
         : undefined,
-      localAggregateTokenListMap: useNetworkSearch
-        ? localAggregateTokensListMap
-        : undefined,
+      localAggregateTokenListMap:
+        useNetworkSearch && !showActiveAccountTokenList
+          ? localAggregateTokensListMap
+          : undefined,
     });
 
     if (!isTokenSelector) {
@@ -584,6 +585,7 @@ function TokenListViewCmp(props: IProps) {
     searchKeyLengthThreshold,
     networksMap,
     localAggregateTokensListMap,
+    showActiveAccountTokenList,
     sortType,
     sortDirection,
     visibleTokenListMap,

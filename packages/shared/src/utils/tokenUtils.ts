@@ -122,6 +122,7 @@ function networkFieldsContainKeyword(
   return (
     (network.name?.toLowerCase().includes(kw) ?? false) ||
     (network.code?.toLowerCase().includes(kw) ?? false) ||
+    (network.shortname?.toLowerCase().includes(kw) ?? false) ||
     (network.shortcode?.toLowerCase().includes(kw) ?? false) ||
     (network.symbol?.toLowerCase().includes(kw) ?? false)
   );
@@ -234,6 +235,7 @@ export function getFilteredTokenBySearchKey({
       return (
         token.name?.toLowerCase().includes(trimmedSearchKey) ||
         token.symbol?.toLowerCase().includes(trimmedSearchKey) ||
+        token.commonSymbol?.toLowerCase().includes(trimmedSearchKey) ||
         token.address?.toLowerCase() === trimmedSearchKey
       );
     });
@@ -316,13 +318,15 @@ export function getFilteredTokenBySearchKey({
       const sa = a._searchStrength ?? ESearchStrength.TOKEN_ONLY;
       const sb = b._searchStrength ?? ESearchStrength.TOKEN_ONLY;
       if (sa !== sb) return sa - sb;
-      const fa = Number(tokenFiatMap[a.$key]?.fiatValue ?? -1);
-      const fb = Number(tokenFiatMap[b.$key]?.fiatValue ?? -1);
-      return fb - fa;
+      const fa = new BigNumber(tokenFiatMap[a.$key]?.fiatValue ?? -1);
+      const fb = new BigNumber(tokenFiatMap[b.$key]?.fiatValue ?? -1);
+      return new BigNumber(fb.isNaN() ? -1 : fb).comparedTo(
+        new BigNumber(fa.isNaN() ? -1 : fa),
+      );
     });
   }
 
-  return results;
+  return results.map(({ _searchStrength, ...rest }) => rest);
 }
 
 export function sortTokensByFiatValue({
