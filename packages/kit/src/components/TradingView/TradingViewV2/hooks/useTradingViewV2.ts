@@ -1,5 +1,8 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenKLineDataPoint,
+  IMarketTokenKLineResponse,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { sliceRequest } from '../sliceRequest';
 
@@ -11,6 +14,26 @@ interface ITradingViewV2Params {
   interval: string;
   timeFrom: number;
   timeTo: number;
+}
+
+function normalizeKLinePoints({
+  points,
+  timeFrom,
+  timeTo,
+}: {
+  points: IMarketTokenKLineDataPoint[];
+  timeFrom: number;
+  timeTo: number;
+}): IMarketTokenKLineDataPoint[] {
+  const pointsByTimestamp = new Map<number, IMarketTokenKLineDataPoint>();
+
+  for (const point of points) {
+    if (point.t >= timeFrom && point.t <= timeTo) {
+      pointsByTimestamp.set(point.t, point);
+    }
+  }
+
+  return Array.from(pointsByTimestamp.values()).toSorted((a, b) => a.t - b.t);
 }
 
 export async function fetchTradingViewV2Data({
@@ -70,17 +93,28 @@ export async function fetchTradingViewV2DataWithSlicing({
     const dataResults = await Promise.all(dataPromises);
 
     let mergedData: IMarketTokenKLineResponse | null = null;
+    const mergedPoints: IMarketTokenKLineDataPoint[] = [];
 
     for (const data of dataResults) {
       if (data) {
         if (!mergedData) {
           mergedData = { ...data };
-        } else if (data.points && mergedData.points) {
-          // Merge points data arrays
-          mergedData.points = [...mergedData.points, ...data.points];
-          mergedData.total = mergedData.points.length;
         }
+        mergedPoints.push(...data.points);
       }
+    }
+
+    if (mergedData) {
+      const points = normalizeKLinePoints({
+        points: mergedPoints,
+        timeFrom,
+        timeTo,
+      });
+      mergedData = {
+        ...mergedData,
+        points,
+        total: points.length,
+      };
     }
 
     return mergedData;
