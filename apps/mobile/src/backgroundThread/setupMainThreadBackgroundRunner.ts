@@ -23,6 +23,7 @@ import {
   BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX,
   BACKGROUND_THREAD_JOTAI_STATE_BATCH_KEY_PREFIX,
   BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX,
+  BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY,
   BACKGROUND_THREAD_RESPONSE_KEY_PREFIX,
   type IBackgroundThreadBridgeCallRequest,
   type IBackgroundThreadBridgeChannel,
@@ -38,6 +39,7 @@ import {
   parseBackgroundThreadJotaiStateBroadcastBatchPayload,
   parseBackgroundThreadJotaiStateBroadcastPayload,
   parseBackgroundThreadResponse,
+  serializeBackgroundThreadMainCapabilitiesPayload,
   serializeBackgroundThreadRequest,
 } from './rpcProtocol';
 import {
@@ -628,6 +630,24 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
         void handleWebEmbedBridgeRequest(sharedRPC, callId);
       }
     });
+
+    // Advertise that this main runtime knows how to consume opt-in wire
+    // protocols (batched jotai broadcasts at the moment). Bg side reads /
+    // observes this slot before switching to the new protocols; without
+    // the bit set bg falls back to the legacy `onekey:bg:jotai:` keys
+    // every release/v6.3.0 main bundle already supports.
+    try {
+      sharedRPC.write(
+        BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY,
+        serializeBackgroundThreadMainCapabilitiesPayload({
+          jotaiStateBatch: true,
+        }),
+      );
+    } catch (error) {
+      transportLog(
+        `failed to advertise main capabilities: ${(error as Error)?.message || String(error)}`,
+      );
+    }
   }
 
   if (transportState === 'idle') {

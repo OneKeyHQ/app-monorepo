@@ -1,7 +1,9 @@
 import {
   parseBackgroundThreadJotaiStateBroadcastBatchPayload,
+  parseBackgroundThreadMainCapabilitiesPayload,
   parseBackgroundThreadResponse,
   serializeBackgroundThreadJotaiStateBroadcastBatchPayload,
+  serializeBackgroundThreadMainCapabilitiesPayload,
   serializeBackgroundThreadResponse,
 } from './rpcProtocol';
 
@@ -96,6 +98,28 @@ describe('background thread RPC protocol', () => {
     // insertion-order contract that JotaiBgSync.flushBroadcastMicroBatch +
     // setupMainThreadBackgroundRunner.handleBackgroundThreadJotaiStateBatchUpdate
     // promise to derived UI subscribers.
+    // bg side opts into the new wire protocol only after main side has
+    // advertised support via BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY. This
+    // test locks down the round-trip so a future refactor of the wire
+    // format can't silently break the capability handshake (and therefore
+    // strand the batched bursts on partial-OTA runtimes).
+    it('round-trips a main capabilities payload', () => {
+      const advertised = { jotaiStateBatch: true };
+
+      const parsed = parseBackgroundThreadMainCapabilitiesPayload(
+        serializeBackgroundThreadMainCapabilitiesPayload(advertised),
+      );
+
+      expect(parsed).toEqual(advertised);
+      expect(parsed?.jotaiStateBatch).toBe(true);
+    });
+
+    it('treats a malformed main capabilities payload as undefined', () => {
+      expect(parseBackgroundThreadMainCapabilitiesPayload('null')).toBeUndefined();
+      expect(parseBackgroundThreadMainCapabilitiesPayload('not-json')).toBeUndefined();
+      expect(parseBackgroundThreadMainCapabilitiesPayload(undefined)).toBeUndefined();
+    });
+
     it('fans out a batch in insertion order on the main runtime', () => {
       const bgEmittedOrder = [
         { name: 'walletStatusAtom', payload: { connected: true } },

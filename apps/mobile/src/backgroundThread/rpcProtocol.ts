@@ -116,6 +116,44 @@ export const BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX = 'onekey:bg:bridge:';
 export const WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX = 'onekey:webembed:req:';
 export const WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX = 'onekey:webembed:resp:';
 
+// Static (single-slot) key the main runtime writes once on observer install
+// to advertise which optional wire protocols it understands. The bg runtime
+// reads / observes this slot and only switches to opt-in protocols (jotai
+// batch broadcast etc.) after the matching capability bit is set, so a
+// partial OTA / split-runtime mismatch can't silently drop batched updates.
+export const BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY =
+  'onekey:bg:main-caps';
+
+export type IBackgroundThreadMainCapabilitiesPayload = {
+  jotaiStateBatch?: boolean;
+};
+
+export function serializeBackgroundThreadMainCapabilitiesPayload(
+  payload: IBackgroundThreadMainCapabilitiesPayload,
+) {
+  return JSON.stringify(payload);
+}
+
+export function parseBackgroundThreadMainCapabilitiesPayload(
+  value: string | number | boolean | undefined,
+): IBackgroundThreadMainCapabilitiesPayload | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  try {
+    const payload = JSON.parse(
+      value,
+    ) as Partial<IBackgroundThreadMainCapabilitiesPayload>;
+    if (typeof payload !== 'object' || payload === null) {
+      return undefined;
+    }
+    return payload as IBackgroundThreadMainCapabilitiesPayload;
+  } catch {
+    return undefined;
+  }
+}
+
 export function buildBackgroundThreadRequestKey(callId: string) {
   return `${BACKGROUND_THREAD_REQUEST_KEY_PREFIX}${callId}`;
 }
