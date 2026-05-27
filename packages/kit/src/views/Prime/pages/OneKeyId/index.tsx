@@ -15,7 +15,6 @@ import {
   ScrollView,
   SizableText,
   Stack,
-  Tooltip,
   XStack,
   YStack,
   resetPrimeModal,
@@ -37,7 +36,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
-import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -190,37 +188,6 @@ function OneKeyIdAccountManagementItem({
   );
 }
 
-function OneKeyIdPrimeBadge() {
-  const intl = useIntl();
-  const { user } = useOneKeyAuth();
-  const isPrime = user?.primeSubscription?.isActive;
-  const primeExpiredAt = user?.primeSubscription?.expiresAt;
-
-  if (!isPrime) {
-    return null;
-  }
-
-  const badge = <PrimeUserBadge showFreeStatus={false} />;
-
-  if (!primeExpiredAt) {
-    return badge;
-  }
-
-  return (
-    <Tooltip
-      renderTrigger={badge}
-      renderContent={intl.formatMessage(
-        {
-          id: ETranslations.prime_end_date,
-        },
-        {
-          data: formatDateFns(new Date(primeExpiredAt)),
-        },
-      )}
-    />
-  );
-}
-
 function OneKeyIdProfileNameBadge({
   displayName,
   textSize,
@@ -235,8 +202,9 @@ function OneKeyIdProfileNameBadge({
       ai="center"
       gap="$1.5"
       flex={centered ? undefined : 1}
+      w={centered ? '100%' : undefined}
       minWidth={0}
-      $gtMd={centered ? { ml: '$1' } : undefined}
+      $gtMd={centered ? { jc: 'center' } : undefined}
     >
       <SizableText
         flexShrink={1}
@@ -249,7 +217,7 @@ function OneKeyIdProfileNameBadge({
       >
         {displayName}
       </SizableText>
-      <OneKeyIdPrimeBadge />
+      <PrimeUserBadge showFreeStatus={false} />
     </XStack>
   );
 }
@@ -283,7 +251,7 @@ function OneKeyIdProfilePanel({
         w: 200,
         borderRightWidth: StyleSheet.hairlineWidth,
         borderColor: '$neutral3',
-        px: '$4',
+        px: '$3',
         pt: '$3',
         pb: '$6',
       }}

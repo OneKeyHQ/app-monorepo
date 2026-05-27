@@ -34,6 +34,7 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -53,6 +54,122 @@ type IReadonlyDAppAccountData = {
   wallet: IDBWallet | undefined;
   indexedAccount: IDBIndexedAccount | undefined;
 };
+
+function DAppAccountListInitFromKeylessProvider({
+  num,
+  provider,
+  shouldSyncFromHomeOnFallback,
+}: {
+  num: number;
+  provider: EOAuthSocialLoginProvider;
+  shouldSyncFromHomeOnFallback: boolean;
+}) {
+  const [, setSyncLoading] = useAccountSelectorSyncLoadingAtom();
+  const actions = useAccountSelectorActions();
+  const availableNetworks = useAccountSelectorAvailableNetworks({ num });
+  const availableNetworksRef = useRef(availableNetworks);
+  availableNetworksRef.current = availableNetworks;
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        setSyncLoading((v) => ({
+          ...v,
+          [num]: {
+            isLoading: true,
+          },
+        }));
+        // Deterministic barrier — runs strictly AFTER autoSelectNextAccount
+        // completes. Replaces the fixed 800ms timeout that raced AutoSelect on
+        // slow paths. Parallelize with the keyless wallet read since they're
+        // independent — keeps the cold-path Modal loading shorter.
+        const [, keyless] = await Promise.all([
+          actions.current.waitForAutoSelectUnlock(),
+          backgroundApiProxy.serviceAccount.getKeylessWallet(),
+        ]);
+        if (cancelled) return;
+
+        const fallbackToHomeOrPreserve = async () => {
+          // Only sync from home when there is no existing connection record
+          // for this origin (shouldSyncFromHomeOnFallback === true). When the
+          // user already has an authorized account, preserve it instead of
+          // silently overwriting with their home selection — same gate
+          // DAppAccountListInitFromHome respects via `shouldSyncFromHome`.
+          if (!shouldSyncFromHomeOnFallback) return;
+          await actions.current.syncFromScene({
+            from: {
+              sceneName: EAccountSelectorSceneName.home,
+              sceneNum: 0,
+            },
+            num,
+            withNetworkSync: true,
+            availableNetworks: availableNetworksRef.current,
+          });
+        };
+
+        const providerMatches =
+          keyless?.keylessDetailsInfo?.keylessProvider === provider;
+        if (!keyless || !providerMatches) {
+          await fallbackToHomeOrPreserve();
+          return;
+        }
+        const { accounts: indexedAccounts } =
+          await backgroundApiProxy.serviceAccount.getIndexedAccountsOfWallet({
+            walletId: keyless.id,
+          });
+        if (cancelled) return;
+        const firstIndexedAccount = indexedAccounts?.[0];
+        if (!firstIndexedAccount) {
+          await fallbackToHomeOrPreserve();
+          return;
+        }
+        const networks = availableNetworksRef.current;
+        await actions.current.updateSelectedAccount({
+          num,
+          builder: (v) => {
+            const candidateNetworkId =
+              v.networkId && networks.networkIds?.includes(v.networkId)
+                ? v.networkId
+                : networks.defaultNetworkId;
+            return {
+              ...v,
+              walletId: keyless.id,
+              indexedAccountId: firstIndexedAccount.id,
+              othersWalletAccountId: undefined,
+              focusedWallet: keyless.id,
+              // Preserve v.networkId when the available-networks atom hasn't
+              // populated yet (defaultNetworkId would be undefined and we'd
+              // otherwise overwrite a valid inherited id with undefined).
+              networkId: candidateNetworkId ?? v.networkId,
+            };
+          },
+        });
+      } finally {
+        if (!cancelled) {
+          setSyncLoading((v) => ({
+            ...v,
+            [num]: {
+              isLoading: false,
+            },
+          }));
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      setSyncLoading((v) => ({
+        ...v,
+        [num]: {
+          isLoading: false,
+        },
+      }));
+    };
+  }, [actions, num, provider, setSyncLoading, shouldSyncFromHomeOnFallback]);
+
+  return null;
+}
 
 function DAppAccountListInitFromHome({
   num,
@@ -79,8 +196,10 @@ function DAppAccountListInitFromHome({
             isLoading: true,
           },
         }));
-        // required delay here, should be called after AccountSelectEffects AutoSelect
-        await timerUtils.wait(800);
+        // Deterministic barrier — runs strictly AFTER autoSelectNextAccount
+        // completes. Replaces the fixed 800ms timeout that raced AutoSelect on
+        // slow paths.
+        await actions.current.waitForAutoSelectUnlock();
         if (shouldSyncFromHome) {
           // alert('syncFromScene home');
           await actions.current.syncFromScene({
@@ -144,6 +263,7 @@ function DAppAccountListItem({
   beforeShowTrigger,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   skeletonRenderDuration,
+  preselectKeylessProvider,
 }: {
   num: number;
   handleAccountChanged?: IHandleAccountChanged;
@@ -153,12 +273,14 @@ function DAppAccountListItem({
   initFromHome?: boolean;
   beforeShowTrigger?: () => Promise<void>;
   skeletonRenderDuration?: number;
+  preselectKeylessProvider?: EOAuthSocialLoginProvider;
 }) {
   useHandleDiscoveryAccountChanged({
     num,
     handleAccountChanged,
   });
 
+  const shouldPreselectKeyless = !!preselectKeylessProvider && !readonly;
   const shouldSyncFromHome = Boolean(initFromHome && !readonly);
 
   // const loadingDuration = getLoadingDuration({
@@ -195,10 +317,18 @@ function DAppAccountListItem({
           />
         </YGroup.Item>
       </YGroup>
-      <DAppAccountListInitFromHome
-        num={num}
-        shouldSyncFromHome={shouldSyncFromHome}
-      />
+      {shouldPreselectKeyless && preselectKeylessProvider ? (
+        <DAppAccountListInitFromKeylessProvider
+          num={num}
+          provider={preselectKeylessProvider}
+          shouldSyncFromHomeOnFallback={shouldSyncFromHome}
+        />
+      ) : (
+        <DAppAccountListInitFromHome
+          num={num}
+          shouldSyncFromHome={shouldSyncFromHome}
+        />
+      )}
     </>
   );
 }
@@ -211,12 +341,14 @@ function DAppAccountListStandAloneItem({
   readonly,
   handleAccountChanged,
   onConnectedAccountInfoChanged,
+  preselectKeylessProvider,
 }: {
   readonly?: boolean;
   handleAccountChanged?: IHandleAccountChanged;
   onConnectedAccountInfoChanged?: (
     params: IConnectedAccountInfoChangedParams,
   ) => void;
+  preselectKeylessProvider?: EOAuthSocialLoginProvider;
 }) {
   const intl = useIntl();
   const { serviceDApp, serviceNetwork } = backgroundApiProxy;
@@ -306,6 +438,7 @@ function DAppAccountListStandAloneItem({
             num={result?.accountSelectorNum}
             handleAccountChanged={handleAccountChanged}
             readonly={readonly}
+            preselectKeylessProvider={preselectKeylessProvider}
           />
         </AccountSelectorProviderMirror>
       ) : null}
