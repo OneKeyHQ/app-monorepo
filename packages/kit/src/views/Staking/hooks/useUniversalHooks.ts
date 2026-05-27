@@ -379,44 +379,103 @@ export function useUniversalStake({
             }
           : undefined;
 
+        const amountBN = new BigNumber(amount);
+        const fetchPostWrapAllowance = async () => {
+          const allowanceInfo =
+            await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+              accountId,
+              networkId,
+              spenderAddress: postWrapApproveSpenderAddress,
+              tokenAddress: postWrapStakeToken.address,
+            });
+          return new BigNumber(allowanceInfo.allowanceParsed || '0');
+        };
+        const waitForPostWrapAllowance = async ({
+          maxAttempts = 15,
+          intervalMs = 2000,
+        }: {
+          maxAttempts?: number;
+          intervalMs?: number;
+        } = {}) => {
+          if (amountBN.isNaN() || amountBN.lte(0)) {
+            return true;
+          }
+
+          for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+            try {
+              const latestAllowanceBN = await fetchPostWrapAllowance();
+              if (
+                !latestAllowanceBN.isNaN() &&
+                latestAllowanceBN.gte(amountBN)
+              ) {
+                return true;
+              }
+            } catch {
+              // Keep polling; a transient allowance read should not abort the
+              // post-approve stake step.
+            }
+
+            if (attempt < maxAttempts - 1) {
+              await timerUtils.wait(intervalMs);
+            }
+          }
+
+          return false;
+        };
+
+        const allowanceBN = await fetchPostWrapAllowance();
+        const shouldApprovePostWrapStake =
+          !amountBN.isNaN() && !allowanceBN.isNaN() && allowanceBN.lt(amountBN);
+
+        if (shouldApprovePostWrapStake) {
+          const account = await backgroundApiProxy.serviceAccount.getAccount({
+            accountId,
+            networkId,
+          });
+
+          let approveConfirmResult: ITxConfirmResult;
+          try {
+            approveConfirmResult = await waitForTxConfirmResult({
+              approvesInfo: [
+                {
+                  owner: account.address,
+                  spender: postWrapApproveSpenderAddress,
+                  amount,
+                  tokenInfo: postWrapStakeToken,
+                },
+              ],
+            });
+          } catch (error) {
+            onFail?.(error as Error);
+            return;
+          }
+
+          if (approveConfirmResult.status !== 'success') {
+            return;
+          }
+
+          await timerUtils.wait(150);
+
+          const allowanceReady = await waitForPostWrapAllowance();
+          if (!allowanceReady) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_failed,
+              }),
+            });
+            return;
+          }
+        }
+
         const normalConfirmPayload = await buildStakeConfirmPayload({
           confirmStakeType: 'normal',
           confirmInputTokenAddress: postWrapStakeToken.address,
           confirmStakingInfo: postWrapStakingInfo,
         });
 
-        const allowanceInfo =
-          await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
-            accountId,
-            networkId,
-            spenderAddress: postWrapApproveSpenderAddress,
-            tokenAddress: postWrapStakeToken.address,
-          });
-        const allowanceBN = new BigNumber(allowanceInfo.allowanceParsed || '0');
-        const amountBN = new BigNumber(amount);
-        const approvesInfo: IApproveInfo[] = [];
-
-        if (
-          !amountBN.isNaN() &&
-          !allowanceBN.isNaN() &&
-          allowanceBN.lt(amountBN)
-        ) {
-          const account = await backgroundApiProxy.serviceAccount.getAccount({
-            accountId,
-            networkId,
-          });
-          approvesInfo.push({
-            owner: account.address,
-            spender: postWrapApproveSpenderAddress,
-            amount,
-            tokenInfo: postWrapStakeToken,
-          });
-        }
-
         await navigationToTxConfirm({
           encodedTx: normalConfirmPayload.encodedTx,
           stakingInfo: normalConfirmPayload.stakeInfoWithOrderId,
-          approvesInfo: approvesInfo.length ? approvesInfo : undefined,
           onSuccess: async (data) => {
             await handleStakeSuccess({
               data,
