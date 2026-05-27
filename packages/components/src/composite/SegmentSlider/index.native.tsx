@@ -167,6 +167,12 @@ export interface ISegmentSliderProps {
   sliderHeight?: number;
   onChange: (value: number) => void;
   segments: number;
+  /**
+   * @deprecated TODO: remove after the cross-platform drag-snap behavior is
+   * unified with the web variant (which has no drag-snap and snaps only on
+   * explicit mark taps). Keep at the current default until then to avoid
+   * regressing native feel mid-release.
+   */
   snapThreshold?: number;
   forceSnapToStep?: boolean;
   onSlideStart?: () => void;

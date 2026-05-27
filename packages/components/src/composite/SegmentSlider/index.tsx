@@ -47,8 +47,6 @@ export interface ISegmentSliderProps {
 interface ISegmentMarkProps {
   index: number;
   pct: number;
-  defaultBackground: string;
-  defaultBorder: string;
   hoverGlowColor: string;
   disabled: boolean;
   registerRef: (index: number, el: HTMLDivElement | null) => void;
@@ -59,8 +57,6 @@ interface ISegmentMarkProps {
 const SegmentMark = memo(function SegmentMarkInner({
   index,
   pct,
-  defaultBackground,
-  defaultBorder,
   hoverGlowColor,
   disabled,
   registerRef,
@@ -109,18 +105,19 @@ const SegmentMark = memo(function SegmentMarkInner({
     [pct, disabled],
   );
 
+  // background and border are owned by applyMarkActiveStates (imperative
+  // DOM mutation). Listing them here too would let a hover-triggered
+  // re-render clobber the active-state fill set by the parent.
   const visualStyle = useMemo<CSSProperties>(
     () => ({
       width: MARK_SIZE,
       height: MARK_SIZE,
       borderRadius: '50%',
-      background: defaultBackground,
-      border: `1px solid ${defaultBorder}`,
       boxSizing: 'border-box',
       boxShadow: hovered ? `0 0 0 4px ${hoverGlowColor}` : 'none',
       transition: 'box-shadow 150ms ease',
     }),
-    [defaultBackground, defaultBorder, hovered, hoverGlowColor],
+    [hovered, hoverGlowColor],
   );
 
   // When a custom renderMark is provided, it replaces the default visual
@@ -611,8 +608,6 @@ function SegmentSliderComponent({
             key={idx}
             index={idx}
             pct={(idx / segments) * 100}
-            defaultBackground={bg}
-            defaultBorder={neutral5}
             hoverGlowColor={markHoverGlow}
             disabled={disabled}
             registerRef={registerMarkRef}
