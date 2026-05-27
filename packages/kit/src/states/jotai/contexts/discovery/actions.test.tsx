@@ -65,6 +65,24 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
+// `buildWebTabs` now persists tab snapshots via a lodash debounce wrapper
+// (500ms trailing / 2s maxWait). The atom state still updates synchronously,
+// but the mocked `setRawData` would fire after the assertions complete and
+// observe a stale state. Replace `debounce` with a passthrough so persistence
+// stays synchronous within `act()` — every other lodash export is untouched.
+jest.mock('lodash', () => {
+  const actualLodash = jest.requireActual('lodash') as Record<string, unknown>;
+  return {
+    ...actualLodash,
+    debounce: (fn: (...args: unknown[]) => unknown) => {
+      const wrapper = (...args: unknown[]) => fn(...args);
+      wrapper.flush = () => undefined;
+      wrapper.cancel = () => undefined;
+      return wrapper;
+    },
+  };
+});
+
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
