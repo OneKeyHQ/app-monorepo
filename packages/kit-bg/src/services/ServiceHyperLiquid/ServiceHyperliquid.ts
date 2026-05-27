@@ -50,8 +50,8 @@ import perpsUtils, {
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
+  getPerpsL2BookSnapshotCacheKeys,
   swrCacheUtils,
-  swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -225,13 +225,11 @@ function getL2BookSnapshotSwrCache({
   mantissa?: number | null;
   maxAgeMs: number;
 }): IPerpsL2BookSnapshotCacheEntry | undefined {
-  const exactKey = swrKeys.perpsL2BookSnapshot({
+  const keys = getPerpsL2BookSnapshotCacheKeys({
     coin,
     nSigFigs,
     mantissa,
   });
-  const defaultKey = swrKeys.perpsL2BookSnapshot({ coin });
-  const keys = exactKey === defaultKey ? [exactKey] : [exactKey, defaultKey];
   for (const key of keys) {
     const entry = swrCacheUtils.getWithTimestamp<IBook>(key);
     if (

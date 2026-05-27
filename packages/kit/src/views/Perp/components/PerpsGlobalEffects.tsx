@@ -797,6 +797,7 @@ function WebSocketSubscriptionUpdate() {
       perpsActiveAssetCoin,
       spotActiveAssetCoin,
       subscriptionTradingMode: tradingMode,
+      subscriptionStateKey: subscriptionPlan.subscriptionStateKey,
       shouldSyncSubscriptions: subscriptionPlan.shouldSyncSubscriptions,
     });
 
@@ -861,6 +862,7 @@ function WebSocketSubscriptionUpdate() {
     subscriptionPlan.enableLedgerUpdates,
     subscriptionPlan.spotAssetCtxsEnabled,
     subscriptionPlan.spotEnabled,
+    subscriptionPlan.subscriptionStateKey,
     subscriptionPlan.shouldSyncSubscriptions,
   ]);
   return null;

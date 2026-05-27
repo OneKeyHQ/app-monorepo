@@ -141,15 +141,11 @@ function DepositButton() {
         accountId: snapshotLookupAccountId,
         deriveType:
           selectedWalletAccount.deriveType ?? activeAccount.deriveType,
-        allowFallbackLatest:
-          !selectedWalletAccount.ready && !activeAccount?.accountAddress,
       }),
     [
-      activeAccount?.accountAddress,
       activeAccount?.deriveType,
       displaySnapshot,
       selectedWalletAccount.deriveType,
-      selectedWalletAccount.ready,
       snapshotLookupAccountAddress,
       snapshotLookupAccountId,
       snapshotLookupIndexedAccountId,

@@ -49,8 +49,8 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
+  getPerpsL2BookSnapshotCacheKeys,
   swrCacheUtils,
-  swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -141,24 +141,6 @@ function hasAnyAssetCtxs(ctxsByDex: HL.IPerpsAssetCtx[][] | undefined) {
   return Boolean(ctxsByDex?.some((ctxs) => ctxs?.length > 0));
 }
 
-function getL2BookSwrCacheKeys({
-  coin,
-  nSigFigs,
-  mantissa,
-}: {
-  coin: string;
-  nSigFigs?: number | null;
-  mantissa?: number | null;
-}) {
-  const exactKey = swrKeys.perpsL2BookSnapshot({
-    coin,
-    nSigFigs,
-    mantissa,
-  });
-  const defaultKey = swrKeys.perpsL2BookSnapshot({ coin });
-  return exactKey === defaultKey ? [exactKey] : [exactKey, defaultKey];
-}
-
 function cacheL2BookSnapshotToSwr({
   book,
   nSigFigs,
@@ -168,7 +150,7 @@ function cacheL2BookSnapshotToSwr({
   nSigFigs?: number | null;
   mantissa?: number | null;
 }) {
-  const keys = getL2BookSwrCacheKeys({
+  const keys = getPerpsL2BookSnapshotCacheKeys({
     coin: book.coin,
     nSigFigs,
     mantissa,
@@ -197,7 +179,7 @@ function getFreshL2BookSnapshotFromSwr({
   nSigFigs?: number | null;
   mantissa?: number | null;
 }) {
-  const keys = getL2BookSwrCacheKeys({
+  const keys = getPerpsL2BookSnapshotCacheKeys({
     coin,
     nSigFigs,
     mantissa,

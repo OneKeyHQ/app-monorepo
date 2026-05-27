@@ -325,6 +325,24 @@ export const swrKeys = {
     ),
 };
 
+export function getPerpsL2BookSnapshotCacheKeys({
+  coin,
+  nSigFigs,
+  mantissa,
+}: {
+  coin: string;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+}) {
+  return [
+    swrKeys.perpsL2BookSnapshot({
+      coin,
+      nSigFigs,
+      mantissa,
+    }),
+  ];
+}
+
 export const swrCacheUtils = {
   get,
   getWithTimestamp,

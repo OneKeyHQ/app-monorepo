@@ -22,8 +22,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isAppVisible } from '@onekeyhq/shared/src/utils/appVisibility';
 import {
+  getPerpsL2BookSnapshotCacheKeys,
   swrCacheUtils,
-  swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import {
   clearTrackedInterval,
@@ -154,16 +154,12 @@ function setL2BookSnapshotSwrCache({
   data: IBook;
 }): boolean {
   try {
-    const exactKey = swrKeys.perpsL2BookSnapshot({
+    const keys = getPerpsL2BookSnapshotCacheKeys({
       coin,
       nSigFigs,
       mantissa,
     });
-    const defaultKey = swrKeys.perpsL2BookSnapshot({ coin });
-    swrCacheUtils.set(exactKey, data);
-    if (defaultKey !== exactKey) {
-      swrCacheUtils.set(defaultKey, data);
-    }
+    keys.forEach((key) => swrCacheUtils.set(key, data));
     swrCacheUtils.flushNow();
     return true;
   } catch (error) {

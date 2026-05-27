@@ -26,6 +26,7 @@ export function isTradeInstrumentBackedBySubscriptionState(params: {
 
 export interface ITradeSubscriptionPlan {
   enableLedgerUpdates: boolean;
+  subscriptionStateKey: string;
   shouldSyncSubscriptions: boolean;
   spotAssetCtxsEnabled: boolean;
   spotEnabled: boolean;
@@ -73,6 +74,11 @@ export function planTradeSubscriptions(params: {
 
   return {
     enableLedgerUpdates,
+    subscriptionStateKey: [
+      enableLedgerUpdates ? '1' : '0',
+      spotAssetCtxsEnabled ? '1' : '0',
+      spotEnabled ? '1' : '0',
+    ].join(':'),
     shouldSyncSubscriptions,
     spotAssetCtxsEnabled,
     spotEnabled,

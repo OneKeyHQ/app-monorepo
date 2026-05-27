@@ -321,15 +321,11 @@ function PerpTradingForm({
         accountId: snapshotLookupAccountId,
         deriveType:
           selectedWalletAccount.deriveType ?? perpsActiveAccount.deriveType,
-        allowFallbackLatest:
-          !selectedWalletAccount.ready && !perpsActiveAccount?.accountAddress,
       }),
     [
       displaySnapshot,
-      perpsActiveAccount?.accountAddress,
       perpsActiveAccount?.deriveType,
       selectedWalletAccount.deriveType,
-      selectedWalletAccount.ready,
       snapshotLookupAccountAddress,
       snapshotLookupAccountId,
       snapshotLookupIndexedAccountId,

@@ -115,7 +115,6 @@ export function getPerpsAccountDisplaySnapshotEntry({
   indexedAccountId,
   accountId,
   deriveType,
-  allowFallbackLatest = false,
   maxAgeMs = PERPS_ACCOUNT_DISPLAY_SNAPSHOT_MAX_AGE_MS,
 }: {
   snapshot: IPerpsAccountDisplaySnapshotAtom | undefined;
@@ -123,7 +122,6 @@ export function getPerpsAccountDisplaySnapshotEntry({
   indexedAccountId?: string | null;
   accountId?: string | null;
   deriveType?: IAccountDeriveTypes | null;
-  allowFallbackLatest?: boolean;
   maxAgeMs?: number;
 }) {
   const now = Date.now();
@@ -176,7 +174,7 @@ export function getPerpsAccountDisplaySnapshotEntry({
     return accountEntry;
   }
 
-  return allowFallbackLatest ? entries[0] : undefined;
+  return undefined;
 }
 
 // #region Abstraction Mode

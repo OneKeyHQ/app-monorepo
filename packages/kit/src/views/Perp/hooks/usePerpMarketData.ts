@@ -5,8 +5,8 @@ import {
   useL2BookAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  getPerpsL2BookSnapshotCacheKeys,
   swrCacheUtils,
-  swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -57,16 +57,13 @@ function getFreshL2BookSnapshotFromSwr({
   coin: string;
   options?: IL2BookOptions;
 }) {
-  const keys = [
-    swrKeys.perpsL2BookSnapshot({
-      coin,
-      nSigFigs: options?.nSigFigs,
-      mantissa: options?.mantissa,
-    }),
-    swrKeys.perpsL2BookSnapshot({ coin }),
-  ];
+  const keys = getPerpsL2BookSnapshotCacheKeys({
+    coin,
+    nSigFigs: options?.nSigFigs,
+    mantissa: options?.mantissa,
+  });
 
-  for (const key of new Set(keys)) {
+  for (const key of keys) {
     const entry = swrCacheUtils.getWithTimestamp<HL.IBook>(key);
     if (
       entry?.data?.coin === coin &&
