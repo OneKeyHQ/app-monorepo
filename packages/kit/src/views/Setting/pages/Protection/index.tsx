@@ -218,7 +218,8 @@ const SettingProtectionModal = () => {
           <Divider my="$5" mx="$5" />
           <SectionList.SectionHeader title="Receive risk monitoring" />
           <ListItem
-            title="Receive risk monitoring"
+            title="Monitor incoming transfers"
+            subtitle="Check supported incoming token transfers for fund-source risk."
             {...(!isPrimeSubscriptionActive && {
               onPress: () => {
                 navigation.pushModal(EModalRoutes.PrimeModal, {
@@ -259,13 +260,10 @@ const SettingProtectionModal = () => {
               />
             )}
           </ListItem>
-          <SizableText px="$5" size="$bodySm" color="$textSubdued">
-            Detect risky inbound transfers on supported networks and notify you
-            when high-risk funds arrive.
-          </SizableText>
           <ListItem
             testID="setting-receive-risk-supported-assets"
             title="Supported assets"
+            subtitle="View networks and tokens"
             drillIn
             onPress={() => {
               navigation.push(

@@ -131,11 +131,7 @@ const ReceiveRiskSupportedAssetsPage = () => {
                   title={token.symbol}
                   subtitle={token.name}
                   renderAvatar={
-                    <Token
-                      size="lg"
-                      tokenImageUri={token.tokenImageUri}
-                      networkId={section.networkId}
-                    />
+                    <Token size="md" tokenImageUri={token.tokenImageUri} />
                   }
                 />
               ))}
