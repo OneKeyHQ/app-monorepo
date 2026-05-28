@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 
 import { debounce, isEqual } from 'lodash';
-import { AppState } from 'react-native';
 
 import { Toast, rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -40,6 +39,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { onVisibilityStateChange } from '@onekeyhq/shared/src/utils/appVisibility';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
@@ -118,11 +118,16 @@ const persistTabsToSimpleDbDebounced = debounce(
   { leading: true, trailing: true, maxWait: 2000 },
 );
 
-// Flush the pending debounced persist before the JS runtime can be suspended.
-// iOS may freeze the bridge in <500ms after backgrounding, which would
-// otherwise drop the last user action (open/close/reorder tab).
-AppState.addEventListener('change', (nextState) => {
-  if (nextState === 'background' || nextState === 'inactive') {
+// Flush the pending debounced persist before the JS runtime can be suspended
+// or the window closes. Routed through `onVisibilityStateChange` so we cover
+// all four platforms uniformly (mobile AppState, desktop Electron focus,
+// web document.hidden + window blur) — a bare RN `AppState.addEventListener`
+// is silent dead code on desktop and incomplete on web.
+//
+// iOS in particular may freeze the bridge in <500ms after backgrounding,
+// which would otherwise drop the last user action (open/close/reorder tab).
+onVisibilityStateChange((visible) => {
+  if (!visible) {
     persistTabsToSimpleDbDebounced.flush();
   }
 });
