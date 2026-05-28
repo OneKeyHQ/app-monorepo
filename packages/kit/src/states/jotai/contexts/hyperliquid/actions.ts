@@ -43,6 +43,11 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
+  getPerpsOrderBookTickOptionWithCache,
+  getPerpsOrderBookTickOptionsWithCache,
+  setPerpsOrderBookTickOptionsCache,
+} from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
+import {
   findTokensByAlias,
   formatPriceToSignificantDigits,
   formatSpotAssetCtx,
@@ -277,7 +282,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return;
     }
 
-    const stored = params.orderBookTickOptions[params.instrument.coin];
+    const stored = getPerpsOrderBookTickOptionsWithCache(
+      params.orderBookTickOptions,
+    )[params.instrument.coin];
     const nextOrderBookOptions = {
       coin: params.instrument.coin,
       assetId: params.instrument.assetId,
@@ -1006,6 +1013,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const stored =
         await backgroundApiProxy.simpleDb.perp.getOrderBookTickOptions();
       set(orderBookTickOptionsAtom(), stored);
+      setPerpsOrderBookTickOptionsCache(stored);
     } catch (error) {
       console.error('Failed to load order book tick options:', error);
     } finally {
@@ -1054,6 +1062,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
 
       set(orderBookTickOptionsAtom(), next);
+      setPerpsOrderBookTickOptionsCache(next);
 
       try {
         await backgroundApiProxy.simpleDb.perp.setOrderBookTickOption({
@@ -1099,7 +1108,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         universe: undefined,
       };
       const hydrateL2BookFromSwr = (targetCoin: string) => {
-        const storedTickOptions = get(orderBookTickOptionsAtom())[targetCoin];
+        const storedTickOptions = getPerpsOrderBookTickOptionWithCache({
+          coin: targetCoin,
+          options: get(orderBookTickOptionsAtom()),
+        });
         const cachedBook = getFreshL2BookSnapshotFromSwr({
           coin: targetCoin,
           nSigFigs: storedTickOptions?.nSigFigs ?? null,
