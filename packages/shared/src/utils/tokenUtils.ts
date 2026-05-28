@@ -248,8 +248,6 @@ export function getFilteredTokenBySearchKey({
         token: IAccountToken;
         strength: ESearchStrength;
       }> = [];
-      let hasNetworkHitInAnySub = false;
-
       for (const sub of subTokens) {
         const network = networksMap?.[sub.networkId ?? ''];
         const { matched, strength } = computeSearchStrength(
@@ -262,14 +260,14 @@ export function getFilteredTokenBySearchKey({
             token.$key
           ]?.tokens?.find((t) => t.networkId === sub.networkId);
           matchedSubs.push({ token: localSub ?? sub, strength });
-          if (strength !== ESearchStrength.TOKEN_ONLY) {
-            hasNetworkHitInAnySub = true;
-          }
         }
       }
 
       if (matchedSubs.length > 0) {
-        if (hasNetworkHitInAnySub) {
+        const hasNetworkOnlyHit = matchedSubs.some(
+          (s) => s.strength === ESearchStrength.NETWORK_ONLY,
+        );
+        if (hasNetworkOnlyHit) {
           results.push(
             ...matchedSubs.filter(
               (s) => s.strength !== ESearchStrength.TOKEN_ONLY,
