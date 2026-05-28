@@ -124,6 +124,8 @@ const USDC_TOKEN_SYMBOL = 'USDC';
 const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_SLICE_INTERVAL_SECONDS = 30;
+const TWAP_MIN_SLICE_NOTIONAL = SCALE_ORDER_MIN_NOTIONAL;
+const TWAP_SLICES_PER_MINUTE = 60 / TWAP_SLICE_INTERVAL_SECONDS;
 const TWAP_DURATION_LABEL = `Duration (${TWAP_MIN_DURATION_MINUTES}m - ${
   TWAP_MAX_DURATION_MINUTES / 60
 }h)`;
@@ -707,20 +709,35 @@ function PerpTradingForm({
       return undefined;
     }
 
-    const durationMinutes = Number(formData.twapDurationMinutes ?? 0);
-    const orderCount =
-      Number.isInteger(durationMinutes) && durationMinutes > 0
-        ? Math.floor((durationMinutes * 60) / TWAP_SLICE_INTERVAL_SECONDS) + 1
-        : undefined;
+    const markPriceBN = new BigNumber(activeAssetCtx?.ctx?.markPrice ?? 0);
+    const referencePriceBN =
+      markPriceBN.isFinite() && markPriceBN.gt(0) ? markPriceBN : midPriceBN;
+    const orderValueBN =
+      tradingComputed.computedSizeBN.multipliedBy(referencePriceBN);
 
-    if (!orderCount) {
+    if (!orderValueBN.isFinite() || orderValueBN.lte(0)) {
+      return undefined;
+    }
+
+    const maxRunningMinutes = orderValueBN
+      .dividedBy(TWAP_MIN_SLICE_NOTIONAL)
+      .dividedBy(TWAP_SLICES_PER_MINUTE)
+      .integerValue(BigNumber.ROUND_FLOOR)
+      .toNumber();
+
+    if (!Number.isFinite(maxRunningMinutes) || maxRunningMinutes <= 0) {
       return undefined;
     }
 
     return {
-      orderCount,
+      maxRunningMinutes: Math.min(maxRunningMinutes, TWAP_MAX_DURATION_MINUTES),
     };
-  }, [formData.twapDurationMinutes, isTwapMode]);
+  }, [
+    activeAssetCtx?.ctx?.markPrice,
+    isTwapMode,
+    midPriceBN,
+    tradingComputed.computedSizeBN,
+  ]);
 
   const [twapDurationHoursInput, setTwapDurationHoursInput] = useState('');
   const [twapDurationMinutesInput, setTwapDurationMinutesInput] = useState('');
@@ -1501,7 +1518,7 @@ function PerpTradingForm({
       return (
         <YStack gap="$1">
           <SizableText size="$bodySm" color="$textSubdued">
-            Number of Orders {twapPreviewMessage.orderCount}
+            {`运行该笔分时委托订单的最大时长为${twapPreviewMessage.maxRunningMinutes}分。`}
           </SizableText>
         </YStack>
       );
