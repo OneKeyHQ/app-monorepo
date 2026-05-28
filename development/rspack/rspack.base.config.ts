@@ -25,8 +25,7 @@ const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 // hydration cache invalidation gate that reads it — stays accurate
 // offline. Empty string only when both env and git are unavailable.
 function resolveCommitSha(): string {
-  const fromEnv =
-    process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA;
+  const fromEnv = process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA;
   if (fromEnv) return fromEnv;
   try {
     return execSync('git rev-parse HEAD', {
