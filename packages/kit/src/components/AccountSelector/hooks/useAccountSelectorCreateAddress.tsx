@@ -56,7 +56,7 @@ export function useAccountSelectorCreateAddress() {
       account,
       createAllDeriveTypes,
       customNetworks,
-      showLedgerAppInstallDialogOnError = true,
+      notifyLedgerAppInstallRequired = true,
     }: {
       num: number;
       selectAfterCreate?: boolean;
@@ -71,7 +71,7 @@ export function useAccountSelectorCreateAddress() {
         networkId: string;
         deriveType: IAccountDeriveTypes;
       }[];
-      showLedgerAppInstallDialogOnError?: boolean;
+      notifyLedgerAppInstallRequired?: boolean;
     }) => {
       if (
         !account ||
@@ -115,7 +115,7 @@ export function useAccountSelectorCreateAddress() {
         source: 'batchCreateAccount' | 'createAccount';
       }) => {
         if (
-          !showLedgerAppInstallDialogOnError ||
+          !notifyLedgerAppInstallRequired ||
           (walletDevice?.vendor ?? walletDevice?.settings?.vendor) !==
             EHardwareVendor.ledger
         ) {
