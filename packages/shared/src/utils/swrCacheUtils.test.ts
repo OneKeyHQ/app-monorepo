@@ -1,6 +1,10 @@
 import { getPerpsL2BookSnapshotCacheKeys, swrKeys } from './swrCacheUtils';
 
 describe('perps L2 book SWR cache keys', () => {
+  it('uses a stable key for cached order book tick options', () => {
+    expect(swrKeys.perpsOrderBookTickOptions()).toBe('perpsOrderBookTicks:v1');
+  });
+
   it('uses only the default key when no tick option is requested', () => {
     expect(
       getPerpsL2BookSnapshotCacheKeys({

@@ -42,6 +42,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { useDebugHooksDepsChangedChecker } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import { getPerpsOrderBookTickOptionsWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IBook,
@@ -159,13 +160,15 @@ function useSyncContextOrderBookOptionsToGlobal() {
       }
       const prev = await perpsActiveOrderBookOptionsAtom.get();
       const _activeInstrument = activeTradeInstrumentRef.current;
+      const effectiveOrderBookTickOptions =
+        getPerpsOrderBookTickOptionsWithCache(_orderBookTickOptions);
 
       const l2SubscriptionOptions = (() => {
         const coin = _activeInstrument?.coin;
         if (!coin) {
           return { nSigFigs: null, mantissa: null };
         }
-        const stored = _orderBookTickOptions[coin];
+        const stored = effectiveOrderBookTickOptions[coin];
         const nSigFigs = stored?.nSigFigs ?? null;
         const mantissa =
           stored?.mantissa === undefined ? undefined : stored.mantissa;
@@ -821,7 +824,6 @@ function WebSocketSubscriptionUpdate() {
         }
 
         if (
-          !isLoading &&
           subscriptionPlan.shouldSyncSubscriptions &&
           isInstrumentBackedBySubscriptionState
         ) {

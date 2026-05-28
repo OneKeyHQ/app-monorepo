@@ -25,6 +25,7 @@ import { usePerpsShouldShowEnableTradingButtonAtom } from '@onekeyhq/kit-bg/src/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import { useL2Book } from '../hooks/usePerpMarketData';
@@ -408,7 +409,10 @@ export function PerpOrderBook({
     if (!coin) {
       return { nSigFigs: null, mantissa: undefined };
     }
-    const stored = orderBookTickOptions[coin];
+    const stored = getPerpsOrderBookTickOptionWithCache({
+      coin,
+      options: orderBookTickOptions,
+    });
     const nSigFigs = stored?.nSigFigs ?? null;
     const mantissa =
       stored?.mantissa === undefined ? undefined : stored.mantissa;
@@ -437,8 +441,18 @@ export function PerpOrderBook({
     }
     let cancelled = false;
     const getRequestOptions = async () => {
-      if (orderBookTickOptions[coin]) {
-        return l2SubscriptionOptions;
+      const cachedStored = getPerpsOrderBookTickOptionWithCache({
+        coin,
+        options: orderBookTickOptions,
+      });
+      if (cachedStored) {
+        return {
+          nSigFigs: cachedStored.nSigFigs ?? null,
+          mantissa:
+            cachedStored.mantissa === undefined
+              ? undefined
+              : cachedStored.mantissa,
+        };
       }
       const storedOptions =
         await backgroundApiProxy.simpleDb.perp.getOrderBookTickOptions();
