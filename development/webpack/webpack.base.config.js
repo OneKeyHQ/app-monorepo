@@ -8,9 +8,10 @@ const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const webpack = require('webpack');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 
+const { resolveCommitSha } = require('../utils/resolveCommitSha');
+
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
 const { createResolveExtensions } = require('./utils');
-const { resolveCommitSha } = require('../utils/resolveCommitSha');
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
