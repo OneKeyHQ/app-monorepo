@@ -293,7 +293,8 @@ export function Container({
       scrollTabElementsRef.current?.[focusedTab.value]?.element;
     const fallbackElement =
       tabIndex >= 0 ? listContainerRef.current.children.item(tabIndex) : null;
-    const element = (registeredElement ?? fallbackElement) as HTMLElement | null;
+    const element = (registeredElement ??
+      fallbackElement) as HTMLElement | null;
     // Same element + already observing -> nothing to do.
     if (element && observedElementRef.current === element) {
       return;
