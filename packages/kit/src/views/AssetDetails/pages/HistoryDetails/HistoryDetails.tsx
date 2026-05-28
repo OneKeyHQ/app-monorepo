@@ -396,7 +396,6 @@ function HistoryDetails() {
         txDetails: r?.data,
         decodedOnChainTx,
         addressMap: r?.addressMap,
-        tokens: r?.tokens,
       };
     },
 
@@ -423,8 +422,22 @@ function HistoryDetails() {
     },
   );
 
-  const { txDetails, decodedOnChainTx, addressMap, tokens } = result || {};
+  const { txDetails, decodedOnChainTx, addressMap } = result || {};
   const historyTx = historyTxParam ?? decodedOnChainTx;
+
+  // Prefer the detail response's KYT block, falling back to the one carried from
+  // the history list so the section renders before the detail request resolves.
+  const kytResult = useMemo(
+    () => txDetails?.kyt ?? historyTx?.decodedTx.kyt,
+    [txDetails?.kyt, historyTx?.decodedTx.kyt],
+  );
+  const kytReceives = useMemo(
+    () =>
+      historyTx?.decodedTx.actions?.flatMap(
+        (action) => action.assetTransfer?.receives ?? [],
+      ) ?? [],
+    [historyTx?.decodedTx.actions],
+  );
 
   useEffect(() => {
     if (txDetails && notificationId) {
@@ -1143,9 +1156,8 @@ function HistoryDetails() {
 
           {/* KYT Risk Check */}
           <TxKYTRiskCheck
-            kyt={txDetails?.kyt}
-            tokens={tokens}
-            receives={txDetails?.receives}
+            kyt={kytResult}
+            transfers={kytReceives}
             networkName={network?.name}
           />
 
@@ -1275,9 +1287,8 @@ function HistoryDetails() {
     historyTx?.decodedTx.status,
     handleViewUTXOsOnPress,
     renderAssetsChange,
-    tokens,
-    txDetails?.kyt,
-    txDetails?.receives,
+    kytResult,
+    kytReceives,
   ]);
 
   return (

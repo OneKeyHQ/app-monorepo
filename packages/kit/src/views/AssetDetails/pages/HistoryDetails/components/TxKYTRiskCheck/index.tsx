@@ -18,15 +18,12 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import type {
-  IOnChainHistoryTxToken,
-  IOnChainHistoryTxTransfer,
-} from '@onekeyhq/shared/types/history';
 import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 import type {
   IKytHistoryResult,
   IKytRiskDetail,
 } from '@onekeyhq/shared/types/kyt';
+import type { IDecodedTxTransferInfo } from '@onekeyhq/shared/types/tx';
 
 const RISK_LEVEL_CONFIG: Record<
   EKytRiskLevel,
@@ -82,27 +79,24 @@ const RISK_LEVEL_CONFIG: Record<
 };
 
 // Map the server KYT block into the per-asset detail view models the UI renders.
-// Token name/logo come from the tx `tokens` map and the transfer amount from
-// `receives`, both keyed by token address.
+// Token name/logo/amount are resolved from the decoded receives (matched by
+// token address), which are available from the list before the detail request.
 function buildRiskDetails({
   kyt,
-  tokens,
-  receives,
+  transfers,
   networkName,
 }: {
   kyt: IKytHistoryResult;
-  tokens?: Record<string, IOnChainHistoryTxToken>;
-  receives?: IOnChainHistoryTxTransfer[];
+  transfers?: IDecodedTxTransferInfo[];
   networkName?: string;
 }): IKytRiskDetail[] {
   return kyt.list.map((item) => {
-    const tokenInfo = tokens?.[item.tokenAddress]?.info;
-    const symbol = item.asset.tokenSymbol || tokenInfo?.symbol || '';
-    const receive = receives?.find(
-      (transfer) => transfer.token === item.tokenAddress,
+    const transfer = transfers?.find(
+      (t) => t.tokenIdOnNetwork === item.tokenAddress,
     );
-    const amount = receive?.amount
-      ? new BigNumber(receive.amount).toFixed()
+    const symbol = item.asset.tokenSymbol || transfer?.symbol || '';
+    const amount = transfer?.amount
+      ? new BigNumber(transfer.amount).toFixed()
       : undefined;
     return {
       level: item.level,
@@ -111,8 +105,8 @@ function buildRiskDetails({
         : '',
       asset: {
         symbol,
-        tokenName: tokenInfo?.name,
-        tokenImageUri: tokenInfo?.logoURI,
+        tokenName: transfer?.name,
+        tokenImageUri: transfer?.icon,
         networkName: networkName ?? '',
       },
       transferAmount: amount ? `+${amount} ${symbol}` : '',
@@ -174,21 +168,19 @@ function KytAssetSelectionDialogContent({
 
 export function TxKYTRiskCheck({
   kyt,
-  tokens,
-  receives,
+  transfers,
   networkName,
 }: {
   kyt?: IKytHistoryResult;
-  tokens?: Record<string, IOnChainHistoryTxToken>;
-  receives?: IOnChainHistoryTxTransfer[];
+  transfers?: IDecodedTxTransferInfo[];
   networkName?: string;
 }) {
   const navigation = useAppNavigation();
 
   const details = useMemo(() => {
     if (!kyt?.list?.length) return [];
-    return buildRiskDetails({ kyt, tokens, receives, networkName });
-  }, [kyt, tokens, receives, networkName]);
+    return buildRiskDetails({ kyt, transfers, networkName });
+  }, [kyt, transfers, networkName]);
 
   const level = kyt?.highestLevel;
   const config = level ? RISK_LEVEL_CONFIG[level] : null;

@@ -14,6 +14,7 @@ import type { IDappSourceInfo } from '.';
 import type { IHostSecurity } from './discovery';
 import type { IFeeInfoUnit, ITronResourceRentalInfo } from './fee';
 import type { EOnChainHistoryTxType } from './history';
+import type { IKytHistoryResult } from './kyt';
 import type { ENFTType } from './nft';
 import type {
   EParseTxType,
@@ -155,6 +156,9 @@ export type IDecodedTx = {
   nativeAmountValue?: string;
   riskyLevel?: number;
   kytRiskLevel?: string;
+  // Full KYT block carried from the history list so the detail page can render
+  // optimistically before its own request resolves.
+  kyt?: IKytHistoryResult;
 
   originalTxId?: string; // for ton
 
