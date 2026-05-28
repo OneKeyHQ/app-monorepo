@@ -1545,7 +1545,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
           )),
           // Authenticate this request only so the server can attach per-user
           // KYT risk data, without authenticating the whole shared wallet client.
-          ...(await this.backgroundApi.serviceGas.getOneKeyIdAuthHeaders()),
+          // Watch-only accounts are excluded from KYT: withhold the token so the
+          // server never enrols their addresses (no queue / no data / no push).
+          ...(accountUtils.isWatchingAccount({ accountId })
+            ? {}
+            : await this.backgroundApi.serviceGas.getOneKeyIdAuthHeaders()),
         },
       },
     );
