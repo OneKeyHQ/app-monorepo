@@ -829,7 +829,6 @@ function SideButtonInternal({
                   <DashText
                     size="$bodySm"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.3}
                   >
                     {intl.formatMessage({
@@ -867,7 +866,6 @@ function SideButtonInternal({
                   <DashText
                     size="$bodySm"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.5}
                   >
                     {intl.formatMessage({
@@ -1002,7 +1000,6 @@ function SideButtonInternal({
                   size="$bodySm"
                   color="$textSubdued"
                   cursor="default"
-                  dashColor="$textDisabled"
                   dashThickness={0.5}
                 >
                   {intl.formatMessage({
@@ -1033,7 +1030,6 @@ function SideButtonInternal({
                   size="$bodySm"
                   color="$textSubdued"
                   cursor="default"
-                  dashColor="$textDisabled"
                   dashThickness={0.5}
                 >
                   {intl.formatMessage({

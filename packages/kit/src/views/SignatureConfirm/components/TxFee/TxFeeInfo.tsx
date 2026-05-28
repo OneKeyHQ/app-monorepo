@@ -2121,7 +2121,6 @@ function TxFeeInfo(props: IProps) {
           <DashText
             size="$bodyMd"
             color="$textSubdued"
-            dashColor="$textDisabled"
             dashThickness={0.5}
             cursor="pointer"
           >

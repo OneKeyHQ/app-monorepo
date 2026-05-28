@@ -1099,7 +1099,6 @@ export function PerpMarketDetailContent({
                   renderTrigger={
                     <DashText
                       size="$bodySm"
-                      dashColor="$textDisabled"
                       dashThickness={0.5}
                       color="$textSubdued"
                       cursor="help"
