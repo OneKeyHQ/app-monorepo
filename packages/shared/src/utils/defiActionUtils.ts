@@ -41,6 +41,7 @@ const CATEGORY_ALIAS_MAP: Record<string, string> = {
   reward: 'reward',
   rewards: 'reward',
   staking_reward: 'reward',
+  staking_rewards: 'reward',
   liquidity_mining: 'reward',
   liquidity: 'liquidity',
   liquidity_pool: 'liquidity',
@@ -153,6 +154,69 @@ function pickStringFromSources({
   return undefined;
 }
 
+function normalizeStringArray(value: unknown) {
+  if (Array.isArray(value)) {
+    const values = value
+      .map((item) => {
+        if (typeof item === 'string' && item.trim()) return item.trim();
+        if (typeof item === 'number' && Number.isFinite(item)) {
+          return String(item);
+        }
+        return undefined;
+      })
+      .filter((item): item is string => Boolean(item));
+    return values.length > 0 ? values : undefined;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    return [value.trim()];
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return [String(value)];
+  }
+
+  return undefined;
+}
+
+function pickStringArrayFromRecord(
+  record: IDeFiUnknownRecord | undefined,
+  keys: string[],
+) {
+  if (!record) return undefined;
+  for (const key of keys) {
+    const value = normalizeStringArray(record[key]);
+    if (value?.length) return value;
+  }
+  return undefined;
+}
+
+function pickStringArrayFromSources({
+  sources,
+  directKeys,
+  nestedKeys,
+}: {
+  sources: unknown[];
+  directKeys: string[];
+  nestedKeys?: { containerKey: string; keys: string[] }[];
+}) {
+  for (const source of sources) {
+    const record = asRecord(source);
+    const directValue = pickStringArrayFromRecord(record, directKeys);
+    if (directValue?.length) return directValue;
+
+    for (const nestedKey of nestedKeys ?? []) {
+      const nestedRecord = asRecord(record?.[nestedKey.containerKey]);
+      const nestedValue = pickStringArrayFromRecord(
+        nestedRecord,
+        nestedKey.keys,
+      );
+      if (nestedValue?.length) return nestedValue;
+    }
+  }
+  return undefined;
+}
+
 function normalizeTokenId(value?: string) {
   const trimmed = value?.trim();
   if (!trimmed) return undefined;
@@ -164,6 +228,123 @@ function normalizeTokenId(value?: string) {
     /(?:tokenId|token_id|positionId|position_id|nftId|nft_id)[:=_-](\d+)/i,
   );
   return match?.[1];
+}
+
+function normalizeQueueNonce(value?: string) {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  if (/^\d+$/.test(trimmed)) return trimmed;
+  return undefined;
+}
+
+function parseCooldownQueueNonce(value?: string) {
+  const match = value?.match(/cooldown[^\d]*(\d+)/i);
+  return normalizeQueueNonce(match?.[1]);
+}
+
+function getPolygonQueueNonces({
+  position,
+  asset,
+  extraParams,
+}: {
+  position: IDeFiPosition | undefined;
+  asset: IDeFiAsset;
+  extraParams?: IDeFiActionExtraParams;
+}) {
+  const explicitNonces = pickStringArrayFromSources({
+    sources: [extraParams, asset, position],
+    directKeys: ['unbondNonces', 'unbond_nonces'],
+    nestedKeys: [
+      {
+        containerKey: 'extraParams',
+        keys: ['unbondNonces', 'unbond_nonces'],
+      },
+      {
+        containerKey: 'meta',
+        keys: ['unbondNonces', 'unbond_nonces'],
+      },
+    ],
+  })?.map(normalizeQueueNonce);
+  const normalizedExplicitNonces = explicitNonces?.filter(
+    (item): item is string => Boolean(item),
+  );
+  if (normalizedExplicitNonces?.length) {
+    return normalizedExplicitNonces;
+  }
+
+  const explicitNonce = normalizeQueueNonce(
+    pickStringFromSources({
+      sources: [extraParams, asset, position],
+      directKeys: [
+        'unbondNonce',
+        'unbond_nonce',
+        'unbondNonceId',
+        'unbond_nonce_id',
+      ],
+      nestedKeys: [
+        {
+          containerKey: 'extraParams',
+          keys: [
+            'unbondNonce',
+            'unbond_nonce',
+            'unbondNonceId',
+            'unbond_nonce_id',
+          ],
+        },
+        {
+          containerKey: 'meta',
+          keys: [
+            'unbondNonce',
+            'unbond_nonce',
+            'unbondNonceId',
+            'unbond_nonce_id',
+          ],
+        },
+      ],
+    }),
+  );
+  if (explicitNonce) return [explicitNonce];
+
+  const assetRecord = asRecord(asset);
+  const assetMeta = asRecord(assetRecord?.meta);
+  const textSources = [
+    position?.name,
+    position?.groupId,
+    pickStringFromRecord(assetRecord, ['name', 'displayName', 'label']),
+    pickStringFromRecord(assetMeta, ['name', 'displayName', 'label']),
+    asset.symbol,
+  ];
+
+  for (const text of textSources) {
+    const nonce = parseCooldownQueueNonce(text);
+    if (nonce) return [nonce];
+  }
+
+  return undefined;
+}
+
+function isPolygonCooldownAsset({
+  sourcePosition,
+  asset,
+}: {
+  sourcePosition: IDeFiPosition | undefined;
+  asset: IDeFiAsset;
+}) {
+  if (
+    getPolygonQueueNonces({
+      position: sourcePosition,
+      asset,
+      extraParams: mergeExtraParams(sourcePosition?.extraParams, {
+        ...asset.extraParams,
+      }),
+    })?.length
+  ) {
+    return true;
+  }
+
+  return [sourcePosition?.name, sourcePosition?.groupId, asset.symbol].some(
+    (text) => /cooldown/i.test(text ?? ''),
+  );
 }
 
 function mergeExtraParams(
@@ -320,7 +501,27 @@ function getCandidateAssets({
 
     return candidates
       .filter((asset) => isPositiveAmount(asset.amount))
-      .filter((asset) => isCategoryMatch(targetCategory, asset.category))
+      .filter((asset) => {
+        if (
+          isNormalizedProtocolId(supportedAction.protocolId, 'polygon_staking')
+        ) {
+          const isCooldownAsset = isPolygonCooldownAsset({
+            sourcePosition,
+            asset,
+          });
+          if (supportedAction.action === EDeFiPositionAction.ClaimWithdrawal) {
+            return isCooldownAsset;
+          }
+          if (
+            supportedAction.action === EDeFiPositionAction.Withdraw &&
+            isCooldownAsset
+          ) {
+            return false;
+          }
+        }
+
+        return isCategoryMatch(targetCategory, asset.category);
+      })
       .map((asset) => ({ asset, sourcePosition }));
   });
 }
@@ -336,7 +537,7 @@ function buildResolvedAsset({
   asset: IDeFiAsset;
   sourcePosition: IDeFiPosition | undefined;
 }): IResolvedDeFiPositionActionAsset | undefined {
-  const extraParams = mergeExtraParams(sourcePosition?.extraParams, {
+  let extraParams = mergeExtraParams(sourcePosition?.extraParams, {
     ...asset.extraParams,
   });
   const poolAddress = getPoolAddress(sourcePosition, asset);
@@ -383,11 +584,18 @@ function buildResolvedAsset({
 
   if (
     isNormalizedProtocolId(protocolId, 'polygon_staking') &&
-    action === EDeFiPositionAction.ClaimWithdrawal &&
-    // oxlint-disable-next-line @cspell/spellchecker
-    !extraParams?.unbondNonces?.length
+    action === EDeFiPositionAction.ClaimWithdrawal
   ) {
-    return undefined;
+    const queueNonces = getPolygonQueueNonces({
+      position: sourcePosition,
+      asset,
+      extraParams,
+    });
+    if (!queueNonces?.length) {
+      return undefined;
+    }
+    // oxlint-disable-next-line @cspell/spellchecker
+    extraParams = mergeExtraParams(extraParams, { unbondNonces: queueNonces });
   }
 
   return {

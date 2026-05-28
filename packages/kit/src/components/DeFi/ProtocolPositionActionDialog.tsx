@@ -1,27 +1,37 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Checkbox,
   Dialog,
-  Input,
   SizableText,
+  Stack,
   Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EDeFiPositionAction,
   type IDeFiActionExtraParams,
   type IResolvedDeFiPositionAction,
+  type IResolvedDeFiPositionActionAsset,
 } from '@onekeyhq/shared/types/defi';
+
+import {
+  ProtocolValueCell,
+  isProtocolAssetValueUnavailable,
+} from './ProtocolValueCell';
 
 function getActionLabel({
   action,
@@ -44,20 +54,81 @@ function getActionLabel({
   return action;
 }
 
-function isValidAmount({
-  amount,
-  maxAmount,
+function ProtocolPositionActionAssetRow({
+  asset,
+  index,
+  isSelected,
+  currencySymbol,
+  priceUnavailableLabel,
+  onSelect,
 }: {
-  amount: string;
-  maxAmount: string;
+  asset: IResolvedDeFiPositionActionAsset;
+  index: number;
+  isSelected: boolean;
+  currencySymbol: string;
+  priceUnavailableLabel: string;
+  onSelect: (index: number, selected: boolean) => void;
 }) {
-  const amountBN = new BigNumber(amount);
-  const maxBN = new BigNumber(maxAmount);
   return (
-    amountBN.isFinite() &&
-    maxBN.isFinite() &&
-    amountBN.gt(0) &&
-    amountBN.lte(maxBN)
+    <XStack
+      testID={`defi-position-action-asset-${index}`}
+      alignItems="center"
+      gap="$3"
+      minHeight={44}
+      py="$2.5"
+      cursor="pointer"
+      userSelect="none"
+      onPress={() => onSelect(index, true)}
+    >
+      <Token
+        size="md"
+        tokenImageUri={asset.asset.meta?.logoUrl}
+        bg="$bgStrong"
+      />
+      <YStack flex={1} minWidth={0} justifyContent="center" gap="$0.5">
+        <XStack alignItems="center" gap="$1" minWidth={0}>
+          <NumberSizeableTextWrapper
+            hideValue
+            size="$bodyMdMedium"
+            formatter="balance"
+            numberOfLines={1}
+          >
+            {asset.amount}
+          </NumberSizeableTextWrapper>
+          <SizableText
+            size="$bodyMdMedium"
+            color="$text"
+            numberOfLines={1}
+            flexShrink={1}
+          >
+            {asset.symbol}
+          </SizableText>
+        </XStack>
+        <ProtocolValueCell
+          value={asset.asset.value}
+          currencySymbol={currencySymbol}
+          priceUnavailableLabel={priceUnavailableLabel}
+          isUnavailable={isProtocolAssetValueUnavailable(asset.asset)}
+          justifyContent="flex-start"
+          size="$bodySm"
+          color="$textSubdued"
+          numberOfLines={1}
+        />
+      </YStack>
+      <Stack
+        onPress={(event) => {
+          event.stopPropagation();
+        }}
+      >
+        <Checkbox
+          testID={`defi-position-action-asset-checkbox-${index}`}
+          value={isSelected}
+          onChange={(checked) => {
+            onSelect(index, checked === true);
+          }}
+        />
+      </Stack>
+    </XStack>
   );
 }
 
@@ -77,6 +148,120 @@ type IProtocolPositionActionSuccessParams = {
   networkId: string;
 };
 
+type IProtocolPositionActionSubmitParams = {
+  action: IResolvedDeFiPositionAction;
+  selectedAsset: IResolvedDeFiPositionActionAsset;
+  percent?: number;
+};
+
+function buildDeFiActionExtraParams({
+  action,
+  selectedAsset,
+  percent,
+}: IProtocolPositionActionSubmitParams): IDeFiActionExtraParams {
+  const extraParams: IDeFiActionExtraParams = {
+    ...selectedAsset.extraParams,
+  };
+
+  if (action.action === EDeFiPositionAction.RemoveLiquidity) {
+    const amount0Min = getPositiveAmount(extraParams.amount0Min);
+    const amount1Min = getPositiveAmount(extraParams.amount1Min);
+    delete extraParams.amount0Min;
+    delete extraParams.amount1Min;
+    extraParams.percent = String(percent ?? 100);
+    if (amount0Min) {
+      extraParams.amount0Min = amount0Min;
+    }
+    if (amount1Min) {
+      extraParams.amount1Min = amount1Min;
+    }
+  }
+
+  return extraParams;
+}
+
+function useProtocolPositionActionSubmit({
+  accountId,
+  networkId,
+  onSuccess,
+}: {
+  accountId: string;
+  networkId: string;
+  onSuccess?: (
+    params: IProtocolPositionActionSuccessParams,
+  ) => void | Promise<void>;
+}) {
+  const intl = useIntl();
+  const { navigationToTxConfirm } = useSignatureConfirm({
+    accountId,
+    networkId,
+  });
+
+  return useCallback(
+    async ({
+      action,
+      selectedAsset,
+      percent,
+    }: IProtocolPositionActionSubmitParams) => {
+      const isWithdraw = action.action === EDeFiPositionAction.Withdraw;
+      const isRemoveLiquidity =
+        action.action === EDeFiPositionAction.RemoveLiquidity;
+      const extraParams = buildDeFiActionExtraParams({
+        action,
+        selectedAsset,
+        percent,
+      });
+
+      try {
+        const resp = await backgroundApiProxy.serviceDeFi.buildDeFiTransaction({
+          accountId,
+          networkId,
+          protocolId: action.protocolId,
+          action: action.action,
+          tokenAddress: isRemoveLiquidity
+            ? undefined
+            : selectedAsset.tokenAddress,
+          amount: undefined,
+          withdrawAll: isWithdraw ? true : undefined,
+          extraParams,
+        });
+
+        if (resp.approvalTx) {
+          throw new OneKeyLocalError(
+            'DeFi approval transaction is not supported',
+          );
+        }
+
+        if (!resp.tx) {
+          throw new OneKeyLocalError('DeFi transaction is missing');
+        }
+
+        await navigationToTxConfirm({
+          encodedTx: resp.tx as IEncodedTx,
+          gasAccountScenario: 'earn',
+          onSuccess: async () => {
+            Toast.success({
+              title: intl.formatMessage({ id: ETranslations.global_success }),
+            });
+            await onSuccess?.({ accountId, networkId });
+          },
+          onFail: (error: Error) => {
+            Toast.error({
+              title: getErrorMessage(error),
+            });
+          },
+        });
+      } catch (error) {
+        Toast.error({
+          title: getErrorMessage(error),
+        });
+        throw error;
+      }
+    },
+    [accountId, intl, navigationToTxConfirm, networkId, onSuccess],
+  );
+}
+
 function ProtocolPositionActionDialogContent({
   accountId,
   networkId,
@@ -91,100 +276,47 @@ function ProtocolPositionActionDialogContent({
   ) => void | Promise<void>;
 }) {
   const intl = useIntl();
-  const { navigationToTxConfirm } = useSignatureConfirm({
+  const submitProtocolPositionAction = useProtocolPositionActionSubmit({
     accountId,
     networkId,
+    onSuccess,
   });
-  const [selectedAssetIndex, setSelectedAssetIndex] = useState(0);
-  const [amount, setAmount] = useState('');
-  const [withdrawAll, setWithdrawAll] = useState(false);
+  const [
+    {
+      currencyInfo: { symbol: currencySymbol },
+    },
+  ] = useSettingsPersistAtom();
+  const [selectedAssetIndex, setSelectedAssetIndex] = useState<
+    number | undefined
+  >(action.assets[0] ? 0 : undefined);
   const [percent, setPercent] = useState(100);
 
-  const selectedAsset = action.assets[selectedAssetIndex] ?? action.assets[0];
+  const selectedAsset =
+    typeof selectedAssetIndex === 'number'
+      ? action.assets[selectedAssetIndex]
+      : undefined;
   const actionLabel = getActionLabel({ action: action.action, intl });
-  const isWithdraw = action.action === EDeFiPositionAction.Withdraw;
   const isRemoveLiquidity =
     action.action === EDeFiPositionAction.RemoveLiquidity;
-  const amountValid = useMemo(
-    () =>
-      !isWithdraw ||
-      withdrawAll ||
-      isValidAmount({
-        amount,
-        maxAmount: selectedAsset?.amount ?? '0',
-      }),
-    [amount, isWithdraw, selectedAsset?.amount, withdrawAll],
-  );
-  const isConfirmDisabled = !selectedAsset || !amountValid;
+  const priceUnavailableLabel = intl.formatMessage({
+    id: ETranslations.wallet_price_unavailable,
+  });
+  const isConfirmDisabled = !selectedAsset;
+
+  const handleAssetSelect = (index: number, selected: boolean) => {
+    setSelectedAssetIndex(selected ? index : undefined);
+  };
 
   const handleConfirm = async () => {
     if (!selectedAsset) {
       throw new OneKeyLocalError('DeFi action asset is missing');
     }
 
-    const extraParams: IDeFiActionExtraParams = {
-      ...selectedAsset.extraParams,
-    };
-
-    if (isRemoveLiquidity) {
-      const amount0Min = getPositiveAmount(extraParams.amount0Min);
-      const amount1Min = getPositiveAmount(extraParams.amount1Min);
-      delete extraParams.amount0Min;
-      delete extraParams.amount1Min;
-      extraParams.percent = String(percent);
-      if (amount0Min) {
-        extraParams.amount0Min = amount0Min;
-      }
-      if (amount1Min) {
-        extraParams.amount1Min = amount1Min;
-      }
-    }
-
-    try {
-      const resp = await backgroundApiProxy.serviceDeFi.buildDeFiTransaction({
-        accountId,
-        networkId,
-        protocolId: action.protocolId,
-        action: action.action,
-        tokenAddress: isRemoveLiquidity
-          ? undefined
-          : selectedAsset.tokenAddress,
-        amount: isWithdraw && !withdrawAll ? amount : undefined,
-        withdrawAll: isWithdraw ? withdrawAll : undefined,
-        extraParams,
-      });
-
-      if (resp.approvalTx) {
-        throw new OneKeyLocalError(
-          'DeFi approval transaction is not supported',
-        );
-      }
-
-      if (!resp.tx) {
-        throw new OneKeyLocalError('DeFi transaction is missing');
-      }
-
-      await navigationToTxConfirm({
-        encodedTx: resp.tx as IEncodedTx,
-        gasAccountScenario: 'earn',
-        onSuccess: async () => {
-          Toast.success({
-            title: intl.formatMessage({ id: ETranslations.global_success }),
-          });
-          await onSuccess?.({ accountId, networkId });
-        },
-        onFail: (error: Error) => {
-          Toast.error({
-            title: getErrorMessage(error),
-          });
-        },
-      });
-    } catch (error) {
-      Toast.error({
-        title: getErrorMessage(error),
-      });
-      throw error;
-    }
+    await submitProtocolPositionAction({
+      action,
+      selectedAsset,
+      percent,
+    });
   };
 
   return (
@@ -193,59 +325,19 @@ function ProtocolPositionActionDialogContent({
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
 
-      {action.assets.length > 1 && !isRemoveLiquidity ? (
-        <XStack gap="$2" flexWrap="wrap">
+      {!isRemoveLiquidity ? (
+        <YStack>
           {action.assets.map((asset, index) => (
-            <Button
+            <ProtocolPositionActionAssetRow
               key={`${asset.tokenAddress ?? asset.symbol}-${index}`}
-              testID={`defi-position-action-asset-${index}`}
-              size="small"
-              variant={selectedAssetIndex === index ? 'primary' : 'secondary'}
-              onPress={() => {
-                setSelectedAssetIndex(index);
-                setAmount('');
-                setWithdrawAll(false);
-              }}
-            >
-              {asset.symbol}
-            </Button>
-          ))}
-        </XStack>
-      ) : null}
-
-      {isWithdraw ? (
-        <YStack gap="$2">
-          <XStack gap="$2" alignItems="center">
-            <Input
-              testID="defi-position-action-amount-input"
-              flex={1}
-              value={amount}
-              keyboardType="decimal-pad"
-              placeholder={intl.formatMessage({
-                id: ETranslations.content__amount,
-              })}
-              onChangeText={(value) => {
-                setAmount(value);
-                setWithdrawAll(false);
-              }}
+              asset={asset}
+              index={index}
+              isSelected={selectedAssetIndex === index}
+              currencySymbol={currencySymbol}
+              priceUnavailableLabel={priceUnavailableLabel}
+              onSelect={handleAssetSelect}
             />
-            <Button
-              testID="defi-position-action-max-button"
-              size="medium"
-              variant="secondary"
-              onPress={() => {
-                setAmount(selectedAsset?.amount ?? '');
-                setWithdrawAll(true);
-              }}
-            >
-              {intl.formatMessage({ id: ETranslations.global_max })}
-            </Button>
-          </XStack>
-          {selectedAsset ? (
-            <SizableText size="$bodySm" color="$textSubdued">
-              {`${selectedAsset.amount} ${selectedAsset.symbol}`}
-            </SizableText>
-          ) : null}
+          ))}
         </YStack>
       ) : null}
 
@@ -265,14 +357,8 @@ function ProtocolPositionActionDialogContent({
         </XStack>
       ) : null}
 
-      {!isWithdraw && !isRemoveLiquidity && selectedAsset ? (
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {`${selectedAsset.amount} ${selectedAsset.symbol}`}
-        </SizableText>
-      ) : null}
-
       <Dialog.Footer
-        showCancelButton
+        showCancelButton={false}
         showConfirmButton
         onConfirmText={actionLabel}
         onConfirm={handleConfirm}
@@ -313,5 +399,6 @@ function showProtocolPositionActionDialog({
 export {
   getActionLabel,
   showProtocolPositionActionDialog,
+  useProtocolPositionActionSubmit,
   type IProtocolPositionActionSuccessParams,
 };

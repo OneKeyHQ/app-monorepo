@@ -8,7 +8,6 @@ import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/com
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import type { IProtocolUnifiedRow } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
 import type {
   IDeFiAsset,
   IDeFiProtocol,
@@ -62,7 +61,6 @@ export const USD_FLEX_WITHOUT_REWARDS = 1;
 // the top-by-USD rows + a "+N more" chip, so an 8-token yield position
 // settles at four lines of content instead of eight.
 const MAX_BALANCE_LINES = 3;
-const ACTION_COLUMN_WIDTH = 120;
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
@@ -96,30 +94,6 @@ const ProtocolUnifiedTable = memo(
       () => rows.some((row) => row.rewardsExtraAssets.length > 0),
       [rows],
     );
-    const showActionColumn = useMemo(
-      () =>
-        !!accountId &&
-        rows.some(
-          (row) =>
-            defiActionUtils.resolveDeFiPositionActions({
-              protocol,
-              supportedActions,
-              position: {
-                groupId: row.groupId,
-                poolName: row.positionDisplay.text,
-                poolFullName: row.positionDisplay.text,
-                category: row.category,
-                assets: row.primaryAssets,
-                debts: [],
-                rewards: row.rewardsExtraAssets,
-                value: '0',
-                sourcePositions: row.sourcePositions,
-              },
-            }).length > 0,
-        ),
-      [accountId, protocol, rows, supportedActions],
-    );
-
     const labels = useMemo(
       () => ({
         position: intl.formatMessage({ id: ETranslations.earn_positions }),
@@ -195,9 +169,6 @@ const ProtocolUnifiedTable = memo(
               {labels.value}
             </SizableText>
           </Stack>
-          {showActionColumn ? (
-            <Stack width={ACTION_COLUMN_WIDTH} flexShrink={0} />
-          ) : null}
         </XStack>
 
         {rows.map((row, rowIndex) => {
@@ -221,153 +192,146 @@ const ProtocolUnifiedTable = memo(
             logoUrl: asset.meta?.logoUrl,
           }));
 
+          const actionPosition = {
+            groupId: row.groupId,
+            poolName: row.positionDisplay.text,
+            poolFullName: row.positionDisplay.text,
+            category: row.category,
+            assets: row.primaryAssets,
+            debts: [],
+            rewards: row.rewardsExtraAssets,
+            value: '0',
+            sourcePositions: row.sourcePositions,
+          };
+
           return (
-            <XStack
-              key={row.rowKey}
-              mx="$5"
-              px="$2"
-              py="$3"
-              alignItems="flex-start"
-              minHeight={44}
-              mt={rowIndex === 0 ? '$0' : '$3'}
-              gap={PROTOCOL_TABLE_COLUMN_GAP}
-            >
-              <Stack
-                width={POSITION_COLUMN_WIDTH}
-                flexShrink={0}
-                minWidth={0}
-                pt="$1"
+            <YStack key={row.rowKey} mx="$5" mt={rowIndex === 0 ? '$0' : '$3'}>
+              <XStack
+                px="$2"
+                py="$3"
+                alignItems="flex-start"
+                minHeight={44}
+                gap={PROTOCOL_TABLE_COLUMN_GAP}
               >
-                <ProtocolPositionCell
-                  name={row.positionDisplay.text}
-                  assets={positionAvatars}
-                />
-              </Stack>
-              <YStack
-                flex={balanceFlex}
-                flexBasis={0}
-                minWidth={0}
-                gap="$1"
-                pt="$1"
-              >
-                {visibleBalanceAssets.map((asset, assetIndex) => (
-                  <ProtocolAssetBalanceText
-                    key={`${row.rowKey}-balance-${asset.address}-${assetIndex}`}
-                    asset={asset}
-                    currencySymbol={currencySymbol}
-                    priceUnavailableLabel={priceUnavailableLabel}
+                <Stack
+                  width={POSITION_COLUMN_WIDTH}
+                  flexShrink={0}
+                  minWidth={0}
+                  pt="$1"
+                >
+                  <ProtocolPositionCell
+                    name={row.positionDisplay.text}
+                    assets={positionAvatars}
                   />
-                ))}
-                {balanceOverflow > 0 ? (
-                  // Compact ghost button. Sits flush-left in the Balance
-                  // column with a small left padding so the bg-on-hover
-                  // pill reads as a distinct affordance rather than the
-                  // amount lines above; no negative margin so it never
-                  // overlaps the Position column to the left.
-                  <XStack
-                    alignItems="center"
-                    gap="$0.5"
-                    alignSelf="flex-start"
-                    pl="$1.5"
-                    pr="$1"
-                    py="$0.5"
-                    mt="$0.5"
-                    borderRadius="$2"
-                    borderCurve="continuous"
-                    cursor="pointer"
-                    userSelect="none"
-                    role="button"
-                    aria-expanded={isExpanded}
-                    focusable
-                    focusVisibleStyle={{
-                      outlineColor: '$focusRing',
-                      outlineWidth: 2,
-                      outlineStyle: 'solid',
-                      outlineOffset: 1,
-                    }}
-                    hoverStyle={{ bg: '$bgHover' }}
-                    pressStyle={{ bg: '$bgActive' }}
-                    onPress={() => toggleExpanded(row.rowKey)}
-                  >
-                    {/* Collapsed: just `+N` (count + symbol = i18n-safe).
-                        Chevron carries the "expand" affordance, so the
-                        English literal "more" word isn't needed and we
-                        avoid hardcoding text without a translation key.
-                        Expanded uses the localized "Show less" — the
-                        intent there is action, not count. */}
-                    <SizableText size="$bodySm" color="$textSubdued">
-                      {isExpanded ? labels.showLess : `+${balanceOverflow}`}
-                    </SizableText>
-                    <Icon
-                      name={
-                        isExpanded
-                          ? 'ChevronTopSmallSolid'
-                          : 'ChevronDownSmallSolid'
-                      }
-                      size="$4"
-                      color="$iconSubdued"
-                    />
-                  </XStack>
-                ) : null}
-              </YStack>
-              {showRewardsColumn ? (
-                <Stack flex={REWARDS_FLEX} flexBasis={0} minWidth={0} pt="$1">
-                  {row.rewardsExtraAssets.length > 0 ? (
-                    <ProtocolRewardsCell
-                      rewards={row.rewardsExtraAssets}
+                </Stack>
+                <YStack
+                  flex={balanceFlex}
+                  flexBasis={0}
+                  minWidth={0}
+                  gap="$1"
+                  pt="$1"
+                >
+                  {visibleBalanceAssets.map((asset, assetIndex) => (
+                    <ProtocolAssetBalanceText
+                      key={`${row.rowKey}-balance-${asset.address}-${assetIndex}`}
+                      asset={asset}
                       currencySymbol={currencySymbol}
                       priceUnavailableLabel={priceUnavailableLabel}
                     />
+                  ))}
+                  {balanceOverflow > 0 ? (
+                    // Compact ghost button. Sits flush-left in the Balance
+                    // column with a small left padding so the bg-on-hover
+                    // pill reads as a distinct affordance rather than the
+                    // amount lines above; no negative margin so it never
+                    // overlaps the Position column to the left.
+                    <XStack
+                      alignItems="center"
+                      gap="$0.5"
+                      alignSelf="flex-start"
+                      pl="$1.5"
+                      pr="$1"
+                      py="$0.5"
+                      mt="$0.5"
+                      borderRadius="$2"
+                      borderCurve="continuous"
+                      cursor="pointer"
+                      userSelect="none"
+                      role="button"
+                      aria-expanded={isExpanded}
+                      focusable
+                      focusVisibleStyle={{
+                        outlineColor: '$focusRing',
+                        outlineWidth: 2,
+                        outlineStyle: 'solid',
+                        outlineOffset: 1,
+                      }}
+                      hoverStyle={{ bg: '$bgHover' }}
+                      pressStyle={{ bg: '$bgActive' }}
+                      onPress={() => toggleExpanded(row.rowKey)}
+                    >
+                      {/* Collapsed: just `+N` (count + symbol = i18n-safe).
+                          Chevron carries the "expand" affordance, so the
+                          English literal "more" word isn't needed and we
+                          avoid hardcoding text without a translation key.
+                          Expanded uses the localized "Show less" — the
+                          intent there is action, not count. */}
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        {isExpanded ? labels.showLess : `+${balanceOverflow}`}
+                      </SizableText>
+                      <Icon
+                        name={
+                          isExpanded
+                            ? 'ChevronTopSmallSolid'
+                            : 'ChevronDownSmallSolid'
+                        }
+                        size="$4"
+                        color="$iconSubdued"
+                      />
+                    </XStack>
                   ) : null}
-                </Stack>
-              ) : null}
-              <Stack
-                flex={usdFlex}
-                flexBasis={0}
-                minWidth={0}
-                alignItems="flex-end"
-                pt="$1"
-              >
-                <ProtocolValueCell
-                  value={positionUsdState.value}
-                  currencySymbol={currencySymbol}
-                  priceUnavailableLabel={priceUnavailableLabel}
-                  partialPriceUnavailableLabel={partialPriceUnavailableLabel}
-                  isUnavailable={isPositionUsdUnavailable}
-                  showPriceUnavailableTooltip={hasPartialUnavailableValue}
-                  size="$bodyMdMedium"
-                  textAlign="right"
-                  numberOfLines={1}
-                  fontVariant={TABULAR_NUMS}
-                />
-              </Stack>
-              {showActionColumn ? (
+                </YStack>
+                {showRewardsColumn ? (
+                  <Stack flex={REWARDS_FLEX} flexBasis={0} minWidth={0} pt="$1">
+                    {row.rewardsExtraAssets.length > 0 ? (
+                      <ProtocolRewardsCell
+                        rewards={row.rewardsExtraAssets}
+                        currencySymbol={currencySymbol}
+                        priceUnavailableLabel={priceUnavailableLabel}
+                      />
+                    ) : null}
+                  </Stack>
+                ) : null}
                 <Stack
-                  width={ACTION_COLUMN_WIDTH}
-                  flexShrink={0}
+                  flex={usdFlex}
+                  flexBasis={0}
+                  minWidth={0}
                   alignItems="flex-end"
-                  pt="$0.5"
+                  pt="$1"
                 >
-                  <ProtocolPositionActionButton
-                    accountId={accountId}
-                    protocol={protocol}
-                    position={{
-                      groupId: row.groupId,
-                      poolName: row.positionDisplay.text,
-                      poolFullName: row.positionDisplay.text,
-                      category: row.category,
-                      assets: row.primaryAssets,
-                      debts: [],
-                      rewards: row.rewardsExtraAssets,
-                      value: '0',
-                      sourcePositions: row.sourcePositions,
-                    }}
-                    supportedActions={supportedActions}
-                    onSuccess={onActionSuccess}
+                  <ProtocolValueCell
+                    value={positionUsdState.value}
+                    currencySymbol={currencySymbol}
+                    priceUnavailableLabel={priceUnavailableLabel}
+                    partialPriceUnavailableLabel={partialPriceUnavailableLabel}
+                    isUnavailable={isPositionUsdUnavailable}
+                    showPriceUnavailableTooltip={hasPartialUnavailableValue}
+                    size="$bodyMdMedium"
+                    textAlign="right"
+                    numberOfLines={1}
+                    fontVariant={TABULAR_NUMS}
                   />
                 </Stack>
-              ) : null}
-            </XStack>
+              </XStack>
+              <ProtocolPositionActionButton
+                accountId={accountId}
+                protocol={protocol}
+                position={actionPosition}
+                supportedActions={supportedActions}
+                containerProps={{ alignSelf: 'flex-end', px: '$2' }}
+                onSuccess={onActionSuccess}
+              />
+            </YStack>
           );
         })}
       </YStack>

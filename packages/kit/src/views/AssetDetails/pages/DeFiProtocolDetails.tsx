@@ -201,6 +201,7 @@ function DeFiProtocolDetails() {
             const hasPartialUnavailableValue =
               positionValueState.hasAvailableValue &&
               positionValueState.hasUnavailableValue;
+            const actionPosition = buildActionPosition(position);
 
             return (
               <Stack key={position.positionKey} px="$5">
@@ -226,13 +227,6 @@ function DeFiProtocolDetails() {
                       </SizableText>
                     ) : null}
                   </XStack>
-                  <ProtocolPositionActionButton
-                    accountId={actionAccountId}
-                    protocol={protocol}
-                    position={buildActionPosition(position)}
-                    supportedActions={supportedActions}
-                    onSuccess={handleActionSuccess}
-                  />
                   <Stack maxWidth="45%" alignItems="flex-end">
                     <ProtocolValueCell
                       value={positionValueState.value}
@@ -259,6 +253,14 @@ function DeFiProtocolDetails() {
                       priceUnavailableLabel={priceUnavailableLabel}
                     />
                   ))}
+                  <ProtocolPositionActionButton
+                    accountId={actionAccountId}
+                    protocol={protocol}
+                    position={actionPosition}
+                    supportedActions={supportedActions}
+                    containerProps={{ alignSelf: 'flex-end' }}
+                    onSuccess={handleActionSuccess}
+                  />
                 </YStack>
               </Stack>
             );

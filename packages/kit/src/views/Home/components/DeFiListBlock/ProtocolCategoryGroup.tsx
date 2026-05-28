@@ -75,6 +75,7 @@ const ProtocolCategoryGroup = memo(
           {group.positions.map((position) => {
             const positionDisplayName =
               getProtocolPositionDisplayName(position);
+            const actionPosition = buildActionPosition(position);
 
             return (
               <YStack key={position.positionKey} gap="$2">
@@ -104,18 +105,19 @@ const ProtocolCategoryGroup = memo(
                       {positionDisplayName}
                     </SizableText>
                   ) : null}
-                  <ProtocolPositionActionButton
-                    accountId={accountId}
-                    protocol={protocol}
-                    position={buildActionPosition(position)}
-                    supportedActions={supportedActions}
-                    onSuccess={onActionSuccess}
-                  />
                 </XStack>
                 <ProtocolSectionedPositionTable
                   position={position}
                   currencySymbol={currencySymbol}
                   priceUnavailableLabel={priceUnavailableLabel}
+                />
+                <ProtocolPositionActionButton
+                  accountId={accountId}
+                  protocol={protocol}
+                  position={actionPosition}
+                  supportedActions={supportedActions}
+                  containerProps={{ alignSelf: 'flex-end', mx: '$5' }}
+                  onSuccess={onActionSuccess}
                 />
               </YStack>
             );
