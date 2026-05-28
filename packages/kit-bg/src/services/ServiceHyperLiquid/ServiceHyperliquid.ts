@@ -117,6 +117,10 @@ import ServiceBase from '../ServiceBase';
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
+import {
+  createFetchUserAbstractionRawWithCache,
+  invalidateUserAbstractionRawCache,
+} from './userAbstractionCache';
 
 import type ServiceHyperliquidExchange from './ServiceHyperliquidExchange';
 import type ServiceHyperliquidWallet from './ServiceHyperliquidWallet';
@@ -169,11 +173,25 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private activeAssetChangeRequestId = 0;
 
+  private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
+
   private tokenSelectorFavoriteUpdateQueue = Promise.resolve();
 
   @backgroundMethod()
   async cancelPendingActiveAssetChange(): Promise<void> {
     this.activeAssetChangeRequestId += 1;
+  }
+
+  private rememberCommittedActiveAsset(
+    activeAsset: IChangeActiveAssetResult | undefined,
+  ): void {
+    if (
+      activeAsset?.coin &&
+      activeAsset.assetId !== undefined &&
+      activeAsset.universe
+    ) {
+      this.lastCommittedActiveAsset = activeAsset;
+    }
   }
 
   private async updateTokenSelectorFavoriteInBg({
@@ -1665,6 +1683,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     await perpsAbstractionModeAtom.set(undefined);
     await perpsSpotBalancesAtom.set(undefined);
+    this.fetchUserAbstractionRawWithCache.clear();
     // Also reset the UI-facing spot balances atom so stale balances from
     // the previous account don't flash before the new SPOT_STATE arrives.
     await spotBalancesAtom.set({ balances: [], isLoaded: false });
@@ -1678,65 +1697,98 @@ export default class ServiceHyperliquid extends ServiceBase {
   }): Promise<IChangeActiveAssetResult> {
     const requestId = (this.activeAssetChangeRequestId += 1);
     const oldActiveAsset = await perpsActiveAssetAtom.get();
+    this.rememberCommittedActiveAsset(oldActiveAsset);
+    const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
-    const { universesByDex, marginTablesMapByDex } =
-      await this.getTradingUniverse();
+    const shouldSeedSubscriptionTarget = oldCoin !== newCoin;
 
-    const targetDexIndex = this.detectDexIndexByCoin(newCoin);
-    const dexUniverses: IPerpsUniverse[] | undefined =
-      universesByDex?.[targetDexIndex];
-    const dexMarginTables: IMarginTableMap | undefined =
-      marginTablesMapByDex?.[targetDexIndex];
+    try {
+      if (shouldSeedSubscriptionTarget) {
+        // The subscription runtime cannot see the UI-only optimistic
+        // instrument, so seed the target before trading metadata finishes.
+        await perpsActiveAssetAtom.set({
+          coin: newCoin,
+          assetId: undefined,
+          universe: undefined,
+          margin: undefined,
+        });
+      }
 
-    if (dexUniverses?.length === 0) {
-      return {
-        coin: oldActiveAsset?.coin || newCoin || '',
-        assetId: oldActiveAsset?.assetId,
-        universe: oldActiveAsset?.universe,
-        margin: oldActiveAsset?.margin,
+      const { universesByDex, marginTablesMapByDex } =
+        await this.getTradingUniverse();
+
+      const targetDexIndex = this.detectDexIndexByCoin(newCoin);
+      const dexUniverses: IPerpsUniverse[] | undefined =
+        universesByDex?.[targetDexIndex];
+      const dexMarginTables: IMarginTableMap | undefined =
+        marginTablesMapByDex?.[targetDexIndex];
+
+      if (dexUniverses?.length === 0) {
+        if (
+          shouldSeedSubscriptionTarget &&
+          requestId === this.activeAssetChangeRequestId
+        ) {
+          await perpsActiveAssetAtom.set(rollbackActiveAsset);
+        }
+        return {
+          coin: rollbackActiveAsset?.coin || newCoin || '',
+          assetId: rollbackActiveAsset?.assetId,
+          universe: rollbackActiveAsset?.universe,
+          margin: rollbackActiveAsset?.margin,
+        };
+      }
+
+      const selectedUniverse: IPerpsUniverse | undefined =
+        dexUniverses?.find((item) => item.name === newCoin) ||
+        dexUniverses?.[0];
+      if (requestId !== this.activeAssetChangeRequestId) {
+        return {
+          coin: oldActiveAsset?.coin || newCoin || '',
+          assetId: oldActiveAsset?.assetId,
+          universe: oldActiveAsset?.universe,
+          margin: oldActiveAsset?.margin,
+        };
+      }
+
+      const assetId =
+        selectedUniverse?.assetId ??
+        dexUniverses?.findIndex(
+          (token) => token.name === selectedUniverse?.name,
+        ) ??
+        -1;
+      const selectedMargin = dexMarginTables?.[selectedUniverse?.marginTableId];
+      if (requestId !== this.activeAssetChangeRequestId) {
+        return {
+          coin: oldActiveAsset?.coin || newCoin || '',
+          assetId: oldActiveAsset?.assetId,
+          universe: oldActiveAsset?.universe,
+          margin: oldActiveAsset?.margin,
+        };
+      }
+
+      const nextActiveAsset = {
+        coin: selectedUniverse?.name || newCoin || '',
+        assetId,
+        universe: selectedUniverse,
+        margin: selectedMargin,
       };
-    }
 
-    const selectedUniverse: IPerpsUniverse | undefined =
-      dexUniverses?.find((item) => item.name === newCoin) || dexUniverses?.[0];
-    if (requestId !== this.activeAssetChangeRequestId) {
-      return {
-        coin: oldActiveAsset?.coin || newCoin || '',
-        assetId: oldActiveAsset?.assetId,
-        universe: oldActiveAsset?.universe,
-        margin: oldActiveAsset?.margin,
-      };
+      await perpsActiveAssetAtom.set(nextActiveAsset);
+      this.rememberCommittedActiveAsset(nextActiveAsset);
+      if (oldCoin !== newCoin) {
+        await perpsActiveAssetCtxAtom.set(undefined);
+      }
+      return nextActiveAsset;
+    } catch (error) {
+      if (
+        shouldSeedSubscriptionTarget &&
+        requestId === this.activeAssetChangeRequestId
+      ) {
+        await perpsActiveAssetAtom.set(rollbackActiveAsset);
+      }
+      throw error;
     }
-
-    const assetId =
-      selectedUniverse?.assetId ??
-      dexUniverses?.findIndex(
-        (token) => token.name === selectedUniverse?.name,
-      ) ??
-      -1;
-    const selectedMargin = dexMarginTables?.[selectedUniverse?.marginTableId];
-    if (requestId !== this.activeAssetChangeRequestId) {
-      return {
-        coin: oldActiveAsset?.coin || newCoin || '',
-        assetId: oldActiveAsset?.assetId,
-        universe: oldActiveAsset?.universe,
-        margin: oldActiveAsset?.margin,
-      };
-    }
-
-    const nextActiveAsset = {
-      coin: selectedUniverse?.name || newCoin || '',
-      assetId,
-      universe: selectedUniverse,
-      margin: selectedMargin,
-    };
-
-    await perpsActiveAssetAtom.set(nextActiveAsset);
-    if (oldCoin !== newCoin) {
-      await perpsActiveAssetCtxAtom.set(undefined);
-    }
-    return nextActiveAsset;
   }
 
   @backgroundMethod()
@@ -1756,26 +1808,44 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   hideEnableTradingLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
+  fetchUserAbstractionRawWithCache = createFetchUserAbstractionRawWithCache(
+    async (accountAddress) => {
+      const { infoClient } = hyperLiquidApiClients;
+      return infoClient.userAbstraction({ user: accountAddress });
+    },
+  );
+
   @backgroundMethod()
   async fetchUserAbstraction(userAddress: IHex): Promise<string | undefined> {
+    const lowerUserAddress = userAddress.toLowerCase() as IHex;
     // Active-account alignment check
     const activeAccount = await perpsActiveAccountAtom.get();
-    if (
-      activeAccount?.accountAddress?.toLowerCase() !== userAddress.toLowerCase()
-    ) {
+    if (activeAccount?.accountAddress?.toLowerCase() !== lowerUserAddress) {
       return undefined;
     }
 
-    const { infoClient } = hyperLiquidApiClients;
     try {
-      const mode = await infoClient.userAbstraction({ user: userAddress });
+      const mode = await this.fetchUserAbstractionRawWithCache({
+        accountAddress: userAddress,
+      });
 
       // Re-check alignment after async call
       const currentAccount = await perpsActiveAccountAtom.get();
-      if (
-        currentAccount?.accountAddress?.toLowerCase() !==
-        userAddress.toLowerCase()
-      ) {
+      if (currentAccount?.accountAddress?.toLowerCase() !== lowerUserAddress) {
+        return undefined;
+      }
+
+      if (!mode) {
+        await this.backgroundApi.simpleDb.perp.clearUserAbstractionMode(
+          userAddress,
+        );
+        const postClearAccount = await perpsActiveAccountAtom.get();
+        if (
+          postClearAccount?.accountAddress?.toLowerCase() !== lowerUserAddress
+        ) {
+          return undefined;
+        }
+        await perpsAbstractionModeAtom.set(undefined);
         return undefined;
       }
 
@@ -1784,17 +1854,14 @@ export default class ServiceHyperliquid extends ServiceBase {
         mode,
       );
       await perpsAbstractionModeAtom.set({
-        accountAddress: userAddress.toLowerCase() as IHex,
+        accountAddress: lowerUserAddress,
         mode: mode as EHyperLiquidAbstractionMode,
       });
       return mode;
     } catch {
       // Fallback to SimpleDb cached value — need alignment checks around every await
       const preDbAccount = await perpsActiveAccountAtom.get();
-      if (
-        preDbAccount?.accountAddress?.toLowerCase() !==
-        userAddress.toLowerCase()
-      ) {
+      if (preDbAccount?.accountAddress?.toLowerCase() !== lowerUserAddress) {
         return undefined;
       }
       const cached =
@@ -1803,15 +1870,12 @@ export default class ServiceHyperliquid extends ServiceBase {
         );
       // Post-async alignment: user could have switched during SimpleDb read
       const postDbAccount = await perpsActiveAccountAtom.get();
-      if (
-        postDbAccount?.accountAddress?.toLowerCase() !==
-        userAddress.toLowerCase()
-      ) {
+      if (postDbAccount?.accountAddress?.toLowerCase() !== lowerUserAddress) {
         return undefined;
       }
       if (cached) {
         await perpsAbstractionModeAtom.set({
-          accountAddress: userAddress.toLowerCase() as IHex,
+          accountAddress: lowerUserAddress,
           mode: cached as EHyperLiquidAbstractionMode,
         });
         return cached;
@@ -1965,6 +2029,10 @@ export default class ServiceHyperliquid extends ServiceBase {
               userAddress: accountAddress,
               abstraction: 'unifiedAccount',
             });
+            invalidateUserAbstractionRawCache(
+              this.fetchUserAbstractionRawWithCache,
+              accountAddress,
+            );
             const verifiedMode =
               await this.fetchUserAbstraction(accountAddress);
             statusDetails.abstractionOk =
@@ -2224,8 +2292,6 @@ export default class ServiceHyperliquid extends ServiceBase {
                   removeResultStatus: approveAgentResult?.status,
                 },
               });
-              await timerUtils.wait(4000);
-
               // Poll to verify agent removal instead of fixed delay
               const pollStartTime = Date.now();
               const pollTimeoutMs = 10_000; // 10 seconds total polling timeout

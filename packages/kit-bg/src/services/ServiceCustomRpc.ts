@@ -7,13 +7,13 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import type { IChainListItem } from '@onekeyhq/shared/types/customNetwork';
@@ -34,21 +34,27 @@ import ServiceBase from './ServiceBase';
 class ServiceCustomRpc extends ServiceBase {
   private semaphore = new Semaphore(1);
 
-  private fetchChainListPage = memoizee(
-    async (page: number): Promise<IChainListItem[]> => {
-      const client = await this.getClient(EServiceEndpointEnum.Wallet);
-      const resp = await client.get<{ data: IChainListItem[] }>(
-        '/wallet/v1/network/chainlist',
-        { params: { page, showTestNet: true } },
-      );
-      return resp.data.data || [];
-    },
-    {
-      promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 15 }),
-      max: 20,
-    },
-  );
+  private buildChainListRequestParams(params: {
+    keywords?: string;
+    page?: number;
+  }): { keywords?: string; page: number; showTestNet: boolean } {
+    const keywords = params.keywords?.trim() || undefined;
+    const page = Math.max(1, Math.floor(params.page ?? 1));
+    return {
+      keywords,
+      page,
+      showTestNet: true,
+    };
+  }
+
+  private async fetchChainListPage(page: number): Promise<IChainListItem[]> {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.get<{ data: IChainListItem[] }>(
+      '/wallet/v1/network/chainlist',
+      { params: this.buildChainListRequestParams({ page }) },
+    );
+    return resp.data.data || [];
+  }
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -295,6 +301,28 @@ class ServiceCustomRpc extends ServiceBase {
     return {
       chainId: result.chainId,
     };
+  }
+
+  @backgroundMethod()
+  public async measureCustomNetworkRpcStatus(params: {
+    rpcUrl: string;
+    chainId: number;
+  }) {
+    const vault = await vaultFactory.getChainOnlyVault({
+      networkId: getNetworkIdsMap().eth,
+    });
+    const result = await vault.getCustomRpcEndpointStatus({
+      rpcUrl: params.rpcUrl,
+      validateChainId: false,
+    });
+    if (
+      !new BigNumber(result.chainId ?? 0).isEqualTo(
+        new BigNumber(params.chainId),
+      )
+    ) {
+      throw new OneKeyError('Invalid chainId');
+    }
+    return result;
   }
 
   async upsertCustomNetworkInfo({
@@ -548,20 +576,17 @@ class ServiceCustomRpc extends ServiceBase {
     keywords?: string;
     page?: number;
   }): Promise<IChainListItem[]> {
-    // Keyword search: always hit API, no cache.
-    // Errors are propagated so callers can distinguish network failures
-    // from genuinely empty result sets.
-    if (params.keywords) {
+    const requestParams = this.buildChainListRequestParams(params);
+    if (requestParams.keywords) {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IChainListItem[] }>(
         '/wallet/v1/network/chainlist',
-        { params: { keywords: params.keywords, showTestNet: true } },
+        { params: requestParams },
       );
       return resp.data.data || [];
     }
 
-    const page = Math.max(1, Math.floor(params.page ?? 1));
-    return this.fetchChainListPage(page);
+    return this.fetchChainListPage(requestParams.page);
   }
 
   @backgroundMethod()
@@ -572,10 +597,10 @@ class ServiceCustomRpc extends ServiceBase {
       const resp = await client.get<{ data: IChainListItem[] }>(
         '/wallet/v1/network/chainlist',
         {
-          params: {
-            keywords: chainId,
-            showTestNet: true,
-          },
+          params: this.buildChainListRequestParams({
+            keywords: String(chainId),
+            page: 1,
+          }),
         },
       );
       return (

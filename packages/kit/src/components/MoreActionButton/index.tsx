@@ -20,6 +20,7 @@ import {
   Image,
   LottieView,
   NavBackButton,
+  Page,
   Popover,
   ScrollView,
   SizableText,
@@ -81,8 +82,7 @@ import { useNavigateToBulkSend } from '../../views/BulkSend/hooks/useNavigateToB
 import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
 import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
-import { useOnPrimeButtonPressed } from '../../views/Prime/components/PrimeHeaderIconButton/PrimeHeaderIconButton';
-import { PrimeBadge } from '../../views/Prime/components/PrimeUserBadge';
+import { PrimeUserBadge } from '../../views/Prime/components/PrimeUserBadge';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import { showRedemptionCenterDialog } from '../../views/Redemption/components/RedemptionCenterDialog';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
@@ -252,6 +252,43 @@ function MoreActionContentHeader({
       rootNavigationRef.current?.goBack();
     }
   }, []);
+
+  // iOS 26 page-level usage: render via the native UINavigationBar so
+  // the back chevron + right items get the system Liquid Glass material
+  // and the SF Symbols (headphones, qrcode.viewfinder) replace the
+  // small custom IconButton SVGs. The body of MoreActionContentPage
+  // continues to render the rest of the page below the bar.
+  const buildNativeRightItems = useCallback(
+    () => [
+      {
+        type: 'button' as const,
+        label: intl.formatMessage({ id: ETranslations.settings_contact_us }),
+        icon: { type: 'sfSymbol' as const, name: 'headphones' as const },
+        onPress: handleCustomerSupport,
+      },
+      {
+        type: 'button' as const,
+        label: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
+        icon: {
+          type: 'sfSymbol' as const,
+          name: 'qrcode.viewfinder' as const,
+        },
+        onPress: () => {
+          void handleScan();
+        },
+      },
+    ],
+    [intl, handleCustomerSupport, handleScan],
+  );
+
+  if (platformEnv.isNativeIOS26Plus && showBackButton) {
+    return (
+      <Page.Header
+        headerShown
+        unstable_headerRightItems={buildNativeRightItems}
+      />
+    );
+  }
 
   return (
     <XStack
@@ -525,10 +562,6 @@ function MoreActionDivider() {
 function MoreActionOneKeyId() {
   const intl = useIntl();
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
-  const {
-    activeAccount: { network },
-  } = useActiveAccount({ num: 0 });
-
   const { closePopover } = usePopoverContext();
 
   useEffect(() => {
@@ -570,22 +603,7 @@ function MoreActionOneKeyId() {
     }
   }, [isLoggedIn, handleNavigateToOneKeyId, closePopover, loginOneKeyId]);
 
-  const { icon, onPrimeButtonPressed } = useOnPrimeButtonPressed({
-    onPress: closePopover,
-    networkId: network?.id,
-  });
-
-  const handlePrimeButtonPressed = useCallback(
-    async (e: GestureResponderEvent) => {
-      e.stopPropagation();
-      await closePopover?.();
-      await onPrimeButtonPressed();
-    },
-    [closePopover, onPrimeButtonPressed],
-  );
-
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
-  const isPrimeDeviceLimitExceeded = user?.isPrimeDeviceLimitExceeded === true;
 
   if (!isLoggedIn) {
     return (
@@ -676,13 +694,7 @@ function MoreActionOneKeyId() {
             >
               {displayName}
             </SizableText>
-            {isPrimeUser ? (
-              <PrimeBadge
-                icon={icon}
-                isDeviceLimitExceeded={isPrimeDeviceLimitExceeded}
-                onPress={handlePrimeButtonPressed}
-              />
-            ) : null}
+            {isPrimeUser ? <PrimeUserBadge showFreeStatus={false} /> : null}
           </XStack>
           <SizableText
             size="$bodyMd"

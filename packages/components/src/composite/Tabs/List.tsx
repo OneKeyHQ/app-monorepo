@@ -38,6 +38,36 @@ import type {
 
 type IListProps<Item> = FlashListProps<Item>;
 
+// Web-only fast-path hook: callers that know each row's height ahead of time
+// can return a number here to bypass react-virtualized's CellMeasurer entirely
+// for that row. Skipping CellMeasurer eliminates async measurement, the
+// recomputeRowHeights cascade it triggers, and the resulting visual blank on
+// fast scroll where rows render at stale absolute positions.
+//
+// IMPORTANT: this prop is a no-op on native — native tabs go through
+// `index.native.tsx` (FlashList / SectionList), not through this file. Use
+// `estimatedItemSize` / `overrideItemLayout` for native sizing.
+//
+// Return `undefined` for any row type whose height isn't statically known;
+// those rows fall back to CellMeasurer.
+export type IWebRowHeightInfo<Item> = {
+  type:
+    | 'item'
+    | 'section-item'
+    | 'section-header'
+    | 'section-footer'
+    | 'header'
+    | 'footer';
+  rowIndex: number;
+  item?: Item;
+  itemIndex?: number;
+  sectionIndex?: number;
+};
+
+export type IGetWebRowHeight<Item> = (
+  info: IWebRowHeightInfo<Item>,
+) => number | undefined;
+
 type IListData<Item> =
   | {
       type: 'header';
@@ -101,6 +131,7 @@ export function List<Item>({
   onEndReachedThreshold = 0.5,
   onMouseEnter,
   onMouseLeave,
+  getWebRowHeight,
 }: Omit<IListProps<Item>, 'ListEmptyComponent'> &
   Omit<ISectionListProps<Item>, 'ListEmptyComponent'> & {
     ListEmptyComponent?: ReactNode | ComponentType<any>;
@@ -110,6 +141,10 @@ export function List<Item>({
     onEndReachedThreshold?: number;
     onMouseEnter?: MouseEventHandler<HTMLDivElement>;
     onMouseLeave?: MouseEventHandler<HTMLDivElement>;
+    /**
+     * Web-only fast path. See `IGetWebRowHeight` doc above. No-op on native.
+     */
+    getWebRowHeight?: IGetWebRowHeight<Item>;
   }) {
   const {
     registerChild,
@@ -125,7 +160,7 @@ export function List<Item>({
     return tabWidth - horizontalPadding;
   }, [tabWidth, horizontalPadding]);
   const currentTabName = useTabNameContext();
-  const { focusedTab } = useTabsContext();
+  const { focusedTab, requestRemeasure } = useTabsContext();
 
   const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
 
@@ -204,11 +239,15 @@ export function List<Item>({
   // Cell measurement cache for react-virtualized list optimization
   // Uses ref for listData so the cache is NOT recreated when data changes,
   // preserving measured row heights across pagination/data updates.
+  // defaultHeight tuned to the observed average row height (item ~72, section
+  // header ~44) so the initial startIndex/stopIndex estimate is close to the
+  // truth and CellMeasurer-driven recompute storms during fast scroll are
+  // dampened.
   const cache = useMemo(
     () =>
       new CellMeasurerCache({
         fixedWidth: true,
-        defaultHeight: 60,
+        defaultHeight: 76,
         keyMapper: (rowIndex, columnIndex) => {
           if (keyExtractor) {
             const item = listDataRef.current[rowIndex];
@@ -230,6 +269,60 @@ export function List<Item>({
     [keyExtractor],
   );
 
+  // Resolve a caller-supplied static height for a row, or undefined if the
+  // caller didn't provide one (or returned undefined for this row).
+  const resolveStaticHeight = useCallback(
+    (
+      item: IListData<Item> | undefined,
+      rowIndex: number,
+    ): number | undefined => {
+      if (!getWebRowHeight || !item) return undefined;
+      let info: IWebRowHeightInfo<Item>;
+      if (item.type === 'section-item') {
+        info = {
+          type: item.type,
+          rowIndex,
+          item: item.data.item,
+          itemIndex: item.data.itemIndex,
+          sectionIndex: item.data.sectionIndex,
+        };
+      } else if (
+        item.type === 'section-header' ||
+        item.type === 'section-footer'
+      ) {
+        info = {
+          type: item.type,
+          rowIndex,
+          sectionIndex: item.data.sectionIndex,
+        };
+      } else if (item.type === 'item') {
+        info = {
+          type: item.type,
+          rowIndex,
+          item: item.data,
+          itemIndex: rowIndex,
+        };
+      } else {
+        info = { type: item.type, rowIndex };
+      }
+      const h = getWebRowHeight(info);
+      return typeof h === 'number' ? h : undefined;
+    },
+    [getWebRowHeight],
+  );
+
+  // rowHeight resolver passed to VirtualizedList. Prefer the static height
+  // when known (fast path), otherwise fall back to CellMeasurer's cache.
+  const getRowHeight = useCallback(
+    ({ index }: { index: number }) => {
+      const item = listData[index];
+      const staticH = resolveStaticHeight(item, index);
+      if (typeof staticH === 'number') return staticH;
+      return cache.rowHeight({ index });
+    },
+    [listData, resolveStaticHeight, cache],
+  );
+
   const isVisible = useMemo(() => {
     return focusedTabValue === currentTabName;
   }, [focusedTabValue, currentTabName]);
@@ -244,11 +337,23 @@ export function List<Item>({
       ) {
         scrollTabElementsRef.current[currentTabName] = {} as any;
       }
-      scrollTabElementsRef.current[currentTabName].element =
-        ref.current as HTMLElement;
-      registerChild(ref.current);
+      const next = ref.current as HTMLElement;
+      const prev = scrollTabElementsRef.current[currentTabName].element;
+      scrollTabElementsRef.current[currentTabName].element = next;
+      registerChild(next);
+      // Notify the Container so it can attach its ResizeObserver to this
+      // element immediately, instead of polling for it.
+      if (next && next !== prev) {
+        requestRemeasure?.();
+      }
     }
-  }, [focusedTabValue, currentTabName, registerChild, scrollTabElementsRef]);
+  }, [
+    focusedTabValue,
+    currentTabName,
+    registerChild,
+    scrollTabElementsRef,
+    requestRemeasure,
+  ]);
 
   const listRef = useRef<typeof VirtualizedList>(null);
 
@@ -314,6 +419,19 @@ export function List<Item>({
             : null;
       }
 
+      // Fast path: if the caller declared this row's height statically, we
+      // can render the row plainly and skip CellMeasurer entirely. That
+      // avoids the async getBoundingClientRect + recomputeRowHeights cascade
+      // that drives the "blank during fast scroll" symptom.
+      const staticH = resolveStaticHeight(item, index);
+      if (typeof staticH === 'number') {
+        return (
+          <div key={key || index} style={style}>
+            {element as React.ReactNode}
+          </div>
+        );
+      }
+
       if (parent) {
         return (
           <CellMeasurer
@@ -345,6 +463,7 @@ export function List<Item>({
       renderItem,
       data,
       cache,
+      resolveStaticHeight,
     ],
   );
 
@@ -399,10 +518,14 @@ export function List<Item>({
     }
 
     return listData.reduce((total, _item, index) => {
-      const rowHeight = Number(cache.rowHeight({ index }) ?? 60);
+      // Go through getRowHeight so the static fast-path (getWebRowHeight)
+      // contributes accurate row sizes here too; falling back to the
+      // CellMeasurer cache alone yields defaultHeight for every row when
+      // the cache is intentionally bypassed.
+      const rowHeight = Number(getRowHeight({ index }) ?? 60);
       return total + (Number.isFinite(rowHeight) ? rowHeight : 60);
     }, 0);
-  }, [cache, listData, numColumns, width]);
+  }, [getRowHeight, listData, numColumns, width]);
 
   const updateMeasuredContentHeight = useCallback(() => {
     if (!listData.length) {
@@ -611,7 +734,7 @@ export function List<Item>({
   );
 
   const listProps = useMemo(() => {
-    return {
+    const base = {
       ref: listRef as any,
       autoHeight: true,
       height,
@@ -620,9 +743,44 @@ export function List<Item>({
       isScrolling: isVisible ? isScrolling : false,
       onScroll: isVisible ? handleScroll : undefined,
       scrollTop: isVisible && listData.length > 0 ? scrollTop : 0,
-      overscanRowCount: 10,
-      deferredMeasurementCache: cache,
+      // 60 rows ≈ 4kpx buffer. Sized so the rendered window can absorb a
+      // single fast-scroll jump (~1.5–2k px on desktop drag) without leaving
+      // a frame where committed rows sit outside the viewport. Heavy lists
+      // pay one extra commit at mount; fast scroll then never needs another.
+      overscanRowCount: 60,
+      // react-virtualized's default overscan getter only adds buffer in the
+      // direction the user is scrolling — the opposite direction is hard-coded
+      // to 1 row. When the user reverses direction (e.g. flicks back to the
+      // top after a downward drag) only a single row is rendered ahead of the
+      // new scrollTop and a 500ms+ blank slot appears while React commits the
+      // larger window. Override with a symmetric getter so both ends always
+      // keep `overscanRowCount` rows in the DOM.
+      overscanIndicesGetter: ({
+        cellCount,
+        overscanCellsCount,
+        startIndex,
+        stopIndex,
+      }: {
+        cellCount: number;
+        overscanCellsCount: number;
+        startIndex: number;
+        stopIndex: number;
+      }) => ({
+        overscanStartIndex: Math.max(0, startIndex - overscanCellsCount),
+        overscanStopIndex: Math.min(
+          cellCount - 1,
+          stopIndex + overscanCellsCount,
+        ),
+      }),
     };
+    // When the caller provides static heights via getWebRowHeight we want the
+    // rowHeight prop to be the source of truth. Passing deferredMeasurementCache
+    // here causes react-virtualized's Grid to consult the cache instead of
+    // rowHeight for layout offsets, which collapses every row to top=0 when
+    // the cache has no entry yet (fast path skipped CellMeasurer entirely).
+    return getWebRowHeight
+      ? base
+      : { ...base, deferredMeasurementCache: cache };
   }, [
     height,
     listData,
@@ -631,6 +789,7 @@ export function List<Item>({
     handleScroll,
     scrollTop,
     cache,
+    getWebRowHeight,
   ]);
 
   const baseContentContainerStyle = contentContainerStyle as unknown as
@@ -685,7 +844,7 @@ export function List<Item>({
               {...listProps}
               width={autoSizerWidth}
               height={autoSizerHeight || height || 400}
-              rowHeight={cache.rowHeight}
+              rowHeight={getRowHeight}
               rowRenderer={rowRenderer}
               noRowsRenderer={noContentRenderer}
             />

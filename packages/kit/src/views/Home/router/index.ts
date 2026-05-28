@@ -27,6 +27,12 @@ const ReferralLanding = LazyLoadPage(async () => {
   return { default: ReferralLandingPage };
 });
 
+const RedeemBitcoinVoucherLanding = LazyLoadPage(async () => {
+  const { RedeemBitcoinVoucherLandingPage } =
+    await import('../pages/redeemBitcoinVoucher/RedeemBitcoinVoucherLandingPage');
+  return { default: RedeemBitcoinVoucherLandingPage };
+});
+
 const BulkSendAddressesInput = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAddressesInput'),
 );
@@ -56,6 +62,7 @@ export const referralLandingRewrite = '/r/:code/app/:page';
 export const referralLandingRewriteWithoutPage = '/r/:code/app';
 // Rewrite pattern for referral landing with code only: /r/:code
 export const referralLandingRewriteCodeOnly = '/r/:code';
+export const redeemBitcoinVoucherLandingRewrite = '/redeem-bitcoin-voucher';
 
 export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
@@ -101,6 +108,13 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabHomeRoutes.TabHomeReferralLandingCodeOnly,
     component: ReferralLanding,
     rewrite: referralLandingRewriteCodeOnly,
+    exact: true,
+    headerShown: false,
+  },
+  {
+    name: ETabHomeRoutes.TabHomeRedeemBitcoinVoucher,
+    component: RedeemBitcoinVoucherLanding,
+    rewrite: redeemBitcoinVoucherLandingRewrite,
     exact: true,
     headerShown: false,
   },

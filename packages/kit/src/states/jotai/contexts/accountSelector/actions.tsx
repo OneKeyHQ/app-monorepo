@@ -2117,6 +2117,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
   autoSelectNextAccountMutex = new Semaphore(1);
 
+  // Public barrier for components that want to write to selectedAccount only
+  // AFTER autoSelectNextAccount has completed. syncFromScene uses the same
+  // mutex internally; external writers (e.g. keyless preselect) previously
+  // had to guess a timeout, which raced AutoSelect on slow paths.
+  waitForAutoSelectUnlock = contextAtomMethod(async (_get, _set) => {
+    await this.autoSelectNextAccountMutex.waitForUnlock();
+  });
+
   autoSelectNextAccount = contextAtomMethod(
     async (
       get,
@@ -2145,18 +2153,20 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         return;
       }
 
-      // wait activeAccount build done
-      await timerUtils.wait(300);
-      const storageReady = get(accountSelectorStorageReadyAtom());
-      const activeAccount = this.getActiveAccount.call(set, { num });
-      const isActiveAccountReady = Boolean(
-        activeAccount && activeAccount?.ready && storageReady,
-      );
-      if (!isActiveAccountReady) {
-        return;
-      }
-
       await this.autoSelectNextAccountMutex.runExclusive(async () => {
+        // wait activeAccount build done — must be INSIDE runExclusive so
+        // waitForAutoSelectUnlock callers actually block until the full
+        // auto-select pass completes (acquiring mutex AFTER the wait would
+        // let external writers slip through during the 300ms window).
+        await timerUtils.wait(300);
+        const storageReady = get(accountSelectorStorageReadyAtom());
+        const activeAccount = this.getActiveAccount.call(set, { num });
+        const isActiveAccountReady = Boolean(
+          activeAccount && activeAccount?.ready && storageReady,
+        );
+        if (!isActiveAccountReady) {
+          return;
+        }
         defaultLogger.accountSelector.storage.autoSelectNextAccount({
           sceneName,
           sceneUrl,
@@ -2465,6 +2475,7 @@ export function useAccountSelectorActions() {
   const createQrWallet = actions.createQrWallet.use();
   const createTonImportedWallet = actions.createTonImportedWallet.use();
   const autoSelectNextAccount = actions.autoSelectNextAccount.use();
+  const waitForAutoSelectUnlock = actions.waitForAutoSelectUnlock.use();
   const updateHwWalletsDeprecatedStatus =
     actions.updateHwWalletsDeprecatedStatus.use();
   const autoSelectNetworkOfOthersWalletAccount =
@@ -2505,6 +2516,7 @@ export function useAccountSelectorActions() {
     createTonImportedWallet,
     updateHwWalletsDeprecatedStatus,
     autoSelectNextAccount,
+    waitForAutoSelectUnlock,
     autoSelectNetworkOfOthersWalletAccount,
     syncFromScene,
     confirmAccountSelect,

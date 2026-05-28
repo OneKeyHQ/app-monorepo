@@ -26,19 +26,6 @@ export {
   withAccountOverviewProvider,
 };
 
-export const { atom: walletStatusAtom, use: useWalletStatusAtom } =
-  contextAtom<{
-    showReceiveInfo: boolean;
-    receiveInfoInit: boolean;
-    showReferralCodeBlock: boolean;
-    referralCodeBlockInit: boolean;
-  }>({
-    showReceiveInfo: false,
-    receiveInfoInit: false,
-    showReferralCodeBlock: false,
-    referralCodeBlockInit: false,
-  });
-
 // `worth[networkKey]` is a partial sum: tokens with unavailable fiatValue are
 // dropped so a single broken upstream provider does not poison the total with
 // NaN. Row-level rendering still surfaces those entries as '--'.

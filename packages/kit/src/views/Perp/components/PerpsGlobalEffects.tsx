@@ -18,10 +18,15 @@ import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountRefreshHookAtom,
+  usePerpsActiveAssetAtom,
   usePerpsActiveOrderBookOptionsAtom,
   usePerpsWebSocketConnectedAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
-import { spotActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
+import {
+  spotActiveAssetAtom,
+  useSpotActiveAssetAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -66,9 +71,12 @@ import {
   useOrderBookTickOptionsAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
-import { usePerpsSharePrompt } from '../hooks/usePerpsSharePrompt';
-import { planTradeSubscriptions } from '../utils/subscriptionPlanner';
+import {
+  isTradeInstrumentBackedBySubscriptionState,
+  planTradeSubscriptions,
+} from '../utils/subscriptionPlanner';
 
+import { shouldCheckPerpsAccountStatusOnFocus } from './PerpsGlobalEffects.utils';
 import { usePerpTokenUrlSync } from './usePerpTokenUrlSync';
 
 const shouldTreatPerpAsFocusedOnMount = !!(
@@ -77,6 +85,16 @@ const shouldTreatPerpAsFocusedOnMount = !!(
 );
 
 let lastRecoveredPerpsLocaleVariant: string | undefined;
+let lastRouteSubscriptionStateVersion = 0;
+
+function nextRouteSubscriptionStateVersion() {
+  const timeVersion = Date.now() * 1000;
+  lastRouteSubscriptionStateVersion = Math.max(
+    lastRouteSubscriptionStateVersion + 1,
+    timeVersion,
+  );
+  return lastRouteSubscriptionStateVersion;
+}
 
 function resolvePerpRouteFocused(isFocus: boolean) {
   return shouldTreatPerpAsFocusedOnMount || isFocus;
@@ -210,6 +228,39 @@ function useTradeRouteViewStateSync() {
   }, [actions]);
 }
 
+// Caps the perp UI at ~20 Hz for high-frequency channels. Hyperliquid pushes
+// l2Book / bbo / allMids many times per second; without this every push
+// cascades through every memoized Perp surface (OrderBook, price labels,
+// ticker, Wallet USD totals). Leading edge fires instantly so the first value
+// after idle lands without delay; trailing edge guarantees the final value
+// always lands once the burst stops.
+const HIGH_FREQ_CHANNEL_THROTTLE_MS = 50;
+
+// ALL_DEXS_ASSET_CTXS fires ~every 500ms; 1s coalesces token-selector row re-renders.
+const ASSET_CTXS_THROTTLE_MS = 1000;
+
+function scheduleThrottledDispatch<T>(
+  dirtyRef: { current: T | null },
+  timerRef: { current: ReturnType<typeof setTimeout> | null },
+  intervalMs: number,
+  dispatch: (data: T) => void,
+  data: T,
+): void {
+  dirtyRef.current = data;
+  if (timerRef.current) return;
+  const pending = dirtyRef.current;
+  dirtyRef.current = null;
+  startTransition(() => dispatch(pending));
+  timerRef.current = setTimeout(() => {
+    timerRef.current = null;
+    if (dirtyRef.current) {
+      const trailing = dirtyRef.current;
+      dirtyRef.current = null;
+      startTransition(() => dispatch(trailing));
+    }
+  }, intervalMs);
+}
+
 function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
 
@@ -218,6 +269,13 @@ function useHyperliquidEventBusListener() {
   // to user interactions.
   const assetCtxsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const assetCtxsDirtyRef = useRef<IWsAllDexsAssetCtxs | null>(null);
+
+  const l2BookTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const l2BookDirtyRef = useRef<IBook | null>(null);
+  const bboTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bboDirtyRef = useRef<IWsBbo | null>(null);
+  const allMidsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const allMidsDirtyRef = useRef<IWsAllMids | null>(null);
 
   useEffect(() => {
     const handleDataUpdate = (payload: unknown) => {
@@ -232,7 +290,13 @@ function useHyperliquidEventBusListener() {
       try {
         switch (subType) {
           case ESubscriptionType.ALL_MIDS:
-            void actions.current.updateAllMids(data as IWsAllMids);
+            scheduleThrottledDispatch(
+              allMidsDirtyRef,
+              allMidsTimerRef,
+              HIGH_FREQ_CHANNEL_THROTTLE_MS,
+              (mids) => void actions.current.updateAllMids(mids),
+              data as IWsAllMids,
+            );
             break;
 
           case ESubscriptionType.WEB_DATA2: {
@@ -253,33 +317,34 @@ function useHyperliquidEventBusListener() {
           }
 
           case ESubscriptionType.ALL_DEXS_ASSET_CTXS: {
-            assetCtxsDirtyRef.current = data as IWsAllDexsAssetCtxs;
-            if (!assetCtxsTimerRef.current) {
-              const pending = assetCtxsDirtyRef.current;
-              assetCtxsDirtyRef.current = null;
-              startTransition(() => {
-                void actions.current.updateAllDexsAssetCtxs(pending);
-              });
-              assetCtxsTimerRef.current = setTimeout(() => {
-                assetCtxsTimerRef.current = null;
-                if (assetCtxsDirtyRef.current) {
-                  const trailing = assetCtxsDirtyRef.current;
-                  assetCtxsDirtyRef.current = null;
-                  startTransition(() => {
-                    void actions.current.updateAllDexsAssetCtxs(trailing);
-                  });
-                }
-              }, 1000);
-            }
+            scheduleThrottledDispatch(
+              assetCtxsDirtyRef,
+              assetCtxsTimerRef,
+              ASSET_CTXS_THROTTLE_MS,
+              (ctxs) => void actions.current.updateAllDexsAssetCtxs(ctxs),
+              data as IWsAllDexsAssetCtxs,
+            );
             break;
           }
 
           case ESubscriptionType.L2_BOOK:
-            void actions.current.updateL2Book(data as IBook);
+            scheduleThrottledDispatch(
+              l2BookDirtyRef,
+              l2BookTimerRef,
+              HIGH_FREQ_CHANNEL_THROTTLE_MS,
+              (book) => void actions.current.updateL2Book(book),
+              data as IBook,
+            );
             break;
 
           case ESubscriptionType.BBO:
-            void actions.current.updateBbo(data as IWsBbo);
+            scheduleThrottledDispatch(
+              bboDirtyRef,
+              bboTimerRef,
+              HIGH_FREQ_CHANNEL_THROTTLE_MS,
+              (bbo) => void actions.current.updateBbo(bbo),
+              data as IWsBbo,
+            );
             break;
 
           case ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES:
@@ -342,11 +407,61 @@ function useHyperliquidEventBusListener() {
       handleConnectionChange,
     );
 
+    // Capture actions at effect setup so the cleanup path does not access
+    // ref.current directly (react-hooks lint). The store-recreation case
+    // (see comment in useHyperliquidActions) only matters for the long-lived
+    // event handlers above, which keep reading actions.current.
+    const cleanupActions = actions.current;
+
     return () => {
       if (assetCtxsTimerRef.current) {
         clearTimeout(assetCtxsTimerRef.current);
         assetCtxsTimerRef.current = null;
       }
+      if (assetCtxsDirtyRef.current) {
+        try {
+          void cleanupActions.updateAllDexsAssetCtxs(assetCtxsDirtyRef.current);
+        } catch {
+          // unmount path; swallow
+        }
+      }
+      assetCtxsDirtyRef.current = null;
+      if (l2BookTimerRef.current) {
+        clearTimeout(l2BookTimerRef.current);
+        l2BookTimerRef.current = null;
+      }
+      if (l2BookDirtyRef.current) {
+        try {
+          void cleanupActions.updateL2Book(l2BookDirtyRef.current);
+        } catch {
+          // unmount path; swallow
+        }
+      }
+      l2BookDirtyRef.current = null;
+      if (bboTimerRef.current) {
+        clearTimeout(bboTimerRef.current);
+        bboTimerRef.current = null;
+      }
+      if (bboDirtyRef.current) {
+        try {
+          void cleanupActions.updateBbo(bboDirtyRef.current);
+        } catch {
+          // unmount path; swallow
+        }
+      }
+      bboDirtyRef.current = null;
+      if (allMidsTimerRef.current) {
+        clearTimeout(allMidsTimerRef.current);
+        allMidsTimerRef.current = null;
+      }
+      if (allMidsDirtyRef.current) {
+        try {
+          void cleanupActions.updateAllMids(allMidsDirtyRef.current);
+        } catch {
+          // unmount path; swallow
+        }
+      }
+      allMidsDirtyRef.current = null;
       appEventBus.off(
         EAppEventBusNames.HyperliquidDataUpdate,
         handleDataUpdate,
@@ -400,8 +515,8 @@ function useHyperliquidAccountSelect() {
 
   const lastCheckTimeRef = useRef(0);
   const checkPerpsAccountStatus = useCallback(async () => {
-    lastCheckTimeRef.current = Date.now();
     await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+    lastCheckTimeRef.current = Date.now();
   }, []);
 
   const { result: globalDeriveType, run: refreshGlobalDeriveType } =
@@ -433,20 +548,51 @@ function useHyperliquidAccountSelect() {
     usePerpsActiveAccountRefreshHookAtom();
   const hasBeenFocusedRef = useRef(shouldTreatPerpAsFocusedOnMount);
   const pendingSelectRef = useRef(false);
+  // Dedupe by business-semantic params: the callback's deps include several
+  // refs that resolve in separate ticks during mount (account.address after
+  // id, async globalDeriveType), so the effect would otherwise re-fire the
+  // network check each time. refreshHook is included so manual refresh still
+  // triggers; account.address is intentionally excluded — it follows id.
+  const lastSelectParamsRef = useRef<string | null>(null);
+  const isSelectingAccountRef = useRef(false);
+  const selectAccountRunIdRef = useRef(0);
 
   const selectPerpsAccount = useCallback(async () => {
     if (!globalDeriveType) {
       return;
     }
-    noop(activeAccountRefreshHook);
-    noop(activeAccount.account?.address);
-    await actions.current.changeActivePerpsAccount({
+    const params = JSON.stringify({
       indexedAccountId: activeAccount?.indexedAccount?.id || null,
       accountId: activeAccount?.account?.id || null,
       walletId: activeAccount?.wallet?.id || null,
       deriveType: globalDeriveType,
+      refreshHook: activeAccountRefreshHook,
     });
-    await checkPerpsAccountStatus();
+    if (lastSelectParamsRef.current === params) {
+      return;
+    }
+    lastSelectParamsRef.current = params;
+
+    const runId = selectAccountRunIdRef.current + 1;
+    selectAccountRunIdRef.current = runId;
+    isSelectingAccountRef.current = true;
+    try {
+      noop(activeAccount.account?.address);
+      await actions.current.changeActivePerpsAccount({
+        indexedAccountId: activeAccount?.indexedAccount?.id || null,
+        accountId: activeAccount?.account?.id || null,
+        walletId: activeAccount?.wallet?.id || null,
+        deriveType: globalDeriveType,
+      });
+      await checkPerpsAccountStatus();
+    } catch (error) {
+      lastSelectParamsRef.current = null;
+      throw error;
+    } finally {
+      if (selectAccountRunIdRef.current === runId) {
+        isSelectingAccountRef.current = false;
+      }
+    }
   }, [
     actions,
     activeAccount.account?.address,
@@ -490,6 +636,12 @@ function useHyperliquidAccountSelect() {
             pendingSelectRef.current = true;
             return;
           }
+          // The dedup key intentionally excludes account.address (it resolves
+          // asynchronously after account id). Clear it here so that
+          // selectPerpsAccount actually runs for the "same indexed account now
+          // has an ETH address" case — otherwise the unchanged key causes an
+          // early return and the new address is never picked up.
+          lastSelectParamsRef.current = null;
           await selectPerpsAccountRef.current();
         }
       }
@@ -512,16 +664,23 @@ function useHyperliquidAccountSelect() {
 
   useUpdateEffect(() => {
     void (async () => {
+      if (!isFocused) {
+        return;
+      }
+      await timerUtils.wait(600);
       if (
-        isFocused &&
-        lastCheckTimeRef.current +
-          timerUtils.getTimeDurationMs({
+        shouldCheckPerpsAccountStatusOnFocus({
+          isFocused,
+          hasSelectedAccountParams: Boolean(lastSelectParamsRef.current),
+          isSelectingAccount: isSelectingAccountRef.current,
+          lastCheckTimeMs: lastCheckTimeRef.current,
+          nowMs: Date.now(),
+          staleMs: timerUtils.getTimeDurationMs({
             // seconds: 10,
             hour: 1,
-          }) <
-          Date.now()
+          }),
+        })
       ) {
-        await timerUtils.wait(600);
         await checkPerpsAccountStatus();
       }
     })();
@@ -533,6 +692,9 @@ function WebSocketSubscriptionUpdate() {
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeOrderBookOptions] = usePerpsActiveOrderBookOptionsAtom();
+  const [perpsActiveAsset] = usePerpsActiveAssetAtom();
+  const [spotActiveAsset] = useSpotActiveAssetAtom();
+  const [tradingMode] = useTradingModeAtom();
   const [tradeRouteViewState] = useTradeRouteViewStateAtom();
   const actions = useHyperliquidActions();
   const [isWebSocketConnected] = usePerpsWebSocketConnectedAtom();
@@ -559,6 +721,8 @@ function WebSocketSubscriptionUpdate() {
   const infoPanelTab = tradeRouteViewState.infoPanelTab;
   const favoritesBarSpotActive = tradeRouteViewState.favoritesBarSpotActive;
   const accountAddress = activePerpsAccount?.accountAddress;
+  const perpsActiveAssetCoin = perpsActiveAsset?.coin;
+  const spotActiveAssetCoin = spotActiveAsset?.coin;
 
   // Refs for reading inside effect body without triggering it
   const activeTradeInstrumentRef = useRef(activeTradeInstrument);
@@ -567,6 +731,7 @@ function WebSocketSubscriptionUpdate() {
   activeOrderBookOptionsRef.current = activeOrderBookOptions;
   const tradeRouteViewStateRef = useRef(tradeRouteViewState);
   tradeRouteViewStateRef.current = tradeRouteViewState;
+  const syncSequenceRef = useRef(0);
 
   useEffect(() => {
     checkDeps({
@@ -584,6 +749,9 @@ function WebSocketSubscriptionUpdate() {
       tokenSelectorTab,
       infoPanelTab,
       favoritesBarSpotActive,
+      perpsActiveAssetCoin,
+      spotActiveAssetCoin,
+      subscriptionTradingMode: tradingMode,
     });
 
     const plan = planTradeSubscriptions({
@@ -593,17 +761,43 @@ function WebSocketSubscriptionUpdate() {
       viewState: tradeRouteViewStateRef.current,
     });
 
-    void backgroundApiProxy.serviceHyperliquidSubscription.setRouteSubscriptionState(
-      {
-        enableLedgerUpdates: plan.enableLedgerUpdates,
-        spotAssetCtxsEnabled: plan.spotAssetCtxsEnabled,
-        spotEnabled: plan.spotEnabled,
-      },
-    );
+    const isInstrumentBackedBySubscriptionState =
+      isTradeInstrumentBackedBySubscriptionState({
+        activeInstrument: activeTradeInstrumentRef.current,
+        tradingMode,
+        perpCoin: perpsActiveAssetCoin,
+        spotCoin: spotActiveAssetCoin,
+      });
 
-    if (!isLoading && plan.shouldSyncSubscriptions) {
-      void actions.current.updateSubscriptions();
-    }
+    const sequence = (syncSequenceRef.current += 1);
+    const routeStateVersion = nextRouteSubscriptionStateVersion();
+    void (async () => {
+      try {
+        const routeStateApplied =
+          await backgroundApiProxy.serviceHyperliquidSubscription.setRouteSubscriptionState(
+            {
+              enableLedgerUpdates: plan.enableLedgerUpdates,
+              routeStateVersion,
+              spotAssetCtxsEnabled: plan.spotAssetCtxsEnabled,
+              spotEnabled: plan.spotEnabled,
+            },
+          );
+
+        if (!routeStateApplied || syncSequenceRef.current !== sequence) {
+          return;
+        }
+
+        if (
+          !isLoading &&
+          plan.shouldSyncSubscriptions &&
+          isInstrumentBackedBySubscriptionState
+        ) {
+          await actions.current.updateSubscriptions();
+        }
+      } catch (error) {
+        console.error('Failed to sync Perps subscriptions:', error);
+      }
+    })();
   }, [
     checkDeps,
     isWebSocketConnected,
@@ -621,6 +815,9 @@ function WebSocketSubscriptionUpdate() {
     tokenSelectorTab,
     infoPanelTab,
     favoritesBarSpotActive,
+    perpsActiveAssetCoin,
+    spotActiveAssetCoin,
+    tradingMode,
   ]);
   return null;
 }
@@ -1006,7 +1203,6 @@ function PerpsGlobalEffectsView() {
   useHyperliquidNetworkReachabilityRecovery();
   useSyncContextOrderBookOptionsToGlobal();
   useTradeRouteViewStateSync();
-  usePerpsSharePrompt();
 
   return (
     <>

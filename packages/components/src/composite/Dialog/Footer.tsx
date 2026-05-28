@@ -78,7 +78,7 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
             onConfirm?.({
               close: (extra) => {
                 resolve(false);
-                void close(extra);
+                return close(extra);
               },
               preventClose: () => {
                 resolve(false);

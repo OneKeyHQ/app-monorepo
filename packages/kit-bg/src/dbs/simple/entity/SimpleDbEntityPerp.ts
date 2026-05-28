@@ -65,7 +65,6 @@ export interface ISimpleDbPerpData {
       cachedAt: number;
     }
   >; // user address -> cached eligibility result
-  perpsSharePromptShown?: boolean; // whether the once-per-app Perps share prompt has been shown
   tokenSearchAliases?: ITokenSearchAliases; // token search aliases from server
   tokenSelectorTabs?: IPerpDynamicTab[]; // dynamic token selector tabs from server
   perpsAssetMetaMap?: IPerpsAssetMetaMap; // perps asset metadata map from server
@@ -374,6 +373,26 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   }
 
   @backgroundMethod()
+  async clearUserAbstractionMode(userAddress: string) {
+    const addr = userAddress.toLowerCase();
+    await this.setPerpData((prev): ISimpleDbPerpData => {
+      const abstractionModeUsers = { ...prev?.abstractionModeUsers };
+      delete abstractionModeUsers[addr];
+
+      const dexAbstractionEnabledUsers = {
+        ...prev?.dexAbstractionEnabledUsers,
+      };
+      delete dexAbstractionEnabledUsers[addr];
+
+      return {
+        ...prev,
+        abstractionModeUsers,
+        dexAbstractionEnabledUsers,
+      };
+    });
+  }
+
+  @backgroundMethod()
   async getReferralBannerSnoozedUntil(userAddress: string): Promise<number> {
     const config = await this.getPerpData();
     return config.referralBannerSnoozedUntil?.[userAddress.toLowerCase()] ?? 0;
@@ -415,22 +434,6 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
           ...prev?.referralBannerCache,
           [userAddress.toLowerCase()]: cache,
         },
-      }),
-    );
-  }
-
-  @backgroundMethod()
-  async getPerpsSharePromptShown(): Promise<boolean> {
-    const config = await this.getPerpData();
-    return config.perpsSharePromptShown ?? false;
-  }
-
-  @backgroundMethod()
-  async setPerpsSharePromptShown(shown: boolean): Promise<void> {
-    await this.setPerpData(
-      (prev): ISimpleDbPerpData => ({
-        ...prev,
-        perpsSharePromptShown: shown,
       }),
     );
   }

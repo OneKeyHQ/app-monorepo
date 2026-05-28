@@ -445,6 +445,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
           includingDefaultNetworks: true,
           isFromCloudBackupRestore: true,
           password: localPassword,
+          localPassword,
         });
 
       await this.backgroundApi.servicePrimeTransfer.completeImportProgress({

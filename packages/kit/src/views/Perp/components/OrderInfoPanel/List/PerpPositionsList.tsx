@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -26,7 +26,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
 import { MobilePositionsListHeader } from '../Components/MobilePositionsListHeader';
 import { PerpPositionsEmptyState } from '../Components/PerpPositionsEmptyState';
-import { PositionRow } from '../Components/PositionsRow';
+import { type IPositionRowItem, PositionRow } from '../Components/PositionsRow';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -169,22 +169,20 @@ function PerpPositionsList({
     [columnsConfig],
   );
 
-  // Generate mocked positions with correct original indices
-  const mockedPositions = useMemo<{ index: number }[]>(() => {
+  // Keep each row on the same positions snapshot that decided list emptiness.
+  const mockedPositions = useMemo<IPositionRowItem[]>(() => {
     if (!isMobile || !filterByCurrentToken || !activeAsset?.coin) {
-      // No filter: use sequential indices
-      return Array.from(
-        { length: positions.activePositions.length },
-        (_, index) => ({
-          index,
-        }),
-      );
+      return positions.activePositions.map((activePosition, index) => ({
+        index,
+        activePosition,
+      }));
     }
-    // Filter active: preserve original indices from unfiltered array
     return positions.activePositions
-      .map((p, originalIndex) => ({ position: p, originalIndex }))
-      .filter((item) => item.position.position.coin === activeAsset.coin)
-      .map((item) => ({ index: item.originalIndex }));
+      .map((activePosition, originalIndex) => ({
+        index: originalIndex,
+        activePosition,
+      }))
+      .filter((item) => item.activePosition.position.coin === activeAsset.coin);
   }, [
     positions.activePositions,
     isMobile,
@@ -193,7 +191,7 @@ function PerpPositionsList({
   ]);
 
   const renderPositionRow = (
-    item: { index: number },
+    item: IPositionRowItem,
     _index: number,
     renderMode?: 'full' | 'left' | 'right',
     isHovered?: boolean,
@@ -210,6 +208,9 @@ function PerpPositionsList({
       onHoverChange={onHoverChange}
     />
   );
+  const keyExtractor = useCallback((item: IPositionRowItem) => {
+    return item.activePosition.position.coin;
+  }, []);
   const actions = useHyperliquidActions();
   const listViewDebugRenderTrackerProps = useMemo(
     (): IDebugRenderTrackerProps => ({
@@ -311,6 +312,7 @@ function PerpPositionsList({
       data={mockedPositions}
       isMobile={isMobile}
       renderRow={renderPositionRow}
+      keyExtractor={keyExtractor}
       ListEmptyComponent={<PerpPositionsEmptyState isMobile={isMobile} />}
       emptyMessage={intl.formatMessage({
         id: ETranslations.perp_position_empty,

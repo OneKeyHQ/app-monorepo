@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
 import { Dimensions, type LayoutChangeEvent } from 'react-native';
 
@@ -7,16 +8,15 @@ import type { IScrollViewRef } from '@onekeyhq/components';
 import {
   HeaderScrollGestureWrapper,
   Icon,
-  NavBackButton,
   Page,
   ScrollView,
   SizableText,
   Tabs,
   XStack,
   YStack,
-  isNativeTablet,
-  useIsSplitView,
+  useIsSplitDetailActive,
   usePageWidth,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -255,6 +255,11 @@ function MobilePerpMarket() {
     coin: activeTradeInstrument.coin,
     displayName: marketDetailDisplayName,
   });
+  // iOS 26's HeaderScreenOptions sets headerTransparent: true so the
+  // page content extends under the navigation bar. Page.Body has p="$0"
+  // here, which lets the chart and order book slide up behind the bar.
+  // Use the header height to push them back into view.
+  const headerHeight = useHeaderHeight();
 
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
@@ -262,9 +267,7 @@ function MobilePerpMarket() {
     });
   }, [navigation]);
 
-  const onPageGoBack = useCallback(() => {
-    navigation.pop();
-  }, [navigation]);
+  const isSplitDetailActive = useIsSplitDetailActive();
 
   const renderHeaderTitle = useCallback(() => {
     let pairLabel: string;
@@ -275,57 +278,53 @@ function MobilePerpMarket() {
     } else {
       pairLabel = '--';
     }
+    // Match the MarketDetailV2 layout: Token + Symbol + dropdown sit
+    // in the native headerTitle slot. The system back chevron renders
+    // separately on the left via HeaderScreenOptions
+    // (headerBackButtonDisplayMode: 'minimal'), so we no longer wrap
+    // a NavBackButton inside this XStack — that's what was forcing
+    // UIKit to draw the whole thing as a single pill-shaped glass
+    // container on iOS 26.
     return (
-      <XStack alignItems="center" gap="$2">
-        <NavBackButton
-          hoverStyle={{ opacity: 0.8 }}
-          pressStyle={{ opacity: 0.6 }}
-          onPress={onPageGoBack}
+      <XStack
+        alignItems="center"
+        gap="$2"
+        onPress={isSplitDetailActive ? undefined : onPressTokenSelector}
+        hoverStyle={isSplitDetailActive ? undefined : { opacity: 0.8 }}
+        pressStyle={isSplitDetailActive ? undefined : { opacity: 0.6 }}
+        cursor="default"
+      >
+        <Token
+          size="sm"
+          borderRadius="$full"
+          bg={themeVariant === 'light' ? undefined : '$bgInverse'}
+          tokenImageUri={
+            baseName ? getHyperliquidTokenImageUrl(baseName) : undefined
+          }
+          fallbackIcon="CryptoCoinOutline"
         />
-        <XStack
-          alignItems="center"
-          gap="$2"
-          onPress={onPressTokenSelector}
-          hoverStyle={{ opacity: 0.8 }}
-          pressStyle={{ opacity: 0.6 }}
-          cursor="default"
-        >
-          <Token
-            size="sm"
-            borderRadius="$full"
-            bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-            tokenImageUri={
-              baseName ? getHyperliquidTokenImageUrl(baseName) : undefined
-            }
-            fallbackIcon="CryptoCoinOutline"
-          />
-          <SizableText size="$headingLg">{pairLabel}</SizableText>
-          <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
+        <SizableText size="$headingLg">{pairLabel}</SizableText>
+        <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
+        {isSplitDetailActive ? null : (
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
-        </XStack>
+        )}
       </XStack>
     );
   }, [
     baseName,
     displayName,
+    isSplitDetailActive,
     mode,
-    onPageGoBack,
     onPressTokenSelector,
     themeVariant,
   ]);
-
-  const isTablet = isNativeTablet();
-  const isLandscape = useIsSplitView();
   useEffect(() => {
-    if (isTablet && isLandscape) {
-      return;
-    }
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 
     return () => {
       appEventBus.emit(EAppEventBusNames.HideTabBar, false);
     };
-  }, [isLandscape, isTablet]);
+  }, []);
 
   const scrollToTab = useCallback(
     (tab: IMobilePerpMarketTab, animated = true) => {
@@ -376,14 +375,44 @@ function MobilePerpMarket() {
     [activeTradeInstrument.coin, mode],
   );
 
+  // In split-view detail (SUB) pane the page is rendered inline rather than
+  // as a navigator screen, so `Page.Header` (which goes through
+  // navigation.setOptions) is a no-op and the user loses the pair selector +
+  // favorite button. Render those controls as an inline XStack at the top of
+  // Page.Body in that mode, and keep `Page.Header` for the modal route case.
   const pageHeader = useMemo(
-    () => (
-      <Page.Header
-        headerLeft={renderHeaderTitle}
-        headerRight={renderHeaderRight}
-      />
-    ),
-    [renderHeaderTitle, renderHeaderRight],
+    () =>
+      isSplitDetailActive ? (
+        // Inline render in the SUB pane: explicitly suppress the navigator's
+        // default header so it doesn't reserve top-of-pane space on top of
+        // our `inlineHeader` XStack inside Page.Body.
+        <Page.Header headerShown={false} />
+      ) : (
+        <Page.Header
+          headerShown
+          headerTitle={renderHeaderTitle}
+          headerRight={renderHeaderRight}
+        />
+      ),
+    [isSplitDetailActive, renderHeaderTitle, renderHeaderRight],
+  );
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  const inlineHeader = useMemo(
+    () =>
+      isSplitDetailActive ? (
+        <XStack
+          px="$4"
+          pt={safeAreaTop + 8}
+          pb="$2"
+          alignItems="center"
+          justifyContent="space-between"
+          bg="$bgApp"
+        >
+          {renderHeaderTitle()}
+          {renderHeaderRight()}
+        </XStack>
+      ) : null,
+    [isSplitDetailActive, renderHeaderTitle, renderHeaderRight, safeAreaTop],
   );
 
   const marketHeaderContent = useMemo(() => <MobilePerpCandlesStatic />, []);
@@ -422,7 +451,17 @@ function MobilePerpMarket() {
     <Page scrollEnabled={pageScrollEnabled}>
       {pageHeader}
       <Page.Body p="$0">
-        <YStack flex={1} bg="$bgApp" onLayout={handleContainerLayout}>
+        {inlineHeader}
+        <YStack
+          flex={1}
+          bg="$bgApp"
+          onLayout={handleContainerLayout}
+          pt={
+            !isSplitDetailActive && platformEnv.isNativeIOS26Plus
+              ? headerHeight
+              : 0
+          }
+        >
           <MobilePerpMarketTabBar
             activeTab={activeTab}
             onChange={handleChangeActiveTab}
@@ -437,8 +476,21 @@ function MobilePerpMarket() {
             bounces={false}
             contentContainerStyle={{ minHeight: '100%' }}
           >
-            <YStack w={effectivePageWidth} flex={1} minHeight={0}>
-              {platformEnv.isNativeIOS ? (
+            <YStack
+              w={effectivePageWidth}
+              flex={1}
+              minHeight={0}
+              {...(isSplitDetailActive ? { overflow: 'hidden' } : null)}
+            >
+              {/* eslint-disable-next-line no-nested-ternary */}
+              {isSplitDetailActive ? (
+                <YStack flex={1}>
+                  <MobilePerpMarketHeader />
+                  <YStack flex={1} overflow="hidden">
+                    <PerpCandles />
+                  </YStack>
+                </YStack>
+              ) : platformEnv.isNativeIOS ? (
                 <Tabs.Container
                   initialTabName="orderbook"
                   renderHeader={() => <MobilePerpCandlesTouchBridge />}
@@ -460,7 +512,12 @@ function MobilePerpMarket() {
                 </YStack>
               )}
             </YStack>
-            <YStack w={effectivePageWidth} flex={1} minHeight={0}>
+            <YStack
+              w={effectivePageWidth}
+              flex={1}
+              minHeight={0}
+              {...(isSplitDetailActive ? { overflow: 'hidden' } : null)}
+            >
               {hasInfoTabMounted ? (
                 <ScrollView
                   flex={1}
@@ -474,7 +531,7 @@ function MobilePerpMarket() {
           </ScrollView>
         </YStack>
       </Page.Body>
-      {pageFooter}
+      {isSplitDetailActive ? null : pageFooter}
     </Page>
   );
 }

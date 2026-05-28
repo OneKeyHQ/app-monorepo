@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IListViewProps } from '@onekeyhq/components';
+import type { IGetWebRowHeight, IListViewProps } from '@onekeyhq/components';
 import {
   Button,
   SectionList,
@@ -43,6 +43,13 @@ import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
 
 import { TxHistoryListItem } from './TxHistoryListItem';
+
+// Measured on web/desktop. Drives react-virtualized's CellMeasurer bypass so
+// rows are positioned synchronously with scroll instead of via async layout.
+// No-op on native (List.tsx Web fast path is not on the native code path).
+const TX_ROW_HEIGHT = 68;
+const SECTION_HEADER_HEIGHT_FIRST = 32; // mt=$0 on first section
+const SECTION_HEADER_HEIGHT_NEXT = 52; // mt=$5 (~20px) on subsequent sections
 
 type IProps = {
   data: IAccountHistoryTx[];
@@ -415,6 +422,36 @@ function BaseTxHistoryListView(props: IProps) {
     return inTabList ? Tabs.SectionList : SectionList;
   }, [inTabList]);
 
+  // Web-only fast path: TxHistoryListItem and the section header have known
+  // heights, so we can skip react-virtualized's CellMeasurer entirely on the
+  // desktop/web Tabs.SectionList path. This is what eliminates the visual
+  // blank during fast scroll, where rows were rendering at stale absolute
+  // positions because CellMeasurer's totalHeight estimate kept oscillating.
+  const getWebRowHeight = useMemo<
+    IGetWebRowHeight<IAccountHistoryTx> | undefined
+  >(
+    () =>
+      inTabList && !platformEnv.isNative
+        ? (info) => {
+            if (info.type === 'section-header') {
+              return info.sectionIndex === 0
+                ? SECTION_HEADER_HEIGHT_FIRST
+                : SECTION_HEADER_HEIGHT_NEXT;
+            }
+            if (info.type === 'section-item') {
+              if (info.item?.decodedTx?.status === EDecodedTxStatus.Pending) {
+                return undefined;
+              }
+              return TX_ROW_HEIGHT;
+            }
+            // header / footer (loading / "load more" buttons) aren't a fixed
+            // height — let CellMeasurer handle them.
+            return undefined;
+          }
+        : undefined,
+    [inTabList],
+  );
+
   const itemCounts = useMemo(() => {
     return sections.reduce((acc, section) => acc + section.data.length, 0);
   }, [sections]);
@@ -518,7 +555,10 @@ function BaseTxHistoryListView(props: IProps) {
         />
       }
       ListHeaderComponent={ListHeaderComponent}
-      keyExtractor={(tx, index) => tx.id || index.toString(10)}
+      keyExtractor={(tx: IAccountHistoryTx, index: number) =>
+        tx.id || index.toString(10)
+      }
+      {...((getWebRowHeight ? { getWebRowHeight } : {}) as any)}
     />
   );
 }

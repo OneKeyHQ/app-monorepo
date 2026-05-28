@@ -43,7 +43,7 @@ function createSelectedProtocolFromItem(
   return {
     networkId: item.network.networkId,
     provider: item.provider.name,
-    vault: earnUtils.isVaultBasedProvider({
+    vault: earnUtils.shouldSendEarnProtocolVault({
       providerName: item.provider.name,
     })
       ? item.provider.vault
