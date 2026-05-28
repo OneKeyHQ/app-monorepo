@@ -23,6 +23,12 @@ type ILogHyperLiquidApiFailureParams = {
   extra?: Record<string, unknown>;
 };
 
+type ILogHyperLiquidClientFailureParams = {
+  action: string;
+  request: unknown;
+  error: unknown;
+};
+
 const REDACTED = '[Redacted]';
 const MAX_SANITIZE_DEPTH = 8;
 const SENSITIVE_KEYS = new Set([
@@ -44,6 +50,19 @@ function getSingleRequestArg(args: unknown[]): unknown {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function isHyperLiquidErrorResult(
+  result: unknown,
+): result is { status: 'err'; response?: unknown } {
+  return isRecord(result) && result.status === 'err';
+}
+
+function createHyperLiquidErrorResultError(result: unknown) {
+  return new Error(
+    extractHyperLiquidErrorMessage({ response: result }) ||
+      'HyperLiquid API returned error status',
+  );
 }
 
 function sanitizePayload(
@@ -158,6 +177,7 @@ export function createLoggedHyperLiquidClient<T extends object>(
     endpoint: IHyperLiquidApiFailureEndpoint;
     context?: IContextProvider;
     extra?: Record<string, unknown>;
+    shouldLogFailure?: (params: ILogHyperLiquidClientFailureParams) => boolean;
   },
 ): T {
   const methodCache = new Map<PropertyKey, unknown>();
@@ -174,17 +194,23 @@ export function createLoggedHyperLiquidClient<T extends object>(
 
       const method = value as (this: T, ...args: unknown[]) => Promise<unknown>;
       const wrapped = async (...args: unknown[]) => {
+        const action = String(prop);
+        const request = getSingleRequestArg(args);
         try {
           return await method.apply(target, args);
         } catch (error) {
-          await logHyperLiquidApiFailure({
-            endpoint: options.endpoint,
-            action: String(prop),
-            request: getSingleRequestArg(args),
-            error,
-            context: options.context,
-            extra: options.extra,
-          });
+          if (
+            options.shouldLogFailure?.({ action, request, error }) !== false
+          ) {
+            await logHyperLiquidApiFailure({
+              endpoint: options.endpoint,
+              action,
+              request,
+              error,
+              context: options.context,
+              extra: options.extra,
+            });
+          }
           throw error;
         }
       };
@@ -210,7 +236,19 @@ export async function requestLoggedHyperLiquidTransport<T>(
   },
 ): Promise<T> {
   try {
-    return await transport.request<T>(endpoint, payload);
+    const result = await transport.request<T>(endpoint, payload);
+    if (isHyperLiquidErrorResult(result)) {
+      await logHyperLiquidApiFailure({
+        endpoint,
+        action: options.action,
+        request: payload,
+        response: result,
+        error: createHyperLiquidErrorResultError(result),
+        context: options.context,
+        extra: options.extra,
+      });
+    }
+    return result;
   } catch (error) {
     await logHyperLiquidApiFailure({
       endpoint,

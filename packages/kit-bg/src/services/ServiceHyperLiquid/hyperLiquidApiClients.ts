@@ -9,6 +9,11 @@ import {
 
 import { createLoggedHyperLiquidClient } from './utils/logHyperLiquidApiFailure';
 
+const INFO_CLIENT_SOFT_FALLBACK_ACTIONS = new Set([
+  'allMids',
+  'perpsAtOpenInterestCap',
+]);
+
 class HyperLiquidApiClients {
   private _infoClient: InfoClient | null = null;
 
@@ -21,6 +26,8 @@ class HyperLiquidApiClients {
         {
           endpoint: 'info',
           extra: { source: 'hyperLiquidApiClients.infoClient' },
+          shouldLogFailure: ({ action }) =>
+            !INFO_CLIENT_SOFT_FALLBACK_ACTIONS.has(action),
         },
       );
     }
