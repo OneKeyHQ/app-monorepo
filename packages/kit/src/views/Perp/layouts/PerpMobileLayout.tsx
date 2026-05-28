@@ -1,8 +1,12 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { RefreshControl, ScrollView } from 'react-native';
+import {
+  type LayoutChangeEvent,
+  RefreshControl,
+  ScrollView,
+} from 'react-native';
 
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import {
@@ -40,6 +44,12 @@ import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 import { isHyperLiquidUnifiedAccountMode } from '../utils';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../utils/mobileLayoutTrace';
 
 export enum ETabName {
   Positions = 'Positions',
@@ -109,6 +119,10 @@ export function PerpMobileLayout() {
   const tabBarHeight = useScrollContentTabBarOffset();
   const [activeTab, setActiveTab] = useState<ETabName>(ETabName.Positions);
   const [refreshing, setRefreshing] = useState(false);
+  const layoutRectsRef = useRef<
+    Record<string, IPerpsMobileLayoutTraceRect | undefined>
+  >({});
+  const contentHeightRef = useRef<number | undefined>(undefined);
 
   const navigation =
     useAppNavigation<IModalNavigationProp<IModalPerpParamList>>();
@@ -181,23 +195,108 @@ export function PerpMobileLayout() {
     }
     return '';
   }, [holdingsCount]);
+
+  const handleTraceLayout = useCallback(
+    (name: string, event: LayoutChangeEvent) => {
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (
+        isPerpsMobileLayoutTraceRectChanged(layoutRectsRef.current[name], rect)
+      ) {
+        tracePerpsMobileLayout(`perpTab.${name}.layout`, {
+          rect,
+          activeTab,
+          isUnifiedAccountMode,
+          openOrdersLength,
+          positionsLength,
+          holdingsCount,
+        });
+        layoutRectsRef.current[name] = rect;
+      }
+    },
+    [
+      activeTab,
+      holdingsCount,
+      isUnifiedAccountMode,
+      openOrdersLength,
+      positionsLength,
+    ],
+  );
+
+  const handleContentSizeChange = useCallback(
+    (_width: number, height: number) => {
+      const roundedHeight = Math.round(height * 100) / 100;
+      const prevHeight = contentHeightRef.current;
+      if (
+        prevHeight === undefined ||
+        Math.abs(prevHeight - roundedHeight) > 0.5
+      ) {
+        tracePerpsMobileLayout('perpTab.scrollContent.height', {
+          height: roundedHeight,
+          prevHeight,
+          delta:
+            prevHeight === undefined ? undefined : roundedHeight - prevHeight,
+          activeTab,
+          tabBarHeight,
+        });
+        contentHeightRef.current = roundedHeight;
+      }
+    },
+    [activeTab, tabBarHeight],
+  );
+
+  const handleScrollViewportLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      handleTraceLayout('scrollViewport', event);
+    },
+    [handleTraceLayout],
+  );
+
+  useEffect(() => {
+    tracePerpsMobileLayout('perpTab.counts.state', {
+      activeTab,
+      openOrdersLength,
+      positionsLength,
+      holdingsCount,
+      isUnifiedAccountMode,
+      hasPerpsAccountSummary: Boolean(accountSummary),
+      spotBalancesLength: balances.length,
+    });
+  }, [
+    accountSummary,
+    activeTab,
+    balances.length,
+    holdingsCount,
+    isUnifiedAccountMode,
+    openOrdersLength,
+    positionsLength,
+  ]);
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}
       contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarHeight }}
       showsVerticalScrollIndicator={false}
       stickyHeaderIndices={[1]}
+      onLayout={handleScrollViewportLayout}
+      onContentSizeChange={handleContentSizeChange}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
-      <YStack>
+      <YStack onLayout={(event) => handleTraceLayout('alerts', event)}>
         <PerpTips />
         <PerpMobileNetworkAlert />
       </YStack>
 
-      <PerpTickerBar />
-      <XStack gap="$2.5" px="$4" pb="$4">
+      <YStack onLayout={(event) => handleTraceLayout('tickerBar', event)}>
+        <PerpTickerBar />
+      </YStack>
+      <XStack
+        gap="$2.5"
+        px="$4"
+        pb="$4"
+        onLayout={(event) => handleTraceLayout('firstScreenGrid', event)}
+      >
         {/*
           OK-55214 follow-up: use flex-grow ratio (35:65) instead of
           flexBasis="35%" / "65%" — on iPad iOS the percentage-basis path
@@ -207,10 +306,18 @@ export function PerpMobileLayout() {
           itself measures the full 1032pt parent. Switching to flex-grow
           ratio bypasses the basis cache.
         */}
-        <YStack flex={35} minWidth={0}>
+        <YStack
+          flex={35}
+          minWidth={0}
+          onLayout={(event) => handleTraceLayout('orderBookColumn', event)}
+        >
           <PerpOrderBook />
         </YStack>
-        <YStack flex={65} minWidth={0}>
+        <YStack
+          flex={65}
+          minWidth={0}
+          onLayout={(event) => handleTraceLayout('tradingPanelColumn', event)}
+        >
           <PerpTradingPanel isMobile />
         </YStack>
       </XStack>
@@ -222,6 +329,7 @@ export function PerpMobileLayout() {
         alignItems="center"
         pr="$4"
         pl="$4"
+        onLayout={(event) => handleTraceLayout('positionsTabBar', event)}
       >
         <XStack gap="$5">
           <TabBarItem
@@ -252,10 +360,14 @@ export function PerpMobileLayout() {
           onPress={handleViewTradesHistory}
         />
       </XStack>
-      <YStack flex={1}>
+      <YStack
+        flex={1}
+        onLayout={(event) => handleTraceLayout('tabContent', event)}
+      >
         <YStack
           display={activeTab === ETabName.Positions ? 'flex' : 'none'}
           flex={1}
+          onLayout={(event) => handleTraceLayout('positionsPanel', event)}
         >
           <PerpPositionsList
             handleViewTpslOrders={handleViewTpslOrders}
@@ -267,12 +379,14 @@ export function PerpMobileLayout() {
         <YStack
           display={activeTab === ETabName.OpenOrders ? 'flex' : 'none'}
           flex={1}
+          onLayout={(event) => handleTraceLayout('openOrdersPanel', event)}
         >
           <PerpOpenOrdersList isMobile useTabsList={false} disableListScroll />
         </YStack>
         <YStack
           display={activeTab === ETabName.Balances ? 'flex' : 'none'}
           flex={1}
+          onLayout={(event) => handleTraceLayout('balancesPanel', event)}
         >
           <SpotBalanceList isMobile useTabsList={false} disableListScroll />
         </YStack>

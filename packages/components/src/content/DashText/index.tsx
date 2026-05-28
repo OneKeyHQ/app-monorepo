@@ -44,22 +44,25 @@ function DashTextCore({
           {children}
         </SizableText>
       </YStack>
-      {textWidth > 0 && length > 0 ? (
+      {length > 0 ? (
         <XStack
           gap={dashGap}
+          height={dashThickness}
           overflow="hidden"
           flexWrap="nowrap"
-          width={textWidth}
+          width={textWidth || 0}
         >
-          {Array.from({ length }, (_, i) => (
-            <YStack
-              key={i}
-              width={dashLength}
-              height={dashThickness}
-              bg={dashColor}
-              flexShrink={0}
-            />
-          ))}
+          {textWidth > 0
+            ? Array.from({ length }, (_, i) => (
+                <YStack
+                  key={i}
+                  width={dashLength}
+                  height={dashThickness}
+                  bg={dashColor}
+                  flexShrink={0}
+                />
+              ))
+            : null}
         </XStack>
       ) : null}
     </YStack>

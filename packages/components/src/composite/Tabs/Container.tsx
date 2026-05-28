@@ -279,17 +279,22 @@ export function Container({
   // Attach (or re-attach) a ResizeObserver to the focused tab's scroll
   // element so listContainerRef height follows it. Replaces the previous
   // 250ms-polling retry loop entirely:
-  //  - if the inner Tabs.List hasn't registered yet, this is a no-op; it
-  //    will be re-invoked via the `requestRemeasure` context callback the
-  //    moment List.tsx / ScrollView.tsx writes the element ref.
+  //  - if the inner Tabs.List hasn't registered yet, fall back to the
+  //    indexed container child; requestRemeasure will re-attach once
+  //    List.tsx / ScrollView.tsx writes the element ref.
   //  - if the element is registered but currently 0-height, the observer
   //    sits idle until content lands, then fires once and the height is
   //    written. No console spam, no forced layout flushes, no retries.
   const attachObserverForFocusedTab = useCallback(() => {
     if (!isEffectValid.current) return;
     if (!listContainerRef.current) return;
-    const element =
-      scrollTabElementsRef.current?.[focusedTab.value]?.element ?? null;
+    const tabIndex = tabNames.findIndex((name) => name === focusedTab.value);
+    const registeredElement =
+      scrollTabElementsRef.current?.[focusedTab.value]?.element;
+    const fallbackElement =
+      tabIndex >= 0 ? listContainerRef.current.children.item(tabIndex) : null;
+    const element = (registeredElement ??
+      fallbackElement) as HTMLElement | null;
     // Same element + already observing -> nothing to do.
     if (element && observedElementRef.current === element) {
       return;
@@ -313,7 +318,7 @@ export function Container({
     const ro = new ResizeObserver(apply);
     ro.observe(element);
     resizeObserverRef.current = ro;
-  }, [focusedTab, getTabContentHeight]);
+  }, [focusedTab, getTabContentHeight, tabNames]);
 
   // Keep the requestRemeasure context callback pointing at the latest
   // attach function. We use an indirection ref so contextValue identity

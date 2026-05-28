@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,7 +14,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePerpsTokenSearchAliasesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsMaxBuilderFeeAtom,
+  usePerpsTokenSearchAliasesAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { useTradingModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -23,9 +26,17 @@ import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 import { PerpTestIDs } from '../../testIDs';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../../utils/mobileLayoutTrace';
 import { PerpsActivityCenterAction } from '../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 const MOBILE_TICKER_SUBTITLE_MAX_WIDTH = 64;
 
@@ -59,11 +70,14 @@ function PerpCandleChartButtonMobile() {
 
 function PerpBadgesRow() {
   const intl = useIntl();
+  const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
+  const requestedBuilderFeeRef = useRef(false);
   const [tradingMode] = useTradingModeAtom();
   const isSpot = tradingMode === 'spot';
-  const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+  const [builderFeeRate, setBuilderFeeRate] = usePerpsMaxBuilderFeeAtom();
   const { baseName, rawBaseName, coin } = useActiveTradeDisplay();
-  const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
+  const [tokenSearchAliases, setTokenSearchAliases] =
+    usePerpsTokenSearchAliasesAtom();
   const [fetchedTokenSearchAliases, setFetchedTokenSearchAliases] = useState<
     ITokenSearchAliases | undefined
   >(undefined);
@@ -81,16 +95,57 @@ function PerpBadgesRow() {
     return getTokenSubtitle(coin, effectiveTokenSearchAliases);
   }, [isSpot, baseName, rawBaseName, coin, effectiveTokenSearchAliases]);
 
-  // Fetch builder fee once on mount (independent of alias state)
+  // Use cold-start cache for the first frame, then refresh once from simpleDb.
   useEffect(() => {
+    if (builderFeeRate !== undefined) {
+      tracePerpsMobileLayout('tickerBar.badges.builderFeeReady', {
+        source: 'atom',
+        builderFeeRate,
+      });
+    }
+    if (requestedBuilderFeeRef.current) {
+      return;
+    }
+    requestedBuilderFeeRef.current = true;
+    let isCancelled = false;
     void backgroundApiProxy.simpleDb.perp.getPerpData().then((config) => {
-      setBuilderFeeRate(config.hyperliquidMaxBuilderFee);
+      if (isCancelled) {
+        return;
+      }
+      if (config.hyperliquidMaxBuilderFee !== undefined) {
+        setBuilderFeeRate(config.hyperliquidMaxBuilderFee);
+      }
+      tracePerpsMobileLayout('tickerBar.badges.builderFeeLoaded', {
+        builderFeeRate: config.hyperliquidMaxBuilderFee,
+      });
     });
-  }, []);
+    return () => {
+      isCancelled = true;
+    };
+  }, [builderFeeRate, setBuilderFeeRate]);
+
+  const applyTokenSearchAliases = useCallback(
+    (aliases: ITokenSearchAliases | undefined) => {
+      if (aliases === undefined) {
+        return;
+      }
+      setFetchedTokenSearchAliases(aliases);
+      setTokenSearchAliases(aliases);
+    },
+    [setTokenSearchAliases],
+  );
 
   // Fetch token aliases only when not yet available
   useEffect(() => {
     if (effectiveTokenSearchAliases !== undefined) {
+      tracePerpsMobileLayout('tickerBar.badges.aliases.ready', {
+        source: tokenSearchAliases ? 'atom' : 'local',
+        isSpot,
+        coin,
+        baseName,
+        rawBaseName,
+        hasSubtitle: Boolean(subtitle),
+      });
       return;
     }
     let isCancelled = false;
@@ -100,22 +155,54 @@ function PerpBadgesRow() {
         return;
       }
       if (config.tokenSearchAliases !== undefined) {
-        setFetchedTokenSearchAliases(config.tokenSearchAliases);
+        applyTokenSearchAliases(config.tokenSearchAliases);
+        tracePerpsMobileLayout('tickerBar.badges.aliases.loaded', {
+          source: 'simpleDb',
+        });
         return;
       }
       const aliases =
         await backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases();
       if (!isCancelled) {
-        setFetchedTokenSearchAliases(aliases);
+        applyTokenSearchAliases(aliases);
+        tracePerpsMobileLayout('tickerBar.badges.aliases.loaded', {
+          source: 'network',
+        });
       }
     })();
     return () => {
       isCancelled = true;
     };
-  }, [effectiveTokenSearchAliases]);
+  }, [
+    baseName,
+    applyTokenSearchAliases,
+    coin,
+    effectiveTokenSearchAliases,
+    isSpot,
+    rawBaseName,
+    subtitle,
+    tokenSearchAliases,
+  ]);
+
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
+        tracePerpsMobileLayout('tickerBar.badges.layout', {
+          rect,
+          isSpot,
+          hasSubtitle: Boolean(subtitle),
+          builderFeeRate,
+          showZeroFeeBadge: !isSpot && builderFeeRate === 0,
+        });
+        layoutRef.current = rect;
+      }
+    },
+    [builderFeeRate, isSpot, subtitle],
+  );
 
   return (
-    <XStack alignItems="center" gap="$1.5">
+    <XStack alignItems="center" gap="$1.5" onLayout={handleLayout}>
       <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
         <SizableText color="$textSubdued" fontSize={10}>
           {isSpot
@@ -176,6 +263,15 @@ function PerpBadgesRow() {
 }
 
 export function PerpTickerBarMobile() {
+  const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const rect = getPerpsMobileLayoutTraceRect(event);
+    if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
+      tracePerpsMobileLayout('tickerBar.root.layout', { rect });
+      layoutRef.current = rect;
+    }
+  }, []);
+
   const content = (
     <XStack
       flex={1}
@@ -186,6 +282,7 @@ export function PerpTickerBarMobile() {
       pb="$1.5"
       alignItems="flex-start"
       justifyContent="space-between"
+      onLayout={handleLayout}
     >
       <YStack>
         <PerpTokenSelectorMobile />

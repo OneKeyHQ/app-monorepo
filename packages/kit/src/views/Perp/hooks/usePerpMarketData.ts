@@ -4,8 +4,15 @@ import {
   useActiveTradeInstrumentAtom,
   useL2BookAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
+import {
+  getPerpsL2BookSnapshotCacheKeys,
+  swrCacheUtils,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
+
+import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
 
 export interface IPerpMarketDataReturn {
   currentTokenData: any | null;
@@ -39,9 +46,37 @@ export interface IL2BookData extends HL.IBook {
   asks: HL.IBookLevel[];
 }
 
-export function useL2Book(_options?: IL2BookOptions): {
+function getFreshL2BookSnapshotFromSwr({
+  coin,
+  options,
+}: {
+  coin: string;
+  options?: IL2BookOptions;
+}) {
+  const keys = getPerpsL2BookSnapshotCacheKeys({
+    coin,
+    nSigFigs: options?.nSigFigs,
+    mantissa: options?.mantissa,
+  });
+
+  for (const key of keys) {
+    const entry = swrCacheUtils.getWithTimestamp<HL.IBook>(key);
+    if (
+      entry?.data?.coin === coin &&
+      Date.now() - entry.updatedAt <= PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS
+    ) {
+      return entry.data;
+    }
+  }
+
+  return undefined;
+}
+
+export function useL2Book(options?: IL2BookOptions): {
   l2Book: IL2BookData | null;
   hasOrderBook: boolean;
+  isMarketDataStale: boolean;
+  lastUpdate: number | null;
   getBestBid: () => string | null;
   getBestAsk: () => string | null;
   getSpread: () => number | null;
@@ -52,21 +87,36 @@ export function useL2Book(_options?: IL2BookOptions): {
   const [l2BookData] = useL2BookAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const expectedCoin = activeTradeInstrument.coin;
+  const nSigFigs = options?.nSigFigs;
+  const mantissa = options?.mantissa;
+  const marketDataFreshness = usePerpsMarketDataFreshness();
 
   const l2Book = useMemo((): IL2BookData | null => {
-    if (!l2BookData || !expectedCoin) return null;
-    if (l2BookData.coin !== expectedCoin) return null;
+    let bookData: HL.IBook | null | undefined;
+    if (l2BookData?.coin === expectedCoin) {
+      bookData = l2BookData;
+    } else if (expectedCoin) {
+      bookData = getFreshL2BookSnapshotFromSwr({
+        coin: expectedCoin,
+        options: {
+          nSigFigs,
+          mantissa,
+        },
+      });
+    }
+    if (!bookData || !expectedCoin) return null;
+    if (bookData.coin !== expectedCoin) return null;
 
-    const [bids, asks] = l2BookData.levels || [[], []];
+    const [bids, asks] = bookData.levels || [[], []];
 
     return {
-      coin: l2BookData.coin,
-      time: l2BookData.time,
-      levels: l2BookData.levels,
+      coin: bookData.coin,
+      time: bookData.time,
+      levels: bookData.levels,
       bids: bids || [],
       asks: asks || [],
     };
-  }, [l2BookData, expectedCoin]);
+  }, [expectedCoin, l2BookData, mantissa, nSigFigs]);
 
   const getBestBid = (): string | null => {
     if (!l2Book?.bids || l2Book.bids.length === 0) return null;
@@ -115,6 +165,8 @@ export function useL2Book(_options?: IL2BookOptions): {
   return {
     l2Book,
     hasOrderBook: !!l2Book,
+    isMarketDataStale: marketDataFreshness.isStale,
+    lastUpdate: marketDataFreshness.lastMessageAt,
     getBestBid,
     getBestAsk,
     getSpread,

@@ -534,6 +534,10 @@ export function hydrateContextColdStartCacheForProvider({
         coldStartCacheKey: typedCacheKey,
       });
       if (cached !== undefined && cached !== null) {
+        const scopedCacheKey = buildColdStartScopedKey({
+          coldStartScopeKey: scope,
+          coldStartCacheKey: typedCacheKey,
+        });
         const atomInstance = atomBuilder();
         const currentValue = store.get(atomInstance);
         const nextValue =
@@ -545,13 +549,8 @@ export function hydrateContextColdStartCacheForProvider({
             : cached;
 
         store.set(atomInstance, nextValue);
-        coldStartValuesMap.set(
-          buildColdStartScopedKey({
-            coldStartScopeKey: scope,
-            coldStartCacheKey: typedCacheKey,
-          }),
-          nextValue,
-        );
+        coldStartValuesMap.set(scopedCacheKey, nextValue);
+        coldStartLog(`hydrate: ${scopedCacheKey}`);
       }
     }
     // Schedule snapshot cleanup after first screen renders (HomePageReady).
