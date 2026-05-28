@@ -175,6 +175,9 @@ const SettingProtectionModal = () => {
             title={intl.formatMessage({
               id: ETranslations.settings_token_risk_reminder,
             })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.settings_token_risk_reminder_desc,
+            })}
           >
             <Switch
               testID="setting-switch"
@@ -187,14 +190,12 @@ const SettingProtectionModal = () => {
               }}
             />
           </ListItem>
-          <SizableText px="$5" size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.settings_token_risk_reminder_desc,
-            })}
-          </SizableText>
           <ListItem
             title={intl.formatMessage({
               id: ETranslations.settings_protection_allowlist_title,
+            })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.settings_protection_allowlist_content,
             })}
           >
             <Switch
@@ -210,11 +211,6 @@ const SettingProtectionModal = () => {
               }}
             />
           </ListItem>
-          <SizableText px="$5" size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.settings_protection_allowlist_content,
-            })}
-          </SizableText>
           <Divider my="$5" mx="$5" />
           <SectionList.SectionHeader title="Receive risk monitoring" />
           <ListItem
@@ -313,7 +309,7 @@ const SettingProtectionModal = () => {
               }}
             />
           </ListItem>
-          <SizableText px="$5" size="$bodySm" color="$textSubdued">
+          <SizableText px="$5" size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.settings_passcode_bypass_desc,
             })}
@@ -328,17 +324,15 @@ const SettingProtectionModal = () => {
             title={intl.formatMessage({
               id: ETranslations.settings_reset_app,
             })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.settings_reset_app_description,
+            })}
           >
             <PassCodeProtectionSwitch
               size={ESwitchSize.small}
               onTransition={handleTransition}
             />
           </ListItem>
-          <SizableText px="$5" size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.settings_reset_app_description,
-            })}
-          </SizableText>
         </YStack>
       </ScrollView>
     ) : (
