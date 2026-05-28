@@ -23,12 +23,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
-import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 import {
   TX_RISKY_LEVEL_MALICIOUS,
   TX_RISKY_LEVEL_SCAM,
   TX_RISKY_LEVEL_SPAM,
 } from '@onekeyhq/shared/src/walletConnect/constant';
+import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';

@@ -107,6 +107,7 @@ const ReceiveRiskSupportedAssetsPage = () => {
             description="Failed to load supported assets. Please check your connection and try again."
             button={
               <Button
+                testID="receive-risk-supported-assets-retry"
                 variant="primary"
                 onPress={() => {
                   void fetchSupportedAssets();
