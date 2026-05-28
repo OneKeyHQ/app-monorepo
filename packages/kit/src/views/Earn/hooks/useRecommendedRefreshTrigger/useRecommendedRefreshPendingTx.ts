@@ -2,6 +2,8 @@ import { useStakingPendingTxsByInfo } from '../useStakingPendingTxs';
 
 import type { IScheduleRecommendedRefresh } from './types';
 
+const DISABLED_RECOMMENDED_NETWORK_IDS: string[] = [];
+
 export function useRecommendedRefreshPendingTx({
   enableFetch,
   recommendedNetworkIds,
@@ -14,7 +16,9 @@ export function useRecommendedRefreshPendingTx({
   scheduleRecommendedRefresh: IScheduleRecommendedRefresh;
 }) {
   useStakingPendingTxsByInfo({
-    networkIds: enableFetch ? recommendedNetworkIds : [],
+    networkIds: enableFetch
+      ? recommendedNetworkIds
+      : DISABLED_RECOMMENDED_NETWORK_IDS,
     tagMatcher,
     onRefresh: enableFetch
       ? () => {

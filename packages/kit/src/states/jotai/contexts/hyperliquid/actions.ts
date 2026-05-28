@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 
 import { BigNumber } from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isEqual, isNil } from 'lodash';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -16,6 +16,7 @@ import {
   perpsActiveAssetAtom,
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
+  perpsActiveOrderBookOptionsAtom,
   perpsDepositOrderAtom,
   perpsTradingPreferencesAtom,
   spotActiveAssetAtom,
@@ -191,6 +192,54 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     requestId: number,
   ): Promise<boolean> {
     return this.isLatestActiveInstrumentChange(requestId);
+  }
+
+  private shouldSyncSubscriptionsAfterInstrumentChange(
+    viewState: ITradeRouteViewState,
+  ): boolean {
+    return (
+      viewState.routeFocused ||
+      viewState.tokenSelectorOpen ||
+      viewState.favoritesBarSpotActive
+    );
+  }
+
+  private async syncSubscriptionsAfterInstrumentChange(params: {
+    instrument: IActiveTradeInstrument;
+    orderBookTickOptions: Record<string, IPerpOrderBookTickOptionPersist>;
+    requestId: number;
+    viewState: ITradeRouteViewState;
+  }): Promise<void> {
+    if (
+      !this.isLatestActiveInstrumentChange(params.requestId) ||
+      !this.shouldSyncSubscriptionsAfterInstrumentChange(params.viewState)
+    ) {
+      return;
+    }
+
+    const stored = params.orderBookTickOptions[params.instrument.coin];
+    const nextOrderBookOptions = {
+      coin: params.instrument.coin,
+      assetId: params.instrument.assetId,
+      nSigFigs: stored?.nSigFigs ?? null,
+      mantissa: stored?.mantissa ?? null,
+    };
+    const prevOrderBookOptions = await perpsActiveOrderBookOptionsAtom.get();
+    if (!isEqual(prevOrderBookOptions, nextOrderBookOptions)) {
+      await perpsActiveOrderBookOptionsAtom.set(() => nextOrderBookOptions);
+    }
+    if (!this.isLatestActiveInstrumentChange(params.requestId)) {
+      return;
+    }
+
+    try {
+      await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions();
+    } catch (error) {
+      console.error(
+        '[HyperliquidActions.syncSubscriptionsAfterInstrumentChange] Failed to update subscriptions:',
+        error,
+      );
+    }
   }
 
   private async findChartOrder(
@@ -769,7 +818,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   }
 
   updateL2Book = contextAtomMethod(async (get, set, data: HL.IBook) => {
-    const activeCoin = await this._getActiveCoin();
+    const activeInstrument = get(activeTradeInstrumentAtom());
+    const activeCoin = activeInstrument.coin || (await this._getActiveCoin());
     if (!data) {
       return;
     }
@@ -788,7 +838,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   });
 
   updateBbo = contextAtomMethod(async (get, set, data: HL.IWsBbo) => {
-    const activeCoin = await this._getActiveCoin();
+    const activeInstrument = get(activeTradeInstrumentAtom());
+    const activeCoin = activeInstrument.coin || (await this._getActiveCoin());
     if (!data) {
       return;
     }
@@ -936,6 +987,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         )
       ) {
         set(activeTradeInstrumentAtom(), optimisticInstrument);
+        set(l2BookAtom(), null);
+        set(bboAtom(), null);
       }
       await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const activeAsset = await perpsActiveAssetAtom.get();
@@ -965,11 +1018,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
         return false;
       }
-      await this.clearActiveAssetData.call(set);
+      // Keep the BG subscription target ahead of slower UI cleanup/work; after
+      // the native UI/BG split, the subscription service only reads BG atoms.
+      await tradingModeAtom.set('perp');
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
-      await tradingModeAtom.set('perp');
+      await this.clearActiveAssetData.call(set);
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
@@ -1009,6 +1064,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       this.updateTradingForm.call(set, nextFormUpdates);
       set(activeTradeInstrumentAtom(), nextInstrument);
+      void this.syncSubscriptionsAfterInstrumentChange({
+        instrument: nextInstrument,
+        orderBookTickOptions: get(orderBookTickOptionsAtom()),
+        requestId,
+        viewState: get(tradeRouteViewStateAtom()),
+      });
       return true;
     },
   );
@@ -1028,6 +1089,26 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       },
     ) => {
       const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
+      const optimisticInstrument: IActiveTradeInstrument = {
+        mode: 'spot',
+        coin,
+        assetId: spotUniverse?.assetId,
+        universe: spotUniverse,
+      };
+      const prevInstrument = get(activeTradeInstrumentAtom());
+      const shouldSetOptimisticInstrument =
+        prevInstrument.mode !== 'spot' || prevInstrument.coin !== coin;
+      if (
+        shouldSetOptimisticInstrument &&
+        !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
+          prevInstrument,
+          optimisticInstrument,
+        )
+      ) {
+        set(activeTradeInstrumentAtom(), optimisticInstrument);
+        set(l2BookAtom(), null);
+        set(bboAtom(), null);
+      }
       await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const currentSpotAsset = await spotActiveAssetAtom.get();
       if (currentSpotAsset?.coin === coin) {
@@ -1050,11 +1131,30 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
         return false;
       }
+      // Keep the BG subscription target ahead of slower UI cleanup/work; after
+      // the native UI/BG split, the subscription service only reads BG atoms.
+      await tradingModeAtom.set('spot');
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
+      await spotActiveAssetAtom.set({
+        coin,
+        assetId: spotUniverse?.assetId,
+        universe: spotUniverse,
+      });
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
+      void this.syncSubscriptionsAfterInstrumentChange({
+        instrument: optimisticInstrument,
+        orderBookTickOptions: get(orderBookTickOptionsAtom()),
+        requestId,
+        viewState: get(tradeRouteViewStateAtom()),
+      });
       await this.clearActiveAssetData.call(set);
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
-      await tradingModeAtom.set('spot');
 
       // Seed ticker bar from cached data to avoid skeleton flash
       const ctxsMap = await spotAssetCtxsMapAtom.get();
@@ -1081,15 +1181,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       } else {
         await spotActiveAssetCtxAtom.set(undefined);
       }
-      if (!this.isLatestActiveInstrumentChange(requestId)) {
-        return false;
-      }
-
-      await spotActiveAssetAtom.set({
-        coin,
-        assetId: spotUniverse?.assetId,
-        universe: spotUniverse,
-      });
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
@@ -1203,12 +1294,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  updateSubscriptions = contextAtomMethod(async (get, _set) => {
-    const isActive = get(subscriptionActiveAtom());
-    if (!isActive) {
-      await backgroundApiProxy.serviceHyperliquidSubscription.connect();
-    }
+  updateSubscriptions = contextAtomMethod(async (_get, _set) => {
     try {
+      // UI/BG split means this UI-local flag can be stale while the BG socket
+      // is already open. Let the BG service own socket recovery; calling
+      // connect() here turns a normal token switch into a resume rebuild.
       await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions();
     } catch (error) {
       console.error(
@@ -1292,6 +1382,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   clearActiveAssetData = contextAtomMethod(async (get, set) => {
     set(l2BookAtom(), null);
+    set(bboAtom(), null);
     await perpsActiveAssetCtxAtom.set(undefined);
     await perpsActiveAssetDataAtom.set(undefined);
     await spotActiveAssetCtxAtom.set(undefined);
