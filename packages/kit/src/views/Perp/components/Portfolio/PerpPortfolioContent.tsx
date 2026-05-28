@@ -460,7 +460,12 @@ function PerpPortfolioContentComponent({
       return formatPerpsCompactUsd(parseFloat(chartData.vlm));
     }
     return '--';
-  }, [activityType, chartData?.vlm, fillsStats.totalTrades, fillsStats.volumeUsd]);
+  }, [
+    activityType,
+    chartData?.vlm,
+    fillsStats.totalTrades,
+    fillsStats.volumeUsd,
+  ]);
 
   const winRateVal =
     fillsStats.winRate !== null ? formatPercent(fillsStats.winRate) : '--';

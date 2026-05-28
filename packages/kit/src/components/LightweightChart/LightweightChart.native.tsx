@@ -119,6 +119,9 @@ export function LightweightChart({
         <WebView
           ref={webViewRef}
           source={webViewSource}
+          onLoadStart={() => {
+            setWebViewReady(false);
+          }}
           onMessage={handleMessage}
           scrollEnabled={false}
           showsVerticalScrollIndicator={false}
