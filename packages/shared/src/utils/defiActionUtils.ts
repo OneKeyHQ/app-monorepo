@@ -29,6 +29,7 @@ function normalizeMatchValue(value?: string) {
 
 const CATEGORY_ALIAS_MAP: Record<string, string> = {
   asset: 'deposit',
+  collateral: 'deposit',
   supplied: 'deposit',
   supply: 'deposit',
   deposit: 'deposit',
@@ -40,6 +41,7 @@ const CATEGORY_ALIAS_MAP: Record<string, string> = {
   reward: 'reward',
   rewards: 'reward',
   staking_reward: 'reward',
+  liquidity_mining: 'reward',
   liquidity: 'liquidity',
   liquidity_pool: 'liquidity',
   lp: 'liquidity',
@@ -47,9 +49,26 @@ const CATEGORY_ALIAS_MAP: Record<string, string> = {
   yield: 'yield',
 };
 
+const PROTOCOL_ALIAS_MAP: Record<string, string> = {
+  aave_v3: 'aave_pool_v3',
+  // oxlint-disable-next-line @cspell/spellchecker
+  morphoblue: 'morpho_blue',
+};
+
 function normalizeCategoryForAction(value?: string) {
   const normalized = normalizeMatchValue(value);
   return CATEGORY_ALIAS_MAP[normalized] ?? normalized;
+}
+
+function normalizeProtocolForAction(value?: string) {
+  const normalized = normalizeMatchValue(value);
+  return PROTOCOL_ALIAS_MAP[normalized] ?? normalized;
+}
+
+function isProtocolMatch(expected?: string, actual?: string) {
+  return (
+    normalizeProtocolForAction(expected) === normalizeProtocolForAction(actual)
+  );
 }
 
 function isCategoryMatch(expected?: string, actual?: string) {
@@ -364,7 +383,7 @@ function resolveDeFiPositionActions({
 }: IResolveDeFiPositionActionsParams): IResolvedDeFiPositionAction[] {
   const matchedActions = supportedActions.filter(
     (supportedAction) =>
-      supportedAction.protocolId === protocol.protocol &&
+      isProtocolMatch(supportedAction.protocolId, protocol.protocol) &&
       supportedAction.networkId === protocol.networkId &&
       supportedAction.action !== EDeFiPositionAction.Permit &&
       isCategoryMatch(supportedAction.positionCategory, position.category),
