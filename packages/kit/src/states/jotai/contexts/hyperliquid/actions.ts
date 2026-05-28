@@ -11,8 +11,6 @@ import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components
 import {
   perpsActiveAccountAtom,
   perpsActiveAccountIsAgentReadyAtom,
-  perpsActiveAccountStatusInfoAtom,
-  perpsActiveAccountSummaryAtom,
   perpsActiveAssetAtom,
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
@@ -28,14 +26,27 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
+import {
+  PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
+  PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS,
+} from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  markPerpsColdStartPerf,
+  markPerpsColdStartPerfOnce,
+} from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  getPerpsOrderBookTickOptionWithCache,
+  getPerpsOrderBookTickOptionsWithCache,
+  setPerpsOrderBookTickOptionsCache,
+} from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import {
   findTokensByAlias,
   formatPriceToSignificantDigits,
@@ -46,6 +57,10 @@ import {
   resolveTradingSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getPerpsL2BookSnapshotCacheKeys,
+  swrCacheUtils,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IPerpsAssetPosition,
@@ -95,6 +110,56 @@ type IChStateLite = {
 type IChPositionLite = HL.IPerpsAssetPosition;
 
 const MAX_LEDGER_UPDATES = 200;
+
+function buildAllDexsAssetCtxsByDex(data: HL.IWsAllDexsAssetCtxs) {
+  const incoming = data?.ctxs || [];
+  const ctxMap = new Map<string, HL.IPerpsAssetCtx[]>();
+  incoming.forEach(([dexName, ctxList]) => {
+    ctxMap.set(dexName, ctxList || []);
+  });
+
+  const ctxsByDex: HL.IPerpsAssetCtx[][] = [];
+  const perpsCtx = ctxMap.get('') ?? ctxMap.get('perps') ?? [];
+  const xyzCtx = ctxMap.get('xyz') ?? [];
+  ctxsByDex[0] = perpsCtx;
+  ctxsByDex[1] = xyzCtx;
+
+  return {
+    ctxsByDex,
+    perpsCtxCount: perpsCtx.length,
+    xyzCtxCount: xyzCtx.length,
+  };
+}
+
+function hasAnyAssetCtxs(ctxsByDex: HL.IPerpsAssetCtx[][] | undefined) {
+  return Boolean(ctxsByDex?.some((ctxs) => ctxs?.length > 0));
+}
+
+function getFreshL2BookSnapshotFromSwr({
+  coin,
+  nSigFigs,
+  mantissa,
+}: {
+  coin: string;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+}) {
+  const keys = getPerpsL2BookSnapshotCacheKeys({
+    coin,
+    nSigFigs,
+    mantissa,
+  });
+  for (const key of keys) {
+    const entry = swrCacheUtils.getWithTimestamp<HL.IBook>(key);
+    if (
+      entry?.data?.coin === coin &&
+      Date.now() - entry.updatedAt <= PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS
+    ) {
+      return entry.data;
+    }
+  }
+  return undefined;
+}
 
 function getLedgerUpdateKey(update: HL.IUserNonFundingLedgerUpdate): string {
   return (
@@ -217,7 +282,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return;
     }
 
-    const stored = params.orderBookTickOptions[params.instrument.coin];
+    const stored = getPerpsOrderBookTickOptionsWithCache(
+      params.orderBookTickOptions,
+    )[params.instrument.coin];
     const nextOrderBookOptions = {
       coin: params.instrument.coin,
       assetId: params.instrument.assetId,
@@ -322,6 +389,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   }
 
   updateAllMids = contextAtomMethod((_, set, data: HL.IWsAllMids) => {
+    markPerpsColdStartPerfOnce('atom_set_all_mids_first', {
+      midsCount: Object.keys(data?.mids ?? {}).length,
+    });
     set(perpsAllMidsAtom(), data);
   });
 
@@ -341,10 +411,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateAllAssetCtxs = contextAtomMethod((_, set, data: HL.IWsWebData2) => {
     if (this.allAssetCtxsRequiredNumber <= 0) {
       // skip update if not required for better performance
+      markPerpsColdStartPerfOnce('atom_set_web_data2_asset_ctxs_skipped_first');
       return;
     }
     // just save raw ctxs here
     // use usePerpsAssetCtx() for single asset ctx with ctx formatted
+    markPerpsColdStartPerfOnce('atom_set_web_data2_asset_ctxs_first', {
+      ctxCount: data.assetCtxs?.length ?? 0,
+    });
     set(perpsAllAssetCtxsAtom(), {
       assetCtxsByDex: [data.assetCtxs || []],
     });
@@ -605,21 +679,71 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  hydrateAllDexsAssetCtxsSnapshotCache = contextAtomMethod(async (get, set) => {
+    const current = get(perpsAllAssetCtxsAtom());
+    if (hasAnyAssetCtxs(current.assetCtxsByDex)) {
+      markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_skip', {
+        reason: 'atom_ready',
+      });
+      return false;
+    }
+
+    markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_start');
+    const entry =
+      await backgroundApiProxy.simpleDb.perp.getAllDexsAssetCtxsSnapshotCache({
+        maxAgeMs: PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS,
+      });
+    if (!entry?.data) {
+      markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_miss');
+      return false;
+    }
+
+    const latest = get(perpsAllAssetCtxsAtom());
+    if (hasAnyAssetCtxs(latest.assetCtxsByDex)) {
+      markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_skip', {
+        reason: 'live_data_ready',
+      });
+      return false;
+    }
+
+    const { ctxsByDex, perpsCtxCount, xyzCtxCount } =
+      buildAllDexsAssetCtxsByDex(entry.data);
+    if (!hasAnyAssetCtxs(ctxsByDex)) {
+      markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_miss', {
+        reason: 'empty_snapshot',
+      });
+      return false;
+    }
+
+    set(perpsAllAssetCtxsAtom(), {
+      assetCtxsByDex: ctxsByDex,
+      updatedAt: entry.updatedAt,
+    });
+    markPerpsColdStartPerfOnce('atom_set_all_dexs_asset_ctxs_first', {
+      source: 'cache',
+      perpsCtxCount,
+      xyzCtxCount,
+    });
+    markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_hit', {
+      ageMs: Date.now() - entry.updatedAt,
+      perpsCtxCount,
+      xyzCtxCount,
+    });
+    return true;
+  });
+
   updateAllDexsAssetCtxs = contextAtomMethod(
     (_, set, data: HL.IWsAllDexsAssetCtxs) => {
-      const incoming = data?.ctxs || [];
-      const ctxMap = new Map<string, HL.IPerpsAssetCtx[]>();
-      incoming.forEach(([dexName, ctxList]) => {
-        ctxMap.set(dexName, ctxList || []);
+      const { ctxsByDex, perpsCtxCount, xyzCtxCount } =
+        buildAllDexsAssetCtxsByDex(data);
+      markPerpsColdStartPerfOnce('atom_set_all_dexs_asset_ctxs_first', {
+        source: 'ws',
+        perpsCtxCount,
+        xyzCtxCount,
       });
-
-      const ctxsByDex: HL.IPerpsAssetCtx[][] = [];
-      const perpsCtx = ctxMap.get('') ?? ctxMap.get('perps') ?? [];
-      const xyzCtx = ctxMap.get('xyz') ?? [];
-      ctxsByDex[0] = perpsCtx;
-      ctxsByDex[1] = xyzCtx;
       set(perpsAllAssetCtxsAtom(), {
         assetCtxsByDex: ctxsByDex,
+        updatedAt: Date.now(),
       });
     },
   );
@@ -828,6 +952,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (ContextJotaiActionsHyperliquid._isL2BookEqual(currentBook, data)) {
         return;
       }
+      markPerpsColdStartPerfOnce('atom_set_l2_book_first', {
+        coin: data.coin,
+        bidLevels: data.levels?.[0]?.length ?? 0,
+        askLevels: data.levels?.[1]?.length ?? 0,
+      });
       set(l2BookAtom(), data);
     } else {
       const currentBook = get(l2BookAtom());
@@ -884,6 +1013,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const stored =
         await backgroundApiProxy.simpleDb.perp.getOrderBookTickOptions();
       set(orderBookTickOptionsAtom(), stored);
+      setPerpsOrderBookTickOptionsCache(stored);
     } catch (error) {
       console.error('Failed to load order book tick options:', error);
     } finally {
@@ -932,6 +1062,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
 
       set(orderBookTickOptionsAtom(), next);
+      setPerpsOrderBookTickOptionsCache(next);
 
       try {
         await backgroundApiProxy.simpleDb.perp.setOrderBookTickOption({
@@ -976,6 +1107,28 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         assetId: undefined,
         universe: undefined,
       };
+      const hydrateL2BookFromSwr = (targetCoin: string) => {
+        const storedTickOptions = getPerpsOrderBookTickOptionWithCache({
+          coin: targetCoin,
+          options: get(orderBookTickOptionsAtom()),
+        });
+        const cachedBook = getFreshL2BookSnapshotFromSwr({
+          coin: targetCoin,
+          nSigFigs: storedTickOptions?.nSigFigs ?? null,
+          mantissa:
+            storedTickOptions?.mantissa === undefined
+              ? undefined
+              : storedTickOptions.mantissa,
+        });
+        if (cachedBook) {
+          set(l2BookAtom(), cachedBook);
+          markPerpsColdStartPerfOnce('action_l2_book_swr_hydrated_first', {
+            coin: cachedBook.coin,
+            bidLevels: cachedBook.levels?.[0]?.length ?? 0,
+            askLevels: cachedBook.levels?.[1]?.length ?? 0,
+          });
+        }
+      };
       const prevInstrument = get(activeTradeInstrumentAtom());
       const shouldSetOptimisticInstrument =
         prevInstrument.mode !== 'perp' || prevInstrument.coin !== coin;
@@ -990,6 +1143,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         set(l2BookAtom(), null);
         set(bboAtom(), null);
       }
+      hydrateL2BookFromSwr(coin);
       await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const activeAsset = await perpsActiveAssetAtom.get();
       if (activeAsset?.coin === coin && !force) {
@@ -1070,6 +1224,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         requestId,
         viewState: get(tradeRouteViewStateAtom()),
       });
+      hydrateL2BookFromSwr(nextInstrument.coin);
       return true;
     },
   );
@@ -1232,6 +1387,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         spotUniverse?: ISpotUniverse;
       },
     ) => {
+      markPerpsColdStartPerf('action_switch_trade_instrument_start', {
+        mode: params.mode,
+        coin: params.coin,
+        force: !!params.force,
+      });
       const requestId = this.beginActiveInstrumentChange();
       if (params.mode === 'spot') {
         let spotUniverse = params.spotUniverse;
@@ -1243,18 +1403,30 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
           spotUniverse = universes.find((item) => item.name === params.coin);
         }
-        return this.changeActiveSpotAsset.call(set, {
+        const result = await this.changeActiveSpotAsset.call(set, {
           coin: params.coin,
           spotUniverse,
           requestId,
         });
+        markPerpsColdStartPerf('action_switch_trade_instrument_end', {
+          mode: params.mode,
+          coin: params.coin,
+          result,
+        });
+        return result;
       }
 
-      return this.changeActiveAsset.call(set, {
+      const result = await this.changeActiveAsset.call(set, {
         coin: params.coin,
         force: params.force,
         requestId,
       });
+      markPerpsColdStartPerf('action_switch_trade_instrument_end', {
+        mode: params.mode,
+        coin: params.coin,
+        result,
+      });
+      return result;
     },
   );
 
@@ -1295,6 +1467,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   );
 
   updateSubscriptions = contextAtomMethod(async (_get, _set) => {
+    markPerpsColdStartPerf('action_update_subscriptions_start');
     try {
       // UI/BG split means this UI-local flag can be stale while the BG socket
       // is already open. Let the BG service own socket recovery; calling
@@ -1305,6 +1478,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         '[HyperliquidActions.updateSubscriptions] Failed to update subscriptions:',
         error,
       );
+    } finally {
+      markPerpsColdStartPerf('action_update_subscriptions_end');
     }
   });
 
@@ -1418,8 +1593,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       updates: [],
       isLoaded: false,
     });
-    await perpsActiveAccountSummaryAtom.set(undefined);
-    await perpsActiveAccountStatusInfoAtom.set(undefined);
+    // NOTE: perpsActiveAccountSummaryAtom and perpsActiveAccountStatusInfoAtom
+    // are intentionally NOT cleared here. The background service clears them
+    // inside changeActivePerpsAccount in address-aware order so the UI never
+    // sees the "active account is set, but summary/status are empty" frame.
+    // Same-account refreshes also keep their data instead of being wiped.
     await perpsActiveAssetDataAtom.set(undefined);
     // Prevent stale spot data from showing under the wrong account
     await spotBalancesAtom.set({ balances: [], isLoaded: false });
@@ -2412,6 +2590,8 @@ export function useHyperliquidActions() {
     actions.updateAllDexsClearinghouseState.use();
   const updateOpenOrders = actions.updateOpenOrders.use();
   const updateAllDexsAssetCtxs = actions.updateAllDexsAssetCtxs.use();
+  const hydrateAllDexsAssetCtxsSnapshotCache =
+    actions.hydrateAllDexsAssetCtxsSnapshotCache.use();
 
   const currentActions = {
     updateAllAssetsFiltered,
@@ -2430,6 +2610,7 @@ export function useHyperliquidActions() {
     updateAllDexsClearinghouseState,
     updateOpenOrders,
     updateAllDexsAssetCtxs,
+    hydrateAllDexsAssetCtxsSnapshotCache,
 
     updateSubscriptions,
     startSubscriptions,

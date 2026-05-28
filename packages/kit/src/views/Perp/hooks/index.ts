@@ -6,11 +6,16 @@ export { usePerpsFavorites, type IFavoriteItem } from './usePerpsFavorites';
 
 export { usePerpActiveTabValidation } from './usePerpActiveTabValidation';
 export { useFundingCountdown } from './useFundingCountdown';
+export { usePerpsActiveAssetCtxDisplay } from './usePerpsActiveAssetCtxDisplay';
 export {
   usePopularTickers,
   type IPopularTickerItem,
 } from './usePopularTickers';
-export { useOrderConfirm } from './useOrderConfirm';
+export {
+  useOrderConfirm,
+  useOrderConfirmWithMarketDataFreshness,
+} from './useOrderConfirm';
+export { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
 export { useTradingPrice } from './useTradingPrice';
 export { useTradingCalculationsForSide } from './useTradingCalculationsForSide';
 

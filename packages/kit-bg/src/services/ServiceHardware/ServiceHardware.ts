@@ -1784,6 +1784,122 @@ class ServiceHardware extends ServiceBase {
     adapter.cancel(params.connectId);
   }
 
+  // ---------------------------------------------------------------------------
+  // Third-party hardware app management (Ledger-only for now).
+  //
+  // Wraps the SDK's `LedgerAdapter.installApp / listInstalledApps /
+  // listAvailableApps`. The `hw` field on IThirdPartyHardwareAdapter is typed
+  // as the generic IHardwareWallet; we cast to the Ledger-specific shape
+  // because these methods aren't part of the cross-vendor contract.
+  //
+  // Install progress is forwarded via appEventBus
+  // (`ThirdPartyHardwareAppInstallProgress`) from the adapter wrapper — it
+  // cannot ride through these @backgroundMethod return values because the
+  // function callback contract doesn't survive the IPC proxy.
+  // ---------------------------------------------------------------------------
+
+  @backgroundMethod()
+  async thirdPartyHardwareInstallApp(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+    appName: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw new OneKeyLocalError(
+        `No third-party adapter registered for vendor ${params.vendor}`,
+      );
+    }
+    const hw = adapter.hw as unknown as {
+      installApp: (
+        connectId: string,
+        appName: string,
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.installApp(params.connectId, params.appName);
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareListInstalledApps(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw new OneKeyLocalError(
+        `No third-party adapter registered for vendor ${params.vendor}`,
+      );
+    }
+    const hw = adapter.hw as unknown as {
+      listInstalledApps: (
+        connectId: string,
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.listInstalledApps(params.connectId);
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareListAvailableApps(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw new OneKeyLocalError(
+        `No third-party adapter registered for vendor ${params.vendor}`,
+      );
+    }
+    const hw = adapter.hw as unknown as {
+      listAvailableApps: (
+        connectId: string,
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.listAvailableApps(params.connectId);
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareGetFirmwareVersion(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw new OneKeyLocalError(
+        `No third-party adapter registered for vendor ${params.vendor}`,
+      );
+    }
+    const hw = adapter.hw as unknown as {
+      getLedgerFirmwareVersion: (
+        connectId: string,
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.getLedgerFirmwareVersion(params.connectId);
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareGetDeviceInfo(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw new OneKeyLocalError(
+        `No third-party adapter registered for vendor ${params.vendor}`,
+      );
+    }
+    const hw = adapter.hw as unknown as {
+      getLedgerDeviceInfo: (
+        connectId: string,
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.getLedgerDeviceInfo(params.connectId);
+  }
+
   @backgroundMethod()
   async getEvmAddressByStandardWallet(params: {
     connectId: string;

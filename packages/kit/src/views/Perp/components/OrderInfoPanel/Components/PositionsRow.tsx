@@ -972,12 +972,7 @@ const PositionRowMobileFunding = memo(
             id: ETranslations.perp_position_funding_2,
           })}
           renderTrigger={
-            <DashText
-              size="$bodySm"
-              color="$textSubdued"
-              dashColor="$textDisabled"
-              dashThickness={0.5}
-            >
+            <DashText size="$bodySm" color="$textSubdued" dashThickness={0.5}>
               {intl.formatMessage({
                 id: ETranslations.perp_position_funding_2,
               })}
@@ -1170,6 +1165,7 @@ const PositionRowMobileActions = memo(
           variant="secondary"
           onPress={onSetTpsl}
           flex={1}
+          childrenAsText={false}
           testID="perp-intl-btn"
         >
           <SizableText size="$bodySm">
@@ -1184,6 +1180,7 @@ const PositionRowMobileActions = memo(
           variant="secondary"
           onPress={() => onClosePosition('market')}
           flex={1}
+          childrenAsText={false}
         >
           <SizableText size="$bodySm">
             {intl.formatMessage({

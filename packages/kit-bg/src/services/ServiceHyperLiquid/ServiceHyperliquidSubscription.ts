@@ -14,6 +14,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  markPerpsColdStartPerf,
+  markPerpsColdStartPerfOnce,
+} from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isAppVisible } from '@onekeyhq/shared/src/utils/appVisibility';
@@ -27,6 +31,7 @@ import {
   HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
+  IBook,
   IHex,
   IHyperliquidEventTarget,
   IPerpsActiveAssetDataRaw,
@@ -388,11 +393,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async updateSubscriptions(): Promise<void> {
+    markPerpsColdStartPerf('service_update_subscriptions_start');
     if (this.subscriptionsHandlerDisabled) {
+      markPerpsColdStartPerf('service_update_subscriptions_skipped_disabled');
       return;
     }
     const client = await this.getWebSocketClient();
+    markPerpsColdStartPerf('service_update_subscriptions_client_ready', {
+      clientId: client.clientId,
+      readyState: client.transport?.socket?.readyState,
+    });
     if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
+      markPerpsColdStartPerf('service_update_subscriptions_socket_not_open', {
+        clientId: client.clientId,
+        readyState: client.transport?.socket?.readyState,
+      });
       await this._recoverNotOpenSocketBeforeSubscriptionUpdate({
         client,
         reason: 'update_subscriptions_not_open',
@@ -406,7 +421,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (!requiredSubInfo) {
         return;
       }
+      markPerpsColdStartPerf('service_update_subscriptions_core_first_start');
       await this._updateSubscriptionsCore(requiredSubInfo);
+      markPerpsColdStartPerf('service_update_subscriptions_core_first_end');
       return;
     }
 
@@ -418,9 +435,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       this._updateSubscriptionsDebounced.cancel();
       this._hasInitialSubscription = true;
       await this._updateSubscriptionsCore(requiredSubInfo);
+      markPerpsColdStartPerf('service_update_subscriptions_end');
       return;
     }
     await this._updateSubscriptionsDebounced();
+    markPerpsColdStartPerf('service_update_subscriptions_end');
   }
 
   @backgroundMethod()
@@ -903,6 +922,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async disconnect(): Promise<void> {
+    this.backgroundApi.serviceHyperliquidCache.flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
     this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
@@ -928,6 +948,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async cleanup(): Promise<void> {
+    this.backgroundApi.serviceHyperliquidCache.flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
     this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
@@ -940,6 +961,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   // Skip per-subscription unsubscribe to avoid async race where stale
   // _destroySubscription completion deletes newly created tracking entries
   private async _forceReconnectTransport(): Promise<void> {
+    this.backgroundApi.serviceHyperliquidCache.flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
     this._updateSubscriptionsDebounced.cancel();
     this._unwatchSubscriptionAtoms();
@@ -953,9 +975,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._clientInitPromise = null;
     this._currentState.isConnected = false;
     this._hasInitialSubscription = false;
-    await perpsNetworkStatusAtom.set(
-      (prev): IPerpsNetworkStatus => ({ ...prev, connected: false }),
-    );
+    this._markNetworkStatusPending();
     this._emitConnectionStatus();
     await this.getWebSocketClient();
   }
@@ -1150,13 +1170,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // watcher will be installed by socketOpenHandler on the next successful
     // open to catch late-arriving atom writes.
     this._unwatchSubscriptionAtoms();
-    void perpsNetworkStatusAtom.set((prev): IPerpsNetworkStatus => {
-      return {
-        ...prev,
-        connected: false,
-        pingMs: null,
-      };
-    });
+    this._markNetworkStatusPending();
   };
 
   socketOpenHandler: (event: WebSocketEventMap['open']) => void = async (
@@ -1172,12 +1186,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // Catch-all here keeps the WS lifecycle robust regardless of which atom
     // write or update fails.
     try {
+      markPerpsColdStartPerfOnce('service_ws_open_first');
       const socket = event.target as WebSocket | undefined;
       const readyState = socket?.readyState;
       this._lastReadyState = readyState;
       // OK-53208: SDK transport wrapper reports readyState=undefined in the
       // open event, which keeps perpsWebSocketConnectedAtom false forever.
-      void perpsWebSocketReadyStateAtom.set({
+      await perpsWebSocketReadyStateAtom.set({
         readyState: readyState ?? WebSocket.OPEN,
       });
 
@@ -1185,7 +1200,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const wasConnected = prevNetworkStatus?.connected;
       const openClient = this._client;
 
-      await timerUtils.wait(600); // wait network status atom update
       const currentClient = this._client;
       if (
         !currentClient ||
@@ -1243,15 +1257,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private async getWebSocketClient(): Promise<IHyperliquidWsClient> {
     if (this._client) {
+      markPerpsColdStartPerfOnce('service_ws_client_reuse_first', {
+        clientId: this._client.clientId,
+        readyState: this._client.transport?.socket?.readyState,
+      });
       return this._client;
     }
     if (this._clientInitPromise) {
+      markPerpsColdStartPerf('service_ws_client_init_join');
       return this._clientInitPromise;
     }
     this._clientInitPromise = (async () => {
       const clientId = `hl-ws-${Date.now()}-${Math.random()
         .toString(16)
         .slice(2, 8)}`;
+      markPerpsColdStartPerf('service_ws_client_create_start', {
+        clientId,
+      });
       const transportOptions: IWebSocketTransportOptions = {
         url: 'wss://api.hyperliquid.xyz/ws',
         /* spell-checker:disable */
@@ -1439,6 +1461,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           }
         },
       };
+      markPerpsColdStartPerf('service_ws_client_create_end', {
+        clientId,
+        readyState: transport.socket?.readyState,
+      });
       return this._client;
     })();
     return this._clientInitPromise;
@@ -1549,13 +1575,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const lifecycleVersion = this._subscriptionLifecycleVersion;
       const client = await this._createSubscriptionDirect(spec);
       const isCreateResultStale =
+        this.subscriptionsHandlerDisabled ||
         lifecycleVersion !== this._subscriptionLifecycleVersion ||
         client !== this._client ||
         !this._isSubscriptionSpecPending(spec);
       if (isCreateResultStale) {
         if (client) {
           await this._destroySubscriptionLocked(spec, client, {
-            removeCache: !this._isSubscriptionSpecPending(spec),
+            removeCache:
+              this.subscriptionsHandlerDisabled ||
+              !this._isSubscriptionSpecPending(spec),
           });
         }
         return;
@@ -1574,7 +1603,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         error,
       );
     } finally {
-      if (this._isSubscriptionSpecPending(spec)) {
+      if (
+        !this.subscriptionsHandlerDisabled &&
+        this._isSubscriptionSpecPending(spec)
+      ) {
         addSubCache();
       }
     }
@@ -1672,12 +1704,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this.allSubSpecsMap = {};
     this.pendingSubSpecsMap = {};
     this._activeSubscriptions.clear();
-    void perpsNetworkStatusAtom.set((prev): IPerpsNetworkStatus => {
-      return {
-        ...prev,
-        connected: false,
-      };
-    });
+    this._markNetworkStatusPending();
   }
 
   subscriptionHandlerByType: Partial<
@@ -1737,6 +1764,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
       const messageTimestamp = Date.now();
       this._markSubscriptionActivity(subscriptionType, messageTimestamp);
+      markPerpsColdStartPerfOnce(`service_ws_first_${subscriptionType}`, {
+        subscriptionType,
+      });
 
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
         // Cache allMids in background for spot balance USD calculation
@@ -1799,11 +1829,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             if (
               currentAbstraction?.mode !== wsAbstraction ||
               currentAbstraction?.accountAddress?.toLowerCase() !==
-                userAddress.toLowerCase()
+                userAddress.toLowerCase() ||
+              currentAbstraction?.source !== 'live'
             ) {
               await perpsAbstractionModeAtom.set({
                 accountAddress: userAddress.toLowerCase() as IHex,
                 mode: wsAbstraction as EHyperLiquidAbstractionMode,
+                source: 'live',
               });
             }
             // Persist to SimpleDb only for non-watch-only accounts
@@ -1884,10 +1916,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           data as IWsOpenOrders,
         );
       } else if (subscriptionType === ESubscriptionType.ALL_DEXS_ASSET_CTXS) {
+        this.backgroundApi.serviceHyperliquidCache.cacheAllDexsAssetCtxsSnapshot(
+          data as IWsAllDexsAssetCtxs,
+        );
         this._emitHyperliquidDataUpdate(
           subscriptionType,
           data as IWsAllDexsAssetCtxs,
         );
+      } else if (subscriptionType === ESubscriptionType.L2_BOOK) {
+        this.backgroundApi.serviceHyperliquidCache.cacheL2BookSnapshot({
+          data: data as IBook,
+          activeBookCoin:
+            this._currentState.tradingMode === 'spot'
+              ? this._currentState.currentSpotSymbol
+              : this._currentState.currentSymbol,
+          activeOptions: this._currentState.l2BookOptions,
+        });
+        this._emitHyperliquidDataUpdate(subscriptionType, data);
       } else {
         this._emitHyperliquidDataUpdate(subscriptionType, data);
       }
@@ -1955,6 +2000,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       clearTimeout(this._networkTimeoutTimer);
       this._networkTimeoutTimer = null;
     }
+  }
+
+  private _markNetworkStatusPending(): void {
+    void perpsNetworkStatusAtom.set(
+      (prev): IPerpsNetworkStatus => ({
+        ...prev,
+        connected: undefined,
+        pingMs: null,
+      }),
+    );
   }
 
   private _emitHyperliquidDataUpdate(

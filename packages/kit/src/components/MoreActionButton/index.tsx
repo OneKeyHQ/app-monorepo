@@ -110,6 +110,8 @@ function MoreActionProvider({ children }: PropsWithChildren) {
   );
 }
 
+const ONE_KEY_ID_ROW_PRESS_STYLE = { opacity: 0.7 } as const;
+
 function MoreActionContentHeaderItem({ onPress, ...props }: IIconButtonProps) {
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(
@@ -617,12 +619,7 @@ function MoreActionOneKeyId() {
         justifyContent="space-between"
         onPress={handlePress}
         borderRadius="$2"
-        hoverStyle={{
-          bg: '$bgHover',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
+        pressStyle={ONE_KEY_ID_ROW_PRESS_STYLE}
       >
         <XStack alignItems="center" gap="$3" flex={1}>
           <OneKeyIdAvatar size="$10" />
@@ -667,12 +664,7 @@ function MoreActionOneKeyId() {
       justifyContent="space-between"
       onPress={handleNavigateToOneKeyId}
       borderRadius="$2"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
+      pressStyle={ONE_KEY_ID_ROW_PRESS_STYLE}
     >
       <XStack alignItems="center" gap="$3" flex={1}>
         <OneKeyIdAvatar size="$14" />

@@ -458,7 +458,6 @@ const SwapActionsState = ({
                   <DashText
                     size="$bodyMd"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.5}
                     cursor="help"
                   >
@@ -474,7 +473,6 @@ const SwapActionsState = ({
                   <DashText
                     size="$bodyMd"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.5}
                     cursor="help"
                   >

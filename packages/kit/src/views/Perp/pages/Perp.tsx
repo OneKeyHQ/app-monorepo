@@ -40,6 +40,12 @@ import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { PerpTestIDs } from '../testIDs';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../utils/mobileLayoutTrace';
 
 import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
 
@@ -72,6 +78,9 @@ function PerpBodyContent() {
 function PerpContent() {
   const { gtMd } = useMedia();
   const firedRef = useRef(false);
+  const headerLayoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(
+    undefined,
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -94,6 +103,15 @@ function PerpContent() {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const height = e.nativeEvent.layout.height - 20;
     setTabPageHeight(height);
+    const rect = getPerpsMobileLayoutTraceRect(e);
+    if (isPerpsMobileLayoutTraceRectChanged(headerLayoutRef.current, rect)) {
+      tracePerpsMobileLayout('nativeHeader.layout', {
+        rect,
+        reservedHeight: height,
+        platform: platformEnv.isNativeIOS ? 'ios' : 'native',
+      });
+      headerLayoutRef.current = rect;
+    }
   }, []);
   const intl = useIntl();
   const handleDownloadApp = useCallback(() => {
