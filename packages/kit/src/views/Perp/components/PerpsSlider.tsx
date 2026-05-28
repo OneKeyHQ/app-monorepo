@@ -1,22 +1,21 @@
 import { memo } from 'react';
 
-import { SegmentSlider, Slider } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { SegmentSlider } from '@onekeyhq/components';
 
 /**
  * Platform-adaptive slider component for Perps trading.
  *
- * - Native (iOS/Android): Uses SegmentSlider for better performance
- * - Web/Desktop: Uses standard Slider for better compatibility
+ * Uses SegmentSlider on every platform — the underlying implementation is
+ * file-extension-split: native runs the reanimated-based slider, web/desktop/
+ * extension run a pure-DOM implementation that avoids React-state-per-frame
+ * during drag (fixes hysteresis, refresh layout race, and segment click drift).
  *
- * This component handles the platform-specific differences automatically.
- *
- * @param step - Step value for the slider, defaults to 1 (Web/Desktop only)
  * @param segments - Number of visual segment marks to display
- * @param sliderHeight - Height of the slider track (Native only)
- * @param showBubble - Whether to show value bubble (Native only)
+ * @param sliderHeight - Height of the slider track
+ * @param showBubble - Whether to show value bubble during drag
+ * @param centerOrigin - Fill from center (0) instead of left edge (for ±range)
+ * @param step - Accepted for API compatibility; segments drives the snap grid.
  */
-
 export interface IPerpsSliderProps {
   value: number;
   onChange: (value: number) => void;
@@ -27,11 +26,6 @@ export interface IPerpsSliderProps {
   sliderHeight?: number;
   showBubble?: boolean;
   step?: number;
-  /**
-   * When true, the slider fills from center (0) instead of left edge.
-   * Negative values fill left from center, positive values fill right from center.
-   * Native only.
-   */
   centerOrigin?: boolean;
 }
 
@@ -44,34 +38,19 @@ function PerpsSliderComponent({
   disabled = false,
   sliderHeight,
   showBubble = false,
-  step = 1,
   centerOrigin = false,
 }: IPerpsSliderProps) {
-  if (platformEnv.isNative) {
-    return (
-      <SegmentSlider
-        value={value}
-        onChange={onChange}
-        min={min}
-        max={max}
-        segments={segments}
-        disabled={disabled}
-        sliderHeight={sliderHeight}
-        showBubble={showBubble}
-        centerOrigin={centerOrigin}
-      />
-    );
-  }
-
   return (
-    <Slider
+    <SegmentSlider
       value={value}
       onChange={onChange}
       min={min}
       max={max}
-      step={step}
       segments={segments}
       disabled={disabled}
+      sliderHeight={sliderHeight}
+      showBubble={showBubble}
+      centerOrigin={centerOrigin}
     />
   );
 }

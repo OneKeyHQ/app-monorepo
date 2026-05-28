@@ -2,7 +2,7 @@
 /* spell-checker: disable */
 // cspell:ignore rews
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
-import { cloneDeep, debounce } from 'lodash';
+import { cloneDeep, debounce, isEqual } from 'lodash';
 
 import {
   backgroundClass,
@@ -30,7 +30,6 @@ import type {
   IHex,
   IHyperliquidEventTarget,
   IPerpsActiveAssetDataRaw,
-  IPerpsSubscription,
   IPerpsSubscriptionParams,
   IWebSocketTransportOptions,
   IWsActiveAssetCtx,
@@ -72,6 +71,7 @@ import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
 } from './utils/SubscriptionConfig';
+import { PerKeyMutationQueue } from './utils/SubscriptionMutationQueue';
 
 import type {
   ISubscriptionSpec,
@@ -113,8 +113,15 @@ type IHyperliquidWsClient = {
 interface ISubscriptionUpdateParams {
   currentUser?: IHex | null;
   currentSymbol?: string;
+  currentSpotSymbol?: string;
+  tradingMode?: 'perp' | 'spot';
   isConnected?: boolean;
   l2BookOptions?: IL2BookOptions | null;
+}
+
+interface IRequiredSubscriptionInfo {
+  requiredSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>>;
+  params: ISubscriptionState;
 }
 
 @backgroundClass()
@@ -183,6 +190,18 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _subscriptionLifecycleVersion = 0;
 
+  private _subscriptionMutationQueue = new PerKeyMutationQueue();
+
+  private _destroyingSubscriptionKeys = new Set<string>();
+
+  private _routeSubscriptionStateVersion = 0;
+
+  private _isSubscriptionSpecPending(
+    spec: ISubscriptionSpec<ESubscriptionType>,
+  ): boolean {
+    return Boolean(this.pendingSubSpecsMap[spec.key]);
+  }
+
   private _watchSubscriptionAtoms(): void {
     if (!platformEnv.isExtension && !platformEnv.isNativeBackgroundThread) {
       return;
@@ -218,7 +237,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._subscriptionAtomsUnsubs = [];
   }
 
-  async buildRequiredSubscriptionsMap() {
+  async buildRequiredSubscriptionsMap(): Promise<
+    IRequiredSubscriptionInfo | undefined
+  > {
     const client = await this.getWebSocketClient();
     if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
       return;
@@ -232,23 +253,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       currentMode === 'spot' ? spotActiveAsset?.coin : activeAsset?.coin;
     const currentAssetId =
       currentMode === 'spot' ? spotActiveAsset?.assetId : activeAsset?.assetId;
-    let activeOrderBookOptions = await perpsActiveOrderBookOptionsAtom.get();
+    const activeOrderBookOptions = await perpsActiveOrderBookOptionsAtom.get();
+    const isOrderBookOptionsForCurrentCoin =
+      Boolean(currentCoin) && activeOrderBookOptions?.coin === currentCoin;
 
-    if (
-      activeOrderBookOptions?.coin &&
-      activeOrderBookOptions?.coin !== currentCoin
-    ) {
-      const syncedOptions = {
-        ...activeOrderBookOptions,
-        coin: currentCoin,
-        assetId: currentAssetId,
-      };
-      await perpsActiveOrderBookOptionsAtom.set(syncedOptions);
-      activeOrderBookOptions = syncedOptions;
-    }
-
-    // TODO update isConnected by websocket connect/disconnect event
-    const isConnected = this._currentState.isConnected;
+    const isConnected =
+      client?.transport?.socket?.readyState === WebSocket.OPEN;
 
     // Validate parameters before proceeding
     if (
@@ -265,9 +275,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     const l2BookOptions: IPerpsActiveOrderBookOptionsAtom | undefined =
-      activeOrderBookOptions
+      currentCoin
         ? {
-            ...activeOrderBookOptions,
+            coin: currentCoin,
+            assetId: currentAssetId,
+            nSigFigs: isOrderBookOptionsForCurrentCoin
+              ? (activeOrderBookOptions?.nSigFigs ?? null)
+              : null,
+            mantissa: isOrderBookOptionsForCurrentCoin
+              ? (activeOrderBookOptions?.mantissa ?? null)
+              : null,
           }
         : undefined;
     delete l2BookOptions?.assetId;
@@ -275,7 +292,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const params: ISubscriptionState = {
       isConnected,
       l2BookOptions,
-      currentSymbol: currentCoin,
+      currentSymbol: currentMode === 'spot' ? activeAsset?.coin : currentCoin,
       currentUser: activeAccount?.accountAddress,
       enableLedgerUpdates: this._currentState.enableLedgerUpdates,
       spotEnabled: this._currentState.spotEnabled,
@@ -291,11 +308,33 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _hasInitialSubscription = false;
 
-  private async _updateSubscriptionsCore() {
+  private _shouldUpdateSubscriptionsImmediately(
+    params: ISubscriptionState,
+  ): boolean {
+    if (!this._hasInitialSubscription) {
+      return true;
+    }
+
+    return (
+      params.currentUser !== this._currentState.currentUser ||
+      params.currentSymbol !== this._currentState.currentSymbol ||
+      params.currentSpotSymbol !== this._currentState.currentSpotSymbol ||
+      params.tradingMode !== this._currentState.tradingMode ||
+      !isEqual(
+        params.l2BookOptions ?? null,
+        this._currentState.l2BookOptions ?? null,
+      )
+    );
+  }
+
+  private async _updateSubscriptionsCore(
+    preparedRequiredSubInfo?: IRequiredSubscriptionInfo,
+  ) {
     if (this.subscriptionsHandlerDisabled) {
       return;
     }
-    const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
+    const requiredSubInfo =
+      preparedRequiredSubInfo ?? (await this.buildRequiredSubscriptionsMap());
     if (!requiredSubInfo) {
       return;
     }
@@ -330,11 +369,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
     this._applyStateUpdates(newState, requiredSubInfo.params);
 
-    this._emitConnectionStatus();
-    this._executeSubscriptionChanges();
-    this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
-
     this._currentState = newState;
+    this._emitConnectionStatus();
+    await this._executeSubscriptionChanges();
+    this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
   }
 
   _updateSubscriptionsDebounced = debounce(
@@ -364,7 +402,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // Skip debounce on first subscription to speed up initial load
     if (!this._hasInitialSubscription) {
       this._hasInitialSubscription = true;
-      await this._updateSubscriptionsCore();
+      const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
+      if (!requiredSubInfo) {
+        return;
+      }
+      await this._updateSubscriptionsCore(requiredSubInfo);
+      return;
+    }
+
+    const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
+    if (!requiredSubInfo) {
+      return;
+    }
+    if (this._shouldUpdateSubscriptionsImmediately(requiredSubInfo.params)) {
+      this._updateSubscriptionsDebounced.cancel();
+      this._hasInitialSubscription = true;
+      await this._updateSubscriptionsCore(requiredSubInfo);
       return;
     }
     await this._updateSubscriptionsDebounced();
@@ -793,9 +846,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async setRouteSubscriptionState(params: {
     enableLedgerUpdates: boolean;
+    routeStateVersion?: number;
     spotAssetCtxsEnabled: boolean;
     spotEnabled: boolean;
-  }): Promise<void> {
+  }): Promise<boolean> {
+    // UI effects can overlap across the native bridge; ignore older route
+    // flag writes so they cannot silently undo a newer subscription plan.
+    if (
+      params.routeStateVersion !== undefined &&
+      params.routeStateVersion < this._routeSubscriptionStateVersion
+    ) {
+      return false;
+    }
+    if (params.routeStateVersion !== undefined) {
+      this._routeSubscriptionStateVersion = params.routeStateVersion;
+    }
     // enableLedgerUpdates is a one-way toggle (set true by enableLedgerUpdatesSubscription
     // when user visits Account tab). Never reset to false — planTradeSubscriptions cannot
     // reliably compute this since infoPanelTab is not synced to real tab state.
@@ -803,6 +868,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       params.enableLedgerUpdates || this._currentState.enableLedgerUpdates;
     this._currentState.spotAssetCtxsEnabled = params.spotAssetCtxsEnabled;
     this._currentState.spotEnabled = params.spotEnabled;
+    return true;
   }
 
   @backgroundMethod()
@@ -827,9 +893,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     if (readyState === WebSocket.OPEN) {
       this._currentState.isConnected = true;
       this._watchSubscriptionAtoms();
-      await this._reconcileOpenSocketSubscriptionsOnResume({
-        reason: 'connect_open_socket',
-      });
+      // connect() is an idempotent socket entrypoint; resume-specific rebuilds
+      // would penalize normal token switches that only need a target diff.
+      if (this._activeSubscriptions.size === 0) {
+        await this.updateSubscriptions();
+      }
     }
   }
 
@@ -1036,10 +1104,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     if (params.currentSymbol !== undefined) {
       state.currentSymbol = params.currentSymbol;
     }
+    if ('currentSpotSymbol' in params) {
+      state.currentSpotSymbol = params.currentSpotSymbol;
+    }
+    if (params.tradingMode !== undefined) {
+      state.tradingMode = params.tradingMode;
+    }
     if (params.isConnected !== undefined) {
       state.isConnected = params.isConnected;
     }
-    if (params.l2BookOptions !== undefined) {
+    if ('l2BookOptions' in params) {
       state.l2BookOptions = params.l2BookOptions;
     }
   }
@@ -1390,41 +1464,51 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private async _createSubscriptionDirect<T extends ESubscriptionType>(
     spec: ISubscriptionSpec<T>,
-  ): Promise<IPerpsSubscription | undefined> {
+  ): Promise<IHyperliquidWsClient | undefined> {
     const client = await this.getWebSocketClient();
     if (!client) {
       return undefined;
     }
     await client.subscribe(spec.type, spec.params);
-    return undefined;
+    return client;
   }
 
-  destroyUnusedSubscriptions(): void {
+  async destroyUnusedSubscriptions(): Promise<void> {
     const toDestroySubscriptions: ISubscriptionSpec<ESubscriptionType>[] = [];
     Object.values(this.allSubSpecsMap).forEach((spec) => {
       if (!this.pendingSubSpecsMap[spec.key]) {
         toDestroySubscriptions.push(spec);
       }
     });
-    toDestroySubscriptions.forEach((spec) => {
-      void this._destroySubscription(spec);
-    });
+    await Promise.all(
+      toDestroySubscriptions.map((spec) => this._destroySubscription(spec)),
+    );
   }
 
-  private _executeSubscriptionChanges(): void {
+  private async _executeSubscriptionChanges(): Promise<void> {
+    const toDestroySubscriptions: ISubscriptionSpec<ESubscriptionType>[] = [];
+    Object.values(this.allSubSpecsMap).forEach((spec) => {
+      if (!this.pendingSubSpecsMap[spec.key]) {
+        toDestroySubscriptions.push(spec);
+      }
+    });
+
     const toCreateSubscriptions: ISubscriptionSpec<ESubscriptionType>[] = [];
     Object.values(this.pendingSubSpecsMap).forEach((spec) => {
-      if (!this._activeSubscriptions.has(spec.key)) {
+      if (
+        !this._activeSubscriptions.has(spec.key) ||
+        this._destroyingSubscriptionKeys.has(spec.key)
+      ) {
         toCreateSubscriptions.push(spec);
       }
     });
 
-    this.destroyUnusedSubscriptions();
-
-    toCreateSubscriptions.forEach((spec) => {
-      void this._createSubscription(spec);
-    });
-    // this.destroyUnusedSubscriptions();
+    // Different subscription keys must reconcile independently; otherwise an
+    // obsolete L2 subscribe ack can stall the next selected market.
+    await Promise.all([
+      ...toDestroySubscriptions.map((spec) => this._destroySubscription(spec)),
+      ...toCreateSubscriptions.map((spec) => this._createSubscription(spec)),
+    ]);
   }
 
   private async _createSubscription<T extends ESubscriptionType>(
@@ -1432,7 +1516,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   ): Promise<void> {
     // eslint-disable-next-line no-param-reassign
     spec = cloneDeep(spec);
+    await this._subscriptionMutationQueue.enqueue(spec.key, async () => {
+      await this._createSubscriptionLocked(spec);
+    });
+  }
 
+  private async _createSubscriptionLocked<T extends ESubscriptionType>(
+    spec: ISubscriptionSpec<T>,
+  ): Promise<void> {
     const addSubCache = () => {
       if (!this.allSubSpecsMap[spec.key]) {
         this.allSubSpecsMap[spec.key] = spec;
@@ -1441,6 +1532,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         this.pendingSubSpecsMap[spec.key] = spec;
       }
     };
+
+    if (!this._isSubscriptionSpecPending(spec)) {
+      return;
+    }
 
     if (this._activeSubscriptions.has(spec.key)) {
       addSubCache();
@@ -1451,7 +1546,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     try {
-      const _sdkSubscription = await this._createSubscriptionDirect(spec);
+      const lifecycleVersion = this._subscriptionLifecycleVersion;
+      const client = await this._createSubscriptionDirect(spec);
+      const isCreateResultStale =
+        lifecycleVersion !== this._subscriptionLifecycleVersion ||
+        client !== this._client ||
+        !this._isSubscriptionSpecPending(spec);
+      if (isCreateResultStale) {
+        if (client) {
+          await this._destroySubscriptionLocked(spec, client, {
+            removeCache: !this._isSubscriptionSpecPending(spec),
+          });
+        }
+        return;
+      }
       this._activeSubscriptions.set(spec.key, {
         key: spec.key,
         type: spec.type,
@@ -1466,22 +1574,40 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         error,
       );
     } finally {
-      // this.destroyUnusedSubscriptions();
-      addSubCache();
+      if (this._isSubscriptionSpecPending(spec)) {
+        addSubCache();
+      }
     }
   }
 
   private async _destroySubscription(
     spec: ISubscriptionSpec<ESubscriptionType>,
+    targetClient?: IHyperliquidWsClient,
+    options?: { removeCache?: boolean },
+  ): Promise<boolean> {
+    return this._subscriptionMutationQueue.enqueue(spec.key, async () =>
+      this._destroySubscriptionLocked(spec, targetClient, options),
+    );
+  }
+
+  private async _destroySubscriptionLocked(
+    spec: ISubscriptionSpec<ESubscriptionType>,
+    targetClient?: IHyperliquidWsClient,
+    options?: { removeCache?: boolean },
   ): Promise<boolean> {
     try {
       if (spec) {
+        const shouldRemoveCache = options?.removeCache ?? true;
         const removeSubCache = () => {
+          if (!shouldRemoveCache) {
+            return;
+          }
           delete this.allSubSpecsMap[spec.key];
           this._activeSubscriptions.delete(spec.key);
         };
         try {
-          const client = await this.getWebSocketClient();
+          this._destroyingSubscriptionKeys.add(spec.key);
+          const client = targetClient ?? (await this.getWebSocketClient());
           if (!client) {
             removeSubCache();
             return true;
@@ -1501,6 +1627,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             return true;
           }
           return false;
+        } finally {
+          this._destroyingSubscriptionKeys.delete(spec.key);
         }
       }
     } catch (error) {

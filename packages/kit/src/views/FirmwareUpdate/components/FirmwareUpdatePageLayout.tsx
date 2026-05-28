@@ -41,14 +41,28 @@ export function FirmwareUpdatePageHeaderTitle(props: {
     title = result.deviceName;
   }
   return (
-    <XStack ai="center" gap={6}>
-      <DeviceAvatarWithColor
-        size="$6"
-        deviceType={result.deviceType || EDeviceType.Unknown}
-        features={result.features}
-      />
-      <SizableText size="$headingMd">{title}</SizableText>
-      <SizableText size="$bodyLg" color="$textSubdued">
+    <XStack ai="center" gap={6} flex={1} minWidth={0}>
+      <Stack flexShrink={0}>
+        <DeviceAvatarWithColor
+          size="$6"
+          deviceType={result.deviceType || EDeviceType.Unknown}
+          features={result.features}
+        />
+      </Stack>
+      <SizableText
+        size="$headingMd"
+        minWidth={0}
+        flexShrink={1}
+        numberOfLines={1}
+      >
+        {title}
+      </SizableText>
+      <SizableText
+        size="$bodyLg"
+        color="$textSubdued"
+        flexShrink={0}
+        numberOfLines={1}
+      >
         {result.deviceBleName}
       </SizableText>
     </XStack>

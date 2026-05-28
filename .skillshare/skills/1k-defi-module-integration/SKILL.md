@@ -17,6 +17,10 @@ Before starting, determine your integration scenario:
 | **New Protocol in Borrow** | Adding a lending market (e.g., Aave, Compound) | [borrow-module-guide.md](reference/borrow-module-guide.md) |
 | **Entirely New Module** | Creating a new DeFi category (e.g., Pendle, GMX) | [new-module-guide.md](reference/new-module-guide.md) |
 
+For Earn protocol reviews or regression follow-ups, also read
+[earn-regression-playbook.md](reference/earn-regression-playbook.md) before
+judging merge readiness.
+
 ---
 
 ## Integration Layers
@@ -166,6 +170,15 @@ When integrating a new DeFi module, analyze the state requirements and ask the u
 
 ## Workflow
 
+### Step 0: Gather Live Context for Reviews
+- For existing PRs or regressions, inspect Jira/Rovo requirements, GitHub PRs,
+  review comments, CI state, backend service contracts, and runtime evidence
+  where available.
+- Treat Slack or desktop-app context as supporting evidence only after it is
+  directly inspected; otherwise mark it as unverified.
+- Separate process blockers (release gate, labels, stale PR metadata) from code
+  correctness and regression risk.
+
 ### Step 1: Identify Scenario
 - Determine if it's Earn, Borrow, or New Module
 - Read the corresponding guide
@@ -238,6 +251,7 @@ function MyComponent() {
 | Document | Content |
 |----------|---------|
 | [earn-module-guide.md](reference/earn-module-guide.md) | Earn module architecture, files, operations |
+| [earn-regression-playbook.md](reference/earn-regression-playbook.md) | Regression-informed Earn review checklist from recent protocol integrations |
 | [borrow-module-guide.md](reference/borrow-module-guide.md) | Borrow module architecture, 4 operations, health factor |
 | [new-module-guide.md](reference/new-module-guide.md) | Creating new modules, Provider design |
 | [routing-guide.md](reference/routing-guide.md) | Modal routes, Tab routes, navigation utilities, deep links |
