@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,6 +12,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useActiveTradeInstrumentAtom,
   useConnectionStateAtom,
@@ -20,15 +21,21 @@ import {
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import {
-  usePerpsActiveAssetCtxAtom,
-  usePerpsShouldShowEnableTradingButtonAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsShouldShowEnableTradingButtonAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import { useL2Book } from '../hooks/usePerpMarketData';
+import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
 import { useTradingPrice } from '../hooks/useTradingPrice';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../utils/mobileLayoutTrace';
 
 import {
   type IOrderBookSelection,
@@ -40,6 +47,7 @@ import { useTickOptions } from './OrderBook/useTickOptions';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
 import type { IOrderBookVariant } from './OrderBook/types';
+import type { LayoutChangeEvent } from 'react-native';
 
 function MobileHeader({
   showPlaceholder = false,
@@ -47,10 +55,15 @@ function MobileHeader({
   showPlaceholder?: boolean;
 }) {
   const intl = useIntl();
+  const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const countdown = useFundingCountdown();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [connectionState] = useConnectionStateAtom();
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const {
+    assetCtx,
+    source: assetCtxSource,
+    cacheAgeMs,
+  } = usePerpsActiveAssetCtxDisplay(activeTradeInstrument.coin);
   const hasError = connectionState.reconnectCount > 3;
   const isReady = connectionState.isConnected && !hasError;
   const isSpot = activeTradeInstrument.mode === 'spot';
@@ -73,19 +86,56 @@ function MobileHeader({
     return fundingRateNumber >= 0 ? '$green11' : '$red11';
   }, [fundingRateNumber, hasFundingValue]);
 
-  if (isSpot) {
-    return null;
-  }
-
   const fundingDisplay = hasFundingValue
     ? `${(fundingRateNumber * 100).toFixed(4)}%`
     : '--';
   const markPriceNumber = parseFloat(markPrice);
   const showSkeleton =
-    !isReady ||
-    hasError ||
-    !Number.isFinite(markPriceNumber) ||
-    markPriceNumber === 0;
+    hasError || !Number.isFinite(markPriceNumber) || markPriceNumber === 0;
+
+  useEffect(() => {
+    tracePerpsMobileLayout('orderBook.mobileHeader.state', {
+      coin: activeTradeInstrument.coin,
+      showPlaceholder,
+      showSkeleton,
+      isReady,
+      hasError,
+      markPrice,
+      fundingRate,
+      assetCtxSource,
+      cacheAgeMs,
+    });
+  }, [
+    activeTradeInstrument.coin,
+    assetCtxSource,
+    cacheAgeMs,
+    fundingRate,
+    hasError,
+    isReady,
+    markPrice,
+    showPlaceholder,
+    showSkeleton,
+  ]);
+
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
+        tracePerpsMobileLayout('orderBook.mobileHeader.layout', {
+          rect,
+          showPlaceholder,
+          showSkeleton,
+          coin: activeTradeInstrument.coin,
+        });
+        layoutRef.current = rect;
+      }
+    },
+    [activeTradeInstrument.coin, showPlaceholder, showSkeleton],
+  );
+
+  if (isSpot) {
+    return null;
+  }
 
   return (
     <Popover
@@ -93,7 +143,13 @@ function MobileHeader({
         id: ETranslations.perp_position_funding,
       })}
       renderTrigger={
-        <YStack alignItems="flex-start" mb="$2" h={32} justifyContent="center">
+        <YStack
+          alignItems="flex-start"
+          mb="$2"
+          h={32}
+          justifyContent="center"
+          onLayout={handleLayout}
+        >
           <DashText
             fontSize={10}
             color="$textSubdued"
@@ -327,12 +383,19 @@ const MOBILE_SPOT_MAX_LEVELS_PER_SIDE = 4;
 export function PerpOrderBook({
   entry,
   maxLevelsPerSide: propMaxLevelsPerSide,
+  initialOrderBookHeight,
 }: {
   entry?: 'perpTab' | 'perpMobileMarket';
   maxLevelsPerSide?: number;
+  initialOrderBookHeight?: number;
 }) {
   const { gtMd } = useMedia();
   const actionsRef = useHyperliquidActions();
+  const l2BookSnapshotRequestKeyRef = useRef<string | undefined>(undefined);
+  const layoutRectsRef = useRef<
+    Record<string, IPerpsMobileLayoutTraceRect | undefined>
+  >({});
+  const renderStateSignatureRef = useRef<string | undefined>(undefined);
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
@@ -356,6 +419,118 @@ export function PerpOrderBook({
     nSigFigs: l2SubscriptionOptions.nSigFigs,
     mantissa: l2SubscriptionOptions.mantissa,
   });
+
+  useEffect(() => {
+    if (hasOrderBook && l2Book) {
+      markPerpsColdStartPerfOnce('ui_order_book_ready', {
+        coin: l2Book.coin,
+        bidLevels: l2Book.bids.length,
+        askLevels: l2Book.asks.length,
+      });
+    }
+  }, [hasOrderBook, l2Book]);
+
+  useEffect(() => {
+    const coin = activeTradeInstrument.coin;
+    if (!coin) {
+      return;
+    }
+    let cancelled = false;
+    const getRequestOptions = async () => {
+      if (orderBookTickOptions[coin]) {
+        return l2SubscriptionOptions;
+      }
+      const storedOptions =
+        await backgroundApiProxy.simpleDb.perp.getOrderBookTickOptions();
+      const stored = storedOptions[coin];
+      if (!stored) {
+        return l2SubscriptionOptions;
+      }
+      markPerpsColdStartPerfOnce('ui_l2_book_persisted_tick_loaded_first', {
+        coin,
+        nSigFigs: stored.nSigFigs,
+        mantissa: stored.mantissa,
+      });
+      return {
+        nSigFigs: stored.nSigFigs ?? null,
+        mantissa: stored.mantissa === undefined ? undefined : stored.mantissa,
+      };
+    };
+    const applyBook = (
+      book: Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.serviceHyperliquid.getL2BookSnapshotCache
+        >
+      >,
+    ) => {
+      if (cancelled || !book) {
+        return;
+      }
+      void actionsRef.current.updateL2Book(book);
+    };
+
+    void (async () => {
+      const requestOptions = await getRequestOptions();
+      const requestKey = [
+        activeTradeInstrument.mode,
+        coin,
+        requestOptions.nSigFigs ?? '',
+        requestOptions.mantissa ?? '',
+      ].join(':');
+      if (cancelled || l2BookSnapshotRequestKeyRef.current === requestKey) {
+        return;
+      }
+      l2BookSnapshotRequestKeyRef.current = requestKey;
+      tracePerpsMobileLayout('orderBook.cache.request', {
+        entry,
+        mode: activeTradeInstrument.mode,
+        coin,
+        nSigFigs: requestOptions.nSigFigs,
+        mantissa: requestOptions.mantissa,
+      });
+      try {
+        const book =
+          await backgroundApiProxy.serviceHyperliquid.getL2BookSnapshotCache({
+            coin,
+            nSigFigs: requestOptions.nSigFigs,
+            mantissa: requestOptions.mantissa,
+          });
+        applyBook(book);
+        tracePerpsMobileLayout('orderBook.cache.result', {
+          entry,
+          mode: activeTradeInstrument.mode,
+          coin,
+          hasBook: Boolean(book),
+          bookCoin: book?.coin,
+          bidLevels: book?.levels?.[0]?.length ?? 0,
+          askLevels: book?.levels?.[1]?.length ?? 0,
+        });
+        if (book) {
+          markPerpsColdStartPerfOnce('ui_l2_book_cache_applied_first', {
+            coin: book.coin,
+            bidLevels: book.levels?.[0]?.length ?? 0,
+            askLevels: book.levels?.[1]?.length ?? 0,
+          });
+        }
+      } catch (error) {
+        markPerpsColdStartPerfOnce('ui_l2_book_cache_error_first');
+        defaultLogger.perp.hyperliquid.cacheSnapshotError({
+          type: 'l2_book_ui_cache',
+          error,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    actionsRef,
+    activeTradeInstrument.coin,
+    activeTradeInstrument.mode,
+    entry,
+    orderBookTickOptions,
+    l2SubscriptionOptions,
+  ]);
 
   const tickOptionsData = useTickOptions({
     symbol: l2Book?.coin,
@@ -409,6 +584,84 @@ export function PerpOrderBook({
     [propMaxLevelsPerSide],
   );
 
+  const handleTraceLayout = useCallback(
+    (name: string, event: LayoutChangeEvent) => {
+      if (gtMd) {
+        return;
+      }
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (
+        isPerpsMobileLayoutTraceRectChanged(layoutRectsRef.current[name], rect)
+      ) {
+        tracePerpsMobileLayout(`orderBook.${name}.layout`, {
+          rect,
+          entry: entry ?? 'perpTab',
+          coin: activeTradeInstrument.coin,
+          mode: activeTradeInstrument.mode,
+          hasOrderBook,
+          mobileMaxLevelsPerSide,
+          shouldShowEnableTradingButton,
+        });
+        layoutRectsRef.current[name] = rect;
+      }
+    },
+    [
+      activeTradeInstrument.coin,
+      activeTradeInstrument.mode,
+      entry,
+      gtMd,
+      hasOrderBook,
+      mobileMaxLevelsPerSide,
+      shouldShowEnableTradingButton,
+    ],
+  );
+
+  useEffect(() => {
+    if (gtMd) {
+      return;
+    }
+    const signature = [
+      entry ?? 'perpTab',
+      activeTradeInstrument.mode,
+      activeTradeInstrument.coin,
+      hasOrderBook ? 'book' : 'loading',
+      l2Book?.coin ?? '',
+      l2Book?.bids.length ?? 0,
+      l2Book?.asks.length ?? 0,
+      shouldShowEnableTradingButton ? 'enableTrading' : 'trade',
+      formData.hasTpsl ? 'tpsl' : 'noTpsl',
+      mobileMaxLevelsPerSide,
+    ].join('|');
+    if (renderStateSignatureRef.current === signature) {
+      return;
+    }
+    renderStateSignatureRef.current = signature;
+    tracePerpsMobileLayout('orderBook.render.state', {
+      entry: entry ?? 'perpTab',
+      coin: activeTradeInstrument.coin,
+      mode: activeTradeInstrument.mode,
+      hasOrderBook,
+      bookCoin: l2Book?.coin,
+      bidLevels: l2Book?.bids.length ?? 0,
+      askLevels: l2Book?.asks.length ?? 0,
+      mobileMaxLevelsPerSide,
+      shouldShowEnableTradingButton,
+      hasTpsl: formData.hasTpsl,
+    });
+  }, [
+    activeTradeInstrument.coin,
+    activeTradeInstrument.mode,
+    entry,
+    formData.hasTpsl,
+    gtMd,
+    hasOrderBook,
+    l2Book?.asks.length,
+    l2Book?.bids.length,
+    l2Book?.coin,
+    mobileMaxLevelsPerSide,
+    shouldShowEnableTradingButton,
+  ]);
+
   const mobileOrderBook = useMemo(() => {
     if (!hasOrderBook || !l2Book) return null;
     if (gtMd) return null;
@@ -444,7 +697,10 @@ export function PerpOrderBook({
       );
     }
     return (
-      <YStack gap="$1">
+      <YStack
+        gap="$1"
+        onLayout={(event) => handleTraceLayout('mobileVerticalReady', event)}
+      >
         <MobileHeaderMemo />
         <OrderBookMobile
           symbol={l2Book.coin}
@@ -465,6 +721,7 @@ export function PerpOrderBook({
   }, [
     entry,
     gtMd,
+    handleTraceLayout,
     handleTickOptionChange,
     l2Book,
     handleLevelSelect,
@@ -484,7 +741,14 @@ export function PerpOrderBook({
     }
     if (!gtMd && loadingVariant === 'mobileVertical') {
       return (
-        <YStack flex={1} bg="$bgApp" gap="$1">
+        <YStack
+          flex={1}
+          bg="$bgApp"
+          gap="$1"
+          onLayout={(event) =>
+            handleTraceLayout('mobileVerticalLoading', event)
+          }
+        >
           <MobileHeaderMemo showPlaceholder />
           <OrderBookMobile
             symbol={activeTradeInstrument.coin}
@@ -505,7 +769,13 @@ export function PerpOrderBook({
     }
     if (!gtMd && loadingVariant === 'mobileHorizontal') {
       return (
-        <YStack flex={1} bg="$bgApp">
+        <YStack
+          flex={1}
+          bg="$bgApp"
+          onLayout={(event) =>
+            handleTraceLayout('mobileHorizontalLoading', event)
+          }
+        >
           <OrderBook
             horizontal
             symbol={activeTradeInstrument.coin}
@@ -557,7 +827,11 @@ export function PerpOrderBook({
   }
 
   const content = (
-    <YStack flex={1} bg="$bgApp">
+    <YStack
+      flex={1}
+      bg="$bgApp"
+      onLayout={(event) => handleTraceLayout('rootReady', event)}
+    >
       {gtMd ? (
         <OrderBook
           symbol={l2Book.coin}
@@ -565,6 +839,7 @@ export function PerpOrderBook({
           bids={l2Book.bids}
           asks={l2Book.asks}
           maxLevelsPerSide={desktopMaxLevelsPerSide}
+          initialContainerHeight={initialOrderBookHeight}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
           tickOptions={tickOptions}

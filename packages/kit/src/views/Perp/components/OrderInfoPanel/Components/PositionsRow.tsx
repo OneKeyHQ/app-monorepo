@@ -1165,6 +1165,7 @@ const PositionRowMobileActions = memo(
           variant="secondary"
           onPress={onSetTpsl}
           flex={1}
+          childrenAsText={false}
           testID="perp-intl-btn"
         >
           <SizableText size="$bodySm">
@@ -1179,6 +1180,7 @@ const PositionRowMobileActions = memo(
           variant="secondary"
           onPress={() => onClosePosition('market')}
           flex={1}
+          childrenAsText={false}
         >
           <SizableText size="$bodySm">
             {intl.formatMessage({

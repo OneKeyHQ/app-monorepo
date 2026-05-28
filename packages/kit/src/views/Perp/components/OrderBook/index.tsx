@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { colorTokens } from '@tamagui/themes';
 import BigNumber from 'bignumber.js';
@@ -25,10 +25,7 @@ import {
 } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import {
-  usePerpsActiveAssetCtxAtom,
-  useSpotActiveAssetCtxAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -38,12 +35,19 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpsActiveAssetCtxDisplay } from '../../hooks/usePerpsActiveAssetCtxDisplay';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import {
   ORDER_BOOK_SIDE_RATIO_GAP,
   ORDER_BOOK_SIDE_RATIO_RESERVED_HEIGHT,
   getVerticalOrderBookLayout,
 } from '../../layouts/perpLayoutUtils';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../../utils/mobileLayoutTrace';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { DepthBar, SideRatioSegments } from './AnimatedDepthBlock';
@@ -148,6 +152,8 @@ interface IOrderBookProps {
   asks: IBookLevel[];
   /** The maximum price levels to render per side */
   maxLevelsPerSide?: number;
+  /** Initial container height for the first vertical render before onLayout fires */
+  initialContainerHeight?: number;
   /** Styles for the container (outer) view */
   style?: StyleProp<ViewStyle>;
   /** A function which receives the mid price and can return a
@@ -620,6 +626,7 @@ export function OrderBook({
   bids,
   asks,
   maxLevelsPerSide = 30,
+  initialContainerHeight,
   style,
   midPriceNode: _midPriceNode = defaultMidPriceNode,
   loadingNode = <DefaultLoadingNode variant="web" />,
@@ -632,7 +639,24 @@ export function OrderBook({
   sizeDecimals = 4,
   onSelectLevel,
 }: IOrderBookProps) {
-  const [containerHeight, setContainerHeight] = useState(0);
+  const hasMeasuredHeightRef = useRef(false);
+  const layoutTraceRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(
+    undefined,
+  );
+  const [containerHeight, setContainerHeight] = useState(() =>
+    horizontal ? 0 : (initialContainerHeight ?? 0),
+  );
+  useEffect(() => {
+    if (
+      horizontal ||
+      hasMeasuredHeightRef.current ||
+      !initialContainerHeight ||
+      Math.abs(containerHeight - initialContainerHeight) < 0.5
+    ) {
+      return;
+    }
+    setContainerHeight(initialContainerHeight);
+  }, [containerHeight, horizontal, initialContainerHeight]);
   const verticalLayout = useMemo(
     () =>
       horizontal
@@ -649,13 +673,6 @@ export function OrderBook({
     20,
     Math.min(verticalRowHeight, 22),
   );
-
-  const handleVerticalLayout = useCallback((event: LayoutChangeEvent) => {
-    const nextHeight = event.nativeEvent.layout.height;
-    setContainerHeight((prev) =>
-      Math.abs(prev - nextHeight) < 0.5 ? prev : nextHeight,
-    );
-  }, []);
 
   // Handle tick option change
   const handleTickOptionChange = useCallback(
@@ -679,6 +696,56 @@ export function OrderBook({
     sizeDecimals,
   );
   const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
+
+  const isMobileVariant =
+    variant === 'mobileHorizontal' || variant === 'mobileVertical';
+  const traceInnerLayout = useCallback(
+    (name: string, event: LayoutChangeEvent) => {
+      if (!isMobileVariant) {
+        return;
+      }
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (isPerpsMobileLayoutTraceRectChanged(layoutTraceRef.current, rect)) {
+        tracePerpsMobileLayout(`orderBookInner.${name}.layout`, {
+          rect,
+          variant,
+          horizontal,
+          maxLevelsPerSide,
+          resolvedMaxLevelsPerSide,
+          containerHeight,
+          rowHeight: verticalRowHeight,
+          bidsLength: bids.length,
+          asksLength: asks.length,
+          isEmpty,
+        });
+        layoutTraceRef.current = rect;
+      }
+    },
+    [
+      asks.length,
+      bids.length,
+      containerHeight,
+      horizontal,
+      isEmpty,
+      isMobileVariant,
+      maxLevelsPerSide,
+      resolvedMaxLevelsPerSide,
+      variant,
+      verticalRowHeight,
+    ],
+  );
+
+  const handleVerticalLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      hasMeasuredHeightRef.current = true;
+      const nextHeight = event.nativeEvent.layout.height;
+      traceInnerLayout('verticalContainer', event);
+      setContainerHeight((prev) =>
+        Math.abs(prev - nextHeight) < 0.5 ? prev : nextHeight,
+      );
+    },
+    [traceInnerLayout],
+  );
 
   const bidDepth = useMemo(
     () => new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0'),
@@ -728,7 +795,10 @@ export function OrderBook({
 
   if (horizontal) {
     return (
-      <View style={[styles.container, style]}>
+      <View
+        style={[styles.container, style]}
+        onLayout={(event) => traceInnerLayout('horizontalContainer', event)}
+      >
         <DebugRenderTracker
           name="OrderBookHorizontalHeader"
           position="right-center"
@@ -1517,7 +1587,11 @@ export function OrderBookMobile({
 }: IOrderBookProps) {
   const intl = useIntl();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const {
+    assetCtx,
+    source: assetCtxSource,
+    cacheAgeMs,
+  } = usePerpsActiveAssetCtxDisplay(activeTradeInstrument.coin);
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const { midPrice: tradingMidPrice, isValid: hasTradingMidPrice } =
     useTradingPrice();
@@ -1555,9 +1629,31 @@ export function OrderBookMobile({
     [maxLevelsPerSide],
   );
   let referencePriceDisplay = '--';
-  if (!isEmpty && hasMarkPrice) {
+  if (hasMarkPrice) {
     referencePriceDisplay = isSpot ? `≈$${localizedMarkPrice}` : markPrice;
   }
+
+  useEffect(() => {
+    tracePerpsMobileLayout('orderBook.mobileReferencePrice.state', {
+      coin: activeTradeInstrument.coin,
+      isSpot,
+      isEmpty,
+      hasMarkPrice,
+      markPrice,
+      referencePriceDisplay,
+      assetCtxSource,
+      cacheAgeMs,
+    });
+  }, [
+    activeTradeInstrument.coin,
+    assetCtxSource,
+    cacheAgeMs,
+    hasMarkPrice,
+    isEmpty,
+    isSpot,
+    markPrice,
+    referencePriceDisplay,
+  ]);
   const emptyMidPrice =
     hasTradingMidPrice && tradingMidPrice
       ? formatLocalizedNumberString(tradingMidPrice)

@@ -26,6 +26,7 @@ export function isTradeInstrumentBackedBySubscriptionState(params: {
 
 export interface ITradeSubscriptionPlan {
   enableLedgerUpdates: boolean;
+  subscriptionStateKey: string;
   shouldSyncSubscriptions: boolean;
   spotAssetCtxsEnabled: boolean;
   spotEnabled: boolean;
@@ -60,19 +61,17 @@ export function planTradeSubscriptions(params: {
   const enableLedgerUpdates =
     hasAccount && viewState.infoPanelTab === 'Account';
 
-  let shouldSyncSubscriptions = shouldSyncSelectorSubscriptions;
-  if (viewState.routeFocused) {
-    if (isSpot) {
-      shouldSyncSubscriptions =
-        shouldSyncSelectorSubscriptions || Boolean(instrumentCoin);
-    } else {
-      shouldSyncSubscriptions =
-        shouldSyncSelectorSubscriptions || Boolean(instrumentCoin);
-    }
-  }
+  const shouldSyncSubscriptions = viewState.routeFocused
+    ? shouldSyncSelectorSubscriptions || Boolean(instrumentCoin)
+    : shouldSyncSelectorSubscriptions;
 
   return {
     enableLedgerUpdates,
+    subscriptionStateKey: [
+      enableLedgerUpdates ? '1' : '0',
+      spotAssetCtxsEnabled ? '1' : '0',
+      spotEnabled ? '1' : '0',
+    ].join(':'),
     shouldSyncSubscriptions,
     spotAssetCtxsEnabled,
     spotEnabled,
