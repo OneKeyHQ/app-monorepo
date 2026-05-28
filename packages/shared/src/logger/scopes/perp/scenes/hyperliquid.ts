@@ -322,6 +322,49 @@ export class HyperLiquidScene extends BaseScene {
   public subscriptionInnerClientDisposeError(params: { error: unknown }) {
     return params;
   }
+
+  /**
+   * Local-only diagnostics for non-blocking cold-start market snapshot writes.
+   */
+  @LogToLocal({ level: 'error' })
+  public cacheSnapshotError(params: {
+    type:
+      | 'active_asset_ctx_simple_db'
+      | 'all_dexs_asset_ctxs_simple_db'
+      | 'l2_book_simple_db'
+      | 'l2_book_swr'
+      | 'l2_book_ui_cache';
+    error: unknown;
+  }) {
+    return params;
+  }
+
+  /**
+   * Local-only diagnostics for non-blocking cold-start initialization steps.
+   */
+  @LogToLocal({ level: 'error' })
+  public coldStartInitializationError(params: {
+    type:
+      | 'refresh_trading_meta'
+      | 'refresh_spot_meta'
+      | 'active_asset_ctx_snapshot'
+      | 'active_asset_ctx_cache';
+    coin?: string;
+    error: unknown;
+  }) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public coldStartBenchmark(params: {
+    tag: 'PerpsColdStartBenchmark';
+    label: string;
+    elapsed: number;
+    sessionId: number;
+    detail?: Record<string, unknown>;
+  }) {
+    return params;
+  }
 }
 
 export type IHyperLiquidOrderAction =

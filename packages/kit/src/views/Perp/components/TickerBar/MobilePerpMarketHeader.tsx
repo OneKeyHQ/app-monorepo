@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -16,11 +16,11 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useConnectionStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  usePerpsActiveAssetCtxAtom,
   useSpotActiveAssetCtxAtom,
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import {
   formatLocalizedNumberString,
   numberFormat,
@@ -28,6 +28,15 @@ import {
 import { getSpotMarketCapValue } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
+import { usePerpsActiveAssetCtxDisplay } from '../../hooks/usePerpsActiveAssetCtxDisplay';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../../utils/mobileLayoutTrace';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 function StatRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -48,14 +57,18 @@ function StatRow({ label, children }: { label: string; children: ReactNode }) {
 
 function MobilePerpMarketHeader() {
   const intl = useIntl();
+  const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const { coin, mode } = useActiveTradeDisplay();
   const [connectionState] = useConnectionStateAtom();
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const {
+    assetCtx,
+    source: assetCtxSource,
+    cacheAgeMs,
+  } = usePerpsActiveAssetCtxDisplay(coin);
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
   const hasError = connectionState.reconnectCount > 3;
-  const isReady = connectionState.isConnected && !hasError;
   const isSpot = mode === 'spot';
   const spotCtxForActiveCoin =
     spotAssetCtx?.coin === coin ? spotAssetCtx.ctx : undefined;
@@ -97,10 +110,70 @@ function MobilePerpMarketHeader() {
   );
 
   const showSkeleton =
-    !isReady ||
-    hasError ||
+    (!isSpot && hasError) ||
     !Number.isFinite(midPriceNumber) ||
     midPriceNumber === 0;
+
+  useEffect(() => {
+    tracePerpsMobileLayout('mobileMarket.header.state', {
+      coin,
+      mode,
+      isSpot,
+      isConnected: connectionState.isConnected,
+      reconnectCount: connectionState.reconnectCount,
+      showSkeleton,
+      hasCurrentCtx: Boolean(currentCtx),
+      midPrice,
+      markPrice,
+      builderFeeRate,
+      assetCtxSource,
+      cacheAgeMs,
+      showZeroFeeRow: !isSpot && builderFeeRate === 0,
+    });
+  }, [
+    assetCtxSource,
+    builderFeeRate,
+    cacheAgeMs,
+    coin,
+    connectionState.isConnected,
+    connectionState.reconnectCount,
+    currentCtx,
+    isSpot,
+    markPrice,
+    midPrice,
+    mode,
+    showSkeleton,
+  ]);
+
+  const handleLayout = useCallback(
+    (state: 'skeleton' | 'ready', event: LayoutChangeEvent) => {
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
+        tracePerpsMobileLayout('mobileMarket.header.layout', {
+          state,
+          rect,
+          coin,
+          mode,
+          showZeroFeeRow: !isSpot && builderFeeRate === 0,
+        });
+        layoutRef.current = rect;
+      }
+    },
+    [builderFeeRate, coin, isSpot, mode],
+  );
+
+  useEffect(() => {
+    if (showSkeleton) {
+      return;
+    }
+
+    markPerpsColdStartPerfOnce('ui_mobile_market_header_ready', {
+      coin,
+      mode,
+      markPrice,
+      midPrice,
+    });
+  }, [coin, markPrice, midPrice, mode, showSkeleton]);
 
   const fundingColor = fundingRateNumber >= 0 ? '$green11' : '$red11';
   const fundingDisplay = Number.isFinite(fundingRateNumber)
@@ -276,7 +349,13 @@ function MobilePerpMarketHeader() {
     }
 
     return (
-      <YStack bg="$bgApp" px="$5" pt="$3" gap="$2">
+      <YStack
+        bg="$bgApp"
+        px="$5"
+        pt="$3"
+        gap="$2"
+        onLayout={(event) => handleLayout('skeleton', event)}
+      >
         <XStack alignItems="flex-start" gap="$4">
           <YStack flex={1} minWidth={0} width="50%">
             <DashText
@@ -311,7 +390,13 @@ function MobilePerpMarketHeader() {
   }
 
   return (
-    <YStack bg="$bgApp" px="$5" pt="$3" gap="$2">
+    <YStack
+      bg="$bgApp"
+      px="$5"
+      pt="$3"
+      gap="$2"
+      onLayout={(event) => handleLayout('ready', event)}
+    >
       <XStack alignItems="flex-start" gap="$4">
         <YStack flex={1} minWidth={0} width="50%">
           <>
