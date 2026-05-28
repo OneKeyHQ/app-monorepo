@@ -125,7 +125,9 @@ function ProtocolPositionActionDialogContent({
         networkId,
         protocolId: action.protocolId,
         action: action.action,
-        tokenAddress: selectedAsset.tokenAddress,
+        tokenAddress: isRemoveLiquidity
+          ? undefined
+          : selectedAsset.tokenAddress,
         amount: isWithdraw && !withdrawAll ? amount : undefined,
         withdrawAll: isWithdraw ? withdrawAll : undefined,
         extraParams,
@@ -170,7 +172,7 @@ function ProtocolPositionActionDialogContent({
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
 
-      {action.assets.length > 1 ? (
+      {action.assets.length > 1 && !isRemoveLiquidity ? (
         <XStack gap="$2" flexWrap="wrap">
           {action.assets.map((asset, index) => (
             <Button

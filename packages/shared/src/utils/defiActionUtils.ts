@@ -110,6 +110,30 @@ function pickStringFromSources({
   return undefined;
 }
 
+function normalizeTokenId(value?: string) {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  if (/^\d+$/.test(trimmed) || /^0x[0-9a-f]+$/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  const match = trimmed.match(
+    /(?:tokenId|token_id|positionId|position_id|nftId|nft_id)[:=_-](\d+)/i,
+  );
+  return match?.[1];
+}
+
+function getUniqueAssetAddresses(position: IDeFiPosition | undefined) {
+  const addresses: string[] = [];
+  for (const asset of position?.assets ?? []) {
+    const address = asset.address?.trim();
+    if (address && !addresses.includes(address)) {
+      addresses.push(address);
+    }
+  }
+  return addresses;
+}
+
 function mergeExtraParams(
   ...params: (IDeFiActionExtraParams | undefined)[]
 ): IDeFiActionExtraParams | undefined {
@@ -139,15 +163,53 @@ function getPoolAddress(
 }
 
 function getTokenId(position: IDeFiPosition | undefined, asset: IDeFiAsset) {
-  return pickStringFromSources({
+  const directTokenId = pickStringFromSources({
     sources: [asset, position],
-    directKeys: ['tokenId', 'token_id'],
+    directKeys: [
+      'tokenId',
+      'token_id',
+      'positionId',
+      'position_id',
+      'nftId',
+      'nft_id',
+    ],
     nestedKeys: [
-      { containerKey: 'extraParams', keys: ['tokenId', 'token_id'] },
-      { containerKey: 'contracts', keys: ['tokenId', 'token_id'] },
-      { containerKey: 'meta', keys: ['tokenId', 'token_id'] },
+      {
+        containerKey: 'extraParams',
+        keys: [
+          'tokenId',
+          'token_id',
+          'positionId',
+          'position_id',
+          'nftId',
+          'nft_id',
+        ],
+      },
+      {
+        containerKey: 'contracts',
+        keys: [
+          'tokenId',
+          'token_id',
+          'positionId',
+          'position_id',
+          'nftId',
+          'nft_id',
+        ],
+      },
+      {
+        containerKey: 'meta',
+        keys: [
+          'tokenId',
+          'token_id',
+          'positionId',
+          'position_id',
+          'nftId',
+          'nft_id',
+        ],
+      },
     ],
   });
+  return normalizeTokenId(directTokenId) ?? normalizeTokenId(position?.groupId);
 }
 
 function getCurrency({
@@ -232,14 +294,16 @@ function getCandidateAssets({
 }
 
 function buildResolvedAsset({
+  protocolId,
   action,
   asset,
   sourcePosition,
 }: {
+  protocolId: string;
   action: EDeFiPositionAction;
   asset: IDeFiAsset;
   sourcePosition: IDeFiPosition | undefined;
-}): IResolvedDeFiPositionActionAsset {
+}): IResolvedDeFiPositionActionAsset | undefined {
   const extraParams = mergeExtraParams(sourcePosition?.extraParams, {
     ...asset.extraParams,
   });
@@ -247,17 +311,25 @@ function buildResolvedAsset({
 
   if (action === EDeFiPositionAction.RemoveLiquidity) {
     const tokenId = getTokenId(sourcePosition, asset);
+    if (!tokenId) return undefined;
 
-    const currency0 = getCurrency({
-      position: sourcePosition,
-      asset,
-      key: 'currency0',
-    });
-    const currency1 = getCurrency({
-      position: sourcePosition,
-      asset,
-      key: 'currency1',
-    });
+    const assetAddresses = getUniqueAssetAddresses(sourcePosition);
+    const currency0 =
+      getCurrency({
+        position: sourcePosition,
+        asset,
+        key: 'currency0',
+      }) ?? assetAddresses[0];
+    const currency1 =
+      getCurrency({
+        position: sourcePosition,
+        asset,
+        key: 'currency1',
+      }) ?? assetAddresses.find((address) => address !== currency0);
+
+    if (protocolId === 'uniswap-v4' && (!currency0 || !currency1)) {
+      return undefined;
+    }
 
     return {
       asset,
@@ -300,13 +372,19 @@ function resolveDeFiPositionActions({
 
   return matchedActions.reduce<IResolvedDeFiPositionAction[]>(
     (acc, supportedAction) => {
-      const assets = getCandidateAssets({ position, supportedAction }).map(
-        ({ asset, sourcePosition }) =>
-          buildResolvedAsset({
-            action: supportedAction.action,
-            asset,
-            sourcePosition,
-          }),
+      const resolvedAssets = getCandidateAssets({
+        position,
+        supportedAction,
+      }).map(({ asset, sourcePosition }) =>
+        buildResolvedAsset({
+          protocolId: supportedAction.protocolId,
+          action: supportedAction.action,
+          asset,
+          sourcePosition,
+        }),
+      );
+      const assets = resolvedAssets.filter(
+        (asset): asset is IResolvedDeFiPositionActionAsset => Boolean(asset),
       );
 
       if (assets.length === 0) {
