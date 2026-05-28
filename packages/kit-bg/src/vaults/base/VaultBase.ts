@@ -1526,7 +1526,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IServerFetchAccountHistoryDetailParams,
   ): Promise<IServerFetchAccountHistoryDetailResp> {
     const { accountId, ...rest } = params;
-    const client = await this.backgroundApi.serviceGas.getClient(
+    // Authenticated client so the server can attach per-user KYT risk data to the tx detail.
+    const client = await this.backgroundApi.serviceGas.getOneKeyIdClient(
       EServiceEndpointEnum.Wallet,
     );
     const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(

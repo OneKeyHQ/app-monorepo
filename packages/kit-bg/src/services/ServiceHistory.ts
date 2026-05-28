@@ -1222,7 +1222,8 @@ class ServiceHistory extends ServiceBase {
     }
     const isIndexerChain = networkInfo?.backendIndex === true;
 
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    // Authenticated client so the server can attach per-user KYT risk data to history items.
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
     let resp;
     let extraParams: any;
     const fetchHistoryFromServer = async () => {
