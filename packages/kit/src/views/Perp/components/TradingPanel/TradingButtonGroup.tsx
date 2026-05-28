@@ -416,15 +416,11 @@ function SideButtonInternal({
             { TokenName: spotTradeSymbol },
           );
     }
-    if (formData.orderMode === 'twap') {
-      return side === 'long' ? 'Long TWAP' : 'Short TWAP';
-    }
     return side === 'long'
       ? intl.formatMessage({ id: ETranslations.perp_trade_long })
       : intl.formatMessage({ id: ETranslations.perp_trade_short });
   }, [
     priceError,
-    formData.orderMode,
     isNoEnoughMargin,
     isSpot,
     side,

@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { type IDebugRenderTrackerProps, Toast } from '@onekeyhq/components';
+import {
+  type IDebugRenderTrackerProps,
+  ScrollView,
+  SizableText,
+  Toast,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   type IPerpsActiveTwapOrder,
@@ -41,6 +47,26 @@ interface IPerpOpenOrdersListProps {
   disableListScroll?: boolean;
 }
 
+type IOpenOrdersSubTab = 'basic' | 'twap';
+type ITwapOrdersSubTab = 'active' | 'history' | 'fillHistory';
+
+const OPEN_ORDERS_SUB_TABS: {
+  key: IOpenOrdersSubTab;
+  label: string;
+}[] = [
+  { key: 'basic', label: '基础单' },
+  { key: 'twap', label: 'TWAP 订单' },
+];
+
+const TWAP_ORDERS_SUB_TABS: {
+  key: ITwapOrdersSubTab;
+  label: string;
+}[] = [
+  { key: 'active', label: 'Active' },
+  { key: 'history', label: 'History' },
+  { key: 'fillHistory', label: 'Fill History' },
+];
+
 type IOpenOrdersDisplayRow =
   | {
       type: 'single';
@@ -51,143 +77,93 @@ type IOpenOrdersDisplayRow =
       order: IPerpsActiveTwapOrder;
     };
 
-function PerpOpenOrdersList({
-  isMobile,
-  useTabsList,
-  disableListScroll,
-}: IPerpOpenOrdersListProps) {
+function OrderInfoSubTabs<T extends string>({
+  tabs,
+  activeTab,
+  onChange,
+}: {
+  tabs: {
+    key: T;
+    label: string;
+  }[];
+  activeTab: T;
+  onChange: (tab: T) => void;
+}) {
+  return (
+    <XStack>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        bounces={false}
+        width="100%"
+        contentContainerStyle={{ minWidth: '100%' }}
+      >
+        <XStack minWidth="100%" pl="$2.5" pr="$5" py="$2.5" gap="$2">
+          {tabs.map((tab) => {
+            const isFocused = activeTab === tab.key;
+            return (
+              <XStack
+                key={tab.key}
+                alignItems="center"
+                justifyContent="center"
+                px="$2.5"
+                py="$1.5"
+                borderRadius="$full"
+                userSelect="none"
+                cursor="pointer"
+                backgroundColor={isFocused ? '$bgActive' : '$transparent'}
+                onPress={() => onChange(tab.key)}
+              >
+                <SizableText
+                  numberOfLines={1}
+                  size="$bodySmMedium"
+                  color={isFocused ? '$text' : '$textSubdued'}
+                >
+                  {tab.label}
+                </SizableText>
+              </XStack>
+            );
+          })}
+        </XStack>
+      </ScrollView>
+    </XStack>
+  );
+}
+
+const TWAP_EMPTY_STATE_MAP: Record<
+  ITwapOrdersSubTab,
+  {
+    title: string;
+    description: string;
+  }
+> = {
+  active: {
+    title: 'No active TWAP',
+    description: 'Your active TWAP orders will appear here.',
+  },
+  history: {
+    title: 'No TWAP history',
+    description: 'Your TWAP history will appear here.',
+  },
+  fillHistory: {
+    title: 'No TWAP fill history',
+    description: 'Your TWAP fill history will appear here.',
+  },
+};
+
+function useOpenOrdersColumnsConfig({
+  openOrdersLength,
+  enableCancelAll,
+  scopedAccountAddress,
+}: {
+  openOrdersLength: number;
+  enableCancelAll: boolean;
+  scopedAccountAddress?: string | null;
+}) {
   const intl = useIntl();
-  const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
-  const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
-  const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
-  const [currentUser] = usePerpsActiveAccountAtom();
-  const accountScopedAddress = usePerpsAccountScopedCacheAddress();
-  const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
-  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const actions = useHyperliquidActions();
-  const [currentListPage, setCurrentListPage] = useState(1);
-  const canMutateScopedOrders = isPerpsAccountAddressMatched({
-    activeAccountAddress: currentUser?.accountAddress,
-    dataAccountAddress: accountScopedAddress,
-  });
-  const scopedPerpOpenOrders = useMemo(
-    () =>
-      getPerpsAccountScopedListData({
-        activeAccountAddress: accountScopedAddress,
-        dataAccountAddress: perpOpenOrdersState.accountAddress,
-        data: perpOpenOrdersState.openOrders,
-      }),
-    [
-      accountScopedAddress,
-      perpOpenOrdersState.accountAddress,
-      perpOpenOrdersState.openOrders,
-    ],
-  );
-  const scopedSpotOpenOrders = useMemo(
-    () =>
-      getPerpsAccountScopedListData({
-        activeAccountAddress: accountScopedAddress,
-        dataAccountAddress: spotOpenOrdersState.accountAddress,
-        data: spotOpenOrdersState.openOrders,
-      }),
-    [
-      accountScopedAddress,
-      spotOpenOrdersState.accountAddress,
-      spotOpenOrdersState.openOrders,
-    ],
-  );
-  const scopedTwapOrders = useMemo(
-    () =>
-      getPerpsAccountScopedListData({
-        activeAccountAddress: accountScopedAddress,
-        dataAccountAddress: twapOrdersState.accountAddress,
-        data: twapOrdersState.twapOrders,
-      }),
-    [
-      accountScopedAddress,
-      twapOrdersState.accountAddress,
-      twapOrdersState.twapOrders,
-    ],
-  );
-  const openOrders = useMemo(
-    () =>
-      [...scopedPerpOpenOrders, ...scopedSpotOpenOrders].toSorted(
-        (a, b) => b.timestamp - a.timestamp,
-      ),
-    [scopedPerpOpenOrders, scopedSpotOpenOrders],
-  );
-  const perpOpenOrdersReady = isPerpsAccountScopedDataReady({
-    activeAccountAddress: accountScopedAddress,
-    dataAccountAddress: perpOpenOrdersState.accountAddress,
-  });
-  const spotOpenOrdersReady = isPerpsAccountScopedDataReady({
-    activeAccountAddress: accountScopedAddress,
-    dataAccountAddress: spotOpenOrdersState.accountAddress,
-  });
-  const twapOrdersReady = isPerpsAccountScopedDataReady({
-    activeAccountAddress: accountScopedAddress,
-    dataAccountAddress: twapOrdersState.accountAddress,
-  });
-  const listLoading = Boolean(
-    accountScopedAddress &&
-      openOrders.length === 0 &&
-      scopedTwapOrders.length === 0 &&
-      (!perpOpenOrdersReady || !spotOpenOrdersReady || !twapOrdersReady),
-  );
-  useEffect(() => {
-    noop(currentUser?.accountAddress);
-    setCurrentListPage(1);
-    void actions.current.loadTwapData();
-  }, [actions, currentUser?.accountAddress]);
-  useEffect(() => {
-    if (isMobile) {
-      setCurrentListPage(1);
-    }
-  }, [filterByCurrentToken, isMobile]);
-  useEffect(() => {
-    if (isMobile && filterByCurrentToken) {
-      setCurrentListPage(1);
-    }
-  }, [activeTradeInstrument?.coin, isMobile, filterByCurrentToken]);
 
-  const filteredOrders = useMemo(() => {
-    if (!isMobile || !filterByCurrentToken || !activeTradeInstrument?.coin) {
-      return openOrders;
-    }
-    return openOrders.filter(
-      (order) => order.coin === activeTradeInstrument.coin,
-    );
-  }, [openOrders, isMobile, filterByCurrentToken, activeTradeInstrument]);
-
-  const filteredTwapOrders = useMemo(() => {
-    if (!isMobile || !filterByCurrentToken || !activeTradeInstrument?.coin) {
-      return scopedTwapOrders;
-    }
-    return scopedTwapOrders.filter(
-      (order) => order.state.coin === activeTradeInstrument.coin,
-    );
-  }, [activeTradeInstrument, filterByCurrentToken, isMobile, scopedTwapOrders]);
-
-  const displayRows = useMemo<IOpenOrdersDisplayRow[]>(
-    () => [
-      ...filteredOrders.map(
-        (order): IOpenOrdersDisplayRow => ({
-          type: 'single',
-          order,
-        }),
-      ),
-      ...filteredTwapOrders.map(
-        (order): IOpenOrdersDisplayRow => ({
-          type: 'twap',
-          order,
-        }),
-      ),
-    ],
-    [filteredOrders, filteredTwapOrders],
-  );
-
-  const columnsConfig: IColumnConfig[] = useMemo(
-    () => [
+  return useMemo(
+    (): IColumnConfig[] => [
       {
         key: 'time',
         title: intl.formatMessage({ id: ETranslations.perp_open_orders_time }),
@@ -278,15 +254,171 @@ function PerpOpenOrdersList({
         align: 'right',
         flex: 1,
         fixed: true,
-        ...(openOrders.length > 0 &&
-          canMutateScopedOrders && {
+        ...(enableCancelAll &&
+          openOrdersLength > 0 && {
             onPress: () =>
-              showCancelAllOrdersDialog(undefined, accountScopedAddress),
+              showCancelAllOrdersDialog(undefined, scopedAccountAddress),
           }),
       },
     ],
-    [accountScopedAddress, canMutateScopedOrders, intl, openOrders.length],
+    [enableCancelAll, intl, openOrdersLength, scopedAccountAddress],
   );
+}
+
+function PerpOpenOrdersList({
+  isMobile,
+  useTabsList,
+  disableListScroll,
+}: IPerpOpenOrdersListProps) {
+  const intl = useIntl();
+  const [activeOpenOrdersSubTab, setActiveOpenOrdersSubTab] =
+    useState<IOpenOrdersSubTab>('basic');
+  const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
+  const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
+  const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const accountScopedAddress = usePerpsAccountScopedCacheAddress();
+  const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const actions = useHyperliquidActions();
+  const [currentListPage, setCurrentListPage] = useState(1);
+  const canMutateScopedOrders = isPerpsAccountAddressMatched({
+    activeAccountAddress: currentUser?.accountAddress,
+    dataAccountAddress: accountScopedAddress,
+  });
+  const scopedPerpOpenOrders = useMemo(
+    () =>
+      getPerpsAccountScopedListData({
+        activeAccountAddress: accountScopedAddress,
+        dataAccountAddress: perpOpenOrdersState.accountAddress,
+        data: perpOpenOrdersState.openOrders,
+      }),
+    [
+      accountScopedAddress,
+      perpOpenOrdersState.accountAddress,
+      perpOpenOrdersState.openOrders,
+    ],
+  );
+  const scopedSpotOpenOrders = useMemo(
+    () =>
+      getPerpsAccountScopedListData({
+        activeAccountAddress: accountScopedAddress,
+        dataAccountAddress: spotOpenOrdersState.accountAddress,
+        data: spotOpenOrdersState.openOrders,
+      }),
+    [
+      accountScopedAddress,
+      spotOpenOrdersState.accountAddress,
+      spotOpenOrdersState.openOrders,
+    ],
+  );
+  const scopedTwapOrders = useMemo(
+    () =>
+      getPerpsAccountScopedListData({
+        activeAccountAddress: accountScopedAddress,
+        dataAccountAddress: twapOrdersState.accountAddress,
+        data: twapOrdersState.twapOrders,
+      }),
+    [
+      accountScopedAddress,
+      twapOrdersState.accountAddress,
+      twapOrdersState.twapOrders,
+    ],
+  );
+  const openOrders = useMemo(
+    () =>
+      [...scopedPerpOpenOrders, ...scopedSpotOpenOrders].toSorted(
+        (a, b) => b.timestamp - a.timestamp,
+      ),
+    [scopedPerpOpenOrders, scopedSpotOpenOrders],
+  );
+  const perpOpenOrdersReady = isPerpsAccountScopedDataReady({
+    activeAccountAddress: accountScopedAddress,
+    dataAccountAddress: perpOpenOrdersState.accountAddress,
+  });
+  const spotOpenOrdersReady = isPerpsAccountScopedDataReady({
+    activeAccountAddress: accountScopedAddress,
+    dataAccountAddress: spotOpenOrdersState.accountAddress,
+  });
+  const twapOrdersReady = isPerpsAccountScopedDataReady({
+    activeAccountAddress: accountScopedAddress,
+    dataAccountAddress: twapOrdersState.accountAddress,
+  });
+  const listLoading = Boolean(
+    accountScopedAddress &&
+      openOrders.length === 0 &&
+      scopedTwapOrders.length === 0 &&
+      (!perpOpenOrdersReady || !spotOpenOrdersReady || !twapOrdersReady),
+  );
+
+  useEffect(() => {
+    setCurrentListPage(1);
+    void actions.current.loadTwapData();
+  }, [actions, currentUser?.accountAddress]);
+  useEffect(() => {
+    if (isMobile) {
+      setCurrentListPage(1);
+    }
+  }, [filterByCurrentToken, isMobile]);
+  useEffect(() => {
+    if (isMobile && filterByCurrentToken) {
+      setCurrentListPage(1);
+    }
+  }, [activeTradeInstrument?.coin, isMobile, filterByCurrentToken]);
+  useEffect(() => {
+    if (isMobile) {
+      setCurrentListPage(1);
+    }
+  }, [activeOpenOrdersSubTab, isMobile]);
+
+  const filteredOrders = useMemo(() => {
+    if (!isMobile || !filterByCurrentToken || !activeTradeInstrument?.coin) {
+      return openOrders;
+    }
+    return openOrders.filter(
+      (order) => order.coin === activeTradeInstrument.coin,
+    );
+  }, [openOrders, isMobile, filterByCurrentToken, activeTradeInstrument]);
+
+  const filteredTwapOrders = useMemo(() => {
+    if (!isMobile || !filterByCurrentToken || !activeTradeInstrument?.coin) {
+      return scopedTwapOrders;
+    }
+    return scopedTwapOrders.filter(
+      (order) => order.state.coin === activeTradeInstrument.coin,
+    );
+  }, [activeTradeInstrument, filterByCurrentToken, isMobile, scopedTwapOrders]);
+
+  const displayRows = useMemo<IOpenOrdersDisplayRow[]>(() => {
+    const shouldShowBasicOrders =
+      !isMobile || activeOpenOrdersSubTab === 'basic';
+    const shouldShowTwapOrders = !isMobile || activeOpenOrdersSubTab === 'twap';
+
+    return [
+      ...(shouldShowBasicOrders
+        ? filteredOrders.map(
+            (order): IOpenOrdersDisplayRow => ({
+              type: 'single',
+              order,
+            }),
+          )
+        : []),
+      ...(shouldShowTwapOrders
+        ? filteredTwapOrders.map(
+            (order): IOpenOrdersDisplayRow => ({
+              type: 'twap',
+              order,
+            }),
+          )
+        : []),
+    ];
+  }, [activeOpenOrdersSubTab, filteredOrders, filteredTwapOrders, isMobile]);
+
+  const columnsConfig = useOpenOrdersColumnsConfig({
+    openOrdersLength: openOrders.length,
+    enableCancelAll: canMutateScopedOrders,
+    scopedAccountAddress: accountScopedAddress,
+  });
 
   const handleCancelOrder = useCallback(
     async (order: IPerpsFrontendOrder) => {
@@ -379,6 +511,25 @@ function PerpOpenOrdersList({
       />
     );
   };
+  const mobileListHeader = isMobile ? (
+    <YStack>
+      <OrderInfoSubTabs
+        tabs={OPEN_ORDERS_SUB_TABS}
+        activeTab={activeOpenOrdersSubTab}
+        onChange={setActiveOpenOrdersSubTab}
+      />
+      <MobileOpenOrdersListHeader
+        totalOrderCount={filteredOrders.length + filteredTwapOrders.length}
+        canCancelAll={
+          canMutateScopedOrders &&
+          activeOpenOrdersSubTab === 'basic' &&
+          filteredOrders.length > 0
+        }
+        scopedAccountAddress={accountScopedAddress}
+      />
+    </YStack>
+  ) : null;
+
   return (
     <CommonTableListView
       onPullToRefresh={async () => {
@@ -411,17 +562,70 @@ function PerpOpenOrdersList({
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_open_order_empty_desc,
       })}
-      ListHeaderComponent={
-        isMobile ? (
-          <MobileOpenOrdersListHeader
-            totalOrderCount={openOrders.length + scopedTwapOrders.length}
-            canCancelAll={canMutateScopedOrders && openOrders.length > 0}
-            scopedAccountAddress={accountScopedAddress}
-          />
-        ) : null
-      }
+      ListHeaderComponent={mobileListHeader}
     />
   );
 }
 
-export { PerpOpenOrdersList };
+function PerpTwapOrdersListShell() {
+  const [activeTwapSubTab, setActiveTwapSubTab] =
+    useState<ITwapOrdersSubTab>('active');
+
+  const columnsConfig = useOpenOrdersColumnsConfig({
+    openOrdersLength: 0,
+    enableCancelAll: false,
+  });
+
+  const totalMinWidth = useMemo(
+    () =>
+      columnsConfig.reduce(
+        (sum, col) => sum + (col.width || col.minWidth || 0),
+        0,
+      ),
+    [columnsConfig],
+  );
+
+  const emptyState = TWAP_EMPTY_STATE_MAP[activeTwapSubTab];
+
+  return (
+    <YStack flex={1}>
+      <OrderInfoSubTabs
+        tabs={TWAP_ORDERS_SUB_TABS}
+        activeTab={activeTwapSubTab}
+        onChange={setActiveTwapSubTab}
+      />
+      <CommonTableListView
+        listViewDebugRenderTrackerProps={useMemo(
+          (): IDebugRenderTrackerProps => ({
+            name: 'PerpTwapOrdersListShell',
+            position: 'top-left',
+          }),
+          [],
+        )}
+        columns={columnsConfig}
+        minTableWidth={totalMinWidth}
+        data={[]}
+        enablePagination={false}
+        renderRow={() => <></>}
+        ListEmptyComponent={
+          <YStack
+            flex={1}
+            alignItems="center"
+            justifyContent="center"
+            minHeight={240}
+            gap="$2"
+          >
+            <SizableText size="$bodyMdMedium" color="$text">
+              {emptyState.title}
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {emptyState.description}
+            </SizableText>
+          </YStack>
+        }
+      />
+    </YStack>
+  );
+}
+
+export { OrderInfoSubTabs, PerpOpenOrdersList, PerpTwapOrdersListShell };
