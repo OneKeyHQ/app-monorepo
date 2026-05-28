@@ -192,6 +192,7 @@ export function normalizeToEarnProvider(
     'falcon': EEarnProviderEnum.Falcon,
     'ethena': EEarnProviderEnum.Ethena,
     'momentum': EEarnProviderEnum.Momentum,
+    'native': EEarnProviderEnum.Native,
     'staked': EEarnProviderEnum.Lista,
   };
   return providerMap[provider.toLowerCase()];

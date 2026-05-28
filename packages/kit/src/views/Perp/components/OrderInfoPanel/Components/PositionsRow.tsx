@@ -20,7 +20,6 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useHyperliquidActions,
-  usePerpsActivePositionAtom,
   usePerpsOpenOrdersByCoin,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -30,6 +29,7 @@ import {
   getValidPriceDecimals,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
@@ -40,10 +40,13 @@ import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
+export interface IPositionRowItem {
+  index: number;
+  activePosition: IPerpsAssetPosition;
+}
+
 interface IPositionRowProps {
-  mockedPosition: {
-    index: number;
-  };
+  mockedPosition: IPositionRowItem;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
   handleViewTpslOrders: () => void;
@@ -616,7 +619,7 @@ const PositionRowDesktopActions = memo(
 PositionRowDesktopActions.displayName = 'PositionRowDesktopActions';
 
 interface IPositionRowDesktopProps {
-  mockedPosition: { index: number };
+  mockedPosition: IPositionRowItem;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
   assetInfo: IAssetInfo;
@@ -969,12 +972,7 @@ const PositionRowMobileFunding = memo(
             id: ETranslations.perp_position_funding_2,
           })}
           renderTrigger={
-            <DashText
-              size="$bodySm"
-              color="$textSubdued"
-              dashColor="$textDisabled"
-              dashThickness={0.5}
-            >
+            <DashText size="$bodySm" color="$textSubdued" dashThickness={0.5}>
               {intl.formatMessage({
                 id: ETranslations.perp_position_funding_2,
               })}
@@ -1167,6 +1165,7 @@ const PositionRowMobileActions = memo(
           variant="secondary"
           onPress={onSetTpsl}
           flex={1}
+          childrenAsText={false}
           testID="perp-intl-btn"
         >
           <SizableText size="$bodySm">
@@ -1181,6 +1180,7 @@ const PositionRowMobileActions = memo(
           variant="secondary"
           onPress={() => onClosePosition('market')}
           flex={1}
+          childrenAsText={false}
         >
           <SizableText size="$bodySm">
             {intl.formatMessage({
@@ -1294,13 +1294,8 @@ const PositionRow = memo(
     const navigation = useAppNavigation();
     const actions = useHyperliquidActions();
     const intl = useIntl();
-    const [positions] = usePerpsActivePositionAtom();
-    const pos = useMemo(() => {
-      return positions.activePositions[mockedPosition.index]?.position;
-    }, [positions.activePositions, mockedPosition.index]);
-    const coin = useMemo(() => {
-      return pos?.coin;
-    }, [pos?.coin]);
+    const pos = mockedPosition.activePosition.position;
+    const coin = pos.coin;
     const side = useMemo(() => {
       return parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
     }, [pos.szi]);

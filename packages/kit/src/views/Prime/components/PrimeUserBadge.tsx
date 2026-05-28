@@ -1,4 +1,9 @@
-import { type ComponentProps, useCallback, useMemo } from 'react';
+import {
+  type ComponentProps,
+  type ReactElement,
+  useCallback,
+  useMemo,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { type GestureResponderEvent, StyleSheet } from 'react-native';
@@ -56,6 +61,7 @@ export function PrimeBadge({
   ...props
 }: IPrimeBadgeProps) {
   const intl = useIntl();
+  const themeName = useThemeName() as 'light' | 'dark';
   const isFree = status === 'free' && !isDeviceLimitExceeded;
 
   let displayIcon = icon ?? 'PrimeOutline';
@@ -68,7 +74,7 @@ export function PrimeBadge({
   let borderColor: ColorTokens = '$brand4';
   let bg: ColorTokens = '$brand2';
   let iconColor: ColorTokens = '$brand11';
-  let textColor: ColorTokens = '$brand12';
+  let textColor: ColorTokens = themeName === 'light' ? '$brand12' : '$brand11';
 
   if (isDeviceLimitExceeded) {
     borderColor = '$borderCautionSubdued';
@@ -123,14 +129,23 @@ export function PrimeBadge({
   );
 }
 
-type IPrimeStatusMeta = {
+type IPrimeStatusMetaBase = {
   title?: string;
   dialogTitle: string;
   lines: string[];
-  icon: IKeyOfIcons;
-  tone: 'warning' | 'info';
   isDeviceLimitExceeded?: boolean;
 };
+
+type IPrimeStatusMeta =
+  | (IPrimeStatusMetaBase & {
+      type: 'warning';
+      icon: IKeyOfIcons;
+      tone: 'warning';
+    })
+  | (IPrimeStatusMetaBase & {
+      type: 'prime';
+      renderIcon: ReactElement;
+    });
 
 function PrimeStatusTooltipContent({ status }: { status: IPrimeStatusMeta }) {
   return (
@@ -201,6 +216,7 @@ export function PrimeUserBadge({
       }
 
       return {
+        type: 'warning',
         title,
         dialogTitle: title,
         lines,
@@ -215,6 +231,7 @@ export function PrimeUserBadge({
     }
 
     return {
+      type: 'prime',
       dialogTitle: intl.formatMessage({
         id: ETranslations.prime_status_prime,
       }),
@@ -228,10 +245,9 @@ export function PrimeUserBadge({
           },
         ),
       ],
-      icon: 'PrimeOutline',
-      tone: 'info',
+      renderIcon: <Icon name={primeIcon} size="$8" />,
     };
-  }, [intl, isDeviceLimitExceeded, isPrime, primeExpiredAt]);
+  }, [intl, isDeviceLimitExceeded, isPrime, primeExpiredAt, primeIcon]);
 
   const canShowPrimeStatus = Boolean(statusMeta);
   const shouldOpenStatusDialog =
@@ -243,9 +259,13 @@ export function PrimeUserBadge({
       if (!statusMeta) {
         return;
       }
+      const dialogIconProps =
+        statusMeta.type === 'warning'
+          ? { icon: statusMeta.icon, tone: statusMeta.tone }
+          : { renderIcon: statusMeta.renderIcon };
+
       Dialog.show({
-        icon: statusMeta.icon,
-        tone: statusMeta.tone,
+        ...dialogIconProps,
         title: statusMeta.dialogTitle,
         description: statusMeta.lines.join('\n'),
         showCancelButton: false,

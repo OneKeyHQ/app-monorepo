@@ -25,6 +25,10 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  markPerpsColdStartPerf,
+  markPerpsColdStartPerfOnce,
+} from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -58,6 +62,7 @@ import {
 import type {
   IApiRequestError,
   IApiRequestResult,
+  IBook,
   IFill,
   IFundingHistoryRecord,
   IHex,
@@ -122,6 +127,8 @@ import {
   invalidateUserAbstractionRawCache,
 } from './userAbstractionCache';
 
+import type ServiceHyperliquidCache from './ServiceHyperliquidCache';
+import type { IPerpsActiveAssetCtxSnapshotCacheHydration } from './ServiceHyperliquidCache';
 import type ServiceHyperliquidExchange from './ServiceHyperliquidExchange';
 import type ServiceHyperliquidWallet from './ServiceHyperliquidWallet';
 import type { ISimpleDbPerpData } from '../../dbs/simple/entity/SimpleDbEntityPerp';
@@ -130,6 +137,7 @@ import type {
   IPerpsActiveAccountAtom,
   IPerpsActiveAccountStatusDetails,
   IPerpsActiveAccountStatusInfoAtom,
+  IPerpsActiveAccountSummaryAtom,
   IPerpsActiveAssetCtxAtom,
   IPerpsCommonConfigPersistAtom,
   IPerpsCustomSettings,
@@ -159,6 +167,10 @@ type IChangeActiveAssetResult = {
   margin: IMarginTable | undefined;
 };
 
+const HIDE_SELECT_ACCOUNT_LOADING_DELAY_MS = timerUtils.getTimeDurationMs({
+  seconds: 0.3,
+});
+
 function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
   return fills.filter(
     (fill) => !perpsUtils.isPredictionMarketInstrument(fill.coin),
@@ -173,11 +185,36 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private activeAssetChangeRequestId = 0;
 
+  private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
+
+  private activePerpsAccountChangeRequestId = 0;
+
   private tokenSelectorFavoriteUpdateQueue = Promise.resolve();
 
   @backgroundMethod()
   async cancelPendingActiveAssetChange(): Promise<void> {
     this.activeAssetChangeRequestId += 1;
+  }
+
+  private rememberCommittedActiveAsset(
+    activeAsset: IChangeActiveAssetResult | undefined,
+  ): void {
+    if (
+      activeAsset?.coin &&
+      activeAsset.assetId !== undefined &&
+      activeAsset.universe
+    ) {
+      this.lastCommittedActiveAsset = activeAsset;
+    }
+  }
+
+  private beginActivePerpsAccountChange(): number {
+    this.activePerpsAccountChangeRequestId += 1;
+    return this.activePerpsAccountChangeRequestId;
+  }
+
+  private isLatestActivePerpsAccountChange(requestId: number): boolean {
+    return requestId === this.activePerpsAccountChangeRequestId;
   }
 
   private async updateTokenSelectorFavoriteInBg({
@@ -381,6 +418,10 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private get exchangeService(): ServiceHyperliquidExchange {
     return this.backgroundApi.serviceHyperliquidExchange;
+  }
+
+  private get cacheService(): ServiceHyperliquidCache {
+    return this.backgroundApi.serviceHyperliquidCache;
   }
 
   private get walletService(): ServiceHyperliquidWallet {
@@ -911,9 +952,13 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async refreshTradingMeta() {
     const { infoClient } = hyperLiquidApiClients;
+    markPerpsColdStartPerf('service_refresh_trading_meta_start');
 
     // oxlint-disable-next-line @cspell/spellchecker
     let perpMetaMultiDexList = await infoClient.allPerpMetas();
+    markPerpsColdStartPerf('service_refresh_trading_meta_response', {
+      dexCount: perpMetaMultiDexList?.length ?? 0,
+    });
     if (perpMetaMultiDexList?.length) {
       if (perpMetaMultiDexList.length >= 2) {
         perpMetaMultiDexList = perpMetaMultiDexList.slice(0, 2);
@@ -934,7 +979,11 @@ export default class ServiceHyperliquid extends ServiceBase {
         universes,
         marginTablesMapList,
       });
+      markPerpsColdStartPerf('service_refresh_trading_meta_persisted', {
+        universeCounts: universes.map((items) => items.length),
+      });
     }
+    markPerpsColdStartPerf('service_refresh_trading_meta_end');
   }
 
   @backgroundMethod()
@@ -1100,6 +1149,23 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getL2BookSnapshotCache({
+    coin,
+    nSigFigs,
+    mantissa,
+  }: {
+    coin: string;
+    nSigFigs?: number | null;
+    mantissa?: number | null;
+  }): Promise<IBook | undefined> {
+    return this.cacheService.getL2BookSnapshotCache({
+      coin,
+      nSigFigs,
+      mantissa,
+    });
+  }
+
+  @backgroundMethod()
   async getPerpPredictedFundings({
     coin,
   }: {
@@ -1136,6 +1202,10 @@ export default class ServiceHyperliquid extends ServiceBase {
   async updateActiveAssetCtx(data: IWsActiveAssetCtx | undefined) {
     const activeAsset = await perpsActiveAssetAtom.get();
     if (activeAsset?.coin === data?.coin && data?.coin) {
+      markPerpsColdStartPerfOnce('service_active_asset_ctx_atom_set_first', {
+        coin: data.coin,
+        markPx: data.ctx?.markPx,
+      });
       await perpsActiveAssetCtxAtom.set(
         (_prev): IPerpsActiveAssetCtxAtom => ({
           coin: data?.coin,
@@ -1149,6 +1219,44 @@ export default class ServiceHyperliquid extends ServiceBase {
         await perpsActiveAssetCtxAtom.set(undefined);
       }
     }
+  }
+
+  @backgroundMethod()
+  async refreshActiveAssetCtxSnapshot({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IWsActiveAssetCtx | undefined> {
+    markPerpsColdStartPerf('service_active_asset_ctx_snapshot_start', {
+      coin,
+    });
+    const ctx = await this.getAssetCtxByCoin(coin);
+    if (!ctx) {
+      markPerpsColdStartPerf('service_active_asset_ctx_snapshot_empty', {
+        coin,
+      });
+      return undefined;
+    }
+    const data: IWsActiveAssetCtx = {
+      coin,
+      ctx,
+    };
+    await this.updateActiveAssetCtx(data);
+    markPerpsColdStartPerf('service_active_asset_ctx_snapshot_end', {
+      coin,
+      markPx: ctx.markPx,
+    });
+    this.cacheService.writeActiveAssetCtxSnapshotCache(data);
+    return data;
+  }
+
+  @backgroundMethod()
+  async hydrateActiveAssetCtxSnapshotCache({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IPerpsActiveAssetCtxSnapshotCacheHydration | undefined> {
+    return this.cacheService.hydrateActiveAssetCtxSnapshotCache({ coin });
   }
 
   async updateActiveSpotAssetCtx(data: IWsActiveSpotAssetCtx | undefined) {
@@ -1217,6 +1325,16 @@ export default class ServiceHyperliquid extends ServiceBase {
           assetId: activeAsset?.assetId,
         }),
       );
+      void this.cacheService
+        .writePerpsAccountDisplaySnapshot({
+          accountAddress: activeAccount.accountAddress,
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[updateActiveAssetData] failed to persist display snapshot:',
+            error,
+          );
+        });
 
       if (data.coin && data.leverage?.value) {
         const lastUsedLeverage = await perpsLastUsedLeverageAtom.get();
@@ -1251,7 +1369,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return pnl ? sum.plus(pnl) : sum;
       }, new BigNumber(0));
 
-      await perpsActiveAccountSummaryAtom.set({
+      const summary: IPerpsActiveAccountSummaryAtom = {
         accountAddress: activeAccount?.accountAddress?.toLowerCase() as IHex,
         accountValue: webData2.clearinghouseState?.marginSummary?.accountValue,
         totalMarginUsed:
@@ -1264,7 +1382,28 @@ export default class ServiceHyperliquid extends ServiceBase {
         totalRawUsd: webData2.clearinghouseState?.marginSummary?.totalRawUsd,
         withdrawable: webData2.clearinghouseState?.withdrawable,
         totalUnrealizedPnl: totalUnrealizedPnlBN.toFixed(),
-      });
+      };
+      await perpsActiveAccountSummaryAtom.set(summary);
+      void this.cacheService
+        .writePerpsAccountDisplaySummary(summary)
+        .catch((error: unknown) => {
+          console.warn(
+            '[updateActiveAccountSummary] failed to persist display cache:',
+            error,
+          );
+        });
+      if (summary.accountAddress) {
+        void this.cacheService
+          .writePerpsAccountDisplaySnapshot({
+            accountAddress: summary.accountAddress,
+          })
+          .catch((error: unknown) => {
+            console.warn(
+              '[updateActiveAccountSummary] failed to persist display snapshot:',
+              error,
+            );
+          });
+      }
     } else {
       const activeAccountSummary = await perpsActiveAccountSummaryAtom.get();
       // TODO PERPS_EMPTY_ADDRESS check
@@ -1355,7 +1494,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       },
     );
 
-    await perpsActiveAccountSummaryAtom.set({
+    const summary: IPerpsActiveAccountSummaryAtom = {
       accountAddress: activeAddress as IHex,
       accountValue: aggregated.accountValue.toFixed(),
       totalMarginUsed: aggregated.totalMarginUsed.toFixed(),
@@ -1366,7 +1505,28 @@ export default class ServiceHyperliquid extends ServiceBase {
       totalRawUsd: aggregated.totalRawUsd.toFixed(),
       withdrawable: aggregated.withdrawable.toFixed(),
       totalUnrealizedPnl: aggregated.totalUnrealizedPnl.toFixed(),
-    });
+    };
+    await perpsActiveAccountSummaryAtom.set(summary);
+    void this.cacheService
+      .writePerpsAccountDisplaySummary(summary)
+      .catch((error: unknown) => {
+        console.warn(
+          '[updateActiveAccountSummaryFromClearinghouseState] failed to persist display cache:',
+          error,
+        );
+      });
+    if (summary.accountAddress) {
+      void this.cacheService
+        .writePerpsAccountDisplaySnapshot({
+          accountAddress: summary.accountAddress,
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[updateActiveAccountSummaryFromClearinghouseState] failed to persist display snapshot:',
+            error,
+          );
+        });
+    }
   }
 
   async updateSpotBalances(spotStateData: IWsSpotState) {
@@ -1425,17 +1585,41 @@ export default class ServiceHyperliquid extends ServiceBase {
       }
     }
 
+    const normalizedBalances = balances.map((b) => ({
+      coin: b.coin,
+      token: b.token,
+      total: b.total,
+      hold: b.hold,
+      entryNtl: b.entryNtl,
+    }));
+    const spotTotalUsd = totalUsd.toFixed();
     await perpsSpotBalancesAtom.set({
       accountAddress: activeAddress as IHex,
-      balances: balances.map((b) => ({
-        coin: b.coin,
-        token: b.token,
-        total: b.total,
-        hold: b.hold,
-        entryNtl: b.entryNtl,
-      })),
-      spotTotalUsd: totalUsd.toFixed(),
+      balances: normalizedBalances,
+      spotTotalUsd,
     });
+    void this.cacheService
+      .writePerpsAccountDisplaySnapshot({
+        accountAddress: activeAddress,
+      })
+      .catch((error: unknown) => {
+        console.warn(
+          '[updateSpotBalances] failed to persist display snapshot:',
+          error,
+        );
+      });
+    void this.cacheService
+      .writePerpsAccountDisplaySpotBalances({
+        accountAddress: activeAddress,
+        balances: normalizedBalances,
+        spotTotalUsd,
+      })
+      .catch((error: unknown) => {
+        console.warn(
+          '[updateSpotBalances] failed to persist display cache:',
+          error,
+        );
+      });
   }
 
   // Re-calculate spotTotalUsd from cached balances when allMids becomes available
@@ -1470,10 +1654,36 @@ export default class ServiceHyperliquid extends ServiceBase {
     const computed = totalUsd.toFixed();
     // Functional updater: only write if spotTotalUsd is still undefined
     // (avoids overwriting fresher data from a concurrent SPOT_STATE event)
+    let didWrite = false;
     await perpsSpotBalancesAtom.set((prev) => {
       if (!prev || prev.spotTotalUsd !== undefined) return prev;
+      didWrite = true;
       return { ...prev, spotTotalUsd: computed };
     });
+    if (didWrite) {
+      void this.cacheService
+        .writePerpsAccountDisplaySnapshot({
+          accountAddress: activeAddress,
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[recalculateSpotTotalUsd] failed to persist display snapshot:',
+            error,
+          );
+        });
+      void this.cacheService
+        .writePerpsAccountDisplaySpotBalances({
+          accountAddress: activeAddress,
+          balances,
+          spotTotalUsd: computed,
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[recalculateSpotTotalUsd] failed to persist display cache:',
+            error,
+          );
+        });
+    }
   }
 
   private _rebuildSpotMappings(universes: ISpotUniverse[]) {
@@ -1555,7 +1765,13 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async refreshSpotMeta() {
     const { infoClient } = hyperLiquidApiClients;
+    markPerpsColdStartPerf('service_refresh_spot_meta_start');
     const result = await infoClient.spotMetaAndAssetCtxs();
+    markPerpsColdStartPerf('service_refresh_spot_meta_response', {
+      tokenCount: result[0]?.tokens?.length ?? 0,
+      universeCount: result[0]?.universe?.length ?? 0,
+      assetCtxCount: result[1]?.length ?? 0,
+    });
     const meta = result[0];
     if (meta?.tokens && meta?.universe) {
       const tokens = meta.tokens;
@@ -1588,6 +1804,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       void this.updateSpotAssetCtxsMap(assetCtxs);
     }
     void this.refreshSpotExternalMarketCaps();
+    markPerpsColdStartPerf('service_refresh_spot_meta_end');
   }
 
   hideSelectAccountLoadingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1598,7 +1815,8 @@ export default class ServiceHyperliquid extends ServiceBase {
     walletId: string | null;
     indexedAccountId: string | null;
     deriveType: IAccountDeriveTypes;
-  }) {
+  }): Promise<IPerpsActiveAccountAtom | undefined> {
+    const requestId = this.beginActivePerpsAccountChange();
     const { indexedAccountId, accountId, deriveType } = params;
 
     const perpsAccount: IPerpsActiveAccountAtom = {
@@ -1616,6 +1834,9 @@ export default class ServiceHyperliquid extends ServiceBase {
           selectAccountLoading: true,
         }),
       );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
 
       if (indexedAccountId || accountId) {
         // Check if Bitcoin Only firmware for hardware wallets
@@ -1624,6 +1845,9 @@ export default class ServiceHyperliquid extends ServiceBase {
           await this.backgroundApi.serviceAccount.isBtcOnlyFirmwareByWalletId({
             walletId: params.walletId || '',
           });
+        if (!this.isLatestActivePerpsAccountChange(requestId)) {
+          return undefined;
+        }
 
         // If Bitcoin Only firmware, mark account as unsupported by clearing indexedAccountId
         if (isBtcOnlyFirmware) {
@@ -1642,6 +1866,9 @@ export default class ServiceHyperliquid extends ServiceBase {
             await this.backgroundApi.serviceAccount.getNetworkAccount(
               getNetworkAccountParams,
             );
+          if (!this.isLatestActivePerpsAccountChange(requestId)) {
+            return undefined;
+          }
           perpsAccount.accountAddress =
             (account.address?.toLowerCase() as IHex) || null;
           if (perpsAccount.accountAddress) {
@@ -1658,22 +1885,120 @@ export default class ServiceHyperliquid extends ServiceBase {
     } finally {
       clearTimeout(this.hideSelectAccountLoadingTimer);
       this.hideSelectAccountLoadingTimer = setTimeout(async () => {
+        if (!this.isLatestActivePerpsAccountChange(requestId)) {
+          return;
+        }
         await perpsAccountLoadingInfoAtom.set(
           (prev): IPerpsAccountLoadingInfo => ({
             ...prev,
             selectAccountLoading: false,
           }),
         );
-      }, 300);
+      }, HIDE_SELECT_ACCOUNT_LOADING_DELAY_MS);
     }
 
-    await perpsAbstractionModeAtom.set(undefined);
-    await perpsSpotBalancesAtom.set(undefined);
-    this.fetchUserAbstractionRawWithCache.clear();
-    // Also reset the UI-facing spot balances atom so stale balances from
-    // the previous account don't flash before the new SPOT_STATE arrives.
-    await spotBalancesAtom.set({ balances: [], isLoaded: false });
-    await perpsActiveAccountAtom.set(perpsAccount);
+    // Only wipe stale per-account data when the address actually changes.
+    // For same-address refreshes (e.g. refreshHook bump or tab refocus) we
+    // keep the existing summary/statusInfo so the UI doesn't flash an empty
+    // frame before the next WS push.
+    const previousAccount = await perpsActiveAccountAtom.get();
+    if (!this.isLatestActivePerpsAccountChange(requestId)) {
+      return undefined;
+    }
+    const previousAddress =
+      previousAccount?.accountAddress?.toLowerCase() ?? null;
+    const newAddress = perpsAccount.accountAddress?.toLowerCase() ?? null;
+    const isSameAddress =
+      previousAddress !== null &&
+      newAddress !== null &&
+      previousAddress === newAddress;
+
+    if (!isSameAddress) {
+      await perpsAbstractionModeAtom.set((prev) =>
+        this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
+      );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
+      await perpsSpotBalancesAtom.set((prev) =>
+        this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
+      );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
+      await perpsActiveAccountSummaryAtom.set((prev) =>
+        this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
+      );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
+      await perpsActiveAccountStatusInfoAtom.set((prev) =>
+        this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
+      );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
+      this.fetchUserAbstractionRawWithCache.clear();
+      // Also reset the UI-facing spot balances atom so stale balances from
+      // the previous account don't flash before the new SPOT_STATE arrives.
+      await spotBalancesAtom.set((prev) =>
+        this.isLatestActivePerpsAccountChange(requestId)
+          ? { balances: [], isLoaded: false }
+          : prev,
+      );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
+
+      // Hydrate display cache for the new address before publishing the new
+      // active account. Consumers still need address-aware reads because
+      // these atom writes are not a transaction.
+      if (perpsAccount.accountAddress) {
+        try {
+          await this.cacheService.hydratePerpsAccountDisplayCache(
+            perpsAccount.accountAddress,
+          );
+        } catch (error) {
+          console.warn(
+            '[changeActivePerpsAccount] hydrate display cache failed:',
+            error,
+          );
+        }
+        if (!this.isLatestActivePerpsAccountChange(requestId)) {
+          return undefined;
+        }
+      }
+    }
+
+    // Expose the new active account last. Account-value consumers must still
+    // verify address alignment because multiple atom sets are observable.
+    if (!this.isLatestActivePerpsAccountChange(requestId)) {
+      return undefined;
+    }
+    await perpsActiveAccountAtom.set((prev): IPerpsActiveAccountAtom => {
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return prev;
+      }
+      return perpsAccount;
+    });
+    if (!this.isLatestActivePerpsAccountChange(requestId)) {
+      return undefined;
+    }
+    if (
+      perpsAccount.accountAddress &&
+      this.isLatestActivePerpsAccountChange(requestId)
+    ) {
+      void this.cacheService
+        .writePerpsAccountDisplaySnapshot({
+          accountAddress: perpsAccount.accountAddress,
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[changeActivePerpsAccount] failed to persist display snapshot:',
+            error,
+          );
+        });
+    }
     return perpsAccount;
   }
 
@@ -1681,67 +2006,125 @@ export default class ServiceHyperliquid extends ServiceBase {
   async changeActiveAsset(params: {
     coin: string;
   }): Promise<IChangeActiveAssetResult> {
-    const requestId = (this.activeAssetChangeRequestId += 1);
+    markPerpsColdStartPerf('service_change_active_asset_start', {
+      coin: params.coin,
+    });
+    this.activeAssetChangeRequestId += 1;
+    const requestId = this.activeAssetChangeRequestId;
     const oldActiveAsset = await perpsActiveAssetAtom.get();
+    this.rememberCommittedActiveAsset(oldActiveAsset);
+    const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
-    const { universesByDex, marginTablesMapByDex } =
-      await this.getTradingUniverse();
+    const shouldSeedSubscriptionTarget = oldCoin !== newCoin;
 
-    const targetDexIndex = this.detectDexIndexByCoin(newCoin);
-    const dexUniverses: IPerpsUniverse[] | undefined =
-      universesByDex?.[targetDexIndex];
-    const dexMarginTables: IMarginTableMap | undefined =
-      marginTablesMapByDex?.[targetDexIndex];
+    try {
+      if (shouldSeedSubscriptionTarget) {
+        // The subscription runtime cannot see the UI-only optimistic
+        // instrument, so seed the target before trading metadata finishes.
+        await perpsActiveAssetAtom.set({
+          coin: newCoin,
+          assetId: undefined,
+          universe: undefined,
+          margin: undefined,
+        });
+      }
 
-    if (dexUniverses?.length === 0) {
-      return {
-        coin: oldActiveAsset?.coin || newCoin || '',
-        assetId: oldActiveAsset?.assetId,
-        universe: oldActiveAsset?.universe,
-        margin: oldActiveAsset?.margin,
+      const { universesByDex, marginTablesMapByDex } =
+        await this.getTradingUniverse();
+
+      const targetDexIndex = this.detectDexIndexByCoin(newCoin);
+      const dexUniverses: IPerpsUniverse[] | undefined =
+        universesByDex?.[targetDexIndex];
+      const dexMarginTables: IMarginTableMap | undefined =
+        marginTablesMapByDex?.[targetDexIndex];
+
+      if (dexUniverses?.length === 0) {
+        if (
+          shouldSeedSubscriptionTarget &&
+          requestId === this.activeAssetChangeRequestId
+        ) {
+          await perpsActiveAssetAtom.set(rollbackActiveAsset);
+        }
+        const result = {
+          coin: rollbackActiveAsset?.coin || newCoin || '',
+          assetId: rollbackActiveAsset?.assetId,
+          universe: rollbackActiveAsset?.universe,
+          margin: rollbackActiveAsset?.margin,
+        };
+        markPerpsColdStartPerf('service_change_active_asset_empty_universe', {
+          coin: result.coin,
+          assetId: result.assetId,
+        });
+        return result;
+      }
+
+      const selectedUniverse: IPerpsUniverse | undefined =
+        dexUniverses?.find((item) => item.name === newCoin) ||
+        dexUniverses?.[0];
+      if (requestId !== this.activeAssetChangeRequestId) {
+        const result = {
+          coin: oldActiveAsset?.coin || newCoin || '',
+          assetId: oldActiveAsset?.assetId,
+          universe: oldActiveAsset?.universe,
+          margin: oldActiveAsset?.margin,
+        };
+        markPerpsColdStartPerf('service_change_active_asset_stale_request', {
+          coin: result.coin,
+          assetId: result.assetId,
+        });
+        return result;
+      }
+
+      const assetId =
+        selectedUniverse?.assetId ??
+        dexUniverses?.findIndex(
+          (token) => token.name === selectedUniverse?.name,
+        ) ??
+        -1;
+      const selectedMargin = dexMarginTables?.[selectedUniverse?.marginTableId];
+      if (requestId !== this.activeAssetChangeRequestId) {
+        const result = {
+          coin: oldActiveAsset?.coin || newCoin || '',
+          assetId: oldActiveAsset?.assetId,
+          universe: oldActiveAsset?.universe,
+          margin: oldActiveAsset?.margin,
+        };
+        markPerpsColdStartPerf('service_change_active_asset_stale_request', {
+          coin: result.coin,
+          assetId: result.assetId,
+        });
+        return result;
+      }
+
+      const nextActiveAsset = {
+        coin: selectedUniverse?.name || newCoin || '',
+        assetId,
+        universe: selectedUniverse,
+        margin: selectedMargin,
       };
-    }
 
-    const selectedUniverse: IPerpsUniverse | undefined =
-      dexUniverses?.find((item) => item.name === newCoin) || dexUniverses?.[0];
-    if (requestId !== this.activeAssetChangeRequestId) {
-      return {
-        coin: oldActiveAsset?.coin || newCoin || '',
-        assetId: oldActiveAsset?.assetId,
-        universe: oldActiveAsset?.universe,
-        margin: oldActiveAsset?.margin,
-      };
+      await perpsActiveAssetAtom.set(nextActiveAsset);
+      this.rememberCommittedActiveAsset(nextActiveAsset);
+      if (oldCoin !== newCoin) {
+        await perpsActiveAssetCtxAtom.set(undefined);
+      }
+      markPerpsColdStartPerf('service_change_active_asset_end', {
+        coin: nextActiveAsset.coin,
+        assetId: nextActiveAsset.assetId,
+        hasUniverse: !!nextActiveAsset.universe,
+        hasMargin: !!nextActiveAsset.margin,
+      });
+      return nextActiveAsset;
+    } catch (error) {
+      if (
+        shouldSeedSubscriptionTarget &&
+        requestId === this.activeAssetChangeRequestId
+      ) {
+        await perpsActiveAssetAtom.set(rollbackActiveAsset);
+      }
+      throw error;
     }
-
-    const assetId =
-      selectedUniverse?.assetId ??
-      dexUniverses?.findIndex(
-        (token) => token.name === selectedUniverse?.name,
-      ) ??
-      -1;
-    const selectedMargin = dexMarginTables?.[selectedUniverse?.marginTableId];
-    if (requestId !== this.activeAssetChangeRequestId) {
-      return {
-        coin: oldActiveAsset?.coin || newCoin || '',
-        assetId: oldActiveAsset?.assetId,
-        universe: oldActiveAsset?.universe,
-        margin: oldActiveAsset?.margin,
-      };
-    }
-
-    const nextActiveAsset = {
-      coin: selectedUniverse?.name || newCoin || '',
-      assetId,
-      universe: selectedUniverse,
-      margin: selectedMargin,
-    };
-
-    await perpsActiveAssetAtom.set(nextActiveAsset);
-    if (oldCoin !== newCoin) {
-      await perpsActiveAssetCtxAtom.set(undefined);
-    }
-    return nextActiveAsset;
   }
 
   @backgroundMethod()
@@ -1769,7 +2152,12 @@ export default class ServiceHyperliquid extends ServiceBase {
   );
 
   @backgroundMethod()
-  async fetchUserAbstraction(userAddress: IHex): Promise<string | undefined> {
+  async fetchUserAbstraction(
+    userAddress: IHex,
+    options?: {
+      allowCachedFallback?: boolean;
+    },
+  ): Promise<string | undefined> {
     const lowerUserAddress = userAddress.toLowerCase() as IHex;
     // Active-account alignment check
     const activeAccount = await perpsActiveAccountAtom.get();
@@ -1809,7 +2197,18 @@ export default class ServiceHyperliquid extends ServiceBase {
       await perpsAbstractionModeAtom.set({
         accountAddress: lowerUserAddress,
         mode: mode as EHyperLiquidAbstractionMode,
+        source: 'live',
       });
+      void this.cacheService
+        .writePerpsAccountDisplaySnapshot({
+          accountAddress: lowerUserAddress,
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[fetchUserAbstraction] failed to persist display snapshot:',
+            error,
+          );
+        });
       return mode;
     } catch {
       // Fallback to SimpleDb cached value — need alignment checks around every await
@@ -1830,8 +2229,19 @@ export default class ServiceHyperliquid extends ServiceBase {
         await perpsAbstractionModeAtom.set({
           accountAddress: lowerUserAddress,
           mode: cached as EHyperLiquidAbstractionMode,
+          source: 'cache',
         });
-        return cached;
+        void this.cacheService
+          .writePerpsAccountDisplaySnapshot({
+            accountAddress: lowerUserAddress,
+          })
+          .catch((error: unknown) => {
+            console.warn(
+              '[fetchUserAbstraction] failed to persist cached display snapshot:',
+              error,
+            );
+          });
+        return options?.allowCachedFallback ? cached : undefined;
       }
       return undefined; // NOT "default" — unknown is unknown
     }
@@ -1844,6 +2254,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     isEnableTradingTrigger?: boolean;
   } = {}): Promise<void> {
     const { infoClient } = hyperLiquidApiClients;
+    markPerpsColdStartPerf('service_check_account_status_start', {
+      isEnableTradingTrigger,
+    });
     const statusDetails: IPerpsActiveAccountStatusDetails = {
       activatedOk: false,
       agentOk: false,
@@ -2010,6 +2423,14 @@ export default class ServiceHyperliquid extends ServiceBase {
           }),
         );
       }, 0);
+      markPerpsColdStartPerf('service_check_account_status_end', {
+        accountAddress: accountAddress ? 'set' : 'empty',
+        activatedOk: statusDetails.activatedOk,
+        agentOk: statusDetails.agentOk,
+        builderFeeOk: statusDetails.builderFeeOk,
+        internalRebateBoundOk: statusDetails.internalRebateBoundOk,
+        abstractionOk: statusDetails.abstractionOk,
+      });
     }
 
     // Deferred: bind referral code after loading resolves.

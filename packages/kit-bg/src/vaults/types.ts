@@ -144,6 +144,12 @@ export type IAccountDeriveTypes =
   | IAccountDeriveTypesBtc
   | IAccountDeriveTypesKaspa;
 
+export type INetworkDeriveInfo = {
+  deriveType: IAccountDeriveTypes;
+  mergeDeriveAssetsEnabled: boolean;
+  suffixToDeriveType?: Record<string, string>;
+};
+
 export type IVaultSettingsNetworkInfo = {
   addressPrefix: string;
   curve: ICurveName;

@@ -128,4 +128,37 @@ describe('planTradeSubscriptions', () => {
     expect(plan.spotAssetCtxsEnabled).toBe(false);
     expect(plan.shouldSyncSubscriptions).toBe(false);
   });
+
+  it('changes the subscription state key when route-only subscription flags change', () => {
+    const perpsOnlyPlan = planTradeSubscriptions({
+      activeInstrument: baseInstrument,
+      hasAccount: true,
+      orderBookOptions: { coin: 'BTC', assetId: 0 },
+      viewState: {
+        ...baseViewState,
+        routeFocused: true,
+        tokenSelectorOpen: true,
+        tokenSelectorTab: 'perps',
+      },
+    });
+    const spotSelectorPlan = planTradeSubscriptions({
+      activeInstrument: baseInstrument,
+      hasAccount: true,
+      orderBookOptions: { coin: 'BTC', assetId: 0 },
+      viewState: {
+        ...baseViewState,
+        routeFocused: true,
+        tokenSelectorOpen: true,
+        tokenSelectorTab: 'spot',
+      },
+    });
+
+    expect(perpsOnlyPlan.shouldSyncSubscriptions).toBe(true);
+    expect(spotSelectorPlan.shouldSyncSubscriptions).toBe(true);
+    expect(perpsOnlyPlan.spotAssetCtxsEnabled).toBe(false);
+    expect(spotSelectorPlan.spotAssetCtxsEnabled).toBe(true);
+    expect(perpsOnlyPlan.subscriptionStateKey).not.toBe(
+      spotSelectorPlan.subscriptionStateKey,
+    );
+  });
 });

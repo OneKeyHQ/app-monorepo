@@ -38,9 +38,11 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import { useEnableTradingWithDepositFallback } from '../../hooks/useEnableTradingWithDepositFallback';
+import { usePerpsMarketDataFreshness } from '../../hooks/usePerpsMarketDataFreshness';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
+import { shouldBlockPerpsTradingForMarketData } from '../../utils/perpsMarketDataFreshness';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 const sharedButtonProps = {
@@ -76,6 +78,9 @@ export function PerpTradingButton({
     usePerpsShouldShowEnableTradingButtonAtom();
   const [tradingMode] = useTradingModeAtom();
   const { midPrice } = useTradingPrice();
+  const marketDataFreshness = usePerpsMarketDataFreshness();
+  const shouldBlockForMarketData =
+    shouldBlockPerpsTradingForMarketData(marketDataFreshness);
   const themeVariant = useThemeVariant();
   const isSpot = tradingMode === 'spot';
 
@@ -276,6 +281,18 @@ export function PerpTradingButton({
   ]);
 
   const orderConfirm = useCallback(async () => {
+    if (shouldBlockForMarketData) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.perp_offline,
+        }),
+        message: intl.formatMessage({
+          id: ETranslations.perps_offline_moblie,
+        }),
+      });
+      return;
+    }
+
     if (isNoEnoughMargin) {
       showNoEnoughMarginToast();
       return;
@@ -289,14 +306,30 @@ export function PerpTradingButton({
     handleShowConfirm();
   }, [
     isNoEnoughMargin,
+    intl,
+    shouldBlockForMarketData,
     showNoEnoughMarginToast,
     validateTpslPrices,
     handleShowConfirm,
   ]);
 
-  if (loading || perpsAccountLoading?.selectAccountLoading) {
+  // Once an address is resolved, keep the CTA in a neutral disabled state
+  // until live statusInfo arrives. Cached status is not used here because
+  // perpsActiveAccountStatusAtom is part of the order permission path.
+  const isWaitingForLiveStatus =
+    !perpsAccountStatus.details && Boolean(perpsAccount?.accountAddress);
+  if (
+    loading ||
+    perpsAccountLoading?.selectAccountLoading ||
+    isWaitingForLiveStatus
+  ) {
     return (
-      <Button {...sharedButtonProps} disabled testID="perp-order-confirm-btn">
+      <Button
+        {...sharedButtonProps}
+        disabled
+        childrenAsText={false}
+        testID="perp-order-confirm-btn"
+      >
         <Spinner />
       </Button>
     );
@@ -366,7 +399,7 @@ export function PerpTradingButton({
           onPress={async () => {
             await enableTrading();
           }}
-          childrenAsText
+          childrenAsText={false}
         >
           <SizableText size="$bodyMdMedium" color="$textInverse">
             {intl.formatMessage({
@@ -396,6 +429,7 @@ export function PerpTradingButton({
       loading={perpsAccountLoading?.enableTradingLoading || isSubmitting}
       onPress={orderConfirm}
       disabled={buttonDisabled}
+      childrenAsText={false}
     >
       <SizableText color={buttonStyles.textColor} size="$bodyMdMedium">
         {buttonText}

@@ -14,9 +14,9 @@ import {
   Tabs,
   XStack,
   YStack,
-  isNativeTablet,
-  useIsSplitView,
+  useIsSplitDetailActive,
   usePageWidth,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -46,6 +46,12 @@ import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { usePerpResolvedMarketDetail } from '../hooks/usePerpMarketDetail';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../utils/mobileLayoutTrace';
 
 const IOS_CHART_HEIGHT = 500;
 const IOS_CHART_BOTTOM_OVERLAP = 56;
@@ -195,13 +201,25 @@ function useNativeGestureTouchScrollGuard({
 
 function MobilePerpCandlesTouchBridge() {
   const rawTouchScroll = useMobileTabTouchScrollBridge();
+  const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const { handleGestureActiveChange, handleTouchScroll } =
     useNativeGestureTouchScrollGuard({
       onTouchScroll: rawTouchScroll,
     });
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const rect = getPerpsMobileLayoutTraceRect(event);
+    if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
+      tracePerpsMobileLayout('mobileMarket.candlesTouchBridge.layout', {
+        rect,
+        chartHeight: IOS_CHART_HEIGHT,
+        bottomOverlap: IOS_CHART_BOTTOM_OVERLAP,
+      });
+      layoutRef.current = rect;
+    }
+  }, []);
 
   return (
-    <YStack mb={-IOS_CHART_BOTTOM_OVERLAP}>
+    <YStack mb={-IOS_CHART_BOTTOM_OVERLAP} onLayout={handleLayout}>
       <MobilePerpMarketHeader />
       <HeaderScrollGestureWrapper
         panActiveOffsetY={[-4, 4]}
@@ -221,8 +239,17 @@ function MobilePerpCandlesTouchBridge() {
 }
 
 function MobilePerpCandlesStatic() {
+  const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const rect = getPerpsMobileLayoutTraceRect(event);
+    if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
+      tracePerpsMobileLayout('mobileMarket.candlesStatic.layout', { rect });
+      layoutRef.current = rect;
+    }
+  }, []);
+
   return (
-    <YStack>
+    <YStack onLayout={handleLayout}>
       <MobilePerpMarketHeader />
       <YStack flex={1} minHeight={500}>
         <PerpCandles />
@@ -241,6 +268,9 @@ function MobilePerpMarket() {
   const pageWidth = usePageWidth();
   const [containerWidth, setContainerWidth] = useState(0);
   const scrollViewRef = useRef<IScrollViewRef>(null);
+  const layoutRectsRef = useRef<
+    Record<string, IPerpsMobileLayoutTraceRect | undefined>
+  >({});
   const effectivePageWidth = useMemo(() => {
     if (containerWidth > 0) {
       return containerWidth;
@@ -267,6 +297,8 @@ function MobilePerpMarket() {
     });
   }, [navigation]);
 
+  const isSplitDetailActive = useIsSplitDetailActive();
+
   const renderHeaderTitle = useCallback(() => {
     let pairLabel: string;
     if (mode === 'spot') {
@@ -287,9 +319,9 @@ function MobilePerpMarket() {
       <XStack
         alignItems="center"
         gap="$2"
-        onPress={onPressTokenSelector}
-        hoverStyle={{ opacity: 0.8 }}
-        pressStyle={{ opacity: 0.6 }}
+        onPress={isSplitDetailActive ? undefined : onPressTokenSelector}
+        hoverStyle={isSplitDetailActive ? undefined : { opacity: 0.8 }}
+        pressStyle={isSplitDetailActive ? undefined : { opacity: 0.6 }}
         cursor="default"
       >
         <Token
@@ -303,23 +335,26 @@ function MobilePerpMarket() {
         />
         <SizableText size="$headingLg">{pairLabel}</SizableText>
         <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
-        <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+        {isSplitDetailActive ? null : (
+          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+        )}
       </XStack>
     );
-  }, [baseName, displayName, mode, onPressTokenSelector, themeVariant]);
-
-  const isTablet = isNativeTablet();
-  const isLandscape = useIsSplitView();
+  }, [
+    baseName,
+    displayName,
+    isSplitDetailActive,
+    mode,
+    onPressTokenSelector,
+    themeVariant,
+  ]);
   useEffect(() => {
-    if (isTablet && isLandscape) {
-      return;
-    }
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 
     return () => {
       appEventBus.emit(EAppEventBusNames.HideTabBar, false);
     };
-  }, [isLandscape, isTablet]);
+  }, []);
 
   const scrollToTab = useCallback(
     (tab: IMobilePerpMarketTab, animated = true) => {
@@ -342,14 +377,69 @@ function MobilePerpMarket() {
     [scrollToTab],
   );
 
-  const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
-    const nextWidth = Math.round(event.nativeEvent.layout.width);
-    if (nextWidth > 0) {
-      setContainerWidth((prevWidth) =>
-        prevWidth === nextWidth ? prevWidth : nextWidth,
-      );
-    }
-  }, []);
+  const handleContainerLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      const nextWidth = Math.round(event.nativeEvent.layout.width);
+      if (nextWidth > 0) {
+        setContainerWidth((prevWidth) =>
+          prevWidth === nextWidth ? prevWidth : nextWidth,
+        );
+      }
+      if (
+        isPerpsMobileLayoutTraceRectChanged(
+          layoutRectsRef.current.container,
+          rect,
+        )
+      ) {
+        tracePerpsMobileLayout('mobileMarket.container.layout', {
+          rect,
+          activeTab,
+          effectivePageWidth,
+          platform: platformEnv.isNativeIOS ? 'ios' : 'native',
+        });
+        layoutRectsRef.current.container = rect;
+      }
+    },
+    [activeTab, effectivePageWidth],
+  );
+
+  const handleTraceLayout = useCallback(
+    (name: string, event: LayoutChangeEvent) => {
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (
+        isPerpsMobileLayoutTraceRectChanged(layoutRectsRef.current[name], rect)
+      ) {
+        tracePerpsMobileLayout(`mobileMarket.${name}.layout`, {
+          rect,
+          activeTab,
+          effectivePageWidth,
+          hasInfoTabMounted,
+        });
+        layoutRectsRef.current[name] = rect;
+      }
+    },
+    [activeTab, effectivePageWidth, hasInfoTabMounted],
+  );
+
+  useEffect(() => {
+    tracePerpsMobileLayout('mobileMarket.state', {
+      activeTab,
+      hasInfoTabMounted,
+      effectivePageWidth,
+      activeCoin: activeTradeInstrument.coin,
+      mode,
+      marketDetailDisplayName,
+      isNativeIOS: platformEnv.isNativeIOS,
+    });
+  }, [
+    activeTab,
+    activeTradeInstrument.coin,
+    effectivePageWidth,
+    hasInfoTabMounted,
+    marketDetailDisplayName,
+    mode,
+  ]);
 
   useEffect(() => {
     const alignTimer = setTimeout(() => {
@@ -370,15 +460,44 @@ function MobilePerpMarket() {
     [activeTradeInstrument.coin, mode],
   );
 
+  // In split-view detail (SUB) pane the page is rendered inline rather than
+  // as a navigator screen, so `Page.Header` (which goes through
+  // navigation.setOptions) is a no-op and the user loses the pair selector +
+  // favorite button. Render those controls as an inline XStack at the top of
+  // Page.Body in that mode, and keep `Page.Header` for the modal route case.
   const pageHeader = useMemo(
-    () => (
-      <Page.Header
-        headerShown
-        headerTitle={renderHeaderTitle}
-        headerRight={renderHeaderRight}
-      />
-    ),
-    [renderHeaderTitle, renderHeaderRight],
+    () =>
+      isSplitDetailActive ? (
+        // Inline render in the SUB pane: explicitly suppress the navigator's
+        // default header so it doesn't reserve top-of-pane space on top of
+        // our `inlineHeader` XStack inside Page.Body.
+        <Page.Header headerShown={false} />
+      ) : (
+        <Page.Header
+          headerShown
+          headerTitle={renderHeaderTitle}
+          headerRight={renderHeaderRight}
+        />
+      ),
+    [isSplitDetailActive, renderHeaderTitle, renderHeaderRight],
+  );
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  const inlineHeader = useMemo(
+    () =>
+      isSplitDetailActive ? (
+        <XStack
+          px="$4"
+          pt={safeAreaTop + 8}
+          pb="$2"
+          alignItems="center"
+          justifyContent="space-between"
+          bg="$bgApp"
+        >
+          {renderHeaderTitle()}
+          {renderHeaderRight()}
+        </XStack>
+      ) : null,
+    [isSplitDetailActive, renderHeaderTitle, renderHeaderRight, safeAreaTop],
   );
 
   const marketHeaderContent = useMemo(() => <MobilePerpCandlesStatic />, []);
@@ -417,11 +536,16 @@ function MobilePerpMarket() {
     <Page scrollEnabled={pageScrollEnabled}>
       {pageHeader}
       <Page.Body p="$0">
+        {inlineHeader}
         <YStack
           flex={1}
           bg="$bgApp"
           onLayout={handleContainerLayout}
-          pt={platformEnv.isNativeIOS26Plus ? headerHeight : 0}
+          pt={
+            !isSplitDetailActive && platformEnv.isNativeIOS26Plus
+              ? headerHeight
+              : 0
+          }
         >
           <MobilePerpMarketTabBar
             activeTab={activeTab}
@@ -436,9 +560,24 @@ function MobilePerpMarket() {
             showsHorizontalScrollIndicator={false}
             bounces={false}
             contentContainerStyle={{ minHeight: '100%' }}
+            onLayout={(event) => handleTraceLayout('horizontalPager', event)}
           >
-            <YStack w={effectivePageWidth} flex={1} minHeight={0}>
-              {platformEnv.isNativeIOS ? (
+            <YStack
+              w={effectivePageWidth}
+              flex={1}
+              minHeight={0}
+              {...(isSplitDetailActive ? { overflow: 'hidden' } : null)}
+              onLayout={(event) => handleTraceLayout('orderbookPage', event)}
+            >
+              {/* eslint-disable-next-line no-nested-ternary */}
+              {isSplitDetailActive ? (
+                <YStack flex={1}>
+                  <MobilePerpMarketHeader />
+                  <YStack flex={1} overflow="hidden">
+                    <PerpCandles />
+                  </YStack>
+                </YStack>
+              ) : platformEnv.isNativeIOS ? (
                 <Tabs.Container
                   initialTabName="orderbook"
                   renderHeader={() => <MobilePerpCandlesTouchBridge />}
@@ -449,7 +588,13 @@ function MobilePerpMarket() {
                       showsVerticalScrollIndicator={false}
                       contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
                     >
-                      <YStack>{orderBookContent}</YStack>
+                      <YStack
+                        onLayout={(event) =>
+                          handleTraceLayout('iosOrderbookTabContent', event)
+                        }
+                      >
+                        {orderBookContent}
+                      </YStack>
                     </Tabs.ScrollView>
                   </Tabs.Tab>
                 </Tabs.Container>
@@ -460,7 +605,13 @@ function MobilePerpMarket() {
                 </YStack>
               )}
             </YStack>
-            <YStack w={effectivePageWidth} flex={1} minHeight={0}>
+            <YStack
+              w={effectivePageWidth}
+              flex={1}
+              minHeight={0}
+              {...(isSplitDetailActive ? { overflow: 'hidden' } : null)}
+              onLayout={(event) => handleTraceLayout('infoPage', event)}
+            >
               {hasInfoTabMounted ? (
                 <ScrollView
                   flex={1}
@@ -474,7 +625,7 @@ function MobilePerpMarket() {
           </ScrollView>
         </YStack>
       </Page.Body>
-      {pageFooter}
+      {isSplitDetailActive ? null : pageFooter}
     </Page>
   );
 }
