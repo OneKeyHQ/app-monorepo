@@ -15,9 +15,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { WebAccountPanelPopover } from './WebAccountPanelPopover';
+
 export interface IWebAccountSelectorTriggerProps {
   tabRoute: ETabRoutes;
-  onPress?: () => void;
 }
 
 function PerpsBalancePillInner() {
@@ -80,7 +81,6 @@ function PerpsBalancePill() {
 
 export function WebAccountSelectorTrigger({
   tabRoute,
-  onPress,
 }: IWebAccountSelectorTriggerProps) {
   const {
     activeAccount: { account, dbAccount, indexedAccount },
@@ -93,7 +93,7 @@ export function WebAccountSelectorTrigger({
   const isPerpsRoute =
     tabRoute === ETabRoutes.Perp || tabRoute === ETabRoutes.WebviewPerpTrade;
 
-  return (
+  const trigger = (
     <XStack
       h="$8"
       ai="center"
@@ -104,8 +104,6 @@ export function WebAccountSelectorTrigger({
       gap="$2"
       cursor="pointer"
       hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
-      onPress={onPress}
       role="button"
       testID="web-account-selector-trigger"
     >
@@ -122,4 +120,6 @@ export function WebAccountSelectorTrigger({
       {isPerpsRoute ? <PerpsBalancePill /> : null}
     </XStack>
   );
+
+  return <WebAccountPanelPopover renderTrigger={trigger} connected />;
 }

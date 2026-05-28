@@ -3,19 +3,23 @@ import { useIntl } from 'react-intl';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-export interface IWebSettingsTriggerProps {
-  onPress?: () => void;
-}
+import { WebAccountPanelPopover } from './WebAccountPanelPopover';
 
-export function WebSettingsTrigger({ onPress }: IWebSettingsTriggerProps) {
+export function WebSettingsTrigger() {
   const intl = useIntl();
-  return (
+  const trigger = (
     <HeaderIconButton
       size="medium"
       icon="DotHorOutline"
       title={intl.formatMessage({ id: ETranslations.settings_settings })}
-      onPress={onPress}
       testID="web-settings-trigger"
+    />
+  );
+  return (
+    <WebAccountPanelPopover
+      renderTrigger={trigger}
+      initialView="settings"
+      connected={false}
     />
   );
 }
