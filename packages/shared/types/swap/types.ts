@@ -580,6 +580,7 @@ export interface IFetchQuoteResult {
   isWrapped?: boolean;
   unSupportReceiveAddressDifferent?: boolean;
   routesData?: IQuoteRoutePath[];
+  openRouterInfo?: boolean;
   quoteExtraData?: IQuoteExtraData;
   autoSuggestedSlippage?: number;
   unSupportSlippage?: boolean;
@@ -1105,6 +1106,13 @@ export interface IFetchSpeedCheckResult {
   };
   fromTokenInfo?: ISwapTokenBase;
   toTokenInfo?: ISwapTokenBase;
+}
+
+export interface IFetchUSMarketStatusResult {
+  open: boolean;
+  session: 'PRE_MARKET' | 'REGULAR' | 'POST_MARKET' | 'OVERNIGHT' | 'CLOSED';
+  reason: string | null;
+  unavailable?: boolean;
 }
 
 export enum ESwapLimitOrderStatus {
