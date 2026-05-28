@@ -185,7 +185,12 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
       /* fallback to default initialValue */
     }
   } else {
-    // Non-native: use pre-loaded snapshot from __ONEKEY_JOTAI_INIT_STATES__
+    // Non-native: opt-in snapshot injection used by jotaiInitFromUi's fast
+    // path (extension / native BG→UI bridge with useSnapshotInjection:true).
+    // Cold-start L1 mirror was REMOVED on web/desktop — hydrate.ts no longer
+    // writes to this global. So in practice on web/desktop this stays
+    // undefined and atoms initialize from defaults; jotaiInit reconciles
+    // from source-of-truth IDB asynchronously.
     const snapshotStates = (globalThis as any).__ONEKEY_JOTAI_INIT_STATES__;
     if (snapshotStates && name && name in snapshotStates) {
       const cached = snapshotStates[name];

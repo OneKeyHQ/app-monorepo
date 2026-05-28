@@ -8,19 +8,18 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-// Web/desktop split the gate into two paths:
-//  - "happy path": cold-start hydration recovered non-empty L1 entries
-//    (didHydrate === true). Release the React mount gate immediately so the
-//    TTI win from L1 priming is preserved. jotaiInit continues reconciling
-//    in the background and may trigger one re-render per persist atom.
-//  - "fallback path": cold-start hydration recovered nothing
-//    (didHydrate === false: fresh install, kill switch, timeout with no
-//    entries, error) OR the hydration ready promise rejected. In that case
-//    we additionally await globalJotaiStorageReadyHandler so the
-//    source-of-truth values are in jotai before React mounts — trading TTI
-//    for correctness exactly in cases where the L1 priming had nothing to
-//    contribute anyway. A max-wait safety timer guarantees the gate always
-//    releases even if both handlers somehow never settle.
+// Web/desktop gate the React mount on BOTH:
+//   - globalJotaiStorageReadyHandler: source-of-truth atoms have been
+//     reconciled from JotaiStorage IDB into the jotai store, so first render
+//     sees real values rather than defaults.
+//   - globalColdStartHydrationReadyHandler: cold-start hydration has
+//     populated globalThis.__ONEKEY_CTX_ATOM_SNAPSHOT__ (L2). Without this,
+//     a JotaiContextStore Provider that mounts immediately after React
+//     mount would call hydrateContextColdStartCacheForProvider before the
+//     snapshot is in globalThis and silently no-op.
+// L1 (per-atom mirror) was removed, so there is no "happy path early
+// release" — both gates are simply awaited in parallel under a single
+// safety timer.
 // Native/extension keep the existing single-handler gate to preserve their
 // current boot semantics.
 const isWebOrDesktop = platformEnv.isWeb || platformEnv.isDesktop;
@@ -53,10 +52,9 @@ function withTimeout<T>(
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        // Rejection is surfaced as 'timeout' so the caller treats it as a
-        // degraded path (same as didHydrate=false). The cold-start handler
-        // currently resolves with a boolean and never rejects, but we guard
-        // anyway per the task contract.
+        // Rejection treated as timeout — both downstream consumers tolerate
+        // missing data (fall back to defaults). Currently neither handler
+        // rejects, but guard for safety.
         resolve('timeout');
       },
     );
@@ -64,24 +62,13 @@ function withTimeout<T>(
 }
 
 async function waitForJotaiReadyOnWebOrDesktop(): Promise<void> {
-  // Race the cold-start hydration ready promise against the safety timer.
-  const coldStartResult = await withTimeout(
-    globalColdStartHydrationReadyHandler.ready,
-    GATE_SAFETY_TIMEOUT_MS,
-  );
-  if (coldStartResult === true) {
-    // Happy path: L1 had data, mount immediately.
-    return;
-  }
-  // Fallback path: either didHydrate=false, the promise rejected, or the
-  // safety timer fired. Wait for jotaiInit's reconcile loop to publish
-  // source-of-truth values — bounded by the remaining safety budget so the
-  // gate cannot hang. If the timer already fired above, release now.
-  if (coldStartResult === 'timeout') {
-    return;
-  }
+  // Wait both gates in parallel under a shared 5s safety cap. Either gate
+  // failing to settle is acceptable — consumers degrade to defaults.
   await withTimeout(
-    globalJotaiStorageReadyHandler.ready,
+    Promise.all([
+      globalColdStartHydrationReadyHandler.ready,
+      globalJotaiStorageReadyHandler.ready,
+    ]),
     GATE_SAFETY_TIMEOUT_MS,
   );
 }
@@ -103,14 +90,14 @@ function logGlobalJotaiReady(message: string) {
 
 function isReadySync(): boolean {
   if (isWebOrDesktop) {
-    // The web/desktop gate is "ready" the moment cold-start hydration has
-    // resolved with didHydrate=true. If didHydrate=false we still need to
-    // wait on the jotai storage handler, so report not-ready in that case.
-    if (globalColdStartHydrationReadyHandler.isReady) {
-      if (globalColdStartHydrationReadyHandler.didHydrate) return true;
-      return globalJotaiStorageReadyHandler.isReady;
-    }
-    return false;
+    // Both gates must have settled before we can claim sync-ready. Without
+    // L1 there is no "fast happy path" — the source-of-truth handler is
+    // required for atom correctness, the cold-start handler is required so
+    // the L2 ctx snapshot is in globalThis before any Provider mounts.
+    return (
+      globalColdStartHydrationReadyHandler.isReady &&
+      globalJotaiStorageReadyHandler.isReady
+    );
   }
   return globalJotaiStorageReadyHandler.isReady;
 }

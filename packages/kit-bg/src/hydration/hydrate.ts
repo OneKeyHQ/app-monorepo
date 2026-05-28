@@ -2,6 +2,14 @@
 // polyfills in `apps/web/index.js` (and `apps/desktop/index.js`); runs at
 // module load so the hydration promise is fired before React mounts.
 //
+// L1 (per-atom globalAtom mirror) was REMOVED to avoid duplicating sensitive
+// PersistAtom fields (sensitiveEncodeKey, encryptedSecurityPasswordR1) into
+// a second IDB store. Web/desktop globalAtoms now reconcile asynchronously
+// via jotaiInit (same as the pre-PR behavior) — short flicker is accepted
+// in exchange for keeping sensitive material in a single store. L2 (context
+// atom snapshot) and L3 (SWR cache) remain because they introduce *new*
+// persistence channels rather than mirroring existing source-of-truth data.
+//
 // Storage isolation: the cold-start IDB lives in its own bucket on
 // Chromium (Chrome / Edge / Electron) via navigator.storageBuckets, and in
 // the default-origin IDB factory on Firefox / Safari. See
@@ -11,19 +19,16 @@
 // What this module does (in module-load order):
 //   1. Opens IndexedDB('onekey-cold-start-cache') and reads all entries.
 //   2. On build-hash mismatch (or legacy unmarked DB with real entries),
-//      clears the DB, replays any in-flight mirror writes, and writes the
-//      new marker eagerly (bounded force-flush) so the very next reload
-//      sees a marked DB.
+//      clears the DB and writes the new marker eagerly (bounded force-
+//      flush) so the very next reload sees a marked DB.
 //   3. Primes the in-memory map that backs webColdStartStorage so all
 //      synchronous reads by swrCacheUtils / coldStartCacheStorage succeed.
-//   4. Populates globalThis.__ONEKEY_JOTAI_INIT_STATES__ (L1) from
-//      'jotai/<name>' entries.
-//   5. Populates globalThis.__ONEKEY_CTX_ATOM_SNAPSHOT__ (L2) from the
+//   4. Populates globalThis.__ONEKEY_CTX_ATOM_SNAPSHOT__ (L2) from the
 //      'onekey_jotai_context_atoms_snapshot' single-key blob.
-//   6. L3 (SWR cache) needs no explicit prime: swrCacheUtils.loadStore()
+//   5. L3 (SWR cache) needs no explicit prime: swrCacheUtils.loadStore()
 //      lazily reads coldStartCacheStorage on first use, which is now backed
 //      by our pre-populated map.
-//   7. Always resolves globalColdStartHydrationReadyHandler in `finally`
+//   6. Always resolves globalColdStartHydrationReadyHandler in `finally`
 //      so GlobalJotaiReady (web/desktop branch) can unblock React. The
 //      resolved value is a `didHydrate` boolean for telemetry; the gate
 //      releases regardless of value.
@@ -34,14 +39,13 @@
 //   • Private mode / quota=0 — openIDB rejects
 //   • Build hash mismatch — clear DB, fall back to defaults
 //   • IDB stall — capped by HYDRATION_TIMEOUT_MS (300ms). On timeout we
-//     leave any early mirror writes from setColdStartL1MirrorEntry intact,
-//     set globalThis.__ONEKEY_COLD_START_TIMEOUT__ = true, and unblock the
+//     set globalThis.__ONEKEY_COLD_START_TIMEOUT__ = true and unblock the
 //     ready gate so React can still mount.
 //
 // Telemetry: globalThis.__ONEKEY_COLD_START_RESULT__ holds one of
 //   'success' | 'timeout' | 'error' | 'killed'
-// describing the terminal state. 'success' means at least one entry was
-// primed from IDB; everything else fell back to defaults.
+// describing the terminal state. 'success' means at least the L2 ctx
+// snapshot was primed from IDB; everything else fell back to defaults.
 
 /* eslint-disable no-console */
 
@@ -50,7 +54,6 @@ import {
   flushColdStartCacheNow,
   primeColdStartCacheMap,
   readAllColdStartEntriesFromIdb,
-  replayColdStartEntries,
   resetColdStartCache,
   writeColdStartMeta,
 } from '@onekeyhq/shared/src/storage/instance/webColdStartStorage';
@@ -61,7 +64,6 @@ import type { IColdStartHydrationStatus } from '../states/jotai/coldStartReady';
 
 // ---- Constants ----
 
-const JOTAI_KEY_PREFIX = 'jotai/';
 const META_KEY_PREFIX = '__meta:';
 const CTX_SNAPSHOT_KEY = 'onekey_jotai_context_atoms_snapshot';
 const BUILD_HASH_KEY = '__meta:buildHash';
@@ -116,24 +118,6 @@ function readKillSwitch(): boolean {
   } catch {
     return false;
   }
-}
-
-function parseL1InitStates(
-  entries: Map<string, unknown>,
-): Record<string, unknown> {
-  const initStates: Record<string, unknown> = {};
-  for (const [k, v] of entries) {
-    if (k.startsWith(JOTAI_KEY_PREFIX)) {
-      const atomName = k.slice(JOTAI_KEY_PREFIX.length);
-      // L1 jotai entries are stored RAW (IDB structured-cloned them) so the
-      // fidelity matches the source-of-truth JotaiStorage. No JSON.parse —
-      // doing so would only re-introduce the round-trip losses (Date/Map/
-      // Set/BigInt) that motivated this change and would make the post-
-      // jotaiInit isEqual guard flap.
-      initStates[atomName] = v;
-    }
-  }
-  return initStates;
 }
 
 function parseL2CtxSnapshot(
@@ -200,22 +184,6 @@ const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
 let status: IColdStartHydrationStatus = 'error';
 let didHydrate = false;
 
-// Strategy for preserving in-flight mirror writes across a reset (F8):
-// snapshot+replay. We grab a copy of the in-memory map BEFORE
-// resetColdStartCache wipes it, then re-apply the non-meta entries via
-// replayColdStartEntries AFTER the reset and after the new BUILD_HASH marker
-// is written. This is preferred over a hydrate-start lock because the lock
-// would require gating setColdStartL1MirrorEntry from outside this module,
-// which leaks hydration internals into jotaiStorage.ts.
-function snapshotInMemoryMap(): Map<string, unknown> {
-  const g = globalThis as Record<string, unknown>;
-  const map = g.__ONEKEY_COLD_START_CACHE_MAP__ as
-    | Map<string, unknown>
-    | undefined;
-  if (!map) return new Map();
-  return new Map(map);
-}
-
 // Count entries excluding internal meta-keys. Used by the F6 invalidation
 // path to distinguish a brand-new DB (no entries, no marker) from a legacy
 // DB that predates the BUILD_HASH marker (real entries, no marker).
@@ -253,8 +221,8 @@ const promise: Promise<void> = (async () => {
       HYDRATION_TIMEOUT_MS,
     );
     if (result === undefined) {
-      // Timed out — leave the in-memory map untouched (any early mirror
-      // writes from setColdStartL1MirrorEntry stay) and bail. The empty
+      // Timed out — leave the in-memory map untouched (any early facade
+      // writes from swrCacheUtils etc. stay) and bail. The empty
       // pre-hydration map degrades to defaults via jotaiInit.
       setGlobal('__ONEKEY_COLD_START_TIMEOUT__', true);
       status = 'timeout';
@@ -286,26 +254,22 @@ const promise: Promise<void> = (async () => {
       (storedHash !== undefined && storedHash !== BUILD_HASH) ||
       (storedHash === undefined && countNonMetaEntries(entries) > 0);
     if (isMismatch) {
-      // F8: snapshot any mirror writes that landed between module-load and
-      // now, so resetColdStartCache doesn't drop fresh user data.
-      const liveSnapshot = snapshotInMemoryMap();
       try {
         await resetColdStartCache();
       } catch (e) {
+        // Surface the wipe failure as a terminal error: stale entries (which
+        // may include legacy L1 jotai/* keys from a prior build) MUST NOT
+        // survive into the prime path, otherwise hydration could re-publish
+        // values written under a different schema. Falling through with the
+        // marker-write step would also fail against the same broken IDB.
         setGlobal('__ONEKEY_COLD_START_ERROR__', e);
+        status = 'error';
+        return;
       }
       // Drop the stale entries; the freshly-written marker (below) is what
-      // future cold starts will see.
+      // future cold starts will see. L1 mirror was removed, so there are no
+      // in-flight mirror writes to replay across the reset.
       entries = new Map();
-      // Replay non-meta entries from the snapshot — meta keys would only
-      // reintroduce the now-cleared stale BUILD_HASH marker.
-      const replayEntries: [string, unknown][] = [];
-      for (const [k, v] of liveSnapshot) {
-        if (!k.startsWith(META_KEY_PREFIX)) replayEntries.push([k, v]);
-      }
-      if (replayEntries.length > 0) {
-        replayColdStartEntries(replayEntries);
-      }
     }
   }
 
@@ -327,21 +291,18 @@ const promise: Promise<void> = (async () => {
     }
   }
 
-  // L1: per-atom snapshot consumed at crossAtomBuilder (utils/index.ts:189)
-  setGlobal('__ONEKEY_JOTAI_INIT_STATES__', parseL1InitStates(entries));
-
-  // L2: contextAtom snapshot consumed at hydrateContextColdStartCacheForProvider
-  setGlobal('__ONEKEY_CTX_ATOM_SNAPSHOT__', parseL2CtxSnapshot(entries));
+  // L2: contextAtom snapshot consumed at hydrateContextColdStartCacheForProvider.
+  // didHydrate is driven by this — it is the only layer whose presence affects
+  // first paint now that L1 is removed. L3 hits the primed map lazily and has
+  // no observable mount-time signal.
+  const ctxSnapshot = parseL2CtxSnapshot(entries);
+  setGlobal('__ONEKEY_CTX_ATOM_SNAPSHOT__', ctxSnapshot);
 
   // L3: swrCacheUtils.loadStore() lazily reads coldStartCacheStorage on first
   // call → hits the primed map automatically. No explicit step needed here.
 
-  // Mark success iff at least one entry was primed from IDB. An empty post-
-  // reset entries map still counts as a successful hydration cycle (we wrote
-  // a fresh marker), but didHydrate stays false so telemetry can see we fell
-  // back to defaults.
   status = 'success';
-  didHydrate = entries.size > 0;
+  didHydrate = Object.keys(ctxSnapshot).length > 0;
 })()
   .catch((e: unknown) => {
     setGlobal('__ONEKEY_COLD_START_ERROR__', e);

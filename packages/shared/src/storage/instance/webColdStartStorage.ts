@@ -1,6 +1,11 @@
 // Web/desktop cold-start cache backend. Replaces the no-op stub previously
 // returned by `coldStartCacheStorage` on non-native platforms.
 //
+// Stores L2 contextAtom snapshot + L3 SWR cache only. L1 per-atom globalAtom
+// mirror was removed to avoid duplicating sensitive PersistAtom fields
+// (sensitiveEncodeKey, encryptedSecurityPasswordR1) into a second IDB. Web/
+// desktop globalAtoms reconcile asynchronously via jotaiInit instead.
+//
 // Layered design:
 //   • In-memory Map (globalThis.__ONEKEY_COLD_START_CACHE_MAP__) — primed by
 //     apps/web/src/hydration/hydrate.ts at boot, read synchronously by every
@@ -12,19 +17,9 @@
 // lets us keep ISyncStorage's synchronous contract while still using
 // IndexedDB (which has no sync API).
 //
-// Value fidelity: jotai L1 mirror entries are stored as RAW values (not
-// JSON-stringified). IndexedDB structured-clones values natively, which
-// preserves Date / Map / Set / BigInt round-trip — matching the source-of-
-// truth JotaiStorage which also relies on IDB structured clone. This is
-// load-bearing for the post-jotaiInit `isEqual` guard in jotai utils:
-// values that have been through a JSON round trip would diverge from the structured-cloned ones
-// the reconciler reads from the source-of-truth IDB, causing spurious
-// `store.set` calls and visible flicker.
-//
-// Meta/SWR-style entries (build hash string, SWR JSON blob, context-atom
-// snapshot JSON blob) remain stored as strings because their producers
-// (writeColdStartMeta + the ISyncStorage facade setObject/setString
-// callers) already serialize on the way in.
+// Value fidelity: all entries are stored as strings — the ISyncStorage
+// facade callers (writeColdStartMeta + setObject/setString) serialize on
+// the way in, getString returns the raw string on the way out.
 //
 // Storage isolation: the IndexedDBPromised wrapper prefers
 // `navigator.storageBuckets` (Chromium only — Chrome / Edge / Electron) so
@@ -36,8 +31,7 @@
 //
 // Hydration timing: hydrate.ts wraps readAllColdStartEntriesFromIdb with a
 // 300ms timeout (HYDRATION_TIMEOUT_MS). On timeout, primeColdStartCacheMap
-// is NOT called, so any early setColdStartL1MirrorEntry writes survive and
-// missing keys fall through to atom defaults via jotaiInit.
+// is NOT called, so missing L2 keys fall through to context-atom defaults.
 
 import { isPlainObject } from 'lodash';
 
@@ -70,17 +64,17 @@ function getMap(): Map<string, unknown> {
 }
 
 /** Merge entries loaded from IDB into the in-memory map. Called by
- *  hydrate.ts after its IDB getAll resolves. Values are raw (whatever IDB
- *  structured-clone returned — objects, strings, etc.). */
+ *  hydrate.ts after its IDB getAll resolves. Values are raw strings as
+ *  written by the ISyncStorage facade. */
 export function primeColdStartCacheMap(
   entries: Iterable<[string, unknown]>,
 ): void {
   const map = getMap();
   for (const [k, v] of entries) {
-    // Do NOT clobber entries already written by an early
-    // setColdStartL1MirrorEntry call that fired while hydrate.ts was still
-    // awaiting IDB. The local map is treated as more authoritative than the
-    // stale IDB snapshot for keys present in both.
+    // Do NOT clobber entries already written by a facade .set/.setObject
+    // call that fired while hydrate.ts was still awaiting IDB. The local
+    // map is treated as more authoritative than the stale IDB snapshot for
+    // keys present in both.
     if (!map.has(k)) {
       map.set(k, v);
     }
@@ -94,56 +88,6 @@ export function primeColdStartCacheMap(
  *  strings directly, so no JSON encoding here. */
 export function writeColdStartMeta(key: string, value: string): void {
   getMap().set(key, value);
-  scheduleFlush(key);
-}
-
-/** Re-apply a snapshot of entries back into the in-memory map and schedule
- *  them for IDB flush. Used by hydrate.ts after `resetColdStartCache` so
- *  any setColdStartL1MirrorEntry writes that landed between module-load and
- *  the build-hash mismatch detection are not lost. Values are raw — same
- *  fidelity contract as setColdStartL1MirrorEntry. */
-export function replayColdStartEntries(
-  snapshot: Iterable<[string, unknown]>,
-): void {
-  const map = getMap();
-  for (const [k, v] of snapshot) {
-    map.set(k, v);
-    scheduleFlush(k);
-  }
-}
-
-const L1_KEY_PREFIX = 'jotai/';
-
-/** Mirror a persisted globalAtom value to the cold-start cache. Called by
- *  the web/desktop branch of jotaiStorage.ts after every successful write
- *  to the source-of-truth JotaiStorage IDB. Key shape: 'jotai/<atomName>',
- *  consumed by hydrate.ts which un-prefixes back into
- *  globalThis.__ONEKEY_JOTAI_INIT_STATES__.
- *
- *  The value is stored RAW (no JSON.stringify). IDB will structured-clone
- *  it on flush, matching the fidelity of the source-of-truth JotaiStorage
- *  (which also relies on IDB structured clone). This is required so the
- *  post-jotaiInit isEqual guard in jotai utils sees identical objects on
- *  both sides of the reconciliation and does not issue a spurious
- *  store.set that would flicker the UI. */
-export function setColdStartL1MirrorEntry(
-  atomName: string,
-  value: unknown,
-): void {
-  if (!atomName) return;
-  const key = `${L1_KEY_PREFIX}${atomName}`;
-  getMap().set(key, value);
-  scheduleFlush(key);
-}
-
-/** Counterpart of setColdStartL1MirrorEntry: drop the mirrored entry from
- *  both the in-memory map and (after the next flush) IDB. Called by the
- *  web/desktop branch of jotaiStorage.ts on removeItem / JOTAI_RESET so the
- *  cold-start cache cannot resurrect cleared atoms on the next boot. */
-export function deleteColdStartL1MirrorEntry(atomName: string): void {
-  if (!atomName) return;
-  const key = `${L1_KEY_PREFIX}${atomName}`;
-  getMap().delete(key);
   scheduleFlush(key);
 }
 
@@ -360,9 +304,7 @@ export function createWebColdStartStorage(): ISyncStorage {
       // Facade callers (e.g. swrCacheUtils, context-atom snapshot writer)
       // already model their payload as a JSON-encoded string when reading
       // back via getString. Keep the on-the-wire form symmetric so a write
-      // followed by a getString returns parseable JSON. Jotai L1 mirror
-      // entries take a different path (setColdStartL1MirrorEntry) and skip
-      // this stringification.
+      // followed by a getString returns parseable JSON.
       getMap().set(key as string, JSON.stringify(value));
       scheduleFlush(key as string);
     },

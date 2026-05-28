@@ -322,58 +322,6 @@ class JotaiStorage implements AsyncStorage<any> {
   subscribe = undefined;
 }
 
-function wrapJotaiStorageWithColdStartMirror(base: JotaiStorage): JotaiStorage {
-  // Dual-write: every write to the source-of-truth JotaiStorage IDB is
-  // additionally mirrored to the cold-start cache IDB
-  // (packages/shared/src/storage/instance/webColdStartStorage.ts). The
-  // mirror is read synchronously at boot by apps/web/src/hydration/hydrate.ts
-  // to populate globalThis.__ONEKEY_JOTAI_INIT_STATES__ before React mounts.
-  //
-  // The mirror is best-effort: errors are swallowed so a failed mirror write
-  // cannot break the source-of-truth path. Future "拆线程" (move atoms into
-  // a Worker) keeps this mirror on the UI side, so cold-start hydration
-  // remains synchronous regardless of where source-of-truth lives.
-  const JOTAI_KEY_PREFIX = 'g_states_v5:';
-  const originalSetItem: JotaiStorage['setItem'] = base.setItem.bind(base);
-  const wrappedSetItem: JotaiStorage['setItem'] = async (key, newValue) => {
-    await originalSetItem(key, newValue);
-    try {
-      if (typeof key === 'string' && key.startsWith(JOTAI_KEY_PREFIX)) {
-        const atomName = key.slice(JOTAI_KEY_PREFIX.length);
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { setColdStartL1MirrorEntry } =
-          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
-        setColdStartL1MirrorEntry(atomName, newValue);
-      }
-    } catch {
-      /* best-effort: mirror failure must not break source-of-truth */
-    }
-  };
-  base.setItem = wrappedSetItem;
-
-  // Mirror removeItem so JOTAI_RESET / explicit clears propagate to the
-  // cold-start cache. Without this, stale jotai entries linger in the
-  // mirror and resurrect after the next page load.
-  const originalRemoveItem: JotaiStorage['removeItem'] =
-    base.removeItem.bind(base);
-  const wrappedRemoveItem: JotaiStorage['removeItem'] = async (key) => {
-    await originalRemoveItem(key);
-    try {
-      if (typeof key === 'string' && key.startsWith(JOTAI_KEY_PREFIX)) {
-        const atomName = key.slice(JOTAI_KEY_PREFIX.length);
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { deleteColdStartL1MirrorEntry } =
-          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
-        deleteColdStartL1MirrorEntry(atomName);
-      }
-    } catch {
-      /* best-effort: mirror failure must not break source-of-truth */
-    }
-  };
-  base.removeItem = wrappedRemoveItem;
-  return base;
-}
-
 function createJotaiStorage() {
   if (platformEnv.isExtensionUi) {
     // extension real storage is running at bg, the ui is a mock storage
@@ -382,12 +330,11 @@ function createJotaiStorage() {
   if (platformEnv.isNative) {
     return new JotaiStorageNativeMMKV();
   }
-  // web/desktop keep IndexedDB
-  const base = new JotaiStorage();
-  if (platformEnv.isWeb || platformEnv.isDesktop) {
-    return wrapJotaiStorageWithColdStartMirror(base);
-  }
-  return base;
+  // web/desktop keep IndexedDB. L1 cold-start mirror was removed: sensitive
+  // PersistAtom fields (sensitiveEncodeKey, encryptedSecurityPasswordR1) must
+  // not be duplicated into a second IDB. L2 contextAtom snapshot + L3 SWR
+  // cache still provide the meaningful first-paint TTI win.
+  return new JotaiStorage();
 }
 
 export const onekeyJotaiStorage = createJotaiStorage();

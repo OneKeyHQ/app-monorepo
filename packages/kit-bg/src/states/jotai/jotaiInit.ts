@@ -202,32 +202,8 @@ export async function jotaiInit() {
               ...storageValue,
             }
           : storageValue;
-      // Deep-equal guard so the cold-start mirror does not trigger a
-      // redundant set when the parsed snapshot matches the atom's current
-      // value byte-for-byte. The previous reference check tripped on every
-      // freshly-parsed object and caused a post-first-paint flicker.
       if (!isEqual(currentValue, nextValue)) {
         await jotaiDefaultStore.set(atomObj, nextValue);
-        // Self-heal: when the source-of-truth disagrees with what the
-        // cold-start L1 mirror had (or the mirror had nothing for this
-        // atom), write the freshly-reconciled value back into the L1
-        // mirror. The NEXT cold start will then prime this atom from L1
-        // and avoid the first-paint flicker for it.
-        //
-        // Lazy `require` keeps the kit-bg → shared boundary clean and
-        // mirrors the pattern in jotaiStorage.ts:343. Failure is swallowed
-        // because mirror write-back must never break reconcile.
-        if (platformEnv.isWeb || platformEnv.isDesktop) {
-          try {
-            const atomName = storageKey.slice('g_states_v5:'.length);
-            // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
-            const { setColdStartL1MirrorEntry } =
-              require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
-            setColdStartL1MirrorEntry(atomName, nextValue);
-          } catch {
-            /* best-effort: mirror failure must not break reconcile */
-          }
-        }
       }
     }),
   );

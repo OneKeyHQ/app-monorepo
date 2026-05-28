@@ -74,46 +74,25 @@ afterEach(() => {
 });
 
 describe('primeColdStartCacheMap', () => {
-  it('does not clobber an entry already written by setColdStartL1MirrorEntry', () => {
+  it('does not clobber an entry already written by an early facade .set', () => {
     const mod = loadModule();
-    mod.setColdStartL1MirrorEntry('foo', { v: 1 });
-    // Simulate the IDB getAll output: jotai entries are raw objects post-
-    // structured-clone, so the prime input mirrors that shape.
-    mod.primeColdStartCacheMap([['jotai/foo', { v: 0 }]]);
+    // Early facade write before hydrate.ts finishes its IDB read.
+    mod.writeColdStartMeta('__meta:buildHash', 'live');
+    // Simulate hydrate.ts reading a stale prior value from IDB.
+    mod.primeColdStartCacheMap([['__meta:buildHash', 'stale']]);
 
     const map = (globalThis as Record<string, unknown>)
       .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, unknown>;
-    expect(map.get('jotai/foo')).toEqual({ v: 1 });
+    expect(map.get('__meta:buildHash')).toBe('live');
   });
 
   it('fills keys not yet present', () => {
     const mod = loadModule();
-    mod.primeColdStartCacheMap([['jotai/bar', { v: 42 }]]);
+    mod.primeColdStartCacheMap([['__meta:buildHash', 'abc123']]);
 
     const map = (globalThis as Record<string, unknown>)
       .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, unknown>;
-    expect(map.get('jotai/bar')).toEqual({ v: 42 });
-  });
-});
-
-describe('setColdStartL1MirrorEntry', () => {
-  it("stores entries under the 'jotai/' prefix consumed by hydrate.ts", () => {
-    const mod = loadModule();
-    mod.setColdStartL1MirrorEntry('myAtom', { a: 1 });
-    const map = (globalThis as Record<string, unknown>)
-      .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, unknown>;
-    expect(map.has('jotai/myAtom')).toBe(true);
-    expect(map.has('myAtom')).toBe(false);
-    // Raw value — no JSON serialization round-trip.
-    expect(map.get('jotai/myAtom')).toEqual({ a: 1 });
-  });
-
-  it('ignores empty atom names', () => {
-    const mod = loadModule();
-    mod.setColdStartL1MirrorEntry('', { a: 1 });
-    const map = (globalThis as Record<string, unknown>)
-      .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, unknown> | undefined;
-    expect(map === undefined || map.size === 0).toBe(true);
+    expect(map.get('__meta:buildHash')).toBe('abc123');
   });
 });
 
@@ -155,14 +134,13 @@ describe('ISyncStorage facade coercion', () => {
 describeIfIndexedDB('IDB-backed paths', () => {
   it('scheduleFlush debounces and writes to IDB after the timer fires', async () => {
     const mod = loadModule();
-    mod.setColdStartL1MirrorEntry('foo', { v: 7 });
+    mod.writeColdStartMeta('__meta:buildHash', 'v1');
     // Bypass the 2s debounce in the test by force-flushing now; this
     // exercises the same flushDirtyKeysToIdb code path.
     await mod.flushColdStartCacheNow();
 
     const out = await mod.readAllColdStartEntriesFromIdb();
-    // IDB returns the structured-cloned object — no JSON.parse needed.
-    expect(out.get('jotai/foo')).toEqual({ v: 7 });
+    expect(out.get('__meta:buildHash')).toBe('v1');
   });
 
   it('flushDirtyKeysToIdb re-queues on failure so the value lands on the next flush', async () => {
@@ -190,7 +168,7 @@ describeIfIndexedDB('IDB-backed paths', () => {
       } as typeof realPut;
 
     try {
-      mod.setColdStartL1MirrorEntry('foo', { v: 9 });
+      mod.writeColdStartMeta('__meta:buildHash', 'v2');
       await mod.flushColdStartCacheNow();
     } finally {
       (IndexedDBPromised.prototype as unknown as { put: typeof realPut }).put =
@@ -200,12 +178,12 @@ describeIfIndexedDB('IDB-backed paths', () => {
     // Second flush should succeed and the requeued key should land.
     await mod.flushColdStartCacheNow();
     const out = await mod.readAllColdStartEntriesFromIdb();
-    expect(out.get('jotai/foo')).toEqual({ v: 9 });
+    expect(out.get('__meta:buildHash')).toBe('v2');
   });
 
   it('resetColdStartCache wipes both map and IDB', async () => {
     const mod = loadModule();
-    mod.setColdStartL1MirrorEntry('foo', { v: 1 });
+    mod.writeColdStartMeta('__meta:buildHash', 'wipe-me');
     await mod.flushColdStartCacheNow();
 
     // Sanity: it is in IDB now.
@@ -240,24 +218,24 @@ describeIfIndexedDB('IDB-backed paths', () => {
   it('sequential flushes both land in IDB (regression: mutex leak hangs second flush)', async () => {
     const mod = loadModule();
 
-    mod.setColdStartL1MirrorEntry('first', { v: 1 });
+    mod.writeColdStartMeta('__meta:first', 'a');
     await mod.flushColdStartCacheNow();
 
     // If inFlightFlush stays latched after the first flush, this second
     // call enters a microtask-starvation loop and the test hangs.
-    mod.setColdStartL1MirrorEntry('second', { v: 2 });
+    mod.writeColdStartMeta('__meta:second', 'b');
     await mod.flushColdStartCacheNow();
 
     const out = await mod.readAllColdStartEntriesFromIdb();
-    expect(out.get('jotai/first')).toEqual({ v: 1 });
-    expect(out.get('jotai/second')).toEqual({ v: 2 });
+    expect(out.get('__meta:first')).toBe('a');
+    expect(out.get('__meta:second')).toBe('b');
   });
 
   it('concurrent flushes coalesce and all resolve', async () => {
     const mod = loadModule();
 
-    mod.setColdStartL1MirrorEntry('a', { n: 1 });
-    mod.setColdStartL1MirrorEntry('b', { n: 2 });
+    mod.writeColdStartMeta('__meta:a', 'one');
+    mod.writeColdStartMeta('__meta:b', 'two');
 
     // Two simultaneous force-flushes should both resolve. The mutex is
     // expected to serialize them; if the mutex never clears, the second
@@ -268,29 +246,29 @@ describeIfIndexedDB('IDB-backed paths', () => {
     ]);
 
     const out = await mod.readAllColdStartEntriesFromIdb();
-    expect(out.get('jotai/a')).toEqual({ n: 1 });
-    expect(out.get('jotai/b')).toEqual({ n: 2 });
+    expect(out.get('__meta:a')).toBe('one');
+    expect(out.get('__meta:b')).toBe('two');
   });
 
   it('flush after reset does not hang on a stale in-flight mutex', async () => {
     const mod = loadModule();
 
-    mod.setColdStartL1MirrorEntry('before', { v: 1 });
+    mod.writeColdStartMeta('__meta:before', 'old');
     await mod.flushColdStartCacheNow();
 
     await mod.resetColdStartCache();
 
-    mod.setColdStartL1MirrorEntry('after', { v: 2 });
+    mod.writeColdStartMeta('__meta:after', 'new');
     await mod.flushColdStartCacheNow();
 
     const out = await mod.readAllColdStartEntriesFromIdb();
-    expect(out.get('jotai/before')).toBeUndefined();
-    expect(out.get('jotai/after')).toEqual({ v: 2 });
+    expect(out.get('__meta:before')).toBeUndefined();
+    expect(out.get('__meta:after')).toBe('new');
   });
 
   it('macrotasks still fire after a flush — proves the mutex is not starving them', async () => {
     const mod = loadModule();
-    mod.setColdStartL1MirrorEntry('x', { v: 1 });
+    mod.writeColdStartMeta('__meta:x', 'one');
     await mod.flushColdStartCacheNow();
 
     // Schedule a setTimeout macrotask. If a subsequent flush enters the
@@ -304,7 +282,7 @@ describeIfIndexedDB('IDB-backed paths', () => {
       }, 0);
     });
 
-    mod.setColdStartL1MirrorEntry('y', { v: 2 });
+    mod.writeColdStartMeta('__meta:y', 'two');
     await mod.flushColdStartCacheNow();
     await macrotaskFired;
 
