@@ -53,11 +53,18 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
-  _clearDiscoveryHomeBookmarksSwr() {
+  _clearDiscoveryHomeBookmarksSwr({
+    refreshMountedViews = false,
+  }: {
+    refreshMountedViews?: boolean;
+  } = {}) {
     swrCacheUtils.removeByPrefix(
       prefixOf(swrCacheNamespaces.discoveryHomeBookmarks),
     );
     swrCacheUtils.flushNow();
+    if (refreshMountedViews) {
+      appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
+    }
   }
 
   @backgroundMethod()
@@ -385,7 +392,7 @@ class ServiceDiscovery extends ServiceBase {
       simpleDb.browserRiskWhiteList.clearRawData(),
     ]);
     this._isUrlExistInRiskWhiteList.clear();
-    this._clearDiscoveryHomeBookmarksSwr();
+    this._clearDiscoveryHomeBookmarksSwr({ refreshMountedViews: true });
   }
 
   @backgroundMethod()
@@ -460,15 +467,11 @@ class ServiceDiscovery extends ServiceBase {
       },
     });
 
-    if (!skipEventEmit) {
-      setTimeout(() => {
-        // Trigger bookmark list refresh after building bookmark data
-        appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
-      }, 200);
-    }
-
     if (savedSuccess) {
       this._clearDiscoveryHomeBookmarksSwr();
+      if (!skipEventEmit) {
+        appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
+      }
     }
 
     if (savedSuccess && !isRemove) {

@@ -7,7 +7,10 @@ import { createStore } from 'jotai';
 
 import { rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
-import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
+import type {
+  IBrowserBookmark,
+  IWebTab,
+} from '@onekeyhq/kit/src/views/Discovery/types';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import {
   EAppEventBusNames,
@@ -39,8 +42,10 @@ const mockFetchDiscoveryHomePageData = jest.fn(async () => ({
   categories: [],
   trending: [],
 }));
-const mockGetDiscoveryBookmarkData = jest.fn(async (_options?: unknown) => []);
-const mockSwrCacheSet = jest.fn();
+const mockGetDiscoveryBookmarkData = jest.fn(
+  async (_options?: unknown): Promise<IBrowserBookmark[]> => [],
+);
+const mockSwrCacheSet = jest.fn<void, [string, unknown]>();
 
 jest.mock('@onekeyhq/components', () => ({
   Toast: {
@@ -203,6 +208,22 @@ function createWrapper({
       </ProviderJotaiContextDiscovery>
     );
   };
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function getBookmarkCacheWrites() {
+  return mockSwrCacheSet.mock.calls
+    .filter(([key]) => key === 'discovery-home-bookmarks')
+    .map(([, data]) => data);
 }
 
 describe('useBrowserTabActions', () => {
@@ -426,6 +447,134 @@ describe('useBrowserTabActions', () => {
       'discovery-home-bookmarks',
       [],
     );
+  });
+
+  it('only writes the latest discovery home bookmarks prefetch to cache', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    const firstPrefetch = createDeferred<IBrowserBookmark[]>();
+    const secondPrefetch = createDeferred<IBrowserBookmark[]>();
+    mockGetDiscoveryBookmarkData
+      .mockImplementationOnce(() => firstPrefetch.promise)
+      .mockImplementationOnce(() => secondPrefetch.promise);
+
+    const { result } = renderHook(
+      () => ({
+        actions: useBrowserTabActions().current,
+      }),
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'home-tab',
+              url: '',
+              title: 'Start Tab',
+              timestamp: 100,
+              type: 'home',
+              isActive: true,
+            },
+          ],
+          activeTabId: 'home-tab',
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    act(() => {
+      result.current.actions.addBrowserHomeTab();
+      result.current.actions.addBrowserHomeTab();
+    });
+
+    const staleBookmarks = [
+      {
+        title: 'Stale',
+        url: 'https://stale.example',
+        logo: undefined,
+        sortIndex: 0,
+      },
+    ];
+    await act(async () => {
+      firstPrefetch.resolve(staleBookmarks);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getBookmarkCacheWrites()).toEqual([]);
+
+    const latestBookmarks = [
+      {
+        title: 'Latest',
+        url: 'https://latest.example',
+        logo: undefined,
+        sortIndex: 0,
+      },
+    ];
+    await act(async () => {
+      secondPrefetch.resolve(latestBookmarks);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getBookmarkCacheWrites()).toEqual([latestBookmarks]);
+  });
+
+  it('does not write bookmark prefetch cache after a bookmark refresh event', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    const bookmarkPrefetch = createDeferred<IBrowserBookmark[]>();
+    mockGetDiscoveryBookmarkData.mockImplementationOnce(
+      () => bookmarkPrefetch.promise,
+    );
+
+    const { result } = renderHook(
+      () => ({
+        actions: useBrowserTabActions().current,
+      }),
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'home-tab',
+              url: '',
+              title: 'Start Tab',
+              timestamp: 100,
+              type: 'home',
+              isActive: true,
+            },
+          ],
+          activeTabId: 'home-tab',
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    act(() => {
+      result.current.actions.addBrowserHomeTab();
+      appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
+    });
+
+    await act(async () => {
+      bookmarkPrefetch.resolve([
+        {
+          title: 'Stale',
+          url: 'https://stale.example',
+          logo: undefined,
+          sortIndex: 0,
+        },
+      ]);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getBookmarkCacheWrites()).toEqual([]);
   });
 
   it('selects a replacement tab after closing the current tab outside native', () => {

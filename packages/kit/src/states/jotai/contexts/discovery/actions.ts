@@ -119,6 +119,19 @@ export const homeResettingFlags: Record<string, number> = {};
 // latter also drives sidebar sort order (`top` mode freezes it on creation).
 export const lastNavigationFlags: Record<string, number> = {};
 
+let discoveryHomeBookmarksPrefetchGeneration = 0;
+let isDiscoveryHomeBookmarksPrefetchListenerReady = false;
+
+function ensureDiscoveryHomeBookmarksPrefetchListener() {
+  if (isDiscoveryHomeBookmarksPrefetchListenerReady) {
+    return;
+  }
+  appEventBus.on(EAppEventBusNames.RefreshBookmarkList, () => {
+    discoveryHomeBookmarksPrefetchGeneration += 1;
+  });
+  isDiscoveryHomeBookmarksPrefetchListenerReady = true;
+}
+
 function buildWebTabData(tabs: IWebTab[]) {
   const map: Record<string, IWebTab> = {};
   const keys: string[] = [];
@@ -154,6 +167,9 @@ type IAddWebTabPayload = Partial<IWebTab> & {
 };
 
 function prefetchDiscoveryHomePageData() {
+  ensureDiscoveryHomeBookmarksPrefetchListener();
+  discoveryHomeBookmarksPrefetchGeneration += 1;
+  const bookmarksPrefetchGeneration = discoveryHomeBookmarksPrefetchGeneration;
   const { serviceDiscovery } = backgroundApiProxy;
   void Promise.allSettled([
     serviceDiscovery.fetchDiscoveryHomePageData().then((data) => {
@@ -167,7 +183,12 @@ function prefetchDiscoveryHomePageData() {
         sliceCount: 14,
       })
       .then((data) => {
-        swrCacheUtils.set(swrKeys.discoveryHomeBookmarks(), data);
+        if (
+          bookmarksPrefetchGeneration ===
+          discoveryHomeBookmarksPrefetchGeneration
+        ) {
+          swrCacheUtils.set(swrKeys.discoveryHomeBookmarks(), data);
+        }
       }),
   ]);
 }

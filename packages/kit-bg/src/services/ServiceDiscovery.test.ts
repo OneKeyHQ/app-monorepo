@@ -36,6 +36,10 @@ jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
 }));
 
 import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
   swrCacheNamespaces,
   swrCacheUtils,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
@@ -139,6 +143,7 @@ describe('ServiceDiscovery', () => {
   });
 
   it('invalidates cached discovery home bookmarks after clearing discovery data', async () => {
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
     const clearRawData = jest.fn().mockResolvedValue(undefined);
     const service = Object.assign(Object.create(ServiceDiscovery.prototype), {
       backgroundApi: {
@@ -172,5 +177,9 @@ describe('ServiceDiscovery', () => {
       `${swrCacheNamespaces.discoveryHomeBookmarks}:`,
     );
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.RefreshBookmarkList,
+      undefined,
+    );
   });
 });
