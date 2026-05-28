@@ -1,3 +1,4 @@
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { exit } = require('process');
@@ -12,6 +13,26 @@ const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
 const { createResolveExtensions } = require('./utils');
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
+
+// CI sets WORKFLOW_GITHUB_SHA / GITHUB_SHA; local builds fall back to
+// `git rev-parse HEAD` so platformEnv.githubSHA — and the cold-start
+// hydration cache invalidation gate that reads it — stays accurate
+// offline. Empty string only when both env and git are unavailable.
+function resolveCommitSha() {
+  const fromEnv =
+    process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA;
+  if (fromEnv) return fromEnv;
+  try {
+    return execSync('git rev-parse HEAD', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return '';
+  }
+}
+const COMMIT_SHA = resolveCommitSha();
 
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
@@ -117,6 +138,7 @@ const basePlugins = [
         PERF_FUNCTION_WARN_MS: JSON.stringify(
           process.env.PERF_FUNCTION_WARN_MS || '',
         ),
+        GITHUB_SHA: JSON.stringify(COMMIT_SHA),
       },
     },
   }),

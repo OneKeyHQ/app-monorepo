@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { exit } from 'process';
@@ -18,6 +19,26 @@ import type {
 } from '@rspack/core';
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
+
+// CI sets WORKFLOW_GITHUB_SHA / GITHUB_SHA; local builds fall back to
+// `git rev-parse HEAD` so platformEnv.githubSHA — and the cold-start
+// hydration cache invalidation gate that reads it — stays accurate
+// offline. Empty string only when both env and git are unavailable.
+function resolveCommitSha(): string {
+  const fromEnv =
+    process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA;
+  if (fromEnv) return fromEnv;
+  try {
+    return execSync('git rev-parse HEAD', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return '';
+  }
+}
+const COMMIT_SHA = resolveCommitSha();
 
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
@@ -140,6 +161,7 @@ const buildBasePlugins: (
     'process.env.VERSION': JSON.stringify(process.env.VERSION),
     'process.env.BUNDLE_VERSION': JSON.stringify(process.env.BUNDLE_VERSION),
     'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER),
+    'process.env.GITHUB_SHA': JSON.stringify(COMMIT_SHA),
   }),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
