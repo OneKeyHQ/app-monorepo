@@ -30,6 +30,7 @@ import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliqui
 import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
+  usePerpsActiveTwapOrdersLengthAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
@@ -134,8 +135,10 @@ export function PerpMobileLayout() {
   }, [actions]);
 
   const [perpOpenOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [perpTwapOrdersLength] = usePerpsActiveTwapOrdersLengthAtom();
   const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
-  const openOrdersLength = perpOpenOrdersLength + spotOpenOrders.length;
+  const openOrdersLength =
+    perpOpenOrdersLength + perpTwapOrdersLength + spotOpenOrders.length;
   const [positionsLength] = usePerpsActivePositionLengthAtom();
   const [{ balances }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();

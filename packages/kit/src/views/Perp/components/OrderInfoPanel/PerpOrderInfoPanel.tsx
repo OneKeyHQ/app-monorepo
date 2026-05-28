@@ -30,12 +30,15 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isHyperLiquidUnifiedAccountMode } from '../../utils';
 
 import { PerpAccountList } from './List/PerpAccountList';
-import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
+import {
+  PerpOpenOrdersList,
+  PerpTwapOrdersListShell,
+} from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
 import { SpotBalanceList } from './List/SpotBalanceList';
 
-const tabNameToTranslationKey: Record<string, ETranslations> = {
+const tabNameToTranslationKey: Partial<Record<string, ETranslations>> = {
   'Positions': ETranslations.perp_position_title,
   'Open Orders': ETranslations.perp_open_orders_title,
   'Trades History': ETranslations.perp_trades_history_title,
@@ -57,8 +60,7 @@ function TabBarItem({
   const [perpOpenOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
   const [perpTwapOrdersLength] = usePerpsActiveTwapOrdersLengthAtom();
   const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
-  const openOrdersLength =
-    perpOpenOrdersLength + perpTwapOrdersLength + spotOpenOrders.length;
+  const openOrdersLength = perpOpenOrdersLength + spotOpenOrders.length;
   const [positionsLength] = usePerpsActivePositionLengthAtom();
   const [{ balances }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
@@ -97,13 +99,24 @@ function TabBarItem({
     if (name === 'Open Orders' && openOrdersLength > 0) {
       return `(${openOrdersLength})`;
     }
+    if (name === 'TWAP' && perpTwapOrdersLength > 0) {
+      return `(${perpTwapOrdersLength})`;
+    }
     return '';
-  }, [holdingsCount, positionsLength, openOrdersLength, name]);
+  }, [
+    holdingsCount,
+    name,
+    openOrdersLength,
+    perpTwapOrdersLength,
+    positionsLength,
+  ]);
 
   const translationKey = tabNameToTranslationKey[name];
-  const tabTitle = intl.formatMessage({
-    id: translationKey,
-  });
+  const tabTitle = translationKey
+    ? intl.formatMessage({
+        id: translationKey,
+      })
+    : name;
 
   const displayTitle =
     name === 'Balances' ? `${tabTitle}${tabCount}` : `${tabTitle} ${tabCount}`;
@@ -178,6 +191,9 @@ function PerpOrderInfoPanel() {
       </Tabs.Tab>
       <Tabs.Tab name="Open Orders">
         <PerpOpenOrdersList />
+      </Tabs.Tab>
+      <Tabs.Tab name="TWAP">
+        <PerpTwapOrdersListShell />
       </Tabs.Tab>
       <Tabs.Tab name="Trades History">
         <PerpTradesHistoryList useTabsList />
