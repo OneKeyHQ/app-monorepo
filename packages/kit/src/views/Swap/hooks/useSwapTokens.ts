@@ -42,6 +42,7 @@ import {
 import {
   buildSwapNetworkReadyKey,
   isSwapNetworkCacheCompatible,
+  isSwapNetworkCacheReadyForBasicList,
 } from '../utils/swapNetworkCacheUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -145,9 +146,15 @@ export function useSwapTokenList(
   const isTokenFetchAllNetworks = networkUtils.isAllNetwork({
     networkId: tokenFetchParams.networkId,
   });
-  const allNetworkTokenListReady = isTokenFetchAllNetworks
-    ? isSwapNetworkCacheCompatible(swapNetworks)
-    : true;
+  const allNetworkTokenListReady = useMemo(() => {
+    if (!isTokenFetchAllNetworks) {
+      return true;
+    }
+    if (lpToken) {
+      return isSwapNetworkCacheCompatible(swapNetworks);
+    }
+    return isSwapNetworkCacheReadyForBasicList(swapNetworks);
+  }, [isTokenFetchAllNetworks, lpToken, swapNetworks]);
   const allNetworkSwapNetworksReadyKey = useMemo(
     () =>
       isTokenFetchAllNetworks ? buildSwapNetworkReadyKey(swapNetworks) : '',
