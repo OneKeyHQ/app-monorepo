@@ -357,11 +357,11 @@ class DesktopApiSystem {
       const currentRules = isFlatpak
         ? String(
             (
-              await execFileAsync('flatpak-spawn', [
-                '--host',
-                'cat',
-                ONEKEY_LINUX_UDEV_RULES_PATH,
-              ])
+              await execFileAsync(
+                'flatpak-spawn',
+                ['--host', 'cat', ONEKEY_LINUX_UDEV_RULES_PATH],
+                { timeout: 10_000 },
+              )
             ).stdout,
           )
         : await fs.readFile(ONEKEY_LINUX_UDEV_RULES_PATH, {
@@ -415,13 +415,15 @@ class DesktopApiSystem {
       };
     }
 
+    // Write rules to a Node-side temp file to avoid shell heredoc interpolation
+    // under pkexec (root). The shell script only reads this file path.
+    const tmpRulesFile = path.join(os.tmpdir(), `onekey-udev-${Date.now()}.rules`);
+    await fs.writeFile(tmpRulesFile, ONEKEY_LINUX_UDEV_RULES, { encoding: 'utf8', mode: 0o644 });
+
     const installScript = `
 set -e
-tmp_file="$(mktemp)"
-trap 'rm -f "$tmp_file"' EXIT
-cat > "$tmp_file" <<'ONEKEY_UDEV_RULES'
-${ONEKEY_LINUX_UDEV_RULES}ONEKEY_UDEV_RULES
-install -Dm644 "$tmp_file" "$1"
+install -Dm644 "$1" "$2"
+rm -f "$1"
 if command -v udevadm >/dev/null 2>&1; then
   udevadm control --reload-rules
   udevadm trigger --subsystem-match=usb --attr-match=idVendor=1209 || true
@@ -441,6 +443,7 @@ fi
             '-c',
             installScript,
             'install-onekey-udev-rules',
+            tmpRulesFile,
             ONEKEY_LINUX_UDEV_RULES_PATH,
           ]
         : [
@@ -448,6 +451,7 @@ fi
             '-c',
             installScript,
             'install-onekey-udev-rules',
+            tmpRulesFile,
             ONEKEY_LINUX_UDEV_RULES_PATH,
           ];
       const { stdout, stderr } = await execFileAsync(
@@ -462,6 +466,8 @@ fi
         stderr: String(stderr),
       };
     } catch (error) {
+      // Clean up temp file if pkexec script didn't remove it
+      await fs.unlink(tmpRulesFile).catch(() => {});
       const message = error instanceof Error ? error.message : String(error);
       return {
         supported: true,

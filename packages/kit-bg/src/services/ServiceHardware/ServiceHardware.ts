@@ -161,6 +161,8 @@ type IGetPassphraseStatePayload =
 class ServiceHardware extends ServiceBase {
   private bridgeAvailabilityChecked = false;
 
+  private linuxUdevRulesInstalled = false;
+
   private linuxUdevRulesInstallPromise: Promise<boolean> | undefined;
 
   // Third-party (Trezor / Ledger) hardware adapter lifecycle + methods now live
@@ -786,47 +788,28 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
-    let response: Awaited<Response<Array<SearchDevice>>> | undefined;
-    try {
-      response = await hardwareSDK?.searchDevices();
-    } catch (error) {
-      if (
-        this.isUsbAccessError(error) &&
-        (await this.ensureLinuxWebUsbPermissionsForSearch())
-      ) {
-        const retryResponse = await hardwareSDK?.searchDevices();
-        console.log('searchDevices response after udev rules: ', retryResponse);
-        return retryResponse;
-      }
-      throw error;
-    }
-    console.log('searchDevices response: ', response);
+    const response = await hardwareSDK?.searchDevices();
+    defaultLogger.hardware.sdkLog.log('searchDevices response: ', response);
+
+    // SDK wraps LIBUSB_ERROR_ACCESS in { success: false }; retry once after
+    // installing udev rules so the user doesn't have to restart the app.
     if (
-      this.isUsbAccessErrorSearchDevicesResponse(response) &&
-      (await this.ensureLinuxWebUsbPermissionsForSearch())
+      response?.success === false &&
+      String(response.payload?.error ?? '').includes('LIBUSB_ERROR_ACCESS') &&
+      (await this.ensureLinuxUdevRules())
     ) {
       const retryResponse = await hardwareSDK?.searchDevices();
-      console.log('searchDevices response after udev rules: ', retryResponse);
+      defaultLogger.hardware.sdkLog.log(
+        'searchDevices response after udev rules: ',
+        retryResponse,
+      );
       return retryResponse;
     }
     return response;
   }
 
-  private isUsbAccessError(error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    return message.includes('LIBUSB_ERROR_ACCESS');
-  }
-
-  private isUsbAccessErrorSearchDevicesResponse(
-    response: Awaited<Response<Array<SearchDevice>>> | undefined,
-  ) {
-    return (
-      response?.success === false &&
-      this.isUsbAccessError(response.payload.error)
-    );
-  }
-
-  private async ensureLinuxWebUsbPermissionsForSearch() {
+  @backgroundMethod()
+  async ensureLinuxUdevRules() {
     if (!platformEnv.isDesktopLinux || platformEnv.isDesktopLinuxSnap) {
       return false;
     }
@@ -835,6 +818,10 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
     if (hardwareTransportType !== EHardwareTransportType.WEBUSB) {
       return false;
+    }
+
+    if (this.linuxUdevRulesInstalled) {
+      return true;
     }
 
     if (!this.linuxUdevRulesInstallPromise) {
@@ -847,6 +834,7 @@ class ServiceHardware extends ServiceBase {
               '[LinuxWebUSB] OneKey udev rules ready',
               JSON.stringify(result),
             );
+            this.linuxUdevRulesInstalled = true;
             return true;
           }
           if (result) {
@@ -867,12 +855,7 @@ class ServiceHardware extends ServiceBase {
       });
     }
 
-    const installed = await this.linuxUdevRulesInstallPromise;
-    if (!installed) {
-      return false;
-    }
-
-    return true;
+    return this.linuxUdevRulesInstallPromise;
   }
 
   @backgroundMethod()
