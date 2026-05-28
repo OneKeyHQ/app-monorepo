@@ -1,19 +1,15 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import {
-  AnimatePresence,
-  Popover,
-  SizableText,
-  Stack,
-  YStack,
-} from '@onekeyhq/components';
+import { AnimatePresence, Popover, Stack, YStack } from '@onekeyhq/components';
 import {
   DOWNLOAD_MOBILE_APP_URL,
   HELP_CENTER_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { WebAccountPanelAccountList } from './WebAccountPanelAccountList';
+import { WebAccountPanelArticles } from './WebAccountPanelArticles';
 import { WebAccountPanelFooter } from './atoms/WebAccountPanelFooter';
 import { WebAccountPanelHeader } from './atoms/WebAccountPanelHeader';
 import { WebAccountPanelMain } from './WebAccountPanelMain';
@@ -49,46 +45,6 @@ const FLOATING_PANEL_PROPS = {
 // TODO(i18n): once `global.back` is created on Lokalise, replace this with
 // intl.formatMessage({ id: ETranslations.global_back }).
 const backLabel = 'Back';
-
-function ComingSoonView({
-  title,
-  onBack,
-  showFooter,
-  connected,
-  onDownloadApp,
-  onHelp,
-  onSettings,
-  onArticles,
-}: {
-  title: string;
-  onBack: () => void;
-  showFooter: boolean;
-  connected: boolean;
-  onDownloadApp?: () => void;
-  onHelp?: () => void;
-  onSettings?: () => void;
-  onArticles?: () => void;
-}) {
-  return (
-    <YStack w="100%">
-      <WebAccountPanelHeader title={title} onBack={onBack} />
-      <YStack px="$5" py="$10" ai="center">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          Coming soon
-        </SizableText>
-      </YStack>
-      {showFooter ? (
-        <WebAccountPanelFooter
-          connected={connected}
-          onDownloadApp={onDownloadApp}
-          onArticles={onArticles}
-          onHelp={onHelp}
-          onSettings={onSettings}
-        />
-      ) : null}
-    </YStack>
-  );
-}
 
 function PanelContent({
   initialView,
@@ -143,12 +99,10 @@ function PanelContent({
     }
     if (view === 'accountList') {
       return (
-        <ComingSoonView
-          title={backLabel}
-          onBack={back}
-          showFooter={false}
-          connected={connected}
-        />
+        <YStack w="100%">
+          <WebAccountPanelHeader title={backLabel} onBack={back} />
+          <WebAccountPanelAccountList onRequestClose={closePopover} />
+        </YStack>
       );
     }
     if (view === 'settings') {
@@ -171,12 +125,10 @@ function PanelContent({
       );
     }
     return (
-      <ComingSoonView
-        title={backLabel}
-        onBack={back}
-        showFooter={false}
-        connected={connected}
-      />
+      <YStack w="100%">
+        <WebAccountPanelHeader title={backLabel} onBack={back} />
+        <WebAccountPanelArticles onRequestClose={closePopover} />
+      </YStack>
     );
   }, [
     view,
