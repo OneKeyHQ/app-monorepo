@@ -1727,12 +1727,29 @@ class ServicePrimeTransfer extends ServiceBase {
   private static readonly PEER_V2_MIN_APP_VERSION = '6.4.0';
 
   private async resolvePeerSupportsV2Envelope(): Promise<boolean> {
-    const { pairedRoomId, myUserId } = await primeTransferAtom.get();
+    const { pairedRoomId, myUserId, transferDirection } =
+      await primeTransferAtom.get();
     if (!pairedRoomId || !myUserId) {
       throw new OneKeyLocalError('Not in a paired room');
     }
+    // Pin the peer by the negotiated transfer target so a stale/duplicate
+    // session in the room cannot silently flip us onto the wrong appVersion
+    // and cause cross-version credential format mismatch.
+    if (
+      !transferDirection?.toUserId ||
+      transferDirection.fromUserId !== myUserId
+    ) {
+      throw new OneKeyLocalError(
+        'Transfer direction is not established. Please re-pair and try again.',
+      );
+    }
     const roomUsers = await this.getRoomUsers({ roomId: pairedRoomId });
-    const peerUser = roomUsers.find((u) => u.id !== myUserId);
+    if (roomUsers.length !== 2) {
+      throw new OneKeyLocalError(
+        `Expected 2 users in transfer room, got ${roomUsers.length}. Please rejoin and try again.`,
+      );
+    }
+    const peerUser = roomUsers.find((u) => u.id === transferDirection.toUserId);
     if (!peerUser) {
       throw new OneKeyLocalError(
         'Peer not found in transfer room. Please rejoin and try again.',
