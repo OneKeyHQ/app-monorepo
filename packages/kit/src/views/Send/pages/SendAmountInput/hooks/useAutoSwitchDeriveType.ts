@@ -208,7 +208,15 @@ export function useAutoSwitchDeriveType({
   useEffect(() => {
     if (currentAccountId === previousAccountIdRef.current) return;
     const wasOurs = lastAutoSwitchAccountIdRef.current === currentAccountId;
-    if (!wasOurs) {
+    if (wasOurs) {
+      // Consume the marker — it only protects the immediate accountId
+      // change driven by `performSwitch`. If the user later navigates away
+      // and then manually picks this same target again, that visit must be
+      // recognized as manual (otherwise the manual lock would never engage
+      // and residual amounts could re-trigger auto-switch, undoing the
+      // user's explicit re-selection).
+      lastAutoSwitchAccountIdRef.current = null;
+    } else {
       userManuallySwitchedRef.current = true;
       // Snapshot the live amount so the main effect can detect the next
       // keystroke as the trigger to re-engage auto-switch.
@@ -221,7 +229,17 @@ export function useAutoSwitchDeriveType({
   }, [currentAccountId]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      // Feature got disabled mid-flow (user toggled fiat or enabled
+      // coin-control). Drop the cached "no format covers" verdict so the
+      // alert doesn't survive into a context that uses different units or
+      // a different balance basis. We intentionally leave `triedDeriveTypes`
+      // and the manual-lock refs alone — they describe lifetime intent and
+      // staying valid across a brief disable→enable toggle is the right
+      // default.
+      if (allFormatsInsufficientAmount) setAllFormatsInsufficientAmount(null);
+      return;
+    }
 
     // Both trigger paths read balance-derived signals (`isInsufficientBalance`
     // and `currentMaxBalance`). Until the balance belonging to the *current*
