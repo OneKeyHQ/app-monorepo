@@ -196,7 +196,7 @@ export function useAccountSelectorCreateAddress() {
           const ledgerAppFailures = findLedgerAppNotInstalledFailures(
             result.failedAccounts,
           );
-          const shouldHideAppNotInstalledToast = ledgerAppFailures.length
+          const ledgerAppInstallDialogEmitted = ledgerAppFailures.length
             ? ledgerAppFailures.every((ledgerAppFailure) =>
                 requestLedgerAppInstall({
                   ...ledgerAppFailure,
@@ -204,6 +204,11 @@ export function useAccountSelectorCreateAddress() {
                 }),
               )
             : false;
+          // Suppress AppNotInstalled toasts whenever the install dialog was
+          // emitted OR the caller explicitly asked not to be notified
+          // (e.g. silent auto-create paths).
+          const shouldHideAppNotInstalledToast =
+            ledgerAppInstallDialogEmitted || !notifyLedgerAppInstallRequired;
           const failedAccountsForToast = shouldHideAppNotInstalledToast
             ? result.failedAccounts.filter(
                 (failedAccount) =>
