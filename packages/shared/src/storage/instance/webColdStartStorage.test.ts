@@ -6,7 +6,18 @@
 // globalThis.indexedDB so the IndexedDBPromised facade's jest branch
 // (platformEnv.isJest -> globalThis.indexedDB) finds a real factory.
 
+// Mock coldStartFlushTrigger so the lifecycle-attachment test can assert
+// against a spy without depending on platformEnv (which resolves to
+// neither web nor desktop in jest, suppressing the real DOM listener
+// attach path). The mock is harmless for the other tests, which never
+// inspect the trigger.
+jest.mock('../coldStartFlushTrigger', () => ({
+  __esModule: true,
+  registerColdStartFlushTrigger: jest.fn(() => () => undefined),
+}));
+
 import { IndexedDBPromised } from '../../IndexedDBPromised';
+import { registerColdStartFlushTrigger } from '../coldStartFlushTrigger';
 import { EAppSyncStorageKeys } from '../syncStorageKeys';
 
 // add indexedDB for node
@@ -287,5 +298,133 @@ describeIfIndexedDB('IDB-backed paths', () => {
     await macrotaskFired;
 
     expect(macrotaskRan).toBe(true);
+  });
+
+  // ---- True-drain regression guard ----
+  //
+  // runFlushOnce takes a snapshot of dirtyKeys at its top and clears the
+  // Set, then awaits IDB puts. Writes that arrive during that await go
+  // back into dirtyKeys but were previously returned WITHOUT being
+  // persisted by the originating flushColdStartCacheNow call — a real
+  // correctness bug on the pagehide / visibilitychange path where the
+  // caller has nowhere to retry. flushDirtyKeysToIdb now loops until both
+  // the in-flight mutex is clear and dirtyKeys is empty.
+
+  it('flushColdStartCacheNow drains dirty keys that arrive mid-flight', async () => {
+    const mod = loadModule();
+
+    // Slow down put() so we have a window to dirty a new key while the
+    // first batch is still in flight.
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const realPut = IndexedDBPromised.prototype.put;
+    (IndexedDBPromised.prototype as unknown as { put: typeof realPut }).put =
+      async function delayedPut(this: IndexedDBPromised<unknown>, ...args) {
+        await new Promise((r) => setTimeout(r, 50));
+        return (realPut as (...a: typeof args) => Promise<unknown>).apply(
+          this,
+          args,
+        ) as ReturnType<typeof realPut>;
+      } as typeof realPut;
+
+    try {
+      mod.writeColdStartMeta('__meta:a', '1');
+      const firstFlush = mod.flushColdStartCacheNow();
+      // Yield once so flushDirtyKeysToIdb enters runFlushOnce and snapshots
+      // dirtyKeys; the followup write below then lands AFTER the snapshot
+      // but BEFORE the IDB put resolves.
+      await new Promise((r) => setTimeout(r, 0));
+      mod.writeColdStartMeta('__meta:b', '2');
+      await firstFlush;
+    } finally {
+      (IndexedDBPromised.prototype as unknown as { put: typeof realPut }).put =
+        realPut;
+    }
+
+    const out = await mod.readAllColdStartEntriesFromIdb();
+    expect(out.get('__meta:a')).toBe('1');
+    expect(out.get('__meta:b')).toBe('2');
+  });
+
+  // ---- Failed-flush re-arm regression guard ----
+  //
+  // runFlushOnce used to re-queue keys on failure but NOT reset the
+  // debounce timer. If no further writes came in, the dirty keys sat
+  // forever. The fix re-arms a fresh 2s timer when a flush throws.
+
+  it('failed flush re-arms the debounce timer for the next try', async () => {
+    jest.useFakeTimers();
+    try {
+      const mod = loadModule();
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const realPut = IndexedDBPromised.prototype.put;
+      let failNext = true;
+      (IndexedDBPromised.prototype as unknown as { put: typeof realPut }).put =
+        async function patchedPut(this: IndexedDBPromised<unknown>, ...args) {
+          if (failNext) {
+            failNext = false;
+            // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error
+            throw new Error('forced first-put failure');
+          }
+          return (realPut as (...a: typeof args) => Promise<unknown>).apply(
+            this,
+            args,
+          ) as ReturnType<typeof realPut>;
+        } as typeof realPut;
+
+      try {
+        // Writes through the facade arm the 2s debounce timer; we never
+        // call flushColdStartCacheNow here so the only path to IDB is the
+        // re-armed timer scheduled by runFlushOnce on failure.
+        mod.writeColdStartMeta('__meta:retry', 'val');
+
+        // First flush fires; the patched put throws; key is requeued and
+        // a new 2s timer is armed.
+        await jest.advanceTimersByTimeAsync(2000);
+
+        // Second flush fires against the now-unpatched put and succeeds.
+        await jest.advanceTimersByTimeAsync(2000);
+
+        // Drain any straggling timers (none expected, but harmless).
+        await jest.runOnlyPendingTimersAsync();
+      } finally {
+        (
+          IndexedDBPromised.prototype as unknown as { put: typeof realPut }
+        ).put = realPut;
+      }
+
+      // Switch to real timers before awaiting the IDB read, otherwise the
+      // fake-indexeddb internals that depend on setTimeout never resolve.
+      jest.useRealTimers();
+      const out = await mod.readAllColdStartEntriesFromIdb();
+      expect(out.get('__meta:retry')).toBe('val');
+    } finally {
+      // Ensure real timers are restored even if an assertion above throws.
+      jest.useRealTimers();
+    }
+  });
+
+  // ---- Lifecycle-trigger self-registration ----
+  //
+  // The visibilitychange / pagehide / freeze listeners that drive
+  // flushColdStartCacheNow were previously only attached when the first
+  // contextAtom({ coldStartCache: true }) rendered (via
+  // ensureColdStartAppStateListener in packages/kit-bg). If a user closed
+  // the tab BEFORE that atom mounted, dirty writes here were stranded.
+  // scheduleFlush now self-registers the trigger on the first dirty key.
+
+  it('scheduleFlush attaches the lifecycle flush trigger on first dirty key', () => {
+    const registerMock = registerColdStartFlushTrigger as unknown as jest.Mock;
+    registerMock.mockClear();
+
+    const mod = loadModule();
+    mod.writeColdStartMeta('__meta:k', 'v');
+    expect(registerMock).toHaveBeenCalledTimes(1);
+
+    // Second dirty key in the same module instance must NOT re-register —
+    // the trigger latch lives on the module-level coldStartTriggerRegistered
+    // flag, reset only by __resetForTests.
+    mod.writeColdStartMeta('__meta:k2', 'v2');
+    expect(registerMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -84,7 +84,25 @@ const BUILD_HASH_FLUSH_TIMEOUT_MS = 1000;
 // cold-start IDB is wiped to prevent stale entries from a prior build
 // leaking into a new code base. Local prod-mode builds without a CI env
 // var will be undefined here; dev mode skips this path entirely.
-const BUILD_HASH: string | undefined = platformEnv.githubSHA || undefined;
+//
+// Precedence: `githubSHA` wins because it bumps on every commit; the
+// version/buildNumber pair only changes on releases (coarser signal) but
+// still beats disabling the gate entirely when CI env vars are absent.
+export function computeEffectiveBuildHash(
+  githubSHA: string | undefined,
+  version: string | undefined,
+  buildNumber: string | undefined,
+): string | undefined {
+  if (githubSHA) return githubSHA;
+  if (version) return `v:${version}:${buildNumber ?? ''}`;
+  return undefined;
+}
+
+const BUILD_HASH: string | undefined = computeEffectiveBuildHash(
+  platformEnv.githubSHA || undefined,
+  platformEnv.version || undefined,
+  platformEnv.buildNumber || undefined,
+);
 
 // ---- Helpers ----
 

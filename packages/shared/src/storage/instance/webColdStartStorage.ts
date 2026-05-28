@@ -128,6 +128,15 @@ let flushTimer: ReturnType<typeof setTimeout> | undefined;
 // await any pending IDB writes before issuing db.clear, so a late-landing put
 // cannot resurrect data wiped by reset.
 let inFlightFlush: Promise<void> | undefined;
+// Tracks how many flush attempts in a row have failed. We stop re-arming the
+// retry timer after MAX_CONSECUTIVE_FLUSH_FAILURES so private-mode / quota=0
+// environments do not loop forever.
+let consecutiveFlushFailures = 0;
+const MAX_CONSECUTIVE_FLUSH_FAILURES = 5;
+// Latched warning so the "giving up" log fires at most once per page load.
+let flushGiveUpWarned = false;
+// Lifecycle-listener registration latch; see ensureLifecycleFlushTrigger.
+let coldStartTriggerRegistered = false;
 
 async function runFlushOnce(): Promise<void> {
   if (dirtyKeys.size === 0) return;
@@ -145,47 +154,122 @@ async function runFlushOnce(): Promise<void> {
         return db.put(STORE_NAME, value, key);
       }),
     );
+    // Success path: clear the retry counter so a future transient failure
+    // starts the back-off window fresh.
+    consecutiveFlushFailures = 0;
   } catch (e) {
     // Re-queue for next flush window; swallow to keep best-effort semantics.
     for (const k of keys) dirtyKeys.add(k);
+    consecutiveFlushFailures += 1;
     if (process.env.NODE_ENV !== 'production') {
       // eslint-disable-next-line no-console
       console.error('[webColdStartStorage] flush failed:', e);
+    }
+    // Re-arm a debounce timer so the requeued keys get another attempt even
+    // if no new write comes in. Bail out once we have exceeded the cap so a
+    // permanently-broken IDB (private mode, quota=0) does not loop forever.
+    if (consecutiveFlushFailures > MAX_CONSECUTIVE_FLUSH_FAILURES) {
+      if (!flushGiveUpWarned) {
+        flushGiveUpWarned = true;
+        if (process.env.NODE_ENV !== 'production') {
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[webColdStartStorage] giving up on flush retries after',
+            consecutiveFlushFailures,
+            'consecutive failures',
+          );
+        }
+      }
+    } else if (!flushTimer) {
+      flushTimer = setTimeout(() => {
+        flushTimer = undefined;
+        void flushDirtyKeysToIdb();
+      }, FLUSH_DEBOUNCE_MS);
     }
   }
 }
 
 async function flushDirtyKeysToIdb(): Promise<void> {
-  // Coalesce concurrent callers onto the in-flight promise, then drain any
-  // dirty keys that accumulated while it was running. flushColdStartCacheNow
-  // relies on this to guarantee IDB writes have committed before it resolves.
-  // The loop variable is mutated from runFlushOnce's .finally callback, which
-  // ESLint cannot see through.
+  // True-drain loop: callers (especially flushColdStartCacheNow from
+  // pagehide / visibilitychange) need the guarantee that ALL keys dirtied up
+  // to the moment of the await have been persisted before the returned
+  // promise resolves. runFlushOnce snapshots+clears dirtyKeys at its top
+  // then awaits IDB; writes that arrive during that await accumulate in
+  // dirtyKeys and would otherwise be left behind by a single-shot flush.
+  // The loop variables are mutated from runFlushOnce's .finally callback,
+  // which ESLint cannot see through.
   // eslint-disable-next-line no-unmodified-loop-condition
-  while (inFlightFlush) {
-    await inFlightFlush;
-  }
-  if (dirtyKeys.size === 0) return;
-  // Capture the wrapped promise so the .finally callback can compare to it.
-  // Promise.prototype.finally returns a NEW promise distinct from its
-  // receiver; comparing inFlightFlush to the receiver would always be false
-  // and the cleanup would never run, latching inFlightFlush forever and
-  // starving the renderer on the next flush's
-  // `while (inFlightFlush) await inFlightFlush` loop with a microtask-only
-  // resolved-promise loop.
-  // eslint-disable-next-line prefer-const
-  let wrapped: Promise<void>;
-  wrapped = runFlushOnce().finally(() => {
-    if (inFlightFlush === wrapped) {
-      inFlightFlush = undefined;
+  while (inFlightFlush || dirtyKeys.size > 0) {
+    if (inFlightFlush) {
+      try {
+        await inFlightFlush;
+      } catch {
+        /* runFlushOnce already logs its own errors; do not break the drain */
+      }
+      // Loop back: another caller may have started a new flush in the
+      // meantime, OR new dirty keys may have arrived during the await.
+      continue;
     }
-  });
-  inFlightFlush = wrapped;
-  await wrapped;
+    // Capture the wrapped promise so the .finally callback can compare to it.
+    // Promise.prototype.finally returns a NEW promise distinct from its
+    // receiver; comparing inFlightFlush to the receiver would always be false
+    // and the cleanup would never run, latching inFlightFlush forever and
+    // starving the renderer on the next flush's
+    // `while (inFlightFlush) await inFlightFlush` loop with a microtask-only
+    // resolved-promise loop.
+    // eslint-disable-next-line prefer-const
+    let wrapped: Promise<void>;
+    wrapped = runFlushOnce().finally(() => {
+      if (inFlightFlush === wrapped) {
+        inFlightFlush = undefined;
+      }
+    });
+    inFlightFlush = wrapped;
+    try {
+      await wrapped;
+    } catch {
+      /* errors already handled in runFlushOnce; keep draining */
+    }
+  }
+}
+
+// Lazy lifecycle trigger registration. The visibilitychange / pagehide /
+// freeze listeners that drive flushColdStartCacheNow used to be attached
+// only from packages/kit-bg's `ensureColdStartAppStateListener`, which runs
+// when the first `contextAtom({ coldStartCache: true })` renders. If a user
+// closes the tab BEFORE that atom mounts, every L2/L3 dirty write in this
+// module sits stranded in memory.
+//
+// To defend against that, scheduleFlush calls this on the first dirty key
+// so the lifecycle listeners are attached as soon as we have something to
+// persist. Idempotent — the underlying `registerColdStartFlushTrigger` is
+// itself a Set-add so calling it more than once is safe, but we still latch
+// here to avoid spamming the import.
+function ensureLifecycleFlushTrigger(): void {
+  if (coldStartTriggerRegistered) return;
+  // Latch FIRST so a require() that ends up re-entering this path during
+  // module init cannot recurse.
+  coldStartTriggerRegistered = true;
+  try {
+    // Lazy require avoids leaking the import into module-top-level, which
+    // would risk bundler cycles between this module and coldStartFlushTrigger
+    // (the latter's listeners may eventually call back into here).
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+    const { registerColdStartFlushTrigger } = require('../coldStartFlushTrigger') as typeof import('../coldStartFlushTrigger');
+    registerColdStartFlushTrigger(() => {
+      void flushColdStartCacheNow();
+    });
+  } catch {
+    /* trigger not available in this env */
+    // Rewind the latch so a later environment (e.g. delayed DOM polyfill in
+    // jest) gets another chance to register.
+    coldStartTriggerRegistered = false;
+  }
 }
 
 function scheduleFlush(key: string): void {
   dirtyKeys.add(key);
+  ensureLifecycleFlushTrigger();
   if (flushTimer) clearTimeout(flushTimer);
   flushTimer = setTimeout(() => {
     flushTimer = undefined;
@@ -265,6 +349,9 @@ export function __resetForTests(): void {
   dbPromise = undefined;
   dirtyKeys.clear();
   inFlightFlush = undefined;
+  consecutiveFlushFailures = 0;
+  flushGiveUpWarned = false;
+  coldStartTriggerRegistered = false;
   if (flushTimer) {
     clearTimeout(flushTimer);
     flushTimer = undefined;
