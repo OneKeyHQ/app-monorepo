@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { Icon, Page, SizableText, XStack } from '@onekeyhq/components';
+import { Icon, Page, SizableText, Toast, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
@@ -29,10 +29,15 @@ import type {
   IVaultSettings,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAssetSelectorParamList } from '@onekeyhq/shared/src/routes';
 import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
@@ -291,8 +296,37 @@ function TokenSelector() {
       } else {
         void onSelect(selectedToken);
       }
+
+      if (enableNetworkAfterSelect && selectedToken.networkId) {
+        const { disabledNetworks, enabledNetworks } =
+          await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+        if (
+          !isEnabledNetworksInAllNetworks({
+            networkId: selectedToken.networkId,
+            disabledNetworks,
+            enabledNetworks,
+            isTestnet: false,
+          })
+        ) {
+          await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+            enabledNetworks: { [selectedToken.networkId]: true },
+          });
+          appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.network_also_enabled,
+            }),
+          });
+        }
+      }
     },
-    [onSelect, updateProcessingTokenState, exchangeFilter],
+    [
+      onSelect,
+      updateProcessingTokenState,
+      exchangeFilter,
+      enableNetworkAfterSelect,
+      intl,
+    ],
   );
 
   const handleTokenOnPress = useCallback(
