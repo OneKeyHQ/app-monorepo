@@ -189,6 +189,27 @@ async function runFlushOnce(): Promise<void> {
   }
 }
 
+// Starts one flush cycle and stores the resulting promise on inFlightFlush.
+// Lives outside flushDirtyKeysToIdb's loop body so eslint(no-loop-func) is
+// satisfied — the closure that compares `inFlightFlush === wrapped` no
+// longer captures a loop-iteration-scoped binding. Returns the wrapped
+// promise the caller should await.
+function beginFlushCycle(): Promise<void> {
+  // Promise.prototype.finally returns a NEW promise distinct from its
+  // receiver; comparing inFlightFlush to the receiver would always be false
+  // and the cleanup would never run, latching inFlightFlush forever and
+  // starving the renderer on the next flush's
+  // `while (inFlightFlush) await inFlightFlush` loop with a microtask-only
+  // resolved-promise loop.
+  const wrapped: Promise<void> = runFlushOnce().finally(() => {
+    if (inFlightFlush === wrapped) {
+      inFlightFlush = undefined;
+    }
+  });
+  inFlightFlush = wrapped;
+  return wrapped;
+}
+
 async function flushDirtyKeysToIdb(): Promise<void> {
   // True-drain loop: callers (especially flushColdStartCacheNow from
   // pagehide / visibilitychange) need the guarantee that ALL keys dirtied up
@@ -196,37 +217,15 @@ async function flushDirtyKeysToIdb(): Promise<void> {
   // promise resolves. runFlushOnce snapshots+clears dirtyKeys at its top
   // then awaits IDB; writes that arrive during that await accumulate in
   // dirtyKeys and would otherwise be left behind by a single-shot flush.
-  // The loop variables are mutated from runFlushOnce's .finally callback,
-  // which ESLint cannot see through.
+  // Loop conditions are mutated from runFlushOnce's .finally callback and
+  // from concurrent writers, which ESLint cannot see through.
   // eslint-disable-next-line no-unmodified-loop-condition
   while (inFlightFlush || dirtyKeys.size > 0) {
-    if (inFlightFlush) {
-      try {
-        await inFlightFlush;
-      } catch {
-        /* runFlushOnce already logs its own errors; do not break the drain */
-      }
-      // Loop back: another caller may have started a new flush in the
-      // meantime, OR new dirty keys may have arrived during the await.
-      continue;
-    }
-    // Capture the wrapped promise so the .finally callback can compare to it.
-    // Promise.prototype.finally returns a NEW promise distinct from its
-    // receiver; comparing inFlightFlush to the receiver would always be false
-    // and the cleanup would never run, latching inFlightFlush forever and
-    // starving the renderer on the next flush's
-    // `while (inFlightFlush) await inFlightFlush` loop with a microtask-only
-    // resolved-promise loop.
-    // eslint-disable-next-line prefer-const
-    let wrapped: Promise<void>;
-    wrapped = runFlushOnce().finally(() => {
-      if (inFlightFlush === wrapped) {
-        inFlightFlush = undefined;
-      }
-    });
-    inFlightFlush = wrapped;
+    // Always prefer awaiting any in-flight flush over starting a new one,
+    // so concurrent callers coalesce instead of stacking cycles.
+    const pending = inFlightFlush ?? beginFlushCycle();
     try {
-      await wrapped;
+      await pending;
     } catch {
       /* errors already handled in runFlushOnce; keep draining */
     }
@@ -255,7 +254,8 @@ function ensureLifecycleFlushTrigger(): void {
     // would risk bundler cycles between this module and coldStartFlushTrigger
     // (the latter's listeners may eventually call back into here).
     // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
-    const { registerColdStartFlushTrigger } = require('../coldStartFlushTrigger') as typeof import('../coldStartFlushTrigger');
+    const { registerColdStartFlushTrigger } =
+      require('../coldStartFlushTrigger') as typeof import('../coldStartFlushTrigger');
     registerColdStartFlushTrigger(() => {
       void flushColdStartCacheNow();
     });

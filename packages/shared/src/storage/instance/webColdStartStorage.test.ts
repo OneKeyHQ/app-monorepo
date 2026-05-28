@@ -6,19 +6,19 @@
 // globalThis.indexedDB so the IndexedDBPromised facade's jest branch
 // (platformEnv.isJest -> globalThis.indexedDB) finds a real factory.
 
+import { IndexedDBPromised } from '../../IndexedDBPromised';
+import { registerColdStartFlushTrigger } from '../coldStartFlushTrigger';
+import { EAppSyncStorageKeys } from '../syncStorageKeys';
+
 // Mock coldStartFlushTrigger so the lifecycle-attachment test can assert
 // against a spy without depending on platformEnv (which resolves to
 // neither web nor desktop in jest, suppressing the real DOM listener
 // attach path). The mock is harmless for the other tests, which never
-// inspect the trigger.
+// inspect the trigger. jest.mock is hoisted above imports by babel-jest.
 jest.mock('../coldStartFlushTrigger', () => ({
   __esModule: true,
   registerColdStartFlushTrigger: jest.fn(() => () => undefined),
 }));
-
-import { IndexedDBPromised } from '../../IndexedDBPromised';
-import { registerColdStartFlushTrigger } from '../coldStartFlushTrigger';
-import { EAppSyncStorageKeys } from '../syncStorageKeys';
 
 // add indexedDB for node
 try {
@@ -311,15 +311,30 @@ describeIfIndexedDB('IDB-backed paths', () => {
   // the in-flight mutex is clear and dirtyKeys is empty.
 
   it('flushColdStartCacheNow drains dirty keys that arrive mid-flight', async () => {
-    const mod = loadModule();
+    // Load the module inside an isolated registry AND patch the
+    // IndexedDBPromised class loaded by THAT registry — the outer-registry
+    // class imported at the top of this file is a different identity once
+    // jest.isolateModules has re-evaluated the module graph.
+    let mod!: IColdStartModule;
+    let isolatedIDB!: typeof IndexedDBPromised;
+    jest.isolateModules(() => {
+      // eslint-disable-next-line global-require
+      ({ IndexedDBPromised: isolatedIDB } =
+        require('../../IndexedDBPromised') as {
+          IndexedDBPromised: typeof IndexedDBPromised;
+        });
+      // eslint-disable-next-line global-require
+      mod = require('./webColdStartStorage') as IColdStartModule;
+    });
+    activeModule = mod;
 
     // Slow down put() so we have a window to dirty a new key while the
     // first batch is still in flight.
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    const realPut = IndexedDBPromised.prototype.put;
-    (IndexedDBPromised.prototype as unknown as { put: typeof realPut }).put =
+    const realPut = isolatedIDB.prototype.put;
+    (isolatedIDB.prototype as unknown as { put: typeof realPut }).put =
       async function delayedPut(this: IndexedDBPromised<unknown>, ...args) {
-        await new Promise((r) => setTimeout(r, 50));
+        await new Promise((r) => setTimeout(r, 100));
         return (realPut as (...a: typeof args) => Promise<unknown>).apply(
           this,
           args,
@@ -329,14 +344,16 @@ describeIfIndexedDB('IDB-backed paths', () => {
     try {
       mod.writeColdStartMeta('__meta:a', '1');
       const firstFlush = mod.flushColdStartCacheNow();
-      // Yield once so flushDirtyKeysToIdb enters runFlushOnce and snapshots
-      // dirtyKeys; the followup write below then lands AFTER the snapshot
-      // but BEFORE the IDB put resolves.
-      await new Promise((r) => setTimeout(r, 0));
+      // Yield long enough that the first put() has been issued (so
+      // dirtyKeys has been snapshotted+cleared inside runFlushOnce) but
+      // not yet resolved (still inside the 100ms delay). The followup
+      // write below then lands AFTER the snapshot — the drain loop must
+      // pick it up.
+      await new Promise((r) => setTimeout(r, 20));
       mod.writeColdStartMeta('__meta:b', '2');
       await firstFlush;
     } finally {
-      (IndexedDBPromised.prototype as unknown as { put: typeof realPut }).put =
+      (isolatedIDB.prototype as unknown as { put: typeof realPut }).put =
         realPut;
     }
 
