@@ -221,4 +221,93 @@ describeIfIndexedDB('IDB-backed paths', () => {
     const after = await mod.readAllColdStartEntriesFromIdb();
     expect(after.size).toBe(0);
   });
+
+  // ---- inFlightFlush mutex regression guards ----
+  //
+  // These tests defend against the mutex-cleanup bug where
+  // `inFlightFlush = current.finally(cb)` was paired with a
+  // `if (inFlightFlush === current)` comparison inside the callback.
+  // Promise.prototype.finally returns a NEW promise, so the comparison
+  // was always false and inFlightFlush stayed latched after the first
+  // flush. Every subsequent flush then entered
+  // `while (inFlightFlush) await inFlightFlush` against an already-
+  // resolved promise — a microtask-only loop that starves the renderer.
+  //
+  // If the bug ever returns, these tests hang forever (the runner will
+  // be killed by the global CI timeout). A hang IS the failure signal.
+  // A passing run means the cleanup actually clears inFlightFlush.
+
+  it('sequential flushes both land in IDB (regression: mutex leak hangs second flush)', async () => {
+    const mod = loadModule();
+
+    mod.setColdStartL1MirrorEntry('first', { v: 1 });
+    await mod.flushColdStartCacheNow();
+
+    // If inFlightFlush stays latched after the first flush, this second
+    // call enters a microtask-starvation loop and the test hangs.
+    mod.setColdStartL1MirrorEntry('second', { v: 2 });
+    await mod.flushColdStartCacheNow();
+
+    const out = await mod.readAllColdStartEntriesFromIdb();
+    expect(out.get('jotai/first')).toEqual({ v: 1 });
+    expect(out.get('jotai/second')).toEqual({ v: 2 });
+  });
+
+  it('concurrent flushes coalesce and all resolve', async () => {
+    const mod = loadModule();
+
+    mod.setColdStartL1MirrorEntry('a', { n: 1 });
+    mod.setColdStartL1MirrorEntry('b', { n: 2 });
+
+    // Two simultaneous force-flushes should both resolve. The mutex is
+    // expected to serialize them; if the mutex never clears, the second
+    // never resolves and the Promise.all hangs.
+    await Promise.all([
+      mod.flushColdStartCacheNow(),
+      mod.flushColdStartCacheNow(),
+    ]);
+
+    const out = await mod.readAllColdStartEntriesFromIdb();
+    expect(out.get('jotai/a')).toEqual({ n: 1 });
+    expect(out.get('jotai/b')).toEqual({ n: 2 });
+  });
+
+  it('flush after reset does not hang on a stale in-flight mutex', async () => {
+    const mod = loadModule();
+
+    mod.setColdStartL1MirrorEntry('before', { v: 1 });
+    await mod.flushColdStartCacheNow();
+
+    await mod.resetColdStartCache();
+
+    mod.setColdStartL1MirrorEntry('after', { v: 2 });
+    await mod.flushColdStartCacheNow();
+
+    const out = await mod.readAllColdStartEntriesFromIdb();
+    expect(out.get('jotai/before')).toBeUndefined();
+    expect(out.get('jotai/after')).toEqual({ v: 2 });
+  });
+
+  it('macrotasks still fire after a flush — proves the mutex is not starving them', async () => {
+    const mod = loadModule();
+    mod.setColdStartL1MirrorEntry('x', { v: 1 });
+    await mod.flushColdStartCacheNow();
+
+    // Schedule a setTimeout macrotask. If a subsequent flush enters the
+    // microtask-starvation loop, the macrotask queue never drains and
+    // this setTimeout never fires, hanging the test.
+    let macrotaskRan = false;
+    const macrotaskFired = new Promise<void>((resolve) => {
+      setTimeout(() => {
+        macrotaskRan = true;
+        resolve();
+      }, 0);
+    });
+
+    mod.setColdStartL1MirrorEntry('y', { v: 2 });
+    await mod.flushColdStartCacheNow();
+    await macrotaskFired;
+
+    expect(macrotaskRan).toBe(true);
+  });
 });
