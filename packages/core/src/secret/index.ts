@@ -1,3 +1,5 @@
+import { clearPbkdf2Cache } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
+import type { IPbkdf2DispatchBackend } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { InvalidMnemonic, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -95,6 +97,32 @@ const derivers: Map<ICurveName, IBip32KeyDeriver> = new Map([
   ],
 ]);
 
+export type IHdCredentialDecryptCacheParams = {
+  hdCredentialCacheScopeId?: string;
+};
+
+export type IClearHdCredentialDecryptCacheParams = {
+  hdCredentialCacheScopeId: string;
+};
+
+type ISecretKdfParams = {
+  kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
+};
+
+type IHdCredentialDecryptCacheEntry = {
+  revealableSeed?: IBip39RevealableSeed;
+  revealableSeedPromise?: Promise<IBip39RevealableSeed>;
+  seedBuffer?: Buffer;
+  mnemonic?: string;
+};
+
+const hdCredentialDecryptCache = new Map<
+  string,
+  IHdCredentialDecryptCacheEntry
+>();
+const hdCredentialDecryptCacheScopeKeys = new Map<string, Set<string>>();
+
 function getCurveByName(curveName: ICurveName): BaseCurve {
   const curve: BaseCurve | undefined = curves.get(curveName);
   if (curve === undefined) {
@@ -174,16 +202,20 @@ function fixV4VerifyStringToV5({ verifyString }: { verifyString: string }) {
 async function decryptVerifyString({
   password,
   verifyString,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   verifyString: string;
   password: string;
-}) {
+} & ISecretKdfParams) {
   const decrypted = await decryptAsync({
     password,
     data: Buffer.from(
       verifyString.replace(EncryptPrefixVerifyString, ''),
       'hex',
     ),
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   return decrypted.toString();
 }
@@ -191,10 +223,12 @@ async function decryptVerifyString({
 async function decryptVerifyStringWithMetadata({
   password,
   verifyString,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   verifyString: string;
   password: string;
-}) {
+} & ISecretKdfParams) {
   const result = await decryptAsyncWithMetadata({
     password,
     data: Buffer.from(
@@ -203,6 +237,8 @@ async function decryptVerifyStringWithMetadata({
     ),
     dataType: 'local-verify-string',
     upgradeTargetIterations: getSecretEncryptV2LocalTargetIterations(),
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   return {
     ...result,
@@ -215,12 +251,14 @@ async function encryptVerifyString({
   addPrefixString = true,
   allowRawPassword,
   format = ESecretEncryptPayloadFormat.v2,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   password: string;
   addPrefixString?: boolean;
   allowRawPassword?: boolean;
   format?: ESecretEncryptPayloadFormat;
-}): Promise<string> {
+} & ISecretKdfParams): Promise<string> {
   const encrypted = await encryptAsync({
     password,
     data: Buffer.from(DEFAULT_VERIFY_STRING),
@@ -231,6 +269,8 @@ async function encryptVerifyString({
       format === ESecretEncryptPayloadFormat.v2
         ? getSecretEncryptV2LocalTargetIterations()
         : undefined,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   return (
     (addPrefixString ? EncryptPrefixVerifyString : '') +
@@ -242,15 +282,19 @@ async function decryptRevealableSeed({
   rs,
   password,
   allowRawPassword,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   rs: IBip39RevealableSeedEncryptHex;
   password: string;
   allowRawPassword?: boolean;
-}): Promise<IBip39RevealableSeed> {
+} & ISecretKdfParams): Promise<IBip39RevealableSeed> {
   const decrypted = await decryptAsync({
     allowRawPassword,
     password,
     data: rs.replace(EncryptPrefixHdCredential, ''),
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   const rsJsonStr = bufferUtils.bytesToUtf8(decrypted);
   return JSON.parse(rsJsonStr) as IBip39RevealableSeed;
@@ -260,17 +304,21 @@ async function decryptRevealableSeedWithMetadata({
   rs,
   password,
   allowRawPassword,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   rs: IBip39RevealableSeedEncryptHex;
   password: string;
   allowRawPassword?: boolean;
-}) {
+} & ISecretKdfParams) {
   const result = await decryptAsyncWithMetadata({
     allowRawPassword,
     password,
     data: rs.replace(EncryptPrefixHdCredential, ''),
     dataType: 'local-revealable-seed',
     upgradeTargetIterations: getSecretEncryptV2LocalTargetIterations(),
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   const rsJsonStr = bufferUtils.bytesToUtf8(result.plaintext);
   return {
@@ -279,15 +327,176 @@ async function decryptRevealableSeedWithMetadata({
   };
 }
 
+async function getHdCredentialDecryptCacheEntry({
+  hdCredentialCacheScopeId,
+  hdCredential,
+  password,
+}: IHdCredentialDecryptCacheParams & {
+  hdCredential: IBip39RevealableSeedEncryptHex;
+  password: string;
+}): Promise<IHdCredentialDecryptCacheEntry | undefined> {
+  if (!hdCredentialCacheScopeId) {
+    return undefined;
+  }
+  const passwordHash = bufferUtils.bytesToHex(
+    await hash160(Buffer.from(password)),
+  );
+  const cacheKey = `${hdCredentialCacheScopeId}:${passwordHash}:${hdCredential}`;
+  let entry = hdCredentialDecryptCache.get(cacheKey);
+  if (!entry) {
+    entry = {};
+    hdCredentialDecryptCache.set(cacheKey, entry);
+    let scopeKeys = hdCredentialDecryptCacheScopeKeys.get(
+      hdCredentialCacheScopeId,
+    );
+    if (!scopeKeys) {
+      scopeKeys = new Set<string>();
+      hdCredentialDecryptCacheScopeKeys.set(
+        hdCredentialCacheScopeId,
+        scopeKeys,
+      );
+    }
+    scopeKeys.add(cacheKey);
+  }
+  return entry;
+}
+
+async function decryptRevealableSeedWithCache({
+  rs,
+  password,
+  allowRawPassword,
+  hdCredentialCacheScopeId,
+  kdfBackend,
+  enablePbkdf2Cache,
+}: {
+  rs: IBip39RevealableSeedEncryptHex;
+  password: string;
+  allowRawPassword?: boolean;
+} & IHdCredentialDecryptCacheParams &
+  ISecretKdfParams): Promise<IBip39RevealableSeed> {
+  const cacheEntry = await getHdCredentialDecryptCacheEntry({
+    hdCredentialCacheScopeId,
+    hdCredential: rs,
+    password,
+  });
+  if (!cacheEntry) {
+    return decryptRevealableSeed({
+      rs,
+      password,
+      allowRawPassword,
+      kdfBackend,
+      enablePbkdf2Cache,
+    });
+  }
+  if (cacheEntry.revealableSeed) {
+    return cacheEntry.revealableSeed;
+  }
+  if (!cacheEntry.revealableSeedPromise) {
+    cacheEntry.revealableSeedPromise = decryptRevealableSeed({
+      rs,
+      password,
+      allowRawPassword,
+      kdfBackend,
+      enablePbkdf2Cache,
+    })
+      .then((revealableSeed) => {
+        cacheEntry.revealableSeed = revealableSeed;
+        cacheEntry.seedBuffer = bufferUtils.toBuffer(revealableSeed.seed);
+        return revealableSeed;
+      })
+      .catch((error) => {
+        cacheEntry.revealableSeedPromise = undefined;
+        throw error;
+      });
+  }
+  return cacheEntry.revealableSeedPromise;
+}
+
+async function getHdCredentialSeedBufferWithCache({
+  hdCredential,
+  password,
+  hdCredentialCacheScopeId,
+}: IHdCredentialDecryptCacheParams & {
+  hdCredential: IBip39RevealableSeedEncryptHex;
+  password: string;
+}): Promise<Buffer> {
+  const cacheEntry = await getHdCredentialDecryptCacheEntry({
+    hdCredentialCacheScopeId,
+    hdCredential,
+    password,
+  });
+  if (cacheEntry?.seedBuffer) {
+    return Buffer.from(cacheEntry.seedBuffer);
+  }
+  const { seed } = await decryptRevealableSeedWithCache({
+    rs: hdCredential,
+    password,
+    hdCredentialCacheScopeId,
+  });
+  const seedBuffer = bufferUtils.toBuffer(seed);
+  if (cacheEntry) {
+    cacheEntry.seedBuffer = seedBuffer;
+  }
+  return Buffer.from(seedBuffer);
+}
+
+async function clearPbkdf2CacheAsync(): Promise<void> {
+  clearPbkdf2Cache();
+
+  if (
+    platformEnv.isNative &&
+    !platformEnv.isWebEmbed &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
+    await appGlobals.$webembedApiProxy.secret.clearPbkdf2Cache();
+  }
+}
+
+async function clearHdCredentialDecryptCache({
+  hdCredentialCacheScopeId,
+}: IClearHdCredentialDecryptCacheParams): Promise<void> {
+  const scopeKeys = hdCredentialDecryptCacheScopeKeys.get(
+    hdCredentialCacheScopeId,
+  );
+  if (scopeKeys) {
+    for (const cacheKey of scopeKeys) {
+      const entry = hdCredentialDecryptCache.get(cacheKey);
+      entry?.seedBuffer?.fill(0);
+      if (entry) {
+        entry.revealableSeed = undefined;
+        entry.revealableSeedPromise = undefined;
+        entry.seedBuffer = undefined;
+        entry.mnemonic = undefined;
+      }
+      hdCredentialDecryptCache.delete(cacheKey);
+    }
+    hdCredentialDecryptCacheScopeKeys.delete(hdCredentialCacheScopeId);
+  }
+
+  if (
+    platformEnv.isNative &&
+    !platformEnv.isWebEmbed &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
+    await appGlobals.$webembedApiProxy.secret.clearHdCredentialDecryptCache({
+      hdCredentialCacheScopeId,
+    });
+  }
+}
+
 async function encryptRevealableSeed({
   rs,
   password,
   format = ESecretEncryptPayloadFormat.v2,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   rs: IBip39RevealableSeed;
   password: string;
   format?: ESecretEncryptPayloadFormat;
-}): Promise<IBip39RevealableSeedEncryptHex> {
+} & ISecretKdfParams): Promise<IBip39RevealableSeedEncryptHex> {
   if (!rs || !rs.entropyWithLangPrefixed || !rs.seed) {
     throw new OneKeyLocalError('Invalid seed object');
   }
@@ -301,6 +510,8 @@ async function encryptRevealableSeed({
       format === ESecretEncryptPayloadFormat.v2
         ? getSecretEncryptV2LocalTargetIterations()
         : undefined,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   return EncryptPrefixHdCredential + bufferUtils.bytesToHex(encrypted);
 }
@@ -309,11 +520,13 @@ async function decryptImportedCredential({
   credential,
   password,
   allowRawPassword,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   credential: ICoreImportedCredentialEncryptHex;
   password: string;
   allowRawPassword?: boolean;
-}): Promise<ICoreImportedCredential> {
+} & ISecretKdfParams): Promise<ICoreImportedCredential> {
   const decrypted = await decryptAsync({
     allowRawPassword,
     password,
@@ -321,6 +534,8 @@ async function decryptImportedCredential({
       typeof credential === 'string'
         ? credential.replace(EncryptPrefixImportedCredential, '')
         : credential,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   const text = bufferUtils.bytesToUtf8(decrypted);
   return JSON.parse(text) as ICoreImportedCredential;
@@ -330,11 +545,13 @@ async function decryptImportedCredentialWithMetadata({
   credential,
   password,
   allowRawPassword,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   credential: ICoreImportedCredentialEncryptHex;
   password: string;
   allowRawPassword?: boolean;
-}) {
+} & ISecretKdfParams) {
   const result = await decryptAsyncWithMetadata({
     allowRawPassword,
     password,
@@ -344,6 +561,8 @@ async function decryptImportedCredentialWithMetadata({
         : credential,
     dataType: 'local-imported-credential',
     upgradeTargetIterations: getSecretEncryptV2LocalTargetIterations(),
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   const text = bufferUtils.bytesToUtf8(result.plaintext);
   return {
@@ -357,12 +576,14 @@ async function encryptImportedCredential({
   password,
   allowRawPassword,
   format = ESecretEncryptPayloadFormat.v2,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   credential: ICoreImportedCredential;
   password: string;
   allowRawPassword?: boolean;
   format?: ESecretEncryptPayloadFormat;
-}): Promise<ICoreImportedCredentialEncryptHex> {
+} & ISecretKdfParams): Promise<ICoreImportedCredentialEncryptHex> {
   if (!credential || !credential.privateKey) {
     throw new OneKeyLocalError('Invalid credential object');
   }
@@ -377,6 +598,8 @@ async function encryptImportedCredential({
       format === ESecretEncryptPayloadFormat.v2
         ? getSecretEncryptV2LocalTargetIterations()
         : undefined,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   return EncryptPrefixImportedCredential + encrypted;
 }
@@ -451,6 +674,7 @@ async function batchGetKeys(
   prefix: string,
   relPaths: Array<string>,
   type: 'public' | 'private',
+  hdCredentialCacheScopeId?: string,
 ): Promise<
   Array<{
     path: string;
@@ -459,11 +683,11 @@ async function batchGetKeys(
   }>
 > {
   const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
-  const { seed } = await decryptRevealableSeed({
-    rs: hdCredential,
+  const seedBuffer: Buffer = await getHdCredentialSeedBufferWithCache({
+    hdCredential,
     password,
+    hdCredentialCacheScopeId,
   });
-  const seedBuffer: Buffer = bufferUtils.toBuffer(seed);
 
   // Generate master key
   let key: IBip32ExtendedKey = deriver.generateMasterKeyFromSeed(seedBuffer);
@@ -557,6 +781,7 @@ async function batchGetKeysByAsyncSubCalls(
   prefix: string,
   relPaths: Array<string>,
   type: 'public' | 'private',
+  hdCredentialCacheScopeId?: string,
 ): Promise<
   Array<{
     path: string;
@@ -565,11 +790,11 @@ async function batchGetKeysByAsyncSubCalls(
   }>
 > {
   const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
-  const { seed } = await decryptRevealableSeed({
-    rs: hdCredential,
+  const seedBuffer: Buffer = await getHdCredentialSeedBufferWithCache({
+    hdCredential,
     password,
+    hdCredentialCacheScopeId,
   });
-  const seedBuffer: Buffer = bufferUtils.toBuffer(seed);
 
   // Generate master key
   let key: IBip32ExtendedKey =
@@ -670,6 +895,7 @@ async function batchGetPrivateKeys(
   password: string,
   prefix: string,
   relPaths: Array<string>,
+  hdCredentialCacheScopeId?: string,
 ): Promise<ISecretPrivateKeyInfo[]> {
   return batchGetKeys(
     curveName,
@@ -678,6 +904,7 @@ async function batchGetPrivateKeys(
     prefix,
     relPaths,
     'private',
+    hdCredentialCacheScopeId,
   );
 }
 
@@ -700,11 +927,18 @@ export type IBatchGetPublicKeysParams = {
   relPaths: Array<string>;
   byAsyncSubCalls?: boolean;
   useWebembedApi?: boolean; // webembedApi is default to true
-};
+} & IHdCredentialDecryptCacheParams;
 async function batchGetPublicKeys(
   params: IBatchGetPublicKeysParams,
 ): Promise<ISecretPublicKeyInfo[]> {
-  const { curveName, hdCredential, password, prefix, relPaths } = params;
+  const {
+    curveName,
+    hdCredential,
+    password,
+    prefix,
+    relPaths,
+    hdCredentialCacheScopeId,
+  } = params;
   const { useWebembedApi = true } = params;
 
   if (
@@ -733,6 +967,7 @@ async function batchGetPublicKeys(
       prefix,
       relPaths,
       'public',
+      hdCredentialCacheScopeId,
     );
   }
 
@@ -743,6 +978,7 @@ async function batchGetPublicKeys(
     prefix,
     relPaths,
     'public',
+    hdCredentialCacheScopeId,
   );
 }
 
@@ -750,13 +986,14 @@ async function generateMasterKeyFromSeed(
   curveName: ICurveName,
   hdCredential: IBip39RevealableSeedEncryptHex,
   password: string,
+  hdCredentialCacheScopeId?: string,
 ): Promise<IBip32ExtendedKey> {
   const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
-  const { seed } = await decryptRevealableSeed({
-    rs: hdCredential,
+  const seedBuffer: Buffer = await getHdCredentialSeedBufferWithCache({
+    hdCredential,
     password,
+    hdCredentialCacheScopeId,
   });
-  const seedBuffer: Buffer = bufferUtils.toBuffer(seed);
   const masterKey: IBip32ExtendedKey =
     await deriver.generateMasterKeyFromSeedAsync(seedBuffer);
   const encryptedKey = await encryptAsync({
@@ -839,11 +1076,21 @@ async function revealableSeedFromMnemonic(
 async function mnemonicFromEntropy(
   hdCredential: IBip39RevealableSeedEncryptHex,
   password: string,
+  options?: IHdCredentialDecryptCacheParams,
 ): Promise<string> {
+  const cacheEntry = await getHdCredentialDecryptCacheEntry({
+    hdCredentialCacheScopeId: options?.hdCredentialCacheScopeId,
+    hdCredential,
+    password,
+  });
+  if (cacheEntry?.mnemonic) {
+    return cacheEntry.mnemonic;
+  }
   defaultLogger.account.secretPerf.decryptHdCredential();
-  const rs: IBip39RevealableSeed = await decryptRevealableSeed({
+  const rs: IBip39RevealableSeed = await decryptRevealableSeedWithCache({
     password,
     rs: hdCredential,
+    hdCredentialCacheScopeId: options?.hdCredentialCacheScopeId,
   });
   defaultLogger.account.secretPerf.decryptHdCredentialDone();
 
@@ -853,6 +1100,9 @@ async function mnemonicFromEntropy(
   );
   defaultLogger.account.secretPerf.revealEntropyToMnemonicDone();
 
+  if (cacheEntry) {
+    cacheEntry.mnemonic = r;
+  }
   return r;
 }
 
@@ -860,7 +1110,7 @@ export type IMnemonicFromEntropyAsyncParams = {
   hdCredential: IBip39RevealableSeedEncryptHex;
   password: string;
   useWebembedApi?: boolean; // webembedApi is default to false
-};
+} & IHdCredentialDecryptCacheParams;
 async function mnemonicFromEntropyAsync(
   params: IMnemonicFromEntropyAsyncParams,
 ): Promise<string> {
@@ -874,8 +1124,38 @@ async function mnemonicFromEntropyAsync(
     return appGlobals.$webembedApiProxy.secret.mnemonicFromEntropyAsync(params);
   }
   return Promise.resolve(
-    mnemonicFromEntropy(params.hdCredential, params.password),
+    mnemonicFromEntropy(params.hdCredential, params.password, {
+      hdCredentialCacheScopeId: params.hdCredentialCacheScopeId,
+    }),
   );
+}
+
+export type ISeedFromHdCredentialAsyncParams = {
+  hdCredential: IBip39RevealableSeedEncryptHex;
+  password: string;
+  useWebembedApi?: boolean;
+} & IHdCredentialDecryptCacheParams;
+async function seedFromHdCredentialAsync(
+  params: ISeedFromHdCredentialAsyncParams,
+): Promise<Buffer> {
+  const { useWebembedApi = true } = params;
+  if (
+    useWebembedApi &&
+    platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
+    const hex =
+      await appGlobals.$webembedApiProxy.secret.seedFromHdCredentialAsync(
+        params,
+      );
+    return Buffer.from(hex, 'hex');
+  }
+  return getHdCredentialSeedBufferWithCache({
+    hdCredential: params.hdCredential,
+    password: params.password,
+    hdCredentialCacheScopeId: params.hdCredentialCacheScopeId,
+  });
 }
 
 export type IMnemonicToSeedAsyncParams = {
@@ -912,7 +1192,7 @@ export type IGenerateRootFingerprintHexAsyncParams = {
   hdCredential: IBip39RevealableSeedEncryptHex;
   password: string;
   useWebembedApi?: boolean; // webembedApi is default to false
-};
+} & IHdCredentialDecryptCacheParams;
 async function generateRootFingerprintHexAsync(
   params: IGenerateRootFingerprintHexAsyncParams,
 ): Promise<string> {
@@ -932,6 +1212,7 @@ async function generateRootFingerprintHexAsync(
     curveName,
     hdCredential,
     password,
+    params.hdCredentialCacheScopeId,
   );
   const publicKey = await publicFromPrivate(
     curveName,
@@ -981,6 +1262,8 @@ export {
   batchGetPublicKeys,
   CKDPriv,
   CKDPub,
+  clearHdCredentialDecryptCache,
+  clearPbkdf2CacheAsync,
   compressPublicKey,
   decryptHyperLiquidAgentCredential,
   decryptImportedCredential,
@@ -1003,6 +1286,7 @@ export {
   publicFromPrivate,
   revealableSeedFromMnemonic,
   revealableSeedFromTonMnemonic,
+  seedFromHdCredentialAsync,
   sign,
   tonMnemonicFromEntropy,
   uncompressPublicKey,

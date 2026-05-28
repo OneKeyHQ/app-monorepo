@@ -64,6 +64,7 @@ export function MobilePositionsListHeader({
         variant="secondary"
         disabled={totalPositionCount === 0}
         onPress={handleCloseAll}
+        childrenAsText={false}
       >
         <SizableText size="$bodyXs">
           {intl.formatMessage({ id: ETranslations.perp_position_close })}

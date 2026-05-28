@@ -36,7 +36,7 @@ export function NetworkStatus() {
   // Determine network status based on current tab
   const isConnected = useMemo(() => {
     if (isInPerpRoute) {
-      return Boolean(perpsNetworkStatus?.connected);
+      return perpsNetworkStatus?.connected !== false;
     }
     return isInternetReachable !== false;
   }, [isInPerpRoute, perpsNetworkStatus?.connected, isInternetReachable]);
@@ -45,14 +45,19 @@ export function NetworkStatus() {
   const label = useMemo(() => {
     if (
       isInPerpRoute &&
-      isConnected &&
+      perpsNetworkStatus?.connected === true &&
       perpsNetworkStatus?.pingMs !== null &&
       perpsNetworkStatus?.pingMs !== undefined
     ) {
       return `${intl.formatMessage({ id: ETranslations.perp_online })} ${perpsNetworkStatus.pingMs}ms`;
     }
     return undefined;
-  }, [isInPerpRoute, isConnected, perpsNetworkStatus?.pingMs, intl]);
+  }, [
+    isInPerpRoute,
+    perpsNetworkStatus?.connected,
+    perpsNetworkStatus?.pingMs,
+    intl,
+  ]);
 
   return (
     <NetworkStatusBadge connected={isConnected} badgeSize="sm" label={label} />

@@ -235,10 +235,12 @@ function createService(params: { wallet?: any; password?: string } = {}) {
 }
 
 function mockPassiveV1HappyPath(serviceAny: any) {
-  serviceAny.getKeylessAccessTokenWithoutPrompt = jest.fn(async () => ({
-    accessToken: TOKEN,
-    refreshToken: REFRESH_TOKEN,
-  }));
+  serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+    async () => ({
+      accessToken: TOKEN,
+      refreshToken: REFRESH_TOKEN,
+    }),
+  );
   serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
     async () => undefined,
   );
@@ -351,7 +353,9 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
 
   test('throttles passive migration for 24 hours after a failed attempt', async () => {
     const { service, serviceAny } = createService();
-    serviceAny.getKeylessAccessTokenWithoutPrompt = jest.fn(async () => null);
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+      async () => null,
+    );
 
     await expect(
       service.tryMigrateLocalExistingKeylessBackendShareToV2(),
@@ -367,14 +371,260 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       reason: 'passive_throttled',
     });
 
-    expect(serviceAny.getKeylessAccessTokenWithoutPrompt).toHaveBeenCalledTimes(
-      1,
+    expect(
+      serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not consume the 24-hour throttle when the refresh fetch fails with a network error', async () => {
+    const { service, serviceAny } = createService();
+    const { KeylessPassiveMigrationNetworkError } =
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require('./keylessPassiveMigrationErrors');
+    // First call: simulate offline by throwing a network error.
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest
+      .fn()
+      .mockImplementationOnce(async () => {
+        throw new KeylessPassiveMigrationNetworkError();
+      })
+      .mockImplementationOnce(async () => null);
+
+    await expect(
+      service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+    ).resolves.toMatchObject({
+      skipped: true,
+      reason: 'network_unavailable',
+    });
+
+    // Throttle should NOT be set — the next trigger must retry immediately.
+    expect(migrationPersist.byWalletId[WALLET_ID]).toBeUndefined();
+
+    await expect(
+      service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+    ).resolves.toMatchObject({
+      skipped: true,
+      reason: 'token_missing',
+    });
+
+    expect(
+      serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive,
+    ).toHaveBeenCalledTimes(2);
+  });
+
+  test('rolls back to previous record on network error for a record-matched wallet', async () => {
+    const PREVIOUS_ATTEMPT_AT = NOW - 25 * 60 * 60 * 1000;
+    migrationPersist = {
+      byWalletId: {
+        [WALLET_ID]: {
+          ownerId: OWNER_ID,
+          keylessProvider: EOAuthSocialLoginProvider.Google,
+          socialUserIdHash: SOCIAL_USER_ID_HASH,
+          lastPassiveAttemptAt: PREVIOUS_ATTEMPT_AT,
+          lastPassiveFailedAt: PREVIOUS_ATTEMPT_AT,
+        },
+      },
+    };
+    const { service, serviceAny } = createService();
+    const { KeylessPassiveMigrationNetworkError } =
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require('./keylessPassiveMigrationErrors');
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+      async () => {
+        throw new KeylessPassiveMigrationNetworkError();
+      },
     );
+
+    await expect(
+      service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+    ).resolves.toMatchObject({
+      skipped: true,
+      reason: 'network_unavailable',
+    });
+
+    // Previous record must be restored — the throttle write done at NOW
+    // before the network attempt must be undone, so that the next natural
+    // trigger can retry immediately without waiting another 24h.
+    expect(migrationPersist.byWalletId[WALLET_ID]).toEqual({
+      ownerId: OWNER_ID,
+      keylessProvider: EOAuthSocialLoginProvider.Google,
+      socialUserIdHash: SOCIAL_USER_ID_HASH,
+      lastPassiveAttemptAt: PREVIOUS_ATTEMPT_AT,
+      lastPassiveFailedAt: PREVIOUS_ATTEMPT_AT,
+    });
+  });
+
+  test('does not consume the 24-hour throttle when Prime API meta call fails with AxiosNetworkError', async () => {
+    const { service, serviceAny } = createService();
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+      async () => ({ accessToken: TOKEN, refreshToken: REFRESH_TOKEN }),
+    );
+    serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
+      async () => undefined,
+    );
+    // Cached-token path: refresh skipped, Prime API fails with axios
+    // network error (offline / DNS / TLS). Must not consume the 24h throttle.
+    serviceAny.apiGetKeylessBackendShareMeta = jest.fn(async () => {
+      const error: Error & { className?: string } = new Error('Network Error');
+      error.className = 'AxiosNetworkError';
+      throw error;
+    });
+
+    await expect(
+      service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+    ).resolves.toMatchObject({
+      skipped: true,
+      reason: 'network_unavailable',
+    });
+
+    expect(migrationPersist.byWalletId[WALLET_ID]).toBeUndefined();
+  });
+
+  test('does not consume the 24-hour throttle when Prime API meta call fails with 5xx', async () => {
+    const { service, serviceAny } = createService();
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+      async () => ({ accessToken: TOKEN, refreshToken: REFRESH_TOKEN }),
+    );
+    serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
+      async () => undefined,
+    );
+    serviceAny.apiGetKeylessBackendShareMeta = jest.fn(async () => {
+      const error: Error & { httpStatusCode?: number } = new Error(
+        'server error',
+      );
+      error.httpStatusCode = 503;
+      throw error;
+    });
+
+    await expect(
+      service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+    ).resolves.toMatchObject({
+      skipped: true,
+      reason: 'network_unavailable',
+    });
+
+    expect(migrationPersist.byWalletId[WALLET_ID]).toBeUndefined();
+  });
+
+  test('does not consume the 24-hour throttle when Prime API call fails with 429 rate limit', async () => {
+    const { service, serviceAny } = createService();
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+      async () => ({ accessToken: TOKEN, refreshToken: REFRESH_TOKEN }),
+    );
+    serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
+      async () => undefined,
+    );
+    serviceAny.apiGetKeylessBackendShareMeta = jest.fn(async () => {
+      const error: Error & { httpStatusCode?: number } = new Error(
+        'rate limited',
+      );
+      error.httpStatusCode = 429;
+      throw error;
+    });
+
+    await expect(
+      service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+    ).resolves.toMatchObject({
+      skipped: true,
+      reason: 'network_unavailable',
+    });
+
+    expect(migrationPersist.byWalletId[WALLET_ID]).toBeUndefined();
+  });
+
+  test('refresh helper surfaces 429 from Supabase auth as a network error so the throttle is not consumed', async () => {
+    const { service, serviceAny } = createService();
+    mockGetRefreshTokenFromStorageWithPassword.mockResolvedValue(REFRESH_TOKEN);
+    const originalFetch = (globalThis as { fetch?: typeof fetch }).fetch;
+    const fetchMock = jest.fn(
+      async () =>
+        ({
+          ok: false,
+          status: 429,
+          json: async () => ({}),
+        }) as unknown as Response,
+    );
+    (globalThis as { fetch?: unknown }).fetch = fetchMock;
+    try {
+      const { KeylessPassiveMigrationNetworkError } =
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        require('./keylessPassiveMigrationErrors');
+      await expect(
+        serviceAny.refreshAccessTokenForKeylessBackendShareV2MigrationPassive({
+          ownerId: OWNER_ID,
+          password: PASSWORD,
+        }),
+      ).rejects.toBeInstanceOf(KeylessPassiveMigrationNetworkError);
+    } finally {
+      if (originalFetch) {
+        (globalThis as { fetch?: typeof fetch }).fetch = originalFetch;
+      } else {
+        delete (globalThis as { fetch?: unknown }).fetch;
+      }
+    }
+    expect(service).toBeDefined();
+  });
+
+  test('does not consume the 24-hour throttle when Prime API call fails with a client-side timeout', async () => {
+    const { service, serviceAny } = createService();
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+      async () => ({ accessToken: TOKEN, refreshToken: REFRESH_TOKEN }),
+    );
+    serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
+      async () => undefined,
+    );
+    serviceAny.apiGetKeylessBackendShareMeta = jest.fn(async () => {
+      const error: Error & { code?: string } = new Error('timeout of 30000ms');
+      error.code = 'ECONNABORTED';
+      throw error;
+    });
+
+    await expect(
+      service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+    ).resolves.toMatchObject({
+      skipped: true,
+      reason: 'network_unavailable',
+    });
+
+    expect(migrationPersist.byWalletId[WALLET_ID]).toBeUndefined();
+  });
+
+  test('still throttles for 24h when Prime API meta call fails with a 4xx (real auth failure)', async () => {
+    const { service, serviceAny } = createService();
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+      async () => ({ accessToken: TOKEN, refreshToken: REFRESH_TOKEN }),
+    );
+    serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
+      async () => undefined,
+    );
+    serviceAny.apiGetKeylessBackendShareMeta = jest.fn(async () => {
+      const error: Error & { httpStatusCode?: number } = new Error(
+        'unauthorized',
+      );
+      error.httpStatusCode = 401;
+      throw error;
+    });
+
+    await expect(
+      service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+    ).resolves.toMatchObject({
+      skipped: false,
+      reason: 'upgrade_failed',
+    });
+
+    // 4xx is a real failure — throttle must be set so we don't hammer the
+    // server on every wake.
+    expect(migrationPersist.byWalletId[WALLET_ID]).toMatchObject({
+      ownerId: OWNER_ID,
+      lastPassiveAttemptAt: NOW,
+      lastPassiveFailedAt: NOW,
+    });
   });
 
   test('retries passive migration after the 24-hour failure throttle window', async () => {
     const { service, serviceAny } = createService();
-    serviceAny.getKeylessAccessTokenWithoutPrompt = jest.fn(async () => null);
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+      async () => null,
+    );
 
     await expect(
       service.tryMigrateLocalExistingKeylessBackendShareToV2(),
@@ -392,9 +642,9 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       reason: 'token_missing',
     });
 
-    expect(serviceAny.getKeylessAccessTokenWithoutPrompt).toHaveBeenCalledTimes(
-      2,
-    );
+    expect(
+      serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive,
+    ).toHaveBeenCalledTimes(2);
   });
 
   test('skips permanently after successful migration for the same identity', async () => {
@@ -437,7 +687,9 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       },
     };
     const { service, serviceAny } = createService();
-    serviceAny.getKeylessAccessTokenWithoutPrompt = jest.fn(async () => null);
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+      async () => null,
+    );
 
     await expect(
       service.tryMigrateLocalExistingKeylessBackendShareToV2(),
@@ -446,9 +698,9 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       reason: 'token_missing',
     });
 
-    expect(serviceAny.getKeylessAccessTokenWithoutPrompt).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(
+      serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive,
+    ).toHaveBeenCalledTimes(1);
     expect(migrationPersist.byWalletId[WALLET_ID]).toMatchObject({
       ownerId: OWNER_ID,
       socialUserIdHash: SOCIAL_USER_ID_HASH,
@@ -458,10 +710,12 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
 
   test('does not write server or save refreshed tokens when token social identity mismatches local wallet', async () => {
     const { service, serviceAny } = createService();
-    serviceAny.getKeylessAccessTokenWithoutPrompt = jest.fn(async () => ({
-      accessToken: TOKEN,
-      refreshToken: REFRESH_TOKEN,
-    }));
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+      async () => ({
+        accessToken: TOKEN,
+        refreshToken: REFRESH_TOKEN,
+      }),
+    );
     serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
       async () => 'token_identity_mismatch',
     );
@@ -482,10 +736,12 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
 
   test('does not write server or save refreshed tokens when token provider mismatches local wallet', async () => {
     const { service, serviceAny } = createService();
-    serviceAny.getKeylessAccessTokenWithoutPrompt = jest.fn(async () => ({
-      accessToken: TOKEN,
-      refreshToken: REFRESH_TOKEN,
-    }));
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+      async () => ({
+        accessToken: TOKEN,
+        refreshToken: REFRESH_TOKEN,
+      }),
+    );
     serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
       async () => 'token_provider_mismatch',
     );
@@ -506,10 +762,12 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
 
   test('does not write server or save refreshed tokens when token and server hash derive a different ownerId', async () => {
     const { service, serviceAny } = createService();
-    serviceAny.getKeylessAccessTokenWithoutPrompt = jest.fn(async () => ({
-      accessToken: TOKEN,
-      refreshToken: REFRESH_TOKEN,
-    }));
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+      async () => ({
+        accessToken: TOKEN,
+        refreshToken: REFRESH_TOKEN,
+      }),
+    );
     serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
       async () => undefined,
     );
@@ -541,9 +799,11 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
 
   test('does not mark success when existing v2 server data does not match local mnemonic', async () => {
     const { service, serviceAny } = createService();
-    serviceAny.getKeylessAccessTokenWithoutPrompt = jest.fn(async () => ({
-      accessToken: TOKEN,
-    }));
+    serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
+      async () => ({
+        accessToken: TOKEN,
+      }),
+    );
     serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
       async () => undefined,
     );

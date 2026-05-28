@@ -856,11 +856,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
       ) {
-        void backgroundApiProxy.serviceApp.openExtensionExpandTab({
-          path: `/market/token/${shortCode || record.chainId}/${record.contractAddress}`,
-          params: {
-            isNative: record.isNative,
-          },
+        void backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
+          tokenAddress: record.contractAddress,
+          network: shortCode || record.chainId,
+          isNative: record.isNative,
         });
         return;
       }

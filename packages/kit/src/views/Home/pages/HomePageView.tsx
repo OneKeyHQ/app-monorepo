@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
+  DelayedFreeze,
   Icon,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
@@ -156,6 +157,28 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Tabs.Container mounts all 4 home tabs (Spot, DeFi, NFT, History) as
+// peer panes in a horizontal scroller, so React reconciles every block
+// on each Wallet unfreeze (or any HomePageView re-render) — including
+// the DeFi / NFT / History trees the user is not currently looking at.
+// Freezing the inactive panes drops that work back to the focused tab
+// only, which is what visibly happens already and matches the
+// freeze-on-blur strategy used at the outer tab-navigator level.
+function FreezeInactiveHomeTab({
+  tabName,
+  children,
+}: {
+  tabName: string;
+  children: React.ReactNode;
+}) {
+  const focusedTab = useFocusedTab();
+  return (
+    <DelayedFreeze freeze={!!focusedTab && focusedTab !== tabName}>
+      {children}
+    </DelayedFreeze>
+  );
+}
+
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onPressHide,
@@ -272,33 +295,6 @@ export function HomePageView({
       swrKey: network?.id ? swrKeys.defiEnabled(network.id) : undefined,
     },
   );
-
-  // DEBUG: trace tab config state changes
-  useEffect(() => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { NativeLogger: NL, LogLevel: LL } =
-        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-      const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${network?.id ?? ''}-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}`;
-      NL.write(
-        LL.Info,
-        `[LayoutDiag] HomePageView: ready=${ready}, isDeFi=${isDeFiEnabled}, isNFT=${isNFTEnabled}, ` +
-          `cachedVS=${!!cachedVaultSettings}, fetchedVS=${!!fetchedVaultSettings}, ` +
-          `networkId=${network?.id?.slice(-10) ?? 'nil'}, key=${key}`,
-      );
-    } catch {
-      /* */
-    }
-  }, [
-    ready,
-    isDeFiEnabled,
-    isNFTEnabled,
-    cachedVaultSettings,
-    fetchedVaultSettings,
-    network?.id,
-    account?.id,
-    account?.indexedAccountId,
-  ]);
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -693,7 +689,9 @@ export function HomePageView({
       >
         {tabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
-            {tab.component}
+            <FreezeInactiveHomeTab tabName={tab.name}>
+              {tab.component}
+            </FreezeInactiveHomeTab>
           </Tabs.Tab>
         ))}
       </Tabs.Container>

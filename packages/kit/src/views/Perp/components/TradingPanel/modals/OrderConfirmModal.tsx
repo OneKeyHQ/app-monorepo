@@ -577,6 +577,7 @@ function OrderConfirmContent({
           loading={isConfirmLoading}
           onPress={handleConfirm}
           {...buttonStyleProps}
+          childrenAsText={false}
         >
           <SizableText size="$bodyMdMedium" color="$textOnColor">
             {buttonText}

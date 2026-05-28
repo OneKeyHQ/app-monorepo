@@ -17,13 +17,6 @@ import { useOneKeyWalletDetection } from '@onekeyhq/kit/src/hooks/useWebDapp/use
 import { safePushToEarnRoute } from '@onekeyhq/kit/src/views/Earn/earnUtils';
 import { useBindReferralViaExtension } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useBindReferralViaExtension';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  ANDROID_PACKAGE_NAME,
-  APP_STORE_DOWNLOAD_LINK,
-  APP_STORE_DOWNLOAD_WEB_LINK,
-  DOWNLOAD_URL,
-  PLAY_STORE_LINK,
-} from '@onekeyhq/shared/src/config/appConfig';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import {
   EAppEventBusNames,
@@ -51,44 +44,19 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
+import {
+  openAppViaDeepLink,
+  redirectToStore,
+  scheduleDeepLinkFallbackHint,
+} from '../../utils/deepLinkLaunchUtils';
+
 import { REFERRAL_STEP2_ANCHOR_ID, ReferralWebLanding } from './components';
 
 import type { IReferralVariant } from './components';
 
-// iOS App Store: when `itms-apps://` fails (e.g. restricted profile), fall
-// back to the HTTPS web link after this delay.
-const IOS_STORE_WEB_FALLBACK_DELAY_MS = 300;
-
-// If the store redirect round-trip takes longer than this, assume the App
-// Store actually opened (timer fired late because the page was backgrounded)
-// and skip the web fallback.
-const IOS_STORE_ELAPSED_THRESHOLD_MS = 1500;
-
-const DEEP_LINK_DOWNLOAD_HINT_DELAY_MS = 5000;
-
 // Delay before opening the InvitedByFriend modal after tab navigation.
 // Gives the target tab enough time to mount and render before the modal overlay.
 const MODAL_OPEN_DELAY_MS = 1500;
-
-// Build an Android intent:// URL with built-in Play Store fallback.
-// Chrome (and Chromium-based browsers) handles this natively: opens the app if
-// installed, otherwise redirects to S.browser_fallback_url.
-// Using location.href with a raw custom scheme (onekey-wallet://) on Android
-// navigates to an ERR_UNKNOWN_URL_SCHEME error page, destroying the JS context
-// and any fallback timers.
-function buildAndroidIntentUrl(deepLinkUrl: string): string {
-  const schemeEnd = deepLinkUrl.indexOf('://');
-  if (schemeEnd === -1) {
-    return deepLinkUrl;
-  }
-  const scheme = deepLinkUrl.slice(0, schemeEnd);
-  const rest = deepLinkUrl.slice(schemeEnd + 3);
-  // Intentionally omit S.browser_fallback_url. With a fallback URL, Chrome
-  // navigates to it on miss and reloads the page, killing the inline download
-  // hint timer. Without one, Chrome stays on the current page and the hint can
-  // appear under Step 2. Step 1 still has the explicit download CTA.
-  return `intent://${rest}#Intent;scheme=${scheme};package=${ANDROID_PACKAGE_NAME};end`;
-}
 
 const waitForNavigationReady = async (until = 3000): Promise<boolean> => {
   await timerUtils.sleepUntil({
@@ -150,39 +118,6 @@ type IReferralUtmSource =
 
 const formatDiscount = (value?: { amount: number; unit: string }) =>
   value ? `${value.amount}${value.unit}` : '';
-
-function redirectToStore() {
-  if (platformEnv.isWebMobileIOS) {
-    const storeStartTime = Date.now();
-    globalThis.location.href = APP_STORE_DOWNLOAD_LINK;
-    globalThis.setTimeout(() => {
-      const elapsed = Date.now() - storeStartTime;
-      const isVisible = globalThis.document?.visibilityState !== 'hidden';
-      if (isVisible && elapsed <= IOS_STORE_ELAPSED_THRESHOLD_MS) {
-        globalThis.location.href = APP_STORE_DOWNLOAD_WEB_LINK;
-      }
-    }, IOS_STORE_WEB_FALLBACK_DELAY_MS);
-    return;
-  }
-  if (platformEnv.isWebMobileAndroid) {
-    globalThis.location.href = PLAY_STORE_LINK;
-    return;
-  }
-  globalThis.location.href = DOWNLOAD_URL;
-}
-
-function openAppViaDeepLink(deepLinkUrl: string) {
-  if (!deepLinkUrl) return;
-  if (platformEnv.isWebMobileAndroid) {
-    globalThis.location.href = buildAndroidIntentUrl(deepLinkUrl);
-    return;
-  }
-  // iOS / desktop web: navigate to the custom scheme directly. iOS 17+ Safari
-  // has tightened restrictions on iframe-based deep link injection, so direct
-  // navigation has higher success rates. If the scheme is unhandled, the
-  // browser shows a prompt; user can fall back to Step 1's explicit download.
-  globalThis.location.href = deepLinkUrl;
-}
 
 function ReferralLandingPage() {
   const route = useAppRoute<
@@ -294,47 +229,18 @@ function ReferralLandingPage() {
   }, [logEnter, logReferralLandingButton]);
 
   const [isDownloadHintVisible, setIsDownloadHintVisible] = useState(false);
-  const downloadHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const downloadHintVisibilityCleanupRef = useRef<(() => void) | null>(null);
+  const downloadHintCleanupRef = useRef<(() => void) | null>(null);
   const clearDownloadHintTimer = useCallback(() => {
-    clearTimeout(downloadHintTimerRef.current ?? undefined);
-    downloadHintTimerRef.current = null;
-    downloadHintVisibilityCleanupRef.current?.();
-    downloadHintVisibilityCleanupRef.current = null;
+    downloadHintCleanupRef.current?.();
+    downloadHintCleanupRef.current = null;
   }, []);
   const scheduleDownloadHint = useCallback(() => {
     clearDownloadHintTimer();
     setIsDownloadHintVisible(false);
 
-    if (typeof globalThis.document === 'undefined') return;
-
-    let didLeavePage = globalThis.document.visibilityState === 'hidden';
-    const handleVisibilityChange = () => {
-      if (globalThis.document.visibilityState === 'hidden') {
-        didLeavePage = true;
-        clearDownloadHintTimer();
-      }
-    };
-
-    globalThis.document.addEventListener(
-      'visibilitychange',
-      handleVisibilityChange,
-    );
-    downloadHintVisibilityCleanupRef.current = () => {
-      globalThis.document.removeEventListener(
-        'visibilitychange',
-        handleVisibilityChange,
-      );
-    };
-
-    downloadHintTimerRef.current = setTimeout(() => {
-      clearDownloadHintTimer();
-      if (!didLeavePage && globalThis.document.visibilityState !== 'hidden') {
-        setIsDownloadHintVisible(true);
-      }
-    }, DEEP_LINK_DOWNLOAD_HINT_DELAY_MS);
+    downloadHintCleanupRef.current = scheduleDeepLinkFallbackHint({
+      onFallback: () => setIsDownloadHintVisible(true),
+    });
   }, [clearDownloadHintTimer]);
 
   const launchViaDeepLink = useCallback(

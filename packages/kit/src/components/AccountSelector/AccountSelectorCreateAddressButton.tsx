@@ -147,95 +147,100 @@ export function AccountSelectorCreateAddressButton({
       />
     ));
 
-  const doCreate = useCallback(async () => {
-    defaultLogger.account.accountCreatePerf.createAddressRunStart();
-    if (isLoadingRef.current) {
-      return;
-    }
-    if (!accountRef.current?.deriveType) {
-      return;
-    }
-    const deriveType0 = accountRef.current.deriveType;
-    isLoadingRef.current = true;
-    setAccountManualCreatingAtom((prev) => ({
-      ...prev,
-      key: manualCreatingKey,
-      isLoading: true,
-    }));
-    const accountToCreate = {
-      ...accountRef.current,
-      deriveType: deriveType0,
-    };
-    setAccountIsAutoCreating(accountToCreate);
-    let resp:
-      | {
-          walletId: string | undefined;
-          indexedAccountId: string | undefined;
-          accounts: IDBAccount[];
-        }
-      | undefined;
-    try {
-      if (process.env.NODE_ENV !== 'production' && accountToCreate.walletId) {
-        const wallet = await serviceAccount.getWallet({
-          walletId: accountToCreate.walletId,
-        });
-        console.log({ wallet });
+  const doCreate = useCallback(
+    async (options?: { notifyLedgerAppInstallRequired?: boolean }) => {
+      defaultLogger.account.accountCreatePerf.createAddressRunStart();
+      if (isLoadingRef.current) {
+        return;
       }
-
-      const customNetworks: {
-        networkId: string;
-        deriveType: IAccountDeriveTypes;
-      }[] = [];
-
-      if (
-        createAllEnabledNetworks &&
-        networkUtils.isAllNetwork({ networkId })
-      ) {
-        for (const network of enabledNetworksWithoutAccount) {
-          customNetworks.push({
-            networkId: network.id,
-            deriveType:
-              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                {
-                  networkId: network.id,
-                },
-              ),
-          });
-        }
+      if (!accountRef.current?.deriveType) {
+        return;
       }
-
-      resp = await createAddress({
-        num,
-        selectAfterCreate,
-        account: accountToCreate,
-        createAllDeriveTypes,
-        customNetworks,
-      });
-      defaultLogger.account.accountCreatePerf.createAddressRunFinished();
-      await timerUtils.wait(300);
-    } finally {
+      const deriveType0 = accountRef.current.deriveType;
+      isLoadingRef.current = true;
       setAccountManualCreatingAtom((prev) => ({
         ...prev,
-        key: undefined,
-        isLoading: false,
+        key: manualCreatingKey,
+        isLoading: true,
       }));
-      setAccountIsAutoCreating(undefined);
-      onCreateDone?.(resp);
-    }
-  }, [
-    setAccountManualCreatingAtom,
-    setAccountIsAutoCreating,
-    manualCreatingKey,
-    createAllEnabledNetworks,
-    networkId,
-    createAddress,
-    num,
-    selectAfterCreate,
-    createAllDeriveTypes,
-    serviceAccount,
-    enabledNetworksWithoutAccount,
-    onCreateDone,
-  ]);
+      const accountToCreate = {
+        ...accountRef.current,
+        deriveType: deriveType0,
+      };
+      setAccountIsAutoCreating(accountToCreate);
+      let resp:
+        | {
+            walletId: string | undefined;
+            indexedAccountId: string | undefined;
+            accounts: IDBAccount[];
+          }
+        | undefined;
+      try {
+        if (process.env.NODE_ENV !== 'production' && accountToCreate.walletId) {
+          const wallet = await serviceAccount.getWallet({
+            walletId: accountToCreate.walletId,
+          });
+          console.log({ wallet });
+        }
+
+        const customNetworks: {
+          networkId: string;
+          deriveType: IAccountDeriveTypes;
+        }[] = [];
+
+        if (
+          createAllEnabledNetworks &&
+          networkUtils.isAllNetwork({ networkId })
+        ) {
+          for (const network of enabledNetworksWithoutAccount) {
+            customNetworks.push({
+              networkId: network.id,
+              deriveType:
+                await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                  {
+                    networkId: network.id,
+                  },
+                ),
+            });
+          }
+        }
+
+        resp = await createAddress({
+          num,
+          selectAfterCreate,
+          account: accountToCreate,
+          createAllDeriveTypes,
+          customNetworks,
+          notifyLedgerAppInstallRequired:
+            options?.notifyLedgerAppInstallRequired,
+        });
+        defaultLogger.account.accountCreatePerf.createAddressRunFinished();
+        await timerUtils.wait(300);
+      } finally {
+        setAccountManualCreatingAtom((prev) => ({
+          ...prev,
+          key: undefined,
+          isLoading: false,
+        }));
+        setAccountIsAutoCreating(undefined);
+        onCreateDone?.(resp);
+      }
+    },
+    [
+      setAccountManualCreatingAtom,
+      setAccountIsAutoCreating,
+      manualCreatingKey,
+      createAllEnabledNetworks,
+      networkId,
+      createAddress,
+      num,
+      selectAfterCreate,
+      createAllDeriveTypes,
+      serviceAccount,
+      enabledNetworksWithoutAccount,
+      onCreateDone,
+    ],
+  );
 
   const doAutoCreate = useDebouncedCallback(
     async (params: {
@@ -262,7 +267,7 @@ export function AccountSelectorCreateAddressButton({
           );
         if (canAutoCreate) {
           try {
-            await doCreate();
+            await doCreate({ notifyLedgerAppInstallRequired: false });
           } catch (error) {
             errorUtils.autoPrintErrorIgnore(error); // mute auto print log error
             errorToastUtils.toastIfErrorDisable(error); // mute auto toast when auto create

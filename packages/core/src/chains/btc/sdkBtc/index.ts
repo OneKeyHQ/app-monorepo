@@ -511,6 +511,7 @@ export async function buildBtcXpubSegwitAsync({
     hdCredential: string;
     password: string;
     path: string;
+    hdCredentialCacheScopeId?: string;
   };
 }) {
   let xpubSegwit = xpub;
@@ -521,11 +522,18 @@ export async function buildBtcXpubSegwitAsync({
     // https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md
     // https://github.com/trezor/blockbook/blob/master/docs/api.md#get-xpub
     if (hdAccountPayload) {
-      const { curveName, hdCredential, password, path } = hdAccountPayload;
+      const {
+        curveName,
+        hdCredential,
+        password,
+        path,
+        hdCredentialCacheScopeId,
+      } = hdAccountPayload;
       const rootFingerprint = await generateRootFingerprintHexAsync({
         curveName,
         hdCredential,
         password,
+        hdCredentialCacheScopeId,
       });
       const fingerprint = Number(
         Buffer.from(rootFingerprint, 'hex').readUInt32BE(0) || 0,

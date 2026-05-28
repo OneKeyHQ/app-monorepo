@@ -160,6 +160,27 @@ const stakingConfig: IStakingConfig = {
         supportedSymbols: [],
         configs: {},
       },
+      [EEarnProviderEnum.Native]: {
+        supportedSymbols: ['WETH', 'USDT'],
+        configs: {
+          WETH: {
+            enabled: true,
+            tokenAddress: EthereumWETH,
+            displayProfit: true,
+            stakingWithApprove: true,
+            withdrawWithTx: true,
+            claimWithTx: true,
+          },
+          USDT: {
+            enabled: true,
+            tokenAddress: EthereumUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+            withdrawWithTx: true,
+            claimWithTx: true,
+          },
+        },
+      },
       [EEarnProviderEnum.Falcon]: {
         supportedSymbols: ['USDf'],
         configs: {

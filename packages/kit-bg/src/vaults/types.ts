@@ -144,6 +144,12 @@ export type IAccountDeriveTypes =
   | IAccountDeriveTypesBtc
   | IAccountDeriveTypesKaspa;
 
+export type INetworkDeriveInfo = {
+  deriveType: IAccountDeriveTypes;
+  mergeDeriveAssetsEnabled: boolean;
+  suffixToDeriveType?: Record<string, string>;
+};
+
 export type IVaultSettingsNetworkInfo = {
   addressPrefix: string;
   curve: ICurveName;
@@ -375,6 +381,7 @@ export type IPrepareHdAccountsParamsBase = {
 };
 export type IPrepareHdAccountsParams = IPrepareHdAccountsParamsBase & {
   password: string;
+  hdCredentialCacheScopeId?: string;
 };
 export type IPrepareQrAccountsParams = IPrepareHdAccountsParamsBase & {
   // isVerifyAddress?: boolean;

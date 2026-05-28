@@ -31,14 +31,16 @@ async function keyFromPasswordAndSaltAsync({
   iterations,
   debugCryptoProbeId,
   kdfBackend,
+  enablePbkdf2Cache,
 }: {
   password: string;
   salt: Buffer;
   iterations?: number;
   debugCryptoProbeId?: string;
-  // Dev-only: forwarded to the pbkdf2 dispatcher. Leave undefined in
-  // production callers — only the CryptoGallery benchmark sets this.
+  // Explicit backend override for callers that are known to run outside
+  // IndexedDB transactions.
   kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
 }): Promise<Buffer> {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
@@ -52,6 +54,7 @@ async function keyFromPasswordAndSaltAsync({
     iterations,
     debugCryptoProbeId,
     backend: kdfBackend,
+    enableCache: enablePbkdf2Cache,
   });
   return r;
 }
@@ -61,11 +64,13 @@ function keyFromPasswordAndSaltSync({
   salt,
   iterations,
   debugCryptoProbeId,
+  enablePbkdf2Cache,
 }: {
   password: string;
   salt: Buffer;
   iterations?: number;
   debugCryptoProbeId?: string;
+  enablePbkdf2Cache?: boolean;
 }): Buffer {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
@@ -78,6 +83,7 @@ function keyFromPasswordAndSaltSync({
     salt: saltBuffer,
     iterations,
     debugCryptoProbeId,
+    enableCache: enablePbkdf2Cache,
   });
   return r;
 }
@@ -88,14 +94,16 @@ async function keyFromPasswordAndSalt({
   iterations,
   debugCryptoProbeId,
   kdfBackend,
+  enablePbkdf2Cache,
 }: {
   password: string;
   salt: Buffer;
   iterations?: number;
   debugCryptoProbeId?: string;
-  // Dev-only: forwarded to the pbkdf2 dispatcher. Leave undefined in
-  // production callers — only the CryptoGallery benchmark sets this.
+  // Explicit backend override for callers that are known to run outside
+  // IndexedDB transactions.
   kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
 }): Promise<Buffer> {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
@@ -108,6 +116,7 @@ async function keyFromPasswordAndSalt({
       iterations,
       debugCryptoProbeId,
       kdfBackend,
+      enablePbkdf2Cache,
     });
     return r;
   }
@@ -116,6 +125,7 @@ async function keyFromPasswordAndSalt({
     salt: saltBuffer,
     iterations,
     debugCryptoProbeId,
+    enablePbkdf2Cache,
   });
   return r;
 }

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import {
@@ -9,13 +10,20 @@ import {
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import {
+  type IPerpsMarketDataFreshness,
+  shouldBlockPerpsTradingForMarketData,
+} from '../utils/perpsMarketDataFreshness';
+
 import { useOrderPrice } from './useOrderPrice';
+import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
 import { useTradingPrice } from './useTradingPrice';
 
 interface IUseOrderConfirmOptions {
@@ -31,17 +39,45 @@ export interface IUseOrderConfirmReturn {
 export function useOrderConfirm(
   options?: IUseOrderConfirmOptions,
 ): IUseOrderConfirmReturn {
+  const marketDataFreshness = usePerpsMarketDataFreshness();
+  return useOrderConfirmWithMarketDataFreshness({
+    ...options,
+    marketDataFreshness,
+  });
+}
+
+export function useOrderConfirmWithMarketDataFreshness({
+  marketDataFreshness,
+  ...options
+}: IUseOrderConfirmOptions & {
+  marketDataFreshness: IPerpsMarketDataFreshness;
+}): IUseOrderConfirmReturn {
+  const intl = useIntl();
   const [formData] = useTradingFormAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPrice, midPriceBN } = useTradingPrice();
+  const shouldBlockForMarketData =
+    shouldBlockPerpsTradingForMarketData(marketDataFreshness);
 
   const longOrderPrice = useOrderPrice('long');
   const shortOrderPrice = useOrderPrice('short');
 
   const handleConfirm = useCallback(
     async (overrideSide?: 'long' | 'short') => {
+      if (shouldBlockForMarketData) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.perp_offline,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.perps_offline_moblie,
+          }),
+        });
+        return;
+      }
+
       if (activeTradeInstrument?.assetId === undefined) {
         Toast.error({
           title: 'Order Failed',
@@ -245,6 +281,8 @@ export function useOrderConfirm(
       options,
       longOrderPrice,
       shortOrderPrice,
+      intl,
+      shouldBlockForMarketData,
     ],
   );
 

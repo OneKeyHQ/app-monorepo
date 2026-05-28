@@ -1,4 +1,9 @@
-import { type ComponentProps, useCallback, useMemo } from 'react';
+import {
+  type ComponentProps,
+  type ReactElement,
+  useCallback,
+  useMemo,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { type GestureResponderEvent, StyleSheet } from 'react-native';
@@ -8,13 +13,15 @@ import {
   Dialog,
   Icon,
   SizableText,
+  Tooltip,
   XStack,
+  YStack,
   useThemeName,
 } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 
 export function usePrimeIconName() {
   const { user } = useOneKeyAuth();
@@ -54,6 +61,7 @@ export function PrimeBadge({
   ...props
 }: IPrimeBadgeProps) {
   const intl = useIntl();
+  const themeName = useThemeName() as 'light' | 'dark';
   const isFree = status === 'free' && !isDeviceLimitExceeded;
 
   let displayIcon = icon ?? 'PrimeOutline';
@@ -66,7 +74,7 @@ export function PrimeBadge({
   let borderColor: ColorTokens = '$brand4';
   let bg: ColorTokens = '$brand2';
   let iconColor: ColorTokens = '$brand11';
-  let textColor: ColorTokens = '$brand12';
+  let textColor: ColorTokens = themeName === 'light' ? '$brand12' : '$brand11';
 
   if (isDeviceLimitExceeded) {
     borderColor = '$borderCautionSubdued';
@@ -114,7 +122,48 @@ export function PrimeBadge({
             : ETranslations.prime_status_prime,
         })}
       </SizableText>
+      {isDeviceLimitExceeded ? (
+        <Icon name="InfoCircleOutline" size="$3.5" color={iconColor} />
+      ) : null}
     </XStack>
+  );
+}
+
+type IPrimeStatusMetaBase = {
+  title?: string;
+  dialogTitle: string;
+  lines: string[];
+  isDeviceLimitExceeded?: boolean;
+};
+
+type IPrimeStatusMeta =
+  | (IPrimeStatusMetaBase & {
+      type: 'warning';
+      icon: IKeyOfIcons;
+      tone: 'warning';
+    })
+  | (IPrimeStatusMetaBase & {
+      type: 'prime';
+      renderIcon: ReactElement;
+    });
+
+function PrimeStatusTooltipContent({ status }: { status: IPrimeStatusMeta }) {
+  return (
+    <YStack gap="$1">
+      {status.title ? (
+        <SizableText
+          size="$bodySmMedium"
+          color={status.isDeviceLimitExceeded ? '$textCaution' : '$text'}
+        >
+          {status.title}
+        </SizableText>
+      ) : null}
+      {status.lines.map((line) => (
+        <SizableText key={line} size="$bodySm" color="$textSubdued">
+          {line}
+        </SizableText>
+      ))}
+    </YStack>
   );
 }
 
@@ -127,53 +176,127 @@ export function PrimeUserBadge({
 }) {
   const intl = useIntl();
   const { user } = useOneKeyAuth();
-  const navigation = useAppNavigation();
   const primeIcon = usePrimeIconName();
 
   const isPrime = user?.primeSubscription?.isActive;
   const isDeviceLimitExceeded =
     isPrime && user?.isPrimeDeviceLimitExceeded === true;
+  const primeExpiredAt = user?.primeSubscription?.expiresAt;
 
-  const handleDeviceLimitExceeded = useCallback(
-    (e?: GestureResponderEvent) => {
-      e?.stopPropagation();
-      Dialog.show({
-        title: intl.formatMessage({
-          id: ETranslations.prime_prime_access_limit_reached,
+  const statusMeta = useMemo<IPrimeStatusMeta | undefined>(() => {
+    if (!isPrime) {
+      return undefined;
+    }
+
+    const formattedExpiresAt = primeExpiredAt
+      ? formatDateFns(new Date(primeExpiredAt))
+      : undefined;
+
+    if (isDeviceLimitExceeded) {
+      const title = intl.formatMessage({
+        id: ETranslations.prime_device_limit_reached,
+      });
+      const lines = [
+        intl.formatMessage({
+          id: ETranslations.prime_device_limit_reached_desc,
         }),
-        description: intl.formatMessage(
+      ];
+
+      if (formattedExpiresAt) {
+        lines.push(
+          intl.formatMessage(
+            {
+              id: ETranslations.prime_membership_valid_until__desc,
+            },
+            {
+              date: formattedExpiresAt,
+            },
+          ),
+        );
+      }
+
+      return {
+        type: 'warning',
+        title,
+        dialogTitle: title,
+        lines,
+        icon: 'InfoCircleOutline',
+        tone: 'warning',
+        isDeviceLimitExceeded: true,
+      };
+    }
+
+    if (!formattedExpiresAt) {
+      return undefined;
+    }
+
+    return {
+      type: 'prime',
+      dialogTitle: intl.formatMessage({
+        id: ETranslations.prime_status_prime,
+      }),
+      lines: [
+        intl.formatMessage(
           {
-            id: ETranslations.global_exceeded_device_limit_for_prime,
+            id: ETranslations.prime_end_date,
           },
           {
-            number: 5,
+            data: formattedExpiresAt,
           },
         ),
+      ],
+      renderIcon: <Icon name={primeIcon} size="$8" />,
+    };
+  }, [intl, isDeviceLimitExceeded, isPrime, primeExpiredAt, primeIcon]);
+
+  const canShowPrimeStatus = Boolean(statusMeta);
+  const shouldOpenStatusDialog =
+    canShowPrimeStatus && (platformEnv.isNative || platformEnv.isWebMobile);
+
+  const handlePrimeStatusPress = useCallback(
+    (e?: GestureResponderEvent) => {
+      e?.stopPropagation();
+      if (!statusMeta) {
+        return;
+      }
+      const dialogIconProps =
+        statusMeta.type === 'warning'
+          ? { icon: statusMeta.icon, tone: statusMeta.tone }
+          : { renderIcon: statusMeta.renderIcon };
+
+      Dialog.show({
+        ...dialogIconProps,
+        title: statusMeta.dialogTitle,
+        description: statusMeta.lines.join('\n'),
+        showCancelButton: false,
         onConfirmText: intl.formatMessage({
-          id: ETranslations.update_update_now,
-        }),
-        onConfirm: () => {
-          navigation.pushModal(EModalRoutes.AppUpdateModal, {
-            screen: EAppUpdateRoutes.UpdatePreview,
-          });
-        },
-        onCancelText: intl.formatMessage({
           id: ETranslations.global_got_it,
         }),
       });
     },
-    [intl, navigation],
+    [intl, statusMeta],
   );
 
   if (!isPrime && !showFreeStatus) return null;
 
-  return (
+  const badge = (
     <PrimeBadge
       status={isPrime ? 'prime' : 'free'}
       isDeviceLimitExceeded={isDeviceLimitExceeded}
       icon={primeIcon}
       showIcon={showIcon}
-      onPress={isDeviceLimitExceeded ? handleDeviceLimitExceeded : undefined}
+      onPress={shouldOpenStatusDialog ? handlePrimeStatusPress : undefined}
+    />
+  );
+
+  if (!statusMeta || shouldOpenStatusDialog) {
+    return badge;
+  }
+
+  return (
+    <Tooltip
+      renderTrigger={badge}
+      renderContent={<PrimeStatusTooltipContent status={statusMeta} />}
     />
   );
 }

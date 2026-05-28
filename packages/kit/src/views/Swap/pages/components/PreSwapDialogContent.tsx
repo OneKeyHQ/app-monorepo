@@ -21,6 +21,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapStepNetFeeLevelAtom,
@@ -193,6 +194,16 @@ const PreSwapDialogContent = ({
       }),
     [activeAccount?.wallet?.id],
   );
+
+  useEffect(() => {
+    if (!isHwWallet || !activeAccount?.wallet?.id) {
+      return;
+    }
+
+    void backgroundApiProxy.serviceHardware.preInitializeDeviceForSign({
+      walletId: activeAccount.wallet.id,
+    });
+  }, [activeAccount?.wallet?.id, isHwWallet]);
 
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();

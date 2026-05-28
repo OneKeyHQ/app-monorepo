@@ -737,13 +737,14 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
 
   const handleOpenManageModal = useCallback(
     (tab?: 'deposit') => {
+      const protocolVault = detailInfo?.protocol?.vault ?? vault;
       appNavigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ManagePosition,
         params: {
           networkId,
           symbol,
           provider,
-          vault,
+          vault: protocolVault,
           tab,
           tokenImageUri: tokenInfo?.token?.logoURI,
         },
@@ -751,6 +752,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     },
     [
       appNavigation,
+      detailInfo?.protocol?.vault,
       networkId,
       symbol,
       provider,

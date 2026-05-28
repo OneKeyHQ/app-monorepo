@@ -1,6 +1,17 @@
 import { useCallback } from 'react';
 
-import { SizableText, YStack } from '@onekeyhq/components';
+import {
+  Accordion,
+  Icon,
+  SizableText,
+  Stack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
@@ -18,7 +29,6 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { FAQAccordion } from '../../components/FAQAccordion';
 import { EarnText } from '../../components/ProtocolDetails/EarnText';
 
 export function FAQSection({
@@ -28,6 +38,7 @@ export function FAQSection({
   faqs: IStakeEarnDetail['faqs'];
   tokenInfo?: IEarnTokenInfo;
 }) {
+  const media = useMedia();
   const navigation = useAppNavigation();
   const {
     activeAccount: { wallet },
@@ -85,33 +96,75 @@ export function FAQSection({
     ],
   );
   return faqs?.items?.length ? (
-    <YStack gap="$6">
-      <EarnText text={faqs.title} size="$headingLg" />
-      <YStack>
-        <FAQAccordion
-          items={faqs.items}
-          renderTitle={(item, { open }) => (
-            <SizableText
-              textAlign="left"
-              flex={1}
-              size="$bodyLgMedium"
-              color={open ? '$text' : '$textSubdued'}
-            >
-              {item.title.text}
-            </SizableText>
-          )}
-          renderContent={(item) => (
-            <EarnText
-              text={item.description}
-              size="$bodyMd"
-              onAction={handleAction}
-              underlineTextProps={{
-                color: '$textInfo',
-              }}
-            />
-          )}
-        />
-      </YStack>
+    <YStack pb="$8">
+      <Accordion type="multiple">
+        {faqs.items.map((item, index) => (
+          <YStack key={String(index)}>
+            <Accordion.Item value={String(index)}>
+              <Accordion.Trigger
+                unstyled
+                flexDirection="row"
+                alignItems="center"
+                justifyContent="space-between"
+                borderWidth={0}
+                bg="$transparent"
+                p={0}
+                py="$5"
+                m={0}
+                cursor="pointer"
+              >
+                {({ open }: { open: boolean }) => (
+                  <>
+                    <SizableText
+                      textAlign="left"
+                      flex={1}
+                      size={media.gtMd ? '$headingLg' : '$headingMd'}
+                      color="$text"
+                      pr="$2"
+                    >
+                      {item.title.text}
+                    </SizableText>
+                    <Stack
+                      animation="quick"
+                      animateOnly={ANIMATE_ONLY_TRANSFORM}
+                      rotate={open ? '180deg' : '0deg'}
+                    >
+                      <Icon
+                        name="ChevronDownSmallOutline"
+                        color="$iconSubdued"
+                        size="$6"
+                      />
+                    </Stack>
+                  </>
+                )}
+              </Accordion.Trigger>
+              <Accordion.HeightAnimator animation="quick">
+                <Accordion.Content
+                  unstyled
+                  p={0}
+                  pt="$1"
+                  pb="$5"
+                  pr="$8"
+                  animation="100ms"
+                  animateOnly={ANIMATE_ONLY_OPACITY}
+                  enterStyle={{ opacity: 0 }}
+                  exitStyle={{ opacity: 0 }}
+                >
+                  <EarnText
+                    text={item.description}
+                    size="$bodyLg"
+                    color="$textSubdued"
+                    onAction={handleAction}
+                    underlineTextProps={{
+                      color: '$textInfo',
+                    }}
+                  />
+                </Accordion.Content>
+              </Accordion.HeightAnimator>
+            </Accordion.Item>
+          </YStack>
+        ))}
+      </Accordion>
     </YStack>
   ) : null;
 }

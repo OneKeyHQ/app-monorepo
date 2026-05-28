@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 
 import { isEmpty } from 'lodash';
 
@@ -42,12 +42,6 @@ function BaseFAQContent({
 }) {
   const media = useMedia();
 
-  // On large screens (desktop), expand all items by default
-  const defaultValue = useMemo(
-    () => (media.gtMd ? faqList?.map((_, index) => String(index)) : undefined),
-    [faqList, media.gtMd],
-  );
-
   if (isLoading && isEmpty(faqList)) {
     return <FAQPanelSkeleton />;
   }
@@ -57,72 +51,70 @@ function BaseFAQContent({
   }
 
   return (
-    <Accordion
-      testID={EarnTestIDs.faqSection}
-      type="multiple"
-      gap="$2"
-      defaultValue={defaultValue}
-    >
+    <Accordion testID={EarnTestIDs.faqSection} type="multiple" pb="$8">
       {faqList.map(({ question, answer }, index) => (
-        <Accordion.Item value={String(index)} key={question}>
-          <Accordion.Trigger
-            unstyled
-            flexDirection="row"
-            alignItems="center"
-            borderWidth={0}
-            bg="$transparent"
-            px="$2"
-            py="$1"
-            mx="$-2"
-            my="$-1"
-            hoverStyle={{
-              bg: '$bgHover',
-            }}
-            pressStyle={{
-              bg: '$bgActive',
-            }}
-            borderRadius="$2"
-          >
-            {({ open }: { open: boolean }) => (
-              <>
-                <SizableText
-                  textAlign="left"
-                  flex={1}
-                  size="$headingMd"
-                  color={open ? '$text' : '$textSubdued'}
-                >
-                  {question}
-                </SizableText>
-                <Stack
-                  animation="quick"
-                  animateOnly={ANIMATE_ONLY_TRANSFORM}
-                  rotate={open ? '180deg' : '0deg'}
-                >
-                  <Icon
-                    name="ChevronDownSmallOutline"
-                    color={open ? '$iconActive' : '$iconSubdued'}
-                    size="$5"
-                  />
-                </Stack>
-              </>
-            )}
-          </Accordion.Trigger>
-          <Accordion.HeightAnimator animation="quick" overflow="hidden">
-            <Accordion.Content
+        <YStack key={question}>
+          <Accordion.Item value={String(index)}>
+            <Accordion.Trigger
               unstyled
-              pt="$2"
-              pb="$5"
-              animation="100ms"
-              animateOnly={ANIMATE_ONLY_OPACITY}
-              enterStyle={{ opacity: 0 }}
-              exitStyle={{ opacity: 0 }}
+              flexDirection="row"
+              alignItems="center"
+              justifyContent="space-between"
+              borderWidth={0}
+              bg="$transparent"
+              p={0}
+              py="$5"
+              m={0}
+              cursor="pointer"
             >
-              <SizableText size="$bodyMd" color="$text" whiteSpace="pre-line">
-                {answer}
-              </SizableText>
-            </Accordion.Content>
-          </Accordion.HeightAnimator>
-        </Accordion.Item>
+              {({ open }: { open: boolean }) => (
+                <>
+                  <SizableText
+                    textAlign="left"
+                    flex={1}
+                    size={media.gtMd ? '$headingLg' : '$headingMd'}
+                    color="$text"
+                    pr="$2"
+                  >
+                    {question}
+                  </SizableText>
+                  <Stack
+                    animation="quick"
+                    animateOnly={ANIMATE_ONLY_TRANSFORM}
+                    rotate={open ? '180deg' : '0deg'}
+                  >
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      color="$iconSubdued"
+                      size="$6"
+                    />
+                  </Stack>
+                </>
+              )}
+            </Accordion.Trigger>
+            <Accordion.HeightAnimator animation="quick" overflow="hidden">
+              <Accordion.Content
+                unstyled
+                p={0}
+                pt="$1"
+                pb="$5"
+                pr="$8"
+                animation="100ms"
+                animateOnly={ANIMATE_ONLY_OPACITY}
+                enterStyle={{ opacity: 0 }}
+                exitStyle={{ opacity: 0 }}
+              >
+                <SizableText
+                  size="$bodyLg"
+                  color="$textSubdued"
+                  whiteSpace="pre-line"
+                >
+                  {answer}
+                </SizableText>
+              </Accordion.Content>
+            </Accordion.HeightAnimator>
+          </Accordion.Item>
+        </YStack>
       ))}
     </Accordion>
   );

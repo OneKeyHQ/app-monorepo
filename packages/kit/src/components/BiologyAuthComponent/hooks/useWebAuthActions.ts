@@ -16,8 +16,11 @@ import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
-export const useWebAuthActions = () => {
+export const useWebAuthActions = (options?: {
+  skipPostVerifyBackgroundTasks?: boolean;
+}) => {
   const intl = useIntl();
+  const { skipPostVerifyBackgroundTasks } = options || {};
   const [{ webAuthCredentialId: credId }, setPasswordPersist] =
     usePasswordPersistAtom();
   const [passwordMode] = usePasswordModeAtom();
@@ -110,6 +113,7 @@ export const useWebAuthActions = () => {
           await backgroundApiProxy.servicePassword.verifyPassword({
             password: securePassword,
             passwordMode,
+            skipPostVerifyBackgroundTasks,
           });
         return verified;
       }
@@ -120,7 +124,7 @@ export const useWebAuthActions = () => {
       // No secure password stored — fall through
     }
     return undefined;
-  }, [credId, passwordMode]);
+  }, [credId, passwordMode, skipPostVerifyBackgroundTasks]);
 
   const checkWebAuth = useCallback(async () => {
     // Try secure storage first (WebAuthn PRF)
@@ -132,6 +136,7 @@ export const useWebAuthActions = () => {
           await backgroundApiProxy.servicePassword.verifyPassword({
             password: securePassword,
             passwordMode,
+            skipPostVerifyBackgroundTasks,
           });
         return verified;
       }
@@ -143,7 +148,7 @@ export const useWebAuthActions = () => {
     }
     const cred = await verifiedWebAuth(credId);
     return cred?.id === credId;
-  }, [credId, passwordMode]);
+  }, [credId, passwordMode, skipPostVerifyBackgroundTasks]);
 
   return {
     setWebAuthEnable,

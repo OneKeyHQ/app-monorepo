@@ -6,7 +6,7 @@ import {
   decryptRevealableSeed,
   encryptImportedCredential,
   encryptRevealableSeed,
-  mnemonicFromEntropy,
+  revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
 import { decryptAsync } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -716,15 +716,14 @@ class ServiceCloudBackup extends ServiceBase {
           password: localPassword,
         });
 
-        // IBip39RevealableSeedEncryptHex
-        const mnemonicFromRs = await mnemonicFromEntropy(
-          rsEncoded,
-          localPassword,
+        const mnemonicFromRs = revealEntropyToMnemonic(
+          rsDecoded.entropyWithLangPrefixed,
         );
 
         const walletHashAndXfp =
           await this.backgroundApi.serviceAccount.hdWalletHashAndXfpBuilder({
             realMnemonic: mnemonicFromRs,
+            seed: rsDecoded.seed,
           });
 
         const { wallet, isOverrideWallet } =

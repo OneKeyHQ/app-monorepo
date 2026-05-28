@@ -27,22 +27,23 @@ export type ILogEntry = {
 // ---------------------------------------------------------------------------
 
 function handleServerLog(entry: ILogEntry) {
-  appGlobals?.$analytics?.trackEvent(
-    entry.methodName,
-    (entry.args as Record<string, string>[]).reduce(
-      (prev, current, index) => {
-        if (!current) {
-          return prev;
-        }
-        const value =
-          typeof current === 'object' && !Array.isArray(current)
-            ? current
-            : { [index]: current };
-        return { ...prev, ...value };
-      },
-      {} as Record<string, string>,
-    ),
+  const eventProps = (entry.args as Record<string, string>[]).reduce(
+    (prev, current, index) => {
+      if (!current) {
+        return prev;
+      }
+      const value =
+        typeof current === 'object' && !Array.isArray(current)
+          ? current
+          : { [index]: current };
+      return { ...prev, ...value };
+    },
+    {} as Record<string, string>,
   );
+  // UTM attribution is emitted as its own event to avoid reading mutable route state here.
+  appGlobals?.$analytics?.trackEvent(entry.methodName, {
+    ...eventProps,
+  });
 }
 
 // ---------------------------------------------------------------------------
