@@ -1025,7 +1025,8 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   async getKytSupportedAssets(): Promise<IKytSupportedAsset[]> {
-    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+    // Public endpoint — no auth token needed, so use the plain client.
+    const client = await this.getClient(EServiceEndpointEnum.Prime);
     // Errors are surfaced as an in-page error state by the caller, so suppress
     // the default error toast to avoid a duplicate prompt.
     const requestConfig: Parameters<typeof client.get>[1] & {
