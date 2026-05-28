@@ -23,6 +23,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
+import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 import {
   TX_RISKY_LEVEL_MALICIOUS,
   TX_RISKY_LEVEL_SCAM,
@@ -217,12 +218,12 @@ function TxActionCommonTitle({
           {intl.formatMessage({ id: ETranslations.global_scam })}
         </Badge>
       ) : null}
-      {kytRiskLevel === 'severe' ? (
+      {kytRiskLevel === EKytRiskLevel.Severe ? (
         <Badge badgeSize="sm" badgeType="critical" ml="$2">
           Severe risk
         </Badge>
       ) : null}
-      {kytRiskLevel === 'high' ? (
+      {kytRiskLevel === EKytRiskLevel.High ? (
         <Badge badgeSize="sm" badgeType="warning" ml="$2">
           High risk
         </Badge>

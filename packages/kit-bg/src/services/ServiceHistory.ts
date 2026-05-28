@@ -1222,8 +1222,7 @@ class ServiceHistory extends ServiceBase {
     }
     const isIndexerChain = networkInfo?.backendIndex === true;
 
-    // Authenticated client so the server can attach per-user KYT risk data to history items.
-    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     let resp;
     let extraParams: any;
     const fetchHistoryFromServer = async () => {
@@ -1286,12 +1285,16 @@ class ServiceHistory extends ServiceBase {
           ...paginationBody,
         },
         {
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+          headers: {
+            ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
                 accountId: params.accountId,
               },
-            ),
+            )),
+            // Authenticate this request only so the server can attach per-user
+            // KYT risk data, without authenticating the whole shared wallet client.
+            ...(await this.getOneKeyIdAuthHeaders()),
+          },
         },
       );
     };

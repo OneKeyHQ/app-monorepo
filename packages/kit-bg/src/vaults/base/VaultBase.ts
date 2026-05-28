@@ -1530,18 +1530,23 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IServerFetchAccountHistoryDetailParams,
   ): Promise<IServerFetchAccountHistoryDetailResp> {
     const { accountId, ...rest } = params;
-    // Authenticated client so the server can attach per-user KYT risk data to the tx detail.
-    const client = await this.backgroundApi.serviceGas.getOneKeyIdClient(
+    const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );
     const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
       '/wallet/v1/account/history/detail',
       {
         params: rest,
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
+        headers: {
+          ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+            {
+              accountId,
+            },
+          )),
+          // Authenticate this request only so the server can attach per-user
+          // KYT risk data, without authenticating the whole shared wallet client.
+          ...(await this.backgroundApi.serviceGas.getOneKeyIdAuthHeaders()),
+        },
       },
     );
     return resp;
