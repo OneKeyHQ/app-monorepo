@@ -1704,7 +1704,7 @@ class ServicePrimeTransfer extends ServiceBase {
           password,
           allowRawPassword: true,
           sharedScene: EAppCryptoSharedEncryptScene.primeTransferCredentials,
-          format: peerSupportsV2 ? 'v2' : undefined,
+          format: peerSupportsV2 ? 'v2' : 'legacy',
         });
       if (!peerSupportsV2) {
         // Overwrite the raw credential field with legacy-format ciphertext so
@@ -1733,16 +1733,23 @@ class ServicePrimeTransfer extends ServiceBase {
     }
     const roomUsers = await this.getRoomUsers({ roomId: pairedRoomId });
     const peerUser = roomUsers.find((u) => u.id !== myUserId);
-    const peerVersionRaw = peerUser?.appVersion;
-    const peerVersion = peerVersionRaw
-      ? semver.valid(semver.coerce(peerVersionRaw))
+    if (!peerUser) {
+      throw new OneKeyLocalError(
+        'Peer not found in transfer room. Please rejoin and try again.',
+      );
+    }
+    const peerVersion = peerUser.appVersion
+      ? semver.valid(semver.coerce(peerUser.appVersion))
       : null;
     if (!peerVersion) {
       throw new OneKeyLocalError(
         'Peer app version is unknown. Please ask the peer to upgrade to v6.4.0 or newer before transferring.',
       );
     }
-    return semver.gte(peerVersion, ServicePrimeTransfer.PEER_V2_MIN_APP_VERSION);
+    return semver.gte(
+      peerVersion,
+      ServicePrimeTransfer.PEER_V2_MIN_APP_VERSION,
+    );
   }
 
   private async reencryptCredentialsForLegacyPeer({

@@ -24,9 +24,9 @@ export enum EAppCryptoSharedEncryptScene {
 
 export type IAppCryptoSharedEncryptFormat = 'legacy' | 'v2';
 
-const LEGACY_PINNED_SCENES: ReadonlySet<EAppCryptoSharedEncryptScene> = new Set([
-  EAppCryptoSharedEncryptScene.primeTransferCredentialBackwardCompat,
-]);
+const LEGACY_PINNED_SCENES: ReadonlySet<EAppCryptoSharedEncryptScene> = new Set(
+  [EAppCryptoSharedEncryptScene.primeTransferCredentialBackwardCompat],
+);
 
 export function resolveSharedEncryptFormat({
   format,
