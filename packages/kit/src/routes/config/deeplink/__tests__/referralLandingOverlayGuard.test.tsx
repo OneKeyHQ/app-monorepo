@@ -4,9 +4,11 @@ import { isValidElement } from 'react';
 import { CommonActions } from '@react-navigation/native';
 
 import {
+  Dialog,
   Toast,
   closeAllDialogInstances,
   getDialogInstances,
+  getFormInstances,
   rootNavigationRef,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -22,6 +24,13 @@ const mockToastCloses: jest.Mock[] = [];
 
 jest.mock('@onekeyhq/components', () => ({
   Button: 'Button',
+  Dialog: {
+    show: jest.fn(() => ({
+      close: jest.fn(),
+      getForm: jest.fn(),
+      isExist: jest.fn(() => true),
+    })),
+  },
   Toast: {
     message: jest.fn(() => {
       const close = jest.fn();
@@ -32,6 +41,7 @@ jest.mock('@onekeyhq/components', () => ({
     }),
   },
   closeAllDialogInstances: jest.fn(() => Promise.resolve()),
+  getFormInstances: jest.fn(() => []),
   getDialogInstances: jest.fn(() => []),
   rootNavigationRef: {
     current: {
@@ -72,6 +82,10 @@ const mockedCloseAllDialogInstances =
   closeAllDialogInstances as jest.MockedFunction<
     typeof closeAllDialogInstances
   >;
+const mockedDialogShow = Dialog.show as jest.MockedFunction<typeof Dialog.show>;
+const mockedGetFormInstances = getFormInstances as jest.MockedFunction<
+  typeof getFormInstances
+>;
 const mockedGetDialogInstances = getDialogInstances as jest.MockedFunction<
   typeof getDialogInstances
 >;
@@ -105,6 +119,21 @@ function getLatestToastContinueHandler() {
   return (actions as ReactElement<{ onPress: () => void }>).props.onPress;
 }
 
+function createFormInstance({
+  defaultValues,
+  values,
+}: {
+  defaultValues: Record<string, string>;
+  values: Record<string, string>;
+}) {
+  return {
+    formState: {
+      defaultValues,
+    },
+    getValues: jest.fn(() => values),
+  } as unknown as ReturnType<typeof getFormInstances>[number];
+}
+
 async function flushAsyncTasks() {
   await Promise.resolve();
   await Promise.resolve();
@@ -116,6 +145,7 @@ describe('referralLandingOverlayGuard', () => {
     jest.clearAllMocks();
     mockToastCloses.splice(0);
     mockedCloseAllDialogInstances.mockResolvedValue(undefined);
+    mockedGetFormInstances.mockReturnValue([]);
     mockedGetDialogInstances.mockReturnValue([]);
     mockedRootNavigationRef.current.dispatch.mockReset();
     mockedRootNavigationRef.current.dispatch.mockImplementation((action) => {
@@ -222,6 +252,67 @@ describe('referralLandingOverlayGuard', () => {
       'wait',
       'continue',
     ]);
+  });
+
+  it('asks for confirmation before closing dirty form dialogs', async () => {
+    setRootRoutes([ERootRoutes.Main, ERootRoutes.Modal]);
+    mockedGetFormInstances.mockReturnValue([
+      createFormInstance({
+        defaultValues: { name: 'old' },
+        values: { name: 'new' },
+      }),
+    ]);
+    mockedCloseAllDialogInstances.mockImplementation(async () => {
+      setRootRoutes([ERootRoutes.Main], 0);
+    });
+    const onContinue = jest.fn();
+
+    showReferralBlockingOverlayToast({ onContinue });
+    getLatestToastContinueHandler()();
+    await flushAsyncTasks();
+
+    expect(mockedDialogShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: `translated:${ETranslations.global_close_confirm_description}`,
+        showCancelButton: true,
+        showConfirmButton: true,
+        showFooter: true,
+        title: `translated:${ETranslations.global_close}`,
+      }),
+    );
+    expect(mockedCloseAllDialogInstances).not.toHaveBeenCalled();
+
+    const confirmDirtyClose = mockedDialogShow.mock.calls.at(-1)?.[0]
+      .onConfirm as (() => void) | undefined;
+    confirmDirtyClose?.();
+    await flushAsyncTasks();
+
+    expect(mockedCloseAllDialogInstances).toHaveBeenCalledTimes(1);
+    expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps dirty form dialogs open when close confirmation is canceled', async () => {
+    setRootRoutes([ERootRoutes.Main, ERootRoutes.Modal]);
+    mockedGetFormInstances.mockReturnValue([
+      createFormInstance({
+        defaultValues: { name: 'old' },
+        values: { name: 'new' },
+      }),
+    ]);
+    const onContinue = jest.fn();
+
+    showReferralBlockingOverlayToast({ onContinue });
+    getLatestToastContinueHandler()();
+    await flushAsyncTasks();
+
+    const cancelDirtyClose = mockedDialogShow.mock.calls.at(-1)?.[0]
+      .onCancel as (() => void) | undefined;
+    cancelDirtyClose?.();
+    await flushAsyncTasks();
+
+    expect(mockedCloseAllDialogInstances).not.toHaveBeenCalled();
+    expect(mockedCommonActionsReset).not.toHaveBeenCalled();
+    expect(onContinue).not.toHaveBeenCalled();
   });
 
   it('ignores stale toast continue actions after a newer referral toast is shown', async () => {

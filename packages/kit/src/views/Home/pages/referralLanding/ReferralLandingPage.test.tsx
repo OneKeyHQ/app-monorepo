@@ -277,4 +277,30 @@ describe('ReferralLandingPage', () => {
 
     expect(mockNavigation.switchTab).not.toHaveBeenCalled();
   });
+
+  it('clears existing perps referral code when the latest referral targets another page', async () => {
+    const referralRequestId = createReferralLandingRequestId();
+    mockRouteParams = {
+      code: 'NEW',
+      page: 'market',
+      fromDeepLink: true,
+      referralRequestId,
+    };
+    mockedPerpSimpleDb.setPerpData.mockImplementationOnce(async (setFn) => {
+      expect(
+        setFn({
+          agentTTL: 3000,
+          referralCode: 'OLD',
+        }),
+      ).toEqual({
+        agentTTL: 3000,
+      });
+    });
+
+    render(<ReferralLandingPage />);
+
+    await flushAsyncTasks();
+
+    expect(mockNavigation.switchTab).toHaveBeenCalledWith(ETabRoutes.Market);
+  });
 });

@@ -1,11 +1,14 @@
 import { CommonActions } from '@react-navigation/native';
+import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
   Toast,
   closeAllDialogInstances,
   getDialogInstances,
+  getFormInstances,
   rootNavigationRef,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -105,6 +108,15 @@ function hasOpenDialogInstance() {
   return getDialogInstances().some((instance) => instance.isExist());
 }
 
+function hasDirtyFormInstance() {
+  const formInstances = getFormInstances();
+  const formInstance = formInstances[formInstances.length - 1];
+  return (
+    !!formInstance &&
+    !isEqual(formInstance.formState.defaultValues, formInstance.getValues())
+  );
+}
+
 export function hasReferralBlockingOverlayOpen() {
   return isReferralBlockingRootOverlayOpen() || hasOpenDialogInstance();
 }
@@ -151,12 +163,57 @@ function resetReferralBlockingRootOverlays(
   );
 }
 
+function confirmCloseDirtyFormIfNeeded() {
+  if (!hasDirtyFormInstance()) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise<boolean>((resolve) => {
+    let isSettled = false;
+    const resolveOnce = (result: boolean) => {
+      if (isSettled) {
+        return;
+      }
+      isSettled = true;
+      resolve(result);
+    };
+
+    Dialog.show({
+      // eslint-disable-next-line onekey/no-app-locale-main-thread -- deep-link overlay guard can run outside React render.
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.global_close,
+      }),
+      // eslint-disable-next-line onekey/no-app-locale-main-thread -- deep-link overlay guard can run outside React render.
+      description: appLocale.intl.formatMessage({
+        id: ETranslations.global_close_confirm_description,
+      }),
+      showCancelButton: true,
+      showFooter: true,
+      showConfirmButton: true,
+      onCancel: () => {
+        resolveOnce(false);
+      },
+      onConfirm: () => {
+        resolveOnce(true);
+      },
+      onClose: (extra) => {
+        if (extra?.flag !== 'confirm') {
+          resolveOnce(false);
+        }
+      },
+    });
+  });
+}
+
 async function closeReferralBlockingOverlays({
   shouldContinue,
 }: {
   shouldContinue: () => boolean;
 }) {
   const rootRouteSnapshots = getReferralBlockingRootRouteSnapshots();
+  if (!(await confirmCloseDirtyFormIfNeeded()) || !shouldContinue()) {
+    return false;
+  }
   await closeAllDialogInstances();
   if (!shouldContinue()) {
     return false;
