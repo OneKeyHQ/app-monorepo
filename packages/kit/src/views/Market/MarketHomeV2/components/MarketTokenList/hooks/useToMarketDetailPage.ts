@@ -74,6 +74,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           ...params,
           from: params.from || enterSource,
         });
+        if (platformEnv.isExtensionUiPopup) {
+          globalThis.close();
+        }
       } else if (options?.switchToMarketTabFirst) {
         // Clear token detail before navigation
         tokenDetailActions.current.clearTokenDetail();
