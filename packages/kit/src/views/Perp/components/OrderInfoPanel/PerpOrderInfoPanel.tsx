@@ -30,12 +30,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isHyperLiquidUnifiedAccountMode } from '../../utils';
 
 import { PerpAccountList } from './List/PerpAccountList';
-import {
-  PerpOpenOrdersList,
-  PerpTwapOrdersListShell,
-} from './List/PerpOpenOrdersList';
+import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
+import { PerpTwapList } from './List/PerpTwapList';
 import { SpotBalanceList } from './List/SpotBalanceList';
 
 const tabNameToTranslationKey: Partial<Record<string, ETranslations>> = {
@@ -193,7 +191,7 @@ function PerpOrderInfoPanel() {
         <PerpOpenOrdersList />
       </Tabs.Tab>
       <Tabs.Tab name="TWAP">
-        <PerpTwapOrdersListShell />
+        <PerpTwapList />
       </Tabs.Tab>
       <Tabs.Tab name="Trades History">
         <PerpTradesHistoryList useTabsList />
