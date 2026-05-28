@@ -320,6 +320,7 @@ const EarnMainTabsComponent = ({
       return (
         <Tabs.TabBar
           {...tabBarProps}
+          directTabPressAnimation={platformEnv.isNativeIOS}
           onTabPress={handleTabPress}
           renderToolbar={renderPortfolioToolbar}
         />
