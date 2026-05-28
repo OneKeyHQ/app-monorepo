@@ -42,6 +42,7 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsCustomSettingsAtom,
+  usePerpsLastUsedLeverageAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -68,6 +69,7 @@ import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdr
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../../testIDs';
+import { getPerpsFormLeverage } from '../../../utils/leverageDisplay';
 import {
   type ITradeSide,
   getTradingSideTextColor,
@@ -294,12 +296,16 @@ function PerpTradingForm({
   const { universeByBaseName } = useSpotMetaMaps();
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
+  const [lastUsedLeverage] = usePerpsLastUsedLeverageAtom();
   const isBBOActive = !!formData.bboPriceMode;
   const perpsSelectedDisplayName = useMemo(
     () => parseDexCoin(perpsSelectedSymbol.coin).displayName,
     [perpsSelectedSymbol.coin],
   );
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
+  const cachedLeverage = activeAsset?.coin
+    ? lastUsedLeverage[activeAsset.coin]
+    : undefined;
   const snapshotLookupIndexedAccountId = selectedWalletAccount.ready
     ? selectedWalletAccount.indexedAccount?.id
     : perpsActiveAccount?.indexedAccountId;
@@ -498,7 +504,11 @@ function PerpTradingForm({
             markPrice: midPrice,
             availableToTrade: [maxAvailable, maxAvailable],
             maxTradeSzs: activeAssetData?.maxTradeSzs,
-            leverageValue: activeAssetData?.leverage?.value,
+            leverageValue: getPerpsFormLeverage({
+              isSpot: false,
+              liveLeverage: activeAssetData?.leverage?.value,
+              cachedLeverage,
+            }),
             fallbackLeverage: activeAsset?.universe?.maxLeverage,
             szDecimals: activeAsset?.universe?.szDecimals,
           };
@@ -537,6 +547,7 @@ function PerpTradingForm({
     activeAssetData?.availableToTrade,
     activeAssetData?.maxTradeSzs,
     activeAssetData?.leverage?.value,
+    cachedLeverage,
     activeAsset?.universe?.maxLeverage,
     activeAsset?.universe?.szDecimals,
     setTradingFormEnv,

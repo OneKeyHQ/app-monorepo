@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import {
   useActiveTradeInstrumentAtom,
@@ -89,7 +89,18 @@ export function useL2Book(options?: IL2BookOptions): {
   const expectedCoin = activeTradeInstrument.coin;
   const nSigFigs = options?.nSigFigs;
   const mantissa = options?.mantissa;
+  const normalizedNSigFigs = nSigFigs ?? null;
+  const normalizedMantissa = mantissa ?? null;
   const marketDataFreshness = usePerpsMarketDataFreshness();
+  const lastL2BookRef = useRef<
+    | {
+        coin: string;
+        nSigFigs: number | null;
+        mantissa: number | null;
+        data: HL.IBook;
+      }
+    | undefined
+  >(undefined);
 
   const l2Book = useMemo((): IL2BookData | null => {
     let bookData: HL.IBook | null | undefined;
@@ -104,6 +115,15 @@ export function useL2Book(options?: IL2BookOptions): {
         },
       });
     }
+    const lastL2Book = lastL2BookRef.current;
+    if (
+      !bookData &&
+      lastL2Book?.coin === expectedCoin &&
+      lastL2Book.nSigFigs === normalizedNSigFigs &&
+      lastL2Book.mantissa === normalizedMantissa
+    ) {
+      bookData = lastL2Book.data;
+    }
     if (!bookData || !expectedCoin) return null;
     if (bookData.coin !== expectedCoin) return null;
 
@@ -116,7 +136,26 @@ export function useL2Book(options?: IL2BookOptions): {
       bids: bids || [],
       asks: asks || [],
     };
-  }, [expectedCoin, l2BookData, mantissa, nSigFigs]);
+  }, [
+    expectedCoin,
+    l2BookData,
+    mantissa,
+    nSigFigs,
+    normalizedMantissa,
+    normalizedNSigFigs,
+  ]);
+
+  useEffect(() => {
+    if (!l2Book) {
+      return;
+    }
+    lastL2BookRef.current = {
+      coin: l2Book.coin,
+      nSigFigs: normalizedNSigFigs,
+      mantissa: normalizedMantissa,
+      data: l2Book,
+    };
+  }, [l2Book, normalizedMantissa, normalizedNSigFigs]);
 
   const getBestBid = (): string | null => {
     if (!l2Book?.bids || l2Book.bids.length === 0) return null;

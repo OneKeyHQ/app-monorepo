@@ -1556,8 +1556,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   });
 
   clearActiveAssetData = contextAtomMethod(async (get, set) => {
-    set(l2BookAtom(), null);
-    set(bboAtom(), null);
+    const activeInstrument = get(activeTradeInstrumentAtom());
+    const currentBook = get(l2BookAtom());
+    if (currentBook?.coin !== activeInstrument.coin) {
+      set(l2BookAtom(), null);
+    }
+    const currentBbo = get(bboAtom());
+    if (currentBbo?.coin !== activeInstrument.coin) {
+      set(bboAtom(), null);
+    }
     await perpsActiveAssetCtxAtom.set(undefined);
     await perpsActiveAssetDataAtom.set(undefined);
     await spotActiveAssetCtxAtom.set(undefined);

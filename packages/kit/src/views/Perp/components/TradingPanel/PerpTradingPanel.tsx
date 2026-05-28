@@ -58,8 +58,8 @@ function PerpTradingDisabledButton() {
   }, [perpsAccountLoading?.selectAccountLoading]);
 
   const leverage = useMemo(() => {
-    return activeAssetData?.leverage?.value || 1;
-  }, [activeAssetData?.leverage?.value]);
+    return formData.leverage || activeAssetData?.leverage?.value || 1;
+  }, [activeAssetData?.leverage?.value, formData.leverage]);
 
   const maxTradeSz = useMemo(() => {
     const maxTradeSzs = activeAssetData?.maxTradeSzs || [0, 0];
