@@ -55,11 +55,11 @@ import type {
 import type { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IKytSupportedAsset } from '@onekeyhq/shared/types/kyt';
 import type {
   IClearCacheOnAppState,
   IFetchWalletConfigResp,
 } from '@onekeyhq/shared/types/setting';
-import type { IKytSupportedAsset } from '@onekeyhq/shared/types/kyt';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,

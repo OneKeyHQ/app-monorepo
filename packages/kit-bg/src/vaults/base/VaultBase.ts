@@ -28,11 +28,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
-import { resolveKytDisplayLevel } from '@onekeyhq/shared/src/utils/kytUtils';
 import {
   getOnChainHistoryTxAssetInfo,
   getOnChainHistoryTxStatus,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { resolveKytDisplayLevel } from '@onekeyhq/shared/src/utils/kytUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   buildTxActionDirection,
