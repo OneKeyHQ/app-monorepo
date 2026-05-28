@@ -18,17 +18,6 @@ type IResolveDeFiPositionActionsParams = {
   supportedActions: IDeFiSupportedProtocolAction[];
 };
 
-const WITHDRAW_REQUIRES_POOL_PROTOCOLS: ReadonlySet<string> = new Set([
-  'aave-pool-v3',
-  'morpho-blue',
-  'polygon-staking',
-  'spark',
-]);
-
-const CLAIM_REQUIRES_POOL_PROTOCOLS: ReadonlySet<string> = new Set([
-  'polygon-staking',
-]);
-
 function normalizeMatchValue(value?: string) {
   return (
     value
@@ -38,9 +27,36 @@ function normalizeMatchValue(value?: string) {
   );
 }
 
+const CATEGORY_ALIAS_MAP: Record<string, string> = {
+  asset: 'deposit',
+  supplied: 'deposit',
+  supply: 'deposit',
+  deposit: 'deposit',
+  investment: 'deposit',
+  stake: 'staking',
+  staked: 'staking',
+  staking: 'staking',
+  nft_staked: 'staking',
+  reward: 'reward',
+  rewards: 'reward',
+  staking_reward: 'reward',
+  liquidity: 'liquidity',
+  liquidity_pool: 'liquidity',
+  lp: 'liquidity',
+  lending: 'lending',
+  yield: 'yield',
+};
+
+function normalizeCategoryForAction(value?: string) {
+  const normalized = normalizeMatchValue(value);
+  return CATEGORY_ALIAS_MAP[normalized] ?? normalized;
+}
+
 function isCategoryMatch(expected?: string, actual?: string) {
   if (!expected) return true;
-  return normalizeMatchValue(expected) === normalizeMatchValue(actual);
+  return (
+    normalizeCategoryForAction(expected) === normalizeCategoryForAction(actual)
+  );
 }
 
 function isPositiveAmount(amount?: string) {
@@ -117,6 +133,7 @@ function getPoolAddress(
     nestedKeys: [
       { containerKey: 'contracts', keys: ['poolAddress', 'pool'] },
       { containerKey: 'extraParams', keys: ['poolAddress', 'pool'] },
+      { containerKey: 'meta', keys: ['poolAddress', 'pool_address', 'pool'] },
     ],
   });
 }
@@ -127,6 +144,7 @@ function getTokenId(position: IDeFiPosition | undefined, asset: IDeFiAsset) {
     directKeys: ['tokenId', 'token_id'],
     nestedKeys: [
       { containerKey: 'extraParams', keys: ['tokenId', 'token_id'] },
+      { containerKey: 'contracts', keys: ['tokenId', 'token_id'] },
       { containerKey: 'meta', keys: ['tokenId', 'token_id'] },
     ],
   });
@@ -214,40 +232,21 @@ function getCandidateAssets({
 }
 
 function buildResolvedAsset({
-  protocolId,
   action,
   asset,
   sourcePosition,
 }: {
-  protocolId: string;
   action: EDeFiPositionAction;
   asset: IDeFiAsset;
   sourcePosition: IDeFiPosition | undefined;
-}): IResolvedDeFiPositionActionAsset | undefined {
+}): IResolvedDeFiPositionActionAsset {
   const extraParams = mergeExtraParams(sourcePosition?.extraParams, {
     ...asset.extraParams,
   });
   const poolAddress = getPoolAddress(sourcePosition, asset);
 
-  if (
-    action === EDeFiPositionAction.Withdraw &&
-    WITHDRAW_REQUIRES_POOL_PROTOCOLS.has(protocolId) &&
-    !poolAddress
-  ) {
-    return undefined;
-  }
-
-  if (
-    action === EDeFiPositionAction.Claim &&
-    CLAIM_REQUIRES_POOL_PROTOCOLS.has(protocolId) &&
-    !poolAddress
-  ) {
-    return undefined;
-  }
-
   if (action === EDeFiPositionAction.RemoveLiquidity) {
     const tokenId = getTokenId(sourcePosition, asset);
-    if (!tokenId) return undefined;
 
     const currency0 = getCurrency({
       position: sourcePosition,
@@ -260,10 +259,6 @@ function buildResolvedAsset({
       key: 'currency1',
     });
 
-    if (protocolId === 'uniswap-v4' && (!currency0 || !currency1)) {
-      return undefined;
-    }
-
     return {
       asset,
       amount: asset.amount,
@@ -271,7 +266,7 @@ function buildResolvedAsset({
       tokenAddress: asset.address,
       extraParams: {
         ...extraParams,
-        tokenId,
+        ...(tokenId ? { tokenId } : {}),
         ...(currency0 ? { currency0 } : {}),
         ...(currency1 ? { currency1 } : {}),
       },
@@ -305,18 +300,14 @@ function resolveDeFiPositionActions({
 
   return matchedActions.reduce<IResolvedDeFiPositionAction[]>(
     (acc, supportedAction) => {
-      const assets = getCandidateAssets({ position, supportedAction })
-        .map(({ asset, sourcePosition }) =>
+      const assets = getCandidateAssets({ position, supportedAction }).map(
+        ({ asset, sourcePosition }) =>
           buildResolvedAsset({
-            protocolId: supportedAction.protocolId,
             action: supportedAction.action,
             asset,
             sourcePosition,
           }),
-        )
-        .filter((asset): asset is IResolvedDeFiPositionActionAsset =>
-          Boolean(asset),
-        );
+      );
 
       if (assets.length === 0) {
         return acc;

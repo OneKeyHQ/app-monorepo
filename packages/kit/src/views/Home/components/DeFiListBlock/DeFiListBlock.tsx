@@ -112,6 +112,7 @@ const ProtocolListItem = memo(
     isLast,
     protocol,
     protocolKey,
+    accountId,
     registerProtocol,
     tableLayout,
     onActionSuccess,
@@ -120,6 +121,7 @@ const ProtocolListItem = memo(
     isLast: boolean;
     protocol: IDeFiProtocol;
     protocolKey: string;
+    accountId?: string;
     registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
     tableLayout?: boolean;
     onActionSuccess?: () => void | Promise<void>;
@@ -135,6 +137,7 @@ const ProtocolListItem = memo(
       <YStack key={`${protocol.networkId}-${protocol.protocol}`}>
         <Protocol
           ref={registerProtocol ? handleProtocolRef : undefined}
+          accountId={accountId}
           protocol={protocol}
           tableLayout={tableLayout}
           isAllNetworks={isAllNetworks}
@@ -1449,6 +1452,7 @@ function DeFiListBlock({
                 isLast={index === filteredProtocols.length - 1}
                 protocol={protocol}
                 protocolKey={protocolKey}
+                accountId={account?.id}
                 registerProtocol={registerProtocol}
                 tableLayout={tableLayout}
                 onActionSuccess={handleActionSuccess}
@@ -1488,6 +1492,7 @@ function DeFiListBlock({
     );
   }, [
     filteredProtocols,
+    account?.id,
     tableLayout,
     network?.isAllNetworks,
     intl,

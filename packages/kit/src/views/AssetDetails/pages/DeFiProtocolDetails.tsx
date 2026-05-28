@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { type RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -29,6 +29,10 @@ import {
   getProtocolPositionDisplayName,
 } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -89,6 +93,9 @@ function DeFiProtocolDetails() {
     }
   }, []);
   const actionAccountId = protocol.accountId ?? account?.id;
+  const handleActionSuccess = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+  }, []);
 
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
@@ -214,6 +221,7 @@ function DeFiProtocolDetails() {
                     protocol={protocol}
                     position={buildActionPosition(position)}
                     supportedActions={supportedActions}
+                    onSuccess={handleActionSuccess}
                   />
                   <Stack maxWidth="45%" alignItems="flex-end">
                     <ProtocolValueCell

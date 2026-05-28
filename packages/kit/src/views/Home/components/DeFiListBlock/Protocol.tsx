@@ -39,6 +39,7 @@ import { ProtocolHeaderRow } from './ProtocolHeaderRow';
 import { ProtocolRow } from './ProtocolRow';
 
 type IProtocolProps = {
+  accountId?: string;
   protocol: IDeFiProtocol;
   tableLayout?: boolean;
   isAllNetworks?: boolean;
@@ -82,6 +83,7 @@ const ProtocolDesktopLayout = memo(
     IProtocolHandle,
     {
       protocol: IDeFiProtocol;
+      accountId?: string;
       protocolDisplayInfo: IDeFiProtocolDisplayInfo;
       isAllNetworks?: boolean;
       currencySymbol: string;
@@ -96,6 +98,7 @@ const ProtocolDesktopLayout = memo(
     (
       {
         protocol,
+        accountId,
         protocolDisplayInfo,
         isAllNetworks,
         currencySymbol,
@@ -193,7 +196,7 @@ const ProtocolDesktopLayout = memo(
                   {categoryGroups.map((group) => (
                     <ProtocolCategoryGroup
                       key={group.groupKey}
-                      accountId={protocol.accountId}
+                      accountId={protocol.accountId ?? accountId}
                       protocol={protocol}
                       group={group}
                       currencySymbol={currencySymbol}
@@ -295,7 +298,13 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
 
 const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
   (
-    { protocol, tableLayout, isAllNetworks, onActionSuccess }: IProtocolProps,
+    {
+      accountId,
+      protocol,
+      tableLayout,
+      isAllNetworks,
+      onActionSuccess,
+    }: IProtocolProps,
     forwardedRef,
   ) => {
     const viewModel = useProtocolViewModel({ protocol });
@@ -318,6 +327,7 @@ const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
     return (
       <ProtocolDesktopLayout
         ref={forwardedRef}
+        accountId={accountId}
         protocol={protocol}
         protocolDisplayInfo={viewModel.protocolDisplayInfo}
         isAllNetworks={isAllNetworks}
