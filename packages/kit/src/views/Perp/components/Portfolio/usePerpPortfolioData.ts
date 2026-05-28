@@ -99,7 +99,7 @@ export function usePerpPortfolioData(
     return {
       all: getLastValue(chartData?.pnlHistory),
       perps: getLastValue(chartData?.perpsPnlHistory),
-      spot: getLastValue(chartData?.spotPnlHistory),
+      spot: getLastValue(chartData?.nonPerpsPnlHistory),
     };
   }, [chartData]);
 

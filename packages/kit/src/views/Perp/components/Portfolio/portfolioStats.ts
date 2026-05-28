@@ -15,7 +15,7 @@ export type IPortfolioChartData = {
   accountValueHistory: [number, number][];
   pnlHistory: [number, number][];
   perpsPnlHistory: [number, number][];
-  spotPnlHistory: [number, number][];
+  nonPerpsPnlHistory: [number, number][];
   vlm: string;
 };
 
@@ -121,7 +121,7 @@ export function buildPortfolioChartData({
     accountValueHistory: formatHistory(combinedMetrics.accountValueHistory),
     pnlHistory,
     perpsPnlHistory,
-    spotPnlHistory: subtractHistory(pnlHistory, perpsPnlHistory),
+    nonPerpsPnlHistory: subtractHistory(pnlHistory, perpsPnlHistory),
     vlm: combinedMetrics.vlm,
   };
 }

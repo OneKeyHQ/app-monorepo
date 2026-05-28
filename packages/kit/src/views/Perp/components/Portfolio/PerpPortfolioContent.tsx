@@ -412,7 +412,7 @@ function PerpPortfolioContentComponent({
     if (!chartData) return [];
     if (chartType === 'accountValue') return chartData.accountValueHistory;
     if (pnlType === 'perps') return chartData.perpsPnlHistory;
-    if (pnlType === 'spot') return chartData.spotPnlHistory;
+    if (pnlType === 'spot') return chartData.nonPerpsPnlHistory;
     return chartData.pnlHistory;
   }, [chartData, chartType, pnlType]);
 
@@ -450,14 +450,17 @@ function PerpPortfolioContentComponent({
   });
 
   const vlm = useMemo(() => {
-    if (fillsStats.totalTrades > 0) {
-      return formatPerpsCompactUsd(fillsStats.volumeUsd);
+    if (activityType !== 'all') {
+      if (fillsStats.totalTrades > 0) {
+        return formatPerpsCompactUsd(fillsStats.volumeUsd);
+      }
+      return '--';
     }
     if (chartData?.vlm) {
       return formatPerpsCompactUsd(parseFloat(chartData.vlm));
     }
     return '--';
-  }, [chartData?.vlm, fillsStats.totalTrades, fillsStats.volumeUsd]);
+  }, [activityType, chartData?.vlm, fillsStats.totalTrades, fillsStats.volumeUsd]);
 
   const winRateVal =
     fillsStats.winRate !== null ? formatPercent(fillsStats.winRate) : '--';

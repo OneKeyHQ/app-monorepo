@@ -192,7 +192,7 @@ describe('buildPortfolioChartData', () => {
       [1_700_000_000, 2],
       [1_700_000_060, 3],
     ]);
-    expect(chartData?.spotPnlHistory).toEqual([
+    expect(chartData?.nonPerpsPnlHistory).toEqual([
       [1_700_000_000, 3],
       [1_700_000_060, 5],
     ]);
