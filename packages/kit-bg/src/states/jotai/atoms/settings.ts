@@ -79,7 +79,10 @@ export type ISettingsPersistAtom = {
   // turning this off makes ServiceGas.estimateFee force gasAccountEnabled=false
   // for every caller (Send / Swap / Perps / Earn / dApp ...).
   useGasAccountByDefault?: boolean;
-  receiveRiskMonitoring?: boolean;
+  // KYT receive risk monitoring enabled state, keyed by the Prime user's OneKey ID
+  // (onekeyUserId). The local cache is the source of truth (no server GET); each entry is
+  // updated only after the enable API succeeds, so a never-seen account defaults to off.
+  receiveRiskMonitoringMap?: Record<string, boolean>;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {

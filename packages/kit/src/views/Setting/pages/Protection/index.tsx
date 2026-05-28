@@ -25,6 +25,7 @@ import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/us
 import PassCodeProtectionSwitch from '@onekeyhq/kit/src/components/Password/container/PassCodeProtectionSwitch';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
@@ -38,14 +39,17 @@ const SettingProtectionModal = () => {
       tokenRiskReminder,
       protectCreateTransaction,
       protectCreateOrRemoveWallet,
-      receiveRiskMonitoring,
+      receiveRiskMonitoringMap,
     },
     setSettings,
   ] = useSettingsPersistAtom();
   const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
+  const [{ onekeyUserId }] = usePrimePersistAtom();
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const [enableProtection, setEnableProtection] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [isUpdatingReceiveRiskMonitoring, setIsUpdatingReceiveRiskMonitoring] =
+    useState(false);
   const navigation = useAppNavigation();
 
   const useIsFocused = useRouteIsFocused();
@@ -71,6 +75,26 @@ const SettingProtectionModal = () => {
     (fn: () => Promise<void>) => {
       startViewTransition(fn);
       updateLockTimer();
+    },
+    [updateLockTimer],
+  );
+
+  const handleToggleReceiveRiskMonitoring = useCallback(
+    async (value: boolean) => {
+      setIsUpdatingReceiveRiskMonitoring(true);
+      try {
+        // The background method persists the per-user enabled state only on success,
+        // so the switch flips only after the server confirms the change.
+        await backgroundApiProxy.serviceSetting.apiSetKytEnabled({
+          enabled: value,
+        });
+      } catch {
+        // Error toast is handled by @toastIfError in the background method;
+        // local state stays unchanged so the switch keeps its previous position.
+      } finally {
+        setIsUpdatingReceiveRiskMonitoring(false);
+        updateLockTimer();
+      }
     },
     [updateLockTimer],
   );
@@ -215,20 +239,25 @@ const SettingProtectionModal = () => {
                 </Badge.Text>
               </Badge>
             )}
-            <Switch
-              testID="setting-receive-risk-monitoring-switch"
-              size={ESwitchSize.small}
-              value={isPrimeSubscriptionActive ? receiveRiskMonitoring : false}
-              disabled={!isPrimeSubscriptionActive}
-              onChange={(value) => {
-                handleTransition(async () => {
-                  setSettings((v) => ({
-                    ...v,
-                    receiveRiskMonitoring: !!value,
-                  }));
-                });
-              }}
-            />
+            {isUpdatingReceiveRiskMonitoring ? (
+              <Stack w={38} h="$6" alignItems="center" justifyContent="center">
+                <Spinner size="small" />
+              </Stack>
+            ) : (
+              <Switch
+                testID="setting-receive-risk-monitoring-switch"
+                size={ESwitchSize.small}
+                value={
+                  isPrimeSubscriptionActive
+                    ? (receiveRiskMonitoringMap?.[onekeyUserId ?? ''] ?? false)
+                    : false
+                }
+                disabled={!isPrimeSubscriptionActive}
+                onChange={(value) => {
+                  void handleToggleReceiveRiskMonitoring(!!value);
+                }}
+              />
+            )}
           </ListItem>
           <SizableText px="$5" size="$bodySm" color="$textSubdued">
             Detect risky inbound transfers on supported networks and notify you
@@ -322,15 +351,18 @@ const SettingProtectionModal = () => {
   }, [
     checkEnableProtection,
     enableProtection,
+    handleToggleReceiveRiskMonitoring,
     handleTransition,
     intl,
     isEnableTransferAllowList,
     isLocked,
     isPrimeSubscriptionActive,
+    isUpdatingReceiveRiskMonitoring,
     navigation,
+    onekeyUserId,
     protectCreateOrRemoveWallet,
     protectCreateTransaction,
-    receiveRiskMonitoring,
+    receiveRiskMonitoringMap,
     setSettings,
     tokenRiskReminder,
   ]);

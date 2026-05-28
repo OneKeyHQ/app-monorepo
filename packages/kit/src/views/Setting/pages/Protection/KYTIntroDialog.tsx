@@ -9,7 +9,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 function KYTIntroDialogContent() {
   return (
@@ -42,7 +42,10 @@ function KYTIntroDialogContent() {
 
 function useKYTIntroDialog() {
   const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
-  const shownRef = useRef(false);
+  const [{ onekeyUserId }] = usePrimePersistAtom();
+  // Track the last Prime user we evaluated so switching accounts re-checks the
+  // per-user "shown" flag instead of being suppressed by a single mount guard.
+  const processedUserIdRef = useRef<string | undefined>(undefined);
 
   const showDialog = useCallback(() => {
     Dialog.show({
@@ -53,33 +56,37 @@ function useKYTIntroDialog() {
       onCancelText: 'Not now',
       renderContent: <KYTIntroDialogContent />,
       onConfirm: async (dialogInstance) => {
-        void settingsPersistAtom.set((v) => ({
-          ...v,
-          receiveRiskMonitoring: true,
-        }));
+        // Enabling here records server-side authorization; only close on success.
+        await backgroundApiProxy.serviceSetting.apiSetKytEnabled({
+          enabled: true,
+        });
         await dialogInstance.close();
       },
     });
   }, []);
 
   useEffect(() => {
-    if (shownRef.current) {
+    if (!isPrimeSubscriptionActive || !onekeyUserId) {
       return;
     }
-    if (!isPrimeSubscriptionActive) {
+    if (processedUserIdRef.current === onekeyUserId) {
       return;
     }
-    shownRef.current = true;
+    processedUserIdRef.current = onekeyUserId;
 
     void (async () => {
-      const isShown = await backgroundApiProxy.serviceSetting.isKytIntroShown();
+      const isShown = await backgroundApiProxy.serviceSetting.isKytIntroShown({
+        onekeyUserId,
+      });
       if (isShown) {
         return;
       }
-      await backgroundApiProxy.serviceSetting.setKytIntroShown();
+      await backgroundApiProxy.serviceSetting.setKytIntroShown({
+        onekeyUserId,
+      });
       showDialog();
     })();
-  }, [isPrimeSubscriptionActive, showDialog]);
+  }, [isPrimeSubscriptionActive, onekeyUserId, showDialog]);
 }
 
 function BasicKYTIntroOnMount() {

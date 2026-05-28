@@ -10,6 +10,7 @@ import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/sta
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   getListedNetworkMap,
@@ -52,6 +53,7 @@ import type {
   IServerNetwork,
 } from '@onekeyhq/shared/types';
 import type { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
+import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IClearCacheOnAppState,
@@ -68,6 +70,7 @@ import {
   currencyPersistAtom,
   desktopBluetoothAtom,
 } from '../states/jotai/atoms';
+import { primePersistAtom } from '../states/jotai/atoms/prime';
 import {
   settingsFiatPaySiteWhitelistPersistAtom,
   settingsLastActivityAtom,
@@ -985,18 +988,27 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  async isKytIntroShown() {
+  async isKytIntroShown({ onekeyUserId }: { onekeyUserId: string }) {
+    if (!onekeyUserId) {
+      return false;
+    }
     const v = await this.backgroundApi.simpleDb.appStatus.getRawData();
-    return v?.kytIntroShown ?? false;
+    return v?.kytIntroShownUserIds?.includes(onekeyUserId) ?? false;
   }
 
   @backgroundMethod()
-  async setKytIntroShown() {
+  async setKytIntroShown({ onekeyUserId }: { onekeyUserId: string }) {
+    if (!onekeyUserId) {
+      return;
+    }
     await this.backgroundApi.simpleDb.appStatus.setRawData(
-      (v): ISimpleDBAppStatus => ({
-        ...v,
-        kytIntroShown: true,
-      }),
+      (v): ISimpleDBAppStatus => {
+        const ids = v?.kytIntroShownUserIds ?? [];
+        if (ids.includes(onekeyUserId)) {
+          return { ...v, kytIntroShownUserIds: ids };
+        }
+        return { ...v, kytIntroShownUserIds: [...ids, onekeyUserId] };
+      },
     );
   }
 
@@ -1005,9 +1017,32 @@ class ServiceSetting extends ServiceBase {
     await this.backgroundApi.simpleDb.appStatus.setRawData(
       (v): ISimpleDBAppStatus => ({
         ...v,
-        kytIntroShown: false,
+        kytIntroShownUserIds: [],
       }),
     );
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiSetKytEnabled({ enabled }: { enabled: boolean }): Promise<boolean> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+    const res = await client.put<IApiClientResponse<{ kytEnabled: boolean }>>(
+      '/prime/v1/kyt/enabled',
+      { enabled },
+    );
+    const kytEnabled = res.data.data?.kytEnabled ?? enabled;
+    // Local cache is the source of truth; persist per Prime user (OneKey ID).
+    const { onekeyUserId } = await primePersistAtom.get();
+    if (onekeyUserId) {
+      await settingsPersistAtom.set((prev) => ({
+        ...prev,
+        receiveRiskMonitoringMap: {
+          ...(prev.receiveRiskMonitoringMap ?? {}),
+          [onekeyUserId]: kytEnabled,
+        },
+      }));
+    }
+    return kytEnabled;
   }
 }
 
