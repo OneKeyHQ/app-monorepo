@@ -51,3 +51,34 @@ export type IKytSupportedAsset = {
   tokenName: string;
   tokenSymbol: string;
 };
+
+export type IKytHistoryAsset = {
+  networkId: string;
+  tokenAddress: string;
+  tokenSymbol: string;
+  providerCoin?: string;
+};
+
+export type IKytHistoryListItem = {
+  networkId: string;
+  txid: string;
+  accountAddress: string;
+  tokenAddress: string;
+  status: string;
+  level: EKytRiskLevel;
+  checkedAt: number;
+  asset: IKytHistoryAsset;
+  transfer: {
+    txid: string;
+    accountAddress: string;
+  };
+  reasons: IKytRiskFactor[];
+  reportUrl?: string;
+};
+
+// KYT block attached to a history tx by the server (per-tx, covers all transfers).
+export type IKytHistoryResult = {
+  txid: string;
+  highestLevel: EKytRiskLevel;
+  list: IKytHistoryListItem[];
+};

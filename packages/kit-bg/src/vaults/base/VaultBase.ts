@@ -764,6 +764,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         riskyLevel: onChainHistoryTx.riskLevel,
 
+        kytRiskLevel: onChainHistoryTx.kyt?.highestLevel,
+
         status: getOnChainHistoryTxStatus(onChainHistoryTx.status),
 
         networkId,

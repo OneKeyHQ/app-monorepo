@@ -669,13 +669,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       networkId={networkId}
       networkLogoURI={networkLogoURI}
       riskyLevel={decodedTx.riskyLevel}
-      // TODO: remove mock — will come from history API kytRiskLevel field
-      kytRiskLevel={
-        decodedTx.kytRiskLevel ??
-        (['severe', 'high', undefined] as const)[
-          parseInt(decodedTx.txid?.slice(-1) ?? '0', 16) % 3
-        ]
-      }
+      kytRiskLevel={decodedTx.kytRiskLevel}
       compact={compact}
       {...componentProps}
     />
