@@ -27,6 +27,7 @@ import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
 import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
+import { HardwareRecoveryActionContainer } from './HardwareRecoveryActionContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
 import { KeylessWalletContainerLazy } from './KeylessWalletContainer';
@@ -68,6 +69,7 @@ function DetailRouter() {
       <VerifyTxContainer />
       <HardwareUiStateContainer />
       <ThirdPartyHardwareUiStateContainer />
+      <HardwareRecoveryActionContainer />
       <PrimeLoginContainerLazy />
       <KeylessWalletContainerLazy />
       <KeylessWebAutoConnectHashCleanupContainer />
