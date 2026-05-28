@@ -443,6 +443,9 @@ export const {
   use: usePerpsActiveAccountEnableTradingModeAtom,
 } = globalAtomComputedR<{
   isSoftwareAccount: boolean;
+  isHardwareAccount: boolean;
+  canAutoEnableInOrderPanel: boolean;
+  requiresEnableTradingDialogInOrderPanel: boolean;
   requiresExplicitEnableTrading: boolean;
 }>({
   read: (get) => {
@@ -454,6 +457,9 @@ export const {
     if (loading.selectAccountLoading || !accountId) {
       return {
         isSoftwareAccount: false,
+        isHardwareAccount: false,
+        canAutoEnableInOrderPanel: false,
+        requiresEnableTradingDialogInOrderPanel: false,
         requiresExplicitEnableTrading: true,
       };
     }
@@ -461,9 +467,13 @@ export const {
     const isSoftwareAccount =
       accountUtils.isHdAccount({ accountId }) ||
       accountUtils.isImportedAccount({ accountId });
+    const isHardwareAccount = accountUtils.isHwAccount({ accountId });
 
     return {
       isSoftwareAccount,
+      isHardwareAccount,
+      canAutoEnableInOrderPanel: isSoftwareAccount,
+      requiresEnableTradingDialogInOrderPanel: isHardwareAccount,
       requiresExplicitEnableTrading: !isSoftwareAccount,
     };
   },
@@ -476,18 +486,11 @@ export const {
   read: (get) => {
     const status = get(perpsActiveAccountStatusAtom.atom());
     const loading = get(perpsAccountLoadingInfoAtom.atom());
-    const enableTradingMode = get(
-      perpsActiveAccountEnableTradingModeAtom.atom(),
-    );
     const isAccountLoading =
       loading.enableTradingLoading || loading.selectAccountLoading;
 
     if (isAccountLoading || !status?.accountAddress) {
       return true;
-    }
-
-    if (enableTradingMode.isSoftwareAccount && !status.accountNotSupport) {
-      return false;
     }
 
     return !status?.canTrade;

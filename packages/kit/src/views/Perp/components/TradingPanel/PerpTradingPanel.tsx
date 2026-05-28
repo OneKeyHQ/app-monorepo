@@ -16,7 +16,6 @@ import {
   usePerpsAccountDisplaySnapshotAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
-  usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsComputedAccountValueAtom,
@@ -32,6 +31,7 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../utils/mobileLayoutTrace';
+import { shouldShowPerpsOrderPanelTradingButtons } from '../../utils/perpsOrderPanelEnableTrading';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
@@ -178,7 +178,6 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [perpsActiveAccount] = usePerpsActiveAccountAtom();
   const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
   const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
-  const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [tradingMode] = useTradingModeAtom();
   const [isSubmitting] = useTradingLoadingAtom();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
@@ -264,28 +263,17 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   );
 
   const canShowTradingButtons = useMemo(() => {
-    if (canShowCachedTradingButtons) {
-      return true;
-    }
-
-    return (
-      !perpsAccountLoading.selectAccountLoading &&
-      displayReady.statusReady &&
-      Boolean(perpsAccountStatus.accountAddress) &&
-      !perpsAccountStatus.accountNotSupport &&
-      !perpsAccountStatus.canCreateAddress &&
-      (Boolean(perpsAccountStatus.canTrade) ||
-        enableTradingMode.isSoftwareAccount)
-    );
+    return shouldShowPerpsOrderPanelTradingButtons({
+      canShowCachedTradingButtons,
+      statusReady: displayReady.statusReady,
+      selectAccountLoading: perpsAccountLoading.selectAccountLoading,
+      accountStatus: perpsAccountStatus,
+    });
   }, [
     canShowCachedTradingButtons,
     displayReady.statusReady,
-    enableTradingMode.isSoftwareAccount,
     perpsAccountLoading.selectAccountLoading,
-    perpsAccountStatus.accountAddress,
-    perpsAccountStatus.accountNotSupport,
-    perpsAccountStatus.canCreateAddress,
-    perpsAccountStatus.canTrade,
+    perpsAccountStatus,
   ]);
 
   const content = (
