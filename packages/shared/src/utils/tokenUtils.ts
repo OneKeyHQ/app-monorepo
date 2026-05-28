@@ -1401,6 +1401,7 @@ export function calculateAccountTotalValue(params: {
     {
       deriveType: string;
       mergeDeriveAssetsEnabled: boolean;
+      suffixToDeriveType?: Record<string, string>;
     }
   >;
 }): string | undefined {
@@ -1441,10 +1442,13 @@ export function calculateAccountTotalValue(params: {
       const restAccountId = keyArray.join('_');
       const parts = restAccountId.split(SEPARATOR);
       const keyWalletId = parts[0];
-      const keyDeriveType = (
-        accountUtils.normalizeDeriveType(parts[2] || '') ?? 'default'
-      ).toLowerCase();
       const infoEntry = networkInfoMap[netId];
+      const rawSuffix = parts[2] || '';
+      const keyDeriveType = (
+        accountUtils.normalizeDeriveType(rawSuffix) ??
+        infoEntry?.suffixToDeriveType?.[rawSuffix.toLowerCase()] ??
+        'default'
+      ).toLowerCase();
       if (
         keyWalletId === walletId &&
         compatibleIds.has(netId) &&

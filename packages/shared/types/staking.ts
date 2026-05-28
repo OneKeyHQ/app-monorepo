@@ -99,6 +99,27 @@ export enum EApproveType {
   Legacy = 'legacy',
 }
 
+export enum EManagePositionType {
+  Staking = 'staking',
+  Supply = 'supply',
+  Borrow = 'borrow',
+  Withdraw = 'withdraw',
+  Repay = 'repay',
+}
+
+export type IEarnStakeType = 'wrap' | 'normal';
+
+export type IEarnWithdrawType = 'instant' | 'queued' | 'cancel';
+
+export type IEarnClaimType = 'normal' | 'airdrop';
+
+export type IEarnWithdrawApproveInfo = {
+  approveType?: EApproveType;
+  approveTarget?: string;
+  tokenAddress?: string;
+  allowance?: string;
+};
+
 export type IStakeProviderInfo = {
   name: string;
   logoURI: string;
@@ -152,6 +173,11 @@ export type IStakeProviderInfo = {
 
   liquidity?: string;
   totalTVL?: string;
+  receiptTokenRate?: string;
+  morphoTokenRate?: string;
+  instantDiscount?: string;
+  withdrawalWindow?: string;
+  instantEnabled?: boolean;
   tradingVolume?: string;
   ptAddress?: string;
   syAddress?: string;
@@ -201,6 +227,7 @@ export type IStakeBaseParams = {
 
   // Stakefish ETH validator
   validatorPublicKey?: string; // validator pubkey from selector
+  stakeType?: IEarnStakeType;
 };
 
 export type IWithdrawBaseParams = {
@@ -223,6 +250,7 @@ export type IWithdrawBaseParams = {
   ethenaPath?: boolean;
   // Stakefish: original message for withdraw all signature
   message?: string;
+  withdrawType?: IEarnWithdrawType;
 };
 
 export type IUnstakePushParams = {
@@ -251,6 +279,7 @@ export type IStakeClaimBaseParams = {
   amount?: string;
   identity?: string;
   claimTokenAddress?: string;
+  claimType?: IEarnClaimType;
   key?: string;
 };
 
@@ -329,7 +358,7 @@ export type IStakeTxStakefishExitBroadcast = {
 
 export type IStakeTxResponse = {
   tx: IStakeTx;
-  orderId: string;
+  orderId?: string;
 };
 
 // Babylon
@@ -503,6 +532,7 @@ export type IProtocolInfo = {
     approveType: EApproveType;
     approveTarget: string;
   };
+  withdrawApprove?: IEarnWithdrawApproveInfo;
   providerDetail: {
     name: string;
     logoURI: string;
@@ -518,7 +548,10 @@ export type IProtocolInfo = {
   minUnstakeAmount?: string;
   claimable?: string;
   remainingCap?: string;
-  withdrawAction?: IEarnWithdrawActionIcon;
+  withdrawAction?:
+    | IEarnWithdrawActionIcon
+    | IEarnWithdrawOrderActionIcon
+    | IEarnCancelWithdrawalActionIcon;
   // Max decimal places allowed for amount input (UI restriction)
   // If undefined, defaults to token decimals
   protocolInputDecimals?: number;
@@ -530,6 +563,8 @@ export type IProtocolInfo = {
   needsSetupLut?: boolean;
   // Max supply balance for supply max button
   maxSupplyBalance?: string;
+  receiptTokenRate?: string;
+  morphoTokenRate?: string;
 };
 
 export interface IEarnToken {
@@ -1077,6 +1112,7 @@ export type IEarnActionIcon =
   | IEarnReceiveActionIcon
   | IEarnTradeActionIcon
   | IEarnCloseActionIcon
+  | IEarnCancelWithdrawalActionIcon
   | IEarnListaCheckActionIcon;
 
 interface IEarnGridItem {
@@ -1136,6 +1172,7 @@ export enum EStakingActionType {
   Activate = 'activate',
   Receive = 'receive',
   Trade = 'trade',
+  CancelWithdrawal = 'cancelWithdrawal',
 
   Supply = 'supply',
   Borrow = 'borrow',
@@ -1143,7 +1180,7 @@ export enum EStakingActionType {
 }
 
 export interface IEarnWithdrawActionIcon {
-  type: EStakingActionType;
+  type: EStakingActionType.Withdraw;
   disabled: boolean;
   text: IEarnText;
   data: {
@@ -1153,11 +1190,24 @@ export interface IEarnWithdrawActionIcon {
 }
 
 export interface IEarnWithdrawOrderActionIcon {
-  type: EStakingActionType;
+  type: EStakingActionType.WithdrawOrder;
   disabled: boolean;
   text: IEarnText;
   data?: {
     text: IEarnText;
+  };
+}
+
+export interface IEarnCancelWithdrawalActionIcon {
+  type: EStakingActionType.CancelWithdrawal;
+  disabled: boolean;
+  text: IEarnText;
+  data?: {
+    balance?: string;
+    token?: {
+      price: string;
+      info: IEarnToken;
+    };
   };
 }
 
@@ -1247,7 +1297,7 @@ export interface IEarnSupplyActionData {
 }
 
 export interface IEarnWithdrawActionData {
-  type: 'withdraw' | 'withdrawOrder';
+  type: 'withdraw' | 'withdrawOrder' | 'cancelWithdrawal';
   disabled: boolean;
   text: IEarnText;
   data?: {
@@ -1321,6 +1371,7 @@ export interface IEarnManagePageResponse {
     approveType?: string;
     approveTarget?: string;
   };
+  withdrawApprove?: IEarnWithdrawApproveInfo;
   nums?: {
     overflow?: string;
     minStakeAmount?: string;
@@ -1367,8 +1418,11 @@ export type IEarnDetailActions =
   | IEarnWithdrawActionIcon
   | IEarnHistoryActionIcon
   | IEarnWithdrawOrderActionIcon
+  | IEarnCancelWithdrawalActionIcon
   | IEarnClaimWithKycActionIcon
-  | IEarnActivateActionIcon;
+  | IEarnActivateActionIcon
+  | IEarnReceiveActionIcon
+  | IEarnTradeActionIcon;
 
 export interface IEarnAlert {
   alert: string;
@@ -1410,6 +1464,7 @@ export interface IStakeEarnDetail {
   subscriptionValue?: ISubscriptionValue;
   tags?: IStakeBadgeTag[];
   protocol?: IProtocolInfo;
+  withdrawApprove?: IEarnWithdrawApproveInfo;
   protocolInfo?: IEarnProtocolIntroInfo | IEarnProtocolIntroItem[];
   countDownAlert?: {
     title?: IEarnText;
@@ -1538,6 +1593,12 @@ export interface IEarnProvider {
   approveType?: string;
 }
 
+export type IEarnTransactionTip = {
+  type: string;
+  text: IEarnText;
+  button?: IEarnActionIcon;
+};
+
 export interface IStakeTransactionConfirmation {
   title?: IEarnText;
   tooltip?: IEarnTooltip;
@@ -1596,14 +1657,14 @@ export interface IStakeTransactionConfirmation {
         description: IEarnText;
         subtitle?: IEarnText;
         subtitleDescription?: IEarnText;
+        withdrawType?: IEarnWithdrawType;
+        disabled?: boolean;
+        tip?: IEarnTransactionTip;
       }>;
+      tip?: IEarnTransactionTip;
     };
   };
-  tip?: {
-    type: string;
-    text: IEarnText;
-    button?: IEarnActionIcon;
-  };
+  tip?: IEarnTransactionTip;
 }
 
 export type IStakeProtocolDetails = {
@@ -1987,6 +2048,7 @@ export interface IEarnAirdropInvestmentItemV2 {
       title: IEarnText;
       tooltip: IEarnTooltip;
       button: IEarnClaimActionIcon | IEarnListaCheckActionIcon;
+      claimType?: IEarnClaimType;
       description: IEarnText;
       swapButton?: IEarnManagePageSwapActions;
       badge?: IEarnBadge;
@@ -2138,6 +2200,11 @@ export type IApproveConfirmFnParams = {
   effectiveApy?: string | number;
   // Stakefish ETH validator
   validatorPubkey?: string;
+  stakeType?: IEarnStakeType;
+  onStepChange?: (
+    step: number,
+    options?: { shouldShowPostWrapApproveStep?: boolean },
+  ) => void;
 };
 
 export interface IEarnSummary {

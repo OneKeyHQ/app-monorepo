@@ -87,6 +87,20 @@ export function DesktopLayout({
   const { activeTabName, setActiveTabName, tabsRef } =
     useSyncedMarketTab(selectedTabName);
 
+  // Mount each sub-tab's heavy list only after the tab has been activated
+  // once. The initial activeTabName comes in synchronously from
+  // useSyncedMarketTab so the user's landing tab still mounts in the first
+  // commit; the other two stay as empty placeholders until first press.
+  const everActiveTabsRef = useRef<Set<string>>(new Set([activeTabName]));
+  const [, bumpEverActive] = useState(0);
+  useEffect(() => {
+    if (!everActiveTabsRef.current.has(activeTabName)) {
+      everActiveTabsRef.current.add(activeTabName);
+      bumpEverActive((n) => n + 1);
+    }
+  }, [activeTabName]);
+  const hasActivated = (name: string) => everActiveTabsRef.current.has(name);
+
   // Ref so renderTabBar can update activeTabName immediately on press
   // without recreating the callback (which would break collapsible tab memoisation).
   const setActiveTabNameRef = useRef(setActiveTabName);
@@ -192,35 +206,41 @@ export function DesktopLayout({
         >
           <Tabs.Tab name={watchlistTabName}>
             <YStack px="$4" flex={1}>
-              <MarketWatchlistTokenList
-                tabIntegrated
-                tabName={watchlistTabName}
-                listContainerProps={listContainerProps}
-              />
+              {hasActivated(watchlistTabName) ? (
+                <MarketWatchlistTokenList
+                  tabIntegrated
+                  tabName={watchlistTabName}
+                  listContainerProps={listContainerProps}
+                />
+              ) : null}
             </YStack>
           </Tabs.Tab>
           <Tabs.Tab name={spotTabName}>
             <YStack px="$4" flex={1}>
-              <MarketNormalTokenList
-                networkId={selectedNetworkId}
-                selectedCategory={filterBarProps.selectedCategory}
-                timeRange={filterBarProps.timeRange}
-                tabIntegrated
-                tabName={spotTabName}
-                listContainerProps={listContainerProps}
-                toolbar={<MarketFilterBar {...filterBarProps} />}
-                hiddenDesktopColumns={hiddenSpotDesktopColumns}
-              />
+              {hasActivated(spotTabName) ? (
+                <MarketNormalTokenList
+                  networkId={selectedNetworkId}
+                  selectedCategory={filterBarProps.selectedCategory}
+                  timeRange={filterBarProps.timeRange}
+                  tabIntegrated
+                  tabName={spotTabName}
+                  listContainerProps={listContainerProps}
+                  toolbar={<MarketFilterBar {...filterBarProps} />}
+                  hiddenDesktopColumns={hiddenSpotDesktopColumns}
+                />
+              ) : null}
             </YStack>
           </Tabs.Tab>
           {showPerpsTab ? (
             <Tabs.Tab name={perpsTabName}>
               <YStack px="$4" flex={1}>
-                <MarketPerpsTokenList
-                  tabIntegrated
-                  tabName={perpsTabName}
-                  listContainerProps={listContainerProps}
-                />
+                {hasActivated(perpsTabName) ? (
+                  <MarketPerpsTokenList
+                    tabIntegrated
+                    tabName={perpsTabName}
+                    listContainerProps={listContainerProps}
+                  />
+                ) : null}
               </YStack>
             </Tabs.Tab>
           ) : null}

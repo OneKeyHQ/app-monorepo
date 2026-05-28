@@ -173,11 +173,25 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private activeAssetChangeRequestId = 0;
 
+  private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
+
   private tokenSelectorFavoriteUpdateQueue = Promise.resolve();
 
   @backgroundMethod()
   async cancelPendingActiveAssetChange(): Promise<void> {
     this.activeAssetChangeRequestId += 1;
+  }
+
+  private rememberCommittedActiveAsset(
+    activeAsset: IChangeActiveAssetResult | undefined,
+  ): void {
+    if (
+      activeAsset?.coin &&
+      activeAsset.assetId !== undefined &&
+      activeAsset.universe
+    ) {
+      this.lastCommittedActiveAsset = activeAsset;
+    }
   }
 
   private async updateTokenSelectorFavoriteInBg({
@@ -1683,65 +1697,98 @@ export default class ServiceHyperliquid extends ServiceBase {
   }): Promise<IChangeActiveAssetResult> {
     const requestId = (this.activeAssetChangeRequestId += 1);
     const oldActiveAsset = await perpsActiveAssetAtom.get();
+    this.rememberCommittedActiveAsset(oldActiveAsset);
+    const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
-    const { universesByDex, marginTablesMapByDex } =
-      await this.getTradingUniverse();
+    const shouldSeedSubscriptionTarget = oldCoin !== newCoin;
 
-    const targetDexIndex = this.detectDexIndexByCoin(newCoin);
-    const dexUniverses: IPerpsUniverse[] | undefined =
-      universesByDex?.[targetDexIndex];
-    const dexMarginTables: IMarginTableMap | undefined =
-      marginTablesMapByDex?.[targetDexIndex];
+    try {
+      if (shouldSeedSubscriptionTarget) {
+        // The subscription runtime cannot see the UI-only optimistic
+        // instrument, so seed the target before trading metadata finishes.
+        await perpsActiveAssetAtom.set({
+          coin: newCoin,
+          assetId: undefined,
+          universe: undefined,
+          margin: undefined,
+        });
+      }
 
-    if (dexUniverses?.length === 0) {
-      return {
-        coin: oldActiveAsset?.coin || newCoin || '',
-        assetId: oldActiveAsset?.assetId,
-        universe: oldActiveAsset?.universe,
-        margin: oldActiveAsset?.margin,
+      const { universesByDex, marginTablesMapByDex } =
+        await this.getTradingUniverse();
+
+      const targetDexIndex = this.detectDexIndexByCoin(newCoin);
+      const dexUniverses: IPerpsUniverse[] | undefined =
+        universesByDex?.[targetDexIndex];
+      const dexMarginTables: IMarginTableMap | undefined =
+        marginTablesMapByDex?.[targetDexIndex];
+
+      if (dexUniverses?.length === 0) {
+        if (
+          shouldSeedSubscriptionTarget &&
+          requestId === this.activeAssetChangeRequestId
+        ) {
+          await perpsActiveAssetAtom.set(rollbackActiveAsset);
+        }
+        return {
+          coin: rollbackActiveAsset?.coin || newCoin || '',
+          assetId: rollbackActiveAsset?.assetId,
+          universe: rollbackActiveAsset?.universe,
+          margin: rollbackActiveAsset?.margin,
+        };
+      }
+
+      const selectedUniverse: IPerpsUniverse | undefined =
+        dexUniverses?.find((item) => item.name === newCoin) ||
+        dexUniverses?.[0];
+      if (requestId !== this.activeAssetChangeRequestId) {
+        return {
+          coin: oldActiveAsset?.coin || newCoin || '',
+          assetId: oldActiveAsset?.assetId,
+          universe: oldActiveAsset?.universe,
+          margin: oldActiveAsset?.margin,
+        };
+      }
+
+      const assetId =
+        selectedUniverse?.assetId ??
+        dexUniverses?.findIndex(
+          (token) => token.name === selectedUniverse?.name,
+        ) ??
+        -1;
+      const selectedMargin = dexMarginTables?.[selectedUniverse?.marginTableId];
+      if (requestId !== this.activeAssetChangeRequestId) {
+        return {
+          coin: oldActiveAsset?.coin || newCoin || '',
+          assetId: oldActiveAsset?.assetId,
+          universe: oldActiveAsset?.universe,
+          margin: oldActiveAsset?.margin,
+        };
+      }
+
+      const nextActiveAsset = {
+        coin: selectedUniverse?.name || newCoin || '',
+        assetId,
+        universe: selectedUniverse,
+        margin: selectedMargin,
       };
-    }
 
-    const selectedUniverse: IPerpsUniverse | undefined =
-      dexUniverses?.find((item) => item.name === newCoin) || dexUniverses?.[0];
-    if (requestId !== this.activeAssetChangeRequestId) {
-      return {
-        coin: oldActiveAsset?.coin || newCoin || '',
-        assetId: oldActiveAsset?.assetId,
-        universe: oldActiveAsset?.universe,
-        margin: oldActiveAsset?.margin,
-      };
+      await perpsActiveAssetAtom.set(nextActiveAsset);
+      this.rememberCommittedActiveAsset(nextActiveAsset);
+      if (oldCoin !== newCoin) {
+        await perpsActiveAssetCtxAtom.set(undefined);
+      }
+      return nextActiveAsset;
+    } catch (error) {
+      if (
+        shouldSeedSubscriptionTarget &&
+        requestId === this.activeAssetChangeRequestId
+      ) {
+        await perpsActiveAssetAtom.set(rollbackActiveAsset);
+      }
+      throw error;
     }
-
-    const assetId =
-      selectedUniverse?.assetId ??
-      dexUniverses?.findIndex(
-        (token) => token.name === selectedUniverse?.name,
-      ) ??
-      -1;
-    const selectedMargin = dexMarginTables?.[selectedUniverse?.marginTableId];
-    if (requestId !== this.activeAssetChangeRequestId) {
-      return {
-        coin: oldActiveAsset?.coin || newCoin || '',
-        assetId: oldActiveAsset?.assetId,
-        universe: oldActiveAsset?.universe,
-        margin: oldActiveAsset?.margin,
-      };
-    }
-
-    const nextActiveAsset = {
-      coin: selectedUniverse?.name || newCoin || '',
-      assetId,
-      universe: selectedUniverse,
-      margin: selectedMargin,
-    };
-
-    await perpsActiveAssetAtom.set(nextActiveAsset);
-    if (oldCoin !== newCoin) {
-      await perpsActiveAssetCtxAtom.set(undefined);
-    }
-    return nextActiveAsset;
   }
 
   @backgroundMethod()

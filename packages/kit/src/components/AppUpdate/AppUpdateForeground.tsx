@@ -39,6 +39,12 @@ import { useDownloadPackage } from './useDownloadPackage';
 // component-local `cancelled` flag which only protects against in-flight
 // awaits after unmount.
 let didRunFirstLaunchDispatch = false;
+// Silent-ready dialog should fire at most once per app session even if
+// the persist atom hydrates after the first-launch dispatch useEffect has
+// already consumed didRunFirstLaunchDispatch. Tracked separately so the
+// watcher effect below can react to a late hydration / in-session status
+// transition without re-running the full first-launch dispatch.
+let silentReadyDialogShown = false;
 
 /**
  * Mount-once foreground container for app-update side effects.
@@ -252,6 +258,12 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           response,
         }) => {
           if (isShowForceUpdatePreviewPage) return;
+          // Late-hydration race: persist atom may hydrate to `ready` after
+          // we queued this check, in which case the silent-ready watcher
+          // (or seamless install path) is already handling the same target.
+          // Re-downloading here would clobber the ready bundle on disk and
+          // hand the user a half-written file when they confirm install.
+          if (response?.status === EAppUpdateStatus.ready) return;
           const updateStrategy =
             response?.updateStrategy ?? EUpdateStrategy.manual;
           if (needUpdate) {
@@ -371,6 +383,11 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           );
         }
       } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
+        // Consume the module-level guard shared with the silent-ready
+        // watcher effect below, so the watcher skips on the same render
+        // tick (prevents a duplicate dialog when the persisted atom is
+        // already hydrated at first launch).
+        silentReadyDialogShown = true;
         showSilentUpdateDialog();
       } else {
         showUpdateDialog();
@@ -386,6 +403,29 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Silent-ready watcher — independent of didRunFirstLaunchDispatch.
+  // The first-launch dispatch effect above runs exactly once with an
+  // empty dep list, so it cannot react to status changes that arrive
+  // after the first run (e.g. a silent download completes in-session, or
+  // the persist atom hydrates after the initial render on restart). This
+  // dedicated effect covers both cases. silentReadyDialogShown (module-
+  // level) ensures only one dispatch per app session even when the hook
+  // is mounted twice (StrictMode / the legacy useAppUpdateInfo opt-in).
+  useEffect(() => {
+    if (!enabled) return;
+    if (silentReadyDialogShown) return;
+    if (appUpdateInfo.updateStrategy !== EUpdateStrategy.silent) return;
+    if (appUpdateInfo.status !== EAppUpdateStatus.ready) return;
+    if (isFirstLaunchAfterUpdated(appUpdateInfo)) return;
+    silentReadyDialogShown = true;
+    showSilentUpdateDialog();
+    // deps: only re-run on status / strategy transitions.
+    // appUpdateInfo is omitted intentionally — including the object ref
+    // would re-fire on every unrelated field mutation.
+    // showSilentUpdateDialog is a stable callback ref, safe to omit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, appUpdateInfo.status, appUpdateInfo.updateStrategy]);
 
   // Single AppState listener for the whole app — replaces the per-mount
   // listeners that previously lived in `useAppUpdateInfo`. The service-
@@ -427,4 +467,5 @@ export function AppUpdateForeground() {
 // API surface clean.
 export function __resetAppUpdateForegroundForTests() {
   didRunFirstLaunchDispatch = false;
+  silentReadyDialogShown = false;
 }
