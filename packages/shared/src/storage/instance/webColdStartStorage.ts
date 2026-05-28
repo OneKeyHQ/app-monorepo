@@ -53,6 +53,16 @@ const GLOBAL_MAP_KEY = '__ONEKEY_COLD_START_CACHE_MAP__';
 
 // ---- In-memory state ----
 
+// Reset-in-progress latch. While true, scheduleFlush + writeColdStartMeta
+// + every facade mutator becomes a no-op so concurrent writers
+// (swrCacheUtils flushes, contextAtom snapshot writer, JotaiStorage
+// callbacks) cannot resurrect data that resetColdStartCache is in the
+// middle of wiping. See resetColdStartCache for the windows we are
+// protecting. Declared up here so writeColdStartMeta (which is exported
+// near the top of the file, ahead of the rest of the flush state) can
+// reference it without tripping no-use-before-define.
+let isClearing = false;
+
 function getMap(): Map<string, unknown> {
   const g = globalThis as Record<string, unknown>;
   let map = g[GLOBAL_MAP_KEY] as Map<string, unknown> | undefined;
@@ -87,6 +97,11 @@ export function primeColdStartCacheMap(
  *  is stored as a raw string — the BUILD_HASH check in hydrate.ts compares
  *  strings directly, so no JSON encoding here. */
 export function writeColdStartMeta(key: string, value: string): void {
+  // Drop writes during reset so the build-hash marker that triggered the
+  // reset is not resurrected before db.clear lands. hydrate.ts writes the
+  // refreshed marker AFTER awaiting resetColdStartCache, so the post-reset
+  // marker write goes through normally.
+  if (isClearing) return;
   getMap().set(key, value);
   scheduleFlush(key);
 }
@@ -137,6 +152,9 @@ const MAX_CONSECUTIVE_FLUSH_FAILURES = 5;
 let flushGiveUpWarned = false;
 // Lifecycle-listener registration latch; see ensureLifecycleFlushTrigger.
 let coldStartTriggerRegistered = false;
+// `isClearing` is declared earlier (right after GLOBAL_MAP_KEY) so the
+// top-of-file `writeColdStartMeta` export can reference it without a
+// no-use-before-define lint failure.
 
 async function runFlushOnce(): Promise<void> {
   if (dirtyKeys.size === 0) return;
@@ -219,17 +237,51 @@ async function flushDirtyKeysToIdb(): Promise<void> {
   // dirtyKeys and would otherwise be left behind by a single-shot flush.
   // Loop conditions are mutated from runFlushOnce's .finally callback and
   // from concurrent writers, which ESLint cannot see through.
+  //
+  // Local fuse: when IDB is permanently broken (private mode, quota=0),
+  // runFlushOnce re-queues all keys on every cycle and the
+  // `dirtyKeys.size > 0` predicate would otherwise stay true forever.
+  // `consecutiveFlushFailures` (module-level) only gates the debounce timer
+  // re-arm, so it does not stop THIS synchronous drain loop. We track a
+  // local copy of the failure counter and bail out cleanly once it crosses
+  // the cap — clear dirtyKeys so a subsequent caller does not pick up the
+  // same doomed keys, and return so flushColdStartCacheNow() from
+  // visibilitychange / pagehide can resolve.
+  let localConsecutiveFailures = 0;
   // eslint-disable-next-line no-unmodified-loop-condition
   while (inFlightFlush || dirtyKeys.size > 0) {
     // Always prefer awaiting any in-flight flush over starting a new one,
     // so concurrent callers coalesce instead of stacking cycles.
     const pending = inFlightFlush ?? beginFlushCycle();
+    const failuresBeforeCycle = consecutiveFlushFailures;
     try {
       await pending;
     } catch {
       /* errors already handled in runFlushOnce; keep draining */
     }
+    // Did this cycle fail? runFlushOnce bumps consecutiveFlushFailures on the
+    // catch path and resets it to 0 on success. If the counter increased,
+    // count this iteration as a local failure; otherwise reset the local
+    // counter so an isolated transient failure does not eventually trip the
+    // cap.
+    if (consecutiveFlushFailures > failuresBeforeCycle) {
+      localConsecutiveFailures += 1;
+    } else {
+      localConsecutiveFailures = 0;
+    }
+    if (localConsecutiveFailures > MAX_CONSECUTIVE_FLUSH_FAILURES) {
+      // Give up: drop the doomed keys so callers (and a later
+      // resetColdStartCache) observe an empty dirtyKeys instead of looping
+      // on the same set. The module-level counter / give-up warning already
+      // accounts for the visible signal.
+      dirtyKeys.clear();
+      return;
+    }
   }
+  // Loop exited cleanly. If we entered the loop with prior failures pinned
+  // by a previous caller and our drain successfully emptied dirtyKeys, the
+  // success branch of runFlushOnce will already have reset the module
+  // counter; nothing to do here.
 }
 
 // Lazy lifecycle trigger registration. The visibilitychange / pagehide /
@@ -268,6 +320,14 @@ function ensureLifecycleFlushTrigger(): void {
 }
 
 function scheduleFlush(key: string): void {
+  // Suppress writes while resetColdStartCache is mid-wipe. Without this gate
+  // a concurrent caller (e.g. swrCacheUtils flushing the SWR cache, or the
+  // L2 contextAtom snapshot writer firing during the await db.clear window)
+  // can re-add an entry to dirtyKeys that the upcoming flush will then
+  // resurrect after db.clear completes. The facade-level no-op (safeSet et
+  // al.) is the primary defense; this is belt-and-suspenders for
+  // writeColdStartMeta callers that bypass the facade.
+  if (isClearing) return;
   dirtyKeys.add(key);
   ensureLifecycleFlushTrigger();
   if (flushTimer) clearTimeout(flushTimer);
@@ -290,32 +350,50 @@ export function flushColdStartCacheNow(): Promise<void> {
 /** Wipe both in-memory map and IDB store. Used on build-hash mismatch
  *  detected by hydrate.ts. */
 export async function resetColdStartCache(): Promise<void> {
-  getMap().clear();
-  dirtyKeys.clear();
-  if (flushTimer) {
-    clearTimeout(flushTimer);
-    flushTimer = undefined;
-  }
-  // Wait out any flush currently writing to IDB so a late-landing db.put
-  // cannot resurrect data wiped by the upcoming db.clear. The loop variable
-  // is mutated from runFlushOnce's .finally callback, which ESLint cannot
-  // see through.
-  // eslint-disable-next-line no-unmodified-loop-condition
-  while (inFlightFlush) {
-    try {
-      await inFlightFlush;
-    } catch {
-      /* flush errors are already logged inside runFlushOnce */
-    }
-  }
+  // Latch BEFORE the awaits so any concurrent scheduleFlush /
+  // safeSet / setObject / delete / clearAll call during the openDb +
+  // db.clear windows below becomes a no-op. Without this, a late write
+  // (e.g. swrCacheUtils flushing during the await openDb()) would re-fill
+  // the map and dirtyKeys with data we are about to wipe; the flush timer
+  // would then re-arm and persist the resurrected entries.
+  isClearing = true;
   try {
-    const db = await openDb();
-    await db.clear(STORE_NAME);
-  } catch (e) {
-    if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console.error('[webColdStartStorage] resetColdStartCache failed:', e);
+    getMap().clear();
+    dirtyKeys.clear();
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = undefined;
     }
+    // Wait out any flush currently writing to IDB so a late-landing db.put
+    // cannot resurrect data wiped by the upcoming db.clear. The loop variable
+    // is mutated from runFlushOnce's .finally callback, which ESLint cannot
+    // see through.
+    // eslint-disable-next-line no-unmodified-loop-condition
+    while (inFlightFlush) {
+      try {
+        await inFlightFlush;
+      } catch {
+        /* flush errors are already logged inside runFlushOnce */
+      }
+    }
+    try {
+      const db = await openDb();
+      await db.clear(STORE_NAME);
+    } catch (e) {
+      if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.error('[webColdStartStorage] resetColdStartCache failed:', e);
+      }
+    }
+    // Defense-in-depth: with the latch held, scheduleFlush and the facade
+    // mutators are no-ops, so map / dirtyKeys SHOULD still be empty here.
+    // Wipe one more time anyway in case any future caller bypasses both
+    // guards (e.g. direct getMap().set(...) outside this module — currently
+    // none, but cheap insurance).
+    getMap().clear();
+    dirtyKeys.clear();
+  } finally {
+    isClearing = false;
   }
 }
 
@@ -352,6 +430,7 @@ export function __resetForTests(): void {
   consecutiveFlushFailures = 0;
   flushGiveUpWarned = false;
   coldStartTriggerRegistered = false;
+  isClearing = false;
   if (flushTimer) {
     clearTimeout(flushTimer);
     flushTimer = undefined;
@@ -369,6 +448,9 @@ export function createWebColdStartStorage(): ISyncStorage {
     key: EAppSyncStorageKeys,
     value: string | number | boolean | undefined | null,
   ): void => {
+    // Drop writes during reset so the wipe-then-clear sequence is atomic
+    // from the facade's perspective. See resetColdStartCache for context.
+    if (isClearing) return;
     if (value === undefined || value === null) {
       getMap().set(key as string, '');
     } else {
@@ -388,6 +470,8 @@ export function createWebColdStartStorage(): ISyncStorage {
       if (!isPlainObject(value)) {
         throw new OneKeyLocalError('value must be a plain object');
       }
+      // Drop writes during reset; see safeSet.
+      if (isClearing) return;
       // Facade callers (e.g. swrCacheUtils, context-atom snapshot writer)
       // already model their payload as a JSON-encoded string when reading
       // back via getString. Keep the on-the-wire form symmetric so a write
@@ -428,10 +512,18 @@ export function createWebColdStartStorage(): ISyncStorage {
       return undefined;
     },
     delete(key: EAppSyncStorageKeys) {
+      // Drop deletes during reset — the wipe will remove the key anyway,
+      // and queueing a delete here would set up a phantom dirtyKey for a
+      // value that no longer exists in the map.
+      if (isClearing) return;
       getMap().delete(key as string);
       scheduleFlush(key as string);
     },
     clearAll() {
+      // Coalesce overlapping clearAll() calls — if a reset is already in
+      // flight, the second one would race with the first against the same
+      // db.clear and could thrash the latch.
+      if (isClearing) return;
       void resetColdStartCache();
     },
     getAllKeys() {

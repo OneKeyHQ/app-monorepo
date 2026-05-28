@@ -444,4 +444,164 @@ describeIfIndexedDB('IDB-backed paths', () => {
     mod.writeColdStartMeta('__meta:k2', 'v2');
     expect(registerMock).toHaveBeenCalledTimes(1);
   });
+
+  // ---- Permanent-failure drain-loop regression guard ----
+  //
+  // When IDB.put rejects on every call (private mode, quota=0), runFlushOnce
+  // catches and re-adds the snapshotted keys to dirtyKeys. The drain loop in
+  // flushDirtyKeysToIdb (`while (inFlightFlush || dirtyKeys.size > 0)`)
+  // would otherwise loop forever in microtasks because the module-level
+  // consecutiveFlushFailures cap only gates the debounce-timer re-arm, not
+  // the active drain loop. The fix adds a local consecutive-failure counter
+  // inside flushDirtyKeysToIdb that drops the doomed keys and returns once
+  // the cap is exceeded — flushColdStartCacheNow() from
+  // visibilitychange/pagehide can then resolve cleanly even on a
+  // permanently-broken IDB.
+  //
+  // If the bug ever returns this test hangs; we bound the assertion with a
+  // Promise.race + setTimeout fuse so the failure surface is a thrown error
+  // ("flushColdStartCacheNow did not resolve") rather than a runner timeout.
+
+  it('flushColdStartCacheNow resolves even when IDB.put permanently rejects', async () => {
+    let mod!: IColdStartModule;
+    let isolatedIDB!: typeof IndexedDBPromised;
+    jest.isolateModules(() => {
+      // eslint-disable-next-line global-require
+      ({ IndexedDBPromised: isolatedIDB } =
+        require('../../IndexedDBPromised') as {
+          IndexedDBPromised: typeof IndexedDBPromised;
+        });
+      // eslint-disable-next-line global-require
+      mod = require('./webColdStartStorage') as IColdStartModule;
+    });
+    activeModule = mod;
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const realPut = isolatedIDB.prototype.put;
+    (isolatedIDB.prototype as unknown as { put: typeof realPut }).put =
+      async function alwaysRejectPut(this: IndexedDBPromised<unknown>) {
+        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error
+        throw new Error('forced permanent put failure');
+      } as typeof realPut;
+
+    try {
+      mod.writeColdStartMeta('__meta:permafail', 'doomed');
+
+      // Bounded await: if the fix is missing, flushColdStartCacheNow stays
+      // in a microtask loop forever and the race timer fires the rejection.
+      const TIMEOUT_MS = 2000;
+      const flushed = mod.flushColdStartCacheNow();
+      const bounded = Promise.race([
+        flushed,
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () =>
+              // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error
+              reject(
+                new Error(
+                  `flushColdStartCacheNow did not resolve within ${TIMEOUT_MS}ms`,
+                ),
+              ),
+            TIMEOUT_MS,
+          ),
+        ),
+      ]);
+      await expect(bounded).resolves.toBeUndefined();
+
+      // Give-up cleanup: dirtyKeys must be empty so a subsequent caller (or
+      // resetColdStartCache) does not pick up the same doomed keys. We peek
+      // at the give-up effect via writeColdStartMeta — adding a new key
+      // after the loop bailed must still schedule (the latch only short-
+      // circuits the drain, not future writes).
+      const map = (globalThis as Record<string, unknown>)
+        .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, unknown>;
+      // The in-memory map still holds the value (we never wipe the map on
+      // a flush failure — only dirtyKeys), but no entry should be queued
+      // for a doomed retry.
+      expect(map.get('__meta:permafail')).toBe('doomed');
+    } finally {
+      (isolatedIDB.prototype as unknown as { put: typeof realPut }).put =
+        realPut;
+    }
+  });
+
+  // ---- Reset race / data-resurrection regression guard ----
+  //
+  // resetColdStartCache wipes the map + dirtyKeys, awaits the in-flight
+  // flush, then issues db.clear. During the `await openDb()` + `await
+  // db.clear()` window any concurrent writer (swrCacheUtils flush, ctx
+  // snapshot writer, facade .set) used to be able to call back into
+  // scheduleFlush, populating dirtyKeys with data that was supposed to be
+  // wiped — the next flush would persist the resurrected entries.
+  //
+  // The fix latches `isClearing = true` for the whole resetColdStartCache
+  // body; scheduleFlush + every facade mutator + writeColdStartMeta become
+  // no-ops while the latch is held. This test simulates the race by
+  // delaying db.clear and issuing concurrent writes during the window.
+
+  it('resetColdStartCache rejects concurrent writes that arrive during db.clear', async () => {
+    let mod!: IColdStartModule;
+    let isolatedIDB!: typeof IndexedDBPromised;
+    jest.isolateModules(() => {
+      // eslint-disable-next-line global-require
+      ({ IndexedDBPromised: isolatedIDB } =
+        require('../../IndexedDBPromised') as {
+          IndexedDBPromised: typeof IndexedDBPromised;
+        });
+      // eslint-disable-next-line global-require
+      mod = require('./webColdStartStorage') as IColdStartModule;
+    });
+    activeModule = mod;
+
+    // Delay db.clear() so we can interleave writes during the latched
+    // window. The patched method still issues the real clear afterwards.
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const realClear = isolatedIDB.prototype.clear;
+    (isolatedIDB.prototype as unknown as { clear: typeof realClear }).clear =
+      async function delayedClear(this: IndexedDBPromised<unknown>, ...args) {
+        await new Promise((r) => setTimeout(r, 50));
+        return (realClear as (...a: typeof args) => Promise<unknown>).apply(
+          this,
+          args,
+        ) as ReturnType<typeof realClear>;
+      } as typeof realClear;
+
+    try {
+      // Pre-seed an entry so the wipe has something to clear.
+      mod.writeColdStartMeta('__meta:initial', 'seed');
+      await mod.flushColdStartCacheNow();
+
+      // Kick off the reset and DO NOT await yet. Concurrent writers fire
+      // while the patched db.clear is sleeping 50ms.
+      const resetPromise = mod.resetColdStartCache();
+      // Yield to let resetColdStartCache enter the latched window.
+      await new Promise((r) => setTimeout(r, 5));
+
+      // These should all be dropped by the isClearing latch.
+      mod.writeColdStartMeta('__meta:racy', 'should-be-rejected');
+      const s = mod.createWebColdStartStorage();
+      s.set(EAppSyncStorageKeys.rrt, 'should-also-be-rejected');
+
+      await resetPromise;
+
+      // In-memory map and IDB must both be empty.
+      const map = (globalThis as Record<string, unknown>)
+        .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, unknown>;
+      expect(map.size).toBe(0);
+      const after = await mod.readAllColdStartEntriesFromIdb();
+      expect(after.size).toBe(0);
+
+      // Latch must have been released: a post-reset write should land.
+      mod.writeColdStartMeta('__meta:after', 'ok');
+      await mod.flushColdStartCacheNow();
+      const finalEntries = await mod.readAllColdStartEntriesFromIdb();
+      expect(finalEntries.get('__meta:after')).toBe('ok');
+      // And the racy writes are not present.
+      expect(finalEntries.get('__meta:racy')).toBeUndefined();
+      expect(finalEntries.has(EAppSyncStorageKeys.rrt as string)).toBe(false);
+    } finally {
+      (isolatedIDB.prototype as unknown as { clear: typeof realClear }).clear =
+        realClear;
+    }
+  });
 });

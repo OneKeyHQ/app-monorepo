@@ -49,6 +49,7 @@
 
 /* eslint-disable no-console */
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   flushColdStartCacheNow,
@@ -205,12 +206,39 @@ let didHydrate = false;
 // Count entries excluding internal meta-keys. Used by the F6 invalidation
 // path to distinguish a brand-new DB (no entries, no marker) from a legacy
 // DB that predates the BUILD_HASH marker (real entries, no marker).
-function countNonMetaEntries(entries: Map<string, unknown>): number {
+export function countNonMetaEntries(entries: Map<string, unknown>): number {
   let n = 0;
   for (const k of entries.keys()) {
     if (!k.startsWith(META_KEY_PREFIX)) n += 1;
   }
   return n;
+}
+
+/**
+ * Decide whether the post-`resetColdStartCache` IDB recheck is clean enough
+ * to proceed with priming + marker refresh.
+ *
+ * `resetColdStartCache` swallows `db.clear` failures (best-effort
+ * semantics — see webColdStartStorage), so a successful await does NOT
+ * guarantee the store is empty. If we naively trusted the return value and
+ * wrote the new BUILD_HASH marker, the marker would match on the next boot
+ * and we would prime stale entries written under a different schema. Worst-
+ * case those entries deserialize into atom state and cause schema drift.
+ *
+ * Rules:
+ *   • `undefined` (readAllColdStartEntriesFromIdb timed out / threw)
+ *       → DO NOT proceed; cannot verify the wipe took.
+ *   • Map containing only `__meta:*` keys
+ *       → proceed; meta entries are non-payload and a meta-only DB is
+ *         indistinguishable from a brand-new DB to downstream consumers.
+ *   • Map containing any non-meta key
+ *       → DO NOT proceed; the wipe left real entries behind.
+ */
+export function shouldProceedAfterReset(
+  recheck: Map<string, unknown> | undefined,
+): boolean {
+  if (recheck === undefined) return false;
+  return countNonMetaEntries(recheck) === 0;
 }
 
 const promise: Promise<void> = (async () => {
@@ -281,6 +309,31 @@ const promise: Promise<void> = (async () => {
         // values written under a different schema. Falling through with the
         // marker-write step would also fail against the same broken IDB.
         setGlobal('__ONEKEY_COLD_START_ERROR__', e);
+        status = 'error';
+        return;
+      }
+      // Recheck: resetColdStartCache swallows db.clear failures internally
+      // (best-effort semantics), so a successful await does not prove IDB
+      // is empty. If we trust the return value and write the new marker on
+      // top of stale entries, the next boot's BUILD_HASH gate matches and
+      // primes data written under a different schema. Re-read IDB and bail
+      // out terminally if it still has non-meta entries.
+      let recheck: Map<string, unknown> | undefined;
+      try {
+        recheck = await withTimeout(
+          readAllColdStartEntriesFromIdb(),
+          HYDRATION_TIMEOUT_MS,
+        );
+      } catch (e) {
+        setGlobal('__ONEKEY_COLD_START_ERROR__', e);
+        status = 'error';
+        return;
+      }
+      if (!shouldProceedAfterReset(recheck)) {
+        setGlobal(
+          '__ONEKEY_COLD_START_ERROR__',
+          new OneKeyLocalError('cold-start reset incomplete'),
+        );
         status = 'error';
         return;
       }
