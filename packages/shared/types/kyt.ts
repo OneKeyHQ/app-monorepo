@@ -42,3 +42,12 @@ export type IKytCheckResult = {
   assetsChecked?: number;
   assets?: IKytAssetResult[];
 };
+
+export type IKytSupportedAsset = {
+  networkId: string;
+  networkName: string;
+  tokenAddress: string;
+  tokenLogoURI: string;
+  tokenName: string;
+  tokenSymbol: string;
+};

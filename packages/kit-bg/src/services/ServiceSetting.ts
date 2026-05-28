@@ -59,6 +59,7 @@ import type {
   IClearCacheOnAppState,
   IFetchWalletConfigResp,
 } from '@onekeyhq/shared/types/setting';
+import type { IKytSupportedAsset } from '@onekeyhq/shared/types/kyt';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
@@ -1023,6 +1024,22 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getKytSupportedAssets(): Promise<IKytSupportedAsset[]> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+    // Errors are surfaced as an in-page error state by the caller, so suppress
+    // the default error toast to avoid a duplicate prompt.
+    const requestConfig: Parameters<typeof client.get>[1] & {
+      autoHandleError?: boolean;
+    } = {
+      autoHandleError: false,
+    };
+    const res = await client.get<
+      IApiClientResponse<{ list: IKytSupportedAsset[] }>
+    >('/prime/v1/kyt/supported-assets', requestConfig);
+    return res.data.data?.list ?? [];
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async apiSetKytEnabled({ enabled }: { enabled: boolean }): Promise<boolean> {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
@@ -1037,7 +1054,7 @@ class ServiceSetting extends ServiceBase {
       await settingsPersistAtom.set((prev) => ({
         ...prev,
         receiveRiskMonitoringMap: {
-          ...(prev.receiveRiskMonitoringMap ?? {}),
+          ...prev.receiveRiskMonitoringMap,
           [onekeyUserId]: kytEnabled,
         },
       }));
