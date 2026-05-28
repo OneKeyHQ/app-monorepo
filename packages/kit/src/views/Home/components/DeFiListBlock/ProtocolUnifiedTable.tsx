@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import { ProtocolPositionActionButton } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
+import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import type { IProtocolUnifiedRow } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -73,7 +74,9 @@ type IProtocolUnifiedTableProps = {
   priceUnavailableLabel: string;
   partialPriceUnavailableLabel: string;
   supportedActions: IDeFiSupportedProtocolAction[];
-  onActionSuccess?: () => void | Promise<void>;
+  onActionSuccess?: (
+    params: IProtocolPositionActionSuccessParams,
+  ) => void | Promise<void>;
 };
 
 const ProtocolUnifiedTable = memo(

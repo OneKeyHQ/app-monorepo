@@ -12,6 +12,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Accordion, Stack, YStack } from '@onekeyhq/components';
+import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useDeFiListProtocolMapAtom,
@@ -43,7 +44,9 @@ type IProtocolProps = {
   protocol: IDeFiProtocol;
   tableLayout?: boolean;
   isAllNetworks?: boolean;
-  onActionSuccess?: () => void | Promise<void>;
+  onActionSuccess?: (
+    params: IProtocolPositionActionSuccessParams,
+  ) => void | Promise<void>;
 };
 
 export type IProtocolHandle = {
@@ -92,7 +95,9 @@ const ProtocolDesktopLayout = memo(
       partialPriceUnavailableLabel: string;
       categoryGroups: ILocalizedProtocolCategoryGroup[];
       supportedActions: IDeFiSupportedProtocolAction[];
-      onActionSuccess?: () => void | Promise<void>;
+      onActionSuccess?: (
+        params: IProtocolPositionActionSuccessParams,
+      ) => void | Promise<void>;
     }
   >(
     (

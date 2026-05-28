@@ -3,6 +3,7 @@ import { memo, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, XStack } from '@onekeyhq/components';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
 import type {
   IDeFiProtocol,
@@ -10,6 +11,7 @@ import type {
 } from '@onekeyhq/shared/types/defi';
 
 import {
+  type IProtocolPositionActionSuccessParams,
   getActionLabel,
   showProtocolPositionActionDialog,
 } from './ProtocolPositionActionDialog';
@@ -19,7 +21,9 @@ type IProtocolPositionActionButtonProps = {
   protocol: Pick<IDeFiProtocol, 'networkId' | 'protocol'>;
   position: IDeFiProtocol['positions'][number];
   supportedActions: IDeFiSupportedProtocolAction[];
-  onSuccess?: () => void | Promise<void>;
+  onSuccess?: (
+    params: IProtocolPositionActionSuccessParams,
+  ) => void | Promise<void>;
 };
 
 const ProtocolPositionActionButton = memo(
@@ -31,19 +35,23 @@ const ProtocolPositionActionButton = memo(
     onSuccess,
   }: IProtocolPositionActionButtonProps) => {
     const intl = useIntl();
+    const isActionAccount =
+      !!accountId &&
+      !accountUtils.isWatchingAccount({ accountId }) &&
+      !accountUtils.isUrlAccountFn({ accountId });
     const actions = useMemo(
       () =>
-        accountId
+        isActionAccount
           ? defiActionUtils.resolveDeFiPositionActions({
               protocol,
               position,
               supportedActions,
             })
           : [],
-      [accountId, position, protocol, supportedActions],
+      [isActionAccount, position, protocol, supportedActions],
     );
 
-    if (!accountId || actions.length === 0) {
+    if (!isActionAccount || actions.length === 0) {
       return null;
     }
 

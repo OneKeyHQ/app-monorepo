@@ -15,6 +15,7 @@ import {
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import { EmptyDeFi } from '@onekeyhq/kit/src/components/Empty';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -124,7 +125,9 @@ const ProtocolListItem = memo(
     accountId?: string;
     registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
     tableLayout?: boolean;
-    onActionSuccess?: () => void | Promise<void>;
+    onActionSuccess?: (
+      params: IProtocolPositionActionSuccessParams,
+    ) => void | Promise<void>;
   }) => {
     const handleProtocolRef = useCallback(
       (handle: IProtocolHandle | null) => {
@@ -805,14 +808,18 @@ function DeFiListBlock({
     });
   }, [runAllNetworkRequests]);
 
-  const handleActionSuccess = useCallback(() => {
-    isForceRefreshRef.current = true;
-    if (network?.isAllNetworks) {
-      handleRefreshAllNetworkData();
-      return;
-    }
-    void run();
-  }, [handleRefreshAllNetworkData, network?.isAllNetworks, run]);
+  const handleActionSuccess = useCallback(
+    async ({ accountId, networkId }: IProtocolPositionActionSuccessParams) => {
+      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+      await backgroundApiProxy.serviceDeFi.refreshAccountDeFiPositionsAfterAction(
+        {
+          accountId,
+          networkId,
+        },
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     if (network?.isAllNetworks && isEmptyAccount) {

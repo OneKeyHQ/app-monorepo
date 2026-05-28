@@ -66,6 +66,17 @@ function getErrorMessage(error: unknown) {
   return String(error);
 }
 
+function getPositiveAmount(value?: string) {
+  if (!value) return undefined;
+  const amountBN = new BigNumber(value);
+  return amountBN.isFinite() && amountBN.gt(0) ? value : undefined;
+}
+
+type IProtocolPositionActionSuccessParams = {
+  accountId: string;
+  networkId: string;
+};
+
 function ProtocolPositionActionDialogContent({
   accountId,
   networkId,
@@ -75,7 +86,9 @@ function ProtocolPositionActionDialogContent({
   accountId: string;
   networkId: string;
   action: IResolvedDeFiPositionAction;
-  onSuccess?: () => void | Promise<void>;
+  onSuccess?: (
+    params: IProtocolPositionActionSuccessParams,
+  ) => void | Promise<void>;
 }) {
   const intl = useIntl();
   const { navigationToTxConfirm } = useSignatureConfirm({
@@ -114,9 +127,17 @@ function ProtocolPositionActionDialogContent({
     };
 
     if (isRemoveLiquidity) {
-      extraParams.percent = percent;
-      extraParams.amount0Min = extraParams.amount0Min ?? '0';
-      extraParams.amount1Min = extraParams.amount1Min ?? '0';
+      const amount0Min = getPositiveAmount(extraParams.amount0Min);
+      const amount1Min = getPositiveAmount(extraParams.amount1Min);
+      delete extraParams.amount0Min;
+      delete extraParams.amount1Min;
+      extraParams.percent = String(percent);
+      if (amount0Min) {
+        extraParams.amount0Min = amount0Min;
+      }
+      if (amount1Min) {
+        extraParams.amount1Min = amount1Min;
+      }
     }
 
     try {
@@ -150,7 +171,7 @@ function ProtocolPositionActionDialogContent({
           Toast.success({
             title: intl.formatMessage({ id: ETranslations.global_success }),
           });
-          await onSuccess?.();
+          await onSuccess?.({ accountId, networkId });
         },
         onFail: (error: Error) => {
           Toast.error({
@@ -272,7 +293,9 @@ function showProtocolPositionActionDialog({
   accountId: string;
   networkId: string;
   action: IResolvedDeFiPositionAction;
-  onSuccess?: () => void | Promise<void>;
+  onSuccess?: (
+    params: IProtocolPositionActionSuccessParams,
+  ) => void | Promise<void>;
 }) {
   Dialog.show({
     showFooter: false,
@@ -287,4 +310,8 @@ function showProtocolPositionActionDialog({
   });
 }
 
-export { getActionLabel, showProtocolPositionActionDialog };
+export {
+  getActionLabel,
+  showProtocolPositionActionDialog,
+  type IProtocolPositionActionSuccessParams,
+};

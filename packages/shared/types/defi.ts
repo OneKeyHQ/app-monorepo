@@ -40,7 +40,7 @@ export type IDeFiActionExtraParams = {
   // oxlint-disable-next-line @cspell/spellchecker
   unbondNonces?: string[];
   tokenId?: string;
-  percent?: number;
+  percent?: number | string;
   amount0Min?: string;
   amount1Min?: string;
   deadline?: number;

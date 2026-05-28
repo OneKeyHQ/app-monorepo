@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ProtocolPositionActionButton } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
+import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import { ProtocolPositionSection } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionSection';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { getProtocolPositionSectionsValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
@@ -93,9 +94,18 @@ function DeFiProtocolDetails() {
     }
   }, []);
   const actionAccountId = protocol.accountId ?? account?.id;
-  const handleActionSuccess = useCallback(() => {
-    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-  }, []);
+  const handleActionSuccess = useCallback(
+    ({ accountId, networkId }: IProtocolPositionActionSuccessParams) => {
+      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+      void backgroundApiProxy.serviceDeFi.refreshAccountDeFiPositionsAfterAction(
+        {
+          accountId,
+          networkId,
+        },
+      );
+    },
+    [],
+  );
 
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,

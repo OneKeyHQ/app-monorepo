@@ -78,6 +78,30 @@ function isCategoryMatch(expected?: string, actual?: string) {
   );
 }
 
+function isNormalizedProtocolId(protocolId: string, target: string) {
+  return normalizeProtocolForAction(protocolId) === target;
+}
+
+function isPoolAddressRequired({
+  protocolId,
+  action,
+}: {
+  protocolId: string;
+  action: EDeFiPositionAction;
+}) {
+  if (
+    action !== EDeFiPositionAction.Withdraw &&
+    action !== EDeFiPositionAction.Claim &&
+    action !== EDeFiPositionAction.ClaimWithdrawal
+  ) {
+    return false;
+  }
+
+  return ['aave_pool_v3', 'morpho_blue', 'polygon_staking', 'spark'].includes(
+    normalizeProtocolForAction(protocolId),
+  );
+}
+
 function isPositiveAmount(amount?: string) {
   if (!amount) return false;
   const value = new BigNumber(amount);
@@ -140,17 +164,6 @@ function normalizeTokenId(value?: string) {
     /(?:tokenId|token_id|positionId|position_id|nftId|nft_id)[:=_-](\d+)/i,
   );
   return match?.[1];
-}
-
-function getUniqueAssetAddresses(position: IDeFiPosition | undefined) {
-  const addresses: string[] = [];
-  for (const asset of position?.assets ?? []) {
-    const address = asset.address?.trim();
-    if (address && !addresses.includes(address)) {
-      addresses.push(address);
-    }
-  }
-  return addresses;
 }
 
 function mergeExtraParams(
@@ -228,7 +241,7 @@ function getTokenId(position: IDeFiPosition | undefined, asset: IDeFiAsset) {
       },
     ],
   });
-  return normalizeTokenId(directTokenId) ?? normalizeTokenId(position?.groupId);
+  return normalizeTokenId(directTokenId);
 }
 
 function getCurrency({
@@ -332,21 +345,21 @@ function buildResolvedAsset({
     const tokenId = getTokenId(sourcePosition, asset);
     if (!tokenId) return undefined;
 
-    const assetAddresses = getUniqueAssetAddresses(sourcePosition);
-    const currency0 =
-      getCurrency({
-        position: sourcePosition,
-        asset,
-        key: 'currency0',
-      }) ?? assetAddresses[0];
-    const currency1 =
-      getCurrency({
-        position: sourcePosition,
-        asset,
-        key: 'currency1',
-      }) ?? assetAddresses.find((address) => address !== currency0);
+    const currency0 = getCurrency({
+      position: sourcePosition,
+      asset,
+      key: 'currency0',
+    });
+    const currency1 = getCurrency({
+      position: sourcePosition,
+      asset,
+      key: 'currency1',
+    });
 
-    if (protocolId === 'uniswap-v4' && (!currency0 || !currency1)) {
+    if (
+      isNormalizedProtocolId(protocolId, 'uniswap_v4') &&
+      (!currency0 || !currency1)
+    ) {
       return undefined;
     }
 
@@ -362,6 +375,19 @@ function buildResolvedAsset({
         ...(currency1 ? { currency1 } : {}),
       },
     };
+  }
+
+  if (isPoolAddressRequired({ protocolId, action }) && !poolAddress) {
+    return undefined;
+  }
+
+  if (
+    isNormalizedProtocolId(protocolId, 'polygon_staking') &&
+    action === EDeFiPositionAction.ClaimWithdrawal &&
+    // oxlint-disable-next-line @cspell/spellchecker
+    !extraParams?.unbondNonces?.length
+  ) {
+    return undefined;
   }
 
   return {

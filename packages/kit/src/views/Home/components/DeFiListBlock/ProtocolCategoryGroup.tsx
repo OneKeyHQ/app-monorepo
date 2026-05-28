@@ -2,6 +2,7 @@ import { memo } from 'react';
 
 import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ProtocolPositionActionButton } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
+import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import {
   type ILocalizedProtocolCategoryGroup,
   type ILocalizedProtocolPositionItem,
@@ -52,7 +53,9 @@ type IProtocolCategoryGroupProps = {
   priceUnavailableLabel: string;
   partialPriceUnavailableLabel: string;
   supportedActions: IDeFiSupportedProtocolAction[];
-  onActionSuccess?: () => void | Promise<void>;
+  onActionSuccess?: (
+    params: IProtocolPositionActionSuccessParams,
+  ) => void | Promise<void>;
 };
 
 const ProtocolCategoryGroup = memo(
