@@ -59,6 +59,14 @@ export const TabsContext = createContext<
         }
       >
     >;
+    /**
+     * Optional callback that lets per-tab list/scroll-view children signal
+     * the Container right after they write their element ref into
+     * scrollTabElementsRef. Container responds by (re-)attaching its
+     * ResizeObserver to the focused tab's element. Replaces the previous
+     * polling-based measurement retry loop.
+     */
+    requestRemeasure?: () => void;
   }
 >({
   headerHeight: 0,

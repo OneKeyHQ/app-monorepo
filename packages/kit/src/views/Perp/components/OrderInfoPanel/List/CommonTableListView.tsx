@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { InputAccessoryView, Keyboard } from 'react-native';
@@ -316,6 +316,7 @@ export interface ICommonTableListViewProps<T = unknown> {
     isHovered?: boolean,
     onHoverChange?: (index: number | null) => void,
   ) => ReactElement;
+  keyExtractor?: (item: T, index: number) => string;
   emptyMessage?: string;
   emptySubMessage?: string;
   ListEmptyComponent?: ReactElement | null;
@@ -346,6 +347,7 @@ export function CommonTableListView<T>({
   useTabsList,
   disableListScroll,
   renderRow,
+  keyExtractor,
   currentListPage,
   listLoading,
   setCurrentListPage,
@@ -490,6 +492,7 @@ export function CommonTableListView<T>({
           }
           scrollEnabled={shouldUseTabsList || !disableListScroll}
           data={paginatedData}
+          keyExtractor={keyExtractor}
           ListHeaderComponent={ListHeaderComponent}
           ListFooterComponent={
             enablePagination &&
@@ -649,15 +652,19 @@ export function CommonTableListView<T>({
                 ) : null}
                 {showDesktopEmptyState ? desktopEmptyComponent : null}
                 {!listLoading && paginatedData.length > 0
-                  ? paginatedData.map((item, index) =>
-                      renderRow(
-                        item,
-                        index,
-                        hasFixedColumns ? 'left' : 'full',
-                        hoveredRowIndex === index,
-                        setHoveredRowIndex,
-                      ),
-                    )
+                  ? paginatedData.map((item, index) => (
+                      <Fragment
+                        key={keyExtractor?.(item, index) ?? String(index)}
+                      >
+                        {renderRow(
+                          item,
+                          index,
+                          hasFixedColumns ? 'left' : 'full',
+                          hoveredRowIndex === index,
+                          setHoveredRowIndex,
+                        )}
+                      </Fragment>
+                    ))
                   : null}
               </YStack>
             </YStack>
@@ -701,15 +708,19 @@ export function CommonTableListView<T>({
                   <YStack flex={1} p="$5" />
                 ) : null}
                 {!listLoading && paginatedData.length > 0
-                  ? paginatedData.map((item, index) =>
-                      renderRow(
-                        item,
-                        index,
-                        'right',
-                        hoveredRowIndex === index,
-                        setHoveredRowIndex,
-                      ),
-                    )
+                  ? paginatedData.map((item, index) => (
+                      <Fragment
+                        key={keyExtractor?.(item, index) ?? String(index)}
+                      >
+                        {renderRow(
+                          item,
+                          index,
+                          'right',
+                          hoveredRowIndex === index,
+                          setHoveredRowIndex,
+                        )}
+                      </Fragment>
+                    ))
                   : null}
               </YStack>
             </YStack>

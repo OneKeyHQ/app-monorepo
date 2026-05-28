@@ -56,6 +56,7 @@ export function useProtocolDetailData({
 
   const tokenInfo = useMemo<IEarnTokenInfo | undefined>(() => {
     if (detailInfo?.subscriptionValue?.token) {
+      const protocolVault = detailInfo.protocol?.vault ?? vault;
       const balanceBN = new BigNumber(
         detailInfo.subscriptionValue.balance || '0',
       );
@@ -67,7 +68,7 @@ export function useProtocolDetailData({
         price: detailInfo.subscriptionValue.token.price,
         networkId,
         provider,
-        vault,
+        vault: protocolVault,
         accountId: accountId ?? '',
       };
     }
@@ -99,6 +100,11 @@ export function useProtocolDetailData({
       minTransactionFee: detailInfo.nums?.minTransactionFee,
       remainingCap: detailInfo.nums?.remainingCap,
       claimable: detailInfo.nums?.claimable,
+      withdrawApprove: detailInfo.withdrawApprove,
+      receiptTokenRate:
+        detailInfo.protocol.receiptTokenRate ??
+        detailInfo.protocol.morphoTokenRate,
+      morphoTokenRate: detailInfo.protocol.morphoTokenRate,
     };
   }, [detailInfo, earnAccount, provider, symbol]);
 
