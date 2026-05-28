@@ -7,14 +7,22 @@ import {
   // WebSocketTransport,
 } from '@nktkas/hyperliquid';
 
+import { createLoggedHyperLiquidClient } from './utils/logHyperLiquidApiFailure';
+
 class HyperLiquidApiClients {
   private _infoClient: InfoClient | null = null;
 
   get infoClient(): InfoClient {
     if (!this._infoClient) {
-      this._infoClient = new InfoClient({
-        transport: new HttpTransport(),
-      });
+      this._infoClient = createLoggedHyperLiquidClient(
+        new InfoClient({
+          transport: new HttpTransport(),
+        }),
+        {
+          endpoint: 'info',
+          extra: { source: 'hyperLiquidApiClients.infoClient' },
+        },
+      );
     }
     return this._infoClient;
   }
