@@ -269,7 +269,6 @@ function MobilePerpMarketHeader() {
               fontSize={10}
               lineHeight={14}
               color="$textSubdued"
-              dashColor="$textDisabled"
               dashThickness={0.5}
             >
               {markPriceDisplay}
@@ -358,12 +357,7 @@ function MobilePerpMarketHeader() {
       >
         <XStack alignItems="flex-start" gap="$4">
           <YStack flex={1} minWidth={0} width="50%">
-            <DashText
-              size="$bodySm"
-              color="$textSubdued"
-              dashColor="$textDisabled"
-              dashThickness={0.5}
-            >
+            <DashText size="$bodySm" color="$textSubdued" dashThickness={0.5}>
               {intl.formatMessage({
                 id: ETranslations.perp_order_mid_price_title,
               })}
@@ -408,7 +402,6 @@ function MobilePerpMarketHeader() {
                 <DashText
                   size="$bodySm"
                   color="$textSubdued"
-                  dashColor="$textDisabled"
                   dashThickness={0.5}
                 >
                   {intl.formatMessage({
@@ -481,7 +474,6 @@ function MobilePerpMarketHeader() {
                   <DashText
                     size="$bodySm"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.5}
                   >
                     {intl.formatMessage({

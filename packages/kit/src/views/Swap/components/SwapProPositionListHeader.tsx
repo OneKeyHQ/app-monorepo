@@ -44,7 +44,6 @@ function SwapProPositionListHeader() {
           size="$headingXs"
           color="$textSubdued"
           textTransform="uppercase"
-          dashColor="$textDisabled"
           dashThickness={0.5}
           tooltip={intl.formatMessage({ id: ETranslations.marketdex_un_pnl })}
           tooltipTitle={intl.formatMessage({

@@ -972,12 +972,7 @@ const PositionRowMobileFunding = memo(
             id: ETranslations.perp_position_funding_2,
           })}
           renderTrigger={
-            <DashText
-              size="$bodySm"
-              color="$textSubdued"
-              dashColor="$textDisabled"
-              dashThickness={0.5}
-            >
+            <DashText size="$bodySm" color="$textSubdued" dashThickness={0.5}>
               {intl.formatMessage({
                 id: ETranslations.perp_position_funding_2,
               })}
