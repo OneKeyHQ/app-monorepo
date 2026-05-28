@@ -102,15 +102,20 @@ function isNewTabPositionTop() {
 // Coalesce rapid persistence of browser-tab state. Each user action (open,
 // close, reorder, navigate) used to flush the full tab array to SimpleDb
 // immediately; in iPad logs we saw ~65 writes in 4 minutes, every one
-// crossing the bg bridge and re-serializing. A 500 ms trailing debounce
-// with a 2 s maxWait gives ample coalescing while still capping how long
-// state can lag if a sequence of rapid changes never stops.
+// crossing the bg bridge and re-serializing.
+//
+// leading:true persists the first change in a burst immediately so an
+// open/close/reorder followed by a hard quit (desktop window close, iOS
+// background freeze that lands inside the 500ms window) still lands at
+// least the user-visible action. trailing:true covers the last frame of
+// a continuing burst; maxWait caps lag during sustained activity. Worst-
+// case loss is now a mid-burst intermediate frame, not the final action.
 const persistTabsToSimpleDbDebounced = debounce(
   (tabs: IWebTab[]) => {
     void backgroundApiProxy.simpleDb.browserTabs.setRawData({ tabs });
   },
   500,
-  { leading: false, trailing: true, maxWait: 2000 },
+  { leading: true, trailing: true, maxWait: 2000 },
 );
 
 // Flush the pending debounced persist before the JS runtime can be suspended.
