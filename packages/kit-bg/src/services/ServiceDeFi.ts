@@ -20,6 +20,7 @@ import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type {
   IDeFiBuildTransactionParams,
   IDeFiBuildTransactionResp,
+  IDeFiEvmTransaction,
   IFetchAccountDeFiPositionsParams,
   IFetchAccountDeFiPositionsResp,
   IGetSupportedDeFiProtocolsResp,
@@ -41,6 +42,59 @@ type IDeFiEnabledNetworksMapState = {
 type IGetDeFiEnabledNetworksMapStateOptions = {
   syncIfEmpty?: boolean;
 };
+
+type IDeFiPermitData = NonNullable<IDeFiBuildTransactionResp['permit']>;
+
+type IDeFiBuildTransactionApiResp = {
+  tx?: IDeFiEvmTransaction | string;
+  approvalTx?: IDeFiEvmTransaction | string;
+  permit?: IDeFiPermitData | string;
+};
+
+function parseDeFiJsonField<T extends object>({
+  fieldName,
+  value,
+}: {
+  fieldName: string;
+  value: T | string | undefined;
+}): T | undefined {
+  if (isUndefined(value)) {
+    return undefined;
+  }
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as T;
+    }
+  } catch {
+    // Throw a stable local error below so callers do not depend on JSON syntax text.
+  }
+
+  throw new OneKeyLocalError(`Invalid DeFi ${fieldName} response`);
+}
+
+function normalizeDeFiBuildTransactionResp(
+  resp: IDeFiBuildTransactionApiResp,
+): IDeFiBuildTransactionResp {
+  return {
+    tx: parseDeFiJsonField<IDeFiEvmTransaction>({
+      fieldName: 'tx',
+      value: resp.tx,
+    }),
+    approvalTx: parseDeFiJsonField<IDeFiEvmTransaction>({
+      fieldName: 'approvalTx',
+      value: resp.approvalTx,
+    }),
+    permit: parseDeFiJsonField<IDeFiPermitData>({
+      fieldName: 'permit',
+      value: resp.permit,
+    }),
+  };
+}
 
 @backgroundClass()
 class ServiceDeFi extends ServiceBase {
@@ -334,12 +388,12 @@ class ServiceDeFi extends ServiceBase {
 
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
-      data: IDeFiBuildTransactionResp;
+      data: IDeFiBuildTransactionApiResp;
     }>('/earn/v1/defi/build-transaction', {
       ...rest,
       accountAddress,
     });
-    return resp.data.data;
+    return normalizeDeFiBuildTransactionResp(resp.data.data);
   }
 
   private _buildDeFiForceRefreshKey(accountId: string, networkId: string) {
