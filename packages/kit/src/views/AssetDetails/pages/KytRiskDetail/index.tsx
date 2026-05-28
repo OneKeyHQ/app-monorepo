@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 
 import {
   Badge,
@@ -88,10 +89,18 @@ function RiskFactorCard({ factor }: { factor: IKytRiskFactor }) {
   if (factor.hops !== undefined) {
     rows.push({ label: 'Distance', value: `${factor.hops} hops` });
   }
-  if (factor.amountUsd || factor.percent) {
+  const amountText =
+    factor.amountUsd !== undefined
+      ? `$${new BigNumber(factor.amountUsd).toFormat(2)}`
+      : undefined;
+  const percentText =
+    factor.percent !== undefined
+      ? `${new BigNumber(factor.percent).toFixed(2)}%`
+      : undefined;
+  if (amountText || percentText) {
     rows.push({
       label: 'Exposure / Share',
-      value: [factor.amountUsd, factor.percent].filter(Boolean).join(' / '),
+      value: [amountText, percentText].filter(Boolean).join(' / '),
     });
   }
 

@@ -13,8 +13,8 @@ export type IKytRiskFactor = {
   entity?: string;
   exposureType?: string;
   hops?: number;
-  amountUsd?: string;
-  percent?: string;
+  amountUsd?: number;
+  percent?: number;
 };
 
 export type IKytRiskDetail = {
