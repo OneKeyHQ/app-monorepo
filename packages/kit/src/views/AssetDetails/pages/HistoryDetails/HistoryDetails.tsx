@@ -62,7 +62,7 @@ import {
 import { getHistoryTxMeta } from '../../utils';
 
 import { InfoItem, InfoItemGroup } from './components/TxDetailsInfoItem';
-import { MOCK_KYT_RESULT, TxKYTRiskCheck } from './components/TxKYTRiskCheck';
+import { TxKYTRiskCheck } from './components/TxKYTRiskCheck';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
@@ -396,6 +396,7 @@ function HistoryDetails() {
         txDetails: r?.data,
         decodedOnChainTx,
         addressMap: r?.addressMap,
+        tokens: r?.tokens,
       };
     },
 
@@ -422,7 +423,7 @@ function HistoryDetails() {
     },
   );
 
-  const { txDetails, decodedOnChainTx, addressMap } = result || {};
+  const { txDetails, decodedOnChainTx, addressMap, tokens } = result || {};
   const historyTx = historyTxParam ?? decodedOnChainTx;
 
   useEffect(() => {
@@ -1141,7 +1142,12 @@ function HistoryDetails() {
           </InfoItemGroup>
 
           {/* KYT Risk Check */}
-          <TxKYTRiskCheck kytResult={MOCK_KYT_RESULT} />
+          <TxKYTRiskCheck
+            kyt={txDetails?.kyt}
+            tokens={tokens}
+            receives={txDetails?.receives}
+            networkName={network?.name}
+          />
 
           {/* Notification account */}
           {notificationAccountId ? (
@@ -1269,6 +1275,9 @@ function HistoryDetails() {
     historyTx?.decodedTx.status,
     handleViewUTXOsOnPress,
     renderAssetsChange,
+    tokens,
+    txDetails?.kyt,
+    txDetails?.receives,
   ]);
 
   return (

@@ -22,25 +22,13 @@ export type IKytRiskDetail = {
   checkedAt: string;
   asset: {
     symbol: string;
+    tokenName?: string;
     tokenImageUri?: string;
     networkName: string;
   };
   transferAmount: string;
   factors: IKytRiskFactor[];
   reportUrl?: string;
-};
-
-export type IKytAssetResult = {
-  symbol: string;
-  tokenName: string;
-  tokenImageUri?: string;
-  level: EKytRiskLevel;
-};
-
-export type IKytCheckResult = {
-  level: EKytRiskLevel;
-  assetsChecked?: number;
-  assets?: IKytAssetResult[];
 };
 
 export type IKytSupportedAsset = {

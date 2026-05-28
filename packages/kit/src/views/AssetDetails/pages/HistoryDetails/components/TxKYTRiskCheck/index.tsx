@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import {
   Badge,
   Dialog,
@@ -15,10 +17,14 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import type {
+  IOnChainHistoryTxToken,
+  IOnChainHistoryTxTransfer,
+} from '@onekeyhq/shared/types/history';
 import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 import type {
-  IKytAssetResult,
-  IKytCheckResult,
+  IKytHistoryResult,
   IKytRiskDetail,
 } from '@onekeyhq/shared/types/kyt';
 
@@ -75,98 +81,46 @@ const RISK_LEVEL_CONFIG: Record<
   },
 };
 
-const USDT_IMAGE =
-  'https://uni.onekey-asset.com/server-service-onekey/coin-images/Tether-USD-USDT.png';
-const USDC_IMAGE =
-  'https://uni.onekey-asset.com/server-service-onekey/coin-images/USD-Coin-USDC.png';
-
-export const MOCK_KYT_RESULT: IKytCheckResult = {
-  level: EKytRiskLevel.High,
-  assetsChecked: 2,
-  assets: [
-    {
-      symbol: 'USDC',
-      tokenName: 'USD Coin',
-      tokenImageUri: USDC_IMAGE,
-      level: EKytRiskLevel.Low,
-    },
-    {
-      symbol: 'USDT',
-      tokenName: 'Tether USD',
-      tokenImageUri: USDT_IMAGE,
-      level: EKytRiskLevel.High,
-    },
-  ],
-};
-
-const MOCK_KYT_DETAIL_MAP: Record<string, IKytRiskDetail> = {
-  USDC: {
-    level: EKytRiskLevel.Low,
-    checkedAt: 'May 19, 2026 14:30',
-    asset: { symbol: 'USDC', tokenImageUri: USDC_IMAGE, networkName: 'Tron' },
-    transferAmount: '+500 USDC',
-    factors: [
-      {
-        category: 'Indirect risk exposure',
-        entity: 'unknown mixer',
-        exposureType: 'Indirect exposure',
-        hops: 4,
-        amountUsd: '$120.00',
-        percent: '8.20%',
+// Map the server KYT block into the per-asset detail view models the UI renders.
+// Token name/logo come from the tx `tokens` map and the transfer amount from
+// `receives`, both keyed by token address.
+function buildRiskDetails({
+  kyt,
+  tokens,
+  receives,
+  networkName,
+}: {
+  kyt: IKytHistoryResult;
+  tokens?: Record<string, IOnChainHistoryTxToken>;
+  receives?: IOnChainHistoryTxTransfer[];
+  networkName?: string;
+}): IKytRiskDetail[] {
+  return kyt.list.map((item) => {
+    const tokenInfo = tokens?.[item.tokenAddress]?.info;
+    const symbol = item.asset.tokenSymbol || tokenInfo?.symbol || '';
+    const receive = receives?.find(
+      (transfer) => transfer.token === item.tokenAddress,
+    );
+    const amount = receive?.amount
+      ? new BigNumber(receive.amount).toFixed()
+      : undefined;
+    return {
+      level: item.level,
+      checkedAt: item.checkedAt
+        ? formatDate(new Date(item.checkedAt * 1000))
+        : '',
+      asset: {
+        symbol,
+        tokenName: tokenInfo?.name,
+        tokenImageUri: tokenInfo?.logoURI,
+        networkName: networkName ?? '',
       },
-      {
-        category: 'High-risk exchange deposit',
-        entity: 'garantex',
-        exposureType: 'Indirect exposure',
-        hops: 3,
-        amountUsd: '$45.00',
-        percent: '3.10%',
-      },
-      {
-        category: 'Gambling service association',
-        entity: 'stake.com',
-        exposureType: 'Direct exposure',
-        hops: 1,
-        amountUsd: '$200.00',
-        percent: '15.00%',
-      },
-    ],
-    reportUrl: 'https://misttrack.io/report/usdc-example',
-  },
-  USDT: {
-    level: EKytRiskLevel.Severe,
-    checkedAt: 'May 19, 2026 14:30',
-    asset: { symbol: 'USDT', tokenImageUri: USDT_IMAGE, networkName: 'Tron' },
-    transferAmount: '+1,250 USDT',
-    factors: [
-      {
-        category: 'Sanctioned entity association',
-        entity: 'huionepay',
-        exposureType: 'Indirect exposure',
-        hops: 2,
-        amountUsd: '$2,373.90',
-        percent: '45.65%',
-      },
-      {
-        category: 'Illicit activity association',
-        entity: 'huionepay',
-        exposureType: 'Indirect exposure',
-        hops: 2,
-        amountUsd: '$2,373.90',
-        percent: '45.65%',
-      },
-      {
-        category: 'Darknet market exposure',
-        entity: 'hydra',
-        exposureType: 'Direct exposure',
-        hops: 1,
-        amountUsd: '$890.00',
-        percent: '12.30%',
-      },
-    ],
-    reportUrl: 'https://misttrack.io/report/example',
-  },
-};
+      transferAmount: amount ? `+${amount} ${symbol}` : '',
+      factors: item.reasons ?? [],
+      reportUrl: item.reportUrl,
+    };
+  });
+}
 
 function KytBadge({ level }: { level: EKytRiskLevel }) {
   const config = RISK_LEVEL_CONFIG[level];
@@ -194,68 +148,78 @@ function KytBadge({ level }: { level: EKytRiskLevel }) {
 }
 
 function KytAssetSelectionDialogContent({
-  assets,
+  details,
   onSelectAsset,
 }: {
-  assets: IKytAssetResult[];
-  onSelectAsset: (asset: IKytAssetResult) => void;
+  details: IKytRiskDetail[];
+  onSelectAsset: (detail: IKytRiskDetail) => void;
 }) {
   return (
     <YStack mx="$-5">
-      {assets.map((asset) => (
+      {details.map((detail, index) => (
         <ListItem
-          key={asset.symbol}
-          title={asset.symbol}
-          subtitle={asset.tokenName}
+          key={`${detail.asset.symbol}-${index}`}
+          title={detail.asset.symbol}
+          subtitle={detail.asset.tokenName}
           drillIn
-          onPress={() => onSelectAsset(asset)}
-          renderAvatar={<Token size="lg" tokenImageUri={asset.tokenImageUri} />}
+          onPress={() => onSelectAsset(detail)}
+          renderAvatar={
+            <Token size="lg" tokenImageUri={detail.asset.tokenImageUri} />
+          }
         />
       ))}
     </YStack>
   );
 }
 
-export function TxKYTRiskCheck({ kytResult }: { kytResult?: IKytCheckResult }) {
+export function TxKYTRiskCheck({
+  kyt,
+  tokens,
+  receives,
+  networkName,
+}: {
+  kyt?: IKytHistoryResult;
+  tokens?: Record<string, IOnChainHistoryTxToken>;
+  receives?: IOnChainHistoryTxTransfer[];
+  networkName?: string;
+}) {
   const navigation = useAppNavigation();
 
-  const config = useMemo(() => {
-    if (!kytResult) return null;
-    return RISK_LEVEL_CONFIG[kytResult.level];
-  }, [kytResult]);
+  const details = useMemo(() => {
+    if (!kyt?.list?.length) return [];
+    return buildRiskDetails({ kyt, tokens, receives, networkName });
+  }, [kyt, tokens, receives, networkName]);
+
+  const level = kyt?.highestLevel;
+  const config = level ? RISK_LEVEL_CONFIG[level] : null;
 
   const subtitle = useMemo(() => {
-    if (!kytResult) return '';
-    if ((kytResult.assetsChecked ?? 0) > 1) {
-      return `${kytResult.assetsChecked} assets checked`;
+    if (!level) return '';
+    if (details.length > 1) {
+      return `${details.length} assets checked`;
     }
-    return RISK_LEVEL_CONFIG[kytResult.level].subtitle;
-  }, [kytResult]);
+    return RISK_LEVEL_CONFIG[level].subtitle;
+  }, [level, details.length]);
 
   const navigateToDetail = useCallback(
-    (asset: IKytAssetResult) => {
-      const riskDetail = MOCK_KYT_DETAIL_MAP[asset.symbol];
-      if (!riskDetail) return;
+    (riskDetail: IKytRiskDetail) => {
       navigation.push(EModalAssetDetailRoutes.KytRiskDetail, { riskDetail });
     },
     [navigation],
   );
 
   const handlePress = useCallback(() => {
-    if (!kytResult) return;
-
-    const assets = kytResult.assets ?? [];
-    if (assets.length > 1) {
+    if (details.length > 1) {
       const dialogInstance = Dialog.show({
         title: 'Fund-source risk check',
-        description: `${kytResult.assetsChecked} assets checked`,
+        description: `${details.length} assets checked`,
         showFooter: false,
         renderContent: (
           <KytAssetSelectionDialogContent
-            assets={assets}
-            onSelectAsset={(asset) => {
+            details={details}
+            onSelectAsset={(detail) => {
               void dialogInstance.close();
-              navigateToDetail(asset);
+              navigateToDetail(detail);
             }}
           />
         ),
@@ -263,16 +227,16 @@ export function TxKYTRiskCheck({ kytResult }: { kytResult?: IKytCheckResult }) {
       return;
     }
 
-    if (assets.length === 1) {
-      navigateToDetail(assets[0]);
+    if (details.length === 1) {
+      navigateToDetail(details[0]);
     }
-  }, [kytResult, navigateToDetail]);
+  }, [details, navigateToDetail]);
 
-  if (!kytResult || !config) {
+  if (!level || !config || details.length === 0) {
     return null;
   }
 
-  const showDrillIn = config.drillIn || (kytResult.assetsChecked ?? 0) > 1;
+  const showDrillIn = config.drillIn || details.length > 1;
 
   return (
     <>
@@ -299,7 +263,7 @@ export function TxKYTRiskCheck({ kytResult }: { kytResult?: IKytCheckResult }) {
           </SizableText>
         </Stack>
         <XStack ai="center" gap="$2">
-          <KytBadge level={kytResult.level} />
+          <KytBadge level={level} />
           {showDrillIn ? (
             <Icon
               name="ChevronRightSmallOutline"
