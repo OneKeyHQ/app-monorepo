@@ -1,6 +1,5 @@
 import { memo, startTransition, useCallback, useEffect, useRef } from 'react';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { isEqual, noop } from 'lodash';
 
 import { useUpdateEffect } from '@onekeyhq/components';
@@ -34,6 +33,12 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  markPerpsColdStartPerf,
+  markPerpsColdStartPerfOnce,
+  resetPerpsColdStartPerfSession,
+} from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { useDebugHooksDepsChangedChecker } from '@onekeyhq/shared/src/utils/debug/debugUtils';
@@ -69,8 +74,10 @@ import {
 } from '../../../states/jotai/contexts/hyperliquid';
 import {
   useOrderBookTickOptionsAtom,
+  usePerpsActiveAssetCtxColdCacheAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
+import { upsertPerpsActiveAssetCtxColdCacheEntry } from '../hooks/usePerpsActiveAssetCtxDisplay';
 import {
   isTradeInstrumentBackedBySubscriptionState,
   planTradeSubscriptions,
@@ -98,6 +105,10 @@ function nextRouteSubscriptionStateVersion() {
 
 function resolvePerpRouteFocused(isFocus: boolean) {
   return shouldTreatPerpAsFocusedOnMount || isFocus;
+}
+
+function hasTradingUniverseCache(data: { universesByDex?: unknown[][] }) {
+  return Boolean(data.universesByDex?.some((items) => items?.length > 0));
 }
 
 async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
@@ -209,12 +220,23 @@ function useTradeRouteViewStateSync() {
       actions.current.setTradeRouteViewState({
         routeFocused: resolvePerpRouteFocused(isFocus) && !isHiddenByModal,
       });
+      if (resolvePerpRouteFocused(isFocus) && !isHiddenByModal) {
+        resetPerpsColdStartPerfSession();
+        markPerpsColdStartPerf('route_focused');
+      } else {
+        markPerpsColdStartPerf('route_blurred', {
+          isFocus,
+          isHiddenByModal,
+        });
+      }
     },
   );
 
   useEffect(() => {
     const actionsRef = actions.current;
     if (shouldTreatPerpAsFocusedOnMount) {
+      resetPerpsColdStartPerfSession();
+      markPerpsColdStartPerf('route_focused_on_mount');
       actionsRef.setTradeRouteViewState({
         routeFocused: true,
       });
@@ -261,12 +283,19 @@ function scheduleThrottledDispatch<T>(
   }, intervalMs);
 }
 
+function useHydrateFavoritesBarMarketCache() {
+  const actions = useHyperliquidActions();
+
+  useEffect(() => {
+    void actions.current.hydrateAllDexsAssetCtxsSnapshotCache();
+  }, [actions]);
+}
+
 function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
 
   // Throttle ALL_DEXS_ASSET_CTXS to 1s (leading + trailing) — fires every
-  // ~500ms and causes token-selector row re-renders; startTransition yields
-  // to user interactions.
+  // ~500ms and causes high fan-out market row updates.
   const assetCtxsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const assetCtxsDirtyRef = useRef<IWsAllDexsAssetCtxs | null>(null);
 
@@ -286,6 +315,9 @@ function useHyperliquidEventBusListener() {
         metadata?: { source?: string; timestamp?: number };
       };
       const { subType, data } = eventPayload;
+      markPerpsColdStartPerfOnce(`event_bus_first_${subType}`, {
+        source: eventPayload.metadata?.source,
+      });
 
       try {
         switch (subType) {
@@ -705,8 +737,6 @@ function WebSocketSubscriptionUpdate() {
 
   // eslint-disable-next-line @typescript-eslint/no-inferrable-types
   const isLoading: boolean = !!loadingInfo?.selectAccountLoading;
-  const isLoadingRef = useRef(isLoading);
-  isLoadingRef.current = isLoading;
 
   // Primitives as deps — avoids re-running on same-value object changes
   const instrumentCoin = activeTradeInstrument?.coin;
@@ -733,6 +763,21 @@ function WebSocketSubscriptionUpdate() {
   tradeRouteViewStateRef.current = tradeRouteViewState;
   const syncSequenceRef = useRef(0);
 
+  const subscriptionPlan = planTradeSubscriptions({
+    activeInstrument: activeTradeInstrumentRef.current,
+    hasAccount: !!accountAddress,
+    orderBookOptions: activeOrderBookOptionsRef.current,
+    viewState: tradeRouteViewStateRef.current,
+  });
+
+  const isInstrumentBackedBySubscriptionState =
+    isTradeInstrumentBackedBySubscriptionState({
+      activeInstrument: activeTradeInstrumentRef.current,
+      tradingMode,
+      perpCoin: perpsActiveAssetCoin,
+      spotCoin: spotActiveAssetCoin,
+    });
+
   useEffect(() => {
     checkDeps({
       isWebSocketConnected,
@@ -741,6 +786,7 @@ function WebSocketSubscriptionUpdate() {
       address: accountAddress,
       coin: instrumentCoin,
       tradingMode: instrumentMode,
+      assetId: instrumentAssetId,
       mantissa: orderBookMantissa,
       nSigFigs: orderBookNSigFigs,
       orderBookCoin,
@@ -752,22 +798,9 @@ function WebSocketSubscriptionUpdate() {
       perpsActiveAssetCoin,
       spotActiveAssetCoin,
       subscriptionTradingMode: tradingMode,
+      subscriptionStateKey: subscriptionPlan.subscriptionStateKey,
+      shouldSyncSubscriptions: subscriptionPlan.shouldSyncSubscriptions,
     });
-
-    const plan = planTradeSubscriptions({
-      activeInstrument: activeTradeInstrumentRef.current,
-      hasAccount: !!accountAddress,
-      orderBookOptions: activeOrderBookOptionsRef.current,
-      viewState: tradeRouteViewStateRef.current,
-    });
-
-    const isInstrumentBackedBySubscriptionState =
-      isTradeInstrumentBackedBySubscriptionState({
-        activeInstrument: activeTradeInstrumentRef.current,
-        tradingMode,
-        perpCoin: perpsActiveAssetCoin,
-        spotCoin: spotActiveAssetCoin,
-      });
 
     const sequence = (syncSequenceRef.current += 1);
     const routeStateVersion = nextRouteSubscriptionStateVersion();
@@ -776,10 +809,10 @@ function WebSocketSubscriptionUpdate() {
         const routeStateApplied =
           await backgroundApiProxy.serviceHyperliquidSubscription.setRouteSubscriptionState(
             {
-              enableLedgerUpdates: plan.enableLedgerUpdates,
+              enableLedgerUpdates: subscriptionPlan.enableLedgerUpdates,
               routeStateVersion,
-              spotAssetCtxsEnabled: plan.spotAssetCtxsEnabled,
-              spotEnabled: plan.spotEnabled,
+              spotAssetCtxsEnabled: subscriptionPlan.spotAssetCtxsEnabled,
+              spotEnabled: subscriptionPlan.spotEnabled,
             },
           );
 
@@ -789,9 +822,17 @@ function WebSocketSubscriptionUpdate() {
 
         if (
           !isLoading &&
-          plan.shouldSyncSubscriptions &&
+          subscriptionPlan.shouldSyncSubscriptions &&
           isInstrumentBackedBySubscriptionState
         ) {
+          markPerpsColdStartPerf('ui_update_subscriptions_call', {
+            accountAddress: accountAddress ? 'set' : 'empty',
+            coin: instrumentCoin,
+            mode: instrumentMode,
+            routeFocused,
+            tokenSelectorOpen,
+            infoPanelTab,
+          });
           await actions.current.updateSubscriptions();
         }
       } catch (error) {
@@ -818,6 +859,12 @@ function WebSocketSubscriptionUpdate() {
     perpsActiveAssetCoin,
     spotActiveAssetCoin,
     tradingMode,
+    isInstrumentBackedBySubscriptionState,
+    subscriptionPlan.enableLedgerUpdates,
+    subscriptionPlan.spotAssetCtxsEnabled,
+    subscriptionPlan.spotEnabled,
+    subscriptionPlan.subscriptionStateKey,
+    subscriptionPlan.shouldSyncSubscriptions,
   ]);
   return null;
 }
@@ -825,51 +872,175 @@ function WebSocketSubscriptionUpdate() {
 function useHyperliquidSymbolSelect() {
   const actions = useHyperliquidActions();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [, setActiveAssetCtxColdCache] = usePerpsActiveAssetCtxColdCacheAtom();
   const activeTradeInstrumentRef = useRef(activeTradeInstrument);
   activeTradeInstrumentRef.current = activeTradeInstrument;
   const isInitializingRef = useRef(false);
 
   const selectInitialSymbol = useCallback(async () => {
     if (isInitializingRef.current) {
+      markPerpsColdStartPerf('initial_symbol_skip_initializing');
       return;
     }
     isInitializingRef.current = true;
+    markPerpsColdStartPerf('initial_symbol_start', {
+      activeCoin: activeTradeInstrumentRef.current?.coin,
+    });
     try {
       // OK-53208: latch lives in ServiceHyperliquid (singleton) so that
       // Perp tab detach/remount does not re-trigger this init.
       const claimed =
         await backgroundApiProxy.serviceHyperliquid.tryClaimInitialSymbolSelect();
+      markPerpsColdStartPerf('initial_symbol_claimed', {
+        claimed,
+        activeCoin: activeTradeInstrumentRef.current?.coin,
+      });
       if (!claimed && activeTradeInstrumentRef.current?.coin) {
         return;
       }
       if (claimed) {
-        try {
-          await Promise.all([
-            backgroundApiProxy.serviceHyperliquid.refreshTradingMeta(),
-            // Spot meta failure must not block perps initialization.
-            backgroundApiProxy.serviceHyperliquid
-              .refreshSpotMeta()
-              .catch((e) => {
-                console.error('refreshSpotMeta failed (non-blocking):', e);
-              }),
-          ]);
-        } catch (error) {
-          // Offline entry should still hydrate UI context from persisted BG
-          // atoms.
-          console.error('refreshTradingMeta failed before symbol sync:', error);
+        markPerpsColdStartPerf('initial_symbol_refresh_meta_background_start');
+        let refreshTradingMetaPromise: Promise<void> | undefined;
+        const refreshTradingMeta = () => {
+          if (refreshTradingMetaPromise) {
+            return refreshTradingMetaPromise;
+          }
+          refreshTradingMetaPromise = (async () => {
+            markPerpsColdStartPerf('initial_symbol_refresh_trading_meta_start');
+            await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+            markPerpsColdStartPerf('initial_symbol_refresh_trading_meta_end');
+          })().catch((error) => {
+            // Offline entry should still hydrate UI context from persisted BG atoms.
+            markPerpsColdStartPerf('initial_symbol_refresh_trading_meta_error');
+            defaultLogger.perp.hyperliquid.coldStartInitializationError({
+              type: 'refresh_trading_meta',
+              error,
+            });
+          });
+          return refreshTradingMetaPromise;
+        };
+        const refreshSpotMeta = (delayMs: number) => {
+          void (async () => {
+            if (delayMs > 0) {
+              markPerpsColdStartPerf('initial_symbol_defer_spot_meta_refresh', {
+                delayMs,
+              });
+              await timerUtils.wait(delayMs);
+            }
+            try {
+              markPerpsColdStartPerf('initial_symbol_refresh_spot_meta_start');
+              await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
+              markPerpsColdStartPerf('initial_symbol_refresh_spot_meta_end');
+            } catch (e) {
+              markPerpsColdStartPerf('initial_symbol_refresh_spot_meta_error');
+              defaultLogger.perp.hyperliquid.coldStartInitializationError({
+                type: 'refresh_spot_meta',
+                error: e,
+              });
+            }
+          })();
+        };
+        const deferTradingMetaRefresh = (delayMs: number) => {
+          void (async () => {
+            markPerpsColdStartPerf(
+              'initial_symbol_defer_trading_meta_refresh',
+              {
+                delayMs,
+              },
+            );
+            await timerUtils.wait(delayMs);
+            await refreshTradingMeta();
+          })();
+        };
+
+        const tradingUniverse =
+          await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+        const hasCachedTradingUniverse =
+          hasTradingUniverseCache(tradingUniverse);
+        markPerpsColdStartPerf('initial_symbol_trading_universe_cache', {
+          hasCachedTradingUniverse,
+          universeCounts: tradingUniverse.universesByDex?.map(
+            (items) => items?.length ?? 0,
+          ),
+        });
+        if (!hasCachedTradingUniverse) {
+          markPerpsColdStartPerf('initial_symbol_wait_trading_meta_no_cache');
+          await refreshTradingMeta();
+        } else {
+          deferTradingMetaRefresh(1200);
         }
+        refreshSpotMeta(1800);
       }
+      markPerpsColdStartPerf('initial_symbol_build_switch_params_start');
       const switchParams = await buildActiveInstrumentSwitchParamsFromGlobal({
         force: true,
+      });
+      markPerpsColdStartPerf('initial_symbol_build_switch_params_end', {
+        hasSwitchParams: !!switchParams,
+        coin: switchParams?.coin,
+        mode: switchParams?.mode,
       });
       if (!switchParams) {
         return;
       }
+      if (switchParams.mode === 'perp') {
+        void backgroundApiProxy.serviceHyperliquid
+          .refreshActiveAssetCtxSnapshot({ coin: switchParams.coin })
+          .catch((error) => {
+            markPerpsColdStartPerf('initial_symbol_active_ctx_snapshot_error', {
+              coin: switchParams.coin,
+            });
+            defaultLogger.perp.hyperliquid.coldStartInitializationError({
+              type: 'active_asset_ctx_snapshot',
+              coin: switchParams.coin,
+              error,
+            });
+          });
+      }
+      markPerpsColdStartPerf('initial_symbol_switch_trade_instrument_start', {
+        coin: switchParams.coin,
+        mode: switchParams.mode,
+      });
       await actions.current.switchTradeInstrument(switchParams);
+      markPerpsColdStartPerf('initial_symbol_switch_trade_instrument_end', {
+        coin: switchParams.coin,
+        mode: switchParams.mode,
+      });
+      if (switchParams.mode === 'perp') {
+        void backgroundApiProxy.serviceHyperliquid
+          .hydrateActiveAssetCtxSnapshotCache({ coin: switchParams.coin })
+          .then((entry) => {
+            if (!entry?.data) {
+              return;
+            }
+            markPerpsColdStartPerf('initial_symbol_active_ctx_cold_cache_set', {
+              coin: entry.data.coin,
+              ageMs: Date.now() - entry.updatedAt,
+            });
+            setActiveAssetCtxColdCache((prev) =>
+              upsertPerpsActiveAssetCtxColdCacheEntry({
+                cache: prev,
+                data: entry.data,
+                updatedAt: entry.updatedAt,
+              }),
+            );
+          })
+          .catch((error) => {
+            markPerpsColdStartPerf('initial_symbol_active_ctx_cache_error', {
+              coin: switchParams.coin,
+            });
+            defaultLogger.perp.hyperliquid.coldStartInitializationError({
+              type: 'active_asset_ctx_cache',
+              coin: switchParams.coin,
+              error,
+            });
+          });
+      }
     } finally {
+      markPerpsColdStartPerf('initial_symbol_end');
       isInitializingRef.current = false;
     }
-  }, [actions]);
+  }, [actions, setActiveAssetCtxColdCache]);
 
   useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
     if (!resolvePerpRouteFocused(isFocus)) return;
@@ -1192,6 +1363,7 @@ function useHyperliquidInstrumentSwitchRequest() {
 }
 
 function PerpsGlobalEffectsView() {
+  useHydrateFavoritesBarMarketCache();
   useHyperliquidEventBusListener();
   useHyperliquidSession();
   useHyperliquidAccountSelect();

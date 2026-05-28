@@ -44,7 +44,6 @@ import {
   spotAssetCtxsMapAtom,
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
-  usePerpsActiveAssetCtxAtom,
   usePerpsFavoritesOrderPersistAtom,
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -83,6 +82,8 @@ import {
   usePerpsFavorites,
 } from '../../hooks';
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
+import { usePerpsActiveAssetCtxDisplay } from '../../hooks/usePerpsActiveAssetCtxDisplay';
+import { tracePerpsMobileLayout } from '../../utils/mobileLayoutTrace';
 import {
   getTokenSelectorFavoriteItems,
   getTokenSelectorFavoriteSortEntry,
@@ -1347,49 +1348,80 @@ const BasePerpTokenSelectorMobileView = memo(
   }: {
     onPressTokenSelector: () => void;
     displayLabel: string;
-    change24hPercent: number;
-  }) => (
-    <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
-      <XStack
-        gap="$1"
-        bg="$bgApp"
-        justifyContent="center"
-        alignItems="center"
-        onPress={onPressTokenSelector}
-        hitSlop={NATIVE_HIT_SLOP}
-      >
-        <SizableText size="$headingLg">{displayLabel}</SizableText>
-        <NumberSizeableText
-          style={{ fontSize: 10 }}
-          fontFamily="$monoRegular"
-          fontVariant={['tabular-nums']}
-          alignSelf="center"
-          color={change24hPercent >= 0 ? '$green11' : '$red11'}
-          formatter="priceChange"
-          formatterOptions={{
-            showPlusMinusSigns: true,
-          }}
+    change24hPercent: number | undefined;
+  }) => {
+    const hasChange24hPercent =
+      change24hPercent !== undefined && Number.isFinite(change24hPercent);
+    const changeColor =
+      hasChange24hPercent && change24hPercent < 0 ? '$red11' : '$green11';
+    return (
+      <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
+        <XStack
+          gap="$1"
+          bg="$bgApp"
+          justifyContent="center"
+          alignItems="center"
+          onPress={onPressTokenSelector}
+          hitSlop={NATIVE_HIT_SLOP}
         >
-          {change24hPercent}
-        </NumberSizeableText>
-        <Icon name="ChevronTriangleDownSmallSolid" size="$5" />
-      </XStack>
-    </DebugRenderTracker>
-  ),
+          <SizableText size="$headingLg">{displayLabel}</SizableText>
+          {hasChange24hPercent ? (
+            <NumberSizeableText
+              style={{ fontSize: 10 }}
+              fontFamily="$monoRegular"
+              fontVariant={['tabular-nums']}
+              alignSelf="center"
+              color={changeColor}
+              formatter="priceChange"
+              formatterOptions={{
+                showPlusMinusSigns: true,
+              }}
+            >
+              {change24hPercent}
+            </NumberSizeableText>
+          ) : (
+            <SizableText
+              fontSize={10}
+              fontFamily="$monoRegular"
+              color="$textSubdued"
+              alignSelf="center"
+            >
+              --
+            </SizableText>
+          )}
+          <Icon name="ChevronTriangleDownSmallSolid" size="$5" />
+        </XStack>
+      </DebugRenderTracker>
+    );
+  },
 );
 BasePerpTokenSelectorMobileView.displayName = 'BasePerpTokenSelectorMobileView';
 function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
   const { coin, displayName, mode } = useActiveTradeDisplay();
 
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const {
+    assetCtx,
+    source: assetCtxSource,
+    cacheAgeMs,
+  } = usePerpsActiveAssetCtxDisplay(coin);
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const spotCtxForActiveCoin =
     spotAssetCtx?.coin === coin ? spotAssetCtx.ctx : undefined;
   const change24hPercent =
     mode === 'spot'
-      ? spotCtxForActiveCoin?.change24hPercent || 0
-      : assetCtx?.ctx?.change24hPercent || 0;
+      ? spotCtxForActiveCoin?.change24hPercent
+      : assetCtx?.ctx?.change24hPercent;
+
+  useEffect(() => {
+    tracePerpsMobileLayout('tokenSelector.mobile.state', {
+      coin,
+      mode,
+      change24hPercent,
+      assetCtxSource,
+      cacheAgeMs,
+    });
+  }, [assetCtxSource, cacheAgeMs, change24hPercent, coin, mode]);
 
   const displayLabel = mode === 'spot' ? displayName : `${displayName}USDC`;
 

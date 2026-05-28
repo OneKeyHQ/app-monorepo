@@ -55,6 +55,7 @@ function TradingGuardWrapperInternal({
         variant="primary"
         size="medium"
         disabled
+        childrenAsText={false}
         testID="perp-is-disabled-btn"
       >
         <Spinner />
@@ -68,6 +69,7 @@ function TradingGuardWrapperInternal({
         variant="primary"
         size="medium"
         disabled
+        childrenAsText={false}
         testID="perp-is-disabled-btn"
       >
         <SizableText size="$bodyMdMedium" color="$textOnColor">
@@ -92,6 +94,7 @@ function TradingGuardWrapperInternal({
         hoverStyle={buttonStyles.hoverStyle}
         pressStyle={buttonStyles.pressStyle}
         color="$textOnColor"
+        childrenAsText={false}
       >
         <SizableText size="$bodyMdMedium" color="$textOnColor">
           {intl.formatMessage({
