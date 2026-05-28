@@ -4,10 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   type IDebugRenderTrackerProps,
-  ScrollView,
-  SizableText,
   Toast,
-  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -37,6 +34,7 @@ import {
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
+import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
 import { TwapOpenOrdersRow } from '../Components/TwapOpenOrdersRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -48,23 +46,12 @@ interface IPerpOpenOrdersListProps {
 }
 
 type IOpenOrdersSubTab = 'basic' | 'twap';
-type ITwapOrdersSubTab = 'active' | 'history' | 'fillHistory';
-
 const OPEN_ORDERS_SUB_TABS: {
   key: IOpenOrdersSubTab;
   label: string;
 }[] = [
   { key: 'basic', label: '基础单' },
   { key: 'twap', label: 'TWAP 订单' },
-];
-
-const TWAP_ORDERS_SUB_TABS: {
-  key: ITwapOrdersSubTab;
-  label: string;
-}[] = [
-  { key: 'active', label: 'Active' },
-  { key: 'history', label: 'History' },
-  { key: 'fillHistory', label: 'Fill History' },
 ];
 
 type IOpenOrdersDisplayRow =
@@ -76,80 +63,6 @@ type IOpenOrdersDisplayRow =
       type: 'twap';
       order: IPerpsActiveTwapOrder;
     };
-
-function OrderInfoSubTabs<T extends string>({
-  tabs,
-  activeTab,
-  onChange,
-}: {
-  tabs: {
-    key: T;
-    label: string;
-  }[];
-  activeTab: T;
-  onChange: (tab: T) => void;
-}) {
-  return (
-    <XStack>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        bounces={false}
-        width="100%"
-        contentContainerStyle={{ minWidth: '100%' }}
-      >
-        <XStack minWidth="100%" pl="$2.5" pr="$5" py="$2.5" gap="$2">
-          {tabs.map((tab) => {
-            const isFocused = activeTab === tab.key;
-            return (
-              <XStack
-                key={tab.key}
-                alignItems="center"
-                justifyContent="center"
-                px="$2.5"
-                py="$1.5"
-                borderRadius="$full"
-                userSelect="none"
-                cursor="pointer"
-                backgroundColor={isFocused ? '$bgActive' : '$transparent'}
-                onPress={() => onChange(tab.key)}
-              >
-                <SizableText
-                  numberOfLines={1}
-                  size="$bodySmMedium"
-                  color={isFocused ? '$text' : '$textSubdued'}
-                >
-                  {tab.label}
-                </SizableText>
-              </XStack>
-            );
-          })}
-        </XStack>
-      </ScrollView>
-    </XStack>
-  );
-}
-
-const TWAP_EMPTY_STATE_MAP: Record<
-  ITwapOrdersSubTab,
-  {
-    title: string;
-    description: string;
-  }
-> = {
-  active: {
-    title: 'No active TWAP',
-    description: 'Your active TWAP orders will appear here.',
-  },
-  history: {
-    title: 'No TWAP history',
-    description: 'Your TWAP history will appear here.',
-  },
-  fillHistory: {
-    title: 'No TWAP fill history',
-    description: 'Your TWAP fill history will appear here.',
-  },
-};
 
 function useOpenOrdersColumnsConfig({
   openOrdersLength,
@@ -178,7 +91,6 @@ function useOpenOrdersColumnsConfig({
         width: 80,
         align: 'left',
       },
-
       {
         key: 'type',
         title: intl.formatMessage({ id: ETranslations.perp_open_orders_type }),
@@ -344,17 +256,23 @@ function PerpOpenOrdersList({
     activeAccountAddress: accountScopedAddress,
     dataAccountAddress: twapOrdersState.accountAddress,
   });
+  const isTwapSubTabActive = isMobile && activeOpenOrdersSubTab === 'twap';
   const listLoading = Boolean(
     accountScopedAddress &&
-      openOrders.length === 0 &&
+    ((isTwapSubTabActive &&
       scopedTwapOrders.length === 0 &&
-      (!perpOpenOrdersReady || !spotOpenOrdersReady || !twapOrdersReady),
+      !twapOrdersReady) ||
+      (!isTwapSubTabActive &&
+        openOrders.length === 0 &&
+        (!perpOpenOrdersReady || !spotOpenOrdersReady))),
   );
 
   useEffect(() => {
     setCurrentListPage(1);
-    void actions.current.loadTwapData();
-  }, [actions, currentUser?.accountAddress]);
+    if (isMobile) {
+      void actions.current.loadTwapData();
+    }
+  }, [actions, currentUser?.accountAddress, isMobile]);
   useEffect(() => {
     if (isMobile) {
       setCurrentListPage(1);
@@ -381,7 +299,10 @@ function PerpOpenOrdersList({
   }, [openOrders, isMobile, filterByCurrentToken, activeTradeInstrument]);
 
   const filteredTwapOrders = useMemo(() => {
-    if (!isMobile || !filterByCurrentToken || !activeTradeInstrument?.coin) {
+    if (!isMobile) {
+      return [];
+    }
+    if (!filterByCurrentToken || !activeTradeInstrument?.coin) {
       return scopedTwapOrders;
     }
     return scopedTwapOrders.filter(
@@ -392,7 +313,7 @@ function PerpOpenOrdersList({
   const displayRows = useMemo<IOpenOrdersDisplayRow[]>(() => {
     const shouldShowBasicOrders =
       !isMobile || activeOpenOrdersSubTab === 'basic';
-    const shouldShowTwapOrders = !isMobile || activeOpenOrdersSubTab === 'twap';
+    const shouldShowTwapOrders = isMobile && activeOpenOrdersSubTab === 'twap';
 
     return [
       ...(shouldShowBasicOrders
@@ -534,7 +455,9 @@ function PerpOpenOrdersList({
     <CommonTableListView
       onPullToRefresh={async () => {
         await actions.current.refreshAllPerpsData();
-        await actions.current.loadTwapData();
+        if (isMobile) {
+          await actions.current.loadTwapData();
+        }
       }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
@@ -567,65 +490,4 @@ function PerpOpenOrdersList({
   );
 }
 
-function PerpTwapOrdersListShell() {
-  const [activeTwapSubTab, setActiveTwapSubTab] =
-    useState<ITwapOrdersSubTab>('active');
-
-  const columnsConfig = useOpenOrdersColumnsConfig({
-    openOrdersLength: 0,
-    enableCancelAll: false,
-  });
-
-  const totalMinWidth = useMemo(
-    () =>
-      columnsConfig.reduce(
-        (sum, col) => sum + (col.width || col.minWidth || 0),
-        0,
-      ),
-    [columnsConfig],
-  );
-
-  const emptyState = TWAP_EMPTY_STATE_MAP[activeTwapSubTab];
-
-  return (
-    <YStack flex={1}>
-      <OrderInfoSubTabs
-        tabs={TWAP_ORDERS_SUB_TABS}
-        activeTab={activeTwapSubTab}
-        onChange={setActiveTwapSubTab}
-      />
-      <CommonTableListView
-        listViewDebugRenderTrackerProps={useMemo(
-          (): IDebugRenderTrackerProps => ({
-            name: 'PerpTwapOrdersListShell',
-            position: 'top-left',
-          }),
-          [],
-        )}
-        columns={columnsConfig}
-        minTableWidth={totalMinWidth}
-        data={[]}
-        enablePagination={false}
-        renderRow={() => <></>}
-        ListEmptyComponent={
-          <YStack
-            flex={1}
-            alignItems="center"
-            justifyContent="center"
-            minHeight={240}
-            gap="$2"
-          >
-            <SizableText size="$bodyMdMedium" color="$text">
-              {emptyState.title}
-            </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {emptyState.description}
-            </SizableText>
-          </YStack>
-        }
-      />
-    </YStack>
-  );
-}
-
-export { OrderInfoSubTabs, PerpOpenOrdersList, PerpTwapOrdersListShell };
+export { PerpOpenOrdersList };
