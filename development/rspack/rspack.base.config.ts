@@ -1,4 +1,3 @@
-import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { exit } from 'process';
@@ -18,25 +17,13 @@ import type {
   Stats,
 } from '@rspack/core';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { resolveCommitSha } = require('../utils/resolveCommitSha') as {
+  resolveCommitSha: () => string;
+};
+
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
-// CI sets WORKFLOW_GITHUB_SHA / GITHUB_SHA; local builds fall back to
-// `git rev-parse HEAD` so platformEnv.githubSHA — and the cold-start
-// hydration cache invalidation gate that reads it — stays accurate
-// offline. Empty string only when both env and git are unavailable.
-function resolveCommitSha(): string {
-  const fromEnv = process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA;
-  if (fromEnv) return fromEnv;
-  try {
-    return execSync('git rev-parse HEAD', {
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-      .toString()
-      .trim();
-  } catch {
-    return '';
-  }
-}
 const COMMIT_SHA = resolveCommitSha();
 
 const CANVASKIT_WASM_TEST =
