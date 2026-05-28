@@ -10,7 +10,6 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import { WebAccountPanelAccountList } from './WebAccountPanelAccountList';
 import { WebAccountPanelArticles } from './WebAccountPanelArticles';
@@ -178,15 +177,13 @@ export function WebAccountPanelPopover({
       renderTrigger={renderTrigger}
       renderContent={({ closePopover }) =>
         config ? (
-          <HomeTokenListProviderMirror>
-            <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-              <PanelContent
-                initialView={initialView}
-                connected={connected}
-                closePopover={closePopover}
-              />
-            </AccountSelectorProviderMirror>
-          </HomeTokenListProviderMirror>
+          <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
+            <PanelContent
+              initialView={initialView}
+              connected={connected}
+              closePopover={closePopover}
+            />
+          </AccountSelectorProviderMirror>
         ) : null
       }
     />

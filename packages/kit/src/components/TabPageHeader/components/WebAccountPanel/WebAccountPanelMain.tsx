@@ -14,7 +14,6 @@ import {
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useLastConfirmedOverviewBalanceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import { usePerpsComputedAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -105,9 +104,14 @@ export function WebAccountPanelMain({
   const {
     activeAccount: { account, dbAccount, indexedAccount },
   } = useActiveAccount({ num: 0 });
-  const [confirmedBalance] = useLastConfirmedOverviewBalanceAtom();
 
-  const portfolioDisplay = confirmedBalance?.latest || '--';
+  // TODO: Portfolio total. `useLastConfirmedOverviewBalanceAtom` (home
+  // accountOverview context) can't be read here — Popover content renders
+  // through a Portal that escapes ancestor providers, and the
+  // accountOverview store is intentionally page-scoped (no global mirror,
+  // see JotaiContextStoreMirrorTracker.tsx). A follow-up will surface
+  // this value through a route-agnostic source.
+  const portfolioDisplay = '--';
   const address = account?.address
     ? accountUtils.shortenAddress({ address: account.address })
     : '';
