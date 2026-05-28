@@ -17,6 +17,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { WebAccountPanelFooter } from './atoms/WebAccountPanelFooter';
 import { WebAccountPanelHeader } from './atoms/WebAccountPanelHeader';
 import { WebAccountPanelMain } from './WebAccountPanelMain';
+import { WebAccountPanelSettings } from './WebAccountPanelSettings';
 
 export type IWebAccountPanelView =
   | 'main'
@@ -151,17 +152,22 @@ function PanelContent({
       );
     }
     if (view === 'settings') {
+      const isInitialEntry = initialView === 'settings';
       return (
-        <ComingSoonView
-          title={backLabel}
-          onBack={back}
-          showFooter
-          connected={connected}
-          onDownloadApp={handleDownloadApp}
-          onHelp={handleHelp}
-          onArticles={() => navigate('articles')}
-          onSettings={() => navigate('settings')}
-        />
+        <YStack w="100%">
+          {isInitialEntry ? null : (
+            <WebAccountPanelHeader title={backLabel} onBack={back} />
+          )}
+          <WebAccountPanelSettings />
+          {isInitialEntry ? (
+            <WebAccountPanelFooter
+              connected={connected}
+              onDownloadApp={handleDownloadApp}
+              onHelp={handleHelp}
+              onArticles={() => navigate('articles')}
+            />
+          ) : null}
+        </YStack>
       );
     }
     return (
@@ -174,6 +180,7 @@ function PanelContent({
     );
   }, [
     view,
+    initialView,
     navigate,
     back,
     handleDownloadApp,
