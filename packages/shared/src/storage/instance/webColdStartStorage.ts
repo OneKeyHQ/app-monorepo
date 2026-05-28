@@ -222,13 +222,22 @@ async function flushDirtyKeysToIdb(): Promise<void> {
     await inFlightFlush;
   }
   if (dirtyKeys.size === 0) return;
-  const current = runFlushOnce();
-  inFlightFlush = current.finally(() => {
-    if (inFlightFlush === current) {
+  // Capture the wrapped promise so the .finally callback can compare to it.
+  // Promise.prototype.finally returns a NEW promise distinct from its
+  // receiver; comparing inFlightFlush to the receiver would always be false
+  // and the cleanup would never run, latching inFlightFlush forever and
+  // starving the renderer on the next flush's
+  // `while (inFlightFlush) await inFlightFlush` loop with a microtask-only
+  // resolved-promise loop.
+  // eslint-disable-next-line prefer-const
+  let wrapped: Promise<void>;
+  wrapped = runFlushOnce().finally(() => {
+    if (inFlightFlush === wrapped) {
       inFlightFlush = undefined;
     }
   });
-  await inFlightFlush;
+  inFlightFlush = wrapped;
+  await wrapped;
 }
 
 function scheduleFlush(key: string): void {
