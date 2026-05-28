@@ -8,6 +8,10 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+
 import { WebAccountPanelAccountList } from './WebAccountPanelAccountList';
 import { WebAccountPanelArticles } from './WebAccountPanelArticles';
 import { WebAccountPanelFooter } from './atoms/WebAccountPanelFooter';
@@ -163,6 +167,7 @@ export function WebAccountPanelPopover({
   initialView = 'main',
   connected = true,
 }: IWebAccountPanelPopoverProps) {
+  const { config } = useAccountSelectorContextData();
   return (
     <Popover
       title=""
@@ -171,13 +176,19 @@ export function WebAccountPanelPopover({
       offset={6}
       floatingPanelProps={FLOATING_PANEL_PROPS}
       renderTrigger={renderTrigger}
-      renderContent={({ closePopover }) => (
-        <PanelContent
-          initialView={initialView}
-          connected={connected}
-          closePopover={closePopover}
-        />
-      )}
+      renderContent={({ closePopover }) =>
+        config ? (
+          <HomeTokenListProviderMirror>
+            <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
+              <PanelContent
+                initialView={initialView}
+                connected={connected}
+                closePopover={closePopover}
+              />
+            </AccountSelectorProviderMirror>
+          </HomeTokenListProviderMirror>
+        ) : null
+      }
     />
   );
 }
