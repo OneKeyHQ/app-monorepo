@@ -60,6 +60,8 @@ const TICKER_BAR_STAT_VALUE_TEXT_PROPS = {
   letterSpacing: 0,
 } as const;
 
+const TICKER_BAR_STAT_LABEL_VALUE_GAP = 5;
+const TICKER_BAR_STAT_DASH_LABEL_VALUE_GAP = 4;
 function isValidPerpFormattedCtx(
   ctx: ReturnType<typeof formatAssetCtx> | undefined,
 ) {
@@ -287,13 +289,13 @@ const TickerBarOraclePriceView = memo(
     const intl = useIntl();
     return (
       <DebugRenderTracker name="TickerBarOraclePrice">
-        <YStack>
+        <YStack gap={TICKER_BAR_STAT_DASH_LABEL_VALUE_GAP}>
           <Tooltip
             renderTrigger={
               <DashText
                 size="$bodySm"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
+                dashSpacing={0}
                 color="$textSubdued"
                 cursor="help"
               >
@@ -350,7 +352,7 @@ const TickerBar24hVolumeView = memo(
     const intl = useIntl();
     return (
       <DebugRenderTracker name="TickerBar24hVolume">
-        <YStack>
+        <YStack gap={TICKER_BAR_STAT_LABEL_VALUE_GAP}>
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.perp_token_bar_24h_Volume,
@@ -405,14 +407,14 @@ const TickerBarOpenInterestView = memo(
     const intl = useIntl();
     return (
       <DebugRenderTracker name="TickerBarOpenInterest">
-        <YStack>
+        <YStack gap={TICKER_BAR_STAT_DASH_LABEL_VALUE_GAP}>
           <Tooltip
             renderTrigger={
               <DashText
                 size="$bodySm"
                 color="$textSubdued"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
+                dashSpacing={0}
                 cursor="help"
               >
                 {intl.formatMessage({
@@ -475,7 +477,7 @@ const TickerBarMarketCapView = memo(
     const intl = useIntl();
     return (
       <DebugRenderTracker name="TickerBarMarketCap">
-        <YStack>
+        <YStack gap={TICKER_BAR_STAT_LABEL_VALUE_GAP}>
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.global_market_cap,
@@ -531,7 +533,7 @@ const TickerBarSpotContractView = memo(
 
     return (
       <DebugRenderTracker name="TickerBarSpotContract">
-        <YStack>
+        <YStack gap={TICKER_BAR_STAT_LABEL_VALUE_GAP}>
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.global_contract,
@@ -638,7 +640,7 @@ const TickerBarFundingRateView = memo(
     const intl = useIntl();
     return (
       <DebugRenderTracker name="TickerBarFundingRate">
-        <YStack>
+        <YStack gap={TICKER_BAR_STAT_LABEL_VALUE_GAP}>
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.perp_token_bar_Funding,
@@ -653,8 +655,8 @@ const TickerBarFundingRateView = memo(
                       {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
                       fontVariant={['tabular-nums']}
                       color={fundingRate >= 0 ? '$green11' : '$red11'}
-                      dashColor="$textDisabled"
                       dashThickness={0.5}
+                      dashSpacing={0}
                       cursor="help"
                     >
                       {`${fundingRatePercent}%`}

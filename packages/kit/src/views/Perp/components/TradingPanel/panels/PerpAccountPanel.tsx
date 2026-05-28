@@ -71,7 +71,6 @@ function PerpAccountMMRView() {
               size="$bodySm"
               color="$textSubdued"
               cursor="help"
-              dashColor="$textDisabled"
               dashThickness={1}
             >
               {intl.formatMessage({
@@ -134,7 +133,6 @@ function PerpAccountPanel() {
                 size="$bodySm"
                 color="$textSubdued"
                 cursor="help"
-                dashColor="$textDisabled"
                 dashThickness={1}
               >
                 {intl.formatMessage({
@@ -180,7 +178,6 @@ function PerpAccountPanel() {
                 size="$bodySm"
                 color="$textSubdued"
                 cursor="help"
-                dashColor="$textDisabled"
                 dashThickness={1}
               >
                 {intl.formatMessage({
