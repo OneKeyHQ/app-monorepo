@@ -53,8 +53,6 @@ import {
 } from './components/WebAccountPanel';
 import { HeaderTitle } from './HeaderTitle';
 import { UniversalSearchInput } from './UniversalSearchInput';
-import { PerpsAccountSelectorProviderMirror } from '../../views/Perp/PerpsAccountSelectorProviderMirror';
-import { PerpsProviderMirror } from '../../views/Perp/PerpsProviderMirror';
 import { PerpsActivityCenterAction } from '../../views/Perp/components/PerpsActivityCenterAction';
 
 import type { ITabPageHeaderProp } from './type';
@@ -439,11 +437,7 @@ function RightActions({
       />
       <GiftAction copyAsUrl size="medium" />
       {isPerpsTab && isWalletConnected ? (
-        <PerpsAccountSelectorProviderMirror>
-          <PerpsProviderMirror>
-            <PerpsActivityCenterAction copyAsUrl size="medium" />
-          </PerpsProviderMirror>
-        </PerpsAccountSelectorProviderMirror>
+        <PerpsActivityCenterAction copyAsUrl size="medium" />
       ) : null}
       <KeylessWebConnectAlertContainer />
       {isWalletConnected ? (

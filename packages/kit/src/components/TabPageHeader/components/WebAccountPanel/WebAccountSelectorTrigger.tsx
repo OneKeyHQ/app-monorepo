@@ -8,8 +8,6 @@ import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { PerpsAccountNumberValue } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/components/PerpsAccountNumberValue';
 import { useShowPortfolio } from '@onekeyhq/kit/src/views/Perp/hooks/useShowPortfolio';
-import { PerpsAccountSelectorProviderMirror } from '@onekeyhq/kit/src/views/Perp/PerpsAccountSelectorProviderMirror';
-import { PerpsProviderMirror } from '@onekeyhq/kit/src/views/Perp/PerpsProviderMirror';
 import { usePerpsComputedAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
@@ -21,7 +19,7 @@ export interface IWebAccountSelectorTriggerProps {
   tabRoute: ETabRoutes;
 }
 
-function PerpsBalancePillInner() {
+function PerpsBalancePill() {
   const intl = useIntl();
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const accountValue = computedValue?.accountValue;
@@ -66,16 +64,6 @@ function PerpsBalancePillInner() {
         </>
       )}
     </XStack>
-  );
-}
-
-function PerpsBalancePill() {
-  return (
-    <PerpsAccountSelectorProviderMirror>
-      <PerpsProviderMirror>
-        <PerpsBalancePillInner />
-      </PerpsProviderMirror>
-    </PerpsAccountSelectorProviderMirror>
   );
 }
 

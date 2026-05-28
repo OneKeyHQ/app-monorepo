@@ -17,8 +17,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
 import { useLanguageSelector } from '@onekeyhq/kit/src/views/Setting/hooks';
-import { PerpsAccountSelectorProviderMirror } from '@onekeyhq/kit/src/views/Perp/PerpsAccountSelectorProviderMirror';
-import { PerpsProviderMirror } from '@onekeyhq/kit/src/views/Perp/PerpsProviderMirror';
 import {
   usePerpsCustomSettingsAtom,
   useSettingsPersistAtom,
@@ -232,7 +230,7 @@ function CurrencyRow() {
   );
 }
 
-function PerpsSwitchSectionInner() {
+function PerpsSwitchSection() {
   const intl = useIntl();
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
@@ -296,16 +294,6 @@ function PerpsSwitchSectionInner() {
         }
       />
     </YStack>
-  );
-}
-
-function PerpsSwitchSection() {
-  return (
-    <PerpsAccountSelectorProviderMirror>
-      <PerpsProviderMirror>
-        <PerpsSwitchSectionInner />
-      </PerpsProviderMirror>
-    </PerpsAccountSelectorProviderMirror>
   );
 }
 

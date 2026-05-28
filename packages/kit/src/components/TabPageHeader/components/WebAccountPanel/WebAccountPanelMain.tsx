@@ -15,8 +15,6 @@ import {
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useLastConfirmedOverviewBalanceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
-import { PerpsAccountSelectorProviderMirror } from '@onekeyhq/kit/src/views/Perp/PerpsAccountSelectorProviderMirror';
-import { PerpsProviderMirror } from '@onekeyhq/kit/src/views/Perp/PerpsProviderMirror';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import { usePerpsComputedAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -33,7 +31,7 @@ export interface IWebAccountPanelMainProps {
   onRequestClose: () => void;
 }
 
-function PerpsSectionInner({ onRequestClose }: { onRequestClose: () => void }) {
+function PerpsSection({ onRequestClose }: { onRequestClose: () => void }) {
   const intl = useIntl();
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const accountValue = computedValue?.accountValue;
@@ -91,16 +89,6 @@ function PerpsSectionInner({ onRequestClose }: { onRequestClose: () => void }) {
         </Button>
       </XStack>
     </YStack>
-  );
-}
-
-function PerpsSection({ onRequestClose }: { onRequestClose: () => void }) {
-  return (
-    <PerpsAccountSelectorProviderMirror>
-      <PerpsProviderMirror>
-        <PerpsSectionInner onRequestClose={onRequestClose} />
-      </PerpsProviderMirror>
-    </PerpsAccountSelectorProviderMirror>
   );
 }
 
