@@ -328,10 +328,18 @@ export const useStakingPendingTxsByInfo = ({
           // account switches converge one tick faster — without this, the
           // short-circuit would briefly hold the OLD accountId for the
           // current network until the shared resolver re-runs.
+          //
+          // Skip BTC: sharedMap entries are already normalized to taproot via
+          // getEarnAccount({ btcOnlyTaproot: true }) in the precomputed
+          // resolver. The active accountId is whichever derivation the user
+          // selected (often BIP44/BIP49/BIP84), so overwriting here would
+          // undo the taproot normalization and make pending tx fetch +
+          // history polling query the wrong account (OK-51703 regression).
           if (
             accountId &&
             currentNetworkId &&
-            effectiveNetworkIds.includes(currentNetworkId)
+            effectiveNetworkIds.includes(currentNetworkId) &&
+            !networkUtils.isBTCNetwork(currentNetworkId)
           ) {
             subset[currentNetworkId] = accountId;
           }
