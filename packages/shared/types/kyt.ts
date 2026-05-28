@@ -1,3 +1,13 @@
+// Server check status of a KYT result. Drives the UI before falling back to level.
+export enum EKytStatus {
+  Pending = 'pending',
+  Checking = 'checking',
+  Success = 'success',
+  Failed = 'failed',
+}
+
+// UI display state. `checking`/`failed` are status-derived; the rest are levels
+// used only once the status is `success`.
 export enum EKytRiskLevel {
   Checking = 'checking',
   None = 'none',
@@ -52,7 +62,7 @@ export type IKytHistoryListItem = {
   txid: string;
   accountAddress: string;
   tokenAddress: string;
-  status: string;
+  status: EKytStatus;
   level: EKytRiskLevel;
   checkedAt: number;
   asset: IKytHistoryAsset;

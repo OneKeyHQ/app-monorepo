@@ -18,6 +18,10 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  resolveKytDisplayLevel,
+  resolveKytItemLevel,
+} from '@onekeyhq/shared/src/utils/kytUtils';
 import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 import type {
   IKytHistoryResult,
@@ -99,7 +103,7 @@ function buildRiskDetails({
       ? new BigNumber(transfer.amount).toFixed()
       : undefined;
     return {
-      level: item.level,
+      level: resolveKytItemLevel(item.status, item.level),
       checkedAt: item.checkedAt
         ? formatDate(new Date(item.checkedAt * 1000))
         : '',
@@ -182,7 +186,7 @@ export function TxKYTRiskCheck({
     return buildRiskDetails({ kyt, transfers, networkName });
   }, [kyt, transfers, networkName]);
 
-  const level = kyt?.highestLevel;
+  const level = resolveKytDisplayLevel(kyt);
   const config = level ? RISK_LEVEL_CONFIG[level] : null;
 
   const subtitle = useMemo(() => {

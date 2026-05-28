@@ -28,6 +28,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { resolveKytDisplayLevel } from '@onekeyhq/shared/src/utils/kytUtils';
 import {
   getOnChainHistoryTxAssetInfo,
   getOnChainHistoryTxStatus,
@@ -764,7 +765,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         riskyLevel: onChainHistoryTx.riskLevel,
 
-        kytRiskLevel: onChainHistoryTx.kyt?.highestLevel,
+        kytRiskLevel: resolveKytDisplayLevel(onChainHistoryTx.kyt),
         kyt: onChainHistoryTx.kyt,
 
         status: getOnChainHistoryTxStatus(onChainHistoryTx.status),
