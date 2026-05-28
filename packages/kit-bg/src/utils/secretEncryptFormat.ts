@@ -9,7 +9,7 @@ import {
   EAppCryptoSharedEncryptScene,
   type IAppCryptoSharedEncryptFormat,
   resolveSharedEncryptFormat,
-} from '../../../shared/src/appCrypto/sharedEncryptPolicy';
+} from '@onekeyhq/shared/src/appCrypto/sharedEncryptPolicy';
 
 export { EAppCryptoSharedEncryptScene };
 

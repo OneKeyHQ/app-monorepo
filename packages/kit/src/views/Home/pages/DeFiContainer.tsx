@@ -106,6 +106,7 @@ const decideBackToTopVisible: WorkletFn<
   (current: number, last: number, previous: boolean) => boolean
 > = (current, last, previous) => {
   'worklet';
+
   if (current <= BACK_TO_TOP_NEAR_TOP_PX) return false;
   if (current < last) return true;
   if (current > last) return false;

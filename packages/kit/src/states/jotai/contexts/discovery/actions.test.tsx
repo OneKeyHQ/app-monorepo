@@ -597,7 +597,7 @@ describe('useBrowserTabActions', () => {
       }),
     ).toBe(EValidateUrlEnum.ValidDeeplink);
 
-    let opened: boolean | void = undefined;
+    let opened: boolean | void;
     await act(async () => {
       opened = await result.current.actions.gotoSite({
         id: 'tab-1',
@@ -666,7 +666,7 @@ describe('useBrowserTabActions', () => {
       },
     );
 
-    let opened: boolean | void = undefined;
+    let opened: boolean | void;
     await act(async () => {
       opened = await result.current.actions.gotoSite({
         id: 'tab-1',

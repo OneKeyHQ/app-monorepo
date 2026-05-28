@@ -127,7 +127,7 @@ function WalletActionBuyMain({
       icon={customization?.icon}
       disabled={customization?.disabled ?? isBuyAndSellDisabled}
       allowPressWhenDisabled={
-        isAddMoneyBlockedByBotWallet && !shouldOpenSellForBotWallet
+        isAddMoneyBlockedByBotWallet ? !shouldOpenSellForBotWallet : null
       }
       trackID="wallet-buy"
       testID={HomeTestIDs.buyButton}
