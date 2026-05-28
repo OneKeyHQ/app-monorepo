@@ -76,18 +76,13 @@ const HYDRATION_TIMEOUT_MS = 300;
 // IDB connection, short enough that a wedged write cannot stall React mount.
 const BUILD_HASH_FLUSH_TIMEOUT_MS = 1000;
 
-// Schema-invalidation key for the cold-start cache. Prefer the canonical
-// commit SHA exposed via platformEnv (populated from GITHUB_SHA /
-// WORKFLOW_GITHUB_SHA on CI); fall back to the bundler-injected BUILD_HASH
-// which covers local dev (git rev-parse --short HEAD, then a timestamp).
-// A different value here on next boot triggers resetColdStartCache(), so
-// any commit change (CI or local) automatically invalidates stale L1
-// entries that may not match the new atom schema.
-const BUILD_HASH: string | undefined =
-  platformEnv.githubSHA ||
-  (typeof process !== 'undefined' && process.env
-    ? process.env.BUILD_HASH
-    : undefined);
+// Schema-invalidation key for the cold-start cache. Sourced from the
+// canonical commit SHA exposed via platformEnv (populated from GITHUB_SHA
+// / WORKFLOW_GITHUB_SHA on CI). When the SHA changes between deploys, the
+// cold-start IDB is wiped to prevent stale entries from a prior build
+// leaking into a new code base. Local prod-mode builds without a CI env
+// var will be undefined here; dev mode skips this path entirely.
+const BUILD_HASH: string | undefined = platformEnv.githubSHA || undefined;
 
 // ---- Helpers ----
 
@@ -280,8 +275,8 @@ const promise: Promise<void> = (async () => {
   //
   // The marker is the natural invalidation point for legacy DBs written by
   // the pre-structured-clone implementation (values were JSON-strings).
-  // Because BUILD_HASH is sourced from `git rev-parse` at bundle time, any
-  // commit that flips the storage shape produces a new hash and triggers
+  // Because BUILD_HASH is sourced from the CI-injected commit SHA, any
+  // deploy that flips the storage shape produces a new hash and triggers
   // the reset below on the next cold boot.
   if (BUILD_HASH !== undefined) {
     const storedHashRaw = entries.get(BUILD_HASH_KEY);

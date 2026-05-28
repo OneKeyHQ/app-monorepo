@@ -10,11 +10,8 @@ const webpackManifestPlugin = require('webpack-manifest-plugin');
 
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
 const { createResolveExtensions } = require('./utils');
-const { computeBuildHash } = require('../utils/computeBuildHash');
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
-
-const BUILD_HASH = computeBuildHash();
 
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
@@ -120,7 +117,6 @@ const basePlugins = [
         PERF_FUNCTION_WARN_MS: JSON.stringify(
           process.env.PERF_FUNCTION_WARN_MS || '',
         ),
-        BUILD_HASH: JSON.stringify(BUILD_HASH),
       },
     },
   }),

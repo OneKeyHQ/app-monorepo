@@ -17,13 +17,6 @@ import type {
   Stats,
 } from '@rspack/core';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { computeBuildHash } = require('../utils/computeBuildHash') as {
-  computeBuildHash: () => string;
-};
-
-const BUILD_HASH = computeBuildHash();
-
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
 const CANVASKIT_WASM_TEST =
@@ -147,7 +140,6 @@ const buildBasePlugins: (
     'process.env.VERSION': JSON.stringify(process.env.VERSION),
     'process.env.BUNDLE_VERSION': JSON.stringify(process.env.BUNDLE_VERSION),
     'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER),
-    'process.env.BUILD_HASH': JSON.stringify(BUILD_HASH),
   }),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
