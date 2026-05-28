@@ -126,6 +126,7 @@ import type {
   IPerpsActiveAccountAtom,
   IPerpsActiveAccountStatusDetails,
   IPerpsActiveAccountStatusInfoAtom,
+  IPerpsActiveAccountSummaryAtom,
   IPerpsActiveAssetCtxAtom,
   IPerpsCommonConfigPersistAtom,
   IPerpsCustomSettings,
@@ -1255,11 +1256,21 @@ export default class ServiceHyperliquid extends ServiceBase {
   // two subscriptions by ~75%. Trailing call guarantees the latest payload
   // is never dropped.
   private _writeActiveSummaryThrottled = throttle(
-    (
-      payload: NonNullable<
-        Parameters<typeof perpsActiveAccountSummaryAtom.set>[0]
-      >,
-    ) => {
+    async (payload: IPerpsActiveAccountSummaryAtom) => {
+      // Drop the write if the active account has moved on since the payload
+      // was queued. `_clearActiveSummaryImmediate()` only fires on mismatched
+      // WS packets, but the WS subs for the prior account are torn down
+      // synchronously on switch — so within the 250 ms trailing window we
+      // can easily get zero further packets, miss the cancel path, and let
+      // a stale trailing write land under the new account (also poisons
+      // `writePerpsAccountDisplaySnapshot`).
+      const activeAccount = await perpsActiveAccountAtom.get();
+      if (
+        activeAccount?.accountAddress?.toLowerCase() !==
+        payload?.accountAddress?.toLowerCase()
+      ) {
+        return;
+      }
       // Surface bg→ui broadcast failures (bridge unavailable, serialize fail)
       // instead of silently dropping them — otherwise summary writes can get
       // stuck without any operator-visible signal.
