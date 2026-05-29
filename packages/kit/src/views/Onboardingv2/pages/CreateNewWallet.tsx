@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -34,6 +34,8 @@ import {
 import { useAutoStartKeylessProvider } from '../hooks/useAutoStartKeylessProvider';
 import { useKeylessLocalExistenceLogin } from '../hooks/useKeylessLocalExistenceLogin';
 import { OnboardingTestIDs } from '../testIDs';
+
+import { KeylessOnboardingDebugPanel } from './KeylessOnboardingDebugPanel';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -73,13 +75,18 @@ function CreateNewWallet() {
     route?.params?.fromExt && autoLoginKeylessProvider,
   );
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
+  const [isResetMode, setIsResetMode] = useState(false);
 
   const {
     enableKeylessWalletLoading,
     loadingProvider,
     handleGoogleLogin,
     handleAppleLogin,
-  } = useKeylessLocalExistenceLogin({ autoLoginKeylessProvider });
+  } = useKeylessLocalExistenceLogin({
+    autoLoginKeylessProvider,
+    isResetMode,
+    onResetModeChange: setIsResetMode,
+  });
 
   const handleCreateSeedPhraseWallet = useCallback(async () => {
     const mnemonic = await backgroundApiProxy.serviceAccount.generateMnemonic();
@@ -250,6 +257,12 @@ function CreateNewWallet() {
                 </SizableText>
               </Button>
             </>
+          )}
+          {isWebKeylessSidePanelMode ? null : (
+            <KeylessOnboardingDebugPanel
+              isResetMode={isResetMode}
+              onResetModeChange={setIsResetMode}
+            />
           )}
         </YStack>
       </YStack>

@@ -3,12 +3,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
+import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 
 const PROVIDER_PLATFORM_NAME: Record<EOAuthSocialLoginProvider, string> = {
   [EOAuthSocialLoginProvider.Google]: 'Google',
@@ -21,12 +23,17 @@ const PROVIDER_PLATFORM_NAME: Record<EOAuthSocialLoginProvider, string> = {
 // OAuth round-trip so the user sees progress even though they didn't click.
 export function useKeylessLocalExistenceLogin({
   autoLoginKeylessProvider,
+  isResetMode,
+  onResetModeChange,
 }: {
   autoLoginKeylessProvider?: EOAuthSocialLoginProvider;
+  isResetMode?: boolean;
+  onResetModeChange?: (val: boolean) => void;
 } = {}) {
   const intl = useIntl();
   const { enableKeylessWalletLoading, checkKeylessWalletLocalExistence } =
     useKeylessWallet();
+  const { signInWithSocialLogin } = useOneKeyAuth();
 
   const [loadingProvider, setLoadingProvider] =
     useState<EOAuthSocialLoginProvider | null>(null);
@@ -43,9 +50,11 @@ export function useKeylessLocalExistenceLogin({
     async (provider: EOAuthSocialLoginProvider) => {
       setLoadingProvider(provider);
       try {
-        defaultLogger.account.wallet.onboard({
-          onboardMethod: 'createKeylessWallet',
-        });
+        if (!isResetMode) {
+          defaultLogger.account.wallet.onboard({
+            onboardMethod: 'createKeylessWallet',
+          });
+        }
         if (autoLoginKeylessProvider) {
           const platform = PROVIDER_PLATFORM_NAME[provider];
           loadingDialogRef.current = Dialog.loading({
@@ -59,13 +68,35 @@ export function useKeylessLocalExistenceLogin({
             ),
           });
         }
+        if (isResetMode) {
+          const result = await signInWithSocialLogin(provider);
+          if (result?.session?.accessToken) {
+            await backgroundApiProxy.serviceKeylessWallet.apiResetKeylessBackendShare(
+              {
+                token: result.session.accessToken,
+              },
+            );
+            Toast.success({
+              title: 'Reset Success',
+            });
+            onResetModeChange?.(false);
+          }
+          return;
+        }
         await checkKeylessWalletLocalExistence({ signInProvider: provider });
       } finally {
         setLoadingProvider(null);
         void loadingDialogRef.current?.close();
       }
     },
-    [checkKeylessWalletLocalExistence, intl, autoLoginKeylessProvider],
+    [
+      autoLoginKeylessProvider,
+      checkKeylessWalletLocalExistence,
+      intl,
+      isResetMode,
+      onResetModeChange,
+      signInWithSocialLogin,
+    ],
   );
 
   const handleGoogleLogin = useCallback(
