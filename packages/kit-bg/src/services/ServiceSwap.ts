@@ -119,6 +119,23 @@ import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwo
 const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
+
+function buildSwapRecentTokenBaseInfo(token: ISwapToken): ISwapToken {
+  return {
+    networkId: token.networkId,
+    contractAddress: token.contractAddress,
+    symbol: token.symbol,
+    decimals: token.decimals,
+    name: token.name,
+    logoURI: token.logoURI,
+    networkLogoURI: token.networkLogoURI,
+    isNative: token.isNative,
+    defiMarked: token.defiMarked,
+    dappName: token.dappName,
+    dappType: token.dappType,
+  };
+}
+
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
   private _quoteAbortController?: AbortController;
@@ -1911,26 +1928,8 @@ export default class ServiceSwap extends ServiceBase {
     const recentTokenPairsBase = recentTokenPairs.map((tokenPairs) => {
       const { fromToken, toToken } = tokenPairs;
       return {
-        fromToken: {
-          networkId: fromToken.networkId,
-          contractAddress: fromToken.contractAddress,
-          symbol: fromToken.symbol,
-          decimals: fromToken.decimals,
-          name: fromToken.name,
-          logoURI: fromToken.logoURI,
-          networkLogoURI: fromToken.networkLogoURI,
-          isNative: fromToken.isNative,
-        },
-        toToken: {
-          networkId: toToken.networkId,
-          contractAddress: toToken.contractAddress,
-          symbol: toToken.symbol,
-          decimals: toToken.decimals,
-          name: toToken.name,
-          logoURI: toToken.logoURI,
-          networkLogoURI: toToken.networkLogoURI,
-          isNative: toToken.isNative,
-        },
+        fromToken: buildSwapRecentTokenBaseInfo(fromToken),
+        toToken: buildSwapRecentTokenBaseInfo(toToken),
       };
     });
     await inAppNotificationAtom.set((pre) => ({
@@ -1991,26 +1990,8 @@ export default class ServiceSwap extends ServiceBase {
           ),
       );
     }
-    const fromTokenBaseInfo: ISwapToken = {
-      networkId: fromToken.networkId,
-      contractAddress: fromToken.contractAddress,
-      symbol: fromToken.symbol,
-      decimals: fromToken.decimals,
-      name: fromToken.name,
-      logoURI: fromToken.logoURI,
-      networkLogoURI: fromToken.networkLogoURI,
-      isNative: fromToken.isNative,
-    };
-    const toTokenBaseInfo: ISwapToken = {
-      networkId: toToken.networkId,
-      contractAddress: toToken.contractAddress,
-      symbol: toToken.symbol,
-      decimals: toToken.decimals,
-      name: toToken.name,
-      logoURI: toToken.logoURI,
-      networkLogoURI: toToken.networkLogoURI,
-      isNative: toToken.isNative,
-    };
+    const fromTokenBaseInfo = buildSwapRecentTokenBaseInfo(fromToken);
+    const toTokenBaseInfo = buildSwapRecentTokenBaseInfo(toToken);
     let newRecentTokenPairs = [
       {
         fromToken: fromTokenBaseInfo,
