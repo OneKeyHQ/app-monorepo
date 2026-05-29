@@ -85,6 +85,7 @@ describe('useToDetailPage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers();
     openExtensionMarketTokenDetailMock = jest.spyOn(
       backgroundApiProxy.serviceApp,
       'openExtensionMarketTokenDetail',
@@ -97,13 +98,14 @@ describe('useToDetailPage', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     Object.defineProperty(globalThis, 'close', {
       configurable: true,
       value: originalWindowClose,
     });
   });
 
-  it('closes the extension popup after opening market token detail in expand tab', async () => {
+  it('delays closing the extension popup after opening market token detail in expand tab', async () => {
     const { result } = renderHook(() =>
       useToDetailPage({
         switchToMarketTabFirst: true,
@@ -126,6 +128,12 @@ describe('useToDetailPage', () => {
       isNative: false,
       from: EEnterWay.Search,
     });
+    expect(globalThis.close).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+
     expect(globalThis.close).toHaveBeenCalledTimes(1);
   });
 });
