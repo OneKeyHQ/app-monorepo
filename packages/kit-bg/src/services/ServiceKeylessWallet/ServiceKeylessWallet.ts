@@ -1854,11 +1854,11 @@ class ServiceKeylessWallet extends ServiceBase {
     const backendShareMeta = await this.apiGetKeylessBackendShareMeta({
       token,
     });
+    // apiGetKeylessBackendShareMeta already validates revision and throws when
+    // it is not a finite number, so no fallback is needed here.
     return {
       isCreated: backendShareMeta.backendShare !== '',
-      baseRevision: Number.isFinite(backendShareMeta.revision)
-        ? backendShareMeta.revision
-        : 0,
+      baseRevision: backendShareMeta.revision,
     };
   }
 
