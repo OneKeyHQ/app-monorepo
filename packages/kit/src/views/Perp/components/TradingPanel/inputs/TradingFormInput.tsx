@@ -76,6 +76,7 @@ interface ITradingFormInputProps {
   readonly?: boolean;
   ifOnDialog?: boolean;
   isMobile?: boolean;
+  showAddOnsWhenDisabled?: boolean;
 }
 
 export const TradingFormInput = memo(
@@ -95,6 +96,7 @@ export const TradingFormInput = memo(
     keyboardType = 'decimal-pad',
     ifOnDialog = false,
     isMobile = false,
+    showAddOnsWhenDisabled = false,
   }: ITradingFormInputProps) => {
     const accessoryId = useMemo(() => `trading-input-${generateUUID()}`, []);
 
@@ -196,7 +198,9 @@ export const TradingFormInput = memo(
               p: 0,
               bg: 'transparent',
             }}
-            addOns={disabled ? undefined : renderAddOns()}
+            addOns={
+              disabled && !showAddOnsWhenDisabled ? undefined : renderAddOns()
+            }
             inputAccessoryViewID={shouldShowAccessory ? accessoryId : undefined}
           />
           {error ? (

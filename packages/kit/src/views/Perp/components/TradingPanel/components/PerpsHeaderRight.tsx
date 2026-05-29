@@ -9,7 +9,6 @@ import {
   Icon,
   IconButton,
   SizableText,
-  Skeleton,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -120,6 +119,32 @@ function DepositButton() {
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const { showPortfolio } = useShowPortfolio();
+  const lastAccountValueRef = useRef<
+    | {
+        accountKey: string;
+        value: string;
+      }
+    | undefined
+  >(undefined);
+  const selectedWalletAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.account?.id
+    : undefined;
+  const selectedWalletIndexedAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.indexedAccount?.id
+    : undefined;
+  const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+  const isActivePerpsAccountForSelectedWallet =
+    !selectedWalletAccount.ready ||
+    Boolean(
+      selectedWalletAccountId &&
+      activeAccount?.accountId &&
+      selectedWalletAccountId === activeAccount.accountId,
+    ) ||
+    Boolean(
+      selectedWalletIndexedAccountId &&
+      activeAccount?.indexedAccountId &&
+      selectedWalletIndexedAccountId === activeAccount.indexedAccountId,
+    );
   const snapshotLookupIndexedAccountId = selectedWalletAccount.ready
     ? selectedWalletAccount.indexedAccount?.id
     : activeAccount?.indexedAccountId;
@@ -153,12 +178,35 @@ function DepositButton() {
   );
   const isUsingSnapshotValue =
     !displayReady.summaryReady && snapshotEntry?.accountValue !== undefined;
+  const liveAccountValue = isActivePerpsAccountForSelectedWallet
+    ? computedValue?.accountValue
+    : undefined;
   const accountValue = isUsingSnapshotValue
     ? snapshotEntry?.accountValue
-    : computedValue?.accountValue;
+    : liveAccountValue;
+  const accountDisplayKey =
+    snapshotEntry?.account.accountAddress?.toLowerCase() ??
+    (isActivePerpsAccountForSelectedWallet ? activeAccountAddress : undefined);
+  const stableAccountValue =
+    accountDisplayKey &&
+    lastAccountValueRef.current?.accountKey === accountDisplayKey
+      ? lastAccountValueRef.current.value
+      : undefined;
+  const isUsingStableAccountValue =
+    accountValue === undefined && stableAccountValue !== undefined;
+  const displayAccountValue = accountValue ?? stableAccountValue;
   const hasActiveAccount = Boolean(
     activeAccount?.accountAddress || snapshotEntry?.account.accountAddress,
   );
+
+  useEffect(() => {
+    if (accountDisplayKey && accountValue !== undefined) {
+      lastAccountValueRef.current = {
+        accountKey: accountDisplayKey,
+        value: accountValue,
+      };
+    }
+  }, [accountDisplayKey, accountValue]);
 
   // Treat unknown as "still loading" rather than "empty" so the green
   // Deposit badge only appears once we definitively know the account is
@@ -166,9 +214,11 @@ function DepositButton() {
   // loading AND summary belongs to the current address (live or hydrated
   // from display cache), so a cache-hit cold start renders the value
   // without first flashing a skeleton.
-  const isUnknownAccountValue = accountValue === undefined;
+  const isUnknownAccountValue = displayAccountValue === undefined;
+  const shouldDisplayAccountValueDuringLoading =
+    displayAccountValue !== undefined;
   const isEmptyAccount =
-    !isUnknownAccountValue && new BigNumber(accountValue ?? '0').lte(0);
+    !isUnknownAccountValue && new BigNumber(displayAccountValue ?? '0').lte(0);
   let badgeVariant: 'unknown' | 'deposit' | 'portfolio' = 'portfolio';
   if (isUnknownAccountValue) {
     badgeVariant = 'unknown';
@@ -179,20 +229,22 @@ function DepositButton() {
   useEffect(() => {
     tracePerpsMobileLayout('header.depositBadge.state', {
       hasActiveAccount,
-      hasAccountValue: Boolean(accountValue),
+      hasAccountValue: Boolean(displayAccountValue),
       isEmptyAccount,
       isUnknownAccountValue,
+      isUsingStableAccountValue,
       isUsingSnapshotValue,
       height: gtSm ? 30 : 28,
       variant: badgeVariant,
     });
   }, [
-    accountValue,
     badgeVariant,
+    displayAccountValue,
     gtSm,
     hasActiveAccount,
     isEmptyAccount,
     isUnknownAccountValue,
+    isUsingStableAccountValue,
     isUsingSnapshotValue,
   ]);
 
@@ -203,9 +255,10 @@ function DepositButton() {
         tracePerpsMobileLayout('header.depositBadge.layout', {
           rect,
           hasActiveAccount,
-          hasAccountValue: Boolean(accountValue),
+          hasAccountValue: Boolean(displayAccountValue),
           isEmptyAccount,
           isUnknownAccountValue,
+          isUsingStableAccountValue,
           isUsingSnapshotValue,
           variant: badgeVariant,
         });
@@ -213,11 +266,12 @@ function DepositButton() {
       }
     },
     [
-      accountValue,
       badgeVariant,
+      displayAccountValue,
       hasActiveAccount,
       isEmptyAccount,
       isUnknownAccountValue,
+      isUsingStableAccountValue,
       isUsingSnapshotValue,
     ],
   );
@@ -248,7 +302,9 @@ function DepositButton() {
           return (
             <>
               <Icon name="ChartLine2Outline" size="$4" />
-              <Skeleton width={60} height={16} />
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                --
+              </SizableText>
             </>
           );
         }
@@ -266,11 +322,13 @@ function DepositButton() {
           <>
             <Icon name="ChartLine2Outline" size="$4" />
             <PerpsAccountNumberValue
-              value={accountValue ?? ''}
+              value={displayAccountValue ?? ''}
               skeletonWidth={60}
               textSize="$bodySmMedium"
-              allowValueDuringAccountLoading={isUsingSnapshotValue}
-              skipAccountSummaryCheck={isUsingSnapshotValue}
+              allowValueDuringAccountLoading={
+                shouldDisplayAccountValueDuringLoading
+              }
+              skipAccountSummaryCheck={shouldDisplayAccountValueDuringLoading}
             />
           </>
         );
