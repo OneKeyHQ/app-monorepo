@@ -8,7 +8,10 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { batchGetPublicKeys } from '../../../secret';
+import {
+  type IHdCredentialDecryptCacheParams,
+  batchGetPublicKeys,
+} from '../../../secret';
 import { EAddressEncodings, type ICurveName } from '../../../types';
 import { getAddressFromXpub, getBtcForkNetwork } from '../../btc/sdkBtc';
 
@@ -19,14 +22,15 @@ export const generateNativeSegwitAccounts = async ({
   password,
   isTestnet,
   hdCredentialCacheScopeId,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   curve: ICurveName;
   indexes: number[];
   hdCredential: string;
   password: string;
   isTestnet: boolean;
-  hdCredentialCacheScopeId?: string;
-}) => {
+} & IHdCredentialDecryptCacheParams) => {
   const pathPrefix = `m/84'/${isTestnet ? COINTYPE_TBTC : COINTYPE_BTC}'`;
   const relPaths: string[] = indexes.map(
     (index) => `${index.toString()}'`, // btc
@@ -39,6 +43,8 @@ export const generateNativeSegwitAccounts = async ({
     prefix: pathPrefix, // m/84'/0'
     relPaths, // 0'   1'
     hdCredentialCacheScopeId,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
 
   if (pubkeyInfos.length !== indexes.length) {

@@ -40,6 +40,7 @@ export enum EPrimeFeatures {
   DAppTranslate = 'DAppTranslate',
   BlockaidSiteScan = 'BlockaidSiteScan',
   ExtendedHistory = 'ExtendedHistory',
+  ReceiveRiskMonitoring = 'ReceiveRiskMonitoring',
 }
 
 export type IPrimeParamList = {
