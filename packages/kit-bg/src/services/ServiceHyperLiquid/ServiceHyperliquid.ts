@@ -2,7 +2,7 @@
 
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethersV6';
-import { isEqual, isNil, omit, throttle } from 'lodash';
+import { isEqual, isNil, omit } from 'lodash';
 import pTimeout from 'p-timeout';
 
 import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
@@ -126,7 +126,6 @@ import type {
   IPerpsActiveAccountAtom,
   IPerpsActiveAccountStatusDetails,
   IPerpsActiveAccountStatusInfoAtom,
-  IPerpsActiveAccountSummaryAtom,
   IPerpsActiveAssetCtxAtom,
   IPerpsCommonConfigPersistAtom,
   IPerpsCustomSettings,
@@ -1248,50 +1247,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
-  // Coalesce real-time summary writes: WEB_DATA2 + ALL_DEXS_CLEARINGHOUSE_STATE
-  // each arrive multiple times per second, and the prior code did
-  // perpsActiveAccountSummaryAtom.set(...) unconditionally on every message.
-  // 250 ms gives a 4 Hz refresh — below human perception threshold for
-  // pnl/margin readouts but cuts the bg→ui setAtomValue stream from those
-  // two subscriptions by ~75%. Trailing call guarantees the latest payload
-  // is never dropped.
-  private _writeActiveSummaryThrottled = throttle(
-    async (payload: IPerpsActiveAccountSummaryAtom) => {
-      // Drop the write if the active account has moved on since the payload
-      // was queued. `_clearActiveSummaryImmediate()` only fires on mismatched
-      // WS packets, but the WS subs for the prior account are torn down
-      // synchronously on switch — so within the 250 ms trailing window we
-      // can easily get zero further packets, miss the cancel path, and let
-      // a stale trailing write land under the new account (also poisons
-      // `writePerpsAccountDisplaySnapshot`).
-      const activeAccount = await perpsActiveAccountAtom.get();
-      if (
-        activeAccount?.accountAddress?.toLowerCase() !==
-        payload?.accountAddress?.toLowerCase()
-      ) {
-        return;
-      }
-      // Surface bg→ui broadcast failures (bridge unavailable, serialize fail)
-      // instead of silently dropping them — otherwise summary writes can get
-      // stuck without any operator-visible signal.
-      perpsActiveAccountSummaryAtom.set(payload).catch((error) => {
-        console.error(
-          '[ServiceHyperliquid] perpsActiveAccountSummaryAtom.set failed:',
-          error,
-        );
-      });
-    },
-    250,
-    { leading: true, trailing: true },
-  );
-
-  private async _clearActiveSummaryImmediate() {
-    // Account switched / mismatch: cancel any pending coalesced write so
-    // stale data from the previous account can't land after the clear.
-    this._writeActiveSummaryThrottled.cancel();
-    await perpsActiveAccountSummaryAtom.set(undefined);
-  }
-
   async updateActiveAccountSummary(webData2: IWsWebData2) {
     const activeAccount = await perpsActiveAccountAtom.get();
     if (
@@ -1306,7 +1261,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return pnl ? sum.plus(pnl) : sum;
       }, new BigNumber(0));
 
-      this._writeActiveSummaryThrottled({
+      await perpsActiveAccountSummaryAtom.set({
         accountAddress: activeAccount?.accountAddress?.toLowerCase() as IHex,
         accountValue: webData2.clearinghouseState?.marginSummary?.accountValue,
         totalMarginUsed:
@@ -1328,7 +1283,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         activeAccount?.accountAddress?.toLowerCase()
       ) {
         // TODO set undefined when account address changed
-        await this._clearActiveSummaryImmediate();
+        await perpsActiveAccountSummaryAtom.set(undefined);
       }
     }
   }
@@ -1345,7 +1300,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (
         activeAccountSummary?.accountAddress?.toLowerCase() !== activeAddress
       ) {
-        await this._clearActiveSummaryImmediate();
+        await perpsActiveAccountSummaryAtom.set(undefined);
       }
       return;
     }
@@ -1410,7 +1365,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       },
     );
 
-    this._writeActiveSummaryThrottled({
+    await perpsActiveAccountSummaryAtom.set({
       accountAddress: activeAddress as IHex,
       accountValue: aggregated.accountValue.toFixed(),
       totalMarginUsed: aggregated.totalMarginUsed.toFixed(),
