@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { useOrderConfirm, useTradingPrice } from '../../hooks';
+import { getPerpsFormLeverage } from '../../utils/leverageDisplay';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import {
   type IPerpsMobileLayoutTraceRect,
@@ -58,8 +59,13 @@ function PerpTradingDisabledButton() {
   }, [perpsAccountLoading?.selectAccountLoading]);
 
   const leverage = useMemo(() => {
-    return activeAssetData?.leverage?.value || 1;
-  }, [activeAssetData?.leverage?.value]);
+    return (
+      getPerpsFormLeverage({
+        isSpot: tradingMode === 'spot',
+        liveLeverage: formData.leverage ?? activeAssetData?.leverage?.value,
+      }) ?? 1
+    );
+  }, [activeAssetData?.leverage?.value, formData.leverage, tradingMode]);
 
   const maxTradeSz = useMemo(() => {
     const maxTradeSzs = activeAssetData?.maxTradeSzs || [0, 0];
