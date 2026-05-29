@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Divider, XStack } from '@onekeyhq/components';
+import { Divider, Icon, SizableText, XStack } from '@onekeyhq/components';
 import type {
   IPerpsActiveAssetAtom,
   IPerpsActiveAssetCtxAtom,
@@ -405,20 +405,48 @@ export const SizeInput = memo(
         id: ETranslations.perp_orderbook_size,
       });
     }, [label, intl, inputMode]);
+    const tokenFallbackLabel = useMemo(
+      () =>
+        intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_approval_token_fallback,
+        }),
+      [intl],
+    );
 
     const customSuffix = useMemo(
       () => (
         <XStack alignItems="center" gap="$2">
           {isMobile ? <Divider vertical h={24} /> : null}
-          <SizeInputModeSelector
-            value={inputMode}
-            onChange={handleModeChange}
-            tokenSymbol={symbol || ''}
-            allowMarginInput={allowMarginInput}
-          />
+          {isDisabled ? (
+            <XStack alignItems="center" gap="$1" userSelect="none">
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                {inputMode === 'token' ? symbol || tokenFallbackLabel : 'USD'}
+              </SizableText>
+              <Icon
+                name="ChevronDownSmallOutline"
+                size="$4"
+                color="$iconSubdued"
+              />
+            </XStack>
+          ) : (
+            <SizeInputModeSelector
+              value={inputMode}
+              onChange={handleModeChange}
+              tokenSymbol={symbol || ''}
+              allowMarginInput={allowMarginInput}
+            />
+          )}
         </XStack>
       ),
-      [inputMode, handleModeChange, symbol, isMobile, allowMarginInput],
+      [
+        allowMarginInput,
+        handleModeChange,
+        inputMode,
+        isDisabled,
+        isMobile,
+        symbol,
+        tokenFallbackLabel,
+      ],
     );
 
     const displayValue = useMemo(() => {
@@ -443,6 +471,7 @@ export const SizeInput = memo(
         error={error}
         validator={validator}
         customSuffix={customSuffix}
+        showAddOnsWhenDisabled
         onFocus={onRequestManualMode}
         isMobile={isMobile}
         keyboardType="decimal-pad"

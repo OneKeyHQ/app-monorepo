@@ -68,6 +68,7 @@ import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdr
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../../testIDs';
+import { getPerpsFormLeverage } from '../../../utils/leverageDisplay';
 import {
   type ITradeSide,
   getTradingSideTextColor,
@@ -498,7 +499,10 @@ function PerpTradingForm({
             markPrice: midPrice,
             availableToTrade: [maxAvailable, maxAvailable],
             maxTradeSzs: activeAssetData?.maxTradeSzs,
-            leverageValue: activeAssetData?.leverage?.value,
+            leverageValue: getPerpsFormLeverage({
+              isSpot: false,
+              liveLeverage: activeAssetData?.leverage?.value,
+            }),
             fallbackLeverage: activeAsset?.universe?.maxLeverage,
             szDecimals: activeAsset?.universe?.szDecimals,
           };
@@ -649,6 +653,10 @@ function PerpTradingForm({
     !activeAssetData?.availableToTrade &&
     snapshotEntry?.availableToTrade?.coin === activeAsset?.coin,
   );
+  const shouldDisplayAvailableToTradeDuringLoading =
+    !isSpot &&
+    (Boolean(activeAssetData?.availableToTrade) ||
+      isUsingCachedAvailableToTrade);
 
   // Spot: display raw token balance with symbol
   const spotAvailableDisplay = useMemo(() => {
@@ -1596,9 +1604,11 @@ function PerpTradingForm({
                     value={availableToTrade}
                     skeletonWidth={60}
                     allowValueDuringAccountLoading={
-                      isUsingCachedAvailableToTrade
+                      shouldDisplayAvailableToTradeDuringLoading
                     }
-                    skipAccountSummaryCheck={isUsingCachedAvailableToTrade}
+                    skipAccountSummaryCheck={
+                      shouldDisplayAvailableToTradeDuringLoading
+                    }
                   />
                   <MobileDepositButton onPress={handleDepositPress} />
                 </XStack>
