@@ -10,6 +10,7 @@ import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/sta
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   getListedNetworkMap,
@@ -52,7 +53,9 @@ import type {
   IServerNetwork,
 } from '@onekeyhq/shared/types';
 import type { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
+import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IKytSupportedAsset } from '@onekeyhq/shared/types/kyt';
 import type {
   IClearCacheOnAppState,
   IFetchWalletConfigResp,
@@ -68,6 +71,7 @@ import {
   currencyPersistAtom,
   desktopBluetoothAtom,
 } from '../states/jotai/atoms';
+import { primePersistAtom } from '../states/jotai/atoms/prime';
 import {
   settingsFiatPaySiteWhitelistPersistAtom,
   settingsLastActivityAtom,
@@ -982,6 +986,120 @@ class ServiceSetting extends ServiceBase {
     ]);
 
     return aggregateTokenConfigMap;
+  }
+
+  @backgroundMethod()
+  async isKytIntroShown({ onekeyUserId }: { onekeyUserId: string }) {
+    if (!onekeyUserId) {
+      return false;
+    }
+    const v = await this.backgroundApi.simpleDb.appStatus.getRawData();
+    return v?.kytIntroShownUserIds?.includes(onekeyUserId) ?? false;
+  }
+
+  @backgroundMethod()
+  async setKytIntroShown({ onekeyUserId }: { onekeyUserId: string }) {
+    if (!onekeyUserId) {
+      return;
+    }
+    await this.backgroundApi.simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => {
+        const ids = v?.kytIntroShownUserIds ?? [];
+        if (ids.includes(onekeyUserId)) {
+          return { ...v, kytIntroShownUserIds: ids };
+        }
+        return { ...v, kytIntroShownUserIds: [...ids, onekeyUserId] };
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async resetKytIntroShown() {
+    await this.backgroundApi.simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        kytIntroShownUserIds: [],
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getKytSupportedAssets(): Promise<IKytSupportedAsset[]> {
+    // Public endpoint — no auth token needed, so use the plain client.
+    const client = await this.getClient(EServiceEndpointEnum.Prime);
+    // Errors are surfaced as an in-page error state by the caller, so suppress
+    // the default error toast to avoid a duplicate prompt.
+    const requestConfig: Parameters<typeof client.get>[1] & {
+      autoHandleError?: boolean;
+    } = {
+      autoHandleError: false,
+    };
+    const res = await client.get<
+      IApiClientResponse<{ list: IKytSupportedAsset[] }>
+    >('/prime/v1/kyt/supported-assets', requestConfig);
+    return res.data.data?.list ?? [];
+  }
+
+  // Read the cached KYT (receive risk monitoring) enabled state for a Prime user.
+  // The cache mirrors the server `kytEnabled` value synced on prime user info fetch
+  // (see syncKytEnabledFromServer), so this reflects the latest interface result.
+  @backgroundMethod()
+  async getKytEnabled({
+    onekeyUserId,
+  }: {
+    onekeyUserId: string | undefined;
+  }): Promise<boolean> {
+    if (!onekeyUserId) {
+      return false;
+    }
+    const { receiveRiskMonitoringMap } = await settingsPersistAtom.get();
+    return receiveRiskMonitoringMap?.[onekeyUserId] ?? false;
+  }
+
+  // Sync the server-reported KYT enabled state into the local cache so the
+  // settings switch and the intro dialog gate stay aligned with the interface.
+  // Skips when the field is absent (older server) to avoid clobbering the cache.
+  @backgroundMethod()
+  async syncKytEnabledFromServer({
+    onekeyUserId,
+    kytEnabled,
+  }: {
+    onekeyUserId: string | undefined;
+    kytEnabled: boolean | undefined;
+  }): Promise<void> {
+    if (!onekeyUserId || kytEnabled === undefined) {
+      return;
+    }
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      receiveRiskMonitoringMap: {
+        ...prev.receiveRiskMonitoringMap,
+        [onekeyUserId]: kytEnabled,
+      },
+    }));
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiSetKytEnabled({ enabled }: { enabled: boolean }): Promise<boolean> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+    const res = await client.put<IApiClientResponse<{ kytEnabled: boolean }>>(
+      '/prime/v1/kyt/enabled',
+      { enabled },
+    );
+    const kytEnabled = res.data.data?.kytEnabled ?? enabled;
+    // Local cache is the source of truth; persist per Prime user (OneKey ID).
+    const { onekeyUserId } = await primePersistAtom.get();
+    if (onekeyUserId) {
+      await settingsPersistAtom.set((prev) => ({
+        ...prev,
+        receiveRiskMonitoringMap: {
+          ...prev.receiveRiskMonitoringMap,
+          [onekeyUserId]: kytEnabled,
+        },
+      }));
+    }
+    return kytEnabled;
   }
 }
 
