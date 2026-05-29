@@ -19,6 +19,7 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useActiveTradeInstrumentAtom,
+  usePerpsActivePositionAtom,
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -38,6 +39,9 @@ import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
   buildScaleOrderLegs,
+  getReduceOnlyOrderGuardError,
+  getReduceOnlyPositionSnapshotError,
+  getScaleOrderSizeSkew,
   normalizeScaleOrderCount,
   validateScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
@@ -167,6 +171,7 @@ function SideButtonInternal({
       tradingMode,
     ],
   );
+  const [activePositionsValue] = usePerpsActivePositionAtom();
 
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPriceBN } = useTradingPrice();
@@ -700,7 +705,7 @@ function SideButtonInternal({
           ),
           szDecimals: latestSzDecimals,
           side: validationSide,
-          assetType: latestIsSpot ? 'spot' : 'perp',
+          sizeSkew: getScaleOrderSizeSkew(latestFormData.scaleSizeDistribution),
         });
         const validation = validateScaleOrderLegs({ legs });
         if (!validation.isValid) {
@@ -1066,6 +1071,40 @@ function SideButtonInternal({
         })
       ) {
         return;
+      }
+      const reduceOnly =
+        !isSpot &&
+        ((isScaleMode && formData.scaleReduceOnly) ||
+          (isTwapMode && formData.twapReduceOnly));
+      if (reduceOnly) {
+        const snapshotError = getReduceOnlyPositionSnapshotError({
+          reduceOnly,
+          accountAddress: perpsAccount?.accountAddress,
+          positionsAccountAddress: activePositionsValue.accountAddress,
+        });
+        if (snapshotError) {
+          Toast.message({ title: snapshotError });
+          return;
+        }
+        const position = activePositionsValue.activePositions.find(
+          (pos) => pos.position.coin === activeTradeInstrument.coin,
+        )?.position;
+        const reduceOnlyError = getReduceOnlyOrderGuardError({
+          reduceOnly,
+          side,
+          size: computedSizeForSide,
+          positionSize: position?.szi,
+          missingPositionMessage: isTwapMode
+            ? 'Reduce-only TWAP requires an opposite open position'
+            : 'Reduce-only scale requires an opposite open position',
+          exceedsPositionMessage: isTwapMode
+            ? 'Reduce-only TWAP size exceeds the current position'
+            : 'Reduce-only scale size exceeds the current position',
+        });
+        if (reduceOnlyError) {
+          Toast.message({ title: reduceOnlyError });
+          return;
+        }
       }
 
       if (latestPerpsCustomSettings.skipOrderConfirm) {

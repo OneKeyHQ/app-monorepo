@@ -890,6 +890,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       orderCount: params.orderCount,
       szDecimals,
       side,
+      sizeSkew: params.sizeSkew,
     });
     assertValidScaleOrderLegs({ legs });
 
@@ -915,6 +916,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
             orderCount: orders.length,
             reduceOnly: Boolean(params.reduceOnly),
             tif,
+            sizeSkew: params.sizeSkew,
           },
         },
       );

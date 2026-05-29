@@ -22,7 +22,10 @@ import {
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { buildScaleOrderLegs } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
+  buildScaleOrderLegs,
+  getScaleOrderSizeSkew,
+} from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatPriceToSignificantDigits,
@@ -51,7 +54,6 @@ import type { IEnableTradingWithDepositFallbackResult } from '../../../hooks/use
 import type { IntlShape } from 'react-intl';
 
 const SAVED_FEE_BENCHMARK_RATE = 0.0004;
-const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
 
 function formatOrderPriceDisplay({
   price,
@@ -202,6 +204,7 @@ function OrderConfirmContent({
       orderCount: Number(formData.scaleOrderCount ?? 0),
       szDecimals,
       side: effectiveSide,
+      sizeSkew: getScaleOrderSizeSkew(formData.scaleSizeDistribution),
     });
   }, [
     isScaleMode,
@@ -209,6 +212,7 @@ function OrderConfirmContent({
     formData.scaleLowerPrice,
     formData.scaleUpperPrice,
     formData.scaleOrderCount,
+    formData.scaleSizeDistribution,
     szDecimals,
     effectiveSide,
   ]);
@@ -217,21 +221,10 @@ function OrderConfirmContent({
     if (!isTwapMode) {
       return null;
     }
-    const minutes = Number(formData.twapDurationMinutes ?? 0);
-    const estimatedSlices = Math.max(
-      1,
-      Math.ceil((minutes * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
-    );
-    const averageSliceValue =
-      orderValue.isFinite() && orderValue.gt(0)
-        ? orderValue.dividedBy(estimatedSlices)
-        : undefined;
     return {
-      minutes,
-      estimatedSlices,
-      averageSliceValue,
+      minutes: Number(formData.twapDurationMinutes ?? 0),
     };
-  }, [formData.twapDurationMinutes, isTwapMode, orderValue]);
+  }, [formData.twapDurationMinutes, isTwapMode]);
 
   const _inferredTpslBadge = useMemo(() => {
     if (!isTriggerMode || !formData.triggerPrice) return null;
@@ -561,6 +554,16 @@ function OrderConfirmContent({
             </XStack>
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
+                Amount Distribution
+              </SizableText>
+              <SizableText size="$bodyMdMedium">
+                {formData.scaleSizeDistribution === 'increasing'
+                  ? 'Increasing'
+                  : 'Fixed'}
+              </SizableText>
+            </XStack>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
                 Time in Force
               </SizableText>
               <SizableText size="$bodyMdMedium">GTC</SizableText>
@@ -621,25 +624,10 @@ function OrderConfirmContent({
             </XStack>
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                Estimated Slices
+                Execution
               </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {twapPreview.estimatedSlices}
-              </SizableText>
+              <SizableText size="$bodyMdMedium">Market slices</SizableText>
             </XStack>
-            {twapPreview.averageSliceValue ? (
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  Average Slice Value
-                </SizableText>
-                <SizableText size="$bodyMdMedium">
-                  {numberFormat(twapPreview.averageSliceValue.toFixed(2), {
-                    formatter: 'value',
-                    formatterOptions: { currency: '$' },
-                  })}
-                </SizableText>
-              </XStack>
-            ) : null}
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({

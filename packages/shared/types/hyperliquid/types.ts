@@ -190,6 +190,7 @@ export interface ITriggerOrderParams {
 // ── Scale Order Types ──
 
 export type IScaleOrderTif = 'Gtc' | 'Alo';
+export type IScaleOrderSizeDistribution = 'fixed' | 'increasing';
 
 export interface IScaleOrderBuildParams {
   totalSize: string;
@@ -198,6 +199,7 @@ export interface IScaleOrderBuildParams {
   orderCount: number;
   szDecimals: number;
   side: 'long' | 'short';
+  sizeSkew?: number;
 }
 
 export interface IScaleOrderLeg {
@@ -222,6 +224,7 @@ export interface IPlaceScaleOrderParams {
   reduceOnly?: boolean;
   tif?: IScaleOrderTif;
   szDecimals?: number;
+  sizeSkew?: number;
 }
 
 // ── TWAP Order Types ──

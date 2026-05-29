@@ -20,6 +20,7 @@ import {
   type IConnectionState,
   type IPerpOrderBookTickOptionPersist,
   type IPerpsFormattedAssetCtx,
+  type IScaleOrderSizeDistribution,
   type IScaleOrderTif,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -252,6 +253,7 @@ export interface ITradingFormData {
   scaleOrderCount?: string;
   scaleReduceOnly?: boolean;
   scaleTif?: IScaleOrderTif;
+  scaleSizeDistribution?: IScaleOrderSizeDistribution;
 
   // ── TWAP Order Fields ──
   twapDurationMinutes?: string;
@@ -289,6 +291,7 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     scaleOrderCount: '5',
     scaleReduceOnly: false,
     scaleTif: 'Gtc',
+    scaleSizeDistribution: 'fixed',
     twapDurationMinutes: '10',
     twapRandomize: true,
     twapReduceOnly: false,
