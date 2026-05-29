@@ -1690,7 +1690,8 @@ export default class ServiceHyperliquid extends ServiceBase {
   async changeActiveAsset(params: {
     coin: string;
   }): Promise<IChangeActiveAssetResult> {
-    const requestId = (this.activeAssetChangeRequestId += 1);
+    this.activeAssetChangeRequestId += 1;
+    const requestId = this.activeAssetChangeRequestId;
     const oldActiveAsset = await perpsActiveAssetAtom.get();
     this.rememberCommittedActiveAsset(oldActiveAsset);
     const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
