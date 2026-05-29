@@ -1278,7 +1278,7 @@ function SideButtonInternal({
               {renderLiquidationPrice()}
             </XStack>
           </YStack>
-        )}
+        ) : null}
 
         <Button
           testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
@@ -1439,7 +1439,7 @@ function SideButtonInternal({
             {renderLiquidationPrice()}
           </XStack>
         </YStack>
-      )}
+      ) : null}
     </YStack>
   );
 }
