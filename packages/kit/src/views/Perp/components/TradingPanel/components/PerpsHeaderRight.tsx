@@ -127,6 +127,25 @@ function DepositButton() {
       }
     | undefined
   >(undefined);
+  const selectedWalletAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.account?.id
+    : undefined;
+  const selectedWalletIndexedAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.indexedAccount?.id
+    : undefined;
+  const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+  const isActivePerpsAccountForSelectedWallet =
+    !selectedWalletAccount.ready ||
+    Boolean(
+      selectedWalletAccountId &&
+      activeAccount?.accountId &&
+      selectedWalletAccountId === activeAccount.accountId,
+    ) ||
+    Boolean(
+      selectedWalletIndexedAccountId &&
+      activeAccount?.indexedAccountId &&
+      selectedWalletIndexedAccountId === activeAccount.indexedAccountId,
+    );
   const snapshotLookupIndexedAccountId = selectedWalletAccount.ready
     ? selectedWalletAccount.indexedAccount?.id
     : activeAccount?.indexedAccountId;
@@ -160,12 +179,15 @@ function DepositButton() {
   );
   const isUsingSnapshotValue =
     !displayReady.summaryReady && snapshotEntry?.accountValue !== undefined;
+  const liveAccountValue = isActivePerpsAccountForSelectedWallet
+    ? computedValue?.accountValue
+    : undefined;
   const accountValue = isUsingSnapshotValue
     ? snapshotEntry?.accountValue
-    : computedValue?.accountValue;
+    : liveAccountValue;
   const accountDisplayKey =
-    activeAccount?.accountAddress?.toLowerCase() ??
-    snapshotEntry?.account.accountAddress?.toLowerCase();
+    snapshotEntry?.account.accountAddress?.toLowerCase() ??
+    (isActivePerpsAccountForSelectedWallet ? activeAccountAddress : undefined);
   const stableAccountValue =
     accountDisplayKey &&
     lastAccountValueRef.current?.accountKey === accountDisplayKey

@@ -12,6 +12,8 @@ import {
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { isPerpsL2BookInteractive } from '../utils/l2BookFreshness';
+
 import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
 
 export interface IPerpMarketDataReturn {
@@ -75,6 +77,7 @@ function getFreshL2BookSnapshotFromSwr({
 export function useL2Book(options?: IL2BookOptions): {
   l2Book: IL2BookData | null;
   hasOrderBook: boolean;
+  isOrderBookInteractive: boolean;
   isMarketDataStale: boolean;
   lastUpdate: number | null;
   getBestBid: () => string | null;
@@ -157,6 +160,10 @@ export function useL2Book(options?: IL2BookOptions): {
     };
   }, [l2Book, normalizedMantissa, normalizedNSigFigs]);
 
+  const isOrderBookInteractive = isPerpsL2BookInteractive({
+    bookTime: l2Book?.time,
+  });
+
   const getBestBid = (): string | null => {
     if (!l2Book?.bids || l2Book.bids.length === 0) return null;
     return l2Book.bids[0]?.px || null;
@@ -204,6 +211,7 @@ export function useL2Book(options?: IL2BookOptions): {
   return {
     l2Book,
     hasOrderBook: !!l2Book,
+    isOrderBookInteractive,
     isMarketDataStale: marketDataFreshness.isStale,
     lastUpdate: marketDataFreshness.lastMessageAt,
     getBestBid,

@@ -5,9 +5,9 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
-  PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS,
   PERPS_ACCOUNT_DISPLAY_CACHE_WRITE_INTERVAL_MS,
   PERPS_ACCOUNT_DISPLAY_SNAPSHOT_MAX_ENTRIES,
+  PERPS_ACCOUNT_TRADING_DATA_CACHE_MAX_AGE_MS,
   PERPS_ALL_DEXS_ASSET_CTXS_CACHE_WRITE_INTERVAL_MS,
   PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
   PERPS_L2_BOOK_SNAPSHOT_CACHE_MIN_LEVELS_PER_SIDE,
@@ -603,12 +603,15 @@ export default class ServiceHyperliquidCache extends ServiceBase {
         accountAddress,
       );
 
+    // The persisted display cache can live much longer than values that feed
+    // margin/withdrawable checks. Only hydrate trading-facing atoms from a
+    // short freshness window; long-lived display uses perpsAccountDisplaySnapshot.
     if (cache) {
       const summary = cache.summary;
       if (
         summary?.data &&
         summary.data.accountAddress?.toLowerCase() === normalized &&
-        now - summary.updatedAt <= PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS
+        now - summary.updatedAt <= PERPS_ACCOUNT_TRADING_DATA_CACHE_MAX_AGE_MS
       ) {
         summaryHit = true;
         summaryAgeMs = now - summary.updatedAt;
@@ -623,7 +626,7 @@ export default class ServiceHyperliquidCache extends ServiceBase {
         spot?.data &&
         spot.data.accountAddress.toLowerCase() === normalized &&
         spot.data.spotTotalUsd !== undefined &&
-        now - spot.updatedAt <= PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS
+        now - spot.updatedAt <= PERPS_ACCOUNT_TRADING_DATA_CACHE_MAX_AGE_MS
       ) {
         spotHit = true;
         spotAgeMs = now - spot.updatedAt;
