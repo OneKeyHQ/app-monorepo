@@ -160,6 +160,12 @@ type ILoadTradesHistoryOptions = {
   force?: boolean;
 };
 
+export type IEnableTradingHardwareSigningStep =
+  | 'approveBuilderFee'
+  | 'removeAgent'
+  | 'approveAgent'
+  | 'setAbstraction';
+
 type IChangeActiveAssetResult = {
   coin: string;
   assetId: number | undefined;
@@ -2140,6 +2146,94 @@ export default class ServiceHyperliquid extends ServiceBase {
     });
     const status = await perpsActiveAccountStatusAtom.get();
     return status;
+  }
+
+  @backgroundMethod()
+  async getEnableTradingHardwareSigningSteps(): Promise<
+    IEnableTradingHardwareSigningStep[]
+  > {
+    const selectedAccount = await perpsActiveAccountAtom.get();
+    const accountAddress = selectedAccount.accountAddress?.toLowerCase() as
+      | IHex
+      | undefined;
+    const accountStatus = await perpsActiveAccountStatusAtom.get();
+    const details = accountStatus?.details;
+    const steps: IEnableTradingHardwareSigningStep[] = [];
+
+    if (!accountAddress) {
+      return steps;
+    }
+
+    let isActivated = false;
+    if (hyperLiquidCache?.activatedUser?.[accountAddress] === true) {
+      isActivated = true;
+    } else {
+      const { infoClient } = hyperLiquidApiClients;
+      const userRoleResult = await infoClient.userRole({
+        user: accountAddress,
+      });
+      isActivated = userRoleResult.role !== 'missing';
+    }
+    if (!isActivated) {
+      return steps;
+    }
+
+    if (!details?.builderFeeOk) {
+      const { expectBuilderAddress, expectMaxBuilderFee } =
+        await this.getBuilderFeeConfig();
+      if (expectBuilderAddress) {
+        const maxBuilderFee = await this.getUserApprovedMaxBuilderFeeWithCache({
+          userAddress: accountAddress,
+          builderAddress: expectBuilderAddress,
+        });
+        if (maxBuilderFee !== expectMaxBuilderFee) {
+          steps.push('approveBuilderFee');
+        }
+      }
+    }
+
+    if (!details?.agentOk || !details.internalRebateBoundOk) {
+      const extraAgents =
+        (await this.fetchExtraAgentsWithCache({
+          user: accountAddress,
+        })) ?? [];
+      const onekeyAgentNames = new Set([
+        EHyperLiquidAgentName.OneKeyAgent1,
+        EHyperLiquidAgentName.OneKeyAgent2,
+        EHyperLiquidAgentName.OneKeyAgent3,
+      ]);
+      if (extraAgents.length === 3) {
+        const nonOneKeyAgents = extraAgents.filter(
+          (agent) => !onekeyAgentNames.has(agent.name as EHyperLiquidAgentName),
+        );
+        const agentToRemove = (
+          nonOneKeyAgents.length ? nonOneKeyAgents : extraAgents
+        ).toSorted((a, b) => a.validUntil - b.validUntil)?.[0];
+        const agentNameToRemove = agentToRemove?.name as
+          | EHyperLiquidAgentName
+          | undefined;
+        if (
+          agentToRemove &&
+          agentNameToRemove &&
+          !onekeyAgentNames.has(agentNameToRemove)
+        ) {
+          steps.push('removeAgent');
+        }
+      }
+      steps.push('approveAgent');
+    }
+
+    if (!details?.abstractionOk) {
+      const currentMode = await this.fetchUserAbstraction(accountAddress);
+      const isAbstractionCorrect =
+        currentMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+        currentMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+      if (!isAbstractionCorrect) {
+        steps.push('setAbstraction');
+      }
+    }
+
+    return steps;
   }
 
   hideEnableTradingLoadingTimer: ReturnType<typeof setTimeout> | undefined;

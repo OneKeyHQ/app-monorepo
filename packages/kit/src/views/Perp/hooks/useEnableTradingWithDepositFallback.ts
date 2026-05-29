@@ -5,8 +5,10 @@ import {
   type IPerpsActiveAccountStatusAtom,
   usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { showHyperliquidTermsDialog } from '../components/HyperliquidTerms';
+import { showEnableTradingDialog } from '../components/TradingPanel/modals/EnableTradingModal';
 import { getEnableTradingDialogConfirmDecision } from '../utils/enableTradingDialogConfirm';
 
 import { useShowDepositWithdrawModal } from './useShowDepositWithdrawModal';
@@ -71,6 +73,7 @@ export function useHandleEnableTradingPostStatus() {
 export function useRequestEnableTradingWithDepositFallback() {
   const requestEnableTrading = useRequestEnableTrading();
   const handleEnableTradingPostStatus = useHandleEnableTradingPostStatus();
+  const [perpsAccount] = usePerpsActiveAccountAtom();
 
   return useCallback(
     async (
@@ -79,10 +82,19 @@ export function useRequestEnableTradingWithDepositFallback() {
       if (options?.shouldIgnoreResult?.()) {
         return { shouldContinue: false, status: undefined };
       }
-      const status = await requestEnableTrading();
+      const isHardwareWallet = accountUtils.isHwAccount({
+        accountId: perpsAccount.accountId ?? '',
+      });
+      const status = isHardwareWallet
+        ? await showEnableTradingDialog()
+        : await requestEnableTrading();
       return handleEnableTradingPostStatus(status, options);
     },
-    [handleEnableTradingPostStatus, requestEnableTrading],
+    [
+      handleEnableTradingPostStatus,
+      perpsAccount.accountId,
+      requestEnableTrading,
+    ],
   );
 }
 
