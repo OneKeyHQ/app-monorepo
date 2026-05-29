@@ -3904,6 +3904,9 @@ class ServiceAccount extends ServiceBase {
         await this.backgroundApi.servicePrimeCloudSync.apiUploadItems({
           localItems: [latestSyncItem],
           noDebounceUpload: true,
+          // OK-55438: tombstone/create is a genuine "now" write; let the server
+          // stamp dataTime (it only clamps timestamps ahead of its own clock).
+          useServerDataTime: true,
         });
       })().catch((error) => {
         errorUtils.autoPrintErrorIgnore(error);
@@ -4013,6 +4016,9 @@ class ServiceAccount extends ServiceBase {
       await this.backgroundApi.servicePrimeCloudSync.apiUploadItems({
         localItems: [latestSyncItem],
         noDebounceUpload: true,
+        // OK-55438: deletion tombstone is a genuine "now" write; let the server
+        // stamp dataTime (it only clamps timestamps ahead of its own clock).
+        useServerDataTime: true,
       });
     })().catch((error) => {
       errorUtils.autoPrintErrorIgnore(error);
