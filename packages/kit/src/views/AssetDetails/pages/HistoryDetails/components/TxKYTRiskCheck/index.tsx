@@ -214,8 +214,13 @@ export function TxKYTRiskCheck({
           <KytAssetSelectionDialogContent
             details={details}
             onSelectAsset={(detail) => {
-              void dialogInstance.close();
-              navigateToDetail(detail);
+              // Await the dialog close before navigating. Running close() and
+              // navigation.push() concurrently is a known Fabric crash / leftover
+              // dialog pattern, so the push must wait for the dialog to unmount.
+              void (async () => {
+                await dialogInstance.close();
+                navigateToDetail(detail);
+              })();
             }}
           />
         ),

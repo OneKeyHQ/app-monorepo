@@ -27,6 +27,9 @@ import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 import type { RouteProp } from '@react-navigation/core';
 
 const LEVEL_TEXT_COLOR: Record<string, ColorTokens> = {
+  [EKytRiskLevel.None]: '$textSuccess',
+  [EKytRiskLevel.Checking]: '$textSubdued',
+  [EKytRiskLevel.Failed]: '$textSubdued',
   [EKytRiskLevel.Low]: '$textSuccess',
   [EKytRiskLevel.Moderate]: '$textCaution',
   [EKytRiskLevel.High]: '$textCaution',
@@ -34,6 +37,9 @@ const LEVEL_TEXT_COLOR: Record<string, ColorTokens> = {
 };
 
 const LEVEL_LABEL: Record<string, string> = {
+  [EKytRiskLevel.None]: 'None',
+  [EKytRiskLevel.Checking]: 'Checking',
+  [EKytRiskLevel.Failed]: 'Failed',
   [EKytRiskLevel.Low]: 'Low',
   [EKytRiskLevel.Moderate]: 'Moderate',
   [EKytRiskLevel.High]: 'High',
@@ -41,6 +47,21 @@ const LEVEL_LABEL: Record<string, string> = {
 };
 
 const LEVEL_CONTENT: Record<string, { title: string; description: string }> = {
+  [EKytRiskLevel.None]: {
+    title: 'No risk detected',
+    description:
+      'No significant fund-source risk was found for this incoming transfer.',
+  },
+  [EKytRiskLevel.Checking]: {
+    title: 'Checking fund-source risk',
+    description:
+      'This incoming transfer is still being checked for fund-source risk.',
+  },
+  [EKytRiskLevel.Failed]: {
+    title: 'Risk check failed',
+    description:
+      'We were unable to check fund-source risk for this incoming transfer.',
+  },
   [EKytRiskLevel.Low]: {
     title: 'Low risk detected',
     description: 'No significant high-risk fund-source exposure was found.',
