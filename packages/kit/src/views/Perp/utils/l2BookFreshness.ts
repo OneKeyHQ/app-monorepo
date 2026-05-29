@@ -61,3 +61,19 @@ export function isPerpsBboInteractive({
     now,
   });
 }
+
+export function getPerpsBboInteractiveRefreshDelayMs({
+  bboTime,
+  bboReceivedAt,
+  now = Date.now(),
+}: {
+  bboTime: number | undefined;
+  bboReceivedAt?: number;
+  now?: number;
+}) {
+  return getPerpsL2BookInteractiveRefreshDelayMs({
+    bookTime: bboTime,
+    bookReceivedAt: bboReceivedAt,
+    now,
+  });
+}
