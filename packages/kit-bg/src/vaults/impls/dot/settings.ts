@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_DOT,
@@ -32,6 +34,15 @@ const settings: IVaultSettings = {
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,
     // ECoreApiExportedSecretKeyType.publicKey,
+  ],
+
+  supportedDeviceTypes: [
+    EDeviceType.Classic,
+    EDeviceType.Classic1s,
+    EDeviceType.ClassicPure,
+    EDeviceType.Mini,
+    EDeviceType.Touch,
+    EDeviceType.Pro,
   ],
 
   dappInteractionEnabled: true,
