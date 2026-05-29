@@ -4,6 +4,7 @@ function OrderInfoSubTabs<T extends string>({
   tabs,
   activeTab,
   onChange,
+  variant = 'pill',
 }: {
   tabs: {
     key: T;
@@ -11,6 +12,7 @@ function OrderInfoSubTabs<T extends string>({
   }[];
   activeTab: T;
   onChange: (tab: T) => void;
+  variant?: 'pill' | 'underline';
 }) {
   return (
     <XStack>
@@ -21,7 +23,15 @@ function OrderInfoSubTabs<T extends string>({
         width="100%"
         contentContainerStyle={{ minWidth: '100%' }}
       >
-        <XStack minWidth="100%" pl="$2.5" pr="$5" py="$2.5" gap="$2">
+        <XStack
+          minWidth="100%"
+          pl={variant === 'underline' ? '$5' : '$2.5'}
+          pr="$5"
+          py={variant === 'underline' ? '$0' : '$2.5'}
+          gap={variant === 'underline' ? '$5' : '$2'}
+          borderBottomWidth={variant === 'underline' ? '$px' : '$0'}
+          borderBottomColor="$borderSubdued"
+        >
           {tabs.map((tab) => {
             const isFocused = activeTab === tab.key;
             return (
@@ -29,12 +39,18 @@ function OrderInfoSubTabs<T extends string>({
                 key={tab.key}
                 alignItems="center"
                 justifyContent="center"
-                px="$2.5"
-                py="$1.5"
-                borderRadius="$full"
+                px={variant === 'underline' ? '$0' : '$2.5'}
+                py={variant === 'underline' ? '$2.5' : '$1.5'}
+                borderRadius={variant === 'underline' ? '$0' : '$full'}
                 userSelect="none"
                 cursor="pointer"
-                backgroundColor={isFocused ? '$bgActive' : '$transparent'}
+                backgroundColor={
+                  variant === 'pill' && isFocused ? '$bgActive' : '$transparent'
+                }
+                borderBottomWidth={
+                  variant === 'underline' && isFocused ? '$px' : '$0'
+                }
+                borderBottomColor="$borderActive"
                 onPress={() => onChange(tab.key)}
               >
                 <SizableText
