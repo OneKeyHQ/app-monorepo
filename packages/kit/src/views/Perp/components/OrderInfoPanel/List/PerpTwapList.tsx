@@ -3,7 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import {
+  Button,
   type IDebugRenderTrackerProps,
+  Icon,
+  Illustration,
   SizableText,
   Toast,
   XStack,
@@ -35,6 +38,8 @@ import type {
   ITwapState,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { PerpTestIDs } from '../../../testIDs';
+import { buildHelpUrl, openGuideUrl } from '../../Guide/perpGuideData';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
 import {
   calcCellAlign,
@@ -49,6 +54,7 @@ import {
 } from './CommonTableListView';
 
 const TWAP_PAGE_SIZE = 40;
+const TWAP_TABLE_ROW_MIN_HEIGHT = 48;
 
 type ITwapPanelTab = 'active' | 'history' | 'fills';
 
@@ -75,19 +81,16 @@ const TWAP_ORDERS_SUB_TABS: Array<{ key: ITwapPanelTab; label: string }> = [
 
 const TWAP_EMPTY_STATE_MAP: Record<
   ITwapPanelTab,
-  { title: string; description: string }
+  { title: string; description?: string }
 > = {
   active: {
     title: 'No active TWAP',
-    description: 'Your active TWAP orders will appear here.',
   },
   history: {
     title: 'No TWAP history',
-    description: 'Your TWAP history will appear here.',
   },
   fills: {
     title: 'No TWAP fill history',
-    description: 'Your TWAP fill history will appear here.',
   },
 };
 
@@ -253,22 +256,53 @@ function TwapEmptyState({
   description,
 }: {
   title: string;
-  description: string;
+  description?: string;
 }) {
+  const handleGuidePress = useCallback(() => {
+    openGuideUrl(buildHelpUrl('articles/13988742'));
+  }, []);
+
   return (
     <YStack
       flex={1}
       alignItems="center"
       justifyContent="center"
       minHeight={240}
-      gap="$2"
+      px="$5"
+      py="$6"
     >
-      <SizableText size="$bodyMdMedium" color="$text">
-        {title}
-      </SizableText>
-      <SizableText size="$bodySm" color="$textSubdued">
-        {description}
-      </SizableText>
+      <YStack width="100%" maxWidth={420} gap="$3" alignItems="center">
+        <Illustration name="Orders" size={100} mb={-24} />
+        <SizableText size="$bodyMdMedium" color="$text" textAlign="center">
+          {title}
+        </SizableText>
+        {description ? (
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            textAlign="center"
+            maxWidth={360}
+          >
+            {description}
+          </SizableText>
+        ) : null}
+        <Button
+          testID={PerpTestIDs.TwapEmptyGuideButton}
+          width={180}
+          borderRadius="$full"
+          size="small"
+          h={28}
+          px="$3"
+          variant="secondary"
+          onPress={handleGuidePress}
+          childrenAsText={false}
+        >
+          <XStack gap="$1.5" alignItems="center">
+            <Icon name="BookOpenOutline" size="$4" />
+            <SizableText size="$bodySmMedium">TWAP Trading Guide</SizableText>
+          </XStack>
+        </Button>
+      </YStack>
     </YStack>
   );
 }
@@ -315,6 +349,7 @@ function TwapActiveRow({
       backgroundColor={bgColor}
       onHoverIn={() => onHoverChange?.(index)}
       onHoverOut={() => onHoverChange?.(null)}
+      minHeight={TWAP_TABLE_ROW_MIN_HEIGHT}
       minWidth={renderMode === 'full' ? cellMinWidth : undefined}
     >
       {shouldRenderLeft ? (
@@ -452,6 +487,7 @@ function TwapHistoryRow({
       backgroundColor={bgColor}
       onHoverIn={() => onHoverChange?.(index)}
       onHoverOut={() => onHoverChange?.(null)}
+      minHeight={TWAP_TABLE_ROW_MIN_HEIGHT}
       minWidth={renderMode === 'full' ? cellMinWidth : undefined}
     >
       {shouldRenderLeft ? (
@@ -588,6 +624,7 @@ function TwapFillRow({
       backgroundColor={bgColor}
       onHoverIn={() => onHoverChange?.(index)}
       onHoverOut={() => onHoverChange?.(null)}
+      minHeight={TWAP_TABLE_ROW_MIN_HEIGHT}
       minWidth={renderMode === 'full' ? cellMinWidth : undefined}
     >
       {shouldRenderLeft ? (

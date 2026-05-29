@@ -149,8 +149,8 @@ const SCALE_AMOUNT_DISTRIBUTION_OPTIONS = [
   label: string;
   value: IScaleOrderSizeDistribution;
 }[];
-const SCALE_INCREASING_DISTRIBUTION_HELPER_TEXT =
-  'Increasing places larger orders at better prices — lower for buys, higher for sells.';
+const SCALE_AMOUNT_DISTRIBUTION_HELPER_TEXT =
+  'Fixed uses equal order sizes. Increasing places larger orders at better prices: lower for buys, higher for sells.';
 
 function clampTwapDurationMinutes(minutes: number) {
   if (Number.isNaN(minutes) || minutes <= 0) {
@@ -664,9 +664,12 @@ function PerpTradingForm({
       !upperPrice.isFinite() ||
       upperPrice.lte(0)
     ) {
+      if (!hasPriceInput) {
+        return undefined;
+      }
       return {
         text: 'Enter a valid scale price range',
-        tone: hasPriceInput ? ('error' as const) : ('helper' as const),
+        tone: 'error' as const,
       };
     }
     if (lowerPrice.eq(upperPrice)) {
@@ -754,7 +757,7 @@ function PerpTradingForm({
       !midPriceBN.isFinite() ||
       midPriceBN.lte(0)
     ) {
-      return TWAP_HELPER_TEXT;
+      return undefined;
     }
 
     const estimatedSlices = Math.max(
@@ -772,7 +775,7 @@ function PerpTradingForm({
       return TWAP_SMALL_SLICE_HELPER_TEXT;
     }
 
-    return TWAP_HELPER_TEXT;
+    return undefined;
   }, [
     formData.twapDurationMinutes,
     isTwapMode,
@@ -1327,9 +1330,45 @@ function PerpTradingForm({
       const scaleSizeDistribution = formData.scaleSizeDistribution ?? 'fixed';
       return (
         <YStack gap="$1.5">
-          <SizableText size="$bodySmMedium" color="$textSubdued">
-            Amount Distribution
-          </SizableText>
+          {isMobile ? (
+            <Popover
+              renderContent={() => (
+                <YStack px="$5" pt="$2" pb="$4">
+                  <SizableText size="$bodyMd">
+                    {SCALE_AMOUNT_DISTRIBUTION_HELPER_TEXT}
+                  </SizableText>
+                </YStack>
+              )}
+              renderTrigger={
+                <DashText
+                  size="$bodySmMedium"
+                  color="$textSubdued"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                >
+                  Amount Distribution
+                </DashText>
+              }
+              title="Amount Distribution"
+              placement="bottom-start"
+            />
+          ) : (
+            <Tooltip
+              renderContent={SCALE_AMOUNT_DISTRIBUTION_HELPER_TEXT}
+              renderTrigger={
+                <DashText
+                  size="$bodySmMedium"
+                  color="$textSubdued"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                  cursor="help"
+                >
+                  Amount Distribution
+                </DashText>
+              }
+              placement="bottom-start"
+            />
+          )}
           <XStack gap="$4" alignItems="center" flexWrap="wrap">
             {SCALE_AMOUNT_DISTRIBUTION_OPTIONS.map((option) => {
               const checked = scaleSizeDistribution === option.value;
@@ -1375,11 +1414,6 @@ function PerpTradingForm({
               );
             })}
           </XStack>
-          {scaleSizeDistribution === 'increasing' ? (
-            <SizableText size="$bodySm" color="$textSubdued">
-              {SCALE_INCREASING_DISTRIBUTION_HELPER_TEXT}
-            </SizableText>
-          ) : null}
         </YStack>
       );
     }
@@ -1391,16 +1425,7 @@ function PerpTradingForm({
       return (
         <YStack gap={isMobile ? '$2.5' : '$3'}>
           <PriceInput
-            label="Lower Price"
-            onUseMidPrice={() => {
-              if (midPrice) {
-                updateForm({
-                  scaleLowerPrice: isSpot
-                    ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-                    : formatPriceToSignificantDigits(midPrice, sizeSzDecimals),
-                });
-              }
-            }}
+            label="Lower"
             placeholder={intl.formatMessage({
               id: ETranslations.perp_trade_price_place_holder,
             })}
@@ -1412,16 +1437,7 @@ function PerpTradingForm({
             disabled={isSubmitting}
           />
           <PriceInput
-            label="Upper Price"
-            onUseMidPrice={() => {
-              if (midPrice) {
-                updateForm({
-                  scaleUpperPrice: isSpot
-                    ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-                    : formatPriceToSignificantDigits(midPrice, sizeSzDecimals),
-                });
-              }
-            }}
+            label="Upper"
             placeholder={intl.formatMessage({
               id: ETranslations.perp_trade_price_place_holder,
             })}
@@ -1761,9 +1777,43 @@ function PerpTradingForm({
 
     return (
       <YStack gap="$3">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {TWAP_DURATION_LABEL}
-        </SizableText>
+        {isMobile ? (
+          <Popover
+            renderContent={() => (
+              <YStack px="$5" pt="$2" pb="$4">
+                <SizableText size="$bodyMd">{TWAP_HELPER_TEXT}</SizableText>
+              </YStack>
+            )}
+            renderTrigger={
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+              >
+                {TWAP_DURATION_LABEL}
+              </DashText>
+            }
+            title="Duration"
+            placement="bottom-start"
+          />
+        ) : (
+          <Tooltip
+            renderContent={TWAP_HELPER_TEXT}
+            renderTrigger={
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                cursor="help"
+              >
+                {TWAP_DURATION_LABEL}
+              </DashText>
+            }
+            placement="bottom-start"
+          />
+        )}
         <XStack gap="$2.5">
           {renderTwapDurationInput({
             field: 'hours',

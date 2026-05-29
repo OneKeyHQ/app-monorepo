@@ -242,6 +242,10 @@ function SideButtonInternal({
   ]);
 
   const buttonSecondaryText = useMemo(() => {
+    if (isMobile && formData.orderMode === 'scale') {
+      return null;
+    }
+
     if (orderValue.isZero() || !orderValue.isFinite()) return null;
 
     if (resolvedSizeInputUnit === 'usd') {
@@ -264,6 +268,8 @@ function SideButtonInternal({
     })();
     return `${sizeValue} ${displayName}`;
   }, [
+    formData.orderMode,
+    isMobile,
     orderValue,
     resolvedSizeInputUnit,
     computedSizeForSide,
@@ -283,6 +289,9 @@ function SideButtonInternal({
   }, [activeTradeInstrument, isSpot]);
 
   const buttonText = useMemo(() => {
+    if (isMobile && formData.orderMode === 'scale') {
+      return side === 'long' ? 'Preview Buy' : 'Preview Sell';
+    }
     if (priceError === 'bbo_unavailable')
       return intl.formatMessage({
         id: ETranslations.Perps_BBO_unavailable,
@@ -330,6 +339,8 @@ function SideButtonInternal({
       : intl.formatMessage({ id: ETranslations.perp_trade_short });
   }, [
     priceError,
+    formData.orderMode,
+    isMobile,
     isNoEnoughMargin,
     isSpot,
     side,
