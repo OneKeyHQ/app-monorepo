@@ -290,7 +290,9 @@ function SideButtonInternal({
 
   const buttonText = useMemo(() => {
     if (isMobile && formData.orderMode === 'scale') {
-      return side === 'long' ? 'Preview Buy' : 'Preview Sell';
+      return side === 'long'
+        ? intl.formatMessage({ id: ETranslations.perp_preview_buy__action })
+        : intl.formatMessage({ id: ETranslations.perp_preview_sell__action });
     }
     if (priceError === 'bbo_unavailable')
       return intl.formatMessage({
@@ -471,13 +473,17 @@ function SideButtonInternal({
           upperPrice.lte(0)
         ) {
           Toast.message({
-            title: 'Scale price range is required',
+            title: intl.formatMessage({
+              id: ETranslations.perp_scale_price_range_required__msg,
+            }),
           });
           return;
         }
         if (lowerPrice.eq(upperPrice)) {
           Toast.message({
-            title: 'Scale lower and upper prices must be different',
+            title: intl.formatMessage({
+              id: ETranslations.perp_scale_price_range_same__msg,
+            }),
           });
           return;
         }
@@ -489,7 +495,13 @@ function SideButtonInternal({
           orderCount > SCALE_ORDER_MAX_COUNT
         ) {
           Toast.message({
-            title: `Scale orders must be ${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT} orders`,
+            title: intl.formatMessage(
+              { id: ETranslations.perp_scale_order_count_range__msg },
+              {
+                min: SCALE_ORDER_MIN_COUNT,
+                max: SCALE_ORDER_MAX_COUNT,
+              },
+            ),
           });
           return;
         }
@@ -502,7 +514,13 @@ function SideButtonInternal({
           duration > TWAP_MAX_DURATION_MINUTES
         ) {
           Toast.message({
-            title: `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
+            title: intl.formatMessage(
+              { id: ETranslations.perp_twap_duration_range__msg },
+              {
+                min: TWAP_MIN_DURATION_MINUTES,
+                max: TWAP_MAX_DURATION_MINUTES,
+              },
+            ),
           });
           return;
         }
@@ -601,11 +619,19 @@ function SideButtonInternal({
           size: computedSizeForSide,
           positionSize: position?.szi,
           missingPositionMessage: isTwapMode
-            ? 'Reduce-only TWAP requires an opposite open position'
-            : 'Reduce-only scale requires an opposite open position',
+            ? intl.formatMessage({
+                id: ETranslations.perp_twap_reduce_only_opposite_position_required__msg,
+              })
+            : intl.formatMessage({
+                id: ETranslations.perp_scale_reduce_only_opposite_position_required__msg,
+              }),
           exceedsPositionMessage: isTwapMode
-            ? 'Reduce-only TWAP size exceeds the current position'
-            : 'Reduce-only scale size exceeds the current position',
+            ? intl.formatMessage({
+                id: ETranslations.perp_twap_reduce_only_size_exceeds_position__msg,
+              })
+            : intl.formatMessage({
+                id: ETranslations.perp_scale_reduce_only_size_exceeds_position__msg,
+              }),
         });
         if (reduceOnlyError) {
           Toast.message({ title: reduceOnlyError });

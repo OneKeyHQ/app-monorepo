@@ -40,7 +40,7 @@ export function MobileOpenOrdersListHeader({
   return (
     <XStack
       px="$5"
-      pt="$2.5"
+      pt="$1"
       justifyContent="space-between"
       alignItems="center"
       bg="$bgApp"
@@ -59,20 +59,21 @@ export function MobileOpenOrdersListHeader({
         onChange={handleFilterChange}
       />
 
-      {cancelableOrderCount > 0 ? (
-        <Button
-          testID="perp-btn"
-          size="small"
-          variant="secondary"
-          onPress={handleCancelAll}
-        >
-          <SizableText size="$bodyXs">
-            {intl.formatMessage({
-              id: ETranslations.perp_open_orders_cancel_all,
-            })}
-          </SizableText>
-        </Button>
-      ) : null}
+      <Button
+        testID="perp-btn"
+        size="small"
+        variant="secondary"
+        onPress={cancelableOrderCount > 0 ? handleCancelAll : undefined}
+        disabled={cancelableOrderCount === 0}
+        opacity={cancelableOrderCount > 0 ? 1 : 0}
+        pointerEvents={cancelableOrderCount > 0 ? 'auto' : 'none'}
+      >
+        <SizableText size="$bodyXs">
+          {intl.formatMessage({
+            id: ETranslations.perp_open_orders_cancel_all,
+          })}
+        </SizableText>
+      </Button>
     </XStack>
   );
 }

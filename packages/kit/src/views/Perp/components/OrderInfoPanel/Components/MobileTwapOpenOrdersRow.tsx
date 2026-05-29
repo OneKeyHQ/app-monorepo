@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -36,7 +36,7 @@ interface IMobileTwapOpenOrdersRowProps {
   onCancelOrder: () => void;
 }
 
-function formatElapsedDuration(ms: number) {
+function formatElapsedClock(ms: number) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -47,29 +47,58 @@ function formatElapsedDuration(ms: number) {
     .join(':');
 }
 
-function formatTotalDuration(minutes: number) {
+function formatTotalDuration(
+  minutes: number,
+  intl: ReturnType<typeof useIntl>,
+) {
+  const minuteUnit = intl
+    .formatMessage({ id: ETranslations.Limit_expire_minutes })
+    .toLowerCase();
+  const hourUnit = intl
+    .formatMessage({ id: ETranslations.Limit_expire_hour })
+    .toLowerCase();
+
   if (minutes < 60) {
-    return `${minutes}m`;
+    return `${minutes} ${minuteUnit}`;
   }
 
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
+  const hourText = `${hours} ${hourUnit}`;
   if (remainingMinutes === 0) {
-    return `${hours}h`;
+    return hourText;
   }
-  return `${hours}h ${remainingMinutes}m`;
+  return `${hourText} ${remainingMinutes} ${minuteUnit}`;
 }
 
-function MobileTwapInfoRow({ label, value }: { label: string; value: string }) {
+function MobileTwapInfoRow({
+  label,
+  value,
+  valueMinWidth,
+  tabularValue,
+}: {
+  label: string;
+  value: string;
+  valueMinWidth?: number;
+  tabularValue?: boolean;
+}) {
   return (
     <XStack width="100%" alignItems="center" justifyContent="space-between">
       <SizableText size="$bodySm">{label}</SizableText>
       <SizableText
         size="$bodySm"
+        minWidth={valueMinWidth}
         numberOfLines={1}
         ellipsizeMode="tail"
         textAlign="right"
         maxWidth="60%"
+        $platform-web={
+          tabularValue
+            ? {
+                fontVariantNumeric: 'tabular-nums',
+              }
+            : undefined
+        }
       >
         {value}
       </SizableText>
@@ -81,6 +110,13 @@ const MobileTwapOpenOrdersRow = memo(
   ({ order, onCancelOrder }: IMobileTwapOpenOrdersRowProps) => {
     const intl = useIntl();
     const { twapId, state } = order;
+    const [now, setNow] = useState(Date.now());
+
+    useEffect(() => {
+      const timer = setInterval(() => setNow(Date.now()), 1000);
+      return () => clearInterval(timer);
+    }, []);
+
     const assetSymbol = useMemo(
       () => parseDexCoin(state.coin).displayName,
       [state.coin],
@@ -122,26 +158,21 @@ const MobileTwapOpenOrdersRow = memo(
               progressPercent ? ` · ${progressPercent}%` : ''
             }`
           : `${state.executedSz} / ${state.sz}`;
-      const execution = `${state.minutes}m${
-        state.randomize ? ' · Random' : ''
-      }`;
-      const elapsedMs = Math.min(
-        Math.max(Date.now() - state.timestamp, 0),
-        state.minutes * 60_000,
-      );
+      const runningTime = `${formatElapsedClock(
+        now - state.timestamp,
+      )} / ${formatTotalDuration(state.minutes, intl)}`;
       return {
         progressText,
         avgPriceFormatted: avgPriceValue
           ? formatLocalizedNumberString(avgPriceValue)
           : '--',
         executedValueFormatted: numberFormat(state.executedNtl, valueFormatter),
-        execution,
-        runningTimeText: `${formatElapsedDuration(
-          elapsedMs,
-        )} / ${formatTotalDuration(state.minutes)}`,
-        reduceOnlyText: state.reduceOnly ? 'Yes' : 'No',
+        runningTime,
+        reduceOnlyText: state.reduceOnly
+          ? intl.formatMessage({ id: ETranslations.perp_yes__title })
+          : intl.formatMessage({ id: ETranslations.perp_no__title }),
       };
-    }, [state]);
+    }, [intl, now, state]);
 
     const sideText = useMemo(() => {
       if (state.side === 'B') {
@@ -174,7 +205,9 @@ const MobileTwapOpenOrdersRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
               >
-                {`TWAP / ${sideText}`}
+                {`${intl.formatMessage({
+                  id: ETranslations.perp_twap_order__title,
+                })} / ${sideText}`}
               </SizableText>
               <SizableText
                 size="$bodySm"
@@ -199,29 +232,38 @@ const MobileTwapOpenOrdersRow = memo(
             </SizableText>
           </Button>
         </XStack>
-        <YStack width="100%" gap="$2">
-          <MobileTwapInfoRow
-            label="Filled / Total"
-            value={baseInfo.progressText}
-          />
-          <MobileTwapInfoRow label="Duration" value={baseInfo.execution} />
-          <MobileTwapInfoRow
-            label="Avg. Filled Price"
-            value={baseInfo.avgPriceFormatted}
-          />
-          <MobileTwapInfoRow
-            label="Total Trade Amt."
-            value={baseInfo.executedValueFormatted}
-          />
-          <MobileTwapInfoRow
-            label="Reduce Only"
-            value={baseInfo.reduceOnlyText}
-          />
-          <MobileTwapInfoRow
-            label="Running Time"
-            value={baseInfo.runningTimeText}
-          />
-        </YStack>
+        <MobileTwapInfoRow
+          label={intl.formatMessage({
+            id: ETranslations.perp_twap_filled_total__title,
+          })}
+          value={baseInfo.progressText}
+        />
+        <MobileTwapInfoRow
+          label={intl.formatMessage({
+            id: ETranslations.perp_twap_running_time_total__title,
+          })}
+          value={baseInfo.runningTime}
+          valueMinWidth={132}
+          tabularValue
+        />
+        <MobileTwapInfoRow
+          label={intl.formatMessage({
+            id: ETranslations.perp_twap_avg_filled_price__title,
+          })}
+          value={baseInfo.avgPriceFormatted}
+        />
+        <MobileTwapInfoRow
+          label={intl.formatMessage({
+            id: ETranslations.perp_twap_total_trade_amount__title,
+          })}
+          value={baseInfo.executedValueFormatted}
+        />
+        <MobileTwapInfoRow
+          label={intl.formatMessage({
+            id: ETranslations.perps_reduce_only,
+          })}
+          value={baseInfo.reduceOnlyText}
+        />
       </ListItem>
     );
   },

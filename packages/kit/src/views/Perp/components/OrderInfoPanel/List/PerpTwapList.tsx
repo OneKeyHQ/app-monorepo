@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { type IntlShape, useIntl } from 'react-intl';
 
 import {
   Button,
@@ -21,6 +22,7 @@ import {
   usePerpsTwapSliceFillsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -73,24 +75,27 @@ const valueFormatter: INumberFormatProps = {
   },
 };
 
-const TWAP_ORDERS_SUB_TABS: Array<{ key: ITwapPanelTab; label: string }> = [
-  { key: 'active', label: 'Active' },
-  { key: 'history', label: 'History' },
-  { key: 'fills', label: 'Fill History' },
+const TWAP_ORDERS_SUB_TABS: Array<{
+  key: ITwapPanelTab;
+  labelId: ETranslations;
+}> = [
+  { key: 'active', labelId: ETranslations.perp_twap_active__title },
+  { key: 'history', labelId: ETranslations.perp_twap_history__title },
+  { key: 'fills', labelId: ETranslations.perp_twap_fill_history__title },
 ];
 
 const TWAP_EMPTY_STATE_MAP: Record<
   ITwapPanelTab,
-  { title: string; description?: string }
+  { titleId: ETranslations; description?: string }
 > = {
   active: {
-    title: 'No active TWAP',
+    titleId: ETranslations.perp_no_active_twap__title,
   },
   history: {
-    title: 'No TWAP history',
+    titleId: ETranslations.perp_no_twap_history__title,
   },
   fills: {
-    title: 'No TWAP fill history',
+    titleId: ETranslations.perp_no_twap_fill_history__title,
   },
 };
 
@@ -101,9 +106,7 @@ function formatTwapDateTime(timestamp: number) {
   return {
     date,
     time,
-    inline: `${formatTime(timeDate, {
-      formatTemplate: 'M/d/yyyy',
-    })} - ${time}`,
+    inline: date,
   };
 }
 
@@ -120,22 +123,70 @@ function formatElapsedDuration(ms: number) {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
+  if (hours > 0) {
+    return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
+  }
+  return `${seconds}s`;
+}
+
+function formatElapsedClock(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
   return [hours, minutes, seconds]
     .map((value) => String(value).padStart(2, '0'))
     .join(':');
 }
 
-function formatTotalDuration(minutes: number) {
+function formatTotalDuration(minutes: number, intl: IntlShape) {
+  const minuteUnit = intl
+    .formatMessage({ id: ETranslations.Limit_expire_minutes })
+    .toLowerCase();
+  const hourUnit = intl
+    .formatMessage({ id: ETranslations.Limit_expire_hour })
+    .toLowerCase();
+
   if (minutes < 60) {
-    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+    return `${minutes} ${minuteUnit}`;
   }
 
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
+  const hourText = `${hours} ${hourUnit}`;
   if (remainingMinutes === 0) {
-    return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+    return hourText;
   }
-  return `${hours}h ${remainingMinutes}m`;
+  return `${hourText} ${remainingMinutes} ${minuteUnit}`;
+}
+
+function getTwapStatusText({
+  status,
+  description,
+  intl,
+}: {
+  status: ITwapHistoryRecord['status']['status'];
+  description?: string;
+  intl: IntlShape;
+}) {
+  const statusTextMap: Record<
+    ITwapHistoryRecord['status']['status'],
+    ETranslations
+  > = {
+    activated: ETranslations.perp_twap_status_activated__title,
+    error: ETranslations.perp_twap_status_error__title,
+    finished: ETranslations.perp_twap_status_finished__title,
+    terminated: ETranslations.perp_twap_status_terminated__title,
+  };
+  const statusText = intl.formatMessage({ id: statusTextMap[status] });
+  if (status === 'error' && description) {
+    return `${statusText}: ${description}`;
+  }
+  return statusText;
 }
 
 function getTableRowBgColor({
@@ -168,10 +219,12 @@ function getTwapBaseInfo({
   state,
   now,
   endTime,
+  intl,
 }: {
   state: ITwapState;
   now: number;
   endTime?: number;
+  intl: IntlShape;
 }) {
   const executedSize = new BigNumber(state.executedSz);
   const totalSize = new BigNumber(state.sz);
@@ -189,11 +242,7 @@ function getTwapBaseInfo({
     executedSize.toFixed(),
     balanceFormatter,
   );
-  const totalMs = state.minutes * 60_000;
-  const elapsedMs = Math.min(
-    Math.max((endTime ?? now) - state.timestamp, 0),
-    totalMs,
-  );
+  const elapsedMs = Math.max((endTime ?? now) - state.timestamp, 0);
 
   return {
     assetSymbol,
@@ -204,10 +253,13 @@ function getTwapBaseInfo({
     avgPriceFormatted: avgPriceValue
       ? formatLocalizedNumberString(avgPriceValue)
       : '--',
-    runningTimeText: `${formatElapsedDuration(elapsedMs)} / ${formatTotalDuration(
-      state.minutes,
-    )}`,
-    reduceOnlyText: state.reduceOnly ? 'Yes' : 'No',
+    runningTimeText: formatElapsedDuration(elapsedMs),
+    activeRunningTimeText: `${formatElapsedClock(
+      elapsedMs,
+    )} / ${formatTotalDuration(state.minutes, intl)}`,
+    reduceOnlyText: state.reduceOnly
+      ? intl.formatMessage({ id: ETranslations.perp_yes__title })
+      : intl.formatMessage({ id: ETranslations.perp_no__title }),
   };
 }
 
@@ -252,12 +304,13 @@ function getFillDirectionInfo(fill: IFill) {
 }
 
 function TwapEmptyState({
-  title,
+  titleId,
   description,
 }: {
-  title: string;
+  titleId: ETranslations;
   description?: string;
 }) {
+  const intl = useIntl();
   const handleGuidePress = useCallback(() => {
     openGuideUrl(buildHelpUrl('articles/13988742'));
   }, []);
@@ -274,7 +327,7 @@ function TwapEmptyState({
       <YStack width="100%" maxWidth={420} gap="$3" alignItems="center">
         <Illustration name="Orders" size={100} mb={-24} />
         <SizableText size="$bodyMdMedium" color="$text" textAlign="center">
-          {title}
+          {intl.formatMessage({ id: titleId })}
         </SizableText>
         {description ? (
           <SizableText
@@ -299,7 +352,11 @@ function TwapEmptyState({
         >
           <XStack gap="$1.5" alignItems="center">
             <Icon name="BookOpenOutline" size="$4" />
-            <SizableText size="$bodySmMedium">TWAP Trading Guide</SizableText>
+            <SizableText size="$bodySmMedium">
+              {intl.formatMessage({
+                id: ETranslations.perp_twap_trading_guide__action,
+              })}
+            </SizableText>
           </XStack>
         </Button>
       </YStack>
@@ -328,9 +385,13 @@ function TwapActiveRow({
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
 }) {
+  const intl = useIntl();
   const { state } = order;
   const sideInfo = useMemo(() => getTwapSideInfo(state), [state]);
-  const baseInfo = useMemo(() => getTwapBaseInfo({ state, now }), [now, state]);
+  const baseInfo = useMemo(
+    () => getTwapBaseInfo({ state, now, intl }),
+    [intl, now, state],
+  );
   const creationTime = useMemo(
     () => formatTwapDateTime(state.timestamp),
     [state.timestamp],
@@ -395,7 +456,15 @@ function TwapActiveRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[4].align)}
           >
-            <SizableText size="$bodySm">{baseInfo.runningTimeText}</SizableText>
+            <SizableText
+              size="$bodySm"
+              minWidth={132}
+              $platform-web={{
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {baseInfo.activeRunningTimeText}
+            </SizableText>
           </YStack>
           <XStack
             {...getColumnStyle(columnConfigs[5])}
@@ -427,7 +496,9 @@ function TwapActiveRow({
             fontWeight={400}
             onPress={onTerminate}
           >
-            Terminate
+            {intl.formatMessage({
+              id: ETranslations.perp_twap_terminate__action,
+            })}
           </SizableText>
         </XStack>
       ) : null}
@@ -454,6 +525,7 @@ function TwapHistoryRow({
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
 }) {
+  const intl = useIntl();
   const { state } = record;
   const endTime =
     record.status.status === 'activated'
@@ -461,18 +533,22 @@ function TwapHistoryRow({
       : normalizeEpochMs(record.time);
   const sideInfo = useMemo(() => getTwapSideInfo(state), [state]);
   const baseInfo = useMemo(
-    () => getTwapBaseInfo({ state, now, endTime }),
-    [endTime, now, state],
+    () => getTwapBaseInfo({ state, now, endTime, intl }),
+    [endTime, intl, now, state],
   );
   const creationTime = useMemo(
     () => formatTwapDateTime(state.timestamp),
     [state.timestamp],
   );
-  const statusText =
-    record.status.status === 'error'
-      ? `Error${record.status.description ? `: ${record.status.description}` : ''}`
-      : record.status.status.charAt(0).toUpperCase() +
-        record.status.status.slice(1);
+  const statusText = useMemo(() => {
+    const description =
+      record.status.status === 'error' ? record.status.description : undefined;
+    return getTwapStatusText({
+      status: record.status.status,
+      description,
+      intl,
+    });
+  }, [intl, record.status]);
   const bgColor = getTableRowBgColor({ isHovered, index });
   const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
   const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
@@ -699,6 +775,7 @@ function TwapFillRow({
 }
 
 function PerpTwapList() {
+  const intl = useIntl();
   const actions = useHyperliquidActions();
   const [
     { accountAddress: activeTwapAccountAddress, twapOrders: rawTwapOrders },
@@ -720,6 +797,14 @@ function PerpTwapList() {
     setCurrentListPage(1);
   }, [activeTab]);
 
+  useEffect(() => {
+    if (activeTab !== 'active') {
+      return undefined;
+    }
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [activeTab]);
+
   const currentAccountAddress = currentUser?.accountAddress?.toLowerCase();
 
   const twapOrders = useMemo(() => {
@@ -731,14 +816,6 @@ function PerpTwapList() {
     }
     return rawTwapOrders;
   }, [activeTwapAccountAddress, currentAccountAddress, rawTwapOrders]);
-
-  useEffect(() => {
-    if (activeTab !== 'active' || twapOrders.length === 0) {
-      return undefined;
-    }
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [activeTab, twapOrders.length]);
 
   const historyRows = useMemo(() => {
     if (
@@ -764,79 +841,157 @@ function PerpTwapList() {
 
   const twapColumns: IColumnConfig[] = useMemo(
     () => [
-      { key: 'coin', title: 'Coin', minWidth: 120, flex: 1, align: 'left' },
-      { key: 'size', title: 'Size', minWidth: 110, flex: 1, align: 'left' },
+      {
+        key: 'coin',
+        title: intl.formatMessage({
+          id: ETranslations.perp_token_selector_asset,
+        }),
+        minWidth: 120,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'size',
+        title: intl.formatMessage({
+          id: ETranslations.perp_open_orders_size,
+        }),
+        minWidth: 110,
+        flex: 1,
+        align: 'left',
+      },
       {
         key: 'executedSize',
-        title: 'Executed Size',
+        title: intl.formatMessage({
+          id: ETranslations.perp_executed_size__title,
+        }),
         minWidth: 130,
         flex: 1,
         align: 'left',
       },
       {
         key: 'averagePrice',
-        title: 'Average Price',
+        title: intl.formatMessage({
+          id: ETranslations.perp_average_price__title,
+        }),
         minWidth: 140,
         flex: 1,
         align: 'left',
       },
       {
         key: 'runningTime',
-        title: 'Running Time / Total',
+        title: intl.formatMessage({
+          id:
+            activeTab === 'active'
+              ? ETranslations.perp_twap_running_time_total__title
+              : ETranslations.perp_twap_running_time__title,
+        }),
         minWidth: 170,
         flex: 1,
         align: 'left',
       },
       {
         key: 'reduceOnly',
-        title: 'Reduce Only',
+        title: intl.formatMessage({
+          id: ETranslations.perps_reduce_only,
+        }),
         minWidth: 120,
         flex: 1,
         align: 'left',
       },
       {
         key: 'creationTime',
-        title: 'Creation Time',
+        title: intl.formatMessage({
+          id: ETranslations.perp_creation_time__title,
+        }),
         minWidth: 150,
         flex: 1,
         align: 'left',
       },
       {
         key: activeTab === 'active' ? 'terminate' : 'status',
-        title: activeTab === 'active' ? 'Terminate' : 'Status',
+        title:
+          activeTab === 'active'
+            ? intl.formatMessage({
+                id: ETranslations.perp_account_action,
+              })
+            : intl.formatMessage({ id: ETranslations.global_status }),
         minWidth: activeTab === 'active' ? 100 : 130,
         flex: 1,
         align: 'right',
         fixed: true,
       },
     ],
-    [activeTab],
+    [activeTab, intl],
   );
 
   const fillColumns: IColumnConfig[] = useMemo(
     () => [
-      { key: 'time', title: 'Time', minWidth: 130, flex: 1, align: 'left' },
-      { key: 'coin', title: 'Coin', minWidth: 100, flex: 1, align: 'left' },
+      {
+        key: 'time',
+        title: intl.formatMessage({
+          id: ETranslations.perp_open_orders_time,
+        }),
+        minWidth: 130,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'coin',
+        title: intl.formatMessage({
+          id: ETranslations.perp_token_selector_asset,
+        }),
+        minWidth: 100,
+        flex: 1,
+        align: 'left',
+      },
       {
         key: 'direction',
-        title: 'Direction',
+        title: intl.formatMessage({
+          id: ETranslations.perp_direction__title,
+        }),
         minWidth: 120,
         flex: 1,
         align: 'left',
       },
-      { key: 'price', title: 'Price', minWidth: 110, flex: 1, align: 'left' },
-      { key: 'size', title: 'Size', minWidth: 110, flex: 1, align: 'left' },
-      { key: 'value', title: 'Value', minWidth: 120, flex: 1, align: 'left' },
-      { key: 'fee', title: 'Fee', minWidth: 110, flex: 1, align: 'left' },
+      {
+        key: 'price',
+        title: intl.formatMessage({ id: ETranslations.global_price }),
+        minWidth: 110,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'size',
+        title: intl.formatMessage({
+          id: ETranslations.perp_open_orders_size,
+        }),
+        minWidth: 110,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'value',
+        title: intl.formatMessage({ id: ETranslations.global_value }),
+        minWidth: 120,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'fee',
+        title: intl.formatMessage({ id: ETranslations.perp_fee__title }),
+        minWidth: 110,
+        flex: 1,
+        align: 'left',
+      },
       {
         key: 'twapId',
-        title: 'TWAP ID',
+        title: intl.formatMessage({ id: ETranslations.perp_twap_id__title }),
         minWidth: 100,
         flex: 1,
         align: 'left',
       },
     ],
-    [],
+    [intl],
   );
 
   const activeMinWidth = useMemo(
@@ -865,7 +1020,11 @@ function PerpTwapList() {
             coin: order.state.coin,
           });
         if (!symbolMeta) {
-          Toast.message({ title: 'Token info not found' });
+          Toast.message({
+            title: intl.formatMessage({
+              id: ETranslations.perp_token_info_not_found__msg,
+            }),
+          });
           return;
         }
         await actions.current
@@ -879,11 +1038,13 @@ function PerpTwapList() {
           title:
             error instanceof Error
               ? error.message
-              : 'Failed to terminate TWAP order',
+              : intl.formatMessage({
+                  id: ETranslations.perp_failed_terminate_twap_order__msg,
+                }),
         });
       }
     },
-    [actions],
+    [actions, intl],
   );
 
   const refreshTwapData = useCallback(async () => {
@@ -965,20 +1126,28 @@ function PerpTwapList() {
   );
 
   const emptyState = TWAP_EMPTY_STATE_MAP[activeTab];
+  const twapOrderSubTabs = useMemo(
+    () =>
+      TWAP_ORDERS_SUB_TABS.map((tab) => ({
+        key: tab.key,
+        label: intl.formatMessage({ id: tab.labelId }),
+      })),
+    [intl],
+  );
   const listEmptyComponent = useMemo(
     () => (
       <TwapEmptyState
-        title={emptyState.title}
+        titleId={emptyState.titleId}
         description={emptyState.description}
       />
     ),
-    [emptyState.description, emptyState.title],
+    [emptyState.description, emptyState.titleId],
   );
 
   return (
     <YStack flex={1}>
       <OrderInfoSubTabs
-        tabs={TWAP_ORDERS_SUB_TABS}
+        tabs={twapOrderSubTabs}
         activeTab={activeTab}
         onChange={setActiveTab}
         variant="underline"
