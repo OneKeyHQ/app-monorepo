@@ -28,8 +28,40 @@ describe('shouldShowPerpsOrderPanelTradingButtons', () => {
             abstractionOk: false,
           },
         },
+        enableTradingMode: {
+          canAutoEnableInOrderPanel: false,
+          requiresEnableTradingDialogInOrderPanel: true,
+        },
       }),
     ).toBe(true);
+  });
+
+  it('keeps non-auto-enable accounts on the fallback CTA path', () => {
+    expect(
+      shouldShowPerpsOrderPanelTradingButtons({
+        canShowCachedTradingButtons: false,
+        statusReady: true,
+        selectAccountLoading: false,
+        accountStatus: {
+          accountAddress: '0xabc',
+          accountNotSupport: false,
+          canCreateAddress: false,
+          canTrade: false,
+          details: {
+            activatedOk: true,
+            agentOk: false,
+            builderFeeOk: false,
+            referralCodeOk: true,
+            internalRebateBoundOk: true,
+            abstractionOk: false,
+          },
+        },
+        enableTradingMode: {
+          canAutoEnableInOrderPanel: false,
+          requiresEnableTradingDialogInOrderPanel: false,
+        },
+      }),
+    ).toBe(false);
   });
 
   it('keeps the fallback button for unsupported or address-creation states', () => {
@@ -45,6 +77,10 @@ describe('shouldShowPerpsOrderPanelTradingButtons', () => {
           canTrade: false,
           details: undefined,
         },
+        enableTradingMode: {
+          canAutoEnableInOrderPanel: true,
+          requiresEnableTradingDialogInOrderPanel: false,
+        },
       }),
     ).toBe(false);
 
@@ -59,6 +95,10 @@ describe('shouldShowPerpsOrderPanelTradingButtons', () => {
           canCreateAddress: true,
           canTrade: false,
           details: undefined,
+        },
+        enableTradingMode: {
+          canAutoEnableInOrderPanel: true,
+          requiresEnableTradingDialogInOrderPanel: false,
         },
       }),
     ).toBe(false);

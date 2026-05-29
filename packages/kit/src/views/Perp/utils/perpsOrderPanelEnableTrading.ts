@@ -13,16 +13,23 @@ export type IPerpsOrderPanelEnableTradingStep = {
   requiresSignature: boolean;
 };
 
+export type IPerpsOrderPanelEnableTradingMode = {
+  canAutoEnableInOrderPanel: boolean;
+  requiresEnableTradingDialogInOrderPanel: boolean;
+};
+
 export function shouldShowPerpsOrderPanelTradingButtons({
   canShowCachedTradingButtons,
   statusReady,
   selectAccountLoading,
   accountStatus,
+  enableTradingMode,
 }: {
   canShowCachedTradingButtons: boolean;
   statusReady: boolean;
   selectAccountLoading: boolean;
   accountStatus: IPerpsActiveAccountStatusAtom;
+  enableTradingMode: IPerpsOrderPanelEnableTradingMode;
 }) {
   if (canShowCachedTradingButtons) {
     return true;
@@ -33,7 +40,10 @@ export function shouldShowPerpsOrderPanelTradingButtons({
     statusReady &&
     Boolean(accountStatus.accountAddress) &&
     !accountStatus.accountNotSupport &&
-    !accountStatus.canCreateAddress
+    !accountStatus.canCreateAddress &&
+    (Boolean(accountStatus.canTrade) ||
+      enableTradingMode.canAutoEnableInOrderPanel ||
+      enableTradingMode.requiresEnableTradingDialogInOrderPanel)
   );
 }
 

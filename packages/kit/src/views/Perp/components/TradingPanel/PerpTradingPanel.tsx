@@ -16,6 +16,7 @@ import {
   usePerpsAccountDisplaySnapshotAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
+  usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsComputedAccountValueAtom,
@@ -178,6 +179,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [perpsActiveAccount] = usePerpsActiveAccountAtom();
   const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
   const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
+  const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [tradingMode] = useTradingModeAtom();
   const [isSubmitting] = useTradingLoadingAtom();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
@@ -268,10 +270,12 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       statusReady: displayReady.statusReady,
       selectAccountLoading: perpsAccountLoading.selectAccountLoading,
       accountStatus: perpsAccountStatus,
+      enableTradingMode,
     });
   }, [
     canShowCachedTradingButtons,
     displayReady.statusReady,
+    enableTradingMode,
     perpsAccountLoading.selectAccountLoading,
     perpsAccountStatus,
   ]);

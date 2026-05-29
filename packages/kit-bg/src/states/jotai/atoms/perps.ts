@@ -486,6 +486,9 @@ export const {
   read: (get) => {
     const status = get(perpsActiveAccountStatusAtom.atom());
     const loading = get(perpsAccountLoadingInfoAtom.atom());
+    const enableTradingMode = get(
+      perpsActiveAccountEnableTradingModeAtom.atom(),
+    );
     const isAccountLoading =
       loading.enableTradingLoading || loading.selectAccountLoading;
 
@@ -493,7 +496,15 @@ export const {
       return true;
     }
 
-    return !status?.canTrade;
+    if (status.accountNotSupport) {
+      return true;
+    }
+
+    return !(
+      status.canTrade ||
+      enableTradingMode.canAutoEnableInOrderPanel ||
+      enableTradingMode.requiresEnableTradingDialogInOrderPanel
+    );
   },
 });
 
