@@ -1381,9 +1381,72 @@ function PerpTradingForm({
   const isTriggerLimitOrder =
     triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
 
-  const renderPriceInputSection = () => {
+  const renderScaleAmountDistributionSection = () => {
     if (isScaleMode) {
       const scaleSizeDistribution = formData.scaleSizeDistribution ?? 'fixed';
+      return (
+        <YStack gap="$1.5">
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            Amount Distribution
+          </SizableText>
+          <XStack gap="$4" alignItems="center" flexWrap="wrap">
+            {SCALE_AMOUNT_DISTRIBUTION_OPTIONS.map((option) => {
+              const checked = scaleSizeDistribution === option.value;
+              return (
+                <XStack
+                  key={option.value}
+                  alignItems="center"
+                  gap="$2"
+                  cursor={isSubmitting ? 'default' : 'pointer'}
+                  opacity={isSubmitting ? 0.5 : 1}
+                  onPress={() => {
+                    if (!isSubmitting) {
+                      updateForm({ scaleSizeDistribution: option.value });
+                    }
+                  }}
+                >
+                  <XStack
+                    w="$4"
+                    h="$4"
+                    borderRadius="$full"
+                    borderWidth={1.5}
+                    borderColor={checked ? '$borderActive' : '$borderStrong'}
+                    bg={checked ? '$bgPrimary' : 'transparent'}
+                    alignItems="center"
+                    justifyContent="center"
+                  >
+                    {checked ? (
+                      <XStack
+                        w="$2"
+                        h="$2"
+                        borderRadius="$full"
+                        bg="$iconInverse"
+                      />
+                    ) : null}
+                  </XStack>
+                  <SizableText
+                    size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                    color="$text"
+                  >
+                    {option.label}
+                  </SizableText>
+                </XStack>
+              );
+            })}
+          </XStack>
+          {scaleSizeDistribution === 'increasing' ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {SCALE_INCREASING_DISTRIBUTION_HELPER_TEXT}
+            </SizableText>
+          ) : null}
+        </YStack>
+      );
+    }
+    return null;
+  };
+
+  const renderPriceInputSection = () => {
+    if (isScaleMode) {
       return (
         <YStack gap={isMobile ? '$2.5' : '$3'}>
           <PriceInput
@@ -1441,61 +1504,6 @@ function PerpTradingForm({
             isMobile={isMobile}
             disabled={isSubmitting}
           />
-          <YStack gap="$1.5">
-            <SizableText size="$bodySmMedium" color="$textSubdued">
-              Amount Distribution
-            </SizableText>
-            <XStack gap="$4" alignItems="center" flexWrap="wrap">
-              {SCALE_AMOUNT_DISTRIBUTION_OPTIONS.map((option) => {
-                const checked = scaleSizeDistribution === option.value;
-                return (
-                  <XStack
-                    key={option.value}
-                    alignItems="center"
-                    gap="$2"
-                    cursor={isSubmitting ? 'default' : 'pointer'}
-                    opacity={isSubmitting ? 0.5 : 1}
-                    onPress={() => {
-                      if (!isSubmitting) {
-                        updateForm({ scaleSizeDistribution: option.value });
-                      }
-                    }}
-                  >
-                    <XStack
-                      w="$4"
-                      h="$4"
-                      borderRadius="$full"
-                      borderWidth={1.5}
-                      borderColor={checked ? '$borderActive' : '$borderStrong'}
-                      bg={checked ? '$bgPrimary' : 'transparent'}
-                      alignItems="center"
-                      justifyContent="center"
-                    >
-                      {checked ? (
-                        <XStack
-                          w="$2"
-                          h="$2"
-                          borderRadius="$full"
-                          bg="$iconInverse"
-                        />
-                      ) : null}
-                    </XStack>
-                    <SizableText
-                      size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
-                      color="$text"
-                    >
-                      {option.label}
-                    </SizableText>
-                  </XStack>
-                );
-              })}
-            </XStack>
-            {scaleSizeDistribution === 'increasing' ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {SCALE_INCREASING_DISTRIBUTION_HELPER_TEXT}
-              </SizableText>
-            ) : null}
-          </YStack>
           {scaleOrderInputMessage ? (
             <SizableText
               size="$bodySm"
@@ -2484,6 +2492,8 @@ function PerpTradingForm({
           sliderHeight={isMobile ? 2 : 4}
         />
       </YStack>
+
+      {renderScaleAmountDistributionSection()}
 
       {isTwapMode ? renderTwapDurationSection() : null}
 
