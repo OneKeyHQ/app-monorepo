@@ -32,7 +32,10 @@ import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { PerpTestIDs } from '../../../testIDs';
-import { getPerpsDisplayLeverage } from '../../../utils/leverageDisplay';
+import {
+  getPerpsDisplayLeverage,
+  getPerpsFormLeverage,
+} from '../../../utils/leverageDisplay';
 import {
   CONTEXTUAL_ARTICLE_IDS,
   buildHelpUrl,
@@ -279,10 +282,15 @@ export const LeverageAdjustModal = memo(
       cachedLeverage,
       maxLeverage: currentToken?.universe?.maxLeverage,
     });
+    const liveFormLeverage = getPerpsFormLeverage({
+      isSpot: false,
+      liveLeverage: activeAssetData?.leverage?.value,
+    });
     const showLeverageDialog = useCallback(() => {
       if (!userAddress || !currentToken || !activeAssetData) return;
+      if (liveFormLeverage === undefined) return;
 
-      const initialValue = displayLeverage;
+      const initialValue = liveFormLeverage;
       const maxLeverage = currentToken?.universe?.maxLeverage || 25;
 
       const DialogInstance =
@@ -312,7 +320,7 @@ export const LeverageAdjustModal = memo(
       userAddress,
       currentToken,
       activeAssetData,
-      displayLeverage,
+      liveFormLeverage,
       dialog,
       intl,
     ]);

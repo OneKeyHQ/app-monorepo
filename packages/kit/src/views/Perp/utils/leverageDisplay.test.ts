@@ -59,6 +59,36 @@ describe('perps leverage display helpers', () => {
     ).toBeUndefined();
   });
 
+  it('rejects invalid live leverage in the trading form', () => {
+    [0, -5, Number.NaN, Number.POSITIVE_INFINITY].forEach((liveLeverage) => {
+      expect(
+        getPerpsFormLeverage({
+          isSpot: false,
+          liveLeverage,
+        }),
+      ).toBeUndefined();
+    });
+  });
+
+  it('falls back to 1 when no valid display leverage exists', () => {
+    expect(
+      getPerpsDisplayLeverage({
+        liveLeverage: Number.NaN,
+        cachedLeverage: -1,
+        maxLeverage: 0,
+      }),
+    ).toBe(1);
+  });
+
+  it('does not clamp a valid leverage down to an invalid maximum', () => {
+    expect(
+      getPerpsDisplayLeverage({
+        liveLeverage: 12,
+        maxLeverage: 0,
+      }),
+    ).toBe(12);
+  });
+
   it('uses spot leverage as 1', () => {
     expect(
       getPerpsFormLeverage({

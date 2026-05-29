@@ -25,4 +25,16 @@ describe('perps cold-start cache TTLs', () => {
   it('keeps trading-sensitive cache gates short-lived', () => {
     expect(PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS).toBe(30 * SECOND_MS);
   });
+
+  it('keeps trading interactivity much shorter than display caches', () => {
+    [
+      PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
+      PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
+      PERPS_ACTIVE_ASSET_CTX_COLD_CACHE_MAX_AGE_MS,
+      PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS,
+      PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS,
+    ].forEach((displayTtl) => {
+      expect(PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS).toBeLessThan(displayTtl);
+    });
+  });
 });

@@ -96,7 +96,13 @@ import {
   tradingLoadingAtom,
 } from './atoms';
 import { EActionType, withToast } from './utils';
-import { shouldUpdatePerpsL2Book } from './utils/l2BookUtils';
+import {
+  shouldClearPerpsMarketDataForInstrument,
+  shouldUpdatePerpsBbo,
+  shouldUpdatePerpsL2Book,
+  withPerpsBboLocalReceivedAt,
+  withPerpsL2BookLocalReceivedAt,
+} from './utils/l2BookUtils';
 
 import type {
   IActiveTradeInstrument,
@@ -156,7 +162,7 @@ function getFreshL2BookSnapshotFromSwr({
       entry?.data?.coin === coin &&
       Date.now() - entry.updatedAt <= PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS
     ) {
-      return entry.data;
+      return withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt);
     }
   }
   return undefined;
@@ -929,10 +935,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         bidLevels: data.levels?.[0]?.length ?? 0,
         askLevels: data.levels?.[1]?.length ?? 0,
       });
-      set(l2BookAtom(), data);
+      set(l2BookAtom(), withPerpsL2BookLocalReceivedAt(data));
     } else {
       const currentBook = get(l2BookAtom());
-      if (currentBook?.coin && currentBook?.coin !== activeCoin) {
+      if (
+        shouldClearPerpsMarketDataForInstrument({
+          dataCoin: currentBook?.coin,
+          activeCoin,
+        })
+      ) {
         set(l2BookAtom(), null);
       }
     }
@@ -946,37 +957,28 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
     if (activeCoin !== data.coin) {
       const currentBbo = get(bboAtom());
-      if (currentBbo?.coin && currentBbo?.coin !== activeCoin) {
+      if (
+        shouldClearPerpsMarketDataForInstrument({
+          dataCoin: currentBbo?.coin,
+          activeCoin,
+        })
+      ) {
         set(bboAtom(), null);
       }
       return;
     }
 
-    // Only update if price changes (ignore size and count changes)
     const currentBbo = get(bboAtom());
-    if (currentBbo) {
-      const currentBidPx = currentBbo.bbo[0]?.px;
-      const currentAskPx = currentBbo.bbo[1]?.px;
-      const newBidPx = data.bbo[0]?.px;
-      const newAskPx = data.bbo[1]?.px;
-
-      if (
-        currentBidPx !== null &&
-        currentBidPx !== undefined &&
-        currentAskPx !== null &&
-        currentAskPx !== undefined &&
-        newBidPx !== null &&
-        newBidPx !== undefined &&
-        newAskPx !== null &&
-        newAskPx !== undefined &&
-        currentBidPx === newBidPx &&
-        currentAskPx === newAskPx
-      ) {
-        return;
-      }
+    if (
+      !shouldUpdatePerpsBbo({
+        currentBbo,
+        nextBbo: data,
+      })
+    ) {
+      return;
     }
 
-    set(bboAtom(), data);
+    set(bboAtom(), withPerpsBboLocalReceivedAt(data));
   });
 
   ensureOrderBookTickOptionsLoaded = contextAtomMethod(async (_get, set) => {
@@ -1530,11 +1532,21 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   clearActiveAssetData = contextAtomMethod(async (get, set) => {
     const activeInstrument = get(activeTradeInstrumentAtom());
     const currentBook = get(l2BookAtom());
-    if (currentBook?.coin !== activeInstrument.coin) {
+    if (
+      shouldClearPerpsMarketDataForInstrument({
+        dataCoin: currentBook?.coin,
+        activeCoin: activeInstrument.coin,
+      })
+    ) {
       set(l2BookAtom(), null);
     }
     const currentBbo = get(bboAtom());
-    if (currentBbo?.coin !== activeInstrument.coin) {
+    if (
+      shouldClearPerpsMarketDataForInstrument({
+        dataCoin: currentBbo?.coin,
+        activeCoin: activeInstrument.coin,
+      })
+    ) {
       set(bboAtom(), null);
     }
     await perpsActiveAssetCtxAtom.set(undefined);
@@ -1550,6 +1562,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         tpGainPercent: '',
         slTriggerPx: '',
         slLossPercent: '',
+        leverage: undefined,
       }),
     );
   });

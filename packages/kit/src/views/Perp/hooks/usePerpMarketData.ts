@@ -4,6 +4,10 @@ import {
   useActiveTradeInstrumentAtom,
   useL2BookAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  getPerpsMarketDataLocalReceivedAt,
+  withPerpsL2BookLocalReceivedAt,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
 import { PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import {
   getPerpsL2BookSnapshotCacheKeys,
@@ -49,6 +53,7 @@ export interface ICurrentTokenData {
 export interface IL2BookData extends HL.IBook {
   bids: HL.IBookLevel[];
   asks: HL.IBookLevel[];
+  localReceivedAt?: number;
 }
 
 function getFreshL2BookSnapshotFromSwr({
@@ -70,7 +75,7 @@ function getFreshL2BookSnapshotFromSwr({
       entry?.data?.coin === coin &&
       Date.now() - entry.updatedAt <= PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS
     ) {
-      return entry.data;
+      return withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt);
     }
   }
 
@@ -140,6 +145,7 @@ export function useL2Book(options?: IL2BookOptions): {
       coin: bookData.coin,
       time: bookData.time,
       levels: bookData.levels,
+      localReceivedAt: getPerpsMarketDataLocalReceivedAt(bookData),
       bids: bids || [],
       asks: asks || [],
     };
@@ -166,11 +172,13 @@ export function useL2Book(options?: IL2BookOptions): {
 
   const isOrderBookInteractive = isPerpsL2BookInteractive({
     bookTime: l2Book?.time,
+    bookReceivedAt: l2Book?.localReceivedAt,
   });
 
   useEffect(() => {
     const refreshDelayMs = getPerpsL2BookInteractiveRefreshDelayMs({
       bookTime: l2Book?.time,
+      bookReceivedAt: l2Book?.localReceivedAt,
     });
     if (refreshDelayMs === undefined) {
       return undefined;
@@ -181,7 +189,7 @@ export function useL2Book(options?: IL2BookOptions): {
     }, refreshDelayMs);
 
     return () => clearTimeout(timer);
-  }, [l2Book?.time]);
+  }, [l2Book?.localReceivedAt, l2Book?.time]);
 
   const getBestBid = (): string | null => {
     if (!l2Book?.bids || l2Book.bids.length === 0) return null;

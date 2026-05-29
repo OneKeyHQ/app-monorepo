@@ -31,6 +31,48 @@ describe('isPerpsL2BookInteractive', () => {
         now,
       }),
     ).toBe(false);
+
+    expect(
+      isPerpsL2BookInteractive({
+        bookTime: undefined,
+        bookReceivedAt: now,
+        now,
+      }),
+    ).toBe(false);
+  });
+
+  it('uses local receive time for trading interactivity when available', () => {
+    expect(
+      isPerpsL2BookInteractive({
+        bookTime: now + 60_000,
+        bookReceivedAt: now - PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS - 1,
+        now,
+      }),
+    ).toBe(false);
+
+    expect(
+      isPerpsL2BookInteractive({
+        bookTime: now - 60_000,
+        bookReceivedAt: now - PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS,
+        now,
+      }),
+    ).toBe(true);
+  });
+
+  it('treats future server timestamps as interactive but keeps zero rejected', () => {
+    expect(
+      isPerpsL2BookInteractive({
+        bookTime: now + 5000,
+        now,
+      }),
+    ).toBe(true);
+
+    expect(
+      isPerpsL2BookInteractive({
+        bookTime: 0,
+        now,
+      }),
+    ).toBe(false);
   });
 
   it('schedules one refresh exactly when an interactive book expires', () => {
@@ -51,6 +93,24 @@ describe('isPerpsL2BookInteractive', () => {
     expect(
       getPerpsL2BookInteractiveRefreshDelayMs({
         bookTime: now - PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS - 1,
+        now,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('schedules refreshes from local receive time when available', () => {
+    expect(
+      getPerpsL2BookInteractiveRefreshDelayMs({
+        bookTime: now + 60_000,
+        bookReceivedAt: now - PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 500,
+        now,
+      }),
+    ).toBe(501);
+
+    expect(
+      getPerpsL2BookInteractiveRefreshDelayMs({
+        bookTime: now + 60_000,
+        bookReceivedAt: now - PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS - 1,
         now,
       }),
     ).toBeUndefined();

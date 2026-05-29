@@ -31,6 +31,7 @@ import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import { useL2Book } from '../hooks/usePerpMarketData';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
 import { useTradingPrice } from '../hooks/useTradingPrice';
+import { isPerpsL2BookInteractive } from '../utils/l2BookFreshness';
 import {
   type IPerpsMobileLayoutTraceRect,
   getPerpsMobileLayoutTraceRect,
@@ -568,6 +569,15 @@ export function PerpOrderBook({
 
   const handleLevelSelect = useCallback(
     (selection: IOrderBookSelection) => {
+      if (
+        !isPerpsL2BookInteractive({
+          bookTime: l2Book?.time,
+          bookReceivedAt: l2Book?.localReceivedAt,
+        })
+      ) {
+        return;
+      }
+
       const updates: Partial<ITradingFormData> = {
         price: selection.price,
       };
@@ -578,7 +588,7 @@ export function PerpOrderBook({
 
       actionsRef.current.updateTradingForm(updates);
     },
-    [actionsRef, formData.type],
+    [actionsRef, formData.type, l2Book?.localReceivedAt, l2Book?.time],
   );
 
   const mobileMaxLevelsPerSide = useMemo(() => {

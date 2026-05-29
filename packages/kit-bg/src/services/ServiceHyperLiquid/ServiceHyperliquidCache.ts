@@ -311,7 +311,10 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       simpleDbLevels: getL2BookSnapshotCacheEntryLevelCount(entry),
       swrLevels: getL2BookSnapshotCacheEntryLevelCount(swrEntry),
     });
-    return cacheEntry.data;
+    return {
+      ...cacheEntry.data,
+      localReceivedAt: cacheEntry.updatedAt,
+    } as IBook & { localReceivedAt?: number };
   }
 
   writeActiveAssetCtxSnapshotCache(data: IWsActiveAssetCtx) {

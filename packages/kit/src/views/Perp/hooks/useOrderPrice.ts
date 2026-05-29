@@ -7,9 +7,12 @@ import {
   useBboAtom,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { getPerpsMarketDataLocalReceivedAt } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
 import { getTriggerEffectivePrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
+
+import { isPerpsBboInteractive } from '../utils/l2BookFreshness';
 
 import { useTradingPrice } from './useTradingPrice';
 
@@ -39,6 +42,7 @@ export function calculateOrderPrice(
   triggerOrderType?: ETriggerOrderType,
   triggerPrice?: string,
   executionPrice?: string,
+  now = Date.now(),
 ): IUseOrderPriceReturn {
   // Trigger mode: use trigger effective price
   if (orderMode === 'trigger' && triggerOrderType) {
@@ -72,7 +76,16 @@ export function calculateOrderPrice(
   // Limit order with BBO mode
   if (formType === 'limit' && bboPriceMode && side) {
     // BBO mode is enabled, but BBO data is not available - this is an error state
-    if (!bbo?.bbo || !bbo.bbo[0] || !bbo.bbo[1]) {
+    if (
+      !bbo?.bbo ||
+      !bbo.bbo[0] ||
+      !bbo.bbo[1] ||
+      !isPerpsBboInteractive({
+        bboTime: bbo.time,
+        bboReceivedAt: getPerpsMarketDataLocalReceivedAt(bbo),
+        now,
+      })
+    ) {
       return {
         price: new BigNumber(0),
         isValid: false,
