@@ -9,6 +9,8 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
+import { resolveSiblingBalanceParsed } from './siblingBalanceUtils';
+
 export type ISiblingDeriveBalance = {
   accountId: string;
   account: INetworkAccount;
@@ -121,7 +123,7 @@ export function useSiblingDeriveBalances({
             // That is a real "0", not an error.
             if (!detail) return null;
 
-            const balanceParsed = detail.balanceParsed ?? '0';
+            const balanceParsed = resolveSiblingBalanceParsed(detail);
 
             return {
               accountId: account.id,
