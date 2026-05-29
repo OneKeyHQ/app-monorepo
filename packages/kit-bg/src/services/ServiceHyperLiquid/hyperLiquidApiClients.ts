@@ -7,14 +7,29 @@ import {
   // WebSocketTransport,
 } from '@nktkas/hyperliquid';
 
+import { createLoggedHyperLiquidClient } from './utils/logHyperLiquidApiFailure';
+
+const INFO_CLIENT_SOFT_FALLBACK_ACTIONS = new Set([
+  'allMids',
+  'perpsAtOpenInterestCap',
+]);
+
 class HyperLiquidApiClients {
   private _infoClient: InfoClient | null = null;
 
   get infoClient(): InfoClient {
     if (!this._infoClient) {
-      this._infoClient = new InfoClient({
-        transport: new HttpTransport(),
-      });
+      this._infoClient = createLoggedHyperLiquidClient(
+        new InfoClient({
+          transport: new HttpTransport(),
+        }),
+        {
+          endpoint: 'info',
+          extra: { source: 'hyperLiquidApiClients.infoClient' },
+          shouldLogFailure: ({ action }) =>
+            !INFO_CLIENT_SOFT_FALLBACK_ACTIONS.has(action),
+        },
+      );
     }
     return this._infoClient;
   }
