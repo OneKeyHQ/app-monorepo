@@ -4766,6 +4766,47 @@ class ServiceAccount extends ServiceBase {
     return info.address;
   }
 
+  // Batched variant: callers like useStakingPendingTxsByInfo iterate
+  // `accountMetaByNetwork` to resolve xpub + accountAddress for every
+  // (accountId, networkId) pair. The legacy pattern paid 2N BgTransport
+  // round-trips per dependency change (one per metric per network); this
+  // batch method collapses it to 1 bridge call regardless of pair count.
+  // Failures are isolated per pair so one bad network does not poison the
+  // whole batch — missing keys in the result indicate the pair couldn't be
+  // resolved (same semantics as the prior per-call `.catch(() => undefined)`).
+  @backgroundMethod()
+  async getAccountMetaForNetworksBatch({
+    pairs,
+  }: {
+    pairs: Array<{ accountId: string; networkId: string }>;
+  }): Promise<
+    Record<string, { xpub: string | undefined; accountAddress: string }>
+  > {
+    const result: Record<
+      string,
+      { xpub: string | undefined; accountAddress: string }
+    > = {};
+    await Promise.all(
+      pairs.map(async ({ accountId, networkId }) => {
+        try {
+          const xpubPromise = this.getAccountXpub({ accountId, networkId });
+          const addressInfoPromise = this.getAccountAddressInfoForApi({
+            accountId,
+            networkId,
+          });
+          const [xpub, info] = await Promise.all([
+            xpubPromise,
+            addressInfoPromise,
+          ]);
+          result[networkId] = { xpub, accountAddress: info.address };
+        } catch {
+          // Pair fails silently; caller checks for presence in the map.
+        }
+      }),
+    );
+    return result;
+  }
+
   @backgroundMethod()
   async getAccountAddressInfoForApi({
     dbAccount,

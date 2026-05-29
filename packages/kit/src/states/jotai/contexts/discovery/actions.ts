@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 
-import { isEqual } from 'lodash';
+import { debounce, isEqual } from 'lodash';
 
 import { Toast, rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -40,6 +40,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { onVisibilityStateChange } from '@onekeyhq/shared/src/utils/appVisibility';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
@@ -98,6 +99,39 @@ function isNewTabPositionTop() {
       'top'
   );
 }
+
+// Coalesce rapid persistence of browser-tab state. Each user action (open,
+// close, reorder, navigate) used to flush the full tab array to SimpleDb
+// immediately; in iPad logs we saw ~65 writes in 4 minutes, every one
+// crossing the bg bridge and re-serializing.
+//
+// leading:true persists the first change in a burst immediately so an
+// open/close/reorder followed by a hard quit (desktop window close, iOS
+// background freeze that lands inside the 500ms window) still lands at
+// least the user-visible action. trailing:true covers the last frame of
+// a continuing burst; maxWait caps lag during sustained activity. Worst-
+// case loss is now a mid-burst intermediate frame, not the final action.
+const persistTabsToSimpleDbDebounced = debounce(
+  (tabs: IWebTab[]) => {
+    void backgroundApiProxy.simpleDb.browserTabs.setRawData({ tabs });
+  },
+  500,
+  { leading: true, trailing: true, maxWait: 2000 },
+);
+
+// Flush the pending debounced persist before the JS runtime can be suspended
+// or the window closes. Routed through `onVisibilityStateChange` so we cover
+// all four platforms uniformly (mobile AppState, desktop Electron focus,
+// web document.hidden + window blur) — a bare RN `AppState.addEventListener`
+// is silent dead code on desktop and incomplete on web.
+//
+// iOS in particular may freeze the bridge in <500ms after backgrounding,
+// which would otherwise drop the last user action (open/close/reorder tab).
+onVisibilityStateChange((visible) => {
+  if (!visible) {
+    persistTabsToSimpleDbDebounced.flush();
+  }
+});
 
 function isLocalhostUrlAllowedInDAppBrowser() {
   const devSettings = jotaiDefaultStore.get(devSettingsPersistAtom.atom());
@@ -191,9 +225,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
       set(webTabsMapAtom(), () => result.map);
       loggerForEmptyData(result.data, 'buildWebTabs->saveToSimpleDB');
-      void backgroundApiProxy.simpleDb.browserTabs.setRawData({
-        tabs: result.data,
-      });
+      persistTabsToSimpleDbDebounced(result.data);
     },
   );
 
