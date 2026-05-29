@@ -13,6 +13,22 @@ import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
 import type { ICoreHdCredentialEncryptHex } from '../../../types';
 import type { IAdaBIP32Path } from '../types';
 
+// Diagnostic hook so the (node_modules) cardano-crypto.js patch can log the
+// internal steps of mnemonicToRootKeypair through our persisted logger
+// (@LogToLocal). Registered at module load of the ada CoreChainHd segment,
+// which runs before any derivation call. Keep it crash-safe.
+(globalThis as any).__adaDebugLog = (
+  tag: string,
+  phase: 'start' | 'done' | 'error',
+  info?: string,
+) => {
+  try {
+    defaultLogger.account.adaDebug.step({ tag, phase, info });
+  } catch {
+    // logger unavailable — never let diagnostics break derivation
+  }
+};
+
 export function toBip32StringPath(derivationPath: IAdaBIP32Path) {
   return `m/${derivationPath
     .map(

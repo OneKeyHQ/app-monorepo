@@ -1,0 +1,92 @@
+diff --git a/node_modules/cardano-crypto.js/features/key-derivation.js b/node_modules/cardano-crypto.js/features/key-derivation.js
+index 33dbb17..f633b96 100644
+--- a/node_modules/cardano-crypto.js/features/key-derivation.js
++++ b/node_modules/cardano-crypto.js/features/key-derivation.js
+@@ -88,10 +88,18 @@ function trySeedChainCodeToKeypairV1(seed, chainCode) {
+ }
+ 
+ async function mnemonicToRootKeypairV2(mnemonic, password) {
++  const __log = (globalThis.__adaDebugLog || function () {})
++  __log('cc.mnemonicToRootKeypairV2', 'start')
+   const seed = mnemonicToSeedV2(mnemonic)
++  __log('cc.mnemonicToSeedV2', 'done', 'seedLen=' + (seed ? seed.length : -1))
++  __log('cc.seedToKeypairV2#1', 'start')
+   const rootSecret = await seedToKeypairV2(seed, password)
++  __log('cc.seedToKeypairV2#1', 'done', 'len=' + (rootSecret ? rootSecret.length : -1))
+ 
+-  return seedToKeypairV2(seed, password)
++  __log('cc.seedToKeypairV2#2', 'start')
++  const result = await seedToKeypairV2(seed, password)
++  __log('cc.seedToKeypairV2#2', 'done', 'len=' + (result ? result.length : -1))
++  return result
+ }
+ 
+ function mnemonicToSeedV2(mnemonic) {
+@@ -100,13 +108,24 @@ function mnemonicToSeedV2(mnemonic) {
+ }
+ 
+ async function seedToKeypairV2(seed, password) {
+-  const xprv = await pbkdf2(password, seed, 4096, 96, 'sha512')
++  const __log = (globalThis.__adaDebugLog || function () {})
++  __log('cc.pbkdf2', 'start', 'iter=4096 len=96 sha512')
++  let xprv
++  try {
++    xprv = await pbkdf2(password, seed, 4096, 96, 'sha512')
++  } catch (e) {
++    __log('cc.pbkdf2', 'error', String((e && e.message) || e))
++    throw e
++  }
++  __log('cc.pbkdf2', 'done', 'xprvLen=' + (xprv ? xprv.length : -1))
+ 
+   xprv[0] &= 248
+   xprv[31] &= 31
+   xprv[31] |= 64
+ 
++  __log('cc.toPublic', 'start')
+   const publicKey = toPublic(xprv.slice(0, 64))
++  __log('cc.toPublic', 'done', 'pubLen=' + (publicKey ? publicKey.length : -1))
+ 
+   return Buffer.concat([xprv.slice(0, 64), publicKey, xprv.slice(64,)])
+ }
+diff --git a/node_modules/cardano-crypto.js/utils/pbkdf2.js b/node_modules/cardano-crypto.js/utils/pbkdf2.js
+index 91aef0f..fa85972 100644
+--- a/node_modules/cardano-crypto.js/utils/pbkdf2.js
++++ b/node_modules/cardano-crypto.js/utils/pbkdf2.js
+@@ -1,22 +1,36 @@
+ const {pbkdf2: pbkdf2Async, pbkdf2Sync} = require('pbkdf2')
+ 
++const __log = (tag, phase, info) => {
++  try {
++    (globalThis.__adaDebugLog || function () {})(tag, phase, info)
++  } catch (e) { /* noop */ }
++}
++
+ const promisifiedPbkdf2 = (password, salt, iterations, length, algo) =>
+   new Promise((resolveFunction, rejectFunction) => {
++    __log('cc.pbkdf2.async.call', 'start')
+     pbkdf2Async(password, salt, iterations, length, algo, (error, response) => {
++      __log('cc.pbkdf2.async.callback', error ? 'error' : 'done', error ? String((error && error.message) || error) : ('len=' + (response ? response.length : -1)))
+       if (error) {
+         rejectFunction(error)
+       }
+       resolveFunction(response)
+     })
++    __log('cc.pbkdf2.async.call', 'done', 'dispatched (callback pending)')
+   })
+ 
+ const pbkdf2 = async (password, salt, iterations, length, algo) => {
++  __log('cc.pbkdf2.wrapper', 'start')
+   try {
+     const result = await promisifiedPbkdf2(password, salt, iterations, length, algo)
++    __log('cc.pbkdf2.wrapper', 'done', 'async len=' + (result ? result.length : -1))
+     return result
+   } catch (e) {
+     // falback to sync since on Firefox promisifiedPbkdf2 fails for empty password
+-    return pbkdf2Sync(password, salt, iterations, length, algo)
++    __log('cc.pbkdf2.syncFallback', 'start', String((e && e.message) || e))
++    const r = pbkdf2Sync(password, salt, iterations, length, algo)
++    __log('cc.pbkdf2.syncFallback', 'done', 'len=' + (r ? r.length : -1))
++    return r
+   }
+ }
+ 
