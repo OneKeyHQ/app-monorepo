@@ -25,6 +25,9 @@ import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { GlobalJotaiReady } from '../GlobalJotaiReady/GlobalJotaiReady';
 import WebView from '../WebView';
 
+// @ts-expect-error text-js module imported as string by babel-plugin-inline-import / esbuild
+import injectedWebEmbedCode from './injectedWebEmbed.text-js';
+
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
@@ -32,6 +35,7 @@ import type { WebViewMessageEvent } from 'react-native-webview';
 import type { WebViewErrorEvent } from 'react-native-webview/lib/WebViewTypes';
 
 const initTop = '15%';
+
 // /onboarding/auto_typing
 export function WebViewWebEmbed({
   isSingleton,
@@ -279,6 +283,7 @@ export function WebViewWebEmbed({
         allowingReadAccessToURL={iosAllowingReadAccessToURL}
         pullToRefreshEnabled={false}
         useGeckoView={false}
+        useInjectedNativeCode={false}
         // *** use remote url
         src={remoteUrl || ''}
         // *** use web-embed local html file
@@ -288,6 +293,7 @@ export function WebViewWebEmbed({
         onMessage={handleMessage}
         onError={handleError}
         nativeInjectedJavaScriptBeforeContentLoaded={`
+            ${injectedWebEmbedCode}
             window.location.hash = "${fullHash}";
             const WEB_EMBED_ONEKEY_APP_SETTINGS = ${JSON.stringify(
               webEmbedAppSettings,
