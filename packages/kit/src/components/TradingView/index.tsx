@@ -3,7 +3,6 @@ import { TradingViewV2 } from './TradingViewV2';
 
 import type { ITradingViewDisabledFeature } from './constants';
 import type { ITradingViewProps } from './TradingViewV1';
-import type { ITradingViewV2BusinessType } from './TradingViewV2';
 import type { WebViewProps } from 'react-native-webview';
 
 interface ITradingViewWithVersionProps extends ITradingViewProps {
@@ -13,7 +12,6 @@ interface ITradingViewWithVersionProps extends ITradingViewProps {
   onPanesCountChange?: (count: number) => void;
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
   storageNamespace?: string;
-  businessType?: ITradingViewV2BusinessType;
 }
 
 export function TradingView({
@@ -23,7 +21,6 @@ export function TradingView({
   onPanesCountChange,
   disabledFeatures,
   storageNamespace,
-  businessType,
   ...props
 }: ITradingViewWithVersionProps & WebViewProps) {
   if (version === 'v2') {
@@ -35,7 +32,6 @@ export function TradingView({
         onPanesCountChange={onPanesCountChange}
         disabledFeatures={disabledFeatures}
         storageNamespace={storageNamespace}
-        businessType={businessType}
       />
     );
   }

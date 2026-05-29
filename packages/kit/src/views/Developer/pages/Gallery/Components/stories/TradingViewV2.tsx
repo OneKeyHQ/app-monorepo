@@ -3,14 +3,12 @@ import { useCallback, useState } from 'react';
 import {
   Checkbox,
   Input,
-  SegmentControl,
   SizableText,
   Stack,
   XStack,
 } from '@onekeyhq/components';
 import {
   type ITradingViewDisabledFeature,
-  type ITradingViewV2BusinessType,
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
@@ -47,17 +45,8 @@ const DEFAULT_DISABLED_FEATURES = DISABLED_FEATURE_OPTIONS.map(
   (option) => option.value,
 );
 const DEFAULT_STORAGE_NAMESPACE = 'tradingview-v2-demo';
-const TYPE_OPTIONS: {
-  label: string;
-  value: ITradingViewV2BusinessType;
-}[] = [
-  { label: 'market', value: 'market' },
-  { label: 'perps', value: 'perps' },
-];
 
 const TradingViewV2Gallery = () => {
-  const [businessType, setBusinessType] =
-    useState<ITradingViewV2BusinessType>('market');
   const [disabledFeatures, setDisabledFeatures] = useState<
     ITradingViewDisabledFeature[]
   >(DEFAULT_DISABLED_FEATURES);
@@ -95,18 +84,6 @@ const TradingViewV2Gallery = () => {
             element: (
               <Stack gap="$3">
                 <Stack gap="$2">
-                  <SizableText size="$bodySmMedium">Type</SizableText>
-                  <SegmentControl
-                    value={businessType}
-                    onChange={(value) => {
-                      setBusinessType(value as ITradingViewV2BusinessType);
-                    }}
-                    options={TYPE_OPTIONS}
-                  />
-                  <SizableText size="$bodySm">
-                    {`type=${businessType}`}
-                  </SizableText>
-
                   <SizableText size="$bodySmMedium">
                     Storage namespace
                   </SizableText>
@@ -151,7 +128,6 @@ const TradingViewV2Gallery = () => {
                     tokenAddress=""
                     disabledFeatures={disabledFeatures}
                     storageNamespace={storageNamespace}
-                    businessType={businessType}
                   />
                 </Stack>
               </Stack>

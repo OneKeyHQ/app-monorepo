@@ -45,8 +45,6 @@ const MOCK_EMPTY_KLINE_BADGE_POSITION_STYLES = [
   { right: '$2', top: '$2' },
 ] as const;
 
-export type ITradingViewV2BusinessType = 'market' | 'perps';
-
 function formatMockEmptyKLineIntervals(
   intervals: ITradingViewKLineMockEmptyInterval[] | undefined,
 ) {
@@ -68,7 +66,6 @@ interface IBaseTradingViewV2Props {
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
   storageNamespace?: string;
-  businessType?: ITradingViewV2BusinessType;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -97,7 +94,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onIndicatorsDialogOpenChange,
     disabledFeatures,
     storageNamespace,
-    businessType = 'market',
     onLoadStart,
     ...stackStyle
   } = props;
@@ -143,12 +139,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       networkId,
       address: tokenAddress,
       symbol: chartSymbol,
-      type: businessType,
+      type: 'market',
       storageNamespace: finalStorageNamespace,
       ...(useHyperLiquid ? { scene: 'market-hyperliquid' } : {}),
     };
   }, [
-    businessType,
     chartSymbol,
     decimal,
     networkId,
