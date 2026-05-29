@@ -23,12 +23,16 @@ import {
   convertToSectionGroups,
   getFilteredHistoryBySearchKey,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAccountHistoryTx,
   IHistoryListSectionGroup,
 } from '@onekeyhq/shared/types/history';
 import type { ITokenFiat } from '@onekeyhq/shared/types/token';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
@@ -53,6 +57,35 @@ import { TxHistoryListItem } from './TxHistoryListItem';
 const TX_ROW_HEIGHT = 68;
 const SECTION_HEADER_HEIGHT_FIRST = 32; // mt=$0 on first section
 const SECTION_HEADER_HEIGHT_NEXT = 52; // mt=$5 (~20px) on subsequent sections
+
+// In tableLayout, an ASSET_TRANSFER row renders one change line per grouped
+// token (grouped sends + grouped receives — see `buildExpandedTransferView` in
+// TxActionTransfer.tsx). TX_ROW_HEIGHT only fits up to this many lines; rows
+// with more would overflow into the next row, so we measure them instead of
+// pinning a fixed height (see getWebRowHeight below).
+const MAX_FIXED_HEIGHT_CHANGE_LINES = 2;
+
+// Count how many change lines the expanded transfer view will render for a row.
+// Returns 1 for non-transfer actions (approve / function call / unknown only
+// ever render a single change line in tableLayout). Distinct send + receive
+// token counts are a safe upper bound on the rendered lines: over-counting only
+// pushes a row onto the (correct) measured path, never the other way around.
+function getTransferChangeLineCount(item: IAccountHistoryTx): number {
+  const action = getDisplayedActions({ decodedTx: item.decodedTx })[0];
+  if (
+    action?.type !== EDecodedTxActionType.ASSET_TRANSFER ||
+    !action.assetTransfer
+  ) {
+    return 1;
+  }
+  const { sends, receives } = action.assetTransfer;
+  const sendTokenCount = new Set((sends ?? []).map((t) => t.tokenIdOnNetwork))
+    .size;
+  const receiveTokenCount = new Set(
+    (receives ?? []).map((t) => t.tokenIdOnNetwork),
+  ).size;
+  return sendTokenCount + receiveTokenCount;
+}
 
 type IProps = {
   data: IAccountHistoryTx[];
@@ -419,6 +452,17 @@ function BaseTxHistoryListView(props: IProps) {
               if (info.item?.decodedTx?.status === EDecodedTxStatus.Pending) {
                 return undefined;
               }
+              // A multi-token transfer renders more change lines than the fixed
+              // height can hold (tableLayout only). Let CellMeasurer measure it
+              // so the row expands naturally instead of overflowing the next.
+              if (
+                tableLayout &&
+                info.item &&
+                getTransferChangeLineCount(info.item) >
+                  MAX_FIXED_HEIGHT_CHANGE_LINES
+              ) {
+                return undefined;
+              }
               return TX_ROW_HEIGHT;
             }
             // header / footer (loading / "load more" buttons) aren't a fixed
@@ -426,7 +470,7 @@ function BaseTxHistoryListView(props: IProps) {
             return undefined;
           }
         : undefined,
-    [inTabList],
+    [inTabList, tableLayout],
   );
 
   const itemCounts = useMemo(() => {
