@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
 import { FlatList } from 'react-native';
 
@@ -74,7 +73,6 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const toDetailPage = useToDetailPage({ from: EEnterWay.BannerList });
   const { handleBackPress } = useMarketDetailBackNavigation();
   const { top } = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useTabBarHeight();
   const { gtMd } = useMedia();
 
@@ -214,18 +212,6 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         />
       );
     }
-    // iOS 26 mobile uses the native UINavigationBar so the header gets
-    // Liquid Glass material and the system back chevron. Don't pass
-    // headerLeft — HeaderScreenOptions wires the system back button.
-    // headerShown is set explicitly because this route can also be
-    // reached as a modal (EModalMarketRoutes.MarketBannerDetail) where
-    // the modal-stack's screenOptions default to headerShown:false; the
-    // explicit prop ensures the bar renders in both navigation contexts.
-    // Notification icon is intentionally omitted — it belongs to the
-    // tab-level chrome (Market tab home), not to a banner detail page.
-    if (platformEnv.isNativeIOS26Plus) {
-      return <Page.Header headerShown headerTitle={renderHeaderTitle} />;
-    }
     return <Page.Header headerShown={false} />;
   }, [
     isWebDesktop,
@@ -243,8 +229,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         </XStack>
       );
     }
-    // On iOS 26 mobile the title is in the native bar already.
-    if (!gtMd && !platformEnv.isNativeIOS26Plus) {
+    if (!gtMd) {
       return (
         <XStack ai="center" gap="$4" px="$4">
           {renderHeaderLeft()}
@@ -340,20 +325,11 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     intl,
   ]);
 
-  let bodyTopInset: number;
-  if (gtMd) {
-    bodyTopInset = 0;
-  } else if (platformEnv.isNativeIOS26Plus) {
-    bodyTopInset = headerHeight;
-  } else {
-    bodyTopInset = top;
-  }
-
   return (
     <Page>
       {renderPageHeader}
       <Page.Body>
-        <Stack flex={1} pt={bodyTopInset} px={gtMd ? '$4' : 0} gap="$4">
+        <Stack flex={1} pt={gtMd ? 0 : top} px={gtMd ? '$4' : 0} gap="$4">
           {renderTitleSection}
           {renderTokenList}
         </Stack>
