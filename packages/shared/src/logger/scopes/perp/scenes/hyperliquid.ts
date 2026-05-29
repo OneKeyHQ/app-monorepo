@@ -38,6 +38,18 @@ export interface IHyperLiquidLogParams<
   isFirstTime?: boolean;
 }
 
+export type IHyperLiquidApiFailureEndpoint = 'info' | 'exchange';
+
+export interface IHyperLiquidApiFailureLogParams extends Partial<IHyperLiquidAccountContext> {
+  endpoint: IHyperLiquidApiFailureEndpoint;
+  action: string;
+  request?: unknown;
+  response?: unknown;
+  error?: Record<string, unknown>;
+  message?: string;
+  extra?: Record<string, unknown>;
+}
+
 function stripSensitiveFields<TRequest, TResponse>(
   params: IHyperLiquidLogParams<TRequest, TResponse>,
 ) {
@@ -57,6 +69,11 @@ export interface IHyperLiquidOrderRequestPayload {
 }
 
 export class HyperLiquidScene extends BaseScene {
+  @LogToLocal({ level: 'error' })
+  public apiRequestFailure(params: IHyperLiquidApiFailureLogParams) {
+    return params;
+  }
+
   @LogToServer()
   public setReferrer(
     params: IHyperLiquidLogParams<
