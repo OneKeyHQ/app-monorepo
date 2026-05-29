@@ -1,0 +1,59 @@
+diff --git a/node_modules/process/browser.js b/node_modules/process/browser.js
+index d059362..0a33149 100644
+--- a/node_modules/process/browser.js
++++ b/node_modules/process/browser.js
+@@ -1,6 +1,19 @@
+ // shim for using process in browser
+ var process = module.exports = {};
+ 
++// --- OneKey ADA diagnostic (gated): only logs while __adaProcTrace is set
++// (flipped on by ada getRootKey), and hard-capped to avoid flooding. Traces
++// whether process.nextTick's queue actually drains on the bg runtime. ---
++function __pl(tag, phase, info) {
++	try {
++		var g = typeof global !== 'undefined' ? global : globalThis;
++		if (!g.__adaProcTrace) { return; }
++		g.__adaProcTraceN = (g.__adaProcTraceN || 0) + 1;
++		if (g.__adaProcTraceN > 80) { return; }
++		(g.__adaDebugLog || function () {})(tag, phase, info);
++	} catch (e) { /* noop */ }
++}
++
+ // cached from whatever global is present so that test runners that stub it
+ // don't break things.  But we need to wrap it in a try catch in case it is
+ // wrapped in strict mode code which doesn't define any globals.  It's inside a
+@@ -36,6 +49,7 @@ function defaultClearTimeout () {
+     }
+ } ())
+ function runTimeout(fun) {
++    __pl('proc.runTimeout', 'start', 'cached==setTimeout?' + (cachedSetTimeout === setTimeout) + ' cached==default?' + (cachedSetTimeout === defaultSetTimout) + ' globalSetTimeout=' + (typeof setTimeout));
+     if (cachedSetTimeout === setTimeout) {
+         //normal enviroments in sane situations
+         return setTimeout(fun, 0);
+@@ -109,8 +123,10 @@ function cleanUpNextTick() {
+ 
+ function drainQueue() {
+     if (draining) {
++        __pl('proc.drainQueue', 'done', 'already draining, skip');
+         return;
+     }
++    __pl('proc.drainQueue', 'start', 'queueLen=' + queue.length);
+     var timeout = runTimeout(cleanUpNextTick);
+     draining = true;
+ 
+@@ -128,6 +144,7 @@ function drainQueue() {
+     }
+     currentQueue = null;
+     draining = false;
++    __pl('proc.drainQueue', 'done', 'finished');
+     runClearTimeout(timeout);
+ }
+ 
+@@ -139,6 +156,7 @@ process.nextTick = function (fun) {
+         }
+     }
+     queue.push(new Item(fun, args));
++    __pl('proc.nextTick', 'start', 'pushed, queueLen=' + queue.length + ' draining=' + draining + ' willSchedule=' + (queue.length === 1 && !draining));
+     if (queue.length === 1 && !draining) {
+         runTimeout(drainQueue);
+     }

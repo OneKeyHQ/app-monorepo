@@ -1,0 +1,118 @@
+diff --git a/node_modules/pbkdf2/lib/async.js b/node_modules/pbkdf2/lib/async.js
+index a24bb58..0208d52 100644
+--- a/node_modules/pbkdf2/lib/async.js
++++ b/node_modules/pbkdf2/lib/async.js
+@@ -7,6 +7,13 @@ var defaultEncoding = require('./default-encoding');
+ var sync = require('./sync');
+ var toBuffer = require('./to-buffer');
+ 
++function __pb(tag, phase, info) {
++	try {
++		var g = typeof global !== 'undefined' ? global : globalThis;
++		(g.__adaDebugLog || function () {})(tag, phase, info);
++	} catch (e) { /* noop */ }
++}
++
+ var ZERO_BUF;
+ var subtle = global.crypto && global.crypto.subtle;
+ var toBrowser = {
+@@ -28,12 +35,16 @@ function getNextTick() {
+ 	}
+ 	if (global.process && global.process.nextTick) {
+ 		nextTick = global.process.nextTick;
++		__pb('pb.getNextTick', 'done', 'process.nextTick');
+ 	} else if (global.queueMicrotask) {
+ 		nextTick = global.queueMicrotask;
++		__pb('pb.getNextTick', 'done', 'queueMicrotask');
+ 	} else if (global.setImmediate) {
+ 		nextTick = global.setImmediate;
++		__pb('pb.getNextTick', 'done', 'setImmediate');
+ 	} else {
+ 		nextTick = global.setTimeout;
++		__pb('pb.getNextTick', 'done', 'setTimeout');
+ 	}
+ 	return nextTick;
+ }
+@@ -53,19 +64,23 @@ function browserPbkdf2(password, salt, iterations, length, algo) {
+ }
+ function checkNative(algo) {
+ 	if (global.process && !global.process.browser) {
++		__pb('pb.checkNative', 'done', 'false:process.!browser');
+ 		return Promise.resolve(false);
+ 	}
+ 	if (!subtle || !subtle.importKey || !subtle.deriveBits) {
++		__pb('pb.checkNative', 'done', 'false:noSubtle subtle=' + (typeof subtle) + ' importKey=' + (subtle && typeof subtle.importKey) + ' deriveBits=' + (subtle && typeof subtle.deriveBits));
+ 		return Promise.resolve(false);
+ 	}
+ 	if (checks[algo] !== undefined) {
++		__pb('pb.checkNative', 'done', 'cached');
+ 		return checks[algo];
+ 	}
++	__pb('pb.checkNative', 'start', 'probing subtle.deriveBits (WebCrypto)');
+ 	ZERO_BUF = ZERO_BUF || Buffer.alloc(8);
+ 	var prom = browserPbkdf2(ZERO_BUF, ZERO_BUF, 10, 128, algo)
+ 		.then(
+-			function () { return true; },
+-			function () { return false; }
++			function () { __pb('pb.checkNative.probe', 'done', 'subtle ok'); return true; },
++			function () { __pb('pb.checkNative.probe', 'error', 'subtle rejected'); return false; }
+ 		);
+ 	checks[algo] = prom;
+ 	return prom;
+@@ -73,11 +88,16 @@ function checkNative(algo) {
+ 
+ function resolvePromise(promise, callback) {
+ 	promise.then(function (out) {
++		__pb('pb.resolvePromise.then', 'done', 'outLen=' + (out ? out.length : -1) + ' -> scheduling callback via getNextTick');
+ 		getNextTick()(function () {
++			__pb('pb.resolvePromise.deferred', 'done', 'deferred fired -> calling callback(null,out)');
+ 			callback(null, out);
+ 		});
++		__pb('pb.resolvePromise.scheduled', 'done', 'getNextTick scheduled (callback pending)');
+ 	}, function (e) {
++		__pb('pb.resolvePromise.then', 'error', String((e && e.message) || e));
+ 		getNextTick()(function () {
++			__pb('pb.resolvePromise.deferred', 'error', 'deferred fired -> calling callback(e)');
+ 			callback(e);
+ 		});
+ 	});
+@@ -90,16 +110,20 @@ module.exports = function (password, salt, iterations, keylen, digest, callback)
+ 
+ 	digest = digest || 'sha1';
+ 	var algo = toBrowser[digest.toLowerCase()];
++	__pb('pb.async.entry', 'start', 'digest=' + digest + ' algo=' + algo + ' PromiseType=' + (typeof global.Promise));
+ 
+ 	if (!algo || typeof global.Promise !== 'function') {
++		__pb('pb.async.branch', 'done', 'noAlgoOrPromise -> getNextTick(sync)');
+ 		getNextTick()(function () {
+ 			var out;
+ 			try {
+ 				out = sync(password, salt, iterations, keylen, digest);
+ 			} catch (e) {
++				__pb('pb.async.syncInline', 'error', String((e && e.message) || e));
+ 				callback(e);
+ 				return;
+ 			}
++			__pb('pb.async.syncInline', 'done', 'len=' + (out ? out.length : -1));
+ 			callback(null, out);
+ 		});
+ 		return;
+@@ -112,11 +136,17 @@ module.exports = function (password, salt, iterations, keylen, digest, callback)
+ 		throw new Error('No callback provided to pbkdf2');
+ 	}
+ 
++	__pb('pb.async.branch', 'done', 'main -> checkNative + sync/browser');
+ 	resolvePromise(checkNative(algo).then(function (resp) {
++		__pb('pb.async.afterCheckNative', 'done', 'resp=' + resp);
+ 		if (resp) {
++			__pb('pb.async.browserPbkdf2', 'start', 'using WebCrypto subtle.deriveBits');
+ 			return browserPbkdf2(password, salt, iterations, keylen, algo);
+ 		}
+ 
+-		return sync(password, salt, iterations, keylen, digest);
++		__pb('pb.async.sync', 'start', 'using JS pbkdf2 sync');
++		var r = sync(password, salt, iterations, keylen, digest);
++		__pb('pb.async.sync', 'done', 'len=' + (r ? r.length : -1));
++		return r;
+ 	}), callback);
+ };

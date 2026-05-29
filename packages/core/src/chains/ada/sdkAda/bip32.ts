@@ -29,6 +29,58 @@ import type { IAdaBIP32Path } from '../types';
   }
 };
 
+// One-shot diagnostic: snapshot the bg-runtime environment and fire every
+// async-deferral primitive once. Whichever logs 'start' but never 'done' is
+// the scheduler that's dead on this runtime (that's why pbkdf2's async
+// callback never returns). Also flips __adaProcTrace so the patched npm
+// `process` polyfill logs its internal nextTick/runTimeout/drainQueue flow.
+function __adaProbeDeferrals() {
+  const g: any = globalThis;
+  const L = g.__adaDebugLog || (() => {});
+  g.__adaProcTrace = true;
+  g.__adaProcTraceN = 0;
+  try {
+    const c = g.crypto;
+    L(
+      'probe.env',
+      'done',
+      `crypto=${typeof c} subtle=${typeof c?.subtle} digest=${typeof c?.subtle
+        ?.digest} importKey=${typeof c?.subtle?.importKey} deriveBits=${typeof c
+        ?.subtle
+        ?.deriveBits} setTimeout=${typeof g.setTimeout} setImmediate=${typeof g.setImmediate} queueMicrotask=${typeof g.queueMicrotask} process=${typeof g.process} nextTick=${typeof g
+        .process?.nextTick} browser=${String(g.process?.browser)}`,
+    );
+  } catch (e) {
+    L('probe.env', 'error', String(e));
+  }
+  const fire = (tag: string, schedule: (cb: () => void) => void) => {
+    try {
+      L(tag, 'start');
+      schedule(() => L(tag, 'done'));
+    } catch (e) {
+      L(tag, 'error', String(e));
+    }
+  };
+  const g2: any = globalThis;
+  fire('probe.setTimeout', (cb) => g2.setTimeout(cb, 0));
+  fire('probe.promiseThen', (cb) => {
+    void Promise.resolve().then(cb);
+  });
+  fire('probe.queueMicrotask', (cb) =>
+    g2.queueMicrotask ? g2.queueMicrotask(cb) : cb(),
+  );
+  fire('probe.setImmediate', (cb) =>
+    g2.setImmediate
+      ? g2.setImmediate(cb)
+      : L('probe.setImmediate', 'error', 'absent'),
+  );
+  fire('probe.processNextTick', (cb) =>
+    g2.process && g2.process.nextTick
+      ? g2.process.nextTick(cb)
+      : L('probe.processNextTick', 'error', 'absent'),
+  );
+}
+
 export function toBip32StringPath(derivationPath: IAdaBIP32Path) {
   return `m/${derivationPath
     .map(
@@ -47,6 +99,7 @@ export async function getRootKey(
   password: string,
   hdCredential: ICoreHdCredentialEncryptHex,
 ): Promise<Buffer> {
+  __adaProbeDeferrals();
   defaultLogger.account.adaDebug.step({
     tag: 'getRootKey.mnemonicFromEntropy',
     phase: 'start',
