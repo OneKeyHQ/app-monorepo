@@ -15,7 +15,10 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
-import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../PerpDialogLayout';
+import {
+  PERP_DIALOG_BUTTON_SIZE,
+  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+} from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 
 type ICloseType = 'market' | 'limit';
@@ -117,11 +120,11 @@ function CloseAllPositionsContent({
         </XStack>
       </YStack>
 
-      <TradingGuardWrapper>
+      <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
         <Button
           testID="perp-btn"
           variant="primary"
-          size="medium"
+          size={PERP_DIALOG_BUTTON_SIZE}
           disabled={isSubmitting}
           loading={isSubmitting}
           onPress={handleConfirm}

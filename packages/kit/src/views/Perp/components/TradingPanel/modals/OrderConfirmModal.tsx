@@ -39,7 +39,10 @@ import {
   GetTradingButtonStyleProps,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
-import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
+import {
+  PERP_DIALOG_BUTTON_SIZE,
+  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+} from '../../PerpDialogLayout';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 
@@ -568,11 +571,12 @@ function OrderConfirmContent({
 
       <TradingGuardWrapper
         bypassEnableTradingGuard={Boolean(enableTradingBeforeConfirm)}
+        buttonSize={PERP_DIALOG_BUTTON_SIZE}
       >
         <Button
           testID="perp-btn"
           variant="primary"
-          size="medium"
+          size={PERP_DIALOG_BUTTON_SIZE}
           disabled={isConfirmLoading}
           loading={isConfirmLoading}
           onPress={handleConfirm}
