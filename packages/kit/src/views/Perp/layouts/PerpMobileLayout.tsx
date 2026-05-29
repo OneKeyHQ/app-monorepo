@@ -21,6 +21,7 @@ import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
+  usePerpsSpotBalancesAtom,
   useSpotActiveOpenOrdersAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -151,7 +152,8 @@ export function PerpMobileLayout() {
   const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
   const openOrdersLength = perpOpenOrdersLength + spotOpenOrders.length;
   const [positionsLength] = usePerpsActivePositionLengthAtom();
-  const [{ balances }] = useSpotBalancesAtom();
+  const [{ balances, isLoaded: isSpotBalancesLoaded }] = useSpotBalancesAtom();
+  const [cachedSpotBalances] = usePerpsSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [abstractionMode] = usePerpsAbstractionModeAtom();
@@ -159,13 +161,21 @@ export function PerpMobileLayout() {
     abstractionMode,
     currentUser?.accountAddress,
   );
+  const currentUserAddress = currentUser?.accountAddress?.toLowerCase();
+  const shouldUseCachedSpotBalances =
+    !isSpotBalancesLoaded &&
+    Boolean(currentUserAddress) &&
+    cachedSpotBalances?.accountAddress?.toLowerCase() === currentUserAddress;
+  const displayBalances = shouldUseCachedSpotBalances
+    ? (cachedSpotBalances?.balances ?? balances)
+    : balances;
 
   const holdingsCount = useMemo(() => {
     // Mirrors the USDC merge in SpotBalanceList.
-    const nonUsdcSpotCount = balances.filter(
+    const nonUsdcSpotCount = displayBalances.filter(
       (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
     ).length;
-    const hasSpotUsdc = balances.some(
+    const hasSpotUsdc = displayBalances.some(
       (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
     );
     const hasPerpsUsdc =
@@ -173,7 +183,7 @@ export function PerpMobileLayout() {
       !!accountSummary?.totalRawUsd &&
       new BigNumber(accountSummary.totalRawUsd).gt(0);
     return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
-  }, [accountSummary?.totalRawUsd, balances, isUnifiedAccountMode]);
+  }, [accountSummary?.totalRawUsd, displayBalances, isUnifiedAccountMode]);
 
   const positionsTabCount = useMemo(() => {
     if (positionsLength > 0) {

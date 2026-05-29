@@ -22,6 +22,11 @@ import {
   ETriggerOrderType,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import type {
+  IPerpsBboWithLocalReceivedAt,
+  IPerpsL2BookWithLocalReceivedAt,
+} from './utils/l2BookUtils';
+
 const {
   Provider: ProviderJotaiContextHyperliquid,
   contextAtom,
@@ -130,11 +135,10 @@ export const {
 );
 
 export const { atom: l2BookAtom, use: useL2BookAtom } =
-  contextAtom<HL.IBook | null>(null);
+  contextAtom<IPerpsL2BookWithLocalReceivedAt | null>(null);
 
-export const { atom: bboAtom, use: useBboAtom } = contextAtom<HL.IWsBbo | null>(
-  null,
-);
+export const { atom: bboAtom, use: useBboAtom } =
+  contextAtom<IPerpsBboWithLocalReceivedAt | null>(null);
 
 // TODO remove
 export const { atom: connectionStateAtom, use: useConnectionStateAtom } =

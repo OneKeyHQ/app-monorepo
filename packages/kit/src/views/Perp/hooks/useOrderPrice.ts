@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 
@@ -7,9 +7,15 @@ import {
   useBboAtom,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { getPerpsMarketDataLocalReceivedAt } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
 import { getTriggerEffectivePrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
+
+import {
+  getPerpsBboInteractiveRefreshDelayMs,
+  isPerpsBboInteractive,
+} from '../utils/l2BookFreshness';
 
 import { useTradingPrice } from './useTradingPrice';
 
@@ -39,6 +45,7 @@ export function calculateOrderPrice(
   triggerOrderType?: ETriggerOrderType,
   triggerPrice?: string,
   executionPrice?: string,
+  now = Date.now(),
 ): IUseOrderPriceReturn {
   // Trigger mode: use trigger effective price
   if (orderMode === 'trigger' && triggerOrderType) {
@@ -72,7 +79,16 @@ export function calculateOrderPrice(
   // Limit order with BBO mode
   if (formType === 'limit' && bboPriceMode && side) {
     // BBO mode is enabled, but BBO data is not available - this is an error state
-    if (!bbo?.bbo || !bbo.bbo[0] || !bbo.bbo[1]) {
+    if (
+      !bbo?.bbo ||
+      !bbo.bbo[0] ||
+      !bbo.bbo[1] ||
+      !isPerpsBboInteractive({
+        bboTime: bbo.time,
+        bboReceivedAt: getPerpsMarketDataLocalReceivedAt(bbo),
+        now,
+      })
+    ) {
       return {
         price: new BigNumber(0),
         isValid: false,
@@ -134,32 +150,43 @@ export function useOrderPrice(side?: 'long' | 'short'): IUseOrderPriceReturn {
   const [formData] = useTradingFormAtom();
   const [bbo] = useBboAtom();
   const { midPriceBN } = useTradingPrice();
+  const [, refreshBboFreshness] = useState(0);
+  const bboReceivedAt = getPerpsMarketDataLocalReceivedAt(bbo);
+  const shouldTrackBboFreshness =
+    formData.type === 'limit' &&
+    Boolean(formData.bboPriceMode) &&
+    Boolean(side);
 
-  return useMemo<IUseOrderPriceReturn>(
-    () =>
-      calculateOrderPrice(
-        formData.type,
-        formData.price,
-        formData.bboPriceMode,
-        bbo,
-        midPriceBN,
-        side,
-        formData.orderMode,
-        formData.triggerOrderType,
-        formData.triggerPrice,
-        formData.executionPrice,
-      ),
-    [
-      formData.type,
-      formData.price,
-      formData.bboPriceMode,
-      formData.orderMode,
-      formData.triggerOrderType,
-      formData.triggerPrice,
-      formData.executionPrice,
-      bbo,
-      midPriceBN,
-      side,
-    ],
+  useEffect(() => {
+    if (!shouldTrackBboFreshness) {
+      return undefined;
+    }
+
+    const refreshDelayMs = getPerpsBboInteractiveRefreshDelayMs({
+      bboTime: bbo?.time,
+      bboReceivedAt,
+    });
+    if (refreshDelayMs === undefined) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      refreshBboFreshness((value) => value + 1);
+    }, refreshDelayMs);
+
+    return () => clearTimeout(timer);
+  }, [bbo?.time, bboReceivedAt, shouldTrackBboFreshness]);
+
+  return calculateOrderPrice(
+    formData.type,
+    formData.price,
+    formData.bboPriceMode,
+    bbo,
+    midPriceBN,
+    side,
+    formData.orderMode,
+    formData.triggerOrderType,
+    formData.triggerPrice,
+    formData.executionPrice,
   );
 }
