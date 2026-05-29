@@ -331,6 +331,11 @@ async function decryptAsync({
     const webembedApiProxy = (
       await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
     ).default;
+    defaultLogger.account.adaDebug.step({
+      tag: 'secret.decryptAsync(webembed)',
+      phase: 'start',
+      info: `dataLen=${data.length}`,
+    });
     const str = await webembedApiProxy.secret.decryptAsync({
       password,
       // data,
@@ -338,6 +343,11 @@ async function decryptAsync({
       allowRawPassword,
       ignoreLogger,
       iterations,
+    });
+    defaultLogger.account.adaDebug.step({
+      tag: 'secret.decryptAsync(webembed)',
+      phase: 'done',
+      info: `resultDefined=${str !== undefined}`,
     });
     return bufferUtils.toBuffer(str, 'hex');
   }

@@ -3,6 +3,7 @@ import { EScopeName } from '../../types';
 
 import { AccountScene } from './scenes/account';
 import { CreateAccountPerfScene } from './scenes/accountCreatePerf';
+import { AdaDebugScene } from './scenes/adaDebug';
 import { AllNetworkAccountPerf } from './scenes/allNetworkAccountPerf';
 import { BatchCreateAccountPerfScene } from './scenes/batchCreatePerf';
 import { SecretPerfScene } from './scenes/secretPerf';
@@ -31,4 +32,7 @@ export class AccountScope extends BaseScope {
   );
 
   account = this.createScene('account', AccountScene);
+
+  // Diagnostic-only: ADA software-wallet address creation flow tracing.
+  adaDebug = this.createScene('adaDebug', AdaDebugScene);
 }

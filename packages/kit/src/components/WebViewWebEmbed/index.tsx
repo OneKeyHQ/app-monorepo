@@ -29,7 +29,10 @@ import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
-import type { WebViewErrorEvent } from 'react-native-webview/lib/WebViewTypes';
+import type {
+  WebViewErrorEvent,
+  WebViewNavigationEvent,
+} from 'react-native-webview/lib/WebViewTypes';
 
 const initTop = '15%';
 // /onboarding/auto_typing
@@ -232,7 +235,40 @@ export function WebViewWebEmbed({
       description: description || 'unknown',
       url: url || 'unknown',
     });
+    defaultLogger.app.webembed.webEmbedWebViewLoadEvent({
+      event: 'onError',
+      url: url || 'unknown',
+      error: `code=${code ?? ''} ${description ?? ''}`.trim(),
+    });
   }, []);
+
+  const handleLoadStart = useCallback((event: WebViewNavigationEvent) => {
+    defaultLogger.app.webembed.webEmbedWebViewLoadEvent({
+      event: 'onLoadStart',
+      url: event?.nativeEvent?.url || 'unknown',
+    });
+  }, []);
+
+  const handleLoad = useCallback((event: WebViewNavigationEvent) => {
+    defaultLogger.app.webembed.webEmbedWebViewLoadEvent({
+      event: 'onLoad',
+      url: event?.nativeEvent?.url || 'unknown',
+    });
+  }, []);
+
+  const handleLoadEnd = useCallback(
+    (event: WebViewNavigationEvent | WebViewErrorEvent) => {
+      const ne = event?.nativeEvent as
+        | { url?: string; description?: string }
+        | undefined;
+      defaultLogger.app.webembed.webEmbedWebViewLoadEvent({
+        event: 'onLoadEnd',
+        url: ne?.url || 'unknown',
+        error: ne?.description,
+      });
+    },
+    [],
+  );
 
   const allowFileAccessByUrl = useMemo(() => {
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
@@ -271,6 +307,12 @@ export function WebViewWebEmbed({
     }
 
     defaultLogger.app.webembed.renderWebview();
+    // Log the exact HTML entry the webembed WebView will load, so we can
+    // verify the OTA/builtin path and catch a wrong/missing url on Android.
+    defaultLogger.app.webembed.webEmbedWebViewLoadEvent({
+      event: 'renderWebViewSrc',
+      url: remoteUrl || nativeWebviewSource?.uri || 'empty',
+    });
 
     return (
       <WebView
@@ -287,6 +329,9 @@ export function WebViewWebEmbed({
         customReceiveHandler={customReceiveHandler}
         onMessage={handleMessage}
         onError={handleError}
+        onLoadStart={handleLoadStart}
+        onLoad={handleLoad}
+        onLoadEnd={handleLoadEnd}
         nativeInjectedJavaScriptBeforeContentLoaded={`
             window.location.hash = "${fullHash}";
             const WEB_EMBED_ONEKEY_APP_SETTINGS = ${JSON.stringify(
@@ -323,6 +368,9 @@ export function WebViewWebEmbed({
     customReceiveHandler,
     handleMessage,
     handleError,
+    handleLoadStart,
+    handleLoad,
+    handleLoadEnd,
   ]);
 
   useEffect(() => {

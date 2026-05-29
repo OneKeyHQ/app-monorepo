@@ -298,4 +298,27 @@ export class WebembedScene extends BaseScene {
   }) {
     return { hasBridge };
   }
+
+  // ---- Diagnostic: trace the actual webembed remote call round-trip ----
+  // Catches a webembed secret/chainAda call that never resolves (e.g. ADA
+  // address derivation decrypt). `phase`: 'start' before dispatch, 'done'
+  // after it returned, 'error' if it threw.
+  @LogToLocal()
+  public webEmbedRemoteCall({
+    module,
+    method,
+    phase,
+    viaMainThread,
+    resultDefined,
+    error,
+  }: {
+    module: string;
+    method: string;
+    phase: 'start' | 'done' | 'error';
+    viaMainThread?: boolean;
+    resultDefined?: boolean;
+    error?: string;
+  }) {
+    return { module, method, phase, viaMainThread, resultDefined, error };
+  }
 }

@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -224,12 +225,22 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     //   pathSuffix.replace('{index}', index.toString()),
     // );
 
+    defaultLogger.account.adaDebug.step({
+      tag: 'CoreChainSoftware.getAddressesFromHd',
+      phase: 'start',
+      info: `indexes=${indexes.join(',')}`,
+    });
     const addressInfos = await batchGetShelleyAddresses(
       hdCredential,
       password,
       indexes,
       EAdaNetworkId.MAINNET,
     );
+    defaultLogger.account.adaDebug.step({
+      tag: 'CoreChainSoftware.getAddressesFromHd',
+      phase: 'done',
+      info: `addressInfos=${addressInfos.length}`,
+    });
 
     const addresses = addressInfos.map((info) => {
       const { baseAddress, stakingAddress } = info;

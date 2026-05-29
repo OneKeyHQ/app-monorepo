@@ -74,13 +74,37 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
       .__onekeyCallWebEmbedBridgeViaMainThread as
       | ((data: unknown) => Promise<unknown>)
       | undefined;
-    if (callViaMainThread) {
-      result = await callViaMainThread(message);
-    } else {
-      // Single-thread: existing flow through background serviceDApp
-      result = await checkIsDefined(
-        appGlobals?.$backgroundApiProxy,
-      ).serviceDApp.callWebEmbedApiProxy(message);
+    defaultLogger.app.webembed.webEmbedRemoteCall({
+      module: String(module),
+      method,
+      phase: 'start',
+      viaMainThread: !!callViaMainThread,
+    });
+    try {
+      if (callViaMainThread) {
+        result = await callViaMainThread(message);
+      } else {
+        // Single-thread: existing flow through background serviceDApp
+        result = await checkIsDefined(
+          appGlobals?.$backgroundApiProxy,
+        ).serviceDApp.callWebEmbedApiProxy(message);
+      }
+      defaultLogger.app.webembed.webEmbedRemoteCall({
+        module: String(module),
+        method,
+        phase: 'done',
+        viaMainThread: !!callViaMainThread,
+        resultDefined: result !== undefined,
+      });
+    } catch (e) {
+      defaultLogger.app.webembed.webEmbedRemoteCall({
+        module: String(module),
+        method,
+        phase: 'error',
+        viaMainThread: !!callViaMainThread,
+        error: String((e as Error)?.message || e),
+      });
+      throw e;
     }
 
     if (

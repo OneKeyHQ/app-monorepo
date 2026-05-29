@@ -6,6 +6,7 @@
 import { bech32, mnemonicToRootKeypair, toPublic } from 'cardano-crypto.js';
 
 import { mnemonicFromEntropy } from '@onekeyhq/core/src/secret';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
 
@@ -30,8 +31,47 @@ export async function getRootKey(
   password: string,
   hdCredential: ICoreHdCredentialEncryptHex,
 ): Promise<Buffer> {
-  const mnemonic: string = await mnemonicFromEntropy(hdCredential, password);
-  const rootKey = await mnemonicToRootKeypair(mnemonic, DERIVATION_SCHEME);
+  defaultLogger.account.adaDebug.step({
+    tag: 'getRootKey.mnemonicFromEntropy',
+    phase: 'start',
+  });
+  let mnemonic: string;
+  try {
+    mnemonic = await mnemonicFromEntropy(hdCredential, password);
+  } catch (e) {
+    defaultLogger.account.adaDebug.step({
+      tag: 'getRootKey.mnemonicFromEntropy',
+      phase: 'error',
+      info: String((e as Error)?.message || e),
+    });
+    throw e;
+  }
+  defaultLogger.account.adaDebug.step({
+    tag: 'getRootKey.mnemonicFromEntropy',
+    phase: 'done',
+    info: `mnemonicWords=${mnemonic ? mnemonic.split(' ').length : 0}`,
+  });
+
+  defaultLogger.account.adaDebug.step({
+    tag: 'getRootKey.mnemonicToRootKeypair',
+    phase: 'start',
+  });
+  let rootKey: Buffer;
+  try {
+    rootKey = await mnemonicToRootKeypair(mnemonic, DERIVATION_SCHEME);
+  } catch (e) {
+    defaultLogger.account.adaDebug.step({
+      tag: 'getRootKey.mnemonicToRootKeypair',
+      phase: 'error',
+      info: String((e as Error)?.message || e),
+    });
+    throw e;
+  }
+  defaultLogger.account.adaDebug.step({
+    tag: 'getRootKey.mnemonicToRootKeypair',
+    phase: 'done',
+    info: `rootKeyLen=${rootKey ? rootKey.length : 0}`,
+  });
   return rootKey;
 }
 

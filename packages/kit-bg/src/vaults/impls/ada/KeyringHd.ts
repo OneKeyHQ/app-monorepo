@@ -1,5 +1,6 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
@@ -32,9 +33,29 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<IDBAccount[]> {
-    return this.basePrepareAccountsHdUtxo(params, {
-      checkIsAccountUsed: () => Promise.resolve({ isUsed: true }),
+    defaultLogger.account.adaDebug.step({
+      tag: 'ada.KeyringHd.prepareAccounts',
+      phase: 'start',
+      info: `indexes=${params?.indexes?.join(',') ?? ''}`,
     });
+    try {
+      const accounts = await this.basePrepareAccountsHdUtxo(params, {
+        checkIsAccountUsed: () => Promise.resolve({ isUsed: true }),
+      });
+      defaultLogger.account.adaDebug.step({
+        tag: 'ada.KeyringHd.prepareAccounts',
+        phase: 'done',
+        info: `accounts=${accounts.length}`,
+      });
+      return accounts;
+    } catch (e) {
+      defaultLogger.account.adaDebug.step({
+        tag: 'ada.KeyringHd.prepareAccounts',
+        phase: 'error',
+        info: String((e as Error)?.message || e),
+      });
+      throw e;
+    }
   }
 
   override async signTransaction(

@@ -4,6 +4,8 @@
 // @ts-expect-error
 import { derivePrivate, toPublic } from 'cardano-crypto.js';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 import { baseAddressFromXpub, stakingAddressFromXpub } from './addresses';
 import { getRootKey, toBip32StringPath } from './bip32';
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
@@ -121,6 +123,21 @@ export const batchGetShelleyAddresses = async (
   indexes: number[],
   networkId: EAdaNetworkId,
 ) => {
+  defaultLogger.account.adaDebug.step({
+    tag: 'batchGetShelleyAddresses',
+    phase: 'start',
+    info: `indexes=${indexes.join(',')}`,
+  });
   const rootKey = await getRootKey(password, hdCredential);
-  return batchGetShelleyAddressByRootKey(rootKey, indexes, networkId);
+  defaultLogger.account.adaDebug.step({
+    tag: 'batchGetShelleyAddresses.deriveAddresses',
+    phase: 'start',
+  });
+  const result = batchGetShelleyAddressByRootKey(rootKey, indexes, networkId);
+  defaultLogger.account.adaDebug.step({
+    tag: 'batchGetShelleyAddresses',
+    phase: 'done',
+    info: `addresses=${result.length}`,
+  });
+  return result;
 };
