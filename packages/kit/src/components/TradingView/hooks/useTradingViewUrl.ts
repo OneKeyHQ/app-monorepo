@@ -11,14 +11,18 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { TRADING_VIEW_DISABLED_FEATURES_URL_PARAM } from '../constants';
 import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
+
+import type { ITradingViewDisabledFeature } from '../constants';
 
 interface IUseTradingViewUrlOptions {
   additionalParams?: Record<string, string>;
+  disabledFeatures?: readonly ITradingViewDisabledFeature[];
 }
 
 export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
-  const { additionalParams } = options;
+  const { additionalParams, disabledFeatures } = options;
 
   const calendars = useCalendars();
   const systemLocale = useLocaleVariant();
@@ -64,8 +68,27 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
       });
     }
 
+    const serializedDisabledFeatures = disabledFeatures
+      ?.filter(
+        (feature, index, features) => features.indexOf(feature) === index,
+      )
+      .join(',');
+    if (serializedDisabledFeatures) {
+      url.searchParams.set(
+        TRADING_VIEW_DISABLED_FEATURES_URL_PARAM,
+        serializedDisabledFeatures,
+      );
+    }
+
     return url.toString();
-  }, [baseUrl, calendars, systemLocale, theme, additionalParams]);
+  }, [
+    additionalParams,
+    baseUrl,
+    calendars,
+    disabledFeatures,
+    systemLocale,
+    theme,
+  ]);
 
   return {
     baseUrl,
