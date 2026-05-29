@@ -50,11 +50,6 @@ export const PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS =
     month: 1,
   });
 
-export const PERPS_ACCOUNT_TRADING_DATA_CACHE_MAX_AGE_MS =
-  timerUtils.getTimeDurationMs({
-    minute: 10,
-  });
-
 export const PERPS_ACCOUNT_DISPLAY_CACHE_WRITE_INTERVAL_MS =
   timerUtils.getTimeDurationMs({
     seconds: 5,
