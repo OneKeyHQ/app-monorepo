@@ -243,6 +243,27 @@ public class AppDelegate: ExpoAppDelegate {
     }
   }
 
+  // Background URLSession events (OTA bundle concurrent/background download).
+  // When the app is relaunched in the background to finish a background
+  // download, hand the completion handler to the bundle downloader via a
+  // notification. We post rather than call directly because the Nitro module's
+  // C++ umbrella header can't be imported into this Swift AppDelegate (see the
+  // NSClassFromString bridges above). If the downloader instance isn't live yet
+  // the events are processed on the next foreground launch instead — the
+  // download itself still completed in the background.
+  public override func application(
+    _ application: UIApplication,
+    handleEventsForBackgroundURLSession identifier: String,
+    completionHandler: @escaping () -> Void
+  ) {
+    NitroModuleBridge.logInfo("BundleUpdate", "handleEventsForBackgroundURLSession: \(identifier)")
+    NotificationCenter.default.post(
+      name: Notification.Name("ConcurrentBundleDownloaderBackgroundEvents"),
+      object: nil,
+      userInfo: ["identifier": identifier, "completionHandler": completionHandler]
+    )
+  }
+
   // Linking API
   public override func application(
     _ app: UIApplication,
