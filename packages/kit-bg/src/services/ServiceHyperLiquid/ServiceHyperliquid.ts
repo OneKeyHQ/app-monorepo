@@ -2,7 +2,7 @@
 
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethersV6';
-import { isEqual, isNil, omit } from 'lodash';
+import { isEqual, isNil, omit, throttle } from 'lodash';
 import pTimeout from 'p-timeout';
 
 import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
@@ -210,6 +210,10 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private beginActivePerpsAccountChange(): number {
     this.activePerpsAccountChangeRequestId += 1;
+    // Drop any pending coalesced summary write queued for the previous
+    // account so a trailing flush can't land stale data after the switch
+    // begins (also see the requestId guard in _writeActiveSummaryThrottled).
+    this._writeActiveSummaryThrottled.cancel();
     return this.activePerpsAccountChangeRequestId;
   }
 
@@ -1355,6 +1359,76 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
+  // Coalesce real-time summary commits: WEB_DATA2 +
+  // ALL_DEXS_CLEARINGHOUSE_STATE each arrive 10+/s, and the prior code did a
+  // perpsActiveAccountSummaryAtom.set() (plus display-cache persistence) on
+  // every message, saturating the bg→ui bridge. 250 ms gives a 4 Hz refresh —
+  // below the human perception threshold for pnl/margin readouts. leading
+  // keeps the first frame snappy; trailing guarantees the latest payload lands.
+  //
+  // Stale-write safety: the payload is stamped with the active-account-change
+  // requestId captured at enqueue time, and the callback drops it via
+  // isLatestActivePerpsAccountChange(). perpsActiveAccountAtom only flips at
+  // the END of changeActivePerpsAccount, so gating on that lagging atom would
+  // let an old-account trailing write land during the switch loading window;
+  // the requestId is bumped synchronously at switch start, so it has no lag.
+  private _writeActiveSummaryThrottled = throttle(
+    ({
+      summary,
+      requestId,
+    }: {
+      summary: NonNullable<IPerpsActiveAccountSummaryAtom>;
+      requestId: number;
+    }) => {
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return;
+      }
+      void this._commitActiveAccountSummary(summary).catch((error: unknown) => {
+        console.error(
+          '[ServiceHyperliquid] commitActiveAccountSummary failed:',
+          error,
+        );
+      });
+    },
+    250,
+    { leading: true, trailing: true },
+  );
+
+  private _enqueueActiveAccountSummary(
+    summary: NonNullable<IPerpsActiveAccountSummaryAtom>,
+  ) {
+    this._writeActiveSummaryThrottled({
+      summary,
+      requestId: this.activePerpsAccountChangeRequestId,
+    });
+  }
+
+  private async _commitActiveAccountSummary(
+    summary: NonNullable<IPerpsActiveAccountSummaryAtom>,
+  ) {
+    await perpsActiveAccountSummaryAtom.set(summary);
+    void this.cacheService
+      .writePerpsAccountDisplaySummary(summary)
+      .catch((error: unknown) => {
+        console.warn(
+          '[commitActiveAccountSummary] failed to persist display cache:',
+          error,
+        );
+      });
+    if (summary.accountAddress) {
+      void this.cacheService
+        .writePerpsAccountDisplaySnapshot({
+          accountAddress: summary.accountAddress,
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[commitActiveAccountSummary] failed to persist display snapshot:',
+            error,
+          );
+        });
+    }
+  }
+
   async updateActiveAccountSummary(webData2: IWsWebData2) {
     const activeAccount = await perpsActiveAccountAtom.get();
     if (
@@ -1369,7 +1443,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return pnl ? sum.plus(pnl) : sum;
       }, new BigNumber(0));
 
-      const summary: IPerpsActiveAccountSummaryAtom = {
+      const summary: NonNullable<IPerpsActiveAccountSummaryAtom> = {
         accountAddress: activeAccount?.accountAddress?.toLowerCase() as IHex,
         accountValue: webData2.clearinghouseState?.marginSummary?.accountValue,
         totalMarginUsed:
@@ -1383,27 +1457,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         withdrawable: webData2.clearinghouseState?.withdrawable,
         totalUnrealizedPnl: totalUnrealizedPnlBN.toFixed(),
       };
-      await perpsActiveAccountSummaryAtom.set(summary);
-      void this.cacheService
-        .writePerpsAccountDisplaySummary(summary)
-        .catch((error: unknown) => {
-          console.warn(
-            '[updateActiveAccountSummary] failed to persist display cache:',
-            error,
-          );
-        });
-      if (summary.accountAddress) {
-        void this.cacheService
-          .writePerpsAccountDisplaySnapshot({
-            accountAddress: summary.accountAddress,
-          })
-          .catch((error: unknown) => {
-            console.warn(
-              '[updateActiveAccountSummary] failed to persist display snapshot:',
-              error,
-            );
-          });
-      }
+      this._enqueueActiveAccountSummary(summary);
     } else {
       const activeAccountSummary = await perpsActiveAccountSummaryAtom.get();
       // TODO PERPS_EMPTY_ADDRESS check
@@ -1494,7 +1548,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       },
     );
 
-    const summary: IPerpsActiveAccountSummaryAtom = {
+    const summary: NonNullable<IPerpsActiveAccountSummaryAtom> = {
       accountAddress: activeAddress as IHex,
       accountValue: aggregated.accountValue.toFixed(),
       totalMarginUsed: aggregated.totalMarginUsed.toFixed(),
@@ -1506,27 +1560,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       withdrawable: aggregated.withdrawable.toFixed(),
       totalUnrealizedPnl: aggregated.totalUnrealizedPnl.toFixed(),
     };
-    await perpsActiveAccountSummaryAtom.set(summary);
-    void this.cacheService
-      .writePerpsAccountDisplaySummary(summary)
-      .catch((error: unknown) => {
-        console.warn(
-          '[updateActiveAccountSummaryFromClearinghouseState] failed to persist display cache:',
-          error,
-        );
-      });
-    if (summary.accountAddress) {
-      void this.cacheService
-        .writePerpsAccountDisplaySnapshot({
-          accountAddress: summary.accountAddress,
-        })
-        .catch((error: unknown) => {
-          console.warn(
-            '[updateActiveAccountSummaryFromClearinghouseState] failed to persist display snapshot:',
-            error,
-          );
-        });
-    }
+    this._enqueueActiveAccountSummary(summary);
   }
 
   async updateSpotBalances(spotStateData: IWsSpotState) {
