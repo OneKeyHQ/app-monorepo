@@ -52,7 +52,7 @@ class ServiceDevSetting extends ServiceBase {
     appCrypto.pbkdf2.setPbkdf2NativeBackend(
       devSettings.enabled && devSettings.settings?.useFastPbkdf2NativeBackend
         ? 'react-native-fast-pbkdf2'
-        : 'react-native-aes-crypto',
+        : undefined,
     );
   }
 
