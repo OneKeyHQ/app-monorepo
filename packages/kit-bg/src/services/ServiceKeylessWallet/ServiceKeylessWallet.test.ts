@@ -1310,7 +1310,7 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     ).rejects.toThrow('reset pin confirm status failed');
   });
 
-  test('schedules backend share v2 rewrite when reset pin target owner changes', async () => {
+  test('awaits backend share owner rewrite when reset pin target owner changes', async () => {
     const { serviceAny } = createService();
     const resetBackendShareData = mockResetPinHappyPath(serviceAny, {
       backendOwnerId: 'legacy-owner-id',
@@ -1325,8 +1325,6 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       }),
     ).resolves.toEqual({ success: true });
 
-    await waitForScheduledBackgroundTask();
-
     expect(serviceAny.migrateKeylessBackendShareToV2).toHaveBeenCalledWith({
       token: TOKEN,
       ownerId: OWNER_ID,
@@ -1335,7 +1333,7 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     });
   });
 
-  test('does not reject reset pin when backend share v2 migration fails', async () => {
+  test('rejects reset pin when backend share owner rewrite fails (owner changed)', async () => {
     const { serviceAny } = createService();
     const resetBackendShareData = mockResetPinHappyPath(serviceAny, {
       backendOwnerId: 'legacy-owner-id',
@@ -1345,6 +1343,38 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       throw new OneKeyLocalError('migration failed');
     });
 
+    // When the backend share owner changes, the rewrite is a consistency
+    // requirement (juicebox is already under the new owner), so a failure must
+    // surface and fail reset rather than being swallowed as background work.
+    await expect(
+      serviceAny.resetKeylessWalletPin({
+        token: TOKEN,
+        refreshToken: REFRESH_TOKEN,
+        newPin: PIN,
+      }),
+    ).rejects.toThrow('migration failed');
+
+    expect(serviceAny.migrateKeylessBackendShareToV2).toHaveBeenCalledWith({
+      token: TOKEN,
+      ownerId: OWNER_ID,
+      expectedHashId: HASH_ID,
+      expectedBackendShareData: resetBackendShareData,
+    });
+  });
+
+  test('does not reject reset pin when v1 background migration fails (owner unchanged)', async () => {
+    const { serviceAny } = createService();
+    const resetBackendShareData = mockResetPinHappyPath(serviceAny, {
+      canonicalFormat: 'v1',
+    });
+    serviceAny.apiResetPinConfirmStatus = jest.fn(async () => undefined);
+    serviceAny.migrateKeylessBackendShareToV2 = jest.fn(async () => {
+      throw new OneKeyLocalError('migration failed');
+    });
+
+    // A pure v1 -> v2 upgrade with an unchanged owner is best-effort background
+    // work that self-heals via passive migration, so its failure must not block
+    // reset success.
     await expect(
       serviceAny.resetKeylessWalletPin({
         token: TOKEN,

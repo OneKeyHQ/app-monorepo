@@ -3270,9 +3270,10 @@ class ServiceKeylessWallet extends ServiceBase {
       backendShareX,
     });
 
-    const shouldScheduleKeylessBackendShareV2Migration =
-      backendShareResult.canonicalFormat === 'v1' ||
+    const shouldRewriteKeylessBackendShareOwner =
       backendShareResult.ownerId !== targetOwnerId;
+    const shouldUpgradeKeylessBackendShareFormat =
+      backendShareResult.canonicalFormat === 'v1';
 
     // Save tokens to secure storage (refreshToken with passcode, token without)
     if (refreshToken) {
@@ -3319,7 +3320,27 @@ class ServiceKeylessWallet extends ServiceBase {
     defaultLogger.wallet.keyless.resetKeylessPinConfirmStatusUpdated();
 
     this.fixedKeylessProviderMap = {};
-    if (shouldScheduleKeylessBackendShareV2Migration) {
+    if (shouldRewriteKeylessBackendShareOwner) {
+      // The juicebox share has already been re-uploaded under targetOwnerId
+      // above, so rewriting the backend share owner is a consistency
+      // requirement rather than an opportunistic migration: it must finish
+      // before reset is confirmed. Otherwise the server is left with the
+      // backend share under the previous owner while the juicebox share lives
+      // under the new owner, and a later restore reads the stale
+      // backendShareResult.ownerId and fails to locate the juicebox share.
+      // Keep it blocking; revision conflicts are still retried inside
+      // migrateKeylessBackendShareToV2.
+      await this.migrateKeylessBackendShareToV2({
+        token,
+        ownerId: targetOwnerId,
+        expectedHashId: backendShareResult.hashId,
+        expectedBackendShareData: backendShareData,
+      });
+    } else if (shouldUpgradeKeylessBackendShareFormat) {
+      // A pure v1 -> v2 upgrade with an unchanged owner keeps both shares under
+      // the same owner, so a failure is harmless and self-heals via passive
+      // migration on the next launch. Keep it as background best-effort work so
+      // it never blocks reset success.
       this.scheduleKeylessBackendShareV2Migration({
         source: 'resetPin',
         token,
