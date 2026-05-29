@@ -38,6 +38,8 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 import type { RouteProp } from '@react-navigation/core';
 
 const SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE = 'swap-kline';
+const SWAP_KLINE_AVAILABILITY_INTERVAL = '1D';
+const SWAP_KLINE_AVAILABILITY_RANGE_SECONDS = 365 * 24 * 60 * 60;
 const SWAP_KLINE_DISABLED_TRADING_VIEW_FEATURES = [
   TRADING_VIEW_DISABLED_FEATURES.FOOTER,
   TRADING_VIEW_DISABLED_FEATURES.PRICE_MARKET_CAP_TOGGLE,
@@ -128,18 +130,16 @@ async function checkSwapKLineTokenAvailability(token?: ISwapToken) {
     return false;
   }
 
-  try {
-    const response =
-      await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
-        token.contractAddress,
-        token.networkId,
-      );
+  const timeTo = Math.floor(Date.now() / 1000);
+  const timeFrom = timeTo - SWAP_KLINE_AVAILABILITY_RANGE_SECONDS;
 
-    return Boolean(response?.data?.websocket?.kline);
-  } catch (error) {
-    console.error('Failed to resolve swap kline availability:', error);
-    return false;
-  }
+  return backgroundApiProxy.serviceMarketV2.checkMarketTokenKlineAvailable({
+    tokenAddress: token.contractAddress,
+    networkId: token.networkId,
+    interval: SWAP_KLINE_AVAILABILITY_INTERVAL,
+    timeFrom,
+    timeTo,
+  });
 }
 
 function getFallbackAvailableSide(

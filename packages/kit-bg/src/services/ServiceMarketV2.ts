@@ -304,6 +304,39 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   @backgroundMethod()
+  async checkMarketTokenKlineAvailable({
+    tokenAddress,
+    networkId,
+    interval,
+    timeFrom,
+    timeTo,
+  }: {
+    tokenAddress: string;
+    networkId: string;
+    interval?: string;
+    timeFrom?: number;
+    timeTo?: number;
+  }) {
+    if (!networkId) {
+      return false;
+    }
+
+    try {
+      const data = await this.fetchMarketTokenKline({
+        tokenAddress,
+        networkId,
+        interval,
+        timeFrom,
+        timeTo,
+      });
+      return Boolean(data?.points?.length);
+    } catch (error) {
+      console.error('Failed to check market token kline availability:', error);
+      return false;
+    }
+  }
+
+  @backgroundMethod()
   async fetchMarketTokenTransactions({
     tokenAddress,
     networkId,
