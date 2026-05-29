@@ -304,62 +304,6 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkMarketTokenKlineAvailable({
-    tokenAddress,
-    networkId,
-    interval,
-    timeFrom,
-    timeTo,
-  }: {
-    tokenAddress: string;
-    networkId: string;
-    interval?: string;
-    timeFrom: number;
-    timeTo: number;
-  }): Promise<boolean | undefined> {
-    if (!networkId) {
-      return false;
-    }
-
-    let innerInterval = interval?.toUpperCase();
-
-    if (innerInterval?.includes('M') || innerInterval?.includes('S')) {
-      innerInterval = innerInterval?.toLowerCase();
-    }
-
-    try {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
-      const requestConfig: Parameters<typeof client.get>[1] & {
-        autoHandleError?: boolean;
-      } = {
-        autoHandleError: false,
-        params: {
-          tokenAddress,
-          networkId,
-          interval: innerInterval,
-          timeFrom,
-          timeTo,
-          currency: 'usd',
-        },
-      };
-      const response = await client.get<{
-        code: number;
-        message: string;
-        data?: IMarketTokenKLineResponse;
-      }>('/utility/v2/market/token/kline', requestConfig);
-
-      if (response.data.code !== 0) {
-        return false;
-      }
-
-      return Boolean(response.data.data?.points?.length);
-    } catch (error) {
-      console.error('Failed to check market token kline availability:', error);
-      return undefined;
-    }
-  }
-
-  @backgroundMethod()
   async fetchMarketTokenTransactions({
     tokenAddress,
     networkId,
