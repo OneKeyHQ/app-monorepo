@@ -81,6 +81,14 @@ function useKYTIntroDialog() {
       if (isShown) {
         return;
       }
+      // Added gate: only prompt when the server reports KYT is not yet enabled,
+      // so users who already turned it on never see the intro again.
+      const kytEnabled = await backgroundApiProxy.serviceSetting.getKytEnabled({
+        onekeyUserId,
+      });
+      if (kytEnabled) {
+        return;
+      }
       await backgroundApiProxy.serviceSetting.setKytIntroShown({
         onekeyUserId,
       });

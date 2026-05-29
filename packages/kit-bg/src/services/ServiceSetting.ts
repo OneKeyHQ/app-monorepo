@@ -1040,6 +1040,45 @@ class ServiceSetting extends ServiceBase {
     return res.data.data?.list ?? [];
   }
 
+  // Read the cached KYT (receive risk monitoring) enabled state for a Prime user.
+  // The cache mirrors the server `kytEnabled` value synced on prime user info fetch
+  // (see syncKytEnabledFromServer), so this reflects the latest interface result.
+  @backgroundMethod()
+  async getKytEnabled({
+    onekeyUserId,
+  }: {
+    onekeyUserId: string | undefined;
+  }): Promise<boolean> {
+    if (!onekeyUserId) {
+      return false;
+    }
+    const { receiveRiskMonitoringMap } = await settingsPersistAtom.get();
+    return receiveRiskMonitoringMap?.[onekeyUserId] ?? false;
+  }
+
+  // Sync the server-reported KYT enabled state into the local cache so the
+  // settings switch and the intro dialog gate stay aligned with the interface.
+  // Skips when the field is absent (older server) to avoid clobbering the cache.
+  @backgroundMethod()
+  async syncKytEnabledFromServer({
+    onekeyUserId,
+    kytEnabled,
+  }: {
+    onekeyUserId: string | undefined;
+    kytEnabled: boolean | undefined;
+  }): Promise<void> {
+    if (!onekeyUserId || kytEnabled === undefined) {
+      return;
+    }
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      receiveRiskMonitoringMap: {
+        ...prev.receiveRiskMonitoringMap,
+        [onekeyUserId]: kytEnabled,
+      },
+    }));
+  }
+
   @backgroundMethod()
   @toastIfError()
   async apiSetKytEnabled({ enabled }: { enabled: boolean }): Promise<boolean> {
