@@ -1,0 +1,279 @@
+import { useCallback, useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
+
+import {
+  Badge,
+  Dialog,
+  Divider,
+  Icon,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import type { IBadgeType } from '@onekeyhq/components/src/content/Badge';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  resolveKytDisplayLevel,
+  resolveKytItemLevel,
+} from '@onekeyhq/shared/src/utils/kytUtils';
+import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
+import type {
+  IKytHistoryResult,
+  IKytRiskDetail,
+} from '@onekeyhq/shared/types/kyt';
+import type { IDecodedTxTransferInfo } from '@onekeyhq/shared/types/tx';
+
+const RISK_LEVEL_CONFIG: Record<
+  EKytRiskLevel,
+  {
+    badgeType: IBadgeType;
+    label: string;
+    subtitle: string;
+    drillIn: boolean;
+  }
+> = {
+  [EKytRiskLevel.Checking]: {
+    badgeType: 'info',
+    label: 'Checking',
+    subtitle: 'Checking fund-source risk',
+    drillIn: false,
+  },
+  [EKytRiskLevel.None]: {
+    badgeType: 'default',
+    label: '',
+    subtitle: 'No significant risk detected',
+    drillIn: false,
+  },
+  [EKytRiskLevel.Low]: {
+    badgeType: 'success',
+    label: 'Low',
+    subtitle: 'Low fund-source risk',
+    drillIn: true,
+  },
+  [EKytRiskLevel.Moderate]: {
+    badgeType: 'warning',
+    label: 'Moderate',
+    subtitle: 'Moderate fund-source risk',
+    drillIn: true,
+  },
+  [EKytRiskLevel.High]: {
+    badgeType: 'warning',
+    label: 'High',
+    subtitle: 'High fund-source risk',
+    drillIn: true,
+  },
+  [EKytRiskLevel.Severe]: {
+    badgeType: 'critical',
+    label: 'Severe',
+    subtitle: 'Severe fund-source risk',
+    drillIn: true,
+  },
+  [EKytRiskLevel.Failed]: {
+    badgeType: 'default',
+    label: 'Failed',
+    subtitle: 'Unable to check fund-source risk',
+    drillIn: false,
+  },
+};
+
+// Map the server KYT block into the per-asset detail view models the UI renders.
+// Token name/logo/amount are resolved from the decoded receives (matched by
+// token address), which are available from the list before the detail request.
+function buildRiskDetails({
+  kyt,
+  transfers,
+  networkName,
+}: {
+  kyt: IKytHistoryResult;
+  transfers?: IDecodedTxTransferInfo[];
+  networkName?: string;
+}): IKytRiskDetail[] {
+  return kyt.list.map((item) => {
+    const transfer = transfers?.find(
+      (t) => t.tokenIdOnNetwork === item.tokenAddress,
+    );
+    const symbol = item.asset.tokenSymbol || transfer?.symbol || '';
+    const amount = transfer?.amount
+      ? new BigNumber(transfer.amount).toFixed()
+      : undefined;
+    return {
+      level: resolveKytItemLevel(item.status, item.level),
+      checkedAt: item.checkedAt
+        ? formatDate(new Date(item.checkedAt * 1000))
+        : '',
+      asset: {
+        symbol,
+        tokenName: transfer?.name,
+        tokenImageUri: transfer?.icon,
+        networkName: networkName ?? '',
+      },
+      transferAmount: amount ? `+${amount} ${symbol}` : '',
+      factors: item.reasons ?? [],
+      reportUrl: item.reportUrl,
+    };
+  });
+}
+
+function KytBadge({ level }: { level: EKytRiskLevel }) {
+  const config = RISK_LEVEL_CONFIG[level];
+
+  if (level === EKytRiskLevel.None) {
+    return null;
+  }
+
+  if (level === EKytRiskLevel.Failed) {
+    return (
+      <Badge badgeType="default" badgeSize="sm">
+        <XStack ai="center" gap="$1">
+          <Icon name="InfoCircleOutline" size="$3.5" color="$iconSubdued" />
+          <Badge.Text>Failed</Badge.Text>
+        </XStack>
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge badgeType={config.badgeType} badgeSize="sm">
+      {config.label}
+    </Badge>
+  );
+}
+
+function KytAssetSelectionDialogContent({
+  details,
+  onSelectAsset,
+}: {
+  details: IKytRiskDetail[];
+  onSelectAsset: (detail: IKytRiskDetail) => void;
+}) {
+  return (
+    <YStack mx="$-5">
+      {details.map((detail, index) => (
+        <ListItem
+          key={`${detail.asset.symbol}-${index}`}
+          title={detail.asset.symbol}
+          subtitle={detail.asset.tokenName}
+          drillIn
+          onPress={() => onSelectAsset(detail)}
+          renderAvatar={
+            <Token size="lg" tokenImageUri={detail.asset.tokenImageUri} />
+          }
+        />
+      ))}
+    </YStack>
+  );
+}
+
+export function TxKYTRiskCheck({
+  kyt,
+  transfers,
+  networkName,
+}: {
+  kyt?: IKytHistoryResult;
+  transfers?: IDecodedTxTransferInfo[];
+  networkName?: string;
+}) {
+  const navigation = useAppNavigation();
+
+  const details = useMemo(() => {
+    if (!kyt?.list?.length) return [];
+    return buildRiskDetails({ kyt, transfers, networkName });
+  }, [kyt, transfers, networkName]);
+
+  const level = resolveKytDisplayLevel(kyt);
+  const config = level ? RISK_LEVEL_CONFIG[level] : null;
+
+  const subtitle = useMemo(() => {
+    if (!level) return '';
+    if (details.length > 1) {
+      return `${details.length} assets checked`;
+    }
+    return RISK_LEVEL_CONFIG[level].subtitle;
+  }, [level, details.length]);
+
+  const navigateToDetail = useCallback(
+    (riskDetail: IKytRiskDetail) => {
+      navigation.push(EModalAssetDetailRoutes.KytRiskDetail, { riskDetail });
+    },
+    [navigation],
+  );
+
+  const handlePress = useCallback(() => {
+    if (details.length > 1) {
+      const dialogInstance = Dialog.show({
+        title: 'Fund-source risk check',
+        description: `${details.length} assets checked`,
+        showFooter: false,
+        renderContent: (
+          <KytAssetSelectionDialogContent
+            details={details}
+            onSelectAsset={(detail) => {
+              // Await the dialog close before navigating. Running close() and
+              // navigation.push() concurrently is a known Fabric crash / leftover
+              // dialog pattern, so the push must wait for the dialog to unmount.
+              void (async () => {
+                await dialogInstance.close();
+                navigateToDetail(detail);
+              })();
+            }}
+          />
+        ),
+      });
+      return;
+    }
+
+    if (details.length === 1) {
+      navigateToDetail(details[0]);
+    }
+  }, [details, navigateToDetail]);
+
+  if (!level || !config || details.length === 0) {
+    return null;
+  }
+
+  const showDrillIn = config.drillIn || details.length > 1;
+
+  return (
+    <>
+      <Divider mx="$5" />
+      <XStack
+        px="$3"
+        py="$2.5"
+        ai="center"
+        gap="$3"
+        borderRadius="$3"
+        mx="$2"
+        my="$1"
+        {...(showDrillIn && {
+          onPress: handlePress,
+          cursor: 'pointer',
+          hoverStyle: { bg: '$bgHover' },
+          pressStyle: { bg: '$bgActive' },
+        })}
+      >
+        <Stack flex={1} gap="$1">
+          <SizableText size="$bodyMdMedium">Fund-source risk check</SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {subtitle}
+          </SizableText>
+        </Stack>
+        <XStack ai="center" gap="$2">
+          <KytBadge level={level} />
+          {showDrillIn ? (
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          ) : null}
+        </XStack>
+      </XStack>
+    </>
+  );
+}
