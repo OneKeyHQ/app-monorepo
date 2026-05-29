@@ -44,6 +44,7 @@ import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { navigateToReferralLanding } from '@onekeyhq/kit/src/routes/config/deeplink/referralLandingLink';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -478,6 +479,20 @@ const BaseDevSettingsSection = () => {
     });
   }, []);
 
+  const handleTriggerReferralBindGuardIn10s = useCallback(() => {
+    Toast.message({
+      title: 'Referral bind guard will trigger in 10s.',
+      message: 'Open a dialog or modal now, then wait for the referral flow.',
+    });
+    globalThis.setTimeout(() => {
+      void navigateToReferralLanding({
+        code: 'DEV_REFERRAL_TEST',
+        page: 'perps',
+        fromDeepLink: true,
+      });
+    }, 10_000);
+  }, []);
+
   const handleOpenMockTradingViewKLineEmptyIntervalsDialog = useCallback(() => {
     Dialog.show({
       title: 'Mock 空 K 线周期',
@@ -659,7 +674,7 @@ const BaseDevSettingsSection = () => {
         title: 'Account & Wallet & Prime & Network',
         description: '账户 钱包 Prime 链和网络',
         keywords:
-          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Add ServerNetwork Test Data 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
+          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
       },
       {
         key: 'transaction',
@@ -1910,6 +1925,14 @@ const BaseDevSettingsSection = () => {
                             ),
                           });
                         }}
+                      />
+
+                      <SectionPressItem
+                        icon="ClockTimeHistoryOutline"
+                        title="Trigger Referral Bind Guard in 10s"
+                        subtitle="Click, then open any dialog/modal within 10 seconds to test the blocking toast."
+                        searchKeywords="referral rebate bind guard dialog modal toast 10s deep link"
+                        onPress={handleTriggerReferralBindGuardIn10s}
                       />
 
                       <SectionPressItem
