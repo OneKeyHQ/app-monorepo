@@ -216,6 +216,8 @@ function DepositButton() {
   // from display cache), so a cache-hit cold start renders the value
   // without first flashing a skeleton.
   const isUnknownAccountValue = displayAccountValue === undefined;
+  const shouldDisplayAccountValueDuringLoading =
+    displayAccountValue !== undefined;
   const isEmptyAccount =
     !isUnknownAccountValue && new BigNumber(displayAccountValue ?? '0').lte(0);
   let badgeVariant: 'unknown' | 'deposit' | 'portfolio' = 'portfolio';
@@ -323,11 +325,9 @@ function DepositButton() {
               skeletonWidth={60}
               textSize="$bodySmMedium"
               allowValueDuringAccountLoading={
-                isUsingSnapshotValue || isUsingStableAccountValue
+                shouldDisplayAccountValueDuringLoading
               }
-              skipAccountSummaryCheck={
-                isUsingSnapshotValue || isUsingStableAccountValue
-              }
+              skipAccountSummaryCheck={shouldDisplayAccountValueDuringLoading}
             />
           </>
         );
