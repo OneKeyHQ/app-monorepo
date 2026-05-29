@@ -325,7 +325,7 @@ export const LeverageAdjustModal = memo(
       intl,
     ]);
 
-    if (!userAddress || !currentToken) return null;
+    if (!currentToken) return null;
 
     return (
       <Badge

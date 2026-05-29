@@ -524,6 +524,7 @@ export default class ServiceHyperliquidCache extends ServiceBase {
     accountAddress: string;
   }) {
     const targetAddress = accountAddress.toLowerCase();
+    const now = Date.now();
     const activeAccount = await perpsActiveAccountAtom.get();
     if (
       !activeAccount.accountAddress ||
@@ -537,6 +538,15 @@ export default class ServiceHyperliquidCache extends ServiceBase {
     const availableToTrade =
       activeAssetData?.accountAddress?.toLowerCase() === targetAddress
         ? getPerpsActiveAssetAvailableToTradeDisplay(activeAssetData)
+        : undefined;
+    const activeAsset =
+      activeAssetData?.accountAddress?.toLowerCase() === targetAddress &&
+      activeAssetData.coin
+        ? {
+            coin: activeAssetData.coin,
+            leverage: activeAssetData.leverage,
+            updatedAt: now,
+          }
         : undefined;
     const shouldUseComputedValue =
       computedValue?.isLoading === false &&
@@ -552,10 +562,15 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       withdrawable: shouldUseComputedValue
         ? computedValue.withdrawable
         : prevEntry?.withdrawable,
+      activeAsset: activeAsset ?? prevEntry?.activeAsset,
       availableToTrade: availableToTrade ?? prevEntry?.availableToTrade,
-      updatedAt: Date.now(),
+      updatedAt: now,
     };
-    if (!nextEntry.accountValue && !nextEntry.availableToTrade) {
+    if (
+      !nextEntry.accountValue &&
+      !nextEntry.availableToTrade &&
+      !nextEntry.activeAsset
+    ) {
       return;
     }
     if (
