@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -19,6 +19,7 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -221,6 +222,7 @@ function SwapKLineModalContent() {
     [fromToken, toToken],
   );
   const [selectedSide, setSelectedSide] = useState<ESwapDirectionType>();
+  const hasTrackedOpenRef = useRef(false);
   const resolvedSelectedSide = useMemo(() => {
     const requestedSide = selectedSide ?? defaultSide;
     const selectedToken =
@@ -239,6 +241,41 @@ function SwapKLineModalContent() {
   const chartTokenAddress = isSelectedTokenDappToken
     ? ''
     : (selectedToken?.contractAddress ?? '');
+
+  useEffect(() => {
+    if (hasTrackedOpenRef.current || !selectedToken) {
+      return;
+    }
+
+    hasTrackedOpenRef.current = true;
+    defaultLogger.swap.swapKline.swapKlineOpen({
+      defaultSide: resolvedSelectedSide,
+      tokenSymbol: selectedToken.symbol,
+      network: selectedToken.networkId,
+      fromTokenSymbol: fromToken?.symbol,
+      toTokenSymbol: toToken?.symbol,
+    });
+  }, [fromToken?.symbol, resolvedSelectedSide, selectedToken, toToken?.symbol]);
+
+  const handleSelectedSideChange = useCallback(
+    (side: ESwapDirectionType) => {
+      if (side === resolvedSelectedSide) {
+        return;
+      }
+
+      const nextToken = side === ESwapDirectionType.FROM ? fromToken : toToken;
+      if (nextToken) {
+        defaultLogger.swap.swapKline.swapKlineTokenSwitch({
+          fromSide: resolvedSelectedSide,
+          toSide: side,
+          tokenSymbol: nextToken.symbol,
+          network: nextToken.networkId,
+        });
+      }
+      setSelectedSide(side);
+    },
+    [fromToken, resolvedSelectedSide, toToken],
+  );
 
   return (
     <Page lazyLoad testID={SwapTestIDs.kLineModal}>
@@ -264,7 +301,7 @@ function SwapKLineModalContent() {
               </XStack>
               <SwapKLineTokenSwitch
                 selectedSide={resolvedSelectedSide}
-                onChange={setSelectedSide}
+                onChange={handleSelectedSideChange}
                 fromToken={fromToken}
                 toToken={toToken}
               />
