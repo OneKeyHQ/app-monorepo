@@ -15,6 +15,7 @@ import {
   mnemonicToRevealableSeed,
   mnemonicToSeed,
   revealEntropyToMnemonic,
+  revealEntropyToRawEntropy,
   validateMnemonic,
 } from './bip39';
 import { ed25519, nistp256, secp256k1 } from './curves';
@@ -1563,6 +1564,29 @@ async function mnemonicFromEntropy(
   }
 }
 
+async function rawEntropyFromHdCredential(
+  hdCredential: IBip39RevealableSeedEncryptHex,
+  password: string,
+  options?: IHdCredentialDecryptCacheParams,
+): Promise<Buffer> {
+  defaultLogger.account.secretPerf.decryptHdCredential();
+  const buffers = await getHdCredentialRevealableSeedBuffersWithCache({
+    password,
+    rs: hdCredential,
+    hdCredentialCacheScopeId: options?.hdCredentialCacheScopeId,
+    kdfBackend: options?.kdfBackend,
+    enablePbkdf2Cache: options?.enablePbkdf2Cache,
+    debugCryptoProbeId: options?.debugCryptoProbeId,
+  });
+  defaultLogger.account.secretPerf.decryptHdCredentialDone();
+
+  try {
+    return revealEntropyToRawEntropy(buffers.entropyWithLangPrefixedBuffer);
+  } finally {
+    zeroHdCredentialCacheBuffers(buffers);
+  }
+}
+
 export type IMnemonicFromEntropyAsyncParams = {
   hdCredential: IBip39RevealableSeedEncryptHex;
   password: string;
@@ -1776,6 +1800,7 @@ export {
   mnemonicToSeedAsync,
   N,
   publicFromPrivate,
+  rawEntropyFromHdCredential,
   revealableSeedFromMnemonic,
   revealableSeedFromTonMnemonic,
   seedFromHdCredentialAsync,

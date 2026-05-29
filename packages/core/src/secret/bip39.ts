@@ -404,6 +404,21 @@ function revealEntropyToMnemonic(
   );
 }
 
+function revealEntropyToRawEntropy(
+  entropyWithLangPrefixed: Buffer | string,
+): Buffer {
+  // eslint-disable-next-line no-param-reassign
+  entropyWithLangPrefixed = bufferUtils.toBuffer(entropyWithLangPrefixed);
+  const langCode: number = entropyWithLangPrefixed[0];
+  const entropyLength: number = entropyWithLangPrefixed[1];
+  check(
+    // eslint-disable-next-line eqeqeq
+    langCode == 1 && [16, 20, 24, 28, 32].includes(entropyLength),
+    'invalid entropy',
+  );
+  return Buffer.from(entropyWithLangPrefixed.slice(2, 2 + entropyLength));
+}
+
 export {
   generateMnemonic,
   mnemonicToEntropy,
@@ -412,5 +427,6 @@ export {
   mnemonicToSeedSync,
   mnemonicToSeed,
   revealEntropyToMnemonic,
+  revealEntropyToRawEntropy,
   validateMnemonic,
 };
