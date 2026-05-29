@@ -863,12 +863,50 @@ function SideButtonInternal({
             overrideSide: side,
             intl,
             enableTradingAccountKey,
-            enableTradingBeforeConfirm: ({ closeDialog, shouldIgnoreResult }) =>
-              requestOrderPanelEnableTrading({
+            enableTradingBeforeConfirm: async ({
+              closeDialog,
+              shouldIgnoreResult,
+            }) => {
+              const result = await requestOrderPanelEnableTrading({
                 beforeDeposit: closeDialog,
                 shouldIgnoreResult,
                 showLoadingToast: false,
-              }),
+              });
+              const postEnableState = latestOrderPanelStateRef.current;
+              const postEnableTradingResult =
+                getPerpsOrderPanelPostEnableTradingResult({
+                  enableTradingShouldContinue: result.shouldContinue,
+                  shouldIgnoreEnableTradingResult: shouldIgnoreResult(),
+                  isOrderContextChanged:
+                    postEnableState.side !== enableTradingSide ||
+                    postEnableState.orderContextKey !==
+                      enableTradingOrderContextKey,
+                  isNoEnoughMargin: postEnableState.isNoEnoughMargin,
+                });
+              if (postEnableTradingResult === 'stop') {
+                return { ...result, shouldContinue: false };
+              }
+              if (postEnableTradingResult === 'noEnoughMargin') {
+                Toast.message({
+                  title: intl.formatMessage({
+                    id: postEnableState.isSpot
+                      ? ETranslations.dexmarket_insufficient_balance
+                      : ETranslations.perp_trading_button_no_enough_margin,
+                  }),
+                });
+                return { ...result, shouldContinue: false };
+              }
+              if (
+                !validateOrderPanelState({
+                  orderPanelState: postEnableState,
+                  validationSide: side,
+                  shouldValidateBboPriceError: true,
+                })
+              ) {
+                return { ...result, shouldContinue: false };
+              }
+              return result;
+            },
           });
           return;
         }
