@@ -97,6 +97,7 @@ import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliqui
 
 import localDb from '../../dbs/local/localDb';
 import {
+  getPerpsSpotDustingNextState,
   perpTokenFavoritesPersistAtom,
   perpTokenSelectorTabsAtom,
   perpsAbstractionModeAtom,
@@ -115,6 +116,7 @@ import {
   perpsFavoritesOrderPersistAtom,
   perpsLastUsedLeverageAtom,
   perpsSpotBalancesAtom,
+  perpsSpotDustingAtom,
   perpsTradesHistoryDataAtom,
   spotActiveAssetAtom,
   spotActiveAssetCtxAtom,
@@ -1391,6 +1393,32 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
+  async updateSpotDustingOptOutStatus(params: {
+    accountAddress: IHex | string | null | undefined;
+    optOut: boolean;
+    source: 'live' | 'local';
+  }) {
+    if (!params.accountAddress) {
+      return;
+    }
+    const accountAddress = params.accountAddress.toLowerCase() as IHex;
+    const activeAccount = await perpsActiveAccountAtom.get();
+    if (activeAccount.accountAddress?.toLowerCase() !== accountAddress) {
+      return;
+    }
+
+    const updatedAt = Date.now();
+    await perpsSpotDustingAtom.set((prev) =>
+      getPerpsSpotDustingNextState({
+        prev,
+        accountAddress,
+        optOut: params.optOut,
+        source: params.source,
+        updatedAt,
+      }),
+    );
+  }
+
   async updateActiveAccountSummary(webData2: IWsWebData2) {
     const activeAccount = await perpsActiveAccountAtom.get();
     if (
@@ -1398,6 +1426,12 @@ export default class ServiceHyperliquid extends ServiceBase {
       activeAccount?.accountAddress?.toLowerCase() ===
         webData2?.user?.toLowerCase()
     ) {
+      await this.updateSpotDustingOptOutStatus({
+        accountAddress: webData2.user,
+        optOut: webData2.optOutOfSpotDusting === true,
+        source: 'live',
+      });
+
       // Note: Deep compare not suitable here due to real-time data requirements
       const positions = webData2.clearinghouseState?.assetPositions || [];
       const totalUnrealizedPnlBN = positions.reduce((sum, position) => {

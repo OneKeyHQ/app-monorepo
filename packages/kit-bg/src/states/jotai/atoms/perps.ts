@@ -202,6 +202,89 @@ export const {
 });
 // #endregion
 
+// #region Spot Dusting
+const SPOT_DUSTING_LIVE_RECONCILE_GRACE_MS = 15_000;
+
+export type IPerpsSpotDustingAtom =
+  | {
+      accountAddress: IHex;
+      optOut: boolean;
+      source: 'live' | 'local';
+      updatedAt: number;
+      localMutation?: {
+        optOut: boolean;
+        updatedAt: number;
+        ignoreLiveUntil: number;
+      };
+    }
+  | undefined;
+
+export function getPerpsSpotDustingNextState({
+  prev,
+  accountAddress,
+  optOut,
+  source,
+  updatedAt,
+  liveReconcileGraceMs = SPOT_DUSTING_LIVE_RECONCILE_GRACE_MS,
+}: {
+  prev: IPerpsSpotDustingAtom;
+  accountAddress: IHex;
+  optOut: boolean;
+  source: 'live' | 'local';
+  updatedAt: number;
+  liveReconcileGraceMs?: number;
+}): IPerpsSpotDustingAtom {
+  const prevMatchesAccount =
+    prev?.accountAddress?.toLowerCase() === accountAddress.toLowerCase();
+  const prevLocalMutation = prevMatchesAccount
+    ? prev?.localMutation
+    : undefined;
+
+  if (
+    source === 'live' &&
+    prevLocalMutation &&
+    prevLocalMutation.optOut !== optOut &&
+    updatedAt < prevLocalMutation.ignoreLiveUntil
+  ) {
+    return prev;
+  }
+
+  const localMutation =
+    source === 'local'
+      ? {
+          optOut,
+          updatedAt,
+          ignoreLiveUntil: updatedAt + liveReconcileGraceMs,
+        }
+      : undefined;
+
+  if (
+    prevMatchesAccount &&
+    prev?.optOut === optOut &&
+    prev.source === source &&
+    prev.localMutation?.optOut === localMutation?.optOut &&
+    prev.localMutation?.updatedAt === localMutation?.updatedAt &&
+    prev.localMutation?.ignoreLiveUntil === localMutation?.ignoreLiveUntil
+  ) {
+    return prev;
+  }
+
+  return {
+    accountAddress,
+    optOut,
+    source,
+    updatedAt,
+    localMutation,
+  };
+}
+
+export const { target: perpsSpotDustingAtom, use: usePerpsSpotDustingAtom } =
+  globalAtom<IPerpsSpotDustingAtom>({
+    name: EAtomNames.perpsSpotDustingAtom,
+    initialValue: undefined,
+  });
+// #endregion
+
 // #region Spot Balances
 export interface ISpotBalanceItem {
   coin: string;

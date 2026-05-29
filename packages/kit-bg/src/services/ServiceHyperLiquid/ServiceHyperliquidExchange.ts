@@ -55,6 +55,7 @@ import type {
   IOrderParams,
   IOrderRequest,
   IOrderResponse,
+  ISuccessResponse,
   ITwapCancelResponse,
   ITwapOrderResponse,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -72,6 +73,7 @@ import type {
   IPlaceTwapOrderParams,
   IPositionTpslOrderParams,
   ISetReferrerRequest,
+  ISpotDustingOptOutRequest,
   ISpotOrderParams,
   ITriggerOrderParams,
   IUpdateIsolatedMarginRequest,
@@ -552,6 +554,44 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           id: ETranslations.global_unknown_error,
         }),
       });
+    }
+  }
+
+  @backgroundMethod()
+  async setSpotDustingOptOut(
+    params: ISpotDustingOptOutRequest,
+  ): Promise<ISuccessResponse> {
+    await this.checkAccountCanTrade();
+
+    const client = await this.getExchangeClientForTrading();
+    const context = await this._buildLogContext();
+    try {
+      const response = await convertHyperLiquidResponse(() =>
+        client.spotUser({ toggleSpotDusting: params }),
+      );
+      defaultLogger.perp.hyperliquid.setSpotDustingOptOut({
+        ...context,
+        request: params,
+        response,
+      });
+      await this.backgroundApi.serviceHyperliquid.updateSpotDustingOptOutStatus(
+        {
+          accountAddress: context.accountAddress,
+          optOut: params.optOut,
+          source: 'local',
+        },
+      );
+      return response;
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.setSpotDustingOptOut({
+        ...context,
+        request: params,
+        response: extractHyperLiquidErrorResponse<
+          ISuccessResponse | IApiErrorResponse
+        >(error),
+        error: serializeHyperLiquidError(error),
+      });
+      throw error;
     }
   }
 

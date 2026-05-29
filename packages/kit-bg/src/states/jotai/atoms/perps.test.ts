@@ -6,6 +6,7 @@ import {
   type IPerpsAccountDisplaySnapshotAtom,
   type IPerpsAccountDisplaySnapshotEntry,
   getPerpsAccountDisplaySnapshotEntry,
+  getPerpsSpotDustingNextState,
   perpsAbstractionModeAtom,
   perpsAccountLoadingInfoAtom,
   perpsActiveAccountAtom,
@@ -189,6 +190,86 @@ describe('getPerpsAccountDisplaySnapshotEntry', () => {
         deriveType: 'default',
       }),
     ).toBe(latestEntry);
+  });
+});
+
+describe('getPerpsSpotDustingNextState', () => {
+  it('keeps a confirmed local mutation during the live reconcile grace window', () => {
+    const localState = getPerpsSpotDustingNextState({
+      prev: undefined,
+      accountAddress: '0xabc',
+      optOut: true,
+      source: 'local',
+      updatedAt: now,
+      liveReconcileGraceMs: 100,
+    });
+
+    expect(
+      getPerpsSpotDustingNextState({
+        prev: localState,
+        accountAddress: '0xabc',
+        optOut: false,
+        source: 'live',
+        updatedAt: now + 50,
+        liveReconcileGraceMs: 100,
+      }),
+    ).toBe(localState);
+  });
+
+  it('accepts live confirmation and clears the local mutation', () => {
+    const localState = getPerpsSpotDustingNextState({
+      prev: undefined,
+      accountAddress: '0xabc',
+      optOut: true,
+      source: 'local',
+      updatedAt: now,
+      liveReconcileGraceMs: 100,
+    });
+
+    expect(
+      getPerpsSpotDustingNextState({
+        prev: localState,
+        accountAddress: '0xabc',
+        optOut: true,
+        source: 'live',
+        updatedAt: now + 50,
+        liveReconcileGraceMs: 100,
+      }),
+    ).toEqual({
+      accountAddress: '0xabc',
+      optOut: true,
+      source: 'live',
+      updatedAt: now + 50,
+      localMutation: undefined,
+    });
+  });
+
+  it('accepts contradictory live data after the grace window', () => {
+    const localState = getPerpsSpotDustingNextState({
+      prev: undefined,
+      accountAddress: '0xabc',
+      optOut: true,
+      source: 'local',
+      updatedAt: now,
+      liveReconcileGraceMs: 100,
+    });
+
+    expect(
+      getPerpsSpotDustingNextState({
+        prev: localState,
+        accountAddress: '0xabc',
+        optOut: false,
+        source: 'live',
+        updatedAt: now + 100,
+        liveReconcileGraceMs: 100,
+      }),
+    ).toEqual({
+      accountAddress: '0xabc',
+      optOut: false,
+      source: 'live',
+      updatedAt: now + 100,
+      localMutation: undefined,
+    });
   });
 });
 

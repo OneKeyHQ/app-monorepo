@@ -148,6 +148,10 @@ export interface ISetReferrerRequest {
   code: string;
 }
 
+export interface ISpotDustingOptOutRequest {
+  optOut: boolean;
+}
+
 export interface IBuilderFeeRequest {
   builder: IHex;
   maxFeeRate: `${string}%`;
