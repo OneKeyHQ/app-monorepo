@@ -27,6 +27,7 @@ export interface IMessageHandlerContext {
   tokenSymbol?: string;
   marksTimeRange?: React.MutableRefObject<IMarksTimeRange | null>;
   currentKLineResolution?: React.MutableRefObject<string>;
+  forceEmptyKLineData?: boolean;
 }
 
 export interface IMessageHandlerParams {

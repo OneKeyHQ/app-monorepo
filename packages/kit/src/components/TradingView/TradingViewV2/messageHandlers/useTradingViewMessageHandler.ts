@@ -34,6 +34,7 @@ interface IUseTradingViewMessageHandlerParams {
   currentKLineResolution?: React.MutableRefObject<string>;
   onTouchScroll?: (deltaY: number) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
+  forceEmptyKLineData?: boolean;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -133,6 +134,7 @@ async function handleGetMarks({
   networkId,
   resolution,
   webRef,
+  forceEmptyKLineData,
 }: {
   request: {
     requestId?: string;
@@ -146,6 +148,7 @@ async function handleGetMarks({
   networkId: string;
   resolution?: string;
   webRef: React.RefObject<IWebViewRef | null>;
+  forceEmptyKLineData?: boolean;
 }) {
   const requestId = request.requestId;
 
@@ -153,7 +156,7 @@ async function handleGetMarks({
     return;
   }
 
-  if (await shouldMockEmptyKLineData(resolution)) {
+  if (forceEmptyKLineData || (await shouldMockEmptyKLineData(resolution))) {
     webRef.current?.sendMessageViaInjectedScript({
       type: 'MARKS_RESPONSE',
       payload: {
@@ -234,6 +237,7 @@ export function useTradingViewMessageHandler({
   currentKLineResolution,
   onTouchScroll,
   onIndicatorsDialogOpenChange,
+  forceEmptyKLineData,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
@@ -255,6 +259,7 @@ export function useTradingViewMessageHandler({
         tokenSymbol,
         marksTimeRange,
         currentKLineResolution,
+        forceEmptyKLineData,
       };
 
       // Handle TradingView private API requests
@@ -311,6 +316,7 @@ export function useTradingViewMessageHandler({
           networkId,
           resolution,
           webRef,
+          forceEmptyKLineData,
         });
       }
 
@@ -350,6 +356,7 @@ export function useTradingViewMessageHandler({
       currentKLineResolution,
       onTouchScroll,
       onIndicatorsDialogOpenChange,
+      forceEmptyKLineData,
     ],
   );
 

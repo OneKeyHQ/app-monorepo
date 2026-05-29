@@ -7,12 +7,17 @@ import {
   Page,
   SegmentControl,
   SizableText,
+  Spinner,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { TradingViewV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import {
+  TRADING_VIEW_DISABLED_FEATURES,
+  TradingViewV2,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { ProviderJotaiContextMarketV2 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
   useSwapSelectFromTokenAtom,
@@ -26,12 +31,28 @@ import type {
 } from '@onekeyhq/shared/src/routes/swap';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
-import { ETokenDappType } from '@onekeyhq/shared/types/token';
 
 import { SwapTestIDs } from '../../testIDs';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
+
+const SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE = 'swap-kline';
+const SWAP_KLINE_AVAILABILITY_INTERVAL = '1D';
+const SWAP_KLINE_AVAILABILITY_RANGE_SECONDS = 365 * 24 * 60 * 60;
+const SWAP_KLINE_DISABLED_TRADING_VIEW_FEATURES = [
+  TRADING_VIEW_DISABLED_FEATURES.FOOTER,
+  TRADING_VIEW_DISABLED_FEATURES.PRICE_MARKET_CAP_TOGGLE,
+  TRADING_VIEW_DISABLED_FEATURES.INDICATORS,
+  TRADING_VIEW_DISABLED_FEATURES.SETTINGS,
+  TRADING_VIEW_DISABLED_FEATURES.CHART_TYPE,
+  TRADING_VIEW_DISABLED_FEATURES.RESET_LAYOUT,
+  TRADING_VIEW_DISABLED_FEATURES.FULLSCREEN,
+  TRADING_VIEW_DISABLED_FEATURES.LAYOUT_TOGGLE,
+  TRADING_VIEW_DISABLED_FEATURES.DRAWING_TOOLBAR,
+] as const;
+
+type ISwapKLineSideAvailability = Partial<Record<ESwapDirectionType, boolean>>;
 
 const STABLE_TOKEN_SYMBOLS = new Set([
   'DAI',
@@ -81,16 +102,6 @@ function isStableToken(token?: ISwapToken) {
   return false;
 }
 
-function isSwapKLineUnsupportedToken(token?: ISwapToken) {
-  if (!token) {
-    return false;
-  }
-  if (token.dappType === ETokenDappType.WalletToken) {
-    return false;
-  }
-  return Boolean(token.defiMarked || token.dappName?.trim() || token.dappType);
-}
-
 function getDefaultKLineSide({
   fromToken,
   toToken,
@@ -112,6 +123,43 @@ function getDefaultKLineSide({
   }
 
   return ESwapDirectionType.FROM;
+}
+
+async function checkSwapKLineTokenAvailability(token?: ISwapToken) {
+  if (!token?.networkId) {
+    return false;
+  }
+
+  const timeTo = Math.floor(Date.now() / 1000);
+  const timeFrom = timeTo - SWAP_KLINE_AVAILABILITY_RANGE_SECONDS;
+
+  try {
+    const available =
+      await backgroundApiProxy.serviceMarketV2.checkMarketTokenKlineAvailable({
+        tokenAddress: token.contractAddress,
+        networkId: token.networkId,
+        interval: SWAP_KLINE_AVAILABILITY_INTERVAL,
+        timeFrom,
+        timeTo,
+      });
+
+    return available !== false;
+  } catch (error) {
+    console.error('Failed to resolve swap kline availability:', error);
+    return true;
+  }
+}
+
+function getFallbackAvailableSide(
+  sideAvailability: ISwapKLineSideAvailability,
+) {
+  if (sideAvailability[ESwapDirectionType.FROM]) {
+    return ESwapDirectionType.FROM;
+  }
+  if (sideAvailability[ESwapDirectionType.TO]) {
+    return ESwapDirectionType.TO;
+  }
+  return undefined;
 }
 
 function SwapKLineTokenSwitch({
@@ -222,28 +270,77 @@ function SwapKLineModalContent() {
     [fromToken, toToken],
   );
   const [selectedSide, setSelectedSide] = useState<ESwapDirectionType>();
+  const [isCheckingKLineAvailability, setIsCheckingKLineAvailability] =
+    useState(true);
+  const [sideAvailability, setSideAvailability] =
+    useState<ISwapKLineSideAvailability>({});
   const hasTrackedOpenRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!fromToken && !toToken) {
+      setSideAvailability({});
+      setIsCheckingKLineAvailability(false);
+      return undefined;
+    }
+
+    setIsCheckingKLineAvailability(true);
+
+    void (async () => {
+      const [fromAvailable, toAvailable] = await Promise.all([
+        checkSwapKLineTokenAvailability(fromToken),
+        checkSwapKLineTokenAvailability(toToken),
+      ]);
+
+      if (cancelled) {
+        return;
+      }
+
+      setSideAvailability({
+        [ESwapDirectionType.FROM]: fromAvailable,
+        [ESwapDirectionType.TO]: toAvailable,
+      });
+      setIsCheckingKLineAvailability(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fromToken, toToken]);
+
   const resolvedSelectedSide = useMemo(() => {
+    if (selectedSide) {
+      const selectedToken =
+        selectedSide === ESwapDirectionType.FROM ? fromToken : toToken;
+      if (selectedToken) {
+        return selectedSide;
+      }
+    }
+
     const requestedSide = selectedSide ?? defaultSide;
-    const selectedToken =
-      requestedSide === ESwapDirectionType.FROM ? fromToken : toToken;
-    return selectedToken ? requestedSide : defaultSide;
-  }, [defaultSide, fromToken, selectedSide, toToken]);
+    if (sideAvailability[requestedSide]) {
+      return requestedSide;
+    }
+    if (sideAvailability[defaultSide]) {
+      return defaultSide;
+    }
+    return getFallbackAvailableSide(sideAvailability) ?? defaultSide;
+  }, [defaultSide, fromToken, selectedSide, sideAvailability, toToken]);
 
   const selectedToken =
     resolvedSelectedSide === ESwapDirectionType.FROM ? fromToken : toToken;
-  const isSelectedTokenDappToken = selectedToken
-    ? isSwapKLineUnsupportedToken(selectedToken)
-    : false;
-  const chartNetworkId = isSelectedTokenDappToken
-    ? ''
-    : (selectedToken?.networkId ?? '');
-  const chartTokenAddress = isSelectedTokenDappToken
-    ? ''
-    : (selectedToken?.contractAddress ?? '');
+  const chartNetworkId = selectedToken?.networkId ?? '';
+  const chartTokenAddress = selectedToken?.contractAddress ?? '';
+  const shouldForceEmptyKLineData =
+    sideAvailability[resolvedSelectedSide] === false;
 
   useEffect(() => {
-    if (hasTrackedOpenRef.current || !selectedToken) {
+    if (
+      hasTrackedOpenRef.current ||
+      isCheckingKLineAvailability ||
+      !selectedToken
+    ) {
       return;
     }
 
@@ -255,7 +352,13 @@ function SwapKLineModalContent() {
       fromTokenSymbol: fromToken?.symbol,
       toTokenSymbol: toToken?.symbol,
     });
-  }, [fromToken?.symbol, resolvedSelectedSide, selectedToken, toToken?.symbol]);
+  }, [
+    fromToken?.symbol,
+    isCheckingKLineAvailability,
+    resolvedSelectedSide,
+    selectedToken,
+    toToken?.symbol,
+  ]);
 
   const handleSelectedSideChange = useCallback(
     (side: ESwapDirectionType) => {
@@ -275,6 +378,34 @@ function SwapKLineModalContent() {
       setSelectedSide(side);
     },
     [fromToken, resolvedSelectedSide, toToken],
+  );
+
+  const chartContent = isCheckingKLineAvailability ? (
+    <YStack flex={1} ai="center" jc="center" px="$5">
+      <Spinner size="large" />
+    </YStack>
+  ) : (
+    <Stack
+      flex={1}
+      minHeight={360}
+      overflow="hidden"
+      borderTopWidth="$px"
+      borderTopColor="$borderSubdued"
+    >
+      <TradingViewV2
+        key={`${chartNetworkId}:${chartTokenAddress}:${selectedToken?.symbol ?? ''}`}
+        symbol={selectedToken?.symbol ?? ''}
+        tokenAddress={chartTokenAddress}
+        networkId={chartNetworkId}
+        decimal={selectedToken?.decimals ?? 0}
+        dataSource="polling"
+        disabledFeatures={SWAP_KLINE_DISABLED_TRADING_VIEW_FEATURES}
+        storageNamespace={SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE}
+        forceEmptyKLineData={shouldForceEmptyKLineData}
+        w="100%"
+        h="100%"
+      />
+    </Stack>
   );
 
   return (
@@ -307,24 +438,7 @@ function SwapKLineModalContent() {
               />
             </XStack>
 
-            <Stack
-              flex={1}
-              minHeight={360}
-              overflow="hidden"
-              borderTopWidth="$px"
-              borderTopColor="$borderSubdued"
-            >
-              <TradingViewV2
-                key={`${chartNetworkId}:${chartTokenAddress}:${selectedToken.symbol}`}
-                symbol={selectedToken.symbol}
-                tokenAddress={chartTokenAddress}
-                networkId={chartNetworkId}
-                decimal={selectedToken.decimals}
-                dataSource="polling"
-                w="100%"
-                h="100%"
-              />
-            </Stack>
+            {chartContent}
           </YStack>
         ) : (
           <YStack flex={1} ai="center" jc="center" px="$5">

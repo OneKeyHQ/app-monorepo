@@ -66,6 +66,7 @@ interface IBaseTradingViewV2Props {
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
   storageNamespace?: string;
+  forceEmptyKLineData?: boolean;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -94,6 +95,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onIndicatorsDialogOpenChange,
     disabledFeatures,
     storageNamespace,
+    forceEmptyKLineData,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -110,6 +112,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     currentKLineResolution,
     onTouchScroll,
     onIndicatorsDialogOpenChange,
+    forceEmptyKLineData,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
@@ -166,7 +169,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       isVisible &&
       effectiveDataSource !== 'websocket' &&
       !isHyperLiquidSource &&
-      !mockEmptyKLineEnabled,
+      !mockEmptyKLineEnabled &&
+      !forceEmptyKLineData,
   });
 
   useAutoTokenDetailUpdate({
@@ -184,13 +188,15 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       isVisible &&
       effectiveDataSource === 'websocket' &&
       !isHyperLiquidSource &&
-      !mockEmptyKLineEnabled,
+      !mockEmptyKLineEnabled &&
+      !forceEmptyKLineData,
     chartType: '1m',
   });
 
   // Load marks on page enter and refresh when swap transaction succeeds
   useEffect(() => {
     if (!isVisible || !accountAddress || !tokenAddress || !networkId) return;
+    if (forceEmptyKLineData) return;
 
     const refreshMarks = () => {
       const now = Math.floor(Date.now() / 1000);
@@ -270,6 +276,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     chartSymbol,
     mockEmptyKLineEnabled,
     mockEmptyKLineIntervals,
+    forceEmptyKLineData,
     webRef,
   ]);
 

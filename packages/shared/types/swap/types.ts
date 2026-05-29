@@ -30,7 +30,7 @@ import type {
   IGasLegacy,
 } from '../fee';
 import type { EMessageTypesEth } from '../message';
-import type { IToken, ITokenDappType } from '../token';
+import type { IToken } from '../token';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
 import type { IDeviceType } from '@onekeyfe/hd-core';
@@ -158,9 +158,6 @@ export interface ISwapTokenBase {
   name?: string;
   logoURI?: string;
   speedSwapDefaultAmount?: number[];
-  defiMarked?: boolean;
-  dappName?: string | null;
-  dappType?: ITokenDappType;
 }
 
 export interface IFreeFeeTokenItem {

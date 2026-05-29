@@ -4,7 +4,6 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -66,13 +65,6 @@ type INormalizedMarketTokenListRequestParams = IMarketTokenListRequestParams & {
   page: number;
   limit: number;
 };
-
-function buildEmptyMarketTokenKLineResponse(): IMarketTokenKLineResponse {
-  return {
-    points: [],
-    total: 0,
-  };
-}
 
 @backgroundClass()
 class ServiceMarketV2 extends ServiceBase {
@@ -286,8 +278,47 @@ class ServiceMarketV2 extends ServiceBase {
     timeFrom?: number;
     timeTo?: number;
   }) {
+    let innerInterval = interval?.toUpperCase();
+
+    if (innerInterval?.includes('M') || innerInterval?.includes('S')) {
+      innerInterval = innerInterval?.toLowerCase();
+    }
+
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketTokenKLineResponse;
+    }>('/utility/v2/market/token/kline', {
+      params: {
+        tokenAddress,
+        networkId,
+        interval: innerInterval,
+        timeFrom,
+        timeTo,
+        currency: 'usd',
+      },
+    });
+    const { data } = response.data;
+    return data;
+  }
+
+  @backgroundMethod()
+  async checkMarketTokenKlineAvailable({
+    tokenAddress,
+    networkId,
+    interval,
+    timeFrom,
+    timeTo,
+  }: {
+    tokenAddress: string;
+    networkId: string;
+    interval?: string;
+    timeFrom: number;
+    timeTo: number;
+  }): Promise<boolean | undefined> {
     if (!networkId) {
-      return buildEmptyMarketTokenKLineResponse();
+      return false;
     }
 
     let innerInterval = interval?.toUpperCase();
@@ -298,11 +329,10 @@ class ServiceMarketV2 extends ServiceBase {
 
     try {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
-      const response = await client.get<{
-        code: number;
-        message: string;
-        data: IMarketTokenKLineResponse;
-      }>('/utility/v2/market/token/kline', {
+      const requestConfig: Parameters<typeof client.get>[1] & {
+        autoHandleError?: boolean;
+      } = {
+        autoHandleError: false,
         params: {
           tokenAddress,
           networkId,
@@ -311,12 +341,21 @@ class ServiceMarketV2 extends ServiceBase {
           timeTo,
           currency: 'usd',
         },
-      });
-      const { data } = response.data;
-      return data ?? buildEmptyMarketTokenKLineResponse();
+      };
+      const response = await client.get<{
+        code: number;
+        message: string;
+        data?: IMarketTokenKLineResponse;
+      }>('/utility/v2/market/token/kline', requestConfig);
+
+      if (response.data.code !== 0) {
+        return false;
+      }
+
+      return Boolean(response.data.data?.points?.length);
     } catch (error) {
-      errorToastUtils.toastIfErrorDisable(error);
-      return buildEmptyMarketTokenKLineResponse();
+      console.error('Failed to check market token kline availability:', error);
+      return undefined;
     }
   }
 
