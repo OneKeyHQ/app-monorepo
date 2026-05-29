@@ -129,6 +129,7 @@ export function PerpMobileLayout() {
     setRefreshing(true);
     try {
       await actions.current.refreshAllPerpsData();
+      await actions.current.loadTwapData();
     } finally {
       setRefreshing(false);
     }

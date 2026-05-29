@@ -10,10 +10,12 @@ import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 
 interface IMobileOpenOrdersListHeaderProps {
   totalOrderCount: number;
+  cancelableOrderCount?: number;
 }
 
 export function MobileOpenOrdersListHeader({
   totalOrderCount,
+  cancelableOrderCount = totalOrderCount,
 }: IMobileOpenOrdersListHeaderProps) {
   const intl = useIntl();
   const [filterByCurrentToken, setFilterByCurrentToken] =
@@ -57,20 +59,20 @@ export function MobileOpenOrdersListHeader({
         onChange={handleFilterChange}
       />
 
-      {/* Right: Cancel all button - disabled only when no orders to cancel */}
-      <Button
-        testID="perp-btn"
-        size="small"
-        variant="secondary"
-        disabled={totalOrderCount === 0}
-        onPress={handleCancelAll}
-      >
-        <SizableText size="$bodyXs">
-          {intl.formatMessage({
-            id: ETranslations.perp_open_orders_cancel_all,
-          })}
-        </SizableText>
-      </Button>
+      {cancelableOrderCount > 0 ? (
+        <Button
+          testID="perp-btn"
+          size="small"
+          variant="secondary"
+          onPress={handleCancelAll}
+        >
+          <SizableText size="$bodyXs">
+            {intl.formatMessage({
+              id: ETranslations.perp_open_orders_cancel_all,
+            })}
+          </SizableText>
+        </Button>
+      ) : null}
     </XStack>
   );
 }

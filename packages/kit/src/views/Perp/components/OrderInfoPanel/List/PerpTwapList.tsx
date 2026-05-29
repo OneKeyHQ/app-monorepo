@@ -20,7 +20,10 @@ import {
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getValidPriceDecimals,
   parseDexCoin,
@@ -90,9 +93,14 @@ const TWAP_EMPTY_STATE_MAP: Record<
 
 function formatTwapDateTime(timestamp: number) {
   const timeDate = new Date(timestamp);
+  const date = formatTime(timeDate, { formatTemplate: 'yyyy-LL-dd' });
+  const time = formatTime(timeDate, { formatTemplate: 'HH:mm:ss' });
   return {
-    date: formatTime(timeDate, { formatTemplate: 'yyyy-LL-dd' }),
-    time: formatTime(timeDate, { formatTemplate: 'HH:mm:ss' }),
+    date,
+    time,
+    inline: `${formatTime(timeDate, {
+      formatTemplate: 'M/d/yyyy',
+    })} - ${time}`,
   };
 }
 
@@ -103,19 +111,28 @@ function normalizeEpochMs(timestamp: number | undefined) {
   return timestamp > 1_000_000_000_000 ? timestamp : timestamp * 1000;
 }
 
-function formatDuration(ms: number) {
+function formatElapsedDuration(ms: number) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
+  return [hours, minutes, seconds]
+    .map((value) => String(value).padStart(2, '0'))
+    .join(':');
+}
+
+function formatTotalDuration(minutes: number) {
+  if (minutes < 60) {
+    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
   }
-  if (minutes > 0) {
-    return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (remainingMinutes === 0) {
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
   }
-  return `${seconds}s`;
+  return `${hours}h ${remainingMinutes}m`;
 }
 
 function getTableRowBgColor({
@@ -160,9 +177,15 @@ function getTwapBaseInfo({
     executedSize.gt(0) && executedNotional.gte(0)
       ? executedNotional.dividedBy(executedSize)
       : undefined;
-  const avgPriceFormatted = avgPrice?.isFinite()
+  const avgPriceValue = avgPrice?.isFinite()
     ? avgPrice.toFixed(getValidPriceDecimals(avgPrice.toFixed()))
-    : '--';
+    : undefined;
+  const assetSymbol = parseDexCoin(state.coin).displayName;
+  const sizeFormatted = numberFormat(totalSize.toFixed(), balanceFormatter);
+  const executedSizeFormatted = numberFormat(
+    executedSize.toFixed(),
+    balanceFormatter,
+  );
   const totalMs = state.minutes * 60_000;
   const elapsedMs = Math.min(
     Math.max((endTime ?? now) - state.timestamp, 0),
@@ -170,14 +193,17 @@ function getTwapBaseInfo({
   );
 
   return {
-    assetSymbol: parseDexCoin(state.coin).displayName,
-    sizeFormatted: numberFormat(totalSize.toFixed(), balanceFormatter),
-    executedSizeFormatted: numberFormat(
-      executedSize.toFixed(),
-      balanceFormatter,
-    ),
-    avgPriceFormatted,
-    runningTimeText: `${formatDuration(elapsedMs)} / ${formatDuration(totalMs)}`,
+    assetSymbol,
+    sizeFormatted,
+    executedSizeFormatted,
+    sizeWithSymbol: `${sizeFormatted} ${assetSymbol}`,
+    executedSizeWithSymbol: `${executedSizeFormatted} ${assetSymbol}`,
+    avgPriceFormatted: avgPriceValue
+      ? formatLocalizedNumberString(avgPriceValue)
+      : '--',
+    runningTimeText: `${formatElapsedDuration(elapsedMs)} / ${formatTotalDuration(
+      state.minutes,
+    )}`,
     reduceOnlyText: state.reduceOnly ? 'Yes' : 'No',
   };
 }
@@ -298,11 +324,8 @@ function TwapActiveRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[0].align)}
           >
-            <SizableText size="$bodySmMedium">
+            <SizableText size="$bodySmMedium" color={sideInfo.color}>
               {baseInfo.assetSymbol}
-            </SizableText>
-            <SizableText size="$bodySm" color={sideInfo.color}>
-              {sideInfo.text}
             </SizableText>
           </YStack>
           <XStack
@@ -310,15 +333,17 @@ function TwapActiveRow({
             justifyContent={calcCellAlign(columnConfigs[1].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm">{baseInfo.sizeFormatted}</SizableText>
+            <SizableText size="$bodySm" color={sideInfo.color}>
+              {baseInfo.sizeWithSymbol}
+            </SizableText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[2])}
             justifyContent={calcCellAlign(columnConfigs[2].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm">
-              {baseInfo.executedSizeFormatted}
+            <SizableText size="$bodySm" color={sideInfo.color}>
+              {baseInfo.executedSizeWithSymbol}
             </SizableText>
           </XStack>
           <XStack
@@ -336,11 +361,6 @@ function TwapActiveRow({
             alignItems={calcCellAlign(columnConfigs[4].align)}
           >
             <SizableText size="$bodySm">{baseInfo.runningTimeText}</SizableText>
-            {state.randomize ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                Random
-              </SizableText>
-            ) : null}
           </YStack>
           <XStack
             {...getColumnStyle(columnConfigs[5])}
@@ -354,10 +374,7 @@ function TwapActiveRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[6].align)}
           >
-            <SizableText size="$bodySm">{creationTime.date}</SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {creationTime.time}
-            </SizableText>
+            <SizableText size="$bodySm">{creationTime.inline}</SizableText>
           </YStack>
         </>
       ) : null}
@@ -366,6 +383,7 @@ function TwapActiveRow({
           {...getColumnStyle(columnConfigs[7])}
           justifyContent={calcCellAlign(columnConfigs[7].align)}
           alignItems="center"
+          cursor="pointer"
         >
           <SizableText
             color="$red11"
@@ -443,11 +461,8 @@ function TwapHistoryRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[0].align)}
           >
-            <SizableText size="$bodySmMedium">
+            <SizableText size="$bodySmMedium" color={sideInfo.color}>
               {baseInfo.assetSymbol}
-            </SizableText>
-            <SizableText size="$bodySm" color={sideInfo.color}>
-              {sideInfo.text}
             </SizableText>
           </YStack>
           <XStack
@@ -455,15 +470,17 @@ function TwapHistoryRow({
             justifyContent={calcCellAlign(columnConfigs[1].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm">{baseInfo.sizeFormatted}</SizableText>
+            <SizableText size="$bodySm" color={sideInfo.color}>
+              {baseInfo.sizeWithSymbol}
+            </SizableText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[2])}
             justifyContent={calcCellAlign(columnConfigs[2].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm">
-              {baseInfo.executedSizeFormatted}
+            <SizableText size="$bodySm" color={sideInfo.color}>
+              {baseInfo.executedSizeWithSymbol}
             </SizableText>
           </XStack>
           <XStack
@@ -481,11 +498,6 @@ function TwapHistoryRow({
             alignItems={calcCellAlign(columnConfigs[4].align)}
           >
             <SizableText size="$bodySm">{baseInfo.runningTimeText}</SizableText>
-            {state.randomize ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                Random
-              </SizableText>
-            ) : null}
           </YStack>
           <XStack
             {...getColumnStyle(columnConfigs[5])}
@@ -499,10 +511,7 @@ function TwapHistoryRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[6].align)}
           >
-            <SizableText size="$bodySm">{creationTime.date}</SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {creationTime.time}
-            </SizableText>
+            <SizableText size="$bodySm">{creationTime.inline}</SizableText>
           </YStack>
         </>
       ) : null}
@@ -674,11 +683,6 @@ function PerpTwapList() {
     setCurrentListPage(1);
   }, [activeTab]);
 
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(timer);
-  }, []);
-
   const currentAccountAddress = currentUser?.accountAddress?.toLowerCase();
 
   const twapOrders = useMemo(() => {
@@ -690,6 +694,14 @@ function PerpTwapList() {
     }
     return rawTwapOrders;
   }, [activeTwapAccountAddress, currentAccountAddress, rawTwapOrders]);
+
+  useEffect(() => {
+    if (activeTab !== 'active' || twapOrders.length === 0) {
+      return undefined;
+    }
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [activeTab, twapOrders.length]);
 
   const historyRows = useMemo(() => {
     if (
@@ -809,19 +821,30 @@ function PerpTwapList() {
 
   const handleTerminate = useCallback(
     async (order: IPerpsActiveTwapOrder) => {
-      await actions.current.ensureTradingEnabled();
-      const symbolMeta =
-        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
-          coin: order.state.coin,
+      try {
+        await actions.current.ensureTradingEnabled();
+        const symbolMeta =
+          await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+            coin: order.state.coin,
+          });
+        if (!symbolMeta) {
+          Toast.message({ title: 'Token info not found' });
+          return;
+        }
+        await actions.current
+          .cancelTwapOrder({
+            assetId: symbolMeta.assetId,
+            twapId: order.twapId,
+          })
+          .catch(() => undefined);
+      } catch (error) {
+        Toast.error({
+          title:
+            error instanceof Error
+              ? error.message
+              : 'Failed to terminate TWAP order',
         });
-      if (!symbolMeta) {
-        Toast.message({ title: 'Token info not found' });
-        return;
       }
-      void actions.current.cancelTwapOrder({
-        assetId: symbolMeta.assetId,
-        twapId: order.twapId,
-      });
     },
     [actions],
   );
@@ -921,6 +944,7 @@ function PerpTwapList() {
         tabs={TWAP_ORDERS_SUB_TABS}
         activeTab={activeTab}
         onChange={setActiveTab}
+        variant="underline"
       />
       {activeTab === 'active' ? (
         <CommonTableListView

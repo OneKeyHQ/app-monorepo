@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -28,9 +27,9 @@ import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk
 
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
+import { MobileTwapOpenOrdersRow } from '../Components/MobileTwapOpenOrdersRow';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
-import { TwapOpenOrdersRow } from '../Components/TwapOpenOrdersRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -194,10 +193,11 @@ function PerpOpenOrdersList({
     [perpOpenOrders, spotOpenOrders],
   );
   useEffect(() => {
-    noop(currentUser?.accountAddress);
     setCurrentListPage(1);
-    void actions.current.loadTwapData();
-  }, [actions, currentUser?.accountAddress]);
+    if (isMobile) {
+      void actions.current.loadTwapData();
+    }
+  }, [actions, currentUser?.accountAddress, isMobile]);
   useEffect(() => {
     if (isMobile) {
       setCurrentListPage(1);
@@ -267,47 +267,67 @@ function PerpOpenOrdersList({
 
   const handleCancelOrder = useCallback(
     async (order: IPerpsFrontendOrder) => {
-      await actions.current.ensureTradingEnabled();
-      const symbolMeta =
-        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
-          coin: order.coin,
+      try {
+        await actions.current.ensureTradingEnabled();
+        const symbolMeta =
+          await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+            coin: order.coin,
+          });
+        const tokenInfo = symbolMeta;
+        if (!tokenInfo) {
+          Toast.message({
+            title: 'Token info not found',
+          });
+          return;
+        }
+        await actions.current
+          .cancelOrder({
+            orders: [
+              {
+                assetId: tokenInfo.assetId,
+                oid: order.oid,
+              },
+            ],
+          })
+          .catch(() => undefined);
+      } catch (error) {
+        Toast.error({
+          title:
+            error instanceof Error ? error.message : 'Failed to cancel order',
         });
-      const tokenInfo = symbolMeta;
-      if (!tokenInfo) {
-        Toast.message({
-          title: 'Token info not found',
-        });
-        return;
       }
-      void actions.current.cancelOrder({
-        orders: [
-          {
-            assetId: tokenInfo.assetId,
-            oid: order.oid,
-          },
-        ],
-      });
     },
     [actions],
   );
 
   const handleCancelTwapOrder = useCallback(
     async (order: IPerpsActiveTwapOrder) => {
-      await actions.current.ensureTradingEnabled();
-      const symbolMeta =
-        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
-          coin: order.state.coin,
+      try {
+        await actions.current.ensureTradingEnabled();
+        const symbolMeta =
+          await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+            coin: order.state.coin,
+          });
+        if (!symbolMeta) {
+          Toast.message({
+            title: 'Token info not found',
+          });
+          return;
+        }
+        await actions.current
+          .cancelTwapOrder({
+            assetId: symbolMeta.assetId,
+            twapId: order.twapId,
+          })
+          .catch(() => undefined);
+      } catch (error) {
+        Toast.error({
+          title:
+            error instanceof Error
+              ? error.message
+              : 'Failed to cancel TWAP order',
         });
-      if (!symbolMeta) {
-        Toast.message({
-          title: 'Token info not found',
-        });
-        return;
       }
-      void actions.current.cancelTwapOrder({
-        assetId: symbolMeta.assetId,
-        twapId: order.twapId,
-      });
     },
     [actions],
   );
@@ -329,15 +349,8 @@ function PerpOpenOrdersList({
   ) => {
     if (item.type === 'twap') {
       return (
-        <TwapOpenOrdersRow
+        <MobileTwapOpenOrdersRow
           order={item.order}
-          isMobile={isMobile}
-          cellMinWidth={totalMinWidth}
-          columnConfigs={columnsConfig}
-          index={_index}
-          renderMode={renderMode}
-          isHovered={isHovered}
-          onHoverChange={onHoverChange}
           onCancelOrder={() => void handleCancelTwapOrder(item.order)}
         />
       );
@@ -364,7 +377,10 @@ function PerpOpenOrdersList({
         onChange={setActiveOpenOrdersSubTab}
       />
       <MobileOpenOrdersListHeader
-        totalOrderCount={filteredOrders.length + filteredTwapOrders.length}
+        totalOrderCount={displayRows.length}
+        cancelableOrderCount={
+          activeOpenOrdersSubTab === 'basic' ? filteredOrders.length : 0
+        }
       />
     </YStack>
   ) : null;
@@ -373,7 +389,9 @@ function PerpOpenOrdersList({
     <CommonTableListView
       onPullToRefresh={async () => {
         await actions.current.refreshAllPerpsData();
-        await actions.current.loadTwapData();
+        if (isMobile) {
+          await actions.current.loadTwapData();
+        }
       }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
