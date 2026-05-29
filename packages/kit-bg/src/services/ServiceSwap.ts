@@ -52,6 +52,7 @@ import type {
 import {
   maxRecentTokenPairs,
   mevSwapNetworks,
+  privateSendProvider,
   swapApprovingStateFetchInterval,
   swapDefaultSetTokens,
   swapHistoryStateFetchInterval,
@@ -119,6 +120,29 @@ import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwo
 const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
+
+function isPrivateSendProtocol(protocol?: string) {
+  return (
+    protocol === ESwapTabSwitchType.PRIVATE_SEND ||
+    protocol === EProtocolOfExchange.PRIVATE_SEND
+  );
+}
+
+function getProtocolOfExchangeFromSwapTab(
+  protocol?: string,
+): EProtocolOfExchange {
+  if (
+    protocol === ESwapTabSwitchType.LIMIT ||
+    protocol === EProtocolOfExchange.LIMIT
+  ) {
+    return EProtocolOfExchange.LIMIT;
+  }
+  if (isPrivateSendProtocol(protocol)) {
+    return EProtocolOfExchange.PRIVATE_SEND;
+  }
+  return EProtocolOfExchange.SWAP;
+}
+
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
   private _quoteAbortController?: AbortController;
@@ -279,6 +303,7 @@ export default class ServiceSwap extends ServiceBase {
             supportCrossChainSwap: network.supportCrossChainSwap,
             supportSingleSwap: network.supportSingleSwap,
             supportLimit: network.supportLimit,
+            supportPrivateSend: network.supportPrivateSend,
           };
         }
         return null;
@@ -305,10 +330,7 @@ export default class ServiceSwap extends ServiceBase {
     }
     const targetNetworkId = networkId ?? getNetworkIdsMap().onekeyall;
     const params: IFetchTokenListParams = {
-      protocol:
-        protocol === ESwapTabSwitchType.LIMIT
-          ? EProtocolOfExchange.LIMIT
-          : EProtocolOfExchange.SWAP,
+      protocol: getProtocolOfExchangeFromSwapTab(protocol),
       networkId: targetNetworkId,
       keywords,
       limit,
@@ -629,10 +651,7 @@ export default class ServiceSwap extends ServiceBase {
       fromTokenAmount,
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
-      protocol:
-        protocol === ESwapTabSwitchType.LIMIT
-          ? EProtocolOfExchange.LIMIT
-          : EProtocolOfExchange.SWAP,
+      protocol: getProtocolOfExchangeFromSwapTab(protocol),
       userAddress,
       slippagePercentage,
       autoSlippage,
@@ -726,10 +745,7 @@ export default class ServiceSwap extends ServiceBase {
       fromTokenAmount,
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
-      protocol:
-        protocol === ESwapTabSwitchType.LIMIT
-          ? EProtocolOfExchange.LIMIT
-          : EProtocolOfExchange.SWAP,
+      protocol: getProtocolOfExchangeFromSwapTab(protocol),
       userAddress,
       slippagePercentage,
       autoSlippage,
@@ -1757,7 +1773,12 @@ export default class ServiceSwap extends ServiceBase {
           currentSwapTxHistory.txInfo.orderId ??
           '',
         provider: currentSwapTxHistory.swapInfo.provider.provider,
-        protocol: EProtocolOfExchange.SWAP,
+        protocol:
+          currentSwapTxHistory.protocol ??
+          (currentSwapTxHistory.swapInfo.provider.provider ===
+          privateSendProvider
+            ? EProtocolOfExchange.PRIVATE_SEND
+            : EProtocolOfExchange.SWAP),
         networkId: currentSwapTxHistory.baseInfo.fromToken.networkId,
         ctx: currentSwapTxHistory.ctx,
         toTokenAddress: currentSwapTxHistory.baseInfo.toToken.contractAddress,
@@ -2472,10 +2493,7 @@ export default class ServiceSwap extends ServiceBase {
       fromTokenAmount,
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
-      protocol:
-        protocol === ESwapTabSwitchType.LIMIT
-          ? EProtocolOfExchange.LIMIT
-          : EProtocolOfExchange.SWAP,
+      protocol: getProtocolOfExchangeFromSwapTab(protocol),
       userAddress,
       slippagePercentage,
       autoSlippage,

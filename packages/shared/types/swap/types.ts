@@ -43,6 +43,7 @@ export enum EWrappedType {
 export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
   LIMIT = 'Limit', // TODO
+  PRIVATE_SEND = 'PrivateSend',
   ALL = 'All',
 }
 
@@ -50,6 +51,7 @@ export enum ESwapTabSwitchType {
   SWAP = 'swap',
   BRIDGE = 'bridge',
   LIMIT = 'limit',
+  PRIVATE_SEND = 'privateSend',
 }
 
 export enum ESwapDirectionType {
@@ -135,6 +137,7 @@ export interface ISwapNetworkBase {
   supportCrossChainSwap?: boolean;
   supportSingleSwap?: boolean;
   supportLimit?: boolean;
+  supportPrivateSend?: boolean;
 }
 
 export interface ISwapNetwork extends ISwapNetworkBase {
@@ -623,6 +626,7 @@ export interface IFetchQuoteResult {
   isAntiMEV?: boolean;
   tokenMetadata?: ISwapTokenMetadata;
   quoteShowTip?: IQuoteTip;
+  valueDropPercent?: number;
   gasLimit?: number;
   slippage?: number;
   providerDisableBatchTransfer?: boolean;
@@ -972,6 +976,7 @@ export interface ISwapCheckSupportResponse {
 }
 
 export interface ISwapTxHistory {
+  protocol?: EProtocolOfExchange;
   status: ESwapTxHistoryStatus;
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;

@@ -37,9 +37,11 @@ import type {
 } from '@onekeyhq/shared/src/routes/swap';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IExplorersInfo } from '@onekeyhq/shared/types/swap/types';
 import {
   EExplorerType,
+  EProtocolOfExchange,
   ESwapCleanHistorySource,
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
@@ -106,6 +108,12 @@ const SwapHistoryDetailModal = () => {
       ),
     [txHistoryListState, txHistoryOrderId],
   );
+  const isPrivateSendHistory = useMemo(
+    () =>
+      txHistory?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+      txHistory?.swapInfo.provider.provider === privateSendProvider,
+    [txHistory?.protocol, txHistory?.swapInfo.provider.provider],
+  );
 
   const onViewInBrowser = useCallback((url: string) => {
     openUrlExternal(url);
@@ -157,6 +165,21 @@ const SwapHistoryDetailModal = () => {
         }
       });
     }
+    if (isPrivateSendHistory) {
+      return (
+        <AssetItem
+          index={0}
+          direction={EDecodedTxDirection.OUT}
+          asset={fromAsset}
+          isAllNetworks
+          amount={fromTokenAmount ?? '0'}
+          networkIcon={txHistory?.baseInfo.fromNetwork?.logoURI ?? ''}
+          currencySymbol={
+            txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol
+          }
+        />
+      );
+    }
     return (
       <>
         <AssetItem
@@ -197,7 +220,11 @@ const SwapHistoryDetailModal = () => {
         ))}
       </>
     );
-  }, [settingsPersistAtom.currencyInfo.symbol, txHistory]);
+  }, [
+    isPrivateSendHistory,
+    settingsPersistAtom.currencyInfo.symbol,
+    txHistory,
+  ]);
 
   const fromTxExplorer = useCallback(
     async (txId?: string) => {
@@ -262,6 +289,41 @@ const SwapHistoryDetailModal = () => {
 
   const renderSwapOrderStatus = useCallback(() => {
     const { status } = txHistory ?? {};
+    if (isPrivateSendHistory) {
+      const statusTextProps = (() => {
+        if (status === ESwapTxHistoryStatus.SUCCESS) {
+          return {
+            key: ETranslations.private_send_done,
+            color: '$textSuccess',
+          } as const;
+        }
+        if (status === ESwapTxHistoryStatus.FAILED) {
+          return {
+            key: ETranslations.private_send_failed,
+            color: '$textCritical',
+          } as const;
+        }
+        return {
+          key: ETranslations.private_send_pending,
+          color: '$textCaution',
+        } as const;
+      })();
+      return (
+        <XStack gap="$2" alignItems="center">
+          <SizableText size={16} color={statusTextProps.color}>
+            {intl.formatMessage({ id: statusTextProps.key })}
+          </SizableText>
+          {txHistory?.txInfo.txId ? (
+            <SwapTxHistoryViewInBrowser
+              item={txHistory}
+              onViewInBrowser={onViewInBrowser}
+              fromTxExplorer={fromTxExplorer}
+              toTxExplorer={toTxExplorer}
+            />
+          ) : null}
+        </XStack>
+      );
+    }
     const { key, color } = getSwapHistoryStatusTextProps(
       status ?? ESwapTxHistoryStatus.PENDING,
       txHistory?.extraStatus,
@@ -281,7 +343,14 @@ const SwapHistoryDetailModal = () => {
         ) : null}
       </XStack>
     );
-  }, [fromTxExplorer, intl, onViewInBrowser, toTxExplorer, txHistory]);
+  }, [
+    fromTxExplorer,
+    intl,
+    isPrivateSendHistory,
+    onViewInBrowser,
+    toTxExplorer,
+    txHistory,
+  ]);
 
   const renderSwapCrossChainStatus = useCallback(() => {
     const { crossChainStatus } = txHistory ?? {};
@@ -509,7 +578,9 @@ const SwapHistoryDetailModal = () => {
           <InfoItemGroup>
             <InfoItem
               label={intl.formatMessage({
-                id: ETranslations.swap_history_detail_pay_address,
+                id: isPrivateSendHistory
+                  ? ETranslations.global_from
+                  : ETranslations.swap_history_detail_pay_address,
               })}
               renderContent={txHistory.txInfo.sender}
               showCopy
@@ -523,7 +594,9 @@ const SwapHistoryDetailModal = () => {
             />
             <InfoItem
               label={intl.formatMessage({
-                id: ETranslations.swap_history_detail_received_address,
+                id: isPrivateSendHistory
+                  ? ETranslations.global_to
+                  : ETranslations.swap_history_detail_received_address,
               })}
               renderContent={txHistory.txInfo.receiver}
               description={
@@ -618,6 +691,7 @@ const SwapHistoryDetailModal = () => {
     renderSwapDate,
     renderSwapOrderStatus,
     renderSwapProvider,
+    isPrivateSendHistory,
     txHistory,
   ]);
 
@@ -665,7 +739,9 @@ const SwapHistoryDetailModal = () => {
     <Page scrollEnabled>
       <Page.Header
         headerTitle={intl.formatMessage({
-          id: ETranslations.swap_history_detail_title,
+          id: isPrivateSendHistory
+            ? ETranslations.private_send_private_send
+            : ETranslations.swap_history_detail_title,
         })}
         headerRight={headerRight}
       />
