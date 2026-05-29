@@ -9,7 +9,6 @@ import {
   Icon,
   IconButton,
   SizableText,
-  Skeleton,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -248,7 +247,9 @@ function DepositButton() {
           return (
             <>
               <Icon name="ChartLine2Outline" size="$4" />
-              <Skeleton width={60} height={16} />
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                --
+              </SizableText>
             </>
           );
         }
@@ -269,7 +270,7 @@ function DepositButton() {
               value={accountValue ?? ''}
               skeletonWidth={60}
               textSize="$bodySmMedium"
-              allowValueDuringAccountLoading={isUsingSnapshotValue}
+              allowValueDuringAccountLoading
               skipAccountSummaryCheck={isUsingSnapshotValue}
             />
           </>

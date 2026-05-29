@@ -37,7 +37,10 @@ import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk
 
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
-import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../PerpDialogLayout';
+import {
+  PERP_DIALOG_BUTTON_SIZE,
+  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+} from '../PerpDialogLayout';
 import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TpslInput } from '../TradingPanel/inputs/TpslInput';
@@ -53,7 +56,7 @@ export interface ISetTpslParams {
   isMobile?: boolean;
 }
 
-interface ISetTpslFormProps extends ISetTpslParams {
+interface ISetTpslFormProps extends Omit<ISetTpslParams, 'isMobile'> {
   onClose: () => void;
 }
 
@@ -65,13 +68,7 @@ function MarkPrice({ coin }: { coin: string }) {
 }
 
 const SetTpslForm = memo(
-  ({
-    coin,
-    szDecimals,
-    assetId,
-    isMobile,
-    onClose = () => {},
-  }: ISetTpslFormProps) => {
+  ({ coin, szDecimals, assetId, onClose = () => {} }: ISetTpslFormProps) => {
     const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
     const { mid: midPrice } = usePerpsMidPrice({ coin });
@@ -650,10 +647,10 @@ const SetTpslForm = memo(
             ) : null}
           </YStack>
         </YStack>
-        <TradingGuardWrapper>
+        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
           <Button
             testID="perp-processed-value-btn"
-            size={isMobile ? 'large' : 'medium'}
+            size={PERP_DIALOG_BUTTON_SIZE}
             variant="primary"
             onPress={handleSubmit}
             disabled={!isValidForm || isSubmitting}
@@ -676,7 +673,7 @@ function SetTpslModal() {
   const route =
     useRoute<RouteProp<IModalPerpParamList, EModalPerpRoutes.MobileSetTpsl>>();
 
-  const { coin, szDecimals, assetId, isMobile = true } = route.params;
+  const { coin, szDecimals, assetId } = route.params;
   const navigation = useNavigation();
   const handleClose = useCallback(() => {
     navigation.goBack();
@@ -696,7 +693,6 @@ function SetTpslModal() {
               szDecimals={szDecimals}
               assetId={assetId}
               onClose={handleClose}
-              isMobile={isMobile}
             />
           </YStack>
         </PerpsProviderMirror>

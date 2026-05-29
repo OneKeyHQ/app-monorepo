@@ -644,12 +644,6 @@ function PerpTradingForm({
     spotAvailableBaseBN,
     spotAvailableQuoteBN,
   ]);
-  const isUsingCachedAvailableToTrade = Boolean(
-    !isSpot &&
-    !activeAssetData?.availableToTrade &&
-    snapshotEntry?.availableToTrade?.coin === activeAsset?.coin,
-  );
-
   // Spot: display raw token balance with symbol
   const spotAvailableDisplay = useMemo(() => {
     if (!isSpot) return '';
@@ -1595,10 +1589,8 @@ function PerpTradingForm({
                   <PerpsAccountNumberValue
                     value={availableToTrade}
                     skeletonWidth={60}
-                    allowValueDuringAccountLoading={
-                      isUsingCachedAvailableToTrade
-                    }
-                    skipAccountSummaryCheck={isUsingCachedAvailableToTrade}
+                    allowValueDuringAccountLoading
+                    skipAccountSummaryCheck
                   />
                   <MobileDepositButton onPress={handleDepositPress} />
                 </XStack>

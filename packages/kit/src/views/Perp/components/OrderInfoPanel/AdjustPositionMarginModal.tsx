@@ -28,7 +28,10 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
-import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../PerpDialogLayout';
+import {
+  PERP_DIALOG_BUTTON_SIZE,
+  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+} from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
@@ -332,10 +335,10 @@ const AdjustPositionMarginForm = memo(
           </YStack>
         </YStack>
 
-        <TradingGuardWrapper>
+        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
           <Button
             testID="perp-btn"
-            size="medium"
+            size={PERP_DIALOG_BUTTON_SIZE}
             variant="primary"
             onPress={handleSubmit}
             disabled={!isValidAmount || isSubmitting}
