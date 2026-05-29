@@ -344,6 +344,7 @@ function SideButtonInternal({
   const isTriggerMode = formData.orderMode === 'trigger';
   const isScaleMode = formData.orderMode === 'scale';
   const isTwapMode = formData.orderMode === 'twap';
+  const shouldShowCostAndLiqPrice = !isSpot && !isScaleMode && !isTwapMode;
 
   const renderLiquidationPrice = () => {
     if (liquidationPrice) {
@@ -802,7 +803,7 @@ function SideButtonInternal({
   if (isMobile) {
     return (
       <YStack gap="$2" flex={1}>
-        {isSpot ? null : (
+        {shouldShowCostAndLiqPrice ? (
           <YStack gap="$1.5">
             {/* <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
@@ -887,7 +888,7 @@ function SideButtonInternal({
               {renderLiquidationPrice()}
             </XStack>
           </YStack>
-        )}
+        ) : null}
 
         <Button
           testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
@@ -972,7 +973,7 @@ function SideButtonInternal({
           ) : null}
         </YStack>
       </Button>
-      {isSpot ? null : (
+      {shouldShowCostAndLiqPrice ? (
         <YStack gap="$1.5">
           {/* <XStack justifyContent="space-between">
             <SizableText size="$bodySm" color="$textSubdued">
@@ -1043,7 +1044,7 @@ function SideButtonInternal({
             {renderLiquidationPrice()}
           </XStack>
         </YStack>
-      )}
+      ) : null}
     </YStack>
   );
 }
