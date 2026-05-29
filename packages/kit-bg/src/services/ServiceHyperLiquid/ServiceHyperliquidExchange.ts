@@ -77,6 +77,8 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import { createLoggedHyperLiquidClient } from './utils/logHyperLiquidApiFailure';
+
 import type {
   WalletHyperliquidOnekey,
   WalletHyperliquidProxy,
@@ -141,6 +143,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       );
     }
     return this._exchangeClient;
+  }
+
+  private _createLoggedExchangeClient(client: ExchangeClient): ExchangeClient {
+    return createLoggedHyperLiquidClient(client, {
+      endpoint: 'exchange',
+      context: () => this._buildLogContext(),
+      extra: { source: 'ServiceHyperliquidExchange' },
+    });
   }
 
   private _calculateSlippagePrice(params: {
@@ -364,11 +374,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         account = proxyWallet.address;
       }
 
-      this._exchangeClient = new ExchangeClient({
-        transport,
-        wallet,
-        signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
-      });
+      this._exchangeClient = this._createLoggedExchangeClient(
+        new ExchangeClient({
+          transport,
+          wallet,
+          signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
+        }),
+      );
 
       this._account = account;
       this._wallet = wallet;
@@ -1429,11 +1441,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
         userAccountId: params.userAccountId,
       });
-    const exchangeClient = new ExchangeClient({
-      transport: new HttpTransport(),
-      wallet,
-      signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
-    });
+    const exchangeClient = this._createLoggedExchangeClient(
+      new ExchangeClient({
+        transport: new HttpTransport(),
+        wallet,
+        signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
+      }),
+    );
     // TODO: i18n — HL returns English errors like "Cannot disable unified account with open positions..."
     // Need to add these to hyperliquidErrorLocales config for localization
     await convertHyperLiquidResponse(() =>
@@ -1451,11 +1465,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
         userAccountId: params.userAccountId,
       });
-    const exchangeClient = new ExchangeClient({
-      transport: new HttpTransport(),
-      wallet,
-      signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
-    });
+    const exchangeClient = this._createLoggedExchangeClient(
+      new ExchangeClient({
+        transport: new HttpTransport(),
+        wallet,
+        signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
+      }),
+    );
     const context = await this._buildLogContext();
     try {
       await convertHyperLiquidResponse(() => exchangeClient.withdraw3(params));
