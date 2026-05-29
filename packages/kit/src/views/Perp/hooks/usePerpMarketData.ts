@@ -1,9 +1,13 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   useActiveTradeInstrumentAtom,
   useL2BookAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  getPerpsMarketDataLocalReceivedAt,
+  withPerpsL2BookLocalReceivedAt,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
 import { PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import {
   getPerpsL2BookSnapshotCacheKeys,
@@ -11,6 +15,11 @@ import {
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
+
+import {
+  getPerpsL2BookInteractiveRefreshDelayMs,
+  isPerpsL2BookInteractive,
+} from '../utils/l2BookFreshness';
 
 import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
 
@@ -44,6 +53,7 @@ export interface ICurrentTokenData {
 export interface IL2BookData extends HL.IBook {
   bids: HL.IBookLevel[];
   asks: HL.IBookLevel[];
+  localReceivedAt?: number;
 }
 
 function getFreshL2BookSnapshotFromSwr({
@@ -65,7 +75,7 @@ function getFreshL2BookSnapshotFromSwr({
       entry?.data?.coin === coin &&
       Date.now() - entry.updatedAt <= PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS
     ) {
-      return entry.data;
+      return withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt);
     }
   }
 
@@ -75,6 +85,7 @@ function getFreshL2BookSnapshotFromSwr({
 export function useL2Book(options?: IL2BookOptions): {
   l2Book: IL2BookData | null;
   hasOrderBook: boolean;
+  isOrderBookInteractive: boolean;
   isMarketDataStale: boolean;
   lastUpdate: number | null;
   getBestBid: () => string | null;
@@ -89,7 +100,19 @@ export function useL2Book(options?: IL2BookOptions): {
   const expectedCoin = activeTradeInstrument.coin;
   const nSigFigs = options?.nSigFigs;
   const mantissa = options?.mantissa;
+  const normalizedNSigFigs = nSigFigs ?? null;
+  const normalizedMantissa = mantissa ?? null;
   const marketDataFreshness = usePerpsMarketDataFreshness();
+  const [, refreshL2BookInteractivity] = useState(0);
+  const lastL2BookRef = useRef<
+    | {
+        coin: string;
+        nSigFigs: number | null;
+        mantissa: number | null;
+        data: HL.IBook;
+      }
+    | undefined
+  >(undefined);
 
   const l2Book = useMemo((): IL2BookData | null => {
     let bookData: HL.IBook | null | undefined;
@@ -104,6 +127,15 @@ export function useL2Book(options?: IL2BookOptions): {
         },
       });
     }
+    const lastL2Book = lastL2BookRef.current;
+    if (
+      !bookData &&
+      lastL2Book?.coin === expectedCoin &&
+      lastL2Book.nSigFigs === normalizedNSigFigs &&
+      lastL2Book.mantissa === normalizedMantissa
+    ) {
+      bookData = lastL2Book.data;
+    }
     if (!bookData || !expectedCoin) return null;
     if (bookData.coin !== expectedCoin) return null;
 
@@ -113,10 +145,51 @@ export function useL2Book(options?: IL2BookOptions): {
       coin: bookData.coin,
       time: bookData.time,
       levels: bookData.levels,
+      localReceivedAt: getPerpsMarketDataLocalReceivedAt(bookData),
       bids: bids || [],
       asks: asks || [],
     };
-  }, [expectedCoin, l2BookData, mantissa, nSigFigs]);
+  }, [
+    expectedCoin,
+    l2BookData,
+    mantissa,
+    nSigFigs,
+    normalizedMantissa,
+    normalizedNSigFigs,
+  ]);
+
+  useEffect(() => {
+    if (!l2Book) {
+      return;
+    }
+    lastL2BookRef.current = {
+      coin: l2Book.coin,
+      nSigFigs: normalizedNSigFigs,
+      mantissa: normalizedMantissa,
+      data: l2Book,
+    };
+  }, [l2Book, normalizedMantissa, normalizedNSigFigs]);
+
+  const isOrderBookInteractive = isPerpsL2BookInteractive({
+    bookTime: l2Book?.time,
+    bookReceivedAt: l2Book?.localReceivedAt,
+  });
+
+  useEffect(() => {
+    const refreshDelayMs = getPerpsL2BookInteractiveRefreshDelayMs({
+      bookTime: l2Book?.time,
+      bookReceivedAt: l2Book?.localReceivedAt,
+    });
+    if (refreshDelayMs === undefined) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      refreshL2BookInteractivity((value) => value + 1);
+    }, refreshDelayMs);
+
+    return () => clearTimeout(timer);
+  }, [l2Book?.localReceivedAt, l2Book?.time]);
 
   const getBestBid = (): string | null => {
     if (!l2Book?.bids || l2Book.bids.length === 0) return null;
@@ -165,6 +238,7 @@ export function useL2Book(options?: IL2BookOptions): {
   return {
     l2Book,
     hasOrderBook: !!l2Book,
+    isOrderBookInteractive,
     isMarketDataStale: marketDataFreshness.isStale,
     lastUpdate: marketDataFreshness.lastMessageAt,
     getBestBid,
