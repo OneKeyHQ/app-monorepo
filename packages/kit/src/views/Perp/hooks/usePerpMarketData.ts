@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   useActiveTradeInstrumentAtom,
@@ -12,7 +12,10 @@ import {
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { isPerpsL2BookInteractive } from '../utils/l2BookFreshness';
+import {
+  getPerpsL2BookInteractiveRefreshDelayMs,
+  isPerpsL2BookInteractive,
+} from '../utils/l2BookFreshness';
 
 import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
 
@@ -95,6 +98,7 @@ export function useL2Book(options?: IL2BookOptions): {
   const normalizedNSigFigs = nSigFigs ?? null;
   const normalizedMantissa = mantissa ?? null;
   const marketDataFreshness = usePerpsMarketDataFreshness();
+  const [, refreshL2BookInteractivity] = useState(0);
   const lastL2BookRef = useRef<
     | {
         coin: string;
@@ -163,6 +167,21 @@ export function useL2Book(options?: IL2BookOptions): {
   const isOrderBookInteractive = isPerpsL2BookInteractive({
     bookTime: l2Book?.time,
   });
+
+  useEffect(() => {
+    const refreshDelayMs = getPerpsL2BookInteractiveRefreshDelayMs({
+      bookTime: l2Book?.time,
+    });
+    if (refreshDelayMs === undefined) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      refreshL2BookInteractivity((value) => value + 1);
+    }, refreshDelayMs);
+
+    return () => clearTimeout(timer);
+  }, [l2Book?.time]);
 
   const getBestBid = (): string | null => {
     if (!l2Book?.bids || l2Book.bids.length === 0) return null;

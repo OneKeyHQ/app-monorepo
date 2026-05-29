@@ -23,10 +23,38 @@ describe('perps leverage display helpers', () => {
     ).toBe(18);
   });
 
+  it('clamps cached display leverage to the market maximum', () => {
+    expect(
+      getPerpsDisplayLeverage({
+        cachedLeverage: 40,
+        maxLeverage: 25,
+      }),
+    ).toBe(25);
+  });
+
+  it('clamps live display leverage to the market maximum', () => {
+    expect(
+      getPerpsDisplayLeverage({
+        liveLeverage: 40,
+        cachedLeverage: 20,
+        maxLeverage: 25,
+      }),
+    ).toBe(25);
+  });
+
   it('does not inject max leverage into the trading form', () => {
     expect(
       getPerpsFormLeverage({
         isSpot: false,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps cached leverage out of the trading form', () => {
+    expect(
+      getPerpsFormLeverage({
+        isSpot: false,
+        cachedLeverage: 20,
       }),
     ).toBeUndefined();
   });
