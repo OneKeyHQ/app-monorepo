@@ -102,16 +102,49 @@ export type IPerpsOrderPanelPostEnableTradingResult =
   | 'noEnoughMargin'
   | 'stop';
 
+export function shouldDisablePerpsOrderPanelTradingButton({
+  isTradingStatusDisabled,
+  shouldEnableTradingBeforeOrder,
+  isNoEnoughMargin,
+  isAccountLoading,
+  isSubmitting,
+  hasBboPriceError,
+  isServerActionDisabled,
+}: {
+  isTradingStatusDisabled: boolean;
+  shouldEnableTradingBeforeOrder: boolean;
+  isNoEnoughMargin: boolean;
+  isAccountLoading: boolean;
+  isSubmitting: boolean;
+  hasBboPriceError: boolean;
+  isServerActionDisabled: boolean;
+}) {
+  return (
+    isTradingStatusDisabled ||
+    (!shouldEnableTradingBeforeOrder && isNoEnoughMargin) ||
+    isAccountLoading ||
+    isSubmitting ||
+    (!shouldEnableTradingBeforeOrder && hasBboPriceError) ||
+    isServerActionDisabled
+  );
+}
+
 export function getPerpsOrderPanelPostEnableTradingResult({
   enableTradingShouldContinue,
   shouldIgnoreEnableTradingResult,
+  isOrderContextChanged,
   isNoEnoughMargin,
 }: {
   enableTradingShouldContinue: boolean | undefined;
   shouldIgnoreEnableTradingResult: boolean;
+  isOrderContextChanged: boolean;
   isNoEnoughMargin: boolean;
 }): IPerpsOrderPanelPostEnableTradingResult {
-  if (!enableTradingShouldContinue || shouldIgnoreEnableTradingResult) {
+  if (
+    !enableTradingShouldContinue ||
+    shouldIgnoreEnableTradingResult ||
+    isOrderContextChanged
+  ) {
     return 'stop';
   }
 

@@ -63,7 +63,10 @@ import {
   type IPerpsMarketDataFreshness,
   shouldBlockPerpsTradingForMarketData,
 } from '../../utils/perpsMarketDataFreshness';
-import { getPerpsOrderPanelPostEnableTradingResult } from '../../utils/perpsOrderPanelEnableTrading';
+import {
+  getPerpsOrderPanelPostEnableTradingResult,
+  shouldDisablePerpsOrderPanelTradingButton,
+} from '../../utils/perpsOrderPanelEnableTrading';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showEnableTradingStepsDialog } from './modals/EnableTradingStepsDialog';
@@ -134,6 +137,21 @@ function SideButtonInternal({
       : tradingPreferences.sizeInputUnit;
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const orderContextKey = useMemo(
+    () =>
+      [
+        tradingMode,
+        activeTradeInstrument.mode,
+        activeTradeInstrument.assetId ?? '',
+        activeAsset?.coin ?? '',
+      ].join(':'),
+    [
+      activeAsset?.coin,
+      activeTradeInstrument.assetId,
+      activeTradeInstrument.mode,
+      tradingMode,
+    ],
+  );
 
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPriceBN } = useTradingPrice();
@@ -249,14 +267,15 @@ function SideButtonInternal({
   );
 
   const buttonDisabled = useMemo(() => {
-    return (
-      isTradingStatusDisabled ||
-      (!shouldEnableTradingBeforeOrder && isNoEnoughMargin) ||
-      isAccountLoading ||
-      isSubmitting ||
-      priceError === 'bbo_unavailable' ||
-      isServerActionDisabled
-    );
+    return shouldDisablePerpsOrderPanelTradingButton({
+      isTradingStatusDisabled,
+      shouldEnableTradingBeforeOrder,
+      isNoEnoughMargin,
+      isAccountLoading,
+      isSubmitting,
+      hasBboPriceError: priceError === 'bbo_unavailable',
+      isServerActionDisabled,
+    });
   }, [
     isTradingStatusDisabled,
     shouldEnableTradingBeforeOrder,
@@ -314,7 +333,7 @@ function SideButtonInternal({
   }, [activeTradeInstrument, isSpot]);
 
   const buttonText = useMemo(() => {
-    if (priceError === 'bbo_unavailable')
+    if (priceError === 'bbo_unavailable' && !shouldEnableTradingBeforeOrder)
       return intl.formatMessage({
         id: ETranslations.Perps_BBO_unavailable,
       });
@@ -386,9 +405,11 @@ function SideButtonInternal({
     leverage,
     marketDataFreshness,
     midPriceBN,
+    orderContextKey,
     perpsCustomSettings,
     priceError,
     resolvedSizeInputUnit,
+    side,
     shouldBlockForMarketData,
     szDecimals,
   });
@@ -405,12 +426,356 @@ function SideButtonInternal({
     leverage,
     marketDataFreshness,
     midPriceBN,
+    orderContextKey,
     perpsCustomSettings,
     priceError,
     resolvedSizeInputUnit,
+    side,
     shouldBlockForMarketData,
     szDecimals,
   };
+
+  type ILatestOrderPanelState = typeof latestOrderPanelStateRef.current;
+
+  const validateOrderPanelState = useCallback(
+    ({
+      orderPanelState,
+      validationSide,
+      shouldValidateBboPriceError,
+    }: {
+      orderPanelState: ILatestOrderPanelState;
+      validationSide: 'long' | 'short';
+      shouldValidateBboPriceError: boolean;
+    }) => {
+      const {
+        activeAsset: latestActiveAsset,
+        activeTradeInstrument: latestActiveTradeInstrument,
+        computedSizeForSide: latestComputedSizeForSide,
+        effectivePriceBN: latestEffectivePriceBN,
+        formData: latestFormData,
+        isMinimumOrderNotMetForSide: latestIsMinimumOrderNotMetForSide,
+        isSpot: latestIsSpot,
+        isTriggerMode: latestIsTriggerMode,
+        leverage: latestLeverage,
+        midPriceBN: latestMidPriceBN,
+        priceError: latestPriceError,
+        resolvedSizeInputUnit: latestResolvedSizeInputUnit,
+        shouldBlockForMarketData: latestShouldBlockForMarketData,
+        szDecimals: latestSzDecimals,
+      } = orderPanelState;
+
+      if (
+        shouldValidateBboPriceError &&
+        latestPriceError === 'bbo_unavailable'
+      ) {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.Perps_BBO_unavailable,
+          }),
+        });
+        return false;
+      }
+
+      if (latestShouldBlockForMarketData) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.perp_offline,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.perps_offline_moblie,
+          }),
+        });
+        return false;
+      }
+
+      if (latestIsTriggerMode && latestFormData.triggerOrderType) {
+        const tp = latestFormData.triggerPrice?.trim();
+        if (!tp || new BigNumber(tp).lte(0)) {
+          Toast.message({
+            title: intl.formatMessage({
+              id: ETranslations.perps_input_trigger_price,
+            }),
+          });
+          return false;
+        }
+        const isLimitTrigger =
+          latestFormData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
+        if (isLimitTrigger) {
+          const ep = latestFormData.executionPrice?.trim();
+          if (!ep || new BigNumber(ep).lte(0)) {
+            Toast.message({
+              title: intl.formatMessage({
+                id: ETranslations.perp_trade_price_place_holder,
+              }),
+            });
+            return false;
+          }
+        }
+        if (!latestMidPriceBN.isFinite() || latestMidPriceBN.lte(0)) {
+          Toast.error({ title: 'Market price unavailable, please try again' });
+          return false;
+        }
+        if (new BigNumber(tp).eq(latestMidPriceBN)) {
+          Toast.error({
+            title: 'Trigger price must differ from current price',
+          });
+          return false;
+        }
+      }
+
+      if (
+        !latestIsTriggerMode &&
+        latestFormData.type === 'limit' &&
+        (!latestFormData.price || latestFormData.price.trim() === '')
+      ) {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.perp_trade_price_place_holder,
+          }),
+        });
+        return false;
+      }
+
+      const isSliderMode = latestFormData.sizeInputMode === 'slider';
+      const hasSizeEmpty = isSliderMode
+        ? !latestFormData.sizePercent || latestFormData.sizePercent <= 0
+        : !latestFormData.size || latestFormData.size.trim() === '';
+      if (
+        hasSizeEmpty ||
+        !latestComputedSizeForSide.gt(0) ||
+        latestIsMinimumOrderNotMetForSide
+      ) {
+        let minAmount = '$10';
+        if (latestEffectivePriceBN.gt(0)) {
+          const minSize = new BigNumber(10)
+            .dividedBy(latestEffectivePriceBN)
+            .decimalPlaces(latestSzDecimals, BigNumber.ROUND_UP);
+          if (latestResolvedSizeInputUnit === 'token') {
+            const coinSymbol = (() => {
+              if (latestIsSpot && latestActiveTradeInstrument.mode === 'spot') {
+                const u = latestActiveTradeInstrument.universe;
+                return u
+                  ? getSpotTokenDisplayName(u.displayName || u.baseName)
+                  : '';
+              }
+              return latestActiveAsset?.coin
+                ? parseDexCoin(latestActiveAsset.coin).displayName
+                : '';
+            })();
+            minAmount = `${minSize.toFixed(latestSzDecimals)} ${coinSymbol}`;
+          } else if (latestResolvedSizeInputUnit === 'margin') {
+            const leverageBN = new BigNumber(latestLeverage || 1);
+            if (leverageBN.isFinite() && leverageBN.gt(0)) {
+              const minMargin = minSize
+                .multipliedBy(latestEffectivePriceBN)
+                .dividedBy(leverageBN)
+                .decimalPlaces(2, BigNumber.ROUND_UP)
+                .toFixed(2);
+              minAmount = `$${minMargin}`;
+            }
+          }
+        }
+        Toast.message({
+          title: intl.formatMessage(
+            { id: ETranslations.perp_size_least },
+            { amount: minAmount },
+          ),
+        });
+        return false;
+      }
+
+      const tpValue = latestFormData.tpValue?.trim();
+      const slValue = latestFormData.slValue?.trim();
+      const hasTpValue = Boolean(tpValue);
+      const hasSlValue = Boolean(slValue);
+
+      if (
+        !latestIsTriggerMode &&
+        latestFormData.hasTpsl &&
+        (hasTpValue || hasSlValue)
+      ) {
+        let tpTriggerPrice: BigNumber | null = null;
+        let slTriggerPrice: BigNumber | null = null;
+
+        if (hasTpValue && tpValue) {
+          if (latestFormData.tpType === 'price') {
+            tpTriggerPrice = new BigNumber(tpValue);
+          } else {
+            const percent = new BigNumber(tpValue);
+            if (percent.isFinite()) {
+              const percentChange = latestEffectivePriceBN
+                .multipliedBy(percent)
+                .dividedBy(100);
+              tpTriggerPrice =
+                validationSide === 'long'
+                  ? latestEffectivePriceBN.plus(percentChange)
+                  : latestEffectivePriceBN.minus(percentChange);
+            }
+          }
+        }
+
+        if (hasSlValue && slValue) {
+          if (latestFormData.slType === 'price') {
+            slTriggerPrice = new BigNumber(slValue);
+          } else {
+            const percent = new BigNumber(slValue);
+            if (percent.isFinite()) {
+              const percentChange = latestEffectivePriceBN
+                .multipliedBy(percent)
+                .dividedBy(100);
+              slTriggerPrice =
+                validationSide === 'long'
+                  ? latestEffectivePriceBN.minus(percentChange)
+                  : latestEffectivePriceBN.plus(percentChange);
+            }
+          }
+        }
+
+        if (
+          hasTpValue &&
+          tpTriggerPrice &&
+          tpTriggerPrice.isFinite() &&
+          latestEffectivePriceBN.gt(0)
+        ) {
+          if (
+            validationSide === 'long' &&
+            tpTriggerPrice.lte(latestEffectivePriceBN)
+          ) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_sl,
+              }),
+              message: intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_desc_1,
+              }),
+            });
+            return false;
+          }
+          if (
+            validationSide === 'short' &&
+            tpTriggerPrice.gte(latestEffectivePriceBN)
+          ) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_sl,
+              }),
+              message: intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_desc_2,
+              }),
+            });
+            return false;
+          }
+        }
+
+        if (
+          hasSlValue &&
+          slTriggerPrice &&
+          slTriggerPrice.isFinite() &&
+          latestEffectivePriceBN.gt(0)
+        ) {
+          if (
+            validationSide === 'long' &&
+            slTriggerPrice.gte(latestEffectivePriceBN)
+          ) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_sl,
+              }),
+              message: intl.formatMessage({
+                id: ETranslations.perp_invaild_sl_desc_1,
+              }),
+            });
+            return false;
+          }
+          if (
+            validationSide === 'short' &&
+            slTriggerPrice.lte(latestEffectivePriceBN)
+          ) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_sl,
+              }),
+              message: intl.formatMessage({
+                id: ETranslations.perp_invaild_sl_desc_2,
+              }),
+            });
+            return false;
+          }
+        }
+      }
+
+      return true;
+    },
+    [intl],
+  );
+
+  const requestOrderPanelEnableTrading = useCallback(
+    async ({
+      beforeDeposit,
+      shouldIgnoreResult,
+      showLoadingToast,
+    }: {
+      beforeDeposit?: () => void;
+      shouldIgnoreResult: () => boolean;
+      showLoadingToast: boolean;
+    }): Promise<IEnableTradingWithDepositFallbackResult> => {
+      const stopResult: IEnableTradingWithDepositFallbackResult = {
+        shouldContinue: false,
+        status: undefined,
+      };
+      if (shouldShowEnableTradingDialog) {
+        const result = await showEnableTradingStepsDialog({
+          accountStatus: perpsAccountStatus,
+          onConfirm: async ({ closeDialog }) => {
+            if (shouldIgnoreResult()) {
+              return stopResult;
+            }
+            const didAcceptTerms = await confirmHyperliquidTerms();
+            if (!didAcceptTerms || shouldIgnoreResult()) {
+              return stopResult;
+            }
+            return requestEnableTradingWithDepositFallback({
+              beforeDeposit: () => {
+                closeDialog();
+                beforeDeposit?.();
+              },
+              shouldIgnoreResult,
+            });
+          },
+        });
+        return result ?? stopResult;
+      }
+
+      const didAcceptTerms = await confirmHyperliquidTerms();
+      if (!didAcceptTerms || shouldIgnoreResult()) {
+        return stopResult;
+      }
+
+      const loadingToast = showLoadingToast
+        ? Toast.loading({
+            title: intl.formatMessage({
+              id: ETranslations.perp_trade_button_enable_trading,
+            }),
+            duration: Infinity,
+          })
+        : undefined;
+      try {
+        return await requestEnableTradingWithDepositFallback({
+          beforeDeposit,
+          shouldIgnoreResult,
+        });
+      } finally {
+        loadingToast?.close();
+      }
+    },
+    [
+      confirmHyperliquidTerms,
+      intl,
+      perpsAccountStatus,
+      requestEnableTradingWithDepositFallback,
+      shouldShowEnableTradingDialog,
+    ],
+  );
 
   const renderLiquidationPrice = () => {
     if (liquidationPrice) {
@@ -464,65 +829,62 @@ function SideButtonInternal({
 
   const handlePress = useDebouncedCallback(
     async (): Promise<void> => {
-      let shouldIgnoreEnableTradingResult: (() => boolean) | undefined;
+      if (!shouldEnableTradingBeforeOrder && !perpsAccountStatus.canTrade) {
+        return;
+      }
+
+      const latestOrderPanelState = latestOrderPanelStateRef.current;
+      if (
+        !validateOrderPanelState({
+          orderPanelState: latestOrderPanelState,
+          validationSide: side,
+          shouldValidateBboPriceError: !shouldEnableTradingBeforeOrder,
+        })
+      ) {
+        return;
+      }
+
+      const latestPerpsCustomSettings =
+        latestOrderPanelState.perpsCustomSettings;
+
       if (shouldEnableTradingBeforeOrder) {
         const enableTradingAccountKey = perpsAccountKey;
-        shouldIgnoreEnableTradingResult = () =>
+        const enableTradingSide = side;
+        const enableTradingOrderContextKey =
+          latestOrderPanelState.orderContextKey;
+        const shouldIgnoreEnableTradingResult = () =>
           Boolean(
             enableTradingAccountKey &&
             perpsAccountKeyRef.current !== enableTradingAccountKey,
           );
 
-        let result: IEnableTradingWithDepositFallbackResult | undefined;
-        if (shouldShowEnableTradingDialog) {
-          result = await showEnableTradingStepsDialog({
-            accountStatus: perpsAccountStatus,
-            onConfirm: async ({ closeDialog }) => {
-              if (shouldIgnoreEnableTradingResult?.() === true) {
-                return { shouldContinue: false, status: undefined };
-              }
-              const didAcceptTerms = await confirmHyperliquidTerms();
-              if (
-                !didAcceptTerms ||
-                shouldIgnoreEnableTradingResult?.() === true
-              ) {
-                return { shouldContinue: false, status: undefined };
-              }
-              return requestEnableTradingWithDepositFallback({
+        if (!latestPerpsCustomSettings.skipOrderConfirm) {
+          showOrderConfirmDialog({
+            overrideSide: side,
+            intl,
+            enableTradingAccountKey,
+            enableTradingBeforeConfirm: ({ closeDialog, shouldIgnoreResult }) =>
+              requestOrderPanelEnableTrading({
                 beforeDeposit: closeDialog,
-                shouldIgnoreResult: shouldIgnoreEnableTradingResult,
-              });
-            },
+                shouldIgnoreResult,
+                showLoadingToast: false,
+              }),
           });
-        } else {
-          const didAcceptTerms = await confirmHyperliquidTerms();
-          if (!didAcceptTerms || shouldIgnoreEnableTradingResult?.() === true) {
-            return;
-          }
-
-          const loadingToast = shouldAutoEnableTrading
-            ? Toast.loading({
-                title: intl.formatMessage({
-                  id: ETranslations.perp_trade_button_enable_trading,
-                }),
-                duration: Infinity,
-              })
-            : undefined;
-          try {
-            result = await requestEnableTradingWithDepositFallback({
-              shouldIgnoreResult: shouldIgnoreEnableTradingResult,
-            });
-          } finally {
-            loadingToast?.close();
-          }
+          return;
         }
 
+        const result = await requestOrderPanelEnableTrading({
+          shouldIgnoreResult: shouldIgnoreEnableTradingResult,
+          showLoadingToast: shouldAutoEnableTrading,
+        });
         const postEnableState = latestOrderPanelStateRef.current;
         const postEnableTradingResult =
           getPerpsOrderPanelPostEnableTradingResult({
             enableTradingShouldContinue: result?.shouldContinue,
-            shouldIgnoreEnableTradingResult:
-              shouldIgnoreEnableTradingResult?.() === true,
+            shouldIgnoreEnableTradingResult: shouldIgnoreEnableTradingResult(),
+            isOrderContextChanged:
+              postEnableState.side !== enableTradingSide ||
+              postEnableState.orderContextKey !== enableTradingOrderContextKey,
             isNoEnoughMargin: postEnableState.isNoEnoughMargin,
           });
         if (postEnableTradingResult === 'stop') {
@@ -538,275 +900,19 @@ function SideButtonInternal({
           });
           return;
         }
-      } else if (!perpsAccountStatus.canTrade) {
-        return;
-      }
 
-      const latestOrderPanelState = latestOrderPanelStateRef.current;
-      const {
-        activeAsset: latestActiveAsset,
-        activeTradeInstrument: latestActiveTradeInstrument,
-        computedSizeForSide: latestComputedSizeForSide,
-        effectivePriceBN: latestEffectivePriceBN,
-        formData: latestFormData,
-        isMinimumOrderNotMetForSide: latestIsMinimumOrderNotMetForSide,
-        isSpot: latestIsSpot,
-        isTriggerMode: latestIsTriggerMode,
-        leverage: latestLeverage,
-        midPriceBN: latestMidPriceBN,
-        perpsCustomSettings: latestPerpsCustomSettings,
-        priceError: latestPriceError,
-        resolvedSizeInputUnit: latestResolvedSizeInputUnit,
-        shouldBlockForMarketData: latestShouldBlockForMarketData,
-        szDecimals: latestSzDecimals,
-      } = latestOrderPanelState;
-
-      if (latestPriceError === 'bbo_unavailable') {
-        Toast.message({
-          title: intl.formatMessage({
-            id: ETranslations.Perps_BBO_unavailable,
-          }),
-        });
-        return;
-      }
-
-      if (latestShouldBlockForMarketData) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.perp_offline,
-          }),
-          message: intl.formatMessage({
-            id: ETranslations.perps_offline_moblie,
-          }),
-        });
-        return;
-      }
-
-      // ── Trigger mode validation ──
-      if (latestIsTriggerMode && latestFormData.triggerOrderType) {
-        const tp = latestFormData.triggerPrice?.trim();
-        if (!tp || new BigNumber(tp).lte(0)) {
-          Toast.message({
-            title: intl.formatMessage({
-              id: ETranslations.perps_input_trigger_price,
-            }),
-          });
-          return;
-        }
-        const isLimitTrigger =
-          latestFormData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
-        if (isLimitTrigger) {
-          const ep = latestFormData.executionPrice?.trim();
-          if (!ep || new BigNumber(ep).lte(0)) {
-            Toast.message({
-              title: intl.formatMessage({
-                id: ETranslations.perp_trade_price_place_holder,
-              }),
-            });
-            return;
-          }
-        }
-        if (!latestMidPriceBN.isFinite() || latestMidPriceBN.lte(0)) {
-          Toast.error({ title: 'Market price unavailable, please try again' });
-          return;
-        }
-        // Trigger price must differ from current price for TP/SL inference
-        if (new BigNumber(tp).eq(latestMidPriceBN)) {
-          Toast.error({
-            title: 'Trigger price must differ from current price',
-          });
-          return;
-        }
-      }
-
-      // Validate empty inputs - show toast instead of disabling button
-      // For limit orders (standard mode), check price first
-      if (
-        !latestIsTriggerMode &&
-        latestFormData.type === 'limit' &&
-        (!latestFormData.price || latestFormData.price.trim() === '')
-      ) {
-        Toast.message({
-          title: intl.formatMessage({
-            id: ETranslations.perp_trade_price_place_holder,
-          }),
-        });
-        return;
-      }
-      // Then check size for all order types
-      const isSliderMode = latestFormData.sizeInputMode === 'slider';
-      const hasSizeEmpty = isSliderMode
-        ? !latestFormData.sizePercent || latestFormData.sizePercent <= 0
-        : !latestFormData.size || latestFormData.size.trim() === '';
-      if (
-        hasSizeEmpty ||
-        !latestComputedSizeForSide.gt(0) ||
-        latestIsMinimumOrderNotMetForSide
-      ) {
-        let minAmount = '$10';
-        if (latestEffectivePriceBN.gt(0)) {
-          // minimum token size that satisfies orderValue >= $10
-          const minSize = new BigNumber(10)
-            .dividedBy(latestEffectivePriceBN)
-            .decimalPlaces(latestSzDecimals, BigNumber.ROUND_UP);
-          if (latestResolvedSizeInputUnit === 'token') {
-            const coinSymbol = (() => {
-              if (latestIsSpot && latestActiveTradeInstrument.mode === 'spot') {
-                const u = latestActiveTradeInstrument.universe;
-                return u
-                  ? getSpotTokenDisplayName(u.displayName || u.baseName)
-                  : '';
-              }
-              return latestActiveAsset?.coin
-                ? parseDexCoin(latestActiveAsset.coin).displayName
-                : '';
-            })();
-            minAmount = `${minSize.toFixed(latestSzDecimals)} ${coinSymbol}`;
-          } else if (latestResolvedSizeInputUnit === 'margin') {
-            const leverageBN = new BigNumber(latestLeverage || 1);
-            if (leverageBN.isFinite() && leverageBN.gt(0)) {
-              // SizeInput floors (margin × leverage / price) to szDecimals via
-              // formatHlSize, so the smallest margin that produces ≥ `minSize`
-              // tokens is exactly `minSize × effectivePrice / leverage`,
-              // rounded up to 2 cents to keep the displayed amount on the safe side.
-              const minMargin = minSize
-                .multipliedBy(latestEffectivePriceBN)
-                .dividedBy(leverageBN)
-                .decimalPlaces(2, BigNumber.ROUND_UP)
-                .toFixed(2);
-              minAmount = `$${minMargin}`;
-            }
-          }
-        }
-        Toast.message({
-          title: intl.formatMessage(
-            { id: ETranslations.perp_size_least },
-            { amount: minAmount },
-          ),
-        });
-        return;
-      }
-
-      // Validate TPSL only if user has filled in values
-      const tpValue = latestFormData.tpValue?.trim();
-      const slValue = latestFormData.slValue?.trim();
-      const hasTpValue = Boolean(tpValue);
-      const hasSlValue = Boolean(slValue);
-
-      if (
-        !latestIsTriggerMode &&
-        latestFormData.hasTpsl &&
-        (hasTpValue || hasSlValue)
-      ) {
-        // Calculate trigger prices based on type
-        let tpTriggerPrice: BigNumber | null = null;
-        let slTriggerPrice: BigNumber | null = null;
-
-        if (hasTpValue && tpValue) {
-          if (latestFormData.tpType === 'price') {
-            tpTriggerPrice = new BigNumber(tpValue);
-          } else {
-            // percentage mode
-            const percent = new BigNumber(tpValue);
-            if (percent.isFinite()) {
-              const percentChange = latestEffectivePriceBN
-                .multipliedBy(percent)
-                .dividedBy(100);
-              tpTriggerPrice =
-                side === 'long'
-                  ? latestEffectivePriceBN.plus(percentChange)
-                  : latestEffectivePriceBN.minus(percentChange);
-            }
-          }
-        }
-
-        if (hasSlValue && slValue) {
-          if (latestFormData.slType === 'price') {
-            slTriggerPrice = new BigNumber(slValue);
-          } else {
-            // percentage mode
-            const percent = new BigNumber(slValue);
-            if (percent.isFinite()) {
-              const percentChange = latestEffectivePriceBN
-                .multipliedBy(percent)
-                .dividedBy(100);
-              slTriggerPrice =
-                side === 'long'
-                  ? latestEffectivePriceBN.minus(percentChange)
-                  : latestEffectivePriceBN.plus(percentChange);
-            }
-          }
-        }
-
-        // Validate TP only if user filled it
         if (
-          hasTpValue &&
-          tpTriggerPrice &&
-          tpTriggerPrice.isFinite() &&
-          latestEffectivePriceBN.gt(0)
+          !validateOrderPanelState({
+            orderPanelState: postEnableState,
+            validationSide: side,
+            shouldValidateBboPriceError: true,
+          })
         ) {
-          if (side === 'long' && tpTriggerPrice.lte(latestEffectivePriceBN)) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.perp_invaild_tp_sl,
-              }),
-              message: intl.formatMessage({
-                id: ETranslations.perp_invaild_tp_desc_1,
-              }),
-            });
-            return;
-          }
-          if (side === 'short' && tpTriggerPrice.gte(latestEffectivePriceBN)) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.perp_invaild_tp_sl,
-              }),
-              message: intl.formatMessage({
-                id: ETranslations.perp_invaild_tp_desc_2,
-              }),
-            });
-            return;
-          }
-        }
-
-        // Validate SL only if user filled it
-        if (
-          hasSlValue &&
-          slTriggerPrice &&
-          slTriggerPrice.isFinite() &&
-          latestEffectivePriceBN.gt(0)
-        ) {
-          if (side === 'long' && slTriggerPrice.gte(latestEffectivePriceBN)) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.perp_invaild_tp_sl,
-              }),
-              message: intl.formatMessage({
-                id: ETranslations.perp_invaild_sl_desc_1,
-              }),
-            });
-            return;
-          }
-          if (side === 'short' && slTriggerPrice.lte(latestEffectivePriceBN)) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.perp_invaild_tp_sl,
-              }),
-              message: intl.formatMessage({
-                id: ETranslations.perp_invaild_sl_desc_2,
-              }),
-            });
-            return;
-          }
+          return;
         }
       }
 
       if (latestPerpsCustomSettings.skipOrderConfirm) {
-        if (shouldIgnoreEnableTradingResult?.() === true) {
-          return;
-        }
-        // Use ref so handleConfirm carries the latest formData snapshot,
-        // not the one captured at click time.
         void handleConfirmRef.current(side);
       } else {
         showOrderConfirmDialog({

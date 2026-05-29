@@ -4,6 +4,7 @@ import {
   getPerpsOrderPanelEnableTradingSignatureCount,
   getPerpsOrderPanelEnableTradingSteps,
   getPerpsOrderPanelPostEnableTradingResult,
+  shouldDisablePerpsOrderPanelTradingButton,
   shouldShowPerpsOrderPanelTradingButtons,
 } from './perpsOrderPanelEnableTrading';
 
@@ -149,6 +150,7 @@ describe('getPerpsOrderPanelPostEnableTradingResult', () => {
       getPerpsOrderPanelPostEnableTradingResult({
         enableTradingShouldContinue: true,
         shouldIgnoreEnableTradingResult: true,
+        isOrderContextChanged: false,
         isNoEnoughMargin: false,
       }),
     ).toBe('stop');
@@ -157,6 +159,18 @@ describe('getPerpsOrderPanelPostEnableTradingResult', () => {
       getPerpsOrderPanelPostEnableTradingResult({
         enableTradingShouldContinue: true,
         shouldIgnoreEnableTradingResult: false,
+        isOrderContextChanged: true,
+        isNoEnoughMargin: false,
+      }),
+    ).toBe('stop');
+  });
+
+  it('reports no-enough-margin only when enable trading can still continue', () => {
+    expect(
+      getPerpsOrderPanelPostEnableTradingResult({
+        enableTradingShouldContinue: true,
+        shouldIgnoreEnableTradingResult: false,
+        isOrderContextChanged: false,
         isNoEnoughMargin: true,
       }),
     ).toBe('noEnoughMargin');
@@ -167,8 +181,39 @@ describe('getPerpsOrderPanelPostEnableTradingResult', () => {
       getPerpsOrderPanelPostEnableTradingResult({
         enableTradingShouldContinue: true,
         shouldIgnoreEnableTradingResult: false,
+        isOrderContextChanged: false,
         isNoEnoughMargin: false,
       }),
     ).toBe('continue');
+  });
+});
+
+describe('shouldDisablePerpsOrderPanelTradingButton', () => {
+  it('lets enable-trading accounts press the button when only BBO price is unavailable', () => {
+    expect(
+      shouldDisablePerpsOrderPanelTradingButton({
+        isTradingStatusDisabled: false,
+        shouldEnableTradingBeforeOrder: true,
+        isNoEnoughMargin: false,
+        isAccountLoading: false,
+        isSubmitting: false,
+        hasBboPriceError: true,
+        isServerActionDisabled: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps BBO price errors blocking normal order submission', () => {
+    expect(
+      shouldDisablePerpsOrderPanelTradingButton({
+        isTradingStatusDisabled: false,
+        shouldEnableTradingBeforeOrder: false,
+        isNoEnoughMargin: false,
+        isAccountLoading: false,
+        isSubmitting: false,
+        hasBboPriceError: true,
+        isServerActionDisabled: false,
+      }),
+    ).toBe(true);
   });
 });
