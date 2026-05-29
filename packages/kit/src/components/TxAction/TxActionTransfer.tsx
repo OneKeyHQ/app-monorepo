@@ -669,6 +669,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       networkId={networkId}
       networkLogoURI={networkLogoURI}
       riskyLevel={decodedTx.riskyLevel}
+      kytRiskLevel={decodedTx.kytRiskLevel}
       compact={compact}
       {...componentProps}
     />

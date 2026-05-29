@@ -1654,6 +1654,15 @@ const BaseDevSettingsSection = () => {
                           void backgroundApiProxy.serviceSetting.clearFloatingIconHiddenSites();
                         }}
                       />
+                      <SectionPressItem
+                        icon="ShieldCheckDoneOutline"
+                        title="Reset KYT Intro Dialog"
+                        subtitle="Clear the shown flag so the KYT intro dialog appears again"
+                        onPress={async () => {
+                          await backgroundApiProxy.serviceSetting.resetKytIntroShown();
+                          Toast.success({ title: 'KYT intro dialog reset' });
+                        }}
+                      />
                       <SearchFilterItem keywords="ResetInstanceId Reset Instance Id 重置实例ID">
                         <ResetInstanceId />
                       </SearchFilterItem>
