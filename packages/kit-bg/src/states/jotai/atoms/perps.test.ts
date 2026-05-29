@@ -39,6 +39,14 @@ function buildEntry({
     },
     accountValue: `${accountAddress}-value`,
     withdrawable: '100',
+    activeAsset: {
+      coin: 'BTC',
+      leverage: {
+        type: 'cross',
+        value: 25,
+      },
+      updatedAt,
+    },
     availableToTrade: {
       coin: 'BTC',
       value: '10',

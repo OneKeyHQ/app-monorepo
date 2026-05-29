@@ -45,15 +45,12 @@ function PerpCandleChartButtonMobile() {
   const isSplitMainActive = useIsSplitMainActive();
 
   const onPressCandleChart = useCallback(() => {
+    if (isSplitMainActive) return;
     navigation.push(EModalPerpRoutes.MobilePerpMarket);
-  }, [navigation]);
+  }, [isSplitMainActive, navigation]);
 
   // The chart is already rendered alongside this form in the sub pane —
   // tapping the icon would push another instance on top of MAIN's stack.
-  if (isSplitMainActive) {
-    return null;
-  }
-
   return (
     <DebugRenderTracker name="PerpCandleChartButtonMobile">
       <IconButton

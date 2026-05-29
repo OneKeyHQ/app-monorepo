@@ -22,8 +22,79 @@ export type IBip32ExtendedKey = {
   key: Buffer;
   chainCode: Buffer;
 };
+
+export type IBip32PerfTraceEvent = {
+  name: string;
+  durationMs: number;
+  metadata?: Record<string, number | string | boolean | undefined>;
+};
+
+export type IBip32PerfTrace = {
+  onEvent: (event: IBip32PerfTraceEvent) => void;
+};
+
+export type IBip32PerfTraceOptions = {
+  perfTrace?: IBip32PerfTrace;
+  validatePublicKey?: boolean;
+};
 // eslint-disable-next-line @typescript-eslint/naming-convention,camelcase
 const BigInt_0 = new BigNumber(0);
+
+function nowMs(): number {
+  return performance.now();
+}
+
+function traceBip32<T>({
+  perfTrace,
+  name,
+  metadata,
+  fn,
+}: {
+  perfTrace: IBip32PerfTrace | undefined;
+  name: string;
+  metadata?: IBip32PerfTraceEvent['metadata'];
+  fn: () => T;
+}): T {
+  if (!perfTrace) {
+    return fn();
+  }
+  const start = nowMs();
+  try {
+    return fn();
+  } finally {
+    perfTrace.onEvent({
+      name,
+      durationMs: nowMs() - start,
+      metadata,
+    });
+  }
+}
+
+async function traceBip32Async<T>({
+  perfTrace,
+  name,
+  metadata,
+  fn,
+}: {
+  perfTrace: IBip32PerfTrace | undefined;
+  name: string;
+  metadata?: IBip32PerfTraceEvent['metadata'];
+  fn: () => Promise<T>;
+}): Promise<T> {
+  if (!perfTrace) {
+    return fn();
+  }
+  const start = nowMs();
+  try {
+    return await fn();
+  } finally {
+    perfTrace.onEvent({
+      name,
+      durationMs: nowMs() - start,
+      metadata,
+    });
+  }
+}
 
 function serNum(p: BigNumber, bits: 32 | 256): Buffer {
   if (p.lt(BigInt_0) || p.gte(new BigNumber(2).pow(bits))) {
@@ -61,11 +132,34 @@ function isHardenedIndex(index: number): boolean {
   return index >= 2 ** 31;
 }
 
-function N(curve: BaseCurve, privateKey: Buffer): Buffer {
+function N(
+  curve: BaseCurve,
+  privateKey: Buffer,
+  options?: IBip32PerfTraceOptions,
+): Buffer {
+  const { perfTrace, validatePublicKey = true } = options ?? {};
   const msgHash: Buffer = Buffer.from('Hello OneKey');
-  const publicKey: Buffer = curve.publicFromPrivate(privateKey);
+  const publicKey: Buffer = traceBip32({
+    perfTrace,
+    name: 'bip32.N.publicFromPrivate',
+    fn: () => curve.publicFromPrivate(privateKey),
+  });
 
-  if (!curve.verify(publicKey, msgHash, curve.sign(privateKey, msgHash))) {
+  if (!validatePublicKey) {
+    return publicKey;
+  }
+
+  const signature = traceBip32({
+    perfTrace,
+    name: 'bip32.N.sign',
+    fn: () => curve.sign(privateKey, msgHash),
+  });
+  const verified = traceBip32({
+    perfTrace,
+    name: 'bip32.N.verify',
+    fn: () => curve.verify(publicKey, msgHash, signature),
+  });
+  if (!verified) {
     throw Error('Failed to generate public key from private.');
   }
 
@@ -73,11 +167,28 @@ function N(curve: BaseCurve, privateKey: Buffer): Buffer {
 }
 
 export interface IBip32KeyDeriver {
-  generateMasterKeyFromSeed(seed: Buffer): IBip32ExtendedKey;
-  generateMasterKeyFromSeedAsync(seed: Buffer): Promise<IBip32ExtendedKey>;
-  N(extPriv: IBip32ExtendedKey): IBip32ExtendedKey;
-  CKDPriv(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey;
-  CKDPub(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey;
+  generateMasterKeyFromSeed(
+    seed: Buffer,
+    options?: IBip32PerfTraceOptions,
+  ): IBip32ExtendedKey;
+  generateMasterKeyFromSeedAsync(
+    seed: Buffer,
+    options?: IBip32PerfTraceOptions,
+  ): Promise<IBip32ExtendedKey>;
+  N(
+    extPriv: IBip32ExtendedKey,
+    options?: IBip32PerfTraceOptions,
+  ): IBip32ExtendedKey;
+  CKDPriv(
+    parent: IBip32ExtendedKey,
+    index: number,
+    options?: IBip32PerfTraceOptions,
+  ): IBip32ExtendedKey;
+  CKDPub(
+    parent: IBip32ExtendedKey,
+    index: number,
+    options?: IBip32PerfTraceOptions,
+  ): IBip32ExtendedKey;
 }
 
 class BaseBip32KeyDeriver implements IBip32KeyDeriver {
@@ -124,51 +235,93 @@ class BaseBip32KeyDeriver implements IBip32KeyDeriver {
    * @param seed The seed buffer to generate master key from
    * @throws Error when generated key is invalid
    */
-  generateMasterKeyFromSeed(seed: Buffer): IBip32ExtendedKey {
-    const I: Buffer = hmacSHA512Sync(this.key, seed);
-    const IL: Buffer = I.slice(0, 32);
-    const chainCode: Buffer = I.slice(32, 64);
+  generateMasterKeyFromSeed(
+    seed: Buffer,
+    options?: IBip32PerfTraceOptions,
+  ): IBip32ExtendedKey {
+    const { perfTrace } = options ?? {};
+    return traceBip32({
+      perfTrace,
+      name: 'bip32.generateMasterKeyFromSeed.total',
+      fn: () => {
+        const I: Buffer = traceBip32({
+          perfTrace,
+          name: 'bip32.generateMasterKeyFromSeed.hmacSHA512',
+          fn: () => hmacSHA512Sync(this.key, seed),
+        });
+        const IL: Buffer = I.slice(0, 32);
+        const chainCode: Buffer = I.slice(32, 64);
 
-    const parsedIL: BigNumber = parse256(IL);
+        const parsedIL: BigNumber = traceBip32({
+          perfTrace,
+          name: 'bip32.generateMasterKeyFromSeed.parse256',
+          fn: () => parse256(IL),
+        });
 
-    // Validate the generated key:
-    // 1. Must be less than curve's order (groupOrder)
-    // 2. Must not be zero
-    if (parsedIL.lt(this.curve.groupOrder) && !parsedIL.eq(BigInt_0)) {
-      return { key: IL, chainCode };
-    }
+        // Validate the generated key:
+        // 1. Must be less than curve's order (groupOrder)
+        // 2. Must not be zero
+        if (parsedIL.lt(this.curve.groupOrder) && !parsedIL.eq(BigInt_0)) {
+          return { key: IL, chainCode };
+        }
 
-    // Throw error immediately instead of retrying
-    // This ensures deterministic relationship between seed and master key
-    throw new OneKeyLocalError('Invalid master key generated from seed');
+        // Throw error immediately instead of retrying
+        // This ensures deterministic relationship between seed and master key
+        throw new OneKeyLocalError('Invalid master key generated from seed');
+      },
+    });
   }
 
   async generateMasterKeyFromSeedAsync(
     seed: Buffer,
+    options?: IBip32PerfTraceOptions,
   ): Promise<IBip32ExtendedKey> {
-    const I: Buffer = await hmacSHA512(this.key, seed);
-    const IL: Buffer = I.slice(0, 32);
-    const chainCode: Buffer = I.slice(32, 64);
+    const { perfTrace } = options ?? {};
+    return traceBip32Async({
+      perfTrace,
+      name: 'bip32.generateMasterKeyFromSeedAsync.total',
+      fn: async () => {
+        const I: Buffer = await traceBip32Async({
+          perfTrace,
+          name: 'bip32.generateMasterKeyFromSeedAsync.hmacSHA512',
+          fn: () => hmacSHA512(this.key, seed),
+        });
+        const IL: Buffer = I.slice(0, 32);
+        const chainCode: Buffer = I.slice(32, 64);
 
-    const parsedIL: BigNumber = parse256(IL);
+        const parsedIL: BigNumber = traceBip32({
+          perfTrace,
+          name: 'bip32.generateMasterKeyFromSeedAsync.parse256',
+          fn: () => parse256(IL),
+        });
 
-    // Validate the generated key:
-    // 1. Must be less than curve's order (groupOrder)
-    // 2. Must not be zero
-    if (parsedIL.lt(this.curve.groupOrder) && !parsedIL.eq(BigInt_0)) {
-      return { key: IL, chainCode };
-    }
+        // Validate the generated key:
+        // 1. Must be less than curve's order (groupOrder)
+        // 2. Must not be zero
+        if (parsedIL.lt(this.curve.groupOrder) && !parsedIL.eq(BigInt_0)) {
+          return { key: IL, chainCode };
+        }
 
-    // Throw error immediately instead of retrying
-    // This ensures deterministic relationship between seed and master key
-    throw new OneKeyLocalError('Invalid master key generated from seed');
+        // Throw error immediately instead of retrying
+        // This ensures deterministic relationship between seed and master key
+        throw new OneKeyLocalError('Invalid master key generated from seed');
+      },
+    });
   }
 
-  N(extPriv: IBip32ExtendedKey): IBip32ExtendedKey {
-    return {
-      key: N(this.curve as BaseCurve, extPriv.key),
-      chainCode: extPriv.chainCode,
-    };
+  N(
+    extPriv: IBip32ExtendedKey,
+    options?: IBip32PerfTraceOptions,
+  ): IBip32ExtendedKey {
+    const { perfTrace } = options ?? {};
+    return traceBip32({
+      perfTrace,
+      name: 'bip32.N.total',
+      fn: () => ({
+        key: N(this.curve as BaseCurve, extPriv.key, options),
+        chainCode: extPriv.chainCode,
+      }),
+    });
   }
 
   /**
@@ -209,69 +362,133 @@ class BaseBip32KeyDeriver implements IBip32KeyDeriver {
    * @param parent Parent key to derive from
    * @param index Child key index
    */
-  CKDPriv(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey {
-    // Initialize derivation data
-    const data: Buffer = Buffer.alloc(37);
+  CKDPriv(
+    parent: IBip32ExtendedKey,
+    index: number,
+    options?: IBip32PerfTraceOptions,
+  ): IBip32ExtendedKey {
+    const { perfTrace } = options ?? {};
+    return traceBip32({
+      perfTrace,
+      name: 'bip32.CKDPriv.total',
+      metadata: {
+        hardened: index >= 2 ** 31,
+      },
+      fn: () => {
+        // Initialize derivation data
+        const data: Buffer = Buffer.alloc(37);
 
-    data.fill(ser32(index), 33, 37);
-    if (isHardenedIndex(index)) {
-      data.fill(parent.key, 1, 33);
-    } else {
-      data.fill(this.curve.publicFromPrivate(parent.key), 0, 33);
-    }
+        const serializedIndex = traceBip32({
+          perfTrace,
+          name: 'bip32.CKDPriv.ser32',
+          fn: () => ser32(index),
+        });
+        data.fill(serializedIndex, 33, 37);
+        const hardened = traceBip32({
+          perfTrace,
+          name: 'bip32.CKDPriv.isHardenedIndex',
+          fn: () => isHardenedIndex(index),
+        });
+        if (hardened) {
+          data.fill(parent.key, 1, 33);
+        } else {
+          data.fill(
+            traceBip32({
+              perfTrace,
+              name: 'bip32.CKDPriv.publicFromPrivate',
+              fn: () => this.curve.publicFromPrivate(parent.key),
+            }),
+            0,
+            33,
+          );
+        }
 
-    // BIP32 specified derivation process
-    // Includes retry mechanism until valid child key is generated
-    for (;;) {
-      const I: Buffer = hmacSHA512Sync(parent.chainCode, data);
-      const IR: Buffer = I.slice(32, 64);
+        // BIP32 specified derivation process
+        // Includes retry mechanism until valid child key is generated
+        for (;;) {
+          const I: Buffer = traceBip32({
+            perfTrace,
+            name: 'bip32.CKDPriv.hmacSHA512',
+            fn: () => hmacSHA512Sync(parent.chainCode, data),
+          });
+          const IR: Buffer = I.slice(32, 64);
 
-      const parsedIL: BigNumber = parse256(I.slice(0, 32));
-      const childKey: BigNumber = parsedIL
-        .plus(parse256(parent.key))
-        .mod(this.curve.groupOrder);
+          const { parsedIL, childKey } = traceBip32({
+            perfTrace,
+            name: 'bip32.CKDPriv.bigNumber',
+            fn: () => {
+              const nextParsedIL: BigNumber = parse256(I.slice(0, 32));
+              const nextChildKey: BigNumber = nextParsedIL
+                .plus(parse256(parent.key))
+                .mod(this.curve.groupOrder);
+              return {
+                parsedIL: nextParsedIL,
+                childKey: nextChildKey,
+              };
+            },
+          });
 
-      // Validate generated child key
-      if (parsedIL.lt(this.curve.groupOrder) && !childKey.eq(BigInt_0)) {
-        return { key: ser256(childKey), chainCode: IR };
-      }
+          // Validate generated child key
+          if (parsedIL.lt(this.curve.groupOrder) && !childKey.eq(BigInt_0)) {
+            return {
+              key: traceBip32({
+                perfTrace,
+                name: 'bip32.CKDPriv.ser256',
+                fn: () => ser256(childKey),
+              }),
+              chainCode: IR,
+            };
+          }
 
-      // Modify data for retry as specified in BIP32:
-      // 1. Set first byte to 1
-      // 2. Fill subsequent bytes with newly generated IR
-      data[0] = 1;
-      data.fill(IR, 1, 33);
-      // Continue loop until valid child key is generated
-      // https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#private-parent-key--private-child-key
-    }
+          // Modify data for retry as specified in BIP32:
+          // 1. Set first byte to 1
+          // 2. Fill subsequent bytes with newly generated IR
+          data[0] = 1;
+          data.fill(IR, 1, 33);
+          // Continue loop until valid child key is generated
+          // https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#private-parent-key--private-child-key
+        }
+      },
+    });
   }
 
-  CKDPub(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey {
-    if (isHardenedIndex(index)) {
-      throw Error(`Can't derive public key for index ${index}.`);
-    }
+  CKDPub(
+    parent: IBip32ExtendedKey,
+    index: number,
+    options?: IBip32PerfTraceOptions,
+  ): IBip32ExtendedKey {
+    const { perfTrace } = options ?? {};
+    return traceBip32({
+      perfTrace,
+      name: 'bip32.CKDPub.total',
+      fn: () => {
+        if (isHardenedIndex(index)) {
+          throw Error(`Can't derive public key for index ${index}.`);
+        }
 
-    const data: Buffer = Buffer.alloc(37);
-    data.fill(parent.key, 0, 33);
-    data.fill(ser32(index), 33, 37);
+        const data: Buffer = Buffer.alloc(37);
+        data.fill(parent.key, 0, 33);
+        data.fill(ser32(index), 33, 37);
 
-    for (;;) {
-      const I: Buffer = hmacSHA512Sync(parent.chainCode, data);
-      const IL: Buffer = I.slice(0, 32);
-      const IR: Buffer = I.slice(32, 64);
+        for (;;) {
+          const I: Buffer = hmacSHA512Sync(parent.chainCode, data);
+          const IL: Buffer = I.slice(0, 32);
+          const IR: Buffer = I.slice(32, 64);
 
-      const childKey: Buffer | null = this.curve.getChildPublicKey(
-        IL,
-        parent.key,
-      );
-      if (childKey !== null) {
-        return { key: childKey, chainCode: IR };
-      }
+          const childKey: Buffer | null = this.curve.getChildPublicKey(
+            IL,
+            parent.key,
+          );
+          if (childKey !== null) {
+            return { key: childKey, chainCode: IR };
+          }
 
-      data[0] = 1;
-      data.fill(IR, 1, 33);
-      // https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#public-parent-key--public-child-key
-    }
+          data[0] = 1;
+          data.fill(IR, 1, 33);
+          // https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#public-parent-key--public-child-key
+        }
+      },
+    });
   }
 }
 
@@ -284,35 +501,91 @@ class ED25519Bip32KeyDeriver implements IBip32KeyDeriver {
     // noop
   }
 
-  generateMasterKeyFromSeed(seed: Buffer): IBip32ExtendedKey {
-    const I: Buffer = hmacSHA512Sync(this.key, seed);
-    return { key: I.slice(0, 32), chainCode: I.slice(32, 64) };
+  generateMasterKeyFromSeed(
+    seed: Buffer,
+    options?: IBip32PerfTraceOptions,
+  ): IBip32ExtendedKey {
+    const { perfTrace } = options ?? {};
+    return traceBip32({
+      perfTrace,
+      name: 'bip32.ed25519.generateMasterKeyFromSeed.total',
+      fn: () => {
+        const I: Buffer = traceBip32({
+          perfTrace,
+          name: 'bip32.ed25519.generateMasterKeyFromSeed.hmacSHA512',
+          fn: () => hmacSHA512Sync(this.key, seed),
+        });
+        return { key: I.slice(0, 32), chainCode: I.slice(32, 64) };
+      },
+    });
   }
 
   async generateMasterKeyFromSeedAsync(
     seed: Buffer,
+    options?: IBip32PerfTraceOptions,
   ): Promise<IBip32ExtendedKey> {
-    const I: Buffer = await hmacSHA512(this.key, seed);
-    return { key: I.slice(0, 32), chainCode: I.slice(32, 64) };
+    const { perfTrace } = options ?? {};
+    return traceBip32Async({
+      perfTrace,
+      name: 'bip32.ed25519.generateMasterKeyFromSeedAsync.total',
+      fn: async () => {
+        const I: Buffer = await traceBip32Async({
+          perfTrace,
+          name: 'bip32.ed25519.generateMasterKeyFromSeedAsync.hmacSHA512',
+          fn: () => hmacSHA512(this.key, seed),
+        });
+        return { key: I.slice(0, 32), chainCode: I.slice(32, 64) };
+      },
+    });
   }
 
-  N(extPriv: IBip32ExtendedKey): IBip32ExtendedKey {
-    return { key: N(this.curve, extPriv.key), chainCode: extPriv.chainCode };
+  N(
+    extPriv: IBip32ExtendedKey,
+    options?: IBip32PerfTraceOptions,
+  ): IBip32ExtendedKey {
+    const { perfTrace } = options ?? {};
+    return traceBip32({
+      perfTrace,
+      name: 'bip32.ed25519.N.total',
+      fn: () => ({
+        key: N(this.curve, extPriv.key, options),
+        chainCode: extPriv.chainCode,
+      }),
+    });
   }
 
-  CKDPriv(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey {
-    if (!isHardenedIndex(index)) {
-      throw Error('Only hardened CKDPriv is supported for ed25519.');
-    }
-    const data: Buffer = Buffer.alloc(37);
-    data.fill(parent.key, 1, 33);
-    data.fill(ser32(index), 33, 37);
+  CKDPriv(
+    parent: IBip32ExtendedKey,
+    index: number,
+    options?: IBip32PerfTraceOptions,
+  ): IBip32ExtendedKey {
+    const { perfTrace } = options ?? {};
+    return traceBip32({
+      perfTrace,
+      name: 'bip32.ed25519.CKDPriv.total',
+      fn: () => {
+        if (!isHardenedIndex(index)) {
+          throw Error('Only hardened CKDPriv is supported for ed25519.');
+        }
+        const data: Buffer = Buffer.alloc(37);
+        data.fill(parent.key, 1, 33);
+        data.fill(ser32(index), 33, 37);
 
-    const I: Buffer = hmacSHA512Sync(parent.chainCode, data);
-    return { key: I.slice(0, 32), chainCode: I.slice(32, 64) };
+        const I: Buffer = traceBip32({
+          perfTrace,
+          name: 'bip32.ed25519.CKDPriv.hmacSHA512',
+          fn: () => hmacSHA512Sync(parent.chainCode, data),
+        });
+        return { key: I.slice(0, 32), chainCode: I.slice(32, 64) };
+      },
+    });
   }
 
-  CKDPub(_parent: IBip32ExtendedKey, _index: number): IBip32ExtendedKey {
+  CKDPub(
+    _parent: IBip32ExtendedKey,
+    _index: number,
+    _options?: IBip32PerfTraceOptions,
+  ): IBip32ExtendedKey {
     // CKDPub(parent: ExtendedKey, index: number): ExtendedKey {
     throw Error('CKDPub is not supported for ed25519.');
   }

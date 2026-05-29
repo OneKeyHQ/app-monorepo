@@ -83,6 +83,13 @@ export interface IPerpsAccountDisplaySnapshotEntry {
   account: IPerpsActiveAccountAtom;
   accountValue: string | undefined;
   withdrawable: string | undefined;
+  activeAsset:
+    | {
+        coin: string;
+        leverage: IPerpsActiveAssetData['leverage'] | undefined;
+        updatedAt: number;
+      }
+    | undefined;
   availableToTrade:
     | {
         coin: string;
