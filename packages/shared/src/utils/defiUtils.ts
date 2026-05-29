@@ -8,6 +8,8 @@ import {
   type IProtocolSummary,
 } from '../../types/defi';
 
+import { normalizeDeFiPositionMetadata } from './defiPositionMetadataUtils';
+
 function extractParenthesizedContent(input: string) {
   const startIndex = input.indexOf('(');
 
@@ -235,14 +237,15 @@ function transformDeFiData({
 
   Object.values(positions).forEach((networkPositions) => {
     networkPositions.forEach((position, positionIndex) => {
-      const protocolPositionsMapKey = `${position.networkId}-${position.protocol}`;
+      const normalizedPosition = normalizeDeFiPositionMetadata(position);
+      const protocolPositionsMapKey = `${normalizedPosition.networkId}-${normalizedPosition.protocol}`;
 
       if (!protocolPositionsMap.has(protocolPositionsMapKey)) {
         protocolPositionsMap.set(protocolPositionsMapKey, {
           accountId,
-          owner: position.owner,
-          networkId: position.networkId,
-          protocol: position.protocol,
+          owner: normalizedPosition.owner,
+          networkId: normalizedPosition.networkId,
+          protocol: normalizedPosition.protocol,
           positionMap: new Map(),
           categorySet: new Set(),
         });
@@ -260,7 +263,7 @@ function transformDeFiData({
       };
 
       const safeGroupId = getSafeGroupedPositionId({
-        position,
+        position: normalizedPosition,
         positionIndex,
       });
 
@@ -271,7 +274,7 @@ function transformDeFiData({
       const isNewPositionGroup =
         !protocolPositionsMapValue.positionMap.has(positionKey);
       if (isNewPositionGroup) {
-        const metadata = getGroupedPositionMetadata(position);
+        const metadata = getGroupedPositionMetadata(normalizedPosition);
         protocolPositionsMapValue.positionMap.set(positionKey, {
           groupId: safeGroupId,
           ...metadata,
@@ -291,24 +294,24 @@ function transformDeFiData({
         !isNewPositionGroup &&
         shouldUsePositionMetadata({
           current: positionValue,
-          incoming: position,
+          incoming: normalizedPosition,
         })
       ) {
         updateGroupedPositionMetadata({
           current: positionValue,
-          incoming: position,
+          incoming: normalizedPosition,
         });
       }
 
-      const assets = position.assets.map((asset) => ({
+      const assets = normalizedPosition.assets.map((asset) => ({
         ...asset,
         type: EDeFiAssetType.ASSET,
       }));
-      const debts = position.debts.map((debt) => ({
+      const debts = normalizedPosition.debts.map((debt) => ({
         ...debt,
         type: EDeFiAssetType.DEBT,
       }));
-      const rewards = position.rewards.map((reward) => ({
+      const rewards = normalizedPosition.rewards.map((reward) => ({
         ...reward,
         type: EDeFiAssetType.REWARD,
       }));
@@ -316,27 +319,27 @@ function transformDeFiData({
       positionValue.assets.push(...assets);
       positionValue.debts.push(...debts);
       positionValue.rewards.push(...rewards);
-      positionValue.sourcePositions.push(position);
+      positionValue.sourcePositions.push(normalizedPosition);
       // calculate value
       positionValue.value = positionValue.value.plus(
-        position.assets
+        normalizedPosition.assets
           .reduce((acc, asset) => acc.plus(asset.value), new BigNumber(0))
 
           .plus(
-            position.rewards.reduce(
+            normalizedPosition.rewards.reduce(
               (acc, reward) => acc.plus(reward.value),
               new BigNumber(0),
             ),
           )
           .minus(
-            position.debts.reduce(
+            normalizedPosition.debts.reduce(
               (acc, debt) => acc.plus(debt.value),
               new BigNumber(0),
             ),
           ),
       );
 
-      protocolPositionsMapValue.categorySet.add(position.category);
+      protocolPositionsMapValue.categorySet.add(normalizedPosition.category);
     });
   });
 

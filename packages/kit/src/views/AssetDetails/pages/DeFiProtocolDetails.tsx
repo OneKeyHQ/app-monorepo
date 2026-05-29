@@ -21,6 +21,7 @@ import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolVal
 import { getProtocolPositionSectionsValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -81,6 +82,7 @@ function DeFiProtocolDetails() {
     >();
   const { protocol, protocolInfo } = route.params;
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
   const {
     activeAccount: { account },
@@ -97,14 +99,15 @@ function DeFiProtocolDetails() {
   const handleActionSuccess = useCallback(
     ({ accountId, networkId }: IProtocolPositionActionSuccessParams) => {
       appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-      void backgroundApiProxy.serviceDeFi.refreshAccountDeFiPositionsAfterAction(
-        {
+      void backgroundApiProxy.serviceDeFi
+        .refreshAccountDeFiPositionsAfterAction({
           accountId,
           networkId,
-        },
-      );
+        })
+        .catch(console.error);
+      navigation.pop();
     },
-    [],
+    [navigation],
   );
 
   const priceUnavailableLabel = intl.formatMessage({

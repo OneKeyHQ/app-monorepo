@@ -12,6 +12,12 @@ import {
   type IResolvedDeFiPositionActionAsset,
 } from '../../types/defi';
 
+import {
+  normalizeEvmAddress,
+  normalizeTokenId,
+  parsePoolPositionGroupId,
+} from './defiPositionMetadataUtils';
+
 type IResolveDeFiPositionActionsParams = {
   protocol: Pick<IDeFiProtocol, 'networkId' | 'protocol'>;
   position: IDeFiProtocol['positions'][number];
@@ -217,19 +223,6 @@ function pickStringArrayFromSources({
   return undefined;
 }
 
-function normalizeTokenId(value?: string) {
-  const trimmed = value?.trim();
-  if (!trimmed) return undefined;
-  if (/^\d+$/.test(trimmed) || /^0x[0-9a-f]+$/i.test(trimmed)) {
-    return trimmed;
-  }
-
-  const match = trimmed.match(
-    /(?:tokenId|token_id|positionId|position_id|nftId|nft_id)[:=_-](\d+)/i,
-  );
-  return match?.[1];
-}
-
 function normalizeQueueNonce(value?: string) {
   const trimmed = value?.trim();
   if (!trimmed) return undefined;
@@ -422,7 +415,10 @@ function getTokenId(position: IDeFiPosition | undefined, asset: IDeFiAsset) {
       },
     ],
   });
-  return normalizeTokenId(directTokenId);
+  return (
+    normalizeTokenId(directTokenId) ??
+    parsePoolPositionGroupId(position?.groupId)?.tokenId
+  );
 }
 
 function getCurrency({
@@ -443,6 +439,114 @@ function getCurrency({
       { containerKey: 'meta', keys: [key] },
     ],
   });
+}
+
+function getUniswapV4SourcePositionCurrencies(
+  position: IDeFiPosition | undefined,
+) {
+  if (!position?.networkId || !position.protocol) return undefined;
+
+  const addresses = position.assets.reduce<string[]>((result, asset) => {
+    const address = normalizeEvmAddress(asset.address);
+    if (address && isPositiveAmount(asset.amount)) {
+      const duplicated = result.some(
+        (item) => item.toLowerCase() === address.toLowerCase(),
+      );
+      if (!duplicated) result.push(address);
+    }
+    return result;
+  }, []);
+
+  addresses.sort((a, b) => {
+    const normalizedA = a.toLowerCase();
+    const normalizedB = b.toLowerCase();
+    if (normalizedA === normalizedB) return 0;
+    return normalizedA < normalizedB ? -1 : 1;
+  });
+
+  const [currency0, currency1] = addresses;
+  if (addresses.length !== 2 || !currency0 || !currency1) return undefined;
+
+  return {
+    currency0,
+    currency1,
+  };
+}
+
+function getRemainingUniswapV4Currency(
+  knownCurrency: string,
+  sourcePositionCurrencies: {
+    currency0: string;
+    currency1: string;
+  },
+) {
+  const normalizedKnownCurrency = normalizeEvmAddress(knownCurrency);
+  if (!normalizedKnownCurrency) return undefined;
+
+  const remainingCurrencies = [
+    sourcePositionCurrencies.currency0,
+    sourcePositionCurrencies.currency1,
+  ].filter(
+    (currency) =>
+      currency.toLowerCase() !== normalizedKnownCurrency.toLowerCase(),
+  );
+
+  return remainingCurrencies.length === 1 ? remainingCurrencies[0] : undefined;
+}
+
+function getRemoveLiquidityCurrencies({
+  protocolId,
+  sourcePosition,
+  asset,
+}: {
+  protocolId: string;
+  sourcePosition: IDeFiPosition | undefined;
+  asset: IDeFiAsset;
+}) {
+  const currency0 = getCurrency({
+    position: sourcePosition,
+    asset,
+    key: 'currency0',
+  });
+  const currency1 = getCurrency({
+    position: sourcePosition,
+    asset,
+    key: 'currency1',
+  });
+
+  const isUniswapV4 = isNormalizedProtocolId(protocolId, 'uniswap_v4');
+  if (!isUniswapV4) {
+    return { currency0, currency1 };
+  }
+
+  const sourcePositionCurrencies =
+    getUniswapV4SourcePositionCurrencies(sourcePosition);
+  if (!sourcePositionCurrencies) {
+    return { currency0, currency1 };
+  }
+  if (currency0 && currency1) {
+    return { currency0, currency1 };
+  }
+  if (currency0) {
+    return {
+      currency0,
+      currency1: getRemainingUniswapV4Currency(
+        currency0,
+        sourcePositionCurrencies,
+      ),
+    };
+  }
+  if (currency1) {
+    return {
+      currency0: getRemainingUniswapV4Currency(
+        currency1,
+        sourcePositionCurrencies,
+      ),
+      currency1,
+    };
+  }
+
+  return sourcePositionCurrencies;
 }
 
 function getSourcePositions(
@@ -498,9 +602,19 @@ function getCandidateAssets({
       supportedAction.action === EDeFiPositionAction.Claim
         ? sourcePosition.rewards
         : sourcePosition.assets;
+    const positiveCandidates = candidates.filter((asset) =>
+      isPositiveAmount(asset.amount),
+    );
 
-    return candidates
-      .filter((asset) => isPositiveAmount(asset.amount))
+    if (supportedAction.action === EDeFiPositionAction.RemoveLiquidity) {
+      const asset =
+        positiveCandidates.find((candidate) =>
+          Boolean(getTokenId(sourcePosition, candidate)),
+        ) ?? positiveCandidates[0];
+      return asset ? [{ asset, sourcePosition }] : [];
+    }
+
+    return positiveCandidates
       .filter((asset) => {
         if (
           isNormalizedProtocolId(supportedAction.protocolId, 'polygon_staking')
@@ -546,15 +660,10 @@ function buildResolvedAsset({
     const tokenId = getTokenId(sourcePosition, asset);
     if (!tokenId) return undefined;
 
-    const currency0 = getCurrency({
-      position: sourcePosition,
+    const { currency0, currency1 } = getRemoveLiquidityCurrencies({
+      protocolId,
+      sourcePosition,
       asset,
-      key: 'currency0',
-    });
-    const currency1 = getCurrency({
-      position: sourcePosition,
-      asset,
-      key: 'currency1',
     });
 
     if (
