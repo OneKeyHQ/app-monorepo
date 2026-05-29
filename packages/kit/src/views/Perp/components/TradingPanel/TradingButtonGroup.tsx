@@ -19,6 +19,7 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useActiveTradeInstrumentAtom,
+  usePerpsActivePositionAtom,
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -38,6 +39,9 @@ import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
   buildScaleOrderLegs,
+  getReduceOnlyOrderGuardError,
+  getReduceOnlyPositionSnapshotError,
+  getScaleOrderSizeSkew,
   normalizeScaleOrderCount,
   validateScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
@@ -119,6 +123,7 @@ function SideButtonInternal({
       : tradingPreferences.sizeInputUnit;
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [activePositionsValue] = usePerpsActivePositionAtom();
 
   const { handleConfirm } = useOrderConfirm();
   const [isSubmitting] = useTradingLoadingAtom();
@@ -552,12 +557,46 @@ function SideButtonInternal({
           orderCount: normalizeScaleOrderCount(formData.scaleOrderCount ?? 0),
           szDecimals,
           side,
+          sizeSkew: getScaleOrderSizeSkew(formData.scaleSizeDistribution),
         });
         const validation = validateScaleOrderLegs({ legs });
         if (!validation.isValid) {
           Toast.message({
             title: validation.errors[0] ?? 'Invalid scale order',
           });
+          return;
+        }
+      }
+      const reduceOnly =
+        (isScaleMode && formData.scaleReduceOnly) ||
+        (isTwapMode && formData.twapReduceOnly);
+      if (reduceOnly) {
+        const snapshotError = getReduceOnlyPositionSnapshotError({
+          reduceOnly,
+          accountAddress: perpsAccount?.accountAddress,
+          positionsAccountAddress: activePositionsValue.accountAddress,
+        });
+        if (snapshotError) {
+          Toast.message({ title: snapshotError });
+          return;
+        }
+        const position = activePositionsValue.activePositions.find(
+          (pos) => pos.position.coin === activeTradeInstrument.coin,
+        )?.position;
+        const reduceOnlyError = getReduceOnlyOrderGuardError({
+          reduceOnly,
+          side,
+          size: computedSizeForSide,
+          positionSize: position?.szi,
+          missingPositionMessage: isTwapMode
+            ? 'Reduce-only TWAP requires an opposite open position'
+            : 'Reduce-only scale requires an opposite open position',
+          exceedsPositionMessage: isTwapMode
+            ? 'Reduce-only TWAP size exceeds the current position'
+            : 'Reduce-only scale size exceeds the current position',
+        });
+        if (reduceOnlyError) {
+          Toast.message({ title: reduceOnlyError });
           return;
         }
       }
@@ -906,7 +945,7 @@ function SideButtonInternal({
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
         disabled={buttonDisabled}
-        loading={isAccountLoading}
+        loading={isAccountLoading || isSubmitting}
         onPress={handlePress}
         h={36}
         py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}

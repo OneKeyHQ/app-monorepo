@@ -35,7 +35,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { getScaleOrderReferencePrice } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
+  getReduceOnlyOrderGuardError,
+  getReduceOnlyPositionSnapshotError,
+  getScaleOrderReferencePrice,
+  getScaleOrderSizeSkew,
+} from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import {
   findTokensByAlias,
   formatPriceToSignificantDigits,
@@ -247,6 +252,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private openOrdersCacheAccountAddress: string | undefined;
 
   private activeInstrumentChangeRequestId = 0;
+
+  private loadTwapDataRequestId = 0;
 
   private beginActiveInstrumentChange(): number {
     this.activeInstrumentChangeRequestId += 1;
@@ -721,8 +728,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set(perpsTwapHistoryAtom(), {
         accountAddress: activeAccountAddress,
         history: sortAndDedupeTwapHistory([
-          ...(data.history ?? []),
           ...previousHistory,
+          ...(data.history ?? []),
         ]),
         isLoaded: true,
       });
@@ -753,8 +760,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           ? prev.fills
           : [];
       const fills = sortAndDedupeTwapSliceFills([
-        ...(data.twapSliceFills ?? []),
         ...previousFills,
+        ...(data.twapSliceFills ?? []),
       ]);
       set(perpsTwapSliceFillsAtom(), {
         accountAddress: activeAccountAddress,
@@ -1501,6 +1508,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   });
 
   loadTwapData = contextAtomMethod(async (get, set) => {
+    this.loadTwapDataRequestId += 1;
+    const requestId = this.loadTwapDataRequestId;
     const activeAccount = await perpsActiveAccountAtom.get();
     const accountAddress = activeAccount?.accountAddress?.toLowerCase();
     if (!accountAddress) {
@@ -1553,7 +1562,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         })),
     ]);
     const latestActiveAccount = await perpsActiveAccountAtom.get();
-    if (latestActiveAccount?.accountAddress?.toLowerCase() !== accountAddress) {
+    if (
+      requestId !== this.loadTwapDataRequestId ||
+      latestActiveAccount?.accountAddress?.toLowerCase() !== accountAddress
+    ) {
       return;
     }
     const currentTwapOrders = get(perpsActiveTwapOrdersAtom());
@@ -2040,15 +2052,19 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           set(tradingLoadingAtom(), true);
           try {
             const [
+              activeAccount,
               activeTradeInstrument,
               activeAssetValue,
               activeAssetCtxValue,
               activeAssetDataValue,
+              activePositionsValue,
             ] = await Promise.all([
+              perpsActiveAccountAtom.get(),
               Promise.resolve(get(activeTradeInstrumentAtom())),
               perpsActiveAssetAtom.get(),
               perpsActiveAssetCtxAtom.get(),
               perpsActiveAssetDataAtom.get(),
+              Promise.resolve(get(perpsActivePositionAtom())),
             ]);
 
             if (activeTradeInstrument.mode === 'spot') {
@@ -2077,6 +2093,32 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               fallbackLeverage: activeAssetValue?.universe?.maxLeverage,
               szDecimals: activeAssetValue?.universe?.szDecimals,
             });
+            if (formData.scaleReduceOnly) {
+              const snapshotError = getReduceOnlyPositionSnapshotError({
+                reduceOnly: formData.scaleReduceOnly,
+                accountAddress: activeAccount?.accountAddress,
+                positionsAccountAddress: activePositionsValue.accountAddress,
+              });
+              if (snapshotError) {
+                throw new OneKeyLocalError(snapshotError);
+              }
+              const position = activePositionsValue.activePositions.find(
+                (pos) => pos.position.coin === activeTradeInstrument.coin,
+              )?.position;
+              const reduceOnlyError = getReduceOnlyOrderGuardError({
+                reduceOnly: formData.scaleReduceOnly,
+                side: formData.side,
+                size: resolvedSize,
+                positionSize: position?.szi,
+                missingPositionMessage:
+                  'Reduce-only scale requires an opposite open position',
+                exceedsPositionMessage:
+                  'Reduce-only scale size exceeds the current position',
+              });
+              if (reduceOnlyError) {
+                throw new OneKeyLocalError(reduceOnlyError);
+              }
+            }
 
             const result =
               await backgroundApiProxy.serviceHyperliquidExchange.placeScaleOrder(
@@ -2091,6 +2133,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                   reduceOnly: formData.scaleReduceOnly,
                   tif: 'Gtc',
                   szDecimals: activeAssetValue?.universe?.szDecimals,
+                  sizeSkew: getScaleOrderSizeSkew(
+                    formData.scaleSizeDistribution,
+                  ),
                 },
               );
             return result;
@@ -2119,6 +2164,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           set(tradingLoadingAtom(), true);
           try {
             const [
+              activeAccount,
               activeTradeInstrument,
               activeAssetValue,
               activeAssetCtxValue,
@@ -2126,6 +2172,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               activePositionsValue,
               env,
             ] = await Promise.all([
+              perpsActiveAccountAtom.get(),
               Promise.resolve(get(activeTradeInstrumentAtom())),
               perpsActiveAssetAtom.get(),
               perpsActiveAssetCtxAtom.get(),
@@ -2186,23 +2233,29 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
             const reduceOnly = Boolean(formData.twapReduceOnly);
             if (reduceOnly) {
+              const snapshotError = getReduceOnlyPositionSnapshotError({
+                reduceOnly,
+                accountAddress: activeAccount?.accountAddress,
+                positionsAccountAddress: activePositionsValue.accountAddress,
+              });
+              if (snapshotError) {
+                throw new OneKeyLocalError(snapshotError);
+              }
               const position = activePositionsValue.activePositions.find(
                 (pos) => pos.position.coin === activeTradeInstrument.coin,
               )?.position;
-              const positionSize = new BigNumber(position?.szi ?? 0);
-              const isReducing =
-                formData.side === 'long'
-                  ? positionSize.lt(0)
-                  : positionSize.gt(0);
-              if (!position || !isReducing) {
-                throw new OneKeyLocalError(
+              const reduceOnlyError = getReduceOnlyOrderGuardError({
+                reduceOnly,
+                side: formData.side,
+                size: resolvedSizeBN,
+                positionSize: position?.szi,
+                missingPositionMessage:
                   'Reduce-only TWAP requires an opposite open position',
-                );
-              }
-              if (resolvedSizeBN.gt(positionSize.abs())) {
-                throw new OneKeyLocalError(
+                exceedsPositionMessage:
                   'Reduce-only TWAP size exceeds the current position',
-                );
+              });
+              if (reduceOnlyError) {
+                throw new OneKeyLocalError(reduceOnlyError);
               }
             }
 
@@ -2309,6 +2362,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         if (formData.orderMode === 'twap') {
           throw new OneKeyLocalError(
             'TWAP orders are not supported in spot mode',
+          );
+        }
+        if (formData.orderMode === 'scale') {
+          throw new OneKeyLocalError(
+            'Scale orders are not supported in spot mode',
           );
         }
         return this.placeSpotOrder.call(set, {

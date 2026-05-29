@@ -6,14 +6,19 @@ import { Toast } from '@onekeyhq/components';
 import {
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
+  usePerpsActivePositionAtom,
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
   buildScaleOrderLegs,
+  getReduceOnlyOrderGuardError,
+  getReduceOnlyPositionSnapshotError,
   getScaleOrderReferencePrice,
+  getScaleOrderSizeSkew,
   normalizeScaleOrderCount,
   validateScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
@@ -45,6 +50,8 @@ export function useOrderConfirm(
 ): IUseOrderConfirmReturn {
   const [formData] = useTradingFormAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const [activePositionsValue] = usePerpsActivePositionAtom();
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPrice, midPriceBN } = useTradingPrice();
@@ -213,6 +220,9 @@ export function useOrderConfirm(
           orderCount,
           szDecimals,
           side,
+          sizeSkew: getScaleOrderSizeSkew(
+            formDataSnapshot.scaleSizeDistribution,
+          ),
         });
         const scaleValidation = validateScaleOrderLegs({ legs: scaleLegs });
         if (!scaleValidation.isValid) {
@@ -221,6 +231,40 @@ export function useOrderConfirm(
             message: scaleValidation.errors[0] ?? 'Invalid scale order',
           });
           return;
+        }
+        if (formDataSnapshot.scaleReduceOnly) {
+          const snapshotError = getReduceOnlyPositionSnapshotError({
+            reduceOnly: formDataSnapshot.scaleReduceOnly,
+            accountAddress: currentUser?.accountAddress,
+            positionsAccountAddress: activePositionsValue.accountAddress,
+          });
+          if (snapshotError) {
+            Toast.error({
+              title: 'Order Failed',
+              message: snapshotError,
+            });
+            return;
+          }
+          const position = activePositionsValue.activePositions.find(
+            (pos) => pos.position.coin === activeTradeInstrument.coin,
+          )?.position;
+          const reduceOnlyError = getReduceOnlyOrderGuardError({
+            reduceOnly: formDataSnapshot.scaleReduceOnly,
+            side,
+            size: scaleSize,
+            positionSize: position?.szi,
+            missingPositionMessage:
+              'Reduce-only scale requires an opposite open position',
+            exceedsPositionMessage:
+              'Reduce-only scale size exceeds the current position',
+          });
+          if (reduceOnlyError) {
+            Toast.error({
+              title: 'Order Failed',
+              message: reduceOnlyError,
+            });
+            return;
+          }
         }
 
         const effectiveFormData = {
@@ -275,6 +319,40 @@ export function useOrderConfirm(
             message: 'Market price is not available. Please try again.',
           });
           return;
+        }
+        if (formDataSnapshot.twapReduceOnly) {
+          const snapshotError = getReduceOnlyPositionSnapshotError({
+            reduceOnly: formDataSnapshot.twapReduceOnly,
+            accountAddress: currentUser?.accountAddress,
+            positionsAccountAddress: activePositionsValue.accountAddress,
+          });
+          if (snapshotError) {
+            Toast.error({
+              title: 'Order Failed',
+              message: snapshotError,
+            });
+            return;
+          }
+          const position = activePositionsValue.activePositions.find(
+            (pos) => pos.position.coin === activeTradeInstrument.coin,
+          )?.position;
+          const reduceOnlyError = getReduceOnlyOrderGuardError({
+            reduceOnly: formDataSnapshot.twapReduceOnly,
+            side,
+            size: twapSize,
+            positionSize: position?.szi,
+            missingPositionMessage:
+              'Reduce-only TWAP requires an opposite open position',
+            exceedsPositionMessage:
+              'Reduce-only TWAP size exceeds the current position',
+          });
+          if (reduceOnlyError) {
+            Toast.error({
+              title: 'Order Failed',
+              message: reduceOnlyError,
+            });
+            return;
+          }
         }
 
         const effectiveFormData = {
@@ -420,6 +498,8 @@ export function useOrderConfirm(
       midPrice,
       midPriceBN,
       activeTradeInstrument,
+      activePositionsValue,
+      currentUser?.accountAddress,
       formData,
       hyperliquidActions,
       options,

@@ -53,6 +53,7 @@ import {
   SCALE_ORDER_MIN_NOTIONAL,
   buildScaleOrderLegs,
   getScaleOrderReferencePrice,
+  getScaleOrderSizeSkew,
   validateScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -65,7 +66,10 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  ETriggerOrderType,
+  type IScaleOrderSizeDistribution,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
 import { useOrderPrice } from '../../../hooks/useOrderPrice';
@@ -123,18 +127,48 @@ const TRIGGER_MODE_TPSL_RESET: Partial<ITradingFormData> = {
 const USDC_TOKEN_SYMBOL = 'USDC';
 const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
-const TWAP_SLICE_INTERVAL_SECONDS = 30;
-const TWAP_MIN_SLICE_NOTIONAL = SCALE_ORDER_MIN_NOTIONAL;
-const TWAP_SLICES_PER_MINUTE = 60 / TWAP_SLICE_INTERVAL_SECONDS;
+const TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES = 0.5;
+const TWAP_MIN_SLICE_NOTIONAL_HINT = 10;
 const TWAP_DURATION_LABEL = `Duration (${TWAP_MIN_DURATION_MINUTES}m - ${
   TWAP_MAX_DURATION_MINUTES / 60
 }h)`;
+const TWAP_HELPER_TEXT =
+  'TWAP submits market slices over the selected duration. Hyperliquid controls slice timing and may reject very small slices.';
+const TWAP_SMALL_SLICE_HELPER_TEXT =
+  'Estimated TWAP slice value is below $10. Hyperliquid may reject it; increase size or shorten duration.';
 const TWAP_DURATION_PRESET_OPTIONS = [
   { label: '1h', minutes: 60 },
   { label: '6h', minutes: 360 },
   { label: '12h', minutes: 720 },
   { label: '24h', minutes: 1440 },
 ] as const;
+const SCALE_AMOUNT_DISTRIBUTION_OPTIONS = [
+  { label: 'Fixed', value: 'fixed' },
+  { label: 'Increasing', value: 'increasing' },
+] as const satisfies readonly {
+  label: string;
+  value: IScaleOrderSizeDistribution;
+}[];
+const SCALE_INCREASING_DISTRIBUTION_HELPER_TEXT =
+  'Increasing places larger orders at better prices — lower for buys, higher for sells.';
+
+function clampTwapDurationMinutes(minutes: number) {
+  if (Number.isNaN(minutes) || minutes <= 0) {
+    return 0;
+  }
+  if (!Number.isFinite(minutes)) {
+    return TWAP_MAX_DURATION_MINUTES;
+  }
+  return Math.min(minutes, TWAP_MAX_DURATION_MINUTES);
+}
+
+function splitTwapDurationMinutes(minutes: number) {
+  const clampedMinutes = clampTwapDurationMinutes(minutes);
+  return {
+    hours: Math.floor(clampedMinutes / 60),
+    minutes: clampedMinutes % 60,
+  };
+}
 
 function SpotAvailableActionIcon({
   icon,
@@ -655,6 +689,7 @@ function PerpTradingForm({
       orderCount,
       szDecimals: sizeSzDecimals,
       side: formData.side,
+      sizeSkew: getScaleOrderSizeSkew(formData.scaleSizeDistribution),
     });
     const validation = validateScaleOrderLegs({ legs });
     if (!validation.isValid) {
@@ -671,6 +706,7 @@ function PerpTradingForm({
   }, [
     formData.scaleLowerPrice,
     formData.scaleOrderCount,
+    formData.scaleSizeDistribution,
     formData.scaleUpperPrice,
     formData.side,
     isScaleMode,
@@ -704,36 +740,41 @@ function PerpTradingForm({
     }
   }, [formData.twapDurationMinutes, isTwapMode]);
 
-  const twapPreviewMessage = useMemo(() => {
+  const twapHelperMessage = useMemo(() => {
     if (!isTwapMode) {
       return undefined;
     }
-
-    const markPriceBN = new BigNumber(activeAssetCtx?.ctx?.markPrice ?? 0);
-    const referencePriceBN =
-      markPriceBN.isFinite() && markPriceBN.gt(0) ? markPriceBN : midPriceBN;
-    const orderValueBN =
-      tradingComputed.computedSizeBN.multipliedBy(referencePriceBN);
-
-    if (!orderValueBN.isFinite() || orderValueBN.lte(0)) {
-      return undefined;
+    const duration = Number(formData.twapDurationMinutes ?? 0);
+    if (
+      !Number.isInteger(duration) ||
+      duration < TWAP_MIN_DURATION_MINUTES ||
+      duration > TWAP_MAX_DURATION_MINUTES ||
+      !tradingComputed.computedSizeBN.isFinite() ||
+      tradingComputed.computedSizeBN.lte(0) ||
+      !midPriceBN.isFinite() ||
+      midPriceBN.lte(0)
+    ) {
+      return TWAP_HELPER_TEXT;
     }
 
-    const maxRunningMinutes = orderValueBN
-      .dividedBy(TWAP_MIN_SLICE_NOTIONAL)
-      .dividedBy(TWAP_SLICES_PER_MINUTE)
-      .integerValue(BigNumber.ROUND_FLOOR)
-      .toNumber();
-
-    if (!Number.isFinite(maxRunningMinutes) || maxRunningMinutes <= 0) {
-      return undefined;
+    const estimatedSlices = Math.max(
+      1,
+      Math.ceil(duration / TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES),
+    );
+    const estimatedSliceNotional = tradingComputed.computedSizeBN
+      .multipliedBy(midPriceBN)
+      .dividedBy(estimatedSlices);
+    if (
+      estimatedSliceNotional.isFinite() &&
+      estimatedSliceNotional.gt(0) &&
+      estimatedSliceNotional.lt(TWAP_MIN_SLICE_NOTIONAL_HINT)
+    ) {
+      return TWAP_SMALL_SLICE_HELPER_TEXT;
     }
 
-    return {
-      maxRunningMinutes: Math.min(maxRunningMinutes, TWAP_MAX_DURATION_MINUTES),
-    };
+    return TWAP_HELPER_TEXT;
   }, [
-    activeAssetCtx?.ctx?.markPrice,
+    formData.twapDurationMinutes,
     isTwapMode,
     midPriceBN,
     tradingComputed.computedSizeBN,
@@ -743,9 +784,15 @@ function PerpTradingForm({
   const [twapDurationMinutesInput, setTwapDurationMinutesInput] = useState('');
   const [focusedTwapDurationInput, setFocusedTwapDurationInput] =
     useState<ITwapDurationInputField | null>(null);
+  const focusedTwapDurationInputRef = useRef<ITwapDurationInputField | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!isTwapMode) {
+      return;
+    }
+    if (focusedTwapDurationInputRef.current) {
       return;
     }
     const rawDuration = formData.twapDurationMinutes ?? '';
@@ -758,8 +805,9 @@ function PerpTradingForm({
     if (!Number.isFinite(totalMinutes) || totalMinutes < 0) {
       return;
     }
-    const nextHours = String(Math.floor(totalMinutes / 60));
-    const nextMinutes = String(totalMinutes % 60);
+    const durationParts = splitTwapDurationMinutes(totalMinutes);
+    const nextHours = String(durationParts.hours);
+    const nextMinutes = String(durationParts.minutes);
     setTwapDurationHoursInput((prev) =>
       prev === nextHours ? prev : nextHours,
     );
@@ -1102,45 +1150,37 @@ function PerpTradingForm({
     const nextValue = Number(value);
     return Number.isInteger(nextValue) && nextValue <= SCALE_ORDER_MAX_COUNT;
   }, []);
-  const twapDurationValidator = useCallback((value: string) => {
-    if (value === '') {
-      return true;
-    }
-    if (!/^\d{0,4}$/.test(value)) {
-      return false;
-    }
-    const nextValue = Number(value);
-    return (
-      Number.isInteger(nextValue) && nextValue <= TWAP_MAX_DURATION_MINUTES
-    );
-  }, []);
   const updateTwapDurationFromParts = useCallback(
     (hoursValue: string, minutesValue: string) => {
-      const nextHours = hoursValue.replace(/[^\d]/g, '').slice(0, 2);
-      const nextMinutes = minutesValue.replace(/[^\d]/g, '').slice(0, 2);
+      const nextHours = hoursValue.replace(/[^\d]/g, '');
+      const nextMinutes = minutesValue.replace(/[^\d]/g, '');
 
       const hoursNumber = nextHours ? Number(nextHours) : 0;
-      const minutesNumber = nextMinutes ? Number(nextMinutes) : 0;
+      const rawMinutesNumber = nextMinutes ? Number(nextMinutes) : 0;
 
       if (
         !Number.isInteger(hoursNumber) ||
-        !Number.isInteger(minutesNumber) ||
-        hoursNumber > 24 ||
-        minutesNumber > 59
+        !Number.isInteger(rawMinutesNumber)
       ) {
         return false;
       }
 
-      const totalMinutes = hoursNumber * 60 + minutesNumber;
-      if (
-        totalMinutes > TWAP_MAX_DURATION_MINUTES ||
-        (hoursNumber === 24 && minutesNumber > 0)
-      ) {
-        return false;
+      const minutesNumber = Math.min(rawMinutesNumber, 60);
+      const rawTotalMinutes = hoursNumber * 60 + minutesNumber;
+      const totalMinutes = clampTwapDurationMinutes(rawTotalMinutes);
+
+      if (rawTotalMinutes > TWAP_MAX_DURATION_MINUTES) {
+        const durationParts = splitTwapDurationMinutes(totalMinutes);
+        setTwapDurationHoursInput(String(durationParts.hours));
+        setTwapDurationMinutesInput(String(durationParts.minutes));
+        updateForm({ twapDurationMinutes: String(totalMinutes) });
+        return true;
       }
 
-      setTwapDurationHoursInput(nextHours);
-      setTwapDurationMinutesInput(nextMinutes);
+      setTwapDurationHoursInput(nextHours === '' ? '' : String(hoursNumber));
+      setTwapDurationMinutesInput(
+        nextMinutes === '' ? '' : String(minutesNumber),
+      );
 
       updateForm({
         twapDurationMinutes:
@@ -1284,6 +1324,7 @@ function PerpTradingForm({
 
   const renderPriceInputSection = () => {
     if (isScaleMode) {
+      const scaleSizeDistribution = formData.scaleSizeDistribution ?? 'fixed';
       return (
         <YStack gap={isMobile ? '$2.5' : '$3'}>
           <PriceInput
@@ -1341,6 +1382,61 @@ function PerpTradingForm({
             isMobile={isMobile}
             disabled={isSubmitting}
           />
+          <YStack gap="$1.5">
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              Amount Distribution
+            </SizableText>
+            <XStack gap="$4" alignItems="center" flexWrap="wrap">
+              {SCALE_AMOUNT_DISTRIBUTION_OPTIONS.map((option) => {
+                const checked = scaleSizeDistribution === option.value;
+                return (
+                  <XStack
+                    key={option.value}
+                    alignItems="center"
+                    gap="$2"
+                    cursor={isSubmitting ? 'default' : 'pointer'}
+                    opacity={isSubmitting ? 0.5 : 1}
+                    onPress={() => {
+                      if (!isSubmitting) {
+                        updateForm({ scaleSizeDistribution: option.value });
+                      }
+                    }}
+                  >
+                    <XStack
+                      w="$4"
+                      h="$4"
+                      borderRadius="$full"
+                      borderWidth={1.5}
+                      borderColor={checked ? '$borderActive' : '$borderStrong'}
+                      bg={checked ? '$bgPrimary' : 'transparent'}
+                      alignItems="center"
+                      justifyContent="center"
+                    >
+                      {checked ? (
+                        <XStack
+                          w="$2"
+                          h="$2"
+                          borderRadius="$full"
+                          bg="$iconInverse"
+                        />
+                      ) : null}
+                    </XStack>
+                    <SizableText
+                      size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                      color="$text"
+                    >
+                      {option.label}
+                    </SizableText>
+                  </XStack>
+                );
+              })}
+            </XStack>
+            {scaleSizeDistribution === 'increasing' ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                {SCALE_INCREASING_DISTRIBUTION_HELPER_TEXT}
+              </SizableText>
+            ) : null}
+          </YStack>
           {scaleOrderInputMessage ? (
             <SizableText
               size="$bodySm"
@@ -1510,15 +1606,15 @@ function PerpTradingForm({
     }
 
     const quickOptionHeight = isMobile ? 28 : 26;
-    const renderTwapPreviewMessage = () => {
-      if (!twapPreviewMessage) {
+    const renderTwapHelperMessage = () => {
+      if (!twapHelperMessage) {
         return null;
       }
 
       return (
         <YStack gap="$1">
           <SizableText size="$bodySm" color="$textSubdued">
-            {`运行该笔分时委托订单的最大时长为${twapPreviewMessage.maxRunningMinutes}分。`}
+            {twapHelperMessage}
           </SizableText>
         </YStack>
       );
@@ -1533,9 +1629,11 @@ function PerpTradingForm({
             value={formData.twapDurationMinutes ?? ''}
             onChange={(value) => {
               const nextValue = value.replace(/[^\d]/g, '');
-              updateForm({ twapDurationMinutes: nextValue });
+              const nextDuration = nextValue
+                ? String(clampTwapDurationMinutes(Number(nextValue)))
+                : '';
+              updateForm({ twapDurationMinutes: nextDuration });
             }}
-            validator={twapDurationValidator}
             keyboardType="numeric"
             suffix="min"
             isMobile
@@ -1566,7 +1664,7 @@ function PerpTradingForm({
               );
             })}
           </XStack>
-          {renderTwapPreviewMessage()}
+          {renderTwapHelperMessage()}
         </YStack>
       );
     }
@@ -1608,12 +1706,16 @@ function PerpTradingForm({
           h={inputHeight}
           value={value}
           onChangeText={onChangeText}
-          onFocus={() => setFocusedTwapDurationInput(field)}
-          onBlur={() =>
+          onFocus={() => {
+            focusedTwapDurationInputRef.current = field;
+            setFocusedTwapDurationInput(field);
+          }}
+          onBlur={() => {
+            focusedTwapDurationInputRef.current = null;
             setFocusedTwapDurationInput((currentField) =>
               currentField === field ? null : currentField,
-            )
-          }
+            );
+          }}
           keyboardType="numeric"
           disabled={isSubmitting}
           placeholder="0"
@@ -1695,7 +1797,7 @@ function PerpTradingForm({
             );
           })}
         </XStack>
-        {renderTwapPreviewMessage()}
+        {renderTwapHelperMessage()}
         {twapDurationInputMessage ? (
           <SizableText size="$bodySm" color="$red10">
             {twapDurationInputMessage.text}

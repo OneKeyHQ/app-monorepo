@@ -44,5 +44,19 @@ describe('shouldApplyMinimumOrderGuard', () => {
         orderType: 'limit',
       }),
     ).toBe(true);
+    expect(
+      shouldApplyMinimumOrderGuard({
+        isSpot: false,
+        orderMode: 'scale',
+        orderType: 'limit',
+      }),
+    ).toBe(true);
+    expect(
+      shouldApplyMinimumOrderGuard({
+        isSpot: false,
+        orderMode: 'twap',
+        orderType: 'market',
+      }),
+    ).toBe(true);
   });
 });
