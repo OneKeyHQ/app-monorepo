@@ -18,6 +18,7 @@ import {
 import { has } from 'lodash';
 
 import RN_AES from '@onekeyhq/shared/src/modules3rdParty/react-native-aes-crypto';
+import RN_QUICK_CRYPTO from '@onekeyhq/shared/src/modules3rdParty/react-native-quick-crypto';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OneKeyLocalError } from '../../errors';
@@ -155,6 +156,12 @@ function hmacSHA512ByNodeCrypto(key: Buffer, data: Buffer): Buffer {
   return createHmacByNode('sha512', key).update(data).digest();
 }
 
+function hmacSHA512ByRNQuickCrypto(key: Buffer, data: Buffer): Buffer {
+  return Buffer.from(
+    RN_QUICK_CRYPTO.createHmac('sha512', key).update(data).digest(),
+  );
+}
+
 function _hmacSHA512Check(key: Buffer, data: Buffer) {
   if (!key || key.length <= 0) {
     throw new OneKeyLocalError('Zero-length key is not supported');
@@ -166,6 +173,10 @@ function _hmacSHA512Check(key: Buffer, data: Buffer) {
 
 function hmacSHA512Sync(key: Buffer, data: Buffer): Buffer {
   _hmacSHA512Check(key, data);
+  if (platformEnv.isNative) {
+    const r: Buffer = hmacSHA512ByRNQuickCrypto(key, data);
+    return r;
+  }
   const r: Buffer = hmacSHA512ByAsmcrypto(key, data);
   return r;
 }
@@ -582,6 +593,15 @@ async function $testSampleForHash() {
       fn: () => hmacSHA512ByNodeCrypto(key, data),
     }),
   );
+  if (platformEnv.isNative) {
+    tasks.push(
+      await runAppCryptoTestTask({
+        expect,
+        name: 'hmacSHA512ByRNQuickCrypto',
+        fn: () => hmacSHA512ByRNQuickCrypto(key, data),
+      }),
+    );
+  }
   tasks.push(
     await runAppCryptoTestTask({
       expect,
@@ -886,6 +906,7 @@ export {
   hmacSHA256Sync,
   hmacSHA512,
   hmacSHA512Sync,
+  hmacSHA512ByRNQuickCrypto,
   sha256,
   sha256Sync,
   sha512,

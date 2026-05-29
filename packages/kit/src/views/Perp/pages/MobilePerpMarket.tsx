@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
 import { Dimensions, type LayoutChangeEvent } from 'react-native';
 
@@ -8,6 +7,7 @@ import type { IScrollViewRef } from '@onekeyhq/components';
 import {
   HeaderScrollGestureWrapper,
   Icon,
+  NavBackButton,
   Page,
   ScrollView,
   SizableText,
@@ -285,11 +285,6 @@ function MobilePerpMarket() {
     coin: activeTradeInstrument.coin,
     displayName: marketDetailDisplayName,
   });
-  // iOS 26's HeaderScreenOptions sets headerTransparent: true so the
-  // page content extends under the navigation bar. Page.Body has p="$0"
-  // here, which lets the chart and order book slide up behind the bar.
-  // Use the header height to push them back into view.
-  const headerHeight = useHeaderHeight();
 
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
@@ -298,6 +293,10 @@ function MobilePerpMarket() {
   }, [navigation]);
 
   const isSplitDetailActive = useIsSplitDetailActive();
+
+  const onPageGoBack = useCallback(() => {
+    navigation.pop();
+  }, [navigation]);
 
   const renderHeaderTitle = useCallback(() => {
     let pairLabel: string;
@@ -308,36 +307,42 @@ function MobilePerpMarket() {
     } else {
       pairLabel = '--';
     }
-    // Match the MarketDetailV2 layout: Token + Symbol + dropdown sit
-    // in the native headerTitle slot. The system back chevron renders
-    // separately on the left via HeaderScreenOptions
-    // (headerBackButtonDisplayMode: 'minimal'), so we no longer wrap
-    // a NavBackButton inside this XStack — that's what was forcing
-    // UIKit to draw the whole thing as a single pill-shaped glass
-    // container on iOS 26.
     return (
-      <XStack
-        alignItems="center"
-        gap="$2"
-        onPress={isSplitDetailActive ? undefined : onPressTokenSelector}
-        hoverStyle={isSplitDetailActive ? undefined : { opacity: 0.8 }}
-        pressStyle={isSplitDetailActive ? undefined : { opacity: 0.6 }}
-        cursor="default"
-      >
-        <Token
-          size="sm"
-          borderRadius="$full"
-          bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-          tokenImageUri={
-            baseName ? getHyperliquidTokenImageUrl(baseName) : undefined
-          }
-          fallbackIcon="CryptoCoinOutline"
-        />
-        <SizableText size="$headingLg">{pairLabel}</SizableText>
-        <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
+      <XStack alignItems="center" gap="$2">
         {isSplitDetailActive ? null : (
-          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+          <NavBackButton
+            hoverStyle={{ opacity: 0.8 }}
+            pressStyle={{ opacity: 0.6 }}
+            onPress={onPageGoBack}
+          />
         )}
+        <XStack
+          alignItems="center"
+          gap="$2"
+          onPress={isSplitDetailActive ? undefined : onPressTokenSelector}
+          hoverStyle={isSplitDetailActive ? undefined : { opacity: 0.8 }}
+          pressStyle={isSplitDetailActive ? undefined : { opacity: 0.6 }}
+          cursor="default"
+        >
+          <Token
+            size="sm"
+            borderRadius="$full"
+            bg={themeVariant === 'light' ? undefined : '$bgInverse'}
+            tokenImageUri={
+              baseName ? getHyperliquidTokenImageUrl(baseName) : undefined
+            }
+            fallbackIcon="CryptoCoinOutline"
+          />
+          <SizableText size="$headingLg">{pairLabel}</SizableText>
+          <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
+          {isSplitDetailActive ? null : (
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$4"
+              color="$iconSubdued"
+            />
+          )}
+        </XStack>
       </XStack>
     );
   }, [
@@ -345,6 +350,7 @@ function MobilePerpMarket() {
     displayName,
     isSplitDetailActive,
     mode,
+    onPageGoBack,
     onPressTokenSelector,
     themeVariant,
   ]);
@@ -474,8 +480,7 @@ function MobilePerpMarket() {
         <Page.Header headerShown={false} />
       ) : (
         <Page.Header
-          headerShown
-          headerTitle={renderHeaderTitle}
+          headerLeft={renderHeaderTitle}
           headerRight={renderHeaderRight}
         />
       ),
@@ -537,16 +542,7 @@ function MobilePerpMarket() {
       {pageHeader}
       <Page.Body p="$0">
         {inlineHeader}
-        <YStack
-          flex={1}
-          bg="$bgApp"
-          onLayout={handleContainerLayout}
-          pt={
-            !isSplitDetailActive && platformEnv.isNativeIOS26Plus
-              ? headerHeight
-              : 0
-          }
-        >
+        <YStack flex={1} bg="$bgApp" onLayout={handleContainerLayout}>
           <MobilePerpMarketTabBar
             activeTab={activeTab}
             onChange={handleChangeActiveTab}
