@@ -377,7 +377,7 @@ function PerpOpenOrdersList({
         onChange={setActiveOpenOrdersSubTab}
       />
       <MobileOpenOrdersListHeader
-        totalOrderCount={displayRows.length}
+        totalOrderCount={filteredOrders.length + filteredTwapOrders.length}
         cancelableOrderCount={
           activeOpenOrdersSubTab === 'basic' ? filteredOrders.length : 0
         }
