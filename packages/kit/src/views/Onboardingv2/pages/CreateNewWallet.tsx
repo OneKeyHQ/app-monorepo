@@ -121,11 +121,14 @@ function CreateNewWallet() {
   });
 
   const isGoogleLoading =
-    enableKeylessWalletLoading &&
     loadingProvider === EOAuthSocialLoginProvider.Google;
   const isAppleLoading =
-    enableKeylessWalletLoading &&
     loadingProvider === EOAuthSocialLoginProvider.Apple;
+  // Disable both provider buttons whenever any keyless login/reset is in
+  // flight. enableKeylessWalletLoading covers the create/restore path; reset
+  // mode only sets loadingProvider, so include it here too.
+  const isKeylessLoginInProgress =
+    enableKeylessWalletLoading || loadingProvider !== null;
 
   const { md } = useMedia();
 
@@ -193,7 +196,7 @@ function CreateNewWallet() {
             size="large"
             alignSelf="stretch"
             childrenAsText={false}
-            disabled={enableKeylessWalletLoading || isGoogleLoading}
+            disabled={isKeylessLoginInProgress}
             onPress={handleGoogleLogin}
           >
             <YStack position="absolute" left="$5">
@@ -216,7 +219,7 @@ function CreateNewWallet() {
             size="large"
             alignSelf="stretch"
             childrenAsText={false}
-            disabled={enableKeylessWalletLoading || isAppleLoading}
+            disabled={isKeylessLoginInProgress}
             onPress={handleAppleLogin}
           >
             <YStack position="absolute" left="$5">

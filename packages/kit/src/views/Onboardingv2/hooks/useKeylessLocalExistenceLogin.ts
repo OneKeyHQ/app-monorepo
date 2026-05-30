@@ -38,6 +38,12 @@ export function useKeylessLocalExistenceLogin({
   const [loadingProvider, setLoadingProvider] =
     useState<EOAuthSocialLoginProvider | null>(null);
   const loadingDialogRef = useRef<IDialogInstance | null>(null);
+  // Synchronous re-entrancy guard. setLoadingProvider is async React state, so
+  // a same-frame double click or a click on the other provider before the
+  // state commits could otherwise launch two concurrent OAuth round-trips (or
+  // two concurrent destructive resets) and let the later response overwrite the
+  // earlier success / reset-mode UI state.
+  const isHandlingLoginRef = useRef(false);
 
   useEffect(
     () => () => {
@@ -48,6 +54,10 @@ export function useKeylessLocalExistenceLogin({
 
   const handleLogin = useCallback(
     async (provider: EOAuthSocialLoginProvider) => {
+      if (isHandlingLoginRef.current) {
+        return;
+      }
+      isHandlingLoginRef.current = true;
       setLoadingProvider(provider);
       try {
         if (!isResetMode) {
@@ -85,6 +95,7 @@ export function useKeylessLocalExistenceLogin({
         }
         await checkKeylessWalletLocalExistence({ signInProvider: provider });
       } finally {
+        isHandlingLoginRef.current = false;
         setLoadingProvider(null);
         void loadingDialogRef.current?.close();
       }
