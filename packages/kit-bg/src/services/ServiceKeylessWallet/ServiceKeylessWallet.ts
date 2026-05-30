@@ -3277,7 +3277,7 @@ class ServiceKeylessWallet extends ServiceBase {
     // failure. v1 is handled by the best-effort upgrade scheduled below.
     const shouldRewriteKeylessBackendShareOwner =
       backendShareResult.canonicalFormat === 'v2' &&
-      backendShareResult.ownerId != null &&
+      backendShareResult.ownerId !== undefined &&
       backendShareResult.ownerId !== targetOwnerId;
     const shouldUpgradeKeylessBackendShareFormat =
       backendShareResult.canonicalFormat === 'v1';
