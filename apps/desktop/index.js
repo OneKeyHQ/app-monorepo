@@ -4,7 +4,7 @@
 /* oxlint-disable import-js/order */
 globalThis.__ONEKEY_MAIN_ENTRY_START__ = Date.now();
 
-import '@onekeyhq/shared/src/performance/init';
+require('@onekeyhq/shared/src/performance/init');
 
 try {
   const {
@@ -13,11 +13,15 @@ try {
   const {
     EAppSyncStorageKeys,
   } = require('@onekeyhq/shared/src/storage/syncStorageKeys');
+  const {
+    parseColdStartSnapshotRaw,
+  } = require('@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils');
   const ctxRaw = coldStartCacheStorage.getString(
     EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
   );
-  if (ctxRaw) {
-    globalThis.__ONEKEY_CTX_ATOM_SNAPSHOT__ = JSON.parse(ctxRaw);
+  const ctxSnapshot = parseColdStartSnapshotRaw(ctxRaw);
+  if (ctxSnapshot) {
+    globalThis.__ONEKEY_CTX_ATOM_SNAPSHOT__ = ctxSnapshot;
   }
 } catch {
   /* desktop cold-start cache is best-effort */
@@ -27,9 +31,8 @@ if (typeof window !== 'undefined') {
   window.$$onekeyJsReadyAt = Date.now();
 }
 
-import { registerRootComponent } from 'expo';
-
-import App from './App';
+const { registerRootComponent } = require('expo');
+const App = require('./App').default;
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,
