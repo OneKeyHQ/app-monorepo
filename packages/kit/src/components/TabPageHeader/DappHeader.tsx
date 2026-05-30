@@ -41,7 +41,6 @@ import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { ListItem } from '../ListItem';
 
 import {
-  GiftAction,
   HeaderNotificationIconButton,
   WalletConnectionGroup,
   WebHeaderNavigation,
@@ -435,7 +434,6 @@ function RightActions({
         testID="header-right-notification"
         size="medium"
       />
-      <GiftAction copyAsUrl size="medium" />
       {isPerpsTab && isWalletConnected ? (
         <PerpsActivityCenterAction copyAsUrl size="medium" />
       ) : null}

@@ -3,10 +3,11 @@ import type { GestureResponderEvent } from 'react-native';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { SizableText, Spinner, XStack } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { PerpsAccountNumberValue } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/components/PerpsAccountNumberValue';
+import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import { useShowPortfolio } from '@onekeyhq/kit/src/views/Perp/hooks/useShowPortfolio';
 import { usePerpsComputedAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -19,17 +20,46 @@ export interface IWebAccountSelectorTriggerProps {
   tabRoute: ETabRoutes;
 }
 
+// The Popover's own Trigger wrapper drives the open-on-press behaviour; this
+// noop only exists so the trigger XStack keeps a Pressable press state for
+// pressStyle to animate against.
+const noop = () => undefined;
+
 function PerpsBalancePill() {
   const intl = useIntl();
   const [computedValue] = usePerpsComputedAccountValueAtom();
-  const accountValue = computedValue?.accountValue;
   const { showPortfolio } = useShowPortfolio();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
 
-  const isEmptyAccount = !accountValue || new BigNumber(accountValue).lte(0);
+  const accountValue = computedValue?.accountValue;
+
+  // Gate on whether the balance is KNOWN, not on isLoading: an empty account
+  // keeps isLoading=true (spotTotalUsd never resolves to a positive value), yet
+  // accountValue is a concrete '0' → that path shows the Deposit pill below.
+  // When the value is genuinely unknown (undefined): show a spinner while it's
+  // still loading, otherwise render nothing (no premature "Deposit").
+  if (accountValue == null) {
+    if (computedValue?.isLoading) {
+      return (
+        <XStack ai="center" jc="center" px="$2" h={26}>
+          <Spinner size="small" />
+        </XStack>
+      );
+    }
+    return null;
+  }
+
+  const isEmptyAccount = new BigNumber(accountValue).lte(0);
 
   const handlePress = (e: GestureResponderEvent) => {
     e.stopPropagation();
-    showPortfolio();
+    // Empty account → open the deposit dialog (same as the panel's Deposit
+    // button); funded account → open the Portfolio & PnL dialog.
+    if (isEmptyAccount) {
+      void showDepositWithdrawModal('deposit');
+    } else {
+      showPortfolio();
+    }
   };
 
   return (
@@ -48,20 +78,14 @@ function PerpsBalancePill() {
       testID="web-account-selector-perps-pill"
     >
       {isEmptyAccount ? (
-        <>
-          <Icon name="AlignBottomOutline" size="$4" color="$iconOnColor" />
-          <SizableText size="$bodyLgMedium" color="$textOnColor">
-            {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-          </SizableText>
-        </>
+        <SizableText size="$bodyLgMedium" color="$textOnColor">
+          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+        </SizableText>
       ) : (
-        <>
-          <Icon name="ChartLine2Outline" size="$4" />
-          <PerpsAccountNumberValue
-            value={accountValue ?? ''}
-            textSize="$bodyLgMedium"
-          />
-        </>
+        <PerpsAccountNumberValue
+          value={accountValue}
+          textSize="$bodyLgMedium"
+        />
       )}
     </XStack>
   );
@@ -75,7 +99,11 @@ export function WebAccountSelectorTrigger({
   } = useActiveAccount({ num: 0 });
 
   const address = account?.address
-    ? accountUtils.shortenAddress({ address: account.address })
+    ? accountUtils.shortenAddress({
+        address: account.address,
+        leadingLength: 4,
+        trailingLength: 4,
+      })
     : '';
 
   const isPerpsRoute =
@@ -89,22 +117,28 @@ export function WebAccountSelectorTrigger({
       pr="$1"
       bg="$bgStrong"
       borderRadius="$full"
-      gap="$2"
-      cursor="pointer"
-      hoverStyle={{ bg: '$bgHover' }}
+      hoverStyle={{ bg: '$bgStrongHover' }}
+      pressStyle={{ bg: '$bgStrongActive' }}
+      onPress={noop}
       role="button"
       testID="web-account-selector-trigger"
     >
       <AccountAvatar
-        size="small"
+        size={20}
         borderRadius="$full"
+        outlineWidth={1}
+        outlineStyle="solid"
+        outlineColor="$borderSubdued"
+        outlineOffset={-1}
         account={account}
         dbAccount={dbAccount}
         indexedAccount={indexedAccount}
       />
-      <SizableText size="$bodyLgMedium" color="$text" numberOfLines={1}>
-        {address}
-      </SizableText>
+      <XStack ai="center" pl="$2" pr="$3">
+        <SizableText size="$bodyLg" color="$text">
+          {address}
+        </SizableText>
+      </XStack>
       {isPerpsRoute ? <PerpsBalancePill /> : null}
     </XStack>
   );

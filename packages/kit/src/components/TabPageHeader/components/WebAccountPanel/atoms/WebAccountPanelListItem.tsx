@@ -20,10 +20,11 @@ export function WebAccountPanelListItem({
       gap="$3"
       ai="center"
       minHeight={38}
-      px="$5"
+      mx="$2.5"
+      px="$2.5"
       py="$1.5"
-      w="100%"
       onPress={onPress}
+      borderRadius="$3"
       role={interactive ? 'button' : undefined}
       cursor={interactive ? 'pointer' : undefined}
       hoverStyle={interactive ? { bg: '$bgHover' } : undefined}

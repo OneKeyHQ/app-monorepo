@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { IconButton, SizableText, XStack } from '@onekeyhq/components';
+import { Button, IconButton, SizableText, XStack } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -31,27 +31,19 @@ export function WebAccountPanelFooter({
       w="100%"
       borderTopWidth={1}
       borderTopColor="$neutral2"
-      bg="$neutral1"
+      bg="$bgSubdued"
       {...stackProps}
     >
-      <XStack
-        ai="center"
-        cursor={onDownloadApp ? 'pointer' : undefined}
-        onPress={onDownloadApp}
-        role={onDownloadApp ? 'button' : undefined}
-        hoverStyle={onDownloadApp ? { opacity: 0.85 } : undefined}
-        pressStyle={onDownloadApp ? { opacity: 0.7 } : undefined}
-      >
-        <SizableText size="$bodyMdMedium" color="$textInteractive">
-          {intl.formatMessage({ id: ETranslations.global_download_app })}
-        </SizableText>
-      </XStack>
+      <Button size="small" variant="tertiary" onPress={onDownloadApp}>
+        {intl.formatMessage({ id: ETranslations.global_download_app })}
+      </Button>
       <XStack ai="center" gap="$5">
         <IconButton
           icon="BookOpenOutline"
           size="small"
           variant="tertiary"
           iconSize="$5"
+          title={intl.formatMessage({ id: ETranslations.perp_academy })}
           onPress={onArticles}
           testID="web-account-panel-footer-articles"
         />
@@ -60,6 +52,7 @@ export function WebAccountPanelFooter({
           size="small"
           variant="tertiary"
           iconSize="$5"
+          title={intl.formatMessage({ id: ETranslations.global_support })}
           onPress={onHelp}
           testID="web-account-panel-footer-help"
         />
@@ -69,6 +62,7 @@ export function WebAccountPanelFooter({
             size="small"
             variant="tertiary"
             iconSize="$5"
+            title={intl.formatMessage({ id: ETranslations.global_settings })}
             onPress={onSettings}
             testID="web-account-panel-footer-settings"
           />

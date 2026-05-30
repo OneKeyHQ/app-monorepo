@@ -14,13 +14,25 @@ export function WebAccountPanelHeader({
   ...stackProps
 }: IWebAccountPanelHeaderProps) {
   return (
-    <XStack ai="center" px="$5" py="$4" w="100%" {...stackProps}>
+    <XStack
+      ai="center"
+      px="$5"
+      py="$4"
+      w="100%"
+      borderBottomWidth={1}
+      borderBottomColor="$neutral3"
+      {...stackProps}
+    >
       <XStack
         ai="center"
         gap="$2"
         borderRadius="$full"
         role="button"
         cursor="pointer"
+        py="$1.5"
+        px="$2"
+        mx="$-2"
+        my="$-1.5"
         hoverStyle={{ bg: '$bgHover' }}
         pressStyle={{ bg: '$bgActive' }}
         onPress={onBack}

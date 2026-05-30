@@ -5,7 +5,7 @@ import { CommonActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
-  OneKeyLogo,
+  Icon,
   XStack,
   rootNavigationRef,
   useOnRouterChange,
@@ -121,7 +121,6 @@ function useWebHeaderNavigation({
             mainRouteState.routes[
               mainRouteState?.index === undefined ? -1 : mainRouteState?.index
             ];
-          console.log('tabRoute', tabRoute);
           if (tabRoute?.name === tabKey) {
             const stackDepths = tabRoute.state?.index || 0;
             if (stackDepths > 0) {
@@ -238,7 +237,7 @@ export function WebHeaderNavigation({
 
   return (
     <XStack ai="center" gap="$4">
-      <OneKeyLogo px="$0" />
+      <Icon name="OnekeyLogoIllus" size="$7" />
       <HeaderNavigation
         items={navigationItems}
         activeKey={activeNavigationKey}
