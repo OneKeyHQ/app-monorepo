@@ -85,21 +85,36 @@ const CHANGE_LINE_HEIGHT = 24;
 // and send-to-self rows collapse to fewer): over-counting only reserves a
 // slightly taller fixed height (a harmless trailing gap), never a shorter one
 // (which would clip the row into the next).
+// getWebRowHeight runs in the scroll measurement hot path and may query the
+// same row repeatedly; cache the line count by tx object identity so
+// getDisplayedActions + Set construction run at most once per tx. The count is
+// intrinsic to the tx's transfers (independent of tableLayout) and the tx's
+// token set is stable across pending -> confirmed, so sharing one cache is
+// safe. Keyed by the IAccountHistoryTx reference, entries are GC'd when the
+// list data is replaced.
+const transferChangeLineCountCache = new WeakMap<IAccountHistoryTx, number>();
+
 function getTransferChangeLineCount(item: IAccountHistoryTx): number {
-  const action = getDisplayedActions({ decodedTx: item.decodedTx })[0];
-  if (
-    action?.type !== EDecodedTxActionType.ASSET_TRANSFER ||
-    !action.assetTransfer
-  ) {
-    return 1;
+  const cached = transferChangeLineCountCache.get(item);
+  if (cached !== undefined) {
+    return cached;
   }
-  const { sends, receives } = action.assetTransfer;
-  const sendTokenCount = new Set((sends ?? []).map((t) => t.tokenIdOnNetwork))
-    .size;
-  const receiveTokenCount = new Set(
-    (receives ?? []).map((t) => t.tokenIdOnNetwork),
-  ).size;
-  return sendTokenCount + receiveTokenCount;
+  const action = getDisplayedActions({ decodedTx: item.decodedTx })[0];
+  let changeLineCount = 1;
+  if (
+    action?.type === EDecodedTxActionType.ASSET_TRANSFER &&
+    action.assetTransfer
+  ) {
+    const { sends, receives } = action.assetTransfer;
+    const sendTokenCount = new Set((sends ?? []).map((t) => t.tokenIdOnNetwork))
+      .size;
+    const receiveTokenCount = new Set(
+      (receives ?? []).map((t) => t.tokenIdOnNetwork),
+    ).size;
+    changeLineCount = sendTokenCount + receiveTokenCount;
+  }
+  transferChangeLineCountCache.set(item, changeLineCount);
+  return changeLineCount;
 }
 
 type IProps = {
