@@ -110,8 +110,10 @@ function PanelContent({
   const back = useCallback(() => {
     setGoing(-1);
     setNavSeq((s) => s + 1);
-    setView('main');
-  }, []);
+    // Return to the entry view, not always 'main': the disconnected settings-
+    // first entry can reach 'articles', and 'main' assumes a connected account.
+    setView(initialView);
+  }, [initialView]);
 
   const handleViewLayout = useCallback((seq: number, height: number) => {
     if (height > 0 && navSeqRef.current === seq) {
