@@ -1360,6 +1360,11 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       expectedHashId: HASH_ID,
       expectedBackendShareData: resetBackendShareData,
     });
+    // The owner rewrite runs before any local persistence / pin-confirm reset,
+    // so its failure must not leave a mixed local(new owner)/server(old owner)
+    // state.
+    expect(localDb.updateKeylessWalletDetailsInfo).not.toHaveBeenCalled();
+    expect(serviceAny.apiResetPinConfirmStatus).not.toHaveBeenCalled();
   });
 
   test('does not reject reset pin when v1 background migration fails (owner unchanged)', async () => {

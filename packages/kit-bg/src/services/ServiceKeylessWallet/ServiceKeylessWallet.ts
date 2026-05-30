@@ -3275,6 +3275,24 @@ class ServiceKeylessWallet extends ServiceBase {
     const shouldUpgradeKeylessBackendShareFormat =
       backendShareResult.canonicalFormat === 'v1';
 
+    if (shouldRewriteKeylessBackendShareOwner) {
+      // The juicebox share has already been re-uploaded under targetOwnerId
+      // above, so rewriting the backend share owner is a consistency
+      // requirement. Run it before persisting any local state (tokens /
+      // mnemonic password / keylessDetailsInfo) and before resetting
+      // pin-confirm status: if it fails we throw here, leaving local state
+      // still pointing at the previous owner instead of committing a mixed
+      // local(new owner)/server(old owner) state that passive migration cannot
+      // reconcile (it only handles v1 -> v2, not a v2 owner mismatch). Revision
+      // conflicts are still retried inside migrateKeylessBackendShareToV2.
+      await this.migrateKeylessBackendShareToV2({
+        token,
+        ownerId: targetOwnerId,
+        expectedHashId: backendShareResult.hashId,
+        expectedBackendShareData: backendShareData,
+      });
+    }
+
     // Save tokens to secure storage (refreshToken with passcode, token without)
     if (refreshToken) {
       await keylessRefreshTokenStorage.saveTokensToStorage({
@@ -3320,27 +3338,15 @@ class ServiceKeylessWallet extends ServiceBase {
     defaultLogger.wallet.keyless.resetKeylessPinConfirmStatusUpdated();
 
     this.fixedKeylessProviderMap = {};
-    if (shouldRewriteKeylessBackendShareOwner) {
-      // The juicebox share has already been re-uploaded under targetOwnerId
-      // above, so rewriting the backend share owner is a consistency
-      // requirement rather than an opportunistic migration: it must finish
-      // before reset is confirmed. Otherwise the server is left with the
-      // backend share under the previous owner while the juicebox share lives
-      // under the new owner, and a later restore reads the stale
-      // backendShareResult.ownerId and fails to locate the juicebox share.
-      // Keep it blocking; revision conflicts are still retried inside
-      // migrateKeylessBackendShareToV2.
-      await this.migrateKeylessBackendShareToV2({
-        token,
-        ownerId: targetOwnerId,
-        expectedHashId: backendShareResult.hashId,
-        expectedBackendShareData: backendShareData,
-      });
-    } else if (shouldUpgradeKeylessBackendShareFormat) {
+    if (
+      !shouldRewriteKeylessBackendShareOwner &&
+      shouldUpgradeKeylessBackendShareFormat
+    ) {
       // A pure v1 -> v2 upgrade with an unchanged owner keeps both shares under
       // the same owner, so a failure is harmless and self-heals via passive
       // migration on the next launch. Keep it as background best-effort work so
-      // it never blocks reset success.
+      // it never blocks reset success. (The owner-change rewrite, which also
+      // covers v1 -> v2, is handled blocking above before local persistence.)
       this.scheduleKeylessBackendShareV2Migration({
         source: 'resetPin',
         token,
