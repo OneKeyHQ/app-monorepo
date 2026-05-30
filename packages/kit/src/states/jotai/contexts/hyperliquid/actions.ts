@@ -97,6 +97,10 @@ import {
 } from './atoms';
 import { EActionType, withToast } from './utils';
 import {
+  getPerpsAccountSwitchCleanupPlan,
+  normalizePerpsAccountAddress,
+} from './utils/accountSwitchCleanup';
+import {
   shouldClearPerpsMarketDataForInstrument,
   shouldUpdatePerpsBbo,
   shouldUpdatePerpsL2Book,
@@ -117,10 +121,6 @@ type IChStateLite = {
 type IChPositionLite = HL.IPerpsAssetPosition;
 
 const MAX_LEDGER_UPDATES = 200;
-
-function normalizePerpsAccountAddress(address?: string | null) {
-  return address?.toLowerCase() ?? null;
-}
 
 function buildAllDexsAssetCtxsByDex(data: HL.IWsAllDexsAssetCtxs) {
   const incoming = data?.ctxs || [];
@@ -390,6 +390,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private resetOpenOrdersByDexCache() {
     this.openOrdersByDexCache.clear();
     this.openOrdersCacheAccountAddress = undefined;
+  }
+
+  private clearActiveAccountTransientData() {
+    this.resetOpenOrdersByDexCache();
+    perpsOpenOrdersByCoinAtomCache.clear();
+    this.canceledOrderIds.clear();
   }
 
   private ensureOpenOrdersCacheAccount(accountAddress: string | undefined) {
@@ -1486,16 +1492,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (!account) {
         return account;
       }
-      const nextAddress = normalizePerpsAccountAddress(account?.accountAddress);
-      const hasNextAddressContextCache = Boolean(
-        nextAddress &&
-        (normalizePerpsAccountAddress(cachedPositionState.accountAddress) ===
-          nextAddress ||
-          normalizePerpsAccountAddress(cachedOpenOrdersState.accountAddress) ===
-            nextAddress),
-      );
-      if (previousAddress !== nextAddress && !hasNextAddressContextCache) {
+      const cleanupPlan = getPerpsAccountSwitchCleanupPlan({
+        previousAccountAddress: previousAddress,
+        nextAccountAddress: account?.accountAddress,
+        cachedPositionAccountAddress: cachedPositionState.accountAddress,
+        cachedOpenOrdersAccountAddress: cachedOpenOrdersState.accountAddress,
+      });
+      if (cleanupPlan.shouldClearActiveAccountData) {
         await this.clearActiveAccountData.call(set);
+      } else if (cleanupPlan.shouldClearTransientData) {
+        this.clearActiveAccountTransientData();
       }
       return account;
     },
@@ -1638,9 +1644,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       openOrders: [],
       openOrdersByCoin: {},
     });
-    this.resetOpenOrdersByDexCache();
-    perpsOpenOrdersByCoinAtomCache.clear();
-    this.canceledOrderIds.clear();
+    this.clearActiveAccountTransientData();
     set(perpsLedgerUpdatesAtom(), {
       accountAddress: undefined,
       updates: [],
