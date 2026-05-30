@@ -25,6 +25,44 @@ const bgEntryLog = (msg: string) => {
 const bgEntryStart: number = (globalThis as any).__ONEKEY_BG_ENTRY_START__;
 bgEntryLog(`polyfills loaded (+${Date.now() - bgEntryStart}ms)`);
 
+// OK-55xxx ADA-create-address hang fix — scoped to THIS Android background
+// runtime entry (the file only runs on the background thread).
+//
+// The npm `process` polyfill drives its private nextTick queue via a
+// `setTimeout` it caches at module-load time. On the Android background JS
+// runtime that load precedes RN wiring up timers, so the first
+// `runTimeout(drainQueue)` fails and the queue never drains again (verified on
+// device: queue grows monotonically, drainQueue never runs, while
+// setTimeout / setImmediate / queueMicrotask / Promise.then all work). Any code
+// relying on `process.nextTick` to deliver a result then hangs forever — e.g.
+// npm `pbkdf2`'s async callback (cardano-crypto.js `mnemonicToRootKeypair`),
+// which is why software-wallet Cardano address creation kept loading on Android
+// while iOS / hardware wallet were fine.
+//
+// Redirect nextTick to the (verified-working) `setImmediate` — but only on
+// Android, only when a `process.nextTick` actually exists to replace, and right
+// here, before anything calls nextTick, so the broken queue is never used.
+{
+  const { Platform } = require('react-native') as typeof import('react-native');
+  const g = globalThis as any;
+  if (
+    Platform.OS === 'android' &&
+    g.process &&
+    typeof g.process.nextTick === 'function' &&
+    typeof g.setImmediate === 'function'
+  ) {
+    g.process.nextTick = function nextTickViaSetImmediate(
+      callback: (...args: any[]) => void,
+      ...args: any[]
+    ) {
+      g.setImmediate(() => {
+        callback(...args);
+      });
+    };
+    bgEntryLog('process.nextTick -> setImmediate (android background runtime)');
+  }
+}
+
 // Install production split bundle loader for background runtime (Phase 3).
 // Uses BackgroundThread.loadSegmentInBackground to register segments
 // with the background Hermes runtime.
