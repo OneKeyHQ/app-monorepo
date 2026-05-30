@@ -106,12 +106,9 @@ function getTransferChangeLineCount(item: IAccountHistoryTx): number {
     action.assetTransfer
   ) {
     const { sends, receives } = action.assetTransfer;
-    const sendTokenCount = new Set((sends ?? []).map((t) => t.tokenIdOnNetwork))
-      .size;
-    const receiveTokenCount = new Set(
-      (receives ?? []).map((t) => t.tokenIdOnNetwork),
-    ).size;
-    changeLineCount = sendTokenCount + receiveTokenCount;
+    const distinctTokenCount = (transfers: typeof sends) =>
+      new Set((transfers ?? []).map((t) => t.tokenIdOnNetwork)).size;
+    changeLineCount = distinctTokenCount(sends) + distinctTokenCount(receives);
   }
   transferChangeLineCountCache.set(item, changeLineCount);
   return changeLineCount;
