@@ -290,7 +290,7 @@ function mockResetPinHappyPath(
     ownerId:
       (params.canonicalFormat ?? 'v2') === 'v1'
         ? undefined
-        : params.backendOwnerId ?? OWNER_ID,
+        : (params.backendOwnerId ?? OWNER_ID),
     ownerProvider: EOAuthSocialLoginProvider.Google,
   }));
   serviceAny.buildKeylessProviderFromSocialToken = jest.fn(

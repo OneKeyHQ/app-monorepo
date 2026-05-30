@@ -120,10 +120,8 @@ function CreateNewWallet() {
     onAppleLogin: handleAppleLogin,
   });
 
-  const isGoogleLoading =
-    loadingProvider === EOAuthSocialLoginProvider.Google;
-  const isAppleLoading =
-    loadingProvider === EOAuthSocialLoginProvider.Apple;
+  const isGoogleLoading = loadingProvider === EOAuthSocialLoginProvider.Google;
+  const isAppleLoading = loadingProvider === EOAuthSocialLoginProvider.Apple;
   // Disable both provider buttons whenever any keyless login/reset is in
   // flight. enableKeylessWalletLoading covers the create/restore path; reset
   // mode only sets loadingProvider, so include it here too.
