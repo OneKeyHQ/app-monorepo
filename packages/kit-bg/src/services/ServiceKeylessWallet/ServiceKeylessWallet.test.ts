@@ -285,7 +285,12 @@ function mockResetPinHappyPath(
     revision: 2,
     canonicalFormat: params.canonicalFormat ?? 'v2',
     backendShareData: resetBackendShareData,
-    ownerId: params.backendOwnerId ?? OWNER_ID,
+    // Mirror apiGetKeylessBackendShare: only v2 shares carry an ownerId; v1
+    // shares leave it undefined.
+    ownerId:
+      (params.canonicalFormat ?? 'v2') === 'v1'
+        ? undefined
+        : params.backendOwnerId ?? OWNER_ID,
     ownerProvider: EOAuthSocialLoginProvider.Google,
   }));
   serviceAny.buildKeylessProviderFromSocialToken = jest.fn(
@@ -1367,7 +1372,7 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     expect(serviceAny.apiResetPinConfirmStatus).not.toHaveBeenCalled();
   });
 
-  test('does not reject reset pin when v1 background migration fails (owner unchanged)', async () => {
+  test('keeps v1 backend migration non-blocking even though v1 has no ownerId', async () => {
     const { serviceAny } = createService();
     const resetBackendShareData = mockResetPinHappyPath(serviceAny, {
       canonicalFormat: 'v1',
@@ -1377,9 +1382,9 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       throw new OneKeyLocalError('migration failed');
     });
 
-    // A pure v1 -> v2 upgrade with an unchanged owner is best-effort background
-    // work that self-heals via passive migration, so its failure must not block
-    // reset success.
+    // A v1 share has no ownerId, so it must not be misclassified as an owner
+    // change. A pure v1 -> v2 upgrade is best-effort background work that
+    // self-heals via passive migration, so its failure must not block reset.
     await expect(
       serviceAny.resetKeylessWalletPin({
         token: TOKEN,

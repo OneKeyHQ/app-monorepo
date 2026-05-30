@@ -3270,7 +3270,14 @@ class ServiceKeylessWallet extends ServiceBase {
       backendShareX,
     });
 
+    // Only a v2 backend share carries an ownerId. A v1 share has no ownerId
+    // (apiGetKeylessBackendShare leaves it undefined), so it must NOT be
+    // treated as an owner change: doing so would force the blocking rewrite
+    // path and let a routine v1 -> v2 upgrade reject reset PIN on a transient
+    // failure. v1 is handled by the best-effort upgrade scheduled below.
     const shouldRewriteKeylessBackendShareOwner =
+      backendShareResult.canonicalFormat === 'v2' &&
+      backendShareResult.ownerId != null &&
       backendShareResult.ownerId !== targetOwnerId;
     const shouldUpgradeKeylessBackendShareFormat =
       backendShareResult.canonicalFormat === 'v1';
