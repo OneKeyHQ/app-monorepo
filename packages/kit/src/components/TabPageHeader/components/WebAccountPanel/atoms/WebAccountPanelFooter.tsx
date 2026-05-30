@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Button, IconButton, SizableText, XStack } from '@onekeyhq/components';
+import { Button, IconButton, XStack } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
