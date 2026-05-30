@@ -11,6 +11,7 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { getPbkdf2KdfParamsForNonDbTx } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   OneKeyInternalError,
   OneKeyLocalError,
@@ -347,6 +348,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
           throw new OneKeyLocalError('coreApi is not defined');
         }
         const credentials = await this.baseGetCredentialsInfo({ password });
+        const kdfParams = getPbkdf2KdfParamsForNonDbTx();
         const { addresses: addressInfos } =
           await this.coreApi.getAddressesFromHd({
             networkInfo,
@@ -356,6 +358,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
             indexes: usedIndexes,
             addressEncoding,
             hdCredentialCacheScopeId: params.hdCredentialCacheScopeId,
+            ...kdfParams,
           });
         return addressInfos;
       },
@@ -388,6 +391,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
         defaultLogger.account.accountCreatePerf.getAddressesFromHd();
 
+        const kdfParams = getPbkdf2KdfParamsForNonDbTx();
         const { addresses: addressesInfo } =
           await this.coreApi.getAddressesFromHd({
             networkInfo: await this.getCoreApiNetworkInfo(),
@@ -397,6 +401,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
             indexes: usedIndexes,
             addressEncoding,
             hdCredentialCacheScopeId: params.hdCredentialCacheScopeId,
+            ...kdfParams,
           });
 
         if (addressesInfo.length !== usedIndexes.length) {

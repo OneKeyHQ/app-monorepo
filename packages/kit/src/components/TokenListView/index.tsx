@@ -45,6 +45,7 @@ import {
   RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS,
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
+  useAggregateTokensListMapAtom,
   useAggregateTokensMapAtom,
   useAllTokenListAtom,
   useFlattenAggregateTokensMapAtom,
@@ -69,7 +70,10 @@ import { perfTokenListView } from './perfTokenListView';
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
 import { TokenListItem } from './TokenListItem';
-import { TokenListViewContext } from './TokenListViewContext';
+import {
+  TokenListViewContext,
+  useTokenListViewContext,
+} from './TokenListViewContext';
 import { getTokenListOwnerCacheAccountId } from './utils';
 
 import type {
@@ -516,7 +520,11 @@ function TokenListViewCmp(props: IProps) {
 
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
 
+  const { networksMap } = useTokenListViewContext();
+  const [localAggregateTokensListMap] = useAggregateTokensListMapAtom();
+
   const filteredTokens = useMemo(() => {
+    const useNetworkSearch = !!isTokenSelector && !!searchAll;
     let resp = getFilteredTokenBySearchKey({
       tokens,
       searchKey: isTokenSelector ? tokenSelectorSearchKey : searchKey,
@@ -526,6 +534,15 @@ function TokenListViewCmp(props: IProps) {
         : searchTokenList.tokens,
       aggregateTokenListMap: allAggregateTokenMap,
       searchKeyLengthThreshold,
+      networksMap: useNetworkSearch ? networksMap : undefined,
+      enableNetworkSearch: useNetworkSearch,
+      tokenFiatMap: useNetworkSearch
+        ? { ...visibleTokenListMap, ...aggregateTokenMap }
+        : undefined,
+      localAggregateTokenListMap:
+        useNetworkSearch && !showActiveAccountTokenList
+          ? localAggregateTokensListMap
+          : undefined,
     });
 
     if (!isTokenSelector) {
@@ -566,6 +583,9 @@ function TokenListViewCmp(props: IProps) {
     searchTokenList.tokens,
     allAggregateTokenMap,
     searchKeyLengthThreshold,
+    networksMap,
+    localAggregateTokensListMap,
+    showActiveAccountTokenList,
     sortType,
     sortDirection,
     visibleTokenListMap,

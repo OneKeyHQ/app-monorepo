@@ -13,7 +13,9 @@ import {
   useJotaiContextStoreMapAtom,
   useJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
@@ -36,6 +38,36 @@ import {
   buildJotaiContextStoreId,
   jotaiContextStore,
 } from './jotaiContextStore';
+
+function hasPerpsColdStartSnapshot() {
+  if (!platformEnv.isNative) {
+    return false;
+  }
+
+  const snapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
+    | Record<string, unknown>
+    | undefined;
+  if (!snapshot) {
+    return false;
+  }
+
+  const perpsColdStartCacheKeys = [
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveTradeInstrumentAtom,
+  ];
+  return Object.keys(snapshot).some((key) =>
+    perpsColdStartCacheKeys.some((cacheKey) => key.endsWith(`::${cacheKey}`)),
+  );
+}
+
+const PerpsColdStartRootProvider = memo(() => {
+  const shouldMount = useMemo(() => hasPerpsColdStartSnapshot(), []);
+  if (!shouldMount) {
+    return null;
+  }
+
+  return <PerpsRootProvider />;
+});
+PerpsColdStartRootProvider.displayName = 'PerpsColdStartRootProvider';
 
 // AccountSelectorMapTracker
 export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
@@ -113,6 +145,7 @@ function JotaiContextRootProvidersAutoMountCmp() {
   }
   return (
     <>
+      <PerpsColdStartRootProvider />
       {mapEntries.map(([key, value]) => {
         const { accountSelectorInfo, count, storeName } = value;
         // const config = {

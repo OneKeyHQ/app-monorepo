@@ -199,20 +199,19 @@ export function TabStackNavigator<RouteName extends string>({
       case ESplitViewType.MAIN:
         return false;
       case ESplitViewType.SUB:
-        return isLandscape;
+        // In landscape the main pane carries the side-rail tab bar, so the
+        // sub pane has no tab bar. In portrait the main pane is collapsed
+        // via display:none and the sub pane is the only visible surface — it
+        // must honor the HideTabBar event the same way the single-pane
+        // layout does, otherwise detail screens like MarketDetail can't hide
+        // the bottom tab bar on iPad portrait.
+        return isLandscape || tabBarHidden;
       default:
         return tabBarHidden;
     }
   }, [tabBarHidden, splitViewType, isLandscape]);
   const tabBarStyle = useMemo(
-    () =>
-      // On iOS 26+ omit backgroundColor so UITabBar renders the system
-      // Liquid Glass material via configureWithDefaultBackground. Setting
-      // appearance.backgroundColor in @onekeyfe/react-native-tab-view would
-      // overwrite the glass material with an opaque fill.
-      platformEnv.isNativeIOS26Plus
-        ? undefined
-        : { backgroundColor: theme.bg.val },
+    () => ({ backgroundColor: theme.bg.val }),
     [theme.bg.val],
   );
 

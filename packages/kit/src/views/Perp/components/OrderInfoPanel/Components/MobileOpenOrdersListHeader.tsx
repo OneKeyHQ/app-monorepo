@@ -64,6 +64,7 @@ export function MobileOpenOrdersListHeader({
         variant="secondary"
         disabled={totalOrderCount === 0}
         onPress={handleCancelAll}
+        childrenAsText={false}
       >
         <SizableText size="$bodyXs">
           {intl.formatMessage({

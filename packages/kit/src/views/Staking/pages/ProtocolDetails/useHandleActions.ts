@@ -3,14 +3,25 @@ import { useCallback } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSignatureConfirmRoutes,
+  EModalStakingRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import { EStakingActionType } from '@onekeyhq/shared/types/staking';
+import {
+  EEarnLabels,
+  EInternalDappEnum,
+  EInternalStakingAction,
+  EStakingActionType,
+} from '@onekeyhq/shared/types/staking';
 import type {
   IEarnTokenInfo,
   IProtocolInfo,
+  IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 export const useHandleWithdraw = () => {
   const appNavigation = useAppNavigation();
@@ -43,6 +54,68 @@ export const useHandleWithdraw = () => {
         });
       if (!stakingConfig) {
         throw new OneKeyLocalError('Staking config not found');
+      }
+      if (withdrawType === EStakingActionType.CancelWithdrawal) {
+        const unstakeTx =
+          await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
+            accountId,
+            networkId,
+            symbol,
+            provider,
+            amount: '0',
+            protocolVault: protocolInfo?.vault,
+            withdrawAll: false,
+            withdrawType: 'cancel',
+          });
+        const encodedTx =
+          await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+            networkId,
+            accountId,
+            tx: unstakeTx.tx,
+            internalDappType: EInternalDappEnum.Staking,
+            stakingAction: EInternalStakingAction.Withdraw,
+          });
+        const stakingInfo: IStakingInfo = {
+          label: EEarnLabels.Withdraw,
+          protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+          tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
+          orderId: unstakeTx.orderId,
+        };
+        const unsignedTx =
+          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+            accountId,
+            networkId,
+            encodedTx,
+            stakingInfo,
+          });
+        appNavigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+          screen: EModalSignatureConfirmRoutes.TxConfirm,
+          params: {
+            accountId,
+            networkId,
+            unsignedTxs: [unsignedTx],
+            gasAccountScenario: 'earn',
+            onSuccess: async (data: ISendTxOnSuccessData[]) => {
+              const orderTx = Array.isArray(data)
+                ? data[data.length - 1]
+                : undefined;
+              if (orderTx?.signedTx?.txid && stakingInfo.orderId) {
+                await backgroundApiProxy.serviceStaking.addEarnOrder({
+                  orderId: stakingInfo.orderId,
+                  networkId,
+                  txId: orderTx.signedTx.txid,
+                  status: orderTx.decodedTx.status,
+                  stakingLabel: stakingInfo.label,
+                  stakingProtocol: stakingInfo.protocol,
+                  stakingTags: stakingInfo.tags,
+                });
+              }
+              onSuccess?.();
+            },
+          },
+        });
+        return;
       }
       if (
         withdrawType === EStakingActionType.WithdrawOrder ||

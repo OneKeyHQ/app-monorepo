@@ -9,9 +9,11 @@ import {
   InvalidMnemonic,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import {
+  BaseBip32KeyDeriver,
   CKDPriv,
   CKDPub,
   N,
@@ -30,11 +32,17 @@ import {
   fixV4VerifyStringToV5,
   generateMasterKeyFromSeed,
   generateRootFingerprintHexAsync,
+  hash160Sync,
+  hmacSHA512Sync,
   mnemonicFromEntropyAsync,
+  mnemonicToEntropy,
   mnemonicToRevealableSeed,
   mnemonicToSeedAsync,
+  nistp256,
   publicFromPrivate,
+  rawEntropyFromHdCredential,
   revealableSeedFromTonMnemonic,
+  secp256k1,
   sign,
   tonMnemonicFromEntropy,
   uncompressPublicKey,
@@ -73,6 +81,70 @@ jest.mock('crypto', () => ({
 }));
 
 const GET_PUB_TIMEOUT = 5118;
+const NATIVE_VECTOR_PASSWORD = 'password123';
+const BIP32_TEST_SEED = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+const BIP32_MASTER_HMAC_SHA512 =
+  'e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35' +
+  '873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d508';
+const BIP32_TEST_REVEALABLE_SEED: IBip39RevealableSeed = {
+  entropyWithLangPrefixed: '00112233445566778899aabbccddeeff',
+  seed: BIP32_TEST_SEED.toString('hex'),
+};
+const NATIVE_VECTOR_PRIVATE_KEY_ONE = Buffer.from(
+  '0000000000000000000000000000000000000000000000000000000000000001',
+  'hex',
+);
+
+type IBip32PublicVector = {
+  path: string;
+  parentFingerPrint: string;
+  key: string;
+  chainCode: string;
+};
+
+const BIP32_PUBLIC_VECTORS: IBip32PublicVector[] = [
+  {
+    path: "m/0'",
+    parentFingerPrint: '3442193e',
+    key: '035a784662a4a20a65bf6aab9ae98a6c068a81c52e4b032c0fb5400c706cfccc56',
+    chainCode:
+      '47fdacbd0f1097043b78c63c20c34ef4ed9a111d980047ad16282c7ae6236141',
+  },
+  {
+    path: "m/0'/1",
+    parentFingerPrint: '5c1bd648',
+    key: '03501e454bf00751f24b1b489aa925215d66af2234e3891c3b21a52bedb3cd711c',
+    chainCode:
+      '2a7857631386ba23dacac34180dd1983734e444fdbf774041578e9b6adb37c19',
+  },
+  {
+    path: "m/0'/1/2'",
+    parentFingerPrint: 'bef5a2f9',
+    key: '0357bfe1e341d01c69fe5654309956cbea516822fba8a601743a012a7896ee8dc2',
+    chainCode:
+      '04466b9cc8e161e966409ca52986c584f07e9dc81f735db683c3ff6ec7b1503f',
+  },
+  {
+    path: "m/0'/1/2'/2",
+    parentFingerPrint: 'ee7ab90c',
+    key: '02e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d29',
+    chainCode:
+      'cfb71883f01676f587d023cc53a35bc7f88f724b1f8c2892ac1275ac822a3edd',
+  },
+  {
+    path: "m/0'/1/2'/2/1000000000",
+    parentFingerPrint: 'd880d7d8',
+    key: '022a471424da5e657499d1ff51cb43c47481a03b1e77f951fe64cec9f5a48f7011',
+    chainCode:
+      'c783e67b921d2beb8f6b389cc646d7263b4145701dadd2161548a8b078e65e9e',
+  },
+];
+
+function parseBip32PathComponent(component: string): number {
+  return component.endsWith("'")
+    ? Number.parseInt(component.slice(0, -1), 10) + 2 ** 31
+    : Number.parseInt(component, 10);
+}
 
 describe('Secret Module Tests', () => {
   const TEST_PASSWORD = 'password123';
@@ -133,6 +205,105 @@ describe('Secret Module Tests', () => {
         globalThis.crypto.getRandomValues = originalGlobalGetRandomValues;
       }
     }
+  });
+
+  describe('native crypto fixed vectors', () => {
+    it('should derive compressed public keys from private keys', () => {
+      const originalIsJest = platformEnv.isJest;
+      try {
+        platformEnv.isJest = false;
+        expect(
+          secp256k1
+            .publicFromPrivate(NATIVE_VECTOR_PRIVATE_KEY_ONE)
+            .toString('hex'),
+        ).toBe(
+          '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798',
+        );
+        expect(
+          nistp256
+            .publicFromPrivate(NATIVE_VECTOR_PRIVATE_KEY_ONE)
+            .toString('hex'),
+        ).toBe(
+          '036b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296',
+        );
+      } finally {
+        platformEnv.isJest = originalIsJest;
+      }
+    });
+
+    it('should match the BIP32 HMAC-SHA512 master key vector', () => {
+      expect(
+        hmacSHA512Sync(Buffer.from('Bitcoin seed'), BIP32_TEST_SEED).toString(
+          'hex',
+        ),
+      ).toBe(BIP32_MASTER_HMAC_SHA512);
+    });
+
+    it('should match BIP32 public key vectors through batchGetPublicKeys', async () => {
+      const hdCredential = await encryptRevealableSeed({
+        rs: BIP32_TEST_REVEALABLE_SEED,
+        password: NATIVE_VECTOR_PASSWORD,
+      });
+      const publicKeys = await batchGetPublicKeys({
+        curveName: 'secp256k1',
+        hdCredential,
+        password: NATIVE_VECTOR_PASSWORD,
+        prefix: 'm',
+        relPaths: BIP32_PUBLIC_VECTORS.map((vector) =>
+          vector.path.replace(/^m\//, ''),
+        ),
+        useWebembedApi: false,
+      });
+
+      expect(
+        publicKeys.map((publicKey) => ({
+          path: publicKey.path,
+          parentFingerPrint: publicKey.parentFingerPrint.toString('hex'),
+          key: publicKey.extendedKey.key.toString('hex'),
+          chainCode: publicKey.extendedKey.chainCode.toString('hex'),
+        })),
+      ).toEqual(BIP32_PUBLIC_VECTORS);
+    });
+
+    it('should match BIP32 vectors when public key self-check is disabled', () => {
+      const originalIsJest = platformEnv.isJest;
+      try {
+        platformEnv.isJest = false;
+        const deriver = new BaseBip32KeyDeriver(
+          Buffer.from('Bitcoin seed'),
+          secp256k1,
+        );
+        let privateKey = deriver.generateMasterKeyFromSeed(BIP32_TEST_SEED);
+        let parentPublicKey = deriver.N(privateKey, {
+          validatePublicKey: false,
+        });
+
+        const actualVectors = BIP32_PUBLIC_VECTORS.map((vector) => {
+          const index = parseBip32PathComponent(
+            vector.path.split('/').at(-1) ?? '',
+          );
+          const parentFingerPrint = hash160Sync(parentPublicKey.key)
+            .slice(0, 4)
+            .toString('hex');
+          privateKey = deriver.CKDPriv(privateKey, index, {
+            validatePublicKey: false,
+          });
+          parentPublicKey = deriver.N(privateKey, {
+            validatePublicKey: false,
+          });
+          return {
+            path: vector.path,
+            parentFingerPrint,
+            key: parentPublicKey.key.toString('hex'),
+            chainCode: parentPublicKey.chainCode.toString('hex'),
+          };
+        });
+
+        expect(actualVectors).toEqual(BIP32_PUBLIC_VECTORS);
+      } finally {
+        platformEnv.isJest = originalIsJest;
+      }
+    });
   });
 
   describe('CKDPriv', () => {
@@ -582,6 +753,32 @@ describe('Secret Module Tests', () => {
       });
       expect(seedBuffer).toBeInstanceOf(Buffer);
       expect(seedBuffer.length).toBe(64);
+    });
+
+    it('should support asmcrypto backend', async () => {
+      const events: Array<{ name: string }> = [];
+      const defaultSeedBuffer = await mnemonicToSeedAsync({
+        mnemonic: testMnemonic,
+        passphrase: testPassphrase,
+      });
+      const asmcryptoSeedBuffer = await mnemonicToSeedAsync({
+        mnemonic: testMnemonic,
+        passphrase: testPassphrase,
+        kdfBackend: 'asmcrypto',
+        perfTrace: {
+          onEvent: (event) => {
+            events.push(event);
+          },
+        },
+      });
+      expect(asmcryptoSeedBuffer.toString('hex')).toBe(
+        defaultSeedBuffer.toString('hex'),
+      );
+      expect(
+        events.some(
+          (event) => event.name === 'mnemonicToSeed.asmcrypto.pbkdf2Sync',
+        ),
+      ).toBe(true);
     });
 
     it('should throw error for invalid mnemonic', async () => {
@@ -1828,6 +2025,24 @@ describe('Secret Module Tests', () => {
         password: TEST_PASSWORD,
       });
       expect(mnemonic).toMatchSnapshot();
+    });
+
+    it('should reveal raw entropy without mnemonic roundtrip', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testRevealableSeed,
+        password: TEST_PASSWORD,
+      });
+      const rawEntropy = await rawEntropyFromHdCredential(
+        encryptedSeed,
+        TEST_PASSWORD,
+      );
+      try {
+        expect(rawEntropy.toString('hex')).toBe(
+          mnemonicToEntropy(TEST_MNEMONIC),
+        );
+      } finally {
+        rawEntropy.fill(0);
+      }
     });
 
     it('should isolate flow-scoped cache by encrypted credential', async () => {

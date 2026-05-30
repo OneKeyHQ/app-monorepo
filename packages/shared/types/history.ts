@@ -3,6 +3,7 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IAddressBadge, IAddressInfo } from './address';
 import type { ICurrencyItem } from './currency';
+import type { IKytHistoryResult } from './kyt';
 import type { IAccountNFT } from './nft';
 import type { IStakingInfo } from './staking';
 import type { IToken } from './token';
@@ -85,6 +86,8 @@ export type IOnChainHistoryTx = {
   networkId: string;
   tx: string;
   riskLevel: number;
+  // Per-user KYT risk data; present only for supported inbound transfers.
+  kyt?: IKytHistoryResult;
   type: EOnChainHistoryTxType;
   sends: IOnChainHistoryTxTransfer[];
   receives: IOnChainHistoryTxTransfer[];

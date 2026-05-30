@@ -1,5 +1,12 @@
 import type { ReactElement } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { InputAccessoryView, Keyboard } from 'react-native';
@@ -40,8 +47,16 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../../../utils/mobileLayoutTrace';
 import { PullToRefresh } from '../../PullToRefresh';
 import { calcCellAlign, getColumnStyle } from '../utils';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 const TradesHistoryLoadingView = () => {
   return (
@@ -316,6 +331,7 @@ export interface ICommonTableListViewProps<T = unknown> {
     isHovered?: boolean,
     onHoverChange?: (index: number | null) => void,
   ) => ReactElement;
+  keyExtractor?: (item: T, index: number) => string;
   emptyMessage?: string;
   emptySubMessage?: string;
   ListEmptyComponent?: ReactElement | null;
@@ -346,6 +362,7 @@ export function CommonTableListView<T>({
   useTabsList,
   disableListScroll,
   renderRow,
+  keyExtractor,
   currentListPage,
   listLoading,
   setCurrentListPage,
@@ -474,11 +491,131 @@ export function CommonTableListView<T>({
     </YStack>
   );
   const showDesktopEmptyState = !listLoading && paginatedData.length === 0;
+  const mobileLayoutRectsRef = useRef<
+    Record<string, IPerpsMobileLayoutTraceRect | undefined>
+  >({});
+  const mobileContentHeightRef = useRef<number | undefined>(undefined);
+  const traceName =
+    listViewDebugRenderTrackerProps?.name ?? 'CommonTableListView';
+
+  const handleMobileTraceLayout = useCallback(
+    (name: string, event: LayoutChangeEvent) => {
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (
+        isPerpsMobileLayoutTraceRectChanged(
+          mobileLayoutRectsRef.current[name],
+          rect,
+        )
+      ) {
+        tracePerpsMobileLayout(`tableList.${name}.layout`, {
+          traceName,
+          rect,
+          dataLength: data.length,
+          paginatedLength: paginatedData.length,
+          listLoading,
+          useTabsList: shouldUseTabsList,
+          disableListScroll,
+          hasHeader: Boolean(ListHeaderComponent),
+          hasEmptyComponent: Boolean(ListEmptyComponent),
+          enablePagination,
+          totalPages,
+        });
+        mobileLayoutRectsRef.current[name] = rect;
+      }
+    },
+    [
+      ListEmptyComponent,
+      ListHeaderComponent,
+      data.length,
+      disableListScroll,
+      enablePagination,
+      listLoading,
+      paginatedData.length,
+      shouldUseTabsList,
+      totalPages,
+      traceName,
+    ],
+  );
+
+  const handleMobileContentSizeChange = useCallback(
+    (_width: number, height: number) => {
+      const roundedHeight = Math.round(height * 100) / 100;
+      const prevHeight = mobileContentHeightRef.current;
+      if (
+        prevHeight === undefined ||
+        Math.abs(prevHeight - roundedHeight) > 0.5
+      ) {
+        tracePerpsMobileLayout('tableList.contentSize.height', {
+          traceName,
+          height: roundedHeight,
+          prevHeight,
+          delta:
+            prevHeight === undefined ? undefined : roundedHeight - prevHeight,
+          dataLength: data.length,
+          paginatedLength: paginatedData.length,
+          listLoading,
+          useTabsList: shouldUseTabsList,
+          disableListScroll,
+          hasHeader: Boolean(ListHeaderComponent),
+          hasEmptyComponent: Boolean(ListEmptyComponent),
+        });
+        mobileContentHeightRef.current = roundedHeight;
+      }
+    },
+    [
+      ListEmptyComponent,
+      ListHeaderComponent,
+      data.length,
+      disableListScroll,
+      listLoading,
+      paginatedData.length,
+      shouldUseTabsList,
+      traceName,
+    ],
+  );
+
+  useEffect(() => {
+    if (!isMobile) {
+      return;
+    }
+    tracePerpsMobileLayout('tableList.state', {
+      traceName,
+      dataLength: data.length,
+      paginatedLength: paginatedData.length,
+      listLoading,
+      useTabsList: shouldUseTabsList,
+      disableListScroll,
+      hasHeader: Boolean(ListHeaderComponent),
+      hasEmptyComponent: Boolean(ListEmptyComponent),
+      enablePagination,
+      totalPages,
+      currentListPage,
+      paginationToBottom,
+      onViewAll: Boolean(onViewAll),
+    });
+  }, [
+    ListEmptyComponent,
+    ListHeaderComponent,
+    currentListPage,
+    data.length,
+    disableListScroll,
+    enablePagination,
+    isMobile,
+    listLoading,
+    onViewAll,
+    paginatedData.length,
+    paginationToBottom,
+    shouldUseTabsList,
+    totalPages,
+    traceName,
+  ]);
 
   if (isMobile) {
     const ListContent = (
       <DebugRenderTracker {...listViewDebugRenderTrackerProps}>
         <ListComponent
+          onLayout={(event) => handleMobileTraceLayout('list', event)}
+          onContentSizeChange={handleMobileContentSizeChange}
           showsVerticalScrollIndicator={false}
           refreshControl={
             shouldUseTabsList && onPullToRefresh ? (
@@ -490,6 +627,7 @@ export function CommonTableListView<T>({
           }
           scrollEnabled={shouldUseTabsList || !disableListScroll}
           data={paginatedData}
+          keyExtractor={keyExtractor}
           ListHeaderComponent={ListHeaderComponent}
           ListFooterComponent={
             enablePagination &&
@@ -525,7 +663,11 @@ export function CommonTableListView<T>({
 
     // Wrap with shadow overlay for native platforms
     const ListWithShadow = (
-      <Stack flex={1} position="relative">
+      <Stack
+        flex={1}
+        position="relative"
+        onLayout={(event) => handleMobileTraceLayout('listWithShadow', event)}
+      >
         {ListContent}
         <SimpleEdgeShadowOverlay isDark={isDark} position="right" />
       </Stack>
@@ -536,7 +678,12 @@ export function CommonTableListView<T>({
       onViewAll
     ) {
       return (
-        <YStack flex={1}>
+        <YStack
+          flex={1}
+          onLayout={(event) =>
+            handleMobileTraceLayout('withPaginationRoot', event)
+          }
+        >
           {ListWithShadow}
           <PaginationFooter
             isMobile={isMobile}
@@ -649,15 +796,19 @@ export function CommonTableListView<T>({
                 ) : null}
                 {showDesktopEmptyState ? desktopEmptyComponent : null}
                 {!listLoading && paginatedData.length > 0
-                  ? paginatedData.map((item, index) =>
-                      renderRow(
-                        item,
-                        index,
-                        hasFixedColumns ? 'left' : 'full',
-                        hoveredRowIndex === index,
-                        setHoveredRowIndex,
-                      ),
-                    )
+                  ? paginatedData.map((item, index) => (
+                      <Fragment
+                        key={keyExtractor?.(item, index) ?? String(index)}
+                      >
+                        {renderRow(
+                          item,
+                          index,
+                          hasFixedColumns ? 'left' : 'full',
+                          hoveredRowIndex === index,
+                          setHoveredRowIndex,
+                        )}
+                      </Fragment>
+                    ))
                   : null}
               </YStack>
             </YStack>
@@ -701,15 +852,19 @@ export function CommonTableListView<T>({
                   <YStack flex={1} p="$5" />
                 ) : null}
                 {!listLoading && paginatedData.length > 0
-                  ? paginatedData.map((item, index) =>
-                      renderRow(
-                        item,
-                        index,
-                        'right',
-                        hoveredRowIndex === index,
-                        setHoveredRowIndex,
-                      ),
-                    )
+                  ? paginatedData.map((item, index) => (
+                      <Fragment
+                        key={keyExtractor?.(item, index) ?? String(index)}
+                      >
+                        {renderRow(
+                          item,
+                          index,
+                          'right',
+                          hoveredRowIndex === index,
+                          setHoveredRowIndex,
+                        )}
+                      </Fragment>
+                    ))
                   : null}
               </YStack>
             </YStack>

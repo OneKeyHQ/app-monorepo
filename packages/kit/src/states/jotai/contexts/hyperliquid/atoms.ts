@@ -2,6 +2,7 @@ import { BigNumber } from 'bignumber.js';
 import { selectAtom } from 'jotai/utils';
 
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import {
   computeMaxTradeSize,
   getTriggerEffectivePrice,
@@ -14,11 +15,17 @@ import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IConnectionState,
   IPerpOrderBookTickOptionPersist,
+  IPerpsFormattedAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 import {
   EPerpsSizeInputMode,
   ETriggerOrderType,
 } from '@onekeyhq/shared/types/hyperliquid/types';
+
+import type {
+  IPerpsBboWithLocalReceivedAt,
+  IPerpsL2BookWithLocalReceivedAt,
+} from './utils/l2BookUtils';
 
 const {
   Provider: ProviderJotaiContextHyperliquid,
@@ -77,24 +84,61 @@ export const {
   );
 });
 
+export type IPerpsAllAssetCtxsAtomValue = {
+  assetCtxsByDex: HL.IPerpsAssetCtx[][];
+  updatedAt?: number;
+};
+
 export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
-  contextAtom<{
-    assetCtxsByDex: HL.IPerpsAssetCtx[][];
-  }>({
+  contextAtom<IPerpsAllAssetCtxsAtomValue>({
     assetCtxsByDex: [],
   });
 
 export const {
   atom: perpsTokenSearchAliasesAtom,
   use: usePerpsTokenSearchAliasesAtom,
-} = contextAtom<ITokenSearchAliases | undefined>(undefined);
+} = contextAtom<ITokenSearchAliases | undefined>(undefined, {
+  coldStartCache: true,
+  coldStartCacheKey:
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsTokenSearchAliasesAtom,
+});
+
+export const { atom: perpsMaxBuilderFeeAtom, use: usePerpsMaxBuilderFeeAtom } =
+  contextAtom<number | undefined>(undefined, {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsMaxBuilderFeeAtom,
+  });
+
+export type IPerpsActiveAssetCtxColdCacheAtom = Record<
+  string,
+  {
+    data: {
+      coin: string;
+      assetId: number | undefined;
+      ctx: IPerpsFormattedAssetCtx;
+    };
+    updatedAt: number;
+  }
+>;
+
+export const {
+  atom: perpsActiveAssetCtxColdCacheAtom,
+  use: usePerpsActiveAssetCtxColdCacheAtom,
+} = contextAtom<IPerpsActiveAssetCtxColdCacheAtom>(
+  {},
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveAssetCtxColdCacheAtom,
+  },
+);
 
 export const { atom: l2BookAtom, use: useL2BookAtom } =
-  contextAtom<HL.IBook | null>(null);
+  contextAtom<IPerpsL2BookWithLocalReceivedAt | null>(null);
 
-export const { atom: bboAtom, use: useBboAtom } = contextAtom<HL.IWsBbo | null>(
-  null,
-);
+export const { atom: bboAtom, use: useBboAtom } =
+  contextAtom<IPerpsBboWithLocalReceivedAt | null>(null);
 
 // TODO remove
 export const { atom: connectionStateAtom, use: useConnectionStateAtom } =
@@ -129,12 +173,19 @@ export type IActiveTradeInstrument =
 export const {
   atom: activeTradeInstrumentAtom,
   use: useActiveTradeInstrumentAtom,
-} = contextAtom<IActiveTradeInstrument>({
-  mode: 'perp',
-  coin: '',
-  assetId: undefined,
-  universe: undefined,
-});
+} = contextAtom<IActiveTradeInstrument>(
+  {
+    mode: 'perp',
+    coin: '',
+    assetId: undefined,
+    universe: undefined,
+  },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveTradeInstrumentAtom,
+  },
+);
 
 export interface ITradeRouteViewState {
   routeFocused: boolean;

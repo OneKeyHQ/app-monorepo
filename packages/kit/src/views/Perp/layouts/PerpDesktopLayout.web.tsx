@@ -18,6 +18,7 @@ import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.cons
 import { FavoritesBar } from '../components/FavoritesBar/FavoritesBar.web';
 import { PerpMarketWorkspacePanel } from '../components/MarketDetail/PerpMarketWorkspacePanel';
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
+import { PerpNetworkAlert } from '../components/PerpNetworkAlert';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
@@ -119,6 +120,7 @@ function PerpDesktopLayout() {
     >
       <YStack flex={chartExpanded ? 1 : undefined}>
         <PerpTips />
+        <PerpNetworkAlert />
         {chartExpanded ? null : <FavoritesBar />}
 
         <YStack
@@ -198,7 +200,11 @@ function PerpDesktopLayout() {
                       </SizableText>
                     </XStack>
                     <YStack flex={1} overflow="hidden">
-                      <PerpOrderBook />
+                      <PerpOrderBook
+                        initialOrderBookHeight={
+                          layout.marketContentHeight - layout.panelHeaderHeight
+                        }
+                      />
                     </YStack>
                   </YStack>
                 ) : null}
