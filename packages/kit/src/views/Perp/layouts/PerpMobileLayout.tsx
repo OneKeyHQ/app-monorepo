@@ -29,12 +29,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import {
-  usePerpsActiveOpenOrdersLengthAtom,
-  usePerpsActivePositionLengthAtom,
+  usePerpsActiveOpenOrdersAtom,
+  usePerpsActivePositionAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
@@ -45,6 +46,7 @@ import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 import { isHyperLiquidUnifiedAccountMode } from '../utils';
+import { getPerpsAccountScopedListData } from '../utils/accountScopedData';
 import {
   type IPerpsMobileLayoutTraceRect,
   getPerpsMobileLayoutTraceRect,
@@ -148,10 +150,9 @@ export function PerpMobileLayout() {
     }
   }, [actions]);
 
-  const [perpOpenOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
-  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
-  const openOrdersLength = perpOpenOrdersLength + spotOpenOrders.length;
-  const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
+  const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
+  const [positionsState] = usePerpsActivePositionAtom();
   const [{ balances, isLoaded: isSpotBalancesLoaded }] = useSpotBalancesAtom();
   const [cachedSpotBalances] = usePerpsSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
@@ -162,6 +163,24 @@ export function PerpMobileLayout() {
     currentUser?.accountAddress,
   );
   const currentUserAddress = currentUser?.accountAddress?.toLowerCase();
+  const positionsLength = getPerpsAccountScopedListData({
+    activeAccountAddress: currentUserAddress,
+    dataAccountAddress: positionsState.accountAddress,
+    data: positionsState.activePositions,
+  }).length;
+  const openOrdersLength =
+    getPerpsAccountScopedListData({
+      activeAccountAddress: currentUserAddress,
+      dataAccountAddress: perpOpenOrdersState.accountAddress,
+      data: perpOpenOrdersState.openOrders.filter(
+        (order) => !isSpotInstrument(order.coin),
+      ),
+    }).length +
+    getPerpsAccountScopedListData({
+      activeAccountAddress: currentUserAddress,
+      dataAccountAddress: spotOpenOrdersState.accountAddress,
+      data: spotOpenOrdersState.openOrders,
+    }).length;
   const shouldUseCachedSpotBalances =
     !isSpotBalancesLoaded &&
     Boolean(currentUserAddress) &&

@@ -6,6 +6,7 @@ import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/
 import {
   computeMaxTradeSize,
   getTriggerEffectivePrice,
+  isSpotInstrument,
   resolveTradingSizeBN,
   sanitizeManualSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -281,10 +282,17 @@ export type IPerpsActivePositionAtom = {
 export const {
   atom: perpsActivePositionAtom,
   use: usePerpsActivePositionAtom,
-} = contextAtom<IPerpsActivePositionAtom>({
-  accountAddress: undefined,
-  activePositions: [],
-});
+} = contextAtom<IPerpsActivePositionAtom>(
+  {
+    accountAddress: undefined,
+    activePositions: [],
+  },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActivePositionAtom,
+  },
+);
 export const {
   atom: perpsActivePositionLengthAtom,
   use: usePerpsActivePositionLengthAtom,
@@ -309,18 +317,27 @@ export type IPerpsActiveOpenOrdersAtom = {
 export const {
   atom: perpsActiveOpenOrdersAtom,
   use: usePerpsActiveOpenOrdersAtom,
-} = contextAtom<IPerpsActiveOpenOrdersAtom>({
-  accountAddress: undefined,
-  openOrders: [],
-  openOrdersByCoin: {},
-});
+} = contextAtom<IPerpsActiveOpenOrdersAtom>(
+  {
+    accountAddress: undefined,
+    openOrders: [],
+    openOrdersByCoin: {},
+  },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveOpenOrdersAtom,
+  },
+);
 
 export const {
   atom: perpsActiveOpenOrdersLengthAtom,
   use: usePerpsActiveOpenOrdersLengthAtom,
 } = contextAtomComputed((get) => {
   const { openOrders } = get(perpsActiveOpenOrdersAtom());
-  const filteredOpenOrders = openOrders.filter((o) => !o.coin.startsWith('@'));
+  const filteredOpenOrders = openOrders.filter(
+    (o) => !isSpotInstrument(o.coin),
+  );
   return filteredOpenOrders.length ?? 0;
 });
 

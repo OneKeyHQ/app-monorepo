@@ -2,7 +2,26 @@
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable import/first */
 /* oxlint-disable import-js/order */
+globalThis.__ONEKEY_MAIN_ENTRY_START__ = Date.now();
+
 import '@onekeyhq/shared/src/performance/init';
+
+try {
+  const {
+    coldStartCacheStorage,
+  } = require('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+  const {
+    EAppSyncStorageKeys,
+  } = require('@onekeyhq/shared/src/storage/syncStorageKeys');
+  const ctxRaw = coldStartCacheStorage.getString(
+    EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
+  );
+  if (ctxRaw) {
+    globalThis.__ONEKEY_CTX_ATOM_SNAPSHOT__ = JSON.parse(ctxRaw);
+  }
+} catch {
+  /* desktop cold-start cache is best-effort */
+}
 
 if (typeof window !== 'undefined') {
   window.$$onekeyJsReadyAt = Date.now();

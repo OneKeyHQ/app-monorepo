@@ -14,7 +14,6 @@ import {
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActivePositionAtom,
-  usePerpsActivePositionLengthAtom,
   usePositionFilterByCurrentTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
@@ -23,6 +22,10 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import {
+  getPerpsAccountScopedListData,
+  isPerpsAccountScopedDataReady,
+} from '../../../utils/accountScopedData';
 import {
   type IPerpsMobileLayoutTraceRect,
   getPerpsMobileLayoutTraceRect,
@@ -57,12 +60,28 @@ function PerpPositionsList({
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
   const [currentUser] = usePerpsActiveAccountAtom();
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  const [positionsLength] = usePerpsActivePositionLengthAtom();
   const [filterByCurrentToken] = usePositionFilterByCurrentTokenAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [positions] = usePerpsActivePositionAtom();
   const [currentListPage, setCurrentListPage] = useState(1);
+  const scopedActivePositions = useMemo(
+    () =>
+      getPerpsAccountScopedListData({
+        activeAccountAddress: currentUser?.accountAddress,
+        dataAccountAddress: positions.accountAddress,
+        data: positions.activePositions,
+      }),
+    [
+      currentUser?.accountAddress,
+      positions.accountAddress,
+      positions.activePositions,
+    ],
+  );
+  const positionsReady = isPerpsAccountScopedDataReady({
+    activeAccountAddress: currentUser?.accountAddress,
+    dataAccountAddress: positions.accountAddress,
+  });
+  const positionsLength = scopedActivePositions.length;
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);
@@ -183,19 +202,19 @@ function PerpPositionsList({
   // Keep each row on the same positions snapshot that decided list emptiness.
   const mockedPositions = useMemo<IPositionRowItem[]>(() => {
     if (!isMobile || !filterByCurrentToken || !activeAsset?.coin) {
-      return positions.activePositions.map((activePosition, index) => ({
+      return scopedActivePositions.map((activePosition, index) => ({
         index,
         activePosition,
       }));
     }
-    return positions.activePositions
+    return scopedActivePositions
       .map((activePosition, originalIndex) => ({
         index: originalIndex,
         activePosition,
       }))
       .filter((item) => item.activePosition.position.coin === activeAsset.coin);
   }, [
-    positions.activePositions,
+    scopedActivePositions,
     isMobile,
     filterByCurrentToken,
     activeAsset?.coin,
@@ -213,12 +232,13 @@ function PerpPositionsList({
         tracePerpsMobileLayout(`positionsList.${name}.layout`, {
           rect,
           mockedPositionsLength: mockedPositions.length,
-          activePositionsLength: positions.activePositions.length,
+          activePositionsLength: scopedActivePositions.length,
           filterByCurrentToken,
           activeCoin: activeAsset?.coin,
           hasAccountAddress: Boolean(currentUser?.accountAddress),
           useTabsList,
           disableListScroll,
+          positionsReady,
         });
         layoutRectsRef.current[name] = rect;
       }
@@ -230,7 +250,8 @@ function PerpPositionsList({
       filterByCurrentToken,
       isMobile,
       mockedPositions.length,
-      positions.activePositions.length,
+      positionsReady,
+      scopedActivePositions.length,
       useTabsList,
     ],
   );
@@ -242,12 +263,13 @@ function PerpPositionsList({
     tracePerpsMobileLayout('positionsList.state', {
       positionsLength,
       mockedPositionsLength: mockedPositions.length,
-      activePositionsLength: positions.activePositions.length,
+      activePositionsLength: scopedActivePositions.length,
       filterByCurrentToken,
       activeCoin: activeAsset?.coin,
       hasAccountAddress: Boolean(currentUser?.accountAddress),
       useTabsList,
       disableListScroll,
+      positionsReady,
     });
   }, [
     activeAsset?.coin,
@@ -256,8 +278,9 @@ function PerpPositionsList({
     filterByCurrentToken,
     isMobile,
     mockedPositions.length,
-    positions.activePositions.length,
+    positionsReady,
     positionsLength,
+    scopedActivePositions.length,
     useTabsList,
   ]);
 
@@ -333,7 +356,7 @@ function PerpPositionsList({
     </XStack>
   );
 
-  if (!isMobile && mockedPositions.length === 0) {
+  if (!isMobile && positionsReady && mockedPositions.length === 0) {
     return (
       <YStack flex={1} width="100%">
         <ScrollView
@@ -385,6 +408,7 @@ function PerpPositionsList({
         isMobile={isMobile}
         renderRow={renderPositionRow}
         keyExtractor={keyExtractor}
+        listLoading={!positionsReady}
         ListEmptyComponent={<PerpPositionsEmptyState isMobile={isMobile} />}
         emptyMessage={intl.formatMessage({
           id: ETranslations.perp_position_empty,
@@ -395,7 +419,7 @@ function PerpPositionsList({
         ListHeaderComponent={
           isMobile ? (
             <MobilePositionsListHeader
-              totalPositionCount={positions.activePositions.length}
+              totalPositionCount={scopedActivePositions.length}
             />
           ) : null
         }

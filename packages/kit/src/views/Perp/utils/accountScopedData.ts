@@ -1,0 +1,47 @@
+type IAccountScopedDataParams<T> = {
+  activeAccountAddress?: string | null;
+  dataAccountAddress?: string | null;
+  data: T[];
+};
+
+function normalizePerpsAccountAddress(address?: string | null) {
+  return address?.toLowerCase() || null;
+}
+
+export function isPerpsAccountScopedDataReady({
+  activeAccountAddress,
+  dataAccountAddress,
+}: {
+  activeAccountAddress?: string | null;
+  dataAccountAddress?: string | null;
+}) {
+  const activeAddress = normalizePerpsAccountAddress(activeAccountAddress);
+  if (!activeAddress) {
+    return true;
+  }
+  return normalizePerpsAccountAddress(dataAccountAddress) === activeAddress;
+}
+
+export function getPerpsAccountScopedListData<T>({
+  activeAccountAddress,
+  dataAccountAddress,
+  data,
+}: IAccountScopedDataParams<T>) {
+  const activeAddress = normalizePerpsAccountAddress(activeAccountAddress);
+  if (!activeAddress) {
+    return normalizePerpsAccountAddress(dataAccountAddress) ? data : [];
+  }
+  return normalizePerpsAccountAddress(dataAccountAddress) === activeAddress
+    ? data
+    : [];
+}
+
+export function shouldPreserveColdStartButtonVisualState({
+  isLiveStatusPending,
+  hasNonColdStartDisabledReason,
+}: {
+  isLiveStatusPending?: boolean;
+  hasNonColdStartDisabledReason: boolean;
+}) {
+  return Boolean(isLiveStatusPending && !hasNonColdStartDisabledReason);
+}

@@ -20,6 +20,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import {
+  getPerpsAccountScopedListData,
+  isPerpsAccountScopedDataReady,
+} from '../../../utils/accountScopedData';
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
@@ -38,19 +42,58 @@ function PerpOpenOrdersList({
   disableListScroll,
 }: IPerpOpenOrdersListProps) {
   const intl = useIntl();
-  const [{ openOrders: perpOpenOrders }] = usePerpsActiveOpenOrdersAtom();
-  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
+  const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
+  const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
+  const scopedPerpOpenOrders = useMemo(
+    () =>
+      getPerpsAccountScopedListData({
+        activeAccountAddress: currentUser?.accountAddress,
+        dataAccountAddress: perpOpenOrdersState.accountAddress,
+        data: perpOpenOrdersState.openOrders,
+      }),
+    [
+      currentUser?.accountAddress,
+      perpOpenOrdersState.accountAddress,
+      perpOpenOrdersState.openOrders,
+    ],
+  );
+  const scopedSpotOpenOrders = useMemo(
+    () =>
+      getPerpsAccountScopedListData({
+        activeAccountAddress: currentUser?.accountAddress,
+        dataAccountAddress: spotOpenOrdersState.accountAddress,
+        data: spotOpenOrdersState.openOrders,
+      }),
+    [
+      currentUser?.accountAddress,
+      spotOpenOrdersState.accountAddress,
+      spotOpenOrdersState.openOrders,
+    ],
+  );
   const openOrders = useMemo(
     () =>
-      [...perpOpenOrders, ...spotOpenOrders].toSorted(
+      [...scopedPerpOpenOrders, ...scopedSpotOpenOrders].toSorted(
         (a, b) => b.timestamp - a.timestamp,
       ),
-    [perpOpenOrders, spotOpenOrders],
+    [scopedPerpOpenOrders, scopedSpotOpenOrders],
+  );
+  const perpOpenOrdersReady = isPerpsAccountScopedDataReady({
+    activeAccountAddress: currentUser?.accountAddress,
+    dataAccountAddress: perpOpenOrdersState.accountAddress,
+  });
+  const spotOpenOrdersReady = isPerpsAccountScopedDataReady({
+    activeAccountAddress: currentUser?.accountAddress,
+    dataAccountAddress: spotOpenOrdersState.accountAddress,
+  });
+  const listLoading = Boolean(
+    currentUser?.accountAddress &&
+    openOrders.length === 0 &&
+    (!perpOpenOrdersReady || !spotOpenOrdersReady),
   );
   useEffect(() => {
     noop(currentUser?.accountAddress);
@@ -251,6 +294,7 @@ function PerpOpenOrdersList({
       data={filteredOrders}
       isMobile={isMobile}
       renderRow={renderOrderRow}
+      listLoading={listLoading}
       emptyMessage={intl.formatMessage({
         id: ETranslations.perp_open_order_empty,
       })}
