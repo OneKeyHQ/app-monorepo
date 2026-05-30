@@ -2,9 +2,7 @@
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable import/first */
 /* oxlint-disable import-js/order */
-globalThis.__ONEKEY_MAIN_ENTRY_START__ = Date.now();
-
-require('@onekeyhq/shared/src/performance/init');
+import '@onekeyhq/shared/src/performance/init';
 
 try {
   const {
@@ -31,8 +29,9 @@ if (typeof window !== 'undefined') {
   window.$$onekeyJsReadyAt = Date.now();
 }
 
-const { registerRootComponent } = require('expo');
-const App = require('./App').default;
+import { registerRootComponent } from 'expo';
+
+import App from './App';
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,
