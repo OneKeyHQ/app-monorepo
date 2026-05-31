@@ -1,5 +1,3 @@
-import type { GestureResponderEvent } from 'react-native';
-
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -16,11 +14,13 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { WebAccountPanelPopover } from './WebAccountPanelPopover';
 
+import type { GestureResponderEvent } from 'react-native';
+
 export interface IWebAccountSelectorTriggerProps {
   tabRoute: ETabRoutes;
 }
 
-// The Popover's own Trigger wrapper drives the open-on-press behaviour; this
+// The Popover's own Trigger wrapper drives the open-on-press behavior; this
 // noop only exists so the trigger XStack keeps a Pressable press state for
 // pressStyle to animate against.
 const noop = () => undefined;
@@ -38,7 +38,7 @@ function PerpsBalancePill() {
   // accountValue is a concrete '0' → that path shows the Deposit pill below.
   // When the value is genuinely unknown (undefined): show a spinner while it's
   // still loading, otherwise render nothing (no premature "Deposit").
-  if (accountValue == null) {
+  if (accountValue === undefined) {
     if (computedValue?.isLoading) {
       return (
         <XStack ai="center" jc="center" px="$2" h={26}>

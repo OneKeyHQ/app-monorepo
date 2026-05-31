@@ -36,6 +36,7 @@ import {
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { PerpsActivityCenterAction } from '../../views/Perp/components/PerpsActivityCenterAction';
 import { useLanguageSelector } from '../../views/Setting/hooks';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { ListItem } from '../ListItem';
@@ -52,7 +53,6 @@ import {
 } from './components/WebAccountPanel';
 import { HeaderTitle } from './HeaderTitle';
 import { UniversalSearchInput } from './UniversalSearchInput';
-import { PerpsActivityCenterAction } from '../../views/Perp/components/PerpsActivityCenterAction';
 
 import type { ITabPageHeaderProp } from './type';
 

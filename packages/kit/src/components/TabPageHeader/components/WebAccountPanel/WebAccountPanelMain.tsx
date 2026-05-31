@@ -110,7 +110,7 @@ function PerpsSection({
         const r = await backgroundApiProxy.serviceWebviewPerp.getAccountBalance(
           { userAddress },
         );
-        if (r?.accountValue != null) {
+        if (r?.accountValue !== undefined) {
           perpsRestCache.set(userAddress, {
             value: r.accountValue,
             fetchedAt: Date.now(),
@@ -132,7 +132,7 @@ function PerpsSection({
 
   // Only hit REST when the live atom hasn't resolved for this account.
   useEffect(() => {
-    if (atomValue == null) {
+    if (atomValue === undefined) {
       void fetchPerpsValue();
     }
   }, [atomValue, fetchPerpsValue]);
@@ -141,13 +141,13 @@ function PerpsSection({
   // Manual refresh → always spinner; background/first load → only when there's
   // no value to show yet.
   const showSpinner =
-    isManualRefreshing || (atomValue == null && isLoadingRest);
+    isManualRefreshing || (atomValue === undefined && isLoadingRest);
 
   const renderPerpsValue = () => {
     if (showSpinner) {
       return <Spinner size="small" />;
     }
-    if (effectiveValue == null) {
+    if (effectiveValue === undefined) {
       return (
         <SizableText size="$bodyMdMedium" color="$text">
           --
@@ -235,7 +235,7 @@ export function WebAccountPanelMain({
 
   // Portfolio total. The home page is the only place that computes account
   // worth (its page-scoped token-list flow), so on routes like /perps nothing
-  // populates the cached worth. Fetch it route-agnostically: enumerate the
+  // populates the cached worth. Fetch it regardless of route: enumerate the
   // networks this account is compatible with, fan out a live token fetch per
   // network, and sum the fiat values (already in the user's display currency).
   const [portfolio, setPortfolio] = useState<string | undefined>(() =>

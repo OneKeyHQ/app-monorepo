@@ -3,23 +3,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { styled } from '@tamagui/core';
 import { useIntl } from 'react-intl';
-import type { LayoutChangeEvent } from 'react-native';
 
 import { AnimatePresence, Popover, Stack, YStack } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-
-import { WebAccountPanelAccountList } from './WebAccountPanelAccountList';
-import { WebAccountPanelArticles } from './WebAccountPanelArticles';
 import { WebAccountPanelFooter } from './atoms/WebAccountPanelFooter';
 import { WebAccountPanelHeader } from './atoms/WebAccountPanelHeader';
+import { WebAccountPanelAccountList } from './WebAccountPanelAccountList';
+import { WebAccountPanelArticles } from './WebAccountPanelArticles';
 import { WebAccountPanelMain } from './WebAccountPanelMain';
 import { WebAccountPanelSettings } from './WebAccountPanelSettings';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 export type IWebAccountPanelView =
   | 'main'

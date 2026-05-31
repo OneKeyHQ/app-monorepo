@@ -34,7 +34,12 @@ export function WebAccountPanelFooter({
       bg="$bgSubdued"
       {...stackProps}
     >
-      <Button size="small" variant="tertiary" onPress={onDownloadApp}>
+      <Button
+        size="small"
+        variant="tertiary"
+        onPress={onDownloadApp}
+        testID="web-account-panel-footer-download"
+      >
         {intl.formatMessage({ id: ETranslations.global_download_app })}
       </Button>
       <XStack ai="center" gap="$5">
