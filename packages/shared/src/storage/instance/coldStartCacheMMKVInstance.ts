@@ -11,18 +11,21 @@ import { getColdStartCacheStorageEncryptionKey } from './coldStartCacheStorageEn
 const coldStartCacheStorageEncryptionKey =
   getColdStartCacheStorageEncryptionKey();
 
-const coldStartCacheMMKVInstance = createMMKV(
-  platformEnv.isNative
-    ? {
-        id: COLD_START_CACHE_STORAGE_ID,
-        ...(coldStartCacheStorageEncryptionKey
-          ? { encryptionKey: coldStartCacheStorageEncryptionKey }
-          : {}),
-      }
-    : {
-        id: COLD_START_CACHE_STORAGE_ID,
-      },
-);
+export const isColdStartCacheStorageAvailable =
+  !platformEnv.isNative || Boolean(coldStartCacheStorageEncryptionKey);
+
+const coldStartCacheMMKVInstance = isColdStartCacheStorageAvailable
+  ? createMMKV(
+      platformEnv.isNative
+        ? {
+            id: COLD_START_CACHE_STORAGE_ID,
+            encryptionKey: coldStartCacheStorageEncryptionKey as string,
+          }
+        : {
+            id: COLD_START_CACHE_STORAGE_ID,
+          },
+    )
+  : undefined;
 export default coldStartCacheMMKVInstance;
 
 let legacyColdStartCacheMMKVInstance: ReturnType<typeof createMMKV> | undefined;

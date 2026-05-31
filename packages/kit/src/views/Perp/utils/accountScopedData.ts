@@ -20,7 +20,7 @@ export function isPerpsAccountScopedDataReady({
 }) {
   const activeAddress = normalizePerpsAccountAddress(activeAccountAddress);
   if (!activeAddress) {
-    return true;
+    return !normalizePerpsAccountAddress(dataAccountAddress);
   }
   return normalizePerpsAccountAddress(dataAccountAddress) === activeAddress;
 }
@@ -32,7 +32,7 @@ export function getPerpsAccountScopedListData<T>({
 }: IAccountScopedDataParams<T>) {
   const activeAddress = normalizePerpsAccountAddress(activeAccountAddress);
   if (!activeAddress) {
-    return normalizePerpsAccountAddress(dataAccountAddress) ? data : [];
+    return normalizePerpsAccountAddress(dataAccountAddress) ? [] : data;
   }
   return normalizePerpsAccountAddress(dataAccountAddress) === activeAddress
     ? data
@@ -57,13 +57,6 @@ export function getPerpsAccountScopedFallbackListState<T>({
     currentDataAddress !== activeAddress &&
     fallbackDataAddress === activeAddress
   ) {
-    return {
-      dataAccountAddress: fallbackDataAccountAddress,
-      data: fallbackData,
-    };
-  }
-
-  if (!activeAddress && !currentDataAddress && fallbackDataAddress) {
     return {
       dataAccountAddress: fallbackDataAccountAddress,
       data: fallbackData,

@@ -18,11 +18,21 @@ describe('getPerpsAccountScopedListData', () => {
     ).toBe(rows);
   });
 
-  it('keeps cached rows while the active account is still restoring', () => {
+  it('drops account-scoped cached rows while the active account is still restoring', () => {
     expect(
       getPerpsAccountScopedListData({
         activeAccountAddress: undefined,
         dataAccountAddress: '0xabc',
+        data: rows,
+      }),
+    ).toEqual([]);
+  });
+
+  it('keeps unscoped rows when there is no active account', () => {
+    expect(
+      getPerpsAccountScopedListData({
+        activeAccountAddress: undefined,
+        dataAccountAddress: undefined,
         data: rows,
       }),
     ).toBe(rows);
@@ -72,6 +82,21 @@ describe('getPerpsAccountScopedFallbackListState', () => {
       data: liveRows,
     });
   });
+
+  it('does not use account-scoped fallback rows before the active account is known', () => {
+    expect(
+      getPerpsAccountScopedFallbackListState({
+        activeAccountAddress: undefined,
+        dataAccountAddress: undefined,
+        data: liveRows,
+        fallbackDataAccountAddress: '0xbbb',
+        fallbackData: cachedRows,
+      }),
+    ).toEqual({
+      dataAccountAddress: undefined,
+      data: liveRows,
+    });
+  });
 });
 
 describe('isPerpsAccountScopedDataReady', () => {
@@ -91,6 +116,15 @@ describe('isPerpsAccountScopedDataReady', () => {
         dataAccountAddress: undefined,
       }),
     ).toBe(true);
+  });
+
+  it('waits while only account-scoped cached data exists and no account is active', () => {
+    expect(
+      isPerpsAccountScopedDataReady({
+        activeAccountAddress: undefined,
+        dataAccountAddress: '0xabc',
+      }),
+    ).toBe(false);
   });
 });
 

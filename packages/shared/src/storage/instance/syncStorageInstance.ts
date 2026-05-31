@@ -7,6 +7,7 @@ import resetUtils from '../../utils/resetUtils';
 
 import coldStartCacheMMKVInstance, {
   getLegacyColdStartCacheMMKVInstance,
+  isColdStartCacheStorageAvailable,
 } from './coldStartCacheMMKVInstance';
 import mmkvStorageInstance from './mmkvStorageInstance';
 
@@ -103,40 +104,74 @@ function createColdStartCacheSyncStorage({
   getLegacy: () => ISyncStorage;
 }): ISyncStorage {
   let legacy: ISyncStorage | undefined;
-  let legacyTouched = false;
 
   const legacyStorage = () => {
-    legacyTouched = true;
     legacy ??= getLegacy();
     return legacy;
   };
 
-  const deleteLegacyKeyIfTouched = (key: EAppSyncStorageKeys) => {
-    if (legacyTouched) {
+  const readWithLegacyMigration = <T>({
+    key,
+    readPrimary,
+    readLegacy,
+    writePrimary,
+  }: {
+    key: EAppSyncStorageKeys;
+    readPrimary: () => T | undefined;
+    readLegacy: (storage: ISyncStorage) => T | undefined;
+    writePrimary: (value: T) => void;
+  }) => {
+    const primaryValue = readPrimary();
+    if (primaryValue !== undefined) {
+      return primaryValue;
+    }
+
+    const legacyValue = readLegacy(legacyStorage());
+    if (legacyValue !== undefined) {
+      writePrimary(legacyValue);
       legacyStorage().delete(key);
     }
+    return legacyValue;
   };
 
   return {
     set(key, value) {
       primary.set(key, value);
-      deleteLegacyKeyIfTouched(key);
     },
     setObject(key, value) {
       primary.setObject(key, value);
-      deleteLegacyKeyIfTouched(key);
     },
     getObject<T>(key: EAppSyncStorageKeys): T | undefined {
-      return primary.getObject<T>(key) ?? legacyStorage().getObject<T>(key);
+      return readWithLegacyMigration<T>({
+        key,
+        readPrimary: () => primary.getObject<T>(key),
+        readLegacy: (storage) => storage.getObject<T>(key),
+        writePrimary: (value) => primary.set(key, JSON.stringify(value)),
+      });
     },
     getString(key) {
-      return primary.getString(key) ?? legacyStorage().getString(key);
+      return readWithLegacyMigration<string>({
+        key,
+        readPrimary: () => primary.getString(key),
+        readLegacy: (storage) => storage.getString(key),
+        writePrimary: (value) => primary.set(key, value),
+      });
     },
     getNumber(key) {
-      return primary.getNumber(key) ?? legacyStorage().getNumber(key);
+      return readWithLegacyMigration<number>({
+        key,
+        readPrimary: () => primary.getNumber(key),
+        readLegacy: (storage) => storage.getNumber(key),
+        writePrimary: (value) => primary.set(key, value),
+      });
     },
     getBoolean(key) {
-      return primary.getBoolean(key) ?? legacyStorage().getBoolean(key);
+      return readWithLegacyMigration<boolean>({
+        key,
+        readPrimary: () => primary.getBoolean(key),
+        readLegacy: (storage) => storage.getBoolean(key),
+        writePrimary: (value) => primary.set(key, value),
+      });
     },
     delete(key) {
       primary.delete(key);
@@ -190,10 +225,20 @@ export const syncStorage = platformEnv.isExtensionBackgroundServiceWorker
  *  localStorage, which can't match native MMKV's sync + capacity guarantees
  *  this cache depends on. Non-native platforms get a no-op stub so reads
  *  always miss and writes are discarded. */
-export const coldStartCacheStorage = platformEnv.isNative
-  ? createColdStartCacheSyncStorage({
-      primary: createMMKVSyncStorage(coldStartCacheMMKVInstance),
-      getLegacy: () =>
-        createMMKVSyncStorage(getLegacyColdStartCacheMMKVInstance()),
-    })
-  : syncStorageExtBg;
+function createNativeColdStartCacheStorage() {
+  if (!platformEnv.isNative) {
+    return syncStorageExtBg;
+  }
+
+  if (!isColdStartCacheStorageAvailable || !coldStartCacheMMKVInstance) {
+    return syncStorageExtBg;
+  }
+
+  return createColdStartCacheSyncStorage({
+    primary: createMMKVSyncStorage(coldStartCacheMMKVInstance),
+    getLegacy: () =>
+      createMMKVSyncStorage(getLegacyColdStartCacheMMKVInstance()),
+  });
+}
+
+export const coldStartCacheStorage = createNativeColdStartCacheStorage();
