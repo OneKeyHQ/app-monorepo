@@ -1,6 +1,6 @@
 # API-01 `POST /prime/v1/account/oauth/login` Examples
 
-本文档是 [onekeyid-keyless-unified-login-server-apis.md](./onekeyid-keyless-unified-login-server-apis.md) 中 API-01 `POST /prime/v1/account/oauth/login` 的示例补充。主接口文档保留类型、枚举和规则；具体场景请求 / 响应示例集中放在这里。
+本文档是 [server-apis.md](./server-apis.md) 中 API-01 `POST /prime/v1/account/oauth/login` 的示例补充。主接口文档保留类型、枚举和规则；具体场景请求 / 响应示例集中放在这里。
 
 ## API-01 / Example 01. 已绑定 Google identity 正常登录
 
@@ -24,26 +24,28 @@ Response:
   "onekeyAccount": {
     "onekeyUserId": "onekey_A",
     "status": "active",
+    "normalizedEmail": "neo@gmail.com",
     "displayEmail": "n***@gmail.com",
     "identities": [
       {
         "identityType": "oauth",
         "oauthIdentityId": "hash_google_1082048571",
-        "provider": "google",
-        "providerSubject": "108204857102938475610",
-        "providerEmailType": "real",
-        "providerVerifiedEmail": "neo@gmail.com",
+        "oauthProvider": "google",
+        "oauthSubject": "108204857102938475610",
+        "oauthEmailType": "real",
+        "oauthEmail": "neo@gmail.com",
         "normalizedEmail": "neo@gmail.com",
         "displayEmail": "n***@gmail.com"
       }
     ]
   },
   "oauthIdentity": {
+    "identityType": "oauth",
     "oauthIdentityId": "hash_google_1082048571",
-    "provider": "google",
-    "providerSubject": "108204857102938475610",
-    "providerEmailType": "real",
-    "providerVerifiedEmail": "neo@gmail.com",
+    "oauthProvider": "google",
+    "oauthSubject": "108204857102938475610",
+    "oauthEmailType": "real",
+    "oauthEmail": "neo@gmail.com",
     "normalizedEmail": "neo@gmail.com",
     "displayEmail": "n***@gmail.com"
   },
@@ -51,8 +53,7 @@ Response:
     "bindingStatus": "bound",
     "boundOneKeyUserId": "onekey_A",
     "bindReason": "existing_oauth_binding"
-  },
-  "manualMerge": null
+  }
 }
 ```
 
@@ -80,31 +81,34 @@ Response:
   "onekeyAccount": {
     "onekeyUserId": "onekey_legacy_A",
     "status": "active",
+    "normalizedEmail": "neo@gmail.com",
     "displayEmail": "n***@gmail.com",
     "identities": [
       {
         "identityType": "legacy_email",
+        "legacyEmail": "neo@gmail.com",
         "normalizedEmail": "neo@gmail.com",
         "displayEmail": "n***@gmail.com"
       },
       {
         "identityType": "oauth",
         "oauthIdentityId": "hash_google_1082048571",
-        "provider": "google",
-        "providerSubject": "108204857102938475610",
-        "providerEmailType": "real",
-        "providerVerifiedEmail": "neo@gmail.com",
+        "oauthProvider": "google",
+        "oauthSubject": "108204857102938475610",
+        "oauthEmailType": "real",
+        "oauthEmail": "neo@gmail.com",
         "normalizedEmail": "neo@gmail.com",
         "displayEmail": "n***@gmail.com"
       }
     ]
   },
   "oauthIdentity": {
+    "identityType": "oauth",
     "oauthIdentityId": "hash_google_1082048571",
-    "provider": "google",
-    "providerSubject": "108204857102938475610",
-    "providerEmailType": "real",
-    "providerVerifiedEmail": "neo@gmail.com",
+    "oauthProvider": "google",
+    "oauthSubject": "108204857102938475610",
+    "oauthEmailType": "real",
+    "oauthEmail": "neo@gmail.com",
     "normalizedEmail": "neo@gmail.com",
     "displayEmail": "n***@gmail.com"
   },
@@ -112,8 +116,7 @@ Response:
     "bindingStatus": "bound",
     "boundOneKeyUserId": "onekey_legacy_A",
     "bindReason": "legacy_email_auto_bind"
-  },
-  "manualMerge": null
+  }
 }
 ```
 
@@ -141,36 +144,38 @@ Response:
   "onekeyAccount": {
     "onekeyUserId": "onekey_A",
     "status": "active",
+    "normalizedEmail": "neo@gmail.com",
     "displayEmail": "n***@gmail.com",
     "identities": [
       {
         "identityType": "oauth",
         "oauthIdentityId": "hash_google_1082048571",
-        "provider": "google",
-        "providerSubject": "108204857102938475610",
-        "providerEmailType": "real",
-        "providerVerifiedEmail": "neo@gmail.com",
+        "oauthProvider": "google",
+        "oauthSubject": "108204857102938475610",
+        "oauthEmailType": "real",
+        "oauthEmail": "neo@gmail.com",
         "normalizedEmail": "neo@gmail.com",
         "displayEmail": "n***@gmail.com"
       },
       {
         "identityType": "oauth",
         "oauthIdentityId": "hash_apple_0009876543",
-        "provider": "apple",
-        "providerSubject": "000987.654321.apple-user",
-        "providerEmailType": "real",
-        "providerVerifiedEmail": "neo@gmail.com",
+        "oauthProvider": "apple",
+        "oauthSubject": "000987.654321.apple-user",
+        "oauthEmailType": "real",
+        "oauthEmail": "neo@gmail.com",
         "normalizedEmail": "neo@gmail.com",
         "displayEmail": "n***@gmail.com"
       }
     ]
   },
   "oauthIdentity": {
+    "identityType": "oauth",
     "oauthIdentityId": "hash_apple_0009876543",
-    "provider": "apple",
-    "providerSubject": "000987.654321.apple-user",
-    "providerEmailType": "real",
-    "providerVerifiedEmail": "neo@gmail.com",
+    "oauthProvider": "apple",
+    "oauthSubject": "000987.654321.apple-user",
+    "oauthEmailType": "real",
+    "oauthEmail": "neo@gmail.com",
     "normalizedEmail": "neo@gmail.com",
     "displayEmail": "n***@gmail.com"
   },
@@ -178,8 +183,7 @@ Response:
     "bindingStatus": "bound",
     "boundOneKeyUserId": "onekey_A",
     "bindReason": "email_claim_auto_bind"
-  },
-  "manualMerge": null
+  }
 }
 ```
 
@@ -205,26 +209,28 @@ Response:
   "onekeyAccount": {
     "onekeyUserId": "onekey_new_A",
     "status": "active",
+    "normalizedEmail": "neo@gmail.com",
     "displayEmail": "n***@gmail.com",
     "identities": [
       {
         "identityType": "oauth",
         "oauthIdentityId": "hash_google_1082048571",
-        "provider": "google",
-        "providerSubject": "108204857102938475610",
-        "providerEmailType": "real",
-        "providerVerifiedEmail": "neo@gmail.com",
+        "oauthProvider": "google",
+        "oauthSubject": "108204857102938475610",
+        "oauthEmailType": "real",
+        "oauthEmail": "neo@gmail.com",
         "normalizedEmail": "neo@gmail.com",
         "displayEmail": "n***@gmail.com"
       }
     ]
   },
   "oauthIdentity": {
+    "identityType": "oauth",
     "oauthIdentityId": "hash_google_1082048571",
-    "provider": "google",
-    "providerSubject": "108204857102938475610",
-    "providerEmailType": "real",
-    "providerVerifiedEmail": "neo@gmail.com",
+    "oauthProvider": "google",
+    "oauthSubject": "108204857102938475610",
+    "oauthEmailType": "real",
+    "oauthEmail": "neo@gmail.com",
     "normalizedEmail": "neo@gmail.com",
     "displayEmail": "n***@gmail.com"
   },
@@ -232,8 +238,7 @@ Response:
     "bindingStatus": "bound",
     "boundOneKeyUserId": "onekey_new_A",
     "bindReason": "new_oauth_account_created"
-  },
-  "manualMerge": null
+  }
 }
 ```
 
@@ -259,31 +264,28 @@ Response:
   "onekeyAccount": {
     "onekeyUserId": "onekey_oauth_only_A",
     "status": "active",
-    "displayEmail": null,
     "identities": [
       {
         "identityType": "oauth",
         "oauthIdentityId": "hash_apple_0009876543",
-        "provider": "apple",
-        "providerSubject": "000987.654321.apple-user",
-        "providerEmailType": "missing_or_unverified",
-        "displayEmail": null
+        "oauthProvider": "apple",
+        "oauthSubject": "000987.654321.apple-user",
+        "oauthEmailType": "missing_or_unverified"
       }
     ]
   },
   "oauthIdentity": {
+    "identityType": "oauth",
     "oauthIdentityId": "hash_apple_0009876543",
-    "provider": "apple",
-    "providerSubject": "000987.654321.apple-user",
-    "providerEmailType": "missing_or_unverified",
-    "displayEmail": null
+    "oauthProvider": "apple",
+    "oauthSubject": "000987.654321.apple-user",
+    "oauthEmailType": "missing_or_unverified"
   },
   "oauthIdentityBinding": {
     "bindingStatus": "bound",
     "boundOneKeyUserId": "onekey_oauth_only_A",
     "bindReason": "new_oauth_account_created"
-  },
-  "manualMerge": null
+  }
 }
 ```
 
@@ -308,22 +310,20 @@ Response:
 {
   "status": "manual_merge_required",
   "oauthIdentity": {
+    "identityType": "oauth",
     "oauthIdentityId": "hash_google_2099999999",
-    "provider": "google",
-    "providerSubject": "209999999900000000000",
-    "providerEmailType": "real",
-    "providerVerifiedEmail": "neo.work@gmail.com",
+    "oauthProvider": "google",
+    "oauthSubject": "209999999900000000000",
+    "oauthEmailType": "real",
+    "oauthEmail": "neo.work@gmail.com",
     "normalizedEmail": "neo.work@gmail.com",
     "displayEmail": "n***@gmail.com"
   },
-  "onekeySession": null,
-  "onekeyAccount": null,
-  "oauthIdentityBinding": null,
   "manualMerge": {
     "sourceType": "pending_oauth_bind",
     "sourceOauthHandle": "signed-source-oauth-handle",
-    "reason": "local_legacy_session",
-    "expiresAt": "2026-05-25T08:15:00.000Z"
+    "reason": "oauth_email_mismatch",
+    "expiresAt": "2026-06-01T08:15:00.000Z"
   }
 }
 ```
@@ -347,23 +347,21 @@ Response:
 {
   "status": "manual_merge_required",
   "oauthIdentity": {
+    "identityType": "oauth",
     "oauthIdentityId": "hash_apple_0009876543",
-    "provider": "apple",
-    "providerSubject": "000987.654321.apple-user",
-    "providerEmailType": "apple_private_relay",
-    "providerVerifiedEmail": "abcd1234@privaterelay.appleid.com",
+    "oauthProvider": "apple",
+    "oauthSubject": "000987.654321.apple-user",
+    "oauthEmailType": "apple_private_relay",
+    "oauthEmail": "abcd1234@privaterelay.appleid.com",
     "normalizedEmail": "abcd1234@privaterelay.appleid.com",
     "displayEmail": "a***@privaterelay.appleid.com",
-    "relayDomainMatched": "privaterelay.appleid.com"
+    "oauthRelayDomainMatched": "privaterelay.appleid.com"
   },
-  "onekeySession": null,
-  "onekeyAccount": null,
-  "oauthIdentityBinding": null,
   "manualMerge": {
     "sourceType": "pending_oauth_bind",
     "sourceOauthHandle": "signed-source-oauth-handle",
     "reason": "apple_private_relay",
-    "expiresAt": "2026-05-25T08:15:00.000Z"
+    "expiresAt": "2026-06-01T08:15:00.000Z"
   }
 }
 ```
@@ -387,20 +385,17 @@ Response:
 {
   "status": "manual_merge_required",
   "oauthIdentity": {
+    "identityType": "oauth",
     "oauthIdentityId": "hash_apple_0009876543",
-    "provider": "apple",
-    "providerSubject": "000987.654321.apple-user",
-    "providerEmailType": "missing_or_unverified",
-    "displayEmail": null
+    "oauthProvider": "apple",
+    "oauthSubject": "000987.654321.apple-user",
+    "oauthEmailType": "missing_or_unverified"
   },
-  "onekeySession": null,
-  "onekeyAccount": null,
-  "oauthIdentityBinding": null,
   "manualMerge": {
     "sourceType": "pending_oauth_bind",
     "sourceOauthHandle": "signed-source-oauth-handle",
     "reason": "missing_or_unverified_email",
-    "expiresAt": "2026-05-25T08:15:00.000Z"
+    "expiresAt": "2026-06-01T08:15:00.000Z"
   }
 }
 ```
@@ -415,7 +410,7 @@ Response:
   "message": "OAuth binding requires account re-authentication.",
   "data": {
     "oauthIdentityId": "hash_google_1082048571",
-    "provider": "google"
+    "oauthProvider": "google"
   }
 }
 ```
