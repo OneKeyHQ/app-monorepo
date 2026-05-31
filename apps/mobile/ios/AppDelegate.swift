@@ -243,24 +243,42 @@ public class AppDelegate: ExpoAppDelegate {
     }
   }
 
-  // Background URLSession events (OTA bundle concurrent/background download).
+  // Background URLSession events (OTA concurrent/background downloads).
   // When the app is relaunched in the background to finish a background
-  // download, hand the completion handler to the bundle downloader via a
-  // notification. We post rather than call directly because the Nitro module's
-  // C++ umbrella header can't be imported into this Swift AppDelegate (see the
+  // download, hand the completion handler to the downloader via a notification.
+  // We post rather than call directly because the Nitro module's C++ umbrella
+  // header can't be imported into this Swift AppDelegate (see the
   // NSClassFromString bridges above). If the downloader instance isn't live yet
   // the events are processed on the next foreground launch instead — the
   // download itself still completed in the background.
+  //
+  // Posted under a generic name (RangeDownloaderBackgroundEvents) so any number
+  // of channels (bundle / apk / chart) route through one notification; each
+  // downloader filters by its own session identifier prefix. The legacy name is
+  // posted too during the migration window so the not-yet-switched bundle
+  // downloader keeps receiving its events. Remove the legacy post once every
+  // consumer has moved to the shared range-downloader (capability-extraction P5).
   public override func application(
     _ application: UIApplication,
     handleEventsForBackgroundURLSession identifier: String,
     completionHandler: @escaping () -> Void
   ) {
-    NitroModuleBridge.logInfo("BundleUpdate", "handleEventsForBackgroundURLSession: \(identifier)")
+    NitroModuleBridge.logInfo("RangeDownloader", "handleEventsForBackgroundURLSession: \(identifier)")
+    let userInfo: [AnyHashable: Any] = [
+      "identifier": identifier,
+      "completionHandler": completionHandler,
+    ]
+    // New generic notification (range-downloader, all channels).
+    NotificationCenter.default.post(
+      name: Notification.Name("RangeDownloaderBackgroundEvents"),
+      object: nil,
+      userInfo: userInfo
+    )
+    // Legacy notification (pre-P3 bundle downloader) — drop at P5.
     NotificationCenter.default.post(
       name: Notification.Name("ConcurrentBundleDownloaderBackgroundEvents"),
       object: nil,
-      userInfo: ["identifier": identifier, "completionHandler": completionHandler]
+      userInfo: userInfo
     )
   }
 
