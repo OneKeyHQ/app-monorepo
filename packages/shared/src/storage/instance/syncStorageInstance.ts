@@ -5,10 +5,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '../../platformEnv';
 import resetUtils from '../../utils/resetUtils';
 
-import coldStartCacheMMKVInstance, {
-  getLegacyColdStartCacheMMKVInstance,
-  isColdStartCacheStorageAvailable,
-} from './coldStartCacheMMKVInstance';
+import coldStartCacheMMKVInstance from './coldStartCacheMMKVInstance';
 import mmkvStorageInstance from './mmkvStorageInstance';
 
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
@@ -96,99 +93,6 @@ export function createMMKVSyncStorage(
 
 export type ISyncStorage = ReturnType<typeof createMMKVSyncStorage>;
 
-function createColdStartCacheSyncStorage({
-  primary,
-  getLegacy,
-}: {
-  primary: ISyncStorage;
-  getLegacy: () => ISyncStorage;
-}): ISyncStorage {
-  let legacy: ISyncStorage | undefined;
-
-  const legacyStorage = () => {
-    legacy ??= getLegacy();
-    return legacy;
-  };
-
-  const readWithLegacyMigration = <T>({
-    key,
-    readPrimary,
-    readLegacy,
-    writePrimary,
-  }: {
-    key: EAppSyncStorageKeys;
-    readPrimary: () => T | undefined;
-    readLegacy: (storage: ISyncStorage) => T | undefined;
-    writePrimary: (value: T) => void;
-  }) => {
-    const primaryValue = readPrimary();
-    if (primaryValue !== undefined) {
-      return primaryValue;
-    }
-
-    const legacyValue = readLegacy(legacyStorage());
-    if (legacyValue !== undefined) {
-      writePrimary(legacyValue);
-      legacyStorage().delete(key);
-    }
-    return legacyValue;
-  };
-
-  return {
-    set(key, value) {
-      primary.set(key, value);
-    },
-    setObject(key, value) {
-      primary.setObject(key, value);
-    },
-    getObject<T>(key: EAppSyncStorageKeys): T | undefined {
-      return readWithLegacyMigration<T>({
-        key,
-        readPrimary: () => primary.getObject<T>(key),
-        readLegacy: (storage) => storage.getObject<T>(key),
-        writePrimary: (value) => primary.set(key, JSON.stringify(value)),
-      });
-    },
-    getString(key) {
-      return readWithLegacyMigration<string>({
-        key,
-        readPrimary: () => primary.getString(key),
-        readLegacy: (storage) => storage.getString(key),
-        writePrimary: (value) => primary.set(key, value),
-      });
-    },
-    getNumber(key) {
-      return readWithLegacyMigration<number>({
-        key,
-        readPrimary: () => primary.getNumber(key),
-        readLegacy: (storage) => storage.getNumber(key),
-        writePrimary: (value) => primary.set(key, value),
-      });
-    },
-    getBoolean(key) {
-      return readWithLegacyMigration<boolean>({
-        key,
-        readPrimary: () => primary.getBoolean(key),
-        readLegacy: (storage) => storage.getBoolean(key),
-        writePrimary: (value) => primary.set(key, value),
-      });
-    },
-    delete(key) {
-      primary.delete(key);
-      legacyStorage().delete(key);
-    },
-    clearAll() {
-      primary.clearAll();
-      legacyStorage().clearAll();
-    },
-    getAllKeys() {
-      return [
-        ...new Set([...primary.getAllKeys(), ...legacyStorage().getAllKeys()]),
-      ];
-    },
-  };
-}
-
 // ---- No-op stub for extension background service worker ----
 
 const syncStorageExtBg: ISyncStorage = {
@@ -225,20 +129,6 @@ export const syncStorage = platformEnv.isExtensionBackgroundServiceWorker
  *  localStorage, which can't match native MMKV's sync + capacity guarantees
  *  this cache depends on. Non-native platforms get a no-op stub so reads
  *  always miss and writes are discarded. */
-function createNativeColdStartCacheStorage() {
-  if (!platformEnv.isNative) {
-    return syncStorageExtBg;
-  }
-
-  if (!isColdStartCacheStorageAvailable || !coldStartCacheMMKVInstance) {
-    return syncStorageExtBg;
-  }
-
-  return createColdStartCacheSyncStorage({
-    primary: createMMKVSyncStorage(coldStartCacheMMKVInstance),
-    getLegacy: () =>
-      createMMKVSyncStorage(getLegacyColdStartCacheMMKVInstance()),
-  });
-}
-
-export const coldStartCacheStorage = createNativeColdStartCacheStorage();
+export const coldStartCacheStorage = platformEnv.isNative
+  ? createMMKVSyncStorage(coldStartCacheMMKVInstance)
+  : syncStorageExtBg;

@@ -2,77 +2,20 @@
 // Also registers synchronous IPC handlers so the renderer process can
 // access the same persistent store via ipcRenderer.sendSync().
 
-import { randomBytes } from 'crypto';
-
 import { ipcMain } from 'electron';
 import Store from 'electron-store';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { COLD_START_CACHE_STORAGE_ID } from '@onekeyhq/shared/src/storage/instance/coldStartCacheStorageConfig';
-
-import * as secureStore from './store';
 
 const IPC_CHANNEL = 'mmkv:sync';
-const COLD_START_CACHE_STORAGE_SECURE_KEY =
-  'onekey-cold-start-cache-storage-key-v1';
-const PERSISTENT_IDS = new Set([
-  'onekey-app-setting',
-  COLD_START_CACHE_STORAGE_ID,
-]);
-
-type IStoreValue = boolean | string | number | ArrayBuffer;
+const PERSISTENT_IDS = new Set(['onekey-app-setting']);
 
 const stores = new Map<string, Store>();
-const memoryStores = new Map<string, Map<string, IStoreValue>>();
 
-function createDesktopColdStartCacheEncryptionKey() {
-  return randomBytes(32).toString('base64');
-}
-
-function getDesktopColdStartCacheEncryptionKey() {
-  if (!secureStore.isSecureStorageAvailable()) {
-    return undefined;
-  }
-  const current = secureStore.getSecureItem(
-    COLD_START_CACHE_STORAGE_SECURE_KEY,
-  );
-  if (current) {
-    return current;
-  }
-  const next = createDesktopColdStartCacheEncryptionKey();
-  secureStore.setSecureItem(COLD_START_CACHE_STORAGE_SECURE_KEY, next);
-  return secureStore.getSecureItem(COLD_START_CACHE_STORAGE_SECURE_KEY);
-}
-
-function getStoreEncryptionKey(id: string, encryptionKey?: string) {
-  if (encryptionKey) {
-    return encryptionKey;
-  }
-  return id === COLD_START_CACHE_STORAGE_ID
-    ? getDesktopColdStartCacheEncryptionKey()
-    : undefined;
-}
-
-function getOrCreateMemoryStore(id: string) {
-  let s = memoryStores.get(id);
-  if (!s) {
-    s = new Map<string, IStoreValue>();
-    memoryStores.set(id, s);
-  }
-  return s;
-}
-
-function getOrCreateStore(id: string, encryptionKey?: string): Store | null {
+function getOrCreateStore(id: string): Store {
   let s = stores.get(id);
   if (!s) {
-    const storeEncryptionKey = getStoreEncryptionKey(id, encryptionKey);
-    if (id === COLD_START_CACHE_STORAGE_ID && !storeEncryptionKey) {
-      return null;
-    }
-    s = new Store({
-      name: `mmkv-${id}`,
-      ...(storeEncryptionKey ? { encryptionKey: storeEncryptionKey } : {}),
-    });
+    s = new Store({ name: `mmkv-${id}` });
     stores.set(id, s);
   }
   return s;
@@ -90,54 +33,39 @@ if (ipcMain) {
     ) => {
       const { method, id, key } = args;
       const store = getOrCreateStore(id);
-      const memoryStore = store ? null : getOrCreateMemoryStore(id);
       let result: unknown;
       switch (method) {
         case 'set':
-          if (store) {
-            store.set(key!, args.value);
-          } else {
-            memoryStore?.set(key!, args.value as IStoreValue);
-          }
+          store.set(key!, args.value);
           break;
         case 'getString': {
-          const v = store ? store.get(key!) : memoryStore?.get(key!);
+          const v = store.get(key!);
           result = typeof v === 'string' ? v : undefined;
           break;
         }
         case 'getNumber': {
-          const v = store ? store.get(key!) : memoryStore?.get(key!);
+          const v = store.get(key!);
           result = typeof v === 'number' ? v : undefined;
           break;
         }
         case 'getBoolean': {
-          const v = store ? store.get(key!) : memoryStore?.get(key!);
+          const v = store.get(key!);
           result = typeof v === 'boolean' ? v : undefined;
           break;
         }
         case 'remove': {
-          result = store ? store.has(key!) : memoryStore?.has(key!);
-          if (store) {
-            store.delete(key!);
-          } else {
-            memoryStore?.delete(key!);
-          }
+          result = store.has(key!);
+          store.delete(key!);
           break;
         }
         case 'contains':
-          result = store ? store.has(key!) : memoryStore?.has(key!);
+          result = store.has(key!);
           break;
         case 'getAllKeys':
-          result = store
-            ? Object.keys(store.store)
-            : Array.from(memoryStore?.keys() ?? []);
+          result = Object.keys(store.store);
           break;
         case 'clearAll':
-          if (store) {
-            store.clear();
-          } else {
-            memoryStore?.clear();
-          }
+          store.clear();
           break;
         default:
           break;
@@ -153,15 +81,15 @@ if (ipcMain) {
 class MMKV {
   private store: Store | null;
 
-  private memoryStore: Map<string, IStoreValue>;
+  private memoryStore: Map<string, boolean | string | number | ArrayBuffer>;
 
   private listeners: Set<(changedKey: string) => void>;
 
-  constructor(options: { id: string; encryptionKey?: string }) {
+  constructor(options: { id: string }) {
     this.listeners = new Set();
     this.memoryStore = new Map();
     this.store = PERSISTENT_IDS.has(options.id)
-      ? getOrCreateStore(options.id, options.encryptionKey)
+      ? getOrCreateStore(options.id)
       : null;
   }
 
@@ -249,7 +177,4 @@ class MMKV {
   }
 }
 
-export const createMMKV = (options: {
-  id: string;
-  encryptionKey?: string;
-}): MMKV => new MMKV(options);
+export const createMMKV = (options: { id: string }): MMKV => new MMKV(options);

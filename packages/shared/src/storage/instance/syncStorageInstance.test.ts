@@ -22,13 +22,6 @@ jest.mock('../../utils/resetUtils', () => ({
 
 // Use real MMKV mock (provided by jest-setup.js)
 const testMMKV = createMMKV({ id: 'test-sync-storage' });
-const testColdStartMMKV = createMMKV({ id: 'test-cold-start-cache' });
-const testLegacyColdStartMMKV = createMMKV({
-  id: 'test-legacy-cold-start-cache',
-});
-const mockGetLegacyColdStartCacheMMKVInstance = jest.fn(
-  () => testLegacyColdStartMMKV,
-);
 
 jest.mock('./mmkvStorageInstance', () => ({
   __esModule: true,
@@ -37,9 +30,7 @@ jest.mock('./mmkvStorageInstance', () => ({
 
 jest.mock('./coldStartCacheMMKVInstance', () => ({
   __esModule: true,
-  default: testColdStartMMKV,
-  isColdStartCacheStorageAvailable: true,
-  getLegacyColdStartCacheMMKVInstance: mockGetLegacyColdStartCacheMMKVInstance,
+  default: createMMKV({ id: 'test-cold-start-cache' }),
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -48,14 +39,12 @@ const { createMMKVSyncStorage, syncStorage, coldStartCacheStorage } =
 
 function resetAll() {
   testMMKV.clearAll();
-  testColdStartMMKV.clearAll();
-  testLegacyColdStartMMKV.clearAll();
   jest.clearAllMocks();
 }
 
-beforeEach(resetAll);
-
 describe('createMMKVSyncStorage', () => {
+  beforeEach(resetAll);
+
   describe('safe set — null/undefined guard', () => {
     it('set(key, string) writes normally', () => {
       const store = createMMKVSyncStorage(testMMKV);
@@ -179,76 +168,5 @@ describe('coldStartCacheStorage export', () => {
     mockCheckNotInResetting.mockClear();
     coldStartCacheStorage.set('test' as any, 'val');
     expect(mockCheckNotInResetting).not.toHaveBeenCalled();
-  });
-
-  it('does not initialize legacy storage when primary cache has the key', () => {
-    testColdStartMMKV.set('test', 'primary');
-
-    expect(coldStartCacheStorage.getString('test' as any)).toBe('primary');
-    expect(mockGetLegacyColdStartCacheMMKVInstance).not.toHaveBeenCalled();
-  });
-
-  it('falls back to legacy storage lazily and removes legacy key immediately', () => {
-    testLegacyColdStartMMKV.set('test', 'legacy');
-
-    expect(coldStartCacheStorage.getString('test' as any)).toBe('legacy');
-    expect(mockGetLegacyColdStartCacheMMKVInstance).toHaveBeenCalledTimes(1);
-    expect(testColdStartMMKV.getString('test')).toBe('legacy');
-    expect(testLegacyColdStartMMKV.getString('test')).toBeUndefined();
-  });
-
-  it('migrates legacy object fallback into primary storage on read', () => {
-    testLegacyColdStartMMKV.set('test', '{"value":1}');
-
-    expect(coldStartCacheStorage.getObject('test' as any)).toEqual({
-      value: 1,
-    });
-    expect(testColdStartMMKV.getString('test')).toBe('{"value":1}');
-    expect(testLegacyColdStartMMKV.getString('test')).toBeUndefined();
-  });
-
-  it('does not initialize legacy storage for new primary writes', () => {
-    coldStartCacheStorage.set('test' as any, 'primary');
-
-    expect(testColdStartMMKV.getString('test')).toBe('primary');
-    expect(mockGetLegacyColdStartCacheMMKVInstance).not.toHaveBeenCalled();
-  });
-
-  it('uses a no-op cache when native cold-start storage is unavailable', () => {
-    jest.resetModules();
-
-    jest.isolateModules(() => {
-      const unavailableLegacyGetter = jest.fn();
-
-      jest.doMock('../../platformEnv', () => ({
-        __esModule: true,
-        default: { isExtensionBackgroundServiceWorker: false, isNative: true },
-      }));
-      jest.doMock('../../utils/resetUtils', () => ({
-        __esModule: true,
-        default: { checkNotInResetting: mockCheckNotInResetting },
-      }));
-      jest.doMock('./mmkvStorageInstance', () => ({
-        __esModule: true,
-        default: testMMKV,
-      }));
-      jest.doMock('./coldStartCacheMMKVInstance', () => ({
-        __esModule: true,
-        default: undefined,
-        isColdStartCacheStorageAvailable: false,
-        getLegacyColdStartCacheMMKVInstance: unavailableLegacyGetter,
-      }));
-
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { coldStartCacheStorage: unavailableColdStartCacheStorage } =
-        require('./syncStorageInstance') as typeof import('./syncStorageInstance');
-
-      unavailableColdStartCacheStorage.set('test' as any, 'value');
-
-      expect(
-        unavailableColdStartCacheStorage.getString('test' as any),
-      ).toBeUndefined();
-      expect(unavailableLegacyGetter).not.toHaveBeenCalled();
-    });
   });
 });

@@ -8,11 +8,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import resetUtils from '../../utils/resetUtils';
 
-import {
-  COLD_START_CACHE_STORAGE_ID,
-  LEGACY_COLD_START_CACHE_STORAGE_ID,
-} from './coldStartCacheStorageConfig';
-
 import type { ISyncStorage } from './syncStorageInstance';
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
 
@@ -87,99 +82,11 @@ const syncStorageDesktop = createDesktopSyncStorage({
 });
 
 const coldStartCacheStorageDesktop = createDesktopSyncStorage({
-  id: COLD_START_CACHE_STORAGE_ID,
+  id: 'onekey-cold-start-cache',
 });
-
-const legacyColdStartCacheStorageDesktop = createDesktopSyncStorage({
-  id: LEGACY_COLD_START_CACHE_STORAGE_ID,
-});
-
-function readDesktopColdStartCacheWithLegacyMigration<T>({
-  key,
-  readPrimary,
-  readLegacy,
-  writePrimary,
-}: {
-  key: EAppSyncStorageKeys;
-  readPrimary: () => T | undefined;
-  readLegacy: () => T | undefined;
-  writePrimary: (value: T) => void;
-}) {
-  const primaryValue = readPrimary();
-  if (primaryValue !== undefined) {
-    return primaryValue;
-  }
-
-  const legacyValue = readLegacy();
-  if (legacyValue !== undefined) {
-    writePrimary(legacyValue);
-    legacyColdStartCacheStorageDesktop.delete(key);
-  }
-  return legacyValue;
-}
-
-const coldStartCacheStorageDesktopWithLegacyFallback: ISyncStorage = {
-  set(key, value) {
-    coldStartCacheStorageDesktop.set(key, value);
-    legacyColdStartCacheStorageDesktop.delete(key);
-  },
-  setObject(key, value) {
-    coldStartCacheStorageDesktop.setObject(key, value);
-    legacyColdStartCacheStorageDesktop.delete(key);
-  },
-  getObject<T>(key: EAppSyncStorageKeys): T | undefined {
-    return readDesktopColdStartCacheWithLegacyMigration<T>({
-      key,
-      readPrimary: () => coldStartCacheStorageDesktop.getObject<T>(key),
-      readLegacy: () => legacyColdStartCacheStorageDesktop.getObject<T>(key),
-      writePrimary: (value) =>
-        coldStartCacheStorageDesktop.set(key, JSON.stringify(value)),
-    });
-  },
-  getString(key) {
-    return readDesktopColdStartCacheWithLegacyMigration<string>({
-      key,
-      readPrimary: () => coldStartCacheStorageDesktop.getString(key),
-      readLegacy: () => legacyColdStartCacheStorageDesktop.getString(key),
-      writePrimary: (value) => coldStartCacheStorageDesktop.set(key, value),
-    });
-  },
-  getNumber(key) {
-    return readDesktopColdStartCacheWithLegacyMigration<number>({
-      key,
-      readPrimary: () => coldStartCacheStorageDesktop.getNumber(key),
-      readLegacy: () => legacyColdStartCacheStorageDesktop.getNumber(key),
-      writePrimary: (value) => coldStartCacheStorageDesktop.set(key, value),
-    });
-  },
-  getBoolean(key) {
-    return readDesktopColdStartCacheWithLegacyMigration<boolean>({
-      key,
-      readPrimary: () => coldStartCacheStorageDesktop.getBoolean(key),
-      readLegacy: () => legacyColdStartCacheStorageDesktop.getBoolean(key),
-      writePrimary: (value) => coldStartCacheStorageDesktop.set(key, value),
-    });
-  },
-  delete(key) {
-    coldStartCacheStorageDesktop.delete(key);
-    legacyColdStartCacheStorageDesktop.delete(key);
-  },
-  clearAll() {
-    coldStartCacheStorageDesktop.clearAll();
-    legacyColdStartCacheStorageDesktop.clearAll();
-  },
-  getAllKeys() {
-    return [
-      ...new Set([
-        ...coldStartCacheStorageDesktop.getAllKeys(),
-        ...legacyColdStartCacheStorageDesktop.getAllKeys(),
-      ]),
-    ];
-  },
-};
 
 export {
-  coldStartCacheStorageDesktopWithLegacyFallback as coldStartCacheStorage,
+  coldStartCacheStorageDesktop as coldStartCacheStorage,
   syncStorageDesktop as syncStorage,
 };
 export type { ISyncStorage };
