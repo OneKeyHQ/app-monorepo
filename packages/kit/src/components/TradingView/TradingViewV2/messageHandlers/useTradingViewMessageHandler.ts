@@ -35,6 +35,7 @@ interface IUseTradingViewMessageHandlerParams {
   onTouchScroll?: (deltaY: number) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   forceEmptyKLineData?: boolean;
+  emptyKLineDataOnError?: boolean;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -238,6 +239,7 @@ export function useTradingViewMessageHandler({
   onTouchScroll,
   onIndicatorsDialogOpenChange,
   forceEmptyKLineData,
+  emptyKLineDataOnError,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
@@ -260,6 +262,7 @@ export function useTradingViewMessageHandler({
         marksTimeRange,
         currentKLineResolution,
         forceEmptyKLineData,
+        emptyKLineDataOnError,
       };
 
       // Handle TradingView private API requests
@@ -357,6 +360,7 @@ export function useTradingViewMessageHandler({
       onTouchScroll,
       onIndicatorsDialogOpenChange,
       forceEmptyKLineData,
+      emptyKLineDataOnError,
     ],
   );
 

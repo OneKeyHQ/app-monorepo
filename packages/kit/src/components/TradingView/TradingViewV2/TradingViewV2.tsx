@@ -67,6 +67,7 @@ interface IBaseTradingViewV2Props {
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
   storageNamespace?: string;
   forceEmptyKLineData?: boolean;
+  emptyKLineDataOnError?: boolean;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -96,6 +97,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     disabledFeatures,
     storageNamespace,
     forceEmptyKLineData,
+    emptyKLineDataOnError,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -113,6 +115,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onTouchScroll,
     onIndicatorsDialogOpenChange,
     forceEmptyKLineData,
+    emptyKLineDataOnError,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
@@ -171,6 +174,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       !isHyperLiquidSource &&
       !mockEmptyKLineEnabled &&
       !forceEmptyKLineData,
+    autoHandleError: emptyKLineDataOnError ? false : undefined,
   });
 
   useAutoTokenDetailUpdate({

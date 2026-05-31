@@ -7,12 +7,10 @@ import {
   Page,
   SegmentControl,
   SizableText,
-  Spinner,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   TRADING_VIEW_DISABLED_FEATURES,
@@ -31,6 +29,8 @@ import type {
 } from '@onekeyhq/shared/src/routes/swap';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import { ETokenDappType } from '@onekeyhq/shared/types/token';
+import type { ITokenDappType } from '@onekeyhq/shared/types/token';
 
 import { SwapTestIDs } from '../../testIDs';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -38,8 +38,6 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 import type { RouteProp } from '@react-navigation/core';
 
 const SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE = 'swap-kline';
-const SWAP_KLINE_AVAILABILITY_INTERVAL = '1D';
-const SWAP_KLINE_AVAILABILITY_RANGE_SECONDS = 365 * 24 * 60 * 60;
 const SWAP_KLINE_DISABLED_TRADING_VIEW_FEATURES = [
   TRADING_VIEW_DISABLED_FEATURES.FOOTER,
   TRADING_VIEW_DISABLED_FEATURES.PRICE_MARKET_CAP_TOGGLE,
@@ -52,7 +50,11 @@ const SWAP_KLINE_DISABLED_TRADING_VIEW_FEATURES = [
   TRADING_VIEW_DISABLED_FEATURES.DRAWING_TOOLBAR,
 ] as const;
 
-type ISwapKLineSideAvailability = Partial<Record<ESwapDirectionType, boolean>>;
+type ISwapKLineToken = ISwapToken & {
+  defiMarked?: boolean;
+  dappName?: string | null;
+  dappType?: ITokenDappType;
+};
 
 const STABLE_TOKEN_SYMBOLS = new Set([
   'DAI',
@@ -102,6 +104,16 @@ function isStableToken(token?: ISwapToken) {
   return false;
 }
 
+function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
+  if (!token) {
+    return false;
+  }
+  if (token.dappType === ETokenDappType.WalletToken) {
+    return false;
+  }
+  return Boolean(token.defiMarked || token.dappName?.trim() || token.dappType);
+}
+
 function getDefaultKLineSide({
   fromToken,
   toToken,
@@ -116,6 +128,15 @@ function getDefaultKLineSide({
     return ESwapDirectionType.FROM;
   }
 
+  const fromIsKnownUnsupported = isKnownSwapKLineUnsupportedToken(fromToken);
+  const toIsKnownUnsupported = isKnownSwapKLineUnsupportedToken(toToken);
+  if (fromIsKnownUnsupported && !toIsKnownUnsupported) {
+    return ESwapDirectionType.TO;
+  }
+  if (!fromIsKnownUnsupported && toIsKnownUnsupported) {
+    return ESwapDirectionType.FROM;
+  }
+
   const fromIsStable = isStableToken(fromToken);
   const toIsStable = isStableToken(toToken);
   if (fromIsStable && !toIsStable) {
@@ -123,35 +144,6 @@ function getDefaultKLineSide({
   }
 
   return ESwapDirectionType.FROM;
-}
-
-async function checkSwapKLineTokenAvailability(token?: ISwapToken) {
-  if (!token?.networkId) {
-    return false;
-  }
-
-  const timeTo = Math.floor(Date.now() / 1000);
-  const timeFrom = timeTo - SWAP_KLINE_AVAILABILITY_RANGE_SECONDS;
-
-  return backgroundApiProxy.serviceMarketV2.checkMarketTokenKlineAvailable({
-    tokenAddress: token.contractAddress,
-    networkId: token.networkId,
-    interval: SWAP_KLINE_AVAILABILITY_INTERVAL,
-    timeFrom,
-    timeTo,
-  });
-}
-
-function getFallbackAvailableSide(
-  sideAvailability: ISwapKLineSideAvailability,
-) {
-  if (sideAvailability[ESwapDirectionType.FROM]) {
-    return ESwapDirectionType.FROM;
-  }
-  if (sideAvailability[ESwapDirectionType.TO]) {
-    return ESwapDirectionType.TO;
-  }
-  return undefined;
 }
 
 function SwapKLineTokenSwitch({
@@ -262,44 +254,7 @@ function SwapKLineModalContent() {
     [fromToken, toToken],
   );
   const [selectedSide, setSelectedSide] = useState<ESwapDirectionType>();
-  const [isCheckingKLineAvailability, setIsCheckingKLineAvailability] =
-    useState(true);
-  const [sideAvailability, setSideAvailability] =
-    useState<ISwapKLineSideAvailability>({});
   const hasTrackedOpenRef = useRef(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!fromToken && !toToken) {
-      setSideAvailability({});
-      setIsCheckingKLineAvailability(false);
-      return undefined;
-    }
-
-    setIsCheckingKLineAvailability(true);
-
-    void (async () => {
-      const [fromAvailable, toAvailable] = await Promise.all([
-        checkSwapKLineTokenAvailability(fromToken),
-        checkSwapKLineTokenAvailability(toToken),
-      ]);
-
-      if (cancelled) {
-        return;
-      }
-
-      setSideAvailability({
-        [ESwapDirectionType.FROM]: fromAvailable,
-        [ESwapDirectionType.TO]: toAvailable,
-      });
-      setIsCheckingKLineAvailability(false);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [fromToken, toToken]);
 
   const resolvedSelectedSide = useMemo(() => {
     if (selectedSide) {
@@ -310,29 +265,18 @@ function SwapKLineModalContent() {
       }
     }
 
-    const requestedSide = selectedSide ?? defaultSide;
-    if (sideAvailability[requestedSide]) {
-      return requestedSide;
-    }
-    if (sideAvailability[defaultSide]) {
-      return defaultSide;
-    }
-    return getFallbackAvailableSide(sideAvailability) ?? defaultSide;
-  }, [defaultSide, fromToken, selectedSide, sideAvailability, toToken]);
+    return defaultSide;
+  }, [defaultSide, fromToken, selectedSide, toToken]);
 
   const selectedToken =
     resolvedSelectedSide === ESwapDirectionType.FROM ? fromToken : toToken;
   const chartNetworkId = selectedToken?.networkId ?? '';
   const chartTokenAddress = selectedToken?.contractAddress ?? '';
   const shouldForceEmptyKLineData =
-    sideAvailability[resolvedSelectedSide] === false;
+    isKnownSwapKLineUnsupportedToken(selectedToken);
 
   useEffect(() => {
-    if (
-      hasTrackedOpenRef.current ||
-      isCheckingKLineAvailability ||
-      !selectedToken
-    ) {
+    if (hasTrackedOpenRef.current || !selectedToken) {
       return;
     }
 
@@ -344,13 +288,7 @@ function SwapKLineModalContent() {
       fromTokenSymbol: fromToken?.symbol,
       toTokenSymbol: toToken?.symbol,
     });
-  }, [
-    fromToken?.symbol,
-    isCheckingKLineAvailability,
-    resolvedSelectedSide,
-    selectedToken,
-    toToken?.symbol,
-  ]);
+  }, [fromToken?.symbol, resolvedSelectedSide, selectedToken, toToken?.symbol]);
 
   const handleSelectedSideChange = useCallback(
     (side: ESwapDirectionType) => {
@@ -372,11 +310,7 @@ function SwapKLineModalContent() {
     [fromToken, resolvedSelectedSide, toToken],
   );
 
-  const chartContent = isCheckingKLineAvailability ? (
-    <YStack flex={1} ai="center" jc="center" px="$5">
-      <Spinner size="large" />
-    </YStack>
-  ) : (
+  const chartContent = (
     <Stack
       flex={1}
       minHeight={360}
@@ -394,6 +328,7 @@ function SwapKLineModalContent() {
         disabledFeatures={SWAP_KLINE_DISABLED_TRADING_VIEW_FEATURES}
         storageNamespace={SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE}
         forceEmptyKLineData={shouldForceEmptyKLineData}
+        emptyKLineDataOnError
         w="100%"
         h="100%"
       />

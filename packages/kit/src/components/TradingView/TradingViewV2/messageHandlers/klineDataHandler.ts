@@ -288,10 +288,11 @@ export async function handleKLineDataRequest({
 
     // Use combined function to get sliced data
     try {
-      const shouldUseEmptyKLineData =
+      const shouldForceEmptyKLineData =
         context.forceEmptyKLineData ||
         (await shouldMockEmptyKLineData(resolution));
-      const kLineData = shouldUseEmptyKLineData
+      const shouldSuppressKLineError = Boolean(context.emptyKLineDataOnError);
+      const fetchedKLineData = shouldForceEmptyKLineData
         ? buildEmptyKLineData()
         : await fetchTradingViewV2DataWithSlicing({
             tokenAddress,
@@ -299,7 +300,14 @@ export async function handleKLineDataRequest({
             interval: resolution,
             timeFrom: from,
             timeTo: to,
+            autoHandleError: shouldSuppressKLineError ? false : undefined,
           });
+      const shouldUseEmptyKLineData =
+        shouldForceEmptyKLineData ||
+        (shouldSuppressKLineError && !fetchedKLineData);
+      const kLineData = shouldUseEmptyKLineData
+        ? buildEmptyKLineData()
+        : fetchedKLineData;
 
       if (webRef.current && kLineData) {
         webRef.current.sendMessageViaInjectedScript({

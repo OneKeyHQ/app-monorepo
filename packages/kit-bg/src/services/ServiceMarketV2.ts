@@ -271,12 +271,14 @@ class ServiceMarketV2 extends ServiceBase {
     interval,
     timeFrom,
     timeTo,
+    autoHandleError,
   }: {
     tokenAddress: string;
     networkId: string;
     interval?: string;
     timeFrom?: number;
     timeTo?: number;
+    autoHandleError?: boolean;
   }) {
     let innerInterval = interval?.toUpperCase();
 
@@ -284,12 +286,7 @@ class ServiceMarketV2 extends ServiceBase {
       innerInterval = innerInterval?.toLowerCase();
     }
 
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      code: number;
-      message: string;
-      data: IMarketTokenKLineResponse;
-    }>('/utility/v2/market/token/kline', {
+    const requestConfig = {
       params: {
         tokenAddress,
         networkId,
@@ -298,42 +295,17 @@ class ServiceMarketV2 extends ServiceBase {
         timeTo,
         currency: 'usd',
       },
-    });
+      ...(autoHandleError === false ? { autoHandleError: false } : {}),
+    };
+
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketTokenKLineResponse;
+    }>('/utility/v2/market/token/kline', requestConfig);
     const { data } = response.data;
     return data;
-  }
-
-  @backgroundMethod()
-  async checkMarketTokenKlineAvailable({
-    tokenAddress,
-    networkId,
-    interval,
-    timeFrom,
-    timeTo,
-  }: {
-    tokenAddress: string;
-    networkId: string;
-    interval?: string;
-    timeFrom?: number;
-    timeTo?: number;
-  }) {
-    if (!networkId) {
-      return false;
-    }
-
-    try {
-      const data = await this.fetchMarketTokenKline({
-        tokenAddress,
-        networkId,
-        interval,
-        timeFrom,
-        timeTo,
-      });
-      return Boolean(data?.points?.length);
-    } catch (error) {
-      console.error('Failed to check market token kline availability:', error);
-      return false;
-    }
   }
 
   @backgroundMethod()
