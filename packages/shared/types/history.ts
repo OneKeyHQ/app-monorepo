@@ -33,6 +33,7 @@ export enum EOnChainHistoryTxType {
   Send = 'Send',
   Receive = 'Receive',
   Approve = 'Approve',
+  PrivateSend = 'PrivateSend',
 }
 
 export type IOnChainHistoryTxApprove = {

@@ -95,12 +95,21 @@ const SwapHistoryDetailModal = () => {
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { formatDate } = useFormatDate();
   useEffect(() => {
+    if (!swapTxHistoryList?.length) return;
+    if (
+      txHistoryOrderId &&
+      !swapTxHistoryList.some(
+        (item) => item.swapInfo.orderId === txHistoryOrderId,
+      )
+    ) {
+      return;
+    }
     if (
       JSON.stringify(swapTxHistoryList) !== JSON.stringify(txHistoryListState)
     ) {
       setTxHistoryListState(swapTxHistoryList);
     }
-  }, [swapTxHistoryList, txHistoryListState]);
+  }, [swapTxHistoryList, txHistoryListState, txHistoryOrderId]);
   const txHistory = useMemo(
     () =>
       txHistoryListState?.find(
@@ -402,25 +411,27 @@ const SwapHistoryDetailModal = () => {
   const renderSwapProvider = useCallback(
     () => (
       <XStack alignItems="center" gap="$1">
-        <Stack position="relative" w="$5" h="$5">
-          <Image
-            source={{ uri: txHistory?.swapInfo.provider.providerLogo ?? '' }}
-            w="$5"
-            h="$5"
-            borderRadius="$1"
-          />
-          <Stack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            borderRadius="$1"
-            borderWidth="$px"
-            borderColor="$borderSubdued"
-            pointerEvents="none"
-          />
-        </Stack>
+        {txHistory?.swapInfo.provider.providerLogo ? (
+          <Stack position="relative" w="$5" h="$5">
+            <Image
+              source={{ uri: txHistory.swapInfo.provider.providerLogo }}
+              w="$5"
+              h="$5"
+              borderRadius="$1"
+            />
+            <Stack
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              borderRadius="$1"
+              borderWidth="$px"
+              borderColor="$borderSubdued"
+              pointerEvents="none"
+            />
+          </Stack>
+        ) : null}
         <SizableText size="$bodyLg" color="$textSubdued">
           {txHistory?.swapInfo.provider.providerName ?? ''}
         </SizableText>

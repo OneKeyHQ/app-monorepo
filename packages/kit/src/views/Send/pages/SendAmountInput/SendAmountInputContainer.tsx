@@ -1,8 +1,16 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNil, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
@@ -73,6 +81,7 @@ import {
   swapSlippageAutoValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  IFetchQuoteInfo,
   IFetchQuoteResult,
   ISwapToken,
   ISwapTxHistory,
@@ -617,59 +626,91 @@ function SendAmountInputContainer() {
     [amount, isUseFiat, linkedAmount.originalAmount],
   );
 
-  const { result: privateSendQuote, isLoading: isPrivateSendQuoteLoading } =
-    usePromiseResult(
-      async () => {
-        if (
-          sendMode !== ESendMode.PRIVATE ||
-          !isPrivateSendSupported ||
-          !privateSendToken ||
-          !account?.address ||
-          !recipientAddress ||
-          hasAmountError
-        ) {
-          return undefined;
-        }
-        const amountBN = new BigNumber(privateSendAmount || 0);
-        if (amountBN.isNaN() || amountBN.isLessThanOrEqualTo(0)) {
-          return undefined;
-        }
-        try {
-          const quotes = await backgroundApiProxy.serviceSwap.fetchQuotes({
-            fromToken: privateSendToken,
-            toToken: privateSendToken,
-            fromTokenAmount: amountBN.toFixed(),
-            userAddress: account.address,
-            receivingAddress: recipientAddress,
-            slippagePercentage: swapSlippageAutoValue,
-            protocol: ESwapTabSwitchType.PRIVATE_SEND,
-            kind: ESwapQuoteKind.SELL,
-            accountId: currentAccountId,
-          });
-          return (
-            quotes.find(
-              (item) =>
-                item.info.provider && !item.errorMessage && item.toAmount,
-            ) ??
-            quotes.find((item) => item.info.provider) ??
-            quotes[0]
-          );
-        } catch {
-          return undefined;
-        }
-      },
-      [
-        account?.address,
-        currentAccountId,
-        hasAmountError,
-        isPrivateSendSupported,
-        privateSendAmount,
-        privateSendToken,
-        recipientAddress,
-        sendMode,
-      ],
-      { watchLoading: true, alwaysSetState: true },
-    );
+  const {
+    result: privateSendQuoteResult,
+    isLoading: isPrivateSendQuoteLoading,
+  } = usePromiseResult(
+    async () => {
+      if (
+        sendMode !== ESendMode.PRIVATE ||
+        !isPrivateSendSupported ||
+        !privateSendToken ||
+        !account?.address ||
+        !recipientAddress ||
+        hasAmountError
+      ) {
+        return undefined;
+      }
+      const amountBN = new BigNumber(privateSendAmount || 0);
+      if (amountBN.isNaN() || amountBN.isLessThanOrEqualTo(0)) {
+        return undefined;
+      }
+      try {
+        const quotes = await backgroundApiProxy.serviceSwap.fetchQuotes({
+          fromToken: privateSendToken,
+          toToken: privateSendToken,
+          fromTokenAmount: amountBN.toFixed(),
+          userAddress: account.address,
+          receivingAddress: recipientAddress,
+          slippagePercentage: swapSlippageAutoValue,
+          protocol: ESwapTabSwitchType.PRIVATE_SEND,
+          kind: ESwapQuoteKind.SELL,
+          accountId: currentAccountId,
+        });
+        const selectedQuote =
+          quotes.find(
+            (item) => item.info.provider && !item.errorMessage && item.toAmount,
+          ) ??
+          quotes.find((item) => item.info.provider) ??
+          quotes[0];
+
+        return {
+          selectedQuote,
+          quotes,
+        };
+      } catch {
+        return undefined;
+      }
+    },
+    [
+      account?.address,
+      currentAccountId,
+      hasAmountError,
+      isPrivateSendSupported,
+      privateSendAmount,
+      privateSendToken,
+      recipientAddress,
+      sendMode,
+    ],
+    { watchLoading: true, alwaysSetState: true, debounced: 500 },
+  );
+  const privateSendQuote = privateSendQuoteResult?.selectedQuote;
+  const privateSendQuoteProviderList = useMemo(
+    () =>
+      uniqBy(
+        (privateSendQuoteResult?.quotes ?? []).filter(
+          (item) => item.info.provider,
+        ),
+        (item) => item.info.provider,
+      ),
+    [privateSendQuoteResult?.quotes],
+  );
+  const [privateSendProviderIndex, setPrivateSendProviderIndex] = useState(0);
+  useEffect(() => {
+    if (
+      !isPrivateSendQuoteLoading ||
+      privateSendQuoteProviderList.length <= 1
+    ) {
+      setPrivateSendProviderIndex(0);
+      return undefined;
+    }
+    const timer = setInterval(() => {
+      setPrivateSendProviderIndex(
+        (index) => (index + 1) % privateSendQuoteProviderList.length,
+      );
+    }, 900);
+    return () => clearInterval(timer);
+  }, [isPrivateSendQuoteLoading, privateSendQuoteProviderList.length]);
 
   const privateSendQuoteError = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return undefined;
@@ -1550,6 +1591,9 @@ function SendAmountInputContainer() {
                 utxoSelectionStrategy: currentUtxoSelectionStrategy,
               },
             ];
+            const privateSendAmountToSend =
+              buildSwapRes.changellyOrder.amountExpectedFrom ??
+              privateSendFromAmount;
 
             const swapInfo: ISwapTxInfo = {
               protocol: EProtocolOfExchange.PRIVATE_SEND,
@@ -1665,7 +1709,11 @@ function SendAmountInputContainer() {
                 try {
                   await addPrivateSendHistoryItem(data);
                 } catch (error) {
-                  console.error('Add private send history item failed', error);
+                  defaultLogger.app.error.log(
+                    `Add private send history item failed: ${
+                      error instanceof Error ? error.message : String(error)
+                    }`,
+                  );
                 } finally {
                   onSuccess?.(data);
                 }
@@ -1673,9 +1721,10 @@ function SendAmountInputContainer() {
               onFail,
               onCancel,
               transferPayload: {
-                amountToSend: realAmount,
+                amountToSend: privateSendAmountToSend,
                 isMaxSend,
                 isNFT: false,
+                isPrivateSend: true,
                 originalRecipient: submitRecipientAddress,
                 isToContract: submitRecipientIsContract,
                 memo: recipientMemo,
@@ -2476,8 +2525,93 @@ function SendAmountInputContainer() {
     tokenSymbol,
   ]);
 
+  const renderPrivateSendProviderContent = useCallback(
+    ({
+      isLoading,
+      providerInfo,
+    }: {
+      isLoading?: boolean;
+      providerInfo?: IFetchQuoteInfo;
+    }) => {
+      const providerName = providerInfo?.providerName || providerInfo?.provider;
+      let providerContent: ReactNode = null;
+      if (providerName) {
+        providerContent = (
+          <XStack alignItems="center" justifyContent="flex-end" gap="$1">
+            {providerInfo?.providerLogo ? (
+              <Stack position="relative" w="$5" h="$5">
+                <Image
+                  source={{ uri: providerInfo.providerLogo }}
+                  w="$5"
+                  h="$5"
+                  borderRadius="$1"
+                />
+                <Stack
+                  position="absolute"
+                  top={0}
+                  left={0}
+                  right={0}
+                  bottom={0}
+                  borderRadius="$1"
+                  borderWidth="$px"
+                  borderColor="$borderSubdued"
+                  pointerEvents="none"
+                />
+              </Stack>
+            ) : null}
+            <SizableText
+              size="$bodyMd"
+              color="$text"
+              numberOfLines={1}
+              maxWidth="$32"
+            >
+              {providerName}
+            </SizableText>
+          </XStack>
+        );
+      } else if (!isLoading) {
+        providerContent = (
+          <SizableText size="$bodyMd" color="$text">
+            --
+          </SizableText>
+        );
+      }
+
+      return (
+        <XStack alignItems="center" justifyContent="flex-end" gap="$1">
+          {isLoading ? (
+            <LottieView
+              source={
+                themeVariant === 'light'
+                  ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
+                  : require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
+              }
+              autoPlay
+              loop
+              style={{
+                width: 32,
+                height: 20,
+              }}
+            />
+          ) : null}
+          {providerContent}
+        </XStack>
+      );
+    },
+    [themeVariant],
+  );
+
   const renderPrivateSendQuoteCard = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return null;
+    const hasPrivateSendQuote = !!privateSendQuote?.toAmount;
+    const showPrivateSendQuoteSkeleton =
+      isPrivateSendQuoteLoading && !hasPrivateSendQuote;
+    const loadingProviderInfo =
+      privateSendQuoteProviderList.length > 0
+        ? privateSendQuoteProviderList[
+            privateSendProviderIndex % privateSendQuoteProviderList.length
+          ]?.info
+        : privateSendQuote?.info;
     const toTokenSymbol =
       privateSendQuote?.toTokenInfo.symbol ?? privateSendToken?.symbol ?? '';
     const toAmount = privateSendQuote?.toAmount ?? '0';
@@ -2508,7 +2642,7 @@ function SendAmountInputContainer() {
               id: ETranslations.private_send_estimated_received,
             })}
           </SizableText>
-          {isPrivateSendQuoteLoading ? (
+          {showPrivateSendQuoteSkeleton ? (
             <Skeleton h="$4" w="$24" />
           ) : (
             <YStack alignItems="flex-end">
@@ -2540,7 +2674,7 @@ function SendAmountInputContainer() {
               id: ETranslations.private_send_arrival_in,
             })}
           </SizableText>
-          {isPrivateSendQuoteLoading ? (
+          {showPrivateSendQuoteSkeleton ? (
             <Skeleton h="$4" w="$16" />
           ) : (
             <SizableText size="$bodyMd" color="$text">
@@ -2557,50 +2691,12 @@ function SendAmountInputContainer() {
               id: ETranslations.swap_history_detail_provider,
             })}
           </SizableText>
-          {isPrivateSendQuoteLoading ? (
-            <LottieView
-              source={
-                themeVariant === 'light'
-                  ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
-                  : require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
-              }
-              autoPlay
-              loop
-              style={{
-                width: 40,
-                height: 24,
-              }}
-            />
-          ) : (
-            <XStack alignItems="center" gap="$1">
-              {privateSendQuote?.info.providerLogo ? (
-                <Stack position="relative" w="$5" h="$5">
-                  <Image
-                    source={{ uri: privateSendQuote.info.providerLogo }}
-                    w="$5"
-                    h="$5"
-                    borderRadius="$1"
-                  />
-                  <Stack
-                    position="absolute"
-                    top={0}
-                    left={0}
-                    right={0}
-                    bottom={0}
-                    borderRadius="$1"
-                    borderWidth="$px"
-                    borderColor="$borderSubdued"
-                    pointerEvents="none"
-                  />
-                </Stack>
-              ) : null}
-              <SizableText size="$bodyMd" color="$text">
-                {privateSendQuote?.info.providerName ||
-                  privateSendQuote?.info.provider ||
-                  '--'}
-              </SizableText>
-            </XStack>
-          )}
+          {renderPrivateSendProviderContent({
+            isLoading: isPrivateSendQuoteLoading,
+            providerInfo: isPrivateSendQuoteLoading
+              ? loadingProviderInfo
+              : privateSendQuote?.info,
+          })}
         </XStack>
         {privateSendQuoteError ? (
           <SizableText size="$bodySm" color="$textCritical">
@@ -2615,9 +2711,11 @@ function SendAmountInputContainer() {
     isPrivateSendQuoteLoading,
     privateSendQuote,
     privateSendQuoteError,
+    privateSendProviderIndex,
+    privateSendQuoteProviderList,
     privateSendToken?.symbol,
+    renderPrivateSendProviderContent,
     sendMode,
-    themeVariant,
   ]);
 
   return (
