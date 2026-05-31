@@ -8,6 +8,11 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import resetUtils from '../../utils/resetUtils';
 
+import {
+  COLD_START_CACHE_STORAGE_ID,
+  LEGACY_COLD_START_CACHE_STORAGE_ID,
+} from './coldStartCacheStorageConfig';
+
 import type { ISyncStorage } from './syncStorageInstance';
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
 
@@ -82,11 +87,66 @@ const syncStorageDesktop = createDesktopSyncStorage({
 });
 
 const coldStartCacheStorageDesktop = createDesktopSyncStorage({
-  id: 'onekey-cold-start-cache',
+  id: COLD_START_CACHE_STORAGE_ID,
 });
 
+const legacyColdStartCacheStorageDesktop = createDesktopSyncStorage({
+  id: LEGACY_COLD_START_CACHE_STORAGE_ID,
+});
+
+const coldStartCacheStorageDesktopWithLegacyFallback: ISyncStorage = {
+  set(key, value) {
+    coldStartCacheStorageDesktop.set(key, value);
+    legacyColdStartCacheStorageDesktop.delete(key);
+  },
+  setObject(key, value) {
+    coldStartCacheStorageDesktop.setObject(key, value);
+    legacyColdStartCacheStorageDesktop.delete(key);
+  },
+  getObject<T>(key: EAppSyncStorageKeys): T | undefined {
+    return (
+      coldStartCacheStorageDesktop.getObject<T>(key) ??
+      legacyColdStartCacheStorageDesktop.getObject<T>(key)
+    );
+  },
+  getString(key) {
+    return (
+      coldStartCacheStorageDesktop.getString(key) ??
+      legacyColdStartCacheStorageDesktop.getString(key)
+    );
+  },
+  getNumber(key) {
+    return (
+      coldStartCacheStorageDesktop.getNumber(key) ??
+      legacyColdStartCacheStorageDesktop.getNumber(key)
+    );
+  },
+  getBoolean(key) {
+    return (
+      coldStartCacheStorageDesktop.getBoolean(key) ??
+      legacyColdStartCacheStorageDesktop.getBoolean(key)
+    );
+  },
+  delete(key) {
+    coldStartCacheStorageDesktop.delete(key);
+    legacyColdStartCacheStorageDesktop.delete(key);
+  },
+  clearAll() {
+    coldStartCacheStorageDesktop.clearAll();
+    legacyColdStartCacheStorageDesktop.clearAll();
+  },
+  getAllKeys() {
+    return [
+      ...new Set([
+        ...coldStartCacheStorageDesktop.getAllKeys(),
+        ...legacyColdStartCacheStorageDesktop.getAllKeys(),
+      ]),
+    ];
+  },
+};
+
 export {
-  coldStartCacheStorageDesktop as coldStartCacheStorage,
+  coldStartCacheStorageDesktopWithLegacyFallback as coldStartCacheStorage,
   syncStorageDesktop as syncStorage,
 };
 export type { ISyncStorage };

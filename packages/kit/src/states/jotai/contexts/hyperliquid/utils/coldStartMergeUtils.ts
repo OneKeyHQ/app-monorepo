@@ -1,4 +1,7 @@
-import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  isSpotInstrument,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IPerpsAssetPosition,
   IPerpsFrontendOrder,
@@ -19,6 +22,9 @@ export function filterCanceledOpenOrders<T extends IPerpsFrontendOrder>(
 export function buildOpenOrdersByDexMap(openOrders: IPerpsFrontendOrder[]) {
   return openOrders.reduce<Record<string, IPerpsFrontendOrder[]>>(
     (acc, order) => {
+      if (isSpotInstrument(order.coin)) {
+        return acc;
+      }
       const dex = parseDexCoin(order.coin).dexLabel ?? '';
       if (!acc[dex]) {
         acc[dex] = [];
@@ -27,6 +33,37 @@ export function buildOpenOrdersByDexMap(openOrders: IPerpsFrontendOrder[]) {
       return acc;
     },
     {},
+  );
+}
+
+export function mergeCachedSpotOpenOrders<T extends IPerpsFrontendOrder>({
+  activeAccountAddress,
+  cachedAccountAddress,
+  freshSpotOpenOrders,
+  cachedSpotOpenOrders,
+  canceledOrderIds,
+}: {
+  activeAccountAddress?: string | null;
+  cachedAccountAddress?: string | null;
+  freshSpotOpenOrders: T[];
+  cachedSpotOpenOrders?: T[];
+  canceledOrderIds: Set<number>;
+}) {
+  const activeAddress = normalizePerpsAccountAddress(activeAccountAddress);
+  const cachedAddress = normalizePerpsAccountAddress(cachedAccountAddress);
+  if (!activeAddress || activeAddress !== cachedAddress) {
+    return filterCanceledOpenOrders(freshSpotOpenOrders, canceledOrderIds);
+  }
+
+  const freshOrderIds = new Set(freshSpotOpenOrders.map((order) => order.oid));
+  return filterCanceledOpenOrders(
+    [
+      ...freshSpotOpenOrders,
+      ...(cachedSpotOpenOrders ?? []).filter(
+        (order) => !freshOrderIds.has(order.oid),
+      ),
+    ],
+    canceledOrderIds,
   );
 }
 

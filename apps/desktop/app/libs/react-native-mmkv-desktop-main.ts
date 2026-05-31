@@ -6,16 +6,36 @@ import { ipcMain } from 'electron';
 import Store from 'electron-store';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  COLD_START_CACHE_STORAGE_ENCRYPTION_KEY,
+  COLD_START_CACHE_STORAGE_ID,
+} from '@onekeyhq/shared/src/storage/instance/coldStartCacheStorageConfig';
 
 const IPC_CHANNEL = 'mmkv:sync';
-const PERSISTENT_IDS = new Set(['onekey-app-setting']);
+const PERSISTENT_IDS = new Set([
+  'onekey-app-setting',
+  COLD_START_CACHE_STORAGE_ID,
+]);
 
 const stores = new Map<string, Store>();
 
-function getOrCreateStore(id: string): Store {
+function getStoreEncryptionKey(id: string, encryptionKey?: string) {
+  return (
+    encryptionKey ??
+    (id === COLD_START_CACHE_STORAGE_ID
+      ? COLD_START_CACHE_STORAGE_ENCRYPTION_KEY
+      : undefined)
+  );
+}
+
+function getOrCreateStore(id: string, encryptionKey?: string): Store {
   let s = stores.get(id);
   if (!s) {
-    s = new Store({ name: `mmkv-${id}` });
+    const storeEncryptionKey = getStoreEncryptionKey(id, encryptionKey);
+    s = new Store({
+      name: `mmkv-${id}`,
+      ...(storeEncryptionKey ? { encryptionKey: storeEncryptionKey } : {}),
+    });
     stores.set(id, s);
   }
   return s;
@@ -85,11 +105,11 @@ class MMKV {
 
   private listeners: Set<(changedKey: string) => void>;
 
-  constructor(options: { id: string }) {
+  constructor(options: { id: string; encryptionKey?: string }) {
     this.listeners = new Set();
     this.memoryStore = new Map();
     this.store = PERSISTENT_IDS.has(options.id)
-      ? getOrCreateStore(options.id)
+      ? getOrCreateStore(options.id, options.encryptionKey)
       : null;
   }
 
@@ -177,4 +197,7 @@ class MMKV {
   }
 }
 
-export const createMMKV = (options: { id: string }): MMKV => new MMKV(options);
+export const createMMKV = (options: {
+  id: string;
+  encryptionKey?: string;
+}): MMKV => new MMKV(options);

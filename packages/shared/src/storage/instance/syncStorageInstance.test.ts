@@ -22,6 +22,13 @@ jest.mock('../../utils/resetUtils', () => ({
 
 // Use real MMKV mock (provided by jest-setup.js)
 const testMMKV = createMMKV({ id: 'test-sync-storage' });
+const testColdStartMMKV = createMMKV({ id: 'test-cold-start-cache' });
+const testLegacyColdStartMMKV = createMMKV({
+  id: 'test-legacy-cold-start-cache',
+});
+const mockGetLegacyColdStartCacheMMKVInstance = jest.fn(
+  () => testLegacyColdStartMMKV,
+);
 
 jest.mock('./mmkvStorageInstance', () => ({
   __esModule: true,
@@ -30,7 +37,8 @@ jest.mock('./mmkvStorageInstance', () => ({
 
 jest.mock('./coldStartCacheMMKVInstance', () => ({
   __esModule: true,
-  default: createMMKV({ id: 'test-cold-start-cache' }),
+  default: testColdStartMMKV,
+  getLegacyColdStartCacheMMKVInstance: mockGetLegacyColdStartCacheMMKVInstance,
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -39,12 +47,14 @@ const { createMMKVSyncStorage, syncStorage, coldStartCacheStorage } =
 
 function resetAll() {
   testMMKV.clearAll();
+  testColdStartMMKV.clearAll();
+  testLegacyColdStartMMKV.clearAll();
   jest.clearAllMocks();
 }
 
-describe('createMMKVSyncStorage', () => {
-  beforeEach(resetAll);
+beforeEach(resetAll);
 
+describe('createMMKVSyncStorage', () => {
   describe('safe set — null/undefined guard', () => {
     it('set(key, string) writes normally', () => {
       const store = createMMKVSyncStorage(testMMKV);
@@ -168,5 +178,31 @@ describe('coldStartCacheStorage export', () => {
     mockCheckNotInResetting.mockClear();
     coldStartCacheStorage.set('test' as any, 'val');
     expect(mockCheckNotInResetting).not.toHaveBeenCalled();
+  });
+
+  it('does not initialize legacy storage when primary cache has the key', () => {
+    testColdStartMMKV.set('test', 'primary');
+
+    expect(coldStartCacheStorage.getString('test' as any)).toBe('primary');
+    expect(mockGetLegacyColdStartCacheMMKVInstance).not.toHaveBeenCalled();
+  });
+
+  it('falls back to legacy storage lazily and removes legacy key on next write', () => {
+    testLegacyColdStartMMKV.set('test', 'legacy');
+
+    expect(coldStartCacheStorage.getString('test' as any)).toBe('legacy');
+    expect(mockGetLegacyColdStartCacheMMKVInstance).toHaveBeenCalledTimes(1);
+
+    coldStartCacheStorage.set('test' as any, 'primary');
+
+    expect(testColdStartMMKV.getString('test')).toBe('primary');
+    expect(testLegacyColdStartMMKV.getString('test')).toBeUndefined();
+  });
+
+  it('does not initialize legacy storage for new primary writes', () => {
+    coldStartCacheStorage.set('test' as any, 'primary');
+
+    expect(testColdStartMMKV.getString('test')).toBe('primary');
+    expect(mockGetLegacyColdStartCacheMMKVInstance).not.toHaveBeenCalled();
   });
 });

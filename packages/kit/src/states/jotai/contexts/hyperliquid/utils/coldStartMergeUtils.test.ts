@@ -6,6 +6,7 @@ import type {
 import {
   buildOpenOrdersByDexMap,
   filterCanceledOpenOrders,
+  mergeCachedSpotOpenOrders,
   mergePrimaryPositionsWithCachedDexPositions,
 } from './coldStartMergeUtils';
 
@@ -32,6 +33,7 @@ describe('coldStartMergeUtils', () => {
     const openOrdersByDex = buildOpenOrdersByDexMap([
       order('BTC', 1),
       order('xyz:NVDA', 2),
+      order('@1', 3),
     ]);
 
     expect(openOrdersByDex).toEqual({
@@ -44,6 +46,30 @@ describe('coldStartMergeUtils', () => {
         new Set([1]),
       ),
     ).toEqual([order('xyz:NVDA', 2)]);
+  });
+
+  it('keeps cached spot orders separate from dex refresh buckets', () => {
+    expect(
+      mergeCachedSpotOpenOrders({
+        activeAccountAddress: '0xABC',
+        cachedAccountAddress: '0xabc',
+        freshSpotOpenOrders: [order('@1', 1)],
+        cachedSpotOpenOrders: [order('@1', 1), order('@2', 2), order('@3', 3)],
+        canceledOrderIds: new Set([3]),
+      }),
+    ).toEqual([order('@1', 1), order('@2', 2)]);
+  });
+
+  it('does not reuse cached spot orders from another account', () => {
+    expect(
+      mergeCachedSpotOpenOrders({
+        activeAccountAddress: '0xabc',
+        cachedAccountAddress: '0xdef',
+        freshSpotOpenOrders: [order('@1', 1)],
+        cachedSpotOpenOrders: [order('@2', 2)],
+        canceledOrderIds: new Set(),
+      }),
+    ).toEqual([order('@1', 1)]);
   });
 
   it('preserves cached non-primary dex positions during primary webData2 updates', () => {

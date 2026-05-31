@@ -104,6 +104,7 @@ import {
   buildOpenOrdersByDexMap,
   filterCanceledOpenOrders,
   getActivePerpsPositions,
+  mergeCachedSpotOpenOrders,
   mergePrimaryPositionsWithCachedDexPositions,
   sortActivePerpsPositions,
 } from './utils/coldStartMergeUtils';
@@ -117,6 +118,7 @@ import {
 
 import type {
   IActiveTradeInstrument,
+  IPerpsActiveOpenOrdersAtom,
   ITradeRouteViewState,
   ITradingFormData,
 } from './atoms';
@@ -328,19 +330,47 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   }
 
   private async findChartOrder(
-    get: (atom: ReturnType<typeof perpsActiveOpenOrdersAtom>) => {
-      openOrders: HL.IPerpsFrontendOrder[];
-    },
+    get: (
+      atom: ReturnType<typeof perpsActiveOpenOrdersAtom>,
+    ) => IPerpsActiveOpenOrdersAtom,
     oid: number,
   ): Promise<HL.IPerpsFrontendOrder | undefined> {
-    const { openOrders: perpOpenOrders } = get(perpsActiveOpenOrdersAtom());
-    const perpOrder = perpOpenOrders.find((order) => order.oid === oid);
-    if (perpOrder) {
-      return perpOrder;
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAccountAddress = normalizePerpsAccountAddress(
+      activeAccount?.accountAddress,
+    );
+    const activeOpenOrdersState = get(perpsActiveOpenOrdersAtom());
+    const isPerpsOpenOrdersScoped =
+      !activeAccountAddress ||
+      normalizePerpsAccountAddress(activeOpenOrdersState.accountAddress) ===
+        activeAccountAddress;
+    if (isPerpsOpenOrdersScoped) {
+      const perpOrder = activeOpenOrdersState.openOrders.find(
+        (order) => order.oid === oid,
+      );
+      if (perpOrder) {
+        return perpOrder;
+      }
     }
 
-    const { openOrders: spotOpenOrders } = await spotActiveOpenOrdersAtom.get();
-    return spotOpenOrders.find((order) => order.oid === oid);
+    const { openOrders: spotOpenOrders, accountAddress: spotAccountAddress } =
+      await spotActiveOpenOrdersAtom.get();
+    const isLiveSpotOrdersScoped =
+      !activeAccountAddress ||
+      normalizePerpsAccountAddress(spotAccountAddress) === activeAccountAddress;
+    if (isLiveSpotOrdersScoped) {
+      const spotOrder = spotOpenOrders.find((order) => order.oid === oid);
+      if (spotOrder) {
+        return spotOrder;
+      }
+    }
+
+    if (isPerpsOpenOrdersScoped) {
+      return activeOpenOrdersState.spotOpenOrders?.find(
+        (order) => order.oid === oid,
+      );
+    }
+    return undefined;
   }
 
   private buildOpenOrdersByCoinMap(
@@ -596,7 +626,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           perpOrders,
           prevOpenOrdersState?.openOrdersByCoin,
         );
-        const openOrdersByDex = buildOpenOrdersByDexMap(allOrders);
+        const openOrdersByDex = buildOpenOrdersByDexMap(perpOrders);
         this.replaceOpenOrdersByDexCache({
           activeAccountAddress,
           openOrdersByDex,
@@ -762,12 +792,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const allOrders = data.orders.filter(
         (order) => !this.canceledOrderIds.has(order.oid),
       );
+      const freshSpotOrders = allOrders.filter((order) =>
+        isSpotInstrument(order.coin),
+      );
+      const perDexOrders = allOrders.filter(
+        (order) => !isSpotInstrument(order.coin),
+      );
       this.ensureOpenOrdersCacheAccount(activeAccountAddress);
       this.seedOpenOrdersByDexCacheFromSnapshot({
         activeAccountAddress,
         snapshot: prevOpenOrdersState,
       });
-      this.openOrdersByDexCache.set(data?.dex ?? '', allOrders);
+      this.openOrdersByDexCache.set(data?.dex ?? '', perDexOrders);
       const mergedOrders = filterCanceledOpenOrders(
         Array.from(this.openOrdersByDexCache.values()).flat(),
         this.canceledOrderIds,
@@ -776,9 +812,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const perpOrders = mergedOrders.filter(
         (order) => !isSpotInstrument(order.coin),
       );
-      const spotOrders = mergedOrders.filter((order) =>
-        isSpotInstrument(order.coin),
-      );
+      const spotOrders = mergeCachedSpotOpenOrders({
+        activeAccountAddress,
+        cachedAccountAddress: prevOpenOrdersState?.accountAddress,
+        freshSpotOpenOrders: freshSpotOrders,
+        cachedSpotOpenOrders: prevOpenOrdersState?.spotOpenOrders,
+        canceledOrderIds: this.canceledOrderIds,
+      });
       const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
         perpOrders,
         prevOpenOrdersState?.openOrdersByCoin,
@@ -1546,9 +1586,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const previousAddress = normalizePerpsAccountAddress(
         previousAccount?.accountAddress,
       );
-      const cachedPositionState = get(perpsActivePositionAtom());
-      const cachedOpenOrdersState = get(perpsActiveOpenOrdersAtom());
-      const cachedSpotOpenOrdersState = await spotActiveOpenOrdersAtom.get();
       const account =
         await backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount(
           params,
@@ -1556,13 +1593,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (!account) {
         return account;
       }
+      const latestPositionState = get(perpsActivePositionAtom());
+      const latestOpenOrdersState = get(perpsActiveOpenOrdersAtom());
+      const latestSpotOpenOrdersState = await spotActiveOpenOrdersAtom.get();
       const cleanupPlan = getPerpsAccountSwitchCleanupPlan({
         previousAccountAddress: previousAddress,
         nextAccountAddress: account?.accountAddress,
-        cachedPositionAccountAddress: cachedPositionState.accountAddress,
-        cachedOpenOrdersAccountAddress: cachedOpenOrdersState.accountAddress,
+        cachedPositionAccountAddress: latestPositionState.accountAddress,
+        cachedOpenOrdersAccountAddress: latestOpenOrdersState.accountAddress,
         cachedSpotOpenOrdersAccountAddress:
-          cachedSpotOpenOrdersState.accountAddress,
+          latestSpotOpenOrdersState.accountAddress,
       });
       if (cleanupPlan.shouldClearActiveAccountData) {
         await this.clearActiveAccountData.call(set);

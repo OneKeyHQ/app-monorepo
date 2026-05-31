@@ -8,7 +8,7 @@ class MMKV {
 
   private listeners: Set<(changedKey: string) => void>;
 
-  constructor(_: { id: string }) {
+  constructor(_: { id: string; encryptionKey?: string }) {
     this.storage = new Map();
     this.listeners = new Set();
   }
@@ -78,4 +78,7 @@ class MMKV {
   }
 }
 
-export const createMMKV = (options: { id: string }): MMKV => new MMKV(options);
+export const createMMKV = (options: {
+  id: string;
+  encryptionKey?: string;
+}): MMKV => new MMKV(options);

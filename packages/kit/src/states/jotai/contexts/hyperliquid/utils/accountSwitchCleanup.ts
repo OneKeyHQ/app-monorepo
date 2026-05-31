@@ -37,10 +37,14 @@ export function getPerpsAccountSwitchCleanupPlan({
     nextAddress && cachedSpotOpenOrdersAddress === nextAddress,
   );
   const hasNextAddressContextCache = Boolean(
-    hasNextPositionCache || hasNextOpenOrdersCache,
+    hasNextPositionCache ||
+    hasNextOpenOrdersCache ||
+    hasNextSpotOpenOrdersCache,
   );
   const hasAccountScopedContextCache = Boolean(
-    cachedPositionAddress || cachedOpenOrdersAddress,
+    cachedPositionAddress ||
+    cachedOpenOrdersAddress ||
+    cachedSpotOpenOrdersAddress,
   );
   const shouldClearActiveAccountData =
     (accountChanged && !hasNextAddressContextCache) ||

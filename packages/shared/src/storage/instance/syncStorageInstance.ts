@@ -5,7 +5,9 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '../../platformEnv';
 import resetUtils from '../../utils/resetUtils';
 
-import coldStartCacheMMKVInstance from './coldStartCacheMMKVInstance';
+import coldStartCacheMMKVInstance, {
+  getLegacyColdStartCacheMMKVInstance,
+} from './coldStartCacheMMKVInstance';
 import mmkvStorageInstance from './mmkvStorageInstance';
 
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
@@ -93,6 +95,65 @@ export function createMMKVSyncStorage(
 
 export type ISyncStorage = ReturnType<typeof createMMKVSyncStorage>;
 
+function createColdStartCacheSyncStorage({
+  primary,
+  getLegacy,
+}: {
+  primary: ISyncStorage;
+  getLegacy: () => ISyncStorage;
+}): ISyncStorage {
+  let legacy: ISyncStorage | undefined;
+  let legacyTouched = false;
+
+  const legacyStorage = () => {
+    legacyTouched = true;
+    legacy ??= getLegacy();
+    return legacy;
+  };
+
+  const deleteLegacyKeyIfTouched = (key: EAppSyncStorageKeys) => {
+    if (legacyTouched) {
+      legacyStorage().delete(key);
+    }
+  };
+
+  return {
+    set(key, value) {
+      primary.set(key, value);
+      deleteLegacyKeyIfTouched(key);
+    },
+    setObject(key, value) {
+      primary.setObject(key, value);
+      deleteLegacyKeyIfTouched(key);
+    },
+    getObject<T>(key: EAppSyncStorageKeys): T | undefined {
+      return primary.getObject<T>(key) ?? legacyStorage().getObject<T>(key);
+    },
+    getString(key) {
+      return primary.getString(key) ?? legacyStorage().getString(key);
+    },
+    getNumber(key) {
+      return primary.getNumber(key) ?? legacyStorage().getNumber(key);
+    },
+    getBoolean(key) {
+      return primary.getBoolean(key) ?? legacyStorage().getBoolean(key);
+    },
+    delete(key) {
+      primary.delete(key);
+      legacyStorage().delete(key);
+    },
+    clearAll() {
+      primary.clearAll();
+      legacyStorage().clearAll();
+    },
+    getAllKeys() {
+      return [
+        ...new Set([...primary.getAllKeys(), ...legacyStorage().getAllKeys()]),
+      ];
+    },
+  };
+}
+
 // ---- No-op stub for extension background service worker ----
 
 const syncStorageExtBg: ISyncStorage = {
@@ -130,5 +191,9 @@ export const syncStorage = platformEnv.isExtensionBackgroundServiceWorker
  *  this cache depends on. Non-native platforms get a no-op stub so reads
  *  always miss and writes are discarded. */
 export const coldStartCacheStorage = platformEnv.isNative
-  ? createMMKVSyncStorage(coldStartCacheMMKVInstance)
+  ? createColdStartCacheSyncStorage({
+      primary: createMMKVSyncStorage(coldStartCacheMMKVInstance),
+      getLegacy: () =>
+        createMMKVSyncStorage(getLegacyColdStartCacheMMKVInstance()),
+    })
   : syncStorageExtBg;

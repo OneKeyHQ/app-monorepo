@@ -73,6 +73,24 @@ describe('getPerpsAccountSwitchCleanupPlan', () => {
     });
   });
 
+  it('preserves spot-only cached rows and clears mismatched scoped rows', () => {
+    expect(
+      getPerpsAccountSwitchCleanupPlan({
+        previousAccountAddress: '0xaaa',
+        nextAccountAddress: '0xbbb',
+        cachedPositionAccountAddress: '0xaaa',
+        cachedOpenOrdersAccountAddress: '0xaaa',
+        cachedSpotOpenOrdersAccountAddress: '0xbbb',
+      }),
+    ).toEqual({
+      shouldClearActiveAccountData: false,
+      shouldClearPositionData: true,
+      shouldClearOpenOrdersData: true,
+      shouldClearSpotOpenOrdersData: false,
+      shouldClearTransientData: true,
+    });
+  });
+
   it('clears account-scoped rows when the resolved account has no address', () => {
     expect(
       getPerpsAccountSwitchCleanupPlan({
