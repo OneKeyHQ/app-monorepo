@@ -2619,6 +2619,17 @@ export default class ServiceHyperliquid extends ServiceBase {
         });
       }
     }
+    const onekeyAgentNames = [
+      EHyperLiquidAgentName.OneKeyAgent1,
+      EHyperLiquidAgentName.OneKeyAgent2,
+      EHyperLiquidAgentName.OneKeyAgent3,
+    ];
+    if (!agentCredential && extraAgents?.length === 3) {
+      statusDetails.requiresAgentRemovalSignature = extraAgents.some(
+        (agent) =>
+          !onekeyAgentNames.includes(agent.name as EHyperLiquidAgentName),
+      );
+    }
     if (!agentCredential && isEnableTradingTrigger) {
       this.fetchExtraAgentsWithCache.clear();
       try {
@@ -2626,11 +2637,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         const privateKeyHex = bufferUtils.bytesToHex(privateKeyBytes);
         const agentAddress = new ethers.Wallet(privateKeyHex).address as IHex;
 
-        const onekeyAgentNames = [
-          EHyperLiquidAgentName.OneKeyAgent1,
-          EHyperLiquidAgentName.OneKeyAgent2,
-          EHyperLiquidAgentName.OneKeyAgent3,
-        ];
         let agentNameToApprove: EHyperLiquidAgentName | undefined;
         if (extraAgents.length === 3) {
           const nonOneKeyAgents = extraAgents.filter(
