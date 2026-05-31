@@ -84,6 +84,29 @@ export function shouldResetOpenOrdersForAccount({
   );
 }
 
+export function getScopedOpenOrdersByCoin<T extends IPerpsFrontendOrder>({
+  activeAccountAddress,
+  openOrdersAccountAddress,
+  openOrdersByCoin,
+  coin,
+}: {
+  activeAccountAddress?: string | null;
+  openOrdersAccountAddress?: string | null;
+  openOrdersByCoin?: Record<string, T[]>;
+  coin: string;
+}) {
+  const activeAddress = normalizePerpsAccountAddress(activeAccountAddress);
+  if (!activeAddress) {
+    return [];
+  }
+  if (
+    normalizePerpsAccountAddress(openOrdersAccountAddress) !== activeAddress
+  ) {
+    return [];
+  }
+  return openOrdersByCoin?.[coin] ?? [];
+}
+
 export function getActivePerpsPositions(positions: IPerpsAssetPosition[]) {
   return positions.filter((pos) => {
     const size = parseFloat(pos.position?.szi || '0');

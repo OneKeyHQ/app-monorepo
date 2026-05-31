@@ -20,7 +20,10 @@ const PERSISTENT_IDS = new Set([
   COLD_START_CACHE_STORAGE_ID,
 ]);
 
+type IStoreValue = boolean | string | number | ArrayBuffer;
+
 const stores = new Map<string, Store>();
+const memoryStores = new Map<string, Map<string, IStoreValue>>();
 
 function createDesktopColdStartCacheEncryptionKey() {
   return randomBytes(32).toString('base64');
@@ -50,10 +53,22 @@ function getStoreEncryptionKey(id: string, encryptionKey?: string) {
     : undefined;
 }
 
-function getOrCreateStore(id: string, encryptionKey?: string): Store {
+function getOrCreateMemoryStore(id: string) {
+  let s = memoryStores.get(id);
+  if (!s) {
+    s = new Map<string, IStoreValue>();
+    memoryStores.set(id, s);
+  }
+  return s;
+}
+
+function getOrCreateStore(id: string, encryptionKey?: string): Store | null {
   let s = stores.get(id);
   if (!s) {
     const storeEncryptionKey = getStoreEncryptionKey(id, encryptionKey);
+    if (id === COLD_START_CACHE_STORAGE_ID && !storeEncryptionKey) {
+      return null;
+    }
     s = new Store({
       name: `mmkv-${id}`,
       ...(storeEncryptionKey ? { encryptionKey: storeEncryptionKey } : {}),
@@ -75,39 +90,54 @@ if (ipcMain) {
     ) => {
       const { method, id, key } = args;
       const store = getOrCreateStore(id);
+      const memoryStore = store ? null : getOrCreateMemoryStore(id);
       let result: unknown;
       switch (method) {
         case 'set':
-          store.set(key!, args.value);
+          if (store) {
+            store.set(key!, args.value);
+          } else {
+            memoryStore?.set(key!, args.value as IStoreValue);
+          }
           break;
         case 'getString': {
-          const v = store.get(key!);
+          const v = store ? store.get(key!) : memoryStore?.get(key!);
           result = typeof v === 'string' ? v : undefined;
           break;
         }
         case 'getNumber': {
-          const v = store.get(key!);
+          const v = store ? store.get(key!) : memoryStore?.get(key!);
           result = typeof v === 'number' ? v : undefined;
           break;
         }
         case 'getBoolean': {
-          const v = store.get(key!);
+          const v = store ? store.get(key!) : memoryStore?.get(key!);
           result = typeof v === 'boolean' ? v : undefined;
           break;
         }
         case 'remove': {
-          result = store.has(key!);
-          store.delete(key!);
+          result = store ? store.has(key!) : memoryStore?.has(key!);
+          if (store) {
+            store.delete(key!);
+          } else {
+            memoryStore?.delete(key!);
+          }
           break;
         }
         case 'contains':
-          result = store.has(key!);
+          result = store ? store.has(key!) : memoryStore?.has(key!);
           break;
         case 'getAllKeys':
-          result = Object.keys(store.store);
+          result = store
+            ? Object.keys(store.store)
+            : Array.from(memoryStore?.keys() ?? []);
           break;
         case 'clearAll':
-          store.clear();
+          if (store) {
+            store.clear();
+          } else {
+            memoryStore?.clear();
+          }
           break;
         default:
           break;
@@ -123,7 +153,7 @@ if (ipcMain) {
 class MMKV {
   private store: Store | null;
 
-  private memoryStore: Map<string, boolean | string | number | ArrayBuffer>;
+  private memoryStore: Map<string, IStoreValue>;
 
   private listeners: Set<(changedKey: string) => void>;
 

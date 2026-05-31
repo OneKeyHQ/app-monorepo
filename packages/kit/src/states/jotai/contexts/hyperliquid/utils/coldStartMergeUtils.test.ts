@@ -6,6 +6,7 @@ import type {
 import {
   buildOpenOrdersByDexMap,
   filterCanceledOpenOrders,
+  getScopedOpenOrdersByCoin,
   mergeCachedSpotOpenOrders,
   mergePrimaryPositionsWithCachedDexPositions,
   shouldResetOpenOrdersForAccount,
@@ -89,6 +90,30 @@ describe('coldStartMergeUtils', () => {
         currentOpenOrdersAccountAddress: '0xdef',
       }),
     ).toBe(true);
+  });
+
+  it('returns per-coin orders only when the open-order snapshot is scoped to the active account', () => {
+    expect(
+      getScopedOpenOrdersByCoin({
+        activeAccountAddress: '0xABC',
+        openOrdersAccountAddress: '0xabc',
+        openOrdersByCoin: {
+          BTC: [order('BTC', 1)],
+        },
+        coin: 'BTC',
+      }),
+    ).toEqual([order('BTC', 1)]);
+
+    expect(
+      getScopedOpenOrdersByCoin({
+        activeAccountAddress: '0xabc',
+        openOrdersAccountAddress: '0xdef',
+        openOrdersByCoin: {
+          BTC: [order('BTC', 1)],
+        },
+        coin: 'BTC',
+      }),
+    ).toEqual([]);
   });
 
   it('preserves cached non-primary dex positions during primary webData2 updates', () => {

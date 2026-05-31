@@ -1,16 +1,10 @@
 import Foundation
-import React
 import Security
 
 @objc(OneKeyColdStartCacheKey)
-class OneKeyColdStartCacheKey: NSObject, RCTBridgeModule {
+class OneKeyColdStartCacheKey: NSObject {
   private static let account = "onekey_cold_start_cache_storage_key_v1"
   private static let keyBytes = 32
-
-  @objc
-  static func moduleName() -> String! {
-    "OneKeyColdStartCacheKey"
-  }
 
   @objc
   static func requiresMainQueueSetup() -> Bool {

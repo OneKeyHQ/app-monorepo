@@ -2,6 +2,7 @@ import { BigNumber } from 'bignumber.js';
 import { selectAtom } from 'jotai/utils';
 
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import {
   computeMaxTradeSize,
@@ -22,6 +23,8 @@ import {
   EPerpsSizeInputMode,
   ETriggerOrderType,
 } from '@onekeyhq/shared/types/hyperliquid/types';
+
+import { getScopedOpenOrdersByCoin } from './utils/coldStartMergeUtils';
 
 import type {
   IPerpsBboWithLocalReceivedAt,
@@ -373,8 +376,16 @@ function getOrCreatePerpsOpenOrdersByCoinAtom(coin: string) {
   let entry = perpsOpenOrdersByCoinAtomCache.get(coin);
   if (!entry) {
     entry = contextAtomComputed((get) => {
-      const { openOrdersByCoin } = get(perpsActiveOpenOrdersAtom());
-      return openOrdersByCoin?.[coin] ?? [];
+      const activeAccount = get(perpsActiveAccountAtom.atom());
+      const { accountAddress, openOrdersByCoin } = get(
+        perpsActiveOpenOrdersAtom(),
+      );
+      return getScopedOpenOrdersByCoin({
+        activeAccountAddress: activeAccount?.accountAddress,
+        openOrdersAccountAddress: accountAddress,
+        openOrdersByCoin,
+        coin,
+      });
     });
     perpsOpenOrdersByCoinAtomCache.set(coin, entry);
   }
