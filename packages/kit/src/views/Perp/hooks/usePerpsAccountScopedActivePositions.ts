@@ -1,23 +1,24 @@
 import { useMemo } from 'react';
 
 import { usePerpsActivePositionAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { getPerpsAccountScopedListData } from '../utils/accountScopedData';
 
+import { usePerpsAccountScopedCacheAddress } from './usePerpsAccountScopedCacheAddress';
+
 export function usePerpsAccountScopedActivePositions() {
-  const [activeAccount] = usePerpsActiveAccountAtom();
+  const accountScopedAddress = usePerpsAccountScopedCacheAddress();
   const [positionsState] = usePerpsActivePositionAtom();
 
   return useMemo(
     () =>
       getPerpsAccountScopedListData({
-        activeAccountAddress: activeAccount?.accountAddress,
+        activeAccountAddress: accountScopedAddress,
         dataAccountAddress: positionsState.accountAddress,
         data: positionsState.activePositions,
       }),
     [
-      activeAccount?.accountAddress,
+      accountScopedAddress,
       positionsState.accountAddress,
       positionsState.activePositions,
     ],

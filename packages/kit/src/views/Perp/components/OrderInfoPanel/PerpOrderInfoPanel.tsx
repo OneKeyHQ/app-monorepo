@@ -27,6 +27,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { isHyperLiquidUnifiedAccountMode } from '../../utils';
 import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
 
@@ -61,12 +62,13 @@ function TabBarItem({
   const [{ balances }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
+  const accountScopedAddress = usePerpsAccountScopedCacheAddress();
   const [abstractionMode] = usePerpsAbstractionModeAtom();
   const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
     abstractionMode,
     currentUser?.accountAddress,
   );
-  const currentAccountAddress = currentUser?.accountAddress;
+  const currentAccountAddress = accountScopedAddress;
   const positionsLength = getPerpsAccountScopedListData({
     activeAccountAddress: currentAccountAddress,
     dataAccountAddress: positionsState.accountAddress,

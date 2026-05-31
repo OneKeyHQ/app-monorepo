@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
 import {
   getPerpsAccountScopedListData,
   isPerpsAccountScopedDataReady,
@@ -60,6 +61,7 @@ function PerpPositionsList({
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
   const [currentUser] = usePerpsActiveAccountAtom();
+  const accountScopedAddress = usePerpsAccountScopedCacheAddress();
   const [filterByCurrentToken] = usePositionFilterByCurrentTokenAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [positions] = usePerpsActivePositionAtom();
@@ -67,18 +69,14 @@ function PerpPositionsList({
   const scopedActivePositions = useMemo(
     () =>
       getPerpsAccountScopedListData({
-        activeAccountAddress: currentUser?.accountAddress,
+        activeAccountAddress: accountScopedAddress,
         dataAccountAddress: positions.accountAddress,
         data: positions.activePositions,
       }),
-    [
-      currentUser?.accountAddress,
-      positions.accountAddress,
-      positions.activePositions,
-    ],
+    [accountScopedAddress, positions.accountAddress, positions.activePositions],
   );
   const positionsReady = isPerpsAccountScopedDataReady({
-    activeAccountAddress: currentUser?.accountAddress,
+    activeAccountAddress: accountScopedAddress,
     dataAccountAddress: positions.accountAddress,
   });
   const positionsLength = scopedActivePositions.length;
@@ -235,7 +233,7 @@ function PerpPositionsList({
           activePositionsLength: scopedActivePositions.length,
           filterByCurrentToken,
           activeCoin: activeAsset?.coin,
-          hasAccountAddress: Boolean(currentUser?.accountAddress),
+          hasAccountAddress: Boolean(accountScopedAddress),
           useTabsList,
           disableListScroll,
           positionsReady,
@@ -245,7 +243,7 @@ function PerpPositionsList({
     },
     [
       activeAsset?.coin,
-      currentUser?.accountAddress,
+      accountScopedAddress,
       disableListScroll,
       filterByCurrentToken,
       isMobile,
@@ -266,14 +264,14 @@ function PerpPositionsList({
       activePositionsLength: scopedActivePositions.length,
       filterByCurrentToken,
       activeCoin: activeAsset?.coin,
-      hasAccountAddress: Boolean(currentUser?.accountAddress),
+      hasAccountAddress: Boolean(accountScopedAddress),
       useTabsList,
       disableListScroll,
       positionsReady,
     });
   }, [
     activeAsset?.coin,
-    currentUser?.accountAddress,
+    accountScopedAddress,
     disableListScroll,
     filterByCurrentToken,
     isMobile,

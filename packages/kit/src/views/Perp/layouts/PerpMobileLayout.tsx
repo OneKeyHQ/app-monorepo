@@ -45,6 +45,7 @@ import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
+import { usePerpsAccountScopedCacheAddress } from '../hooks/usePerpsAccountScopedCacheAddress';
 import { isHyperLiquidUnifiedAccountMode } from '../utils';
 import { getPerpsAccountScopedListData } from '../utils/accountScopedData';
 import {
@@ -157,12 +158,13 @@ export function PerpMobileLayout() {
   const [cachedSpotBalances] = usePerpsSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
+  const accountScopedAddress = usePerpsAccountScopedCacheAddress();
   const [abstractionMode] = usePerpsAbstractionModeAtom();
   const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
     abstractionMode,
     currentUser?.accountAddress,
   );
-  const currentUserAddress = currentUser?.accountAddress?.toLowerCase();
+  const currentUserAddress = accountScopedAddress?.toLowerCase();
   const positionsLength = getPerpsAccountScopedListData({
     activeAccountAddress: currentUserAddress,
     dataAccountAddress: positionsState.accountAddress,

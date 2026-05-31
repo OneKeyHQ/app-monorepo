@@ -20,6 +20,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
 import {
   getPerpsAccountScopedListData,
   isPerpsAccountScopedDataReady,
@@ -45,6 +46,7 @@ function PerpOpenOrdersList({
   const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
+  const accountScopedAddress = usePerpsAccountScopedCacheAddress();
   const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const actions = useHyperliquidActions();
@@ -52,12 +54,12 @@ function PerpOpenOrdersList({
   const scopedPerpOpenOrders = useMemo(
     () =>
       getPerpsAccountScopedListData({
-        activeAccountAddress: currentUser?.accountAddress,
+        activeAccountAddress: accountScopedAddress,
         dataAccountAddress: perpOpenOrdersState.accountAddress,
         data: perpOpenOrdersState.openOrders,
       }),
     [
-      currentUser?.accountAddress,
+      accountScopedAddress,
       perpOpenOrdersState.accountAddress,
       perpOpenOrdersState.openOrders,
     ],
@@ -65,12 +67,12 @@ function PerpOpenOrdersList({
   const scopedSpotOpenOrders = useMemo(
     () =>
       getPerpsAccountScopedListData({
-        activeAccountAddress: currentUser?.accountAddress,
+        activeAccountAddress: accountScopedAddress,
         dataAccountAddress: spotOpenOrdersState.accountAddress,
         data: spotOpenOrdersState.openOrders,
       }),
     [
-      currentUser?.accountAddress,
+      accountScopedAddress,
       spotOpenOrdersState.accountAddress,
       spotOpenOrdersState.openOrders,
     ],
@@ -83,15 +85,15 @@ function PerpOpenOrdersList({
     [scopedPerpOpenOrders, scopedSpotOpenOrders],
   );
   const perpOpenOrdersReady = isPerpsAccountScopedDataReady({
-    activeAccountAddress: currentUser?.accountAddress,
+    activeAccountAddress: accountScopedAddress,
     dataAccountAddress: perpOpenOrdersState.accountAddress,
   });
   const spotOpenOrdersReady = isPerpsAccountScopedDataReady({
-    activeAccountAddress: currentUser?.accountAddress,
+    activeAccountAddress: accountScopedAddress,
     dataAccountAddress: spotOpenOrdersState.accountAddress,
   });
   const listLoading = Boolean(
-    currentUser?.accountAddress &&
+    accountScopedAddress &&
     openOrders.length === 0 &&
     (!perpOpenOrdersReady || !spotOpenOrdersReady),
   );
