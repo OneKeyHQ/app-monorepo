@@ -7,7 +7,10 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { PerpsAccountNumberValue } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/components/PerpsAccountNumberValue';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import { useShowPortfolio } from '@onekeyhq/kit/src/views/Perp/hooks/useShowPortfolio';
-import { usePerpsComputedAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsComputedAccountValueAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -25,13 +28,26 @@ export interface IWebAccountSelectorTriggerProps {
 // pressStyle to animate against.
 const noop = () => undefined;
 
-function PerpsBalancePill() {
+function PerpsBalancePill({ userAddress }: { userAddress?: string }) {
   const intl = useIntl();
+  const [perpsActiveAccount] = usePerpsActiveAccountAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const { showPortfolio } = useShowPortfolio();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
 
-  const accountValue = computedValue?.accountValue;
+  // The computed value is scoped to perpsActiveAccountAtom, which may describe a
+  // different account than the one shown in this trigger (e.g. used Perps with
+  // account A, then switched the header to account B). Only trust it when its
+  // address matches the displayed account; otherwise treat the value/loading as
+  // unknown so the pill hides instead of showing A's balance for B.
+  const isForThisAccount =
+    !!userAddress &&
+    perpsActiveAccount?.accountAddress?.toLowerCase() ===
+      userAddress.toLowerCase();
+  const accountValue = isForThisAccount
+    ? computedValue?.accountValue
+    : undefined;
+  const isLoading = isForThisAccount ? computedValue?.isLoading : false;
 
   // Gate on whether the balance is KNOWN, not on isLoading: an empty account
   // keeps isLoading=true (spotTotalUsd never resolves to a positive value), yet
@@ -39,7 +55,7 @@ function PerpsBalancePill() {
   // When the value is genuinely unknown (undefined): show a spinner while it's
   // still loading, otherwise render nothing (no premature "Deposit").
   if (accountValue === undefined) {
-    if (computedValue?.isLoading) {
+    if (isLoading) {
       return (
         <XStack ai="center" jc="center" px="$2" h={26}>
           <Spinner size="small" />
@@ -139,7 +155,9 @@ export function WebAccountSelectorTrigger({
           {address}
         </SizableText>
       </XStack>
-      {isPerpsRoute ? <PerpsBalancePill /> : null}
+      {isPerpsRoute ? (
+        <PerpsBalancePill userAddress={account?.address} />
+      ) : null}
     </XStack>
   );
 

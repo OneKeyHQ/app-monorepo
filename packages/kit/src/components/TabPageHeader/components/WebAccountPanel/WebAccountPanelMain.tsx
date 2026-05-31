@@ -389,30 +389,34 @@ export function WebAccountPanelMain({
   }, [account?.address, copyText]);
 
   const handleDisconnect = useCallback(async () => {
-    const connectedAccountId = selectedAccount?.othersWalletAccountId;
-    if (!connectedAccountId) {
-      onRequestClose();
-      return;
-    }
     // Disconnect should END THE SESSION but KEEP THE WALLET — not remove it.
-    // removeAccount would delete the external account entity and wipe every
-    // dApp connection that reuses it; instead we tear down only the live
+    // removeAccount would delete the account entity and wipe every dApp
+    // connection that reuses it; instead we (optionally) tear down the live
     // connector and reset the selection, leaving the account row in the DB so
-    // it can be reconnected from the account list. Web dapp mode forces the
-    // active account to all-networks, so useActiveAccount doesn't populate
-    // dbAccount; resolve the connected external account from its id.
-    const targetAccount =
-      await backgroundApiProxy.serviceAccount.getDBAccountSafe({
-        accountId: connectedAccountId,
-      });
-    if (targetAccount) {
-      // Ends the live external/keyless connector session without deleting it.
-      await backgroundApiProxy.serviceDappSide.disconnectExternalWallet({
-        account: targetAccount,
-      });
+    // it can be reconnected from the account list.
+    //
+    // External/keyless connections expose othersWalletAccountId — tear down
+    // their live connector so the session actually ends. Indexed connections
+    // (a local HD/keyless wallet selected as home) have no external connector,
+    // so for those clearing the selection below IS the whole disconnect; gating
+    // the entire handler on othersWalletAccountId would make it a no-op there.
+    const connectedAccountId = selectedAccount?.othersWalletAccountId;
+    if (connectedAccountId) {
+      // Web dapp mode forces the active account to all-networks, so
+      // useActiveAccount doesn't populate dbAccount; resolve from the id.
+      const targetAccount =
+        await backgroundApiProxy.serviceAccount.getDBAccountSafe({
+          accountId: connectedAccountId,
+        });
+      if (targetAccount) {
+        await backgroundApiProxy.serviceDappSide.disconnectExternalWallet({
+          account: targetAccount,
+        });
+      }
     }
-    // Clear the home (num 0) selection: with no account the header swaps in the
-    // Connect button and this popover unmounts (closes) on its own.
+    // Clear the home (num 0) selection regardless of account type: with no
+    // account the header swaps in the Connect button and this popover unmounts
+    // (closes) on its own.
     await actions.current.clearSelectedAccount({ num: 0, clearAccount: true });
     onRequestClose();
   }, [actions, onRequestClose, selectedAccount?.othersWalletAccountId]);

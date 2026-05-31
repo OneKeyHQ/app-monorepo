@@ -411,7 +411,11 @@ function RightActions({
   });
 
   const isWalletConnected = !!wallet && !!account;
-  const isPerpsTab = tabRoute === ETabRoutes.Perp;
+  // The remote perps config can serve /perps as the webview impl, which the tab
+  // router exposes as WebviewPerpTrade (hiding ETabRoutes.Perp). Match both so
+  // the relocated Activity Hub stays in the header in either configuration.
+  const isPerpsTab =
+    tabRoute === ETabRoutes.Perp || tabRoute === ETabRoutes.WebviewPerpTrade;
 
   const handleSearchPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
