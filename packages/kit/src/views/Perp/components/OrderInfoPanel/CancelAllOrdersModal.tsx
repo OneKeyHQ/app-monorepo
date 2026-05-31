@@ -17,10 +17,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
-import {
-  getPerpsAccountScopedFallbackListState,
-  getPerpsAccountScopedListData,
-} from '../../utils/accountScopedData';
+import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
 import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
@@ -43,7 +40,6 @@ function CancelAllOrdersContent({
     {
       accountAddress: perpOpenOrdersAccountAddress,
       openOrders: perpOpenOrders,
-      spotOpenOrders: cachedSpotOpenOrders = [],
     },
   ] = usePerpsActiveOpenOrdersAtom();
   const [
@@ -60,25 +56,15 @@ function CancelAllOrdersContent({
       dataAccountAddress: perpOpenOrdersAccountAddress,
       data: perpOpenOrders,
     });
-    const effectiveSpotOpenOrdersState = getPerpsAccountScopedFallbackListState(
-      {
-        activeAccountAddress: activeAccount?.accountAddress,
-        dataAccountAddress: spotOpenOrdersAccountAddress,
-        data: spotOpenOrders,
-        fallbackDataAccountAddress: perpOpenOrdersAccountAddress,
-        fallbackData: cachedSpotOpenOrders,
-      },
-    );
     const scopedSpotOpenOrders = getPerpsAccountScopedListData({
       activeAccountAddress: activeAccount?.accountAddress,
-      dataAccountAddress: effectiveSpotOpenOrdersState.dataAccountAddress,
-      data: effectiveSpotOpenOrdersState.data,
+      dataAccountAddress: spotOpenOrdersAccountAddress,
+      data: spotOpenOrders,
     });
     const all = [...scopedPerpOpenOrders, ...scopedSpotOpenOrders];
     return filterByCoin ? all.filter((o) => o.coin === filterByCoin) : all;
   }, [
     activeAccount?.accountAddress,
-    cachedSpotOpenOrders,
     filterByCoin,
     perpOpenOrders,
     perpOpenOrdersAccountAddress,

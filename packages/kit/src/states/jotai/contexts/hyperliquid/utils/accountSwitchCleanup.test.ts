@@ -73,7 +73,7 @@ describe('getPerpsAccountSwitchCleanupPlan', () => {
     });
   });
 
-  it('preserves spot-only cached rows and clears mismatched scoped rows', () => {
+  it('does not preserve account data from spot-only live rows', () => {
     expect(
       getPerpsAccountSwitchCleanupPlan({
         previousAccountAddress: '0xaaa',
@@ -83,11 +83,11 @@ describe('getPerpsAccountSwitchCleanupPlan', () => {
         cachedSpotOpenOrdersAccountAddress: '0xbbb',
       }),
     ).toEqual({
-      shouldClearActiveAccountData: false,
-      shouldClearPositionData: true,
-      shouldClearOpenOrdersData: true,
+      shouldClearActiveAccountData: true,
+      shouldClearPositionData: false,
+      shouldClearOpenOrdersData: false,
       shouldClearSpotOpenOrdersData: false,
-      shouldClearTransientData: true,
+      shouldClearTransientData: false,
     });
   });
 

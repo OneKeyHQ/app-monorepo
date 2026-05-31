@@ -66,26 +66,6 @@ function pruneOpenOrdersByCoin({
   return nextOpenOrdersByCoin;
 }
 
-function pruneOpenOrdersByDex({
-  openOrdersByDex,
-  maxItems,
-}: {
-  openOrdersByDex: unknown;
-  maxItems: number;
-}) {
-  if (!isRecord(openOrdersByDex)) {
-    return openOrdersByDex;
-  }
-
-  const nextOpenOrdersByDex: ISnapshotRecord = {};
-  Object.entries(openOrdersByDex).forEach(([dex, orders]) => {
-    nextOpenOrdersByDex[dex] = Array.isArray(orders)
-      ? trimList(orders, maxItems)
-      : orders;
-  });
-  return nextOpenOrdersByDex;
-}
-
 function prunePerpsSnapshotValue({
   snapshotKey,
   value,
@@ -122,20 +102,13 @@ function prunePerpsSnapshotValue({
       ? trimList(value.openOrders, maxItems)
       : value.openOrders;
     return {
-      ...value,
+      accountAddress: value.accountAddress,
       openOrders: retainedOpenOrders,
-      spotOpenOrders: Array.isArray(value.spotOpenOrders)
-        ? trimList(value.spotOpenOrders, maxItems)
-        : value.spotOpenOrders,
       openOrdersByCoin: pruneOpenOrdersByCoin({
         openOrdersByCoin: value.openOrdersByCoin,
         retainedOpenOrders: Array.isArray(retainedOpenOrders)
           ? retainedOpenOrders
           : [],
-        maxItems,
-      }),
-      openOrdersByDex: pruneOpenOrdersByDex({
-        openOrdersByDex: value.openOrdersByDex,
         maxItems,
       }),
     };

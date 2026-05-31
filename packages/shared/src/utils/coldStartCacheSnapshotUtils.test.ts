@@ -41,28 +41,11 @@ describe('coldStartCacheSnapshotUtils', () => {
             { coin: 'ETH', oid: 2 },
             { coin: 'SOL', oid: 3 },
           ],
-          spotOpenOrders: [
-            { coin: '@1', oid: 5 },
-            { coin: '@2', oid: 6 },
-            { coin: '@3', oid: 7 },
-          ],
           openOrdersByCoin: {
             BTC: [{ coin: 'BTC', oid: 1 }],
             ETH: [{ coin: 'ETH', oid: 2 }],
             SOL: [{ coin: 'SOL', oid: 3 }],
             DOGE: [{ coin: 'DOGE', oid: 4 }],
-          },
-          openOrdersByDex: {
-            '': [
-              { coin: 'BTC', oid: 1 },
-              { coin: 'ETH', oid: 2 },
-              { coin: 'SOL', oid: 3 },
-            ],
-            xyz: [
-              { coin: 'XRP', oid: 4 },
-              { coin: 'DOGE', oid: 5 },
-              { coin: 'SUI', oid: 6 },
-            ],
           },
         },
       },
@@ -80,23 +63,12 @@ describe('coldStartCacheSnapshotUtils', () => {
       (
         result.snapshot[openOrdersKey] as {
           openOrders: Array<{ coin: string; oid: number }>;
-          spotOpenOrders: Array<{ coin: string; oid: number }>;
           openOrdersByCoin: Record<string, unknown>;
         }
       ).openOrders,
     ).toEqual([
       { coin: 'BTC', oid: 1 },
       { coin: 'ETH', oid: 2 },
-    ]);
-    expect(
-      (
-        result.snapshot[openOrdersKey] as {
-          spotOpenOrders: Array<{ coin: string; oid: number }>;
-        }
-      ).spotOpenOrders,
-    ).toEqual([
-      { coin: '@1', oid: 5 },
-      { coin: '@2', oid: 6 },
     ]);
     expect(
       Object.keys(
@@ -107,22 +79,6 @@ describe('coldStartCacheSnapshotUtils', () => {
         ).openOrdersByCoin,
       ).toSorted(),
     ).toEqual(['BTC', 'ETH']);
-    expect(
-      (
-        result.snapshot[openOrdersKey] as {
-          openOrdersByDex: Record<string, Array<{ coin: string; oid: number }>>;
-        }
-      ).openOrdersByDex,
-    ).toEqual({
-      '': [
-        { coin: 'BTC', oid: 1 },
-        { coin: 'ETH', oid: 2 },
-      ],
-      xyz: [
-        { coin: 'XRP', oid: 4 },
-        { coin: 'DOGE', oid: 5 },
-      ],
-    });
   });
 
   it('drops only volatile Perps list snapshots when they push the snapshot over the soft cap', () => {
