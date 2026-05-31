@@ -7,9 +7,12 @@ import {
   type IPerpsAccountDisplaySnapshotEntry,
   getPerpsAccountDisplaySnapshotEntry,
   perpsAbstractionModeAtom,
+  perpsAccountLoadingInfoAtom,
   perpsActiveAccountAtom,
+  perpsActiveAccountEnableTradingModeAtom,
   perpsActiveAccountStatusAtom,
   perpsActiveAccountStatusInfoAtom,
+  perpsShouldShowEnableTradingButtonAtom,
 } from './perps';
 
 const now = 1_000_000;
@@ -261,5 +264,190 @@ describe('perpsActiveAccountStatusAtom', () => {
         canTrade: true,
       }),
     );
+  });
+});
+
+describe('perpsActiveAccountEnableTradingModeAtom', () => {
+  afterEach(() => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: null,
+      indexedAccountId: null,
+      deriveType: 'default',
+      accountAddress: null,
+    });
+    jotaiDefaultStore.set(perpsAccountLoadingInfoAtom.atom(), {
+      selectAccountLoading: false,
+      enableTradingLoading: false,
+    });
+  });
+
+  it('lets software accounts auto-enable from the order panel', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      indexedAccountId: 'hd-1--0',
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountEnableTradingModeAtom.atom()),
+    ).toEqual({
+      isSoftwareAccount: true,
+      isHardwareAccount: false,
+      canAutoEnableInOrderPanel: true,
+      requiresEnableTradingDialogInOrderPanel: false,
+      requiresExplicitEnableTrading: false,
+    });
+  });
+
+  it('routes hardware accounts through the order-panel enable dialog', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: "hw-1--m/44'/60'/0'/0/0",
+      indexedAccountId: 'hw-1--0',
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountEnableTradingModeAtom.atom()),
+    ).toEqual({
+      isSoftwareAccount: false,
+      isHardwareAccount: true,
+      canAutoEnableInOrderPanel: false,
+      requiresEnableTradingDialogInOrderPanel: true,
+      requiresExplicitEnableTrading: true,
+    });
+  });
+
+  it('keeps external accounts on the explicit enable-trading fallback path', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: 'external--60--injected--wallet',
+      indexedAccountId: null,
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountEnableTradingModeAtom.atom()),
+    ).toEqual({
+      isSoftwareAccount: false,
+      isHardwareAccount: false,
+      canAutoEnableInOrderPanel: false,
+      requiresEnableTradingDialogInOrderPanel: false,
+      requiresExplicitEnableTrading: true,
+    });
+  });
+});
+
+describe('perpsShouldShowEnableTradingButtonAtom', () => {
+  afterEach(() => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: null,
+      indexedAccountId: null,
+      deriveType: 'default',
+      accountAddress: null,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), undefined);
+    jotaiDefaultStore.set(perpsAccountLoadingInfoAtom.atom(), {
+      selectAccountLoading: false,
+      enableTradingLoading: false,
+    });
+    jotaiDefaultStore.set(perpsAbstractionModeAtom.atom(), undefined);
+  });
+
+  it('does not reserve the explicit CTA layout for software order-panel auto-enable', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      indexedAccountId: 'hd-1--0',
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), {
+      accountAddress: '0xabc',
+      details: {
+        activatedOk: true,
+        agentOk: false,
+        referralCodeOk: true,
+        builderFeeOk: false,
+        internalRebateBoundOk: false,
+        abstractionOk: false,
+      },
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsShouldShowEnableTradingButtonAtom.atom()),
+    ).toBe(false);
+  });
+
+  it('does not reserve the explicit CTA layout for hardware order-panel dialog enable', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: "hw-1--m/44'/60'/0'/0/0",
+      indexedAccountId: 'hw-1--0',
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), {
+      accountAddress: '0xabc',
+      details: {
+        activatedOk: true,
+        agentOk: false,
+        referralCodeOk: true,
+        builderFeeOk: false,
+        internalRebateBoundOk: false,
+        abstractionOk: false,
+      },
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsShouldShowEnableTradingButtonAtom.atom()),
+    ).toBe(false);
+  });
+
+  it('keeps the explicit CTA layout for non-auto-enable fallback accounts', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: 'external--60--injected--wallet',
+      indexedAccountId: null,
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), {
+      accountAddress: '0xabc',
+      details: {
+        activatedOk: true,
+        agentOk: false,
+        referralCodeOk: true,
+        builderFeeOk: false,
+        internalRebateBoundOk: false,
+        abstractionOk: false,
+      },
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsShouldShowEnableTradingButtonAtom.atom()),
+    ).toBe(true);
+  });
+
+  it('hides the explicit enable-trading CTA after the account can trade', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      indexedAccountId: 'hd-1--0',
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), {
+      accountAddress: '0xabc',
+      details: {
+        activatedOk: true,
+        agentOk: true,
+        referralCodeOk: true,
+        builderFeeOk: true,
+        internalRebateBoundOk: true,
+        abstractionOk: true,
+      },
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsShouldShowEnableTradingButtonAtom.atom()),
+    ).toBe(false);
   });
 });

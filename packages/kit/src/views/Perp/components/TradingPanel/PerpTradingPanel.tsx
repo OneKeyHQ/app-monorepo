@@ -33,6 +33,7 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../utils/mobileLayoutTrace';
+import { shouldShowPerpsOrderPanelTradingButtons } from '../../utils/perpsOrderPanelEnableTrading';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
@@ -270,28 +271,19 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   );
 
   const canShowTradingButtons = useMemo(() => {
-    if (canShowCachedTradingButtons) {
-      return true;
-    }
-
-    return (
-      !perpsAccountLoading.selectAccountLoading &&
-      displayReady.statusReady &&
-      Boolean(perpsAccountStatus.accountAddress) &&
-      !perpsAccountStatus.accountNotSupport &&
-      !perpsAccountStatus.canCreateAddress &&
-      (Boolean(perpsAccountStatus.canTrade) ||
-        enableTradingMode.isSoftwareAccount)
-    );
+    return shouldShowPerpsOrderPanelTradingButtons({
+      canShowCachedTradingButtons,
+      statusReady: displayReady.statusReady,
+      selectAccountLoading: perpsAccountLoading.selectAccountLoading,
+      accountStatus: perpsAccountStatus,
+      enableTradingMode,
+    });
   }, [
     canShowCachedTradingButtons,
     displayReady.statusReady,
-    enableTradingMode.isSoftwareAccount,
+    enableTradingMode,
     perpsAccountLoading.selectAccountLoading,
-    perpsAccountStatus.accountAddress,
-    perpsAccountStatus.accountNotSupport,
-    perpsAccountStatus.canCreateAddress,
-    perpsAccountStatus.canTrade,
+    perpsAccountStatus,
   ]);
 
   const content = (

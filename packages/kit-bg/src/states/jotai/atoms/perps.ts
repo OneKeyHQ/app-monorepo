@@ -337,6 +337,7 @@ export type IPerpsActiveAccountStatusDetails = {
   builderFeeOk: boolean;
   internalRebateBoundOk: boolean;
   abstractionOk: boolean;
+  requiresAgentRemovalSignature?: boolean;
 };
 export type IPerpsActiveAccountStatusInfoAtom =
   | {
@@ -450,6 +451,9 @@ export const {
   use: usePerpsActiveAccountEnableTradingModeAtom,
 } = globalAtomComputedR<{
   isSoftwareAccount: boolean;
+  isHardwareAccount: boolean;
+  canAutoEnableInOrderPanel: boolean;
+  requiresEnableTradingDialogInOrderPanel: boolean;
   requiresExplicitEnableTrading: boolean;
 }>({
   read: (get) => {
@@ -461,6 +465,9 @@ export const {
     if (loading.selectAccountLoading || !accountId) {
       return {
         isSoftwareAccount: false,
+        isHardwareAccount: false,
+        canAutoEnableInOrderPanel: false,
+        requiresEnableTradingDialogInOrderPanel: false,
         requiresExplicitEnableTrading: true,
       };
     }
@@ -468,9 +475,13 @@ export const {
     const isSoftwareAccount =
       accountUtils.isHdAccount({ accountId }) ||
       accountUtils.isImportedAccount({ accountId });
+    const isHardwareAccount = accountUtils.isHwAccount({ accountId });
 
     return {
       isSoftwareAccount,
+      isHardwareAccount,
+      canAutoEnableInOrderPanel: isSoftwareAccount,
+      requiresEnableTradingDialogInOrderPanel: isHardwareAccount,
       requiresExplicitEnableTrading: !isSoftwareAccount,
     };
   },
@@ -493,11 +504,15 @@ export const {
       return true;
     }
 
-    if (enableTradingMode.isSoftwareAccount && !status.accountNotSupport) {
-      return false;
+    if (status.accountNotSupport) {
+      return true;
     }
 
-    return !status?.canTrade;
+    return !(
+      status.canTrade ||
+      enableTradingMode.canAutoEnableInOrderPanel ||
+      enableTradingMode.requiresEnableTradingDialogInOrderPanel
+    );
   },
 });
 
