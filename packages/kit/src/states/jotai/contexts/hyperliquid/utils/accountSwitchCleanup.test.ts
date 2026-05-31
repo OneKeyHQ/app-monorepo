@@ -11,6 +11,43 @@ describe('getPerpsAccountSwitchCleanupPlan', () => {
       }),
     ).toEqual({
       shouldClearActiveAccountData: false,
+      shouldClearPositionData: false,
+      shouldClearOpenOrdersData: false,
+      shouldClearSpotOpenOrdersData: true,
+      shouldClearTransientData: true,
+    });
+  });
+
+  it('preserves matching positions and clears mismatched open orders on partial cache hits', () => {
+    expect(
+      getPerpsAccountSwitchCleanupPlan({
+        previousAccountAddress: '0xaaa',
+        nextAccountAddress: '0xbbb',
+        cachedPositionAccountAddress: '0xbbb',
+        cachedOpenOrdersAccountAddress: '0xaaa',
+      }),
+    ).toEqual({
+      shouldClearActiveAccountData: false,
+      shouldClearPositionData: false,
+      shouldClearOpenOrdersData: true,
+      shouldClearSpotOpenOrdersData: true,
+      shouldClearTransientData: true,
+    });
+  });
+
+  it('preserves matching open orders and clears mismatched positions on partial cache hits', () => {
+    expect(
+      getPerpsAccountSwitchCleanupPlan({
+        previousAccountAddress: '0xaaa',
+        nextAccountAddress: '0xbbb',
+        cachedPositionAccountAddress: '0xaaa',
+        cachedOpenOrdersAccountAddress: '0xbbb',
+      }),
+    ).toEqual({
+      shouldClearActiveAccountData: false,
+      shouldClearPositionData: true,
+      shouldClearOpenOrdersData: false,
+      shouldClearSpotOpenOrdersData: true,
       shouldClearTransientData: true,
     });
   });
@@ -25,6 +62,9 @@ describe('getPerpsAccountSwitchCleanupPlan', () => {
       }),
     ).toEqual({
       shouldClearActiveAccountData: true,
+      shouldClearPositionData: false,
+      shouldClearOpenOrdersData: false,
+      shouldClearSpotOpenOrdersData: false,
       shouldClearTransientData: false,
     });
   });
@@ -39,6 +79,9 @@ describe('getPerpsAccountSwitchCleanupPlan', () => {
       }),
     ).toEqual({
       shouldClearActiveAccountData: true,
+      shouldClearPositionData: false,
+      shouldClearOpenOrdersData: false,
+      shouldClearSpotOpenOrdersData: false,
       shouldClearTransientData: false,
     });
   });
@@ -53,6 +96,9 @@ describe('getPerpsAccountSwitchCleanupPlan', () => {
       }),
     ).toEqual({
       shouldClearActiveAccountData: false,
+      shouldClearPositionData: false,
+      shouldClearOpenOrdersData: false,
+      shouldClearSpotOpenOrdersData: false,
       shouldClearTransientData: false,
     });
   });

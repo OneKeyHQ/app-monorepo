@@ -14,10 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  useHyperliquidActions,
-  usePerpsActivePositionAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsComputedAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -27,6 +24,7 @@ import {
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import {
   PERP_DIALOG_BUTTON_SIZE,
@@ -51,7 +49,7 @@ const AdjustPositionMarginForm = memo(
   ({ coin, onClose = () => {} }: IAdjustPositionMarginFormProps) => {
     const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
-    const [{ activePositions }] = usePerpsActivePositionAtom();
+    const activePositions = usePerpsAccountScopedActivePositions();
     const [computedValue] = usePerpsComputedAccountValueAtom();
 
     const currentPosition = useMemo(() => {

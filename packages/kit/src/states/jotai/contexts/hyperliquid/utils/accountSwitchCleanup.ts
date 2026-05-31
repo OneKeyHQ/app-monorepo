@@ -22,19 +22,40 @@ export function getPerpsAccountSwitchCleanupPlan({
     cachedOpenOrdersAccountAddress,
   );
   const accountChanged = previousAddress !== nextAddress;
+  const hasNextPositionCache = Boolean(
+    nextAddress && cachedPositionAddress === nextAddress,
+  );
+  const hasNextOpenOrdersCache = Boolean(
+    nextAddress && cachedOpenOrdersAddress === nextAddress,
+  );
   const hasNextAddressContextCache = Boolean(
-    nextAddress &&
-    (cachedPositionAddress === nextAddress ||
-      cachedOpenOrdersAddress === nextAddress),
+    hasNextPositionCache || hasNextOpenOrdersCache,
   );
   const hasAccountScopedContextCache = Boolean(
     cachedPositionAddress || cachedOpenOrdersAddress,
   );
+  const shouldClearActiveAccountData =
+    (accountChanged && !hasNextAddressContextCache) ||
+    (!nextAddress && hasAccountScopedContextCache);
+  const shouldClearScopedDataIndividually = Boolean(
+    accountChanged &&
+    hasNextAddressContextCache &&
+    !shouldClearActiveAccountData,
+  );
 
   return {
-    shouldClearActiveAccountData:
-      (accountChanged && !hasNextAddressContextCache) ||
-      (!nextAddress && hasAccountScopedContextCache),
+    shouldClearActiveAccountData,
+    shouldClearPositionData: Boolean(
+      shouldClearScopedDataIndividually &&
+      cachedPositionAddress &&
+      !hasNextPositionCache,
+    ),
+    shouldClearOpenOrdersData: Boolean(
+      shouldClearScopedDataIndividually &&
+      cachedOpenOrdersAddress &&
+      !hasNextOpenOrdersCache,
+    ),
+    shouldClearSpotOpenOrdersData: shouldClearScopedDataIndividually,
     shouldClearTransientData: accountChanged && hasNextAddressContextCache,
   };
 }

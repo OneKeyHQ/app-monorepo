@@ -313,6 +313,7 @@ export type IPerpsActiveOpenOrdersAtom = {
   accountAddress: string | undefined;
   openOrders: HL.IPerpsFrontendOrder[];
   openOrdersByCoin: Record<string, HL.IPerpsFrontendOrder[]>;
+  openOrdersByDex?: Record<string, HL.IPerpsFrontendOrder[]>;
 };
 export const {
   atom: perpsActiveOpenOrdersAtom,
@@ -322,6 +323,7 @@ export const {
     accountAddress: undefined,
     openOrders: [],
     openOrdersByCoin: {},
+    openOrdersByDex: {},
   },
   {
     coldStartCache: true,

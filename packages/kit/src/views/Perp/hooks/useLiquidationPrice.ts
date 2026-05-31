@@ -4,7 +4,6 @@ import { BigNumber } from 'bignumber.js';
 
 import {
   useActiveTradeInstrumentAtom,
-  usePerpsActivePositionAtom,
   useTradingFormAtom,
   useTradingFormComputedAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -21,6 +20,7 @@ import {
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderPrice } from './useOrderPrice';
+import { usePerpsAccountScopedActivePositions } from './usePerpsAccountScopedActivePositions';
 
 export function useLiquidationPrice(
   overrideSide?: 'long' | 'short',
@@ -32,7 +32,7 @@ export function useLiquidationPrice(
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-  const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
+  const perpsPositions = usePerpsAccountScopedActivePositions();
   const { coin, margin } = activeAsset;
 
   const effectiveSide = overrideSide || formData.side;

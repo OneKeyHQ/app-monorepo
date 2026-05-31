@@ -44,6 +44,18 @@ describe('coldStartCacheSnapshotUtils', () => {
             SOL: [{ coin: 'SOL', oid: 3 }],
             DOGE: [{ coin: 'DOGE', oid: 4 }],
           },
+          openOrdersByDex: {
+            '': [
+              { coin: 'BTC', oid: 1 },
+              { coin: 'ETH', oid: 2 },
+              { coin: 'SOL', oid: 3 },
+            ],
+            xyz: [
+              { coin: 'XRP', oid: 4 },
+              { coin: 'DOGE', oid: 5 },
+              { coin: 'SUI', oid: 6 },
+            ],
+          },
         },
       },
       { maxPerpsListItems: 2, maxSnapshotChars: 10_000 },
@@ -76,6 +88,22 @@ describe('coldStartCacheSnapshotUtils', () => {
         ).openOrdersByCoin,
       ).toSorted(),
     ).toEqual(['BTC', 'ETH']);
+    expect(
+      (
+        result.snapshot[openOrdersKey] as {
+          openOrdersByDex: Record<string, Array<{ coin: string; oid: number }>>;
+        }
+      ).openOrdersByDex,
+    ).toEqual({
+      '': [
+        { coin: 'BTC', oid: 1 },
+        { coin: 'ETH', oid: 2 },
+      ],
+      xyz: [
+        { coin: 'XRP', oid: 4 },
+        { coin: 'DOGE', oid: 5 },
+      ],
+    });
   });
 
   it('drops only volatile Perps list snapshots when they push the snapshot over the soft cap', () => {

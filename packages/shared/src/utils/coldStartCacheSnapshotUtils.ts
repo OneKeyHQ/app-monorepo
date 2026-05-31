@@ -66,6 +66,26 @@ function pruneOpenOrdersByCoin({
   return nextOpenOrdersByCoin;
 }
 
+function pruneOpenOrdersByDex({
+  openOrdersByDex,
+  maxItems,
+}: {
+  openOrdersByDex: unknown;
+  maxItems: number;
+}) {
+  if (!isRecord(openOrdersByDex)) {
+    return openOrdersByDex;
+  }
+
+  const nextOpenOrdersByDex: ISnapshotRecord = {};
+  Object.entries(openOrdersByDex).forEach(([dex, orders]) => {
+    nextOpenOrdersByDex[dex] = Array.isArray(orders)
+      ? trimList(orders, maxItems)
+      : orders;
+  });
+  return nextOpenOrdersByDex;
+}
+
 function prunePerpsSnapshotValue({
   snapshotKey,
   value,
@@ -109,6 +129,10 @@ function prunePerpsSnapshotValue({
         retainedOpenOrders: Array.isArray(retainedOpenOrders)
           ? retainedOpenOrders
           : [],
+        maxItems,
+      }),
+      openOrdersByDex: pruneOpenOrdersByDex({
+        openOrdersByDex: value.openOrdersByDex,
         maxItems,
       }),
     };

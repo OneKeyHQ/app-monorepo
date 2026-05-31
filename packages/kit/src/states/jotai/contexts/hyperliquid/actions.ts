@@ -405,6 +405,39 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   }
 
+  private seedOpenOrdersByDexCacheFromSnapshot({
+    activeAccountAddress,
+    snapshot,
+  }: {
+    activeAccountAddress: string | undefined;
+    snapshot: {
+      accountAddress: string | undefined;
+      openOrdersByDex?: Record<string, HL.IPerpsFrontendOrder[]>;
+    };
+  }) {
+    if (
+      this.openOrdersByDexCache.size > 0 ||
+      normalizePerpsAccountAddress(snapshot.accountAddress) !==
+        activeAccountAddress
+    ) {
+      return;
+    }
+
+    Object.entries(snapshot.openOrdersByDex ?? {}).forEach(([dex, orders]) => {
+      if (Array.isArray(orders)) {
+        this.openOrdersByDexCache.set(dex, orders);
+      }
+    });
+  }
+
+  private getOpenOrdersByDexCacheSnapshot() {
+    const snapshot: Record<string, HL.IPerpsFrontendOrder[]> = {};
+    this.openOrdersByDexCache.forEach((orders, dex) => {
+      snapshot[dex] = orders;
+    });
+    return snapshot;
+  }
+
   updateAllMids = contextAtomMethod((_, set, data: HL.IWsAllMids) => {
     markPerpsColdStartPerfOnce('atom_set_all_mids_first', {
       midsCount: Object.keys(data?.mids ?? {}).length,
@@ -619,9 +652,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         (data?.clearinghouseStates as Array<
           [string, HL.IPerpsClearinghouseState | undefined]
         >) || [];
-      if (statesRaw.length === 0) {
-        return;
-      }
       const states: Array<[string, IChStateLite]> = statesRaw.map(
         ([dexName, state]) => [dexName, (state as IChStateLite) || {}],
       );
@@ -704,6 +734,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
       const allOrders = data.orders;
       this.ensureOpenOrdersCacheAccount(activeAccountAddress);
+      this.seedOpenOrdersByDexCacheFromSnapshot({
+        activeAccountAddress,
+        snapshot: prevOpenOrdersState,
+      });
       this.openOrdersByDexCache.set(data?.dex ?? '', allOrders);
       const mergedOrders = Array.from(
         this.openOrdersByDexCache.values(),
@@ -726,6 +760,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         accountAddress: activeAccountAddress,
         openOrders: perpOrders,
         openOrdersByCoin,
+        openOrdersByDex: this.getOpenOrdersByDexCacheSnapshot(),
       });
       void spotActiveOpenOrdersAtom.set({
         accountAddress: activeAccountAddress,
@@ -1500,8 +1535,32 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       });
       if (cleanupPlan.shouldClearActiveAccountData) {
         await this.clearActiveAccountData.call(set);
-      } else if (cleanupPlan.shouldClearTransientData) {
-        this.clearActiveAccountTransientData();
+      } else {
+        if (cleanupPlan.shouldClearPositionData) {
+          set(perpsActivePositionAtom(), {
+            accountAddress: undefined,
+            activePositions: [],
+          });
+        }
+        if (cleanupPlan.shouldClearOpenOrdersData) {
+          this.resetOpenOrdersByDexCache();
+          perpsOpenOrdersByCoinAtomCache.clear();
+          set(perpsActiveOpenOrdersAtom(), {
+            accountAddress: undefined,
+            openOrders: [],
+            openOrdersByCoin: {},
+            openOrdersByDex: {},
+          });
+        }
+        if (cleanupPlan.shouldClearSpotOpenOrdersData) {
+          void spotActiveOpenOrdersAtom.set({
+            accountAddress: undefined,
+            openOrders: [],
+          });
+        }
+        if (cleanupPlan.shouldClearTransientData) {
+          this.clearActiveAccountTransientData();
+        }
       }
       return account;
     },
@@ -1643,6 +1702,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       accountAddress: undefined,
       openOrders: [],
       openOrdersByCoin: {},
+      openOrdersByDex: {},
     });
     this.clearActiveAccountTransientData();
     set(perpsLedgerUpdatesAtom(), {

@@ -17,10 +17,7 @@ import {
   getFontSize,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  useHyperliquidActions,
-  usePerpsActivePositionAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -35,6 +32,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import {
@@ -73,7 +71,7 @@ const SetTpslForm = memo(
     const hyperliquidActions = useHyperliquidActions();
     const { mid: midPrice } = usePerpsMidPrice({ coin });
 
-    const [{ activePositions }] = usePerpsActivePositionAtom();
+    const activePositions = usePerpsAccountScopedActivePositions();
     const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
 
     const currentPosition = useMemo(() => {
