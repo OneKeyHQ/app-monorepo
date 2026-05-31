@@ -145,7 +145,13 @@ function getProtocolOfExchangeFromSwapTab(
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
-  private _quoteAbortController?: AbortController;
+  private _quoteAbortControllerMap: Partial<
+    Record<EProtocolOfExchange, AbortController | undefined>
+  > = {
+    [EProtocolOfExchange.SWAP]: undefined,
+    [EProtocolOfExchange.LIMIT]: undefined,
+    [EProtocolOfExchange.PRIVATE_SEND]: undefined,
+  };
 
   private _speedSwapQuoteAbortController?: AbortController;
 
@@ -205,10 +211,15 @@ export default class ServiceSwap extends ServiceBase {
 
   // --------------------- fetch
   @backgroundMethod()
-  async cancelFetchQuotes() {
-    if (this._quoteAbortController) {
-      this._quoteAbortController.abort();
-      this._quoteAbortController = undefined;
+  async cancelFetchQuotes(
+    protocol:
+      | ESwapTabSwitchType
+      | EProtocolOfExchange = ESwapTabSwitchType.SWAP,
+  ) {
+    const abortControllerKey = getProtocolOfExchangeFromSwapTab(protocol);
+    if (this._quoteAbortControllerMap[abortControllerKey]) {
+      this._quoteAbortControllerMap[abortControllerKey]?.abort();
+      this._quoteAbortControllerMap[abortControllerKey] = undefined;
     }
   }
 
@@ -632,7 +643,7 @@ export default class ServiceSwap extends ServiceBase {
     toTokenAmount?: string;
     userMarketPriceRate?: string;
   }): Promise<IFetchQuoteResult[]> {
-    await this.cancelFetchQuotes();
+    await this.cancelFetchQuotes(protocol);
     const denyCrossChainProvider = await this.getDenyCrossChainProvider(
       fromToken.networkId,
       toToken.networkId,
@@ -667,7 +678,10 @@ export default class ServiceSwap extends ServiceBase {
       walletDeviceType: walletDevice?.deviceType,
       ...(incognito ? { incognito } : {}),
     };
-    this._quoteAbortController = new AbortController();
+    const quoteAbortControllerKey = getProtocolOfExchangeFromSwapTab(protocol);
+    const quoteAbortController = new AbortController();
+    this._quoteAbortControllerMap[quoteAbortControllerKey] =
+      quoteAbortController;
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     const fetchUrl = '/swap/v1/quote';
     try {
@@ -675,7 +689,7 @@ export default class ServiceSwap extends ServiceBase {
         fetchUrl,
         {
           params,
-          signal: this._quoteAbortController.signal,
+          signal: quoteAbortController.signal,
           headers:
             await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
@@ -684,7 +698,6 @@ export default class ServiceSwap extends ServiceBase {
             ),
         },
       );
-      this._quoteAbortController = undefined;
 
       if (data?.code === 0 && data?.data?.length) {
         return data?.data;
@@ -698,6 +711,13 @@ export default class ServiceSwap extends ServiceBase {
       }
       if (isPrivateSendProtocol(protocol)) {
         throw e;
+      }
+    } finally {
+      if (
+        this._quoteAbortControllerMap[quoteAbortControllerKey] ===
+        quoteAbortController
+      ) {
+        this._quoteAbortControllerMap[quoteAbortControllerKey] = undefined;
       }
     }
     return [
@@ -1769,6 +1789,13 @@ export default class ServiceSwap extends ServiceBase {
     const shouldScheduleNextFetch = options?.shouldScheduleNextFetch ?? true;
     const shouldShowToast = options?.shouldShowToast ?? true;
     let currentSwapTxHistory = cloneDeep(swapTxHistory);
+    const isPrivateSendHistory =
+      currentSwapTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+      currentSwapTxHistory.swapInfo.provider.provider === privateSendProvider;
+    const stateOrderId = isPrivateSendHistory
+      ? (currentSwapTxHistory.txInfo.orderId ??
+        currentSwapTxHistory.swapInfo.orderId)
+      : currentSwapTxHistory.swapInfo.orderId;
     try {
       const txStatusRes = await this.fetchTxState({
         txId:
@@ -1786,7 +1813,7 @@ export default class ServiceSwap extends ServiceBase {
         ctx: currentSwapTxHistory.ctx,
         toTokenAddress: currentSwapTxHistory.baseInfo.toToken.contractAddress,
         receivedAddress: currentSwapTxHistory.txInfo.receiver,
-        orderId: currentSwapTxHistory.swapInfo.orderId,
+        orderId: stateOrderId,
       });
       if (
         shouldUpdateSwapHistoryAfterTxState({

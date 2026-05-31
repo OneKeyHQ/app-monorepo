@@ -44,6 +44,7 @@ import {
   EProtocolOfExchange,
   ESwapCleanHistorySource,
   ESwapCrossChainStatus,
+  ESwapExtraStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
@@ -115,7 +116,12 @@ const SwapHistoryDetailModal = () => {
       routeTxHistory.status !== ESwapTxHistoryStatus.PENDING;
     const nextTxHistoryList = shouldKeepRoutePrivateSendStatus
       ? swapTxHistoryList.map((item) =>
-          item.swapInfo.orderId === routeTxHistoryOrderId
+          item.swapInfo.orderId === routeTxHistoryOrderId &&
+          (item.status === ESwapTxHistoryStatus.PENDING ||
+            item.status === ESwapTxHistoryStatus.CANCELING ||
+            (routeTxHistory?.date.updated ??
+              routeTxHistory?.date.created ??
+              0) > (item.date.updated ?? item.date.created ?? 0))
             ? (routeTxHistory ?? item)
             : item,
         )
@@ -313,9 +319,36 @@ const SwapHistoryDetailModal = () => {
   );
 
   const renderSwapOrderStatus = useCallback(() => {
-    const { status } = txHistory ?? {};
+    const { crossChainStatus, extraStatus, status } = txHistory ?? {};
     if (isPrivateSendHistory) {
       const statusTextProps = (() => {
+        if (extraStatus === ESwapExtraStatus.HOLD) {
+          return getSwapHistoryStatusTextProps(
+            status ?? ESwapTxHistoryStatus.PENDING,
+            extraStatus,
+          );
+        }
+        if (extraStatus === ESwapExtraStatus.EXPIRED) {
+          return {
+            key: ETranslations.swap_history_detail_badge_expired,
+            color: '$textCritical',
+          } as const;
+        }
+        if (extraStatus === ESwapExtraStatus.REFUNDED) {
+          return {
+            key: ETranslations.swap_history_detail_badge_refunded,
+            color: '$textSuccess',
+          } as const;
+        }
+        if (
+          crossChainStatus === ESwapCrossChainStatus.EXPIRED ||
+          crossChainStatus === ESwapCrossChainStatus.PROVIDER_ERROR ||
+          crossChainStatus === ESwapCrossChainStatus.REFUNDED ||
+          crossChainStatus === ESwapCrossChainStatus.REFUND_FAILED ||
+          crossChainStatus === ESwapCrossChainStatus.REFUNDING
+        ) {
+          return getSwapCrossChainStatusTextProps(crossChainStatus);
+        }
         if (status === ESwapTxHistoryStatus.SUCCESS) {
           return {
             key: ETranslations.private_send_done,
@@ -571,6 +604,8 @@ const SwapHistoryDetailModal = () => {
       return null;
     }
     const protocolFeeContent = renderProtocolFee();
+    const shouldRenderReceiver =
+      !isPrivateSendHistory || Boolean(txHistory.txInfo.receiver);
 
     return (
       <>
@@ -619,22 +654,24 @@ const SwapHistoryDetailModal = () => {
                 />
               }
             />
-            <InfoItem
-              label={intl.formatMessage({
-                id: isPrivateSendHistory
-                  ? ETranslations.global_to
-                  : ETranslations.swap_history_detail_received_address,
-              })}
-              renderContent={txHistory.txInfo.receiver}
-              description={
-                <AddressInfo
-                  address={txHistory.txInfo.receiver}
-                  networkId={txHistory.accountInfo?.receiver.networkId}
-                  accountId={txHistory.accountInfo?.receiver.accountId}
-                />
-              }
-              showCopy
-            />
+            {shouldRenderReceiver ? (
+              <InfoItem
+                label={intl.formatMessage({
+                  id: isPrivateSendHistory
+                    ? ETranslations.global_to
+                    : ETranslations.swap_history_detail_received_address,
+                })}
+                renderContent={txHistory.txInfo.receiver}
+                description={
+                  <AddressInfo
+                    address={txHistory.txInfo.receiver}
+                    networkId={txHistory.accountInfo?.receiver.networkId}
+                    accountId={txHistory.accountInfo?.receiver.accountId}
+                  />
+                }
+                showCopy
+              />
+            ) : null}
             {txHistory.txInfo.txId ? (
               <InfoItem
                 label={intl.formatMessage({
