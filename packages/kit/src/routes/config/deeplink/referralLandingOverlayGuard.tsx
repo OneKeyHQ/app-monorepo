@@ -9,6 +9,7 @@ import {
   closeAllDialogInstances,
   getDialogInstances,
   getFormInstances,
+  isNativeTablet,
   rootNavigationRef,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -251,6 +252,7 @@ export function showReferralBlockingOverlayToast({
   };
   const canContinue = () =>
     currentToken === referralBlockingToastToken && (shouldContinue?.() ?? true);
+  const shouldShowCloseAction = !isNativeTablet();
   const handleCloseAndContinue = () => {
     if (isHandlingContinue) {
       return;
@@ -291,7 +293,6 @@ export function showReferralBlockingOverlayToast({
     message: appLocale.intl.formatMessage({
       id: ETranslations.referral_close_current_popup_desc,
     }),
-    actionsAlign: 'left',
     onClose: () => {
       if (
         currentToken === referralBlockingToastToken &&
@@ -300,9 +301,16 @@ export function showReferralBlockingOverlayToast({
         referralBlockingToast = undefined;
       }
     },
-    actions: (
-      <ReferralBlockingOverlayToastAction onPress={handleCloseAndContinue} />
-    ),
+    ...(shouldShowCloseAction
+      ? {
+          actionsAlign: 'left' as const,
+          actions: (
+            <ReferralBlockingOverlayToastAction
+              onPress={handleCloseAndContinue}
+            />
+          ),
+        }
+      : {}),
   });
   referralBlockingToast = currentToastRef.current;
 
