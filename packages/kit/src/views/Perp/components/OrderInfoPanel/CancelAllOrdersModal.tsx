@@ -9,11 +9,18 @@ import {
   useHyperliquidActions,
   usePerpsActiveOpenOrdersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { useSpotActiveOpenOrdersAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  useSpotActiveOpenOrdersAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import {
+  getPerpsAccountScopedFallbackListState,
+  getPerpsAccountScopedListData,
+} from '../../utils/accountScopedData';
 import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
@@ -31,14 +38,53 @@ function CancelAllOrdersContent({
 }: ICancelAllOrdersContentProps) {
   const actions = useHyperliquidActions();
   const intl = useIntl();
-  const [{ openOrders: perpOpenOrders }] = usePerpsActiveOpenOrdersAtom();
-  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
+  const [activeAccount] = usePerpsActiveAccountAtom();
+  const [
+    {
+      accountAddress: perpOpenOrdersAccountAddress,
+      openOrders: perpOpenOrders,
+      spotOpenOrders: cachedSpotOpenOrders = [],
+    },
+  ] = usePerpsActiveOpenOrdersAtom();
+  const [
+    {
+      accountAddress: spotOpenOrdersAccountAddress,
+      openOrders: spotOpenOrders,
+    },
+  ] = useSpotActiveOpenOrdersAtom();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const ordersToProcess = useMemo(() => {
-    const all = [...perpOpenOrders, ...spotOpenOrders];
+    const scopedPerpOpenOrders = getPerpsAccountScopedListData({
+      activeAccountAddress: activeAccount?.accountAddress,
+      dataAccountAddress: perpOpenOrdersAccountAddress,
+      data: perpOpenOrders,
+    });
+    const effectiveSpotOpenOrdersState = getPerpsAccountScopedFallbackListState(
+      {
+        activeAccountAddress: activeAccount?.accountAddress,
+        dataAccountAddress: spotOpenOrdersAccountAddress,
+        data: spotOpenOrders,
+        fallbackDataAccountAddress: perpOpenOrdersAccountAddress,
+        fallbackData: cachedSpotOpenOrders,
+      },
+    );
+    const scopedSpotOpenOrders = getPerpsAccountScopedListData({
+      activeAccountAddress: activeAccount?.accountAddress,
+      dataAccountAddress: effectiveSpotOpenOrdersState.dataAccountAddress,
+      data: effectiveSpotOpenOrdersState.data,
+    });
+    const all = [...scopedPerpOpenOrders, ...scopedSpotOpenOrders];
     return filterByCoin ? all.filter((o) => o.coin === filterByCoin) : all;
-  }, [perpOpenOrders, spotOpenOrders, filterByCoin]);
+  }, [
+    activeAccount?.accountAddress,
+    cachedSpotOpenOrders,
+    filterByCoin,
+    perpOpenOrders,
+    perpOpenOrdersAccountAddress,
+    spotOpenOrders,
+    spotOpenOrdersAccountAddress,
+  ]);
 
   const handleConfirm = useCallback(async () => {
     if (isSubmitting) return;

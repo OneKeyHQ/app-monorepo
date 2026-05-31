@@ -135,8 +135,13 @@ export function useChartLines({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [{ activePositions, accountAddress: positionsAccountAddress }] =
     usePerpsActivePositionAtom();
-  const [{ openOrdersByCoin, accountAddress: ordersAccountAddress }] =
-    usePerpsActiveOpenOrdersAtom();
+  const [
+    {
+      openOrdersByCoin,
+      accountAddress: ordersAccountAddress,
+      spotOpenOrders: cachedSpotOpenOrders = [],
+    },
+  ] = usePerpsActiveOpenOrdersAtom();
   const [
     { openOrders: spotOpenOrders, accountAddress: spotOrdersAccountAddress },
   ] = useSpotActiveOpenOrdersAtom();
@@ -194,12 +199,17 @@ export function useChartLines({
     }
 
     if (activeTradeInstrument.mode === 'spot') {
-      if (
-        normalizeAddress(spotOrdersAccountAddress) !== normalizedUserAddress
-      ) {
-        return [];
+      const isLiveSpotOrdersScoped =
+        normalizeAddress(spotOrdersAccountAddress) === normalizedUserAddress;
+      const isCachedSpotOrdersScoped =
+        normalizeAddress(ordersAccountAddress) === normalizedUserAddress;
+      let effectiveSpotOpenOrders: typeof spotOpenOrders = [];
+      if (isLiveSpotOrdersScoped) {
+        effectiveSpotOpenOrders = spotOpenOrders;
+      } else if (isCachedSpotOrdersScoped) {
+        effectiveSpotOpenOrders = cachedSpotOpenOrders;
       }
-      return spotOpenOrders.filter((order) => order.coin === symbol);
+      return effectiveSpotOpenOrders.filter((order) => order.coin === symbol);
     }
 
     if (normalizeAddress(ordersAccountAddress) !== normalizedUserAddress) {
@@ -210,6 +220,7 @@ export function useChartLines({
   }, [
     activeTradeInstrument.mode,
     normalizedUserAddress,
+    cachedSpotOpenOrders,
     openOrdersByCoin,
     ordersAccountAddress,
     spotOpenOrders,

@@ -1591,6 +1591,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           });
         }
         if (cleanupPlan.shouldClearTransientData) {
+          set(perpsLedgerUpdatesAtom(), {
+            accountAddress: undefined,
+            updates: [],
+            isLoaded: false,
+          });
           this.clearActiveAccountTransientData();
         }
       }
