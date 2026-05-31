@@ -200,6 +200,7 @@ export interface IScaleOrderBuildParams {
   szDecimals: number;
   side: 'long' | 'short';
   sizeSkew?: number;
+  assetType?: 'perp' | 'spot';
 }
 
 export interface IScaleOrderLeg {
@@ -225,6 +226,7 @@ export interface IPlaceScaleOrderParams {
   tif?: IScaleOrderTif;
   szDecimals?: number;
   sizeSkew?: number;
+  assetType?: 'perp' | 'spot';
 }
 
 // ── TWAP Order Types ──

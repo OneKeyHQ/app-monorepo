@@ -205,9 +205,11 @@ function OrderConfirmContent({
       szDecimals,
       side: effectiveSide,
       sizeSkew: getScaleOrderSizeSkew(formData.scaleSizeDistribution),
+      assetType: isSpot ? 'spot' : 'perp',
     });
   }, [
     isScaleMode,
+    isSpot,
     computedSizeForSide,
     formData.scaleLowerPrice,
     formData.scaleUpperPrice,

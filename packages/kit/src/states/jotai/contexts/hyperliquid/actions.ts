@@ -2440,6 +2440,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               activeAssetCtxValue,
               activeAssetDataValue,
               activePositionsValue,
+              env,
             ] = await Promise.all([
               perpsActiveAccountAtom.get(),
               Promise.resolve(get(activeTradeInstrumentAtom())),
@@ -2447,13 +2448,24 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               perpsActiveAssetCtxAtom.get(),
               perpsActiveAssetDataAtom.get(),
               Promise.resolve(get(perpsActivePositionAtom())),
+              Promise.resolve(get(tradingFormEnvAtom())),
             ]);
 
-            if (activeTradeInstrument.mode === 'spot') {
+            const isSpot = activeTradeInstrument.mode === 'spot';
+            if (
+              isSpot &&
+              (typeof params.assetId !== 'number' ||
+                !Number.isFinite(params.assetId))
+            ) {
               throw new OneKeyLocalError(
-                'Scale orders are not supported in spot mode',
+                'Spot asset metadata not loaded. Please try again.',
               );
             }
+            const szDecimals = isSpot
+              ? (activeTradeInstrument.universe?.baseSzDecimals ??
+                env.szDecimals ??
+                2)
+              : (activeAssetValue?.universe?.szDecimals ?? env.szDecimals ?? 2);
 
             const referencePrice = getScaleOrderReferencePrice({
               lowerPrice: formData.scaleLowerPrice,
@@ -2469,15 +2481,24 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               sizePercent: formData.sizePercent,
               side: formData.side,
               price: referencePrice.toFixed(),
-              markPrice: activeAssetCtxValue?.ctx?.markPrice,
-              maxTradeSzs: activeAssetDataValue?.maxTradeSzs,
-              leverageValue: activeAssetDataValue?.leverage?.value,
-              fallbackLeverage: activeAssetValue?.universe?.maxLeverage,
-              szDecimals: activeAssetValue?.universe?.szDecimals,
+              markPrice: isSpot
+                ? (env.markPrice ?? referencePrice.toFixed())
+                : activeAssetCtxValue?.ctx?.markPrice,
+              maxTradeSzs: isSpot
+                ? env.maxTradeSzs
+                : activeAssetDataValue?.maxTradeSzs,
+              leverageValue: isSpot ? 1 : activeAssetDataValue?.leverage?.value,
+              fallbackLeverage: isSpot
+                ? 1
+                : activeAssetValue?.universe?.maxLeverage,
+              szDecimals,
             });
-            if (formData.scaleReduceOnly) {
+            const reduceOnly = isSpot
+              ? false
+              : Boolean(formData.scaleReduceOnly);
+            if (reduceOnly) {
               const snapshotError = getReduceOnlyPositionSnapshotError({
-                reduceOnly: formData.scaleReduceOnly,
+                reduceOnly,
                 accountAddress: activeAccount?.accountAddress,
                 positionsAccountAddress: activePositionsValue.accountAddress,
               });
@@ -2488,7 +2509,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 (pos) => pos.position.coin === activeTradeInstrument.coin,
               )?.position;
               const reduceOnlyError = getReduceOnlyOrderGuardError({
-                reduceOnly: formData.scaleReduceOnly,
+                reduceOnly,
                 side: formData.side,
                 size: resolvedSize,
                 positionSize: position?.szi,
@@ -2512,12 +2533,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                   lowerPrice: formData.scaleLowerPrice ?? '',
                   upperPrice: formData.scaleUpperPrice ?? '',
                   orderCount: Number(formData.scaleOrderCount ?? 0),
-                  reduceOnly: formData.scaleReduceOnly,
+                  reduceOnly,
                   tif: 'Gtc',
-                  szDecimals: activeAssetValue?.universe?.szDecimals,
+                  szDecimals,
                   sizeSkew: getScaleOrderSizeSkew(
                     formData.scaleSizeDistribution,
                   ),
+                  assetType: isSpot ? 'spot' : 'perp',
                 },
               );
             return result;
@@ -2537,6 +2559,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       params: {
         assetId: number;
         formData?: ITradingFormData;
+        price?: string;
       },
     ) => {
       const formData = params.formData || get(tradingFormAtom());
@@ -2563,9 +2586,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               Promise.resolve(get(tradingFormEnvAtom())),
             ]);
 
-            if (activeTradeInstrument.mode === 'spot') {
+            const isSpot = activeTradeInstrument.mode === 'spot';
+            if (
+              isSpot &&
+              (typeof params.assetId !== 'number' ||
+                !Number.isFinite(params.assetId))
+            ) {
               throw new OneKeyLocalError(
-                'TWAP orders are not supported in spot mode',
+                'Spot asset metadata not loaded. Please try again.',
               );
             }
 
@@ -2580,8 +2608,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               );
             }
 
-            const markPrice =
-              activeAssetCtxValue?.ctx?.markPrice ?? env.markPrice ?? '';
+            const markPrice = isSpot
+              ? (params.price ?? env.markPrice ?? '')
+              : (activeAssetCtxValue?.ctx?.markPrice ?? env.markPrice ?? '');
             const markPriceBN = new BigNumber(markPrice);
             if (!markPriceBN.isFinite() || markPriceBN.lte(0)) {
               throw new OneKeyLocalError(
@@ -2589,8 +2618,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               );
             }
 
-            const szDecimals =
-              activeAssetValue?.universe?.szDecimals ?? env.szDecimals ?? 2;
+            const szDecimals = isSpot
+              ? (activeTradeInstrument.universe?.baseSzDecimals ??
+                env.szDecimals ??
+                2)
+              : (activeAssetValue?.universe?.szDecimals ?? env.szDecimals ?? 2);
             const resolvedSize = resolveTradingSize({
               sizeInputMode: formData.sizeInputMode,
               manualSize: formData.size,
@@ -2598,9 +2630,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               side: formData.side,
               price: markPriceBN.toFixed(),
               markPrice: markPriceBN.toFixed(),
-              maxTradeSzs: activeAssetDataValue?.maxTradeSzs,
-              leverageValue: activeAssetDataValue?.leverage?.value,
-              fallbackLeverage: activeAssetValue?.universe?.maxLeverage,
+              maxTradeSzs: isSpot
+                ? env.maxTradeSzs
+                : activeAssetDataValue?.maxTradeSzs,
+              leverageValue: isSpot ? 1 : activeAssetDataValue?.leverage?.value,
+              fallbackLeverage: isSpot
+                ? 1
+                : activeAssetValue?.universe?.maxLeverage,
               szDecimals,
             });
             const resolvedSizeBN = new BigNumber(resolvedSize);
@@ -2613,7 +2649,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               throw new OneKeyLocalError('Order value must be at least $10');
             }
 
-            const reduceOnly = Boolean(formData.twapReduceOnly);
+            const reduceOnly = isSpot
+              ? false
+              : Boolean(formData.twapReduceOnly);
             if (reduceOnly) {
               const snapshotError = getReduceOnlyPositionSnapshotError({
                 reduceOnly,
@@ -2740,29 +2778,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const formData = params.formData || get(tradingFormAtom());
       const tradingMode = await tradingModeAtom.get();
 
-      if (tradingMode === 'spot') {
-        if (formData.orderMode === 'twap') {
-          throw new OneKeyLocalError(
-            'TWAP orders are not supported in spot mode',
-          );
-        }
-        if (formData.orderMode === 'scale') {
-          throw new OneKeyLocalError(
-            'Scale orders are not supported in spot mode',
-          );
-        }
-        return this.placeSpotOrder.call(set, {
-          assetId: params.assetId,
-          formData,
-          slippage: params.slippage,
-          price: params.price,
-        });
-      }
-
       if (formData.orderMode === 'twap') {
         return this.placeTwapOrder.call(set, {
           assetId: params.assetId,
           formData,
+          price: params.price,
         });
       }
 
@@ -2770,6 +2790,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         return this.placeScaleOrder.call(set, {
           assetId: params.assetId,
           formData,
+        });
+      }
+
+      if (tradingMode === 'spot') {
+        if (formData.orderMode !== 'standard') {
+          throw new OneKeyLocalError(
+            'This order type is not supported in spot mode',
+          );
+        }
+        return this.placeSpotOrder.call(set, {
+          assetId: params.assetId,
+          formData,
+          slippage: params.slippage,
+          price: params.price,
         });
       }
 

@@ -118,6 +118,20 @@ describe('hyperliquidScaleOrderUtils', () => {
     ).toEqual(['0.33', '0.33', '0.34']);
   });
 
+  test('formats spot scale prices with spot precision', () => {
+    expect(
+      buildScaleOrderLegs({
+        totalSize: '30',
+        lowerPrice: '0.1234',
+        upperPrice: '0.1334',
+        orderCount: 2,
+        szDecimals: 6,
+        side: 'long',
+        assetType: 'spot',
+      }).map((leg) => leg.price),
+    ).toEqual(['0.13', '0.12']);
+  });
+
   test('rejects legs below notional minimum or collapsed price precision', () => {
     const tinyLegs = buildScaleOrderLegs({
       totalSize: '0.03',

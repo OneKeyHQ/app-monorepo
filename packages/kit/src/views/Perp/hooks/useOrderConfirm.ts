@@ -124,28 +124,6 @@ export function useOrderConfirmWithMarketDataFreshness({
         return;
       }
 
-      if (
-        activeTradeInstrument.mode === 'spot' &&
-        formDataSnapshot.orderMode === 'scale'
-      ) {
-        Toast.error({
-          title: 'Order Failed',
-          message: 'Scale orders are not supported in spot mode',
-        });
-        return;
-      }
-
-      if (
-        activeTradeInstrument.mode === 'spot' &&
-        formDataSnapshot.orderMode === 'twap'
-      ) {
-        Toast.error({
-          title: 'Order Failed',
-          message: 'TWAP orders are not supported in spot mode',
-        });
-        return;
-      }
-
       // Trigger mode: validate, snapshot, and submit (no TP/SL, no standard price validation)
       if (formDataSnapshot.orderMode === 'trigger') {
         const triggerOrderType =
@@ -245,10 +223,10 @@ export function useOrderConfirmWithMarketDataFreshness({
           });
           return;
         }
-        const szDecimals =
-          activeTradeInstrument.mode === 'spot'
-            ? (activeTradeInstrument.universe?.baseSzDecimals ?? 2)
-            : (activeTradeInstrument.universe?.szDecimals ?? 2);
+        const isSpotOrder = activeTradeInstrument.mode === 'spot';
+        const szDecimals = isSpotOrder
+          ? (activeTradeInstrument.universe?.baseSzDecimals ?? 2)
+          : (activeTradeInstrument.universe?.szDecimals ?? 2);
         const scaleLegs = buildScaleOrderLegs({
           totalSize: scaleSize.toFixed(),
           lowerPrice: formDataSnapshot.scaleLowerPrice ?? '',
@@ -259,6 +237,7 @@ export function useOrderConfirmWithMarketDataFreshness({
           sizeSkew: getScaleOrderSizeSkew(
             formDataSnapshot.scaleSizeDistribution,
           ),
+          assetType: isSpotOrder ? 'spot' : 'perp',
         });
         const scaleValidation = validateScaleOrderLegs({ legs: scaleLegs });
         if (!scaleValidation.isValid) {
@@ -268,7 +247,7 @@ export function useOrderConfirmWithMarketDataFreshness({
           });
           return;
         }
-        if (formDataSnapshot.scaleReduceOnly) {
+        if (!isSpotOrder && formDataSnapshot.scaleReduceOnly) {
           const snapshotError = getReduceOnlyPositionSnapshotError({
             reduceOnly: formDataSnapshot.scaleReduceOnly,
             accountAddress: currentUser?.accountAddress,
@@ -309,6 +288,9 @@ export function useOrderConfirmWithMarketDataFreshness({
           price: referencePrice.toFixed(),
           bboPriceMode: null,
           hasTpsl: false,
+          scaleReduceOnly: isSpotOrder
+            ? false
+            : formDataSnapshot.scaleReduceOnly,
         };
 
         hyperliquidActions.current.resetTradingForm();
@@ -338,6 +320,7 @@ export function useOrderConfirmWithMarketDataFreshness({
           });
           return;
         }
+        const isSpotOrder = activeTradeInstrument.mode === 'spot';
         const twapSize =
           side === 'long'
             ? longCalculations.computedSizeForSide
@@ -356,7 +339,7 @@ export function useOrderConfirmWithMarketDataFreshness({
           });
           return;
         }
-        if (formDataSnapshot.twapReduceOnly) {
+        if (!isSpotOrder && formDataSnapshot.twapReduceOnly) {
           const snapshotError = getReduceOnlyPositionSnapshotError({
             reduceOnly: formDataSnapshot.twapReduceOnly,
             accountAddress: currentUser?.accountAddress,
@@ -397,6 +380,7 @@ export function useOrderConfirmWithMarketDataFreshness({
           price: '',
           bboPriceMode: null,
           hasTpsl: false,
+          twapReduceOnly: isSpotOrder ? false : formDataSnapshot.twapReduceOnly,
         };
 
         hyperliquidActions.current.resetTradingForm();

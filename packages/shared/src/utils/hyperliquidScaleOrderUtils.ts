@@ -109,6 +109,7 @@ export function buildScaleOrderLegs({
   szDecimals,
   side,
   sizeSkew,
+  assetType = 'perp',
 }: IScaleOrderBuildParams): IScaleOrderLeg[] {
   const normalizedCount = normalizeScaleOrderCount(orderCount);
   const totalSizeBN = new BigNumber(totalSize);
@@ -146,7 +147,7 @@ export function buildScaleOrderLegs({
         : minPrice.plus(step.multipliedBy(index));
     return {
       index,
-      price: formatHlPrice(rawPrice, szDecimals),
+      price: formatHlPrice(rawPrice, szDecimals, assetType),
       size: sizes[index] ?? '',
     };
   });

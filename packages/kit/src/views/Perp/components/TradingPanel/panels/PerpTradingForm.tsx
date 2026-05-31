@@ -35,6 +35,7 @@ import type {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   getPerpsAccountDisplaySnapshotEntry,
+  type IPerpsLastAdvancedOrderType,
   usePerpsAccountDisplaySnapshotAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
@@ -116,6 +117,23 @@ function migrateTriggerOrderType(raw: string): ETriggerOrderType {
     return ETriggerOrderType.TRIGGER_LIMIT;
   }
   return raw as ETriggerOrderType;
+}
+
+function resolveAdvancedOrderType({
+  lastAdvancedOrderType,
+  lastTriggerOrderType,
+}: {
+  lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
+  lastTriggerOrderType?: ETriggerOrderType;
+}): ITriggerDropdownValue {
+  if (lastAdvancedOrderType === 'scale' || lastAdvancedOrderType === 'twap') {
+    return lastAdvancedOrderType;
+  }
+  return migrateTriggerOrderType(
+    lastAdvancedOrderType ??
+      lastTriggerOrderType ??
+      ETriggerOrderType.TRIGGER_MARKET,
+  );
 }
 
 const TRIGGER_MODE_TPSL_RESET: Partial<ITradingFormData> = {
@@ -613,7 +631,7 @@ function PerpTradingForm({
   ]);
 
   useEffect(() => {
-    if (!isSpot || !isAdvancedOrderMode) {
+    if (!isSpot || formData.orderMode !== 'trigger') {
       return;
     }
     updateForm({
@@ -624,7 +642,7 @@ function PerpTradingForm({
       triggerPrice: '',
       executionPrice: '',
     });
-  }, [isAdvancedOrderMode, isSpot, updateForm]);
+  }, [formData.orderMode, isSpot, updateForm]);
 
   // Reference Price: Get the effective trading price (limit price, market price, or trigger effective price)
   const [, referencePriceString] = useMemo(() => {
@@ -732,6 +750,7 @@ function PerpTradingForm({
       szDecimals: sizeSzDecimals,
       side: formData.side,
       sizeSkew: getScaleOrderSizeSkew(formData.scaleSizeDistribution),
+      assetType: isSpot ? 'spot' : 'perp',
     });
     const validation = validateScaleOrderLegs({ legs });
     if (!validation.isValid) {
@@ -752,6 +771,7 @@ function PerpTradingForm({
     formData.scaleUpperPrice,
     formData.side,
     isScaleMode,
+    isSpot,
     sizeSzDecimals,
     tradingComputed.computedSizeBN,
   ]);
@@ -1174,8 +1194,21 @@ function PerpTradingForm({
     [intl],
   );
 
-  const triggerTypeOptions = useMemo(
-    () => [
+  const triggerTypeOptions = useMemo(() => {
+    const algoOrderOptions = [
+      {
+        label: 'Scale',
+        value: 'scale' as ITriggerDropdownValue,
+      },
+      {
+        label: 'TWAP',
+        value: 'twap' as ITriggerDropdownValue,
+      },
+    ];
+    if (isSpot) {
+      return algoOrderOptions;
+    }
+    return [
       {
         label: intl.formatMessage({
           id: ETranslations.perp_order_trigger_market,
@@ -1188,17 +1221,9 @@ function PerpTradingForm({
         }),
         value: ETriggerOrderType.TRIGGER_LIMIT as ITriggerDropdownValue,
       },
-      {
-        label: 'Scale',
-        value: 'scale' as ITriggerDropdownValue,
-      },
-      {
-        label: 'TWAP',
-        value: 'twap' as ITriggerDropdownValue,
-      },
-    ],
-    [intl],
-  );
+      ...algoOrderOptions,
+    ];
+  }, [intl, isSpot]);
   const scaleOrderCountValidator = useCallback((value: string) => {
     if (value === '') {
       return true;
@@ -1282,7 +1307,17 @@ function PerpTradingForm({
         value: 'limit' as string,
       },
     ];
-    if (isSpot) return base;
+    const algoOrderOptions = [
+      {
+        label: 'Scale',
+        value: 'scale',
+      },
+      {
+        label: 'TWAP',
+        value: 'twap',
+      },
+    ];
+    if (isSpot) return [...base, ...algoOrderOptions];
     return [
       ...base,
       {
@@ -1297,70 +1332,65 @@ function PerpTradingForm({
         }),
         value: ETriggerOrderType.TRIGGER_LIMIT as string,
       },
-      {
-        label: 'Scale',
-        value: 'scale',
-      },
-      {
-        label: 'TWAP',
-        value: 'twap',
-      },
+      ...algoOrderOptions,
     ];
   }, [intl, isSpot]);
 
-  const applyPrimaryOrderType = useCallback(
-    (nextType: IPrimaryOrderType) => {
-      if (nextType === 'trigger') {
-        const persistedType = migrateTriggerOrderType(
-          perpsCustomSettings.lastTriggerOrderType ??
-            ETriggerOrderType.TRIGGER_MARKET,
-        );
-        const isLimitTrigger =
-          persistedType === ETriggerOrderType.TRIGGER_LIMIT;
-        updateForm({
-          ...TRIGGER_MODE_TPSL_RESET,
-          orderMode: 'trigger',
-          triggerOrderType: persistedType,
-          type: isLimitTrigger ? 'limit' : 'market',
-          bboPriceMode: null,
-        });
-        return;
-      }
-      updateForm({
-        orderMode: 'standard',
-        type: nextType,
-      });
-    },
-    [perpsCustomSettings.lastTriggerOrderType, updateForm],
+  const lastAdvancedOrderType = useMemo(
+    () =>
+      resolveAdvancedOrderType({
+        lastAdvancedOrderType: perpsCustomSettings.lastAdvancedOrderType,
+        lastTriggerOrderType: perpsCustomSettings.lastTriggerOrderType,
+      }),
+    [
+      perpsCustomSettings.lastAdvancedOrderType,
+      perpsCustomSettings.lastTriggerOrderType,
+    ],
   );
+  const lastSelectableAdvancedOrderType: ITriggerDropdownValue =
+    isSpot &&
+    lastAdvancedOrderType !== 'scale' &&
+    lastAdvancedOrderType !== 'twap'
+      ? 'scale'
+      : lastAdvancedOrderType;
 
-  const handleTriggerOrderTypeChange = useCallback(
-    (nextValue: string | number | boolean | undefined) => {
-      if (typeof nextValue !== 'string') {
-        return;
-      }
-      const nextType = nextValue as ITriggerDropdownValue;
-      if (nextType === 'scale') {
+  const applyAdvancedOrderType = useCallback(
+    (nextType: ITriggerDropdownValue) => {
+      const resolvedNextType =
+        isSpot && nextType !== 'scale' && nextType !== 'twap'
+          ? 'scale'
+          : nextType;
+      if (resolvedNextType === 'scale') {
         updateForm({
           ...TRIGGER_MODE_TPSL_RESET,
           orderMode: 'scale',
           type: 'limit',
           bboPriceMode: null,
           hasTpsl: false,
+          ...(isSpot ? { scaleReduceOnly: false } : {}),
         });
+        setPerpsCustomSettings((prev) => ({
+          ...prev,
+          lastAdvancedOrderType: 'scale',
+        }));
         return;
       }
-      if (nextType === 'twap') {
+      if (resolvedNextType === 'twap') {
         updateForm({
           ...TRIGGER_MODE_TPSL_RESET,
           orderMode: 'twap',
           type: 'market',
           bboPriceMode: null,
           hasTpsl: false,
+          ...(isSpot ? { twapReduceOnly: false } : {}),
         });
+        setPerpsCustomSettings((prev) => ({
+          ...prev,
+          lastAdvancedOrderType: 'twap',
+        }));
         return;
       }
-      const migrated = migrateTriggerOrderType(nextType);
+      const migrated = migrateTriggerOrderType(resolvedNextType);
       const isLimitTrigger = migrated === ETriggerOrderType.TRIGGER_LIMIT;
       updateForm({
         ...TRIGGER_MODE_TPSL_RESET,
@@ -1369,12 +1399,37 @@ function PerpTradingForm({
         type: isLimitTrigger ? 'limit' : 'market',
         bboPriceMode: null,
       });
-      setPerpsCustomSettings({
-        ...perpsCustomSettings,
+      setPerpsCustomSettings((prev) => ({
+        ...prev,
         lastTriggerOrderType: migrated,
+        lastAdvancedOrderType: migrated,
+      }));
+    },
+    [isSpot, setPerpsCustomSettings, updateForm],
+  );
+
+  const applyPrimaryOrderType = useCallback(
+    (nextType: IPrimaryOrderType) => {
+      if (nextType === 'trigger') {
+        applyAdvancedOrderType(lastSelectableAdvancedOrderType);
+        return;
+      }
+      updateForm({
+        orderMode: 'standard',
+        type: nextType,
       });
     },
-    [updateForm, perpsCustomSettings, setPerpsCustomSettings],
+    [applyAdvancedOrderType, lastSelectableAdvancedOrderType, updateForm],
+  );
+
+  const handleTriggerOrderTypeChange = useCallback(
+    (nextValue: string | number | boolean | undefined) => {
+      if (typeof nextValue !== 'string') {
+        return;
+      }
+      applyAdvancedOrderType(nextValue as ITriggerDropdownValue);
+    },
+    [applyAdvancedOrderType],
   );
 
   const isTriggerMode = formData.orderMode === 'trigger';
@@ -1883,38 +1938,42 @@ function PerpTradingForm({
     : ETranslations.perp_trade_sl_price;
 
   const renderBottomSection = () => {
-    if (isSpot) return null;
     if (shouldShowEnableTradingButton && isMobile) {
+      return null;
+    }
+    if (isSpot && !isTwapMode) {
       return null;
     }
     if (isTwapMode) {
       return (
         <YStack gap="$1.5" {...(isMobile && { mt: '$1' })} p="$0">
           <YStack alignItems="flex-start" gap="$2.5">
-            <XStack alignItems="center" gap="$2">
-              <Checkbox
-                testID="perp-twap-reduce-only-checkbox"
-                value={formData.twapReduceOnly ?? false}
-                onChange={(checked) =>
-                  updateForm({ twapReduceOnly: !!checked })
-                }
-                disabled={isSubmitting}
-                containerProps={{
-                  p: 0,
-                  alignItems: 'center',
-                  ...(!isMobile && { cursor: 'pointer' }),
-                }}
-                width={checkboxSizeVal}
-                height={checkboxSizeVal}
-                {...(isMobile && { p: '$0' })}
-              />
-              <SizableText
-                size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
-                color="$text"
-              >
-                {intl.formatMessage({ id: ETranslations.perps_reduce_only })}
-              </SizableText>
-            </XStack>
+            {isSpot ? null : (
+              <XStack alignItems="center" gap="$2">
+                <Checkbox
+                  testID="perp-twap-reduce-only-checkbox"
+                  value={formData.twapReduceOnly ?? false}
+                  onChange={(checked) =>
+                    updateForm({ twapReduceOnly: !!checked })
+                  }
+                  disabled={isSubmitting}
+                  containerProps={{
+                    p: 0,
+                    alignItems: 'center',
+                    ...(!isMobile && { cursor: 'pointer' }),
+                  }}
+                  width={checkboxSizeVal}
+                  height={checkboxSizeVal}
+                  {...(isMobile && { p: '$0' })}
+                />
+                <SizableText
+                  size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                  color="$text"
+                >
+                  {intl.formatMessage({ id: ETranslations.perps_reduce_only })}
+                </SizableText>
+              </XStack>
+            )}
             <XStack alignItems="center" gap="$2">
               <Checkbox
                 testID="perp-twap-randomize-checkbox"
@@ -1942,6 +2001,9 @@ function PerpTradingForm({
       );
     }
     if (isScaleMode) {
+      if (isSpot) {
+        return null;
+      }
       return (
         <YStack gap="$1.5" {...(isMobile && { mt: '$1' })} p="$0">
           <XStack alignItems="center" justifyContent="space-between" gap="$3">
@@ -2099,19 +2161,20 @@ function PerpTradingForm({
     );
   };
 
-  // Always show the last selected (or current) trigger type name on the tab
-  const fallbackTriggerTabLabel =
-    triggerTypeOptions.find((item) => item.value === triggerOrderType)?.label ||
-    triggerTypeOptions.find(
-      (item) => item.value === perpsCustomSettings.lastTriggerOrderType,
-    )?.label ||
-    'Trigger';
-  let triggerTabLabel = fallbackTriggerTabLabel;
+  let activeAdvancedOrderType: ITriggerDropdownValue = triggerOrderType;
   if (isScaleMode) {
-    triggerTabLabel = 'Scale';
+    activeAdvancedOrderType = 'scale';
   } else if (isTwapMode) {
-    triggerTabLabel = 'TWAP';
+    activeAdvancedOrderType = 'twap';
   }
+  const triggerTabLabel =
+    triggerTypeOptions.find(
+      (item) =>
+        item.value ===
+        (isAdvancedOrderMode
+          ? activeAdvancedOrderType
+          : lastSelectableAdvancedOrderType),
+    )?.label || 'Trigger';
 
   let mobileSelectedOrderType: string = primaryOrderType;
   if (isTriggerMode) {
@@ -2123,7 +2186,9 @@ function PerpTradingForm({
   if (isScaleMode) {
     mobileSelectedOrderType = 'scale';
   }
-  let triggerSelectValue: ITriggerDropdownValue = triggerOrderType;
+  let triggerSelectValue: ITriggerDropdownValue = isAdvancedOrderMode
+    ? triggerOrderType
+    : lastSelectableAdvancedOrderType;
   if (isTwapMode) {
     triggerSelectValue = 'twap';
   }
@@ -2327,65 +2392,63 @@ function PerpTradingForm({
                   </XStack>
                 );
               })}
-              {isSpot ? null : (
-                <Select
-                  testID="perp-select"
-                  items={triggerTypeOptions}
-                  title="Trigger"
-                  value={triggerSelectValue}
-                  onOpenChange={setTriggerMenuOpen}
-                  onChange={handleTriggerOrderTypeChange}
-                  disabled={isSubmitting}
-                  placement="bottom-start"
-                  floatingPanelProps={{ width: 180 }}
-                  renderTrigger={({ onPress, disabled: disabledTrigger }) => (
-                    <XStack
-                      h={DESKTOP_TRADING_HEADER_HEIGHT}
-                      alignItems="center"
-                      position="relative"
-                      gap="$1"
-                      cursor="pointer"
-                      onPress={(e) => {
-                        if (disabledTrigger) return;
-                        if (!isAdvancedOrderMode) {
-                          // First click: activate trigger mode with persisted type
-                          applyPrimaryOrderType('trigger');
-                        } else {
-                          // Already in advanced mode: open dropdown to switch type
-                          onPress?.(e);
-                        }
-                      }}
+              <Select
+                testID="perp-select"
+                items={triggerTypeOptions}
+                title={intl.formatMessage({
+                  id: ETranslations.perp_trade_order_type,
+                })}
+                value={triggerSelectValue}
+                onOpenChange={setTriggerMenuOpen}
+                onChange={handleTriggerOrderTypeChange}
+                disabled={isSubmitting}
+                placement="bottom-start"
+                floatingPanelProps={{ width: 180 }}
+                renderTrigger={({ onPress, disabled: disabledTrigger }) => (
+                  <XStack
+                    h={DESKTOP_TRADING_HEADER_HEIGHT}
+                    alignItems="center"
+                    position="relative"
+                    gap="$1"
+                    cursor="pointer"
+                    onPress={(e) => {
+                      if (disabledTrigger) return;
+                      if (!isAdvancedOrderMode) {
+                        applyPrimaryOrderType('trigger');
+                      } else {
+                        onPress?.(e);
+                      }
+                    }}
+                  >
+                    <SizableText
+                      size="$bodyMdMedium"
+                      color={isAdvancedOrderMode ? '$text' : '$textSubdued'}
                     >
-                      <SizableText
-                        size="$bodyMdMedium"
-                        color={isAdvancedOrderMode ? '$text' : '$textSubdued'}
-                      >
-                        {triggerTabLabel}
-                      </SizableText>
-                      <Icon
-                        name={
-                          triggerMenuOpen
-                            ? 'ChevronTopSmallOutline'
-                            : 'ChevronDownSmallOutline'
-                        }
-                        color={isAdvancedOrderMode ? '$icon' : '$iconSubdued'}
-                        size="$4"
+                      {triggerTabLabel}
+                    </SizableText>
+                    <Icon
+                      name={
+                        triggerMenuOpen
+                          ? 'ChevronTopSmallOutline'
+                          : 'ChevronDownSmallOutline'
+                      }
+                      color={isAdvancedOrderMode ? '$icon' : '$iconSubdued'}
+                      size="$4"
+                    />
+                    {isAdvancedOrderMode ? (
+                      <YStack
+                        position="absolute"
+                        bottom={0}
+                        left={0}
+                        right={0}
+                        h="$0.5"
+                        bg="$text"
+                        borderRadius={1}
                       />
-                      {isAdvancedOrderMode ? (
-                        <YStack
-                          position="absolute"
-                          bottom={0}
-                          left={0}
-                          right={0}
-                          h="$0.5"
-                          bg="$text"
-                          borderRadius={1}
-                        />
-                      ) : null}
-                    </XStack>
-                  )}
-                />
-              )}
+                    ) : null}
+                  </XStack>
+                )}
+              />
             </XStack>
           </YStack>
         </>

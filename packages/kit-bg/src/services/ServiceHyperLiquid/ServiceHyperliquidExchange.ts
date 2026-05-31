@@ -883,6 +883,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const szDecimals = params.szDecimals ?? 2;
     const side = params.isBuy ? 'long' : 'short';
     const tif = params.tif ?? 'Gtc';
+    const assetType =
+      params.assetType ??
+      (params.assetId >= SPOT_ASSET_ID_OFFSET ? 'spot' : 'perp');
+    if (assetType === 'spot' && params.assetId < SPOT_ASSET_ID_OFFSET) {
+      throw new OneKeyLocalError(
+        `placeScaleOrder: invalid spot assetId ${params.assetId}, must be >= ${SPOT_ASSET_ID_OFFSET}`,
+      );
+    }
     const legs = buildScaleOrderLegs({
       totalSize: params.size,
       lowerPrice: params.lowerPrice,
@@ -891,6 +899,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       szDecimals,
       side,
       sizeSkew: params.sizeSkew,
+      assetType,
     });
     assertValidScaleOrderLegs({ legs });
 
@@ -917,6 +926,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
             reduceOnly: Boolean(params.reduceOnly),
             tif,
             sizeSkew: params.sizeSkew,
+            assetType,
           },
         },
       );
