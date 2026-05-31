@@ -1,0 +1,51 @@
+# End-to-end verification of the fetch-kms-secrets action:
+# GitHub OIDC -> Volcengine STS -> KMS GetSecretValue -> hybrid decrypt -> $GITHUB_ENV.
+# It only prints non-sensitive signals; every decrypted value is GitHub-masked (***).
+#
+# Triggers: manual dispatch (secret-names passed in) and push to this branch
+# (auto-verify, falling back to a hard-coded test secret name). The push trigger's
+# test name and the fork `uses:` are verification-only — drop them and re-point
+# `uses:` to OneKeyHQ/actions (pinned SHA) before the upstream PR.
+name: KMS Fetch Verify
+
+on:
+  workflow_dispatch:
+    inputs:
+      secret-names:
+        description: 'KMS secret name(s) to fetch, one per line — passed at run time'
+        required: true
+  push:
+    branches: [feat/kms-fetch-verify]
+    paths: ['.github/workflows/kms-fetch-verify.yml']
+
+permissions:
+  id-token: write # required so the runner can mint a GitHub OIDC token
+  contents: read
+
+jobs:
+  verify:
+    name: Fetch + decrypt + print (masked)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fetch secrets from KMS
+        id: kms
+        uses: qwang1113/actions/fetch-kms-secrets@feat/fetch-kms-secrets
+        with:
+          volc-account-id: ${{ vars.VOLC_ACCOUNT_ID }}
+          volc-role-trn: ${{ vars.VOLC_ROLE_TRN }}
+          volc-kms-region: ${{ vars.VOLC_KMS_REGION }}
+          secret-names: ${{ inputs['secret-names'] || 'test_access_key_name' }}
+          decrypt-private-key: ${{ secrets.KMS_DECRYPT_PRIVATE_KEY }}
+
+      - name: Print verification signals
+        env:
+          FETCHED_KEYS: ${{ steps.kms.outputs.fetched-keys }}
+        run: |
+          echo "fetched-keys (names only): $FETCHED_KEYS"
+          # For each decrypted key now in the job env, print the masked value plus
+          # its length. A non-zero length proves fetch + decrypt produced content;
+          # GitHub renders the value itself as *** because the action masked it.
+          for key in $(echo "$FETCHED_KEYS" | jq -r '.[]'); do
+            value="${!key}"
+            echo "  $key = $value  (length=${#value})"
+          done
