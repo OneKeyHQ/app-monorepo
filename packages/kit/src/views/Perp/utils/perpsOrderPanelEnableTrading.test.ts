@@ -7,6 +7,7 @@ import {
   shouldBlockPerpsOrderPanelPreEnableTradingForMargin,
   shouldDisablePerpsOrderPanelTradingButton,
   shouldShowPerpsOrderPanelTradingButtons,
+  shouldSkipPerpsOrderPanelComputedSizeValidation,
 } from './perpsOrderPanelEnableTrading';
 
 describe('shouldShowPerpsOrderPanelTradingButtons', () => {
@@ -326,5 +327,30 @@ describe('shouldDisablePerpsOrderPanelTradingButton', () => {
         isServerActionDisabled: false,
       }),
     ).toBe(true);
+  });
+});
+
+describe('shouldSkipPerpsOrderPanelComputedSizeValidation', () => {
+  it('skips computed size validation only for pre-enable BBO unavailable flows', () => {
+    expect(
+      shouldSkipPerpsOrderPanelComputedSizeValidation({
+        shouldValidateBboPriceError: false,
+        hasBboPriceError: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldSkipPerpsOrderPanelComputedSizeValidation({
+        shouldValidateBboPriceError: true,
+        hasBboPriceError: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldSkipPerpsOrderPanelComputedSizeValidation({
+        shouldValidateBboPriceError: false,
+        hasBboPriceError: false,
+      }),
+    ).toBe(false);
   });
 });

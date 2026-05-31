@@ -67,6 +67,7 @@ import {
   getPerpsOrderPanelPostEnableTradingResult,
   shouldBlockPerpsOrderPanelPreEnableTradingForMargin,
   shouldDisablePerpsOrderPanelTradingButton,
+  shouldSkipPerpsOrderPanelComputedSizeValidation,
 } from '../../utils/perpsOrderPanelEnableTrading';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
@@ -541,10 +542,16 @@ function SideButtonInternal({
       const hasSizeEmpty = isSliderMode
         ? !latestFormData.sizePercent || latestFormData.sizePercent <= 0
         : !latestFormData.size || latestFormData.size.trim() === '';
+      const shouldSkipComputedSizeValidation =
+        shouldSkipPerpsOrderPanelComputedSizeValidation({
+          shouldValidateBboPriceError,
+          hasBboPriceError: latestPriceError === 'bbo_unavailable',
+        });
       if (
         hasSizeEmpty ||
-        !latestComputedSizeForSide.gt(0) ||
-        latestIsMinimumOrderNotMetForSide
+        (!shouldSkipComputedSizeValidation &&
+          (!latestComputedSizeForSide.gt(0) ||
+            latestIsMinimumOrderNotMetForSide))
       ) {
         let minAmount = '$10';
         if (latestEffectivePriceBN.gt(0)) {

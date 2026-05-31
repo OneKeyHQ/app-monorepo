@@ -151,6 +151,16 @@ export function shouldBlockPerpsOrderPanelPreEnableTradingForMargin({
   );
 }
 
+export function shouldSkipPerpsOrderPanelComputedSizeValidation({
+  shouldValidateBboPriceError,
+  hasBboPriceError,
+}: {
+  shouldValidateBboPriceError: boolean;
+  hasBboPriceError: boolean;
+}) {
+  return !shouldValidateBboPriceError && hasBboPriceError;
+}
+
 export function getPerpsOrderPanelPostEnableTradingResult({
   enableTradingShouldContinue,
   shouldIgnoreEnableTradingResult,
