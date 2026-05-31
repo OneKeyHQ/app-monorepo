@@ -2594,11 +2594,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     items,
     skipUpdate,
     skipUploadToServer,
+    useServerDataTime,
     fn,
   }: {
     items: IDBCloudSyncItem[];
     skipUpdate?: boolean;
     skipUploadToServer?: boolean;
+    // OK-55438: forward to the upload so genuine "now" writes get a server stamp
+    useServerDataTime?: boolean;
     fn?: () => Promise<void>;
   }) {
     if (items?.length) {
@@ -2610,6 +2613,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           items,
           skipUpdate,
           skipUploadToServer,
+          useServerDataTime,
         });
 
         await fn?.();
@@ -2624,11 +2628,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     items,
     skipUpdate,
     skipUploadToServer,
+    useServerDataTime,
   }: {
     tx: ILocalDBTransaction;
     items: IDBCloudSyncItem[];
     skipUpdate?: boolean;
     skipUploadToServer?: boolean;
+    // OK-55438: forward to the upload so genuine "now" writes get a server stamp
+    useServerDataTime?: boolean;
   }) {
     // add new item
     await this.txAddRecords({
@@ -2661,6 +2668,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (!skipUploadToServer) {
       void this.backgroundApi?.servicePrimeCloudSync.apiUploadItems({
         localItems: items,
+        useServerDataTime,
       });
     }
   }
@@ -4536,6 +4544,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         await this.txAddAndUpdateSyncItems({
           tx,
           items: [syncItem],
+          // OK-55438: rename is a genuine "now" write; let the server stamp
+          // dataTime so a fast local clock can't push it into the future.
+          useServerDataTime: true,
         });
       }
 
@@ -5901,6 +5912,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         await this.txAddAndUpdateSyncItems({
           tx,
           items: [syncItem],
+          // OK-55438: account/indexedAccount rename is a genuine "now" write;
+          // let the server stamp dataTime to avoid future timestamps.
+          useServerDataTime: true,
         });
       }
 
