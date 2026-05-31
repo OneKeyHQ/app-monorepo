@@ -696,6 +696,9 @@ export default class ServiceSwap extends ServiceBase {
           cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
         });
       }
+      if (isPrivateSendProtocol(protocol)) {
+        throw e;
+      }
     }
     return [
       {

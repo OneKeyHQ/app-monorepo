@@ -20,6 +20,8 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+const privateSendFallbackOrderIdPrefix = 'private-send-';
+
 type IPrivateSendHistoryNavigation = {
   pushModal: (
     route: EModalRoutes.SwapModal,
@@ -45,7 +47,13 @@ export function isPrivateSendHistoryTx(historyTx: IAccountHistoryTx) {
 }
 
 function getPrivateSendFallbackOrderId(historyTx: IAccountHistoryTx) {
-  return `private-send-${historyTx.decodedTx.txid || historyTx.id}`;
+  return `${privateSendFallbackOrderIdPrefix}${
+    historyTx.decodedTx.txid || historyTx.id
+  }`;
+}
+
+function isPrivateSendFallbackOrderId(orderId?: string) {
+  return !!orderId?.startsWith(privateSendFallbackOrderIdPrefix);
 }
 
 function ensurePrivateSendHistoryOrderId(item: ISwapTxHistory) {
@@ -64,6 +72,9 @@ function ensurePrivateSendHistoryOrderId(item: ISwapTxHistory) {
 }
 
 function getPrivateSendFallbackStatus(historyTx: IAccountHistoryTx) {
+  if (historyTx.decodedTx.status === EDecodedTxStatus.Confirmed) {
+    return ESwapTxHistoryStatus.SUCCESS;
+  }
   if (
     historyTx.decodedTx.status === EDecodedTxStatus.Failed ||
     historyTx.decodedTx.status === EDecodedTxStatus.Dropped ||
@@ -240,7 +251,12 @@ function buildPrivateSendHistoryItemFromAccountHistory({
   };
 }
 
+function canFetchPrivateSendTxState(item: ISwapTxHistory) {
+  return Boolean(item.txInfo.txId);
+}
+
 async function fetchPrivateSendTxState(item: ISwapTxHistory) {
+  const isFallbackOrder = isPrivateSendFallbackOrderId(item.swapInfo.orderId);
   return backgroundApiProxy.serviceSwap.fetchTxState({
     txId: item.txInfo.txId,
     provider: item.swapInfo.provider.provider || privateSendProvider,
@@ -248,8 +264,8 @@ async function fetchPrivateSendTxState(item: ISwapTxHistory) {
     networkId: item.baseInfo.fromToken.networkId,
     ctx: item.ctx,
     toTokenAddress: item.baseInfo.toToken.contractAddress,
-    receivedAddress: item.txInfo.receiver,
-    orderId: item.swapInfo.orderId,
+    receivedAddress: isFallbackOrder ? undefined : item.txInfo.receiver,
+    orderId: isFallbackOrder ? undefined : item.swapInfo.orderId,
   });
 }
 
@@ -305,10 +321,12 @@ export async function maybeOpenPrivateSendHistoryDetail({
   });
 
   let txState: IFetchSwapTxHistoryStatusResponse | undefined;
-  try {
-    txState = await fetchPrivateSendTxState(txHistoryItem);
-  } catch {
-    txState = undefined;
+  if (canFetchPrivateSendTxState(txHistoryItem)) {
+    try {
+      txState = await fetchPrivateSendTxState(txHistoryItem);
+    } catch {
+      txState = undefined;
+    }
   }
 
   const nextTxHistoryItem = applyPrivateSendTxState({

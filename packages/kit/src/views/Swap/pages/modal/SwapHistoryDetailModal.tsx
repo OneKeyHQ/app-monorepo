@@ -96,6 +96,9 @@ const SwapHistoryDetailModal = () => {
   const { formatDate } = useFormatDate();
   useEffect(() => {
     if (!swapTxHistoryList?.length) return;
+    const routeTxHistory = txHistoryList?.find(
+      (item) => item.swapInfo.orderId === txHistoryOrderId,
+    );
     if (
       txHistoryOrderId &&
       !swapTxHistoryList.some(
@@ -104,12 +107,25 @@ const SwapHistoryDetailModal = () => {
     ) {
       return;
     }
+    const routeTxHistoryOrderId = routeTxHistory?.swapInfo.orderId;
+    const shouldKeepRoutePrivateSendStatus =
+      routeTxHistory &&
+      (routeTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+        routeTxHistory.swapInfo.provider.provider === privateSendProvider) &&
+      routeTxHistory.status !== ESwapTxHistoryStatus.PENDING;
+    const nextTxHistoryList = shouldKeepRoutePrivateSendStatus
+      ? swapTxHistoryList.map((item) =>
+          item.swapInfo.orderId === routeTxHistoryOrderId
+            ? (routeTxHistory ?? item)
+            : item,
+        )
+      : swapTxHistoryList;
     if (
-      JSON.stringify(swapTxHistoryList) !== JSON.stringify(txHistoryListState)
+      JSON.stringify(nextTxHistoryList) !== JSON.stringify(txHistoryListState)
     ) {
-      setTxHistoryListState(swapTxHistoryList);
+      setTxHistoryListState(nextTxHistoryList);
     }
-  }, [swapTxHistoryList, txHistoryListState, txHistoryOrderId]);
+  }, [swapTxHistoryList, txHistoryList, txHistoryListState, txHistoryOrderId]);
   const txHistory = useMemo(
     () =>
       txHistoryListState?.find(

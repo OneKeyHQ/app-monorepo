@@ -42,6 +42,7 @@ import type {
   ISendSelectedFeeInfo,
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { IParseTransactionResp } from '@onekeyhq/shared/types/signatureConfirm';
@@ -666,6 +667,15 @@ class ServiceSend extends ServiceBase {
           transferPayload,
           saveToLocalHistory: true,
         });
+        if (isPrivateSend) {
+          decodedTx.payload = {
+            value:
+              transferPayload?.amountToSend ?? decodedTx.payload?.value ?? '',
+            label:
+              decodedTx.payload?.label ?? EOnChainHistoryTxType.PrivateSend,
+            type: EOnChainHistoryTxType.PrivateSend,
+          };
+        }
 
         const data = {
           signedTx,
