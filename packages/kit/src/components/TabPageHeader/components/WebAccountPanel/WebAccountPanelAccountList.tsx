@@ -23,6 +23,7 @@ import type {
   IDBAccount,
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -59,6 +60,11 @@ export function WebAccountPanelAccountList({
           focusedWallet,
           selectedNetworkId: networkId,
           othersNetworkId: networkId,
+          // Web dapp forces all-networks; without a linked (EVM) network the
+          // builder leaves indexed rows' associateAccount unset, so they render
+          // a blank address. PERPS_NETWORK_ID resolves the real EVM address,
+          // matching the pre-PR AccountSelectorTriggerHome (linkNetworkId).
+          linkedNetworkId: PERPS_NETWORK_ID,
           deriveType,
         },
       );

@@ -324,17 +324,51 @@ export function WebAccountPanelMain({
           await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
             { accountId, excludeTestNetwork: true },
           );
-        const results = await Promise.all(
-          mainnetItems.map((net) =>
-            backgroundApiProxy.serviceToken
-              .fetchAccountTokens({
-                accountId,
-                networkId: net.id,
-                flag: 'web-account-panel-portfolio',
-              })
-              .catch(() => null),
-          ),
+        // For an indexed account the all-networks accountId is a mock that fails
+        // per-network token fetches, so resolve the real per-network account(s)
+        // first (same as the Home token list). External/others accounts already
+        // carry a real per-network accountId, so fetch with it directly.
+        const indexedAccountId = indexedAccount?.id;
+        const resultsByNetwork = await Promise.all(
+          mainnetItems.map(async (net) => {
+            if (indexedAccountId) {
+              try {
+                const { networkAccounts } =
+                  await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+                    {
+                      networkId: net.id,
+                      indexedAccountId,
+                      excludeEmptyAccount: true,
+                    },
+                  );
+                return Promise.all(
+                  networkAccounts.map((networkAccount) =>
+                    backgroundApiProxy.serviceToken
+                      .fetchAccountTokens({
+                        accountId: networkAccount.account?.id ?? '',
+                        networkId: net.id,
+                        indexedAccountId,
+                        flag: 'web-account-panel-portfolio',
+                      })
+                      .catch(() => null),
+                  ),
+                );
+              } catch {
+                return [null];
+              }
+            }
+            return [
+              await backgroundApiProxy.serviceToken
+                .fetchAccountTokens({
+                  accountId,
+                  networkId: net.id,
+                  flag: 'web-account-panel-portfolio',
+                })
+                .catch(() => null),
+            ];
+          }),
         );
+        const results = resultsByNetwork.flat();
         // Ignore a result that resolved after the active account changed.
         if (latestAccountIdRef.current !== accountId) {
           return;
@@ -381,7 +415,7 @@ export function WebAccountPanelMain({
         setIsLoadingPortfolio(false);
       }
     },
-    [account?.id],
+    [account?.id, indexedAccount?.id],
   );
 
   useEffect(() => {
