@@ -24,10 +24,6 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
-import type {
-  IDBAccount,
-  IDBIndexedAccount,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   usePerpsActiveAccountAtom,
   usePerpsComputedAccountValueAtom,
@@ -54,10 +50,6 @@ const portfolioCache = new Map<
 // clearinghouse on every panel open within the stale window.
 const PERPS_STALE_MS = 60 * 1000;
 const perpsRestCache = new Map<string, { value?: string; fetchedAt: number }>();
-
-// Sentinel walletId the account-selector list builder uses for the grouped
-// "others" (external/keyless) accounts; mirror the account-list view's check.
-const OTHERS_WALLET_ID = '$$others';
 
 export interface IWebAccountPanelMainProps {
   onNavigateAccountList: () => void;
@@ -397,16 +389,16 @@ export function WebAccountPanelMain({
   }, [account?.address, copyText]);
 
   const handleDisconnect = useCallback(async () => {
-    // Disconnect should END THE SESSION but KEEP THE WALLET — not remove it.
-    // removeAccount would delete the account entity and wipe every dApp
-    // connection that reuses it; instead we tear down only the live connector
-    // (so the session actually ends) and leave the account row in the DB.
-    //
-    // External/keyless connections expose othersWalletAccountId — tear down
-    // their connector. Indexed connections (a local HD/keyless wallet selected
-    // as home) have none, so there's nothing to tear down.
+    // Match the account-selector "Disconnect from dApp" action exactly
+    // (AccountRemoveButton → actions.removeAccount). For an external/keyless
+    // account this ends the connector session and runs autoSelectNextAccount
+    // internally: it switches to the next available account (the panel stays
+    // open showing it) or resets to the unconnected state if it was the last
+    // one (the header swaps in the Connect button and this popover unmounts on
+    // its own). It deliberately does NOT touch origin/storageType — the dApp
+    // website-session flow lives in the connection modals, not the generic
+    // account selector, so it's out of scope here.
     const connectedAccountId = selectedAccount?.othersWalletAccountId;
-    const connectedIndexedAccountId = selectedAccount?.indexedAccountId;
     if (connectedAccountId) {
       // Web dapp mode forces the active account to all-networks, so
       // useActiveAccount doesn't populate dbAccount; resolve from the id.
@@ -415,70 +407,19 @@ export function WebAccountPanelMain({
           accountId: connectedAccountId,
         });
       if (targetAccount) {
-        await backgroundApiProxy.serviceDappSide.disconnectExternalWallet({
-          account: targetAccount,
-        });
+        await actions.current.removeAccount({ account: targetAccount });
+        return;
       }
+    } else if (indexedAccount) {
+      await actions.current.removeAccount({ indexedAccount });
+      return;
     }
-
-    // Switch to the next available connected account if one exists, mirroring
-    // exactly what the account-list view shows (same builder + select action).
-    // The just-disconnected account stays in the DB but is skipped here so we
-    // move to a *different* one and the panel stays open showing it.
-    const focusedWallet = selectedAccount?.focusedWallet;
-    const networkId = selectedAccount?.networkId;
-    const deriveType = selectedAccount?.deriveType;
-    if (focusedWallet && deriveType) {
-      const listData =
-        await backgroundApiProxy.serviceAccountSelector.buildAccountSelectorAccountsListData(
-          {
-            focusedWallet,
-            selectedNetworkId: networkId,
-            othersNetworkId: networkId,
-            deriveType,
-          },
-        );
-      for (const section of listData?.sectionData ?? []) {
-        const isOthers =
-          section.walletId === OTHERS_WALLET_ID ||
-          accountUtils.isOthersWallet({ walletId: section.walletId });
-        const next = section.data.find((item) =>
-          isOthers
-            ? item.id !== connectedAccountId
-            : item.id !== connectedIndexedAccountId,
-        );
-        if (next) {
-          if (isOthers) {
-            await actions.current.confirmAccountSelect({
-              num: 0,
-              indexedAccount: undefined,
-              othersWalletAccount: next as IDBAccount,
-              autoChangeToAccountMatchedNetworkId: networkId,
-            });
-          } else {
-            await actions.current.confirmAccountSelect({
-              num: 0,
-              indexedAccount: next as IDBIndexedAccount,
-              othersWalletAccount: undefined,
-            });
-          }
-          return;
-        }
-      }
-    }
-
-    // No other account available → reset to the unconnected state: the header
-    // swaps in the Connect button and this popover unmounts (closes) on its own.
-    await actions.current.clearSelectedAccount({ num: 0, clearAccount: true });
     onRequestClose();
   }, [
     actions,
+    indexedAccount,
     onRequestClose,
     selectedAccount?.othersWalletAccountId,
-    selectedAccount?.indexedAccountId,
-    selectedAccount?.focusedWallet,
-    selectedAccount?.networkId,
-    selectedAccount?.deriveType,
   ]);
 
   // Initialize the active perps account from this account before any perps
