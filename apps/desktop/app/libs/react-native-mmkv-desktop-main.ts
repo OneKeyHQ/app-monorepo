@@ -2,16 +2,19 @@
 // Also registers synchronous IPC handlers so the renderer process can
 // access the same persistent store via ipcRenderer.sendSync().
 
+import { randomBytes } from 'crypto';
+
 import { ipcMain } from 'electron';
 import Store from 'electron-store';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  COLD_START_CACHE_STORAGE_ENCRYPTION_KEY,
-  COLD_START_CACHE_STORAGE_ID,
-} from '@onekeyhq/shared/src/storage/instance/coldStartCacheStorageConfig';
+import { COLD_START_CACHE_STORAGE_ID } from '@onekeyhq/shared/src/storage/instance/coldStartCacheStorageConfig';
+
+import * as secureStore from './store';
 
 const IPC_CHANNEL = 'mmkv:sync';
+const COLD_START_CACHE_STORAGE_SECURE_KEY =
+  'onekey-cold-start-cache-storage-key-v1';
 const PERSISTENT_IDS = new Set([
   'onekey-app-setting',
   COLD_START_CACHE_STORAGE_ID,
@@ -19,13 +22,32 @@ const PERSISTENT_IDS = new Set([
 
 const stores = new Map<string, Store>();
 
-function getStoreEncryptionKey(id: string, encryptionKey?: string) {
-  return (
-    encryptionKey ??
-    (id === COLD_START_CACHE_STORAGE_ID
-      ? COLD_START_CACHE_STORAGE_ENCRYPTION_KEY
-      : undefined)
+function createDesktopColdStartCacheEncryptionKey() {
+  return randomBytes(32).toString('base64');
+}
+
+function getDesktopColdStartCacheEncryptionKey() {
+  if (!secureStore.isSecureStorageAvailable()) {
+    return undefined;
+  }
+  const current = secureStore.getSecureItem(
+    COLD_START_CACHE_STORAGE_SECURE_KEY,
   );
+  if (current) {
+    return current;
+  }
+  const next = createDesktopColdStartCacheEncryptionKey();
+  secureStore.setSecureItem(COLD_START_CACHE_STORAGE_SECURE_KEY, next);
+  return secureStore.getSecureItem(COLD_START_CACHE_STORAGE_SECURE_KEY);
+}
+
+function getStoreEncryptionKey(id: string, encryptionKey?: string) {
+  if (encryptionKey) {
+    return encryptionKey;
+  }
+  return id === COLD_START_CACHE_STORAGE_ID
+    ? getDesktopColdStartCacheEncryptionKey()
+    : undefined;
 }
 
 function getOrCreateStore(id: string, encryptionKey?: string): Store {

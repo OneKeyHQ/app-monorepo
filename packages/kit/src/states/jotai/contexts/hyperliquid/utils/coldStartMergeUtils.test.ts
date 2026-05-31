@@ -8,6 +8,7 @@ import {
   filterCanceledOpenOrders,
   mergeCachedSpotOpenOrders,
   mergePrimaryPositionsWithCachedDexPositions,
+  shouldResetOpenOrdersForAccount,
 } from './coldStartMergeUtils';
 
 function order(coin: string, oid: number): IPerpsFrontendOrder {
@@ -70,6 +71,24 @@ describe('coldStartMergeUtils', () => {
         canceledOrderIds: new Set(),
       }),
     ).toEqual([order('@1', 1)]);
+  });
+
+  it('keeps scoped spot orders unmodified when stale webData2 arrives after cache hydration', () => {
+    expect(
+      shouldResetOpenOrdersForAccount({
+        activeAccountAddress: '0xABC',
+        currentOpenOrdersAccountAddress: '0xabc',
+      }),
+    ).toBe(false);
+  });
+
+  it('clears scoped spot orders only when perps open orders are reset for the active account', () => {
+    expect(
+      shouldResetOpenOrdersForAccount({
+        activeAccountAddress: '0xabc',
+        currentOpenOrdersAccountAddress: '0xdef',
+      }),
+    ).toBe(true);
   });
 
   it('preserves cached non-primary dex positions during primary webData2 updates', () => {

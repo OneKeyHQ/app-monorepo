@@ -67,6 +67,23 @@ export function mergeCachedSpotOpenOrders<T extends IPerpsFrontendOrder>({
   );
 }
 
+export function shouldResetOpenOrdersForAccount({
+  activeAccountAddress,
+  currentOpenOrdersAccountAddress,
+}: {
+  activeAccountAddress?: string | null;
+  currentOpenOrdersAccountAddress?: string | null;
+}) {
+  const activeAddress = normalizePerpsAccountAddress(activeAccountAddress);
+  if (!activeAddress) {
+    return false;
+  }
+  return (
+    normalizePerpsAccountAddress(currentOpenOrdersAccountAddress) !==
+    activeAddress
+  );
+}
+
 export function getActivePerpsPositions(positions: IPerpsAssetPosition[]) {
   return positions.filter((pos) => {
     const size = parseFloat(pos.position?.szi || '0');

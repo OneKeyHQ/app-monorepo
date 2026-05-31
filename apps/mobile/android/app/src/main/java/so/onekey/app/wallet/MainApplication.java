@@ -55,10 +55,7 @@ public class MainApplication extends Application implements ReactApplication {
 
       @Override
       protected List<ReactPackage> getPackages() {
-        @SuppressWarnings("UnnecessaryLocalVariable")
-
-        List<ReactPackage> packages = new PackageList(this).getPackages();
-        return packages;
+        return getOneKeyReactPackages();
       }
 
       @Override
@@ -147,6 +144,13 @@ public class MainApplication extends Application implements ReactApplication {
       return BuildConfig.ENABLE_NATIVE_BACKGROUND_THREAD;
     }
 
+    @NonNull
+    private List<ReactPackage> getOneKeyReactPackages() {
+      List<ReactPackage> packages = new PackageList(this).getPackages();
+      packages.add(new OneKeyColdStartCacheKeyPackage());
+      return packages;
+    }
+
     /**
      * Feeds the host Activity's resume/pause/destroy signals to
      * {@link BackgroundThreadManager} so an allowlisted subset of bg-host
@@ -223,7 +227,7 @@ public class MainApplication extends Application implements ReactApplication {
             (ReactApplicationContext) context;
           BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
           long tBeforeBgStart = System.currentTimeMillis();
-          manager.setReactPackages(new PackageList(MainApplication.this).getPackages());
+          manager.setReactPackages(getOneKeyReactPackages());
           manager.installSharedBridgeInMainRuntime(reactApplicationContext);
 
           String entryUrl = getBackgroundRunnerEntryUrl();

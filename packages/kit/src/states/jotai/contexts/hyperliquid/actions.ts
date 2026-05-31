@@ -106,6 +106,7 @@ import {
   getActivePerpsPositions,
   mergeCachedSpotOpenOrders,
   mergePrimaryPositionsWithCachedDexPositions,
+  shouldResetOpenOrdersForAccount,
   sortActivePerpsPositions,
 } from './utils/coldStartMergeUtils';
 import {
@@ -659,8 +660,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       const activeOpenOrders = get(perpsActiveOpenOrdersAtom());
       if (
-        normalizePerpsAccountAddress(activeOpenOrders?.accountAddress) !==
-        activeAccountAddress
+        shouldResetOpenOrdersForAccount({
+          activeAccountAddress,
+          currentOpenOrdersAccountAddress: activeOpenOrders?.accountAddress,
+        })
       ) {
         this.resetOpenOrdersByDexCache();
         set(perpsActiveOpenOrdersAtom(), {
@@ -670,11 +673,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           openOrdersByDex: {},
           spotOpenOrders: [],
         });
+        void spotActiveOpenOrdersAtom.set({
+          accountAddress: activeAccountAddress,
+          openOrders: [],
+        });
       }
-      void spotActiveOpenOrdersAtom.set({
-        accountAddress: activeAccountAddress,
-        openOrders: [],
-      });
     }
   });
 
