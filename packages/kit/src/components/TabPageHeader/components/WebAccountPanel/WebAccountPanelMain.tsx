@@ -394,22 +394,27 @@ export function WebAccountPanelMain({
       onRequestClose();
       return;
     }
-    // Web dapp mode forces the active account to all-networks, so
-    // useActiveAccount doesn't populate dbAccount; resolve the connected
-    // external account from its id instead. removeAccount runs
-    // autoSelectNextAccount internally: if other connected accounts remain it
-    // switches to the next one and this panel stays open showing it; if this was
-    // the last one it resets to the unconnected state, the header swaps in the
-    // Connect button and this popover unmounts (closes) on its own.
+    // Disconnect should END THE SESSION but KEEP THE WALLET — not remove it.
+    // removeAccount would delete the external account entity and wipe every
+    // dApp connection that reuses it; instead we tear down only the live
+    // connector and reset the selection, leaving the account row in the DB so
+    // it can be reconnected from the account list. Web dapp mode forces the
+    // active account to all-networks, so useActiveAccount doesn't populate
+    // dbAccount; resolve the connected external account from its id.
     const targetAccount =
       await backgroundApiProxy.serviceAccount.getDBAccountSafe({
         accountId: connectedAccountId,
       });
-    if (!targetAccount) {
-      onRequestClose();
-      return;
+    if (targetAccount) {
+      // Ends the live external/keyless connector session without deleting it.
+      await backgroundApiProxy.serviceDappSide.disconnectExternalWallet({
+        account: targetAccount,
+      });
     }
-    await actions.current.removeAccount({ account: targetAccount });
+    // Clear the home (num 0) selection: with no account the header swaps in the
+    // Connect button and this popover unmounts (closes) on its own.
+    await actions.current.clearSelectedAccount({ num: 0, clearAccount: true });
+    onRequestClose();
   }, [actions, onRequestClose, selectedAccount?.othersWalletAccountId]);
 
   // Initialize the active perps account from this account before any perps
