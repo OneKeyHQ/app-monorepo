@@ -6,7 +6,7 @@ import {
   usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
 
 export function usePerpsAccountScopedCacheAddress() {
   const [activeAccount] = usePerpsActiveAccountAtom();

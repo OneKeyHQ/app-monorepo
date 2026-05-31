@@ -113,15 +113,31 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  getPerpsAccountDisplaySnapshotEntry: () => undefined,
   usePerpsActiveAccountAtom: () => [mockActiveAccount],
   usePerpsActiveAccountSummaryAtom: () => [mockAccountSummary],
   usePerpsActiveAssetAtom: () => [mockActiveAsset],
   usePerpsActiveAssetCtxAtom: () => [mockActiveAssetCtx],
   usePerpsActiveAssetDataAtom: () => [mockActiveAssetData],
+  usePerpsAccountDisplaySnapshotAtom: () => [{}],
   usePerpsComputedAccountValueAtom: () => [
     { accountValue: '10000', isLoading: false },
   ],
 }));
+
+jest.mock(
+  '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms',
+  () => ({
+    useActiveAccount: () => ({
+      activeAccount: {
+        ready: true,
+        account: { id: 'account-id' },
+        indexedAccount: { id: 'indexed-account-id' },
+        deriveType: 'default',
+      },
+    }),
+  }),
+);
 
 jest.mock('./useOrderPrice', () => ({
   useOrderPrice: () => mockOrderPrice,
