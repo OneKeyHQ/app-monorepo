@@ -891,6 +891,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         `placeScaleOrder: invalid spot assetId ${params.assetId}, must be >= ${SPOT_ASSET_ID_OFFSET}`,
       );
     }
+    const reduceOnly =
+      assetType === 'spot' ? false : Boolean(params.reduceOnly);
     const legs = buildScaleOrderLegs({
       totalSize: params.size,
       lowerPrice: params.lowerPrice,
@@ -908,7 +910,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       b: params.isBuy,
       p: leg.price,
       s: leg.size,
-      r: Boolean(params.reduceOnly),
+      r: reduceOnly,
       t: { limit: { tif } },
     }));
 
@@ -923,7 +925,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           originalParams: params,
           extra: {
             orderCount: orders.length,
-            reduceOnly: Boolean(params.reduceOnly),
+            reduceOnly,
             tif,
             sizeSkew: params.sizeSkew,
             assetType,
@@ -1345,11 +1347,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       throw new OneKeyLocalError('TWAP size is too small for HL lot size');
     }
 
+    const assetType = precision?.type;
+    const reduceOnly =
+      assetType === 'spot' ? false : Boolean(params.reduceOnly);
     const twap = {
       a: params.assetId,
       b: params.isBuy,
       s: size,
-      r: params.reduceOnly,
+      r: reduceOnly,
       m: params.minutes,
       t: params.randomize,
     };
@@ -1360,7 +1365,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         assetId: params.assetId,
         isBuy: params.isBuy,
         size,
-        reduceOnly: params.reduceOnly,
+        reduceOnly,
         minutes: params.minutes,
         randomize: params.randomize,
       },

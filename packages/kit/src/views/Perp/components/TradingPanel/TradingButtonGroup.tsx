@@ -38,6 +38,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
+  SCALE_ORDER_MIN_NOTIONAL,
   buildScaleOrderLegs,
   getReduceOnlyOrderGuardError,
   getReduceOnlyPositionSnapshotError,
@@ -91,7 +92,6 @@ import type { LayoutChangeEvent } from 'react-native';
 const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
-const TWAP_MIN_SLICE_NOTIONAL = 10;
 
 interface ITradingButtonGroupProps {
   isMobile: boolean;
@@ -706,6 +706,7 @@ function SideButtonInternal({
           szDecimals: latestSzDecimals,
           side: validationSide,
           sizeSkew: getScaleOrderSizeSkew(latestFormData.scaleSizeDistribution),
+          assetType: latestIsSpot ? 'spot' : 'perp',
         });
         const validation = validateScaleOrderLegs({ legs });
         if (!validation.isValid) {
@@ -728,11 +729,10 @@ function SideButtonInternal({
         const averageSliceNotional = totalNotional.dividedBy(estimatedSlices);
         if (
           !averageSliceNotional.isFinite() ||
-          averageSliceNotional.lt(TWAP_MIN_SLICE_NOTIONAL)
+          averageSliceNotional.lt(SCALE_ORDER_MIN_NOTIONAL)
         ) {
           Toast.message({
-            title:
-              'TWAP slice size is too small. Increase size or shorten duration.',
+            title: 'TWAP order size is too small for this duration',
           });
           return false;
         }
@@ -1073,9 +1073,11 @@ function SideButtonInternal({
         return;
       }
       const reduceOnly =
-        !isSpot &&
-        ((isScaleMode && formData.scaleReduceOnly) ||
-          (isTwapMode && formData.twapReduceOnly));
+        !latestOrderPanelState.isSpot &&
+        ((latestOrderPanelState.isScaleMode &&
+          latestOrderPanelState.formData.scaleReduceOnly) ||
+          (latestOrderPanelState.isTwapMode &&
+            latestOrderPanelState.formData.twapReduceOnly));
       if (reduceOnly) {
         const snapshotError = getReduceOnlyPositionSnapshotError({
           reduceOnly,
@@ -1092,12 +1094,12 @@ function SideButtonInternal({
         const reduceOnlyError = getReduceOnlyOrderGuardError({
           reduceOnly,
           side,
-          size: computedSizeForSide,
+          size: latestOrderPanelState.computedSizeForSide,
           positionSize: position?.szi,
-          missingPositionMessage: isTwapMode
+          missingPositionMessage: latestOrderPanelState.isTwapMode
             ? 'Reduce-only TWAP requires an opposite open position'
             : 'Reduce-only scale requires an opposite open position',
-          exceedsPositionMessage: isTwapMode
+          exceedsPositionMessage: latestOrderPanelState.isTwapMode
             ? 'Reduce-only TWAP size exceeds the current position'
             : 'Reduce-only scale size exceeds the current position',
         });

@@ -34,8 +34,8 @@ import type {
   ITradingFormData,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  getPerpsAccountDisplaySnapshotEntry,
   type IPerpsLastAdvancedOrderType,
+  getPerpsAccountDisplaySnapshotEntry,
   usePerpsAccountDisplaySnapshotAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
@@ -158,7 +158,7 @@ const TWAP_DURATION_LABEL = `Duration (${TWAP_MIN_DURATION_MINUTES}m - ${
 const TWAP_HELPER_TEXT =
   'TWAP submits market slices over the selected duration. Hyperliquid controls slice timing and may reject very small slices.';
 const TWAP_SMALL_SLICE_HELPER_TEXT =
-  'Estimated TWAP slice value is below $10. Hyperliquid may reject it; increase size or shorten duration.';
+  'Estimated TWAP order size is too small for this duration';
 const TWAP_DURATION_PRESET_OPTIONS = [
   { label: '1h', minutes: 60 },
   { label: '6h', minutes: 360 },
@@ -1249,11 +1249,13 @@ function PerpTradingForm({
         return false;
       }
 
-      const minutesNumber = Math.min(rawMinutesNumber, 60);
-      const rawTotalMinutes = hoursNumber * 60 + minutesNumber;
+      const rawTotalMinutes = hoursNumber * 60 + rawMinutesNumber;
       const totalMinutes = clampTwapDurationMinutes(rawTotalMinutes);
 
-      if (rawTotalMinutes > TWAP_MAX_DURATION_MINUTES) {
+      if (
+        rawMinutesNumber >= 60 ||
+        rawTotalMinutes > TWAP_MAX_DURATION_MINUTES
+      ) {
         const durationParts = splitTwapDurationMinutes(totalMinutes);
         setTwapDurationHoursInput(String(durationParts.hours));
         setTwapDurationMinutesInput(String(durationParts.minutes));
@@ -1263,7 +1265,7 @@ function PerpTradingForm({
 
       setTwapDurationHoursInput(nextHours === '' ? '' : String(hoursNumber));
       setTwapDurationMinutesInput(
-        nextMinutes === '' ? '' : String(minutesNumber),
+        nextMinutes === '' ? '' : String(rawMinutesNumber),
       );
 
       updateForm({
@@ -1787,6 +1789,11 @@ function PerpTradingForm({
             })}
           </XStack>
           {renderTwapHelperMessage()}
+          {twapDurationInputMessage ? (
+            <SizableText size="$bodySm" color="$red10">
+              {twapDurationInputMessage.text}
+            </SizableText>
+          ) : null}
         </YStack>
       );
     }

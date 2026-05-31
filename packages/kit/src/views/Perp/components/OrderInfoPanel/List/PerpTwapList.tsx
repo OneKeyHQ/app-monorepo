@@ -17,17 +17,17 @@ import {
   usePerpsTwapHistoryAtom,
   usePerpsTwapSliceFillsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  useSpotPairDisplayMapAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatLocalizedNumberString,
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import {
-  getValidPriceDecimals,
-  parseDexCoin,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IFill,
   ITwapHistoryRecord,
@@ -40,6 +40,7 @@ import {
   calcCellAlign,
   getColumnStyle,
   getPerpFillDirectionType,
+  getTwapAssetDisplayName,
 } from '../utils';
 
 import {
@@ -165,10 +166,12 @@ function getTwapBaseInfo({
   state,
   now,
   endTime,
+  spotDisplayMap,
 }: {
   state: ITwapState;
   now: number;
   endTime?: number;
+  spotDisplayMap: Record<string, string>;
 }) {
   const executedSize = new BigNumber(state.executedSz);
   const totalSize = new BigNumber(state.sz);
@@ -180,7 +183,7 @@ function getTwapBaseInfo({
   const avgPriceValue = avgPrice?.isFinite()
     ? avgPrice.toFixed(getValidPriceDecimals(avgPrice.toFixed()))
     : undefined;
-  const assetSymbol = parseDexCoin(state.coin).displayName;
+  const assetSymbol = getTwapAssetDisplayName(state.coin, spotDisplayMap);
   const sizeFormatted = numberFormat(totalSize.toFixed(), balanceFormatter);
   const executedSizeFormatted = numberFormat(
     executedSize.toFixed(),
@@ -283,6 +286,7 @@ function TwapActiveRow({
   renderMode = 'full',
   isHovered,
   onHoverChange,
+  spotDisplayMap,
 }: {
   order: IPerpsActiveTwapOrder;
   now: number;
@@ -293,10 +297,14 @@ function TwapActiveRow({
   renderMode?: IRenderMode;
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
+  spotDisplayMap: Record<string, string>;
 }) {
   const { state } = order;
   const sideInfo = useMemo(() => getTwapSideInfo(state), [state]);
-  const baseInfo = useMemo(() => getTwapBaseInfo({ state, now }), [now, state]);
+  const baseInfo = useMemo(
+    () => getTwapBaseInfo({ state, now, spotDisplayMap }),
+    [now, spotDisplayMap, state],
+  );
   const creationTime = useMemo(
     () => formatTwapDateTime(state.timestamp),
     [state.timestamp],
@@ -409,6 +417,7 @@ function TwapHistoryRow({
   renderMode = 'full',
   isHovered,
   onHoverChange,
+  spotDisplayMap,
 }: {
   record: ITwapHistoryRecord;
   now: number;
@@ -418,6 +427,7 @@ function TwapHistoryRow({
   renderMode?: IRenderMode;
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
+  spotDisplayMap: Record<string, string>;
 }) {
   const { state } = record;
   const endTime =
@@ -426,8 +436,8 @@ function TwapHistoryRow({
       : normalizeEpochMs(record.time);
   const sideInfo = useMemo(() => getTwapSideInfo(state), [state]);
   const baseInfo = useMemo(
-    () => getTwapBaseInfo({ state, now, endTime }),
-    [endTime, now, state],
+    () => getTwapBaseInfo({ state, now, endTime, spotDisplayMap }),
+    [endTime, now, spotDisplayMap, state],
   );
   const creationTime = useMemo(
     () => formatTwapDateTime(state.timestamp),
@@ -543,6 +553,7 @@ function TwapFillRow({
   renderMode = 'full',
   isHovered,
   onHoverChange,
+  spotDisplayMap,
 }: {
   record: ITwapSliceFill;
   cellMinWidth: number;
@@ -551,12 +562,13 @@ function TwapFillRow({
   renderMode?: IRenderMode;
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
+  spotDisplayMap: Record<string, string>;
 }) {
   const { fill } = record;
   const dateInfo = useMemo(() => formatTwapDateTime(fill.time), [fill.time]);
   const assetSymbol = useMemo(
-    () => parseDexCoin(fill.coin).displayName,
-    [fill.coin],
+    () => getTwapAssetDisplayName(fill.coin, spotDisplayMap),
+    [fill.coin, spotDisplayMap],
   );
   const directionInfo = useMemo(() => getFillDirectionInfo(fill), [fill]);
   const fillInfo = useMemo(() => {
@@ -671,6 +683,7 @@ function PerpTwapList() {
   const [{ accountAddress: fillsAccountAddress, fills: rawSliceFills }] =
     usePerpsTwapSliceFillsAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
+  const [spotDisplayMap] = useSpotPairDisplayMapAtom();
   const [activeTab, setActiveTab] = useState<ITwapPanelTab>('active');
   const [currentListPage, setCurrentListPage] = useState(1);
   const [now, setNow] = useState(Date.now());
@@ -879,9 +892,10 @@ function PerpTwapList() {
         renderMode={renderMode}
         isHovered={isHovered}
         onHoverChange={onHoverChange}
+        spotDisplayMap={spotDisplayMap}
       />
     ),
-    [activeMinWidth, handleTerminate, now, twapColumns],
+    [activeMinWidth, handleTerminate, now, spotDisplayMap, twapColumns],
   );
 
   const renderHistoryRow = useCallback(
@@ -901,9 +915,10 @@ function PerpTwapList() {
         renderMode={renderMode}
         isHovered={isHovered}
         onHoverChange={onHoverChange}
+        spotDisplayMap={spotDisplayMap}
       />
     ),
-    [activeMinWidth, now, twapColumns],
+    [activeMinWidth, now, spotDisplayMap, twapColumns],
   );
 
   const renderFillRow = useCallback(
@@ -922,9 +937,10 @@ function PerpTwapList() {
         renderMode={renderMode}
         isHovered={isHovered}
         onHoverChange={onHoverChange}
+        spotDisplayMap={spotDisplayMap}
       />
     ),
-    [fillColumns, fillMinWidth],
+    [fillColumns, fillMinWidth, spotDisplayMap],
   );
 
   const emptyState = TWAP_EMPTY_STATE_MAP[activeTab];

@@ -172,6 +172,7 @@ function OrderConfirmContent({
   const isTriggerMode = formData.orderMode === 'trigger';
   const isScaleMode = formData.orderMode === 'scale';
   const isTwapMode = formData.orderMode === 'twap';
+  const isAlgoOrderMode = isScaleMode || isTwapMode;
   const isLimitTrigger =
     formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
 
@@ -446,12 +447,10 @@ function OrderConfirmContent({
         ? ETranslations.dexmarket_details_transactions_buy
         : ETranslations.dexmarket_details_transactions_sell,
   });
-  const actionLabel =
-    isScaleMode || isTwapMode
-      ? orderTypeText
-      : (triggerTypeLabel ?? orderTypeText);
-  const shouldShowActionSide =
-    isScaleMode || isTwapMode || Boolean(triggerTypeLabel);
+  const actionLabel = isAlgoOrderMode
+    ? orderTypeText
+    : (triggerTypeLabel ?? orderTypeText);
+  const shouldShowActionSide = isAlgoOrderMode || Boolean(triggerTypeLabel);
 
   return (
     <YStack gap="$4" p="$1">
@@ -570,16 +569,18 @@ function OrderConfirmContent({
               </SizableText>
               <SizableText size="$bodyMdMedium">GTC</SizableText>
             </XStack>
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perps_reduce_only,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {formData.scaleReduceOnly ? 'Yes' : 'No'}
-              </SizableText>
-            </XStack>
+            {isSpot ? null : (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perps_reduce_only,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">
+                  {formData.scaleReduceOnly ? 'Yes' : 'No'}
+                </SizableText>
+              </XStack>
+            )}
             {scaleLegPreview.length > 0 ? (
               <YStack gap="$1.5">
                 <SizableText size="$bodyMd" color="$textSubdued">
@@ -630,16 +631,18 @@ function OrderConfirmContent({
               </SizableText>
               <SizableText size="$bodyMdMedium">Market slices</SizableText>
             </XStack>
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perps_reduce_only,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {formData.twapReduceOnly ? 'Yes' : 'No'}
-              </SizableText>
-            </XStack>
+            {isSpot ? null : (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perps_reduce_only,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">
+                  {formData.twapReduceOnly ? 'Yes' : 'No'}
+                </SizableText>
+              </XStack>
+            )}
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
                 Randomize
@@ -679,7 +682,7 @@ function OrderConfirmContent({
         ) : null}
 
         {/* Price (standard orders only — trigger orders show trigger/execution price above) */}
-        {!isTriggerMode && !isScaleMode && !isTwapMode ? (
+        {!isTriggerMode && !isAlgoOrderMode ? (
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
@@ -691,7 +694,7 @@ function OrderConfirmContent({
         ) : null}
 
         {/* Liquidation Price */}
-        {isSpot ? null : (
+        {isSpot || isAlgoOrderMode ? null : (
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({

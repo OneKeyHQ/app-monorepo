@@ -825,7 +825,8 @@ function WebSocketSubscriptionUpdate() {
       shouldSyncSubscriptions: subscriptionPlan.shouldSyncSubscriptions,
     });
 
-    const sequence = (syncSequenceRef.current += 1);
+    syncSequenceRef.current += 1;
+    const sequence = syncSequenceRef.current;
     const routeStateVersion = nextRouteSubscriptionStateVersion();
     void (async () => {
       try {

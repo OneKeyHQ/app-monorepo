@@ -4,6 +4,7 @@ import { selectAtom } from 'jotai/utils';
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import { getScaleOrderReferencePrice } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import {
   computeMaxTradeSize,
   getTriggerEffectivePrice,
@@ -519,15 +520,11 @@ export const {
     });
     price = triggerEffective.gt(0) ? triggerEffective.toFixed() : '';
   } else if (form.orderMode === 'scale') {
-    const lowerPrice = new BigNumber(form.scaleLowerPrice ?? 0);
-    const upperPrice = new BigNumber(form.scaleUpperPrice ?? 0);
-    price =
-      lowerPrice.isFinite() &&
-      lowerPrice.gt(0) &&
-      upperPrice.isFinite() &&
-      upperPrice.gt(0)
-        ? lowerPrice.plus(upperPrice).dividedBy(2).toFixed()
-        : '';
+    const referencePrice = getScaleOrderReferencePrice({
+      lowerPrice: form.scaleLowerPrice,
+      upperPrice: form.scaleUpperPrice,
+    });
+    price = referencePrice.gt(0) ? referencePrice.toFixed() : '';
   } else {
     price = form.type === 'limit' ? form.price : '';
   }

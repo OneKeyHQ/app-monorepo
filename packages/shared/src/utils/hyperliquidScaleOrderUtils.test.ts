@@ -105,6 +105,20 @@ describe('hyperliquidScaleOrderUtils', () => {
     ]);
   });
 
+  test('falls back to fixed sizes for invalid size skew', () => {
+    expect(
+      buildScaleOrderLegs({
+        totalSize: '6',
+        lowerPrice: '10',
+        upperPrice: '20',
+        orderCount: 3,
+        szDecimals: 2,
+        side: 'long',
+        sizeSkew: 0,
+      }).map((leg) => leg.size),
+    ).toEqual(['2', '2', '2']);
+  });
+
   test('keeps rounded size remainder on the last leg', () => {
     expect(
       buildScaleOrderLegs({
@@ -132,6 +146,33 @@ describe('hyperliquidScaleOrderUtils', () => {
     ).toEqual(['0.13', '0.12']);
   });
 
+  test('returns no legs for invalid scale order inputs', () => {
+    const validInput = {
+      totalSize: '6',
+      lowerPrice: '10',
+      upperPrice: '20',
+      orderCount: 3,
+      szDecimals: 2,
+      side: 'long' as const,
+    };
+
+    expect(buildScaleOrderLegs({ ...validInput, orderCount: 1 })).toHaveLength(
+      0,
+    );
+    expect(
+      buildScaleOrderLegs({ ...validInput, orderCount: 101 }),
+    ).toHaveLength(0);
+    expect(buildScaleOrderLegs({ ...validInput, totalSize: '0' })).toHaveLength(
+      0,
+    );
+    expect(
+      buildScaleOrderLegs({ ...validInput, lowerPrice: '20' }),
+    ).toHaveLength(0);
+    expect(
+      buildScaleOrderLegs({ ...validInput, upperPrice: 'bad' }),
+    ).toHaveLength(0);
+  });
+
   test('rejects legs below notional minimum or collapsed price precision', () => {
     const tinyLegs = buildScaleOrderLegs({
       totalSize: '0.03',
@@ -142,6 +183,9 @@ describe('hyperliquidScaleOrderUtils', () => {
       side: 'long',
     });
     expect(validateScaleOrderLegs({ legs: tinyLegs }).isValid).toBe(false);
+    expect(validateScaleOrderLegs({ legs: tinyLegs }).errors[0]).toBe(
+      'Leg 1: notional must be at least $10',
+    );
 
     const collapsedPriceLegs = buildScaleOrderLegs({
       totalSize: '100',
@@ -154,6 +198,25 @@ describe('hyperliquidScaleOrderUtils', () => {
     expect(validateScaleOrderLegs({ legs: collapsedPriceLegs })).toEqual({
       isValid: false,
       errors: ['Price range is too tight for this market precision'],
+    });
+  });
+
+  test('reports malformed scale legs', () => {
+    expect(
+      validateScaleOrderLegs({
+        legs: [{ index: 0, price: 'bad', size: '1' }],
+      }),
+    ).toEqual({
+      isValid: false,
+      errors: ['Leg 1: invalid price'],
+    });
+    expect(
+      validateScaleOrderLegs({
+        legs: [{ index: 0, price: '20', size: 'bad' }],
+      }),
+    ).toEqual({
+      isValid: false,
+      errors: ['Leg 1: size is too small'],
     });
   });
 

@@ -43,6 +43,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
+  SCALE_ORDER_MIN_NOTIONAL,
   getReduceOnlyOrderGuardError,
   getReduceOnlyPositionSnapshotError,
   getScaleOrderReferencePrice,
@@ -140,8 +141,24 @@ type IChPositionLite = HL.IPerpsAssetPosition;
 const MAX_LEDGER_UPDATES = 200;
 const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
-const TWAP_MIN_ORDER_NOTIONAL = 10;
+const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
+const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
 
+function resolveSubmitOrderTradeInstrument({
+  activeTradeInstrument,
+  assetId,
+}: {
+  activeTradeInstrument: IActiveTradeInstrument;
+  assetId: number;
+}) {
+  if (
+    typeof activeTradeInstrument.assetId === 'number' &&
+    activeTradeInstrument.assetId === assetId
+  ) {
+    return activeTradeInstrument;
+  }
+  return undefined;
+}
 
 function buildAllDexsAssetCtxsByDex(data: HL.IWsAllDexsAssetCtxs) {
   const incoming = data?.ctxs || [];
@@ -332,6 +349,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   private canceledOrderIds = new Set<number>();
 
+  private canceledTwapIds = new Set<number>();
+
   private openOrdersByDexCache = new Map<string, HL.IPerpsFrontendOrder[]>();
 
   private openOrdersCacheAccountAddress: string | undefined;
@@ -347,6 +366,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   private isLatestActiveInstrumentChange(requestId: number): boolean {
     return requestId === this.activeInstrumentChangeRequestId;
+  }
+
+  private filterCanceledTwapOrders(
+    orders: IPerpsActiveTwapOrder[],
+  ): IPerpsActiveTwapOrder[] {
+    return orders.filter((order) => !this.canceledTwapIds.has(order.twapId));
   }
 
   private async waitForActiveInstrumentChangeSettle(
@@ -504,6 +529,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     this.resetOpenOrdersByDexCache();
     perpsOpenOrdersByCoinAtomCache.clear();
     this.canceledOrderIds.clear();
+    this.canceledTwapIds.clear();
   }
 
   private ensureOpenOrdersCacheAccount(accountAddress: string | undefined) {
@@ -658,28 +684,29 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       if (Array.isArray(data?.twapStates)) {
         const prevTwapOrders = get(perpsActiveTwapOrdersAtom());
-        const twapOrders = sortTwapOrders([
-          ...(normalizePerpsAccountAddress(prevTwapOrders.accountAddress) ===
-          activeAccountAddress
-            ? prevTwapOrders.twapOrders.filter(
-                (order) => (order.dex ?? '') !== '',
-              )
-            : []),
-          ...data.twapStates.map(
-            ([twapId, state]): IPerpsActiveTwapOrder => ({
-              twapId,
-              state,
-              dex: '',
-            }),
-          ),
-        ]);
+        const twapOrders = this.filterCanceledTwapOrders(
+          sortTwapOrders([
+            ...(normalizePerpsAccountAddress(prevTwapOrders.accountAddress) ===
+            activeAccountAddress
+              ? prevTwapOrders.twapOrders.filter(
+                  (order) => (order.dex ?? '') !== '',
+                )
+              : []),
+            ...data.twapStates.map(
+              ([twapId, state]): IPerpsActiveTwapOrder => ({
+                twapId,
+                state,
+                dex: '',
+              }),
+            ),
+          ]),
+        );
         set(perpsActiveTwapOrdersAtom(), {
           accountAddress: activeAccountAddress,
           twapOrders,
           twapOrdersByCoin: buildTwapOrdersByCoinMap(twapOrders),
         });
       }
-
     } else {
       if (!activeAccountAddress) {
         return;
@@ -937,12 +964,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
       const dex = data.dex ?? '';
       const prev = get(perpsActiveTwapOrdersAtom());
-      const nextForDex = (data.states ?? []).map(
-        ([twapId, state]): IPerpsActiveTwapOrder => ({
-          twapId,
-          state,
-          dex,
-        }),
+      const nextForDex = this.filterCanceledTwapOrders(
+        (data.states ?? []).map(
+          ([twapId, state]): IPerpsActiveTwapOrder => ({
+            twapId,
+            state,
+            dex,
+          }),
+        ),
       );
       const previousOtherDex =
         prev.accountAddress?.toLowerCase() === activeAccountAddress
@@ -1025,7 +1054,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       });
     },
   );
-
 
   updateAllDexsAssetCtxs = contextAtomMethod(
     (_, set, data: HL.IWsAllDexsAssetCtxs) => {
@@ -1939,20 +1967,22 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       currentSliceFills.accountAddress?.toLowerCase() === accountAddress;
 
     if (webData2?.user?.toLowerCase() === accountAddress) {
-      const twapOrders = sortTwapOrders([
-        ...(currentTwapOrders.accountAddress?.toLowerCase() === accountAddress
-          ? currentTwapOrders.twapOrders.filter(
-              (order) => (order.dex ?? '') !== '',
-            )
-          : []),
-        ...(webData2.twapStates ?? []).map(
-          ([twapId, state]): IPerpsActiveTwapOrder => ({
-            twapId,
-            state,
-            dex: '',
-          }),
-        ),
-      ]);
+      const twapOrders = this.filterCanceledTwapOrders(
+        sortTwapOrders([
+          ...(currentTwapOrders.accountAddress?.toLowerCase() === accountAddress
+            ? currentTwapOrders.twapOrders.filter(
+                (order) => (order.dex ?? '') !== '',
+              )
+            : []),
+          ...(webData2.twapStates ?? []).map(
+            ([twapId, state]): IPerpsActiveTwapOrder => ({
+              twapId,
+              state,
+              dex: '',
+            }),
+          ),
+        ]),
+      );
       set(perpsActiveTwapOrdersAtom(), {
         accountAddress,
         twapOrders,
@@ -2118,6 +2148,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       latestTime: 0,
     });
     this.canceledOrderIds.clear();
+    this.canceledTwapIds.clear();
     await this.changeActiveAsset.call(set, { coin: 'ETH', force: true });
   });
 
@@ -2645,8 +2676,19 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             }
 
             const totalNotional = resolvedSizeBN.multipliedBy(markPriceBN);
-            if (totalNotional.lt(TWAP_MIN_ORDER_NOTIONAL)) {
-              throw new OneKeyLocalError('Order value must be at least $10');
+            const estimatedSlices = Math.max(
+              1,
+              Math.ceil((minutes * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
+            );
+            const averageSliceNotional =
+              totalNotional.dividedBy(estimatedSlices);
+            if (
+              !averageSliceNotional.isFinite() ||
+              averageSliceNotional.lt(TWAP_MIN_ORDER_NOTIONAL)
+            ) {
+              throw new OneKeyLocalError(
+                'TWAP order size is too small for this duration',
+              );
             }
 
             const reduceOnly = isSpot
@@ -2776,7 +2818,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       },
     ) => {
       const formData = params.formData || get(tradingFormAtom());
-      const tradingMode = await tradingModeAtom.get();
+      const activeTradeInstrument = get(activeTradeInstrumentAtom());
+      const submitInstrument = resolveSubmitOrderTradeInstrument({
+        activeTradeInstrument,
+        assetId: params.assetId,
+      });
+      if (!submitInstrument) {
+        throw new OneKeyLocalError(
+          'Trading market changed. Please review and submit again.',
+        );
+      }
+      const tradingMode = submitInstrument.mode;
+
+      if (tradingMode === 'spot' && formData.orderMode === 'trigger') {
+        throw new OneKeyLocalError(
+          'This order type is not supported in spot mode',
+        );
+      }
 
       if (formData.orderMode === 'twap') {
         return this.placeTwapOrder.call(set, {
@@ -2794,11 +2852,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
 
       if (tradingMode === 'spot') {
-        if (formData.orderMode !== 'standard') {
-          throw new OneKeyLocalError(
-            'This order type is not supported in spot mode',
-          );
-        }
         return this.placeSpotOrder.call(set, {
           assetId: params.assetId,
           formData,
@@ -3052,10 +3105,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               },
             );
 
+          this.canceledTwapIds.add(params.twapId);
+
           const prev = get(perpsActiveTwapOrdersAtom());
-          const twapOrders = prev.twapOrders.filter(
-            (order) => order.twapId !== params.twapId,
-          );
+          const twapOrders = this.filterCanceledTwapOrders(prev.twapOrders);
           set(perpsActiveTwapOrdersAtom(), {
             ...prev,
             twapOrders,

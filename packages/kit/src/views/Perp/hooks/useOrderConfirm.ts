@@ -16,6 +16,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
+  SCALE_ORDER_MIN_NOTIONAL,
   buildScaleOrderLegs,
   getReduceOnlyOrderGuardError,
   getReduceOnlyPositionSnapshotError,
@@ -42,6 +43,8 @@ import { useTradingPrice } from './useTradingPrice';
 
 const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
+const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
+const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
 
 interface IUseOrderConfirmOptions {
   onSuccess?: () => void;
@@ -53,17 +56,7 @@ export interface IUseOrderConfirmReturn {
   handleConfirm: (overrideSide?: 'long' | 'short') => Promise<void>;
 }
 
-export function useOrderConfirm(
-  options?: IUseOrderConfirmOptions,
-): IUseOrderConfirmReturn {
-  const marketDataFreshness = usePerpsMarketDataFreshness();
-  return useOrderConfirmWithMarketDataFreshness({
-    ...options,
-    marketDataFreshness,
-  });
-}
-
-export function useOrderConfirmWithMarketDataFreshness({
+function useOrderConfirmWithMarketDataFreshness({
   marketDataFreshness,
   ...options
 }: IUseOrderConfirmOptions & {
@@ -339,6 +332,23 @@ export function useOrderConfirmWithMarketDataFreshness({
           });
           return;
         }
+        const estimatedSlices = Math.max(
+          1,
+          Math.ceil((duration * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
+        );
+        const averageSliceNotional = twapSize
+          .multipliedBy(midPriceBN)
+          .dividedBy(estimatedSlices);
+        if (
+          !averageSliceNotional.isFinite() ||
+          averageSliceNotional.lt(TWAP_MIN_ORDER_NOTIONAL)
+        ) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'TWAP order size is too small for this duration',
+          });
+          return;
+        }
         if (!isSpotOrder && formDataSnapshot.twapReduceOnly) {
           const snapshotError = getReduceOnlyPositionSnapshotError({
             reduceOnly: formDataSnapshot.twapReduceOnly,
@@ -537,3 +547,15 @@ export function useOrderConfirmWithMarketDataFreshness({
     handleConfirm,
   };
 }
+
+export function useOrderConfirm(
+  options?: IUseOrderConfirmOptions,
+): IUseOrderConfirmReturn {
+  const marketDataFreshness = usePerpsMarketDataFreshness();
+  return useOrderConfirmWithMarketDataFreshness({
+    ...options,
+    marketDataFreshness,
+  });
+}
+
+export { useOrderConfirmWithMarketDataFreshness };

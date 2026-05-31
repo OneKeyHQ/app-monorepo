@@ -1,6 +1,7 @@
 import {
   calculateSpotHoldingPnl,
   formatSpotHoldingPnlText,
+  getTwapAssetDisplayName,
   isSpotHoldingStableCoin,
 } from './utils';
 
@@ -34,5 +35,27 @@ describe('calculateSpotHoldingPnl', () => {
         isStable: isSpotHoldingStableCoin('USDH'),
       }),
     ).toEqual({});
+  });
+});
+
+describe('getTwapAssetDisplayName', () => {
+  it('keeps perp symbols normalized through parseDexCoin', () => {
+    expect(getTwapAssetDisplayName('kPEPE', {})).toBe('kPEPE');
+  });
+
+  it('resolves spot asset ids and pair names through the display map', () => {
+    const spotDisplayMap = {
+      '@107': 'HYPE',
+      [`UBTC`]: 'BTC',
+    };
+
+    expect(getTwapAssetDisplayName('@107', spotDisplayMap)).toBe('HYPE');
+    expect(getTwapAssetDisplayName(`UBTC/USDC`, spotDisplayMap)).toBe(
+      'BTC',
+    );
+  });
+
+  it('falls back to the shared spot token map for canonical pair names', () => {
+    expect(getTwapAssetDisplayName('UETH/USDC', {})).toBe('ETH');
   });
 });

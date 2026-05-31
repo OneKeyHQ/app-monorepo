@@ -6,13 +6,14 @@ import { useIntl } from 'react-intl';
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IPerpsActiveTwapOrder } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useSpotPairDisplayMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpTestIDs } from '../../../testIDs';
+import { getTwapAssetDisplayName } from '../utils';
 
 const balanceFormatter: INumberFormatProps = {
   formatter: 'balance',
@@ -34,9 +35,10 @@ const MobileTwapOpenOrdersRow = memo(
   ({ order, onCancelOrder }: IMobileTwapOpenOrdersRowProps) => {
     const intl = useIntl();
     const { twapId, state } = order;
+    const [spotDisplayMap] = useSpotPairDisplayMapAtom();
     const assetSymbol = useMemo(
-      () => parseDexCoin(state.coin).displayName,
-      [state.coin],
+      () => getTwapAssetDisplayName(state.coin, spotDisplayMap),
+      [spotDisplayMap, state.coin],
     );
     const dateInfo = useMemo(() => {
       const timeDate = new Date(state.timestamp);

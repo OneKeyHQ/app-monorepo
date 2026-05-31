@@ -1746,6 +1746,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     const displayMap: Record<string, string> = {};
     for (const u of universes) {
       displayMap[u.name] = perpsUtils.getSpotTokenDisplayName(u.baseName);
+      displayMap[u.baseName] = perpsUtils.getSpotTokenDisplayName(u.baseName);
     }
     void spotPairDisplayMapAtom.set(displayMap);
   }
