@@ -8,6 +8,7 @@ describe('getPerpsAccountSwitchCleanupPlan', () => {
         nextAccountAddress: '0xbbb',
         cachedPositionAccountAddress: '0xbbb',
         cachedOpenOrdersAccountAddress: undefined,
+        cachedSpotOpenOrdersAccountAddress: '0xaaa',
       }),
     ).toEqual({
       shouldClearActiveAccountData: false,
@@ -25,6 +26,7 @@ describe('getPerpsAccountSwitchCleanupPlan', () => {
         nextAccountAddress: '0xbbb',
         cachedPositionAccountAddress: '0xbbb',
         cachedOpenOrdersAccountAddress: '0xaaa',
+        cachedSpotOpenOrdersAccountAddress: '0xaaa',
       }),
     ).toEqual({
       shouldClearActiveAccountData: false,
@@ -42,12 +44,31 @@ describe('getPerpsAccountSwitchCleanupPlan', () => {
         nextAccountAddress: '0xbbb',
         cachedPositionAccountAddress: '0xaaa',
         cachedOpenOrdersAccountAddress: '0xbbb',
+        cachedSpotOpenOrdersAccountAddress: '0xaaa',
       }),
     ).toEqual({
       shouldClearActiveAccountData: false,
       shouldClearPositionData: true,
       shouldClearOpenOrdersData: false,
       shouldClearSpotOpenOrdersData: true,
+      shouldClearTransientData: true,
+    });
+  });
+
+  it('preserves matching spot open orders on partial cache hits', () => {
+    expect(
+      getPerpsAccountSwitchCleanupPlan({
+        previousAccountAddress: '0xaaa',
+        nextAccountAddress: '0xbbb',
+        cachedPositionAccountAddress: '0xbbb',
+        cachedOpenOrdersAccountAddress: '0xaaa',
+        cachedSpotOpenOrdersAccountAddress: '0xbbb',
+      }),
+    ).toEqual({
+      shouldClearActiveAccountData: false,
+      shouldClearPositionData: false,
+      shouldClearOpenOrdersData: true,
+      shouldClearSpotOpenOrdersData: false,
       shouldClearTransientData: true,
     });
   });

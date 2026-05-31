@@ -1,12 +1,10 @@
+import { normalizePerpsAccountAddress } from '@onekeyhq/shared/src/utils/perpsUtils';
+
 type IAccountScopedDataParams<T> = {
   activeAccountAddress?: string | null;
   dataAccountAddress?: string | null;
   data: T[];
 };
-
-function normalizePerpsAccountAddress(address?: string | null) {
-  return address?.toLowerCase() || null;
-}
 
 export function isPerpsAccountScopedDataReady({
   activeAccountAddress,

@@ -1,17 +1,19 @@
-export function normalizePerpsAccountAddress(address?: string | null) {
-  return address?.toLowerCase() ?? null;
-}
+import { normalizePerpsAccountAddress } from '@onekeyhq/shared/src/utils/perpsUtils';
+
+export { normalizePerpsAccountAddress };
 
 export function getPerpsAccountSwitchCleanupPlan({
   previousAccountAddress,
   nextAccountAddress,
   cachedPositionAccountAddress,
   cachedOpenOrdersAccountAddress,
+  cachedSpotOpenOrdersAccountAddress,
 }: {
   previousAccountAddress?: string | null;
   nextAccountAddress?: string | null;
   cachedPositionAccountAddress?: string | null;
   cachedOpenOrdersAccountAddress?: string | null;
+  cachedSpotOpenOrdersAccountAddress?: string | null;
 }) {
   const previousAddress = normalizePerpsAccountAddress(previousAccountAddress);
   const nextAddress = normalizePerpsAccountAddress(nextAccountAddress);
@@ -21,12 +23,18 @@ export function getPerpsAccountSwitchCleanupPlan({
   const cachedOpenOrdersAddress = normalizePerpsAccountAddress(
     cachedOpenOrdersAccountAddress,
   );
+  const cachedSpotOpenOrdersAddress = normalizePerpsAccountAddress(
+    cachedSpotOpenOrdersAccountAddress,
+  );
   const accountChanged = previousAddress !== nextAddress;
   const hasNextPositionCache = Boolean(
     nextAddress && cachedPositionAddress === nextAddress,
   );
   const hasNextOpenOrdersCache = Boolean(
     nextAddress && cachedOpenOrdersAddress === nextAddress,
+  );
+  const hasNextSpotOpenOrdersCache = Boolean(
+    nextAddress && cachedSpotOpenOrdersAddress === nextAddress,
   );
   const hasNextAddressContextCache = Boolean(
     hasNextPositionCache || hasNextOpenOrdersCache,
@@ -55,7 +63,11 @@ export function getPerpsAccountSwitchCleanupPlan({
       cachedOpenOrdersAddress &&
       !hasNextOpenOrdersCache,
     ),
-    shouldClearSpotOpenOrdersData: shouldClearScopedDataIndividually,
+    shouldClearSpotOpenOrdersData: Boolean(
+      shouldClearScopedDataIndividually &&
+      cachedSpotOpenOrdersAddress &&
+      !hasNextSpotOpenOrdersCache,
+    ),
     shouldClearTransientData: accountChanged && hasNextAddressContextCache,
   };
 }

@@ -103,7 +103,7 @@ function PerpContent() {
     }, []),
   );
 
-  const fallbackTabPageHeight = platformEnv.isNativeIOS
+  const fallbackTabPageHeight = platformEnv.isNative
     ? resolvedSafeAreaTop + PERP_NATIVE_HEADER_ROW_HEIGHT
     : 92;
   const [measuredTabPageHeight, setMeasuredTabPageHeight] = useState<

@@ -22,6 +22,9 @@ describe('coldStartCacheSnapshotUtils', () => {
     expect(
       parseColdStartSnapshotRaw('[1,2,3]', { maxSnapshotChars: 20 }),
     ).toBeUndefined();
+    expect(
+      parseColdStartSnapshotRaw('{bad json', { maxSnapshotChars: 20 }),
+    ).toBeUndefined();
   });
 
   it('trims Perps position and open-order list payloads before writing', () => {

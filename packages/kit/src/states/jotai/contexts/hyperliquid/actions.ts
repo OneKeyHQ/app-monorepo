@@ -54,6 +54,7 @@ import {
   getTriggerEffectivePrice,
   inferTpsl,
   isSpotInstrument,
+  parseDexCoin,
   resolveTradingSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -438,6 +439,34 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     return snapshot;
   }
 
+  private buildOpenOrdersByDexMap(openOrders: HL.IPerpsFrontendOrder[]) {
+    return openOrders.reduce<Record<string, HL.IPerpsFrontendOrder[]>>(
+      (acc, order) => {
+        const dex = parseDexCoin(order.coin).dexLabel ?? '';
+        if (!acc[dex]) {
+          acc[dex] = [];
+        }
+        acc[dex].push(order);
+        return acc;
+      },
+      {},
+    );
+  }
+
+  private replaceOpenOrdersByDexCache({
+    activeAccountAddress,
+    openOrdersByDex,
+  }: {
+    activeAccountAddress: string | undefined;
+    openOrdersByDex: Record<string, HL.IPerpsFrontendOrder[]>;
+  }) {
+    this.ensureOpenOrdersCacheAccount(activeAccountAddress);
+    this.openOrdersByDexCache.clear();
+    Object.entries(openOrdersByDex).forEach(([dex, orders]) => {
+      this.openOrdersByDexCache.set(dex, orders);
+    });
+  }
+
   updateAllMids = contextAtomMethod((_, set, data: HL.IWsAllMids) => {
     markPerpsColdStartPerfOnce('atom_set_all_mids_first', {
       midsCount: Object.keys(data?.mids ?? {}).length,
@@ -562,25 +591,29 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
       if (Array.isArray(data?.openOrders)) {
         const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
-        const allOrders = data.openOrders;
-        const perpOrders = allOrders.filter(
-          (order) =>
-            !isSpotInstrument(order.coin) &&
-            !this.canceledOrderIds.has(order.oid),
+        const allOrders = data.openOrders.filter(
+          (order) => !this.canceledOrderIds.has(order.oid),
         );
-        const spotOrders = allOrders.filter(
-          (order) =>
-            isSpotInstrument(order.coin) &&
-            !this.canceledOrderIds.has(order.oid),
+        const perpOrders = allOrders.filter(
+          (order) => !isSpotInstrument(order.coin),
+        );
+        const spotOrders = allOrders.filter((order) =>
+          isSpotInstrument(order.coin),
         );
         const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
           perpOrders,
           prevOpenOrdersState?.openOrdersByCoin,
         );
+        const openOrdersByDex = this.buildOpenOrdersByDexMap(allOrders);
+        this.replaceOpenOrdersByDexCache({
+          activeAccountAddress,
+          openOrdersByDex,
+        });
         set(perpsActiveOpenOrdersAtom(), {
           accountAddress: activeAccountAddress,
           openOrders: perpOrders,
           openOrdersByCoin,
+          openOrdersByDex,
         });
         void spotActiveOpenOrdersAtom.set({
           accountAddress: activeAccountAddress,
@@ -611,6 +644,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           accountAddress: activeAccountAddress,
           openOrders: [],
           openOrdersByCoin: {},
+          openOrdersByDex: {},
         });
       }
       void spotActiveOpenOrdersAtom.set({
@@ -719,6 +753,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             accountAddress: activeAccountAddress,
             openOrders: [],
             openOrdersByCoin: {},
+            openOrdersByDex: {},
           });
           void spotActiveOpenOrdersAtom.set({
             accountAddress: activeAccountAddress,
@@ -732,7 +767,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
 
       const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
-      const allOrders = data.orders;
+      const allOrders = data.orders.filter(
+        (order) => !this.canceledOrderIds.has(order.oid),
+      );
       this.ensureOpenOrdersCacheAccount(activeAccountAddress);
       this.seedOpenOrdersByDexCacheFromSnapshot({
         activeAccountAddress,
@@ -744,13 +781,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       ).flat();
 
       const perpOrders = mergedOrders.filter(
-        (order) =>
-          !isSpotInstrument(order.coin) &&
-          !this.canceledOrderIds.has(order.oid),
+        (order) => !isSpotInstrument(order.coin),
       );
-      const spotOrders = mergedOrders.filter(
-        (order) =>
-          isSpotInstrument(order.coin) && !this.canceledOrderIds.has(order.oid),
+      const spotOrders = mergedOrders.filter((order) =>
+        isSpotInstrument(order.coin),
       );
       const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
         perpOrders,
@@ -1520,6 +1554,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       );
       const cachedPositionState = get(perpsActivePositionAtom());
       const cachedOpenOrdersState = get(perpsActiveOpenOrdersAtom());
+      const cachedSpotOpenOrdersState = await spotActiveOpenOrdersAtom.get();
       const account =
         await backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount(
           params,
@@ -1532,6 +1567,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         nextAccountAddress: account?.accountAddress,
         cachedPositionAccountAddress: cachedPositionState.accountAddress,
         cachedOpenOrdersAccountAddress: cachedOpenOrdersState.accountAddress,
+        cachedSpotOpenOrdersAccountAddress:
+          cachedSpotOpenOrdersState.accountAddress,
       });
       if (cleanupPlan.shouldClearActiveAccountData) {
         await this.clearActiveAccountData.call(set);

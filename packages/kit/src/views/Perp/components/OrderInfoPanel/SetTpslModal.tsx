@@ -19,6 +19,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type EModalPerpRoutes,
@@ -35,6 +36,7 @@ import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
 import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
@@ -72,7 +74,18 @@ const SetTpslForm = memo(
     const { mid: midPrice } = usePerpsMidPrice({ coin });
 
     const activePositions = usePerpsAccountScopedActivePositions();
-    const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
+    const [activeAccount] = usePerpsActiveAccountAtom();
+    const [{ accountAddress: openOrdersAccountAddress, openOrders }] =
+      usePerpsActiveOpenOrdersAtom();
+    const accountScopedOpenOrders = useMemo(
+      () =>
+        getPerpsAccountScopedListData({
+          activeAccountAddress: activeAccount?.accountAddress,
+          dataAccountAddress: openOrdersAccountAddress,
+          data: openOrders,
+        }),
+      [activeAccount?.accountAddress, openOrders, openOrdersAccountAddress],
+    );
 
     const currentPosition = useMemo(() => {
       return activePositions.find((p) => p.position.coin === coin)?.position;
@@ -80,12 +93,12 @@ const SetTpslForm = memo(
 
     const currentTpslOrders = useMemo(() => {
       if (!currentPosition) return [];
-      return openOrders.filter(
+      return accountScopedOpenOrders.filter(
         (o) =>
           o.coin === currentPosition.coin &&
           (o.orderType.startsWith('Take') || o.orderType.startsWith('Stop')),
       );
-    }, [openOrders, currentPosition]);
+    }, [accountScopedOpenOrders, currentPosition]);
 
     useEffect(() => {
       if (!currentPosition || new BigNumber(currentPosition.szi || '0').eq(0)) {
