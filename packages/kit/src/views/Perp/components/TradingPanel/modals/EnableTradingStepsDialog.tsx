@@ -44,6 +44,10 @@ function EnableTradingStepsContent({
     () => getPerpsOrderPanelEnableTradingSteps(accountStatus),
     [accountStatus],
   );
+  const signatureSteps = useMemo(
+    () => steps.filter((step) => step.requiresSignature),
+    [steps],
+  );
   const signatureCount = useMemo(
     () => getPerpsOrderPanelEnableTradingSignatureCount(steps),
     [steps],
@@ -64,29 +68,31 @@ function EnableTradingStepsContent({
         })}
       </SizableText>
 
-      <YStack gap="$2">
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMdMedium" color="$text">
-            {intl.formatMessage({
-              id: ETranslations.global_confirm_on_device,
-            })}
-          </SizableText>
-          <SizableText size="$bodyMdMedium" color="$text">
-            {signatureCount}
-          </SizableText>
-        </XStack>
-
-        {steps.map((step, index) => (
-          <XStack key={step.key} gap="$2" alignItems="center">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {index + 1}.
+      {signatureCount > 0 ? (
+        <YStack gap="$2">
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMdMedium" color="$text">
+              {intl.formatMessage({
+                id: ETranslations.global_confirm_on_device,
+              })}
             </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({ id: step.labelId })}
+            <SizableText size="$bodyMdMedium" color="$text">
+              {signatureCount}
             </SizableText>
           </XStack>
-        ))}
-      </YStack>
+
+          {signatureSteps.map((step, index) => (
+            <XStack key={step.key} gap="$2" alignItems="center">
+              <SizableText size="$bodySm" color="$textSubdued">
+                {index + 1}.
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({ id: step.labelId })}
+              </SizableText>
+            </XStack>
+          ))}
+        </YStack>
+      ) : null}
 
       <XStack gap="$2">
         <Button
@@ -136,6 +142,9 @@ export function showEnableTradingStepsDialog({
     };
 
     const dialogInstance = Dialog.show({
+      disableDrag: true,
+      dismissOnOverlayPress: false,
+      showExitButton: false,
       // eslint-disable-next-line onekey/no-app-locale-main-thread
       title: appLocale.intl.formatMessage({
         id: ETranslations.perp_trade_button_enable_trading,

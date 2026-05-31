@@ -4,6 +4,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 export type IPerpsOrderPanelEnableTradingStepKey =
   | 'deposit'
   | 'builderFee'
+  | 'agentRemoval'
   | 'agent'
   | 'abstraction';
 
@@ -70,11 +71,18 @@ export function getPerpsOrderPanelEnableTradingSteps(
       requiresSignature: true,
     });
   }
-  if (
+  const shouldSetupAgent =
     !details ||
     details.agentOk !== true ||
-    details.internalRebateBoundOk !== true
-  ) {
+    details.internalRebateBoundOk !== true;
+  if (shouldSetupAgent) {
+    if (details?.requiresAgentRemovalSignature) {
+      steps.push({
+        key: 'agentRemoval',
+        labelId: ETranslations.global_sign,
+        requiresSignature: true,
+      });
+    }
     steps.push({
       key: 'agent',
       labelId: ETranslations.global_sign,
@@ -126,6 +134,20 @@ export function shouldDisablePerpsOrderPanelTradingButton({
     isSubmitting ||
     (!shouldEnableTradingBeforeOrder && hasBboPriceError) ||
     isServerActionDisabled
+  );
+}
+
+export function shouldBlockPerpsOrderPanelPreEnableTradingForMargin({
+  shouldEnableTradingBeforeOrder,
+  isNoEnoughMargin,
+  isDepositRequired,
+}: {
+  shouldEnableTradingBeforeOrder: boolean;
+  isNoEnoughMargin: boolean;
+  isDepositRequired: boolean;
+}) {
+  return (
+    shouldEnableTradingBeforeOrder && isNoEnoughMargin && !isDepositRequired
   );
 }
 

@@ -65,6 +65,7 @@ import {
 } from '../../utils/perpsMarketDataFreshness';
 import {
   getPerpsOrderPanelPostEnableTradingResult,
+  shouldBlockPerpsOrderPanelPreEnableTradingForMargin,
   shouldDisablePerpsOrderPanelTradingButton,
 } from '../../utils/perpsOrderPanelEnableTrading';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
@@ -848,6 +849,25 @@ function SideButtonInternal({
         latestOrderPanelState.perpsCustomSettings;
 
       if (shouldEnableTradingBeforeOrder) {
+        const isDepositRequired =
+          perpsAccountStatus.details?.activatedOk === false;
+        if (
+          shouldBlockPerpsOrderPanelPreEnableTradingForMargin({
+            shouldEnableTradingBeforeOrder,
+            isNoEnoughMargin: latestOrderPanelState.isNoEnoughMargin,
+            isDepositRequired,
+          })
+        ) {
+          Toast.message({
+            title: intl.formatMessage({
+              id: latestOrderPanelState.isSpot
+                ? ETranslations.dexmarket_insufficient_balance
+                : ETranslations.perp_trading_button_no_enough_margin,
+            }),
+          });
+          return;
+        }
+
         const enableTradingAccountKey = perpsAccountKey;
         const enableTradingSide = side;
         const enableTradingOrderContextKey =

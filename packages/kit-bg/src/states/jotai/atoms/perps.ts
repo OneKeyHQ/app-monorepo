@@ -337,6 +337,7 @@ export type IPerpsActiveAccountStatusDetails = {
   builderFeeOk: boolean;
   internalRebateBoundOk: boolean;
   abstractionOk: boolean;
+  requiresAgentRemovalSignature?: boolean;
 };
 export type IPerpsActiveAccountStatusInfoAtom =
   | {

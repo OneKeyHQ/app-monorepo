@@ -4,6 +4,7 @@ import {
   getPerpsOrderPanelEnableTradingSignatureCount,
   getPerpsOrderPanelEnableTradingSteps,
   getPerpsOrderPanelPostEnableTradingResult,
+  shouldBlockPerpsOrderPanelPreEnableTradingForMargin,
   shouldDisablePerpsOrderPanelTradingButton,
   shouldShowPerpsOrderPanelTradingButtons,
 } from './perpsOrderPanelEnableTrading';
@@ -142,9 +143,87 @@ describe('getPerpsOrderPanelEnableTradingSteps', () => {
     ]);
     expect(getPerpsOrderPanelEnableTradingSignatureCount(steps)).toBe(3);
   });
+
+  it('counts agent slot recovery as an extra hardware signature', () => {
+    const steps = getPerpsOrderPanelEnableTradingSteps({
+      accountAddress: '0xabc',
+      accountNotSupport: false,
+      canCreateAddress: false,
+      canTrade: false,
+      details: {
+        activatedOk: true,
+        agentOk: false,
+        builderFeeOk: true,
+        referralCodeOk: true,
+        internalRebateBoundOk: true,
+        abstractionOk: true,
+        requiresAgentRemovalSignature: true,
+      },
+    });
+
+    expect(steps).toEqual([
+      {
+        key: 'agentRemoval',
+        labelId: ETranslations.global_sign,
+        requiresSignature: true,
+      },
+      {
+        key: 'agent',
+        labelId: ETranslations.global_sign,
+        requiresSignature: true,
+      },
+    ]);
+    expect(getPerpsOrderPanelEnableTradingSignatureCount(steps)).toBe(2);
+  });
+
+  it('does not count deposit fallback as a hardware signature', () => {
+    const steps = getPerpsOrderPanelEnableTradingSteps({
+      accountAddress: '0xabc',
+      accountNotSupport: false,
+      canCreateAddress: false,
+      canTrade: false,
+      details: {
+        activatedOk: false,
+        agentOk: false,
+        builderFeeOk: false,
+        referralCodeOk: false,
+        internalRebateBoundOk: false,
+        abstractionOk: false,
+      },
+    });
+
+    expect(steps).toEqual([
+      {
+        key: 'deposit',
+        labelId: ETranslations.perp_account_action_vault_transfer_deposit,
+        requiresSignature: false,
+      },
+    ]);
+    expect(getPerpsOrderPanelEnableTradingSignatureCount(steps)).toBe(0);
+  });
 });
 
 describe('getPerpsOrderPanelPostEnableTradingResult', () => {
+  it('stops order submission when enabling trading does not continue', () => {
+    expect(
+      getPerpsOrderPanelPostEnableTradingResult({
+        enableTradingShouldContinue: false,
+        shouldIgnoreEnableTradingResult: false,
+        isOrderContextChanged: false,
+        isNoEnoughMargin: false,
+      }),
+    ).toBe('stop');
+
+    expect(
+      getPerpsOrderPanelPostEnableTradingResult({
+        enableTradingShouldContinue: undefined,
+        shouldIgnoreEnableTradingResult: false,
+        isOrderContextChanged: false,
+        isNoEnoughMargin: false,
+      }),
+    ).toBe('stop');
+  });
+
   it('stops order submission when the latest state changes after enabling trading', () => {
     expect(
       getPerpsOrderPanelPostEnableTradingResult({
@@ -185,6 +264,38 @@ describe('getPerpsOrderPanelPostEnableTradingResult', () => {
         isNoEnoughMargin: false,
       }),
     ).toBe('continue');
+  });
+});
+
+describe('shouldBlockPerpsOrderPanelPreEnableTradingForMargin', () => {
+  it('blocks enable side effects for known insufficient margin orders', () => {
+    expect(
+      shouldBlockPerpsOrderPanelPreEnableTradingForMargin({
+        shouldEnableTradingBeforeOrder: true,
+        isNoEnoughMargin: true,
+        isDepositRequired: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps deposit fallback reachable when the account is not activated', () => {
+    expect(
+      shouldBlockPerpsOrderPanelPreEnableTradingForMargin({
+        shouldEnableTradingBeforeOrder: true,
+        isNoEnoughMargin: true,
+        isDepositRequired: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not block normal order submission', () => {
+    expect(
+      shouldBlockPerpsOrderPanelPreEnableTradingForMargin({
+        shouldEnableTradingBeforeOrder: false,
+        isNoEnoughMargin: true,
+        isDepositRequired: false,
+      }),
+    ).toBe(false);
   });
 });
 
