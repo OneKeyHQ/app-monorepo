@@ -15,6 +15,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { useWebDappRealAddress } from './useWebDappRealAddress';
 import { WebAccountPanelPopover } from './WebAccountPanelPopover';
 
 import type { GestureResponderEvent } from 'react-native';
@@ -114,9 +115,15 @@ export function WebAccountSelectorTrigger({
     activeAccount: { account, dbAccount, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
-  const address = account?.address
+  // In web-dapp all-networks mode an indexed account's address is a mock
+  // placeholder; resolve the real EVM address for the header.
+  const realAddress = useWebDappRealAddress({
+    address: account?.address,
+    indexedAccountId: indexedAccount?.id,
+  });
+  const address = realAddress
     ? accountUtils.shortenAddress({
-        address: account.address,
+        address: realAddress,
         leadingLength: 4,
         trailingLength: 4,
       })
@@ -155,9 +162,7 @@ export function WebAccountSelectorTrigger({
           {address}
         </SizableText>
       </XStack>
-      {isPerpsRoute ? (
-        <PerpsBalancePill userAddress={account?.address} />
-      ) : null}
+      {isPerpsRoute ? <PerpsBalancePill userAddress={realAddress} /> : null}
     </XStack>
   );
 

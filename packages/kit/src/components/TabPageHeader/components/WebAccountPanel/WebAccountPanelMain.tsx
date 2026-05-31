@@ -31,8 +31,10 @@ import {
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import { WebAccountPanelFooter } from './atoms/WebAccountPanelFooter';
+import { useWebDappRealAddress } from './useWebDappRealAddress';
 
 // Session-only (in-memory) cache for the portfolio total, keyed by accountId.
 // It survives the panel closing/reopening so reopening shows the last value
@@ -259,6 +261,13 @@ export function WebAccountPanelMain({
     activeAccount: { account, dbAccount, indexedAccount, wallet },
   } = useActiveAccount({ num: 0 });
 
+  // In web-dapp all-networks mode an indexed account's address is a mock
+  // placeholder; resolve the real EVM address for display, copy and perps.
+  const realAddress = useWebDappRealAddress({
+    address: account?.address,
+    indexedAccountId: indexedAccount?.id,
+  });
+
   // Portfolio total. The home page is the only place that computes account
   // worth (its page-scoped token-list flow), so on routes like /perps nothing
   // populates the cached worth. Fetch it regardless of route: enumerate the
@@ -330,7 +339,9 @@ export function WebAccountPanelMain({
         if (latestAccountIdRef.current !== accountId) {
           return;
         }
-        const okResults = results.filter((r) => r !== null);
+        const okResults = results.filter(
+          (r): r is NonNullable<typeof r> => r !== null,
+        );
         if (okResults.length === 0) {
           // Every request failed — keep any cached value rather than wiping it,
           // and don't refresh the timestamp so the next open retries.
@@ -339,11 +350,14 @@ export function WebAccountPanelMain({
           }
           return;
         }
+        // Use the shared helper (same one Home uses) so an unavailable/non-finite
+        // group value from a partial provider failure is skipped instead of
+        // poisoning the whole total to NaN.
         const total = okResults.reduce(
           (acc, r) =>
-            acc
-              .plus(new BigNumber(r?.tokens?.fiatValue ?? '0'))
-              .plus(new BigNumber(r?.smallBalanceTokens?.fiatValue ?? '0')),
+            acc.plus(
+              new BigNumber(sumTokenGroupsFiatValueIgnoringUnavailable(r)),
+            ),
           new BigNumber(0),
         );
         // Every per-network fetch uses the same display currency, so the
@@ -374,19 +388,19 @@ export function WebAccountPanelMain({
     void fetchPortfolio();
   }, [fetchPortfolio]);
 
-  const address = account?.address
+  const address = realAddress
     ? accountUtils.shortenAddress({
-        address: account.address,
+        address: realAddress,
         leadingLength: 4,
         trailingLength: 4,
       })
     : '';
 
   const handleCopyAddress = useCallback(() => {
-    if (account?.address) {
-      copyText(account.address);
+    if (realAddress) {
+      copyText(realAddress);
     }
-  }, [account?.address, copyText]);
+  }, [realAddress, copyText]);
 
   const handleDisconnect = useCallback(async () => {
     // Match the account-selector "Disconnect from dApp" action exactly
@@ -411,8 +425,15 @@ export function WebAccountPanelMain({
         return;
       }
     } else if (indexedAccount) {
-      await actions.current.removeAccount({ indexedAccount });
-      return;
+      // An indexed/HD account selected as the home account: do NOT delete it.
+      // removeAccount would wipe the HD account from local DB (and wouldn't
+      // auto-switch — autoSelectNextAccount only runs for others accounts).
+      // Disconnect here just resets the selection to unconnected; the account
+      // stays in the wallet.
+      await actions.current.clearSelectedAccount({
+        num: 0,
+        clearAccount: true,
+      });
     }
     onRequestClose();
   }, [
@@ -543,7 +564,7 @@ export function WebAccountPanelMain({
         </XStack>
         <Divider borderColor="$neutral3" />
         <PerpsSection
-          userAddress={account?.address}
+          userAddress={realAddress}
           ensureActivePerpsAccount={ensureActivePerpsAccount}
           onRequestClose={onRequestClose}
         />
