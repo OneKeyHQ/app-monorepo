@@ -3,7 +3,13 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { DebugRenderTracker, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  DebugRenderTracker,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useTradingFormAtom,
@@ -21,11 +27,15 @@ import {
   usePerpsActiveAssetDataAtom,
   usePerpsComputedAccountValueAtom,
   usePerpsCustomSettingsAtom,
+  usePerpsShouldShowEnableTradingButtonAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useOrderConfirm } from '../../hooks';
+import { useOrderConfirm, useTradingPrice } from '../../hooks';
 import { useOrderPrice } from '../../hooks/useOrderPrice';
+import { useEnableTradingWithDepositFallback } from '../../hooks/useEnableTradingWithDepositFallback';
+import { PerpTestIDs } from '../../testIDs';
 import { getPerpsFormLeverage } from '../../utils/leverageDisplay';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import {
@@ -47,7 +57,57 @@ import { TradingButtonGroup } from './TradingButtonGroup';
 
 import type { LayoutChangeEvent } from 'react-native';
 
-function PerpTradingDisabledButton() {
+function PerpEnableTradingButtonLite() {
+  const intl = useIntl();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const enableTrading = useEnableTradingWithDepositFallback();
+  const isAccountLoading =
+    perpsAccountLoading.enableTradingLoading ||
+    perpsAccountLoading.selectAccountLoading;
+
+  return (
+    <YStack
+      gap="$3"
+      h={126}
+      justifyContent="flex-end"
+      flex={1}
+      pointerEvents="box-none"
+    >
+      <XStack
+        gap="$3"
+        p="$3"
+        borderRadius="$3"
+        bg="$bgSubdued"
+        pointerEvents="box-none"
+      >
+        <SizableText size="$bodySm" color="$text" pointerEvents="box-none">
+          {intl.formatMessage({
+            id: ETranslations.perp_enable_trading_desc,
+          })}
+        </SizableText>
+      </XStack>
+      <Button
+        size="medium"
+        borderRadius="$full"
+        testID={PerpTestIDs.EnableTradingButton}
+        variant="primary"
+        loading={isAccountLoading}
+        onPress={async () => {
+          await enableTrading();
+        }}
+        childrenAsText={false}
+      >
+        <SizableText size="$bodyMdMedium" color="$textInverse">
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_button_enable_trading,
+          })}
+        </SizableText>
+      </Button>
+    </YStack>
+  );
+}
+
+function PerpTradingDisabledPlaceOrderButton() {
   const intl = useIntl();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
@@ -175,6 +235,17 @@ function PerpTradingDisabledButton() {
       isNoEnoughMargin={isNoEnoughMargin}
     />
   );
+}
+
+function PerpTradingDisabledButton() {
+  const [shouldShowEnableTradingButton] =
+    usePerpsShouldShowEnableTradingButtonAtom();
+
+  if (shouldShowEnableTradingButton) {
+    return <PerpEnableTradingButtonLite />;
+  }
+
+  return <PerpTradingDisabledPlaceOrderButton />;
 }
 
 const PerpTradingDisabledButtonMemo = memo(PerpTradingDisabledButton);

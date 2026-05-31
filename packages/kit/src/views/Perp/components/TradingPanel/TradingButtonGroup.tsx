@@ -18,6 +18,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
+  type ITradingFormData,
   useActiveTradeInstrumentAtom,
   usePerpsActivePositionAtom,
   useTradingFormAtom,
@@ -25,6 +26,8 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   perpsActiveAccountStatusAtom,
+  perpsNetworkStatusAtom,
+  perpsWebSocketReadyStateAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountEnableTradingModeAtom,
@@ -52,7 +55,10 @@ import {
   getSpotTokenDisplayName,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EPerpsSizeInputMode,
+  ETriggerOrderType,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   useOrderConfirmWithMarketDataFreshness,
@@ -78,6 +84,7 @@ import {
 } from '../../utils/mobileLayoutTrace';
 import {
   type IPerpsMarketDataFreshness,
+  getPerpsMarketDataFreshness,
   shouldBlockPerpsTradingForMarketData,
 } from '../../utils/perpsMarketDataFreshness';
 import {
@@ -123,6 +130,8 @@ interface ISideButtonProps {
     | undefined;
 }
 
+const PERPS_WEBSOCKET_OPEN_READY_STATE = 1;
+
 function getPerpsAccountKey(account: {
   accountId?: string | null;
   indexedAccountId?: string | null;
@@ -133,6 +142,35 @@ function getPerpsAccountKey(account: {
     return undefined;
   }
   return `${accountId ?? ''}:${account.accountAddress ?? ''}`;
+}
+
+function hasPerpsOrderSizeInput(formData: ITradingFormData) {
+  if (formData.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
+    return (formData.sizePercent ?? 0) > 0;
+  }
+  return Boolean(formData.size?.trim());
+}
+
+function shouldUseEmptySizeTradingButtons(formData: ITradingFormData) {
+  return (
+    formData.orderMode !== 'trigger' &&
+    !formData.bboPriceMode &&
+    !hasPerpsOrderSizeInput(formData)
+  );
+}
+
+async function getLatestPerpsMarketDataFreshness() {
+  const [networkStatus, readyState] = await Promise.all([
+    perpsNetworkStatusAtom.get(),
+    perpsWebSocketReadyStateAtom.get(),
+  ]);
+
+  return getPerpsMarketDataFreshness({
+    isWebSocketConnected:
+      readyState?.readyState === PERPS_WEBSOCKET_OPEN_READY_STATE,
+    networkConnected: networkStatus?.connected,
+    lastMessageAt: networkStatus?.lastMessageAt ?? null,
+  });
 }
 
 function SideButtonInternal({
@@ -1537,9 +1575,372 @@ function SideButtonInternal({
   );
 }
 
-const SideButton = memo(SideButtonInternal);
+const SideButtonLive = memo(SideButtonInternal);
 
-function TradingButtonGroup({
+function EmptySizeSideButton({
+  side,
+  isMobile,
+  isLiveStatusPending = false,
+  justifyContent = 'flex-start',
+}: Omit<ISideButtonProps, 'handleConfirm' | 'marketDataFreshness'>) {
+  const intl = useIntl();
+  const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
+  const themeVariant = useThemeVariant();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [formData] = useTradingFormAtom();
+  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [isSubmitting] = useTradingLoadingAtom();
+  const isSpot = tradingMode === 'spot';
+  const isLong = side === 'long';
+  const isAccountLoading =
+    perpsAccountLoading.enableTradingLoading ||
+    perpsAccountLoading.selectAccountLoading;
+  const shouldShowButtonLoading = isAccountLoading && !isLiveStatusPending;
+  const shouldAutoEnableTrading =
+    !perpsAccountStatus.canTrade && enableTradingMode.isSoftwareAccount;
+  const isServerActionDisabled = Boolean(
+    perpConfigCommon?.disablePerpActionPerp || perpConfigCommon?.ipDisablePerp,
+  );
+  const buttonDisabled =
+    isLiveStatusPending ||
+    isAccountLoading ||
+    isSubmitting ||
+    isServerActionDisabled ||
+    (!shouldAutoEnableTrading &&
+      !perpsAccountStatus.canTrade &&
+      !enableTradingMode.isSoftwareAccount);
+
+  const spotTradeSymbol = useMemo(() => {
+    if (!isSpot || activeTradeInstrument.mode !== 'spot') {
+      return '';
+    }
+    const u = activeTradeInstrument.universe;
+    if (!u) return '';
+    return getSpotTokenDisplayName(u.displayName || u.baseName);
+  }, [activeTradeInstrument, isSpot]);
+
+  const buttonText = useMemo(() => {
+    if (perpConfigCommon?.ipDisablePerp)
+      return intl.formatMessage({
+        id: ETranslations.perp_button_ip_restricted,
+      });
+    if (perpConfigCommon?.disablePerpActionPerp)
+      return intl.formatMessage({
+        id: ETranslations.perp_button_disable_perp,
+      });
+    if (isSpot) {
+      if (!spotTradeSymbol) {
+        return side === 'long'
+          ? intl.formatMessage({
+              id: ETranslations.dexmarket_details_transactions_buy,
+            })
+          : intl.formatMessage({
+              id: ETranslations.dexmarket_details_transactions_sell,
+            });
+      }
+      return side === 'long'
+        ? intl.formatMessage(
+            {
+              id: ETranslations.dexmarket_buy_token_default,
+            },
+            { TokenName: spotTradeSymbol },
+          )
+        : intl.formatMessage(
+            {
+              id: ETranslations.dexmarket_sell_token_default,
+            },
+            { TokenName: spotTradeSymbol },
+          );
+    }
+    return side === 'long'
+      ? intl.formatMessage({ id: ETranslations.perp_trade_long })
+      : intl.formatMessage({ id: ETranslations.perp_trade_short });
+  }, [
+    intl,
+    isSpot,
+    perpConfigCommon?.disablePerpActionPerp,
+    perpConfigCommon?.ipDisablePerp,
+    side,
+    spotTradeSymbol,
+  ]);
+
+  const buttonStyles = useMemo(() => {
+    const colors = PERP_TRADE_BUTTON_COLORS;
+    const getBgColor = () => {
+      if (shouldShowButtonLoading) return undefined;
+      return themeVariant === 'light'
+        ? colors.light[isLong ? 'long' : 'short']
+        : colors.dark[isLong ? 'long' : 'short'];
+    };
+
+    const getHoverBgColor = () => {
+      if (shouldShowButtonLoading) return undefined;
+      return themeVariant === 'light'
+        ? colors.light[isLong ? 'longHover' : 'shortHover']
+        : colors.dark[isLong ? 'longHover' : 'shortHover'];
+    };
+
+    const getPressBgColor = () => {
+      if (shouldShowButtonLoading) return undefined;
+      return themeVariant === 'light'
+        ? colors.light[isLong ? 'longPress' : 'shortPress']
+        : colors.dark[isLong ? 'longPress' : 'shortPress'];
+    };
+
+    return {
+      bg: getBgColor(),
+      hoverBg: getHoverBgColor(),
+      pressBg: getPressBgColor(),
+    };
+  }, [isLong, shouldShowButtonLoading, themeVariant]);
+
+  const handlePress = useDebouncedCallback(
+    async (): Promise<void> => {
+      const marketDataFreshness = await getLatestPerpsMarketDataFreshness();
+      const shouldBlockForMarketData =
+        shouldBlockPerpsTradingForMarketData(marketDataFreshness);
+
+      if (shouldBlockForMarketData) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.perp_offline,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.perps_offline_moblie,
+          }),
+        });
+        return;
+      }
+
+      if (
+        formData.type === 'limit' &&
+        (!formData.price || formData.price.trim() === '')
+      ) {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.perp_trade_price_place_holder,
+          }),
+        });
+        return;
+      }
+
+      Toast.message({
+        title: intl.formatMessage(
+          { id: ETranslations.perp_size_least },
+          { amount: '$10' },
+        ),
+      });
+    },
+    1000,
+    {
+      leading: true,
+      trailing: false,
+    },
+  );
+
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      if (!isMobile) {
+        return;
+      }
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
+        tracePerpsMobileLayout('tradingButton.emptySize.layout', {
+          rect,
+          side,
+          isSpot,
+          buttonDisabled,
+          isAccountLoading,
+          isLiveStatusPending,
+        });
+        layoutRef.current = rect;
+      }
+    },
+    [
+      buttonDisabled,
+      isAccountLoading,
+      isLiveStatusPending,
+      isMobile,
+      isSpot,
+      side,
+    ],
+  );
+
+  const button = (
+    <Button
+      testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
+      size="medium"
+      childrenAsText={false}
+      borderRadius="$4"
+      bg={buttonStyles.bg}
+      hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
+      pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
+      disabled={buttonDisabled}
+      loading={shouldShowButtonLoading || isSubmitting}
+      onPress={handlePress}
+      h={36}
+    >
+      <YStack alignItems="center" gap={2}>
+        <SizableText
+          size="$bodyMdMedium"
+          lineHeight={18}
+          color="$textOnColor"
+          numberOfLines={1}
+        >
+          {buttonText}
+        </SizableText>
+      </YStack>
+    </Button>
+  );
+
+  if (isMobile) {
+    return (
+      <YStack gap="$2" flex={1} onLayout={handleLayout}>
+        {isSpot ? null : (
+          <YStack gap="$1.5">
+            <XStack justifyContent="space-between">
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_trade_margin_required,
+                })}
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashThickness={0.3}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_cost,
+                    })}
+                  </DashText>
+                }
+                renderContent={
+                  <YStack px="$5" pb="$4">
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.perp_trade_margin_tooltip,
+                      })}
+                    </SizableText>
+                  </YStack>
+                }
+              />
+              <NumberSizeableText
+                size="$bodySm"
+                color="$text"
+                formatter="value"
+                formatterOptions={{ currency: '$' }}
+              >
+                {0}
+              </NumberSizeableText>
+            </XStack>
+
+            <XStack justifyContent="space-between">
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_est_liq_price,
+                })}
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashThickness={0.5}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price,
+                    })}
+                  </DashText>
+                }
+                renderContent={
+                  <YStack px="$5" pb="$4">
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.perp_est_liq_price_tooltip,
+                      })}
+                    </SizableText>
+                  </YStack>
+                }
+              />
+              <SizableText size="$bodySm" color="$text">
+                --
+              </SizableText>
+            </XStack>
+          </YStack>
+        )}
+        {button}
+      </YStack>
+    );
+  }
+
+  return (
+    <YStack gap="$2" flex={1} onLayout={handleLayout}>
+      {button}
+      {isSpot ? null : (
+        <YStack gap="$1.5">
+          <XStack gap="$2" justifyContent={justifyContent}>
+            <Tooltip
+              placement="top"
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_trade_margin_tooltip,
+              })}
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  cursor="default"
+                  dashThickness={0.5}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_cost,
+                  })}
+                </DashText>
+              }
+            />
+            <NumberSizeableText
+              size="$bodySm"
+              color="$text"
+              formatter="value"
+              formatterOptions={{ currency: '$' }}
+            >
+              {0}
+            </NumberSizeableText>
+          </XStack>
+
+          <XStack gap="$2" justifyContent={justifyContent}>
+            <Tooltip
+              placement="top"
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price_tooltip,
+              })}
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  cursor="default"
+                  dashThickness={0.5}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_est_liq_price,
+                  })}
+                </DashText>
+              }
+            />
+            <SizableText size="$bodySm" color="$text">
+              --
+            </SizableText>
+          </XStack>
+        </YStack>
+      )}
+    </YStack>
+  );
+}
+
+const SideButtonEmptySize = memo(EmptySizeSideButton);
+
+function TradingButtonGroupLive({
   isMobile,
   isLiveStatusPending = false,
   enableTradingModeOverride,
@@ -1556,7 +1957,7 @@ function TradingButtonGroup({
     if (isSpot) {
       return (
         <YStack {...(!isMobile && { mt: '$4' })}>
-          <SideButton
+          <SideButtonLive
             side={formData.side}
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -1570,7 +1971,7 @@ function TradingButtonGroup({
     if (isMobile) {
       return (
         <YStack gap="$3">
-          <SideButton
+          <SideButtonLive
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -1578,7 +1979,7 @@ function TradingButtonGroup({
             marketDataFreshness={marketDataFreshness}
             handleConfirm={handleConfirm}
           />
-          <SideButton
+          <SideButtonLive
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -1592,7 +1993,7 @@ function TradingButtonGroup({
     return (
       <XStack gap="$2.5" mt="$4">
         <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
-          <SideButton
+          <SideButtonLive
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -1603,7 +2004,7 @@ function TradingButtonGroup({
           />
         </XStack>
         <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
-          <SideButton
+          <SideButtonLive
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -1618,6 +2019,90 @@ function TradingButtonGroup({
   };
 
   return <YStack>{renderSideButtons()}</YStack>;
+}
+
+function TradingButtonGroupEmptySize({
+  isMobile,
+  isLiveStatusPending = false,
+}: ITradingButtonGroupProps) {
+  const [tradingMode] = useTradingModeAtom();
+  const [formData] = useTradingFormAtom();
+  const isSpot = tradingMode === 'spot';
+
+  const renderSideButtons = () => {
+    if (isSpot) {
+      return (
+        <YStack {...(!isMobile && { mt: '$4' })}>
+          <SideButtonEmptySize
+            side={formData.side}
+            isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
+          />
+        </YStack>
+      );
+    }
+    if (isMobile) {
+      return (
+        <YStack gap="$3">
+          <SideButtonEmptySize
+            side="long"
+            isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
+          />
+          <SideButtonEmptySize
+            side="short"
+            isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
+          />
+        </YStack>
+      );
+    }
+    return (
+      <XStack gap="$2.5" mt="$4">
+        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+          <SideButtonEmptySize
+            side="long"
+            isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
+            justifyContent="flex-start"
+          />
+        </XStack>
+        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+          <SideButtonEmptySize
+            side="short"
+            isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
+            justifyContent="flex-end"
+          />
+        </XStack>
+      </XStack>
+    );
+  };
+
+  return <YStack>{renderSideButtons()}</YStack>;
+}
+
+function TradingButtonGroup({
+  isMobile,
+  isLiveStatusPending = false,
+}: ITradingButtonGroupProps) {
+  const [formData] = useTradingFormAtom();
+
+  if (shouldUseEmptySizeTradingButtons(formData)) {
+    return (
+      <TradingButtonGroupEmptySize
+        isMobile={isMobile}
+        isLiveStatusPending={isLiveStatusPending}
+      />
+    );
+  }
+
+  return (
+    <TradingButtonGroupLive
+      isMobile={isMobile}
+      isLiveStatusPending={isLiveStatusPending}
+    />
+  );
 }
 
 const TradingButtonGroupMemo = memo(TradingButtonGroup);

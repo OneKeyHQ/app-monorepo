@@ -7,6 +7,7 @@ export const ORDER_BOOK_SIDE_RATIO_TRANSITION_MS = 300;
 export const ORDER_BOOK_TRANSITION_EASING = 'cubic-bezier(0.33, 1, 0.68, 1)';
 
 export type IDepthBarProps = {
+  animated?: boolean;
   color: string;
   width: DimensionValue;
   left?: number;
@@ -16,6 +17,7 @@ export type IDepthBarProps = {
 };
 
 export type ISideRatioSegmentsProps = {
+  animated?: boolean;
   bidPercentage: number;
   askPercentage: number;
   longColor: string;

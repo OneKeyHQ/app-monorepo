@@ -128,17 +128,20 @@ function areLevelRowPropsEqual(
 
 function areSideRatioPropsEqual(
   prev: {
+    animated?: boolean;
     bidDepth: BigNumber;
     askDepth: BigNumber;
     size?: 'default' | 'compact' | 'mobile';
   },
   next: {
+    animated?: boolean;
     bidDepth: BigNumber;
     askDepth: BigNumber;
     size?: 'default' | 'compact' | 'mobile';
   },
 ): boolean {
   return (
+    prev.animated === next.animated &&
     prev.size === next.size &&
     (prev.bidDepth === next.bidDepth || prev.bidDepth.eq(next.bidDepth)) &&
     (prev.askDepth === next.askDepth || prev.askDepth.eq(next.askDepth))
@@ -532,10 +535,12 @@ const useBlockColorsMobile = () => {
 };
 
 const OrderBookSideRatio = memo(function OrderBookSideRatio({
+  animated = true,
   bidDepth,
   askDepth,
   size = 'default',
 }: {
+  animated?: boolean;
   bidDepth: BigNumber;
   askDepth: BigNumber;
   size?: 'default' | 'compact' | 'mobile';
@@ -592,6 +597,7 @@ const OrderBookSideRatio = memo(function OrderBookSideRatio({
         ]}
       >
         <SideRatioSegments
+          animated={animated}
           bidPercentage={bidPercentage}
           askPercentage={askPercentage}
           longColor={sideRatioColors.long}
@@ -1452,6 +1458,229 @@ const MOBILE_SPREAD_ROW_HEIGHT = 60;
 const MOBILE_PRICE_FLEX = 0.5;
 const MOBILE_SIZE_FLEX = 0.5;
 
+function MobileSpreadInfoContent({
+  asks,
+  bids,
+  hasTradingMidPrice = false,
+  isEmpty,
+  textColor,
+  tradingMidPrice,
+}: {
+  asks: IBookLevel[];
+  bids: IBookLevel[];
+  hasTradingMidPrice?: boolean;
+  isEmpty: boolean;
+  textColor: ReturnType<typeof useTextColor>;
+  tradingMidPrice?: string;
+}) {
+  const intl = useIntl();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const {
+    assetCtx,
+    source: assetCtxSource,
+    cacheAgeMs,
+  } = usePerpsActiveAssetCtxDisplay(activeTradeInstrument.coin);
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const isSpot = activeTradeInstrument.mode === 'spot';
+  const currentCtx = isSpot ? spotAssetCtx?.ctx : assetCtx?.ctx;
+  const { markPrice } = currentCtx || {
+    markPrice: '0',
+    oraclePrice: '0',
+  };
+  const markPriceNumber = Number.parseFloat(markPrice);
+  const hasMarkPrice = Number.isFinite(markPriceNumber) && markPriceNumber > 0;
+  const localizedMarkPrice = hasMarkPrice
+    ? formatLocalizedNumberString(markPrice)
+    : '--';
+  let referencePriceDisplay = '--';
+  if (hasMarkPrice) {
+    referencePriceDisplay = isSpot ? `≈$${localizedMarkPrice}` : markPrice;
+  }
+  const emptyMidPrice =
+    hasTradingMidPrice && tradingMidPrice
+      ? formatLocalizedNumberString(tradingMidPrice)
+      : localizedMarkPrice;
+  const midPrice = isEmpty
+    ? emptyMidPrice
+    : getMidPrice(
+        parseFloat(bids[0]?.px ?? '0'),
+        parseFloat(asks[0]?.px ?? '0'),
+      );
+
+  useEffect(() => {
+    tracePerpsMobileLayout('orderBook.mobileReferencePrice.state', {
+      coin: activeTradeInstrument.coin,
+      isSpot,
+      isEmpty,
+      hasMarkPrice,
+      markPrice,
+      referencePriceDisplay,
+      assetCtxSource,
+      cacheAgeMs,
+    });
+  }, [
+    activeTradeInstrument.coin,
+    assetCtxSource,
+    cacheAgeMs,
+    hasMarkPrice,
+    isEmpty,
+    isSpot,
+    markPrice,
+    referencePriceDisplay,
+  ]);
+
+  return (
+    <View
+      style={{
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        height: MOBILE_SPREAD_ROW_HEIGHT,
+        paddingTop: 6,
+        paddingBottom: 6,
+      }}
+    >
+      <Popover
+        title={intl.formatMessage({
+          id: ETranslations.perp_order_mid_price_title,
+        })}
+        renderTrigger={
+          <PerpBookText
+            style={[
+              styles.monospaceText,
+              {
+                color: textColor.text,
+                fontSize: 20,
+                fontWeight: '600',
+                lineHeight: 24,
+              },
+            ]}
+          >
+            {midPrice}
+          </PerpBookText>
+        }
+        renderContent={
+          <YStack px="$5" pb="$4">
+            <SizableText>
+              {intl.formatMessage({
+                id: ETranslations.perp_order_mid_price_title_desc,
+              })}
+            </SizableText>
+          </YStack>
+        }
+      />
+      <Popover
+        title={intl.formatMessage({
+          id: isSpot
+            ? ETranslations.perp_spot_reference_price__title
+            : ETranslations.perp_position_mark_price,
+        })}
+        renderTrigger={
+          isSpot ? (
+            <PerpBookText
+              style={[
+                styles.monospaceText,
+                {
+                  color: textColor.textSubdued,
+                  fontSize: 11,
+                  fontWeight: '400',
+                  lineHeight: 16,
+                },
+              ]}
+            >
+              {referencePriceDisplay}
+            </PerpBookText>
+          ) : (
+            <DashText
+              style={[
+                styles.monospaceText,
+                {
+                  color: textColor.textSubdued,
+                  fontSize: 10,
+                  fontWeight: '400',
+                  lineHeight: 14,
+                },
+              ]}
+              dashThickness={0.5}
+            >
+              {referencePriceDisplay}
+            </DashText>
+          )
+        }
+        renderContent={
+          <YStack px="$5" pb="$4">
+            <SizableText>
+              {intl.formatMessage({
+                id: isSpot
+                  ? ETranslations.perp_spot_reference_price__desc
+                  : ETranslations.perp_mark_price_tooltip,
+              })}
+            </SizableText>
+          </YStack>
+        }
+      />
+    </View>
+  );
+}
+const MobileSpreadInfoContentMemo = memo(MobileSpreadInfoContent);
+
+const MobileEmptySpreadInfoRow = memo(function MobileEmptySpreadInfoRow({
+  asks,
+  bids,
+  isEmpty,
+  textColor,
+}: {
+  asks: IBookLevel[];
+  bids: IBookLevel[];
+  isEmpty: boolean;
+  textColor: ReturnType<typeof useTextColor>;
+}) {
+  const { midPrice: tradingMidPrice, isValid: hasTradingMidPrice } =
+    useTradingPrice();
+  return (
+    <MobileSpreadInfoContentMemo
+      asks={asks}
+      bids={bids}
+      hasTradingMidPrice={hasTradingMidPrice}
+      isEmpty={isEmpty}
+      textColor={textColor}
+      tradingMidPrice={tradingMidPrice}
+    />
+  );
+});
+
+const MobileSpreadInfoRow = memo(function MobileSpreadInfoRow({
+  asks,
+  bids,
+  isEmpty,
+  textColor,
+}: {
+  asks: IBookLevel[];
+  bids: IBookLevel[];
+  isEmpty: boolean;
+  textColor: ReturnType<typeof useTextColor>;
+}) {
+  if (isEmpty) {
+    return (
+      <MobileEmptySpreadInfoRow
+        asks={asks}
+        bids={bids}
+        isEmpty={isEmpty}
+        textColor={textColor}
+      />
+    );
+  }
+
+  return (
+    <MobileSpreadInfoContentMemo
+      asks={asks}
+      bids={bids}
+      isEmpty={isEmpty}
+      textColor={textColor}
+    />
+  );
+});
+
 const MobileEmptyRow = memo(function MobileEmptyRow({
   priceColor,
   sizeColor,
@@ -1587,16 +1816,7 @@ export function OrderBookMobile({
 }: IOrderBookProps) {
   const intl = useIntl();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const {
-    assetCtx,
-    source: assetCtxSource,
-    cacheAgeMs,
-  } = usePerpsActiveAssetCtxDisplay(activeTradeInstrument.coin);
-  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
-  const { midPrice: tradingMidPrice, isValid: hasTradingMidPrice } =
-    useTradingPrice();
   const isSpot = activeTradeInstrument.mode === 'spot';
-  const currentCtx = isSpot ? spotAssetCtx?.ctx : assetCtx?.ctx;
   const sizeDisplaySymbol = getOrderBookSizeDisplaySymbol({
     coin: _symbol ?? activeTradeInstrument.coin,
     isSpot,
@@ -1605,15 +1825,6 @@ export function OrderBookMobile({
         ? activeTradeInstrument.universe
         : undefined,
   });
-  const { markPrice } = currentCtx || {
-    markPrice: '0',
-    oraclePrice: '0',
-  };
-  const markPriceNumber = Number.parseFloat(markPrice);
-  const hasMarkPrice = Number.isFinite(markPriceNumber) && markPriceNumber > 0;
-  const localizedMarkPrice = hasMarkPrice
-    ? formatLocalizedNumberString(markPrice)
-    : '--';
   const aggregatedData = useAggregatedBook(
     variant,
     bids,
@@ -1628,36 +1839,6 @@ export function OrderBookMobile({
     () => Array.from({ length: maxLevelsPerSide }, (_, index) => index),
     [maxLevelsPerSide],
   );
-  let referencePriceDisplay = '--';
-  if (hasMarkPrice) {
-    referencePriceDisplay = isSpot ? `≈$${localizedMarkPrice}` : markPrice;
-  }
-
-  useEffect(() => {
-    tracePerpsMobileLayout('orderBook.mobileReferencePrice.state', {
-      coin: activeTradeInstrument.coin,
-      isSpot,
-      isEmpty,
-      hasMarkPrice,
-      markPrice,
-      referencePriceDisplay,
-      assetCtxSource,
-      cacheAgeMs,
-    });
-  }, [
-    activeTradeInstrument.coin,
-    assetCtxSource,
-    cacheAgeMs,
-    hasMarkPrice,
-    isEmpty,
-    isSpot,
-    markPrice,
-    referencePriceDisplay,
-  ]);
-  const emptyMidPrice =
-    hasTradingMidPrice && tradingMidPrice
-      ? formatLocalizedNumberString(tradingMidPrice)
-      : localizedMarkPrice;
 
   const bidDepth = useMemo(() => {
     return new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
@@ -1665,13 +1846,6 @@ export function OrderBookMobile({
   const askDepth = useMemo(() => {
     return new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
   }, [aggregatedData.asks]);
-
-  const midPrice = isEmpty
-    ? emptyMidPrice
-    : getMidPrice(
-        parseFloat(bids[0]?.px ?? '0'),
-        parseFloat(asks[0]?.px ?? '0'),
-      );
 
   const priceFontSize = useMemo(() => {
     if (!asks.length) {
@@ -1800,6 +1974,7 @@ export function OrderBookMobile({
                   style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
                 >
                   <DepthBar
+                    animated={false}
                     color={blockColors.red}
                     left={0}
                     height={MOBILE_ROW_HEIGHT - MOBILE_ROW_GAP}
@@ -1829,6 +2004,7 @@ export function OrderBookMobile({
                   style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
                 >
                   <DepthBar
+                    animated={false}
                     color={blockColors.green}
                     left={0}
                     height={MOBILE_ROW_HEIGHT - MOBILE_ROW_GAP}
@@ -1884,96 +2060,12 @@ export function OrderBookMobile({
             name="OrderBookMobileSpreadRow"
             position="right-center"
           >
-            <View
-              style={{
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                justifyContent: 'center',
-                height: MOBILE_SPREAD_ROW_HEIGHT,
-                paddingTop: 6,
-                paddingBottom: 6,
-              }}
-            >
-              <Popover
-                title={intl.formatMessage({
-                  id: ETranslations.perp_order_mid_price_title,
-                })}
-                renderTrigger={
-                  <PerpBookText
-                    style={[
-                      styles.monospaceText,
-                      {
-                        color: textColor.text,
-                        fontSize: 20,
-                        fontWeight: '600',
-                        lineHeight: 24,
-                      },
-                    ]}
-                  >
-                    {midPrice}
-                  </PerpBookText>
-                }
-                renderContent={
-                  <YStack px="$5" pb="$4">
-                    <SizableText>
-                      {intl.formatMessage({
-                        id: ETranslations.perp_order_mid_price_title_desc,
-                      })}
-                    </SizableText>
-                  </YStack>
-                }
-              />
-              <Popover
-                title={intl.formatMessage({
-                  id: isSpot
-                    ? ETranslations.perp_spot_reference_price__title
-                    : ETranslations.perp_position_mark_price,
-                })}
-                renderTrigger={
-                  isSpot ? (
-                    <PerpBookText
-                      style={[
-                        styles.monospaceText,
-                        {
-                          color: textColor.textSubdued,
-                          fontSize: 11,
-                          fontWeight: '400',
-                          lineHeight: 16,
-                        },
-                      ]}
-                    >
-                      {referencePriceDisplay}
-                    </PerpBookText>
-                  ) : (
-                    <DashText
-                      style={[
-                        styles.monospaceText,
-                        {
-                          color: textColor.textSubdued,
-                          fontSize: 10,
-                          fontWeight: '400',
-                          lineHeight: 14,
-                        },
-                      ]}
-                      dashThickness={0.5}
-                    >
-                      {referencePriceDisplay}
-                    </DashText>
-                  )
-                }
-                renderContent={
-                  <YStack px="$5" pb="$4">
-                    <SizableText>
-                      {intl.formatMessage({
-                        id: isSpot
-                          ? ETranslations.perp_spot_reference_price__desc
-                          : ETranslations.perp_mark_price_tooltip,
-                      })}
-                    </SizableText>
-                  </YStack>
-                }
-              />
-            </View>
+            <MobileSpreadInfoRow
+              asks={asks}
+              bids={bids}
+              isEmpty={isEmpty}
+              textColor={textColor}
+            />
           </DebugRenderTracker>
           {isEmpty
             ? emptyRowIndexes.map((index) => (
@@ -2013,6 +2105,7 @@ export function OrderBookMobile({
         </View>
       </View>
       <OrderBookSideRatio
+        animated={false}
         bidDepth={bidDepth}
         askDepth={askDepth}
         size="mobile"

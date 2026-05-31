@@ -46,6 +46,7 @@ const styles = StyleSheet.create({
 });
 
 export function DepthBar({
+  animated = true,
   color,
   width,
   left,
@@ -59,7 +60,7 @@ export function DepthBar({
     backgroundColor: color,
     transform: [{ scaleX: scale }] as ViewStyle['transform'],
     transformOrigin: origin === 'right' ? 'right center' : 'left center',
-    transition: reducedMotion ? 'none' : DEPTH_BAR_TRANSITION,
+    transition: !animated || reducedMotion ? 'none' : DEPTH_BAR_TRANSITION,
   };
   return (
     <View
@@ -78,6 +79,7 @@ export function DepthBar({
 }
 
 export function SideRatioSegments({
+  animated = true,
   bidPercentage,
   askPercentage,
   longColor,
@@ -87,7 +89,8 @@ export function SideRatioSegments({
   endSegmentStyle,
 }: ISideRatioSegmentsProps) {
   const reducedMotion = useReducedMotion();
-  const transition: string = reducedMotion ? 'none' : SIDE_RATIO_TRANSITION;
+  const transition: string =
+    !animated || reducedMotion ? 'none' : SIDE_RATIO_TRANSITION;
   const bid = Math.max(bidPercentage, 1);
   const ask = Math.max(askPercentage, 1);
   return (

@@ -394,32 +394,39 @@ export function PerpMobileLayout() {
         flex={1}
         onLayout={(event) => handleTraceLayout('tabContent', event)}
       >
-        <YStack
-          display={activeTab === ETabName.Positions ? 'flex' : 'none'}
-          flex={1}
-          onLayout={(event) => handleTraceLayout('positionsPanel', event)}
-        >
-          <PerpPositionsList
-            handleViewTpslOrders={handleViewTpslOrders}
-            isMobile
-            useTabsList={false}
-            disableListScroll
-          />
-        </YStack>
-        <YStack
-          display={activeTab === ETabName.OpenOrders ? 'flex' : 'none'}
-          flex={1}
-          onLayout={(event) => handleTraceLayout('openOrdersPanel', event)}
-        >
-          <PerpOpenOrdersList isMobile useTabsList={false} disableListScroll />
-        </YStack>
-        <YStack
-          display={activeTab === ETabName.Balances ? 'flex' : 'none'}
-          flex={1}
-          onLayout={(event) => handleTraceLayout('balancesPanel', event)}
-        >
-          <SpotBalanceList isMobile useTabsList={false} disableListScroll />
-        </YStack>
+        {activeTab === ETabName.Positions ? (
+          <YStack
+            flex={1}
+            onLayout={(event) => handleTraceLayout('positionsPanel', event)}
+          >
+            <PerpPositionsList
+              handleViewTpslOrders={handleViewTpslOrders}
+              isMobile
+              useTabsList={false}
+              disableListScroll
+            />
+          </YStack>
+        ) : null}
+        {activeTab === ETabName.OpenOrders ? (
+          <YStack
+            flex={1}
+            onLayout={(event) => handleTraceLayout('openOrdersPanel', event)}
+          >
+            <PerpOpenOrdersList
+              isMobile
+              useTabsList={false}
+              disableListScroll
+            />
+          </YStack>
+        ) : null}
+        {activeTab === ETabName.Balances ? (
+          <YStack
+            flex={1}
+            onLayout={(event) => handleTraceLayout('balancesPanel', event)}
+          >
+            <SpotBalanceList isMobile useTabsList={false} disableListScroll />
+          </YStack>
+        ) : null}
       </YStack>
     </ScrollView>
   );

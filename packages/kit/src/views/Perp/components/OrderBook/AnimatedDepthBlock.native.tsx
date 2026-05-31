@@ -36,6 +36,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
   },
+  staticBlock: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+  },
 });
 
 function useAnimatedOrderBookPercentage({
@@ -66,7 +71,42 @@ function useAnimatedOrderBookPercentage({
   return animatedValue;
 }
 
-export function DepthBar({
+function StaticDepthBar({
+  color,
+  width,
+  left,
+  right,
+  height,
+  origin = 'left',
+}: IDepthBarProps) {
+  const normalizedWidth = normalizeDepthWidth(width);
+  return (
+    <View
+      style={[
+        styles.container,
+        {
+          height: height ?? DEFAULT_ROW_HEIGHT,
+          right,
+          left,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.staticBlock,
+          {
+            backgroundColor: color,
+            left: origin === 'right' ? undefined : 0,
+            right: origin === 'right' ? 0 : undefined,
+            width: `${normalizedWidth}%`,
+          },
+        ]}
+      />
+    </View>
+  );
+}
+
+function AnimatedDepthBar({
   color,
   width,
   left,
@@ -123,7 +163,50 @@ export function DepthBar({
   );
 }
 
-export function SideRatioSegments({
+export function DepthBar({ animated = true, ...props }: IDepthBarProps) {
+  if (!animated) {
+    return <StaticDepthBar {...props} />;
+  }
+
+  return <AnimatedDepthBar {...props} />;
+}
+
+function StaticSideRatioSegments({
+  bidPercentage,
+  askPercentage,
+  longColor,
+  shortColor,
+  segmentStyle,
+  startSegmentStyle,
+  endSegmentStyle,
+}: ISideRatioSegmentsProps) {
+  return (
+    <>
+      <View
+        style={[
+          segmentStyle,
+          startSegmentStyle,
+          {
+            backgroundColor: longColor,
+            flex: Math.max(bidPercentage, 1),
+          },
+        ]}
+      />
+      <View
+        style={[
+          segmentStyle,
+          endSegmentStyle,
+          {
+            backgroundColor: shortColor,
+            flex: Math.max(askPercentage, 1),
+          },
+        ]}
+      />
+    </>
+  );
+}
+
+function AnimatedSideRatioSegments({
   bidPercentage,
   askPercentage,
   longColor,
@@ -170,4 +253,15 @@ export function SideRatioSegments({
       />
     </>
   );
+}
+
+export function SideRatioSegments({
+  animated = true,
+  ...props
+}: ISideRatioSegmentsProps) {
+  if (!animated) {
+    return <StaticSideRatioSegments {...props} />;
+  }
+
+  return <AnimatedSideRatioSegments {...props} />;
 }
