@@ -6,6 +6,11 @@ type IAccountScopedDataParams<T> = {
   data: T[];
 };
 
+type IAccountScopedFallbackListStateParams<T> = IAccountScopedDataParams<T> & {
+  fallbackDataAccountAddress?: string | null;
+  fallbackData: T[];
+};
+
 export function isPerpsAccountScopedDataReady({
   activeAccountAddress,
   dataAccountAddress,
@@ -32,6 +37,43 @@ export function getPerpsAccountScopedListData<T>({
   return normalizePerpsAccountAddress(dataAccountAddress) === activeAddress
     ? data
     : [];
+}
+
+export function getPerpsAccountScopedFallbackListState<T>({
+  activeAccountAddress,
+  dataAccountAddress,
+  data,
+  fallbackDataAccountAddress,
+  fallbackData,
+}: IAccountScopedFallbackListStateParams<T>) {
+  const activeAddress = normalizePerpsAccountAddress(activeAccountAddress);
+  const currentDataAddress = normalizePerpsAccountAddress(dataAccountAddress);
+  const fallbackDataAddress = normalizePerpsAccountAddress(
+    fallbackDataAccountAddress,
+  );
+
+  if (
+    activeAddress &&
+    currentDataAddress !== activeAddress &&
+    fallbackDataAddress === activeAddress
+  ) {
+    return {
+      dataAccountAddress: fallbackDataAccountAddress,
+      data: fallbackData,
+    };
+  }
+
+  if (!activeAddress && !currentDataAddress && fallbackDataAddress) {
+    return {
+      dataAccountAddress: fallbackDataAccountAddress,
+      data: fallbackData,
+    };
+  }
+
+  return {
+    dataAccountAddress,
+    data,
+  };
 }
 
 export function shouldPreserveColdStartButtonVisualState({

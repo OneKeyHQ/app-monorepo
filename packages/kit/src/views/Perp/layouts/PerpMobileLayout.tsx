@@ -46,7 +46,10 @@ import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 import { isHyperLiquidUnifiedAccountMode } from '../utils';
-import { getPerpsAccountScopedListData } from '../utils/accountScopedData';
+import {
+  getPerpsAccountScopedFallbackListState,
+  getPerpsAccountScopedListData,
+} from '../utils/accountScopedData';
 import {
   type IPerpsMobileLayoutTraceRect,
   getPerpsMobileLayoutTraceRect,
@@ -163,6 +166,13 @@ export function PerpMobileLayout() {
     currentUser?.accountAddress,
   );
   const currentUserAddress = currentUser?.accountAddress?.toLowerCase();
+  const effectiveSpotOpenOrdersState = getPerpsAccountScopedFallbackListState({
+    activeAccountAddress: currentUserAddress,
+    dataAccountAddress: spotOpenOrdersState.accountAddress,
+    data: spotOpenOrdersState.openOrders,
+    fallbackDataAccountAddress: perpOpenOrdersState.accountAddress,
+    fallbackData: perpOpenOrdersState.spotOpenOrders ?? [],
+  });
   const positionsLength = getPerpsAccountScopedListData({
     activeAccountAddress: currentUserAddress,
     dataAccountAddress: positionsState.accountAddress,
@@ -178,8 +188,8 @@ export function PerpMobileLayout() {
     }).length +
     getPerpsAccountScopedListData({
       activeAccountAddress: currentUserAddress,
-      dataAccountAddress: spotOpenOrdersState.accountAddress,
-      data: spotOpenOrdersState.openOrders,
+      dataAccountAddress: effectiveSpotOpenOrdersState.dataAccountAddress,
+      data: effectiveSpotOpenOrdersState.data,
     }).length;
   const shouldUseCachedSpotBalances =
     !isSpotBalancesLoaded &&

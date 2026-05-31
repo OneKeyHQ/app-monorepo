@@ -21,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
+  getPerpsAccountScopedFallbackListState,
   getPerpsAccountScopedListData,
   isPerpsAccountScopedDataReady,
 } from '../../../utils/accountScopedData';
@@ -62,18 +63,31 @@ function PerpOpenOrdersList({
       perpOpenOrdersState.openOrders,
     ],
   );
+  const effectiveSpotOpenOrdersState = useMemo(
+    () =>
+      getPerpsAccountScopedFallbackListState({
+        activeAccountAddress: currentUser?.accountAddress,
+        dataAccountAddress: spotOpenOrdersState.accountAddress,
+        data: spotOpenOrdersState.openOrders,
+        fallbackDataAccountAddress: perpOpenOrdersState.accountAddress,
+        fallbackData: perpOpenOrdersState.spotOpenOrders ?? [],
+      }),
+    [
+      currentUser?.accountAddress,
+      perpOpenOrdersState.accountAddress,
+      perpOpenOrdersState.spotOpenOrders,
+      spotOpenOrdersState.accountAddress,
+      spotOpenOrdersState.openOrders,
+    ],
+  );
   const scopedSpotOpenOrders = useMemo(
     () =>
       getPerpsAccountScopedListData({
         activeAccountAddress: currentUser?.accountAddress,
-        dataAccountAddress: spotOpenOrdersState.accountAddress,
-        data: spotOpenOrdersState.openOrders,
+        dataAccountAddress: effectiveSpotOpenOrdersState.dataAccountAddress,
+        data: effectiveSpotOpenOrdersState.data,
       }),
-    [
-      currentUser?.accountAddress,
-      spotOpenOrdersState.accountAddress,
-      spotOpenOrdersState.openOrders,
-    ],
+    [currentUser?.accountAddress, effectiveSpotOpenOrdersState],
   );
   const openOrders = useMemo(
     () =>
@@ -88,7 +102,7 @@ function PerpOpenOrdersList({
   });
   const spotOpenOrdersReady = isPerpsAccountScopedDataReady({
     activeAccountAddress: currentUser?.accountAddress,
-    dataAccountAddress: spotOpenOrdersState.accountAddress,
+    dataAccountAddress: effectiveSpotOpenOrdersState.dataAccountAddress,
   });
   const listLoading = Boolean(
     currentUser?.accountAddress &&

@@ -41,6 +41,11 @@ describe('coldStartCacheSnapshotUtils', () => {
             { coin: 'ETH', oid: 2 },
             { coin: 'SOL', oid: 3 },
           ],
+          spotOpenOrders: [
+            { coin: '@1', oid: 5 },
+            { coin: '@2', oid: 6 },
+            { coin: '@3', oid: 7 },
+          ],
           openOrdersByCoin: {
             BTC: [{ coin: 'BTC', oid: 1 }],
             ETH: [{ coin: 'ETH', oid: 2 }],
@@ -75,12 +80,23 @@ describe('coldStartCacheSnapshotUtils', () => {
       (
         result.snapshot[openOrdersKey] as {
           openOrders: Array<{ coin: string; oid: number }>;
+          spotOpenOrders: Array<{ coin: string; oid: number }>;
           openOrdersByCoin: Record<string, unknown>;
         }
       ).openOrders,
     ).toEqual([
       { coin: 'BTC', oid: 1 },
       { coin: 'ETH', oid: 2 },
+    ]);
+    expect(
+      (
+        result.snapshot[openOrdersKey] as {
+          spotOpenOrders: Array<{ coin: string; oid: number }>;
+        }
+      ).spotOpenOrders,
+    ).toEqual([
+      { coin: '@1', oid: 5 },
+      { coin: '@2', oid: 6 },
     ]);
     expect(
       Object.keys(

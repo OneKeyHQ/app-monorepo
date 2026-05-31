@@ -124,6 +124,9 @@ function prunePerpsSnapshotValue({
     return {
       ...value,
       openOrders: retainedOpenOrders,
+      spotOpenOrders: Array.isArray(value.spotOpenOrders)
+        ? trimList(value.spotOpenOrders, maxItems)
+        : value.spotOpenOrders,
       openOrdersByCoin: pruneOpenOrdersByCoin({
         openOrdersByCoin: value.openOrdersByCoin,
         retainedOpenOrders: Array.isArray(retainedOpenOrders)

@@ -1,4 +1,5 @@
 import {
+  getPerpsAccountScopedFallbackListState,
   getPerpsAccountScopedListData,
   isPerpsAccountScopedDataReady,
   shouldPreserveColdStartButtonVisualState,
@@ -35,6 +36,41 @@ describe('getPerpsAccountScopedListData', () => {
         data: rows,
       }),
     ).toEqual([]);
+  });
+});
+
+describe('getPerpsAccountScopedFallbackListState', () => {
+  const liveRows = [{ coin: 'BTC' }];
+  const cachedRows = [{ coin: '@1' }];
+
+  it('uses cached rows when live rows are not scoped to the active account yet', () => {
+    expect(
+      getPerpsAccountScopedFallbackListState({
+        activeAccountAddress: '0xbbb',
+        dataAccountAddress: '0xaaa',
+        data: liveRows,
+        fallbackDataAccountAddress: '0xBBB',
+        fallbackData: cachedRows,
+      }),
+    ).toEqual({
+      dataAccountAddress: '0xBBB',
+      data: cachedRows,
+    });
+  });
+
+  it('keeps live rows once they are scoped to the active account', () => {
+    expect(
+      getPerpsAccountScopedFallbackListState({
+        activeAccountAddress: '0xbbb',
+        dataAccountAddress: '0xBBB',
+        data: liveRows,
+        fallbackDataAccountAddress: '0xbbb',
+        fallbackData: cachedRows,
+      }),
+    ).toEqual({
+      dataAccountAddress: '0xBBB',
+      data: liveRows,
+    });
   });
 });
 

@@ -28,7 +28,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { isHyperLiquidUnifiedAccountMode } from '../../utils';
-import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
+import {
+  getPerpsAccountScopedFallbackListState,
+  getPerpsAccountScopedListData,
+} from '../../utils/accountScopedData';
 
 import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
@@ -67,6 +70,13 @@ function TabBarItem({
     currentUser?.accountAddress,
   );
   const currentAccountAddress = currentUser?.accountAddress;
+  const effectiveSpotOpenOrdersState = getPerpsAccountScopedFallbackListState({
+    activeAccountAddress: currentAccountAddress,
+    dataAccountAddress: spotOpenOrdersState.accountAddress,
+    data: spotOpenOrdersState.openOrders,
+    fallbackDataAccountAddress: perpOpenOrdersState.accountAddress,
+    fallbackData: perpOpenOrdersState.spotOpenOrders ?? [],
+  });
   const positionsLength = getPerpsAccountScopedListData({
     activeAccountAddress: currentAccountAddress,
     dataAccountAddress: positionsState.accountAddress,
@@ -82,8 +92,8 @@ function TabBarItem({
     }).length +
     getPerpsAccountScopedListData({
       activeAccountAddress: currentAccountAddress,
-      dataAccountAddress: spotOpenOrdersState.accountAddress,
-      data: spotOpenOrdersState.openOrders,
+      dataAccountAddress: effectiveSpotOpenOrdersState.dataAccountAddress,
+      data: effectiveSpotOpenOrdersState.data,
     }).length;
 
   const holdingsCount = useMemo(() => {
