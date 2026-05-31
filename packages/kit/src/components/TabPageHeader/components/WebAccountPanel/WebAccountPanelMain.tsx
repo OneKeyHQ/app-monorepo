@@ -24,7 +24,11 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
-import { usePerpsComputedAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsComputedAccountValueAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -36,7 +40,10 @@ import { WebAccountPanelFooter } from './atoms/WebAccountPanelFooter';
 // reload starts fresh. A value older than PORTFOLIO_STALE_MS is refreshed
 // silently in the background on the next open.
 const PORTFOLIO_STALE_MS = 60 * 1000;
-const portfolioCache = new Map<string, { value?: string; fetchedAt: number }>();
+const portfolioCache = new Map<
+  string,
+  { value?: string; currency?: string; fetchedAt: number }
+>();
 
 // Same idea for the perps REST fallback value, keyed by userAddress: off the
 // perps route the live atom is empty, so this avoids re-hitting the
@@ -55,9 +62,11 @@ export interface IWebAccountPanelMainProps {
 
 function PerpsSection({
   userAddress,
+  ensureActivePerpsAccount,
   onRequestClose,
 }: {
   userAddress?: string;
+  ensureActivePerpsAccount: () => Promise<void>;
   onRequestClose: () => void;
 }) {
   const intl = useIntl();
@@ -69,9 +78,19 @@ function PerpsSection({
   // it hasn't resolved (e.g. a fresh non-perps route), fall back to a REST
   // clearinghouse fetch with a finite local loading flag — the WebSocket-only
   // spot total is unavailable there, so this is a best-effort approximation.
+  const [perpsActiveAccount] = usePerpsActiveAccountAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
+  // The computed value is scoped to perpsActiveAccountAtom, which can still
+  // describe a DIFFERENT account (e.g. opened Perps with account A, then
+  // switched the panel to account B on Home/Earn). Only trust the atom when its
+  // address matches this panel's account; otherwise treat it as unknown so the
+  // REST fallback below fetches this account's value instead of showing A's.
+  const isAtomForThisAccount =
+    !!userAddress &&
+    perpsActiveAccount?.accountAddress?.toLowerCase() ===
+      userAddress.toLowerCase();
   const atomValue =
-    computedValue && !computedValue.isLoading
+    isAtomForThisAccount && computedValue && !computedValue.isLoading
       ? computedValue.accountValue
       : undefined;
 
@@ -167,14 +186,21 @@ function PerpsSection({
   };
 
   const handleDeposit = useCallback(async () => {
+    // The deposit/withdraw dialog reads perpsActiveAccountAtom, which only
+    // PerpsGlobalEffects populates on the /perps route. The panel surfaces the
+    // Perps section on every web-dapp route, so initialize the active perps
+    // account from this account first — otherwise the dialog errors with a
+    // missing-account toast when opened off the perps route.
+    await ensureActivePerpsAccount();
     await showDepositWithdrawModal('deposit');
     onRequestClose();
-  }, [showDepositWithdrawModal, onRequestClose]);
+  }, [ensureActivePerpsAccount, showDepositWithdrawModal, onRequestClose]);
 
   const handleWithdraw = useCallback(async () => {
+    await ensureActivePerpsAccount();
     await showDepositWithdrawModal('withdraw');
     onRequestClose();
-  }, [showDepositWithdrawModal, onRequestClose]);
+  }, [ensureActivePerpsAccount, showDepositWithdrawModal, onRequestClose]);
 
   return (
     <YStack gap="$3" w="100%">
@@ -230,7 +256,7 @@ export function WebAccountPanelMain({
   const actions = useAccountSelectorActions();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   const {
-    activeAccount: { account, dbAccount, indexedAccount },
+    activeAccount: { account, dbAccount, indexedAccount, wallet },
   } = useActiveAccount({ num: 0 });
 
   // Portfolio total. The home page is the only place that computes account
@@ -241,6 +267,12 @@ export function WebAccountPanelMain({
   const [portfolio, setPortfolio] = useState<string | undefined>(() =>
     account?.id ? portfolioCache.get(account.id)?.value : undefined,
   );
+  // The currency the summed fiatValue is expressed in (fetchAccountTokens
+  // normalizes to 'usd'). Carried through so <Currency> converts it to the
+  // user's display currency instead of mislabeling a USD total as e.g. EUR.
+  const [portfolioCurrency, setPortfolioCurrency] = useState<
+    string | undefined
+  >(() => (account?.id ? portfolioCache.get(account.id)?.currency : undefined));
   const [isLoadingPortfolio, setIsLoadingPortfolio] = useState(false);
 
   // Ignore a fan-out result that resolves after the active account changed.
@@ -258,6 +290,7 @@ export function WebAccountPanelMain({
       // Reflect this account's cached value immediately — instant on reopen and
       // on account switch, with no spinner when we already have something.
       setPortfolio(cached?.value);
+      setPortfolioCurrency(cached?.currency);
       const isFresh =
         !!cached && Date.now() - cached.fetchedAt < PORTFOLIO_STALE_MS;
       // Fresh enough (and not a manual refresh) → keep the cached value, no
@@ -313,9 +346,21 @@ export function WebAccountPanelMain({
               .plus(new BigNumber(r?.smallBalanceTokens?.fiatValue ?? '0')),
           new BigNumber(0),
         );
+        // Every per-network fetch uses the same display currency, so the
+        // returned token-group currency is uniform; carry it so the total is
+        // rendered in the basis it was actually summed in.
+        const sourceCurrency =
+          okResults.find((r) => r?.tokens?.currency)?.tokens?.currency ??
+          okResults.find((r) => r?.smallBalanceTokens?.currency)
+            ?.smallBalanceTokens?.currency;
         const value = total.toFixed();
-        portfolioCache.set(accountId, { value, fetchedAt: Date.now() });
+        portfolioCache.set(accountId, {
+          value,
+          currency: sourceCurrency,
+          fetchedAt: Date.now(),
+        });
         setPortfolio(value);
+        setPortfolioCurrency(sourceCurrency);
       } catch {
         // Keep the previous value on failure; just stop the spinner.
       } finally {
@@ -367,6 +412,27 @@ export function WebAccountPanelMain({
     await actions.current.removeAccount({ account: targetAccount });
   }, [actions, onRequestClose, selectedAccount?.othersWalletAccountId]);
 
+  // Initialize the active perps account from this account before any perps
+  // action. perpsActiveAccountAtom is otherwise only set by PerpsGlobalEffects
+  // on the /perps route; this is the same call it makes (resolves the EVM
+  // address from the account internally), so Deposit/Withdraw work on any
+  // web-dapp page.
+  const ensureActivePerpsAccount = useCallback(async () => {
+    if (!account?.id && !indexedAccount?.id) {
+      return;
+    }
+    const deriveType =
+      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId: PERPS_NETWORK_ID,
+      });
+    await backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount({
+      indexedAccountId: indexedAccount?.id ?? null,
+      accountId: account?.id ?? null,
+      walletId: wallet?.id ?? null,
+      deriveType,
+    });
+  }, [account?.id, indexedAccount?.id, wallet?.id]);
+
   const renderPortfolioValue = () => {
     if (isLoadingPortfolio) {
       return <Spinner size="small" />;
@@ -374,6 +440,7 @@ export function WebAccountPanelMain({
     if (portfolio !== undefined) {
       return (
         <Currency
+          sourceCurrency={portfolioCurrency}
           formatter="value"
           hideValue
           size="$bodyMdMedium"
@@ -467,6 +534,7 @@ export function WebAccountPanelMain({
         <Divider borderColor="$neutral3" />
         <PerpsSection
           userAddress={account?.address}
+          ensureActivePerpsAccount={ensureActivePerpsAccount}
           onRequestClose={onRequestClose}
         />
       </YStack>
