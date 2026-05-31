@@ -46,20 +46,30 @@ bgEntryLog(`polyfills loaded (+${Date.now() - bgEntryStart}ms)`);
 // never used.
 function applyAndroidBgNextTickFix() {
   const { Platform } = require('react-native') as typeof import('react-native');
-  const g = globalThis as any;
+  const g = globalThis as unknown as {
+    process?: {
+      nextTick?: (
+        callback: (...args: unknown[]) => void,
+        ...args: unknown[]
+      ) => void;
+    };
+    setImmediate?: (callback: () => void) => void;
+  };
+  const proc = g.process;
+  const setImmediateFn = g.setImmediate;
   if (
     Platform.OS !== 'android' ||
-    !g.process ||
-    typeof g.process.nextTick !== 'function' ||
-    typeof g.setImmediate !== 'function'
+    !proc ||
+    typeof proc.nextTick !== 'function' ||
+    typeof setImmediateFn !== 'function'
   ) {
     return;
   }
-  g.process.nextTick = function nextTickViaSetImmediate(
-    callback: (...args: any[]) => void,
-    ...args: any[]
+  proc.nextTick = function nextTickViaSetImmediate(
+    callback: (...args: unknown[]) => void,
+    ...args: unknown[]
   ) {
-    g.setImmediate(() => {
+    setImmediateFn(() => {
       callback(...args);
     });
   };
