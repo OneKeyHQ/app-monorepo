@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
 import {
+  Alert,
   Button,
   Dialog,
   Form,
@@ -41,7 +42,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveInfo,
+  ITransferInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -76,6 +80,13 @@ import {
   SendAutoSizeAmountInput,
 } from '../../components/SendAutoSizeAmountInput';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
+
+import { AttentionPulse } from './components/AttentionPulse';
+import { useAutoSwitchDeriveType } from './hooks/useAutoSwitchDeriveType';
+import {
+  type ISiblingDeriveBalance,
+  useSiblingDeriveBalances,
+} from './hooks/useSiblingDeriveBalances';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -199,7 +210,7 @@ function SendAmountInputContainer() {
   const { serviceToken, serviceNFT } = backgroundApiProxy;
 
   const {
-    result: [tokenDetails, nftDetails, hasFrozenBalance] = [],
+    result: [tokenDetails, nftDetails, hasFrozenBalance, balanceAccountId] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
     async () => {
@@ -249,7 +260,9 @@ function SendAmountInputContainer() {
           tokenDetails: tokenResp?.[0],
         });
 
-      return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings];
+      // `account.id` is returned so consumers can tell which account the
+      // balance was fetched for — it lags `currentAccountId` after a switch.
+      return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings, account.id];
     },
     [
       account,
@@ -678,6 +691,69 @@ function SendAmountInputContainer() {
     const balance = new BigNumber(maxBalance);
     return valueBN.isGreaterThan(balance);
   }, [amount, isUseFiat, maxBalanceFiat, maxBalance]);
+
+  // Skip the `tokenInfo.address` truthiness check: for chains where
+  // `vaultSettings.isNativeTokenContractAddressEmpty` is true (e.g. BTC), the
+  // native token's contract address is the empty string — auto-switch must
+  // still apply.
+  const autoSwitchEnabled =
+    !!vaultSettings?.mergeDeriveAssetsEnabled &&
+    !isNFT &&
+    !isUseFiat &&
+    !isLightningNetwork &&
+    // With coin control the user has hand-picked UTXOs and `maxBalance` is
+    // the selected-UTXO subtotal, not the account balance — a subset
+    // shortfall must not trigger a switch that also discards their selection.
+    !currentSelectedUtxoInfo &&
+    !!account?.indexedAccountId &&
+    !!tokenInfo &&
+    !accountUtils.isOthersWallet({ walletId });
+
+  const { fetch: fetchSiblingBalances } = useSiblingDeriveBalances({
+    networkId,
+    indexedAccountId: account?.indexedAccountId ?? '',
+    tokenAddress: tokenInfo?.address ?? '',
+    // Spendable balance depends on this setting; feeding it in (and keying the
+    // sibling cache on it) keeps siblings on the same balance contract as the
+    // current page and invalidates the cache when the user toggles it mid-flow.
+    inscriptionProtection: !!settings.inscriptionProtection,
+  });
+
+  const performAutoSwitchToAccount = useCallback(
+    (target: ISiblingDeriveBalance) => {
+      setCurrentAccountId(target.accountId);
+      sendConfirmActions.current.clearSelectedUTXOs();
+    },
+    [sendConfirmActions],
+  );
+
+  const {
+    autoSwitchInfo,
+    dismissAutoSwitchInfo,
+    pulseSignal,
+    allFormatsInsufficient,
+  } = useAutoSwitchDeriveType({
+    amount,
+    isInsufficientBalance,
+    enabled: autoSwitchEnabled,
+    currentAccountId,
+    currentDeriveType: deriveType,
+    currentDeriveInfo: deriveInfo,
+    // True only when the balance query has settled *for the current account*.
+    // `balanceAccountId` is the account the token query actually ran for; after
+    // an auto-switch it lags `currentAccountId` by one or more renders, and
+    // acting on that stale balance would switch again off an account we never
+    // measured. We intentionally do NOT require `tokenDetails` here: a genuinely
+    // empty address format makes `fetchTokensDetails` return [], so
+    // `tokenDetails` is undefined while the balance is fully known to be 0
+    // (`maxBalance` maps the absent detail to '0'). Gating on `!!tokenDetails`
+    // would leave that — the primary auto-switch case — permanently "unloaded".
+    isCurrentBalanceLoaded:
+      !isLoadingAssets && balanceAccountId === currentAccountId,
+    currentMaxBalance: maxBalance,
+    fetchSiblings: fetchSiblingBalances,
+    performSwitch: performAutoSwitchToAccount,
+  });
 
   // Buy button support for insufficient balance
   const showReviewControl = useReviewControl();
@@ -1330,26 +1406,27 @@ function SendAmountInputContainer() {
 
     if (vaultSettings?.mergeDeriveAssetsEnabled) {
       addons.push(
-        <AddressTypeSelector
-          key="address-type-selector"
-          placement="top-end"
-          walletId={walletId}
-          networkId={networkId}
-          indexedAccountId={account?.indexedAccountId ?? ''}
-          activeDeriveInfo={deriveInfo}
-          activeDeriveType={deriveType}
-          // Use refreshOnOpen so each derive type fetches its own balance.
-          // Do NOT pass tokenMap here — the global map only contains the
-          // currently selected derive type and would show wrong balances
-          // for other types (e.g. Taproot).
-          refreshOnOpen
-          onSelect={async ({ account: a }) => {
-            if (a) {
-              setCurrentAccountId(a.id);
-              sendConfirmActions.current.clearSelectedUTXOs();
-            }
-          }}
-        />,
+        <AttentionPulse key="address-type-selector" signal={pulseSignal}>
+          <AddressTypeSelector
+            placement="top-end"
+            walletId={walletId}
+            networkId={networkId}
+            indexedAccountId={account?.indexedAccountId ?? ''}
+            activeDeriveInfo={deriveInfo}
+            activeDeriveType={deriveType}
+            // Use refreshOnOpen so each derive type fetches its own balance.
+            // Do NOT pass tokenMap here — the global map only contains the
+            // currently selected derive type and would show wrong balances
+            // for other types (e.g. Taproot).
+            refreshOnOpen
+            onSelect={async ({ account: a }) => {
+              if (a) {
+                setCurrentAccountId(a.id);
+                sendConfirmActions.current.clearSelectedUTXOs();
+              }
+            }}
+          />
+        </AttentionPulse>,
       );
     }
 
@@ -1383,9 +1460,59 @@ function SendAmountInputContainer() {
     displayCoinControlButton,
     handleCoinControlPress,
     networkId,
+    pulseSignal,
     sendConfirmActions,
     vaultSettings?.mergeDeriveAssetsEnabled,
     walletId,
+  ]);
+
+  const renderAutoSwitchAlert = useMemo(() => {
+    const labelOf = (info: IAccountDeriveInfo | undefined) => {
+      if (!info) return '';
+      return info.labelKey
+        ? intl.formatMessage({ id: info.labelKey })
+        : info.label;
+    };
+    if (autoSwitchInfo) {
+      return (
+        <Alert
+          type="info"
+          icon="SwitchHorOutline"
+          closable
+          onClose={dismissAutoSwitchInfo}
+          title={intl.formatMessage({
+            id: ETranslations.send_address_format_auto_switched__msg,
+          })}
+          description={intl.formatMessage(
+            {
+              id: ETranslations.send_address_format_auto_switched__desc,
+            },
+            {
+              from: labelOf(autoSwitchInfo.from.deriveInfo),
+              to: labelOf(autoSwitchInfo.to.deriveInfo),
+            },
+          )}
+        />
+      );
+    }
+    if (allFormatsInsufficient && isInsufficientBalance) {
+      return (
+        <Alert
+          type="warning"
+          icon="ErrorOutline"
+          title={intl.formatMessage({
+            id: ETranslations.send_insufficient_balance_all_formats__msg,
+          })}
+        />
+      );
+    }
+    return null;
+  }, [
+    allFormatsInsufficient,
+    autoSwitchInfo,
+    dismissAutoSwitchInfo,
+    intl,
+    isInsufficientBalance,
   ]);
 
   const isAmountZeroOrEmpty = !amount || new BigNumber(amount).isZero();
@@ -1801,6 +1928,7 @@ function SendAmountInputContainer() {
               </Form.Field>
             </Form>
           </HeightTransition>
+          {renderAutoSwitchAlert}
           {extraContent}
           {renderBalanceCard}
           {renderNFTInfoCard}
