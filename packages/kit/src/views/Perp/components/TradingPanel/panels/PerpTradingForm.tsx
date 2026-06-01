@@ -152,28 +152,12 @@ const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES = 0.5;
 const TWAP_MIN_SLICE_NOTIONAL_HINT = 10;
-const TWAP_DURATION_LABEL = `Duration (${TWAP_MIN_DURATION_MINUTES}m - ${
-  TWAP_MAX_DURATION_MINUTES / 60
-}h)`;
-const TWAP_HELPER_TEXT =
-  'TWAP submits market slices over the selected duration. Hyperliquid controls slice timing and may reject very small slices.';
-const TWAP_SMALL_SLICE_HELPER_TEXT =
-  'Estimated TWAP order size is too small for this duration';
 const TWAP_DURATION_PRESET_OPTIONS = [
   { label: '1h', minutes: 60 },
   { label: '6h', minutes: 360 },
   { label: '12h', minutes: 720 },
   { label: '24h', minutes: 1440 },
 ] as const;
-const SCALE_AMOUNT_DISTRIBUTION_OPTIONS = [
-  { label: 'Fixed', value: 'fixed' },
-  { label: 'Increasing', value: 'increasing' },
-] as const satisfies readonly {
-  label: string;
-  value: IScaleOrderSizeDistribution;
-}[];
-const SCALE_INCREASING_DISTRIBUTION_HELPER_TEXT =
-  'Increasing places larger orders at better prices — lower for buys, higher for sells.';
 
 function clampTwapDurationMinutes(minutes: number) {
   if (Number.isNaN(minutes) || minutes <= 0) {
@@ -511,6 +495,55 @@ function PerpTradingForm({
   const isTwapMode = formData.orderMode === 'twap';
   const isAdvancedOrderMode =
     formData.orderMode === 'trigger' || isScaleMode || isTwapMode;
+  const twapDurationLabel = useMemo(
+    () =>
+      `${intl.formatMessage({
+        id: ETranslations.perp_twap_duration__title,
+      })} (${TWAP_MIN_DURATION_MINUTES}m - ${TWAP_MAX_DURATION_MINUTES / 60}h)`,
+    [intl],
+  );
+  const twapHelperText = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.perp_twap_duration_helper__desc,
+      }),
+    [intl],
+  );
+  const twapSmallSliceHelperText = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.perp_twap_small_slice__msg,
+      }),
+    [intl],
+  );
+  const scaleAmountDistributionHelperText = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.perp_scale_amount_distribution__desc,
+      }),
+    [intl],
+  );
+  const scaleAmountDistributionOptions = useMemo(
+    () =>
+      [
+        {
+          label: intl.formatMessage({
+            id: ETranslations.perp_scale_fixed_distribution__action,
+          }),
+          value: 'fixed',
+        },
+        {
+          label: intl.formatMessage({
+            id: ETranslations.perp_scale_increasing_distribution__action,
+          }),
+          value: 'increasing',
+        },
+      ] as const satisfies readonly {
+        label: string;
+        value: IScaleOrderSizeDistribution;
+      }[],
+    [intl],
+  );
   const primaryOrderType: IPrimaryOrderType = isAdvancedOrderMode
     ? 'trigger'
     : formData.type;
@@ -724,20 +757,28 @@ function PerpTradingForm({
       !upperPrice.isFinite() ||
       upperPrice.lte(0)
     ) {
+      if (!hasPriceInput) {
+        return undefined;
+      }
       return {
         text: 'Enter a valid scale price range',
-        tone: hasPriceInput ? ('error' as const) : ('helper' as const),
+        tone: 'error' as const,
       };
     }
     if (lowerPrice.eq(upperPrice)) {
       return {
-        text: 'Lower and upper prices must be different',
+        text: intl.formatMessage({
+          id: ETranslations.perp_scale_price_range_same__msg,
+        }),
         tone: 'error' as const,
       };
     }
     if (!hasSizeInput) {
       return {
-        text: `Preview needs order size. Minimum $${SCALE_ORDER_MIN_NOTIONAL} per order.`,
+        text: intl.formatMessage(
+          { id: ETranslations.perp_scale_order_size_required_hint__desc },
+          { min: `$${SCALE_ORDER_MIN_NOTIONAL}` },
+        ),
         tone: 'helper' as const,
       };
     }
@@ -755,13 +796,20 @@ function PerpTradingForm({
     const validation = validateScaleOrderLegs({ legs });
     if (!validation.isValid) {
       return {
-        text: validation.errors[0] ?? 'Invalid scale order',
+        text:
+          validation.errors[0] ??
+          intl.formatMessage({
+            id: ETranslations.perp_invalid_scale_order__msg,
+          }),
         tone: 'error' as const,
       };
     }
 
     return {
-      text: `Preview: ${legs.length} orders · minimum $${SCALE_ORDER_MIN_NOTIONAL} per order`,
+      text: intl.formatMessage(
+        { id: ETranslations.perp_scale_preview_summary_hint__desc },
+        { count: legs.length, min: `$${SCALE_ORDER_MIN_NOTIONAL}` },
+      ),
       tone: 'helper' as const,
     };
   }, [
@@ -770,6 +818,7 @@ function PerpTradingForm({
     formData.scaleSizeDistribution,
     formData.scaleUpperPrice,
     formData.side,
+    intl,
     isScaleMode,
     isSpot,
     sizeSzDecimals,
@@ -784,7 +833,9 @@ function PerpTradingForm({
     const rawDuration = formData.twapDurationMinutes ?? '';
     if (!rawDuration) {
       return {
-        text: 'Duration is required',
+        text: intl.formatMessage({
+          id: ETranslations.perp_twap_duration_required__msg,
+        }),
         tone: 'error' as const,
       };
     }
@@ -796,11 +847,17 @@ function PerpTradingForm({
       duration > TWAP_MAX_DURATION_MINUTES
     ) {
       return {
-        text: `Duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
+        text: intl.formatMessage(
+          { id: ETranslations.perp_twap_duration_range__msg },
+          {
+            min: TWAP_MIN_DURATION_MINUTES,
+            max: TWAP_MAX_DURATION_MINUTES,
+          },
+        ),
         tone: 'error' as const,
       };
     }
-  }, [formData.twapDurationMinutes, isTwapMode]);
+  }, [formData.twapDurationMinutes, intl, isTwapMode]);
 
   const twapHelperMessage = useMemo(() => {
     if (!isTwapMode) {
@@ -816,7 +873,7 @@ function PerpTradingForm({
       !midPriceBN.isFinite() ||
       midPriceBN.lte(0)
     ) {
-      return TWAP_HELPER_TEXT;
+      return undefined;
     }
 
     const estimatedSlices = Math.max(
@@ -831,15 +888,16 @@ function PerpTradingForm({
       estimatedSliceNotional.gt(0) &&
       estimatedSliceNotional.lt(TWAP_MIN_SLICE_NOTIONAL_HINT)
     ) {
-      return TWAP_SMALL_SLICE_HELPER_TEXT;
+      return twapSmallSliceHelperText;
     }
 
-    return TWAP_HELPER_TEXT;
+    return undefined;
   }, [
     formData.twapDurationMinutes,
     isTwapMode,
     midPriceBN,
     tradingComputed.computedSizeBN,
+    twapSmallSliceHelperText,
   ]);
 
   const [twapDurationHoursInput, setTwapDurationHoursInput] = useState('');
@@ -1197,11 +1255,15 @@ function PerpTradingForm({
   const triggerTypeOptions = useMemo(() => {
     const algoOrderOptions = [
       {
-        label: 'Scale',
+        label: intl.formatMessage({
+          id: ETranslations.perp_scale_order__title,
+        }),
         value: 'scale' as ITriggerDropdownValue,
       },
       {
-        label: 'TWAP',
+        label: intl.formatMessage({
+          id: ETranslations.perp_twap_order__title,
+        }),
         value: 'twap' as ITriggerDropdownValue,
       },
     ];
@@ -1311,11 +1373,15 @@ function PerpTradingForm({
     ];
     const algoOrderOptions = [
       {
-        label: 'Scale',
+        label: intl.formatMessage({
+          id: ETranslations.perp_scale_order__title,
+        }),
         value: 'scale',
       },
       {
-        label: 'TWAP',
+        label: intl.formatMessage({
+          id: ETranslations.perp_twap_order__title,
+        }),
         value: 'twap',
       },
     ];
@@ -1443,11 +1509,53 @@ function PerpTradingForm({
       const scaleSizeDistribution = formData.scaleSizeDistribution ?? 'fixed';
       return (
         <YStack gap="$1.5">
-          <SizableText size="$bodySmMedium" color="$textSubdued">
-            Amount Distribution
-          </SizableText>
+          {isMobile ? (
+            <Popover
+              renderContent={() => (
+                <YStack px="$5" pt="$2" pb="$4">
+                  <SizableText size="$bodyMd">
+                    {scaleAmountDistributionHelperText}
+                  </SizableText>
+                </YStack>
+              )}
+              renderTrigger={
+                <DashText
+                  size="$bodySmMedium"
+                  color="$textSubdued"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_scale_amount_distribution__title,
+                  })}
+                </DashText>
+              }
+              title={intl.formatMessage({
+                id: ETranslations.perp_scale_amount_distribution__title,
+              })}
+              placement="bottom-start"
+            />
+          ) : (
+            <Tooltip
+              renderContent={scaleAmountDistributionHelperText}
+              renderTrigger={
+                <DashText
+                  size="$bodySmMedium"
+                  color="$textSubdued"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                  cursor="help"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_scale_amount_distribution__title,
+                  })}
+                </DashText>
+              }
+              placement="bottom-start"
+            />
+          )}
           <XStack gap="$4" alignItems="center" flexWrap="wrap">
-            {SCALE_AMOUNT_DISTRIBUTION_OPTIONS.map((option) => {
+            {scaleAmountDistributionOptions.map((option) => {
               const checked = scaleSizeDistribution === option.value;
               return (
                 <XStack
@@ -1491,11 +1599,6 @@ function PerpTradingForm({
               );
             })}
           </XStack>
-          {scaleSizeDistribution === 'increasing' ? (
-            <SizableText size="$bodySm" color="$textSubdued">
-              {SCALE_INCREASING_DISTRIBUTION_HELPER_TEXT}
-            </SizableText>
-          ) : null}
         </YStack>
       );
     }
@@ -1507,16 +1610,9 @@ function PerpTradingForm({
       return (
         <YStack gap={isMobile ? '$2.5' : '$3'}>
           <PriceInput
-            label="Lower Price"
-            onUseMidPrice={() => {
-              if (midPrice) {
-                updateForm({
-                  scaleLowerPrice: isSpot
-                    ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-                    : formatPriceToSignificantDigits(midPrice, sizeSzDecimals),
-                });
-              }
-            }}
+            label={intl.formatMessage({
+              id: ETranslations.perp_scale_lower_price__title,
+            })}
             placeholder={intl.formatMessage({
               id: ETranslations.perp_trade_price_place_holder,
             })}
@@ -1528,16 +1624,9 @@ function PerpTradingForm({
             disabled={isSubmitting}
           />
           <PriceInput
-            label="Upper Price"
-            onUseMidPrice={() => {
-              if (midPrice) {
-                updateForm({
-                  scaleUpperPrice: isSpot
-                    ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-                    : formatPriceToSignificantDigits(midPrice, sizeSzDecimals),
-                });
-              }
-            }}
+            label={intl.formatMessage({
+              id: ETranslations.perp_scale_upper_price__title,
+            })}
             placeholder={intl.formatMessage({
               id: ETranslations.perp_trade_price_place_holder,
             })}
@@ -1549,7 +1638,15 @@ function PerpTradingForm({
             disabled={isSubmitting}
           />
           <TradingFormInput
-            label="Orders"
+            label={intl.formatMessage(
+              {
+                id: ETranslations.perp_scale_order_count_with_range__title,
+              },
+              {
+                min: SCALE_ORDER_MIN_COUNT,
+                max: SCALE_ORDER_MAX_COUNT,
+              },
+            )}
             placeholder={`${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT}`}
             value={formData.scaleOrderCount ?? ''}
             onChange={(value) => {
@@ -1558,6 +1655,15 @@ function PerpTradingForm({
             }}
             validator={scaleOrderCountValidator}
             keyboardType="numeric"
+            customSuffix={
+              isMobile ? (
+                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_scale_order_quantity__title,
+                  })}
+                </SizableText>
+              ) : undefined
+            }
             isMobile={isMobile}
             disabled={isSubmitting}
           />
@@ -1748,8 +1854,10 @@ function PerpTradingForm({
       return (
         <YStack gap="$2.5">
           <TradingFormInput
-            label="Duration"
-            placeholder={TWAP_DURATION_LABEL}
+            label={intl.formatMessage({
+              id: ETranslations.perp_twap_duration__title,
+            })}
+            placeholder={twapDurationLabel}
             value={formData.twapDurationMinutes ?? ''}
             onChange={(value) => {
               const nextValue = value.replace(/[^\d]/g, '');
@@ -1882,9 +1990,45 @@ function PerpTradingForm({
 
     return (
       <YStack gap="$3">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {TWAP_DURATION_LABEL}
-        </SizableText>
+        {isMobile ? (
+          <Popover
+            renderContent={() => (
+              <YStack px="$5" pt="$2" pb="$4">
+                <SizableText size="$bodyMd">{twapHelperText}</SizableText>
+              </YStack>
+            )}
+            renderTrigger={
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+              >
+                {twapDurationLabel}
+              </DashText>
+            }
+            title={intl.formatMessage({
+              id: ETranslations.perp_twap_duration__title,
+            })}
+            placement="bottom-start"
+          />
+        ) : (
+          <Tooltip
+            renderContent={twapHelperText}
+            renderTrigger={
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                cursor="help"
+              >
+                {twapDurationLabel}
+              </DashText>
+            }
+            placement="bottom-start"
+          />
+        )}
         <XStack gap="$2.5">
           {renderTwapDurationInput({
             field: 'hours',
@@ -1996,12 +2140,25 @@ function PerpTradingForm({
                 height={checkboxSizeVal}
                 {...(isMobile && { p: '$0' })}
               />
-              <SizableText
-                size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
-                color="$text"
-              >
-                Randomize
-              </SizableText>
+              <Tooltip
+                placement="top"
+                renderContent={intl.formatMessage({
+                  id: ETranslations.perp_twap_randomize__desc,
+                })}
+                renderTrigger={
+                  <DashText
+                    size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                    color="$text"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    cursor="help"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_twap_randomize__title,
+                    })}
+                  </DashText>
+                }
+              />
             </XStack>
           </YStack>
         </YStack>
@@ -2181,7 +2338,8 @@ function PerpTradingForm({
         (isAdvancedOrderMode
           ? activeAdvancedOrderType
           : lastSelectableAdvancedOrderType),
-    )?.label || 'Trigger';
+    )?.label ||
+    intl.formatMessage({ id: ETranslations.perp_order_trigger_market });
 
   let mobileSelectedOrderType: string = primaryOrderType;
   if (isTriggerMode) {

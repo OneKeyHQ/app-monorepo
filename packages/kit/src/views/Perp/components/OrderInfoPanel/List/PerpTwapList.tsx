@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { type IntlShape, useIntl } from 'react-intl';
 
 import {
+  Button,
   type IDebugRenderTrackerProps,
+  Icon,
+  Illustration,
   SizableText,
   Toast,
   XStack,
@@ -21,6 +25,7 @@ import {
   usePerpsActiveAccountAtom,
   useSpotPairDisplayMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -35,6 +40,8 @@ import type {
   ITwapState,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { PerpTestIDs } from '../../../testIDs';
+import { buildHelpUrl, openGuideUrl } from '../../Guide/perpGuideData';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
 import {
   calcCellAlign,
@@ -50,6 +57,7 @@ import {
 } from './CommonTableListView';
 
 const TWAP_PAGE_SIZE = 40;
+const TWAP_TABLE_ROW_MIN_HEIGHT = 48;
 
 type ITwapPanelTab = 'active' | 'history' | 'fills';
 
@@ -68,27 +76,27 @@ const valueFormatter: INumberFormatProps = {
   },
 };
 
-const TWAP_ORDERS_SUB_TABS: Array<{ key: ITwapPanelTab; label: string }> = [
-  { key: 'active', label: 'Active' },
-  { key: 'history', label: 'History' },
-  { key: 'fills', label: 'Fill History' },
+const TWAP_ORDERS_SUB_TABS: Array<{
+  key: ITwapPanelTab;
+  labelId: ETranslations;
+}> = [
+  { key: 'active', labelId: ETranslations.perp_twap_active__title },
+  { key: 'history', labelId: ETranslations.perp_twap_history__title },
+  { key: 'fills', labelId: ETranslations.perp_twap_fill_history__title },
 ];
 
 const TWAP_EMPTY_STATE_MAP: Record<
   ITwapPanelTab,
-  { title: string; description: string }
+  { titleId: ETranslations; description?: string }
 > = {
   active: {
-    title: 'No active TWAP',
-    description: 'Your active TWAP orders will appear here.',
+    titleId: ETranslations.perp_no_active_twap__title,
   },
   history: {
-    title: 'No TWAP history',
-    description: 'Your TWAP history will appear here.',
+    titleId: ETranslations.perp_no_twap_history__title,
   },
   fills: {
-    title: 'No TWAP fill history',
-    description: 'Your TWAP fill history will appear here.',
+    titleId: ETranslations.perp_no_twap_fill_history__title,
   },
 };
 
@@ -123,17 +131,25 @@ function formatElapsedDuration(ms: number) {
     .join(':');
 }
 
-function formatTotalDuration(minutes: number) {
+function formatTotalDuration(minutes: number, intl: IntlShape) {
+  const minuteUnit = intl
+    .formatMessage({ id: ETranslations.Limit_expire_minutes })
+    .toLowerCase();
+  const hourUnit = intl
+    .formatMessage({ id: ETranslations.Limit_expire_hour })
+    .toLowerCase();
+
   if (minutes < 60) {
-    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+    return `${minutes} ${minuteUnit}`;
   }
 
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
+  const hourText = `${hours} ${hourUnit}`;
   if (remainingMinutes === 0) {
-    return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+    return hourText;
   }
-  return `${hours}h ${remainingMinutes}m`;
+  return `${hourText} ${remainingMinutes} ${minuteUnit}`;
 }
 
 function getTableRowBgColor({
@@ -149,15 +165,19 @@ function getTableRowBgColor({
   return index % 2 === 1 ? '$bgSubdued' : '$bgApp';
 }
 
-function getTwapSideInfo(state: ITwapState) {
+function getTwapSideInfo(state: ITwapState, intl: IntlShape) {
   if (state.side === 'B') {
     return {
-      text: state.reduceOnly ? 'Close Short' : 'Long',
+      text: state.reduceOnly
+        ? intl.formatMessage({ id: ETranslations.perp_order_close_short })
+        : intl.formatMessage({ id: ETranslations.perp_long }),
       color: '$green11',
     };
   }
   return {
-    text: state.reduceOnly ? 'Close Long' : 'Short',
+    text: state.reduceOnly
+      ? intl.formatMessage({ id: ETranslations.perp_order_close_long })
+      : intl.formatMessage({ id: ETranslations.perp_short }),
     color: '$red11',
   };
 }
@@ -167,11 +187,13 @@ function getTwapBaseInfo({
   now,
   endTime,
   spotDisplayMap,
+  intl,
 }: {
   state: ITwapState;
   now: number;
   endTime?: number;
   spotDisplayMap: Record<string, string>;
+  intl: IntlShape;
 }) {
   const executedSize = new BigNumber(state.executedSz);
   const totalSize = new BigNumber(state.sz);
@@ -206,8 +228,11 @@ function getTwapBaseInfo({
       : '--',
     runningTimeText: `${formatElapsedDuration(elapsedMs)} / ${formatTotalDuration(
       state.minutes,
+      intl,
     )}`,
-    reduceOnlyText: state.reduceOnly ? 'Yes' : 'No',
+    reduceOnlyText: state.reduceOnly
+      ? intl.formatMessage({ id: ETranslations.perp_yes__title })
+      : intl.formatMessage({ id: ETranslations.perp_no__title }),
   };
 }
 
@@ -229,19 +254,19 @@ function sortTwapSliceFills(fills: ITwapSliceFill[]) {
   );
 }
 
-function getFillDirectionInfo(fill: IFill) {
+function getFillDirectionInfo(fill: IFill, intl: IntlShape) {
   let color = fill.side === 'B' ? '$green11' : '$red11';
   const directionType = getPerpFillDirectionType(fill.dir);
   let text = fill.dir;
 
   if (directionType === 'openLong') {
-    text = 'Long';
+    text = intl.formatMessage({ id: ETranslations.perp_long });
   } else if (directionType === 'openShort') {
-    text = 'Short';
+    text = intl.formatMessage({ id: ETranslations.perp_short });
   } else if (directionType === 'closeLong') {
-    text = 'Close Long';
+    text = intl.formatMessage({ id: ETranslations.perp_order_close_long });
   } else if (directionType === 'closeShort') {
-    text = 'Close Short';
+    text = intl.formatMessage({ id: ETranslations.perp_order_close_short });
   }
 
   if (fill.side === 'A') {
@@ -252,26 +277,62 @@ function getFillDirectionInfo(fill: IFill) {
 }
 
 function TwapEmptyState({
-  title,
+  titleId,
   description,
 }: {
-  title: string;
-  description: string;
+  titleId: ETranslations;
+  description?: string;
 }) {
+  const intl = useIntl();
+  const handleGuidePress = useCallback(() => {
+    openGuideUrl(buildHelpUrl('articles/13988742'));
+  }, []);
+
   return (
     <YStack
       flex={1}
       alignItems="center"
       justifyContent="center"
       minHeight={240}
-      gap="$2"
+      px="$5"
+      py="$6"
     >
-      <SizableText size="$bodyMdMedium" color="$text">
-        {title}
-      </SizableText>
-      <SizableText size="$bodySm" color="$textSubdued">
-        {description}
-      </SizableText>
+      <YStack width="100%" maxWidth={420} gap="$3" alignItems="center">
+        <Illustration name="Orders" size={100} mb={-24} />
+        <SizableText size="$bodyMdMedium" color="$text" textAlign="center">
+          {intl.formatMessage({ id: titleId })}
+        </SizableText>
+        {description ? (
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            textAlign="center"
+            maxWidth={360}
+          >
+            {description}
+          </SizableText>
+        ) : null}
+        <Button
+          testID={PerpTestIDs.TwapEmptyGuideButton}
+          width={180}
+          borderRadius="$full"
+          size="small"
+          h={28}
+          px="$3"
+          variant="secondary"
+          onPress={handleGuidePress}
+          childrenAsText={false}
+        >
+          <XStack gap="$1.5" alignItems="center">
+            <Icon name="BookOpenOutline" size="$4" />
+            <SizableText size="$bodySmMedium">
+              {intl.formatMessage({
+                id: ETranslations.perp_twap_trading_guide__action,
+              })}
+            </SizableText>
+          </XStack>
+        </Button>
+      </YStack>
     </YStack>
   );
 }
@@ -299,11 +360,12 @@ function TwapActiveRow({
   onHoverChange?: (index: number | null) => void;
   spotDisplayMap: Record<string, string>;
 }) {
+  const intl = useIntl();
   const { state } = order;
-  const sideInfo = useMemo(() => getTwapSideInfo(state), [state]);
+  const sideInfo = useMemo(() => getTwapSideInfo(state, intl), [intl, state]);
   const baseInfo = useMemo(
-    () => getTwapBaseInfo({ state, now, spotDisplayMap }),
-    [now, spotDisplayMap, state],
+    () => getTwapBaseInfo({ state, now, spotDisplayMap, intl }),
+    [intl, now, spotDisplayMap, state],
   );
   const creationTime = useMemo(
     () => formatTwapDateTime(state.timestamp),
@@ -323,6 +385,7 @@ function TwapActiveRow({
       backgroundColor={bgColor}
       onHoverIn={() => onHoverChange?.(index)}
       onHoverOut={() => onHoverChange?.(null)}
+      minHeight={TWAP_TABLE_ROW_MIN_HEIGHT}
       minWidth={renderMode === 'full' ? cellMinWidth : undefined}
     >
       {shouldRenderLeft ? (
@@ -400,7 +463,9 @@ function TwapActiveRow({
             fontWeight={400}
             onPress={onTerminate}
           >
-            Terminate
+            {intl.formatMessage({
+              id: ETranslations.perp_twap_terminate__action,
+            })}
           </SizableText>
         </XStack>
       ) : null}
@@ -429,25 +494,39 @@ function TwapHistoryRow({
   onHoverChange?: (index: number | null) => void;
   spotDisplayMap: Record<string, string>;
 }) {
+  const intl = useIntl();
   const { state } = record;
   const endTime =
     record.status.status === 'activated'
       ? undefined
       : normalizeEpochMs(record.time);
-  const sideInfo = useMemo(() => getTwapSideInfo(state), [state]);
+  const sideInfo = useMemo(() => getTwapSideInfo(state, intl), [intl, state]);
   const baseInfo = useMemo(
-    () => getTwapBaseInfo({ state, now, endTime, spotDisplayMap }),
-    [endTime, now, spotDisplayMap, state],
+    () => getTwapBaseInfo({ state, now, endTime, spotDisplayMap, intl }),
+    [endTime, intl, now, spotDisplayMap, state],
   );
   const creationTime = useMemo(
     () => formatTwapDateTime(state.timestamp),
     [state.timestamp],
   );
-  const statusText =
-    record.status.status === 'error'
-      ? `Error${record.status.description ? `: ${record.status.description}` : ''}`
-      : record.status.status.charAt(0).toUpperCase() +
-        record.status.status.slice(1);
+  const statusText = useMemo(() => {
+    const statusTextMap: Record<
+      ITwapHistoryRecord['status']['status'],
+      ETranslations
+    > = {
+      activated: ETranslations.perp_twap_status_activated__title,
+      error: ETranslations.perp_twap_status_error__title,
+      finished: ETranslations.perp_twap_status_finished__title,
+      terminated: ETranslations.perp_twap_status_terminated__title,
+    };
+    const translatedStatus = intl.formatMessage({
+      id: statusTextMap[record.status.status],
+    });
+    if (record.status.status === 'error' && record.status.description) {
+      return `${translatedStatus}: ${record.status.description}`;
+    }
+    return translatedStatus;
+  }, [intl, record.status.description, record.status.status]);
   const bgColor = getTableRowBgColor({ isHovered, index });
   const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
   const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
@@ -462,6 +541,7 @@ function TwapHistoryRow({
       backgroundColor={bgColor}
       onHoverIn={() => onHoverChange?.(index)}
       onHoverOut={() => onHoverChange?.(null)}
+      minHeight={TWAP_TABLE_ROW_MIN_HEIGHT}
       minWidth={renderMode === 'full' ? cellMinWidth : undefined}
     >
       {shouldRenderLeft ? (
@@ -564,13 +644,17 @@ function TwapFillRow({
   onHoverChange?: (index: number | null) => void;
   spotDisplayMap: Record<string, string>;
 }) {
+  const intl = useIntl();
   const { fill } = record;
   const dateInfo = useMemo(() => formatTwapDateTime(fill.time), [fill.time]);
   const assetSymbol = useMemo(
     () => getTwapAssetDisplayName(fill.coin, spotDisplayMap),
     [fill.coin, spotDisplayMap],
   );
-  const directionInfo = useMemo(() => getFillDirectionInfo(fill), [fill]);
+  const directionInfo = useMemo(
+    () => getFillDirectionInfo(fill, intl),
+    [fill, intl],
+  );
   const fillInfo = useMemo(() => {
     const priceBN = new BigNumber(fill.px);
     const sizeBN = new BigNumber(fill.sz);
@@ -600,6 +684,7 @@ function TwapFillRow({
       backgroundColor={bgColor}
       onHoverIn={() => onHoverChange?.(index)}
       onHoverOut={() => onHoverChange?.(null)}
+      minHeight={TWAP_TABLE_ROW_MIN_HEIGHT}
       minWidth={renderMode === 'full' ? cellMinWidth : undefined}
     >
       {shouldRenderLeft ? (
@@ -675,6 +760,7 @@ function TwapFillRow({
 
 function PerpTwapList() {
   const actions = useHyperliquidActions();
+  const intl = useIntl();
   const [
     { accountAddress: activeTwapAccountAddress, twapOrders: rawTwapOrders },
   ] = usePerpsActiveTwapOrdersAtom();
@@ -740,79 +826,154 @@ function PerpTwapList() {
 
   const twapColumns: IColumnConfig[] = useMemo(
     () => [
-      { key: 'coin', title: 'Coin', minWidth: 120, flex: 1, align: 'left' },
-      { key: 'size', title: 'Size', minWidth: 110, flex: 1, align: 'left' },
+      {
+        key: 'coin',
+        title: intl.formatMessage({
+          id: ETranslations.perp_token_selector_asset,
+        }),
+        minWidth: 120,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'size',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_position_size,
+        }),
+        minWidth: 110,
+        flex: 1,
+        align: 'left',
+      },
       {
         key: 'executedSize',
-        title: 'Executed Size',
+        title: intl.formatMessage({
+          id: ETranslations.perp_executed_size__title,
+        }),
         minWidth: 130,
         flex: 1,
         align: 'left',
       },
       {
         key: 'averagePrice',
-        title: 'Average Price',
+        title: intl.formatMessage({
+          id: ETranslations.perp_average_price__title,
+        }),
         minWidth: 140,
         flex: 1,
         align: 'left',
       },
       {
         key: 'runningTime',
-        title: 'Running Time / Total',
+        title: intl.formatMessage({
+          id: ETranslations.perp_twap_running_time_total__title,
+        }),
         minWidth: 170,
         flex: 1,
         align: 'left',
       },
       {
         key: 'reduceOnly',
-        title: 'Reduce Only',
+        title: intl.formatMessage({
+          id: ETranslations.perps_reduce_only,
+        }),
         minWidth: 120,
         flex: 1,
         align: 'left',
       },
       {
         key: 'creationTime',
-        title: 'Creation Time',
+        title: intl.formatMessage({
+          id: ETranslations.perp_creation_time__title,
+        }),
         minWidth: 150,
         flex: 1,
         align: 'left',
       },
       {
         key: activeTab === 'active' ? 'terminate' : 'status',
-        title: activeTab === 'active' ? 'Terminate' : 'Status',
+        title:
+          activeTab === 'active'
+            ? intl.formatMessage({
+                id: ETranslations.perp_twap_terminate__action,
+              })
+            : intl.formatMessage({ id: ETranslations.global_status }),
         minWidth: activeTab === 'active' ? 100 : 130,
         flex: 1,
         align: 'right',
         fixed: true,
       },
     ],
-    [activeTab],
+    [activeTab, intl],
   );
 
   const fillColumns: IColumnConfig[] = useMemo(
     () => [
-      { key: 'time', title: 'Time', minWidth: 130, flex: 1, align: 'left' },
-      { key: 'coin', title: 'Coin', minWidth: 100, flex: 1, align: 'left' },
+      {
+        key: 'time',
+        title: intl.formatMessage({ id: ETranslations.global_time }),
+        minWidth: 130,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'coin',
+        title: intl.formatMessage({
+          id: ETranslations.perp_token_selector_asset,
+        }),
+        minWidth: 100,
+        flex: 1,
+        align: 'left',
+      },
       {
         key: 'direction',
-        title: 'Direction',
+        title: intl.formatMessage({
+          id: ETranslations.perp_direction__title,
+        }),
         minWidth: 120,
         flex: 1,
         align: 'left',
       },
-      { key: 'price', title: 'Price', minWidth: 110, flex: 1, align: 'left' },
-      { key: 'size', title: 'Size', minWidth: 110, flex: 1, align: 'left' },
-      { key: 'value', title: 'Value', minWidth: 120, flex: 1, align: 'left' },
-      { key: 'fee', title: 'Fee', minWidth: 110, flex: 1, align: 'left' },
+      {
+        key: 'price',
+        title: intl.formatMessage({ id: ETranslations.global_price }),
+        minWidth: 110,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'size',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_position_size,
+        }),
+        minWidth: 110,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'value',
+        title: intl.formatMessage({
+          id: ETranslations.perp_trades_history_trade_value,
+        }),
+        minWidth: 120,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'fee',
+        title: intl.formatMessage({ id: ETranslations.perp_fee__title }),
+        minWidth: 110,
+        flex: 1,
+        align: 'left',
+      },
       {
         key: 'twapId',
-        title: 'TWAP ID',
+        title: intl.formatMessage({ id: ETranslations.perp_twap_id__title }),
         minWidth: 100,
         flex: 1,
         align: 'left',
       },
     ],
-    [],
+    [intl],
   );
 
   const activeMinWidth = useMemo(
@@ -841,7 +1002,11 @@ function PerpTwapList() {
             coin: order.state.coin,
           });
         if (!symbolMeta) {
-          Toast.message({ title: 'Token info not found' });
+          Toast.message({
+            title: intl.formatMessage({
+              id: ETranslations.perp_token_info_not_found__msg,
+            }),
+          });
           return;
         }
         await actions.current
@@ -855,11 +1020,13 @@ function PerpTwapList() {
           title:
             error instanceof Error
               ? error.message
-              : 'Failed to terminate TWAP order',
+              : intl.formatMessage({
+                  id: ETranslations.perp_failed_terminate_twap_order__msg,
+                }),
         });
       }
     },
-    [actions],
+    [actions, intl],
   );
 
   const refreshTwapData = useCallback(async () => {
@@ -944,20 +1111,28 @@ function PerpTwapList() {
   );
 
   const emptyState = TWAP_EMPTY_STATE_MAP[activeTab];
+  const twapOrderSubTabs = useMemo(
+    () =>
+      TWAP_ORDERS_SUB_TABS.map((tab) => ({
+        key: tab.key,
+        label: intl.formatMessage({ id: tab.labelId }),
+      })),
+    [intl],
+  );
   const listEmptyComponent = useMemo(
     () => (
       <TwapEmptyState
-        title={emptyState.title}
+        titleId={emptyState.titleId}
         description={emptyState.description}
       />
     ),
-    [emptyState.description, emptyState.title],
+    [emptyState.description, emptyState.titleId],
   );
 
   return (
     <YStack flex={1}>
       <OrderInfoSubTabs
-        tabs={TWAP_ORDERS_SUB_TABS}
+        tabs={twapOrderSubTabs}
         activeTab={activeTab}
         onChange={setActiveTab}
         variant="underline"
@@ -976,7 +1151,9 @@ function PerpTwapList() {
           data={twapOrders}
           renderRow={renderActiveRow}
           ListEmptyComponent={listEmptyComponent}
-          emptyMessage="No TWAPs Yet"
+          emptyMessage={intl.formatMessage({
+            id: ETranslations.perp_no_active_twap__title,
+          })}
           emptySubMessage=""
         />
       ) : null}
@@ -994,7 +1171,9 @@ function PerpTwapList() {
           data={historyRows}
           renderRow={renderHistoryRow}
           ListEmptyComponent={listEmptyComponent}
-          emptyMessage="No TWAP History Yet"
+          emptyMessage={intl.formatMessage({
+            id: ETranslations.perp_no_twap_history__title,
+          })}
           emptySubMessage=""
         />
       ) : null}
@@ -1012,7 +1191,9 @@ function PerpTwapList() {
           data={sliceFills}
           renderRow={renderFillRow}
           ListEmptyComponent={listEmptyComponent}
-          emptyMessage="No TWAP Fills Yet"
+          emptyMessage={intl.formatMessage({
+            id: ETranslations.perp_no_twap_fill_history__title,
+          })}
           emptySubMessage=""
         />
       ) : null}

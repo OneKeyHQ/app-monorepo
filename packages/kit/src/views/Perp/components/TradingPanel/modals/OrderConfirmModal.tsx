@@ -278,13 +278,23 @@ function OrderConfirmContent({
 
   const orderTypeText = useMemo(() => {
     if (isScaleMode) {
-      return 'Scale';
+      return intl.formatMessage({
+        id: ETranslations.perp_scale_order__title,
+      });
     }
     if (isTwapMode) {
-      return 'TWAP';
+      return intl.formatMessage({
+        id: ETranslations.perp_twap_order__title,
+      });
     }
     return actionText;
-  }, [actionText, isScaleMode, isTwapMode]);
+  }, [actionText, intl, isScaleMode, isTwapMode]);
+
+  const yesText = intl.formatMessage({ id: ETranslations.perp_yes__title });
+  const noText = intl.formatMessage({ id: ETranslations.perp_no__title });
+  const minuteUnit = intl
+    .formatMessage({ id: ETranslations.Limit_expire_minutes })
+    .toLowerCase();
 
   const sizeDisplay = useMemo(() => {
     const sizeString = computedSizeForSide.toFixed(szDecimals);
@@ -520,7 +530,7 @@ function OrderConfirmContent({
               })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
-              {formData.triggerReduceOnly ? 'Yes' : 'No'}
+              {formData.triggerReduceOnly ? yesText : noText}
             </SizableText>
           </XStack>
         ) : null}
@@ -547,7 +557,9 @@ function OrderConfirmContent({
             </XStack>
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                Orders
+                {intl.formatMessage({
+                  id: ETranslations.perp_scale_orders__title,
+                })}
               </SizableText>
               <SizableText size="$bodyMdMedium">
                 {formData.scaleOrderCount ?? '--'}
@@ -555,12 +567,18 @@ function OrderConfirmContent({
             </XStack>
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                Amount Distribution
+                {intl.formatMessage({
+                  id: ETranslations.perp_scale_amount_distribution__title,
+                })}
               </SizableText>
               <SizableText size="$bodyMdMedium">
                 {formData.scaleSizeDistribution === 'increasing'
-                  ? 'Increasing'
-                  : 'Fixed'}
+                  ? intl.formatMessage({
+                      id: ETranslations.perp_scale_increasing_distribution__action,
+                    })
+                  : intl.formatMessage({
+                      id: ETranslations.perp_scale_fixed_distribution__action,
+                    })}
               </SizableText>
             </XStack>
             <XStack justifyContent="space-between" alignItems="center">
@@ -577,7 +595,7 @@ function OrderConfirmContent({
                   })}
                 </SizableText>
                 <SizableText size="$bodyMdMedium">
-                  {formData.scaleReduceOnly ? 'Yes' : 'No'}
+                  {formData.scaleReduceOnly ? yesText : noText}
                 </SizableText>
               </XStack>
             )}
@@ -619,10 +637,12 @@ function OrderConfirmContent({
           <>
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                Duration
+                {intl.formatMessage({
+                  id: ETranslations.perp_twap_duration__title,
+                })}
               </SizableText>
               <SizableText size="$bodyMdMedium">
-                {twapPreview.minutes} min
+                {twapPreview.minutes} {minuteUnit}
               </SizableText>
             </XStack>
             <XStack justifyContent="space-between" alignItems="center">
@@ -639,16 +659,18 @@ function OrderConfirmContent({
                   })}
                 </SizableText>
                 <SizableText size="$bodyMdMedium">
-                  {formData.twapReduceOnly ? 'Yes' : 'No'}
+                  {formData.twapReduceOnly ? yesText : noText}
                 </SizableText>
               </XStack>
             )}
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                Randomize
+                {intl.formatMessage({
+                  id: ETranslations.perp_twap_randomize__title,
+                })}
               </SizableText>
               <SizableText size="$bodyMdMedium">
-                {formData.twapRandomize ? 'Yes' : 'No'}
+                {formData.twapRandomize ? yesText : noText}
               </SizableText>
             </XStack>
           </>
