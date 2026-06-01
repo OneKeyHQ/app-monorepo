@@ -24,6 +24,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -287,10 +288,15 @@ function MobilePerpMarket() {
   });
 
   const onPressTokenSelector = useCallback(() => {
+    defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
+      source: 'mobileMarketHeader',
+      currentToken: activeTradeInstrument.coin,
+      tradeMode: mode === 'spot' ? 'spot' : 'perp',
+    });
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
-  }, [navigation]);
+  }, [activeTradeInstrument.coin, mode, navigation]);
 
   const isSplitDetailActive = useIsSplitDetailActive();
 
