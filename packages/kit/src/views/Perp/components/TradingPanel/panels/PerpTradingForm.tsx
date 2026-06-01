@@ -24,7 +24,6 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import {
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
-  usePerpsActivePositionAtom,
   useTradingFormAtom,
   useTradingFormComputedAtom,
   useTradingFormEnvAtom,
@@ -64,6 +63,7 @@ import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
 import { useOrderPrice } from '../../../hooks/useOrderPrice';
+import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAccountScopedActivePositions';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
@@ -293,7 +293,7 @@ function PerpTradingForm({
   const { price: orderPriceBN } = useOrderPrice(formData.side);
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const { universeByBaseName } = useSpotMetaMaps();
-  const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
+  const perpsPositions = usePerpsAccountScopedActivePositions();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
   const isBBOActive = !!formData.bboPriceMode;
   const perpsSelectedDisplayName = useMemo(

@@ -20,6 +20,12 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
+import {
+  getPerpsAccountScopedListData,
+  isPerpsAccountAddressMatched,
+  isPerpsAccountScopedDataReady,
+} from '../../../utils/accountScopedData';
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
@@ -38,19 +44,63 @@ function PerpOpenOrdersList({
   disableListScroll,
 }: IPerpOpenOrdersListProps) {
   const intl = useIntl();
-  const [{ openOrders: perpOpenOrders }] = usePerpsActiveOpenOrdersAtom();
-  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
+  const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
+  const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
+  const accountScopedAddress = usePerpsAccountScopedCacheAddress();
   const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
+  const canMutateScopedOrders = isPerpsAccountAddressMatched({
+    activeAccountAddress: currentUser?.accountAddress,
+    dataAccountAddress: accountScopedAddress,
+  });
+  const scopedPerpOpenOrders = useMemo(
+    () =>
+      getPerpsAccountScopedListData({
+        activeAccountAddress: accountScopedAddress,
+        dataAccountAddress: perpOpenOrdersState.accountAddress,
+        data: perpOpenOrdersState.openOrders,
+      }),
+    [
+      accountScopedAddress,
+      perpOpenOrdersState.accountAddress,
+      perpOpenOrdersState.openOrders,
+    ],
+  );
+  const scopedSpotOpenOrders = useMemo(
+    () =>
+      getPerpsAccountScopedListData({
+        activeAccountAddress: accountScopedAddress,
+        dataAccountAddress: spotOpenOrdersState.accountAddress,
+        data: spotOpenOrdersState.openOrders,
+      }),
+    [
+      accountScopedAddress,
+      spotOpenOrdersState.accountAddress,
+      spotOpenOrdersState.openOrders,
+    ],
+  );
   const openOrders = useMemo(
     () =>
-      [...perpOpenOrders, ...spotOpenOrders].toSorted(
+      [...scopedPerpOpenOrders, ...scopedSpotOpenOrders].toSorted(
         (a, b) => b.timestamp - a.timestamp,
       ),
-    [perpOpenOrders, spotOpenOrders],
+    [scopedPerpOpenOrders, scopedSpotOpenOrders],
+  );
+  const perpOpenOrdersReady = isPerpsAccountScopedDataReady({
+    activeAccountAddress: accountScopedAddress,
+    dataAccountAddress: perpOpenOrdersState.accountAddress,
+  });
+  const spotOpenOrdersReady = isPerpsAccountScopedDataReady({
+    activeAccountAddress: accountScopedAddress,
+    dataAccountAddress: spotOpenOrdersState.accountAddress,
+  });
+  const listLoading = Boolean(
+    accountScopedAddress &&
+    openOrders.length === 0 &&
+    (!perpOpenOrdersReady || !spotOpenOrdersReady),
   );
   useEffect(() => {
     noop(currentUser?.accountAddress);
@@ -168,12 +218,14 @@ function PerpOpenOrdersList({
         align: 'right',
         flex: 1,
         fixed: true,
-        ...(openOrders.length > 0 && {
-          onPress: () => showCancelAllOrdersDialog(),
-        }),
+        ...(openOrders.length > 0 &&
+          canMutateScopedOrders && {
+            onPress: () =>
+              showCancelAllOrdersDialog(undefined, accountScopedAddress),
+          }),
       },
     ],
-    [intl, openOrders.length],
+    [accountScopedAddress, canMutateScopedOrders, intl, openOrders.length],
   );
 
   const handleCancelOrder = useCallback(
@@ -251,6 +303,7 @@ function PerpOpenOrdersList({
       data={filteredOrders}
       isMobile={isMobile}
       renderRow={renderOrderRow}
+      listLoading={listLoading}
       emptyMessage={intl.formatMessage({
         id: ETranslations.perp_open_order_empty,
       })}
@@ -259,7 +312,11 @@ function PerpOpenOrdersList({
       })}
       ListHeaderComponent={
         isMobile ? (
-          <MobileOpenOrdersListHeader totalOrderCount={openOrders.length} />
+          <MobileOpenOrdersListHeader
+            totalOrderCount={openOrders.length}
+            canCancelAll={canMutateScopedOrders}
+            scopedAccountAddress={accountScopedAddress}
+          />
         ) : null
       }
     />

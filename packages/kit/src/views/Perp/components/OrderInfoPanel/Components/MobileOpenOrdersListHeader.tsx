@@ -10,18 +10,24 @@ import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 
 interface IMobileOpenOrdersListHeaderProps {
   totalOrderCount: number;
+  canCancelAll: boolean;
+  scopedAccountAddress?: string | null;
 }
 
 export function MobileOpenOrdersListHeader({
   totalOrderCount,
+  canCancelAll,
+  scopedAccountAddress,
 }: IMobileOpenOrdersListHeaderProps) {
   const intl = useIntl();
   const [filterByCurrentToken, setFilterByCurrentToken] =
     useOrderFilterByCurrentTokenAtom();
 
   const handleCancelAll = useCallback(() => {
-    void showCancelAllOrdersDialog();
-  }, []);
+    if (canCancelAll) {
+      void showCancelAllOrdersDialog(undefined, scopedAccountAddress);
+    }
+  }, [canCancelAll, scopedAccountAddress]);
 
   const handleFilterChange = useCallback(
     (value: boolean | 'indeterminate') => {
@@ -57,12 +63,12 @@ export function MobileOpenOrdersListHeader({
         onChange={handleFilterChange}
       />
 
-      {/* Right: Cancel all button - disabled only when no orders to cancel */}
+      {/* Right: Cancel all button */}
       <Button
         testID="perp-btn"
         size="small"
         variant="secondary"
-        disabled={totalOrderCount === 0}
+        disabled={totalOrderCount === 0 || !canCancelAll}
         onPress={handleCancelAll}
         childrenAsText={false}
       >
