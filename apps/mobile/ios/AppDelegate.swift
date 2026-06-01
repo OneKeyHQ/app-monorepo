@@ -253,32 +253,20 @@ public class AppDelegate: ExpoAppDelegate {
   // download itself still completed in the background.
   //
   // Posted under a generic name (RangeDownloaderBackgroundEvents) so any number
-  // of channels (bundle / apk / chart) route through one notification; each
-  // downloader filters by its own session identifier prefix. The legacy name is
-  // posted too during the migration window so the not-yet-switched bundle
-  // downloader keeps receiving its events. Remove the legacy post once every
-  // consumer has moved to the shared range-downloader (capability-extraction P5).
+  // of channels (bundle / apk / chart) route through one notification; the
+  // shared range-downloader filters by its own session identifier prefix (and
+  // still recognizes the legacy identifier prefix for in-flight downloads that
+  // span an app update).
   public override func application(
     _ application: UIApplication,
     handleEventsForBackgroundURLSession identifier: String,
     completionHandler: @escaping () -> Void
   ) {
     NitroModuleBridge.logInfo("RangeDownloader", "handleEventsForBackgroundURLSession: \(identifier)")
-    let userInfo: [AnyHashable: Any] = [
-      "identifier": identifier,
-      "completionHandler": completionHandler,
-    ]
-    // New generic notification (range-downloader, all channels).
     NotificationCenter.default.post(
       name: Notification.Name("RangeDownloaderBackgroundEvents"),
       object: nil,
-      userInfo: userInfo
-    )
-    // Legacy notification (pre-P3 bundle downloader) — drop at P5.
-    NotificationCenter.default.post(
-      name: Notification.Name("ConcurrentBundleDownloaderBackgroundEvents"),
-      object: nil,
-      userInfo: userInfo
+      userInfo: ["identifier": identifier, "completionHandler": completionHandler]
     )
   }
 
