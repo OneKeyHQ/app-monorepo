@@ -97,6 +97,16 @@ import {
 } from './atoms';
 import { EActionType, withToast } from './utils';
 import {
+  getPerpsAccountSwitchCleanupPlan,
+  normalizePerpsAccountAddress,
+} from './utils/accountSwitchCleanup';
+import {
+  filterCanceledOpenOrders,
+  getActivePerpsPositions,
+  shouldResetOpenOrdersForAccount,
+  sortActivePerpsPositions,
+} from './utils/coldStartMergeUtils';
+import {
   shouldClearPerpsMarketDataForInstrument,
   shouldUpdatePerpsBbo,
   shouldUpdatePerpsL2Book,
@@ -106,6 +116,7 @@ import {
 
 import type {
   IActiveTradeInstrument,
+  IPerpsActiveOpenOrdersAtom,
   ITradeRouteViewState,
   ITradingFormData,
 } from './atoms';
@@ -317,19 +328,42 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   }
 
   private async findChartOrder(
-    get: (atom: ReturnType<typeof perpsActiveOpenOrdersAtom>) => {
-      openOrders: HL.IPerpsFrontendOrder[];
-    },
+    get: (
+      atom: ReturnType<typeof perpsActiveOpenOrdersAtom>,
+    ) => IPerpsActiveOpenOrdersAtom,
     oid: number,
   ): Promise<HL.IPerpsFrontendOrder | undefined> {
-    const { openOrders: perpOpenOrders } = get(perpsActiveOpenOrdersAtom());
-    const perpOrder = perpOpenOrders.find((order) => order.oid === oid);
-    if (perpOrder) {
-      return perpOrder;
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAccountAddress = normalizePerpsAccountAddress(
+      activeAccount?.accountAddress,
+    );
+    const activeOpenOrdersState = get(perpsActiveOpenOrdersAtom());
+    const isPerpsOpenOrdersScoped =
+      !activeAccountAddress ||
+      normalizePerpsAccountAddress(activeOpenOrdersState.accountAddress) ===
+        activeAccountAddress;
+    if (isPerpsOpenOrdersScoped) {
+      const perpOrder = activeOpenOrdersState.openOrders.find(
+        (order) => order.oid === oid,
+      );
+      if (perpOrder) {
+        return perpOrder;
+      }
     }
 
-    const { openOrders: spotOpenOrders } = await spotActiveOpenOrdersAtom.get();
-    return spotOpenOrders.find((order) => order.oid === oid);
+    const { openOrders: spotOpenOrders, accountAddress: spotAccountAddress } =
+      await spotActiveOpenOrdersAtom.get();
+    const isLiveSpotOrdersScoped =
+      !activeAccountAddress ||
+      normalizePerpsAccountAddress(spotAccountAddress) === activeAccountAddress;
+    if (isLiveSpotOrdersScoped) {
+      const spotOrder = spotOpenOrders.find((order) => order.oid === oid);
+      if (spotOrder) {
+        return spotOrder;
+      }
+    }
+
+    return undefined;
   }
 
   private buildOpenOrdersByCoinMap(
@@ -386,6 +420,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private resetOpenOrdersByDexCache() {
     this.openOrdersByDexCache.clear();
     this.openOrdersCacheAccountAddress = undefined;
+  }
+
+  private clearActiveAccountTransientData() {
+    this.resetOpenOrdersByDexCache();
+    perpsOpenOrdersByCoinAtomCache.clear();
+    this.canceledOrderIds.clear();
   }
 
   private ensureOpenOrdersCacheAccount(accountAddress: string | undefined) {
@@ -488,56 +528,64 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     this.updateAllAssetCtxs.call(set, data);
 
     const activeAccount = await perpsActiveAccountAtom.get();
-    const dataUser = data?.user?.toLowerCase();
-    const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+    const dataUser = normalizePerpsAccountAddress(data?.user);
+    const activeAccountAddress = normalizePerpsAccountAddress(
+      activeAccount?.accountAddress,
+    );
 
-    if (activeAccountAddress === dataUser) {
+    if (!dataUser) {
+      return;
+    }
+    if (activeAccountAddress && activeAccountAddress === dataUser) {
       // Update active positions from webData2
-      const positions = data?.clearinghouseState?.assetPositions || [];
-      const activePositions = positions
-        .filter((pos) => {
-          const size = parseFloat(pos.position?.szi || '0');
-          return Math.abs(size) > 0;
-        })
-        .toSorted(
-          (a, b) =>
-            parseFloat(b.position.positionValue || '0') -
-            parseFloat(a.position.positionValue || '0'),
+      if (data?.clearinghouseState) {
+        const positions = data.clearinghouseState.assetPositions || [];
+        const activePositions = sortActivePerpsPositions(
+          getActivePerpsPositions(positions),
         );
 
-      set(perpsActivePositionAtom(), {
-        accountAddress: activeAccountAddress,
-        activePositions,
-      });
+        set(perpsActivePositionAtom(), {
+          accountAddress: activeAccountAddress,
+          activePositions,
+        });
+      }
 
-      const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
-      const allOrders = data?.openOrders || [];
-      const perpOrders = allOrders.filter(
-        (order) =>
-          !isSpotInstrument(order.coin) &&
-          !this.canceledOrderIds.has(order.oid),
-      );
-      const spotOrders = allOrders.filter(
-        (order) =>
-          isSpotInstrument(order.coin) && !this.canceledOrderIds.has(order.oid),
-      );
-      const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
-        perpOrders,
-        prevOpenOrdersState?.openOrdersByCoin,
-      );
-      set(perpsActiveOpenOrdersAtom(), {
-        accountAddress: activeAccountAddress,
-        openOrders: perpOrders,
-        openOrdersByCoin,
-      });
-      void spotActiveOpenOrdersAtom.set({
-        accountAddress: activeAccountAddress,
-        openOrders: spotOrders,
-      });
+      if (Array.isArray(data?.openOrders)) {
+        const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
+        const allOrders = data.openOrders.filter(
+          (order) => !this.canceledOrderIds.has(order.oid),
+        );
+        const perpOrders = allOrders.filter(
+          (order) => !isSpotInstrument(order.coin),
+        );
+        const spotOrders = allOrders.filter((order) =>
+          isSpotInstrument(order.coin),
+        );
+        const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
+          perpOrders,
+          prevOpenOrdersState?.openOrdersByCoin,
+        );
+        this.ensureOpenOrdersCacheAccount(activeAccountAddress);
+        this.openOrdersByDexCache.clear();
+        this.openOrdersByDexCache.set('', allOrders);
+        set(perpsActiveOpenOrdersAtom(), {
+          accountAddress: activeAccountAddress,
+          openOrders: perpOrders,
+          openOrdersByCoin,
+        });
+        void spotActiveOpenOrdersAtom.set({
+          accountAddress: activeAccountAddress,
+          openOrders: spotOrders,
+        });
+      }
     } else {
+      if (!activeAccountAddress) {
+        return;
+      }
       const activePosition = get(perpsActivePositionAtom());
       if (
-        activePosition?.accountAddress?.toLowerCase() !== activeAccountAddress
+        normalizePerpsAccountAddress(activePosition?.accountAddress) !==
+        activeAccountAddress
       ) {
         set(perpsActivePositionAtom(), {
           accountAddress: activeAccountAddress,
@@ -546,7 +594,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       const activeOpenOrders = get(perpsActiveOpenOrdersAtom());
       if (
-        activeOpenOrders?.accountAddress?.toLowerCase() !== activeAccountAddress
+        shouldResetOpenOrdersForAccount({
+          activeAccountAddress,
+          currentOpenOrdersAccountAddress: activeOpenOrders?.accountAddress,
+        })
       ) {
         this.resetOpenOrdersByDexCache();
         set(perpsActiveOpenOrdersAtom(), {
@@ -554,24 +605,33 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           openOrders: [],
           openOrdersByCoin: {},
         });
+        void spotActiveOpenOrdersAtom.set({
+          accountAddress: activeAccountAddress,
+          openOrders: [],
+        });
       }
-      void spotActiveOpenOrdersAtom.set({
-        accountAddress: activeAccountAddress,
-        openOrders: [],
-      });
     }
   });
 
   updateAllDexsClearinghouseState = contextAtomMethod(
     async (get, set, data: HL.IWsAllDexsClearinghouseState) => {
       const activeAccount = await perpsActiveAccountAtom.get();
-      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
-      const dataUser = data?.user?.toLowerCase();
-      if (!activeAccountAddress || activeAccountAddress !== dataUser) {
+      const activeAccountAddress = normalizePerpsAccountAddress(
+        activeAccount?.accountAddress,
+      );
+      const dataUser = normalizePerpsAccountAddress(data?.user);
+      if (!activeAccountAddress) {
+        return;
+      }
+      if (!dataUser) {
+        return;
+      }
+      if (activeAccountAddress !== dataUser) {
         // cleanup if account switched
         const activePosition = get(perpsActivePositionAtom());
         if (
-          activePosition?.accountAddress?.toLowerCase() !== activeAccountAddress
+          normalizePerpsAccountAddress(activePosition?.accountAddress) !==
+          activeAccountAddress
         ) {
           set(perpsActivePositionAtom(), {
             accountAddress: activeAccountAddress,
@@ -606,20 +666,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         ...getPositions(xyzState),
       ];
 
-      const activePositions = combinedPositions
-        .filter((pos) => {
-          const size = parseFloat(pos.position?.szi ?? '0');
-          return Math.abs(size) > 0;
-        })
-        .toSorted((a, b) => {
-          const af = parseFloat(a.position?.cumFunding?.allTime ?? '0');
-          const bf = parseFloat(b.position?.cumFunding?.allTime ?? '0');
-          if (bf !== af) return bf - af;
-          return (
-            parseFloat(b.position?.positionValue ?? '0') -
-            parseFloat(a.position?.positionValue ?? '0')
-          );
-        });
+      const activePositions = getActivePerpsPositions(
+        combinedPositions,
+      ).toSorted((a, b) => {
+        const af = parseFloat(a.position?.cumFunding?.allTime ?? '0');
+        const bf = parseFloat(b.position?.cumFunding?.allTime ?? '0');
+        if (bf !== af) return bf - af;
+        return (
+          parseFloat(b.position?.positionValue ?? '0') -
+          parseFloat(a.position?.positionValue ?? '0')
+        );
+      });
 
       set(perpsActivePositionAtom(), {
         accountAddress: activeAccountAddress,
@@ -631,13 +688,21 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateOpenOrders = contextAtomMethod(
     async (get, set, data: HL.IWsOpenOrders) => {
       const activeAccount = await perpsActiveAccountAtom.get();
-      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
-      const dataUser = data?.user?.toLowerCase();
-      if (!activeAccountAddress || activeAccountAddress !== dataUser) {
+      const activeAccountAddress = normalizePerpsAccountAddress(
+        activeAccount?.accountAddress,
+      );
+      const dataUser = normalizePerpsAccountAddress(data?.user);
+      if (!activeAccountAddress) {
+        return;
+      }
+      if (!dataUser) {
+        return;
+      }
+      if (activeAccountAddress !== dataUser) {
         this.resetOpenOrdersByDexCache();
         const activeOpenOrders = get(perpsActiveOpenOrdersAtom());
         if (
-          activeOpenOrders?.accountAddress?.toLowerCase() !==
+          normalizePerpsAccountAddress(activeOpenOrders?.accountAddress) !==
           activeAccountAddress
         ) {
           set(perpsActiveOpenOrdersAtom(), {
@@ -652,23 +717,24 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }
         return;
       }
+      if (!Array.isArray(data?.orders)) {
+        return;
+      }
 
       const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
-      const allOrders = data?.orders || [];
+      const allOrders = data.orders;
       this.ensureOpenOrdersCacheAccount(activeAccountAddress);
       this.openOrdersByDexCache.set(data?.dex ?? '', allOrders);
-      const mergedOrders = Array.from(
-        this.openOrdersByDexCache.values(),
-      ).flat();
+      const mergedOrders = filterCanceledOpenOrders(
+        Array.from(this.openOrdersByDexCache.values()).flat(),
+        this.canceledOrderIds,
+      );
 
       const perpOrders = mergedOrders.filter(
-        (order) =>
-          !isSpotInstrument(order.coin) &&
-          !this.canceledOrderIds.has(order.oid),
+        (order) => !isSpotInstrument(order.coin),
       );
-      const spotOrders = mergedOrders.filter(
-        (order) =>
-          isSpotInstrument(order.coin) && !this.canceledOrderIds.has(order.oid),
+      const spotOrders = mergedOrders.filter((order) =>
+        isSpotInstrument(order.coin),
       );
       const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
         perpOrders,
@@ -1431,11 +1497,61 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         deriveType: IAccountDeriveTypes;
       },
     ) => {
-      await this.clearActiveAccountData.call(set);
+      const previousAccount = await perpsActiveAccountAtom.get();
+      const previousAddress = normalizePerpsAccountAddress(
+        previousAccount?.accountAddress,
+      );
       const account =
         await backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount(
           params,
         );
+      if (!account) {
+        return account;
+      }
+      const latestPositionState = get(perpsActivePositionAtom());
+      const latestOpenOrdersState = get(perpsActiveOpenOrdersAtom());
+      const latestSpotOpenOrdersState = await spotActiveOpenOrdersAtom.get();
+      const cleanupPlan = getPerpsAccountSwitchCleanupPlan({
+        previousAccountAddress: previousAddress,
+        nextAccountAddress: account?.accountAddress,
+        cachedPositionAccountAddress: latestPositionState.accountAddress,
+        cachedOpenOrdersAccountAddress: latestOpenOrdersState.accountAddress,
+        cachedSpotOpenOrdersAccountAddress:
+          latestSpotOpenOrdersState.accountAddress,
+      });
+      if (cleanupPlan.shouldClearActiveAccountData) {
+        await this.clearActiveAccountData.call(set);
+      } else {
+        if (cleanupPlan.shouldClearPositionData) {
+          set(perpsActivePositionAtom(), {
+            accountAddress: undefined,
+            activePositions: [],
+          });
+        }
+        if (cleanupPlan.shouldClearOpenOrdersData) {
+          this.resetOpenOrdersByDexCache();
+          perpsOpenOrdersByCoinAtomCache.clear();
+          set(perpsActiveOpenOrdersAtom(), {
+            accountAddress: undefined,
+            openOrders: [],
+            openOrdersByCoin: {},
+          });
+        }
+        if (cleanupPlan.shouldClearSpotOpenOrdersData) {
+          void spotActiveOpenOrdersAtom.set({
+            accountAddress: undefined,
+            openOrders: [],
+          });
+        }
+        if (cleanupPlan.shouldClearTransientData) {
+          set(perpsLedgerUpdatesAtom(), {
+            accountAddress: undefined,
+            updates: [],
+            isLoaded: false,
+          });
+          this.clearActiveAccountTransientData();
+        }
+      }
       return account;
     },
   );
@@ -1577,9 +1693,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       openOrders: [],
       openOrdersByCoin: {},
     });
-    this.resetOpenOrdersByDexCache();
-    perpsOpenOrdersByCoinAtomCache.clear();
-    this.canceledOrderIds.clear();
+    this.clearActiveAccountTransientData();
     set(perpsLedgerUpdatesAtom(), {
       accountAddress: undefined,
       updates: [],
@@ -2200,6 +2314,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             openOrders,
             prev.openOrdersByCoin,
           );
+          this.openOrdersByDexCache.forEach((orders, dex) => {
+            this.openOrdersByDexCache.set(
+              dex,
+              filterCanceledOpenOrders(orders, this.canceledOrderIds),
+            );
+          });
           set(perpsActiveOpenOrdersAtom(), {
             ...prev,
             openOrders,

@@ -52,6 +52,7 @@ import {
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
+import { shouldPreserveColdStartButtonVisualState } from '../../utils/accountScopedData';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import {
   type IPerpsMobileLayoutTraceRect,
@@ -267,6 +268,32 @@ function SideButtonInternal({
       shouldEnableTradingBeforeOrder,
     ],
   );
+
+  const hasNonColdStartDisabledReason = useMemo(
+    () =>
+      Boolean(
+        (!shouldAutoEnableTrading && isNoEnoughMargin) ||
+        (!perpsAccountStatus.canTrade && !shouldEnableTradingBeforeOrder) ||
+        isSubmitting ||
+        priceError === 'bbo_unavailable' ||
+        isServerActionDisabled,
+      ),
+    [
+      perpsAccountStatus.canTrade,
+      isNoEnoughMargin,
+      isServerActionDisabled,
+      isSubmitting,
+      priceError,
+      shouldAutoEnableTrading,
+      shouldEnableTradingBeforeOrder,
+    ],
+  );
+
+  const shouldPreserveDisabledButtonStyle =
+    shouldPreserveColdStartButtonVisualState({
+      isLiveStatusPending,
+      hasNonColdStartDisabledReason,
+    });
 
   const buttonDisabled = useMemo(() => {
     return shouldDisablePerpsOrderPanelTradingButton({
@@ -1111,6 +1138,9 @@ function SideButtonInternal({
             !buttonDisabled ? { bg: buttonStyles.pressBg } : undefined
           }
           disabled={buttonDisabled}
+          disabledStyle={
+            shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
+          }
           loading={shouldShowButtonLoading || isSubmitting}
           onPress={handlePress}
           h={36}
@@ -1155,6 +1185,9 @@ function SideButtonInternal({
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
         disabled={buttonDisabled}
+        disabledStyle={
+          shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
+        }
         loading={shouldShowButtonLoading || isSubmitting}
         onPress={handlePress}
         h={36}

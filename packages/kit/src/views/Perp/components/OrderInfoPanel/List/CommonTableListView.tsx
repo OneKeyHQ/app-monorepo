@@ -490,7 +490,11 @@ export function CommonTableListView<T>({
       </SizableText>
     </YStack>
   );
-  const showDesktopEmptyState = !listLoading && paginatedData.length === 0;
+  const effectiveListLoading = Boolean(
+    listLoading && paginatedData.length === 0,
+  );
+  const showDesktopEmptyState =
+    !effectiveListLoading && paginatedData.length === 0;
   const mobileLayoutRectsRef = useRef<
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
@@ -512,7 +516,7 @@ export function CommonTableListView<T>({
           rect,
           dataLength: data.length,
           paginatedLength: paginatedData.length,
-          listLoading,
+          listLoading: effectiveListLoading,
           useTabsList: shouldUseTabsList,
           disableListScroll,
           hasHeader: Boolean(ListHeaderComponent),
@@ -529,7 +533,7 @@ export function CommonTableListView<T>({
       data.length,
       disableListScroll,
       enablePagination,
-      listLoading,
+      effectiveListLoading,
       paginatedData.length,
       shouldUseTabsList,
       totalPages,
@@ -553,7 +557,7 @@ export function CommonTableListView<T>({
             prevHeight === undefined ? undefined : roundedHeight - prevHeight,
           dataLength: data.length,
           paginatedLength: paginatedData.length,
-          listLoading,
+          listLoading: effectiveListLoading,
           useTabsList: shouldUseTabsList,
           disableListScroll,
           hasHeader: Boolean(ListHeaderComponent),
@@ -567,7 +571,7 @@ export function CommonTableListView<T>({
       ListHeaderComponent,
       data.length,
       disableListScroll,
-      listLoading,
+      effectiveListLoading,
       paginatedData.length,
       shouldUseTabsList,
       traceName,
@@ -582,7 +586,7 @@ export function CommonTableListView<T>({
       traceName,
       dataLength: data.length,
       paginatedLength: paginatedData.length,
-      listLoading,
+      listLoading: effectiveListLoading,
       useTabsList: shouldUseTabsList,
       disableListScroll,
       hasHeader: Boolean(ListHeaderComponent),
@@ -601,7 +605,7 @@ export function CommonTableListView<T>({
     disableListScroll,
     enablePagination,
     isMobile,
-    listLoading,
+    effectiveListLoading,
     onViewAll,
     paginatedData.length,
     paginationToBottom,
@@ -651,7 +655,7 @@ export function CommonTableListView<T>({
             return renderRow(item, index, 'full');
           }}
           ListEmptyComponent={
-            listLoading ? <TradesHistoryLoadingView /> : emptyComponent
+            effectiveListLoading ? <TradesHistoryLoadingView /> : emptyComponent
           }
           contentContainerStyle={{
             flexGrow: paginatedData.length === 0 ? 1 : undefined,
@@ -784,7 +788,7 @@ export function CommonTableListView<T>({
                 )}
               </XStack>
               <YStack flex={1} pb={enablePagination ? 0 : '$4'}>
-                {listLoading ? (
+                {effectiveListLoading ? (
                   <YStack
                     flex={1}
                     justifyContent="center"
@@ -795,7 +799,7 @@ export function CommonTableListView<T>({
                   </YStack>
                 ) : null}
                 {showDesktopEmptyState ? desktopEmptyComponent : null}
-                {!listLoading && paginatedData.length > 0
+                {!effectiveListLoading && paginatedData.length > 0
                   ? paginatedData.map((item, index) => (
                       <Fragment
                         key={keyExtractor?.(item, index) ?? String(index)}
@@ -847,11 +851,11 @@ export function CommonTableListView<T>({
                 )}
               </XStack>
               <YStack flex={1} pb={enablePagination ? 0 : '$4'}>
-                {listLoading ? <YStack flex={1} p="$20" /> : null}
-                {!listLoading && paginatedData.length === 0 ? (
+                {effectiveListLoading ? <YStack flex={1} p="$20" /> : null}
+                {!effectiveListLoading && paginatedData.length === 0 ? (
                   <YStack flex={1} p="$5" />
                 ) : null}
-                {!listLoading && paginatedData.length > 0
+                {!effectiveListLoading && paginatedData.length > 0
                   ? paginatedData.map((item, index) => (
                       <Fragment
                         key={keyExtractor?.(item, index) ?? String(index)}

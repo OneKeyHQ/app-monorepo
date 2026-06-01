@@ -13,8 +13,8 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  usePerpsActiveOpenOrdersLengthAtom,
-  usePerpsActivePositionLengthAtom,
+  usePerpsActiveOpenOrdersAtom,
+  usePerpsActivePositionAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsAbstractionModeAtom,
@@ -25,8 +25,11 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { isHyperLiquidUnifiedAccountMode } from '../../utils';
+import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
 
 import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
@@ -53,18 +56,37 @@ function TabBarItem({
 }) {
   const intl = useIntl();
 
-  const [perpOpenOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
-  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
-  const openOrdersLength = perpOpenOrdersLength + spotOpenOrders.length;
-  const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
+  const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
+  const [positionsState] = usePerpsActivePositionAtom();
   const [{ balances }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
+  const accountScopedAddress = usePerpsAccountScopedCacheAddress();
   const [abstractionMode] = usePerpsAbstractionModeAtom();
   const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
     abstractionMode,
     currentUser?.accountAddress,
   );
+  const currentAccountAddress = accountScopedAddress;
+  const positionsLength = getPerpsAccountScopedListData({
+    activeAccountAddress: currentAccountAddress,
+    dataAccountAddress: positionsState.accountAddress,
+    data: positionsState.activePositions,
+  }).length;
+  const openOrdersLength =
+    getPerpsAccountScopedListData({
+      activeAccountAddress: currentAccountAddress,
+      dataAccountAddress: perpOpenOrdersState.accountAddress,
+      data: perpOpenOrdersState.openOrders.filter(
+        (order) => !isSpotInstrument(order.coin),
+      ),
+    }).length +
+    getPerpsAccountScopedListData({
+      activeAccountAddress: currentAccountAddress,
+      dataAccountAddress: spotOpenOrdersState.accountAddress,
+      data: spotOpenOrdersState.openOrders,
+    }).length;
 
   const holdingsCount = useMemo(() => {
     // Mirrors the USDC merge in SpotBalanceList.
