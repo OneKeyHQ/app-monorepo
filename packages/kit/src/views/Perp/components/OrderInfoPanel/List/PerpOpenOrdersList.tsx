@@ -46,14 +46,6 @@ interface IPerpOpenOrdersListProps {
 }
 
 type IOpenOrdersSubTab = 'basic' | 'twap';
-const OPEN_ORDERS_SUB_TABS: {
-  key: IOpenOrdersSubTab;
-  label: string;
-}[] = [
-  { key: 'basic', label: '基础单' },
-  { key: 'twap', label: 'TWAP 订单' },
-];
-
 type IOpenOrdersDisplayRow =
   | {
       type: 'single';
@@ -310,6 +302,22 @@ function PerpOpenOrdersList({
     );
   }, [activeTradeInstrument, filterByCurrentToken, isMobile, scopedTwapOrders]);
 
+  const openOrdersSubTabs = useMemo<
+    {
+      key: IOpenOrdersSubTab;
+      label: string;
+    }[]
+  >(() => {
+    const basicCount =
+      filteredOrders.length > 0 ? ` (${filteredOrders.length})` : '';
+    const twapCount =
+      filteredTwapOrders.length > 0 ? ` (${filteredTwapOrders.length})` : '';
+    return [
+      { key: 'basic', label: `基础单${basicCount}` },
+      { key: 'twap', label: `TWAP 订单${twapCount}` },
+    ];
+  }, [filteredOrders.length, filteredTwapOrders.length]);
+
   const displayRows = useMemo<IOpenOrdersDisplayRow[]>(() => {
     const shouldShowBasicOrders =
       !isMobile || activeOpenOrdersSubTab === 'basic';
@@ -448,7 +456,7 @@ function PerpOpenOrdersList({
   const mobileListHeader = isMobile ? (
     <YStack>
       <OrderInfoSubTabs
-        tabs={OPEN_ORDERS_SUB_TABS}
+        tabs={openOrdersSubTabs}
         activeTab={activeOpenOrdersSubTab}
         onChange={setActiveOpenOrdersSubTab}
       />
