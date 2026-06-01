@@ -106,6 +106,26 @@ import type { AxiosResponse } from 'axios';
 
 const nonceZero = 0;
 
+type IApiUploadItemsParams = {
+  localItems: IDBCloudSyncItem[];
+  isFlush?: boolean;
+  isReset?: boolean;
+  skipPrimeStatusCheck?: boolean;
+  setUndefinedTimeToNow?: boolean;
+  syncCredential?: ICloudSyncCredential | undefined;
+  encryptedSecurityPasswordR1ForServer?: string;
+  noDebounceUpload?: boolean;
+  // OK-55438: opt-in flag for genuine "now" writes (rename / delete tombstone).
+  // Records these item ids so the upload payload asks the server to
+  // authoritatively stamp dataTime to serverNow.
+  useServerDataTime?: boolean;
+};
+
+type IApiUploadFreshItemsParams = Omit<
+  IApiUploadItemsParams,
+  'useServerDataTime'
+>;
+
 // Guard for the first-enable window: server pwdHash can be temporarily empty
 // before initial flush/lock upload finishes.
 let oneKeyIdCloudSyncEnableFlowCount = 0;
@@ -559,21 +579,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     encryptedSecurityPasswordR1ForServer,
     noDebounceUpload,
     useServerDataTime,
-  }: {
-    localItems: IDBCloudSyncItem[];
-    isFlush?: boolean;
-    isReset?: boolean;
-    skipPrimeStatusCheck?: boolean;
-    setUndefinedTimeToNow?: boolean;
-    syncCredential?: ICloudSyncCredential | undefined;
-    encryptedSecurityPasswordR1ForServer?: string;
-    noDebounceUpload?: boolean;
-    // OK-55438: opt-in flag for genuine "now" writes (rename / delete tombstone).
-    // Records these item ids so the upload payload asks the server to
-    // authoritatively stamp dataTime. Server only clamps when the submitted time
-    // is ahead of its own clock, so this can never move a past timestamp forward.
-    useServerDataTime?: boolean;
-  }) {
+  }: IApiUploadItemsParams) {
     if (useServerDataTime) {
       localItems.forEach((item) => this.useServerDataTimeIds.add(item.id));
     }
@@ -635,6 +641,14 @@ class ServicePrimeCloudSync extends ServiceBase {
       pwdHash,
       setUndefinedTimeToNow,
       noDebounceUpload,
+    });
+  }
+
+  @backgroundMethod()
+  async apiUploadFreshItems(params: IApiUploadFreshItemsParams) {
+    return this.apiUploadItems({
+      ...params,
+      useServerDataTime: true,
     });
   }
 
@@ -764,10 +778,11 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   // OK-55438: item ids whose dataTime should be authoritatively rewritten by the
   // server (genuine "now" writes such as rename / delete tombstone). Populated by
-  // apiUploadItems({ useServerDataTime: true }) and consumed (cleared) when the
-  // upload payload is built in `_callApiUploadItems`. The flag is carried per
-  // item (not per request) because the debounced merge buffer mixes fresh writes
-  // with historical re-uploads (obsoleted re-sync, uploadAllLocalItems, ...).
+  // addAndUpdateFreshSyncItems / apiUploadFreshItems and consumed (cleared)
+  // when the upload payload is built in `_callApiUploadItems`. The flag is
+  // carried per item (not per request) because the debounced merge buffer mixes
+  // fresh writes with historical re-uploads (obsoleted re-sync,
+  // uploadAllLocalItems, ...).
   useServerDataTimeIds: Set<string> = new Set();
 
   _callApiUploadItemsDebounceMerge({
@@ -2419,8 +2434,8 @@ class ServicePrimeCloudSync extends ServiceBase {
       isDeleted: localItem.isDeleted,
       pwdHash: localItem.pwdHash,
     };
-    // OK-55438: ask the server to authoritatively stamp dataTime for genuine
-    // "now" writes (it only clamps when the submitted time is ahead of server).
+    // OK-55438: ask the server to authoritatively stamp dataTime to serverNow
+    // for genuine "now" writes.
     if (useServerDataTime) {
       serverItem.useServerDataTime = true;
     }
