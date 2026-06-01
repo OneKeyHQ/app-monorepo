@@ -45,6 +45,10 @@
   .detail ul { margin: 0; padding-left: 17px; }
   .detail li { font-size: 12.5px; line-height: 1.6; color: #374151; }
   .detail code, .detail .mono { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-size: 11.5px; color: #be123c; }
+  .detail h4.err-h { color: #b91c1c; }
+  .detail .err-list li { color: #7f1d1d; }
+  .detail .ecode { font-family: ui-monospace, Menlo, monospace; font-weight: 700; color: #be123c; }
+  .scope { font-size: 12px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 9px 12px; margin: 0 0 14px; line-height: 1.6; }
 
   .arrow { width: 2px; height: 24px; background: var(--line); position: relative; flex: none; }
   .arrow::after { content: ''; position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--line); }
@@ -103,7 +107,8 @@
 <body>
   <div class="wrap">
     <h1>OneKeyID / Keyless 合并 · 完整流程（卡片式）</h1>
-    <p class="lead">来源：server-apis.md / 各 API examples。点标签切换场景，点任意节点展开参数 / 返回 / 注意。</p>
+    <p class="lead">来源：server-apis.md / 各 API examples / plan.md。点标签切换场景，点任意节点展开参数 / 返回 / 错误码 / 注意。</p>
+    <div class="scope" id="scope"></div>
     <div class="tabs" id="tabs"></div>
     <div class="summary" id="summary"></div>
     <div class="legend">
@@ -121,6 +126,7 @@
 <script>
   const { colors, tags } = window.FLOW_META;
   const FLOWS = window.FLOWS;
+  if (window.FLOW_SCOPE) document.getElementById("scope").textContent = "适用范围：" + window.FLOW_SCOPE;
   const arrow = '<div class="arrow"></div>';
   const toneClass = { ok: "t-ok", no: "t-no", warn: "t-warn", go: "t-go" };
 
@@ -129,7 +135,13 @@
     const sec = (t, arr, mono) => arr && arr.length
       ? "<h4>" + t + "</h4><ul>" + arr.map(x => "<li>" + (mono ? '<span class="mono">' + x + "</span>" : x) + "</li>").join("") + "</ul>"
       : "";
-    const body = sec("参数", d.params, true) + sec("返回", d.returns, true) + sec("注意", d.notes, false);
+    const errSec = (arr) => arr && arr.length
+      ? '<h4 class="err-h">错误码</h4><ul class="err-list">' + arr.map(x => {
+          const i = x.indexOf(":");
+          return i > 0 ? '<li><span class="ecode">' + x.slice(0, i) + "</span>" + x.slice(i) + "</li>" : "<li>" + x + "</li>";
+        }).join("") + "</ul>"
+      : "";
+    const body = sec("参数", d.params, true) + sec("返回", d.returns, true) + errSec(d.errors) + sec("注意", d.notes, false);
     return body ? '<div class="detail">' + body + "</div>" : "";
   }
 
@@ -218,6 +230,7 @@
     summaryEl.innerHTML = "<b>" + f.title + "</b><br>" + f.summary;
     flowEl.innerHTML = renderSeq(f.blocks);
     capRail();
+    if (openAll) flowEl.querySelectorAll(".node").forEach(n => n.classList.add("open")); // ?open 同时展开节点详情
   }
   tabsEl.addEventListener("click", (e) => {
     const t = e.target.closest(".tab");
