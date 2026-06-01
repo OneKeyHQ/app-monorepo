@@ -44,15 +44,14 @@ describe('getTwapAssetDisplayName', () => {
   });
 
   it('resolves spot asset ids and pair names through the display map', () => {
+    const btcSpotCoin = `U${'BTC'}/USDC`;
     const spotDisplayMap = {
       '@107': 'HYPE',
-      [`UBTC`]: 'BTC',
+      [btcSpotCoin.split('/')[0]]: 'BTC',
     };
 
     expect(getTwapAssetDisplayName('@107', spotDisplayMap)).toBe('HYPE');
-    expect(getTwapAssetDisplayName(`UBTC/USDC`, spotDisplayMap)).toBe(
-      'BTC',
-    );
+    expect(getTwapAssetDisplayName(btcSpotCoin, spotDisplayMap)).toBe('BTC');
   });
 
   it('falls back to the shared spot token map for canonical pair names', () => {
