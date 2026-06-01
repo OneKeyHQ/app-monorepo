@@ -6,6 +6,7 @@ import type {
   IWebTab,
   IWebTabsAtom,
 } from '@onekeyhq/kit/src/views/Discovery/types';
+import { computeAliveWebViewIds } from '@onekeyhq/kit/src/views/Discovery/utils/computeAliveWebViewIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const {
@@ -40,6 +41,26 @@ export const { atom: webTabsMapAtom, use: useWebTabsMapAtom } = contextAtom<
 export const { atom: activeTabIdAtom, use: useActiveTabIdAtom } = contextAtom<
   string | null
 >(null);
+
+/**
+ * Recency-ordered list of tab ids (most-recently-active first). Maintained on
+ * tab switch/close and used to decide which tabs keep their WebView alive.
+ */
+export const { atom: webTabMountOrderAtom, use: useWebTabMountOrderAtom } =
+  contextAtom<string[]>([]);
+
+/**
+ * Set of tab ids whose WebView should stay mounted (alive). Tabs not in this set
+ * are unmounted to bound memory (recency LRU); re-activating an evicted tab
+ * remounts and reloads it. Derived from tabs + active tab + recency order.
+ */
+export const { atom: aliveWebViewIdsAtom, use: useAliveWebViewIdsAtom } =
+  contextAtomComputed<Set<string>>((get) => {
+    const { tabs } = get(webTabsAtom());
+    const activeTabId = get(activeTabIdAtom());
+    const mountOrder = get(webTabMountOrderAtom());
+    return computeAliveWebViewIds({ tabs, activeTabId, mountOrder });
+  });
 
 export const {
   atom: disabledAddedNewTabAtom,

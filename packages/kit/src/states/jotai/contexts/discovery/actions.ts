@@ -58,6 +58,7 @@ import {
   displayHomePageAtom,
   lastClosedTabAtom,
   phishingLruCacheAtom,
+  webTabMountOrderAtom,
   webTabsAtom,
   webTabsMapAtom,
 } from './atoms';
@@ -268,6 +269,18 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       });
       set(activeTabIdAtom(), nextActiveTabId);
 
+      // Record recency so the WebView keep-alive LRU evicts the least-recently
+      // active tab first (see aliveWebViewIdsAtom / computeAliveWebViewIds).
+      if (nextActiveTabId) {
+        const mountOrder = get(webTabMountOrderAtom());
+        if (mountOrder[0] !== nextActiveTabId) {
+          set(webTabMountOrderAtom(), [
+            nextActiveTabId,
+            ...mountOrder.filter((id) => id !== nextActiveTabId),
+          ]);
+        }
+      }
+
       if (currentTabId !== nextActiveTabId && nextActiveTabId) {
         this.resumeDappInteraction.call(set, nextActiveTabId);
       }
@@ -450,6 +463,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     ) => {
       const { tabId, entry, navigation } = payload;
       delete webviewRefs[tabId];
+      const mountOrder = get(webTabMountOrderAtom());
+      if (mountOrder.includes(tabId)) {
+        set(
+          webTabMountOrderAtom(),
+          mountOrder.filter((id) => id !== tabId),
+        );
+      }
       const { tabs } = get(webTabsAtom());
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
       if (targetIndex !== -1) {
