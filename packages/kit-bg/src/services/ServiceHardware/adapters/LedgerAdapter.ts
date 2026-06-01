@@ -81,9 +81,37 @@ export class LedgerAdapter
         case EConnectorInteraction.InteractionComplete:
           void thirdPartyHardwareUiStateAtom.set(undefined);
           break;
+        case EConnectorInteraction.AppInstallProgress: {
+          // Ledger DMK install progress (0..1); throttled log avoids flooding.
+          const { connectId, appName, progress } = event.payload;
+          if (
+            this.shouldLogAppInstallProgress({ connectId, appName, progress })
+          ) {
+            defaultLogger.hardware.sdkLog.log(
+              `[3rdPartyHW][Ledger] app-install-progress appName=${appName} progress=${progress}`,
+            );
+          }
+          appEventBus.emit(
+            EAppEventBusNames.ThirdPartyHardwareAppInstallProgress,
+            {
+              vendor: EHardwareVendor.ledger,
+              connectId,
+              appName,
+              progress,
+            },
+          );
+          break;
+        }
         default: {
+          // Compile-time exhaustiveness guard: when the SDK adds a new
+          // EConnectorInteraction variant, `event` is no longer `never` here
+          // and the build fails until the new variant is handled above. The
+          // runtime log stays as a belt-and-suspenders for unexpected values.
+          const unhandled: never = event;
           defaultLogger.hardware.sdkLog.log(
-            `[3rdPartyHW][Ledger] Unhandled SDK ui-event type: ${eventType}`,
+            `[3rdPartyHW][Ledger] Unhandled SDK ui-event type: ${
+              (unhandled as { type?: string })?.type ?? eventType
+            }`,
           );
           break;
         }
@@ -138,43 +166,6 @@ export class LedgerAdapter
           payload: { reason, message, path, accountIndex },
         });
       }
-    });
-
-    (
-      this.hw as IHardwareWallet & {
-        on(
-          event: 'app-install-progress',
-          listener: (e: {
-            type: 'app-install-progress';
-            payload: {
-              connectId: string;
-              appName: string;
-              progress: number;
-              requiredUserInteraction?: string;
-            };
-          }) => void,
-        ): void;
-      }
-    ).on('app-install-progress', (event) => {
-      const payload = event.payload;
-      if (
-        this.shouldLogAppInstallProgress({
-          connectId: payload.connectId,
-          appName: payload.appName,
-          progress: payload.progress,
-        })
-      ) {
-        defaultLogger.hardware.sdkLog.log(
-          `[3rdPartyHW][Ledger] app-install-progress appName=${payload.appName} progress=${payload.progress}`,
-        );
-      }
-      appEventBus.emit(EAppEventBusNames.ThirdPartyHardwareAppInstallProgress, {
-        vendor: EHardwareVendor.ledger,
-        connectId: payload.connectId,
-        appName: payload.appName,
-        progress: payload.progress,
-        requiredUserInteraction: payload.requiredUserInteraction,
-      });
     });
   }
 
