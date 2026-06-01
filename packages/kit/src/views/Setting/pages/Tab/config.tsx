@@ -15,6 +15,7 @@ import {
   useAppUpdateInfo,
 } from '@onekeyhq/kit/src/components/AppUpdate';
 import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -160,6 +161,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
   const [settings] = useSettingsPersistAtom();
+  const { isPrimeActive } = useOneKeyAuth();
 
   const { cloudBackupFeatureInfo, startBackup } = useCloudBackup();
 
@@ -208,6 +210,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     defaultLogger.prime.subscription.primeEntryClick({
                       featureName: EPrimeFeatures.OneKeyCloud,
                       entryPoint: 'settingsPage',
+                      isPrimeActive,
                     });
 
                     navigation?.pushModal(EModalRoutes.PrimeModal, {
@@ -889,6 +892,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       helpCenterUrl,
       userAgreementUrl,
       privacyPolicyUrl,
+      isPrimeActive,
     ],
   );
 };

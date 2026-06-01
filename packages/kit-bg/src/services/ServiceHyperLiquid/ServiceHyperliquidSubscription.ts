@@ -1937,21 +1937,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         this._emitHyperliquidDataUpdate(subscriptionType, data);
       }
 
-      // Restart ping loop if not running (e.g. after transport auto-reconnect
-      // where socketOpenHandler doesn't fire on the new internal socket)
-      if (!this._pingIntervalTimer) {
-        this._startPingLoop();
-      }
-
-      void perpsNetworkStatusAtom.set(
-        (prev): IPerpsNetworkStatus => ({
-          ...prev,
-          connected: true,
-          lastMessageAt: messageTimestamp,
-        }),
-      );
-
-      this._scheduleNetworkTimeout(messageTimestamp);
+      // Route default-case messages through the same liveness path used by
+      // ALL_MIDS / SPOT_STATE / SPOT_ASSET_CTXS etc. The throttled
+      // _updateNetworkLiveness() variant updates perpsNetworkStatusAtom at
+      // most once per 5 s — the prior unconditional set() here fired on
+      // every WS message (10+/s for high-frequency streams), generating a
+      // setAtomValue storm across the bg→ui bridge.
+      this._updateNetworkLiveness();
     } catch (error) {
       console.error(
         `[ServiceHyperliquidSubscription.handleSubscriptionData] Failed to handle data for ${subscriptionType}:`,

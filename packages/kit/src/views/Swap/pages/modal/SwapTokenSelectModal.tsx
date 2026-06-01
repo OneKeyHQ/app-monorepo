@@ -143,6 +143,7 @@ const SwapTokenSelectPage = ({
     : false;
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
+  const hasUserSelectedNetworkRef = useRef(false);
   if (fromTokenRef.current !== fromToken) {
     fromTokenRef.current = fromToken;
   }
@@ -212,12 +213,31 @@ const SwapTokenSelectPage = ({
   );
 
   useEffect(() => {
-    setCurrentSelectNetwork(syncDefaultNetworkSelect);
-    return () => {
+    if (hasUserSelectedNetworkRef.current) {
+      return;
+    }
+    const nextNetwork = syncDefaultNetworkSelect();
+    if (!nextNetwork) {
+      return;
+    }
+    setCurrentSelectNetwork((prev) => {
+      if (
+        !prev ||
+        prev.isAllNetworks ||
+        prev.networkId === nextNetwork.networkId
+      ) {
+        return nextNetwork;
+      }
+      return prev;
+    });
+  }, [setCurrentSelectNetwork, syncDefaultNetworkSelect]);
+
+  useEffect(
+    () => () => {
       setCurrentSelectNetwork(undefined);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setCurrentSelectNetwork]);
+    },
+    [setCurrentSelectNetwork],
+  );
 
   useEffect(() => {
     const accountNet =
@@ -334,6 +354,7 @@ const SwapTokenSelectPage = ({
 
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
+      hasUserSelectedNetworkRef.current = true;
       setCurrentSelectNetwork(network);
       listViewRef.current?.scrollToOffset({
         offset: 0,
