@@ -9,6 +9,7 @@ import {
   closeAllDialogInstances,
   getDialogInstances,
   getFormInstances,
+  isNativeTablet,
   rootNavigationRef,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -43,6 +44,7 @@ jest.mock('@onekeyhq/components', () => ({
   closeAllDialogInstances: jest.fn(() => Promise.resolve()),
   getFormInstances: jest.fn(() => []),
   getDialogInstances: jest.fn(() => []),
+  isNativeTablet: jest.fn(() => false),
   rootNavigationRef: {
     current: {
       dispatch: jest.fn(),
@@ -99,6 +101,9 @@ const mockedRootNavigationRef =
 const mockedCommonActionsReset = CommonActions.reset as jest.MockedFunction<
   typeof CommonActions.reset
 >;
+const mockedIsNativeTablet = isNativeTablet as jest.MockedFunction<
+  typeof isNativeTablet
+>;
 
 function setRootRoutes(
   routes: Array<ERootRoutes | IRootRoute>,
@@ -147,6 +152,7 @@ describe('referralLandingOverlayGuard', () => {
     mockedCloseAllDialogInstances.mockResolvedValue(undefined);
     mockedGetFormInstances.mockReturnValue([]);
     mockedGetDialogInstances.mockReturnValue([]);
+    mockedIsNativeTablet.mockReturnValue(false);
     mockedRootNavigationRef.current.dispatch.mockReset();
     mockedRootNavigationRef.current.dispatch.mockImplementation((action) => {
       const payload = (action as { payload?: IRootState }).payload;
@@ -252,6 +258,19 @@ describe('referralLandingOverlayGuard', () => {
       'wait',
       'continue',
     ]);
+  });
+
+  it('hides the close action on tablets', () => {
+    setRootRoutes([ERootRoutes.Main, ERootRoutes.Modal]);
+    mockedIsNativeTablet.mockReturnValue(true);
+
+    expect(showReferralBlockingOverlayToast({ onContinue: jest.fn() })).toBe(
+      true,
+    );
+
+    const toastProps = mockedToastMessage.mock.calls.at(-1)?.[0];
+    expect(toastProps?.actions).toBeUndefined();
+    expect(toastProps?.actionsAlign).toBeUndefined();
   });
 
   it('asks for confirmation before closing dirty form dialogs', async () => {
