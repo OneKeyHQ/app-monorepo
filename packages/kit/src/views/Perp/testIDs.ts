@@ -113,6 +113,7 @@ export const PerpTestIDs = {
   // -- Empty state CTAs (positions / holdings panels) --
   PositionsEmptyDepositButton: 'perp-positions-empty-deposit-button',
   PositionsEmptyGuideButton: 'perp-positions-empty-guide-button',
+  TwapEmptyGuideButton: 'perp-twap-empty-guide-button',
   HoldingsEmptyDepositButton: 'perp-holdings-empty-deposit-button',
   HoldingsEmptyGuideButton: 'perp-holdings-empty-guide-button',
 

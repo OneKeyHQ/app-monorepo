@@ -24,7 +24,8 @@ import {
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { useOrderConfirm, useTradingPrice } from '../../hooks';
+import { useOrderConfirm } from '../../hooks';
+import { useOrderPrice } from '../../hooks/useOrderPrice';
 import { getPerpsFormLeverage } from '../../utils/leverageDisplay';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import {
@@ -50,7 +51,7 @@ function PerpTradingDisabledButton() {
   const [formData] = useTradingFormAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
   const { isSubmitting, handleConfirm } = useOrderConfirm();
-  const { midPriceBN } = useTradingPrice();
+  const { price: effectivePriceBN } = useOrderPrice(formData.side);
 
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [tradingMode] = useTradingModeAtom();
@@ -73,13 +74,6 @@ function PerpTradingDisabledButton() {
     return Number(maxTradeSzs[formData.side === 'long' ? 0 : 1]);
   }, [activeAssetData?.maxTradeSzs, formData.side]);
 
-  const effectivePriceBN = useMemo(() => {
-    if (formData.type === 'limit') {
-      return new BigNumber(formData.price || 0);
-    }
-    return midPriceBN;
-  }, [formData.type, formData.price, midPriceBN]);
-
   const isMinimumOrderNotMet = useMemo(() => {
     if (
       !shouldApplyMinimumOrderGuard({
@@ -97,24 +91,24 @@ function PerpTradingDisabledButton() {
     const priceBN = effectivePriceBN;
     if (!priceBN.isFinite() || priceBN.lte(0)) return false;
 
-    const leverageBN = new BigNumber(formData.leverage || 1);
-    if (!leverageBN.isFinite() || leverageBN.lte(0)) return false;
-
-    const orderValue = tradingComputed.computedSizeBN
-      .multipliedBy(priceBN)
-      .multipliedBy(leverageBN);
+    const orderValue = tradingComputed.computedSizeBN.multipliedBy(priceBN);
     return orderValue.lt(10);
   }, [
     tradingComputed.computedSizeBN,
     effectivePriceBN,
     formData.bboPriceMode,
-    formData.leverage,
     formData.orderMode,
     formData.type,
     tradingMode,
   ]);
 
   const isNoEnoughMargin = useMemo(() => {
+    if (
+      (formData.orderMode === 'scale' && formData.scaleReduceOnly) ||
+      (formData.orderMode === 'twap' && formData.twapReduceOnly)
+    ) {
+      return false;
+    }
     if (!tradingComputed.computedSizeBN.isFinite()) return false;
     if (tradingComputed.computedSizeBN.lte(0)) return false;
 
@@ -140,6 +134,9 @@ function PerpTradingDisabledButton() {
     tradingComputed.computedSizeBN,
     maxTradeSz,
     formData.type,
+    formData.orderMode,
+    formData.scaleReduceOnly,
+    formData.twapReduceOnly,
     effectivePriceBN,
     leverage,
   ]);

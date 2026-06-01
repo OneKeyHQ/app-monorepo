@@ -790,11 +790,14 @@ export const {
   },
 });
 
+export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
+
 export interface IPerpsCustomSettings {
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
   lastTriggerOrderType: ETriggerOrderType;
+  lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
 }
 export const {
   target: perpsCustomSettingsAtom,
@@ -807,6 +810,7 @@ export const {
     showTradeMarks: true,
     showChartLines: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
+    lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,
   },
 });
 

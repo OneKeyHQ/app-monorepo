@@ -9,11 +9,15 @@ import type {
   IOrderRequest,
   IOrderResponse,
   ISuccessResponse,
+  ITwapCancelResponse,
+  ITwapOrderResponse,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IAgentApprovalRequest,
   IBuilderFeeRequest,
+  ICancelTwapOrderParams,
   ILeverageUpdateRequest,
+  IPlaceTwapOrderParams,
   ISetReferrerRequest,
   IUpdateIsolatedMarginRequest,
   IWithdrawParams,
@@ -219,6 +223,26 @@ export class HyperLiquidScene extends BaseScene {
     params: IHyperLiquidLogParams<
       { oid: number; order: IOrderParams },
       IModifyResponse | IApiErrorResponse
+    >,
+  ) {
+    return stripSensitiveFields(params);
+  }
+
+  @LogToServer()
+  public twapOrder(
+    params: IHyperLiquidLogParams<
+      { twap: Omit<IPlaceTwapOrderParams, 'szDecimals'> },
+      ITwapOrderResponse | IApiErrorResponse
+    >,
+  ) {
+    return stripSensitiveFields(params);
+  }
+
+  @LogToServer()
+  public twapCancel(
+    params: IHyperLiquidLogParams<
+      ICancelTwapOrderParams,
+      ITwapCancelResponse | IApiErrorResponse
     >,
   ) {
     return stripSensitiveFields(params);
