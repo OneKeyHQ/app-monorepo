@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -80,7 +80,14 @@ const MobileTwapOpenOrdersRow = memo(
   ({ order, onCancelOrder }: IMobileTwapOpenOrdersRowProps) => {
     const intl = useIntl();
     const { twapId, state } = order;
+    const [now, setNow] = useState(Date.now());
     const [spotDisplayMap] = useSpotPairDisplayMapAtom();
+
+    useEffect(() => {
+      const timer = setInterval(() => setNow(Date.now()), 1000);
+      return () => clearInterval(timer);
+    }, []);
+
     const assetSymbol = useMemo(
       () => getTwapAssetDisplayName(state.coin, spotDisplayMap),
       [spotDisplayMap, state.coin],
@@ -122,11 +129,16 @@ const MobileTwapOpenOrdersRow = memo(
               progressPercent ? ` · ${progressPercent}%` : ''
             }`
           : `${state.executedSz} / ${state.sz}`;
-      const execution = `${state.minutes}m${
-        state.randomize ? ' · Random' : ''
+      const minuteUnit = intl
+        .formatMessage({ id: ETranslations.Limit_expire_minutes })
+        .toLowerCase();
+      const execution = `${state.minutes} ${minuteUnit}${
+        state.randomize
+          ? ` · ${intl.formatMessage({ id: ETranslations.global_randomized })}`
+          : ''
       }`;
       const elapsedMs = Math.min(
-        Math.max(Date.now() - state.timestamp, 0),
+        Math.max(now - state.timestamp, 0),
         state.minutes * 60_000,
       );
       return {
@@ -139,9 +151,11 @@ const MobileTwapOpenOrdersRow = memo(
         runningTimeText: `${formatElapsedDuration(
           elapsedMs,
         )} / ${formatTotalDuration(state.minutes)}`,
-        reduceOnlyText: state.reduceOnly ? 'Yes' : 'No',
+        reduceOnlyText: state.reduceOnly
+          ? intl.formatMessage({ id: ETranslations.perp_yes__title })
+          : intl.formatMessage({ id: ETranslations.perp_no__title }),
       };
-    }, [state]);
+    }, [intl, now, state]);
 
     const sideText = useMemo(() => {
       if (state.side === 'B') {
@@ -174,7 +188,9 @@ const MobileTwapOpenOrdersRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
               >
-                {`TWAP / ${sideText}`}
+                {`${intl.formatMessage({
+                  id: ETranslations.perp_twap_order__title,
+                })} / ${sideText}`}
               </SizableText>
               <SizableText
                 size="$bodySm"
@@ -201,24 +217,37 @@ const MobileTwapOpenOrdersRow = memo(
         </XStack>
         <YStack width="100%" gap="$2">
           <MobileTwapInfoRow
-            label="Filled / Total"
+            label={intl.formatMessage({
+              id: ETranslations.perp_twap_filled_total__title,
+            })}
             value={baseInfo.progressText}
           />
-          <MobileTwapInfoRow label="Duration" value={baseInfo.execution} />
           <MobileTwapInfoRow
-            label="Avg. Filled Price"
+            label={intl.formatMessage({
+              id: ETranslations.perp_twap_duration__title,
+            })}
+            value={baseInfo.execution}
+          />
+          <MobileTwapInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_twap_avg_filled_price__title,
+            })}
             value={baseInfo.avgPriceFormatted}
           />
           <MobileTwapInfoRow
-            label="Total Trade Amt."
+            label={intl.formatMessage({
+              id: ETranslations.perp_twap_total_trade_amount__title,
+            })}
             value={baseInfo.executedValueFormatted}
           />
           <MobileTwapInfoRow
-            label="Reduce Only"
+            label={intl.formatMessage({ id: ETranslations.perps_reduce_only })}
             value={baseInfo.reduceOnlyText}
           />
           <MobileTwapInfoRow
-            label="Running Time"
+            label={intl.formatMessage({
+              id: ETranslations.perp_twap_running_time__title,
+            })}
             value={baseInfo.runningTimeText}
           />
         </YStack>

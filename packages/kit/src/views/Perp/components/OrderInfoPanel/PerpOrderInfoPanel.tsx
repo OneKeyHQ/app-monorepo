@@ -42,6 +42,7 @@ import { SpotBalanceList } from './List/SpotBalanceList';
 const tabNameToTranslationKey: Partial<Record<string, ETranslations>> = {
   'Positions': ETranslations.perp_position_title,
   'Open Orders': ETranslations.perp_open_orders_title,
+  'TWAP': ETranslations.perp_twap_order__title,
   'Trades History': ETranslations.perp_trades_history_title,
   'Account': ETranslations.perp_account_history,
   'Balances': ETranslations.perp_holdings_tokens,

@@ -3,8 +3,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   type IDebugRenderTrackerProps,
+  Icon,
+  SizableText,
   Toast,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -26,11 +30,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
+import { PerpTestIDs } from '../../../testIDs';
 import {
   getPerpsAccountScopedListData,
   isPerpsAccountAddressMatched,
   isPerpsAccountScopedDataReady,
 } from '../../../utils/accountScopedData';
+import { buildHelpUrl, openGuideUrl } from '../../Guide/perpGuideData';
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
 import { MobileTwapOpenOrdersRow } from '../Components/MobileTwapOpenOrdersRow';
@@ -55,6 +61,47 @@ type IOpenOrdersDisplayRow =
       type: 'twap';
       order: IPerpsActiveTwapOrder;
     };
+
+function MobileTwapEmptyState() {
+  const intl = useIntl();
+  const handleGuidePress = useCallback(() => {
+    openGuideUrl(buildHelpUrl('articles/13988742'));
+  }, []);
+
+  return (
+    <YStack
+      flex={1}
+      alignItems="center"
+      justifyContent="center"
+      p="$6"
+      gap="$3"
+    >
+      <SizableText size="$bodyMdMedium" color="$text" textAlign="center">
+        {intl.formatMessage({ id: ETranslations.perp_no_active_twap__title })}
+      </SizableText>
+      <Button
+        testID={PerpTestIDs.TwapEmptyGuideButton}
+        width={180}
+        borderRadius="$full"
+        size="small"
+        h={28}
+        px="$3"
+        variant="secondary"
+        onPress={handleGuidePress}
+        childrenAsText={false}
+      >
+        <XStack gap="$1.5" alignItems="center">
+          <Icon name="BookOpenOutline" size="$4" />
+          <SizableText size="$bodySmMedium">
+            {intl.formatMessage({
+              id: ETranslations.perp_twap_trading_guide__action,
+            })}
+          </SizableText>
+        </XStack>
+      </Button>
+    </YStack>
+  );
+}
 
 function useOpenOrdersColumnsConfig({
   openOrdersLength,
@@ -313,10 +360,20 @@ function PerpOpenOrdersList({
     const twapCount =
       filteredTwapOrders.length > 0 ? ` (${filteredTwapOrders.length})` : '';
     return [
-      { key: 'basic', label: `基础单${basicCount}` },
-      { key: 'twap', label: `TWAP 订单${twapCount}` },
+      {
+        key: 'basic',
+        label: `${intl.formatMessage({
+          id: ETranslations.perp_basic_order__title,
+        })}${basicCount}`,
+      },
+      {
+        key: 'twap',
+        label: `${intl.formatMessage({
+          id: ETranslations.perp_twap_order__title,
+        })}${twapCount}`,
+      },
     ];
-  }, [filteredOrders.length, filteredTwapOrders.length]);
+  }, [filteredOrders.length, filteredTwapOrders.length, intl]);
 
   const displayRows = useMemo<IOpenOrdersDisplayRow[]>(() => {
     const shouldShowBasicOrders =
@@ -360,7 +417,9 @@ function PerpOpenOrdersList({
         const tokenInfo = symbolMeta;
         if (!tokenInfo) {
           Toast.message({
-            title: 'Token info not found',
+            title: intl.formatMessage({
+              id: ETranslations.perp_token_info_not_found__msg,
+            }),
           });
           return;
         }
@@ -381,7 +440,7 @@ function PerpOpenOrdersList({
         });
       }
     },
-    [actions],
+    [actions, intl],
   );
 
   const handleCancelTwapOrder = useCallback(
@@ -394,7 +453,9 @@ function PerpOpenOrdersList({
           });
         if (!symbolMeta) {
           Toast.message({
-            title: 'Token info not found',
+            title: intl.formatMessage({
+              id: ETranslations.perp_token_info_not_found__msg,
+            }),
           });
           return;
         }
@@ -409,11 +470,13 @@ function PerpOpenOrdersList({
           title:
             error instanceof Error
               ? error.message
-              : 'Failed to cancel TWAP order',
+              : intl.formatMessage({
+                  id: ETranslations.perp_failed_cancel_twap_order__msg,
+                }),
         });
       }
     },
-    [actions],
+    [actions, intl],
   );
 
   const totalMinWidth = useMemo(
@@ -471,6 +534,10 @@ function PerpOpenOrdersList({
       />
     </YStack>
   ) : null;
+  const listEmptyComponent =
+    isMobile && activeOpenOrdersSubTab === 'twap' ? (
+      <MobileTwapEmptyState />
+    ) : undefined;
 
   return (
     <CommonTableListView
@@ -506,6 +573,7 @@ function PerpOpenOrdersList({
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_open_order_empty_desc,
       })}
+      ListEmptyComponent={listEmptyComponent}
       ListHeaderComponent={mobileListHeader}
     />
   );
