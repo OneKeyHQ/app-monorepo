@@ -44,7 +44,6 @@ import {
   spotAssetCtxsMapAtom,
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
-  usePerpsActiveAssetCtxAtom,
   usePerpsFavoritesOrderPersistAtom,
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -66,6 +65,8 @@ import {
   isSpotInstrument,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
+  IPerpTokenSortDirection,
+  IPerpTokenSortField,
   IPerpsAssetCtx,
   IPerpsUniverse,
   ISpotUniverse,
@@ -83,6 +84,8 @@ import {
   usePerpsFavorites,
 } from '../../hooks';
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
+import { usePerpsActiveAssetCtxDisplay } from '../../hooks/usePerpsActiveAssetCtxDisplay';
+import { tracePerpsMobileLayout } from '../../utils/mobileLayoutTrace';
 import {
   getTokenSelectorFavoriteItems,
   getTokenSelectorFavoriteSortEntry,
@@ -152,6 +155,16 @@ const DESKTOP_TOKEN_SELECTOR_TABLE_MIN_WIDTH = {
     MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.marketCap.minWidth +
     TOKEN_SELECTOR_TABLE_HORIZONTAL_PADDING,
 } as const;
+
+function getCurrentSortSnapshot(selectorConfig?: {
+  field?: IPerpTokenSortField;
+  direction?: IPerpTokenSortDirection;
+}) {
+  return {
+    sortField: selectorConfig?.field ?? '',
+    sortDirection: selectorConfig?.direction ?? 'desc',
+  };
+}
 
 const PrimaryTabItem = memo(
   ({
@@ -455,7 +468,7 @@ function BasePerpTokenSelectorContent({
   );
   const showCategoryTabs = displayPrimaryTab === 'perps';
 
-  const setActiveTab = useCallback(
+  const updateActiveTab = useCallback(
     (tab: string) => {
       startTransition(() => {
         setSelectorConfig(
@@ -474,21 +487,45 @@ function BasePerpTokenSelectorContent({
     },
     [actions, setSelectorConfig],
   );
+  const setActiveTab = useCallback(
+    (tab: string) => {
+      defaultLogger.perp.tokenSelector.perpTokenSelectorCategoryTabClick({
+        tab,
+        previousTab: displayActiveTab,
+      });
+      updateActiveTab(tab);
+    },
+    [displayActiveTab, updateActiveTab],
+  );
   const setPrimaryTab = useCallback(
     (tab: string) => {
       if (tab === displayPrimaryTab) {
         return;
       }
-      setActiveTab(tab);
+      defaultLogger.perp.tokenSelector.perpTokenSelectorPrimaryTabClick({
+        tab,
+        previousTab: displayPrimaryTab,
+      });
+      updateActiveTab(tab);
     },
-    [displayPrimaryTab, setActiveTab],
+    [displayPrimaryTab, updateActiveTab],
   );
 
   const handleSelectToken = useCallback(
     async (symbol: string) => {
       const isSpotToken = isSpotInstrument(symbol);
+      const { sortField, sortDirection } = getCurrentSortSnapshot(
+        selectorConfig ?? undefined,
+      );
       try {
         onLoadingChange(true);
+        defaultLogger.perp.tokenSelector.perpTokenSelectorTokenClick({
+          activeTab: displayActiveTab,
+          token: symbol,
+          tradeMode: isSpotToken ? 'spot' : 'perp',
+          sortField,
+          sortDirection,
+        });
         if (isSpotToken) {
           const universe = spotUniverses.find((u) => u.name === symbol);
           if (!universe) {
@@ -512,7 +549,14 @@ function BasePerpTokenSelectorContent({
         onLoadingChange(false);
       }
     },
-    [closePopover, actions, onLoadingChange, spotUniverses],
+    [
+      closePopover,
+      actions,
+      displayActiveTab,
+      onLoadingChange,
+      selectorConfig,
+      spotUniverses,
+    ],
   );
 
   const { favoriteItems: perpFavoriteItems, isReady: isPerpFavoritesReady } =
@@ -983,7 +1027,7 @@ function BasePerpTokenSelectorContent({
 
   usePerpActiveTabValidation({
     activeTab,
-    setActiveTab,
+    setActiveTab: updateActiveTab,
     assetsByDex,
     dynamicTabs: dynamicTabsRaw,
     visibleTabs,
@@ -1262,6 +1306,13 @@ function BasePerpTokenSelector() {
         }}
         open={isOpen}
         onOpenChange={(open) => {
+          if (open) {
+            defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
+              source: 'desktop',
+              currentToken: baseName,
+              tradeMode: mode === 'spot' ? 'spot' : 'perp',
+            });
+          }
           setIsOpen(open);
         }}
         placement="bottom-start"
@@ -1347,57 +1398,93 @@ const BasePerpTokenSelectorMobileView = memo(
   }: {
     onPressTokenSelector: () => void;
     displayLabel: string;
-    change24hPercent: number;
-  }) => (
-    <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
-      <XStack
-        gap="$1"
-        bg="$bgApp"
-        justifyContent="center"
-        alignItems="center"
-        onPress={onPressTokenSelector}
-        hitSlop={NATIVE_HIT_SLOP}
-      >
-        <SizableText size="$headingLg">{displayLabel}</SizableText>
-        <NumberSizeableText
-          style={{ fontSize: 10 }}
-          fontFamily="$monoRegular"
-          fontVariant={['tabular-nums']}
-          alignSelf="center"
-          color={change24hPercent >= 0 ? '$green11' : '$red11'}
-          formatter="priceChange"
-          formatterOptions={{
-            showPlusMinusSigns: true,
-          }}
+    change24hPercent: number | undefined;
+  }) => {
+    const hasChange24hPercent =
+      change24hPercent !== undefined && Number.isFinite(change24hPercent);
+    const changeColor =
+      hasChange24hPercent && change24hPercent < 0 ? '$red11' : '$green11';
+    return (
+      <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
+        <XStack
+          gap="$1"
+          bg="$bgApp"
+          justifyContent="center"
+          alignItems="center"
+          onPress={onPressTokenSelector}
+          hitSlop={NATIVE_HIT_SLOP}
         >
-          {change24hPercent}
-        </NumberSizeableText>
-        <Icon name="ChevronTriangleDownSmallSolid" size="$5" />
-      </XStack>
-    </DebugRenderTracker>
-  ),
+          <SizableText size="$headingLg">{displayLabel}</SizableText>
+          {hasChange24hPercent ? (
+            <NumberSizeableText
+              style={{ fontSize: 10 }}
+              fontFamily="$monoRegular"
+              fontVariant={['tabular-nums']}
+              alignSelf="center"
+              color={changeColor}
+              formatter="priceChange"
+              formatterOptions={{
+                showPlusMinusSigns: true,
+              }}
+            >
+              {change24hPercent}
+            </NumberSizeableText>
+          ) : (
+            <SizableText
+              fontSize={10}
+              fontFamily="$monoRegular"
+              color="$textSubdued"
+              alignSelf="center"
+            >
+              --
+            </SizableText>
+          )}
+          <Icon name="ChevronTriangleDownSmallSolid" size="$5" />
+        </XStack>
+      </DebugRenderTracker>
+    );
+  },
 );
 BasePerpTokenSelectorMobileView.displayName = 'BasePerpTokenSelectorMobileView';
 function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
   const { coin, displayName, mode } = useActiveTradeDisplay();
 
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const {
+    assetCtx,
+    source: assetCtxSource,
+    cacheAgeMs,
+  } = usePerpsActiveAssetCtxDisplay(coin);
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const spotCtxForActiveCoin =
     spotAssetCtx?.coin === coin ? spotAssetCtx.ctx : undefined;
   const change24hPercent =
     mode === 'spot'
-      ? spotCtxForActiveCoin?.change24hPercent || 0
-      : assetCtx?.ctx?.change24hPercent || 0;
+      ? spotCtxForActiveCoin?.change24hPercent
+      : assetCtx?.ctx?.change24hPercent;
+
+  useEffect(() => {
+    tracePerpsMobileLayout('tokenSelector.mobile.state', {
+      coin,
+      mode,
+      change24hPercent,
+      assetCtxSource,
+      cacheAgeMs,
+    });
+  }, [assetCtxSource, cacheAgeMs, change24hPercent, coin, mode]);
 
   const displayLabel = mode === 'spot' ? displayName : `${displayName}USDC`;
 
   const onPressTokenSelector = useCallback(() => {
+    defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
+      source: 'mobileTicker',
+      currentToken: coin,
+      tradeMode: mode === 'spot' ? 'spot' : 'perp',
+    });
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
-  }, [navigation]);
+  }, [coin, mode, navigation]);
 
   return (
     <BasePerpTokenSelectorMobileView

@@ -43,6 +43,11 @@ const parseRawTxBodyStakeInfo = async (rawTxHex: string) =>
 const extractStakeKeyHashFromBaseAddress = async (addr: string) =>
   appGlobals.$offscreenApiProxy.adaSdk.extractStakeKeyHashFromBaseAddress(addr);
 
+const batchGetShelleyAddressByRootKeyHex = async (...args: any[]) =>
+  appGlobals.$offscreenApiProxy.adaSdk.batchGetShelleyAddressByRootKeyHex(
+    ...args,
+  );
+
 const getCardanoApi: IGetCardanoApi = async () =>
   Promise.resolve({
     composeTxPlan,
@@ -58,6 +63,7 @@ const getCardanoApi: IGetCardanoApi = async () =>
     parseRawTxInputs,
     parseRawTxBodyStakeInfo,
     extractStakeKeyHashFromBaseAddress,
+    batchGetShelleyAddressByRootKeyHex,
   });
 
 const sdk: IAdaSdk = { getCardanoApi, ensureSDKReady };

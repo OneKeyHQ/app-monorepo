@@ -7,23 +7,16 @@ import {
   Spinner,
   Stack,
   YStack,
-  closeAllDialogInstances,
   rootNavigationRef,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useOneKeyWalletDetection } from '@onekeyhq/kit/src/hooks/useWebDapp/useOneKeyWalletDetection';
+import { createReferralLandingRequestGuard } from '@onekeyhq/kit/src/routes/config/deeplink/referralLandingRequestGuard';
 import { safePushToEarnRoute } from '@onekeyhq/kit/src/views/Earn/earnUtils';
 import { useBindReferralViaExtension } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useBindReferralViaExtension';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  ANDROID_PACKAGE_NAME,
-  APP_STORE_DOWNLOAD_LINK,
-  APP_STORE_DOWNLOAD_WEB_LINK,
-  DOWNLOAD_URL,
-  PLAY_STORE_LINK,
-} from '@onekeyhq/shared/src/config/appConfig';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import {
   EAppEventBusNames,
@@ -40,10 +33,7 @@ import type {
 } from '@onekeyhq/shared/src/logger/scopes/referral/scenes/page';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  EModalReferFriendsRoutes,
-  EModalRoutes,
   ETabEarnRoutes,
-  ETabHomeRoutes,
   type ETabHomeRoutes as ETabHomeRoutesType,
   ETabRoutes,
   type ITabHomeParamList,
@@ -51,44 +41,29 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
+import {
+  openAppViaDeepLink,
+  redirectToStore,
+  scheduleDeepLinkFallbackHint,
+} from '../../utils/deepLinkLaunchUtils';
+
 import { REFERRAL_STEP2_ANCHOR_ID, ReferralWebLanding } from './components';
+import { openReferralInvitedByFriendModalWithGuard } from './referralLandingModalGuard';
 
 import type { IReferralVariant } from './components';
 
-// iOS App Store: when `itms-apps://` fails (e.g. restricted profile), fall
-// back to the HTTPS web link after this delay.
-const IOS_STORE_WEB_FALLBACK_DELAY_MS = 300;
+type IReferralLandingRouteName =
+  | ETabHomeRoutesType.TabHomeReferralLanding
+  | ETabHomeRoutesType.TabHomeReferralLandingWithoutPage
+  | ETabHomeRoutesType.TabHomeReferralLandingCodeOnly;
 
-// If the store redirect round-trip takes longer than this, assume the App
-// Store actually opened (timer fired late because the page was backgrounded)
-// and skip the web fallback.
-const IOS_STORE_ELAPSED_THRESHOLD_MS = 1500;
-
-const DEEP_LINK_DOWNLOAD_HINT_DELAY_MS = 5000;
-
+type IReferralLandingRouteParams =
+  | ITabHomeParamList[ETabHomeRoutesType.TabHomeReferralLanding]
+  | ITabHomeParamList[ETabHomeRoutesType.TabHomeReferralLandingWithoutPage]
+  | ITabHomeParamList[ETabHomeRoutesType.TabHomeReferralLandingCodeOnly];
 // Delay before opening the InvitedByFriend modal after tab navigation.
 // Gives the target tab enough time to mount and render before the modal overlay.
 const MODAL_OPEN_DELAY_MS = 1500;
-
-// Build an Android intent:// URL with built-in Play Store fallback.
-// Chrome (and Chromium-based browsers) handles this natively: opens the app if
-// installed, otherwise redirects to S.browser_fallback_url.
-// Using location.href with a raw custom scheme (onekey-wallet://) on Android
-// navigates to an ERR_UNKNOWN_URL_SCHEME error page, destroying the JS context
-// and any fallback timers.
-function buildAndroidIntentUrl(deepLinkUrl: string): string {
-  const schemeEnd = deepLinkUrl.indexOf('://');
-  if (schemeEnd === -1) {
-    return deepLinkUrl;
-  }
-  const scheme = deepLinkUrl.slice(0, schemeEnd);
-  const rest = deepLinkUrl.slice(schemeEnd + 3);
-  // Intentionally omit S.browser_fallback_url. With a fallback URL, Chrome
-  // navigates to it on miss and reloads the page, killing the inline download
-  // hint timer. Without one, Chrome stays on the current page and the hint can
-  // appear under Step 2. Step 1 still has the explicit download CTA.
-  return `intent://${rest}#Intent;scheme=${scheme};package=${ANDROID_PACKAGE_NAME};end`;
-}
 
 const waitForNavigationReady = async (until = 3000): Promise<boolean> => {
   await timerUtils.sleepUntil({
@@ -134,6 +109,77 @@ const normalizeReferralLandingPageName = (
     : undefined;
 };
 
+const isPerpReferralLandingPage = (
+  pageName?: EReferralLandingPageName,
+): boolean =>
+  pageName === EReferralLandingPageName.Perp ||
+  pageName === EReferralLandingPageName.Perps;
+
+async function syncPerpReferralCodeForActiveRequest({
+  code,
+  pageName,
+  shouldContinue,
+}: {
+  code: string | undefined;
+  pageName: EReferralLandingPageName | undefined;
+  shouldContinue: () => boolean;
+}) {
+  if (!code) {
+    return true;
+  }
+
+  const nextReferralCode = isPerpReferralLandingPage(pageName)
+    ? code
+    : undefined;
+
+  try {
+    await backgroundApiProxy.simpleDb.perp.setPerpData((prev) => {
+      if (!shouldContinue()) {
+        return prev ?? {};
+      }
+      if (nextReferralCode) {
+        return {
+          ...prev,
+          referralCode: nextReferralCode,
+        };
+      }
+      if (!prev?.referralCode) {
+        return prev ?? {};
+      }
+      const { referralCode, ...rest } = prev;
+      return rest;
+    });
+  } catch (error) {
+    defaultLogger.app.error.log(
+      `Failed to sync referral code to perp DB: ${String(error)}`,
+    );
+  }
+
+  return shouldContinue();
+}
+
+function getReferralLandingRouteParams(
+  routeParams: IReferralLandingRouteParams | undefined,
+): {
+  code: string | undefined;
+  page: string | undefined;
+  fromDeepLink: boolean | undefined;
+  referralRequestId: number | undefined;
+} {
+  return {
+    code: routeParams?.code,
+    page: routeParams && 'page' in routeParams ? routeParams.page : undefined,
+    fromDeepLink:
+      routeParams && 'fromDeepLink' in routeParams
+        ? routeParams.fromDeepLink
+        : undefined,
+    referralRequestId:
+      routeParams && 'referralRequestId' in routeParams
+        ? routeParams.referralRequestId
+        : undefined,
+  };
+}
+
 const DEFAULT_INVITEE_DISCOUNT = '10%';
 
 const REFERRAL_UTM_SOURCE = {
@@ -151,53 +197,17 @@ type IReferralUtmSource =
 const formatDiscount = (value?: { amount: number; unit: string }) =>
   value ? `${value.amount}${value.unit}` : '';
 
-function redirectToStore() {
-  if (platformEnv.isWebMobileIOS) {
-    const storeStartTime = Date.now();
-    globalThis.location.href = APP_STORE_DOWNLOAD_LINK;
-    globalThis.setTimeout(() => {
-      const elapsed = Date.now() - storeStartTime;
-      const isVisible = globalThis.document?.visibilityState !== 'hidden';
-      if (isVisible && elapsed <= IOS_STORE_ELAPSED_THRESHOLD_MS) {
-        globalThis.location.href = APP_STORE_DOWNLOAD_WEB_LINK;
-      }
-    }, IOS_STORE_WEB_FALLBACK_DELAY_MS);
-    return;
-  }
-  if (platformEnv.isWebMobileAndroid) {
-    globalThis.location.href = PLAY_STORE_LINK;
-    return;
-  }
-  globalThis.location.href = DOWNLOAD_URL;
-}
-
-function openAppViaDeepLink(deepLinkUrl: string) {
-  if (!deepLinkUrl) return;
-  if (platformEnv.isWebMobileAndroid) {
-    globalThis.location.href = buildAndroidIntentUrl(deepLinkUrl);
-    return;
-  }
-  // iOS / desktop web: navigate to the custom scheme directly. iOS 17+ Safari
-  // has tightened restrictions on iframe-based deep link injection, so direct
-  // navigation has higher success rates. If the scheme is unhandled, the
-  // browser shows a prompt; user can fall back to Step 1's explicit download.
-  globalThis.location.href = deepLinkUrl;
-}
-
 function ReferralLandingPage() {
-  const route = useAppRoute<
-    ITabHomeParamList,
-    ETabHomeRoutesType.TabHomeReferralLanding
-  >();
+  const route = useAppRoute<ITabHomeParamList, IReferralLandingRouteName>();
   const navigation = useAppNavigation();
   const [appIsLocked] = useAppIsLockedAtom();
 
-  const routeParams = route.params as
-    | { code: string; page?: string; fromDeepLink?: boolean }
-    | undefined;
-  const routeCode = routeParams?.code;
-  const page = routeParams?.page;
-  const fromDeepLink = routeParams?.fromDeepLink;
+  const {
+    code: routeCode,
+    page,
+    fromDeepLink,
+    referralRequestId,
+  } = getReferralLandingRouteParams(route.params);
 
   // /r/invite?code=XXX → extract code from URL query params.
   // When the query is missing, return undefined (not the literal "invite") so
@@ -294,47 +304,18 @@ function ReferralLandingPage() {
   }, [logEnter, logReferralLandingButton]);
 
   const [isDownloadHintVisible, setIsDownloadHintVisible] = useState(false);
-  const downloadHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const downloadHintVisibilityCleanupRef = useRef<(() => void) | null>(null);
+  const downloadHintCleanupRef = useRef<(() => void) | null>(null);
   const clearDownloadHintTimer = useCallback(() => {
-    clearTimeout(downloadHintTimerRef.current ?? undefined);
-    downloadHintTimerRef.current = null;
-    downloadHintVisibilityCleanupRef.current?.();
-    downloadHintVisibilityCleanupRef.current = null;
+    downloadHintCleanupRef.current?.();
+    downloadHintCleanupRef.current = null;
   }, []);
   const scheduleDownloadHint = useCallback(() => {
     clearDownloadHintTimer();
     setIsDownloadHintVisible(false);
 
-    if (typeof globalThis.document === 'undefined') return;
-
-    let didLeavePage = globalThis.document.visibilityState === 'hidden';
-    const handleVisibilityChange = () => {
-      if (globalThis.document.visibilityState === 'hidden') {
-        didLeavePage = true;
-        clearDownloadHintTimer();
-      }
-    };
-
-    globalThis.document.addEventListener(
-      'visibilitychange',
-      handleVisibilityChange,
-    );
-    downloadHintVisibilityCleanupRef.current = () => {
-      globalThis.document.removeEventListener(
-        'visibilitychange',
-        handleVisibilityChange,
-      );
-    };
-
-    downloadHintTimerRef.current = setTimeout(() => {
-      clearDownloadHintTimer();
-      if (!didLeavePage && globalThis.document.visibilityState !== 'hidden') {
-        setIsDownloadHintVisible(true);
-      }
-    }, DEEP_LINK_DOWNLOAD_HINT_DELAY_MS);
+    downloadHintCleanupRef.current = scheduleDeepLinkFallbackHint({
+      onFallback: () => setIsDownloadHintVisible(true),
+    });
   }, [clearDownloadHintTimer]);
 
   const launchViaDeepLink = useCallback(
@@ -449,27 +430,36 @@ function ReferralLandingPage() {
   );
 
   // Native / extension only: web platforms render the 3-step UI above and
-  // skip this effect. hasProcessedRef guards against duplicate processing.
-  const hasProcessedRef = useRef(false);
+  // skip this effect. Track a stable request key so reused route instances can
+  // still process a newer referral request.
+  const processedReferralRequestKeyRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (hasProcessedRef.current) {
-      return;
-    }
     if (isWeb) {
       return;
     }
     if (appIsLocked) {
       return;
     }
-
-    hasProcessedRef.current = true;
+    const referralRequestKey =
+      referralRequestId !== undefined
+        ? `request:${referralRequestId}`
+        : `route:${code ?? ''}:${page ?? ''}:${fromDeepLink ? '1' : '0'}`;
+    if (processedReferralRequestKeyRef.current === referralRequestKey) {
+      return;
+    }
+    processedReferralRequestKeyRef.current = referralRequestKey;
 
     let mounted = true;
     let modalTimerId: ReturnType<typeof setTimeout> | undefined;
+    const { shouldContinue: shouldContinueReferralRequest } =
+      createReferralLandingRequestGuard({
+        requestId: referralRequestId,
+        shouldContinue: () => mounted,
+      });
 
     const processReferralLanding = async () => {
       const isNavigationReady = await waitForNavigationReady();
-      if (!mounted) {
+      if (!shouldContinueReferralRequest()) {
         return;
       }
       if (!isNavigationReady) {
@@ -481,15 +471,14 @@ function ReferralLandingPage() {
         : REFERRAL_UTM_SOURCE.appLanding;
       logEnter(utmSource);
 
-      if (code && (page === 'perp' || page === 'perps')) {
-        try {
-          await backgroundApiProxy.simpleDb.perp.setPerpData((prev) => ({
-            ...prev,
-            referralCode: code,
-          }));
-        } catch (error) {
-          console.error('Failed to save referral code to perp DB:', error);
-        }
+      if (
+        !(await syncPerpReferralCodeForActiveRequest({
+          code,
+          pageName,
+          shouldContinue: shouldContinueReferralRequest,
+        }))
+      ) {
+        return;
       }
 
       const targetTabRoute = pageName
@@ -498,6 +487,9 @@ function ReferralLandingPage() {
 
       if (pageName && EARN_PAGE_NAMES.has(pageName)) {
         await safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);
+        if (!shouldContinueReferralRequest()) {
+          return;
+        }
       } else if (targetTabRoute === ETabRoutes.Perp) {
         setPerpPageEnterSource(EPerpPageEnterSource.Referral);
         navigation.switchTab(targetTabRoute);
@@ -506,27 +498,15 @@ function ReferralLandingPage() {
       }
 
       modalTimerId = setTimeout(() => {
-        void (async () => {
-          // Native referral links can arrive while an app-level Dialog is open.
-          // Close existing dialogs before pushing the invitation modal.
-          if (platformEnv.isNative) {
-            await closeAllDialogInstances();
-          }
-          if (!mounted) {
-            return;
-          }
-          navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-            screen: EModalReferFriendsRoutes.InvitedByFriend,
-            params: {
-              code,
-              page,
-            },
-          });
-          navigation.reset({
-            index: 0,
-            routes: [{ name: ETabHomeRoutes.TabHome }],
-          });
-        })();
+        if (!shouldContinueReferralRequest()) {
+          return;
+        }
+        openReferralInvitedByFriendModalWithGuard({
+          code,
+          page,
+          navigation,
+          shouldContinue: shouldContinueReferralRequest,
+        });
       }, MODAL_OPEN_DELAY_MS);
     };
 
@@ -546,6 +526,7 @@ function ReferralLandingPage() {
     navigation,
     isWeb,
     fromDeepLink,
+    referralRequestId,
     logEnter,
   ]);
 

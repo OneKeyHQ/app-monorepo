@@ -9,6 +9,7 @@ import {
   DashText,
   Icon,
   IconButton,
+  Input,
   Popover,
   Select,
   SizableText,
@@ -20,10 +21,10 @@ import {
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
-  usePerpsActivePositionAtom,
   useTradingFormAtom,
   useTradingFormComputedAtom,
   useTradingFormEnvAtom,
@@ -33,7 +34,11 @@ import type {
   ITradingFormData,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  type IPerpsLastAdvancedOrderType,
+  getPerpsAccountDisplaySnapshotEntry,
+  usePerpsAccountDisplaySnapshotAtom,
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
@@ -46,6 +51,15 @@ import {
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  SCALE_ORDER_MAX_COUNT,
+  SCALE_ORDER_MIN_COUNT,
+  SCALE_ORDER_MIN_NOTIONAL,
+  buildScaleOrderLegs,
+  getScaleOrderReferencePrice,
+  getScaleOrderSizeSkew,
+  validateScaleOrderLegs,
+} from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatPriceToSignificantDigits,
@@ -56,14 +70,19 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  ETriggerOrderType,
+  type IScaleOrderSizeDistribution,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
 import { useOrderPrice } from '../../../hooks/useOrderPrice';
+import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAccountScopedActivePositions';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../../testIDs';
+import { getPerpsFormLeverage } from '../../../utils/leverageDisplay';
 import {
   type ITradeSide,
   getTradingSideTextColor,
@@ -73,6 +92,7 @@ import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
+import { TradingFormInput } from '../inputs/TradingFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { BBOSelector } from '../selectors/BBOSelector';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
@@ -84,6 +104,7 @@ interface IPerpTradingFormProps {
 }
 type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
 type ITriggerDropdownValue = ETriggerOrderType | 'scale' | 'twap';
+type ITwapDurationInputField = 'hours' | 'minutes';
 const DESKTOP_TRADING_HEADER_HEIGHT =
   PERP_LAYOUT_CONFIG.desktop.panelHeaderHeight;
 
@@ -98,6 +119,23 @@ function migrateTriggerOrderType(raw: string): ETriggerOrderType {
   return raw as ETriggerOrderType;
 }
 
+function resolveAdvancedOrderType({
+  lastAdvancedOrderType,
+  lastTriggerOrderType,
+}: {
+  lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
+  lastTriggerOrderType?: ETriggerOrderType;
+}): ITriggerDropdownValue {
+  if (lastAdvancedOrderType === 'scale' || lastAdvancedOrderType === 'twap') {
+    return lastAdvancedOrderType;
+  }
+  return migrateTriggerOrderType(
+    lastAdvancedOrderType ??
+      lastTriggerOrderType ??
+      ETriggerOrderType.TRIGGER_MARKET,
+  );
+}
+
 const TRIGGER_MODE_TPSL_RESET: Partial<ITradingFormData> = {
   hasTpsl: false,
   tpTriggerPx: '',
@@ -110,6 +148,34 @@ const TRIGGER_MODE_TPSL_RESET: Partial<ITradingFormData> = {
   slValue: '',
 };
 const USDC_TOKEN_SYMBOL = 'USDC';
+const TWAP_MIN_DURATION_MINUTES = 5;
+const TWAP_MAX_DURATION_MINUTES = 1440;
+const TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES = 0.5;
+const TWAP_MIN_SLICE_NOTIONAL_HINT = 10;
+const TWAP_DURATION_PRESET_OPTIONS = [
+  { label: '1h', minutes: 60 },
+  { label: '6h', minutes: 360 },
+  { label: '12h', minutes: 720 },
+  { label: '24h', minutes: 1440 },
+] as const;
+
+function clampTwapDurationMinutes(minutes: number) {
+  if (Number.isNaN(minutes) || minutes <= 0) {
+    return 0;
+  }
+  if (!Number.isFinite(minutes)) {
+    return TWAP_MAX_DURATION_MINUTES;
+  }
+  return Math.min(minutes, TWAP_MAX_DURATION_MINUTES);
+}
+
+function splitTwapDurationMinutes(minutes: number) {
+  const clampedMinutes = clampTwapDurationMinutes(minutes);
+  return {
+    hours: Math.floor(clampedMinutes / 60),
+    minutes: clampedMinutes % 60,
+  };
+}
 
 function SpotAvailableActionIcon({
   icon,
@@ -131,7 +197,19 @@ function SpotAvailableActionIcon({
   );
 }
 
+function useDepositButtonIconProps() {
+  return useMemo(
+    () =>
+      ({
+        color: getTradingSideTextColor('long'),
+      }) as const,
+    [],
+  );
+}
+
 function MobileDepositButton({ onPress }: { onPress: () => void }) {
+  const depositButtonIconProps = useDepositButtonIconProps();
+
   return (
     <IconButton
       testID={PerpTestIDs.MobileDepositButton}
@@ -139,9 +217,9 @@ function MobileDepositButton({ onPress }: { onPress: () => void }) {
       variant="tertiary"
       iconSize="$3.5"
       icon="PlusCircleSolid"
+      iconProps={depositButtonIconProps}
       onPress={onPress}
-      color="$iconSubdued"
-      cursor="default"
+      cursor="pointer"
     />
   );
 }
@@ -159,6 +237,7 @@ function SpotAvailableActionPopover({
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const depositButtonIconProps = useDepositButtonIconProps();
   const sheetTitle = intl.formatMessage({
     id: ETranslations.perps_spot_add_funds__title,
   });
@@ -209,8 +288,8 @@ function SpotAvailableActionPopover({
           variant="tertiary"
           iconSize="$3.5"
           icon="PlusCircleSolid"
-          color="$iconSubdued"
-          cursor="default"
+          iconProps={depositButtonIconProps}
+          cursor="pointer"
         />
       }
       renderContent={({ closePopover }) => (
@@ -255,6 +334,9 @@ function PerpTradingForm({
   isMobile = false,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [perpsActiveAccount] = usePerpsActiveAccountAtom();
+  const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
+  const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
 
   const [formData] = useTradingFormAtom();
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
@@ -272,7 +354,7 @@ function PerpTradingForm({
   const { price: orderPriceBN } = useOrderPrice(formData.side);
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const { universeByBaseName } = useSpotMetaMaps();
-  const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
+  const perpsPositions = usePerpsAccountScopedActivePositions();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
   const isBBOActive = !!formData.bboPriceMode;
   const perpsSelectedDisplayName = useMemo(
@@ -280,6 +362,37 @@ function PerpTradingForm({
     [perpsSelectedSymbol.coin],
   );
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
+  const snapshotLookupIndexedAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.indexedAccount?.id
+    : perpsActiveAccount?.indexedAccountId;
+  const snapshotLookupAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.account?.id
+    : perpsActiveAccount?.accountId;
+  const snapshotLookupAccountAddress =
+    !selectedWalletAccount.ready ||
+    snapshotLookupIndexedAccountId ||
+    snapshotLookupAccountId
+      ? perpsActiveAccount?.accountAddress
+      : undefined;
+  const snapshotEntry = useMemo(
+    () =>
+      getPerpsAccountDisplaySnapshotEntry({
+        snapshot: displaySnapshot,
+        accountAddress: snapshotLookupAccountAddress,
+        indexedAccountId: snapshotLookupIndexedAccountId,
+        accountId: snapshotLookupAccountId,
+        deriveType:
+          selectedWalletAccount.deriveType ?? perpsActiveAccount.deriveType,
+      }),
+    [
+      displaySnapshot,
+      perpsActiveAccount?.deriveType,
+      selectedWalletAccount.deriveType,
+      snapshotLookupAccountAddress,
+      snapshotLookupAccountId,
+      snapshotLookupIndexedAccountId,
+    ],
+  );
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
 
@@ -378,8 +491,62 @@ function PerpTradingForm({
   ]);
 
   // Derive primaryOrderType from formData.orderMode
-  const primaryOrderType: IPrimaryOrderType =
-    formData.orderMode === 'trigger' ? 'trigger' : formData.type;
+  const isScaleMode = formData.orderMode === 'scale';
+  const isTwapMode = formData.orderMode === 'twap';
+  const isAdvancedOrderMode =
+    formData.orderMode === 'trigger' || isScaleMode || isTwapMode;
+  const twapDurationLabel = useMemo(
+    () =>
+      `${intl.formatMessage({
+        id: ETranslations.perp_twap_duration__title,
+      })} (${TWAP_MIN_DURATION_MINUTES}m - ${TWAP_MAX_DURATION_MINUTES / 60}h)`,
+    [intl],
+  );
+  const twapHelperText = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.perp_twap_duration_helper__desc,
+      }),
+    [intl],
+  );
+  const twapSmallSliceHelperText = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.perp_twap_small_slice__msg,
+      }),
+    [intl],
+  );
+  const scaleAmountDistributionHelperText = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.perp_scale_amount_distribution__desc,
+      }),
+    [intl],
+  );
+  const scaleAmountDistributionOptions = useMemo(
+    () =>
+      [
+        {
+          label: intl.formatMessage({
+            id: ETranslations.perp_scale_fixed_distribution__action,
+          }),
+          value: 'fixed',
+        },
+        {
+          label: intl.formatMessage({
+            id: ETranslations.perp_scale_increasing_distribution__action,
+          }),
+          value: 'increasing',
+        },
+      ] as const satisfies readonly {
+        label: string;
+        value: IScaleOrderSizeDistribution;
+      }[],
+    [intl],
+  );
+  const primaryOrderType: IPrimaryOrderType = isAdvancedOrderMode
+    ? 'trigger'
+    : formData.type;
   // Trigger order type: prefer formData, fall back to persisted setting (with migration)
   const triggerOrderType = migrateTriggerOrderType(
     formData.triggerOrderType ??
@@ -408,7 +575,7 @@ function PerpTradingForm({
       updateForm({
         price: isSpot
           ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-          : formatPriceToSignificantDigits(midPrice),
+          : formatPriceToSignificantDigits(midPrice, sizeSzDecimals),
       });
     }
 
@@ -447,7 +614,10 @@ function PerpTradingForm({
             markPrice: midPrice,
             availableToTrade: [maxAvailable, maxAvailable],
             maxTradeSzs: activeAssetData?.maxTradeSzs,
-            leverageValue: activeAssetData?.leverage?.value,
+            leverageValue: getPerpsFormLeverage({
+              isSpot: false,
+              liveLeverage: activeAssetData?.leverage?.value,
+            }),
             fallbackLeverage: activeAsset?.universe?.maxLeverage,
             szDecimals: activeAsset?.universe?.szDecimals,
           };
@@ -520,6 +690,11 @@ function PerpTradingForm({
             ? midPriceBN.toFixed()
             : undefined,
       });
+    } else if (formData.orderMode === 'scale') {
+      price = getScaleOrderReferencePrice({
+        lowerPrice: formData.scaleLowerPrice,
+        upperPrice: formData.scaleUpperPrice,
+      });
     } else if (formData.type === 'limit' && formData.price) {
       price = new BigNumber(formData.price);
     } else if (formData.type === 'market') {
@@ -538,10 +713,228 @@ function PerpTradingForm({
     formData.triggerOrderType,
     formData.triggerPrice,
     formData.executionPrice,
+    formData.scaleLowerPrice,
+    formData.scaleUpperPrice,
     isSpot,
     midPriceBN,
     sizeSzDecimals,
   ]);
+
+  const scaleOrderInputMessage = useMemo(() => {
+    if (!isScaleMode) {
+      return undefined;
+    }
+
+    const hasPriceInput = Boolean(
+      formData.scaleLowerPrice || formData.scaleUpperPrice,
+    );
+    const hasCountInput = Boolean(formData.scaleOrderCount);
+    const hasSizeInput =
+      tradingComputed.computedSizeBN.isFinite() &&
+      tradingComputed.computedSizeBN.gt(0);
+
+    if (!hasPriceInput && !hasCountInput && !hasSizeInput) {
+      return undefined;
+    }
+
+    const orderCount = Number(formData.scaleOrderCount ?? 0);
+    if (
+      !Number.isInteger(orderCount) ||
+      orderCount < SCALE_ORDER_MIN_COUNT ||
+      orderCount > SCALE_ORDER_MAX_COUNT
+    ) {
+      return {
+        text: `Enter ${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT} orders`,
+        tone: 'error' as const,
+      };
+    }
+
+    const lowerPrice = new BigNumber(formData.scaleLowerPrice ?? 0);
+    const upperPrice = new BigNumber(formData.scaleUpperPrice ?? 0);
+    if (
+      !lowerPrice.isFinite() ||
+      lowerPrice.lte(0) ||
+      !upperPrice.isFinite() ||
+      upperPrice.lte(0)
+    ) {
+      if (!hasPriceInput) {
+        return undefined;
+      }
+      return {
+        text: 'Enter a valid scale price range',
+        tone: 'error' as const,
+      };
+    }
+    if (lowerPrice.eq(upperPrice)) {
+      return {
+        text: intl.formatMessage({
+          id: ETranslations.perp_scale_price_range_same__msg,
+        }),
+        tone: 'error' as const,
+      };
+    }
+    if (!hasSizeInput) {
+      return {
+        text: intl.formatMessage(
+          { id: ETranslations.perp_scale_order_size_required_hint__desc },
+          { min: `$${SCALE_ORDER_MIN_NOTIONAL}` },
+        ),
+        tone: 'helper' as const,
+      };
+    }
+
+    const legs = buildScaleOrderLegs({
+      totalSize: tradingComputed.computedSizeBN.toFixed(),
+      lowerPrice: formData.scaleLowerPrice ?? '',
+      upperPrice: formData.scaleUpperPrice ?? '',
+      orderCount,
+      szDecimals: sizeSzDecimals,
+      side: formData.side,
+      sizeSkew: getScaleOrderSizeSkew(formData.scaleSizeDistribution),
+      assetType: isSpot ? 'spot' : 'perp',
+    });
+    const validation = validateScaleOrderLegs({ legs });
+    if (!validation.isValid) {
+      return {
+        text:
+          validation.errors[0] ??
+          intl.formatMessage({
+            id: ETranslations.perp_invalid_scale_order__msg,
+          }),
+        tone: 'error' as const,
+      };
+    }
+
+    return {
+      text: intl.formatMessage(
+        { id: ETranslations.perp_scale_preview_summary_hint__desc },
+        { count: legs.length, min: `$${SCALE_ORDER_MIN_NOTIONAL}` },
+      ),
+      tone: 'helper' as const,
+    };
+  }, [
+    formData.scaleLowerPrice,
+    formData.scaleOrderCount,
+    formData.scaleSizeDistribution,
+    formData.scaleUpperPrice,
+    formData.side,
+    intl,
+    isScaleMode,
+    isSpot,
+    sizeSzDecimals,
+    tradingComputed.computedSizeBN,
+  ]);
+
+  const twapDurationInputMessage = useMemo(() => {
+    if (!isTwapMode) {
+      return undefined;
+    }
+
+    const rawDuration = formData.twapDurationMinutes ?? '';
+    if (!rawDuration) {
+      return {
+        text: intl.formatMessage({
+          id: ETranslations.perp_twap_duration_required__msg,
+        }),
+        tone: 'error' as const,
+      };
+    }
+
+    const duration = Number(rawDuration);
+    if (
+      !Number.isInteger(duration) ||
+      duration < TWAP_MIN_DURATION_MINUTES ||
+      duration > TWAP_MAX_DURATION_MINUTES
+    ) {
+      return {
+        text: intl.formatMessage(
+          { id: ETranslations.perp_twap_duration_range__msg },
+          {
+            min: TWAP_MIN_DURATION_MINUTES,
+            max: TWAP_MAX_DURATION_MINUTES,
+          },
+        ),
+        tone: 'error' as const,
+      };
+    }
+  }, [formData.twapDurationMinutes, intl, isTwapMode]);
+
+  const twapHelperMessage = useMemo(() => {
+    if (!isTwapMode) {
+      return undefined;
+    }
+    const duration = Number(formData.twapDurationMinutes ?? 0);
+    if (
+      !Number.isInteger(duration) ||
+      duration < TWAP_MIN_DURATION_MINUTES ||
+      duration > TWAP_MAX_DURATION_MINUTES ||
+      !tradingComputed.computedSizeBN.isFinite() ||
+      tradingComputed.computedSizeBN.lte(0) ||
+      !midPriceBN.isFinite() ||
+      midPriceBN.lte(0)
+    ) {
+      return undefined;
+    }
+
+    const estimatedSlices = Math.max(
+      1,
+      Math.ceil(duration / TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES),
+    );
+    const estimatedSliceNotional = tradingComputed.computedSizeBN
+      .multipliedBy(midPriceBN)
+      .dividedBy(estimatedSlices);
+    if (
+      estimatedSliceNotional.isFinite() &&
+      estimatedSliceNotional.gt(0) &&
+      estimatedSliceNotional.lt(TWAP_MIN_SLICE_NOTIONAL_HINT)
+    ) {
+      return twapSmallSliceHelperText;
+    }
+
+    return undefined;
+  }, [
+    formData.twapDurationMinutes,
+    isTwapMode,
+    midPriceBN,
+    tradingComputed.computedSizeBN,
+    twapSmallSliceHelperText,
+  ]);
+
+  const [twapDurationHoursInput, setTwapDurationHoursInput] = useState('');
+  const [twapDurationMinutesInput, setTwapDurationMinutesInput] = useState('');
+  const [focusedTwapDurationInput, setFocusedTwapDurationInput] =
+    useState<ITwapDurationInputField | null>(null);
+  const focusedTwapDurationInputRef = useRef<ITwapDurationInputField | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!isTwapMode) {
+      return;
+    }
+    if (focusedTwapDurationInputRef.current) {
+      return;
+    }
+    const rawDuration = formData.twapDurationMinutes ?? '';
+    if (!rawDuration) {
+      setTwapDurationHoursInput('');
+      setTwapDurationMinutesInput('');
+      return;
+    }
+    const totalMinutes = Number(rawDuration);
+    if (!Number.isFinite(totalMinutes) || totalMinutes < 0) {
+      return;
+    }
+    const durationParts = splitTwapDurationMinutes(totalMinutes);
+    const nextHours = String(durationParts.hours);
+    const nextMinutes = String(durationParts.minutes);
+    setTwapDurationHoursInput((prev) =>
+      prev === nextHours ? prev : nextHours,
+    );
+    setTwapDurationMinutesInput((prev) =>
+      prev === nextMinutes ? prev : nextMinutes,
+    );
+  }, [formData.twapDurationMinutes, isTwapMode]);
 
   const [selectedSymbolPositionValue, selectedSymbolPositionSide] =
     useMemo(() => {
@@ -550,10 +943,13 @@ function PerpTradingForm({
           (pos) => pos.position.coin === perpsSelectedSymbol.coin,
         )?.[0]?.position.szi || '0',
       );
-      const side = value >= 0 ? 'long' : 'short';
+      const side: ITradeSide = value >= 0 ? 'long' : 'short';
 
-      return [Math.abs(value), side];
+      return [Math.abs(value), side] as const;
     }, [perpsPositions, perpsSelectedSymbol.coin]);
+  const selectedSymbolPositionColor = selectedSymbolPositionValue
+    ? getTradingSideTextColor(selectedSymbolPositionSide)
+    : '$text';
 
   const availableToTrade = useMemo(() => {
     if (isSpot) {
@@ -567,7 +963,13 @@ function PerpTradingForm({
       return availableValue.toFixed(2, BigNumber.ROUND_DOWN);
     }
     const available = activeAssetData?.availableToTrade;
-    if (!available) return '0';
+    if (!available) {
+      const cachedAvailable = snapshotEntry?.availableToTrade;
+      if (cachedAvailable?.coin === activeAsset?.coin) {
+        return cachedAvailable.value;
+      }
+      return '0';
+    }
     const longValue = Number(available[0] ?? 0);
     const shortValue = Number(available[1] ?? 0);
     return new BigNumber(Math.min(longValue, shortValue)).toFixed(
@@ -576,12 +978,23 @@ function PerpTradingForm({
     );
   }, [
     activeAssetData?.availableToTrade,
+    activeAsset?.coin,
     formData.side,
     isSpot,
     midPriceBN,
+    snapshotEntry?.availableToTrade,
     spotAvailableBaseBN,
     spotAvailableQuoteBN,
   ]);
+  const isUsingCachedAvailableToTrade = Boolean(
+    !isSpot &&
+    !activeAssetData?.availableToTrade &&
+    snapshotEntry?.availableToTrade?.coin === activeAsset?.coin,
+  );
+  const shouldDisplayAvailableToTradeDuringLoading =
+    !isSpot &&
+    (Boolean(activeAssetData?.availableToTrade) ||
+      isUsingCachedAvailableToTrade);
 
   // Spot: display raw token balance with symbol
   const spotAvailableDisplay = useMemo(() => {
@@ -839,8 +1252,25 @@ function PerpTradingForm({
     [intl],
   );
 
-  const triggerTypeOptions = useMemo(
-    () => [
+  const triggerTypeOptions = useMemo(() => {
+    const algoOrderOptions = [
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_scale_order__title,
+        }),
+        value: 'scale' as ITriggerDropdownValue,
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_twap_order__title,
+        }),
+        value: 'twap' as ITriggerDropdownValue,
+      },
+    ];
+    if (isSpot) {
+      return algoOrderOptions;
+    }
+    return [
       {
         label: intl.formatMessage({
           id: ETranslations.perp_order_trigger_market,
@@ -853,8 +1283,82 @@ function PerpTradingForm({
         }),
         value: ETriggerOrderType.TRIGGER_LIMIT as ITriggerDropdownValue,
       },
-    ],
-    [intl],
+      ...algoOrderOptions,
+    ];
+  }, [intl, isSpot]);
+  const scaleOrderCountValidator = useCallback((value: string) => {
+    if (value === '') {
+      return true;
+    }
+    if (!/^\d*$/.test(value)) {
+      return false;
+    }
+    const nextValue = Number(value);
+    return Number.isInteger(nextValue) && nextValue <= SCALE_ORDER_MAX_COUNT;
+  }, []);
+  const updateTwapDurationFromParts = useCallback(
+    (hoursValue: string, minutesValue: string) => {
+      const nextHours = hoursValue.replace(/[^\d]/g, '');
+      const nextMinutes = minutesValue.replace(/[^\d]/g, '');
+
+      const hoursNumber = nextHours ? Number(nextHours) : 0;
+      const rawMinutesNumber = nextMinutes ? Number(nextMinutes) : 0;
+
+      if (
+        !Number.isInteger(hoursNumber) ||
+        !Number.isInteger(rawMinutesNumber)
+      ) {
+        return false;
+      }
+
+      const rawTotalMinutes = hoursNumber * 60 + rawMinutesNumber;
+      const totalMinutes = clampTwapDurationMinutes(rawTotalMinutes);
+
+      if (
+        rawMinutesNumber >= 60 ||
+        rawTotalMinutes > TWAP_MAX_DURATION_MINUTES
+      ) {
+        const durationParts = splitTwapDurationMinutes(totalMinutes);
+        setTwapDurationHoursInput(String(durationParts.hours));
+        setTwapDurationMinutesInput(String(durationParts.minutes));
+        updateForm({ twapDurationMinutes: String(totalMinutes) });
+        return true;
+      }
+
+      setTwapDurationHoursInput(nextHours === '' ? '' : String(hoursNumber));
+      setTwapDurationMinutesInput(
+        nextMinutes === '' ? '' : String(rawMinutesNumber),
+      );
+
+      updateForm({
+        twapDurationMinutes:
+          nextHours === '' && nextMinutes === '' ? '' : String(totalMinutes),
+      });
+      return true;
+    },
+    [updateForm],
+  );
+  const handleTwapHoursChange = useCallback(
+    (value: string) => {
+      void updateTwapDurationFromParts(value, twapDurationMinutesInput);
+    },
+    [twapDurationMinutesInput, updateTwapDurationFromParts],
+  );
+  const handleTwapMinutesChange = useCallback(
+    (value: string) => {
+      void updateTwapDurationFromParts(twapDurationHoursInput, value);
+    },
+    [twapDurationHoursInput, updateTwapDurationFromParts],
+  );
+  const handleTwapDurationPresetPress = useCallback(
+    (minutes: number) => {
+      const hours = Math.floor(minutes / 60);
+      const remainderMinutes = minutes % 60;
+      setTwapDurationHoursInput(String(hours));
+      setTwapDurationMinutesInput(String(remainderMinutes));
+      updateForm({ twapDurationMinutes: String(minutes) });
+    },
+    [updateForm],
   );
   const mobileOrderTypeOptions = useMemo(() => {
     const base = [
@@ -867,7 +1371,21 @@ function PerpTradingForm({
         value: 'limit' as string,
       },
     ];
-    if (isSpot) return base;
+    const algoOrderOptions = [
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_scale_order__title,
+        }),
+        value: 'scale',
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_twap_order__title,
+        }),
+        value: 'twap',
+      },
+    ];
+    if (isSpot) return [...base, ...algoOrderOptions];
     return [
       ...base,
       {
@@ -882,45 +1400,65 @@ function PerpTradingForm({
         }),
         value: ETriggerOrderType.TRIGGER_LIMIT as string,
       },
+      ...algoOrderOptions,
     ];
   }, [intl, isSpot]);
 
-  const applyPrimaryOrderType = useCallback(
-    (nextType: IPrimaryOrderType) => {
-      if (nextType === 'trigger') {
-        const persistedType = migrateTriggerOrderType(
-          perpsCustomSettings.lastTriggerOrderType ??
-            ETriggerOrderType.TRIGGER_MARKET,
-        );
-        const isLimitTrigger =
-          persistedType === ETriggerOrderType.TRIGGER_LIMIT;
+  const lastAdvancedOrderType = useMemo(
+    () =>
+      resolveAdvancedOrderType({
+        lastAdvancedOrderType: perpsCustomSettings.lastAdvancedOrderType,
+        lastTriggerOrderType: perpsCustomSettings.lastTriggerOrderType,
+      }),
+    [
+      perpsCustomSettings.lastAdvancedOrderType,
+      perpsCustomSettings.lastTriggerOrderType,
+    ],
+  );
+  const lastSelectableAdvancedOrderType: ITriggerDropdownValue =
+    isSpot &&
+    lastAdvancedOrderType !== 'scale' &&
+    lastAdvancedOrderType !== 'twap'
+      ? 'scale'
+      : lastAdvancedOrderType;
+
+  const applyAdvancedOrderType = useCallback(
+    (nextType: ITriggerDropdownValue) => {
+      const resolvedNextType =
+        isSpot && nextType !== 'scale' && nextType !== 'twap'
+          ? 'scale'
+          : nextType;
+      if (resolvedNextType === 'scale') {
         updateForm({
           ...TRIGGER_MODE_TPSL_RESET,
-          orderMode: 'trigger',
-          triggerOrderType: persistedType,
-          type: isLimitTrigger ? 'limit' : 'market',
+          orderMode: 'scale',
+          type: 'limit',
           bboPriceMode: null,
+          hasTpsl: false,
+          ...(isSpot ? { scaleReduceOnly: false } : {}),
         });
+        setPerpsCustomSettings((prev) => ({
+          ...prev,
+          lastAdvancedOrderType: 'scale',
+        }));
         return;
       }
-      updateForm({
-        orderMode: 'standard',
-        type: nextType,
-      });
-    },
-    [perpsCustomSettings.lastTriggerOrderType, updateForm],
-  );
-
-  const handleTriggerOrderTypeChange = useCallback(
-    (nextValue: string | number | boolean | undefined) => {
-      if (typeof nextValue !== 'string') {
+      if (resolvedNextType === 'twap') {
+        updateForm({
+          ...TRIGGER_MODE_TPSL_RESET,
+          orderMode: 'twap',
+          type: 'market',
+          bboPriceMode: null,
+          hasTpsl: false,
+          ...(isSpot ? { twapReduceOnly: false } : {}),
+        });
+        setPerpsCustomSettings((prev) => ({
+          ...prev,
+          lastAdvancedOrderType: 'twap',
+        }));
         return;
       }
-      const nextType = nextValue as ITriggerDropdownValue;
-      if (nextType === 'scale' || nextType === 'twap') {
-        return;
-      }
-      const migrated = migrateTriggerOrderType(nextType);
+      const migrated = migrateTriggerOrderType(resolvedNextType);
       const isLimitTrigger = migrated === ETriggerOrderType.TRIGGER_LIMIT;
       updateForm({
         ...TRIGGER_MODE_TPSL_RESET,
@@ -929,19 +1467,221 @@ function PerpTradingForm({
         type: isLimitTrigger ? 'limit' : 'market',
         bboPriceMode: null,
       });
-      setPerpsCustomSettings({
-        ...perpsCustomSettings,
+      setPerpsCustomSettings((prev) => ({
+        ...prev,
         lastTriggerOrderType: migrated,
+        lastAdvancedOrderType: migrated,
+      }));
+    },
+    [isSpot, setPerpsCustomSettings, updateForm],
+  );
+
+  const applyPrimaryOrderType = useCallback(
+    (nextType: IPrimaryOrderType) => {
+      if (nextType === 'trigger') {
+        applyAdvancedOrderType(lastSelectableAdvancedOrderType);
+        return;
+      }
+      updateForm({
+        orderMode: 'standard',
+        type: nextType,
       });
     },
-    [updateForm, perpsCustomSettings, setPerpsCustomSettings],
+    [applyAdvancedOrderType, lastSelectableAdvancedOrderType, updateForm],
+  );
+
+  const handleTriggerOrderTypeChange = useCallback(
+    (nextValue: string | number | boolean | undefined) => {
+      if (typeof nextValue !== 'string') {
+        return;
+      }
+      applyAdvancedOrderType(nextValue as ITriggerDropdownValue);
+    },
+    [applyAdvancedOrderType],
   );
 
   const isTriggerMode = formData.orderMode === 'trigger';
   const isTriggerLimitOrder =
     triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
 
+  const renderScaleAmountDistributionSection = () => {
+    if (isScaleMode) {
+      const scaleSizeDistribution = formData.scaleSizeDistribution ?? 'fixed';
+      return (
+        <YStack gap="$1.5">
+          {isMobile ? (
+            <Popover
+              renderContent={() => (
+                <YStack px="$5" pt="$2" pb="$4">
+                  <SizableText size="$bodyMd">
+                    {scaleAmountDistributionHelperText}
+                  </SizableText>
+                </YStack>
+              )}
+              renderTrigger={
+                <DashText
+                  size="$bodySmMedium"
+                  color="$textSubdued"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_scale_amount_distribution__title,
+                  })}
+                </DashText>
+              }
+              title={intl.formatMessage({
+                id: ETranslations.perp_scale_amount_distribution__title,
+              })}
+              placement="bottom-start"
+            />
+          ) : (
+            <Tooltip
+              renderContent={scaleAmountDistributionHelperText}
+              renderTrigger={
+                <DashText
+                  size="$bodySmMedium"
+                  color="$textSubdued"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                  cursor="help"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_scale_amount_distribution__title,
+                  })}
+                </DashText>
+              }
+              placement="bottom-start"
+            />
+          )}
+          <XStack gap="$4" alignItems="center" flexWrap="wrap">
+            {scaleAmountDistributionOptions.map((option) => {
+              const checked = scaleSizeDistribution === option.value;
+              return (
+                <XStack
+                  key={option.value}
+                  alignItems="center"
+                  gap="$2"
+                  cursor={isSubmitting ? 'default' : 'pointer'}
+                  opacity={isSubmitting ? 0.5 : 1}
+                  onPress={() => {
+                    if (!isSubmitting) {
+                      updateForm({ scaleSizeDistribution: option.value });
+                    }
+                  }}
+                >
+                  <XStack
+                    w="$4"
+                    h="$4"
+                    borderRadius="$full"
+                    borderWidth={1.5}
+                    borderColor={checked ? '$borderActive' : '$borderStrong'}
+                    bg={checked ? '$bgPrimary' : 'transparent'}
+                    alignItems="center"
+                    justifyContent="center"
+                  >
+                    {checked ? (
+                      <XStack
+                        w="$2"
+                        h="$2"
+                        borderRadius="$full"
+                        bg="$iconInverse"
+                      />
+                    ) : null}
+                  </XStack>
+                  <SizableText
+                    size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                    color="$text"
+                  >
+                    {option.label}
+                  </SizableText>
+                </XStack>
+              );
+            })}
+          </XStack>
+        </YStack>
+      );
+    }
+    return null;
+  };
+
   const renderPriceInputSection = () => {
+    if (isScaleMode) {
+      return (
+        <YStack gap={isMobile ? '$2.5' : '$3'}>
+          <PriceInput
+            label={intl.formatMessage({
+              id: ETranslations.perp_scale_lower_price__title,
+            })}
+            placeholder={intl.formatMessage({
+              id: ETranslations.perp_trade_price_place_holder,
+            })}
+            value={formData.scaleLowerPrice ?? ''}
+            onChange={(value) => updateForm({ scaleLowerPrice: value })}
+            szDecimals={sizeSzDecimals}
+            isSpot={isSpot}
+            isMobile={isMobile}
+            disabled={isSubmitting}
+          />
+          <PriceInput
+            label={intl.formatMessage({
+              id: ETranslations.perp_scale_upper_price__title,
+            })}
+            placeholder={intl.formatMessage({
+              id: ETranslations.perp_trade_price_place_holder,
+            })}
+            value={formData.scaleUpperPrice ?? ''}
+            onChange={(value) => updateForm({ scaleUpperPrice: value })}
+            szDecimals={sizeSzDecimals}
+            isSpot={isSpot}
+            isMobile={isMobile}
+            disabled={isSubmitting}
+          />
+          <TradingFormInput
+            label={intl.formatMessage(
+              {
+                id: ETranslations.perp_scale_order_count_with_range__title,
+              },
+              {
+                min: SCALE_ORDER_MIN_COUNT,
+                max: SCALE_ORDER_MAX_COUNT,
+              },
+            )}
+            placeholder={`${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT}`}
+            value={formData.scaleOrderCount ?? ''}
+            onChange={(value) => {
+              const nextValue = value.replace(/[^\d]/g, '');
+              updateForm({ scaleOrderCount: nextValue });
+            }}
+            validator={scaleOrderCountValidator}
+            keyboardType="numeric"
+            customSuffix={
+              isMobile ? (
+                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_scale_order_quantity__title,
+                  })}
+                </SizableText>
+              ) : undefined
+            }
+            isMobile={isMobile}
+            disabled={isSubmitting}
+          />
+          {scaleOrderInputMessage ? (
+            <SizableText
+              size="$bodySm"
+              color={
+                scaleOrderInputMessage.tone === 'error'
+                  ? '$red10'
+                  : '$textSubdued'
+              }
+            >
+              {scaleOrderInputMessage.text}
+            </SizableText>
+          ) : null}
+        </YStack>
+      );
+    }
     if (isTriggerMode) {
       return (
         <YStack gap={isMobile ? '$2.5' : '$3'}>
@@ -966,7 +1706,10 @@ function PerpTradingForm({
                   updateForm({
                     executionPrice: isSpot
                       ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-                      : formatPriceToSignificantDigits(midPrice),
+                      : formatPriceToSignificantDigits(
+                          midPrice,
+                          sizeSzDecimals,
+                        ),
                   });
                 }
               }}
@@ -1008,7 +1751,10 @@ function PerpTradingForm({
                     updateForm({
                       price: isSpot
                         ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-                        : formatPriceToSignificantDigits(midPrice),
+                        : formatPriceToSignificantDigits(
+                            midPrice,
+                            sizeSzDecimals,
+                          ),
                     });
                   }
                 }}
@@ -1084,6 +1830,256 @@ function PerpTradingForm({
     return null;
   };
 
+  const renderTwapDurationSection = () => {
+    if (!isTwapMode) {
+      return null;
+    }
+
+    const quickOptionHeight = isMobile ? 28 : 26;
+    const renderTwapHelperMessage = () => {
+      if (!twapHelperMessage) {
+        return null;
+      }
+
+      return (
+        <YStack gap="$1">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {twapHelperMessage}
+          </SizableText>
+        </YStack>
+      );
+    };
+
+    if (isMobile) {
+      return (
+        <YStack gap="$2.5">
+          <TradingFormInput
+            label={intl.formatMessage({
+              id: ETranslations.perp_twap_duration__title,
+            })}
+            placeholder={twapDurationLabel}
+            value={formData.twapDurationMinutes ?? ''}
+            onChange={(value) => {
+              const nextValue = value.replace(/[^\d]/g, '');
+              const nextDuration = nextValue
+                ? String(clampTwapDurationMinutes(Number(nextValue)))
+                : '';
+              updateForm({ twapDurationMinutes: nextDuration });
+            }}
+            keyboardType="numeric"
+            suffix="min"
+            isMobile
+            disabled={isSubmitting}
+          />
+          <XStack gap="$2" width="100%">
+            {TWAP_DURATION_PRESET_OPTIONS.map((option) => {
+              return (
+                <XStack
+                  key={option.minutes}
+                  flex={1}
+                  minWidth={0}
+                  h={quickOptionHeight}
+                  px="$2"
+                  bg="$bgSubdued"
+                  borderRadius="$2"
+                  alignItems="center"
+                  justifyContent="center"
+                  cursor="pointer"
+                  onPress={() => handleTwapDurationPresetPress(option.minutes)}
+                  opacity={isSubmitting ? 0.5 : 1}
+                  pointerEvents={isSubmitting ? 'none' : 'auto'}
+                >
+                  <SizableText size="$bodySmMedium" color="$textSubdued">
+                    {option.label}
+                  </SizableText>
+                </XStack>
+              );
+            })}
+          </XStack>
+          {renderTwapHelperMessage()}
+          {twapDurationInputMessage ? (
+            <SizableText size="$bodySm" color="$red10">
+              {twapDurationInputMessage.text}
+            </SizableText>
+          ) : null}
+        </YStack>
+      );
+    }
+
+    const inputHeight = 32;
+    const inputWrapperProps = {
+      bg: '$bgStrong' as const,
+      py: '$1' as const,
+      pl: '$1' as const,
+      pr: '$2.5' as const,
+    };
+
+    const renderTwapDurationInput = ({
+      field,
+      testID,
+      value,
+      unit,
+      onChangeText,
+    }: {
+      field: ITwapDurationInputField;
+      testID: string;
+      value: string;
+      unit: 'h' | 'min';
+      onChangeText: (text: string) => void;
+    }) => (
+      <YStack
+        flex={1}
+        minWidth={0}
+        borderRadius="$2"
+        borderWidth="$px"
+        borderColor={
+          focusedTwapDurationInput === field ? '$border' : '$transparent'
+        }
+        {...inputWrapperProps}
+      >
+        <Input
+          testID={testID}
+          size="small"
+          h={inputHeight}
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={() => {
+            focusedTwapDurationInputRef.current = field;
+            setFocusedTwapDurationInput(field);
+          }}
+          onBlur={() => {
+            focusedTwapDurationInputRef.current = null;
+            setFocusedTwapDurationInput((currentField) =>
+              currentField === field ? null : currentField,
+            );
+          }}
+          keyboardType="numeric"
+          disabled={isSubmitting}
+          placeholder="0"
+          textAlign="right"
+          containerProps={{
+            bg: 'transparent',
+            borderRadius: '$2',
+            borderWidth: '$0',
+          }}
+          InputComponentStyle={{
+            bg: 'transparent',
+          }}
+          addOnsContainerProps={{
+            pr: '$0.5',
+          }}
+          addOns={[
+            {
+              renderContent: (
+                <XStack
+                  h="100%"
+                  alignItems="center"
+                  justifyContent="center"
+                  pr="$0.5"
+                >
+                  <SizableText size="$bodyMdMedium" color="$textSubdued">
+                    {unit}
+                  </SizableText>
+                </XStack>
+              ),
+            },
+          ]}
+        />
+      </YStack>
+    );
+
+    return (
+      <YStack gap="$3">
+        {isMobile ? (
+          <Popover
+            renderContent={() => (
+              <YStack px="$5" pt="$2" pb="$4">
+                <SizableText size="$bodyMd">{twapHelperText}</SizableText>
+              </YStack>
+            )}
+            renderTrigger={
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+              >
+                {twapDurationLabel}
+              </DashText>
+            }
+            title={intl.formatMessage({
+              id: ETranslations.perp_twap_duration__title,
+            })}
+            placement="bottom-start"
+          />
+        ) : (
+          <Tooltip
+            renderContent={twapHelperText}
+            renderTrigger={
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                cursor="help"
+              >
+                {twapDurationLabel}
+              </DashText>
+            }
+            placement="bottom-start"
+          />
+        )}
+        <XStack gap="$2.5">
+          {renderTwapDurationInput({
+            field: 'hours',
+            testID: 'perp-twap-duration-hours-input',
+            value: twapDurationHoursInput,
+            unit: 'h',
+            onChangeText: handleTwapHoursChange,
+          })}
+          {renderTwapDurationInput({
+            field: 'minutes',
+            testID: 'perp-twap-duration-minutes-input',
+            value: twapDurationMinutesInput,
+            unit: 'min',
+            onChangeText: handleTwapMinutesChange,
+          })}
+        </XStack>
+        <XStack gap="$2" width="100%">
+          {TWAP_DURATION_PRESET_OPTIONS.map((option) => {
+            return (
+              <XStack
+                key={option.minutes}
+                flex={1}
+                minWidth={0}
+                h={quickOptionHeight}
+                px="$2"
+                bg="$bgStrong"
+                borderRadius="$2"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                onPress={() => handleTwapDurationPresetPress(option.minutes)}
+                opacity={isSubmitting ? 0.5 : 1}
+                pointerEvents={isSubmitting ? 'none' : 'auto'}
+              >
+                <SizableText size="$bodySmMedium" color="$textSubdued">
+                  {option.label}
+                </SizableText>
+              </XStack>
+            );
+          })}
+        </XStack>
+        {renderTwapHelperMessage()}
+        {twapDurationInputMessage ? (
+          <SizableText size="$bodySm" color="$red10">
+            {twapDurationInputMessage.text}
+          </SizableText>
+        ) : null}
+      </YStack>
+    );
+  };
+
   const checkboxSizeVal = isMobile ? '$3.5' : '$4';
   const tpLabelKey = isMobile
     ? ETranslations.perp_tp
@@ -1093,9 +2089,115 @@ function PerpTradingForm({
     : ETranslations.perp_trade_sl_price;
 
   const renderBottomSection = () => {
-    if (isSpot) return null;
     if (shouldShowEnableTradingButton && isMobile) {
       return null;
+    }
+    if (isSpot && !isTwapMode) {
+      return null;
+    }
+    if (isTwapMode) {
+      return (
+        <YStack gap="$1.5" {...(isMobile && { mt: '$1' })} p="$0">
+          <YStack alignItems="flex-start" gap="$2.5">
+            {isSpot ? null : (
+              <XStack alignItems="center" gap="$2">
+                <Checkbox
+                  testID="perp-twap-reduce-only-checkbox"
+                  value={formData.twapReduceOnly ?? false}
+                  onChange={(checked) =>
+                    updateForm({ twapReduceOnly: !!checked })
+                  }
+                  disabled={isSubmitting}
+                  containerProps={{
+                    p: 0,
+                    alignItems: 'center',
+                    ...(!isMobile && { cursor: 'pointer' }),
+                  }}
+                  width={checkboxSizeVal}
+                  height={checkboxSizeVal}
+                  {...(isMobile && { p: '$0' })}
+                />
+                <SizableText
+                  size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                  color="$text"
+                >
+                  {intl.formatMessage({ id: ETranslations.perps_reduce_only })}
+                </SizableText>
+              </XStack>
+            )}
+            <XStack alignItems="center" gap="$2">
+              <Checkbox
+                testID="perp-twap-randomize-checkbox"
+                value={formData.twapRandomize ?? true}
+                onChange={(checked) => updateForm({ twapRandomize: !!checked })}
+                disabled={isSubmitting}
+                containerProps={{
+                  p: 0,
+                  alignItems: 'center',
+                  ...(!isMobile && { cursor: 'pointer' }),
+                }}
+                width={checkboxSizeVal}
+                height={checkboxSizeVal}
+                {...(isMobile && { p: '$0' })}
+              />
+              <Tooltip
+                placement="top"
+                renderContent={intl.formatMessage({
+                  id: ETranslations.perp_twap_randomize__desc,
+                })}
+                renderTrigger={
+                  <DashText
+                    size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                    color="$text"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    cursor="help"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_twap_randomize__title,
+                    })}
+                  </DashText>
+                }
+              />
+            </XStack>
+          </YStack>
+        </YStack>
+      );
+    }
+    if (isScaleMode) {
+      if (isSpot) {
+        return null;
+      }
+      return (
+        <YStack gap="$1.5" {...(isMobile && { mt: '$1' })} p="$0">
+          <XStack alignItems="center" justifyContent="space-between" gap="$3">
+            <XStack alignItems="center" gap="$2">
+              <Checkbox
+                testID="perp-scale-reduce-only-checkbox"
+                value={formData.scaleReduceOnly ?? false}
+                onChange={(checked) =>
+                  updateForm({ scaleReduceOnly: !!checked })
+                }
+                disabled={isSubmitting}
+                containerProps={{
+                  p: 0,
+                  alignItems: 'center',
+                  ...(!isMobile && { cursor: 'pointer' }),
+                }}
+                width={checkboxSizeVal}
+                height={checkboxSizeVal}
+                {...(isMobile && { p: '$0' })}
+              />
+              <SizableText
+                size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                color="$text"
+              >
+                {intl.formatMessage({ id: ETranslations.perps_reduce_only })}
+              </SizableText>
+            </XStack>
+          </XStack>
+        </YStack>
+      );
     }
     if (isTriggerMode) {
       return (
@@ -1177,12 +2279,7 @@ function PerpTradingForm({
                 id: ETranslations.perp_tp_sl_tooltip,
               })}
               renderTrigger={
-                <DashText
-                  size="$bodyMd"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  cursor="help"
-                >
+                <DashText size="$bodyMd" dashThickness={0.5} cursor="help">
                   {intl.formatMessage({
                     id: ETranslations.perp_position_tp_sl,
                   })}
@@ -1228,16 +2325,41 @@ function PerpTradingForm({
     );
   };
 
-  // Always show the last selected (or current) trigger type name on the tab
+  let activeAdvancedOrderType: ITriggerDropdownValue = triggerOrderType;
+  if (isScaleMode) {
+    activeAdvancedOrderType = 'scale';
+  } else if (isTwapMode) {
+    activeAdvancedOrderType = 'twap';
+  }
   const triggerTabLabel =
-    triggerTypeOptions.find((item) => item.value === triggerOrderType)?.label ||
     triggerTypeOptions.find(
-      (item) => item.value === perpsCustomSettings.lastTriggerOrderType,
+      (item) =>
+        item.value ===
+        (isAdvancedOrderMode
+          ? activeAdvancedOrderType
+          : lastSelectableAdvancedOrderType),
     )?.label ||
-    'Trigger';
-  const mobileSelectedOrderType: string = isTriggerMode
+    intl.formatMessage({ id: ETranslations.perp_order_trigger_market });
+
+  let mobileSelectedOrderType: string = primaryOrderType;
+  if (isTriggerMode) {
+    mobileSelectedOrderType = triggerOrderType;
+  }
+  if (isTwapMode) {
+    mobileSelectedOrderType = 'twap';
+  }
+  if (isScaleMode) {
+    mobileSelectedOrderType = 'scale';
+  }
+  let triggerSelectValue: ITriggerDropdownValue = isAdvancedOrderMode
     ? triggerOrderType
-    : primaryOrderType;
+    : lastSelectableAdvancedOrderType;
+  if (isTwapMode) {
+    triggerSelectValue = 'twap';
+  }
+  if (isScaleMode) {
+    triggerSelectValue = 'scale';
+  }
 
   const renderSpotTradeSummaryRows = () => (
     <>
@@ -1265,12 +2387,7 @@ function PerpTradingForm({
           <Popover
             title={spotMaxTradeLabel}
             renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-              >
+              <DashText size="$bodySm" color="$textSubdued" dashThickness={0.5}>
                 {spotMaxTradeLabel}
               </DashText>
             }
@@ -1287,7 +2404,6 @@ function PerpTradingForm({
               <DashText
                 size="$bodySm"
                 color="$textSubdued"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
                 cursor="help"
               >
@@ -1441,65 +2557,63 @@ function PerpTradingForm({
                   </XStack>
                 );
               })}
-              {isSpot ? null : (
-                <Select
-                  testID="perp-select"
-                  items={triggerTypeOptions}
-                  title="Trigger"
-                  value={triggerOrderType}
-                  onOpenChange={setTriggerMenuOpen}
-                  onChange={handleTriggerOrderTypeChange}
-                  disabled={isSubmitting}
-                  placement="bottom-start"
-                  floatingPanelProps={{ width: 180 }}
-                  renderTrigger={({ onPress, disabled: disabledTrigger }) => (
-                    <XStack
-                      h={DESKTOP_TRADING_HEADER_HEIGHT}
-                      alignItems="center"
-                      position="relative"
-                      gap="$1"
-                      cursor="pointer"
-                      onPress={(e) => {
-                        if (disabledTrigger) return;
-                        if (!isTriggerMode) {
-                          // First click: activate trigger mode with persisted type
-                          applyPrimaryOrderType('trigger');
-                        } else {
-                          // Already in trigger mode: open dropdown to switch type
-                          onPress?.(e);
-                        }
-                      }}
+              <Select
+                testID="perp-select"
+                items={triggerTypeOptions}
+                title={intl.formatMessage({
+                  id: ETranslations.perp_trade_order_type,
+                })}
+                value={triggerSelectValue}
+                onOpenChange={setTriggerMenuOpen}
+                onChange={handleTriggerOrderTypeChange}
+                disabled={isSubmitting}
+                placement="bottom-start"
+                floatingPanelProps={{ width: 180 }}
+                renderTrigger={({ onPress, disabled: disabledTrigger }) => (
+                  <XStack
+                    h={DESKTOP_TRADING_HEADER_HEIGHT}
+                    alignItems="center"
+                    position="relative"
+                    gap="$1"
+                    cursor="pointer"
+                    onPress={(e) => {
+                      if (disabledTrigger) return;
+                      if (!isAdvancedOrderMode) {
+                        applyPrimaryOrderType('trigger');
+                      } else {
+                        onPress?.(e);
+                      }
+                    }}
+                  >
+                    <SizableText
+                      size="$bodyMdMedium"
+                      color={isAdvancedOrderMode ? '$text' : '$textSubdued'}
                     >
-                      <SizableText
-                        size="$bodyMdMedium"
-                        color={isTriggerMode ? '$text' : '$textSubdued'}
-                      >
-                        {triggerTabLabel}
-                      </SizableText>
-                      <Icon
-                        name={
-                          triggerMenuOpen
-                            ? 'ChevronTopSmallOutline'
-                            : 'ChevronDownSmallOutline'
-                        }
-                        color={isTriggerMode ? '$icon' : '$iconSubdued'}
-                        size="$4"
+                      {triggerTabLabel}
+                    </SizableText>
+                    <Icon
+                      name={
+                        triggerMenuOpen
+                          ? 'ChevronTopSmallOutline'
+                          : 'ChevronDownSmallOutline'
+                      }
+                      color={isAdvancedOrderMode ? '$icon' : '$iconSubdued'}
+                      size="$4"
+                    />
+                    {isAdvancedOrderMode ? (
+                      <YStack
+                        position="absolute"
+                        bottom={0}
+                        left={0}
+                        right={0}
+                        h="$0.5"
+                        bg="$text"
+                        borderRadius={1}
                       />
-                      {isTriggerMode ? (
-                        <YStack
-                          position="absolute"
-                          bottom={0}
-                          left={0}
-                          right={0}
-                          h="$0.5"
-                          bg="$text"
-                          borderRadius={1}
-                        />
-                      ) : null}
-                    </XStack>
-                  )}
-                />
-              )}
+                    ) : null}
+                  </XStack>
+                )}
+              />
             </XStack>
           </YStack>
         </>
@@ -1539,6 +2653,12 @@ function PerpTradingForm({
                   <PerpsAccountNumberValue
                     value={availableToTrade}
                     skeletonWidth={60}
+                    allowValueDuringAccountLoading={
+                      shouldDisplayAvailableToTradeDuringLoading
+                    }
+                    skipAccountSummaryCheck={
+                      shouldDisplayAvailableToTradeDuringLoading
+                    }
                   />
                   <MobileDepositButton onPress={handleDepositPress} />
                 </XStack>
@@ -1556,9 +2676,7 @@ function PerpTradingForm({
                   ) : (
                     <SizableText
                       size="$bodySmMedium"
-                      color={getTradingSideTextColor(
-                        selectedSymbolPositionSide as ITradeSide,
-                      )}
+                      color={selectedSymbolPositionColor}
                     >
                       {selectedSymbolPositionValue} {perpsSelectedDisplayName}
                     </SizableText>
@@ -1570,7 +2688,7 @@ function PerpTradingForm({
         </YStack>
       )}
 
-      {renderPriceInputSection()}
+      {isTwapMode ? null : renderPriceInputSection()}
 
       <SizeInput
         referencePrice={referencePriceString}
@@ -1602,6 +2720,10 @@ function PerpTradingForm({
           sliderHeight={isMobile ? 2 : 4}
         />
       </YStack>
+
+      {renderScaleAmountDistributionSection()}
+
+      {isTwapMode ? renderTwapDurationSection() : null}
 
       {renderBottomSection()}
 

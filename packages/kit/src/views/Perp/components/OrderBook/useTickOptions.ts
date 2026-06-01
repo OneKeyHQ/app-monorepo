@@ -6,6 +6,7 @@ import {
   useHyperliquidActions,
   useOrderBookTickOptionsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { getPerpsOrderBookTickOptionsWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import {
   analyzeOrderBookPrecision,
   getDisplayPriceScaleDecimals,
@@ -46,6 +47,10 @@ export function useTickOptions({
   } | null>(null);
 
   const [persistedTickOptions] = useOrderBookTickOptionsAtom();
+  const persistedTickOptionsForRender = useMemo(
+    () => getPerpsOrderBookTickOptionsWithCache(persistedTickOptions),
+    [persistedTickOptions],
+  );
   const actions = useHyperliquidActions();
 
   useEffect(() => {
@@ -128,7 +133,7 @@ export function useTickOptions({
 
     if (!symbol) return defaultTickOption;
 
-    const saved = persistedTickOptions[symbol];
+    const saved = persistedTickOptionsForRender[symbol];
     if (saved) {
       const byValue = tickOptions.find(
         (option) => option.value === saved.value,
@@ -147,7 +152,7 @@ export function useTickOptions({
     }
 
     return defaultTickOption;
-  }, [baseTickOptionsData, persistedTickOptions, symbol]);
+  }, [baseTickOptionsData, persistedTickOptionsForRender, symbol]);
 
   useEffect(() => {
     if (!symbol) return;

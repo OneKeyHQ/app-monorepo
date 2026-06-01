@@ -5,7 +5,7 @@ export function shouldApplyMinimumOrderGuard({
   hasBboPriceMode,
 }: {
   isSpot: boolean;
-  orderMode?: 'standard' | 'trigger';
+  orderMode?: 'standard' | 'trigger' | 'scale' | 'twap';
   orderType?: 'market' | 'limit';
   hasBboPriceMode?: boolean;
 }) {

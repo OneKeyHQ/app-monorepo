@@ -1,7 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Spinner, Stack } from '@onekeyhq/components';
+import { LottieView, Stack } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
+import TradingViewChartLoadingAnimation from '@onekeyhq/kit/assets/animations/swap_order_pending.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useHyperliquidActions,
@@ -19,6 +20,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
@@ -188,6 +190,17 @@ const WebViewMemoized = memo(
 
 WebViewMemoized.displayName = 'WebViewMemoized';
 
+function TradingViewChartLoading() {
+  return (
+    <LottieView
+      width={110}
+      height={110}
+      autoPlay
+      source={TradingViewChartLoadingAnimation}
+    />
+  );
+}
+
 const hideTradingViewBuiltInLoadingScript = `
   ;(function() {
     var styleText = [
@@ -261,6 +274,7 @@ export function TradingViewPerpsV2(
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
   const actions = useHyperliquidActions();
+  const { restoreNonce } = useNetworkRestore();
 
   const [{ szDecimals }] = useTradingFormEnvAtom();
   const _webviewKey = useMemo(() => {
@@ -268,16 +282,24 @@ export function TradingViewPerpsV2(
       reloadOnSymbolChange ? `-${symbol}` : ''
     }`;
   }, [reloadOnSymbolChange, symbol, theme, webviewKey]);
-  const [isChartLinesReady, setIsChartLinesReady] = useState(false);
-  const [isChartContentReady, setIsChartContentReady] = useState(false);
+  const [chartLinesReadyWebviewKey, setChartLinesReadyWebviewKey] = useState<
+    string | null
+  >(null);
+  const [chartContentReadyWebviewKey, setChartContentReadyWebviewKey] =
+    useState<string | null>(null);
+  const hasPerpsReadyRef = useRef(false);
+  const lastHandledRestoreNonceRef = useRef(0);
+  const isChartLinesReady = chartLinesReadyWebviewKey === _webviewKey;
+  const isChartContentReady = chartContentReadyWebviewKey === _webviewKey;
 
-  // Track webviewKey changes and reset isChartLinesReady when it changes
   const prevWebviewKeyRef = useRef(_webviewKey);
   useEffect(() => {
     if (prevWebviewKeyRef.current !== _webviewKey) {
-      // WebView will reload due to key change, reset ready state
-      setIsChartLinesReady(false);
-      setIsChartContentReady(false);
+      // A new WebView instance must prove perpsReady before app-side recovery
+      // can stay hands-off.
+      hasPerpsReadyRef.current = false;
+      setChartLinesReadyWebviewKey(null);
+      setChartContentReadyWebviewKey(null);
       prevWebviewKeyRef.current = _webviewKey;
     }
   }, [_webviewKey]);
@@ -357,15 +379,32 @@ export function TradingViewPerpsV2(
     }
   }, [isChartLinesReady, webRef]);
 
-  // Callback when TradingView iframe signals chart lines are ready
+  useEffect(() => {
+    if (restoreNonce <= 0) {
+      return;
+    }
+    if (lastHandledRestoreNonceRef.current === restoreNonce) {
+      return;
+    }
+
+    lastHandledRestoreNonceRef.current = restoreNonce;
+
+    if (!hasPerpsReadyRef.current) {
+      setChartLinesReadyWebviewKey(null);
+      setChartContentReadyWebviewKey(null);
+      webRef.current?.reload();
+    }
+  }, [restoreNonce]);
+
   const onChartLinesReady = useCallback(() => {
-    setIsChartContentReady(true);
-    setIsChartLinesReady(true);
-  }, []);
+    hasPerpsReadyRef.current = true;
+    setChartContentReadyWebviewKey(_webviewKey);
+    setChartLinesReadyWebviewKey(_webviewKey);
+  }, [_webviewKey]);
 
   const onChartReady = useCallback(() => {
-    setIsChartContentReady(true);
-  }, []);
+    setChartContentReadyWebviewKey(_webviewKey);
+  }, [_webviewKey]);
 
   const onOrderCancel = useCallback(
     async (payload: ITVOrderCancelPayload) => {
@@ -485,7 +524,7 @@ export function TradingViewPerpsV2(
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
   );
-  const showSymbolReloadMask = reloadOnSymbolChange && !isChartContentReady;
+  const showChartLoadingMask = !isChartContentReady;
 
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
@@ -512,7 +551,7 @@ export function TradingViewPerpsV2(
         decelerationRate="normal"
       />
 
-      {showSymbolReloadMask ? (
+      {showChartLoadingMask ? (
         <Stack
           position="absolute"
           left={0}
@@ -525,7 +564,7 @@ export function TradingViewPerpsV2(
           justifyContent="center"
           pointerEvents="none"
         >
-          <Spinner size="large" />
+          <TradingViewChartLoading />
         </Stack>
       ) : null}
 

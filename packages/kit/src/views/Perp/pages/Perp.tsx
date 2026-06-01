@@ -2,13 +2,18 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { initialWindowMetrics } from 'react-native-safe-area-context';
 
 import {
+  ESplitViewType,
   Page,
   SizableText,
   Stack,
   YStack,
+  useIsSplitView,
   useMedia,
+  useSafeAreaInsets,
+  useSplitViewType,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
@@ -22,6 +27,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { LazyLoadPage } from '../../../components/LazyLoadPage';
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
@@ -36,10 +42,25 @@ import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { PerpTestIDs } from '../testIDs';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../utils/mobileLayoutTrace';
 
 import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
 
 import type { LayoutChangeEvent } from 'react-native';
+
+// MobilePerpMarket is already an async-loaded route via router/index.ts
+// (its own segment). Importing it sync from here would pull that segment's
+// shared sub-components (PerpCandles / PerpOrderBook / PerpTokenSelectorRow)
+// across the seg:Perp ↔ seg:MobilePerpMarket boundary and break the
+// split-bundle integrity check. Lazy-load here too so the edge stays async.
+const MobilePerpMarketInline = LazyLoadPage(() => import('./MobilePerpMarket'));
+const PERP_NATIVE_HEADER_ROW_HEIGHT = 44;
+const PERP_NATIVE_HEADER_TOP_OFFSET = 20;
 
 function PerpLayout() {
   const { gtMd } = useMedia();
@@ -60,7 +81,13 @@ function PerpBodyContent() {
 
 function PerpContent() {
   const { gtMd } = useMedia();
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  const resolvedSafeAreaTop =
+    safeAreaTop || initialWindowMetrics?.insets.top || 0;
   const firedRef = useRef(false);
+  const headerLayoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(
+    undefined,
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -76,13 +103,28 @@ function PerpContent() {
     }, []),
   );
 
-  const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 143 : 92,
-  );
+  const fallbackTabPageHeight = platformEnv.isNative
+    ? resolvedSafeAreaTop + PERP_NATIVE_HEADER_ROW_HEIGHT
+    : 92;
+  const [measuredTabPageHeight, setMeasuredTabPageHeight] = useState<
+    number | undefined
+  >();
+  const tabPageHeight = measuredTabPageHeight ?? fallbackTabPageHeight;
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const height = e.nativeEvent.layout.height - 20;
-    setTabPageHeight(height);
+    const height = e.nativeEvent.layout.height - PERP_NATIVE_HEADER_TOP_OFFSET;
+    setMeasuredTabPageHeight((prev) =>
+      prev === undefined || Math.abs(prev - height) > 0.5 ? height : prev,
+    );
+    const rect = getPerpsMobileLayoutTraceRect(e);
+    if (isPerpsMobileLayoutTraceRectChanged(headerLayoutRef.current, rect)) {
+      tracePerpsMobileLayout('nativeHeader.layout', {
+        rect,
+        reservedHeight: height,
+        platform: platformEnv.isNativeIOS ? 'ios' : 'native',
+      });
+      headerLayoutRef.current = rect;
+    }
   }, []);
   const intl = useIntl();
   const handleDownloadApp = useCallback(() => {
@@ -136,7 +178,7 @@ function PerpContent() {
           <Stack h={tabPageHeight} />
           <YStack
             position="absolute"
-            top={-20}
+            top={-PERP_NATIVE_HEADER_TOP_OFFSET}
             left={0}
             bg="$bgApp"
             pt="$5"
@@ -177,9 +219,26 @@ function ExtPerpNull() {
 
 export default function Perp() {
   const canRenderPerp = useNativePerpFeatureGuard();
+  const splitViewType = useSplitViewType();
+  const isLandscape = useIsSplitView();
+  const isFocused = useIsFocused();
 
   if (!canRenderPerp) {
     return shouldOpenExpandExtPerp ? <ExtPerpNull /> : null;
+  }
+
+  // In the dual-pane layout the right (SUB) pane would otherwise render the
+  // generic OneKey-logo placeholder from TabletHomeContainer. Fill it with
+  // the chart detail directly so the trading form on the left always sits
+  // beside the active pair's K-line — no navigation, no modal.
+  //
+  // SUB router uses `lazy: false`, so every tab root pre-mounts. Without the
+  // `isFocused` guard MobilePerpMarketWithProvider would boot TradingView, set
+  // up the perps mirror store, and emit `HideTabBar=true` in the background
+  // whenever the user has another tab focused on the SUB pane. Only render
+  // the chart when this tab is actually the active SUB tab.
+  if (splitViewType === ESplitViewType.SUB && isLandscape) {
+    return isFocused ? <MobilePerpMarketInline /> : null;
   }
 
   return (

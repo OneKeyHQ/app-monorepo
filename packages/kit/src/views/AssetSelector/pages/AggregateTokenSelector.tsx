@@ -15,7 +15,7 @@ import {
   Stack,
   Toast,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { getListedNetworkMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
@@ -91,7 +91,6 @@ function AggregateTokenListItem({
   const intl = useIntl();
 
   const [allTokenListMapAtom] = useAllTokenListMapAtom();
-  const [settings] = useSettingsPersistAtom();
   const tokenInfo = allTokenListMapAtom[token.$key];
   const {
     activeAccount: { wallet, indexedAccount },
@@ -239,15 +238,15 @@ function AggregateTokenListItem({
             </NumberSizeableText>
           }
           secondary={
-            <NumberSizeableText
+            <Currency
               size="$bodyMd"
               color="$textSubdued"
               formatter="value"
-              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              sourceCurrency={tokenInfo?.currency}
               textAlign="right"
             >
               {tokenInfo?.fiatValue}
-            </NumberSizeableText>
+            </Currency>
           }
         />
       )}

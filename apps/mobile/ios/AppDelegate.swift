@@ -7,10 +7,15 @@ import ReactAppDependencyProvider
 
 // MARK: - Dynamic bridge to Nitro modules (avoids C++ module import issues)
 private enum NitroModuleBridge {
-  // LaunchOptionsStore is @objcMembers in ReactNativeDeviceUtils
+  // LaunchOptionsStore is @objcMembers in ReactNativeDeviceUtils.
+  // Reach the singleton via the `sharedInstance` class method (perform),
+  // NOT KVC `value(forKeyPath: "shared")`: a Swift `static let` stored
+  // property is invisible to the ObjC runtime, so KVC returns nil and
+  // every subsequent `setValue(_:forKey:)` (startupTime, deviceToken,
+  // launchOptions) silently no-ops.
   static func launchOptionsStore() -> NSObject? {
     guard let cls = NSClassFromString("ReactNativeDeviceUtils.LaunchOptionsStore") as? NSObject.Type else { return nil }
-    return cls.value(forKeyPath: "shared") as? NSObject
+    return cls.perform(NSSelectorFromString("sharedInstance"))?.takeUnretainedValue() as? NSObject
   }
 
   // OneKeyLog is @objc in ReactNativeNativeLogger
@@ -135,6 +140,15 @@ public class AppDelegate: ExpoAppDelegate {
       "StartupTiming",
       "ios.app.did_finish_launching.start: +\(String(format: "%.0f", (didFinishLaunchingStartAt - AppDelegate.appLaunchCFTime) * 1000))ms from launch"
     )
+
+    // Disable persistent URL cache so auth/keyless responses (access_token,
+    // refresh_token, backendShare, pinHash, etc.) are never written to
+    // Library/Caches/<bundle>/Cache.db. Keeping a small memory cache for
+    // in-session reuse is UX-neutral. Must run before any URLSession.shared
+    // request (incl. recovery-mode path below). See SlowMist audit iOS-9.1.
+    URLCache.shared.removeAllCachedResponses()
+    URLCache.shared = URLCache(memoryCapacity: 4 * 1024 * 1024, diskCapacity: 0, diskPath: nil)
+
     // === Recovery Check ===
     let defaults = UserDefaults.standard
 

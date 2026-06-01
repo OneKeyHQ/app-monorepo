@@ -20,6 +20,7 @@ import {
   CANVAS_CONFIG,
   SHOW_REFERRAL_CODE,
   getPnlDisplayInfo,
+  getSharePriceLabelIds,
 } from './constants';
 
 import type { IShareConfig, IShareData } from './types';
@@ -94,6 +95,10 @@ export function ShareContentRenderer({
     pnlDisplayText.length > 6
       ? scaledFonts.pnl * (1 - (pnlDisplayText.length - 6) * 0.06)
       : scaledFonts.pnl;
+  const { entryPriceLabelId, markPriceLabelId } = getSharePriceLabelIds({
+    mode,
+    priceType,
+  });
 
   const imageLoadCountRef = useRef(0);
   const expectedImageCount = useRef(0);
@@ -253,7 +258,7 @@ export function ShareContentRenderer({
               lineHeight={scaledFonts.priceLabel * layout.lineHeight}
             >
               {intl.formatMessage({
-                id: ETranslations.perp_position_entry_price,
+                id: entryPriceLabelId,
               })}
             </SizableText>
             <SizableText
@@ -284,13 +289,9 @@ export function ShareContentRenderer({
               opacity={layout.labelOpacity}
               lineHeight={scaledFonts.priceLabel * layout.lineHeight}
             >
-              {priceType === 'exit'
-                ? intl.formatMessage({
-                    id: ETranslations.perp_position_exit_price,
-                  })
-                : intl.formatMessage({
-                    id: ETranslations.perp_position_mark_price,
-                  })}
+              {intl.formatMessage({
+                id: markPriceLabelId,
+              })}
             </SizableText>
             <SizableText
               fontSize={scaledFonts.priceValue}

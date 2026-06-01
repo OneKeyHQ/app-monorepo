@@ -20,10 +20,12 @@ export function BulkCopyAddressesButton({
   wallet,
   onClose,
   networkId,
+  isPrimeActive,
   isPrimeUser,
 }: {
   wallet: IDBWallet | undefined;
   networkId: string;
+  isPrimeActive: boolean;
   isPrimeUser: boolean;
   onClose: () => void;
 }) {
@@ -43,6 +45,8 @@ export function BulkCopyAddressesButton({
       label={intl.formatMessage({
         id: ETranslations.global_bulk_copy_addresses,
       })}
+      disabled={isBulkCopyBlocked}
+      allowPressWhenDisabled={isBulkCopyBlocked}
       onPress={async (close) => {
         if (isBulkCopyBlocked) {
           // Keep the entry interactive so users get feedback instead of a
@@ -58,6 +62,7 @@ export function BulkCopyAddressesButton({
           defaultLogger.prime.subscription.primeEntryClick({
             featureName: EPrimeFeatures.BulkCopyAddresses,
             entryPoint: 'walletEdit',
+            isPrimeActive,
           });
           navigation?.pushModal(EModalRoutes.PrimeModal, {
             screen: EPrimePages.PrimeDashboard,

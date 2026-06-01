@@ -276,6 +276,7 @@ const OpenOrdersRow = memo(
               size="small"
               variant="secondary"
               onPress={handleCancelOrder}
+              childrenAsText={false}
             >
               <SizableText size="$bodySm">
                 {intl.formatMessage({

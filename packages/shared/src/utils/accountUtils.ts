@@ -700,6 +700,18 @@ function buildAccountLocalAssetsKey({
   return ((xpub || accountAddress) ?? '').toLowerCase();
 }
 
+// Mirrors the BTC vault's `getAccountXpub` precedence so address-keyed storage
+// reads/writes land at the same key. Nested-segwit (P2SH-P2WPKH) accounts hold
+// the spendable xpub in `xpubSegwit`; reading raw `.xpub` instead misses that
+// derive type's worth. Accepts any account-shaped object — callers pass
+// IDBAccount / INetworkAccount whose non-UTXO variants don't structurally
+// declare these fields.
+function pickXpubFromDBAccount(account: unknown): string | undefined {
+  if (!account || typeof account !== 'object') return undefined;
+  const a = account as { xpub?: string; xpubSegwit?: string };
+  return a.xpubSegwit || a.xpub;
+}
+
 function isAccountCompatibleWithNetwork({
   account,
   networkId,
@@ -1397,6 +1409,7 @@ export default {
   removePathLastSegment,
   buildHiddenWalletName,
   buildAccountLocalAssetsKey,
+  pickXpubFromDBAccount,
   buildTonMnemonicCredentialId,
   getAccountIdFromTonMnemonicCredentialId,
   buildHyperLiquidAgentCredentialId,

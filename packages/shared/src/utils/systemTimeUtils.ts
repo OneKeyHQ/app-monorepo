@@ -33,7 +33,11 @@ const intervalTimeout = timerUtils.getTimeDurationMs({
   minute: 5,
 });
 const localServerTimeDiff = timerUtils.getTimeDurationMs({
-  minute: 30,
+  // OK-55438: tightened 30m -> 10m. Cross-device LWW ordering for cloud sync
+  // needs a tighter local-clock trust window than display/expiry logic: within
+  // this window getTimeNow() returns the raw local clock unmodified, so too
+  // loose a window lets a fast clock leak future dataTime into sync items.
+  minute: 10,
 });
 
 function isTimeValid({ time }: { time: number | undefined }): boolean {

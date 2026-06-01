@@ -104,6 +104,9 @@ export interface IDevSettings {
   disableCustomUA?: boolean;
   // Allow Discovery browser to load local development URLs.
   allowLocalhostUrlInDAppBrowser?: boolean;
+  // Force react-native-fast-pbkdf2 instead of the default quick-crypto backend
+  // for native PBKDF2 calls (debug only).
+  useFastPbkdf2NativeBackend?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -146,6 +149,7 @@ export const {
       usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
+      useFastPbkdf2NativeBackend: false,
     },
   },
 });

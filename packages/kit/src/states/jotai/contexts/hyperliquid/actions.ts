@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 
 import { BigNumber } from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isEqual, isNil } from 'lodash';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -11,11 +11,10 @@ import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components
 import {
   perpsActiveAccountAtom,
   perpsActiveAccountIsAgentReadyAtom,
-  perpsActiveAccountStatusInfoAtom,
-  perpsActiveAccountSummaryAtom,
   perpsActiveAssetAtom,
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
+  perpsActiveOrderBookOptionsAtom,
   perpsDepositOrderAtom,
   perpsTradingPreferencesAtom,
   spotActiveAssetAtom,
@@ -27,14 +26,34 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
+import {
+  PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
+  PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS,
+} from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  markPerpsColdStartPerf,
+  markPerpsColdStartPerfOnce,
+} from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  SCALE_ORDER_MIN_NOTIONAL,
+  getReduceOnlyOrderGuardError,
+  getReduceOnlyPositionSnapshotError,
+  getScaleOrderReferencePrice,
+  getScaleOrderSizeSkew,
+} from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
+  getPerpsOrderBookTickOptionWithCache,
+  getPerpsOrderBookTickOptionsWithCache,
+  setPerpsOrderBookTickOptionsCache,
+} from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import {
   findTokensByAlias,
   formatPriceToSignificantDigits,
@@ -45,6 +64,10 @@ import {
   resolveTradingSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getPerpsL2BookSnapshotCacheKeys,
+  swrCacheUtils,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IPerpsAssetPosition,
@@ -67,12 +90,15 @@ import {
   orderBookTickOptionsAtom,
   perpsActiveOpenOrdersAtom,
   perpsActivePositionAtom,
+  perpsActiveTwapOrdersAtom,
   perpsAllAssetCtxsAtom,
   perpsAllAssetsFilteredAtom,
   perpsAllMidsAtom,
   perpsLedgerUpdatesAtom,
   perpsOpenOrdersByCoinAtomCache,
   perpsTokenSearchAliasesAtom,
+  perpsTwapHistoryAtom,
+  perpsTwapSliceFillsAtom,
   subscriptionActiveAtom,
   tradeRouteViewStateAtom,
   tradingFormAtom,
@@ -80,9 +106,28 @@ import {
   tradingLoadingAtom,
 } from './atoms';
 import { EActionType, withToast } from './utils';
+import {
+  getPerpsAccountSwitchCleanupPlan,
+  normalizePerpsAccountAddress,
+} from './utils/accountSwitchCleanup';
+import {
+  filterCanceledOpenOrders,
+  getActivePerpsPositions,
+  shouldResetOpenOrdersForAccount,
+  sortActivePerpsPositions,
+} from './utils/coldStartMergeUtils';
+import {
+  shouldClearPerpsMarketDataForInstrument,
+  shouldUpdatePerpsBbo,
+  shouldUpdatePerpsL2Book,
+  withPerpsBboLocalReceivedAt,
+  withPerpsL2BookLocalReceivedAt,
+} from './utils/l2BookUtils';
 
 import type {
   IActiveTradeInstrument,
+  IPerpsActiveOpenOrdersAtom,
+  IPerpsActiveTwapOrder,
   ITradeRouteViewState,
   ITradingFormData,
 } from './atoms';
@@ -94,6 +139,100 @@ type IChStateLite = {
 type IChPositionLite = HL.IPerpsAssetPosition;
 
 const MAX_LEDGER_UPDATES = 200;
+const TWAP_MIN_DURATION_MINUTES = 5;
+const TWAP_MAX_DURATION_MINUTES = 1440;
+const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
+const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
+
+type ITwapHistoryLoadResult =
+  | {
+      ok: true;
+      data: HL.ITwapHistoryRecord[];
+    }
+  | {
+      ok: false;
+    };
+
+type ITwapSliceFillsLoadResult =
+  | {
+      ok: true;
+      data: HL.ITwapSliceFill[];
+    }
+  | {
+      ok: false;
+    };
+
+type ITwapDataLoadResult = {
+  webData2?: HL.IWsWebData2;
+  historyResult: ITwapHistoryLoadResult;
+  fillsResult: ITwapSliceFillsLoadResult;
+};
+
+function resolveSubmitOrderTradeInstrument({
+  activeTradeInstrument,
+  assetId,
+}: {
+  activeTradeInstrument: IActiveTradeInstrument;
+  assetId: number;
+}) {
+  if (
+    typeof activeTradeInstrument.assetId === 'number' &&
+    activeTradeInstrument.assetId === assetId
+  ) {
+    return activeTradeInstrument;
+  }
+  return undefined;
+}
+
+function buildAllDexsAssetCtxsByDex(data: HL.IWsAllDexsAssetCtxs) {
+  const incoming = data?.ctxs || [];
+  const ctxMap = new Map<string, HL.IPerpsAssetCtx[]>();
+  incoming.forEach(([dexName, ctxList]) => {
+    ctxMap.set(dexName, ctxList || []);
+  });
+
+  const ctxsByDex: HL.IPerpsAssetCtx[][] = [];
+  const perpsCtx = ctxMap.get('') ?? ctxMap.get('perps') ?? [];
+  const xyzCtx = ctxMap.get('xyz') ?? [];
+  ctxsByDex[0] = perpsCtx;
+  ctxsByDex[1] = xyzCtx;
+
+  return {
+    ctxsByDex,
+    perpsCtxCount: perpsCtx.length,
+    xyzCtxCount: xyzCtx.length,
+  };
+}
+
+function hasAnyAssetCtxs(ctxsByDex: HL.IPerpsAssetCtx[][] | undefined) {
+  return Boolean(ctxsByDex?.some((ctxs) => ctxs?.length > 0));
+}
+
+function getFreshL2BookSnapshotFromSwr({
+  coin,
+  nSigFigs,
+  mantissa,
+}: {
+  coin: string;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+}) {
+  const keys = getPerpsL2BookSnapshotCacheKeys({
+    coin,
+    nSigFigs,
+    mantissa,
+  });
+  for (const key of keys) {
+    const entry = swrCacheUtils.getWithTimestamp<HL.IBook>(key);
+    if (
+      entry?.data?.coin === coin &&
+      Date.now() - entry.updatedAt <= PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS
+    ) {
+      return withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt);
+    }
+  }
+  return undefined;
+}
 
 function getLedgerUpdateKey(update: HL.IUserNonFundingLedgerUpdate): string {
   return (
@@ -126,6 +265,68 @@ function mergeLedgerUpdates(
   }
 
   return sortAndLimitLedgerUpdates(mergedUpdates);
+}
+
+function buildTwapOrdersByCoinMap(
+  orders: IPerpsActiveTwapOrder[],
+): Record<string, IPerpsActiveTwapOrder[]> {
+  return orders.reduce<Record<string, IPerpsActiveTwapOrder[]>>(
+    (acc, order) => {
+      if (!acc[order.state.coin]) {
+        acc[order.state.coin] = [];
+      }
+      acc[order.state.coin].push(order);
+      return acc;
+    },
+    {},
+  );
+}
+
+function sortTwapOrders(
+  orders: IPerpsActiveTwapOrder[],
+): IPerpsActiveTwapOrder[] {
+  return orders.toSorted(
+    (a, b) => b.state.timestamp - a.state.timestamp || b.twapId - a.twapId,
+  );
+}
+
+function getTwapHistoryKey(record: HL.ITwapHistoryRecord): string {
+  return `${record.twapId ?? 'unknown'}:${record.time}:${record.state.coin}`;
+}
+
+function sortAndDedupeTwapHistory(
+  records: HL.ITwapHistoryRecord[],
+): HL.ITwapHistoryRecord[] {
+  const map = new Map<string, HL.ITwapHistoryRecord>();
+  for (const record of records) {
+    map.set(getTwapHistoryKey(record), record);
+  }
+  return Array.from(map.values()).toSorted(
+    (a, b) => b.time - a.time || (b.twapId ?? 0) - (a.twapId ?? 0),
+  );
+}
+
+function getTwapSliceFillKey(record: HL.ITwapSliceFill): string {
+  const { fill } = record;
+  if (typeof fill.tid === 'number') {
+    return `tid:${fill.tid}:${record.twapId}`;
+  }
+  return `${record.twapId}:${fill.hash}:${fill.oid}:${fill.time}:${fill.coin}:${fill.side}:${fill.px}:${fill.sz}`;
+}
+
+function sortAndDedupeTwapSliceFills(
+  records: HL.ITwapSliceFill[],
+): HL.ITwapSliceFill[] {
+  const map = new Map<string, HL.ITwapSliceFill>();
+  for (const record of records) {
+    map.set(getTwapSliceFillKey(record), record);
+  }
+  return Array.from(map.values()).toSorted(
+    (a, b) =>
+      b.fill.time - a.fill.time ||
+      (b.fill.tid ?? 0) - (a.fill.tid ?? 0) ||
+      b.twapId - a.twapId,
+  );
 }
 
 async function clearMatchedDepositOrders(
@@ -172,11 +373,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   private canceledOrderIds = new Set<number>();
 
+  private canceledTwapIds = new Set<number>();
+
   private openOrdersByDexCache = new Map<string, HL.IPerpsFrontendOrder[]>();
 
   private openOrdersCacheAccountAddress: string | undefined;
 
   private activeInstrumentChangeRequestId = 0;
+
+  private loadTwapDataRequestId = 0;
+
+  private loadTwapDataInFlightByAccount = new Map<
+    string,
+    Promise<ITwapDataLoadResult>
+  >();
 
   private beginActiveInstrumentChange(): number {
     this.activeInstrumentChangeRequestId += 1;
@@ -187,26 +397,162 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     return requestId === this.activeInstrumentChangeRequestId;
   }
 
+  private filterCanceledTwapOrders(
+    orders: IPerpsActiveTwapOrder[],
+  ): IPerpsActiveTwapOrder[] {
+    return orders.filter((order) => !this.canceledTwapIds.has(order.twapId));
+  }
+
+  private getTwapDataLoadPromise(
+    accountAddress: string,
+  ): Promise<ITwapDataLoadResult> {
+    const inFlight = this.loadTwapDataInFlightByAccount.get(accountAddress);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const promise = this.fetchTwapData(accountAddress).finally(() => {
+      if (this.loadTwapDataInFlightByAccount.get(accountAddress) === promise) {
+        this.loadTwapDataInFlightByAccount.delete(accountAddress);
+      }
+    });
+    this.loadTwapDataInFlightByAccount.set(accountAddress, promise);
+    return promise;
+  }
+
+  private async fetchTwapData(
+    accountAddress: string,
+  ): Promise<ITwapDataLoadResult> {
+    const [webData2, historyResult, fillsResult] = await Promise.all([
+      backgroundApiProxy.serviceHyperliquid
+        .getWebData2({
+          user: accountAddress as HL.IHex,
+        })
+        .catch(() => undefined),
+      backgroundApiProxy.serviceHyperliquid
+        .getTwapHistory({
+          user: accountAddress as HL.IHex,
+        })
+        .then((history) => ({
+          ok: true as const,
+          data: history,
+        }))
+        .catch(() => ({
+          ok: false as const,
+        })),
+      backgroundApiProxy.serviceHyperliquid
+        .getUserTwapSliceFills({
+          user: accountAddress as HL.IHex,
+        })
+        .then((fills) => ({
+          ok: true as const,
+          data: fills,
+        }))
+        .catch(() => ({
+          ok: false as const,
+        })),
+    ]);
+
+    return {
+      webData2,
+      historyResult,
+      fillsResult,
+    };
+  }
+
   private async waitForActiveInstrumentChangeSettle(
     requestId: number,
   ): Promise<boolean> {
     return this.isLatestActiveInstrumentChange(requestId);
   }
 
-  private async findChartOrder(
-    get: (atom: ReturnType<typeof perpsActiveOpenOrdersAtom>) => {
-      openOrders: HL.IPerpsFrontendOrder[];
-    },
-    oid: number,
-  ): Promise<HL.IPerpsFrontendOrder | undefined> {
-    const { openOrders: perpOpenOrders } = get(perpsActiveOpenOrdersAtom());
-    const perpOrder = perpOpenOrders.find((order) => order.oid === oid);
-    if (perpOrder) {
-      return perpOrder;
+  private shouldSyncSubscriptionsAfterInstrumentChange(
+    viewState: ITradeRouteViewState,
+  ): boolean {
+    return (
+      viewState.routeFocused ||
+      viewState.tokenSelectorOpen ||
+      viewState.favoritesBarSpotActive
+    );
+  }
+
+  private async syncSubscriptionsAfterInstrumentChange(params: {
+    instrument: IActiveTradeInstrument;
+    orderBookTickOptions: Record<string, IPerpOrderBookTickOptionPersist>;
+    requestId: number;
+    viewState: ITradeRouteViewState;
+  }): Promise<void> {
+    if (
+      !this.isLatestActiveInstrumentChange(params.requestId) ||
+      !this.shouldSyncSubscriptionsAfterInstrumentChange(params.viewState)
+    ) {
+      return;
     }
 
-    const { openOrders: spotOpenOrders } = await spotActiveOpenOrdersAtom.get();
-    return spotOpenOrders.find((order) => order.oid === oid);
+    const stored = getPerpsOrderBookTickOptionsWithCache(
+      params.orderBookTickOptions,
+    )[params.instrument.coin];
+    const nextOrderBookOptions = {
+      coin: params.instrument.coin,
+      assetId: params.instrument.assetId,
+      nSigFigs: stored?.nSigFigs ?? null,
+      mantissa: stored?.mantissa ?? null,
+    };
+    const prevOrderBookOptions = await perpsActiveOrderBookOptionsAtom.get();
+    if (!isEqual(prevOrderBookOptions, nextOrderBookOptions)) {
+      await perpsActiveOrderBookOptionsAtom.set(() => nextOrderBookOptions);
+    }
+    if (!this.isLatestActiveInstrumentChange(params.requestId)) {
+      return;
+    }
+
+    try {
+      await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions();
+    } catch (error) {
+      console.error(
+        '[HyperliquidActions.syncSubscriptionsAfterInstrumentChange] Failed to update subscriptions:',
+        error,
+      );
+    }
+  }
+
+  private async findChartOrder(
+    get: (
+      atom: ReturnType<typeof perpsActiveOpenOrdersAtom>,
+    ) => IPerpsActiveOpenOrdersAtom,
+    oid: number,
+  ): Promise<HL.IPerpsFrontendOrder | undefined> {
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAccountAddress = normalizePerpsAccountAddress(
+      activeAccount?.accountAddress,
+    );
+    const activeOpenOrdersState = get(perpsActiveOpenOrdersAtom());
+    const isPerpsOpenOrdersScoped =
+      !activeAccountAddress ||
+      normalizePerpsAccountAddress(activeOpenOrdersState.accountAddress) ===
+        activeAccountAddress;
+    if (isPerpsOpenOrdersScoped) {
+      const perpOrder = activeOpenOrdersState.openOrders.find(
+        (order) => order.oid === oid,
+      );
+      if (perpOrder) {
+        return perpOrder;
+      }
+    }
+
+    const { openOrders: spotOpenOrders, accountAddress: spotAccountAddress } =
+      await spotActiveOpenOrdersAtom.get();
+    const isLiveSpotOrdersScoped =
+      !activeAccountAddress ||
+      normalizePerpsAccountAddress(spotAccountAddress) === activeAccountAddress;
+    if (isLiveSpotOrdersScoped) {
+      const spotOrder = spotOpenOrders.find((order) => order.oid === oid);
+      if (spotOrder) {
+        return spotOrder;
+      }
+    }
+
+    return undefined;
   }
 
   private buildOpenOrdersByCoinMap(
@@ -265,6 +611,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     this.openOrdersCacheAccountAddress = undefined;
   }
 
+  private clearActiveAccountTransientData() {
+    this.resetOpenOrdersByDexCache();
+    perpsOpenOrdersByCoinAtomCache.clear();
+    this.canceledOrderIds.clear();
+    this.canceledTwapIds.clear();
+  }
+
   private ensureOpenOrdersCacheAccount(accountAddress: string | undefined) {
     if (this.openOrdersCacheAccountAddress !== accountAddress) {
       this.openOrdersByDexCache.clear();
@@ -273,6 +626,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   }
 
   updateAllMids = contextAtomMethod((_, set, data: HL.IWsAllMids) => {
+    markPerpsColdStartPerfOnce('atom_set_all_mids_first', {
+      midsCount: Object.keys(data?.mids ?? {}).length,
+    });
     set(perpsAllMidsAtom(), data);
   });
 
@@ -292,10 +648,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateAllAssetCtxs = contextAtomMethod((_, set, data: HL.IWsWebData2) => {
     if (this.allAssetCtxsRequiredNumber <= 0) {
       // skip update if not required for better performance
+      markPerpsColdStartPerfOnce('atom_set_web_data2_asset_ctxs_skipped_first');
       return;
     }
     // just save raw ctxs here
     // use usePerpsAssetCtx() for single asset ctx with ctx formatted
+    markPerpsColdStartPerfOnce('atom_set_web_data2_asset_ctxs_first', {
+      ctxCount: data.assetCtxs?.length ?? 0,
+    });
     set(perpsAllAssetCtxsAtom(), {
       assetCtxsByDex: [data.assetCtxs || []],
     });
@@ -358,56 +718,89 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     this.updateAllAssetCtxs.call(set, data);
 
     const activeAccount = await perpsActiveAccountAtom.get();
-    const dataUser = data?.user?.toLowerCase();
-    const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+    const dataUser = normalizePerpsAccountAddress(data?.user);
+    const activeAccountAddress = normalizePerpsAccountAddress(
+      activeAccount?.accountAddress,
+    );
 
-    if (activeAccountAddress === dataUser) {
+    if (!dataUser) {
+      return;
+    }
+    if (activeAccountAddress && activeAccountAddress === dataUser) {
       // Update active positions from webData2
-      const positions = data?.clearinghouseState?.assetPositions || [];
-      const activePositions = positions
-        .filter((pos) => {
-          const size = parseFloat(pos.position?.szi || '0');
-          return Math.abs(size) > 0;
-        })
-        .toSorted(
-          (a, b) =>
-            parseFloat(b.position.positionValue || '0') -
-            parseFloat(a.position.positionValue || '0'),
+      if (data?.clearinghouseState) {
+        const positions = data.clearinghouseState.assetPositions || [];
+        const activePositions = sortActivePerpsPositions(
+          getActivePerpsPositions(positions),
         );
 
-      set(perpsActivePositionAtom(), {
-        accountAddress: activeAccountAddress,
-        activePositions,
-      });
+        set(perpsActivePositionAtom(), {
+          accountAddress: activeAccountAddress,
+          activePositions,
+        });
+      }
 
-      const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
-      const allOrders = data?.openOrders || [];
-      const perpOrders = allOrders.filter(
-        (order) =>
-          !isSpotInstrument(order.coin) &&
-          !this.canceledOrderIds.has(order.oid),
-      );
-      const spotOrders = allOrders.filter(
-        (order) =>
-          isSpotInstrument(order.coin) && !this.canceledOrderIds.has(order.oid),
-      );
-      const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
-        perpOrders,
-        prevOpenOrdersState?.openOrdersByCoin,
-      );
-      set(perpsActiveOpenOrdersAtom(), {
-        accountAddress: activeAccountAddress,
-        openOrders: perpOrders,
-        openOrdersByCoin,
-      });
-      void spotActiveOpenOrdersAtom.set({
-        accountAddress: activeAccountAddress,
-        openOrders: spotOrders,
-      });
+      if (Array.isArray(data?.openOrders)) {
+        const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
+        const allOrders = data.openOrders.filter(
+          (order) => !this.canceledOrderIds.has(order.oid),
+        );
+        const perpOrders = allOrders.filter(
+          (order) => !isSpotInstrument(order.coin),
+        );
+        const spotOrders = allOrders.filter((order) =>
+          isSpotInstrument(order.coin),
+        );
+        const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
+          perpOrders,
+          prevOpenOrdersState?.openOrdersByCoin,
+        );
+        this.ensureOpenOrdersCacheAccount(activeAccountAddress);
+        this.openOrdersByDexCache.clear();
+        this.openOrdersByDexCache.set('', allOrders);
+        set(perpsActiveOpenOrdersAtom(), {
+          accountAddress: activeAccountAddress,
+          openOrders: perpOrders,
+          openOrdersByCoin,
+        });
+        void spotActiveOpenOrdersAtom.set({
+          accountAddress: activeAccountAddress,
+          openOrders: spotOrders,
+        });
+      }
+      if (Array.isArray(data?.twapStates)) {
+        const prevTwapOrders = get(perpsActiveTwapOrdersAtom());
+        const twapOrders = this.filterCanceledTwapOrders(
+          sortTwapOrders([
+            ...(normalizePerpsAccountAddress(prevTwapOrders.accountAddress) ===
+            activeAccountAddress
+              ? prevTwapOrders.twapOrders.filter(
+                  (order) => (order.dex ?? '') !== '',
+                )
+              : []),
+            ...data.twapStates.map(
+              ([twapId, state]): IPerpsActiveTwapOrder => ({
+                twapId,
+                state,
+                dex: '',
+              }),
+            ),
+          ]),
+        );
+        set(perpsActiveTwapOrdersAtom(), {
+          accountAddress: activeAccountAddress,
+          twapOrders,
+          twapOrdersByCoin: buildTwapOrdersByCoinMap(twapOrders),
+        });
+      }
     } else {
+      if (!activeAccountAddress) {
+        return;
+      }
       const activePosition = get(perpsActivePositionAtom());
       if (
-        activePosition?.accountAddress?.toLowerCase() !== activeAccountAddress
+        normalizePerpsAccountAddress(activePosition?.accountAddress) !==
+        activeAccountAddress
       ) {
         set(perpsActivePositionAtom(), {
           accountAddress: activeAccountAddress,
@@ -416,7 +809,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       const activeOpenOrders = get(perpsActiveOpenOrdersAtom());
       if (
-        activeOpenOrders?.accountAddress?.toLowerCase() !== activeAccountAddress
+        shouldResetOpenOrdersForAccount({
+          activeAccountAddress,
+          currentOpenOrdersAccountAddress: activeOpenOrders?.accountAddress,
+        })
       ) {
         this.resetOpenOrdersByDexCache();
         set(perpsActiveOpenOrdersAtom(), {
@@ -424,24 +820,44 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           openOrders: [],
           openOrdersByCoin: {},
         });
+        void spotActiveOpenOrdersAtom.set({
+          accountAddress: activeAccountAddress,
+          openOrders: [],
+        });
       }
-      void spotActiveOpenOrdersAtom.set({
-        accountAddress: activeAccountAddress,
-        openOrders: [],
-      });
+      const activeTwapOrders = get(perpsActiveTwapOrdersAtom());
+      if (
+        normalizePerpsAccountAddress(activeTwapOrders?.accountAddress) !==
+        activeAccountAddress
+      ) {
+        set(perpsActiveTwapOrdersAtom(), {
+          accountAddress: activeAccountAddress,
+          twapOrders: [],
+          twapOrdersByCoin: {},
+        });
+      }
     }
   });
 
   updateAllDexsClearinghouseState = contextAtomMethod(
     async (get, set, data: HL.IWsAllDexsClearinghouseState) => {
       const activeAccount = await perpsActiveAccountAtom.get();
-      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
-      const dataUser = data?.user?.toLowerCase();
-      if (!activeAccountAddress || activeAccountAddress !== dataUser) {
+      const activeAccountAddress = normalizePerpsAccountAddress(
+        activeAccount?.accountAddress,
+      );
+      const dataUser = normalizePerpsAccountAddress(data?.user);
+      if (!activeAccountAddress) {
+        return;
+      }
+      if (!dataUser) {
+        return;
+      }
+      if (activeAccountAddress !== dataUser) {
         // cleanup if account switched
         const activePosition = get(perpsActivePositionAtom());
         if (
-          activePosition?.accountAddress?.toLowerCase() !== activeAccountAddress
+          normalizePerpsAccountAddress(activePosition?.accountAddress) !==
+          activeAccountAddress
         ) {
           set(perpsActivePositionAtom(), {
             accountAddress: activeAccountAddress,
@@ -476,20 +892,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         ...getPositions(xyzState),
       ];
 
-      const activePositions = combinedPositions
-        .filter((pos) => {
-          const size = parseFloat(pos.position?.szi ?? '0');
-          return Math.abs(size) > 0;
-        })
-        .toSorted((a, b) => {
-          const af = parseFloat(a.position?.cumFunding?.allTime ?? '0');
-          const bf = parseFloat(b.position?.cumFunding?.allTime ?? '0');
-          if (bf !== af) return bf - af;
-          return (
-            parseFloat(b.position?.positionValue ?? '0') -
-            parseFloat(a.position?.positionValue ?? '0')
-          );
-        });
+      const activePositions = getActivePerpsPositions(
+        combinedPositions,
+      ).toSorted((a, b) => {
+        const af = parseFloat(a.position?.cumFunding?.allTime ?? '0');
+        const bf = parseFloat(b.position?.cumFunding?.allTime ?? '0');
+        if (bf !== af) return bf - af;
+        return (
+          parseFloat(b.position?.positionValue ?? '0') -
+          parseFloat(a.position?.positionValue ?? '0')
+        );
+      });
 
       set(perpsActivePositionAtom(), {
         accountAddress: activeAccountAddress,
@@ -501,13 +914,21 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateOpenOrders = contextAtomMethod(
     async (get, set, data: HL.IWsOpenOrders) => {
       const activeAccount = await perpsActiveAccountAtom.get();
-      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
-      const dataUser = data?.user?.toLowerCase();
-      if (!activeAccountAddress || activeAccountAddress !== dataUser) {
+      const activeAccountAddress = normalizePerpsAccountAddress(
+        activeAccount?.accountAddress,
+      );
+      const dataUser = normalizePerpsAccountAddress(data?.user);
+      if (!activeAccountAddress) {
+        return;
+      }
+      if (!dataUser) {
+        return;
+      }
+      if (activeAccountAddress !== dataUser) {
         this.resetOpenOrdersByDexCache();
         const activeOpenOrders = get(perpsActiveOpenOrdersAtom());
         if (
-          activeOpenOrders?.accountAddress?.toLowerCase() !==
+          normalizePerpsAccountAddress(activeOpenOrders?.accountAddress) !==
           activeAccountAddress
         ) {
           set(perpsActiveOpenOrdersAtom(), {
@@ -522,23 +943,24 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }
         return;
       }
+      if (!Array.isArray(data?.orders)) {
+        return;
+      }
 
       const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
-      const allOrders = data?.orders || [];
+      const allOrders = data.orders;
       this.ensureOpenOrdersCacheAccount(activeAccountAddress);
       this.openOrdersByDexCache.set(data?.dex ?? '', allOrders);
-      const mergedOrders = Array.from(
-        this.openOrdersByDexCache.values(),
-      ).flat();
+      const mergedOrders = filterCanceledOpenOrders(
+        Array.from(this.openOrdersByDexCache.values()).flat(),
+        this.canceledOrderIds,
+      );
 
       const perpOrders = mergedOrders.filter(
-        (order) =>
-          !isSpotInstrument(order.coin) &&
-          !this.canceledOrderIds.has(order.oid),
+        (order) => !isSpotInstrument(order.coin),
       );
-      const spotOrders = mergedOrders.filter(
-        (order) =>
-          isSpotInstrument(order.coin) && !this.canceledOrderIds.has(order.oid),
+      const spotOrders = mergedOrders.filter((order) =>
+        isSpotInstrument(order.coin),
       );
       const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
         perpOrders,
@@ -556,21 +978,181 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  hydrateAllDexsAssetCtxsSnapshotCache = contextAtomMethod(async (get, set) => {
+    const current = get(perpsAllAssetCtxsAtom());
+    if (hasAnyAssetCtxs(current.assetCtxsByDex)) {
+      markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_skip', {
+        reason: 'atom_ready',
+      });
+      return false;
+    }
+
+    markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_start');
+    const entry =
+      await backgroundApiProxy.simpleDb.perp.getAllDexsAssetCtxsSnapshotCache({
+        maxAgeMs: PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS,
+      });
+    if (!entry?.data) {
+      markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_miss');
+      return false;
+    }
+
+    const latest = get(perpsAllAssetCtxsAtom());
+    if (hasAnyAssetCtxs(latest.assetCtxsByDex)) {
+      markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_skip', {
+        reason: 'live_data_ready',
+      });
+      return false;
+    }
+
+    const { ctxsByDex, perpsCtxCount, xyzCtxCount } =
+      buildAllDexsAssetCtxsByDex(entry.data);
+    if (!hasAnyAssetCtxs(ctxsByDex)) {
+      markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_miss', {
+        reason: 'empty_snapshot',
+      });
+      return false;
+    }
+
+    set(perpsAllAssetCtxsAtom(), {
+      assetCtxsByDex: ctxsByDex,
+      updatedAt: entry.updatedAt,
+    });
+    markPerpsColdStartPerfOnce('atom_set_all_dexs_asset_ctxs_first', {
+      source: 'cache',
+      perpsCtxCount,
+      xyzCtxCount,
+    });
+    markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_hit', {
+      ageMs: Date.now() - entry.updatedAt,
+      perpsCtxCount,
+      xyzCtxCount,
+    });
+    return true;
+  });
+
+  updateTwapStates = contextAtomMethod(
+    async (get, set, data: HL.IWsTwapStates) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+      const dataUser = data?.user?.toLowerCase();
+      if (!activeAccountAddress || activeAccountAddress !== dataUser) {
+        const current = get(perpsActiveTwapOrdersAtom());
+        if (current.accountAddress?.toLowerCase() !== activeAccountAddress) {
+          set(perpsActiveTwapOrdersAtom(), {
+            accountAddress: activeAccountAddress,
+            twapOrders: [],
+            twapOrdersByCoin: {},
+          });
+        }
+        return;
+      }
+
+      const dex = data.dex ?? '';
+      const prev = get(perpsActiveTwapOrdersAtom());
+      const nextForDex = this.filterCanceledTwapOrders(
+        (data.states ?? []).map(
+          ([twapId, state]): IPerpsActiveTwapOrder => ({
+            twapId,
+            state,
+            dex,
+          }),
+        ),
+      );
+      const previousOtherDex =
+        prev.accountAddress?.toLowerCase() === activeAccountAddress
+          ? prev.twapOrders.filter((order) => (order.dex ?? '') !== dex)
+          : [];
+      const twapOrders = sortTwapOrders([...previousOtherDex, ...nextForDex]);
+      set(perpsActiveTwapOrdersAtom(), {
+        accountAddress: activeAccountAddress,
+        twapOrders,
+        twapOrdersByCoin: buildTwapOrdersByCoinMap(twapOrders),
+      });
+    },
+  );
+
+  updateTwapHistory = contextAtomMethod(
+    async (get, set, data: HL.IWsUserTwapHistory) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+      const dataUser = data?.user?.toLowerCase();
+      if (!activeAccountAddress) {
+        set(perpsTwapHistoryAtom(), {
+          accountAddress: activeAccountAddress,
+          history: [],
+          isLoaded: false,
+        });
+        return;
+      }
+      if (activeAccountAddress !== dataUser) {
+        return;
+      }
+      const prev = get(perpsTwapHistoryAtom());
+      const previousHistory =
+        prev.accountAddress?.toLowerCase() === activeAccountAddress &&
+        !data.isSnapshot
+          ? prev.history
+          : [];
+      set(perpsTwapHistoryAtom(), {
+        accountAddress: activeAccountAddress,
+        history: sortAndDedupeTwapHistory([
+          ...previousHistory,
+          ...(data.history ?? []),
+        ]),
+        isLoaded: true,
+      });
+    },
+  );
+
+  updateTwapSliceFills = contextAtomMethod(
+    async (get, set, data: HL.IWsUserTwapSliceFills) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+      const dataUser = data?.user?.toLowerCase();
+      if (!activeAccountAddress) {
+        set(perpsTwapSliceFillsAtom(), {
+          accountAddress: activeAccountAddress,
+          fills: [],
+          isLoaded: false,
+          latestTime: 0,
+        });
+        return;
+      }
+      if (activeAccountAddress !== dataUser) {
+        return;
+      }
+      const prev = get(perpsTwapSliceFillsAtom());
+      const previousFills =
+        prev.accountAddress?.toLowerCase() === activeAccountAddress &&
+        !data.isSnapshot
+          ? prev.fills
+          : [];
+      const fills = sortAndDedupeTwapSliceFills([
+        ...previousFills,
+        ...(data.twapSliceFills ?? []),
+      ]);
+      set(perpsTwapSliceFillsAtom(), {
+        accountAddress: activeAccountAddress,
+        fills,
+        isLoaded: true,
+        latestTime: fills[0]?.fill.time ?? 0,
+      });
+    },
+  );
+
   updateAllDexsAssetCtxs = contextAtomMethod(
     (_, set, data: HL.IWsAllDexsAssetCtxs) => {
-      const incoming = data?.ctxs || [];
-      const ctxMap = new Map<string, HL.IPerpsAssetCtx[]>();
-      incoming.forEach(([dexName, ctxList]) => {
-        ctxMap.set(dexName, ctxList || []);
+      const { ctxsByDex, perpsCtxCount, xyzCtxCount } =
+        buildAllDexsAssetCtxsByDex(data);
+      markPerpsColdStartPerfOnce('atom_set_all_dexs_asset_ctxs_first', {
+        source: 'ws',
+        perpsCtxCount,
+        xyzCtxCount,
       });
-
-      const ctxsByDex: HL.IPerpsAssetCtx[][] = [];
-      const perpsCtx = ctxMap.get('') ?? ctxMap.get('perps') ?? [];
-      const xyzCtx = ctxMap.get('xyz') ?? [];
-      ctxsByDex[0] = perpsCtx;
-      ctxsByDex[1] = xyzCtx;
       set(perpsAllAssetCtxsAtom(), {
         assetCtxsByDex: ctxsByDex,
+        updatedAt: Date.now(),
       });
     },
   );
@@ -734,97 +1316,71 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     return a.mode === b.mode && a.coin === b.coin && a.assetId === b.assetId;
   }
 
-  private static _isL2BookEqual(a: HL.IBook | null, b: HL.IBook): boolean {
-    if (!a || a.coin !== b.coin) {
-      return false;
-    }
-    const prevSides = a.levels ?? [];
-    const nextSides = b.levels ?? [];
-    if (prevSides.length !== nextSides.length) {
-      return false;
-    }
-    for (let sideIndex = 0; sideIndex < nextSides.length; sideIndex += 1) {
-      const prevLevels = prevSides[sideIndex] ?? [];
-      const nextLevels = nextSides[sideIndex] ?? [];
-      if (prevLevels.length !== nextLevels.length) {
-        return false;
-      }
-      for (
-        let levelIndex = 0;
-        levelIndex < nextLevels.length;
-        levelIndex += 1
-      ) {
-        const prevLevel = prevLevels[levelIndex];
-        const nextLevel = nextLevels[levelIndex];
-        if (
-          prevLevel?.px !== nextLevel?.px ||
-          prevLevel?.sz !== nextLevel?.sz ||
-          prevLevel?.n !== nextLevel?.n
-        ) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
   updateL2Book = contextAtomMethod(async (get, set, data: HL.IBook) => {
-    const activeCoin = await this._getActiveCoin();
+    const activeInstrument = get(activeTradeInstrumentAtom());
+    const activeCoin = activeInstrument.coin || (await this._getActiveCoin());
     if (!data) {
       return;
     }
     if (activeCoin === data.coin) {
       const currentBook = get(l2BookAtom());
-      if (ContextJotaiActionsHyperliquid._isL2BookEqual(currentBook, data)) {
+      if (
+        !shouldUpdatePerpsL2Book({
+          currentBook,
+          nextBook: data,
+        })
+      ) {
         return;
       }
-      set(l2BookAtom(), data);
+      markPerpsColdStartPerfOnce('atom_set_l2_book_first', {
+        coin: data.coin,
+        bidLevels: data.levels?.[0]?.length ?? 0,
+        askLevels: data.levels?.[1]?.length ?? 0,
+      });
+      set(l2BookAtom(), withPerpsL2BookLocalReceivedAt(data));
     } else {
       const currentBook = get(l2BookAtom());
-      if (currentBook?.coin && currentBook?.coin !== activeCoin) {
+      if (
+        shouldClearPerpsMarketDataForInstrument({
+          dataCoin: currentBook?.coin,
+          activeCoin,
+        })
+      ) {
         set(l2BookAtom(), null);
       }
     }
   });
 
   updateBbo = contextAtomMethod(async (get, set, data: HL.IWsBbo) => {
-    const activeCoin = await this._getActiveCoin();
+    const activeInstrument = get(activeTradeInstrumentAtom());
+    const activeCoin = activeInstrument.coin || (await this._getActiveCoin());
     if (!data) {
       return;
     }
     if (activeCoin !== data.coin) {
       const currentBbo = get(bboAtom());
-      if (currentBbo?.coin && currentBbo?.coin !== activeCoin) {
+      if (
+        shouldClearPerpsMarketDataForInstrument({
+          dataCoin: currentBbo?.coin,
+          activeCoin,
+        })
+      ) {
         set(bboAtom(), null);
       }
       return;
     }
 
-    // Only update if price changes (ignore size and count changes)
     const currentBbo = get(bboAtom());
-    if (currentBbo) {
-      const currentBidPx = currentBbo.bbo[0]?.px;
-      const currentAskPx = currentBbo.bbo[1]?.px;
-      const newBidPx = data.bbo[0]?.px;
-      const newAskPx = data.bbo[1]?.px;
-
-      if (
-        currentBidPx !== null &&
-        currentBidPx !== undefined &&
-        currentAskPx !== null &&
-        currentAskPx !== undefined &&
-        newBidPx !== null &&
-        newBidPx !== undefined &&
-        newAskPx !== null &&
-        newAskPx !== undefined &&
-        currentBidPx === newBidPx &&
-        currentAskPx === newAskPx
-      ) {
-        return;
-      }
+    if (
+      !shouldUpdatePerpsBbo({
+        currentBbo,
+        nextBbo: data,
+      })
+    ) {
+      return;
     }
 
-    set(bboAtom(), data);
+    set(bboAtom(), withPerpsBboLocalReceivedAt(data));
   });
 
   ensureOrderBookTickOptionsLoaded = contextAtomMethod(async (_get, set) => {
@@ -833,6 +1389,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const stored =
         await backgroundApiProxy.simpleDb.perp.getOrderBookTickOptions();
       set(orderBookTickOptionsAtom(), stored);
+      setPerpsOrderBookTickOptionsCache(stored);
     } catch (error) {
       console.error('Failed to load order book tick options:', error);
     } finally {
@@ -881,6 +1438,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
 
       set(orderBookTickOptionsAtom(), next);
+      setPerpsOrderBookTickOptionsCache(next);
 
       try {
         await backgroundApiProxy.simpleDb.perp.setOrderBookTickOption({
@@ -925,6 +1483,28 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         assetId: undefined,
         universe: undefined,
       };
+      const hydrateL2BookFromSwr = (targetCoin: string) => {
+        const storedTickOptions = getPerpsOrderBookTickOptionWithCache({
+          coin: targetCoin,
+          options: get(orderBookTickOptionsAtom()),
+        });
+        const cachedBook = getFreshL2BookSnapshotFromSwr({
+          coin: targetCoin,
+          nSigFigs: storedTickOptions?.nSigFigs ?? null,
+          mantissa:
+            storedTickOptions?.mantissa === undefined
+              ? undefined
+              : storedTickOptions.mantissa,
+        });
+        if (cachedBook) {
+          set(l2BookAtom(), cachedBook);
+          markPerpsColdStartPerfOnce('action_l2_book_swr_hydrated_first', {
+            coin: cachedBook.coin,
+            bidLevels: cachedBook.levels?.[0]?.length ?? 0,
+            askLevels: cachedBook.levels?.[1]?.length ?? 0,
+          });
+        }
+      };
       const prevInstrument = get(activeTradeInstrumentAtom());
       const shouldSetOptimisticInstrument =
         prevInstrument.mode !== 'perp' || prevInstrument.coin !== coin;
@@ -936,7 +1516,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         )
       ) {
         set(activeTradeInstrumentAtom(), optimisticInstrument);
+        set(l2BookAtom(), null);
+        set(bboAtom(), null);
       }
+      hydrateL2BookFromSwr(coin);
       await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const activeAsset = await perpsActiveAssetAtom.get();
       if (activeAsset?.coin === coin && !force) {
@@ -965,11 +1548,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
         return false;
       }
-      await this.clearActiveAssetData.call(set);
+      // Keep the BG subscription target ahead of slower UI cleanup/work; after
+      // the native UI/BG split, the subscription service only reads BG atoms.
+      await tradingModeAtom.set('perp');
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
-      await tradingModeAtom.set('perp');
+      await this.clearActiveAssetData.call(set);
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
@@ -1009,6 +1594,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       this.updateTradingForm.call(set, nextFormUpdates);
       set(activeTradeInstrumentAtom(), nextInstrument);
+      void this.syncSubscriptionsAfterInstrumentChange({
+        instrument: nextInstrument,
+        orderBookTickOptions: get(orderBookTickOptionsAtom()),
+        requestId,
+        viewState: get(tradeRouteViewStateAtom()),
+      });
+      hydrateL2BookFromSwr(nextInstrument.coin);
       return true;
     },
   );
@@ -1028,6 +1620,26 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       },
     ) => {
       const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
+      const optimisticInstrument: IActiveTradeInstrument = {
+        mode: 'spot',
+        coin,
+        assetId: spotUniverse?.assetId,
+        universe: spotUniverse,
+      };
+      const prevInstrument = get(activeTradeInstrumentAtom());
+      const shouldSetOptimisticInstrument =
+        prevInstrument.mode !== 'spot' || prevInstrument.coin !== coin;
+      if (
+        shouldSetOptimisticInstrument &&
+        !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
+          prevInstrument,
+          optimisticInstrument,
+        )
+      ) {
+        set(activeTradeInstrumentAtom(), optimisticInstrument);
+        set(l2BookAtom(), null);
+        set(bboAtom(), null);
+      }
       await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const currentSpotAsset = await spotActiveAssetAtom.get();
       if (currentSpotAsset?.coin === coin) {
@@ -1050,11 +1662,30 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
         return false;
       }
+      // Keep the BG subscription target ahead of slower UI cleanup/work; after
+      // the native UI/BG split, the subscription service only reads BG atoms.
+      await tradingModeAtom.set('spot');
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
+      await spotActiveAssetAtom.set({
+        coin,
+        assetId: spotUniverse?.assetId,
+        universe: spotUniverse,
+      });
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
+      void this.syncSubscriptionsAfterInstrumentChange({
+        instrument: optimisticInstrument,
+        orderBookTickOptions: get(orderBookTickOptionsAtom()),
+        requestId,
+        viewState: get(tradeRouteViewStateAtom()),
+      });
       await this.clearActiveAssetData.call(set);
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
-      await tradingModeAtom.set('spot');
 
       // Seed ticker bar from cached data to avoid skeleton flash
       const ctxsMap = await spotAssetCtxsMapAtom.get();
@@ -1081,15 +1712,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       } else {
         await spotActiveAssetCtxAtom.set(undefined);
       }
-      if (!this.isLatestActiveInstrumentChange(requestId)) {
-        return false;
-      }
-
-      await spotActiveAssetAtom.set({
-        coin,
-        assetId: spotUniverse?.assetId,
-        universe: spotUniverse,
-      });
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
@@ -1141,6 +1763,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         spotUniverse?: ISpotUniverse;
       },
     ) => {
+      markPerpsColdStartPerf('action_switch_trade_instrument_start', {
+        mode: params.mode,
+        coin: params.coin,
+        force: !!params.force,
+      });
       const requestId = this.beginActiveInstrumentChange();
       if (params.mode === 'spot') {
         let spotUniverse = params.spotUniverse;
@@ -1152,18 +1779,30 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
           spotUniverse = universes.find((item) => item.name === params.coin);
         }
-        return this.changeActiveSpotAsset.call(set, {
+        const result = await this.changeActiveSpotAsset.call(set, {
           coin: params.coin,
           spotUniverse,
           requestId,
         });
+        markPerpsColdStartPerf('action_switch_trade_instrument_end', {
+          mode: params.mode,
+          coin: params.coin,
+          result,
+        });
+        return result;
       }
 
-      return this.changeActiveAsset.call(set, {
+      const result = await this.changeActiveAsset.call(set, {
         coin: params.coin,
         force: params.force,
         requestId,
       });
+      markPerpsColdStartPerf('action_switch_trade_instrument_end', {
+        mode: params.mode,
+        coin: params.coin,
+        result,
+      });
+      return result;
     },
   );
 
@@ -1194,27 +1833,81 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         deriveType: IAccountDeriveTypes;
       },
     ) => {
-      await this.clearActiveAccountData.call(set);
+      const previousAccount = await perpsActiveAccountAtom.get();
+      const previousAddress = normalizePerpsAccountAddress(
+        previousAccount?.accountAddress,
+      );
       const account =
         await backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount(
           params,
         );
+      if (!account) {
+        return account;
+      }
+      const latestPositionState = get(perpsActivePositionAtom());
+      const latestOpenOrdersState = get(perpsActiveOpenOrdersAtom());
+      const latestSpotOpenOrdersState = await spotActiveOpenOrdersAtom.get();
+      const cleanupPlan = getPerpsAccountSwitchCleanupPlan({
+        previousAccountAddress: previousAddress,
+        nextAccountAddress: account?.accountAddress,
+        cachedPositionAccountAddress: latestPositionState.accountAddress,
+        cachedOpenOrdersAccountAddress: latestOpenOrdersState.accountAddress,
+        cachedSpotOpenOrdersAccountAddress:
+          latestSpotOpenOrdersState.accountAddress,
+      });
+      if (cleanupPlan.shouldClearActiveAccountData) {
+        await this.clearActiveAccountData.call(set);
+      } else {
+        if (cleanupPlan.shouldClearPositionData) {
+          set(perpsActivePositionAtom(), {
+            accountAddress: undefined,
+            activePositions: [],
+          });
+        }
+        if (cleanupPlan.shouldClearOpenOrdersData) {
+          this.resetOpenOrdersByDexCache();
+          perpsOpenOrdersByCoinAtomCache.clear();
+          set(perpsActiveOpenOrdersAtom(), {
+            accountAddress: undefined,
+            openOrders: [],
+            openOrdersByCoin: {},
+          });
+        }
+        if (cleanupPlan.shouldClearSpotOpenOrdersData) {
+          void spotActiveOpenOrdersAtom.set({
+            accountAddress: undefined,
+            openOrders: [],
+          });
+        }
+        if (cleanupPlan.shouldClearTransientData) {
+          set(perpsLedgerUpdatesAtom(), {
+            accountAddress: undefined,
+            updates: [],
+            isLoaded: false,
+          });
+          this.clearActiveAccountTransientData();
+        }
+      }
+
+      await this.loadTwapData.call(set);
       return account;
     },
   );
 
-  updateSubscriptions = contextAtomMethod(async (get, _set) => {
-    const isActive = get(subscriptionActiveAtom());
-    if (!isActive) {
-      await backgroundApiProxy.serviceHyperliquidSubscription.connect();
-    }
+  updateSubscriptions = contextAtomMethod(async (_get, _set) => {
+    markPerpsColdStartPerf('action_update_subscriptions_start');
     try {
+      // UI/BG split means this UI-local flag can be stale while the BG socket
+      // is already open. Let the BG service own socket recovery; calling
+      // connect() here turns a normal token switch into a resume rebuild.
       await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions();
     } catch (error) {
       console.error(
         '[HyperliquidActions.updateSubscriptions] Failed to update subscriptions:',
         error,
       );
+    } finally {
+      markPerpsColdStartPerf('action_update_subscriptions_end');
     }
   });
 
@@ -1290,8 +1983,134 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
+  loadTwapData = contextAtomMethod(async (get, set) => {
+    this.loadTwapDataRequestId += 1;
+    const requestId = this.loadTwapDataRequestId;
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const accountAddress = normalizePerpsAccountAddress(
+      activeAccount?.accountAddress,
+    );
+    if (!accountAddress) {
+      set(perpsActiveTwapOrdersAtom(), {
+        accountAddress: undefined,
+        twapOrders: [],
+        twapOrdersByCoin: {},
+      });
+      set(perpsTwapHistoryAtom(), {
+        accountAddress: undefined,
+        history: [],
+        isLoaded: false,
+      });
+      set(perpsTwapSliceFillsAtom(), {
+        accountAddress: undefined,
+        fills: [],
+        isLoaded: false,
+        latestTime: 0,
+      });
+      return;
+    }
+
+    const { webData2, historyResult, fillsResult } =
+      await this.getTwapDataLoadPromise(accountAddress);
+    const latestActiveAccount = await perpsActiveAccountAtom.get();
+    if (
+      requestId !== this.loadTwapDataRequestId ||
+      normalizePerpsAccountAddress(latestActiveAccount?.accountAddress) !==
+        accountAddress
+    ) {
+      return;
+    }
+    const currentTwapOrders = get(perpsActiveTwapOrdersAtom());
+    const currentHistory = get(perpsTwapHistoryAtom());
+    const currentSliceFills = get(perpsTwapSliceFillsAtom());
+    const canReuseCurrentHistory =
+      currentHistory.accountAddress?.toLowerCase() === accountAddress;
+    const canReuseCurrentSliceFills =
+      currentSliceFills.accountAddress?.toLowerCase() === accountAddress;
+
+    if (webData2?.user?.toLowerCase() === accountAddress) {
+      const twapOrders = this.filterCanceledTwapOrders(
+        sortTwapOrders([
+          ...(currentTwapOrders.accountAddress?.toLowerCase() === accountAddress
+            ? currentTwapOrders.twapOrders.filter(
+                (order) => (order.dex ?? '') !== '',
+              )
+            : []),
+          ...(webData2.twapStates ?? []).map(
+            ([twapId, state]): IPerpsActiveTwapOrder => ({
+              twapId,
+              state,
+              dex: '',
+            }),
+          ),
+        ]),
+      );
+      set(perpsActiveTwapOrdersAtom(), {
+        accountAddress,
+        twapOrders,
+        twapOrdersByCoin: buildTwapOrdersByCoinMap(twapOrders),
+      });
+    } else if (
+      webData2 ||
+      currentTwapOrders.accountAddress?.toLowerCase() !== accountAddress
+    ) {
+      set(perpsActiveTwapOrdersAtom(), {
+        accountAddress,
+        twapOrders: [],
+        twapOrdersByCoin: {},
+      });
+    }
+    let history: typeof currentHistory.history = [];
+    if (historyResult.ok) {
+      history = historyResult.data;
+    } else if (canReuseCurrentHistory) {
+      history = currentHistory.history;
+    }
+
+    let fills: typeof currentSliceFills.fills = [];
+    if (fillsResult.ok) {
+      fills = fillsResult.data;
+    } else if (canReuseCurrentSliceFills) {
+      fills = currentSliceFills.fills;
+    }
+
+    const sortedFills = sortAndDedupeTwapSliceFills(fills);
+    set(perpsTwapHistoryAtom(), {
+      accountAddress,
+      history: sortAndDedupeTwapHistory(history),
+      isLoaded:
+        historyResult.ok || (canReuseCurrentHistory && currentHistory.isLoaded),
+    });
+    set(perpsTwapSliceFillsAtom(), {
+      accountAddress,
+      fills: sortedFills,
+      isLoaded:
+        fillsResult.ok ||
+        (canReuseCurrentSliceFills && currentSliceFills.isLoaded),
+      latestTime: sortedFills[0]?.fill.time ?? 0,
+    });
+  });
+
   clearActiveAssetData = contextAtomMethod(async (get, set) => {
-    set(l2BookAtom(), null);
+    const activeInstrument = get(activeTradeInstrumentAtom());
+    const currentBook = get(l2BookAtom());
+    if (
+      shouldClearPerpsMarketDataForInstrument({
+        dataCoin: currentBook?.coin,
+        activeCoin: activeInstrument.coin,
+      })
+    ) {
+      set(l2BookAtom(), null);
+    }
+    const currentBbo = get(bboAtom());
+    if (
+      shouldClearPerpsMarketDataForInstrument({
+        dataCoin: currentBbo?.coin,
+        activeCoin: activeInstrument.coin,
+      })
+    ) {
+      set(bboAtom(), null);
+    }
     await perpsActiveAssetCtxAtom.set(undefined);
     await perpsActiveAssetDataAtom.set(undefined);
     await spotActiveAssetCtxAtom.set(undefined);
@@ -1305,6 +2124,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         tpGainPercent: '',
         slTriggerPx: '',
         slLossPercent: '',
+        leverage: undefined,
       }),
     );
   });
@@ -1319,16 +2139,33 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       openOrders: [],
       openOrdersByCoin: {},
     });
-    this.resetOpenOrdersByDexCache();
-    perpsOpenOrdersByCoinAtomCache.clear();
-    this.canceledOrderIds.clear();
+    set(perpsActiveTwapOrdersAtom(), {
+      accountAddress: undefined,
+      twapOrders: [],
+      twapOrdersByCoin: {},
+    });
+    set(perpsTwapHistoryAtom(), {
+      accountAddress: undefined,
+      history: [],
+      isLoaded: false,
+    });
+    set(perpsTwapSliceFillsAtom(), {
+      accountAddress: undefined,
+      fills: [],
+      isLoaded: false,
+      latestTime: 0,
+    });
+    this.clearActiveAccountTransientData();
     set(perpsLedgerUpdatesAtom(), {
       accountAddress: undefined,
       updates: [],
       isLoaded: false,
     });
-    await perpsActiveAccountSummaryAtom.set(undefined);
-    await perpsActiveAccountStatusInfoAtom.set(undefined);
+    // NOTE: perpsActiveAccountSummaryAtom and perpsActiveAccountStatusInfoAtom
+    // are intentionally NOT cleared here. The background service clears them
+    // inside changeActivePerpsAccount in address-aware order so the UI never
+    // sees the "active account is set, but summary/status are empty" frame.
+    // Same-account refreshes also keep their data instead of being wiped.
     await perpsActiveAssetDataAtom.set(undefined);
     // Prevent stale spot data from showing under the wrong account
     await spotBalancesAtom.set({ balances: [], isLoaded: false });
@@ -1356,7 +2193,24 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       updates: [],
       isLoaded: false,
     });
+    set(perpsActiveTwapOrdersAtom(), {
+      accountAddress: undefined,
+      twapOrders: [],
+      twapOrdersByCoin: {},
+    });
+    set(perpsTwapHistoryAtom(), {
+      accountAddress: undefined,
+      history: [],
+      isLoaded: false,
+    });
+    set(perpsTwapSliceFillsAtom(), {
+      accountAddress: undefined,
+      fills: [],
+      isLoaded: false,
+      latestTime: 0,
+    });
     this.canceledOrderIds.clear();
+    this.canceledTwapIds.clear();
     await this.changeActiveAsset.call(set, { coin: 'ETH', force: true });
   });
 
@@ -1657,6 +2511,301 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  placeScaleOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        formData?: ITradingFormData;
+      },
+    ) => {
+      const formData = params.formData || get(tradingFormAtom());
+
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const [
+              activeAccount,
+              activeTradeInstrument,
+              activeAssetValue,
+              activeAssetCtxValue,
+              activeAssetDataValue,
+              activePositionsValue,
+              env,
+            ] = await Promise.all([
+              perpsActiveAccountAtom.get(),
+              Promise.resolve(get(activeTradeInstrumentAtom())),
+              perpsActiveAssetAtom.get(),
+              perpsActiveAssetCtxAtom.get(),
+              perpsActiveAssetDataAtom.get(),
+              Promise.resolve(get(perpsActivePositionAtom())),
+              Promise.resolve(get(tradingFormEnvAtom())),
+            ]);
+
+            const isSpot = activeTradeInstrument.mode === 'spot';
+            if (
+              isSpot &&
+              (typeof params.assetId !== 'number' ||
+                !Number.isFinite(params.assetId))
+            ) {
+              throw new OneKeyLocalError(
+                'Spot asset metadata not loaded. Please try again.',
+              );
+            }
+            const szDecimals = isSpot
+              ? (activeTradeInstrument.universe?.baseSzDecimals ??
+                env.szDecimals ??
+                2)
+              : (activeAssetValue?.universe?.szDecimals ?? env.szDecimals ?? 2);
+
+            const referencePrice = getScaleOrderReferencePrice({
+              lowerPrice: formData.scaleLowerPrice,
+              upperPrice: formData.scaleUpperPrice,
+            });
+            if (!referencePrice.isFinite() || referencePrice.lte(0)) {
+              throw new OneKeyLocalError('Invalid scale price range');
+            }
+
+            const resolvedSize = resolveTradingSize({
+              sizeInputMode: formData.sizeInputMode,
+              manualSize: formData.size,
+              sizePercent: formData.sizePercent,
+              side: formData.side,
+              price: referencePrice.toFixed(),
+              markPrice: isSpot
+                ? (env.markPrice ?? referencePrice.toFixed())
+                : activeAssetCtxValue?.ctx?.markPrice,
+              maxTradeSzs: isSpot
+                ? env.maxTradeSzs
+                : activeAssetDataValue?.maxTradeSzs,
+              leverageValue: isSpot ? 1 : activeAssetDataValue?.leverage?.value,
+              fallbackLeverage: isSpot
+                ? 1
+                : activeAssetValue?.universe?.maxLeverage,
+              szDecimals,
+            });
+            const reduceOnly = isSpot
+              ? false
+              : Boolean(formData.scaleReduceOnly);
+            if (reduceOnly) {
+              const snapshotError = getReduceOnlyPositionSnapshotError({
+                reduceOnly,
+                accountAddress: activeAccount?.accountAddress,
+                positionsAccountAddress: activePositionsValue.accountAddress,
+              });
+              if (snapshotError) {
+                throw new OneKeyLocalError(snapshotError);
+              }
+              const position = activePositionsValue.activePositions.find(
+                (pos) => pos.position.coin === activeTradeInstrument.coin,
+              )?.position;
+              const reduceOnlyError = getReduceOnlyOrderGuardError({
+                reduceOnly,
+                side: formData.side,
+                size: resolvedSize,
+                positionSize: position?.szi,
+                missingPositionMessage:
+                  'Reduce-only scale requires an opposite open position',
+                exceedsPositionMessage:
+                  'Reduce-only scale size exceeds the current position',
+              });
+              if (reduceOnlyError) {
+                throw new OneKeyLocalError(reduceOnlyError);
+              }
+            }
+
+            const result =
+              await backgroundApiProxy.serviceHyperliquidExchange.placeScaleOrder(
+                {
+                  assetId: params.assetId,
+                  coin: activeTradeInstrument.coin,
+                  isBuy: formData.side === 'long',
+                  size: resolvedSize,
+                  lowerPrice: formData.scaleLowerPrice ?? '',
+                  upperPrice: formData.scaleUpperPrice ?? '',
+                  orderCount: Number(formData.scaleOrderCount ?? 0),
+                  reduceOnly,
+                  tif: 'Gtc',
+                  szDecimals,
+                  sizeSkew: getScaleOrderSizeSkew(
+                    formData.scaleSizeDistribution,
+                  ),
+                  assetType: isSpot ? 'spot' : 'perp',
+                },
+              );
+            return result;
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.PLACE_ORDER,
+      });
+    },
+  );
+
+  placeTwapOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        formData?: ITradingFormData;
+        price?: string;
+      },
+    ) => {
+      const formData = params.formData || get(tradingFormAtom());
+
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const [
+              activeAccount,
+              activeTradeInstrument,
+              activeAssetValue,
+              activeAssetCtxValue,
+              activeAssetDataValue,
+              activePositionsValue,
+              env,
+            ] = await Promise.all([
+              perpsActiveAccountAtom.get(),
+              Promise.resolve(get(activeTradeInstrumentAtom())),
+              perpsActiveAssetAtom.get(),
+              perpsActiveAssetCtxAtom.get(),
+              perpsActiveAssetDataAtom.get(),
+              Promise.resolve(get(perpsActivePositionAtom())),
+              Promise.resolve(get(tradingFormEnvAtom())),
+            ]);
+
+            const isSpot = activeTradeInstrument.mode === 'spot';
+            if (
+              isSpot &&
+              (typeof params.assetId !== 'number' ||
+                !Number.isFinite(params.assetId))
+            ) {
+              throw new OneKeyLocalError(
+                'Spot asset metadata not loaded. Please try again.',
+              );
+            }
+
+            const minutes = Number(formData.twapDurationMinutes ?? 0);
+            if (
+              !Number.isInteger(minutes) ||
+              minutes < TWAP_MIN_DURATION_MINUTES ||
+              minutes > TWAP_MAX_DURATION_MINUTES
+            ) {
+              throw new OneKeyLocalError(
+                `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
+              );
+            }
+
+            const markPrice = isSpot
+              ? (params.price ?? env.markPrice ?? '')
+              : (activeAssetCtxValue?.ctx?.markPrice ?? env.markPrice ?? '');
+            const markPriceBN = new BigNumber(markPrice);
+            if (!markPriceBN.isFinite() || markPriceBN.lte(0)) {
+              throw new OneKeyLocalError(
+                'Market price unavailable, please try again',
+              );
+            }
+
+            const szDecimals = isSpot
+              ? (activeTradeInstrument.universe?.baseSzDecimals ??
+                env.szDecimals ??
+                2)
+              : (activeAssetValue?.universe?.szDecimals ?? env.szDecimals ?? 2);
+            const resolvedSize = resolveTradingSize({
+              sizeInputMode: formData.sizeInputMode,
+              manualSize: formData.size,
+              sizePercent: formData.sizePercent,
+              side: formData.side,
+              price: markPriceBN.toFixed(),
+              markPrice: markPriceBN.toFixed(),
+              maxTradeSzs: isSpot
+                ? env.maxTradeSzs
+                : activeAssetDataValue?.maxTradeSzs,
+              leverageValue: isSpot ? 1 : activeAssetDataValue?.leverage?.value,
+              fallbackLeverage: isSpot
+                ? 1
+                : activeAssetValue?.universe?.maxLeverage,
+              szDecimals,
+            });
+            const resolvedSizeBN = new BigNumber(resolvedSize);
+            if (!resolvedSizeBN.isFinite() || resolvedSizeBN.lte(0)) {
+              throw new OneKeyLocalError('Order size is required');
+            }
+
+            const totalNotional = resolvedSizeBN.multipliedBy(markPriceBN);
+            const estimatedSlices = Math.max(
+              1,
+              Math.ceil((minutes * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
+            );
+            const averageSliceNotional =
+              totalNotional.dividedBy(estimatedSlices);
+            if (
+              !averageSliceNotional.isFinite() ||
+              averageSliceNotional.lt(TWAP_MIN_ORDER_NOTIONAL)
+            ) {
+              throw new OneKeyLocalError(
+                'TWAP order size is too small for this duration',
+              );
+            }
+
+            const reduceOnly = isSpot
+              ? false
+              : Boolean(formData.twapReduceOnly);
+            if (reduceOnly) {
+              const snapshotError = getReduceOnlyPositionSnapshotError({
+                reduceOnly,
+                accountAddress: activeAccount?.accountAddress,
+                positionsAccountAddress: activePositionsValue.accountAddress,
+              });
+              if (snapshotError) {
+                throw new OneKeyLocalError(snapshotError);
+              }
+              const position = activePositionsValue.activePositions.find(
+                (pos) => pos.position.coin === activeTradeInstrument.coin,
+              )?.position;
+              const reduceOnlyError = getReduceOnlyOrderGuardError({
+                reduceOnly,
+                side: formData.side,
+                size: resolvedSizeBN,
+                positionSize: position?.szi,
+                missingPositionMessage:
+                  'Reduce-only TWAP requires an opposite open position',
+                exceedsPositionMessage:
+                  'Reduce-only TWAP size exceeds the current position',
+              });
+              if (reduceOnlyError) {
+                throw new OneKeyLocalError(reduceOnlyError);
+              }
+            }
+
+            const result =
+              await backgroundApiProxy.serviceHyperliquidExchange.placeTwapOrder(
+                {
+                  assetId: params.assetId,
+                  isBuy: formData.side === 'long',
+                  size: resolvedSize,
+                  reduceOnly,
+                  minutes,
+                  randomize: formData.twapRandomize ?? true,
+                  szDecimals,
+                },
+              );
+            void this.loadTwapData.call(set);
+            return result;
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.PLACE_ORDER,
+      });
+    },
+  );
+
   placeSpotOrder = contextAtomMethod(
     async (
       get,
@@ -1731,7 +2880,38 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       },
     ) => {
       const formData = params.formData || get(tradingFormAtom());
-      const tradingMode = await tradingModeAtom.get();
+      const activeTradeInstrument = get(activeTradeInstrumentAtom());
+      const submitInstrument = resolveSubmitOrderTradeInstrument({
+        activeTradeInstrument,
+        assetId: params.assetId,
+      });
+      if (!submitInstrument) {
+        throw new OneKeyLocalError(
+          'Trading market changed. Please review and submit again.',
+        );
+      }
+      const tradingMode = submitInstrument.mode;
+
+      if (tradingMode === 'spot' && formData.orderMode === 'trigger') {
+        throw new OneKeyLocalError(
+          'This order type is not supported in spot mode',
+        );
+      }
+
+      if (formData.orderMode === 'twap') {
+        return this.placeTwapOrder.call(set, {
+          assetId: params.assetId,
+          formData,
+          price: params.price,
+        });
+      }
+
+      if (formData.orderMode === 'scale') {
+        return this.placeScaleOrder.call(set, {
+          assetId: params.assetId,
+          formData,
+        });
+      }
 
       if (tradingMode === 'spot') {
         return this.placeSpotOrder.call(set, {
@@ -1939,6 +3119,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             openOrders,
             prev.openOrdersByCoin,
           );
+          this.openOrdersByDexCache.forEach((orders, dex) => {
+            this.openOrdersByDexCache.set(
+              dex,
+              filterCanceledOpenOrders(orders, this.canceledOrderIds),
+            );
+          });
           set(perpsActiveOpenOrdersAtom(), {
             ...prev,
             openOrders,
@@ -1958,6 +3144,42 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         },
         actionType: EActionType.CANCEL_ORDER,
         args: [params.orders.length],
+      });
+    },
+  );
+
+  cancelTwapOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        twapId: number;
+      },
+    ) => {
+      return withToast({
+        asyncFn: async () => {
+          const result =
+            await backgroundApiProxy.serviceHyperliquidExchange.cancelTwapOrder(
+              {
+                assetId: params.assetId,
+                twapId: params.twapId,
+              },
+            );
+
+          this.canceledTwapIds.add(params.twapId);
+
+          const prev = get(perpsActiveTwapOrdersAtom());
+          const twapOrders = this.filterCanceledTwapOrders(prev.twapOrders);
+          set(perpsActiveTwapOrdersAtom(), {
+            ...prev,
+            twapOrders,
+            twapOrdersByCoin: buildTwapOrdersByCoinMap(twapOrders),
+          });
+          void this.loadTwapData.call(set);
+          return result;
+        },
+        actionType: EActionType.CANCEL_ORDER,
       });
     },
   );
@@ -2283,6 +3505,7 @@ export function useHyperliquidActions() {
   const enableTrading = actions.enableTrading.use();
 
   const clearAllData = actions.clearAllData.use();
+  const loadTwapData = actions.loadTwapData.use();
 
   const updateTradingForm = actions.updateTradingForm.use();
   const resetTradingForm = actions.resetTradingForm.use();
@@ -2292,6 +3515,8 @@ export function useHyperliquidActions() {
   const placeSpotOrder = actions.placeSpotOrder.use();
   const orderOpen = actions.orderOpen.use();
   const triggerOrder = actions.triggerOrder.use();
+  const placeScaleOrder = actions.placeScaleOrder.use();
+  const placeTwapOrder = actions.placeTwapOrder.use();
   const submitOrder = actions.submitOrder.use();
   const updateLeverage = actions.updateLeverage.use();
   const updateIsolatedMargin = actions.updateIsolatedMargin.use();
@@ -2299,6 +3524,7 @@ export function useHyperliquidActions() {
   const amendChartOrder = actions.amendChartOrder.use();
   const cancelChartOrder = actions.cancelChartOrder.use();
   const cancelOrder = actions.cancelOrder.use();
+  const cancelTwapOrder = actions.cancelTwapOrder.use();
   const setPositionTpsl = actions.setPositionTpsl.use();
   const withdraw = actions.withdraw.use();
   const closeAllPositions = actions.closeAllPositions.use();
@@ -2320,7 +3546,12 @@ export function useHyperliquidActions() {
   const updateAllDexsClearinghouseState =
     actions.updateAllDexsClearinghouseState.use();
   const updateOpenOrders = actions.updateOpenOrders.use();
+  const updateTwapStates = actions.updateTwapStates.use();
+  const updateTwapHistory = actions.updateTwapHistory.use();
+  const updateTwapSliceFills = actions.updateTwapSliceFills.use();
   const updateAllDexsAssetCtxs = actions.updateAllDexsAssetCtxs.use();
+  const hydrateAllDexsAssetCtxsSnapshotCache =
+    actions.hydrateAllDexsAssetCtxsSnapshotCache.use();
 
   const currentActions = {
     updateAllAssetsFiltered,
@@ -2339,6 +3570,7 @@ export function useHyperliquidActions() {
     updateAllDexsClearinghouseState,
     updateOpenOrders,
     updateAllDexsAssetCtxs,
+    hydrateAllDexsAssetCtxsSnapshotCache,
 
     updateSubscriptions,
     startSubscriptions,
@@ -2346,6 +3578,7 @@ export function useHyperliquidActions() {
     reconnectSubscriptions,
     enableTrading,
     clearAllData,
+    loadTwapData,
 
     updateTradingForm,
     resetTradingForm,
@@ -2355,6 +3588,8 @@ export function useHyperliquidActions() {
     placeSpotOrder,
     orderOpen,
     triggerOrder,
+    placeScaleOrder,
+    placeTwapOrder,
     submitOrder,
     updateLeverage,
     updateIsolatedMargin,
@@ -2362,6 +3597,7 @@ export function useHyperliquidActions() {
     amendChartOrder,
     cancelChartOrder,
     cancelOrder,
+    cancelTwapOrder,
     setPositionTpsl,
     withdraw,
     closeAllPositions,
@@ -2374,6 +3610,9 @@ export function useHyperliquidActions() {
     getMidPrice,
     switchTradeInstrument,
     setTradeRouteViewState,
+    updateTwapStates,
+    updateTwapHistory,
+    updateTwapSliceFills,
   };
 
   const actionsRef = useRef(currentActions);

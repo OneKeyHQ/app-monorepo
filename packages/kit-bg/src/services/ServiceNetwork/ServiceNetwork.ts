@@ -60,6 +60,7 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
+  INetworkDeriveInfo,
 } from '../../vaults/types';
 
 const defaultPinnedNetworkIds = [
@@ -1660,10 +1661,7 @@ class ServiceNetwork extends ServiceBase {
       };
     }
 
-    const networkInfoMap: Record<
-      string,
-      { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
-    > = {};
+    const networkInfoMap: Record<string, INetworkDeriveInfo> = {};
 
     const formattedAccountNetworkValues: Record<string, string> = {};
     const allAccountValues: Record<string, string> = {};
@@ -1680,26 +1678,45 @@ class ServiceNetwork extends ServiceBase {
         string,
         string,
       ];
-
-      const deriveType: IAccountDeriveTypes =
-        accountUtils.normalizeDeriveType(_deriveType) ?? 'default';
-
-      if (!networkInfoMap[networkId]) {
-        const [globalDeriveType, vaultSettings] = await Promise.all([
-          this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId,
-            rawData: deriveTypeRawData,
-          }),
-          this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
-        ]);
-        networkInfoMap[networkId] = {
-          deriveType: globalDeriveType,
-          mergeDeriveAssetsEnabled:
-            vaultSettings.mergeDeriveAssetsEnabled ?? false,
-        };
+      const shouldUseAccountNetworkValue = Boolean(
+        networkId && accountId && walletId === _walletId,
+      );
+      if (shouldUseAccountNetworkValue) {
+        if (!networkInfoMap[networkId]) {
+          const [globalDeriveType, vaultSettings] = await Promise.all([
+            this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+              networkId,
+              rawData: deriveTypeRawData,
+            }),
+            this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
+          ]);
+          const suffixToDeriveType: Record<string, string> = {};
+          for (const [dt, info] of Object.entries(
+            vaultSettings.accountDeriveInfo ?? {},
+          )) {
+            if (info.idSuffix) {
+              suffixToDeriveType[info.idSuffix.toLowerCase()] = dt;
+            }
+          }
+          networkInfoMap[networkId] = {
+            deriveType: globalDeriveType,
+            mergeDeriveAssetsEnabled:
+              vaultSettings.mergeDeriveAssetsEnabled ?? false,
+            suffixToDeriveType,
+          };
+        }
       }
+      const deriveType: IAccountDeriveTypes =
+        accountUtils.normalizeDeriveType(_deriveType) ??
+        accountUtils.normalizeDeriveType(
+          networkInfoMap[networkId]?.suffixToDeriveType?.[
+            (_deriveType ?? '').toLowerCase()
+          ] ?? '',
+        ) ??
+        'default';
+
       if (
-        walletId === _walletId &&
+        shouldUseAccountNetworkValue &&
         networkInfoMap[networkId] &&
         (networkInfoMap[networkId].mergeDeriveAssetsEnabled ||
           accountUtils.isOthersAccount({ accountId }) ||

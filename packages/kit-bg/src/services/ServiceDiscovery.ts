@@ -390,11 +390,13 @@ class ServiceDiscovery extends ServiceBase {
     isRemove,
     skipSaveLocalSyncItem,
     skipEventEmit,
+    useServerDataTime,
   }: {
     bookmarks: IBrowserBookmark[];
     isRemove?: boolean;
     skipSaveLocalSyncItem?: boolean;
     skipEventEmit?: boolean;
+    useServerDataTime?: boolean;
   }) {
     console.log('setBrowserBookmarks', bookmarks);
     // debugger;
@@ -429,23 +431,32 @@ class ServiceDiscovery extends ServiceBase {
 
     let savedSuccess = false;
 
-    await this.backgroundApi.localDb.addAndUpdateSyncItems({
-      items: syncItems,
-      fn: async () => {
-        if (isRemove) {
-          await this.backgroundApi.simpleDb.browserBookmarks.removeBookmarks({
-            urls: bookmarks.map((i) => i.url),
-          });
-        } else {
-          // Save the updated bookmarks
-          await this.backgroundApi.simpleDb.browserBookmarks.saveBookmarks({
-            bookmarks,
-          });
-        }
+    const saveBookmarks = async () => {
+      if (isRemove) {
+        await this.backgroundApi.simpleDb.browserBookmarks.removeBookmarks({
+          urls: bookmarks.map((i) => i.url),
+        });
+      } else {
+        // Save the updated bookmarks
+        await this.backgroundApi.simpleDb.browserBookmarks.saveBookmarks({
+          bookmarks,
+        });
+      }
 
-        savedSuccess = true;
-      },
-    });
+      savedSuccess = true;
+    };
+
+    if (useServerDataTime) {
+      await this.backgroundApi.localDb.addAndUpdateFreshSyncItems({
+        items: syncItems,
+        fn: saveBookmarks,
+      });
+    } else {
+      await this.backgroundApi.localDb.addAndUpdateSyncItems({
+        items: syncItems,
+        fn: saveBookmarks,
+      });
+    }
 
     if (!skipEventEmit) {
       setTimeout(() => {

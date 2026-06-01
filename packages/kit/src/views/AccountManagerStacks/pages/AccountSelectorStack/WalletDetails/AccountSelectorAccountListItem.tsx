@@ -30,7 +30,7 @@ import {
   useAccountSelectorValuesMapAtom,
   useIndexedAccountAddressCreationStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -96,13 +96,7 @@ export function AccountSelectorAccountListItem({
   mergeDeriveAssetsEnabled: boolean | undefined;
   hideAddress?: boolean;
   enabledNetworksCompatibleWithWalletId: IServerNetwork[];
-  networkInfoMap: Record<
-    string,
-    {
-      deriveType: IAccountDeriveTypes;
-      mergeDeriveAssetsEnabled: boolean;
-    }
-  >;
+  networkInfoMap: Record<string, INetworkDeriveInfo>;
 }) {
   const actions = useAccountSelectorActions();
   const {
@@ -305,7 +299,7 @@ export function AccountSelectorAccountListItem({
       return null;
 
     return (
-      <>
+      <Stack flexShrink={1}>
         <AccountValueWithSpotlight
           walletId={focusedWalletInfo?.wallet?.id ?? ''}
           enabledNetworksCompatibleWithWalletId={
@@ -321,7 +315,7 @@ export function AccountSelectorAccountListItem({
           linkedNetworkId={avatarNetworkId ?? network?.id}
           mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
         />
-      </>
+      </Stack>
     );
   }, [
     linkNetwork,

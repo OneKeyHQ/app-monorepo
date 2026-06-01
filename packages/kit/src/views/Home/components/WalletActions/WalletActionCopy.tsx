@@ -50,14 +50,13 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
       walletId: wallet?.id,
     },
   );
+  const isCopyBlocked = shouldBlockBotWalletCopyAddress({
+    isBotWallet,
+    isBotWalletDeactivated,
+  });
 
   const handleCopyAddress = useCallback(async () => {
-    if (
-      shouldBlockBotWalletCopyAddress({
-        isBotWallet,
-        isBotWalletDeactivated,
-      })
-    ) {
+    if (isCopyBlocked) {
       showBotWalletDisabledToast('copyAddress');
       return;
     }
@@ -149,8 +148,7 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
     indexedAccount?.id,
     copyAddressWithDeriveType,
     deriveInfoItems,
-    isBotWallet,
-    isBotWalletDeactivated,
+    isCopyBlocked,
   ]);
 
   return (
@@ -160,6 +158,8 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
       label={intl.formatMessage({ id: ETranslations.global_copy_address })}
       onClose={() => {}}
       onPress={handleCopyAddress}
+      disabled={isCopyBlocked}
+      allowPressWhenDisabled={isCopyBlocked}
     />
   );
 }

@@ -71,7 +71,6 @@ function PerpAccountMMRView() {
               size="$bodySm"
               color="$textSubdued"
               cursor="help"
-              dashColor="$textDisabled"
               dashThickness={1}
             >
               {intl.formatMessage({
@@ -134,7 +133,6 @@ function PerpAccountPanel() {
                 size="$bodySm"
                 color="$textSubdued"
                 cursor="help"
-                dashColor="$textDisabled"
                 dashThickness={1}
               >
                 {intl.formatMessage({
@@ -180,7 +178,6 @@ function PerpAccountPanel() {
                 size="$bodySm"
                 color="$textSubdued"
                 cursor="help"
-                dashColor="$textDisabled"
                 dashThickness={1}
               >
                 {intl.formatMessage({
@@ -257,6 +254,7 @@ function PerpAccountPanel() {
             }
             alignItems="center"
             justifyContent="center"
+            childrenAsText={false}
           >
             <SizableText size="$bodySmMedium">
               {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}

@@ -74,12 +74,18 @@ class ServiceMarketV2 extends ServiceBase {
     // critical memory pressure. These are the largest known per-route
     // cache footprints (token logos + pricing for 218 batch fetches in
     // 27 min in observed sessions).
+    //
+    // Intentionally NOT clearing memoizedFetchMarketChains /
+    // memoizedFetchMarketBasicConfig: both are KB-sized constant configs
+    // with a 1 h TTL. Previously these were dropped here too, which made
+    // every critical-memory event force a network refetch of small
+    // constants — observed as 16+ basicConfig RPCs per 4 min window in
+    // iPad logs (cleared 3× by 3 critical warnings, then immediately
+    // re-fetched by 5 active components).
     appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
       if (event.level !== 'critical') return;
       this._marketTokenBatchCache.clear();
       void this.memoizedFetchMarketTokenList.clear();
-      void this.memoizedFetchMarketChains.clear();
-      void this.memoizedFetchMarketBasicConfig.clear();
     });
   }
 
@@ -271,12 +277,14 @@ class ServiceMarketV2 extends ServiceBase {
     interval,
     timeFrom,
     timeTo,
+    autoHandleError,
   }: {
     tokenAddress: string;
     networkId: string;
     interval?: string;
     timeFrom?: number;
     timeTo?: number;
+    autoHandleError?: boolean;
   }) {
     let innerInterval = interval?.toUpperCase();
 
@@ -284,12 +292,7 @@ class ServiceMarketV2 extends ServiceBase {
       innerInterval = innerInterval?.toLowerCase();
     }
 
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      code: number;
-      message: string;
-      data: IMarketTokenKLineResponse;
-    }>('/utility/v2/market/token/kline', {
+    const requestConfig = {
       params: {
         tokenAddress,
         networkId,
@@ -298,7 +301,15 @@ class ServiceMarketV2 extends ServiceBase {
         timeTo,
         currency: 'usd',
       },
-    });
+      ...(autoHandleError === false ? { autoHandleError: false } : {}),
+    };
+
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketTokenKLineResponse;
+    }>('/utility/v2/market/token/kline', requestConfig);
     const { data } = response.data;
     return data;
   }
@@ -574,7 +585,7 @@ class ServiceMarketV2 extends ServiceBase {
         isDeleted,
       });
     }
-    await this.backgroundApi.localDb.addAndUpdateSyncItems({
+    await this.backgroundApi.localDb.addAndUpdateFreshSyncItems({
       items: syncItems,
       fn,
     });

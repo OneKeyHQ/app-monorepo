@@ -142,6 +142,7 @@ export interface ISwapNetwork extends ISwapNetworkBase {
   symbol: string;
   shortcode?: string;
   logoURI?: string;
+  backendIndex?: boolean;
   isAllNetworks?: boolean;
 }
 
@@ -571,7 +572,8 @@ export interface IFetchQuoteResult {
   instantRate?: string;
   allowanceResult?: IAllowanceResult;
   approvedInfo?: IApprovedInfo;
-  estimatedTime?: string;
+  estimatedTime?: string | number; // legacy provider value, in seconds
+  estTime?: string | number; // server computed value, in minutes
   isBest?: boolean;
   receivedBest?: boolean;
   minGasCost?: boolean;
@@ -579,6 +581,7 @@ export interface IFetchQuoteResult {
   isWrapped?: boolean;
   unSupportReceiveAddressDifferent?: boolean;
   routesData?: IQuoteRoutePath[];
+  openRouterInfo?: boolean;
   quoteExtraData?: IQuoteExtraData;
   autoSuggestedSlippage?: number;
   unSupportSlippage?: boolean;
@@ -1104,6 +1107,13 @@ export interface IFetchSpeedCheckResult {
   };
   fromTokenInfo?: ISwapTokenBase;
   toTokenInfo?: ISwapTokenBase;
+}
+
+export interface IFetchUSMarketStatusResult {
+  open: boolean;
+  session: 'PRE_MARKET' | 'REGULAR' | 'POST_MARKET' | 'OVERNIGHT' | 'CLOSED';
+  reason: string | null;
+  unavailable?: boolean;
 }
 
 export enum ESwapLimitOrderStatus {

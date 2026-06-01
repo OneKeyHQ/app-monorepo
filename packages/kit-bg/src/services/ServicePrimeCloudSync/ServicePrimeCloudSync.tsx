@@ -85,6 +85,7 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import { filterBotWalletRecordsByCurrentKeylessSyncScope } from './botWalletCloudSyncUtils';
+import { buildOnlyCheckLocalDataTypes } from './cloudSyncCheckUtils';
 import { CloudSyncFlowManagerAccount } from './CloudSyncFlowManager/CloudSyncFlowManagerAccount';
 import { CloudSyncFlowManagerAddressBook } from './CloudSyncFlowManager/CloudSyncFlowManagerAddressBook';
 import { CloudSyncFlowManagerBotWallet } from './CloudSyncFlowManager/CloudSyncFlowManagerBotWallet';
@@ -104,6 +105,26 @@ import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms';
 import type { AxiosResponse } from 'axios';
 
 const nonceZero = 0;
+
+type IApiUploadItemsParams = {
+  localItems: IDBCloudSyncItem[];
+  isFlush?: boolean;
+  isReset?: boolean;
+  skipPrimeStatusCheck?: boolean;
+  setUndefinedTimeToNow?: boolean;
+  syncCredential?: ICloudSyncCredential | undefined;
+  encryptedSecurityPasswordR1ForServer?: string;
+  noDebounceUpload?: boolean;
+  // OK-55438: opt-in flag for genuine "now" writes (rename / delete tombstone).
+  // Records these item ids so the upload payload asks the server to
+  // authoritatively stamp dataTime to serverNow.
+  useServerDataTime?: boolean;
+};
+
+type IApiUploadFreshItemsParams = Omit<
+  IApiUploadItemsParams,
+  'useServerDataTime'
+>;
 
 // Guard for the first-enable window: server pwdHash can be temporarily empty
 // before initial flush/lock upload finishes.
@@ -412,15 +433,9 @@ class ServicePrimeCloudSync extends ServiceBase {
     isFullDBChecking?: boolean;
   } = {}): Promise<ICloudSyncCheckServerStatusResult> {
     const items = localItems || [];
-    const onlyCheckLocalDataType = isFullDBChecking
-      ? [
-          EPrimeCloudSyncDataType.Lock,
-          EPrimeCloudSyncDataType.Wallet,
-          EPrimeCloudSyncDataType.BotWallet,
-          EPrimeCloudSyncDataType.Account,
-          EPrimeCloudSyncDataType.IndexedAccount,
-        ]
-      : Object.values(EPrimeCloudSyncDataType);
+    const onlyCheckLocalDataType = buildOnlyCheckLocalDataTypes({
+      isFullDBChecking,
+    });
     const postData: ICloudSyncCheckServerStatusPostData = {
       localData: items.map((item) => ({
         key: item.id,
@@ -563,16 +578,11 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential,
     encryptedSecurityPasswordR1ForServer,
     noDebounceUpload,
-  }: {
-    localItems: IDBCloudSyncItem[];
-    isFlush?: boolean;
-    isReset?: boolean;
-    skipPrimeStatusCheck?: boolean;
-    setUndefinedTimeToNow?: boolean;
-    syncCredential?: ICloudSyncCredential | undefined;
-    encryptedSecurityPasswordR1ForServer?: string;
-    noDebounceUpload?: boolean;
-  }) {
+    useServerDataTime,
+  }: IApiUploadItemsParams) {
+    if (useServerDataTime) {
+      localItems.forEach((item) => this.useServerDataTimeIds.add(item.id));
+    }
     const devSettings = await devSettingsPersistAtom.get();
     const activeMode = await this.getActiveSyncMode();
     if (!skipPrimeStatusCheck) {
@@ -634,6 +644,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  async apiUploadFreshItems(params: IApiUploadFreshItemsParams) {
+    return this.apiUploadItems({
+      ...params,
+      useServerDataTime: true,
+    });
+  }
+
   async callApiChangeLock({
     lockItem,
     pwdHash,
@@ -683,6 +701,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         const serverItem = this.convertLocalItemToServerItem({
           localItem: item,
           dataTimestamp,
+          useServerDataTime: this.useServerDataTimeIds.has(item.id),
         });
         if (process.env.NODE_ENV !== 'production') {
           // @ts-ignore
@@ -693,6 +712,10 @@ class ServicePrimeCloudSync extends ServiceBase {
         return serverItem;
       })
       .filter(Boolean);
+
+    // OK-55438: one-shot consume — clear the server-time flags for this batch so
+    // a later re-upload of the same id (e.g. obsoleted re-sync) is never stamped.
+    localItems.forEach((item) => this.useServerDataTimeIds.delete(item.id));
 
     const filteredLocalData = localData.filter((item) => {
       const pwdMatched = item.pwdHash === pwdHash && pwdHash;
@@ -752,6 +775,15 @@ class ServicePrimeCloudSync extends ServiceBase {
   };
 
   uploadItemsToMerge: IDBCloudSyncItem[] = [];
+
+  // OK-55438: item ids whose dataTime should be authoritatively rewritten by the
+  // server (genuine "now" writes such as rename / delete tombstone). Populated by
+  // addAndUpdateFreshSyncItems / apiUploadFreshItems and consumed (cleared)
+  // when the upload payload is built in `_callApiUploadItems`. The flag is
+  // carried per item (not per request) because the debounced merge buffer mixes
+  // fresh writes with historical re-uploads (obsoleted re-sync,
+  // uploadAllLocalItems, ...).
+  useServerDataTimeIds: Set<string> = new Set();
 
   _callApiUploadItemsDebounceMerge({
     localItems,
@@ -2381,9 +2413,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   convertLocalItemToServerItem({
     localItem,
     dataTimestamp,
+    useServerDataTime,
   }: {
     localItem: IDBCloudSyncItem;
     dataTimestamp?: number;
+    useServerDataTime?: boolean;
   }): ICloudSyncServerItem | null {
     // Skip Lock items with keyless pwdHash
     if (
@@ -2400,6 +2434,11 @@ class ServicePrimeCloudSync extends ServiceBase {
       isDeleted: localItem.isDeleted,
       pwdHash: localItem.pwdHash,
     };
+    // OK-55438: ask the server to authoritatively stamp dataTime to serverNow
+    // for genuine "now" writes.
+    if (useServerDataTime) {
+      serverItem.useServerDataTime = true;
+    }
     return serverItem;
   }
 

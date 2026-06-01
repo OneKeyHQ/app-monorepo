@@ -7,6 +7,7 @@ import { runAppCryptoTestTask } from '../utils';
 import { sha256, sha256Sync } from './hash';
 import { pbkdf2, pbkdf2Sync } from './pbkdf2';
 
+import type { IPbkdf2DispatchBackend } from './pbkdf2';
 import type { IRunAppCryptoTestTaskResult } from '../utils';
 
 function _keyFromPasswordAndSaltCheck({
@@ -28,10 +29,18 @@ async function keyFromPasswordAndSaltAsync({
   password,
   salt,
   iterations,
+  debugCryptoProbeId,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   password: string;
   salt: Buffer;
   iterations?: number;
+  debugCryptoProbeId?: string;
+  // Explicit backend override for callers that are known to run outside
+  // IndexedDB transactions.
+  kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
 }): Promise<Buffer> {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
@@ -43,6 +52,9 @@ async function keyFromPasswordAndSaltAsync({
     password: hashedPassword,
     salt: saltBuffer,
     iterations,
+    debugCryptoProbeId,
+    backend: kdfBackend,
+    enableCache: enablePbkdf2Cache,
   });
   return r;
 }
@@ -51,10 +63,14 @@ function keyFromPasswordAndSaltSync({
   password,
   salt,
   iterations,
+  debugCryptoProbeId,
+  enablePbkdf2Cache,
 }: {
   password: string;
   salt: Buffer;
   iterations?: number;
+  debugCryptoProbeId?: string;
+  enablePbkdf2Cache?: boolean;
 }): Buffer {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
@@ -66,6 +82,8 @@ function keyFromPasswordAndSaltSync({
     password: hashedPassword,
     salt: saltBuffer,
     iterations,
+    debugCryptoProbeId,
+    enableCache: enablePbkdf2Cache,
   });
   return r;
 }
@@ -74,20 +92,31 @@ async function keyFromPasswordAndSalt({
   password,
   salt,
   iterations,
+  debugCryptoProbeId,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   password: string;
   salt: Buffer;
   iterations?: number;
+  debugCryptoProbeId?: string;
+  // Explicit backend override for callers that are known to run outside
+  // IndexedDB transactions.
+  kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
 }): Promise<Buffer> {
   _keyFromPasswordAndSaltCheck({ password, salt });
 
   const saltBuffer = bufferUtils.toBuffer(salt);
 
-  if (platformEnv.isNative || ALLOW_USE_WEB_CRYPTO_SUBTLE) {
+  if (platformEnv.isNative || ALLOW_USE_WEB_CRYPTO_SUBTLE || kdfBackend) {
     const r: Buffer = await keyFromPasswordAndSaltAsync({
       password,
       salt: saltBuffer,
       iterations,
+      debugCryptoProbeId,
+      kdfBackend,
+      enablePbkdf2Cache,
     });
     return r;
   }
@@ -95,6 +124,8 @@ async function keyFromPasswordAndSalt({
     password,
     salt: saltBuffer,
     iterations,
+    debugCryptoProbeId,
+    enablePbkdf2Cache,
   });
   return r;
 }
@@ -108,7 +139,7 @@ async function $testSampleForKeyGen() {
   let expect = '';
 
   // Test keyGen implementations
-  expect = '0ac80d08e992e970e64ae6c6eadff75ba65fa03fde08b46ed1f8f5437623dd18';
+  expect = '64b7de6c306b36eb35ae253bb1b806a0b23a7cd4ab73cfd3bc48f61d5b89332e';
   tasks.push(
     await runAppCryptoTestTask({
       expect,
@@ -136,7 +167,7 @@ async function $testSampleForKeyGen() {
   tasks.push(
     await runAppCryptoTestTask({
       expect:
-        '9fe6f6501b6be1be5af9ac56c729d84e67ffd8d0f4f5591c3323d3a73b926649',
+        '7268777377cccd2966edda9e505b90b8ddc7e8615783b6aa581da67b87d2c3bf',
       name: 'keyFromPasswordAndSalt(custom params)',
       fn: () =>
         keyFromPasswordAndSalt({
