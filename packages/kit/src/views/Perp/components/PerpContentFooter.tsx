@@ -12,15 +12,19 @@ import { PerpFooterTicker } from './FooterTicker/PerpFooterTicker';
 
 function PerpNetworkStatus() {
   const [networkStatus] = usePerpsNetworkStatusAtom();
-  const connected = Boolean(networkStatus?.connected);
+  const connected = networkStatus?.connected !== false;
   const pingMs = networkStatus?.pingMs;
 
   const monoLabel = useMemo(() => {
-    if (connected && pingMs !== null && pingMs !== undefined) {
+    if (
+      networkStatus?.connected === true &&
+      pingMs !== null &&
+      pingMs !== undefined
+    ) {
       return `${pingMs}ms`;
     }
     return undefined;
-  }, [connected, pingMs]);
+  }, [networkStatus?.connected, pingMs]);
 
   return (
     <NetworkStatusBadge

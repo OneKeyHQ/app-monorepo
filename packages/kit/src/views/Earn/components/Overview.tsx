@@ -201,13 +201,13 @@ const Rebate = ({
 const OverviewComponent = ({
   isLoading,
   onRefresh,
-  filteredTotalFiatValue,
-  filteredEarnings24h,
+  displayTotalFiatValue,
+  displayEarnings24h,
 }: {
   isLoading: boolean;
   onRefresh: () => void;
-  filteredTotalFiatValue?: string;
-  filteredEarnings24h?: string;
+  displayTotalFiatValue?: string;
+  displayEarnings24h?: string;
 }) => {
   const {
     activeAccount: { account, indexedAccount },
@@ -219,12 +219,12 @@ const OverviewComponent = ({
     () => earnAccount?.[totalFiatMapKey]?.totalFiatValue || '0',
     [earnAccount, totalFiatMapKey],
   );
-  const totalFiatValue = filteredTotalFiatValue ?? rawTotalFiatValue;
+  const totalFiatValue = displayTotalFiatValue ?? rawTotalFiatValue;
   const rawEarnings24h = useMemo(
     () => earnAccount?.[totalFiatMapKey]?.earnings24h || '0',
     [earnAccount, totalFiatMapKey],
   );
-  const earnings24h = filteredEarnings24h ?? rawEarnings24h;
+  const earnings24h = displayEarnings24h ?? rawEarnings24h;
   const evmNetworkId = useMemo(() => getNetworkIdsMap().eth, []);
   const evmAccount = useMemo(() => {
     return earnAccount?.[totalFiatMapKey]?.accounts?.find(

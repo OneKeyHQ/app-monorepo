@@ -35,11 +35,13 @@ interface IRedemptionFormValues {
 }
 
 export interface IRedemptionCenterDialogProps {
+  initialCode?: string;
   onClose?: () => Promise<void> | void;
   onSuccess?: () => void;
 }
 
 function RedemptionCenterDialogContent({
+  initialCode,
   onClose,
   onSuccess,
 }: IRedemptionCenterDialogProps) {
@@ -50,7 +52,7 @@ function RedemptionCenterDialogContent({
 
   const form = useForm<IRedemptionFormValues>({
     defaultValues: {
-      code: '',
+      code: initialCode?.trim() ?? '',
     },
     mode: 'onChange',
   });
@@ -275,12 +277,13 @@ function RedemptionCenterDialogContent({
 export function showRedemptionCenterDialog(
   props: Omit<IRedemptionCenterDialogProps, 'onClose'> = {},
 ): IDialogInstance {
-  const { onSuccess } = props;
+  const { initialCode, onSuccess } = props;
 
   const dialog = Dialog.show({
     showFooter: false,
     renderContent: (
       <RedemptionCenterDialogContent
+        initialCode={initialCode}
         onSuccess={onSuccess}
         onClose={async () => {
           await dialog.close();

@@ -24,14 +24,17 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
+import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
 import { registerHandler } from './handler';
 import { parseWebViewDeepLink } from './parseWebViewDeepLink';
 import {
   handleReferralLandingUrl,
+  isValidReferralCode,
   navigateToReferralLanding,
 } from './referralLandingLink';
 
@@ -45,6 +48,70 @@ type IProcessDeepLinkParams = {
   parsedUrl: Linking.ParsedURL;
 };
 
+function getStringQueryParam(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.find((item): item is string => typeof item === 'string');
+  }
+  return undefined;
+}
+
+let pendingRedeemBitcoinVoucherInitialCode: string | undefined;
+let redeemBitcoinVoucherOpenTask: Promise<void> | undefined;
+
+async function openRedeemBitcoinVoucherDialog(initialCode?: string) {
+  pendingRedeemBitcoinVoucherInitialCode = initialCode;
+
+  redeemBitcoinVoucherOpenTask ??= (async () => {
+    try {
+      await whenAppUnlocked();
+      const { showRedemptionCenterDialog } =
+        await import('../../../views/Redemption/components');
+      showRedemptionCenterDialog({
+        initialCode: pendingRedeemBitcoinVoucherInitialCode,
+      });
+    } finally {
+      pendingRedeemBitcoinVoucherInitialCode = undefined;
+      redeemBitcoinVoucherOpenTask = undefined;
+    }
+  })();
+
+  await redeemBitcoinVoucherOpenTask;
+}
+
+function getOneKeyDeepLinkPath({ hostname, path, scheme }: Linking.ParsedURL) {
+  if (scheme !== ONEKEY_APP_DEEP_LINK && scheme !== ONEKEY_APP_DEEP_LINK_NAME) {
+    return undefined;
+  }
+  return hostname ?? path?.slice(1);
+}
+
+async function handleReferralLandingAppDeepLink({
+  parsedUrl,
+}: IProcessDeepLinkParams) {
+  if (
+    getOneKeyDeepLinkPath(parsedUrl) !== EOneKeyDeepLinkPath.invited_by_friend
+  ) {
+    return false;
+  }
+
+  const { queryParams } = parsedUrl;
+  const { code, page } =
+    queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
+  if (!isValidReferralCode(code)) {
+    return true;
+  }
+
+  await navigateToReferralLanding({
+    code,
+    page: page ?? '',
+    fromDeepLink: true,
+  });
+  return true;
+}
+
 async function processDeepLinkUrlAccount(
   params: IProcessDeepLinkParams,
   times = 0,
@@ -54,7 +121,7 @@ async function processDeepLinkUrlAccount(
   }
   try {
     const { parsedUrl } = params;
-    const { hostname, queryParams, scheme, path } = parsedUrl;
+    const { queryParams, scheme } = parsedUrl;
     if (
       scheme === ONEKEY_APP_DEEP_LINK ||
       scheme === ONEKEY_APP_DEEP_LINK_NAME
@@ -67,7 +134,7 @@ async function processDeepLinkUrlAccount(
         }, 1500);
         return;
       }
-      switch (hostname ?? path?.slice(1)) {
+      switch (getOneKeyDeepLinkPath(parsedUrl)) {
         case EOneKeyDeepLinkPath.url_account: {
           const query =
             queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.url_account];
@@ -120,22 +187,13 @@ async function processDeepLinkUrlAccount(
             );
           }
           break;
-        case EOneKeyDeepLinkPath.invited_by_friend:
+        case EOneKeyDeepLinkPath.redeem_bitcoin_voucher:
           {
-            const { code, page } =
-              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
-            const VALID_REFERRAL_CODE = /^[a-zA-Z0-9_-]{1,32}$/;
-            if (!code || !VALID_REFERRAL_CODE.test(code)) {
-              break;
-            }
-            if (navigation) {
-              await navigateToReferralLanding({
-                code,
-                page: page ?? '',
-                navigation,
-                fromDeepLink: true,
-              });
-            }
+            const query =
+              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.redeem_bitcoin_voucher];
+            const initialCode =
+              getStringQueryParam(query?.code)?.trim() || undefined;
+            await openRedeemBitcoinVoucherDialog(initialCode);
           }
           break;
         case EOneKeyDeepLinkPath.cross_device_transfer:
@@ -265,6 +323,7 @@ const processDeepLinkUrl = memoizee(
 
     try {
       console.log('processDeepLinkUrl: >>>>> ', url);
+      captureAndReportLoggerUtmParamsFromUrl(url);
       if (await handleReferralLandingUrl({ url })) {
         return;
       }
@@ -279,6 +338,9 @@ const processDeepLinkUrl = memoizee(
           queryParams,
           scheme,
         });
+      }
+      if (await handleReferralLandingAppDeepLink({ url, parsedUrl })) {
+        return;
       }
       await processDeepLinkUrlAccount({ url, parsedUrl });
       await processDeepLinkWalletConnect({ url, parsedUrl });

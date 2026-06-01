@@ -9,36 +9,84 @@ import {
   useHyperliquidActions,
   usePerpsActiveOpenOrdersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { useSpotActiveOpenOrdersAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  useSpotActiveOpenOrdersAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
+import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
-import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../PerpDialogLayout';
+import {
+  getPerpsAccountScopedListData,
+  isPerpsAccountAddressMatched,
+} from '../../utils/accountScopedData';
+import {
+  PERP_DIALOG_BUTTON_SIZE,
+  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+} from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 
 interface ICancelAllOrdersContentProps {
   onClose?: () => void;
   filterByCoin?: string;
+  scopedAccountAddress?: string | null;
 }
 
 function CancelAllOrdersContent({
   onClose,
   filterByCoin,
+  scopedAccountAddress,
 }: ICancelAllOrdersContentProps) {
   const actions = useHyperliquidActions();
   const intl = useIntl();
-  const [{ openOrders: perpOpenOrders }] = usePerpsActiveOpenOrdersAtom();
-  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
+  const [activeAccount] = usePerpsActiveAccountAtom();
+  const currentScopedAccountAddress = usePerpsAccountScopedCacheAddress();
+  const effectiveScopedAccountAddress =
+    scopedAccountAddress ?? currentScopedAccountAddress;
+  const [
+    {
+      accountAddress: perpOpenOrdersAccountAddress,
+      openOrders: perpOpenOrders,
+    },
+  ] = usePerpsActiveOpenOrdersAtom();
+  const [
+    {
+      accountAddress: spotOpenOrdersAccountAddress,
+      openOrders: spotOpenOrders,
+    },
+  ] = useSpotActiveOpenOrdersAtom();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const canSubmit = isPerpsAccountAddressMatched({
+    activeAccountAddress: activeAccount?.accountAddress,
+    dataAccountAddress: effectiveScopedAccountAddress,
+  });
 
   const ordersToProcess = useMemo(() => {
-    const all = [...perpOpenOrders, ...spotOpenOrders];
+    const scopedPerpOpenOrders = getPerpsAccountScopedListData({
+      activeAccountAddress: effectiveScopedAccountAddress,
+      dataAccountAddress: perpOpenOrdersAccountAddress,
+      data: perpOpenOrders,
+    });
+    const scopedSpotOpenOrders = getPerpsAccountScopedListData({
+      activeAccountAddress: effectiveScopedAccountAddress,
+      dataAccountAddress: spotOpenOrdersAccountAddress,
+      data: spotOpenOrders,
+    });
+    const all = [...scopedPerpOpenOrders, ...scopedSpotOpenOrders];
     return filterByCoin ? all.filter((o) => o.coin === filterByCoin) : all;
-  }, [perpOpenOrders, spotOpenOrders, filterByCoin]);
+  }, [
+    effectiveScopedAccountAddress,
+    filterByCoin,
+    perpOpenOrders,
+    perpOpenOrdersAccountAddress,
+    spotOpenOrders,
+    spotOpenOrdersAccountAddress,
+  ]);
 
   const handleConfirm = useCallback(async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || !canSubmit) return;
 
     setIsSubmitting(true);
     try {
@@ -74,7 +122,7 @@ function CancelAllOrdersContent({
     } finally {
       setIsSubmitting(false);
     }
-  }, [actions, isSubmitting, onClose, ordersToProcess]);
+  }, [actions, canSubmit, isSubmitting, onClose, ordersToProcess]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
@@ -96,12 +144,12 @@ function CancelAllOrdersContent({
         })}
       </SizableText>
 
-      <TradingGuardWrapper>
+      <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
         <Button
           testID="perp-button-text-btn"
           variant="primary"
-          size="medium"
-          disabled={isSubmitting}
+          size={PERP_DIALOG_BUTTON_SIZE}
+          disabled={isSubmitting || !canSubmit || ordersToProcess.length === 0}
           loading={isSubmitting}
           onPress={handleConfirm}
         >
@@ -112,7 +160,10 @@ function CancelAllOrdersContent({
   );
 }
 
-export function showCancelAllOrdersDialog(filterByCoin?: string) {
+export function showCancelAllOrdersDialog(
+  filterByCoin?: string,
+  scopedAccountAddress?: string | null,
+) {
   const dialogInstance = Dialog.show({
     // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
@@ -125,6 +176,7 @@ export function showCancelAllOrdersDialog(filterByCoin?: string) {
             void dialogInstance.close();
           }}
           filterByCoin={filterByCoin}
+          scopedAccountAddress={scopedAccountAddress}
         />
       </PerpsProviderMirror>
     ),

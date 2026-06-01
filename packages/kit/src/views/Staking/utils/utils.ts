@@ -1,5 +1,13 @@
 import BigNumber from 'bignumber.js';
 
+import type { IEarnStakeType } from '@onekeyhq/shared/types/staking';
+
+const NATIVE_EARN_WRAPPED_ETH_SYMBOL = 'WETH';
+
+function isNativeEarnEthSymbol(symbol?: string) {
+  return symbol?.toUpperCase() === 'ETH';
+}
+
 export const buildLocalTxStatusSyncId = ({
   providerName = '',
   tokenSymbol = '',
@@ -84,6 +92,76 @@ export function resolveStakeTokenAddress(params?: {
     return '';
   }
   return params.address || '';
+}
+
+export function resolveNativeEarnStakeType({
+  isNativeProvider,
+  vaultSymbol,
+  tokenIsNative,
+}: {
+  isNativeProvider: boolean;
+  vaultSymbol?: string;
+  tokenIsNative?: boolean;
+}): IEarnStakeType | undefined {
+  if (!isNativeProvider) {
+    return undefined;
+  }
+
+  const normalizedVaultSymbol = vaultSymbol?.toUpperCase();
+  if (normalizedVaultSymbol !== 'ETH' && normalizedVaultSymbol !== 'WETH') {
+    return undefined;
+  }
+
+  return tokenIsNative ? 'wrap' : 'normal';
+}
+
+export function resolveNativeEarnProtocolSymbol({
+  isNativeProvider,
+  protocolSymbol,
+}: {
+  isNativeProvider: boolean;
+  protocolSymbol?: string;
+}) {
+  if (!isNativeProvider) {
+    return protocolSymbol || '';
+  }
+  return isNativeEarnEthSymbol(protocolSymbol)
+    ? NATIVE_EARN_WRAPPED_ETH_SYMBOL
+    : protocolSymbol || '';
+}
+
+export function resolveNativeEarnStakeRequestSymbol({
+  isNativeProvider,
+  protocolSymbol,
+  tokenSymbol,
+  tokenIsNative,
+  wrappedTokenSymbol,
+}: {
+  isNativeProvider: boolean;
+  protocolSymbol?: string;
+  tokenSymbol?: string;
+  tokenIsNative?: boolean;
+  wrappedTokenSymbol?: string;
+}) {
+  if (!isNativeProvider) {
+    return protocolSymbol || tokenSymbol || '';
+  }
+  if (tokenIsNative) {
+    return (
+      wrappedTokenSymbol ||
+      resolveNativeEarnProtocolSymbol({
+        isNativeProvider,
+        protocolSymbol,
+      })
+    );
+  }
+  return (
+    tokenSymbol ||
+    resolveNativeEarnProtocolSymbol({
+      isNativeProvider,
+      protocolSymbol,
+    })
+  );
 }
 
 export function buildStakeTokenUniqueKey(params?: {

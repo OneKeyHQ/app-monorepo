@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import BigNumber from 'bignumber.js';
 
+import { PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   IFill,
@@ -78,7 +79,113 @@ export const {
   initialValue: undefined,
 });
 
+export interface IPerpsAccountDisplaySnapshotEntry {
+  account: IPerpsActiveAccountAtom;
+  accountValue: string | undefined;
+  withdrawable: string | undefined;
+  activeAsset:
+    | {
+        coin: string;
+        leverage: IPerpsActiveAssetData['leverage'] | undefined;
+        updatedAt: number;
+      }
+    | undefined;
+  availableToTrade:
+    | {
+        coin: string;
+        value: string;
+        updatedAt: number;
+      }
+    | undefined;
+  updatedAt: number;
+}
+
+export interface IPerpsAccountDisplaySnapshotAtom {
+  entries: Record<string, IPerpsAccountDisplaySnapshotEntry>;
+}
+
+export const {
+  target: perpsAccountDisplaySnapshotAtom,
+  use: usePerpsAccountDisplaySnapshotAtom,
+} = globalAtom<IPerpsAccountDisplaySnapshotAtom>({
+  name: EAtomNames.perpsAccountDisplaySnapshotAtom,
+  persist: true,
+  initialValue: {
+    entries: {},
+  },
+});
+
+export function getPerpsAccountDisplaySnapshotEntry({
+  snapshot,
+  accountAddress,
+  indexedAccountId,
+  accountId,
+  deriveType,
+  maxAgeMs = PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS,
+}: {
+  snapshot: IPerpsAccountDisplaySnapshotAtom | undefined;
+  accountAddress?: string | null;
+  indexedAccountId?: string | null;
+  accountId?: string | null;
+  deriveType?: IAccountDeriveTypes | null;
+  maxAgeMs?: number;
+}) {
+  const now = Date.now();
+  const entries = Object.values(snapshot?.entries ?? {})
+    .filter((entry) => now - entry.updatedAt <= maxAgeMs)
+    .toSorted((a, b) => b.updatedAt - a.updatedAt);
+  const normalizedAddress = accountAddress?.toLowerCase();
+  const matchesRequestedAccount = (
+    entry: IPerpsAccountDisplaySnapshotEntry,
+  ) => {
+    const entryAccount = entry.account;
+    const hasRequestedAccount = Boolean(indexedAccountId || accountId);
+    const isSameAccount =
+      Boolean(
+        indexedAccountId &&
+        entryAccount.indexedAccountId &&
+        entryAccount.indexedAccountId === indexedAccountId,
+      ) ||
+      Boolean(
+        accountId &&
+        entryAccount.accountId &&
+        entryAccount.accountId === accountId,
+      );
+    const isSameDeriveType =
+      !deriveType ||
+      !entryAccount.deriveType ||
+      entryAccount.deriveType === deriveType;
+    return (!hasRequestedAccount || isSameAccount) && isSameDeriveType;
+  };
+
+  if (normalizedAddress) {
+    const addressEntry = snapshot?.entries?.[normalizedAddress];
+    if (
+      addressEntry &&
+      now - addressEntry.updatedAt <= maxAgeMs &&
+      matchesRequestedAccount(addressEntry)
+    ) {
+      return addressEntry;
+    }
+  }
+
+  const accountEntry = entries.find((entry) => {
+    if (!indexedAccountId && !accountId) {
+      return false;
+    }
+    return matchesRequestedAccount(entry);
+  });
+
+  if (accountEntry) {
+    return accountEntry;
+  }
+
+  return undefined;
+}
+
 // #region Abstraction Mode
+export type IPerpsAbstractionModeSource = 'live' | 'cache';
+
 export const {
   target: perpsAbstractionModeAtom,
   use: usePerpsAbstractionModeAtom,
@@ -86,6 +193,7 @@ export const {
   | {
       accountAddress: IHex | undefined;
       mode: EHyperLiquidAbstractionMode | undefined;
+      source?: IPerpsAbstractionModeSource;
     }
   | undefined
 >({
@@ -125,18 +233,32 @@ export const {
   isLoading: boolean;
 }>({
   read: (get) => {
+    const account = get(perpsActiveAccountAtom.atom());
     const modeData = get(perpsAbstractionModeAtom.atom());
     const summary = get(perpsActiveAccountSummaryAtom.atom());
     const spotData = get(perpsSpotBalancesAtom.atom());
 
-    const mode = modeData?.mode;
+    const activeAddress = account?.accountAddress?.toLowerCase();
+    const isSummaryForActiveAccount =
+      Boolean(activeAddress) &&
+      summary?.accountAddress?.toLowerCase() === activeAddress;
+    const isSpotForActiveAccount =
+      Boolean(activeAddress) &&
+      spotData?.accountAddress?.toLowerCase() === activeAddress;
+    const isModeForActiveAccount =
+      Boolean(activeAddress) &&
+      modeData?.accountAddress?.toLowerCase() === activeAddress;
 
-    // Mode unknown or DEFAULT → use existing clearinghouse value as fallback, mark loading
+    const activeSummary = isSummaryForActiveAccount ? summary : undefined;
+    const activeSpotData = isSpotForActiveAccount ? spotData : undefined;
+    const mode = isModeForActiveAccount ? modeData?.mode : undefined;
+
+    // Mode unknown or DEFAULT: use existing clearinghouse value as fallback, mark loading
     // DEFAULT is treated like disabled (spot+perps) until auto-correction sets it to unified
     if (!mode || mode === EHyperLiquidAbstractionMode.DEFAULT) {
       return {
-        accountValue: summary?.accountValue,
-        withdrawable: summary?.withdrawable,
+        accountValue: activeSummary?.accountValue,
+        withdrawable: activeSummary?.withdrawable,
         isLoading: true,
       };
     }
@@ -148,8 +270,8 @@ export const {
     if (isUnified) {
       // Unified/portfolio: all values from spotState
       // Per HL docs: "Individual perp dex user states are not meaningful"
-      if (!spotData?.spotTotalUsd) {
-        // Spot data not yet loaded — return undefined for skeleton screen
+      if (!activeSpotData?.spotTotalUsd) {
+        // Spot data not yet loaded: return undefined for skeleton screen
         return {
           accountValue: undefined,
           withdrawable: undefined,
@@ -157,24 +279,24 @@ export const {
         };
       }
       // Withdrawable = USDC available (total - hold)
-      const usdcBalance = spotData.balances?.find((b) => b.token === 0);
+      const usdcBalance = activeSpotData.balances?.find((b) => b.token === 0);
       const usdcWithdrawable = usdcBalance
         ? new BigNumber(usdcBalance.total).minus(usdcBalance.hold).toFixed()
         : '0';
       return {
-        accountValue: spotData.spotTotalUsd,
+        accountValue: activeSpotData.spotTotalUsd,
         withdrawable: usdcWithdrawable,
         isLoading: false,
       };
     }
 
     // disabled / dexAbstraction: account value = spot + perps clearinghouse
-    const perpsValue = new BigNumber(summary?.accountValue || '0');
-    const spotValue = new BigNumber(spotData?.spotTotalUsd || '0');
+    const perpsValue = new BigNumber(activeSummary?.accountValue || '0');
+    const spotValue = new BigNumber(activeSpotData?.spotTotalUsd || '0');
     return {
       accountValue: spotValue.plus(perpsValue).toFixed(),
-      withdrawable: summary?.withdrawable,
-      isLoading: !spotData?.spotTotalUsd,
+      withdrawable: activeSummary?.withdrawable,
+      isLoading: !activeSpotData?.spotTotalUsd,
     };
   },
 });
@@ -215,6 +337,7 @@ export type IPerpsActiveAccountStatusDetails = {
   builderFeeOk: boolean;
   internalRebateBoundOk: boolean;
   abstractionOk: boolean;
+  requiresAgentRemovalSignature?: boolean;
 };
 export type IPerpsActiveAccountStatusInfoAtom =
   | {
@@ -255,6 +378,7 @@ export const {
     let abstractionOk = details?.abstractionOk;
     if (
       abstractionMode &&
+      abstractionMode.source !== 'cache' &&
       abstractionMode.accountAddress?.toLowerCase() ===
         account.accountAddress?.toLowerCase()
     ) {
@@ -327,6 +451,9 @@ export const {
   use: usePerpsActiveAccountEnableTradingModeAtom,
 } = globalAtomComputedR<{
   isSoftwareAccount: boolean;
+  isHardwareAccount: boolean;
+  canAutoEnableInOrderPanel: boolean;
+  requiresEnableTradingDialogInOrderPanel: boolean;
   requiresExplicitEnableTrading: boolean;
 }>({
   read: (get) => {
@@ -338,6 +465,9 @@ export const {
     if (loading.selectAccountLoading || !accountId) {
       return {
         isSoftwareAccount: false,
+        isHardwareAccount: false,
+        canAutoEnableInOrderPanel: false,
+        requiresEnableTradingDialogInOrderPanel: false,
         requiresExplicitEnableTrading: true,
       };
     }
@@ -345,9 +475,13 @@ export const {
     const isSoftwareAccount =
       accountUtils.isHdAccount({ accountId }) ||
       accountUtils.isImportedAccount({ accountId });
+    const isHardwareAccount = accountUtils.isHwAccount({ accountId });
 
     return {
       isSoftwareAccount,
+      isHardwareAccount,
+      canAutoEnableInOrderPanel: isSoftwareAccount,
+      requiresEnableTradingDialogInOrderPanel: isHardwareAccount,
       requiresExplicitEnableTrading: !isSoftwareAccount,
     };
   },
@@ -370,11 +504,68 @@ export const {
       return true;
     }
 
-    if (enableTradingMode.isSoftwareAccount && !status.accountNotSupport) {
-      return false;
+    if (status.accountNotSupport) {
+      return true;
     }
 
-    return !status?.canTrade;
+    return !(
+      status.canTrade ||
+      enableTradingMode.canAutoEnableInOrderPanel ||
+      enableTradingMode.requiresEnableTradingDialogInOrderPanel
+    );
+  },
+});
+
+// Precise readiness flags for the Perps account display surface. Unlike
+// perpsAccountLoadingInfoAtom (whose selectAccountLoading is a fixed 300ms
+// timer) these reflect actual per-atom data presence and address alignment,
+// so account-value cache hits become "ready" the moment hydrate populates the
+// atoms. Trading status still requires live statusInfo.
+export interface IPerpsAccountDisplayReadyAtom {
+  accountResolved: boolean;
+  summaryReady: boolean;
+  statusReady: boolean;
+}
+export const {
+  target: perpsAccountDisplayReadyAtom,
+  use: usePerpsAccountDisplayReadyAtom,
+} = globalAtomComputedR<IPerpsAccountDisplayReadyAtom>({
+  read: (get) => {
+    const loading = get(perpsAccountLoadingInfoAtom.atom());
+    const account = get(perpsActiveAccountAtom.atom());
+    const summary = get(perpsActiveAccountSummaryAtom.atom());
+    const statusInfo = get(perpsActiveAccountStatusInfoAtom.atom());
+    const computedValue = get(perpsComputedAccountValueAtom.atom());
+
+    const activeAddress = account?.accountAddress?.toLowerCase() ?? null;
+    // accountResolved tracks the existing 300ms timer so consumers that
+    // depend on the legacy "selection settled" notion can opt in to this
+    // atom without changing semantics.
+    const accountResolved = !loading.selectAccountLoading;
+
+    // Summary is "ready" when we have a finalized accountValue for the
+    // current address. Cache hydrate populates summary before the active
+    // account is published, so this flips true as soon as activeAccount
+    // becomes visible to React.
+    const summaryReady = Boolean(
+      activeAddress &&
+      summary?.accountAddress?.toLowerCase() === activeAddress &&
+      computedValue?.isLoading === false &&
+      computedValue?.accountValue !== undefined,
+    );
+
+    // Status is "ready" only when live statusInfo belongs to the current
+    // address. Cached status is intentionally not used by trading guards.
+    const statusReady = Boolean(
+      activeAddress &&
+      statusInfo?.accountAddress?.toLowerCase() === activeAddress,
+    );
+
+    return {
+      accountResolved,
+      summaryReady,
+      statusReady,
+    };
   },
 });
 

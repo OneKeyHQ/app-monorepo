@@ -4,6 +4,8 @@ import {
   EThirdPartyHardwareUiAction,
   thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -19,6 +21,15 @@ import type {
   Response,
 } from './types';
 
+const APP_INSTALL_PROGRESS_LOG_INTERVAL_MS = 5000;
+const APP_INSTALL_PROGRESS_LOG_STEP = 0.1;
+
+type IAppInstallProgressLogState = {
+  progress: number;
+  loggedAt: number;
+  completed: boolean;
+};
+
 export class LedgerAdapter
   extends BaseAdapter
   implements IThirdPartyHardwareAdapter
@@ -27,12 +38,15 @@ export class LedgerAdapter
 
   readonly hw: IHardwareWallet;
 
+  private readonly appInstallProgressLogState = new Map<
+    string,
+    IAppInstallProgressLogState
+  >();
+
   constructor(hw: IHardwareWallet) {
     super();
     this.hw = hw;
-    defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] adapter created');
 
-    // Whitelist known ui-event types; unknown ones log-only.
     this.hw.on('ui-event', (event) => {
       const eventType = (event as { type?: string }).type ?? 'unknown';
       defaultLogger.hardware.sdkLog.uiEvent(
@@ -53,7 +67,6 @@ export class LedgerAdapter
           });
           break;
         case EConnectorInteraction.UnlockDevice:
-          // Toast only; DMK handles the unlock polling and completion event.
           void thirdPartyHardwareUiStateAtom.set({
             action: EThirdPartyHardwareUiAction.unlockDevice,
             vendor: EHardwareVendor.ledger,
@@ -111,13 +124,11 @@ export class LedgerAdapter
       });
     });
 
-    // SDK signals an externally-cancelled wait → drop any open dialog/toast.
     this.hw.on(UI_REQUEST.CLOSE_UI_WINDOW, () => {
       defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] CLOSE_UI_WINDOW');
       void thirdPartyHardwareUiStateAtom.set(undefined);
     });
 
-    // Request events trust the adapter vendor, not SDK payload hints.
     this.onUiEvent((event) => {
       if (event.kind === 'request') {
         const { reason, message, path, accountIndex } = event.payload ?? {};
@@ -128,6 +139,75 @@ export class LedgerAdapter
         });
       }
     });
+
+    (
+      this.hw as IHardwareWallet & {
+        on(
+          event: 'app-install-progress',
+          listener: (e: {
+            type: 'app-install-progress';
+            payload: {
+              connectId: string;
+              appName: string;
+              progress: number;
+              requiredUserInteraction?: string;
+            };
+          }) => void,
+        ): void;
+      }
+    ).on('app-install-progress', (event) => {
+      const payload = event.payload;
+      if (
+        this.shouldLogAppInstallProgress({
+          connectId: payload.connectId,
+          appName: payload.appName,
+          progress: payload.progress,
+        })
+      ) {
+        defaultLogger.hardware.sdkLog.log(
+          `[3rdPartyHW][Ledger] app-install-progress appName=${payload.appName} progress=${payload.progress}`,
+        );
+      }
+      appEventBus.emit(EAppEventBusNames.ThirdPartyHardwareAppInstallProgress, {
+        vendor: EHardwareVendor.ledger,
+        connectId: payload.connectId,
+        appName: payload.appName,
+        progress: payload.progress,
+        requiredUserInteraction: payload.requiredUserInteraction,
+      });
+    });
+  }
+
+  private shouldLogAppInstallProgress({
+    connectId,
+    appName,
+    progress,
+  }: {
+    connectId: string;
+    appName: string;
+    progress: number;
+  }) {
+    const key = `${connectId || '(empty)'}:${appName}`;
+    const now = Date.now();
+    const previous = this.appInstallProgressLogState.get(key);
+    if (previous?.completed && progress >= previous.progress) {
+      return false;
+    }
+    const shouldLog =
+      !previous ||
+      progress < previous.progress ||
+      progress >= 1 ||
+      progress - previous.progress >= APP_INSTALL_PROGRESS_LOG_STEP ||
+      now - previous.loggedAt >= APP_INSTALL_PROGRESS_LOG_INTERVAL_MS;
+
+    if (shouldLog) {
+      this.appInstallProgressLogState.set(key, {
+        progress,
+        loggedAt: now,
+        completed: progress >= 1,
+      });
+    }
+    return shouldLog;
   }
 
   async searchDevices(

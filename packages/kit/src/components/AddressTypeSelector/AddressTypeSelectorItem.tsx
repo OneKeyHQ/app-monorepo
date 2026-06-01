@@ -98,7 +98,6 @@ function AddressTypeSelectorItem(props: IProps) {
       <DashText
         size="$bodyMdMedium"
         $gtMd={{ size: '$bodySmMedium' }}
-        dashColor="$textDisabled"
         dashThickness={0.5}
         cursor="help"
       >

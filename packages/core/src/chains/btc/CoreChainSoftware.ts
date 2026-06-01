@@ -903,6 +903,8 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       networkInfo: { networkChainCode },
       addressEncoding,
       hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
     } = query;
 
     // template:  "m/49'/0'/$$INDEX$$'/0/0"
@@ -927,6 +929,8 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       prefix: pathPrefix, // m/49'/0'
       relPaths, // 0'   1'
       hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
     });
     defaultLogger.account.accountCreatePerf.batchGetPublicKeysBtcDone();
 
@@ -950,11 +954,20 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       hdCredential,
       password,
       hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
     });
     defaultLogger.account.accountCreatePerf.mnemonicFromEntropyDone();
 
     defaultLogger.account.accountCreatePerf.seedToRootBip32();
     const root = getBitcoinBip32().fromSeed(seed);
+    const rootFingerprintHex = bufferUtils.bytesToHex(
+      crypto
+        .createHash('ripemd160')
+        .update(crypto.createHash('sha256').update(root.publicKey).digest())
+        .digest()
+        .slice(0, 4),
+    );
     defaultLogger.account.accountCreatePerf.seedToRootBip32Done();
 
     const xpubBuffers = [
@@ -1016,6 +1029,9 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
             password,
             path,
             hdCredentialCacheScopeId,
+            kdfBackend,
+            enablePbkdf2Cache,
+            rootFingerprintHex,
           },
         });
         defaultLogger.account.accountCreatePerf.xpubToSegwitDone();

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet, View } from 'react-native';
 import Animated, {
@@ -8,7 +8,9 @@ import Animated, {
   runOnJS,
   useAnimatedReaction,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
 import { useThrottledCallback } from 'use-debounce';
 
@@ -29,6 +31,7 @@ import type { TabBarProps } from 'react-native-collapsible-tab-view';
 import type { SharedValue } from 'react-native-reanimated';
 
 type IItemLayout = { x: number; width: number };
+type IReadonlySharedValue<T> = { readonly value: T };
 
 const TAB_HOVER_STYLE = { bg: '$bgHover' } as const;
 const TAB_PRESS_STYLE = { bg: '$bgActive' } as const;
@@ -38,6 +41,8 @@ const PILL_SCROLL_CONTENT_STYLE = {
   px: '$pagePadding',
   py: '$2',
 } as const;
+const DIRECT_TAB_PRESS_ANIMATION_DURATION = 220;
+const DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT = 900;
 
 export type ITabBarVariant = 'default' | 'pill';
 
@@ -57,7 +62,7 @@ function AnimatedPillText({
 }: {
   name: string;
   index: number;
-  indexDecimal: SharedValue<number>;
+  indexDecimal: IReadonlySharedValue<number>;
 }) {
   const theme = useTheme();
   const activeColor = theme.textInverse.val;
@@ -204,7 +209,7 @@ function AnimatedTabBarItem({
 }: {
   name: string;
   index: number;
-  indexDecimal: SharedValue<number>;
+  indexDecimal: IReadonlySharedValue<number>;
   onPress: (name: string) => void;
   tabItemStyle?: IYStackProps;
   focusedTabStyle?: IYStackProps;
@@ -265,7 +270,7 @@ function AnimatedIndicator({
   indexDecimal,
   itemsLayout,
 }: {
-  indexDecimal: SharedValue<number>;
+  indexDecimal: IReadonlySharedValue<number>;
   itemsLayout: IItemLayout[];
 }) {
   const theme = useTheme();
@@ -347,7 +352,7 @@ function AnimatedPillTabBarItem({
 }: {
   name: string;
   index: number;
-  indexDecimal: SharedValue<number>;
+  indexDecimal: IReadonlySharedValue<number>;
   onPress: (name: string) => void;
   onItemLayout?: (index: number, layout: IItemLayout) => void;
 }) {
@@ -405,7 +410,7 @@ function AnimatedPillIndicator({
   indexDecimal,
   itemsLayout,
 }: {
-  indexDecimal: SharedValue<number>;
+  indexDecimal: IReadonlySharedValue<number>;
   itemsLayout: IItemLayout[];
 }) {
   const theme = useTheme();
@@ -501,6 +506,7 @@ function AnimatedPillIndicator({
 export interface ITabBarProps extends TabBarProps<string> {
   containerStyle?: IYStackProps;
   renderToolbar?: ({ focusedTab }: { focusedTab: string }) => React.ReactNode;
+  directTabPressAnimation?: boolean;
 }
 
 export interface ITabBarItemProps {
@@ -618,6 +624,7 @@ export function TabBar({
   scrollable = false,
   variant = 'default',
   textSize,
+  directTabPressAnimation = false,
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
   focusedTab: SharedValue<string>;
   tabNames: string[];
@@ -630,9 +637,13 @@ export function TabBar({
   variant?: ITabBarVariant;
   textSize?: ISizableTextProps['size'];
   indexDecimal?: SharedValue<number>;
+  directTabPressAnimation?: boolean;
 }) {
   const listViewRef = useRef<IListViewRef<string>>(null);
   const listViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const directTabPressTimerId = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
   const [itemsLayout, setItemsLayout] = useState<IItemLayout[]>([]);
   const itemsLayoutRef = useRef<Map<number, IItemLayout>>(new Map());
@@ -643,6 +654,20 @@ export function TabBar({
     !scrollable &&
     !renderItem &&
     !textSize;
+  // iOS collapsible-tab-view can report intermediate focused tabs when
+  // jumping across non-adjacent tabs. Keep this opt-in because it decouples
+  // the tab bar indicator from the native pager while the jump settles.
+  const useDirectTabPressAnimation =
+    directTabPressAnimation && useAnimatedDefault;
+  const displayIndexDecimal = useSharedValue(indexDecimal?.value ?? 0);
+  const directTabPressTargetIndex = useSharedValue(-1);
+  const directTabPressStartedAt = useSharedValue(0);
+  const animatedDefaultIndexDecimal = useDerivedValue(() => {
+    if (useDirectTabPressAnimation && directTabPressTargetIndex.value >= 0) {
+      return displayIndexDecimal.value;
+    }
+    return indexDecimal?.value ?? 0;
+  });
 
   const useAnimatedPill =
     !!indexDecimal &&
@@ -696,7 +721,53 @@ export function TabBar({
     [tabNames],
   );
 
+  const clearDirectTabPressTimer = useCallback(() => {
+    if (directTabPressTimerId.current) {
+      clearTimeout(directTabPressTimerId.current);
+      directTabPressTimerId.current = null;
+    }
+  }, []);
+
+  useEffect(
+    () => () => {
+      clearDirectTabPressTimer();
+    },
+    [clearDirectTabPressTimer],
+  );
+
   const handleTabPress = useThrottledCallback((name: string) => {
+    clearDirectTabPressTimer();
+    const targetIndex = tabNames.findIndex((tabName) => tabName === name);
+    const currentIndex = tabNames.findIndex(
+      (tabName) => tabName === focusedTab.value,
+    );
+    const shouldAnimateDirectPress =
+      useDirectTabPressAnimation &&
+      indexDecimal &&
+      targetIndex >= 0 &&
+      currentIndex >= 0 &&
+      Math.abs(targetIndex - currentIndex) > 1;
+
+    if (shouldAnimateDirectPress) {
+      directTabPressTargetIndex.value = targetIndex;
+      directTabPressStartedAt.value = Date.now();
+      displayIndexDecimal.value = indexDecimal.value;
+      displayIndexDecimal.value = withTiming(targetIndex, {
+        duration: DIRECT_TAB_PRESS_ANIMATION_DURATION,
+      });
+      directTabPressTimerId.current = setTimeout(() => {
+        directTabPressTimerId.current = null;
+        if (directTabPressTargetIndex.value !== targetIndex) {
+          return;
+        }
+        directTabPressTargetIndex.value = -1;
+        directTabPressStartedAt.value = 0;
+        setCurrentTab(focusedTab.value);
+      }, DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT);
+    } else if (useDirectTabPressAnimation) {
+      directTabPressTargetIndex.value = -1;
+      directTabPressStartedAt.value = 0;
+    }
     tabClickCount = Date.now();
     setCurrentTab(name);
     scrollToTab(name);
@@ -706,6 +777,20 @@ export function TabBar({
   useAnimatedReaction(
     () => focusedTab.value,
     (result, previous) => {
+      const targetIndex = directTabPressTargetIndex.value;
+      const resultIndex = tabNames.findIndex((tabName) => tabName === result);
+      const shouldHoldDirectTarget =
+        useDirectTabPressAnimation &&
+        targetIndex >= 0 &&
+        resultIndex >= 0 &&
+        resultIndex !== targetIndex &&
+        Date.now() - directTabPressStartedAt.value <
+          DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT;
+
+      if (shouldHoldDirectTarget) {
+        return;
+      }
+
       if (Date.now() - tabClickCount < 300) {
         return;
       }
@@ -716,18 +801,66 @@ export function TabBar({
         }
       }
     },
+    [
+      directTabPressStartedAt,
+      directTabPressTargetIndex,
+      tabNames,
+      useDirectTabPressAnimation,
+    ],
+  );
+
+  useAnimatedReaction(
+    () => {
+      if (!indexDecimal) {
+        return null;
+      }
+      return indexDecimal.value;
+    },
+    (result) => {
+      if (result === null) {
+        return;
+      }
+
+      if (!useDirectTabPressAnimation) {
+        return;
+      }
+
+      const targetIndex = directTabPressTargetIndex.value;
+      if (targetIndex < 0) {
+        return;
+      }
+
+      const hasReachedTarget = Math.abs(result - targetIndex) < 0.001;
+      const hasTimedOut =
+        Date.now() - directTabPressStartedAt.value >
+        DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT;
+
+      if (hasReachedTarget || hasTimedOut) {
+        directTabPressTargetIndex.value = -1;
+        directTabPressStartedAt.value = 0;
+        runOnJS(clearDirectTabPressTimer)();
+      }
+    },
+    [
+      clearDirectTabPressTimer,
+      directTabPressStartedAt,
+      directTabPressTargetIndex,
+      displayIndexDecimal,
+      indexDecimal,
+      useDirectTabPressAnimation,
+    ],
   );
 
   const isPill = variant === 'pill';
 
   const tabItems = useMemo(() => {
-    if (useAnimatedDefault && indexDecimal) {
+    if (useAnimatedDefault && animatedDefaultIndexDecimal) {
       return tabNames.map((name, index) => (
         <AnimatedTabBarItem
           key={name}
           name={name}
           index={index}
-          indexDecimal={indexDecimal}
+          indexDecimal={animatedDefaultIndexDecimal}
           isFocused={currentTab === name}
           onPress={handleTabPress}
           tabItemStyle={tabItemStyle}
@@ -805,6 +938,7 @@ export function TabBar({
     useAnimatedDefault,
     useAnimatedPill,
     useAnimatedPillIndicator,
+    animatedDefaultIndexDecimal,
     indexDecimal,
     currentTab,
     focusedTabStyle,
@@ -845,7 +979,7 @@ export function TabBar({
         />
       );
     }
-    if (useAnimatedDefault && indexDecimal) {
+    if (useAnimatedDefault && animatedDefaultIndexDecimal) {
       return (
         <>
           <XStack ai="center" jc="space-between">
@@ -853,7 +987,7 @@ export function TabBar({
               {tabItems}
               {itemsLayout.length === tabNames.length ? (
                 <AnimatedIndicator
-                  indexDecimal={indexDecimal}
+                  indexDecimal={animatedDefaultIndexDecimal}
                   itemsLayout={itemsLayout}
                 />
               ) : null}
@@ -875,7 +1009,7 @@ export function TabBar({
     );
   }, [
     useAnimatedDefault,
-    indexDecimal,
+    animatedDefaultIndexDecimal,
     itemsLayout,
     tabNames.length,
     currentTab,

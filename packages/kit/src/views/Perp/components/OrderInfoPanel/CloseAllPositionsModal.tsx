@@ -11,11 +11,17 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
+import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
-import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../PerpDialogLayout';
+import { isPerpsAccountAddressMatched } from '../../utils/accountScopedData';
+import {
+  PERP_DIALOG_BUTTON_SIZE,
+  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+} from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 
 type ICloseType = 'market' | 'limit';
@@ -23,19 +29,29 @@ type ICloseType = 'market' | 'limit';
 interface ICloseAllPositionsContentProps {
   onClose?: () => void;
   filterByCoin?: string;
+  scopedAccountAddress?: string | null;
 }
 
 function CloseAllPositionsContent({
   onClose,
   filterByCoin,
+  scopedAccountAddress,
 }: ICloseAllPositionsContentProps) {
   const actions = useHyperliquidActions();
   const intl = useIntl();
+  const [activeAccount] = usePerpsActiveAccountAtom();
+  const currentScopedAccountAddress = usePerpsAccountScopedCacheAddress();
+  const effectiveScopedAccountAddress =
+    scopedAccountAddress ?? currentScopedAccountAddress;
+  const canSubmit = isPerpsAccountAddressMatched({
+    activeAccountAddress: activeAccount?.accountAddress,
+    dataAccountAddress: effectiveScopedAccountAddress,
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [closeType, setCloseType] = useState<ICloseType>('market');
 
   const handleConfirm = useCallback(async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || !canSubmit) return;
 
     setIsSubmitting(true);
     try {
@@ -50,7 +66,7 @@ function CloseAllPositionsContent({
       console.error('Close all positions failed:', error);
       setIsSubmitting(false);
     }
-  }, [actions, closeType, filterByCoin, isSubmitting, onClose]);
+  }, [actions, canSubmit, closeType, filterByCoin, isSubmitting, onClose]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
@@ -117,12 +133,12 @@ function CloseAllPositionsContent({
         </XStack>
       </YStack>
 
-      <TradingGuardWrapper>
+      <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
         <Button
           testID="perp-btn"
           variant="primary"
-          size="medium"
-          disabled={isSubmitting}
+          size={PERP_DIALOG_BUTTON_SIZE}
+          disabled={isSubmitting || !canSubmit}
           loading={isSubmitting}
           onPress={handleConfirm}
         >
@@ -133,7 +149,10 @@ function CloseAllPositionsContent({
   );
 }
 
-export function showCloseAllPositionsDialog(filterByCoin?: string) {
+export function showCloseAllPositionsDialog(
+  filterByCoin?: string,
+  scopedAccountAddress?: string | null,
+) {
   const dialogInstance = Dialog.show({
     // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
@@ -146,6 +165,7 @@ export function showCloseAllPositionsDialog(filterByCoin?: string) {
             void dialogInstance.close();
           }}
           filterByCoin={filterByCoin}
+          scopedAccountAddress={scopedAccountAddress}
         />
       </PerpsProviderMirror>
     ),

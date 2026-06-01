@@ -558,6 +558,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential,
     encryptedSecurityPasswordR1ForServer,
     noDebounceUpload,
+    useServerDataTime,
   }: {
     localItems: IDBCloudSyncItem[];
     isFlush?: boolean;
@@ -567,7 +568,15 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential?: ICloudSyncCredential | undefined;
     encryptedSecurityPasswordR1ForServer?: string;
     noDebounceUpload?: boolean;
+    // OK-55438: opt-in flag for genuine "now" writes (rename / delete tombstone).
+    // Records these item ids so the upload payload asks the server to
+    // authoritatively stamp dataTime. Server only clamps when the submitted time
+    // is ahead of its own clock, so this can never move a past timestamp forward.
+    useServerDataTime?: boolean;
   }) {
+    if (useServerDataTime) {
+      localItems.forEach((item) => this.useServerDataTimeIds.add(item.id));
+    }
     const devSettings = await devSettingsPersistAtom.get();
     const activeMode = await this.getActiveSyncMode();
     if (!skipPrimeStatusCheck) {
@@ -678,6 +687,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         const serverItem = this.convertLocalItemToServerItem({
           localItem: item,
           dataTimestamp,
+          useServerDataTime: this.useServerDataTimeIds.has(item.id),
         });
         if (process.env.NODE_ENV !== 'production') {
           // @ts-ignore
@@ -688,6 +698,10 @@ class ServicePrimeCloudSync extends ServiceBase {
         return serverItem;
       })
       .filter(Boolean);
+
+    // OK-55438: one-shot consume — clear the server-time flags for this batch so
+    // a later re-upload of the same id (e.g. obsoleted re-sync) is never stamped.
+    localItems.forEach((item) => this.useServerDataTimeIds.delete(item.id));
 
     const filteredLocalData = localData.filter((item) => {
       const pwdMatched = item.pwdHash === pwdHash && pwdHash;
@@ -747,6 +761,14 @@ class ServicePrimeCloudSync extends ServiceBase {
   };
 
   uploadItemsToMerge: IDBCloudSyncItem[] = [];
+
+  // OK-55438: item ids whose dataTime should be authoritatively rewritten by the
+  // server (genuine "now" writes such as rename / delete tombstone). Populated by
+  // apiUploadItems({ useServerDataTime: true }) and consumed (cleared) when the
+  // upload payload is built in `_callApiUploadItems`. The flag is carried per
+  // item (not per request) because the debounced merge buffer mixes fresh writes
+  // with historical re-uploads (obsoleted re-sync, uploadAllLocalItems, ...).
+  useServerDataTimeIds: Set<string> = new Set();
 
   _callApiUploadItemsDebounceMerge({
     localItems,
@@ -2376,9 +2398,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   convertLocalItemToServerItem({
     localItem,
     dataTimestamp,
+    useServerDataTime,
   }: {
     localItem: IDBCloudSyncItem;
     dataTimestamp?: number;
+    useServerDataTime?: boolean;
   }): ICloudSyncServerItem | null {
     // Skip Lock items with keyless pwdHash
     if (
@@ -2395,6 +2419,11 @@ class ServicePrimeCloudSync extends ServiceBase {
       isDeleted: localItem.isDeleted,
       pwdHash: localItem.pwdHash,
     };
+    // OK-55438: ask the server to authoritatively stamp dataTime for genuine
+    // "now" writes (it only clamps when the submitted time is ahead of server).
+    if (useServerDataTime) {
+      serverItem.useServerDataTime = true;
+    }
     return serverItem;
   }
 

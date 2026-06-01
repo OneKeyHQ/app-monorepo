@@ -72,6 +72,20 @@ export interface IHardwareErrorDialogPayload {
   errorMessage?: string; // Error message
 }
 
+export type IThirdPartyHardwareRecoveryAction = {
+  type: 'ledger_app_install_required';
+  vendor: EHardwareVendor;
+  connectId: string;
+  appName: string;
+  source?:
+    | 'batchCreateAccount'
+    | 'createAccount'
+    | 'sign'
+    | 'onboarding'
+    | 'unknown';
+  silent?: boolean;
+};
+
 export enum EFinalizeWalletSetupSteps {
   // Regular wallet steps
   CreatingWallet = 'CreatingWallet',
@@ -373,6 +387,16 @@ export interface IAppEventBusPayload {
     vendor: EHardwareVendor;
     reason: EThirdPartyDevicePermissionDeniedReason;
   };
+  [EAppEventBusNames.ThirdPartyHardwareAppInstallProgress]: {
+    vendor: EHardwareVendor;
+    connectId: string;
+    appName: string;
+    /** 0..1 install progress reported by DMK. */
+    progress: number;
+    /** DMK UserInteractionRequired (e.g. 'allow-secure-connection'). */
+    requiredUserInteraction?: string;
+  };
+  [EAppEventBusNames.ThirdPartyHardwareRecoveryAction]: IThirdPartyHardwareRecoveryAction;
   [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
   [EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice]: undefined;
   [EAppEventBusNames.EnabledNetworksChanged]: undefined;

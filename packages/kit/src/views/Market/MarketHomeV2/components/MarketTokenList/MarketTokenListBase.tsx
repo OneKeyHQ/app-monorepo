@@ -134,6 +134,7 @@ type IMarketTokenListBaseProps = {
   onScrollBegin?: () => void;
   showStockSubtitle?: boolean | 'auto';
   hiddenDesktopColumns?: readonly string[];
+  change24hColumnTitle?: string;
   liveTokenOverride?: IMarketTokenListLiveOverride;
   rowBg?: string;
   testID?: string;
@@ -161,6 +162,7 @@ function MarketTokenListBase({
   onScrollBegin,
   showStockSubtitle = true,
   hiddenDesktopColumns,
+  change24hColumnTitle,
   liveTokenOverride,
   rowBg,
   testID,
@@ -206,6 +208,7 @@ function MarketTokenListBase({
     hasStock,
     resolvedShowStockSubtitle,
     hiddenDesktopColumns,
+    change24hColumnTitle,
   );
 
   // Client-side sorting: sort data locally when clientSort is enabled

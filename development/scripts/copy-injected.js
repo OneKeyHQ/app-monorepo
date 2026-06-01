@@ -29,6 +29,15 @@ function copyFile(src, dest) {
   console.log(`Copied ${src} to ${dest}`);
 }
 
+function copyFileIfExists(src, dest) {
+  if (fs.existsSync(src)) {
+    copyFile(src, dest);
+    return true;
+  }
+  console.warn(`Skip optional injected file, source not found: ${src}`);
+  return false;
+}
+
 // Function to create directory if it doesn't exist
 function ensureDirectoryExistence(dirPath) {
   if (!fs.existsSync(dirPath)) {
@@ -59,10 +68,29 @@ copyFile(
 );
 
 // Copy to Native injectedCode
+const injectedNativeSource =
+  './node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedNative.js';
+const injectedNativeLicenseSource =
+  './node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedNative.js.LICENSE.txt';
+const injectedWebEmbedSource =
+  './node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedWebEmbed.js';
+const injectedWebEmbedLicenseSource =
+  './node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedWebEmbed.js.LICENSE.txt';
+const injectedWebEmbedDest =
+  './packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.text-js';
+const injectedWebEmbedLicenseDest =
+  './packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.js.LICENSE.txt';
+
 copyFile(
-  './node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedNative.js',
+  injectedNativeSource,
   './packages/kit/src/components/WebView/injectedNative.text-js',
 );
+if (copyFileIfExists(injectedWebEmbedSource, injectedWebEmbedDest)) {
+  copyFileIfExists(injectedWebEmbedLicenseSource, injectedWebEmbedLicenseDest);
+} else {
+  copyFile(injectedNativeSource, injectedWebEmbedDest);
+  copyFileIfExists(injectedNativeLicenseSource, injectedWebEmbedLicenseDest);
+}
 
 // Copy index html
 copyFile(

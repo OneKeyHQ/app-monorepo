@@ -18,6 +18,7 @@ interface ITradingGuardWrapperProps {
   forceShowEnableTrading?: boolean;
   bypassEnableTradingGuard?: boolean;
   disabled?: boolean;
+  buttonSize?: 'medium' | 'large';
 }
 
 function TradingGuardWrapperInternal({
@@ -25,6 +26,7 @@ function TradingGuardWrapperInternal({
   forceShowEnableTrading = false,
   bypassEnableTradingGuard = false,
   disabled = false,
+  buttonSize = 'medium',
 }: ITradingGuardWrapperProps) {
   const intl = useIntl();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
@@ -53,8 +55,9 @@ function TradingGuardWrapperInternal({
     return (
       <Button
         variant="primary"
-        size="medium"
+        size={buttonSize}
         disabled
+        childrenAsText={false}
         testID="perp-is-disabled-btn"
       >
         <Spinner />
@@ -66,8 +69,9 @@ function TradingGuardWrapperInternal({
     return (
       <Button
         variant="primary"
-        size="medium"
+        size={buttonSize}
         disabled
+        childrenAsText={false}
         testID="perp-is-disabled-btn"
       >
         <SizableText size="$bodyMdMedium" color="$textOnColor">
@@ -84,7 +88,7 @@ function TradingGuardWrapperInternal({
       <Button
         testID="perp-is-disabled-btn"
         variant="primary"
-        size="medium"
+        size={buttonSize}
         disabled={disabled || isEnableTradingLoading}
         loading={isEnableTradingLoading}
         onPress={disabled ? undefined : enableTrading}
@@ -92,6 +96,7 @@ function TradingGuardWrapperInternal({
         hoverStyle={buttonStyles.hoverStyle}
         pressStyle={buttonStyles.pressStyle}
         color="$textOnColor"
+        childrenAsText={false}
       >
         <SizableText size="$bodyMdMedium" color="$textOnColor">
           {intl.formatMessage({

@@ -9,6 +9,7 @@ export enum ETabHomeRoutes {
   TabHomeReferralLanding = 'TabHomeReferralLanding',
   TabHomeReferralLandingWithoutPage = 'TabHomeReferralLandingWithoutPage',
   TabHomeReferralLandingCodeOnly = 'TabHomeReferralLandingCodeOnly',
+  TabHomeRedeemBitcoinVoucher = 'TabHomeRedeemBitcoinVoucher',
   TabHomeBulkSendAddressesInput = 'TabHomeBulkSendAddressesInput',
   TabHomeBulkSendAmountsInput = 'TabHomeBulkSendAmountsInput',
   TabHomeBulkSendProcess = 'TabHomeBulkSendProcess',
@@ -32,6 +33,7 @@ export type ITabHomeParamList = {
     code: string;
     page: string;
     fromDeepLink?: boolean;
+    referralRequestId?: number;
   };
   [ETabHomeRoutes.TabHomeReferralLandingWithoutPage]: {
     code: string;
@@ -40,6 +42,11 @@ export type ITabHomeParamList = {
   [ETabHomeRoutes.TabHomeReferralLandingCodeOnly]: {
     code: string;
   };
+  [ETabHomeRoutes.TabHomeRedeemBitcoinVoucher]:
+    | {
+        code?: string;
+      }
+    | undefined;
   [ETabHomeRoutes.TabHomeBulkSendAddressesInput]: {
     networkId: string | undefined;
     accountId: string | undefined;

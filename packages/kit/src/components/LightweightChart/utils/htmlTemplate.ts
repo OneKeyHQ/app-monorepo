@@ -13,6 +13,139 @@ function getStyles(): string {
 
 function getChartInitScript(): string {
   return `
+      function getPriceFormatter(nextConfig) {
+        return nextConfig.priceFormatterType === 'usd'
+          ? usdPriceFormatter
+          : pctPriceFormatter;
+      }
+      function getNormalizedLineWidth(lineWidth, fallback) {
+        return Math.min(4, Math.max(1, Math.round(lineWidth ?? fallback ?? 3)));
+      }
+      function getChartOptions(nextConfig) {
+        return {
+          layout: {
+            background: { color: nextConfig.theme.bgColor },
+            textColor: nextConfig.theme.textSubduedColor,
+            fontSize: nextConfig.fontSize || 12,
+          },
+          grid: {
+            vertLines: { visible: false },
+            horzLines: nextConfig.showHorzGridLines
+              ? {
+                  visible: true,
+                  color: nextConfig.horzLineColor || '#E5E5EA',
+                  style: nextConfig.horzLineStyle ?? 2,
+                }
+              : { visible: false },
+          },
+          rightPriceScale: Object.assign(
+            { visible: Boolean(nextConfig.showPriceScale), borderVisible: false },
+            nextConfig.priceScaleMargins
+              ? { scaleMargins: nextConfig.priceScaleMargins }
+              : {}
+          ),
+        };
+      }
+      function getPrimarySeriesType(nextConfig) {
+        return nextConfig.seriesType === 'baseline' ? 'baseline' : 'area';
+      }
+      function createPrimarySeries(nextConfig) {
+        var priceFormatter = getPriceFormatter(nextConfig);
+        var showLast = Boolean(nextConfig.showLastValue);
+        var normalizedLineWidth = getNormalizedLineWidth(nextConfig.lineWidth, 3);
+        if (getPrimarySeriesType(nextConfig) === 'baseline') {
+          return chart.addBaselineSeries(Object.assign({}, nextConfig.baselineOptions, {
+            lineWidth: normalizedLineWidth,
+            lastValueVisible: showLast,
+            priceLineVisible: showLast,
+            crosshairMarkerRadius: 5,
+            priceFormat: { type: 'custom', formatter: priceFormatter },
+          }));
+        }
+        return chart.addAreaSeries({
+          topColor: nextConfig.theme.topColor,
+          bottomColor: nextConfig.theme.bottomColor,
+          lineColor: nextConfig.theme.lineColor,
+          lineWidth: normalizedLineWidth,
+          lastValueVisible: showLast,
+          priceLineVisible: showLast,
+          crosshairMarkerRadius: 5,
+          crosshairMarkerBorderColor: nextConfig.theme.lineColor,
+          crosshairMarkerBackgroundColor: '#ffffff',
+          priceFormat: { type: 'custom', formatter: priceFormatter },
+        });
+      }
+      function applyPrimarySeriesOptions(nextConfig) {
+        if (!window.series) return;
+        var priceFormatter = getPriceFormatter(nextConfig);
+        var showLast = Boolean(nextConfig.showLastValue);
+        var normalizedLineWidth = getNormalizedLineWidth(nextConfig.lineWidth, 3);
+        if (window.seriesType === 'baseline') {
+          window.series.applyOptions(Object.assign({}, nextConfig.baselineOptions, {
+            lineWidth: normalizedLineWidth,
+            lastValueVisible: showLast,
+            priceLineVisible: showLast,
+            crosshairMarkerRadius: 5,
+            priceFormat: { type: 'custom', formatter: priceFormatter },
+          }));
+          return;
+        }
+        window.series.applyOptions({
+          topColor: nextConfig.theme.topColor,
+          bottomColor: nextConfig.theme.bottomColor,
+          lineColor: nextConfig.theme.lineColor,
+          lineWidth: normalizedLineWidth,
+          lastValueVisible: showLast,
+          priceLineVisible: showLast,
+          crosshairMarkerRadius: 5,
+          crosshairMarkerBorderColor: nextConfig.theme.lineColor,
+          crosshairMarkerBackgroundColor: '#ffffff',
+          priceFormat: { type: 'custom', formatter: priceFormatter },
+        });
+      }
+      function syncPrimarySeries(nextConfig) {
+        var nextSeriesType = getPrimarySeriesType(nextConfig);
+        if (!window.series || window.seriesType !== nextSeriesType) {
+          if (window.series) {
+            chart.removeSeries(window.series);
+          }
+          window.series = createPrimarySeries(nextConfig);
+          window.seriesType = nextSeriesType;
+        } else {
+          applyPrimarySeriesOptions(nextConfig);
+        }
+        window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
+      }
+      function getSecondarySeriesOptions(nextConfig) {
+        return {
+          color: nextConfig.secondaryLineColor || '#0177E5',
+          lineWidth: getNormalizedLineWidth(nextConfig.secondaryLineWidth, 2),
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        };
+      }
+      function syncSecondarySeries(nextConfig) {
+        var hasSecondaryData =
+          Array.isArray(nextConfig.secondaryLineData) &&
+          nextConfig.secondaryLineData.length > 0;
+        if (!hasSecondaryData) {
+          if (window.secondarySeries) {
+            chart.removeSeries(window.secondarySeries);
+            window.secondarySeries = null;
+          }
+          return;
+        }
+        if (!window.secondarySeries) {
+          window.secondarySeries = chart.addLineSeries(
+            getSecondarySeriesOptions(nextConfig)
+          );
+        } else {
+          window.secondarySeries.applyOptions(getSecondarySeriesOptions(nextConfig));
+        }
+        window.secondarySeries.setData(nextConfig.secondaryLineData);
+      }
+
       // Price formatter: use USD formatter when priceFormatterType is set, otherwise default %
       // NOTE: Keep in sync with formatChartUsdPrice in shared/src/utils/perpsUtils.ts
       function usdPriceFormatter(price) {
@@ -26,9 +159,6 @@ function getChartInitScript(): string {
       function pctPriceFormatter(price) {
         return price.toFixed(2) + '%';
       }
-      var priceFormatter = config.priceFormatterType === 'usd' ? usdPriceFormatter : pctPriceFormatter;
-
-      var normalizedLineWidth = Math.min(4, Math.max(1, Math.round(config.lineWidth ?? 3)));
 
       const chart = LightweightCharts.createChart(container, {
         layout: {
@@ -93,54 +223,18 @@ function getChartInitScript(): string {
         },
       });
 
-      var isBaseline = config.seriesType === 'baseline';
-      var showLast = Boolean(config.showLastValue);
-      var series;
-
-      if (isBaseline && config.baselineOptions) {
-        series = chart.addBaselineSeries(Object.assign({}, config.baselineOptions, {
-          lineWidth: normalizedLineWidth,
-          lastValueVisible: showLast,
-          priceLineVisible: showLast,
-          crosshairMarkerRadius: 5,
-          priceFormat: { type: 'custom', formatter: priceFormatter },
-        }));
-      } else {
-        series = chart.addAreaSeries({
-          topColor: config.theme.topColor,
-          bottomColor: config.theme.bottomColor,
-          lineColor: config.theme.lineColor,
-          lineWidth: normalizedLineWidth,
-          lastValueVisible: showLast,
-          priceLineVisible: showLast,
-          crosshairMarkerRadius: 5,
-          crosshairMarkerBorderColor: config.theme.lineColor,
-          crosshairMarkerBackgroundColor: '#ffffff',
-          priceFormat: { type: 'custom', formatter: priceFormatter },
-        });
-      }
-
-      series.setData(config.data);
-
-      let secondarySeries = null;
-      if (
-        Array.isArray(config.secondaryLineData) &&
-        config.secondaryLineData.length > 0
-      ) {
-        secondarySeries = chart.addLineSeries({
-          color: config.secondaryLineColor || '#0177E5',
-          lineWidth: config.secondaryLineWidth ?? 2,
-          priceLineVisible: false,
-          lastValueVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        secondarySeries.setData(config.secondaryLineData);
-      }
-      chart.timeScale().fitContent();
-
       window.chart = chart;
-      window.series = series;
-      window.secondarySeries = secondarySeries;
+      window.series = null;
+      window.seriesType = null;
+      window.secondarySeries = null;
+      window.applyChartConfig = function(nextConfig) {
+        if (!nextConfig || !window.chart) return;
+        window.chart.applyOptions(getChartOptions(nextConfig));
+        syncPrimarySeries(nextConfig);
+        syncSecondarySeries(nextConfig);
+        window.chart.timeScale().fitContent();
+      };
+      window.applyChartConfig(config);
   `.trim();
 }
 
@@ -151,13 +245,15 @@ function getEventHandlers(): string {
 
       chart.subscribeCrosshairMove((param) => {
         let message;
-        if (param.time && param.seriesPrices?.size > 0 && param.point) {
+        var primarySeries = window.series;
+        var extraSeries = window.secondarySeries;
+        if (param.time && param.seriesPrices?.size > 0 && param.point && primarySeries) {
           _lastDataTime = Date.now();
-          const rawSecondary = secondarySeries ? param.seriesPrices.get(secondarySeries) : undefined;
+          const rawSecondary = extraSeries ? param.seriesPrices.get(extraSeries) : undefined;
           message = {
             type: 'hover',
             time: String(param.time),
-            price: String(param.seriesPrices.get(series)),
+            price: String(param.seriesPrices.get(primarySeries)),
             secondaryPrice: rawSecondary !== undefined ? String(rawSecondary) : undefined,
             x: param.point.x,
             y: param.point.y,
