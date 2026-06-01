@@ -412,8 +412,8 @@ function MoreActionContentGridItem({
     onPress();
   }, [closePopover, onPress, trackID]);
 
-  const { user } = useOneKeyAuth();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const { user, isPrimeActive } = useOneKeyAuth();
+  const isPrimeUser = isPrimeActive && user?.onekeyUserId;
   const themeVariant = useThemeVariant();
 
   if (isPrimeFeature && !isPrimeAvailable) {
@@ -950,14 +950,14 @@ const MoreActionWalletGrid = () => {
     });
   }, [navigation]);
 
-  const { user } = useOneKeyAuth();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const { user, isPrimeActive } = useOneKeyAuth();
+  const isPrimeUser = isPrimeActive && user?.onekeyUserId;
   const {
     activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const checkIsPrimeUser = useCallback(
     (showFeature: EPrimeFeatures) => {
-      if (user?.primeSubscription?.isActive && user?.onekeyUserId) {
+      if (isPrimeActive && user?.onekeyUserId) {
         return true;
       }
       navigation.pushFullModal(EModalRoutes.PrimeModal, {
@@ -969,7 +969,7 @@ const MoreActionWalletGrid = () => {
       });
       return false;
     },
-    [navigation, user, network?.id],
+    [isPrimeActive, navigation, network?.id, user?.onekeyUserId],
   );
   const openBulkCopyAddressesModule = useCallback(async () => {
     const networkId = networkUtils.toNetworkIdFallback({
@@ -1063,6 +1063,7 @@ const MoreActionWalletGrid = () => {
                 defaultLogger.prime.subscription.primeEntryClick({
                   featureName: EPrimeFeatures.BulkCopyAddresses,
                   entryPoint: 'moreActions',
+                  isPrimeActive,
                 });
               }
               void openBulkCopyAddressesModule();
@@ -1082,6 +1083,7 @@ const MoreActionWalletGrid = () => {
                 defaultLogger.prime.subscription.primeEntryClick({
                   featureName: EPrimeFeatures.BulkSend,
                   entryPoint: 'moreActions',
+                  isPrimeActive,
                 });
               }
               void openBulkSendModule();
@@ -1097,6 +1099,7 @@ const MoreActionWalletGrid = () => {
     handlePreferences,
     handleSecurity,
     intl,
+    isPrimeActive,
     isPrimeUser,
     openBulkCopyAddressesModule,
     openBulkSendModule,
