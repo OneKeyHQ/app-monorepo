@@ -310,6 +310,12 @@ function buildExpandedTransferView({
   hideValue?: boolean;
   currencySymbol?: string;
 }) {
+  // INVARIANT: each transfer line is a single fixed-height row — the token icon
+  // (xs) and the amount/fiat texts share one horizontal XStack and are all
+  // numberOfLines={1}, so a line never wraps. TxHistoryListView relies on this
+  // (CHANGE_LINE_HEIGHT) to pin an exact fast-path row height without
+  // CellMeasurer. If you make a line wrap or stack vertically, update
+  // CHANGE_LINE_HEIGHT in TxHistoryListView/index.tsx accordingly.
   const renderTransferLine = (
     transfer: IDecodedTxTransferInfo,
     prefix: string,
