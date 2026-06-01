@@ -102,6 +102,12 @@ allprojects { repositories { maven { url(expoCameraMavenPath) } } }
 // fix issue:
 // 'compileDebugJavaWithJavac' task (current target is 17) and 'compileDebugKotlin' task (current target is 11) jvm target compatibility should be set to the same Java version.
 allprojects {
+    plugins.withId("com.android.library") {
+        android {
+            ndkVersion rootProject.ext.ndkVersion
+        }
+    }
+
     // fix issue:
     // Execution failed for task ':react-native-image-colors:compileDebugKotlin'.
     // Inconsistent JVM-target compatibility detected for tasks 'compileDebugJavaWithJavac' (17) and 'compileDebugKotlin' (18).

@@ -1599,13 +1599,8 @@ export function ConnectYourDevicePage() {
           return;
         }
 
-        // Set global transport type based on selected channel before connecting
-        let forceTransportType: EHardwareTransportType | undefined;
-        if (tabValue === EConnectDeviceChannel.bluetooth) {
-          forceTransportType = EHardwareTransportType.DesktopWebBle;
-        } else {
-          forceTransportType = await getForceTransportType(tabValue);
-        }
+        // 连接前根据当前平台选择传输类型；Native 蓝牙必须使用 BLE。
+        const forceTransportType = await getForceTransportType(tabValue);
         if (forceTransportType) {
           await backgroundApiProxy.serviceHardware.setForceTransportType({
             forceTransportType,

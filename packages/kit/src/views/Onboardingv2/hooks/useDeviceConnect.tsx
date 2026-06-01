@@ -27,7 +27,7 @@ import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes/onboarding';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import type {
   IFirmwareVerifyResult,
@@ -525,12 +525,8 @@ export function useDeviceConnect({
           }
         }
 
-        // Set global transport type based on selected channel before connecting
-        if (tabValue === EConnectDeviceChannel.bluetooth) {
-          forceTransportType = EHardwareTransportType.DesktopWebBle;
-        } else {
-          forceTransportType = await getForceTransportType(tabValue);
-        }
+        // 连接前根据当前平台选择传输类型；Native 蓝牙必须使用 BLE。
+        forceTransportType = await getForceTransportType(tabValue);
         if (forceTransportType) {
           await backgroundApiProxy.serviceHardware.setForceTransportType({
             forceTransportType,
