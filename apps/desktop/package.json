@@ -34,7 +34,8 @@
     "build:winms": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:winms --publish never",
     "publish:all": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron --publish always",
     "publish:winms": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:winms --publish always",
-    "build:JsBundle": "cross-env NODE_ENV=production BUILD_BUNDLE_UPDATE=true NODE_OPTIONS=--max-old-space-size=8192 webpack build"
+    "build:JsBundle": "cross-env NODE_ENV=production BUILD_BUNDLE_UPDATE=true NODE_OPTIONS=--max-old-space-size=8192 webpack build",
+    "test:e2e:browser": "node e2e/open-url.e2e.js"
   },
   "dependencies": {
     "@onekeyfe/electron-mac-icloud": "1.2.6",
