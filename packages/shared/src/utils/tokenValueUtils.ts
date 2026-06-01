@@ -20,6 +20,21 @@ export function displayOrUnavailable(
   return isValidNumberValue(v) ? v : UNAVAILABLE_DISPLAY;
 }
 
+// fiatValue = balance * price, so a balance of exactly zero forces a zero fiat
+// value regardless of whether a price feed exists. Testnet tokens (and any
+// token lacking a price) arrive with fiatValue null/undefined, which would
+// otherwise render '--' even when the holding is provably worth 0. Prefer
+// showing '0' in that case; fall back to the standard unavailable placeholder
+// only when the balance itself is non-zero or unknown.
+export function displayFiatValueOrUnavailable(
+  fiatValue: string | number | null | undefined,
+  balance: string | number | null | undefined,
+): string | number {
+  if (isValidNumberValue(fiatValue)) return fiatValue;
+  if (isValidNumberValue(balance) && new BigNumber(balance).isZero()) return 0;
+  return UNAVAILABLE_DISPLAY;
+}
+
 // For sort-partition placement: tokens with unavailable fiatValue sink to the
 // bottom alongside zero-value tokens. `new BigNumber('NaN').isZero()` is
 // false, so a raw BigNumber check would mis-classify unavailable rows.
