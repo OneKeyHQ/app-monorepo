@@ -5,7 +5,7 @@ import type {
   ReactElement,
   ReactNode,
 } from 'react';
-import { isValidElement, useCallback, useState } from 'react';
+import { isValidElement, useCallback, useEffect, useState } from 'react';
 
 import { Pressable } from 'react-native';
 
@@ -349,6 +349,19 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
     const [nativePressed, setNativePressed] = useState(false);
     const handlePressIn = useCallback(() => setNativePressed(true), []);
     const handlePressOut = useCallback(() => setNativePressed(false), []);
+
+    // When the row flips to disabled (or otherwise loses its press handler)
+    // mid-press, the Pressable wrapper below is unmounted before its onPressOut
+    // can fire, which would otherwise strand the `$bgActive` highlight on (e.g.
+    // a row that synchronously switches to a loading/disabled state on tap would
+    // stay dark forever). Force the pressed state off whenever the Pressable is
+    // no longer mounted so the row falls back to its resting appearance and only
+    // the loading indicator remains.
+    useEffect(() => {
+      if (!useNativePressable) {
+        setNativePressed(false);
+      }
+    }, [useNativePressable]);
 
     // On native with Pressable wrapper, strip pressStyle/hoverStyle from rest
     // to prevent the inner Stack from claiming the touch responder. Without this,
