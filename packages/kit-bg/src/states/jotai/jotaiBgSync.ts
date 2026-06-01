@@ -21,6 +21,26 @@ export class JotaiBgSync {
 
   private pendingBroadcasts: Array<{ name: EAtomNames; payload: any }> = [];
 
+  // Micro-batch broadcast: same-microtask atom writes coalesce into one
+  // SharedRPC slot via the native batch broadcast bridge. This is the
+  // primary lever for the bg→main cascade storm — see OK-perp/swap freeze
+  // case where 2395 setAtomValue + their reverse broadcasts saturated the
+  // main JS thread.
+  //
+  // Each item carries its own `resolve` / `reject` so that callers awaiting
+  // `broadcastStateUpdateFromBgToUi` settle on the actual flush outcome —
+  // a flush exception (bridge unavailable, sharedRPC missing, serialize
+  // failure) propagates back through every awaiter in the same batch
+  // instead of becoming an orphan microtask rejection.
+  private microBatchBuffer: Array<{
+    name: EAtomNames;
+    payload: any;
+    resolve: () => void;
+    reject: (reason: unknown) => void;
+  }> = [];
+
+  private microBatchFlushScheduled = false;
+
   pauseBroadcast() {
     this.broadcastPaused = true;
     this.pendingBroadcasts = [];
@@ -36,6 +56,61 @@ export class JotaiBgSync {
     // the saving is from not triggering UI-side parse+set for identical values).
     for (const item of pending) {
       await this.broadcastStateUpdateFromBgToUi(item);
+    }
+  }
+
+  /**
+   * Drain `microBatchBuffer` and either:
+   *   - noop (empty buffer),
+   *   - emit a single broadcast via the legacy path (size 1), or
+   *   - emit a batch broadcast (size >1).
+   *
+   * Same-named writes are deduplicated last-write-wins; the surviving write's
+   * position follows the LAST occurrence of each atom so derived UI subscribers
+   * observe values in the same sequence as without micro-batch coalescing.
+   * `Map#set` alone preserves first-insertion position, which would re-order
+   * sequences like `A1 -> B -> A2` into `[A2, B]` instead of `[B, A2]`; delete
+   * before set to refresh the insertion slot.
+   */
+  private flushBroadcastMicroBatch() {
+    this.microBatchFlushScheduled = false;
+    const buffer = this.microBatchBuffer.splice(0);
+    if (buffer.length === 0) {
+      return;
+    }
+
+    const dedup = new Map<EAtomNames, any>();
+    for (const item of buffer) {
+      dedup.delete(item.name);
+      dedup.set(item.name, item.payload);
+    }
+
+    try {
+      if (dedup.size === 1) {
+        const [name, payload] = dedup.entries().next().value as [
+          EAtomNames,
+          any,
+        ];
+        this.deliverBroadcast({ name, payload });
+      } else if (dedup.size > 1) {
+        const items: Array<{ name: EAtomNames; payload: any }> = [];
+        dedup.forEach((payload, name) => {
+          items.push({ name, payload });
+        });
+        this.deliverBroadcastBatch(items);
+      }
+      for (const item of buffer) {
+        item.resolve();
+      }
+    } catch (error) {
+      // Surface delivery failure to every caller awaiting this batch flush.
+      // `deliverBroadcast` throws OneKeyLocalError when the native bridge
+      // isn't ready; without this propagation the rejection becomes an
+      // orphan microtask and the original awaiters resolve on a phantom
+      // success path while bg/main state silently diverges.
+      for (const item of buffer) {
+        item.reject(error);
+      }
     }
   }
 
@@ -161,6 +236,52 @@ export class JotaiBgSync {
       this.pendingBroadcasts.push({ name, payload });
       return;
     }
+
+    // Native dual-thread: enqueue into a same-microtask micro-batch so the N
+    // setAtomValue writes triggered by a single service response collapse
+    // into one (or a few) SharedRPC slot writes. Cross-tab cascade storms
+    // (e.g. 2395 setAtomValue in 13s during the OK-perp/swap freeze case)
+    // pay the bridge cost ~once instead of N times.
+    //
+    // The returned Promise settles only after `flushBroadcastMicroBatch`
+    // has actually delivered (or attempted to deliver) the broadcast.
+    // Callers like `wrapAtomPro.doSet` that `await` this method therefore
+    // observe the original await-barrier semantics: an in-flight write
+    // continues past the await only on real success, and bridge failures
+    // surface back through the original call site instead of as an
+    // orphan microtask rejection.
+    //
+    // Extension background path keeps the immediate-send behavior: the
+    // ext bridge already supports requestToAllUi batching internally and
+    // we have no measured cascade pressure there yet.
+    if (
+      platformEnv.isNativeBackgroundThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      return new Promise<void>((resolve, reject) => {
+        this.microBatchBuffer.push({ name, payload, resolve, reject });
+        if (!this.microBatchFlushScheduled) {
+          this.microBatchFlushScheduled = true;
+          queueMicrotask(() => this.flushBroadcastMicroBatch());
+        }
+      });
+    }
+
+    this.deliverBroadcast({ name, payload });
+  }
+
+  /**
+   * Send one atom broadcast to all UI runtimes. Equivalent to the
+   * pre-micro-batch behavior — used both for non-native bridge mode and as
+   * the single-item flush path.
+   */
+  private deliverBroadcast({
+    name,
+    payload,
+  }: {
+    name: EAtomNames;
+    payload: any;
+  }) {
     const p: IGlobalStatesSyncBroadcastParams = {
       $$isFromBgStatesSyncBroadcast: true,
       name,
@@ -198,6 +319,57 @@ export class JotaiBgSync {
       method: GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME,
       params: p,
     });
+  }
+
+  /**
+   * Native batch broadcast — only invoked from `flushBroadcastMicroBatch`
+   * once it has accumulated >1 deduped items.
+   *
+   * Two independent capabilities have to be satisfied before the batch wire
+   * protocol is safe to use:
+   *
+   *   1. `broadcastStateUpdateBatchFromBgToUi` exists on this bg runtime's
+   *      bridge object (i.e. the writer can produce the new `onekey:bg:
+   *      jotai-batch:` keys at all).
+   *   2. The main runtime has advertised that it knows how to consume those
+   *      keys via `isMainBatchProtocolReady()`. Without this handshake a
+   *      partial OTA / split-runtime mismatch (new bg bundle + old main
+   *      bundle that only listens on `onekey:bg:jotai:`) would silently
+   *      drop every batched update and freeze the UI on stale state.
+   *
+   * If either check fails we fan out via the per-item `deliverBroadcast`
+   * path — that path uses the legacy `onekey:bg:jotai:` keys that every
+   * release/v6.3.0 main runtime supports.
+   */
+  private deliverBroadcastBatch(
+    items: Array<{ name: EAtomNames; payload: any }>,
+  ) {
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __onekeyNativeBackgroundThreadJotaiBridge?: {
+        broadcastStateUpdateBatchFromBgToUi?: (params: {
+          items: Array<{ name: string; payload: any }>;
+        }) => boolean;
+        isMainBatchProtocolReady?: () => boolean;
+      };
+    };
+
+    const bridge = runtimeGlobal.__onekeyNativeBackgroundThreadJotaiBridge;
+    if (
+      bridge?.broadcastStateUpdateBatchFromBgToUi &&
+      bridge.isMainBatchProtocolReady?.()
+    ) {
+      bridge.broadcastStateUpdateBatchFromBgToUi({ items });
+      return;
+    }
+
+    // Capability not (yet) confirmed on main side — emit each broadcast via
+    // the legacy single-broadcast key so the older observer keeps working.
+    // Bursts that happen before the handshake completes therefore pay the
+    // full bridge cost per item; once main advertises support every later
+    // burst collapses into a single batch slot again.
+    for (const item of items) {
+      this.deliverBroadcast(item);
+    }
   }
 }
 

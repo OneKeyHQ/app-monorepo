@@ -51,7 +51,10 @@ import { useBlockRegion } from './hooks/useBlockRegion';
 import { useEarnHideSmallAssets } from './hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
-import { useStakingPendingTxsByInfo } from './hooks/useStakingPendingTxs';
+import {
+  useEarnPendingTxsSharedMeta,
+  useStakingPendingTxsByInfo,
+} from './hooks/useStakingPendingTxs';
 
 import type { IEarnBorrowPagerViewRef } from './components/EarnBorrowPagerView';
 import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
@@ -90,7 +93,13 @@ function BasicEarnHome({
   const wasFocusedRef = useRef(false);
   const wasHiddenByModalRef = useRef(false);
   const shouldLogEnterEarnRef = useRef(false);
-  const portfolioData = useEarnPortfolio({ isActive: isEarnDataActive });
+  // On native, Discovery hosts Earn as a sub-tab, so isEarnDataActive is
+  // true whenever the Discovery top-level tab is focused — even when the
+  // user is on the Browser or Market sub-tab. Also gate on showContent so
+  // the per-asset portfolio fan-out only fires when Earn is actually visible.
+  const portfolioData = useEarnPortfolio({
+    isActive: isEarnDataActive && showContent !== false,
+  });
   const { refresh: refreshEarnDataRaw, isLoading: portfolioLoading } =
     portfolioData;
 
@@ -226,8 +235,20 @@ function BasicEarnHome({
       tx.stakingInfo.label,
     );
   }, []);
+
+  const [borrowNetworkIds, setBorrowNetworkIds] = useState<string[]>([]);
+
+  // Resolve the (earn ∪ borrow) network meta ONCE for both hook instances
+  // below. Without this, EarnHome paid 6 BgTransport RPCs per dep change
+  // (3 per instance: network-account map + account-meta batch + polling
+  // intervals batch). The shared resolver collapses it to 3.
+  const sharedPendingTxsMeta = useEarnPendingTxsSharedMeta({
+    extraNetworkIds: borrowNetworkIds,
+  });
+
   const { filteredTxs } = useStakingPendingTxsByInfo({
     filter: pendingTxsFilter,
+    precomputed: sharedPendingTxsMeta,
   });
   const isPending = useMemo(() => {
     return filteredTxs.length > 0;
@@ -241,7 +262,6 @@ function BasicEarnHome({
     previousIsPendingRef.current = isPending;
   }, [isPending, refreshEarnData]);
 
-  const [borrowNetworkIds, setBorrowNetworkIds] = useState<string[]>([]);
   const borrowRefreshHandlerRef = useRef<(() => Promise<void>) | null>(null);
 
   const handleRegisterBorrowRefresh = useCallback(
@@ -277,6 +297,7 @@ function BasicEarnHome({
     tagMatcher: borrowPendingTagMatcher,
     onRefresh: handleBorrowPendingRefresh,
     onRefreshDelayMs: BORROW_PENDING_REFRESH_DELAY,
+    precomputed: sharedPendingTxsMeta,
   });
   const prevBorrowPendingIdsRef = useRef<string | null>(null);
 
