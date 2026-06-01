@@ -114,27 +114,24 @@ export function useSwapInit(params?: ISwapInitParams) {
       setNetworkListFetching(false);
       return;
     }
-    let swapNetworksSortList =
+    const swapNetworksSortList =
       await backgroundApiProxy.simpleDb.swapNetworksSort.getRawData();
     if (swapNetworksSortList?.data?.length) {
-      const noSupportInfo = swapNetworksSortList?.data.every(
-        (net) =>
-          (isNil(net.supportCrossChainSwap) && isNil(net.supportSingleSwap)) ||
-          isNil(net.supportLimit),
-      );
-      if (!noSupportInfo) {
-        setSwapNetworks(swapNetworksSortList.data);
-        setNetworkListFetching(false);
-      } else {
-        swapNetworksSortList = null;
-        void backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
-          data: [],
-        });
-      }
+      // Render cache as UI fallback regardless of whether some fields are stale —
+      // the merge with server data below will refresh missing fields. Never wipe
+      // simpleDb here: if the server fetch fails, the next cold start still has
+      // a usable list and won't be empty until the user restarts the app.
+      setSwapNetworks(swapNetworksSortList.data);
+      setNetworkListFetching(false);
     }
     let networks: ISwapNetwork[] = [];
-    const fetchNetworks =
-      await backgroundApiProxy.serviceSwap.fetchSwapNetworks();
+    let fetchNetworks: ISwapNetwork[] = [];
+    try {
+      fetchNetworks = await backgroundApiProxy.serviceSwap.fetchSwapNetworks();
+    } catch {
+      // Server/network failure — keep whatever the cache populated above.
+      return;
+    }
     networks = [...fetchNetworks];
     if (swapNetworksSortList?.data?.length && fetchNetworks?.length) {
       const sortNetworks = swapNetworksSortList.data;
@@ -673,6 +670,12 @@ export function useSwapInit(params?: ISwapInitParams) {
         }
       }
       if (isFocus) {
+        // Recover from a failed first-launch fetch: when the user returns to the
+        // swap tab and the network list is still empty, retry. Cache-less + server
+        // fail is the only state where this triggers.
+        if (!swapNetworksRef.current.length) {
+          void fetchSwapNetworks();
+        }
         if (swapFromMarketJumpTokenRef.current?.token) {
           void swapTypeSwitchAction(swapFromMarketJumpTokenRef.current.type);
           if (swapFromMarketJumpTokenRef.current.direction === 'from') {
