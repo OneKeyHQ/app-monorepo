@@ -34,6 +34,7 @@ import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
+import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
   GetTradingButtonStyleProps,
@@ -610,16 +611,18 @@ export function showOrderConfirmDialog({
       id: ETranslations.perp_confirm_order,
     }),
     renderContent: (
-      <PerpsProviderMirror>
-        <OrderConfirmContent
-          onClose={() => {
-            void dialogInstance.close();
-          }}
-          overrideSide={overrideSide}
-          enableTradingBeforeConfirm={enableTradingBeforeConfirm}
-          enableTradingAccountKey={enableTradingAccountKey}
-        />
-      </PerpsProviderMirror>
+      <PerpsAccountSelectorProviderMirror>
+        <PerpsProviderMirror>
+          <OrderConfirmContent
+            onClose={() => {
+              void dialogInstance.close();
+            }}
+            overrideSide={overrideSide}
+            enableTradingBeforeConfirm={enableTradingBeforeConfirm}
+            enableTradingAccountKey={enableTradingAccountKey}
+          />
+        </PerpsProviderMirror>
+      </PerpsAccountSelectorProviderMirror>
     ),
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
