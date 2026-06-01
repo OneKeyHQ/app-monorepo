@@ -56,5 +56,19 @@
       "#11803"
     ],
     "notes": "Restore SegmentSlider inactive mark ring on web (#11803); Rewrite web SegmentSlider with pure-DOM impl (OK-55214) (#11774); Stabilize perps orderbook, positions, and recovery (OK-55023 OK-55030 OK-54952 OK-55026) (#11764); Split-view layout fixes for iPad / foldable detail pages (OK-54993) (#11761); Support Native Earn and Earn home flows (OK-54973, OK-55232, OK-55237, OK-55239, OK-55241, OK-54352, OK-54601, OK-55145) (#11717); Fix silent update dialog after restart (#11767); Tab switch freeze + history fast-scroll fixes (#11723); Ledger USB limit fix (#11765); Fix Kaspa balance due to deriveType mismatch in account/chain selectors (OK-55367) (#11790); Capture and report logger UTM params from URLs (OK-55267) (#11766); Support BTC voucher deeplink (OK-55177) (#11753); Remove perps referral share prompt (#11769)"
+  },
+  {
+    "seq": 4,
+    "commit": "054d4d1afb6eecbe2f1c1c731522831e24369940",
+    "date": "2026-06-01T08:53:22Z",
+    "prs": [
+      "#11740",
+      "#11773",
+      "#11827",
+      "#11838",
+      "#11839",
+      "#11842"
+    ],
+    "notes": "Coalesce bg→main atom broadcasts + batch token merge bridge calls (#11740); Address swap issues (OK-55160, OK-55212, OK-55270, OK-55273, OK-55302) (#11773); Persist browser tab closes immediately to survive process kill (#11827); Prevent multi-token transfer row overflow in web history list (OK-55494) (#11838); Fix Android software-wallet Cardano address creation stuck loading (#11839); Update perps referral learn more link (#11842)"
   }
 ]
