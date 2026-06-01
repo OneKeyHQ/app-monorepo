@@ -443,6 +443,7 @@ function SideButtonInternal({
   const shouldShowCostAndLiqPrice = !isSpot && !isScaleMode && !isTwapMode;
   const latestOrderPanelStateRef = useRef({
     activeAsset,
+    activePositionsValue,
     activeTradeInstrument,
     computedSizeForSide,
     effectivePriceBN,
@@ -457,6 +458,7 @@ function SideButtonInternal({
     marketDataFreshness,
     midPriceBN,
     orderContextKey,
+    perpsAccount,
     perpsCustomSettings,
     priceError,
     resolvedSizeInputUnit,
@@ -466,6 +468,7 @@ function SideButtonInternal({
   });
   latestOrderPanelStateRef.current = {
     activeAsset,
+    activePositionsValue,
     activeTradeInstrument,
     computedSizeForSide,
     effectivePriceBN,
@@ -480,6 +483,7 @@ function SideButtonInternal({
     marketDataFreshness,
     midPriceBN,
     orderContextKey,
+    perpsAccount,
     perpsCustomSettings,
     priceError,
     resolvedSizeInputUnit,
@@ -989,9 +993,7 @@ function SideButtonInternal({
         return;
       }
 
-      const latestOrderPanelState = latestOrderPanelStateRef.current;
-      const latestPerpsCustomSettings =
-        latestOrderPanelState.perpsCustomSettings;
+      const preEnableOrderPanelState = latestOrderPanelStateRef.current;
 
       if (shouldEnableTradingBeforeOrder) {
         const isDepositRequired =
@@ -999,13 +1001,13 @@ function SideButtonInternal({
         if (
           shouldBlockPerpsOrderPanelPreEnableTradingForMargin({
             shouldEnableTradingBeforeOrder,
-            isNoEnoughMargin: latestOrderPanelState.isNoEnoughMargin,
+            isNoEnoughMargin: preEnableOrderPanelState.isNoEnoughMargin,
             isDepositRequired,
           })
         ) {
           Toast.message({
             title: intl.formatMessage({
-              id: latestOrderPanelState.isSpot
+              id: preEnableOrderPanelState.isSpot
                 ? ETranslations.dexmarket_insufficient_balance
                 : ETranslations.perp_trading_button_no_enough_margin,
             }),
@@ -1016,7 +1018,7 @@ function SideButtonInternal({
         const enableTradingAccountKey = perpsAccountKey;
         const enableTradingSide = side;
         const enableTradingOrderContextKey =
-          latestOrderPanelState.orderContextKey;
+          preEnableOrderPanelState.orderContextKey;
         const shouldIgnoreEnableTradingResult = () =>
           Boolean(
             enableTradingAccountKey &&
@@ -1072,34 +1074,34 @@ function SideButtonInternal({
       ) {
         return;
       }
+      const submitState = latestOrderPanelStateRef.current;
       const reduceOnly =
-        !latestOrderPanelState.isSpot &&
-        ((latestOrderPanelState.isScaleMode &&
-          latestOrderPanelState.formData.scaleReduceOnly) ||
-          (latestOrderPanelState.isTwapMode &&
-            latestOrderPanelState.formData.twapReduceOnly));
+        !submitState.isSpot &&
+        ((submitState.isScaleMode && submitState.formData.scaleReduceOnly) ||
+          (submitState.isTwapMode && submitState.formData.twapReduceOnly));
       if (reduceOnly) {
         const snapshotError = getReduceOnlyPositionSnapshotError({
           reduceOnly,
-          accountAddress: perpsAccount?.accountAddress,
-          positionsAccountAddress: activePositionsValue.accountAddress,
+          accountAddress: submitState.perpsAccount?.accountAddress,
+          positionsAccountAddress:
+            submitState.activePositionsValue.accountAddress,
         });
         if (snapshotError) {
           Toast.message({ title: snapshotError });
           return;
         }
-        const position = activePositionsValue.activePositions.find(
-          (pos) => pos.position.coin === activeTradeInstrument.coin,
+        const position = submitState.activePositionsValue.activePositions.find(
+          (pos) => pos.position.coin === submitState.activeTradeInstrument.coin,
         )?.position;
         const reduceOnlyError = getReduceOnlyOrderGuardError({
           reduceOnly,
           side,
-          size: latestOrderPanelState.computedSizeForSide,
+          size: submitState.computedSizeForSide,
           positionSize: position?.szi,
-          missingPositionMessage: latestOrderPanelState.isTwapMode
+          missingPositionMessage: submitState.isTwapMode
             ? 'Reduce-only TWAP requires an opposite open position'
             : 'Reduce-only scale requires an opposite open position',
-          exceedsPositionMessage: latestOrderPanelState.isTwapMode
+          exceedsPositionMessage: submitState.isTwapMode
             ? 'Reduce-only TWAP size exceeds the current position'
             : 'Reduce-only scale size exceeds the current position',
         });
@@ -1109,7 +1111,7 @@ function SideButtonInternal({
         }
       }
 
-      if (latestPerpsCustomSettings.skipOrderConfirm) {
+      if (submitState.perpsCustomSettings.skipOrderConfirm) {
         void handleConfirmRef.current(side);
       } else {
         showOrderConfirmDialog({

@@ -144,6 +144,30 @@ const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
 const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
 
+type ITwapHistoryLoadResult =
+  | {
+      ok: true;
+      data: HL.ITwapHistoryRecord[];
+    }
+  | {
+      ok: false;
+    };
+
+type ITwapSliceFillsLoadResult =
+  | {
+      ok: true;
+      data: HL.ITwapSliceFill[];
+    }
+  | {
+      ok: false;
+    };
+
+type ITwapDataLoadResult = {
+  webData2?: HL.IWsWebData2;
+  historyResult: ITwapHistoryLoadResult;
+  fillsResult: ITwapSliceFillsLoadResult;
+};
+
 function resolveSubmitOrderTradeInstrument({
   activeTradeInstrument,
   assetId,
@@ -359,6 +383,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   private loadTwapDataRequestId = 0;
 
+  private loadTwapDataInFlightByAccount = new Map<
+    string,
+    Promise<ITwapDataLoadResult>
+  >();
+
   private beginActiveInstrumentChange(): number {
     this.activeInstrumentChangeRequestId += 1;
     return this.activeInstrumentChangeRequestId;
@@ -372,6 +401,63 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     orders: IPerpsActiveTwapOrder[],
   ): IPerpsActiveTwapOrder[] {
     return orders.filter((order) => !this.canceledTwapIds.has(order.twapId));
+  }
+
+  private getTwapDataLoadPromise(
+    accountAddress: string,
+  ): Promise<ITwapDataLoadResult> {
+    const inFlight = this.loadTwapDataInFlightByAccount.get(accountAddress);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const promise = this.fetchTwapData(accountAddress).finally(() => {
+      if (this.loadTwapDataInFlightByAccount.get(accountAddress) === promise) {
+        this.loadTwapDataInFlightByAccount.delete(accountAddress);
+      }
+    });
+    this.loadTwapDataInFlightByAccount.set(accountAddress, promise);
+    return promise;
+  }
+
+  private async fetchTwapData(
+    accountAddress: string,
+  ): Promise<ITwapDataLoadResult> {
+    const [webData2, historyResult, fillsResult] = await Promise.all([
+      backgroundApiProxy.serviceHyperliquid
+        .getWebData2({
+          user: accountAddress as HL.IHex,
+        })
+        .catch(() => undefined),
+      backgroundApiProxy.serviceHyperliquid
+        .getTwapHistory({
+          user: accountAddress as HL.IHex,
+        })
+        .then((history) => ({
+          ok: true as const,
+          data: history,
+        }))
+        .catch(() => ({
+          ok: false as const,
+        })),
+      backgroundApiProxy.serviceHyperliquid
+        .getUserTwapSliceFills({
+          user: accountAddress as HL.IHex,
+        })
+        .then((fills) => ({
+          ok: true as const,
+          data: fills,
+        }))
+        .catch(() => ({
+          ok: false as const,
+        })),
+    ]);
+
+    return {
+      webData2,
+      historyResult,
+      fillsResult,
+    };
   }
 
   private async waitForActiveInstrumentChangeSettle(
@@ -1901,7 +1987,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     this.loadTwapDataRequestId += 1;
     const requestId = this.loadTwapDataRequestId;
     const activeAccount = await perpsActiveAccountAtom.get();
-    const accountAddress = activeAccount?.accountAddress?.toLowerCase();
+    const accountAddress = normalizePerpsAccountAddress(
+      activeAccount?.accountAddress,
+    );
     if (!accountAddress) {
       set(perpsActiveTwapOrdersAtom(), {
         accountAddress: undefined,
@@ -1922,39 +2010,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return;
     }
 
-    const [webData2, historyResult, fillsResult] = await Promise.all([
-      backgroundApiProxy.serviceHyperliquid
-        .getWebData2({
-          user: accountAddress as HL.IHex,
-        })
-        .catch(() => undefined),
-      backgroundApiProxy.serviceHyperliquid
-        .getTwapHistory({
-          user: accountAddress as HL.IHex,
-        })
-        .then((history) => ({
-          ok: true as const,
-          data: history,
-        }))
-        .catch(() => ({
-          ok: false as const,
-        })),
-      backgroundApiProxy.serviceHyperliquid
-        .getUserTwapSliceFills({
-          user: accountAddress as HL.IHex,
-        })
-        .then((fills) => ({
-          ok: true as const,
-          data: fills,
-        }))
-        .catch(() => ({
-          ok: false as const,
-        })),
-    ]);
+    const { webData2, historyResult, fillsResult } =
+      await this.getTwapDataLoadPromise(accountAddress);
     const latestActiveAccount = await perpsActiveAccountAtom.get();
     if (
       requestId !== this.loadTwapDataRequestId ||
-      latestActiveAccount?.accountAddress?.toLowerCase() !== accountAddress
+      normalizePerpsAccountAddress(latestActiveAccount?.accountAddress) !==
+        accountAddress
     ) {
       return;
     }
