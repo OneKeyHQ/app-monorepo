@@ -713,6 +713,10 @@ function SendAmountInputContainer() {
     networkId,
     indexedAccountId: account?.indexedAccountId ?? '',
     tokenAddress: tokenInfo?.address ?? '',
+    // Spendable balance depends on this setting; feeding it in (and keying the
+    // sibling cache on it) keeps siblings on the same balance contract as the
+    // current page and invalidates the cache when the user toggles it mid-flow.
+    inscriptionProtection: !!settings.inscriptionProtection,
   });
 
   const performAutoSwitchToAccount = useCallback(
@@ -735,15 +739,17 @@ function SendAmountInputContainer() {
     currentAccountId,
     currentDeriveType: deriveType,
     currentDeriveInfo: deriveInfo,
-    // True only when `tokenDetails`/`maxBalance` reflect a settled balance
-    // *for the current account*. `balanceAccountId` is the account the token
-    // query actually ran for; after an auto-switch it lags `currentAccountId`
-    // by one or more renders, and acting on that stale balance would switch
-    // again off an account we never measured.
+    // True only when the balance query has settled *for the current account*.
+    // `balanceAccountId` is the account the token query actually ran for; after
+    // an auto-switch it lags `currentAccountId` by one or more renders, and
+    // acting on that stale balance would switch again off an account we never
+    // measured. We intentionally do NOT require `tokenDetails` here: a genuinely
+    // empty address format makes `fetchTokensDetails` return [], so
+    // `tokenDetails` is undefined while the balance is fully known to be 0
+    // (`maxBalance` maps the absent detail to '0'). Gating on `!!tokenDetails`
+    // would leave that — the primary auto-switch case — permanently "unloaded".
     isCurrentBalanceLoaded:
-      !isLoadingAssets &&
-      !!tokenDetails &&
-      balanceAccountId === currentAccountId,
+      !isLoadingAssets && balanceAccountId === currentAccountId,
     currentMaxBalance: maxBalance,
     fetchSiblings: fetchSiblingBalances,
     performSwitch: performAutoSwitchToAccount,

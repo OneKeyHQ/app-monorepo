@@ -42,6 +42,10 @@ type IParams = {
   // vaultSettings.isNativeTokenContractAddressEmpty is true). Non-empty for
   // ERC20-style contracts.
   tokenAddress: string;
+  // Global inscription-protection setting. Part of the spendable-balance
+  // contract, so it must be both an input to the fetch and part of the cache
+  // key — otherwise toggling it mid-flow keeps serving stale sibling balances.
+  inscriptionProtection: boolean;
 };
 
 // Fetches the available balance of the same token under every other deriveType
@@ -61,10 +65,11 @@ export function useSiblingDeriveBalances({
   networkId,
   indexedAccountId,
   tokenAddress,
+  inscriptionProtection,
 }: IParams) {
   const cacheRef = useRef<ICache | null>(null);
 
-  const cacheKey = `${networkId}|${indexedAccountId}|${tokenAddress}`;
+  const cacheKey = `${networkId}|${indexedAccountId}|${tokenAddress}|${inscriptionProtection}`;
 
   const fetch = useCallback(async (): Promise<ISiblingDeriveBalancesResult> => {
     if (!networkId || !indexedAccountId) {
@@ -81,16 +86,14 @@ export function useSiblingDeriveBalances({
     }
 
     try {
-      const [{ networkAccounts }, inscriptionProtection] = await Promise.all([
-        backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+      const { networkAccounts } =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
           {
             networkId,
             indexedAccountId,
             excludeEmptyAccount: true,
           },
-        ),
-        backgroundApiProxy.serviceSetting.getInscriptionProtection(),
-      ]);
+        );
 
       const candidates = networkAccounts.filter((item) => item.account?.id);
 
@@ -154,7 +157,13 @@ export function useSiblingDeriveBalances({
     } catch {
       return { siblings: [], hadError: true };
     }
-  }, [cacheKey, networkId, indexedAccountId, tokenAddress]);
+  }, [
+    cacheKey,
+    networkId,
+    indexedAccountId,
+    tokenAddress,
+    inscriptionProtection,
+  ]);
 
   return { fetch };
 }
