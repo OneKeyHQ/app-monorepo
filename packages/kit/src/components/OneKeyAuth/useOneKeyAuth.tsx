@@ -118,6 +118,9 @@ export function useOneKeyAuthMethods() {
         user?.isLoggedIn &&
         user?.isLoggedInOnServer &&
         user?.primeSubscription?.isActive,
+      // Subscription active flag only, independent of login state. Use this for
+      // analytics enrichment; use isPrimeSubscriptionActive for gating features.
+      isPrimeActive: user?.primeSubscription?.isActive === true,
       user,
       logout,
       logoutWithPurchasesSdk,
