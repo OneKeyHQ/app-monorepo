@@ -1,8 +1,10 @@
+import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchSwapTxHistoryStatusResponse,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  EProtocolOfExchange,
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -44,6 +46,34 @@ function shouldTrackHoudiniStateDetailChange({
   );
 }
 
+function isPrivateSendHistory(swapTxHistory: ISwapTxHistory) {
+  return (
+    swapTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+    swapTxHistory.swapInfo.provider.provider === privateSendProvider
+  );
+}
+
+function shouldTrackPrivateSendStatusChange({
+  swapTxHistory,
+  txStatusRes,
+}: {
+  swapTxHistory: ISwapTxHistory;
+  txStatusRes: IFetchSwapTxHistoryStatusResponse;
+}) {
+  if (!isPrivateSendHistory(swapTxHistory)) {
+    return false;
+  }
+
+  return (
+    (txStatusRes.extraStatus !== undefined &&
+      txStatusRes.extraStatus !== swapTxHistory.extraStatus) ||
+    (txStatusRes.stateDetail !== undefined &&
+      txStatusRes.stateDetail !== swapTxHistory.stateDetail) ||
+    (txStatusRes.dealReceiveAmount !== undefined &&
+      txStatusRes.dealReceiveAmount !== swapTxHistory.baseInfo.toAmount)
+  );
+}
+
 export function shouldUpdateSwapHistoryAfterTxState({
   swapTxHistory,
   txStatusRes,
@@ -54,6 +84,7 @@ export function shouldUpdateSwapHistoryAfterTxState({
   return (
     txStatusRes.state !== ESwapTxHistoryStatus.PENDING ||
     txStatusRes.crossChainStatus !== swapTxHistory.crossChainStatus ||
+    shouldTrackPrivateSendStatusChange({ swapTxHistory, txStatusRes }) ||
     shouldTrackHoudiniStateDetailChange({ swapTxHistory, txStatusRes })
   );
 }

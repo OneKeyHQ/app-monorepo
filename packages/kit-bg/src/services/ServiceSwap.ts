@@ -1793,8 +1793,8 @@ export default class ServiceSwap extends ServiceBase {
       currentSwapTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
       currentSwapTxHistory.swapInfo.provider.provider === privateSendProvider;
     const stateOrderId = isPrivateSendHistory
-      ? (currentSwapTxHistory.txInfo.orderId ??
-        currentSwapTxHistory.swapInfo.orderId)
+      ? (currentSwapTxHistory.swapInfo.orderId ??
+        currentSwapTxHistory.txInfo.orderId)
       : currentSwapTxHistory.swapInfo.orderId;
     try {
       const txStatusRes = await this.fetchTxState({

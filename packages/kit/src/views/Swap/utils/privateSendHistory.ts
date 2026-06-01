@@ -270,7 +270,7 @@ function canFetchPrivateSendTxState(item: ISwapTxHistory) {
 
 async function fetchPrivateSendTxState(item: ISwapTxHistory) {
   const isFallbackOrder = isPrivateSendFallbackOrderId(item.swapInfo.orderId);
-  const orderId = item.txInfo.orderId ?? item.swapInfo.orderId;
+  const orderId = item.swapInfo.orderId ?? item.txInfo.orderId;
   return backgroundApiProxy.serviceSwap.fetchTxState({
     txId: item.txInfo.txId,
     provider: item.swapInfo.provider.provider || privateSendProvider,
