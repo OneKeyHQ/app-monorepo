@@ -80,6 +80,7 @@ import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
 initSentry();
 
 const isPerfCiMode = process.env.PERF_CI_MODE === '1';
+const isDesktopE2EMode = process.env.DESKTOP_E2E_MODE === 'true';
 const isDevServer = isDev && !isPerfCiMode;
 const isLocalUnpacked = isDev || isPerfCiMode;
 
@@ -98,13 +99,16 @@ function isWhitelistedMediaOrigin(
   return !!domainKey && whitelistDomainKeys.has(domainKey);
 }
 
-if (isPerfCiMode) {
-  // Keep prepared state in a stable location on perf machines.
+if (isPerfCiMode || isDesktopE2EMode) {
+  // Keep prepared state in a stable location on perf machines and isolate E2E.
   const userDataDir =
     process.env.PERF_DESKTOP_USER_DATA_DIR ||
-    path.join(os.homedir(), 'perf-profiles', 'desktop');
+    process.env.DESKTOP_E2E_USER_DATA_DIR ||
+    (isDesktopE2EMode
+      ? path.join(os.tmpdir(), 'onekey-desktop-e2e')
+      : path.join(os.homedir(), 'perf-profiles', 'desktop'));
   app.setPath('userData', userDataDir);
-  logger.info('[perf-ci] userDataDir:', userDataDir);
+  logger.info('[desktop-e2e] userDataDir:', userDataDir);
 }
 
 // https://github.com/sindresorhus/electron-context-menu
@@ -691,7 +695,7 @@ async function createMainWindow() {
         slashes: true,
       })
     : isDev
-      ? 'http://localhost:3001/'
+      ? process.env.DESKTOP_E2E_RENDERER_URL || 'http://localhost:3001/'
       : formatUrl({
           pathname: bundleIndexHtmlPath || 'index.html',
           protocol: PROTOCOL,
@@ -699,7 +703,7 @@ async function createMainWindow() {
         });
   /* eslint-enable no-nested-ternary */
 
-  if (isDevServer) {
+  if (isDevServer && !isDesktopE2EMode) {
     browserWindow.webContents.openDevTools();
   }
 
