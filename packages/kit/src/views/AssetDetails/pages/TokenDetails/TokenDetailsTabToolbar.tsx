@@ -20,7 +20,7 @@ import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { sortTokensByOrder } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import { displayFiatValueOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useTokenDetailsContext } from './TokenDetailsContext';
@@ -189,7 +189,10 @@ function TokenDetailsTabToolbar(props: IProps) {
                         formatter="value"
                         sourceCurrency={tokenDetail?.currency}
                       >
-                        {displayOrUnavailable(tokenDetail.fiatValue)}
+                        {displayFiatValueOrUnavailable(
+                          tokenDetail.fiatValue,
+                          tokenDetail.balanceParsed,
+                        )}
                       </Currency>
                     }
                   />

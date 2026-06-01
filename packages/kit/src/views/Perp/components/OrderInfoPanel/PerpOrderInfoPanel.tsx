@@ -15,6 +15,7 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
+  usePerpsActiveTwapOrdersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsAbstractionModeAtom,
@@ -35,11 +36,13 @@ import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
+import { PerpTwapList } from './List/PerpTwapList';
 import { SpotBalanceList } from './List/SpotBalanceList';
 
-const tabNameToTranslationKey: Record<string, ETranslations> = {
+const tabNameToTranslationKey: Partial<Record<string, ETranslations>> = {
   'Positions': ETranslations.perp_position_title,
   'Open Orders': ETranslations.perp_open_orders_title,
+  'TWAP': ETranslations.perp_twap_order__title,
   'Trades History': ETranslations.perp_trades_history_title,
   'Account': ETranslations.perp_account_history,
   'Balances': ETranslations.perp_holdings_tokens,
@@ -59,6 +62,7 @@ function TabBarItem({
   const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [positionsState] = usePerpsActivePositionAtom();
+  const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
   const [{ balances }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
@@ -87,9 +91,13 @@ function TabBarItem({
       dataAccountAddress: spotOpenOrdersState.accountAddress,
       data: spotOpenOrdersState.openOrders,
     }).length;
+  const twapOrdersLength = getPerpsAccountScopedListData({
+    activeAccountAddress: currentAccountAddress,
+    dataAccountAddress: twapOrdersState.accountAddress,
+    data: twapOrdersState.twapOrders,
+  }).length;
 
   const holdingsCount = useMemo(() => {
-    // Mirrors the USDC merge in SpotBalanceList.
     const nonUsdcSpotCount = balances.filter(
       (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
     ).length;
@@ -116,13 +124,24 @@ function TabBarItem({
     if (name === 'Open Orders' && openOrdersLength > 0) {
       return `(${openOrdersLength})`;
     }
+    if (name === 'TWAP' && twapOrdersLength > 0) {
+      return `(${twapOrdersLength})`;
+    }
     return '';
-  }, [holdingsCount, positionsLength, openOrdersLength, name]);
+  }, [
+    holdingsCount,
+    name,
+    openOrdersLength,
+    positionsLength,
+    twapOrdersLength,
+  ]);
 
   const translationKey = tabNameToTranslationKey[name];
-  const tabTitle = intl.formatMessage({
-    id: translationKey,
-  });
+  const tabTitle = translationKey
+    ? intl.formatMessage({
+        id: translationKey,
+      })
+    : name;
 
   const displayTitle =
     name === 'Balances' ? `${tabTitle}${tabCount}` : `${tabTitle} ${tabCount}`;
@@ -197,6 +216,9 @@ function PerpOrderInfoPanel() {
       </Tabs.Tab>
       <Tabs.Tab name="Open Orders">
         <PerpOpenOrdersList />
+      </Tabs.Tab>
+      <Tabs.Tab name="TWAP">
+        <PerpTwapList />
       </Tabs.Tab>
       <Tabs.Tab name="Trades History">
         <PerpTradesHistoryList useTabsList />

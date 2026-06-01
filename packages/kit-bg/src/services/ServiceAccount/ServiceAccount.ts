@@ -3901,12 +3901,11 @@ class ServiceAccount extends ServiceBase {
         if (!latestSyncItem) {
           return;
         }
-        await this.backgroundApi.servicePrimeCloudSync.apiUploadItems({
+        // OK-55438: tombstone/create is a genuine "now" write; let the server
+        // stamp dataTime to serverNow.
+        await this.backgroundApi.servicePrimeCloudSync.apiUploadFreshItems({
           localItems: [latestSyncItem],
           noDebounceUpload: true,
-          // OK-55438: tombstone/create is a genuine "now" write; let the server
-          // stamp dataTime (it only clamps timestamps ahead of its own clock).
-          useServerDataTime: true,
         });
       })().catch((error) => {
         errorUtils.autoPrintErrorIgnore(error);
@@ -4013,12 +4012,11 @@ class ServiceAccount extends ServiceBase {
       if (!latestSyncItem) {
         return;
       }
-      await this.backgroundApi.servicePrimeCloudSync.apiUploadItems({
+      // OK-55438: deletion tombstone is a genuine "now" write; let the server
+      // stamp dataTime to serverNow.
+      await this.backgroundApi.servicePrimeCloudSync.apiUploadFreshItems({
         localItems: [latestSyncItem],
         noDebounceUpload: true,
-        // OK-55438: deletion tombstone is a genuine "now" write; let the server
-        // stamp dataTime (it only clamps timestamps ahead of its own clock).
-        useServerDataTime: true,
       });
     })().catch((error) => {
       errorUtils.autoPrintErrorIgnore(error);
