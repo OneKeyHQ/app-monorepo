@@ -354,7 +354,13 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       const forceUpdate = isForceUpdateStrategy(info.updateStrategy);
       if (info.status !== EAppUpdateStatus.done && forceUpdate) {
         isShowForceUpdatePreviewPage = true;
-        toUpdatePreviewPage(true, info);
+        // Pass the force semantics derived from the authoritative `info` so
+        // the preview route locks down (usePreventRemove / header) on its
+        // first render. Without this, toUpdatePreviewPage falls back to the
+        // hook's `appUpdateInfo.updateStrategy`, which can still be the
+        // pre-hydration placeholder during the very race this effect guards
+        // against — briefly opening a mandatory update as dismissible.
+        toUpdatePreviewPage(true, { ...info, isForceUpdate: forceUpdate });
       }
 
       if (info.status === EAppUpdateStatus.updateIncomplete) {

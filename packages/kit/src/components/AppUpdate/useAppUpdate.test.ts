@@ -2298,6 +2298,53 @@ describe('useAppUpdateInfo useEffect', () => {
       expect(svc.fetchAppUpdateInfo).toHaveBeenCalled();
     });
 
+    test('hydration race + force update: preview opens with the force lock derived from authoritative state, not the stale hook snapshot', async () => {
+      // Regression for the jotai persist hydration race (PR #11704). The
+      // empty-deps first-launch effect can run while the React-hook snapshot
+      // is still the pre-hydration placeholder (status: done, manual). The
+      // force-update branch is correctly gated on the authoritative
+      // getUpdateInfo() result, but toUpdatePreviewPage must ALSO carry the
+      // force semantics from that authoritative state. Otherwise the route
+      // opens a mandatory update with isForceUpdate=false and UpdatePreview's
+      // usePreventRemove / header lock briefly treat it as dismissible during
+      // the hydration window.
+
+      // Hook snapshot is the stale, non-force placeholder...
+      setAtom({
+        status: EAppUpdateStatus.done,
+        latestVersion: '0.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      // ...but the authoritative persisted state is a force update awaiting
+      // install (status !== done, latestVersion ahead of APP_VERSION so it is
+      // NOT treated as first-launch-after-update).
+      svc.getUpdateInfo.mockResolvedValue({
+        status: EAppUpdateStatus.notify,
+        latestVersion: '2.0.0',
+        updateStrategy: EUpdateStrategy.force,
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue({
+        status: EAppUpdateStatus.notify,
+        latestVersion: '2.0.0',
+        updateStrategy: EUpdateStrategy.force,
+      });
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+
+      expect(nav.pushFullModal).toHaveBeenCalledWith(
+        'AppUpdateModal',
+        expect.objectContaining({
+          screen: 'UpdatePreview',
+          params: expect.objectContaining({ isForceUpdate: true }),
+        }),
+      );
+    });
+
     test('ready + silent strategy → shows silent update dialog', async () => {
       setAtom({
         status: EAppUpdateStatus.ready,
