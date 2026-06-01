@@ -22,24 +22,16 @@ import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appCo
 import { OneKeyErrorAirGapAccountNotFound } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import { TutorialsList } from '../../TutorialsList';
 
-import {
-  findLedgerAppNotInstalledFailures,
-  getLedgerAppNotInstalledInfoFromError,
-} from './ledgerAppInstallUtils';
 import { useCreateQrWallet } from './useCreateQrWallet';
 
 export function useAccountSelectorCreateAddress() {
@@ -56,7 +48,6 @@ export function useAccountSelectorCreateAddress() {
       account,
       createAllDeriveTypes,
       customNetworks,
-      notifyLedgerAppInstallRequired = true,
     }: {
       num: number;
       selectAfterCreate?: boolean;
@@ -71,7 +62,6 @@ export function useAccountSelectorCreateAddress() {
         networkId: string;
         deriveType: IAccountDeriveTypes;
       }[];
-      notifyLedgerAppInstallRequired?: boolean;
     }) => {
       if (
         !account ||
@@ -106,30 +96,6 @@ export function useAccountSelectorCreateAddress() {
           walletDevice?.usbConnectId ||
           walletDevice?.bleConnectId;
       }
-
-      const requestLedgerAppInstall = ({
-        appName,
-        source,
-      }: {
-        appName: string;
-        source: 'batchCreateAccount' | 'createAccount';
-      }) => {
-        if (
-          !notifyLedgerAppInstallRequired ||
-          (walletDevice?.vendor ?? walletDevice?.settings?.vendor) !==
-            EHardwareVendor.ledger
-        ) {
-          return false;
-        }
-        appEventBus.emit(EAppEventBusNames.ThirdPartyHardwareRecoveryAction, {
-          type: 'ledger_app_install_required',
-          vendor: EHardwareVendor.ledger,
-          connectId: connectId ?? '',
-          appName,
-          source,
-        });
-        return true;
-      };
 
       const handleAddAccounts = async (
         result:
@@ -193,29 +159,10 @@ export function useAccountSelectorCreateAddress() {
           result?.failedAccounts?.length &&
           !accountUtils.isQrWallet({ walletId: account.walletId })
         ) {
-          const ledgerAppFailures = findLedgerAppNotInstalledFailures(
-            result.failedAccounts,
-          );
-          const ledgerAppInstallDialogEmitted = ledgerAppFailures.length
-            ? ledgerAppFailures.every((ledgerAppFailure) =>
-                requestLedgerAppInstall({
-                  ...ledgerAppFailure,
-                  source: 'batchCreateAccount',
-                }),
-              )
-            : false;
-          // Suppress AppNotInstalled toasts whenever the install dialog was
-          // emitted OR the caller explicitly asked not to be notified
-          // (e.g. silent auto-create paths).
-          const shouldHideAppNotInstalledToast =
-            ledgerAppInstallDialogEmitted || !notifyLedgerAppInstallRequired;
-          const failedAccountsForToast = shouldHideAppNotInstalledToast
-            ? result.failedAccounts.filter(
-                (failedAccount) =>
-                  !getLedgerAppNotInstalledInfoFromError(failedAccount.error),
-              )
-            : result.failedAccounts;
-          for (const failedAccount of failedAccountsForToast) {
+          // Ledger missing-app is handled in-flight by the SDK (autoInstallApp:
+          // prompt → install → retry), so anything still failing here is a
+          // genuine error worth surfacing.
+          for (const failedAccount of result.failedAccounts) {
             Toast.error({
               title: failedAccount.error.message || 'Unknown error',
             });
@@ -277,17 +224,6 @@ export function useAccountSelectorCreateAddress() {
       try {
         return await addAccounts();
       } catch (error1) {
-        const ledgerAppInfo = getLedgerAppNotInstalledInfoFromError(error1);
-        if (ledgerAppInfo) {
-          const isHandled = requestLedgerAppInstall({
-            ...ledgerAppInfo,
-            source: 'createAccount',
-          });
-          if (isHandled) {
-            errorToastUtils.toastIfErrorDisable(error1);
-            return undefined;
-          }
-        }
         if (isAirGapAccountNotFound(error1)) {
           let indexedAccountId = account.indexedAccountId;
           if (!indexedAccountId) {

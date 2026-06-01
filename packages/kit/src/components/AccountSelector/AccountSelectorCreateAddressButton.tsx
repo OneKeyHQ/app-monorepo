@@ -148,7 +148,7 @@ export function AccountSelectorCreateAddressButton({
     ));
 
   const doCreate = useCallback(
-    async (options?: { notifyLedgerAppInstallRequired?: boolean }) => {
+    async () => {
       defaultLogger.account.accountCreatePerf.createAddressRunStart();
       if (isLoadingRef.current) {
         return;
@@ -211,8 +211,6 @@ export function AccountSelectorCreateAddressButton({
           account: accountToCreate,
           createAllDeriveTypes,
           customNetworks,
-          notifyLedgerAppInstallRequired:
-            options?.notifyLedgerAppInstallRequired,
         });
         defaultLogger.account.accountCreatePerf.createAddressRunFinished();
         await timerUtils.wait(300);
@@ -267,7 +265,7 @@ export function AccountSelectorCreateAddressButton({
           );
         if (canAutoCreate) {
           try {
-            await doCreate({ notifyLedgerAppInstallRequired: false });
+            await doCreate();
           } catch (error) {
             errorUtils.autoPrintErrorIgnore(error); // mute auto print log error
             errorToastUtils.toastIfErrorDisable(error); // mute auto toast when auto create

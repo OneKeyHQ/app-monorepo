@@ -2,13 +2,17 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { type IntlShape, useIntl } from 'react-intl';
 
+import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core';
+
 import {
+  Button,
   Dialog,
   DialogContainer,
   Icon,
   IconButton,
   LottieView,
   Portal,
+  Progress,
   SizableText,
   Stack,
   XStack,
@@ -21,7 +25,9 @@ import type { IThirdPartyHardwareUiState } from '@onekeyhq/kit-bg/src/states/jot
 import {
   EThirdPartyHardwareUiAction,
   isThirdPartyToastAction,
+  thirdPartyAppInstallAtom,
   thirdPartyHardwareUiStateAtom,
+  useThirdPartyAppInstallAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
@@ -55,6 +61,78 @@ function OpenBleSettingsDialogRender({ ref }: { ref: any }) {
 
 function RequireBlePermissionDialogRender({ ref }: { ref: any }) {
   return <RequireBlePermissionDialog ref={ref} />;
+}
+
+// Standalone install dialog (shown imperatively, like the BLE permission
+// dialog) so it coexists with device-prompt toasts. Reads the dedicated
+// install atom: no progress = confirm step; progress = installing. Buttons
+// live in the content (showFooter=false) so confirm doesn't auto-close — the
+// SDK keeps the dialog up through install and clears the atom when done.
+function InstallAppDialog({ ref }: { ref: any }) {
+  const intl = useIntl();
+  const [state] = useThirdPartyAppInstallAtom();
+  const appName = state?.appName ?? '';
+  const vendor = state?.vendor;
+  const progress = state?.progress;
+  const installing = progress != null;
+
+  const sendResponse = useCallback(
+    async (confirmed: boolean) => {
+      if (!vendor) return;
+      await backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse({
+        vendor,
+        response: {
+          type: UI_RESPONSE.RECEIVE_INSTALL_APP,
+          payload: { confirmed },
+        },
+      });
+    },
+    [vendor],
+  );
+
+  const onCancel = useCallback(async () => {
+    try {
+      await sendResponse(false);
+    } finally {
+      await thirdPartyAppInstallAtom.set(undefined);
+    }
+  }, [sendResponse]);
+
+  const content = (
+    <YStack gap="$4">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {installing
+          ? intl.formatMessage({ id: ETranslations.global_confirm_on_device })
+          : `"${appName}" is not installed. Install it now?`}
+      </SizableText>
+      {installing ? (
+        <Progress animated value={Math.round((progress ?? 0) * 100)} w="100%" />
+      ) : (
+        <XStack gap="$3" justifyContent="flex-end">
+          <Button onPress={onCancel}>
+            {intl.formatMessage({ id: ETranslations.global_cancel })}
+          </Button>
+          <Button variant="primary" onPress={() => void sendResponse(true)}>
+            {intl.formatMessage({ id: ETranslations.global_install })}
+          </Button>
+        </XStack>
+      )}
+    </YStack>
+  );
+
+  return (
+    <DialogContainer
+      ref={ref}
+      title={
+        installing ? `Installing ${appName}` : `Install ${appName}`
+      }
+      renderContent={content}
+      showFooter={false}
+      dismissOnOverlayPress={false}
+      disableDrag
+      onClose={async () => undefined}
+    />
+  );
 }
 
 function getDeviceLabel(vendor: string | undefined): string {
@@ -225,11 +303,6 @@ function getDialogContent(
   }
 }
 
-const REQUEST_ACTIONS = new Set([
-  EThirdPartyHardwareUiAction.requestDeviceNotFound,
-  EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm,
-]);
-
 function ThirdPartyHardwareUiStateContainerCmp() {
   const intl = useIntl();
   const [uiState] = useThirdPartyHardwareUiStateAtom();
@@ -238,7 +311,27 @@ function ThirdPartyHardwareUiStateContainerCmp() {
 
   const dialogInstanceRef = useRef<IDialogInstance | null>(null);
   const permissionDialogInstanceRef = useRef<IDialogInstance | null>(null);
+  const installDialogInstanceRef = useRef<IDialogInstance | null>(null);
   const toastInstanceRef = useRef<IShowToasterInstance | null>(null);
+
+  const [appInstallState] = useThirdPartyAppInstallAtom();
+
+  // Show/close the standalone install dialog as the dedicated install atom
+  // appears/clears. Progress updates re-render the dialog from inside (it reads
+  // the atom), so this effect only manages open/close, not content.
+  useEffect(() => {
+    if (appInstallState && !installDialogInstanceRef.current) {
+      installDialogInstanceRef.current = Dialog.show({
+        dialogContainer: InstallAppDialog,
+        onClose: async () => {
+          installDialogInstanceRef.current = null;
+        },
+      });
+    } else if (!appInstallState && installDialogInstanceRef.current) {
+      void installDialogInstanceRef.current.close();
+      installDialogInstanceRef.current = null;
+    }
+  }, [appInstallState]);
 
   const isToastAction = isThirdPartyToastAction(uiState?.action);
   const isDialogAction = !!uiState && !isToastAction;
@@ -361,9 +454,9 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   }, [uiState, isToastAction, intl]);
 
   const showFooter = useMemo(() => {
-    if (!uiState) return false;
-    return REQUEST_ACTIONS.has(uiState.action);
-  }, [uiState]);
+    if (!uiState || isToastAction) return false;
+    return getDialogContent(uiState, intl).showFooter;
+  }, [uiState, isToastAction, intl]);
 
   const handleToastUserClose = useCallback(async () => {
     const vendor = uiStateRef.current?.vendor;
