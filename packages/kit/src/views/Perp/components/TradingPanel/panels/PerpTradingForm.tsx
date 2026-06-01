@@ -41,7 +41,6 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsCustomSettingsAtom,
-  usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useSpotActiveAssetAtom,
@@ -86,6 +85,7 @@ import { TradeSideToggle } from '../selectors/TradeSideToggle';
 interface IPerpTradingFormProps {
   isSubmitting?: boolean;
   isMobile?: boolean;
+  reserveMobileEnableTradingLayout?: boolean;
 }
 type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
 type ITriggerDropdownValue = ETriggerOrderType | 'scale' | 'twap';
@@ -271,6 +271,7 @@ function SpotAvailableActionPopover({
 function PerpTradingForm({
   isSubmitting = false,
   isMobile = false,
+  reserveMobileEnableTradingLayout = false,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsActiveAccount] = usePerpsActiveAccountAtom();
@@ -332,9 +333,6 @@ function PerpTradingForm({
       snapshotLookupIndexedAccountId,
     ],
   );
-  const [shouldShowEnableTradingButton] =
-    usePerpsShouldShowEnableTradingButtonAtom();
-
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
 
@@ -1169,7 +1167,7 @@ function PerpTradingForm({
 
   const renderBottomSection = () => {
     if (isSpot) return null;
-    if (shouldShowEnableTradingButton && isMobile) {
+    if (reserveMobileEnableTradingLayout) {
       return null;
     }
     if (isTriggerMode) {

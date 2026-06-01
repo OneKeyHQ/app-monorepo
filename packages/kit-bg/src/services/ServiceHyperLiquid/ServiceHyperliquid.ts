@@ -2279,6 +2279,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         (prev): IPerpsAccountLoadingInfo => ({
           ...prev,
           enableTradingLoading: true,
+          enableTradingTriggered: isEnableTradingTrigger,
         }),
       );
 
@@ -2420,6 +2421,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           (prev): IPerpsAccountLoadingInfo => ({
             ...prev,
             enableTradingLoading: false,
+            enableTradingTriggered: false,
           }),
         );
       }, 0);
