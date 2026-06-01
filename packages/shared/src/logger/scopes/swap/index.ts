@@ -8,6 +8,7 @@ import { EnterSwapScene } from './scenes/enterSwap';
 import { ProviderChangeScene } from './scenes/providerChange';
 import { SelectTokenScene } from './scenes/selectToken';
 import { SwapEstimateFeeScene } from './scenes/swapEstimateFee';
+import { SwapKlineScene } from './scenes/swapKline';
 import { SwapQuoteScene } from './scenes/swapQuote';
 import { SwapSendTxScene } from './scenes/swapSendTx';
 import { TokenSelectorSearchScene } from './scenes/tokenSelectorSearch';
@@ -39,6 +40,8 @@ export class SwapScope extends BaseScope {
   enterSwap = this.createScene('enterSwap', EnterSwapScene);
 
   swapEstimateFee = this.createScene('swapEstimateFee', SwapEstimateFeeScene);
+
+  swapKline = this.createScene('swapKline', SwapKlineScene);
 
   swapSendTx = this.createScene('swapSendTx', SwapSendTxScene);
 

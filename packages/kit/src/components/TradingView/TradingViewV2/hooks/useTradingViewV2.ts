@@ -9,6 +9,7 @@ interface ITradingViewV2Params {
   interval: string;
   timeFrom: number;
   timeTo: number;
+  autoHandleError?: boolean;
 }
 
 export async function fetchTradingViewV2Data({
@@ -17,6 +18,7 @@ export async function fetchTradingViewV2Data({
   interval,
   timeFrom,
   timeTo,
+  autoHandleError,
 }: ITradingViewV2Params): Promise<IMarketTokenKLineResponse | null> {
   try {
     const data = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline(
@@ -26,10 +28,11 @@ export async function fetchTradingViewV2Data({
         interval,
         timeFrom,
         timeTo,
+        autoHandleError,
       },
     );
 
-    return data;
+    return data ?? null;
   } catch (error) {
     console.error('Failed to fetch kline data:', error);
     return null;
@@ -42,6 +45,7 @@ export async function fetchTradingViewV2DataWithSlicing({
   interval,
   timeFrom,
   timeTo,
+  autoHandleError,
 }: ITradingViewV2Params): Promise<IMarketTokenKLineResponse | null> {
   try {
     // Check if the token is a native token
@@ -57,6 +61,7 @@ export async function fetchTradingViewV2DataWithSlicing({
         interval: slice.interval,
         timeFrom: slice.from,
         timeTo: slice.to,
+        autoHandleError,
       }),
     );
 
