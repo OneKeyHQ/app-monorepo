@@ -17,6 +17,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
+import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import {
   getPerpsAccountScopedListData,
@@ -170,15 +171,17 @@ export function showCancelAllOrdersDialog(
       id: ETranslations.perp_cacenl_all_order_title,
     }),
     renderContent: (
-      <PerpsProviderMirror>
-        <CancelAllOrdersContent
-          onClose={() => {
-            void dialogInstance.close();
-          }}
-          filterByCoin={filterByCoin}
-          scopedAccountAddress={scopedAccountAddress}
-        />
-      </PerpsProviderMirror>
+      <PerpsAccountSelectorProviderMirror>
+        <PerpsProviderMirror>
+          <CancelAllOrdersContent
+            onClose={() => {
+              void dialogInstance.close();
+            }}
+            filterByCoin={filterByCoin}
+            scopedAccountAddress={scopedAccountAddress}
+          />
+        </PerpsProviderMirror>
+      </PerpsAccountSelectorProviderMirror>
     ),
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,

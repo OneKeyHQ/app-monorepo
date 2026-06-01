@@ -16,6 +16,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
+import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { isPerpsAccountAddressMatched } from '../../utils/accountScopedData';
 import {
@@ -159,15 +160,17 @@ export function showCloseAllPositionsDialog(
       id: ETranslations.perp_position_close,
     }),
     renderContent: (
-      <PerpsProviderMirror>
-        <CloseAllPositionsContent
-          onClose={() => {
-            void dialogInstance.close();
-          }}
-          filterByCoin={filterByCoin}
-          scopedAccountAddress={scopedAccountAddress}
-        />
-      </PerpsProviderMirror>
+      <PerpsAccountSelectorProviderMirror>
+        <PerpsProviderMirror>
+          <CloseAllPositionsContent
+            onClose={() => {
+              void dialogInstance.close();
+            }}
+            filterByCoin={filterByCoin}
+            scopedAccountAddress={scopedAccountAddress}
+          />
+        </PerpsProviderMirror>
+      </PerpsAccountSelectorProviderMirror>
     ),
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,

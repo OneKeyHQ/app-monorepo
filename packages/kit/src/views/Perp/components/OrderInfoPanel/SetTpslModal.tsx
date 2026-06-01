@@ -36,6 +36,7 @@ import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
+import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import {
   getPerpsAccountScopedListData,
@@ -727,16 +728,18 @@ function SetTpslModal() {
         })}
       />
       <Page.Body>
-        <PerpsProviderMirror>
-          <YStack px="$4" flex={1}>
-            <SetTpslForm
-              coin={coin}
-              szDecimals={szDecimals}
-              assetId={assetId}
-              onClose={handleClose}
-            />
-          </YStack>
-        </PerpsProviderMirror>
+        <PerpsAccountSelectorProviderMirror>
+          <PerpsProviderMirror>
+            <YStack px="$4" flex={1}>
+              <SetTpslForm
+                coin={coin}
+                szDecimals={szDecimals}
+                assetId={assetId}
+                onClose={handleClose}
+              />
+            </YStack>
+          </PerpsProviderMirror>
+        </PerpsAccountSelectorProviderMirror>
       </Page.Body>
     </Page>
   );
@@ -757,16 +760,18 @@ export function showSetTpslDialog({
       id: ETranslations.perp_tp_sl_position_desc,
     }),
     renderContent: (
-      <PerpsProviderMirror>
-        <SetTpslForm
-          coin={coin}
-          szDecimals={szDecimals}
-          assetId={assetId}
-          onClose={() => {
-            void dialogInstance.close();
-          }}
-        />
-      </PerpsProviderMirror>
+      <PerpsAccountSelectorProviderMirror>
+        <PerpsProviderMirror>
+          <SetTpslForm
+            coin={coin}
+            szDecimals={szDecimals}
+            assetId={assetId}
+            onClose={() => {
+              void dialogInstance.close();
+            }}
+          />
+        </PerpsProviderMirror>
+      </PerpsAccountSelectorProviderMirror>
     ),
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
