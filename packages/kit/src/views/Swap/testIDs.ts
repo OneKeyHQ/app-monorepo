@@ -15,6 +15,8 @@ export const SwapTestIDs = {
   // Actions
   swapButton: 'swap-action-button',
   approveButton: 'swap-approve-button',
+  kLineButton: 'swap-kline-button',
+  kLineModal: 'swap-kline-modal',
   settingsButton: 'swap-settings-button',
 
   // Slippage

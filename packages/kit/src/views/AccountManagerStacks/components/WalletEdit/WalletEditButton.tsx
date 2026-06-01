@@ -65,7 +65,7 @@ function WalletEditButtonView({
   const [devSettings] = useDevSettingsPersistAtom();
 
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { user } = useOneKeyAuth();
+  const { user, isPrimeActive } = useOneKeyAuth();
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
   const { verifyKeylessPinChecking } = useVerifyKeylessPinChecking();
 
@@ -73,8 +73,8 @@ function WalletEditButtonView({
   const [isVerifyPinLoading, _setIsVerifyPinLoading] = useState(false);
 
   const isPrimeUser = useMemo(() => {
-    return user?.primeSubscription?.isActive && user?.onekeyUserId;
-  }, [user]);
+    return isPrimeActive && user?.onekeyUserId;
+  }, [isPrimeActive, user?.onekeyUserId]);
 
   // True when the wallet is bound to a third-party hardware vendor (e.g. Ledger).
   // Used to hide OneKey-specific entries that don't apply to non-OneKey devices:
@@ -286,6 +286,7 @@ function WalletEditButtonView({
             <BulkCopyAddressesButton
               wallet={wallet}
               networkId={network?.id || ''}
+              isPrimeActive={isPrimeActive}
               isPrimeUser={!!isPrimeUser}
               onClose={handleActionListClose}
             />
@@ -363,6 +364,7 @@ function WalletEditButtonView({
       showBulkCopyAddressesButton,
       showBotWalletManagerButton,
       network?.id,
+      isPrimeActive,
       isPrimeUser,
       showAddHiddenWalletButton,
       showRemoveWalletButton,

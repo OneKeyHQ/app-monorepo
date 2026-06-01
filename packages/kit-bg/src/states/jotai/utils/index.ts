@@ -10,6 +10,10 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  parseColdStartSnapshotRaw,
+  prepareColdStartSnapshotForWrite,
+} from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import {
@@ -446,15 +450,22 @@ function flushColdStartCache() {
     const raw = coldStartCacheStorage.getString(
       EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
     );
-    const snapshot = raw ? JSON.parse(raw) : {};
+    const snapshot = parseColdStartSnapshotRaw(raw) ?? {};
 
     for (const name of coldStartDirtyKeys) {
       snapshot[name] = coldStartValuesMap.get(name);
     }
 
+    const preparedSnapshot = prepareColdStartSnapshotForWrite(snapshot);
+    if (preparedSnapshot.droppedKeys.length > 0) {
+      coldStartLog(
+        `drop oversized keys: ${preparedSnapshot.droppedKeys.join(', ')}`,
+      );
+    }
+
     coldStartCacheStorage.set(
       EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-      JSON.stringify(snapshot),
+      preparedSnapshot.serialized,
     );
     coldStartDirtyKeys.clear();
   } catch {

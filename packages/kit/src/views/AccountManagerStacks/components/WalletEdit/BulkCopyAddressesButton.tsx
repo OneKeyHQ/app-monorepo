@@ -20,10 +20,12 @@ export function BulkCopyAddressesButton({
   wallet,
   onClose,
   networkId,
+  isPrimeActive,
   isPrimeUser,
 }: {
   wallet: IDBWallet | undefined;
   networkId: string;
+  isPrimeActive: boolean;
   isPrimeUser: boolean;
   onClose: () => void;
 }) {
@@ -60,6 +62,7 @@ export function BulkCopyAddressesButton({
           defaultLogger.prime.subscription.primeEntryClick({
             featureName: EPrimeFeatures.BulkCopyAddresses,
             entryPoint: 'walletEdit',
+            isPrimeActive,
           });
           navigation?.pushModal(EModalRoutes.PrimeModal, {
             screen: EPrimePages.PrimeDashboard,

@@ -41,6 +41,12 @@ import {
   useSwapTipsAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import {
+  canUseSwapNetworkCacheAsSortSource,
+  isSwapNetworkCacheCompatible,
+  isSwapNetworkCacheReadyForBasicList,
+  mergeSwapNetworksWithCachedSort,
+} from '../utils/swapNetworkCacheUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapProInputToken } from './useSwapPro';
@@ -108,66 +114,86 @@ export function useSwapInit(params?: ISwapInitParams) {
   if (fromTokenAmountRef.current?.value !== fromTokenAmount?.value) {
     fromTokenAmountRef.current = fromTokenAmount;
   }
+  const hasRefreshedSwapNetworksRef = useRef(false);
+  const refreshSwapNetworksPromiseRef = useRef<Promise<void> | undefined>(
+    undefined,
+  );
 
   const fetchSwapNetworks = useCallback(async () => {
-    if (swapNetworks.length) {
-      setNetworkListFetching(false);
+    const currentSwapNetworks = swapNetworksRef.current;
+    if (currentSwapNetworks.length) {
+      if (isSwapNetworkCacheCompatible(currentSwapNetworks)) {
+        setNetworkListFetching(false);
+        if (hasRefreshedSwapNetworksRef.current) {
+          return;
+        }
+      } else {
+        setNetworkListFetching(
+          !isSwapNetworkCacheReadyForBasicList(currentSwapNetworks),
+        );
+      }
+    }
+
+    if (refreshSwapNetworksPromiseRef.current) {
+      await refreshSwapNetworksPromiseRef.current;
       return;
     }
-    let swapNetworksSortList =
-      await backgroundApiProxy.simpleDb.swapNetworksSort.getRawData();
-    if (swapNetworksSortList?.data?.length) {
-      const noSupportInfo = swapNetworksSortList?.data.every(
-        (net) =>
-          (isNil(net.supportCrossChainSwap) && isNil(net.supportSingleSwap)) ||
-          isNil(net.supportLimit),
-      );
-      if (!noSupportInfo) {
-        setSwapNetworks(swapNetworksSortList.data);
-        setNetworkListFetching(false);
-      } else {
-        swapNetworksSortList = null;
-        void backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
-          data: [],
-        });
+
+    const refreshPromise = (async () => {
+      let swapNetworksSortList =
+        await backgroundApiProxy.simpleDb.swapNetworksSort.getRawData();
+      if (swapNetworksSortList?.data?.length) {
+        const cachedSwapNetworks = swapNetworksSortList.data;
+        const canUseCachedSwapNetworks =
+          isSwapNetworkCacheCompatible(cachedSwapNetworks);
+        if (canUseCachedSwapNetworks) {
+          setSwapNetworks(cachedSwapNetworks);
+          setNetworkListFetching(false);
+        } else if (isSwapNetworkCacheReadyForBasicList(cachedSwapNetworks)) {
+          setSwapNetworks(cachedSwapNetworks);
+          setNetworkListFetching(false);
+        } else if (!canUseSwapNetworkCacheAsSortSource(cachedSwapNetworks)) {
+          await backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
+            data: [],
+          });
+          swapNetworksSortList = null;
+        }
       }
-    }
-    let networks: ISwapNetwork[] = [];
-    const fetchNetworks =
-      await backgroundApiProxy.serviceSwap.fetchSwapNetworks();
-    networks = [...fetchNetworks];
-    if (swapNetworksSortList?.data?.length && fetchNetworks?.length) {
-      const sortNetworks = swapNetworksSortList.data;
-      networks = sortNetworks
-        .filter((network) =>
-          fetchNetworks.find((n) => n.networkId === network.networkId),
-        )
-        .map((net) => {
-          const serverNetwork = fetchNetworks.find(
-            (n) => n.networkId === net.networkId,
-          );
-          return { ...net, ...serverNetwork };
-        })
-        .concat(
-          fetchNetworks.filter(
-            (network) =>
-              !sortNetworks.find((n) => n.networkId === network.networkId),
-          ),
-        );
-    }
-    if (networks.length) {
-      await backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
-        data: networks,
-      });
-      if (
-        !swapNetworksSortList?.data?.length ||
-        swapNetworksSortList?.data?.length !== networks.length
-      ) {
-        setSwapNetworks(networks);
+
+      // Older network caches can preserve user sorting, but selector state needs
+      // the refreshed schema, especially backendIndex.
+      let networks: ISwapNetwork[] = [];
+      try {
+        const fetchNetworks =
+          await backgroundApiProxy.serviceSwap.fetchSwapNetworks({
+            refreshClientNetworks: true,
+          });
+        networks = [...fetchNetworks];
+        if (swapNetworksSortList?.data?.length && fetchNetworks?.length) {
+          networks = mergeSwapNetworksWithCachedSort({
+            cachedNetworks: swapNetworksSortList.data,
+            fetchedNetworks: fetchNetworks,
+          });
+        }
+        if (networks.length) {
+          await backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
+            data: networks,
+          });
+          setSwapNetworks(networks);
+          hasRefreshedSwapNetworksRef.current = true;
+        }
+      } catch {
+        // The background method shows its own toast. Keep cached networks usable.
+      } finally {
         setNetworkListFetching(false);
       }
-    }
-  }, [setSwapNetworks, swapNetworks.length]);
+    })().finally(() => {
+      refreshSwapNetworksPromiseRef.current = undefined;
+    });
+
+    refreshSwapNetworksPromiseRef.current = refreshPromise;
+    await refreshPromise;
+  }, [setSwapNetworks]);
 
   const fetchSyncSwapProviderManager = useCallback(
     async (noFetch?: boolean) => {
@@ -673,6 +699,9 @@ export function useSwapInit(params?: ISwapInitParams) {
         }
       }
       if (isFocus) {
+        if (!swapNetworksRef.current.length) {
+          void fetchSwapNetworks();
+        }
         if (swapFromMarketJumpTokenRef.current?.token) {
           void swapTypeSwitchAction(swapFromMarketJumpTokenRef.current.type);
           if (swapFromMarketJumpTokenRef.current.direction === 'from') {

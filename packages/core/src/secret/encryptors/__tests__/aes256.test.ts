@@ -424,7 +424,7 @@ describe('aes256', () => {
       expect(legacyResult.needsUpgrade).toBe(true);
     });
 
-    it('should use platform-specific local target iterations for default v2 writes', async () => {
+    it('should use local target iterations for default v2 writes', async () => {
       const originalIsNativeAndroid = platformEnv.isNativeAndroid;
       platformEnv.isNativeAndroid = true;
 
@@ -442,7 +442,7 @@ describe('aes256', () => {
           upgradeTargetIterations: getSecretEncryptV2LocalTargetIterations(),
         });
 
-        expect(result.iterations).toBe(PBKDF2_LEGACY_NUM_OF_ITERATIONS);
+        expect(result.iterations).toBe(PBKDF2_CURRENT_NUM_OF_ITERATIONS);
         expect(result.needsUpgrade).toBe(false);
 
         platformEnv.isNativeAndroid = false;
@@ -459,7 +459,7 @@ describe('aes256', () => {
           allowRawPassword: true,
           upgradeTargetIterations: getSecretEncryptV2LocalTargetIterations(),
         });
-        expect(nonAndroidResult.needsUpgrade).toBe(true);
+        expect(nonAndroidResult.needsUpgrade).toBe(false);
       } finally {
         platformEnv.isNativeAndroid = originalIsNativeAndroid;
       }

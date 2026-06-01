@@ -20,7 +20,6 @@ import {
 } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { usePerpsActivePositionLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import {
   usePerpsActiveAccountMmrAtom,
@@ -41,7 +40,9 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
+import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
+import { PERP_DIALOG_BUTTON_SIZE } from '../PerpDialogLayout';
 
 import {
   type IPortfolioChartType,
@@ -308,7 +309,7 @@ function PerpPortfolioContentComponent({
     ];
   }, [intl]);
   const [mmrData] = usePerpsActiveAccountMmrAtom();
-  const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const positionsLength = usePerpsAccountScopedActivePositions().length;
 
   const [timePeriod, setTimePeriod] = useState<IPortfolioTimePeriod>('allTime');
   const [chartType, setChartType] =
@@ -797,7 +798,7 @@ function PerpPortfolioContentComponent({
       {/* P&L + Win Rate summary */}
       <SectionBlock>
         <XStack alignItems="center">
-          <YStack flex={1} gap="$0.5">
+          <YStack flex={1} minWidth={0} gap="$0.5">
             <SizableText size="$bodyXs" color="$textDisabled">
               {intl.formatMessage({
                 id: ETranslations.perp_portfolio_unrealized_pnl,
@@ -807,12 +808,12 @@ function PerpPortfolioContentComponent({
               size="$headingSm"
               color={unrealizedColor}
               numberOfLines={1}
-              adjustsFontSizeToFit
+              minWidth={0}
             >
               {unrealizedPnl}
             </SizableText>
           </YStack>
-          <YStack flex={1} gap="$0.5" alignItems="center">
+          <YStack flex={1} minWidth={0} gap="$0.5" alignItems="center">
             <DashText
               size="$bodyXs"
               color="$textDisabled"
@@ -827,12 +828,14 @@ function PerpPortfolioContentComponent({
               size="$headingSm"
               color={realizedColor}
               numberOfLines={1}
-              adjustsFontSizeToFit
+              minWidth={0}
+              maxWidth="100%"
+              textAlign="center"
             >
               {realizedPnl}
             </SizableText>
           </YStack>
-          <YStack flex={1} gap="$0.5" alignItems="flex-end">
+          <YStack flex={1} minWidth={0} gap="$0.5" alignItems="flex-end">
             <SizableText size="$bodyXs" color="$textDisabled">
               {intl.formatMessage({
                 id: ETranslations.perp_portfolio_open_positions,
@@ -857,7 +860,7 @@ function PerpPortfolioContentComponent({
         testID="perp-portfolio-buttons-btn"
         flex={1}
         borderRadius="$full"
-        size="medium"
+        size={PERP_DIALOG_BUTTON_SIZE}
         bg="$brand8"
         hoverStyle={{ bg: '$brand9' }}
         pressStyle={{ bg: '$brand10' }}
@@ -874,7 +877,7 @@ function PerpPortfolioContentComponent({
         testID="perp-portfolio-buttons-btn"
         flex={1}
         borderRadius="$full"
-        size="medium"
+        size={PERP_DIALOG_BUTTON_SIZE}
         variant="secondary"
         icon="AlignTopOutline"
         onPress={() => showDepositWithdrawModal('withdraw')}
@@ -1033,13 +1036,13 @@ function PerpPortfolioContentComponent({
               {vlm}
             </SizableText>
           </YStack>
-          {mostTradedTokenDisplayName ? (
-            <YStack gap="$0.5" alignItems="flex-end">
-              <SizableText size="$bodyXs" color="$textDisabled">
-                {intl.formatMessage({
-                  id: ETranslations.perp_portfolio_most_traded,
-                })}
-              </SizableText>
+          <YStack gap="$0.5" alignItems="flex-end">
+            <SizableText size="$bodyXs" color="$textDisabled">
+              {intl.formatMessage({
+                id: ETranslations.perp_portfolio_most_traded,
+              })}
+            </SizableText>
+            {mostTradedTokenDisplayName ? (
               <XStack gap="$1.5" alignItems="center">
                 <Token
                   size="xxs"
@@ -1051,8 +1054,12 @@ function PerpPortfolioContentComponent({
                   {mostTradedTokenDisplayName}
                 </SizableText>
               </XStack>
-            </YStack>
-          ) : null}
+            ) : (
+              <SizableText size="$headingSm" color="$text">
+                --
+              </SizableText>
+            )}
+          </YStack>
         </XStack>
         <Divider />
         {/* Fees + Deposits — compact row */}

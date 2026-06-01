@@ -4,6 +4,7 @@ import type {
   ISecretPrivateKeyInfo,
   ISecretPublicKeyInfo,
 } from '@onekeyhq/core/src/secret';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
 import type { ECoreApiExportedSecretKeyType } from '@onekeyhq/shared/src/types/coreEnums';
 import type { IHardwareGetPubOrAddressExtraInfo } from '@onekeyhq/shared/types/device';
@@ -38,7 +39,7 @@ export type ICoreApiGetAddressesQueryHdBase = {
   indexes: number[];
   addressEncoding: EAddressEncodings | undefined;
   hdCredentialCacheScopeId?: string;
-};
+} & IPbkdf2KdfParams;
 export type ICoreApiGetAddressesQueryHdEvm = ICoreApiGetAddressesQueryHdBase;
 export type ICoreApiGetAddressesQueryHdBtc = Omit<
   ICoreApiGetAddressesQueryHdBase,

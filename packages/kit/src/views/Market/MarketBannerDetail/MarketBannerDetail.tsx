@@ -1,7 +1,6 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
 import { FlatList } from 'react-native';
 
@@ -17,14 +16,9 @@ import {
 } from '@onekeyhq/components';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { HeaderNotificationIconButton } from '@onekeyhq/kit/src/components/TabPageHeader/components/HeaderNotificationIconButton';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  EJotaiContextStoreNames,
-  useMarketBannerListSortAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ECopyFrom,
@@ -47,14 +41,11 @@ import { TokenListItem } from '../MarketHomeV2/components/MarketTokenList/compon
 import { TokenListSkeleton } from '../MarketHomeV2/components/MarketTokenList/components/TokenListSkeleton';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
-import {
-  getNetworkLogoUri,
-  transformApiItemToToken,
-} from '../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
 
 import { PerpsTokenListSection } from './PerpsTokenListSection';
+import { useMarketBannerDetail } from './useMarketBannerDetail';
 
 import type { IMarketToken } from '../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { EModalMarketRoutes, IModalMarketParamList } from '../router';
@@ -74,15 +65,17 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const toDetailPage = useToDetailPage({ from: EEnterWay.BannerList });
   const { handleBackPress } = useMarketDetailBackNavigation();
   const { top } = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useTabBarHeight();
   const { gtMd } = useMedia();
 
-  const [bannerSort, setBannerSort] = useMarketBannerListSortAtom();
-  const sortRef = useRef(bannerSort);
-  sortRef.current = bannerSort;
-
   const isWebDesktop = (platformEnv.isWeb || platformEnv.isDesktop) && gtMd;
+  const {
+    changeSortType,
+    handleChangeSortPress,
+    listResult,
+    mobileSortedData,
+    tickerIsLoading,
+  } = useMarketBannerDetail({ tokenListId, isPerps });
 
   const renderHeaderLeft = useCallback(
     () => <NavBackButton onPress={handleBackPress} />,
@@ -109,35 +102,6 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     [],
   );
 
-  // Ticker (spot) data fetching
-  const { result: tickerResult, isLoading: tickerIsLoading } = usePromiseResult(
-    async () => {
-      if (isPerps) return null;
-      const data =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketBannerTokenList({
-          tokenListId,
-        });
-      return data;
-    },
-    [tokenListId, isPerps],
-    {
-      watchLoading: true,
-    },
-  );
-
-  const transformedData = useMemo(() => {
-    if (!tickerResult) return [];
-    return tickerResult.map((item, index) => {
-      const chainId = item.networkId || '';
-      const networkLogoUri = getNetworkLogoUri(chainId);
-      return transformApiItemToToken(item, {
-        chainId,
-        networkLogoUri,
-        sortIndex: index,
-      });
-    });
-  }, [tickerResult]);
-
   const handleItemPress = useCallback(
     (item: IMarketToken) => {
       void toDetailPage({
@@ -159,43 +123,6 @@ function MarketBannerDetailContent({ title }: { title: string }) {
 
   const bannerKeyExtractor = useCallback((item: IMarketToken) => item.id, []);
 
-  const setSortBy = useCallback(
-    (val: string | undefined) => {
-      const next = { ...sortRef.current, sortBy: val };
-      sortRef.current = next;
-      setBannerSort(next);
-    },
-    [setBannerSort],
-  );
-
-  const setSortType = useCallback(
-    (val: 'asc' | 'desc' | undefined) => {
-      const next = { ...sortRef.current, sortType: val };
-      sortRef.current = next;
-      setBannerSort(next);
-    },
-    [setBannerSort],
-  );
-
-  const listResult = useMemo(
-    () => ({
-      data: transformedData,
-      isLoading: tickerIsLoading,
-      setSortBy,
-      setSortType,
-      currentSortBy: bannerSort.sortBy,
-      currentSortType: bannerSort.sortType,
-    }),
-    [
-      transformedData,
-      tickerIsLoading,
-      setSortBy,
-      setSortType,
-      bannerSort.sortBy,
-      bannerSort.sortType,
-    ],
-  );
-
   const renderPageHeader = useMemo(() => {
     if (isWebDesktop) {
       return (
@@ -214,18 +141,6 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         />
       );
     }
-    // iOS 26 mobile uses the native UINavigationBar so the header gets
-    // Liquid Glass material and the system back chevron. Don't pass
-    // headerLeft — HeaderScreenOptions wires the system back button.
-    // headerShown is set explicitly because this route can also be
-    // reached as a modal (EModalMarketRoutes.MarketBannerDetail) where
-    // the modal-stack's screenOptions default to headerShown:false; the
-    // explicit prop ensures the bar renders in both navigation contexts.
-    // Notification icon is intentionally omitted — it belongs to the
-    // tab-level chrome (Market tab home), not to a banner detail page.
-    if (platformEnv.isNativeIOS26Plus) {
-      return <Page.Header headerShown headerTitle={renderHeaderTitle} />;
-    }
     return <Page.Header headerShown={false} />;
   }, [
     isWebDesktop,
@@ -243,8 +158,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         </XStack>
       );
     }
-    // On iOS 26 mobile the title is in the native bar already.
-    if (!gtMd && !platformEnv.isNativeIOS26Plus) {
+    if (!gtMd) {
       return (
         <XStack ai="center" gap="$4" px="$4">
           {renderHeaderLeft()}
@@ -261,20 +175,28 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     }
     // Native mobile: use FlatList + TokenListItem to match watchlist layout
     if (platformEnv.isNative && !gtMd) {
-      if (tickerIsLoading && transformedData.length === 0) {
+      if (tickerIsLoading && mobileSortedData.length === 0) {
         return (
           <Stack flex={1}>
-            <MarketListColumnHeader />
+            <MarketListColumnHeader
+              changeSortType={changeSortType}
+              changeSortTestID={MarketTestIDs.sortByChange}
+              onChangeSortPress={handleChangeSortPress}
+            />
             <TokenListSkeleton count={15} />
           </Stack>
         );
       }
       return (
         <Stack flex={1}>
-          <MarketListColumnHeader />
+          <MarketListColumnHeader
+            changeSortType={changeSortType}
+            changeSortTestID={MarketTestIDs.sortByChange}
+            onChangeSortPress={handleChangeSortPress}
+          />
           <FlatList<IMarketToken>
             style={{ flex: 1 }}
-            data={transformedData}
+            data={mobileSortedData}
             renderItem={renderBannerItem}
             keyExtractor={bannerKeyExtractor}
             showsVerticalScrollIndicator={false}
@@ -294,7 +216,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
               </Stack>
             }
             ListFooterComponent={
-              transformedData.length > 0 ? <ListEndIndicator /> : null
+              mobileSortedData.length > 0 ? <ListEndIndicator /> : null
             }
           />
         </Stack>
@@ -310,6 +232,9 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         watchlistFrom={EWatchlistFrom.BannerList}
         copyFrom={ECopyFrom.BannerList}
         showEndReachedIndicator
+        change24hColumnTitle={intl.formatMessage({
+          id: ETranslations.dexmarket_banner_token_24hchange,
+        })}
       />
     );
     if (platformEnv.isNative) {
@@ -333,27 +258,20 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     handleItemPress,
     gtMd,
     tickerIsLoading,
-    transformedData,
+    mobileSortedData,
+    changeSortType,
+    handleChangeSortPress,
     renderBannerItem,
     bannerKeyExtractor,
     tabBarHeight,
     intl,
   ]);
 
-  let bodyTopInset: number;
-  if (gtMd) {
-    bodyTopInset = 0;
-  } else if (platformEnv.isNativeIOS26Plus) {
-    bodyTopInset = headerHeight;
-  } else {
-    bodyTopInset = top;
-  }
-
   return (
     <Page>
       {renderPageHeader}
       <Page.Body>
-        <Stack flex={1} pt={bodyTopInset} px={gtMd ? '$4' : 0} gap="$4">
+        <Stack flex={1} pt={gtMd ? 0 : top} px={gtMd ? '$4' : 0} gap="$4">
           {renderTitleSection}
           {renderTokenList}
         </Stack>
