@@ -21,8 +21,9 @@ const SOFT_TIMEOUT_SENTINEL = Symbol('historyLoadMoreSoftTimeout');
 // REQUEST_TIMEOUT: that timeout only guards the HTTP leg inside the background
 // context, but loadMore() awaits a proxy round-trip that can hang where the
 // HTTP timeout can't see — the extension UI<->service-worker bridge (whose
-// callback expiry is disabled), the native cross-thread transport, or a
-// non-axios await inside ServiceHistory. Sitting above REQUEST_TIMEOUT means a
+// callback expiry defaults to 10 minutes, far longer than this UX tolerates),
+// the native cross-thread transport, or a non-axios await inside
+// ServiceHistory. Sitting above REQUEST_TIMEOUT means a
 // slow-but-valid request is never preempted; the timer only wins on a genuine
 // lower-layer hang, releasing the otherwise-stuck footer spinner so the user
 // can retry by scrolling again.
@@ -107,20 +108,34 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
   // (duplicate-emit / chain reorg) without taking a stale state closure.
   const appendedIdsRef = useRef<Set<string>>(new Set());
 
-  const reset = useCallback(() => {
-    initializedRef.current = false;
+  // Begin a fresh pagination generation: bump `generationRef` (which orphans
+  // any in-flight load-more, since its response handler and finally-block are
+  // gated on a matching generation) and clear all cursor-independent progress —
+  // page counter, load count, appended-row set/state, the in-flight lock, and
+  // the loading spinner. Both reset() (teardown) and onFirstPageResponse
+  // (re-arm to a new first-page boundary) start from this clean slate before
+  // layering on their own cursor / hasMore semantics. Sharing it keeps the two
+  // call sites from drifting: the stuck-spinner bug was exactly
+  // onFirstPageResponse forgetting to release inFlightRef / isLoadingMore the
+  // way reset() does, so the orphaned load-more could never clear them.
+  const startNewPaginationGeneration = useCallback(() => {
     pageRef.current = 1;
-    cursorRef.current = undefined;
-    isIndexerCursorRef.current = false;
     loadCountRef.current = 0;
-    pendingLoadMoreRef.current = false;
-    inFlightRef.current = false;
     generationRef.current += 1;
+    inFlightRef.current = false;
     appendedIdsRef.current = new Set();
     setAppendedTxs([]);
-    setHasMore(false);
     setIsLoadingMore(false);
   }, []);
+
+  const reset = useCallback(() => {
+    startNewPaginationGeneration();
+    initializedRef.current = false;
+    cursorRef.current = undefined;
+    isIndexerCursorRef.current = false;
+    pendingLoadMoreRef.current = false;
+    setHasMore(false);
+  }, [startNewPaginationGeneration]);
 
   const onFirstPageResponse = useCallback(
     (meta: { next?: string; hasMore?: boolean; isIndexer?: boolean }) => {
@@ -132,16 +147,16 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       // polling / HistoryTxStatusChanged / visibility refresh can shift the
       // first-page boundary, so any previously-appended load-more rows are
       // no longer aligned with the new `meta.next` cursor (gap on the new
-      // boundary tx, or dupes against the new first page). Reset cursor +
-      // appended rows so the next load-more starts from the boundary of
-      // exactly this response. Bumping `generationRef` discards any
-      // in-flight load-more that was anchored to the previous generation.
+      // boundary tx, or dupes against the new first page).
+      // startNewPaginationGeneration() clears the cursor-independent progress,
+      // bumps `generationRef` to orphan any in-flight load-more anchored to the
+      // previous generation, and releases its loading flags; we then stamp the
+      // cursor + hasMore from exactly this response.
+      startNewPaginationGeneration();
       initializedRef.current = true;
-      pageRef.current = 1;
       // Indexer chains return a timestamp; non-indexer return opaque.
       cursorRef.current = normalizeCursor(meta.next);
       isIndexerCursorRef.current = !!meta.isIndexer;
-      loadCountRef.current = 0;
       // Preserve any pending replay intent when there's still a next page:
       // if onEndReached fired before pagination was armed (short list / fast
       // scroll), RN's SectionList won't refire and the effect below is the
@@ -150,20 +165,9 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       if (!meta.hasMore) {
         pendingLoadMoreRef.current = false;
       }
-      generationRef.current += 1;
-      // Bumping the generation orphans any in-flight load-more: both its
-      // response handler (line ~203) and its finally-block cleanup are gated on
-      // a matching generation, so the `inFlightRef` / `isLoadingMore` flags it
-      // set would otherwise never be cleared — leaving the footer spinner stuck
-      // forever and the in-flight lock permanently held (no self-recovery until
-      // the next reset()). Mirror reset() and release those flags here.
-      inFlightRef.current = false;
-      setIsLoadingMore(false);
-      appendedIdsRef.current = new Set();
-      setAppendedTxs([]);
       setHasMore(!!meta.hasMore);
     },
-    [enabled],
+    [enabled, startNewPaginationGeneration],
   );
 
   const loadMore = useCallback(async () => {
