@@ -185,6 +185,34 @@ type IPreparedCredentialPasswordUpdate = {
   originalCredential: string;
 };
 
+type IAddAndUpdateSyncItemsParams = {
+  items: IDBCloudSyncItem[];
+  skipUpdate?: boolean;
+  skipUploadToServer?: boolean;
+  // OK-55438: forward to the upload so genuine "now" writes get a server stamp
+  useServerDataTime?: boolean;
+  fn?: () => Promise<void>;
+};
+
+type IAddAndUpdateFreshSyncItemsParams = Omit<
+  IAddAndUpdateSyncItemsParams,
+  'useServerDataTime'
+>;
+
+type ITxAddAndUpdateSyncItemsParams = {
+  tx: ILocalDBTransaction;
+  items: IDBCloudSyncItem[];
+  skipUpdate?: boolean;
+  skipUploadToServer?: boolean;
+  // OK-55438: forward to the upload so genuine "now" writes get a server stamp
+  useServerDataTime?: boolean;
+};
+
+type ITxAddAndUpdateFreshSyncItemsParams = Omit<
+  ITxAddAndUpdateSyncItemsParams,
+  'useServerDataTime'
+>;
+
 function getLocalPasswordKdfParams(): ILocalPasswordKdfParams {
   if (
     !platformEnv.isNative &&
@@ -2596,14 +2624,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipUploadToServer,
     useServerDataTime,
     fn,
-  }: {
-    items: IDBCloudSyncItem[];
-    skipUpdate?: boolean;
-    skipUploadToServer?: boolean;
-    // OK-55438: forward to the upload so genuine "now" writes get a server stamp
-    useServerDataTime?: boolean;
-    fn?: () => Promise<void>;
-  }) {
+  }: IAddAndUpdateSyncItemsParams) {
     if (items?.length) {
       // EIndexedDBBucketNames.cloudSync
 
@@ -2623,20 +2644,28 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  async addAndUpdateFreshSyncItems({
+    items,
+    skipUpdate,
+    skipUploadToServer,
+    fn,
+  }: IAddAndUpdateFreshSyncItemsParams) {
+    await this.addAndUpdateSyncItems({
+      items,
+      skipUpdate,
+      skipUploadToServer,
+      useServerDataTime: true,
+      fn,
+    });
+  }
+
   async txAddAndUpdateSyncItems({
     tx,
     items,
     skipUpdate,
     skipUploadToServer,
     useServerDataTime,
-  }: {
-    tx: ILocalDBTransaction;
-    items: IDBCloudSyncItem[];
-    skipUpdate?: boolean;
-    skipUploadToServer?: boolean;
-    // OK-55438: forward to the upload so genuine "now" writes get a server stamp
-    useServerDataTime?: boolean;
-  }) {
+  }: ITxAddAndUpdateSyncItemsParams) {
     // add new item
     await this.txAddRecords({
       tx,
@@ -2671,6 +2700,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         useServerDataTime,
       });
     }
+  }
+
+  async txAddAndUpdateFreshSyncItems({
+    tx,
+    items,
+    skipUpdate,
+    skipUploadToServer,
+  }: ITxAddAndUpdateFreshSyncItemsParams) {
+    await this.txAddAndUpdateSyncItems({
+      tx,
+      items,
+      skipUpdate,
+      skipUploadToServer,
+      useServerDataTime: true,
+    });
   }
 
   async removeCloudSyncPoolItems({ keys }: { keys: string[] }) {
@@ -4541,12 +4585,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       // add or update sync item
       if (syncItem) {
-        await this.txAddAndUpdateSyncItems({
+        // OK-55438: rename is a genuine "now" write; let the server stamp
+        // dataTime so a fast local clock can't push it into the future.
+        await this.txAddAndUpdateFreshSyncItems({
           tx,
           items: [syncItem],
-          // OK-55438: rename is a genuine "now" write; let the server stamp
-          // dataTime so a fast local clock can't push it into the future.
-          useServerDataTime: true,
         });
       }
 
@@ -5909,12 +5952,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       // add or update sync item
       if (syncItem) {
-        await this.txAddAndUpdateSyncItems({
+        // OK-55438: account/indexedAccount rename is a genuine "now" write;
+        // let the server stamp dataTime to avoid future timestamps.
+        await this.txAddAndUpdateFreshSyncItems({
           tx,
           items: [syncItem],
-          // OK-55438: account/indexedAccount rename is a genuine "now" write;
-          // let the server stamp dataTime to avoid future timestamps.
-          useServerDataTime: true,
         });
       }
 
