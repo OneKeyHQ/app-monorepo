@@ -313,16 +313,25 @@ export function usePromiseResult<T>(
             err instanceof DOMException &&
             err.name === 'AbortError';
 
-          // A request whose swrKey scope changed mid-flight belongs to
-          // a scope the consumer has abandoned: it must not reset the
-          // new scope's result, and re-throwing its error would surface
-          // a failure that no longer applies to anyone.
-          const isStaleScope =
-            didStartRequest && capturedSwrKey !== swrKeyRef.current;
+          // A request the consumer has abandoned must not touch the
+          // current scope: it cannot reset the result, and re-throwing
+          // its error would surface a failure that no longer applies to
+          // anyone. Two ways a request goes stale, both mirroring the
+          // success path's gate:
+          //   - swrKey changed mid-flight (e.g. wallet/account switch).
+          //   - a newer request superseded this one (deps changed and
+          //     bumped nonceRef without changing swrKey). Without the
+          //     nonce check, request 1's `undefinedResultIfError` /
+          //     AbortError reset would clobber request 2's fresh result
+          //     or prematurely clear a still-pending newer scope.
+          const isStale =
+            didStartRequest &&
+            (capturedSwrKey !== swrKeyRef.current ||
+              (requestNonce !== null && nonceRef.current !== requestNonce));
 
-          if (isStaleScope) {
-            // Swallow: scope identity check (same as success path) and
-            // suppressed re-throw mirror how AbortError is already
+          if (isStale) {
+            // Swallow: scope/nonce identity check (same as success path)
+            // and suppressed re-throw mirror how AbortError is already
             // treated as non-critical.
           } else if (
             didStartRequest &&

@@ -1072,6 +1072,61 @@ describe('usePromiseResult', () => {
       expect(result.current.result).toBe('fresh');
     });
 
+    // The catch path must respect nonce identity too, not just swrKey.
+    // When request 2 (deps changed, no swrKey change) supersedes
+    // in-flight request 1 and lands a fresh result, request 1's later
+    // rejection must not run its `undefinedResultIfError` reset — the
+    // scope check alone cannot tell it is stale, so without the nonce
+    // check it would roll the fresh result back to undefined.
+    it('does not reset result from a stale request error after a newer one landed', async () => {
+      const resolvers: Array<(v: string) => void> = [];
+      const rejecters: Array<(e: unknown) => void> = [];
+      const method = jest.fn(
+        () =>
+          new Promise<string>((res, rej) => {
+            resolvers.push(res);
+            rejecters.push(rej);
+          }),
+      );
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { dep: string }
+      >(
+        ({ dep }) =>
+          usePromiseResult(() => method(), [dep], {
+            initResult: 'init',
+            undefinedResultIfError: true,
+          }),
+        { initialProps: { dep: 'a' } },
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(1);
+      });
+
+      // Deps change → request 2 starts and bumps nonceRef. There is no
+      // swrKey, so request 1 is stale only by nonce, not by scope.
+      rerender({ dep: 'b' });
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(2);
+      });
+
+      // Latest request 2 lands a fresh result.
+      await act(async () => {
+        resolvers[1]('fresh');
+        await Promise.resolve();
+      });
+      expect(result.current.result).toBe('fresh');
+
+      // Stale request 1 rejects afterwards — its reset must be skipped.
+      await act(async () => {
+        rejecters[0](new Error('boom'));
+        await Promise.resolve();
+      });
+      expect(result.current.result).toBe('fresh');
+    });
+
     // Regression for the cold-start tab-switch data-loss bug. A fetch
     // started while focused must deliver its result even if the route
     // blurs before resolution — there is otherwise no recovery path on
