@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -1051,6 +1051,11 @@ export function useFirmwareVerifyDialog() {
       onVerified?: (params: { checked: boolean }) => Promise<void> | void;
       onDevSkipVerificationPress?: () => void;
     }) => {
+      if (device.deviceType === EDeviceType.Pro2) {
+        await onContinue({ checked: false });
+        return;
+      }
+
       const onCloseFn = async () => {
         await onClose?.();
         setIsLoading(false);
