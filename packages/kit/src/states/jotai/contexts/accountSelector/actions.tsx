@@ -823,6 +823,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       });
       const networkId = selectedAccount.networkId;
       const deriveType = selectedAccount.deriveType;
+      // Multi-network fill = wallet creation, or add-account on the all-network
+      // view. A specific-network (single) add keeps the per-app install prompt.
+      const isAutoCreateMultiNetwork =
+        !!isCreateWallet || networkUtils.isAllNetwork({ networkId });
       let result: {
         addedAccounts: {
           networkId: string;
@@ -849,6 +853,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                   ? [{ networkId, deriveType }]
                   : undefined,
               isCreateWallet,
+              isAutoCreateMultiNetwork,
               skipDeviceCancel,
               hideCheckingDeviceLoading,
               autoHandleExitError,
@@ -860,8 +865,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         void (async () => {
           let failedList = result?.failedAccounts || [];
 
-          // Third-party HW wallet-creation: filter out AppNotInstalled errors
-          if (isCreateWallet && failedList.length > 0) {
+          // 3rd-party HW: drop AppNotInstalled when any chain succeeded; show
+          // one toast only when zero succeeded.
+          if (failedList.length > 0) {
             const isThirdPartyHw =
               await backgroundApiProxy.serviceAccount.isThirdPartyHwByWalletId({
                 walletId: wallet.id,

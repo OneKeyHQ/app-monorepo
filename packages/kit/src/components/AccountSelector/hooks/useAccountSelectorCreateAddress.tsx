@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 import { useIntl } from 'react-intl';
 import { Linking } from 'react-native';
 
@@ -159,10 +160,33 @@ export function useAccountSelectorCreateAddress() {
           result?.failedAccounts?.length &&
           !accountUtils.isQrWallet({ walletId: account.walletId })
         ) {
-          // Ledger missing-app is handled in-flight by the SDK (autoInstallApp:
-          // prompt → install → retry), so anything still failing here is a
-          // genuine error worth surfacing.
-          for (const failedAccount of result.failedAccounts) {
+          let failedList = result.failedAccounts;
+          // 3rd-party HW: only report missing-app when zero chains succeeded;
+          // otherwise drop AppNotInstalled and surface only genuine errors.
+          const walletId = account.walletId;
+          const isThirdPartyHw = walletId
+            ? await serviceAccount.isThirdPartyHwByWalletId({ walletId })
+            : false;
+          if (isThirdPartyHw) {
+            const allAppNotInstalled =
+              result.addedAccounts.length === 0 &&
+              failedList.every(
+                (f) => f.error.code === ThirdPartyHwErrorCode.AppNotInstalled,
+              );
+            if (allAppNotInstalled) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.hardware_third_party_no_app_installed_on_device,
+                }),
+              });
+              failedList = [];
+            } else {
+              failedList = failedList.filter(
+                (f) => f.error.code !== ThirdPartyHwErrorCode.AppNotInstalled,
+              );
+            }
+          }
+          for (const failedAccount of failedList) {
             Toast.error({
               title: failedAccount.error.message || 'Unknown error',
             });

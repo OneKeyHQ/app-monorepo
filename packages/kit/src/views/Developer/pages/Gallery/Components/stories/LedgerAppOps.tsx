@@ -109,7 +109,7 @@ const LedgerAppOpsTester = () => {
     if (
       !appInstallState ||
       appInstallState.vendor !== EHardwareVendor.ledger ||
-      appInstallState.progress == null
+      appInstallState.progress === undefined
     ) {
       return;
     }

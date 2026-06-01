@@ -72,7 +72,6 @@ export interface IHardwareErrorDialogPayload {
   errorMessage?: string; // Error message
 }
 
-
 export enum EFinalizeWalletSetupSteps {
   // Regular wallet steps
   CreatingWallet = 'CreatingWallet',
