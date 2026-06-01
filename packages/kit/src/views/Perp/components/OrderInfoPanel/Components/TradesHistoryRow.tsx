@@ -349,7 +349,6 @@ const TradesHistoryRow = memo(
                   <DashText
                     size="$bodySm"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.3}
                   >
                     {tradeBaseInfo.feeFormatted}
@@ -491,7 +490,6 @@ const TradesHistoryRow = memo(
                   <DashText
                     size="$bodySm"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.3}
                   >
                     {tradeBaseInfo.feeFormatted}

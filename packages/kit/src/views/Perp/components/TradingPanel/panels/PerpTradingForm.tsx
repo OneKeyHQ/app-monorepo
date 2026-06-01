@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
@@ -33,7 +34,10 @@ import type {
   ITradingFormData,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  getPerpsAccountDisplaySnapshotEntry,
+  usePerpsAccountDisplaySnapshotAtom,
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
@@ -64,6 +68,7 @@ import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdr
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../../testIDs';
+import { getPerpsFormLeverage } from '../../../utils/leverageDisplay';
 import {
   type ITradeSide,
   getTradingSideTextColor,
@@ -268,6 +273,9 @@ function PerpTradingForm({
   isMobile = false,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [perpsActiveAccount] = usePerpsActiveAccountAtom();
+  const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
+  const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
 
   const [formData] = useTradingFormAtom();
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
@@ -293,6 +301,37 @@ function PerpTradingForm({
     [perpsSelectedSymbol.coin],
   );
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
+  const snapshotLookupIndexedAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.indexedAccount?.id
+    : perpsActiveAccount?.indexedAccountId;
+  const snapshotLookupAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.account?.id
+    : perpsActiveAccount?.accountId;
+  const snapshotLookupAccountAddress =
+    !selectedWalletAccount.ready ||
+    snapshotLookupIndexedAccountId ||
+    snapshotLookupAccountId
+      ? perpsActiveAccount?.accountAddress
+      : undefined;
+  const snapshotEntry = useMemo(
+    () =>
+      getPerpsAccountDisplaySnapshotEntry({
+        snapshot: displaySnapshot,
+        accountAddress: snapshotLookupAccountAddress,
+        indexedAccountId: snapshotLookupIndexedAccountId,
+        accountId: snapshotLookupAccountId,
+        deriveType:
+          selectedWalletAccount.deriveType ?? perpsActiveAccount.deriveType,
+      }),
+    [
+      displaySnapshot,
+      perpsActiveAccount?.deriveType,
+      selectedWalletAccount.deriveType,
+      snapshotLookupAccountAddress,
+      snapshotLookupAccountId,
+      snapshotLookupIndexedAccountId,
+    ],
+  );
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
 
@@ -460,7 +499,10 @@ function PerpTradingForm({
             markPrice: midPrice,
             availableToTrade: [maxAvailable, maxAvailable],
             maxTradeSzs: activeAssetData?.maxTradeSzs,
-            leverageValue: activeAssetData?.leverage?.value,
+            leverageValue: getPerpsFormLeverage({
+              isSpot: false,
+              liveLeverage: activeAssetData?.leverage?.value,
+            }),
             fallbackLeverage: activeAsset?.universe?.maxLeverage,
             szDecimals: activeAsset?.universe?.szDecimals,
           };
@@ -583,7 +625,13 @@ function PerpTradingForm({
       return availableValue.toFixed(2, BigNumber.ROUND_DOWN);
     }
     const available = activeAssetData?.availableToTrade;
-    if (!available) return '0';
+    if (!available) {
+      const cachedAvailable = snapshotEntry?.availableToTrade;
+      if (cachedAvailable?.coin === activeAsset?.coin) {
+        return cachedAvailable.value;
+      }
+      return '0';
+    }
     const longValue = Number(available[0] ?? 0);
     const shortValue = Number(available[1] ?? 0);
     return new BigNumber(Math.min(longValue, shortValue)).toFixed(
@@ -592,12 +640,23 @@ function PerpTradingForm({
     );
   }, [
     activeAssetData?.availableToTrade,
+    activeAsset?.coin,
     formData.side,
     isSpot,
     midPriceBN,
+    snapshotEntry?.availableToTrade,
     spotAvailableBaseBN,
     spotAvailableQuoteBN,
   ]);
+  const isUsingCachedAvailableToTrade = Boolean(
+    !isSpot &&
+    !activeAssetData?.availableToTrade &&
+    snapshotEntry?.availableToTrade?.coin === activeAsset?.coin,
+  );
+  const shouldDisplayAvailableToTradeDuringLoading =
+    !isSpot &&
+    (Boolean(activeAssetData?.availableToTrade) ||
+      isUsingCachedAvailableToTrade);
 
   // Spot: display raw token balance with symbol
   const spotAvailableDisplay = useMemo(() => {
@@ -1193,12 +1252,7 @@ function PerpTradingForm({
                 id: ETranslations.perp_tp_sl_tooltip,
               })}
               renderTrigger={
-                <DashText
-                  size="$bodyMd"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  cursor="help"
-                >
+                <DashText size="$bodyMd" dashThickness={0.5} cursor="help">
                   {intl.formatMessage({
                     id: ETranslations.perp_position_tp_sl,
                   })}
@@ -1281,12 +1335,7 @@ function PerpTradingForm({
           <Popover
             title={spotMaxTradeLabel}
             renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-              >
+              <DashText size="$bodySm" color="$textSubdued" dashThickness={0.5}>
                 {spotMaxTradeLabel}
               </DashText>
             }
@@ -1303,7 +1352,6 @@ function PerpTradingForm({
               <DashText
                 size="$bodySm"
                 color="$textSubdued"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
                 cursor="help"
               >
@@ -1555,6 +1603,12 @@ function PerpTradingForm({
                   <PerpsAccountNumberValue
                     value={availableToTrade}
                     skeletonWidth={60}
+                    allowValueDuringAccountLoading={
+                      shouldDisplayAvailableToTradeDuringLoading
+                    }
+                    skipAccountSummaryCheck={
+                      shouldDisplayAvailableToTradeDuringLoading
+                    }
                   />
                   <MobileDepositButton onPress={handleDepositPress} />
                 </XStack>

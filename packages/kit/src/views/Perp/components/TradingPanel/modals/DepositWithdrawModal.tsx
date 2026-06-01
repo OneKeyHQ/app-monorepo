@@ -86,7 +86,10 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import usePerpDeposit from '../../../hooks/usePerpDeposit';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
-import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
+import {
+  PERP_DIALOG_BUTTON_SIZE,
+  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+} from '../../PerpDialogLayout';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
@@ -1797,7 +1800,6 @@ function DepositWithdrawContent({
                   <DashText
                     size="$bodyMd"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.3}
                     cursor="help"
                   >
@@ -1823,7 +1825,6 @@ function DepositWithdrawContent({
                   <DashText
                     size="$bodyMd"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.3}
                   >
                     {intl.formatMessage({
@@ -1898,7 +1899,7 @@ function DepositWithdrawContent({
         <Button
           testID="perp-btn"
           variant="primary"
-          size="medium"
+          size={PERP_DIALOG_BUTTON_SIZE}
           onPress={handleBuyPress}
         >
           {intl.formatMessage({ id: ETranslations.global_top_up })}
@@ -1907,7 +1908,7 @@ function DepositWithdrawContent({
         <Button
           testID="perp-btn"
           variant="primary"
-          size="medium"
+          size={PERP_DIALOG_BUTTON_SIZE}
           disabled={
             !isValidAmount ||
             isSubmitting ||

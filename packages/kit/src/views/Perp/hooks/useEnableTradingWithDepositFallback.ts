@@ -5,6 +5,7 @@ import {
   type IPerpsActiveAccountStatusAtom,
   usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 
 import { showHyperliquidTermsDialog } from '../components/HyperliquidTerms';
 import { getEnableTradingDialogConfirmDecision } from '../utils/enableTradingDialogConfirm';
@@ -32,7 +33,9 @@ export function useRequestEnableTrading() {
     IPerpsActiveAccountStatusAtom | undefined
   > => {
     try {
-      return await backgroundApiProxy.serviceHyperliquid.enableTrading();
+      return await errorToastUtils.withErrorAutoToast(() =>
+        backgroundApiProxy.serviceHyperliquid.enableTrading(),
+      );
     } catch {
       return undefined;
     }

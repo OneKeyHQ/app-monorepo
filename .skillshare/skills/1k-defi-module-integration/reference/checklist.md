@@ -517,6 +517,83 @@ For adding a new lending protocol (e.g., AAVE, Compound):
 
 ---
 
+## Phase 8.7: Earn Regression Review Gate (Required for Earn PRs)
+
+### Source-of-Truth Checks
+
+- [ ] Jira/Rovo requirement or PRD checked for supported providers, networks,
+      operations, and product caveats
+- [ ] GitHub PR description, existing review threads, and CI/release-gate state
+      checked
+- [ ] Backend DTO/build-transaction/order-update contract checked for every new
+      request field
+- [ ] Slack/desktop/runtime evidence only cited if directly inspected
+
+### Provider Identity and Navigation
+
+- [ ] New provider exists in the shared earn provider enum and provider-name
+      mapping
+- [ ] Route params, share URLs, deep links, and lower-case provider query values
+      normalize to the same provider identity used by background-service calls
+- [ ] Detail, protocol list, manage-position, portfolio action, and history
+      navigation preserve required `provider`, `networkId`, `symbol`, `vault`,
+      and action-type params
+- [ ] Shared URL/deep-link flow was opened from a fresh app/tab state
+
+### Cross-Protocol Isolation
+
+- [ ] Provider-specific fields are optional and no-op for other providers
+- [ ] Claim params are isolated by provider (for example, Morpho-only reward
+      token params are not sent to Pendle)
+- [ ] `vault` propagation uses the correct helper and does not broaden
+      `isVaultBasedProvider` unexpectedly
+- [ ] Shared files touched (`UniversalStake`, `UniversalWithdraw`,
+      `useUniversalHooks`, `ServiceStaking`, shared routes/types/utils) have an
+      explicit existing-protocol regression assessment
+
+### Order, Pending, and Analytics
+
+- [ ] Setup transactions such as wrap/approve/permit/cooldown are separated from
+      user-visible Earn orders
+- [ ] Wrapped-native flows have an explicit native-token wrap, wrapped-token
+      approval, protocol action, and order-sync step map
+- [ ] Each backend-created order is either updated with the right txid or is not
+      created for prerequisite-only steps
+- [ ] `stakingInfo.tags` identify the correct protocol/symbol/vault refresh
+      scope
+- [ ] Analytics payloads avoid leaking raw order entities, txids, order ids, and
+      network ids unless explicitly approved
+- [ ] Warning or loss dialogs close before transaction confirmation opens, with
+      no stale disabled confirm state
+
+### Operation State and History
+
+- [ ] Instant withdraw, queued withdraw, cancel queued withdraw, and claim queued
+      withdrawal use distinct backend action/withdraw/claim types where required
+- [ ] Cancel or claim actions are hidden/disabled unless the position has the
+      pending request required by the contract
+- [ ] History filters and row titles match action semantics instead of generic
+      deposit/withdraw labels
+- [ ] Receipt-token and signed-delta displays are not reused as wallet-balance
+      validation inputs without a conversion rule
+- [ ] "Trade", "Buy", "Swap", or "Wrap" funding CTAs were checked on the target
+      surface for the exact native/wrapped token form and supported mode
+
+### Runtime Matrix
+
+- [ ] Native: ETH wrap + stake, normal stake, instant/queued/cancel withdraw,
+      queued claim, share/deep link, history filters, insufficient-balance state,
+      loss-dialog confirmation
+- [ ] Pendle: quote loading/expiry, slippage, withdraw path, claim params
+- [ ] Ethena: cooldown withdraw and claim-withdrawal continuation
+- [ ] Stakefish: sign-message stake/withdraw and validator identity
+- [ ] Morpho/Lido: vault-specific stake/withdraw/claim behavior
+- [ ] Quick Deposit / Featured assets: protocol switcher, cross-chain data, no
+      mock fallback
+- [ ] DeFi Portfolio actions: supported-protocol matrix and build params
+
+---
+
 ## Phase 9: Pre-Release
 
 ### Code Quality

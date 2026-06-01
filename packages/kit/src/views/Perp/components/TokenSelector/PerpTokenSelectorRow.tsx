@@ -4,6 +4,7 @@ import {
   memo,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
 } from 'react';
 
@@ -35,6 +36,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -1310,6 +1312,15 @@ const PerpTokenSelectorRowPerps = memo(
         desktopLayout,
       ],
     );
+
+    useEffect(() => {
+      if (!isLoading && assetCtx?.markPrice && assetCtx.markPrice !== '0') {
+        markPerpsColdStartPerfOnce('ui_token_selector_perp_row_ready', {
+          tokenName,
+          markPrice: assetCtx.markPrice,
+        });
+      }
+    }, [assetCtx?.markPrice, isLoading, tokenName]);
 
     if (!tokenName) {
       return null;

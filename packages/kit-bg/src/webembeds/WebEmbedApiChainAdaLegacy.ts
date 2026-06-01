@@ -1,4 +1,7 @@
+import type { IAdaBatchGetShelleyAddressByRootKeyHexParams } from '@onekeyhq/core/src/chains/ada/sdkAda';
 import type { IAdaSdkApi } from '@onekeyhq/core/src/chains/ada/sdkAda/sdk/types';
+import type { IHdCredentialDecryptCacheParams } from '@onekeyhq/core/src/secret';
+import type { ICoreHdCredentialEncryptHex } from '@onekeyhq/core/src/types';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import type IAdaLib from '@onekeyfe/cardano-coin-selection-asmjs';
@@ -16,6 +19,31 @@ type IAdaHasSetTagWithBody = typeof IAdaLib.onekeyUtils.hasSetTagWithBody;
 type IAdaComposeTxPlan = typeof IAdaLib.onekeyUtils.composeTxPlan;
 type IAdaSignTransaction = typeof IAdaLib.onekeyUtils.signTransaction;
 type IAdaHwSignTransaction = typeof IAdaLib.trezorUtils.signTransaction;
+
+export type IAdaBatchGetShelleyAddressesParams = {
+  hdCredential: ICoreHdCredentialEncryptHex;
+  indexes: number[];
+  networkId?: 0 | 1;
+  password: string;
+} & IHdCredentialDecryptCacheParams;
+
+export type IAdaBatchGetShelleyAddressesByMnemonicParams = {
+  indexes: number[];
+  mnemonic: string;
+  networkId?: 0 | 1;
+};
+
+export type IAdaShelleyAddressPerfTestResult = {
+  baseAddress: {
+    address: string;
+    path: string;
+    xpub: string;
+  };
+  stakingAddress: {
+    address: string;
+    path: number[];
+  };
+}[];
 
 const getCardanoApi = memoizee(
   async () => {
@@ -104,6 +132,56 @@ class WebEmbedApiChainAdaLegacy implements IAdaSdkApi {
   async extractStakeKeyHashFromBaseAddress(addr: string) {
     const cardanoApi = await getCardanoApi();
     return cardanoApi.extractStakeKeyHashFromBaseAddress(addr);
+  }
+
+  async batchGetShelleyAddresses({
+    hdCredential,
+    password,
+    indexes,
+    networkId = 1,
+    hdCredentialCacheScopeId,
+    kdfBackend,
+    enablePbkdf2Cache,
+    debugCryptoProbeId,
+  }: IAdaBatchGetShelleyAddressesParams): Promise<IAdaShelleyAddressPerfTestResult> {
+    const { batchGetShelleyAddresses } =
+      await import('@onekeyhq/core/src/chains/ada/sdkAda');
+    return batchGetShelleyAddresses(
+      hdCredential,
+      password,
+      indexes,
+      networkId,
+      {
+        hdCredentialCacheScopeId,
+        kdfBackend,
+        enablePbkdf2Cache,
+        debugCryptoProbeId,
+      },
+    );
+  }
+
+  async batchGetShelleyAddressesForPerfTest(
+    params: IAdaBatchGetShelleyAddressesParams,
+  ): Promise<IAdaShelleyAddressPerfTestResult> {
+    return this.batchGetShelleyAddresses(params);
+  }
+
+  async batchGetShelleyAddressesByMnemonic({
+    mnemonic,
+    indexes,
+    networkId = 1,
+  }: IAdaBatchGetShelleyAddressesByMnemonicParams): Promise<IAdaShelleyAddressPerfTestResult> {
+    const { batchGetShelleyAddressesByMnemonic } =
+      await import('@onekeyhq/core/src/chains/ada/sdkAda');
+    return batchGetShelleyAddressesByMnemonic(mnemonic, indexes, networkId);
+  }
+
+  async batchGetShelleyAddressByRootKeyHex(
+    params: IAdaBatchGetShelleyAddressByRootKeyHexParams,
+  ): Promise<IAdaShelleyAddressPerfTestResult> {
+    const { batchGetShelleyAddressByRootKeyHex } =
+      await import('@onekeyhq/core/src/chains/ada/sdkAda');
+    return batchGetShelleyAddressByRootKeyHex(params);
   }
 }
 

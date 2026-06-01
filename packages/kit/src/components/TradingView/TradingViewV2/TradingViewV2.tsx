@@ -31,6 +31,7 @@ import {
 import type { IMarksTimeRange } from './messageHandlers';
 import type { ICustomReceiveHandlerData } from './types';
 import type { IWebViewRef } from '../../WebView/types';
+import type { ITradingViewDisabledFeature } from '../hooks';
 import type { WebViewProps } from 'react-native-webview';
 import type {
   WebViewNavigation,
@@ -63,6 +64,8 @@ interface IBaseTradingViewV2Props {
   accountAddress?: string;
   onTouchScroll?: (deltaY: number) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
+  disabledFeatures?: readonly ITradingViewDisabledFeature[];
+  storageNamespace?: string;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -89,6 +92,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     accountAddress,
     onTouchScroll,
     onIndicatorsDialogOpenChange,
+    disabledFeatures,
+    storageNamespace,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -125,19 +130,31 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
 
   const additionalParams = useMemo(() => {
+    const finalStorageNamespace =
+      storageNamespace?.trim() ||
+      (useHyperLiquid ? 'market-hyperliquid' : 'market');
+
     return {
       decimal: decimal?.toString(),
       networkId,
       address: tokenAddress,
       symbol: chartSymbol,
       type: 'market',
-      storageNamespace: useHyperLiquid ? 'market-hyperliquid' : 'market',
+      storageNamespace: finalStorageNamespace,
       ...(useHyperLiquid ? { scene: 'market-hyperliquid' } : {}),
     };
-  }, [chartSymbol, decimal, networkId, tokenAddress, useHyperLiquid]);
+  }, [
+    chartSymbol,
+    decimal,
+    networkId,
+    storageNamespace,
+    tokenAddress,
+    useHyperLiquid,
+  ]);
 
   const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
     additionalParams,
+    disabledFeatures,
   });
 
   // OneKey realtime hooks only apply to app-served market candles.

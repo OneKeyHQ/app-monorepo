@@ -27,6 +27,7 @@ import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
 import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
+import { HardwareRecoveryActionContainer } from './HardwareRecoveryActionContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
 import { KeylessWalletContainerLazy } from './KeylessWalletContainer';
@@ -36,6 +37,7 @@ import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 import { RookieShareContainer } from './RookieShareContainer';
+import { SplitViewPerpTabSync } from './SplitViewPerpTabSync';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
 import { ThirdPartyHardwareUiStateContainer } from './ThirdPartyHardwareUiStateContainer';
 import { VerifyTxContainer } from './VerifyTxContainer';
@@ -67,6 +69,7 @@ function DetailRouter() {
       <VerifyTxContainer />
       <HardwareUiStateContainer />
       <ThirdPartyHardwareUiStateContainer />
+      <HardwareRecoveryActionContainer />
       <PrimeLoginContainerLazy />
       <KeylessWalletContainerLazy />
       <KeylessWebAutoConnectHashCleanupContainer />
@@ -125,6 +128,7 @@ export function Container() {
               </SplitViewContext.Provider>
             }
           />
+          <SplitViewPerpTabSync />
           <GlobalWalletConnectModalContainer />
         </AppStateLockContainer>
       </RootSiblingParent>
