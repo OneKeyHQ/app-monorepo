@@ -510,6 +510,8 @@ function TwapHistoryRow({
     [state.timestamp],
   );
   const statusText = useMemo(() => {
+    const statusDescription =
+      record.status.status === 'error' ? record.status.description : undefined;
     const statusTextMap: Record<
       ITwapHistoryRecord['status']['status'],
       ETranslations
@@ -522,11 +524,11 @@ function TwapHistoryRow({
     const translatedStatus = intl.formatMessage({
       id: statusTextMap[record.status.status],
     });
-    if (record.status.status === 'error' && record.status.description) {
-      return `${translatedStatus}: ${record.status.description}`;
+    if (statusDescription) {
+      return `${translatedStatus}: ${statusDescription}`;
     }
     return translatedStatus;
-  }, [intl, record.status.description, record.status.status]);
+  }, [intl, record.status]);
   const bgColor = getTableRowBgColor({ isHovered, index });
   const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
   const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
