@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
+import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import {
   PERP_DIALOG_BUTTON_SIZE,
@@ -364,14 +365,16 @@ export function showAdjustPositionMarginDialog({
     }),
 
     renderContent: (
-      <PerpsProviderMirror>
-        <AdjustPositionMarginForm
-          coin={coin}
-          onClose={() => {
-            void dialogInstance.close();
-          }}
-        />
-      </PerpsProviderMirror>
+      <PerpsAccountSelectorProviderMirror>
+        <PerpsProviderMirror>
+          <AdjustPositionMarginForm
+            coin={coin}
+            onClose={() => {
+              void dialogInstance.close();
+            }}
+          />
+        </PerpsProviderMirror>
+      </PerpsAccountSelectorProviderMirror>
     ),
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
