@@ -24,19 +24,22 @@ import {
 import { getUtxoAccountPrefixPath } from '../../utils';
 
 import {
-  batchGetShelleyAddressByRootKey,
-  batchGetShelleyAddresses,
   decodePrivateKeyByXprv,
   encodePrivateKey,
   generateExportedCredential,
   generateXprvFromPrivateKey,
   getPathIndex,
+  getRootKey,
   getXprvString,
   sdk,
 } from './sdkAda';
 import { EAdaNetworkId } from './types';
 
-import type { IAdaBaseAddressInfo, IAdaStakingAddressInfo } from './sdkAda';
+import type {
+  IAdaBaseAddressInfo,
+  IAdaShelleyAddressInfo,
+  IAdaStakingAddressInfo,
+} from './sdkAda';
 import type { IAdaUTXO, IEncodedTxAda } from './types';
 import type { ISigner } from '../../base/ChainSigner';
 
@@ -184,6 +187,23 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return result;
   }
 
+  private async batchGetShelleyAddressInfosByRootKey({
+    rootKey,
+    indexes,
+    networkId,
+  }: {
+    indexes: number[];
+    networkId: EAdaNetworkId;
+    rootKey: Buffer;
+  }): Promise<IAdaShelleyAddressInfo[]> {
+    const CardanoApi = await sdk.getCardanoApi();
+    return CardanoApi.batchGetShelleyAddressByRootKeyHex({
+      indexes,
+      networkId,
+      rootKeyHex: rootKey.toString('hex'),
+    });
+  }
+
   override async getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImported,
   ): Promise<ICoreApiGetAddressItem> {
@@ -194,11 +214,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const encodeKey = encodePrivateKey(privateKey);
 
     const index = parseInt(encodeKey.index, 10);
-    const addressInfos = batchGetShelleyAddressByRootKey(
-      encodeKey.rootKey,
-      [index],
-      EAdaNetworkId.MAINNET,
-    );
+    const addressInfos = await this.batchGetShelleyAddressInfosByRootKey({
+      rootKey: encodeKey.rootKey,
+      indexes: [index],
+      networkId: EAdaNetworkId.MAINNET,
+    });
     const { baseAddress, stakingAddress } = addressInfos[0];
 
     const result: ICoreApiGetAddressItem = this.buildAdaAddressItem({
@@ -217,20 +237,30 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
-    const { hdCredential, password, indexes, hdCredentialCacheScopeId } = query;
+    const {
+      hdCredential,
+      password,
+      indexes,
+      hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
+    } = query;
 
     // const { pathPrefix, pathSuffix } = slicePathTemplate(query.template);
     // const indexFormatted = indexes.map((index) =>
     //   pathSuffix.replace('{index}', index.toString()),
     // );
 
-    const addressInfos = await batchGetShelleyAddresses(
-      hdCredential,
-      password,
+    const rootKey = await getRootKey(password, hdCredential, {
+      hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
+    });
+    const addressInfos = await this.batchGetShelleyAddressInfosByRootKey({
+      rootKey,
       indexes,
-      EAdaNetworkId.MAINNET,
-      { hdCredentialCacheScopeId },
-    );
+      networkId: EAdaNetworkId.MAINNET,
+    });
 
     const addresses = addressInfos.map((info) => {
       const { baseAddress, stakingAddress } = info;

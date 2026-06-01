@@ -70,6 +70,38 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
+// `actions.ts` registers an AppState 'change' listener at module load to flush
+// the debounced tab-persist on background/inactive. jsdom doesn't ship a usable
+// AppState, so stub the minimal surface the listener touches.
+jest.mock('react-native', () => ({
+  AppState: {
+    addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+  },
+}));
+
+// `buildWebTabs` now persists tab snapshots via a lodash debounce wrapper
+// (500ms trailing / 2s maxWait). The atom state still updates synchronously,
+// but the mocked `setRawData` would fire after the assertions complete and
+// observe a stale state. Replace `debounce` with a passthrough so persistence
+// stays synchronous within `act()` — every other lodash export is untouched.
+//
+// WARNING: This mock applies to EVERY test in this file. Any future test
+// added here that depends on real `debounce` (trailing/maxWait timing,
+// `.flush()` queuing semantics, etc.) must either `jest.unmock('lodash')`
+// or override `debounce` per-test — otherwise it will silently misbehave.
+jest.mock('lodash', () => {
+  const actualLodash = jest.requireActual('lodash') as Record<string, unknown>;
+  return {
+    ...actualLodash,
+    debounce: (fn: (...args: unknown[]) => unknown) => {
+      const wrapper = (...args: unknown[]) => fn(...args);
+      wrapper.flush = () => undefined;
+      wrapper.cancel = () => undefined;
+      return wrapper;
+    },
+  };
+});
+
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {

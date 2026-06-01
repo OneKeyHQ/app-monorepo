@@ -184,6 +184,18 @@ function ConnectionModal() {
           storageType: 'injectedProvider',
           accountSelectorNum: connectedAccountInfo.num,
         });
+        // updateConnectionSession does not propagate the new account up to
+        // the home selector the way saveConnectionSession does. For the
+        // keyless-preselect entry (Continue with Google/Apple over an
+        // already-connected origin) we must mirror that propagation: under
+        // AlwaysUsePrimaryAccount mode, the next eth_accounts call runs
+        // alignPrimaryAccountToHomeAccount and would otherwise reverse our
+        // switch back to the previously-connected non-keyless account.
+        if (preselectKeylessProvider) {
+          await serviceDApp.syncDappAccountIfPrimaryMode({
+            origin: $sourceInfo.origin,
+          });
+        }
       } else {
         await serviceDApp.saveConnectionSession({
           origin: $sourceInfo?.origin,
@@ -227,6 +239,7 @@ function ConnectionModal() {
       connectedAccountInfo,
       keylessAutoConnectNonce,
       notifyKeylessWebConnectSuccess,
+      preselectKeylessProvider,
     ],
   );
 

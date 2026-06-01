@@ -406,6 +406,50 @@ describe('sliceRequest', () => {
     });
   });
 
+  describe('minimum time span expansion', () => {
+    it('should expand short requests backward when minTimeSpanSeconds is set', () => {
+      const timeTo = mockTimeFrom + 5 * SECONDS_IN_HOUR;
+      const result = sliceRequest('1m', mockTimeFrom, timeTo, {
+        minTimeSpanSeconds: 2 * SECONDS_IN_DAY,
+      });
+
+      expect(result[0].from).toBe(timeTo - 2 * SECONDS_IN_DAY);
+      expect(result[result.length - 1].to).toBe(timeTo);
+    });
+
+    it('should keep the requested start when it already covers the minimum span', () => {
+      const timeTo = mockTimeFrom + 3 * SECONDS_IN_DAY;
+      const result = sliceRequest('1H', mockTimeFrom, timeTo, {
+        minTimeSpanSeconds: 2 * SECONDS_IN_DAY,
+      });
+
+      expect(result[0].from).toBe(mockTimeFrom);
+      expect(result[result.length - 1].to).toBe(timeTo);
+    });
+
+    it('should slice expanded minute ranges by max data length', () => {
+      const timeTo = mockTimeFrom + 5 * SECONDS_IN_HOUR;
+      const result = sliceRequest('1m', mockTimeFrom, timeTo, {
+        minTimeSpanSeconds: 2 * SECONDS_IN_DAY,
+      });
+
+      expect(result).toHaveLength(2);
+      expect(result[0].from).toBe(timeTo - 2 * SECONDS_IN_DAY);
+      expect(result[result.length - 1].to).toBe(timeTo);
+      expect(result[1].from).toBe(result[0].to);
+    });
+
+    it('should still limit expanded requests to maximum 5 years', () => {
+      const timeTo = mockTimeFrom + 10 * SECONDS_IN_YEAR;
+      const result = sliceRequest('1D', timeTo - SECONDS_IN_DAY, timeTo, {
+        minTimeSpanSeconds: 8 * SECONDS_IN_YEAR,
+      });
+
+      expect(result[0].from).toBe(timeTo - 5 * SECONDS_IN_YEAR);
+      expect(result[result.length - 1].to).toBe(timeTo);
+    });
+  });
+
   describe('edge cases', () => {
     it('should handle when timeFrom equals timeTo', () => {
       const result = sliceRequest('1D', mockTimeFrom, mockTimeFrom);

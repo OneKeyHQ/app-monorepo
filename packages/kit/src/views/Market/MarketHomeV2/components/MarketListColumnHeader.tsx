@@ -2,21 +2,35 @@ import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack } from '@onekeyhq/components';
+import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-function MarketListColumnHeaderBase() {
+type IMarketListColumnHeaderProps = {
+  changeSortType?: 'asc' | 'desc';
+  changeSortTestID?: string;
+  onChangeSortPress?: () => void;
+};
+
+function MarketListColumnHeaderBase({
+  changeSortType,
+  changeSortTestID,
+  onChangeSortPress,
+}: IMarketListColumnHeaderProps) {
   const intl = useIntl();
+  let sortIconName:
+    | 'ChevronDownSmallOutline'
+    | 'ChevronTopSmallOutline'
+    | 'ChevronGrabberVerOutline' = 'ChevronGrabberVerOutline';
+  if (changeSortType === 'desc') {
+    sortIconName = 'ChevronDownSmallOutline';
+  } else if (changeSortType === 'asc') {
+    sortIconName = 'ChevronTopSmallOutline';
+  }
 
   return (
-    <XStack mx="$2">
+    <XStack px="$5">
       <XStack jc="flex-start" ai="center" width="50%">
-        <SizableText
-          color="$textSubdued"
-          size="$bodySmMedium"
-          py="$2"
-          paddingLeft="$5"
-        >
+        <SizableText color="$textSubdued" size="$bodySmMedium" py="$2">
           {`${intl.formatMessage({
             id: ETranslations.global_name,
           })} / ${intl.formatMessage({
@@ -29,7 +43,6 @@ function MarketListColumnHeaderBase() {
           justifyContent="flex-end"
           alignItems="center"
           gap="$2"
-          pr="$5"
           py="$2"
           width="100%"
         >
@@ -41,16 +54,30 @@ function MarketListColumnHeaderBase() {
           >
             {intl.formatMessage({ id: ETranslations.global_price })}
           </SizableText>
-          <SizableText
-            color="$textSubdued"
-            size="$bodySmMedium"
+          <XStack
+            alignItems="center"
+            justifyContent="flex-end"
             width="$20"
-            textAlign="center"
+            onPress={onChangeSortPress}
+            pressStyle={onChangeSortPress ? { opacity: 0.8 } : undefined}
+            cursor={onChangeSortPress ? 'pointer' : undefined}
+            testID={changeSortTestID}
           >
-            {intl.formatMessage({
-              id: ETranslations.dexmarket_token_change,
-            })}
-          </SizableText>
+            <SizableText
+              color="$textSubdued"
+              size="$bodySmMedium"
+              textAlign="right"
+              numberOfLines={1}
+              flexShrink={1}
+            >
+              {intl.formatMessage({
+                id: ETranslations.dexmarket_token_change,
+              })}
+            </SizableText>
+            {onChangeSortPress ? (
+              <Icon name={sortIconName} color="$iconSubdued" size="$4" />
+            ) : null}
+          </XStack>
         </XStack>
       </XStack>
     </XStack>

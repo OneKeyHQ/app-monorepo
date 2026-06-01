@@ -83,6 +83,13 @@ export interface IPerpsAccountDisplaySnapshotEntry {
   account: IPerpsActiveAccountAtom;
   accountValue: string | undefined;
   withdrawable: string | undefined;
+  activeAsset:
+    | {
+        coin: string;
+        leverage: IPerpsActiveAssetData['leverage'] | undefined;
+        updatedAt: number;
+      }
+    | undefined;
   availableToTrade:
     | {
         coin: string;
@@ -330,6 +337,7 @@ export type IPerpsActiveAccountStatusDetails = {
   builderFeeOk: boolean;
   internalRebateBoundOk: boolean;
   abstractionOk: boolean;
+  requiresAgentRemovalSignature?: boolean;
 };
 export type IPerpsActiveAccountStatusInfoAtom =
   | {
@@ -443,6 +451,9 @@ export const {
   use: usePerpsActiveAccountEnableTradingModeAtom,
 } = globalAtomComputedR<{
   isSoftwareAccount: boolean;
+  isHardwareAccount: boolean;
+  canAutoEnableInOrderPanel: boolean;
+  requiresEnableTradingDialogInOrderPanel: boolean;
   requiresExplicitEnableTrading: boolean;
 }>({
   read: (get) => {
@@ -454,6 +465,9 @@ export const {
     if (loading.selectAccountLoading || !accountId) {
       return {
         isSoftwareAccount: false,
+        isHardwareAccount: false,
+        canAutoEnableInOrderPanel: false,
+        requiresEnableTradingDialogInOrderPanel: false,
         requiresExplicitEnableTrading: true,
       };
     }
@@ -461,9 +475,13 @@ export const {
     const isSoftwareAccount =
       accountUtils.isHdAccount({ accountId }) ||
       accountUtils.isImportedAccount({ accountId });
+    const isHardwareAccount = accountUtils.isHwAccount({ accountId });
 
     return {
       isSoftwareAccount,
+      isHardwareAccount,
+      canAutoEnableInOrderPanel: isSoftwareAccount,
+      requiresEnableTradingDialogInOrderPanel: isHardwareAccount,
       requiresExplicitEnableTrading: !isSoftwareAccount,
     };
   },
@@ -486,11 +504,15 @@ export const {
       return true;
     }
 
-    if (enableTradingMode.isSoftwareAccount && !status.accountNotSupport) {
-      return false;
+    if (status.accountNotSupport) {
+      return true;
     }
 
-    return !status?.canTrade;
+    return !(
+      status.canTrade ||
+      enableTradingMode.canAutoEnableInOrderPanel ||
+      enableTradingMode.requiresEnableTradingDialogInOrderPanel
+    );
   },
 });
 
@@ -768,11 +790,14 @@ export const {
   },
 });
 
+export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
+
 export interface IPerpsCustomSettings {
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
   lastTriggerOrderType: ETriggerOrderType;
+  lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
 }
 export const {
   target: perpsCustomSettingsAtom,
@@ -785,6 +810,7 @@ export const {
     showTradeMarks: true,
     showChartLines: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
+    lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,
   },
 });
 

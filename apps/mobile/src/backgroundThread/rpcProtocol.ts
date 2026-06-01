@@ -50,6 +50,20 @@ export type IBackgroundThreadJotaiStateBroadcastPayload = {
   payload: any;
 };
 
+/**
+ * Batched payload for jotai state broadcasts. Coalesces multiple atom writes
+ * into a single SharedRPC slot to reduce main JS thread task pressure during
+ * cascade bursts (e.g. when a slow service response triggers dozens of
+ * downstream setAtomValue calls in the same microtask).
+ *
+ * Items are pre-deduplicated by name on the bg side (last value wins) and
+ * iteration order matches first-insertion order — see
+ * jotaiBgSync.flushBroadcastMicroBatch.
+ */
+export type IBackgroundThreadJotaiStateBroadcastBatchPayload = {
+  items: Array<IBackgroundThreadJotaiStateBroadcastPayload>;
+};
+
 export type IBackgroundThreadAppEventBroadcastPayload = {
   eventName: string;
   payload: unknown;
@@ -95,10 +109,49 @@ export type IBackgroundThreadResponsePayload = {
 export const BACKGROUND_THREAD_REQUEST_KEY_PREFIX = 'onekey:bg:req:';
 export const BACKGROUND_THREAD_RESPONSE_KEY_PREFIX = 'onekey:bg:res:';
 export const BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX = 'onekey:bg:jotai:';
+export const BACKGROUND_THREAD_JOTAI_STATE_BATCH_KEY_PREFIX =
+  'onekey:bg:jotai-batch:';
 export const BACKGROUND_THREAD_APP_EVENT_KEY_PREFIX = 'onekey:bg:event:';
 export const BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX = 'onekey:bg:bridge:';
 export const WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX = 'onekey:webembed:req:';
 export const WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX = 'onekey:webembed:resp:';
+
+// Static (single-slot) key the main runtime writes once on observer install
+// to advertise which optional wire protocols it understands. The bg runtime
+// reads / observes this slot and only switches to opt-in protocols (jotai
+// batch broadcast etc.) after the matching capability bit is set, so a
+// partial OTA / split-runtime mismatch can't silently drop batched updates.
+export const BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY = 'onekey:bg:main-caps';
+
+export type IBackgroundThreadMainCapabilitiesPayload = {
+  jotaiStateBatch?: boolean;
+};
+
+export function serializeBackgroundThreadMainCapabilitiesPayload(
+  payload: IBackgroundThreadMainCapabilitiesPayload,
+) {
+  return JSON.stringify(payload);
+}
+
+export function parseBackgroundThreadMainCapabilitiesPayload(
+  value: string | number | boolean | undefined,
+): IBackgroundThreadMainCapabilitiesPayload | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  try {
+    const payload = JSON.parse(
+      value,
+    ) as Partial<IBackgroundThreadMainCapabilitiesPayload>;
+    if (typeof payload !== 'object' || payload === null) {
+      return undefined;
+    }
+    return payload as IBackgroundThreadMainCapabilitiesPayload;
+  } catch {
+    return undefined;
+  }
+}
 
 export function buildBackgroundThreadRequestKey(callId: string) {
   return `${BACKGROUND_THREAD_REQUEST_KEY_PREFIX}${callId}`;
@@ -110,6 +163,10 @@ export function buildBackgroundThreadResponseKey(callId: string) {
 
 export function buildBackgroundThreadJotaiStateKey(callId: string) {
   return `${BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX}${callId}`;
+}
+
+export function buildBackgroundThreadJotaiStateBatchKey(callId: string) {
+  return `${BACKGROUND_THREAD_JOTAI_STATE_BATCH_KEY_PREFIX}${callId}`;
 }
 
 export function buildBackgroundThreadAppEventKey(callId: string) {
@@ -257,6 +314,38 @@ export function parseBackgroundThreadJotaiStateBroadcastPayload(
     }
 
     return payload as IBackgroundThreadJotaiStateBroadcastPayload;
+  } catch {
+    return undefined;
+  }
+}
+
+export function serializeBackgroundThreadJotaiStateBroadcastBatchPayload(
+  payload: IBackgroundThreadJotaiStateBroadcastBatchPayload,
+) {
+  return JSON.stringify(payload);
+}
+
+export function parseBackgroundThreadJotaiStateBroadcastBatchPayload(
+  value: string | number | boolean | undefined,
+): IBackgroundThreadJotaiStateBroadcastBatchPayload | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  try {
+    const payload = JSON.parse(
+      value,
+    ) as Partial<IBackgroundThreadJotaiStateBroadcastBatchPayload>;
+    if (!Array.isArray(payload.items)) {
+      return undefined;
+    }
+    // Each item must carry a string `name`; payload is opaque.
+    for (const item of payload.items) {
+      if (!item || typeof (item as { name?: unknown }).name !== 'string') {
+        return undefined;
+      }
+    }
+    return payload as IBackgroundThreadJotaiStateBroadcastBatchPayload;
   } catch {
     return undefined;
   }

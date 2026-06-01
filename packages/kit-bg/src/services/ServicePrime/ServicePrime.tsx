@@ -345,6 +345,14 @@ class ServicePrime extends ServiceBase {
     const serverManagementUrl =
       serverUserInfo.subscriptions?.[0]?.managementUrl;
 
+    // Sync the server KYT state into the settings cache before exposing
+    // onekeyUserId, so the settings switch and intro dialog gate (both keyed by
+    // onekeyUserId) read the latest interface value once the user becomes active.
+    await this.backgroundApi.serviceSetting.syncKytEnabledFromServer({
+      onekeyUserId: serverUserInfo?.userId,
+      kytEnabled: serverUserInfo?.kytEnabled,
+    });
+
     await primePersistAtom.set((v): IPrimePersistAtomData => {
       const userEmail = serverUserInfo?.emails?.[0] || undefined;
       return {

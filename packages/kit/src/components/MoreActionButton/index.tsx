@@ -20,7 +20,6 @@ import {
   Image,
   LottieView,
   NavBackButton,
-  Page,
   Popover,
   ScrollView,
   SizableText,
@@ -255,43 +254,6 @@ function MoreActionContentHeader({
     }
   }, []);
 
-  // iOS 26 page-level usage: render via the native UINavigationBar so
-  // the back chevron + right items get the system Liquid Glass material
-  // and the SF Symbols (headphones, qrcode.viewfinder) replace the
-  // small custom IconButton SVGs. The body of MoreActionContentPage
-  // continues to render the rest of the page below the bar.
-  const buildNativeRightItems = useCallback(
-    () => [
-      {
-        type: 'button' as const,
-        label: intl.formatMessage({ id: ETranslations.settings_contact_us }),
-        icon: { type: 'sfSymbol' as const, name: 'headphones' as const },
-        onPress: handleCustomerSupport,
-      },
-      {
-        type: 'button' as const,
-        label: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
-        icon: {
-          type: 'sfSymbol' as const,
-          name: 'qrcode.viewfinder' as const,
-        },
-        onPress: () => {
-          void handleScan();
-        },
-      },
-    ],
-    [intl, handleCustomerSupport, handleScan],
-  );
-
-  if (platformEnv.isNativeIOS26Plus && showBackButton) {
-    return (
-      <Page.Header
-        headerShown
-        unstable_headerRightItems={buildNativeRightItems}
-      />
-    );
-  }
-
   return (
     <XStack
       px="$5"
@@ -450,8 +412,8 @@ function MoreActionContentGridItem({
     onPress();
   }, [closePopover, onPress, trackID]);
 
-  const { user } = useOneKeyAuth();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const { user, isPrimeActive } = useOneKeyAuth();
+  const isPrimeUser = isPrimeActive && user?.onekeyUserId;
   const themeVariant = useThemeVariant();
 
   if (isPrimeFeature && !isPrimeAvailable) {
@@ -988,14 +950,14 @@ const MoreActionWalletGrid = () => {
     });
   }, [navigation]);
 
-  const { user } = useOneKeyAuth();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const { user, isPrimeActive } = useOneKeyAuth();
+  const isPrimeUser = isPrimeActive && user?.onekeyUserId;
   const {
     activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const checkIsPrimeUser = useCallback(
     (showFeature: EPrimeFeatures) => {
-      if (user?.primeSubscription?.isActive && user?.onekeyUserId) {
+      if (isPrimeActive && user?.onekeyUserId) {
         return true;
       }
       navigation.pushFullModal(EModalRoutes.PrimeModal, {
@@ -1007,7 +969,7 @@ const MoreActionWalletGrid = () => {
       });
       return false;
     },
-    [navigation, user, network?.id],
+    [isPrimeActive, navigation, network?.id, user?.onekeyUserId],
   );
   const openBulkCopyAddressesModule = useCallback(async () => {
     const networkId = networkUtils.toNetworkIdFallback({
@@ -1101,6 +1063,7 @@ const MoreActionWalletGrid = () => {
                 defaultLogger.prime.subscription.primeEntryClick({
                   featureName: EPrimeFeatures.BulkCopyAddresses,
                   entryPoint: 'moreActions',
+                  isPrimeActive,
                 });
               }
               void openBulkCopyAddressesModule();
@@ -1120,6 +1083,7 @@ const MoreActionWalletGrid = () => {
                 defaultLogger.prime.subscription.primeEntryClick({
                   featureName: EPrimeFeatures.BulkSend,
                   entryPoint: 'moreActions',
+                  isPrimeActive,
                 });
               }
               void openBulkSendModule();
@@ -1135,6 +1099,7 @@ const MoreActionWalletGrid = () => {
     handlePreferences,
     handleSecurity,
     intl,
+    isPrimeActive,
     isPrimeUser,
     openBulkCopyAddressesModule,
     openBulkSendModule,

@@ -50,6 +50,10 @@ interface IMockAccountSummary {
   crossMaintenanceMarginUsed: string;
 }
 
+interface IMockActiveAccount {
+  accountAddress: string | null;
+}
+
 interface IMockPosition {
   position: {
     coin: string;
@@ -68,6 +72,8 @@ let mockActiveAsset: IMockActiveAsset;
 let mockActiveAssetCtx: IMockActiveAssetCtx;
 let mockActiveAssetData: IMockActiveAssetData;
 let mockAccountSummary: IMockAccountSummary;
+let mockActiveAccount: IMockActiveAccount;
+let mockPositionsAccountAddress: string | undefined;
 let mockPositions: IMockPosition[];
 let mockOrderPrice: IMockOrderPrice;
 
@@ -77,11 +83,17 @@ let mockOrderPrice: IMockOrderPrice;
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms', () => ({
   useTradingFormAtom: () => [mockFormData],
   useTradingFormComputedAtom: () => [mockTradingComputed],
-  usePerpsActivePositionAtom: () => [{ activePositions: mockPositions }],
+  usePerpsActivePositionAtom: () => [
+    {
+      accountAddress: mockPositionsAccountAddress,
+      activePositions: mockPositions,
+    },
+  ],
   useActiveTradeInstrumentAtom: () => [{ mode: 'perp', coin: 'ETH' }],
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/perps', () => ({
+  usePerpsActiveAccountAtom: () => [mockActiveAccount],
   usePerpsActiveAccountSummaryAtom: () => [mockAccountSummary],
   usePerpsActiveAssetAtom: () => [mockActiveAsset],
   usePerpsActiveAssetCtxAtom: () => [mockActiveAssetCtx],
@@ -91,19 +103,41 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/perps', () => ({
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
   useTradingFormAtom: () => [mockFormData],
   useTradingFormComputedAtom: () => [mockTradingComputed],
-  usePerpsActivePositionAtom: () => [{ activePositions: mockPositions }],
+  usePerpsActivePositionAtom: () => [
+    {
+      accountAddress: mockPositionsAccountAddress,
+      activePositions: mockPositions,
+    },
+  ],
   useActiveTradeInstrumentAtom: () => [{ mode: 'perp', coin: 'ETH' }],
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  getPerpsAccountDisplaySnapshotEntry: () => undefined,
+  usePerpsActiveAccountAtom: () => [mockActiveAccount],
   usePerpsActiveAccountSummaryAtom: () => [mockAccountSummary],
   usePerpsActiveAssetAtom: () => [mockActiveAsset],
   usePerpsActiveAssetCtxAtom: () => [mockActiveAssetCtx],
   usePerpsActiveAssetDataAtom: () => [mockActiveAssetData],
+  usePerpsAccountDisplaySnapshotAtom: () => [{}],
   usePerpsComputedAccountValueAtom: () => [
     { accountValue: '10000', isLoading: false },
   ],
 }));
+
+jest.mock(
+  '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms',
+  () => ({
+    useActiveAccount: () => ({
+      activeAccount: {
+        ready: true,
+        account: { id: 'account-id' },
+        indexedAccount: { id: 'indexed-account-id' },
+        deriveType: 'default',
+      },
+    }),
+  }),
+);
 
 jest.mock('./useOrderPrice', () => ({
   useOrderPrice: () => mockOrderPrice,
@@ -147,6 +181,10 @@ const resetMocks = () => {
     crossAccountValue: '100',
     crossMaintenanceMarginUsed: '20',
   };
+  mockActiveAccount = {
+    accountAddress: '0xbbb',
+  };
+  mockPositionsAccountAddress = '0xbbb';
   mockPositions = [];
   mockOrderPrice = {
     price: new BigNumber(110),
@@ -198,5 +236,33 @@ describe('useLiquidationPrice', () => {
     const { result } = renderHook(() => useLiquidationPrice('long'));
 
     expect(result.current).toBeNull();
+  });
+
+  test('ignores cached positions from a different account', () => {
+    mockPositionsAccountAddress = '0xaaa';
+    mockPositions = [
+      {
+        position: {
+          coin: 'BTC',
+          szi: '10',
+          entryPx: '50',
+        },
+      },
+    ];
+
+    const { result: mismatchedAccountResult } = renderHook(() =>
+      useLiquidationPrice('long'),
+    );
+
+    mockPositionsAccountAddress = '0xbbb';
+    mockPositions = [];
+
+    const { result: emptyPositionResult } = renderHook(() =>
+      useLiquidationPrice('long'),
+    );
+
+    expect(mismatchedAccountResult.current?.toFixed()).toBe(
+      emptyPositionResult.current?.toFixed(),
+    );
   });
 });

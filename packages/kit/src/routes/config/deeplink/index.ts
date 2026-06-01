@@ -34,6 +34,7 @@ import { registerHandler } from './handler';
 import { parseWebViewDeepLink } from './parseWebViewDeepLink';
 import {
   handleReferralLandingUrl,
+  isValidReferralCode,
   navigateToReferralLanding,
 } from './referralLandingLink';
 
@@ -80,6 +81,37 @@ async function openRedeemBitcoinVoucherDialog(initialCode?: string) {
   await redeemBitcoinVoucherOpenTask;
 }
 
+function getOneKeyDeepLinkPath({ hostname, path, scheme }: Linking.ParsedURL) {
+  if (scheme !== ONEKEY_APP_DEEP_LINK && scheme !== ONEKEY_APP_DEEP_LINK_NAME) {
+    return undefined;
+  }
+  return hostname ?? path?.slice(1);
+}
+
+async function handleReferralLandingAppDeepLink({
+  parsedUrl,
+}: IProcessDeepLinkParams) {
+  if (
+    getOneKeyDeepLinkPath(parsedUrl) !== EOneKeyDeepLinkPath.invited_by_friend
+  ) {
+    return false;
+  }
+
+  const { queryParams } = parsedUrl;
+  const { code, page } =
+    queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
+  if (!isValidReferralCode(code)) {
+    return true;
+  }
+
+  await navigateToReferralLanding({
+    code,
+    page: page ?? '',
+    fromDeepLink: true,
+  });
+  return true;
+}
+
 async function processDeepLinkUrlAccount(
   params: IProcessDeepLinkParams,
   times = 0,
@@ -89,7 +121,7 @@ async function processDeepLinkUrlAccount(
   }
   try {
     const { parsedUrl } = params;
-    const { hostname, queryParams, scheme, path } = parsedUrl;
+    const { queryParams, scheme } = parsedUrl;
     if (
       scheme === ONEKEY_APP_DEEP_LINK ||
       scheme === ONEKEY_APP_DEEP_LINK_NAME
@@ -102,7 +134,7 @@ async function processDeepLinkUrlAccount(
         }, 1500);
         return;
       }
-      switch (hostname ?? path?.slice(1)) {
+      switch (getOneKeyDeepLinkPath(parsedUrl)) {
         case EOneKeyDeepLinkPath.url_account: {
           const query =
             queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.url_account];
@@ -153,24 +185,6 @@ async function processDeepLinkUrlAccount(
               code,
               utmSource,
             );
-          }
-          break;
-        case EOneKeyDeepLinkPath.invited_by_friend:
-          {
-            const { code, page } =
-              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
-            const VALID_REFERRAL_CODE = /^[a-zA-Z0-9_-]{1,32}$/;
-            if (!code || !VALID_REFERRAL_CODE.test(code)) {
-              break;
-            }
-            if (navigation) {
-              await navigateToReferralLanding({
-                code,
-                page: page ?? '',
-                navigation,
-                fromDeepLink: true,
-              });
-            }
           }
           break;
         case EOneKeyDeepLinkPath.redeem_bitcoin_voucher:
@@ -324,6 +338,9 @@ const processDeepLinkUrl = memoizee(
           queryParams,
           scheme,
         });
+      }
+      if (await handleReferralLandingAppDeepLink({ url, parsedUrl })) {
+        return;
       }
       await processDeepLinkUrlAccount({ url, parsedUrl });
       await processDeepLinkWalletConnect({ url, parsedUrl });

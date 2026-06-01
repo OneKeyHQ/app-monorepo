@@ -16,6 +16,7 @@ interface IAutoKLineUpdateParams {
   webRef: RefObject<IWebViewRef | null>;
   enabled?: boolean;
   interval?: number; // in milliseconds, default 60000 (1 minute)
+  autoHandleError?: boolean;
 }
 
 export function useAutoKLineUpdate({
@@ -24,6 +25,7 @@ export function useAutoKLineUpdate({
   webRef,
   enabled = true,
   interval = 5000, // 1 minute
+  autoHandleError,
 }: IAutoKLineUpdateParams) {
   const lastUpdateTime = useRef<number>(0);
   const tokenDetailActions = useTokenDetailActions();
@@ -52,6 +54,7 @@ export function useAutoKLineUpdate({
         interval: '1m', // 1 minute interval
         timeFrom,
         timeTo,
+        autoHandleError,
       });
 
       // Sort K-line data by timestamp to ensure we get the actual latest price
@@ -99,6 +102,7 @@ export function useAutoKLineUpdate({
     webRef,
     tokenDetail,
     tokenDetailActions,
+    autoHandleError,
   ]);
 
   // Use the existing useInterval hook pattern

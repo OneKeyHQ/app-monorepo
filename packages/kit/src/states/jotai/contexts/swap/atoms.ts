@@ -64,6 +64,12 @@ const {
 } = createJotaiContext();
 export { ProviderJotaiContextSwap, contextAtomMethod };
 
+export type ISwapQuoteEventErrorState = {
+  message: string;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+};
+
 // swap mev config
 export const { atom: swapMevConfigAtom, use: useSwapMevConfigAtom } =
   contextAtom<{
@@ -447,7 +453,7 @@ export const { atom: swapAlertsAtom, use: useSwapAlertsAtom } = contextAtom<{
 export const {
   atom: swapQuoteEventErrorAtom,
   use: useSwapQuoteEventErrorAtom,
-} = contextAtom<string>('');
+} = contextAtom<ISwapQuoteEventErrorState | undefined>(undefined);
 
 export const { atom: rateDifferenceAtom, use: useRateDifferenceAtom } =
   contextAtom<{ value: string; unit: ESwapRateDifferenceUnit } | undefined>(

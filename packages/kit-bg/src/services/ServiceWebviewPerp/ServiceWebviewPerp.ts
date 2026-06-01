@@ -3,7 +3,6 @@ import BigNumber from 'bignumber.js';
 import { isNumber, isString } from 'lodash';
 import pTimeout from 'p-timeout';
 
-import type { IAlertType } from '@onekeyhq/components';
 import {
   backgroundClass,
   backgroundMethod,
@@ -33,11 +32,13 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid';
 import type {
   IHyperLiquidErrorLocaleItem,
+  IPerpServerBannerConfig,
   IPerpsAssetMetaMap,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
+import { logHyperLiquidApiFailure } from '../ServiceHyperLiquid/utils/logHyperLiquidApiFailure';
 
 import type { IHyperliquidCustomSettings } from '../../dbs/simple/entity/SimpleDbEntityPerp';
 import type {
@@ -48,6 +49,10 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
 
 export interface IHyperliquidClearinghouseState {
   marginSummary: {
@@ -202,16 +207,7 @@ export enum EPerpDefaultTabType {
   Native = 'native',
   Web = 'web',
 }
-export interface IPerpServerBannerConfig {
-  id: string;
-  alertType: IAlertType;
-  title: string;
-  description: string;
-  href?: string;
-  hrefType?: string;
-  useSystemBrowser?: boolean;
-  canClose?: boolean;
-}
+export type { IPerpServerBannerConfig };
 
 export interface IPerpServerDepositConfig {
   network: IPerpsDepositNetwork;
@@ -282,10 +278,30 @@ class ServiceWebviewPerp extends ServiceBase {
     // TODO init by server api
   }
 
+  private resolveHyperliquidRequestAction(
+    endpoint: string,
+    body: Record<string, unknown>,
+  ) {
+    if (typeof body.type === 'string') {
+      return body.type;
+    }
+    const { action } = body;
+    if (
+      isRecord(action) &&
+      'type' in action &&
+      typeof action.type === 'string'
+    ) {
+      return action.type;
+    }
+    return endpoint;
+  }
+
   private async hyperliquidRequestBase<T>(
     endpoint: string,
-    body: Record<string, any>,
+    body: Record<string, unknown>,
   ): Promise<T> {
+    const logEndpoint = endpoint === 'exchange' ? 'exchange' : 'info';
+    const action = this.resolveHyperliquidRequestAction(endpoint, body);
     try {
       const response = await axios.post<T>(
         `https://api.hyperliquid.xyz/${endpoint}`,
@@ -307,11 +323,27 @@ class ServiceWebviewPerp extends ServiceBase {
           typeof responseDataWithError.response === 'string'
             ? responseDataWithError.response
             : stringUtils.stableStringify(responseDataWithError.response);
-        throw new OneKeyError(errorMessage);
+        const err = new OneKeyError(errorMessage);
+        await logHyperLiquidApiFailure({
+          endpoint: logEndpoint,
+          action,
+          request: body,
+          response: responseDataWithError,
+          error: err,
+          extra: { source: 'ServiceWebviewPerp' },
+        });
+        throw err;
       }
       return response.data;
     } catch (error) {
       if (error && axios.isAxiosError(error)) {
+        await logHyperLiquidApiFailure({
+          endpoint: logEndpoint,
+          action,
+          request: body,
+          error,
+          extra: { source: 'ServiceWebviewPerp' },
+        });
         const extractedMessage = extractHyperLiquidErrorMessage(error);
         if (extractedMessage && extractedMessage !== error.message) {
           throw new OneKeyError(extractedMessage);
@@ -334,6 +366,13 @@ class ServiceWebviewPerp extends ServiceBase {
       if (e instanceof OneKeyError) {
         throw e;
       }
+      await logHyperLiquidApiFailure({
+        endpoint: logEndpoint,
+        action,
+        request: body,
+        error,
+        extra: { source: 'ServiceWebviewPerp' },
+      });
       throw new OneKeyError(
         `Hyperliquid API error 6632: ${[
           e?.name,
@@ -348,13 +387,13 @@ class ServiceWebviewPerp extends ServiceBase {
   }
 
   private async hyperliquidInfoRequest<T>(
-    body: Record<string, any>,
+    body: Record<string, unknown>,
   ): Promise<T> {
     return this.hyperliquidRequestBase<T>('info', body);
   }
 
   private async hyperliquidExchangeRequest<T>(
-    body: Record<string, any>,
+    body: Record<string, unknown>,
   ): Promise<T> {
     return this.hyperliquidRequestBase<T>('exchange', body);
   }

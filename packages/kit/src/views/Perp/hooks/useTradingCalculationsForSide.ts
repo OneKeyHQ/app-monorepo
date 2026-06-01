@@ -333,6 +333,12 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     if (formData.orderMode === 'trigger') {
       return false;
     }
+    if (
+      (formData.orderMode === 'scale' && formData.scaleReduceOnly) ||
+      (formData.orderMode === 'twap' && formData.twapReduceOnly)
+    ) {
+      return false;
+    }
 
     // No margin for this side (guard on markPxBN to skip initial loading)
     if (markPxBN.gt(0) && availableMarginBN.lte(0)) {
@@ -372,8 +378,10 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     leverage,
     markPxBN,
     formData.orderMode,
+    formData.scaleReduceOnly,
     formData.sizeInputMode,
     formData.sizePercent,
+    formData.twapReduceOnly,
     isSpot,
     orderValue,
     side,

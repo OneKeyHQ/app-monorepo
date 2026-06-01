@@ -22,7 +22,7 @@ describe('shouldApplyMinimumOrderGuard', () => {
     ).toBe(true);
   });
 
-  it('keeps the guard for non-spot and non-standard-limit orders', () => {
+  it('keeps the guard for perp standard limit orders', () => {
     expect(
       shouldApplyMinimumOrderGuard({
         isSpot: false,
@@ -30,6 +30,9 @@ describe('shouldApplyMinimumOrderGuard', () => {
         orderType: 'limit',
       }),
     ).toBe(true);
+  });
+
+  it('keeps the guard for spot standard market orders', () => {
     expect(
       shouldApplyMinimumOrderGuard({
         isSpot: true,
@@ -37,11 +40,48 @@ describe('shouldApplyMinimumOrderGuard', () => {
         orderType: 'market',
       }),
     ).toBe(true);
+  });
+
+  it('keeps the guard for spot trigger limit orders', () => {
     expect(
       shouldApplyMinimumOrderGuard({
         isSpot: true,
         orderMode: 'trigger',
         orderType: 'limit',
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps the guard for scale orders', () => {
+    expect(
+      shouldApplyMinimumOrderGuard({
+        isSpot: false,
+        orderMode: 'scale',
+        orderType: 'limit',
+      }),
+    ).toBe(true);
+    expect(
+      shouldApplyMinimumOrderGuard({
+        isSpot: true,
+        orderMode: 'scale',
+        orderType: 'limit',
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps the guard for twap orders', () => {
+    expect(
+      shouldApplyMinimumOrderGuard({
+        isSpot: false,
+        orderMode: 'twap',
+        orderType: 'market',
+      }),
+    ).toBe(true);
+    expect(
+      shouldApplyMinimumOrderGuard({
+        isSpot: true,
+        orderMode: 'twap',
+        orderType: 'market',
       }),
     ).toBe(true);
   });

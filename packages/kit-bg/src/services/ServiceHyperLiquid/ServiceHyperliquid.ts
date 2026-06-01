@@ -63,6 +63,7 @@ import type {
   IApiRequestError,
   IApiRequestResult,
   IBook,
+  IEventWebData2Parameters,
   IFill,
   IFundingHistoryRecord,
   IHex,
@@ -77,9 +78,14 @@ import type {
   IPerpsUniverse,
   IRecentTrade,
   ISpotUniverse,
+  ITwapHistoryParameters,
+  ITwapHistoryRecord,
+  ITwapSliceFill,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
   IUserNonFundingLedgerUpdate,
+  IUserTwapSliceFillsByTimeParameters,
+  IUserTwapSliceFillsParameters,
   IWsActiveAssetCtx,
   IWsActiveSpotAssetCtx,
   IWsAllDexsClearinghouseState,
@@ -935,6 +941,36 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getWebData2(params: IEventWebData2Parameters): Promise<IWsWebData2> {
+    const { infoClient } = hyperLiquidApiClients;
+    return infoClient.webData2(params);
+  }
+
+  @backgroundMethod()
+  async getTwapHistory(
+    params: ITwapHistoryParameters,
+  ): Promise<ITwapHistoryRecord[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    return infoClient.twapHistory(params);
+  }
+
+  @backgroundMethod()
+  async getUserTwapSliceFills(
+    params: IUserTwapSliceFillsParameters,
+  ): Promise<ITwapSliceFill[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    return infoClient.userTwapSliceFills(params);
+  }
+
+  @backgroundMethod()
+  async getUserTwapSliceFillsByTime(
+    params: IUserTwapSliceFillsByTimeParameters,
+  ): Promise<ITwapSliceFill[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    return infoClient.userTwapSliceFillsByTime(params);
+  }
+
+  @backgroundMethod()
   async getUserNonFundingLedgerUpdates(
     accountAddress: IHex,
   ): Promise<IUserNonFundingLedgerUpdate[]> {
@@ -1744,6 +1780,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     const displayMap: Record<string, string> = {};
     for (const u of universes) {
       displayMap[u.name] = perpsUtils.getSpotTokenDisplayName(u.baseName);
+      displayMap[u.baseName] = perpsUtils.getSpotTokenDisplayName(u.baseName);
     }
     void spotPairDisplayMapAtom.set(displayMap);
   }
@@ -2653,6 +2690,17 @@ export default class ServiceHyperliquid extends ServiceBase {
         });
       }
     }
+    const onekeyAgentNames = [
+      EHyperLiquidAgentName.OneKeyAgent1,
+      EHyperLiquidAgentName.OneKeyAgent2,
+      EHyperLiquidAgentName.OneKeyAgent3,
+    ];
+    if (!agentCredential && extraAgents?.length === 3) {
+      statusDetails.requiresAgentRemovalSignature = extraAgents.some(
+        (agent) =>
+          !onekeyAgentNames.includes(agent.name as EHyperLiquidAgentName),
+      );
+    }
     if (!agentCredential && isEnableTradingTrigger) {
       this.fetchExtraAgentsWithCache.clear();
       try {
@@ -2660,11 +2708,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         const privateKeyHex = bufferUtils.bytesToHex(privateKeyBytes);
         const agentAddress = new ethers.Wallet(privateKeyHex).address as IHex;
 
-        const onekeyAgentNames = [
-          EHyperLiquidAgentName.OneKeyAgent1,
-          EHyperLiquidAgentName.OneKeyAgent2,
-          EHyperLiquidAgentName.OneKeyAgent3,
-        ];
         let agentNameToApprove: EHyperLiquidAgentName | undefined;
         if (extraAgents.length === 3) {
           const nonOneKeyAgents = extraAgents.filter(

@@ -2117,6 +2117,33 @@ class ServiceStaking extends ServiceBase {
     return vaultSettings.stakingResultPollingInterval ?? 30;
   }
 
+  // Batched variant: callers iterating `effectiveNetworkIds` (see
+  // useStakingPendingTxsByInfo) MUST prefer this over N parallel
+  // `getFetchHistoryPollingInterval` calls. Single-item method retained for
+  // legacy callers; the cascade hot path collapses N RPCs into 1.
+  @backgroundMethod()
+  async getFetchHistoryPollingIntervalsBatch({
+    networkIds,
+  }: {
+    networkIds: string[];
+  }): Promise<Record<string, number>> {
+    const result: Record<string, number> = {};
+    await Promise.all(
+      networkIds.map(async (networkId) => {
+        try {
+          const vaultSettings =
+            await this.backgroundApi.serviceNetwork.getVaultSettings({
+              networkId,
+            });
+          result[networkId] = vaultSettings.stakingResultPollingInterval ?? 30;
+        } catch {
+          result[networkId] = 30;
+        }
+      }),
+    );
+    return result;
+  }
+
   @backgroundMethod()
   async queryInviteCodeByAddress(params: {
     networkId: string;

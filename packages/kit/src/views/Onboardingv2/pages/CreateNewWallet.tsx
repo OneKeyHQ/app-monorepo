@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -34,6 +34,8 @@ import {
 import { useAutoStartKeylessProvider } from '../hooks/useAutoStartKeylessProvider';
 import { useKeylessLocalExistenceLogin } from '../hooks/useKeylessLocalExistenceLogin';
 import { OnboardingTestIDs } from '../testIDs';
+
+import { KeylessOnboardingDebugPanel } from './KeylessOnboardingDebugPanel';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -73,13 +75,18 @@ function CreateNewWallet() {
     route?.params?.fromExt && autoLoginKeylessProvider,
   );
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
+  const [isResetMode, setIsResetMode] = useState(false);
 
   const {
     enableKeylessWalletLoading,
     loadingProvider,
     handleGoogleLogin,
     handleAppleLogin,
-  } = useKeylessLocalExistenceLogin({ autoLoginKeylessProvider });
+  } = useKeylessLocalExistenceLogin({
+    autoLoginKeylessProvider,
+    isResetMode,
+    onResetModeChange: setIsResetMode,
+  });
 
   const handleCreateSeedPhraseWallet = useCallback(async () => {
     const mnemonic = await backgroundApiProxy.serviceAccount.generateMnemonic();
@@ -113,12 +120,13 @@ function CreateNewWallet() {
     onAppleLogin: handleAppleLogin,
   });
 
-  const isGoogleLoading =
-    enableKeylessWalletLoading &&
-    loadingProvider === EOAuthSocialLoginProvider.Google;
-  const isAppleLoading =
-    enableKeylessWalletLoading &&
-    loadingProvider === EOAuthSocialLoginProvider.Apple;
+  const isGoogleLoading = loadingProvider === EOAuthSocialLoginProvider.Google;
+  const isAppleLoading = loadingProvider === EOAuthSocialLoginProvider.Apple;
+  // Disable both provider buttons whenever any keyless login/reset is in
+  // flight. enableKeylessWalletLoading covers the create/restore path; reset
+  // mode only sets loadingProvider, so include it here too.
+  const isKeylessLoginInProgress =
+    enableKeylessWalletLoading || loadingProvider !== null;
 
   const { md } = useMedia();
 
@@ -186,7 +194,7 @@ function CreateNewWallet() {
             size="large"
             alignSelf="stretch"
             childrenAsText={false}
-            disabled={enableKeylessWalletLoading || isGoogleLoading}
+            disabled={isKeylessLoginInProgress}
             onPress={handleGoogleLogin}
           >
             <YStack position="absolute" left="$5">
@@ -209,7 +217,7 @@ function CreateNewWallet() {
             size="large"
             alignSelf="stretch"
             childrenAsText={false}
-            disabled={enableKeylessWalletLoading || isAppleLoading}
+            disabled={isKeylessLoginInProgress}
             onPress={handleAppleLogin}
           >
             <YStack position="absolute" left="$5">
@@ -250,6 +258,12 @@ function CreateNewWallet() {
                 </SizableText>
               </Button>
             </>
+          )}
+          {isWebKeylessSidePanelMode ? null : (
+            <KeylessOnboardingDebugPanel
+              isResetMode={isResetMode}
+              onResetModeChange={setIsResetMode}
+            />
           )}
         </YStack>
       </YStack>

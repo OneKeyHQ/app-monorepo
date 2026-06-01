@@ -32,6 +32,7 @@ import {
   getOnChainHistoryTxAssetInfo,
   getOnChainHistoryTxStatus,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { resolveKytDisplayLevel } from '@onekeyhq/shared/src/utils/kytUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   buildTxActionDirection,
@@ -763,6 +764,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         actions: [action],
 
         riskyLevel: onChainHistoryTx.riskLevel,
+
+        kytRiskLevel: resolveKytDisplayLevel(onChainHistoryTx.kyt),
+        kyt: onChainHistoryTx.kyt,
 
         status: getOnChainHistoryTxStatus(onChainHistoryTx.status),
 
@@ -1533,10 +1537,20 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       '/wallet/v1/account/history/detail',
       {
         params: rest,
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
+        headers: {
+          ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+            {
+              accountId,
+            },
+          )),
+          // Authenticate this request only so the server can attach per-user
+          // KYT risk data, without authenticating the whole shared wallet client.
+          // Watch-only accounts are excluded from KYT: withhold the token so the
+          // server never enrols their addresses (no queue / no data / no push).
+          ...(accountUtils.isWatchingAccount({ accountId })
+            ? {}
+            : await this.backgroundApi.serviceGas.getOneKeyIdAuthHeaders()),
+        },
       },
     );
     return resp;

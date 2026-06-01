@@ -40,6 +40,7 @@ export enum EPrimeFeatures {
   DAppTranslate = 'DAppTranslate',
   BlockaidSiteScan = 'BlockaidSiteScan',
   ExtendedHistory = 'ExtendedHistory',
+  ReceiveRiskMonitoring = 'ReceiveRiskMonitoring',
 }
 
 export type IPrimeParamList = {
@@ -59,8 +60,7 @@ export type IPrimeParamList = {
   [EPrimePages.PrimeFeatures]: {
     selectedFeature?: EPrimeFeatures;
     selectedSubscriptionPeriod?: ISubscriptionPeriod;
-    showAllFeatures?: boolean;
-    serverUserInfo?: IPrimeServerUserInfo;
+    networkId?: string;
   };
   [EPrimePages.PrimeDeleteAccount]: undefined;
   [EPrimePages.PrimeTransfer]: IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.cross_device_transfer];
