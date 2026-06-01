@@ -1442,6 +1442,25 @@ export default class ServiceHyperliquid extends ServiceBase {
   private async _commitActiveAccountSummary(
     summary: NonNullable<IPerpsActiveAccountSummaryAtom>,
   ) {
+    // Stale-write guard (address-bound). The active-account-change requestId is
+    // bumped synchronously at switch START, but perpsActiveAccountAtom only
+    // flips to the new account at switch END. During that loading window a WS
+    // packet for the OLD account still passes the address check in
+    // updateActiveAccountSummary*() and gets stamped with the already-bumped
+    // (new) requestId, so isLatestActivePerpsAccountChange() alone cannot
+    // reject it — a trailing flush would then re-land the old account's summary
+    // after the new account is published. Re-validate against the live active
+    // account here so the commit is bound to the address it actually belongs
+    // to. Read-side consumers (e.g. perpsActiveAccountMmrAtom) do not all align
+    // by address, so the stale write must be stopped at the source.
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAddress = activeAccount?.accountAddress?.toLowerCase();
+    if (
+      !activeAddress ||
+      summary.accountAddress?.toLowerCase() !== activeAddress
+    ) {
+      return;
+    }
     await perpsActiveAccountSummaryAtom.set(summary);
     void this.cacheService
       .writePerpsAccountDisplaySummary(summary)

@@ -306,9 +306,17 @@ export const {
   use: usePerpsActiveAccountMmrAtom,
 } = globalAtomComputedR<{ mmr: string | null; mmrPercent: string | null }>({
   read: (get) => {
+    const account = get(perpsActiveAccountAtom.atom());
     const accountSummary = get(perpsActiveAccountSummaryAtom.atom());
 
+    // Address alignment: the summary atom is written from real-time WS pushes
+    // and can briefly hold a previous account's payload during an account
+    // switch. MMR drives liquidation-risk UI, so never derive it from a
+    // summary that does not belong to the current active account.
+    const activeAddress = account?.accountAddress?.toLowerCase();
     if (
+      !activeAddress ||
+      accountSummary?.accountAddress?.toLowerCase() !== activeAddress ||
       !accountSummary?.crossMaintenanceMarginUsed ||
       !accountSummary?.crossAccountValue
     ) {
