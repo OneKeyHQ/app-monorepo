@@ -25,6 +25,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
 import {
   getPerpsAccountScopedListData,
+  isPerpsAccountAddressMatched,
   isPerpsAccountScopedDataReady,
 } from '../../../utils/accountScopedData';
 import {
@@ -66,6 +67,10 @@ function PerpPositionsList({
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [positions] = usePerpsActivePositionAtom();
   const [currentListPage, setCurrentListPage] = useState(1);
+  const canMutateScopedPositions = isPerpsAccountAddressMatched({
+    activeAccountAddress: currentUser?.accountAddress,
+    dataAccountAddress: accountScopedAddress,
+  });
   const scopedActivePositions = useMemo(
     () =>
       getPerpsAccountScopedListData({
@@ -182,12 +187,14 @@ function PerpPositionsList({
         align: 'right',
         flex: 1,
         fixed: positionsLength > 0,
-        ...(positionsLength > 0 && {
-          onPress: () => showCloseAllPositionsDialog(),
-        }),
+        ...(positionsLength > 0 &&
+          canMutateScopedPositions && {
+            onPress: () =>
+              showCloseAllPositionsDialog(undefined, accountScopedAddress),
+          }),
       },
     ];
-  }, [intl, positionsLength]);
+  }, [accountScopedAddress, canMutateScopedPositions, intl, positionsLength]);
   const totalMinWidth = useMemo(
     () =>
       columnsConfig.reduce(
@@ -418,6 +425,8 @@ function PerpPositionsList({
           isMobile ? (
             <MobilePositionsListHeader
               totalPositionCount={scopedActivePositions.length}
+              canCloseAll={canMutateScopedPositions}
+              scopedAccountAddress={accountScopedAddress}
             />
           ) : null
         }

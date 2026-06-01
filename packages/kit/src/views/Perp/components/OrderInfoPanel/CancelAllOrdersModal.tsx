@@ -16,8 +16,12 @@ import {
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
+import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
-import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
+import {
+  getPerpsAccountScopedListData,
+  isPerpsAccountAddressMatched,
+} from '../../utils/accountScopedData';
 import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
@@ -27,15 +31,20 @@ import { TradingGuardWrapper } from '../TradingGuardWrapper';
 interface ICancelAllOrdersContentProps {
   onClose?: () => void;
   filterByCoin?: string;
+  scopedAccountAddress?: string | null;
 }
 
 function CancelAllOrdersContent({
   onClose,
   filterByCoin,
+  scopedAccountAddress,
 }: ICancelAllOrdersContentProps) {
   const actions = useHyperliquidActions();
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
+  const currentScopedAccountAddress = usePerpsAccountScopedCacheAddress();
+  const effectiveScopedAccountAddress =
+    scopedAccountAddress ?? currentScopedAccountAddress;
   const [
     {
       accountAddress: perpOpenOrdersAccountAddress,
@@ -49,22 +58,26 @@ function CancelAllOrdersContent({
     },
   ] = useSpotActiveOpenOrdersAtom();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const canSubmit = isPerpsAccountAddressMatched({
+    activeAccountAddress: activeAccount?.accountAddress,
+    dataAccountAddress: effectiveScopedAccountAddress,
+  });
 
   const ordersToProcess = useMemo(() => {
     const scopedPerpOpenOrders = getPerpsAccountScopedListData({
-      activeAccountAddress: activeAccount?.accountAddress,
+      activeAccountAddress: effectiveScopedAccountAddress,
       dataAccountAddress: perpOpenOrdersAccountAddress,
       data: perpOpenOrders,
     });
     const scopedSpotOpenOrders = getPerpsAccountScopedListData({
-      activeAccountAddress: activeAccount?.accountAddress,
+      activeAccountAddress: effectiveScopedAccountAddress,
       dataAccountAddress: spotOpenOrdersAccountAddress,
       data: spotOpenOrders,
     });
     const all = [...scopedPerpOpenOrders, ...scopedSpotOpenOrders];
     return filterByCoin ? all.filter((o) => o.coin === filterByCoin) : all;
   }, [
-    activeAccount?.accountAddress,
+    effectiveScopedAccountAddress,
     filterByCoin,
     perpOpenOrders,
     perpOpenOrdersAccountAddress,
@@ -73,7 +86,7 @@ function CancelAllOrdersContent({
   ]);
 
   const handleConfirm = useCallback(async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || !canSubmit) return;
 
     setIsSubmitting(true);
     try {
@@ -109,7 +122,7 @@ function CancelAllOrdersContent({
     } finally {
       setIsSubmitting(false);
     }
-  }, [actions, isSubmitting, onClose, ordersToProcess]);
+  }, [actions, canSubmit, isSubmitting, onClose, ordersToProcess]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
@@ -136,7 +149,7 @@ function CancelAllOrdersContent({
           testID="perp-button-text-btn"
           variant="primary"
           size={PERP_DIALOG_BUTTON_SIZE}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !canSubmit || ordersToProcess.length === 0}
           loading={isSubmitting}
           onPress={handleConfirm}
         >
@@ -147,7 +160,10 @@ function CancelAllOrdersContent({
   );
 }
 
-export function showCancelAllOrdersDialog(filterByCoin?: string) {
+export function showCancelAllOrdersDialog(
+  filterByCoin?: string,
+  scopedAccountAddress?: string | null,
+) {
   const dialogInstance = Dialog.show({
     // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
@@ -160,6 +176,7 @@ export function showCancelAllOrdersDialog(filterByCoin?: string) {
             void dialogInstance.close();
           }}
           filterByCoin={filterByCoin}
+          scopedAccountAddress={scopedAccountAddress}
         />
       </PerpsProviderMirror>
     ),

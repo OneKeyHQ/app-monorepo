@@ -23,6 +23,7 @@ import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
 import {
   getPerpsAccountScopedListData,
+  isPerpsAccountAddressMatched,
   isPerpsAccountScopedDataReady,
 } from '../../../utils/accountScopedData';
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
@@ -51,6 +52,10 @@ function PerpOpenOrdersList({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
+  const canMutateScopedOrders = isPerpsAccountAddressMatched({
+    activeAccountAddress: currentUser?.accountAddress,
+    dataAccountAddress: accountScopedAddress,
+  });
   const scopedPerpOpenOrders = useMemo(
     () =>
       getPerpsAccountScopedListData({
@@ -213,12 +218,14 @@ function PerpOpenOrdersList({
         align: 'right',
         flex: 1,
         fixed: true,
-        ...(openOrders.length > 0 && {
-          onPress: () => showCancelAllOrdersDialog(),
-        }),
+        ...(openOrders.length > 0 &&
+          canMutateScopedOrders && {
+            onPress: () =>
+              showCancelAllOrdersDialog(undefined, accountScopedAddress),
+          }),
       },
     ],
-    [intl, openOrders.length],
+    [accountScopedAddress, canMutateScopedOrders, intl, openOrders.length],
   );
 
   const handleCancelOrder = useCallback(
@@ -305,7 +312,11 @@ function PerpOpenOrdersList({
       })}
       ListHeaderComponent={
         isMobile ? (
-          <MobileOpenOrdersListHeader totalOrderCount={openOrders.length} />
+          <MobileOpenOrdersListHeader
+            totalOrderCount={openOrders.length}
+            canCancelAll={canMutateScopedOrders}
+            scopedAccountAddress={accountScopedAddress}
+          />
         ) : null
       }
     />

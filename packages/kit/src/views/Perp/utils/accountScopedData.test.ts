@@ -1,5 +1,6 @@
 import {
   getPerpsAccountScopedListData,
+  isPerpsAccountAddressMatched,
   isPerpsAccountScopedDataReady,
   shouldPreserveColdStartButtonVisualState,
 } from './accountScopedData';
@@ -45,6 +46,32 @@ describe('getPerpsAccountScopedListData', () => {
         data: rows,
       }),
     ).toEqual([]);
+  });
+});
+
+describe('isPerpsAccountAddressMatched', () => {
+  it('matches normalized addresses', () => {
+    expect(
+      isPerpsAccountAddressMatched({
+        activeAccountAddress: '0xABC',
+        dataAccountAddress: '0xabc',
+      }),
+    ).toBe(true);
+  });
+
+  it('requires both addresses before allowing mutations', () => {
+    expect(
+      isPerpsAccountAddressMatched({
+        activeAccountAddress: undefined,
+        dataAccountAddress: '0xabc',
+      }),
+    ).toBe(false);
+    expect(
+      isPerpsAccountAddressMatched({
+        activeAccountAddress: '0xabc',
+        dataAccountAddress: undefined,
+      }),
+    ).toBe(false);
   });
 });
 

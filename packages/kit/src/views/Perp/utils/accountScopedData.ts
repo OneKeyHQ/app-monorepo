@@ -20,6 +20,18 @@ export function isPerpsAccountScopedDataReady({
   return normalizePerpsAccountAddress(dataAccountAddress) === activeAddress;
 }
 
+export function isPerpsAccountAddressMatched({
+  activeAccountAddress,
+  dataAccountAddress,
+}: {
+  activeAccountAddress?: string | null;
+  dataAccountAddress?: string | null;
+}) {
+  const activeAddress = normalizePerpsAccountAddress(activeAccountAddress);
+  const dataAddress = normalizePerpsAccountAddress(dataAccountAddress);
+  return Boolean(activeAddress && dataAddress && activeAddress === dataAddress);
+}
+
 export function getPerpsAccountScopedListData<T>({
   activeAccountAddress,
   dataAccountAddress,

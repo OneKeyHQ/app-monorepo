@@ -34,9 +34,13 @@ import {
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
-import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
+import {
+  getPerpsAccountScopedListData,
+  isPerpsAccountAddressMatched,
+} from '../../utils/accountScopedData';
 import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
@@ -75,16 +79,21 @@ const SetTpslForm = memo(
 
     const activePositions = usePerpsAccountScopedActivePositions();
     const [activeAccount] = usePerpsActiveAccountAtom();
+    const accountScopedAddress = usePerpsAccountScopedCacheAddress();
+    const canSubmitForScopedAccount = isPerpsAccountAddressMatched({
+      activeAccountAddress: activeAccount?.accountAddress,
+      dataAccountAddress: accountScopedAddress,
+    });
     const [{ accountAddress: openOrdersAccountAddress, openOrders }] =
       usePerpsActiveOpenOrdersAtom();
     const accountScopedOpenOrders = useMemo(
       () =>
         getPerpsAccountScopedListData({
-          activeAccountAddress: activeAccount?.accountAddress,
+          activeAccountAddress: accountScopedAddress,
           dataAccountAddress: openOrdersAccountAddress,
           data: openOrders,
         }),
-      [activeAccount?.accountAddress, openOrders, openOrdersAccountAddress],
+      [accountScopedAddress, openOrders, openOrdersAccountAddress],
     );
 
     const currentPosition = useMemo(() => {
@@ -158,6 +167,9 @@ const SetTpslForm = memo(
 
     const handleCancelOrder = useCallback(
       async (order: IPerpsFrontendOrder) => {
+        if (!canSubmitForScopedAccount) {
+          return;
+        }
         await hyperliquidActions.current.ensureTradingEnabled();
         const symbolMeta =
           await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
@@ -177,7 +189,7 @@ const SetTpslForm = memo(
           ],
         });
       },
-      [hyperliquidActions],
+      [canSubmitForScopedAccount, hyperliquidActions],
     );
 
     const entryPrice = useMemo(() => {
@@ -292,6 +304,9 @@ const SetTpslForm = memo(
 
     const handleSubmit = useCallback(async () => {
       try {
+        if (!canSubmitForScopedAccount) {
+          return;
+        }
         setIsSubmitting(true);
 
         const tpslAmount = configureAmount
@@ -436,6 +451,7 @@ const SetTpslForm = memo(
       midPrice,
       isValidForm,
       intl,
+      canSubmitForScopedAccount,
     ]);
 
     // Early return if position doesn't exist to prevent accessing undefined properties
@@ -504,9 +520,15 @@ const SetTpslForm = memo(
                   </SizableText>
                   <SizableText
                     size="$bodyMd"
-                    color="$green9"
+                    color={
+                      canSubmitForScopedAccount ? '$green9' : '$textDisabled'
+                    }
                     ml="$2"
-                    onPress={() => handleCancelOrder(tpOrder)}
+                    onPress={
+                      canSubmitForScopedAccount
+                        ? () => handleCancelOrder(tpOrder)
+                        : undefined
+                    }
                   >
                     {intl.formatMessage({
                       id: ETranslations.perp_open_orders_cancel,
@@ -572,9 +594,15 @@ const SetTpslForm = memo(
                   </SizableText>
                   <SizableText
                     size="$bodyMd"
-                    color="$green9"
+                    color={
+                      canSubmitForScopedAccount ? '$green9' : '$textDisabled'
+                    }
                     ml="$2"
-                    onPress={() => handleCancelOrder(slOrder)}
+                    onPress={
+                      canSubmitForScopedAccount
+                        ? () => handleCancelOrder(slOrder)
+                        : undefined
+                    }
                   >
                     {intl.formatMessage({
                       id: ETranslations.perp_open_orders_cancel,
@@ -664,7 +692,9 @@ const SetTpslForm = memo(
             size={PERP_DIALOG_BUTTON_SIZE}
             variant="primary"
             onPress={handleSubmit}
-            disabled={!isValidForm || isSubmitting}
+            disabled={
+              !canSubmitForScopedAccount || !isValidForm || isSubmitting
+            }
             loading={isSubmitting}
           >
             {intl.formatMessage({
