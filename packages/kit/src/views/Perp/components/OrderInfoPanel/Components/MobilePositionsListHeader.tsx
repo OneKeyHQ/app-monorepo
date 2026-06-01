@@ -10,18 +10,24 @@ import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
 
 interface IMobilePositionsListHeaderProps {
   totalPositionCount: number;
+  canCloseAll: boolean;
+  scopedAccountAddress?: string | null;
 }
 
 export function MobilePositionsListHeader({
   totalPositionCount,
+  canCloseAll,
+  scopedAccountAddress,
 }: IMobilePositionsListHeaderProps) {
   const intl = useIntl();
   const [filterByCurrentToken, setFilterByCurrentToken] =
     usePositionFilterByCurrentTokenAtom();
 
   const handleCloseAll = useCallback(() => {
-    void showCloseAllPositionsDialog();
-  }, []);
+    if (canCloseAll) {
+      void showCloseAllPositionsDialog(undefined, scopedAccountAddress);
+    }
+  }, [canCloseAll, scopedAccountAddress]);
 
   const handleFilterChange = useCallback(
     (value: boolean | 'indeterminate') => {
@@ -57,12 +63,12 @@ export function MobilePositionsListHeader({
         onChange={handleFilterChange}
       />
 
-      {/* Right: Close all button - disabled only when no positions to close */}
+      {/* Right: Close all button */}
       <Button
         testID="perp-btn"
         size="small"
         variant="secondary"
-        disabled={totalPositionCount === 0}
+        disabled={totalPositionCount === 0 || !canCloseAll}
         onPress={handleCloseAll}
         childrenAsText={false}
       >

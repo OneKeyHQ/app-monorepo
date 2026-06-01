@@ -60,8 +60,7 @@ export type IPrimeParamList = {
   [EPrimePages.PrimeFeatures]: {
     selectedFeature?: EPrimeFeatures;
     selectedSubscriptionPeriod?: ISubscriptionPeriod;
-    showAllFeatures?: boolean;
-    serverUserInfo?: IPrimeServerUserInfo;
+    networkId?: string;
   };
   [EPrimePages.PrimeDeleteAccount]: undefined;
   [EPrimePages.PrimeTransfer]: IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.cross_device_transfer];

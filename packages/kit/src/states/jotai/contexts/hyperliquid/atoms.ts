@@ -2,10 +2,12 @@ import { BigNumber } from 'bignumber.js';
 import { selectAtom } from 'jotai/utils';
 
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import {
   computeMaxTradeSize,
   getTriggerEffectivePrice,
+  isSpotInstrument,
   resolveTradingSizeBN,
   sanitizeManualSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -21,6 +23,8 @@ import {
   EPerpsSizeInputMode,
   ETriggerOrderType,
 } from '@onekeyhq/shared/types/hyperliquid/types';
+
+import { getScopedOpenOrdersByCoin } from './utils/coldStartMergeUtils';
 
 import type {
   IPerpsBboWithLocalReceivedAt,
@@ -281,10 +285,17 @@ export type IPerpsActivePositionAtom = {
 export const {
   atom: perpsActivePositionAtom,
   use: usePerpsActivePositionAtom,
-} = contextAtom<IPerpsActivePositionAtom>({
-  accountAddress: undefined,
-  activePositions: [],
-});
+} = contextAtom<IPerpsActivePositionAtom>(
+  {
+    accountAddress: undefined,
+    activePositions: [],
+  },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActivePositionAtom,
+  },
+);
 export const {
   atom: perpsActivePositionLengthAtom,
   use: usePerpsActivePositionLengthAtom,
@@ -309,18 +320,27 @@ export type IPerpsActiveOpenOrdersAtom = {
 export const {
   atom: perpsActiveOpenOrdersAtom,
   use: usePerpsActiveOpenOrdersAtom,
-} = contextAtom<IPerpsActiveOpenOrdersAtom>({
-  accountAddress: undefined,
-  openOrders: [],
-  openOrdersByCoin: {},
-});
+} = contextAtom<IPerpsActiveOpenOrdersAtom>(
+  {
+    accountAddress: undefined,
+    openOrders: [],
+    openOrdersByCoin: {},
+  },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveOpenOrdersAtom,
+  },
+);
 
 export const {
   atom: perpsActiveOpenOrdersLengthAtom,
   use: usePerpsActiveOpenOrdersLengthAtom,
 } = contextAtomComputed((get) => {
   const { openOrders } = get(perpsActiveOpenOrdersAtom());
-  const filteredOpenOrders = openOrders.filter((o) => !o.coin.startsWith('@'));
+  const filteredOpenOrders = openOrders.filter(
+    (o) => !isSpotInstrument(o.coin),
+  );
   return filteredOpenOrders.length ?? 0;
 });
 
@@ -352,8 +372,16 @@ function getOrCreatePerpsOpenOrdersByCoinAtom(coin: string) {
   let entry = perpsOpenOrdersByCoinAtomCache.get(coin);
   if (!entry) {
     entry = contextAtomComputed((get) => {
-      const { openOrdersByCoin } = get(perpsActiveOpenOrdersAtom());
-      return openOrdersByCoin?.[coin] ?? [];
+      const activeAccount = get(perpsActiveAccountAtom.atom());
+      const { accountAddress, openOrdersByCoin } = get(
+        perpsActiveOpenOrdersAtom(),
+      );
+      return getScopedOpenOrdersByCoin({
+        activeAccountAddress: activeAccount?.accountAddress,
+        openOrdersAccountAddress: accountAddress,
+        openOrdersByCoin,
+        coin,
+      });
     });
     perpsOpenOrdersByCoinAtomCache.set(coin, entry);
   }

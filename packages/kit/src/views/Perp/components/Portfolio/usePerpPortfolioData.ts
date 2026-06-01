@@ -46,6 +46,19 @@ export function usePerpPortfolioData(
     { watchLoading: true, checkIsFocused: false },
   );
 
+  usePromiseResult(
+    async () => {
+      if (!address) {
+        await backgroundApiProxy.serviceHyperliquid.resetTradesHistory();
+        return null;
+      }
+      await backgroundApiProxy.serviceHyperliquid.loadTradesHistory(address);
+      return null;
+    },
+    [address],
+    { watchLoading: false, checkIsFocused: false },
+  );
+
   const startTime = useMemo(
     () => getStartTimeForPeriod(timePeriod),
     [timePeriod],

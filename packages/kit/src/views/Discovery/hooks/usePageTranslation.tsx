@@ -245,7 +245,7 @@ export function TranslatePopoverContent({
   onShowSettingsChange: (show: boolean) => void;
 }) {
   const intl = useIntl();
-  const { user } = useOneKeyAuth();
+  const { user, isPrimeActive } = useOneKeyAuth();
   const navigation = useAppNavigation();
   const isPrimeUser = useMemo(
     () => !!(user?.primeSubscription?.isActive && user?.onekeyUserId),
@@ -261,6 +261,7 @@ export function TranslatePopoverContent({
       defaultLogger.prime.subscription.primeEntryClick({
         featureName: EPrimeFeatures.DAppTranslate,
         entryPoint: 'browserTranslate',
+        isPrimeActive,
       });
       navigation.pushFullModal(EModalRoutes.PrimeModal, {
         screen: EPrimePages.PrimeDashboard,
@@ -272,7 +273,14 @@ export function TranslatePopoverContent({
     }
     onTranslate();
     closePopover();
-  }, [onTranslate, closePopover, isTranslated, isPrimeUser, navigation]);
+  }, [
+    closePopover,
+    isPrimeActive,
+    isPrimeUser,
+    isTranslated,
+    navigation,
+    onTranslate,
+  ]);
 
   const handleRetranslatePress = useCallback(() => {
     onRetranslate?.();
