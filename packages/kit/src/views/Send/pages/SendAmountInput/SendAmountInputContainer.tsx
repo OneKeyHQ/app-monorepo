@@ -16,6 +16,7 @@ import { InputAccessoryView } from 'react-native';
 
 import {
   Button,
+  DashText,
   Dialog,
   Form,
   HeightTransition,
@@ -24,6 +25,7 @@ import {
   LottieView,
   NumberSizeableText,
   Page,
+  Popover,
   ScrollView,
   Select,
   SizableText,
@@ -351,6 +353,17 @@ function SendAmountInputContainer() {
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMaxSend, setIsMaxSend] = useState(false);
+  const [
+    privateSendValueDropWarningPercentValue,
+    setPrivateSendValueDropWarningPercentValue,
+  ] = useState(0);
+  const [
+    isPrivateSendValueDropWarningOpen,
+    setIsPrivateSendValueDropWarningOpen,
+  ] = useState(false);
+  const privateSendValueDropWarningResolverRef = useRef<
+    ((confirmed: boolean) => void) | undefined
+  >(undefined);
   const [settings, setSettings] = useSettingsPersistAtom();
   const [selectedUTXOs] = useSelectedUTXOsAtom();
   const sendConfirmActions = useSendConfirmActions();
@@ -1533,6 +1546,27 @@ function SendAmountInputContainer() {
     recipientIsContract,
   ]);
 
+  const finishPrivateSendValueDropWarning = useCallback(
+    (confirmed: boolean) => {
+      const resolve = privateSendValueDropWarningResolverRef.current;
+      privateSendValueDropWarningResolverRef.current = undefined;
+      setIsPrivateSendValueDropWarningOpen(false);
+      resolve?.(confirmed);
+    },
+    [],
+  );
+
+  const handlePrivateSendValueDropWarningOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setIsPrivateSendValueDropWarningOpen(true);
+        return;
+      }
+      finishPrivateSendValueDropWarning(false);
+    },
+    [finishPrivateSendValueDropWarning],
+  );
+
   const confirmPrivateSendValueDrop = useCallback(
     async (quote: IFetchQuoteResult) => {
       const valueDropPercent = getPrivateSendValueDropPercent(quote);
@@ -1540,35 +1574,13 @@ function SendAmountInputContainer() {
         return true;
       }
       return new Promise<boolean>((resolve) => {
-        let settled = false;
-        const closeDialog: { current?: () => void } = {};
-        const finish = (confirmed: boolean) => {
-          if (settled) return;
-          settled = true;
-          resolve(confirmed);
-          closeDialog.current?.();
-        };
-        const dialog = Dialog.show({
-          title: intl.formatMessage({
-            id: ETranslations.private_send_high_value_drop_title,
-          }),
-          tone: 'warning',
-          showFooter: false,
-          renderContent: (
-            <PrivateSendValueDropWarningContent
-              valueDropPercent={valueDropPercent}
-              onCancel={() => finish(false)}
-              onConfirm={() => finish(true)}
-            />
-          ),
-          onClose: () => finish(false),
-        });
-        closeDialog.current = () => {
-          void dialog.close();
-        };
+        privateSendValueDropWarningResolverRef.current?.(false);
+        privateSendValueDropWarningResolverRef.current = resolve;
+        setPrivateSendValueDropWarningPercentValue(valueDropPercent);
+        setIsPrivateSendValueDropWarningOpen(true);
       });
     },
-    [intl],
+    [],
   );
 
   onSubmitRef.current = useCallback(
@@ -2544,39 +2556,21 @@ function SendAmountInputContainer() {
     nftDetails?.amount,
   ]);
 
-  const renderBalanceCard = useMemo(() => {
-    if (isNFT) return null;
-
+  const renderBalanceRowContent = useCallback(() => {
     if (isLoadingAssets) {
       return (
-        <XStack
-          bg="$bgStrong"
-          borderRadius="$3"
-          px="$3"
-          py="$2.5"
-          alignItems="center"
-          width="100%"
-        >
+        <>
           <Skeleton w="$10" h="$10" radius="round" mr="$3" />
           <YStack flex={1} gap="$1.5">
             <Skeleton h="$3" w="$10" />
             <Skeleton h="$4" w="$24" />
           </YStack>
-        </XStack>
+        </>
       );
     }
 
-    if (!maxBalance) return null;
-
     return (
-      <XStack
-        bg="$bgStrong"
-        borderRadius="$3"
-        px="$3"
-        py="$2.5"
-        alignItems="center"
-        width="100%"
-      >
+      <>
         {/* Token icon with network badge */}
         <Stack mr="$3">
           {tokenInfo?.logoURI ? (
@@ -2660,14 +2654,13 @@ function SendAmountInputContainer() {
         >
           {intl.formatMessage({ id: ETranslations.send_max })}
         </Button>
-      </XStack>
+      </>
     );
   }, [
     balanceInfoContent,
     form,
     intl,
     isLoadingAssets,
-    isNFT,
     isUseFiat,
     maxBalance,
     maxBalanceFiat,
@@ -2675,6 +2668,24 @@ function SendAmountInputContainer() {
     tokenInfo?.logoURI,
     tokenSymbol,
   ]);
+
+  const renderBalanceCard = useMemo(() => {
+    if (isNFT) return null;
+    if (!isLoadingAssets && !maxBalance) return null;
+
+    return (
+      <XStack
+        bg="$bgStrong"
+        borderRadius="$3"
+        px="$3"
+        py="$2.5"
+        alignItems="center"
+        width="100%"
+      >
+        {renderBalanceRowContent()}
+      </XStack>
+    );
+  }, [isLoadingAssets, isNFT, maxBalance, renderBalanceRowContent]);
 
   const renderPrivateSendProviderContent = useCallback(
     ({
@@ -2711,10 +2722,11 @@ function SendAmountInputContainer() {
               </Stack>
             ) : null}
             <SizableText
-              size="$bodyMd"
+              size="$bodySm"
               color="$text"
               numberOfLines={1}
-              maxWidth="$32"
+              maxWidth="$64"
+              flexShrink={1}
             >
               {providerName}
             </SizableText>
@@ -2722,7 +2734,7 @@ function SendAmountInputContainer() {
         );
       } else if (!isLoading) {
         providerContent = (
-          <SizableText size="$bodyMd" color="$text">
+          <SizableText size="$bodySm" color="$text">
             --
           </SizableText>
         );
@@ -2781,34 +2793,37 @@ function SendAmountInputContainer() {
             .multipliedBy(privateSendQuote.toTokenInfo.price)
             .toFixed()
         : undefined;
+    const showPrivateSendBalanceRow =
+      !isNFT && (isLoadingAssets || !!maxBalance);
 
     return (
-      <YStack bg="$bgStrong" borderRadius="$3" px="$4" py="$2.5" width="100%">
-        <XStack h={56} alignItems="center" justifyContent="space-between">
-          <SizableText
-            size="$bodyMd"
+      <YStack bg="$bgStrong" borderRadius="$2" px="$3" py="$2.5" width="100%">
+        <XStack h={44} alignItems="center" justifyContent="space-between">
+          <DashText
+            size="$bodySm"
             color="$textSubdued"
-            textDecorationLine="underline"
+            dashColor="$textSubdued"
+            dashThickness={0.5}
           >
             {intl.formatMessage({
               id: ETranslations.private_send_estimated_received,
             })}
-          </SizableText>
+          </DashText>
           {showPrivateSendQuoteSkeleton ? (
-            <Skeleton h="$4" w="$24" />
+            <Skeleton h="$3" w="$24" />
           ) : (
             <YStack alignItems="flex-end">
-              <SizableText size="$bodyMdMedium" color="$text" textAlign="right">
+              <SizableText size="$bodySmMedium" color="$text" textAlign="right">
                 {`~ `}
-                <NumberSizeableText size="$bodyMdMedium" formatter="balance">
+                <NumberSizeableText size="$bodySmMedium" formatter="balance">
                   {toAmount}
                 </NumberSizeableText>
                 {toTokenSymbol ? ` ${toTokenSymbol}` : ''}
               </SizableText>
               {toFiatValue ? (
-                <SizableText size="$bodyMd" color="$textSubdued">
+                <SizableText size="$bodySm" color="$textSubdued">
                   <NumberSizeableText
-                    size="$bodyMd"
+                    size="$bodySm"
                     formatter="value"
                     formatterOptions={{ currency: currencySymbol }}
                   >
@@ -2820,16 +2835,16 @@ function SendAmountInputContainer() {
             </YStack>
           )}
         </XStack>
-        <XStack h={36} alignItems="center" justifyContent="space-between">
-          <SizableText size="$bodyMd" color="$textSubdued">
+        <XStack h={32} alignItems="center" justifyContent="space-between">
+          <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.private_send_arrival_in,
             })}
           </SizableText>
           {showPrivateSendQuoteSkeleton ? (
-            <Skeleton h="$4" w="$16" />
+            <Skeleton h="$3" w="$16" />
           ) : (
-            <SizableText size="$bodyMd" color="$text">
+            <SizableText size="$bodySm" color="$text">
               {formatPrivateSendArrivalTime({
                 estTime: privateSendQuote?.estTime,
                 estimatedTime: privateSendQuote?.estimatedTime,
@@ -2837,8 +2852,8 @@ function SendAmountInputContainer() {
             </SizableText>
           )}
         </XStack>
-        <XStack h={36} alignItems="center" justifyContent="space-between">
-          <SizableText size="$bodyMd" color="$textSubdued">
+        <XStack h={32} alignItems="center" justifyContent="space-between">
+          <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.swap_history_detail_provider,
             })}
@@ -2855,20 +2870,52 @@ function SendAmountInputContainer() {
             {privateSendQuoteError}
           </SizableText>
         ) : null}
+        {showPrivateSendBalanceRow ? (
+          <>
+            <Stack h="$px" bg="$borderSubdued" my="$1.5" />
+            <XStack h={56} alignItems="center" width="100%">
+              {renderBalanceRowContent()}
+            </XStack>
+          </>
+        ) : null}
       </YStack>
     );
   }, [
     currencySymbol,
     intl,
+    isLoadingAssets,
+    isNFT,
     isPrivateSendQuoteRefreshing,
+    maxBalance,
     privateSendQuoteProviderList,
     privateSendQuote,
     privateSendQuoteError,
     privateSendProviderIndex,
     privateSendToken?.symbol,
+    renderBalanceRowContent,
     renderPrivateSendProviderContent,
     sendMode,
   ]);
+
+  const renderPrivateSendFooterHelp = useMemo(() => {
+    if (sendMode !== ESendMode.PRIVATE) return null;
+    return (
+      <DashText
+        size="$bodySm"
+        color="$textSubdued"
+        dashColor="$textSubdued"
+        dashThickness={0.5}
+        cursor="pointer"
+        hoverStyle={{ color: '$text' }}
+        pressStyle={{ opacity: 0.7 }}
+        onPress={() => {
+          openUrlExternal(privateSendHelpCenterUrl);
+        }}
+      >
+        {intl.formatMessage({ id: ETranslations.private_send_how_it_works })}
+      </DashText>
+    );
+  }, [intl, sendMode]);
 
   return (
     <Page safeAreaEnabled>
@@ -2969,9 +3016,10 @@ function SendAmountInputContainer() {
             </Form>
           </HeightTransition>
           {extraContent}
-          {renderBalanceCard}
+          {sendMode === ESendMode.PRIVATE
+            ? renderPrivateSendQuoteCard
+            : renderBalanceCard}
           {renderNFTInfoCard}
-          {renderPrivateSendQuoteCard}
         </Stack>
         {showBuyButton ? (
           <Page.FooterActions
@@ -3011,7 +3059,9 @@ function SendAmountInputContainer() {
                 </Button>
               </XStack>
             }
-          />
+          >
+            {renderPrivateSendFooterHelp}
+          </Page.FooterActions>
         ) : (
           <Page.FooterActions
             onConfirm={handleConfirm}
@@ -3028,9 +3078,33 @@ function SendAmountInputContainer() {
               disabled: isSubmitDisabled,
               loading: isSubmitting,
             }}
-          />
+          >
+            {renderPrivateSendFooterHelp}
+          </Page.FooterActions>
         )}
       </Page.Footer>
+      <Popover
+        open={isPrivateSendValueDropWarningOpen}
+        onOpenChange={handlePrivateSendValueDropWarningOpenChange}
+        title={intl.formatMessage({
+          id: ETranslations.private_send_high_value_drop_title,
+        })}
+        placement="top"
+        showHeader
+        renderTrigger={<Stack width={1} height={1} opacity={0} />}
+        floatingPanelProps={{
+          width: '$96',
+        }}
+        renderContent={
+          <Stack p="$4">
+            <PrivateSendValueDropWarningContent
+              valueDropPercent={privateSendValueDropWarningPercentValue}
+              onCancel={() => finishPrivateSendValueDropWarning(false)}
+              onConfirm={() => finishPrivateSendValueDropWarning(true)}
+            />
+          </Stack>
+        }
+      />
     </Page>
   );
 }
