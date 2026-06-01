@@ -558,6 +558,33 @@ class ServiceToken extends ServiceBase {
     return Promise.resolve(this.mergeTokenMetadataWithCustomDataSync(params));
   }
 
+  /**
+   * Batched variant: callers that need to merge metadata across a whole
+   * token list (e.g. `useTokenManagement`) MUST use this instead of N
+   * parallel `mergeTokenMetadataWithCustomData` calls. The single-item
+   * bridge method is a `Promise.resolve()` wrap around a sync function —
+   * each call pays the full BgTransport round-trip cost (one
+   * dispatchRemoteRequest + one handleResponse + one JSON.parse on the main
+   * runtime) for zero real async work, which is exactly the N+1 pattern
+   * that shows up as 808 mergeTokenMetadataWithCustomData calls in the
+   * OK-perp/swap freeze trace. Batching collapses it to 1 bridge call.
+   */
+  @backgroundMethod()
+  async mergeTokenMetadataWithCustomDataBatch<T extends IToken>(params: {
+    tokens: T[];
+    customTokens: IAccountToken[];
+    networkId: string;
+  }): Promise<T[]> {
+    const { tokens, customTokens, networkId } = params;
+    return tokens.map((token) =>
+      this.mergeTokenMetadataWithCustomDataSync({
+        token,
+        customTokens,
+        networkId,
+      }),
+    );
+  }
+
   private mergeTokenMetadataWithCustomDataSync<T extends IToken>({
     token,
     customTokens,
