@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OneKeyID 合并流程图 · 形式对比</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 16px 80px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f6f7f9; color: #1f2937; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .sub { color: #6b7280; font-size: 14px; margin: 0 0 8px; }
+  .scenario { font-size: 13px; color: #4338ca; background: #eef2ff; border-radius: 8px; padding: 10px 14px; margin: 16px 0 28px; }
+  .grid { display: grid; gap: 14px; }
+  a.card {
+    display: block; text-decoration: none; color: inherit;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.05); transition: box-shadow .15s, transform .15s, border-color .15s;
+  }
+  a.card:hover { box-shadow: 0 8px 22px rgba(0,0,0,.09); transform: translateY(-2px); border-color: #c7d2fe; }
+  .card .row { display: flex; align-items: center; gap: 10px; }
+  .num { width: 26px; height: 26px; border-radius: 7px; background: #111827; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; }
+  .card h2 { font-size: 16px; margin: 0; }
+  .card p { margin: 8px 0 0; font-size: 13px; color: #6b7280; line-height: 1.6; }
+  .card .arrow { margin-left: auto; color: #cbd5e1; font-size: 18px; }
+  .foot { margin-top: 32px; font-size: 12px; color: #9ca3af; line-height: 1.7; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>OneKeyID / Keyless 合并流程图</h1>
+    <p class="sub">已选用<b>卡片式</b>呈现完整流程。下方第 1 项是正式完整版；2~4 是早期形式对比存档（单场景示例）。</p>
+
+    <div class="grid">
+      <a class="card" href="form-cards.html" style="border-color:#bbf7d0;background:#f7fefb">
+        <div class="row"><span class="num" style="background:#16a34a">★</span><h2>卡片式 · 完整流程（已选）</h2><span class="arrow">→</span></div>
+        <p>覆盖全部 4 个场景：API-01 OAuth 登录（10 种结果）、API-03 Legacy 升级、合并 · pending_oauth_bind、合并 · merged_source。顶部标签切换场景；2 路分叉左右对称、多路纵向罗列；点节点展开参数 / 返回 / 注意。数据来自文档 <code>flows.js</code>。</p>
+      </a>
+
+      <p class="sub" style="margin:18px 0 2px">— 以下为早期形式对比（单场景：pending_oauth_bind，读 <code>data.js</code>）—</p>
+      <a class="card" href="form-mermaid.html">
+        <div class="row"><span class="num">2</span><h2>经典流程图（Mermaid 自动布局）</h2><span class="arrow">→</span></div>
+        <p>标准 flowchart：矩形=接口/操作、菱形=判断、圆角=终态，箭头带「是/否」标签，自动排版。</p>
+      </a>
+      <a class="card" href="form-timeline.html">
+        <div class="row"><span class="num">3</span><h2>时间线步骤条</h2><span class="arrow">→</span></div>
+        <p>左侧竖直轨道 + 编号圆点，步骤一级一级往下；分叉处轨道分成两条子时间线。</p>
+      </a>
+      <a class="card" href="form-svg.html">
+        <div class="row"><span class="num">4</span><h2>SVG 蓝图（手绘连线 + 菱形）</h2><span class="arrow">→</span></div>
+        <p>SVG 画布手绘节点框 + 折线连接 + 菱形判断，最接近设计稿/架构图的质感。</p>
+      </a>
+    </div>
+
+    <p class="foot">
+      完整流程内容来源：<code>server-apis.md</code> 及各 API examples，未沿用旧 <code>interactive-flow.html</code>。
+    </p>
+  </div>
+</body>
+</html>

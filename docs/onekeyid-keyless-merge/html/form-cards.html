@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OneKeyID 合并完整流程 · 卡片式</title>
+<style>
+  :root { --line: #cbd5e1; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px 90px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: #f6f7f9; color: #1f2937; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .lead { color: #6b7280; font-size: 13px; margin: 0 0 16px; }
+
+  /* 标签页 */
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .tab { font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 9px; border: 1px solid #e5e7eb; background: #fff; color: #475569; cursor: pointer; transition: .15s; }
+  .tab:hover { border-color: #c7d2fe; }
+  .tab.active { background: #111827; color: #fff; border-color: #111827; }
+
+  .summary { font-size: 13px; color: #334155; background: #eef2ff; border: 1px solid #e0e7ff; border-radius: 10px; padding: 12px 16px; margin-bottom: 8px; line-height: 1.6; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: #6b7280; margin: 14px 0 6px; }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  .hint { font-size: 12px; color: #9ca3af; margin: 4px 0 22px; }
+
+  .flow { display: flex; flex-direction: column; align-items: center; }
+
+  .node { width: 100%; max-width: 520px; background: #fff; border: 1px solid #e5e7eb; border-left: 4px solid var(--c, #94a3b8); border-radius: 10px; padding: 13px 15px; box-shadow: 0 1px 2px rgba(0,0,0,.05); cursor: pointer; transition: box-shadow .15s, transform .15s; }
+  .node:hover { box-shadow: 0 6px 18px rgba(0,0,0,.09); transform: translateY(-1px); }
+  .node .toprow { display: flex; align-items: center; gap: 8px; }
+  .node .tag { font-size: 11px; font-weight: 700; color: var(--c); letter-spacing: .03em; }
+  .node .decision { font-size: 11px; font-weight: 700; color: #0e7490; background: #ecfeff; border: 1px solid #a5f3fc; padding: 1px 7px; border-radius: 999px; margin-left: auto; }
+  .node .caret { color: #cbd5e1; font-size: 11px; transition: transform .15s; margin-left: auto; }
+  .node .decision + .caret { margin-left: 6px; }
+  .node .title { font-size: 14.5px; font-weight: 600; margin-top: 4px; line-height: 1.3; }
+  .node .subtitle { font-size: 12.5px; color: #6b7280; margin-top: 5px; line-height: 1.5; }
+  /* 前置条件卡片：虚线边 + 淡灰底，区别于流程步骤 */
+  .node-pre { background: #f8fafc; border-style: dashed; }
+  .node-pre .tag { color: #64748b; letter-spacing: .06em; }
+  .node-pre .title { color: #334155; }
+  .detail { display: none; margin-top: 11px; border-top: 1px dashed #e5e7eb; padding-top: 9px; }
+  .node.open .detail { display: block; }
+  .detail h4 { margin: 9px 0 4px; font-size: 11px; color: #6b7280; letter-spacing: .03em; }
+  .detail h4:first-child { margin-top: 0; }
+  .detail ul { margin: 0; padding-left: 17px; }
+  .detail li { font-size: 12.5px; line-height: 1.6; color: #374151; }
+  .detail code, .detail .mono { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-size: 11.5px; color: #be123c; }
+
+  .arrow { width: 2px; height: 24px; background: var(--line); position: relative; flex: none; }
+  .arrow::after { content: ''; position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--line); }
+  .arrow.short { height: 14px; }
+
+  /* 左右对称分叉（2 路） */
+  .fork-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; }
+  .fork-bar { position: relative; width: 56%; height: 2px; background: var(--line); }
+  .fork-bar::before, .fork-bar::after { content: ''; position: absolute; top: 0; width: 2px; height: 16px; background: var(--line); }
+  .fork-bar::before { left: 0; } .fork-bar::after { right: 0; }
+  .fork { display: flex; width: 100%; gap: 26px; align-items: flex-start; margin-top: 16px; }
+  .fork-col { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+  .branch-label { font-size: 12px; font-weight: 700; margin-bottom: 8px; padding: 2px 9px; border-radius: 7px; }
+
+  /* 跳转按钮 */
+  .goto { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; font-size: 12.5px; font-weight: 600; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 7px; padding: 5px 11px; cursor: pointer; }
+  .goto:hover { background: #fef3c7; border-color: #fcd34d; }
+
+  /* 多路纵向罗列（≥3 路 / forkStyle:list）——整组缩进到父卡片下方，显出层级 */
+  .branch-group { width: 100%; max-width: 520px; display: flex; flex-direction: column; align-items: stretch; }
+  .branch-group > .node { max-width: 100%; }
+  .vlist { width: 100%; margin-top: 10px; padding-left: 30px; }   /* 整列相对父卡片左缩进 30px */
+  .vbranch { position: relative; padding-left: 24px; padding-bottom: 16px; }
+  .vbranch::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: #e2e8f0; }
+  .vbranch:last-child::before { bottom: auto; height: 15px; }
+  .vbranch::after { content: ''; position: absolute; left: 0; top: 15px; width: 18px; height: 2px; background: var(--line); }
+  .vbranch .branch-label { display: inline-block; margin-bottom: 9px; }
+  .vbody { display: flex; flex-direction: column; align-items: stretch; }
+  .vbody .node { max-width: 100%; }
+
+  /* 分组（API-01 / API-03）——线形分支树 + 可折叠组标题（非卡片）。竖线 + 拐角连线 */
+  .tree { position: relative; width: 100%; margin-top: 6px; padding-left: 30px; }
+  .tree::before { content: ''; position: absolute; left: 30px; top: -8px; width: 2px; height: 16px; background: #e2e8f0; } /* 连到父卡片的竖线 */
+  .titem { position: relative; padding-left: 22px; }
+  .titem::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: #e2e8f0; }      /* 主竖线 */
+  .titem.rail-cap::before { bottom: auto; height: 15px; }                                                              /* 末项收尾 */
+  .titem::after { content: ''; position: absolute; left: 0; top: 14px; width: 16px; height: 2px; background: #cbd5e1; } /* 拐角连线 */
+  .titem.hidden { display: none; }
+  .ghead { display: flex; align-items: center; gap: 7px; padding: 8px 0; cursor: pointer; user-select: none; font-weight: 700; font-size: 13px; }
+  .ghead-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .ghead-count { font-weight: 600; font-size: 11px; color: #94a3b8; }
+  .ghead-caret { font-size: 11px; color: #94a3b8; transition: transform .15s; }
+  .ghead.collapsed .ghead-caret { transform: rotate(-90deg); }
+  .gt-ok { color: #15803d; } .gt-warn { color: #b45309; } .gt-no { color: #b91c1c; }
+  .tbranch { padding-top: 2px; padding-bottom: 14px; }
+  .tcond { font-size: 12px; color: #475569; font-weight: 600; margin-bottom: 6px; line-height: 1.45; }
+  .tbranch .node { max-width: 100%; }
+
+  /* tone 配色（分支标签） */
+  .t-ok   { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .t-no   { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; }
+  .t-warn { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; }
+  .t-go   { color: #1e40af; background: #eff6ff; border: 1px solid #bfdbfe; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>OneKeyID / Keyless 合并 · 完整流程（卡片式）</h1>
+    <p class="lead">来源：server-apis.md / 各 API examples。点标签切换场景，点任意节点展开参数 / 返回 / 注意。</p>
+    <div class="tabs" id="tabs"></div>
+    <div class="summary" id="summary"></div>
+    <div class="legend">
+      <span><i style="background:#2563eb"></i>接口调用</span>
+      <span><i style="background:#7c3aed"></i>用户操作</span>
+      <span><i style="background:#16a34a"></i>成功</span>
+      <span><i style="background:#d97706"></i>待合并 / 中间态</span>
+      <span><i style="background:#dc2626"></i>错误 / 终止</span>
+    </div>
+    <p class="hint">👉 2 路分叉左右对称；多路（如 API-01 的 10 种结果）纵向罗列各分支入口。</p>
+    <div class="flow" id="flow"></div>
+  </div>
+
+<script src="flows.js"></script>
+<script>
+  const { colors, tags } = window.FLOW_META;
+  const FLOWS = window.FLOWS;
+  const arrow = '<div class="arrow"></div>';
+  const toneClass = { ok: "t-ok", no: "t-no", warn: "t-warn", go: "t-go" };
+
+  function detailHtml(d) {
+    if (!d) return "";
+    const sec = (t, arr, mono) => arr && arr.length
+      ? "<h4>" + t + "</h4><ul>" + arr.map(x => "<li>" + (mono ? '<span class="mono">' + x + "</span>" : x) + "</li>").join("") + "</ul>"
+      : "";
+    const body = sec("参数", d.params, true) + sec("返回", d.returns, true) + sec("注意", d.notes, false);
+    return body ? '<div class="detail">' + body + "</div>" : "";
+  }
+
+  function gotoBtn(id) {
+    const target = FLOWS.find(f => f.id === id);
+    if (!target) return "";
+    return '<button class="goto" data-goto="' + id + '">转到「' + target.tab + "」流程 →</button>";
+  }
+  function nodeCard(n) {
+    const dec = n.decision ? '<span class="decision">◇ ' + n.decision + "</span>" : "";
+    const caretMargin = n.decision ? "" : ' style="margin-left:auto"';
+    return '<div class="node node-' + n.type + '" style="--c:' + colors[n.type] + '">' +
+      '<div class="toprow"><span class="tag">' + tags[n.type] + "</span>" + dec +
+      '<span class="caret"' + caretMargin + ">▶</span></div>" +
+      '<div class="title">' + n.title + "</div>" +
+      '<div class="subtitle">' + n.subtitle + "</div>" +
+      (n.goto ? gotoBtn(n.goto) : "") +
+      detailHtml(n.detail) + "</div>";
+  }
+
+  // 渲染一个竖直节点序列（节点间加箭头），节点带 branches 时追加分叉
+  function renderSeq(nodes) {
+    return nodes.map((n, i) => (i ? arrow : "") + renderNode(n)).join("");
+  }
+  const toneText = { ok: "gt-ok", warn: "gt-warn", no: "gt-no" };
+  const toneDot = { ok: "#16a34a", warn: "#d97706", no: "#dc2626" };
+  const openAll = location.search.indexOf("open") !== -1; // ?open 展开所有分组
+  function renderGroups(groups) {
+    let items = "";
+    groups.forEach((g, gi) => {
+      items += '<div class="titem ghead ' + toneText[g.tone] + (openAll ? "" : " collapsed") + '" data-g="' + gi + '">' +
+        '<span class="ghead-dot" style="background:' + toneDot[g.tone] + '"></span>' +
+        '<span class="ghead-title">' + g.title + "</span>" +
+        '<span class="ghead-count">' + g.branches.length + ' 种</span>' +
+        '<span class="ghead-caret">▾</span></div>';
+      g.branches.forEach(b => {
+        items += '<div class="titem tbranch' + (openAll ? "" : " hidden") + '" data-g="' + gi + '">' +
+          '<div class="tcond">' + b.label + "</div>" + renderSeq(b.nodes) + "</div>";
+      });
+    });
+    return '<div class="tree">' + items + "</div>";
+  }
+  function renderNode(n) {
+    const card = nodeCard(n);
+    // 多路分组（默认折叠）
+    if (n.groups && n.groups.length) return '<div class="branch-group">' + card + renderGroups(n.groups) + "</div>";
+    if (!n.branches || !n.branches.length) return card;
+    const symmetric = n.branches.length === 2 && n.forkStyle !== "list";
+    if (symmetric) return card + renderSymmetric(n.branches);
+    // 扁平多路：卡片 + 缩进纵列 包在 branch-group 里
+    return '<div class="branch-group">' + card + renderVList(n.branches) + "</div>";
+  }
+  function renderSymmetric(branches) {
+    const cols = branches.map(b =>
+      '<div class="fork-col"><span class="branch-label ' + toneClass[b.tone] + '">' + b.label + "</span>" +
+      renderSeq(b.nodes) + "</div>"
+    ).join("");
+    return '<div class="fork-wrap"><div class="arrow short"></div><div class="fork-bar"></div>' +
+      '<div class="fork">' + cols + "</div></div>";
+  }
+  function renderVList(branches) {
+    const items = branches.map(b =>
+      '<div class="vbranch"><span class="branch-label ' + toneClass[b.tone] + '">' + b.label + "</span>" +
+      '<div class="vbody">' + renderSeq(b.nodes) + "</div></div>"
+    ).join("");
+    return '<div class="vlist">' + items + "</div>";
+  }
+
+  // 标签页
+  const tabsEl = document.getElementById("tabs");
+  const summaryEl = document.getElementById("summary");
+  const flowEl = document.getElementById("flow");
+  let active = Math.min(Math.max(parseInt((location.hash || "").slice(1), 10) || 0, 0), FLOWS.length - 1);
+
+  // 末项竖线收尾：把每棵 tree 中最后一个可见 titem 标为 rail-cap
+  function capRail() {
+    flowEl.querySelectorAll(".tree").forEach(tree => {
+      tree.querySelectorAll(".titem").forEach(el => el.classList.remove("rail-cap"));
+      const vis = [...tree.querySelectorAll(".titem")].filter(el => !el.classList.contains("hidden"));
+      if (vis.length) vis[vis.length - 1].classList.add("rail-cap");
+    });
+  }
+  function render() {
+    tabsEl.innerHTML = FLOWS.map((f, i) => '<button class="tab' + (i === active ? " active" : "") + '" data-i="' + i + '">' + f.tab + "</button>").join("");
+    const f = FLOWS[active];
+    summaryEl.innerHTML = "<b>" + f.title + "</b><br>" + f.summary;
+    flowEl.innerHTML = renderSeq(f.blocks);
+    capRail();
+  }
+  tabsEl.addEventListener("click", (e) => {
+    const t = e.target.closest(".tab");
+    if (!t) return;
+    active = +t.dataset.i;
+    location.hash = "" + active;
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  function activate(idx) {
+    if (idx < 0 || idx >= FLOWS.length) return;
+    active = idx;
+    location.hash = "" + idx;
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  flowEl.addEventListener("click", (e) => {
+    const g = e.target.closest(".goto");
+    if (g) { e.stopPropagation(); activate(FLOWS.findIndex(f => f.id === g.dataset.goto)); return; }
+    const gh = e.target.closest(".ghead");
+    if (gh) {
+      const tree = gh.closest(".tree");
+      const gi = gh.dataset.g;
+      gh.classList.toggle("collapsed");
+      const collapsed = gh.classList.contains("collapsed");
+      tree.querySelectorAll('.tbranch[data-g="' + gi + '"]').forEach(el => el.classList.toggle("hidden", collapsed));
+      capRail();
+      return;
+    }
+    const node = e.target.closest(".node");
+    if (node) node.classList.toggle("open");
+  });
+  render();
+
+  // 测量模式：?measure=1 时把关键元素左右边缘写入 title，供 headless Chrome dump-dom 读取
+  if (location.search.indexOf("measure") !== -1) {
+    const r = (el) => { const b = el.getBoundingClientRect(); return "L=" + Math.round(b.left) + " R=" + Math.round(b.right); };
+    const parent = flowEl.querySelector(".node");
+    const branchCard = flowEl.querySelector(".vbody .node") || flowEl.querySelector(".fork-col .node");
+    const vlist = flowEl.querySelector(".vlist");
+    let msg = "MEASURE parentCard[" + r(parent) + "]";
+    if (vlist) msg += " vlist[" + r(vlist) + "]";
+    if (branchCard) msg += " branchCard[" + r(branchCard) + "]";
+    document.title = msg;
+  }
+</script>
+</body>
+</html>
