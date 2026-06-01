@@ -32,6 +32,8 @@ import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialo
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapProTradeTypeAtom,
+  useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
@@ -491,6 +493,12 @@ const SwapHeaderRightActionContainer = ({
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const swapStoreName =
+    pageType === EPageType.modal
+      ? EJotaiContextStoreNames.swapModal
+      : EJotaiContextStoreNames.swap;
   const swapPendingStatusList = useMemo(
     () =>
       filterSwapHistoryPendingList(swapHistoryPendingList).filter(
@@ -548,13 +556,29 @@ const SwapHeaderRightActionContainer = ({
             swapProTradeType === ESwapProTradeType.MARKET)
             ? EProtocolOfExchange.SWAP
             : EProtocolOfExchange.LIMIT,
-        storeName:
-          pageType === EPageType.modal
-            ? EJotaiContextStoreNames.swapModal
-            : EJotaiContextStoreNames.swap,
+        storeName: swapStoreName,
       },
     });
-  }, [navigation, pageType, swapProTradeType, swapTypeSwitch]);
+  }, [navigation, swapProTradeType, swapStoreName, swapTypeSwitch]);
+
+  const showKLineButton =
+    swapTypeSwitch === ESwapTabSwitchType.SWAP ||
+    swapTypeSwitch === ESwapTabSwitchType.BRIDGE ||
+    (swapTypeSwitch === ESwapTabSwitchType.LIMIT && !focusSwapPro);
+  const isKLineDisabled = !fromToken && !toToken;
+  const onOpenSwapKLineModal = useCallback(() => {
+    if (isKLineDisabled) {
+      return;
+    }
+
+    dismissKeyboard();
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapKLine,
+      params: {
+        storeName: swapStoreName,
+      },
+    });
+  }, [isKLineDisabled, navigation, swapStoreName]);
 
   const onOpenSwapSettings = useCallback(() => {
     Dialog.show({
@@ -562,13 +586,7 @@ const SwapHeaderRightActionContainer = ({
         id: ETranslations.swap_page_settings,
       }),
       renderContent: (
-        <SwapProviderMirror
-          storeName={
-            pageType === EPageType.modal
-              ? EJotaiContextStoreNames.swapModal
-              : EJotaiContextStoreNames.swap
-          }
-        >
+        <SwapProviderMirror storeName={swapStoreName}>
           <SwapSettingsDialogContent
             marketPresetSettings={marketPresetSettings}
           />
@@ -581,9 +599,20 @@ const SwapHeaderRightActionContainer = ({
       }),
       showFooter: true,
     });
-  }, [intl, marketPresetSettings, pageType]);
+  }, [intl, marketPresetSettings, swapStoreName]);
   return (
     <HeaderButtonGroup>
+      {showKLineButton ? (
+        <HeaderIconButton
+          testID={SwapTestIDs.kLineButton}
+          icon="TradingViewCandlesOutline"
+          onPress={onOpenSwapKLineModal}
+          disabled={isKLineDisabled}
+          iconProps={{ size: iconSize ?? 20, color: iconColor ?? '$icon' }}
+          size="medium"
+        />
+      ) : null}
+
       {slippageTitle ? (
         <XStack
           testID={SwapTestIDs.settingsButton}

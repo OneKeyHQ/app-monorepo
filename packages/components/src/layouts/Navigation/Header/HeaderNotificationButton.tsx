@@ -26,7 +26,12 @@ function HeaderNotificationButton({
   testID = 'headerNotificationButton',
 }: IHeaderNotificationButtonProps) {
   return (
-    <Stack testID={testID} onPress={onPress} position="relative">
+    <Stack
+      testID={testID}
+      onPress={onPress}
+      position="relative"
+      className="app-region-no-drag"
+    >
       <HeaderIconButton
         size={size}
         icon="BellOutline"

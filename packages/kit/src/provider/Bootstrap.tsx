@@ -83,6 +83,8 @@ import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 
+import { useExtensionMarketTokenDetailHashNavigation } from './useExtensionMarketTokenDetailHashNavigation';
+
 import type { IntlShape } from 'react-intl';
 
 const useOnLockCallback = platformEnv.isDesktop
@@ -921,6 +923,7 @@ export function Bootstrap() {
   useCheckUpdateOnDesktop();
   useIntercomInit();
   useClearStorageOnExtension();
+  useExtensionMarketTokenDetailHashNavigation();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
   return (

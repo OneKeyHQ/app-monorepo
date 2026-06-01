@@ -1,18 +1,12 @@
 import { useEffect } from 'react';
 
-import * as ScreenOrientation from 'expo-screen-orientation';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
-import {
-  ESplitViewType,
-  SplitViewContext,
-  isNativeTablet,
-} from '@onekeyhq/components';
+import { ESplitViewType, SplitViewContext } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { setSplitViewLayoutDisabled } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -33,6 +27,7 @@ import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
 import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
+import { HardwareRecoveryActionContainer } from './HardwareRecoveryActionContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
 import { KeylessWalletContainerLazy } from './KeylessWalletContainer';
@@ -42,6 +37,7 @@ import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 import { RookieShareContainer } from './RookieShareContainer';
+import { SplitViewPerpTabSync } from './SplitViewPerpTabSync';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
 import { ThirdPartyHardwareUiStateContainer } from './ThirdPartyHardwareUiStateContainer';
 import { VerifyTxContainer } from './VerifyTxContainer';
@@ -73,6 +69,7 @@ function DetailRouter() {
       <VerifyTxContainer />
       <HardwareUiStateContainer />
       <ThirdPartyHardwareUiStateContainer />
+      <HardwareRecoveryActionContainer />
       <PrimeLoginContainerLazy />
       <KeylessWalletContainerLazy />
       <KeylessWebAutoConnectHashCleanupContainer />
@@ -115,24 +112,6 @@ export function Container() {
     setSplitViewLayoutDisabled(!shouldUseSplitView);
   }, [shouldUseSplitView]);
 
-  // iPad allows all orientations via Info.plist (UISupportedInterfaceOrientations~ipad).
-  // When the user opts out of the split-view layout, the single-pane UI is only
-  // designed for portrait — so lock the device to portrait. Android already
-  // forces portrait at the AndroidManifest level, so this only matters on iPad.
-  // Toggling enableSplitView restarts the app, so this effect only needs to run
-  // once per boot.
-  useEffect(() => {
-    if (!platformEnv.isNativeIOS) return;
-    if (!isNativeTablet()) return;
-    if (shouldUseSplitView) {
-      ScreenOrientation.unlockAsync().catch(() => {});
-    } else {
-      ScreenOrientation.lockAsync(
-        ScreenOrientation.OrientationLock.PORTRAIT,
-      ).catch(() => {});
-    }
-  }, [shouldUseSplitView]);
-
   if (shouldUseSplitView) {
     return (
       <RootSiblingParent>
@@ -149,6 +128,7 @@ export function Container() {
               </SplitViewContext.Provider>
             }
           />
+          <SplitViewPerpTabSync />
           <GlobalWalletConnectModalContainer />
         </AppStateLockContainer>
       </RootSiblingParent>

@@ -40,3 +40,28 @@ export const {
   name: EAtomNames.keylessLastCancelVerifyPinTimeAtom,
   initialValue: undefined,
 });
+
+export type IKeylessBackendShareV2MigrationPersistAtomData = {
+  byWalletId: Record<
+    string,
+    {
+      ownerId?: string;
+      keylessProvider?: string;
+      socialUserIdHash?: string;
+      lastPassiveAttemptAt?: number;
+      lastPassiveFailedAt?: number;
+      succeededAt?: number;
+    }
+  >;
+};
+
+export const {
+  target: keylessBackendShareV2MigrationPersistAtom,
+  use: useKeylessBackendShareV2MigrationPersistAtom,
+} = globalAtom<IKeylessBackendShareV2MigrationPersistAtomData>({
+  persist: true,
+  name: EAtomNames.keylessBackendShareV2MigrationPersistAtom,
+  initialValue: {
+    byWalletId: {},
+  },
+});

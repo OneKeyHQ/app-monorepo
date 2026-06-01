@@ -49,6 +49,7 @@ export const useColumnsDesktop = (
   hasStock?: boolean,
   showStockSubtitle?: boolean,
   hiddenDesktopColumns?: readonly string[],
+  change24hColumnTitle?: string,
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const intl = useIntl();
@@ -172,9 +173,11 @@ export const useColumnsDesktop = (
       renderSkeleton: () => <Skeleton width={70} height={16} />,
     },
     {
-      title: `${intl.formatMessage({
-        id: ETranslations.dexmarket_token_change,
-      })}(%)`,
+      title:
+        change24hColumnTitle ??
+        `${intl.formatMessage({
+          id: ETranslations.dexmarket_token_change,
+        })}(%)`,
       dataIndex: 'change24h',
       columnProps: { flex: 1 },
       render: (text: number) => {

@@ -49,9 +49,6 @@ import ServiceBase from './ServiceBase';
 import type { IDBUtxoAccount } from '../dbs/local/types';
 import type BTCVault from '../vaults/impls/btc/Vault';
 
-// Shape of `/wallet/v1/account/badges` response after local mapping.
-// Declared at module level so the xpub fan-out merge helper can be a
-// pure function (easier to test, no class coupling).
 type IAccountBadgeResult = {
   isScam: boolean;
   isContract: boolean;
@@ -957,124 +954,670 @@ class ServiceAccountProfile extends ServiceBase {
     return resp.data.data as T;
   }
 
+  // Resolve a (accountId, networkId) to its on-chain identifiers used as
+  // the SimpleDb key. Returns null when either lookup fails so callers can
+  // skip the write/read gracefully.
+  private async resolveAddressKey({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<{ accountAddress?: string; xpub?: string } | null> {
+    try {
+      const [xpub, accountAddress] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        }),
+      ]);
+      if (!xpub && !accountAddress) {
+        return null;
+      }
+      return { accountAddress, xpub };
+    } catch {
+      return null;
+    }
+  }
+
+  private async convertOneToUsd(value: string, currency: string) {
+    if (currency === 'usd') return value;
+    const currencyMap = (await currencyPersistAtom.get()).currencyMap;
+    const info = currencyMap[currency];
+    if (!info) {
+      throw new OneKeyLocalError('Currency not found');
+    }
+    return new BigNumber(value).div(new BigNumber(info.value)).toFixed();
+  }
+
+  private async convertMapToUsd(
+    value: Record<string, string>,
+    currency: string,
+  ): Promise<Record<string, string>> {
+    if (currency === 'usd') return value;
+    const currencyMap = (await currencyPersistAtom.get()).currencyMap;
+    const info = currencyMap[currency];
+    if (!info) {
+      throw new OneKeyLocalError('Currency not found');
+    }
+    return Object.entries(value).reduce<Record<string, string>>(
+      (acc, [k, v]) => {
+        acc[k] = new BigNumber(v).div(new BigNumber(info.value)).toFixed();
+        return acc;
+      },
+      {},
+    );
+  }
+
   @backgroundMethod()
   async updateAllNetworkAccountValue(params: {
     accountId: string;
+    // Record<accountValueKey, value> where accountValueKey = `${networkAccount.id}_${networkId}`,
+    // produced by accountUtils.buildAccountValueKey in UI layer.
     value: Record<string, string>;
     currency: string;
     updateAll?: boolean;
   }) {
-    const { currency, value, updateAll } = params;
+    const { currency, value, updateAll, accountId } = params;
 
-    const currencyMap = (await currencyPersistAtom.get()).currencyMap;
+    const usdValueMap = await this.convertMapToUsd(value, currency);
 
-    let usdValue: Record<string, string> = value;
-
-    if (currency !== 'usd') {
-      const currencyInfo = currencyMap[currency];
-
-      if (!currencyInfo) {
-        throw new OneKeyLocalError('Currency not found');
-      }
-      usdValue = Object.entries(value).reduce(
-        (acc, [n, v]) => {
-          acc[n] = new BigNumber(v)
-            .div(new BigNumber(currencyInfo.value))
-            .toFixed();
-          return acc;
-        },
-        {} as Record<string, string>,
-      );
-    }
-
-    const usdAccountValue = {
-      ...params,
-      value: usdValue,
-      currency: 'usd',
+    // Atom snapshot stays in the compound-key shape because consumers look
+    // entries up via `buildAccountValueKey(accountId, networkId)`.
+    type IWriteItem = {
+      accountAddress?: string;
+      xpub?: string;
+      networkId: string;
+      value: string;
     };
+    const resolveCache = new Map<
+      string,
+      Promise<{ accountAddress?: string; xpub?: string } | null>
+    >();
+    const resolved = await Promise.all(
+      Object.entries(usdValueMap).map<Promise<IWriteItem | null>>(
+        async ([accountValueKey, usdValue]) => {
+          const parsed = accountUtils.parseAccountValueKey({
+            key: accountValueKey,
+          });
+          if (!parsed.accountId || !parsed.networkId) return null;
+          const cacheKey = `${parsed.accountId}:${parsed.networkId}`;
+          let pending = resolveCache.get(cacheKey);
+          if (!pending) {
+            pending = this.resolveAddressKey({
+              accountId: parsed.accountId,
+              networkId: parsed.networkId,
+            });
+            resolveCache.set(cacheKey, pending);
+          }
+          const r = await pending;
+          if (!r) return null;
+          return {
+            accountAddress: r.accountAddress,
+            xpub: r.xpub,
+            networkId: parsed.networkId,
+            value: usdValue,
+          };
+        },
+      ),
+    );
+    const writeItems = resolved.filter((x): x is IWriteItem => x !== null);
 
     if (updateAll) {
-      await activeAccountValueAtom.set(usdAccountValue);
-    } else {
-      const accountsValue =
-        await simpleDb.accountValue.getAllNetworkAccountsValue({
-          accounts: [{ accountId: params.accountId }],
-        });
-      const currentAccountValue = accountsValue?.[0];
-      if (currentAccountValue?.accountId !== params.accountId) {
-        return;
-      }
-
       await activeAccountValueAtom.set({
-        ...usdAccountValue,
-        value: {
-          ...currentAccountValue.value,
-          ...usdValue,
-        },
+        accountId,
+        value: usdValueMap,
+        currency: 'usd',
+      });
+    } else {
+      const current = await activeAccountValueAtom.get();
+      const mergedAtomValue =
+        current?.accountId === accountId &&
+        typeof current.value === 'object' &&
+        current.value !== null
+          ? {
+              ...current.value,
+              ...usdValueMap,
+            }
+          : usdValueMap;
+      await activeAccountValueAtom.set({
+        accountId,
+        value: mergedAtomValue,
+        currency: 'usd',
       });
     }
 
-    await simpleDb.accountValue.updateAllNetworkAccountValue(usdAccountValue);
+    await simpleDb.accountValue.updateAllNetworkAccountValue({
+      items: writeItems,
+      currency: 'usd',
+      updateAll,
+    });
 
     // Check DEPOSIT task for rookie guide (fire-and-forget)
     void this.backgroundApi.serviceRookieGuide.checkAndRecordDepositTask(
-      params.accountId,
+      accountId,
     );
   }
 
   @backgroundMethod()
   async getAllNetworkAccountsValue(params: {
-    accounts: { accountId: string }[];
+    accounts: {
+      accountId: string;
+      networkId?: string;
+      indexedAccountId?: string;
+      accountAddress?: string;
+      xpub?: string;
+    }[];
   }) {
-    const accountsValue =
-      await simpleDb.accountValue.getAllNetworkAccountsValue(params);
-    return accountsValue;
+    const items = await Promise.all(
+      params.accounts.map(async (a) => {
+        if (a.accountAddress || a.xpub) {
+          return { accountAddress: a.accountAddress, xpub: a.xpub };
+        }
+        if (a.networkId) {
+          const resolved = await this.resolveAddressKey({
+            accountId: a.accountId,
+            networkId: a.networkId,
+          });
+          if (resolved) {
+            return {
+              accountAddress: resolved.accountAddress,
+              xpub: resolved.xpub,
+            };
+          }
+        }
+        return {} as { accountAddress?: string; xpub?: string };
+      }),
+    );
+
+    const values = await simpleDb.accountValue.getAllNetworkAccountsValue({
+      items,
+    });
+
+    return params.accounts.map((a, i) => ({
+      accountId: a.accountId,
+      value: values[i]?.value,
+      currency: values[i]?.currency,
+    }));
+  }
+
+  // Aggregate "All Networks" worth for a single indexedAccount when the caller
+  // doesn't already know each network's address.
+  @backgroundMethod()
+  async getAllNetworkAccountsValueByIndexedAccount(params: {
+    indexedAccountId: string;
+  }) {
+    const { indexedAccountId } = params;
+    try {
+      const { accounts: dbAccounts } =
+        await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+          { indexedAccountId },
+        );
+
+      const items: { accountAddress?: string; xpub?: string }[] = [];
+      const seen = new Set<string>();
+      for (const acc of dbAccounts ?? []) {
+        const xpub = accountUtils.pickXpubFromDBAccount(acc);
+        if (acc.address || xpub) {
+          const ak = accountUtils.buildAccountLocalAssetsKey({
+            accountAddress: acc.address,
+            xpub,
+          });
+          if (!seen.has(ak)) {
+            seen.add(ak);
+            items.push({ accountAddress: acc.address, xpub });
+          }
+        }
+      }
+
+      if (items.length === 0) {
+        return {
+          accountId: indexedAccountId,
+          value: undefined,
+          currency: undefined,
+        };
+      }
+
+      const entries = await simpleDb.accountValue.getAllNetworkAccountsValue({
+        items,
+      });
+
+      // Sum (not overwrite) per networkId across entries. Multiple address-keyed
+      // entries under one indexed account commonly share a networkId — e.g. BTC
+      // native / nested / taproot all writing to `btc--0--0` from different
+      // xpubs — so the aggregate must add them, not pick whichever was iterated
+      // last.
+      const mergedValue: Record<string, string> = {};
+      let currency: 'usd' | undefined;
+      for (const entry of entries) {
+        if (entry?.value) {
+          for (const [nId, v] of Object.entries(entry.value)) {
+            const prev = mergedValue[nId];
+            mergedValue[nId] = prev
+              ? new BigNumber(prev).plus(v ?? '0').toFixed()
+              : v;
+          }
+          currency = entry.currency;
+        }
+      }
+
+      if (Object.keys(mergedValue).length === 0) {
+        return {
+          accountId: indexedAccountId,
+          value: undefined,
+          currency: undefined,
+        };
+      }
+
+      return {
+        accountId: indexedAccountId,
+        value: mergedValue,
+        currency,
+      };
+    } catch {
+      return {
+        accountId: indexedAccountId,
+        value: undefined,
+        currency: undefined,
+      };
+    }
+  }
+
+  // Returns worth for a specific (accountAddress, xpub) pair, shaped as
+  // `Record<${networkAccountId}_${networkId}, value>` with the caller-supplied
+  // `networkAccountId` as the compound-key prefix. SimpleDb entries are keyed
+  // only by (address, xpub), so identical-address rows from different wallets
+  // read the same entry; the per-wallet prefix only re-labels the output key.
+  @backgroundMethod()
+  async getAllNetworkAccountsValueByAddress(params: {
+    networkAccountId: string;
+    accountAddress?: string;
+    xpub?: string;
+  }) {
+    const { networkAccountId, accountAddress, xpub } = params;
+    const empty = {
+      accountId: networkAccountId,
+      value: undefined as Record<string, string> | undefined,
+      currency: undefined as 'usd' | undefined,
+    };
+    if (!accountAddress && !xpub) {
+      return empty;
+    }
+    try {
+      const [entry] = await simpleDb.accountValue.getAllNetworkAccountsValue({
+        items: [{ accountAddress, xpub }],
+      });
+      if (!entry?.value || Object.keys(entry.value).length === 0) {
+        return empty;
+      }
+      const value: Record<string, string> = {};
+      for (const [networkId, v] of Object.entries(entry.value)) {
+        const compoundKey = accountUtils.buildAccountValueKey({
+          accountId: networkAccountId,
+          networkId,
+        });
+        value[compoundKey] = v;
+      }
+      return { accountId: networkAccountId, value, currency: entry.currency };
+    } catch {
+      return empty;
+    }
+  }
+
+  // Batched variant of `getAllNetworkAccountsValueByAccountId` for callers
+  // like the account selector that resolve worth for tens of accounts at a
+  // time. Folds the per-account `simpleDb.accountValue.getAllNetworkAccountsValue`
+  // call into a single read (the SimpleDb entity has caching disabled, so
+  // each per-account call previously paid a fresh storage deserialization).
+  @backgroundMethod()
+  async getAllNetworkAccountsValueByAccountIdBatch(params: {
+    accounts: {
+      accountId: string;
+      accountAddress?: string;
+      xpub?: string;
+    }[];
+  }): Promise<
+    Array<{
+      accountId: string;
+      value: Record<string, string> | undefined;
+      currency: 'usd' | undefined;
+    }>
+  > {
+    const { accounts } = params;
+    if (!accounts.length) return [];
+
+    type IResolved = {
+      ownerAccountId: string;
+      // Account id used as the compound-key prefix. For Others, this is the
+      // owner accountId; for HD, it is the per-derive dbAccount.id so the
+      // deriveType filter and merge-derive-assets paths keep working.
+      compoundKeyAccountId: string;
+      accountAddress?: string;
+      xpub?: string;
+    };
+    const resolved: IResolved[] = [];
+
+    await Promise.all(
+      accounts.map(async (a) => {
+        if (!a.accountId) return;
+        try {
+          if (accountUtils.isOthersAccount({ accountId: a.accountId })) {
+            // Others: reuse pre-resolved address/xpub if upstream supplied
+            // it, otherwise fetch the dbAccount once.
+            if (a.accountAddress || a.xpub) {
+              resolved.push({
+                ownerAccountId: a.accountId,
+                compoundKeyAccountId: a.accountId,
+                accountAddress: a.accountAddress,
+                xpub: a.xpub,
+              });
+              return;
+            }
+            const acc =
+              await this.backgroundApi.serviceAccount.getDBAccountSafe({
+                accountId: a.accountId,
+              });
+            const xpub = accountUtils.pickXpubFromDBAccount(acc);
+            if (acc && (acc.address || xpub)) {
+              resolved.push({
+                ownerAccountId: a.accountId,
+                compoundKeyAccountId: a.accountId,
+                accountAddress: acc.address,
+                xpub,
+              });
+            }
+            return;
+          }
+
+          // HD/HW indexed account: expand to all derives so ChainSelector
+          // can use per-derive compound keys.
+          const { accounts: dbAccountsList } =
+            await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+              { indexedAccountId: a.accountId },
+            );
+          for (const dbAcc of dbAccountsList ?? []) {
+            const xpub = accountUtils.pickXpubFromDBAccount(dbAcc);
+            if (dbAcc.address || xpub) {
+              resolved.push({
+                ownerAccountId: a.accountId,
+                compoundKeyAccountId: dbAcc.id,
+                accountAddress: dbAcc.address,
+                xpub,
+              });
+            }
+          }
+        } catch {
+          // Skip this account; its slot in the result will fall back to
+          // the empty shape below.
+        }
+      }),
+    );
+
+    if (resolved.length === 0) {
+      return accounts.map((a) => ({
+        accountId: a.accountId,
+        value: undefined,
+        currency: undefined,
+      }));
+    }
+
+    // Single SimpleDb read for the whole batch.
+    const entries = await simpleDb.accountValue.getAllNetworkAccountsValue({
+      items: resolved.map((r) => ({
+        accountAddress: r.accountAddress,
+        xpub: r.xpub,
+      })),
+    });
+
+    const grouped = new Map<
+      string,
+      { value: Record<string, string>; currency?: 'usd' }
+    >();
+    resolved.forEach((r, i) => {
+      const entry = entries[i];
+      if (!entry?.value) return;
+      let agg = grouped.get(r.ownerAccountId);
+      if (!agg) {
+        agg = { value: {} };
+        grouped.set(r.ownerAccountId, agg);
+      }
+      for (const [nId, v] of Object.entries(entry.value)) {
+        const compoundKey = accountUtils.buildAccountValueKey({
+          accountId: r.compoundKeyAccountId,
+          networkId: nId,
+        });
+        agg.value[compoundKey] = v;
+      }
+      agg.currency = entry.currency;
+    });
+
+    return accounts.map((a) => {
+      const g = grouped.get(a.accountId);
+      const hasValue = g && Object.keys(g.value).length > 0;
+      return {
+        accountId: a.accountId,
+        value: hasValue ? g.value : undefined,
+        currency: g?.currency,
+      } as {
+        accountId: string;
+        value: Record<string, string> | undefined;
+        currency: 'usd' | undefined;
+      };
+    });
+  }
+
+  // Returns per-network worth for a logical account in the compound-key shape
+  // `Record<${networkAccountId}_${networkId}, value>` consumed by
+  // `sortChainSelectorNetworksByValue` and `ChainSelector.tsx`. For HD/HW the
+  // compound prefix is the per-derive `dbAccount.id` so the deriveType filter
+  // and merge-derive-assets paths keep working.
+  @backgroundMethod()
+  async getAllNetworkAccountsValueByAccountId(params: { accountId: string }) {
+    const { accountId } = params;
+    const empty = {
+      accountId,
+      value: undefined as Record<string, string> | undefined,
+      currency: undefined as 'usd' | undefined,
+    };
+    if (!accountId) {
+      return empty;
+    }
+
+    try {
+      if (accountUtils.isOthersAccount({ accountId })) {
+        const account =
+          await this.backgroundApi.serviceAccount.getDBAccountSafe({
+            accountId,
+          });
+        const xpub = accountUtils.pickXpubFromDBAccount(account);
+        if (!account || (!account.address && !xpub)) {
+          return empty;
+        }
+        const [entry] = await simpleDb.accountValue.getAllNetworkAccountsValue({
+          items: [{ accountAddress: account.address, xpub }],
+        });
+        if (!entry?.value || Object.keys(entry.value).length === 0) {
+          return empty;
+        }
+        const value: Record<string, string> = {};
+        for (const [networkId, v] of Object.entries(entry.value)) {
+          const compoundKey = accountUtils.buildAccountValueKey({
+            accountId,
+            networkId,
+          });
+          value[compoundKey] = v;
+        }
+        return { accountId, value, currency: entry.currency };
+      }
+
+      // HD/HW indexed account path.
+      const { accounts: dbAccounts } =
+        await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+          { indexedAccountId: accountId },
+        );
+
+      const items: {
+        dbAccountId: string;
+        accountAddress?: string;
+        xpub?: string;
+      }[] = [];
+      for (const acc of dbAccounts ?? []) {
+        const xpub = accountUtils.pickXpubFromDBAccount(acc);
+        if (acc.address || xpub) {
+          items.push({
+            dbAccountId: acc.id,
+            accountAddress: acc.address,
+            xpub,
+          });
+        }
+      }
+      if (items.length === 0) {
+        return empty;
+      }
+
+      const entries = await simpleDb.accountValue.getAllNetworkAccountsValue({
+        items: items.map((i) => ({
+          accountAddress: i.accountAddress,
+          xpub: i.xpub,
+        })),
+      });
+
+      const value: Record<string, string> = {};
+      let currency: 'usd' | undefined;
+      entries.forEach((entry, idx) => {
+        if (!entry?.value) return;
+        const dbAccountId = items[idx].dbAccountId;
+        for (const [networkId, v] of Object.entries(entry.value)) {
+          const compoundKey = accountUtils.buildAccountValueKey({
+            accountId: dbAccountId,
+            networkId,
+          });
+          value[compoundKey] = v;
+        }
+        currency = entry.currency;
+      });
+
+      if (Object.keys(value).length === 0) {
+        return empty;
+      }
+      return { accountId, value, currency };
+    } catch {
+      return empty;
+    }
   }
 
   @backgroundMethod()
-  async getAccountsValue(params: { accounts: { accountId: string }[] }) {
-    const accountsValue = await simpleDb.accountValue.getAccountsValue(params);
-    return accountsValue;
+  async getAccountsValue(params: {
+    accounts: {
+      accountId: string;
+      networkId: string;
+      accountAddress?: string;
+      xpub?: string;
+    }[];
+  }) {
+    const items = await Promise.all(
+      params.accounts.map(async (a) => {
+        if (a.accountAddress || a.xpub) {
+          return {
+            networkId: a.networkId,
+            accountAddress: a.accountAddress,
+            xpub: a.xpub,
+          };
+        }
+        const resolved = await this.resolveAddressKey({
+          accountId: a.accountId,
+          networkId: a.networkId,
+        });
+        if (resolved) {
+          return {
+            networkId: a.networkId,
+            accountAddress: resolved.accountAddress,
+            xpub: resolved.xpub,
+          };
+        }
+        return { networkId: a.networkId };
+      }),
+    );
+
+    const values = await simpleDb.accountValue.getAccountsValue({ items });
+
+    return params.accounts.map((a, i) => ({
+      accountId: a.accountId,
+      value: values[i]?.value,
+      currency: values[i]?.currency,
+    }));
   }
 
   @backgroundMethod()
   async updateAccountValue(params: {
+    // Logical account id for the activeAccountValueAtom — indexedAccountId for
+    // HD/HW, account.id for Others (matches the account selector's keying).
     accountId: string;
+    // The active networkAccount's account.id; required because HD/HW callers
+    // pass indexedAccountId as `accountId` which can't resolve a chain address.
+    networkAccountId: string;
+    networkId: string;
     value: string;
     currency: string;
     shouldUpdateActiveAccountValue?: boolean;
   }) {
     if (params.shouldUpdateActiveAccountValue) {
-      await activeAccountValueAtom.set(params);
+      await activeAccountValueAtom.set({
+        accountId: params.accountId,
+        value: params.value,
+        currency: params.currency,
+      });
     }
 
-    await simpleDb.accountValue.updateAccountValue(params);
+    const usdValue = await this.convertOneToUsd(params.value, params.currency);
+    const resolved = await this.resolveAddressKey({
+      accountId: params.networkAccountId,
+      networkId: params.networkId,
+    });
+    if (!resolved) return;
+
+    await simpleDb.accountValue.updateAccountValue({
+      networkId: params.networkId,
+      accountAddress: resolved.accountAddress,
+      xpub: resolved.xpub,
+      value: usdValue,
+      currency: 'usd',
+    });
   }
 
   @backgroundMethod()
   async updateAccountValueForSingleNetwork(params: {
     accountId: string;
+    networkAccountId: string;
+    networkId: string;
     value: string;
     currency: string;
   }) {
-    const accountsValue = await simpleDb.accountValue.getAccountsValue({
-      accounts: [{ accountId: params.accountId }],
+    const resolved = await this.resolveAddressKey({
+      accountId: params.networkAccountId,
+      networkId: params.networkId,
     });
-    const currentAccountValue = accountsValue?.[0];
-    if (currentAccountValue?.accountId !== params.accountId) {
-      return;
-    }
+    if (!resolved) return;
+
+    const [existing] = await simpleDb.accountValue.getAccountsValue({
+      items: [
+        {
+          networkId: params.networkId,
+          accountAddress: resolved.accountAddress,
+          xpub: resolved.xpub,
+        },
+      ],
+    });
+
+    const usdValue = await this.convertOneToUsd(params.value, params.currency);
     if (
-      currentAccountValue?.currency &&
-      params.currency &&
-      currentAccountValue?.currency !== params.currency
-    ) {
-      return;
-    }
-    if (
-      currentAccountValue?.value &&
-      params.value &&
-      new BigNumber(params.value).lte(currentAccountValue.value)
+      existing?.value &&
+      usdValue &&
+      new BigNumber(usdValue).lte(existing.value)
     ) {
       return;
     }

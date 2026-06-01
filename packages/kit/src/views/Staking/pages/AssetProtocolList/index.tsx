@@ -164,7 +164,7 @@ function AssetProtocolListContent({
         networkId: item.network.networkId,
         symbol,
         provider: item.provider.name,
-        vault: earnUtils.isVaultBasedProvider({
+        vault: earnUtils.shouldSendEarnProtocolVault({
           providerName: item.provider.name,
         })
           ? item.provider.vault

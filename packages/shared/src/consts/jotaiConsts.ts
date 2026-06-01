@@ -8,6 +8,12 @@ export const CONTEXT_ATOM_COLD_START_CACHE_KEYS = {
   accountSelectorStorageReadyAtom: 'ctx:accountSelectorStorageReadyAtom',
   activeAccountsAtom: 'ctx:activeAccountsAtom',
   renderedTokenListCacheAtom: 'ctx:renderedTokenListCacheAtom',
+  perpsActiveTradeInstrumentAtom: 'ctx:perpsActiveTradeInstrumentAtom',
+  perpsTokenSearchAliasesAtom: 'ctx:perpsTokenSearchAliasesAtom',
+  perpsMaxBuilderFeeAtom: 'ctx:perpsMaxBuilderFeeAtom',
+  perpsActiveAssetCtxColdCacheAtom: 'ctx:perpsActiveAssetCtxColdCacheAtom',
+  perpsActivePositionAtom: 'ctx:perpsActivePositionAtom',
+  perpsActiveOpenOrdersAtom: 'ctx:perpsActiveOpenOrdersAtom',
 } as const;
 
 export type IContextAtomColdStartCacheKey =

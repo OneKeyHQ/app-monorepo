@@ -1,3 +1,5 @@
+import type { IServerNetwork } from '@onekeyhq/shared/types';
+
 export enum EModalSettingRoutes {
   SettingListModal = 'SettingListModal',
   SettingListSubModal = 'SettingListSubModal',
@@ -7,9 +9,11 @@ export enum EModalSettingRoutes {
   SettingSpendUTXOModal = 'SettingSpendUTXOModal',
   SettingCustomRPC = 'SettingCustomRPC',
   SettingCustomTransaction = 'SettingCustomTransaction',
+  SettingChainListSearch = 'SettingChainListSearch',
   SettingCustomNetwork = 'SettingCustomNetwork',
   SettingAppAutoLockModal = 'SettingAppAutoLockModal',
   SettingProtectModal = 'SettingProtectModal',
+  SettingReceiveRiskSupportedAssets = 'SettingReceiveRiskSupportedAssets',
   SettingSignatureRecordModal = 'SettingSignatureRecordModal',
   SettingDevFirmwareUpdateModal = 'SettingDevFirmwareUpdateModal',
   SettingDevAppUpdateModal = 'SettingDevAppUpdateModal',
@@ -53,10 +57,24 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingAccountDerivationModal]: undefined;
   [EModalSettingRoutes.SettingSpendUTXOModal]: undefined;
   [EModalSettingRoutes.SettingCustomRPC]: undefined;
-  [EModalSettingRoutes.SettingCustomNetwork]: undefined;
+  [EModalSettingRoutes.SettingChainListSearch]: undefined;
+  [EModalSettingRoutes.SettingCustomNetwork]:
+    | {
+        state?: 'add' | 'edit';
+        networkId?: string;
+        networkName?: string;
+        rpcUrl?: string;
+        chainId?: number;
+        symbol?: string;
+        blockExplorerUrl?: string;
+        onSuccess?: (network: IServerNetwork) => void;
+        onDeleteSuccess?: () => void;
+      }
+    | undefined;
   [EModalSettingRoutes.SettingCustomTransaction]: undefined;
   [EModalSettingRoutes.SettingAppAutoLockModal]: undefined;
   [EModalSettingRoutes.SettingProtectModal]: undefined;
+  [EModalSettingRoutes.SettingReceiveRiskSupportedAssets]: undefined;
   [EModalSettingRoutes.SettingSignatureRecordModal]: undefined;
   [EModalSettingRoutes.SettingDevFirmwareUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevAppUpdateModal]: undefined;

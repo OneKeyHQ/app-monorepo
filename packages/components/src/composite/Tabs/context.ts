@@ -26,7 +26,9 @@ export const TabsContainerContext = createContext<ITabsContainerContext>({
   width: 0,
 });
 
-export type ITabsScrollContext = Omit<WindowScrollerChildProps, 'children'>;
+export type ITabsScrollContext = Omit<WindowScrollerChildProps, 'children'> & {
+  updateListContainerHeight?: () => void;
+};
 
 export const TabsScrollContext = createContext<ITabsScrollContext>({
   height: 0,
@@ -57,6 +59,14 @@ export const TabsContext = createContext<
         }
       >
     >;
+    /**
+     * Optional callback that lets per-tab list/scroll-view children signal
+     * the Container right after they write their element ref into
+     * scrollTabElementsRef. Container responds by (re-)attaching its
+     * ResizeObserver to the focused tab's element. Replaces the previous
+     * polling-based measurement retry loop.
+     */
+    requestRemeasure?: () => void;
   }
 >({
   headerHeight: 0,

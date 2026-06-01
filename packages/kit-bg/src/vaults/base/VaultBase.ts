@@ -32,6 +32,7 @@ import {
   getOnChainHistoryTxAssetInfo,
   getOnChainHistoryTxStatus,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { resolveKytDisplayLevel } from '@onekeyhq/shared/src/utils/kytUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   buildTxActionDirection,
@@ -381,15 +382,22 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     const client = await this.backgroundApi.serviceToken.getClient(
       EServiceEndpointEnum.Wallet,
     );
+    const walletTypeHeader =
+      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId: params.accountId,
+        walletId: params.walletId,
+      });
+    const headers: Record<string, string> = {
+      ...walletTypeHeader,
+      ...(params.requestCurrency
+        ? { 'x-onekey-request-currency': params.requestCurrency }
+        : {}),
+    };
     const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
       '/wallet/v1/account/token/search',
-      omit(params, ['walletId', 'accountId', 'signal']),
+      omit(params, ['walletId', 'accountId', 'signal', 'requestCurrency']),
       {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId: params.accountId,
-            walletId: params.walletId,
-          }),
+        headers,
         signal: params.signal ?? undefined,
       },
     );
@@ -756,6 +764,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         actions: [action],
 
         riskyLevel: onChainHistoryTx.riskLevel,
+
+        kytRiskLevel: resolveKytDisplayLevel(onChainHistoryTx.kyt),
+        kyt: onChainHistoryTx.kyt,
 
         status: getOnChainHistoryTxStatus(onChainHistoryTx.status),
 
@@ -1430,7 +1441,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
     const { serviceToken, serviceAccountProfile } = this.backgroundApi;
-    const { requestApiParams, flag, signal, accountId } = params;
+    const { requestApiParams, flag, signal, accountId, requestCurrency } =
+      params;
     if (requestApiParams.contractList) {
       requestApiParams.contractList = requestApiParams.contractList.filter(
         (contract): contract is string =>
@@ -1438,13 +1450,20 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       );
     }
     const client = await serviceToken.getClient(EServiceEndpointEnum.Wallet);
+    const walletTypeHeader = await serviceAccountProfile._getWalletTypeHeader({
+      accountId,
+    });
+    const headers: Record<string, string> = {
+      ...walletTypeHeader,
+      ...(requestCurrency
+        ? { 'x-onekey-request-currency': requestCurrency }
+        : {}),
+    };
     const resp = await client.post<{
       data: IFetchAccountTokensResp;
     }>(`/wallet/v1/account/token/list?flag=${flag || ''}`, requestApiParams, {
       signal,
-      headers: await serviceAccountProfile._getWalletTypeHeader({
-        accountId,
-      }),
+      headers,
     });
     return resp;
   }
@@ -1518,10 +1537,20 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       '/wallet/v1/account/history/detail',
       {
         params: rest,
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
+        headers: {
+          ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+            {
+              accountId,
+            },
+          )),
+          // Authenticate this request only so the server can attach per-user
+          // KYT risk data, without authenticating the whole shared wallet client.
+          // Watch-only accounts are excluded from KYT: withhold the token so the
+          // server never enrols their addresses (no queue / no data / no push).
+          ...(accountUtils.isWatchingAccount({ accountId })
+            ? {}
+            : await this.backgroundApi.serviceGas.getOneKeyIdAuthHeaders()),
+        },
       },
     );
     return resp;

@@ -22,8 +22,8 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { network, account, indexedAccount } = activeAccount;
 
-  const { user } = useOneKeyAuth();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const { user, isPrimeActive } = useOneKeyAuth();
+  const isPrimeUser = isPrimeActive && user?.onekeyUserId;
   const { isPrimeAvailable } = usePrimeAvailable();
 
   const navigateToBulkSend = useNavigateToBulkSend();
@@ -37,6 +37,7 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
       defaultLogger.prime.subscription.primeEntryClick({
         featureName: EPrimeFeatures.BulkSend,
         entryPoint: 'moreActions',
+        isPrimeActive,
       });
       navigation.pushFullModal(EModalRoutes.PrimeModal, {
         screen: EPrimePages.PrimeDashboard,
@@ -59,6 +60,7 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
     });
   }, [
     onClose,
+    isPrimeActive,
     isPrimeUser,
     navigateToBulkSend,
     showBulkSendModeDialog,

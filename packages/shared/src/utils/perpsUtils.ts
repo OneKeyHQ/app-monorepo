@@ -1526,6 +1526,10 @@ export function parseSignatureToRSV(signatureHex: string): {
   };
 }
 
+export function normalizePerpsAccountAddress(address?: string | null) {
+  return address?.toLowerCase() ?? null;
+}
+
 // Parse coin with dex prefix, e.g., "xyz:NVDA" -> { displayName: "NVDA", dexLabel: "xyz" }
 export function parseDexCoin(coin: string): {
   displayName: string;

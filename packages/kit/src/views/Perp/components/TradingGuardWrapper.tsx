@@ -1,75 +1,45 @@
 import type { ReactNode } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Button, SizableText, Spinner } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   usePerpsAccountLoadingInfoAtom,
-  usePerpsActiveAccountAtom,
   usePerpsActiveAccountIsAgentReadyAtom,
   usePerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
-
-import { showHyperliquidTermsDialog } from './HyperliquidTerms';
+import { useEnableTradingWithDepositFallback } from '../hooks/useEnableTradingWithDepositFallback';
 
 interface ITradingGuardWrapperProps {
   children?: ReactNode;
   forceShowEnableTrading?: boolean;
+  bypassEnableTradingGuard?: boolean;
   disabled?: boolean;
+  buttonSize?: 'medium' | 'large';
 }
 
 function TradingGuardWrapperInternal({
   children,
   forceShowEnableTrading = false,
+  bypassEnableTradingGuard = false,
   disabled = false,
+  buttonSize = 'medium',
 }: ITradingGuardWrapperProps) {
   const intl = useIntl();
-  const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
-  // Memoize account info to optimize callback dependencies
-  const accountInfo = useMemo(
-    () => ({
-      accountAddress: perpsAccount.accountAddress,
-      accountId: perpsAccount.accountId,
-    }),
-    [perpsAccount.accountAddress, perpsAccount.accountId],
-  );
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
-  const enableTrading = useCallback(async () => {
-    try {
-      const didAcceptTerms = await showHyperliquidTermsDialog();
-      if (!didAcceptTerms) {
-        return;
-      }
-
-      const status =
-        await backgroundApiProxy.serviceHyperliquid.enableTrading();
-      if (
-        status?.details?.activatedOk === false &&
-        accountInfo.accountAddress &&
-        accountInfo.accountId
-      ) {
-        await showDepositWithdrawModal('deposit');
-      }
-    } catch (error) {
-      console.error('[TradingGuardWrapper] Enable trading failed:', error);
-    }
-  }, [
-    accountInfo.accountAddress,
-    accountInfo.accountId,
-    showDepositWithdrawModal,
-  ]);
+  const enableTrading = useEnableTradingWithDepositFallback();
 
   const shouldShowEnableTrading = useMemo(() => {
+    if (bypassEnableTradingGuard) {
+      return forceShowEnableTrading;
+    }
     return forceShowEnableTrading || isAgentReady === false;
-  }, [forceShowEnableTrading, isAgentReady]);
+  }, [bypassEnableTradingGuard, forceShowEnableTrading, isAgentReady]);
 
   const isEnableTradingLoading = perpsAccountLoading.enableTradingLoading;
 
@@ -85,8 +55,9 @@ function TradingGuardWrapperInternal({
     return (
       <Button
         variant="primary"
-        size="medium"
+        size={buttonSize}
         disabled
+        childrenAsText={false}
         testID="perp-is-disabled-btn"
       >
         <Spinner />
@@ -98,8 +69,9 @@ function TradingGuardWrapperInternal({
     return (
       <Button
         variant="primary"
-        size="medium"
+        size={buttonSize}
         disabled
+        childrenAsText={false}
         testID="perp-is-disabled-btn"
       >
         <SizableText size="$bodyMdMedium" color="$textOnColor">
@@ -116,7 +88,7 @@ function TradingGuardWrapperInternal({
       <Button
         testID="perp-is-disabled-btn"
         variant="primary"
-        size="medium"
+        size={buttonSize}
         disabled={disabled || isEnableTradingLoading}
         loading={isEnableTradingLoading}
         onPress={disabled ? undefined : enableTrading}
@@ -124,6 +96,7 @@ function TradingGuardWrapperInternal({
         hoverStyle={buttonStyles.hoverStyle}
         pressStyle={buttonStyles.pressStyle}
         color="$textOnColor"
+        childrenAsText={false}
       >
         <SizableText size="$bodyMdMedium" color="$textOnColor">
           {intl.formatMessage({

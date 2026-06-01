@@ -53,7 +53,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
-  TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
+  isTokenSelectorDappTokenFilterSupportedNetwork,
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -114,11 +114,36 @@ const SwapTokenSelectPage = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
-  const showLpTokensOnly = TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED
+  const [currentSelectNetwork, setCurrentSelectNetwork] =
+    useSwapSelectTokenNetworkAtom();
+  const currentSelectNetworkForDappTokenFilter = useMemo(() => {
+    if (!currentSelectNetwork) {
+      return undefined;
+    }
+
+    if (currentSelectNetwork.isAllNetworks) {
+      return {
+        id: currentSelectNetwork.networkId,
+        isAllNetworks: true,
+      };
+    }
+
+    return {
+      id: currentSelectNetwork.networkId,
+      backendIndex: currentSelectNetwork.backendIndex,
+    };
+  }, [currentSelectNetwork]);
+  const showLpTokenFilterSwitch =
+    SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED &&
+    isTokenSelectorDappTokenFilterSupportedNetwork({
+      network: currentSelectNetworkForDappTokenFilter,
+    });
+  const showLpTokensOnly = showLpTokenFilterSwitch
     ? tokenSelectorFilter.swapShowLpTokensOnly
     : false;
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
+  const hasUserSelectedNetworkRef = useRef(false);
   if (fromTokenRef.current !== fromToken) {
     fromTokenRef.current = fromToken;
   }
@@ -172,8 +197,6 @@ const SwapTokenSelectPage = ({
     toToken?.networkId,
     type,
   ]);
-  const [currentSelectNetwork, setCurrentSelectNetwork] =
-    useSwapSelectTokenNetworkAtom();
   const listViewRef = useRef<FlatList>(null);
   const handleLpTokenFilterChange = useCallback(
     (value: boolean) => {
@@ -190,12 +213,31 @@ const SwapTokenSelectPage = ({
   );
 
   useEffect(() => {
-    setCurrentSelectNetwork(syncDefaultNetworkSelect);
-    return () => {
+    if (hasUserSelectedNetworkRef.current) {
+      return;
+    }
+    const nextNetwork = syncDefaultNetworkSelect();
+    if (!nextNetwork) {
+      return;
+    }
+    setCurrentSelectNetwork((prev) => {
+      if (
+        !prev ||
+        prev.isAllNetworks ||
+        prev.networkId === nextNetwork.networkId
+      ) {
+        return nextNetwork;
+      }
+      return prev;
+    });
+  }, [setCurrentSelectNetwork, syncDefaultNetworkSelect]);
+
+  useEffect(
+    () => () => {
       setCurrentSelectNetwork(undefined);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setCurrentSelectNetwork]);
+    },
+    [setCurrentSelectNetwork],
+  );
 
   useEffect(() => {
     const accountNet =
@@ -219,7 +261,7 @@ const SwapTokenSelectPage = ({
     currentSelectNetwork?.networkId,
     requestedSearchKeyword,
     swapTypeSwitch,
-    TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED ? showLpTokensOnly : undefined,
+    showLpTokenFilterSwitch ? showLpTokensOnly : undefined,
   );
   const alertIndex = useMemo(
     () =>
@@ -312,6 +354,7 @@ const SwapTokenSelectPage = ({
 
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
+      hasUserSelectedNetworkRef.current = true;
       setCurrentSelectNetwork(network);
       listViewRef.current?.scrollToOffset({
         offset: 0,
@@ -610,14 +653,19 @@ const SwapTokenSelectPage = ({
           justifyContent="space-between"
           gap="$3"
         >
-          <XStack alignItems="center" flexShrink={1}>
-            <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
+          <XStack alignItems="center" flexShrink={1} h="$8" minWidth={0}>
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              pr="$2"
+              lineHeight={32}
+            >
               {intl.formatMessage({
                 id: ETranslations.token_selector_network,
               })}
             </SizableText>
-            <XStack flexShrink={1}>
-              <SizableText size="$bodyMd" numberOfLines={1}>
+            <XStack alignItems="center" flexShrink={1} h="$8" minWidth={0}>
+              <SizableText size="$bodyMd" numberOfLines={1} lineHeight={32}>
                 {currentSelectNetwork?.isAllNetworks
                   ? intl.formatMessage({
                       id: ETranslations.global_all_networks,
@@ -626,7 +674,7 @@ const SwapTokenSelectPage = ({
               </SizableText>
             </XStack>
           </XStack>
-          {TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED ? (
+          {showLpTokenFilterSwitch ? (
             <TokenSelectorLpTokenSwitch
               value={showLpTokensOnly}
               onChange={handleLpTokenFilterChange}

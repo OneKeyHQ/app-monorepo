@@ -19,6 +19,7 @@ import {
 } from 'react-native-reanimated';
 
 import {
+  CollapsibleTabContext,
   Image,
   SizableText,
   Skeleton,
@@ -29,7 +30,6 @@ import {
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import { useTabsContext } from '@onekeyhq/components/src/composite/Tabs/context';
 import {
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
@@ -106,6 +106,7 @@ const decideBackToTopVisible: WorkletFn<
   (current: number, last: number, previous: boolean) => boolean
 > = (current, last, previous) => {
   'worklet';
+
   if (current <= BACK_TO_TOP_NEAR_TOP_PX) return false;
   if (current < last) return true;
   if (current > last) return false;
@@ -822,7 +823,16 @@ function DeFiContainerScrollableNative() {
   const tabBarOffset = useScrollContentTabBarOffset();
 
   const scrollYShared = useCurrentTabScrollY();
-  const { refMap, focusedTab } = useTabsContext();
+  // Source refMap/focusedTab from CollapsibleTabContext, NOT the OneKey
+  // TabsContext. On native Tabs.Container is react-native-collapsible-tab-view's
+  // container, which only populates the library's own context (re-exported here
+  // as CollapsibleTabContext); the OneKey TabsContext is provided solely by the
+  // web Container, so on native its refMap was always empty and the back-to-top
+  // tap silently no-op'd.
+  const tabsContext = useContext(CollapsibleTabContext);
+  const refMap = tabsContext?.refMap;
+  const focusedTabShared = tabsContext?.focusedTab;
+  const tabContentInset = tabsContext?.contentInset ?? 0;
 
   const [backToTopVisible, setBackToTopVisible] = useState(false);
   const lastVisibleShared = useSharedValue(false);
@@ -846,15 +856,20 @@ function DeFiContainerScrollableNative() {
   );
 
   const onPressBackToTop = useCallback(() => {
+    if (!refMap || !focusedTabShared) return;
     runOnUI(() => {
       'worklet';
 
-      const ref = refMap[focusedTab.value];
+      const ref = refMap[focusedTabShared.value];
       if (ref) {
-        scrollTo(ref, 0, 0, true);
+        // Mirror the library's own scroll math (syncCurrentTabScrollPosition):
+        // a logical top of 0 maps to a native offset of -contentInset. On iOS
+        // the list is inset below the collapsible header; on Android
+        // contentInset is 0 so this is a plain scroll-to-0.
+        scrollTo(ref, 0, -tabContentInset, true);
       }
     })();
-  }, [refMap, focusedTab]);
+  }, [refMap, focusedTabShared, tabContentInset]);
 
   return (
     <Stack flex={1}>

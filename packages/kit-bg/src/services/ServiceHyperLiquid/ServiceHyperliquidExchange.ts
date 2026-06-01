@@ -32,6 +32,10 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { convertHyperLiquidResponse } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 import {
+  assertValidScaleOrderLegs,
+  buildScaleOrderLegs,
+} from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
   MAX_DECIMALS_PERP,
   formatHlPrice,
   formatHlSize,
@@ -51,16 +55,21 @@ import type {
   IOrderParams,
   IOrderRequest,
   IOrderResponse,
+  ITwapCancelResponse,
+  ITwapOrderResponse,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IAgentApprovalRequest,
   IBuilderFeeRequest,
   ICancelOrderParams,
+  ICancelTwapOrderParams,
   ILeverageUpdateRequest,
   IModifyOrderParams,
   IOrderCloseParams,
   IOrderOpenParams,
   IPlaceOrderParams,
+  IPlaceScaleOrderParams,
+  IPlaceTwapOrderParams,
   IPositionTpslOrderParams,
   ISetReferrerRequest,
   ISpotOrderParams,
@@ -76,6 +85,8 @@ import {
   perpsActiveAccountStatusAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
+
+import { createLoggedHyperLiquidClient } from './utils/logHyperLiquidApiFailure';
 
 import type {
   WalletHyperliquidOnekey,
@@ -141,6 +152,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       );
     }
     return this._exchangeClient;
+  }
+
+  private _createLoggedExchangeClient(client: ExchangeClient): ExchangeClient {
+    return createLoggedHyperLiquidClient(client, {
+      endpoint: 'exchange',
+      context: () => this._buildLogContext(),
+      extra: { source: 'ServiceHyperliquidExchange' },
+    });
   }
 
   private _calculateSlippagePrice(params: {
@@ -364,11 +383,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         account = proxyWallet.address;
       }
 
-      this._exchangeClient = new ExchangeClient({
-        transport,
-        wallet,
-        signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
-      });
+      this._exchangeClient = this._createLoggedExchangeClient(
+        new ExchangeClient({
+          transport,
+          wallet,
+          signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
+        }),
+      );
 
       this._account = account;
       this._wallet = wallet;
@@ -384,7 +405,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
    */
   private async _ensureAgentReady(): Promise<boolean> {
     const accountStatus = await perpsActiveAccountStatusAtom.get();
-    return Boolean(accountStatus?.details?.agentOk && accountStatus?.canTrade);
+    const isAtomReady = Boolean(
+      accountStatus?.details?.agentOk && accountStatus?.canTrade,
+    );
+    if (isAtomReady) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -841,6 +869,76 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
+  async placeScaleOrder(
+    params: IPlaceScaleOrderParams,
+  ): Promise<IOrderResponse> {
+    await this.checkAccountCanTrade();
+    if (!this._account) {
+      throw new OneKeyLocalError(
+        'Exchange client not setup. Call setup() first.',
+      );
+    }
+
+    const szDecimals = params.szDecimals ?? 2;
+    const side = params.isBuy ? 'long' : 'short';
+    const tif = params.tif ?? 'Gtc';
+    const assetType =
+      params.assetType ??
+      (params.assetId >= SPOT_ASSET_ID_OFFSET ? 'spot' : 'perp');
+    if (assetType === 'spot' && params.assetId < SPOT_ASSET_ID_OFFSET) {
+      throw new OneKeyLocalError(
+        `placeScaleOrder: invalid spot assetId ${params.assetId}, must be >= ${SPOT_ASSET_ID_OFFSET}`,
+      );
+    }
+    const reduceOnly =
+      assetType === 'spot' ? false : Boolean(params.reduceOnly);
+    const legs = buildScaleOrderLegs({
+      totalSize: params.size,
+      lowerPrice: params.lowerPrice,
+      upperPrice: params.upperPrice,
+      orderCount: params.orderCount,
+      szDecimals,
+      side,
+      sizeSkew: params.sizeSkew,
+      assetType,
+    });
+    assertValidScaleOrderLegs({ legs });
+
+    const orders: IOrderParams[] = legs.map((leg) => ({
+      a: params.assetId,
+      b: params.isBuy,
+      p: leg.price,
+      s: leg.size,
+      r: reduceOnly,
+      t: { limit: { tif } },
+    }));
+
+    try {
+      return await this.placeOrderRaw(
+        {
+          orders,
+          grouping: 'na',
+        },
+        {
+          action: 'multiOrder',
+          originalParams: params,
+          extra: {
+            orderCount: orders.length,
+            reduceOnly,
+            tif,
+            sizeSkew: params.sizeSkew,
+            assetType,
+          },
+        },
+      );
+    } catch (error) {
+      throw new OneKeyLocalError(
+        `Failed to place scale order: ${String(error)}`,
+      );
+    }
+  }
+
   private _calculateSpotSlippagePrice(params: {
     markPrice: string;
     isBuy: boolean;
@@ -1234,6 +1332,127 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
+  async placeTwapOrder(
+    params: IPlaceTwapOrderParams,
+  ): Promise<ITwapOrderResponse> {
+    await this.checkAccountCanTrade();
+
+    const precisionMap = await this._getOrderAssetPrecisionMap([
+      params.assetId,
+    ]);
+    const precision = precisionMap.get(params.assetId);
+    const szDecimals = params.szDecimals ?? precision?.szDecimals ?? 2;
+    const size = formatHlSize(params.size, szDecimals);
+    if (!size) {
+      throw new OneKeyLocalError('TWAP size is too small for HL lot size');
+    }
+
+    const assetType = precision?.type;
+    const reduceOnly =
+      assetType === 'spot' ? false : Boolean(params.reduceOnly);
+    const twap = {
+      a: params.assetId,
+      b: params.isBuy,
+      s: size,
+      r: reduceOnly,
+      m: params.minutes,
+      t: params.randomize,
+    };
+    const client = await this.getExchangeClientForTrading();
+    const context = await this._buildLogContext();
+    const requestPayload = {
+      twap: {
+        assetId: params.assetId,
+        isBuy: params.isBuy,
+        size,
+        reduceOnly,
+        minutes: params.minutes,
+        randomize: params.randomize,
+      },
+    };
+
+    try {
+      const response = await convertHyperLiquidResponse(() =>
+        client.twapOrder({
+          twap,
+        }),
+      );
+      defaultLogger.perp.hyperliquid.twapOrder({
+        ...context,
+        request: requestPayload,
+        response,
+        extra: {
+          originalParams: params,
+          builder: null,
+        },
+      });
+      void this.backgroundApi.serviceRookieGuide.recordTaskCompleted(
+        ERookieTaskType.PERPS,
+      );
+      return response;
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.twapOrder({
+        ...context,
+        request: requestPayload,
+        response: extractHyperLiquidErrorResponse<
+          ITwapOrderResponse | IApiErrorResponse
+        >(error),
+        error: serializeHyperLiquidError(error),
+        extra: {
+          originalParams: params,
+          builder: null,
+        },
+      });
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async cancelTwapOrder(
+    params: ICancelTwapOrderParams,
+  ): Promise<ITwapCancelResponse> {
+    await this.checkAccountCanTrade();
+
+    const client = await this.getExchangeClientForTrading();
+    const context = await this._buildLogContext();
+    const requestPayload = {
+      assetId: params.assetId,
+      twapId: params.twapId,
+    };
+
+    try {
+      const response = await convertHyperLiquidResponse(() =>
+        client.twapCancel({
+          a: params.assetId,
+          t: params.twapId,
+        }),
+      );
+      defaultLogger.perp.hyperliquid.twapCancel({
+        ...context,
+        request: requestPayload,
+        response,
+        extra: {
+          originalParams: params,
+        },
+      });
+      return response;
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.twapCancel({
+        ...context,
+        request: requestPayload,
+        response: extractHyperLiquidErrorResponse<
+          ITwapCancelResponse | IApiErrorResponse
+        >(error),
+        error: serializeHyperLiquidError(error),
+        extra: {
+          originalParams: params,
+        },
+      });
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
   async placeLimitOrderByCoin(params: {
     coin: string;
     isBuy: boolean;
@@ -1422,11 +1641,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
         userAccountId: params.userAccountId,
       });
-    const exchangeClient = new ExchangeClient({
-      transport: new HttpTransport(),
-      wallet,
-      signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
-    });
+    const exchangeClient = this._createLoggedExchangeClient(
+      new ExchangeClient({
+        transport: new HttpTransport(),
+        wallet,
+        signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
+      }),
+    );
     // TODO: i18n — HL returns English errors like "Cannot disable unified account with open positions..."
     // Need to add these to hyperliquidErrorLocales config for localization
     await convertHyperLiquidResponse(() =>
@@ -1444,11 +1665,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
         userAccountId: params.userAccountId,
       });
-    const exchangeClient = new ExchangeClient({
-      transport: new HttpTransport(),
-      wallet,
-      signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
-    });
+    const exchangeClient = this._createLoggedExchangeClient(
+      new ExchangeClient({
+        transport: new HttpTransport(),
+        wallet,
+        signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
+      }),
+    );
     const context = await this._buildLogContext();
     try {
       await convertHyperLiquidResponse(() => exchangeClient.withdraw3(params));

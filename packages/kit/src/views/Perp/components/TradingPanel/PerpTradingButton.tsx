@@ -13,7 +13,6 @@ import {
   YStack,
   resetToRoute,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -38,11 +37,13 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import { useEnableTradingWithDepositFallback } from '../../hooks/useEnableTradingWithDepositFallback';
+import { usePerpsMarketDataFreshness } from '../../hooks/usePerpsMarketDataFreshness';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
+import { shouldBlockPerpsTradingForMarketData } from '../../utils/perpsMarketDataFreshness';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
-import { showHyperliquidTermsDialog } from '../HyperliquidTerms';
 
 const sharedButtonProps = {
   size: 'medium',
@@ -77,6 +78,9 @@ export function PerpTradingButton({
     usePerpsShouldShowEnableTradingButtonAtom();
   const [tradingMode] = useTradingModeAtom();
   const { midPrice } = useTradingPrice();
+  const marketDataFreshness = usePerpsMarketDataFreshness();
+  const shouldBlockForMarketData =
+    shouldBlockPerpsTradingForMarketData(marketDataFreshness);
   const themeVariant = useThemeVariant();
   const isSpot = tradingMode === 'spot';
 
@@ -103,33 +107,42 @@ export function PerpTradingButton({
     perpsAccountLoading.enableTradingLoading,
     perpsAccountLoading.selectAccountLoading,
   ]);
+  const enableTrading = useEnableTradingWithDepositFallback();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
-  const enableTrading = useCallback(async () => {
-    const didAcceptTerms = await showHyperliquidTermsDialog();
-    if (!didAcceptTerms) {
-      return;
-    }
 
-    const status = await backgroundApiProxy.serviceHyperliquid.enableTrading();
-    if (
-      status?.details?.activatedOk === false &&
-      perpsAccount.accountAddress &&
-      perpsAccount.accountId
-    ) {
-      await showDepositWithdrawModal('deposit');
-    }
-  }, [
-    perpsAccount.accountAddress,
-    perpsAccount.accountId,
-    showDepositWithdrawModal,
-  ]);
+  const handleDepositFromToast = useCallback(() => {
+    void showDepositWithdrawModal('deposit');
+  }, [showDepositWithdrawModal]);
+
+  const showNoEnoughMarginToast = useCallback(() => {
+    Toast.error({
+      title: isSpot
+        ? intl.formatMessage({
+            id: ETranslations.dexmarket_insufficient_balance,
+          })
+        : intl.formatMessage({
+            id: ETranslations.perp_insufficient_margin__title,
+          }),
+      actions: (
+        <Button
+          testID={PerpTestIDs.MarginToastDepositButton}
+          size="small"
+          variant="primary"
+          onPress={handleDepositFromToast}
+        >
+          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+        </Button>
+      ),
+      actionsAlign: 'left',
+      toastId: `perp-no-enough-margin-${isSpot ? 'spot' : 'perp'}`,
+    });
+  }, [handleDepositFromToast, intl, isSpot]);
 
   const buttonDisabled = useMemo(() => {
     return (
       !computedSize.gt(0) ||
       !perpsAccountStatus.canTrade ||
       isSubmitting ||
-      isNoEnoughMargin ||
       isAccountLoading ||
       isMinimumOrderNotMet ||
       (perpsAccountStatus.canTrade &&
@@ -140,7 +153,6 @@ export function PerpTradingButton({
     computedSize,
     perpsAccountStatus.canTrade,
     isSubmitting,
-    isNoEnoughMargin,
     isAccountLoading,
     isMinimumOrderNotMet,
     perpConfigCommon?.disablePerpActionPerp,
@@ -150,12 +162,6 @@ export function PerpTradingButton({
     if (isSubmitting)
       return intl.formatMessage({
         id: ETranslations.perp_trading_button_placing,
-      });
-    if (isNoEnoughMargin)
-      return intl.formatMessage({
-        id: isSpot
-          ? ETranslations.dexmarket_insufficient_balance
-          : ETranslations.perp_trading_button_no_enough_margin,
       });
     if (isMinimumOrderNotMet)
       return intl.formatMessage(
@@ -169,7 +175,7 @@ export function PerpTradingButton({
     return intl.formatMessage({
       id: ETranslations.perp_trade_button_place_order,
     });
-  }, [isSpot, isSubmitting, isNoEnoughMargin, isMinimumOrderNotMet, intl]);
+  }, [isSubmitting, isMinimumOrderNotMet, intl]);
 
   const isLong = useMemo(() => formData.side === 'long', [formData.side]);
   const buttonStyles = useMemo(() => {
@@ -275,17 +281,55 @@ export function PerpTradingButton({
   ]);
 
   const orderConfirm = useCallback(async () => {
+    if (shouldBlockForMarketData) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.perp_offline,
+        }),
+        message: intl.formatMessage({
+          id: ETranslations.perps_offline_moblie,
+        }),
+      });
+      return;
+    }
+
+    if (isNoEnoughMargin) {
+      showNoEnoughMarginToast();
+      return;
+    }
+
     // Validate TPSL prices before proceeding
     if (!(await validateTpslPrices())) {
       return;
     }
 
     handleShowConfirm();
-  }, [validateTpslPrices, handleShowConfirm]);
+  }, [
+    isNoEnoughMargin,
+    intl,
+    shouldBlockForMarketData,
+    showNoEnoughMarginToast,
+    validateTpslPrices,
+    handleShowConfirm,
+  ]);
 
-  if (loading || perpsAccountLoading?.selectAccountLoading) {
+  // Once an address is resolved, keep the CTA in a neutral disabled state
+  // until live statusInfo arrives. Cached status is not used here because
+  // perpsActiveAccountStatusAtom is part of the order permission path.
+  const isWaitingForLiveStatus =
+    !perpsAccountStatus.details && Boolean(perpsAccount?.accountAddress);
+  if (
+    loading ||
+    perpsAccountLoading?.selectAccountLoading ||
+    isWaitingForLiveStatus
+  ) {
     return (
-      <Button {...sharedButtonProps} disabled testID="perp-order-confirm-btn">
+      <Button
+        {...sharedButtonProps}
+        disabled
+        childrenAsText={false}
+        testID="perp-order-confirm-btn"
+      >
         <Spinner />
       </Button>
     );
@@ -355,7 +399,7 @@ export function PerpTradingButton({
           onPress={async () => {
             await enableTrading();
           }}
-          childrenAsText
+          childrenAsText={false}
         >
           <SizableText size="$bodyMdMedium" color="$textInverse">
             {intl.formatMessage({
@@ -385,6 +429,7 @@ export function PerpTradingButton({
       loading={perpsAccountLoading?.enableTradingLoading || isSubmitting}
       onPress={orderConfirm}
       disabled={buttonDisabled}
+      childrenAsText={false}
     >
       <SizableText color={buttonStyles.textColor} size="$bodyMdMedium">
         {buttonText}

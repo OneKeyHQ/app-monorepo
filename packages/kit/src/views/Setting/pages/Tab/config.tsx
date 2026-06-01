@@ -160,8 +160,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const privacyPolicyUrl = useHelpLink({ path: 'articles/11461298' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
-  const { isLoggedIn } = useOneKeyAuth();
   const [settings] = useSettingsPersistAtom();
+  const { isPrimeActive } = useOneKeyAuth();
 
   const { cloudBackupFeatureInfo, startBackup } = useCloudBackup();
 
@@ -210,6 +210,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     defaultLogger.prime.subscription.primeEntryClick({
                       featureName: EPrimeFeatures.OneKeyCloud,
                       entryPoint: 'settingsPage',
+                      isPrimeActive,
                     });
 
                     navigation?.pushModal(EModalRoutes.PrimeModal, {
@@ -604,21 +605,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
           ],
           [
-            isLoggedIn
-              ? {
-                  icon: 'RemovePeopleOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.id_delete_onekey_id,
-                  }),
-                  onPress: (navigation) => {
-                    navigation?.pushModal(EModalRoutes.PrimeModal, {
-                      screen: EPrimePages.PrimeDeleteAccount,
-                    });
-                  },
-                }
-              : null,
-          ],
-          [
             {
               icon: 'BroomOutline',
               title: intl.formatMessage({
@@ -660,10 +646,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.custom_network_add_network_action_text,
                   }),
-                  settingRoute: EModalSettingRoutes.SettingCustomNetwork,
+                  settingRoute: EModalSettingRoutes.SettingChainListSearch,
                   onPress: (navigation) => {
                     defaultLogger.setting.page.enterCustomRPC();
-                    navigation?.push(EModalSettingRoutes.SettingCustomNetwork);
+                    navigation?.push(
+                      EModalSettingRoutes.SettingChainListSearch,
+                    );
                   },
                 },
                 {
@@ -894,7 +882,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       webAuthIsSupport,
       biometricAuthInfo.title,
       biometricAuthInfo.icon,
-      isLoggedIn,
       settings.hardwareTransportType,
       isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
@@ -905,6 +892,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       helpCenterUrl,
       userAgreementUrl,
       privacyPolicyUrl,
+      isPrimeActive,
     ],
   );
 };

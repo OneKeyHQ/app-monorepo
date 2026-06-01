@@ -8,7 +8,7 @@ import type {
   IAllNetworkAccountsInfoResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -195,10 +195,7 @@ function filterAllNetworkAccountsInfoResult({
 }
 
 type IEnabledNetworksCompatResult = {
-  networkInfoMap: Record<
-    string,
-    { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
-  >;
+  networkInfoMap: Record<string, INetworkDeriveInfo>;
   compatibleNetworks: IServerNetwork[];
   compatibleNetworksWithoutAccount: IServerNetwork[];
 };
@@ -928,10 +925,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       if (!walletId) {
         return getEmptyEnabledNetworksResult();
       }
-      const networkInfoMap: Record<
-        string,
-        { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
-      > = {};
+      const networkInfoMap: Record<string, INetworkDeriveInfo> = {};
       if (networkId && !networkUtils.isAllNetwork({ networkId })) {
         return getEmptyEnabledNetworksResult();
       }
@@ -998,9 +992,18 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
               networkId: network.id,
             }),
           ]);
+          const suffixToDeriveType: Record<string, string> = {};
+          for (const [dt, info] of Object.entries(
+            vaultSettings.accountDeriveInfo ?? {},
+          )) {
+            if (info.idSuffix) {
+              suffixToDeriveType[info.idSuffix.toLowerCase()] = dt;
+            }
+          }
           networkInfoMap[network.id] = {
             deriveType: globalDeriveType,
             mergeDeriveAssetsEnabled: !!vaultSettings.mergeDeriveAssetsEnabled,
+            suffixToDeriveType,
           };
         }
       }

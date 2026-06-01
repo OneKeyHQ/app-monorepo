@@ -84,7 +84,6 @@ function DeriveTypeLabelWithTooltip({
     <DashText
       size="$bodyMd"
       $md={{ size: '$bodyLg' }}
-      dashColor="$textDisabled"
       dashThickness={0.5}
       cursor="help"
     >
@@ -830,6 +829,7 @@ function AccountRecipients({
                   indexedAccount={itemIndexedAccount}
                   account={account}
                   networkId={networkId}
+                  enableEnterAnimation
                 />
               ),
             }}

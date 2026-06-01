@@ -105,6 +105,7 @@ module.exports = async () => {
     modulePathIgnorePatterns: [
       '<rootDir>/.claude/worktrees/',
       '<rootDir>/.worktree/',
+      '<rootDir>/ignore/',
     ],
     testPathIgnorePatterns: [
       // Detox E2E tests have their own Jest config under apps/mobile/e2e and must not run in unit-test CI.
@@ -114,6 +115,7 @@ module.exports = async () => {
       '-smoke\\.test\\.ts$',
       '<rootDir>/\\.claude/worktrees/',
       '<rootDir>/\\.worktree/',
+      '<rootDir>/ignore/',
       'packages/core/src/chains/ada',
       'packages/core/src/chains/algo',
       'packages/core/src/chains/apt',

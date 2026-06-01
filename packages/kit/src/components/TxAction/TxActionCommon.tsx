@@ -28,6 +28,7 @@ import {
   TX_RISKY_LEVEL_SCAM,
   TX_RISKY_LEVEL_SPAM,
 } from '@onekeyhq/shared/src/walletConnect/constant';
+import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -164,10 +165,17 @@ function TxActionCommonTitle({
   replaceType,
   status,
   riskyLevel,
+  kytRiskLevel,
   compact: _compact,
 }: Pick<
   ITxActionCommonListViewProps,
-  'title' | 'tableLayout' | 'replaceType' | 'status' | 'riskyLevel' | 'compact'
+  | 'title'
+  | 'tableLayout'
+  | 'replaceType'
+  | 'status'
+  | 'riskyLevel'
+  | 'kytRiskLevel'
+  | 'compact'
 >) {
   const intl = useIntl();
 
@@ -208,6 +216,16 @@ function TxActionCommonTitle({
       {riskyLevel && riskyLevel === TX_RISKY_LEVEL_SCAM ? (
         <Badge badgeSize="sm" badgeType="critical" ml="$2">
           {intl.formatMessage({ id: ETranslations.global_scam })}
+        </Badge>
+      ) : null}
+      {kytRiskLevel === EKytRiskLevel.Severe ? (
+        <Badge badgeSize="sm" badgeType="critical" ml="$2">
+          Severe risk
+        </Badge>
+      ) : null}
+      {kytRiskLevel === EKytRiskLevel.High ? (
+        <Badge badgeSize="sm" badgeType="warning" ml="$2">
+          High risk
         </Badge>
       ) : null}
     </XStack>
@@ -425,6 +443,7 @@ function TxActionCommonListView(
     networkId,
     networkLogoURI,
     riskyLevel,
+    kytRiskLevel,
     compact,
     ...rest
   } = props;
@@ -481,6 +500,7 @@ function TxActionCommonListView(
               tableLayout={tableLayout}
               replaceType={replaceType}
               riskyLevel={riskyLevel}
+              kytRiskLevel={kytRiskLevel}
               compact={compact}
             />
             <XStack alignSelf="stretch" minWidth={0}>

@@ -4,25 +4,21 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
-import type {
-  EApproveType,
-  IEarnTokenInfo,
-  IEarnWithdrawActionIcon,
-  IProtocolInfo,
-  IStakeProtocolListItem,
+import {
+  type EApproveType,
+  EManagePositionType,
+  type IEarnTokenInfo,
+  type IEarnWithdrawActionIcon,
+  type IProtocolInfo,
+  type IStakeProtocolListItem,
 } from '@onekeyhq/shared/types/staking';
 
 import { buildLocalTxStatusSyncId } from '../../../utils/utils';
 
-export enum EManagePositionType {
-  Staking = 'staking',
-  Supply = 'supply',
-  Borrow = 'borrow',
-  Withdraw = 'withdraw',
-  Repay = 'repay',
-}
+export { EManagePositionType };
 
 export const useManagePage = ({
   accountId,
@@ -125,6 +121,20 @@ export const useManagePage = ({
 
   const { managePageData, protocolList, earnAccount } = result || {};
 
+  const resolvedProtocolVault = useMemo(() => {
+    if (!earnUtils.shouldSendEarnProtocolVault({ providerName: provider })) {
+      return vault;
+    }
+    if (vault) {
+      return vault;
+    }
+    return protocolList?.find(
+      (item: IStakeProtocolListItem) =>
+        item.provider.name.toLowerCase() === provider.toLowerCase() &&
+        item.network.networkId === networkId,
+    )?.provider.vault;
+  }, [networkId, protocolList, provider, vault]);
+
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
     if (!managePageData) {
       return undefined;
@@ -173,10 +183,17 @@ export const useManagePage = ({
       price: actionData.data.token.price,
       networkId,
       provider,
-      vault,
+      vault: resolvedProtocolVault,
       accountId,
     };
-  }, [managePageData, networkId, provider, vault, accountId, type]);
+  }, [
+    managePageData,
+    networkId,
+    provider,
+    resolvedProtocolVault,
+    accountId,
+    type,
+  ]);
 
   const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
     if (!managePageData) {
@@ -189,7 +206,8 @@ export const useManagePage = ({
       (item: IStakeProtocolListItem) =>
         item.provider.name.toLowerCase() === provider.toLowerCase() &&
         item.network.networkId === networkId &&
-        (!vault || item.provider.vault === vault),
+        (!resolvedProtocolVault ||
+          item.provider.vault === resolvedProtocolVault),
     );
     const matchingProtocol =
       strictMatchingProtocol ??
@@ -207,7 +225,7 @@ export const useManagePage = ({
     return {
       symbol,
       provider,
-      vault,
+      vault: resolvedProtocolVault,
       networkId,
       earnAccount,
       activeBalance:
@@ -244,6 +262,10 @@ export const useManagePage = ({
       needsSetupLut: managePageData.needsSetupLut,
       // supply max balance for supply max button
       maxSupplyBalance: managePageData.supply?.data?.maxBalance,
+      receiptTokenRate:
+        matchingProtocol?.provider.receiptTokenRate ??
+        matchingProtocol?.provider.morphoTokenRate,
+      morphoTokenRate: matchingProtocol?.provider.morphoTokenRate,
       // approve
       approve: managePageData.approve
         ? {
@@ -254,13 +276,14 @@ export const useManagePage = ({
             approveTarget: managePageData.approve.approveTarget ?? undefined,
           }
         : undefined,
+      withdrawApprove: managePageData.withdrawApprove,
     } as IProtocolInfo;
   }, [
     managePageData,
     protocolList,
     symbol,
     provider,
-    vault,
+    resolvedProtocolVault,
     networkId,
     earnAccount,
   ]);

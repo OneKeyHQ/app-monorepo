@@ -60,7 +60,7 @@ function getProtocolKey({ networkId, provider, vault }: ISelectedProtocol) {
 }
 
 function getProtocolVault(item: IStakeProtocolListItem) {
-  return earnUtils.isVaultBasedProvider({
+  return earnUtils.shouldSendEarnProtocolVault({
     providerName: item.provider.name,
   })
     ? item.provider.vault
@@ -726,7 +726,7 @@ export function showProtocolListDialog({
                 earnAccount?.account.indexedAccountId || indexedAccountId,
               symbol,
               provider: protocol.provider.name,
-              vault: earnUtils.isVaultBasedProvider({
+              vault: earnUtils.shouldSendEarnProtocolVault({
                 providerName: protocol.provider.name,
               })
                 ? protocol.provider.vault
