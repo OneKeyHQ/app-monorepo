@@ -295,6 +295,9 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         watchlistFrom={EWatchlistFrom.BannerList}
         copyFrom={ECopyFrom.BannerList}
         showEndReachedIndicator
+        change24hColumnTitle={intl.formatMessage({
+          id: ETranslations.dexmarket_banner_token_24hchange,
+        })}
       />
     );
     if (platformEnv.isNative) {
