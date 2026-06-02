@@ -220,12 +220,12 @@ function TxActionCommonTitle({
       ) : null}
       {kytRiskLevel === EKytRiskLevel.Severe ? (
         <Badge badgeSize="sm" badgeType="critical" ml="$2">
-          Severe risk
+          {intl.formatMessage({ id: ETranslations.kyt_severe_risk__title })}
         </Badge>
       ) : null}
       {kytRiskLevel === EKytRiskLevel.High ? (
         <Badge badgeSize="sm" badgeType="warning" ml="$2">
-          High risk
+          {intl.formatMessage({ id: ETranslations.kyt_high_risk__title })}
         </Badge>
       ) : null}
     </XStack>

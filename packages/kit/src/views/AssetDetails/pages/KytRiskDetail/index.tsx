@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Badge,
@@ -16,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import type { ColorTokens } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
@@ -36,49 +38,51 @@ const LEVEL_TEXT_COLOR: Record<string, ColorTokens> = {
   [EKytRiskLevel.Severe]: '$textCritical',
 };
 
-const LEVEL_LABEL: Record<string, string> = {
-  [EKytRiskLevel.None]: 'None',
-  [EKytRiskLevel.Checking]: 'Checking',
-  [EKytRiskLevel.Failed]: 'Failed',
-  [EKytRiskLevel.Low]: 'Low',
-  [EKytRiskLevel.Moderate]: 'Moderate',
-  [EKytRiskLevel.High]: 'High',
-  [EKytRiskLevel.Severe]: 'Severe',
+const LEVEL_LABEL: Partial<Record<EKytRiskLevel, ETranslations>> = {
+  [EKytRiskLevel.None]: ETranslations.kyt_risk_level_none__title,
+  [EKytRiskLevel.Checking]: ETranslations.kyt_risk_level_checking__title,
+  [EKytRiskLevel.Failed]: ETranslations.global_failed,
+  [EKytRiskLevel.Low]: ETranslations.kyt_risk_level_low__title,
+  [EKytRiskLevel.Moderate]: ETranslations.kyt_risk_level_moderate__title,
+  [EKytRiskLevel.High]: ETranslations.kyt_risk_level_high__title,
+  [EKytRiskLevel.Severe]: ETranslations.kyt_risk_level_severe__title,
 };
 
-const LEVEL_CONTENT: Record<string, { title: string; description: string }> = {
+const DEFAULT_LEVEL_CONTENT = {
+  title: ETranslations.kyt_risk_check_failed__title,
+  description: ETranslations.kyt_risk_check_failed__desc,
+};
+
+const LEVEL_CONTENT: Partial<
+  Record<EKytRiskLevel, { title: ETranslations; description: ETranslations }>
+> = {
   [EKytRiskLevel.None]: {
-    title: 'No risk detected',
-    description:
-      'No significant fund-source risk was found for this incoming transfer.',
+    title: ETranslations.kyt_no_significant_risk_detected__title,
+    description: ETranslations.kyt_no_significant_risk_detected__desc,
   },
   [EKytRiskLevel.Checking]: {
-    title: 'Checking fund-source risk',
-    description:
-      'This incoming transfer is still being checked for fund-source risk.',
+    title: ETranslations.kyt_risk_level_checking__desc,
+    description: ETranslations.kyt_risk_checking_detail__desc,
   },
   [EKytRiskLevel.Failed]: {
-    title: 'Risk check failed',
-    description:
-      'We were unable to check fund-source risk for this incoming transfer.',
+    title: ETranslations.kyt_risk_check_failed__title,
+    description: ETranslations.kyt_risk_check_failed__desc,
   },
   [EKytRiskLevel.Low]: {
-    title: 'Low risk detected',
-    description: 'No significant high-risk fund-source exposure was found.',
+    title: ETranslations.kyt_low_risk_detected__title,
+    description: ETranslations.kyt_low_risk_detail__desc,
   },
   [EKytRiskLevel.Moderate]: {
-    title: 'Moderate risk detected',
-    description:
-      'Some fund-source risk was detected for this incoming transfer.',
+    title: ETranslations.kyt_moderate_risk_detected__title,
+    description: ETranslations.kyt_moderate_risk_detail__desc,
   },
   [EKytRiskLevel.High]: {
-    title: 'High risk detected',
-    description:
-      'High-risk fund-source exposure was detected for this incoming transfer.',
+    title: ETranslations.kyt_high_risk_detected__title,
+    description: ETranslations.kyt_high_risk_detail__desc,
   },
   [EKytRiskLevel.Severe]: {
-    title: 'Severe risk detected',
-    description: 'This incoming transfer is linked to high-risk fund sources.',
+    title: ETranslations.kyt_severe_risk_detected__title,
+    description: ETranslations.kyt_severe_risk_detail__desc,
   },
 };
 
@@ -100,15 +104,34 @@ function CardRow({
 }
 
 function RiskFactorCard({ factor }: { factor: IKytRiskFactor }) {
+  const intl = useIntl();
   const rows: { label: string; value: string }[] = [];
   if (factor.entity) {
-    rows.push({ label: 'Entity', value: factor.entity });
+    rows.push({
+      label: intl.formatMessage({
+        id: ETranslations.kyt_risk_factor_entity__title,
+      }),
+      value: factor.entity,
+    });
   }
   if (factor.exposureType) {
-    rows.push({ label: 'Exposure', value: factor.exposureType });
+    rows.push({
+      label: intl.formatMessage({
+        id: ETranslations.kyt_risk_factor_exposure_type__title,
+      }),
+      value: factor.exposureType,
+    });
   }
   if (factor.hops !== undefined) {
-    rows.push({ label: 'Distance', value: `${factor.hops} hops` });
+    rows.push({
+      label: intl.formatMessage({
+        id: ETranslations.kyt_risk_factor_distance__title,
+      }),
+      value: intl.formatMessage(
+        { id: ETranslations.kyt_risk_factor_distance_hops__msg },
+        { count: factor.hops },
+      ),
+    });
   }
   const amountText =
     factor.amountUsd !== undefined
@@ -118,10 +141,20 @@ function RiskFactorCard({ factor }: { factor: IKytRiskFactor }) {
     factor.percent !== undefined
       ? `${new BigNumber(factor.percent).toFixed(2)}%`
       : undefined;
-  if (amountText || percentText) {
+  if (amountText) {
     rows.push({
-      label: 'Exposure / Share',
-      value: [amountText, percentText].filter(Boolean).join(' / '),
+      label: intl.formatMessage({
+        id: ETranslations.kyt_risk_factor_exposure_amount__title,
+      }),
+      value: amountText,
+    });
+  }
+  if (percentText) {
+    rows.push({
+      label: intl.formatMessage({
+        id: ETranslations.kyt_risk_factor_share__title,
+      }),
+      value: percentText,
     });
   }
 
@@ -150,6 +183,7 @@ function RiskFactorCard({ factor }: { factor: IKytRiskFactor }) {
 }
 
 function KytRiskDetail() {
+  const intl = useIntl();
   const route =
     useRoute<
       RouteProp<
@@ -162,9 +196,11 @@ function KytRiskDetail() {
   const [showAllFactors, setShowAllFactors] = useState(false);
 
   const content = useMemo(
-    () => LEVEL_CONTENT[riskDetail.level] ?? LEVEL_CONTENT[EKytRiskLevel.Low],
+    () => LEVEL_CONTENT[riskDetail.level] ?? DEFAULT_LEVEL_CONTENT,
     [riskDetail.level],
   );
+  const levelLabel =
+    LEVEL_LABEL[riskDetail.level] ?? ETranslations.global_unknown;
 
   const visibleFactors = useMemo(() => {
     if (showAllFactors) return riskDetail.factors;
@@ -181,12 +217,20 @@ function KytRiskDetail() {
 
   return (
     <Page>
-      <Page.Header title="Fund-source risk check" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.kyt_source_of_funds_risk_check__title,
+        })}
+      />
       <Page.Body>
         <ScrollView>
           <YStack px="$5" py="$3" gap="$1.5">
-            <Heading size="$headingXl">{content.title}</Heading>
-            <SizableText size="$bodyLg">{content.description}</SizableText>
+            <Heading size="$headingXl">
+              {intl.formatMessage({ id: content.title })}
+            </Heading>
+            <SizableText size="$bodyLg">
+              {intl.formatMessage({ id: content.description })}
+            </SizableText>
           </YStack>
 
           <YStack px="$5" pb="$5" gap="$2">
@@ -197,23 +241,33 @@ function KytRiskDetail() {
               borderRadius="$3"
               overflow="hidden"
             >
-              <CardRow label="Risk level">
+              <CardRow
+                label={intl.formatMessage({
+                  id: ETranslations.kyt_risk_level__title,
+                })}
+              >
                 <SizableText
                   size="$bodyMdMedium"
                   color={LEVEL_TEXT_COLOR[riskDetail.level] ?? '$text'}
                   textAlign="right"
                 >
-                  {LEVEL_LABEL[riskDetail.level] ?? riskDetail.level}
+                  {intl.formatMessage({ id: levelLabel })}
                 </SizableText>
               </CardRow>
               <Divider />
-              <CardRow label="Last checked">
+              <CardRow
+                label={intl.formatMessage({
+                  id: ETranslations.kyt_last_checked__title,
+                })}
+              >
                 <SizableText size="$bodyMdMedium" textAlign="right">
                   {riskDetail.checkedAt}
                 </SizableText>
               </CardRow>
               <Divider />
-              <CardRow label="Asset">
+              <CardRow
+                label={intl.formatMessage({ id: ETranslations.global_asset })}
+              >
                 <XStack ai="center" gap="$1.5">
                   <Token
                     size="sm"
@@ -228,7 +282,11 @@ function KytRiskDetail() {
                 </XStack>
               </CardRow>
               <Divider />
-              <CardRow label="Transfer">
+              <CardRow
+                label={intl.formatMessage({
+                  id: ETranslations.kyt_transfer__title,
+                })}
+              >
                 <SizableText size="$bodyMdMedium" textAlign="right">
                   {riskDetail.transferAmount}
                 </SizableText>
@@ -240,10 +298,15 @@ function KytRiskDetail() {
               <YStack gap="$1">
                 <XStack ai="center" jc="space-between" py="$2">
                   <SizableText size="$headingSm" color="$textSubdued">
-                    Risk factors
+                    {intl.formatMessage({
+                      id: ETranslations.kyt_risk_factors__title,
+                    })}
                   </SizableText>
                   <SizableText size="$bodyMdMedium" color="$textSubdued">
-                    {riskDetail.factors.length} found
+                    {intl.formatMessage(
+                      { id: ETranslations.kyt_risk_factors_found__msg },
+                      { count: riskDetail.factors.length },
+                    )}
                   </SizableText>
                 </XStack>
                 <YStack gap="$1">
@@ -259,7 +322,11 @@ function KytRiskDetail() {
                       cursor="pointer"
                       onPress={() => setShowAllFactors((v) => !v)}
                     >
-                      {showAllFactors ? 'Show less' : 'Show more'}
+                      {intl.formatMessage({
+                        id: showAllFactors
+                          ? ETranslations.global_show_less
+                          : ETranslations.global_show_more,
+                      })}
                     </SizableText>
                   </XStack>
                 ) : null}
@@ -277,11 +344,14 @@ function KytRiskDetail() {
               iconAfter
               onPress={handleViewReport}
             >
-              View report
+              {intl.formatMessage({
+                id: ETranslations.kyt_view_report__action,
+              })}
             </Button>
             <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
-              Risk results are informational and do not block incoming
-              transfers.
+              {intl.formatMessage({
+                id: ETranslations.kyt_result_disclaimer__desc,
+              })}
             </SizableText>
           </YStack>
         </ScrollView>
