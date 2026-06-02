@@ -53,6 +53,7 @@ import type {
 import {
   maxRecentTokenPairs,
   mevSwapNetworks,
+  privateSendFallbackOrderIdPrefix,
   privateSendProvider,
   swapApprovingStateFetchInterval,
   swapDefaultSetTokens,
@@ -144,6 +145,39 @@ function getProtocolOfExchangeFromSwapTab(
     return EProtocolOfExchange.PRIVATE_SEND;
   }
   return EProtocolOfExchange.SWAP;
+}
+
+function getPrivateSendRocketXOrderIdFromCtx(ctx: unknown) {
+  const rocketXOrderId = (ctx as { rocketXOrderId?: unknown } | undefined)
+    ?.rocketXOrderId;
+  return typeof rocketXOrderId === 'string' && rocketXOrderId
+    ? rocketXOrderId
+    : undefined;
+}
+
+function isPrivateSendFallbackOrderId(orderId?: string) {
+  return orderId?.startsWith(privateSendFallbackOrderIdPrefix) ?? false;
+}
+
+function getSwapHistoryStateOrderId({
+  swapTxHistory,
+  isPrivateSendHistory,
+}: {
+  swapTxHistory: ISwapTxHistory;
+  isPrivateSendHistory: boolean;
+}) {
+  const orderId = isPrivateSendHistory
+    ? (swapTxHistory.swapInfo.orderId ?? swapTxHistory.txInfo.orderId)
+    : swapTxHistory.swapInfo.orderId;
+  if (!isPrivateSendHistory) {
+    return orderId;
+  }
+  const rocketXOrderId = getPrivateSendRocketXOrderIdFromCtx(swapTxHistory.ctx);
+  return orderId &&
+    orderId !== rocketXOrderId &&
+    !isPrivateSendFallbackOrderId(orderId)
+    ? orderId
+    : undefined;
 }
 
 @backgroundClass()
@@ -1825,10 +1859,10 @@ export default class ServiceSwap extends ServiceBase {
     const isPrivateSendHistory =
       currentSwapTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
       currentSwapTxHistory.swapInfo.provider.provider === privateSendProvider;
-    const stateOrderId = isPrivateSendHistory
-      ? (currentSwapTxHistory.swapInfo.orderId ??
-        currentSwapTxHistory.txInfo.orderId)
-      : currentSwapTxHistory.swapInfo.orderId;
+    const stateOrderId = getSwapHistoryStateOrderId({
+      swapTxHistory: currentSwapTxHistory,
+      isPrivateSendHistory,
+    });
     try {
       const txStatusRes = await this.fetchTxState({
         txId:

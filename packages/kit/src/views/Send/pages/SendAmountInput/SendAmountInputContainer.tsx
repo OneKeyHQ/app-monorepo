@@ -25,7 +25,6 @@ import {
   Image,
   NumberSizeableText,
   Page,
-  Popover,
   ScrollView,
   Select,
   SizableText,
@@ -180,6 +179,7 @@ type IPrivateSendQuoteResult = {
 type IPrivateSendQuoteRecipientResult = {
   inputAddress: string;
   recipientAddress?: string;
+  errorTranslationId?: ETranslations;
 };
 
 type IPrivateSendBuildCtx = {
@@ -353,17 +353,6 @@ function SendAmountInputContainer() {
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMaxSend, setIsMaxSend] = useState(false);
-  const [
-    privateSendValueDropWarningPercentValue,
-    setPrivateSendValueDropWarningPercentValue,
-  ] = useState(0);
-  const [
-    isPrivateSendValueDropWarningOpen,
-    setIsPrivateSendValueDropWarningOpen,
-  ] = useState(false);
-  const privateSendValueDropWarningResolverRef = useRef<
-    ((confirmed: boolean) => void) | undefined
-  >(undefined);
   const [settings, setSettings] = useSettingsPersistAtom();
   const [selectedUTXOs] = useSelectedUTXOsAtom();
   const sendConfirmActions = useSendConfirmActions();
@@ -733,8 +722,12 @@ function SendAmountInputContainer() {
             enableCheckSimilarAddressInAddressBook: false,
           });
 
-        if ((queryResult.validStatus ?? 'unknown') !== 'valid') {
-          return { inputAddress: recipientAddress };
+        const validationStatus = queryResult.validStatus ?? 'unknown';
+        if (validationStatus !== 'valid') {
+          return {
+            inputAddress: recipientAddress,
+            errorTranslationId: ETranslations.send_recipient_invalid,
+          };
         }
 
         return {
@@ -745,7 +738,10 @@ function SendAmountInputContainer() {
             recipientAddress,
         };
       } catch {
-        return { inputAddress: recipientAddress };
+        return {
+          inputAddress: recipientAddress,
+          errorTranslationId: ETranslations.global_network_error,
+        };
       }
     },
     [
@@ -760,6 +756,10 @@ function SendAmountInputContainer() {
   const privateSendQuoteRecipientAddress =
     privateSendQuoteRecipientResult?.inputAddress === recipientAddress
       ? privateSendQuoteRecipientResult.recipientAddress
+      : undefined;
+  const privateSendQuoteRecipientErrorTranslationId =
+    privateSendQuoteRecipientResult?.inputAddress === recipientAddress
+      ? privateSendQuoteRecipientResult.errorTranslationId
       : undefined;
   const hasPrivateSendQuoteRequestInput = useMemo(
     () =>
@@ -902,6 +902,12 @@ function SendAmountInputContainer() {
     if (sendMode !== ESendMode.PRIVATE) return undefined;
     const amountBN = new BigNumber(privateSendAmount || 0);
     if (amountBN.isNaN() || amountBN.isLessThanOrEqualTo(0)) return undefined;
+    if (isPrivateSendRecipientResolving) return undefined;
+    if (privateSendQuoteRecipientErrorTranslationId) {
+      return intl.formatMessage({
+        id: privateSendQuoteRecipientErrorTranslationId,
+      });
+    }
     if (isPrivateSendQuoteLoading) return undefined;
     if (!isPrivateSendQuoteScopeMatched) return undefined;
     if (scopedPrivateSendQuoteResult?.quoteError) {
@@ -916,10 +922,12 @@ function SendAmountInputContainer() {
     return undefined;
   }, [
     intl,
+    isPrivateSendRecipientResolving,
     isPrivateSendQuoteLoading,
     isPrivateSendQuoteScopeMatched,
     privateSendAmount,
     privateSendQuote,
+    privateSendQuoteRecipientErrorTranslationId,
     scopedPrivateSendQuoteResult?.quoteError,
     sendMode,
   ]);
@@ -1659,27 +1667,6 @@ function SendAmountInputContainer() {
     recipientIsContract,
   ]);
 
-  const finishPrivateSendValueDropWarning = useCallback(
-    (confirmed: boolean) => {
-      const resolve = privateSendValueDropWarningResolverRef.current;
-      privateSendValueDropWarningResolverRef.current = undefined;
-      setIsPrivateSendValueDropWarningOpen(false);
-      resolve?.(confirmed);
-    },
-    [],
-  );
-
-  const handlePrivateSendValueDropWarningOpenChange = useCallback(
-    (open: boolean) => {
-      if (open) {
-        setIsPrivateSendValueDropWarningOpen(true);
-        return;
-      }
-      finishPrivateSendValueDropWarning(false);
-    },
-    [finishPrivateSendValueDropWarning],
-  );
-
   const confirmPrivateSendValueDrop = useCallback(
     async (quote: IFetchQuoteResult) => {
       const valueDropPercent = getPrivateSendValueDropPercent(quote);
@@ -1687,13 +1674,41 @@ function SendAmountInputContainer() {
         return true;
       }
       return new Promise<boolean>((resolve) => {
-        privateSendValueDropWarningResolverRef.current?.(false);
-        privateSendValueDropWarningResolverRef.current = resolve;
-        setPrivateSendValueDropWarningPercentValue(valueDropPercent);
-        setIsPrivateSendValueDropWarningOpen(true);
+        let settled = false;
+        const settle = (confirmed: boolean) => {
+          if (settled) return;
+          settled = true;
+          resolve(confirmed);
+        };
+        const dialog = Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.private_send_high_value_drop_title,
+          }),
+          tone: 'destructive',
+          showFooter: false,
+          trapFocus: true,
+          dismissOnOverlayPress: false,
+          disableDrag: true,
+          onClose: () => settle(false),
+          renderContent: (
+            <Stack p="$4">
+              <PrivateSendValueDropWarningContent
+                valueDropPercent={valueDropPercent}
+                onCancel={() => {
+                  settle(false);
+                  void dialog.close();
+                }}
+                onConfirm={() => {
+                  settle(true);
+                  void dialog.close();
+                }}
+              />
+            </Stack>
+          ),
+        });
       });
     },
-    [],
+    [intl],
   );
 
   onSubmitRef.current = useCallback(
@@ -1848,10 +1863,12 @@ function SendAmountInputContainer() {
             const privateSendRocketXOrderId = getPrivateSendRocketXOrderId(
               buildSwapRes.ctx,
             );
+            const privateSendBackendOrderId = buildSwapRes.orderId;
             if (
               !privateSendProviderOrderId ||
               !privateSendRocketXOrderId ||
-              privateSendProviderOrderId !== privateSendRocketXOrderId
+              privateSendProviderOrderId !== privateSendRocketXOrderId ||
+              !privateSendBackendOrderId
             ) {
               throw new OneKeyLocalError(
                 intl.formatMessage({
@@ -1880,7 +1897,7 @@ function SendAmountInputContainer() {
             };
             const normalizedBuildSwapRes = {
               ...buildSwapRes,
-              orderId: privateSendRocketXOrderId,
+              orderId: privateSendBackendOrderId,
               result: {
                 ...buildSwapRes.result,
                 fromAmount: privateSendPayinAmount,
@@ -1910,7 +1927,7 @@ function SendAmountInputContainer() {
               },
             ];
             const privateSendAmountToSend = privateSendPayinAmount;
-            const privateSendOrderId = privateSendRocketXOrderId;
+            const privateSendOrderId = privateSendBackendOrderId;
 
             const swapInfo: ISwapTxInfo = {
               protocol: EProtocolOfExchange.PRIVATE_SEND,
@@ -1983,8 +2000,8 @@ function SendAmountInputContainer() {
                 },
                 txInfo: {
                   txId,
-                  useOrderId: !!privateSendRocketXOrderId,
-                  orderId: privateSendRocketXOrderId,
+                  useOrderId: !!privateSendOrderId,
+                  orderId: privateSendOrderId,
                   sender: account.address,
                   receiver: submitRecipientAddress,
                 },
@@ -2393,16 +2410,17 @@ function SendAmountInputContainer() {
       active,
       children,
       value,
-      width,
+      minWidth,
     }: {
       active: boolean;
       children: React.ReactNode;
       value: ESendMode;
-      width: number;
+      minWidth: number;
     }) => (
       <XStack
-        w={width}
+        minWidth={minWidth}
         h={28}
+        px="$2"
         alignItems="center"
         justifyContent="center"
         borderRadius="$2"
@@ -2422,7 +2440,6 @@ function SendAmountInputContainer() {
 
     return (
       <XStack
-        w={141}
         h={32}
         p={2}
         alignItems="center"
@@ -2433,7 +2450,7 @@ function SendAmountInputContainer() {
         {renderModeButton({
           active: publicActive,
           value: ESendMode.PUBLIC,
-          width: 55,
+          minWidth: 55,
           children: (
             <SizableText
               size="$bodyMdMedium"
@@ -2447,7 +2464,7 @@ function SendAmountInputContainer() {
         {renderModeButton({
           active: privateActive,
           value: ESendMode.PRIVATE,
-          width: 80,
+          minWidth: 80,
           children: (
             <XStack alignItems="center" justifyContent="center" gap="$1">
               <Icon
@@ -3428,28 +3445,6 @@ function SendAmountInputContainer() {
         </Stack>
         {renderFooterActions}
       </Page.Footer>
-      <Popover
-        open={isPrivateSendValueDropWarningOpen}
-        onOpenChange={handlePrivateSendValueDropWarningOpenChange}
-        title={intl.formatMessage({
-          id: ETranslations.private_send_high_value_drop_title,
-        })}
-        placement="top"
-        showHeader
-        renderTrigger={<Stack width={1} height={1} opacity={0} />}
-        floatingPanelProps={{
-          width: '$96',
-        }}
-        renderContent={
-          <Stack p="$4">
-            <PrivateSendValueDropWarningContent
-              valueDropPercent={privateSendValueDropWarningPercentValue}
-              onCancel={() => finishPrivateSendValueDropWarning(false)}
-              onConfirm={() => finishPrivateSendValueDropWarning(true)}
-            />
-          </Stack>
-        }
-      />
     </Page>
   );
 }

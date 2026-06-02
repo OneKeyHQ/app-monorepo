@@ -85,6 +85,8 @@ export const privateSendHelpCenterUrl =
 
 export const privateSendProvider = 'SwapRocketXPrivateSend';
 
+export const privateSendFallbackOrderIdPrefix = 'private-send-';
+
 export const otherWalletFeeData = [
   {
     maxFee: 0.875,

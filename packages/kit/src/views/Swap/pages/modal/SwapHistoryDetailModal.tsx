@@ -81,9 +81,15 @@ const privateSendProgressStepLabels = [
   ETranslations.private_send_done,
 ] as const;
 
-function getPrivateSendProgressStepStatuses(
-  status?: ESwapTxHistoryStatus,
-): IPrivateSendProgressStepStatus[] {
+function getPrivateSendProgressStepStatuses({
+  status,
+  extraStatus,
+  crossChainStatus,
+}: {
+  status?: ESwapTxHistoryStatus;
+  extraStatus?: ESwapExtraStatus;
+  crossChainStatus?: ESwapCrossChainStatus;
+}): IPrivateSendProgressStepStatus[] {
   if (
     status === ESwapTxHistoryStatus.SUCCESS ||
     status === ESwapTxHistoryStatus.PARTIALLY_FILLED
@@ -92,9 +98,22 @@ function getPrivateSendProgressStepStatuses(
   }
 
   if (
+    extraStatus === ESwapExtraStatus.HOLD ||
+    crossChainStatus === ESwapCrossChainStatus.REFUNDING
+  ) {
+    return ['done', 'process', 'todo'];
+  }
+
+  if (
     status === ESwapTxHistoryStatus.FAILED ||
     status === ESwapTxHistoryStatus.CANCELED ||
-    status === ESwapTxHistoryStatus.CANCELING
+    status === ESwapTxHistoryStatus.CANCELING ||
+    extraStatus === ESwapExtraStatus.EXPIRED ||
+    extraStatus === ESwapExtraStatus.REFUNDED ||
+    crossChainStatus === ESwapCrossChainStatus.EXPIRED ||
+    crossChainStatus === ESwapCrossChainStatus.PROVIDER_ERROR ||
+    crossChainStatus === ESwapCrossChainStatus.REFUNDED ||
+    crossChainStatus === ESwapCrossChainStatus.REFUND_FAILED
   ) {
     return ['done', 'done', 'error'];
   }
@@ -149,11 +168,24 @@ function PrivateSendProgressStatusIcon({
   );
 }
 
-function PrivateSendProgress({ status }: { status?: ESwapTxHistoryStatus }) {
+function PrivateSendProgress({
+  status,
+  extraStatus,
+  crossChainStatus,
+}: {
+  status?: ESwapTxHistoryStatus;
+  extraStatus?: ESwapExtraStatus;
+  crossChainStatus?: ESwapCrossChainStatus;
+}) {
   const intl = useIntl();
   const stepStatuses = useMemo(
-    () => getPrivateSendProgressStepStatuses(status),
-    [status],
+    () =>
+      getPrivateSendProgressStepStatuses({
+        status,
+        extraStatus,
+        crossChainStatus,
+      }),
+    [crossChainStatus, extraStatus, status],
   );
 
   return (
@@ -728,7 +760,11 @@ const SwapHistoryDetailModal = () => {
       <>
         <Stack>{renderSwapAssetsChange()}</Stack>
         {isPrivateSendHistory ? (
-          <PrivateSendProgress status={txHistory.status} />
+          <PrivateSendProgress
+            status={txHistory.status}
+            extraStatus={txHistory.extraStatus}
+            crossChainStatus={txHistory.crossChainStatus}
+          />
         ) : null}
         <Stack>
           <InfoItemGroup>

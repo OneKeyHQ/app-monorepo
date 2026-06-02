@@ -5,6 +5,7 @@ import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHis
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
+  privateSendFallbackOrderIdPrefix,
   privateSendHelpCenterUrl,
   privateSendProvider,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -20,8 +21,6 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
-
-const privateSendFallbackOrderIdPrefix = 'private-send-';
 
 type IPrivateSendHistoryNavigation = {
   pushModal: (
@@ -187,15 +186,13 @@ function buildPrivateSendHistoryItemFromAccountHistory({
   });
   const created = historyTx.decodedTx.createdAt ?? Date.now();
   const updated = historyTx.decodedTx.updatedAt ?? created;
-  const orderId =
-    privateSendPayload?.orderId ??
-    privateSendPayload?.rocketXOrderId ??
-    getPrivateSendFallbackOrderId(historyTx);
-  const txInfoOrderId =
-    privateSendPayload?.rocketXOrderId ?? privateSendPayload?.orderId;
-  const ctx = privateSendPayload?.rocketXOrderId
-    ? { rocketXOrderId: privateSendPayload.rocketXOrderId }
-    : undefined;
+  const rocketXOrderId = privateSendPayload?.rocketXOrderId;
+  const backendOrderId =
+    privateSendPayload?.orderId && privateSendPayload.orderId !== rocketXOrderId
+      ? privateSendPayload.orderId
+      : undefined;
+  const orderId = backendOrderId ?? getPrivateSendFallbackOrderId(historyTx);
+  const ctx = rocketXOrderId ? { rocketXOrderId } : undefined;
 
   return {
     protocol: EProtocolOfExchange.PRIVATE_SEND,
@@ -221,8 +218,8 @@ function buildPrivateSendHistoryItemFromAccountHistory({
     },
     txInfo: {
       txId: historyTx.decodedTx.txid,
-      useOrderId: !!privateSendPayload?.rocketXOrderId,
-      orderId: txInfoOrderId,
+      useOrderId: !!backendOrderId,
+      orderId: backendOrderId,
       sender,
       receiver,
       gasFeeInNative: historyTx.decodedTx.totalFeeInNative,
@@ -256,10 +253,14 @@ function canFetchPrivateSendTxState(item: ISwapTxHistory) {
 
 async function fetchPrivateSendTxState(item: ISwapTxHistory) {
   const orderId = item.swapInfo.orderId ?? item.txInfo.orderId;
-  const shouldUseOrderId = !isPrivateSendFallbackOrderId(orderId);
+  const rocketXOrderId = getPrivateSendRocketXOrderIdFromCtx(item.ctx);
+  const shouldUseOrderId =
+    !!orderId &&
+    !isPrivateSendFallbackOrderId(orderId) &&
+    orderId !== rocketXOrderId;
 
   return backgroundApiProxy.serviceSwap.fetchTxState({
-    txId: item.txInfo.txId ?? item.txInfo.orderId ?? orderId,
+    txId: item.txInfo.txId ?? '',
     provider: item.swapInfo.provider.provider || privateSendProvider,
     protocol: item.protocol ?? EProtocolOfExchange.PRIVATE_SEND,
     networkId: item.baseInfo.fromToken.networkId,
