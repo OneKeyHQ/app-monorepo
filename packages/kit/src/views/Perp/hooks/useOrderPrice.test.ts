@@ -14,10 +14,12 @@ let mockFormData: {
   type: 'market' | 'limit';
   price: string;
   bboPriceMode?: { type: 'counterparty' | 'queue'; level: number } | null;
-  orderMode?: 'standard' | 'trigger';
+  orderMode?: 'standard' | 'trigger' | 'scale' | 'twap';
   triggerOrderType?: undefined;
   triggerPrice?: string;
   executionPrice?: string;
+  scaleLowerPrice?: string;
+  scaleUpperPrice?: string;
 };
 let mockMidPriceBN: BigNumber;
 
@@ -61,6 +63,8 @@ describe('calculateOrderPrice BBO freshness', () => {
       undefined,
       undefined,
       undefined,
+      undefined,
+      undefined,
       now,
     );
 
@@ -84,10 +88,80 @@ describe('calculateOrderPrice BBO freshness', () => {
       undefined,
       undefined,
       undefined,
+      undefined,
+      undefined,
       now,
     );
 
     expect(result.error).toBe('bbo_unavailable');
+    expect(result.isValid).toBe(false);
+    expect(result.price.toFixed()).toBe('0');
+  });
+});
+
+describe('calculateOrderPrice scale reference price', () => {
+  it('uses the midpoint between scale price bounds', () => {
+    const result = calculateOrderPrice(
+      'limit',
+      '',
+      null,
+      null,
+      new BigNumber(100.5),
+      'long',
+      'scale',
+      undefined,
+      undefined,
+      undefined,
+      '10',
+      '20',
+      now,
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.isValid).toBe(true);
+    expect(result.price.toFixed()).toBe('15');
+  });
+
+  it('normalizes reversed scale bounds', () => {
+    const result = calculateOrderPrice(
+      'limit',
+      '',
+      null,
+      null,
+      new BigNumber(100.5),
+      'short',
+      'scale',
+      undefined,
+      undefined,
+      undefined,
+      '20',
+      '10',
+      now,
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.isValid).toBe(true);
+    expect(result.price.toFixed()).toBe('15');
+  });
+
+  it('rejects invalid scale bounds', () => {
+    const result = calculateOrderPrice(
+      'limit',
+      '',
+      null,
+      null,
+      new BigNumber(100.5),
+      'long',
+      'scale',
+      undefined,
+      undefined,
+      undefined,
+      'bad',
+      '20',
+      now,
+    );
+
+    expect(result.error).toBeNull();
     expect(result.isValid).toBe(false);
     expect(result.price.toFixed()).toBe('0');
   });
@@ -124,5 +198,28 @@ describe('useOrderPrice BBO freshness refresh', () => {
 
     expect(result.current.error).toBe('bbo_unavailable');
     expect(result.current.isValid).toBe(false);
+  });
+});
+
+describe('useOrderPrice scale mode', () => {
+  beforeEach(() => {
+    mockBbo = null;
+    mockFormData = {
+      type: 'limit',
+      price: '',
+      bboPriceMode: null,
+      orderMode: 'scale',
+      scaleLowerPrice: '20',
+      scaleUpperPrice: '30',
+    };
+    mockMidPriceBN = new BigNumber(100.5);
+  });
+
+  it('returns the scale reference price from form state', () => {
+    const { result } = renderHook(() => useOrderPrice('long'));
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.isValid).toBe(true);
+    expect(result.current.price.toFixed()).toBe('25');
   });
 });

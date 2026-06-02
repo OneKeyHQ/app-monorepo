@@ -8,12 +8,13 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 export class PrimeSubscriptionScene extends BaseScene {
   /**
    * Prime feature entry click
-   * Triggered when a non-Prime user clicks on any Prime feature entry point
+   * Triggered when a user clicks on any Prime feature entry point.
    */
   @LogToServer()
   public primeEntryClick({
     featureName,
     entryPoint,
+    isPrimeActive,
   }: {
     featureName: EPrimeFeatures;
     entryPoint:
@@ -23,10 +24,12 @@ export class PrimeSubscriptionScene extends BaseScene {
       | 'primePage'
       | 'walletEdit'
       | 'browserTranslate';
+    isPrimeActive: boolean;
   }) {
     return {
       featureName,
       entryPoint,
+      isPrimeActive,
     };
   }
 
@@ -51,7 +54,6 @@ export class PrimeSubscriptionScene extends BaseScene {
   /**
    * Prime dashboard shown
    * Triggered once when PrimeDashboard mounts.
-   * Filter by isPrimeActive=false to exclude users managing an existing subscription.
    */
   @LogToServer()
   public primeDashboardShow({

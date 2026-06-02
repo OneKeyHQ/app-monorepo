@@ -2,25 +2,30 @@ import { BigNumber } from 'bignumber.js';
 import { selectAtom } from 'jotai/utils';
 
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import { getScaleOrderReferencePrice } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import {
   computeMaxTradeSize,
   getTriggerEffectivePrice,
+  isSpotInstrument,
   resolveTradingSizeBN,
   sanitizeManualSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type {
-  IConnectionState,
-  IPerpOrderBookTickOptionPersist,
-  IPerpsFormattedAssetCtx,
-} from '@onekeyhq/shared/types/hyperliquid/types';
 import {
   EPerpsSizeInputMode,
   ETriggerOrderType,
+  type IConnectionState,
+  type IPerpOrderBookTickOptionPersist,
+  type IPerpsFormattedAssetCtx,
+  type IScaleOrderSizeDistribution,
+  type IScaleOrderTif,
 } from '@onekeyhq/shared/types/hyperliquid/types';
+
+import { getScopedOpenOrdersByCoin } from './utils/coldStartMergeUtils';
 
 import type {
   IPerpsBboWithLocalReceivedAt,
@@ -237,11 +242,24 @@ export interface ITradingFormData {
   slValue?: string;
 
   // ── Standalone Trigger Order Fields ──
-  orderMode: 'standard' | 'trigger';
+  orderMode: 'standard' | 'trigger' | 'scale' | 'twap';
   triggerOrderType?: ETriggerOrderType;
   triggerPrice?: string;
   executionPrice?: string;
   triggerReduceOnly?: boolean;
+
+  // ── Scale Order Fields ──
+  scaleLowerPrice?: string;
+  scaleUpperPrice?: string;
+  scaleOrderCount?: string;
+  scaleReduceOnly?: boolean;
+  scaleTif?: IScaleOrderTif;
+  scaleSizeDistribution?: IScaleOrderSizeDistribution;
+
+  // ── TWAP Order Fields ──
+  twapDurationMinutes?: string;
+  twapRandomize?: boolean;
+  twapReduceOnly?: boolean;
 }
 
 export const { atom: tradingFormAtom, use: useTradingFormAtom } =
@@ -269,6 +287,15 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     triggerPrice: '',
     executionPrice: '',
     triggerReduceOnly: true,
+    scaleLowerPrice: '',
+    scaleUpperPrice: '',
+    scaleOrderCount: '5',
+    scaleReduceOnly: false,
+    scaleTif: 'Gtc',
+    scaleSizeDistribution: 'fixed',
+    twapDurationMinutes: '10',
+    twapRandomize: true,
+    twapReduceOnly: false,
   });
 
 export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =
@@ -281,10 +308,17 @@ export type IPerpsActivePositionAtom = {
 export const {
   atom: perpsActivePositionAtom,
   use: usePerpsActivePositionAtom,
-} = contextAtom<IPerpsActivePositionAtom>({
-  accountAddress: undefined,
-  activePositions: [],
-});
+} = contextAtom<IPerpsActivePositionAtom>(
+  {
+    accountAddress: undefined,
+    activePositions: [],
+  },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActivePositionAtom,
+  },
+);
 export const {
   atom: perpsActivePositionLengthAtom,
   use: usePerpsActivePositionLengthAtom,
@@ -309,10 +343,65 @@ export type IPerpsActiveOpenOrdersAtom = {
 export const {
   atom: perpsActiveOpenOrdersAtom,
   use: usePerpsActiveOpenOrdersAtom,
-} = contextAtom<IPerpsActiveOpenOrdersAtom>({
+} = contextAtom<IPerpsActiveOpenOrdersAtom>(
+  {
+    accountAddress: undefined,
+    openOrders: [],
+    openOrdersByCoin: {},
+  },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveOpenOrdersAtom,
+  },
+);
+
+export type IPerpsActiveTwapOrder = {
+  twapId: number;
+  state: HL.ITwapState;
+  dex?: string;
+};
+
+export type IPerpsActiveTwapOrdersAtom = {
+  accountAddress: string | undefined;
+  twapOrders: IPerpsActiveTwapOrder[];
+  twapOrdersByCoin: Record<string, IPerpsActiveTwapOrder[]>;
+};
+export const {
+  atom: perpsActiveTwapOrdersAtom,
+  use: usePerpsActiveTwapOrdersAtom,
+} = contextAtom<IPerpsActiveTwapOrdersAtom>({
   accountAddress: undefined,
-  openOrders: [],
-  openOrdersByCoin: {},
+  twapOrders: [],
+  twapOrdersByCoin: {},
+});
+
+export type IPerpsTwapHistoryAtom = {
+  accountAddress: string | undefined;
+  history: HL.ITwapHistoryRecord[];
+  isLoaded: boolean;
+};
+export const { atom: perpsTwapHistoryAtom, use: usePerpsTwapHistoryAtom } =
+  contextAtom<IPerpsTwapHistoryAtom>({
+    accountAddress: undefined,
+    history: [],
+    isLoaded: false,
+  });
+
+export type IPerpsTwapSliceFillsAtom = {
+  accountAddress: string | undefined;
+  fills: HL.ITwapSliceFill[];
+  isLoaded: boolean;
+  latestTime: number;
+};
+export const {
+  atom: perpsTwapSliceFillsAtom,
+  use: usePerpsTwapSliceFillsAtom,
+} = contextAtom<IPerpsTwapSliceFillsAtom>({
+  accountAddress: undefined,
+  fills: [],
+  isLoaded: false,
+  latestTime: 0,
 });
 
 export const {
@@ -320,8 +409,18 @@ export const {
   use: usePerpsActiveOpenOrdersLengthAtom,
 } = contextAtomComputed((get) => {
   const { openOrders } = get(perpsActiveOpenOrdersAtom());
-  const filteredOpenOrders = openOrders.filter((o) => !o.coin.startsWith('@'));
+  const filteredOpenOrders = openOrders.filter(
+    (o) => !isSpotInstrument(o.coin),
+  );
   return filteredOpenOrders.length ?? 0;
+});
+
+export const {
+  atom: perpsActiveTwapOrdersLengthAtom,
+  use: usePerpsActiveTwapOrdersLengthAtom,
+} = contextAtomComputed((get) => {
+  const { twapOrders } = get(perpsActiveTwapOrdersAtom());
+  return twapOrders.length;
 });
 
 export const {
@@ -352,8 +451,16 @@ function getOrCreatePerpsOpenOrdersByCoinAtom(coin: string) {
   let entry = perpsOpenOrdersByCoinAtomCache.get(coin);
   if (!entry) {
     entry = contextAtomComputed((get) => {
-      const { openOrdersByCoin } = get(perpsActiveOpenOrdersAtom());
-      return openOrdersByCoin?.[coin] ?? [];
+      const activeAccount = get(perpsActiveAccountAtom.atom());
+      const { accountAddress, openOrdersByCoin } = get(
+        perpsActiveOpenOrdersAtom(),
+      );
+      return getScopedOpenOrdersByCoin({
+        activeAccountAddress: activeAccount?.accountAddress,
+        openOrdersAccountAddress: accountAddress,
+        openOrdersByCoin,
+        coin,
+      });
     });
     perpsOpenOrdersByCoinAtomCache.set(coin, entry);
   }
@@ -412,6 +519,12 @@ export const {
       midPrice: env.markPrice,
     });
     price = triggerEffective.gt(0) ? triggerEffective.toFixed() : '';
+  } else if (form.orderMode === 'scale') {
+    const referencePrice = getScaleOrderReferencePrice({
+      lowerPrice: form.scaleLowerPrice,
+      upperPrice: form.scaleUpperPrice,
+    });
+    price = referencePrice.gt(0) ? referencePrice.toFixed() : '';
   } else {
     price = form.type === 'limit' ? form.price : '';
   }

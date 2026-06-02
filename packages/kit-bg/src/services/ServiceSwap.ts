@@ -73,6 +73,7 @@ import type {
   IFetchTokenDetailParams,
   IFetchTokenListParams,
   IFetchTokensParams,
+  IFetchUSMarketStatusResult,
   ILMTronObject,
   IOKXTransactionObject,
   IPerpDepositQuoteResponse,
@@ -250,18 +251,22 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async fetchSwapNetworks(): Promise<ISwapNetwork[]> {
+  async fetchSwapNetworks(options?: {
+    refreshClientNetworks?: boolean;
+  }): Promise<ISwapNetwork[]> {
     const protocol = EProtocolOfExchange.ALL;
-    const params = {
+    const requestParams = {
       protocol,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     const { data } = await client.get<IFetchResponse<ISwapNetworkBase[]>>(
       '/swap/v1/networks',
-      { params },
+      { params: requestParams },
     );
     const allClientSupportNetworks =
-      await this.backgroundApi.serviceNetwork.getAllNetworks();
+      await this.backgroundApi.serviceNetwork.getAllNetworks({
+        clearCache: options?.refreshClientNetworks,
+      });
     const swapNetworks = data?.data
       ?.map((network) => {
         const clientNetwork = allClientSupportNetworks.networks.find(
@@ -273,7 +278,7 @@ export default class ServiceSwap extends ServiceBase {
             symbol: clientNetwork.symbol,
             shortcode: clientNetwork.shortcode,
             logoURI: clientNetwork.logoURI,
-            backendIndex: clientNetwork.backendIndex,
+            backendIndex: clientNetwork.backendIndex ?? false,
             networkId: network.networkId,
             defaultSelectToken: network.defaultSelectToken,
             supportCrossChainSwap: network.supportCrossChainSwap,
@@ -2419,6 +2424,26 @@ export default class ServiceSwap extends ServiceBase {
     } catch (error) {
       console.error(error);
       return defaultConfig;
+    }
+  }
+
+  @backgroundMethod()
+  async fetchCheckUSMarketStatus(): Promise<IFetchUSMarketStatusResult> {
+    const unavailableStatus: IFetchUSMarketStatusResult = {
+      open: false,
+      session: 'CLOSED',
+      reason: 'market-status-unavailable',
+      unavailable: true,
+    };
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const { data } = await client.get<
+        IFetchResponse<IFetchUSMarketStatusResult>
+      >('/swap/v1/check/us-market-status');
+      return data?.data ?? unavailableStatus;
+    } catch (error) {
+      console.error(error);
+      return unavailableStatus;
     }
   }
 

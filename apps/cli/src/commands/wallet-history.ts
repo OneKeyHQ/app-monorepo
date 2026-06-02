@@ -102,7 +102,8 @@ export function registerWalletHistoryCommand(program: Command): void {
               hasMore: result.response.hasMore ?? false,
             });
             return;
-          } else if (!address) {
+          }
+          if (!address) {
             const signer = await getSignerByImpl(chainConfig.impl);
             const addrInfo = await signer.getAddress(chainConfig.networkId);
             address = addrInfo.address;

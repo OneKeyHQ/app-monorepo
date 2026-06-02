@@ -110,6 +110,7 @@ function MoreActionProvider({ children }: PropsWithChildren) {
 }
 
 const ONE_KEY_ID_ROW_PRESS_STYLE = { opacity: 0.7 } as const;
+const ONE_KEY_ID_ROW_HOVER_STYLE = { opacity: 0.88 } as const;
 
 function MoreActionContentHeaderItem({ onPress, ...props }: IIconButtonProps) {
   const { closePopover } = usePopoverContext();
@@ -412,8 +413,8 @@ function MoreActionContentGridItem({
     onPress();
   }, [closePopover, onPress, trackID]);
 
-  const { user } = useOneKeyAuth();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const { user, isPrimeActive } = useOneKeyAuth();
+  const isPrimeUser = isPrimeActive && user?.onekeyUserId;
   const themeVariant = useThemeVariant();
 
   if (isPrimeFeature && !isPrimeAvailable) {
@@ -581,6 +582,7 @@ function MoreActionOneKeyId() {
         justifyContent="space-between"
         onPress={handlePress}
         borderRadius="$2"
+        hoverStyle={ONE_KEY_ID_ROW_HOVER_STYLE}
         pressStyle={ONE_KEY_ID_ROW_PRESS_STYLE}
       >
         <XStack alignItems="center" gap="$3" flex={1}>
@@ -626,6 +628,7 @@ function MoreActionOneKeyId() {
       justifyContent="space-between"
       onPress={handleNavigateToOneKeyId}
       borderRadius="$2"
+      hoverStyle={ONE_KEY_ID_ROW_HOVER_STYLE}
       pressStyle={ONE_KEY_ID_ROW_PRESS_STYLE}
     >
       <XStack alignItems="center" gap="$3" flex={1}>
@@ -950,14 +953,14 @@ const MoreActionWalletGrid = () => {
     });
   }, [navigation]);
 
-  const { user } = useOneKeyAuth();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const { user, isPrimeActive } = useOneKeyAuth();
+  const isPrimeUser = isPrimeActive && user?.onekeyUserId;
   const {
     activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const checkIsPrimeUser = useCallback(
     (showFeature: EPrimeFeatures) => {
-      if (user?.primeSubscription?.isActive && user?.onekeyUserId) {
+      if (isPrimeActive && user?.onekeyUserId) {
         return true;
       }
       navigation.pushFullModal(EModalRoutes.PrimeModal, {
@@ -969,7 +972,7 @@ const MoreActionWalletGrid = () => {
       });
       return false;
     },
-    [navigation, user, network?.id],
+    [isPrimeActive, navigation, network?.id, user?.onekeyUserId],
   );
   const openBulkCopyAddressesModule = useCallback(async () => {
     const networkId = networkUtils.toNetworkIdFallback({
@@ -1063,6 +1066,7 @@ const MoreActionWalletGrid = () => {
                 defaultLogger.prime.subscription.primeEntryClick({
                   featureName: EPrimeFeatures.BulkCopyAddresses,
                   entryPoint: 'moreActions',
+                  isPrimeActive,
                 });
               }
               void openBulkCopyAddressesModule();
@@ -1082,6 +1086,7 @@ const MoreActionWalletGrid = () => {
                 defaultLogger.prime.subscription.primeEntryClick({
                   featureName: EPrimeFeatures.BulkSend,
                   entryPoint: 'moreActions',
+                  isPrimeActive,
                 });
               }
               void openBulkSendModule();
@@ -1097,6 +1102,7 @@ const MoreActionWalletGrid = () => {
     handlePreferences,
     handleSecurity,
     intl,
+    isPrimeActive,
     isPrimeUser,
     openBulkCopyAddressesModule,
     openBulkSendModule,

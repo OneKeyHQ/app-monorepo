@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { initialWindowMetrics } from 'react-native-safe-area-context';
 
 import {
   ESplitViewType,
@@ -11,6 +12,7 @@ import {
   YStack,
   useIsSplitView,
   useMedia,
+  useSafeAreaInsets,
   useSplitViewType,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
@@ -57,6 +59,8 @@ import type { LayoutChangeEvent } from 'react-native';
 // across the seg:Perp ↔ seg:MobilePerpMarket boundary and break the
 // split-bundle integrity check. Lazy-load here too so the edge stays async.
 const MobilePerpMarketInline = LazyLoadPage(() => import('./MobilePerpMarket'));
+const PERP_NATIVE_HEADER_ROW_HEIGHT = 44;
+const PERP_NATIVE_HEADER_TOP_OFFSET = 20;
 
 function PerpLayout() {
   const { gtMd } = useMedia();
@@ -77,6 +81,9 @@ function PerpBodyContent() {
 
 function PerpContent() {
   const { gtMd } = useMedia();
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  const resolvedSafeAreaTop =
+    safeAreaTop || initialWindowMetrics?.insets.top || 0;
   const firedRef = useRef(false);
   const headerLayoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(
     undefined,
@@ -96,13 +103,19 @@ function PerpContent() {
     }, []),
   );
 
-  const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 143 : 92,
-  );
+  const fallbackTabPageHeight = platformEnv.isNative
+    ? resolvedSafeAreaTop + PERP_NATIVE_HEADER_ROW_HEIGHT
+    : 92;
+  const [measuredTabPageHeight, setMeasuredTabPageHeight] = useState<
+    number | undefined
+  >();
+  const tabPageHeight = measuredTabPageHeight ?? fallbackTabPageHeight;
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const height = e.nativeEvent.layout.height - 20;
-    setTabPageHeight(height);
+    const height = e.nativeEvent.layout.height - PERP_NATIVE_HEADER_TOP_OFFSET;
+    setMeasuredTabPageHeight((prev) =>
+      prev === undefined || Math.abs(prev - height) > 0.5 ? height : prev,
+    );
     const rect = getPerpsMobileLayoutTraceRect(e);
     if (isPerpsMobileLayoutTraceRectChanged(headerLayoutRef.current, rect)) {
       tracePerpsMobileLayout('nativeHeader.layout', {
@@ -165,7 +178,7 @@ function PerpContent() {
           <Stack h={tabPageHeight} />
           <YStack
             position="absolute"
-            top={-20}
+            top={-PERP_NATIVE_HEADER_TOP_OFFSET}
             left={0}
             bg="$bgApp"
             pt="$5"

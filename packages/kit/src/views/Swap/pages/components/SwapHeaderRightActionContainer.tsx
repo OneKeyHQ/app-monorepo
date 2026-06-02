@@ -21,7 +21,10 @@ import {
   Switch,
   XStack,
   YStack,
+  useInModalDialog,
+  useInTabDialog,
   useKeyboardHeight,
+  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
@@ -32,6 +35,8 @@ import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialo
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapProTradeTypeAtom,
+  useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
@@ -68,6 +73,7 @@ import {
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
+import { SwapKLineContentWithProvider } from '../modal/SwapKLineContent';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
@@ -488,9 +494,18 @@ const SwapHeaderRightActionContainer = ({
   const [{ swapHistoryPendingList, swapLimitOrders }] =
     useInAppNotificationAtom();
   const intl = useIntl();
+  const { gtLg } = useMedia();
+  const InTabDialog = useInTabDialog();
+  const InModalDialog = useInModalDialog();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const swapStoreName =
+    pageType === EPageType.modal
+      ? EJotaiContextStoreNames.swapModal
+      : EJotaiContextStoreNames.swap;
   const swapPendingStatusList = useMemo(
     () =>
       filterSwapHistoryPendingList(swapHistoryPendingList).filter(
@@ -548,13 +563,75 @@ const SwapHeaderRightActionContainer = ({
             swapProTradeType === ESwapProTradeType.MARKET)
             ? EProtocolOfExchange.SWAP
             : EProtocolOfExchange.LIMIT,
-        storeName:
-          pageType === EPageType.modal
-            ? EJotaiContextStoreNames.swapModal
-            : EJotaiContextStoreNames.swap,
+        storeName: swapStoreName,
       },
     });
-  }, [navigation, pageType, swapProTradeType, swapTypeSwitch]);
+  }, [navigation, swapProTradeType, swapStoreName, swapTypeSwitch]);
+
+  const showKLineButton =
+    swapTypeSwitch === ESwapTabSwitchType.SWAP ||
+    swapTypeSwitch === ESwapTabSwitchType.BRIDGE ||
+    (swapTypeSwitch === ESwapTabSwitchType.LIMIT && !focusSwapPro);
+  const isKLineDisabled = !fromToken && !toToken;
+  const showKLineAsDialog =
+    platformEnv.isNative || (platformEnv.isExtension && !gtLg);
+  const kLineDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
+  const onOpenSwapKLineModal = useCallback(() => {
+    if (isKLineDisabled) {
+      return;
+    }
+
+    dismissKeyboard();
+    if (showKLineAsDialog) {
+      void kLineDialogRef.current?.close();
+      let dialog: ReturnType<typeof Dialog.show> | null = null;
+      const dialogController =
+        pageType === EPageType.modal ? InModalDialog : InTabDialog;
+      dialog = dialogController.show({
+        testID: SwapTestIDs.kLineModal,
+        title: intl.formatMessage({
+          id: ETranslations.market_chart,
+        }),
+        estimatedContentHeight: 460,
+        contentContainerProps: {
+          px: '$0',
+          pb: '$0',
+        },
+        showFooter: false,
+        showCancelButton: false,
+        showConfirmButton: false,
+        onClose: () => {
+          if (kLineDialogRef.current === dialog) {
+            kLineDialogRef.current = null;
+          }
+        },
+        renderContent: (
+          <SwapKLineContentWithProvider
+            storeName={swapStoreName}
+            variant="dialog"
+          />
+        ),
+      });
+      kLineDialogRef.current = dialog;
+      return;
+    }
+
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapKLine,
+      params: {
+        storeName: swapStoreName,
+      },
+    });
+  }, [
+    InModalDialog,
+    InTabDialog,
+    intl,
+    isKLineDisabled,
+    navigation,
+    pageType,
+    showKLineAsDialog,
+    swapStoreName,
+  ]);
 
   const onOpenSwapSettings = useCallback(() => {
     Dialog.show({
@@ -562,13 +639,7 @@ const SwapHeaderRightActionContainer = ({
         id: ETranslations.swap_page_settings,
       }),
       renderContent: (
-        <SwapProviderMirror
-          storeName={
-            pageType === EPageType.modal
-              ? EJotaiContextStoreNames.swapModal
-              : EJotaiContextStoreNames.swap
-          }
-        >
+        <SwapProviderMirror storeName={swapStoreName}>
           <SwapSettingsDialogContent
             marketPresetSettings={marketPresetSettings}
           />
@@ -581,9 +652,20 @@ const SwapHeaderRightActionContainer = ({
       }),
       showFooter: true,
     });
-  }, [intl, marketPresetSettings, pageType]);
+  }, [intl, marketPresetSettings, swapStoreName]);
   return (
     <HeaderButtonGroup>
+      {showKLineButton ? (
+        <HeaderIconButton
+          testID={SwapTestIDs.kLineButton}
+          icon="TradingViewCandlesOutline"
+          onPress={onOpenSwapKLineModal}
+          disabled={isKLineDisabled}
+          iconProps={{ size: iconSize ?? 20, color: iconColor ?? '$icon' }}
+          size="medium"
+        />
+      ) : null}
+
       {slippageTitle ? (
         <XStack
           testID={SwapTestIDs.settingsButton}

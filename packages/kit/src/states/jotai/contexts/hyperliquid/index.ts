@@ -7,6 +7,10 @@ export {
   useConnectionStateAtom,
   useOrderBookTickOptionsAtom,
   usePerpsActiveOpenOrdersAtom,
+  usePerpsActiveTwapOrdersAtom,
+  usePerpsActiveTwapOrdersLengthAtom,
+  usePerpsTwapHistoryAtom,
+  usePerpsTwapSliceFillsAtom,
   usePerpsOpenOrdersByCoin,
   useActiveTradeInstrumentAtom,
   useTradeRouteViewStateAtom,
@@ -25,6 +29,10 @@ export type {
   IBBOPriceMode,
   IActiveTradeInstrument,
   ITradeRouteViewState,
+  IPerpsActiveTwapOrder,
+  IPerpsActiveTwapOrdersAtom,
+  IPerpsTwapHistoryAtom,
+  IPerpsTwapSliceFillsAtom,
 } from './atoms';
 
 export { useHyperliquidActions } from './actions';

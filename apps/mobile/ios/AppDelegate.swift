@@ -7,10 +7,15 @@ import ReactAppDependencyProvider
 
 // MARK: - Dynamic bridge to Nitro modules (avoids C++ module import issues)
 private enum NitroModuleBridge {
-  // LaunchOptionsStore is @objcMembers in ReactNativeDeviceUtils
+  // LaunchOptionsStore is @objcMembers in ReactNativeDeviceUtils.
+  // Reach the singleton via the `sharedInstance` class method (perform),
+  // NOT KVC `value(forKeyPath: "shared")`: a Swift `static let` stored
+  // property is invisible to the ObjC runtime, so KVC returns nil and
+  // every subsequent `setValue(_:forKey:)` (startupTime, deviceToken,
+  // launchOptions) silently no-ops.
   static func launchOptionsStore() -> NSObject? {
     guard let cls = NSClassFromString("ReactNativeDeviceUtils.LaunchOptionsStore") as? NSObject.Type else { return nil }
-    return cls.value(forKeyPath: "shared") as? NSObject
+    return cls.perform(NSSelectorFromString("sharedInstance"))?.takeUnretainedValue() as? NSObject
   }
 
   // OneKeyLog is @objc in ReactNativeNativeLogger

@@ -274,7 +274,7 @@ class ServiceMarket extends ServiceBase {
         isDeleted,
       });
     }
-    await this.backgroundApi.localDb.addAndUpdateSyncItems({
+    await this.backgroundApi.localDb.addAndUpdateFreshSyncItems({
       items: syncItems,
       fn,
     });
