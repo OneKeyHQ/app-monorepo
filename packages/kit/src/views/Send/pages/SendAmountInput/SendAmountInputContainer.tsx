@@ -266,7 +266,7 @@ function getPrivateSendValueDropPercent(quote?: IFetchQuoteResult) {
 
 function isPositivePrivateSendAmount(amount?: string | number) {
   const amountBN = new BigNumber(amount ?? 0);
-  return !amountBN.isNaN() && amountBN.isGreaterThan(0);
+  return amountBN.isFinite() && amountBN.isGreaterThan(0);
 }
 
 function isPrivateSendQuoteUsable(
@@ -1872,11 +1872,23 @@ function SendAmountInputContainer() {
             const privateSendRocketXOrderId = getPrivateSendRocketXOrderId(
               buildSwapRes.ctx,
             );
+            const privateSendBuildOrderId = buildSwapRes.orderId;
             if (
               !privateSendProviderOrderId ||
               !privateSendRocketXOrderId ||
-              privateSendProviderOrderId !== privateSendRocketXOrderId
+              privateSendProviderOrderId !== privateSendRocketXOrderId ||
+              (privateSendBuildOrderId &&
+                privateSendBuildOrderId !== privateSendRocketXOrderId)
             ) {
+              throw new OneKeyLocalError(
+                intl.formatMessage({
+                  id: ETranslations.swap_page_alert_no_provider_supports_trade,
+                }),
+              );
+            }
+            const privateSendBuildToAmount =
+              buildSwapRes.result.toAmount ?? privateSendToAmount;
+            if (!isPositivePrivateSendAmount(privateSendBuildToAmount)) {
               throw new OneKeyLocalError(
                 intl.formatMessage({
                   id: ETranslations.swap_page_alert_no_provider_supports_trade,
@@ -1895,8 +1907,11 @@ function SendAmountInputContainer() {
             };
             const normalizedBuildSwapRes = {
               ...buildSwapRes,
+              orderId: privateSendRocketXOrderId,
               result: {
                 ...buildSwapRes.result,
+                fromAmount: privateSendPayinAmount,
+                toAmount: privateSendBuildToAmount,
                 protocol: EProtocolOfExchange.PRIVATE_SEND,
                 info: privateSendProviderInfo,
                 supportUrl:
@@ -1922,8 +1937,7 @@ function SendAmountInputContainer() {
               },
             ];
             const privateSendAmountToSend = privateSendPayinAmount;
-            const privateSendOrderId =
-              normalizedBuildSwapRes.orderId ?? privateSendRocketXOrderId;
+            const privateSendOrderId = privateSendRocketXOrderId;
 
             const swapInfo: ISwapTxInfo = {
               protocol: EProtocolOfExchange.PRIVATE_SEND,

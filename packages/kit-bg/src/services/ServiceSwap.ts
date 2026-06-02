@@ -35,6 +35,7 @@ import {
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import { isSwapHistoryProtocolExcluded } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -1697,25 +1698,49 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cleanSwapHistoryItems(statuses?: ESwapTxHistoryStatus[]) {
+  async cleanSwapHistoryItems(
+    statuses?: ESwapTxHistoryStatus[],
+    options?: {
+      excludeProtocols?: EProtocolOfExchange[];
+    },
+  ) {
     await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
       statuses,
+      options,
     );
     const inAppNotification = await inAppNotificationAtom.get();
     const deleteHistoryIds = filterSwapHistoryPendingList(
       inAppNotification.swapHistoryPendingList,
     )
-      .filter((item) => statuses?.includes(item.status))
+      .filter((item) => {
+        if (
+          isSwapHistoryProtocolExcluded({
+            item,
+            excludeProtocols: options?.excludeProtocols,
+          })
+        ) {
+          return false;
+        }
+        return statuses ? statuses.includes(item.status) : true;
+      })
       .map((item) =>
         item.txInfo.useOrderId ? item.txInfo.orderId : item.txInfo.txId,
       );
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
-      swapHistoryPendingList: statuses
-        ? filterSwapHistoryPendingList(pre.swapHistoryPendingList).filter(
-            (item) => !statuses?.includes(item.status),
-          )
-        : [],
+      swapHistoryPendingList: filterSwapHistoryPendingList(
+        pre.swapHistoryPendingList,
+      ).filter((item) => {
+        if (
+          isSwapHistoryProtocolExcluded({
+            item,
+            excludeProtocols: options?.excludeProtocols,
+          })
+        ) {
+          return true;
+        }
+        return statuses ? !statuses.includes(item.status) : false;
+      }),
     }));
     await Promise.all(
       deleteHistoryIds.map((id) => this.cleanHistoryStateIntervals(id)),

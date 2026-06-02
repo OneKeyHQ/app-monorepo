@@ -35,6 +35,7 @@ import type {
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   EProtocolOfExchange,
   ESwapCleanHistorySource,
@@ -81,17 +82,24 @@ const SwapHistoryListModal = ({
     [swapHistoryPendingList],
     { watchLoading: true },
   );
+  const swapMarketTxHistoryList = useMemo(
+    () =>
+      (swapTxHistoryList ?? []).filter(
+        (item) => !isPrivateSendSwapHistoryItem(item),
+      ),
+    [swapTxHistoryList],
+  );
 
   // Default fee percentage for savings calculation (0.3%)
   const DEFAULT_FEE_PERCENTAGE = 0.3;
 
   // Calculate cumulative savings from all completed successful orders
   const cumulativeSavings = useMemo(() => {
-    if (!swapTxHistoryList) return '$0';
+    if (!swapMarketTxHistoryList.length) return '$0';
 
     let total = new BigNumber(0);
 
-    for (const history of swapTxHistoryList) {
+    for (const history of swapMarketTxHistoryList) {
       // Only count completed successful orders
       // eslint-disable-next-line no-continue
       if (history.status !== ESwapTxHistoryStatus.SUCCESS) continue;
@@ -118,14 +126,15 @@ const SwapHistoryListModal = ({
       formatter: 'value',
       formatterOptions: { currency: '$' },
     });
-  }, [swapTxHistoryList]);
+  }, [swapMarketTxHistoryList]);
 
   const marketPendingHistoryCount = useMemo(
     () =>
       filterSwapHistoryPendingList(swapHistoryPendingList).filter(
         (item) =>
-          item.status === ESwapTxHistoryStatus.PENDING ||
-          item.status === ESwapTxHistoryStatus.CANCELING,
+          !isPrivateSendSwapHistoryItem(item) &&
+          (item.status === ESwapTxHistoryStatus.PENDING ||
+            item.status === ESwapTxHistoryStatus.CANCELING),
       ).length,
     [swapHistoryPendingList],
   );
@@ -276,7 +285,7 @@ const SwapHistoryListModal = ({
 
   const onDeleteHistory = useCallback(() => {
     // dialog
-    if (!swapTxHistoryList?.length) return;
+    if (!swapMarketTxHistoryList.length) return;
     Dialog.show({
       icon: 'BroomOutline',
       // description: intl.formatMessage({
@@ -286,7 +295,9 @@ const SwapHistoryListModal = ({
         id: ETranslations.swap_history_all_history_title,
       }),
       onConfirm: async () => {
-        await backgroundApiProxy.serviceSwap.cleanSwapHistoryItems();
+        await backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(undefined, {
+          excludeProtocols: [EProtocolOfExchange.PRIVATE_SEND],
+        });
         void backgroundApiProxy.serviceApp.showToast({
           method: 'success',
           title: intl.formatMessage({
@@ -302,12 +313,12 @@ const SwapHistoryListModal = ({
       }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
     });
-  }, [intl, swapTxHistoryList?.length]);
+  }, [intl, swapMarketTxHistoryList.length]);
 
   const onDeletePendingHistory = useCallback(() => {
     // dialog
     if (
-      !swapTxHistoryList?.some(
+      !swapMarketTxHistoryList.some(
         (item) => item.status === ESwapTxHistoryStatus.PENDING,
       )
     )
@@ -321,9 +332,10 @@ const SwapHistoryListModal = ({
         id: ETranslations.swap_history_pending_history_title,
       }),
       onConfirm: () => {
-        void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems([
-          ESwapTxHistoryStatus.PENDING,
-        ]);
+        void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(
+          [ESwapTxHistoryStatus.PENDING],
+          { excludeProtocols: [EProtocolOfExchange.PRIVATE_SEND] },
+        );
         defaultLogger.swap.cleanSwapOrder.cleanSwapOrder({
           cleanFrom: ESwapCleanHistorySource.LIST,
         });
@@ -333,7 +345,7 @@ const SwapHistoryListModal = ({
       }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
     });
-  }, [intl, swapTxHistoryList]);
+  }, [intl, swapMarketTxHistoryList]);
 
   const savingsPopoverContent = useMemo(
     () => (

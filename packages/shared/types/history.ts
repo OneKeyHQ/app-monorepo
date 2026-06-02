@@ -122,6 +122,17 @@ export type IOnChainHistoryTx = {
   // TODO: on chain swap info
   swapInfo?: any;
 
+  isPrivateSend?: boolean;
+  privateSend?: {
+    orderId?: string;
+    rocketXOrderId?: string;
+    provider?: string;
+    providerName?: string;
+    providerLogo?: string;
+    supportUrl?: string;
+    originalRecipient?: string;
+  };
+
   // Lightning network attributes
   description?: string;
   preimage?: string;

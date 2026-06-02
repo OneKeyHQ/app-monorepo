@@ -1,6 +1,7 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
+import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
@@ -77,13 +78,6 @@ function ensurePrivateSendHistoryOrderId(item: ISwapTxHistory) {
       orderId,
     },
   };
-}
-
-function isPrivateSendSwapHistoryItem(item?: ISwapTxHistory) {
-  return (
-    item?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
-    item?.swapInfo.provider.provider === privateSendProvider
-  );
 }
 
 function getPrivateSendRocketXOrderIdFromCtx(ctx: unknown) {

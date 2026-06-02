@@ -52,6 +52,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
+import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   swapSlippageCustomDefaultList,
   swapSlippageItems,
@@ -510,8 +511,9 @@ const SwapHeaderRightActionContainer = ({
     () =>
       filterSwapHistoryPendingList(swapHistoryPendingList).filter(
         (i) =>
-          i.status === ESwapTxHistoryStatus.PENDING ||
-          i.status === ESwapTxHistoryStatus.CANCELING,
+          !isPrivateSendSwapHistoryItem(i) &&
+          (i.status === ESwapTxHistoryStatus.PENDING ||
+            i.status === ESwapTxHistoryStatus.CANCELING),
       ),
     [swapHistoryPendingList],
   );
