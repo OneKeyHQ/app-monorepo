@@ -585,13 +585,20 @@ function TwapHistoryRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[0].align)}
           >
+            <SizableText size="$bodySm">{creationTime.inline}</SizableText>
+          </YStack>
+          <YStack
+            {...getColumnStyle(columnConfigs[1])}
+            justifyContent="center"
+            alignItems={calcCellAlign(columnConfigs[1].align)}
+          >
             <SizableText size="$bodySmMedium" color={sideInfo.color}>
               {baseInfo.assetSymbol}
             </SizableText>
           </YStack>
           <XStack
-            {...getColumnStyle(columnConfigs[1])}
-            justifyContent={calcCellAlign(columnConfigs[1].align)}
+            {...getColumnStyle(columnConfigs[2])}
+            justifyContent={calcCellAlign(columnConfigs[2].align)}
             alignItems="center"
           >
             <SizableText size="$bodySm" color={sideInfo.color}>
@@ -599,8 +606,8 @@ function TwapHistoryRow({
             </SizableText>
           </XStack>
           <XStack
-            {...getColumnStyle(columnConfigs[2])}
-            justifyContent={calcCellAlign(columnConfigs[2].align)}
+            {...getColumnStyle(columnConfigs[3])}
+            justifyContent={calcCellAlign(columnConfigs[3].align)}
             alignItems="center"
           >
             <SizableText size="$bodySm" color={sideInfo.color}>
@@ -608,8 +615,8 @@ function TwapHistoryRow({
             </SizableText>
           </XStack>
           <XStack
-            {...getColumnStyle(columnConfigs[3])}
-            justifyContent={calcCellAlign(columnConfigs[3].align)}
+            {...getColumnStyle(columnConfigs[4])}
+            justifyContent={calcCellAlign(columnConfigs[4].align)}
             alignItems="center"
           >
             <SizableText size="$bodySm">
@@ -617,33 +624,26 @@ function TwapHistoryRow({
             </SizableText>
           </XStack>
           <YStack
-            {...getColumnStyle(columnConfigs[4])}
+            {...getColumnStyle(columnConfigs[5])}
             justifyContent="center"
-            alignItems={calcCellAlign(columnConfigs[4].align)}
+            alignItems={calcCellAlign(columnConfigs[5].align)}
           >
             <SizableText size="$bodySm">{baseInfo.runningTimeText}</SizableText>
           </YStack>
-          <XStack
-            {...getColumnStyle(columnConfigs[5])}
-            justifyContent={calcCellAlign(columnConfigs[5].align)}
-            alignItems="center"
-          >
-            <SizableText size="$bodySm">{baseInfo.reduceOnlyText}</SizableText>
-          </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[6])}
             justifyContent={calcCellAlign(columnConfigs[6].align)}
             alignItems="center"
           >
+            <SizableText size="$bodySm">{baseInfo.reduceOnlyText}</SizableText>
+          </XStack>
+          <XStack
+            {...getColumnStyle(columnConfigs[7])}
+            justifyContent={calcCellAlign(columnConfigs[7].align)}
+            alignItems="center"
+          >
             <SizableText size="$bodySm">{baseInfo.randomizeText}</SizableText>
           </XStack>
-          <YStack
-            {...getColumnStyle(columnConfigs[7])}
-            justifyContent="center"
-            alignItems={calcCellAlign(columnConfigs[7].align)}
-          >
-            <SizableText size="$bodySm">{creationTime.inline}</SizableText>
-          </YStack>
         </>
       ) : null}
       {shouldRenderRight ? (
@@ -865,7 +865,7 @@ function PerpTwapList() {
     return sortTwapSliceFills(Array.from(byKey.values()));
   }, [currentAccountAddress, fillsAccountAddress, rawSliceFills]);
 
-  const twapColumns: IColumnConfig[] = useMemo(
+  const twapBaseColumns: IColumnConfig[] = useMemo(
     () => [
       {
         key: 'coin',
@@ -930,30 +930,55 @@ function PerpTwapList() {
         flex: 1,
         align: 'left',
       },
+    ],
+    [intl],
+  );
+
+  const creationTimeColumn: IColumnConfig = useMemo(
+    () => ({
+      key: 'creationTime',
+      title: intl.formatMessage({
+        id: ETranslations.perp_creation_time__title,
+      }),
+      minWidth: 150,
+      flex: 1,
+      align: 'left',
+    }),
+    [intl],
+  );
+
+  const activeColumns: IColumnConfig[] = useMemo(
+    () => [
+      ...twapBaseColumns,
+      creationTimeColumn,
       {
-        key: 'creationTime',
+        key: 'terminate',
         title: intl.formatMessage({
-          id: ETranslations.perp_creation_time__title,
+          id: ETranslations.perp_twap_terminate__action,
         }),
-        minWidth: 150,
-        flex: 1,
-        align: 'left',
-      },
-      {
-        key: activeTab === 'active' ? 'terminate' : 'status',
-        title:
-          activeTab === 'active'
-            ? intl.formatMessage({
-                id: ETranslations.perp_twap_terminate__action,
-              })
-            : intl.formatMessage({ id: ETranslations.global_status }),
-        minWidth: activeTab === 'active' ? 100 : 130,
+        minWidth: 100,
         flex: 1,
         align: 'right',
         fixed: true,
       },
     ],
-    [activeTab, intl],
+    [creationTimeColumn, intl, twapBaseColumns],
+  );
+
+  const historyColumns: IColumnConfig[] = useMemo(
+    () => [
+      creationTimeColumn,
+      ...twapBaseColumns,
+      {
+        key: 'status',
+        title: intl.formatMessage({ id: ETranslations.global_status }),
+        minWidth: 130,
+        flex: 1,
+        align: 'right',
+        fixed: true,
+      },
+    ],
+    [creationTimeColumn, intl, twapBaseColumns],
   );
 
   const fillColumns: IColumnConfig[] = useMemo(
@@ -1028,11 +1053,19 @@ function PerpTwapList() {
 
   const activeMinWidth = useMemo(
     () =>
-      twapColumns.reduce(
+      activeColumns.reduce(
         (sum, col) => sum + (col.width || col.minWidth || 0),
         0,
       ),
-    [twapColumns],
+    [activeColumns],
+  );
+  const historyMinWidth = useMemo(
+    () =>
+      historyColumns.reduce(
+        (sum, col) => sum + (col.width || col.minWidth || 0),
+        0,
+      ),
+    [historyColumns],
   );
   const fillMinWidth = useMemo(
     () =>
@@ -1103,7 +1136,7 @@ function PerpTwapList() {
         order={item}
         now={now}
         cellMinWidth={activeMinWidth}
-        columnConfigs={twapColumns}
+        columnConfigs={activeColumns}
         onTerminate={() => void handleTerminate(item)}
         index={index}
         renderMode={renderMode}
@@ -1112,7 +1145,7 @@ function PerpTwapList() {
         spotDisplayMap={spotDisplayMap}
       />
     ),
-    [activeMinWidth, handleTerminate, now, spotDisplayMap, twapColumns],
+    [activeColumns, activeMinWidth, handleTerminate, now, spotDisplayMap],
   );
 
   const renderHistoryRow = useCallback(
@@ -1126,8 +1159,8 @@ function PerpTwapList() {
       <TwapHistoryRow
         record={item}
         now={now}
-        cellMinWidth={activeMinWidth}
-        columnConfigs={twapColumns}
+        cellMinWidth={historyMinWidth}
+        columnConfigs={historyColumns}
         index={index}
         renderMode={renderMode}
         isHovered={isHovered}
@@ -1135,7 +1168,7 @@ function PerpTwapList() {
         spotDisplayMap={spotDisplayMap}
       />
     ),
-    [activeMinWidth, now, spotDisplayMap, twapColumns],
+    [historyColumns, historyMinWidth, now, spotDisplayMap],
   );
 
   const renderFillRow = useCallback(
@@ -1196,7 +1229,7 @@ function PerpTwapList() {
           pageSize={TWAP_PAGE_SIZE}
           currentListPage={currentListPage}
           setCurrentListPage={setCurrentListPage}
-          columns={twapColumns}
+          columns={activeColumns}
           minTableWidth={activeMinWidth}
           data={twapOrders}
           renderRow={renderActiveRow}
@@ -1216,8 +1249,8 @@ function PerpTwapList() {
           pageSize={TWAP_PAGE_SIZE}
           currentListPage={currentListPage}
           setCurrentListPage={setCurrentListPage}
-          columns={twapColumns}
-          minTableWidth={activeMinWidth}
+          columns={historyColumns}
+          minTableWidth={historyMinWidth}
           data={historyRows}
           renderRow={renderHistoryRow}
           ListEmptyComponent={listEmptyComponent}
