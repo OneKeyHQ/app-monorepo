@@ -2589,11 +2589,15 @@ class ServicePrimeTransfer extends ServiceBase {
       | IPrimeTransferAtomData['importProgress']
       | undefined;
     await primeTransferAtom.set((prev) => {
-      nextImportProgress = prev?.importProgress
+      const prevProgress = prev?.importProgress;
+      nextImportProgress = prevProgress
         ? {
-            ...prev?.importProgress,
+            ...prevProgress,
             isImporting: true,
-            current: (prev?.importProgress?.current || 0) + 1,
+            current: Math.min(
+              (prevProgress.current || 0) + 1,
+              prevProgress.total,
+            ),
           }
         : undefined;
       return {

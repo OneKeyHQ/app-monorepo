@@ -11,7 +11,7 @@ function getPrimeTransferImportProgressPercent(
     return undefined;
   }
   if (progress.total > 0) {
-    return Math.ceil((progress.current / progress.total) * 100);
+    return Math.min(100, Math.ceil((progress.current / progress.total) * 100));
   }
   return progress.isImporting ? 0 : 100;
 }
@@ -20,7 +20,7 @@ function getPrimeTransferImportProgressRange(percentage: number | undefined) {
   if (percentage === undefined) {
     return undefined;
   }
-  if (percentage >= 80 && percentage <= 90) {
+  if (percentage >= 80 && percentage < 90) {
     return '80-90';
   }
   if (percentage >= 100) {
