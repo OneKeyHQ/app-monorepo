@@ -83,11 +83,27 @@ export function DepthBarColumn({
   color,
   origin = 'left',
   epoch,
+  prices,
+  sizes,
+  priceColor,
+  sizeColor,
+  priceFontSize,
+  sizeFontSize,
+  textInset,
+  onRowPress,
 }: IDepthBarColumnProps) {
   const reducedMotion = useReducedMotion();
   const totalHeight =
     percents.length * rowHeight + percents.length * rowMarginTop;
   const nativeColor = useMemo(() => toNativeColor(color), [color]);
+  const nativePriceColor = useMemo(
+    () => (priceColor ? toNativeColor(priceColor) : undefined),
+    [priceColor],
+  );
+  const nativeSizeColor = useMemo(
+    () => (sizeColor ? toNativeColor(sizeColor) : undefined),
+    [sizeColor],
+  );
 
   return (
     <PerpDepthBarsView
@@ -99,6 +115,14 @@ export function DepthBarColumn({
       origin={origin}
       reducedMotion={reducedMotion}
       epoch={epoch}
+      prices={prices ?? []}
+      sizes={sizes ?? []}
+      priceColor={nativePriceColor ?? 'rgba(0,0,0,1)'}
+      sizeColor={nativeSizeColor ?? 'rgba(0,0,0,1)'}
+      priceFontSize={priceFontSize ?? 11}
+      sizeFontSize={sizeFontSize ?? 11}
+      textInset={textInset ?? 0}
+      onRowPress={onRowPress}
       style={{ width: '100%', height: totalHeight }}
     />
   );

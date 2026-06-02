@@ -2014,6 +2014,24 @@ export function OrderBookMobile({
               color={blockColors.red}
               origin="left"
               epoch={depthEpoch}
+              prices={aggregatedData.asks.toReversed().map((d) => d.price)}
+              sizes={aggregatedData.asks.toReversed().map((d) => d.displaySize)}
+              priceColor={textColor.red}
+              sizeColor={textColor.textSubdued}
+              priceFontSize={priceFontSize}
+              sizeFontSize={priceFontSize}
+              textInset={4}
+              onRowPress={(rowIndex) => {
+                const rev = aggregatedData.asks.toReversed();
+                const item = rev[rowIndex];
+                if (item) {
+                  handleSelectLevel(
+                    'ask',
+                    item,
+                    aggregatedData.asks.length - 1 - rowIndex,
+                  );
+                }
+              }}
             />
           )}
           <View
@@ -2043,12 +2061,27 @@ export function OrderBookMobile({
               color={blockColors.green}
               origin="left"
               epoch={depthEpoch}
+              prices={aggregatedData.bids.map((d) => d.price)}
+              sizes={aggregatedData.bids.map((d) => d.displaySize)}
+              priceColor={textColor.green}
+              sizeColor={textColor.textSubdued}
+              priceFontSize={priceFontSize}
+              sizeFontSize={priceFontSize}
+              textInset={4}
+              onRowPress={(rowIndex) => {
+                const item = aggregatedData.bids[rowIndex];
+                if (item) {
+                  handleSelectLevel('bid', item, rowIndex);
+                }
+              }}
             />
           )}
         </View>
 
         {/* foreground texts */}
         <View style={styles.absoluteContainer}>
+          {/* ask price/size text now drawn natively by DepthBarColumn;
+              keep transparent spacers so the spread row stays positioned. */}
           {isEmpty
             ? emptyRowIndexes.map((index) => (
                 <MobileEmptyRow
@@ -2057,38 +2090,12 @@ export function OrderBookMobile({
                   sizeColor={textColor.textSubdued}
                 />
               ))
-            : aggregatedData.asks.toReversed().map((itemData, index) => {
-                const originalIndex = aggregatedData.asks.length - 1 - index;
-                return (
-                  <Pressable
-                    key={index}
-                    disabled={!isInteractive}
-                    onPress={() =>
-                      handleSelectLevel('ask', itemData, originalIndex)
-                    }
-                    style={() => [
-                      {
-                        height: MOBILE_ROW_HEIGHT,
-                        justifyContent: 'center',
-                        paddingHorizontal: 4,
-                      },
-                      isInteractive && !platformEnv.isNative
-                        ? styles.pointer
-                        : null,
-                    ]}
-                  >
-                    {(state) => (
-                      <MobileRow
-                        priceFontSize={priceFontSize}
-                        item={itemData}
-                        priceColor={textColor.red}
-                        sizeColor={textColor.textSubdued}
-                        isHovered={getPressableHoverState(state)}
-                      />
-                    )}
-                  </Pressable>
-                );
-              })}
+            : aggregatedData.asks.map((_, index) => (
+                <View
+                  key={`ask-spacer-${index}`}
+                  style={{ height: MOBILE_ROW_HEIGHT }}
+                />
+              ))}
           <DebugRenderTracker
             name="OrderBookMobileSpreadRow"
             position="right-center"
@@ -2100,6 +2107,8 @@ export function OrderBookMobile({
               textColor={textColor}
             />
           </DebugRenderTracker>
+          {/* bid price/size text now drawn natively by DepthBarColumn;
+              keep transparent spacers so layout height matches the bars. */}
           {isEmpty
             ? emptyRowIndexes.map((index) => (
                 <MobileEmptyRow
@@ -2108,32 +2117,11 @@ export function OrderBookMobile({
                   sizeColor={textColor.textSubdued}
                 />
               ))
-            : aggregatedData.bids.map((itemData, index) => (
-                <Pressable
-                  key={index}
-                  disabled={!isInteractive}
-                  onPress={() => handleSelectLevel('bid', itemData, index)}
-                  style={() => [
-                    {
-                      height: MOBILE_ROW_HEIGHT,
-                      justifyContent: 'center',
-                      paddingHorizontal: 4,
-                    },
-                    isInteractive && !platformEnv.isNative
-                      ? styles.pointer
-                      : null,
-                  ]}
-                >
-                  {(state) => (
-                    <MobileRow
-                      item={itemData}
-                      priceFontSize={priceFontSize}
-                      priceColor={textColor.green}
-                      sizeColor={textColor.textSubdued}
-                      isHovered={getPressableHoverState(state)}
-                    />
-                  )}
-                </Pressable>
+            : aggregatedData.bids.map((_, index) => (
+                <View
+                  key={`bid-spacer-${index}`}
+                  style={{ height: MOBILE_ROW_HEIGHT }}
+                />
               ))}
         </View>
       </View>

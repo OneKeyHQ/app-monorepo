@@ -60,6 +60,18 @@ export type IDepthBarColumnProps = {
    * the native view snaps to the new values WITHOUT animating (see design §6).
    */
   epoch: number;
+
+  // Optional native per-row text (price left / size right). When provided the
+  // native view draws the ladder text itself — no sibling RN <Text> rows — and
+  // emits `onRowPress(rowIndex)` for taps. Arrays are parallel to `percents`.
+  prices?: string[];
+  sizes?: string[];
+  priceColor?: string;
+  sizeColor?: string;
+  priceFontSize?: number;
+  sizeFontSize?: number;
+  textInset?: number;
+  onRowPress?: (rowIndex: number) => void;
 };
 
 export type ISideRatioSegmentsProps = {
