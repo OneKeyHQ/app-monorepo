@@ -442,6 +442,8 @@ export const {
 export interface IPerpsAccountLoadingInfo {
   selectAccountLoading: boolean;
   enableTradingLoading: boolean;
+  enableTradingTriggered: boolean;
+  enableTradingStatusPending: boolean;
 }
 export const {
   target: perpsAccountLoadingInfoAtom,
@@ -451,6 +453,8 @@ export const {
   initialValue: {
     selectAccountLoading: false,
     enableTradingLoading: false,
+    enableTradingTriggered: false,
+    enableTradingStatusPending: false,
   },
 });
 
@@ -466,11 +470,10 @@ export const {
 }>({
   read: (get) => {
     const account = get(perpsActiveAccountAtom.atom());
-    const loading = get(perpsAccountLoadingInfoAtom.atom());
 
     const accountId = account.accountId ?? account.indexedAccountId;
 
-    if (loading.selectAccountLoading || !accountId) {
+    if (!accountId) {
       return {
         isSoftwareAccount: false,
         isHardwareAccount: false,
@@ -501,18 +504,15 @@ export const {
 } = globalAtomComputedR<boolean>({
   read: (get) => {
     const status = get(perpsActiveAccountStatusAtom.atom());
-    const loading = get(perpsAccountLoadingInfoAtom.atom());
     const enableTradingMode = get(
       perpsActiveAccountEnableTradingModeAtom.atom(),
     );
-    const isAccountLoading =
-      loading.enableTradingLoading || loading.selectAccountLoading;
 
-    if (isAccountLoading || !status?.accountAddress) {
+    if (!status?.accountAddress) {
       return true;
     }
 
-    if (status.accountNotSupport) {
+    if (status.accountNotSupport || status.canCreateAddress) {
       return true;
     }
 
