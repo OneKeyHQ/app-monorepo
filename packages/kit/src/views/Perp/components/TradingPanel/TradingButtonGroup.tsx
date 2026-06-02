@@ -77,9 +77,11 @@ import {
   shouldBlockPerpsTradingForMarketData,
 } from '../../utils/perpsMarketDataFreshness';
 import {
+  type IPerpsOrderPanelEnableTradingMode,
   getPerpsOrderPanelPostEnableTradingResult,
   shouldBlockPerpsOrderPanelPreEnableTradingForMargin,
   shouldDisablePerpsOrderPanelTradingButton,
+  shouldDisablePerpsOrderPanelTradingButtonForAccountLoading,
   shouldSkipPerpsOrderPanelComputedSizeValidation,
 } from '../../utils/perpsOrderPanelEnableTrading';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
@@ -96,12 +98,14 @@ const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
 interface ITradingButtonGroupProps {
   isMobile: boolean;
   isLiveStatusPending?: boolean;
+  enableTradingModeOverride?: IPerpsOrderPanelEnableTradingMode;
 }
 
 interface ISideButtonProps {
   side: 'long' | 'short';
   isMobile: boolean;
   isLiveStatusPending?: boolean;
+  enableTradingModeOverride?: IPerpsOrderPanelEnableTradingMode;
   marketDataFreshness: IPerpsMarketDataFreshness;
   handleConfirm: (overrideSide?: 'long' | 'short') => Promise<void>;
   justifyContent?:
@@ -130,6 +134,7 @@ function SideButtonInternal({
   side,
   isMobile,
   isLiveStatusPending = false,
+  enableTradingModeOverride,
   marketDataFreshness,
   handleConfirm,
   justifyContent = 'flex-start',
@@ -141,6 +146,8 @@ function SideButtonInternal({
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
+  const effectiveEnableTradingMode =
+    enableTradingModeOverride ?? enableTradingMode;
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
@@ -244,7 +251,6 @@ function SideButtonInternal({
     perpsAccountLoading.enableTradingLoading,
     perpsAccountLoading.selectAccountLoading,
   ]);
-  const shouldShowButtonLoading = isAccountLoading && !isLiveStatusPending;
 
   const isServerActionDisabled = useMemo(
     () =>
@@ -258,16 +264,19 @@ function SideButtonInternal({
   const shouldAutoEnableTrading = useMemo(
     () =>
       !perpsAccountStatus.canTrade &&
-      enableTradingMode.canAutoEnableInOrderPanel,
-    [enableTradingMode.canAutoEnableInOrderPanel, perpsAccountStatus.canTrade],
+      effectiveEnableTradingMode.canAutoEnableInOrderPanel,
+    [
+      effectiveEnableTradingMode.canAutoEnableInOrderPanel,
+      perpsAccountStatus.canTrade,
+    ],
   );
 
   const shouldShowEnableTradingDialog = useMemo(
     () =>
       !perpsAccountStatus.canTrade &&
-      enableTradingMode.requiresEnableTradingDialogInOrderPanel,
+      effectiveEnableTradingMode.requiresEnableTradingDialogInOrderPanel,
     [
-      enableTradingMode.requiresEnableTradingDialogInOrderPanel,
+      effectiveEnableTradingMode.requiresEnableTradingDialogInOrderPanel,
       perpsAccountStatus.canTrade,
     ],
   );
@@ -276,15 +285,29 @@ function SideButtonInternal({
     shouldAutoEnableTrading || shouldShowEnableTradingDialog;
 
   const isTradingStatusDisabled = useMemo(
+    () => !perpsAccountStatus.canTrade && !shouldEnableTradingBeforeOrder,
+    [perpsAccountStatus.canTrade, shouldEnableTradingBeforeOrder],
+  );
+
+  const shouldDisableForAccountLoading = useMemo(
     () =>
-      isLiveStatusPending ||
-      (!perpsAccountStatus.canTrade && !shouldEnableTradingBeforeOrder),
+      shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
+        selectAccountLoading: perpsAccountLoading.selectAccountLoading,
+        enableTradingLoading: perpsAccountLoading.enableTradingLoading,
+        enableTradingTriggered: perpsAccountLoading.enableTradingTriggered,
+        enableTradingStatusPending:
+          perpsAccountLoading.enableTradingStatusPending,
+        isLiveStatusPending,
+      }),
     [
       isLiveStatusPending,
-      perpsAccountStatus.canTrade,
-      shouldEnableTradingBeforeOrder,
+      perpsAccountLoading.enableTradingLoading,
+      perpsAccountLoading.enableTradingTriggered,
+      perpsAccountLoading.enableTradingStatusPending,
+      perpsAccountLoading.selectAccountLoading,
     ],
   );
+  const shouldShowButtonLoading = shouldDisableForAccountLoading;
 
   const hasNonColdStartDisabledReason = useMemo(
     () =>
@@ -317,7 +340,7 @@ function SideButtonInternal({
       isTradingStatusDisabled,
       shouldEnableTradingBeforeOrder,
       isNoEnoughMargin,
-      isAccountLoading,
+      isAccountLoading: shouldDisableForAccountLoading,
       isSubmitting,
       hasBboPriceError: priceError === 'bbo_unavailable',
       isServerActionDisabled,
@@ -326,7 +349,7 @@ function SideButtonInternal({
     isTradingStatusDisabled,
     shouldEnableTradingBeforeOrder,
     isNoEnoughMargin,
-    isAccountLoading,
+    shouldDisableForAccountLoading,
     isSubmitting,
     priceError,
     isServerActionDisabled,
@@ -1149,6 +1172,9 @@ function SideButtonInternal({
       isAccountLoading,
       isLiveStatusPending,
       enableTradingLoading: perpsAccountLoading.enableTradingLoading,
+      enableTradingTriggered: perpsAccountLoading.enableTradingTriggered,
+      enableTradingStatusPending:
+        perpsAccountLoading.enableTradingStatusPending,
       selectAccountLoading: perpsAccountLoading.selectAccountLoading,
       isNoEnoughMargin,
       priceError,
@@ -1170,6 +1196,8 @@ function SideButtonInternal({
     perpConfigCommon?.disablePerpActionPerp,
     perpConfigCommon?.ipDisablePerp,
     perpsAccountLoading.enableTradingLoading,
+    perpsAccountLoading.enableTradingTriggered,
+    perpsAccountLoading.enableTradingStatusPending,
     perpsAccountLoading.selectAccountLoading,
     perpsAccountStatus.canTrade,
     priceError,
@@ -1464,6 +1492,7 @@ const SideButton = memo(SideButtonInternal);
 function TradingButtonGroup({
   isMobile,
   isLiveStatusPending = false,
+  enableTradingModeOverride,
 }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
   const [formData] = useTradingFormAtom();
@@ -1481,6 +1510,7 @@ function TradingButtonGroup({
             side={formData.side}
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
             marketDataFreshness={marketDataFreshness}
             handleConfirm={handleConfirm}
           />
@@ -1494,6 +1524,7 @@ function TradingButtonGroup({
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
             marketDataFreshness={marketDataFreshness}
             handleConfirm={handleConfirm}
           />
@@ -1501,6 +1532,7 @@ function TradingButtonGroup({
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
             marketDataFreshness={marketDataFreshness}
             handleConfirm={handleConfirm}
           />
@@ -1514,6 +1546,7 @@ function TradingButtonGroup({
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
             marketDataFreshness={marketDataFreshness}
             handleConfirm={handleConfirm}
             justifyContent="flex-start"
@@ -1524,6 +1557,7 @@ function TradingButtonGroup({
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
             marketDataFreshness={marketDataFreshness}
             handleConfirm={handleConfirm}
             justifyContent="flex-end"
