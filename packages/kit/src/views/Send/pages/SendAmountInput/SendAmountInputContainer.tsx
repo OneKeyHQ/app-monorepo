@@ -3213,7 +3213,8 @@ function SendAmountInputContainer() {
         onPress={handleBuyToken}
         loading={isBuyLoading}
         flexGrow={1}
-        flexBasis={0}
+        flexShrink={1}
+        textEllipsis
         $md={
           {
             size: 'large',
@@ -3228,7 +3229,8 @@ function SendAmountInputContainer() {
         testID={SendTestIDs.insufficientFundsButton}
         disabled
         flexGrow={1}
-        flexBasis={0}
+        flexShrink={1}
+        textEllipsis
         $md={
           {
             size: 'large',
@@ -3250,7 +3252,8 @@ function SendAmountInputContainer() {
       disabled={isSubmitDisabled}
       loading={isSubmitting}
       flexGrow={1}
-      flexBasis={0}
+      flexShrink={1}
+      textEllipsis
       $md={
         {
           size: 'large',
@@ -3270,6 +3273,7 @@ function SendAmountInputContainer() {
         loading={isBuyLoading}
         flexGrow={1}
         flexShrink={1}
+        textEllipsis
         $md={
           {
             size: 'large',
@@ -3285,6 +3289,7 @@ function SendAmountInputContainer() {
         disabled
         flexGrow={1}
         flexShrink={1}
+        textEllipsis
         $md={
           {
             size: 'large',
