@@ -34,7 +34,11 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../utils/mobileLayoutTrace';
-import { shouldShowPerpsOrderPanelTradingButtons } from '../../utils/perpsOrderPanelEnableTrading';
+import {
+  getPerpsOrderPanelEnableTradingModeByAccount,
+  shouldReservePerpsMobileEnableTradingLayout,
+  shouldShowPerpsOrderPanelTradingButtons,
+} from '../../utils/perpsOrderPanelEnableTrading';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
@@ -221,6 +225,32 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     !displayReady.statusReady && snapshotEntry?.account.accountAddress,
   );
   const isLiveStatusPending = canShowCachedTradingButtons;
+  const coldStartEnableTradingMode = useMemo(() => {
+    if (!isLiveStatusPending) {
+      return undefined;
+    }
+    return getPerpsOrderPanelEnableTradingModeByAccount({
+      accountId: snapshotEntry?.account.accountId,
+      indexedAccountId: snapshotEntry?.account.indexedAccountId,
+    });
+  }, [
+    isLiveStatusPending,
+    snapshotEntry?.account.accountId,
+    snapshotEntry?.account.indexedAccountId,
+  ]);
+  const orderPanelEnableTradingMode = useMemo(() => {
+    if (
+      isLiveStatusPending &&
+      coldStartEnableTradingMode &&
+      (coldStartEnableTradingMode.canAutoEnableInOrderPanel ||
+        coldStartEnableTradingMode.requiresEnableTradingDialogInOrderPanel) &&
+      !enableTradingMode.canAutoEnableInOrderPanel &&
+      !enableTradingMode.requiresEnableTradingDialogInOrderPanel
+    ) {
+      return coldStartEnableTradingMode;
+    }
+    return enableTradingMode;
+  }, [coldStartEnableTradingMode, enableTradingMode, isLiveStatusPending]);
 
   useEffect(() => {
     if (!isMobile) {
@@ -273,15 +303,24 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       statusReady: displayReady.statusReady,
       selectAccountLoading: perpsAccountLoading.selectAccountLoading,
       accountStatus: perpsAccountStatus,
-      enableTradingMode,
+      enableTradingMode: orderPanelEnableTradingMode,
     });
   }, [
     canShowCachedTradingButtons,
     displayReady.statusReady,
-    enableTradingMode,
+    orderPanelEnableTradingMode,
     perpsAccountLoading.selectAccountLoading,
     perpsAccountStatus,
   ]);
+
+  const reserveMobileEnableTradingLayout = useMemo(
+    () =>
+      shouldReservePerpsMobileEnableTradingLayout({
+        isMobile,
+        canShowTradingButtons,
+      }),
+    [canShowTradingButtons, isMobile],
+  );
 
   const content = (
     <YStack
@@ -294,11 +333,16 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       }
       onLayout={handleLayout}
     >
-      <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
+      <PerpTradingForm
+        isSubmitting={isSubmitting}
+        isMobile={isMobile}
+        reserveMobileEnableTradingLayout={reserveMobileEnableTradingLayout}
+      />
       {canShowTradingButtons ? (
         <TradingButtonGroup
           isMobile={isMobile}
           isLiveStatusPending={isLiveStatusPending}
+          enableTradingModeOverride={orderPanelEnableTradingMode}
         />
       ) : (
         <PerpTradingDisabledButtonMemo />

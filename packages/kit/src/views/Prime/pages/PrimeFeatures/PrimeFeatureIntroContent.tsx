@@ -38,6 +38,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -508,6 +509,13 @@ export function PrimeFeatureIntroContent({
 
     if (activeFeature.action === 'notifications') {
       navigation.navigate(EModalRoutes.NotificationsModal);
+      return;
+    }
+
+    if (activeFeature.action === 'receiveRiskMonitoring') {
+      navigation.pushModal(EModalRoutes.SettingModal, {
+        screen: EModalSettingRoutes.SettingProtectModal,
+      });
       return;
     }
 
