@@ -113,6 +113,7 @@ type IProps = {
   };
   tokenSelectorSearchTokenList?: {
     tokens: IAccountToken[];
+    searchKey?: string;
   };
   emptyAccountView?: ReactNode;
   showActiveAccountTokenList?: boolean;
@@ -171,7 +172,7 @@ function TokenListViewCmp(props: IProps) {
     hideBalanceAndValue,
     tokenSelectorSearchKey = '',
     tokenSelectorSearchTokenState = { isSearching: false },
-    tokenSelectorSearchTokenList = { tokens: [] },
+    tokenSelectorSearchTokenList = { tokens: [], searchKey: '' },
     emptyAccountView,
     showActiveAccountTokenList = false,
     listViewStyleProps,
@@ -628,6 +629,17 @@ function TokenListViewCmp(props: IProps) {
       return true;
     }
 
+    if (
+      isTokenSelector &&
+      searchAll &&
+      tokenSelectorSearchKey.length >=
+        (searchKeyLengthThreshold ?? SEARCH_KEY_MIN_LENGTH) &&
+      tokenSelectorSearchTokenList.searchKey !== tokenSelectorSearchKey &&
+      filteredTokens.length === 0
+    ) {
+      return true;
+    }
+
     // Per-owner cache hit → instant display, never skeleton. This covers
     // both cold-start (atom hydrating from disk) and in-session switches
     // back to a previously-rendered network/account. Require a paired
@@ -660,6 +672,11 @@ function TokenListViewCmp(props: IProps) {
     ownerMismatch,
     ownerCacheKey,
     isTokenSelector,
+    searchAll,
+    tokenSelectorSearchKey,
+    tokenSelectorSearchTokenList.searchKey,
+    searchKeyLengthThreshold,
+    filteredTokens.length,
     tokenSelectorSearchTokenState.isSearching,
     searchTokenState.isSearching,
     tokenListState.initialized,

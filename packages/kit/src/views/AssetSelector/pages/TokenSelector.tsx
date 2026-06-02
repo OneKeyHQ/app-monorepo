@@ -251,7 +251,9 @@ function TokenSelector() {
   });
   const [searchTokenList, setSearchTokenList] = useState<{
     tokens: IAccountToken[];
-  }>({ tokens: [] });
+    searchKey: string;
+  }>({ tokens: [], searchKey: '' });
+  const latestSearchKeywordsRef = useRef('');
 
   const tokenSelectorFilterParams = useMemo(
     () =>
@@ -584,6 +586,7 @@ function TokenSelector() {
 
   const searchTokensBySearchKey = useCallback(
     async (keywords: string) => {
+      latestSearchKeywordsRef.current = keywords;
       setSearchTokenState({ isSearching: true });
       await backgroundApiProxy.serviceToken.abortSearchTokens();
       try {
@@ -598,11 +601,18 @@ function TokenSelector() {
               tokens: result,
             });
         }
-        setSearchTokenList({ tokens: result });
+        if (latestSearchKeywordsRef.current === keywords) {
+          setSearchTokenList({ tokens: result, searchKey: keywords });
+        }
       } catch (e) {
-        console.log(e);
+        if (latestSearchKeywordsRef.current === keywords) {
+          console.log(e);
+        }
+      } finally {
+        if (latestSearchKeywordsRef.current === keywords) {
+          setSearchTokenState({ isSearching: false });
+        }
       }
-      setSearchTokenState({ isSearching: false });
     },
     [accountId, isSelectorAllNetworks, networkId, showLpTokensOnly],
   );
@@ -890,8 +900,9 @@ function TokenSelector() {
     if (searchAll && searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
       void searchTokensBySearchKey(searchKey);
     } else {
+      latestSearchKeywordsRef.current = '';
       setSearchTokenState({ isSearching: false });
-      setSearchTokenList({ tokens: [] });
+      setSearchTokenList({ tokens: [], searchKey: '' });
       void backgroundApiProxy.serviceToken.abortSearchTokens();
     }
   }, [searchAll, searchKey, searchTokensBySearchKey]);
