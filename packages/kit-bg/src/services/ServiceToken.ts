@@ -796,9 +796,10 @@ class ServiceToken extends ServiceBase {
     // query's hits.
     if (fulfilledResponses.length === 0) {
       const firstRejected = settledResponses.find(
-        (settled) => settled.status === 'rejected',
+        (settled): settled is PromiseRejectedResult =>
+          settled.status === 'rejected',
       );
-      if (firstRejected && firstRejected.status === 'rejected') {
+      if (firstRejected) {
         throw firstRejected.reason;
       }
     }

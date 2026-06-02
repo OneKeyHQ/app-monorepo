@@ -587,6 +587,7 @@ function TokenSelector() {
   const searchTokensBySearchKey = useCallback(
     async (keywords: string) => {
       latestSearchKeywordsRef.current = keywords;
+      const isLatest = () => latestSearchKeywordsRef.current === keywords;
       setSearchTokenState({ isSearching: true });
       await backgroundApiProxy.serviceToken.abortSearchTokens();
       try {
@@ -601,11 +602,11 @@ function TokenSelector() {
               tokens: result,
             });
         }
-        if (latestSearchKeywordsRef.current === keywords) {
+        if (isLatest()) {
           setSearchTokenList({ tokens: result, searchKey: keywords });
         }
       } catch (e) {
-        if (latestSearchKeywordsRef.current === keywords) {
+        if (isLatest()) {
           // Advance searchKey even on failure. showSkeleton keys off the
           // (searchKey mismatch && empty list) condition, so without
           // updating searchKey here a failed search would leave the token
@@ -615,7 +616,7 @@ function TokenSelector() {
           console.log(e);
         }
       } finally {
-        if (latestSearchKeywordsRef.current === keywords) {
+        if (isLatest()) {
           setSearchTokenState({ isSearching: false });
         }
       }

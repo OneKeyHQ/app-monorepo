@@ -868,6 +868,11 @@ function WalletAddressPageMainView({
     },
   );
 
+  // `skipAccountsCacheForNextRefreshRef` is a one-shot side channel: run()
+  // can't forward args into the usePromiseResult callback, so the callback
+  // reads the flag from this ref. Safe because this wrapper is single-flight —
+  // it awaits runRefreshLocalData before the finally clears the flag, so no
+  // concurrent run observes a flag it didn't set.
   const refreshLocalData = useCallback(
     async (config?: {
       alwaysSetState?: boolean;
