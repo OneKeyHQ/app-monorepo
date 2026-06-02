@@ -354,13 +354,40 @@ function HistoryDetails() {
 
   const accountAddress = route.params?.accountAddress || account?.address;
   const txid = transactionHash || historyTxParam?.decodedTx.txid || '';
-  const isPrivateSendHistory = historyTxParam
+  const isInitialPrivateSendHistory = historyTxParam
     ? isPrivateSendHistoryTx(historyTxParam)
     : false;
 
   useEffect(() => {
     privateSendSwapDetailOpened.current = false;
-  }, [isPrivateSendHistory, txid]);
+  }, [isInitialPrivateSendHistory, txid]);
+
+  const openPrivateSendHistoryDetailOnce = useCallback(
+    async (historyTx: IAccountHistoryTx) => {
+      if (!isPrivateSendHistoryTx(historyTx)) {
+        return false;
+      }
+      if (privateSendSwapDetailOpened.current) {
+        return true;
+      }
+      privateSendSwapDetailOpened.current = true;
+      return maybeOpenPrivateSendHistoryDetail({
+        historyTx,
+        navigation,
+        accountId,
+        accountAddress,
+        network,
+        currencySymbol: settings.currencyInfo.symbol,
+      });
+    },
+    [
+      accountAddress,
+      accountId,
+      navigation,
+      network,
+      settings.currencyInfo.symbol,
+    ],
+  );
 
   const nativeToken = usePromiseResult(
     () =>
@@ -373,19 +400,9 @@ function HistoryDetails() {
 
   const { result, isLoading } = usePromiseResult(
     async () => {
-      if (isPrivateSendHistory && historyTxParam) {
+      if (isInitialPrivateSendHistory && historyTxParam) {
         historyInit.current = true;
-        if (!privateSendSwapDetailOpened.current) {
-          privateSendSwapDetailOpened.current = true;
-          await maybeOpenPrivateSendHistoryDetail({
-            historyTx: historyTxParam,
-            navigation,
-            accountId,
-            accountAddress,
-            network,
-            currencySymbol: settings.currencyInfo.symbol,
-          });
-        }
+        await openPrivateSendHistoryDetailOnce(historyTxParam);
         return {
           txDetails: undefined,
           decodedOnChainTx: historyTxParam,
@@ -425,6 +442,15 @@ function HistoryDetails() {
           });
       }
 
+      if (decodedOnChainTx && isPrivateSendHistoryTx(decodedOnChainTx)) {
+        await openPrivateSendHistoryDetailOnce(decodedOnChainTx);
+        return {
+          txDetails: undefined,
+          decodedOnChainTx,
+          addressMap: undefined,
+        };
+      }
+
       return {
         txDetails: r?.data,
         decodedOnChainTx,
@@ -439,10 +465,8 @@ function HistoryDetails() {
       txid,
       vaultSettings?.fixConfirmedTxEnabled,
       historyTxParam,
-      isPrivateSendHistory,
-      navigation,
-      network,
-      settings.currencyInfo.symbol,
+      isInitialPrivateSendHistory,
+      openPrivateSendHistoryDetailOnce,
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,

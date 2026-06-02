@@ -385,27 +385,33 @@ export async function maybeOpenPrivateSendHistoryDetail({
     }
   }
 
-  txHistoryItem ??= buildPrivateSendHistoryItemFromAccountHistory({
-    historyTx,
-    accountId,
-    accountAddress,
-    network: resolvedNetwork,
-    tokenInfo: resolvedTokenInfo,
-    currencySymbol,
-  });
+  const shouldPersistFallbackHistory = !txHistoryItem;
+  const resolvedTxHistoryItem =
+    txHistoryItem ??
+    buildPrivateSendHistoryItemFromAccountHistory({
+      historyTx,
+      accountId,
+      accountAddress,
+      network: resolvedNetwork,
+      tokenInfo: resolvedTokenInfo,
+      currencySymbol,
+    });
 
   let txState: IFetchSwapTxHistoryStatusResponse | undefined;
-  if (canFetchPrivateSendTxState(txHistoryItem)) {
+  if (canFetchPrivateSendTxState(resolvedTxHistoryItem)) {
     try {
-      txState = await fetchPrivateSendTxState(txHistoryItem);
+      txState = await fetchPrivateSendTxState(resolvedTxHistoryItem);
     } catch {
       txState = undefined;
     }
   }
 
   const nextTxHistoryItem = ensurePrivateSendHistoryOrderId(
-    applyPrivateSendTxState({ item: txHistoryItem, txState }),
+    applyPrivateSendTxState({ item: resolvedTxHistoryItem, txState }),
   );
+  if (shouldPersistFallbackHistory) {
+    await backgroundApiProxy.serviceSwap.addSwapHistoryItem(nextTxHistoryItem);
+  }
   const txHistoryOrderId = nextTxHistoryItem.swapInfo.orderId;
 
   navigation.pushModal(EModalRoutes.SwapModal, {

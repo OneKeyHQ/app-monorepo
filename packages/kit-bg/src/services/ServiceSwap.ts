@@ -1579,6 +1579,7 @@ export default class ServiceSwap extends ServiceBase {
         pre.swapHistoryPendingList,
       );
       if (
+        this.isSwapHistoryPendingStatus(item) &&
         !filteredList.find((i) =>
           item.txInfo.useOrderId
             ? i.txInfo.orderId === item.txInfo.orderId
