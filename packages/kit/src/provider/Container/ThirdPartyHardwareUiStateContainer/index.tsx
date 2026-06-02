@@ -45,6 +45,7 @@ import {
 } from '../../../components/Hardware/HardwareDialog';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
+import { showLedgerInstallCoreAppsDialog } from './LedgerInstallCoreAppsDialog';
 import {
   buildThirdPartyHardwareUiResponse,
   cancelThirdPartyHardwareUiRequest,
@@ -514,6 +515,18 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       );
     };
   }, [handlePermissionDialogClose]);
+
+  // Bare-device core-app install dialog, triggered from the account-selector
+  // state layer via event bus (keeps that layer decoupled from this UI).
+  useEffect(() => {
+    const callback = ({ walletId }: { walletId: string }) => {
+      void showLedgerInstallCoreAppsDialog({ walletId });
+    };
+    appEventBus.on(EAppEventBusNames.ShowLedgerInstallCoreApps, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ShowLedgerInstallCoreApps, callback);
+    };
+  }, []);
 
   const handleUserCancel = useCallback(
     async (close: () => Promise<void>) => {

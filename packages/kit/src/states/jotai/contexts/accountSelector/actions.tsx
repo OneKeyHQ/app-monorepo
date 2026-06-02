@@ -865,8 +865,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         void (async () => {
           let failedList = result?.failedAccounts || [];
 
-          // 3rd-party HW: drop AppNotInstalled when any chain succeeded; show
-          // one toast only when zero succeeded.
+          // 3rd-party HW: drop AppNotInstalled when any chain succeeded; offer
+          // in-app core-app install when zero succeeded (bare device).
           if (failedList.length > 0) {
             const isThirdPartyHw =
               await backgroundApiProxy.serviceAccount.isThirdPartyHwByWalletId({
@@ -878,12 +878,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 failedList.every(
                   (f) => f.error.code === ThirdPartyHwErrorCode.AppNotInstalled,
                 );
-              if (allAppNotInstalled) {
-                Toast.error({
-                  // eslint-disable-next-line onekey/no-app-locale-main-thread
-                  title: appLocale.intl.formatMessage({
-                    id: ETranslations.hardware_third_party_no_app_installed_on_device,
-                  }),
+              if (allAppNotInstalled && isAutoCreateMultiNetwork) {
+                // Bare device: offer in-app core-app install (not Ledger Live).
+                // Emit so the provider container shows the dialog — keeps this
+                // state layer decoupled from provider/Container UI.
+                appEventBus.emit(EAppEventBusNames.ShowLedgerInstallCoreApps, {
+                  walletId: wallet.id,
                 });
                 return;
               }
