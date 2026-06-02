@@ -310,8 +310,8 @@ export function WebAccountPanelMain({
       // Need both the account and its resolved single EVM address before we can
       // fetch or key the cache. Until the address resolves the value is
       // genuinely unknown — renderPortfolioValue shows "--" for this state.
-      const cacheKey =
-        accountId && realAddress ? `${accountId}:${realAddress}` : undefined;
+      // Reuse the component-scoped key; latestCacheKeyRef tracks the same value.
+      const cacheKey = portfolioCacheKey;
       if (!accountId || !cacheKey) {
         setPortfolio(undefined);
         return;
@@ -352,37 +352,40 @@ export function WebAccountPanelMain({
         const walletTokenFilterParams = buildTokenSelectorDappTokenFilterParams(
           { lpToken: false },
         );
+        // Same network/account set for both the spot and DeFi enumerations; the
+        // DeFi call just adds DeFiEnabledOnly to narrow to DeFi-enabled networks.
+        const allNetworkAccountsParams = {
+          accountId: indexedAccountId ?? accountId,
+          indexedAccountId,
+          networkId: allNetworkId,
+          networksEnabledOnly: !isOthers,
+          excludeTestNetwork: true,
+          skipCache: !!force,
+        };
 
         // 1) Spot token worth over the wallet's network/account set (EVM only).
         // getAllNetworkAccounts already resolves the real per-network account
         // for the connected address, so each entry.accountId is fetchable as-is.
         const { accountsInfo } =
-          await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-            accountId: indexedAccountId ?? accountId,
-            indexedAccountId,
-            networkId: allNetworkId,
-            networksEnabledOnly: !isOthers,
-            excludeTestNetwork: true,
-            skipCache: !!force,
-          });
+          await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts(
+            allNetworkAccountsParams,
+          );
+        // Only EVM networks with a resolved per-network account are fetchable.
+        const isFetchableEvmAccount = (a: (typeof accountsInfo)[number]) =>
+          !!a.accountId &&
+          networkUtils.isEvmNetwork({ networkId: a.networkId });
         const results = await Promise.all(
-          accountsInfo
-            .filter(
-              (a) =>
-                a.accountId &&
-                networkUtils.isEvmNetwork({ networkId: a.networkId }),
-            )
-            .map((a) =>
-              backgroundApiProxy.serviceToken
-                .fetchAccountTokens({
-                  accountId: a.accountId,
-                  networkId: a.networkId,
-                  indexedAccountId,
-                  flag: 'web-account-panel-portfolio',
-                  ...walletTokenFilterParams,
-                })
-                .catch(() => null),
-            ),
+          accountsInfo.filter(isFetchableEvmAccount).map((a) =>
+            backgroundApiProxy.serviceToken
+              .fetchAccountTokens({
+                accountId: a.accountId,
+                networkId: a.networkId,
+                indexedAccountId,
+                flag: 'web-account-panel-portfolio',
+                ...walletTokenFilterParams,
+              })
+              .catch(() => null),
+          ),
         );
         // Ignore a result that resolved after the active address changed.
         if (latestCacheKeyRef.current !== cacheKey) {
@@ -424,34 +427,23 @@ export function WebAccountPanelMain({
         try {
           const { accountsInfo: defiAccountsInfo } =
             await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-              accountId: indexedAccountId ?? accountId,
-              indexedAccountId,
-              networkId: allNetworkId,
-              networksEnabledOnly: !isOthers,
-              excludeTestNetwork: true,
+              ...allNetworkAccountsParams,
               DeFiEnabledOnly: true,
-              skipCache: !!force,
             });
           const defiResults = await Promise.all(
-            defiAccountsInfo
-              .filter(
-                (a) =>
-                  a.accountId &&
-                  networkUtils.isEvmNetwork({ networkId: a.networkId }),
-              )
-              .map((a) =>
-                backgroundApiProxy.serviceDeFi
-                  .fetchAccountDeFiPositions({
-                    accountId: a.accountId,
-                    networkId: a.networkId,
-                    accountAddress: a.apiAddress,
-                    xpub: a.accountXpub,
-                    excludeLowValueProtocols: true,
-                    saveToLocal: false,
-                    abortable: false,
-                  })
-                  .catch(() => null),
-              ),
+            defiAccountsInfo.filter(isFetchableEvmAccount).map((a) =>
+              backgroundApiProxy.serviceDeFi
+                .fetchAccountDeFiPositions({
+                  accountId: a.accountId,
+                  networkId: a.networkId,
+                  accountAddress: a.apiAddress,
+                  xpub: a.accountXpub,
+                  excludeLowValueProtocols: true,
+                  saveToLocal: false,
+                  abortable: false,
+                })
+                .catch(() => null),
+            ),
           );
           deFiNetWorthUsd = defiResults
             .reduce((acc, r) => {
@@ -488,7 +480,7 @@ export function WebAccountPanelMain({
         setIsLoadingPortfolio(false);
       }
     },
-    [account?.id, indexedAccount?.id, realAddress],
+    [account?.id, indexedAccount?.id, portfolioCacheKey],
   );
 
   useEffect(() => {
@@ -575,7 +567,16 @@ export function WebAccountPanelMain({
     if (isLoadingPortfolio) {
       return <Spinner size="small" />;
     }
-    if (portfolio !== undefined) {
+    // The resolved value, or "0" once a resolved account settles with no value
+    // (empty EVM portfolio, or every per-network fetch failed without a cache).
+    // "--" is reserved for the genuinely-unknown state: no account, or the
+    // indexed account's real address still resolving. The spinner above already
+    // covers the in-flight first load, so "0" only appears once the fetch has
+    // settled; the empty path doesn't cache, so the next open/refresh replaces
+    // it with the real total.
+    const displayValue =
+      portfolio ?? (account?.id && realAddress ? '0' : undefined);
+    if (displayValue !== undefined) {
       return (
         <Currency
           sourceCurrency={portfolioCurrency}
@@ -584,27 +585,7 @@ export function WebAccountPanelMain({
           size="$bodyMdMedium"
           color="$text"
         >
-          {portfolio}
-        </Currency>
-      );
-    }
-    // A resolved account whose settled fetch produced no value (empty EVM
-    // portfolio, or every per-network fetch failed without a cache) should read
-    // as "$0", not "--". "--" is reserved for the genuinely-unknown state: no
-    // account, or the indexed account's real address still resolving. The
-    // spinner above already covers the in-flight first load, so this $0 only
-    // appears once the fetch has settled; the empty path doesn't cache, so the
-    // next open/refresh replaces it with the real total.
-    if (account?.id && realAddress) {
-      return (
-        <Currency
-          sourceCurrency={portfolioCurrency}
-          formatter="value"
-          hideValue
-          size="$bodyMdMedium"
-          color="$text"
-        >
-          0
+          {displayValue}
         </Currency>
       );
     }
