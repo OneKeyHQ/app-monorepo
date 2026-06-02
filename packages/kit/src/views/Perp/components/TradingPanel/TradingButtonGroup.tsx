@@ -1487,7 +1487,7 @@ function SideButtonInternal({
           disabledStyle={
             shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
           }
-          loading={shouldShowButtonLoading || isSubmitting}
+          loading={shouldShowButtonLoading}
           onPress={handlePress}
           h={36}
           py={
@@ -1534,7 +1534,7 @@ function SideButtonInternal({
         disabledStyle={
           shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
         }
-        loading={shouldShowButtonLoading || isSubmitting}
+        loading={shouldShowButtonLoading}
         onPress={handlePress}
         h={36}
         py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
