@@ -10,7 +10,7 @@ import {
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil, uniqBy } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
@@ -55,6 +55,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import { SwapRateDifferenceText } from '@onekeyhq/kit/src/views/Swap/components/SwapRateDifferenceText';
+import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IAccountDeriveInfo,
@@ -787,6 +788,8 @@ function SendAmountInputContainer() {
     hasPrivateSendQuoteRequestInput &&
     !isPrivateSendRecipientResolving &&
     !!privateSendQuoteRecipientAddress;
+  const [privateSendQuoteRefreshNonce, setPrivateSendQuoteRefreshNonce] =
+    useState(0);
   const privateSendQuoteScopeKey = useMemo(
     () =>
       buildPrivateSendQuoteScopeKey({
@@ -805,6 +808,10 @@ function SendAmountInputContainer() {
       privateSendToken,
       sendMode,
     ],
+  );
+  const privateSendQuoteRequestKey = useMemo(
+    () => `${privateSendQuoteScopeKey}:${privateSendQuoteRefreshNonce}`,
+    [privateSendQuoteRefreshNonce, privateSendQuoteScopeKey],
   );
 
   const {
@@ -826,7 +833,7 @@ function SendAmountInputContainer() {
       if (amountBN.isNaN() || amountBN.isLessThanOrEqualTo(0)) {
         return undefined;
       }
-      const scopeKey = privateSendQuoteScopeKey;
+      const scopeKey = privateSendQuoteRequestKey;
       try {
         const quotes = await backgroundApiProxy.serviceSwap.fetchQuotes({
           fromToken: privateSendToken,
@@ -870,7 +877,7 @@ function SendAmountInputContainer() {
       isPrivateSendSupported,
       privateSendAmount,
       privateSendToken,
-      privateSendQuoteScopeKey,
+      privateSendQuoteRequestKey,
       privateSendQuoteRecipientAddress,
       sendMode,
       intl,
@@ -879,7 +886,7 @@ function SendAmountInputContainer() {
   );
   const isPrivateSendQuoteScopeMatched =
     !!privateSendQuoteResult &&
-    privateSendQuoteResult.scopeKey === privateSendQuoteScopeKey;
+    privateSendQuoteResult.scopeKey === privateSendQuoteRequestKey;
   const scopedPrivateSendQuoteResult = isPrivateSendQuoteScopeMatched
     ? privateSendQuoteResult
     : undefined;
@@ -889,32 +896,10 @@ function SendAmountInputContainer() {
       isPrivateSendQuoteLoading ||
       (canFetchPrivateSendQuote && !isPrivateSendQuoteScopeMatched));
   const privateSendQuote = scopedPrivateSendQuoteResult?.selectedQuote;
-  const privateSendQuoteProviderList = useMemo(
-    () =>
-      uniqBy(
-        (scopedPrivateSendQuoteResult?.quotes ?? []).filter(
-          (item) => item.info.provider,
-        ),
-        (item) => item.info.provider,
-      ),
-    [scopedPrivateSendQuoteResult?.quotes],
-  );
-  const [privateSendProviderIndex, setPrivateSendProviderIndex] = useState(0);
-  useEffect(() => {
-    if (
-      !isPrivateSendQuoteRefreshing ||
-      privateSendQuoteProviderList.length <= 1
-    ) {
-      setPrivateSendProviderIndex(0);
-      return undefined;
-    }
-    const timer = setInterval(() => {
-      setPrivateSendProviderIndex(
-        (index) => (index + 1) % privateSendQuoteProviderList.length,
-      );
-    }, 900);
-    return () => clearInterval(timer);
-  }, [isPrivateSendQuoteRefreshing, privateSendQuoteProviderList.length]);
+  const refreshPrivateSendQuote = useCallback(() => {
+    if (!canFetchPrivateSendQuote || isPrivateSendQuoteRefreshing) return;
+    setPrivateSendQuoteRefreshNonce((nonce) => nonce + 1);
+  }, [canFetchPrivateSendQuote, isPrivateSendQuoteRefreshing]);
 
   const privateSendQuoteError = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return undefined;
@@ -3008,12 +2993,6 @@ function SendAmountInputContainer() {
   const renderPrivateSendQuoteCard = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return null;
     const showPrivateSendQuoteSkeleton = isPrivateSendQuoteRefreshing;
-    const loadingProviderInfo =
-      privateSendQuoteProviderList.length > 0
-        ? privateSendQuoteProviderList[
-            privateSendProviderIndex % privateSendQuoteProviderList.length
-          ]?.info
-        : undefined;
     const toTokenSymbol =
       privateSendQuote?.toTokenInfo.symbol ?? privateSendToken?.symbol ?? '';
     const toAmount = privateSendQuote?.toAmount ?? '0';
@@ -3062,16 +3041,25 @@ function SendAmountInputContainer() {
           justifyContent="space-between"
           gap="$3"
         >
-          <DashText
-            size="$bodyMd"
-            color="$textSubdued"
-            dashColor="$textSubdued"
-            dashThickness={0.5}
-            tooltip={estimatedReceivedTooltip}
-            tooltipTitle={estimatedReceivedTitle}
-          >
-            {estimatedReceivedTitle}
-          </DashText>
+          <XStack alignItems="center" gap="$2">
+            <DashText
+              size="$bodyMd"
+              color="$textSubdued"
+              dashColor="$textSubdued"
+              dashThickness={0.5}
+              tooltip={estimatedReceivedTooltip}
+              tooltipTitle={estimatedReceivedTitle}
+            >
+              {estimatedReceivedTitle}
+            </DashText>
+            <SwapRefreshButtonBase
+              refreshAction={refreshPrivateSendQuote}
+              disabled={!canFetchPrivateSendQuote}
+              isRefreshQuote={isPrivateSendQuoteRefreshing}
+              isLoading={isPrivateSendQuoteRefreshing}
+              autoRefresh={false}
+            />
+          </XStack>
           {showPrivateSendQuoteSkeleton ? (
             <Skeleton h="$4" w="$24" />
           ) : (
@@ -3142,7 +3130,7 @@ function SendAmountInputContainer() {
           {renderPrivateSendProviderContent({
             isLoading: isPrivateSendQuoteRefreshing,
             providerInfo: isPrivateSendQuoteRefreshing
-              ? loadingProviderInfo
+              ? undefined
               : privateSendQuote?.info,
           })}
         </XStack>
@@ -3168,15 +3156,15 @@ function SendAmountInputContainer() {
     isNFT,
     isPrivateSendQuoteRefreshing,
     maxBalance,
-    privateSendQuoteProviderList,
     privateSendQuote,
     privateSendQuoteError,
-    privateSendProviderIndex,
     privateSendToken?.price,
     privateSendToken?.symbol,
     renderBalanceRowContent,
     renderPrivateSendProviderContent,
+    refreshPrivateSendQuote,
     sendMode,
+    canFetchPrivateSendQuote,
   ]);
 
   const renderPrivateSendFooterHelp = useMemo(() => {

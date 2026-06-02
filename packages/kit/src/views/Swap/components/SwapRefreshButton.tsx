@@ -10,20 +10,28 @@ import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useSwapActionState } from '../hooks/useSwapState';
 
-const SwapRefreshButton = ({
-  refreshAction,
-  disabled,
-}: {
+type ISwapRefreshButtonBaseProps = {
   refreshAction: (manual?: boolean) => void;
   disabled?: boolean;
-}) => {
+  isRefreshQuote: boolean;
+  isLoading: boolean;
+  isFocused?: boolean;
+  autoRefresh?: boolean;
+};
+
+function BasicSwapRefreshButton({
+  refreshAction,
+  disabled,
+  isRefreshQuote,
+  isLoading,
+  isFocused = true,
+  autoRefresh = true,
+}: ISwapRefreshButtonBaseProps) {
   const loadingAnim = useRef(new Animated.Value(0)).current;
   const processAnim = useRef(new Animated.Value(0)).current;
   const processAnimRef = useRef<Animated.CompositeAnimation>(undefined);
   const themeVariant = useThemeVariant();
   const lottieRef = useRef<any>(null);
-  const isFocused = useRouteIsFocused();
-  const { isRefreshQuote, isLoading } = useSwapActionState();
   const isRefreshQuoteRef = useRef(isRefreshQuote);
   if (isRefreshQuoteRef.current !== isRefreshQuote) {
     isRefreshQuoteRef.current = isRefreshQuote;
@@ -60,6 +68,7 @@ const SwapRefreshButton = ({
   );
 
   useEffect(() => {
+    if (!autoRefresh) return undefined;
     if (listenerRef.current) return;
     listenerRef.current = processAnim.addListener(({ value }) => {
       // mobile will trigger twice, so we need to debounce it , when max value
@@ -73,9 +82,13 @@ const SwapRefreshButton = ({
         listenerRef.current = null;
       }
     };
-  }, [onRefresh, processAnim]);
+  }, [autoRefresh, onRefresh, processAnim]);
 
   useEffect(() => {
+    if (!autoRefresh) {
+      processAnimRef.current?.reset();
+      return;
+    }
     // Don't start auto-refresh timer when disabled
     if (disabled) {
       processAnimRef.current?.reset();
@@ -94,7 +107,7 @@ const SwapRefreshButton = ({
       lottieRef.current?.reset();
       processAnimRef.current?.reset();
     }
-  }, [processAnim, isRefreshQuote, disabled]);
+  }, [autoRefresh, processAnim, isRefreshQuote, disabled]);
 
   useEffect(() => {
     if (isFocusedRef.current) {
@@ -162,6 +175,28 @@ const SwapRefreshButton = ({
         />
       </Animated.View>
     </XStack>
+  );
+}
+
+export const SwapRefreshButtonBase = memo(BasicSwapRefreshButton);
+
+const SwapRefreshButton = ({
+  refreshAction,
+  disabled,
+}: {
+  refreshAction: (manual?: boolean) => void;
+  disabled?: boolean;
+}) => {
+  const isFocused = useRouteIsFocused();
+  const { isRefreshQuote, isLoading } = useSwapActionState();
+  return (
+    <SwapRefreshButtonBase
+      refreshAction={refreshAction}
+      disabled={disabled}
+      isRefreshQuote={!!isRefreshQuote}
+      isLoading={!!isLoading}
+      isFocused={isFocused}
+    />
   );
 };
 
