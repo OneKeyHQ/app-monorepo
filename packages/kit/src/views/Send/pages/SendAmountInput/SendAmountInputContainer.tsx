@@ -249,9 +249,10 @@ function getPrivateSendRocketXOrderId(ctx: unknown) {
 }
 
 function getPrivateSendValueDropPercent(quote?: IFetchQuoteResult) {
-  return Number(
-    quote?.valueDropPercent ?? quote?.quoteShowTip?.priceImpact ?? 0,
+  const valueDropPercent = Number(
+    quote?.valueDropPercent ?? quote?.quoteShowTip?.priceImpact,
   );
+  return Number.isFinite(valueDropPercent) ? valueDropPercent : undefined;
 }
 
 function isPositivePrivateSendAmount(amount?: string | number) {
@@ -281,7 +282,7 @@ function PrivateSendValueDropWarningContent({
   onCancel,
   onConfirm,
 }: {
-  valueDropPercent: number;
+  valueDropPercent?: number;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -310,7 +311,12 @@ function PrivateSendValueDropWarningContent({
         <SizableText size="$bodyMdMedium" color="$textCritical">
           {intl.formatMessage(
             { id: ETranslations.private_send_value_drop_amount },
-            { amount: new BigNumber(valueDropPercent).toFixed(2) },
+            {
+              amount:
+                typeof valueDropPercent === 'number'
+                  ? new BigNumber(valueDropPercent).toFixed(2)
+                  : intl.formatMessage({ id: ETranslations.global_unknown }),
+            },
           )}
         </SizableText>
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -1670,7 +1676,10 @@ function SendAmountInputContainer() {
   const confirmPrivateSendValueDrop = useCallback(
     async (quote: IFetchQuoteResult) => {
       const valueDropPercent = getPrivateSendValueDropPercent(quote);
-      if (valueDropPercent < privateSendValueDropWarningPercent) {
+      if (
+        typeof valueDropPercent === 'number' &&
+        valueDropPercent < privateSendValueDropWarningPercent
+      ) {
         return true;
       }
       return new Promise<boolean>((resolve) => {
@@ -2998,9 +3007,10 @@ function SendAmountInputContainer() {
     const toAmount = privateSendQuote?.toAmount ?? '0';
     const privateSendQuoteToAmount = privateSendQuote?.toAmount;
     const valueDropPercent = getPrivateSendValueDropPercent(privateSendQuote);
-    const rateDifferenceValue = privateSendQuote
-      ? new BigNumber(valueDropPercent).negated()
-      : undefined;
+    const rateDifferenceValue =
+      privateSendQuote && typeof valueDropPercent === 'number'
+        ? new BigNumber(valueDropPercent).negated()
+        : undefined;
     const privateSendRateDifference =
       rateDifferenceValue?.isFinite() && !rateDifferenceValue.isZero()
         ? {

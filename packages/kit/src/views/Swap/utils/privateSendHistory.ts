@@ -119,6 +119,17 @@ function isPrivateSendHistoryNetworkIncomplete(
   return !network?.name || !network?.symbol || !network?.logoURI;
 }
 
+function getPrivateSendHistoryTransfer(historyTx: IAccountHistoryTx) {
+  const transferAction = historyTx.decodedTx.actions.find(
+    (action) =>
+      action.assetTransfer?.sends?.[0] || action.assetTransfer?.receives?.[0],
+  );
+  return (
+    transferAction?.assetTransfer?.sends?.[0] ??
+    transferAction?.assetTransfer?.receives?.[0]
+  );
+}
+
 function buildSwapToken({
   historyTx,
   tokenInfo,
@@ -126,14 +137,7 @@ function buildSwapToken({
   historyTx: IAccountHistoryTx;
   tokenInfo?: IToken;
 }): ISwapToken {
-  const transferAction = historyTx.decodedTx.actions.find(
-    (action) =>
-      action.assetTransfer?.sends?.[0] || action.assetTransfer?.receives?.[0],
-  );
-  const transfer =
-    transferAction?.assetTransfer?.sends?.[0] ??
-    transferAction?.assetTransfer?.receives?.[0];
-
+  const transfer = getPrivateSendHistoryTransfer(historyTx);
   return {
     networkId: historyTx.decodedTx.networkId,
     contractAddress:
@@ -350,6 +354,7 @@ export async function maybeOpenPrivateSendHistoryDetail({
   if (!isPrivateSendHistoryTx(historyTx) && !txHistoryItem) return false;
 
   let resolvedNetwork = network;
+  let resolvedTokenInfo = tokenInfo;
   const resolvedNetworkId = resolvedNetwork?.networkId ?? resolvedNetwork?.id;
   if (
     resolvedNetworkId !== historyTx.decodedTx.networkId ||
@@ -364,12 +369,28 @@ export async function maybeOpenPrivateSendHistoryDetail({
     }
   }
 
+  const transfer = getPrivateSendHistoryTransfer(historyTx);
+  if (
+    !resolvedTokenInfo &&
+    (transfer?.isNative || !transfer?.tokenIdOnNetwork)
+  ) {
+    try {
+      const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
+        accountId,
+        networkId: historyTx.decodedTx.networkId,
+      });
+      resolvedTokenInfo = nativeToken ?? tokenInfo;
+    } catch {
+      resolvedTokenInfo = tokenInfo;
+    }
+  }
+
   txHistoryItem ??= buildPrivateSendHistoryItemFromAccountHistory({
     historyTx,
     accountId,
     accountAddress,
     network: resolvedNetwork,
-    tokenInfo,
+    tokenInfo: resolvedTokenInfo,
     currencySymbol,
   });
 
