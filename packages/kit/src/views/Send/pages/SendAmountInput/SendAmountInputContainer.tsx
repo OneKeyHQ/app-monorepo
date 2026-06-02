@@ -1866,13 +1866,10 @@ function SendAmountInputContainer() {
             const privateSendRocketXOrderId = getPrivateSendRocketXOrderId(
               buildSwapRes.ctx,
             );
-            const privateSendBuildOrderId = buildSwapRes.orderId;
             if (
               !privateSendProviderOrderId ||
               !privateSendRocketXOrderId ||
-              privateSendProviderOrderId !== privateSendRocketXOrderId ||
-              (privateSendBuildOrderId &&
-                privateSendBuildOrderId !== privateSendRocketXOrderId)
+              privateSendProviderOrderId !== privateSendRocketXOrderId
             ) {
               throw new OneKeyLocalError(
                 intl.formatMessage({
