@@ -1,17 +1,24 @@
 import type { ReactNode } from 'react';
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Button, SizableText, Spinner } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  perpsActiveAccountStatusAtom,
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountIsAgentReadyAtom,
   usePerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useEnableTradingWithDepositFallback } from '../hooks/useEnableTradingWithDepositFallback';
+import {
+  useConfirmHyperliquidTerms,
+  useRequestEnableTradingWithDepositFallback,
+} from '../hooks/useEnableTradingWithDepositFallback';
+import { showEnableTradingStepsDialog } from './TradingPanel/modals/EnableTradingStepsDialog';
 
 interface ITradingGuardWrapperProps {
   children?: ReactNode;
@@ -31,8 +38,11 @@ function TradingGuardWrapperInternal({
   const intl = useIntl();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
-  const enableTrading = useEnableTradingWithDepositFallback();
+  const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
+  const requestEnableTradingWithDepositFallback =
+    useRequestEnableTradingWithDepositFallback();
 
   const shouldShowEnableTrading = useMemo(() => {
     if (bypassEnableTradingGuard) {
@@ -42,6 +52,8 @@ function TradingGuardWrapperInternal({
   }, [bypassEnableTradingGuard, forceShowEnableTrading, isAgentReady]);
 
   const isEnableTradingLoading = perpsAccountLoading.enableTradingLoading;
+  const shouldShowEnableTradingStepsDialog =
+    enableTradingMode.requiresExplicitEnableTrading;
 
   const buttonStyles = useMemo(() => {
     const isDisabled = disabled || isEnableTradingLoading;
@@ -50,6 +62,52 @@ function TradingGuardWrapperInternal({
       pressStyle: isDisabled ? undefined : { bg: '$green8' },
     };
   }, [disabled, isEnableTradingLoading]);
+
+  const handleEnableTrading = useCallback(async () => {
+    if (disabled || isEnableTradingLoading) {
+      return;
+    }
+
+    if (shouldShowEnableTradingStepsDialog) {
+      // The dialog must use a fresh status snapshot so the predicted
+      // confirmations stay aligned with the enable-trading execution path.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+      const latestPerpsAccountStatus =
+        (await perpsActiveAccountStatusAtom.get()) ?? perpsAccountStatus;
+
+      await showEnableTradingStepsDialog({
+        accountStatus: latestPerpsAccountStatus,
+        onConfirm: async ({ closeDialog }) => {
+          const didAcceptTerms = await confirmHyperliquidTerms();
+          if (!didAcceptTerms) {
+            return {
+              shouldContinue: false,
+              status: undefined,
+            };
+          }
+          return requestEnableTradingWithDepositFallback({
+            beforeDeposit: closeDialog,
+          });
+        },
+      });
+      return;
+    }
+
+    const didAcceptTerms = await confirmHyperliquidTerms();
+    if (!didAcceptTerms) {
+      return;
+    }
+
+    await requestEnableTradingWithDepositFallback();
+  }, [
+    confirmHyperliquidTerms,
+    disabled,
+    isEnableTradingLoading,
+    perpsAccountStatus,
+    requestEnableTradingWithDepositFallback,
+    shouldShowEnableTradingStepsDialog,
+  ]);
 
   if (perpsAccountLoading.selectAccountLoading) {
     return (
@@ -91,7 +149,7 @@ function TradingGuardWrapperInternal({
         size={buttonSize}
         disabled={disabled || isEnableTradingLoading}
         loading={isEnableTradingLoading}
-        onPress={disabled ? undefined : enableTrading}
+        onPress={disabled ? undefined : handleEnableTrading}
         bg="#18794E"
         hoverStyle={buttonStyles.hoverStyle}
         pressStyle={buttonStyles.pressStyle}

@@ -243,9 +243,9 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       isLiveStatusPending &&
       coldStartEnableTradingMode &&
       (coldStartEnableTradingMode.canAutoEnableInOrderPanel ||
-        coldStartEnableTradingMode.requiresEnableTradingDialogInOrderPanel) &&
+        coldStartEnableTradingMode.requiresExplicitEnableTrading) &&
       !enableTradingMode.canAutoEnableInOrderPanel &&
-      !enableTradingMode.requiresEnableTradingDialogInOrderPanel
+      !enableTradingMode.requiresExplicitEnableTrading
     ) {
       return coldStartEnableTradingMode;
     }

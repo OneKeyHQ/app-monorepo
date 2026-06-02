@@ -15,6 +15,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
@@ -24,6 +25,7 @@ import {
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  perpsActiveAccountStatusAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountEnableTradingModeAtom,
@@ -274,9 +276,9 @@ function SideButtonInternal({
   const shouldShowEnableTradingDialog = useMemo(
     () =>
       !perpsAccountStatus.canTrade &&
-      effectiveEnableTradingMode.requiresEnableTradingDialogInOrderPanel,
+      effectiveEnableTradingMode.requiresExplicitEnableTrading,
     [
-      effectiveEnableTradingMode.requiresEnableTradingDialogInOrderPanel,
+      effectiveEnableTradingMode.requiresExplicitEnableTrading,
       perpsAccountStatus.canTrade,
     ],
   );
@@ -918,8 +920,15 @@ function SideButtonInternal({
         status: undefined,
       };
       if (shouldShowEnableTradingDialog) {
+        // The dialog must reflect a fresh account-status snapshot; the
+        // background enable flow revalidates immediately and can otherwise
+        // require more signatures than the stale UI predicted.
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+        const latestPerpsAccountStatus =
+          (await perpsActiveAccountStatusAtom.get()) ?? perpsAccountStatus;
         const result = await showEnableTradingStepsDialog({
-          accountStatus: perpsAccountStatus,
+          accountStatus: latestPerpsAccountStatus,
           onConfirm: async ({ closeDialog }) => {
             if (shouldIgnoreResult()) {
               return stopResult;
