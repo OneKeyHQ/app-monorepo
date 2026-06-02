@@ -2350,6 +2350,8 @@ export default class ServiceHyperliquid extends ServiceBase {
         (prev): IPerpsAccountLoadingInfo => ({
           ...prev,
           enableTradingLoading: true,
+          enableTradingTriggered: isEnableTradingTrigger,
+          enableTradingStatusPending: true,
         }),
       );
 
@@ -2484,6 +2486,12 @@ export default class ServiceHyperliquid extends ServiceBase {
         details: statusDetails,
       };
       await perpsActiveAccountStatusInfoAtom.set(status);
+      await perpsAccountLoadingInfoAtom.set(
+        (prev): IPerpsAccountLoadingInfo => ({
+          ...prev,
+          enableTradingStatusPending: false,
+        }),
+      );
 
       clearTimeout(this.hideEnableTradingLoadingTimer);
       this.hideEnableTradingLoadingTimer = setTimeout(async () => {
@@ -2491,6 +2499,8 @@ export default class ServiceHyperliquid extends ServiceBase {
           (prev): IPerpsAccountLoadingInfo => ({
             ...prev,
             enableTradingLoading: false,
+            enableTradingTriggered: false,
+            enableTradingStatusPending: false,
           }),
         );
       }, 0);

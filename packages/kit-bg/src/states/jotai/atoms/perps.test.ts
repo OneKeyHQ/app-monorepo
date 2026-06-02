@@ -359,10 +359,37 @@ describe('perpsActiveAccountEnableTradingModeAtom', () => {
     jotaiDefaultStore.set(perpsAccountLoadingInfoAtom.atom(), {
       selectAccountLoading: false,
       enableTradingLoading: false,
+      enableTradingTriggered: false,
+      enableTradingStatusPending: false,
     });
   });
 
   it('lets software accounts auto-enable from the order panel', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      indexedAccountId: 'hd-1--0',
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountEnableTradingModeAtom.atom()),
+    ).toEqual({
+      isSoftwareAccount: true,
+      isHardwareAccount: false,
+      canAutoEnableInOrderPanel: true,
+      requiresEnableTradingDialogInOrderPanel: false,
+      requiresExplicitEnableTrading: false,
+    });
+  });
+
+  it('keeps software order-panel auto-enable available while account loading settles', () => {
+    jotaiDefaultStore.set(perpsAccountLoadingInfoAtom.atom(), {
+      selectAccountLoading: true,
+      enableTradingLoading: false,
+      enableTradingTriggered: false,
+      enableTradingStatusPending: false,
+    });
     jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
       accountId: "hd-1--m/44'/60'/0'/0/0",
       indexedAccountId: 'hd-1--0',
@@ -432,6 +459,8 @@ describe('perpsShouldShowEnableTradingButtonAtom', () => {
     jotaiDefaultStore.set(perpsAccountLoadingInfoAtom.atom(), {
       selectAccountLoading: false,
       enableTradingLoading: false,
+      enableTradingTriggered: false,
+      enableTradingStatusPending: false,
     });
     jotaiDefaultStore.set(perpsAbstractionModeAtom.atom(), undefined);
   });
@@ -453,6 +482,25 @@ describe('perpsShouldShowEnableTradingButtonAtom', () => {
         internalRebateBoundOk: false,
         abstractionOk: false,
       },
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsShouldShowEnableTradingButtonAtom.atom()),
+    ).toBe(false);
+  });
+
+  it('does not reserve the explicit CTA layout while software live status is pending', () => {
+    jotaiDefaultStore.set(perpsAccountLoadingInfoAtom.atom(), {
+      selectAccountLoading: true,
+      enableTradingLoading: false,
+      enableTradingTriggered: false,
+      enableTradingStatusPending: false,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      indexedAccountId: 'hd-1--0',
+      deriveType: 'default',
+      accountAddress: '0xabc',
     });
 
     expect(
