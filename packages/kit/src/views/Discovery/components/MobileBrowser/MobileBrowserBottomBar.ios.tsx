@@ -56,7 +56,7 @@ function MobileBrowserBottomBar({
       <Stack flex={1} alignItems="center" justifyContent="center">
         <IconButton
           variant="tertiary"
-          size="medium"
+          size="large"
           icon="ChevronLeftOutline"
           disabled={disabledGoBack}
           accessible={!disabledGoBack}
@@ -67,7 +67,7 @@ function MobileBrowserBottomBar({
       <Stack flex={1} alignItems="center" justifyContent="center">
         <IconButton
           variant="tertiary"
-          size="medium"
+          size="large"
           icon="ChevronRightOutline"
           disabled={disabledGoForward}
           accessible={!disabledGoForward}
@@ -77,11 +77,11 @@ function MobileBrowserBottomBar({
       </Stack>
 
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <TabCountButton testID={DiscoveryTestIDs.tabListButton} />
+        <TabCountButton size="large" testID={DiscoveryTestIDs.tabListButton} />
       </Stack>
 
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <RefreshButton onRefresh={handleRefresh} />
+        <RefreshButton size="large" onRefresh={handleRefresh} />
       </Stack>
 
       <Stack flex={1} alignItems="center" justifyContent="center">
@@ -90,6 +90,7 @@ function MobileBrowserBottomBar({
           onTranslate={handleTranslate}
           onRetranslate={handleRetranslate}
           onTestAITranslateError={handleTranslateTestAIError}
+          size="large"
         />
       </Stack>
 
@@ -113,7 +114,7 @@ function MobileBrowserBottomBar({
         >
           <IconButton
             variant="tertiary"
-            size="medium"
+            size="large"
             icon="DotHorOutline"
             disabled={displayHomePage}
             testID="browser-bar-options"

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -33,6 +33,8 @@ import { ETranslateDisplayMode, ETranslateEngine } from '../types';
 
 import { useActiveTabId, useWebTabDataById } from './useWebTabs';
 
+const TRANSLATE_SETTINGS_RETRANSLATE_DELAY_MS = 300;
+
 function TranslateSettings({
   onTestAITranslateError: _onTestAITranslateError,
 }: {
@@ -40,7 +42,22 @@ function TranslateSettings({
 }) {
   const intl = useIntl();
   const [settings, setSettings] = useTranslateSettingsPersistAtom();
+  const [targetLanguageSelectOpen, setTargetLanguageSelectOpen] =
+    useState(false);
   // const [devSettings] = useDevSettingsPersistAtom();
+  const isNative = platformEnv.isNative;
+  const settingTitleSize = isNative ? '$headingMd' : '$headingSm';
+  const segmentControlProps = isNative
+    ? ({
+        h: 44,
+        segmentControlItemStyleProps: {
+          h: '100%',
+          py: '$0',
+          px: '$5',
+          justifyContent: 'center',
+        },
+      } as const)
+    : undefined;
 
   const updateSetting = useCallback(
     <K extends keyof typeof settings>(key: K, value: (typeof settings)[K]) => {
@@ -50,6 +67,7 @@ function TranslateSettings({
   );
 
   const isCustomMode = settings.targetLanguage !== 'auto';
+  const targetLanguageModeValue = isCustomMode ? 'custom' : 'auto';
 
   const customLanguageOptions = useMemo(
     () =>
@@ -113,10 +131,14 @@ function TranslateSettings({
     [intl],
   );
 
+  const closeTargetLanguageSelect = useCallback(() => {
+    setTargetLanguageSelectOpen(false);
+  }, []);
+
   return (
-    <YStack gap="$5">
+    <YStack gap="$5" onPress={closeTargetLanguageSelect}>
       <YStack gap="$2">
-        <SizableText size="$headingSm" color="$textSubdued">
+        <SizableText size={settingTitleSize} color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.browser_translate_engine,
           })}
@@ -126,19 +148,21 @@ function TranslateSettings({
           value={settings.engine}
           options={engineOptions}
           onChange={(v) => updateSetting('engine', v as ETranslateEngine)}
+          {...segmentControlProps}
         />
       </YStack>
       <YStack gap="$2">
-        <SizableText size="$headingSm" color="$textSubdued">
+        <SizableText size={settingTitleSize} color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.browser_translate_target_language,
           })}
         </SizableText>
         <SegmentControl
           fullWidth
-          value={isCustomMode ? 'custom' : 'auto'}
+          value={targetLanguageModeValue}
           options={targetLanguageOptions}
           onChange={(v) => {
+            setTargetLanguageSelectOpen(false);
             if (v === 'auto') {
               updateSetting('targetLanguage', 'auto');
             } else {
@@ -153,21 +177,29 @@ function TranslateSettings({
               );
             }
           }}
+          {...segmentControlProps}
         />
         {isCustomMode ? (
-          <Select
-            testID="discovery-select"
-            title={intl.formatMessage({
-              id: ETranslations.browser_translate_target_language,
-            })}
-            items={customLanguageOptions}
-            value={settings.targetLanguage}
-            onChange={(v) => updateSetting('targetLanguage', v)}
-          />
+          <Stack onPress={(event) => event.stopPropagation()}>
+            <Select
+              testID="discovery-select"
+              title={intl.formatMessage({
+                id: ETranslations.browser_translate_target_language,
+              })}
+              items={customLanguageOptions}
+              value={settings.targetLanguage}
+              open={targetLanguageSelectOpen}
+              onOpenChange={setTargetLanguageSelectOpen}
+              onChange={(v) => updateSetting('targetLanguage', v)}
+              defaultTriggerInputProps={
+                isNative ? { size: 'large' } : undefined
+              }
+            />
+          </Stack>
         ) : null}
       </YStack>
       <YStack gap="$2">
-        <SizableText size="$headingSm" color="$textSubdued">
+        <SizableText size={settingTitleSize} color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.browser_translate_display_mode,
           })}
@@ -179,6 +211,7 @@ function TranslateSettings({
           onChange={(v) =>
             updateSetting('displayMode', v as ETranslateDisplayMode)
           }
+          {...segmentControlProps}
         />
       </YStack>
       {/* {devSettings.enabled && onTestAITranslateError ? (
@@ -253,6 +286,16 @@ export function TranslatePopoverContent({
   );
   const themeVariant = useThemeVariant();
   const targetLanguageLabel = useTargetLanguageLabel();
+  const isNative = platformEnv.isNative;
+  const actionButtonSize = isNative ? 'large' : 'medium';
+  const settingsButtonSize = isNative ? 'large' : 'small';
+  const titleSize = '$bodyLgMedium';
+  let settingsContentPaddingTop: '$5' | '$2' | undefined;
+  if (platformEnv.isDesktop) {
+    settingsContentPaddingTop = '$5';
+  } else if (isNative) {
+    settingsContentPaddingTop = '$2';
+  }
 
   const handleAction = useCallback(async () => {
     if (!isTranslated && !isPrimeUser) {
@@ -297,16 +340,11 @@ export function TranslatePopoverContent({
 
   if (showSettings) {
     return (
-      <YStack
-        gap="$5"
-        px="$5"
-        pb="$5"
-        pt={platformEnv.isDesktop ? '$5' : undefined}
-      >
+      <YStack gap="$5" px="$5" pb="$5" pt={settingsContentPaddingTop}>
         <Button
           testID="discovery-handle-action-btn"
           variant="tertiary"
-          size="small"
+          size={isNative ? 'large' : 'small'}
           icon="ChevronLeftOutline"
           alignSelf="flex-start"
           onPress={() => onShowSettingsChange(false)}
@@ -325,7 +363,7 @@ export function TranslatePopoverContent({
   return (
     <YStack gap="$5" p="$5">
       <XStack alignItems="center" justifyContent="space-between">
-        <SizableText size="$bodyLgMedium">
+        <SizableText size={titleSize}>
           {intl.formatMessage({
             id: ETranslations.browser_translate_to,
           })}
@@ -336,7 +374,7 @@ export function TranslatePopoverContent({
           testID="discovery-icon-btn"
           icon="SettingsOutline"
           variant="tertiary"
-          size="small"
+          size={settingsButtonSize}
           onPress={() => onShowSettingsChange(true)}
         />
       </XStack>
@@ -345,7 +383,7 @@ export function TranslatePopoverContent({
           <Button
             flex={1}
             variant="primary"
-            size="medium"
+            size={actionButtonSize}
             onPress={handleAction}
             testID="discovery-btn"
           >
@@ -360,7 +398,7 @@ export function TranslatePopoverContent({
               testID={DiscoveryTestIDs.pageTranslationRetryBtn}
               icon="RotateClockwiseOutline"
               variant="secondary"
-              size="medium"
+              size={actionButtonSize}
               onPress={handleRetranslatePress}
               title={intl.formatMessage({ id: ETranslations.global_retry })}
             />
@@ -395,6 +433,7 @@ export function TranslatePopoverTrigger({
   onRetranslate,
   onTestAITranslateError,
   placement = 'top',
+  size = 'medium',
   open,
   onOpenChange,
 }: {
@@ -403,6 +442,7 @@ export function TranslatePopoverTrigger({
   onRetranslate?: () => void;
   onTestAITranslateError?: (testFlag: string) => void;
   placement?: 'top' | 'bottom-end';
+  size?: 'small' | 'medium' | 'large';
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
@@ -430,7 +470,7 @@ export function TranslatePopoverTrigger({
       renderTrigger={
         <IconButton
           variant="tertiary"
-          size="medium"
+          size={size}
           icon={isTranslated ? 'TranslateSolid' : 'TranslateOutline'}
           testID="browser-bar-translate"
         />
@@ -460,8 +500,18 @@ export function usePageTranslation(tabId: string) {
   const activeTabIdRef = useRef(activeTabId);
   const currentTabUrlRef = useRef(tab?.url);
   const pageContextVersionRef = useRef(0);
+  const isTranslatedRef = useRef(isTranslated);
+  const translateSettingsKey = useMemo(
+    () => [settings.engine, settings.displayMode, resolvedTargetLang].join('|'),
+    [settings.engine, settings.displayMode, resolvedTargetLang],
+  );
+  const prevTranslateSettingsStateRef = useRef({
+    isTranslated,
+    settingsKey: translateSettingsKey,
+  });
   activeTabIdRef.current = activeTabId;
   currentTabUrlRef.current = tab?.url;
+  isTranslatedRef.current = isTranslated;
 
   const onNavigate = useCallback((stillTranslating: boolean) => {
     pageContextVersionRef.current += 1;
@@ -566,6 +616,56 @@ export function usePageTranslation(tabId: string) {
     resolvedTargetLang,
     settings.engine,
     logToggle,
+  ]);
+
+  useEffect(() => {
+    const prevState = prevTranslateSettingsStateRef.current;
+    prevTranslateSettingsStateRef.current = {
+      isTranslated,
+      settingsKey: translateSettingsKey,
+    };
+
+    if (prevState.settingsKey === translateSettingsKey) {
+      return undefined;
+    }
+
+    if (!prevState.isTranslated || !isTranslated || !translatingRef.current) {
+      return undefined;
+    }
+
+    const retranslatePageContextVersion = pageContextVersionRef.current;
+    const retranslatePageUrl = tab?.url;
+
+    const timer = setTimeout(() => {
+      const isSamePageContext =
+        pageContextVersionRef.current === retranslatePageContextVersion &&
+        activeTabIdRef.current === tabId &&
+        currentTabUrlRef.current === retranslatePageUrl;
+
+      if (
+        !isSamePageContext ||
+        !isTranslatedRef.current ||
+        !translatingRef.current
+      ) {
+        return;
+      }
+
+      restoreOriginal();
+      startTranslate(resolvedTargetLang, settings.engine);
+      setIsTranslated(true);
+    }, TRANSLATE_SETTINGS_RETRANSLATE_DELAY_MS);
+
+    return () => clearTimeout(timer);
+  }, [
+    isTranslated,
+    resolvedTargetLang,
+    restoreOriginal,
+    settings.engine,
+    startTranslate,
+    tab?.url,
+    tabId,
+    translateSettingsKey,
+    translatingRef,
   ]);
 
   const handleTranslateTestAIError = useCallback(
