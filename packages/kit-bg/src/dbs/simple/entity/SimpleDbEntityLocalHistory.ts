@@ -45,6 +45,13 @@ function clearLocalHistoryDisplayStatus(
   };
 }
 
+// Stale-pending cutoff. pendingTxs is uncapped per key and normally drains as txs
+// confirm, but abandoned/replaced txs can linger forever. Pending txs older than
+// this are almost certainly already settled/dropped on-chain; pure cache, so
+// re-derived from chain on the next refresh. Kept conservative to avoid hiding a
+// genuinely-pending tx.
+const PENDING_TX_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+
 export interface ILocalHistory {
   pendingTxs: Record<string, IAccountHistoryTx[]>; // Record<networkId_accountAddress/xpub, IAccountHistoryTx[]>
   confirmedTxs: Record<string, IAccountHistoryTx[]>; // Record<networkId_accountAddress/xpub, IAccountHistoryTx[]>
@@ -112,6 +119,59 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
         ]),
       ),
     };
+  }
+
+  // Drop pending/confirmed history belonging to deleted accounts and prune stale
+  // pending txs. `validOwners` is the set of lowercased addresses/xpubs of all
+  // surviving accounts. Pure-cache cleanup (re-derived from chain on next refresh).
+  // See ServiceAppCleanup.cleanupOrphanedAssetCaches.
+  @backgroundMethod()
+  async removeOrphanData({ validOwners }: { validOwners: string[] }) {
+    const existing = await this.getRawData();
+    if (!existing) {
+      return;
+    }
+    const validOwnerSet = new Set(validOwners.map((o) => o.toLowerCase()));
+    const now = Date.now();
+    await this.setRawData((rawData) => {
+      const base = rawData ?? existing;
+      const nextPending: Record<string, IAccountHistoryTx[]> = {};
+      for (const [key, txs] of Object.entries(base?.pendingTxs ?? {})) {
+        if (
+          accountUtils.isLocalAssetsKeyOwnedBy({
+            key,
+            validOwners: validOwnerSet,
+          })
+        ) {
+          const fresh = txs.filter((tx) => {
+            const ts = tx.decodedTx?.createdAt ?? tx.decodedTx?.updatedAt;
+            // decodedTx.createdAt is optional and may be unset for some
+            // locally-submitted pending txs. Without a resolvable timestamp we
+            // cannot prove the tx is stale, so keep it — never drop a tx that
+            // might still be genuinely pending on-chain.
+            if (!ts) {
+              return true;
+            }
+            return now - ts < PENDING_TX_MAX_AGE_MS;
+          });
+          if (fresh.length) {
+            nextPending[key] = fresh;
+          }
+        }
+      }
+      const nextConfirmed: Record<string, IAccountHistoryTx[]> = {};
+      for (const [key, txs] of Object.entries(base?.confirmedTxs ?? {})) {
+        if (
+          accountUtils.isLocalAssetsKeyOwnedBy({
+            key,
+            validOwners: validOwnerSet,
+          })
+        ) {
+          nextConfirmed[key] = txs;
+        }
+      }
+      return { pendingTxs: nextPending, confirmedTxs: nextConfirmed };
+    });
   }
 
   @backgroundMethod()

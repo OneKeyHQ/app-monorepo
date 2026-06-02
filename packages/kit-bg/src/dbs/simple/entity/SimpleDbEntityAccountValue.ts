@@ -428,4 +428,47 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     // pre-migration window to re-fetch and pick up the freshly-merged data.
     appEventBus.emit(EAppEventBusNames.AccountValueUpdate, undefined);
   }
+
+  // Drop cached worth belonging to deleted accounts. `byAddress` keys are
+  // networkId-prefixed; `allByAddress` keys are bare addresses/xpubs. `validOwners`
+  // is the set of lowercased addresses/xpubs of all surviving accounts. The
+  // `_legacy_*` / migration fields are preserved. Pure-cache cleanup.
+  // See ServiceAppCleanup.cleanupOrphanedAssetCaches.
+  async removeOrphanData({ validOwners }: { validOwners: string[] }) {
+    const existing = await this.getRawData();
+    if (!existing) {
+      return;
+    }
+    const validOwnerSet = new Set(validOwners.map((o) => o.toLowerCase()));
+    await this.setRawData((rawData) => {
+      const base = rawData ?? existing;
+      const nextByAddress: Record<string, IAccountValueEntry> = {};
+      for (const [key, value] of Object.entries(base?.byAddress ?? {})) {
+        if (
+          accountUtils.isLocalAssetsKeyOwnedBy({
+            key,
+            validOwners: validOwnerSet,
+          })
+        ) {
+          nextByAddress[key] = value;
+        }
+      }
+      const nextAllByAddress: Record<string, IAllNetworkAccountValueEntry> = {};
+      for (const [key, value] of Object.entries(base?.allByAddress ?? {})) {
+        if (
+          accountUtils.isLocalAssetsKeyOwnedBy({
+            key,
+            validOwners: validOwnerSet,
+          })
+        ) {
+          nextAllByAddress[key] = value;
+        }
+      }
+      return {
+        ...(base ?? emptyData()),
+        byAddress: nextByAddress,
+        allByAddress: nextAllByAddress,
+      };
+    });
+  }
 }

@@ -1,4 +1,4 @@
-import { useImage } from 'expo-image';
+import { Image as ExpoImage, useImage } from 'expo-image';
 
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 
@@ -17,6 +17,12 @@ export const Image = withStaticProperties(ImageV2, {
   preloadImage,
   preloadImages,
   loadImage,
+  // Expose expo-image's cache controls so the "Clear cache" flow can purge the
+  // image disk cache (otherwise unbounded on disk; size-capped natively in
+  // AppDelegate / AppGlideModule). Native-only effect; no-op on web. Wrapped in
+  // arrows so the static methods aren't passed as unbound references.
+  clearDiskCache: () => ExpoImage.clearDiskCache(),
+  clearMemoryCache: () => ExpoImage.clearMemoryCache(),
 });
 
 export type {

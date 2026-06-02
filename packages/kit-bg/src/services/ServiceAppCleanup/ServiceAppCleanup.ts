@@ -1,4 +1,10 @@
+import { debounce } from 'lodash';
+
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -9,8 +15,24 @@ import ServiceBase from '../ServiceBase';
 import type { IDBAccount, IDBIndexedAccount } from '../../dbs/local/types';
 
 class ServiceAppCleanup extends ServiceBase {
+  // Debounced so bulk wallet removal (which fires many AccountRemove events)
+  // coalesces into a single sweep. Bypasses the isCleanupTime() daily gate —
+  // post-deletion cleanup should be prompt.
+  private cleanupOrphanedAssetCachesDebounced = debounce(() => {
+    void this.cleanupOrphanedAssetCaches();
+  }, 3000);
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+    // Reclaim orphaned per-account asset caches promptly after a deletion. The
+    // daily-gated cleanup() also runs the same sweep to reclaim orphans that
+    // accumulated before this listener existed.
+    appEventBus.on(EAppEventBusNames.AccountRemove, () => {
+      this.cleanupOrphanedAssetCachesDebounced();
+    });
+    appEventBus.on(EAppEventBusNames.WalletRemove, () => {
+      this.cleanupOrphanedAssetCachesDebounced();
+    });
   }
 
   async isCleanupTime() {
@@ -73,8 +95,12 @@ class ServiceAppCleanup extends ServiceBase {
     // **** cleanup HyperLiquid agent credentials
     // await this.cleanupHyperLiquidAgentCredentials();
 
-    // **** cleanup address/tokens/tx history
-    // getAccountNameFromAddress()
+    // **** cleanup orphaned per-account asset caches (tokens / tx history / nft /
+    // defi / aggregate token / account value) left behind by deleted accounts and
+    // wallets, plus size/age caps on the uncapped maps.
+    await this.runCleanupTask(async () => {
+      await this.cleanupOrphanedAssetCaches();
+    });
 
     // **** cleanup sign messages history
     // **** cleanup sign transactions history
@@ -88,6 +114,94 @@ class ServiceAppCleanup extends ServiceBase {
     return {
       success: true,
     };
+  }
+
+  // Sweep simpleDb caches that are keyed per-account/per-network, dropping keys
+  // that no longer map to a surviving account. Self-derives the valid set from
+  // getAllAccounts, so it does not depend on which account was just removed (the
+  // AccountRemove event carries no payload). Over-/under-matching is benign: every
+  // touched entity is a pure cache the normal refresh repopulates.
+  @backgroundMethod()
+  async cleanupOrphanedAssetCaches() {
+    try {
+      // getAllAccounts throws on a genuine enumeration failure (caught below, so
+      // we skip the sweep and keep caches). A successful empty result is NOT a
+      // failure — it means the user has zero accounts (e.g. just deleted their
+      // last one), so we proceed and let every per-account cache key be treated
+      // as an orphan and dropped. Do NOT early-return on empty, or deleting the
+      // last account would leave its caches behind forever.
+      const { accounts, allIndexedAccounts } =
+        await this.backgroundApi.serviceAccount.getAllAccounts({
+          filterRemoved: true,
+        });
+
+      const validOwners: string[] = [];
+      const validAccountIds: string[] = [];
+      for (const account of accounts) {
+        if (account.address) {
+          validOwners.push(account.address);
+        }
+        // The cache key uses `(xpub || address)`; nested-segwit (P2SH-P2WPKH)
+        // accounts key by `xpubSegwit`. Push every variant — plus any per-network
+        // addresses some account types hold in `addresses` — so a live account's
+        // cache is never wrongly treated as orphaned. (A false drop only costs a
+        // re-fetch, but minimizing churn is cheap here.)
+        const { xpub, xpubSegwit, addresses } = account as {
+          xpub?: string;
+          xpubSegwit?: string;
+          addresses?: Record<string, string>;
+        };
+        if (xpub) {
+          validOwners.push(xpub);
+        }
+        if (xpubSegwit) {
+          validOwners.push(xpubSegwit);
+        }
+        if (addresses) {
+          for (const addr of Object.values(addresses)) {
+            if (typeof addr === 'string' && addr) {
+              validOwners.push(addr);
+            }
+          }
+        }
+        validAccountIds.push(account.id);
+        if (account.indexedAccountId) {
+          validAccountIds.push(account.indexedAccountId);
+        }
+      }
+      for (const indexedAccount of allIndexedAccounts ?? []) {
+        validAccountIds.push(indexedAccount.id);
+      }
+
+      const tasks: [string, Promise<unknown>][] = [
+        ['localTokens', simpleDb.localTokens.removeOrphanData({ validOwners })],
+        [
+          'localHistory',
+          simpleDb.localHistory.removeOrphanData({ validOwners }),
+        ],
+        ['localNFTs', simpleDb.localNFTs.removeOrphanData({ validOwners })],
+        ['deFi', simpleDb.deFi.removeOrphanData({ validOwners })],
+        [
+          'accountValue',
+          simpleDb.accountValue.removeOrphanData({ validOwners }),
+        ],
+        [
+          'aggregateToken',
+          simpleDb.aggregateToken.removeOrphanData({ validAccountIds }),
+        ],
+      ];
+      const results = await Promise.allSettled(tasks.map(([, p]) => p));
+      results.forEach((r, i) => {
+        if (r.status === 'rejected') {
+          console.error(
+            `cleanupOrphanedAssetCaches: ${tasks[i][0]} cleanup failed`,
+            r.reason,
+          );
+        }
+      });
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   async cleanupAccounts(accountsRemoved?: IDBAccount[]) {
