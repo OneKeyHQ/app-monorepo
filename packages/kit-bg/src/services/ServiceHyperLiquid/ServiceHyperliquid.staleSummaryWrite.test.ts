@@ -67,6 +67,13 @@ jest.mock('../../states/jotai/atoms', () => ({
       summaryState = v;
     },
   ),
+  // Spot-dusting plumbing pulled in by updateActiveAccountSummary; irrelevant
+  // to the stale-write guard, so a no-op stub keeps the flow from crashing.
+  perpsSpotDustingAtom: {
+    get: jest.fn(async () => undefined),
+    set: jest.fn(async () => undefined),
+  },
+  getPerpsSpotDustingNextState: jest.fn(() => undefined),
 }));
 
 const ACCOUNT_A = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
@@ -157,6 +164,39 @@ describe('ServiceHyperliquid active-summary stale-write guard', () => {
 
     // The active account is now B; A's stale summary must never be re-applied.
     expect(summaryState?.accountAddress?.toLowerCase()).not.toBe(ACCOUNT_A);
+  });
+
+  it('does not clobber the new-account hydration during the switch loading window', async () => {
+    const service: any = createService();
+
+    // Steady state on account A.
+    activeAccountState = {
+      accountAddress: ACCOUNT_A,
+      indexedAccountId: 'a',
+      accountId: null,
+      deriveType: 'default',
+    };
+    await service.updateActiveAccountSummary(makeWebData2(ACCOUNT_A, '100'));
+    await jest.advanceTimersByTimeAsync(0);
+    expect(summaryState?.accountAddress?.toLowerCase()).toBe(ACCOUNT_A);
+
+    // Switch START to B: requestId bumped, pending coalesced write canceled.
+    const requestId = service.beginActivePerpsAccountChange();
+    // changeActivePerpsAccount resolves the target address (B) and registers
+    // it as the pending target while the live active-account atom still holds A.
+    service.markPendingActivePerpsAccountTarget(ACCOUNT_B, requestId);
+    // It then hydrates B's display cache into the summary atom — still inside
+    // the window, before perpsActiveAccountAtom flips to B.
+    summaryState = { accountAddress: ACCOUNT_B, accountValue: '500' };
+
+    // A late WS frame for the OLD account A arrives during the window. The live
+    // atom still says A, so updateActiveAccountSummary enqueues it.
+    await service.updateActiveAccountSummary(makeWebData2(ACCOUNT_A, '999'));
+    await jest.advanceTimersByTimeAsync(300); // flush leading + trailing
+
+    // A's summary must NOT overwrite B's freshly hydrated summary.
+    expect(summaryState?.accountAddress?.toLowerCase()).toBe(ACCOUNT_B);
+    expect(summaryState?.accountValue).toBe('500');
   });
 
   it('still commits coalesced summaries for the active account (no over-rejection)', async () => {

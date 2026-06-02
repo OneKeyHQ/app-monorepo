@@ -197,6 +197,16 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private activePerpsAccountChangeRequestId = 0;
 
+  // Target address of the in-flight active-account switch, stamped with the
+  // requestId it belongs to. Set as soon as changeActivePerpsAccount resolves
+  // the destination address (while perpsActiveAccountAtom still holds the old
+  // account) and cleared once the new account is published. Lets the summary
+  // commit reject the old account's coalesced writes during the switch window,
+  // when the live perpsActiveAccountAtom still lags on the old address.
+  private pendingActivePerpsAccountChange:
+    | { requestId: number; address: string | undefined }
+    | undefined;
+
   private tokenSelectorFavoriteUpdateQueue = Promise.resolve();
 
   @backgroundMethod()
@@ -227,6 +237,42 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private isLatestActivePerpsAccountChange(requestId: number): boolean {
     return requestId === this.activePerpsAccountChangeRequestId;
+  }
+
+  // Register the destination address of an in-flight switch so summary commits
+  // can bind to it instead of the lagging perpsActiveAccountAtom.
+  private markPendingActivePerpsAccountTarget(
+    address: string | null | undefined,
+    requestId: number,
+  ): void {
+    this.pendingActivePerpsAccountChange = {
+      requestId,
+      address: address ? address.toLowerCase() : undefined,
+    };
+  }
+
+  private clearPendingActivePerpsAccountChange(requestId: number): void {
+    if (this.pendingActivePerpsAccountChange?.requestId === requestId) {
+      this.pendingActivePerpsAccountChange = undefined;
+    }
+  }
+
+  // The address a summary write must belong to right now. While a switch is in
+  // flight, that is its (already-known) destination address; otherwise it is
+  // the live active account. perpsActiveAccountAtom only flips at switch END,
+  // so binding to it alone would let an old-account write land during the
+  // loading window and clobber the new account's hydrated summary.
+  private resolveActiveSummaryTargetAddress(
+    liveAddress: string | undefined,
+  ): string | undefined {
+    const pending = this.pendingActivePerpsAccountChange;
+    if (
+      pending &&
+      pending.requestId === this.activePerpsAccountChangeRequestId
+    ) {
+      return pending.address;
+    }
+    return liveAddress;
   }
 
   private async updateTokenSelectorFavoriteInBg({
@@ -1450,16 +1496,25 @@ export default class ServiceHyperliquid extends ServiceBase {
     // packet for the OLD account still passes the address check in
     // updateActiveAccountSummary*() and gets stamped with the already-bumped
     // (new) requestId, so isLatestActivePerpsAccountChange() alone cannot
-    // reject it — a trailing flush would then re-land the old account's summary
-    // after the new account is published. Re-validate against the live active
-    // account here so the commit is bound to the address it actually belongs
-    // to. Read-side consumers (e.g. perpsActiveAccountMmrAtom) do not all align
-    // by address, so the stale write must be stopped at the source.
+    // reject it.
+    //
+    // Binding only to the live perpsActiveAccountAtom is also insufficient: in
+    // the same window the atom still reports the OLD account, so an old-account
+    // write would pass — and once changeActivePerpsAccount has hydrated the NEW
+    // account's display summary into perpsActiveAccountSummaryAtom (before
+    // flipping the active account), that old-account write would clobber it.
+    // Bind to the in-flight switch's destination address instead: while a
+    // switch is pending, resolveActiveSummaryTargetAddress() returns the target
+    // (known the moment the address is resolved, before the atom flips), so the
+    // commit only lands for the account it actually belongs to. Read-side
+    // consumers (e.g. perpsActiveAccountMmrAtom) do not all align by address,
+    // so the stale write must be stopped at the source.
     const activeAccount = await perpsActiveAccountAtom.get();
-    const activeAddress = activeAccount?.accountAddress?.toLowerCase();
+    const liveAddress = activeAccount?.accountAddress?.toLowerCase();
+    const targetAddress = this.resolveActiveSummaryTargetAddress(liveAddress);
     if (
-      !activeAddress ||
-      summary.accountAddress?.toLowerCase() !== activeAddress
+      !targetAddress ||
+      summary.accountAddress?.toLowerCase() !== targetAddress
     ) {
       return;
     }
@@ -2037,6 +2092,11 @@ export default class ServiceHyperliquid extends ServiceBase {
       newAddress !== null &&
       previousAddress === newAddress;
 
+    // Bind in-flight summary commits to this switch's destination before the
+    // atoms below are cleared / hydrated, so an old-account WS frame arriving
+    // while perpsActiveAccountAtom still lags cannot land on the new account.
+    this.markPendingActivePerpsAccountTarget(newAddress, requestId);
+
     if (!isSameAddress) {
       await perpsAbstractionModeAtom.set((prev) =>
         this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
@@ -2105,6 +2165,9 @@ export default class ServiceHyperliquid extends ServiceBase {
       }
       return perpsAccount;
     });
+    // The live atom now matches the destination, so summary commits can bind to
+    // it again; drop the pending target (only if it is still ours).
+    this.clearPendingActivePerpsAccountChange(requestId);
     if (!this.isLatestActivePerpsAccountChange(requestId)) {
       return undefined;
     }
