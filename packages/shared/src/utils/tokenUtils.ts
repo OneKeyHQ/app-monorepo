@@ -264,15 +264,11 @@ export function getFilteredTokenBySearchKey({
       }
 
       if (matchedSubs.length > 0) {
-        const hasNetworkOnlyHit = matchedSubs.some(
-          (s) => s.strength === ESearchStrength.NETWORK_ONLY,
+        const networkQualifiedMatches = matchedSubs.filter(
+          (s) => s.strength !== ESearchStrength.TOKEN_ONLY,
         );
-        if (hasNetworkOnlyHit) {
-          results.push(
-            ...matchedSubs.filter(
-              (s) => s.strength !== ESearchStrength.TOKEN_ONLY,
-            ),
-          );
+        if (networkQualifiedMatches.length > 0) {
+          results.push(...networkQualifiedMatches);
         } else {
           results.push({
             token,
