@@ -69,6 +69,7 @@ import {
   useConfirmHyperliquidTerms,
   useRequestEnableTradingWithDepositFallback,
 } from '../../hooks/useEnableTradingWithDepositFallback';
+import { useLiquidationPrice } from '../../hooks/useLiquidationPrice';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
@@ -173,6 +174,35 @@ async function getLatestPerpsMarketDataFreshness() {
   });
 }
 
+// Est. Liq price isolated into its own leaf: it owns the price-driven
+// `useLiquidationPrice` subscription, so a price tick re-renders ONLY this
+// text node instead of the whole side button. Value is debounced (~10Hz).
+const EstLiqPriceLeaf = memo(function EstLiqPriceLeaf({
+  side,
+}: {
+  side: 'long' | 'short';
+}) {
+  const liquidationPrice = useDebounce(useLiquidationPrice(side), 100);
+  if (liquidationPrice) {
+    return (
+      <NumberSizeableText
+        size="$bodySm"
+        color="$text"
+        formatter="price"
+        formatterOptions={{ currency: '$' }}
+      >
+        {liquidationPrice.toNumber()}
+      </NumberSizeableText>
+    );
+  }
+  return (
+    <SizableText size="$bodySm" color="$text">
+      --
+    </SizableText>
+  );
+});
+EstLiqPriceLeaf.displayName = 'EstLiqPriceLeaf';
+
 function SideButtonInternal({
   side,
   isMobile,
@@ -252,7 +282,6 @@ function SideButtonInternal({
   const calculations = useTradingCalculationsForSide(side);
   const {
     computedSizeForSide,
-    liquidationPrice: liquidationPriceRaw,
     orderValue,
     marginRequired: marginRequiredRaw,
     isNoEnoughMargin,
@@ -262,7 +291,6 @@ function SideButtonInternal({
   } = calculations;
 
   const marginRequired = useDebounce(marginRequiredRaw, 100);
-  const liquidationPrice = useDebounce(liquidationPriceRaw, 100);
 
   const isMinimumOrderNotMetForSide = useMemo(() => {
     if (
@@ -1057,26 +1085,6 @@ function SideButtonInternal({
     ],
   );
 
-  const renderLiquidationPrice = () => {
-    if (liquidationPrice) {
-      return (
-        <NumberSizeableText
-          size="$bodySm"
-          color="$text"
-          formatter="price"
-          formatterOptions={{ currency: '$' }}
-        >
-          {liquidationPrice.toNumber()}
-        </NumberSizeableText>
-      );
-    }
-    return (
-      <SizableText size="$bodySm" color="$text">
-        --
-      </SizableText>
-    );
-  };
-
   const buttonStyles = useMemo(() => {
     const colors = PERP_TRADE_BUTTON_COLORS;
     const getBgColor = () => {
@@ -1430,7 +1438,7 @@ function SideButtonInternal({
                 })}
               </DashText>
 
-              {renderLiquidationPrice()}
+              <EstLiqPriceLeaf side={side} />
             </XStack>
           </YStack>
         ) : null}
@@ -1567,7 +1575,7 @@ function SideButtonInternal({
               renderTrigger={desktopLiqPriceTooltipTrigger}
             />
 
-            {renderLiquidationPrice()}
+            <EstLiqPriceLeaf side={side} />
           </XStack>
         </YStack>
       ) : null}
