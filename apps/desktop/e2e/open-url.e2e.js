@@ -46,8 +46,43 @@ function yarnBin() {
   return process.platform === 'win32' ? 'yarn.cmd' : 'yarn';
 }
 
+function getHostnameFromUrlLikeInput(input) {
+  const hostWithPath = input.trim().split(/[/?#]/u)[0] || '';
+  const hostWithPortAndAuth = hostWithPath.split('@').pop() || '';
+
+  if (hostWithPortAndAuth.startsWith('[')) {
+    const closingBracketIndex = hostWithPortAndAuth.indexOf(']');
+    return closingBracketIndex > 0
+      ? hostWithPortAndAuth.slice(1, closingBracketIndex).toLowerCase()
+      : '';
+  }
+
+  if (net.isIP(hostWithPortAndAuth)) {
+    return hostWithPortAndAuth.toLowerCase();
+  }
+
+  const portSeparatorIndex = hostWithPortAndAuth.lastIndexOf(':');
+  if (
+    portSeparatorIndex >= 0 &&
+    hostWithPortAndAuth.indexOf(':') === portSeparatorIndex
+  ) {
+    return hostWithPortAndAuth.slice(0, portSeparatorIndex).toLowerCase();
+  }
+
+  return hostWithPortAndAuth.toLowerCase();
+}
+
+function shouldUseHttpPrefix(input) {
+  const hostname = getHostnameFromUrlLikeInput(input);
+  return hostname === 'localhost' || net.isIP(hostname) > 0;
+}
+
 function toUrl(input) {
-  return /^https?:\/\//i.test(input) ? input : `https://${input}`;
+  const text = input.trim();
+  if (/^https?:\/\//i.test(text)) {
+    return text;
+  }
+  return `${shouldUseHttpPrefix(text) ? 'http' : 'https'}://${text}`;
 }
 
 function stripWww(hostname) {
