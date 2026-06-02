@@ -151,12 +151,6 @@ const NEW_DIALOG_EVENTS = new Set([
   EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION,
 ]);
 
-type IGetPassphraseStatePayload =
-  | string
-  | {
-      passphrase_state?: string;
-    };
-
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
   private bridgeAvailabilityChecked = false;
@@ -1266,17 +1260,13 @@ class ServiceHardware extends ServiceBase {
       connectId,
     });
 
-    const passphraseState =
-      await convertDeviceResponse<IGetPassphraseStatePayload>(() =>
-        hardwareSDK.getPassphraseState(connectId, {
-          initSession: forceInputPassphrase, // always re-input passphrase on device
-          useEmptyPassphrase,
-          // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
-        }),
-      );
-    return typeof passphraseState === 'string'
-      ? passphraseState
-      : passphraseState?.passphrase_state;
+    return convertDeviceResponse(() =>
+      hardwareSDK?.getPassphraseState(connectId, {
+        initSession: forceInputPassphrase, // always re-input passphrase on device
+        useEmptyPassphrase,
+        // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
+      }),
+    );
   }
 
   @backgroundMethod()

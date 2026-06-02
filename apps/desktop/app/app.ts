@@ -1175,13 +1175,22 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           `DESKTOP_API_CALL: disallowed method "${method}"`,
         );
       }
-      const result: unknown = await desktopApi.callDesktopApiMethod({
-        type: 'DESKTOP_API_IPC_MESSAGE',
-        module: module as any,
-        method,
-        params,
-      });
-      return result;
+      try {
+        const result: unknown = await desktopApi.callDesktopApiMethod({
+          type: 'DESKTOP_API_IPC_MESSAGE',
+          module: module as any,
+          method,
+          params,
+        });
+        return makeIpcSafeResult(result);
+      } catch (error) {
+        logger.error('[DESKTOP_API_CALL] handler failed', {
+          module,
+          method,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw makeIpcSafeError(error, 'DESKTOP_API_CALL failed');
+      }
     },
   );
 

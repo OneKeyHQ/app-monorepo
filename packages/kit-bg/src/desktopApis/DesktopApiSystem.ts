@@ -61,7 +61,7 @@ export type IInstallOneKeyUdevRulesResult = {
   skippedReason?:
     | 'not-linux'
     | 'snap'
-    | 'missing-flatpak-spawn'
+    | 'flatpak'
     | 'missing-pkexec'
     | 'cancelled'
     | 'failed';
@@ -351,22 +351,20 @@ class DesktopApiSystem {
       };
     }
 
-    const isFlatpak = isFlatpakRuntime();
+    if (isFlatpakRuntime()) {
+      return {
+        supported: false,
+        installed: false,
+        skippedReason: 'flatpak',
+        message:
+          'Flatpak requires host udev rules to be authorized manually by the user.',
+      };
+    }
 
     try {
-      const currentRules = isFlatpak
-        ? String(
-            (
-              await execFileAsync(
-                'flatpak-spawn',
-                ['--host', 'cat', ONEKEY_LINUX_UDEV_RULES_PATH],
-                { timeout: 10_000 },
-              )
-            ).stdout,
-          )
-        : await fs.readFile(ONEKEY_LINUX_UDEV_RULES_PATH, {
-            encoding: 'utf8',
-          });
+      const currentRules = await fs.readFile(ONEKEY_LINUX_UDEV_RULES_PATH, {
+        encoding: 'utf8',
+      });
       if (currentRules === ONEKEY_LINUX_UDEV_RULES) {
         return {
           supported: true,
@@ -379,33 +377,7 @@ class DesktopApiSystem {
     }
 
     try {
-      if (isFlatpak) {
-        await execFileAsync('sh', [
-          '-c',
-          'command -v flatpak-spawn >/dev/null 2>&1',
-        ]);
-      }
-    } catch {
-      return {
-        supported: false,
-        installed: false,
-        skippedReason: 'missing-flatpak-spawn',
-        message:
-          'flatpak-spawn is required to install OneKey udev rules from Flatpak.',
-      };
-    }
-
-    try {
-      if (isFlatpak) {
-        await execFileAsync('flatpak-spawn', [
-          '--host',
-          'sh',
-          '-c',
-          'command -v pkexec >/dev/null 2>&1',
-        ]);
-      } else {
-        await execFileAsync('sh', ['-c', 'command -v pkexec >/dev/null 2>&1']);
-      }
+      await execFileAsync('sh', ['-c', 'command -v pkexec >/dev/null 2>&1']);
     } catch {
       return {
         supported: false,
@@ -415,15 +387,13 @@ class DesktopApiSystem {
       };
     }
 
-    // Write rules to a Node-side temp file to avoid shell heredoc interpolation
-    // under pkexec (root). The shell script only reads this file path.
-    const tmpRulesFile = path.join(os.tmpdir(), `onekey-udev-${Date.now()}.rules`);
-    await fs.writeFile(tmpRulesFile, ONEKEY_LINUX_UDEV_RULES, { encoding: 'utf8', mode: 0o644 });
-
     const installScript = `
 set -e
-install -Dm644 "$1" "$2"
-rm -f "$1"
+tmp_file="$(mktemp)"
+trap 'rm -f "$tmp_file"' EXIT
+cat > "$tmp_file" <<'ONEKEY_UDEV_RULES'
+${ONEKEY_LINUX_UDEV_RULES}ONEKEY_UDEV_RULES
+install -Dm644 "$tmp_file" "$1"
 if command -v udevadm >/dev/null 2>&1; then
   udevadm control --reload-rules
   udevadm trigger --subsystem-match=usb --attr-match=idVendor=1209 || true
@@ -434,29 +404,15 @@ fi
 `;
 
     try {
-      const installCommand = isFlatpak ? 'flatpak-spawn' : 'pkexec';
-      const installArgs = isFlatpak
-        ? [
-            '--host',
-            'pkexec',
-            '/bin/sh',
-            '-c',
-            installScript,
-            'install-onekey-udev-rules',
-            tmpRulesFile,
-            ONEKEY_LINUX_UDEV_RULES_PATH,
-          ]
-        : [
-            '/bin/sh',
-            '-c',
-            installScript,
-            'install-onekey-udev-rules',
-            tmpRulesFile,
-            ONEKEY_LINUX_UDEV_RULES_PATH,
-          ];
       const { stdout, stderr } = await execFileAsync(
-        installCommand,
-        installArgs,
+        'pkexec',
+        [
+          '/bin/sh',
+          '-c',
+          installScript,
+          'install-onekey-udev-rules',
+          ONEKEY_LINUX_UDEV_RULES_PATH,
+        ],
         { timeout: 120_000 },
       );
       return {
@@ -466,8 +422,6 @@ fi
         stderr: String(stderr),
       };
     } catch (error) {
-      // Clean up temp file if pkexec script didn't remove it
-      await fs.unlink(tmpRulesFile).catch(() => {});
       const message = error instanceof Error ? error.message : String(error);
       return {
         supported: true,
