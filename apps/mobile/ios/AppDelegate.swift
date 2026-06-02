@@ -248,7 +248,7 @@ public class AppDelegate: ExpoAppDelegate {
     }
   }
 
-  // Background URLSession events (OTA concurrent/background downloads).
+  // Background URLSession events (concurrent/background downloads).
   // When the app is relaunched in the background to finish a background
   // download, hand the completion handler to the downloader via a notification.
   // We post rather than call directly because the Nitro module's C++ umbrella
