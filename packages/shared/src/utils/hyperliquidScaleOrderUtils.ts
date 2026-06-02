@@ -1,6 +1,8 @@
 import BigNumber from 'bignumber.js';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   formatHlPrice,
   formatHlSize,
@@ -175,7 +177,11 @@ export function validateScaleOrderLegs({
       errors.push(`Leg ${leg.index + 1}: invalid price`);
     }
     if (!sizeBN.isFinite() || sizeBN.lte(0)) {
-      errors.push(`Leg ${leg.index + 1}: size is too small`);
+      errors.push(
+        appLocale.intl.formatMessage?.({
+          id: ETranslations.perp_scale_order_size_too_small__msg,
+        }) ?? 'Order size is too small',
+      );
     }
     if (priceSet.has(leg.price)) {
       errors.push('Price range is too tight for this market precision');

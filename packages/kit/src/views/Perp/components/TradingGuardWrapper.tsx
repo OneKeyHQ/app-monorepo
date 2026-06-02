@@ -18,6 +18,8 @@ import {
   useConfirmHyperliquidTerms,
   useRequestEnableTradingWithDepositFallback,
 } from '../hooks/useEnableTradingWithDepositFallback';
+import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
+import { getEnableTradingDialogConfirmDecision } from '../utils/enableTradingDialogConfirm';
 import { showEnableTradingStepsDialog } from './TradingPanel/modals/EnableTradingStepsDialog';
 
 interface ITradingGuardWrapperProps {
@@ -43,6 +45,7 @@ function TradingGuardWrapperInternal({
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
 
   const shouldShowEnableTrading = useMemo(() => {
     if (bypassEnableTradingGuard) {
@@ -75,6 +78,13 @@ function TradingGuardWrapperInternal({
       await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
       const latestPerpsAccountStatus =
         (await perpsActiveAccountStatusAtom.get()) ?? perpsAccountStatus;
+      if (
+        getEnableTradingDialogConfirmDecision(latestPerpsAccountStatus) ===
+        'deposit'
+      ) {
+        await showDepositWithdrawModal('deposit');
+        return;
+      }
 
       await showEnableTradingStepsDialog({
         accountStatus: latestPerpsAccountStatus,
@@ -106,6 +116,7 @@ function TradingGuardWrapperInternal({
     isEnableTradingLoading,
     perpsAccountStatus,
     requestEnableTradingWithDepositFallback,
+    showDepositWithdrawModal,
     shouldShowEnableTradingStepsDialog,
   ]);
 

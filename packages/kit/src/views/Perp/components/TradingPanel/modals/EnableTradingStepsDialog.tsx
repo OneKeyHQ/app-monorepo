@@ -41,18 +41,18 @@ type IEnableTradingStepsDialogConfirm = (
 
 function getEnableTradingSignatureDescription(
   step: IPerpsOrderPanelEnableTradingStep,
-): string {
+): ETranslations | undefined {
   switch (step.key) {
     case 'builderFee':
-      return 'Confirm OneKey service access';
+      return ETranslations.perp_enable_trading_steps_builder_fee__desc;
     case 'agentRemoval':
-      return 'Replace previous trading agent';
+      return ETranslations.perp_enable_trading_steps_agent_removal__desc;
     case 'agent':
-      return 'Authorize OneKey trading agent';
+      return ETranslations.perp_enable_trading_steps_agent__desc;
     case 'abstraction':
-      return 'Enable unified trading account';
+      return ETranslations.perp_enable_trading_steps_abstraction__desc;
     default:
-      return '';
+      return undefined;
   }
 }
 
@@ -63,16 +63,13 @@ function isEnableTradingConfirmationStep(
 }
 
 function getHardwareConfirmationCountLabel(count: number) {
-  if (count === 1) {
-    return 'One';
-  }
-  if (count === 2) {
-    return 'Two';
-  }
-  if (count === 3) {
-    return 'Three';
-  }
   return String(count);
+}
+
+function getEnableTradingConfirmationLabelId(count: number) {
+  return count === 1
+    ? ETranslations.perp_enable_trading_steps_wallet_confirmation__desc
+    : ETranslations.perp_enable_trading_steps_wallet_confirmations__desc;
 }
 
 function EnableTradingStepsContent({
@@ -115,26 +112,34 @@ function EnableTradingStepsContent({
       <YStack gap="$4">
         {signatureSteps.length ? (
           <YStack gap="$3">
-            {signatureSteps.map((step, index) => (
-              <XStack key={step.key} gap="$2.5" alignItems="center">
-                <XStack
-                  width={18}
-                  height={18}
-                  borderRadius={999}
-                  alignItems="center"
-                  justifyContent="center"
-                  bg="$bgStrong"
-                  flexShrink={0}
-                >
-                  <SizableText size="$bodyXsMedium" color="$text">
-                    {index + 1}
-                  </SizableText>
+            {signatureSteps.map((step, index) => {
+              const descriptionId = getEnableTradingSignatureDescription(step);
+
+              return (
+                <XStack key={step.key} gap="$2.5" alignItems="center">
+                  <XStack
+                    width={18}
+                    height={18}
+                    borderRadius={999}
+                    alignItems="center"
+                    justifyContent="center"
+                    bg="$bgStrong"
+                    flexShrink={0}
+                  >
+                    <SizableText size="$bodyXsMedium" color="$text">
+                      {index + 1}
+                    </SizableText>
+                  </XStack>
+                  {descriptionId ? (
+                    <SizableText size="$bodyMd" color="$text">
+                      {intl.formatMessage({
+                        id: descriptionId,
+                      })}
+                    </SizableText>
+                  ) : null}
                 </XStack>
-                <SizableText size="$bodyMd" color="$text">
-                  {getEnableTradingSignatureDescription(step)}
-                </SizableText>
-              </XStack>
-            ))}
+              );
+            })}
           </YStack>
         ) : null}
       </YStack>
@@ -208,7 +213,9 @@ function EnableTradingStepsHeader() {
         })}
       </Dialog.Title>
       <SizableText size="$bodyMd" color="$textSubdued" mt="$1.5" mr={-44}>
-        Enable trading for instant, gas-free Perps orders. Requires{' '}
+        {intl.formatMessage({
+          id: ETranslations.perp_enable_trading_steps_summary__desc,
+        })}{' '}
         <SizableText
           display="inline-flex"
           size="$bodyMd"
@@ -217,7 +224,9 @@ function EnableTradingStepsHeader() {
         >
           {getHardwareConfirmationCountLabel(signatureCount)}
         </SizableText>{' '}
-        wallet confirmation{signatureCount > 1 ? 's' : ''}.
+        {intl.formatMessage({
+          id: getEnableTradingConfirmationLabelId(signatureCount),
+        })}
       </SizableText>
     </Dialog.Header>
   );

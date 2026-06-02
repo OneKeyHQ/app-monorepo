@@ -63,6 +63,7 @@ import {
   useConfirmHyperliquidTerms,
   useRequestEnableTradingWithDepositFallback,
 } from '../../hooks/useEnableTradingWithDepositFallback';
+import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
@@ -86,6 +87,7 @@ import {
   shouldDisablePerpsOrderPanelTradingButtonForAccountLoading,
   shouldSkipPerpsOrderPanelComputedSizeValidation,
 } from '../../utils/perpsOrderPanelEnableTrading';
+import { getEnableTradingDialogConfirmDecision } from '../../utils/enableTradingDialogConfirm';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showEnableTradingStepsDialog } from './modals/EnableTradingStepsDialog';
@@ -189,6 +191,7 @@ function SideButtonInternal({
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const perpsAccountKey = useMemo(
     () => getPerpsAccountKey(perpsAccount),
     [perpsAccount],
@@ -411,7 +414,13 @@ function SideButtonInternal({
 
   const buttonText = useMemo(() => {
     if (isMobile && formData.orderMode === 'scale') {
-      return side === 'long' ? 'Preview Buy' : 'Preview Sell';
+      return side === 'long'
+        ? intl.formatMessage({
+            id: ETranslations.perp_preview_buy__action,
+          })
+        : intl.formatMessage({
+            id: ETranslations.perp_preview_sell__action,
+          });
     }
     if (priceError === 'bbo_unavailable' && !shouldEnableTradingBeforeOrder)
       return intl.formatMessage({
@@ -927,6 +936,14 @@ function SideButtonInternal({
         await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
         const latestPerpsAccountStatus =
           (await perpsActiveAccountStatusAtom.get()) ?? perpsAccountStatus;
+        if (
+          getEnableTradingDialogConfirmDecision(latestPerpsAccountStatus) ===
+          'deposit'
+        ) {
+          beforeDeposit?.();
+          await showDepositWithdrawModal('deposit');
+          return stopResult;
+        }
         const result = await showEnableTradingStepsDialog({
           accountStatus: latestPerpsAccountStatus,
           onConfirm: async ({ closeDialog }) => {
@@ -976,6 +993,7 @@ function SideButtonInternal({
       intl,
       perpsAccountStatus,
       requestEnableTradingWithDepositFallback,
+      showDepositWithdrawModal,
       shouldShowEnableTradingDialog,
     ],
   );
