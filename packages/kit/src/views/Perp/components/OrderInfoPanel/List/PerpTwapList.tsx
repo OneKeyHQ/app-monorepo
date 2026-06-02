@@ -232,6 +232,9 @@ function getTwapBaseInfo({
     reduceOnlyText: state.reduceOnly
       ? intl.formatMessage({ id: ETranslations.perp_yes__title })
       : intl.formatMessage({ id: ETranslations.perp_no__title }),
+    randomizeText: state.randomize
+      ? intl.formatMessage({ id: ETranslations.perp_yes__title })
+      : intl.formatMessage({ id: ETranslations.perp_no__title }),
   };
 }
 
@@ -462,10 +465,17 @@ function TwapActiveRow({
           >
             <SizableText size="$bodySm">{baseInfo.reduceOnlyText}</SizableText>
           </XStack>
-          <YStack
+          <XStack
             {...getColumnStyle(columnConfigs[6])}
+            justifyContent={calcCellAlign(columnConfigs[6].align)}
+            alignItems="center"
+          >
+            <SizableText size="$bodySm">{baseInfo.randomizeText}</SizableText>
+          </XStack>
+          <YStack
+            {...getColumnStyle(columnConfigs[7])}
             justifyContent="center"
-            alignItems={calcCellAlign(columnConfigs[6].align)}
+            alignItems={calcCellAlign(columnConfigs[7].align)}
           >
             <SizableText size="$bodySm">{creationTime.inline}</SizableText>
           </YStack>
@@ -473,8 +483,8 @@ function TwapActiveRow({
       ) : null}
       {shouldRenderRight ? (
         <XStack
-          {...getColumnStyle(columnConfigs[7])}
-          justifyContent={calcCellAlign(columnConfigs[7].align)}
+          {...getColumnStyle(columnConfigs[8])}
+          justifyContent={calcCellAlign(columnConfigs[8].align)}
           alignItems="center"
           cursor="pointer"
         >
@@ -620,10 +630,17 @@ function TwapHistoryRow({
           >
             <SizableText size="$bodySm">{baseInfo.reduceOnlyText}</SizableText>
           </XStack>
-          <YStack
+          <XStack
             {...getColumnStyle(columnConfigs[6])}
+            justifyContent={calcCellAlign(columnConfigs[6].align)}
+            alignItems="center"
+          >
+            <SizableText size="$bodySm">{baseInfo.randomizeText}</SizableText>
+          </XStack>
+          <YStack
+            {...getColumnStyle(columnConfigs[7])}
             justifyContent="center"
-            alignItems={calcCellAlign(columnConfigs[6].align)}
+            alignItems={calcCellAlign(columnConfigs[7].align)}
           >
             <SizableText size="$bodySm">{creationTime.inline}</SizableText>
           </YStack>
@@ -631,8 +648,8 @@ function TwapHistoryRow({
       ) : null}
       {shouldRenderRight ? (
         <XStack
-          {...getColumnStyle(columnConfigs[7])}
-          justifyContent={calcCellAlign(columnConfigs[7].align)}
+          {...getColumnStyle(columnConfigs[8])}
+          justifyContent={calcCellAlign(columnConfigs[8].align)}
           alignItems="center"
         >
           <SizableText
@@ -901,6 +918,15 @@ function PerpTwapList() {
           id: ETranslations.perps_reduce_only,
         }),
         minWidth: 120,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'randomize',
+        title: intl.formatMessage({
+          id: ETranslations.perp_twap_random__title,
+        }),
+        minWidth: 100,
         flex: 1,
         align: 'left',
       },
