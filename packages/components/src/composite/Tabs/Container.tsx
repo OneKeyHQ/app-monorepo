@@ -357,22 +357,26 @@ export function Container({
       tabIndex >= 0 ? listContainerRef.current.children.item(tabIndex) : null;
     const element = (registeredElement ??
       fallbackElement) as HTMLElement | null;
-    // Same element + already observing -> nothing to do.
-    if (element && observedElementRef.current === element) {
-      return;
-    }
-    if (resizeObserverRef.current) {
-      resizeObserverRef.current.disconnect();
-      resizeObserverRef.current = null;
-    }
-    observedElementRef.current = element;
-    if (!element) return;
-    const apply = () => {
-      if (!listContainerRef.current) return;
-      const h = getTabContentHeight(element);
+    const apply = (targetElement: HTMLElement) => {
+      const containerElement = listContainerRef.current as HTMLElement | null;
+      if (!containerElement) return;
+      const currentRegisteredElement =
+        scrollTabElementsRef.current?.[focusedTab.value]?.element;
+      const registeredHeight =
+        scrollTabElementsRef.current?.[focusedTab.value]?.height;
+      const shouldMeasureFallbackNaturalHeight =
+        !currentRegisteredElement && targetElement === fallbackElement;
+      if (shouldMeasureFallbackNaturalHeight) {
+        containerElement.style.height = '';
+      }
+      const h =
+        typeof registeredHeight === 'number' &&
+        Number.isFinite(registeredHeight)
+          ? registeredHeight
+          : getTabContentHeight(targetElement);
       if (h > 0) {
         const grew = h > lastListContainerHeightRef.current;
-        (listContainerRef.current as HTMLElement).style.height = `${h}px`;
+        containerElement.style.height = `${h}px`;
         lastListContainerHeightRef.current = h;
         // Any growth that follows a tab switch can strand the stale compositor
         // extent (arriving at a tab taller than the one just left — for any
@@ -390,12 +394,27 @@ export function Container({
             refreshScrollExtent();
           }, 150);
         }
+      } else {
+        containerElement.style.height = '';
       }
     };
+    // Same element + already observing -> nothing to do.
+    if (element && observedElementRef.current === element) {
+      apply(element);
+      return;
+    }
+    if (resizeObserverRef.current) {
+      resizeObserverRef.current.disconnect();
+      resizeObserverRef.current = null;
+    }
+    observedElementRef.current = element;
+    if (!element) {
+      return;
+    }
     // Synchronous initial measurement so the container doesn't flicker
     // between 0-height and the first observer callback.
-    apply();
-    const ro = new ResizeObserver(apply);
+    apply(element);
+    const ro = new ResizeObserver(() => apply(element));
     ro.observe(element);
     resizeObserverRef.current = ro;
   }, [focusedTab, getTabContentHeight, tabNames, refreshScrollExtent]);
