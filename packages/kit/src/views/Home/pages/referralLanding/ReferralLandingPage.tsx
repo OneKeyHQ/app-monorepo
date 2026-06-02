@@ -7,13 +7,13 @@ import {
   Spinner,
   Stack,
   YStack,
-  closeAllDialogInstances,
   rootNavigationRef,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useOneKeyWalletDetection } from '@onekeyhq/kit/src/hooks/useWebDapp/useOneKeyWalletDetection';
+import { createReferralLandingRequestGuard } from '@onekeyhq/kit/src/routes/config/deeplink/referralLandingRequestGuard';
 import { safePushToEarnRoute } from '@onekeyhq/kit/src/views/Earn/earnUtils';
 import { useBindReferralViaExtension } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useBindReferralViaExtension';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -33,10 +33,7 @@ import type {
 } from '@onekeyhq/shared/src/logger/scopes/referral/scenes/page';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  EModalReferFriendsRoutes,
-  EModalRoutes,
   ETabEarnRoutes,
-  ETabHomeRoutes,
   type ETabHomeRoutes as ETabHomeRoutesType,
   ETabRoutes,
   type ITabHomeParamList,
@@ -51,9 +48,19 @@ import {
 } from '../../utils/deepLinkLaunchUtils';
 
 import { REFERRAL_STEP2_ANCHOR_ID, ReferralWebLanding } from './components';
+import { openReferralInvitedByFriendModalWithGuard } from './referralLandingModalGuard';
 
 import type { IReferralVariant } from './components';
 
+type IReferralLandingRouteName =
+  | ETabHomeRoutesType.TabHomeReferralLanding
+  | ETabHomeRoutesType.TabHomeReferralLandingWithoutPage
+  | ETabHomeRoutesType.TabHomeReferralLandingCodeOnly;
+
+type IReferralLandingRouteParams =
+  | ITabHomeParamList[ETabHomeRoutesType.TabHomeReferralLanding]
+  | ITabHomeParamList[ETabHomeRoutesType.TabHomeReferralLandingWithoutPage]
+  | ITabHomeParamList[ETabHomeRoutesType.TabHomeReferralLandingCodeOnly];
 // Delay before opening the InvitedByFriend modal after tab navigation.
 // Gives the target tab enough time to mount and render before the modal overlay.
 const MODAL_OPEN_DELAY_MS = 1500;
@@ -102,6 +109,77 @@ const normalizeReferralLandingPageName = (
     : undefined;
 };
 
+const isPerpReferralLandingPage = (
+  pageName?: EReferralLandingPageName,
+): boolean =>
+  pageName === EReferralLandingPageName.Perp ||
+  pageName === EReferralLandingPageName.Perps;
+
+async function syncPerpReferralCodeForActiveRequest({
+  code,
+  pageName,
+  shouldContinue,
+}: {
+  code: string | undefined;
+  pageName: EReferralLandingPageName | undefined;
+  shouldContinue: () => boolean;
+}) {
+  if (!code) {
+    return true;
+  }
+
+  const nextReferralCode = isPerpReferralLandingPage(pageName)
+    ? code
+    : undefined;
+
+  try {
+    await backgroundApiProxy.simpleDb.perp.setPerpData((prev) => {
+      if (!shouldContinue()) {
+        return prev ?? {};
+      }
+      if (nextReferralCode) {
+        return {
+          ...prev,
+          referralCode: nextReferralCode,
+        };
+      }
+      if (!prev?.referralCode) {
+        return prev ?? {};
+      }
+      const { referralCode, ...rest } = prev;
+      return rest;
+    });
+  } catch (error) {
+    defaultLogger.app.error.log(
+      `Failed to sync referral code to perp DB: ${String(error)}`,
+    );
+  }
+
+  return shouldContinue();
+}
+
+function getReferralLandingRouteParams(
+  routeParams: IReferralLandingRouteParams | undefined,
+): {
+  code: string | undefined;
+  page: string | undefined;
+  fromDeepLink: boolean | undefined;
+  referralRequestId: number | undefined;
+} {
+  return {
+    code: routeParams?.code,
+    page: routeParams && 'page' in routeParams ? routeParams.page : undefined,
+    fromDeepLink:
+      routeParams && 'fromDeepLink' in routeParams
+        ? routeParams.fromDeepLink
+        : undefined,
+    referralRequestId:
+      routeParams && 'referralRequestId' in routeParams
+        ? routeParams.referralRequestId
+        : undefined,
+  };
+}
+
 const DEFAULT_INVITEE_DISCOUNT = '10%';
 
 const REFERRAL_UTM_SOURCE = {
@@ -120,19 +198,16 @@ const formatDiscount = (value?: { amount: number; unit: string }) =>
   value ? `${value.amount}${value.unit}` : '';
 
 function ReferralLandingPage() {
-  const route = useAppRoute<
-    ITabHomeParamList,
-    ETabHomeRoutesType.TabHomeReferralLanding
-  >();
+  const route = useAppRoute<ITabHomeParamList, IReferralLandingRouteName>();
   const navigation = useAppNavigation();
   const [appIsLocked] = useAppIsLockedAtom();
 
-  const routeParams = route.params as
-    | { code: string; page?: string; fromDeepLink?: boolean }
-    | undefined;
-  const routeCode = routeParams?.code;
-  const page = routeParams?.page;
-  const fromDeepLink = routeParams?.fromDeepLink;
+  const {
+    code: routeCode,
+    page,
+    fromDeepLink,
+    referralRequestId,
+  } = getReferralLandingRouteParams(route.params);
 
   // /r/invite?code=XXX → extract code from URL query params.
   // When the query is missing, return undefined (not the literal "invite") so
@@ -355,27 +430,36 @@ function ReferralLandingPage() {
   );
 
   // Native / extension only: web platforms render the 3-step UI above and
-  // skip this effect. hasProcessedRef guards against duplicate processing.
-  const hasProcessedRef = useRef(false);
+  // skip this effect. Track a stable request key so reused route instances can
+  // still process a newer referral request.
+  const processedReferralRequestKeyRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (hasProcessedRef.current) {
-      return;
-    }
     if (isWeb) {
       return;
     }
     if (appIsLocked) {
       return;
     }
-
-    hasProcessedRef.current = true;
+    const referralRequestKey =
+      referralRequestId !== undefined
+        ? `request:${referralRequestId}`
+        : `route:${code ?? ''}:${page ?? ''}:${fromDeepLink ? '1' : '0'}`;
+    if (processedReferralRequestKeyRef.current === referralRequestKey) {
+      return;
+    }
+    processedReferralRequestKeyRef.current = referralRequestKey;
 
     let mounted = true;
     let modalTimerId: ReturnType<typeof setTimeout> | undefined;
+    const { shouldContinue: shouldContinueReferralRequest } =
+      createReferralLandingRequestGuard({
+        requestId: referralRequestId,
+        shouldContinue: () => mounted,
+      });
 
     const processReferralLanding = async () => {
       const isNavigationReady = await waitForNavigationReady();
-      if (!mounted) {
+      if (!shouldContinueReferralRequest()) {
         return;
       }
       if (!isNavigationReady) {
@@ -387,15 +471,14 @@ function ReferralLandingPage() {
         : REFERRAL_UTM_SOURCE.appLanding;
       logEnter(utmSource);
 
-      if (code && (page === 'perp' || page === 'perps')) {
-        try {
-          await backgroundApiProxy.simpleDb.perp.setPerpData((prev) => ({
-            ...prev,
-            referralCode: code,
-          }));
-        } catch (error) {
-          console.error('Failed to save referral code to perp DB:', error);
-        }
+      if (
+        !(await syncPerpReferralCodeForActiveRequest({
+          code,
+          pageName,
+          shouldContinue: shouldContinueReferralRequest,
+        }))
+      ) {
+        return;
       }
 
       const targetTabRoute = pageName
@@ -404,6 +487,9 @@ function ReferralLandingPage() {
 
       if (pageName && EARN_PAGE_NAMES.has(pageName)) {
         await safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);
+        if (!shouldContinueReferralRequest()) {
+          return;
+        }
       } else if (targetTabRoute === ETabRoutes.Perp) {
         setPerpPageEnterSource(EPerpPageEnterSource.Referral);
         navigation.switchTab(targetTabRoute);
@@ -412,27 +498,15 @@ function ReferralLandingPage() {
       }
 
       modalTimerId = setTimeout(() => {
-        void (async () => {
-          // Native referral links can arrive while an app-level Dialog is open.
-          // Close existing dialogs before pushing the invitation modal.
-          if (platformEnv.isNative) {
-            await closeAllDialogInstances();
-          }
-          if (!mounted) {
-            return;
-          }
-          navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-            screen: EModalReferFriendsRoutes.InvitedByFriend,
-            params: {
-              code,
-              page,
-            },
-          });
-          navigation.reset({
-            index: 0,
-            routes: [{ name: ETabHomeRoutes.TabHome }],
-          });
-        })();
+        if (!shouldContinueReferralRequest()) {
+          return;
+        }
+        openReferralInvitedByFriendModalWithGuard({
+          code,
+          page,
+          navigation,
+          shouldContinue: shouldContinueReferralRequest,
+        });
       }, MODAL_OPEN_DELAY_MS);
     };
 
@@ -452,6 +526,7 @@ function ReferralLandingPage() {
     navigation,
     isWeb,
     fromDeepLink,
+    referralRequestId,
     logEnter,
   ]);
 

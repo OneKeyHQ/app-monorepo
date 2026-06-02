@@ -23,12 +23,16 @@ import {
   convertToSectionGroups,
   getFilteredHistoryBySearchKey,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAccountHistoryTx,
   IHistoryListSectionGroup,
 } from '@onekeyhq/shared/types/history';
 import type { ITokenFiat } from '@onekeyhq/shared/types/token';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
@@ -47,9 +51,65 @@ import { TxHistoryListItem } from './TxHistoryListItem';
 // Measured on web/desktop. Drives react-virtualized's CellMeasurer bypass so
 // rows are positioned synchronously with scroll instead of via async layout.
 // No-op on native (List.tsx Web fast path is not on the native code path).
+//
+// Geometry (tableLayout, see TxActionCommon.tsx): 68 = py top ($3 = 12) + py
+// bottom ($3 = 12) + 44, where 44 is the taller of the left column (title
+// $bodyMdMedium lineHeight 20 + gap $1 = 4 + subtitle $bodyMd lineHeight 20) and
+// a 1–2 line changes column. So a row with <= MAX_FIXED_HEIGHT_CHANGE_LINES
+// change lines is always 68.
+// IMPORTANT: if the row padding, the left column, or renderTransferLine's
+// per-line layout changes, update TX_ROW_HEIGHT / CHANGE_LINE_HEIGHT below.
 const TX_ROW_HEIGHT = 68;
 const SECTION_HEADER_HEIGHT_FIRST = 32; // mt=$0 on first section
 const SECTION_HEADER_HEIGHT_NEXT = 52; // mt=$5 (~20px) on subsequent sections
+
+// In tableLayout, an ASSET_TRANSFER row renders one change line per grouped
+// token (grouped sends + grouped receives — see `buildExpandedTransferView` in
+// TxActionTransfer.tsx). TX_ROW_HEIGHT fits up to this many change lines.
+const MAX_FIXED_HEIGHT_CHANGE_LINES = 2;
+
+// Height contributed by each change line beyond MAX_FIXED_HEIGHT_CHANGE_LINES:
+// one $bodyMd line (lineHeight 20) plus the changes column's row gap ($1 = 4) —
+// see the `<Stack gap="$1">` changes column in TxActionCommon.tsx. This lets
+// getWebRowHeight return an exact, taller fixed height for multi-token rows
+// instead of falling back to CellMeasurer, preserving the fast-scroll path.
+const CHANGE_LINE_HEIGHT = 24;
+
+// Count how many change lines the expanded transfer view will render for a row.
+// Returns 1 for non-transfer actions (approve / function call / unknown only
+// ever render a single change line in tableLayout). Distinct send + receive
+// token counts are a safe upper bound on the rendered lines (UTXO single-token
+// and send-to-self rows collapse to fewer): over-counting only reserves a
+// slightly taller fixed height (a harmless trailing gap), never a shorter one
+// (which would clip the row into the next).
+// getWebRowHeight runs in the scroll measurement hot path and may query the
+// same row repeatedly; cache the line count by tx object identity so
+// getDisplayedActions + Set construction run at most once per tx. The count is
+// intrinsic to the tx's transfers (independent of tableLayout) and the tx's
+// token set is stable across pending -> confirmed, so sharing one cache is
+// safe. Keyed by the IAccountHistoryTx reference, entries are GC'd when the
+// list data is replaced.
+const transferChangeLineCountCache = new WeakMap<IAccountHistoryTx, number>();
+
+function getTransferChangeLineCount(item: IAccountHistoryTx): number {
+  const cached = transferChangeLineCountCache.get(item);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const action = getDisplayedActions({ decodedTx: item.decodedTx })[0];
+  let changeLineCount = 1;
+  if (
+    action?.type === EDecodedTxActionType.ASSET_TRANSFER &&
+    action.assetTransfer
+  ) {
+    const { sends, receives } = action.assetTransfer;
+    const distinctTokenCount = (transfers: typeof sends) =>
+      new Set((transfers ?? []).map((t) => t.tokenIdOnNetwork)).size;
+    changeLineCount = distinctTokenCount(sends) + distinctTokenCount(receives);
+  }
+  transferChangeLineCountCache.set(item, changeLineCount);
+  return changeLineCount;
+}
 
 type IProps = {
   data: IAccountHistoryTx[];
@@ -442,6 +502,21 @@ function BaseTxHistoryListView(props: IProps) {
               if (info.item?.decodedTx?.status === EDecodedTxStatus.Pending) {
                 return undefined;
               }
+              // A multi-token transfer renders more change lines than the base
+              // height can hold (tableLayout only). Stay on the CellMeasurer-free
+              // fast path by returning the exact taller height — each extra line
+              // adds CHANGE_LINE_HEIGHT — so the row expands without overflowing
+              // the next instead of falling back to async measurement.
+              if (tableLayout && info.item) {
+                const changeLineCount = getTransferChangeLineCount(info.item);
+                if (changeLineCount > MAX_FIXED_HEIGHT_CHANGE_LINES) {
+                  return (
+                    TX_ROW_HEIGHT +
+                    (changeLineCount - MAX_FIXED_HEIGHT_CHANGE_LINES) *
+                      CHANGE_LINE_HEIGHT
+                  );
+                }
+              }
               return TX_ROW_HEIGHT;
             }
             // header / footer (loading / "load more" buttons) aren't a fixed
@@ -449,7 +524,7 @@ function BaseTxHistoryListView(props: IProps) {
             return undefined;
           }
         : undefined,
-    [inTabList],
+    [inTabList, tableLayout],
   );
 
   const itemCounts = useMemo(() => {

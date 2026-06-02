@@ -33,6 +33,7 @@ export type ITabHomeParamList = {
     code: string;
     page: string;
     fromDeepLink?: boolean;
+    referralRequestId?: number;
   };
   [ETabHomeRoutes.TabHomeReferralLandingWithoutPage]: {
     code: string;

@@ -31,6 +31,7 @@ import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import { useL2Book } from '../hooks/usePerpMarketData';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
 import { useTradingPrice } from '../hooks/useTradingPrice';
+import { isPerpsL2BookInteractive } from '../utils/l2BookFreshness';
 import {
   type IPerpsMobileLayoutTraceRect,
   getPerpsMobileLayoutTraceRect,
@@ -419,20 +420,20 @@ export function PerpOrderBook({
     return { nSigFigs, mantissa };
   }, [activeTradeInstrument.coin, orderBookTickOptions]);
 
-  const { l2Book, hasOrderBook } = useL2Book({
+  const { l2Book, hasOrderBook, isOrderBookInteractive } = useL2Book({
     nSigFigs: l2SubscriptionOptions.nSigFigs,
     mantissa: l2SubscriptionOptions.mantissa,
   });
 
   useEffect(() => {
-    if (hasOrderBook && l2Book) {
+    if (hasOrderBook && l2Book && isOrderBookInteractive) {
       markPerpsColdStartPerfOnce('ui_order_book_ready', {
         coin: l2Book.coin,
         bidLevels: l2Book.bids.length,
         askLevels: l2Book.asks.length,
       });
     }
-  }, [hasOrderBook, l2Book]);
+  }, [hasOrderBook, isOrderBookInteractive, l2Book]);
 
   useEffect(() => {
     const coin = activeTradeInstrument.coin;
@@ -568,6 +569,15 @@ export function PerpOrderBook({
 
   const handleLevelSelect = useCallback(
     (selection: IOrderBookSelection) => {
+      if (
+        !isPerpsL2BookInteractive({
+          bookTime: l2Book?.time,
+          bookReceivedAt: l2Book?.localReceivedAt,
+        })
+      ) {
+        return;
+      }
+
       const updates: Partial<ITradingFormData> = {
         price: selection.price,
       };
@@ -578,7 +588,7 @@ export function PerpOrderBook({
 
       actionsRef.current.updateTradingForm(updates);
     },
-    [actionsRef, formData.type],
+    [actionsRef, formData.type, l2Book?.localReceivedAt, l2Book?.time],
   );
 
   const mobileMaxLevelsPerSide = useMemo(() => {
@@ -693,7 +703,7 @@ export function PerpOrderBook({
           showTickSelector
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
-          onSelectLevel={handleLevelSelect}
+          onSelectLevel={isOrderBookInteractive ? handleLevelSelect : undefined}
           loadingNode={
             <DefaultLoadingNode
               variant="mobileHorizontal"
@@ -727,7 +737,7 @@ export function PerpOrderBook({
           showTickSelector
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
-          onSelectLevel={handleLevelSelect}
+          onSelectLevel={isOrderBookInteractive ? handleLevelSelect : undefined}
           variant="mobileVertical"
         />
       </YStack>
@@ -741,6 +751,7 @@ export function PerpOrderBook({
     handleLevelSelect,
     selectedTickOption,
     hasOrderBook,
+    isOrderBookInteractive,
     mobileMaxLevelsPerSide,
     tickOptions,
     priceDecimals,
@@ -775,7 +786,7 @@ export function PerpOrderBook({
             showTickSelector
             priceDecimals={priceDecimals}
             sizeDecimals={sizeDecimals}
-            onSelectLevel={handleLevelSelect}
+            onSelectLevel={undefined}
             variant="mobileVertical"
           />
         </YStack>
@@ -802,7 +813,7 @@ export function PerpOrderBook({
             showTickSelector
             priceDecimals={priceDecimals}
             sizeDecimals={sizeDecimals}
-            onSelectLevel={handleLevelSelect}
+            onSelectLevel={undefined}
             loadingNode={
               <DefaultLoadingNode
                 variant="mobileHorizontal"
@@ -860,7 +871,7 @@ export function PerpOrderBook({
           showTickSelector
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
-          onSelectLevel={handleLevelSelect}
+          onSelectLevel={isOrderBookInteractive ? handleLevelSelect : undefined}
           variant="web"
         />
       ) : (

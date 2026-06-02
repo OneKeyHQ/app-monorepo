@@ -1285,12 +1285,20 @@ class ServiceHistory extends ServiceBase {
           ...paginationBody,
         },
         {
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+          headers: {
+            ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
                 accountId: params.accountId,
               },
-            ),
+            )),
+            // Authenticate this request only so the server can attach per-user
+            // KYT risk data, without authenticating the whole shared wallet client.
+            // Watch-only accounts are excluded from KYT: withhold the token so the
+            // server never enrols their addresses (no queue / no data / no push).
+            ...(accountUtils.isWatchingAccount({ accountId: params.accountId })
+              ? {}
+              : await this.getOneKeyIdAuthHeaders()),
+          },
         },
       );
     };

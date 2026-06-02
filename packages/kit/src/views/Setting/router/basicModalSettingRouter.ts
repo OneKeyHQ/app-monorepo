@@ -26,6 +26,10 @@ const SettingClearAppCacheModal = LazyLoadPage(
 const SettingProtectionModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Protection'),
 );
+const SettingReceiveRiskSupportedAssetsModal = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/Protection/ReceiveRiskSupportedAssets'),
+);
 const SettingSpendUTXOModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SpendUTXO'),
 );
@@ -203,6 +207,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     name: EModalSettingRoutes.SettingProtectModal,
     component: SettingProtectionModal,
     rewrite: '/protection',
+  },
+  {
+    name: EModalSettingRoutes.SettingReceiveRiskSupportedAssets,
+    component: SettingReceiveRiskSupportedAssetsModal,
   },
   {
     name: EModalSettingRoutes.SettingClearAppCache,

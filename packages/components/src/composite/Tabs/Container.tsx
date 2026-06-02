@@ -276,6 +276,68 @@ export function Container({
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const observedElementRef = useRef<HTMLElement | null>(null);
+  // Last height written to listContainerRef. Because listContainerRef is the
+  // single shared scroll content whose height always tracks the focused tab,
+  // this is "the previous tab's height" — comparing the next tab against it
+  // tells us whether we just switched to a TALLER tab.
+  const lastListContainerHeightRef = useRef(0);
+  // Armed during a settle window after each tab switch (see the reaction
+  // below). While armed, any growth of the focused tab's content (re)arms a
+  // debounced refresh; the window auto-expires so post-settle load-more
+  // growth never toggles display mid-scroll.
+  const extentRefreshArmedRef = useRef(false);
+  // Hard cap that disarms the settle window.
+  const extentRefreshWindowTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  // Debounce so progressive restoration and any row-measure jitter collapse
+  // into a single refresh at the final settled height — no magnitude
+  // threshold and no per-grow toggling needed.
+  const extentRefreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  // A scroll container whose content first shrinks (the previously-focused
+  // taller tab is hidden by react-freeze, so listContainerRef height drops to
+  // the shorter tab) and then grows back (switching to the taller tab again)
+  // can keep a STALE, too-small scroll extent: scrollHeight and programmatic
+  // `scrollTop = n` are correct, but compositor/async-driven wheel scrolling
+  // clamps to the previous, shorter tab's extent — so the user cannot scroll
+  // to the bottom. We reproduced this on Chromium (the Electron desktop
+  // surface), whose threaded scrolling makes it easy to hit; this is NOT
+  // assumed to be Chromium-only — engines with async scrolling (WebKit/Gecko)
+  // can behave the same, so the refresh is intentionally not gated by browser.
+  // Neither a reflow, an overflow toggle, a content-height change, nor a
+  // window resize refreshes the cached extent; only tearing down and
+  // rebuilding the list container's layout box does. The rebuild reads the
+  // CURRENT layout, so it is correct regardless of which tab we came from, and
+  // is a cheap no-op where the extent was already correct. Toggle display
+  // synchronously so no frame is painted in between (no visible flash), and
+  // restore scrollTop because display:none collapses it to 0.
+  const refreshScrollExtent = useCallback(() => {
+    const lc = listContainerRef.current as HTMLElement | null;
+    const scroller = scrollElement as HTMLElement | null;
+    if (!lc) return;
+    const prevScrollTop = scroller?.scrollTop ?? 0;
+    const prevDisplay = lc.style.display;
+    // Collapsing the list box momentarily clamps the scroller to 0, which the
+    // WindowScroller scroll handler would persist into scrollTopRef. Borrow
+    // the same flag tab-switch uses to suppress that bookkeeping while we tear
+    // the box down and restore it.
+    const prevSwitching = isSwitchingTabRef.current;
+    isSwitchingTabRef.current = true;
+    lc.style.display = 'none';
+    // Force a synchronous reflow so the box is actually torn down before it is
+    // restored on the next line.
+    void lc.offsetHeight;
+    lc.style.display = prevDisplay;
+    // Restoring scrollTop reads layout, which flushes the rebuilt box, so the
+    // assignment clamps against the fresh (full) extent rather than 0.
+    if (scroller && scroller.scrollTop !== prevScrollTop) {
+      scroller.scrollTop = prevScrollTop;
+    }
+    isSwitchingTabRef.current = prevSwitching;
+  }, [scrollElement]);
   // Attach (or re-attach) a ResizeObserver to the focused tab's scroll
   // element so listContainerRef height follows it. Replaces the previous
   // 250ms-polling retry loop entirely:
@@ -309,7 +371,25 @@ export function Container({
       if (!listContainerRef.current) return;
       const h = getTabContentHeight(element);
       if (h > 0) {
+        const grew = h > lastListContainerHeightRef.current;
         (listContainerRef.current as HTMLElement).style.height = `${h}px`;
+        lastListContainerHeightRef.current = h;
+        // Any growth that follows a tab switch can strand the stale compositor
+        // extent (arriving at a tab taller than the one just left — for any
+        // pair, not only the tallest tab). Debounce so progressive react-freeze
+        // / content-visibility restoration and row-measure jitter collapse into
+        // a single refresh once the height stops changing, at the final height.
+        // The window auto-expires (see the tab-switch reaction) so later
+        // load-more growth on the settled tab never toggles display mid-scroll.
+        if (grew && extentRefreshArmedRef.current) {
+          if (extentRefreshDebounceRef.current) {
+            clearTimeout(extentRefreshDebounceRef.current);
+          }
+          extentRefreshDebounceRef.current = setTimeout(() => {
+            extentRefreshDebounceRef.current = null;
+            refreshScrollExtent();
+          }, 150);
+        }
       }
     };
     // Synchronous initial measurement so the container doesn't flicker
@@ -318,7 +398,7 @@ export function Container({
     const ro = new ResizeObserver(apply);
     ro.observe(element);
     resizeObserverRef.current = ro;
-  }, [focusedTab, getTabContentHeight, tabNames]);
+  }, [focusedTab, getTabContentHeight, tabNames, refreshScrollExtent]);
 
   // Keep the requestRemeasure context callback pointing at the latest
   // attach function. We use an indirection ref so contextValue identity
@@ -347,6 +427,14 @@ export function Container({
   useEffect(
     () => () => {
       isEffectValid.current = false;
+      if (extentRefreshWindowTimerRef.current) {
+        clearTimeout(extentRefreshWindowTimerRef.current);
+        extentRefreshWindowTimerRef.current = null;
+      }
+      if (extentRefreshDebounceRef.current) {
+        clearTimeout(extentRefreshDebounceRef.current);
+        extentRefreshDebounceRef.current = null;
+      }
     },
     [],
   );
@@ -399,6 +487,23 @@ export function Container({
     (tabName, prevTabName) => {
       if (isEffectValid.current && prevTabName && tabName !== prevTabName) {
         isSwitchingTabRef.current = true;
+        // Arm the stale-scroll-extent refresh for a settle window: while armed,
+        // `apply` debounces a refresh as the newly-focused tab's content grows
+        // back to its full height. A fresh switch drops any debounce queued for
+        // the previous tab. The window auto-expires so later (load-more) growth
+        // on the settled tab does not toggle display mid-scroll.
+        extentRefreshArmedRef.current = true;
+        if (extentRefreshDebounceRef.current) {
+          clearTimeout(extentRefreshDebounceRef.current);
+          extentRefreshDebounceRef.current = null;
+        }
+        if (extentRefreshWindowTimerRef.current) {
+          clearTimeout(extentRefreshWindowTimerRef.current);
+        }
+        extentRefreshWindowTimerRef.current = setTimeout(() => {
+          extentRefreshArmedRef.current = false;
+          extentRefreshWindowTimerRef.current = null;
+        }, 1000);
         const index = tabNamesRef.current.findIndex((name) => name === tabName);
         let scrollTop = scrollTopRef.current[tabName] || 0;
 
