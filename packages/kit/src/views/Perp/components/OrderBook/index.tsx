@@ -50,7 +50,22 @@ import {
 } from '../../utils/mobileLayoutTrace';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
-import { DepthBar, SideRatioSegments } from './AnimatedDepthBlock';
+import {
+  DepthBar,
+  DepthBarColumn,
+  SideRatioSegments,
+} from './AnimatedDepthBlock';
+import {
+  ORDER_BOOK_HORIZONTAL_BAR_INSET,
+  ORDER_BOOK_HORIZONTAL_ROW_HEIGHT,
+  ORDER_BOOK_HORIZONTAL_ROW_MARGIN_TOP,
+  ORDER_BOOK_MOBILE_BAR_INSET,
+  ORDER_BOOK_MOBILE_ROW_HEIGHT,
+  ORDER_BOOK_MOBILE_ROW_MARGIN_TOP,
+  ORDER_BOOK_MOBILE_SPREAD_ROW_HEIGHT,
+  ORDER_BOOK_VERTICAL_BAR_INSET,
+  ORDER_BOOK_VERTICAL_ROW_MARGIN_TOP,
+} from './AnimatedDepthBlock.shared';
 import { DefaultLoadingNode } from './DefaultLoadingNode';
 import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
@@ -93,6 +108,25 @@ function calculatePercentage(cumSize: string, totalDepth: BigNumber): number {
   if (totalDepth.isZero()) return 0;
   const cumSizeBN = new BigNumber(cumSize);
   return cumSizeBN.dividedBy(totalDepth).multipliedBy(100).toNumber();
+}
+
+// Monotonic token handed to the native depth-bar view. It bumps whenever the
+// data identity changes in a way that must NOT animate (coin switch, tick-size
+// change, or empty<->full transition), so the native side snaps to the new
+// values instead of sweeping from the previous coin's depths (design §6).
+function useOrderBookEpoch(
+  coin: string | undefined,
+  tickKey: string | undefined,
+  isEmpty: boolean,
+): number {
+  const epochRef = useRef(0);
+  const keyRef = useRef<string | null>(null);
+  const key = `${coin ?? ''}|${tickKey ?? ''}|${isEmpty ? 1 : 0}`;
+  if (keyRef.current !== key) {
+    keyRef.current = key;
+    epochRef.current += 1;
+  }
+  return epochRef.current;
 }
 
 // useAggregatedBook produces fresh IFormattedOBLevel objects on every l2Book
@@ -696,6 +730,11 @@ export function OrderBook({
     sizeDecimals,
   );
   const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
+  const depthEpoch = useOrderBookEpoch(
+    _symbol,
+    selectedTickOption?.value,
+    isEmpty,
+  );
 
   const isMobileVariant =
     variant === 'mobileHorizontal' || variant === 'mobileVertical';
@@ -888,40 +927,30 @@ export function OrderBook({
             />
             <View style={styles.levelListContainer}>
               <View style={styles.levelList}>
-                {aggregatedData.bids.map((item, index) => (
-                  <View
-                    key={index}
-                    style={{
-                      height: 24,
-                      alignItems: 'flex-end',
-                      position: 'relative',
-                    }}
-                  >
-                    <DepthBar
-                      color={blockColors.green}
-                      origin="right"
-                      right={0}
-                      width={`${calculatePercentage(item.cumSize, bidDepth)}%`}
-                    />
-                  </View>
-                ))}
+                <DepthBarColumn
+                  percents={aggregatedData.bids.map((item) =>
+                    calculatePercentage(item.cumSize, bidDepth),
+                  )}
+                  rowHeight={ORDER_BOOK_HORIZONTAL_ROW_HEIGHT}
+                  rowMarginTop={ORDER_BOOK_HORIZONTAL_ROW_MARGIN_TOP}
+                  barInset={ORDER_BOOK_HORIZONTAL_BAR_INSET}
+                  color={blockColors.green}
+                  origin="right"
+                  epoch={depthEpoch}
+                />
               </View>
               <View style={styles.levelList}>
-                {aggregatedData.asks.map((item, index) => (
-                  <View
-                    key={index}
-                    style={{
-                      height: 24,
-                      position: 'relative',
-                    }}
-                  >
-                    <DepthBar
-                      color={blockColors.red}
-                      right={0}
-                      width={`${calculatePercentage(item.cumSize, askDepth)}%`}
-                    />
-                  </View>
-                ))}
+                <DepthBarColumn
+                  percents={aggregatedData.asks.map((item) =>
+                    calculatePercentage(item.cumSize, askDepth),
+                  )}
+                  rowHeight={ORDER_BOOK_HORIZONTAL_ROW_HEIGHT}
+                  rowMarginTop={ORDER_BOOK_HORIZONTAL_ROW_MARGIN_TOP}
+                  barInset={ORDER_BOOK_HORIZONTAL_BAR_INSET}
+                  color={blockColors.red}
+                  origin="left"
+                  epoch={depthEpoch}
+                />
               </View>
               <View style={styles.absoluteContainer}>
                 <View style={styles.levelListContainer}>
@@ -1064,19 +1093,19 @@ export function OrderBook({
       </DebugRenderTracker>
       <View style={styles.relativeContainer}>
         <View style={styles.relativeContainer}>
-          {aggregatedData.asks.toReversed().map((itemData, index) => (
-            <View
-              key={index}
-              style={[styles.blockRow, { height: verticalRowHeight }]}
-            >
-              <DepthBar
-                color={blockColors.red}
-                left={0}
-                height={verticalRowHeight}
-                width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
-              />
-            </View>
-          ))}
+          <DepthBarColumn
+            percents={aggregatedData.asks
+              .toReversed()
+              .map((itemData) =>
+                calculatePercentage(itemData.cumSize, askDepth),
+              )}
+            rowHeight={verticalRowHeight}
+            rowMarginTop={ORDER_BOOK_VERTICAL_ROW_MARGIN_TOP}
+            barInset={ORDER_BOOK_VERTICAL_BAR_INSET}
+            color={blockColors.red}
+            origin="left"
+            epoch={depthEpoch}
+          />
           <View
             key="mid"
             style={[
@@ -1085,19 +1114,17 @@ export function OrderBook({
               { backgroundColor: spreadColor.backgroundColor },
             ]}
           />
-          {aggregatedData.bids.map((itemData, index) => (
-            <View
-              key={index}
-              style={[styles.blockRow, { height: verticalRowHeight }]}
-            >
-              <DepthBar
-                color={blockColors.green}
-                left={0}
-                height={verticalRowHeight}
-                width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
-              />
-            </View>
-          ))}
+          <DepthBarColumn
+            percents={aggregatedData.bids.map((itemData) =>
+              calculatePercentage(itemData.cumSize, bidDepth),
+            )}
+            rowHeight={verticalRowHeight}
+            rowMarginTop={ORDER_BOOK_VERTICAL_ROW_MARGIN_TOP}
+            barInset={ORDER_BOOK_VERTICAL_BAR_INSET}
+            color={blockColors.green}
+            origin="left"
+            epoch={depthEpoch}
+          />
         </View>
         <View style={styles.absoluteContainer}>
           {aggregatedData.asks.toReversed().map((itemData, index) => {
@@ -1446,9 +1473,10 @@ export function OrderPairBook({
 }
 
 // Compact row height for mobile
-const MOBILE_ROW_GAP = 0;
-const MOBILE_ROW_HEIGHT = 20;
-const MOBILE_SPREAD_ROW_HEIGHT = 60;
+// Single source of truth lives in AnimatedDepthBlock.shared.ts so the native
+// depth-bar view and this RN text layer stay pixel-aligned (design §7).
+const MOBILE_ROW_HEIGHT = ORDER_BOOK_MOBILE_ROW_HEIGHT;
+const MOBILE_SPREAD_ROW_HEIGHT = ORDER_BOOK_MOBILE_SPREAD_ROW_HEIGHT;
 const MOBILE_PRICE_FLEX = 0.5;
 const MOBILE_SIZE_FLEX = 0.5;
 
@@ -1624,6 +1652,11 @@ export function OrderBookMobile({
     sizeDecimals,
   );
   const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
+  const depthEpoch = useOrderBookEpoch(
+    _symbol ?? activeTradeInstrument.coin,
+    selectedTickOption?.value,
+    isEmpty,
+  );
   const emptyRowIndexes = useMemo(
     () => Array.from({ length: maxLevelsPerSide }, (_, index) => index),
     [maxLevelsPerSide],
@@ -1787,26 +1820,28 @@ export function OrderBookMobile({
       <View style={styles.relativeContainer}>
         {/* background depth bars */}
         <View style={styles.relativeContainer}>
-          {isEmpty
-            ? emptyRowIndexes.map((index) => (
-                <View
-                  key={`ask-empty-bg-${index}`}
-                  style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
-                />
-              ))
-            : aggregatedData.asks.toReversed().map((itemData, index) => (
-                <View
-                  key={index}
-                  style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
-                >
-                  <DepthBar
-                    color={blockColors.red}
-                    left={0}
-                    height={MOBILE_ROW_HEIGHT - MOBILE_ROW_GAP}
-                    width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
-                  />
-                </View>
-              ))}
+          {isEmpty ? (
+            emptyRowIndexes.map((index) => (
+              <View
+                key={`ask-empty-bg-${index}`}
+                style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
+              />
+            ))
+          ) : (
+            <DepthBarColumn
+              percents={aggregatedData.asks
+                .toReversed()
+                .map((itemData) =>
+                  calculatePercentage(itemData.cumSize, askDepth),
+                )}
+              rowHeight={MOBILE_ROW_HEIGHT}
+              rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
+              barInset={ORDER_BOOK_MOBILE_BAR_INSET}
+              color={blockColors.red}
+              origin="left"
+              epoch={depthEpoch}
+            />
+          )}
           <View
             style={{
               flexDirection: 'row',
@@ -1816,26 +1851,26 @@ export function OrderBookMobile({
               justifyContent: 'center',
             }}
           />
-          {isEmpty
-            ? emptyRowIndexes.map((index) => (
-                <View
-                  key={`bid-empty-bg-${index}`}
-                  style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
-                />
-              ))
-            : aggregatedData.bids.map((itemData, index) => (
-                <View
-                  key={index}
-                  style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
-                >
-                  <DepthBar
-                    color={blockColors.green}
-                    left={0}
-                    height={MOBILE_ROW_HEIGHT - MOBILE_ROW_GAP}
-                    width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
-                  />
-                </View>
-              ))}
+          {isEmpty ? (
+            emptyRowIndexes.map((index) => (
+              <View
+                key={`bid-empty-bg-${index}`}
+                style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
+              />
+            ))
+          ) : (
+            <DepthBarColumn
+              percents={aggregatedData.bids.map((itemData) =>
+                calculatePercentage(itemData.cumSize, bidDepth),
+              )}
+              rowHeight={MOBILE_ROW_HEIGHT}
+              rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
+              barInset={ORDER_BOOK_MOBILE_BAR_INSET}
+              color={blockColors.green}
+              origin="left"
+              epoch={depthEpoch}
+            />
+          )}
         </View>
 
         {/* foreground texts */}
