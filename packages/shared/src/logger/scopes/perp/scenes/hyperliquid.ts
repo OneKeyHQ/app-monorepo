@@ -19,6 +19,7 @@ import type {
   ILeverageUpdateRequest,
   IPlaceTwapOrderParams,
   ISetReferrerRequest,
+  ISpotDustingOptOutRequest,
   IUpdateIsolatedMarginRequest,
   IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -113,6 +114,16 @@ export class HyperLiquidScene extends BaseScene {
     params: IHyperLiquidLogParams<
       IBuilderFeeRequest,
       IApiRequestResult | IApiErrorResponse
+    >,
+  ) {
+    return stripSensitiveFields(params);
+  }
+
+  @LogToServer()
+  public setSpotDustingOptOut(
+    params: IHyperLiquidLogParams<
+      ISpotDustingOptOutRequest,
+      ISuccessResponse | IApiErrorResponse
     >,
   ) {
     return stripSensitiveFields(params);
