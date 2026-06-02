@@ -298,6 +298,10 @@ class ServicePrimeTransfer extends ServiceBase {
     | ReturnType<typeof setTimeout>
     | undefined;
 
+  private isImportTraceEnabled() {
+    return process.env.NODE_ENV !== 'production';
+  }
+
   private getErrorMessage(error: unknown) {
     const message = (error as Error)?.message || 'Unknown error';
     return message.length > 500
@@ -392,11 +396,17 @@ class ServicePrimeTransfer extends ServiceBase {
   private resetImportTrace() {
     this.clearImportTraceCleanupTimer();
     this.clearImportTraceBuffer();
-    this.primeTransferImportTraceCreatedAt = Date.now();
+    if (this.isImportTraceEnabled()) {
+      this.primeTransferImportTraceCreatedAt = Date.now();
+    }
   }
 
   private scheduleImportTraceCleanup() {
     this.clearImportTraceCleanupTimer();
+    if (!this.isImportTraceEnabled()) {
+      this.clearImportTraceBuffer();
+      return;
+    }
     this.primeTransferImportTraceCleanupTimer = setTimeout(() => {
       this.clearImportTraceBuffer();
       this.primeTransferImportTraceCleanupTimer = undefined;
@@ -410,7 +420,7 @@ class ServicePrimeTransfer extends ServiceBase {
     // xpubs, or user-facing wallet/account names here. Chrome-based debug agents
     // can read this buffer via globalThis.$$oneKeyDebugApis.primeTransferImportTrace
     // after the Prime Transfer import dialog is mounted.
-    if (this.currentImportFlow !== 'transfer') {
+    if (!this.isImportTraceEnabled() || this.currentImportFlow !== 'transfer') {
       return;
     }
     const { importProgress } = await primeTransferAtom.get();
@@ -439,7 +449,11 @@ class ServicePrimeTransfer extends ServiceBase {
   async recordImportBatchCreateTrace(
     params: IPrimeTransferImportTraceRecordParams,
   ): Promise<void> {
-    if (!this.currentImportTaskUUID || this.currentImportFlow !== 'transfer') {
+    if (
+      !this.isImportTraceEnabled() ||
+      !this.currentImportTaskUUID ||
+      this.currentImportFlow !== 'transfer'
+    ) {
       return;
     }
     await this.recordImportTrace(params);
@@ -447,6 +461,16 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   async getImportTraceSnapshot(): Promise<IPrimeTransferImportTraceSnapshot> {
+    if (!this.isImportTraceEnabled()) {
+      return {
+        createdAt: 0,
+        exportedAt: Date.now(),
+        maxEntries: this.primeTransferImportTraceMaxLength,
+        cleanupDelayMs: this.primeTransferImportTraceCleanupDelayMs,
+        droppedEntriesCount: 0,
+        entries: [],
+      };
+    }
     const { importProgress } = await primeTransferAtom.get();
     const latestEntry =
       this.primeTransferImportTrace[this.primeTransferImportTrace.length - 1];
