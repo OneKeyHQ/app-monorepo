@@ -5,11 +5,13 @@ import { type IntlShape, useIntl } from 'react-intl';
 
 import {
   Button,
+  DashText,
   type IDebugRenderTrackerProps,
   Icon,
   Illustration,
   SizableText,
   Toast,
+  Tooltip,
   XStack,
   YStack,
   useMedia,
@@ -675,6 +677,7 @@ function TwapFillRow({
   isHovered,
   onHoverChange,
   spotDisplayMap,
+  builderFeeRate,
 }: {
   record: ITwapSliceFill;
   cellMinWidth: number;
@@ -684,6 +687,7 @@ function TwapFillRow({
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
   spotDisplayMap: Record<string, string>;
+  builderFeeRate?: number;
 }) {
   const intl = useIntl();
   const { fill } = record;
@@ -699,6 +703,11 @@ function TwapFillRow({
   const fillInfo = useMemo(() => {
     const priceBN = new BigNumber(fill.px);
     const sizeBN = new BigNumber(fill.sz);
+    const closePnlBN = new BigNumber(fill.closedPnl).minus(
+      new BigNumber(fill.fee),
+    );
+    const closePnlColor = closePnlBN.lt(0) ? '$red11' : '$green11';
+    const closePnlPlusOrMinus = closePnlBN.lt(0) ? '-' : '';
     const priceFormatted = priceBN.isFinite()
       ? priceBN.toFixed(getValidPriceDecimals(fill.px))
       : fill.px;
@@ -710,10 +719,42 @@ function TwapFillRow({
         valueFormatter,
       ),
       feeFormatted: numberFormat(fill.fee, valueFormatter),
+      closePnlFormatted: numberFormat(closePnlBN.abs().toFixed(), {
+        formatter: 'value',
+        formatterOptions: {
+          currency: '$',
+        },
+      }),
+      closePnlColor,
+      closePnlPlusOrMinus,
     };
-  }, [fill.fee, fill.px, fill.sz]);
+  }, [fill.closedPnl, fill.fee, fill.px, fill.sz]);
+  const feeTooltipContent = useMemo(() => {
+    const feeRatePercentage =
+      builderFeeRate !== undefined
+        ? `${(builderFeeRate / 1000).toFixed(2)}%`
+        : '-';
+    return (
+      <YStack gap="$3">
+        <YStack gap="$1.5">
+          <SizableText size="$bodySm">
+            {intl.formatMessage({ id: ETranslations.perps_fee_title })}
+            {feeRatePercentage}
+          </SizableText>
+          <SizableText size="$bodySm">
+            {intl.formatMessage({ id: ETranslations.perps_fee_total })}
+            {fillInfo.feeFormatted}
+          </SizableText>
+        </YStack>
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.perps_fee_desc })}
+        </SizableText>
+      </YStack>
+    );
+  }, [builderFeeRate, fillInfo.feeFormatted, intl]);
   const bgColor = getTableRowBgColor({ isHovered, index });
   const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
+  const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
 
   return (
     <XStack
@@ -782,18 +823,37 @@ function TwapFillRow({
             justifyContent={calcCellAlign(columnConfigs[6].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm" color="$textSubdued">
-              {fillInfo.feeFormatted}
-            </SizableText>
-          </XStack>
-          <XStack
-            {...getColumnStyle(columnConfigs[7])}
-            justifyContent={calcCellAlign(columnConfigs[7].align)}
-            alignItems="center"
-          >
-            <SizableText size="$bodySm">#{record.twapId}</SizableText>
+            <Tooltip
+              placement="top"
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  dashThickness={0.3}
+                >
+                  {fillInfo.feeFormatted}
+                </DashText>
+              }
+              renderContent={feeTooltipContent}
+            />
           </XStack>
         </>
+      ) : null}
+      {shouldRenderRight ? (
+        <XStack
+          {...getColumnStyle(columnConfigs[7])}
+          justifyContent={calcCellAlign(columnConfigs[7].align)}
+          alignItems="center"
+        >
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            color={fillInfo.closePnlColor}
+          >
+            {`${fillInfo.closePnlPlusOrMinus}${fillInfo.closePnlFormatted}`}
+          </SizableText>
+        </XStack>
       ) : null}
     </XStack>
   );
@@ -814,6 +874,15 @@ function PerpTwapList() {
   const [activeTab, setActiveTab] = useState<ITwapPanelTab>('active');
   const [currentListPage, setCurrentListPage] = useState(1);
   const [now, setNow] = useState(Date.now());
+  const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+
+  useEffect(() => {
+    void backgroundApiProxy.simpleDb.perp
+      .getExpectMaxBuilderFee()
+      .then((fee) => {
+        setBuilderFeeRate(fee);
+      });
+  }, []);
 
   useEffect(() => {
     void actions.current.loadTwapData();
@@ -1035,17 +1104,20 @@ function PerpTwapList() {
       },
       {
         key: 'fee',
-        title: intl.formatMessage({ id: ETranslations.perp_fee__title }),
+        title: intl.formatMessage({
+          id: ETranslations.perp_trades_history_fee,
+        }),
         minWidth: 110,
         flex: 1,
         align: 'left',
       },
       {
-        key: 'twapId',
-        title: intl.formatMessage({ id: ETranslations.perp_twap_id__title }),
+        key: 'closePnl',
+        title: intl.formatMessage({ id: ETranslations.perp_trades_close_pnl }),
         minWidth: 100,
         flex: 1,
-        align: 'left',
+        align: 'right',
+        fixed: true,
       },
     ],
     [intl],
@@ -1188,9 +1260,10 @@ function PerpTwapList() {
         isHovered={isHovered}
         onHoverChange={onHoverChange}
         spotDisplayMap={spotDisplayMap}
+        builderFeeRate={builderFeeRate}
       />
     ),
-    [fillColumns, fillMinWidth, spotDisplayMap],
+    [builderFeeRate, fillColumns, fillMinWidth, spotDisplayMap],
   );
 
   const emptyState = TWAP_EMPTY_STATE_MAP[activeTab];
