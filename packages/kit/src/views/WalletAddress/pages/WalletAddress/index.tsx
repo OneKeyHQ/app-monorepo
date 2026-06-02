@@ -234,7 +234,10 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
               id: ETranslations.network_also_enabled,
             }),
           });
-          refreshLocalData();
+          await refreshLocalData({
+            alwaysSetState: true,
+            skipAccountsCache: true,
+          });
         }
       } finally {
         setLoading(false);
@@ -263,7 +266,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
         networkId: network.id,
         deriveInfo: account.deriveInfo,
         onDeriveTypeChange: () => {
-          refreshLocalData({ alwaysSetState: true });
+          void refreshLocalData({ alwaysSetState: true });
         },
       });
     }
@@ -324,7 +327,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
                     activeDeriveInfo={account?.deriveInfo}
                     indexedAccountId={indexedAccountId ?? ''}
                     onSelect={async () => {
-                      refreshLocalData();
+                      await refreshLocalData();
                     }}
                     onCreate={async ({ deriveType }) => {
                       const defaultDeriveType =
@@ -334,7 +337,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
                           },
                         );
                       if (deriveType === defaultDeriveType) {
-                        refreshLocalData();
+                        await refreshLocalData();
                       }
                     }}
                   />
@@ -697,10 +700,11 @@ function WalletAddressPageMainView({
       disabledNetworks: {},
       enabledNetworks: {},
     });
+  const skipAccountsCacheForNextRefreshRef = useRef(false);
 
   const {
     result,
-    run: refreshLocalData,
+    run: runRefreshLocalData,
     isLoading,
   } = usePromiseResult(
     async () => {
@@ -809,6 +813,7 @@ function WalletAddressPageMainView({
               includingNotEqualGlobalDeriveTypeAccount ?? false,
             includingDeriveTypeMismatchInDefaultVisibleNetworks:
               includingDeriveTypeMismatchInDefaultVisibleNetworks ?? false,
+            skipCache: skipAccountsCacheForNextRefreshRef.current,
           });
         networksAccount = accountsInfo;
       }
@@ -861,6 +866,27 @@ function WalletAddressPageMainView({
         othersWalletAddress: undefined,
       },
     },
+  );
+
+  const refreshLocalData = useCallback(
+    async (config?: {
+      alwaysSetState?: boolean;
+      skipAccountsCache?: boolean;
+    }) => {
+      if (config?.skipAccountsCache) {
+        skipAccountsCacheForNextRefreshRef.current = true;
+      }
+      try {
+        await runRefreshLocalData({
+          alwaysSetState: config?.alwaysSetState,
+        });
+      } finally {
+        if (config?.skipAccountsCache) {
+          skipAccountsCacheForNextRefreshRef.current = false;
+        }
+      }
+    },
+    [runRefreshLocalData],
   );
 
   useEffect(() => {
