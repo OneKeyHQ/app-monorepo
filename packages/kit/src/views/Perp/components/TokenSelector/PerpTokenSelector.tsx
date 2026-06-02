@@ -65,6 +65,8 @@ import {
   isSpotInstrument,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
+  IPerpTokenSortDirection,
+  IPerpTokenSortField,
   IPerpsAssetCtx,
   IPerpsUniverse,
   ISpotUniverse,
@@ -153,6 +155,16 @@ const DESKTOP_TOKEN_SELECTOR_TABLE_MIN_WIDTH = {
     MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.marketCap.minWidth +
     TOKEN_SELECTOR_TABLE_HORIZONTAL_PADDING,
 } as const;
+
+function getCurrentSortSnapshot(selectorConfig?: {
+  field?: IPerpTokenSortField;
+  direction?: IPerpTokenSortDirection;
+}) {
+  return {
+    sortField: selectorConfig?.field ?? '',
+    sortDirection: selectorConfig?.direction ?? 'desc',
+  };
+}
 
 const PrimaryTabItem = memo(
   ({
@@ -456,7 +468,7 @@ function BasePerpTokenSelectorContent({
   );
   const showCategoryTabs = displayPrimaryTab === 'perps';
 
-  const setActiveTab = useCallback(
+  const updateActiveTab = useCallback(
     (tab: string) => {
       startTransition(() => {
         setSelectorConfig(
@@ -475,21 +487,45 @@ function BasePerpTokenSelectorContent({
     },
     [actions, setSelectorConfig],
   );
+  const setActiveTab = useCallback(
+    (tab: string) => {
+      defaultLogger.perp.tokenSelector.perpTokenSelectorCategoryTabClick({
+        tab,
+        previousTab: displayActiveTab,
+      });
+      updateActiveTab(tab);
+    },
+    [displayActiveTab, updateActiveTab],
+  );
   const setPrimaryTab = useCallback(
     (tab: string) => {
       if (tab === displayPrimaryTab) {
         return;
       }
-      setActiveTab(tab);
+      defaultLogger.perp.tokenSelector.perpTokenSelectorPrimaryTabClick({
+        tab,
+        previousTab: displayPrimaryTab,
+      });
+      updateActiveTab(tab);
     },
-    [displayPrimaryTab, setActiveTab],
+    [displayPrimaryTab, updateActiveTab],
   );
 
   const handleSelectToken = useCallback(
     async (symbol: string) => {
       const isSpotToken = isSpotInstrument(symbol);
+      const { sortField, sortDirection } = getCurrentSortSnapshot(
+        selectorConfig ?? undefined,
+      );
       try {
         onLoadingChange(true);
+        defaultLogger.perp.tokenSelector.perpTokenSelectorTokenClick({
+          activeTab: displayActiveTab,
+          token: symbol,
+          tradeMode: isSpotToken ? 'spot' : 'perp',
+          sortField,
+          sortDirection,
+        });
         if (isSpotToken) {
           const universe = spotUniverses.find((u) => u.name === symbol);
           if (!universe) {
@@ -513,7 +549,14 @@ function BasePerpTokenSelectorContent({
         onLoadingChange(false);
       }
     },
-    [closePopover, actions, onLoadingChange, spotUniverses],
+    [
+      closePopover,
+      actions,
+      displayActiveTab,
+      onLoadingChange,
+      selectorConfig,
+      spotUniverses,
+    ],
   );
 
   const { favoriteItems: perpFavoriteItems, isReady: isPerpFavoritesReady } =
@@ -984,7 +1027,7 @@ function BasePerpTokenSelectorContent({
 
   usePerpActiveTabValidation({
     activeTab,
-    setActiveTab,
+    setActiveTab: updateActiveTab,
     assetsByDex,
     dynamicTabs: dynamicTabsRaw,
     visibleTabs,
@@ -1263,6 +1306,13 @@ function BasePerpTokenSelector() {
         }}
         open={isOpen}
         onOpenChange={(open) => {
+          if (open) {
+            defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
+              source: 'desktop',
+              currentToken: baseName,
+              tradeMode: mode === 'spot' ? 'spot' : 'perp',
+            });
+          }
           setIsOpen(open);
         }}
         placement="bottom-start"
@@ -1426,10 +1476,15 @@ function BasePerpTokenSelectorMobile() {
   const displayLabel = mode === 'spot' ? displayName : `${displayName}USDC`;
 
   const onPressTokenSelector = useCallback(() => {
+    defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
+      source: 'mobileTicker',
+      currentToken: coin,
+      tradeMode: mode === 'spot' ? 'spot' : 'perp',
+    });
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
-  }, [navigation]);
+  }, [coin, mode, navigation]);
 
   return (
     <BasePerpTokenSelectorMobileView

@@ -1,5 +1,6 @@
 import type { IPerpsActiveAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 export type IPerpsOrderPanelEnableTradingStepKey =
   | 'deposit'
@@ -18,6 +19,34 @@ export type IPerpsOrderPanelEnableTradingMode = {
   canAutoEnableInOrderPanel: boolean;
   requiresEnableTradingDialogInOrderPanel: boolean;
 };
+
+export function getPerpsOrderPanelEnableTradingModeByAccount({
+  accountId,
+  indexedAccountId,
+}: {
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+}): IPerpsOrderPanelEnableTradingMode {
+  const resolvedAccountId = accountId ?? indexedAccountId;
+  if (!resolvedAccountId) {
+    return {
+      canAutoEnableInOrderPanel: false,
+      requiresEnableTradingDialogInOrderPanel: false,
+    };
+  }
+
+  const isSoftwareAccount =
+    accountUtils.isHdAccount({ accountId: resolvedAccountId }) ||
+    accountUtils.isImportedAccount({ accountId: resolvedAccountId });
+  const isHardwareAccount = accountUtils.isHwAccount({
+    accountId: resolvedAccountId,
+  });
+
+  return {
+    canAutoEnableInOrderPanel: isSoftwareAccount,
+    requiresEnableTradingDialogInOrderPanel: isHardwareAccount,
+  };
+}
 
 export function shouldShowPerpsOrderPanelTradingButtons({
   canShowCachedTradingButtons,
@@ -46,6 +75,16 @@ export function shouldShowPerpsOrderPanelTradingButtons({
       enableTradingMode.canAutoEnableInOrderPanel ||
       enableTradingMode.requiresEnableTradingDialogInOrderPanel)
   );
+}
+
+export function shouldReservePerpsMobileEnableTradingLayout({
+  isMobile,
+  canShowTradingButtons,
+}: {
+  isMobile: boolean;
+  canShowTradingButtons: boolean;
+}) {
+  return isMobile && !canShowTradingButtons;
 }
 
 export function getPerpsOrderPanelEnableTradingSteps(
@@ -135,6 +174,31 @@ export function shouldDisablePerpsOrderPanelTradingButton({
     (!shouldEnableTradingBeforeOrder && hasBboPriceError) ||
     isServerActionDisabled
   );
+}
+
+export function shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
+  selectAccountLoading,
+  enableTradingLoading,
+  enableTradingTriggered,
+  enableTradingStatusPending,
+  isLiveStatusPending,
+}: {
+  selectAccountLoading: boolean;
+  enableTradingLoading: boolean;
+  enableTradingTriggered: boolean;
+  enableTradingStatusPending: boolean;
+  isLiveStatusPending: boolean;
+}) {
+  if (enableTradingLoading && enableTradingTriggered) {
+    return true;
+  }
+  if (isLiveStatusPending) {
+    return false;
+  }
+  if (enableTradingLoading && enableTradingStatusPending) {
+    return true;
+  }
+  return selectAccountLoading;
 }
 
 export function shouldBlockPerpsOrderPanelPreEnableTradingForMargin({

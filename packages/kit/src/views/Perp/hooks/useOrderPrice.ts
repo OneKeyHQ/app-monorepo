@@ -8,6 +8,7 @@ import {
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { getPerpsMarketDataLocalReceivedAt } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
+import { getScaleOrderReferencePrice } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import { getTriggerEffectivePrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -41,10 +42,12 @@ export function calculateOrderPrice(
   bbo: HL.IWsBbo | null,
   midPriceBN: BigNumber,
   side?: 'long' | 'short',
-  orderMode?: 'standard' | 'trigger',
+  orderMode?: 'standard' | 'trigger' | 'scale' | 'twap',
   triggerOrderType?: ETriggerOrderType,
   triggerPrice?: string,
   executionPrice?: string,
+  scaleLowerPrice?: string,
+  scaleUpperPrice?: string,
   now = Date.now(),
 ): IUseOrderPriceReturn {
   // Trigger mode: use trigger effective price
@@ -61,6 +64,19 @@ export function calculateOrderPrice(
     const isValid = effectivePrice.isFinite() && effectivePrice.gt(0);
     return {
       price: effectivePrice,
+      isValid,
+      error: null,
+    };
+  }
+
+  if (orderMode === 'scale') {
+    const scalePrice = getScaleOrderReferencePrice({
+      lowerPrice: scaleLowerPrice,
+      upperPrice: scaleUpperPrice,
+    });
+    const isValid = scalePrice.isFinite() && scalePrice.gt(0);
+    return {
+      price: scalePrice,
       isValid,
       error: null,
     };
@@ -188,5 +204,7 @@ export function useOrderPrice(side?: 'long' | 'short'): IUseOrderPriceReturn {
     formData.triggerOrderType,
     formData.triggerPrice,
     formData.executionPrice,
+    formData.scaleLowerPrice,
+    formData.scaleUpperPrice,
   );
 }

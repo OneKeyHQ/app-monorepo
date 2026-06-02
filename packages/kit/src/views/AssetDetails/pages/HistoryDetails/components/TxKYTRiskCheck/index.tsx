@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Badge,
@@ -16,6 +17,7 @@ import type { IBadgeType } from '@onekeyhq/components/src/content/Badge';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
@@ -33,51 +35,50 @@ const RISK_LEVEL_CONFIG: Record<
   EKytRiskLevel,
   {
     badgeType: IBadgeType;
-    label: string;
-    subtitle: string;
+    label?: ETranslations;
+    subtitle: ETranslations;
     drillIn: boolean;
   }
 > = {
   [EKytRiskLevel.Checking]: {
     badgeType: 'info',
-    label: 'Checking',
-    subtitle: 'Checking fund-source risk',
+    label: ETranslations.kyt_risk_level_checking__title,
+    subtitle: ETranslations.kyt_risk_level_checking__desc,
     drillIn: false,
   },
   [EKytRiskLevel.None]: {
     badgeType: 'default',
-    label: '',
-    subtitle: 'No significant risk detected',
+    subtitle: ETranslations.kyt_risk_level_none__desc,
     drillIn: false,
   },
   [EKytRiskLevel.Low]: {
     badgeType: 'success',
-    label: 'Low',
-    subtitle: 'Low fund-source risk',
+    label: ETranslations.kyt_risk_level_low__title,
+    subtitle: ETranslations.kyt_risk_level_low__desc,
     drillIn: true,
   },
   [EKytRiskLevel.Moderate]: {
     badgeType: 'warning',
-    label: 'Moderate',
-    subtitle: 'Moderate fund-source risk',
+    label: ETranslations.kyt_risk_level_moderate__title,
+    subtitle: ETranslations.kyt_risk_level_moderate__desc,
     drillIn: true,
   },
   [EKytRiskLevel.High]: {
     badgeType: 'warning',
-    label: 'High',
-    subtitle: 'High fund-source risk',
+    label: ETranslations.kyt_risk_level_high__title,
+    subtitle: ETranslations.kyt_risk_level_high__desc,
     drillIn: true,
   },
   [EKytRiskLevel.Severe]: {
     badgeType: 'critical',
-    label: 'Severe',
-    subtitle: 'Severe fund-source risk',
+    label: ETranslations.kyt_risk_level_severe__title,
+    subtitle: ETranslations.kyt_risk_level_severe__desc,
     drillIn: true,
   },
   [EKytRiskLevel.Failed]: {
     badgeType: 'default',
-    label: 'Failed',
-    subtitle: 'Unable to check fund-source risk',
+    label: ETranslations.global_failed,
+    subtitle: ETranslations.kyt_risk_level_failed__desc,
     drillIn: false,
   },
 };
@@ -121,6 +122,7 @@ function buildRiskDetails({
 }
 
 function KytBadge({ level }: { level: EKytRiskLevel }) {
+  const intl = useIntl();
   const config = RISK_LEVEL_CONFIG[level];
 
   if (level === EKytRiskLevel.None) {
@@ -132,7 +134,9 @@ function KytBadge({ level }: { level: EKytRiskLevel }) {
       <Badge badgeType="default" badgeSize="sm">
         <XStack ai="center" gap="$1">
           <Icon name="InfoCircleOutline" size="$3.5" color="$iconSubdued" />
-          <Badge.Text>Failed</Badge.Text>
+          <Badge.Text>
+            {intl.formatMessage({ id: ETranslations.global_failed })}
+          </Badge.Text>
         </XStack>
       </Badge>
     );
@@ -140,7 +144,7 @@ function KytBadge({ level }: { level: EKytRiskLevel }) {
 
   return (
     <Badge badgeType={config.badgeType} badgeSize="sm">
-      {config.label}
+      {config.label ? intl.formatMessage({ id: config.label }) : null}
     </Badge>
   );
 }
@@ -180,6 +184,7 @@ export function TxKYTRiskCheck({
   networkName?: string;
 }) {
   const navigation = useAppNavigation();
+  const intl = useIntl();
 
   const details = useMemo(() => {
     if (!kyt?.list?.length) return [];
@@ -192,10 +197,13 @@ export function TxKYTRiskCheck({
   const subtitle = useMemo(() => {
     if (!level) return '';
     if (details.length > 1) {
-      return `${details.length} assets checked`;
+      return intl.formatMessage(
+        { id: ETranslations.kyt_assets_checked__msg },
+        { count: details.length },
+      );
     }
-    return RISK_LEVEL_CONFIG[level].subtitle;
-  }, [level, details.length]);
+    return intl.formatMessage({ id: RISK_LEVEL_CONFIG[level].subtitle });
+  }, [details.length, intl, level]);
 
   const navigateToDetail = useCallback(
     (riskDetail: IKytRiskDetail) => {
@@ -207,8 +215,13 @@ export function TxKYTRiskCheck({
   const handlePress = useCallback(() => {
     if (details.length > 1) {
       const dialogInstance = Dialog.show({
-        title: 'Fund-source risk check',
-        description: `${details.length} assets checked`,
+        title: intl.formatMessage({
+          id: ETranslations.kyt_source_of_funds_risk_check__title,
+        }),
+        description: intl.formatMessage(
+          { id: ETranslations.kyt_assets_checked__msg },
+          { count: details.length },
+        ),
         showFooter: false,
         renderContent: (
           <KytAssetSelectionDialogContent
@@ -231,7 +244,7 @@ export function TxKYTRiskCheck({
     if (details.length === 1) {
       navigateToDetail(details[0]);
     }
-  }, [details, navigateToDetail]);
+  }, [details, intl, navigateToDetail]);
 
   if (!level || !config || details.length === 0) {
     return null;
@@ -258,7 +271,11 @@ export function TxKYTRiskCheck({
         })}
       >
         <Stack flex={1} gap="$1">
-          <SizableText size="$bodyMdMedium">Fund-source risk check</SizableText>
+          <SizableText size="$bodyMdMedium">
+            {intl.formatMessage({
+              id: ETranslations.kyt_source_of_funds_risk_check__title,
+            })}
+          </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
             {subtitle}
           </SizableText>
