@@ -1829,6 +1829,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             return;
           }
 
+          await this.backgroundApi.serviceHyperliquid.updateSpotDustingOptOutStatus(
+            {
+              accountAddress: userAddress,
+              optOut: userState.optOutOfSpotDusting === true,
+              source: 'live',
+            },
+          );
+
           if (wsAbstraction) {
             // mode rarely changes, skip redundant atom set + recomputation
             const currentAbstraction = await perpsAbstractionModeAtom.get();

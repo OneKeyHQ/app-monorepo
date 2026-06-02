@@ -40,6 +40,59 @@ export interface IUpdateProgressUpdate {
   total: number;
   transferred: number;
 }
+
+// ---------------------------------------------------------------------------
+// Concurrent (multi-range) download tuning.
+//
+// We split the bundle into BUNDLE_SEGMENT_COUNT byte ranges and download them
+// in parallel, writing each segment directly into its own offset of a single
+// pre-allocated `.partial` file (no separate merge pass, 1x disk). A small
+// sidecar manifest (`<partial>.progress.json`) records each segment's
+// durably-written cursor so an interrupted download resumes by re-requesting
+// only `Range: (start+done)-(end)` for the unfinished segments.
+// ---------------------------------------------------------------------------
+const BUNDLE_SEGMENT_COUNT = 8;
+// Below this size the per-connection setup cost outweighs any speedup, so we
+// keep the simple single-stream path.
+const BUNDLE_MIN_CONCURRENT_BYTES = 2 * 1024 * 1024;
+// Per-segment transient-failure retries inside one concurrent run. The outer
+// updateRetry loop still wraps the whole download for harder failures.
+const BUNDLE_PART_MAX_RETRY = 3;
+const BUNDLE_REQUEST_TIMEOUT_MS = 1000 * 60 * 30;
+// Persist the manifest at most this often per segment to bound fsync cost.
+const BUNDLE_MANIFEST_FLUSH_BYTES = 4 * 1024 * 1024;
+
+interface IBundleDownloadPart {
+  index: number;
+  start: number;
+  end: number;
+  // Bytes durably written into [start, start+done) of the partial file.
+  done: number;
+}
+
+interface IBundleDownloadManifest {
+  // CDN ETag captured at probe time; if it changes mid-download the on-disk
+  // bytes are stale and the whole download must restart.
+  etag: string | null;
+  size: number;
+  parts: IBundleDownloadPart[];
+}
+
+// Sentinel for "the concurrent path cannot proceed" (range unsupported, ETag
+// changed, server ignored Range, ...). Encoded as a message-prefixed
+// OneKeyLocalError rather than a bespoke Error subclass (keeps the file to a
+// single class and satisfies no-raw-error); the orchestrator detects it and
+// falls back to the single-stream downloader so we never regress.
+const CONCURRENT_FALLBACK_PREFIX = 'CONCURRENT_DOWNLOAD_FALLBACK';
+function concurrentFallbackError(reason: string): OneKeyLocalError {
+  return new OneKeyLocalError(`${CONCURRENT_FALLBACK_PREFIX}: ${reason}`);
+}
+function isConcurrentFallback(error: unknown): boolean {
+  return (
+    error instanceof OneKeyLocalError &&
+    error.message.startsWith(CONCURRENT_FALLBACK_PREFIX)
+  );
+}
 // Wraps a Node.js fs/stream/http error into a sanitized OneKeyLocalError
 // before it can reach the analytics layer. Node's errno errors embed the
 // failing path (`ENOENT: no such file ... open '/Users/<name>/...'`) which
@@ -120,7 +173,581 @@ class DesktopApiAppBundleUpdate {
     return tempDir;
   }
 
-  async downloadBundle({
+  // Public entry point. Only the happy path — valid https URL, no in-flight
+  // download, a large enough range-capable file — takes the concurrent route.
+  // Everything else (validation errors, the in-progress guard, the cached-file
+  // short circuit) stays owned by the single-stream implementation so existing
+  // behavior is unchanged, and any capability problem mid-flight falls back to
+  // single-stream so we never regress.
+  async downloadBundle(
+    params: IDownloadPackageParams,
+  ): Promise<IUpdateDownloadedEvent> {
+    const bundleUrl = params.downloadUrl;
+    if (this.isDownloading || !bundleUrl?.startsWith('https://')) {
+      return this.downloadBundleSingleStream(params);
+    }
+
+    let probe: {
+      finalUrl: string;
+      totalBytes: number;
+      etag: string | null;
+      supportsRange: boolean;
+    } | null = null;
+    try {
+      probe = await this.probeBundleRange(bundleUrl);
+    } catch (e) {
+      logger.warn(
+        'bundle-download',
+        'Range probe failed, using single-stream',
+        e,
+      );
+    }
+
+    const canConcurrent =
+      !!probe &&
+      probe.supportsRange &&
+      probe.totalBytes >= BUNDLE_MIN_CONCURRENT_BYTES;
+    if (!probe || !canConcurrent) {
+      return this.downloadBundleSingleStream(params);
+    }
+
+    try {
+      return await this.downloadBundleConcurrent(params, probe);
+    } catch (error) {
+      if (isConcurrentFallback(error)) {
+        logger.warn(
+          'bundle-download',
+          `Concurrent download fell back to single-stream: ${
+            (error as Error).message
+          }`,
+        );
+        return this.downloadBundleSingleStream(params);
+      }
+      throw error;
+    }
+  }
+
+  // Lightweight probe: a one-byte range request that, in a single round trip,
+  // confirms Range support, captures the total size and the CDN ETag, and
+  // resolves the post-redirect final URL (so segment requests skip redirects).
+  private probeBundleRange(
+    url: string,
+    redirectCount = 0,
+  ): Promise<{
+    finalUrl: string;
+    totalBytes: number;
+    etag: string | null;
+    supportsRange: boolean;
+  }> {
+    return new Promise((resolve, reject) => {
+      const reqProtocol = url.startsWith('https://') ? https : http;
+      const req = reqProtocol.get(
+        url,
+        { headers: { Range: 'bytes=0-0' } },
+        (response) => {
+          const status = response.statusCode ?? 0;
+          if (
+            [301, 302, 307, 308].includes(status) &&
+            response.headers.location
+          ) {
+            response.resume();
+            if (redirectCount >= 5) {
+              reject(new Error('Too many redirects'));
+              return;
+            }
+            const resolvedRedirectUrl = new URL(
+              response.headers.location,
+              url,
+            ).toString();
+            if (!resolvedRedirectUrl.startsWith('https://')) {
+              reject(new Error('Redirect to non-HTTPS URL is not allowed'));
+              return;
+            }
+            this.probeBundleRange(resolvedRedirectUrl, redirectCount + 1).then(
+              resolve,
+              reject,
+            );
+            return;
+          }
+          const etag = response.headers.etag ?? null;
+          response.resume();
+          if (status === 206) {
+            const contentRange = response.headers['content-range'];
+            const match =
+              typeof contentRange === 'string'
+                ? contentRange.match(/bytes \d+-\d+\/(\d+)/)
+                : null;
+            if (match) {
+              resolve({
+                finalUrl: url,
+                totalBytes: parseInt(match[1], 10),
+                etag,
+                supportsRange: true,
+              });
+              return;
+            }
+            resolve({
+              finalUrl: url,
+              totalBytes: 0,
+              etag,
+              supportsRange: false,
+            });
+            return;
+          }
+          if (status === 200) {
+            // Server ignored the Range header — single-stream only.
+            resolve({
+              finalUrl: url,
+              totalBytes: parseInt(
+                (response.headers['content-length'] as string) || '0',
+                10,
+              ),
+              etag,
+              supportsRange: false,
+            });
+            return;
+          }
+          reject(new Error(`HTTP ${status}`));
+        },
+      );
+      req.on('error', reject);
+      req.setTimeout(30_000, () => {
+        req.destroy();
+        reject(new Error('Probe timeout'));
+      });
+    });
+  }
+
+  // Invariant: the progress manifest is only meaningful as metadata for an
+  // existing `.partial`. A manifest with no `.partial` behind it (e.g. left by
+  // a crash between renaming a finished `.partial` and deleting its manifest)
+  // is meaningless — drop it so it can never be half-trusted or linger.
+  private dropOrphanManifest(partialFilePath: string, manifestPath: string) {
+    if (!fs.existsSync(partialFilePath) && fs.existsSync(manifestPath)) {
+      logger.info('bundle-download', 'Dropping orphan progress manifest');
+      fs.rmSync(manifestPath, { force: true });
+    }
+  }
+
+  // Discard the whole resume state. The manifest is removed BEFORE the
+  // `.partial` so the manifest never outlives the file it describes (a crash
+  // mid-call leaves at most an orphan `.partial`, which is self-discarding).
+  private discardPartialDownload(
+    partialFilePath: string,
+    manifestPath: string,
+  ) {
+    fs.rmSync(manifestPath, { force: true });
+    fs.rmSync(partialFilePath, { force: true });
+  }
+
+  // Build a fresh segment plan + pre-allocated partial file, or resume from an
+  // existing manifest when its size/ETag still match the current CDN object.
+  private loadOrInitManifest(
+    manifestPath: string,
+    partialFilePath: string,
+    totalBytes: number,
+    etag: string | null,
+  ): IBundleDownloadManifest {
+    if (fs.existsSync(manifestPath) && fs.existsSync(partialFilePath)) {
+      try {
+        const parsed = JSON.parse(
+          fs.readFileSync(manifestPath, 'utf8'),
+        ) as IBundleDownloadManifest;
+        const sameSize = parsed.size === totalBytes;
+        const sameEtag = !etag || !parsed.etag || parsed.etag === etag;
+        const stat = fs.statSync(partialFilePath);
+        if (
+          sameSize &&
+          sameEtag &&
+          stat.size === totalBytes &&
+          Array.isArray(parsed.parts) &&
+          parsed.parts.length > 0
+        ) {
+          for (const p of parsed.parts) {
+            const segLen = p.end - p.start + 1;
+            if (!(p.done >= 0)) p.done = 0;
+            if (p.done > segLen) p.done = segLen;
+          }
+          logger.info('bundle-download', 'Resuming concurrent download', {
+            transferred: parsed.parts.reduce((acc, p) => acc + p.done, 0),
+            total: totalBytes,
+          });
+          return parsed;
+        }
+      } catch (e) {
+        logger.warn('bundle-download', 'Manifest parse failed, restarting', e);
+      }
+    }
+
+    // Fresh start: drop stale artifacts (manifest first so it never describes a
+    // not-yet-(re)created partial), pre-allocate the full file, plan the 8
+    // segments (last one absorbs the remainder), then write the matching
+    // manifest only after the partial exists.
+    this.discardPartialDownload(partialFilePath, manifestPath);
+    const allocFd = fs.openSync(partialFilePath, 'w');
+    try {
+      fs.ftruncateSync(allocFd, totalBytes);
+    } finally {
+      fs.closeSync(allocFd);
+    }
+    const parts: IBundleDownloadPart[] = [];
+    const chunk = Math.ceil(totalBytes / BUNDLE_SEGMENT_COUNT);
+    for (let i = 0; i < BUNDLE_SEGMENT_COUNT; i += 1) {
+      const start = i * chunk;
+      if (start >= totalBytes) break;
+      const end = Math.min(start + chunk - 1, totalBytes - 1);
+      parts.push({ index: parts.length, start, end, done: 0 });
+    }
+    const manifest: IBundleDownloadManifest = { etag, size: totalBytes, parts };
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    return manifest;
+  }
+
+  // Persist the manifest AFTER fsync-ing the data so the recorded cursors never
+  // claim more than what is durably on disk (a crash just means a tiny re-fetch
+  // on resume; positioned writes are idempotent).
+  private flushManifest(
+    manifestPath: string,
+    manifest: IBundleDownloadManifest,
+    fd: number,
+  ) {
+    try {
+      fs.fsyncSync(fd);
+    } catch {
+      // best effort
+    }
+    try {
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    } catch (e) {
+      logger.warn('bundle-download', 'Manifest flush failed', e);
+    }
+  }
+
+  // Download one segment into [start, end] of the shared fd via positioned
+  // writes, resuming from part.done and retrying transient failures in place.
+  private downloadBundlePart(opts: {
+    fd: number;
+    url: string;
+    etag: string | null;
+    part: IBundleDownloadPart;
+    isAborted: () => boolean;
+    registerRequest: (req: { destroy: () => void }) => void;
+    unregisterRequest: (req: { destroy: () => void }) => void;
+    onBytes: (delta: number) => void;
+  }): Promise<void> {
+    const {
+      fd,
+      etag,
+      part,
+      isAborted,
+      registerRequest,
+      unregisterRequest,
+      onBytes,
+    } = opts;
+
+    const attempt = (
+      url: string,
+      redirectCount: number,
+      retry: number,
+    ): Promise<void> =>
+      new Promise<void>((resolve, reject) => {
+        if (isAborted()) {
+          reject(new Error('Download cancelled'));
+          return;
+        }
+        const rangeStart = part.start + part.done;
+        if (rangeStart > part.end) {
+          resolve();
+          return;
+        }
+        const reqProtocol = url.startsWith('https://') ? https : http;
+        const headers: Record<string, string> = {
+          Range: `bytes=${rangeStart}-${part.end}`,
+        };
+        // If-Range: a mismatched ETag makes the CDN reply 200 (full body)
+        // instead of 206, which our handler treats as a fallback signal.
+        if (etag) headers['If-Range'] = etag;
+        const req = reqProtocol.get(url, { headers }, (response) => {
+          const status = response.statusCode ?? 0;
+          if (
+            [301, 302, 307, 308].includes(status) &&
+            response.headers.location
+          ) {
+            response.resume();
+            unregisterRequest(req);
+            if (redirectCount >= 5) {
+              reject(new Error('Too many redirects'));
+              return;
+            }
+            const next = new URL(response.headers.location, url).toString();
+            if (!next.startsWith('https://')) {
+              reject(new Error('Redirect to non-HTTPS URL is not allowed'));
+              return;
+            }
+            attempt(next, redirectCount + 1, retry).then(resolve, reject);
+            return;
+          }
+          if (status === 200) {
+            // Range ignored or ETag changed — cannot safely assemble.
+            response.resume();
+            reject(
+              concurrentFallbackError('server returned 200 to a Range request'),
+            );
+            return;
+          }
+          if (status !== 206) {
+            response.resume();
+            reject(new Error(`HTTP ${status}`));
+            return;
+          }
+          let writePos = rangeStart;
+          response.on('data', (chunk: Buffer) => {
+            if (isAborted()) {
+              try {
+                req.destroy();
+              } catch {
+                // ignore
+              }
+              return;
+            }
+            // Positioned synchronous write — the explicit offset means the 8
+            // concurrent segments never interleave on the shared fd.
+            fs.writeSync(fd, chunk, 0, chunk.length, writePos);
+            writePos += chunk.length;
+            part.done += chunk.length;
+            onBytes(chunk.length);
+          });
+          response.on('end', () => {
+            unregisterRequest(req);
+            resolve();
+          });
+          response.on('error', (err) => {
+            unregisterRequest(req);
+            reject(err);
+          });
+        });
+        registerRequest(req);
+        req.on('error', (err) => {
+          unregisterRequest(req);
+          reject(err);
+        });
+        req.setTimeout(BUNDLE_REQUEST_TIMEOUT_MS, () => {
+          try {
+            req.destroy();
+          } catch {
+            // ignore
+          }
+          reject(new Error('Segment timeout'));
+        });
+      }).catch((err) => {
+        if (
+          isConcurrentFallback(err) ||
+          isAborted() ||
+          retry >= BUNDLE_PART_MAX_RETRY
+        ) {
+          throw err;
+        }
+        // Transient failure: bytes written so far (part.done) stay on disk and
+        // we resume this same segment from its current cursor.
+        logger.warn(
+          'bundle-download',
+          `segment ${part.index} retry ${retry + 1}: ${(err as Error).message}`,
+        );
+        return attempt(url, redirectCount, retry + 1);
+      });
+
+    return attempt(opts.url, 0, 0);
+  }
+
+  // 8-way concurrent download with positioned writes + manifest resume. Reuses
+  // the existing cached-file check, SHA256 verification and IPC progress
+  // channel so the rest of the update pipeline is unaffected.
+  private async downloadBundleConcurrent(
+    {
+      latestVersion: appVersion,
+      bundleVersion,
+      downloadUrl: bundleUrl,
+      sha256,
+    }: IDownloadPackageParams,
+    probe: { finalUrl: string; totalBytes: number; etag: string | null },
+  ): Promise<IUpdateDownloadedEvent> {
+    if (this.isDownloading) {
+      logger.info('bundle-download', 'Download already in progress, skipping');
+      return undefined as unknown as IUpdateDownloadedEvent;
+    }
+    // Required params are validated by the single-stream path; bail to it (via
+    // fallback) rather than duplicating the canonical error shapes here.
+    if (!appVersion || !bundleVersion || !bundleUrl || !sha256) {
+      throw concurrentFallbackError('missing required params');
+    }
+    this.isDownloading = true;
+    clearWindowProgressBar(this.getMainWindow());
+
+    const tempDir = this.getDownloadDir();
+    const fileName = `${appVersion}-${bundleVersion}.zip`;
+    const filePath = path.join(tempDir, fileName);
+    const partialFilePath = `${filePath}.partial`;
+    const manifestPath = `${partialFilePath}.progress.json`;
+    const { totalBytes } = probe;
+
+    // Enforce the manifest<->partial invariant up front: a manifest with no
+    // partial behind it is stale and must not survive into this run.
+    this.dropOrphanManifest(partialFilePath, manifestPath);
+
+    const result: IUpdateDownloadedEvent = {
+      downloadedFile: filePath,
+      downloadUrl: bundleUrl,
+      latestVersion: appVersion,
+      bundleVersion,
+    };
+
+    // Reuse a previously downloaded + verified file if present.
+    if (fs.existsSync(filePath)) {
+      try {
+        if (await this.verifyAndResolve(filePath, sha256)) {
+          // The final file is authoritative — any leftover partial/manifest is
+          // stale junk from an earlier interrupted attempt; drop it.
+          this.discardPartialDownload(partialFilePath, manifestPath);
+          this.isDownloading = false;
+          return result;
+        }
+      } catch (e) {
+        logger.error(
+          'bundle-download',
+          'Cached file invalid, re-downloading',
+          e,
+        );
+      }
+      fs.rmSync(filePath, { force: true });
+    }
+
+    let fd: number | null = null;
+    let aborted = false;
+    const inflight = new Set<{ destroy: () => void }>();
+    const abortAll = () => {
+      aborted = true;
+      for (const req of inflight) {
+        try {
+          req.destroy();
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    try {
+      const manifest = this.loadOrInitManifest(
+        manifestPath,
+        partialFilePath,
+        totalBytes,
+        probe.etag,
+      );
+      fd = fs.openSync(partialFilePath, 'r+');
+      const fileFd = fd;
+
+      this.cancelCurrentDownload = abortAll;
+
+      const lastFlush = manifest.parts.map((p) => p.done);
+      const emitProgress = (delta: number) => {
+        const transferred = manifest.parts.reduce((acc, p) => acc + p.done, 0);
+        const percent = totalBytes > 0 ? (transferred / totalBytes) * 100 : 0;
+        this.getMainWindow()?.webContents.send(
+          ipcMessageKeys.UPDATE_DOWNLOADING,
+          {
+            percent,
+            transferred,
+            total: totalBytes,
+            bytesPerSecond: 0,
+            delta,
+          },
+        );
+        updateWindowProgressBar(this.getMainWindow(), percent);
+      };
+      emitProgress(0);
+
+      try {
+        await Promise.all(
+          manifest.parts.map((part) =>
+            this.downloadBundlePart({
+              fd: fileFd,
+              url: probe.finalUrl,
+              etag: probe.etag,
+              part,
+              isAborted: () => aborted,
+              registerRequest: (req) => inflight.add(req),
+              unregisterRequest: (req) => inflight.delete(req),
+              onBytes: (delta) => {
+                if (
+                  part.done - lastFlush[part.index] >=
+                  BUNDLE_MANIFEST_FLUSH_BYTES
+                ) {
+                  lastFlush[part.index] = part.done;
+                  this.flushManifest(manifestPath, manifest, fileFd);
+                }
+                emitProgress(delta);
+              },
+            }),
+          ),
+        );
+      } catch (e) {
+        abortAll();
+        throw e;
+      }
+
+      if (aborted) {
+        throw new OneKeyLocalError('Download cancelled');
+      }
+
+      this.flushManifest(manifestPath, manifest, fileFd);
+      fs.fsyncSync(fileFd);
+      fs.closeSync(fileFd);
+      fd = null;
+      this.cancelCurrentDownload = () => {};
+
+      const transferred = manifest.parts.reduce((acc, p) => acc + p.done, 0);
+      if (transferred < totalBytes) {
+        throw new OneKeyLocalError('Download incomplete');
+      }
+
+      fs.renameSync(partialFilePath, filePath);
+      fs.rmSync(manifestPath, { force: true });
+      try {
+        await this.verifyAndResolve(filePath, sha256);
+      } catch (verifyError) {
+        // Bad assembly — discard so the next attempt re-downloads cleanly.
+        fs.rmSync(filePath, { force: true });
+        throw verifyError;
+      }
+
+      this.isDownloading = false;
+      clearWindowProgressBar(this.getMainWindow());
+      logger.info('bundle-download', 'Concurrent download complete', filePath);
+      return result;
+    } catch (error) {
+      abortAll();
+      if (fd !== null) {
+        try {
+          fs.closeSync(fd);
+        } catch {
+          // ignore
+        }
+      }
+      this.isDownloading = false;
+      this.cancelCurrentDownload = () => {};
+      clearWindowProgressBar(this.getMainWindow());
+
+      if (isConcurrentFallback(error)) {
+        // On-disk bytes are stale/unusable — clear them before falling back.
+        this.discardPartialDownload(partialFilePath, manifestPath);
+        throw error;
+      }
+      // Transient/IO/verify error: keep partial + manifest so the outer retry
+      // loop resumes from where we stopped.
+      throw wrapDownloadError(error, 'Concurrent download failed');
+    }
+  }
+
+  private async downloadBundleSingleStream({
     latestVersion: appVersion,
     bundleVersion,
     downloadUrl: bundleUrl,

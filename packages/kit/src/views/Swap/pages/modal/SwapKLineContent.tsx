@@ -18,10 +18,12 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
+  type ITradingViewDisabledFeature,
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
@@ -45,17 +47,21 @@ import { SwapTestIDs } from '../../testIDs';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 const SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE = 'swap-kline';
-const SWAP_KLINE_DISABLED_TRADING_VIEW_FEATURES = [
-  TRADING_VIEW_DISABLED_FEATURES.FOOTER,
-  TRADING_VIEW_DISABLED_FEATURES.PRICE_MARKET_CAP_TOGGLE,
+const SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES = [
+  TRADING_VIEW_DISABLED_FEATURES.TIME_SCALE,
+  TRADING_VIEW_DISABLED_FEATURES.PRICE_SCALE,
   TRADING_VIEW_DISABLED_FEATURES.INDICATORS,
   TRADING_VIEW_DISABLED_FEATURES.SETTINGS,
   TRADING_VIEW_DISABLED_FEATURES.CHART_TYPE,
-  TRADING_VIEW_DISABLED_FEATURES.RESET_LAYOUT,
   TRADING_VIEW_DISABLED_FEATURES.FULLSCREEN,
   TRADING_VIEW_DISABLED_FEATURES.LAYOUT_TOGGLE,
   TRADING_VIEW_DISABLED_FEATURES.DRAWING_TOOLBAR,
-] as const;
+] as const satisfies readonly ITradingViewDisabledFeature[];
+
+const SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES = [
+  TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
+  ...SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES,
+] as const satisfies readonly ITradingViewDisabledFeature[];
 
 type ISwapKLineToken = ISwapToken & {
   defiMarked?: boolean;
@@ -523,9 +529,13 @@ function SwapKLineContentBody({
   chartMinHeight?: number;
 } & ISwapKLineContentSpacingProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const selectedToken = state.selectedToken;
   const chartNetworkId = selectedToken?.networkId ?? '';
   const chartTokenAddress = selectedToken?.contractAddress ?? '';
+  const disabledTradingViewFeatures = gtMd
+    ? SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES
+    : SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES;
 
   const chartContent = (
     <Stack
@@ -542,7 +552,7 @@ function SwapKLineContentBody({
         networkId={chartNetworkId}
         decimal={selectedToken?.decimals ?? 0}
         dataSource="polling"
-        disabledFeatures={SWAP_KLINE_DISABLED_TRADING_VIEW_FEATURES}
+        disabledFeatures={disabledTradingViewFeatures}
         storageNamespace={SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE}
         forceEmptyKLineData={state.shouldForceEmptyKLineData}
         emptyKLineDataOnError

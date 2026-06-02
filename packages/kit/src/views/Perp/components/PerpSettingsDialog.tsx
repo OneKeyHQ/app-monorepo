@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -17,7 +18,9 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
+  usePerpsActiveAccountStatusAtom,
   usePerpsCustomSettingsAtom,
+  usePerpsSpotDustingAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -118,6 +121,132 @@ interface IPerpSettingsPopoverContentProps {
   showGuideEntry?: boolean;
 }
 
+function SpotDustingOptOutSetting() {
+  const [activeAccount] = usePerpsActiveAccountAtom();
+  const [activeAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [spotDusting] = usePerpsSpotDustingAtom();
+  const [pendingStatus, setPendingStatus] = useState<
+    | {
+        accountAddress: string;
+        optOut: boolean;
+      }
+    | undefined
+  >();
+
+  const activeAccountAddress = activeAccount.accountAddress?.toLowerCase();
+  const activeAccountAddressRef = useRef(activeAccountAddress);
+  activeAccountAddressRef.current = activeAccountAddress;
+  const statusMatchesActiveAccount =
+    Boolean(activeAccountAddress) &&
+    spotDusting?.accountAddress?.toLowerCase() === activeAccountAddress;
+  const serverOptOut = statusMatchesActiveAccount
+    ? spotDusting?.optOut === true
+    : false;
+  const pendingOptOut =
+    pendingStatus && pendingStatus.accountAddress === activeAccountAddress
+      ? pendingStatus.optOut
+      : undefined;
+  const optOut = pendingOptOut ?? serverOptOut;
+  const canToggle =
+    activeAccountStatus.canTrade === true &&
+    statusMatchesActiveAccount &&
+    pendingOptOut === undefined;
+
+  useEffect(() => {
+    setPendingStatus((prev) =>
+      prev?.accountAddress === activeAccountAddress ? prev : undefined,
+    );
+  }, [activeAccountAddress]);
+
+  const subtitle = useMemo(() => {
+    if (!statusMatchesActiveAccount) {
+      return 'Loading spot dusting status from Hyperliquid.';
+    }
+    if (activeAccountStatus.canTrade !== true) {
+      return 'Enable trading to change spot dusting settings.';
+    }
+    return 'When enabled, Hyperliquid will not auto-convert spot balances under $1 each day.';
+  }, [activeAccountStatus.canTrade, statusMatchesActiveAccount]);
+
+  const handleToggle = useCallback(
+    async (value: boolean) => {
+      const requestAccountAddress = activeAccountAddressRef.current;
+      if (!requestAccountAddress) {
+        return;
+      }
+      if (!statusMatchesActiveAccount) {
+        Toast.error({
+          title: 'Spot dusting status is still loading.',
+        });
+        return;
+      }
+
+      if (activeAccountStatus.canTrade !== true) {
+        Toast.error({
+          title: 'Enable trading to change spot dusting settings.',
+        });
+        return;
+      }
+
+      setPendingStatus({
+        accountAddress: requestAccountAddress,
+        optOut: value,
+      });
+      const loadingToast = Toast.loading({
+        title: value
+          ? 'Opting out of spot dusting...'
+          : 'Opting into spot dusting...',
+        duration: Infinity,
+      });
+      try {
+        await backgroundApiProxy.serviceHyperliquidExchange.setSpotDustingOptOut(
+          { optOut: value },
+        );
+        loadingToast?.close();
+        if (activeAccountAddressRef.current === requestAccountAddress) {
+          Toast.success({
+            title: value ? 'Opted out of spot dusting' : 'Spot dusting enabled',
+          });
+        }
+      } catch (error) {
+        loadingToast?.close();
+        if (activeAccountAddressRef.current === requestAccountAddress) {
+          Toast.error({
+            title:
+              (error as Error)?.message ||
+              'Failed to update spot dusting setting',
+          });
+        }
+      } finally {
+        setPendingStatus((prev) =>
+          prev?.accountAddress === requestAccountAddress ? undefined : prev,
+        );
+      }
+    },
+    [activeAccountStatus.canTrade, statusMatchesActiveAccount],
+  );
+
+  return (
+    <ListItem
+      mx="$0"
+      px="$2.5"
+      titleProps={{ size: '$bodyMdMedium' }}
+      subtitleProps={{ size: '$bodySm' }}
+      title="Opt Out of Spot Dusting"
+      subtitle={subtitle}
+      cursor="default"
+    >
+      <Switch
+        testID="perp-spot-dusting-opt-out-switch"
+        size={ESwitchSize.small}
+        value={optOut}
+        disabled={!canToggle}
+        onChange={handleToggle}
+      />
+    </ListItem>
+  );
+}
+
 function PerpSettingsPopoverContent({
   closePopover,
   showGuideEntry = false,
@@ -154,6 +283,8 @@ function PerpSettingsPopoverContent({
           }}
         />
       </ListItem>
+
+      <SpotDustingOptOutSetting />
 
       <ListItem
         mx="$0"
