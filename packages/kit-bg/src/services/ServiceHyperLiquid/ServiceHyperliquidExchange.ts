@@ -55,6 +55,8 @@ import type {
   IOrderParams,
   IOrderRequest,
   IOrderResponse,
+  ISuccessResponse,
+  ITIF,
   ITwapCancelResponse,
   ITwapOrderResponse,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -72,6 +74,7 @@ import type {
   IPlaceTwapOrderParams,
   IPositionTpslOrderParams,
   ISetReferrerRequest,
+  ISpotDustingOptOutRequest,
   ISpotOrderParams,
   ITriggerOrderParams,
   IUpdateIsolatedMarginRequest,
@@ -103,6 +106,14 @@ interface IOrderLogOptions {
 interface IOrderAssetPrecision {
   szDecimals: number;
   type: 'perp' | 'spot';
+}
+
+function isUserLimitTif(value: unknown): value is ITIF {
+  return value === 'Gtc' || value === 'Ioc' || value === 'Alo';
+}
+
+function normalizeUserLimitTif(value: unknown): ITIF {
+  return isUserLimitTif(value) ? value : 'Gtc';
 }
 
 type IOrderAssetId = IOrderParams['a'];
@@ -556,6 +567,44 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
+  async setSpotDustingOptOut(
+    params: ISpotDustingOptOutRequest,
+  ): Promise<ISuccessResponse> {
+    await this.checkAccountCanTrade();
+
+    const client = await this.getExchangeClientForTrading();
+    const context = await this._buildLogContext();
+    try {
+      const response = await convertHyperLiquidResponse(() =>
+        client.spotUser({ toggleSpotDusting: params }),
+      );
+      defaultLogger.perp.hyperliquid.setSpotDustingOptOut({
+        ...context,
+        request: params,
+        response,
+      });
+      await this.backgroundApi.serviceHyperliquid.updateSpotDustingOptOutStatus(
+        {
+          accountAddress: context.accountAddress,
+          optOut: params.optOut,
+          source: 'local',
+        },
+      );
+      return response;
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.setSpotDustingOptOut({
+        ...context,
+        request: params,
+        response: extractHyperLiquidErrorResponse<
+          ISuccessResponse | IApiErrorResponse
+        >(error),
+        error: serializeHyperLiquidError(error),
+      });
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
   async extractAgentSignature(): Promise<{
     action: {
       type: string;
@@ -843,7 +892,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         t:
           'limit' in params.orderType
             ? {
-                limit: { tif: params.orderType.limit.tif },
+                limit: {
+                  tif: normalizeUserLimitTif(params.orderType.limit.tif),
+                },
               }
             : {
                 limit: { tif: 'Ioc' },
@@ -882,10 +933,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
     const szDecimals = params.szDecimals ?? 2;
     const side = params.isBuy ? 'long' : 'short';
-    const tif = params.tif ?? 'Gtc';
     const assetType =
       params.assetType ??
       (params.assetId >= SPOT_ASSET_ID_OFFSET ? 'spot' : 'perp');
+    const tif =
+      assetType === 'spot' ? 'Gtc' : normalizeUserLimitTif(params.tif);
     if (assetType === 'spot' && params.assetId < SPOT_ASSET_ID_OFFSET) {
       throw new OneKeyLocalError(
         `placeScaleOrder: invalid spot assetId ${params.assetId}, must be >= ${SPOT_ASSET_ID_OFFSET}`,
@@ -1037,7 +1089,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
                 tif: 'Ioc',
               },
             }
-          : { limit: { tif: 'Gtc' } },
+          : { limit: { tif: normalizeUserLimitTif(params.tif) } },
       };
       orders.push(mainOrder);
 
