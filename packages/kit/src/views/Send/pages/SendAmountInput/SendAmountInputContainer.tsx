@@ -23,7 +23,6 @@ import {
   HeightTransition,
   Icon,
   Image,
-  LottieView,
   NumberSizeableText,
   Page,
   Popover,
@@ -48,7 +47,6 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSelectedUTXOsAtom,
   useSendConfirmActions,
@@ -351,7 +349,6 @@ function PrivateSendValueDropWarningContent({
 function SendAmountInputContainer() {
   const intl = useIntl();
   const media = useMedia();
-  const themeVariant = useThemeVariant();
 
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -2968,26 +2965,12 @@ function SendAmountInputContainer() {
 
       return (
         <XStack alignItems="center" justifyContent="flex-end" gap="$1">
-          {isLoading ? (
-            <LottieView
-              source={
-                themeVariant === 'light'
-                  ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
-                  : require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
-              }
-              autoPlay
-              loop
-              style={{
-                width: 32,
-                height: 20,
-              }}
-            />
-          ) : null}
+          {isLoading ? <Skeleton h="$5" w="$32" borderRadius="$1" /> : null}
           {providerContent}
         </XStack>
       );
     },
-    [themeVariant],
+    [],
   );
 
   const renderPrivateSendQuoteCard = useMemo(() => {
@@ -3054,10 +3037,11 @@ function SendAmountInputContainer() {
             </DashText>
             <SwapRefreshButtonBase
               refreshAction={refreshPrivateSendQuote}
-              disabled={!canFetchPrivateSendQuote}
+              disabled={
+                !canFetchPrivateSendQuote || isPrivateSendQuoteRefreshing
+              }
               isRefreshQuote={isPrivateSendQuoteRefreshing}
               isLoading={isPrivateSendQuoteRefreshing}
-              autoRefresh={false}
             />
           </XStack>
           {showPrivateSendQuoteSkeleton ? (
