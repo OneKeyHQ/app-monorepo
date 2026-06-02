@@ -56,54 +56,6 @@ type ISwapKLineToken = ISwapToken & {
   dappType?: ITokenDappType;
 };
 
-const STABLE_TOKEN_SYMBOLS = new Set([
-  'DAI',
-  'FDUSD',
-  'FRAX',
-  'GUSD',
-  'LUSD',
-  'PYUSD',
-  'TUSD',
-  'USDB',
-  'USDBC',
-  'USDC',
-  'USDD',
-  'USDE',
-  'USDH',
-  'USD0',
-  'USDP',
-  'USDS',
-  'USDT',
-  'USDT0',
-]);
-
-function normalizeTokenSymbol(symbol?: string) {
-  return (
-    symbol
-      ?.trim()
-      .toUpperCase()
-      .replace(/\s+/g, '')
-      .replace(/\u20ae/gu, 'T') ?? ''
-  );
-}
-
-function isStableToken(token?: ISwapToken) {
-  if (!token) {
-    return false;
-  }
-
-  const symbol = normalizeTokenSymbol(token.symbol);
-  const baseSymbol = symbol.replace(/\.(E|B)$/u, '');
-  if (
-    STABLE_TOKEN_SYMBOLS.has(symbol) ||
-    STABLE_TOKEN_SYMBOLS.has(baseSymbol)
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
 function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   if (!token) {
     return false;
@@ -121,29 +73,19 @@ function getDefaultKLineSide({
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
 }): ESwapDirectionType {
-  if (!fromToken && toToken) {
-    return ESwapDirectionType.TO;
-  }
-  if (!fromToken || !toToken) {
+  if (!toToken) {
     return ESwapDirectionType.FROM;
   }
 
-  const fromIsKnownUnsupported = isKnownSwapKLineUnsupportedToken(fromToken);
   const toIsKnownUnsupported = isKnownSwapKLineUnsupportedToken(toToken);
-  if (fromIsKnownUnsupported && !toIsKnownUnsupported) {
-    return ESwapDirectionType.TO;
-  }
-  if (!fromIsKnownUnsupported && toIsKnownUnsupported) {
-    return ESwapDirectionType.FROM;
-  }
-
-  const fromIsStable = isStableToken(fromToken);
-  const toIsStable = isStableToken(toToken);
-  if (fromIsStable && !toIsStable) {
-    return ESwapDirectionType.TO;
+  if (toIsKnownUnsupported && fromToken) {
+    const fromIsKnownUnsupported = isKnownSwapKLineUnsupportedToken(fromToken);
+    if (!fromIsKnownUnsupported) {
+      return ESwapDirectionType.FROM;
+    }
   }
 
-  return ESwapDirectionType.FROM;
+  return ESwapDirectionType.TO;
 }
 
 function SwapKLineTokenSwitch({
