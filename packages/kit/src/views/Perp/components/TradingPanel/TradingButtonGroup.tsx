@@ -295,12 +295,15 @@ function SideButtonInternal({
         selectAccountLoading: perpsAccountLoading.selectAccountLoading,
         enableTradingLoading: perpsAccountLoading.enableTradingLoading,
         enableTradingTriggered: perpsAccountLoading.enableTradingTriggered,
+        enableTradingStatusPending:
+          perpsAccountLoading.enableTradingStatusPending,
         isLiveStatusPending,
       }),
     [
       isLiveStatusPending,
       perpsAccountLoading.enableTradingLoading,
       perpsAccountLoading.enableTradingTriggered,
+      perpsAccountLoading.enableTradingStatusPending,
       perpsAccountLoading.selectAccountLoading,
     ],
   );
@@ -1170,6 +1173,8 @@ function SideButtonInternal({
       isLiveStatusPending,
       enableTradingLoading: perpsAccountLoading.enableTradingLoading,
       enableTradingTriggered: perpsAccountLoading.enableTradingTriggered,
+      enableTradingStatusPending:
+        perpsAccountLoading.enableTradingStatusPending,
       selectAccountLoading: perpsAccountLoading.selectAccountLoading,
       isNoEnoughMargin,
       priceError,
@@ -1192,6 +1197,7 @@ function SideButtonInternal({
     perpConfigCommon?.ipDisablePerp,
     perpsAccountLoading.enableTradingLoading,
     perpsAccountLoading.enableTradingTriggered,
+    perpsAccountLoading.enableTradingStatusPending,
     perpsAccountLoading.selectAccountLoading,
     perpsAccountStatus.canTrade,
     priceError,

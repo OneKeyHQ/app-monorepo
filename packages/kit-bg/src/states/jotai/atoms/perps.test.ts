@@ -279,6 +279,7 @@ describe('perpsActiveAccountEnableTradingModeAtom', () => {
       selectAccountLoading: false,
       enableTradingLoading: false,
       enableTradingTriggered: false,
+      enableTradingStatusPending: false,
     });
   });
 
@@ -306,6 +307,7 @@ describe('perpsActiveAccountEnableTradingModeAtom', () => {
       selectAccountLoading: true,
       enableTradingLoading: false,
       enableTradingTriggered: false,
+      enableTradingStatusPending: false,
     });
     jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
       accountId: "hd-1--m/44'/60'/0'/0/0",
@@ -377,6 +379,7 @@ describe('perpsShouldShowEnableTradingButtonAtom', () => {
       selectAccountLoading: false,
       enableTradingLoading: false,
       enableTradingTriggered: false,
+      enableTradingStatusPending: false,
     });
     jotaiDefaultStore.set(perpsAbstractionModeAtom.atom(), undefined);
   });
@@ -410,6 +413,7 @@ describe('perpsShouldShowEnableTradingButtonAtom', () => {
       selectAccountLoading: true,
       enableTradingLoading: false,
       enableTradingTriggered: false,
+      enableTradingStatusPending: false,
     });
     jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
       accountId: "hd-1--m/44'/60'/0'/0/0",

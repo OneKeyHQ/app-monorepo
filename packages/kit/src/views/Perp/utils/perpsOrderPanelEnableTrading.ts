@@ -180,11 +180,13 @@ export function shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
   selectAccountLoading,
   enableTradingLoading,
   enableTradingTriggered,
+  enableTradingStatusPending,
   isLiveStatusPending,
 }: {
   selectAccountLoading: boolean;
   enableTradingLoading: boolean;
   enableTradingTriggered: boolean;
+  enableTradingStatusPending: boolean;
   isLiveStatusPending: boolean;
 }) {
   if (enableTradingLoading && enableTradingTriggered) {
@@ -192,6 +194,9 @@ export function shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
   }
   if (isLiveStatusPending) {
     return false;
+  }
+  if (enableTradingLoading && enableTradingStatusPending) {
+    return true;
   }
   return selectAccountLoading;
 }

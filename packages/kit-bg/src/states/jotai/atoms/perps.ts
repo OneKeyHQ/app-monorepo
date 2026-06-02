@@ -435,6 +435,7 @@ export interface IPerpsAccountLoadingInfo {
   selectAccountLoading: boolean;
   enableTradingLoading: boolean;
   enableTradingTriggered: boolean;
+  enableTradingStatusPending: boolean;
 }
 export const {
   target: perpsAccountLoadingInfoAtom,
@@ -445,6 +446,7 @@ export const {
     selectAccountLoading: false,
     enableTradingLoading: false,
     enableTradingTriggered: false,
+    enableTradingStatusPending: false,
   },
 });
 

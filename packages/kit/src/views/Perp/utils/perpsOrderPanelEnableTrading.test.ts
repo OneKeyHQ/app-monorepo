@@ -375,6 +375,7 @@ describe('shouldDisablePerpsOrderPanelTradingButton', () => {
         selectAccountLoading: true,
         enableTradingLoading: false,
         enableTradingTriggered: false,
+        enableTradingStatusPending: false,
         isLiveStatusPending: true,
       }),
     ).toBe(false);
@@ -386,17 +387,43 @@ describe('shouldDisablePerpsOrderPanelTradingButton', () => {
         selectAccountLoading: true,
         enableTradingLoading: false,
         enableTradingTriggered: false,
+        enableTradingStatusPending: false,
         isLiveStatusPending: false,
       }),
     ).toBe(true);
   });
 
-  it('does not disable trading buttons for background status loading', () => {
+  it('keeps cached cold-start buttons enabled while background status is still pending', () => {
     expect(
       shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
         selectAccountLoading: false,
         enableTradingLoading: true,
         enableTradingTriggered: false,
+        enableTradingStatusPending: true,
+        isLiveStatusPending: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('blocks normal order submission during passive status refresh', () => {
+    expect(
+      shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
+        selectAccountLoading: false,
+        enableTradingLoading: true,
+        enableTradingTriggered: false,
+        enableTradingStatusPending: true,
+        isLiveStatusPending: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not disable after passive status refresh lands before the loading timer clears', () => {
+    expect(
+      shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
+        selectAccountLoading: false,
+        enableTradingLoading: true,
+        enableTradingTriggered: false,
+        enableTradingStatusPending: false,
         isLiveStatusPending: false,
       }),
     ).toBe(false);
@@ -408,6 +435,7 @@ describe('shouldDisablePerpsOrderPanelTradingButton', () => {
         selectAccountLoading: false,
         enableTradingLoading: true,
         enableTradingTriggered: true,
+        enableTradingStatusPending: true,
         isLiveStatusPending: false,
       }),
     ).toBe(true);
@@ -419,6 +447,7 @@ describe('shouldDisablePerpsOrderPanelTradingButton', () => {
         selectAccountLoading: false,
         enableTradingLoading: true,
         enableTradingTriggered: true,
+        enableTradingStatusPending: true,
         isLiveStatusPending: true,
       }),
     ).toBe(true);
