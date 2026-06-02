@@ -8,7 +8,6 @@ import {
   Button,
   DashText,
   NumberSizeableText,
-  Popover,
   SizableText,
   Toast,
   Tooltip,
@@ -68,6 +67,7 @@ import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculation
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
 import { shouldPreserveColdStartButtonVisualState } from '../../utils/accountScopedData';
+import { getEnableTradingDialogConfirmDecision } from '../../utils/enableTradingDialogConfirm';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import {
   type IPerpsMobileLayoutTraceRect,
@@ -87,7 +87,6 @@ import {
   shouldDisablePerpsOrderPanelTradingButtonForAccountLoading,
   shouldSkipPerpsOrderPanelComputedSizeValidation,
 } from '../../utils/perpsOrderPanelEnableTrading';
-import { getEnableTradingDialogConfirmDecision } from '../../utils/enableTradingDialogConfirm';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showEnableTradingStepsDialog } from './modals/EnableTradingStepsDialog';
@@ -1261,6 +1260,50 @@ function SideButtonInternal({
       side,
     ],
   );
+  const desktopCostTooltipContent = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.perp_trade_margin_tooltip,
+      }),
+    [intl],
+  );
+  const desktopCostTooltipTrigger = useMemo(
+    () => (
+      <DashText
+        size="$bodySm"
+        color="$textSubdued"
+        cursor="default"
+        dashThickness={0.5}
+      >
+        {intl.formatMessage({
+          id: ETranslations.perp_cost,
+        })}
+      </DashText>
+    ),
+    [intl],
+  );
+  const desktopLiqPriceTooltipContent = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.perp_est_liq_price_tooltip,
+      }),
+    [intl],
+  );
+  const desktopLiqPriceTooltipTrigger = useMemo(
+    () => (
+      <DashText
+        size="$bodySm"
+        color="$textSubdued"
+        cursor="default"
+        dashThickness={0.5}
+      >
+        {intl.formatMessage({
+          id: ETranslations.perp_est_liq_price,
+        })}
+      </DashText>
+    ),
+    [intl],
+  );
 
   if (isMobile) {
     return (
@@ -1282,31 +1325,21 @@ function SideButtonInternal({
         </XStack> */}
 
             <XStack justifyContent="space-between">
-              <Popover
-                title={intl.formatMessage({
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashThickness={0.3}
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_trade_margin_tooltip,
+                })}
+                tooltipTitle={intl.formatMessage({
                   id: ETranslations.perp_trade_margin_required,
                 })}
-                renderTrigger={
-                  <DashText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    dashThickness={0.3}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_cost,
-                    })}
-                  </DashText>
-                }
-                renderContent={
-                  <YStack px="$5" pb="$4">
-                    <SizableText>
-                      {intl.formatMessage({
-                        id: ETranslations.perp_trade_margin_tooltip,
-                      })}
-                    </SizableText>
-                  </YStack>
-                }
-              />
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_cost,
+                })}
+              </DashText>
 
               <NumberSizeableText
                 size="$bodySm"
@@ -1319,31 +1352,21 @@ function SideButtonInternal({
             </XStack>
 
             <XStack justifyContent="space-between">
-              <Popover
-                title={intl.formatMessage({
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashThickness={0.5}
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_est_liq_price_tooltip,
+                })}
+                tooltipTitle={intl.formatMessage({
                   id: ETranslations.perp_est_liq_price,
                 })}
-                renderTrigger={
-                  <DashText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    dashThickness={0.5}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_est_liq_price,
-                    })}
-                  </DashText>
-                }
-                renderContent={
-                  <YStack px="$5" pb="$4">
-                    <SizableText>
-                      {intl.formatMessage({
-                        id: ETranslations.perp_est_liq_price_tooltip,
-                      })}
-                    </SizableText>
-                  </YStack>
-                }
-              />
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_est_liq_price,
+                })}
+              </DashText>
 
               {renderLiquidationPrice()}
             </XStack>
@@ -1459,21 +1482,8 @@ function SideButtonInternal({
           <XStack gap="$2" justifyContent={justifyContent}>
             <Tooltip
               placement="top"
-              renderContent={intl.formatMessage({
-                id: ETranslations.perp_trade_margin_tooltip,
-              })}
-              renderTrigger={
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  cursor="default"
-                  dashThickness={0.5}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_cost,
-                  })}
-                </DashText>
-              }
+              renderContent={desktopCostTooltipContent}
+              renderTrigger={desktopCostTooltipTrigger}
             />
 
             <NumberSizeableText
@@ -1489,21 +1499,8 @@ function SideButtonInternal({
           <XStack gap="$2" justifyContent={justifyContent}>
             <Tooltip
               placement="top"
-              renderContent={intl.formatMessage({
-                id: ETranslations.perp_est_liq_price_tooltip,
-              })}
-              renderTrigger={
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  cursor="default"
-                  dashThickness={0.5}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_est_liq_price,
-                  })}
-                </DashText>
-              }
+              renderContent={desktopLiqPriceTooltipContent}
+              renderTrigger={desktopLiqPriceTooltipTrigger}
             />
 
             {renderLiquidationPrice()}

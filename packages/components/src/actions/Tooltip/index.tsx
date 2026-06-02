@@ -276,6 +276,7 @@ export function Tooltip({
         {...props}
       >
         <TMTooltip.Trigger
+          asChild="except-style"
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}
         >
