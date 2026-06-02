@@ -108,9 +108,7 @@ function formatTwapDateTime(timestamp: number) {
   return {
     date,
     time,
-    inline: `${formatTime(timeDate, {
-      formatTemplate: 'M/d/yyyy',
-    })} - ${time}`,
+    inline: `${date} ${time}`,
   };
 }
 
