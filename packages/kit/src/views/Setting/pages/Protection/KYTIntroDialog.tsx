@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Dialog,
   Icon,
@@ -10,17 +12,22 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function KYTIntroDialogContent() {
+  const intl = useIntl();
+
   return (
     <YStack>
       <SizableText size="$bodyLg">
-        Check supported incoming token transfers for fund-source risk after they
-        are confirmed.
+        {intl.formatMessage({
+          id: ETranslations.kyt_receive_risk_monitoring_intro_1__desc,
+        })}
       </SizableText>
       <SizableText size="$bodyLg" mt="$3">
-        High and severe risks will trigger a notification. You can turn this off
-        anytime in Settings.
+        {intl.formatMessage({
+          id: ETranslations.kyt_receive_risk_monitoring_intro_2__desc,
+        })}
       </SizableText>
       <XStack
         mt="$3"
@@ -32,7 +39,7 @@ function KYTIntroDialogContent() {
         cursor="pointer"
       >
         <SizableText size="$bodyMdMedium" color="$textSuccess">
-          Learn more
+          {intl.formatMessage({ id: ETranslations.global_learn_more })}
         </SizableText>
         <Icon name="ArrowTopRightOutline" size="$4.5" color="$iconSuccess" />
       </XStack>
@@ -41,6 +48,7 @@ function KYTIntroDialogContent() {
 }
 
 function useKYTIntroDialog() {
+  const intl = useIntl();
   const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
   const [{ onekeyUserId }] = usePrimePersistAtom();
   // Track the last Prime user we evaluated so switching accounts re-checks the
@@ -50,10 +58,14 @@ function useKYTIntroDialog() {
   const showDialog = useCallback(() => {
     Dialog.show({
       icon: 'ShieldCheckDoneOutline',
-      title: 'Receive risk monitoring',
+      title: intl.formatMessage({
+        id: ETranslations.prime_feature_receive_risk_monitoring__title,
+      }),
       showFooter: true,
-      onConfirmText: 'Enable monitoring',
-      onCancelText: 'Not now',
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.kyt_receive_risk_monitoring_enable__action,
+      }),
+      onCancelText: intl.formatMessage({ id: ETranslations.global_not_now }),
       renderContent: <KYTIntroDialogContent />,
       onConfirm: async (dialogInstance) => {
         // Enabling here records server-side authorization; only close on success.
@@ -63,7 +75,7 @@ function useKYTIntroDialog() {
         await dialogInstance.close();
       },
     });
-  }, []);
+  }, [intl]);
 
   useEffect(() => {
     if (!isPrimeSubscriptionActive || !onekeyUserId) {
