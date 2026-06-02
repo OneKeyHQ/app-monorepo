@@ -371,6 +371,99 @@ describe('usePromiseResult', () => {
       expect(result.current.result).toBeUndefined();
     });
 
+    // The catch path must respect scope identity too. AbortError is
+    // raised on every caller that uses cancellable storage (IndexedDB
+    // transactions during search), not just opt-in
+    // `undefinedResultIfError` consumers, so a stale rejection from
+    // scope A could otherwise wipe scope B's loaded data to undefined.
+    it('discards error-path undefined reset when swrKey changes mid-flight', async () => {
+      swrCacheUtils.set('B', 'B-data');
+
+      let rejectFetch!: (e: unknown) => void;
+      const method = jest.fn(
+        () =>
+          new Promise<string>((_, rej) => {
+            rejectFetch = rej;
+          }),
+      );
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { swrKey: string }
+      >(
+        ({ swrKey }) =>
+          usePromiseResult(method, [], {
+            initResult: 'init',
+            swrKey,
+            undefinedResultIfError: true,
+          }),
+        { initialProps: { swrKey: 'A' } },
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(1);
+      });
+
+      rerender({ swrKey: 'B' });
+      expect(result.current.result).toBe('B-data');
+
+      await act(async () => {
+        rejectFetch(new Error('boom'));
+        await Promise.resolve();
+      });
+
+      // The A-scope rejection must not wipe the B-scope's loaded data.
+      expect(result.current.result).toBe('B-data');
+    });
+
+    // Cross-scope guard for swrKey transitions: an in-flight request
+    // dispatched under swrKey=A must not land on the new scope when the
+    // consumer rerenders with swrKey=B. The render-time swrKey swap only
+    // updates `result` to B's init/cached value; nothing currently
+    // invalidates A's pending nonce, so without an extra check the stale
+    // result would overwrite the new scope.
+    it('discards in-flight result when swrKey changes mid-flight', async () => {
+      const resolvers: Record<string, (v: string) => void> = {};
+      const method = jest.fn(
+        (key: string) =>
+          new Promise<string>((res) => {
+            resolvers[key] = res;
+          }),
+      );
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { swrKey: string }
+      >(
+        ({ swrKey }) =>
+          usePromiseResult(() => method(swrKey), [], {
+            initResult: 'init',
+            swrKey,
+          }),
+        { initialProps: { swrKey: 'A' } },
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledWith('A');
+      });
+
+      // swrKey swap to B. Deps are stable so no new runner fires; the
+      // render-time effect resets `result` to B's init.
+      rerender({ swrKey: 'B' });
+      expect(result.current.result).toBe('init');
+
+      await act(async () => {
+        resolvers.A('A-data');
+        await Promise.resolve();
+      });
+
+      // A's stale result must not be applied under the B scope.
+      expect(result.current.result).toBe('init');
+      // SWR cache for either scope must not be polluted by stale data.
+      expect(swrCacheUtils.get('A')).toBeUndefined();
+      expect(swrCacheUtils.get('B')).toBeUndefined();
+    });
+
     it('resets to undefined when new swrKey has neither cache nor initResult', () => {
       swrCacheUtils.set('wallet-A', 'data-A');
 
@@ -512,6 +605,89 @@ describe('usePromiseResult', () => {
 
       await tick(POLLING_MS);
       expect(method.mock.calls.length).toBeGreaterThan(callsAfterResume);
+    });
+  });
+
+  describe('debounced', () => {
+    const DEBOUNCE_MS = 100;
+
+    beforeEach(() => {
+      focusControl.__resetFocus();
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    const tick = async (ms = 0) => {
+      await act(async () => {
+        jest.advanceTimersByTime(ms);
+        for (let i = 0; i < 10; i += 1) {
+          await Promise.resolve();
+        }
+      });
+    };
+
+    // The wrapper used to pre-call `setLoadingTrue()` synchronously
+    // before scheduling the debounced runner. If the page blurred
+    // during the debounce window, the inner runner fired under the
+    // focus gate and never started a request — so `didStartRequest`
+    // stayed false and `finally` skipped `setLoadingFalse()`. The
+    // pre-loaded `isLoading=true` then leaked forever until refocus +
+    // re-run. Move loading transitions inside the runner so they only
+    // emit when the request actually starts.
+    it('does not leak isLoading=true when the debounced runner is gated by blur after the timer was scheduled', async () => {
+      const method = jest.fn(async () => 'data');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], {
+          initResult: 'init',
+          watchLoading: true,
+          debounced: DEBOUNCE_MS,
+        }),
+      );
+
+      // Drain mount effect — the debounced wrapper scheduled the inner
+      // runner via setTimeout but it has not fired yet.
+      await tick(0);
+
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+
+      // Advance past the debounce window. Inner runner fires under
+      // blur and never starts a request.
+      await tick(DEBOUNCE_MS * 2);
+
+      expect(result.current.isLoading).not.toBe(true);
+      expect(method).not.toHaveBeenCalled();
+    });
+
+    // Lock the happy path: when focus holds through the debounce
+    // window, the runner starts, completes, and the loading
+    // transitions pair correctly.
+    it('still emits paired loading transitions for a debounced run that completes under focus', async () => {
+      const onIsLoadingChange = jest.fn();
+      const method = jest.fn(async () => 'data');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], {
+          initResult: 'init',
+          watchLoading: true,
+          debounced: DEBOUNCE_MS,
+          onIsLoadingChange,
+        }),
+      );
+
+      await tick(0);
+      await tick(DEBOUNCE_MS * 2);
+
+      expect(method).toHaveBeenCalledTimes(1);
+      expect(result.current.result).toBe('data');
+      expect(result.current.isLoading).toBe(false);
+      expect(onIsLoadingChange).toHaveBeenCalledWith(true);
+      expect(onIsLoadingChange).toHaveBeenCalledWith(false);
     });
   });
 
@@ -728,6 +904,227 @@ describe('usePromiseResult', () => {
       await waitFor(() => {
         expect(result.current.result).toBe('B-data');
       });
+    });
+
+    // setLoadingFalse must travel with setResult: if result landing is
+    // not blocked by focus, isLoading clearing has to follow the same
+    // gate. Otherwise `watchLoading` consumers (spinners /
+    // onIsLoadingChange) see isLoading stuck on `true` after a
+    // successful blur-time resolution.
+    it('clears isLoading when result lands during blur (watchLoading)', async () => {
+      let resolveFetch!: (v: string) => void;
+      const method = jest.fn(
+        () =>
+          new Promise<string>((res) => {
+            resolveFetch = res;
+          }),
+      );
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], {
+          initResult: 'init',
+          watchLoading: true,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(1);
+      });
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(true);
+      });
+
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+
+      await act(async () => {
+        resolveFetch('fresh');
+        await Promise.resolve();
+      });
+
+      expect(result.current.result).toBe('fresh');
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // The error path must mirror the success path: if the success branch
+    // applies blur-time results, then `undefinedResultIfError` callers
+    // also expect their `undefined` reset to land regardless of focus,
+    // not to be silently swallowed and re-thrown as an unhandled
+    // rejection.
+    it('applies undefinedResultIfError when fetch rejects during blur', async () => {
+      let rejectFetch!: (e: unknown) => void;
+      const method = jest.fn(
+        () =>
+          new Promise<string>((_, rej) => {
+            rejectFetch = rej;
+          }),
+      );
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], {
+          initResult: 'init',
+          undefinedResultIfError: true,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(1);
+      });
+
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+
+      await act(async () => {
+        rejectFetch(new Error('boom'));
+        await Promise.resolve();
+      });
+
+      expect(result.current.result).toBeUndefined();
+    });
+
+    // A runner that was blocked by the focus gate never called
+    // setLoadingTrue, so its finally must not emit a paired
+    // setLoadingFalse — otherwise `watchLoading` / onIsLoadingChange
+    // sees a phantom (false) without any (true) preceding it.
+    it('does not toggle loading when run is blocked by focus gate', async () => {
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+
+      const onIsLoadingChange = jest.fn();
+      const method = jest.fn(async () => 'data');
+
+      renderHook(() =>
+        usePromiseResult(method, [method], {
+          initResult: 'init',
+          watchLoading: true,
+          onIsLoadingChange,
+        }),
+      );
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // No fetch ever started → no loading transitions should emit.
+      expect(onIsLoadingChange).not.toHaveBeenCalled();
+      expect(method).not.toHaveBeenCalled();
+    });
+
+    // When request 2 supersedes in-flight request 1, request 1's
+    // finally must not clear loading — request 2 is still pending.
+    // Otherwise the spinner / isLoading flickers off and back on.
+    it('does not clear loading from a stale request when a newer one is in-flight', async () => {
+      const resolvers: Array<(v: string) => void> = [];
+      const method = jest.fn(
+        () =>
+          new Promise<string>((res) => {
+            resolvers.push(res);
+          }),
+      );
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { dep: string }
+      >(
+        ({ dep }) =>
+          usePromiseResult(() => method(), [dep], {
+            initResult: 'init',
+            watchLoading: true,
+          }),
+        { initialProps: { dep: 'a' } },
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(1);
+      });
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(true);
+      });
+
+      // Deps change → request 2 starts, bumps nonceRef.
+      rerender({ dep: 'b' });
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(2);
+      });
+      expect(result.current.isLoading).toBe(true);
+
+      // Stale request 1 resolves first — its setResult is skipped by
+      // the nonce check, and its finally must not clear loading either.
+      await act(async () => {
+        resolvers[0]('stale');
+        await Promise.resolve();
+      });
+
+      expect(result.current.isLoading).toBe(true);
+      expect(result.current.result).not.toBe('stale');
+
+      // Latest request 2 resolves → loading clears, result lands.
+      await act(async () => {
+        resolvers[1]('fresh');
+        await Promise.resolve();
+      });
+
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.result).toBe('fresh');
+    });
+
+    // The catch path must respect nonce identity too, not just swrKey.
+    // When request 2 (deps changed, no swrKey change) supersedes
+    // in-flight request 1 and lands a fresh result, request 1's later
+    // rejection must not run its `undefinedResultIfError` reset — the
+    // scope check alone cannot tell it is stale, so without the nonce
+    // check it would roll the fresh result back to undefined.
+    it('does not reset result from a stale request error after a newer one landed', async () => {
+      const resolvers: Array<(v: string) => void> = [];
+      const rejecters: Array<(e: unknown) => void> = [];
+      const method = jest.fn(
+        () =>
+          new Promise<string>((res, rej) => {
+            resolvers.push(res);
+            rejecters.push(rej);
+          }),
+      );
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { dep: string }
+      >(
+        ({ dep }) =>
+          usePromiseResult(() => method(), [dep], {
+            initResult: 'init',
+            undefinedResultIfError: true,
+          }),
+        { initialProps: { dep: 'a' } },
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(1);
+      });
+
+      // Deps change → request 2 starts and bumps nonceRef. There is no
+      // swrKey, so request 1 is stale only by nonce, not by scope.
+      rerender({ dep: 'b' });
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(2);
+      });
+
+      // Latest request 2 lands a fresh result.
+      await act(async () => {
+        resolvers[1]('fresh');
+        await Promise.resolve();
+      });
+      expect(result.current.result).toBe('fresh');
+
+      // Stale request 1 rejects afterwards — its reset must be skipped.
+      await act(async () => {
+        rejecters[0](new Error('boom'));
+        await Promise.resolve();
+      });
+      expect(result.current.result).toBe('fresh');
     });
 
     // Regression for the cold-start tab-switch data-loss bug. A fetch
