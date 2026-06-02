@@ -10,6 +10,8 @@ import {
 import { useIntl } from 'react-intl';
 
 import {
+  Dialog,
+  NumberSizeableText,
   Page,
   SegmentControl,
   SizableText,
@@ -17,19 +19,23 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ProviderJotaiContextMarketV2 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { ETokenDappType } from '@onekeyhq/shared/types/token';
@@ -89,6 +95,80 @@ function getDefaultKLineSide({
   return ESwapDirectionType.TO;
 }
 
+function getNormalizedPrice(value?: string | null) {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return undefined;
+  }
+  const numericValue = Number(normalized);
+  if (!Number.isFinite(numericValue) || numericValue === 0) {
+    return undefined;
+  }
+  return normalized;
+}
+
+function getNormalizedPercent(value?: string | null) {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return undefined;
+  }
+  const numericValue = Number(normalized);
+  if (!Number.isFinite(numericValue)) {
+    return undefined;
+  }
+  return normalized;
+}
+
+function useSwapKLineTokenMarketInfo(token?: ISwapToken) {
+  const tokenAddress = token?.contractAddress ?? '';
+  const networkId = token?.networkId ?? '';
+  const { result } = usePromiseResult<IMarketTokenDetail | undefined>(
+    async () => {
+      if (!networkId) {
+        return undefined;
+      }
+      const response =
+        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
+          tokenAddress,
+          networkId,
+        );
+      return response?.data?.token;
+    },
+    [networkId, tokenAddress],
+    {
+      checkIsFocused: false,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
+    },
+  );
+
+  return result;
+}
+
+function useSwapKLineNetworkName(networkId?: string) {
+  const { result } = usePromiseResult<string | undefined>(
+    async () => {
+      if (!networkId) {
+        return undefined;
+      }
+      const network = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+        networkId,
+      });
+      return network?.shortname || network?.name || network?.symbol;
+    },
+    [networkId],
+    {
+      checkIsFocused: false,
+      undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
+    },
+  );
+
+  return result;
+}
+
 function SwapKLineTokenSwitch({
   selectedSide,
   onChange,
@@ -109,8 +189,16 @@ function SwapKLineTokenSwitch({
           ? {
               label: (
                 <XStack ai="center" gap="$1" maxWidth="$20">
-                  <Token size="xxs" tokenImageUri={fromToken.logoURI} />
-                  <SizableText size="$bodySmMedium" numberOfLines={1}>
+                  <Token size="xs" tokenImageUri={fromToken.logoURI} />
+                  <SizableText
+                    size="$bodyMdMedium"
+                    numberOfLines={1}
+                    color={
+                      selectedSide === ESwapDirectionType.FROM
+                        ? '$text'
+                        : '$textSubdued'
+                    }
+                  >
                     {fromToken.symbol}
                   </SizableText>
                 </XStack>
@@ -122,8 +210,16 @@ function SwapKLineTokenSwitch({
           ? {
               label: (
                 <XStack ai="center" gap="$1" maxWidth="$20">
-                  <Token size="xxs" tokenImageUri={toToken.logoURI} />
-                  <SizableText size="$bodySmMedium" numberOfLines={1}>
+                  <Token size="xs" tokenImageUri={toToken.logoURI} />
+                  <SizableText
+                    size="$bodyMdMedium"
+                    numberOfLines={1}
+                    color={
+                      selectedSide === ESwapDirectionType.TO
+                        ? '$text'
+                        : '$textSubdued'
+                    }
+                  >
                     {toToken.symbol}
                   </SizableText>
                 </XStack>
@@ -132,7 +228,7 @@ function SwapKLineTokenSwitch({
             }
           : undefined,
       ].filter(Boolean),
-    [fromToken, toToken],
+    [fromToken, selectedSide, toToken],
   );
 
   const handleChange = useCallback(
@@ -148,15 +244,18 @@ function SwapKLineTokenSwitch({
         value={selectedSide}
         options={options}
         onChange={handleChange}
-        slotBackgroundColor="$bgSubdued"
+        slotBackgroundColor="$neutral3"
         activeBackgroundColor="$bg"
         borderRadius="$full"
         p="$0.5"
         h="auto"
         segmentControlItemStyleProps={{
-          py: '$1',
-          px: '$2',
+          py: '$1.5',
+          px: '$3',
           borderRadius: '$full',
+          '$platform-web': {
+            boxShadow: 'none',
+          },
         }}
       />
     );
@@ -172,12 +271,12 @@ function SwapKLineTokenSwitch({
       gap="$1"
       px="$2"
       py="$1"
-      bg="$bgSubdued"
+      bg="$neutral3"
       borderRadius="$full"
       maxWidth="$32"
     >
-      <Token size="xxs" tokenImageUri={selectedToken.logoURI} />
-      <SizableText size="$bodySmMedium" numberOfLines={1}>
+      <Token size="xs" tokenImageUri={selectedToken.logoURI} />
+      <SizableText size="$bodyMdMedium" numberOfLines={1}>
         {selectedToken.symbol}
       </SizableText>
     </XStack>
@@ -189,16 +288,17 @@ type ISwapKLineContentSpacingProps = Pick<
   'gap' | 'pb' | 'pt' | 'px'
 >;
 
-function SwapKLineContent({
-  chartMinHeight = 360,
-  gap = '$3',
-  pb = '$5',
-  pt = '$3',
-  px = '$5',
-}: {
-  chartMinHeight?: number;
-} & ISwapKLineContentSpacingProps) {
-  const intl = useIntl();
+type ISwapKLineContentState = {
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+  selectedToken?: ISwapToken;
+  resolvedSelectedSide: ESwapDirectionType;
+  shouldForceEmptyKLineData: boolean;
+  tokenMarketDetail?: IMarketTokenDetail;
+  handleSelectedSideChange: (side: ESwapDirectionType) => void;
+};
+
+function useSwapKLineContentState(): ISwapKLineContentState {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const defaultSide = useMemo(
@@ -226,10 +326,9 @@ function SwapKLineContent({
 
   const selectedToken =
     resolvedSelectedSide === ESwapDirectionType.FROM ? fromToken : toToken;
-  const chartNetworkId = selectedToken?.networkId ?? '';
-  const chartTokenAddress = selectedToken?.contractAddress ?? '';
   const shouldForceEmptyKLineData =
     isKnownSwapKLineUnsupportedToken(selectedToken);
+  const tokenMarketDetail = useSwapKLineTokenMarketInfo(selectedToken);
 
   useEffect(() => {
     if (hasTrackedOpenRef.current || !selectedToken) {
@@ -266,6 +365,168 @@ function SwapKLineContent({
     [fromToken, resolvedSelectedSide, toToken],
   );
 
+  return useMemo(
+    () => ({
+      fromToken,
+      toToken,
+      selectedToken,
+      resolvedSelectedSide,
+      shouldForceEmptyKLineData,
+      tokenMarketDetail,
+      handleSelectedSideChange,
+    }),
+    [
+      fromToken,
+      handleSelectedSideChange,
+      resolvedSelectedSide,
+      selectedToken,
+      shouldForceEmptyKLineData,
+      toToken,
+      tokenMarketDetail,
+    ],
+  );
+}
+
+function SwapKLineHeaderRight({ state }: { state: ISwapKLineContentState }) {
+  if (!state.selectedToken) {
+    return null;
+  }
+
+  return (
+    <SwapKLineTokenSwitch
+      selectedSide={state.resolvedSelectedSide}
+      onChange={state.handleSelectedSideChange}
+      fromToken={state.fromToken}
+      toToken={state.toToken}
+    />
+  );
+}
+
+function SwapKLineTokenPriceInfo({
+  token,
+  tokenMarketDetail,
+}: {
+  token: ISwapToken;
+  tokenMarketDetail?: IMarketTokenDetail;
+}) {
+  const price =
+    getNormalizedPrice(tokenMarketDetail?.price) ??
+    getNormalizedPrice(token.price);
+  const priceChange = getNormalizedPercent(
+    tokenMarketDetail?.priceChange24hPercent,
+  );
+
+  return (
+    <YStack ai="flex-end" gap="$0.5" minWidth="$20" maxWidth="$32">
+      {price ? (
+        <NumberSizeableText
+          size="$bodyMdMedium"
+          fontFamily="$monoMedium"
+          formatter="price"
+          formatterOptions={{ currency: '$' }}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+        >
+          {price}
+        </NumberSizeableText>
+      ) : (
+        <SizableText
+          size="$bodyMdMedium"
+          color="$textSubdued"
+          fontFamily="$monoMedium"
+          numberOfLines={1}
+        >
+          --
+        </SizableText>
+      )}
+      <XStack ai="center" gap="$1">
+        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          24h
+        </SizableText>
+        {priceChange ? (
+          <PriceChangePercentage
+            size="$bodySmMedium"
+            fontFamily="$monoMedium"
+            numberOfLines={1}
+          >
+            {priceChange}
+          </PriceChangePercentage>
+        ) : (
+          <SizableText
+            size="$bodySmMedium"
+            color="$textSubdued"
+            fontFamily="$monoMedium"
+            numberOfLines={1}
+          >
+            --
+          </SizableText>
+        )}
+      </XStack>
+    </YStack>
+  );
+}
+
+function SwapKLineTokenInfoRow({
+  token,
+  tokenMarketDetail,
+}: {
+  token: ISwapToken;
+  tokenMarketDetail?: IMarketTokenDetail;
+}) {
+  const tokenName = tokenMarketDetail?.name || token.name;
+  const networkName = useSwapKLineNetworkName(token.networkId);
+  const subtitle = useMemo(() => {
+    const shouldShowTokenName =
+      tokenName && tokenName.toLowerCase() !== token.symbol.toLowerCase();
+    return [shouldShowTokenName ? tokenName : undefined, networkName]
+      .filter(Boolean)
+      .join(' · ');
+  }, [networkName, token.symbol, tokenName]);
+
+  return (
+    <XStack ai="center" jc="space-between" gap="$3" minHeight="$12">
+      <XStack ai="center" gap="$3" flex={1} minWidth={0}>
+        <Token
+          size="lg"
+          tokenImageUri={token.logoURI}
+          networkId={token.networkId}
+          showNetworkIcon
+        />
+        <YStack flex={1} minWidth={0} gap="$0.5">
+          <SizableText size="$headingMd" numberOfLines={1}>
+            {token.symbol}
+          </SizableText>
+          {subtitle ? (
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {subtitle}
+            </SizableText>
+          ) : null}
+        </YStack>
+      </XStack>
+      <SwapKLineTokenPriceInfo
+        token={token}
+        tokenMarketDetail={tokenMarketDetail}
+      />
+    </XStack>
+  );
+}
+
+function SwapKLineContentBody({
+  state,
+  chartMinHeight = 360,
+  gap = '$3',
+  pb = '$5',
+  pt = '$3',
+  px = '$5',
+}: {
+  state: ISwapKLineContentState;
+  chartMinHeight?: number;
+} & ISwapKLineContentSpacingProps) {
+  const intl = useIntl();
+  const selectedToken = state.selectedToken;
+  const chartNetworkId = selectedToken?.networkId ?? '';
+  const chartTokenAddress = selectedToken?.contractAddress ?? '';
+
   const chartContent = (
     <Stack
       flex={1}
@@ -283,7 +544,7 @@ function SwapKLineContent({
         dataSource="polling"
         disabledFeatures={SWAP_KLINE_DISABLED_TRADING_VIEW_FEATURES}
         storageNamespace={SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE}
-        forceEmptyKLineData={shouldForceEmptyKLineData}
+        forceEmptyKLineData={state.shouldForceEmptyKLineData}
         emptyKLineDataOnError
         w="100%"
         h="100%"
@@ -295,27 +556,10 @@ function SwapKLineContent({
     <>
       {selectedToken ? (
         <YStack flex={1} px={px} pt={pt} pb={pb} gap={gap}>
-          <XStack ai="center" jc="space-between" gap="$3" minHeight="$10">
-            <XStack ai="center" gap="$3" flex={1} minWidth={0}>
-              <Token
-                size="md"
-                tokenImageUri={selectedToken.logoURI}
-                networkId={selectedToken.networkId}
-                showNetworkIcon
-              />
-              <YStack flex={1} minWidth={0} gap="$0.5">
-                <SizableText size="$headingMd" numberOfLines={1}>
-                  {selectedToken.symbol}
-                </SizableText>
-              </YStack>
-            </XStack>
-            <SwapKLineTokenSwitch
-              selectedSide={resolvedSelectedSide}
-              onChange={handleSelectedSideChange}
-              fromToken={fromToken}
-              toToken={toToken}
-            />
-          </XStack>
+          <SwapKLineTokenInfoRow
+            token={selectedToken}
+            tokenMarketDetail={state.tokenMarketDetail}
+          />
 
           {chartContent}
         </YStack>
@@ -331,23 +575,48 @@ function SwapKLineContent({
 }
 
 function SwapKLineDialogContent() {
+  const intl = useIntl();
+  const state = useSwapKLineContentState();
+
   return (
-    <YStack h={460}>
-      <SwapKLineContent chartMinHeight={320} pt="$0" pb="$0" gap="$2.5" />
-    </YStack>
+    <>
+      <Dialog.Header>
+        <XStack ai="center" jc="space-between" gap="$3" width="100%">
+          <SizableText size="$headingXl" numberOfLines={1}>
+            {intl.formatMessage({ id: ETranslations.market_chart })}
+          </SizableText>
+          <SwapKLineHeaderRight state={state} />
+        </XStack>
+      </Dialog.Header>
+      <YStack h={460}>
+        <SwapKLineContentBody
+          state={state}
+          chartMinHeight={320}
+          pt="$0"
+          pb="$0"
+          gap="$2.5"
+        />
+      </YStack>
+    </>
   );
 }
 
 function SwapKLineModalContent() {
   const intl = useIntl();
+  const state = useSwapKLineContentState();
+  const headerRight = useCallback(
+    () => <SwapKLineHeaderRight state={state} />,
+    [state],
+  );
 
   return (
     <Page lazyLoad testID={SwapTestIDs.kLineModal}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.market_chart })}
+        headerRight={headerRight}
       />
       <Page.Body>
-        <SwapKLineContent />
+        <SwapKLineContentBody state={state} />
       </Page.Body>
     </Page>
   );
