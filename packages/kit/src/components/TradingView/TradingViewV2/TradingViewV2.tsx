@@ -327,7 +327,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webView = useMemo(
     () => (
       <WebView
-        key={theme}
+        key={`${theme}:${tradingViewUrlWithParams}`}
         customReceiveHandler={async (data) => {
           await customReceiveHandler(data as ICustomReceiveHandlerData);
         }}
