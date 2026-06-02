@@ -357,7 +357,7 @@ describe('useSearchModalData', () => {
     });
   });
 
-  it('keeps remote search enabled for long url queries when review control is enabled', async () => {
+  it('keeps remote search enabled for long url queries while showing the direct URL result', async () => {
     reviewControlMock.mockReturnValue(true);
     serviceDiscoveryMock.fetchDiscoveryHomePageData.mockResolvedValue({
       trending: [],
@@ -385,7 +385,8 @@ describe('useSearchModalData', () => {
         expect.objectContaining({
           type: 'dapp',
           source: 'remote',
-          title: 'Remote Uniswap Exact',
+          title: longUrl,
+          url: longUrl,
           isExactUrl: true,
         }),
         expect.objectContaining({
@@ -393,6 +394,33 @@ describe('useSearchModalData', () => {
         }),
       ]);
     });
+  });
+
+  it('adds an exact HTTPS URL result for bare domain input without relying on remote search', async () => {
+    const { result } = renderHook(() => useSearchModalData('apple.com'));
+
+    await waitFor(() => {
+      expect(result.current.searchList[0]).toEqual(
+        expect.objectContaining({
+          type: 'dapp',
+          source: 'remote',
+          title: 'https://apple.com',
+          url: 'https://apple.com',
+          isExactUrl: true,
+        }),
+      );
+    });
+
+    expect(serviceDiscoveryMock.searchDApp).not.toHaveBeenCalled();
+    expect(result.current.searchList).toEqual([
+      expect.objectContaining({
+        type: 'dapp',
+        url: 'https://apple.com',
+      }),
+      expect.objectContaining({
+        type: 'search-action',
+      }),
+    ]);
   });
 
   it('adds an exact local URL result for localhost input without relying on remote search', async () => {

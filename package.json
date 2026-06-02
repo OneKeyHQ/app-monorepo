@@ -94,6 +94,7 @@
     "tsc:only": "npx tsgo -p ./tsconfig.json --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache --pretty",
     "tsc:staged": "npx tsgo -p ./tsconfig.json --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache --pretty",
     "test": "yarn jest",
+    "test:e2e:desktop:browser": "node apps/desktop/e2e/open-url.e2e.js",
     "test:unit": "yarn workspace @onekeyfe/cli test:unit",
     "test:integration:cli": "yarn workspace @onekeyfe/cli test:integration:cli",
     "ci:gate": "yarn lint:staged && yarn tsc:staged && yarn test:unit && bash apps/cli/scripts/audit-persistence-fields.sh && yarn test:integration:cli",
