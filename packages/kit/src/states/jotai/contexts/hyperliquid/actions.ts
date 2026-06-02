@@ -2301,7 +2301,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 limitPx: formData.price,
                 orderType:
                   formData.type === 'limit'
-                    ? { limit: { tif: 'Gtc' } }
+                    ? { limit: { tif: formData.limitTif ?? 'Gtc' } }
                     : { market: {} },
                 slippage,
               });
@@ -2363,6 +2363,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 size: resolvedSize,
                 price: params.price,
                 type: formData.type,
+                tif:
+                  formData.type === 'limit'
+                    ? (formData.limitTif ?? 'Gtc')
+                    : undefined,
                 tpTriggerPx: formData.hasTpsl
                   ? formData.tpTriggerPx
                   : undefined,
@@ -2627,7 +2631,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                   upperPrice: formData.scaleUpperPrice ?? '',
                   orderCount: Number(formData.scaleOrderCount ?? 0),
                   reduceOnly,
-                  tif: 'Gtc',
+                  tif: isSpot ? 'Gtc' : (formData.scaleTif ?? 'Gtc'),
                   szDecimals,
                   sizeSkew: getScaleOrderSizeSkew(
                     formData.scaleSizeDistribution,

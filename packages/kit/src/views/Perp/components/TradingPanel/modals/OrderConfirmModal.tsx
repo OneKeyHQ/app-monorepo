@@ -44,6 +44,7 @@ import {
   GetTradingButtonStyleProps,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { getTifLabel } from '../../../utils/timeInForce';
 import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
@@ -176,6 +177,10 @@ function OrderConfirmContent({
   const isAlgoOrderMode = isScaleMode || isTwapMode;
   const isLimitTrigger =
     formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
+  const limitTifLabel = getTifLabel(formData.limitTif ?? 'Gtc') ?? 'GTC';
+  const scaleTifLabel = getTifLabel(formData.scaleTif ?? 'Gtc') ?? 'GTC';
+  const shouldShowStandardLimitTif =
+    !isSpot && !isTriggerMode && !isAlgoOrderMode && formData.type === 'limit';
 
   const { midPriceBN } = useTradingPrice();
 
@@ -582,12 +587,14 @@ function OrderConfirmContent({
                     })}
               </SizableText>
             </XStack>
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                Time in Force
-              </SizableText>
-              <SizableText size="$bodyMdMedium">GTC</SizableText>
-            </XStack>
+            {isSpot ? null : (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  Time in Force
+                </SizableText>
+                <SizableText size="$bodyMdMedium">{scaleTifLabel}</SizableText>
+              </XStack>
+            )}
             {isSpot ? null : (
               <XStack justifyContent="space-between" alignItems="center">
                 <SizableText size="$bodyMd" color="$textSubdued">
@@ -713,6 +720,15 @@ function OrderConfirmContent({
               })}
             </SizableText>
             {priceDisplay}
+          </XStack>
+        ) : null}
+
+        {shouldShowStandardLimitTif ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              Time in Force
+            </SizableText>
+            <SizableText size="$bodyMdMedium">{limitTifLabel}</SizableText>
           </XStack>
         ) : null}
 

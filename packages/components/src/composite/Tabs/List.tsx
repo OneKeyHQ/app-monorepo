@@ -558,8 +558,9 @@ export function List<Item>({
           virtualizedInnerElement.getBoundingClientRect().height || 0,
         )
       : 0;
+    const estimatedHeight = estimateContentHeight();
     const nextHeight =
-      Math.max(virtualizedHeight, estimateContentHeight()) + verticalSpacing;
+      Math.max(virtualizedHeight, estimatedHeight) + verticalSpacing;
 
     setContentHeight((previousHeight) =>
       Math.abs((previousHeight ?? 0) - nextHeight) > 1

@@ -338,7 +338,7 @@ function MobileBrowserBottomBar({
         <View style={barStyles.buttonContainer}>
           <IconButton
             variant="tertiary"
-            size="medium"
+            size="large"
             icon="ChevronLeftOutline"
             disabled={disabledGoBack}
             accessible={!disabledGoBack}
@@ -350,7 +350,7 @@ function MobileBrowserBottomBar({
         <View style={barStyles.buttonContainer}>
           <IconButton
             variant="tertiary"
-            size="medium"
+            size="large"
             icon="ChevronRightOutline"
             disabled={disabledGoForward}
             accessible={!disabledGoForward}
@@ -361,13 +361,16 @@ function MobileBrowserBottomBar({
 
       <GestureDetector gesture={tabListGesture}>
         <View style={barStyles.buttonContainer}>
-          <TabCountButton testID={DiscoveryTestIDs.tabListButton} />
+          <TabCountButton
+            size="large"
+            testID={DiscoveryTestIDs.tabListButton}
+          />
         </View>
       </GestureDetector>
 
       <GestureDetector gesture={refreshGesture}>
         <View style={barStyles.buttonContainer}>
-          <RefreshButton onRefresh={handleRefresh} />
+          <RefreshButton size="large" onRefresh={handleRefresh} />
         </View>
       </GestureDetector>
 
@@ -380,6 +383,7 @@ function MobileBrowserBottomBar({
             onTestAITranslateError={handleTranslateTestAIError}
             open={translatePopoverOpen}
             onOpenChange={setTranslatePopoverOpen}
+            size="large"
           />
         </View>
       </GestureDetector>
@@ -388,7 +392,7 @@ function MobileBrowserBottomBar({
         <View style={barStyles.buttonContainer}>
           <IconButton
             variant="tertiary"
-            size="medium"
+            size="large"
             icon="DotHorOutline"
             disabled={displayHomePage}
             testID="browser-bar-options"
