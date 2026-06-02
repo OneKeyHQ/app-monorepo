@@ -129,6 +129,34 @@ function networkFieldsContainKeyword(
   );
 }
 
+const tokenSearchKeywordAliasMap: Record<string, string[]> = {
+  eth: ['ether'],
+};
+
+export function buildTokenSearchKeywordQueries(keywords?: string): string[] {
+  const trimmedKeywords = keywords?.trim();
+  if (!trimmedKeywords) {
+    return [];
+  }
+
+  const searchTerms = trimmedKeywords.split(/\s+/).filter(Boolean);
+  if (searchTerms.length < 2) {
+    return [trimmedKeywords];
+  }
+
+  const queries = new Set<string>([trimmedKeywords]);
+  searchTerms.forEach((term, index) => {
+    const aliases = tokenSearchKeywordAliasMap[term.toLowerCase()];
+    aliases?.forEach((alias) => {
+      const nextTerms = [...searchTerms];
+      nextTerms[index] = alias;
+      queries.add(nextTerms.join(' '));
+    });
+  });
+
+  return Array.from(queries);
+}
+
 enum ESearchStrength {
   BOTH = 1,
   NETWORK_ONLY = 2,

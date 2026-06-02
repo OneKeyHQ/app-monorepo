@@ -4,6 +4,7 @@ yarn test packages/shared/src/utils/tokenUtils.test.ts
 import { ENetworkStatus, type IServerNetwork } from '../../types';
 
 import {
+  buildTokenSearchKeywordQueries,
   calculateAccountTokensValue,
   calculateAccountTotalValue,
   getFilteredTokenBySearchKey,
@@ -11,6 +12,21 @@ import {
 } from './tokenUtils';
 
 import type { IAccountToken } from '../../types/token';
+
+describe('buildTokenSearchKeywordQueries', () => {
+  test('adds ether fallback for multi-word eth network searches', () => {
+    expect(buildTokenSearchKeywordQueries('shib eth')).toEqual([
+      'shib eth',
+      'shib ether',
+    ]);
+  });
+
+  test('does not expand single eth searches or embedded eth token names', () => {
+    expect(buildTokenSearchKeywordQueries('eth')).toEqual(['eth']);
+    expect(buildTokenSearchKeywordQueries('weth')).toEqual(['weth']);
+    expect(buildTokenSearchKeywordQueries('shib ethw')).toEqual(['shib ethw']);
+  });
+});
 
 function buildTestNetwork({
   id,
