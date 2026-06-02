@@ -283,7 +283,10 @@ describe('useParseQRCode', () => {
         type: EQRCodeHandlerType.ETHEREUM,
         data: expect.objectContaining({
           address: '0x178e3e6c9f547A00E33150F7104427ea02cfc747',
+          functionName: 'transfer',
           id: '5',
+          tokenAddress: '0x3dD3DfaAdA4d6765Ae19b8964E2BAC0139eeCb40',
+          uint256: '10000000',
         }),
       }),
     );

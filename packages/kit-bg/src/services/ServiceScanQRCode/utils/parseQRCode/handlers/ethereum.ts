@@ -45,6 +45,7 @@ const ethereum: IQRCodeHandler<IEthereumValue> = async (value, options) => {
       address: sendAddress,
       id: chainId,
       network,
+      functionName,
       uint256,
       amount,
       value: amountValue,
