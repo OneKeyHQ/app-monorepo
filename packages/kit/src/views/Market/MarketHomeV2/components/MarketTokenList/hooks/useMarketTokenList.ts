@@ -187,6 +187,11 @@ export function useMarketTokenList({
   const totalPages = useMemo(() => {
     return totalCount > 0 ? Math.ceil(totalCount / pageSize) : 1;
   }, [totalCount, pageSize]);
+  const loadedPageCount = useMemo(
+    () =>
+      Math.max(currentPage, Math.ceil(transformedData.length / pageSize) || 1),
+    [currentPage, pageSize, transformedData.length],
+  );
 
   const refresh = useCallback(() => {
     // Don't clear data immediately - let new data load first
@@ -197,7 +202,9 @@ export function useMarketTokenList({
     // Check if we can load more pages
     if (
       isLoadingMore ||
-      currentPage >= maxPages ||
+      loadedPageCount >= maxPages ||
+      loadedPageCount >= totalPages ||
+      (totalCount > 0 && transformedData.length >= totalCount) ||
       !hasNetworkId ||
       effectiveIsLoading ||
       hasReachedEnd
@@ -205,7 +212,7 @@ export function useMarketTokenList({
       return;
     }
 
-    const nextPage = currentPage + 1;
+    const nextPage = loadedPageCount + 1;
     const requestQueryKey = currentQueryKeyRef.current;
 
     setIsLoadingMore(true);
@@ -255,7 +262,10 @@ export function useMarketTokenList({
     }
   }, [
     isLoadingMore,
-    currentPage,
+    loadedPageCount,
+    totalCount,
+    totalPages,
+    transformedData.length,
     effectiveIsLoading,
     hasReachedEnd,
     hasNetworkId,
@@ -273,7 +283,9 @@ export function useMarketTokenList({
 
   const canLoadMore =
     hasNetworkId &&
-    currentPage < maxPages &&
+    loadedPageCount < maxPages &&
+    loadedPageCount < totalPages &&
+    (totalCount === 0 || transformedData.length < totalCount) &&
     !effectiveIsLoading &&
     !isLoadingMore &&
     !hasReachedEnd;
