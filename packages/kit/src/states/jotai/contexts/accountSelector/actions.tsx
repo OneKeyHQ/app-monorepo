@@ -615,18 +615,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
       const activeAccountInfo = this.getActiveAccount.call(set, { num });
 
-      // In dapp mode, if no wallet exists, conditionally show connect wallet options
+      // In dapp mode, show the connect-wallet options whenever there is no
+      // connected account. Key on the account (not the wallet record): a
+      // just-disconnected external/keyless wallet can briefly linger as a wallet
+      // with no account during the async reload, so matching DappHeader's
+      // account-based "connected" check keeps the Connect button and its tap
+      // target in sync — it always reopens the reconnect modal.
       const isWebDappMode = platformEnv.isWebDappMode;
-      const hasWallet = activeAccountInfo?.wallet?.id;
       const hasAccount =
         activeAccountInfo?.account || activeAccountInfo?.indexedAccount;
 
-      if (
-        isWebDappMode &&
-        !hasWallet &&
-        !hasAccount &&
-        showConnectWalletModalInDappMode
-      ) {
+      if (isWebDappMode && !hasAccount && showConnectWalletModalInDappMode) {
         navigation.pushModal(EModalRoutes.OnboardingModal, {
           screen: EOnboardingPages.ConnectWalletOptions,
         });

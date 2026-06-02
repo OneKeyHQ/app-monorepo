@@ -1626,6 +1626,30 @@ async function main() {
 
   const config = await loadConfig({ cwd: mobileDirPath });
   config.cacheVersion = `${config.cacheVersion || 'default'}:union-build-production-env-v2`;
+
+  // On EAS Android workers the main + background graphs are held in memory at
+  // the same time; with Metro's default worker count (6 on the 8-vCPU `large`
+  // class) the peak RSS sits right at the 32 GB ceiling and the build daemon
+  // gets OOM-killed intermittently ("Gradle build daemon disappeared"). Cap the
+  // transform worker pool so the dual-graph peak has headroom. Android-only so
+  // local/iOS bundling keeps full parallelism.
+  //
+  // EAS detection: PLATFORM is injected by eas.json (base.android.env) and only
+  // set on EAS builds; it reaches here because runUnionBuild forwards
+  // { ...process.env } to this script (same path that makes UNION_BUILD visible
+  // to build.gradle). EAS_BUILD / EAS_BUILD_RUNNER are kept as fallbacks.
+  const isEasAndroid =
+    process.env.PLATFORM === 'android' ||
+    Boolean(process.env.EAS_BUILD) ||
+    process.env.EAS_BUILD_RUNNER === 'eas-build';
+  if (args.platform === 'android' && isEasAndroid) {
+    const cappedWorkers = Number(process.env.UNION_BUILD_MAX_WORKERS) || 2;
+    config.maxWorkers = cappedWorkers;
+    console.log(
+      `Union build: capping Metro maxWorkers=${cappedWorkers} (EAS Android, reduce dual-graph peak memory)`,
+    );
+  }
+
   const metroServer = await Metro.runMetro(config, { watch: false });
 
   try {
