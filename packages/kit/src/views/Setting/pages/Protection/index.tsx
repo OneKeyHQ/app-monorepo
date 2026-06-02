@@ -212,10 +212,18 @@ const SettingProtectionModal = () => {
             />
           </ListItem>
           <Divider my="$5" mx="$5" />
-          <SectionList.SectionHeader title="Receive risk monitoring" />
+          <SectionList.SectionHeader
+            title={intl.formatMessage({
+              id: ETranslations.prime_feature_receive_risk_monitoring__title,
+            })}
+          />
           <ListItem
-            title="Monitor incoming transfers"
-            subtitle="Check supported incoming token transfers for fund-source risk."
+            title={intl.formatMessage({
+              id: ETranslations.prime_feature_receive_risk_monitoring__title,
+            })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.prime_feature_receive_risk_monitoring__desc,
+            })}
             {...(!isPrimeSubscriptionActive && {
               onPress: () => {
                 navigation.pushModal(EModalRoutes.PrimeModal, {
@@ -258,8 +266,12 @@ const SettingProtectionModal = () => {
           </ListItem>
           <ListItem
             testID="setting-receive-risk-supported-assets"
-            title="Supported assets"
-            subtitle="View networks and tokens"
+            title={intl.formatMessage({
+              id: ETranslations.kyt_supported_assets__title,
+            })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.kyt_supported_assets__desc,
+            })}
             drillIn
             onPress={() => {
               navigation.push(

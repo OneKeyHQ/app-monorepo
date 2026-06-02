@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Empty,
@@ -14,6 +16,7 @@ import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IKytSupportedAsset } from '@onekeyhq/shared/types/kyt';
 
 type ISupportedToken = {
@@ -56,6 +59,7 @@ function groupByNetwork(
 }
 
 const ReceiveRiskSupportedAssetsPage = () => {
+  const intl = useIntl();
   const [sections, setSections] = useState<ISupportedNetworkSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
@@ -103,8 +107,12 @@ const ReceiveRiskSupportedAssetsPage = () => {
         <Stack flex={1} alignItems="center" justifyContent="center">
           <Empty
             icon="BrokenLinkOutline"
-            title="Network error"
-            description="Failed to load supported assets. Please check your connection and try again."
+            title={intl.formatMessage({
+              id: ETranslations.global_network_error,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.kyt_supported_assets_load_error__desc,
+            })}
             button={
               <Button
                 testID="receive-risk-supported-assets-retry"
@@ -113,7 +121,7 @@ const ReceiveRiskSupportedAssetsPage = () => {
                   void fetchSupportedAssets();
                 }}
               >
-                Retry
+                {intl.formatMessage({ id: ETranslations.global_retry })}
               </Button>
             }
           />
@@ -141,11 +149,16 @@ const ReceiveRiskSupportedAssetsPage = () => {
         </YStack>
       </ScrollView>
     );
-  }, [fetchSupportedAssets, isError, isLoading, sections]);
+  }, [fetchSupportedAssets, intl, isError, isLoading, sections]);
 
   return (
     <Page>
-      <Page.Header title="Supported assets" headerRight={headerRight} />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.kyt_supported_assets__title,
+        })}
+        headerRight={headerRight}
+      />
       <Page.Body>{renderBody()}</Page.Body>
     </Page>
   );
