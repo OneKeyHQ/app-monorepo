@@ -302,99 +302,116 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       });
     };
 
-    if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
-      // After the update has completed, current == target, so
-      // getUpdateFileType always returns appShell. Derive the actual type
-      // from appUpdateInfo so bundle (hot-update) successes aren't
-      // misclassified as app-shell in analytics.
-      const fileType = appUpdateInfo.jsBundleVersion
-        ? EUpdateFileType.jsBundle
-        : EUpdateFileType.appShell;
-      // Re-emit the persisted attemptId from the original
-      // softwareUpdateStarted so per-attempt funnels stay correlated
-      // across the install/relaunch boundary; falls back to a fresh UUID
-      // if the persist atom was wiped before this code ran.
-      defaultLogger.app.appUpdate.softwareUpdateResult({
-        ...buildSoftwareUpdateParams(
-          fileType,
-          appUpdateInfo,
-          appUpdateInfo.currentUpdateAttemptId,
-        ),
-        status: 'success',
-      });
-      const whatsNewAlreadyShown = isWhatsNewShown();
-      markWhatsNewShown(Boolean(appUpdateInfo.jsBundleVersion));
-      if (
-        appUpdateInfo.updateStrategy !== EUpdateStrategy.seamless &&
-        !whatsNewAlreadyShown
-      ) {
-        onViewReleaseInfo();
-      }
-      setTimeout(async () => {
-        await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
-        scheduleFetchUpdateInfo();
-      }, 250);
-      return () => {
-        cancelled = true;
-        cleanupUpdateCheck?.();
-        cleanupUpdateCheck = undefined;
-      };
-    }
+    // Read the authoritative persisted state via the service instead of the
+    // React-hook snapshot. The hook's `appUpdateInfo` can still be the
+    // initial-value placeholder ({status: done, latestVersion: '0.0.0'}) at
+    // the moment this empty-deps effect runs on cold start, because jotai's
+    // per-key MMKV hydration races against the first paint. When that
+    // happens, isFirstLaunchAfterUpdated() returns false on the very launch
+    // that *is* the first launch after an update, the post-update "what's
+    // new" dialog is skipped, and the module-level didRunFirstLaunchDispatch
+    // guard prevents any retry — so the dialog ends up surfacing on the
+    // following cold launch instead of the one right after the install.
+    void (async () => {
+      const info = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      if (cancelled) return;
 
-    const forceUpdate = isForceUpdateStrategy(appUpdateInfo.updateStrategy);
-    if (appUpdateInfo.status !== EAppUpdateStatus.done && forceUpdate) {
-      isShowForceUpdatePreviewPage = true;
-      toUpdatePreviewPage(true, appUpdateInfo);
-    }
-
-    if (appUpdateInfo.status === EAppUpdateStatus.updateIncomplete) {
-      // do nothing
-    } else if (appUpdateInfo.status === EAppUpdateStatus.downloadPackage) {
-      void downloadPackage();
-    } else if (appUpdateInfo.status === EAppUpdateStatus.downloadASC) {
-      void downloadASC();
-    } else if (appUpdateInfo.status === EAppUpdateStatus.verifyASC) {
-      void verifyASC();
-    } else if (appUpdateInfo.status === EAppUpdateStatus.verifyPackage) {
-      void verifyPackage();
-    } else if (appUpdateInfo.status === EAppUpdateStatus.ready) {
-      if (isShowForceUpdatePreviewPage) return;
-      const fileType = getUpdateFileType(appUpdateInfo);
-      if (appUpdateInfo.updateStrategy === EUpdateStrategy.seamless) {
-        if (fileType === EUpdateFileType.jsBundle) {
-          if (
-            appUpdateInfo.downloadedEvent?.signature &&
-            appUpdateInfo.downloadedEvent?.sha256
-          ) {
-            void BundleUpdate.installBundle(appUpdateInfo.downloadedEvent);
-          } else {
-            defaultLogger.app.appUpdate.endInstallPackage(
-              false,
-              new Error('Missing signature or sha256 for seamless install'),
-            );
-            void backgroundApiProxy.serviceAppUpdate.reset();
-          }
-        } else {
-          void installPackage(
-            () => undefined,
-            () => {
-              void backgroundApiProxy.serviceAppUpdate.resetToInComplete();
-            },
-          );
+      if (isFirstLaunchAfterUpdated(info)) {
+        // After the update has completed, current == target, so
+        // getUpdateFileType always returns appShell. Derive the actual type
+        // from the persisted info so bundle (hot-update) successes aren't
+        // misclassified as app-shell in analytics.
+        const fileType = info.jsBundleVersion
+          ? EUpdateFileType.jsBundle
+          : EUpdateFileType.appShell;
+        // Re-emit the persisted attemptId from the original
+        // softwareUpdateStarted so per-attempt funnels stay correlated
+        // across the install/relaunch boundary; falls back to a fresh UUID
+        // if the persist atom was wiped before this code ran.
+        defaultLogger.app.appUpdate.softwareUpdateResult({
+          ...buildSoftwareUpdateParams(
+            fileType,
+            info,
+            info.currentUpdateAttemptId,
+          ),
+          status: 'success',
+        });
+        const whatsNewAlreadyShown = isWhatsNewShown();
+        markWhatsNewShown(Boolean(info.jsBundleVersion));
+        if (
+          info.updateStrategy !== EUpdateStrategy.seamless &&
+          !whatsNewAlreadyShown
+        ) {
+          onViewReleaseInfo();
         }
-      } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
-        // Consume the module-level guard shared with the silent-ready
-        // watcher effect below, so the watcher skips on the same render
-        // tick (prevents a duplicate dialog when the persisted atom is
-        // already hydrated at first launch).
-        silentReadyDialogShown = true;
-        showSilentUpdateDialog();
-      } else {
-        showUpdateDialog();
+        setTimeout(async () => {
+          await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
+          scheduleFetchUpdateInfo();
+        }, 250);
+        return;
       }
-    } else {
-      scheduleFetchUpdateInfo();
-    }
+
+      const forceUpdate = isForceUpdateStrategy(info.updateStrategy);
+      if (info.status !== EAppUpdateStatus.done && forceUpdate) {
+        isShowForceUpdatePreviewPage = true;
+        // Pass the force semantics derived from the authoritative `info` so
+        // the preview route locks down (usePreventRemove / header) on its
+        // first render. Without this, toUpdatePreviewPage falls back to the
+        // hook's `appUpdateInfo.updateStrategy`, which can still be the
+        // pre-hydration placeholder during the very race this effect guards
+        // against — briefly opening a mandatory update as dismissible.
+        toUpdatePreviewPage(true, { ...info, isForceUpdate: forceUpdate });
+      }
+
+      if (info.status === EAppUpdateStatus.updateIncomplete) {
+        // do nothing
+      } else if (info.status === EAppUpdateStatus.downloadPackage) {
+        void downloadPackage();
+      } else if (info.status === EAppUpdateStatus.downloadASC) {
+        void downloadASC();
+      } else if (info.status === EAppUpdateStatus.verifyASC) {
+        void verifyASC();
+      } else if (info.status === EAppUpdateStatus.verifyPackage) {
+        void verifyPackage();
+      } else if (info.status === EAppUpdateStatus.ready) {
+        if (isShowForceUpdatePreviewPage) return;
+        const fileType = getUpdateFileType(info);
+        if (info.updateStrategy === EUpdateStrategy.seamless) {
+          if (fileType === EUpdateFileType.jsBundle) {
+            if (
+              info.downloadedEvent?.signature &&
+              info.downloadedEvent?.sha256
+            ) {
+              void BundleUpdate.installBundle(info.downloadedEvent);
+            } else {
+              defaultLogger.app.appUpdate.endInstallPackage(
+                false,
+                new Error('Missing signature or sha256 for seamless install'),
+              );
+              void backgroundApiProxy.serviceAppUpdate.reset();
+            }
+          } else {
+            void installPackage(
+              () => undefined,
+              () => {
+                void backgroundApiProxy.serviceAppUpdate.resetToInComplete();
+              },
+            );
+          }
+        } else if (info.updateStrategy === EUpdateStrategy.silent) {
+          // Consume the module-level guard shared with the silent-ready
+          // watcher effect below, so the watcher skips on the same render
+          // tick (prevents a duplicate dialog when the persisted atom is
+          // already hydrated at first launch).
+          silentReadyDialogShown = true;
+          showSilentUpdateDialog();
+        } else {
+          showUpdateDialog();
+        }
+      } else {
+        scheduleFetchUpdateInfo();
+      }
+    })();
 
     return () => {
       cancelled = true;

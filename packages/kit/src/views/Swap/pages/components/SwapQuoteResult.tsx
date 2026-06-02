@@ -31,6 +31,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import {
   EProtocolOfExchange,
   ESwapTabSwitchType,
@@ -90,6 +91,10 @@ const SwapQuoteResult = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
+  const quoteDuration = formatSwapQuoteDuration({
+    estTime: quoteResult?.estTime,
+    estimatedTime: quoteResult?.estimatedTime,
+  });
 
   const calculateTaxItem = useCallback(
     (
@@ -251,6 +256,15 @@ const SwapQuoteResult = ({
                 : undefined
             }
           />
+          {quoteDuration ? (
+            <SwapCommonInfoItem
+              title={intl.formatMessage({
+                id: ETranslations.provider_swap_duration,
+              })}
+              isLoading={swapQuoteLoading}
+              value={quoteDuration}
+            />
+          ) : null}
 
           <LimitExpirySelect
             currentSelectExpiryValue={swapLimitExpirySelect}
@@ -337,6 +351,15 @@ const SwapQuoteResult = ({
                         }
                       : undefined
                   }
+                />
+              ) : null}
+              {quoteDuration ? (
+                <SwapCommonInfoItem
+                  title={intl.formatMessage({
+                    id: ETranslations.provider_swap_duration,
+                  })}
+                  isLoading={swapQuoteLoading}
+                  value={quoteDuration}
                 />
               ) : null}
               {quoteResult?.toAmount &&
