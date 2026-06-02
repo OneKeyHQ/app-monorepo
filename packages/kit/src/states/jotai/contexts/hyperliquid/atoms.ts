@@ -227,6 +227,7 @@ export interface ITradingFormData {
 
   // BBO limit price mode
   bboPriceMode?: IBBOPriceMode;
+  limitTif?: HL.ITIF;
 
   // Take Profit / Stop Loss
   hasTpsl: boolean;
@@ -272,6 +273,7 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     sizePercent: 0,
     leverage: 1,
     bboPriceMode: null,
+    limitTif: 'Gtc',
     hasTpsl: false,
     tpTriggerPx: '',
     tpGainPercent: '',

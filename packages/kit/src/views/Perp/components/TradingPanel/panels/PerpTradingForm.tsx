@@ -95,6 +95,7 @@ import { TradingFormInput } from '../inputs/TradingFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { BBOSelector } from '../selectors/BBOSelector';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
+import { TimeInForceSelector } from '../selectors/TimeInForceSelector';
 import { TradeSideToggle } from '../selectors/TradeSideToggle';
 
 interface IPerpTradingFormProps {
@@ -493,6 +494,9 @@ function PerpTradingForm({
   const isTwapMode = formData.orderMode === 'twap';
   const isAdvancedOrderMode =
     formData.orderMode === 'trigger' || isScaleMode || isTwapMode;
+  const shouldShowLimitTif =
+    !isSpot && formData.orderMode === 'standard' && formData.type === 'limit';
+  const shouldShowScaleTif = !isSpot && isScaleMode;
   const twapDurationLabel = useMemo(
     () =>
       `${intl.formatMessage({
@@ -1828,6 +1832,24 @@ function PerpTradingForm({
     return null;
   };
 
+  const renderTimeInForceSection = () => {
+    if (shouldShowScaleTif) {
+      return (
+        <XStack width="100%" justifyContent="flex-end">
+          <TimeInForceSelector
+            testID="perp-scale-tif-selector"
+            value={formData.scaleTif ?? 'Gtc'}
+            onChange={(nextTif) => updateForm({ scaleTif: nextTif })}
+            disabled={isSubmitting}
+            isMobile={isMobile}
+          />
+        </XStack>
+      );
+    }
+
+    return null;
+  };
+
   const renderTwapDurationSection = () => {
     if (!isTwapMode) {
       return null;
@@ -2227,64 +2249,83 @@ function PerpTradingForm({
         </YStack>
       );
     }
+    const standardLimitTifSelector = shouldShowLimitTif ? (
+      <TimeInForceSelector
+        testID="perp-limit-tif-selector"
+        value={formData.limitTif ?? 'Gtc'}
+        onChange={(nextTif) => updateForm({ limitTif: nextTif })}
+        disabled={isSubmitting}
+        isMobile={isMobile}
+      />
+    ) : null;
+
     return (
       <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
-        <XStack alignItems="center" gap="$2">
-          <Checkbox
-            testID={PerpTestIDs.TpslCheckbox}
-            value={formData.hasTpsl}
-            onChange={handleTpslCheckboxChange}
-            disabled={isSubmitting}
-            containerProps={{
-              p: 0,
-              alignItems: 'center',
-              ...(!isMobile && { cursor: 'pointer' }),
-            }}
-            width={checkboxSizeVal}
-            height={checkboxSizeVal}
-            {...(isMobile && { p: '$0' })}
-          />
+        <XStack
+          width="100%"
+          alignItems="center"
+          justifyContent="space-between"
+          gap="$3"
+        >
+          <XStack alignItems="center" gap="$2">
+            <Checkbox
+              testID={PerpTestIDs.TpslCheckbox}
+              value={formData.hasTpsl}
+              onChange={handleTpslCheckboxChange}
+              disabled={isSubmitting}
+              containerProps={{
+                p: 0,
+                alignItems: 'center',
+                ...(!isMobile && { cursor: 'pointer' }),
+              }}
+              width={checkboxSizeVal}
+              height={checkboxSizeVal}
+              {...(isMobile && { p: '$0' })}
+            />
 
-          {isMobile ? (
-            <Popover
-              renderContent={() => (
-                <YStack px="$5" pt="$2" pb="$4">
-                  <SizableText size="$bodyMd">
+            {isMobile ? (
+              <Popover
+                renderContent={() => (
+                  <YStack px="$5" pt="$2" pb="$4">
+                    <SizableText size="$bodyMd">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_tp_sl_tooltip,
+                      })}
+                    </SizableText>
+                  </YStack>
+                )}
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    dashColor="$textSubdued"
+                    dashThickness={0.5}
+                  >
                     {intl.formatMessage({
-                      id: ETranslations.perp_tp_sl_tooltip,
+                      id: ETranslations.perp_position_tp_sl,
                     })}
-                  </SizableText>
-                </YStack>
-              )}
-              renderTrigger={
-                <DashText
-                  size="$bodySm"
-                  dashColor="$textSubdued"
-                  dashThickness={0.5}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_position_tp_sl,
-                  })}
-                </DashText>
-              }
-              title={intl.formatMessage({
-                id: ETranslations.perp_position_tp_sl,
-              })}
-            />
-          ) : (
-            <Tooltip
-              renderContent={intl.formatMessage({
-                id: ETranslations.perp_tp_sl_tooltip,
-              })}
-              renderTrigger={
-                <DashText size="$bodyMd" dashThickness={0.5} cursor="help">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_position_tp_sl,
-                  })}
-                </DashText>
-              }
-            />
-          )}
+                  </DashText>
+                }
+                title={intl.formatMessage({
+                  id: ETranslations.perp_position_tp_sl,
+                })}
+              />
+            ) : (
+              <Tooltip
+                renderContent={intl.formatMessage({
+                  id: ETranslations.perp_tp_sl_tooltip,
+                })}
+                renderTrigger={
+                  <DashText size="$bodyMd" dashThickness={0.5} cursor="help">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_position_tp_sl,
+                    })}
+                  </DashText>
+                }
+              />
+            )}
+          </XStack>
+
+          {standardLimitTifSelector}
         </XStack>
 
         {formData.hasTpsl ? (
@@ -2718,6 +2759,8 @@ function PerpTradingForm({
           sliderHeight={isMobile ? 2 : 4}
         />
       </YStack>
+
+      {renderTimeInForceSection()}
 
       {renderScaleAmountDistributionSection()}
 
