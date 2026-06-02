@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { debounce } from 'lodash';
 import natsort from 'natsort';
@@ -47,7 +47,10 @@ import type {
 
 import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent';
-import { showPrimeTransferImportProcessingDialog } from './components/PrimeTransferImportProcessingDialog';
+import {
+  registerPrimeTransferImportTraceDebugGlobal,
+  showPrimeTransferImportProcessingDialog,
+} from './components/PrimeTransferImportProcessingDialog';
 
 function PreviewHeader({
   title,
@@ -356,6 +359,14 @@ export default function PagePrimeTransferPreview() {
   const navigation = useAppNavigation();
   const [primeTransferAtom] = usePrimeTransferAtom();
   const { exitTransferFlow } = usePrimeTransferExit();
+
+  useEffect(() => {
+    // Chrome/AI agents can inspect the transfer-only import trace while this
+    // preview page is open:
+    // await window.$$oneKeyPrimeTransferDebug.getImportTraceSnapshot()
+    registerPrimeTransferImportTraceDebugGlobal();
+  }, []);
+
   const route = useAppRoute<
     IPrimeParamList,
     EPrimePages.PrimeTransferPreview

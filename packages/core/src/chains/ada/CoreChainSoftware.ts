@@ -319,6 +319,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         const privateKey = await decryptAsync({
           password,
           data: privateKeyRaw,
+          kdfBackend: query.kdfBackend,
+          enablePbkdf2Cache: query.enablePbkdf2Cache,
         });
         return generateXprvFromPrivateKey(privateKey);
       }
