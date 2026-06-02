@@ -774,7 +774,7 @@ class ServiceToken extends ServiceBase {
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
     const keywordQueries = buildTokenSearchKeywordQueries(keywords);
     const queries = keywordQueries.length ? keywordQueries : [keywords];
-    const responses = await Promise.all(
+    const settledResponses = await Promise.allSettled(
       queries.map((queryKeywords) =>
         vault.fetchTokenDetails({
           accountId,
@@ -786,8 +786,25 @@ class ServiceToken extends ServiceBase {
       ),
     );
 
+    const fulfilledResponses = settledResponses.flatMap((settled) =>
+      settled.status === 'fulfilled' ? [settled.value] : [],
+    );
+
+    // Surface an error only when every query failed (e.g. all aborted by
+    // abortSearchTokens). A single fallback-query failure — such as the
+    // `eth -> ether` alias query timing out — must not discard the primary
+    // query's hits.
+    if (fulfilledResponses.length === 0) {
+      const firstRejected = settledResponses.find(
+        (settled) => settled.status === 'rejected',
+      );
+      if (firstRejected && firstRejected.status === 'rejected') {
+        throw firstRejected.reason;
+      }
+    }
+
     return uniqBy(
-      responses.flatMap((resp) => resp.data.data),
+      fulfilledResponses.flatMap((resp) => resp.data.data),
       (item) =>
         `${item.info.networkId ?? ''}_${
           item.info.uniqueKey ?? item.info.address

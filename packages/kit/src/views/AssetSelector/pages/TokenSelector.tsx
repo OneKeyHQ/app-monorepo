@@ -606,6 +606,12 @@ function TokenSelector() {
         }
       } catch (e) {
         if (latestSearchKeywordsRef.current === keywords) {
+          // Advance searchKey even on failure. showSkeleton keys off the
+          // (searchKey mismatch && empty list) condition, so without
+          // updating searchKey here a failed search would leave the token
+          // selector stuck on the skeleton forever with no self-recovery
+          // until the user edits the query.
+          setSearchTokenList({ tokens: [], searchKey: keywords });
           console.log(e);
         }
       } finally {
