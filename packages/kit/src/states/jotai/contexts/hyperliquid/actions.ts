@@ -3186,6 +3186,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           return result;
         },
         actionType: EActionType.CANCEL_ORDER,
+        args: [1],
       });
     },
   );
