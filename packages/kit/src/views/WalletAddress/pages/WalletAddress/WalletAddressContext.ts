@@ -10,7 +10,10 @@ export type IWalletAddressContext = {
   accountId?: string;
   walletId?: string;
   indexedAccountId?: string;
-  refreshLocalData: (config?: { alwaysSetState?: boolean }) => void;
+  refreshLocalData: (config?: {
+    alwaysSetState?: boolean;
+    skipAccountsCache?: boolean;
+  }) => Promise<void>;
   accountsCreated: boolean;
   setAccountsCreated: (accountsCreated: boolean) => void;
   originalAllNetworksState: IAllNetworksDBStruct;
@@ -30,7 +33,7 @@ export const WalletAddressContext = createContext<IWalletAddressContext>({
   accountId: '',
   walletId: '',
   indexedAccountId: '',
-  refreshLocalData: () => {},
+  refreshLocalData: async () => {},
   originalAllNetworksState: {
     enabledNetworks: {},
     disabledNetworks: {},

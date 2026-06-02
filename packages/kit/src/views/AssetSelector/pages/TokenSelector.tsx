@@ -251,7 +251,9 @@ function TokenSelector() {
   });
   const [searchTokenList, setSearchTokenList] = useState<{
     tokens: IAccountToken[];
-  }>({ tokens: [] });
+    searchKey: string;
+  }>({ tokens: [], searchKey: '' });
+  const latestSearchKeywordsRef = useRef('');
 
   const tokenSelectorFilterParams = useMemo(
     () =>
@@ -584,6 +586,8 @@ function TokenSelector() {
 
   const searchTokensBySearchKey = useCallback(
     async (keywords: string) => {
+      latestSearchKeywordsRef.current = keywords;
+      const isLatest = () => latestSearchKeywordsRef.current === keywords;
       setSearchTokenState({ isSearching: true });
       await backgroundApiProxy.serviceToken.abortSearchTokens();
       try {
@@ -598,11 +602,24 @@ function TokenSelector() {
               tokens: result,
             });
         }
-        setSearchTokenList({ tokens: result });
+        if (isLatest()) {
+          setSearchTokenList({ tokens: result, searchKey: keywords });
+        }
       } catch (e) {
-        console.log(e);
+        if (isLatest()) {
+          // Advance searchKey even on failure. showSkeleton keys off the
+          // (searchKey mismatch && empty list) condition, so without
+          // updating searchKey here a failed search would leave the token
+          // selector stuck on the skeleton forever with no self-recovery
+          // until the user edits the query.
+          setSearchTokenList({ tokens: [], searchKey: keywords });
+          console.log(e);
+        }
+      } finally {
+        if (isLatest()) {
+          setSearchTokenState({ isSearching: false });
+        }
       }
-      setSearchTokenState({ isSearching: false });
     },
     [accountId, isSelectorAllNetworks, networkId, showLpTokensOnly],
   );
@@ -890,8 +907,9 @@ function TokenSelector() {
     if (searchAll && searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
       void searchTokensBySearchKey(searchKey);
     } else {
+      latestSearchKeywordsRef.current = '';
       setSearchTokenState({ isSearching: false });
-      setSearchTokenList({ tokens: [] });
+      setSearchTokenList({ tokens: [], searchKey: '' });
       void backgroundApiProxy.serviceToken.abortSearchTokens();
     }
   }, [searchAll, searchKey, searchTokensBySearchKey]);
