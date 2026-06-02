@@ -142,6 +142,23 @@ function MarketPerpsTokenListImpl({
     perpsColumns,
   ]);
 
+  let integratedContentPaddingBottom = tabBarHeight;
+  if (platformEnv.isNativeAndroid) {
+    integratedContentPaddingBottom = listContainerProps?.paddingBottom ?? 104;
+  } else if (webTabIntegrated) {
+    integratedContentPaddingBottom =
+      listContainerProps?.paddingBottom ?? tabBarHeight;
+  }
+
+  const tableContentContainerStyle = tabIntegrated
+    ? {
+        paddingTop: 8 + (platformEnv.isNative ? 150 : 0),
+        paddingBottom: integratedContentPaddingBottom,
+      }
+    : {
+        paddingBottom: platformEnv.isNativeAndroid ? 104 : tabBarHeight,
+      };
+
   return (
     <Stack flex={1} width="100%">
       {portalContent}
@@ -164,20 +181,7 @@ function MarketPerpsTokenListImpl({
             />
           ) : (
             <Table<IMarketPerpsToken>
-              contentContainerStyle={
-                tabIntegrated
-                  ? {
-                      paddingTop: 8 + (platformEnv.isNative ? 150 : 0),
-                      paddingBottom: platformEnv.isNativeAndroid
-                        ? (listContainerProps?.paddingBottom ?? 104)
-                        : tabBarHeight,
-                    }
-                  : {
-                      paddingBottom: platformEnv.isNativeAndroid
-                        ? 104
-                        : tabBarHeight,
-                    }
-              }
+              contentContainerStyle={tableContentContainerStyle}
               stickyHeader
               showHeader={!useDesktopPortal}
               tabIntegrated={tabIntegrated}
