@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { debounce, isNil, uniq } from 'lodash';
+import { debounce, isNil, uniq, uniqBy } from 'lodash';
 
 import {
   backgroundClass,
@@ -21,6 +21,7 @@ import perfUtils, {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  buildTokenSearchKeywordQueries,
   filterAccountTokenListByLimit,
   getEmptyTokenData,
   getMergedTokenData,
@@ -771,15 +772,45 @@ class ServiceToken extends ServiceBase {
     const controller = new AbortController();
     this._searchTokensControllers.push(controller);
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
-    const resp = await vault.fetchTokenDetails({
-      accountId,
-      networkId,
-      contractList,
-      keywords,
-      signal: controller.signal,
-    });
+    const keywordQueries = buildTokenSearchKeywordQueries(keywords);
+    const queries = keywordQueries.length ? keywordQueries : [keywords];
+    const settledResponses = await Promise.allSettled(
+      queries.map((queryKeywords) =>
+        vault.fetchTokenDetails({
+          accountId,
+          networkId,
+          contractList,
+          keywords: queryKeywords,
+          signal: controller.signal,
+        }),
+      ),
+    );
 
-    return resp.data.data.map((item) => ({
+    const fulfilledResponses = settledResponses.flatMap((settled) =>
+      settled.status === 'fulfilled' ? [settled.value] : [],
+    );
+
+    // Surface an error only when every query failed (e.g. all aborted by
+    // abortSearchTokens). A single fallback-query failure — such as the
+    // `eth -> ether` alias query timing out — must not discard the primary
+    // query's hits.
+    if (fulfilledResponses.length === 0) {
+      const firstRejected = settledResponses.find(
+        (settled): settled is PromiseRejectedResult =>
+          settled.status === 'rejected',
+      );
+      if (firstRejected) {
+        throw firstRejected.reason;
+      }
+    }
+
+    return uniqBy(
+      fulfilledResponses.flatMap((resp) => resp.data.data),
+      (item) =>
+        `${item.info.networkId ?? ''}_${
+          item.info.uniqueKey ?? item.info.address
+        }`,
+    ).map((item) => ({
       ...item.info,
       $key: item.info.uniqueKey ?? item.info.address,
     }));

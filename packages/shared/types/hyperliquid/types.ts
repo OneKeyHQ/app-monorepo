@@ -1,4 +1,4 @@
-import type { IFill, IHex, IWithdraw3Request } from './sdk';
+import type { IFill, IHex, ITIF, IWithdraw3Request } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
 export enum EPerpsSubscriptionCategory {
@@ -81,7 +81,7 @@ export interface IPlaceOrderParams {
   isBuy: boolean;
   sz: string;
   limitPx?: string;
-  orderType: { limit: { tif: 'Gtc' | 'Ioc' } } | { market?: object };
+  orderType: { limit: { tif: ITIF } } | { market?: object };
   slippage?: number;
   reduceOnly?: boolean;
 }
@@ -92,6 +92,7 @@ export interface IOrderOpenParams {
   size: string;
   price: string;
   type: 'market' | 'limit';
+  tif?: ITIF;
   tpTriggerPx?: string;
   slTriggerPx?: string;
   slippage?: number;
@@ -125,7 +126,7 @@ export interface IModifyOrderParams {
   sz: string;
   price: string;
   reduceOnly?: boolean;
-  orderType?: { limit: { tif: 'Gtc' | 'Ioc' | 'Alo' } };
+  orderType?: { limit: { tif: ITIF } };
 }
 
 export interface IWithdrawParams extends IWithdraw3Request {
@@ -146,6 +147,10 @@ export interface IUpdateIsolatedMarginRequest {
 
 export interface ISetReferrerRequest {
   code: string;
+}
+
+export interface ISpotDustingOptOutRequest {
+  optOut: boolean;
 }
 
 export interface IBuilderFeeRequest {
@@ -189,7 +194,7 @@ export interface ITriggerOrderParams {
 
 // ── Scale Order Types ──
 
-export type IScaleOrderTif = 'Gtc' | 'Alo';
+export type IScaleOrderTif = ITIF;
 export type IScaleOrderSizeDistribution = 'fixed' | 'increasing';
 
 export interface IScaleOrderBuildParams {

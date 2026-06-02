@@ -21,7 +21,12 @@ const DISABLED_FEATURE_OPTIONS: {
   label: string;
   value: ITradingViewDisabledFeature;
 }[] = [
-  { label: 'Footer', value: TRADING_VIEW_DISABLED_FEATURES.FOOTER },
+  {
+    label: 'Timeframe Selector',
+    value: TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
+  },
+  { label: 'Time Scale', value: TRADING_VIEW_DISABLED_FEATURES.TIME_SCALE },
+  { label: 'Price Scale', value: TRADING_VIEW_DISABLED_FEATURES.PRICE_SCALE },
   {
     label: 'Price / Market Cap',
     value: TRADING_VIEW_DISABLED_FEATURES.PRICE_MARKET_CAP_TOGGLE,
