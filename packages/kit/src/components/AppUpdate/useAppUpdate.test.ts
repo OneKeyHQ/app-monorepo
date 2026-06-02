@@ -337,8 +337,14 @@ function resetAllMocks() {
   jest.clearAllMocks();
   setAtom({});
 
-  // Default resolved values
-  svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+  // Default resolved values. getUpdateInfo uses mockImplementation so it
+  // always returns the CURRENT mockAtomHolder.value — tests that reassign
+  // the holder via setAtom() after resetAllMocks() don't have to repeat
+  // the mock setup. (mockResolvedValue would capture the reference at
+  // call time and would not see post-setAtom reassignments.)
+  svc.getUpdateInfo.mockImplementation(() =>
+    Promise.resolve(mockAtomHolder.value),
+  );
   svc.getDownloadEvent.mockResolvedValue(null);
   svc.downloadPackage.mockResolvedValue(undefined);
   svc.downloadPackageFailed.mockResolvedValue(undefined);
@@ -1745,7 +1751,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       expect(svc.downloadPackage).toHaveBeenCalled();
@@ -1767,7 +1773,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       expect(svc.downloadASC).toHaveBeenCalled();
@@ -1788,7 +1794,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       expect(svc.verifyASC).toHaveBeenCalled();
@@ -1808,7 +1814,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       expect(svc.verifyPackage).toHaveBeenCalled();
@@ -1825,7 +1831,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       expect(svc.downloadPackage).not.toHaveBeenCalled();
@@ -1855,7 +1861,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       expect(bundleUpd.installBundle).toHaveBeenCalledWith(
@@ -1879,7 +1885,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       expect(bundleUpd.installBundle).not.toHaveBeenCalled();
@@ -1904,7 +1910,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       expect(appUpd.installPackage).toHaveBeenCalled();
@@ -1923,7 +1929,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       expect(nav.pushFullModal).toHaveBeenCalled();
@@ -1943,7 +1949,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, false));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       expect(svc.downloadPackage).not.toHaveBeenCalled();
@@ -1967,7 +1973,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       // Should call refreshUpdateStatus then schedule fetch
@@ -1993,7 +1999,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       const resultCalls = (
@@ -2017,12 +2023,56 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
 
       expect(svc.refreshUpdateStatus).toHaveBeenCalled();
       // pushFullModal for WhatsNew should NOT be called for seamless
       expect(nav.pushFullModal).not.toHaveBeenCalled();
+    });
+
+    test('hook returns pre-hydration placeholder but service returns post-update state → dialog still fires on the same launch', async () => {
+      // Regression for jotai persist hydration race in
+      // AppUpdateForeground.tsx: the first-launch dispatch effect has
+      // empty deps and runs exactly once per app lifecycle (gated by
+      // didRunFirstLaunchDispatch). If it reads the React-hook snapshot
+      // and that snapshot is still the initial-value placeholder
+      // (status: done, latestVersion: '0.0.0') because per-key MMKV
+      // hydration hasn't propagated yet, isFirstLaunchAfterUpdated()
+      // returns false and the post-update "what's new" dialog gets
+      // deferred to the *next* cold launch — exactly the user-visible
+      // bug. Reading the authoritative state via getUpdateInfo() removes
+      // the dependency on hydration timing.
+
+      // Simulate the hook still showing the pre-hydration placeholder.
+      setAtom({
+        status: EAppUpdateStatus.done,
+        latestVersion: '0.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      // ...but the persisted (authoritative) state via the service shows
+      // a completed update waiting for the post-update dialog.
+      svc.getUpdateInfo.mockResolvedValue({
+        status: EAppUpdateStatus.notify,
+        latestVersion: '1.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue({
+        status: EAppUpdateStatus.notify,
+        latestVersion: '1.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+
+      // Proves the dispatch entered the isFirstLaunchAfterUpdated branch
+      // even though the React-hook value would have failed the check.
+      expect(svc.refreshUpdateStatus).toHaveBeenCalled();
     });
   });
 
@@ -2045,7 +2095,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
       // Allow promises to resolve
       await act(async () => {
@@ -2079,7 +2129,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
       await act(async () => {
         await Promise.resolve();
@@ -2112,7 +2162,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
       await act(async () => {
         await Promise.resolve();
@@ -2143,7 +2193,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
       await act(async () => {
         await Promise.resolve();
@@ -2177,7 +2227,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
       await act(async () => {
         await Promise.resolve();
@@ -2208,7 +2258,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
       await act(async () => {
         await Promise.resolve();
@@ -2237,7 +2287,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
       await act(async () => {
         await Promise.resolve();
@@ -2246,6 +2296,53 @@ describe('useAppUpdateInfo useEffect', () => {
       });
 
       expect(svc.fetchAppUpdateInfo).toHaveBeenCalled();
+    });
+
+    test('hydration race + force update: preview opens with the force lock derived from authoritative state, not the stale hook snapshot', async () => {
+      // Regression for the jotai persist hydration race (PR #11704). The
+      // empty-deps first-launch effect can run while the React-hook snapshot
+      // is still the pre-hydration placeholder (status: done, manual). The
+      // force-update branch is correctly gated on the authoritative
+      // getUpdateInfo() result, but toUpdatePreviewPage must ALSO carry the
+      // force semantics from that authoritative state. Otherwise the route
+      // opens a mandatory update with isForceUpdate=false and UpdatePreview's
+      // usePreventRemove / header lock briefly treat it as dismissible during
+      // the hydration window.
+
+      // Hook snapshot is the stale, non-force placeholder...
+      setAtom({
+        status: EAppUpdateStatus.done,
+        latestVersion: '0.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      // ...but the authoritative persisted state is a force update awaiting
+      // install (status !== done, latestVersion ahead of APP_VERSION so it is
+      // NOT treated as first-launch-after-update).
+      svc.getUpdateInfo.mockResolvedValue({
+        status: EAppUpdateStatus.notify,
+        latestVersion: '2.0.0',
+        updateStrategy: EUpdateStrategy.force,
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue({
+        status: EAppUpdateStatus.notify,
+        latestVersion: '2.0.0',
+        updateStrategy: EUpdateStrategy.force,
+      });
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+
+      expect(nav.pushFullModal).toHaveBeenCalledWith(
+        'AppUpdateModal',
+        expect.objectContaining({
+          screen: 'UpdatePreview',
+          params: expect.objectContaining({ isForceUpdate: true }),
+        }),
+      );
     });
 
     test('ready + silent strategy → shows silent update dialog', async () => {
@@ -2325,7 +2422,7 @@ describe('useAppUpdateInfo useEffect', () => {
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
       await act(async () => {
         await Promise.resolve();
@@ -2535,7 +2632,7 @@ describe('useAppUpdateInfo useEffect', () => {
       const { hooks } = requireFreshHooksWithForeground();
       const r1 = renderHook(() => hooks.useAppUpdateInfo(false, true));
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
       expect(svc.downloadPackage).toHaveBeenCalledTimes(1);
 
@@ -2545,7 +2642,7 @@ describe('useAppUpdateInfo useEffect', () => {
       // Same module instance → didRunFirstLaunchDispatch is still true.
       renderHook(() => hooks.useAppUpdateInfo(false, true));
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
       expect(svc.downloadPackage).not.toHaveBeenCalled();
     });
@@ -2561,7 +2658,7 @@ describe('useAppUpdateInfo useEffect', () => {
       const { hooks, foreground } = requireFreshHooksWithForeground();
       const r1 = renderHook(() => hooks.useAppUpdateInfo(false, true));
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
       expect(svc.downloadPackage).toHaveBeenCalledTimes(1);
 
@@ -2571,7 +2668,7 @@ describe('useAppUpdateInfo useEffect', () => {
 
       renderHook(() => hooks.useAppUpdateInfo(false, true));
       await act(async () => {
-        jest.runAllTimers();
+        await jest.runAllTimersAsync();
       });
       expect(svc.downloadPackage).toHaveBeenCalledTimes(1);
     });
