@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -72,6 +72,115 @@ type ISwapHistoryDetailAssetItem = {
   price: string;
   amount?: string;
 };
+
+type IPrivateSendProgressStepStatus = 'todo' | 'process' | 'done' | 'error';
+
+const privateSendProgressStepLabels = [
+  ETranslations.private_send_submitted,
+  ETranslations.private_send_pending,
+  ETranslations.private_send_done,
+] as const;
+
+function getPrivateSendProgressStepStatuses(
+  status?: ESwapTxHistoryStatus,
+): IPrivateSendProgressStepStatus[] {
+  if (
+    status === ESwapTxHistoryStatus.SUCCESS ||
+    status === ESwapTxHistoryStatus.PARTIALLY_FILLED
+  ) {
+    return ['done', 'done', 'done'];
+  }
+
+  if (
+    status === ESwapTxHistoryStatus.FAILED ||
+    status === ESwapTxHistoryStatus.CANCELED
+  ) {
+    return ['done', 'done', 'error'];
+  }
+
+  return ['done', 'process', 'todo'];
+}
+
+function PrivateSendProgressStatusIcon({
+  status,
+}: {
+  status: IPrivateSendProgressStepStatus;
+}) {
+  if (status === 'done') {
+    return <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />;
+  }
+
+  if (status === 'error') {
+    return <Icon name="XCircleSolid" size="$5" color="$iconCritical" />;
+  }
+
+  if (status === 'process') {
+    return (
+      <Stack w="$6" h="$6" alignItems="center" justifyContent="center">
+        <Stack
+          w="$5"
+          h="$5"
+          borderRadius="$full"
+          borderWidth={2}
+          borderColor="$icon"
+        />
+        <Stack
+          position="absolute"
+          w="$2"
+          h="$2"
+          borderRadius="$full"
+          bg="$icon"
+        />
+      </Stack>
+    );
+  }
+
+  return (
+    <Stack w="$6" h="$6" alignItems="center" justifyContent="center">
+      <Stack
+        w="$5"
+        h="$5"
+        borderRadius="$full"
+        borderWidth={2}
+        borderColor="$iconDisabled"
+      />
+    </Stack>
+  );
+}
+
+function PrivateSendProgress({ status }: { status?: ESwapTxHistoryStatus }) {
+  const intl = useIntl();
+  const stepStatuses = useMemo(
+    () => getPrivateSendProgressStepStatuses(status),
+    [status],
+  );
+
+  return (
+    <Stack mx="$5" mb="$2.5" px="$5" py="$3" bg="$bgSubdued" borderRadius="$2">
+      <XStack alignItems="center">
+        {stepStatuses.map((stepStatus, index) => (
+          <Fragment key={`${stepStatus}-${index}`}>
+            {index > 0 ? (
+              <Stack flex={1} height="$px" bg="$borderSubdued" />
+            ) : null}
+            <Stack w="$6" h="$6" alignItems="center" justifyContent="center">
+              <PrivateSendProgressStatusIcon status={stepStatus} />
+            </Stack>
+          </Fragment>
+        ))}
+      </XStack>
+      <XStack mt="$1">
+        {privateSendProgressStepLabels.map((label) => (
+          <Stack key={label} flex={1} alignItems="center" minWidth={0}>
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {intl.formatMessage({ id: label })}
+            </SizableText>
+          </Stack>
+        ))}
+      </XStack>
+    </Stack>
+  );
+}
 
 const SwapHistoryDetailModal = () => {
   const navigation =
@@ -610,6 +719,9 @@ const SwapHistoryDetailModal = () => {
     return (
       <>
         <Stack>{renderSwapAssetsChange()}</Stack>
+        {isPrivateSendHistory ? (
+          <PrivateSendProgress status={txHistory.status} />
+        ) : null}
         <Stack>
           <InfoItemGroup>
             <InfoItem

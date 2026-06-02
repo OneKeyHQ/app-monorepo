@@ -50,6 +50,10 @@ export function isPrivateSendHistoryTx(historyTx: IAccountHistoryTx) {
   );
 }
 
+function getPrivateSendHistoryPayload(historyTx: IAccountHistoryTx) {
+  return historyTx.decodedTx.payload?.privateSend;
+}
+
 function getPrivateSendFallbackOrderId(historyTx: IAccountHistoryTx) {
   return `${privateSendFallbackOrderIdPrefix}${
     historyTx.decodedTx.txid || historyTx.id
@@ -57,7 +61,7 @@ function getPrivateSendFallbackOrderId(historyTx: IAccountHistoryTx) {
 }
 
 function isPrivateSendFallbackOrderId(orderId?: string) {
-  return !!orderId?.startsWith(privateSendFallbackOrderIdPrefix);
+  return orderId?.startsWith(privateSendFallbackOrderIdPrefix) ?? false;
 }
 
 function ensurePrivateSendHistoryOrderId(item: ISwapTxHistory) {
@@ -82,6 +86,14 @@ function isPrivateSendSwapHistoryItem(item?: ISwapTxHistory) {
   );
 }
 
+function getPrivateSendRocketXOrderIdFromCtx(ctx: unknown) {
+  const rocketXOrderId = (ctx as IPrivateSendTxStateCtx | undefined)
+    ?.rocketXOrderId;
+  return typeof rocketXOrderId === 'string' && rocketXOrderId
+    ? rocketXOrderId
+    : undefined;
+}
+
 function getPrivateSendFallbackStatus(historyTx: IAccountHistoryTx) {
   if (
     historyTx.decodedTx.status === EDecodedTxStatus.Failed ||
@@ -91,43 +103,6 @@ function getPrivateSendFallbackStatus(historyTx: IAccountHistoryTx) {
     return ESwapTxHistoryStatus.FAILED;
   }
   return ESwapTxHistoryStatus.PENDING;
-}
-
-function applyPrivateSendTxState({
-  item,
-  txState,
-}: {
-  item: ISwapTxHistory;
-  txState?: IFetchSwapTxHistoryStatusResponse;
-}) {
-  if (!txState) return ensurePrivateSendHistoryOrderId(item);
-
-  return ensurePrivateSendHistoryOrderId({
-    ...item,
-    status: txState.state ?? item.status,
-    extraStatus: txState.extraStatus ?? item.extraStatus,
-    crossChainStatus: txState.crossChainStatus ?? item.crossChainStatus,
-    stateDetail: txState.stateDetail ?? item.stateDetail,
-    swapOrderHash: txState.swapOrderHash ?? item.swapOrderHash,
-    txInfo: {
-      ...item.txInfo,
-      txId: txState.txId ?? item.txInfo.txId,
-      receiverTransactionId:
-        txState.crossChainReceiveTxHash ?? item.txInfo.receiverTransactionId,
-      gasFeeInNative: txState.gasFee ?? item.txInfo.gasFeeInNative,
-      gasFeeFiatValue: txState.gasFeeFiatValue ?? item.txInfo.gasFeeFiatValue,
-    },
-    baseInfo: {
-      ...item.baseInfo,
-      toAmount: txState.dealReceiveAmount ?? item.baseInfo.toAmount,
-    },
-    swapInfo: {
-      ...item.swapInfo,
-      chainFlipExplorerUrl:
-        txState.chainFlipExplorerUrl ?? item.swapInfo.chainFlipExplorerUrl,
-      surplus: txState.surplus ?? item.swapInfo.surplus,
-    },
-  });
 }
 
 function buildSwapNetwork({
@@ -203,7 +178,8 @@ function buildPrivateSendHistoryItemFromAccountHistory({
     historyTx.decodedTx.signer ??
     accountAddress ??
     historyTx.decodedTx.owner;
-  const receiver = '';
+  const privateSendPayload = getPrivateSendHistoryPayload(historyTx);
+  const receiver = privateSendPayload?.originalRecipient ?? '';
   const token = buildSwapToken({ historyTx, tokenInfo });
   const networkInfo = buildSwapNetwork({
     network,
@@ -211,7 +187,15 @@ function buildPrivateSendHistoryItemFromAccountHistory({
   });
   const created = historyTx.decodedTx.createdAt ?? Date.now();
   const updated = historyTx.decodedTx.updatedAt ?? created;
-  const orderId = getPrivateSendFallbackOrderId(historyTx);
+  const orderId =
+    privateSendPayload?.orderId ??
+    privateSendPayload?.rocketXOrderId ??
+    getPrivateSendFallbackOrderId(historyTx);
+  const txInfoOrderId =
+    privateSendPayload?.rocketXOrderId ?? privateSendPayload?.orderId;
+  const ctx = privateSendPayload?.rocketXOrderId
+    ? { rocketXOrderId: privateSendPayload.rocketXOrderId }
+    : undefined;
 
   return {
     protocol: EProtocolOfExchange.PRIVATE_SEND,
@@ -237,6 +221,8 @@ function buildPrivateSendHistoryItemFromAccountHistory({
     },
     txInfo: {
       txId: historyTx.decodedTx.txid,
+      useOrderId: !!privateSendPayload?.rocketXOrderId,
+      orderId: txInfoOrderId,
       sender,
       receiver,
       gasFeeInNative: historyTx.decodedTx.totalFeeInNative,
@@ -244,43 +230,89 @@ function buildPrivateSendHistoryItemFromAccountHistory({
     },
     swapInfo: {
       provider: {
-        provider: privateSendProvider,
-        providerName: 'Private Send',
+        provider: privateSendPayload?.provider ?? privateSendProvider,
+        providerName: privateSendPayload?.providerName ?? 'Private Send',
+        providerLogo: privateSendPayload?.providerLogo,
       },
       instantRate: '0',
       orderId,
-      supportUrl: privateSendHelpCenterUrl,
+      supportUrl: privateSendPayload?.supportUrl ?? privateSendHelpCenterUrl,
     },
     date: {
       created,
       updated,
     },
+    ctx,
   };
 }
 
 function canFetchPrivateSendTxState(item: ISwapTxHistory) {
-  const rocketXOrderId = (item.ctx as IPrivateSendTxStateCtx | undefined)
-    ?.rocketXOrderId;
-  return Boolean(
-    typeof rocketXOrderId === 'string' &&
-    rocketXOrderId &&
-    (item.txInfo.txId || item.txInfo.orderId || item.swapInfo.orderId),
+  return (
+    isPrivateSendSwapHistoryItem(item) &&
+    !!getPrivateSendRocketXOrderIdFromCtx(item.ctx) &&
+    !!(item.txInfo.txId || item.txInfo.orderId || item.swapInfo.orderId)
   );
 }
 
 async function fetchPrivateSendTxState(item: ISwapTxHistory) {
-  const isFallbackOrder = isPrivateSendFallbackOrderId(item.swapInfo.orderId);
   const orderId = item.swapInfo.orderId ?? item.txInfo.orderId;
+  const shouldUseOrderId = !isPrivateSendFallbackOrderId(orderId);
+
   return backgroundApiProxy.serviceSwap.fetchTxState({
-    txId: item.txInfo.txId,
+    txId: item.txInfo.txId ?? item.txInfo.orderId ?? orderId,
     provider: item.swapInfo.provider.provider || privateSendProvider,
-    protocol: EProtocolOfExchange.PRIVATE_SEND,
+    protocol: item.protocol ?? EProtocolOfExchange.PRIVATE_SEND,
     networkId: item.baseInfo.fromToken.networkId,
     ctx: item.ctx,
     toTokenAddress: item.baseInfo.toToken.contractAddress,
-    receivedAddress: isFallbackOrder ? undefined : item.txInfo.receiver,
-    orderId: isFallbackOrder ? undefined : orderId,
+    receivedAddress: shouldUseOrderId
+      ? item.txInfo.receiver || undefined
+      : undefined,
+    orderId: shouldUseOrderId ? orderId : undefined,
   });
+}
+
+function applyPrivateSendTxState({
+  item,
+  txState,
+}: {
+  item: ISwapTxHistory;
+  txState?: IFetchSwapTxHistoryStatusResponse;
+}) {
+  if (!txState) {
+    return item;
+  }
+
+  return {
+    ...item,
+    status: txState.state ?? item.status,
+    extraStatus: txState.extraStatus ?? item.extraStatus,
+    crossChainStatus: txState.crossChainStatus ?? item.crossChainStatus,
+    stateDetail: txState.stateDetail ?? item.stateDetail,
+    swapOrderHash: txState.swapOrderHash ?? item.swapOrderHash,
+    baseInfo: {
+      ...item.baseInfo,
+      toAmount: txState.dealReceiveAmount ?? item.baseInfo.toAmount,
+    },
+    txInfo: {
+      ...item.txInfo,
+      txId: txState.txId ?? item.txInfo.txId,
+      gasFeeInNative: txState.gasFee ?? item.txInfo.gasFeeInNative,
+      gasFeeFiatValue: txState.gasFeeFiatValue ?? item.txInfo.gasFeeFiatValue,
+      receiverTransactionId:
+        txState.crossChainReceiveTxHash ?? item.txInfo.receiverTransactionId,
+    },
+    swapInfo: {
+      ...item.swapInfo,
+      chainFlipExplorerUrl:
+        txState.chainFlipExplorerUrl ?? item.swapInfo.chainFlipExplorerUrl,
+      surplus: txState.surplus ?? item.swapInfo.surplus,
+    },
+    date: {
+      ...item.date,
+      updated: txState.timestamp ?? item.date.updated,
+    },
+  };
 }
 
 export async function maybeOpenPrivateSendHistoryDetail({
@@ -346,10 +378,9 @@ export async function maybeOpenPrivateSendHistoryDetail({
     }
   }
 
-  const nextTxHistoryItem = applyPrivateSendTxState({
-    item: txHistoryItem,
-    txState,
-  });
+  const nextTxHistoryItem = ensurePrivateSendHistoryOrderId(
+    applyPrivateSendTxState({ item: txHistoryItem, txState }),
+  );
   const txHistoryOrderId = nextTxHistoryItem.swapInfo.orderId;
 
   navigation.pushModal(EModalRoutes.SwapModal, {

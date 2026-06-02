@@ -566,6 +566,14 @@ export type ITransferPayload = {
   isMaxSend: boolean;
   isNFT: boolean;
   isPrivateSend?: boolean;
+  privateSend?: {
+    orderId?: string;
+    rocketXOrderId?: string;
+    provider?: string;
+    providerName?: string;
+    providerLogo?: string;
+    supportUrl?: string;
+  };
   originalRecipient: string;
   isToContract?: boolean;
   memo?: string;

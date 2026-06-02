@@ -674,7 +674,33 @@ class ServiceSend extends ServiceBase {
             label:
               decodedTx.payload?.label ?? EOnChainHistoryTxType.PrivateSend,
             type: EOnChainHistoryTxType.PrivateSend,
+            privateSend: {
+              ...transferPayload?.privateSend,
+              originalRecipient: transferPayload?.originalRecipient,
+            },
           };
+          decodedTx.actions = decodedTx.actions.map((action) =>
+            action.assetTransfer
+              ? {
+                  ...action,
+                  assetTransfer: {
+                    ...action.assetTransfer,
+                    isInternalSwap: false,
+                  },
+                }
+              : action,
+          );
+          decodedTx.outputActions = decodedTx.outputActions?.map((action) =>
+            action.assetTransfer
+              ? {
+                  ...action,
+                  assetTransfer: {
+                    ...action.assetTransfer,
+                    isInternalSwap: false,
+                  },
+                }
+              : action,
+          );
         }
 
         const data = {

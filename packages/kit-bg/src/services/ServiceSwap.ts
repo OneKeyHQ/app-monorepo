@@ -529,6 +529,7 @@ export default class ServiceSwap extends ServiceBase {
     contractAddress,
     direction,
     currency,
+    protocol = EProtocolOfExchange.SWAP,
   }: {
     networkId: string;
     accountAddress?: string;
@@ -536,11 +537,12 @@ export default class ServiceSwap extends ServiceBase {
     contractAddress: string;
     direction?: ESwapDirectionType;
     currency?: string;
+    protocol?: EProtocolOfExchange;
   }): Promise<ISwapToken[] | undefined> {
     try {
       await this.cancelFetchTokenDetail(direction);
       const params: IFetchTokenDetailParams = {
-        protocol: EProtocolOfExchange.SWAP,
+        protocol,
         networkId,
         accountAddress,
         contractAddress,

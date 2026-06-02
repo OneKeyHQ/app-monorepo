@@ -552,15 +552,14 @@ function SendAmountInputContainer() {
       }
       try {
         const privateSendTokens =
-          await backgroundApiProxy.serviceSwap.fetchSwapTokens({
-            protocol: ESwapTabSwitchType.PRIVATE_SEND,
+          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
             networkId,
+            contractAddress: privateSendToken.contractAddress,
             accountAddress: account.address,
-            accountNetworkId: networkId,
             accountId: currentAccountId,
-            limit: 200,
+            protocol: EProtocolOfExchange.PRIVATE_SEND,
           });
-        return privateSendTokens.some((item) =>
+        return privateSendTokens?.some((item) =>
           isSameSwapToken(item, privateSendToken),
         );
       } catch {
@@ -1923,6 +1922,8 @@ function SendAmountInputContainer() {
               },
             ];
             const privateSendAmountToSend = privateSendPayinAmount;
+            const privateSendOrderId =
+              normalizedBuildSwapRes.orderId ?? privateSendRocketXOrderId;
 
             const swapInfo: ISwapTxInfo = {
               protocol: EProtocolOfExchange.PRIVATE_SEND,
@@ -1995,7 +1996,7 @@ function SendAmountInputContainer() {
                 },
                 txInfo: {
                   txId,
-                  useOrderId: !txId && !!privateSendRocketXOrderId,
+                  useOrderId: !!privateSendRocketXOrderId,
                   orderId: privateSendRocketXOrderId,
                   sender: account.address,
                   receiver: submitRecipientAddress,
@@ -2013,8 +2014,7 @@ function SendAmountInputContainer() {
                     normalizedBuildSwapRes.result.fee?.protocolFees ?? 0,
                   otherFeeInfos:
                     normalizedBuildSwapRes.result.fee?.otherFeeInfos ?? [],
-                  orderId:
-                    normalizedBuildSwapRes.orderId ?? privateSendRocketXOrderId,
+                  orderId: privateSendOrderId,
                   supportUrl:
                     normalizedBuildSwapRes.result.supportUrl ??
                     privateSendHelpCenterUrl,
@@ -2057,6 +2057,16 @@ function SendAmountInputContainer() {
                 isNFT: false,
                 isPrivateSend: true,
                 originalRecipient: submitRecipientAddress,
+                privateSend: {
+                  orderId: privateSendOrderId,
+                  rocketXOrderId: privateSendRocketXOrderId,
+                  provider: privateSendProviderInfo.provider,
+                  providerName: privateSendProviderInfo.providerName,
+                  providerLogo: privateSendProviderInfo.providerLogo,
+                  supportUrl:
+                    normalizedBuildSwapRes.result.supportUrl ??
+                    privateSendHelpCenterUrl,
+                },
                 isToContract: submitRecipientIsContract,
                 memo: recipientMemo,
                 paymentId: recipientPaymentId,
