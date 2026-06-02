@@ -11,6 +11,7 @@ import {
 } from './AnimatedDepthBlock.shared';
 
 import type {
+  IDepthBarColumnProps,
   IDepthBarProps,
   ISideRatioSegmentsProps,
 } from './AnimatedDepthBlock.shared';
@@ -74,6 +75,45 @@ export function DepthBar({
     >
       <View style={[styles.block, blockStyle]} />
     </View>
+  );
+}
+
+/**
+ * Web/desktop variant of the per-side depth column. Renders one CSS `DepthBar`
+ * per row so the visual output matches the legacy per-row implementation. The
+ * native variant collapses these into a single `PerpDepthBarsView`; `epoch` is
+ * only meaningful there (snap-without-animate), so it is ignored here.
+ */
+export function DepthBarColumn({
+  percents,
+  rowHeight,
+  rowMarginTop,
+  barInset,
+  color,
+  origin = 'left',
+}: IDepthBarColumnProps) {
+  const barHeight = rowHeight - 2 * barInset;
+  return (
+    <>
+      {percents.map((percent, index) => (
+        <View
+          // eslint-disable-next-line react/no-array-index-key
+          key={index}
+          style={{
+            height: rowHeight,
+            marginTop: rowMarginTop,
+            position: 'relative',
+          }}
+        >
+          <DepthBar
+            color={color}
+            origin={origin}
+            width={`${percent}%`}
+            height={barHeight}
+          />
+        </View>
+      ))}
+    </>
   );
 }
 
