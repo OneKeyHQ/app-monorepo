@@ -409,12 +409,15 @@ function TxActionTransferListView(props: ITxActionProps) {
     intl,
     isUTXO,
   });
+  const descriptionTarget = isPrivateSend
+    ? (payload?.privateSend?.originalRecipient ?? transferTarget)
+    : transferTarget;
   const description = {
     prefix: '',
     children: accountUtils.shortenAddress({
-      address: transferTarget,
+      address: descriptionTarget,
     }),
-    originalAddress: transferTarget,
+    originalAddress: descriptionTarget,
   };
 
   const avatar: ITxActionCommonListViewProps['avatar'] = {

@@ -114,6 +114,12 @@ function buildSwapNetwork({
   };
 }
 
+function isPrivateSendHistoryNetworkIncomplete(
+  network?: IPrivateSendHistoryNetwork,
+) {
+  return !network?.name || !network?.symbol || !network?.logoURI;
+}
+
 function buildSwapToken({
   historyTx,
   tokenInfo,
@@ -344,7 +350,10 @@ export async function maybeOpenPrivateSendHistoryDetail({
 
   let resolvedNetwork = network;
   const resolvedNetworkId = resolvedNetwork?.networkId ?? resolvedNetwork?.id;
-  if (resolvedNetworkId !== historyTx.decodedTx.networkId) {
+  if (
+    resolvedNetworkId !== historyTx.decodedTx.networkId ||
+    isPrivateSendHistoryNetworkIncomplete(resolvedNetwork)
+  ) {
     try {
       resolvedNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
         networkId: historyTx.decodedTx.networkId,

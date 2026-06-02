@@ -20,6 +20,17 @@ const BALANCE_REFRESH_CROSS_CHAIN_STATUSES = new Set<ESwapCrossChainStatus>([
   ESwapCrossChainStatus.REFUNDED,
 ]);
 
+const TERMINAL_SWAP_HISTORY_STATUSES = new Set<ESwapTxHistoryStatus>([
+  ESwapTxHistoryStatus.SUCCESS,
+  ESwapTxHistoryStatus.FAILED,
+  ESwapTxHistoryStatus.CANCELED,
+  ESwapTxHistoryStatus.PARTIALLY_FILLED,
+]);
+
+export function isSwapTxHistoryStatusTerminal(status?: ESwapTxHistoryStatus) {
+  return status ? TERMINAL_SWAP_HISTORY_STATUSES.has(status) : false;
+}
+
 function isHoudiniSwapProvider(provider?: string) {
   return provider === HOUDINI_SWAP_PROVIDER;
 }
@@ -82,7 +93,7 @@ export function shouldUpdateSwapHistoryAfterTxState({
   txStatusRes: IFetchSwapTxHistoryStatusResponse;
 }) {
   return (
-    txStatusRes.state !== ESwapTxHistoryStatus.PENDING ||
+    txStatusRes.state !== swapTxHistory.status ||
     txStatusRes.crossChainStatus !== swapTxHistory.crossChainStatus ||
     shouldTrackPrivateSendStatusChange({ swapTxHistory, txStatusRes }) ||
     shouldTrackHoudiniStateDetailChange({ swapTxHistory, txStatusRes })

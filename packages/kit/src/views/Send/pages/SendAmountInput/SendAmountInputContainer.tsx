@@ -80,6 +80,7 @@ import {
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -209,16 +210,6 @@ function convertTokenToSwapToken({
     price: tokenDetails.price.toString(),
     fiatValue: tokenDetails.fiatValue,
   };
-}
-
-function isSameSwapToken(tokenA?: ISwapToken, tokenB?: ISwapToken) {
-  if (!tokenA || !tokenB) return false;
-  if (tokenA.networkId !== tokenB.networkId) return false;
-  if (tokenA.isNative && tokenB.isNative) return true;
-  return (
-    (tokenA.contractAddress ?? '').toLowerCase() ===
-    (tokenB.contractAddress ?? '').toLowerCase()
-  );
 }
 
 function buildPrivateSendQuoteScopeKey({
@@ -560,7 +551,10 @@ function SendAmountInputContainer() {
             protocol: EProtocolOfExchange.PRIVATE_SEND,
           });
         return privateSendTokens?.some((item) =>
-          isSameSwapToken(item, privateSendToken),
+          equalTokenNoCaseSensitive({
+            token1: item,
+            token2: privateSendToken,
+          }),
         );
       } catch {
         return false;

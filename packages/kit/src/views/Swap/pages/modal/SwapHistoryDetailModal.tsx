@@ -93,7 +93,8 @@ function getPrivateSendProgressStepStatuses(
 
   if (
     status === ESwapTxHistoryStatus.FAILED ||
-    status === ESwapTxHistoryStatus.CANCELED
+    status === ESwapTxHistoryStatus.CANCELED ||
+    status === ESwapTxHistoryStatus.CANCELING
   ) {
     return ['done', 'done', 'error'];
   }
@@ -458,13 +459,20 @@ const SwapHistoryDetailModal = () => {
         ) {
           return getSwapCrossChainStatusTextProps(crossChainStatus);
         }
-        if (status === ESwapTxHistoryStatus.SUCCESS) {
+        if (
+          status === ESwapTxHistoryStatus.SUCCESS ||
+          status === ESwapTxHistoryStatus.PARTIALLY_FILLED
+        ) {
           return {
             key: ETranslations.private_send_done,
             color: '$textSuccess',
           } as const;
         }
-        if (status === ESwapTxHistoryStatus.FAILED) {
+        if (
+          status === ESwapTxHistoryStatus.FAILED ||
+          status === ESwapTxHistoryStatus.CANCELED ||
+          status === ESwapTxHistoryStatus.CANCELING
+        ) {
           return {
             key: ETranslations.private_send_failed,
             color: '$textCritical',

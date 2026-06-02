@@ -113,6 +113,7 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 import {
+  isSwapTxHistoryStatusTerminal,
   shouldEmitSwapHistoryBalanceUpdate,
   shouldUpdateSwapHistoryAfterTxState,
 } from './utils/swapHistoryStatusUtils';
@@ -1920,7 +1921,7 @@ export default class ServiceSwap extends ServiceBase {
             orderToToken: currentSwapTxHistory.baseInfo.toToken,
           });
         }
-        if (finalStatus !== ESwapTxHistoryStatus.PENDING) {
+        if (isSwapTxHistoryStatusTerminal(finalStatus)) {
           enableInterval = false;
           const deleteHistoryId = currentSwapTxHistory.txInfo.useOrderId
             ? (currentSwapTxHistory.txInfo.orderId ?? '')

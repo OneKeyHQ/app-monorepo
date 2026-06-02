@@ -940,6 +940,7 @@ export enum ESwapTxHistoryStatus {
   SUCCESS = 'success',
   FAILED = 'failed',
   PENDING = 'pending',
+  DEPOSIT_SUCCESS = 'depositSuccess',
   CANCELED = 'canceled',
   CANCELING = 'canceling',
   PARTIALLY_FILLED = 'partiallyFilled',
