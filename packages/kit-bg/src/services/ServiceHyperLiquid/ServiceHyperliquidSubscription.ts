@@ -1116,7 +1116,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       interval: params.interval,
       generation: params.generation,
     };
-    if (!isEqual(currentSubscription, nextSubscription)) {
+    const hasSubscriptionChanged = !isEqual(
+      currentSubscription,
+      nextSubscription,
+    );
+    if (hasSubscriptionChanged) {
       this._marketCandleSubscriptionsBySubscriber.set(
         params.subscriberId,
         nextSubscription,
@@ -1124,17 +1128,29 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       this._bumpMarketCandleSubscriptionStateVersion();
     }
 
-    await this.connect();
-    const latestSubscription = this._marketCandleSubscriptionsBySubscriber.get(
-      params.subscriberId,
-    );
-    if (!isEqual(latestSubscription, nextSubscription)) {
-      return;
-    }
-    if (this.subscriptionsHandlerDisabled) {
-      await this._syncMarketCandleSubscriptions();
-    } else {
-      await this.updateSubscriptions();
+    try {
+      await this.connect();
+      const latestSubscription =
+        this._marketCandleSubscriptionsBySubscriber.get(params.subscriberId);
+      if (!isEqual(latestSubscription, nextSubscription)) {
+        return;
+      }
+      if (this.subscriptionsHandlerDisabled) {
+        await this._syncMarketCandleSubscriptions();
+      } else {
+        await this.updateSubscriptions();
+      }
+    } catch (error) {
+      const latestSubscription =
+        this._marketCandleSubscriptionsBySubscriber.get(params.subscriberId);
+      if (
+        hasSubscriptionChanged &&
+        isEqual(latestSubscription, nextSubscription)
+      ) {
+        this._marketCandleSubscriptionsBySubscriber.delete(params.subscriberId);
+        this._bumpMarketCandleSubscriptionStateVersion();
+      }
+      throw error;
     }
   }
 

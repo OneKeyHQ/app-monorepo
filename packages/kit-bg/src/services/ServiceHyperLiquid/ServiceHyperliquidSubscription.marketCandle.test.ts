@@ -304,6 +304,57 @@ describe('ServiceHyperliquidSubscription market candle lifecycle', () => {
     });
   });
 
+  it('cleans up an accepted market candle record when subscribe setup fails', async () => {
+    const service = buildService();
+    const setupError = new Error('connect failed');
+    service.connect = jest.fn<Promise<void>, []>(async () => {
+      throw setupError;
+    });
+
+    await expect(
+      service.subscribeMarketCandle({
+        subscriberId: 'market-chart',
+        coin: 'BTC',
+        interval: '1m',
+        generation: 1,
+      }),
+    ).rejects.toThrow(setupError);
+
+    expect(
+      service._marketCandleSubscriptionsBySubscriber.has('market-chart'),
+    ).toBe(false);
+  });
+
+  it('keeps an existing market candle record when duplicate subscribe setup fails', async () => {
+    const service = buildService();
+    const setupError = new Error('connect failed');
+    service._marketCandleSubscriptionsBySubscriber.set('market-chart', {
+      coin: 'BTC',
+      interval: '1m',
+      generation: 1,
+    });
+    service.connect = jest.fn<Promise<void>, []>(async () => {
+      throw setupError;
+    });
+
+    await expect(
+      service.subscribeMarketCandle({
+        subscriberId: 'market-chart',
+        coin: 'BTC',
+        interval: '1m',
+        generation: 1,
+      }),
+    ).rejects.toThrow(setupError);
+
+    expect(
+      service._marketCandleSubscriptionsBySubscriber.get('market-chart'),
+    ).toEqual({
+      coin: 'BTC',
+      interval: '1m',
+      generation: 1,
+    });
+  });
+
   it('does not apply a delayed disabled-handler sync snapshot after unsubscribe', async () => {
     const service = buildService({ mockSync: false });
     const client = createMockClient(WebSocket.CONNECTING);
