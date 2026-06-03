@@ -38,6 +38,8 @@ interface IUseTradingViewMessageHandlerParams {
   forceEmptyKLineData?: boolean;
   emptyKLineDataOnError?: boolean;
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  primaryKLineDataUnavailable?: boolean;
+  onPrimaryKLineDataUnavailable?: () => void;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -243,6 +245,8 @@ export function useTradingViewMessageHandler({
   forceEmptyKLineData,
   emptyKLineDataOnError,
   kLineDataFallback,
+  primaryKLineDataUnavailable,
+  onPrimaryKLineDataUnavailable,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
@@ -267,6 +271,8 @@ export function useTradingViewMessageHandler({
         forceEmptyKLineData,
         emptyKLineDataOnError,
         kLineDataFallback,
+        primaryKLineDataUnavailable,
+        onPrimaryKLineDataUnavailable,
       };
 
       // Handle TradingView private API requests
@@ -366,6 +372,8 @@ export function useTradingViewMessageHandler({
       forceEmptyKLineData,
       emptyKLineDataOnError,
       kLineDataFallback,
+      primaryKLineDataUnavailable,
+      onPrimaryKLineDataUnavailable,
     ],
   );
 
