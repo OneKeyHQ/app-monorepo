@@ -155,9 +155,7 @@ const NEW_DIALOG_EVENTS = new Set([
 class ServiceHardware extends ServiceBase {
   private bridgeAvailabilityChecked = false;
 
-  private linuxUdevRulesInstalled = false;
-
-  private linuxUdevRulesInstallPromise: Promise<boolean> | undefined;
+  private linuxUdevRulesReadyPromise: Promise<boolean> | undefined;
 
   // Third-party (Trezor / Ledger) hardware adapter lifecycle + methods now live
   // in ServiceThirdPartyHardware. ServiceHardware delegates via
@@ -814,42 +812,44 @@ class ServiceHardware extends ServiceBase {
       return false;
     }
 
-    if (this.linuxUdevRulesInstalled) {
-      return true;
+    if (!this.linuxUdevRulesReadyPromise) {
+      this.linuxUdevRulesReadyPromise = this.installLinuxUdevRules().then(
+        (ready) => {
+          if (!ready) {
+            this.linuxUdevRulesReadyPromise = undefined;
+          }
+          return ready;
+        },
+      );
     }
 
-    if (!this.linuxUdevRulesInstallPromise) {
-      this.linuxUdevRulesInstallPromise = (async () => {
-        try {
-          const result =
-            await globalThis.desktopApiProxy?.system?.installOneKeyUdevRules?.();
-          if (result?.installed) {
-            defaultLogger.hardware.sdkLog.log(
-              '[LinuxWebUSB] OneKey udev rules ready',
-              JSON.stringify(result),
-            );
-            this.linuxUdevRulesInstalled = true;
-            return true;
-          }
-          if (result) {
-            defaultLogger.hardware.sdkLog.log(
-              '[LinuxWebUSB] OneKey udev rules not installed',
-              JSON.stringify(result),
-            );
-          }
-        } catch (error) {
-          defaultLogger.hardware.sdkLog.log(
-            '[LinuxWebUSB] Failed to install OneKey udev rules',
-            error instanceof Error ? error.message : String(error),
-          );
-        }
-        return false;
-      })().finally(() => {
-        this.linuxUdevRulesInstallPromise = undefined;
-      });
-    }
+    return this.linuxUdevRulesReadyPromise;
+  }
 
-    return this.linuxUdevRulesInstallPromise;
+  private async installLinuxUdevRules() {
+    try {
+      const result =
+        await globalThis.desktopApiProxy?.system?.installOneKeyUdevRules?.();
+      if (result?.installed) {
+        defaultLogger.hardware.sdkLog.log(
+          '[LinuxWebUSB] OneKey udev rules ready',
+          JSON.stringify(result),
+        );
+        return true;
+      }
+      if (result) {
+        defaultLogger.hardware.sdkLog.log(
+          '[LinuxWebUSB] OneKey udev rules not installed',
+          JSON.stringify(result),
+        );
+      }
+    } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        '[LinuxWebUSB] Failed to install OneKey udev rules',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+    return false;
   }
 
   @backgroundMethod()
