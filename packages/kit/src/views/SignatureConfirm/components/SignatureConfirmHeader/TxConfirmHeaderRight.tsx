@@ -39,12 +39,15 @@ function TxConfirmHeaderRight(props: {
   const mevProtectionProvider = useMemo(() => {
     if (!unsignedTxs) return null;
 
-    // Hide the MEV badge only when the fee is paid by a gas account. Gas
-    // account transactions are relayed through a quote-bound RPC rather than
-    // the MEV-protected RPC, so the badge would be misleading. BNB gas-free
-    // (megafuel) transactions are still broadcast through the MEV-protected
-    // RPC, so the badge must remain for them.
-    if (effectiveFeePayer === 'gasAccount') {
+    // Hide the MEV badge whenever the fee is sponsored (gas account or BNB
+    // gas-free / megafuel). Sponsored transactions are relayed through a
+    // sponsor-bound RPC rather than the MEV-protected RPC, so the badge would
+    // be misleading. Only user-paid transactions go through the MEV-protected
+    // RPC and keep the badge.
+    if (
+      effectiveFeePayer === 'gasAccount' ||
+      effectiveFeePayer === 'megafuel'
+    ) {
       return null;
     }
 
