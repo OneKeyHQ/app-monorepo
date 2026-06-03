@@ -103,4 +103,71 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
       ],
     );
   });
+
+  it('uses fallback data when sliced primary data has no points', async () => {
+    const fallback = jest.fn().mockResolvedValue({
+      points: [buildPoint(1020, 3)],
+      total: 1,
+    });
+    mockSliceRequest.mockReturnValue([
+      { from: 1000, to: 1120, interval: '1m' },
+    ]);
+    mockFetchMarketTokenKline.mockResolvedValueOnce({
+      points: [],
+      total: 0,
+    });
+
+    const result = await fetchTradingViewV2DataWithSlicing({
+      tokenAddress: '0x123',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeFrom: 1000,
+      timeTo: 1120,
+      kLineDataFallback: fallback,
+    });
+
+    expect(fallback).toHaveBeenCalledWith({
+      tokenAddress: '0x123',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeFrom: 1000,
+      timeTo: 1120,
+    });
+    expect(result?.points).toEqual([buildPoint(1020, 3)]);
+  });
+
+  it('uses fallback data when sliced primary data rejects', async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const fallback = jest.fn().mockResolvedValue({
+      points: [buildPoint(1020, 3)],
+      total: 1,
+    });
+    mockSliceRequest.mockReturnValue([
+      { from: 1000, to: 1120, interval: '1m' },
+    ]);
+    mockFetchMarketTokenKline.mockRejectedValueOnce(
+      new Error('primary failed'),
+    );
+
+    const result = await fetchTradingViewV2DataWithSlicing({
+      tokenAddress: '0x123',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeFrom: 1000,
+      timeTo: 1120,
+      kLineDataFallback: fallback,
+    });
+
+    expect(fallback).toHaveBeenCalledWith({
+      tokenAddress: '0x123',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeFrom: 1000,
+      timeTo: 1120,
+    });
+    expect(result?.points).toEqual([buildPoint(1020, 3)]);
+    consoleErrorSpy.mockRestore();
+  });
 });

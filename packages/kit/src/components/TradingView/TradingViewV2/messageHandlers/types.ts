@@ -1,4 +1,5 @@
 import type { IWebViewRef } from '../../../WebView/types';
+import type { ITradingViewV2KLineDataFallback } from '../hooks/useTradingViewV2';
 import type { ICustomReceiveHandlerData } from '../types';
 
 export interface IKLineDataRequest {
@@ -29,6 +30,7 @@ export interface IMessageHandlerContext {
   currentKLineResolution?: React.MutableRefObject<string>;
   forceEmptyKLineData?: boolean;
   emptyKLineDataOnError?: boolean;
+  kLineDataFallback?: ITradingViewV2KLineDataFallback;
 }
 
 export interface IMessageHandlerParams {
