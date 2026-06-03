@@ -8,6 +8,23 @@ import { sliceRequest } from '../sliceRequest';
 
 const MIN_TRADING_VIEW_KLINE_TIME_SPAN_SECONDS = 2 * 24 * 60 * 60;
 
+export type ITradingViewV2KLineDataFallback = (params: {
+  tokenAddress: string;
+  networkId: string;
+  interval: string;
+  timeFrom: number;
+  timeTo: number;
+}) => Promise<IMarketTokenKLineResponse | null | undefined>;
+
+interface IFetchKLineDataFallbackParams {
+  tokenAddress: string;
+  networkId: string;
+  interval: string;
+  timeFrom: number;
+  timeTo: number;
+  kLineDataFallback?: ITradingViewV2KLineDataFallback;
+}
+
 interface ITradingViewV2Params {
   tokenAddress: string;
   networkId: string;
@@ -15,6 +32,7 @@ interface ITradingViewV2Params {
   timeFrom: number;
   timeTo: number;
   autoHandleError?: boolean;
+  kLineDataFallback?: ITradingViewV2KLineDataFallback;
 }
 
 function normalizeKLinePoints({
@@ -37,6 +55,82 @@ function normalizeKLinePoints({
   return Array.from(pointsByTimestamp.values()).toSorted((a, b) => a.t - b.t);
 }
 
+function hasKLinePoints(data?: IMarketTokenKLineResponse | null) {
+  return Boolean(data?.points?.length);
+}
+
+async function fetchKLineDataFallback({
+  tokenAddress,
+  networkId,
+  interval,
+  timeFrom,
+  timeTo,
+  kLineDataFallback,
+}: IFetchKLineDataFallbackParams): Promise<IMarketTokenKLineResponse | null> {
+  if (!kLineDataFallback) {
+    return null;
+  }
+
+  try {
+    return (
+      (await kLineDataFallback({
+        tokenAddress,
+        networkId,
+        interval,
+        timeFrom,
+        timeTo,
+      })) ?? null
+    );
+  } catch (error) {
+    console.error('Failed to fetch fallback kline data:', error);
+    return null;
+  }
+}
+
+async function fetchFallbackIfNeeded({
+  data,
+  tokenAddress,
+  networkId,
+  interval,
+  timeFrom,
+  timeTo,
+  kLineDataFallback,
+}: IFetchKLineDataFallbackParams & {
+  data?: IMarketTokenKLineResponse | null;
+}): Promise<IMarketTokenKLineResponse | null> {
+  if (hasKLinePoints(data)) {
+    return data ?? null;
+  }
+
+  const fallbackData = await fetchKLineDataFallback({
+    tokenAddress,
+    networkId,
+    interval,
+    timeFrom,
+    timeTo,
+    kLineDataFallback,
+  });
+  return fallbackData ?? data ?? null;
+}
+
+async function fetchFallbackOnError({
+  tokenAddress,
+  networkId,
+  interval,
+  timeFrom,
+  timeTo,
+  kLineDataFallback,
+}: IFetchKLineDataFallbackParams): Promise<IMarketTokenKLineResponse | null> {
+  return fetchKLineDataFallback({
+    tokenAddress,
+    networkId,
+    interval,
+    timeFrom,
+    timeTo,
+    kLineDataFallback,
+  });
+}
+
 export async function fetchTradingViewV2Data({
   tokenAddress,
   networkId,
@@ -44,6 +138,7 @@ export async function fetchTradingViewV2Data({
   timeFrom,
   timeTo,
   autoHandleError,
+  kLineDataFallback,
 }: ITradingViewV2Params): Promise<IMarketTokenKLineResponse | null> {
   try {
     const data = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline(
@@ -57,10 +152,25 @@ export async function fetchTradingViewV2Data({
       },
     );
 
-    return data ?? null;
+    return await fetchFallbackIfNeeded({
+      data,
+      tokenAddress,
+      networkId,
+      interval,
+      timeFrom,
+      timeTo,
+      kLineDataFallback,
+    });
   } catch (error) {
     console.error('Failed to fetch kline data:', error);
-    return null;
+    return fetchFallbackOnError({
+      tokenAddress,
+      networkId,
+      interval,
+      timeFrom,
+      timeTo,
+      kLineDataFallback,
+    });
   }
 }
 
@@ -71,6 +181,7 @@ export async function fetchTradingViewV2DataWithSlicing({
   timeFrom,
   timeTo,
   autoHandleError,
+  kLineDataFallback,
 }: ITradingViewV2Params): Promise<IMarketTokenKLineResponse | null> {
   try {
     // Check if the token is a native token
@@ -122,9 +233,24 @@ export async function fetchTradingViewV2DataWithSlicing({
       };
     }
 
-    return mergedData;
+    return await fetchFallbackIfNeeded({
+      data: mergedData,
+      tokenAddress,
+      networkId,
+      interval,
+      timeFrom,
+      timeTo,
+      kLineDataFallback,
+    });
   } catch (error) {
     console.error('Failed to fetch sliced kline data:', error);
-    return null;
+    return fetchFallbackOnError({
+      tokenAddress,
+      networkId,
+      interval,
+      timeFrom,
+      timeTo,
+      kLineDataFallback,
+    });
   }
 }
