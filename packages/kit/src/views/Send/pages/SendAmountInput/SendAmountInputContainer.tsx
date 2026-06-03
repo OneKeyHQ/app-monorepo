@@ -3333,10 +3333,15 @@ function SendAmountInputContainer() {
     );
   }
 
+  const pageTitleTranslationId =
+    sendMode === ESendMode.PRIVATE
+      ? ETranslations.private_send_private_send
+      : ETranslations.enter_amount__title;
+
   return (
     <Page safeAreaEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.enter_amount__title })}
+        title={intl.formatMessage({ id: pageTitleTranslationId })}
         headerRight={renderPrivateSendHeaderRight}
       />
 
