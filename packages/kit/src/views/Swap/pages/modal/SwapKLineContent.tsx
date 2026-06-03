@@ -1,5 +1,6 @@
 import {
   type ComponentProps,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -280,7 +281,7 @@ function useSwapKLineNetworkName(networkId?: string) {
       const network = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
         networkId,
       });
-      return network?.shortname || network?.name || network?.symbol;
+      return network?.name || network?.shortname || network?.symbol;
     },
     [networkId],
     {
@@ -312,8 +313,13 @@ function SwapKLineTokenSwitch({
         fromToken
           ? {
               label: (
-                <XStack ai="center" gap="$1" maxWidth="$20">
-                  <Token size="xs" tokenImageUri={fromToken.logoURI} />
+                <XStack ai="center" gap="$1.5" maxWidth="$24">
+                  <Token
+                    size="xs"
+                    tokenImageUri={fromToken.logoURI}
+                    networkId={fromToken.networkId}
+                    showNetworkIcon
+                  />
                   <SizableText
                     size="$bodyMdMedium"
                     numberOfLines={1}
@@ -333,8 +339,13 @@ function SwapKLineTokenSwitch({
         toToken
           ? {
               label: (
-                <XStack ai="center" gap="$1" maxWidth="$20">
-                  <Token size="xs" tokenImageUri={toToken.logoURI} />
+                <XStack ai="center" gap="$1.5" maxWidth="$24">
+                  <Token
+                    size="xs"
+                    tokenImageUri={toToken.logoURI}
+                    networkId={toToken.networkId}
+                    showNetworkIcon
+                  />
                   <SizableText
                     size="$bodyMdMedium"
                     numberOfLines={1}
@@ -399,7 +410,12 @@ function SwapKLineTokenSwitch({
       borderRadius="$full"
       maxWidth="$32"
     >
-      <Token size="xs" tokenImageUri={selectedToken.logoURI} />
+      <Token
+        size="xs"
+        tokenImageUri={selectedToken.logoURI}
+        networkId={selectedToken.networkId}
+        showNetworkIcon
+      />
       <SizableText size="$bodyMdMedium" numberOfLines={1}>
         {selectedToken.symbol}
       </SizableText>
@@ -565,7 +581,7 @@ function SwapKLineTokenPriceInfo({
     walletMarketInfo?.priceChange24hPercent;
 
   return (
-    <YStack ai="flex-end" gap="$0.5" minWidth="$20" maxWidth="$32">
+    <YStack ai="flex-end" gap="$0.5" minWidth="$16" maxWidth="$28">
       {price ? (
         <NumberSizeableText
           size="$bodyMdMedium"
@@ -618,46 +634,41 @@ function SwapKLineTokenInfoRow({
   token,
   tokenMarketDetail,
   walletMarketInfo,
+  headerRight,
 }: {
   token: ISwapToken;
   tokenMarketDetail?: IMarketTokenDetail;
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
+  headerRight?: ReactNode;
 }) {
-  const tokenName = tokenMarketDetail?.name || token.name;
   const networkName = useSwapKLineNetworkName(token.networkId);
-  const subtitle = useMemo(() => {
-    const shouldShowTokenName =
-      tokenName && tokenName.toLowerCase() !== token.symbol.toLowerCase();
-    return [shouldShowTokenName ? tokenName : undefined, networkName]
-      .filter(Boolean)
-      .join(' · ');
-  }, [networkName, token.symbol, tokenName]);
 
   return (
     <XStack ai="center" jc="space-between" gap="$3" minHeight="$12">
-      <XStack ai="center" gap="$3" flex={1} minWidth={0}>
+      <XStack ai="center" gap="$3" flexShrink={1} minWidth={0}>
         <Token
           size="lg"
           tokenImageUri={token.logoURI}
           networkId={token.networkId}
           showNetworkIcon
         />
-        <YStack flex={1} minWidth={0} gap="$0.5">
+        <YStack minWidth={0} maxWidth="$28" gap="$0.5">
           <SizableText size="$headingMd" numberOfLines={1}>
             {token.symbol}
           </SizableText>
-          {subtitle ? (
+          {networkName ? (
             <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {subtitle}
+              {networkName}
             </SizableText>
           ) : null}
         </YStack>
+        <SwapKLineTokenPriceInfo
+          token={token}
+          tokenMarketDetail={tokenMarketDetail}
+          walletMarketInfo={walletMarketInfo}
+        />
       </XStack>
-      <SwapKLineTokenPriceInfo
-        token={token}
-        tokenMarketDetail={tokenMarketDetail}
-        walletMarketInfo={walletMarketInfo}
-      />
+      {headerRight ? <Stack flexShrink={0}>{headerRight}</Stack> : null}
     </XStack>
   );
 }
@@ -669,9 +680,11 @@ function SwapKLineContentBody({
   pb = '$5',
   pt = '$3',
   px = '$5',
+  headerRight,
 }: {
   state: ISwapKLineContentState;
   chartMinHeight?: number;
+  headerRight?: ReactNode;
 } & ISwapKLineContentSpacingProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -720,6 +733,7 @@ function SwapKLineContentBody({
             token={selectedToken}
             tokenMarketDetail={state.tokenMarketDetail}
             walletMarketInfo={state.walletMarketInfo}
+            headerRight={headerRight}
           />
 
           {chartContent}
@@ -742,11 +756,10 @@ function SwapKLineDialogContent() {
   return (
     <>
       <Dialog.Header>
-        <XStack ai="center" jc="space-between" gap="$3" width="100%">
+        <XStack ai="center" gap="$3" width="100%">
           <SizableText size="$headingXl" numberOfLines={1}>
             {intl.formatMessage({ id: ETranslations.market_chart })}
           </SizableText>
-          <SwapKLineHeaderRight state={state} />
         </XStack>
       </Dialog.Header>
       <YStack h={460}>
@@ -756,6 +769,7 @@ function SwapKLineDialogContent() {
           pt="$0"
           pb="$0"
           gap="$2.5"
+          headerRight={<SwapKLineHeaderRight state={state} />}
         />
       </YStack>
     </>
@@ -765,19 +779,17 @@ function SwapKLineDialogContent() {
 function SwapKLineModalContent() {
   const intl = useIntl();
   const state = useSwapKLineContentState();
-  const headerRight = useCallback(
-    () => <SwapKLineHeaderRight state={state} />,
-    [state],
-  );
 
   return (
     <Page lazyLoad testID={SwapTestIDs.kLineModal}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.market_chart })}
-        headerRight={headerRight}
       />
       <Page.Body>
-        <SwapKLineContentBody state={state} />
+        <SwapKLineContentBody
+          state={state}
+          headerRight={<SwapKLineHeaderRight state={state} />}
+        />
       </Page.Body>
     </Page>
   );
