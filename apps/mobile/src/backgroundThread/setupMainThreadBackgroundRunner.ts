@@ -69,7 +69,13 @@ const REQUEST_TIMEOUT_MS = 10 * 60_000; // 10 minutes
 // bridge-calls may wait for user interaction (e.g. DApp connect modal),
 // so they need a much longer timeout and should NOT break the transport.
 const BRIDGE_CALL_TIMEOUT_MS = 10 * 60_000; // 10 minutes
-const MAX_REMOTE_CALL_SLOT_COUNT = 512;
+// Caps the number of SIMULTANEOUSLY in-flight (awaiting-response) main→bg
+// requests, not throughput — each id frees the moment its response resolves.
+// Raised from 512 to give headroom for the all-network home cascade (dozens of
+// networks × many token/balance/history calls fanning out concurrently), where
+// the previous ceiling could be approached and exhausting it hard-rejects a
+// call. The id space is a sparse Map, so unused slots cost nothing.
+const MAX_REMOTE_CALL_SLOT_COUNT = 8192;
 
 type IQueuedCall = {
   request: IBackgroundThreadRequest;
