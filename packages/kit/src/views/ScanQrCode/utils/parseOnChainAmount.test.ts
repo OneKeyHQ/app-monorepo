@@ -73,6 +73,46 @@ describe('parseOnChainAmount', () => {
     ).resolves.toBe('1');
   });
 
+  it('uses uint256 for non-native token links without a transfer function', async () => {
+    await expect(
+      parseOnChainAmount(
+        createEthereumValue({
+          tokenAddress: '0x0000000000000000000000000000000000000001',
+          uint256: '1000000',
+          value: '999000000',
+        }),
+        createToken(false),
+      ),
+    ).resolves.toBe('1');
+  });
+
+  it('uses uint256 instead of amount for non-native tokens', async () => {
+    await expect(
+      parseOnChainAmount(
+        createEthereumValue({
+          amount: '999',
+          functionName: 'transfer',
+          tokenAddress: '0x0000000000000000000000000000000000000001',
+          uint256: '1000000',
+        }),
+        createToken(false),
+      ),
+    ).resolves.toBe('1');
+  });
+
+  it('ignores value and amount for non-native tokens without uint256', async () => {
+    await expect(
+      parseOnChainAmount(
+        createEthereumValue({
+          amount: '999',
+          tokenAddress: '0x0000000000000000000000000000000000000001',
+          value: '999000000',
+        }),
+        createToken(false),
+      ),
+    ).resolves.toBe('');
+  });
+
   it('keeps value handling for native EIP-681 transfers', async () => {
     await expect(
       parseOnChainAmount(

@@ -21,17 +21,14 @@ export const parseOnChainAmount = async (
     value.type === EQRCodeHandlerType.ETHEREUM
   ) {
     const chainValue = value.data as IEthereumValue;
-    const isErc681TokenTransfer =
-      chainValue.functionName?.toLowerCase() === 'transfer' &&
-      Boolean(chainValue.uint256) &&
-      token &&
-      !token.isNative;
-
-    if (isErc681TokenTransfer && token && chainValue.uint256) {
-      return chainValueUtils.convertTokenChainValueToAmount({
-        value: chainValue.uint256,
-        token,
-      });
+    if (token && !token.isNative) {
+      if (chainValue.uint256) {
+        return chainValueUtils.convertTokenChainValueToAmount({
+          value: chainValue.uint256,
+          token,
+        });
+      }
+      return '';
     }
 
     if (chainValue.value && token) {

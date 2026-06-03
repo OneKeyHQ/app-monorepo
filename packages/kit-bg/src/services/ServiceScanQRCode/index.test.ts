@@ -309,6 +309,22 @@ describe('useParseQRCode', () => {
         }),
       }),
     );
+    expect(
+      await parse(
+        'ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48@1/Transfer?address=0x178e3e6c9f547A00E33150F7104427ea02cfc747&uint256=1000000',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ETHEREUM,
+        data: expect.objectContaining({
+          address: '0x178e3e6c9f547A00E33150F7104427ea02cfc747',
+          functionName: 'Transfer',
+          id: '1',
+          tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          uint256: '1000000',
+        }),
+      }),
+    );
   });
   it('should parse as eth ECIP-1037', async () => {
     expect(
