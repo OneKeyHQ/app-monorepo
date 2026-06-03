@@ -122,13 +122,22 @@ export const lastNavigationFlags: Record<string, number> = {};
 let discoveryHomeBookmarksPrefetchGeneration = 0;
 let isDiscoveryHomeBookmarksPrefetchListenerReady = false;
 
+function invalidateDiscoveryHomeBookmarksPrefetch() {
+  discoveryHomeBookmarksPrefetchGeneration += 1;
+}
+
 function ensureDiscoveryHomeBookmarksPrefetchListener() {
   if (isDiscoveryHomeBookmarksPrefetchListenerReady) {
     return;
   }
-  appEventBus.on(EAppEventBusNames.RefreshBookmarkList, () => {
-    discoveryHomeBookmarksPrefetchGeneration += 1;
-  });
+  appEventBus.on(
+    EAppEventBusNames.RefreshBookmarkList,
+    invalidateDiscoveryHomeBookmarksPrefetch,
+  );
+  appEventBus.on(
+    EAppEventBusNames.InvalidateDiscoveryHomeBookmarksPrefetch,
+    invalidateDiscoveryHomeBookmarksPrefetch,
+  );
   isDiscoveryHomeBookmarksPrefetchListenerReady = true;
 }
 

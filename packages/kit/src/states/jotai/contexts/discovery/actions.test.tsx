@@ -577,6 +577,64 @@ describe('useBrowserTabActions', () => {
     expect(getBookmarkCacheWrites()).toEqual([]);
   });
 
+  it('does not write bookmark prefetch cache after a bookmark prefetch invalidation event', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    const bookmarkPrefetch = createDeferred<IBrowserBookmark[]>();
+    mockGetDiscoveryBookmarkData.mockImplementationOnce(
+      () => bookmarkPrefetch.promise,
+    );
+
+    const { result } = renderHook(
+      () => ({
+        actions: useBrowserTabActions().current,
+      }),
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'home-tab',
+              url: '',
+              title: 'Start Tab',
+              timestamp: 100,
+              type: 'home',
+              isActive: true,
+            },
+          ],
+          activeTabId: 'home-tab',
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    act(() => {
+      result.current.actions.addBrowserHomeTab();
+      appEventBus.emit(
+        EAppEventBusNames.InvalidateDiscoveryHomeBookmarksPrefetch,
+        undefined,
+      );
+    });
+
+    await act(async () => {
+      bookmarkPrefetch.resolve([
+        {
+          title: 'Stale',
+          url: 'https://stale.example',
+          logo: undefined,
+          sortIndex: 0,
+        },
+      ]);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getBookmarkCacheWrites()).toEqual([]);
+  });
+
   it('selects a replacement tab after closing the current tab outside native', () => {
     Object.assign(platformEnv, {
       isDesktop: true,

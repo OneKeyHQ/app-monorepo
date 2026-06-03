@@ -113,7 +113,9 @@ function DashboardContent({
   const hasTrending =
     homePageData?.trending && homePageData.trending.length > 0;
   const showDiveInDescription = !hasBookmarks && !hasTrending;
-  const isInitialLoading = Boolean(isLoading && !homePageData);
+  const isInitialLoading = Boolean(
+    (isLoading && !homePageData) || bookmarksData === undefined,
+  );
 
   const content = useMemo(
     () => (

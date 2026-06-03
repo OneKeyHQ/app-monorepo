@@ -54,8 +54,10 @@ import ServiceBase from './ServiceBase';
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
   _clearDiscoveryHomeBookmarksSwr({
+    invalidatePrefetch = false,
     refreshMountedViews = false,
   }: {
+    invalidatePrefetch?: boolean;
     refreshMountedViews?: boolean;
   } = {}) {
     swrCacheUtils.removeByPrefix(
@@ -64,6 +66,11 @@ class ServiceDiscovery extends ServiceBase {
     swrCacheUtils.flushNow();
     if (refreshMountedViews) {
       appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
+    } else if (invalidatePrefetch) {
+      appEventBus.emit(
+        EAppEventBusNames.InvalidateDiscoveryHomeBookmarksPrefetch,
+        undefined,
+      );
     }
   }
 
@@ -468,10 +475,10 @@ class ServiceDiscovery extends ServiceBase {
     });
 
     if (savedSuccess) {
-      this._clearDiscoveryHomeBookmarksSwr();
-      if (!skipEventEmit) {
-        appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
-      }
+      this._clearDiscoveryHomeBookmarksSwr({
+        invalidatePrefetch: true,
+        refreshMountedViews: !skipEventEmit,
+      });
     }
 
     if (savedSuccess && !isRemove) {

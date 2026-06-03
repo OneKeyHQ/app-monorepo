@@ -92,6 +92,7 @@ describe('ServiceDiscovery', () => {
   });
 
   it('invalidates cached discovery home bookmarks after bookmark writes', async () => {
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
     const addAndUpdateSyncItems = jest.fn(
       async ({ fn }: { fn: () => Promise<void> }) => {
         await fn();
@@ -140,6 +141,14 @@ describe('ServiceDiscovery', () => {
       `${swrCacheNamespaces.discoveryHomeBookmarks}:`,
     );
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.InvalidateDiscoveryHomeBookmarksPrefetch,
+      undefined,
+    );
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      EAppEventBusNames.RefreshBookmarkList,
+      undefined,
+    );
   });
 
   it('invalidates cached discovery home bookmarks after clearing discovery data', async () => {
