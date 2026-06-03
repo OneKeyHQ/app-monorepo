@@ -23,6 +23,10 @@ env:
   YARN_ENABLE_GLOBAL_CACHE: true
   JEST_SHARD_TOTAL: 3
 
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   unittest:
     name: Unit Tests (${{ matrix.shard }}/3)
