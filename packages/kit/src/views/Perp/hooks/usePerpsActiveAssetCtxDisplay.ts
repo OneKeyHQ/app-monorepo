@@ -7,7 +7,7 @@ import {
 import {
   type IPerpsActiveAssetCtxAtom,
   usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
+  usePerpsActiveAssetCtxDisplayAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   PERPS_ACTIVE_ASSET_CTX_COLD_CACHE_MAX_AGE_MS,
@@ -104,7 +104,7 @@ export function usePerpsActiveAssetCtxDisplay(coin?: string): {
   cacheAgeMs: number | undefined;
 } {
   const [activeAsset] = usePerpsActiveAssetAtom();
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const [activeAssetCtx] = usePerpsActiveAssetCtxDisplayAtom();
   const [coldCache, setColdCache] = usePerpsActiveAssetCtxColdCacheAtom();
   const activeCoin = coin || activeAsset.coin;
   const cacheEntry = activeCoin ? coldCache[activeCoin] : undefined;

@@ -6,7 +6,10 @@ import {
   useActiveTradeInstrumentAtom,
   usePerpsMidByCoin,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAssetCtxMidPriceAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  type IPerpsActiveAssetCtxMidPriceSource,
+  usePerpsActiveAssetCtxMidPriceBySource,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useSpotActiveAssetCtxMarkPriceAtom,
   useSpotActiveAssetCtxMidPriceAtom,
@@ -16,6 +19,10 @@ export interface IUseTradingPriceReturn {
   midPrice: string | undefined;
   midPriceBN: BigNumber;
   isValid: boolean;
+}
+
+interface IUseTradingPriceOptions {
+  source?: IPerpsActiveAssetCtxMidPriceSource;
 }
 
 function buildTradingPriceResult(
@@ -39,14 +46,27 @@ function buildTradingPriceResult(
   };
 }
 
-export function useTradingPrice(): IUseTradingPriceReturn {
+export function useTradingPrice({
+  source = 'live',
+}: IUseTradingPriceOptions = {}): IUseTradingPriceReturn {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const activeMidPrice = usePerpsMidByCoin(activeTradeInstrument?.coin ?? '');
-  const [activeAssetCtxMidPrice] = usePerpsActiveAssetCtxMidPriceAtom();
+  const shouldSubscribeLiveMids = source === 'live';
+  const activeMidPrice = usePerpsMidByCoin(
+    shouldSubscribeLiveMids ? (activeTradeInstrument?.coin ?? '') : '',
+  );
+  const activeAssetCtxMidPrice = usePerpsActiveAssetCtxMidPriceBySource(source);
   const [activeSpotAssetCtxMidPrice] = useSpotActiveAssetCtxMidPriceAtom();
   const [activeSpotAssetCtxMarkPrice] = useSpotActiveAssetCtxMarkPriceAtom();
 
   const result = useMemo<IUseTradingPriceReturn>(() => {
+    if (source === 'disabled') {
+      return {
+        midPrice: undefined,
+        midPriceBN: new BigNumber(0),
+        isValid: false,
+      };
+    }
+
     const coin = activeTradeInstrument?.coin;
     if (!coin) {
       return {
@@ -70,6 +90,7 @@ export function useTradingPrice(): IUseTradingPriceReturn {
     activeSpotAssetCtxMidPrice,
     activeMidPrice,
     activeTradeInstrument,
+    source,
   ]);
 
   return result;

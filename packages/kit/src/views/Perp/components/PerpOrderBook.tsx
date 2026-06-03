@@ -29,7 +29,12 @@ import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
-import { type IL2BookData, useL2Book } from '../hooks/usePerpMarketData';
+import {
+  type IL2BookData,
+  getFreshL2BookSnapshotFromSwr,
+  normalizeL2BookData,
+  useL2Book,
+} from '../hooks/usePerpMarketData';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
 import { useTradingPrice } from '../hooks/useTradingPrice';
 import { isPerpsL2BookInteractive } from '../utils/l2BookFreshness';
@@ -593,7 +598,30 @@ export function PerpOrderBook({
   const enableVisualSnapshot = !gtMd;
   const [renderL2Book, setRenderL2Book] = useState<IL2BookData | null>(null);
   const [isOrderBookInteractive, setIsOrderBookInteractive] = useState(false);
-  const hasRenderOrderBook = Boolean(renderL2Book);
+  const initialCachedL2Book = useMemo(() => {
+    const coin = activeTradeInstrument.coin;
+    if (!coin) {
+      return null;
+    }
+    return normalizeL2BookData({
+      expectedCoin: coin,
+      bookData: getFreshL2BookSnapshotFromSwr({
+        coin,
+        options: {
+          nSigFigs: l2SubscriptionOptions.nSigFigs,
+          mantissa: l2SubscriptionOptions.mantissa,
+        },
+      }),
+    });
+  }, [
+    activeTradeInstrument.coin,
+    l2SubscriptionOptions.mantissa,
+    l2SubscriptionOptions.nSigFigs,
+  ]);
+  const activeRenderL2Book =
+    renderL2Book?.coin === activeTradeInstrument.coin ? renderL2Book : null;
+  const visibleL2Book = activeRenderL2Book ?? initialCachedL2Book;
+  const hasRenderOrderBook = Boolean(visibleL2Book);
   const latestL2BookFreshnessRef = useRef<{
     bookReceivedAt?: number;
     bookTime?: number;
@@ -745,9 +773,9 @@ export function PerpOrderBook({
   ]);
 
   const tickOptionsData = useTickOptions({
-    symbol: renderL2Book?.coin,
-    bids: renderL2Book?.bids ?? [],
-    asks: renderL2Book?.asks ?? [],
+    symbol: visibleL2Book?.coin,
+    bids: visibleL2Book?.bids ?? [],
+    asks: visibleL2Book?.asks ?? [],
   });
   const {
     tickOptions,
@@ -847,9 +875,9 @@ export function PerpOrderBook({
       activeTradeInstrument.mode,
       activeTradeInstrument.coin,
       hasRenderOrderBook ? 'book' : 'loading',
-      renderL2Book?.coin ?? '',
-      renderL2Book?.bids.length ?? 0,
-      renderL2Book?.asks.length ?? 0,
+      visibleL2Book?.coin ?? '',
+      visibleL2Book?.bids.length ?? 0,
+      visibleL2Book?.asks.length ?? 0,
       shouldShowEnableTradingButton ? 'enableTrading' : 'trade',
       formData.hasTpsl ? 'tpsl' : 'noTpsl',
       mobileMaxLevelsPerSide,
@@ -863,9 +891,9 @@ export function PerpOrderBook({
       coin: activeTradeInstrument.coin,
       mode: activeTradeInstrument.mode,
       hasOrderBook: hasRenderOrderBook,
-      bookCoin: renderL2Book?.coin,
-      bidLevels: renderL2Book?.bids.length ?? 0,
-      askLevels: renderL2Book?.asks.length ?? 0,
+      bookCoin: visibleL2Book?.coin,
+      bidLevels: visibleL2Book?.bids.length ?? 0,
+      askLevels: visibleL2Book?.asks.length ?? 0,
       mobileMaxLevelsPerSide,
       shouldShowEnableTradingButton,
       hasTpsl: formData.hasTpsl,
@@ -877,23 +905,23 @@ export function PerpOrderBook({
     formData.hasTpsl,
     gtMd,
     hasRenderOrderBook,
-    renderL2Book?.asks.length,
-    renderL2Book?.bids.length,
-    renderL2Book?.coin,
+    visibleL2Book?.asks.length,
+    visibleL2Book?.bids.length,
+    visibleL2Book?.coin,
     mobileMaxLevelsPerSide,
     shouldShowEnableTradingButton,
   ]);
 
   const mobileOrderBook = useMemo(() => {
-    if (!hasRenderOrderBook || !renderL2Book) return null;
+    if (!hasRenderOrderBook || !visibleL2Book) return null;
     if (gtMd) return null;
     if (entry === 'perpMobileMarket') {
       return (
         <OrderBook
           horizontal
-          symbol={renderL2Book.coin}
-          bids={renderL2Book.bids}
-          asks={renderL2Book.asks}
+          symbol={visibleL2Book.coin}
+          bids={visibleL2Book.bids}
+          asks={visibleL2Book.asks}
           maxLevelsPerSide={13}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
@@ -925,9 +953,9 @@ export function PerpOrderBook({
       >
         <MobileHeaderMemo />
         <OrderBookMobile
-          symbol={renderL2Book.coin}
-          bids={renderL2Book.bids}
-          asks={renderL2Book.asks}
+          symbol={visibleL2Book.coin}
+          bids={visibleL2Book.bids}
+          asks={visibleL2Book.asks}
           maxLevelsPerSide={mobileMaxLevelsPerSide}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
@@ -945,7 +973,7 @@ export function PerpOrderBook({
     gtMd,
     handleTraceLayout,
     handleTickOptionChange,
-    renderL2Book,
+    visibleL2Book,
     handleLevelSelect,
     selectedTickOption,
     hasRenderOrderBook,
@@ -966,7 +994,7 @@ export function PerpOrderBook({
     />
   );
 
-  if (!hasRenderOrderBook || !renderL2Book) {
+  if (!hasRenderOrderBook || !visibleL2Book) {
     let loadingVariant = 'desktop';
     if (!gtMd) {
       loadingVariant =
@@ -1075,10 +1103,10 @@ export function PerpOrderBook({
     >
       {gtMd ? (
         <OrderBook
-          symbol={renderL2Book.coin}
+          symbol={visibleL2Book.coin}
           horizontal={false}
-          bids={renderL2Book.bids}
-          asks={renderL2Book.asks}
+          bids={visibleL2Book.bids}
+          asks={visibleL2Book.asks}
           maxLevelsPerSide={desktopMaxLevelsPerSide}
           initialContainerHeight={initialOrderBookHeight}
           selectedTickOption={selectedTickOption}

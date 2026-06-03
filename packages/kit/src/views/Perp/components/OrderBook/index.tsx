@@ -1909,6 +1909,40 @@ export function OrderBookMobile({
   const askDepth = useMemo(() => {
     return new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
   }, [aggregatedData.asks]);
+  const reversedAsks = useMemo(
+    () => aggregatedData.asks.toReversed(),
+    [aggregatedData.asks],
+  );
+  const askPercents = useMemo(
+    () =>
+      reversedAsks.map((itemData) =>
+        calculatePercentage(itemData.cumSize, askDepth),
+      ),
+    [askDepth, reversedAsks],
+  );
+  const askPrices = useMemo(
+    () => reversedAsks.map((itemData) => itemData.price),
+    [reversedAsks],
+  );
+  const askSizes = useMemo(
+    () => reversedAsks.map((itemData) => itemData.displaySize),
+    [reversedAsks],
+  );
+  const bidPercents = useMemo(
+    () =>
+      aggregatedData.bids.map((itemData) =>
+        calculatePercentage(itemData.cumSize, bidDepth),
+      ),
+    [aggregatedData.bids, bidDepth],
+  );
+  const bidPrices = useMemo(
+    () => aggregatedData.bids.map((itemData) => itemData.price),
+    [aggregatedData.bids],
+  );
+  const bidSizes = useMemo(
+    () => aggregatedData.bids.map((itemData) => itemData.displaySize),
+    [aggregatedData.bids],
+  );
 
   const priceFontSize = useMemo(() => {
     if (!asks.length) {
@@ -1934,6 +1968,7 @@ export function OrderBookMobile({
   const textColor = useTextColor();
   const blockColors = useBlockColorsMobile();
   const spreadColor = useSpreadColor();
+  const isInteractive = Boolean(onSelectLevel);
 
   const handleSelectLevel = useCallback(
     (side: 'bid' | 'ask', item: IFormattedOBLevel, index: number) => {
@@ -1953,6 +1988,28 @@ export function OrderBookMobile({
     },
     [onSelectLevel],
   );
+  const handleAskRowPress = useCallback(
+    (rowIndex: number) => {
+      const item = reversedAsks[rowIndex];
+      if (item) {
+        handleSelectLevel(
+          'ask',
+          item,
+          aggregatedData.asks.length - 1 - rowIndex,
+        );
+      }
+    },
+    [aggregatedData.asks.length, handleSelectLevel, reversedAsks],
+  );
+  const handleBidRowPress = useCallback(
+    (rowIndex: number) => {
+      const item = aggregatedData.bids[rowIndex];
+      if (item) {
+        handleSelectLevel('bid', item, rowIndex);
+      }
+    },
+    [aggregatedData.bids, handleSelectLevel],
+  );
 
   return (
     <View style={style}>
@@ -1969,35 +2026,22 @@ export function OrderBookMobile({
             ))
           ) : (
             <DepthBarColumn
-              percents={aggregatedData.asks
-                .toReversed()
-                .map((itemData) =>
-                  calculatePercentage(itemData.cumSize, askDepth),
-                )}
+              animated={false}
+              percents={askPercents}
               rowHeight={MOBILE_ROW_HEIGHT}
               rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
               barInset={ORDER_BOOK_MOBILE_BAR_INSET}
               color={blockColors.red}
               origin="left"
               epoch={depthEpoch}
-              prices={aggregatedData.asks.toReversed().map((d) => d.price)}
-              sizes={aggregatedData.asks.toReversed().map((d) => d.displaySize)}
+              prices={askPrices}
+              sizes={askSizes}
               priceColor={textColor.red}
               sizeColor={textColor.textSubdued}
               priceFontSize={priceFontSize}
               sizeFontSize={priceFontSize}
               textInset={4}
-              onRowPress={(rowIndex) => {
-                const rev = aggregatedData.asks.toReversed();
-                const item = rev[rowIndex];
-                if (item) {
-                  handleSelectLevel(
-                    'ask',
-                    item,
-                    aggregatedData.asks.length - 1 - rowIndex,
-                  );
-                }
-              }}
+              onRowPress={isInteractive ? handleAskRowPress : undefined}
             />
           )}
           <View
@@ -2018,28 +2062,22 @@ export function OrderBookMobile({
             ))
           ) : (
             <DepthBarColumn
-              percents={aggregatedData.bids.map((itemData) =>
-                calculatePercentage(itemData.cumSize, bidDepth),
-              )}
+              animated={false}
+              percents={bidPercents}
               rowHeight={MOBILE_ROW_HEIGHT}
               rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
               barInset={ORDER_BOOK_MOBILE_BAR_INSET}
               color={blockColors.green}
               origin="left"
               epoch={depthEpoch}
-              prices={aggregatedData.bids.map((d) => d.price)}
-              sizes={aggregatedData.bids.map((d) => d.displaySize)}
+              prices={bidPrices}
+              sizes={bidSizes}
               priceColor={textColor.green}
               sizeColor={textColor.textSubdued}
               priceFontSize={priceFontSize}
               sizeFontSize={priceFontSize}
               textInset={4}
-              onRowPress={(rowIndex) => {
-                const item = aggregatedData.bids[rowIndex];
-                if (item) {
-                  handleSelectLevel('bid', item, rowIndex);
-                }
-              }}
+              onRowPress={isInteractive ? handleBidRowPress : undefined}
             />
           )}
         </View>

@@ -1615,20 +1615,45 @@ function EmptySizeSideButton({
   const isAccountLoading =
     perpsAccountLoading.enableTradingLoading ||
     perpsAccountLoading.selectAccountLoading;
-  const shouldShowButtonLoading = isAccountLoading && !isLiveStatusPending;
   const shouldAutoEnableTrading =
     !perpsAccountStatus.canTrade && enableTradingMode.isSoftwareAccount;
   const isServerActionDisabled = Boolean(
     perpConfigCommon?.disablePerpActionPerp || perpConfigCommon?.ipDisablePerp,
   );
+  const hasNonColdStartDisabledReason =
+    isSubmitting ||
+    isServerActionDisabled ||
+    (!shouldAutoEnableTrading && !perpsAccountStatus.canTrade);
+  const shouldDisableForAccountLoading =
+    shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
+      selectAccountLoading: perpsAccountLoading.selectAccountLoading,
+      enableTradingLoading: perpsAccountLoading.enableTradingLoading,
+      enableTradingTriggered: perpsAccountLoading.enableTradingTriggered,
+      enableTradingStatusPending:
+        perpsAccountLoading.enableTradingStatusPending,
+      isLiveStatusPending,
+    });
+  const shouldPreserveAccountLoadingButtonVisualState =
+    shouldDisableForAccountLoading &&
+    !perpsAccountLoading.enableTradingTriggered &&
+    !hasNonColdStartDisabledReason;
+  const shouldShowButtonLoading =
+    shouldDisableForAccountLoading &&
+    !shouldPreserveAccountLoadingButtonVisualState;
   const buttonDisabled =
     isLiveStatusPending ||
-    isAccountLoading ||
+    shouldDisableForAccountLoading ||
     isSubmitting ||
     isServerActionDisabled ||
     (!shouldAutoEnableTrading &&
       !perpsAccountStatus.canTrade &&
       !enableTradingMode.isSoftwareAccount);
+  const shouldPreserveDisabledButtonStyle =
+    shouldPreserveAccountLoadingButtonVisualState ||
+    shouldPreserveColdStartButtonVisualState({
+      isLiveStatusPending,
+      hasNonColdStartDisabledReason,
+    });
 
   const spotTradeSymbol = useMemo(() => {
     if (!isSpot || activeTradeInstrument.mode !== 'spot') {
@@ -1796,6 +1821,9 @@ function EmptySizeSideButton({
       hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
       pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
       disabled={buttonDisabled}
+      disabledStyle={
+        shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
+      }
       loading={shouldShowButtonLoading || isSubmitting}
       onPress={handlePress}
       h={36}

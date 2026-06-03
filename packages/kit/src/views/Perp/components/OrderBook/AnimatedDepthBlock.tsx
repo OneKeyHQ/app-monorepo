@@ -86,6 +86,7 @@ export function DepthBar({
  * only meaningful there (snap-without-animate), so it is ignored here.
  */
 export function DepthBarColumn({
+  animated = true,
   percents,
   rowHeight,
   rowMarginTop,
@@ -107,6 +108,7 @@ export function DepthBarColumn({
           }}
         >
           <DepthBar
+            animated={animated}
             color={color}
             origin={origin}
             width={`${percent}%`}

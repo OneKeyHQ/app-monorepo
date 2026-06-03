@@ -27,6 +27,7 @@ const SIDE_RATIO_CORNER_RADIUS = 999;
 const StyledPerpDepthBarsView = PerpDepthBarsView as ComponentType<
   PerpDepthBarsProps & { style?: StyleProp<ViewStyle> }
 >;
+const noopOnRowPress = () => undefined;
 
 /**
  * The native perp-depth-bar views parse only `#hex` and `rgb()/rgba()` color
@@ -85,6 +86,7 @@ function useReducedMotion(): boolean {
  * the constants in `AnimatedDepthBlock.shared.ts` (design §7).
  */
 export function DepthBarColumn({
+  animated = true,
   percents,
   rowHeight,
   rowMarginTop,
@@ -101,7 +103,8 @@ export function DepthBarColumn({
   textInset,
   onRowPress,
 }: IDepthBarColumnProps) {
-  const reducedMotion = useReducedMotion();
+  const osReducedMotion = useReducedMotion();
+  const reducedMotion = !animated || osReducedMotion;
   const totalHeight =
     percents.length * rowHeight + percents.length * rowMarginTop;
   const nativeColor = useMemo(() => toNativeColor(color), [color]);
@@ -131,7 +134,7 @@ export function DepthBarColumn({
       priceFontSize={priceFontSize ?? 11}
       sizeFontSize={sizeFontSize ?? 11}
       textInset={textInset ?? 0}
-      onRowPress={onRowPress}
+      onRowPress={onRowPress ?? noopOnRowPress}
       style={{ width: '100%', height: totalHeight }}
     />
   );
@@ -171,6 +174,7 @@ export function DepthBar({
       priceFontSize={11}
       sizeFontSize={11}
       textInset={0}
+      onRowPress={noopOnRowPress}
       style={{
         position: 'absolute',
         top: 0,
@@ -187,6 +191,7 @@ export function DepthBar({
 }
 
 export function SideRatioSegments({
+  animated = true,
   bidPercentage,
   askPercentage,
   longColor,
@@ -195,7 +200,8 @@ export function SideRatioSegments({
   startSegmentStyle,
   gap = 4,
 }: ISideRatioSegmentsProps) {
-  const reducedMotion = useReducedMotion();
+  const osReducedMotion = useReducedMotion();
+  const reducedMotion = !animated || osReducedMotion;
   const flatSegment = StyleSheet.flatten(segmentStyle) ?? {};
   const flatStart = StyleSheet.flatten(startSegmentStyle) ?? {};
   const segmentHeight =

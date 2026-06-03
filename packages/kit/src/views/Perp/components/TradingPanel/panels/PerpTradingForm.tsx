@@ -181,6 +181,15 @@ function splitTwapDurationMinutes(minutes: number) {
   };
 }
 
+function hasTradingFormOrderSizeInput(
+  formData: Pick<ITradingFormData, 'sizeInputMode' | 'size' | 'sizePercent'>,
+) {
+  if (formData.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
+    return (formData.sizePercent ?? 0) > 0;
+  }
+  return Boolean(formData.size?.trim());
+}
+
 function SpotAvailableActionIcon({
   icon,
 }: {
@@ -350,6 +359,15 @@ function PerpTradingForm({
   const tradingComputed = useTradingFormSizeInputComputed();
   const advancedComputedSizeBN = useTradingFormComputedSize();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const isSpot = activeTradeInstrument.mode === 'spot';
+  const shouldUseLiveTradingPrice = Boolean(
+    isSpot ||
+    formData.bboPriceMode ||
+    formData.orderMode !== 'standard' ||
+    hasTradingFormOrderSizeInput(formData),
+  );
+  const shouldSyncTradingFormEnv = shouldUseLiveTradingPrice;
+  const tradingPriceSource = shouldUseLiveTradingPrice ? 'live' : 'display';
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const [activeAsset] = usePerpsActiveAssetAtom();
@@ -358,8 +376,12 @@ function PerpTradingForm({
   const [isSpotActiveAssetCtxReady] = useSpotActiveAssetCtxReadyAtom();
   const [{ balances: spotBalances }] = useSpotBalancesAtom();
   const { baseName: activeBaseName } = useActiveTradeDisplay();
-  const { midPrice, midPriceBN } = useTradingPrice();
-  const { price: orderPriceBN } = useOrderPrice(formData.side);
+  const { midPrice, midPriceBN } = useTradingPrice({
+    source: tradingPriceSource,
+  });
+  const { price: orderPriceBN } = useOrderPrice(formData.side, {
+    priceSource: tradingPriceSource,
+  });
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const { universeByBaseName } = useSpotMetaMaps();
   const perpsPositions = usePerpsAccountScopedActivePositions();
@@ -404,7 +426,6 @@ function PerpTradingForm({
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
 
-  const isSpot = activeTradeInstrument.mode === 'spot';
   const spotUniverse = isSpot ? spotActiveAsset?.universe : undefined;
   const sizeSzDecimals = isSpot
     ? (spotUniverse?.baseSzDecimals ?? 2)
@@ -576,32 +597,43 @@ function PerpTradingForm({
     midPriceRef.current = midPrice;
   }, [midPrice]);
 
-  const getFormattedMidPrice = useCallback(() => {
-    const latestMidPrice = midPriceRef.current;
+  const getFormattedMidPrice = useCallback(async () => {
+    const latestMidPrice =
+      activeTradeInstrument.mode === 'perp'
+        ? (
+            await actions.current.getMidPrice({
+              coin: activeTradeInstrument.coin,
+            })
+          ).mid || midPriceRef.current
+        : midPriceRef.current;
     if (!latestMidPrice) {
       return undefined;
     }
     return isSpot
       ? formatSpotPriceToValid(latestMidPrice, sizeSzDecimals)
       : formatPriceToSignificantDigits(latestMidPrice, sizeSzDecimals);
-  }, [isSpot, sizeSzDecimals]);
+  }, [actions, activeTradeInstrument, isSpot, sizeSzDecimals]);
 
   const handleUseMidPriceForExecutionPrice = useCallback(() => {
-    const nextPrice = getFormattedMidPrice();
-    if (nextPrice) {
-      updateForm({
-        executionPrice: nextPrice,
-      });
-    }
+    void (async () => {
+      const nextPrice = await getFormattedMidPrice();
+      if (nextPrice) {
+        updateForm({
+          executionPrice: nextPrice,
+        });
+      }
+    })();
   }, [getFormattedMidPrice, updateForm]);
 
   const handleUseMidPriceForPrice = useCallback(() => {
-    const nextPrice = getFormattedMidPrice();
-    if (nextPrice) {
-      updateForm({
-        price: nextPrice,
-      });
-    }
+    void (async () => {
+      const nextPrice = await getFormattedMidPrice();
+      if (nextPrice) {
+        updateForm({
+          price: nextPrice,
+        });
+      }
+    })();
   }, [getFormattedMidPrice, updateForm]);
 
   const prevTypeRef = useRef<'market' | 'limit'>(formData.type);
@@ -610,19 +642,40 @@ function PerpTradingForm({
     const prevType = prevTypeRef.current;
     const currentType = formData.type;
 
-    const latestMidPrice = midPriceRef.current;
-    if (prevType !== 'limit' && currentType === 'limit' && latestMidPrice) {
-      updateForm({
-        price: isSpot
-          ? formatSpotPriceToValid(latestMidPrice, sizeSzDecimals)
-          : formatPriceToSignificantDigits(latestMidPrice, sizeSzDecimals),
-      });
+    if (prevType !== 'limit' && currentType === 'limit') {
+      void (async () => {
+        const nextPrice = await getFormattedMidPrice();
+        if (nextPrice) {
+          updateForm({
+            price: nextPrice,
+          });
+        }
+      })();
     }
 
     prevTypeRef.current = currentType;
-  }, [formData.type, isSpot, sizeSzDecimals, updateForm]);
+  }, [formData.type, getFormattedMidPrice, updateForm]);
 
   useEffect(() => {
+    if (!shouldSyncTradingFormEnv) {
+      setTradingFormEnv((prev) => {
+        const prevAvailable = prev.availableToTrade ?? [];
+        const prevMaxTradeSzs = prev.maxTradeSzs ?? [];
+        if (
+          prev.markPrice === undefined &&
+          prev.leverageValue === undefined &&
+          prev.fallbackLeverage === undefined &&
+          prev.szDecimals === undefined &&
+          prevAvailable.length === 0 &&
+          prevMaxTradeSzs.length === 0
+        ) {
+          return prev;
+        }
+        return {};
+      });
+      return;
+    }
+
     const nextEnv = isSpot
       ? {
           markPrice: midPrice,
@@ -691,6 +744,7 @@ function PerpTradingForm({
     activeAssetData?.leverage?.value,
     activeAsset?.universe?.maxLeverage,
     activeAsset?.universe?.szDecimals,
+    shouldSyncTradingFormEnv,
     setTradingFormEnv,
     formData.leverage,
     updateForm,

@@ -43,6 +43,7 @@ export type IDepthBarProps = {
 };
 
 export type IDepthBarColumnProps = {
+  animated?: boolean;
   /** Depth percentage per row, 0..100. Length === number of rows on this side. */
   percents: number[];
   /** Row height in points (matches the sibling RN text row height). */

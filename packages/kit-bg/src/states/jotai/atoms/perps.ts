@@ -689,6 +689,14 @@ export const {
 });
 
 export const {
+  target: perpsActiveAssetCtxDisplayAtom,
+  use: usePerpsActiveAssetCtxDisplayAtom,
+} = globalAtom<IPerpsActiveAssetCtxAtom>({
+  name: EAtomNames.perpsActiveAssetCtxDisplayAtom,
+  initialValue: undefined,
+});
+
+export const {
   target: perpsActiveAssetCtxReadyAtom,
   use: usePerpsActiveAssetCtxReadyAtom,
 } = globalAtomComputedR<boolean>({
@@ -701,6 +709,46 @@ export const {
 } = globalAtomComputedR<string | undefined>({
   read: (get) => get(perpsActiveAssetCtxAtom.atom())?.ctx?.midPrice,
 });
+
+export type IPerpsActiveAssetCtxMidPriceSource =
+  | 'live'
+  | 'display'
+  | 'disabled';
+
+export const perpsActiveAssetCtxMidPriceBySourceAtomCache = new Map<
+  IPerpsActiveAssetCtxMidPriceSource,
+  ReturnType<typeof globalAtomComputedR<string | undefined>>
+>();
+
+function getOrCreatePerpsActiveAssetCtxMidPriceBySourceAtom(
+  source: IPerpsActiveAssetCtxMidPriceSource,
+) {
+  let entry = perpsActiveAssetCtxMidPriceBySourceAtomCache.get(source);
+  if (!entry) {
+    entry = globalAtomComputedR<string | undefined>({
+      read: (get) => {
+        if (source === 'disabled') {
+          return undefined;
+        }
+        const assetCtx =
+          source === 'display'
+            ? get(perpsActiveAssetCtxDisplayAtom.atom())
+            : get(perpsActiveAssetCtxAtom.atom());
+        return assetCtx?.ctx?.midPrice;
+      },
+    });
+    perpsActiveAssetCtxMidPriceBySourceAtomCache.set(source, entry);
+  }
+  return entry;
+}
+
+export function usePerpsActiveAssetCtxMidPriceBySource(
+  source: IPerpsActiveAssetCtxMidPriceSource,
+): string | undefined {
+  const { use } = getOrCreatePerpsActiveAssetCtxMidPriceBySourceAtom(source);
+  const [midPrice] = use();
+  return midPrice;
+}
 
 export type IPerpsActiveAssetDataAtom = IPerpsActiveAssetData | undefined;
 export const {
