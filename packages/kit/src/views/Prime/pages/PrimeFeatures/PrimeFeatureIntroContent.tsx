@@ -185,194 +185,192 @@ function PrimeFeaturePaginationButton({
   );
 }
 
-const PrimeFeatureMedia = memo(
-  ({
-    feature,
-    isActive,
-    canLoadVideo = true,
-  }: {
-    feature: IPrimeFeatureIntro;
-    isActive: boolean;
-    canLoadVideo?: boolean;
-  }) => {
-    const intl = useIntl();
-    const [shouldLoadVideo, setShouldLoadVideo] = useState(
-      canLoadVideo && isActive,
+const PrimeFeatureMedia = memo(function PrimeFeatureMedia({
+  feature,
+  isActive,
+  canLoadVideo = true,
+}: {
+  feature: IPrimeFeatureIntro;
+  isActive: boolean;
+  canLoadVideo?: boolean;
+}) {
+  const intl = useIntl();
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(
+    canLoadVideo && isActive,
+  );
+  const [videoPlayKey, setVideoPlayKey] = useState(0);
+  const [shouldPlayVideo, setShouldPlayVideo] = useState(false);
+  const posterOpacity = useRef(new Animated.Value(1)).current;
+  const prevIsActiveRef = useRef(isActive);
+
+  useEffect(() => {
+    if (feature.media.type !== 'video') {
+      return;
+    }
+
+    posterOpacity.stopAnimation();
+    posterOpacity.setValue(1);
+    setShouldPlayVideo(false);
+
+    if (isActive && canLoadVideo) {
+      setShouldLoadVideo(true);
+      if (!prevIsActiveRef.current) {
+        setVideoPlayKey((key) => key + 1);
+      }
+    } else if (!canLoadVideo) {
+      setShouldLoadVideo(false);
+    }
+
+    prevIsActiveRef.current = isActive;
+  }, [canLoadVideo, feature.media.type, isActive, posterOpacity]);
+
+  const handleVideoReadyForDisplay = useCallback(() => {
+    if (!isActive) {
+      return;
+    }
+
+    setShouldPlayVideo(true);
+    posterOpacity.stopAnimation();
+    Animated.timing(posterOpacity, {
+      toValue: 0,
+      duration: VIDEO_POSTER_FADE_DURATION_MS,
+      useNativeDriver: true,
+    }).start();
+  }, [isActive, posterOpacity]);
+
+  if (feature.media.type === 'video') {
+    const posterSource = feature.media.getPosterSource();
+    const posterImageSource = getPosterImageSource(posterSource);
+    const shouldUseNativePosterOverlay = platformEnv.isNative;
+
+    return (
+      <>
+        {shouldLoadVideo ? (
+          <Video
+            key={`${feature.id}-${videoPlayKey}`}
+            source={feature.media.getSource()}
+            style={styles.featureMediaFill}
+            resizeMode={EVideoResizeMode.COVER}
+            repeat
+            muted
+            paused={
+              !isActive || (shouldUseNativePosterOverlay && !shouldPlayVideo)
+            }
+            poster={
+              shouldUseNativePosterOverlay
+                ? undefined
+                : getVideoPoster(posterSource)
+            }
+            onReadyForDisplay={
+              shouldUseNativePosterOverlay
+                ? handleVideoReadyForDisplay
+                : undefined
+            }
+          />
+        ) : null}
+        {shouldUseNativePosterOverlay ? (
+          <Animated.Image
+            style={[styles.featureMediaFill, { opacity: posterOpacity }]}
+            resizeMode="cover"
+            source={posterImageSource}
+          />
+        ) : null}
+        {!shouldUseNativePosterOverlay && !shouldLoadVideo ? (
+          <RNImage
+            style={styles.featureMediaFill}
+            resizeMode="cover"
+            source={posterImageSource}
+          />
+        ) : null}
+      </>
     );
-    const [videoPlayKey, setVideoPlayKey] = useState(0);
-    const [shouldPlayVideo, setShouldPlayVideo] = useState(false);
-    const posterOpacity = useRef(new Animated.Value(1)).current;
-    const prevIsActiveRef = useRef(isActive);
+  }
 
-    useEffect(() => {
-      if (feature.media.type !== 'video') {
-        return;
-      }
-
-      posterOpacity.stopAnimation();
-      posterOpacity.setValue(1);
-      setShouldPlayVideo(false);
-
-      if (isActive && canLoadVideo) {
-        setShouldLoadVideo(true);
-        if (!prevIsActiveRef.current) {
-          setVideoPlayKey((key) => key + 1);
-        }
-      } else if (!canLoadVideo) {
-        setShouldLoadVideo(false);
-      }
-
-      prevIsActiveRef.current = isActive;
-    }, [canLoadVideo, feature.media.type, isActive, posterOpacity]);
-
-    const handleVideoReadyForDisplay = useCallback(() => {
-      if (!isActive) {
-        return;
-      }
-
-      setShouldPlayVideo(true);
-      posterOpacity.stopAnimation();
-      Animated.timing(posterOpacity, {
-        toValue: 0,
-        duration: VIDEO_POSTER_FADE_DURATION_MS,
-        useNativeDriver: true,
-      }).start();
-    }, [isActive, posterOpacity]);
-
-    if (feature.media.type === 'video') {
-      const posterSource = feature.media.getPosterSource();
-      const posterImageSource = getPosterImageSource(posterSource);
-      const shouldUseNativePosterOverlay = platformEnv.isNative;
-
-      return (
-        <>
-          {shouldLoadVideo ? (
-            <Video
-              key={`${feature.id}-${videoPlayKey}`}
-              source={feature.media.getSource()}
-              style={styles.featureMediaFill}
-              resizeMode={EVideoResizeMode.COVER}
-              repeat
-              muted
-              paused={
-                !isActive || (shouldUseNativePosterOverlay && !shouldPlayVideo)
-              }
-              poster={
-                shouldUseNativePosterOverlay
-                  ? undefined
-                  : getVideoPoster(posterSource)
-              }
-              onReadyForDisplay={
-                shouldUseNativePosterOverlay
-                  ? handleVideoReadyForDisplay
-                  : undefined
-              }
-            />
-          ) : null}
-          {shouldUseNativePosterOverlay ? (
-            <Animated.Image
-              style={[styles.featureMediaFill, { opacity: posterOpacity }]}
-              resizeMode="cover"
-              source={posterImageSource}
-            />
-          ) : null}
-          {!shouldUseNativePosterOverlay && !shouldLoadVideo ? (
-            <RNImage
-              style={styles.featureMediaFill}
-              resizeMode="cover"
-              source={posterImageSource}
-            />
-          ) : null}
-        </>
-      );
-    }
-
-    if (feature.media.type === 'icon') {
-      return (
-        <YStack
-          w="100%"
-          h="100%"
-          px="$6"
-          pt={72}
-          pb="$6"
-          gap="$8"
+  if (feature.media.type === 'icon') {
+    return (
+      <YStack
+        w="100%"
+        h="100%"
+        px="$6"
+        pt={72}
+        pb="$6"
+        gap="$8"
+        alignItems="center"
+        justifyContent="flex-start"
+      >
+        <LinearGradient
+          colors={ICON_MEDIA_HERO_GRADIENT_COLORS}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          w={ICON_MEDIA_HERO_BOX_SIZE}
+          h={ICON_MEDIA_HERO_BOX_SIZE}
+          borderRadius="$4"
           alignItems="center"
-          justifyContent="flex-start"
+          justifyContent="center"
+          flexShrink={0}
         >
-          <LinearGradient
-            colors={ICON_MEDIA_HERO_GRADIENT_COLORS}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            w={ICON_MEDIA_HERO_BOX_SIZE}
-            h={ICON_MEDIA_HERO_BOX_SIZE}
-            borderRadius="$4"
-            alignItems="center"
-            justifyContent="center"
-            flexShrink={0}
-          >
-            <Icon
-              name={feature.media.icon}
-              size={ICON_MEDIA_HERO_ICON_SIZE}
-              color="$whiteA12"
-            />
-          </LinearGradient>
-          {feature.details.length > 0 ? (
-            <YStack w="100%" maxWidth={DETAIL_ROW_MAX_WIDTH}>
-              {feature.details.map((detail, index) => (
-                <XStack
-                  key={`${feature.id}-${detail.title}`}
-                  w="100%"
-                  gap="$3"
-                  alignItems="flex-start"
-                  pt={index === 0 ? '$0' : '$4'}
-                  mt={index === 0 ? '$0' : '$4'}
-                  borderTopWidth={index === 0 ? 0 : StyleSheet.hairlineWidth}
-                  borderTopColor={ICON_MEDIA_DETAIL_SEPARATOR_COLOR}
+          <Icon
+            name={feature.media.icon}
+            size={ICON_MEDIA_HERO_ICON_SIZE}
+            color="$whiteA12"
+          />
+        </LinearGradient>
+        {feature.details.length > 0 ? (
+          <YStack w="100%" maxWidth={DETAIL_ROW_MAX_WIDTH}>
+            {feature.details.map((detail, index) => (
+              <XStack
+                key={`${feature.id}-${detail.title}`}
+                w="100%"
+                gap="$3"
+                alignItems="flex-start"
+                pt={index === 0 ? '$0' : '$4'}
+                mt={index === 0 ? '$0' : '$4'}
+                borderTopWidth={index === 0 ? 0 : StyleSheet.hairlineWidth}
+                borderTopColor={ICON_MEDIA_DETAIL_SEPARATOR_COLOR}
+              >
+                <Stack
+                  w={ICON_DETAIL_ICON_SLOT_SIZE}
+                  h={ICON_DETAIL_ICON_SLOT_SIZE}
+                  alignItems="center"
+                  justifyContent="center"
+                  flexShrink={0}
                 >
-                  <Stack
-                    w={ICON_DETAIL_ICON_SLOT_SIZE}
-                    h={ICON_DETAIL_ICON_SLOT_SIZE}
-                    alignItems="center"
-                    justifyContent="center"
-                    flexShrink={0}
+                  <Icon
+                    name={detail.icon}
+                    size={ICON_DETAIL_ICON_SIZE}
+                    color="$brand9"
+                  />
+                </Stack>
+                <YStack flex={1} minWidth={0} gap="$1">
+                  <SizableText
+                    size="$bodyLgMedium"
+                    color="$whiteA12"
+                    textAlign="left"
                   >
-                    <Icon
-                      name={detail.icon}
-                      size={ICON_DETAIL_ICON_SIZE}
-                      color="$brand9"
-                    />
-                  </Stack>
-                  <YStack flex={1} minWidth={0} gap="$1">
-                    <SizableText
-                      size="$bodyLgMedium"
-                      color="$whiteA12"
-                      textAlign="left"
-                    >
-                      {intl.formatMessage({
-                        id: detail.title,
-                      })}
-                    </SizableText>
-                    <SizableText
-                      size="$bodyMd"
-                      color={ICON_MEDIA_DETAIL_DESC_COLOR}
-                      textAlign="left"
-                    >
-                      {intl.formatMessage({
-                        id: detail.description,
-                      })}
-                    </SizableText>
-                  </YStack>
-                </XStack>
-              ))}
-            </YStack>
-          ) : null}
-        </YStack>
-      );
-    }
+                    {intl.formatMessage({
+                      id: detail.title,
+                    })}
+                  </SizableText>
+                  <SizableText
+                    size="$bodyMd"
+                    color={ICON_MEDIA_DETAIL_DESC_COLOR}
+                    textAlign="left"
+                  >
+                    {intl.formatMessage({
+                      id: detail.description,
+                    })}
+                  </SizableText>
+                </YStack>
+              </XStack>
+            ))}
+          </YStack>
+        ) : null}
+      </YStack>
+    );
+  }
 
-    return null;
-  },
-);
+  return null;
+});
 
 export function PrimeFeatureIntroContent({
   selectedFeature,

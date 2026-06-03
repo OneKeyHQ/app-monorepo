@@ -87,66 +87,64 @@ type ITokenSelectorHeaderRightProps = {
   isCustomNetwork?: IServerNetwork['isCustomNetwork'];
 };
 
-const TokenSelectorHeaderRight = memo(
-  ({
-    showDeFiTokenSwitch,
-    loading,
-    onLpTokenFilterChange,
-    onSwitchNetwork,
-    networkLogoURI,
-    networkName,
-    networkShortName,
-    isCustomNetwork,
-  }: ITokenSelectorHeaderRightProps) => {
-    const [tokenSelectorFilter] = useTokenSelectorFilterPersistAtom();
-    const showTokenSelectorFilter =
-      TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED && showDeFiTokenSwitch;
-    const showLpTokensOnly = showTokenSelectorFilter
-      ? tokenSelectorFilter.sendTokenShowLpTokensOnly
-      : false;
-    const shouldShowNetworkSwitch = !!onSwitchNetwork && !!networkName;
+const TokenSelectorHeaderRight = memo(function TokenSelectorHeaderRight({
+  showDeFiTokenSwitch,
+  loading,
+  onLpTokenFilterChange,
+  onSwitchNetwork,
+  networkLogoURI,
+  networkName,
+  networkShortName,
+  isCustomNetwork,
+}: ITokenSelectorHeaderRightProps) {
+  const [tokenSelectorFilter] = useTokenSelectorFilterPersistAtom();
+  const showTokenSelectorFilter =
+    TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED && showDeFiTokenSwitch;
+  const showLpTokensOnly = showTokenSelectorFilter
+    ? tokenSelectorFilter.sendTokenShowLpTokensOnly
+    : false;
+  const shouldShowNetworkSwitch = !!onSwitchNetwork && !!networkName;
 
-    if (!showTokenSelectorFilter && !shouldShowNetworkSwitch) {
-      return null;
-    }
+  if (!showTokenSelectorFilter && !shouldShowNetworkSwitch) {
+    return null;
+  }
 
-    return (
-      <XStack alignItems="center" gap="$2" mr="$-2">
-        {showTokenSelectorFilter ? (
-          <TokenSelectorLpTokenSwitch
-            value={showLpTokensOnly}
-            onChange={onLpTokenFilterChange}
-            loading={loading}
+  return (
+    <XStack alignItems="center" gap="$2" mr="$-2">
+      {showTokenSelectorFilter ? (
+        <TokenSelectorLpTokenSwitch
+          value={showLpTokensOnly}
+          onChange={onLpTokenFilterChange}
+          loading={loading}
+        />
+      ) : null}
+      {shouldShowNetworkSwitch ? (
+        <XStack
+          alignItems="center"
+          gap="$1.5"
+          px="$2"
+          py="$1"
+          borderRadius="$full"
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          onPress={onSwitchNetwork}
+          userSelect="none"
+        >
+          <NetworkAvatarBase
+            logoURI={networkLogoURI ?? ''}
+            size="$5"
+            isCustomNetwork={isCustomNetwork}
+            networkName={networkName}
           />
-        ) : null}
-        {shouldShowNetworkSwitch ? (
-          <XStack
-            alignItems="center"
-            gap="$1.5"
-            px="$2"
-            py="$1"
-            borderRadius="$full"
-            hoverStyle={{ bg: '$bgHover' }}
-            pressStyle={{ bg: '$bgActive' }}
-            onPress={onSwitchNetwork}
-            userSelect="none"
-          >
-            <NetworkAvatarBase
-              logoURI={networkLogoURI ?? ''}
-              size="$5"
-              isCustomNetwork={isCustomNetwork}
-              networkName={networkName}
-            />
-            <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth="$16">
-              {networkShortName}
-            </SizableText>
-            <Icon name="SwitchHorOutline" size="$4.5" color="$iconSubdued" />
-          </XStack>
-        ) : null}
-      </XStack>
-    );
-  },
-);
+          <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth="$16">
+            {networkShortName}
+          </SizableText>
+          <Icon name="SwitchHorOutline" size="$4.5" color="$iconSubdued" />
+        </XStack>
+      ) : null}
+    </XStack>
+  );
+});
 
 function isSameSelectorTokenListRequestContext(
   a: ISelectorTokenListRequestContext,
