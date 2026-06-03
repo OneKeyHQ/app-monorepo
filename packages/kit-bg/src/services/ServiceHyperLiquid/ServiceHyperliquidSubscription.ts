@@ -133,6 +133,11 @@ interface IMarketCandleSubscriptionParams {
   subscriberId: string;
   coin: string;
   interval: IEventCandleParameters['interval'];
+  generation: number;
+}
+
+interface IMarketCandleSubscriptionRecord extends IEventCandleParameters {
+  generation: number;
 }
 
 interface IRequiredSubscriptionInfo {
@@ -214,7 +219,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _marketCandleSubscriptionsBySubscriber = new Map<
     string,
-    IEventCandleParameters
+    IMarketCandleSubscriptionRecord
   >();
 
   private _getMarketCandleSubscriptions(): IEventCandleParameters[] {
@@ -1041,9 +1046,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
 
+    const currentSubscription = this._marketCandleSubscriptionsBySubscriber.get(
+      params.subscriberId,
+    );
+    if (
+      currentSubscription &&
+      currentSubscription.generation > params.generation
+    ) {
+      return;
+    }
+
     this._marketCandleSubscriptionsBySubscriber.set(params.subscriberId, {
       coin,
       interval: params.interval,
+      generation: params.generation,
     });
 
     await this.connect();
@@ -1057,15 +1073,24 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async unsubscribeMarketCandle(params: {
     subscriberId: string;
+    generation: number;
   }): Promise<void> {
     if (!params.subscriberId) {
       return;
     }
 
-    const didDelete = this._marketCandleSubscriptionsBySubscriber.delete(
+    const currentSubscription = this._marketCandleSubscriptionsBySubscriber.get(
       params.subscriberId,
     );
-    if (!didDelete || (!this._client && !this._clientInitPromise)) {
+    if (
+      !currentSubscription ||
+      currentSubscription.generation !== params.generation
+    ) {
+      return;
+    }
+
+    this._marketCandleSubscriptionsBySubscriber.delete(params.subscriberId);
+    if (!this._client && !this._clientInitPromise) {
       return;
     }
 

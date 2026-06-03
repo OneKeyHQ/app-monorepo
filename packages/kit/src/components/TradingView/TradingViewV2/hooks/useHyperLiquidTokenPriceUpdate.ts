@@ -63,6 +63,7 @@ const HYPERLIQUID_INTERVALS = new Set<IHyperLiquidCandleInterval>([
 type IHyperLiquidCandleSubscription = {
   coin: string;
   interval: IHyperLiquidCandleInterval;
+  generation: number;
 };
 
 type IUseHyperLiquidTokenPriceUpdateParams = {
@@ -101,7 +102,7 @@ function getHyperLiquidInterval(
 function buildSubscription(
   hyperLiquidSymbol: string,
   resolution?: string,
-): IHyperLiquidCandleSubscription {
+): Omit<IHyperLiquidCandleSubscription, 'generation'> {
   return {
     coin: hyperLiquidSymbol,
     interval: getHyperLiquidInterval(resolution),
@@ -120,6 +121,7 @@ export function useHyperLiquidTokenPriceUpdate({
   const tokenDetailRef = useRef(tokenDetail);
   const subscriptionRef = useRef<IHyperLiquidCandleSubscription | null>(null);
   const subscriberIdRef = useRef<string | null>(null);
+  const subscriptionGenerationRef = useRef(0);
 
   if (!subscriberIdRef.current) {
     subscriberIdRef.current = buildSubscriberId();
@@ -156,14 +158,17 @@ export function useHyperLiquidTokenPriceUpdate({
 
   const unsubscribe = useCallback(() => {
     const subscriberId = subscriberIdRef.current;
-    const hasSubscription = Boolean(subscriptionRef.current);
+    const currentSubscription = subscriptionRef.current;
     subscriptionRef.current = null;
-    if (!subscriberId || !hasSubscription) {
+    if (!subscriberId || !currentSubscription) {
       return;
     }
 
     void backgroundApiProxy.serviceHyperliquidSubscription
-      .unsubscribeMarketCandle({ subscriberId })
+      .unsubscribeMarketCandle({
+        subscriberId,
+        generation: currentSubscription.generation,
+      })
       .catch((error) => {
         defaultLogger.perp.hyperliquid.marketCandleUnsubscribeError({
           error,
@@ -176,14 +181,14 @@ export function useHyperLiquidTokenPriceUpdate({
       return;
     }
 
-    const nextSubscription = buildSubscription(
+    const nextSubscriptionParams = buildSubscription(
       hyperLiquidSymbol,
       kLineResolutionRef?.current,
     );
     const currentSubscription = subscriptionRef.current;
     if (
-      currentSubscription?.coin === nextSubscription.coin &&
-      currentSubscription?.interval === nextSubscription.interval
+      currentSubscription?.coin === nextSubscriptionParams.coin &&
+      currentSubscription?.interval === nextSubscriptionParams.interval
     ) {
       return;
     }
@@ -193,12 +198,18 @@ export function useHyperLiquidTokenPriceUpdate({
       return;
     }
 
+    subscriptionGenerationRef.current += 1;
+    const nextSubscription: IHyperLiquidCandleSubscription = {
+      ...nextSubscriptionParams,
+      generation: subscriptionGenerationRef.current,
+    };
     subscriptionRef.current = nextSubscription;
     void backgroundApiProxy.serviceHyperliquidSubscription
       .subscribeMarketCandle({
         subscriberId,
         coin: nextSubscription.coin,
         interval: nextSubscription.interval,
+        generation: nextSubscription.generation,
       })
       .catch((error) => {
         const current = subscriptionRef.current;

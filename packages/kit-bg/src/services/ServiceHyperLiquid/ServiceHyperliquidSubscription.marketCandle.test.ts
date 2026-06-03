@@ -21,6 +21,10 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
       descriptor,
 }));
 
+type IMarketCandleSubscriptionTestRecord = IEventCandleParameters & {
+  generation: number;
+};
+
 type ITestService = {
   subscriptionsHandlerDisabled: boolean;
   connect: () => Promise<void>;
@@ -29,10 +33,17 @@ type ITestService = {
     subscriberId: string;
     coin: string;
     interval: IEventCandleParameters['interval'];
+    generation: number;
   }) => Promise<void>;
-  unsubscribeMarketCandle: (params: { subscriberId: string }) => Promise<void>;
+  unsubscribeMarketCandle: (params: {
+    subscriberId: string;
+    generation: number;
+  }) => Promise<void>;
   _client: unknown;
-  _marketCandleSubscriptionsBySubscriber: Map<string, IEventCandleParameters>;
+  _marketCandleSubscriptionsBySubscriber: Map<
+    string,
+    IMarketCandleSubscriptionTestRecord
+  >;
   _syncMarketCandleSubscriptions: () => Promise<void>;
 };
 
@@ -75,6 +86,7 @@ describe('ServiceHyperliquidSubscription market candle lifecycle', () => {
       subscriberId: 'market-chart',
       coin: ' BTC ',
       interval: '1m',
+      generation: 1,
     });
 
     expect(mocks.connect).toHaveBeenCalledTimes(1);
@@ -85,6 +97,7 @@ describe('ServiceHyperliquidSubscription market candle lifecycle', () => {
     ).toEqual({
       coin: 'BTC',
       interval: '1m',
+      generation: 1,
     });
   });
 
@@ -96,6 +109,7 @@ describe('ServiceHyperliquidSubscription market candle lifecycle', () => {
       subscriberId: 'market-chart',
       coin: 'ETH',
       interval: '5m',
+      generation: 1,
     });
 
     expect(mocks.connect).toHaveBeenCalledTimes(1);
@@ -111,14 +125,73 @@ describe('ServiceHyperliquidSubscription market candle lifecycle', () => {
     service._marketCandleSubscriptionsBySubscriber.set('market-chart', {
       coin: 'BTC',
       interval: '1m',
+      generation: 1,
     });
 
-    await service.unsubscribeMarketCandle({ subscriberId: 'market-chart' });
+    await service.unsubscribeMarketCandle({
+      subscriberId: 'market-chart',
+      generation: 1,
+    });
 
     expect(mocks.updateSubscriptions).not.toHaveBeenCalled();
     expect(mocks.syncMarketCandleSubscriptions).toHaveBeenCalledTimes(1);
     expect(
       service._marketCandleSubscriptionsBySubscriber.has('market-chart'),
     ).toBe(false);
+  });
+
+  it('preserves a newer subscription when a stale unsubscribe arrives later', async () => {
+    const service = buildService();
+    service._client = {};
+
+    await service.subscribeMarketCandle({
+      subscriberId: 'market-chart',
+      coin: 'BTC',
+      interval: '1m',
+      generation: 1,
+    });
+    await service.subscribeMarketCandle({
+      subscriberId: 'market-chart',
+      coin: 'ETH',
+      interval: '5m',
+      generation: 2,
+    });
+    await service.unsubscribeMarketCandle({
+      subscriberId: 'market-chart',
+      generation: 1,
+    });
+
+    expect(
+      service._marketCandleSubscriptionsBySubscriber.get('market-chart'),
+    ).toEqual({
+      coin: 'ETH',
+      interval: '5m',
+      generation: 2,
+    });
+  });
+
+  it('preserves a newer subscription when a stale subscribe arrives later', async () => {
+    const service = buildService();
+
+    await service.subscribeMarketCandle({
+      subscriberId: 'market-chart',
+      coin: 'ETH',
+      interval: '5m',
+      generation: 2,
+    });
+    await service.subscribeMarketCandle({
+      subscriberId: 'market-chart',
+      coin: 'BTC',
+      interval: '1m',
+      generation: 1,
+    });
+
+    expect(
+      service._marketCandleSubscriptionsBySubscriber.get('market-chart'),
+    ).toEqual({
+      coin: 'ETH',
+      interval: '5m',
+      generation: 2,
+    });
   });
 });
