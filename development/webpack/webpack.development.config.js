@@ -1,4 +1,3 @@
-const fs = require('fs');
 const path = require('path');
 
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
