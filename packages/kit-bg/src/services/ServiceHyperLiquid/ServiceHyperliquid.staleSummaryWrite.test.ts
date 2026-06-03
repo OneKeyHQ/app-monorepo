@@ -113,6 +113,50 @@ function createService() {
   return new ServiceHyperliquid({ backgroundApi });
 }
 
+// Drive an account switch through one seam that mirrors changeActivePerpsAccount's
+// real ordering, instead of poking private methods ad hoc in each test:
+//
+//   begin (requestId++, pending='resolving', target unknown)
+//     -> onResolvingWindow  (WS frames before getNetworkAccount resolves)
+//   markPendingActivePerpsAccountTarget (pending='resolved', live atom still old)
+//   wipe summary to undefined, then apply `hydrate` if given
+//     -> onLoadingWindow    (WS frames after target known, before the atom flips)
+//   publish the new active account
+//   clear pending           (mirrors changeActivePerpsAccount's finally)
+//
+// Note: this exercises the ordering, not the literal body of
+// changeActivePerpsAccount; a call-site timing regression inside that method
+// (e.g. markPending moved before begin) is out of this helper's scope.
+async function simulateAccountSwitch(
+  service: any,
+  toAddress: string,
+  hooks: {
+    onResolvingWindow?: () => Promise<void>;
+    onLoadingWindow?: () => Promise<void>;
+    hydrate?: any;
+  } = {},
+): Promise<number> {
+  const requestId = service.beginActivePerpsAccountChange();
+  if (hooks.onResolvingWindow) {
+    await hooks.onResolvingWindow();
+  }
+  service.markPendingActivePerpsAccountTarget(toAddress, requestId);
+  // changeActivePerpsAccount wipes the summary for a different-address switch,
+  // then may hydrate the new account's display summary before publishing.
+  summaryState = hooks.hydrate ?? undefined;
+  if (hooks.onLoadingWindow) {
+    await hooks.onLoadingWindow();
+  }
+  activeAccountState = {
+    accountAddress: toAddress,
+    indexedAccountId: 'switch-target',
+    accountId: null,
+    deriveType: 'default',
+  };
+  service.clearPendingActivePerpsAccountChange(requestId);
+  return requestId;
+}
+
 describe('ServiceHyperliquid active-summary stale-write guard', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -138,32 +182,59 @@ describe('ServiceHyperliquid active-summary stale-write guard', () => {
     await jest.advanceTimersByTimeAsync(0); // flush leading-edge commit
     expect(summaryState?.accountAddress?.toLowerCase()).toBe(ACCOUNT_A);
 
-    // Switch START: requestId bumped now, but the active-account atom still
-    // holds A throughout the loading window.
-    service.beginActivePerpsAccountChange();
-
-    // The loading window is typically >250ms and receives many WS packets.
-    // The first triggers the throttle's leading edge (commits while atom is
-    // still A); a later one is coalesced and scheduled for the trailing flush.
-    await service.updateActiveAccountSummary(makeWebData2(ACCOUNT_A, '999'));
-    await jest.advanceTimersByTimeAsync(50); // flush leading, stay in window
-    await service.updateActiveAccountSummary(makeWebData2(ACCOUNT_A, '1000'));
-
-    // Switch END: the new account B is published and the summary cleared,
-    // exactly as changeActivePerpsAccount() does for a different address.
-    activeAccountState = {
-      accountAddress: ACCOUNT_B,
-      indexedAccountId: 'b',
-      accountId: null,
-      deriveType: 'default',
-    };
-    summaryState = undefined;
+    // Switch to B. The loading window is typically >250ms and receives many WS
+    // packets for the OLD account A: the first triggers the throttle's leading
+    // edge, a later one is coalesced for the trailing flush.
+    await simulateAccountSwitch(service, ACCOUNT_B, {
+      onLoadingWindow: async () => {
+        await service.updateActiveAccountSummary(
+          makeWebData2(ACCOUNT_A, '999'),
+        );
+        await jest.advanceTimersByTimeAsync(50); // stay in window
+        await service.updateActiveAccountSummary(
+          makeWebData2(ACCOUNT_A, '1000'),
+        );
+      },
+    });
 
     // The throttle's trailing flush fires after the switch completed.
     await jest.advanceTimersByTimeAsync(300);
 
     // The active account is now B; A's stale summary must never be re-applied.
     expect(summaryState?.accountAddress?.toLowerCase()).not.toBe(ACCOUNT_A);
+  });
+
+  it('blocks old-account writes during the begin -> target-resolved window', async () => {
+    const service: any = createService();
+
+    // Steady state on account A.
+    activeAccountState = {
+      accountAddress: ACCOUNT_A,
+      indexedAccountId: 'a',
+      accountId: null,
+      deriveType: 'default',
+    };
+    await service.updateActiveAccountSummary(makeWebData2(ACCOUNT_A, '100'));
+    await jest.advanceTimersByTimeAsync(0);
+    expect(summaryState?.accountValue).toBe('100');
+
+    // Switch to B begins, but the destination address is NOT resolved yet
+    // (changeActivePerpsAccount is still inside getNetworkAccount). The live
+    // atom still holds A, so without the 'resolving' block an old-account WS
+    // frame would fall back to the live (old) account and land — the gap in the
+    // begin -> markPendingActivePerpsAccountTarget window flagged in PR #11823
+    // review (the unprotected getNetworkAccount window).
+    await simulateAccountSwitch(service, ACCOUNT_B, {
+      onResolvingWindow: async () => {
+        await service.updateActiveAccountSummary(
+          makeWebData2(ACCOUNT_A, '999'),
+        );
+        await jest.advanceTimersByTimeAsync(300); // flush leading + trailing
+        // The pending switch is 'resolving' (target unknown), so the write is
+        // dropped instead of overwriting A's steady-state summary.
+        expect(summaryState?.accountValue).toBe('100');
+      },
+    });
   });
 
   it('does not clobber the new-account hydration during the switch loading window', async () => {
@@ -180,19 +251,18 @@ describe('ServiceHyperliquid active-summary stale-write guard', () => {
     await jest.advanceTimersByTimeAsync(0);
     expect(summaryState?.accountAddress?.toLowerCase()).toBe(ACCOUNT_A);
 
-    // Switch START to B: requestId bumped, pending coalesced write canceled.
-    const requestId = service.beginActivePerpsAccountChange();
-    // changeActivePerpsAccount resolves the target address (B) and registers
-    // it as the pending target while the live active-account atom still holds A.
-    service.markPendingActivePerpsAccountTarget(ACCOUNT_B, requestId);
-    // It then hydrates B's display cache into the summary atom — still inside
-    // the window, before perpsActiveAccountAtom flips to B.
-    summaryState = { accountAddress: ACCOUNT_B, accountValue: '500' };
-
-    // A late WS frame for the OLD account A arrives during the window. The live
-    // atom still says A, so updateActiveAccountSummary enqueues it.
-    await service.updateActiveAccountSummary(makeWebData2(ACCOUNT_A, '999'));
-    await jest.advanceTimersByTimeAsync(300); // flush leading + trailing
+    // Switch to B. The target resolves and B's display summary is hydrated into
+    // the atom while the live active-account atom still holds A. A late WS frame
+    // for the OLD account A arrives during that loading window.
+    await simulateAccountSwitch(service, ACCOUNT_B, {
+      hydrate: { accountAddress: ACCOUNT_B, accountValue: '500' },
+      onLoadingWindow: async () => {
+        await service.updateActiveAccountSummary(
+          makeWebData2(ACCOUNT_A, '999'),
+        );
+        await jest.advanceTimersByTimeAsync(300); // flush leading + trailing
+      },
+    });
 
     // A's summary must NOT overwrite B's freshly hydrated summary.
     expect(summaryState?.accountAddress?.toLowerCase()).toBe(ACCOUNT_B);

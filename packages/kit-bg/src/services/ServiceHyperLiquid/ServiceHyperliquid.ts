@@ -197,14 +197,23 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private activePerpsAccountChangeRequestId = 0;
 
-  // Target address of the in-flight active-account switch, stamped with the
-  // requestId it belongs to. Set as soon as changeActivePerpsAccount resolves
-  // the destination address (while perpsActiveAccountAtom still holds the old
-  // account) and cleared once the new account is published. Lets the summary
-  // commit reject the old account's coalesced writes during the switch window,
-  // when the live perpsActiveAccountAtom still lags on the old address.
+  // The in-flight active-account switch, stamped with the requestId it belongs
+  // to. Set the moment a switch begins (status 'resolving', before the
+  // destination address is known) and upgraded to 'resolved' once the address
+  // is determined; cleared in changeActivePerpsAccount's finally. Lets the
+  // summary commit reject the old account's coalesced writes for the WHOLE
+  // switch — including the loading window — when the live perpsActiveAccountAtom
+  // still lags on the old address.
   private pendingActivePerpsAccountChange:
-    | { requestId: number; address: string | undefined }
+    | {
+        requestId: number;
+        // 'resolving' = switch started but its destination address is not known
+        // yet (the beginActivePerpsAccountChange ->
+        // markPendingActivePerpsAccountTarget window, which spans the
+        // getNetworkAccount call, often >250ms). 'resolved' = address known.
+        status: 'resolving' | 'resolved';
+        address: string | undefined;
+      }
     | undefined;
 
   private tokenSelectorFavoriteUpdateQueue = Promise.resolve();
@@ -232,6 +241,19 @@ export default class ServiceHyperliquid extends ServiceBase {
     // account so a trailing flush can't land stale data after the switch
     // begins (also see the requestId guard in _writeActiveSummaryThrottled).
     this._writeActiveSummaryThrottled.cancel();
+    // Block summary commits from the very start of the switch. The destination
+    // address is only known later (after getNetworkAccount), and until then
+    // resolveActiveSummaryTargetAddress() must NOT fall back to the lagging
+    // live account — otherwise an old-account WS frame arriving in the
+    // begin -> markPendingActivePerpsAccountTarget window would pass the
+    // address check and land. 'resolving' makes that window reject every write
+    // until the target is registered. Released in changeActivePerpsAccount's
+    // finally so it can never get stuck blocking the live account.
+    this.pendingActivePerpsAccountChange = {
+      requestId: this.activePerpsAccountChangeRequestId,
+      status: 'resolving',
+      address: undefined,
+    };
     return this.activePerpsAccountChangeRequestId;
   }
 
@@ -245,8 +267,16 @@ export default class ServiceHyperliquid extends ServiceBase {
     address: string | null | undefined,
     requestId: number,
   ): void {
+    // Ignore a late registration from a switch that has already been
+    // superseded; otherwise it would clobber the newer switch's pending entry
+    // (resolveActiveSummaryTargetAddress keys on requestId, so a stale entry
+    // would make it fall back to the live account during the new switch).
+    if (!this.isLatestActivePerpsAccountChange(requestId)) {
+      return;
+    }
     this.pendingActivePerpsAccountChange = {
       requestId,
+      status: 'resolved',
       address: address ? address.toLowerCase() : undefined,
     };
   }
@@ -258,10 +288,10 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   // The address a summary write must belong to right now. While a switch is in
-  // flight, that is its (already-known) destination address; otherwise it is
-  // the live active account. perpsActiveAccountAtom only flips at switch END,
-  // so binding to it alone would let an old-account write land during the
-  // loading window and clobber the new account's hydrated summary.
+  // flight, that is its destination (once resolved); otherwise it is the live
+  // active account. perpsActiveAccountAtom only flips at switch END, so binding
+  // to it alone would let an old-account write land during the loading window
+  // and clobber the new account's hydrated summary.
   private resolveActiveSummaryTargetAddress(
     liveAddress: string | undefined,
   ): string | undefined {
@@ -270,6 +300,17 @@ export default class ServiceHyperliquid extends ServiceBase {
       pending &&
       pending.requestId === this.activePerpsAccountChangeRequestId
     ) {
+      // Switch in flight but destination not resolved yet: block every commit
+      // (returning undefined makes _commitActiveAccountSummary drop the write)
+      // rather than falling back to the lagging live (old) account.
+      if (pending.status === 'resolving') {
+        return undefined;
+      }
+      // Destination resolved: bind to it. A resolved-but-undefined address
+      // means the switch produced no usable account (Bitcoin-only firmware, or
+      // getNetworkAccount failed and left accountAddress null), so there is
+      // nothing to commit and blocking is correct — the live account is wiped
+      // to match, and the finally release lets commits resume afterwards.
       return pending.address;
     }
     return liveAddress;
@@ -1451,11 +1492,21 @@ export default class ServiceHyperliquid extends ServiceBase {
   // keeps the first frame snappy; trailing guarantees the latest payload lands.
   //
   // Stale-write safety: the payload is stamped with the active-account-change
-  // requestId captured at enqueue time, and the callback drops it via
+  // requestId captured by the CALLER before its first await (see
+  // updateActiveAccountSummary*), and the callback drops it via
   // isLatestActivePerpsAccountChange(). perpsActiveAccountAtom only flips at
   // the END of changeActivePerpsAccount, so gating on that lagging atom would
   // let an old-account trailing write land during the switch loading window;
   // the requestId is bumped synchronously at switch start, so it has no lag.
+  //
+  // Single-source invariant: this is one shared throttle, and its trailing edge
+  // keeps only the LAST enqueued payload. That is safe ONLY because exactly one
+  // of the two summary sources is live at a time — calculateRequiredSubscriptions
+  // subscribes ALL_DEXS_CLEARINGHOUSE_STATE (-> updateActiveAccountSummaryFromClearinghouseState)
+  // and never WEB_DATA2 (-> updateActiveAccountSummary, a dormant handler). If
+  // WEB_DATA2 is ever re-subscribed alongside it, the two sources would clobber
+  // each other through this single throttle — split per source (keyed throttle)
+  // at that point.
   private _writeActiveSummaryThrottled = throttle(
     ({
       summary,
@@ -1480,10 +1531,16 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private _enqueueActiveAccountSummary(
     summary: NonNullable<IPerpsActiveAccountSummaryAtom>,
+    // Captured by the caller BEFORE its first await so the write is tagged with
+    // the switch epoch that was current when the WS packet started processing —
+    // not whatever it became after the await, which a concurrent switch may
+    // already have bumped (a TOCTOU that would otherwise retag a stale packet
+    // with the new requestId and let it slip past isLatestActivePerpsAccountChange).
+    requestId: number,
   ) {
     this._writeActiveSummaryThrottled({
       summary,
-      requestId: this.activePerpsAccountChangeRequestId,
+      requestId,
     });
   }
 
@@ -1509,6 +1566,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     // commit only lands for the account it actually belongs to. Read-side
     // consumers (e.g. perpsActiveAccountMmrAtom) do not all align by address,
     // so the stale write must be stopped at the source.
+    //
+    // No requestId re-check after the await below is needed (or wanted): a
+    // concurrent switch would have updated pendingActivePerpsAccountChange (to
+    // 'resolving', or a new resolved target), so resolveActiveSummaryTargetAddress
+    // + the accountAddress comparison already reject a now-stale summary. The
+    // address binding is the single source of truth here — do not add a
+    // redundant requestId guard.
     const activeAccount = await perpsActiveAccountAtom.get();
     const liveAddress = activeAccount?.accountAddress?.toLowerCase();
     const targetAddress = this.resolveActiveSummaryTargetAddress(liveAddress);
@@ -1568,6 +1632,10 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   async updateActiveAccountSummary(webData2: IWsWebData2) {
+    // Capture the switch epoch before the first await (TOCTOU): a switch
+    // starting between this read and the enqueue below must not retag this
+    // packet with the new switch's requestId.
+    const requestId = this.activePerpsAccountChangeRequestId;
     const activeAccount = await perpsActiveAccountAtom.get();
     if (
       activeAccount?.accountAddress &&
@@ -1601,7 +1669,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         withdrawable: webData2.clearinghouseState?.withdrawable,
         totalUnrealizedPnl: totalUnrealizedPnlBN.toFixed(),
       };
-      this._enqueueActiveAccountSummary(summary);
+      this._enqueueActiveAccountSummary(summary, requestId);
     } else {
       const activeAccountSummary = await perpsActiveAccountSummaryAtom.get();
       // TODO PERPS_EMPTY_ADDRESS check
@@ -1618,6 +1686,10 @@ export default class ServiceHyperliquid extends ServiceBase {
   async updateActiveAccountSummaryFromClearinghouseState(
     data: IWsAllDexsClearinghouseState,
   ) {
+    // Capture the switch epoch before the first await (TOCTOU): a switch
+    // starting between this read and the enqueue below must not retag this
+    // packet with the new switch's requestId.
+    const requestId = this.activePerpsAccountChangeRequestId;
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAddress = activeAccount?.accountAddress?.toLowerCase();
     const dataUser = data?.user?.toLowerCase();
@@ -1704,7 +1776,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       withdrawable: aggregated.withdrawable.toFixed(),
       totalUnrealizedPnl: aggregated.totalUnrealizedPnl.toFixed(),
     };
-    this._enqueueActiveAccountSummary(summary);
+    this._enqueueActiveAccountSummary(summary, requestId);
   }
 
   async updateSpotBalances(spotStateData: IWsSpotState) {
@@ -1996,6 +2068,29 @@ export default class ServiceHyperliquid extends ServiceBase {
     deriveType: IAccountDeriveTypes;
   }): Promise<IPerpsActiveAccountAtom | undefined> {
     const requestId = this.beginActivePerpsAccountChange();
+    try {
+      return await this._applyActivePerpsAccountChange(params, requestId);
+    } finally {
+      // Always release the in-flight switch target, on every exit path — early
+      // returns (a newer switch superseded this one) and thrown atom writes
+      // included. Otherwise pendingActivePerpsAccountChange could stay stuck
+      // ('resolving', or a 'resolved' target that was never published) and
+      // block the live account's summary commits indefinitely. clearPending is
+      // keyed by requestId, so a newer switch's pending target is never
+      // clobbered by this release.
+      this.clearPendingActivePerpsAccountChange(requestId);
+    }
+  }
+
+  private async _applyActivePerpsAccountChange(
+    params: {
+      accountId: string | null;
+      walletId: string | null;
+      indexedAccountId: string | null;
+      deriveType: IAccountDeriveTypes;
+    },
+    requestId: number,
+  ): Promise<IPerpsActiveAccountAtom | undefined> {
     const { indexedAccountId, accountId, deriveType } = params;
 
     const perpsAccount: IPerpsActiveAccountAtom = {
@@ -2165,9 +2260,9 @@ export default class ServiceHyperliquid extends ServiceBase {
       }
       return perpsAccount;
     });
-    // The live atom now matches the destination, so summary commits can bind to
-    // it again; drop the pending target (only if it is still ours).
-    this.clearPendingActivePerpsAccountChange(requestId);
+    // The live atom now matches the destination. The pending target is released
+    // by changeActivePerpsAccount's finally (single release point, exception-safe),
+    // after which summary commits bind to the live account again.
     if (!this.isLatestActivePerpsAccountChange(requestId)) {
       return undefined;
     }
