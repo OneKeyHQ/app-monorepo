@@ -24,6 +24,10 @@ type IResolveDeFiPositionActionsParams = {
   supportedActions: IDeFiSupportedProtocolAction[];
 };
 
+const DEFI_ACTION_MIN_PERCENT = 1;
+const DEFI_ACTION_MAX_PERCENT = 100;
+const DEFI_ACTION_BPS_PER_PERCENT = 100;
+
 function normalizeMatchValue(value?: string) {
   return (
     value
@@ -83,6 +87,35 @@ function isCategoryMatch(expected?: string, actual?: string) {
   return (
     normalizeCategoryForAction(expected) === normalizeCategoryForAction(actual)
   );
+}
+
+function isFrontendSupportedAction(
+  supportedAction: IDeFiSupportedProtocolAction,
+) {
+  const protocolId = normalizeProtocolForAction(supportedAction.protocolId);
+  if (supportedAction.action === EDeFiPositionAction.ClaimWithdrawal) {
+    return !['ethena', 'polygon_staking'].includes(protocolId);
+  }
+  return true;
+}
+
+function normalizeDeFiActionPercent(value?: number) {
+  const percent = value ?? DEFI_ACTION_MAX_PERCENT;
+  if (!Number.isFinite(percent)) return undefined;
+  const normalizedValue = Math.round(percent);
+  if (
+    normalizedValue < DEFI_ACTION_MIN_PERCENT ||
+    normalizedValue > DEFI_ACTION_MAX_PERCENT
+  ) {
+    return undefined;
+  }
+  return normalizedValue;
+}
+
+function buildDeFiActionBps(percent?: number) {
+  const normalizedPercent = normalizeDeFiActionPercent(percent);
+  if (normalizedPercent === undefined) return undefined;
+  return String(normalizedPercent * DEFI_ACTION_BPS_PER_PERCENT);
 }
 
 function isNormalizedProtocolId(protocolId: string, target: string) {
@@ -654,6 +687,10 @@ function buildResolvedAsset({
   let extraParams = mergeExtraParams(sourcePosition?.extraParams, {
     ...asset.extraParams,
   });
+  const groupId = sourcePosition?.groupId?.trim();
+  if (groupId) {
+    extraParams = mergeExtraParams(extraParams, { groupId });
+  }
   const poolAddress = getPoolAddress(sourcePosition, asset);
 
   if (action === EDeFiPositionAction.RemoveLiquidity) {
@@ -729,6 +766,7 @@ function resolveDeFiPositionActions({
       isProtocolMatch(supportedAction.protocolId, protocol.protocol) &&
       supportedAction.networkId === protocol.networkId &&
       supportedAction.action !== EDeFiPositionAction.Permit &&
+      isFrontendSupportedAction(supportedAction) &&
       isCategoryMatch(supportedAction.positionCategory, position.category),
   );
 
@@ -769,7 +807,14 @@ function resolveDeFiPositionActions({
 }
 
 export default {
+  buildDeFiActionBps,
   resolveDeFiPositionActions,
 };
 
-export { resolveDeFiPositionActions };
+export {
+  DEFI_ACTION_MAX_PERCENT,
+  DEFI_ACTION_MIN_PERCENT,
+  buildDeFiActionBps,
+  normalizeDeFiActionPercent,
+  resolveDeFiPositionActions,
+};

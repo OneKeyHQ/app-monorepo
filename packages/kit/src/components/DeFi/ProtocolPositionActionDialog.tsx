@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -7,7 +7,9 @@ import {
   Button,
   Checkbox,
   Dialog,
+  Input,
   SizableText,
+  Slider,
   Stack,
   Toast,
   XStack,
@@ -22,11 +24,18 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  DEFI_ACTION_MAX_PERCENT,
+  DEFI_ACTION_MIN_PERCENT,
+  buildDeFiActionBps,
+} from '@onekeyhq/shared/src/utils/defiActionUtils';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
+import {
   EDeFiPositionAction,
   type IDeFiActionExtraParams,
   type IResolvedDeFiPositionAction,
   type IResolvedDeFiPositionActionAsset,
 } from '@onekeyhq/shared/types/defi';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import {
   ProtocolValueCell,
@@ -143,6 +152,30 @@ function getPositiveAmount(value?: string) {
   return amountBN.isFinite() && amountBN.gt(0) ? value : undefined;
 }
 
+function isPercentageAction(action: EDeFiPositionAction) {
+  return (
+    action === EDeFiPositionAction.Withdraw ||
+    action === EDeFiPositionAction.RemoveLiquidity
+  );
+}
+
+function clampPercent(value: number) {
+  if (!Number.isFinite(value)) return DEFI_ACTION_MAX_PERCENT;
+  return Math.min(
+    DEFI_ACTION_MAX_PERCENT,
+    Math.max(DEFI_ACTION_MIN_PERCENT, Math.round(value)),
+  );
+}
+
+function isLidoProtocol(protocolId: string) {
+  return (
+    protocolId
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, '_') === 'lido'
+  );
+}
+
 type IProtocolPositionActionSuccessParams = {
   accountId: string;
   networkId: string;
@@ -157,8 +190,10 @@ type IProtocolPositionActionSubmitParams = {
 function buildDeFiActionExtraParams({
   action,
   selectedAsset,
-  percent,
-}: IProtocolPositionActionSubmitParams): IDeFiActionExtraParams {
+}: Pick<
+  IProtocolPositionActionSubmitParams,
+  'action' | 'selectedAsset'
+>): IDeFiActionExtraParams {
   const extraParams: IDeFiActionExtraParams = {
     ...selectedAsset.extraParams,
   };
@@ -168,7 +203,6 @@ function buildDeFiActionExtraParams({
     const amount1Min = getPositiveAmount(extraParams.amount1Min);
     delete extraParams.amount0Min;
     delete extraParams.amount1Min;
-    extraParams.percent = String(percent ?? 100);
     if (amount0Min) {
       extraParams.amount0Min = amount0Min;
     }
@@ -192,10 +226,11 @@ function useProtocolPositionActionSubmit({
   ) => void | Promise<void>;
 }) {
   const intl = useIntl();
-  const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId,
-    networkId,
-  });
+  const { navigationToMessageConfirmAsync, navigationToTxConfirm } =
+    useSignatureConfirm({
+      accountId,
+      networkId,
+    });
 
   return useCallback(
     async ({
@@ -206,25 +241,70 @@ function useProtocolPositionActionSubmit({
       const isWithdraw = action.action === EDeFiPositionAction.Withdraw;
       const isRemoveLiquidity =
         action.action === EDeFiPositionAction.RemoveLiquidity;
+      const percentageAction = isPercentageAction(action.action);
+      const bps = percentageAction ? buildDeFiActionBps(percent) : undefined;
+      if (percentageAction && !bps) {
+        throw new OneKeyLocalError('Invalid DeFi action percentage');
+      }
       const extraParams = buildDeFiActionExtraParams({
         action,
         selectedAsset,
-        percent,
       });
 
       try {
-        const resp = await backgroundApiProxy.serviceDeFi.buildDeFiTransaction({
+        let resp = await backgroundApiProxy.serviceDeFi.buildDeFiTransaction({
           accountId,
           networkId,
           protocolId: action.protocolId,
-          action: action.action,
+          action:
+            isLidoProtocol(action.protocolId) && isWithdraw
+              ? EDeFiPositionAction.Permit
+              : action.action,
           tokenAddress: isRemoveLiquidity
             ? undefined
             : selectedAsset.tokenAddress,
           amount: undefined,
-          withdrawAll: isWithdraw ? true : undefined,
+          bps,
           extraParams,
         });
+
+        if (isLidoProtocol(action.protocolId) && isWithdraw) {
+          if (!resp.permit) {
+            throw new OneKeyLocalError('DeFi permit response is missing');
+          }
+          const account = await backgroundApiProxy.serviceAccount.getAccount({
+            accountId,
+            networkId,
+          });
+          const unsignedMessage =
+            typeof resp.permit.message === 'string'
+              ? resp.permit.message
+              : stableStringify(resp.permit.message);
+          const signature = await navigationToMessageConfirmAsync({
+            accountId,
+            networkId,
+            unsignedMessage: {
+              type: EMessageTypesEth.TYPED_DATA_V4,
+              message: unsignedMessage,
+              payload: [account.address, unsignedMessage],
+            },
+            walletInternalSign: true,
+          });
+          resp = await backgroundApiProxy.serviceDeFi.buildDeFiTransaction({
+            accountId,
+            networkId,
+            protocolId: action.protocolId,
+            action: action.action,
+            tokenAddress: selectedAsset.tokenAddress,
+            amount: undefined,
+            bps,
+            extraParams: {
+              ...extraParams,
+              signature,
+              deadline: resp.permit.deadline,
+            },
+          });
+        }
 
         if (resp.approvalTx) {
           throw new OneKeyLocalError(
@@ -241,7 +321,12 @@ function useProtocolPositionActionSubmit({
           gasAccountScenario: 'earn',
           onSuccess: async () => {
             Toast.success({
-              title: intl.formatMessage({ id: ETranslations.global_success }),
+              title: intl.formatMessage({
+                id: ETranslations.feedback_transaction_submitted,
+              }),
+              message: intl.formatMessage({
+                id: ETranslations.earn_pending_transactions_data_out_of_sync,
+              }),
             });
             await onSuccess?.({ accountId, networkId });
           },
@@ -258,7 +343,101 @@ function useProtocolPositionActionSubmit({
         throw error;
       }
     },
-    [accountId, intl, navigationToTxConfirm, networkId, onSuccess],
+    [
+      accountId,
+      intl,
+      navigationToMessageConfirmAsync,
+      navigationToTxConfirm,
+      networkId,
+      onSuccess,
+    ],
+  );
+}
+
+function ProtocolPositionActionPercentInput({
+  value,
+  onChange,
+}: {
+  value: number | undefined;
+  onChange: (value: number | undefined) => void;
+}) {
+  const [inputValue, setInputValue] = useState(
+    String(value ?? DEFI_ACTION_MAX_PERCENT),
+  );
+  const sliderValue = value ?? DEFI_ACTION_MIN_PERCENT;
+  const handlePercentChange = useCallback(
+    (nextValue: number) => {
+      const nextPercent = clampPercent(nextValue);
+      setInputValue(String(nextPercent));
+      onChange(nextPercent);
+    },
+    [onChange],
+  );
+  const handleInputChange = useCallback(
+    (text: string) => {
+      const sanitizedText = text.replace(/[^\d]/g, '');
+      if (!sanitizedText) {
+        setInputValue('');
+        onChange(undefined);
+        return;
+      }
+      const nextPercent = clampPercent(Number(sanitizedText));
+      setInputValue(String(nextPercent));
+      onChange(nextPercent);
+    },
+    [onChange],
+  );
+
+  return (
+    <YStack gap="$3">
+      <XStack gap="$3" alignItems="center">
+        <Slider
+          testID="defi-position-action-percent-slider"
+          flex={1}
+          minWidth={0}
+          min={DEFI_ACTION_MIN_PERCENT}
+          max={DEFI_ACTION_MAX_PERCENT}
+          step={1}
+          value={sliderValue}
+          onChange={handlePercentChange}
+        />
+        <SizableText
+          size="$bodyMdMedium"
+          color="$text"
+          width={56}
+          textAlign="right"
+        >
+          {value === undefined ? '--%' : `${value}%`}
+        </SizableText>
+      </XStack>
+      <XStack gap="$2" alignItems="center">
+        <Input
+          testID="defi-position-action-percent-input"
+          flex={1}
+          minWidth={0}
+          value={inputValue}
+          onChangeText={handleInputChange}
+          keyboardType="numeric"
+          textAlign="right"
+        />
+        <SizableText size="$bodyMd" color="$textSubdued" width={20}>
+          %
+        </SizableText>
+      </XStack>
+      <XStack gap="$2" flexWrap="wrap">
+        {[25, 50, 75, 100].map((percentValue) => (
+          <Button
+            key={percentValue}
+            testID={`defi-position-action-percent-${percentValue}`}
+            size="small"
+            variant={value === percentValue ? 'primary' : 'secondary'}
+            onPress={() => handlePercentChange(percentValue)}
+          >
+            {`${percentValue}%`}
+          </Button>
+        ))}
+      </XStack>
+    </YStack>
   );
 }
 
@@ -289,23 +468,29 @@ function ProtocolPositionActionDialogContent({
   const [selectedAssetIndex, setSelectedAssetIndex] = useState<
     number | undefined
   >(action.assets[0] ? 0 : undefined);
-  const [percent, setPercent] = useState(100);
+  const [percent, setPercent] = useState<number | undefined>(
+    DEFI_ACTION_MAX_PERCENT,
+  );
 
   const selectedAsset =
     typeof selectedAssetIndex === 'number'
       ? action.assets[selectedAssetIndex]
       : undefined;
   const actionLabel = getActionLabel({ action: action.action, intl });
-  const isRemoveLiquidity =
-    action.action === EDeFiPositionAction.RemoveLiquidity;
+  const percentageAction = isPercentageAction(action.action);
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
   });
-  const isConfirmDisabled = !selectedAsset;
+  const isConfirmDisabled =
+    !selectedAsset || (percentageAction && percent === undefined);
 
   const handleAssetSelect = (index: number, selected: boolean) => {
     setSelectedAssetIndex(selected ? index : undefined);
   };
+  const showAssetSelector = useMemo(
+    () => action.action !== EDeFiPositionAction.RemoveLiquidity,
+    [action.action],
+  );
 
   const handleConfirm = async () => {
     if (!selectedAsset) {
@@ -325,7 +510,7 @@ function ProtocolPositionActionDialogContent({
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
 
-      {!isRemoveLiquidity ? (
+      {showAssetSelector ? (
         <YStack>
           {action.assets.map((asset, index) => (
             <ProtocolPositionActionAssetRow
@@ -341,20 +526,11 @@ function ProtocolPositionActionDialogContent({
         </YStack>
       ) : null}
 
-      {isRemoveLiquidity ? (
-        <XStack gap="$2" flexWrap="wrap">
-          {[25, 50, 75, 100].map((value) => (
-            <Button
-              key={value}
-              testID={`defi-position-action-percent-${value}`}
-              size="small"
-              variant={percent === value ? 'primary' : 'secondary'}
-              onPress={() => setPercent(value)}
-            >
-              {`${value}%`}
-            </Button>
-          ))}
-        </XStack>
+      {percentageAction ? (
+        <ProtocolPositionActionPercentInput
+          value={percent}
+          onChange={setPercent}
+        />
       ) : null}
 
       <Dialog.Footer

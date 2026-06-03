@@ -106,6 +106,13 @@ function buildGroupedPositionKey({ groupId }: { groupId: string }) {
   return groupId;
 }
 
+function sumAssetValues(assets: { value: number }[]) {
+  return assets.reduce(
+    (acc, asset) => acc.plus(asset.value ?? 0),
+    new BigNumber(0),
+  );
+}
+
 function getSafeGroupedPositionId({
   position,
   positionIndex,
@@ -341,6 +348,47 @@ function transformDeFiData({
 
       protocolPositionsMapValue.categorySet.add(normalizedPosition.category);
     });
+  });
+
+  Array.from(protocolPositionsMap.values()).forEach((value) => {
+    const protocolMapKey = buildProtocolMapKey({
+      protocol: value.protocol,
+      networkId: value.networkId,
+    });
+    if (protocolMap[protocolMapKey]) {
+      return;
+    }
+
+    const groupedPositions = Array.from(value.positionMap.values());
+    const totalValue = groupedPositions.reduce(
+      (acc, position) => acc.plus(sumAssetValues(position.assets)),
+      new BigNumber(0),
+    );
+    const totalDebt = groupedPositions.reduce(
+      (acc, position) => acc.plus(sumAssetValues(position.debts)),
+      new BigNumber(0),
+    );
+    const totalReward = groupedPositions.reduce(
+      (acc, position) => acc.plus(sumAssetValues(position.rewards)),
+      new BigNumber(0),
+    );
+    const firstSourcePosition = groupedPositions
+      .flatMap((position) => position.sourcePositions)
+      .find(Boolean);
+
+    protocolMap[protocolMapKey] = {
+      protocol: value.protocol,
+      protocolName: firstSourcePosition?.protocolName ?? value.protocol,
+      totalValue: totalValue.toNumber(),
+      totalDebt: totalDebt.toNumber(),
+      totalReward: totalReward.toNumber(),
+      netWorth: totalValue.plus(totalReward).minus(totalDebt).toNumber(),
+      networkIds: [value.networkId],
+      positionCount: groupedPositions.length,
+      positionIndices: [],
+      protocolLogo: '',
+      protocolUrl: '',
+    };
   });
 
   const protocols: IDeFiProtocol[] = Array.from(protocolPositionsMap.values())

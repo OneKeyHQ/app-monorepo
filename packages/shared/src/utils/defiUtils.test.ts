@@ -24,7 +24,8 @@ function makePosition(
   overrides: Pick<
     IDeFiPosition,
     'category' | 'groupId' | 'name' | 'assets' | 'debts' | 'rewards'
-  >,
+  > &
+    Partial<Pick<IDeFiPosition, 'protocol' | 'protocolName'>>,
 ): IDeFiPosition {
   return {
     networkId: 'evm--1',
@@ -174,5 +175,49 @@ describe('defiUtils.transformDeFiData', () => {
     });
     expect(result.protocols[0].positions[0].assets).toHaveLength(1);
     expect(result.protocols[0].positions[0].rewards).toHaveLength(1);
+  });
+
+  it('builds protocol summary fallback from positions when protocolSummaries is missing', () => {
+    const result = defiUtils.transformDeFiData({
+      positions: {
+        'evm--1': [
+          makePosition({
+            protocol: 'lido',
+            protocolName: 'Lido',
+            category: 'staking',
+            groupId: 'lido-steth',
+            name: 'Lido stETH',
+            assets: [
+              makeAsset({
+                symbol: 'stETH',
+                address: '0xsteth',
+                value: 120,
+                category: 'deposit',
+              }),
+            ],
+            debts: [],
+            rewards: [
+              makeAsset({
+                symbol: 'ETH',
+                address: '0xeth',
+                value: 3,
+                category: 'rewards',
+              }),
+            ],
+          }),
+        ],
+      },
+      protocolSummaries: [],
+    });
+
+    const summary = result.protocolMap['evm--1-lido'];
+    expect(summary).toMatchObject({
+      protocol: 'lido',
+      protocolName: 'Lido',
+      totalValue: 120,
+      totalDebt: 0,
+      totalReward: 3,
+      netWorth: 123,
+    });
   });
 });

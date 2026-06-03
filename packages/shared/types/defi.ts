@@ -36,11 +36,11 @@ export type IDeFiAssetMeta = {
 
 export type IDeFiActionExtraParams = {
   poolAddress?: string;
+  groupId?: string;
   rewards?: { tokenAddress: string; amount: string; proofs: string[] }[];
   // oxlint-disable-next-line @cspell/spellchecker
   unbondNonces?: string[];
   tokenId?: string;
-  percent?: number | string;
   amount0Min?: string;
   amount1Min?: string;
   deadline?: number;
@@ -201,7 +201,7 @@ export type IDeFiBuildTransactionParams = {
   action: EDeFiPositionAction;
   tokenAddress?: string;
   amount?: string;
-  withdrawAll?: boolean;
+  bps?: string;
   extraParams?: IDeFiActionExtraParams;
 };
 
@@ -209,7 +209,7 @@ export type IDeFiBuildTransactionResp = {
   tx?: IDeFiEvmTransaction;
   approvalTx?: IDeFiEvmTransaction;
   permit?: {
-    message: string;
+    message: unknown;
     deadline: number;
   };
 };

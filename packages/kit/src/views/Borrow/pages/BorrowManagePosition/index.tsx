@@ -28,6 +28,8 @@ const BorrowManagePosition = () => {
 
   const {
     networkId,
+    accountId: routeAccountId,
+    indexedAccountId: routeIndexedAccountId,
     symbol,
     provider,
     logoURI,
@@ -39,9 +41,14 @@ const BorrowManagePosition = () => {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { gtMd } = useMedia();
-  const { earnAccount } = useEarnAccount({ networkId });
-  const accountId = earnAccount?.account?.id || '';
-  const indexedAccountId = earnAccount?.account?.indexedAccountId;
+  const { earnAccount } = useEarnAccount({
+    networkId,
+    accountId: routeAccountId,
+    indexedAccountId: routeIndexedAccountId,
+  });
+  const accountId = routeAccountId || earnAccount?.account?.id || '';
+  const indexedAccountId =
+    routeIndexedAccountId || earnAccount?.account?.indexedAccountId;
   const defaultTab = useMemo(() => {
     if (type === 'withdraw' || type === 'repay') {
       return 'withdraw';
