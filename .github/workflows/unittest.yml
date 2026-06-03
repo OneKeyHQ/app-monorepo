@@ -91,6 +91,7 @@ jobs:
         with:
           name: coverage-report-${{ github.sha }}-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }}
           path: coverage/shard-${{ matrix.shard }}/
+          if-no-files-found: error
 
   coverage:
     name: unittest (24.x)
@@ -122,7 +123,7 @@ jobs:
 
       - name: Merge Coverage Reports
         run: |
-          node development/scripts/merge-jest-coverage.js coverage-shards coverage
+          node development/scripts/merge-jest-coverage.js coverage-shards coverage "${JEST_SHARD_TOTAL}"
 
       - name: Upload Coverage Report
         uses: actions/upload-artifact@v4

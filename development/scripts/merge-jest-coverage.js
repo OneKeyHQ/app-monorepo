@@ -335,13 +335,32 @@ function printSummary(summary) {
   }
 }
 
+function readExpectedShardCount(value) {
+  if (value === undefined) {
+    return 0;
+  }
+
+  const expectedShardCount = Number(value);
+  if (!Number.isInteger(expectedShardCount) || expectedShardCount < 1) {
+    throw new Error(`Invalid expected shard count: ${value}`);
+  }
+
+  return expectedShardCount;
+}
+
 function main() {
   const inputDir = path.resolve(process.argv[2] || 'coverage-shards');
   const outputDir = path.resolve(process.argv[3] || 'coverage');
+  const expectedShardCount = readExpectedShardCount(process.argv[4]);
   const coverageFiles = collectCoverageFiles(inputDir);
 
   if (coverageFiles.length === 0) {
     throw new Error(`No coverage-final.json files found in ${inputDir}`);
+  }
+  if (expectedShardCount > 0 && coverageFiles.length !== expectedShardCount) {
+    throw new Error(
+      `Expected ${expectedShardCount} coverage shard(s), found ${coverageFiles.length}`,
+    );
   }
 
   const coverageMap = readCoverageMap(coverageFiles);
