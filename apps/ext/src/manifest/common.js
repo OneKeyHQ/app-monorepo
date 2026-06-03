@@ -1,7 +1,7 @@
 const isDev = process.env.NODE_ENV !== 'production';
 const isManifestV3 = !!process.env.EXT_MANIFEST_V3;
 const isPerfMonitorEnabled = process.env.PERF_MONITOR_ENABLED === '1';
-// for react-render-tracker.js
+// dev-only CSP relaxations (eval/inline for HMR & dev tooling)
 const devCSP = [
   "'unsafe-eval'",
   "'unsafe-inline'",
