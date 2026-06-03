@@ -1,9 +1,6 @@
 import { useRef } from 'react';
 
-import {
-  ORPHAN_ELIGIBLE_ERROR_CODES,
-  HardwareErrorCode as ThirdPartyHwErrorCode,
-} from '@onekeyfe/hwk-adapter-core';
+import { ORPHAN_ELIGIBLE_ERROR_CODES } from '@onekeyfe/hwk-adapter-core';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 
@@ -39,6 +36,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { type IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { classifyThirdPartyHwCreateFailures } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
@@ -823,6 +821,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       });
       const networkId = selectedAccount.networkId;
       const deriveType = selectedAccount.deriveType;
+      // Multi-network fill = wallet creation, or add-account on the all-network
+      // view. A specific-network (single) add keeps the per-app install prompt.
+      const isAutoCreateMultiNetwork =
+        !!isCreateWallet || networkUtils.isAllNetwork({ networkId });
       let result: {
         addedAccounts: {
           networkId: string;
@@ -849,6 +851,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                   ? [{ networkId, deriveType }]
                   : undefined,
               isCreateWallet,
+              isAutoCreateMultiNetwork,
               skipDeviceCancel,
               hideCheckingDeviceLoading,
               autoHandleExitError,
@@ -860,31 +863,29 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         void (async () => {
           let failedList = result?.failedAccounts || [];
 
-          // Third-party HW wallet-creation: filter out AppNotInstalled errors
-          if (isCreateWallet && failedList.length > 0) {
+          // 3rd-party HW: drop AppNotInstalled when any chain succeeded; offer
+          // in-app core-app install when zero succeeded (bare device).
+          if (failedList.length > 0) {
             const isThirdPartyHw =
               await backgroundApiProxy.serviceAccount.isThirdPartyHwByWalletId({
                 walletId: wallet.id,
               });
             if (isThirdPartyHw) {
-              const allAppNotInstalled =
-                result.addedAccounts.length === 0 &&
-                failedList.every(
-                  (f) => f.error.code === ThirdPartyHwErrorCode.AppNotInstalled,
-                );
-              if (allAppNotInstalled) {
-                Toast.error({
-                  // eslint-disable-next-line onekey/no-app-locale-main-thread
-                  title: appLocale.intl.formatMessage({
-                    id: ETranslations.hardware_third_party_no_app_installed_on_device,
-                  }),
+              const { allAppNotInstalled, genuineFailures } =
+                classifyThirdPartyHwCreateFailures({
+                  addedCount: result.addedAccounts.length,
+                  failedAccounts: failedList,
+                });
+              if (allAppNotInstalled && isAutoCreateMultiNetwork) {
+                // Bare device: offer in-app core-app install (not Ledger Live).
+                // Emit so the provider container shows the dialog — keeps this
+                // state layer decoupled from provider/Container UI.
+                appEventBus.emit(EAppEventBusNames.ShowLedgerInstallCoreApps, {
+                  walletId: wallet.id,
                 });
                 return;
               }
-              // Strip AppNotInstalled errors, let other errors fall through
-              failedList = failedList.filter(
-                (f) => f.error.code !== ThirdPartyHwErrorCode.AppNotInstalled,
-              );
+              failedList = genuineFailures;
             }
           }
 

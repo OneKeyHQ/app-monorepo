@@ -402,6 +402,8 @@ export type IPrepareHardwareAccountsParams = IPrepareHdAccountsParamsBase & {
   deviceParams: IDeviceSharedCallParams;
   hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
   chainExtraParams?: IPrepareHDOrHWAccountChainExtraParams;
+  // Auto multi-network fill scene flag; HW auto-install is derived from it.
+  isAutoCreateMultiNetwork?: boolean;
 };
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams

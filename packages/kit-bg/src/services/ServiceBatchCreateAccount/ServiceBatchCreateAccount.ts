@@ -108,6 +108,8 @@ export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
   };
   applyRestoreSyncPolicy?: boolean;
   hdCredentialCacheScopeId?: string;
+  // auto multi-network fill scene flag (business derived from it, not passed in)
+  isAutoCreateMultiNetwork?: boolean;
 };
 
 export type IBatchBuildAccountsNormalFlowParams =
@@ -135,6 +137,8 @@ export type IBatchBuildAccountsAdvancedFlowParams =
 export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
   includingDefaultNetworks?: boolean;
   isCreateWallet?: boolean;
+  // Auto multi-network fill scene; flows to the keyring via ...params.
+  isAutoCreateMultiNetwork?: boolean;
   walletId: string;
   customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
   autoHandleExitError?: boolean;
@@ -590,6 +594,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     skipCloseHardwareUiStateDialog,
     customNetworks,
     isCreateWallet,
+    isAutoCreateMultiNetwork,
     autoHandleExitError = true,
   }: {
     autoHandleExitError?: boolean;
@@ -598,6 +603,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
     indexes?: number[];
     customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
     isCreateWallet?: boolean;
+    // Auto multi-network fill scene; HW auto-install is derived from it.
+    isAutoCreateMultiNetwork?: boolean;
   } & IWithHardwareProcessingControlParams): Promise<{
     addedAccounts: {
       networkId: string;
@@ -651,6 +658,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         saveToDb: true,
         customNetworks: customNetworks || [],
         isCreateWallet,
+        isAutoCreateMultiNetwork,
         autoHandleExitError: autoHandleExitError ?? true,
         skipDeviceCancel,
         hideCheckingDeviceLoading,
@@ -1114,6 +1122,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               hwAllNetworkPrepareAccountsResponse,
               indexedAccountNames: params.indexedAccountNames,
               hdCredentialCacheScopeId,
+              // isAutoCreateMultiNetwork flows from ...params.
             });
             addedAccounts.push({
               networkId: networkParams.networkId,
@@ -1389,6 +1398,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     hwRootFingerprintInfo,
     applyRestoreSyncPolicy,
     hdCredentialCacheScopeId,
+    isAutoCreateMultiNetwork,
   }: IBatchBuildAccountsParams): Promise<{
     accountsForCreate: IBatchCreateAccount[];
   }> {
@@ -1598,6 +1608,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               hideCheckingDeviceLoading,
               hwAllNetworkPrepareAccountsResponse,
               hdCredentialCacheScopeId,
+              isAutoCreateMultiNetwork,
             });
           await this.recordPrimeTransferImportBatchCreateTrace({
             event: 'done',
