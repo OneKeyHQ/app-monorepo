@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
+import type { ReactNode } from 'react';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
@@ -21,7 +22,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebContent from '../../components/WebContent/WebContent';
 import { useDiscoveryMessageHandler } from '../../hooks/useDiscoveryMessageHandler';
-import { useWebTabDataById } from '../../hooks/useWebTabs';
+import {
+  useShouldKeepWebViewAlive,
+  useWebTabDataById,
+} from '../../hooks/useWebTabs';
+import { releaseDesktopWebviewResources } from '../../utils/desktopWebviewCleanup';
 import { webviewRefs } from '../../utils/explorerUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
 
@@ -242,73 +247,20 @@ function BasicDesktopBrowserContent({
   const isHomeTab = !tab?.url;
   const [homePageReady, setHomePageReady] = useState(!isHomeTab);
 
-  // Memory Cleanup - Aggressively release all resources when tab is closed
+  // Keep-alive LRU: only the most-recently-active window of tabs keeps its
+  // WebView mounted. Evicted (cold) tabs unmount their WebView to free memory;
+  // the home/dashboard tab has no WebView and is unaffected.
+  const keepAlive = useShouldKeepWebViewAlive(id);
+  const shouldMountWebView = Boolean(tab?.url) && keepAlive;
+
+  // Aggressively release the webview's resources when this tab closes OR when it
+  // is evicted from the keep-alive window.
   useEffect(() => {
-    return () => {
-      if (platformEnv.isDesktop) {
-        const webview = webviewRefs[id]?.innerRef as any;
-        if (webview) {
-          try {
-            // Step 1: Clear all JavaScript timers and intervals to prevent memory leaks
-            // This addresses the major cause of OOM crashes in long-running DApp sessions
-            if (typeof webview.executeJavaScript === 'function') {
-              void webview.executeJavaScript(`
-                try {
-                  // Clear all intervals and timeouts
-                  const maxId = setTimeout(() => {}, 0);
-                  for (let i = 0; i < maxId; i++) {
-                    clearInterval(i);
-                    clearTimeout(i);
-                  }
-
-                  // Cancel all animation frames
-                  let rafId = requestAnimationFrame(() => {});
-                  while (rafId--) {
-                    cancelAnimationFrame(rafId);
-                  }
-
-                  console.log('[Memory Cleanup] Cleared all timers and intervals for tab');
-                } catch (e) {
-                  console.error('[Memory Cleanup] Failed to clear timers:', e);
-                }
-              `);
-            }
-
-            // Step 2: Stop all media playback (audio/video) to release resources
-            if (typeof webview.stop === 'function') {
-              webview.stop();
-            }
-
-            // Step 3: Close DevTools to release GPU memory
-            if (typeof webview.closeDevTools === 'function') {
-              webview.closeDevTools();
-            }
-
-            // Step 4: Clear browsing data and caches
-            if (typeof webview.clearHistory === 'function') {
-              webview.clearHistory();
-            }
-
-            // Note: Do NOT call session.clearCache() or session.clearStorageData() here.
-            // All webviews share the same session (partition="persist:onekey"),
-            // so clearing session cache would destroy cache for all other open tabs.
-
-            console.log(
-              `[Memory Cleanup] Released all resources for tab: ${id}`,
-            );
-          } catch (error) {
-            console.error(
-              `[Memory Cleanup] Failed to cleanup tab ${id}:`,
-              error,
-            );
-          }
-        }
-
-        // Step 6: Remove webview reference to allow garbage collection
-        delete webviewRefs[id];
-      }
-    };
-  }, [id]);
+    if (!shouldMountWebView) {
+      releaseDesktopWebviewResources(id);
+    }
+  }, [id, shouldMountWebView]);
+  useEffect(() => () => releaseDesktopWebviewResources(id), [id]);
 
   useEffect(() => {
     if (!isHomeTab) {
@@ -328,21 +280,30 @@ function BasicDesktopBrowserContent({
 
   const { customReceiveHandler } = useDiscoveryMessageHandler();
 
+  let body: ReactNode = null;
+  if (!tab?.url) {
+    body = (
+      <Stack flex={1} opacity={homePageReady ? 1 : 0}>
+        <DashboardContent tabId={id} />
+      </Stack>
+    );
+  } else if (shouldMountWebView) {
+    body = (
+      <WebContent
+        id={id}
+        url={tab.url}
+        isCurrent={isActive}
+        customReceiveHandler={customReceiveHandler}
+      />
+    );
+  }
+  // else: cold (evicted) tab renders nothing — it is off-screen behind the
+  // active tab and remounts/reloads when activated again.
+
   return (
     <Freeze key={id} freeze={!isActive}>
       {platformEnv.isDesktop ? <Find id={id} /> : null}
-      {tab?.url ? (
-        <WebContent
-          id={id}
-          url={tab.url}
-          isCurrent={isActive}
-          customReceiveHandler={customReceiveHandler}
-        />
-      ) : (
-        <Stack flex={1} opacity={homePageReady ? 1 : 0}>
-          <DashboardContent tabId={id} />
-        </Stack>
-      )}
+      {body}
     </Freeze>
   );
 }
