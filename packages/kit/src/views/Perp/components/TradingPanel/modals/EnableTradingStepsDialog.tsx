@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -62,14 +62,17 @@ function isEnableTradingConfirmationStep(
   return step.requiresSignature;
 }
 
-function getHardwareConfirmationCountLabel(count: number) {
-  return String(count);
-}
-
-function getEnableTradingConfirmationLabelId(count: number) {
-  return count === 1
-    ? ETranslations.perp_enable_trading_steps_wallet_confirmation__desc
-    : ETranslations.perp_enable_trading_steps_wallet_confirmations__desc;
+function renderEnableTradingSummaryUnderline(chunks: ReactNode) {
+  return (
+    <SizableText
+      display="inline-flex"
+      size="$bodyMd"
+      color="$textSubdued"
+      textDecorationLine="underline"
+    >
+      {chunks}
+    </SizableText>
+  );
 }
 
 function EnableTradingStepsContent({
@@ -190,18 +193,21 @@ function EnableTradingStepsContent({
   );
 }
 
-function EnableTradingStepsHeader() {
+function EnableTradingStepsHeader({
+  initialAccountStatus,
+}: {
+  initialAccountStatus: IPerpsActiveAccountStatusAtom;
+}) {
   const intl = useIntl();
   const [liveAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [abstractionMode] = usePerpsAbstractionMode();
+  const accountStatus = liveAccountStatus ?? initialAccountStatus;
   const steps = useMemo(
     () =>
-      liveAccountStatus
-        ? getPerpsOrderPanelEnableTradingSteps(liveAccountStatus, {
-            abstractionMode,
-          })
-        : [],
-    [abstractionMode, liveAccountStatus],
+      getPerpsOrderPanelEnableTradingSteps(accountStatus, {
+        abstractionMode,
+      }),
+    [abstractionMode, accountStatus],
   );
   const signatureCount = steps.filter((step) => step.requiresSignature).length;
 
@@ -212,21 +218,16 @@ function EnableTradingStepsHeader() {
           id: ETranslations.perp_trade_button_enable_trading,
         })}
       </Dialog.Title>
-      <SizableText size="$bodyMd" color="$textSubdued" mt="$1.5" mr={-44}>
-        {intl.formatMessage({
-          id: ETranslations.perp_enable_trading_steps_summary__desc,
-        })}{' '}
-        <SizableText
-          display="inline-flex"
-          size="$bodyMd"
-          color="$textSubdued"
-          textDecorationLine="underline"
-        >
-          {getHardwareConfirmationCountLabel(signatureCount)}
-        </SizableText>{' '}
-        {intl.formatMessage({
-          id: getEnableTradingConfirmationLabelId(signatureCount),
-        })}
+      <SizableText size="$bodyMd" color="$textSubdued" mt="$1.5">
+        {intl.formatMessage(
+          {
+            id: ETranslations.perp_enable_trading_steps_summary_v2__desc,
+          },
+          {
+            count: signatureCount,
+            underline: renderEnableTradingSummaryUnderline,
+          },
+        )}
       </SizableText>
     </Dialog.Header>
   );
@@ -256,7 +257,7 @@ export function showEnableTradingStepsDialog({
       showExitButton: true,
       renderContent: (
         <>
-          <EnableTradingStepsHeader />
+          <EnableTradingStepsHeader initialAccountStatus={accountStatus} />
           <EnableTradingStepsContent
             initialAccountStatus={accountStatus}
             onConfirm={async () => {

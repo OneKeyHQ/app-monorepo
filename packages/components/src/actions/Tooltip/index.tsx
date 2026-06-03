@@ -167,6 +167,7 @@ export function Tooltip({
   shortcutKey,
   hovering,
   contentProps,
+  triggerAsChild,
   ref,
   ...props
 }: ITooltipProps) {
@@ -276,7 +277,7 @@ export function Tooltip({
         {...props}
       >
         <TMTooltip.Trigger
-          asChild="except-style"
+          asChild={triggerAsChild}
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}
         >

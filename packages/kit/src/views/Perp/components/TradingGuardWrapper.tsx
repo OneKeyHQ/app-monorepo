@@ -12,6 +12,7 @@ import {
   usePerpsActiveAccountIsAgentReadyAtom,
   usePerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
@@ -20,6 +21,7 @@ import {
 } from '../hooks/useEnableTradingWithDepositFallback';
 import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
 import { getEnableTradingDialogConfirmDecision } from '../utils/enableTradingDialogConfirm';
+
 import { showEnableTradingStepsDialog } from './TradingPanel/modals/EnableTradingStepsDialog';
 
 interface ITradingGuardWrapperProps {
@@ -74,8 +76,13 @@ function TradingGuardWrapperInternal({
     if (shouldShowEnableTradingStepsDialog) {
       // The dialog must use a fresh status snapshot so the predicted
       // confirmations stay aligned with the enable-trading execution path.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+      } catch (error) {
+        errorToastUtils.toastIfError(error);
+        return;
+      }
       const latestPerpsAccountStatus =
         (await perpsActiveAccountStatusAtom.get()) ?? perpsAccountStatus;
       if (

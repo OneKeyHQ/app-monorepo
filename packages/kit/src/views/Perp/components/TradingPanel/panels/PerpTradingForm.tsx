@@ -87,6 +87,7 @@ import {
   type ITradeSide,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { getScaleOrderValidationErrorMessage } from '../../../utils/scaleOrderValidation';
 import { PerpsSlider } from '../../PerpsSlider';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
@@ -799,11 +800,13 @@ function PerpTradingForm({
     const validation = validateScaleOrderLegs({ legs });
     if (!validation.isValid) {
       return {
-        text:
-          validation.errors[0] ??
-          intl.formatMessage({
+        text: getScaleOrderValidationErrorMessage({
+          intl,
+          validation,
+          fallback: intl.formatMessage({
             id: ETranslations.perp_invalid_scale_order__msg,
           }),
+        }),
         tone: 'error' as const,
       };
     }
@@ -1518,6 +1521,8 @@ function PerpTradingForm({
             dashColor="$textDisabled"
             dashThickness={0.5}
             tooltip={scaleAmountDistributionHelperText}
+            tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+            tooltipPlacement="bottom-start"
             tooltipTitle={intl.formatMessage({
               id: ETranslations.perp_scale_amount_distribution__title,
             })}
@@ -1986,6 +1991,8 @@ function PerpTradingForm({
           dashColor="$textDisabled"
           dashThickness={0.5}
           tooltip={twapHelperText}
+          tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+          tooltipPlacement="bottom-start"
           tooltipTitle={intl.formatMessage({
             id: ETranslations.perp_twap_duration__title,
           })}
@@ -2105,6 +2112,7 @@ function PerpTradingForm({
               />
               <Tooltip
                 placement="top"
+                triggerAsChild="except-style"
                 renderContent={intl.formatMessage({
                   id: ETranslations.perp_twap_randomize__desc,
                 })}
@@ -2235,6 +2243,7 @@ function PerpTradingForm({
               tooltip={intl.formatMessage({
                 id: ETranslations.perp_tp_sl_tooltip,
               })}
+              tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
               tooltipTitle={intl.formatMessage({
                 id: ETranslations.perp_position_tp_sl,
               })}
@@ -2347,6 +2356,8 @@ function PerpTradingForm({
           color="$textSubdued"
           dashThickness={0.5}
           tooltip={spotMaxTradeTooltip}
+          tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+          tooltipPlacement="top"
           tooltipTitle={spotMaxTradeLabel}
         >
           {spotMaxTradeLabel}

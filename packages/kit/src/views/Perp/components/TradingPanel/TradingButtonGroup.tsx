@@ -35,6 +35,7 @@ import {
   usePerpsTradingPreferencesAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   SCALE_ORDER_MAX_COUNT,
@@ -87,6 +88,7 @@ import {
   shouldDisablePerpsOrderPanelTradingButtonForAccountLoading,
   shouldSkipPerpsOrderPanelComputedSizeValidation,
 } from '../../utils/perpsOrderPanelEnableTrading';
+import { getScaleOrderValidationErrorMessage } from '../../utils/scaleOrderValidation';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showEnableTradingStepsDialog } from './modals/EnableTradingStepsDialog';
@@ -759,7 +761,11 @@ function SideButtonInternal({
         const validation = validateScaleOrderLegs({ legs });
         if (!validation.isValid) {
           Toast.message({
-            title: validation.errors[0] ?? 'Invalid scale order',
+            title: getScaleOrderValidationErrorMessage({
+              intl,
+              validation,
+              fallback: 'Invalid scale order',
+            }),
           });
           return false;
         }
@@ -931,8 +937,13 @@ function SideButtonInternal({
         // The dialog must reflect a fresh account-status snapshot; the
         // background enable flow revalidates immediately and can otherwise
         // require more signatures than the stale UI predicted.
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+        } catch (error) {
+          errorToastUtils.toastIfError(error);
+          return stopResult;
+        }
         const latestPerpsAccountStatus =
           (await perpsActiveAccountStatusAtom.get()) ?? perpsAccountStatus;
         if (
@@ -1332,6 +1343,7 @@ function SideButtonInternal({
                 tooltip={intl.formatMessage({
                   id: ETranslations.perp_trade_margin_tooltip,
                 })}
+                tooltipDisplayMode="popover"
                 tooltipTitle={intl.formatMessage({
                   id: ETranslations.perp_trade_margin_required,
                 })}
@@ -1359,6 +1371,7 @@ function SideButtonInternal({
                 tooltip={intl.formatMessage({
                   id: ETranslations.perp_est_liq_price_tooltip,
                 })}
+                tooltipDisplayMode="popover"
                 tooltipTitle={intl.formatMessage({
                   id: ETranslations.perp_est_liq_price,
                 })}
@@ -1482,6 +1495,7 @@ function SideButtonInternal({
           <XStack gap="$2" justifyContent={justifyContent}>
             <Tooltip
               placement="top"
+              triggerAsChild="except-style"
               renderContent={desktopCostTooltipContent}
               renderTrigger={desktopCostTooltipTrigger}
             />
@@ -1499,6 +1513,7 @@ function SideButtonInternal({
           <XStack gap="$2" justifyContent={justifyContent}>
             <Tooltip
               placement="top"
+              triggerAsChild="except-style"
               renderContent={desktopLiqPriceTooltipContent}
               renderTrigger={desktopLiqPriceTooltipTrigger}
             />
