@@ -2310,8 +2310,8 @@ function SendAmountInputContainer() {
   const renderPrivateSendHeaderRight = useCallback(() => {
     if (!showPrivateSendModeSwitch) return null;
 
-    const publicLabel = intl.formatMessage({
-      id: ETranslations.private_send_public_option,
+    const regularLabel = intl.formatMessage({
+      id: ETranslations.send_regular,
     });
     const privateLabel = intl.formatMessage({
       id: ETranslations.private_send_private_option,
@@ -2330,7 +2330,7 @@ function SendAmountInputContainer() {
           onChange={handleSendModeChange}
           items={[
             {
-              label: publicLabel,
+              label: regularLabel,
               value: ESendMode.PUBLIC,
             },
             {
@@ -2340,7 +2340,7 @@ function SendAmountInputContainer() {
           ]}
           renderTrigger={({ onPress }) => (
             <XStack
-              w={100}
+              w={112}
               h={30}
               px="$1.5"
               alignItems="center"
@@ -2357,16 +2357,18 @@ function SendAmountInputContainer() {
                 onPress?.(event);
               }}
             >
-              {isPrivateMode ? (
-                <Icon name="LockOutline" size="$4" color="$icon" />
-              ) : null}
+              <Icon
+                name={isPrivateMode ? 'AnonymousHiddenOutline' : 'SendOutline'}
+                size="$4"
+                color="$icon"
+              />
               <SizableText
                 size="$bodySmMedium"
                 color="$text"
                 numberOfLines={1}
                 flexShrink={1}
               >
-                {isPrivateMode ? privateLabel : publicLabel}
+                {isPrivateMode ? privateLabel : regularLabel}
               </SizableText>
               <Icon
                 name="ChevronDownSmallOutline"
@@ -2437,25 +2439,32 @@ function SendAmountInputContainer() {
         {renderModeButton({
           active: publicActive,
           value: ESendMode.PUBLIC,
-          minWidth: 55,
+          minWidth: 92,
           children: (
-            <SizableText
-              size="$bodyMdMedium"
-              color={publicActive ? '$text' : '$textSubdued'}
-              numberOfLines={1}
-            >
-              {publicLabel}
-            </SizableText>
+            <XStack alignItems="center" justifyContent="center" gap="$1">
+              <Icon
+                name="SendOutline"
+                size="$4"
+                color={publicActive ? '$icon' : '$iconSubdued'}
+              />
+              <SizableText
+                size="$bodyMdMedium"
+                color={publicActive ? '$text' : '$textSubdued'}
+                numberOfLines={1}
+              >
+                {regularLabel}
+              </SizableText>
+            </XStack>
           ),
         })}
         {renderModeButton({
           active: privateActive,
           value: ESendMode.PRIVATE,
-          minWidth: 80,
+          minWidth: 92,
           children: (
             <XStack alignItems="center" justifyContent="center" gap="$1">
               <Icon
-                name={privateActive ? 'LockOutline' : 'AnonymousHiddenOutline'}
+                name="AnonymousHiddenOutline"
                 size="$4"
                 color={privateActive ? '$icon' : '$iconSubdued'}
               />
