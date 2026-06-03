@@ -42,11 +42,7 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
-import { ETokenDappType } from '@onekeyhq/shared/types/token';
-import type {
-  IFetchTokenDetailItem,
-  ITokenDappType,
-} from '@onekeyhq/shared/types/token';
+import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 
 import { SwapTestIDs } from '../../testIDs';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -55,6 +51,10 @@ import {
   convertSwapKLineWalletChartToKLineResponse,
   getSwapKLineWalletChartDays,
 } from './swapKLineChartUtils';
+import {
+  getDefaultSwapKLineSide,
+  isKnownSwapKLineUnsupportedToken,
+} from './swapKLineTokenUtils';
 
 const SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE = 'swap-kline';
 const SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES = [
@@ -73,12 +73,6 @@ const SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES = [
   ...SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES,
 ] as const satisfies readonly ITradingViewDisabledFeature[];
 
-type ISwapKLineToken = ISwapToken & {
-  defiMarked?: boolean;
-  dappName?: string | null;
-  dappType?: ITokenDappType;
-};
-
 type ISwapKLineWalletMarketInfo = {
   coinGeckoId?: string;
   price?: string;
@@ -91,38 +85,6 @@ function getSwapKLineTokenKey(token?: ISwapToken) {
   }
 
   return `${token.networkId}:${token.contractAddress ?? ''}`;
-}
-
-function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
-  if (!token) {
-    return false;
-  }
-  if (token.dappType === ETokenDappType.WalletToken) {
-    return false;
-  }
-  return Boolean(token.defiMarked || token.dappName?.trim() || token.dappType);
-}
-
-function getDefaultKLineSide({
-  fromToken,
-  toToken,
-}: {
-  fromToken?: ISwapToken;
-  toToken?: ISwapToken;
-}): ESwapDirectionType {
-  if (!toToken) {
-    return ESwapDirectionType.FROM;
-  }
-
-  const toIsKnownUnsupported = isKnownSwapKLineUnsupportedToken(toToken);
-  if (toIsKnownUnsupported && fromToken) {
-    const fromIsKnownUnsupported = isKnownSwapKLineUnsupportedToken(fromToken);
-    if (!fromIsKnownUnsupported) {
-      return ESwapDirectionType.FROM;
-    }
-  }
-
-  return ESwapDirectionType.TO;
 }
 
 function getNormalizedValueText(value?: number | string | null) {
@@ -469,7 +431,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   const [toToken] = useSwapSelectToTokenAtom();
   const defaultSide = useMemo(
     () =>
-      getDefaultKLineSide({
+      getDefaultSwapKLineSide({
         fromToken,
         toToken,
       }),
