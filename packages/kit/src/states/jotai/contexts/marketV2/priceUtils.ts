@@ -115,6 +115,8 @@ export function buildMatchedRealtimeTokenDetail({
   if (
     !tokenDetail ||
     !isValidRealtimePrice(realtimePrice) ||
+    (tokenDetail.price === realtimePrice &&
+      tokenDetail.realtimePriceSource === realtimePriceSource) ||
     !isMarketTokenDetailMatched({
       tokenDetail,
       tokenAddress,

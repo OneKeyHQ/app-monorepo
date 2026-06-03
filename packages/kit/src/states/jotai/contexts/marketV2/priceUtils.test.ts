@@ -174,6 +174,45 @@ describe('marketV2 priceUtils', () => {
       });
     });
 
+    it('skips unchanged realtime prices from the same source', () => {
+      expect(
+        buildMatchedRealtimeTokenDetail({
+          tokenDetail: buildTokenDetail({
+            realtimePriceSource:
+              MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+          }),
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+          realtimePrice: '100',
+          realtimePriceSource:
+            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+          lastUpdated: 456,
+        }),
+      ).toBeUndefined();
+    });
+
+    it('keeps same-price updates when the realtime source changes', () => {
+      expect(
+        buildMatchedRealtimeTokenDetail({
+          tokenDetail: buildTokenDetail({
+            realtimePriceSource:
+              MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.kLinePolling,
+          }),
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+          realtimePrice: '100',
+          realtimePriceSource:
+            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+          lastUpdated: 456,
+        }),
+      ).toMatchObject({
+        price: '100',
+        realtimePriceSource:
+          MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+        lastUpdated: 456,
+      });
+    });
+
     it('skips invalid realtime prices', () => {
       expect(
         buildMatchedRealtimeTokenDetail({
