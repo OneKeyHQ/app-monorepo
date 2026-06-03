@@ -214,6 +214,8 @@ export type IAddHDOrHWAccountsParams = {
   isVerifyAddressAction?: boolean;
   createAllDeriveTypes?: boolean;
   hdCredentialCacheScopeId?: string;
+  // auto multi-network fill scene flag (business derived from it, not passed in)
+  isAutoCreateMultiNetwork?: boolean;
 
   // purpose?: number;
   // skipRepeat?: boolean;
@@ -832,6 +834,7 @@ class ServiceAccount extends ServiceBase {
     isVerifyAddressAction,
     customReceiveAddressPath,
     hdCredentialCacheScopeId,
+    isAutoCreateMultiNetwork,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
@@ -844,6 +847,7 @@ class ServiceAccount extends ServiceBase {
     isVerifyAddressAction?: boolean;
     customReceiveAddressPath?: string;
     hdCredentialCacheScopeId?: string;
+    isAutoCreateMultiNetwork?: boolean;
   }) {
     if (!walletId) {
       throw new OneKeyLocalError('walletId is required');
@@ -913,6 +917,7 @@ class ServiceAccount extends ServiceBase {
         deriveInfo,
         hwAllNetworkPrepareAccountsResponse,
         chainExtraParams,
+        isAutoCreateMultiNetwork,
       };
       prepareParams = hwParams;
     } else {
