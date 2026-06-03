@@ -3,8 +3,8 @@ import type {
   IPerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 export type IPerpsOrderPanelEnableTradingStepKey =
   | 'deposit'

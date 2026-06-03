@@ -83,11 +83,11 @@ import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../../testIDs';
 import { getPerpsFormLeverage } from '../../../utils/leverageDisplay';
+import { getScaleOrderValidationErrorMessage } from '../../../utils/scaleOrderValidation';
 import {
   type ITradeSide,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
-import { getScaleOrderValidationErrorMessage } from '../../../utils/scaleOrderValidation';
 import { PerpsSlider } from '../../PerpsSlider';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';

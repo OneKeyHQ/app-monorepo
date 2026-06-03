@@ -1,7 +1,6 @@
-import type { IntlShape } from 'react-intl';
-
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IScaleOrderValidationResult } from '@onekeyhq/shared/types/hyperliquid/types';
+import type { IntlShape } from 'react-intl';
 
 const SCALE_ORDER_SIZE_TOO_SMALL_PATTERN = /^Leg \d+: size is too small$/;
 
