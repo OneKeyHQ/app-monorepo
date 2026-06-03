@@ -1,4 +1,11 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import type { MutableRefObject } from 'react';
 
 import { BigNumber } from 'bignumber.js';
@@ -2001,7 +2008,9 @@ const TradingButtonGroupConfirmRef = memo(
       marketDataFreshness,
     });
 
-    handleConfirmRef.current = handleConfirm;
+    useLayoutEffect(() => {
+      handleConfirmRef.current = handleConfirm;
+    }, [handleConfirm, handleConfirmRef]);
 
     return null;
   },
@@ -2103,6 +2112,7 @@ function TradingButtonGroupLive({
 function TradingButtonGroupEmptySize({
   isMobile,
   isLiveStatusPending = false,
+  enableTradingModeOverride,
 }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
   const tradingSide = useTradingFormSide();
@@ -2116,6 +2126,7 @@ function TradingButtonGroupEmptySize({
             side={tradingSide}
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
           />
         </YStack>
       );
@@ -2127,11 +2138,13 @@ function TradingButtonGroupEmptySize({
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
           />
           <SideButtonEmptySize
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
           />
         </YStack>
       );
@@ -2143,6 +2156,7 @@ function TradingButtonGroupEmptySize({
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
             justifyContent="flex-start"
           />
         </XStack>
@@ -2151,6 +2165,7 @@ function TradingButtonGroupEmptySize({
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
             justifyContent="flex-end"
           />
         </XStack>

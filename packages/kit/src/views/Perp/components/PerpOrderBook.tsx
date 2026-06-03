@@ -483,11 +483,18 @@ function usePublishVisualL2BookSnapshot({
     }
 
     if (!timerRef.current) {
+      const expectedCoin = book.coin;
       timerRef.current = setTimeout(() => {
         timerRef.current = null;
         const pendingBook = pendingBookRef.current;
-        if (pendingBook) {
+        const visibleCoin = visualBookRef.current?.coin;
+        if (
+          pendingBook?.coin === expectedCoin &&
+          visibleCoin === expectedCoin
+        ) {
           publishBook(pendingBook, Date.now());
+        } else {
+          pendingBookRef.current = null;
         }
       }, delayMs);
     }

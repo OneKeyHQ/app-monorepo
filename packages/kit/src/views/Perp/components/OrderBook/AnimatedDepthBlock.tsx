@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import {
@@ -93,15 +93,19 @@ export function DepthBarColumn({
   barInset,
   color,
   origin = 'left',
+  onRowPress,
 }: IDepthBarColumnProps) {
   const barHeight = rowHeight - 2 * barInset;
   return (
     <>
       {percents.map((percent, index) => (
-        <View
+        <Pressable
           // eslint-disable-next-line react/no-array-index-key
           key={index}
+          disabled={!onRowPress}
+          onPress={() => onRowPress?.(index)}
           style={{
+            cursor: onRowPress ? 'pointer' : undefined,
             height: rowHeight,
             marginTop: rowMarginTop,
             position: 'relative',
@@ -114,7 +118,7 @@ export function DepthBarColumn({
             width={`${percent}%`}
             height={barHeight}
           />
-        </View>
+        </Pressable>
       ))}
     </>
   );

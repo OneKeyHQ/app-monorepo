@@ -2,6 +2,7 @@ import { isPerpsMobileLayoutTraceEnabled } from './mobileLayoutTrace';
 
 const originalPerfMonitorEnabled = process.env.PERF_MONITOR_ENABLED;
 const originalPerpsMobileLayoutTrace = process.env.PERPS_MOBILE_LAYOUT_TRACE;
+const originalNodeEnv = process.env.NODE_ENV;
 
 describe('mobileLayoutTrace', () => {
   afterEach(() => {
@@ -16,6 +17,8 @@ describe('mobileLayoutTrace', () => {
     } else {
       process.env.PERPS_MOBILE_LAYOUT_TRACE = originalPerpsMobileLayoutTrace;
     }
+
+    process.env.NODE_ENV = originalNodeEnv;
   });
 
   it('keeps perps layout tracing disabled by default', () => {
@@ -32,5 +35,13 @@ describe('mobileLayoutTrace', () => {
     delete process.env.PERF_MONITOR_ENABLED;
     process.env.PERPS_MOBILE_LAYOUT_TRACE = '1';
     expect(isPerpsMobileLayoutTraceEnabled()).toBe(true);
+  });
+
+  it('keeps perps layout tracing disabled in production', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.PERF_MONITOR_ENABLED = '1';
+    process.env.PERPS_MOBILE_LAYOUT_TRACE = '1';
+
+    expect(isPerpsMobileLayoutTraceEnabled()).toBe(false);
   });
 });

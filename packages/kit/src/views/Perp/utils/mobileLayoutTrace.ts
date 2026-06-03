@@ -50,6 +50,10 @@ export function isPerpsMobileLayoutTraceRectChanged(
 }
 
 export function isPerpsMobileLayoutTraceEnabled() {
+  if (process.env.NODE_ENV === 'production') {
+    return false;
+  }
+
   return (
     process.env.PERF_MONITOR_ENABLED === '1' ||
     process.env.PERPS_MOBILE_LAYOUT_TRACE === '1'
