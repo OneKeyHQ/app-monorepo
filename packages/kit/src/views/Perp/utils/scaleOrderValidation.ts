@@ -3,6 +3,7 @@ import type {
   IScaleOrderValidationIssue,
   IScaleOrderValidationResult,
 } from '@onekeyhq/shared/types/hyperliquid/types';
+
 import type { IntlShape } from 'react-intl';
 
 const SCALE_ORDER_MIN_NOTIONAL_I18N_KEY =
