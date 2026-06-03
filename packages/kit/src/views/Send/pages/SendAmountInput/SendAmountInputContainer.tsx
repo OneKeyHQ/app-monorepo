@@ -678,6 +678,13 @@ function SendAmountInputContainer() {
     ],
   );
 
+  // Fiat input needs a usable price to convert it to a token amount. Single
+  // source of truth for the fiat-mode guards below.
+  const hasUsablePrice = useMemo(
+    () => new BigNumber(tokenDetails?.price ?? 0).isGreaterThan(0),
+    [tokenDetails?.price],
+  );
+
   // Check if balance is insufficient (show on button instead of form error)
   const isInsufficientBalance = useMemo(() => {
     if (!amount || amount === '0') return false;
@@ -685,12 +692,28 @@ function SendAmountInputContainer() {
     if (valueBN.isNaN() || valueBN.isNegative()) return false;
 
     if (isUseFiat) {
-      const fiatValue = new BigNumber(maxBalanceFiat);
-      return valueBN.isGreaterThan(fiatValue);
+      // No usable price → fiat can't convert to a sendable amount; block.
+      if (!hasUsablePrice) {
+        return true;
+      }
+      // Judge on the floored token amount actually submitted (same basis as
+      // validation and the sibling comparison), not the raw fiat value — they
+      // disagree at the sub-unit boundary. Both `originalAmount` and
+      // `maxBalance` follow the same unit (incl. Lightning: sats when
+      // lnUnit=SATS, BTC when lnUnit=BTC), so the comparison is unit-consistent.
+      return new BigNumber(linkedAmount.originalAmount).isGreaterThan(
+        maxBalance,
+      );
     }
     const balance = new BigNumber(maxBalance);
     return valueBN.isGreaterThan(balance);
-  }, [amount, isUseFiat, maxBalanceFiat, maxBalance]);
+  }, [
+    amount,
+    isUseFiat,
+    hasUsablePrice,
+    linkedAmount.originalAmount,
+    maxBalance,
+  ]);
 
   // Skip the `tokenInfo.address` truthiness check: for chains where
   // `vaultSettings.isNativeTokenContractAddressEmpty` is true (e.g. BTC), the
@@ -699,8 +722,9 @@ function SendAmountInputContainer() {
   const autoSwitchEnabled =
     !!vaultSettings?.mergeDeriveAssetsEnabled &&
     !isNFT &&
-    !isUseFiat &&
     !isLightningNetwork &&
+    // Fiat mode needs a usable price to convert the input to a token amount.
+    (!isUseFiat || hasUsablePrice) &&
     // With coin control the user has hand-picked UTXOs and `maxBalance` is
     // the selected-UTXO subtotal, not the account balance — a subset
     // shortfall must not trigger a switch that also discards their selection.
@@ -727,13 +751,17 @@ function SendAmountInputContainer() {
     [sendConfirmActions],
   );
 
+  // Auto-switch compares against sibling token balances, so feed token units:
+  // the converted originalAmount in fiat mode, the raw amount in token mode.
+  const autoSwitchAmount = isUseFiat ? linkedAmount.originalAmount : amount;
+
   const {
     autoSwitchInfo,
     dismissAutoSwitchInfo,
     pulseSignal,
     allFormatsInsufficient,
   } = useAutoSwitchDeriveType({
-    amount,
+    amount: autoSwitchAmount,
     isInsufficientBalance,
     enabled: autoSwitchEnabled,
     currentAccountId,

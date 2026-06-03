@@ -92,6 +92,8 @@ export type IAutoSwitchInfo = {
 };
 
 type IParams = {
+  // Token-denominated: compared directly against sibling token balances (the
+  // caller converts fiat input to token units before passing it).
   amount: string;
   isInsufficientBalance: boolean;
   enabled: boolean;
@@ -180,9 +182,9 @@ export function useAutoSwitchDeriveType({
   const amountRef = useRef(amount);
   amountRef.current = amount;
   // Mirrors `enabled` so the async closure can detect a mid-flight disable
-  // (e.g. user toggled fiat or coin-control during the fetch). The main
-  // effect early-returns on `!enabled` without incrementing the generation,
-  // so generation alone won't catch this.
+  // (e.g. user enabled coin-control during the fetch). The main effect
+  // early-returns on `!enabled` without incrementing the generation, so
+  // generation alone won't catch this.
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
   // Tripped on hook unmount. In-flight closures must bail before touching
@@ -230,13 +232,11 @@ export function useAutoSwitchDeriveType({
 
   useEffect(() => {
     if (!enabled) {
-      // Feature got disabled mid-flow (user toggled fiat or enabled
-      // coin-control). Drop the cached "no format covers" verdict so the
-      // alert doesn't survive into a context that uses different units or
-      // a different balance basis. We intentionally leave `triedDeriveTypes`
-      // and the manual-lock refs alone — they describe lifetime intent and
-      // staying valid across a brief disable→enable toggle is the right
-      // default.
+      // Feature got disabled mid-flow (e.g. user enabled coin-control). Drop
+      // the cached "no format covers" verdict so the alert doesn't survive
+      // into a context with a different balance basis. We intentionally leave
+      // `triedDeriveTypes` and the manual-lock refs alone — they describe
+      // lifetime intent and stay valid across a brief disable→enable toggle.
       if (allFormatsInsufficientAmount) setAllFormatsInsufficientAmount(null);
       return;
     }
@@ -259,14 +259,25 @@ export function useAutoSwitchDeriveType({
       return;
     }
     if (userManuallySwitchedRef.current) {
-      // Stay locked until the live amount differs from the snapshot taken
-      // when the manual switch happened. Once it does, treat the new input
-      // as a fresh evaluation: clear the lock, the tried-set (which referred
-      // to a prior account's lineage), and the "all formats short" threshold.
-      if (
-        manualSwitchAtAmountRef.current === null ||
-        amount === manualSwitchAtAmountRef.current
-      ) {
+      // Stay locked until the live amount differs from the snapshot taken at
+      // the manual switch; only then treat it as a fresh evaluation and clear
+      // the lock, the tried-set, and the "all formats short" threshold.
+      //
+      // `amount` is always token-denominated (see `autoSwitchAmount` at the
+      // call site), but its representation differs across a fiat/token display
+      // toggle — token mode passes the raw input, fiat mode the re-derived
+      // value — so the same amount can read as "1.0" vs "1". Compare
+      // numerically so a display toggle isn't mistaken for a real edit;
+      // the string check is a fast path that also keeps empty/empty equal.
+      const snapshot = manualSwitchAtAmountRef.current;
+      // `sameAmount` requires a non-null snapshot, so the numeric compare can
+      // never read a null snapshot as 0 (which would hold the lock forever at
+      // amount '0'); the null case is handled by the early return.
+      const sameAmount =
+        snapshot !== null &&
+        (amount === snapshot ||
+          new BigNumber(amount || 0).isEqualTo(new BigNumber(snapshot || 0)));
+      if (snapshot === null || sameAmount) {
         return;
       }
       userManuallySwitchedRef.current = false;
@@ -313,7 +324,7 @@ export function useAutoSwitchDeriveType({
       try {
         const { siblings, hadError } = await fetchSiblings();
         // Bail if the hook unmounted, the effect re-ran while we were
-        // fetching, the feature got disabled (fiat/coin-control toggle), the
+        // fetching, the feature got disabled (e.g. coin-control toggle), the
         // user typed a fresh amount, or manually switched.
         if (cancelledRef.current) return;
         if (generation !== fetchGenerationRef.current) return;
@@ -329,11 +340,15 @@ export function useAutoSwitchDeriveType({
         });
 
         if (!target) {
-          // Entry case (no amount typed): silently bail, nothing to surface.
-          // Cascade case: surface "all formats combined are still not
-          // enough" — but only when every sibling balance was actually
-          // fetched. A failed RPC must not masquerade as "no funds".
+          // Entry case (amount 0): silently bail. Otherwise act only when every
+          // sibling was actually fetched — a failed RPC must not look like
+          // "no funds": clear any stale "auto-switched" banner so it can't mask
+          // the warning, and raise the all-formats-insufficient warning. On a
+          // fetch error we leave prior state untouched (conservative — we can't
+          // tell "no covering format" from "couldn't check", and silently
+          // dropping the success banner on a transient blip would be worse).
           if (!amountBN.isZero() && !hadError) {
+            setAutoSwitchInfo(null);
             setAllFormatsInsufficientAmount(amountBN);
           }
           return;
