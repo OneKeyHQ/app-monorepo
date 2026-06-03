@@ -85,6 +85,25 @@ function getAddressKey(address?: string) {
   return address?.toLowerCase() ?? '';
 }
 
+function isPrivateSendTx({
+  transferPayload,
+  unsignedTx,
+}: {
+  transferPayload?: IBuildDecodedTxParams['transferPayload'];
+  unsignedTx?: IUnsignedTxPro;
+}) {
+  return (
+    transferPayload?.isPrivateSend === true ||
+    unsignedTx?.swapInfo?.protocol === EProtocolOfExchange.PRIVATE_SEND
+  );
+}
+
+function getPrivateSendTxDisplayTitle() {
+  return appLocale.intl.formatMessage({
+    id: ETranslations.private_send_private_send,
+  });
+}
+
 function fixPrivateSendRecipientDisplay({
   decodedTx,
   unsignedTx,
@@ -96,13 +115,15 @@ function fixPrivateSendRecipientDisplay({
 }) {
   const originalRecipient =
     transferPayload?.originalRecipient || unsignedTx.swapInfo?.receivingAddress;
+  const isPrivateSend = isPrivateSendTx({ transferPayload, unsignedTx });
+  if (decodedTx.txDisplay && isPrivateSend) {
+    decodedTx.txDisplay.title = getPrivateSendTxDisplayTitle();
+  }
+
   if (
+    !isPrivateSend ||
     !decodedTx.txDisplay?.components?.length ||
-    !originalRecipient ||
-    !(
-      transferPayload?.isPrivateSend ||
-      unsignedTx.swapInfo?.protocol === EProtocolOfExchange.PRIVATE_SEND
-    )
+    !originalRecipient
   ) {
     return;
   }
@@ -227,6 +248,18 @@ class ServiceSignatureConfirm extends ServiceBase {
           decodedTxs: r,
           unsignedTxs: params.unsignedTxs,
         });
+    }
+
+    if (
+      r[0]?.txDisplay &&
+      params.unsignedTxs.some((unsignedTx) =>
+        isPrivateSendTx({
+          transferPayload: params.transferPayload,
+          unsignedTx,
+        }),
+      )
+    ) {
+      r[0].txDisplay.title = getPrivateSendTxDisplayTitle();
     }
 
     return r;
