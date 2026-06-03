@@ -1476,6 +1476,7 @@ function PerpTwapList({
           listViewDebugRenderTrackerProps={trackerProps}
           useTabsList={useTabsList}
           disableListScroll={disableListScroll}
+          enableDesktopVerticalScroll={!isMobile}
           enablePagination
           pageSize={TWAP_PAGE_SIZE}
           currentListPage={currentListPage}
@@ -1499,6 +1500,7 @@ function PerpTwapList({
           listViewDebugRenderTrackerProps={trackerProps}
           useTabsList={useTabsList}
           disableListScroll={disableListScroll}
+          enableDesktopVerticalScroll={!isMobile}
           enablePagination
           pageSize={TWAP_PAGE_SIZE}
           currentListPage={currentListPage}
@@ -1522,6 +1524,7 @@ function PerpTwapList({
           listViewDebugRenderTrackerProps={trackerProps}
           useTabsList={useTabsList}
           disableListScroll={disableListScroll}
+          enableDesktopVerticalScroll={!isMobile}
           enablePagination
           pageSize={TWAP_PAGE_SIZE}
           currentListPage={currentListPage}
