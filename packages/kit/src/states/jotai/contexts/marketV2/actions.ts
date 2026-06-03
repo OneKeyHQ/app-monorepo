@@ -36,6 +36,7 @@ import {
   tokenDetailWebsocketAtom,
 } from './atoms';
 import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from './constants';
+import { buildRealtimePriceDerivedFields } from './priceUtils';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -238,38 +239,40 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
               contractAddress: currentTokenDetail.address || '',
             },
           });
-        const hasFreshKLinePrice =
+        const realtimePrice = currentTokenDetail?.price;
+        const realtimePriceLastUpdated = currentTokenDetail?.lastUpdated;
+        const hasFreshKLinePrice = Boolean(
           isSameToken &&
-          currentTokenDetail?.lastUpdated &&
-          Date.now() - currentTokenDetail.lastUpdated <=
-            K_LINE_PRICE_STALE_TIMEOUT_MS;
+          realtimePrice &&
+          realtimePriceLastUpdated &&
+          Date.now() - realtimePriceLastUpdated <=
+            K_LINE_PRICE_STALE_TIMEOUT_MS,
+        );
         const hasHyperLiquidRealtimePrice =
+          hasFreshKLinePrice &&
           currentTokenDetail?.realtimePriceSource ===
-          MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid;
-        const hyperLiquidRealtimeDerivedFields = hasHyperLiquidRealtimePrice
-          ? {
-              ...(typeof currentTokenDetail.priceConverted !== 'undefined'
-                ? { priceConverted: currentTokenDetail.priceConverted }
-                : {}),
-              ...(typeof currentTokenDetail.priceChange24hPercent !==
-              'undefined'
-                ? {
-                    priceChange24hPercent:
-                      currentTokenDetail.priceChange24hPercent,
-                  }
-                : {}),
-              realtimePriceSource: currentTokenDetail.realtimePriceSource,
-            }
-          : {};
+            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid;
+        const hyperLiquidRealtimeDerivedFields =
+          hasHyperLiquidRealtimePrice && realtimePrice
+            ? {
+                ...buildRealtimePriceDerivedFields({
+                  tokenDetail: tokenData,
+                  realtimePrice,
+                }),
+                realtimePriceSource:
+                  MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+              }
+            : {};
 
-        const finalTokenData = hasFreshKLinePrice
-          ? {
-              ...tokenData,
-              price: currentTokenDetail.price,
-              ...hyperLiquidRealtimeDerivedFields,
-              lastUpdated: currentTokenDetail.lastUpdated,
-            }
-          : tokenData;
+        const finalTokenData =
+          hasFreshKLinePrice && realtimePrice && realtimePriceLastUpdated
+            ? {
+                ...tokenData,
+                price: realtimePrice,
+                ...hyperLiquidRealtimeDerivedFields,
+                lastUpdated: realtimePriceLastUpdated,
+              }
+            : tokenData;
 
         set(tokenDetailAtom(), finalTokenData);
         set(tokenDetailWebsocketAtom(), websocketConfig);

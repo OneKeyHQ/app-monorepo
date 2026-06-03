@@ -18,6 +18,8 @@ export interface IBtcMetadata {
   stale: boolean;
 }
 
+export type IMarketTokenDetailRealtimePriceSource = 'hyperliquid';
+
 export interface IMarketTokenDetail {
   networkId?: string;
   isNative?: boolean;
@@ -113,6 +115,7 @@ export interface IMarketTokenDetail {
   vSell8h?: string;
   vSell24h?: string;
   lastUpdated?: number;
+  realtimePriceSource?: IMarketTokenDetailRealtimePriceSource;
   communityRecognized?: boolean;
   stock?: IMarketStockInfo;
   btcMetadata?: IBtcMetadata;

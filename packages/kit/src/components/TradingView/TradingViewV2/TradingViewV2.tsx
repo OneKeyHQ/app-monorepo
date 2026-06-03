@@ -198,6 +198,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   useHyperLiquidTokenPriceUpdate({
     hyperLiquidSymbol,
+    tokenAddress,
+    networkId,
     kLineResolutionRef: currentKLineResolution,
     enabled:
       isVisible &&

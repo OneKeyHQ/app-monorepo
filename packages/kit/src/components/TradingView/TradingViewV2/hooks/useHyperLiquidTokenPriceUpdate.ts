@@ -1,13 +1,14 @@
 import { type RefObject, useCallback, useEffect, useRef } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import {
   useTokenDetailActions,
   useTokenDetailAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/constants';
+import { buildRealtimePriceDerivedFields } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 const HYPERLIQUID_WS_URL = 'wss://api.hyperliquid.xyz/ws';
 const HYPERLIQUID_RECONNECT_DELAY = 2000;
@@ -51,6 +52,8 @@ type IHyperLiquidCandleSubscription = {
 
 type IUseHyperLiquidTokenPriceUpdateParams = {
   hyperLiquidSymbol?: string;
+  tokenAddress?: string;
+  networkId?: string;
   kLineResolutionRef?: RefObject<string>;
   enabled?: boolean;
 };
@@ -100,45 +103,6 @@ function isValidPrice(price: string) {
   return Number.isFinite(numericPrice) && numericPrice > 0;
 }
 
-function getFiniteStringValue(value: BigNumber, fallback?: string) {
-  return value.isFinite() ? value.toFixed() : fallback;
-}
-
-function getPriceConverted({
-  currentPrice,
-  currentPriceConverted,
-  latestPrice,
-}: {
-  currentPrice?: string;
-  currentPriceConverted?: string;
-  latestPrice: string;
-}) {
-  return getFiniteStringValue(
-    new BigNumber(currentPriceConverted ?? Number.NaN)
-      .div(currentPrice ?? Number.NaN)
-      .multipliedBy(latestPrice),
-    currentPriceConverted,
-  );
-}
-
-function getPriceChange24hPercent({
-  currentPrice,
-  currentPriceChange24hPercent,
-  latestPrice,
-}: {
-  currentPrice?: string;
-  currentPriceChange24hPercent?: string;
-  latestPrice: string;
-}) {
-  const previous24hPrice = new BigNumber(currentPrice ?? Number.NaN).div(
-    new BigNumber(currentPriceChange24hPercent ?? Number.NaN).div(100).plus(1),
-  );
-  return getFiniteStringValue(
-    new BigNumber(latestPrice).div(previous24hPrice).minus(1).multipliedBy(100),
-    currentPriceChange24hPercent,
-  );
-}
-
 function buildSubscription(
   hyperLiquidSymbol: string,
   resolution?: string,
@@ -160,8 +124,35 @@ function sendSubscriptionMessage(
   }
 }
 
+function isTokenDetailMatched({
+  tokenDetail,
+  tokenAddress,
+  networkId,
+}: {
+  tokenDetail: IMarketTokenDetail;
+  tokenAddress?: string;
+  networkId?: string;
+}) {
+  if (!networkId) {
+    return true;
+  }
+
+  return equalTokenNoCaseSensitive({
+    token1: {
+      networkId,
+      contractAddress: tokenAddress || '',
+    },
+    token2: {
+      networkId: tokenDetail.networkId || networkId,
+      contractAddress: tokenDetail.address || '',
+    },
+  });
+}
+
 export function useHyperLiquidTokenPriceUpdate({
   hyperLiquidSymbol,
+  tokenAddress,
+  networkId,
   kLineResolutionRef,
   enabled = true,
 }: IUseHyperLiquidTokenPriceUpdateParams) {
@@ -180,7 +171,11 @@ export function useHyperLiquidTokenPriceUpdate({
       if (
         !latestTokenDetail ||
         !isValidPrice(latestPrice) ||
-        latestTokenDetail.price === latestPrice
+        !isTokenDetailMatched({
+          tokenDetail: latestTokenDetail,
+          tokenAddress,
+          networkId,
+        })
       ) {
         return;
       }
@@ -188,22 +183,16 @@ export function useHyperLiquidTokenPriceUpdate({
       tokenDetailActions.current.setTokenDetail({
         ...latestTokenDetail,
         price: latestPrice,
-        priceConverted: getPriceConverted({
-          currentPrice: latestTokenDetail.price,
-          currentPriceConverted: latestTokenDetail.priceConverted,
-          latestPrice,
-        }),
-        priceChange24hPercent: getPriceChange24hPercent({
-          currentPrice: latestTokenDetail.price,
-          currentPriceChange24hPercent: latestTokenDetail.priceChange24hPercent,
-          latestPrice,
+        ...buildRealtimePriceDerivedFields({
+          tokenDetail: latestTokenDetail,
+          realtimePrice: latestPrice,
         }),
         lastUpdated: Date.now(),
         realtimePriceSource:
           MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
       });
     },
-    [tokenDetailActions],
+    [networkId, tokenAddress, tokenDetailActions],
   );
 
   const clearReconnectTimer = useCallback(() => {
@@ -295,6 +284,7 @@ export function useHyperLiquidTokenPriceUpdate({
         const candle = parseCandleMessage(event.data);
         const subscription = subscriptionRef.current;
         if (
+          wsRef.current !== ws ||
           !candle ||
           !subscription ||
           normalizeSymbol(candle.symbol) !==
