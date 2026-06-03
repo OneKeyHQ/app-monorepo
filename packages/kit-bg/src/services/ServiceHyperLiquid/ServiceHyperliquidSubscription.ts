@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IBook,
+  IEventCandleParameters,
   IHex,
   IHyperliquidEventTarget,
   IPerpsActiveAssetDataRaw,
@@ -78,6 +79,7 @@ import hyperLiquidCache from './hyperLiquidCache';
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
+  generateSubscriptionKey,
 } from './utils/SubscriptionConfig';
 import { PerKeyMutationQueue } from './utils/SubscriptionMutationQueue';
 
@@ -125,6 +127,12 @@ interface ISubscriptionUpdateParams {
   tradingMode?: 'perp' | 'spot';
   isConnected?: boolean;
   l2BookOptions?: IL2BookOptions | null;
+}
+
+interface IMarketCandleSubscriptionParams {
+  subscriberId: string;
+  coin: string;
+  interval: IEventCandleParameters['interval'];
 }
 
 interface IRequiredSubscriptionInfo {
@@ -203,6 +211,31 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _destroyingSubscriptionKeys = new Set<string>();
 
   private _routeSubscriptionStateVersion = 0;
+
+  private _marketCandleSubscriptionsBySubscriber = new Map<
+    string,
+    IEventCandleParameters
+  >();
+
+  private _getMarketCandleSubscriptions(): IEventCandleParameters[] {
+    const subscriptionsBySpecKey = new Map<string, IEventCandleParameters>();
+
+    for (const params of this._marketCandleSubscriptionsBySubscriber.values()) {
+      const coin = params.coin.trim();
+      if (coin) {
+        const nextParams: IEventCandleParameters = {
+          coin,
+          interval: params.interval,
+        };
+        subscriptionsBySpecKey.set(
+          generateSubscriptionKey(ESubscriptionType.CANDLE, nextParams),
+          nextParams,
+        );
+      }
+    }
+
+    return Array.from(subscriptionsBySpecKey.values());
+  }
 
   private _isSubscriptionSpecPending(
     spec: ISubscriptionSpec<ESubscriptionType>,
@@ -307,6 +340,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       spotAssetCtxsEnabled: this._currentState.spotAssetCtxsEnabled,
       currentSpotSymbol,
       tradingMode: currentMode,
+      marketCandleSubscriptions: this._getMarketCandleSubscriptions(),
     };
 
     const requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
@@ -894,6 +928,42 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   @backgroundMethod()
+  async subscribeMarketCandle(
+    params: IMarketCandleSubscriptionParams,
+  ): Promise<void> {
+    const coin = params.coin.trim();
+    if (!params.subscriberId || !coin) {
+      return;
+    }
+
+    this._marketCandleSubscriptionsBySubscriber.set(params.subscriberId, {
+      coin,
+      interval: params.interval,
+    });
+
+    await this.connect();
+    await this.updateSubscriptions();
+  }
+
+  @backgroundMethod()
+  async unsubscribeMarketCandle(params: {
+    subscriberId: string;
+  }): Promise<void> {
+    if (!params.subscriberId) {
+      return;
+    }
+
+    const didDelete = this._marketCandleSubscriptionsBySubscriber.delete(
+      params.subscriberId,
+    );
+    if (!didDelete || (!this._client && !this._clientInitPromise)) {
+      return;
+    }
+
+    await this.updateSubscriptions();
+  }
+
+  @backgroundMethod()
   async forceReloadCandlesWebview(): Promise<void> {
     await perpsCandlesWebviewReloadHookAtom.set({
       reloadHook: Date.now(),
@@ -1354,6 +1424,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const allTypes = [
         ESubscriptionType.ALL_MIDS,
         ESubscriptionType.BBO,
+        ESubscriptionType.CANDLE,
         ESubscriptionType.L2_BOOK,
         ESubscriptionType.ACTIVE_ASSET_CTX,
         ESubscriptionType.ACTIVE_ASSET_DATA,

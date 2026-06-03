@@ -119,6 +119,14 @@ export function isMarketTokenDetailMatched({
     return true;
   }
 
+  if (tokenDetail.networkId && tokenDetail.networkId !== networkId) {
+    return false;
+  }
+
+  if (!tokenAddress && tokenDetail.isNative) {
+    return true;
+  }
+
   return equalTokenNoCaseSensitive({
     token1: {
       networkId,

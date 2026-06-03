@@ -3,6 +3,7 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { DEX_PREFIXES } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IEventAllDexsClearinghouseStateParameters,
+  IEventCandleParameters,
   IEventL2BookParameters,
   IEventOpenOrdersParameters,
   IEventTwapStatesParameters,
@@ -78,6 +79,10 @@ export const SUBSCRIPTION_TYPE_INFO: {
     eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 2,
   },
+  [ESubscriptionType.CANDLE]: {
+    eventType: EPerpsSubscriptionCategory.MARKET,
+    priority: 2,
+  },
   [ESubscriptionType.SPOT_STATE]: {
     eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 2,
@@ -118,6 +123,7 @@ export interface ISubscriptionState {
   spotEnabled?: boolean;
   spotAssetCtxsEnabled?: boolean;
   currentSpotSymbol?: string;
+  marketCandleSubscriptions?: IEventCandleParameters[];
   // Per-asset subscriptions are mutually exclusive based on this
   tradingMode?: 'perp' | 'spot';
 }
@@ -245,6 +251,15 @@ export function calculateRequiredSubscriptions(
       );
     }
   }
+
+  state.marketCandleSubscriptions?.forEach((params) => {
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.CANDLE,
+        params,
+      }),
+    );
+  });
 
   // User Data
   if (state.currentUser) {

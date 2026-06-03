@@ -16,6 +16,7 @@ export type IWsOpenOrders = HL.OpenOrdersWsEvent;
 export type IWsAllDexsClearinghouseState = HL.AllDexsClearinghouseStateWsEvent;
 export type IWsAllDexsAssetCtxs = HL.AllDexsAssetCtxsWsEvent;
 export type IWsBbo = HL.BboWsEvent;
+export type IWsCandle = HL.CandleWsEvent;
 export type IWsTwapStates = HL.TwapStatesWsEvent;
 export type IWsUserTwapHistory = HL.UserTwapHistoryWsEvent;
 export type IWsUserTwapSliceFills = HL.UserTwapSliceFillsWsEvent;
@@ -177,6 +178,7 @@ export type IEventActiveAssetCtxParameters = HL.ActiveAssetCtxWsParameters;
 export type IEventActiveAssetDataParameters = HL.ActiveAssetDataWsParameters;
 export type IEventL2BookParameters = HL.L2BookWsParameters;
 export type IEventBboParameters = HL.BboWsParameters;
+export type IEventCandleParameters = HL.CandleWsParameters;
 export type IEventWebData2Parameters = HL.WebData2WsParameters;
 export type IEventUserFillsParameters = HL.UserFillsWsParameters;
 export type IEventUserNonFundingLedgerUpdatesParameters =
@@ -202,6 +204,7 @@ export type ISignature = unknown;
 export type IPerpsSubscriptionParams = {
   [ESubscriptionType.L2_BOOK]: IEventL2BookParameters;
   [ESubscriptionType.BBO]: IEventBboParameters;
+  [ESubscriptionType.CANDLE]: IEventCandleParameters;
   [ESubscriptionType.USER_FILLS]: IEventUserFillsParameters;
   [ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES]: IEventUserNonFundingLedgerUpdatesParameters;
 

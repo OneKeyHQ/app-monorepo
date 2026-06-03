@@ -23,6 +23,7 @@ export enum ESubscriptionType {
   USER_TWAP_HISTORY = 'userTwapHistory',
   USER_TWAP_SLICE_FILLS = 'userTwapSliceFills',
   BBO = 'bbo',
+  CANDLE = 'candle',
   SPOT_STATE = 'spotState',
   SPOT_ASSET_CTXS = 'spotAssetCtxs',
   ACTIVE_SPOT_ASSET_CTX = 'activeSpotAssetCtx',

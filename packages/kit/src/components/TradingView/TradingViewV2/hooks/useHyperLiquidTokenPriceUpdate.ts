@@ -1,5 +1,6 @@
 import { type RefObject, useCallback, useEffect, useRef } from 'react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import {
   useTokenDetailActions,
@@ -11,12 +12,24 @@ import {
   isMarketTokenDetailMatched,
   isValidRealtimePrice,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type {
+  IEventCandleParameters,
+  IWsCandle,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-const HYPERLIQUID_WS_URL = 'wss://api.hyperliquid.xyz/ws';
-const HYPERLIQUID_RECONNECT_DELAY = 2000;
 const HYPERLIQUID_SUBSCRIPTION_SYNC_INTERVAL = 1000;
 
-const TRADINGVIEW_HL_NUMERIC_INTERVAL_MAP: Record<string, string> = {
+type IHyperLiquidCandleInterval = IEventCandleParameters['interval'];
+
+const TRADINGVIEW_HL_NUMERIC_INTERVAL_MAP: Record<
+  string,
+  IHyperLiquidCandleInterval
+> = {
   '1': '1m',
   '3': '3m',
   '5': '5m',
@@ -29,7 +42,7 @@ const TRADINGVIEW_HL_NUMERIC_INTERVAL_MAP: Record<string, string> = {
   '720': '12h',
 };
 
-const HYPERLIQUID_INTERVALS = new Set([
+const HYPERLIQUID_INTERVALS = new Set<IHyperLiquidCandleInterval>([
   '1m',
   '3m',
   '5m',
@@ -47,9 +60,8 @@ const HYPERLIQUID_INTERVALS = new Set([
 ]);
 
 type IHyperLiquidCandleSubscription = {
-  type: 'candle';
   coin: string;
-  interval: string;
+  interval: IHyperLiquidCandleInterval;
 };
 
 type IUseHyperLiquidTokenPriceUpdateParams = {
@@ -60,44 +72,29 @@ type IUseHyperLiquidTokenPriceUpdateParams = {
   enabled?: boolean;
 };
 
+function buildSubscriberId() {
+  return `market-hl-candle-${Date.now()}-${Math.random()
+    .toString(16)
+    .slice(2, 8)}`;
+}
+
 function normalizeSymbol(symbol?: string) {
   return symbol?.trim().toUpperCase() || '';
 }
 
-function getHyperLiquidInterval(resolution?: string) {
+function isHyperLiquidInterval(
+  interval?: string,
+): interval is IHyperLiquidCandleInterval {
+  return HYPERLIQUID_INTERVALS.has(interval as IHyperLiquidCandleInterval);
+}
+
+function getHyperLiquidInterval(
+  resolution?: string,
+): IHyperLiquidCandleInterval {
   const interval =
     TRADINGVIEW_HL_NUMERIC_INTERVAL_MAP[resolution || ''] ||
     resolution?.replace(/H$/, 'h').replace(/D$/, 'd').replace(/W$/, 'w');
-  return interval && HYPERLIQUID_INTERVALS.has(interval) ? interval : '1m';
-}
-
-function parseCandleMessage(messageData: unknown) {
-  if (typeof messageData !== 'string') {
-    return undefined;
-  }
-
-  try {
-    const message = JSON.parse(messageData) as {
-      channel?: unknown;
-      data?: Record<string, unknown>;
-    };
-    if (message?.channel !== 'candle') {
-      return undefined;
-    }
-
-    const { s: symbol, i: interval, c: close } = message.data ?? {};
-    if (
-      typeof symbol === 'string' &&
-      typeof interval === 'string' &&
-      typeof close === 'string'
-    ) {
-      return { symbol, interval, close };
-    }
-  } catch {
-    return undefined;
-  }
-
-  return undefined;
+  return isHyperLiquidInterval(interval) ? interval : '1m';
 }
 
 function buildSubscription(
@@ -105,20 +102,9 @@ function buildSubscription(
   resolution?: string,
 ): IHyperLiquidCandleSubscription {
   return {
-    type: 'candle',
     coin: hyperLiquidSymbol,
     interval: getHyperLiquidInterval(resolution),
   };
-}
-
-function sendSubscriptionMessage(
-  ws: WebSocket,
-  method: 'subscribe' | 'unsubscribe',
-  subscription: IHyperLiquidCandleSubscription,
-) {
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ method, subscription }));
-  }
 }
 
 export function useHyperLiquidTokenPriceUpdate({
@@ -131,9 +117,12 @@ export function useHyperLiquidTokenPriceUpdate({
   const [tokenDetail] = useTokenDetailAtom();
   const tokenDetailActions = useTokenDetailActions();
   const tokenDetailRef = useRef(tokenDetail);
-  const wsRef = useRef<WebSocket | null>(null);
   const subscriptionRef = useRef<IHyperLiquidCandleSubscription | null>(null);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const subscriberIdRef = useRef<string | null>(null);
+
+  if (!subscriberIdRef.current) {
+    subscriberIdRef.current = buildSubscriberId();
+  }
 
   tokenDetailRef.current = tokenDetail;
 
@@ -164,143 +153,111 @@ export function useHyperLiquidTokenPriceUpdate({
     [networkId, tokenAddress, tokenDetailActions],
   );
 
-  const clearReconnectTimer = useCallback(() => {
-    if (reconnectTimerRef.current) {
-      clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = null;
+  const unsubscribe = useCallback(() => {
+    const subscriberId = subscriberIdRef.current;
+    const hasSubscription = Boolean(subscriptionRef.current);
+    subscriptionRef.current = null;
+    if (!subscriberId || !hasSubscription) {
+      return;
     }
+
+    void backgroundApiProxy.serviceHyperliquidSubscription
+      .unsubscribeMarketCandle({ subscriberId })
+      .catch((error) => {
+        console.error('Failed to unsubscribe HyperLiquid candle:', error);
+      });
   }, []);
 
-  const subscribe = useCallback(
-    (
-      ws: WebSocket,
-      previousSubscription?: IHyperLiquidCandleSubscription | null,
-    ) => {
-      if (!hyperLiquidSymbol) {
+  const syncSubscription = useCallback(() => {
+    if (!enabled || !hyperLiquidSymbol) {
+      return;
+    }
+
+    const nextSubscription = buildSubscription(
+      hyperLiquidSymbol,
+      kLineResolutionRef?.current,
+    );
+    const currentSubscription = subscriptionRef.current;
+    if (
+      currentSubscription?.coin === nextSubscription.coin &&
+      currentSubscription?.interval === nextSubscription.interval
+    ) {
+      return;
+    }
+
+    const subscriberId = subscriberIdRef.current;
+    if (!subscriberId) {
+      return;
+    }
+
+    subscriptionRef.current = nextSubscription;
+    void backgroundApiProxy.serviceHyperliquidSubscription
+      .subscribeMarketCandle({
+        subscriberId,
+        coin: nextSubscription.coin,
+        interval: nextSubscription.interval,
+      })
+      .catch((error) => {
+        const current = subscriptionRef.current;
+        if (
+          current?.coin === nextSubscription.coin &&
+          current?.interval === nextSubscription.interval
+        ) {
+          subscriptionRef.current = null;
+        }
+        console.error('Failed to subscribe HyperLiquid candle:', error);
+      });
+  }, [enabled, hyperLiquidSymbol, kLineResolutionRef]);
+
+  useEffect(() => {
+    if (!enabled || !hyperLiquidSymbol) {
+      unsubscribe();
+      return;
+    }
+
+    syncSubscription();
+    return unsubscribe;
+  }, [enabled, hyperLiquidSymbol, syncSubscription, unsubscribe]);
+
+  useEffect(() => {
+    if (!enabled || !hyperLiquidSymbol) {
+      return;
+    }
+
+    function handleHyperLiquidDataUpdate(payload: {
+      subType: ESubscriptionType;
+      data: unknown;
+    }) {
+      if (payload.subType !== ESubscriptionType.CANDLE) {
         return;
       }
 
-      const nextSubscription = buildSubscription(
-        hyperLiquidSymbol,
-        kLineResolutionRef?.current,
-      );
+      const candle = payload.data as IWsCandle | undefined;
+      const subscription = subscriptionRef.current;
       if (
-        previousSubscription?.coin === nextSubscription.coin &&
-        previousSubscription?.interval === nextSubscription.interval
+        !candle ||
+        !subscription ||
+        normalizeSymbol(candle.s) !== normalizeSymbol(hyperLiquidSymbol) ||
+        candle.i !== subscription.interval
       ) {
         return;
       }
 
-      if (previousSubscription) {
-        sendSubscriptionMessage(ws, 'unsubscribe', previousSubscription);
-      }
-
-      sendSubscriptionMessage(ws, 'subscribe', nextSubscription);
-      subscriptionRef.current = nextSubscription;
-    },
-    [hyperLiquidSymbol, kLineResolutionRef],
-  );
-
-  const closeWebSocket = useCallback(
-    (clearReconnect = true) => {
-      if (clearReconnect) {
-        clearReconnectTimer();
-      }
-
-      const ws = wsRef.current;
-      const subscription = subscriptionRef.current;
-      if (ws && subscription) {
-        sendSubscriptionMessage(ws, 'unsubscribe', subscription);
-      }
-
-      wsRef.current = null;
-      subscriptionRef.current = null;
-
-      if (ws) {
-        ws.onopen = null;
-        ws.onmessage = null;
-        ws.onerror = null;
-        ws.onclose = null;
-        ws.close();
-      }
-    },
-    [clearReconnectTimer],
-  );
-
-  useEffect(() => {
-    if (!enabled || !hyperLiquidSymbol) {
-      closeWebSocket();
-      return;
+      applyPrice(candle.c);
     }
 
-    let disposed = false;
-
-    const connect = () => {
-      if (disposed) {
-        return;
-      }
-
-      closeWebSocket(false);
-
-      const ws = new WebSocket(HYPERLIQUID_WS_URL);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        subscribe(ws);
-      };
-
-      ws.onmessage = (event) => {
-        const candle = parseCandleMessage(event.data);
-        const subscription = subscriptionRef.current;
-        if (
-          wsRef.current !== ws ||
-          !candle ||
-          !subscription ||
-          normalizeSymbol(candle.symbol) !==
-            normalizeSymbol(hyperLiquidSymbol) ||
-          candle.interval !== subscription.interval
-        ) {
-          return;
-        }
-
-        applyPrice(candle.close);
-      };
-
-      ws.onerror = () => {
-        ws.close();
-      };
-
-      ws.onclose = () => {
-        if (wsRef.current === ws) {
-          wsRef.current = null;
-          subscriptionRef.current = null;
-        }
-
-        if (!disposed) {
-          reconnectTimerRef.current = setTimeout(
-            connect,
-            HYPERLIQUID_RECONNECT_DELAY,
-          );
-        }
-      };
-    };
-
-    connect();
+    appEventBus.on(
+      EAppEventBusNames.HyperliquidDataUpdate,
+      handleHyperLiquidDataUpdate,
+    );
 
     return () => {
-      disposed = true;
-      closeWebSocket();
+      appEventBus.off(
+        EAppEventBusNames.HyperliquidDataUpdate,
+        handleHyperLiquidDataUpdate,
+      );
     };
-  }, [applyPrice, closeWebSocket, enabled, hyperLiquidSymbol, subscribe]);
-
-  const syncSubscription = useCallback(() => {
-    const ws = wsRef.current;
-    if (!enabled || !hyperLiquidSymbol || !ws) {
-      return;
-    }
-
-    subscribe(ws, subscriptionRef.current);
-  }, [enabled, hyperLiquidSymbol, subscribe]);
+  }, [applyPrice, enabled, hyperLiquidSymbol]);
 
   useInterval(
     syncSubscription,

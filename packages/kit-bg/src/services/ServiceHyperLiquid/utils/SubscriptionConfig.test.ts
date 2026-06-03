@@ -132,4 +132,29 @@ describe('calculateRequiredSubscriptions', () => {
       ),
     ).toBe(false);
   });
+
+  it('includes requested market candle subscriptions', () => {
+    const specs = calculateRequiredSubscriptions({
+      currentUser: null,
+      currentSymbol: '',
+      isConnected: true,
+      marketCandleSubscriptions: [
+        {
+          coin: 'BTC',
+          interval: '1m',
+        },
+      ],
+    });
+
+    expect(
+      specs
+        .filter((spec) => spec.type === ESubscriptionType.CANDLE)
+        .map((spec) => spec.params),
+    ).toEqual([
+      {
+        coin: 'BTC',
+        interval: '1m',
+      },
+    ]);
+  });
 });

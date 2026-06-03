@@ -37,10 +37,32 @@ export function useAutoKLineUpdate({
   const [tokenDetail] = useTokenDetailAtom();
   const tokenDetailRef = useRef(tokenDetail);
   const isFetchingRef = useRef(false);
-  const latestParamsRef = useRef({ tokenAddress, networkId });
+  const requestGenerationRef = useRef(0);
+  const previousParamsRef = useRef({ tokenAddress, networkId, enabled });
+  const latestParamsRef = useRef({
+    tokenAddress,
+    networkId,
+    enabled,
+    generation: requestGenerationRef.current,
+  });
 
   tokenDetailRef.current = tokenDetail;
-  latestParamsRef.current = { tokenAddress, networkId };
+
+  if (
+    previousParamsRef.current.tokenAddress !== tokenAddress ||
+    previousParamsRef.current.networkId !== networkId ||
+    previousParamsRef.current.enabled !== enabled
+  ) {
+    requestGenerationRef.current += 1;
+    previousParamsRef.current = { tokenAddress, networkId, enabled };
+  }
+
+  latestParamsRef.current = {
+    tokenAddress,
+    networkId,
+    enabled,
+    generation: requestGenerationRef.current,
+  };
 
   const pushLatestKLineData = useCallback(async () => {
     // Skip if disabled or missing required params
@@ -50,7 +72,7 @@ export function useAutoKLineUpdate({
     }
 
     isFetchingRef.current = true;
-    const requestParams = { tokenAddress, networkId };
+    const requestParams = { ...latestParamsRef.current };
 
     try {
       const nowMs = Date.now();
@@ -67,9 +89,13 @@ export function useAutoKLineUpdate({
         autoHandleError,
       });
 
+      const latestParams = latestParamsRef.current;
       if (
-        latestParamsRef.current.tokenAddress !== requestParams.tokenAddress ||
-        latestParamsRef.current.networkId !== requestParams.networkId
+        !latestParams.enabled ||
+        latestParams.generation !== requestParams.generation ||
+        latestParams.tokenAddress !== requestParams.tokenAddress ||
+        latestParams.networkId !== requestParams.networkId ||
+        !webRef.current
       ) {
         return;
       }
@@ -104,8 +130,8 @@ export function useAutoKLineUpdate({
             isValidRealtimePrice(latestPrice) &&
             isMarketTokenDetailMatched({
               tokenDetail: latestTokenDetail,
-              tokenAddress,
-              networkId,
+              tokenAddress: requestParams.tokenAddress,
+              networkId: requestParams.networkId,
             })
           ) {
             tokenDetailActions.current.setTokenDetail(

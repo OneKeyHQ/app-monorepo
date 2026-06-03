@@ -35,7 +35,10 @@ import {
   tokenDetailLoadingAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
-import { buildRealtimePriceDerivedFields } from './priceUtils';
+import {
+  buildRealtimePriceDerivedFields,
+  isMarketTokenDetailMatched,
+} from './priceUtils';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -226,18 +229,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         // Preserve a recent realtime price only when it was written by an
         // explicit realtime source for the same token.
         const currentTokenDetail = get(tokenDetailAtom());
-        const isSameToken =
-          currentTokenDetail &&
-          equalTokenNoCaseSensitive({
-            token1: {
-              networkId,
-              contractAddress: tokenAddress,
-            },
-            token2: {
-              networkId,
-              contractAddress: currentTokenDetail.address || '',
-            },
-          });
+        const isSameToken = isMarketTokenDetailMatched({
+          tokenDetail: currentTokenDetail,
+          tokenAddress,
+          networkId,
+        });
         const realtimePrice = currentTokenDetail?.price;
         const realtimePriceLastUpdated = currentTokenDetail?.lastUpdated;
         const realtimePriceSource = currentTokenDetail?.realtimePriceSource;
