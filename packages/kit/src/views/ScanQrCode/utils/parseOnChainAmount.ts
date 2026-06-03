@@ -21,7 +21,7 @@ export const parseOnChainAmount = async (
     value.type === EQRCodeHandlerType.ETHEREUM
   ) {
     const chainValue = value.data as IEthereumValue;
-    if (token && !token.isNative) {
+    if (token?.isNative === false) {
       if (chainValue.uint256) {
         return chainValueUtils.convertTokenChainValueToAmount({
           value: chainValue.uint256,
@@ -40,13 +40,6 @@ export const parseOnChainAmount = async (
 
     if (chainValue.amount) {
       return String(chainValue.amount);
-    }
-
-    if (token && chainValue.uint256) {
-      return chainValueUtils.convertTokenChainValueToAmount({
-        value: chainValue.uint256,
-        token,
-      });
     }
   }
   return data.amount ? String(data.amount) : '';

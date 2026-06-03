@@ -17,7 +17,10 @@ const mockBackgroundApi = {
   },
 } as unknown as IBackgroundApi;
 
-const createToken = (isNative: boolean, address?: string): IToken => ({
+const createToken = (
+  isNative: boolean | undefined,
+  address?: string,
+): IToken => ({
   address: isNative
     ? ''
     : address || '0x0000000000000000000000000000000000000001',
@@ -64,6 +67,8 @@ describe('parseOnChainAmount', () => {
         backgroundApi: mockBackgroundApi,
       },
     );
+
+    expect(result.type).toBe(EQRCodeHandlerType.ETHEREUM);
 
     await expect(
       parseOnChainAmount(
@@ -113,6 +118,17 @@ describe('parseOnChainAmount', () => {
     ).resolves.toBe('');
   });
 
+  it('keeps value handling when token isNative is unknown', async () => {
+    await expect(
+      parseOnChainAmount(
+        createEthereumValue({
+          value: '999000000',
+        }),
+        createToken(undefined),
+      ),
+    ).resolves.toBe('999');
+  });
+
   it('keeps value handling for native EIP-681 transfers', async () => {
     await expect(
       parseOnChainAmount(
@@ -122,5 +138,16 @@ describe('parseOnChainAmount', () => {
         createToken(true),
       ),
     ).resolves.toBe('1');
+  });
+
+  it('does not use uint256 as a native token amount', async () => {
+    await expect(
+      parseOnChainAmount(
+        createEthereumValue({
+          uint256: '1000000000000000000',
+        }),
+        createToken(true),
+      ),
+    ).resolves.toBe('');
   });
 });
