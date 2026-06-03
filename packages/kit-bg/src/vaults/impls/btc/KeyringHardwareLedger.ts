@@ -30,6 +30,7 @@ import {
 import {
   callLedgerWithFingerprint,
   ensureLedgerChainFingerprint,
+  ledgerCommonCallParamsForCreateScene,
 } from '../../base/ledgerFingerprintUtils';
 
 import { KeyringHardwareBtcBase } from './KeyringHardwareBtcBase';
@@ -93,10 +94,16 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
             dbDevice,
             'btc',
             (deviceId) =>
-              adapter.hw.btcGetPublicKey(dbDevice.connectId, deviceId, {
-                path: accountPath,
-                showOnDevice: params.isVerifyAddressAction ?? false,
-              }),
+              adapter.hw.btcGetPublicKey(
+                dbDevice.connectId,
+                deviceId,
+                {
+                  path: accountPath,
+                  showOnDevice: params.isVerifyAddressAction ?? false,
+                },
+                // per-call HW options derived from the account-creation scene
+                ledgerCommonCallParamsForCreateScene(params),
+              ),
           );
 
           if (!pubKeyResult.success) {

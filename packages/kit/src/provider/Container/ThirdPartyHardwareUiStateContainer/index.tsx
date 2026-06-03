@@ -1,14 +1,17 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core';
 import { type IntlShape, useIntl } from 'react-intl';
 
 import {
+  Button,
   Dialog,
   DialogContainer,
   Icon,
   IconButton,
   LottieView,
   Portal,
+  Progress,
   SizableText,
   Stack,
   XStack,
@@ -21,7 +24,9 @@ import type { IThirdPartyHardwareUiState } from '@onekeyhq/kit-bg/src/states/jot
 import {
   EThirdPartyHardwareUiAction,
   isThirdPartyToastAction,
+  thirdPartyAppInstallAtom,
   thirdPartyHardwareUiStateAtom,
+  useThirdPartyAppInstallAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
@@ -40,6 +45,7 @@ import {
 } from '../../../components/Hardware/HardwareDialog';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
+import { showLedgerInstallCoreAppsDialog } from './LedgerInstallCoreAppsDialog';
 import {
   buildThirdPartyHardwareUiResponse,
   cancelThirdPartyHardwareUiRequest,
@@ -47,6 +53,9 @@ import {
 
 const AUTO_CLOSED_FLAG = 'autoClosed';
 const SHOW_CLOSE_BUTTON_DELAY = 8000;
+// Install legitimately takes time; only reveal the in-progress cancel
+// escape-hatch after a long delay (the confirm step is always cancelable).
+const INSTALL_CANCEL_DELAY = 60_000;
 const TOAST_VIEWPORT_NAME = 'THIRD_PARTY_HW_TOAST';
 
 function OpenBleSettingsDialogRender({ ref }: { ref: any }) {
@@ -55,6 +64,147 @@ function OpenBleSettingsDialogRender({ ref }: { ref: any }) {
 
 function RequireBlePermissionDialogRender({ ref }: { ref: any }) {
   return <RequireBlePermissionDialog ref={ref} />;
+}
+
+// Install dialog content, driven by the install atom (no progress = confirm,
+// progress = installing). Rendered via Dialog.show renderContent so it coexists
+// with device-prompt toasts.
+function InstallAppDialogContent() {
+  const intl = useIntl();
+  const [state] = useThirdPartyAppInstallAtom();
+  const appName = state?.appName ?? '';
+  const vendor = state?.vendor;
+  const progress = state?.progress;
+  const installing = progress !== undefined;
+
+  // Reveal the in-progress cancel escape-hatch only after INSTALL_CANCEL_DELAY.
+  const [showInstallCancel, setShowInstallCancel] = useState(false);
+  useEffect(() => {
+    if (!installing) {
+      setShowInstallCancel(false);
+      return undefined;
+    }
+    const timer = setTimeout(
+      () => setShowInstallCancel(true),
+      INSTALL_CANCEL_DELAY,
+    );
+    return () => clearTimeout(timer);
+  }, [installing]);
+
+  const sendResponse = useCallback(
+    async (confirmed: boolean) => {
+      if (!vendor) return;
+      await backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse({
+        vendor,
+        response: {
+          type: UI_RESPONSE.RECEIVE_INSTALL_APP,
+          payload: { confirmed },
+        },
+      });
+    },
+    [vendor],
+  );
+
+  // Confirm step: decline the install (SDK resolves the request as not-confirmed).
+  const onCancel = useCallback(async () => {
+    try {
+      await sendResponse(false);
+    } finally {
+      await thirdPartyAppInstallAtom.set(undefined);
+    }
+  }, [sendResponse]);
+
+  // In-progress escape-hatch: abort the running install on the device.
+  const onAbortInstall = useCallback(async () => {
+    try {
+      if (vendor) {
+        await backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel({
+          vendor,
+        });
+      }
+    } finally {
+      await thirdPartyAppInstallAtom.set(undefined);
+    }
+  }, [vendor]);
+
+  // Atom cleared while the dialog is still closing → render nothing so we don't
+  // flash an empty-name confirm. (After all hooks, per rules-of-hooks.)
+  if (!appName) {
+    return null;
+  }
+
+  const percent = Math.round((progress ?? 0) * 100);
+  // At 100% the device is still finalizing (SDK streams 100% during the
+  // post-install dashboard step); show "Processing" until CLOSE_UI_WINDOW.
+  const finalizing = installing && percent >= 100;
+
+  return (
+    <YStack gap="$5" pt="$2">
+      {/* title/desc in content (not Dialog title) so they track the atom on reuse */}
+      <YStack gap="$1.5">
+        <SizableText size="$headingMd">
+          {intl.formatMessage(
+            {
+              id: installing
+                ? ETranslations.hardware_third_party_install_app_in_progress__title
+                : ETranslations.hardware_third_party_install_app__title,
+            },
+            { appName },
+          )}
+        </SizableText>
+        <SizableText size="$bodyLg" color="$textSubdued">
+          {!installing
+            ? intl.formatMessage(
+                { id: ETranslations.hardware_third_party_install_app__desc },
+                { appName },
+              )
+            : intl.formatMessage({
+                id: finalizing
+                  ? ETranslations.global_processing
+                  : ETranslations.global_confirm_on_device,
+              })}
+        </SizableText>
+      </YStack>
+      {installing ? (
+        <YStack gap="$4">
+          <YStack gap="$2">
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMdMedium">{appName}</SizableText>
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                {`${percent}%`}
+              </SizableText>
+            </XStack>
+            <Progress animated value={percent} w="100%" />
+          </YStack>
+          {/* After the delay, reveal the escape hatch even when finalizing —
+              stuck at "Processing" is exactly when the user needs to abort. */}
+          {showInstallCancel ? (
+            <XStack justifyContent="flex-end">
+              <Button
+                testID="third-party-hw-install-abort-btn"
+                onPress={onAbortInstall}
+              >
+                {intl.formatMessage({ id: ETranslations.global_cancel })}
+              </Button>
+            </XStack>
+          ) : null}
+        </YStack>
+      ) : (
+        <XStack gap="$3" justifyContent="flex-end">
+          <Button testID="third-party-hw-install-cancel-btn" onPress={onCancel}>
+            {intl.formatMessage({ id: ETranslations.global_cancel })}
+          </Button>
+          <Button
+            testID="third-party-hw-install-confirm-btn"
+            variant="primary"
+            onPress={() => void sendResponse(true)}
+          >
+            {intl.formatMessage({ id: ETranslations.global_install })}
+          </Button>
+        </XStack>
+      )}
+    </YStack>
+  );
 }
 
 function getDeviceLabel(vendor: string | undefined): string {
@@ -225,11 +375,6 @@ function getDialogContent(
   }
 }
 
-const REQUEST_ACTIONS = new Set([
-  EThirdPartyHardwareUiAction.requestDeviceNotFound,
-  EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm,
-]);
-
 function ThirdPartyHardwareUiStateContainerCmp() {
   const intl = useIntl();
   const [uiState] = useThirdPartyHardwareUiStateAtom();
@@ -238,7 +383,69 @@ function ThirdPartyHardwareUiStateContainerCmp() {
 
   const dialogInstanceRef = useRef<IDialogInstance | null>(null);
   const permissionDialogInstanceRef = useRef<IDialogInstance | null>(null);
+  const installDialogInstanceRef = useRef<IDialogInstance | null>(null);
+  // Deferred-close timer so a rapid next-chain request reuses the same dialog.
+  const installCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const toastInstanceRef = useRef<IShowToasterInstance | null>(null);
+
+  const [appInstallState] = useThirdPartyAppInstallAtom();
+
+  // Open/close the install dialog as the atom appears/clears; reuse + deferred
+  // close keep a single dialog across chains (no overlap). Content reads the atom.
+  useEffect(() => {
+    if (appInstallState) {
+      // reuse the open dialog; cancel any pending close
+      if (installCloseTimerRef.current) {
+        clearTimeout(installCloseTimerRef.current);
+        installCloseTimerRef.current = null;
+      }
+      if (!installDialogInstanceRef.current) {
+        const instance = Dialog.show({
+          icon: 'DownloadOutline',
+          renderContent: <InstallAppDialogContent />,
+          showFooter: false,
+          dismissOnOverlayPress: false,
+          disableDrag: true,
+          // No chrome dismiss (header X / Android back): those bypass the
+          // SDK response and hang it. All exits are in-content, state-aware:
+          // confirm → Cancel (sends decline); installing → abort after delay.
+          showExitButton: false,
+          disableSystemClose: true,
+          // stale onClose (fires after close animation) may run once the ref
+          // moved on — only null if it still points to this instance
+          onClose: async () => {
+            if (installDialogInstanceRef.current === instance) {
+              installDialogInstanceRef.current = null;
+            }
+          },
+        });
+        installDialogInstanceRef.current = instance;
+      }
+    } else if (
+      installDialogInstanceRef.current &&
+      !installCloseTimerRef.current
+    ) {
+      // defer close so a rapid next-chain request reuses this dialog
+      installCloseTimerRef.current = setTimeout(() => {
+        installCloseTimerRef.current = null;
+        void installDialogInstanceRef.current?.close();
+        installDialogInstanceRef.current = null;
+      }, 250);
+    }
+  }, [appInstallState]);
+
+  // Clear the deferred-close timer on unmount.
+  useEffect(
+    () => () => {
+      if (installCloseTimerRef.current) {
+        clearTimeout(installCloseTimerRef.current);
+        installCloseTimerRef.current = null;
+      }
+    },
+    [],
+  );
 
   const isToastAction = isThirdPartyToastAction(uiState?.action);
   const isDialogAction = !!uiState && !isToastAction;
@@ -309,6 +516,18 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     };
   }, [handlePermissionDialogClose]);
 
+  // Bare-device core-app install dialog, triggered from the account-selector
+  // state layer via event bus (keeps that layer decoupled from this UI).
+  useEffect(() => {
+    const callback = ({ walletId }: { walletId: string }) => {
+      void showLedgerInstallCoreAppsDialog({ walletId });
+    };
+    appEventBus.on(EAppEventBusNames.ShowLedgerInstallCoreApps, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ShowLedgerInstallCoreApps, callback);
+    };
+  }, []);
+
   const handleUserCancel = useCallback(
     async (close: () => Promise<void>) => {
       await cancelThirdPartyHardwareUiRequest({
@@ -361,9 +580,9 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   }, [uiState, isToastAction, intl]);
 
   const showFooter = useMemo(() => {
-    if (!uiState) return false;
-    return REQUEST_ACTIONS.has(uiState.action);
-  }, [uiState]);
+    if (!uiState || isToastAction) return false;
+    return getDialogContent(uiState, intl).showFooter;
+  }, [uiState, isToastAction, intl]);
 
   const handleToastUserClose = useCallback(async () => {
     const vendor = uiStateRef.current?.vendor;
