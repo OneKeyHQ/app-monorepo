@@ -286,11 +286,12 @@ const PreSwapDialogContent = ({
       const approveTxIdFromNotification = approveTransaction.txId ?? '';
       const trackedApproveTxId =
         approveTxIdFromNotification || latestApproveTxIdRef.current || '';
+      const isResetApproveTransaction = approveTransaction.amount === '0';
       const isFallbackTrackedApproveTxId =
         !approveTxIdFromNotification && !!trackedApproveTxId;
       const approveStatusKey = `${trackedApproveTxId || 'no-tx'}:${
-        approveTransaction.status
-      }`;
+        isResetApproveTransaction ? 'reset' : 'approve'
+      }:${approveTransaction.status}`;
       if (handledApproveStatusRef.current === approveStatusKey) {
         return;
       }
@@ -303,7 +304,11 @@ const PreSwapDialogContent = ({
 
       const currentSwapSteps = swapStepsRef.current;
       const stepIndex = currentSwapSteps.steps.findIndex((step) => {
-        if (trackedApproveTxId && step.txHash === trackedApproveTxId) {
+        if (
+          trackedApproveTxId &&
+          step.txHash === trackedApproveTxId &&
+          Boolean(step.isResetApprove) === isResetApproveTransaction
+        ) {
           return (
             !isFallbackTrackedApproveTxId ||
             step.status === ESwapStepStatus.PENDING
@@ -312,6 +317,7 @@ const PreSwapDialogContent = ({
         return (
           step.type === ESwapStepType.APPROVE_TX &&
           step.status === ESwapStepStatus.PENDING &&
+          Boolean(step.isResetApprove) === isResetApproveTransaction &&
           (!step.txHash || step.txHash === trackedApproveTxId)
         );
       });
@@ -328,7 +334,7 @@ const PreSwapDialogContent = ({
       updatedSteps[stepIndex] = {
         ...updatedSteps[stepIndex],
         status: approveStepStatus,
-        txHash: trackedApproveTxId || updatedSteps[stepIndex].txHash,
+        txHash: approveTxIdFromNotification || updatedSteps[stepIndex].txHash,
         stepSubTitle: undefined,
       };
 
