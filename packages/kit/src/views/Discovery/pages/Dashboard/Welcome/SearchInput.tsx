@@ -14,13 +14,12 @@ import {
 } from '@onekeyhq/components';
 import type { IScrollViewRef } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
-  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
@@ -32,6 +31,7 @@ import {
   useSearchPopoverShortcutsFeatureFlag,
   useSearchPopoverUIFeatureFlag,
 } from '../../../hooks/useSearchPopoverFeatureFlag';
+import { useActiveTabId, useWebTabs } from '../../../hooks/useWebTabs';
 import { DiscoveryTestIDs } from '../../../testIDs';
 
 import { KeyboardShortcutKey } from './KeyboardShortcutKey';
@@ -40,7 +40,7 @@ import { SearchPopover } from './SearchPopover';
 import type { ISearchResultContentRef } from '../../../components/SearchResultContent';
 import type { TextInput } from 'react-native';
 
-export function SearchInput() {
+export function SearchInput({ tabId }: { tabId?: string }) {
   const searchPopoverShortcutsFeatureFlag =
     useSearchPopoverShortcutsFeatureFlag();
   const searchPopoverUIFeatureFlag = useSearchPopoverUIFeatureFlag();
@@ -49,11 +49,31 @@ export function SearchInput() {
   const searchResultRef = useRef<ISearchResultContentRef>(null);
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const inputRef = useRef<TextInput>(null);
+  const focusTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   const navigation = useAppNavigation();
+  const isRouteFocused = useRouteIsFocused();
+  const { activeTabId } = useActiveTabId();
+  const { tabs } = useWebTabs();
+  const canAutoFocus =
+    platformEnv.isDesktop &&
+    isRouteFocused &&
+    (!tabId || activeTabId === tabId);
+  const canAutoFocusRef = useRef(canAutoFocus);
+  canAutoFocusRef.current = canAutoFocus;
 
   const focusInputWithDelay = useCallback(() => {
-    setTimeout(() => {
-      inputRef.current?.focus();
+    if (!platformEnv.isDesktop) {
+      return;
+    }
+    if (focusTimerRef.current) {
+      clearTimeout(focusTimerRef.current);
+    }
+    focusTimerRef.current = setTimeout(() => {
+      if (canAutoFocusRef.current) {
+        inputRef.current?.focus();
+      }
     }, 200);
   }, []);
 
@@ -97,14 +117,25 @@ export function SearchInput() {
   });
 
   useEffect(() => {
-    if (platformEnv.isDesktop) {
+    if (canAutoFocus) {
       focusInputWithDelay();
     }
-  }, [focusInputWithDelay]);
+  }, [canAutoFocus, focusInputWithDelay]);
 
-  useListenTabFocusState(ETabRoutes.Discovery, () => {
-    focusInputWithDelay();
-  });
+  useEffect(() => {
+    if (canAutoFocus) {
+      focusInputWithDelay();
+    }
+  }, [canAutoFocus, focusInputWithDelay, tabs.length]);
+
+  useEffect(
+    () => () => {
+      if (focusTimerRef.current) {
+        clearTimeout(focusTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const handleInputChange = useCallback(
     (text: string) => {
