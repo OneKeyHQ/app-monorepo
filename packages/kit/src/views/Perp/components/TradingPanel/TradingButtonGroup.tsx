@@ -786,7 +786,9 @@ function SideButtonInternal({
           averageSliceNotional.lt(SCALE_ORDER_MIN_NOTIONAL)
         ) {
           Toast.message({
-            title: 'TWAP order size is too small for this duration',
+            title: intl.formatMessage({
+              id: ETranslations.perp_twap_small_slice__msg,
+            }),
           });
           return false;
         }
@@ -946,10 +948,19 @@ function SideButtonInternal({
         }
         const latestPerpsAccountStatus =
           (await perpsActiveAccountStatusAtom.get()) ?? perpsAccountStatus;
-        if (
-          getEnableTradingDialogConfirmDecision(latestPerpsAccountStatus) ===
-          'deposit'
-        ) {
+        if (shouldIgnoreResult()) {
+          return stopResult;
+        }
+        const confirmDecision = getEnableTradingDialogConfirmDecision(
+          latestPerpsAccountStatus,
+        );
+        if (confirmDecision === 'continue') {
+          return {
+            shouldContinue: true,
+            status: latestPerpsAccountStatus,
+          };
+        }
+        if (confirmDecision === 'deposit') {
           beforeDeposit?.();
           await showDepositWithdrawModal('deposit');
           return stopResult;

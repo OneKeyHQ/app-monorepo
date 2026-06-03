@@ -77,9 +77,11 @@ function renderEnableTradingSummaryUnderline(chunks: ReactNode) {
 
 function EnableTradingStepsContent({
   initialAccountStatus,
+  onOpenGuide,
   onConfirm,
 }: {
   initialAccountStatus: IPerpsActiveAccountStatusAtom;
+  onOpenGuide: () => void;
   onConfirm: () => Promise<void>;
 }) {
   const intl = useIntl();
@@ -151,15 +153,7 @@ function EnableTradingStepsContent({
         <XStack
           gap="$1"
           alignItems="center"
-          onPress={() => {
-            setTimeout(() => {
-              openGuideUrl(
-                buildHelpUrl(
-                  `articles/${CONTEXTUAL_ARTICLE_IDS.enableTrading}`,
-                ),
-              );
-            }, 150);
-          }}
+          onPress={onOpenGuide}
           cursor="default"
         >
           <Icon name="QuestionmarkOutline" size="$3.5" color="$iconSubdued" />
@@ -260,6 +254,16 @@ export function showEnableTradingStepsDialog({
           <EnableTradingStepsHeader initialAccountStatus={accountStatus} />
           <EnableTradingStepsContent
             initialAccountStatus={accountStatus}
+            onOpenGuide={() => {
+              void dialogInstance.close();
+              setTimeout(() => {
+                openGuideUrl(
+                  buildHelpUrl(
+                    `articles/${CONTEXTUAL_ARTICLE_IDS.enableTrading}`,
+                  ),
+                );
+              }, 150);
+            }}
             onConfirm={async () => {
               const closeDialog = () => {
                 void dialogInstance.close();
@@ -277,7 +281,10 @@ export function showEnableTradingStepsDialog({
               if (result) {
                 settle(result);
                 closeDialog();
+                return;
               }
+              settle(undefined);
+              closeDialog();
             }}
           />
         </>
