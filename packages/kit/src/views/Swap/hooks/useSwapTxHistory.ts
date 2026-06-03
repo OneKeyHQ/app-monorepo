@@ -40,6 +40,7 @@ export function useSwapTxHistoryActions() {
       if (
         swapTxInfo &&
         (swapTxInfo.protocol === EProtocolOfExchange.SWAP ||
+          swapTxInfo.protocol === EProtocolOfExchange.PRIVATE_SEND ||
           swapTxInfo.swapBuildResData.result.isWrapped)
       ) {
         const useOrderId = Boolean(
@@ -49,6 +50,7 @@ export function useSwapTxHistoryActions() {
           swapTxInfo.swapBuildResData.ctx?.oneInchFusionOrderHash,
         );
         const swapHistoryItem: ISwapTxHistory = {
+          protocol: swapTxInfo.protocol,
           status: ESwapTxHistoryStatus.PENDING,
           currency: settingsAtom.currencyInfo?.symbol,
           accountInfo: {
@@ -116,10 +118,12 @@ export function useSwapTxHistoryActions() {
         await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
           swapHistoryItem,
         );
-        // Record SWAP task completion for rookie guide
-        void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
-          ERookieTaskType.SWAP,
-        );
+        if (swapTxInfo.protocol === EProtocolOfExchange.SWAP) {
+          // Record SWAP task completion for rookie guide
+          void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
+            ERookieTaskType.SWAP,
+          );
+        }
       }
     },
     [settingsAtom.currencyInfo.symbol, swapNetworks],

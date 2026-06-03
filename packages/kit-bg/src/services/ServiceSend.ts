@@ -42,6 +42,7 @@ import type {
   ISendSelectedFeeInfo,
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { IParseTransactionResp } from '@onekeyhq/shared/types/signatureConfirm';
@@ -185,6 +186,7 @@ class ServiceSend extends ServiceBase {
       rawTxType,
       tronResourceRentalInfo,
       gasAccountUiState,
+      isPrivateSend,
       useDefaultRpc,
     } = params;
 
@@ -237,6 +239,7 @@ class ServiceSend extends ServiceBase {
         disableBroadcast,
         disableAntiMev: signedTx.disableMev,
         hasEnergyRented,
+        ...(isPrivateSend ? { isPrivateSend } : {}),
         ...(gasAccountUiState?.selectedPayer === 'gasAccount' &&
         gasAccountUiState.gasAccountQuote?.quoteId
           ? {
@@ -352,6 +355,7 @@ class ServiceSend extends ServiceBase {
       ISignTransactionParamsBase & {
         gasAccountUiState?: IBatchSignTransactionParamsBase['gasAccountUiState'];
         gasAccountSubmitId?: IBatchSignTransactionParamsBase['gasAccountSubmitId'];
+        isPrivateSend?: boolean;
       },
   ) {
     const {
@@ -363,6 +367,7 @@ class ServiceSend extends ServiceBase {
       tronResourceRentalInfo,
       gasAccountUiState,
       gasAccountSubmitId,
+      isPrivateSend,
       useDefaultRpc,
     } = params;
 
@@ -408,6 +413,7 @@ class ServiceSend extends ServiceBase {
           rawTxType,
           tronResourceRentalInfo,
           gasAccountUiState,
+          isPrivateSend,
           useDefaultRpc,
         });
       };
@@ -608,22 +614,20 @@ class ServiceSend extends ServiceBase {
     } = params;
 
     const isMultiTxs = unsignedTxs.length > 1;
+    const isPrivateSend = transferPayload?.isPrivateSend === true;
     const vault = await vaultFactory.getVault({ networkId, accountId });
 
     // A Gas Account quote is bound to a single user tx (payloadHash + locked
-    // nonce). In batch flows (approve+swap, bulk send, multi-staking) every
-    // iteration would otherwise reuse the same quoteId/idempotencyKey and
-    // bounce off the server's single-use enforcement (40203 QUOTE_ALREADY_USED).
-    // Until per-tx quoting is supported, skip sponsor attachment in batches.
-    const effectiveGasAccountUiState = isMultiTxs
-      ? undefined
-      : gasAccountUiState;
+    // nonce). In batch flows every iteration would otherwise reuse the same
+    // quoteId/idempotencyKey. Private Send is also explicitly excluded from
+    // Gas Account, so sponsor state must not be threaded into submit.
+    const effectiveGasAccountUiState =
+      isMultiTxs || isPrivateSend ? undefined : gasAccountUiState;
     // Only thread the submitId through when we're actually going to engage the
     // retry loop, to avoid registering a controller for paths that will never
     // abort it.
-    const effectiveGasAccountSubmitId = isMultiTxs
-      ? undefined
-      : gasAccountSubmitId;
+    const effectiveGasAccountSubmitId =
+      isMultiTxs || isPrivateSend ? undefined : gasAccountSubmitId;
 
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
@@ -652,6 +656,7 @@ class ServiceSend extends ServiceBase {
               tronResourceRentalInfo,
               gasAccountUiState: effectiveGasAccountUiState,
               gasAccountSubmitId: effectiveGasAccountSubmitId,
+              isPrivateSend,
               useDefaultRpc,
             });
         const decodedTx = await this.buildDecodedTx({
@@ -662,6 +667,41 @@ class ServiceSend extends ServiceBase {
           transferPayload,
           saveToLocalHistory: true,
         });
+        if (isPrivateSend) {
+          decodedTx.payload = {
+            value:
+              transferPayload?.amountToSend ?? decodedTx.payload?.value ?? '',
+            label:
+              decodedTx.payload?.label ?? EOnChainHistoryTxType.PrivateSend,
+            type: EOnChainHistoryTxType.PrivateSend,
+            privateSend: {
+              ...transferPayload?.privateSend,
+              originalRecipient: transferPayload?.originalRecipient,
+            },
+          };
+          decodedTx.actions = decodedTx.actions.map((action) =>
+            action.assetTransfer
+              ? {
+                  ...action,
+                  assetTransfer: {
+                    ...action.assetTransfer,
+                    isInternalSwap: false,
+                  },
+                }
+              : action,
+          );
+          decodedTx.outputActions = decodedTx.outputActions?.map((action) =>
+            action.assetTransfer
+              ? {
+                  ...action,
+                  assetTransfer: {
+                    ...action.assetTransfer,
+                    isInternalSwap: false,
+                  },
+                }
+              : action,
+          );
+        }
 
         const data = {
           signedTx,
