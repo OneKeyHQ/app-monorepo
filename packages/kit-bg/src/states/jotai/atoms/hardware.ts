@@ -204,6 +204,25 @@ export const {
   name: EAtomNames.thirdPartyHardwareUiStateAtom,
 });
 
+// Dedicated state for the in-flight app-install dialog (autoInstallApp).
+// Kept separate from the single-slot ui-state atom so the install dialog
+// (shown imperatively, like the BLE permission dialog) coexists with device
+// prompt toasts without fighting for the slot. `progress` undefined = still
+// awaiting the user's install confirmation; a number (0..1) = installing.
+export type IThirdPartyAppInstallState = {
+  vendor: EHardwareVendor;
+  appName: string;
+  progress?: number;
+};
+
+export const {
+  target: thirdPartyAppInstallAtom,
+  use: useThirdPartyAppInstallAtom,
+} = globalAtom<IThirdPartyAppInstallState | undefined>({
+  initialValue: undefined,
+  name: EAtomNames.thirdPartyAppInstallAtom,
+});
+
 // firmware update ----------------------------------------------
 
 export const {

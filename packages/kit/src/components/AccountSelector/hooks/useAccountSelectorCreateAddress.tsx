@@ -22,24 +22,17 @@ import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appCo
 import { OneKeyErrorAirGapAccountNotFound } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { classifyThirdPartyHwCreateFailures } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import { TutorialsList } from '../../TutorialsList';
 
-import {
-  findLedgerAppNotInstalledFailures,
-  getLedgerAppNotInstalledInfoFromError,
-} from './ledgerAppInstallUtils';
 import { useCreateQrWallet } from './useCreateQrWallet';
 
 export function useAccountSelectorCreateAddress() {
@@ -56,7 +49,6 @@ export function useAccountSelectorCreateAddress() {
       account,
       createAllDeriveTypes,
       customNetworks,
-      notifyLedgerAppInstallRequired = true,
     }: {
       num: number;
       selectAfterCreate?: boolean;
@@ -71,7 +63,6 @@ export function useAccountSelectorCreateAddress() {
         networkId: string;
         deriveType: IAccountDeriveTypes;
       }[];
-      notifyLedgerAppInstallRequired?: boolean;
     }) => {
       if (
         !account ||
@@ -106,30 +97,6 @@ export function useAccountSelectorCreateAddress() {
           walletDevice?.usbConnectId ||
           walletDevice?.bleConnectId;
       }
-
-      const requestLedgerAppInstall = ({
-        appName,
-        source,
-      }: {
-        appName: string;
-        source: 'batchCreateAccount' | 'createAccount';
-      }) => {
-        if (
-          !notifyLedgerAppInstallRequired ||
-          (walletDevice?.vendor ?? walletDevice?.settings?.vendor) !==
-            EHardwareVendor.ledger
-        ) {
-          return false;
-        }
-        appEventBus.emit(EAppEventBusNames.ThirdPartyHardwareRecoveryAction, {
-          type: 'ledger_app_install_required',
-          vendor: EHardwareVendor.ledger,
-          connectId: connectId ?? '',
-          appName,
-          source,
-        });
-        return true;
-      };
 
       const handleAddAccounts = async (
         result:
@@ -193,29 +160,29 @@ export function useAccountSelectorCreateAddress() {
           result?.failedAccounts?.length &&
           !accountUtils.isQrWallet({ walletId: account.walletId })
         ) {
-          const ledgerAppFailures = findLedgerAppNotInstalledFailures(
-            result.failedAccounts,
-          );
-          const ledgerAppInstallDialogEmitted = ledgerAppFailures.length
-            ? ledgerAppFailures.every((ledgerAppFailure) =>
-                requestLedgerAppInstall({
-                  ...ledgerAppFailure,
-                  source: 'batchCreateAccount',
-                }),
-              )
+          let failedList = result.failedAccounts;
+          // 3rd-party HW: only report missing-app when zero chains succeeded;
+          // otherwise drop AppNotInstalled and surface only genuine errors.
+          const walletId = account.walletId;
+          const isThirdPartyHw = walletId
+            ? await serviceAccount.isThirdPartyHwByWalletId({ walletId })
             : false;
-          // Suppress AppNotInstalled toasts whenever the install dialog was
-          // emitted OR the caller explicitly asked not to be notified
-          // (e.g. silent auto-create paths).
-          const shouldHideAppNotInstalledToast =
-            ledgerAppInstallDialogEmitted || !notifyLedgerAppInstallRequired;
-          const failedAccountsForToast = shouldHideAppNotInstalledToast
-            ? result.failedAccounts.filter(
-                (failedAccount) =>
-                  !getLedgerAppNotInstalledInfoFromError(failedAccount.error),
-              )
-            : result.failedAccounts;
-          for (const failedAccount of failedAccountsForToast) {
+          if (isThirdPartyHw) {
+            const { allAppNotInstalled, genuineFailures } =
+              classifyThirdPartyHwCreateFailures({
+                addedCount: result.addedAccounts.length,
+                failedAccounts: failedList,
+              });
+            if (allAppNotInstalled) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.hardware_third_party_no_app_installed_on_device,
+                }),
+              });
+            }
+            failedList = genuineFailures;
+          }
+          for (const failedAccount of failedList) {
             Toast.error({
               title: failedAccount.error.message || 'Unknown error',
             });
@@ -277,17 +244,6 @@ export function useAccountSelectorCreateAddress() {
       try {
         return await addAccounts();
       } catch (error1) {
-        const ledgerAppInfo = getLedgerAppNotInstalledInfoFromError(error1);
-        if (ledgerAppInfo) {
-          const isHandled = requestLedgerAppInstall({
-            ...ledgerAppInfo,
-            source: 'createAccount',
-          });
-          if (isHandled) {
-            errorToastUtils.toastIfErrorDisable(error1);
-            return undefined;
-          }
-        }
         if (isAirGapAccountNotFound(error1)) {
           let indexedAccountId = account.indexedAccountId;
           if (!indexedAccountId) {
