@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import {
@@ -11,6 +11,7 @@ import {
 } from './AnimatedDepthBlock.shared';
 
 import type {
+  IDepthBarColumnProps,
   IDepthBarProps,
   ISideRatioSegmentsProps,
 } from './AnimatedDepthBlock.shared';
@@ -46,6 +47,7 @@ const styles = StyleSheet.create({
 });
 
 export function DepthBar({
+  animated = true,
   color,
   width,
   left,
@@ -59,7 +61,7 @@ export function DepthBar({
     backgroundColor: color,
     transform: [{ scaleX: scale }] as ViewStyle['transform'],
     transformOrigin: origin === 'right' ? 'right center' : 'left center',
-    transition: reducedMotion ? 'none' : DEPTH_BAR_TRANSITION,
+    transition: !animated || reducedMotion ? 'none' : DEPTH_BAR_TRANSITION,
   };
   return (
     <View
@@ -77,7 +79,53 @@ export function DepthBar({
   );
 }
 
+/**
+ * Web/desktop variant of the per-side depth column. Renders one CSS `DepthBar`
+ * per row so the visual output matches the legacy per-row implementation. The
+ * native variant collapses these into a single `PerpDepthBarsView`; `epoch` is
+ * only meaningful there (snap-without-animate), so it is ignored here.
+ */
+export function DepthBarColumn({
+  animated = true,
+  percents,
+  rowHeight,
+  rowMarginTop,
+  barInset,
+  color,
+  origin = 'left',
+  onRowPress,
+}: IDepthBarColumnProps) {
+  const barHeight = rowHeight - 2 * barInset;
+  return (
+    <>
+      {percents.map((percent, index) => (
+        <Pressable
+          // eslint-disable-next-line react/no-array-index-key
+          key={index}
+          disabled={!onRowPress}
+          onPress={() => onRowPress?.(index)}
+          style={{
+            cursor: onRowPress ? 'pointer' : undefined,
+            height: rowHeight,
+            marginTop: rowMarginTop,
+            position: 'relative',
+          }}
+        >
+          <DepthBar
+            animated={animated}
+            color={color}
+            origin={origin}
+            width={`${percent}%`}
+            height={barHeight}
+          />
+        </Pressable>
+      ))}
+    </>
+  );
+}
+
 export function SideRatioSegments({
+  animated = true,
   bidPercentage,
   askPercentage,
   longColor,
@@ -87,7 +135,8 @@ export function SideRatioSegments({
   endSegmentStyle,
 }: ISideRatioSegmentsProps) {
   const reducedMotion = useReducedMotion();
-  const transition: string = reducedMotion ? 'none' : SIDE_RATIO_TRANSITION;
+  const transition: string =
+    !animated || reducedMotion ? 'none' : SIDE_RATIO_TRANSITION;
   const bid = Math.max(bidPercentage, 1);
   const ask = Math.max(askPercentage, 1);
   return (

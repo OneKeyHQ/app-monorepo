@@ -6,8 +6,14 @@ import {
   useActiveTradeInstrumentAtom,
   usePerpsMidByCoin,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
+import {
+  type IPerpsActiveAssetCtxMidPriceSource,
+  usePerpsActiveAssetCtxMidPriceBySource,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSpotActiveAssetCtxMarkPriceAtom,
+  useSpotActiveAssetCtxMidPriceAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 
 export interface IUseTradingPriceReturn {
   midPrice: string | undefined;
@@ -15,13 +21,52 @@ export interface IUseTradingPriceReturn {
   isValid: boolean;
 }
 
-export function useTradingPrice(): IUseTradingPriceReturn {
+interface IUseTradingPriceOptions {
+  source?: IPerpsActiveAssetCtxMidPriceSource;
+}
+
+function buildTradingPriceResult(
+  midPrice: string | undefined,
+): IUseTradingPriceReturn {
+  if (!midPrice) {
+    return {
+      midPrice: undefined,
+      midPriceBN: new BigNumber(0),
+      isValid: false,
+    };
+  }
+
+  const midPriceBN = new BigNumber(midPrice);
+  const isValid = midPriceBN.isFinite() && midPriceBN.gt(0);
+
+  return {
+    midPrice,
+    midPriceBN,
+    isValid,
+  };
+}
+
+export function useTradingPrice({
+  source = 'live',
+}: IUseTradingPriceOptions = {}): IUseTradingPriceReturn {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const activeMidPrice = usePerpsMidByCoin(activeTradeInstrument?.coin ?? '');
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
-  const [activeSpotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const shouldSubscribeLiveMids = source === 'live';
+  const activeMidPrice = usePerpsMidByCoin(
+    shouldSubscribeLiveMids ? (activeTradeInstrument?.coin ?? '') : '',
+  );
+  const activeAssetCtxMidPrice = usePerpsActiveAssetCtxMidPriceBySource(source);
+  const [activeSpotAssetCtxMidPrice] = useSpotActiveAssetCtxMidPriceAtom();
+  const [activeSpotAssetCtxMarkPrice] = useSpotActiveAssetCtxMarkPriceAtom();
 
   const result = useMemo<IUseTradingPriceReturn>(() => {
+    if (source === 'disabled') {
+      return {
+        midPrice: undefined,
+        midPriceBN: new BigNumber(0),
+        isValid: false,
+      };
+    }
+
     const coin = activeTradeInstrument?.coin;
     if (!coin) {
       return {
@@ -33,33 +78,19 @@ export function useTradingPrice(): IUseTradingPriceReturn {
 
     const midPrice =
       activeTradeInstrument.mode === 'spot'
-        ? activeSpotAssetCtx?.ctx?.midPrice ||
-          activeSpotAssetCtx?.ctx?.markPrice ||
+        ? activeSpotAssetCtxMidPrice ||
+          activeSpotAssetCtxMarkPrice ||
           activeMidPrice
-        : activeAssetCtx?.ctx?.midPrice || activeMidPrice;
+        : activeAssetCtxMidPrice || activeMidPrice;
 
-    if (!midPrice) {
-      return {
-        midPrice: undefined,
-        midPriceBN: new BigNumber(0),
-        isValid: false,
-      };
-    }
-
-    const midPriceBN = new BigNumber(midPrice);
-    const isValid = midPriceBN.isFinite() && midPriceBN.gt(0);
-
-    return {
-      midPrice,
-      midPriceBN,
-      isValid,
-    };
+    return buildTradingPriceResult(midPrice);
   }, [
-    activeAssetCtx?.ctx?.midPrice,
-    activeSpotAssetCtx?.ctx?.markPrice,
-    activeSpotAssetCtx?.ctx?.midPrice,
+    activeAssetCtxMidPrice,
+    activeSpotAssetCtxMarkPrice,
+    activeSpotAssetCtxMidPrice,
     activeMidPrice,
     activeTradeInstrument,
+    source,
   ]);
 
   return result;

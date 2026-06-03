@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
+import type { MutableRefObject } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -8,6 +16,7 @@ import {
   Button,
   DashText,
   NumberSizeableText,
+  Popover,
   SizableText,
   Toast,
   Tooltip,
@@ -18,13 +27,20 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
+  type ITradingFormData,
+  type ITradingFormEmptySizeParams,
   useActiveTradeInstrumentAtom,
   usePerpsActivePositionAtom,
   useTradingFormAtom,
+  useTradingFormEmptySizeParams,
+  useTradingFormOrderPriceParams,
+  useTradingFormSide,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   perpsActiveAccountStatusAtom,
+  perpsNetworkStatusAtom,
+  perpsWebSocketReadyStateAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountEnableTradingModeAtom,
@@ -52,7 +68,10 @@ import {
   getSpotTokenDisplayName,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EPerpsSizeInputMode,
+  ETriggerOrderType,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   useOrderConfirmWithMarketDataFreshness,
@@ -63,6 +82,7 @@ import {
   useConfirmHyperliquidTerms,
   useRequestEnableTradingWithDepositFallback,
 } from '../../hooks/useEnableTradingWithDepositFallback';
+import { useLiquidationPrice } from '../../hooks/useLiquidationPrice';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
@@ -78,6 +98,7 @@ import {
 } from '../../utils/mobileLayoutTrace';
 import {
   type IPerpsMarketDataFreshness,
+  getPerpsMarketDataFreshness,
   shouldBlockPerpsTradingForMarketData,
 } from '../../utils/perpsMarketDataFreshness';
 import {
@@ -123,6 +144,11 @@ interface ISideButtonProps {
     | undefined;
 }
 
+const PERPS_WEBSOCKET_OPEN_READY_STATE = 1;
+const noopHandleConfirm: (
+  overrideSide?: 'long' | 'short',
+) => Promise<void> = async () => undefined;
+
 function getPerpsAccountKey(account: {
   accountId?: string | null;
   indexedAccountId?: string | null;
@@ -134,6 +160,64 @@ function getPerpsAccountKey(account: {
   }
   return `${accountId ?? ''}:${account.accountAddress ?? ''}`;
 }
+
+function hasPerpsOrderSizeInput(
+  formData: Pick<ITradingFormData, 'sizeInputMode' | 'size' | 'sizePercent'>,
+) {
+  if (formData.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
+    return (formData.sizePercent ?? 0) > 0;
+  }
+  return Boolean(formData.size?.trim());
+}
+
+function shouldUseEmptySizeTradingButtons(
+  formData: ITradingFormEmptySizeParams,
+) {
+  return (
+    formData.orderMode !== 'trigger' &&
+    !formData.bboPriceMode &&
+    !hasPerpsOrderSizeInput(formData)
+  );
+}
+
+async function getLatestPerpsMarketDataFreshness() {
+  const [networkStatus, readyState] = await Promise.all([
+    perpsNetworkStatusAtom.get(),
+    perpsWebSocketReadyStateAtom.get(),
+  ]);
+
+  return getPerpsMarketDataFreshness({
+    isWebSocketConnected:
+      readyState?.readyState === PERPS_WEBSOCKET_OPEN_READY_STATE,
+    networkConnected: networkStatus?.connected,
+    lastMessageAt: networkStatus?.lastMessageAt ?? null,
+  });
+}
+
+// Est. Liq price isolated into its own leaf: it owns the price-driven
+// `useLiquidationPrice` subscription, so a price tick re-renders ONLY this
+// text node instead of the whole side button. Value is debounced (~10Hz).
+const EstLiqPriceLeaf = memo(({ side }: { side: 'long' | 'short' }) => {
+  const liquidationPrice = useDebounce(useLiquidationPrice(side), 100);
+  if (liquidationPrice) {
+    return (
+      <NumberSizeableText
+        size="$bodySm"
+        color="$text"
+        formatter="price"
+        formatterOptions={{ currency: '$' }}
+      >
+        {liquidationPrice.toNumber()}
+      </NumberSizeableText>
+    );
+  }
+  return (
+    <SizableText size="$bodySm" color="$text">
+      --
+    </SizableText>
+  );
+});
+EstLiqPriceLeaf.displayName = 'EstLiqPriceLeaf';
 
 function SideButtonInternal({
   side,
@@ -214,7 +298,6 @@ function SideButtonInternal({
   const calculations = useTradingCalculationsForSide(side);
   const {
     computedSizeForSide,
-    liquidationPrice: liquidationPriceRaw,
     orderValue,
     marginRequired: marginRequiredRaw,
     isNoEnoughMargin,
@@ -224,7 +307,6 @@ function SideButtonInternal({
   } = calculations;
 
   const marginRequired = useDebounce(marginRequiredRaw, 100);
-  const liquidationPrice = useDebounce(liquidationPriceRaw, 100);
 
   const isMinimumOrderNotMetForSide = useMemo(() => {
     if (
@@ -1019,26 +1101,6 @@ function SideButtonInternal({
     ],
   );
 
-  const renderLiquidationPrice = () => {
-    if (liquidationPrice) {
-      return (
-        <NumberSizeableText
-          size="$bodySm"
-          color="$text"
-          formatter="price"
-          formatterOptions={{ currency: '$' }}
-        >
-          {liquidationPrice.toNumber()}
-        </NumberSizeableText>
-      );
-    }
-    return (
-      <SizableText size="$bodySm" color="$text">
-        --
-      </SizableText>
-    );
-  };
-
   const buttonStyles = useMemo(() => {
     const colors = PERP_TRADE_BUTTON_COLORS;
     const getBgColor = () => {
@@ -1392,7 +1454,7 @@ function SideButtonInternal({
                 })}
               </DashText>
 
-              {renderLiquidationPrice()}
+              <EstLiqPriceLeaf side={side} />
             </XStack>
           </YStack>
         ) : null}
@@ -1529,7 +1591,7 @@ function SideButtonInternal({
               renderTrigger={desktopLiqPriceTooltipTrigger}
             />
 
-            {renderLiquidationPrice()}
+            <EstLiqPriceLeaf side={side} />
           </XStack>
         </YStack>
       ) : null}
@@ -1537,27 +1599,577 @@ function SideButtonInternal({
   );
 }
 
-const SideButton = memo(SideButtonInternal);
+const SideButtonLive = memo(SideButtonInternal);
 
-function TradingButtonGroup({
+function EmptySizeSideButton({
+  side,
+  isMobile,
+  isLiveStatusPending = false,
+  enableTradingModeOverride,
+  justifyContent = 'flex-start',
+}: Omit<ISideButtonProps, 'handleConfirm' | 'marketDataFreshness'>) {
+  const intl = useIntl();
+  const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
+  const themeVariant = useThemeVariant();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const [perpsAccount] = usePerpsActiveAccountAtom();
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
+  const effectiveEnableTradingMode =
+    enableTradingModeOverride ?? enableTradingMode;
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const formData = useTradingFormOrderPriceParams();
+  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [isSubmitting] = useTradingLoadingAtom();
+  const isSpot = tradingMode === 'spot';
+  const isLong = side === 'long';
+  const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
+  const requestEnableTradingWithDepositFallback =
+    useRequestEnableTradingWithDepositFallback();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const perpsAccountKey = useMemo(
+    () => getPerpsAccountKey(perpsAccount),
+    [perpsAccount],
+  );
+  const perpsAccountKeyRef = useRef(perpsAccountKey);
+  perpsAccountKeyRef.current = perpsAccountKey;
+  const isAccountLoading =
+    perpsAccountLoading.enableTradingLoading ||
+    perpsAccountLoading.selectAccountLoading;
+  const shouldAutoEnableTrading =
+    !perpsAccountStatus.canTrade &&
+    effectiveEnableTradingMode.canAutoEnableInOrderPanel;
+  const shouldShowEnableTradingDialog =
+    !perpsAccountStatus.canTrade &&
+    effectiveEnableTradingMode.requiresExplicitEnableTrading;
+  const shouldEnableTradingBeforeOrder =
+    shouldAutoEnableTrading || shouldShowEnableTradingDialog;
+  const isServerActionDisabled = Boolean(
+    perpConfigCommon?.disablePerpActionPerp || perpConfigCommon?.ipDisablePerp,
+  );
+  const hasNonColdStartDisabledReason =
+    isSubmitting ||
+    isServerActionDisabled ||
+    (!shouldEnableTradingBeforeOrder && !perpsAccountStatus.canTrade);
+  const shouldDisableForAccountLoading =
+    shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
+      selectAccountLoading: perpsAccountLoading.selectAccountLoading,
+      enableTradingLoading: perpsAccountLoading.enableTradingLoading,
+      enableTradingTriggered: perpsAccountLoading.enableTradingTriggered,
+      enableTradingStatusPending:
+        perpsAccountLoading.enableTradingStatusPending,
+      isLiveStatusPending,
+    });
+  const shouldPreserveAccountLoadingButtonVisualState =
+    shouldDisableForAccountLoading &&
+    !perpsAccountLoading.enableTradingTriggered &&
+    !hasNonColdStartDisabledReason;
+  const shouldShowButtonLoading =
+    shouldDisableForAccountLoading &&
+    !shouldPreserveAccountLoadingButtonVisualState;
+  const buttonDisabled =
+    isLiveStatusPending ||
+    shouldDisableForAccountLoading ||
+    isSubmitting ||
+    isServerActionDisabled ||
+    (!shouldEnableTradingBeforeOrder && !perpsAccountStatus.canTrade);
+  const shouldPreserveDisabledButtonStyle =
+    shouldPreserveAccountLoadingButtonVisualState ||
+    shouldPreserveColdStartButtonVisualState({
+      isLiveStatusPending,
+      hasNonColdStartDisabledReason,
+    });
+
+  const spotTradeSymbol = useMemo(() => {
+    if (!isSpot || activeTradeInstrument.mode !== 'spot') {
+      return '';
+    }
+    const u = activeTradeInstrument.universe;
+    if (!u) return '';
+    return getSpotTokenDisplayName(u.displayName || u.baseName);
+  }, [activeTradeInstrument, isSpot]);
+
+  const buttonText = useMemo(() => {
+    if (perpConfigCommon?.ipDisablePerp)
+      return intl.formatMessage({
+        id: ETranslations.perp_button_ip_restricted,
+      });
+    if (perpConfigCommon?.disablePerpActionPerp)
+      return intl.formatMessage({
+        id: ETranslations.perp_button_disable_perp,
+      });
+    if (isSpot) {
+      if (!spotTradeSymbol) {
+        return side === 'long'
+          ? intl.formatMessage({
+              id: ETranslations.dexmarket_details_transactions_buy,
+            })
+          : intl.formatMessage({
+              id: ETranslations.dexmarket_details_transactions_sell,
+            });
+      }
+      return side === 'long'
+        ? intl.formatMessage(
+            {
+              id: ETranslations.dexmarket_buy_token_default,
+            },
+            { TokenName: spotTradeSymbol },
+          )
+        : intl.formatMessage(
+            {
+              id: ETranslations.dexmarket_sell_token_default,
+            },
+            { TokenName: spotTradeSymbol },
+          );
+    }
+    return side === 'long'
+      ? intl.formatMessage({ id: ETranslations.perp_trade_long })
+      : intl.formatMessage({ id: ETranslations.perp_trade_short });
+  }, [
+    intl,
+    isSpot,
+    perpConfigCommon?.disablePerpActionPerp,
+    perpConfigCommon?.ipDisablePerp,
+    side,
+    spotTradeSymbol,
+  ]);
+
+  const buttonStyles = useMemo(() => {
+    const colors = PERP_TRADE_BUTTON_COLORS;
+    const getBgColor = () => {
+      if (shouldShowButtonLoading) return undefined;
+      return themeVariant === 'light'
+        ? colors.light[isLong ? 'long' : 'short']
+        : colors.dark[isLong ? 'long' : 'short'];
+    };
+
+    const getHoverBgColor = () => {
+      if (shouldShowButtonLoading) return undefined;
+      return themeVariant === 'light'
+        ? colors.light[isLong ? 'longHover' : 'shortHover']
+        : colors.dark[isLong ? 'longHover' : 'shortHover'];
+    };
+
+    const getPressBgColor = () => {
+      if (shouldShowButtonLoading) return undefined;
+      return themeVariant === 'light'
+        ? colors.light[isLong ? 'longPress' : 'shortPress']
+        : colors.dark[isLong ? 'longPress' : 'shortPress'];
+    };
+
+    return {
+      bg: getBgColor(),
+      hoverBg: getHoverBgColor(),
+      pressBg: getPressBgColor(),
+    };
+  }, [isLong, shouldShowButtonLoading, themeVariant]);
+
+  const requestEmptySizeEnableTrading = useCallback(
+    async ({
+      beforeDeposit,
+      shouldIgnoreResult,
+      showLoadingToast,
+    }: {
+      beforeDeposit?: () => void;
+      shouldIgnoreResult: () => boolean;
+      showLoadingToast: boolean;
+    }): Promise<IEnableTradingWithDepositFallbackResult> => {
+      const stopResult: IEnableTradingWithDepositFallbackResult = {
+        shouldContinue: false,
+        status: undefined,
+      };
+      if (shouldShowEnableTradingDialog) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+        } catch (error) {
+          errorToastUtils.toastIfError(error);
+          return stopResult;
+        }
+        const latestPerpsAccountStatus =
+          (await perpsActiveAccountStatusAtom.get()) ?? perpsAccountStatus;
+        if (shouldIgnoreResult()) {
+          return stopResult;
+        }
+        const confirmDecision = getEnableTradingDialogConfirmDecision(
+          latestPerpsAccountStatus,
+        );
+        if (confirmDecision === 'continue') {
+          return {
+            shouldContinue: true,
+            status: latestPerpsAccountStatus,
+          };
+        }
+        if (confirmDecision === 'deposit') {
+          beforeDeposit?.();
+          await showDepositWithdrawModal('deposit');
+          return stopResult;
+        }
+        const result = await showEnableTradingStepsDialog({
+          accountStatus: latestPerpsAccountStatus,
+          onConfirm: async ({ closeDialog }) => {
+            if (shouldIgnoreResult()) {
+              return stopResult;
+            }
+            const didAcceptTerms = await confirmHyperliquidTerms();
+            if (!didAcceptTerms || shouldIgnoreResult()) {
+              return stopResult;
+            }
+            return requestEnableTradingWithDepositFallback({
+              beforeDeposit: () => {
+                closeDialog();
+                beforeDeposit?.();
+              },
+              shouldIgnoreResult,
+            });
+          },
+        });
+        return result ?? stopResult;
+      }
+
+      const didAcceptTerms = await confirmHyperliquidTerms();
+      if (!didAcceptTerms || shouldIgnoreResult()) {
+        return stopResult;
+      }
+
+      const loadingToast = showLoadingToast
+        ? Toast.loading({
+            title: intl.formatMessage({
+              id: ETranslations.perp_trade_button_enable_trading,
+            }),
+            duration: Infinity,
+          })
+        : undefined;
+      try {
+        return await requestEnableTradingWithDepositFallback({
+          beforeDeposit,
+          shouldIgnoreResult,
+        });
+      } finally {
+        loadingToast?.close();
+      }
+    },
+    [
+      confirmHyperliquidTerms,
+      intl,
+      perpsAccountStatus,
+      requestEnableTradingWithDepositFallback,
+      shouldShowEnableTradingDialog,
+      showDepositWithdrawModal,
+    ],
+  );
+
+  const handlePress = useDebouncedCallback(
+    async (): Promise<void> => {
+      if (!shouldEnableTradingBeforeOrder && !perpsAccountStatus.canTrade) {
+        return;
+      }
+
+      if (shouldEnableTradingBeforeOrder) {
+        const enableTradingAccountKey = perpsAccountKey;
+        const shouldIgnoreEnableTradingResult = () =>
+          Boolean(
+            enableTradingAccountKey &&
+            perpsAccountKeyRef.current !== enableTradingAccountKey,
+          );
+        const result = await requestEmptySizeEnableTrading({
+          shouldIgnoreResult: shouldIgnoreEnableTradingResult,
+          showLoadingToast: shouldAutoEnableTrading,
+        });
+        if (!result?.shouldContinue || shouldIgnoreEnableTradingResult()) {
+          return;
+        }
+      }
+
+      const marketDataFreshness = await getLatestPerpsMarketDataFreshness();
+      const shouldBlockForMarketData =
+        shouldBlockPerpsTradingForMarketData(marketDataFreshness);
+
+      if (shouldBlockForMarketData) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.perp_offline,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.perps_offline_moblie,
+          }),
+        });
+        return;
+      }
+
+      if (
+        formData.type === 'limit' &&
+        (!formData.price || formData.price.trim() === '')
+      ) {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.perp_trade_price_place_holder,
+          }),
+        });
+        return;
+      }
+
+      Toast.message({
+        title: intl.formatMessage(
+          { id: ETranslations.perp_size_least },
+          { amount: '$10' },
+        ),
+      });
+    },
+    1000,
+    {
+      leading: true,
+      trailing: false,
+    },
+  );
+
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      if (!isMobile) {
+        return;
+      }
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
+        tracePerpsMobileLayout('tradingButton.emptySize.layout', {
+          rect,
+          side,
+          isSpot,
+          buttonDisabled,
+          isAccountLoading,
+          isLiveStatusPending,
+        });
+        layoutRef.current = rect;
+      }
+    },
+    [
+      buttonDisabled,
+      isAccountLoading,
+      isLiveStatusPending,
+      isMobile,
+      isSpot,
+      side,
+    ],
+  );
+
+  const button = (
+    <Button
+      testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
+      size="medium"
+      childrenAsText={false}
+      borderRadius="$4"
+      bg={buttonStyles.bg}
+      hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
+      pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
+      disabled={buttonDisabled}
+      disabledStyle={
+        shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
+      }
+      loading={shouldShowButtonLoading || isSubmitting}
+      onPress={handlePress}
+      h={36}
+    >
+      <YStack alignItems="center" gap={2}>
+        <SizableText
+          size="$bodyMdMedium"
+          lineHeight={18}
+          color="$textOnColor"
+          numberOfLines={1}
+        >
+          {buttonText}
+        </SizableText>
+      </YStack>
+    </Button>
+  );
+
+  if (isMobile) {
+    return (
+      <YStack gap="$2" flex={1} onLayout={handleLayout}>
+        {isSpot ? null : (
+          <YStack gap="$1.5">
+            <XStack justifyContent="space-between">
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_trade_margin_required,
+                })}
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashThickness={0.3}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_cost,
+                    })}
+                  </DashText>
+                }
+                renderContent={
+                  <YStack px="$5" pb="$4">
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.perp_trade_margin_tooltip,
+                      })}
+                    </SizableText>
+                  </YStack>
+                }
+              />
+              <NumberSizeableText
+                size="$bodySm"
+                color="$text"
+                formatter="value"
+                formatterOptions={{ currency: '$' }}
+              >
+                {0}
+              </NumberSizeableText>
+            </XStack>
+
+            <XStack justifyContent="space-between">
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_est_liq_price,
+                })}
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashThickness={0.5}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price,
+                    })}
+                  </DashText>
+                }
+                renderContent={
+                  <YStack px="$5" pb="$4">
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.perp_est_liq_price_tooltip,
+                      })}
+                    </SizableText>
+                  </YStack>
+                }
+              />
+              <SizableText size="$bodySm" color="$text">
+                --
+              </SizableText>
+            </XStack>
+          </YStack>
+        )}
+        {button}
+      </YStack>
+    );
+  }
+
+  return (
+    <YStack gap="$2" flex={1} onLayout={handleLayout}>
+      {button}
+      {isSpot ? null : (
+        <YStack gap="$1.5">
+          <XStack gap="$2" justifyContent={justifyContent}>
+            <Tooltip
+              placement="top"
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_trade_margin_tooltip,
+              })}
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  cursor="default"
+                  dashThickness={0.5}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_cost,
+                  })}
+                </DashText>
+              }
+            />
+            <NumberSizeableText
+              size="$bodySm"
+              color="$text"
+              formatter="value"
+              formatterOptions={{ currency: '$' }}
+            >
+              {0}
+            </NumberSizeableText>
+          </XStack>
+
+          <XStack gap="$2" justifyContent={justifyContent}>
+            <Tooltip
+              placement="top"
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price_tooltip,
+              })}
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  cursor="default"
+                  dashThickness={0.5}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_est_liq_price,
+                  })}
+                </DashText>
+              }
+            />
+            <SizableText size="$bodySm" color="$text">
+              --
+            </SizableText>
+          </XStack>
+        </YStack>
+      )}
+    </YStack>
+  );
+}
+
+const SideButtonEmptySize = memo(EmptySizeSideButton);
+
+const TradingButtonGroupConfirmRef = memo(
+  ({
+    handleConfirmRef,
+    marketDataFreshness,
+  }: {
+    handleConfirmRef: MutableRefObject<
+      (overrideSide?: 'long' | 'short') => Promise<void>
+    >;
+    marketDataFreshness: IPerpsMarketDataFreshness;
+  }) => {
+    const { handleConfirm } = useOrderConfirmWithMarketDataFreshness({
+      marketDataFreshness,
+    });
+
+    useLayoutEffect(() => {
+      handleConfirmRef.current = handleConfirm;
+    }, [handleConfirm, handleConfirmRef]);
+
+    return null;
+  },
+);
+TradingButtonGroupConfirmRef.displayName = 'TradingButtonGroupConfirmRef';
+
+function TradingButtonGroupLive({
   isMobile,
   isLiveStatusPending = false,
   enableTradingModeOverride,
 }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
-  const [formData] = useTradingFormAtom();
+  const tradingSide = useTradingFormSide();
   const marketDataFreshness = usePerpsMarketDataFreshness();
-  const { handleConfirm } = useOrderConfirmWithMarketDataFreshness({
-    marketDataFreshness,
-  });
+  const liveHandleConfirmRef = useRef(noopHandleConfirm);
+  const handleConfirm = useCallback(
+    (overrideSide?: 'long' | 'short') =>
+      liveHandleConfirmRef.current(overrideSide),
+    [],
+  );
   const isSpot = tradingMode === 'spot';
 
   const renderSideButtons = () => {
     if (isSpot) {
       return (
         <YStack {...(!isMobile && { mt: '$4' })}>
-          <SideButton
-            side={formData.side}
+          <SideButtonLive
+            side={tradingSide}
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
             enableTradingModeOverride={enableTradingModeOverride}
@@ -1570,7 +2182,7 @@ function TradingButtonGroup({
     if (isMobile) {
       return (
         <YStack gap="$3">
-          <SideButton
+          <SideButtonLive
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -1578,7 +2190,7 @@ function TradingButtonGroup({
             marketDataFreshness={marketDataFreshness}
             handleConfirm={handleConfirm}
           />
-          <SideButton
+          <SideButtonLive
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -1592,7 +2204,7 @@ function TradingButtonGroup({
     return (
       <XStack gap="$2.5" mt="$4">
         <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
-          <SideButton
+          <SideButtonLive
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -1603,7 +2215,7 @@ function TradingButtonGroup({
           />
         </XStack>
         <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
-          <SideButton
+          <SideButtonLive
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -1617,7 +2229,108 @@ function TradingButtonGroup({
     );
   };
 
+  return (
+    <YStack>
+      <TradingButtonGroupConfirmRef
+        handleConfirmRef={liveHandleConfirmRef}
+        marketDataFreshness={marketDataFreshness}
+      />
+      {renderSideButtons()}
+    </YStack>
+  );
+}
+
+function TradingButtonGroupEmptySize({
+  isMobile,
+  isLiveStatusPending = false,
+  enableTradingModeOverride,
+}: ITradingButtonGroupProps) {
+  const [tradingMode] = useTradingModeAtom();
+  const tradingSide = useTradingFormSide();
+  const isSpot = tradingMode === 'spot';
+
+  const renderSideButtons = () => {
+    if (isSpot) {
+      return (
+        <YStack {...(!isMobile && { mt: '$4' })}>
+          <SideButtonEmptySize
+            side={tradingSide}
+            isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
+          />
+        </YStack>
+      );
+    }
+    if (isMobile) {
+      return (
+        <YStack gap="$3">
+          <SideButtonEmptySize
+            side="long"
+            isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
+          />
+          <SideButtonEmptySize
+            side="short"
+            isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
+          />
+        </YStack>
+      );
+    }
+    return (
+      <XStack gap="$2.5" mt="$4">
+        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+          <SideButtonEmptySize
+            side="long"
+            isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
+            justifyContent="flex-start"
+          />
+        </XStack>
+        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+          <SideButtonEmptySize
+            side="short"
+            isMobile={isMobile}
+            isLiveStatusPending={isLiveStatusPending}
+            enableTradingModeOverride={enableTradingModeOverride}
+            justifyContent="flex-end"
+          />
+        </XStack>
+      </XStack>
+    );
+  };
+
   return <YStack>{renderSideButtons()}</YStack>;
+}
+
+function TradingButtonGroup({
+  isMobile,
+  isLiveStatusPending = false,
+  enableTradingModeOverride,
+}: ITradingButtonGroupProps) {
+  const formData = useTradingFormEmptySizeParams();
+
+  if (shouldUseEmptySizeTradingButtons(formData)) {
+    return (
+      <TradingButtonGroupEmptySize
+        isMobile={isMobile}
+        isLiveStatusPending={isLiveStatusPending}
+        enableTradingModeOverride={enableTradingModeOverride}
+      />
+    );
+  }
+
+  return (
+    <TradingButtonGroupLive
+      isMobile={isMobile}
+      isLiveStatusPending={isLiveStatusPending}
+      enableTradingModeOverride={enableTradingModeOverride}
+    />
+  );
 }
 
 const TradingButtonGroupMemo = memo(TradingButtonGroup);
