@@ -1,9 +1,6 @@
 import { useRef } from 'react';
 
-import {
-  ORPHAN_ELIGIBLE_ERROR_CODES,
-  HardwareErrorCode as ThirdPartyHwErrorCode,
-} from '@onekeyfe/hwk-adapter-core';
+import { ORPHAN_ELIGIBLE_ERROR_CODES } from '@onekeyfe/hwk-adapter-core';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 
@@ -39,6 +36,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { type IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { classifyThirdPartyHwCreateFailures } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
@@ -873,11 +871,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 walletId: wallet.id,
               });
             if (isThirdPartyHw) {
-              const allAppNotInstalled =
-                result.addedAccounts.length === 0 &&
-                failedList.every(
-                  (f) => f.error.code === ThirdPartyHwErrorCode.AppNotInstalled,
-                );
+              const { allAppNotInstalled, genuineFailures } =
+                classifyThirdPartyHwCreateFailures({
+                  addedCount: result.addedAccounts.length,
+                  failedAccounts: failedList,
+                });
               if (allAppNotInstalled && isAutoCreateMultiNetwork) {
                 // Bare device: offer in-app core-app install (not Ledger Live).
                 // Emit so the provider container shows the dialog — keeps this
@@ -887,10 +885,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 });
                 return;
               }
-              // Strip AppNotInstalled errors, let other errors fall through
-              failedList = failedList.filter(
-                (f) => f.error.code !== ThirdPartyHwErrorCode.AppNotInstalled,
-              );
+              failedList = genuineFailures;
             }
           }
 
