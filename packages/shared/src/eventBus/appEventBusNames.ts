@@ -98,8 +98,6 @@ export enum EAppEventBusNames {
   HideTabBar = 'HideTabBar',
   RequestHardwareUIDialog = 'RequestHardwareUIDialog',
   ShowThirdPartyHardwarePermissionDialog = 'ShowThirdPartyHardwarePermissionDialog',
-  ThirdPartyHardwareAppInstallProgress = 'ThirdPartyHardwareAppInstallProgress',
-  ThirdPartyHardwareRecoveryAction = 'ThirdPartyHardwareRecoveryAction',
   RequestDeviceInBootloaderForWebDevice = 'RequestDeviceInBootloaderForWebDevice',
   RequestDeviceForSwitchFirmwareWebDevice = 'RequestDeviceForSwitchFirmwareWebDevice',
   EnabledNetworksChanged = 'EnabledNetworksChanged',
@@ -158,4 +156,5 @@ export enum EAppEventBusNames {
   NavigateModalFromBackgroundThread = 'NavigateModalFromBackgroundThread',
   TrayActionWillNavigate = 'TrayActionWillNavigate',
   MemoryPressureWarning = 'MemoryPressureWarning',
+  ShowLedgerInstallCoreApps = 'ShowLedgerInstallCoreApps',
 }

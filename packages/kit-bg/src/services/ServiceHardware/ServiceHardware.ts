@@ -1792,10 +1792,10 @@ class ServiceHardware extends ServiceBase {
   // as the generic IHardwareWallet; we cast to the Ledger-specific shape
   // because these methods aren't part of the cross-vendor contract.
   //
-  // Install progress is forwarded via appEventBus
-  // (`ThirdPartyHardwareAppInstallProgress`) from the adapter wrapper — it
-  // cannot ride through these @backgroundMethod return values because the
-  // function callback contract doesn't survive the IPC proxy.
+  // Install progress streams as SDK `ui-event` AppInstallProgress, surfaced to
+  // the UI via the thirdPartyAppInstallAtom (it cannot ride through these
+  // @backgroundMethod return values — the function callback contract doesn't
+  // survive the IPC proxy).
   // ---------------------------------------------------------------------------
 
   @backgroundMethod()

@@ -8,9 +8,21 @@ import localDb from '../../dbs/local/localDb';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
-import type { ChainForFingerprint, Response } from '@onekeyfe/hwk-adapter-core';
+import type {
+  ChainForFingerprint,
+  ICommonCallParams,
+  Response,
+} from '@onekeyfe/hwk-adapter-core';
 
 const FINGERPRINT_CHAINS: ChainForFingerprint[] = ['evm', 'btc', 'sol', 'tron'];
+
+// Auto multi-network fill (onboarding + add-account) suppresses the per-app
+// install prompt; manual / single-network add keeps the SDK default (prompt).
+export function ledgerCommonCallParamsForCreateScene(scene: {
+  isAutoCreateMultiNetwork?: boolean;
+}): ICommonCallParams | undefined {
+  return scene.isAutoCreateMultiNetwork ? { autoInstallApp: false } : undefined;
+}
 
 type IDbDeviceForFingerprint = {
   id: string;
