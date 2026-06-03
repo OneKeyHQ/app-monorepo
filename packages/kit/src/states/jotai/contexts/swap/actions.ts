@@ -15,6 +15,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -1406,13 +1407,23 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       )
       .then((tokenDetail) => {
         if (tokenDetail?.code !== 0 || !tokenDetail?.data?.token) {
-          throw new OneKeyLocalError('Market token detail is not available');
+          throw new OneKeyLocalError(
+            `Market token detail is not available: ${
+              tokenDetail?.code ?? 'empty'
+            }`,
+          );
         }
         return isUSMarketStatusStockTokenSource(
           tokenDetail.data.token.stock?.source,
         );
       })
-      .catch(() => {
+      .catch((error) => {
+        defaultLogger.swap.stockTokenCheck.stockTokenCheckUnavailable({
+          cacheKey,
+          networkId: token.networkId,
+          tokenSymbol: token.symbol,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
         this.stockTokenCheckCache.delete(cacheKey);
         return false;
       });
