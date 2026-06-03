@@ -93,6 +93,14 @@ import type { RouteProp } from '@react-navigation/core';
 
 export const amountInputAccessoryViewID = 'send-amount-input-accessory-view';
 
+// Neutral, non-empty hint used to keep the amount error suppressed while the
+// user is typing on chains/tokens that have no min-amount hint (most EVM
+// tokens, or BTC before tokenMinAmount loads). Form.Field only renders the
+// subdued hint in place of the red error when `hint` is truthy, so an empty
+// string would not work — a non-breaking space renders blank while reserving
+// the row height (OK-55683).
+const NEUTRAL_AMOUNT_HINT = '\u00A0';
+
 interface IAmountFormValues {
   accountId: string;
   networkId: string;
@@ -724,8 +732,14 @@ function SendAmountInputContainer() {
     !!vaultSettings?.mergeDeriveAssetsEnabled &&
     !isNFT &&
     !isLightningNetwork &&
-    // Fiat mode needs a usable price to convert the input to a token amount.
-    (!isUseFiat || hasUsablePrice) &&
+    // Intentionally NOT gated on `hasUsablePrice` in fiat mode. The 0-balance
+    // entry-case (land on an empty deriveType → switch to a funded sibling) is
+    // price-independent and is the primary path this feature targets — on an
+    // empty-balance BTC format `fetchTokensDetails()` returns [], so price is
+    // missing exactly when we most need the switch. The amount-driven cascade
+    // still can't misfire without a price: `linkedAmount.originalAmount` (fed
+    // in as the token amount) collapses to '0' when price is 0, and a 0 amount
+    // self-skips the cascade (it only runs the entry-case).
     // With coin control the user has hand-picked UTXOs and `maxBalance` is
     // the selected-UTXO subtotal, not the account balance — a subset
     // shortfall must not trigger a switch that also discards their selection.
@@ -763,6 +777,12 @@ function SendAmountInputContainer() {
     allFormatsInsufficient,
   } = useAutoSwitchDeriveType({
     amount: autoSwitchAmount,
+    // Raw form input + display mode, used only as the manual-switch lock basis.
+    // The lock must release on a real user edit but NOT when the token-priced
+    // `autoSwitchAmount` shifts on its own (async price load, account switch) —
+    // so it compares the untouched input, not the derived value.
+    userInputAmount: amount,
+    isUseFiat,
     isInsufficientBalance,
     enabled: autoSwitchEnabled,
     currentAccountId,
@@ -1550,10 +1570,17 @@ function SendAmountInputContainer() {
   // stays live (submit gating unaffected); only the display is debounced — the
   // Field renders the neutral hint in place of the error until input settles.
   const isAmountTyping = amount !== useDebounce(amount, 400);
-  const amountHint =
-    isAmountTyping || isAmountZeroOrEmpty || !hasAmountError
-      ? minAmountHint
-      : undefined;
+  const shouldDeferAmountError =
+    isAmountTyping || isAmountZeroOrEmpty || !hasAmountError;
+  // While deferring, show the real min-amount hint when the chain has one.
+  // When it doesn't (most EVM tokens, or BTC before tokenMinAmount loads),
+  // `minAmountHint` is undefined and Form.Field would fall back to rendering
+  // the red error anyway — so substitute a neutral placeholder to actually
+  // keep the error suppressed. Only do this when there is an error to defer;
+  // otherwise leave the hint empty so valid input shows no extra row.
+  const amountHint = shouldDeferAmountError
+    ? (minAmountHint ?? (hasAmountError ? NEUTRAL_AMOUNT_HINT : undefined))
+    : undefined;
 
   const renderAmountInput = useMemo(
     () => (

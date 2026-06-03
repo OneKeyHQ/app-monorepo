@@ -95,6 +95,12 @@ type IParams = {
   // Token-denominated: compared directly against sibling token balances (the
   // caller converts fiat input to token units before passing it).
   amount: string;
+  // Raw form input (fiat string in fiat mode, token string in token mode) plus
+  // the current display mode. Used ONLY as the manual-switch lock basis — the
+  // raw input is invariant to async price changes/account switches that move
+  // the derived `amount`, so the lock releases only on a genuine user edit.
+  userInputAmount: string;
+  isUseFiat: boolean;
   isInsufficientBalance: boolean;
   enabled: boolean;
   currentAccountId: string;
@@ -134,6 +140,8 @@ type IParams = {
 // amount that fits or hit "max".
 export function useAutoSwitchDeriveType({
   amount,
+  userInputAmount,
+  isUseFiat,
   isInsufficientBalance,
   enabled,
   currentAccountId,
@@ -156,12 +164,17 @@ export function useAutoSwitchDeriveType({
     useState<BigNumber | null>(null);
 
   const userManuallySwitchedRef = useRef(false);
-  // Snapshot of `amount` at the moment of the most recent manual switch.
-  // The manual lock is lifted as soon as the live amount differs from this
-  // — i.e. one keystroke of "real" new input is required before auto-switch
-  // can fire again. Stale value left over from before the switch will not
-  // trigger immediately.
-  const manualSwitchAtAmountRef = useRef<string | null>(null);
+  // Snapshot of the user's raw input (+ display mode) at the moment of the most
+  // recent manual switch. The manual lock is lifted as soon as the raw input
+  // differs from this — i.e. one keystroke of "real" new input is required
+  // before auto-switch can fire again. We snapshot the raw input rather than
+  // the token-denominated `amount` so an async price load / account switch that
+  // moves the derived value (without any user edit) can't silently release the
+  // lock and undo the user's manual choice.
+  const manualSwitchSnapshotRef = useRef<{
+    amount: string;
+    isUseFiat: boolean;
+  } | null>(null);
   // DeriveTypes we have auto-switched _away from_ in this form lifetime.
   // Used to prevent ping-ponging between two accounts as the user adjusts
   // the amount up and down.
@@ -181,6 +194,12 @@ export function useAutoSwitchDeriveType({
   // captured at effect-fire time and may be stale by resolution).
   const amountRef = useRef(amount);
   amountRef.current = amount;
+  // Mirror the raw input + mode for the manual-switch detection effect, which
+  // snapshots them synchronously when an external account change is observed.
+  const userInputAmountRef = useRef(userInputAmount);
+  userInputAmountRef.current = userInputAmount;
+  const isUseFiatRef = useRef(isUseFiat);
+  isUseFiatRef.current = isUseFiat;
   // Mirrors `enabled` so the async closure can detect a mid-flight disable
   // (e.g. user enabled coin-control during the fetch). The main effect
   // early-returns on `!enabled` without incrementing the generation, so
@@ -220,15 +239,36 @@ export function useAutoSwitchDeriveType({
       lastAutoSwitchAccountIdRef.current = null;
     } else {
       userManuallySwitchedRef.current = true;
-      // Snapshot the live amount so the main effect can detect the next
-      // keystroke as the trigger to re-engage auto-switch.
-      manualSwitchAtAmountRef.current = amountRef.current;
+      // Snapshot the live raw input + mode so the main effect can detect the
+      // next real edit as the trigger to re-engage auto-switch.
+      manualSwitchSnapshotRef.current = {
+        amount: userInputAmountRef.current,
+        isUseFiat: isUseFiatRef.current,
+      };
       // Hide the auto-switch alert if user picked a different format
       // (including reverting back to the original).
       setAutoSwitchInfo(null);
     }
     previousAccountIdRef.current = currentAccountId;
   }, [currentAccountId]);
+
+  // A pure fiat/token display toggle re-derives the raw input's representation
+  // (e.g. "10" fiat ↔ "5" token) without being a real amount edit. When a
+  // manual lock is held, re-baseline its snapshot to the new mode's raw input
+  // so the toggle isn't mistaken for an edit (which would release the lock) yet
+  // a later genuine edit in the new mode is still detected. Declared before the
+  // main effect so the snapshot is up to date by the time that effect reads it.
+  const prevIsUseFiatRef = useRef(isUseFiat);
+  useEffect(() => {
+    if (prevIsUseFiatRef.current === isUseFiat) return;
+    prevIsUseFiatRef.current = isUseFiat;
+    if (userManuallySwitchedRef.current && manualSwitchSnapshotRef.current) {
+      manualSwitchSnapshotRef.current = {
+        amount: userInputAmountRef.current,
+        isUseFiat,
+      };
+    }
+  }, [isUseFiat]);
 
   useEffect(() => {
     if (!enabled) {
@@ -259,29 +299,41 @@ export function useAutoSwitchDeriveType({
       return;
     }
     if (userManuallySwitchedRef.current) {
-      // Stay locked until the live amount differs from the snapshot taken at
-      // the manual switch; only then treat it as a fresh evaluation and clear
-      // the lock, the tried-set, and the "all formats short" threshold.
+      // Stay locked until the user's raw input differs from the snapshot taken
+      // at the manual switch; only then treat it as a fresh evaluation and
+      // clear the lock, the tried-set, and the "all formats short" threshold.
       //
-      // `amount` is always token-denominated (see `autoSwitchAmount` at the
-      // call site), but its representation differs across a fiat/token display
-      // toggle — token mode passes the raw input, fiat mode the re-derived
-      // value — so the same amount can read as "1.0" vs "1". Compare
-      // numerically so a display toggle isn't mistaken for a real edit;
-      // the string check is a fast path that also keeps empty/empty equal.
-      const snapshot = manualSwitchAtAmountRef.current;
+      // We compare the raw input (`userInputAmount`), not the token-denominated
+      // `amount`: the latter is re-derived from price in fiat mode, so an async
+      // price load or account switch would move it with no user action and
+      // falsely release the lock. The raw input only changes on a real edit.
+      const snapshot = manualSwitchSnapshotRef.current;
+      // Defensive: the toggle effect re-baselines on a mode flip, so by here
+      // the snapshot mode normally matches. If it lags (effect ordering), a
+      // mode mismatch means the difference is a pure display toggle, not an
+      // edit — re-baseline and stay locked instead of reading it as an edit.
+      if (snapshot !== null && snapshot.isUseFiat !== isUseFiat) {
+        manualSwitchSnapshotRef.current = {
+          amount: userInputAmount,
+          isUseFiat,
+        };
+        return;
+      }
       // `sameAmount` requires a non-null snapshot, so the numeric compare can
       // never read a null snapshot as 0 (which would hold the lock forever at
-      // amount '0'); the null case is handled by the early return.
+      // amount '0'); the null case is handled by the early return. The string
+      // check is a fast path that also keeps empty/empty equal.
       const sameAmount =
         snapshot !== null &&
-        (amount === snapshot ||
-          new BigNumber(amount || 0).isEqualTo(new BigNumber(snapshot || 0)));
+        (userInputAmount === snapshot.amount ||
+          new BigNumber(userInputAmount || 0).isEqualTo(
+            new BigNumber(snapshot.amount || 0),
+          ));
       if (snapshot === null || sameAmount) {
         return;
       }
       userManuallySwitchedRef.current = false;
-      manualSwitchAtAmountRef.current = null;
+      manualSwitchSnapshotRef.current = null;
       triedDeriveTypesRef.current.clear();
       setAllFormatsInsufficientAmount(null);
     }
@@ -387,6 +439,8 @@ export function useAutoSwitchDeriveType({
     isCurrentBalanceLoaded,
     currentMaxBalance,
     amount,
+    userInputAmount,
+    isUseFiat,
     currentAccountId,
     currentDeriveType,
     currentDeriveInfo,
