@@ -253,9 +253,9 @@ const promise: Promise<void> = (async () => {
   }
 
   if (readKillSwitch()) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[ColdStartHydration] kill switch active, skipping');
-    }
+    // This branch is only reachable in production (the dev-mode early return
+    // above guards it), and the unified finally block logs `status=killed`,
+    // so no extra log is needed here.
     status = 'killed';
     return;
   }
