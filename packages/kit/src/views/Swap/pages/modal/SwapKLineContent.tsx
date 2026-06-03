@@ -38,6 +38,7 @@ import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
@@ -83,6 +84,14 @@ type ISwapKLineWalletMarketInfo = {
   price?: string;
   priceChange24hPercent?: string;
 };
+
+function getSwapKLineTokenKey(token?: ISwapToken) {
+  if (!token?.networkId) {
+    return '';
+  }
+
+  return `${token.networkId}:${token.contractAddress ?? ''}`;
+}
 
 function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   if (!token) {
@@ -156,6 +165,9 @@ function useSwapKLineTokenMarketInfo(token?: ISwapToken, enabled = true) {
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
           tokenAddress,
           networkId,
+          {
+            autoHandleError: false,
+          },
         );
       return response?.data?.token;
     },
@@ -221,19 +233,42 @@ function useSwapKLineWalletMarketInfo(
   return useMemo(() => buildSwapKLineWalletMarketInfo(tokenInfo), [tokenInfo]);
 }
 
-function useSwapKLineDataFallback(
-  coinGeckoId?: string,
-): ITradingViewV2KLineDataFallback | undefined {
-  return useMemo(() => {
+function useSwapKLineChartDataSource({
+  token,
+  coinGeckoId,
+}: {
+  token?: ISwapToken;
+  coinGeckoId?: string;
+}) {
+  const tokenKey = getSwapKLineTokenKey(token);
+  const chartDataCacheRef = useRef(
+    new Map<string, Promise<IMarketTokenChart>>(),
+  );
+  const [primaryUnavailableTokenKeys, setPrimaryUnavailableTokenKeys] =
+    useState<ReadonlySet<string>>(() => new Set());
+  const kLineDataFallback = useMemo<
+    ITradingViewV2KLineDataFallback | undefined
+  >(() => {
     if (!coinGeckoId) {
       return undefined;
     }
 
     return async ({ timeFrom, timeTo }) => {
-      const chartData = await backgroundApiProxy.serviceMarket.fetchTokenChart(
-        coinGeckoId,
-        getSwapKLineWalletChartDays({ timeFrom, timeTo }),
-      );
+      const days = getSwapKLineWalletChartDays({ timeFrom, timeTo });
+      const cacheKey = `${coinGeckoId}:${days}`;
+      let chartDataPromise = chartDataCacheRef.current.get(cacheKey);
+      if (!chartDataPromise) {
+        chartDataPromise = backgroundApiProxy.serviceMarket.fetchTokenChart(
+          coinGeckoId,
+          days,
+        );
+        chartDataCacheRef.current.set(cacheKey, chartDataPromise);
+      }
+
+      const chartData = await chartDataPromise.catch((error) => {
+        chartDataCacheRef.current.delete(cacheKey);
+        throw error;
+      });
       return convertSwapKLineWalletChartToKLineResponse({
         chartData,
         timeFrom,
@@ -241,6 +276,37 @@ function useSwapKLineDataFallback(
       });
     };
   }, [coinGeckoId]);
+  const primaryKLineDataUnavailable = Boolean(
+    tokenKey && primaryUnavailableTokenKeys.has(tokenKey),
+  );
+  const handlePrimaryKLineDataUnavailable = useCallback(() => {
+    if (!tokenKey) {
+      return;
+    }
+
+    setPrimaryUnavailableTokenKeys((prev) => {
+      if (prev.has(tokenKey)) {
+        return prev;
+      }
+
+      const next = new Set(prev);
+      next.add(tokenKey);
+      return next;
+    });
+  }, [tokenKey]);
+
+  return useMemo(
+    () => ({
+      kLineDataFallback,
+      primaryKLineDataUnavailable,
+      handlePrimaryKLineDataUnavailable,
+    }),
+    [
+      handlePrimaryKLineDataUnavailable,
+      kLineDataFallback,
+      primaryKLineDataUnavailable,
+    ],
+  );
 }
 
 function useSwapKLineNetworkName(networkId?: string) {
@@ -390,9 +456,11 @@ type ISwapKLineContentState = {
   selectedToken?: ISwapToken;
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  primaryKLineDataUnavailable: boolean;
   resolvedSelectedSide: ESwapDirectionType;
   shouldForceEmptyKLineData: boolean;
   tokenMarketDetail?: IMarketTokenDetail;
+  handlePrimaryKLineDataUnavailable: () => void;
   handleSelectedSideChange: (side: ESwapDirectionType) => void;
 };
 
@@ -425,12 +493,17 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   const selectedToken =
     resolvedSelectedSide === ESwapDirectionType.FROM ? fromToken : toToken;
   const walletMarketInfo = useSwapKLineWalletMarketInfo(selectedToken);
-  const kLineDataFallback = useSwapKLineDataFallback(
-    walletMarketInfo?.coinGeckoId,
-  );
+  const tokenMarketDetail = useSwapKLineTokenMarketInfo(selectedToken);
+  const {
+    kLineDataFallback,
+    primaryKLineDataUnavailable,
+    handlePrimaryKLineDataUnavailable,
+  } = useSwapKLineChartDataSource({
+    token: selectedToken,
+    coinGeckoId: walletMarketInfo?.coinGeckoId,
+  });
   const shouldForceEmptyKLineData =
     isKnownSwapKLineUnsupportedToken(selectedToken);
-  const tokenMarketDetail = useSwapKLineTokenMarketInfo(selectedToken);
 
   useEffect(() => {
     if (hasTrackedOpenRef.current || !selectedToken) {
@@ -474,15 +547,19 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       selectedToken,
       walletMarketInfo,
       kLineDataFallback,
+      primaryKLineDataUnavailable,
       resolvedSelectedSide,
       shouldForceEmptyKLineData,
       tokenMarketDetail,
+      handlePrimaryKLineDataUnavailable,
       handleSelectedSideChange,
     }),
     [
       fromToken,
+      handlePrimaryKLineDataUnavailable,
       handleSelectedSideChange,
       kLineDataFallback,
+      primaryKLineDataUnavailable,
       resolvedSelectedSide,
       selectedToken,
       shouldForceEmptyKLineData,
@@ -665,6 +742,8 @@ function SwapKLineContentBody({
         forceEmptyKLineData={state.shouldForceEmptyKLineData}
         emptyKLineDataOnError
         kLineDataFallback={state.kLineDataFallback}
+        primaryKLineDataUnavailable={state.primaryKLineDataUnavailable}
+        onPrimaryKLineDataUnavailable={state.handlePrimaryKLineDataUnavailable}
         w="100%"
         h="100%"
       />
