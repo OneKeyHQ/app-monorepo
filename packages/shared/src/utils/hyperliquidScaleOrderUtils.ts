@@ -9,6 +9,7 @@ import type {
   IScaleOrderBuildParams,
   IScaleOrderLeg,
   IScaleOrderSizeDistribution,
+  IScaleOrderValidationIssue,
   IScaleOrderValidationResult,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -161,10 +162,15 @@ export function validateScaleOrderLegs({
   minNotional?: string;
 }): IScaleOrderValidationResult {
   if (legs.length === 0) {
-    return { isValid: false, errors: ['Invalid scale order parameters'] };
+    return {
+      isValid: false,
+      errors: ['Invalid scale order parameters'],
+      issues: [{ code: 'invalidParams' }],
+    };
   }
 
   const errors: string[] = [];
+  const issues: IScaleOrderValidationIssue[] = [];
   const priceSet = new Set<string>();
   const minNotionalBN = new BigNumber(minNotional);
 
@@ -173,12 +179,24 @@ export function validateScaleOrderLegs({
     const sizeBN = new BigNumber(leg.size);
     if (!priceBN.isFinite() || priceBN.lte(0)) {
       errors.push(`Leg ${leg.index + 1}: invalid price`);
+      issues.push({
+        code: 'invalidPrice',
+        legIndex: leg.index,
+      });
     }
     if (!sizeBN.isFinite() || sizeBN.lte(0)) {
       errors.push(`Leg ${leg.index + 1}: size is too small`);
+      issues.push({
+        code: 'sizeTooSmall',
+        legIndex: leg.index,
+      });
     }
     if (priceSet.has(leg.price)) {
       errors.push('Price range is too tight for this market precision');
+      issues.push({
+        code: 'priceRangeTooTight',
+        legIndex: leg.index,
+      });
     }
     priceSet.add(leg.price);
     if (
@@ -189,12 +207,27 @@ export function validateScaleOrderLegs({
       errors.push(
         `Leg ${leg.index + 1}: notional must be at least $${minNotional}`,
       );
+      issues.push({
+        code: 'minNotionalTooSmall',
+        legIndex: leg.index,
+        minNotional,
+      });
     }
   });
 
   return {
     isValid: errors.length === 0,
     errors: [...new Set(errors)],
+    issues: issues.filter(
+      (issue, index, array) =>
+        array.findIndex(
+          (item) =>
+            item.code === issue.code &&
+            (item.code === 'priceRangeTooTight' ||
+              item.legIndex === issue.legIndex) &&
+            item.minNotional === issue.minNotional,
+        ) === index,
+    ),
   };
 }
 

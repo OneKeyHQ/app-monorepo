@@ -14,6 +14,7 @@ import {
   Select,
   SizableText,
   Skeleton,
+  Stack,
   Tooltip,
   XStack,
   YStack,
@@ -82,6 +83,7 @@ import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../../testIDs';
 import { getPerpsFormLeverage } from '../../../utils/leverageDisplay';
+import { getScaleOrderValidationErrorMessage } from '../../../utils/scaleOrderValidation';
 import {
   type ITradeSide,
   getTradingSideTextColor,
@@ -798,11 +800,13 @@ function PerpTradingForm({
     const validation = validateScaleOrderLegs({ legs });
     if (!validation.isValid) {
       return {
-        text:
-          validation.errors[0] ??
-          intl.formatMessage({
+        text: getScaleOrderValidationErrorMessage({
+          intl,
+          validation,
+          fallback: intl.formatMessage({
             id: ETranslations.perp_invalid_scale_order__msg,
           }),
+        }),
         tone: 'error' as const,
       };
     }
@@ -1511,51 +1515,22 @@ function PerpTradingForm({
       const scaleSizeDistribution = formData.scaleSizeDistribution ?? 'fixed';
       return (
         <YStack gap="$1.5">
-          {isMobile ? (
-            <Popover
-              renderContent={() => (
-                <YStack px="$5" pt="$2" pb="$4">
-                  <SizableText size="$bodyMd">
-                    {scaleAmountDistributionHelperText}
-                  </SizableText>
-                </YStack>
-              )}
-              renderTrigger={
-                <DashText
-                  size="$bodySmMedium"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_scale_amount_distribution__title,
-                  })}
-                </DashText>
-              }
-              title={intl.formatMessage({
-                id: ETranslations.perp_scale_amount_distribution__title,
-              })}
-              placement="bottom-start"
-            />
-          ) : (
-            <Tooltip
-              renderContent={scaleAmountDistributionHelperText}
-              renderTrigger={
-                <DashText
-                  size="$bodySmMedium"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  cursor="help"
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_scale_amount_distribution__title,
-                  })}
-                </DashText>
-              }
-              placement="bottom-start"
-            />
-          )}
+          <DashText
+            size="$bodySmMedium"
+            color="$textSubdued"
+            dashColor="$textDisabled"
+            dashThickness={0.5}
+            tooltip={scaleAmountDistributionHelperText}
+            tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+            tooltipPlacement="bottom-start"
+            tooltipTitle={intl.formatMessage({
+              id: ETranslations.perp_scale_amount_distribution__title,
+            })}
+          >
+            {intl.formatMessage({
+              id: ETranslations.perp_scale_amount_distribution__title,
+            })}
+          </DashText>
           <XStack gap="$4" alignItems="center" flexWrap="wrap">
             {scaleAmountDistributionOptions.map((option) => {
               const checked = scaleSizeDistribution === option.value;
@@ -2010,45 +1985,20 @@ function PerpTradingForm({
 
     return (
       <YStack gap="$3">
-        {isMobile ? (
-          <Popover
-            renderContent={() => (
-              <YStack px="$5" pt="$2" pb="$4">
-                <SizableText size="$bodyMd">{twapHelperText}</SizableText>
-              </YStack>
-            )}
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-              >
-                {twapDurationLabel}
-              </DashText>
-            }
-            title={intl.formatMessage({
-              id: ETranslations.perp_twap_duration__title,
-            })}
-            placement="bottom-start"
-          />
-        ) : (
-          <Tooltip
-            renderContent={twapHelperText}
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-                cursor="help"
-              >
-                {twapDurationLabel}
-              </DashText>
-            }
-            placement="bottom-start"
-          />
-        )}
+        <DashText
+          size="$bodySm"
+          color="$textSubdued"
+          dashColor="$textDisabled"
+          dashThickness={0.5}
+          tooltip={twapHelperText}
+          tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+          tooltipPlacement="bottom-start"
+          tooltipTitle={intl.formatMessage({
+            id: ETranslations.perp_twap_duration__title,
+          })}
+        >
+          {twapDurationLabel}
+        </DashText>
         <XStack gap="$2.5">
           {renderTwapDurationInput({
             field: 'hours',
@@ -2162,21 +2112,24 @@ function PerpTradingForm({
               />
               <Tooltip
                 placement="top"
+                triggerAsChild="except-style"
                 renderContent={intl.formatMessage({
                   id: ETranslations.perp_twap_randomize__desc,
                 })}
                 renderTrigger={
-                  <DashText
-                    size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
-                    color="$text"
-                    dashColor="$textDisabled"
-                    dashThickness={0.5}
-                    cursor="help"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_twap_randomize__title,
-                    })}
-                  </DashText>
+                  <Stack display="inline-flex" alignSelf="flex-start">
+                    <DashText
+                      size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                      color="$text"
+                      dashColor="$textDisabled"
+                      dashThickness={0.5}
+                      cursor="help"
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.perp_twap_randomize__title,
+                      })}
+                    </DashText>
+                  </Stack>
                 }
               />
             </XStack>
@@ -2283,46 +2236,22 @@ function PerpTradingForm({
               {...(isMobile && { p: '$0' })}
             />
 
-            {isMobile ? (
-              <Popover
-                renderContent={() => (
-                  <YStack px="$5" pt="$2" pb="$4">
-                    <SizableText size="$bodyMd">
-                      {intl.formatMessage({
-                        id: ETranslations.perp_tp_sl_tooltip,
-                      })}
-                    </SizableText>
-                  </YStack>
-                )}
-                renderTrigger={
-                  <DashText
-                    size="$bodySm"
-                    dashColor="$textSubdued"
-                    dashThickness={0.5}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_position_tp_sl,
-                    })}
-                  </DashText>
-                }
-                title={intl.formatMessage({
-                  id: ETranslations.perp_position_tp_sl,
-                })}
-              />
-            ) : (
-              <Tooltip
-                renderContent={intl.formatMessage({
-                  id: ETranslations.perp_tp_sl_tooltip,
-                })}
-                renderTrigger={
-                  <DashText size="$bodyMd" dashThickness={0.5} cursor="help">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_position_tp_sl,
-                    })}
-                  </DashText>
-                }
-              />
-            )}
+            <DashText
+              size={isMobile ? '$bodySm' : '$bodyMd'}
+              dashColor="$textSubdued"
+              dashThickness={0.5}
+              tooltip={intl.formatMessage({
+                id: ETranslations.perp_tp_sl_tooltip,
+              })}
+              tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+              tooltipTitle={intl.formatMessage({
+                id: ETranslations.perp_position_tp_sl,
+              })}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_position_tp_sl,
+              })}
+            </DashText>
           </XStack>
 
           {standardLimitTifSelector}
@@ -2422,38 +2351,17 @@ function PerpTradingForm({
       </XStack>
 
       <XStack justifyContent="space-between" alignItems="center" gap="$3">
-        {isMobile ? (
-          <Popover
-            title={spotMaxTradeLabel}
-            renderTrigger={
-              <DashText size="$bodySm" color="$textSubdued" dashThickness={0.5}>
-                {spotMaxTradeLabel}
-              </DashText>
-            }
-            renderContent={() => (
-              <YStack px="$5" pt="$2" pb="$4">
-                <SizableText size="$bodyMd">{spotMaxTradeTooltip}</SizableText>
-              </YStack>
-            )}
-          />
-        ) : (
-          <Tooltip
-            placement="top"
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashThickness={0.5}
-                cursor="help"
-              >
-                {spotMaxTradeLabel}
-              </DashText>
-            }
-            renderContent={
-              <SizableText size="$bodySm">{spotMaxTradeTooltip}</SizableText>
-            }
-          />
-        )}
+        <DashText
+          size="$bodySm"
+          color="$textSubdued"
+          dashThickness={0.5}
+          tooltip={spotMaxTradeTooltip}
+          tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+          tooltipPlacement="top"
+          tooltipTitle={spotMaxTradeLabel}
+        >
+          {spotMaxTradeLabel}
+        </DashText>
         <SizableText size="$bodySmMedium">{spotMaxTradeDisplay}</SizableText>
       </XStack>
     </>
