@@ -16,6 +16,7 @@ import {
   Button,
   DashText,
   NumberSizeableText,
+  Popover,
   SizableText,
   Toast,
   Tooltip,
@@ -1611,6 +1612,7 @@ function EmptySizeSideButton({
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const effectiveEnableTradingMode =
@@ -1622,13 +1624,27 @@ function EmptySizeSideButton({
   const [isSubmitting] = useTradingLoadingAtom();
   const isSpot = tradingMode === 'spot';
   const isLong = side === 'long';
+  const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
+  const requestEnableTradingWithDepositFallback =
+    useRequestEnableTradingWithDepositFallback();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const perpsAccountKey = useMemo(
+    () => getPerpsAccountKey(perpsAccount),
+    [perpsAccount],
+  );
+  const perpsAccountKeyRef = useRef(perpsAccountKey);
+  perpsAccountKeyRef.current = perpsAccountKey;
   const isAccountLoading =
     perpsAccountLoading.enableTradingLoading ||
     perpsAccountLoading.selectAccountLoading;
-  const shouldEnableTradingBeforeOrder =
+  const shouldAutoEnableTrading =
     !perpsAccountStatus.canTrade &&
-    (effectiveEnableTradingMode.canAutoEnableInOrderPanel ||
-      effectiveEnableTradingMode.requiresEnableTradingDialogInOrderPanel);
+    effectiveEnableTradingMode.canAutoEnableInOrderPanel;
+  const shouldShowEnableTradingDialog =
+    !perpsAccountStatus.canTrade &&
+    effectiveEnableTradingMode.requiresExplicitEnableTrading;
+  const shouldEnableTradingBeforeOrder =
+    shouldAutoEnableTrading || shouldShowEnableTradingDialog;
   const isServerActionDisabled = Boolean(
     perpConfigCommon?.disablePerpActionPerp || perpConfigCommon?.ipDisablePerp,
   );
@@ -1749,8 +1765,123 @@ function EmptySizeSideButton({
     };
   }, [isLong, shouldShowButtonLoading, themeVariant]);
 
+  const requestEmptySizeEnableTrading = useCallback(
+    async ({
+      beforeDeposit,
+      shouldIgnoreResult,
+      showLoadingToast,
+    }: {
+      beforeDeposit?: () => void;
+      shouldIgnoreResult: () => boolean;
+      showLoadingToast: boolean;
+    }): Promise<IEnableTradingWithDepositFallbackResult> => {
+      const stopResult: IEnableTradingWithDepositFallbackResult = {
+        shouldContinue: false,
+        status: undefined,
+      };
+      if (shouldShowEnableTradingDialog) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+        } catch (error) {
+          errorToastUtils.toastIfError(error);
+          return stopResult;
+        }
+        const latestPerpsAccountStatus =
+          (await perpsActiveAccountStatusAtom.get()) ?? perpsAccountStatus;
+        if (shouldIgnoreResult()) {
+          return stopResult;
+        }
+        const confirmDecision = getEnableTradingDialogConfirmDecision(
+          latestPerpsAccountStatus,
+        );
+        if (confirmDecision === 'continue') {
+          return {
+            shouldContinue: true,
+            status: latestPerpsAccountStatus,
+          };
+        }
+        if (confirmDecision === 'deposit') {
+          beforeDeposit?.();
+          await showDepositWithdrawModal('deposit');
+          return stopResult;
+        }
+        const result = await showEnableTradingStepsDialog({
+          accountStatus: latestPerpsAccountStatus,
+          onConfirm: async ({ closeDialog }) => {
+            if (shouldIgnoreResult()) {
+              return stopResult;
+            }
+            const didAcceptTerms = await confirmHyperliquidTerms();
+            if (!didAcceptTerms || shouldIgnoreResult()) {
+              return stopResult;
+            }
+            return requestEnableTradingWithDepositFallback({
+              beforeDeposit: () => {
+                closeDialog();
+                beforeDeposit?.();
+              },
+              shouldIgnoreResult,
+            });
+          },
+        });
+        return result ?? stopResult;
+      }
+
+      const didAcceptTerms = await confirmHyperliquidTerms();
+      if (!didAcceptTerms || shouldIgnoreResult()) {
+        return stopResult;
+      }
+
+      const loadingToast = showLoadingToast
+        ? Toast.loading({
+            title: intl.formatMessage({
+              id: ETranslations.perp_trade_button_enable_trading,
+            }),
+            duration: Infinity,
+          })
+        : undefined;
+      try {
+        return await requestEnableTradingWithDepositFallback({
+          beforeDeposit,
+          shouldIgnoreResult,
+        });
+      } finally {
+        loadingToast?.close();
+      }
+    },
+    [
+      confirmHyperliquidTerms,
+      intl,
+      perpsAccountStatus,
+      requestEnableTradingWithDepositFallback,
+      shouldShowEnableTradingDialog,
+      showDepositWithdrawModal,
+    ],
+  );
+
   const handlePress = useDebouncedCallback(
     async (): Promise<void> => {
+      if (!shouldEnableTradingBeforeOrder && !perpsAccountStatus.canTrade) {
+        return;
+      }
+
+      if (shouldEnableTradingBeforeOrder) {
+        const enableTradingAccountKey = perpsAccountKey;
+        const shouldIgnoreEnableTradingResult = () =>
+          Boolean(
+            enableTradingAccountKey &&
+            perpsAccountKeyRef.current !== enableTradingAccountKey,
+          );
+        const result = await requestEmptySizeEnableTrading({
+          shouldIgnoreResult: shouldIgnoreEnableTradingResult,
+          showLoadingToast: shouldAutoEnableTrading,
+        });
+        if (!result?.shouldContinue || shouldIgnoreEnableTradingResult()) {
+          return;
+        }
+      }
+
       const marketDataFreshness = await getLatestPerpsMarketDataFreshness();
       const shouldBlockForMarketData =
         shouldBlockPerpsTradingForMarketData(marketDataFreshness);

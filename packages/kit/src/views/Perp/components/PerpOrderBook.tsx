@@ -507,16 +507,11 @@ function usePublishVisualL2BookSnapshot({
 
 function PerpOrderBookDataBridge({
   enableVisualSnapshot,
-  onFreshnessChange,
   onInteractiveChange,
   onVisualBookChange,
   subscriptionOptions,
 }: {
   enableVisualSnapshot: boolean;
-  onFreshnessChange: (freshness: {
-    bookReceivedAt?: number;
-    bookTime?: number;
-  }) => void;
   onInteractiveChange: (isInteractive: boolean) => void;
   onVisualBookChange: (book: IL2BookData | null) => void;
   subscriptionOptions: IL2BookOptions;
@@ -533,13 +528,6 @@ function PerpOrderBookDataBridge({
     enabled: enableVisualSnapshot,
     onPublish: onVisualBookChange,
   });
-
-  useEffect(() => {
-    onFreshnessChange({
-      bookReceivedAt: l2Book?.localReceivedAt,
-      bookTime: l2Book?.time,
-    });
-  }, [l2Book?.localReceivedAt, l2Book?.time, onFreshnessChange]);
 
   useEffect(() => {
     onInteractiveChange(isInteractive);
@@ -629,21 +617,10 @@ export function PerpOrderBook({
     renderL2Book?.coin === activeTradeInstrument.coin ? renderL2Book : null;
   const visibleL2Book = activeRenderL2Book ?? initialCachedL2Book;
   const hasRenderOrderBook = Boolean(visibleL2Book);
-  const latestL2BookFreshnessRef = useRef<{
-    bookReceivedAt?: number;
-    bookTime?: number;
-  }>({});
 
   const handleVisualBookChange = useCallback((book: IL2BookData | null) => {
     setRenderL2Book((prevBook) => (prevBook === book ? prevBook : book));
   }, []);
-
-  const handleL2BookFreshnessChange = useCallback(
-    (freshness: { bookReceivedAt?: number; bookTime?: number }) => {
-      latestL2BookFreshnessRef.current = freshness;
-    },
-    [],
-  );
 
   const handleOrderBookInteractiveChange = useCallback(
     (nextIsInteractive: boolean) => {
@@ -657,7 +634,6 @@ export function PerpOrderBook({
   );
 
   useEffect(() => {
-    latestL2BookFreshnessRef.current = {};
     setRenderL2Book(null);
     setIsOrderBookInteractive(false);
   }, [
@@ -801,11 +777,10 @@ export function PerpOrderBook({
 
   const handleLevelSelect = useCallback(
     (selection: IOrderBookSelection) => {
-      const { bookReceivedAt, bookTime } = latestL2BookFreshnessRef.current;
       if (
         !isPerpsL2BookInteractive({
-          bookTime,
-          bookReceivedAt,
+          bookTime: visibleL2Book?.time,
+          bookReceivedAt: visibleL2Book?.localReceivedAt,
         })
       ) {
         return;
@@ -821,7 +796,25 @@ export function PerpOrderBook({
 
       actionsRef.current.updateTradingForm(updates);
     },
-    [actionsRef, formData.type],
+    [
+      actionsRef,
+      formData.type,
+      visibleL2Book?.localReceivedAt,
+      visibleL2Book?.time,
+    ],
+  );
+  const isVisibleOrderBookInteractive = useMemo(
+    () =>
+      isOrderBookInteractive &&
+      isPerpsL2BookInteractive({
+        bookTime: visibleL2Book?.time,
+        bookReceivedAt: visibleL2Book?.localReceivedAt,
+      }),
+    [
+      isOrderBookInteractive,
+      visibleL2Book?.localReceivedAt,
+      visibleL2Book?.time,
+    ],
   );
 
   const mobileMaxLevelsPerSide = useMemo(() => {
@@ -936,7 +929,9 @@ export function PerpOrderBook({
           showTickSelector
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
-          onSelectLevel={isOrderBookInteractive ? handleLevelSelect : undefined}
+          onSelectLevel={
+            isVisibleOrderBookInteractive ? handleLevelSelect : undefined
+          }
           loadingNode={
             <DefaultLoadingNode
               variant="mobileHorizontal"
@@ -970,7 +965,9 @@ export function PerpOrderBook({
           showTickSelector
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
-          onSelectLevel={isOrderBookInteractive ? handleLevelSelect : undefined}
+          onSelectLevel={
+            isVisibleOrderBookInteractive ? handleLevelSelect : undefined
+          }
           variant="mobileVertical"
         />
       </YStack>
@@ -984,7 +981,7 @@ export function PerpOrderBook({
     handleLevelSelect,
     selectedTickOption,
     hasRenderOrderBook,
-    isOrderBookInteractive,
+    isVisibleOrderBookInteractive,
     mobileMaxLevelsPerSide,
     tickOptions,
     priceDecimals,
@@ -994,7 +991,6 @@ export function PerpOrderBook({
   const dataBridge = (
     <PerpOrderBookDataBridgeMemo
       enableVisualSnapshot={enableVisualSnapshot}
-      onFreshnessChange={handleL2BookFreshnessChange}
       onInteractiveChange={handleOrderBookInteractiveChange}
       onVisualBookChange={handleVisualBookChange}
       subscriptionOptions={l2SubscriptionOptions}
@@ -1122,7 +1118,9 @@ export function PerpOrderBook({
           showTickSelector
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
-          onSelectLevel={isOrderBookInteractive ? handleLevelSelect : undefined}
+          onSelectLevel={
+            isVisibleOrderBookInteractive ? handleLevelSelect : undefined
+          }
           variant="web"
         />
       ) : (

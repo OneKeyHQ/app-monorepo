@@ -1,8 +1,8 @@
 diff --git a/node_modules/@onekeyfe/react-native-perp-depth-bar/ios/HybridPerpDepthBars.swift b/node_modules/@onekeyfe/react-native-perp-depth-bar/ios/HybridPerpDepthBars.swift
-index 3dbae4f..954be2c 100644
+index 3dbae4f..fa6442a 100644
 --- a/node_modules/@onekeyfe/react-native-perp-depth-bar/ios/HybridPerpDepthBars.swift
 +++ b/node_modules/@onekeyfe/react-native-perp-depth-bar/ios/HybridPerpDepthBars.swift
-@@ -20,6 +20,14 @@ final class HybridPerpDepthBars: HybridPerpDepthBarsSpec {
+@@ -20,6 +20,16 @@ final class HybridPerpDepthBars: HybridPerpDepthBarsSpec {
    // MARK: - State for animation decisions
    private var lastPercents: [Double] = []
    private var lastEpoch: Double = .nan
@@ -12,12 +12,14 @@ index 3dbae4f..954be2c 100644
 +  private var lastTextPriceFontSize: Double = .nan
 +  private var lastTextSizeFontSize: Double = .nan
 +  private var lastTextInset: Double = .nan
++  private var lastTextPriceColor: String = ""
++  private var lastTextSizeColor: String = ""
 +  private var lastPrices: [String] = []
 +  private var lastSizes: [String] = []
    private var hasLaidOut = false
  
    // MARK: - Props (required props -> non-optional in generated spec)
-@@ -137,34 +145,69 @@ final class HybridPerpDepthBars: HybridPerpDepthBarsSpec {
+@@ -137,34 +147,78 @@ final class HybridPerpDepthBars: HybridPerpDepthBarsSpec {
      CATransaction.commit()
  
      // Text never animates — snap frames/strings each layout pass.
@@ -37,8 +39,11 @@ index 3dbae4f..954be2c 100644
 +      textInset != lastTextInset
 +    let priceStringsChanged = prices != lastPrices
 +    let sizeStringsChanged = sizes != lastSizes
++    let textColorsChanged =
++      priceColor != lastTextPriceColor ||
++      sizeColor != lastTextSizeColor
 +
-+    if textGeometryChanged || priceStringsChanged || sizeStringsChanged {
++    if textGeometryChanged || textColorsChanged || priceStringsChanged || sizeStringsChanged {
 +      CATransaction.begin()
 +      CATransaction.setDisableActions(true)
        let priceLine = CGFloat(priceFontSize) * 1.16
@@ -66,6 +71,8 @@ index 3dbae4f..954be2c 100644
 +            x: pad, y: rowTop + (h - priceLine) / 2,
 +            width: max(half - pad, 0), height: priceLine)
 +          priceLayer.fontSize = CGFloat(priceFontSize)
++        }
++        if textGeometryChanged || textColorsChanged {
 +          priceLayer.foregroundColor = cachedPriceColor
 +        }
 +        if priceStringsChanged {
@@ -81,6 +88,8 @@ index 3dbae4f..954be2c 100644
 +            x: half, y: rowTop + (h - sizeLine) / 2,
 +            width: max(half - pad, 0), height: sizeLine)
 +          sizeLayer.fontSize = CGFloat(sizeFontSize)
++        }
++        if textGeometryChanged || textColorsChanged {
 +          sizeLayer.foregroundColor = cachedSizeColor
 +        }
 +        if sizeStringsChanged {
@@ -102,6 +111,8 @@ index 3dbae4f..954be2c 100644
 +    lastTextPriceFontSize = priceFontSize
 +    lastTextSizeFontSize = sizeFontSize
 +    lastTextInset = textInset
++    lastTextPriceColor = priceColor
++    lastTextSizeColor = sizeColor
 +    lastPrices = prices
 +    lastSizes = sizes
      hasLaidOut = true
