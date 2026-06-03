@@ -152,7 +152,7 @@ export async function fetchTradingViewV2Data({
       },
     );
 
-    return fetchFallbackIfNeeded({
+    return await fetchFallbackIfNeeded({
       data,
       tokenAddress,
       networkId,
@@ -233,7 +233,7 @@ export async function fetchTradingViewV2DataWithSlicing({
       };
     }
 
-    return fetchFallbackIfNeeded({
+    return await fetchFallbackIfNeeded({
       data: mergedData,
       tokenAddress,
       networkId,

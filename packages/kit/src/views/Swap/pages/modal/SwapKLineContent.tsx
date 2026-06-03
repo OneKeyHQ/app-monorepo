@@ -38,12 +38,7 @@ import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
-import type {
-  IMarketTokenDetail,
-  IMarketTokenKLineDataPoint,
-  IMarketTokenKLineResponse,
-} from '@onekeyhq/shared/types/marketV2';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { ETokenDappType } from '@onekeyhq/shared/types/token';
@@ -55,8 +50,12 @@ import type {
 import { SwapTestIDs } from '../../testIDs';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
+import {
+  convertSwapKLineWalletChartToKLineResponse,
+  getSwapKLineWalletChartDays,
+} from './swapKLineChartUtils';
+
 const SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE = 'swap-kline';
-const SWAP_KLINE_WALLET_CHART_ONE_DAY_SECONDS = 24 * 60 * 60;
 const SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES = [
   TRADING_VIEW_DISABLED_FEATURES.TIME_SCALE,
   TRADING_VIEW_DISABLED_FEATURES.PRICE_SCALE,
@@ -143,92 +142,6 @@ function getNormalizedPrice(value?: number | string | null) {
 
 function getNormalizedPercent(value?: number | string | null) {
   return getNormalizedValueText(value);
-}
-
-function getSwapKLineWalletChartDays({
-  timeFrom,
-  timeTo,
-}: {
-  timeFrom: number;
-  timeTo: number;
-}) {
-  const timeSpan = Math.max(0, timeTo - timeFrom);
-
-  if (timeSpan <= SWAP_KLINE_WALLET_CHART_ONE_DAY_SECONDS) {
-    return '1';
-  }
-  if (timeSpan <= 7 * SWAP_KLINE_WALLET_CHART_ONE_DAY_SECONDS) {
-    return '7';
-  }
-  if (timeSpan <= 30 * SWAP_KLINE_WALLET_CHART_ONE_DAY_SECONDS) {
-    return '30';
-  }
-  if (timeSpan <= 365 * SWAP_KLINE_WALLET_CHART_ONE_DAY_SECONDS) {
-    return '365';
-  }
-  return 'max';
-}
-
-function normalizeSwapKLineWalletChartTimestamp(timestamp: number) {
-  if (timestamp > 10_000_000_000) {
-    return Math.floor(timestamp / 1000);
-  }
-  return Math.floor(timestamp);
-}
-
-function convertSwapKLineWalletChartToKLineResponse({
-  chartData,
-  timeFrom,
-  timeTo,
-}: {
-  chartData?: IMarketTokenChart;
-  timeFrom: number;
-  timeTo: number;
-}): IMarketTokenKLineResponse | null {
-  const pointsByTimestamp = new Map<number, { t: number; c: number }>();
-
-  for (const [timestamp, price] of chartData ?? []) {
-    const point = {
-      t: normalizeSwapKLineWalletChartTimestamp(timestamp),
-      c: Number(price),
-    };
-
-    if (
-      Number.isFinite(point.t) &&
-      Number.isFinite(point.c) &&
-      point.t >= timeFrom &&
-      point.t <= timeTo
-    ) {
-      pointsByTimestamp.set(point.t, point);
-    }
-  }
-
-  const normalizedPoints = Array.from(pointsByTimestamp.values()).toSorted(
-    (a, b) => a.t - b.t,
-  );
-
-  if (!normalizedPoints.length) {
-    return null;
-  }
-
-  const points = normalizedPoints.map<IMarketTokenKLineDataPoint>(
-    (point, index) => {
-      const open = index === 0 ? point.c : normalizedPoints[index - 1].c;
-      return {
-        o: open,
-        h: Math.max(open, point.c),
-        l: Math.min(open, point.c),
-        c: point.c,
-        v: 0,
-        t: point.t,
-      };
-    },
-  );
-
-  return {
-    points,
-    total: points.length,
-  };
 }
 
 function useSwapKLineTokenMarketInfo(token?: ISwapToken, enabled = true) {
@@ -741,7 +654,7 @@ function SwapKLineContentBody({
       <TradingViewV2
         key={`${chartNetworkId}:${chartTokenAddress}:${
           selectedToken?.symbol ?? ''
-        }:${state.walletMarketInfo?.coinGeckoId ?? ''}`}
+        }`}
         symbol={selectedToken?.symbol ?? ''}
         tokenAddress={chartTokenAddress}
         networkId={chartNetworkId}
