@@ -244,15 +244,22 @@ export function UniversalSearch({
     return filterType === tabTitles[0];
   }, [filterType, tabTitles]);
 
+  // Reset the active tab to the initial tab whenever a new search starts.
+  // The TabBar is only rendered in the `done` state and is unmounted while
+  // `loading`, so resetting here (before it re-mounts) guarantees it re-mounts
+  // already focused on the initial tab. Resetting on `done` instead is
+  // unreliable: the TabBar re-mounts initializing its internal `currentTab`
+  // from the previous (stale) `focusedTab`, and a deferred programmatic write
+  // can be dropped by its mount-time state initialization — leaving the
+  // highlight stuck on the old tab while the result list already shows all
+  // modules. Covers both typing and recent-search fill, since both enter
+  // `loading` before `done`.
   useEffect(() => {
-    if (searchStatus === ESearchStatus.done) {
-      const targetTabName = initialTabName;
-      if (focusedTab.value !== targetTabName) {
-        setFilterType(targetTabName);
-        setTimeout(() => {
-          focusedTab.value = targetTabName;
-        }, 0);
+    if (searchStatus === ESearchStatus.loading) {
+      if (focusedTab.value !== initialTabName) {
+        focusedTab.value = initialTabName;
       }
+      setFilterType(initialTabName);
     }
   }, [focusedTab, searchStatus, initialTabName]);
 
