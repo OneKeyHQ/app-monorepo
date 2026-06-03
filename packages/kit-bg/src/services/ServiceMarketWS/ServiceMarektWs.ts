@@ -61,7 +61,6 @@ class ServiceMarketWS extends ServiceBase {
   };
 
   private marketHandler = (data: unknown) => {
-    console.log('handleMarketMessage', data);
     this.handleMarketMessage(data);
   };
 
@@ -172,9 +171,6 @@ class ServiceMarketWS extends ServiceBase {
     if (subscriptions.length === 0) {
       return;
     }
-    console.log(
-      `Reconnected, re-subscribing ${subscriptions.length} active subscription(s)`,
-    );
     for (const sub of subscriptions) {
       const subscriptionArgs: IMarketSubscription = {
         channel: sub.type,
@@ -469,8 +465,6 @@ class ServiceMarketWS extends ServiceBase {
     let tokenAddress = '';
     let messageType: string | undefined;
     let processedData: any;
-
-    console.log('messageData', messageData);
 
     if ('type' in messageData && 'data' in messageData) {
       messageType = messageData.type as string;

@@ -202,6 +202,7 @@ export function InformationPanel() {
             price={currentPrice}
             tokenName={name}
             tokenSymbol={symbol}
+            lastUpdated={tokenDetail.lastUpdated?.toString()}
           />
           {priceConverted ? (
             <NumberSizeableText

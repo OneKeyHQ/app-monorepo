@@ -39,7 +39,6 @@ export function useTradingViewV2WebSocket({
   chartType = '1m',
   currency = 'usd',
 }: IUseTradingViewV2WebSocketProps): void {
-  const lastUpdateTime = useRef<number>(0);
   const tokenDetailActions = useTokenDetailActions();
   const [tokenDetail] = useTokenDetailAtom();
   const tokenDetailRef = useRef(tokenDetail);
@@ -109,9 +108,6 @@ export function useTradingViewV2WebSocket({
       markSubscriptionActivity();
 
       const now = Math.floor(Date.now() / 1000);
-      if (now - lastUpdateTime.current < 4) {
-        return;
-      }
 
       const webView = webRef.current;
       if (!webView) {
@@ -165,8 +161,6 @@ export function useTradingViewV2WebSocket({
           tokenDetailActions.current.setTokenDetail(updatedTokenDetail);
         }
       }
-
-      lastUpdateTime.current = now;
     }
 
     appEventBus.on(

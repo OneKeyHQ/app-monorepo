@@ -1,4 +1,4 @@
-import { type RefObject, useCallback, useRef } from 'react';
+import { type RefObject, useCallback } from 'react';
 
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import {
@@ -27,7 +27,6 @@ export function useAutoKLineUpdate({
   interval = 5000, // 1 minute
   autoHandleError,
 }: IAutoKLineUpdateParams) {
-  const lastUpdateTime = useRef<number>(0);
   const tokenDetailActions = useTokenDetailActions();
   const [tokenDetail] = useTokenDetailAtom();
 
@@ -42,11 +41,6 @@ export function useAutoKLineUpdate({
       const now = Math.floor(Date.now() / 1000);
       const timeFrom = now - 200;
       const timeTo = now;
-
-      // Skip if we just updated recently (avoid duplicate calls)
-      if (now - lastUpdateTime.current < 4) {
-        return;
-      }
 
       const kLineData = await fetchTradingViewV2Data({
         tokenAddress,
@@ -89,8 +83,6 @@ export function useAutoKLineUpdate({
             tokenDetailActions.current.setTokenDetail(updatedTokenDetail);
           }
         }
-
-        lastUpdateTime.current = now;
       }
     } catch (error) {
       console.error('Failed to push auto K-line data:', error);

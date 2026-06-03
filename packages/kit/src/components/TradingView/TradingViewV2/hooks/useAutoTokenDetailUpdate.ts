@@ -18,7 +18,7 @@ export function useAutoTokenDetailUpdate({
   enabled = true,
 }: IAutoTokenDetailUpdateParams) {
   const [tokenDetail] = useTokenDetailAtom();
-  const lastUpdateTime = useRef<number>(0);
+  const lastPushedTokenDetailRef = useRef<string>('');
 
   const pushLatestTokenDetailData = useCallback(() => {
     // Skip if disabled or missing required params
@@ -28,12 +28,12 @@ export function useAutoTokenDetailUpdate({
     }
 
     try {
-      const now = Math.floor(Date.now() / 1000);
-
-      // Skip if we just updated recently (avoid duplicate calls)
-      if (now - lastUpdateTime.current < 0.1) {
+      const tokenDetailSnapshot = JSON.stringify(tokenDetail);
+      if (lastPushedTokenDetailRef.current === tokenDetailSnapshot) {
         return;
       }
+
+      const now = Math.floor(Date.now() / 1000);
 
       webRef.current.sendMessageViaInjectedScript({
         type: 'tokenDetailUpdate',
@@ -45,7 +45,7 @@ export function useAutoTokenDetailUpdate({
         },
       });
 
-      lastUpdateTime.current = now;
+      lastPushedTokenDetailRef.current = tokenDetailSnapshot;
     } catch (error) {
       console.error('Failed to push auto token detail data:', error);
     }

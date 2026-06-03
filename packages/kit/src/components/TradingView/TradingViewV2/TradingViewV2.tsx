@@ -20,6 +20,7 @@ import {
   useAutoKLineUpdate,
   useAutoTokenDetailUpdate,
   useHyperLiquidKlineSource,
+  useHyperLiquidTokenPriceUpdate,
   useTradingViewV2WebSocket,
 } from './hooks';
 import {
@@ -182,6 +183,19 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     networkId,
     webRef,
     enabled: isVisible,
+  });
+
+  useHyperLiquidTokenPriceUpdate({
+    tokenAddress,
+    networkId,
+    tokenSymbol: symbol,
+    hyperLiquidSymbol,
+    kLineResolutionRef: currentKLineResolution,
+    enabled:
+      isVisible &&
+      useHyperLiquid &&
+      !mockEmptyKLineEnabled &&
+      !forceEmptyKLineData,
   });
 
   useTradingViewV2WebSocket({
