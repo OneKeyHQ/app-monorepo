@@ -1308,7 +1308,6 @@ function BasePerpTokenSelector() {
         onOpenChange={(open) => {
           if (open) {
             defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
-              source: 'desktop',
               currentToken: baseName,
               tradeMode: mode === 'spot' ? 'spot' : 'perp',
             });
@@ -1477,7 +1476,6 @@ function BasePerpTokenSelectorMobile() {
 
   const onPressTokenSelector = useCallback(() => {
     defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
-      source: 'mobileTicker',
       currentToken: coin,
       tradeMode: mode === 'spot' ? 'spot' : 'perp',
     });

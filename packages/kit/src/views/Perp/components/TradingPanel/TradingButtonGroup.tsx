@@ -8,13 +8,13 @@ import {
   Button,
   DashText,
   NumberSizeableText,
-  Popover,
   SizableText,
   Toast,
   Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
@@ -24,6 +24,7 @@ import {
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  perpsActiveAccountStatusAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountEnableTradingModeAtom,
@@ -34,6 +35,7 @@ import {
   usePerpsTradingPreferencesAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   SCALE_ORDER_MAX_COUNT,
@@ -61,10 +63,12 @@ import {
   useConfirmHyperliquidTerms,
   useRequestEnableTradingWithDepositFallback,
 } from '../../hooks/useEnableTradingWithDepositFallback';
+import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
 import { shouldPreserveColdStartButtonVisualState } from '../../utils/accountScopedData';
+import { getEnableTradingDialogConfirmDecision } from '../../utils/enableTradingDialogConfirm';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import {
   type IPerpsMobileLayoutTraceRect,
@@ -84,6 +88,7 @@ import {
   shouldDisablePerpsOrderPanelTradingButtonForAccountLoading,
   shouldSkipPerpsOrderPanelComputedSizeValidation,
 } from '../../utils/perpsOrderPanelEnableTrading';
+import { getScaleOrderValidationErrorMessage } from '../../utils/scaleOrderValidation';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showEnableTradingStepsDialog } from './modals/EnableTradingStepsDialog';
@@ -187,6 +192,7 @@ function SideButtonInternal({
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const perpsAccountKey = useMemo(
     () => getPerpsAccountKey(perpsAccount),
     [perpsAccount],
@@ -274,9 +280,9 @@ function SideButtonInternal({
   const shouldShowEnableTradingDialog = useMemo(
     () =>
       !perpsAccountStatus.canTrade &&
-      effectiveEnableTradingMode.requiresEnableTradingDialogInOrderPanel,
+      effectiveEnableTradingMode.requiresExplicitEnableTrading,
     [
-      effectiveEnableTradingMode.requiresEnableTradingDialogInOrderPanel,
+      effectiveEnableTradingMode.requiresExplicitEnableTrading,
       perpsAccountStatus.canTrade,
     ],
   );
@@ -409,7 +415,13 @@ function SideButtonInternal({
 
   const buttonText = useMemo(() => {
     if (isMobile && formData.orderMode === 'scale') {
-      return side === 'long' ? 'Preview Buy' : 'Preview Sell';
+      return side === 'long'
+        ? intl.formatMessage({
+            id: ETranslations.perp_preview_buy__action,
+          })
+        : intl.formatMessage({
+            id: ETranslations.perp_preview_sell__action,
+          });
     }
     if (priceError === 'bbo_unavailable' && !shouldEnableTradingBeforeOrder)
       return intl.formatMessage({
@@ -749,7 +761,11 @@ function SideButtonInternal({
         const validation = validateScaleOrderLegs({ legs });
         if (!validation.isValid) {
           Toast.message({
-            title: validation.errors[0] ?? 'Invalid scale order',
+            title: getScaleOrderValidationErrorMessage({
+              intl,
+              validation,
+              fallback: 'Invalid scale order',
+            }),
           });
           return false;
         }
@@ -770,7 +786,9 @@ function SideButtonInternal({
           averageSliceNotional.lt(SCALE_ORDER_MIN_NOTIONAL)
         ) {
           Toast.message({
-            title: 'TWAP order size is too small for this duration',
+            title: intl.formatMessage({
+              id: ETranslations.perp_twap_small_slice__msg,
+            }),
           });
           return false;
         }
@@ -918,8 +936,37 @@ function SideButtonInternal({
         status: undefined,
       };
       if (shouldShowEnableTradingDialog) {
+        // The dialog must reflect a fresh account-status snapshot; the
+        // background enable flow revalidates immediately and can otherwise
+        // require more signatures than the stale UI predicted.
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+        } catch (error) {
+          errorToastUtils.toastIfError(error);
+          return stopResult;
+        }
+        const latestPerpsAccountStatus =
+          (await perpsActiveAccountStatusAtom.get()) ?? perpsAccountStatus;
+        if (shouldIgnoreResult()) {
+          return stopResult;
+        }
+        const confirmDecision = getEnableTradingDialogConfirmDecision(
+          latestPerpsAccountStatus,
+        );
+        if (confirmDecision === 'continue') {
+          return {
+            shouldContinue: true,
+            status: latestPerpsAccountStatus,
+          };
+        }
+        if (confirmDecision === 'deposit') {
+          beforeDeposit?.();
+          await showDepositWithdrawModal('deposit');
+          return stopResult;
+        }
         const result = await showEnableTradingStepsDialog({
-          accountStatus: perpsAccountStatus,
+          accountStatus: latestPerpsAccountStatus,
           onConfirm: async ({ closeDialog }) => {
             if (shouldIgnoreResult()) {
               return stopResult;
@@ -967,6 +1014,7 @@ function SideButtonInternal({
       intl,
       perpsAccountStatus,
       requestEnableTradingWithDepositFallback,
+      showDepositWithdrawModal,
       shouldShowEnableTradingDialog,
     ],
   );
@@ -1234,6 +1282,50 @@ function SideButtonInternal({
       side,
     ],
   );
+  const desktopCostTooltipContent = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.perp_trade_margin_tooltip,
+      }),
+    [intl],
+  );
+  const desktopCostTooltipTrigger = useMemo(
+    () => (
+      <DashText
+        size="$bodySm"
+        color="$textSubdued"
+        cursor="default"
+        dashThickness={0.5}
+      >
+        {intl.formatMessage({
+          id: ETranslations.perp_cost,
+        })}
+      </DashText>
+    ),
+    [intl],
+  );
+  const desktopLiqPriceTooltipContent = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.perp_est_liq_price_tooltip,
+      }),
+    [intl],
+  );
+  const desktopLiqPriceTooltipTrigger = useMemo(
+    () => (
+      <DashText
+        size="$bodySm"
+        color="$textSubdued"
+        cursor="default"
+        dashThickness={0.5}
+      >
+        {intl.formatMessage({
+          id: ETranslations.perp_est_liq_price,
+        })}
+      </DashText>
+    ),
+    [intl],
+  );
 
   if (isMobile) {
     return (
@@ -1255,31 +1347,22 @@ function SideButtonInternal({
         </XStack> */}
 
             <XStack justifyContent="space-between">
-              <Popover
-                title={intl.formatMessage({
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashThickness={0.3}
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_trade_margin_tooltip,
+                })}
+                tooltipDisplayMode="popover"
+                tooltipTitle={intl.formatMessage({
                   id: ETranslations.perp_trade_margin_required,
                 })}
-                renderTrigger={
-                  <DashText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    dashThickness={0.3}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_cost,
-                    })}
-                  </DashText>
-                }
-                renderContent={
-                  <YStack px="$5" pb="$4">
-                    <SizableText>
-                      {intl.formatMessage({
-                        id: ETranslations.perp_trade_margin_tooltip,
-                      })}
-                    </SizableText>
-                  </YStack>
-                }
-              />
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_cost,
+                })}
+              </DashText>
 
               <NumberSizeableText
                 size="$bodySm"
@@ -1292,31 +1375,22 @@ function SideButtonInternal({
             </XStack>
 
             <XStack justifyContent="space-between">
-              <Popover
-                title={intl.formatMessage({
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashThickness={0.5}
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_est_liq_price_tooltip,
+                })}
+                tooltipDisplayMode="popover"
+                tooltipTitle={intl.formatMessage({
                   id: ETranslations.perp_est_liq_price,
                 })}
-                renderTrigger={
-                  <DashText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    dashThickness={0.5}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_est_liq_price,
-                    })}
-                  </DashText>
-                }
-                renderContent={
-                  <YStack px="$5" pb="$4">
-                    <SizableText>
-                      {intl.formatMessage({
-                        id: ETranslations.perp_est_liq_price_tooltip,
-                      })}
-                    </SizableText>
-                  </YStack>
-                }
-              />
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_est_liq_price,
+                })}
+              </DashText>
 
               {renderLiquidationPrice()}
             </XStack>
@@ -1432,21 +1506,9 @@ function SideButtonInternal({
           <XStack gap="$2" justifyContent={justifyContent}>
             <Tooltip
               placement="top"
-              renderContent={intl.formatMessage({
-                id: ETranslations.perp_trade_margin_tooltip,
-              })}
-              renderTrigger={
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  cursor="default"
-                  dashThickness={0.5}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_cost,
-                  })}
-                </DashText>
-              }
+              triggerAsChild="except-style"
+              renderContent={desktopCostTooltipContent}
+              renderTrigger={desktopCostTooltipTrigger}
             />
 
             <NumberSizeableText
@@ -1462,21 +1524,9 @@ function SideButtonInternal({
           <XStack gap="$2" justifyContent={justifyContent}>
             <Tooltip
               placement="top"
-              renderContent={intl.formatMessage({
-                id: ETranslations.perp_est_liq_price_tooltip,
-              })}
-              renderTrigger={
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  cursor="default"
-                  dashThickness={0.5}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_est_liq_price,
-                  })}
-                </DashText>
-              }
+              triggerAsChild="except-style"
+              renderContent={desktopLiqPriceTooltipContent}
+              renderTrigger={desktopLiqPriceTooltipTrigger}
             />
 
             {renderLiquidationPrice()}
