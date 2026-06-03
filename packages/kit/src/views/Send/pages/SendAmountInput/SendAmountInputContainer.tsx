@@ -280,11 +280,9 @@ function isSwapQuoteCancelError(error: unknown) {
 
 function PrivateSendValueDropWarningContent({
   valueDropPercent,
-  onCancel,
   onConfirm,
 }: {
   valueDropPercent?: number;
-  onCancel: () => void;
   onConfirm: () => void;
 }) {
   const intl = useIntl();
@@ -300,15 +298,8 @@ function PrivateSendValueDropWarningContent({
   }, []);
 
   return (
-    <YStack gap="$4">
-      <YStack
-        gap="$2"
-        p="$3"
-        borderRadius="$3"
-        bg="$bgCritical"
-        borderWidth="$px"
-        borderColor="$borderCritical"
-      >
+    <YStack gap="$6">
+      <YStack gap="$3">
         <SizableText size="$bodyMdMedium" color="$textCritical">
           {intl.formatMessage(
             { id: ETranslations.private_send_value_drop_amount },
@@ -326,29 +317,18 @@ function PrivateSendValueDropWarningContent({
           })}
         </SizableText>
       </YStack>
-      <XStack gap="$2.5">
-        <Button
-          testID="private-send-value-drop-cancel"
-          flex={1}
-          variant="secondary"
-          onPress={onCancel}
-        >
-          {intl.formatMessage({ id: ETranslations.global_cancel })}
-        </Button>
-        <Button
-          testID="private-send-value-drop-confirm"
-          flex={1}
-          variant="destructive"
-          disabled={countdown > 0}
-          onPress={onConfirm}
-        >
-          {countdown > 0
-            ? `${intl.formatMessage({
-                id: ETranslations.global_continue,
-              })} (${countdown})`
-            : intl.formatMessage({ id: ETranslations.global_continue })}
-        </Button>
-      </XStack>
+      <Button
+        testID="private-send-value-drop-confirm"
+        variant="primary"
+        disabled={countdown > 0}
+        onPress={onConfirm}
+      >
+        {countdown > 0
+          ? `${intl.formatMessage({
+              id: ETranslations.global_continue,
+            })} (${countdown})`
+          : intl.formatMessage({ id: ETranslations.global_continue })}
+      </Button>
     </YStack>
   );
 }
@@ -1695,26 +1675,18 @@ function SendAmountInputContainer() {
           title: intl.formatMessage({
             id: ETranslations.private_send_high_value_drop_title,
           }),
-          tone: 'destructive',
           showFooter: false,
           trapFocus: true,
           dismissOnOverlayPress: false,
-          disableDrag: true,
           onClose: () => settle(false),
           renderContent: (
-            <Stack p="$4">
-              <PrivateSendValueDropWarningContent
-                valueDropPercent={valueDropPercent}
-                onCancel={() => {
-                  settle(false);
-                  void dialog.close();
-                }}
-                onConfirm={() => {
-                  settle(true);
-                  void dialog.close();
-                }}
-              />
-            </Stack>
+            <PrivateSendValueDropWarningContent
+              valueDropPercent={valueDropPercent}
+              onConfirm={() => {
+                settle(true);
+                void dialog.close();
+              }}
+            />
           ),
         });
       });
