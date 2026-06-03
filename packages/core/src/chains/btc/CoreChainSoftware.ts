@@ -260,7 +260,12 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
             .fill(
               Buffer.concat([
                 Buffer.from([0]),
-                await decryptAsync({ password, data: privateKeyRaw }),
+                await decryptAsync({
+                  password,
+                  data: privateKeyRaw,
+                  kdfBackend: query.kdfBackend,
+                  enablePbkdf2Cache: query.enablePbkdf2Cache,
+                }),
               ]),
               45,
               78,
@@ -269,7 +274,12 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       }
       if (credentials.imported) {
         return bs58check.encode(
-          await decryptAsync({ password, data: privateKeyRaw }),
+          await decryptAsync({
+            password,
+            data: privateKeyRaw,
+            kdfBackend: query.kdfBackend,
+            enablePbkdf2Cache: query.enablePbkdf2Cache,
+          }),
         );
       }
     }
@@ -499,10 +509,14 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     privateKeys,
     password,
     relPaths,
+    kdfBackend,
+    enablePbkdf2Cache,
   }: {
     privateKeys: ICoreApiPrivateKeysMap;
     password: string;
     relPaths?: string[];
+    kdfBackend?: ICoreApiSignBasePayload['kdfBackend'];
+    enablePbkdf2Cache?: ICoreApiSignBasePayload['enablePbkdf2Cache'];
   }): Promise<ICoreApiPrivateKeysMap> {
     const deriver = new BaseBip32KeyDeriver(
       Buffer.from('Bitcoin seed'),
@@ -514,6 +528,8 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     const xprv: Buffer = await decryptAsync({
       password,
       data: bufferUtils.toBuffer(privateKey),
+      kdfBackend,
+      enablePbkdf2Cache,
     });
     const startKey: {
       chainCode: Buffer;
@@ -547,7 +563,12 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
 
       // TODO use dbAccountAddresses save fullPath/relPath key
       privateKeys[relPath] = bufferUtils.bytesToHex(
-        await encryptAsync({ password, data: cache[relPath].key }),
+        await encryptAsync({
+          password,
+          data: cache[relPath].key,
+          kdfBackend,
+          enablePbkdf2Cache,
+        }),
       );
     }
     return privateKeys;
@@ -768,7 +789,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
-    const { password, relPaths } = payload;
+    const { password, relPaths, kdfBackend, enablePbkdf2Cache } = payload;
     const isImported = !!payload.credentials.imported;
     const privateKeys = await this.baseGetPrivateKeys({
       payload,
@@ -779,6 +800,8 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         privateKeys,
         password,
         relPaths,
+        kdfBackend,
+        enablePbkdf2Cache,
       });
     }
     return privateKeys;

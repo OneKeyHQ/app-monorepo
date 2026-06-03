@@ -77,7 +77,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return sdkAlgo.mnemonicFromSeed(
-        await decryptAsync({ password, data: privateKeyRaw }),
+        await decryptAsync({
+          password,
+          data: privateKeyRaw,
+          kdfBackend: query.kdfBackend,
+          enablePbkdf2Cache: query.enablePbkdf2Cache,
+        }),
       );
     }
     throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);

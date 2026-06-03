@@ -36,6 +36,14 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
+import {
+  clearPbkdf2InvocationByProbeId,
+  getPbkdf2BackendForCurrentPlatform,
+  getPbkdf2InvocationByProbeId,
+  getPbkdf2KdfParamsForNonDbTx,
+  isWebCryptoPbkdf2Supported,
+} from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   backgroundClass,
   backgroundMethod,
@@ -239,6 +247,8 @@ class ServiceAccount extends ServiceBase {
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
   }, 600);
 
+  private importedAccountKdfProbeIndex = 0;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
 
@@ -322,6 +332,138 @@ class ServiceAccount extends ServiceBase {
       this.getAccountXpubOrAddressWithMemo.clear();
       this.getAccountXpubsForAllDeriveTypesWithMemo.clear();
     });
+  }
+
+  private buildImportedAccountKdfProbeId(stage: string) {
+    this.importedAccountKdfProbeIndex += 1;
+    return `prime-transfer-imported-account-${stage}-${Date.now()}-${this.importedAccountKdfProbeIndex}`;
+  }
+
+  private async recordImportedAccountKdfProbe({
+    stage,
+    targetType = 'credential',
+    networkId,
+    kdfParams,
+    probeId,
+  }: {
+    stage: string;
+    targetType?: 'credential' | 'importedAccount';
+    networkId: string | undefined;
+    kdfParams: IPbkdf2KdfParams;
+    probeId: string;
+  }) {
+    const invocation = getPbkdf2InvocationByProbeId(probeId);
+    try {
+      await this.backgroundApi.servicePrimeTransfer.recordImportBatchCreateTrace(
+        {
+          event: 'done',
+          stage,
+          targetType,
+          networkId,
+          kdfBackend: kdfParams.kdfBackend ?? 'platform-default',
+          pbkdf2Backend:
+            invocation?.backend ??
+            kdfParams.kdfBackend ??
+            getPbkdf2BackendForCurrentPlatform(),
+          pbkdf2CacheEnabled: Boolean(kdfParams.enablePbkdf2Cache),
+          pbkdf2CacheHit: Boolean(kdfParams.enablePbkdf2Cache && !invocation),
+          pbkdf2Iterations: invocation?.iterations,
+          pbkdf2KeyLength: invocation?.keyLength,
+          webCryptoPbkdf2Supported: isWebCryptoPbkdf2Supported(),
+        },
+      );
+    } catch (error) {
+      console.warn('recordImportedAccountKdfProbe error', error);
+    } finally {
+      clearPbkdf2InvocationByProbeId(probeId);
+    }
+  }
+
+  private getImportedAccountTraceErrorMessage(error: unknown) {
+    const message = (error as Error)?.message || 'Unknown error';
+    return message.length > 500
+      ? `${message.slice(0, 500)}...(truncated)`
+      : message;
+  }
+
+  private async recordImportedAccountTrace({
+    event,
+    stage,
+    targetType = 'importedAccount',
+    networkId,
+    deriveType,
+    elapsedMs,
+    error,
+  }: {
+    event: 'start' | 'done' | 'error';
+    stage: string;
+    targetType?: 'credential' | 'importedAccount';
+    networkId?: string;
+    deriveType?: IAccountDeriveTypes;
+    elapsedMs?: number;
+    error?: string;
+  }) {
+    try {
+      await this.backgroundApi.servicePrimeTransfer.recordImportBatchCreateTrace(
+        {
+          event,
+          stage,
+          targetType,
+          networkId,
+          deriveType,
+          elapsedMs,
+          error,
+        },
+      );
+    } catch (traceError) {
+      console.warn('recordImportedAccountTrace error', traceError);
+    }
+  }
+
+  private async withImportedAccountTrace<T>({
+    stage,
+    targetType,
+    networkId,
+    deriveType,
+    task,
+  }: {
+    stage: string;
+    targetType?: 'credential' | 'importedAccount';
+    networkId?: string;
+    deriveType?: IAccountDeriveTypes;
+    task: () => Promise<T>;
+  }): Promise<T> {
+    const startedAt = Date.now();
+    await this.recordImportedAccountTrace({
+      event: 'start',
+      stage,
+      targetType,
+      networkId,
+      deriveType,
+    });
+    try {
+      const result = await task();
+      await this.recordImportedAccountTrace({
+        event: 'done',
+        stage,
+        targetType,
+        networkId,
+        deriveType,
+        elapsedMs: Date.now() - startedAt,
+      });
+      return result;
+    } catch (error) {
+      await this.recordImportedAccountTrace({
+        event: 'error',
+        stage,
+        targetType,
+        networkId,
+        deriveType,
+        elapsedMs: Date.now() - startedAt,
+        error: this.getImportedAccountTraceErrorMessage(error),
+      });
+      throw error;
+    }
   }
 
   @backgroundMethod()
@@ -1745,6 +1887,7 @@ class ServiceAccount extends ServiceBase {
 
   async addImportedAccountWithCredentialBase({
     credential,
+    credentialRaw,
     password: inputPassword,
     networkId,
     deriveType,
@@ -1758,7 +1901,8 @@ class ServiceAccount extends ServiceBase {
     name?: string;
     fallbackName?: string;
     shouldCheckDuplicateName?: boolean;
-    credential: string;
+    credential?: string;
+    credentialRaw?: string;
     password?: string;
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
@@ -1789,12 +1933,33 @@ class ServiceAccount extends ServiceBase {
       networkId,
       walletId,
     });
-    // TODO privateKey should be HEX format
-    ensureSensitiveTextEncoded(credential);
-
-    const privateKeyDecoded = await decodeSensitiveTextAsync({
-      encodedText: credential,
-    });
+    // Internal restore paths can already hold the decoded private key. Keep
+    // the raw value in the call stack only and avoid re-wrapping it.
+    let privateKeyDecoded = credentialRaw;
+    if (!privateKeyDecoded) {
+      if (!credential) {
+        throw new OneKeyLocalError(
+          'addImportedAccountWithCredential ERROR: Credential is required',
+        );
+      }
+      // TODO privateKey should be HEX format
+      ensureSensitiveTextEncoded(credential);
+      privateKeyDecoded = await this.withImportedAccountTrace({
+        stage: 'decodeImportedPrivateKey',
+        targetType: 'credential',
+        networkId,
+        task: () =>
+          decodeSensitiveTextAsync({
+            encodedText: credential,
+          }),
+      });
+    }
+    if (!privateKeyDecoded) {
+      throw new OneKeyLocalError(
+        'addImportedAccountWithCredential ERROR: Private key is required',
+      );
+    }
+    let privateKeyDecodedForEncrypt = privateKeyDecoded;
 
     let password = inputPassword;
     if (!password) {
@@ -1805,30 +1970,74 @@ class ServiceAccount extends ServiceBase {
         }));
     }
     ensureSensitiveTextEncoded(password);
-    const credentialEncrypt = await encryptImportedCredential({
-      credential: {
-        privateKey: privateKeyDecoded,
-      },
-      password,
+    // Resolve WebCrypto KDF only before the IndexedDB write transaction starts.
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
+    const encryptImportedCredentialProbeId =
+      this.buildImportedAccountKdfProbeId('encrypt-credential');
+    clearPbkdf2InvocationByProbeId(encryptImportedCredentialProbeId);
+    const credentialEncrypt = await this.withImportedAccountTrace({
+      stage: 'encryptImportedCredential',
+      targetType: 'credential',
+      networkId,
+      task: () =>
+        encryptImportedCredential({
+          credential: {
+            privateKey: privateKeyDecodedForEncrypt,
+          },
+          password,
+          ...kdfParams,
+          debugCryptoProbeId: encryptImportedCredentialProbeId,
+        }),
     });
+    privateKeyDecodedForEncrypt = '';
+    privateKeyDecoded = '';
+    await this.recordImportedAccountKdfProbe({
+      stage: 'encryptImportedCredentialKdf',
+      targetType: 'credential',
+      networkId,
+      kdfParams,
+      probeId: encryptImportedCredentialProbeId,
+    });
+    const prepareImportedAccountProbeId =
+      this.buildImportedAccountKdfProbeId('prepare-account');
+    clearPbkdf2InvocationByProbeId(prepareImportedAccountProbeId);
     const params: IPrepareImportedAccountsParams = {
       password,
       name: name || '',
       importedCredential: credentialEncrypt,
       networks: [networkId],
       createAtNetwork: networkId,
+      ...kdfParams,
+      debugCryptoProbeId: prepareImportedAccountProbeId,
     };
     if (deriveType) {
-      const deriveInfo =
-        await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
-          networkId,
-          deriveType,
-        });
+      const deriveInfo = await this.withImportedAccountTrace({
+        stage: 'getImportedAccountDeriveInfo',
+        networkId,
+        deriveType,
+        task: () =>
+          this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
+            networkId,
+            deriveType,
+          }),
+      });
       if (deriveInfo) params.deriveInfo = deriveInfo;
     }
 
     // addImportedAccount
-    const accounts = await vault.keyring.prepareAccounts(params);
+    const accounts = await this.withImportedAccountTrace({
+      stage: 'prepareImportedAccount',
+      networkId,
+      deriveType,
+      task: () => vault.keyring.prepareAccounts(params),
+    });
+    await this.recordImportedAccountKdfProbe({
+      stage: 'prepareImportedAccountKdf',
+      targetType: 'importedAccount',
+      networkId,
+      kdfParams,
+      probeId: prepareImportedAccountProbeId,
+    });
 
     if (
       skipAddIfNotEqualToAddress &&
@@ -1845,26 +2054,39 @@ class ServiceAccount extends ServiceBase {
       };
     }
     const { isOverrideAccounts, existsAccounts } =
-      await localDb.addAccountsToWallet({
-        skipEventEmit,
-        allAccountsBelongToNetworkId: networkId,
-        walletId,
-        accounts,
-        importedCredential: credentialEncrypt,
-        applyRestoreSyncPolicy,
-        accountNameBuilder: ({ nextAccountId }) => {
-          if (fallbackName) {
-            return fallbackName;
-          }
-          return accountUtils.buildBaseAccountName({ nextAccountId });
-        },
+      await this.withImportedAccountTrace({
+        stage: 'addImportedAccountToWallet',
+        networkId,
+        deriveType,
+        task: () =>
+          localDb.addAccountsToWallet({
+            skipEventEmit,
+            allAccountsBelongToNetworkId: networkId,
+            walletId,
+            accounts,
+            importedCredential: credentialEncrypt,
+            applyRestoreSyncPolicy,
+            accountNameBuilder: ({ nextAccountId }) => {
+              if (fallbackName) {
+                return fallbackName;
+              }
+              return accountUtils.buildBaseAccountName({ nextAccountId });
+            },
+          }),
       });
 
-    const fixAccountNamePromise = this.fixAccountName({
-      account: existsAccounts?.[0],
-      name,
-      fallbackName,
-      applyRestoreSyncPolicy,
+    const fixAccountNamePromise = this.withImportedAccountTrace({
+      stage: 'fixImportedAccountName',
+      networkId,
+      deriveType,
+      task: () =>
+        this.fixAccountName({
+          account: existsAccounts?.[0],
+          name,
+          fallbackName,
+          applyRestoreSyncPolicy,
+          skipEventEmit,
+        }),
     });
     if (applyRestoreSyncPolicy) {
       await fixAccountNamePromise;
@@ -1872,7 +2094,9 @@ class ServiceAccount extends ServiceBase {
       void fixAccountNamePromise;
     }
 
-    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    if (!skipEventEmit) {
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    }
 
     if (isOverrideAccounts && existsAccounts.length) {
       void this.addAccountNameChangeHistory({
@@ -1993,11 +2217,13 @@ class ServiceAccount extends ServiceBase {
     name,
     fallbackName,
     applyRestoreSyncPolicy,
+    skipEventEmit,
   }: {
     account: IDBAccount | undefined;
     name?: string;
     fallbackName?: string;
     applyRestoreSyncPolicy?: boolean;
+    skipEventEmit?: boolean;
   }) {
     if (!account) {
       return;
@@ -2008,6 +2234,7 @@ class ServiceAccount extends ServiceBase {
         accountId: account.id,
         name: newName,
         applyRestoreSyncPolicy,
+        skipEventEmit,
       });
     }
   }
@@ -2184,6 +2411,7 @@ class ServiceAccount extends ServiceBase {
       name,
       fallbackName,
       applyRestoreSyncPolicy,
+      skipEventEmit,
     });
     if (applyRestoreSyncPolicy) {
       await fixAccountNamePromise;
@@ -2191,7 +2419,9 @@ class ServiceAccount extends ServiceBase {
       void fixAccountNamePromise;
     }
 
-    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    if (!skipEventEmit) {
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    }
 
     if (isOverrideAccounts && existsAccounts.length) {
       void this.addAccountNameChangeHistory({
@@ -6683,14 +6913,12 @@ class ServiceAccount extends ServiceBase {
     );
   }
 
-  async getExportedPrivateKeyOfImportedAccount({
-    importedAccount,
+  async getPrivateKeyOfImportedAccountCredential({
     encryptedCredential,
     password,
     credentialDecrypted,
     networkId,
   }: {
-    importedAccount: IPrimeTransferAccount;
     password: string;
     encryptedCredential: string;
     credentialDecrypted?: ICoreImportedCredential | undefined;
@@ -6701,31 +6929,75 @@ class ServiceAccount extends ServiceBase {
     }
     if (!password) {
       throw new OneKeyLocalError(
-        'getExportedPrivateKeyOfImportedAccount Error: Password is required',
+        'getPrivateKeyOfImportedAccountCredential Error: Password is required',
       );
     }
     if (!credentialDecrypted) {
       if (!encryptedCredential) {
         throw new OneKeyLocalError(
-          'getExportedPrivateKeyOfImportedAccount Error: Encrypted credential is required',
+          'getPrivateKeyOfImportedAccountCredential Error: Encrypted credential is required',
         );
       }
     }
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     let privateKey: string | undefined;
     if (credentialDecrypted) {
       privateKey = credentialDecrypted.privateKey;
     } else {
+      const decryptImportedCredentialProbeId =
+        this.buildImportedAccountKdfProbeId('decrypt-source-credential');
+      clearPbkdf2InvocationByProbeId(decryptImportedCredentialProbeId);
       ({ privateKey } = await decryptImportedCredential({
         credential: encryptedCredential,
         password,
         allowRawPassword: true,
+        ...kdfParams,
+        debugCryptoProbeId: decryptImportedCredentialProbeId,
       }));
+      await this.recordImportedAccountKdfProbe({
+        stage: 'decryptImportedCredentialKdf',
+        targetType: 'credential',
+        networkId,
+        kdfParams,
+        probeId: decryptImportedCredentialProbeId,
+      });
     }
     if (!privateKey) {
       throw new OneKeyLocalError(
-        'getExportedPrivateKeyOfImportedAccount Error: Private key is required',
+        'getPrivateKeyOfImportedAccountCredential Error: Private key is required',
       );
     }
+    return { privateKey };
+  }
+
+  async getExportedPrivateKeyOfImportedAccount({
+    importedAccount,
+    encryptedCredential,
+    password,
+    credentialDecrypted,
+    networkId,
+    privateKeyRaw,
+  }: {
+    importedAccount: IPrimeTransferAccount;
+    password: string;
+    encryptedCredential: string;
+    credentialDecrypted?: ICoreImportedCredential | undefined;
+    networkId: string | undefined;
+    privateKeyRaw?: string;
+  }) {
+    let privateKey = privateKeyRaw;
+    if (!privateKey) {
+      ({ privateKey } = await this.getPrivateKeyOfImportedAccountCredential({
+        encryptedCredential,
+        password,
+        credentialDecrypted,
+        networkId,
+      }));
+    }
+    if (!networkId) {
+      throw new OneKeyLocalError('NetworkId is required');
+    }
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     const coreApi = this.backgroundApi.serviceNetwork.getCoreApiByNetwork({
       networkId,
     });
@@ -6733,28 +7005,54 @@ class ServiceAccount extends ServiceBase {
       networkId,
       hex: false,
     });
+    const encryptExportCredentialProbeId = this.buildImportedAccountKdfProbeId(
+      'encrypt-export-credential',
+    );
+    clearPbkdf2InvocationByProbeId(encryptExportCredentialProbeId);
     const credentials: ICoreCredentialsInfo = {
-      imported: await encryptImportedCredential({
-        credential: {
-          privateKey,
-        },
-        password,
+      imported: await this.withImportedAccountTrace({
+        stage: 'encryptImportedExportCredential',
+        targetType: 'credential',
+        networkId,
+        task: () =>
+          encryptImportedCredential({
+            credential: {
+              privateKey,
+            },
+            password,
+            ...kdfParams,
+            debugCryptoProbeId: encryptExportCredentialProbeId,
+          }),
       }),
     };
+    await this.recordImportedAccountKdfProbe({
+      stage: 'encryptImportedExportCredentialKdf',
+      targetType: 'credential',
+      networkId,
+      kdfParams,
+      probeId: encryptExportCredentialProbeId,
+    });
     // TODO try catch
-    let exportedPrivateKey = await coreApi.imported.getExportedSecretKey({
-      networkInfo: { chainId } as any, // only works for HD
+    let exportedPrivateKey = await this.withImportedAccountTrace({
+      stage: 'getImportedAccountExportedSecretKey',
+      targetType: 'credential',
+      networkId,
+      task: () =>
+        coreApi.imported.getExportedSecretKey({
+          networkInfo: { chainId } as any, // only works for HD
 
-      password,
-      credentials,
+          password,
+          credentials,
+          ...kdfParams,
 
-      account: { ...importedAccount, path: importedAccount.path || '' },
+          account: { ...importedAccount, path: importedAccount.path || '' },
 
-      keyType:
-        importedAccount.type === EDBAccountType.UTXO
-          ? ECoreApiExportedSecretKeyType.xprvt
-          : ECoreApiExportedSecretKeyType.privateKey,
-      addressEncoding: undefined,
+          keyType:
+            importedAccount.type === EDBAccountType.UTXO
+              ? ECoreApiExportedSecretKeyType.xprvt
+              : ECoreApiExportedSecretKeyType.privateKey,
+          addressEncoding: undefined,
+        }),
     });
     if (
       !exportedPrivateKey &&
@@ -6774,6 +7072,9 @@ class ServiceAccount extends ServiceBase {
     networkId,
     skipEventEmit,
     applyRestoreSyncPolicy,
+    deriveTypes: presetDeriveTypes,
+    skipAddressDeriveTypeLookup,
+    skipInputDeriveTypesFallback,
   }: {
     importedAccount: IPrimeTransferAccount;
     input: string;
@@ -6782,18 +7083,30 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     skipEventEmit?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    deriveTypes?: IAccountDeriveTypes[];
+    skipAddressDeriveTypeLookup?: boolean;
+    skipInputDeriveTypesFallback?: boolean;
   }) {
     const addedAccounts: IDBAccount[] = [];
     try {
       const { serviceAccount, serviceNetwork, servicePassword } =
         this.backgroundApi;
 
-      let deriveTypes: IAccountDeriveTypes[] = [];
-      if (importedAccount?.address) {
+      let deriveTypes: IAccountDeriveTypes[] = [...(presetDeriveTypes || [])];
+      if (
+        !deriveTypes?.length &&
+        !skipAddressDeriveTypeLookup &&
+        importedAccount?.address
+      ) {
         try {
-          const deriveType = await serviceNetwork.getDeriveTypeByAddress({
+          const deriveType = await this.withImportedAccountTrace({
+            stage: 'resolveImportedAccountDeriveTypeByAddress',
             networkId,
-            address: importedAccount.address,
+            task: () =>
+              serviceNetwork.getDeriveTypeByAddress({
+                networkId,
+                address: importedAccount.address,
+              }),
           });
           if (deriveType) {
             deriveTypes.push(deriveType);
@@ -6803,17 +7116,31 @@ class ServiceAccount extends ServiceBase {
         }
       }
 
-      if (!deriveTypes?.length) {
+      if (!deriveTypes?.length && !skipInputDeriveTypesFallback) {
         try {
-          deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
-            accountId: importedAccount.id,
+          const isUtxoImportedAccount =
+            importedAccount.type === EDBAccountType.UTXO;
+          const sensitiveInput = await this.withImportedAccountTrace({
+            stage: 'encodeImportedAccountFallbackInput',
+            targetType: 'credential',
             networkId,
-            input: await servicePassword.encodeSensitiveText({
-              text: input,
-            }),
-            validatePrivateKey: true,
-            validateXprvt: true,
-            template: importedAccount.template,
+            task: () =>
+              servicePassword.encodeSensitiveText({
+                text: input,
+              }),
+          });
+          deriveTypes = await this.withImportedAccountTrace({
+            stage: 'resolveImportedAccountDeriveTypesByInput',
+            networkId,
+            task: () =>
+              serviceNetwork.getAccountImportingDeriveTypes({
+                accountId: importedAccount.id,
+                networkId,
+                input: sensitiveInput,
+                validatePrivateKey: !isUtxoImportedAccount,
+                validateXprvt: isUtxoImportedAccount,
+                template: importedAccount.template,
+              }),
           });
         } catch (e) {
           console.error('getAccountImportingDeriveTypes error', e);
@@ -6825,27 +7152,33 @@ class ServiceAccount extends ServiceBase {
       }
 
       const skipAddIfNotEqualToAddress =
-        deriveTypes.length > 1 ? importedAccount.address : undefined;
-      for (const deriveType of deriveTypes) {
-        try {
-          const { accounts } =
-            await serviceAccount.addImportedAccountWithCredentialBase({
-              skipEventEmit,
-              credential: await servicePassword.encodeSensitiveText({
-                text: privateKey,
-              }),
-              password,
-              fallbackName: importedAccount.name,
-              networkId,
-              name: importedAccount.name,
-              deriveType,
-              skipAddIfNotEqualToAddress,
-              applyRestoreSyncPolicy,
-            });
-          addedAccounts.push(...(accounts || []));
-        } catch (e) {
-          console.error('addImportedAccountByInput error', e);
+        importedAccount.address &&
+        (deriveTypes.length > 1 || presetDeriveTypes?.length)
+          ? importedAccount.address
+          : undefined;
+      let privateKeyRawForCredential = privateKey;
+      try {
+        for (const deriveType of deriveTypes) {
+          try {
+            const { accounts } =
+              await serviceAccount.addImportedAccountWithCredentialBase({
+                skipEventEmit,
+                credentialRaw: privateKeyRawForCredential,
+                password,
+                fallbackName: importedAccount.name,
+                networkId,
+                name: importedAccount.name,
+                deriveType,
+                skipAddIfNotEqualToAddress,
+                applyRestoreSyncPolicy,
+              });
+            addedAccounts.push(...(accounts || []));
+          } catch (e) {
+            console.error('addImportedAccountByInput error', e);
+          }
         }
+      } finally {
+        privateKeyRawForCredential = '';
       }
     } catch (e) {
       console.error('addImportedAccountByInput error', e);

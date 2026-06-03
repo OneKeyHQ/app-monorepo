@@ -60,6 +60,26 @@ export type IBatchCreateAccountProgressInfo = {
   createdCount: number;
 };
 
+type IPrimeTransferImportBatchCreateStageEvent = 'start' | 'done' | 'error';
+
+type IPrimeTransferImportBatchCreateTraceParams = {
+  event: IPrimeTransferImportBatchCreateStageEvent;
+  stage: string;
+  walletId?: string;
+  networkId?: string;
+  deriveType?: string;
+  pathIndex?: number;
+  indexes?: number[];
+  networksCount?: number;
+  customNetworksCount?: number;
+  batchProgressCurrent?: number;
+  batchProgressTotal?: number;
+  batchCreatedCount?: number;
+  batchTotalCount?: number;
+  elapsedMs?: number;
+  error?: string;
+};
+
 export type IBatchBuildAccountsBaseParams = {
   walletId: string;
   networkId: string;
@@ -130,6 +150,23 @@ export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
 class ServiceBatchCreateAccount extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  private getErrorMessage(error: unknown) {
+    return (error as Error)?.message || 'Unknown error';
+  }
+
+  private async recordPrimeTransferImportBatchCreateTrace(
+    params: IPrimeTransferImportBatchCreateTraceParams,
+  ) {
+    const isInTransferImportOrBackupRestoreFlow: boolean =
+      await this.backgroundApi.servicePrimeTransfer.isInTransferImportOrBackupRestoreFlow();
+    if (!isInTransferImportOrBackupRestoreFlow) {
+      return;
+    }
+    await this.backgroundApi.servicePrimeTransfer.recordImportBatchCreateTrace(
+      params,
+    );
   }
 
   private buildHdCredentialCacheScopeId({
@@ -998,6 +1035,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
             includingDefaultNetworks: params.includingDefaultNetworks ?? true,
             isCreateWallet: params.isCreateWallet,
           });
+        await this.recordPrimeTransferImportBatchCreateTrace({
+          event: 'done',
+          stage: 'buildBatchCreateAccountsNetworksParams',
+          walletId: params.walletId,
+          networksCount: networksParams.length,
+          customNetworksCount: params.customNetworks?.length || 0,
+        });
 
         console.log(
           'startBatchCreateAccountsFlowForAllNetwork__networksParams',
@@ -1029,6 +1073,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
           error: IOneKeyError;
         }> = [];
 
+        const prepareAllNetworkStartedAt = Date.now();
+        await this.recordPrimeTransferImportBatchCreateTrace({
+          event: 'start',
+          stage: 'getHwAllNetworkPrepareAccountsResponse',
+          walletId: params.walletId,
+          networksCount: networksParams.length,
+        });
         hwAllNetworkPrepareAccountsResponse =
           await this.getHwAllNetworkPrepareAccountsResponse({
             walletId: params.walletId,
@@ -1037,11 +1088,26 @@ class ServiceBatchCreateAccount extends ServiceBase {
             indexes,
             networksParams,
           });
+        await this.recordPrimeTransferImportBatchCreateTrace({
+          event: 'done',
+          stage: 'getHwAllNetworkPrepareAccountsResponse',
+          walletId: params.walletId,
+          networksCount: networksParams.length,
+          elapsedMs: Date.now() - prepareAllNetworkStartedAt,
+        });
 
         for (const networkParams of networksParams) {
+          const batchBuildNetworkStartedAt = Date.now();
           try {
             this.checkIfCancelled({
               saveToDb,
+            });
+            await this.recordPrimeTransferImportBatchCreateTrace({
+              event: 'start',
+              stage: 'batchBuildAccountsForNetwork',
+              walletId: params.walletId,
+              networkId: networkParams.networkId,
+              deriveType: networkParams.deriveType,
             });
 
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1062,7 +1128,24 @@ class ServiceBatchCreateAccount extends ServiceBase {
               networkId: networkParams.networkId,
               deriveType: networkParams.deriveType,
             });
+            await this.recordPrimeTransferImportBatchCreateTrace({
+              event: 'done',
+              stage: 'batchBuildAccountsForNetwork',
+              walletId: params.walletId,
+              networkId: networkParams.networkId,
+              deriveType: networkParams.deriveType,
+              elapsedMs: Date.now() - batchBuildNetworkStartedAt,
+            });
           } catch (error: any) {
+            await this.recordPrimeTransferImportBatchCreateTrace({
+              event: 'error',
+              stage: 'batchBuildAccountsForNetwork',
+              walletId: params.walletId,
+              networkId: networkParams.networkId,
+              deriveType: networkParams.deriveType,
+              elapsedMs: Date.now() - batchBuildNetworkStartedAt,
+              error: this.getErrorMessage(error),
+            });
             this.forceExitFlowWhenErrorMatched({
               error,
               walletId: params.walletId,
@@ -1481,6 +1564,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
         try {
           this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
           defaultLogger.account.batchCreatePerf.prepareHdOrHwAccounts();
+          const pathIndex =
+            indexesForRebuildChunk.length === 1
+              ? indexesForRebuildChunk[0]
+              : undefined;
 
           await primeTransferAtom.set(
             (prev): IPrimeTransferAtomData => ({
@@ -1496,6 +1583,16 @@ class ServiceBatchCreateAccount extends ServiceBase {
             }),
           );
 
+          const prepareAccountsStartedAt = Date.now();
+          await this.recordPrimeTransferImportBatchCreateTrace({
+            event: 'start',
+            stage: 'prepareHdOrHwAccounts',
+            walletId,
+            networkId,
+            deriveType,
+            pathIndex,
+            indexes: indexesForRebuildChunk,
+          });
           const { vault, accounts } =
             await this.backgroundApi.serviceAccount.prepareHdOrHwAccounts({
               walletId,
@@ -1513,6 +1610,16 @@ class ServiceBatchCreateAccount extends ServiceBase {
               hdCredentialCacheScopeId,
               isAutoCreateMultiNetwork,
             });
+          await this.recordPrimeTransferImportBatchCreateTrace({
+            event: 'done',
+            stage: 'prepareHdOrHwAccounts',
+            walletId,
+            networkId,
+            deriveType,
+            pathIndex,
+            indexes: indexesForRebuildChunk,
+            elapsedMs: Date.now() - prepareAccountsStartedAt,
+          });
 
           // if (i !== indexesChunks.length - 1) {
           //   await timerUtils.wait(300);
@@ -1543,10 +1650,28 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
               defaultLogger.account.batchCreatePerf.buildAccountAddressDetail();
 
+              const buildAddressStartedAt = Date.now();
+              await this.recordPrimeTransferImportBatchCreateTrace({
+                event: 'start',
+                stage: 'buildAccountAddressDetail',
+                walletId,
+                networkId,
+                deriveType,
+                pathIndex: account.pathIndex,
+              });
               const addressDetail = await vault?.buildAccountAddressDetail({
                 account,
                 networkId,
                 networkInfo,
+              });
+              await this.recordPrimeTransferImportBatchCreateTrace({
+                event: 'done',
+                stage: 'buildAccountAddressDetail',
+                walletId,
+                networkId,
+                deriveType,
+                pathIndex: account.pathIndex,
+                elapsedMs: Date.now() - buildAddressStartedAt,
               });
               const accountForCreate: IBatchCreateAccount = {
                 ...account,
@@ -1562,12 +1687,42 @@ class ServiceBatchCreateAccount extends ServiceBase {
               this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
 
               defaultLogger.account.batchCreatePerf.processAccountForCreate();
+              const processAccountStartedAt = Date.now();
+              await this.recordPrimeTransferImportBatchCreateTrace({
+                event: 'start',
+                stage: 'processAccountForCreate',
+                walletId,
+                networkId,
+                deriveType,
+                pathIndex: account.pathIndex,
+              });
               await processAccountForCreateFn({
                 key,
                 accountForCreate,
               });
+              await this.recordPrimeTransferImportBatchCreateTrace({
+                event: 'done',
+                stage: 'processAccountForCreate',
+                walletId,
+                networkId,
+                deriveType,
+                pathIndex: account.pathIndex,
+                batchProgressCurrent: this.progressInfo?.progressCurrent,
+                batchProgressTotal: this.progressInfo?.progressTotal,
+                batchCreatedCount: this.progressInfo?.createdCount,
+                batchTotalCount: this.progressInfo?.totalCount,
+                elapsedMs: Date.now() - processAccountStartedAt,
+              });
               defaultLogger.account.batchCreatePerf.processAccountForCreateDone();
             } catch (error) {
+              await this.recordPrimeTransferImportBatchCreateTrace({
+                event: 'error',
+                stage: 'buildOrProcessAccountForCreate',
+                walletId,
+                networkId,
+                deriveType,
+                error: this.getErrorMessage(error),
+              });
               this.forceExitFlowWhenErrorMatched({
                 error,
                 walletId,
@@ -1577,6 +1732,15 @@ class ServiceBatchCreateAccount extends ServiceBase {
             }
           }
         } catch (error) {
+          await this.recordPrimeTransferImportBatchCreateTrace({
+            event: 'error',
+            stage: 'prepareOrBuildAccountsChunk',
+            walletId,
+            networkId,
+            deriveType,
+            indexes: indexesForRebuildChunk,
+            error: this.getErrorMessage(error),
+          });
           this.forceExitFlowWhenErrorMatched({
             error,
             walletId,
