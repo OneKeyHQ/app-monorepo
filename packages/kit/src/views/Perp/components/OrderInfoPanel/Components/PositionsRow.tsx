@@ -1108,7 +1108,10 @@ PositionRowMobileTPSL.displayName = 'PositionRowMobileTPSL';
 
 const PositionRowMobileMarkPrice = memo(({ coin }: { coin: string }) => {
   const intl = useIntl();
-  const { midFormattedByDecimals } = usePerpsMidPrice({ coin });
+  const { midFormattedByDecimals } = usePerpsMidPrice({
+    coin,
+    source: 'display',
+  });
 
   return (
     <YStack gap="$1" flex={1} alignItems="center" position="relative">
