@@ -8,6 +8,8 @@ import { useMedia } from '../../hooks/useStyle';
 import { SizableText } from '../../primitives/SizeableText';
 import { XStack, YStack } from '../../primitives/Stack';
 
+import type { IPopoverProps } from '../../actions/Popover';
+import type { ITooltipProps } from '../../actions/Tooltip';
 import type { ISizableTextProps } from '../../primitives';
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -23,6 +25,12 @@ export interface IDashTextProps extends ISizableTextProps {
   tooltip?: string;
   /** Title for the mobile Popover sheet. Defaults to children text. */
   tooltipTitle?: string;
+  /** Force tooltip or popover behavior instead of relying on media queries. */
+  tooltipDisplayMode?: 'auto' | 'tooltip' | 'popover';
+  /** Controls the placement used by the tooltip/popover. */
+  tooltipPlacement?: ITooltipProps['placement'];
+  /** Opt into tighter tooltip trigger hit testing when needed. */
+  tooltipTriggerAsChild?: ITooltipProps['triggerAsChild'];
 }
 
 function DashTextCore({
@@ -34,7 +42,14 @@ function DashTextCore({
   dashColor = '$borderStrong',
   length = 200,
   ...textProps
-}: Omit<IDashTextProps, 'tooltip' | 'tooltipTitle'>) {
+}: Omit<
+  IDashTextProps,
+  | 'tooltip'
+  | 'tooltipTitle'
+  | 'tooltipDisplayMode'
+  | 'tooltipPlacement'
+  | 'tooltipTriggerAsChild'
+>) {
   const [textWidth, setTextWidth] = useState(0);
   const resolvedDashThickness = platformEnv.isNative
     ? dashThickness
@@ -133,8 +148,19 @@ function DashTextCore({
   );
 }
 
-export function DashText({ tooltip, tooltipTitle, ...rest }: IDashTextProps) {
+export function DashText({
+  tooltip,
+  tooltipTitle,
+  tooltipDisplayMode = 'auto',
+  tooltipPlacement = 'top',
+  tooltipTriggerAsChild = 'except-style',
+  ...rest
+}: IDashTextProps) {
   const { gtMd } = useMedia();
+  let displayMode = tooltipDisplayMode;
+  if (displayMode === 'auto') {
+    displayMode = gtMd ? 'tooltip' : 'popover';
+  }
 
   const trigger = useMemo(
     () => (tooltip ? <DashTextCore {...rest} cursor="help" /> : null),
@@ -156,10 +182,11 @@ export function DashText({ tooltip, tooltipTitle, ...rest }: IDashTextProps) {
     return <DashTextCore {...rest} />;
   }
 
-  if (!platformEnv.isNative && gtMd) {
+  if (!platformEnv.isNative && displayMode === 'tooltip') {
     return (
       <Tooltip
-        placement="top"
+        placement={tooltipPlacement as ITooltipProps['placement']}
+        triggerAsChild={tooltipTriggerAsChild}
         renderContent={tooltip}
         renderTrigger={trigger}
       />
@@ -169,6 +196,7 @@ export function DashText({ tooltip, tooltipTitle, ...rest }: IDashTextProps) {
   return (
     <Popover
       title={tooltipTitle ?? rest.children}
+      placement={tooltipPlacement as IPopoverProps['placement']}
       renderTrigger={trigger}
       renderContent={popoverContent}
     />

@@ -1,6 +1,10 @@
-import type { IPerpsActiveAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  IPerpsAbstractionModeSource,
+  IPerpsActiveAccountStatusAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 export type IPerpsOrderPanelEnableTradingStepKey =
   | 'deposit'
@@ -18,7 +22,37 @@ export type IPerpsOrderPanelEnableTradingStep = {
 export type IPerpsOrderPanelEnableTradingMode = {
   canAutoEnableInOrderPanel: boolean;
   requiresEnableTradingDialogInOrderPanel: boolean;
+  requiresExplicitEnableTrading: boolean;
 };
+
+type IPerpsEnableTradingAbstractionMode = {
+  accountAddress?: string;
+  mode?: EHyperLiquidAbstractionMode;
+  source?: IPerpsAbstractionModeSource;
+};
+
+function resolveAbstractionOk({
+  status,
+  abstractionMode,
+}: {
+  status: IPerpsActiveAccountStatusAtom;
+  abstractionMode?: IPerpsEnableTradingAbstractionMode;
+}) {
+  const liveModeMatchesAccount =
+    abstractionMode &&
+    abstractionMode.source !== 'cache' &&
+    abstractionMode.accountAddress?.toLowerCase() ===
+      status.accountAddress?.toLowerCase();
+
+  if (liveModeMatchesAccount) {
+    return (
+      abstractionMode.mode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+      abstractionMode.mode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN
+    );
+  }
+
+  return status.details?.abstractionOk === true;
+}
 
 export function getPerpsOrderPanelEnableTradingModeByAccount({
   accountId,
@@ -32,6 +66,7 @@ export function getPerpsOrderPanelEnableTradingModeByAccount({
     return {
       canAutoEnableInOrderPanel: false,
       requiresEnableTradingDialogInOrderPanel: false,
+      requiresExplicitEnableTrading: true,
     };
   }
 
@@ -45,6 +80,7 @@ export function getPerpsOrderPanelEnableTradingModeByAccount({
   return {
     canAutoEnableInOrderPanel: isSoftwareAccount,
     requiresEnableTradingDialogInOrderPanel: isHardwareAccount,
+    requiresExplicitEnableTrading: !isSoftwareAccount,
   };
 }
 
@@ -73,7 +109,7 @@ export function shouldShowPerpsOrderPanelTradingButtons({
     !accountStatus.canCreateAddress &&
     (Boolean(accountStatus.canTrade) ||
       enableTradingMode.canAutoEnableInOrderPanel ||
-      enableTradingMode.requiresEnableTradingDialogInOrderPanel)
+      enableTradingMode.requiresExplicitEnableTrading)
   );
 }
 
@@ -89,6 +125,11 @@ export function shouldReservePerpsMobileEnableTradingLayout({
 
 export function getPerpsOrderPanelEnableTradingSteps(
   status: IPerpsActiveAccountStatusAtom,
+  {
+    abstractionMode,
+  }: {
+    abstractionMode?: IPerpsEnableTradingAbstractionMode;
+  } = {},
 ): IPerpsOrderPanelEnableTradingStep[] {
   const { details } = status;
 
@@ -128,7 +169,13 @@ export function getPerpsOrderPanelEnableTradingSteps(
       requiresSignature: true,
     });
   }
-  if (!details || details.abstractionOk !== true) {
+  if (
+    !details ||
+    !resolveAbstractionOk({
+      status,
+      abstractionMode,
+    })
+  ) {
     steps.push({
       key: 'abstraction',
       labelId: ETranslations.perp_trade_button_enable_trading,
