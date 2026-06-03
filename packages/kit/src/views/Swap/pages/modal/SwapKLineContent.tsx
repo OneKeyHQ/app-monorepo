@@ -53,6 +53,7 @@ import {
   getSwapKLineWalletChartDays,
 } from './swapKLineChartUtils';
 import {
+  type ISwapKLineStableToken,
   getDefaultSwapKLineSide,
   isKnownSwapKLineUnsupportedToken,
 } from './swapKLineTokenUtils';
@@ -294,6 +295,46 @@ function useSwapKLineNetworkName(networkId?: string) {
   return result;
 }
 
+function useSwapKLineStableTokens({
+  fromToken,
+  toToken,
+}: {
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+}) {
+  const fromNetworkId = fromToken?.networkId ?? '';
+  const toNetworkId = toToken?.networkId ?? '';
+  const { result } = usePromiseResult<ISwapKLineStableToken[]>(
+    async () => {
+      const networkIds = Array.from(
+        new Set([fromNetworkId, toNetworkId].filter(Boolean)),
+      );
+      if (!networkIds.length) {
+        return [];
+      }
+
+      const speedConfigs = await Promise.all(
+        networkIds.map((networkId) =>
+          backgroundApiProxy.serviceSwap.fetchSpeedSwapConfig({ networkId }),
+        ),
+      );
+      return speedConfigs.flatMap((config) =>
+        (config.speedConfig.defaultLimitTokens ?? []).map((token) => ({
+          networkId: token.networkId,
+          contractAddress: token.contractAddress,
+        })),
+      );
+    },
+    [fromNetworkId, toNetworkId],
+    {
+      checkIsFocused: false,
+      undefinedResultIfError: true,
+    },
+  );
+
+  return result;
+}
+
 function SwapKLineTokenSwitch({
   selectedSide,
   onChange,
@@ -445,13 +486,15 @@ type ISwapKLineContentState = {
 function useSwapKLineContentState(): ISwapKLineContentState {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const stableTokens = useSwapKLineStableTokens({ fromToken, toToken });
   const defaultSide = useMemo(
     () =>
       getDefaultSwapKLineSide({
         fromToken,
+        stableTokens,
         toToken,
       }),
-    [fromToken, toToken],
+    [fromToken, stableTokens, toToken],
   );
   const [selectedSide, setSelectedSide] = useState<ESwapDirectionType>();
   const hasTrackedOpenRef = useRef(false);
@@ -751,15 +794,21 @@ function SwapKLineContentBody({
 
 function SwapKLineDialogContent() {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const state = useSwapKLineContentState();
+  const headerRight = <SwapKLineHeaderRight state={state} />;
+  const showHeaderRightInHeader = !gtMd;
 
   return (
     <>
       <Dialog.Header>
-        <XStack ai="center" gap="$3" width="100%">
+        <XStack ai="center" jc="space-between" gap="$3" width="100%">
           <SizableText size="$headingXl" numberOfLines={1}>
             {intl.formatMessage({ id: ETranslations.market_chart })}
           </SizableText>
+          {showHeaderRightInHeader ? (
+            <Stack flexShrink={0}>{headerRight}</Stack>
+          ) : null}
         </XStack>
       </Dialog.Header>
       <YStack h={460}>
@@ -769,7 +818,7 @@ function SwapKLineDialogContent() {
           pt="$0"
           pb="$0"
           gap="$2.5"
-          headerRight={<SwapKLineHeaderRight state={state} />}
+          headerRight={showHeaderRightInHeader ? undefined : headerRight}
         />
       </YStack>
     </>
@@ -778,17 +827,21 @@ function SwapKLineDialogContent() {
 
 function SwapKLineModalContent() {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const state = useSwapKLineContentState();
+  const headerRight = <SwapKLineHeaderRight state={state} />;
+  const showHeaderRightInHeader = !gtMd;
 
   return (
     <Page lazyLoad testID={SwapTestIDs.kLineModal}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.market_chart })}
+        headerRight={showHeaderRightInHeader ? () => headerRight : undefined}
       />
       <Page.Body>
         <SwapKLineContentBody
           state={state}
-          headerRight={<SwapKLineHeaderRight state={state} />}
+          headerRight={showHeaderRightInHeader ? undefined : headerRight}
         />
       </Page.Body>
     </Page>

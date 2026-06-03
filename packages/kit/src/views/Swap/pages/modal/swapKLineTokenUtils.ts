@@ -1,3 +1,4 @@
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { ETokenDappType } from '@onekeyhq/shared/types/token';
@@ -9,55 +10,10 @@ export type ISwapKLineToken = ISwapToken & {
   dappType?: ITokenDappType;
 };
 
-const SWAP_KLINE_STABLE_TOKEN_SYMBOLS = new Set([
-  'USDC',
-  'USDT',
-  'DAI',
-  'FDUSD',
-  'TUSD',
-  'BUSD',
-  'USDD',
-  'USDE',
-  'USDS',
-  'FRAX',
-  'LUSD',
-  'GUSD',
-  'PYUSD',
-  'USD1',
-  'USD0',
-  'USDT0',
-  'USDB',
-  'USDH',
-  'USDP',
-  'USDX',
-  'CRVUSD',
-  'RLUSD',
-  'DOLA',
-  'MIM',
-  'CUSD',
-  'SUSD',
-  'EURC',
-  'EURS',
-  'EURA',
-  'USDCE',
-  'USDTE',
-  'AUSDT0',
-  'SYRUPUSDT',
-]);
-
-function normalizeSwapKLineStableTokenSymbol(symbol?: string) {
-  return (
-    symbol
-      ?.trim()
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, '') ?? ''
-  );
-}
-
-export function isSwapKLineStableToken(token?: Pick<ISwapToken, 'symbol'>) {
-  const symbol = normalizeSwapKLineStableTokenSymbol(token?.symbol);
-  return SWAP_KLINE_STABLE_TOKEN_SYMBOLS.has(symbol);
-}
+export type ISwapKLineStableToken = Pick<
+  ISwapToken,
+  'contractAddress' | 'networkId'
+>;
 
 export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   if (!token) {
@@ -69,11 +25,32 @@ export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   return Boolean(token.defiMarked || token.dappName?.trim() || token.dappType);
 }
 
+export function isSwapKLineStableToken({
+  token,
+  stableTokens,
+}: {
+  token?: ISwapKLineToken;
+  stableTokens?: ISwapKLineStableToken[];
+}) {
+  if (!token || !stableTokens?.length) {
+    return false;
+  }
+
+  return stableTokens.some((stableToken) =>
+    equalTokenNoCaseSensitive({
+      token1: token,
+      token2: stableToken,
+    }),
+  );
+}
+
 export function getDefaultSwapKLineSide({
   fromToken,
+  stableTokens,
   toToken,
 }: {
   fromToken?: ISwapKLineToken;
+  stableTokens?: ISwapKLineStableToken[];
   toToken?: ISwapKLineToken;
 }): ESwapDirectionType {
   if (!toToken) {
@@ -94,8 +71,14 @@ export function getDefaultSwapKLineSide({
   }
 
   if (!fromIsKnownUnsupported && !toIsKnownUnsupported) {
-    const fromIsStable = isSwapKLineStableToken(fromToken);
-    const toIsStable = isSwapKLineStableToken(toToken);
+    const fromIsStable = isSwapKLineStableToken({
+      token: fromToken,
+      stableTokens,
+    });
+    const toIsStable = isSwapKLineStableToken({
+      token: toToken,
+      stableTokens,
+    });
     if (fromIsStable !== toIsStable) {
       return fromIsStable ? ESwapDirectionType.TO : ESwapDirectionType.FROM;
     }
