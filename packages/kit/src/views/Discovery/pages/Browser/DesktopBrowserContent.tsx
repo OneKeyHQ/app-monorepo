@@ -284,7 +284,7 @@ function BasicDesktopBrowserContent({
   if (!tab?.url) {
     body = (
       <Stack flex={1} opacity={homePageReady ? 1 : 0}>
-        <DashboardContent />
+        <DashboardContent tabId={id} />
       </Stack>
     );
   } else if (shouldMountWebView) {

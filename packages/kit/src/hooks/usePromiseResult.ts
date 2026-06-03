@@ -258,36 +258,48 @@ export function usePromiseResult<T>(
           // scope's init / cached state until refocus re-fetches.
           nonceRef.current += 1;
         }
+        // Track outside the try-block so catch / finally can decide
+        // whether THIS runner started a request, which swrKey scope it
+        // dispatched under, and which nonce it owns. Without these,
+        // focus-gated no-op runners would still emit phantom loading
+        // transitions, stale resolutions would clear a newer request's
+        // loading, and error-path resets would land on the wrong scope.
+        let didStartRequest = false;
+        let requestNonce: number | null = null;
+        let capturedSwrKey: string | undefined;
         try {
           if (shouldSetState(config)) {
-            if (
-              shouldSetState(config) &&
-              optionsRef.current.undefinedResultIfReRun
-            ) {
+            didStartRequest = true;
+            // Capture swrKey at dispatch time. If it changes mid-flight
+            // (e.g. user switches wallet/account), we must NOT land
+            // this result on the new scope — neither into its render
+            // state nor into its cache slot.
+            capturedSwrKey = swrKeyRef.current;
+            if (optionsRef.current.undefinedResultIfReRun) {
               setResult(undefined);
             }
             setLoadingTrue();
             nonceRef.current += 1;
-            const requestNonce = nonceRef.current;
-            // Capture swrKey at dispatch time. If it changes mid-flight (e.g.
-            // user switches wallet/account), we must NOT write this result
-            // into the new scope's cache slot — that would cross-pollute
-            // cached balances between accounts.
-            const capturedSwrKey = swrKeyRef.current;
+            requestNonce = nonceRef.current;
             const { r, nonce } = await methodWithNonce({
               nonce: requestNonce,
             });
-            if (shouldApplyResult(config) && nonceRef.current === nonce) {
+            // swrKey may change without bumping deps (it is not part of
+            // runnerDeps). Compare the captured key against the latest
+            // before landing — otherwise an in-flight result from the
+            // previous scope would overwrite the new scope's render-time
+            // setResult swap.
+            if (
+              shouldApplyResult(config) &&
+              nonceRef.current === nonce &&
+              capturedSwrKey === swrKeyRef.current
+            ) {
               setResult(r);
-              // Only persist if (1) swrKey is still the one we dispatched
-              // under, and (2) the result is defined — writing `undefined`
-              // would later override the caller's explicit initResult on
-              // next mount.
-              if (
-                capturedSwrKey &&
-                capturedSwrKey === swrKeyRef.current &&
-                r !== undefined
-              ) {
+              // Only persist if the result is defined — writing
+              // `undefined` would later override the caller's explicit
+              // initResult on next mount. (Scope identity is already
+              // guaranteed by the outer check.)
+              if (capturedSwrKey && r !== undefined) {
                 swrCacheUtils.set(capturedSwrKey, r);
               }
             }
@@ -301,10 +313,36 @@ export function usePromiseResult<T>(
             err instanceof DOMException &&
             err.name === 'AbortError';
 
-          if (
-            shouldSetState(config) &&
+          // A request the consumer has abandoned must not touch the
+          // current scope: it cannot reset the result, and re-throwing
+          // its error would surface a failure that no longer applies to
+          // anyone. Two ways a request goes stale, both mirroring the
+          // success path's gate:
+          //   - swrKey changed mid-flight (e.g. wallet/account switch).
+          //   - a newer request superseded this one (deps changed and
+          //     bumped nonceRef without changing swrKey). Without the
+          //     nonce check, request 1's `undefinedResultIfError` /
+          //     AbortError reset would clobber request 2's fresh result
+          //     or prematurely clear a still-pending newer scope.
+          const isStale =
+            didStartRequest &&
+            (capturedSwrKey !== swrKeyRef.current ||
+              (requestNonce !== null && nonceRef.current !== requestNonce));
+
+          if (isStale) {
+            // Swallow: scope/nonce identity check (same as success path)
+            // and suppressed re-throw mirror how AbortError is already
+            // treated as non-critical.
+          } else if (
+            didStartRequest &&
+            shouldApplyResult(config) &&
             (undefinedResultIfError || isAbortError)
           ) {
+            // Mirror the success-path gate: callers that opted into
+            // `undefinedResultIfError` expect the reset to land
+            // regardless of focus. Without this, a blur-time rejection
+            // silently keeps stale data and re-throws as an unhandled
+            // rejection.
             setResult(undefined);
           } else if (!isAbortError) {
             throw err;
@@ -313,7 +351,18 @@ export function usePromiseResult<T>(
           if (loadingDelay && watchLoading) {
             await timerUtils.wait(loadingDelay);
           }
-          if (shouldSetState(config)) {
+          // Loading state must travel with `setResult`: clear only when
+          // THIS runner started a request AND it is still the latest
+          // nonce. A focus-gated no-op runner never called
+          // setLoadingTrue (so an unpaired (false) would be phantom),
+          // and a stale runner clearing here would flicker isLoading
+          // off while a newer in-flight request is still pending.
+          if (
+            didStartRequest &&
+            shouldApplyResult(config) &&
+            requestNonce !== null &&
+            nonceRef.current === requestNonce
+          ) {
             setLoadingFalse();
           }
           if (
@@ -346,9 +395,14 @@ export function usePromiseResult<T>(
           trailing: true,
         });
         return async (config?: IRunnerConfig) => {
-          if (shouldSetState(config)) {
-            setLoadingTrue();
-          }
+          // Loading transitions are owned by the inner runner: setting
+          // setLoadingTrue here would leak `isLoading=true` if the
+          // route blurred during the debounce window and the runner
+          // later hit the focus gate (no `didStartRequest` → no paired
+          // setLoadingFalse in finally). Letting the runner emit
+          // setLoadingTrue when it actually starts also matches what
+          // debounced callers want: no loading flicker on every
+          // keystroke, only when the request truly fires.
           await runnerDebounced(config);
         };
       }

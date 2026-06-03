@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { debounce, isNil, uniq } from 'lodash';
+import { debounce, isNil, uniq, uniqBy } from 'lodash';
 
 import {
   backgroundClass,
@@ -21,6 +21,7 @@ import perfUtils, {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  buildTokenSearchKeywordQueries,
   filterAccountTokenListByLimit,
   getEmptyTokenData,
   getMergedTokenData,
@@ -558,6 +559,33 @@ class ServiceToken extends ServiceBase {
     return Promise.resolve(this.mergeTokenMetadataWithCustomDataSync(params));
   }
 
+  /**
+   * Batched variant: callers that need to merge metadata across a whole
+   * token list (e.g. `useTokenManagement`) MUST use this instead of N
+   * parallel `mergeTokenMetadataWithCustomData` calls. The single-item
+   * bridge method is a `Promise.resolve()` wrap around a sync function —
+   * each call pays the full BgTransport round-trip cost (one
+   * dispatchRemoteRequest + one handleResponse + one JSON.parse on the main
+   * runtime) for zero real async work, which is exactly the N+1 pattern
+   * that shows up as 808 mergeTokenMetadataWithCustomData calls in the
+   * OK-perp/swap freeze trace. Batching collapses it to 1 bridge call.
+   */
+  @backgroundMethod()
+  async mergeTokenMetadataWithCustomDataBatch<T extends IToken>(params: {
+    tokens: T[];
+    customTokens: IAccountToken[];
+    networkId: string;
+  }): Promise<T[]> {
+    const { tokens, customTokens, networkId } = params;
+    return tokens.map((token) =>
+      this.mergeTokenMetadataWithCustomDataSync({
+        token,
+        customTokens,
+        networkId,
+      }),
+    );
+  }
+
   private mergeTokenMetadataWithCustomDataSync<T extends IToken>({
     token,
     customTokens,
@@ -744,15 +772,45 @@ class ServiceToken extends ServiceBase {
     const controller = new AbortController();
     this._searchTokensControllers.push(controller);
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
-    const resp = await vault.fetchTokenDetails({
-      accountId,
-      networkId,
-      contractList,
-      keywords,
-      signal: controller.signal,
-    });
+    const keywordQueries = buildTokenSearchKeywordQueries(keywords);
+    const queries = keywordQueries.length ? keywordQueries : [keywords];
+    const settledResponses = await Promise.allSettled(
+      queries.map((queryKeywords) =>
+        vault.fetchTokenDetails({
+          accountId,
+          networkId,
+          contractList,
+          keywords: queryKeywords,
+          signal: controller.signal,
+        }),
+      ),
+    );
 
-    return resp.data.data.map((item) => ({
+    const fulfilledResponses = settledResponses.flatMap((settled) =>
+      settled.status === 'fulfilled' ? [settled.value] : [],
+    );
+
+    // Surface an error only when every query failed (e.g. all aborted by
+    // abortSearchTokens). A single fallback-query failure — such as the
+    // `eth -> ether` alias query timing out — must not discard the primary
+    // query's hits.
+    if (fulfilledResponses.length === 0) {
+      const firstRejected = settledResponses.find(
+        (settled): settled is PromiseRejectedResult =>
+          settled.status === 'rejected',
+      );
+      if (firstRejected) {
+        throw firstRejected.reason;
+      }
+    }
+
+    return uniqBy(
+      fulfilledResponses.flatMap((resp) => resp.data.data),
+      (item) =>
+        `${item.info.networkId ?? ''}_${
+          item.info.uniqueKey ?? item.info.address
+        }`,
+    ).map((item) => ({
       ...item.info,
       $key: item.info.uniqueKey ?? item.info.address,
     }));

@@ -28,19 +28,27 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsComputedAccountValueAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { buildTokenSelectorDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
+import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import { WebAccountPanelFooter } from './atoms/WebAccountPanelFooter';
 import { useWebDappRealAddress } from './useWebDappRealAddress';
 
-// Session-only (in-memory) cache for the portfolio total, keyed by accountId.
-// It survives the panel closing/reopening so reopening shows the last value
-// instantly with no spinner; it is intentionally not persisted, so a full page
-// reload starts fresh. A value older than PORTFOLIO_STALE_MS is refreshed
-// silently in the background on the next open.
+// Session-only (in-memory) cache for the portfolio total, keyed by
+// accountId + the resolved EVM address. Including the address means switching
+// the connected account on the extension (which changes the Provider address
+// in place, often without changing accountId) re-fetches this address's total
+// instead of showing the previous address's value. It survives the panel
+// closing/reopening so reopening shows the last value instantly with no
+// spinner; it is intentionally not persisted, so a full page reload starts
+// fresh. A value older than PORTFOLIO_STALE_MS is refreshed silently in the
+// background on the next open.
 const PORTFOLIO_STALE_MS = 60 * 1000;
 const portfolioCache = new Map<
   string,
@@ -268,36 +276,49 @@ export function WebAccountPanelMain({
     indexedAccountId: indexedAccount?.id,
   });
 
-  // Portfolio total. The home page is the only place that computes account
-  // worth (its page-scoped token-list flow), so on routes like /perps nothing
-  // populates the cached worth. Fetch it regardless of route: enumerate the
-  // networks this account is compatible with, fan out a live token fetch per
-  // network, and sum the fiat values (already in the user's display currency).
+  // Portfolio = the wallet home page headline for the connected address: spot
+  // tokens + DeFi net worth. The home page is the only place that computes &
+  // caches that worth, so on routes like /perps we recompute it live here.
+  // Keyed on the resolved EVM address so it tracks the currently connected
+  // address, not the account's other derived addresses.
+  const portfolioCacheKey =
+    account?.id && realAddress ? `${account.id}:${realAddress}` : undefined;
   const [portfolio, setPortfolio] = useState<string | undefined>(() =>
-    account?.id ? portfolioCache.get(account.id)?.value : undefined,
+    portfolioCacheKey
+      ? portfolioCache.get(portfolioCacheKey)?.value
+      : undefined,
   );
   // The currency the summed fiatValue is expressed in (fetchAccountTokens
   // normalizes to 'usd'). Carried through so <Currency> converts it to the
   // user's display currency instead of mislabeling a USD total as e.g. EUR.
   const [portfolioCurrency, setPortfolioCurrency] = useState<
     string | undefined
-  >(() => (account?.id ? portfolioCache.get(account.id)?.currency : undefined));
+  >(() =>
+    portfolioCacheKey
+      ? portfolioCache.get(portfolioCacheKey)?.currency
+      : undefined,
+  );
   const [isLoadingPortfolio, setIsLoadingPortfolio] = useState(false);
 
-  // Ignore a fan-out result that resolves after the active account changed.
-  const latestAccountIdRef = useRef(account?.id);
-  latestAccountIdRef.current = account?.id;
+  // Ignore a fan-out result that resolves after the active address changed.
+  const latestCacheKeyRef = useRef(portfolioCacheKey);
+  latestCacheKeyRef.current = portfolioCacheKey;
 
   const fetchPortfolio = useCallback(
     async (force?: boolean) => {
       const accountId = account?.id;
-      if (!accountId) {
+      // Need both the account and its resolved single EVM address before we can
+      // fetch or key the cache. Until the address resolves the value is
+      // genuinely unknown — renderPortfolioValue shows "--" for this state.
+      // Reuse the component-scoped key; latestCacheKeyRef tracks the same value.
+      const cacheKey = portfolioCacheKey;
+      if (!accountId || !cacheKey) {
         setPortfolio(undefined);
         return;
       }
-      const cached = portfolioCache.get(accountId);
-      // Reflect this account's cached value immediately — instant on reopen and
-      // on account switch, with no spinner when we already have something.
+      const cached = portfolioCache.get(cacheKey);
+      // Reflect this address's cached value immediately — instant on reopen and
+      // on address switch, with no spinner when we already have something.
       setPortfolio(cached?.value);
       setPortfolioCurrency(cached?.currency);
       const isFresh =
@@ -315,62 +336,59 @@ export function WebAccountPanelMain({
         setIsLoadingPortfolio(true);
       }
       try {
-        // Intentionally EVM-only (product requirement): enumerate the EVM
-        // mainnet networks this account is compatible with and fan out a live
-        // token fetch per network. The chain selector returns networks matching
-        // the (EVM-resolved) account, so non-EVM chains are excluded by design —
-        // do NOT broaden this to all networks.
-        const { mainnetItems } =
-          await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-            { accountId, excludeTestNetwork: true },
-          );
-        // For an indexed account the all-networks accountId is a mock that fails
-        // per-network token fetches, so resolve the real per-network account(s)
-        // first (same as the Home token list). External/others accounts already
-        // carry a real per-network accountId, so fetch with it directly.
+        // Match the wallet home page's "Portfolio" headline = spot tokens +
+        // DeFi net worth. Use the SAME per-network account set the wallet uses
+        // (serviceAllNetwork.getAllNetworkAccounts) instead of brute-forcing
+        // every compatible EVM mainnet — the latter over-counts dust/tokens on
+        // long-tail chains the wallet excludes. Every call below is per-network
+        // (no isAllNetworks flag), so it avoids the all-networks aggregation
+        // gate that returns empty off the home route. EVM-only: the panel sits
+        // in an EVM/perps context and the connected address is an EVM address.
+        const allNetworkId = getNetworkIdsMap().onekeyall;
         const indexedAccountId = indexedAccount?.id;
-        const resultsByNetwork = await Promise.all(
-          mainnetItems.map(async (net) => {
-            if (indexedAccountId) {
-              try {
-                const { networkAccounts } =
-                  await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-                    {
-                      networkId: net.id,
-                      indexedAccountId,
-                      excludeEmptyAccount: true,
-                    },
-                  );
-                return Promise.all(
-                  networkAccounts.map((networkAccount) =>
-                    backgroundApiProxy.serviceToken
-                      .fetchAccountTokens({
-                        accountId: networkAccount.account?.id ?? '',
-                        networkId: net.id,
-                        indexedAccountId,
-                        flag: 'web-account-panel-portfolio',
-                      })
-                      .catch(() => null),
-                  ),
-                );
-              } catch {
-                return [null];
-              }
-            }
-            return [
-              await backgroundApiProxy.serviceToken
-                .fetchAccountTokens({
-                  accountId,
-                  networkId: net.id,
-                  flag: 'web-account-panel-portfolio',
-                })
-                .catch(() => null),
-            ];
-          }),
+        const isOthers = accountUtils.isOthersAccount({ accountId });
+        // Track the wallet page's token-filter flag exactly (excludes dApp/DeFi
+        // protocol tokens from the wallet token sum when the flag is enabled).
+        const walletTokenFilterParams = buildTokenSelectorDappTokenFilterParams(
+          { lpToken: false },
         );
-        const results = resultsByNetwork.flat();
-        // Ignore a result that resolved after the active account changed.
-        if (latestAccountIdRef.current !== accountId) {
+        // Same network/account set for both the spot and DeFi enumerations; the
+        // DeFi call just adds DeFiEnabledOnly to narrow to DeFi-enabled networks.
+        const allNetworkAccountsParams = {
+          accountId: indexedAccountId ?? accountId,
+          indexedAccountId,
+          networkId: allNetworkId,
+          networksEnabledOnly: !isOthers,
+          excludeTestNetwork: true,
+          skipCache: !!force,
+        };
+
+        // 1) Spot token worth over the wallet's network/account set (EVM only).
+        // getAllNetworkAccounts already resolves the real per-network account
+        // for the connected address, so each entry.accountId is fetchable as-is.
+        const { accountsInfo } =
+          await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts(
+            allNetworkAccountsParams,
+          );
+        // Only EVM networks with a resolved per-network account are fetchable.
+        const isFetchableEvmAccount = (a: (typeof accountsInfo)[number]) =>
+          !!a.accountId &&
+          networkUtils.isEvmNetwork({ networkId: a.networkId });
+        const results = await Promise.all(
+          accountsInfo.filter(isFetchableEvmAccount).map((a) =>
+            backgroundApiProxy.serviceToken
+              .fetchAccountTokens({
+                accountId: a.accountId,
+                networkId: a.networkId,
+                indexedAccountId,
+                flag: 'web-account-panel-portfolio',
+                ...walletTokenFilterParams,
+              })
+              .catch(() => null),
+          ),
+        );
+        // Ignore a result that resolved after the active address changed.
+        if (latestCacheKeyRef.current !== cacheKey) {
           return;
         }
         const okResults = results.filter(
@@ -387,22 +405,69 @@ export function WebAccountPanelMain({
         // Use the shared helper (same one Home uses) so an unavailable/non-finite
         // group value from a partial provider failure is skipped instead of
         // poisoning the whole total to NaN.
-        const total = okResults.reduce(
+        const spotTotal = okResults.reduce(
           (acc, r) =>
             acc.plus(
               new BigNumber(sumTokenGroupsFiatValueIgnoringUnavailable(r)),
             ),
           new BigNumber(0),
         );
-        // Every per-network fetch uses the same display currency, so the
-        // returned token-group currency is uniform; carry it so the total is
-        // rendered in the basis it was actually summed in.
+        // Token fiat is normalized to USD when the rate resolves; carry the
+        // group currency so <Currency> renders in the basis it was summed in.
         const sourceCurrency =
           okResults.find((r) => r?.tokens?.currency)?.tokens?.currency ??
           okResults.find((r) => r?.smallBalanceTokens?.currency)
             ?.smallBalanceTokens?.currency;
-        const value = total.toFixed();
-        portfolioCache.set(accountId, {
+
+        // 2) DeFi net worth (best-effort): fetch positions live per DeFi-enabled
+        // network and sum overview.netWorth (already raw USD, so it adds
+        // directly to the USD-normalized spot total). On any failure keep the
+        // spot-only total.
+        let deFiNetWorthUsd = '0';
+        try {
+          const { accountsInfo: defiAccountsInfo } =
+            await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+              ...allNetworkAccountsParams,
+              DeFiEnabledOnly: true,
+            });
+          const defiResults = await Promise.all(
+            defiAccountsInfo.filter(isFetchableEvmAccount).map((a) =>
+              backgroundApiProxy.serviceDeFi
+                .fetchAccountDeFiPositions({
+                  accountId: a.accountId,
+                  networkId: a.networkId,
+                  accountAddress: a.apiAddress,
+                  xpub: a.accountXpub,
+                  excludeLowValueProtocols: true,
+                  saveToLocal: false,
+                  abortable: false,
+                })
+                .catch(() => null),
+            ),
+          );
+          deFiNetWorthUsd = defiResults
+            .reduce((acc, r) => {
+              const netWorth = r?.overview?.netWorth;
+              return typeof netWorth === 'number'
+                ? acc.plus(new BigNumber(netWorth))
+                : acc;
+            }, new BigNumber(0))
+            .toFixed();
+        } catch {
+          // best-effort: keep the spot-only total on DeFi failure
+        }
+        // The active address may have changed during the DeFi fetch.
+        if (latestCacheKeyRef.current !== cacheKey) {
+          return;
+        }
+
+        // Portfolio = spot tokens + DeFi net worth, mirroring the wallet headline.
+        const value =
+          calculateAccountTotalValue({
+            tokensValue: spotTotal.toFixed(),
+            deFiNetWorth: deFiNetWorthUsd,
+          }) ?? spotTotal.toFixed();
+        portfolioCache.set(cacheKey, {
           value,
           currency: sourceCurrency,
           fetchedAt: Date.now(),
@@ -415,7 +480,7 @@ export function WebAccountPanelMain({
         setIsLoadingPortfolio(false);
       }
     },
-    [account?.id, indexedAccount?.id],
+    [account?.id, indexedAccount?.id, portfolioCacheKey],
   );
 
   useEffect(() => {
@@ -502,7 +567,16 @@ export function WebAccountPanelMain({
     if (isLoadingPortfolio) {
       return <Spinner size="small" />;
     }
-    if (portfolio !== undefined) {
+    // The resolved value, or "0" once a resolved account settles with no value
+    // (empty EVM portfolio, or every per-network fetch failed without a cache).
+    // "--" is reserved for the genuinely-unknown state: no account, or the
+    // indexed account's real address still resolving. The spinner above already
+    // covers the in-flight first load, so "0" only appears once the fetch has
+    // settled; the empty path doesn't cache, so the next open/refresh replaces
+    // it with the real total.
+    const displayValue =
+      portfolio ?? (account?.id && realAddress ? '0' : undefined);
+    if (displayValue !== undefined) {
       return (
         <Currency
           sourceCurrency={portfolioCurrency}
@@ -511,7 +585,7 @@ export function WebAccountPanelMain({
           size="$bodyMdMedium"
           color="$text"
         >
-          {portfolio}
+          {displayValue}
         </Currency>
       );
     }

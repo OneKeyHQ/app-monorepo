@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Pressable, StyleSheet } from 'react-native';
 import { globalRef } from 'react-native-draggable-flatlist/src/context/globalRef';
@@ -19,6 +19,8 @@ import { ListView } from '../../layouts/ListView';
 import { SortableListView } from '../../layouts/SortableListView';
 import { SizableText, Stack, XStack, YStack } from '../../primitives';
 import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
+import { useTabsContext } from '../Tabs/context';
+import { useTabNameContext } from '../Tabs/TabNameContext';
 
 import { Column, MemoHeaderColumn } from './components';
 
@@ -34,6 +36,26 @@ import type {
 
 const DEFAULT_ROW_HEIGHT = 60;
 const defaultEstimatedListSize = { width: 370, height: 525 };
+
+const resolveNumericStyleValue = (value: unknown) => {
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (typeof value !== 'string') {
+    return 0;
+  }
+
+  if (value.startsWith('$')) {
+    const tokenValue = getTokenValue(
+      value as Parameters<typeof getTokenValue>[0],
+      'space',
+    );
+    return typeof tokenValue === 'number' ? tokenValue : 0;
+  }
+
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
 const renderContent = (text?: string) => (
   <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
@@ -304,9 +326,12 @@ function BasicTable<T>({
   const { gtMd } = useMedia();
   const [isShowBackToTopButton, setIsShowBackToTopButton] = useState(false);
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
+  const tableRootRef = useRef<HTMLElement | null>(null);
   const isShowBackToTopButtonRef = useRef(isShowBackToTopButton);
   isShowBackToTopButtonRef.current = isShowBackToTopButton;
   const scrollAtRef = useRef(0);
+  const currentTabName = useTabNameContext();
+  const { requestRemeasure, scrollTabElementsRef } = useTabsContext();
 
   const dataSource = useMemo(() => {
     if (showSkeleton) {
@@ -388,6 +413,124 @@ function BasicTable<T>({
       ? estimatedItemSize
       : (getTokenValue(estimatedItemSize, 'size') as number);
   }, [estimatedItemSize]);
+  const resolvedRowHeight = useMemo(() => {
+    const rowStyle = rowProps as Record<string, unknown> | undefined;
+    const rowStyleHeight = resolveNumericStyleValue(
+      rowStyle?.height ?? rowStyle?.minHeight,
+    );
+    return Math.max(
+      itemSize ?? DEFAULT_ROW_HEIGHT,
+      rowStyleHeight || DEFAULT_ROW_HEIGHT,
+    );
+  }, [itemSize, rowProps]);
+
+  // On native, when tabIntegrated the header row MUST be inside the list
+  // (as ListHeaderComponent) so it participates in the collapsible tab scroll.
+  // On web, the header must stay outside the list because SortableListView uses
+  // absolute positioning for items, which would overlap ListHeaderComponent.
+  const effectiveStickyHeader =
+    stickyHeader && (!tabIntegrated || !platformEnv.isNative);
+
+  const webTabIntegratedListHeight = useMemo(() => {
+    if (!tabIntegrated || platformEnv.isNative || scrollEnabled) {
+      return undefined;
+    }
+
+    const contentStyle = contentContainerStyle as
+      | Record<string, unknown>
+      | undefined;
+    const paddingTop = resolveNumericStyleValue(
+      contentStyle?.paddingTop ?? contentStyle?.paddingVertical,
+    );
+    const paddingBottom = resolveNumericStyleValue(
+      contentStyle?.paddingBottom ?? contentStyle?.paddingVertical,
+    );
+    const headerHeight =
+      TableHeaderComponent || (!effectiveStickyHeader && showHeader)
+        ? DEFAULT_ROW_HEIGHT
+        : 0;
+    const footerHeight = TableFooterComponent
+      ? DEFAULT_ROW_HEIGHT + resolvedRowHeight
+      : 0;
+    const emptyHeight =
+      dataSource.length === 0 && TableEmptyComponent ? DEFAULT_ROW_HEIGHT : 0;
+    const dataHeight = dataSource.length * resolvedRowHeight;
+
+    return Math.max(
+      400,
+      paddingTop +
+        paddingBottom +
+        headerHeight +
+        footerHeight +
+        emptyHeight +
+        dataHeight,
+    );
+  }, [
+    TableEmptyComponent,
+    TableFooterComponent,
+    TableHeaderComponent,
+    contentContainerStyle,
+    dataSource.length,
+    effectiveStickyHeader,
+    resolvedRowHeight,
+    scrollEnabled,
+    showHeader,
+    tabIntegrated,
+  ]);
+  const webTabIntegratedRootHeight = useMemo(() => {
+    if (!webTabIntegratedListHeight) {
+      return undefined;
+    }
+    const stickyHeaderHeight =
+      effectiveStickyHeader && showHeader ? DEFAULT_ROW_HEIGHT : 0;
+    return webTabIntegratedListHeight + stickyHeaderHeight;
+  }, [effectiveStickyHeader, showHeader, webTabIntegratedListHeight]);
+
+  useEffect(() => {
+    if (
+      !tabIntegrated ||
+      platformEnv.isNative ||
+      scrollEnabled ||
+      !currentTabName ||
+      !webTabIntegratedRootHeight
+    ) {
+      return undefined;
+    }
+
+    const element = tableRootRef.current;
+    const refStore = scrollTabElementsRef?.current;
+    if (!element || !refStore) {
+      return undefined;
+    }
+
+    if (!refStore[currentTabName]) {
+      refStore[currentTabName] = {} as {
+        element: HTMLElement;
+        height?: number;
+      };
+    }
+    const entry = refStore[currentTabName];
+    entry.element = element;
+    entry.height = webTabIntegratedRootHeight;
+
+    requestRemeasure?.();
+
+    return () => {
+      const currentEntry = refStore[currentTabName];
+      if (currentEntry?.element === element) {
+        delete refStore[currentTabName];
+        requestRemeasure?.();
+      }
+    };
+  }, [
+    currentTabName,
+    dataSource.length,
+    requestRemeasure,
+    scrollEnabled,
+    scrollTabElementsRef,
+    tabIntegrated,
+    webTabIntegratedRootHeight,
+  ]);
 
   const renderSortableItem = useCallback(
     ({ item, drag, dragProps, index, isActive }: IRenderItemParams<T>) => {
@@ -418,20 +561,14 @@ function BasicTable<T>({
     },
     [columns, draggable, onRow, rowProps, showSkeleton],
   );
-  // On native, when tabIntegrated the header row MUST be inside the list
-  // (as ListHeaderComponent) so it participates in the collapsible tab scroll.
-  // On web, the header must stay outside the list because SortableListView uses
-  // absolute positioning for items, which would overlap ListHeaderComponent.
-  const effectiveStickyHeader =
-    stickyHeader && (!tabIntegrated || !platformEnv.isNative);
 
   const getItemLayout = useCallback(
     (_: any, index: number) => ({
-      length: itemSize || DEFAULT_ROW_HEIGHT,
-      offset: index * (itemSize || DEFAULT_ROW_HEIGHT),
+      length: resolvedRowHeight,
+      offset: index * resolvedRowHeight,
       index,
     }),
-    [itemSize],
+    [resolvedRowHeight],
   );
 
   const listHeaderComponent = useMemo(
@@ -452,6 +589,7 @@ function BasicTable<T>({
           tabIntegrated={tabIntegrated}
           useFlashList={useFlashList}
           scrollEnabled={scrollEnabled}
+          height={webTabIntegratedListHeight}
           ref={listViewRef as any}
           contentContainerStyle={contentContainerStyle}
           stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
@@ -479,6 +617,7 @@ function BasicTable<T>({
         <ListView
           useFlashList={useFlashList}
           scrollEnabled={scrollEnabled}
+          height={webTabIntegratedListHeight}
           ref={listViewRef as any}
           contentContainerStyle={contentContainerStyle}
           stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
@@ -524,11 +663,12 @@ function BasicTable<T>({
       estimatedItemSize,
       handleRenderItem,
       tabIntegrated,
+      webTabIntegratedListHeight,
     ],
   );
 
   return effectiveStickyHeader ? (
-    <YStack flex={1}>
+    <YStack ref={tableRootRef as any} flex={1}>
       {headerRow}
       {list}
       {enableBackToTopButton ? (

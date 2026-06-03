@@ -4,6 +4,7 @@ import { Page, ScrollView } from '@onekeyhq/components';
 import type { useInTabDialog } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { PerpPortfolioContent } from './PerpPortfolioContent';
@@ -25,9 +26,17 @@ export function showPerpPortfolioDialog(
     showFooter: false,
     floatingPanelProps: { width: 960 },
     renderContent: (
-      <PerpsProviderMirror>
-        <PerpPortfolioContent isMobile={false} />
-      </PerpsProviderMirror>
+      // In-tab dialogs render through the IN_PAGE_TAB_CONTAINER portal at the
+      // TabNavigator root, so they do NOT inherit the page/header providers.
+      // Web-dapp /perps opens this from the header pill (no perps page tree), so
+      // the accountSelector context must be mirrored here too — PerpPortfolioContent
+      // reads useActiveAccount via usePerpsAccountScopedActivePositions. Mirror the
+      // native page nesting (PerpsAccountSelectorProviderMirror > PerpsProviderMirror).
+      <PerpsAccountSelectorProviderMirror>
+        <PerpsProviderMirror>
+          <PerpPortfolioContent isMobile={false} />
+        </PerpsProviderMirror>
+      </PerpsAccountSelectorProviderMirror>
     ),
   });
   return dialogRef;

@@ -74,12 +74,18 @@ class ServiceMarketV2 extends ServiceBase {
     // critical memory pressure. These are the largest known per-route
     // cache footprints (token logos + pricing for 218 batch fetches in
     // 27 min in observed sessions).
+    //
+    // Intentionally NOT clearing memoizedFetchMarketChains /
+    // memoizedFetchMarketBasicConfig: both are KB-sized constant configs
+    // with a 1 h TTL. Previously these were dropped here too, which made
+    // every critical-memory event force a network refetch of small
+    // constants — observed as 16+ basicConfig RPCs per 4 min window in
+    // iPad logs (cleared 3× by 3 critical warnings, then immediately
+    // re-fetched by 5 active components).
     appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
       if (event.level !== 'critical') return;
       this._marketTokenBatchCache.clear();
       void this.memoizedFetchMarketTokenList.clear();
-      void this.memoizedFetchMarketChains.clear();
-      void this.memoizedFetchMarketBasicConfig.clear();
     });
   }
 
@@ -166,6 +172,9 @@ class ServiceMarketV2 extends ServiceBase {
   async fetchMarketTokenDetailByTokenAddress(
     tokenAddress: string,
     networkId: string,
+    options?: {
+      autoHandleError?: boolean;
+    },
   ) {
     const settings = await settingsPersistAtom.get();
     const selectedCurrencyId = settings.currencyInfo?.id ?? 'usd';
@@ -188,7 +197,12 @@ class ServiceMarketV2 extends ServiceBase {
     }
     const response = await client.get<IMarketTokenDetailResponse>(
       '/utility/v2/market/token/detail',
-      { params },
+      {
+        params,
+        ...(options?.autoHandleError === false
+          ? { autoHandleError: false }
+          : {}),
+      },
     );
     return response.data;
   }
@@ -579,7 +593,7 @@ class ServiceMarketV2 extends ServiceBase {
         isDeleted,
       });
     }
-    await this.backgroundApi.localDb.addAndUpdateSyncItems({
+    await this.backgroundApi.localDb.addAndUpdateFreshSyncItems({
       items: syncItems,
       fn,
     });

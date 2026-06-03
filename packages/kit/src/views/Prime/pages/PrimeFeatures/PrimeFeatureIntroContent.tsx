@@ -38,6 +38,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -92,6 +93,9 @@ const DIALOG_FOOTER_BOTTOM_PADDING = 20;
 const MOBILE_DIALOG_VIDEO_LOAD_DELAY_MS = 300;
 const VIDEO_POSTER_FADE_DURATION_MS = 220;
 const DIALOG_CONTENT_SWIPE_THRESHOLD = 32;
+const primeFeatureOverlayButtonIconProps = { color: '$whiteA10' } as const;
+const primeFeatureOverlayButtonHoverStyle = { bg: '$whiteA4' } as const;
+const primeFeatureOverlayButtonPressStyle = { bg: '$whiteA5' } as const;
 const closeButtonIconProps = { color: '$whiteA10' } as const;
 const closeButtonHoverStyle = { bg: '$whiteA5' } as const;
 const closeButtonPressStyle = { bg: '$whiteA6' } as const;
@@ -167,12 +171,14 @@ function PrimeFeaturePaginationButton({
         testID={`prime-feature-intro-${direction}`}
         icon={
           direction === 'previous'
-            ? 'ChevronLeftSmallOutline'
-            : 'ChevronRightSmallOutline'
+            ? 'ChevronLeftOutline'
+            : 'ChevronRightOutline'
         }
         variant="tertiary"
-        theme="dark"
-        size="small"
+        size="medium"
+        hoverStyle={primeFeatureOverlayButtonHoverStyle}
+        pressStyle={primeFeatureOverlayButtonPressStyle}
+        iconProps={primeFeatureOverlayButtonIconProps}
         onPress={onPress}
       />
     </Stack>
@@ -508,6 +514,13 @@ export function PrimeFeatureIntroContent({
 
     if (activeFeature.action === 'notifications') {
       navigation.navigate(EModalRoutes.NotificationsModal);
+      return;
+    }
+
+    if (activeFeature.action === 'receiveRiskMonitoring') {
+      navigation.pushModal(EModalRoutes.SettingModal, {
+        screen: EModalSettingRoutes.SettingProtectModal,
+      });
       return;
     }
 

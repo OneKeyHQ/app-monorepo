@@ -51,7 +51,10 @@ import type {
   IWsAllMids,
   IWsBbo,
   IWsOpenOrders,
+  IWsTwapStates,
   IWsUserNonFundingLedgerUpdates,
+  IWsUserTwapHistory,
+  IWsUserTwapSliceFills,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
@@ -348,6 +351,23 @@ function useHyperliquidEventBusListener() {
 
           case ESubscriptionType.OPEN_ORDERS: {
             void actions.current.updateOpenOrders(data as IWsOpenOrders);
+            break;
+          }
+
+          case ESubscriptionType.TWAP_STATES: {
+            void actions.current.updateTwapStates(data as IWsTwapStates);
+            break;
+          }
+
+          case ESubscriptionType.USER_TWAP_HISTORY: {
+            void actions.current.updateTwapHistory(data as IWsUserTwapHistory);
+            break;
+          }
+
+          case ESubscriptionType.USER_TWAP_SLICE_FILLS: {
+            void actions.current.updateTwapSliceFills(
+              data as IWsUserTwapSliceFills,
+            );
             break;
           }
 
@@ -805,7 +825,8 @@ function WebSocketSubscriptionUpdate() {
       shouldSyncSubscriptions: subscriptionPlan.shouldSyncSubscriptions,
     });
 
-    const sequence = (syncSequenceRef.current += 1);
+    syncSequenceRef.current += 1;
+    const sequence = syncSequenceRef.current;
     const routeStateVersion = nextRouteSubscriptionStateVersion();
     void (async () => {
       try {

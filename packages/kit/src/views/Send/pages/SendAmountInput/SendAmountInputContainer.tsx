@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -7,7 +15,9 @@ import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
 import {
+  Alert,
   Button,
+  DashText,
   Dialog,
   Form,
   HeightTransition,
@@ -16,6 +26,7 @@ import {
   NumberSizeableText,
   Page,
   ScrollView,
+  Select,
   SizableText,
   Skeleton,
   Stack,
@@ -34,14 +45,20 @@ import { LightningUnitSwitch } from '@onekeyhq/kit/src/components/UnitSwitch';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import {
   useSelectedUTXOsAtom,
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
+import { SwapRateDifferenceText } from '@onekeyhq/kit/src/views/Swap/components/SwapRateDifferenceText';
+import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveInfo,
+  ITransferInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -56,15 +73,39 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   openFiatCryptoUrl,
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
+import {
+  privateSendHelpCenterUrl,
+  privateSendProvider,
+  swapSlippageAutoValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type {
+  IFetchQuoteInfo,
+  IFetchQuoteResult,
+  ISwapToken,
+  ISwapTxHistory,
+  ISwapTxInfo,
+} from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapFetchCancelCause,
+  ESwapQuoteKind,
+  ESwapRateDifferenceUnit,
+  ESwapTabSwitchType,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { useSupportToken } from '../../../FiatCrypto/hooks';
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
@@ -76,6 +117,13 @@ import {
   SendAutoSizeAmountInput,
 } from '../../components/SendAutoSizeAmountInput';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
+
+import { AttentionPulse } from './components/AttentionPulse';
+import { useAutoSwitchDeriveType } from './hooks/useAutoSwitchDeriveType';
+import {
+  type ISiblingDeriveBalance,
+  useSiblingDeriveBalances,
+} from './hooks/useSiblingDeriveBalances';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -117,14 +165,183 @@ function floorFiatDerivedTokenAmount({
   return amount;
 }
 
+enum ESendMode {
+  PUBLIC = 'public',
+  PRIVATE = 'private',
+}
+
+type IPrivateSendQuoteResult = {
+  selectedQuote?: IFetchQuoteResult;
+  quotes: IFetchQuoteResult[];
+  scopeKey: string;
+  quoteError?: string;
+};
+
+type IPrivateSendQuoteRecipientResult = {
+  inputAddress: string;
+  recipientAddress?: string;
+  errorTranslationId?: ETranslations;
+};
+
+type IPrivateSendBuildCtx = {
+  rocketXOrderId?: unknown;
+};
+
+const privateSendValueDropWarningPercent = 5;
+const privateSendValueDropCountdownSeconds = 5;
+
+function convertTokenToSwapToken({
+  networkId,
+  tokenDetails,
+}: {
+  networkId: string;
+  tokenDetails?: { info: IToken } & ITokenFiat;
+}): ISwapToken | undefined {
+  if (!tokenDetails?.info) return undefined;
+  return {
+    networkId,
+    contractAddress: tokenDetails.info.address,
+    isNative: tokenDetails.info.isNative,
+    symbol: tokenDetails.info.symbol,
+    decimals: tokenDetails.info.decimals,
+    name: tokenDetails.info.name,
+    logoURI: tokenDetails.info.logoURI,
+    balanceParsed: tokenDetails.balanceParsed,
+    price: tokenDetails.price.toString(),
+    fiatValue: tokenDetails.fiatValue,
+  };
+}
+
+function buildPrivateSendQuoteScopeKey({
+  accountId,
+  accountAddress,
+  recipientAddress,
+  token,
+  amount,
+  sendMode,
+}: {
+  accountId?: string;
+  accountAddress?: string;
+  recipientAddress?: string;
+  token?: ISwapToken;
+  amount?: string;
+  sendMode: ESendMode;
+}) {
+  const amountBN = new BigNumber(amount || 0);
+  const normalizedAmount = amountBN.isNaN() ? '' : amountBN.toFixed();
+  return [
+    sendMode,
+    accountId ?? '',
+    accountAddress ?? '',
+    recipientAddress ?? '',
+    token?.networkId ?? '',
+    token?.isNative ? 'native' : (token?.contractAddress ?? ''),
+    `${token?.decimals ?? ''}`,
+    normalizedAmount,
+  ].join('|');
+}
+
+function getPrivateSendRocketXOrderId(ctx: unknown) {
+  const rocketXOrderId = (ctx as IPrivateSendBuildCtx | undefined)
+    ?.rocketXOrderId;
+  return typeof rocketXOrderId === 'string' && rocketXOrderId
+    ? rocketXOrderId
+    : undefined;
+}
+
+function getPrivateSendValueDropPercent(quote?: IFetchQuoteResult) {
+  const valueDropPercent = Number(
+    quote?.valueDropPercent ?? quote?.quoteShowTip?.priceImpact,
+  );
+  return Number.isFinite(valueDropPercent) ? valueDropPercent : undefined;
+}
+
+function isPositivePrivateSendAmount(amount?: string | number) {
+  const amountBN = new BigNumber(amount ?? 0);
+  return amountBN.isFinite() && amountBN.isGreaterThan(0);
+}
+
+function isPrivateSendQuoteUsable(
+  quote?: IFetchQuoteResult,
+): quote is IFetchQuoteResult & { toAmount: string } {
+  return Boolean(
+    quote?.info.provider &&
+    !quote.errorMessage &&
+    isPositivePrivateSendAmount(quote.toAmount),
+  );
+}
+
+function isSwapQuoteCancelError(error: unknown) {
+  return (
+    (error as { cause?: unknown } | undefined)?.cause ===
+    ESwapFetchCancelCause.SWAP_QUOTE_CANCEL
+  );
+}
+
+function PrivateSendValueDropWarningContent({
+  valueDropPercent,
+  onConfirm,
+}: {
+  valueDropPercent?: number;
+  onConfirm: () => void;
+}) {
+  const intl = useIntl();
+  const [countdown, setCountdown] = useState(
+    privateSendValueDropCountdownSeconds,
+  );
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((value) => Math.max(value - 1, 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <YStack gap="$6">
+      <YStack gap="$3">
+        <SizableText size="$bodyMdMedium" color="$textCritical">
+          {intl.formatMessage(
+            { id: ETranslations.private_send_value_drop_amount },
+            {
+              amount:
+                typeof valueDropPercent === 'number'
+                  ? new BigNumber(valueDropPercent).toFixed(2)
+                  : intl.formatMessage({ id: ETranslations.global_unknown }),
+            },
+          )}
+        </SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.private_send_value_drop_message,
+          })}
+        </SizableText>
+      </YStack>
+      <Button
+        testID="private-send-value-drop-confirm"
+        variant="primary"
+        disabled={countdown > 0}
+        onPress={onConfirm}
+      >
+        {countdown > 0
+          ? `${intl.formatMessage({
+              id: ETranslations.global_continue,
+            })} (${countdown})`
+          : intl.formatMessage({ id: ETranslations.global_continue })}
+      </Button>
+    </YStack>
+  );
+}
+
 function SendAmountInputContainer() {
   const intl = useIntl();
-  const _media = useMedia();
+  const media = useMedia();
+  const isRouteFocused = useRouteIsFocused();
 
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMaxSend, setIsMaxSend] = useState(false);
-  const [settings] = useSettingsPersistAtom();
+  const [settings, setSettings] = useSettingsPersistAtom();
   const [selectedUTXOs] = useSelectedUTXOsAtom();
   const sendConfirmActions = useSendConfirmActions();
 
@@ -199,7 +416,7 @@ function SendAmountInputContainer() {
   const { serviceToken, serviceNFT } = backgroundApiProxy;
 
   const {
-    result: [tokenDetails, nftDetails, hasFrozenBalance] = [],
+    result: [tokenDetails, nftDetails, hasFrozenBalance, balanceAccountId] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
     async () => {
@@ -249,7 +466,9 @@ function SendAmountInputContainer() {
           tokenDetails: tokenResp?.[0],
         });
 
-      return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings];
+      // `account.id` is returned so consumers can tell which account the
+      // balance was fetched for — it lags `currentAccountId` after a switch.
+      return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings, account.id];
     },
     [
       account,
@@ -279,6 +498,61 @@ function SendAmountInputContainer() {
     [networkId],
   );
   const enableAllowListValidation = !isLightningNetwork;
+  const [sendMode, setSendMode] = useState<ESendMode>(ESendMode.PUBLIC);
+
+  const privateSendToken = useMemo(
+    () => convertTokenToSwapToken({ networkId, tokenDetails }),
+    [networkId, tokenDetails],
+  );
+
+  const { result: isPrivateSendSupported = false } = usePromiseResult(
+    async () => {
+      if (
+        isNFT ||
+        isLightningNetwork ||
+        !privateSendToken ||
+        !account?.address ||
+        !currentAccountId
+      ) {
+        return false;
+      }
+      try {
+        const privateSendTokens =
+          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+            networkId,
+            contractAddress: privateSendToken.contractAddress,
+            accountAddress: account.address,
+            accountId: currentAccountId,
+            protocol: EProtocolOfExchange.PRIVATE_SEND,
+          });
+        return privateSendTokens?.some((item) =>
+          equalTokenNoCaseSensitive({
+            token1: item,
+            token2: privateSendToken,
+          }),
+        );
+      } catch {
+        return false;
+      }
+    },
+    [
+      account?.address,
+      currentAccountId,
+      isLightningNetwork,
+      isNFT,
+      networkId,
+      privateSendToken,
+    ],
+    { watchLoading: true, alwaysSetState: true },
+  );
+
+  const showPrivateSendModeSwitch = isPrivateSendSupported && !isNFT;
+
+  useEffect(() => {
+    if (!showPrivateSendModeSwitch && sendMode === ESendMode.PRIVATE) {
+      setSendMode(ESendMode.PUBLIC);
+    }
+  }, [sendMode, showPrivateSendModeSwitch]);
 
   const currencySymbol = settings.currencyInfo.symbol;
   const tokenSymbol = useMemo(() => {
@@ -398,6 +672,252 @@ function SendAmountInputContainer() {
     lnUnit,
     tokenDetails?.info.decimals,
     tokenDetails?.price,
+  ]);
+
+  const privateSendAmount = useMemo(
+    () => (isUseFiat ? linkedAmount.originalAmount : amount),
+    [amount, isUseFiat, linkedAmount.originalAmount],
+  );
+  const privateSendAmountBN = useMemo(
+    () => new BigNumber(privateSendAmount || 0),
+    [privateSendAmount],
+  );
+  const {
+    result: privateSendQuoteRecipientResult,
+    isLoading: isPrivateSendRecipientResolving,
+  } = usePromiseResult<IPrivateSendQuoteRecipientResult | undefined>(
+    async () => {
+      if (
+        sendMode !== ESendMode.PRIVATE ||
+        !recipientAddress ||
+        !currentAccountId
+      ) {
+        return undefined;
+      }
+
+      try {
+        const queryResult =
+          await backgroundApiProxy.serviceAccountProfile.queryAddress({
+            networkId,
+            accountId: currentAccountId,
+            address: recipientAddress,
+            enableAddressBook: true,
+            enableAddressContract: true,
+            enableVerifySendFundToSelf: true,
+            enableWalletName: true,
+            enableAllowListValidation,
+            ignoreSimilarAddressInAddressBook: true,
+            enableCheckSimilarAddressInAddressBook: false,
+          });
+
+        const validationStatus = queryResult.validStatus ?? 'unknown';
+        if (validationStatus !== 'valid') {
+          return {
+            inputAddress: recipientAddress,
+            errorTranslationId: ETranslations.send_recipient_invalid,
+          };
+        }
+
+        return {
+          inputAddress: recipientAddress,
+          recipientAddress:
+            queryResult.resolveAddress ??
+            queryResult.validAddress ??
+            recipientAddress,
+        };
+      } catch {
+        return {
+          inputAddress: recipientAddress,
+          errorTranslationId: ETranslations.global_network_error,
+        };
+      }
+    },
+    [
+      currentAccountId,
+      enableAllowListValidation,
+      networkId,
+      recipientAddress,
+      sendMode,
+    ],
+    { watchLoading: true, alwaysSetState: true, debounced: 300 },
+  );
+  const privateSendQuoteRecipientAddress =
+    privateSendQuoteRecipientResult?.inputAddress === recipientAddress
+      ? privateSendQuoteRecipientResult.recipientAddress
+      : undefined;
+  const privateSendQuoteRecipientErrorTranslationId =
+    privateSendQuoteRecipientResult?.inputAddress === recipientAddress
+      ? privateSendQuoteRecipientResult.errorTranslationId
+      : undefined;
+  const hasPrivateSendQuoteRequestInput = useMemo(
+    () =>
+      sendMode === ESendMode.PRIVATE &&
+      isPrivateSendSupported &&
+      !!privateSendToken &&
+      !!account?.address &&
+      !!recipientAddress &&
+      !hasAmountError &&
+      !privateSendAmountBN.isNaN() &&
+      privateSendAmountBN.isGreaterThan(0),
+    [
+      account?.address,
+      hasAmountError,
+      isPrivateSendSupported,
+      privateSendAmountBN,
+      privateSendToken,
+      recipientAddress,
+      sendMode,
+    ],
+  );
+  const canFetchPrivateSendQuote =
+    hasPrivateSendQuoteRequestInput &&
+    !isPrivateSendRecipientResolving &&
+    !!privateSendQuoteRecipientAddress;
+  const [privateSendQuoteRefreshNonce, setPrivateSendQuoteRefreshNonce] =
+    useState(0);
+  const privateSendQuoteScopeKey = useMemo(
+    () =>
+      buildPrivateSendQuoteScopeKey({
+        accountId: currentAccountId,
+        accountAddress: account?.address,
+        recipientAddress: privateSendQuoteRecipientAddress,
+        token: privateSendToken,
+        amount: privateSendAmount,
+        sendMode,
+      }),
+    [
+      account?.address,
+      currentAccountId,
+      privateSendAmount,
+      privateSendQuoteRecipientAddress,
+      privateSendToken,
+      sendMode,
+    ],
+  );
+  const privateSendQuoteRequestKey = useMemo(
+    () => `${privateSendQuoteScopeKey}:${privateSendQuoteRefreshNonce}`,
+    [privateSendQuoteRefreshNonce, privateSendQuoteScopeKey],
+  );
+
+  const {
+    result: privateSendQuoteResult,
+    isLoading: isPrivateSendQuoteLoading,
+  } = usePromiseResult<IPrivateSendQuoteResult | undefined>(
+    async () => {
+      if (
+        sendMode !== ESendMode.PRIVATE ||
+        !isPrivateSendSupported ||
+        !privateSendToken ||
+        !account?.address ||
+        !privateSendQuoteRecipientAddress ||
+        hasAmountError
+      ) {
+        return undefined;
+      }
+      const amountBN = new BigNumber(privateSendAmount || 0);
+      if (amountBN.isNaN() || amountBN.isLessThanOrEqualTo(0)) {
+        return undefined;
+      }
+      const scopeKey = privateSendQuoteRequestKey;
+      try {
+        const quotes = await backgroundApiProxy.serviceSwap.fetchQuotes({
+          fromToken: privateSendToken,
+          toToken: privateSendToken,
+          fromTokenAmount: amountBN.toFixed(),
+          userAddress: account.address,
+          receivingAddress: privateSendQuoteRecipientAddress,
+          slippagePercentage: swapSlippageAutoValue,
+          protocol: ESwapTabSwitchType.PRIVATE_SEND,
+          kind: ESwapQuoteKind.SELL,
+          accountId: currentAccountId,
+        });
+        const selectedQuote =
+          quotes.find((item) => isPrivateSendQuoteUsable(item)) ??
+          quotes.find((item) => item.info.provider) ??
+          quotes[0];
+
+        return {
+          selectedQuote,
+          quotes,
+          scopeKey,
+        };
+      } catch (error) {
+        if (isSwapQuoteCancelError(error)) {
+          return undefined;
+        }
+        return {
+          selectedQuote: undefined,
+          quotes: [],
+          scopeKey,
+          quoteError: intl.formatMessage({
+            id: ETranslations.global_network_error,
+          }),
+        };
+      }
+    },
+    [
+      account?.address,
+      currentAccountId,
+      hasAmountError,
+      isPrivateSendSupported,
+      privateSendAmount,
+      privateSendToken,
+      privateSendQuoteRequestKey,
+      privateSendQuoteRecipientAddress,
+      sendMode,
+      intl,
+    ],
+    { watchLoading: true, alwaysSetState: true, debounced: 500 },
+  );
+  const isPrivateSendQuoteScopeMatched =
+    !!privateSendQuoteResult &&
+    privateSendQuoteResult.scopeKey === privateSendQuoteRequestKey;
+  const scopedPrivateSendQuoteResult = isPrivateSendQuoteScopeMatched
+    ? privateSendQuoteResult
+    : undefined;
+  const isPrivateSendQuoteRefreshing =
+    hasPrivateSendQuoteRequestInput &&
+    (isPrivateSendRecipientResolving ||
+      isPrivateSendQuoteLoading ||
+      (canFetchPrivateSendQuote && !isPrivateSendQuoteScopeMatched));
+  const privateSendQuote = scopedPrivateSendQuoteResult?.selectedQuote;
+  const refreshPrivateSendQuote = useCallback(() => {
+    if (!canFetchPrivateSendQuote || isPrivateSendQuoteRefreshing) return;
+    setPrivateSendQuoteRefreshNonce((nonce) => nonce + 1);
+  }, [canFetchPrivateSendQuote, isPrivateSendQuoteRefreshing]);
+
+  const privateSendQuoteError = useMemo(() => {
+    if (sendMode !== ESendMode.PRIVATE) return undefined;
+    const amountBN = new BigNumber(privateSendAmount || 0);
+    if (amountBN.isNaN() || amountBN.isLessThanOrEqualTo(0)) return undefined;
+    if (isPrivateSendRecipientResolving) return undefined;
+    if (privateSendQuoteRecipientErrorTranslationId) {
+      return intl.formatMessage({
+        id: privateSendQuoteRecipientErrorTranslationId,
+      });
+    }
+    if (isPrivateSendQuoteLoading) return undefined;
+    if (!isPrivateSendQuoteScopeMatched) return undefined;
+    if (scopedPrivateSendQuoteResult?.quoteError) {
+      return scopedPrivateSendQuoteResult.quoteError;
+    }
+    if (privateSendQuote?.errorMessage) return privateSendQuote.errorMessage;
+    if (!isPrivateSendQuoteUsable(privateSendQuote)) {
+      return intl.formatMessage({
+        id: ETranslations.swap_page_alert_no_provider_supports_trade,
+      });
+    }
+    return undefined;
+  }, [
+    intl,
+    isPrivateSendRecipientResolving,
+    isPrivateSendQuoteLoading,
+    isPrivateSendQuoteScopeMatched,
+    privateSendAmount,
+    privateSendQuote,
+    privateSendQuoteRecipientErrorTranslationId,
+    scopedPrivateSendQuoteResult?.quoteError,
+    sendMode,
   ]);
 
   const handleToggleFiatMode = useCallback(() => {
@@ -679,6 +1199,69 @@ function SendAmountInputContainer() {
     return valueBN.isGreaterThan(balance);
   }, [amount, isUseFiat, maxBalanceFiat, maxBalance]);
 
+  // Skip the `tokenInfo.address` truthiness check: for chains where
+  // `vaultSettings.isNativeTokenContractAddressEmpty` is true (e.g. BTC), the
+  // native token's contract address is the empty string — auto-switch must
+  // still apply.
+  const autoSwitchEnabled =
+    !!vaultSettings?.mergeDeriveAssetsEnabled &&
+    !isNFT &&
+    !isUseFiat &&
+    !isLightningNetwork &&
+    // With coin control the user has hand-picked UTXOs and `maxBalance` is
+    // the selected-UTXO subtotal, not the account balance — a subset
+    // shortfall must not trigger a switch that also discards their selection.
+    !currentSelectedUtxoInfo &&
+    !!account?.indexedAccountId &&
+    !!tokenInfo &&
+    !accountUtils.isOthersWallet({ walletId });
+
+  const { fetch: fetchSiblingBalances } = useSiblingDeriveBalances({
+    networkId,
+    indexedAccountId: account?.indexedAccountId ?? '',
+    tokenAddress: tokenInfo?.address ?? '',
+    // Spendable balance depends on this setting; feeding it in (and keying the
+    // sibling cache on it) keeps siblings on the same balance contract as the
+    // current page and invalidates the cache when the user toggles it mid-flow.
+    inscriptionProtection: !!settings.inscriptionProtection,
+  });
+
+  const performAutoSwitchToAccount = useCallback(
+    (target: ISiblingDeriveBalance) => {
+      setCurrentAccountId(target.accountId);
+      sendConfirmActions.current.clearSelectedUTXOs();
+    },
+    [sendConfirmActions],
+  );
+
+  const {
+    autoSwitchInfo,
+    dismissAutoSwitchInfo,
+    pulseSignal,
+    allFormatsInsufficient,
+  } = useAutoSwitchDeriveType({
+    amount,
+    isInsufficientBalance,
+    enabled: autoSwitchEnabled,
+    currentAccountId,
+    currentDeriveType: deriveType,
+    currentDeriveInfo: deriveInfo,
+    // True only when the balance query has settled *for the current account*.
+    // `balanceAccountId` is the account the token query actually ran for; after
+    // an auto-switch it lags `currentAccountId` by one or more renders, and
+    // acting on that stale balance would switch again off an account we never
+    // measured. We intentionally do NOT require `tokenDetails` here: a genuinely
+    // empty address format makes `fetchTokensDetails` return [], so
+    // `tokenDetails` is undefined while the balance is fully known to be 0
+    // (`maxBalance` maps the absent detail to '0'). Gating on `!!tokenDetails`
+    // would leave that — the primary auto-switch case — permanently "unloaded".
+    isCurrentBalanceLoaded:
+      !isLoadingAssets && balanceAccountId === currentAccountId,
+    currentMaxBalance: maxBalance,
+    fetchSiblings: fetchSiblingBalances,
+    performSwitch: performAutoSwitchToAccount,
+  });
+
   // Buy button support for insufficient balance
   const showReviewControl = useReviewControl();
   const { result: isBuySupported } = useSupportToken(
@@ -889,9 +1472,11 @@ function SendAmountInputContainer() {
   }, [isHexTxMessage, txMessage]);
 
   const displayTxMessageForm = useMemo(() => {
+    if (sendMode !== ESendMode.PUBLIC) return false;
     if (!tokenInfo?.isNative) return false;
     return settings.isCustomTxMessageEnabled && !!vaultSettings?.withTxMessage;
   }, [
+    sendMode,
     settings.isCustomTxMessageEnabled,
     tokenInfo?.isNative,
     vaultSettings?.withTxMessage,
@@ -1070,6 +1655,45 @@ function SendAmountInputContainer() {
     recipientIsContract,
   ]);
 
+  const confirmPrivateSendValueDrop = useCallback(
+    async (quote: IFetchQuoteResult) => {
+      const valueDropPercent = getPrivateSendValueDropPercent(quote);
+      if (
+        typeof valueDropPercent === 'number' &&
+        valueDropPercent < privateSendValueDropWarningPercent
+      ) {
+        return true;
+      }
+      return new Promise<boolean>((resolve) => {
+        let settled = false;
+        const settle = (confirmed: boolean) => {
+          if (settled) return;
+          settled = true;
+          resolve(confirmed);
+        };
+        const dialog = Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.private_send_high_value_drop_title,
+          }),
+          showFooter: false,
+          trapFocus: true,
+          dismissOnOverlayPress: false,
+          onClose: () => settle(false),
+          renderContent: (
+            <PrivateSendValueDropWarningContent
+              valueDropPercent={valueDropPercent}
+              onConfirm={() => {
+                settle(true);
+                void dialog.close();
+              }}
+            />
+          ),
+        });
+      });
+    },
+    [intl],
+  );
+
   onSubmitRef.current = useCallback(
     async () =>
       errorToastUtils.withErrorAutoToast(async () => {
@@ -1117,7 +1741,10 @@ function SendAmountInputContainer() {
           }
 
           const txMessageValue = form.getValues('txMessage');
+          const shouldUseTxMessage =
+            sendMode === ESendMode.PUBLIC && displayTxMessageForm;
           if (
+            shouldUseTxMessage &&
             submitRecipientIsContract &&
             txMessageValue &&
             !hexUtils.isHexString(txMessageValue)
@@ -1132,9 +1759,312 @@ function SendAmountInputContainer() {
               });
             }
           }
-          const hexData = isHexTxMessage
-            ? txMessageValue
-            : txMessageLinkedString;
+          let hexData = '';
+          if (shouldUseTxMessage) {
+            hexData = isHexTxMessage ? txMessageValue : txMessageLinkedString;
+          }
+
+          if (!isNFT && sendMode === ESendMode.PRIVATE) {
+            if (
+              !privateSendToken ||
+              !isPrivateSendQuoteScopeMatched ||
+              !isPrivateSendQuoteUsable(privateSendQuote) ||
+              !tokenDetails
+            ) {
+              throw new OneKeyLocalError(
+                intl.formatMessage({
+                  id: ETranslations.swap_page_alert_no_provider_supports_trade,
+                }),
+              );
+            }
+            const submitPrivateSendQuoteScopeKey =
+              buildPrivateSendQuoteScopeKey({
+                accountId: currentAccountId,
+                accountAddress: account.address,
+                recipientAddress: submitRecipientAddress,
+                token: privateSendToken,
+                amount: privateSendAmount,
+                sendMode,
+              });
+            if (submitPrivateSendQuoteScopeKey !== privateSendQuoteScopeKey) {
+              throw new OneKeyLocalError(
+                intl.formatMessage({
+                  id: ETranslations.swap_page_alert_no_provider_supports_trade,
+                }),
+              );
+            }
+
+            const privateSendFromAmount =
+              privateSendQuote.fromAmount ?? realAmount;
+            const privateSendToAmount = privateSendQuote.toAmount;
+
+            const buildSwapRes =
+              await backgroundApiProxy.serviceSwap.fetchBuildTx({
+                fromToken: privateSendToken,
+                toToken: privateSendToken,
+                toTokenAmount: privateSendToAmount,
+                fromTokenAmount: privateSendFromAmount,
+                provider: privateSendProvider,
+                userAddress: account.address,
+                receivingAddress: submitRecipientAddress,
+                slippagePercentage: swapSlippageAutoValue,
+                accountId: currentAccountId,
+                quoteResultCtx: privateSendQuote.quoteResultCtx,
+                protocol: EProtocolOfExchange.PRIVATE_SEND,
+                kind: privateSendQuote.kind ?? ESwapQuoteKind.SELL,
+              });
+
+            if (!buildSwapRes?.changellyOrder) {
+              throw new OneKeyLocalError(
+                intl.formatMessage({
+                  id: ETranslations.swap_page_alert_no_provider_supports_trade,
+                }),
+              );
+            }
+            const privateSendPayinAddress =
+              buildSwapRes.changellyOrder.payinAddress;
+            const privateSendPayinAmount =
+              buildSwapRes.changellyOrder.amountExpectedFrom;
+            const payinAddressStatus =
+              privateSendPayinAddress &&
+              (await backgroundApiProxy.serviceValidator.validateAddress({
+                networkId: privateSendToken.networkId,
+                address: privateSendPayinAddress,
+              }));
+            if (
+              payinAddressStatus !== 'valid' ||
+              !isPositivePrivateSendAmount(privateSendPayinAmount)
+            ) {
+              throw new OneKeyLocalError(
+                intl.formatMessage({
+                  id: ETranslations.swap_page_alert_no_provider_supports_trade,
+                }),
+              );
+            }
+            const privateSendProviderOrderId =
+              buildSwapRes.changellyOrder.orderId;
+            const privateSendRocketXOrderId = getPrivateSendRocketXOrderId(
+              buildSwapRes.ctx,
+            );
+            const privateSendBackendOrderId = buildSwapRes.orderId;
+            if (
+              !privateSendProviderOrderId ||
+              !privateSendRocketXOrderId ||
+              privateSendProviderOrderId !== privateSendRocketXOrderId ||
+              !privateSendBackendOrderId
+            ) {
+              throw new OneKeyLocalError(
+                intl.formatMessage({
+                  id: ETranslations.swap_page_alert_no_provider_supports_trade,
+                }),
+              );
+            }
+            const privateSendBuildToAmount =
+              buildSwapRes.result.toAmount ?? privateSendToAmount;
+            if (!isPositivePrivateSendAmount(privateSendBuildToAmount)) {
+              throw new OneKeyLocalError(
+                intl.formatMessage({
+                  id: ETranslations.swap_page_alert_no_provider_supports_trade,
+                }),
+              );
+            }
+
+            const privateSendProviderInfo = {
+              ...privateSendQuote.info,
+              ...buildSwapRes.result.info,
+              provider: privateSendProvider,
+              providerName:
+                buildSwapRes.result.info.providerName ||
+                privateSendQuote.info.providerName ||
+                privateSendProvider,
+            };
+            const normalizedBuildSwapRes = {
+              ...buildSwapRes,
+              orderId: privateSendBackendOrderId,
+              result: {
+                ...buildSwapRes.result,
+                fromAmount: privateSendPayinAmount,
+                toAmount: privateSendBuildToAmount,
+                protocol: EProtocolOfExchange.PRIVATE_SEND,
+                info: privateSendProviderInfo,
+                supportUrl:
+                  buildSwapRes.result.supportUrl ?? privateSendHelpCenterUrl,
+              },
+            };
+            const confirmedValueDrop = await confirmPrivateSendValueDrop(
+              normalizedBuildSwapRes.result,
+            );
+            if (!confirmedValueDrop) {
+              return;
+            }
+
+            const transfersInfo: ITransferInfo[] = [
+              {
+                from: account.address,
+                tokenInfo: tokenDetails.info,
+                to: privateSendPayinAddress,
+                amount: privateSendPayinAmount,
+                memo: buildSwapRes.changellyOrder.payinExtraId,
+                selectedUtxoKeys: currentSelectedUtxoKeys,
+                utxoSelectionStrategy: currentUtxoSelectionStrategy,
+              },
+            ];
+            const privateSendAmountToSend = privateSendPayinAmount;
+            const privateSendOrderId = privateSendBackendOrderId;
+
+            const swapInfo: ISwapTxInfo = {
+              protocol: EProtocolOfExchange.PRIVATE_SEND,
+              sender: {
+                amount:
+                  normalizedBuildSwapRes.result.fromAmount ??
+                  privateSendFromAmount,
+                token:
+                  (normalizedBuildSwapRes.result.fromTokenInfo as ISwapToken) ??
+                  privateSendToken,
+                accountInfo: {
+                  accountId: currentAccountId,
+                  networkId: privateSendToken.networkId,
+                },
+              },
+              receiver: {
+                amount:
+                  normalizedBuildSwapRes.result.toAmount ?? privateSendToAmount,
+                token:
+                  (normalizedBuildSwapRes.result.toTokenInfo as ISwapToken) ??
+                  privateSendToken,
+                accountInfo: {
+                  accountId: currentAccountId,
+                  networkId: privateSendToken.networkId,
+                },
+              },
+              accountAddress: account.address,
+              receivingAddress: submitRecipientAddress,
+              swapBuildResData: normalizedBuildSwapRes,
+            };
+
+            const privateSendNetworkInfo = network
+              ? {
+                  name: network.name,
+                  symbol: network.symbol,
+                  logoURI: network.logoURI,
+                  networkId: network.id,
+                }
+              : undefined;
+            const addPrivateSendHistoryItem = async (
+              data: ISendTxOnSuccessData[],
+            ) => {
+              const txId = data?.[0]?.signedTx?.txid;
+              const created = Date.now();
+              const swapHistoryItem: ISwapTxHistory = {
+                protocol: EProtocolOfExchange.PRIVATE_SEND,
+                status: ESwapTxHistoryStatus.PENDING,
+                currency: settings.currencyInfo.symbol,
+                accountInfo: {
+                  sender: {
+                    accountId: currentAccountId,
+                    networkId: privateSendToken.networkId,
+                  },
+                  receiver: {
+                    accountId: currentAccountId,
+                    networkId: privateSendToken.networkId,
+                  },
+                },
+                baseInfo: {
+                  toAmount:
+                    normalizedBuildSwapRes.result.toAmount ??
+                    privateSendToAmount,
+                  fromAmount:
+                    normalizedBuildSwapRes.result.fromAmount ??
+                    privateSendFromAmount,
+                  fromToken: swapInfo.sender.token,
+                  toToken: swapInfo.receiver.token,
+                  fromNetwork: privateSendNetworkInfo,
+                  toNetwork: privateSendNetworkInfo,
+                },
+                txInfo: {
+                  txId,
+                  useOrderId: !!privateSendOrderId,
+                  orderId: privateSendOrderId,
+                  sender: account.address,
+                  receiver: submitRecipientAddress,
+                },
+                date: {
+                  created,
+                  updated: created,
+                },
+                swapInfo: {
+                  instantRate: normalizedBuildSwapRes.result.instantRate ?? '0',
+                  provider: privateSendProviderInfo,
+                  oneKeyFee:
+                    normalizedBuildSwapRes.result.fee?.percentageFee ?? 0,
+                  protocolFee:
+                    normalizedBuildSwapRes.result.fee?.protocolFees ?? 0,
+                  otherFeeInfos:
+                    normalizedBuildSwapRes.result.fee?.otherFeeInfos ?? [],
+                  orderId: privateSendOrderId,
+                  supportUrl:
+                    normalizedBuildSwapRes.result.supportUrl ??
+                    privateSendHelpCenterUrl,
+                  orderSupportUrl:
+                    normalizedBuildSwapRes.result.orderSupportUrl,
+                  oneKeyFeeExtraInfo:
+                    normalizedBuildSwapRes.result.oneKeyFeeExtraInfo,
+                },
+                ctx: {
+                  ...normalizedBuildSwapRes.ctx,
+                  rocketXOrderId: privateSendRocketXOrderId,
+                },
+              };
+              await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
+                swapHistoryItem,
+              );
+            };
+
+            await signatureConfirm.navigationToTxConfirm({
+              transfersInfo,
+              sameModal: true,
+              onSuccess: async (data: ISendTxOnSuccessData[]) => {
+                try {
+                  await addPrivateSendHistoryItem(data);
+                } catch (error) {
+                  defaultLogger.app.error.log(
+                    `Add private send history item failed: ${
+                      error instanceof Error ? error.message : String(error)
+                    }`,
+                  );
+                } finally {
+                  onSuccess?.(data);
+                }
+              },
+              onFail,
+              onCancel,
+              transferPayload: {
+                amountToSend: privateSendAmountToSend,
+                isMaxSend: false,
+                isNFT: false,
+                isPrivateSend: true,
+                originalRecipient: submitRecipientAddress,
+                privateSend: {
+                  orderId: privateSendOrderId,
+                  rocketXOrderId: privateSendRocketXOrderId,
+                  provider: privateSendProviderInfo.provider,
+                  providerName: privateSendProviderInfo.providerName,
+                  providerLogo: privateSendProviderInfo.providerLogo,
+                  supportUrl:
+                    normalizedBuildSwapRes.result.supportUrl ??
+                    privateSendHelpCenterUrl,
+                },
+                isToContract: submitRecipientIsContract,
+                memo: recipientMemo,
+                paymentId: recipientPaymentId,
+                note: recipientNote,
+                tokenInfo: tokenDetails.info,
+              },
+              isInternalSwap: true,
+              swapInfo,
+            });
+            return;
+          }
 
           const transfersInfo: ITransferInfo[] = [
             {
@@ -1202,6 +2132,8 @@ function SendAmountInputContainer() {
     [
       account,
       amount,
+      confirmPrivateSendValueDrop,
+      currentAccountId,
       currentSelectedUtxoKeys,
       currentUtxoSelectionStrategy,
       displayTxMessageForm,
@@ -1213,6 +2145,7 @@ function SendAmountInputContainer() {
       isUseFiat,
       linkedAmount.originalAmount,
       lnUnit,
+      network,
       nft?.collectionAddress,
       nft?.itemId,
       nft?.metadata?.name,
@@ -1221,10 +2154,17 @@ function SendAmountInputContainer() {
       onCancel,
       onFail,
       onSuccess,
+      isPrivateSendQuoteScopeMatched,
+      privateSendAmount,
+      privateSendQuote,
+      privateSendQuoteScopeKey,
+      privateSendToken,
       recipientMemo,
       recipientNote,
       recipientPaymentId,
+      settings.currencyInfo.symbol,
       settings.isCustomTxMessageEnabled,
+      sendMode,
       signatureConfirm,
       tokenDetails,
       tokenInfo?.address,
@@ -1253,6 +2193,13 @@ function SendAmountInputContainer() {
     ) {
       return true;
     }
+    if (sendMode === ESendMode.PRIVATE) {
+      if (isPrivateSendQuoteRefreshing) return true;
+      if (privateSendQuoteError) return true;
+      if (!isPrivateSendQuoteUsable(privateSendQuote)) {
+        return true;
+      }
+    }
     return false;
   }, [
     isSubmitting,
@@ -1265,6 +2212,10 @@ function SendAmountInputContainer() {
     tokenInfo?.isNative,
     vaultSettings?.transferZeroNativeTokenEnabled,
     amount,
+    sendMode,
+    isPrivateSendQuoteRefreshing,
+    privateSendQuoteError,
+    privateSendQuote,
   ]);
 
   // Keep ref in sync with isSubmitDisabled
@@ -1325,31 +2276,233 @@ function SendAmountInputContainer() {
     );
   }, [hasFrozenBalance, currentAccountId, networkId, intl]);
 
+  const handleSendModeChange = useCallback(
+    (value: string | number) => {
+      const nextMode =
+        value === ESendMode.PRIVATE ? ESendMode.PRIVATE : ESendMode.PUBLIC;
+      if (
+        nextMode === ESendMode.PRIVATE &&
+        platformEnv.isNative &&
+        !settings.isPrivateSendGuideClicked
+      ) {
+        setSettings((prev) => ({
+          ...prev,
+          isPrivateSendGuideClicked: true,
+        }));
+      }
+      setSendMode(nextMode);
+    },
+    [settings.isPrivateSendGuideClicked, setSettings],
+  );
+
+  const handlePrivateSendGuideClick = useCallback(() => {
+    if (settings.isPrivateSendGuideClicked) return;
+    setSettings((prev) => ({
+      ...prev,
+      isPrivateSendGuideClicked: true,
+    }));
+  }, [settings.isPrivateSendGuideClicked, setSettings]);
+
+  const renderPrivateSendHeaderRight = useCallback(() => {
+    if (!showPrivateSendModeSwitch) return null;
+
+    const publicLabel = intl.formatMessage({
+      id: ETranslations.private_send_public_option,
+    });
+    const privateLabel = intl.formatMessage({
+      id: ETranslations.private_send_private_option,
+    });
+    const isPrivateMode = sendMode === ESendMode.PRIVATE;
+
+    if (!media.gtMd) {
+      const showPrivateSendGuideDot = !settings.isPrivateSendGuideClicked;
+      return (
+        <Select
+          testID="send-private-mode-select"
+          title={intl.formatMessage({
+            id: ETranslations.private_send_select_mode_title,
+          })}
+          value={sendMode}
+          onChange={handleSendModeChange}
+          items={[
+            {
+              label: publicLabel,
+              value: ESendMode.PUBLIC,
+            },
+            {
+              label: privateLabel,
+              value: ESendMode.PRIVATE,
+            },
+          ]}
+          renderTrigger={({ onPress }) => (
+            <XStack
+              w={100}
+              h={30}
+              px="$1.5"
+              alignItems="center"
+              justifyContent="center"
+              gap="$1"
+              bg="$bgStrong"
+              borderRadius="$full"
+              borderCurve="continuous"
+              cursor="pointer"
+              hoverStyle={{ bg: '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+              onPress={(event) => {
+                handlePrivateSendGuideClick();
+                onPress?.(event);
+              }}
+            >
+              {isPrivateMode ? (
+                <Icon name="LockOutline" size="$4" color="$icon" />
+              ) : null}
+              <SizableText
+                size="$bodySmMedium"
+                color="$text"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {isPrivateMode ? privateLabel : publicLabel}
+              </SizableText>
+              <Icon
+                name="ChevronDownSmallOutline"
+                size="$4"
+                color="$iconSubdued"
+              />
+              {showPrivateSendGuideDot ? (
+                <Stack
+                  position="absolute"
+                  top="$0.5"
+                  right="$1.5"
+                  w="$1.5"
+                  h="$1.5"
+                  borderRadius="$full"
+                  bg="$iconCritical"
+                />
+              ) : null}
+            </XStack>
+          )}
+        />
+      );
+    }
+
+    const publicActive = sendMode === ESendMode.PUBLIC;
+    const privateActive = sendMode === ESendMode.PRIVATE;
+
+    const renderModeButton = ({
+      active,
+      children,
+      value,
+      minWidth,
+    }: {
+      active: boolean;
+      children: React.ReactNode;
+      value: ESendMode;
+      minWidth: number;
+    }) => (
+      <XStack
+        minWidth={minWidth}
+        h={28}
+        px="$2"
+        alignItems="center"
+        justifyContent="center"
+        borderRadius="$2"
+        borderCurve="continuous"
+        cursor="pointer"
+        userSelect="none"
+        bg={active ? '$bg' : 'transparent'}
+        borderWidth={active ? 1 : 0}
+        borderColor="$borderSubdued"
+        hoverStyle={active ? undefined : { bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+        onPress={() => handleSendModeChange(value)}
+      >
+        {children}
+      </XStack>
+    );
+
+    return (
+      <XStack
+        h={32}
+        p={2}
+        alignItems="center"
+        bg="$bgStrong"
+        borderRadius="$3"
+        borderCurve="continuous"
+      >
+        {renderModeButton({
+          active: publicActive,
+          value: ESendMode.PUBLIC,
+          minWidth: 55,
+          children: (
+            <SizableText
+              size="$bodyMdMedium"
+              color={publicActive ? '$text' : '$textSubdued'}
+              numberOfLines={1}
+            >
+              {publicLabel}
+            </SizableText>
+          ),
+        })}
+        {renderModeButton({
+          active: privateActive,
+          value: ESendMode.PRIVATE,
+          minWidth: 80,
+          children: (
+            <XStack alignItems="center" justifyContent="center" gap="$1">
+              <Icon
+                name={privateActive ? 'LockOutline' : 'AnonymousHiddenOutline'}
+                size="$4"
+                color={privateActive ? '$icon' : '$iconSubdued'}
+              />
+              <SizableText
+                size="$bodyMdMedium"
+                color={privateActive ? '$text' : '$textSubdued'}
+                numberOfLines={1}
+              >
+                {privateLabel}
+              </SizableText>
+            </XStack>
+          ),
+        })}
+      </XStack>
+    );
+  }, [
+    handlePrivateSendGuideClick,
+    handleSendModeChange,
+    intl,
+    media.gtMd,
+    sendMode,
+    settings.isPrivateSendGuideClicked,
+    showPrivateSendModeSwitch,
+  ]);
+
   const extraContent = useMemo(() => {
     const addons: React.ReactNode[] = [];
 
     if (vaultSettings?.mergeDeriveAssetsEnabled) {
       addons.push(
-        <AddressTypeSelector
-          key="address-type-selector"
-          placement="top-end"
-          walletId={walletId}
-          networkId={networkId}
-          indexedAccountId={account?.indexedAccountId ?? ''}
-          activeDeriveInfo={deriveInfo}
-          activeDeriveType={deriveType}
-          // Use refreshOnOpen so each derive type fetches its own balance.
-          // Do NOT pass tokenMap here — the global map only contains the
-          // currently selected derive type and would show wrong balances
-          // for other types (e.g. Taproot).
-          refreshOnOpen
-          onSelect={async ({ account: a }) => {
-            if (a) {
-              setCurrentAccountId(a.id);
-              sendConfirmActions.current.clearSelectedUTXOs();
-            }
-          }}
-        />,
+        <AttentionPulse key="address-type-selector" signal={pulseSignal}>
+          <AddressTypeSelector
+            placement="top-end"
+            walletId={walletId}
+            networkId={networkId}
+            indexedAccountId={account?.indexedAccountId ?? ''}
+            activeDeriveInfo={deriveInfo}
+            activeDeriveType={deriveType}
+            // Use refreshOnOpen so each derive type fetches its own balance.
+            // Do NOT pass tokenMap here — the global map only contains the
+            // currently selected derive type and would show wrong balances
+            // for other types (e.g. Taproot).
+            refreshOnOpen
+            onSelect={async ({ account: a }) => {
+              if (a) {
+                setCurrentAccountId(a.id);
+                sendConfirmActions.current.clearSelectedUTXOs();
+              }
+            }}
+          />
+        </AttentionPulse>,
       );
     }
 
@@ -1383,9 +2536,59 @@ function SendAmountInputContainer() {
     displayCoinControlButton,
     handleCoinControlPress,
     networkId,
+    pulseSignal,
     sendConfirmActions,
     vaultSettings?.mergeDeriveAssetsEnabled,
     walletId,
+  ]);
+
+  const renderAutoSwitchAlert = useMemo(() => {
+    const labelOf = (info: IAccountDeriveInfo | undefined) => {
+      if (!info) return '';
+      return info.labelKey
+        ? intl.formatMessage({ id: info.labelKey })
+        : info.label;
+    };
+    if (autoSwitchInfo) {
+      return (
+        <Alert
+          type="info"
+          icon="SwitchHorOutline"
+          closable
+          onClose={dismissAutoSwitchInfo}
+          title={intl.formatMessage({
+            id: ETranslations.send_address_format_auto_switched__msg,
+          })}
+          description={intl.formatMessage(
+            {
+              id: ETranslations.send_address_format_auto_switched__desc,
+            },
+            {
+              from: labelOf(autoSwitchInfo.from.deriveInfo),
+              to: labelOf(autoSwitchInfo.to.deriveInfo),
+            },
+          )}
+        />
+      );
+    }
+    if (allFormatsInsufficient && isInsufficientBalance) {
+      return (
+        <Alert
+          type="warning"
+          icon="ErrorOutline"
+          title={intl.formatMessage({
+            id: ETranslations.send_insufficient_balance_all_formats__msg,
+          })}
+        />
+      );
+    }
+    return null;
+  }, [
+    allFormatsInsufficient,
+    autoSwitchInfo,
+    dismissAutoSwitchInfo,
+    intl,
+    isInsufficientBalance,
   ]);
 
   const isAmountZeroOrEmpty = !amount || new BigNumber(amount).isZero();
@@ -1572,39 +2775,21 @@ function SendAmountInputContainer() {
     nftDetails?.amount,
   ]);
 
-  const renderBalanceCard = useMemo(() => {
-    if (isNFT) return null;
-
+  const renderBalanceRowContent = useCallback(() => {
     if (isLoadingAssets) {
       return (
-        <XStack
-          bg="$bgStrong"
-          borderRadius="$3"
-          px="$3"
-          py="$2.5"
-          alignItems="center"
-          width="100%"
-        >
+        <>
           <Skeleton w="$10" h="$10" radius="round" mr="$3" />
           <YStack flex={1} gap="$1.5">
             <Skeleton h="$3" w="$10" />
             <Skeleton h="$4" w="$24" />
           </YStack>
-        </XStack>
+        </>
       );
     }
 
-    if (!maxBalance) return null;
-
     return (
-      <XStack
-        bg="$bgStrong"
-        borderRadius="$3"
-        px="$3"
-        py="$2.5"
-        alignItems="center"
-        width="100%"
-      >
+      <>
         {/* Token icon with network badge */}
         <Stack mr="$3">
           {tokenInfo?.logoURI ? (
@@ -1647,7 +2832,10 @@ function SendAmountInputContainer() {
 
         {/* Balance label + amount */}
         <YStack flex={1}>
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText
+            size={sendMode === ESendMode.PRIVATE ? '$bodyMd' : '$bodySm'}
+            color="$textSubdued"
+          >
             {intl.formatMessage({ id: ETranslations.global_available })}
           </SizableText>
           <XStack alignItems="center" mt="$0.5">
@@ -1688,26 +2876,464 @@ function SendAmountInputContainer() {
         >
           {intl.formatMessage({ id: ETranslations.send_max })}
         </Button>
-      </XStack>
+      </>
     );
   }, [
     balanceInfoContent,
     form,
     intl,
     isLoadingAssets,
-    isNFT,
     isUseFiat,
     maxBalance,
     maxBalanceFiat,
     network?.logoURI,
+    sendMode,
     tokenInfo?.logoURI,
     tokenSymbol,
   ]);
+
+  const renderBalanceCard = useMemo(() => {
+    if (isNFT) return null;
+    if (!isLoadingAssets && !maxBalance) return null;
+
+    return (
+      <XStack
+        bg="$bgStrong"
+        borderRadius="$3"
+        px="$3"
+        py="$2.5"
+        alignItems="center"
+        width="100%"
+      >
+        {renderBalanceRowContent()}
+      </XStack>
+    );
+  }, [isLoadingAssets, isNFT, maxBalance, renderBalanceRowContent]);
+
+  const renderPrivateSendProviderContent = useCallback(
+    ({
+      isLoading,
+      providerInfo,
+    }: {
+      isLoading?: boolean;
+      providerInfo?: IFetchQuoteInfo;
+    }) => {
+      const providerName = providerInfo?.providerName || providerInfo?.provider;
+      let providerContent: ReactNode = null;
+      if (providerName) {
+        providerContent = (
+          <XStack alignItems="center" justifyContent="flex-end" gap="$1">
+            {providerInfo?.providerLogo ? (
+              <Stack position="relative" w="$5" h="$5">
+                <Image
+                  source={{ uri: providerInfo.providerLogo }}
+                  w="$5"
+                  h="$5"
+                  borderRadius="$1"
+                />
+                <Stack
+                  position="absolute"
+                  top={0}
+                  left={0}
+                  right={0}
+                  bottom={0}
+                  borderRadius="$1"
+                  borderWidth="$px"
+                  borderColor="$borderSubdued"
+                  pointerEvents="none"
+                />
+              </Stack>
+            ) : null}
+            <SizableText
+              size="$bodyMdMedium"
+              color="$text"
+              numberOfLines={1}
+              maxWidth="$64"
+              flexShrink={1}
+            >
+              {providerName}
+            </SizableText>
+          </XStack>
+        );
+      } else if (!isLoading) {
+        providerContent = (
+          <SizableText size="$bodyMdMedium" color="$text">
+            --
+          </SizableText>
+        );
+      }
+
+      return (
+        <XStack alignItems="center" justifyContent="flex-end" gap="$1">
+          {isLoading ? <Skeleton h="$5" w="$32" borderRadius="$1" /> : null}
+          {providerContent}
+        </XStack>
+      );
+    },
+    [],
+  );
+
+  const renderPrivateSendQuoteCard = useMemo(() => {
+    if (sendMode !== ESendMode.PRIVATE) return null;
+    const showPrivateSendQuoteSkeleton = isPrivateSendQuoteRefreshing;
+    const toTokenSymbol =
+      privateSendQuote?.toTokenInfo.symbol ?? privateSendToken?.symbol ?? '';
+    const toAmount = privateSendQuote?.toAmount ?? '0';
+    const privateSendQuoteToAmount = privateSendQuote?.toAmount;
+    const valueDropPercent = getPrivateSendValueDropPercent(privateSendQuote);
+    const rateDifferenceValue =
+      privateSendQuote && typeof valueDropPercent === 'number'
+        ? new BigNumber(valueDropPercent).negated()
+        : undefined;
+    const privateSendRateDifference =
+      rateDifferenceValue?.isFinite() && !rateDifferenceValue.isZero()
+        ? {
+            value: `${
+              rateDifferenceValue.isPositive() ? '+' : ''
+            }${numberFormat(rateDifferenceValue.toFixed(), {
+              formatter: 'priceChange',
+            })}`,
+            unit: rateDifferenceValue.isNegative()
+              ? ESwapRateDifferenceUnit.NEGATIVE
+              : ESwapRateDifferenceUnit.POSITIVE,
+          }
+        : undefined;
+    const toTokenPrice =
+      privateSendQuote?.toTokenInfo.price ?? privateSendToken?.price;
+    const toFiatValue =
+      toTokenPrice &&
+      privateSendQuoteToAmount &&
+      isPositivePrivateSendAmount(privateSendQuoteToAmount)
+        ? new BigNumber(privateSendQuoteToAmount)
+            .multipliedBy(toTokenPrice)
+            .toFixed()
+        : undefined;
+    const showPrivateSendBalanceRow =
+      !isNFT && (isLoadingAssets || !!maxBalance);
+    const estimatedReceivedTitle = intl.formatMessage({
+      id: ETranslations.private_send_estimated_received,
+    });
+    const estimatedReceivedTooltip = intl.formatMessage({
+      id: ETranslations.provider_route_changelly_float,
+    });
+
+    return (
+      <YStack bg="$bgSubdued" borderRadius="$3" px="$4" py="$2.5" width="100%">
+        <XStack
+          minHeight={56}
+          alignItems="center"
+          justifyContent="space-between"
+          gap="$3"
+        >
+          <XStack alignItems="center" gap="$2">
+            <DashText
+              size="$bodyMd"
+              color="$textSubdued"
+              dashColor="$textSubdued"
+              dashThickness={0.5}
+              tooltip={estimatedReceivedTooltip}
+              tooltipTitle={estimatedReceivedTitle}
+            >
+              {estimatedReceivedTitle}
+            </DashText>
+            <SwapRefreshButtonBase
+              refreshAction={refreshPrivateSendQuote}
+              disabled={
+                !canFetchPrivateSendQuote || isPrivateSendQuoteRefreshing
+              }
+              isRefreshQuote={isPrivateSendQuoteRefreshing}
+              isLoading={isPrivateSendQuoteRefreshing}
+              isFocused={isRouteFocused}
+            />
+          </XStack>
+          {showPrivateSendQuoteSkeleton ? (
+            <Skeleton h="$4" w="$24" />
+          ) : (
+            <YStack alignItems="flex-end" flexShrink={1} minWidth={0}>
+              <SizableText
+                size="$bodyMdMedium"
+                color="$text"
+                textAlign="right"
+                numberOfLines={1}
+                maxWidth="100%"
+              >
+                {`~ `}
+                <NumberSizeableText size="$bodyMdMedium" formatter="balance">
+                  {toAmount}
+                </NumberSizeableText>
+                {toTokenSymbol ? ` ${toTokenSymbol}` : ''}
+              </SizableText>
+              {toFiatValue ? (
+                <XStack
+                  alignItems="center"
+                  justifyContent="flex-end"
+                  gap="$1"
+                  flexShrink={1}
+                  minWidth={0}
+                  maxWidth="100%"
+                >
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    formatter="value"
+                    formatterOptions={{ currency: currencySymbol }}
+                    numberOfLines={1}
+                  >
+                    {toFiatValue}
+                  </NumberSizeableText>
+                  <SwapRateDifferenceText
+                    rateDifference={privateSendRateDifference}
+                    size="$bodyMd"
+                  />
+                </XStack>
+              ) : null}
+            </YStack>
+          )}
+        </XStack>
+        <XStack h={36} alignItems="center" justifyContent="space-between">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.private_send_arrival_in,
+            })}
+          </SizableText>
+          {showPrivateSendQuoteSkeleton ? (
+            <Skeleton h="$4" w="$16" />
+          ) : (
+            <SizableText size="$bodyMdMedium" color="$text">
+              {formatSwapQuoteDuration({
+                estTime: privateSendQuote?.estTime,
+                estimatedTime: privateSendQuote?.estimatedTime,
+              }) ?? '--'}
+            </SizableText>
+          )}
+        </XStack>
+        <XStack h={36} alignItems="center" justifyContent="space-between">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.swap_history_detail_provider,
+            })}
+          </SizableText>
+          {renderPrivateSendProviderContent({
+            isLoading: isPrivateSendQuoteRefreshing,
+            providerInfo: isPrivateSendQuoteRefreshing
+              ? undefined
+              : privateSendQuote?.info,
+          })}
+        </XStack>
+        {privateSendQuoteError ? (
+          <SizableText size="$bodyMd" color="$textCritical">
+            {privateSendQuoteError}
+          </SizableText>
+        ) : null}
+        {showPrivateSendBalanceRow ? (
+          <>
+            <Stack h="$px" bg="$borderSubdued" my="$2" />
+            <XStack h={56} alignItems="center" width="100%">
+              {renderBalanceRowContent()}
+            </XStack>
+          </>
+        ) : null}
+      </YStack>
+    );
+  }, [
+    currencySymbol,
+    intl,
+    isLoadingAssets,
+    isNFT,
+    isPrivateSendQuoteRefreshing,
+    isRouteFocused,
+    maxBalance,
+    privateSendQuote,
+    privateSendQuoteError,
+    privateSendToken?.price,
+    privateSendToken?.symbol,
+    renderBalanceRowContent,
+    renderPrivateSendProviderContent,
+    refreshPrivateSendQuote,
+    sendMode,
+    canFetchPrivateSendQuote,
+  ]);
+
+  const renderPrivateSendFooterHelp = useMemo(() => {
+    if (sendMode !== ESendMode.PRIVATE) return null;
+    return (
+      <XStack
+        width="100%"
+        justifyContent="center"
+        $gtMd={{
+          width: 'auto',
+          justifyContent: 'flex-start',
+        }}
+      >
+        <DashText
+          size="$bodyMd"
+          color="$textSubdued"
+          dashColor="$textSubdued"
+          dashThickness={0.5}
+          cursor="pointer"
+          hoverStyle={{ color: '$text' }}
+          pressStyle={{ opacity: 0.7 }}
+          onPress={() => {
+            openUrlExternal(privateSendHelpCenterUrl);
+          }}
+        >
+          {intl.formatMessage({ id: ETranslations.private_send_how_it_works })}
+        </DashText>
+      </XStack>
+    );
+  }, [intl, sendMode]);
+
+  const footerConfirmText = isInsufficientBalance
+    ? intl.formatMessage({
+        id: ETranslations.insufficient_funds__action,
+      })
+    : intl.formatMessage({
+        id: ETranslations.send_preview_button,
+      });
+
+  const renderPrivateSendFooterButtons = showBuyButton ? (
+    <>
+      <Button
+        testID={SendTestIDs.buyTokenButton}
+        variant="primary"
+        onPress={handleBuyToken}
+        loading={isBuyLoading}
+        flexGrow={1}
+        flexShrink={1}
+        textEllipsis
+        $md={
+          {
+            size: 'large',
+          } as any
+        }
+      >
+        {`${intl.formatMessage({
+          id: ETranslations.global_buy,
+        })} ${tokenSymbol}`}
+      </Button>
+      <Button
+        testID={SendTestIDs.insufficientFundsButton}
+        disabled
+        flexGrow={1}
+        flexShrink={1}
+        textEllipsis
+        $md={
+          {
+            size: 'large',
+          } as any
+        }
+      >
+        {intl.formatMessage({
+          id: ETranslations.insufficient_funds__action,
+        })}
+      </Button>
+    </>
+  ) : (
+    <Button
+      testID="page-footer-confirm"
+      variant="primary"
+      onPress={() => {
+        void handleConfirm();
+      }}
+      disabled={isSubmitDisabled}
+      loading={isSubmitting}
+      flexGrow={1}
+      flexShrink={1}
+      textEllipsis
+      $md={
+        {
+          size: 'large',
+        } as any
+      }
+    >
+      {footerConfirmText}
+    </Button>
+  );
+
+  const renderDefaultBuyFooterButtons = (
+    <XStack gap="$2.5" flex={1}>
+      <Button
+        testID={SendTestIDs.buyTokenButton}
+        variant="primary"
+        onPress={handleBuyToken}
+        loading={isBuyLoading}
+        flexGrow={1}
+        flexShrink={1}
+        textEllipsis
+        $md={
+          {
+            size: 'large',
+          } as any
+        }
+      >
+        {`${intl.formatMessage({
+          id: ETranslations.global_buy,
+        })} ${tokenSymbol}`}
+      </Button>
+      <Button
+        testID={SendTestIDs.insufficientFundsButton}
+        disabled
+        flexGrow={1}
+        flexShrink={1}
+        textEllipsis
+        $md={
+          {
+            size: 'large',
+          } as any
+        }
+      >
+        {intl.formatMessage({
+          id: ETranslations.insufficient_funds__action,
+        })}
+      </Button>
+    </XStack>
+  );
+
+  let renderFooterActions: ReactNode;
+  if (sendMode === ESendMode.PRIVATE) {
+    renderFooterActions = (
+      <Stack
+        p="$5"
+        gap="$2.5"
+        bg="$bgApp"
+        $gtMd={{ flexDirection: 'row', alignItems: 'center' }}
+      >
+        {media.gtMd ? renderPrivateSendFooterHelp : null}
+        <XStack
+          gap="$2.5"
+          width="100%"
+          $gtMd={{
+            width: 'auto',
+            ml: 'auto',
+          }}
+        >
+          {renderPrivateSendFooterButtons}
+        </XStack>
+        {media.gtMd ? null : renderPrivateSendFooterHelp}
+      </Stack>
+    );
+  } else if (showBuyButton) {
+    renderFooterActions = (
+      <Page.FooterActions confirmButton={renderDefaultBuyFooterButtons} />
+    );
+  } else {
+    renderFooterActions = (
+      <Page.FooterActions
+        onConfirm={handleConfirm}
+        onConfirmText={footerConfirmText}
+        confirmButtonProps={{
+          disabled: isSubmitDisabled,
+          loading: isSubmitting,
+        }}
+      />
+    );
+  }
 
   return (
     <Page safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.enter_amount__title })}
+        headerRight={renderPrivateSendHeaderRight}
       />
 
       <Page.Body px="$5" justifyContent="center">
@@ -1801,67 +3427,14 @@ function SendAmountInputContainer() {
               </Form.Field>
             </Form>
           </HeightTransition>
+          {renderAutoSwitchAlert}
           {extraContent}
-          {renderBalanceCard}
+          {sendMode === ESendMode.PRIVATE
+            ? renderPrivateSendQuoteCard
+            : renderBalanceCard}
           {renderNFTInfoCard}
         </Stack>
-        {showBuyButton ? (
-          <Page.FooterActions
-            confirmButton={
-              <XStack gap="$2.5" flex={1}>
-                <Button
-                  testID={SendTestIDs.buyTokenButton}
-                  variant="primary"
-                  onPress={handleBuyToken}
-                  loading={isBuyLoading}
-                  flexGrow={1}
-                  flexShrink={1}
-                  $md={
-                    {
-                      size: 'large',
-                    } as any
-                  }
-                >
-                  {`${intl.formatMessage({
-                    id: ETranslations.global_buy,
-                  })} ${tokenSymbol}`}
-                </Button>
-                <Button
-                  testID={SendTestIDs.insufficientFundsButton}
-                  disabled
-                  flexGrow={1}
-                  flexShrink={1}
-                  $md={
-                    {
-                      size: 'large',
-                    } as any
-                  }
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.insufficient_funds__action,
-                  })}
-                </Button>
-              </XStack>
-            }
-          />
-        ) : (
-          <Page.FooterActions
-            onConfirm={handleConfirm}
-            onConfirmText={
-              isInsufficientBalance
-                ? intl.formatMessage({
-                    id: ETranslations.insufficient_funds__action,
-                  })
-                : intl.formatMessage({
-                    id: ETranslations.send_preview_button,
-                  })
-            }
-            confirmButtonProps={{
-              disabled: isSubmitDisabled,
-              loading: isSubmitting,
-            }}
-          />
-        )}
+        {renderFooterActions}
       </Page.Footer>
     </Page>
   );

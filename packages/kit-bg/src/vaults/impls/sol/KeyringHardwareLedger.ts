@@ -17,7 +17,10 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
-import { callLedgerWithFingerprint } from '../../base/ledgerFingerprintUtils';
+import {
+  callLedgerWithFingerprint,
+  ledgerCommonCallParamsForCreateScene,
+} from '../../base/ledgerFingerprintUtils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -65,10 +68,16 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
             dbDevice,
             'sol',
             (deviceId) =>
-              adapter.hw.solGetAddress(dbDevice.connectId, deviceId, {
-                path,
-                showOnDevice: params.isVerifyAddressAction ?? false,
-              }),
+              adapter.hw.solGetAddress(
+                dbDevice.connectId,
+                deviceId,
+                {
+                  path,
+                  showOnDevice: params.isVerifyAddressAction ?? false,
+                },
+                // per-call HW options derived from the account-creation scene
+                ledgerCommonCallParamsForCreateScene(params),
+              ),
           );
 
           let address: string | null = null;

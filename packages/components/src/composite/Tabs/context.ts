@@ -55,7 +55,7 @@ export const TabsContext = createContext<
         string,
         {
           element: HTMLElement;
-          height?: string;
+          height?: number;
         }
       >
     >;

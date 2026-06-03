@@ -67,10 +67,9 @@ export type ICloudSyncServerItem = {
   pwdHash: string; // TODO server should return pwdHash
   key: string;
   // OK-55438: when true, this item is a genuine "now" write (e.g. rename /
-  // delete tombstone) and the server should overwrite dataTimestamp with its
-  // own clock. The server MUST only do so when the submitted dataTimestamp is
-  // ahead of server time (clamp future -> now), never raise a past value, so a
-  // mis-flagged old item can never be pushed forward.
+  // delete tombstone) and the server should overwrite dataTimestamp with
+  // serverNow. Unflagged historical items must keep their submitted timestamp
+  // unless it is ahead of serverNow, in which case the server should clamp it.
   useServerDataTime?: boolean;
   // nonce: number;
   // userId: string; supabase user id

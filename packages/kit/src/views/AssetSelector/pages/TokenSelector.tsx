@@ -17,6 +17,7 @@ import {
   filterTokenSelectorSearchTokensByBackendIndexedNetworks,
 } from '@onekeyhq/kit/src/components/TokenSelectorFilter/utils';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
 import {
   useAggregateTokensListMapAtom,
   useAllTokenListMapAtom,
@@ -217,6 +218,7 @@ function TokenSelector() {
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
   const isSelectorAllNetworks = isAllNetworks ?? network?.isAllNetworks;
+  const isDeFiEnabled = useIsDeFiEnabled(network?.id, !!showDeFiTokenSwitch);
   const showTokenSelectorFilter =
     !!showDeFiTokenSwitch &&
     isTokenSelectorDappTokenFilterSupportedNetwork({
@@ -227,6 +229,7 @@ function TokenSelector() {
             backendIndex: network.backendIndex,
           }
         : undefined,
+      isDeFiEnabled,
     });
   const showLpTokensOnly = showTokenSelectorFilter
     ? tokenSelectorFilter.sendTokenShowLpTokensOnly
@@ -251,7 +254,9 @@ function TokenSelector() {
   });
   const [searchTokenList, setSearchTokenList] = useState<{
     tokens: IAccountToken[];
-  }>({ tokens: [] });
+    searchKey: string;
+  }>({ tokens: [], searchKey: '' });
+  const latestSearchKeywordsRef = useRef('');
 
   const tokenSelectorFilterParams = useMemo(
     () =>
@@ -584,6 +589,8 @@ function TokenSelector() {
 
   const searchTokensBySearchKey = useCallback(
     async (keywords: string) => {
+      latestSearchKeywordsRef.current = keywords;
+      const isLatest = () => latestSearchKeywordsRef.current === keywords;
       setSearchTokenState({ isSearching: true });
       await backgroundApiProxy.serviceToken.abortSearchTokens();
       try {
@@ -598,11 +605,24 @@ function TokenSelector() {
               tokens: result,
             });
         }
-        setSearchTokenList({ tokens: result });
+        if (isLatest()) {
+          setSearchTokenList({ tokens: result, searchKey: keywords });
+        }
       } catch (e) {
-        console.log(e);
+        if (isLatest()) {
+          // Advance searchKey even on failure. showSkeleton keys off the
+          // (searchKey mismatch && empty list) condition, so without
+          // updating searchKey here a failed search would leave the token
+          // selector stuck on the skeleton forever with no self-recovery
+          // until the user edits the query.
+          setSearchTokenList({ tokens: [], searchKey: keywords });
+          console.log(e);
+        }
+      } finally {
+        if (isLatest()) {
+          setSearchTokenState({ isSearching: false });
+        }
       }
-      setSearchTokenState({ isSearching: false });
     },
     [accountId, isSelectorAllNetworks, networkId, showLpTokensOnly],
   );
@@ -797,9 +817,15 @@ function TokenSelector() {
             await backgroundApiProxy.serviceNetwork.getNetwork({
               networkId: activeNetworkId,
             });
+          const isActiveNetworkDeFiEnabled = activeNetwork?.isAllNetworks
+            ? true
+            : await backgroundApiProxy.serviceDeFi.isNetworkDeFiEnabled(
+                activeNetwork.id,
+              );
           if (
             !isTokenSelectorDappTokenFilterSupportedNetwork({
               network: activeNetwork,
+              isDeFiEnabled: isActiveNetworkDeFiEnabled,
             })
           ) {
             if (isLatestRequest()) {
@@ -890,8 +916,9 @@ function TokenSelector() {
     if (searchAll && searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
       void searchTokensBySearchKey(searchKey);
     } else {
+      latestSearchKeywordsRef.current = '';
       setSearchTokenState({ isSearching: false });
-      setSearchTokenList({ tokens: [] });
+      setSearchTokenList({ tokens: [], searchKey: '' });
       void backgroundApiProxy.serviceToken.abortSearchTokens();
     }
   }, [searchAll, searchKey, searchTokensBySearchKey]);

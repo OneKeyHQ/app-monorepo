@@ -6,6 +6,7 @@ import {
   type IPerpsAccountDisplaySnapshotAtom,
   type IPerpsAccountDisplaySnapshotEntry,
   getPerpsAccountDisplaySnapshotEntry,
+  getPerpsSpotDustingNextState,
   perpsAbstractionModeAtom,
   perpsAccountLoadingInfoAtom,
   perpsActiveAccountAtom,
@@ -192,6 +193,86 @@ describe('getPerpsAccountDisplaySnapshotEntry', () => {
   });
 });
 
+describe('getPerpsSpotDustingNextState', () => {
+  it('keeps a confirmed local mutation during the live reconcile grace window', () => {
+    const localState = getPerpsSpotDustingNextState({
+      prev: undefined,
+      accountAddress: '0xabc',
+      optOut: true,
+      source: 'local',
+      updatedAt: now,
+      liveReconcileGraceMs: 100,
+    });
+
+    expect(
+      getPerpsSpotDustingNextState({
+        prev: localState,
+        accountAddress: '0xabc',
+        optOut: false,
+        source: 'live',
+        updatedAt: now + 50,
+        liveReconcileGraceMs: 100,
+      }),
+    ).toBe(localState);
+  });
+
+  it('accepts live confirmation and clears the local mutation', () => {
+    const localState = getPerpsSpotDustingNextState({
+      prev: undefined,
+      accountAddress: '0xabc',
+      optOut: true,
+      source: 'local',
+      updatedAt: now,
+      liveReconcileGraceMs: 100,
+    });
+
+    expect(
+      getPerpsSpotDustingNextState({
+        prev: localState,
+        accountAddress: '0xabc',
+        optOut: true,
+        source: 'live',
+        updatedAt: now + 50,
+        liveReconcileGraceMs: 100,
+      }),
+    ).toEqual({
+      accountAddress: '0xabc',
+      optOut: true,
+      source: 'live',
+      updatedAt: now + 50,
+      localMutation: undefined,
+    });
+  });
+
+  it('accepts contradictory live data after the grace window', () => {
+    const localState = getPerpsSpotDustingNextState({
+      prev: undefined,
+      accountAddress: '0xabc',
+      optOut: true,
+      source: 'local',
+      updatedAt: now,
+      liveReconcileGraceMs: 100,
+    });
+
+    expect(
+      getPerpsSpotDustingNextState({
+        prev: localState,
+        accountAddress: '0xabc',
+        optOut: false,
+        source: 'live',
+        updatedAt: now + 100,
+        liveReconcileGraceMs: 100,
+      }),
+    ).toEqual({
+      accountAddress: '0xabc',
+      optOut: false,
+      source: 'live',
+      updatedAt: now + 100,
+      localMutation: undefined,
+    });
+  });
+});
+
 describe('perpsActiveAccountStatusAtom', () => {
   afterEach(() => {
     jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
@@ -278,10 +359,37 @@ describe('perpsActiveAccountEnableTradingModeAtom', () => {
     jotaiDefaultStore.set(perpsAccountLoadingInfoAtom.atom(), {
       selectAccountLoading: false,
       enableTradingLoading: false,
+      enableTradingTriggered: false,
+      enableTradingStatusPending: false,
     });
   });
 
   it('lets software accounts auto-enable from the order panel', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      indexedAccountId: 'hd-1--0',
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountEnableTradingModeAtom.atom()),
+    ).toEqual({
+      isSoftwareAccount: true,
+      isHardwareAccount: false,
+      canAutoEnableInOrderPanel: true,
+      requiresEnableTradingDialogInOrderPanel: false,
+      requiresExplicitEnableTrading: false,
+    });
+  });
+
+  it('keeps software order-panel auto-enable available while account loading settles', () => {
+    jotaiDefaultStore.set(perpsAccountLoadingInfoAtom.atom(), {
+      selectAccountLoading: true,
+      enableTradingLoading: false,
+      enableTradingTriggered: false,
+      enableTradingStatusPending: false,
+    });
     jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
       accountId: "hd-1--m/44'/60'/0'/0/0",
       indexedAccountId: 'hd-1--0',
@@ -351,6 +459,8 @@ describe('perpsShouldShowEnableTradingButtonAtom', () => {
     jotaiDefaultStore.set(perpsAccountLoadingInfoAtom.atom(), {
       selectAccountLoading: false,
       enableTradingLoading: false,
+      enableTradingTriggered: false,
+      enableTradingStatusPending: false,
     });
     jotaiDefaultStore.set(perpsAbstractionModeAtom.atom(), undefined);
   });
@@ -372,6 +482,25 @@ describe('perpsShouldShowEnableTradingButtonAtom', () => {
         internalRebateBoundOk: false,
         abstractionOk: false,
       },
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsShouldShowEnableTradingButtonAtom.atom()),
+    ).toBe(false);
+  });
+
+  it('does not reserve the explicit CTA layout while software live status is pending', () => {
+    jotaiDefaultStore.set(perpsAccountLoadingInfoAtom.atom(), {
+      selectAccountLoading: true,
+      enableTradingLoading: false,
+      enableTradingTriggered: false,
+      enableTradingStatusPending: false,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      indexedAccountId: 'hd-1--0',
+      deriveType: 'default',
+      accountAddress: '0xabc',
     });
 
     expect(

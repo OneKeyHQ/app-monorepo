@@ -35,6 +35,7 @@ import {
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import { isSwapHistoryProtocolExcluded } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -52,6 +53,8 @@ import type {
 import {
   maxRecentTokenPairs,
   mevSwapNetworks,
+  privateSendFallbackOrderIdPrefix,
+  privateSendProvider,
   swapApprovingStateFetchInterval,
   swapDefaultSetTokens,
   swapHistoryStateFetchInterval,
@@ -73,6 +76,7 @@ import type {
   IFetchTokenDetailParams,
   IFetchTokenListParams,
   IFetchTokensParams,
+  IFetchUSMarketStatusResult,
   ILMTronObject,
   IOKXTransactionObject,
   IPerpDepositQuoteResponse,
@@ -110,6 +114,7 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 import {
+  isSwapTxHistoryStatusTerminal,
   shouldEmitSwapHistoryBalanceUpdate,
   shouldUpdateSwapHistoryAfterTxState,
 } from './utils/swapHistoryStatusUtils';
@@ -119,9 +124,71 @@ import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwo
 const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
+
+function isPrivateSendProtocol(protocol?: string) {
+  return (
+    protocol === ESwapTabSwitchType.PRIVATE_SEND ||
+    protocol === EProtocolOfExchange.PRIVATE_SEND
+  );
+}
+
+function getProtocolOfExchangeFromSwapTab(
+  protocol?: string,
+): EProtocolOfExchange {
+  if (
+    protocol === ESwapTabSwitchType.LIMIT ||
+    protocol === EProtocolOfExchange.LIMIT
+  ) {
+    return EProtocolOfExchange.LIMIT;
+  }
+  if (isPrivateSendProtocol(protocol)) {
+    return EProtocolOfExchange.PRIVATE_SEND;
+  }
+  return EProtocolOfExchange.SWAP;
+}
+
+function getPrivateSendRocketXOrderIdFromCtx(ctx: unknown) {
+  const rocketXOrderId = (ctx as { rocketXOrderId?: unknown } | undefined)
+    ?.rocketXOrderId;
+  return typeof rocketXOrderId === 'string' && rocketXOrderId
+    ? rocketXOrderId
+    : undefined;
+}
+
+function isPrivateSendFallbackOrderId(orderId?: string) {
+  return orderId?.startsWith(privateSendFallbackOrderIdPrefix) ?? false;
+}
+
+function getSwapHistoryStateOrderId({
+  swapTxHistory,
+  isPrivateSendHistory,
+}: {
+  swapTxHistory: ISwapTxHistory;
+  isPrivateSendHistory: boolean;
+}) {
+  const orderId = isPrivateSendHistory
+    ? (swapTxHistory.swapInfo.orderId ?? swapTxHistory.txInfo.orderId)
+    : swapTxHistory.swapInfo.orderId;
+  if (!isPrivateSendHistory) {
+    return orderId;
+  }
+  const rocketXOrderId = getPrivateSendRocketXOrderIdFromCtx(swapTxHistory.ctx);
+  return orderId &&
+    orderId !== rocketXOrderId &&
+    !isPrivateSendFallbackOrderId(orderId)
+    ? orderId
+    : undefined;
+}
+
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
-  private _quoteAbortController?: AbortController;
+  private _quoteAbortControllerMap: Partial<
+    Record<EProtocolOfExchange, AbortController | undefined>
+  > = {
+    [EProtocolOfExchange.SWAP]: undefined,
+    [EProtocolOfExchange.LIMIT]: undefined,
+    [EProtocolOfExchange.PRIVATE_SEND]: undefined,
+  };
 
   private _speedSwapQuoteAbortController?: AbortController;
 
@@ -181,10 +248,15 @@ export default class ServiceSwap extends ServiceBase {
 
   // --------------------- fetch
   @backgroundMethod()
-  async cancelFetchQuotes() {
-    if (this._quoteAbortController) {
-      this._quoteAbortController.abort();
-      this._quoteAbortController = undefined;
+  async cancelFetchQuotes(
+    protocol:
+      | ESwapTabSwitchType
+      | EProtocolOfExchange = ESwapTabSwitchType.SWAP,
+  ) {
+    const abortControllerKey = getProtocolOfExchangeFromSwapTab(protocol);
+    if (this._quoteAbortControllerMap[abortControllerKey]) {
+      this._quoteAbortControllerMap[abortControllerKey]?.abort();
+      this._quoteAbortControllerMap[abortControllerKey] = undefined;
     }
   }
 
@@ -250,18 +322,22 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async fetchSwapNetworks(): Promise<ISwapNetwork[]> {
+  async fetchSwapNetworks(options?: {
+    refreshClientNetworks?: boolean;
+  }): Promise<ISwapNetwork[]> {
     const protocol = EProtocolOfExchange.ALL;
-    const params = {
+    const requestParams = {
       protocol,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     const { data } = await client.get<IFetchResponse<ISwapNetworkBase[]>>(
       '/swap/v1/networks',
-      { params },
+      { params: requestParams },
     );
     const allClientSupportNetworks =
-      await this.backgroundApi.serviceNetwork.getAllNetworks();
+      await this.backgroundApi.serviceNetwork.getAllNetworks({
+        clearCache: options?.refreshClientNetworks,
+      });
     const swapNetworks = data?.data
       ?.map((network) => {
         const clientNetwork = allClientSupportNetworks.networks.find(
@@ -273,12 +349,13 @@ export default class ServiceSwap extends ServiceBase {
             symbol: clientNetwork.symbol,
             shortcode: clientNetwork.shortcode,
             logoURI: clientNetwork.logoURI,
-            backendIndex: clientNetwork.backendIndex,
+            backendIndex: clientNetwork.backendIndex ?? false,
             networkId: network.networkId,
             defaultSelectToken: network.defaultSelectToken,
             supportCrossChainSwap: network.supportCrossChainSwap,
             supportSingleSwap: network.supportSingleSwap,
             supportLimit: network.supportLimit,
+            supportPrivateSend: network.supportPrivateSend,
           };
         }
         return null;
@@ -305,10 +382,7 @@ export default class ServiceSwap extends ServiceBase {
     }
     const targetNetworkId = networkId ?? getNetworkIdsMap().onekeyall;
     const params: IFetchTokenListParams = {
-      protocol:
-        protocol === ESwapTabSwitchType.LIMIT
-          ? EProtocolOfExchange.LIMIT
-          : EProtocolOfExchange.SWAP,
+      protocol: getProtocolOfExchangeFromSwapTab(protocol),
       networkId: targetNetworkId,
       keywords,
       limit,
@@ -491,6 +565,7 @@ export default class ServiceSwap extends ServiceBase {
     contractAddress,
     direction,
     currency,
+    protocol = EProtocolOfExchange.SWAP,
   }: {
     networkId: string;
     accountAddress?: string;
@@ -498,11 +573,12 @@ export default class ServiceSwap extends ServiceBase {
     contractAddress: string;
     direction?: ESwapDirectionType;
     currency?: string;
+    protocol?: EProtocolOfExchange;
   }): Promise<ISwapToken[] | undefined> {
     try {
       await this.cancelFetchTokenDetail(direction);
       const params: IFetchTokenDetailParams = {
-        protocol: EProtocolOfExchange.SWAP,
+        protocol,
         networkId,
         accountAddress,
         contractAddress,
@@ -610,7 +686,7 @@ export default class ServiceSwap extends ServiceBase {
     toTokenAmount?: string;
     userMarketPriceRate?: string;
   }): Promise<IFetchQuoteResult[]> {
-    await this.cancelFetchQuotes();
+    await this.cancelFetchQuotes(protocol);
     const denyCrossChainProvider = await this.getDenyCrossChainProvider(
       fromToken.networkId,
       toToken.networkId,
@@ -629,10 +705,7 @@ export default class ServiceSwap extends ServiceBase {
       fromTokenAmount,
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
-      protocol:
-        protocol === ESwapTabSwitchType.LIMIT
-          ? EProtocolOfExchange.LIMIT
-          : EProtocolOfExchange.SWAP,
+      protocol: getProtocolOfExchangeFromSwapTab(protocol),
       userAddress,
       slippagePercentage,
       autoSlippage,
@@ -648,7 +721,10 @@ export default class ServiceSwap extends ServiceBase {
       walletDeviceType: walletDevice?.deviceType,
       ...(incognito ? { incognito } : {}),
     };
-    this._quoteAbortController = new AbortController();
+    const quoteAbortControllerKey = getProtocolOfExchangeFromSwapTab(protocol);
+    const quoteAbortController = new AbortController();
+    this._quoteAbortControllerMap[quoteAbortControllerKey] =
+      quoteAbortController;
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     const fetchUrl = '/swap/v1/quote';
     try {
@@ -656,7 +732,7 @@ export default class ServiceSwap extends ServiceBase {
         fetchUrl,
         {
           params,
-          signal: this._quoteAbortController.signal,
+          signal: quoteAbortController.signal,
           headers:
             await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
@@ -665,7 +741,6 @@ export default class ServiceSwap extends ServiceBase {
             ),
         },
       );
-      this._quoteAbortController = undefined;
 
       if (data?.code === 0 && data?.data?.length) {
         return data?.data;
@@ -676,6 +751,16 @@ export default class ServiceSwap extends ServiceBase {
         throw new Error('swap fetch quote cancel', {
           cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
         });
+      }
+      if (isPrivateSendProtocol(protocol)) {
+        throw e;
+      }
+    } finally {
+      if (
+        this._quoteAbortControllerMap[quoteAbortControllerKey] ===
+        quoteAbortController
+      ) {
+        this._quoteAbortControllerMap[quoteAbortControllerKey] = undefined;
       }
     }
     return [
@@ -726,10 +811,7 @@ export default class ServiceSwap extends ServiceBase {
       fromTokenAmount,
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
-      protocol:
-        protocol === ESwapTabSwitchType.LIMIT
-          ? EProtocolOfExchange.LIMIT
-          : EProtocolOfExchange.SWAP,
+      protocol: getProtocolOfExchangeFromSwapTab(protocol),
       userAddress,
       slippagePercentage,
       autoSlippage,
@@ -1497,6 +1579,7 @@ export default class ServiceSwap extends ServiceBase {
         pre.swapHistoryPendingList,
       );
       if (
+        this.isSwapHistoryPendingStatus(item) &&
         !filteredList.find((i) =>
           item.txInfo.useOrderId
             ? i.txInfo.orderId === item.txInfo.orderId
@@ -1651,25 +1734,49 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cleanSwapHistoryItems(statuses?: ESwapTxHistoryStatus[]) {
+  async cleanSwapHistoryItems(
+    statuses?: ESwapTxHistoryStatus[],
+    options?: {
+      excludeProtocols?: EProtocolOfExchange[];
+    },
+  ) {
     await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
       statuses,
+      options,
     );
     const inAppNotification = await inAppNotificationAtom.get();
     const deleteHistoryIds = filterSwapHistoryPendingList(
       inAppNotification.swapHistoryPendingList,
     )
-      .filter((item) => statuses?.includes(item.status))
+      .filter((item) => {
+        if (
+          isSwapHistoryProtocolExcluded({
+            item,
+            excludeProtocols: options?.excludeProtocols,
+          })
+        ) {
+          return false;
+        }
+        return statuses ? statuses.includes(item.status) : true;
+      })
       .map((item) =>
         item.txInfo.useOrderId ? item.txInfo.orderId : item.txInfo.txId,
       );
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
-      swapHistoryPendingList: statuses
-        ? filterSwapHistoryPendingList(pre.swapHistoryPendingList).filter(
-            (item) => !statuses?.includes(item.status),
-          )
-        : [],
+      swapHistoryPendingList: filterSwapHistoryPendingList(
+        pre.swapHistoryPendingList,
+      ).filter((item) => {
+        if (
+          isSwapHistoryProtocolExcluded({
+            item,
+            excludeProtocols: options?.excludeProtocols,
+          })
+        ) {
+          return true;
+        }
+        return statuses ? !statuses.includes(item.status) : false;
+      }),
     }));
     await Promise.all(
       deleteHistoryIds.map((id) => this.cleanHistoryStateIntervals(id)),
@@ -1750,6 +1857,13 @@ export default class ServiceSwap extends ServiceBase {
     const shouldScheduleNextFetch = options?.shouldScheduleNextFetch ?? true;
     const shouldShowToast = options?.shouldShowToast ?? true;
     let currentSwapTxHistory = cloneDeep(swapTxHistory);
+    const isPrivateSendHistory =
+      currentSwapTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+      currentSwapTxHistory.swapInfo.provider.provider === privateSendProvider;
+    const stateOrderId = getSwapHistoryStateOrderId({
+      swapTxHistory: currentSwapTxHistory,
+      isPrivateSendHistory,
+    });
     try {
       const txStatusRes = await this.fetchTxState({
         txId:
@@ -1757,12 +1871,17 @@ export default class ServiceSwap extends ServiceBase {
           currentSwapTxHistory.txInfo.orderId ??
           '',
         provider: currentSwapTxHistory.swapInfo.provider.provider,
-        protocol: EProtocolOfExchange.SWAP,
+        protocol:
+          currentSwapTxHistory.protocol ??
+          (currentSwapTxHistory.swapInfo.provider.provider ===
+          privateSendProvider
+            ? EProtocolOfExchange.PRIVATE_SEND
+            : EProtocolOfExchange.SWAP),
         networkId: currentSwapTxHistory.baseInfo.fromToken.networkId,
         ctx: currentSwapTxHistory.ctx,
         toTokenAddress: currentSwapTxHistory.baseInfo.toToken.contractAddress,
         receivedAddress: currentSwapTxHistory.txInfo.receiver,
-        orderId: currentSwapTxHistory.swapInfo.orderId,
+        orderId: stateOrderId,
       });
       if (
         shouldUpdateSwapHistoryAfterTxState({
@@ -1837,7 +1956,7 @@ export default class ServiceSwap extends ServiceBase {
             orderToToken: currentSwapTxHistory.baseInfo.toToken,
           });
         }
-        if (finalStatus !== ESwapTxHistoryStatus.PENDING) {
+        if (isSwapTxHistoryStatusTerminal(finalStatus)) {
           enableInterval = false;
           const deleteHistoryId = currentSwapTxHistory.txInfo.useOrderId
             ? (currentSwapTxHistory.txInfo.orderId ?? '')
@@ -2423,6 +2542,26 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async fetchCheckUSMarketStatus(): Promise<IFetchUSMarketStatusResult> {
+    const unavailableStatus: IFetchUSMarketStatusResult = {
+      open: false,
+      session: 'CLOSED',
+      reason: 'market-status-unavailable',
+      unavailable: true,
+    };
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const { data } = await client.get<
+        IFetchResponse<IFetchUSMarketStatusResult>
+      >('/swap/v1/check/us-market-status');
+      return data?.data ?? unavailableStatus;
+    } catch (error) {
+      console.error(error);
+      return unavailableStatus;
+    }
+  }
+
+  @backgroundMethod()
   async fetchSpeedCheck(params: {
     fromNetworkId: string;
     toNetworkId: string;
@@ -2472,10 +2611,7 @@ export default class ServiceSwap extends ServiceBase {
       fromTokenAmount,
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
-      protocol:
-        protocol === ESwapTabSwitchType.LIMIT
-          ? EProtocolOfExchange.LIMIT
-          : EProtocolOfExchange.SWAP,
+      protocol: getProtocolOfExchangeFromSwapTab(protocol),
       userAddress,
       slippagePercentage,
       autoSlippage,

@@ -41,6 +41,8 @@ interface IUseToDetailPageOptions {
   from?: EEnterWay;
 }
 
+const EXTENSION_POPUP_CLOSE_DELAY_MS = 100;
+
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
@@ -74,6 +76,13 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           ...params,
           from: params.from || enterSource,
         });
+        if (platformEnv.isExtensionUiPopup) {
+          // Keep the popup alive long enough for caller-side follow-up timers,
+          // such as recent-search persistence, to run before the page closes.
+          setTimeout(() => {
+            globalThis.close();
+          }, EXTENSION_POPUP_CLOSE_DELAY_MS);
+        }
       } else if (options?.switchToMarketTabFirst) {
         // Clear token detail before navigation
         tokenDetailActions.current.clearTokenDetail();

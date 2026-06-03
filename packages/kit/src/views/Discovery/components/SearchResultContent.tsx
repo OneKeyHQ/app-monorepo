@@ -37,6 +37,7 @@ import { DiscoveryIcon } from './DiscoveryIcon';
 
 import type { ILocalDataType } from '../hooks/useSearchModalData';
 import type { IDiscoverySearchListItem } from '../utils/searchResultRanking';
+
 const URL_PROTOCOL_PREFIX_REGEXP = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//u;
 
 const LoadingSkeleton = (
