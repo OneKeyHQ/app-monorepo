@@ -1,6 +1,7 @@
 import {
   type ISharedRPC,
   getSharedRPC,
+  getSharedStore,
 } from '@onekeyfe/react-native-background-thread';
 
 import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/kit-bg/src/apis/backgroundApiPermissions';
@@ -18,12 +19,10 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { registerImageEmbedBridge } from '@onekeyhq/shared/src/utils/imageUtils.embedBridge';
 
+import { routeBackgroundMessage } from './backgroundMessageRouter';
 import {
-  BACKGROUND_THREAD_APP_EVENT_KEY_PREFIX,
-  BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX,
-  BACKGROUND_THREAD_JOTAI_STATE_BATCH_KEY_PREFIX,
-  BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX,
   BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY,
+  BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY,
   BACKGROUND_THREAD_RESPONSE_KEY_PREFIX,
   type IBackgroundThreadBridgeCallRequest,
   type IBackgroundThreadBridgeChannel,
@@ -125,6 +124,9 @@ let observerRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let observerInstalled = false;
 let readyTimeoutTimer: ReturnType<typeof setTimeout> | undefined;
 let requestSequence = 0;
+// Peak count of simultaneously in-flight main→bg requests (observability +
+// MAX_REMOTE_CALL_SLOT_COUNT sizing signal). Monotonically increasing.
+let maxInFlightRemoteCalls = 0;
 let transportState: IBackgroundThreadTransportState = 'idle';
 let queuedFlushPromise: Promise<void> | undefined;
 let remoteBrokenReason: string | undefined;
@@ -309,6 +311,17 @@ function dispatchRemoteRequest(
       localFallback,
     });
 
+    // Observability replacement for the removed native `pendingCount`: track
+    // the peak number of SIMULTANEOUSLY in-flight main→bg requests. This both
+    // surfaces "consumer falling behind" pressure and gives the real peak to
+    // size MAX_REMOTE_CALL_SLOT_COUNT against (see its definition).
+    if (pendingRemoteCalls.size > maxInFlightRemoteCalls) {
+      maxInFlightRemoteCalls = pendingRemoteCalls.size;
+      transportLog(
+        `in-flight remote calls peak=${maxInFlightRemoteCalls}/${MAX_REMOTE_CALL_SLOT_COUNT}`,
+      );
+    }
+
     sharedRPC.write(requestKey, serializeBackgroundThreadRequest(request));
   });
 }
@@ -341,10 +354,14 @@ function dispatchQueuedCallsToRemote() {
     });
 }
 
-function handleRuntimeSignal(sharedRPC: ISharedRPC) {
+function handleRuntimeSignal() {
   transportLog(`handleRuntimeSignal called, transportState=${transportState}`);
+  // Readiness is latched in SharedStore (non-deleting `get`), not the SharedRPC
+  // message path. The wake ping (BACKGROUND_THREAD_READY_WAKE_KEY) only edge-
+  // triggers this re-read; the actual payload lives here and survives restarts
+  // until cleared by the native invalidate path.
   const runtimePayload = parseBackgroundThreadRuntimePayload(
-    sharedRPC.read(BACKGROUND_THREAD_READY_KEY),
+    getSharedStore()?.get(BACKGROUND_THREAD_READY_KEY),
   );
 
   if (!runtimePayload) {
@@ -380,7 +397,10 @@ function handleRuntimeSignal(sharedRPC: ISharedRPC) {
   dispatchQueuedCallsToRemote();
 }
 
-function handleBackgroundThreadResponse(sharedRPC: ISharedRPC, key: string) {
+function handleBackgroundThreadResponse(
+  key: string,
+  value: string | number | boolean,
+) {
   const callId = parseBackgroundThreadCallId(
     key,
     BACKGROUND_THREAD_RESPONSE_KEY_PREFIX,
@@ -395,7 +415,7 @@ function handleBackgroundThreadResponse(sharedRPC: ISharedRPC, key: string) {
     return;
   }
 
-  const response = parseBackgroundThreadResponse(sharedRPC.read(key));
+  const response = parseBackgroundThreadResponse(value);
   transportLog(
     `handleResponse: callId=${callId}, ok=${response?.ok}, error=${response?.error ? JSON.stringify(response.error).slice(0, 300) : 'none'}`,
   );
@@ -468,12 +488,9 @@ function handleBackgroundThreadResponse(sharedRPC: ISharedRPC, key: string) {
 }
 
 function handleBackgroundThreadJotaiStateUpdate(
-  sharedRPC: ISharedRPC,
-  key: string,
+  value: string | number | boolean,
 ) {
-  const payload = parseBackgroundThreadJotaiStateBroadcastPayload(
-    sharedRPC.read(key),
-  );
+  const payload = parseBackgroundThreadJotaiStateBroadcastPayload(value);
   if (!payload) {
     return;
   }
@@ -493,12 +510,9 @@ function handleBackgroundThreadJotaiStateUpdate(
  * delivered via the single-broadcast path.
  */
 function handleBackgroundThreadJotaiStateBatchUpdate(
-  sharedRPC: ISharedRPC,
-  key: string,
+  value: string | number | boolean,
 ) {
-  const payload = parseBackgroundThreadJotaiStateBroadcastBatchPayload(
-    sharedRPC.read(key),
-  );
+  const payload = parseBackgroundThreadJotaiStateBroadcastBatchPayload(value);
   if (!payload) {
     return;
   }
@@ -513,12 +527,9 @@ function handleBackgroundThreadJotaiStateBatchUpdate(
 }
 
 function handleBackgroundThreadAppEventUpdate(
-  sharedRPC: ISharedRPC,
-  key: string,
+  value: string | number | boolean,
 ) {
-  const payload = parseBackgroundThreadAppEventBroadcastPayload(
-    sharedRPC.read(key),
-  );
+  const payload = parseBackgroundThreadAppEventBroadcastPayload(value);
   if (!payload) {
     return;
   }
@@ -533,8 +544,8 @@ function handleBackgroundThreadAppEventUpdate(
   });
 }
 
-function handleBackgroundThreadBridgeSend(sharedRPC: ISharedRPC, key: string) {
-  const payload = parseBackgroundThreadBridgeSendPayload(sharedRPC.read(key));
+function handleBackgroundThreadBridgeSend(value: string | number | boolean) {
+  const payload = parseBackgroundThreadBridgeSendPayload(value);
   if (!payload) {
     return;
   }
@@ -559,13 +570,16 @@ function handleBackgroundThreadBridgeSend(sharedRPC: ISharedRPC, key: string) {
   });
 }
 
-async function handleWebEmbedBridgeRequest(sharedRPC: ISharedRPC, key: string) {
+async function handleWebEmbedBridgeRequest(
+  sharedRPC: ISharedRPC,
+  key: string,
+  value: string | number | boolean,
+) {
   const callId = key.slice(WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX.length);
   const responseKey = buildWebEmbedBridgeResponseKey(callId);
 
   try {
-    const raw = sharedRPC.read(key);
-    const data = typeof raw === 'string' ? JSON.parse(raw) : undefined;
+    const data = typeof value === 'string' ? JSON.parse(value) : undefined;
     const bridge = mainThreadBridgeMap.webEmbed;
 
     if (!bridge) {
@@ -595,54 +609,63 @@ async function handleWebEmbedBridgeRequest(sharedRPC: ISharedRPC, key: string) {
 function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
   if (!observerInstalled) {
     observerInstalled = true;
-    sharedRPC.onWrite((callId) => {
-      if (callId === BACKGROUND_THREAD_READY_KEY) {
-        handleRuntimeSignal(sharedRPC);
-        return;
+    // Value-inline messaging: the native notify callback delivers BOTH the
+    // `callId` and the payload `value`, so handlers consume the inline value
+    // directly — no read-back. The currently-published package still types
+    // `onWrite` as single-arg `(callId) => void`; the paired native (shipped
+    // with this JS) delivers the `(callId, value)` form, so cast to that shape
+    // until the version bump lands the new `ISharedRPC` type.
+    (
+      sharedRPC as unknown as {
+        onWrite(
+          callback: (callId: string, value: string | number | boolean) => void,
+        ): void;
       }
-
-      if (callId.startsWith(BACKGROUND_THREAD_RESPONSE_KEY_PREFIX)) {
-        handleBackgroundThreadResponse(sharedRPC, callId);
-        return;
-      }
-
-      if (callId.startsWith(BACKGROUND_THREAD_JOTAI_STATE_BATCH_KEY_PREFIX)) {
-        handleBackgroundThreadJotaiStateBatchUpdate(sharedRPC, callId);
-        return;
-      }
-
-      if (callId.startsWith(BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX)) {
-        handleBackgroundThreadJotaiStateUpdate(sharedRPC, callId);
-        return;
-      }
-
-      if (callId.startsWith(BACKGROUND_THREAD_APP_EVENT_KEY_PREFIX)) {
-        handleBackgroundThreadAppEventUpdate(sharedRPC, callId);
-        return;
-      }
-
-      if (callId.startsWith(BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX)) {
-        handleBackgroundThreadBridgeSend(sharedRPC, callId);
-        return;
-      }
-
-      if (callId.startsWith(WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX)) {
-        void handleWebEmbedBridgeRequest(sharedRPC, callId);
-      }
+    ).onWrite((callId, value) => {
+      routeBackgroundMessage(
+        {
+          onReadySignal: () => handleRuntimeSignal(),
+          onResponse: handleBackgroundThreadResponse,
+          onJotaiStateBatch: (_callId, v) =>
+            handleBackgroundThreadJotaiStateBatchUpdate(v),
+          onJotaiState: (_callId, v) =>
+            handleBackgroundThreadJotaiStateUpdate(v),
+          onAppEvent: (_callId, v) => handleBackgroundThreadAppEventUpdate(v),
+          onBridgeSend: (_callId, v) => handleBackgroundThreadBridgeSend(v),
+          onWebEmbedRequest: (callIdKey, v) =>
+            void handleWebEmbedBridgeRequest(sharedRPC, callIdKey, v),
+        },
+        callId,
+        value,
+      );
     });
 
+    // Restart freshness (§4.6): tell native which SharedStore key this (main)
+    // runtime owns, so the native invalidate("main") path clears it on
+    // teardown and a restarted bg never reads a prior-life main-up. Optional +
+    // cast until the package bump lands `registerReadinessKey` in the type;
+    // a no-op on an old native (which ships only paired with old JS).
+    (
+      sharedRPC as unknown as {
+        registerReadinessKey?: (key: string) => void;
+      }
+    ).registerReadinessKey?.(BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY);
+
     // Advertise that this main runtime knows how to consume opt-in wire
-    // protocols (batched jotai broadcasts at the moment). Bg side reads /
-    // observes this slot before switching to the new protocols; without
-    // the bit set bg falls back to the legacy `onekey:bg:jotai:` keys
-    // every release/v6.3.0 main bundle already supports.
+    // protocols (batched jotai broadcasts at the moment), and signal "main is
+    // up". The capability payload is latched in SharedStore (bg reads it
+    // synchronously); a content-less wake ping on SharedRPC edge-wakes bg to
+    // re-read it. Bg only switches to the new protocols after observing the
+    // bit, so a mismatch falls back to the legacy `onekey:bg:jotai:` keys.
     try {
-      sharedRPC.write(
+      const sharedStore = getSharedStore();
+      sharedStore?.set(
         BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY,
         serializeBackgroundThreadMainCapabilitiesPayload({
           jotaiStateBatch: true,
         }),
       );
+      sharedRPC.write(BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY, '1');
     } catch (error) {
       transportLog(
         `failed to advertise main capabilities: ${(error as Error)?.message || String(error)}`,
@@ -659,7 +682,7 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
   }
 
   ensureReadyTimeout();
-  handleRuntimeSignal(sharedRPC);
+  handleRuntimeSignal();
 }
 
 function ensureBackgroundRuntimeObserver() {
