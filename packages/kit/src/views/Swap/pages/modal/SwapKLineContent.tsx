@@ -85,14 +85,6 @@ type ISwapKLineWalletMarketInfo = {
   priceChange24hPercent?: string;
 };
 
-function getSwapKLineTokenKey(token?: ISwapToken) {
-  if (!token?.networkId) {
-    return '';
-  }
-
-  return `${token.networkId}:${token.contractAddress ?? ''}`;
-}
-
 function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   if (!token) {
     return false;
@@ -234,24 +226,12 @@ function useSwapKLineWalletMarketInfo(
 }
 
 function useSwapKLineChartDataSource({
-  token,
   coinGeckoId,
 }: {
-  token?: ISwapToken;
   coinGeckoId?: string;
 }) {
-  const tokenKey = getSwapKLineTokenKey(token);
   const chartDataCacheRef = useRef(
     new Map<string, Promise<IMarketTokenChart>>(),
-  );
-  const [fallbackTokenKeys, setFallbackTokenKeys] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
-  const [primaryTokenKeys, setPrimaryTokenKeys] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const preferPrimaryKLineData = Boolean(
-    tokenKey && primaryTokenKeys.has(tokenKey),
   );
   const kLineDataFallback = useMemo<
     ITradingViewV2KLineDataFallback | undefined
@@ -283,58 +263,12 @@ function useSwapKLineChartDataSource({
       });
     };
   }, [coinGeckoId]);
-  const preferKLineDataFallback = Boolean(
-    tokenKey && fallbackTokenKeys.has(tokenKey) && !preferPrimaryKLineData,
-  );
-  const effectiveKLineDataFallback = preferPrimaryKLineData
-    ? undefined
-    : kLineDataFallback;
-
-  const handlePrimaryKLineDataAvailable = useCallback(() => {
-    if (!tokenKey) {
-      return;
-    }
-
-    setPrimaryTokenKeys((prev) => {
-      if (prev.has(tokenKey)) {
-        return prev;
-      }
-
-      const next = new Set(prev);
-      next.add(tokenKey);
-      return next;
-    });
-  }, [tokenKey]);
-
-  const handlePrimaryKLineDataUnavailable = useCallback(() => {
-    if (!tokenKey) {
-      return;
-    }
-
-    setFallbackTokenKeys((prev) => {
-      if (prev.has(tokenKey)) {
-        return prev;
-      }
-
-      const next = new Set(prev);
-      next.add(tokenKey);
-      return next;
-    });
-  }, [tokenKey]);
 
   return useMemo(
     () => ({
-      kLineDataFallback: effectiveKLineDataFallback,
-      preferKLineDataFallback,
-      handlePrimaryKLineDataAvailable,
-      handlePrimaryKLineDataUnavailable,
+      kLineDataFallback,
     }),
-    [
-      effectiveKLineDataFallback,
-      handlePrimaryKLineDataAvailable,
-      handlePrimaryKLineDataUnavailable,
-      preferKLineDataFallback,
-    ],
+    [kLineDataFallback],
   );
 }
 
@@ -485,12 +419,9 @@ type ISwapKLineContentState = {
   selectedToken?: ISwapToken;
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
-  preferKLineDataFallback: boolean;
   resolvedSelectedSide: ESwapDirectionType;
   shouldForceEmptyKLineData: boolean;
   tokenMarketDetail?: IMarketTokenDetail;
-  handlePrimaryKLineDataAvailable: () => void;
-  handlePrimaryKLineDataUnavailable: () => void;
   handleSelectedSideChange: (side: ESwapDirectionType) => void;
 };
 
@@ -524,13 +455,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
     resolvedSelectedSide === ESwapDirectionType.FROM ? fromToken : toToken;
   const walletMarketInfo = useSwapKLineWalletMarketInfo(selectedToken);
   const tokenMarketDetail = useSwapKLineTokenMarketInfo(selectedToken);
-  const {
-    kLineDataFallback,
-    preferKLineDataFallback,
-    handlePrimaryKLineDataAvailable,
-    handlePrimaryKLineDataUnavailable,
-  } = useSwapKLineChartDataSource({
-    token: selectedToken,
+  const { kLineDataFallback } = useSwapKLineChartDataSource({
     coinGeckoId: walletMarketInfo?.coinGeckoId,
   });
   const shouldForceEmptyKLineData =
@@ -578,21 +503,15 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       selectedToken,
       walletMarketInfo,
       kLineDataFallback,
-      preferKLineDataFallback,
       resolvedSelectedSide,
       shouldForceEmptyKLineData,
       tokenMarketDetail,
-      handlePrimaryKLineDataAvailable,
-      handlePrimaryKLineDataUnavailable,
       handleSelectedSideChange,
     }),
     [
       fromToken,
-      handlePrimaryKLineDataAvailable,
-      handlePrimaryKLineDataUnavailable,
       handleSelectedSideChange,
       kLineDataFallback,
-      preferKLineDataFallback,
       resolvedSelectedSide,
       selectedToken,
       shouldForceEmptyKLineData,
@@ -775,9 +694,6 @@ function SwapKLineContentBody({
         forceEmptyKLineData={state.shouldForceEmptyKLineData}
         emptyKLineDataOnError
         kLineDataFallback={state.kLineDataFallback}
-        skipPrimaryKLineData={state.preferKLineDataFallback}
-        onPrimaryKLineDataAvailable={state.handlePrimaryKLineDataAvailable}
-        onPrimaryKLineDataUnavailable={state.handlePrimaryKLineDataUnavailable}
         w="100%"
         h="100%"
       />

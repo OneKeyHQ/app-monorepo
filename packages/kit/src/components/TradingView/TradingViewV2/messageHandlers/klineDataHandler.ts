@@ -302,10 +302,6 @@ export async function handleKLineDataRequest({
             timeTo: to,
             autoHandleError: shouldSuppressKLineError ? false : undefined,
             kLineDataFallback: context.kLineDataFallback,
-            skipPrimaryKLineData: context.skipPrimaryKLineData,
-            onPrimaryKLineDataAvailable: context.onPrimaryKLineDataAvailable,
-            onPrimaryKLineDataUnavailable:
-              context.onPrimaryKLineDataUnavailable,
           });
       const shouldUseEmptyKLineData =
         shouldForceEmptyKLineData ||
