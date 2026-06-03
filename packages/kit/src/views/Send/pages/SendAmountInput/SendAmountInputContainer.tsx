@@ -34,6 +34,7 @@ import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { LightningUnitSwitch } from '@onekeyhq/kit/src/components/UnitSwitch';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import {
@@ -1544,8 +1545,15 @@ function SendAmountInputContainer() {
   ]);
 
   const isAmountZeroOrEmpty = !amount || new BigNumber(amount).isZero();
+  // Defer the red error while the user is still typing/deleting so transient
+  // values ("0.000", below-min, empty) don't flash red (OK-55683). Validation
+  // stays live (submit gating unaffected); only the display is debounced — the
+  // Field renders the neutral hint in place of the error until input settles.
+  const isAmountTyping = amount !== useDebounce(amount, 400);
   const amountHint =
-    isAmountZeroOrEmpty || !hasAmountError ? minAmountHint : undefined;
+    isAmountTyping || isAmountZeroOrEmpty || !hasAmountError
+      ? minAmountHint
+      : undefined;
 
   const renderAmountInput = useMemo(
     () => (
