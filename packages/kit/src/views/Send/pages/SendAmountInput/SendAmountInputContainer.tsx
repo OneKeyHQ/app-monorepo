@@ -45,6 +45,7 @@ import { LightningUnitSwitch } from '@onekeyhq/kit/src/components/UnitSwitch';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import {
   useSelectedUTXOsAtom,
@@ -355,6 +356,7 @@ function PrivateSendValueDropWarningContent({
 function SendAmountInputContainer() {
   const intl = useIntl();
   const media = useMedia();
+  const isRouteFocused = useRouteIsFocused();
 
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -3069,6 +3071,7 @@ function SendAmountInputContainer() {
               }
               isRefreshQuote={isPrivateSendQuoteRefreshing}
               isLoading={isPrivateSendQuoteRefreshing}
+              isFocused={isRouteFocused}
             />
           </XStack>
           {showPrivateSendQuoteSkeleton ? (
@@ -3166,6 +3169,7 @@ function SendAmountInputContainer() {
     isLoadingAssets,
     isNFT,
     isPrivateSendQuoteRefreshing,
+    isRouteFocused,
     maxBalance,
     privateSendQuote,
     privateSendQuoteError,
