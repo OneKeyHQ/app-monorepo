@@ -592,6 +592,9 @@ function PerpTradingForm({
     [actions],
   );
   const midPriceRef = useRef(midPrice);
+  const latestFormDataRef = useRef(formData);
+
+  latestFormDataRef.current = formData;
 
   useEffect(() => {
     midPriceRef.current = midPrice;
@@ -641,11 +644,18 @@ function PerpTradingForm({
   useEffect(() => {
     const prevType = prevTypeRef.current;
     const currentType = formData.type;
+    let didCancel = false;
 
     if (prevType !== 'limit' && currentType === 'limit') {
       void (async () => {
         const nextPrice = await getFormattedMidPrice();
-        if (nextPrice) {
+        const latestFormData = latestFormDataRef.current;
+        if (
+          nextPrice &&
+          !didCancel &&
+          latestFormData.type === 'limit' &&
+          !latestFormData.price?.trim()
+        ) {
           updateForm({
             price: nextPrice,
           });
@@ -654,6 +664,10 @@ function PerpTradingForm({
     }
 
     prevTypeRef.current = currentType;
+
+    return () => {
+      didCancel = true;
+    };
   }, [formData.type, getFormattedMidPrice, updateForm]);
 
   useEffect(() => {

@@ -1597,6 +1597,7 @@ function EmptySizeSideButton({
   side,
   isMobile,
   isLiveStatusPending = false,
+  enableTradingModeOverride,
   justifyContent = 'flex-start',
 }: Omit<ISideButtonProps, 'handleConfirm' | 'marketDataFreshness'>) {
   const intl = useIntl();
@@ -1605,6 +1606,8 @@ function EmptySizeSideButton({
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
+  const effectiveEnableTradingMode =
+    enableTradingModeOverride ?? enableTradingMode;
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const formData = useTradingFormOrderPriceParams();
   const [tradingMode] = useTradingModeAtom();
@@ -1615,15 +1618,17 @@ function EmptySizeSideButton({
   const isAccountLoading =
     perpsAccountLoading.enableTradingLoading ||
     perpsAccountLoading.selectAccountLoading;
-  const shouldAutoEnableTrading =
-    !perpsAccountStatus.canTrade && enableTradingMode.isSoftwareAccount;
+  const shouldEnableTradingBeforeOrder =
+    !perpsAccountStatus.canTrade &&
+    (effectiveEnableTradingMode.canAutoEnableInOrderPanel ||
+      effectiveEnableTradingMode.requiresEnableTradingDialogInOrderPanel);
   const isServerActionDisabled = Boolean(
     perpConfigCommon?.disablePerpActionPerp || perpConfigCommon?.ipDisablePerp,
   );
   const hasNonColdStartDisabledReason =
     isSubmitting ||
     isServerActionDisabled ||
-    (!shouldAutoEnableTrading && !perpsAccountStatus.canTrade);
+    (!shouldEnableTradingBeforeOrder && !perpsAccountStatus.canTrade);
   const shouldDisableForAccountLoading =
     shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
       selectAccountLoading: perpsAccountLoading.selectAccountLoading,
@@ -1645,9 +1650,7 @@ function EmptySizeSideButton({
     shouldDisableForAccountLoading ||
     isSubmitting ||
     isServerActionDisabled ||
-    (!shouldAutoEnableTrading &&
-      !perpsAccountStatus.canTrade &&
-      !enableTradingMode.isSoftwareAccount);
+    (!shouldEnableTradingBeforeOrder && !perpsAccountStatus.canTrade);
   const shouldPreserveDisabledButtonStyle =
     shouldPreserveAccountLoadingButtonVisualState ||
     shouldPreserveColdStartButtonVisualState({
@@ -2161,6 +2164,7 @@ function TradingButtonGroupEmptySize({
 function TradingButtonGroup({
   isMobile,
   isLiveStatusPending = false,
+  enableTradingModeOverride,
 }: ITradingButtonGroupProps) {
   const formData = useTradingFormEmptySizeParams();
 
@@ -2169,6 +2173,7 @@ function TradingButtonGroup({
       <TradingButtonGroupEmptySize
         isMobile={isMobile}
         isLiveStatusPending={isLiveStatusPending}
+        enableTradingModeOverride={enableTradingModeOverride}
       />
     );
   }
@@ -2177,6 +2182,7 @@ function TradingButtonGroup({
     <TradingButtonGroupLive
       isMobile={isMobile}
       isLiveStatusPending={isLiveStatusPending}
+      enableTradingModeOverride={enableTradingModeOverride}
     />
   );
 }
