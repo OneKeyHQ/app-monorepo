@@ -249,17 +249,17 @@ export function shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
 }
 
 export function shouldBlockPerpsOrderPanelPreEnableTradingForMargin({
-  shouldEnableTradingBeforeOrder,
-  isNoEnoughMargin,
-  isDepositRequired,
+  shouldEnableTradingBeforeOrder: _shouldEnableTradingBeforeOrder,
+  isNoEnoughMargin: _isNoEnoughMargin,
+  isDepositRequired: _isDepositRequired,
 }: {
   shouldEnableTradingBeforeOrder: boolean;
   isNoEnoughMargin: boolean;
   isDepositRequired: boolean;
 }) {
-  return (
-    shouldEnableTradingBeforeOrder && isNoEnoughMargin && !isDepositRequired
-  );
+  // Pre-enable margin snapshots are not authoritative. Always resolve the
+  // trading-enabled state first, then recheck margin with the latest account data.
+  return false;
 }
 
 export function shouldSkipPerpsOrderPanelComputedSizeValidation({

@@ -420,14 +420,14 @@ describe('getPerpsOrderPanelPostEnableTradingResult', () => {
 });
 
 describe('shouldBlockPerpsOrderPanelPreEnableTradingForMargin', () => {
-  it('blocks enable side effects for known insufficient margin orders', () => {
+  it('keeps enable trading first when the current margin snapshot is insufficient', () => {
     expect(
       shouldBlockPerpsOrderPanelPreEnableTradingForMargin({
         shouldEnableTradingBeforeOrder: true,
         isNoEnoughMargin: true,
         isDepositRequired: false,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('keeps deposit fallback reachable when the account is not activated', () => {

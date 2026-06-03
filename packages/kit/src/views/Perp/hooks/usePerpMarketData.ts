@@ -21,8 +21,6 @@ import {
   isPerpsL2BookInteractive,
 } from '../utils/l2BookFreshness';
 
-import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
-
 export interface IPerpMarketDataReturn {
   currentTokenData: any | null;
   markPrice: string;
@@ -56,7 +54,7 @@ export interface IL2BookData extends HL.IBook {
   localReceivedAt?: number;
 }
 
-function getFreshL2BookSnapshotFromSwr({
+export function getFreshL2BookSnapshotFromSwr({
   coin,
   options,
 }: {
@@ -82,6 +80,28 @@ function getFreshL2BookSnapshotFromSwr({
   return undefined;
 }
 
+export function normalizeL2BookData({
+  bookData,
+  expectedCoin,
+}: {
+  bookData: HL.IBook | null | undefined;
+  expectedCoin: string | undefined;
+}): IL2BookData | null {
+  if (!bookData || !expectedCoin) return null;
+  if (bookData.coin !== expectedCoin) return null;
+
+  const [bids, asks] = bookData.levels || [[], []];
+
+  return {
+    coin: bookData.coin,
+    time: bookData.time,
+    levels: bookData.levels,
+    localReceivedAt: getPerpsMarketDataLocalReceivedAt(bookData),
+    bids: bids || [],
+    asks: asks || [],
+  };
+}
+
 export function useL2Book(options?: IL2BookOptions): {
   l2Book: IL2BookData | null;
   hasOrderBook: boolean;
@@ -102,7 +122,6 @@ export function useL2Book(options?: IL2BookOptions): {
   const mantissa = options?.mantissa;
   const normalizedNSigFigs = nSigFigs ?? null;
   const normalizedMantissa = mantissa ?? null;
-  const marketDataFreshness = usePerpsMarketDataFreshness();
   const [, refreshL2BookInteractivity] = useState(0);
   const lastL2BookRef = useRef<
     | {
@@ -136,19 +155,7 @@ export function useL2Book(options?: IL2BookOptions): {
     ) {
       bookData = lastL2Book.data;
     }
-    if (!bookData || !expectedCoin) return null;
-    if (bookData.coin !== expectedCoin) return null;
-
-    const [bids, asks] = bookData.levels || [[], []];
-
-    return {
-      coin: bookData.coin,
-      time: bookData.time,
-      levels: bookData.levels,
-      localReceivedAt: getPerpsMarketDataLocalReceivedAt(bookData),
-      bids: bids || [],
-      asks: asks || [],
-    };
+    return normalizeL2BookData({ bookData, expectedCoin });
   }, [
     expectedCoin,
     l2BookData,
@@ -239,8 +246,8 @@ export function useL2Book(options?: IL2BookOptions): {
     l2Book,
     hasOrderBook: !!l2Book,
     isOrderBookInteractive,
-    isMarketDataStale: marketDataFreshness.isStale,
-    lastUpdate: marketDataFreshness.lastMessageAt,
+    isMarketDataStale: !isOrderBookInteractive,
+    lastUpdate: l2Book?.localReceivedAt ?? null,
     getBestBid,
     getBestAsk,
     getSpread,
