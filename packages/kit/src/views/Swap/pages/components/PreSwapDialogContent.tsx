@@ -283,8 +283,11 @@ const PreSwapDialogContent = ({
       approveTransaction &&
       approveTransaction.status !== ESwapApproveTransactionStatus.PENDING
     ) {
+      const approveTxIdFromNotification = approveTransaction.txId ?? '';
       const trackedApproveTxId =
-        approveTransaction.txId ?? latestApproveTxIdRef.current ?? '';
+        approveTxIdFromNotification || latestApproveTxIdRef.current || '';
+      const isFallbackTrackedApproveTxId =
+        !approveTxIdFromNotification && !!trackedApproveTxId;
       const approveStatusKey = `${trackedApproveTxId || 'no-tx'}:${
         approveTransaction.status
       }`;
@@ -301,7 +304,10 @@ const PreSwapDialogContent = ({
       const currentSwapSteps = swapStepsRef.current;
       const stepIndex = currentSwapSteps.steps.findIndex((step) => {
         if (trackedApproveTxId && step.txHash === trackedApproveTxId) {
-          return true;
+          return (
+            !isFallbackTrackedApproveTxId ||
+            step.status === ESwapStepStatus.PENDING
+          );
         }
         return (
           step.type === ESwapStepType.APPROVE_TX &&

@@ -149,11 +149,15 @@ type IEstimateNetworkFeeResult = {
 
 function canFallbackToSeparateTxConfirm({
   buildUnsignedParams,
+  approveUnsignedTxArr,
 }: {
   buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams;
+  approveUnsignedTxArr?: IUnsignedTxPro[];
 }) {
   return Boolean(
-    buildUnsignedParams.encodedTx || buildUnsignedParams.transfersInfo?.length,
+    approveUnsignedTxArr?.length &&
+    (buildUnsignedParams.encodedTx ||
+      buildUnsignedParams.transfersInfo?.length),
   );
 }
 
@@ -2922,6 +2926,7 @@ export function useSwapBuildTx() {
             if (
               canFallbackToSeparateTxConfirm({
                 buildUnsignedParams,
+                approveUnsignedTxArr,
               })
             ) {
               setSwapSteps((prev) => ({
