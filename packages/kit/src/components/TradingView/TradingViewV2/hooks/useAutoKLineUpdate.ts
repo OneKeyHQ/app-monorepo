@@ -1,10 +1,16 @@
-import { type RefObject, useCallback } from 'react';
+import { type RefObject, useCallback, useRef } from 'react';
 
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import {
   useTokenDetailActions,
   useTokenDetailAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/constants';
+import {
+  buildRealtimeTokenDetail,
+  isMarketTokenDetailMatched,
+  isValidRealtimePrice,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
 
 import { fetchTradingViewV2Data } from './useTradingViewV2';
 
@@ -29,16 +35,26 @@ export function useAutoKLineUpdate({
 }: IAutoKLineUpdateParams) {
   const tokenDetailActions = useTokenDetailActions();
   const [tokenDetail] = useTokenDetailAtom();
+  const tokenDetailRef = useRef(tokenDetail);
+  const isFetchingRef = useRef(false);
+  const latestParamsRef = useRef({ tokenAddress, networkId });
+
+  tokenDetailRef.current = tokenDetail;
+  latestParamsRef.current = { tokenAddress, networkId };
 
   const pushLatestKLineData = useCallback(async () => {
     // Skip if disabled or missing required params
     // For native tokens, tokenAddress might be empty, but networkId is required
-    if (!enabled || !networkId || !webRef.current) {
+    if (!enabled || !networkId || !webRef.current || isFetchingRef.current) {
       return;
     }
 
+    isFetchingRef.current = true;
+    const requestParams = { tokenAddress, networkId };
+
     try {
-      const now = Math.floor(Date.now() / 1000);
+      const nowMs = Date.now();
+      const now = Math.floor(nowMs / 1000);
       const timeFrom = now - 200;
       const timeTo = now;
 
@@ -50,6 +66,13 @@ export function useAutoKLineUpdate({
         timeTo,
         autoHandleError,
       });
+
+      if (
+        latestParamsRef.current.tokenAddress !== requestParams.tokenAddress ||
+        latestParamsRef.current.networkId !== requestParams.networkId
+      ) {
+        return;
+      }
 
       // Sort K-line data by timestamp to ensure we get the actual latest price
       if (kLineData?.points && kLineData.points.length > 0) {
@@ -68,31 +91,45 @@ export function useAutoKLineUpdate({
 
         // Update token detail price with latest K-line close price
 
-        if (kLineData.points && kLineData.points.length > 0 && tokenDetail) {
+        const latestTokenDetail = tokenDetailRef.current;
+        if (
+          kLineData.points &&
+          kLineData.points.length > 0 &&
+          latestTokenDetail
+        ) {
           const latestPoint = kLineData.points[kLineData.points.length - 1];
           const latestPrice = latestPoint.c.toString(); // close price
 
-          // Only update if the price is different to avoid unnecessary updates
-          if (tokenDetail.price !== latestPrice) {
-            const updatedTokenDetail: typeof tokenDetail = {
-              ...tokenDetail,
-              price: latestPrice,
-              lastUpdated: now * 1000, // Convert to milliseconds for JavaScript Date
-            };
-
-            tokenDetailActions.current.setTokenDetail(updatedTokenDetail);
+          if (
+            isValidRealtimePrice(latestPrice) &&
+            isMarketTokenDetailMatched({
+              tokenDetail: latestTokenDetail,
+              tokenAddress,
+              networkId,
+            })
+          ) {
+            tokenDetailActions.current.setTokenDetail(
+              buildRealtimeTokenDetail({
+                tokenDetail: latestTokenDetail,
+                realtimePrice: latestPrice,
+                realtimePriceSource:
+                  MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.kLinePolling,
+                lastUpdated: nowMs,
+              }),
+            );
           }
         }
       }
     } catch (error) {
       console.error('Failed to push auto K-line data:', error);
+    } finally {
+      isFetchingRef.current = false;
     }
   }, [
     enabled,
     tokenAddress,
     networkId,
     webRef,
-    tokenDetail,
     tokenDetailActions,
     autoHandleError,
   ]);

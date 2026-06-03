@@ -1,6 +1,10 @@
 import BigNumber from 'bignumber.js';
 
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type {
+  IMarketTokenDetail,
+  IMarketTokenDetailRealtimePriceSource,
+} from '@onekeyhq/shared/types/marketV2';
 
 type IMarketTokenPriceFields = Pick<
   IMarketTokenDetail,
@@ -68,4 +72,61 @@ export function buildRealtimePriceDerivedFields({
       realtimePrice,
     }),
   };
+}
+
+export function buildRealtimeTokenDetail({
+  tokenDetail,
+  realtimePrice,
+  realtimePriceSource,
+  lastUpdated = Date.now(),
+}: {
+  tokenDetail: IMarketTokenDetail;
+  realtimePrice: string;
+  realtimePriceSource: IMarketTokenDetailRealtimePriceSource;
+  lastUpdated?: number;
+}): IMarketTokenDetail {
+  return {
+    ...tokenDetail,
+    price: realtimePrice,
+    ...buildRealtimePriceDerivedFields({
+      tokenDetail,
+      realtimePrice,
+    }),
+    lastUpdated,
+    realtimePriceSource,
+  };
+}
+
+export function isValidRealtimePrice(price: string) {
+  const numericPrice = Number(price);
+  return Number.isFinite(numericPrice) && numericPrice > 0;
+}
+
+export function isMarketTokenDetailMatched({
+  tokenDetail,
+  tokenAddress,
+  networkId,
+}: {
+  tokenDetail?: IMarketTokenDetail;
+  tokenAddress?: string;
+  networkId?: string;
+}) {
+  if (!tokenDetail) {
+    return false;
+  }
+
+  if (!networkId) {
+    return true;
+  }
+
+  return equalTokenNoCaseSensitive({
+    token1: {
+      networkId,
+      contractAddress: tokenAddress || '',
+    },
+    token2: {
+      networkId: tokenDetail.networkId || networkId,
+      contractAddress: tokenDetail.address || '',
+    },
+  });
 }

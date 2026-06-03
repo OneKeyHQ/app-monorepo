@@ -6,9 +6,11 @@ import {
   useTokenDetailAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/constants';
-import { buildRealtimePriceDerivedFields } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+import {
+  buildRealtimeTokenDetail,
+  isMarketTokenDetailMatched,
+  isValidRealtimePrice,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
 
 const HYPERLIQUID_WS_URL = 'wss://api.hyperliquid.xyz/ws';
 const HYPERLIQUID_RECONNECT_DELAY = 2000;
@@ -98,11 +100,6 @@ function parseCandleMessage(messageData: unknown) {
   return undefined;
 }
 
-function isValidPrice(price: string) {
-  const numericPrice = Number(price);
-  return Number.isFinite(numericPrice) && numericPrice > 0;
-}
-
 function buildSubscription(
   hyperLiquidSymbol: string,
   resolution?: string,
@@ -122,31 +119,6 @@ function sendSubscriptionMessage(
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ method, subscription }));
   }
-}
-
-function isTokenDetailMatched({
-  tokenDetail,
-  tokenAddress,
-  networkId,
-}: {
-  tokenDetail: IMarketTokenDetail;
-  tokenAddress?: string;
-  networkId?: string;
-}) {
-  if (!networkId) {
-    return true;
-  }
-
-  return equalTokenNoCaseSensitive({
-    token1: {
-      networkId,
-      contractAddress: tokenAddress || '',
-    },
-    token2: {
-      networkId: tokenDetail.networkId || networkId,
-      contractAddress: tokenDetail.address || '',
-    },
-  });
 }
 
 export function useHyperLiquidTokenPriceUpdate({
@@ -170,8 +142,8 @@ export function useHyperLiquidTokenPriceUpdate({
       const latestTokenDetail = tokenDetailRef.current;
       if (
         !latestTokenDetail ||
-        !isValidPrice(latestPrice) ||
-        !isTokenDetailMatched({
+        !isValidRealtimePrice(latestPrice) ||
+        !isMarketTokenDetailMatched({
           tokenDetail: latestTokenDetail,
           tokenAddress,
           networkId,
@@ -180,17 +152,14 @@ export function useHyperLiquidTokenPriceUpdate({
         return;
       }
 
-      tokenDetailActions.current.setTokenDetail({
-        ...latestTokenDetail,
-        price: latestPrice,
-        ...buildRealtimePriceDerivedFields({
+      tokenDetailActions.current.setTokenDetail(
+        buildRealtimeTokenDetail({
           tokenDetail: latestTokenDetail,
           realtimePrice: latestPrice,
+          realtimePriceSource:
+            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
         }),
-        lastUpdated: Date.now(),
-        realtimePriceSource:
-          MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
-      });
+      );
     },
     [networkId, tokenAddress, tokenDetailActions],
   );

@@ -18,7 +18,10 @@ export interface IBtcMetadata {
   stale: boolean;
 }
 
-export type IMarketTokenDetailRealtimePriceSource = 'hyperliquid';
+export type IMarketTokenDetailRealtimePriceSource =
+  | 'hyperliquid'
+  | 'market-ws'
+  | 'kline-polling';
 
 export interface IMarketTokenDetail {
   networkId?: string;

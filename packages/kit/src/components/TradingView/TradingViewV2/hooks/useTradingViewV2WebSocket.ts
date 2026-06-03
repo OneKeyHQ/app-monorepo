@@ -5,6 +5,12 @@ import {
   useTokenDetailActions,
   useTokenDetailAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/constants';
+import {
+  buildRealtimeTokenDetail,
+  isMarketTokenDetailMatched,
+  isValidRealtimePrice,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
 import { useMarketWSSubscriptionRecovery } from '@onekeyhq/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery';
 import type { IWsPriceData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
 import {
@@ -13,6 +19,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import type { IWebViewRef } from '../../../WebView/types';
+
+const TRADING_VIEW_WS_BRIDGE_THROTTLE_SECONDS = 4;
 
 interface IUseTradingViewV2WebSocketProps {
   networkId: string;
@@ -39,6 +47,7 @@ export function useTradingViewV2WebSocket({
   chartType = '1m',
   currency = 'usd',
 }: IUseTradingViewV2WebSocketProps): void {
+  const lastBridgeUpdateTime = useRef<number>(0);
   const tokenDetailActions = useTokenDetailActions();
   const [tokenDetail] = useTokenDetailAtom();
   const tokenDetailRef = useRef(tokenDetail);
@@ -107,42 +116,48 @@ export function useTradingViewV2WebSocket({
 
       markSubscriptionActivity();
 
-      const now = Math.floor(Date.now() / 1000);
+      const nowMs = Date.now();
+      const now = Math.floor(nowMs / 1000);
+      const receivedData = payload.data as IWsPriceData;
 
       const webView = webRef.current;
-      if (!webView) {
-        return;
+      if (
+        webView &&
+        receivedData &&
+        now - lastBridgeUpdateTime.current >=
+          TRADING_VIEW_WS_BRIDGE_THROTTLE_SECONDS
+      ) {
+        const dataForWebView =
+          receivedData && 'points' in receivedData
+            ? receivedData
+            : {
+                points: [
+                  {
+                    ...receivedData,
+
+                    // oxlint-disable-next-line @cspell/spellchecker
+                    t: receivedData.unixTime,
+                  },
+                ],
+                total: 1,
+              };
+
+        webView.sendMessageViaInjectedScript({
+          type: 'autoKLineUpdate',
+          payload: {
+            type: 'realtime',
+            kLineData: dataForWebView,
+            timestamp: now,
+          },
+        });
+
+        void backgroundApiProxy.serviceMarketWS.clearDataCount({
+          address: tokenAddress,
+          type: 'ohlcv',
+        });
+
+        lastBridgeUpdateTime.current = now;
       }
-
-      const receivedData = payload.data as IWsPriceData;
-      const dataForWebView =
-        receivedData && 'points' in receivedData
-          ? receivedData
-          : {
-              points: [
-                {
-                  ...receivedData,
-
-                  // oxlint-disable-next-line @cspell/spellchecker
-                  t: receivedData.unixTime,
-                },
-              ],
-              total: 1,
-            };
-
-      webView.sendMessageViaInjectedScript({
-        type: 'autoKLineUpdate',
-        payload: {
-          type: 'realtime',
-          kLineData: dataForWebView,
-          timestamp: now,
-        },
-      });
-
-      void backgroundApiProxy.serviceMarketWS.clearDataCount({
-        address: tokenAddress,
-        type: 'ohlcv',
-      });
 
       if (
         receivedData &&
@@ -150,15 +165,25 @@ export function useTradingViewV2WebSocket({
         tokenDetailRef.current
       ) {
         const latestPrice = receivedData.c.toString();
+        const latestTokenDetail = tokenDetailRef.current;
 
-        if (tokenDetailRef.current.price !== latestPrice) {
-          const updatedTokenDetail: typeof tokenDetailRef.current = {
-            ...tokenDetailRef.current,
-            price: latestPrice,
-            lastUpdated: now * 1000,
-          };
-
-          tokenDetailActions.current.setTokenDetail(updatedTokenDetail);
+        if (
+          isValidRealtimePrice(latestPrice) &&
+          isMarketTokenDetailMatched({
+            tokenDetail: latestTokenDetail,
+            tokenAddress,
+            networkId,
+          })
+        ) {
+          tokenDetailActions.current.setTokenDetail(
+            buildRealtimeTokenDetail({
+              tokenDetail: latestTokenDetail,
+              realtimePrice: latestPrice,
+              realtimePriceSource:
+                MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.marketWs,
+              lastUpdated: nowMs,
+            }),
+          );
         }
       }
     }
@@ -176,6 +201,7 @@ export function useTradingViewV2WebSocket({
     };
   }, [
     markSubscriptionActivity,
+    networkId,
     tokenAddress,
     webRef,
     enabled,

@@ -35,7 +35,6 @@ import {
   tokenDetailLoadingAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
-import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from './constants';
 import { buildRealtimePriceDerivedFields } from './priceUtils';
 
 export const homeResettingFlags: Record<string, number> = {};
@@ -224,8 +223,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         const websocketConfig = responseData.data.websocket;
         const perpsInfo = responseData.data.perpsInfo;
 
-        // Always preserve K-line updated price if it exists, fallback to API price
-        // BUT only if we're updating the SAME token (check address and networkId)
+        // Preserve a recent realtime price only when it was written by an
+        // explicit realtime source for the same token.
         const currentTokenDetail = get(tokenDetailAtom());
         const isSameToken =
           currentTokenDetail &&
@@ -241,36 +240,30 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           });
         const realtimePrice = currentTokenDetail?.price;
         const realtimePriceLastUpdated = currentTokenDetail?.lastUpdated;
-        const hasFreshKLinePrice = Boolean(
+        const realtimePriceSource = currentTokenDetail?.realtimePriceSource;
+        const hasFreshRealtimePrice = Boolean(
           isSameToken &&
           realtimePrice &&
           realtimePriceLastUpdated &&
+          realtimePriceSource &&
           Date.now() - realtimePriceLastUpdated <=
             K_LINE_PRICE_STALE_TIMEOUT_MS,
         );
-        const hasHyperLiquidRealtimePrice =
-          hasFreshKLinePrice &&
-          currentTokenDetail?.realtimePriceSource ===
-            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid;
-        const hyperLiquidRealtimeDerivedFields =
-          hasHyperLiquidRealtimePrice && realtimePrice
+
+        const finalTokenData =
+          hasFreshRealtimePrice &&
+          realtimePrice &&
+          realtimePriceLastUpdated &&
+          realtimePriceSource
             ? {
+                ...tokenData,
+                price: realtimePrice,
                 ...buildRealtimePriceDerivedFields({
                   tokenDetail: tokenData,
                   realtimePrice,
                 }),
-                realtimePriceSource:
-                  MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
-              }
-            : {};
-
-        const finalTokenData =
-          hasFreshKLinePrice && realtimePrice && realtimePriceLastUpdated
-            ? {
-                ...tokenData,
-                price: realtimePrice,
-                ...hyperLiquidRealtimeDerivedFields,
                 lastUpdated: realtimePriceLastUpdated,
+                realtimePriceSource,
               }
             : tokenData;
 
