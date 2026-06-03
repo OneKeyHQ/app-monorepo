@@ -147,17 +147,13 @@ type IEstimateNetworkFeeResult = {
   fallbackToSeparateTxConfirm?: boolean;
 };
 
-function canFallbackToSeparateApproveAndSwap({
-  approveUnsignedTxArr,
+function canFallbackToSeparateTxConfirm({
   buildUnsignedParams,
 }: {
-  approveUnsignedTxArr?: IUnsignedTxPro[];
   buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams;
 }) {
   return Boolean(
-    approveUnsignedTxArr?.length &&
-    (buildUnsignedParams.encodedTx ||
-      buildUnsignedParams.transfersInfo?.length),
+    buildUnsignedParams.encodedTx || buildUnsignedParams.transfersInfo?.length,
   );
 }
 
@@ -2924,8 +2920,7 @@ export function useSwapBuildTx() {
               true,
             );
             if (
-              canFallbackToSeparateApproveAndSwap({
-                approveUnsignedTxArr,
+              canFallbackToSeparateTxConfirm({
                 buildUnsignedParams,
               })
             ) {
@@ -3197,7 +3192,7 @@ export function useSwapBuildTx() {
           );
           if (estimateNetworkFeeResult.fallbackToSeparateTxConfirm) {
             const separateSteps = buildSeparateApproveAndSwapSteps(data);
-            if (data.allowanceResult && separateSteps.length > 1) {
+            if (separateSteps.length) {
               setSwapSteps((prev) => ({
                 ...prev,
                 steps: separateSteps,
@@ -3485,34 +3480,17 @@ export function useSwapBuildTx() {
                 preSwapData: swapStepsRef.current.preSwapData,
                 quoteResult: swapStepsRef.current.quoteResult,
               };
-              const separateFallbackSteps =
-                shouldFallback &&
-                step.type === ESwapStepType.BATCH_APPROVE_SWAP &&
-                quoteResultFinal?.allowanceResult
-                  ? buildSeparateApproveAndSwapSteps(quoteResultFinal)
-                  : undefined;
               if (shouldFallback) {
-                const newSteps = separateFallbackSteps?.length
-                  ? separateFallbackSteps
-                  : [...fallbackSwapStepsValues.steps];
-                if (!separateFallbackSteps?.length) {
-                  newSteps[i] = {
-                    ...newSteps[i],
-                    status: ESwapStepStatus.READY,
-                  };
-                }
+                const newSteps = [...fallbackSwapStepsValues.steps];
+                newSteps[i] = {
+                  ...newSteps[i],
+                  status: ESwapStepStatus.READY,
+                };
                 fallbackSwapStepsValues = {
                   steps: [...newSteps],
                   preSwapData: {
                     ...fallbackSwapStepsValues.preSwapData,
                     shouldFallback,
-                    ...(separateFallbackSteps?.length
-                      ? {
-                          needFetchGas: true,
-                          supportNetworkFeeLevel: false,
-                          netWorkFee: undefined,
-                        }
-                      : {}),
                   },
                   quoteResult: fallbackSwapStepsValues.quoteResult,
                 };
@@ -3523,32 +3501,20 @@ export function useSwapBuildTx() {
                   preSwapData: ISwapPreSwapData;
                   quoteResult?: IFetchQuoteResult | undefined;
                 }) => {
-                  const newSteps =
-                    shouldFallback && separateFallbackSteps?.length
-                      ? separateFallbackSteps
-                      : [...prevSteps.steps];
-                  if (!separateFallbackSteps?.length) {
-                    newSteps[i] = {
-                      ...newSteps[i],
-                      status: shouldFallback
-                        ? ESwapStepStatus.READY
-                        : ESwapStepStatus.FAILED,
-                      errorMessage,
-                    };
-                  }
+                  const newSteps = [...prevSteps.steps];
+                  newSteps[i] = {
+                    ...newSteps[i],
+                    status: shouldFallback
+                      ? ESwapStepStatus.READY
+                      : ESwapStepStatus.FAILED,
+                    errorMessage,
+                  };
                   return {
                     ...prevSteps,
                     steps: newSteps,
                     preSwapData: {
                       ...prevSteps.preSwapData,
                       shouldFallback,
-                      ...(shouldFallback && separateFallbackSteps?.length
-                        ? {
-                            needFetchGas: true,
-                            supportNetworkFeeLevel: false,
-                            netWorkFee: undefined,
-                          }
-                        : {}),
                     },
                   };
                 },
@@ -3590,7 +3556,6 @@ export function useSwapBuildTx() {
       buildTxNew,
       signMessage,
       batchApproveSwap,
-      buildSeparateApproveAndSwapSteps,
     ],
   );
 
