@@ -80,6 +80,13 @@ export const limitOrderEstimationFeePercent = 1.05;
 
 export const defaultSupportUrl = 'https://help.onekey.so/articles/11536900';
 
+export const privateSendHelpCenterUrl =
+  'https://help.onekey.so/articles/11536900';
+
+export const privateSendProvider = 'SwapRocketXPrivateSend';
+
+export const privateSendFallbackOrderIdPrefix = 'private-send-';
+
 export const otherWalletFeeData = [
   {
     maxFee: 0.875,

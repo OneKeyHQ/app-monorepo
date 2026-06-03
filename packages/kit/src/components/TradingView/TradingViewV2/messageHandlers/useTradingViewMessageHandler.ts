@@ -15,6 +15,7 @@ import { handleLayoutUpdate } from './layoutUpdateHandler';
 
 import type { IMarksTimeRange, IMessageHandlerContext } from './types';
 import type { IWebViewRef } from '../../../WebView/types';
+import type { ITradingViewV2KLineDataFallback } from '../hooks/useTradingViewV2';
 import type {
   ICustomReceiveHandlerData,
   ITradingViewIndicatorsDialogData,
@@ -36,6 +37,9 @@ interface IUseTradingViewMessageHandlerParams {
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   forceEmptyKLineData?: boolean;
   emptyKLineDataOnError?: boolean;
+  kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  primaryKLineDataUnavailable?: boolean;
+  onPrimaryKLineDataUnavailable?: () => void;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -240,6 +244,9 @@ export function useTradingViewMessageHandler({
   onIndicatorsDialogOpenChange,
   forceEmptyKLineData,
   emptyKLineDataOnError,
+  kLineDataFallback,
+  primaryKLineDataUnavailable,
+  onPrimaryKLineDataUnavailable,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
@@ -263,6 +270,9 @@ export function useTradingViewMessageHandler({
         currentKLineResolution,
         forceEmptyKLineData,
         emptyKLineDataOnError,
+        kLineDataFallback,
+        primaryKLineDataUnavailable,
+        onPrimaryKLineDataUnavailable,
       };
 
       // Handle TradingView private API requests
@@ -361,6 +371,9 @@ export function useTradingViewMessageHandler({
       onIndicatorsDialogOpenChange,
       forceEmptyKLineData,
       emptyKLineDataOnError,
+      kLineDataFallback,
+      primaryKLineDataUnavailable,
+      onPrimaryKLineDataUnavailable,
     ],
   );
 

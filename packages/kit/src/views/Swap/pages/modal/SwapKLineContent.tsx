@@ -18,13 +18,16 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
+  type ITradingViewDisabledFeature,
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import type { ITradingViewV2KLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/hooks/useTradingViewV2';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ProviderJotaiContextMarketV2 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
@@ -35,33 +38,60 @@ import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { ETokenDappType } from '@onekeyhq/shared/types/token';
-import type { ITokenDappType } from '@onekeyhq/shared/types/token';
+import type {
+  IFetchTokenDetailItem,
+  ITokenDappType,
+} from '@onekeyhq/shared/types/token';
 
 import { SwapTestIDs } from '../../testIDs';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
+import {
+  convertSwapKLineWalletChartToKLineResponse,
+  getSwapKLineWalletChartDays,
+} from './swapKLineChartUtils';
+
 const SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE = 'swap-kline';
-const SWAP_KLINE_DISABLED_TRADING_VIEW_FEATURES = [
-  TRADING_VIEW_DISABLED_FEATURES.FOOTER,
-  TRADING_VIEW_DISABLED_FEATURES.PRICE_MARKET_CAP_TOGGLE,
+const SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES = [
+  TRADING_VIEW_DISABLED_FEATURES.TIME_SCALE,
+  TRADING_VIEW_DISABLED_FEATURES.PRICE_SCALE,
   TRADING_VIEW_DISABLED_FEATURES.INDICATORS,
   TRADING_VIEW_DISABLED_FEATURES.SETTINGS,
   TRADING_VIEW_DISABLED_FEATURES.CHART_TYPE,
-  TRADING_VIEW_DISABLED_FEATURES.RESET_LAYOUT,
   TRADING_VIEW_DISABLED_FEATURES.FULLSCREEN,
   TRADING_VIEW_DISABLED_FEATURES.LAYOUT_TOGGLE,
   TRADING_VIEW_DISABLED_FEATURES.DRAWING_TOOLBAR,
-] as const;
+] as const satisfies readonly ITradingViewDisabledFeature[];
+
+const SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES = [
+  TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
+  ...SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES,
+] as const satisfies readonly ITradingViewDisabledFeature[];
 
 type ISwapKLineToken = ISwapToken & {
   defiMarked?: boolean;
   dappName?: string | null;
   dappType?: ITokenDappType;
 };
+
+type ISwapKLineWalletMarketInfo = {
+  coinGeckoId?: string;
+  price?: string;
+  priceChange24hPercent?: string;
+};
+
+function getSwapKLineTokenKey(token?: ISwapToken) {
+  if (!token?.networkId) {
+    return '';
+  }
+
+  return `${token.networkId}:${token.contractAddress ?? ''}`;
+}
 
 function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   if (!token) {
@@ -95,20 +125,8 @@ function getDefaultKLineSide({
   return ESwapDirectionType.TO;
 }
 
-function getNormalizedPrice(value?: string | null) {
-  const normalized = value?.trim();
-  if (!normalized) {
-    return undefined;
-  }
-  const numericValue = Number(normalized);
-  if (!Number.isFinite(numericValue) || numericValue === 0) {
-    return undefined;
-  }
-  return normalized;
-}
-
-function getNormalizedPercent(value?: string | null) {
-  const normalized = value?.trim();
+function getNormalizedValueText(value?: number | string | null) {
+  const normalized = typeof value === 'number' ? String(value) : value?.trim();
   if (!normalized) {
     return undefined;
   }
@@ -119,22 +137,41 @@ function getNormalizedPercent(value?: string | null) {
   return normalized;
 }
 
-function useSwapKLineTokenMarketInfo(token?: ISwapToken) {
-  const tokenAddress = token?.contractAddress ?? '';
+function getNormalizedPrice(value?: number | string | null) {
+  const normalized = getNormalizedValueText(value);
+  if (!normalized) {
+    return undefined;
+  }
+  const numericValue = Number(normalized);
+  if (numericValue === 0) {
+    return undefined;
+  }
+  return normalized;
+}
+
+function getNormalizedPercent(value?: number | string | null) {
+  return getNormalizedValueText(value);
+}
+
+function useSwapKLineTokenMarketInfo(token?: ISwapToken, enabled = true) {
+  const tokenAddress = token?.contractAddress?.trim() ?? '';
   const networkId = token?.networkId ?? '';
   const { result } = usePromiseResult<IMarketTokenDetail | undefined>(
     async () => {
-      if (!networkId) {
+      if (!enabled || !networkId || !tokenAddress) {
         return undefined;
       }
       const response =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
           tokenAddress,
           networkId,
+          {
+            autoHandleError: false,
+          },
         );
       return response?.data?.token;
     },
-    [networkId, tokenAddress],
+    [enabled, networkId, tokenAddress],
     {
       checkIsFocused: false,
       revalidateOnFocus: true,
@@ -145,6 +182,131 @@ function useSwapKLineTokenMarketInfo(token?: ISwapToken) {
   );
 
   return result;
+}
+
+function buildSwapKLineWalletMarketInfo(
+  tokenInfo?: IFetchTokenDetailItem,
+): ISwapKLineWalletMarketInfo | undefined {
+  const coinGeckoId = tokenInfo?.info?.coingeckoId?.trim();
+  const price = getNormalizedPrice(tokenInfo?.price);
+  const priceChange24hPercent = getNormalizedPercent(tokenInfo?.price24h);
+
+  if (!coinGeckoId && !price && !priceChange24hPercent) {
+    return undefined;
+  }
+
+  return {
+    coinGeckoId,
+    price,
+    priceChange24hPercent,
+  };
+}
+
+function useSwapKLineWalletMarketInfo(
+  token?: ISwapToken,
+): ISwapKLineWalletMarketInfo | undefined {
+  const tokenAddress = token?.contractAddress ?? '';
+  const networkId = token?.networkId ?? '';
+  const { result: tokenInfo } = usePromiseResult<
+    IFetchTokenDetailItem | undefined
+  >(
+    async () => {
+      if (!networkId) {
+        return undefined;
+      }
+
+      const fetchedTokenInfo =
+        await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+          networkId,
+          tokenAddress,
+        });
+      return fetchedTokenInfo;
+    },
+    [networkId, tokenAddress],
+    {
+      checkIsFocused: false,
+      undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
+    },
+  );
+
+  return useMemo(() => buildSwapKLineWalletMarketInfo(tokenInfo), [tokenInfo]);
+}
+
+function useSwapKLineChartDataSource({
+  token,
+  coinGeckoId,
+}: {
+  token?: ISwapToken;
+  coinGeckoId?: string;
+}) {
+  const tokenKey = getSwapKLineTokenKey(token);
+  const chartDataCacheRef = useRef(
+    new Map<string, Promise<IMarketTokenChart>>(),
+  );
+  const [primaryUnavailableTokenKeys, setPrimaryUnavailableTokenKeys] =
+    useState<ReadonlySet<string>>(() => new Set());
+  const kLineDataFallback = useMemo<
+    ITradingViewV2KLineDataFallback | undefined
+  >(() => {
+    if (!coinGeckoId) {
+      return undefined;
+    }
+
+    return async ({ timeFrom, timeTo }) => {
+      const days = getSwapKLineWalletChartDays({ timeFrom, timeTo });
+      const cacheKey = `${coinGeckoId}:${days}`;
+      let chartDataPromise = chartDataCacheRef.current.get(cacheKey);
+      if (!chartDataPromise) {
+        chartDataPromise = backgroundApiProxy.serviceMarket.fetchTokenChart(
+          coinGeckoId,
+          days,
+        );
+        chartDataCacheRef.current.set(cacheKey, chartDataPromise);
+      }
+
+      const chartData = await chartDataPromise.catch((error) => {
+        chartDataCacheRef.current.delete(cacheKey);
+        throw error;
+      });
+      return convertSwapKLineWalletChartToKLineResponse({
+        chartData,
+        timeFrom,
+        timeTo,
+      });
+    };
+  }, [coinGeckoId]);
+  const primaryKLineDataUnavailable = Boolean(
+    tokenKey && primaryUnavailableTokenKeys.has(tokenKey),
+  );
+  const handlePrimaryKLineDataUnavailable = useCallback(() => {
+    if (!tokenKey) {
+      return;
+    }
+
+    setPrimaryUnavailableTokenKeys((prev) => {
+      if (prev.has(tokenKey)) {
+        return prev;
+      }
+
+      const next = new Set(prev);
+      next.add(tokenKey);
+      return next;
+    });
+  }, [tokenKey]);
+
+  return useMemo(
+    () => ({
+      kLineDataFallback,
+      primaryKLineDataUnavailable,
+      handlePrimaryKLineDataUnavailable,
+    }),
+    [
+      handlePrimaryKLineDataUnavailable,
+      kLineDataFallback,
+      primaryKLineDataUnavailable,
+    ],
+  );
 }
 
 function useSwapKLineNetworkName(networkId?: string) {
@@ -292,9 +454,13 @@ type ISwapKLineContentState = {
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
   selectedToken?: ISwapToken;
+  walletMarketInfo?: ISwapKLineWalletMarketInfo;
+  kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  primaryKLineDataUnavailable: boolean;
   resolvedSelectedSide: ESwapDirectionType;
   shouldForceEmptyKLineData: boolean;
   tokenMarketDetail?: IMarketTokenDetail;
+  handlePrimaryKLineDataUnavailable: () => void;
   handleSelectedSideChange: (side: ESwapDirectionType) => void;
 };
 
@@ -326,9 +492,18 @@ function useSwapKLineContentState(): ISwapKLineContentState {
 
   const selectedToken =
     resolvedSelectedSide === ESwapDirectionType.FROM ? fromToken : toToken;
+  const walletMarketInfo = useSwapKLineWalletMarketInfo(selectedToken);
+  const tokenMarketDetail = useSwapKLineTokenMarketInfo(selectedToken);
+  const {
+    kLineDataFallback,
+    primaryKLineDataUnavailable,
+    handlePrimaryKLineDataUnavailable,
+  } = useSwapKLineChartDataSource({
+    token: selectedToken,
+    coinGeckoId: walletMarketInfo?.coinGeckoId,
+  });
   const shouldForceEmptyKLineData =
     isKnownSwapKLineUnsupportedToken(selectedToken);
-  const tokenMarketDetail = useSwapKLineTokenMarketInfo(selectedToken);
 
   useEffect(() => {
     if (hasTrackedOpenRef.current || !selectedToken) {
@@ -370,19 +545,27 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       fromToken,
       toToken,
       selectedToken,
+      walletMarketInfo,
+      kLineDataFallback,
+      primaryKLineDataUnavailable,
       resolvedSelectedSide,
       shouldForceEmptyKLineData,
       tokenMarketDetail,
+      handlePrimaryKLineDataUnavailable,
       handleSelectedSideChange,
     }),
     [
       fromToken,
+      handlePrimaryKLineDataUnavailable,
       handleSelectedSideChange,
+      kLineDataFallback,
+      primaryKLineDataUnavailable,
       resolvedSelectedSide,
       selectedToken,
       shouldForceEmptyKLineData,
       toToken,
       tokenMarketDetail,
+      walletMarketInfo,
     ],
   );
 }
@@ -405,16 +588,19 @@ function SwapKLineHeaderRight({ state }: { state: ISwapKLineContentState }) {
 function SwapKLineTokenPriceInfo({
   token,
   tokenMarketDetail,
+  walletMarketInfo,
 }: {
   token: ISwapToken;
   tokenMarketDetail?: IMarketTokenDetail;
+  walletMarketInfo?: ISwapKLineWalletMarketInfo;
 }) {
   const price =
     getNormalizedPrice(tokenMarketDetail?.price) ??
+    walletMarketInfo?.price ??
     getNormalizedPrice(token.price);
-  const priceChange = getNormalizedPercent(
-    tokenMarketDetail?.priceChange24hPercent,
-  );
+  const priceChange =
+    getNormalizedPercent(tokenMarketDetail?.priceChange24hPercent) ??
+    walletMarketInfo?.priceChange24hPercent;
 
   return (
     <YStack ai="flex-end" gap="$0.5" minWidth="$20" maxWidth="$32">
@@ -469,9 +655,11 @@ function SwapKLineTokenPriceInfo({
 function SwapKLineTokenInfoRow({
   token,
   tokenMarketDetail,
+  walletMarketInfo,
 }: {
   token: ISwapToken;
   tokenMarketDetail?: IMarketTokenDetail;
+  walletMarketInfo?: ISwapKLineWalletMarketInfo;
 }) {
   const tokenName = tokenMarketDetail?.name || token.name;
   const networkName = useSwapKLineNetworkName(token.networkId);
@@ -506,6 +694,7 @@ function SwapKLineTokenInfoRow({
       <SwapKLineTokenPriceInfo
         token={token}
         tokenMarketDetail={tokenMarketDetail}
+        walletMarketInfo={walletMarketInfo}
       />
     </XStack>
   );
@@ -523,9 +712,13 @@ function SwapKLineContentBody({
   chartMinHeight?: number;
 } & ISwapKLineContentSpacingProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const selectedToken = state.selectedToken;
   const chartNetworkId = selectedToken?.networkId ?? '';
   const chartTokenAddress = selectedToken?.contractAddress ?? '';
+  const disabledTradingViewFeatures = gtMd
+    ? SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES
+    : SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES;
 
   const chartContent = (
     <Stack
@@ -536,16 +729,21 @@ function SwapKLineContentBody({
       borderTopColor="$borderSubdued"
     >
       <TradingViewV2
-        key={`${chartNetworkId}:${chartTokenAddress}:${selectedToken?.symbol ?? ''}`}
+        key={`${chartNetworkId}:${chartTokenAddress}:${
+          selectedToken?.symbol ?? ''
+        }`}
         symbol={selectedToken?.symbol ?? ''}
         tokenAddress={chartTokenAddress}
         networkId={chartNetworkId}
         decimal={selectedToken?.decimals ?? 0}
         dataSource="polling"
-        disabledFeatures={SWAP_KLINE_DISABLED_TRADING_VIEW_FEATURES}
+        disabledFeatures={disabledTradingViewFeatures}
         storageNamespace={SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE}
         forceEmptyKLineData={state.shouldForceEmptyKLineData}
         emptyKLineDataOnError
+        kLineDataFallback={state.kLineDataFallback}
+        primaryKLineDataUnavailable={state.primaryKLineDataUnavailable}
+        onPrimaryKLineDataUnavailable={state.handlePrimaryKLineDataUnavailable}
         w="100%"
         h="100%"
       />
@@ -559,6 +757,7 @@ function SwapKLineContentBody({
           <SwapKLineTokenInfoRow
             token={selectedToken}
             tokenMarketDetail={state.tokenMarketDetail}
+            walletMarketInfo={state.walletMarketInfo}
           />
 
           {chartContent}

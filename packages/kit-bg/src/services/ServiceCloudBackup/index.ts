@@ -816,6 +816,9 @@ class ServiceCloudBackup extends ServiceBase {
         await simpleDb.browserBookmarks.setRawData({
           data: [...existBookmarks.data, ...notOnDevice.discoverBookmarks],
         });
+        this.backgroundApi.serviceDiscovery._clearDiscoveryHomeBookmarksSwr({
+          refreshMountedViews: true,
+        });
       }
     } catch (e) {
       console.error('backup', e);

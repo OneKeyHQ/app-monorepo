@@ -917,7 +917,7 @@ function MarketPresetSettingsDialog({
               active={selected}
               currencySymbol={settingsPersistAtom.currencyInfo.symbol}
               estimateValue={priorityFeeFiatEstimates[type]}
-              isLoading={!!priorityFeeLoading && estimateRequested}
+              isLoading={priorityFeeLoading ? estimateRequested : false}
               label={intl.formatMessage({
                 id: getPriorityFeeTranslationId(type),
               })}

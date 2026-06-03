@@ -4,6 +4,7 @@ import offscreenApiProxy from '../../../offscreens/instance/offscreenApiProxy';
 import { onOffscreenEvent } from '../../../offscreens/offscreenEventBus';
 
 import type {
+  ConnectorCallResult,
   ConnectorDevice,
   ConnectorEventType,
   ConnectorSession,
@@ -67,7 +68,7 @@ class OffscreenHardwareBridgeClient implements IHardwareBridge {
     sessionId: string;
     method: string;
     callParams: unknown;
-  }): Promise<unknown> {
+  }): Promise<ConnectorCallResult> {
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Bridge] call vendor=${params.vendor} method=${params.method}`,
     );

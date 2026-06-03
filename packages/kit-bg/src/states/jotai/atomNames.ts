@@ -21,6 +21,7 @@ export enum EAtomNames {
   hardwareUiStateAtom = 'hardwareUiStateAtom',
   hardwareUiStateCompletedAtom = 'hardwareUiStateCompletedAtom',
   thirdPartyHardwareUiStateAtom = 'thirdPartyHardwareUiStateAtom',
+  thirdPartyAppInstallAtom = 'thirdPartyAppInstallAtom',
   hardwareWalletXfpStatusAtom = 'hardwareWalletXfpStatusAtom',
   // firmwareUpdatesDetectStatusAtom is reserved for firmwareUpdatesDetectStatusPersistAtom
   firmwareUpdatesDetectStatusPersistAtom = 'firmwareUpdatesDetectStatusPersistAtom', // persist
@@ -100,6 +101,7 @@ export enum EAtomNames {
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   perpsLayoutStateAtom = 'perpsLayoutStateAtom',
   perpsAbstractionModeAtom = 'perpsAbstractionModeAtom',
+  perpsSpotDustingAtom = 'perpsSpotDustingAtom',
   perpsSpotBalancesAtom = 'perpsSpotBalancesAtom',
   perpsFooterTickerModePersistAtom = 'perpsFooterTickerModePersistAtom',
   // trading mode

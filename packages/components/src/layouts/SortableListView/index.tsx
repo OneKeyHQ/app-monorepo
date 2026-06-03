@@ -247,13 +247,17 @@ function BaseSortableListView<T>(
 
   const startAutoScroll = useCallback(() => {
     stopAutoScroll(); // Clean up any previous session defensively
-    if (scrollEnabled) return; // built-in auto-scroll works when scroll is enabled
+    if (scrollEnabled) {
+      return;
+    } // built-in auto-scroll works when scroll is enabled
 
     // Only auto-scroll if a real scrollable ancestor exists (e.g. Tabs.Container).
     // Do NOT fall back to document.documentElement — that would scroll the entire
     // page for lists that are simply non-scrollable (e.g. overflow:hidden pinned tabs).
     const container = findScrollableAncestor(listContainerRef.current);
-    if (!container) return;
+    if (!container) {
+      return;
+    }
     autoScrollRef.current.mouseY = -1; // Reset stale position from previous session
     autoScrollRef.current.scrollContainer = container;
 

@@ -14,6 +14,7 @@ import {
   Select,
   SizableText,
   Skeleton,
+  Stack,
   Tooltip,
   XStack,
   YStack,
@@ -82,6 +83,7 @@ import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../../testIDs';
 import { getPerpsFormLeverage } from '../../../utils/leverageDisplay';
+import { getScaleOrderValidationErrorMessage } from '../../../utils/scaleOrderValidation';
 import {
   type ITradeSide,
   getTradingSideTextColor,
@@ -95,6 +97,7 @@ import { TradingFormInput } from '../inputs/TradingFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { BBOSelector } from '../selectors/BBOSelector';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
+import { TimeInForceSelector } from '../selectors/TimeInForceSelector';
 import { TradeSideToggle } from '../selectors/TradeSideToggle';
 
 interface IPerpTradingFormProps {
@@ -493,6 +496,9 @@ function PerpTradingForm({
   const isTwapMode = formData.orderMode === 'twap';
   const isAdvancedOrderMode =
     formData.orderMode === 'trigger' || isScaleMode || isTwapMode;
+  const shouldShowLimitTif =
+    !isSpot && formData.orderMode === 'standard' && formData.type === 'limit';
+  const shouldShowScaleTif = !isSpot && isScaleMode;
   const twapDurationLabel = useMemo(
     () =>
       `${intl.formatMessage({
@@ -794,11 +800,13 @@ function PerpTradingForm({
     const validation = validateScaleOrderLegs({ legs });
     if (!validation.isValid) {
       return {
-        text:
-          validation.errors[0] ??
-          intl.formatMessage({
+        text: getScaleOrderValidationErrorMessage({
+          intl,
+          validation,
+          fallback: intl.formatMessage({
             id: ETranslations.perp_invalid_scale_order__msg,
           }),
+        }),
         tone: 'error' as const,
       };
     }
@@ -1507,51 +1515,22 @@ function PerpTradingForm({
       const scaleSizeDistribution = formData.scaleSizeDistribution ?? 'fixed';
       return (
         <YStack gap="$1.5">
-          {isMobile ? (
-            <Popover
-              renderContent={() => (
-                <YStack px="$5" pt="$2" pb="$4">
-                  <SizableText size="$bodyMd">
-                    {scaleAmountDistributionHelperText}
-                  </SizableText>
-                </YStack>
-              )}
-              renderTrigger={
-                <DashText
-                  size="$bodySmMedium"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_scale_amount_distribution__title,
-                  })}
-                </DashText>
-              }
-              title={intl.formatMessage({
-                id: ETranslations.perp_scale_amount_distribution__title,
-              })}
-              placement="bottom-start"
-            />
-          ) : (
-            <Tooltip
-              renderContent={scaleAmountDistributionHelperText}
-              renderTrigger={
-                <DashText
-                  size="$bodySmMedium"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  cursor="help"
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_scale_amount_distribution__title,
-                  })}
-                </DashText>
-              }
-              placement="bottom-start"
-            />
-          )}
+          <DashText
+            size="$bodySmMedium"
+            color="$textSubdued"
+            dashColor="$textDisabled"
+            dashThickness={0.5}
+            tooltip={scaleAmountDistributionHelperText}
+            tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+            tooltipPlacement="bottom-start"
+            tooltipTitle={intl.formatMessage({
+              id: ETranslations.perp_scale_amount_distribution__title,
+            })}
+          >
+            {intl.formatMessage({
+              id: ETranslations.perp_scale_amount_distribution__title,
+            })}
+          </DashText>
           <XStack gap="$4" alignItems="center" flexWrap="wrap">
             {scaleAmountDistributionOptions.map((option) => {
               const checked = scaleSizeDistribution === option.value;
@@ -1828,6 +1807,24 @@ function PerpTradingForm({
     return null;
   };
 
+  const renderTimeInForceSection = () => {
+    if (shouldShowScaleTif) {
+      return (
+        <XStack width="100%" justifyContent="flex-end">
+          <TimeInForceSelector
+            testID="perp-scale-tif-selector"
+            value={formData.scaleTif ?? 'Gtc'}
+            onChange={(nextTif) => updateForm({ scaleTif: nextTif })}
+            disabled={isSubmitting}
+            isMobile={isMobile}
+          />
+        </XStack>
+      );
+    }
+
+    return null;
+  };
+
   const renderTwapDurationSection = () => {
     if (!isTwapMode) {
       return null;
@@ -1988,45 +1985,20 @@ function PerpTradingForm({
 
     return (
       <YStack gap="$3">
-        {isMobile ? (
-          <Popover
-            renderContent={() => (
-              <YStack px="$5" pt="$2" pb="$4">
-                <SizableText size="$bodyMd">{twapHelperText}</SizableText>
-              </YStack>
-            )}
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-              >
-                {twapDurationLabel}
-              </DashText>
-            }
-            title={intl.formatMessage({
-              id: ETranslations.perp_twap_duration__title,
-            })}
-            placement="bottom-start"
-          />
-        ) : (
-          <Tooltip
-            renderContent={twapHelperText}
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-                cursor="help"
-              >
-                {twapDurationLabel}
-              </DashText>
-            }
-            placement="bottom-start"
-          />
-        )}
+        <DashText
+          size="$bodySm"
+          color="$textSubdued"
+          dashColor="$textDisabled"
+          dashThickness={0.5}
+          tooltip={twapHelperText}
+          tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+          tooltipPlacement="bottom-start"
+          tooltipTitle={intl.formatMessage({
+            id: ETranslations.perp_twap_duration__title,
+          })}
+        >
+          {twapDurationLabel}
+        </DashText>
         <XStack gap="$2.5">
           {renderTwapDurationInput({
             field: 'hours',
@@ -2140,21 +2112,24 @@ function PerpTradingForm({
               />
               <Tooltip
                 placement="top"
+                triggerAsChild="except-style"
                 renderContent={intl.formatMessage({
                   id: ETranslations.perp_twap_randomize__desc,
                 })}
                 renderTrigger={
-                  <DashText
-                    size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
-                    color="$text"
-                    dashColor="$textDisabled"
-                    dashThickness={0.5}
-                    cursor="help"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_twap_randomize__title,
-                    })}
-                  </DashText>
+                  <Stack display="inline-flex" alignSelf="flex-start">
+                    <DashText
+                      size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                      color="$text"
+                      dashColor="$textDisabled"
+                      dashThickness={0.5}
+                      cursor="help"
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.perp_twap_randomize__title,
+                      })}
+                    </DashText>
+                  </Stack>
                 }
               />
             </XStack>
@@ -2227,64 +2202,59 @@ function PerpTradingForm({
         </YStack>
       );
     }
+    const standardLimitTifSelector = shouldShowLimitTif ? (
+      <TimeInForceSelector
+        testID="perp-limit-tif-selector"
+        value={formData.limitTif ?? 'Gtc'}
+        onChange={(nextTif) => updateForm({ limitTif: nextTif })}
+        disabled={isSubmitting}
+        isMobile={isMobile}
+      />
+    ) : null;
+
     return (
       <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
-        <XStack alignItems="center" gap="$2">
-          <Checkbox
-            testID={PerpTestIDs.TpslCheckbox}
-            value={formData.hasTpsl}
-            onChange={handleTpslCheckboxChange}
-            disabled={isSubmitting}
-            containerProps={{
-              p: 0,
-              alignItems: 'center',
-              ...(!isMobile && { cursor: 'pointer' }),
-            }}
-            width={checkboxSizeVal}
-            height={checkboxSizeVal}
-            {...(isMobile && { p: '$0' })}
-          />
-
-          {isMobile ? (
-            <Popover
-              renderContent={() => (
-                <YStack px="$5" pt="$2" pb="$4">
-                  <SizableText size="$bodyMd">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_tp_sl_tooltip,
-                    })}
-                  </SizableText>
-                </YStack>
-              )}
-              renderTrigger={
-                <DashText
-                  size="$bodySm"
-                  dashColor="$textSubdued"
-                  dashThickness={0.5}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_position_tp_sl,
-                  })}
-                </DashText>
-              }
-              title={intl.formatMessage({
-                id: ETranslations.perp_position_tp_sl,
-              })}
+        <XStack
+          width="100%"
+          alignItems="center"
+          justifyContent="space-between"
+          gap="$3"
+        >
+          <XStack alignItems="center" gap="$2">
+            <Checkbox
+              testID={PerpTestIDs.TpslCheckbox}
+              value={formData.hasTpsl}
+              onChange={handleTpslCheckboxChange}
+              disabled={isSubmitting}
+              containerProps={{
+                p: 0,
+                alignItems: 'center',
+                ...(!isMobile && { cursor: 'pointer' }),
+              }}
+              width={checkboxSizeVal}
+              height={checkboxSizeVal}
+              {...(isMobile && { p: '$0' })}
             />
-          ) : (
-            <Tooltip
-              renderContent={intl.formatMessage({
+
+            <DashText
+              size={isMobile ? '$bodySm' : '$bodyMd'}
+              dashColor="$textSubdued"
+              dashThickness={0.5}
+              tooltip={intl.formatMessage({
                 id: ETranslations.perp_tp_sl_tooltip,
               })}
-              renderTrigger={
-                <DashText size="$bodyMd" dashThickness={0.5} cursor="help">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_position_tp_sl,
-                  })}
-                </DashText>
-              }
-            />
-          )}
+              tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+              tooltipTitle={intl.formatMessage({
+                id: ETranslations.perp_position_tp_sl,
+              })}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_position_tp_sl,
+              })}
+            </DashText>
+          </XStack>
+
+          {standardLimitTifSelector}
         </XStack>
 
         {formData.hasTpsl ? (
@@ -2381,38 +2351,17 @@ function PerpTradingForm({
       </XStack>
 
       <XStack justifyContent="space-between" alignItems="center" gap="$3">
-        {isMobile ? (
-          <Popover
-            title={spotMaxTradeLabel}
-            renderTrigger={
-              <DashText size="$bodySm" color="$textSubdued" dashThickness={0.5}>
-                {spotMaxTradeLabel}
-              </DashText>
-            }
-            renderContent={() => (
-              <YStack px="$5" pt="$2" pb="$4">
-                <SizableText size="$bodyMd">{spotMaxTradeTooltip}</SizableText>
-              </YStack>
-            )}
-          />
-        ) : (
-          <Tooltip
-            placement="top"
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashThickness={0.5}
-                cursor="help"
-              >
-                {spotMaxTradeLabel}
-              </DashText>
-            }
-            renderContent={
-              <SizableText size="$bodySm">{spotMaxTradeTooltip}</SizableText>
-            }
-          />
-        )}
+        <DashText
+          size="$bodySm"
+          color="$textSubdued"
+          dashThickness={0.5}
+          tooltip={spotMaxTradeTooltip}
+          tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+          tooltipPlacement="top"
+          tooltipTitle={spotMaxTradeLabel}
+        >
+          {spotMaxTradeLabel}
+        </DashText>
         <SizableText size="$bodySmMedium">{spotMaxTradeDisplay}</SizableText>
       </XStack>
     </>
@@ -2718,6 +2667,8 @@ function PerpTradingForm({
           sliderHeight={isMobile ? 2 : 4}
         />
       </YStack>
+
+      {renderTimeInForceSection()}
 
       {renderScaleAmountDistributionSection()}
 

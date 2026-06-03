@@ -216,11 +216,22 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (!this.coreApi) {
       throw new OneKeyLocalError('coreApi is not defined');
     }
-    const { name, importedCredential, password, networks, createAtNetwork } =
-      params;
+    const {
+      name,
+      importedCredential,
+      password,
+      networks,
+      createAtNetwork,
+      kdfBackend,
+      enablePbkdf2Cache,
+      debugCryptoProbeId,
+    } = params;
     const { privateKey } = await decryptImportedCredential({
       credential: importedCredential,
       password,
+      kdfBackend,
+      enablePbkdf2Cache,
+      debugCryptoProbeId,
     });
     const settings = await this.getVaultSettings();
     const { onlyAvailableOnCertainNetworks } = options;
@@ -285,11 +296,22 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (!this.coreApi) {
       throw new OneKeyLocalError('coreApi is not defined');
     }
-    const { name, importedCredential, password, createAtNetwork, deriveInfo } =
-      params;
+    const {
+      name,
+      importedCredential,
+      password,
+      createAtNetwork,
+      deriveInfo,
+      kdfBackend,
+      enablePbkdf2Cache,
+      debugCryptoProbeId,
+    } = params;
     const { privateKey } = await decryptImportedCredential({
       credential: importedCredential,
       password,
+      kdfBackend,
+      enablePbkdf2Cache,
+      debugCryptoProbeId,
     });
 
     const addressEncoding = deriveInfo?.addressEncoding;

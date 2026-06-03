@@ -1,11 +1,139 @@
 /*
 yarn test packages/shared/src/utils/tokenUtils.test.ts
 */
+import { ENetworkStatus, type IServerNetwork } from '../../types';
+
 import {
+  buildTokenSearchKeywordQueries,
   calculateAccountTokensValue,
   calculateAccountTotalValue,
+  getFilteredTokenBySearchKey,
   mergeDeriveTokenListMap,
 } from './tokenUtils';
+
+import type { IAccountToken } from '../../types/token';
+
+describe('buildTokenSearchKeywordQueries', () => {
+  test('adds ether fallback for multi-word eth network searches', () => {
+    expect(buildTokenSearchKeywordQueries('shib eth')).toEqual([
+      'shib eth',
+      'shib ether',
+    ]);
+  });
+
+  test('does not expand single eth searches or embedded eth token names', () => {
+    expect(buildTokenSearchKeywordQueries('eth')).toEqual(['eth']);
+    expect(buildTokenSearchKeywordQueries('weth')).toEqual(['weth']);
+    expect(buildTokenSearchKeywordQueries('shib ethw')).toEqual(['shib ethw']);
+  });
+});
+
+function buildTestNetwork({
+  id,
+  name,
+  code,
+  shortname,
+}: {
+  id: string;
+  name: string;
+  code: string;
+  shortname: string;
+}): IServerNetwork {
+  return {
+    id,
+    impl: code,
+    chainId: id,
+    name,
+    code,
+    shortname,
+    shortcode: shortname,
+    symbol: code.toUpperCase(),
+    logoURI: '',
+    decimals: 18,
+    feeMeta: {
+      symbol: code.toUpperCase(),
+      decimals: 18,
+    },
+    defaultEnabled: true,
+    status: ENetworkStatus.LISTED,
+    isTestnet: false,
+  };
+}
+
+function buildTestToken(params: Partial<IAccountToken>): IAccountToken {
+  return {
+    $key: params.$key ?? 'token',
+    address: params.address ?? '0x0',
+    decimals: params.decimals ?? 6,
+    isNative: params.isNative ?? false,
+    name: params.name ?? 'USD Coin',
+    symbol: params.symbol ?? 'USDC',
+    ...params,
+  };
+}
+
+describe('getFilteredTokenBySearchKey — aggregate token network search', () => {
+  const aggregateUsdc = buildTestToken({
+    $key: 'aggregate_USDC_',
+    address: 'aggregate_USDC_',
+    networkId: 'aggregate',
+    isAggregateToken: true,
+    commonSymbol: 'USDC',
+  });
+  const ethereumUsdc = buildTestToken({
+    $key: 'eth-usdc',
+    address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    networkId: 'evm--1',
+  });
+  const baseUsdc = buildTestToken({
+    $key: 'base-usdc',
+    address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+    networkId: 'evm--8453',
+  });
+  const aggregateTokenListMap = {
+    [aggregateUsdc.$key]: {
+      tokens: [ethereumUsdc, baseUsdc],
+    },
+  };
+  const networksMap = {
+    'evm--1': buildTestNetwork({
+      id: 'evm--1',
+      name: 'Ethereum',
+      code: 'eth',
+      shortname: 'ETH',
+    }),
+    'evm--8453': buildTestNetwork({
+      id: 'evm--8453',
+      name: 'Base',
+      code: 'base',
+      shortname: 'Base',
+    }),
+  };
+
+  test('keeps symbol-only aggregate token search grouped', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateUsdc],
+        searchKey: 'usdc',
+        aggregateTokenListMap,
+        networksMap,
+        enableNetworkSearch: true,
+      }),
+    ).toEqual([aggregateUsdc]);
+  });
+
+  test('returns the network-specific token when search includes token and network keywords', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateUsdc],
+        searchKey: 'usdc eth',
+        aggregateTokenListMap,
+        networksMap,
+        enableNetworkSearch: true,
+      }),
+    ).toEqual([ethereumUsdc]);
+  });
+});
 
 describe('calculateAccountTotalValue — tray case (no filters)', () => {
   test('sums all token values + deFi when no filters passed', () => {

@@ -35,6 +35,7 @@ import {
   type IPerpsMarketDataFreshness,
   shouldBlockPerpsTradingForMarketData,
 } from '../utils/perpsMarketDataFreshness';
+import { getScaleOrderValidationErrorMessage } from '../utils/scaleOrderValidation';
 
 import { useOrderPrice } from './useOrderPrice';
 import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
@@ -236,7 +237,11 @@ function useOrderConfirmWithMarketDataFreshness({
         if (!scaleValidation.isValid) {
           Toast.error({
             title: 'Order Failed',
-            message: scaleValidation.errors[0] ?? 'Invalid scale order',
+            message: getScaleOrderValidationErrorMessage({
+              intl,
+              validation: scaleValidation,
+              fallback: 'Invalid scale order',
+            }),
           });
           return;
         }

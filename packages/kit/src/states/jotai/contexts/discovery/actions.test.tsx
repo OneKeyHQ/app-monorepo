@@ -7,7 +7,10 @@ import { createStore } from 'jotai';
 
 import { rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
-import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
+import type {
+  IBrowserBookmark,
+  IWebTab,
+} from '@onekeyhq/kit/src/views/Discovery/types';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import {
   EAppEventBusNames,
@@ -34,6 +37,15 @@ const mockSetBrowserTabsRawData = jest.fn();
 const mockSetBrowserHistoryRawData = jest.fn();
 const mockSetBrowserClosedTabsRawData = jest.fn();
 const mockCrossWebviewLoadUrl = jest.fn();
+const mockFetchDiscoveryHomePageData = jest.fn(async () => ({
+  banners: [],
+  categories: [],
+  trending: [],
+}));
+const mockGetDiscoveryBookmarkData = jest.fn(
+  async (_options?: unknown): Promise<IBrowserBookmark[]> => [],
+);
+const mockSwrCacheSet = jest.fn<void, [string, unknown]>();
 
 jest.mock('@onekeyhq/components', () => ({
   Toast: {
@@ -67,6 +79,18 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isNativeAndroid: false,
     isNativeIOS: false,
     isJest: true,
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
+  swrCacheUtils: {
+    set: (key: string, data: unknown) => {
+      mockSwrCacheSet(key, data);
+    },
+  },
+  swrKeys: {
+    discoveryHomePageData: () => 'discovery-home-page-data',
+    discoveryHomeBookmarks: () => 'discovery-home-bookmarks',
   },
 }));
 
@@ -128,6 +152,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceDiscovery: {
       buildWebsiteIconUrl: jest.fn(async () => ''),
+      fetchDiscoveryHomePageData: () => mockFetchDiscoveryHomePageData(),
+      getBookmarkData: (options: unknown) =>
+        mockGetDiscoveryBookmarkData(options),
     },
   },
 }));
@@ -213,6 +240,22 @@ function createWrapper({
       </ProviderJotaiContextDiscovery>
     );
   };
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function getBookmarkCacheWrites() {
+  return mockSwrCacheSet.mock.calls
+    .filter(([key]) => key === 'discovery-home-bookmarks')
+    .map(([, data]) => data);
 }
 
 describe('useBrowserTabActions', () => {
@@ -366,6 +409,262 @@ describe('useBrowserTabActions', () => {
       'tab-2',
       'home-tab',
     ]);
+  });
+
+  it('does not activate a new desktop home tab when the current tab is already home', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserTabActions().current;
+        const [activeTabId] = useActiveTabIdAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          activeTabId,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'home-tab',
+              url: '',
+              title: 'Start Tab',
+              timestamp: 100,
+              type: 'home',
+              isActive: true,
+            },
+          ],
+          activeTabId: 'home-tab',
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    await act(async () => {
+      result.current.actions.addBrowserHomeTab();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const homeTabs = result.current.tabs.filter((tab) => tab.type === 'home');
+    expect(homeTabs).toHaveLength(2);
+    expect(result.current.activeTabId).toBe('home-tab');
+    expect(result.current.tabs.find((tab) => tab.id === 'home-tab')).toEqual(
+      expect.objectContaining({
+        isActive: true,
+      }),
+    );
+    expect(homeTabs.find((tab) => tab.id !== 'home-tab')?.isActive).toBe(false);
+    expect(mockFetchDiscoveryHomePageData).toHaveBeenCalledTimes(1);
+    expect(mockGetDiscoveryBookmarkData).toHaveBeenCalledWith({
+      generateIcon: true,
+      sliceCount: 14,
+    });
+    expect(mockSwrCacheSet).toHaveBeenCalledWith(
+      'discovery-home-page-data',
+      expect.objectContaining({
+        trending: [],
+      }),
+    );
+    expect(mockSwrCacheSet).toHaveBeenCalledWith(
+      'discovery-home-bookmarks',
+      [],
+    );
+  });
+
+  it('only writes the latest discovery home bookmarks prefetch to cache', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    const firstPrefetch = createDeferred<IBrowserBookmark[]>();
+    const secondPrefetch = createDeferred<IBrowserBookmark[]>();
+    mockGetDiscoveryBookmarkData
+      .mockImplementationOnce(() => firstPrefetch.promise)
+      .mockImplementationOnce(() => secondPrefetch.promise);
+
+    const { result } = renderHook(
+      () => ({
+        actions: useBrowserTabActions().current,
+      }),
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'home-tab',
+              url: '',
+              title: 'Start Tab',
+              timestamp: 100,
+              type: 'home',
+              isActive: true,
+            },
+          ],
+          activeTabId: 'home-tab',
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    act(() => {
+      result.current.actions.addBrowserHomeTab();
+      result.current.actions.addBrowserHomeTab();
+    });
+
+    const staleBookmarks = [
+      {
+        title: 'Stale',
+        url: 'https://stale.example',
+        logo: undefined,
+        sortIndex: 0,
+      },
+    ];
+    await act(async () => {
+      firstPrefetch.resolve(staleBookmarks);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getBookmarkCacheWrites()).toEqual([]);
+
+    const latestBookmarks = [
+      {
+        title: 'Latest',
+        url: 'https://latest.example',
+        logo: undefined,
+        sortIndex: 0,
+      },
+    ];
+    await act(async () => {
+      secondPrefetch.resolve(latestBookmarks);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getBookmarkCacheWrites()).toEqual([latestBookmarks]);
+  });
+
+  it('does not write bookmark prefetch cache after a bookmark refresh event', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    const bookmarkPrefetch = createDeferred<IBrowserBookmark[]>();
+    mockGetDiscoveryBookmarkData.mockImplementationOnce(
+      () => bookmarkPrefetch.promise,
+    );
+
+    const { result } = renderHook(
+      () => ({
+        actions: useBrowserTabActions().current,
+      }),
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'home-tab',
+              url: '',
+              title: 'Start Tab',
+              timestamp: 100,
+              type: 'home',
+              isActive: true,
+            },
+          ],
+          activeTabId: 'home-tab',
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    act(() => {
+      result.current.actions.addBrowserHomeTab();
+      appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
+    });
+
+    await act(async () => {
+      bookmarkPrefetch.resolve([
+        {
+          title: 'Stale',
+          url: 'https://stale.example',
+          logo: undefined,
+          sortIndex: 0,
+        },
+      ]);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getBookmarkCacheWrites()).toEqual([]);
+  });
+
+  it('does not write bookmark prefetch cache after a bookmark prefetch invalidation event', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    const bookmarkPrefetch = createDeferred<IBrowserBookmark[]>();
+    mockGetDiscoveryBookmarkData.mockImplementationOnce(
+      () => bookmarkPrefetch.promise,
+    );
+
+    const { result } = renderHook(
+      () => ({
+        actions: useBrowserTabActions().current,
+      }),
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'home-tab',
+              url: '',
+              title: 'Start Tab',
+              timestamp: 100,
+              type: 'home',
+              isActive: true,
+            },
+          ],
+          activeTabId: 'home-tab',
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    act(() => {
+      result.current.actions.addBrowserHomeTab();
+      appEventBus.emit(
+        EAppEventBusNames.InvalidateDiscoveryHomeBookmarksPrefetch,
+        undefined,
+      );
+    });
+
+    await act(async () => {
+      bookmarkPrefetch.resolve([
+        {
+          title: 'Stale',
+          url: 'https://stale.example',
+          logo: undefined,
+          sortIndex: 0,
+        },
+      ]);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getBookmarkCacheWrites()).toEqual([]);
   });
 
   it('selects a replacement tab after closing the current tab outside native', () => {
