@@ -12,6 +12,7 @@ import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useDecodedTxsInitAtom,
+  useEffectiveFeePayerAtom,
   useSignatureConfirmActions,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
@@ -87,6 +88,7 @@ function TxConfirm() {
   const [settings] = useSettingsPersistAtom();
   const [reactiveUnsignedTxs] = useUnsignedTxsAtom();
   const [decodedTxsInit] = useDecodedTxsInitAtom();
+  const [effectiveFeePayer] = useEffectiveFeePayerAtom();
   const txConfirmParamsInit = useRef(false);
   const visitReceiveSelectorRef = useRef<boolean>(false);
 
@@ -445,9 +447,13 @@ function TxConfirm() {
 
   const renderHeaderRight = useCallback(
     () => (
-      <TxConfirmHeaderRight decodedTxs={decodedTxs} unsignedTxs={unsignedTxs} />
+      <TxConfirmHeaderRight
+        decodedTxs={decodedTxs}
+        unsignedTxs={unsignedTxs}
+        effectiveFeePayer={effectiveFeePayer}
+      />
     ),
-    [decodedTxs, unsignedTxs],
+    [decodedTxs, unsignedTxs, effectiveFeePayer],
   );
 
   return (

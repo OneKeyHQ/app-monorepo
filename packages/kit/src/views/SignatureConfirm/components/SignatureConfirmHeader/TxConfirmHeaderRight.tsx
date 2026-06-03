@@ -17,6 +17,7 @@ import {
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworksSupportMevProtection } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IGasPayer } from '@onekeyhq/shared/types/fee';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 const mevProtectionProviders = getNetworksSupportMevProtection();
@@ -26,8 +27,9 @@ const DEFAULT_IMAGE_HEIGHT = 40;
 function TxConfirmHeaderRight(props: {
   decodedTxs: IDecodedTx[] | undefined;
   unsignedTxs: IUnsignedTxPro[] | undefined;
+  effectiveFeePayer?: IGasPayer;
 }) {
-  const { decodedTxs, unsignedTxs } = props;
+  const { decodedTxs, unsignedTxs, effectiveFeePayer } = props;
   const intl = useIntl();
   const { gtMd } = useMedia();
   const theme = useThemeName();
@@ -36,6 +38,15 @@ function TxConfirmHeaderRight(props: {
 
   const mevProtectionProvider = useMemo(() => {
     if (!unsignedTxs) return null;
+
+    // Hide the MEV badge only when the fee is paid by a gas account. Gas
+    // account transactions are relayed through a quote-bound RPC rather than
+    // the MEV-protected RPC, so the badge would be misleading. BNB gas-free
+    // (megafuel) transactions are still broadcast through the MEV-protected
+    // RPC, so the badge must remain for them.
+    if (effectiveFeePayer === 'gasAccount') {
+      return null;
+    }
 
     const unsignedTx = unsignedTxs[0];
 
@@ -69,7 +80,11 @@ function TxConfirmHeaderRight(props: {
         ];
       }
     }
-  }, [unsignedTxs, decodedTx?.txDisplay?.mevProtectionProvider]);
+  }, [
+    unsignedTxs,
+    decodedTx?.txDisplay?.mevProtectionProvider,
+    effectiveFeePayer,
+  ]);
 
   const imageUri = useMemo(() => {
     if (!mevProtectionProvider) {
