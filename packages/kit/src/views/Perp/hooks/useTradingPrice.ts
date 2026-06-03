@@ -6,8 +6,11 @@ import {
   useActiveTradeInstrumentAtom,
   usePerpsMidByCoin,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
+import { usePerpsActiveAssetCtxMidPriceAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSpotActiveAssetCtxMarkPriceAtom,
+  useSpotActiveAssetCtxMidPriceAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 
 export interface IUseTradingPriceReturn {
   midPrice: string | undefined;
@@ -15,11 +18,33 @@ export interface IUseTradingPriceReturn {
   isValid: boolean;
 }
 
+function buildTradingPriceResult(
+  midPrice: string | undefined,
+): IUseTradingPriceReturn {
+  if (!midPrice) {
+    return {
+      midPrice: undefined,
+      midPriceBN: new BigNumber(0),
+      isValid: false,
+    };
+  }
+
+  const midPriceBN = new BigNumber(midPrice);
+  const isValid = midPriceBN.isFinite() && midPriceBN.gt(0);
+
+  return {
+    midPrice,
+    midPriceBN,
+    isValid,
+  };
+}
+
 export function useTradingPrice(): IUseTradingPriceReturn {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const activeMidPrice = usePerpsMidByCoin(activeTradeInstrument?.coin ?? '');
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
-  const [activeSpotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const [activeAssetCtxMidPrice] = usePerpsActiveAssetCtxMidPriceAtom();
+  const [activeSpotAssetCtxMidPrice] = useSpotActiveAssetCtxMidPriceAtom();
+  const [activeSpotAssetCtxMarkPrice] = useSpotActiveAssetCtxMarkPriceAtom();
 
   const result = useMemo<IUseTradingPriceReturn>(() => {
     const coin = activeTradeInstrument?.coin;
@@ -33,31 +58,16 @@ export function useTradingPrice(): IUseTradingPriceReturn {
 
     const midPrice =
       activeTradeInstrument.mode === 'spot'
-        ? activeSpotAssetCtx?.ctx?.midPrice ||
-          activeSpotAssetCtx?.ctx?.markPrice ||
+        ? activeSpotAssetCtxMidPrice ||
+          activeSpotAssetCtxMarkPrice ||
           activeMidPrice
-        : activeAssetCtx?.ctx?.midPrice || activeMidPrice;
+        : activeAssetCtxMidPrice || activeMidPrice;
 
-    if (!midPrice) {
-      return {
-        midPrice: undefined,
-        midPriceBN: new BigNumber(0),
-        isValid: false,
-      };
-    }
-
-    const midPriceBN = new BigNumber(midPrice);
-    const isValid = midPriceBN.isFinite() && midPriceBN.gt(0);
-
-    return {
-      midPrice,
-      midPriceBN,
-      isValid,
-    };
+    return buildTradingPriceResult(midPrice);
   }, [
-    activeAssetCtx?.ctx?.midPrice,
-    activeSpotAssetCtx?.ctx?.markPrice,
-    activeSpotAssetCtx?.ctx?.midPrice,
+    activeAssetCtxMidPrice,
+    activeSpotAssetCtxMarkPrice,
+    activeSpotAssetCtxMidPrice,
     activeMidPrice,
     activeTradeInstrument,
   ]);

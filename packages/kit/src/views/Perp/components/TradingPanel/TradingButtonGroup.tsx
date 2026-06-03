@@ -19,9 +19,13 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   type ITradingFormData,
+  type ITradingFormEmptySizeParams,
   useActiveTradeInstrumentAtom,
   usePerpsActivePositionAtom,
   useTradingFormAtom,
+  useTradingFormEmptySizeParams,
+  useTradingFormOrderPriceParams,
+  useTradingFormSide,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -145,14 +149,18 @@ function getPerpsAccountKey(account: {
   return `${accountId ?? ''}:${account.accountAddress ?? ''}`;
 }
 
-function hasPerpsOrderSizeInput(formData: ITradingFormData) {
+function hasPerpsOrderSizeInput(
+  formData: Pick<ITradingFormData, 'sizeInputMode' | 'size' | 'sizePercent'>,
+) {
   if (formData.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
     return (formData.sizePercent ?? 0) > 0;
   }
   return Boolean(formData.size?.trim());
 }
 
-function shouldUseEmptySizeTradingButtons(formData: ITradingFormData) {
+function shouldUseEmptySizeTradingButtons(
+  formData: ITradingFormEmptySizeParams,
+) {
   return (
     formData.orderMode !== 'trigger' &&
     !formData.bboPriceMode &&
@@ -177,11 +185,7 @@ async function getLatestPerpsMarketDataFreshness() {
 // Est. Liq price isolated into its own leaf: it owns the price-driven
 // `useLiquidationPrice` subscription, so a price tick re-renders ONLY this
 // text node instead of the whole side button. Value is debounced (~10Hz).
-const EstLiqPriceLeaf = memo(function EstLiqPriceLeaf({
-  side,
-}: {
-  side: 'long' | 'short';
-}) {
+const EstLiqPriceLeaf = memo(({ side }: { side: 'long' | 'short' }) => {
   const liquidationPrice = useDebounce(useLiquidationPrice(side), 100);
   if (liquidationPrice) {
     return (
@@ -1598,7 +1602,7 @@ function EmptySizeSideButton({
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [formData] = useTradingFormAtom();
+  const formData = useTradingFormOrderPriceParams();
   const [tradingMode] = useTradingModeAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [isSubmitting] = useTradingLoadingAtom();
@@ -1954,7 +1958,7 @@ function TradingButtonGroupLive({
   enableTradingModeOverride,
 }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
-  const [formData] = useTradingFormAtom();
+  const tradingSide = useTradingFormSide();
   const marketDataFreshness = usePerpsMarketDataFreshness();
   const { handleConfirm } = useOrderConfirmWithMarketDataFreshness({
     marketDataFreshness,
@@ -1966,7 +1970,7 @@ function TradingButtonGroupLive({
       return (
         <YStack {...(!isMobile && { mt: '$4' })}>
           <SideButtonLive
-            side={formData.side}
+            side={tradingSide}
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
             enableTradingModeOverride={enableTradingModeOverride}
@@ -2034,7 +2038,7 @@ function TradingButtonGroupEmptySize({
   isLiveStatusPending = false,
 }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
-  const [formData] = useTradingFormAtom();
+  const tradingSide = useTradingFormSide();
   const isSpot = tradingMode === 'spot';
 
   const renderSideButtons = () => {
@@ -2042,7 +2046,7 @@ function TradingButtonGroupEmptySize({
       return (
         <YStack {...(!isMobile && { mt: '$4' })}>
           <SideButtonEmptySize
-            side={formData.side}
+            side={tradingSide}
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
           />
@@ -2094,7 +2098,7 @@ function TradingButtonGroup({
   isMobile,
   isLiveStatusPending = false,
 }: ITradingButtonGroupProps) {
-  const [formData] = useTradingFormAtom();
+  const formData = useTradingFormEmptySizeParams();
 
   if (shouldUseEmptySizeTradingButtons(formData)) {
     return (

@@ -1240,6 +1240,15 @@ export default class ServiceHyperliquid extends ServiceBase {
   async updateActiveAssetCtx(data: IWsActiveAssetCtx | undefined) {
     const activeAsset = await perpsActiveAssetAtom.get();
     if (activeAsset?.coin === data?.coin && data?.coin) {
+      const nextCtx = perpsUtils.formatAssetCtx(data?.ctx);
+      const activeAssetCtx = await perpsActiveAssetCtxAtom.get();
+      if (
+        activeAssetCtx?.coin === data.coin &&
+        activeAssetCtx.assetId === activeAsset?.assetId &&
+        isEqual(activeAssetCtx.ctx, nextCtx)
+      ) {
+        return;
+      }
       markPerpsColdStartPerfOnce('service_active_asset_ctx_atom_set_first', {
         coin: data.coin,
         markPx: data.ctx?.markPx,
@@ -1248,7 +1257,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         (_prev): IPerpsActiveAssetCtxAtom => ({
           coin: data?.coin,
           assetId: activeAsset?.assetId,
-          ctx: perpsUtils.formatAssetCtx(data?.ctx),
+          ctx: nextCtx,
         }),
       );
     } else {

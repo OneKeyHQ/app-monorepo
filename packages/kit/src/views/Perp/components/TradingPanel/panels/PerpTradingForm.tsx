@@ -41,13 +41,13 @@ import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
+  usePerpsActiveAssetCtxReadyAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useSpotActiveAssetAtom,
-  useSpotActiveAssetCtxAtom,
+  useSpotActiveAssetCtxReadyAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -349,9 +349,9 @@ function PerpTradingForm({
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const [activeAsset] = usePerpsActiveAssetAtom();
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const [isPerpsActiveAssetCtxReady] = usePerpsActiveAssetCtxReadyAtom();
   const [spotActiveAsset] = useSpotActiveAssetAtom();
-  const [spotActiveAssetCtx] = useSpotActiveAssetCtxAtom();
+  const [isSpotActiveAssetCtxReady] = useSpotActiveAssetCtxReadyAtom();
   const [{ balances: spotBalances }] = useSpotBalancesAtom();
   const { baseName: activeBaseName } = useActiveTradeDisplay();
   const { midPrice, midPriceBN } = useTradingPrice();
@@ -427,9 +427,9 @@ function PerpTradingForm({
       spotUniverse,
     ],
   );
-  const selectedTradeAssetCtx = isSpot
-    ? (spotActiveAssetCtx as typeof activeAssetCtx)
-    : activeAssetCtx;
+  const isSelectedTradeAssetCtxReady = isSpot
+    ? isSpotActiveAssetCtxReady
+    : isPerpsActiveAssetCtxReady;
 
   const spotAvailableBaseBN = useMemo(() => {
     if (!spotUniverse?.baseName) {
@@ -568,6 +568,39 @@ function PerpTradingForm({
     },
     [actions],
   );
+  const midPriceRef = useRef(midPrice);
+
+  useEffect(() => {
+    midPriceRef.current = midPrice;
+  }, [midPrice]);
+
+  const getFormattedMidPrice = useCallback(() => {
+    const latestMidPrice = midPriceRef.current;
+    if (!latestMidPrice) {
+      return undefined;
+    }
+    return isSpot
+      ? formatSpotPriceToValid(latestMidPrice, sizeSzDecimals)
+      : formatPriceToSignificantDigits(latestMidPrice, sizeSzDecimals);
+  }, [isSpot, sizeSzDecimals]);
+
+  const handleUseMidPriceForExecutionPrice = useCallback(() => {
+    const nextPrice = getFormattedMidPrice();
+    if (nextPrice) {
+      updateForm({
+        executionPrice: nextPrice,
+      });
+    }
+  }, [getFormattedMidPrice, updateForm]);
+
+  const handleUseMidPriceForPrice = useCallback(() => {
+    const nextPrice = getFormattedMidPrice();
+    if (nextPrice) {
+      updateForm({
+        price: nextPrice,
+      });
+    }
+  }, [getFormattedMidPrice, updateForm]);
 
   const prevTypeRef = useRef<'market' | 'limit'>(formData.type);
 
@@ -575,23 +608,17 @@ function PerpTradingForm({
     const prevType = prevTypeRef.current;
     const currentType = formData.type;
 
-    if (prevType !== 'limit' && currentType === 'limit' && midPrice) {
+    const latestMidPrice = midPriceRef.current;
+    if (prevType !== 'limit' && currentType === 'limit' && latestMidPrice) {
       updateForm({
         price: isSpot
-          ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-          : formatPriceToSignificantDigits(midPrice, sizeSzDecimals),
+          ? formatSpotPriceToValid(latestMidPrice, sizeSzDecimals)
+          : formatPriceToSignificantDigits(latestMidPrice, sizeSzDecimals),
       });
     }
 
     prevTypeRef.current = currentType;
-  }, [
-    formData.type,
-    formData.price,
-    isSpot,
-    midPrice,
-    sizeSzDecimals,
-    updateForm,
-  ]);
+  }, [formData.type, isSpot, sizeSzDecimals, updateForm]);
 
   useEffect(() => {
     const nextEnv = isSpot
@@ -1678,18 +1705,7 @@ function PerpTradingForm({
           />
           {isTriggerLimitOrder ? (
             <PriceInput
-              onUseMidPrice={() => {
-                if (midPrice) {
-                  updateForm({
-                    executionPrice: isSpot
-                      ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-                      : formatPriceToSignificantDigits(
-                          midPrice,
-                          sizeSzDecimals,
-                        ),
-                  });
-                }
-              }}
+              onUseMidPrice={handleUseMidPriceForExecutionPrice}
               placeholder={intl.formatMessage({
                 id: ETranslations.perps_input_price_place_holder,
               })}
@@ -1723,18 +1739,7 @@ function PerpTradingForm({
           ) : (
             <YStack flex={1}>
               <PriceInput
-                onUseMidPrice={() => {
-                  if (midPrice) {
-                    updateForm({
-                      price: isSpot
-                        ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-                        : formatPriceToSignificantDigits(
-                            midPrice,
-                            sizeSzDecimals,
-                          ),
-                    });
-                  }
-                }}
+                onUseMidPrice={handleUseMidPriceForPrice}
                 value={
                   formData.type === 'limit'
                     ? formData.price
@@ -2641,7 +2646,7 @@ function PerpTradingForm({
         referencePrice={referencePriceString}
         side={formData.side}
         activeAsset={selectedTradeAsset}
-        activeAssetCtx={selectedTradeAssetCtx}
+        isAssetCtxReady={isSelectedTradeAssetCtxReady}
         symbol={activeBaseName || perpsSelectedDisplayName}
         value={formData.size}
         onChange={handleManualSizeChange}

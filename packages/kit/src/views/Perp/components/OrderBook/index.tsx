@@ -451,61 +451,65 @@ function formatSideRatioPercentage(value: number) {
   return `${Math.round(value)}%`;
 }
 
-const OrderBookVerticalRow = memo(function OrderBookVerticalRow({
-  item,
-  priceColor,
-  sizeColor,
-  isHovered = false,
-}: {
-  item: IFormattedOBLevel;
-  priceColor: string;
-  sizeColor: string;
-  isHovered?: boolean;
-}) {
-  const fontWeightStyle = isHovered ? styles.monospaceTextBold : null;
-  return (
-    <DebugRenderTracker name="OrderBookVerticalRow" position="right-center">
-      <View style={styles.verticalRowContainer}>
-        <View style={styles.verticalRowCellPrice}>
-          <PerpBookText
-            style={[
-              styles.monospaceText,
-              { color: priceColor },
-              fontWeightStyle,
-            ]}
-            numberOfLines={1}
-          >
-            {item.price}
-          </PerpBookText>
+const OrderBookVerticalRow = memo(
+  ({
+    item,
+    priceColor,
+    sizeColor,
+    isHovered = false,
+  }: {
+    item: IFormattedOBLevel;
+    priceColor: string;
+    sizeColor: string;
+    isHovered?: boolean;
+  }) => {
+    const fontWeightStyle = isHovered ? styles.monospaceTextBold : null;
+    return (
+      <DebugRenderTracker name="OrderBookVerticalRow" position="right-center">
+        <View style={styles.verticalRowContainer}>
+          <View style={styles.verticalRowCellPrice}>
+            <PerpBookText
+              style={[
+                styles.monospaceText,
+                { color: priceColor },
+                fontWeightStyle,
+              ]}
+              numberOfLines={1}
+            >
+              {item.price}
+            </PerpBookText>
+          </View>
+          <View style={styles.verticalRowCellSize}>
+            <PerpBookText
+              numberOfLines={1}
+              style={[
+                styles.monospaceText,
+                { color: sizeColor },
+                fontWeightStyle,
+              ]}
+            >
+              {item.displaySize}
+            </PerpBookText>
+          </View>
+          <View style={styles.verticalRowCellTotal}>
+            <PerpBookText
+              numberOfLines={1}
+              style={[
+                styles.monospaceText,
+                { color: sizeColor },
+                fontWeightStyle,
+              ]}
+            >
+              {item.displayCumSize}
+            </PerpBookText>
+          </View>
         </View>
-        <View style={styles.verticalRowCellSize}>
-          <PerpBookText
-            numberOfLines={1}
-            style={[
-              styles.monospaceText,
-              { color: sizeColor },
-              fontWeightStyle,
-            ]}
-          >
-            {item.displaySize}
-          </PerpBookText>
-        </View>
-        <View style={styles.verticalRowCellTotal}>
-          <PerpBookText
-            numberOfLines={1}
-            style={[
-              styles.monospaceText,
-              { color: sizeColor },
-              fontWeightStyle,
-            ]}
-          >
-            {item.displayCumSize}
-          </PerpBookText>
-        </View>
-      </View>
-    </DebugRenderTracker>
-  );
-}, areLevelRowPropsEqual);
+      </DebugRenderTracker>
+    );
+  },
+  areLevelRowPropsEqual,
+);
+OrderBookVerticalRow.displayName = 'OrderBookVerticalRow';
 
 const useBlockColors = () => {
   const themeName = useThemeName();
@@ -568,97 +572,101 @@ const useBlockColorsMobile = () => {
   }, [themeName]);
 };
 
-const OrderBookSideRatio = memo(function OrderBookSideRatio({
-  animated = true,
-  bidDepth,
-  askDepth,
-  size = 'default',
-}: {
-  animated?: boolean;
-  bidDepth: BigNumber;
-  askDepth: BigNumber;
-  size?: 'default' | 'compact' | 'mobile';
-}) {
-  const textColor = useTextColor();
-  const sideRatioColors = useSideRatioColors();
-  const totalDepth = useMemo(
-    () => bidDepth.plus(askDepth),
-    [askDepth, bidDepth],
-  );
-  const { bidPercentage, askPercentage } = useMemo(() => {
-    if (totalDepth.isZero()) {
+const OrderBookSideRatio = memo(
+  ({
+    animated = true,
+    bidDepth,
+    askDepth,
+    size = 'default',
+  }: {
+    animated?: boolean;
+    bidDepth: BigNumber;
+    askDepth: BigNumber;
+    size?: 'default' | 'compact' | 'mobile';
+  }) => {
+    const textColor = useTextColor();
+    const sideRatioColors = useSideRatioColors();
+    const totalDepth = useMemo(
+      () => bidDepth.plus(askDepth),
+      [askDepth, bidDepth],
+    );
+    const { bidPercentage, askPercentage } = useMemo(() => {
+      if (totalDepth.isZero()) {
+        return {
+          bidPercentage: 50,
+          askPercentage: 50,
+        };
+      }
+
+      const bid = bidDepth.dividedBy(totalDepth).multipliedBy(100).toNumber();
+
       return {
-        bidPercentage: 50,
-        askPercentage: 50,
+        bidPercentage: bid,
+        askPercentage: 100 - bid,
       };
-    }
+    }, [bidDepth, totalDepth]);
+    const isCompact = size === 'compact' || size === 'mobile';
+    const isMobile = size === 'mobile';
 
-    const bid = bidDepth.dividedBy(totalDepth).multipliedBy(100).toNumber();
-
-    return {
-      bidPercentage: bid,
-      askPercentage: 100 - bid,
-    };
-  }, [bidDepth, totalDepth]);
-  const isCompact = size === 'compact' || size === 'mobile';
-  const isMobile = size === 'mobile';
-
-  return (
-    <View
-      style={[
-        styles.sideRatioContainer,
-        isCompact ? styles.sideRatioContainerCompact : null,
-        isMobile ? styles.sideRatioContainerMobile : null,
-      ]}
-    >
-      <PerpBookText
-        numberOfLines={1}
-        style={[
-          styles.sideRatioLabel,
-          isCompact ? styles.sideRatioLabelCompact : null,
-          isMobile ? styles.sideRatioLabelMobile : null,
-          { color: textColor.green },
-        ]}
-      >
-        B {formatSideRatioPercentage(bidPercentage)}
-      </PerpBookText>
-
+    return (
       <View
         style={[
-          styles.sideRatioTrack,
-          isCompact ? styles.sideRatioTrackCompact : null,
-          isMobile ? styles.sideRatioTrackMobile : null,
+          styles.sideRatioContainer,
+          isCompact ? styles.sideRatioContainerCompact : null,
+          isMobile ? styles.sideRatioContainerMobile : null,
         ]}
       >
-        <SideRatioSegments
-          animated={animated}
-          bidPercentage={bidPercentage}
-          askPercentage={askPercentage}
-          longColor={sideRatioColors.long}
-          shortColor={sideRatioColors.short}
-          segmentStyle={styles.sideRatioSegment}
-          startSegmentStyle={styles.sideRatioSegmentStart}
-          endSegmentStyle={styles.sideRatioSegmentEnd}
-        />
-      </View>
+        <PerpBookText
+          numberOfLines={1}
+          style={[
+            styles.sideRatioLabel,
+            isCompact ? styles.sideRatioLabelCompact : null,
+            isMobile ? styles.sideRatioLabelMobile : null,
+            { color: textColor.green },
+          ]}
+        >
+          B {formatSideRatioPercentage(bidPercentage)}
+        </PerpBookText>
 
-      <PerpBookText
-        numberOfLines={1}
-        style={[
-          styles.sideRatioLabel,
-          isCompact ? styles.sideRatioLabelCompact : null,
-          isMobile ? styles.sideRatioLabelMobile : null,
-          {
-            color: textColor.red,
-            textAlign: 'right',
-          },
-        ]}
-      >
-        {formatSideRatioPercentage(askPercentage)} S
-      </PerpBookText>
-    </View>
-  );
-}, areSideRatioPropsEqual);
+        <View
+          style={[
+            styles.sideRatioTrack,
+            isCompact ? styles.sideRatioTrackCompact : null,
+            isMobile ? styles.sideRatioTrackMobile : null,
+          ]}
+        >
+          <SideRatioSegments
+            animated={animated}
+            bidPercentage={bidPercentage}
+            askPercentage={askPercentage}
+            longColor={sideRatioColors.long}
+            shortColor={sideRatioColors.short}
+            segmentStyle={styles.sideRatioSegment}
+            startSegmentStyle={styles.sideRatioSegmentStart}
+            endSegmentStyle={styles.sideRatioSegmentEnd}
+          />
+        </View>
+
+        <PerpBookText
+          numberOfLines={1}
+          style={[
+            styles.sideRatioLabel,
+            isCompact ? styles.sideRatioLabelCompact : null,
+            isMobile ? styles.sideRatioLabelMobile : null,
+            {
+              color: textColor.red,
+              textAlign: 'right',
+            },
+          ]}
+        >
+          {formatSideRatioPercentage(askPercentage)} S
+        </PerpBookText>
+      </View>
+    );
+  },
+  areSideRatioPropsEqual,
+);
+OrderBookSideRatio.displayName = 'OrderBookSideRatio';
 
 export function OrderBook({
   variant,
@@ -1255,43 +1263,55 @@ export function OrderBook({
   );
 }
 
-const OrderBookPairRow = memo(function OrderBookPairRow({
-  item,
-  priceColor,
-  sizeColor,
-  isHovered = false,
-}: {
-  item: IFormattedOBLevel;
-  priceColor: string;
-  sizeColor: string;
-  isHovered?: boolean;
-}) {
-  const fontWeightStyle = isHovered ? styles.monospaceTextBold : null;
-  return (
-    <DebugRenderTracker name="OrderBookPairRow" position="right-center">
-      <View
-        style={{
-          flex: 1,
-          flexDirection: 'row',
-          marginTop: 1,
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <PerpBookText
-          style={[styles.monospaceText, { color: priceColor }, fontWeightStyle]}
+const OrderBookPairRow = memo(
+  ({
+    item,
+    priceColor,
+    sizeColor,
+    isHovered = false,
+  }: {
+    item: IFormattedOBLevel;
+    priceColor: string;
+    sizeColor: string;
+    isHovered?: boolean;
+  }) => {
+    const fontWeightStyle = isHovered ? styles.monospaceTextBold : null;
+    return (
+      <DebugRenderTracker name="OrderBookPairRow" position="right-center">
+        <View
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            marginTop: 1,
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
         >
-          {item.price}
-        </PerpBookText>
-        <PerpBookText
-          style={[styles.monospaceText, { color: sizeColor }, fontWeightStyle]}
-        >
-          {item.displaySize}
-        </PerpBookText>
-      </View>
-    </DebugRenderTracker>
-  );
-}, areLevelRowPropsEqual);
+          <PerpBookText
+            style={[
+              styles.monospaceText,
+              { color: priceColor },
+              fontWeightStyle,
+            ]}
+          >
+            {item.price}
+          </PerpBookText>
+          <PerpBookText
+            style={[
+              styles.monospaceText,
+              { color: sizeColor },
+              fontWeightStyle,
+            ]}
+          >
+            {item.displaySize}
+          </PerpBookText>
+        </View>
+      </DebugRenderTracker>
+    );
+  },
+  areLevelRowPropsEqual,
+);
+OrderBookPairRow.displayName = 'OrderBookPairRow';
 
 export function OrderPairBook({
   variant,
@@ -1652,178 +1672,119 @@ function MobileSpreadInfoContent({
 }
 const MobileSpreadInfoContentMemo = memo(MobileSpreadInfoContent);
 
-const MobileEmptySpreadInfoRow = memo(function MobileEmptySpreadInfoRow({
-  asks,
-  bids,
-  isEmpty,
-  textColor,
-}: {
-  asks: IBookLevel[];
-  bids: IBookLevel[];
-  isEmpty: boolean;
-  textColor: ReturnType<typeof useTextColor>;
-}) {
-  const { midPrice: tradingMidPrice, isValid: hasTradingMidPrice } =
-    useTradingPrice();
-  return (
-    <MobileSpreadInfoContentMemo
-      asks={asks}
-      bids={bids}
-      hasTradingMidPrice={hasTradingMidPrice}
-      isEmpty={isEmpty}
-      textColor={textColor}
-      tradingMidPrice={tradingMidPrice}
-    />
-  );
-});
-
-const MobileSpreadInfoRow = memo(function MobileSpreadInfoRow({
-  asks,
-  bids,
-  isEmpty,
-  textColor,
-}: {
-  asks: IBookLevel[];
-  bids: IBookLevel[];
-  isEmpty: boolean;
-  textColor: ReturnType<typeof useTextColor>;
-}) {
-  if (isEmpty) {
+const MobileEmptySpreadInfoRow = memo(
+  ({
+    asks,
+    bids,
+    isEmpty,
+    textColor,
+  }: {
+    asks: IBookLevel[];
+    bids: IBookLevel[];
+    isEmpty: boolean;
+    textColor: ReturnType<typeof useTextColor>;
+  }) => {
+    const { midPrice: tradingMidPrice, isValid: hasTradingMidPrice } =
+      useTradingPrice();
     return (
-      <MobileEmptySpreadInfoRow
+      <MobileSpreadInfoContentMemo
+        asks={asks}
+        bids={bids}
+        hasTradingMidPrice={hasTradingMidPrice}
+        isEmpty={isEmpty}
+        textColor={textColor}
+        tradingMidPrice={tradingMidPrice}
+      />
+    );
+  },
+);
+MobileEmptySpreadInfoRow.displayName = 'MobileEmptySpreadInfoRow';
+
+const MobileSpreadInfoRow = memo(
+  ({
+    asks,
+    bids,
+    isEmpty,
+    textColor,
+  }: {
+    asks: IBookLevel[];
+    bids: IBookLevel[];
+    isEmpty: boolean;
+    textColor: ReturnType<typeof useTextColor>;
+  }) => {
+    if (isEmpty) {
+      return (
+        <MobileEmptySpreadInfoRow
+          asks={asks}
+          bids={bids}
+          isEmpty={isEmpty}
+          textColor={textColor}
+        />
+      );
+    }
+
+    return (
+      <MobileSpreadInfoContentMemo
         asks={asks}
         bids={bids}
         isEmpty={isEmpty}
         textColor={textColor}
       />
     );
-  }
+  },
+);
+MobileSpreadInfoRow.displayName = 'MobileSpreadInfoRow';
 
-  return (
-    <MobileSpreadInfoContentMemo
-      asks={asks}
-      bids={bids}
-      isEmpty={isEmpty}
-      textColor={textColor}
-    />
-  );
-});
-
-const MobileEmptyRow = memo(function MobileEmptyRow({
-  priceColor,
-  sizeColor,
-}: {
-  priceColor: string;
-  sizeColor: string;
-}) {
-  return (
-    <DebugRenderTracker name="OrderBookMobileEmptyRow" position="right-center">
-      <View
-        style={{
-          flex: 1,
-          flexDirection: 'row',
-          alignItems: 'center',
-          height: MOBILE_ROW_HEIGHT,
-          paddingHorizontal: 4,
-        }}
-      >
-        <View style={{ flex: MOBILE_PRICE_FLEX }}>
-          <PerpBookText
-            style={[
-              styles.monospaceText,
-              {
-                color: priceColor,
-                fontSize: 11,
-                lineHeight: 14,
-              },
-            ]}
-          >
-            --
-          </PerpBookText>
-        </View>
-        <View style={{ flex: MOBILE_SIZE_FLEX, alignItems: 'flex-end' }}>
-          <PerpBookText
-            style={[
-              styles.monospaceText,
-              {
-                color: sizeColor,
-                fontSize: 11,
-                lineHeight: 14,
-              },
-            ]}
-          >
-            --
-          </PerpBookText>
-        </View>
-      </View>
-    </DebugRenderTracker>
-  );
-});
-
-const MobileRow = memo(
-  function MobileRow({
-    item,
-    priceFontSize,
-    priceColor,
-    sizeColor,
-    isHovered = false,
-  }: {
-    item: IFormattedOBLevel;
-    priceFontSize: number;
-    priceColor: string;
-    sizeColor: string;
-    isHovered?: boolean;
-  }) {
+const MobileEmptyRow = memo(
+  ({ priceColor, sizeColor }: { priceColor: string; sizeColor: string }) => {
     return (
-      <DebugRenderTracker name="OrderBookMobileRow" position="right-center">
+      <DebugRenderTracker
+        name="OrderBookMobileEmptyRow"
+        position="right-center"
+      >
         <View
           style={{
             flex: 1,
             flexDirection: 'row',
             alignItems: 'center',
             height: MOBILE_ROW_HEIGHT,
+            paddingHorizontal: 4,
           }}
         >
           <View style={{ flex: MOBILE_PRICE_FLEX }}>
             <PerpBookText
-              numberOfLines={1}
               style={[
                 styles.monospaceText,
                 {
                   color: priceColor,
-                  fontSize: priceFontSize ?? 11,
+                  fontSize: 11,
                   lineHeight: 14,
                 },
-                isHovered ? styles.monospaceTextBold : null,
               ]}
             >
-              {item.price}
+              --
             </PerpBookText>
           </View>
           <View style={{ flex: MOBILE_SIZE_FLEX, alignItems: 'flex-end' }}>
             <PerpBookText
-              numberOfLines={1}
               style={[
                 styles.monospaceText,
                 {
                   color: sizeColor,
-                  fontSize: priceFontSize ?? 11,
+                  fontSize: 11,
                   lineHeight: 14,
                 },
-                isHovered ? styles.monospaceTextBold : null,
               ]}
             >
-              {item.displaySize}
+              --
             </PerpBookText>
           </View>
         </View>
       </DebugRenderTracker>
     );
   },
-  (prev, next) =>
-    prev.priceFontSize === next.priceFontSize &&
-    areLevelRowPropsEqual(prev, next),
 );
+MobileEmptyRow.displayName = 'MobileEmptyRow';
 
 // A compact, mobile-friendly order book: two columns (Price/Size),
 // asks on top, bids at bottom, with a prominent spread row in the middle.
@@ -1904,7 +1865,6 @@ export function OrderBookMobile({
   const textColor = useTextColor();
   const blockColors = useBlockColorsMobile();
   const spreadColor = useSpreadColor();
-  const isInteractive = Boolean(onSelectLevel);
 
   const handleSelectLevel = useCallback(
     (side: 'bid' | 'ask', item: IFormattedOBLevel, index: number) => {

@@ -1,10 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type ComponentType, useEffect, useMemo, useState } from 'react';
 
 import {
+  type PerpDepthBarsProps,
   PerpDepthBarsView,
   PerpSideRatioView,
 } from '@onekeyfe/react-native-perp-depth-bar';
-import { AccessibilityInfo, StyleSheet, processColor } from 'react-native';
+import {
+  AccessibilityInfo,
+  type StyleProp,
+  StyleSheet,
+  type ViewStyle,
+  processColor,
+} from 'react-native';
 
 import { normalizeDepthWidth } from './AnimatedDepthBlock.shared';
 
@@ -17,6 +24,9 @@ import type {
 const DEFAULT_ROW_HEIGHT = 24;
 const SIDE_RATIO_SEGMENT_HEIGHT = 4;
 const SIDE_RATIO_CORNER_RADIUS = 999;
+const StyledPerpDepthBarsView = PerpDepthBarsView as ComponentType<
+  PerpDepthBarsProps & { style?: StyleProp<ViewStyle> }
+>;
 
 /**
  * The native perp-depth-bar views parse only `#hex` and `rgb()/rgba()` color
@@ -30,15 +40,14 @@ function toNativeColor(color: string): string {
   if (typeof processed !== 'number') {
     return color;
   }
-  // RN's processColor returns an ARGB-packed int (0xAARRGGBB); on Android it can
-  // be negative (high alpha bit). Normalize to unsigned, then unpack via
-  // arithmetic (avoids bitwise ops for lint) into an rgba() the native parser
-  // accepts.
-  const argb = processed < 0 ? processed + 0x1_00_00_00_00 : processed;
-  const a = Math.floor(argb / 0x1_00_00_00) % 256;
-  const r = Math.floor(argb / 0x1_00_00) % 256;
-  const g = Math.floor(argb / 0x1_00) % 256;
-  const b = argb % 256;
+  // RN's processColor returns a packed color int; on Android it can be negative.
+  // Normalize to unsigned, then unpack via arithmetic into an rgba() string the
+  // native parser accepts.
+  const colorInt = processed < 0 ? processed + 0x1_00_00_00_00 : processed;
+  const a = Math.floor(colorInt / 0x1_00_00_00) % 256;
+  const r = Math.floor(colorInt / 0x1_00_00) % 256;
+  const g = Math.floor(colorInt / 0x1_00) % 256;
+  const b = colorInt % 256;
   return `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(4)})`;
 }
 
@@ -106,7 +115,7 @@ export function DepthBarColumn({
   );
 
   return (
-    <PerpDepthBarsView
+    <StyledPerpDepthBarsView
       percents={percents}
       rowHeight={rowHeight}
       rowMarginTop={rowMarginTop}
@@ -146,7 +155,7 @@ export function DepthBar({
   const nativeColor = useMemo(() => toNativeColor(color), [color]);
 
   return (
-    <PerpDepthBarsView
+    <StyledPerpDepthBarsView
       percents={[targetWidth]}
       rowHeight={rowHeight}
       rowMarginTop={0}
@@ -155,12 +164,22 @@ export function DepthBar({
       origin={origin}
       reducedMotion={reducedMotion}
       epoch={0}
+      prices={[]}
+      sizes={[]}
+      priceColor="rgba(0,0,0,1)"
+      sizeColor="rgba(0,0,0,1)"
+      priceFontSize={11}
+      sizeFontSize={11}
+      textInset={0}
       style={{
         position: 'absolute',
         top: 0,
         left,
         right,
-        ...(left == null && right == null ? { width: '100%' } : null),
+        ...((left === null || left === undefined) &&
+        (right === null || right === undefined)
+          ? { width: '100%' }
+          : null),
         height: rowHeight,
       }}
     />

@@ -4,8 +4,8 @@ import { BigNumber } from 'bignumber.js';
 
 import type { IBBOPriceMode } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  useBboAtom,
-  useTradingFormAtom,
+  useBboForOrderPrice,
+  useTradingFormOrderPriceParams,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { getPerpsMarketDataLocalReceivedAt } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
 import { getScaleOrderReferencePrice } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
@@ -162,16 +162,18 @@ export function calculateOrderPrice(
   };
 }
 
-export function useOrderPrice(side?: 'long' | 'short'): IUseOrderPriceReturn {
-  const [formData] = useTradingFormAtom();
-  const [bbo] = useBboAtom();
-  const { midPriceBN } = useTradingPrice();
-  const [, refreshBboFreshness] = useState(0);
-  const bboReceivedAt = getPerpsMarketDataLocalReceivedAt(bbo);
+function useOrderPriceWithMidPrice(
+  midPriceBN: BigNumber,
+  side?: 'long' | 'short',
+): IUseOrderPriceReturn {
+  const formData = useTradingFormOrderPriceParams();
   const shouldTrackBboFreshness =
     formData.type === 'limit' &&
     Boolean(formData.bboPriceMode) &&
     Boolean(side);
+  const bbo = useBboForOrderPrice(shouldTrackBboFreshness);
+  const [, refreshBboFreshness] = useState(0);
+  const bboReceivedAt = getPerpsMarketDataLocalReceivedAt(bbo);
 
   useEffect(() => {
     if (!shouldTrackBboFreshness) {
@@ -207,4 +209,9 @@ export function useOrderPrice(side?: 'long' | 'short'): IUseOrderPriceReturn {
     formData.scaleLowerPrice,
     formData.scaleUpperPrice,
   );
+}
+
+export function useOrderPrice(side?: 'long' | 'short'): IUseOrderPriceReturn {
+  const { midPriceBN } = useTradingPrice();
+  return useOrderPriceWithMidPrice(midPriceBN, side);
 }

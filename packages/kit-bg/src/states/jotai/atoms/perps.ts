@@ -688,6 +688,20 @@ export const {
   initialValue: undefined,
 });
 
+export const {
+  target: perpsActiveAssetCtxReadyAtom,
+  use: usePerpsActiveAssetCtxReadyAtom,
+} = globalAtomComputedR<boolean>({
+  read: (get) => Boolean(get(perpsActiveAssetCtxAtom.atom())),
+});
+
+export const {
+  target: perpsActiveAssetCtxMidPriceAtom,
+  use: usePerpsActiveAssetCtxMidPriceAtom,
+} = globalAtomComputedR<string | undefined>({
+  read: (get) => get(perpsActiveAssetCtxAtom.atom())?.ctx?.midPrice,
+});
+
 export type IPerpsActiveAssetDataAtom = IPerpsActiveAssetData | undefined;
 export const {
   target: perpsActiveAssetDataAtom,

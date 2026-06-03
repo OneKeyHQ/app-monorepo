@@ -4,7 +4,7 @@ import { BigNumber } from 'bignumber.js';
 
 import {
   useActiveTradeInstrumentAtom,
-  useTradingFormAtom,
+  useTradingFormCalculationParams,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
@@ -18,20 +18,19 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { useLiquidationPrice } from './useLiquidationPrice';
 import { useOrderPrice } from './useOrderPrice';
 import { useTradingPrice } from './useTradingPrice';
 
 export function useTradingCalculationsForSide(side: 'long' | 'short') {
-  const [formData] = useTradingFormAtom();
+  const formData = useTradingFormCalculationParams();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [{ balances: spotBalances }] = useSpotBalancesAtom();
 
-  const { price: effectivePriceBN, error: priceError } = useOrderPrice(side);
+  const orderPrice = useOrderPrice(side);
   const { midPriceBN } = useTradingPrice();
-  const liquidationPrice = useLiquidationPrice(side);
+  const { price: effectivePriceBN, error: priceError } = orderPrice;
   const isSpot = activeTradeInstrument.mode === 'spot';
   const spotUniverse =
     activeTradeInstrument.mode === 'spot'
@@ -391,7 +390,6 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
 
   return {
     computedSizeForSide,
-    liquidationPrice,
     orderValue,
     marginRequired,
     availableToTrade,
