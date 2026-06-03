@@ -97,6 +97,41 @@ export function buildRealtimeTokenDetail({
   };
 }
 
+export function buildMatchedRealtimeTokenDetail({
+  tokenDetail,
+  tokenAddress,
+  networkId,
+  realtimePrice,
+  realtimePriceSource,
+  lastUpdated,
+}: {
+  tokenDetail?: IMarketTokenDetail;
+  tokenAddress?: string;
+  networkId?: string;
+  realtimePrice: string;
+  realtimePriceSource: IMarketTokenDetailRealtimePriceSource;
+  lastUpdated?: number;
+}): IMarketTokenDetail | undefined {
+  if (
+    !tokenDetail ||
+    !isValidRealtimePrice(realtimePrice) ||
+    !isMarketTokenDetailMatched({
+      tokenDetail,
+      tokenAddress,
+      networkId,
+    })
+  ) {
+    return undefined;
+  }
+
+  return buildRealtimeTokenDetail({
+    tokenDetail,
+    realtimePrice,
+    realtimePriceSource,
+    lastUpdated,
+  });
+}
+
 export function isValidRealtimePrice(price: string) {
   const numericPrice = Number(price);
   return Number.isFinite(numericPrice) && numericPrice > 0;

@@ -6,11 +6,7 @@ import {
   useTokenDetailAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/constants';
-import {
-  buildRealtimeTokenDetail,
-  isMarketTokenDetailMatched,
-  isValidRealtimePrice,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
+import { buildMatchedRealtimeTokenDetail } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
 import { useMarketWSSubscriptionRecovery } from '@onekeyhq/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery';
 import type { IWsPriceData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
 import {
@@ -159,31 +155,20 @@ export function useTradingViewV2WebSocket({
         lastBridgeUpdateTime.current = now;
       }
 
-      if (
-        receivedData &&
-        typeof receivedData.c === 'number' &&
-        tokenDetailRef.current
-      ) {
+      if (receivedData && typeof receivedData.c === 'number') {
         const latestPrice = receivedData.c.toString();
-        const latestTokenDetail = tokenDetailRef.current;
+        const latestTokenDetail = buildMatchedRealtimeTokenDetail({
+          tokenDetail: tokenDetailRef.current,
+          tokenAddress,
+          networkId,
+          realtimePrice: latestPrice,
+          realtimePriceSource:
+            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.marketWs,
+          lastUpdated: nowMs,
+        });
 
-        if (
-          isValidRealtimePrice(latestPrice) &&
-          isMarketTokenDetailMatched({
-            tokenDetail: latestTokenDetail,
-            tokenAddress,
-            networkId,
-          })
-        ) {
-          tokenDetailActions.current.setTokenDetail(
-            buildRealtimeTokenDetail({
-              tokenDetail: latestTokenDetail,
-              realtimePrice: latestPrice,
-              realtimePriceSource:
-                MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.marketWs,
-              lastUpdated: nowMs,
-            }),
-          );
+        if (latestTokenDetail) {
+          tokenDetailActions.current.setTokenDetail(latestTokenDetail);
         }
       }
     }

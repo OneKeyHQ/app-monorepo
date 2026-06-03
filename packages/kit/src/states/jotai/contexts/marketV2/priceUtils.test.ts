@@ -2,6 +2,7 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from './constants';
 import {
+  buildMatchedRealtimeTokenDetail,
   buildRealtimeTokenDetail,
   getRealtimePriceChange24hPercent,
   getRealtimePriceConverted,
@@ -143,6 +144,63 @@ describe('marketV2 priceUtils', () => {
       expect(firstTick.priceChange24hPercent).toBe('44');
       expect(secondTick.priceConverted).toBe('260');
       expect(secondTick.priceChange24hPercent).toBe('56');
+    });
+  });
+
+  describe('buildMatchedRealtimeTokenDetail', () => {
+    it('builds realtime token detail when price and token match', () => {
+      const tokenDetail = buildTokenDetail({
+        address: '0xAbC',
+      });
+
+      expect(
+        buildMatchedRealtimeTokenDetail({
+          tokenDetail,
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+          realtimePrice: '110',
+          realtimePriceSource:
+            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+          lastUpdated: 123,
+        }),
+      ).toEqual({
+        ...tokenDetail,
+        price: '110',
+        priceConverted: '132',
+        priceChange24hPercent: '37.5',
+        realtimePriceSource:
+          MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+        lastUpdated: 123,
+      });
+    });
+
+    it('skips invalid realtime prices', () => {
+      expect(
+        buildMatchedRealtimeTokenDetail({
+          tokenDetail: buildTokenDetail(),
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+          realtimePrice: '0',
+          realtimePriceSource:
+            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+        }),
+      ).toBeUndefined();
+    });
+
+    it('skips realtime updates for non-matching tokens', () => {
+      expect(
+        buildMatchedRealtimeTokenDetail({
+          tokenDetail: buildTokenDetail({
+            networkId: 'evm--1',
+            address: '0xabc',
+          }),
+          tokenAddress: '0xabc',
+          networkId: 'evm--56',
+          realtimePrice: '110',
+          realtimePriceSource:
+            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+        }),
+      ).toBeUndefined();
     });
   });
 

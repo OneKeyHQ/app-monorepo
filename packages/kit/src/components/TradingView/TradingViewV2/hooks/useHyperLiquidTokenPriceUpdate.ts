@@ -7,11 +7,7 @@ import {
   useTokenDetailAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/constants';
-import {
-  buildRealtimeTokenDetail,
-  isMarketTokenDetailMatched,
-  isValidRealtimePrice,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
+import { buildMatchedRealtimeTokenDetail } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -131,27 +127,18 @@ export function useHyperLiquidTokenPriceUpdate({
 
   const applyPrice = useCallback(
     (latestPrice: string) => {
-      const latestTokenDetail = tokenDetailRef.current;
-      if (
-        !latestTokenDetail ||
-        !isValidRealtimePrice(latestPrice) ||
-        !isMarketTokenDetailMatched({
-          tokenDetail: latestTokenDetail,
-          tokenAddress,
-          networkId,
-        })
-      ) {
-        return;
-      }
+      const latestTokenDetail = buildMatchedRealtimeTokenDetail({
+        tokenDetail: tokenDetailRef.current,
+        tokenAddress,
+        networkId,
+        realtimePrice: latestPrice,
+        realtimePriceSource:
+          MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+      });
 
-      tokenDetailActions.current.setTokenDetail(
-        buildRealtimeTokenDetail({
-          tokenDetail: latestTokenDetail,
-          realtimePrice: latestPrice,
-          realtimePriceSource:
-            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
-        }),
-      );
+      if (latestTokenDetail) {
+        tokenDetailActions.current.setTokenDetail(latestTokenDetail);
+      }
     },
     [networkId, tokenAddress, tokenDetailActions],
   );

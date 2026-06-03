@@ -6,11 +6,7 @@ import {
   useTokenDetailAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/constants';
-import {
-  buildRealtimeTokenDetail,
-  isMarketTokenDetailMatched,
-  isValidRealtimePrice,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
+import { buildMatchedRealtimeTokenDetail } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
 
 import { fetchTradingViewV2Data } from './useTradingViewV2';
 
@@ -117,32 +113,22 @@ export function useAutoKLineUpdate({
 
         // Update token detail price with latest K-line close price
 
-        const latestTokenDetail = tokenDetailRef.current;
-        if (
-          kLineData.points &&
-          kLineData.points.length > 0 &&
-          latestTokenDetail
-        ) {
+        if (kLineData.points && kLineData.points.length > 0) {
           const latestPoint = kLineData.points[kLineData.points.length - 1];
           const latestPrice = latestPoint.c.toString(); // close price
 
-          if (
-            isValidRealtimePrice(latestPrice) &&
-            isMarketTokenDetailMatched({
-              tokenDetail: latestTokenDetail,
-              tokenAddress: requestParams.tokenAddress,
-              networkId: requestParams.networkId,
-            })
-          ) {
-            tokenDetailActions.current.setTokenDetail(
-              buildRealtimeTokenDetail({
-                tokenDetail: latestTokenDetail,
-                realtimePrice: latestPrice,
-                realtimePriceSource:
-                  MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.kLinePolling,
-                lastUpdated: nowMs,
-              }),
-            );
+          const latestTokenDetail = buildMatchedRealtimeTokenDetail({
+            tokenDetail: tokenDetailRef.current,
+            tokenAddress: requestParams.tokenAddress,
+            networkId: requestParams.networkId,
+            realtimePrice: latestPrice,
+            realtimePriceSource:
+              MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.kLinePolling,
+            lastUpdated: nowMs,
+          });
+
+          if (latestTokenDetail) {
+            tokenDetailActions.current.setTokenDetail(latestTokenDetail);
           }
         }
       }
