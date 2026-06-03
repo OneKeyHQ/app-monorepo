@@ -17,6 +17,7 @@ import {
   filterTokenSelectorSearchTokensByBackendIndexedNetworks,
 } from '@onekeyhq/kit/src/components/TokenSelectorFilter/utils';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
 import {
   useAggregateTokensListMapAtom,
   useAllTokenListMapAtom,
@@ -217,6 +218,7 @@ function TokenSelector() {
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
   const isSelectorAllNetworks = isAllNetworks ?? network?.isAllNetworks;
+  const isDeFiEnabled = useIsDeFiEnabled(network?.id, !!showDeFiTokenSwitch);
   const showTokenSelectorFilter =
     !!showDeFiTokenSwitch &&
     isTokenSelectorDappTokenFilterSupportedNetwork({
@@ -227,6 +229,7 @@ function TokenSelector() {
             backendIndex: network.backendIndex,
           }
         : undefined,
+      isDeFiEnabled,
     });
   const showLpTokensOnly = showTokenSelectorFilter
     ? tokenSelectorFilter.sendTokenShowLpTokensOnly
@@ -814,9 +817,15 @@ function TokenSelector() {
             await backgroundApiProxy.serviceNetwork.getNetwork({
               networkId: activeNetworkId,
             });
+          const isActiveNetworkDeFiEnabled = activeNetwork?.isAllNetworks
+            ? true
+            : await backgroundApiProxy.serviceDeFi.isNetworkDeFiEnabled(
+                activeNetwork.id,
+              );
           if (
             !isTokenSelectorDappTokenFilterSupportedNetwork({
               network: activeNetwork,
+              isDeFiEnabled: isActiveNetworkDeFiEnabled,
             })
           ) {
             if (isLatestRequest()) {
