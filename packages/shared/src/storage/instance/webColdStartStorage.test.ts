@@ -114,31 +114,55 @@ describe('ISyncStorage facade coercion', () => {
 
     // s.set('', ...) → safeSet stores '' via the empty-coalescing branch.
     s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, '');
-    expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(false);
-    expect(s.getNumber(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBeUndefined();
+    expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(
+      false,
+    );
+    expect(
+      s.getNumber(EAppSyncStorageKeys.onekey_debug_render_tracker),
+    ).toBeUndefined();
 
     s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, true);
-    expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(true);
+    expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(
+      true,
+    );
 
     s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, false);
-    expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(false);
+    expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(
+      false,
+    );
 
     s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, 1);
-    expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(true);
-    expect(s.getNumber(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(1);
+    expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(
+      true,
+    );
+    expect(s.getNumber(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(
+      1,
+    );
 
     s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, 0);
-    expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(false);
-    expect(s.getNumber(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(0);
+    expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(
+      false,
+    );
+    expect(s.getNumber(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(
+      0,
+    );
 
     s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, 42);
-    expect(s.getNumber(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(42);
+    expect(s.getNumber(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(
+      42,
+    );
     // '42' is neither true/false/1/0/empty -> out of domain for boolean
-    expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBeUndefined();
+    expect(
+      s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker),
+    ).toBeUndefined();
 
     s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, 'banana');
-    expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBeUndefined();
-    expect(s.getNumber(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBeUndefined();
+    expect(
+      s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker),
+    ).toBeUndefined();
+    expect(
+      s.getNumber(EAppSyncStorageKeys.onekey_debug_render_tracker),
+    ).toBeUndefined();
   });
 });
 
@@ -580,7 +604,10 @@ describeIfIndexedDB('IDB-backed paths', () => {
       // These should all be dropped by the isClearing latch.
       mod.writeColdStartMeta('__meta:racy', 'should-be-rejected');
       const s = mod.createWebColdStartStorage();
-      s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, 'should-also-be-rejected');
+      s.set(
+        EAppSyncStorageKeys.onekey_debug_render_tracker,
+        'should-also-be-rejected',
+      );
 
       await resetPromise;
 
@@ -598,7 +625,11 @@ describeIfIndexedDB('IDB-backed paths', () => {
       expect(finalEntries.get('__meta:after')).toBe('ok');
       // And the racy writes are not present.
       expect(finalEntries.get('__meta:racy')).toBeUndefined();
-      expect(finalEntries.has(EAppSyncStorageKeys.onekey_debug_render_tracker as string)).toBe(false);
+      expect(
+        finalEntries.has(
+          EAppSyncStorageKeys.onekey_debug_render_tracker as string,
+        ),
+      ).toBe(false);
     } finally {
       (isolatedIDB.prototype as unknown as { clear: typeof realClear }).clear =
         realClear;
