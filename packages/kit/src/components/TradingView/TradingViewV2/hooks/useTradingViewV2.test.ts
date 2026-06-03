@@ -13,7 +13,7 @@ type IFetchMarketTokenKline = (params: {
   interval: string;
   timeFrom: number;
   timeTo: number;
-}) => Promise<IMarketTokenKLineResponse>;
+}) => Promise<IMarketTokenKLineResponse | null>;
 
 const mockFetchMarketTokenKline: jest.MockedFunction<IFetchMarketTokenKline> =
   jest.fn();
@@ -107,6 +107,7 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
   });
 
   it('uses fallback data when sliced primary data has no points', async () => {
+    const onPrimaryKLineDataUnavailable = jest.fn();
     const fallback = jest.fn().mockResolvedValue({
       points: [buildPoint(1020, 3)],
       total: 1,
@@ -126,8 +127,10 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
       timeFrom: 1000,
       timeTo: 1120,
       kLineDataFallback: fallback,
+      onPrimaryKLineDataUnavailable,
     });
 
+    expect(onPrimaryKLineDataUnavailable).not.toHaveBeenCalled();
     expect(fallback).toHaveBeenCalledWith({
       tokenAddress: '0x123',
       networkId: 'evm--1',
@@ -183,6 +186,60 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
       timeTo: 2120,
     });
     expect(fallbackResult?.points).toEqual([buildPoint(2040, 4)]);
+  });
+
+  it('marks primary data unavailable when primary response is not valid and fallback has points', async () => {
+    const onPrimaryKLineDataUnavailable = jest.fn();
+    const fallback = jest.fn().mockResolvedValue({
+      points: [buildPoint(2040, 4)],
+      total: 1,
+    });
+    mockSliceRequest.mockReturnValue([
+      { from: 2000, to: 2120, interval: '1m' },
+    ]);
+    mockFetchMarketTokenKline.mockResolvedValueOnce(null);
+
+    const result = await fetchTradingViewV2DataWithSlicing({
+      tokenAddress: '0x123',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeFrom: 2000,
+      timeTo: 2120,
+      kLineDataFallback: fallback,
+      onPrimaryKLineDataUnavailable,
+    });
+
+    expect(onPrimaryKLineDataUnavailable).toHaveBeenCalledTimes(1);
+    expect(fallback).toHaveBeenCalledTimes(1);
+    expect(result?.points).toEqual([buildPoint(2040, 4)]);
+  });
+
+  it('uses fallback directly when primary data is already unavailable', async () => {
+    const fallback = jest.fn().mockResolvedValue({
+      points: [buildPoint(2040, 4)],
+      total: 1,
+    });
+
+    const result = await fetchTradingViewV2DataWithSlicing({
+      tokenAddress: '0x123',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeFrom: 2000,
+      timeTo: 2120,
+      kLineDataFallback: fallback,
+      primaryKLineDataUnavailable: true,
+    });
+
+    expect(mockSliceRequest).not.toHaveBeenCalled();
+    expect(mockFetchMarketTokenKline).not.toHaveBeenCalled();
+    expect(fallback).toHaveBeenCalledWith({
+      tokenAddress: '0x123',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeFrom: 2000,
+      timeTo: 2120,
+    });
+    expect(result?.points).toEqual([buildPoint(2040, 4)]);
   });
 
   it('uses fallback data when sliced primary data rejects', async () => {
