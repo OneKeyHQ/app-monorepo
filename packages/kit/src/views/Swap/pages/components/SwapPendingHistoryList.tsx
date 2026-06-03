@@ -25,6 +25,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
+import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   EProtocolOfExchange,
   ESwapTabSwitchType,
@@ -33,7 +34,6 @@ import {
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
 import { SwapTestIDs } from '../../testIDs';
-
 const SwapPendingHistoryListComponent = ({
   pageType,
 }: {
@@ -58,8 +58,9 @@ const SwapPendingHistoryListComponent = ({
     const pendingData =
       swapTxHistoryList?.filter(
         (item) =>
-          item.status === ESwapTxHistoryStatus.PENDING ||
-          item.status === ESwapTxHistoryStatus.CANCELING,
+          !isPrivateSendSwapHistoryItem(item) &&
+          (item.status === ESwapTxHistoryStatus.PENDING ||
+            item.status === ESwapTxHistoryStatus.CANCELING),
       ) ?? [];
     return pendingData;
   }, [swapTxHistoryList]);

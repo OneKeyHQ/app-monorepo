@@ -13,6 +13,7 @@ import {
   withHistoryListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
 import { useHistoryListLoadMore } from '@onekeyhq/kit/src/views/Home/pages/hooks/useHistoryListLoadMore';
+import { maybeOpenPrivateSendHistoryDetail } from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -226,14 +227,26 @@ function TokenDetailsHistory(props: IProps) {
         }
       }
 
+      const accountAddress =
+        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
+      const openedPrivateSendHistory = await maybeOpenPrivateSendHistoryDetail({
+        historyTx: tx,
+        navigation,
+        accountId,
+        accountAddress,
+        network: { id: networkId },
+        tokenInfo,
+        currencySymbol: settings.currencyInfo.symbol,
+      });
+      if (openedPrivateSendHistory) return;
+
       navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
         accountId,
         networkId,
-        accountAddress:
-          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-            accountId,
-            networkId,
-          }),
+        accountAddress,
         xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
           accountId,
           networkId,
@@ -241,7 +254,7 @@ function TokenDetailsHistory(props: IProps) {
         historyTx: tx,
       });
     },
-    [accountId, navigation, networkId],
+    [accountId, navigation, networkId, settings.currencyInfo.symbol, tokenInfo],
   );
 
   useEffect(() => {

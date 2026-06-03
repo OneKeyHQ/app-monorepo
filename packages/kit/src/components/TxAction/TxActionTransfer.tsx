@@ -383,6 +383,7 @@ function TxActionTransferListView(props: ITxActionProps) {
   const { networkId, payload, nativeAmount, actions, networkLogoURI } =
     decodedTx;
   const { type } = payload ?? {};
+  const isPrivateSend = type === EOnChainHistoryTxType.PrivateSend;
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
@@ -408,12 +409,15 @@ function TxActionTransferListView(props: ITxActionProps) {
     intl,
     isUTXO,
   });
+  const descriptionTarget = isPrivateSend
+    ? (payload?.privateSend?.originalRecipient ?? transferTarget)
+    : transferTarget;
   const description = {
     prefix: '',
     children: accountUtils.shortenAddress({
-      address: transferTarget,
+      address: descriptionTarget,
     }),
-    originalAddress: transferTarget,
+    originalAddress: descriptionTarget,
   };
 
   const avatar: ITxActionCommonListViewProps['avatar'] = {
@@ -496,7 +500,12 @@ function TxActionTransferListView(props: ITxActionProps) {
     }
 
     // swap / staking icon overrides
-    if (actions[0]?.assetTransfer?.isInternalSwap) {
+    if (isPrivateSend) {
+      avatar.fallbackIcon = 'ArrowTopOutline';
+      title = intl.formatMessage({
+        id: ETranslations.private_send_private_send,
+      });
+    } else if (actions[0]?.assetTransfer?.isInternalSwap) {
       avatar.fallbackIcon = 'SwitchHorOutline';
     } else if (actions[0]?.assetTransfer?.isInternalStaking) {
       avatar.fallbackIcon = 'CoinsOutline';
@@ -646,7 +655,11 @@ function TxActionTransferListView(props: ITxActionProps) {
     );
   }
 
-  if (!isPending && label) {
+  if (isPrivateSend) {
+    title = intl.formatMessage({
+      id: ETranslations.private_send_private_send,
+    });
+  } else if (!isPending && label) {
     title = label;
   }
 

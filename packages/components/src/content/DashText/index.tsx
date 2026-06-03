@@ -156,7 +156,7 @@ export function DashText({ tooltip, tooltipTitle, ...rest }: IDashTextProps) {
     return <DashTextCore {...rest} />;
   }
 
-  if (gtMd) {
+  if (!platformEnv.isNative && gtMd) {
     return (
       <Tooltip
         placement="top"

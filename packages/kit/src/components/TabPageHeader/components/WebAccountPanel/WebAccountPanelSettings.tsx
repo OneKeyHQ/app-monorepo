@@ -18,6 +18,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
 import { useLanguageSelector } from '@onekeyhq/kit/src/views/Setting/hooks';
 import {
@@ -29,6 +31,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 
 import { WebAccountPanelListItem } from './atoms/WebAccountPanelListItem';
@@ -446,12 +449,21 @@ export function WebAccountPanelSettings({
   onRequestClose: () => void;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const handleOpenFullSettings = useCallback(() => {
+    onRequestClose();
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListModal,
+    });
+  }, [navigation, onRequestClose]);
   return (
     <YStack w="100%">
       <YStack py="$5" w="100%">
-        <WebAccountPanelSectionTitle>
-          {intl.formatMessage({ id: ETranslations.global_general })}
-        </WebAccountPanelSectionTitle>
+        <MultipleClickStack onPress={handleOpenFullSettings}>
+          <WebAccountPanelSectionTitle>
+            {intl.formatMessage({ id: ETranslations.global_general })}
+          </WebAccountPanelSectionTitle>
+        </MultipleClickStack>
         <ThemeRow />
         <LanguageRow />
         <CurrencyRow />

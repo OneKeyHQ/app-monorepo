@@ -46,6 +46,7 @@ import {
   useHistoryListActions,
 } from '../../../states/jotai/contexts/historyList';
 import { useAllTokenListMapAtom } from '../../../states/jotai/contexts/tokenList';
+import { maybeOpenPrivateSendHistoryDetail } from '../../Swap/utils/privateSendHistory';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
@@ -191,6 +192,16 @@ function TxHistoryListContainer(
         }
       }
 
+      const openedPrivateSendHistory = await maybeOpenPrivateSendHistoryDetail({
+        historyTx: history,
+        navigation,
+        accountId: history.decodedTx.accountId,
+        accountAddress: account.address,
+        network,
+        currencySymbol: settings.currencyInfo.symbol,
+      });
+      if (openedPrivateSendHistory) return;
+
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.HistoryDetails,
         params: {
@@ -201,7 +212,7 @@ function TxHistoryListContainer(
         },
       });
     },
-    [account, navigation, network],
+    [account, navigation, network, settings.currencyInfo.symbol],
   );
 
   const isManualRefresh = useRef(false);

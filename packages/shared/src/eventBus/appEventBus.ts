@@ -284,6 +284,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.RefreshHistoryList]: undefined;
   [EAppEventBusNames.RefreshApprovalList]: undefined;
   [EAppEventBusNames.RefreshBookmarkList]: undefined;
+  [EAppEventBusNames.InvalidateDiscoveryHomeBookmarksPrefetch]: undefined;
   [EAppEventBusNames.TabListStateUpdate]: {
     isRefreshing: boolean;
     type: EHomeTab;

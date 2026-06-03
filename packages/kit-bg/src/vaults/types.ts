@@ -15,6 +15,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import type {
   ETranslations,
   ETranslationsMock,
@@ -368,7 +369,8 @@ export type IPrepareImportedAccountsParams = {
   name: string;
   template?: string; // TODO use deriveInfo
   deriveInfo?: IAccountDeriveInfo;
-};
+  debugCryptoProbeId?: string;
+} & IPbkdf2KdfParams;
 export type IPrepareHDOrHWAccountChainExtraParams = {
   receiveAddressPath?: string;
 };
@@ -567,6 +569,15 @@ export type ITransferPayload = {
   amountToSend: string;
   isMaxSend: boolean;
   isNFT: boolean;
+  isPrivateSend?: boolean;
+  privateSend?: {
+    orderId?: string;
+    rocketXOrderId?: string;
+    provider?: string;
+    providerName?: string;
+    providerLogo?: string;
+    supportUrl?: string;
+  };
   originalRecipient: string;
   isToContract?: boolean;
   memo?: string;
@@ -677,6 +688,7 @@ export interface IBroadcastTransactionParams {
   rawTxType?: 'json' | 'hex';
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   gasAccountUiState?: IGasAccountUiState;
+  isPrivateSend?: boolean;
   useDefaultRpc?: boolean;
 }
 
