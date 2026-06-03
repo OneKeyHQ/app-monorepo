@@ -240,9 +240,26 @@ export function UniversalSearch({
     },
     [focusedTab],
   );
+  // Only surface tabs that actually have results for the current search. The
+  // leading "All" tab is always kept; module tabs with no results are hidden.
+  const visibleTabTitles = useMemo(() => {
+    const sectionTitles = new Set(sections.map((section) => section.title));
+    return tabTitles.filter(
+      (title, index) => index === 0 || sectionTitles.has(title),
+    );
+  }, [sections, tabTitles]);
+
+  // The selected tab may have been hidden (e.g. an `initialTab` preset whose
+  // module returned no results). Fall back to the "All" tab so the result list
+  // still shows the available results instead of an empty state.
+  const activeTab = useMemo(
+    () => (visibleTabTitles.includes(filterType) ? filterType : tabTitles[0]),
+    [visibleTabTitles, filterType, tabTitles],
+  );
+
   const isInAllTab = useMemo(() => {
-    return filterType === tabTitles[0];
-  }, [filterType, tabTitles]);
+    return activeTab === tabTitles[0];
+  }, [activeTab, tabTitles]);
 
   // Reset the active tab to the initial tab whenever a new search starts.
   // The TabBar is only rendered in the `done` state and is unmounted while
@@ -807,9 +824,9 @@ export function UniversalSearch({
 
       return sectionsWithSliceData;
     }
-    const filtered = sections.filter((i) => i.title === filterType);
+    const filtered = sections.filter((i) => i.title === activeTab);
     return filtered;
-  }, [filterType, isInAllTab, sections, isFocusInMarketTab]);
+  }, [activeTab, isInAllTab, sections, isFocusInMarketTab]);
 
   const renderResult = useCallback(() => {
     switch (searchStatus) {
@@ -846,17 +863,19 @@ export function UniversalSearch({
       case ESearchStatus.done:
         return (
           <>
-            <Tabs.TabBar
-              scrollable
-              tabNames={tabTitles}
-              onTabPress={handleTabPress}
-              focusedTab={focusedTab}
-              tabItemStyle={{
-                h: 44,
-              }}
-            />
+            {visibleTabTitles.length > 1 ? (
+              <Tabs.TabBar
+                scrollable
+                tabNames={visibleTabTitles}
+                onTabPress={handleTabPress}
+                focusedTab={focusedTab}
+                tabItemStyle={{
+                  h: 44,
+                }}
+              />
+            ) : null}
             <SectionList
-              key={`search-results-${isInAllTab ? 'all' : filterType}`}
+              key={`search-results-${isInAllTab ? 'all' : activeTab}`}
               stickySectionHeadersEnabled
               sections={filterSections}
               renderSectionHeader={renderSectionHeader}
@@ -892,11 +911,11 @@ export function UniversalSearch({
     keyExtractor,
     filterTypes,
     handleSearchTextFill,
-    tabTitles,
+    visibleTabTitles,
     handleTabPress,
     focusedTab,
     isInAllTab,
-    filterType,
+    activeTab,
     filterSections,
     renderSectionFooter,
     intl,
