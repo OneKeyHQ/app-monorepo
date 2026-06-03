@@ -25,6 +25,7 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import {
   callLedgerWithFingerprint,
   ensureLedgerChainFingerprint,
+  ledgerCommonCallParamsForCreateScene,
 } from '../../base/ledgerFingerprintUtils';
 
 import type { IDBAccount, IDBDevice } from '../../../dbs/local/types';
@@ -71,10 +72,16 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
               dbDevice,
               'evm',
               (deviceId) =>
-                adapter.hw.evmGetAddress(dbDevice.connectId, deviceId, {
-                  path,
-                  showOnDevice: params.isVerifyAddressAction ?? false,
-                }),
+                adapter.hw.evmGetAddress(
+                  dbDevice.connectId,
+                  deviceId,
+                  {
+                    path,
+                    showOnDevice: params.isVerifyAddressAction ?? false,
+                  },
+                  // per-call HW options derived from the account-creation scene
+                  ledgerCommonCallParamsForCreateScene(params),
+                ),
             );
             if (result.success) {
               address = result.payload.address;

@@ -88,6 +88,7 @@ import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { ESettingsTabNames } from '../../views/Setting/pages/Tab/config';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { isShowAppUpdateUIWhenUpdating, useAppUpdateInfo } from '../AppUpdate';
+import { MultipleClickStack } from '../MultipleClickStack';
 import { OneKeyIdAvatar } from '../OneKeyIdAvatar';
 import { UpdateReminder } from '../UpdateReminder';
 import { WalletAvatar } from '../WalletAvatar';
@@ -766,9 +767,11 @@ function UpdateReminders() {
 function BaseMoreActionGrid({
   title,
   items,
+  onTitleMultipleClick,
 }: {
   title: string;
   items: IMoreActionContentGridItemProps[];
+  onTitleMultipleClick?: () => void;
 }) {
   const displayItems = useMemo(() => {
     const remainder = items.length % 4;
@@ -781,19 +784,28 @@ function BaseMoreActionGrid({
     }
     return items;
   }, [items]);
+  const titleContent = (
+    <SizableText
+      size="$headingMd"
+      color="$text"
+      numberOfLines={1}
+      ellipsizeMode="middle"
+      px={onTitleMultipleClick ? undefined : '$5'}
+      pb={onTitleMultipleClick ? undefined : '$1'}
+      userSelect="none"
+    >
+      {title}
+    </SizableText>
+  );
   return (
     <YStack>
-      <SizableText
-        size="$headingMd"
-        color="$text"
-        numberOfLines={1}
-        ellipsizeMode="middle"
-        px="$5"
-        pb="$1"
-        userSelect="none"
-      >
-        {title}
-      </SizableText>
+      {onTitleMultipleClick ? (
+        <MultipleClickStack px="$5" pb="$1" onPress={onTitleMultipleClick}>
+          {titleContent}
+        </MultipleClickStack>
+      ) : (
+        titleContent
+      )}
       <YStack gap="$2" px="$4">
         {Array.from({ length: Math.ceil(displayItems.length / 4) }).map(
           (_, rowIndex) => (
@@ -902,6 +914,9 @@ function MoreActionGeneralGrid() {
     <BaseMoreActionGrid
       title={intl.formatMessage({ id: ETranslations.global_general })}
       items={items}
+      onTitleMultipleClick={
+        platformEnv.isWebDappMode ? handleSettings : undefined
+      }
     />
   );
 }

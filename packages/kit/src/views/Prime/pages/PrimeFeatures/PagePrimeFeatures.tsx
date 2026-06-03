@@ -10,6 +10,11 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { PrimeFeatureIntroContent } from './PrimeFeatureIntroContent';
 
+const PRIME_FEATURE_BACK_BUTTON_BG = '$blackA3';
+const primeFeatureBackButtonIconProps = { color: '$whiteA12' } as const;
+const primeFeatureBackButtonHoverStyle = { bg: '$blackA4' } as const;
+const primeFeatureBackButtonPressStyle = { bg: '$blackA5' } as const;
+
 export default function PagePrimeFeatures() {
   const navigation = useAppNavigation();
   const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeFeatures>();
@@ -17,7 +22,13 @@ export default function PagePrimeFeatures() {
   return (
     <>
       <Theme name="dark">
-        <Page.BackButton />
+        <Page.BackButton
+          size="medium"
+          bg={PRIME_FEATURE_BACK_BUTTON_BG}
+          hoverStyle={primeFeatureBackButtonHoverStyle}
+          pressStyle={primeFeatureBackButtonPressStyle}
+          iconProps={primeFeatureBackButtonIconProps}
+        />
         <Page>
           <Page.Header headerShown={false} />
           <Page.Body>

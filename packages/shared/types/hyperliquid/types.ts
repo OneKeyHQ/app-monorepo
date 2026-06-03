@@ -214,9 +214,23 @@ export interface IScaleOrderLeg {
   size: string;
 }
 
+export type IScaleOrderValidationIssueCode =
+  | 'invalidParams'
+  | 'invalidPrice'
+  | 'sizeTooSmall'
+  | 'priceRangeTooTight'
+  | 'minNotionalTooSmall';
+
+export interface IScaleOrderValidationIssue {
+  code: IScaleOrderValidationIssueCode;
+  legIndex?: number;
+  minNotional?: string;
+}
+
 export interface IScaleOrderValidationResult {
   isValid: boolean;
   errors: string[];
+  issues: IScaleOrderValidationIssue[];
 }
 
 export interface IPlaceScaleOrderParams {

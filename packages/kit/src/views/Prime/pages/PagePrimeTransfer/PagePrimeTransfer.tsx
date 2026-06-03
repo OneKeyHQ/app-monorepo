@@ -25,6 +25,7 @@ import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferDirection } from './components/PrimeTransferDirection';
 import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent';
 import { PrimeTransferHome } from './components/PrimeTransferHome';
+import { registerPrimeTransferImportTraceDebugGlobal } from './components/PrimeTransferImportProcessingDialog';
 
 export default function PagePrimeTransfer() {
   const [primeTransferAtom] = usePrimeTransferAtom();
@@ -41,6 +42,13 @@ export default function PagePrimeTransfer() {
   const initialCode = routeParamsCode || '';
 
   const [remotePairingCode, setRemotePairingCode] = useState(initialCode);
+
+  useEffect(() => {
+    // Chrome/AI agents can inspect the transfer-only import trace while this
+    // page is open:
+    // await window.$$oneKeyPrimeTransferDebug.getImportTraceSnapshot()
+    registerPrimeTransferImportTraceDebugGlobal();
+  }, []);
 
   const isInitialCodeSet = useRef(false);
   useEffect(() => {

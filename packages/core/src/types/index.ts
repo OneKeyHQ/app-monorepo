@@ -143,7 +143,7 @@ export type ICoreApiSignBasePayload = {
 
   // addressEncoding other derive address
   addressEncoding?: EAddressEncodings;
-};
+} & IPbkdf2KdfParams;
 export type ICoreApiSignBtcExtraInfo = {
   inputAddressesEncodings?: Array<EAddressEncodings | undefined>;
   nonWitnessPrevTxs?: {
@@ -178,7 +178,7 @@ export type ICoreApiGetPrivateKeysMapHdQuery = {
   password: string;
   hdCredential: ICoreHdCredentialEncryptHex;
   relPaths?: string[];
-};
+} & IPbkdf2KdfParams;
 export type ICoreImportedCredential = {
   // rawPrivateKey
   privateKey: string;

@@ -108,6 +108,8 @@ export type IStackNavigationOptions = Omit<
   'headerRight' | 'headerSearchBarOptions'
 > & {
   headerSearchBarOptions?: INavSearchBarProps;
+  modalContentMaxHeight?: number;
+  modalContentMaxWidth?: number;
   headerRight?: (
     props: any,
   ) =>

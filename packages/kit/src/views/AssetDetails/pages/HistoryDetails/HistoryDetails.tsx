@@ -27,6 +27,10 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
+import {
+  isPrivateSendHistoryTx,
+  maybeOpenPrivateSendHistoryDetail,
+} from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -338,6 +342,7 @@ function HistoryDetails() {
 
   const historyInit = useRef(false);
   const historyConfirmed = useRef(false);
+  const privateSendSwapDetailOpened = useRef(false);
 
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
@@ -349,6 +354,41 @@ function HistoryDetails() {
 
   const accountAddress = route.params?.accountAddress || account?.address;
   const txid = transactionHash || historyTxParam?.decodedTx.txid || '';
+  const isInitialPrivateSendHistory = historyTxParam
+    ? isPrivateSendHistoryTx(historyTxParam)
+    : false;
+
+  useEffect(() => {
+    privateSendSwapDetailOpened.current = false;
+  }, [isInitialPrivateSendHistory, txid]);
+
+  const openPrivateSendHistoryDetailOnce = useCallback(
+    async (historyTx: IAccountHistoryTx) => {
+      if (!isPrivateSendHistoryTx(historyTx)) {
+        return false;
+      }
+      if (privateSendSwapDetailOpened.current) {
+        return true;
+      }
+      privateSendSwapDetailOpened.current = true;
+      return maybeOpenPrivateSendHistoryDetail({
+        historyTx,
+        navigation,
+        accountId,
+        accountAddress,
+        network,
+        currencySymbol: settings.currencyInfo.symbol,
+      });
+    },
+    [
+      accountAddress,
+      accountId,
+      navigation,
+      network,
+      settings.currencyInfo.symbol,
+    ],
+  );
+
   const nativeToken = usePromiseResult(
     () =>
       backgroundApiProxy.serviceToken.getNativeToken({
@@ -360,6 +400,16 @@ function HistoryDetails() {
 
   const { result, isLoading } = usePromiseResult(
     async () => {
+      if (isInitialPrivateSendHistory && historyTxParam) {
+        historyInit.current = true;
+        await openPrivateSendHistoryDetailOnce(historyTxParam);
+        return {
+          txDetails: undefined,
+          decodedOnChainTx: historyTxParam,
+          addressMap: undefined,
+        };
+      }
+
       if (!accountAddress) return;
       const r = await backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
         accountId,
@@ -392,6 +442,15 @@ function HistoryDetails() {
           });
       }
 
+      if (decodedOnChainTx && isPrivateSendHistoryTx(decodedOnChainTx)) {
+        await openPrivateSendHistoryDetailOnce(decodedOnChainTx);
+        return {
+          txDetails: undefined,
+          decodedOnChainTx,
+          addressMap: undefined,
+        };
+      }
+
       return {
         txDetails: r?.data,
         decodedOnChainTx,
@@ -406,6 +465,8 @@ function HistoryDetails() {
       txid,
       vaultSettings?.fixConfirmedTxEnabled,
       historyTxParam,
+      isInitialPrivateSendHistory,
+      openPrivateSendHistoryDetailOnce,
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
@@ -415,6 +476,7 @@ function HistoryDetails() {
       checkIsFocused,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
+        !privateSendSwapDetailOpened.current &&
         (!historyInit.current ||
           ((historyTxParam?.decodedTx.status ?? EDecodedTxStatus.Pending) ===
             EDecodedTxStatus.Pending &&

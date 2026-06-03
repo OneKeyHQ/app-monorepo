@@ -773,8 +773,7 @@ class ServiceNetwork extends ServiceBase {
     validatePrivateKey?: boolean;
     template: string | undefined;
   }) {
-    const { serviceAccount, servicePassword, serviceNetwork } =
-      this.backgroundApi;
+    const { serviceAccount, serviceNetwork } = this.backgroundApi;
 
     const { deriveType: deriveTypeInTpl } =
       await serviceNetwork.getDeriveTypeByTemplate({
@@ -787,7 +786,9 @@ class ServiceNetwork extends ServiceBase {
     const validateResult = await serviceAccount.validateGeneralInputOfImporting(
       {
         networkId,
-        input: await servicePassword.encodeSensitiveText({ text: input }),
+        // Callers pass sensitive-text encoded input so this method does not
+        // re-wrap private keys or xpubs during derive type detection.
+        input,
         validateAddress,
         validateXpub,
         validatePrivateKey,
