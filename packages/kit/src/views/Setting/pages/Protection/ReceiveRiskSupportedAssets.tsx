@@ -16,7 +16,9 @@ import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { RECEIVE_RISK_MONITORING_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IKytSupportedAsset } from '@onekeyhq/shared/types/kyt';
 
 type ISupportedToken = {
@@ -87,11 +89,16 @@ const ReceiveRiskSupportedAssetsPage = () => {
       <HeaderIconButton
         icon="QuestionmarkOutline"
         onPress={() => {
-          // TODO: open help / docs once content is ready.
+          openUrlInApp(
+            RECEIVE_RISK_MONITORING_HELP_LINK,
+            intl.formatMessage({
+              id: ETranslations.prime_feature_receive_risk_monitoring__title,
+            }),
+          );
         }}
       />
     ),
-    [],
+    [intl],
   );
 
   const renderBody = useCallback(() => {
