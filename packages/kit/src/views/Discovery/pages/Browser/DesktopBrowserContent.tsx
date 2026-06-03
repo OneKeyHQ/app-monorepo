@@ -340,7 +340,7 @@ function BasicDesktopBrowserContent({
         />
       ) : (
         <Stack flex={1} opacity={homePageReady ? 1 : 0}>
-          <DashboardContent />
+          <DashboardContent tabId={id} />
         </Stack>
       )}
     </Freeze>
