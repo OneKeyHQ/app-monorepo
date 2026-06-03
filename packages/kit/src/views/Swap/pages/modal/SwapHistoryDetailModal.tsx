@@ -4,6 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import Svg, { Line } from 'react-native-svg';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -17,6 +18,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
@@ -62,6 +64,7 @@ import {
 } from '../../utils/utils';
 
 import type { RouteProp } from '@react-navigation/core';
+import type { LayoutChangeEvent } from 'react-native';
 
 type ISwapHistoryDetailAssetItem = {
   name: string;
@@ -80,6 +83,8 @@ const privateSendProgressStepLabels = [
   ETranslations.private_send_pending,
   ETranslations.private_send_done,
 ] as const;
+const privateSendProgressStepLabelWidth = 72;
+const privateSendProgressStepIconSize = 24;
 
 function getPrivateSendProgressStepStatuses({
   status,
@@ -168,6 +173,81 @@ function PrivateSendProgressStatusIcon({
   );
 }
 
+function PrivateSendProgressConnector({
+  nextStepStatus,
+}: {
+  nextStepStatus: IPrivateSendProgressStepStatus;
+}) {
+  const theme = useTheme();
+  const [width, setWidth] = useState(0);
+  const isNextStepTodo = nextStepStatus === 'todo';
+  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    const nextWidth = e.nativeEvent.layout.width;
+    setWidth((prevWidth) => (prevWidth === nextWidth ? prevWidth : nextWidth));
+  }, []);
+
+  return (
+    <Stack
+      flex={1}
+      minWidth={0}
+      height="$6"
+      ml={-privateSendProgressStepIconSize}
+      mr={-privateSendProgressStepIconSize}
+      position="relative"
+      justifyContent="center"
+      onLayout={isNextStepTodo ? handleLayout : undefined}
+    >
+      {isNextStepTodo ? (
+        <Stack position="absolute" left={0} right={0} top={0} bottom={0}>
+          {width > 0 ? (
+            <Svg height={privateSendProgressStepIconSize} width={width}>
+              <Line
+                x1={0}
+                y1={privateSendProgressStepIconSize / 2}
+                x2={width}
+                y2={privateSendProgressStepIconSize / 2}
+                stroke={theme.borderSubdued.val}
+                strokeWidth={1}
+                strokeDasharray="6 6"
+                strokeLinecap="square"
+              />
+            </Svg>
+          ) : null}
+        </Stack>
+      ) : (
+        <Stack height="$px" bg="$borderSubdued" />
+      )}
+    </Stack>
+  );
+}
+
+function PrivateSendProgressStep({
+  label,
+  status,
+}: {
+  label: (typeof privateSendProgressStepLabels)[number];
+  status: IPrivateSendProgressStepStatus;
+}) {
+  const intl = useIntl();
+  return (
+    <Stack w={privateSendProgressStepLabelWidth} alignItems="center">
+      <Stack w="$6" h="$6" alignItems="center" justifyContent="center">
+        <PrivateSendProgressStatusIcon status={status} />
+      </Stack>
+      <SizableText
+        mt="$1"
+        size="$bodySm"
+        color="$textSubdued"
+        width={privateSendProgressStepLabelWidth}
+        numberOfLines={1}
+        textAlign="center"
+      >
+        {intl.formatMessage({ id: label })}
+      </SizableText>
+    </Stack>
+  );
+}
+
 function PrivateSendProgress({
   status,
   extraStatus,
@@ -177,7 +257,6 @@ function PrivateSendProgress({
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
 }) {
-  const intl = useIntl();
   const stepStatuses = useMemo(
     () =>
       getPrivateSendProgressStepStatuses({
@@ -190,25 +269,17 @@ function PrivateSendProgress({
 
   return (
     <Stack mx="$5" mb="$2.5" px="$5" py="$3" bg="$bgSubdued" borderRadius="$2">
-      <XStack alignItems="center">
+      <XStack alignItems="flex-start">
         {stepStatuses.map((stepStatus, index) => (
           <Fragment key={`${stepStatus}-${index}`}>
             {index > 0 ? (
-              <Stack flex={1} height="$px" bg="$borderSubdued" />
+              <PrivateSendProgressConnector nextStepStatus={stepStatus} />
             ) : null}
-            <Stack w="$6" h="$6" alignItems="center" justifyContent="center">
-              <PrivateSendProgressStatusIcon status={stepStatus} />
-            </Stack>
+            <PrivateSendProgressStep
+              label={privateSendProgressStepLabels[index]}
+              status={stepStatus}
+            />
           </Fragment>
-        ))}
-      </XStack>
-      <XStack mt="$1">
-        {privateSendProgressStepLabels.map((label) => (
-          <Stack key={label} flex={1} alignItems="center" minWidth={0}>
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {intl.formatMessage({ id: label })}
-            </SizableText>
-          </Stack>
         ))}
       </XStack>
     </Stack>
