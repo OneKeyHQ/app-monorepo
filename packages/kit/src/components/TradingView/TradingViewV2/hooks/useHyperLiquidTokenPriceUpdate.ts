@@ -16,6 +16,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IEventCandleParameters,
   IWsCandle,
@@ -164,7 +165,9 @@ export function useHyperLiquidTokenPriceUpdate({
     void backgroundApiProxy.serviceHyperliquidSubscription
       .unsubscribeMarketCandle({ subscriberId })
       .catch((error) => {
-        console.error('Failed to unsubscribe HyperLiquid candle:', error);
+        defaultLogger.perp.hyperliquid.marketCandleUnsubscribeError({
+          error,
+        });
       });
   }, []);
 
@@ -205,7 +208,9 @@ export function useHyperLiquidTokenPriceUpdate({
         ) {
           subscriptionRef.current = null;
         }
-        console.error('Failed to subscribe HyperLiquid candle:', error);
+        defaultLogger.perp.hyperliquid.marketCandleSubscribeError({
+          error,
+        });
       });
   }, [enabled, hyperLiquidSymbol, kLineResolutionRef]);
 
