@@ -93,7 +93,7 @@ export const BorrowAlerts = memo(
         params: {
           importFromToken: bridgeFromToken,
           importToToken: bridgeToToken,
-          swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
+          swapTabSwitchType: ESwapTabSwitchType.SWAP,
         },
       });
     }, [bridgeFromToken, bridgeToToken, navigation]);

@@ -425,54 +425,28 @@ const SwapSettingsDialogContent = ({
           />
         )}
         {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
-          <>
-            <SwapProviderSettingItem
-              title={intl.formatMessage({
-                id: ETranslations.swap_settings_manage_swap,
-              })}
-              onPress={() => {
-                dialogRef.current = Dialog.show({
-                  title: intl.formatMessage({
-                    id: ETranslations.swap_settings_manage_swap,
-                  }),
-                  disableDrag: true,
-                  renderContent: (
-                    <ProviderManageContainer
-                      onSaved={() => {
-                        void dialogRef.current?.close();
-                      }}
-                      isBridge={false}
-                    />
-                  ),
-                  showConfirmButton: false,
-                  showCancelButton: false,
-                });
-              }}
-            />
-            <SwapProviderSettingItem
-              title={intl.formatMessage({
-                id: ETranslations.swap_settings_manage_bridge,
-              })}
-              onPress={() => {
-                dialogRef.current = Dialog.show({
-                  title: intl.formatMessage({
-                    id: ETranslations.swap_settings_manage_bridge,
-                  }),
-                  disableDrag: true,
-                  renderContent: (
-                    <ProviderManageContainer
-                      onSaved={() => {
-                        void dialogRef.current?.close();
-                      }}
-                      isBridge
-                    />
-                  ),
-                  showConfirmButton: false,
-                  showCancelButton: false,
-                });
-              }}
-            />
-          </>
+          <SwapProviderSettingItem
+            title={intl.formatMessage({
+              id: ETranslations.provider_title,
+            })}
+            onPress={() => {
+              dialogRef.current = Dialog.show({
+                title: intl.formatMessage({
+                  id: ETranslations.provider_title,
+                }),
+                disableDrag: true,
+                renderContent: (
+                  <ProviderManageContainer
+                    onSaved={() => {
+                      void dialogRef.current?.close();
+                    }}
+                  />
+                ),
+                showConfirmButton: false,
+                showCancelButton: false,
+              });
+            }}
+          />
         ) : null}
       </YStack>
     </ScrollView>
@@ -572,7 +546,6 @@ const SwapHeaderRightActionContainer = ({
 
   const showKLineButton =
     swapTypeSwitch === ESwapTabSwitchType.SWAP ||
-    swapTypeSwitch === ESwapTabSwitchType.BRIDGE ||
     (swapTypeSwitch === ESwapTabSwitchType.LIMIT && !focusSwapPro);
   const isKLineDisabled = !fromToken && !toToken;
   const showKLineAsDialog =

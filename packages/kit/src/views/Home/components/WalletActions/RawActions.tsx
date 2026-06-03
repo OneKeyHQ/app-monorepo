@@ -196,10 +196,8 @@ function ActionBridge(props: IActionItemsProps) {
   const { icon, label, ...rest } = props;
   return (
     <ActionItem
-      label={
-        label ?? intl.formatMessage({ id: ETranslations.swap_page_bridge })
-      }
-      icon={icon ?? 'BridgeOutline'}
+      label={label ?? intl.formatMessage({ id: ETranslations.global_swap })}
+      icon={icon ?? 'SwitchHorOutline'}
       {...rest}
     />
   );

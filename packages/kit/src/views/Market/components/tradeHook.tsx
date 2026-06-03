@@ -235,9 +235,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           symbol: symbol.toUpperCase(),
           name,
         },
-        swapTabSwitchType: isSupportSwap
-          ? ESwapTabSwitchType.SWAP
-          : ESwapTabSwitchType.BRIDGE,
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
         marketPresetToken: {
           networkId,
           contractAddress: realContractAddress,

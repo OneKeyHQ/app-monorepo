@@ -103,6 +103,10 @@ const SwapHeaderContainer = ({
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
   const networkIdRef = useRef(networkId);
+  const normalizedDefaultSwapType =
+    defaultSwapType === ESwapTabSwitchType.BRIDGE
+      ? ESwapTabSwitchType.SWAP
+      : defaultSwapType;
   if (networkIdRef.current !== networkId) {
     networkIdRef.current = networkId;
   }
@@ -110,12 +114,15 @@ const SwapHeaderContainer = ({
     networkIdRef.current = fromToken?.networkId;
   }
   useEffect(() => {
-    if (defaultSwapType) {
+    if (normalizedDefaultSwapType) {
       // Avoid switching the default toToken before it has been loaded,
       // resulting in the default network toToken across chains
       setTimeout(
         () => {
-          void swapTypeSwitchAction(defaultSwapType, networkIdRef.current);
+          void swapTypeSwitchAction(
+            normalizedDefaultSwapType,
+            networkIdRef.current,
+          );
         },
         platformEnv.isExtension ? 100 : 10,
       );
@@ -135,7 +142,10 @@ const SwapHeaderContainer = ({
 
   const handleSwapTypeChange = useCallback(
     async (value: string | number) => {
-      const newType = value as ESwapTabSwitchType;
+      const newType =
+        value === ESwapTabSwitchType.BRIDGE
+          ? ESwapTabSwitchType.SWAP
+          : (value as ESwapTabSwitchType);
       if (swapTypeSwitch === newType) return;
 
       if (newType === ESwapTabSwitchType.LIMIT) {
@@ -164,10 +174,6 @@ const SwapHeaderContainer = ({
     {
       label: intl.formatMessage({ id: ETranslations.swap_page_swap }),
       value: ESwapTabSwitchType.SWAP,
-    },
-    {
-      label: intl.formatMessage({ id: ETranslations.swap_page_bridge }),
-      value: ESwapTabSwitchType.BRIDGE,
     },
     {
       label: intl.formatMessage({
@@ -232,23 +238,6 @@ const SwapHeaderContainer = ({
           }}
         >
           {intl.formatMessage({ id: ETranslations.swap_page_swap })}
-        </CustomTabItem>
-
-        <CustomTabItem
-          isSelected={swapTypeSwitch === ESwapTabSwitchType.BRIDGE}
-          onPress={async () => {
-            if (swapTypeSwitch !== ESwapTabSwitchType.BRIDGE) {
-              if (fromToken?.networkId && fromToken?.networkId !== networkId) {
-                await updateSelectedAccountNetworkAction(fromToken?.networkId);
-              }
-              void swapTypeSwitchAction(
-                ESwapTabSwitchType.BRIDGE,
-                fromToken?.networkId || networkId,
-              );
-            }
-          }}
-        >
-          {intl.formatMessage({ id: ETranslations.swap_page_bridge })}
         </CustomTabItem>
         <CustomTabItem
           isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}

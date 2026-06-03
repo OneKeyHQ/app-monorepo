@@ -149,13 +149,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         id: ETranslations.swap_page_alert_account_does_not_support_swap,
       });
     }
-    let actionTranslationId;
     let actionToken: ISwapToken | undefined;
     let actionOtherToken: ISwapToken | undefined;
     if (!speedSwapEnabled) {
-      actionTranslationId = onlySupportCrossChain
-        ? ETranslations.promode_swap_unsupported_message_btc
-        : ETranslations.promode_swap_unsupported_message_regular;
       actionToken = {
         networkId: networkId || '',
         contractAddress: tokenDetail?.address || '',
@@ -176,7 +172,6 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     return {
       enabled: isEnabled,
       warningMessage,
-      actionTranslationId,
       actionToken,
       actionOtherToken,
       onlySupportCrossChain,

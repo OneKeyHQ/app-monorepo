@@ -94,13 +94,10 @@ export const {
   let networks = get(swapNetworks());
   const swapType = get(swapTypeSwitchAtom());
   networks = networks.filter((net) => {
-    if (swapType === ESwapTabSwitchType.BRIDGE) {
-      return net.supportCrossChainSwap;
-    }
     if (swapType === ESwapTabSwitchType.LIMIT) {
       return net.supportLimit;
     }
-    return net.supportSingleSwap;
+    return net.supportSingleSwap || net.supportCrossChainSwap;
   });
   const allNetwork = {
     networkId: getNetworkIdsMap().onekeyall,

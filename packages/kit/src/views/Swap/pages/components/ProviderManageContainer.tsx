@@ -14,12 +14,9 @@ import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atom
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapProviderManager } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
-import ProviderManageComponent, {
-  ProviderSwitch,
-} from '../../components/ProviderManageComponent';
+import ProviderManageComponent from '../../components/ProviderManageComponent';
 
 interface IProviderManageContainerProps {
-  isBridge: boolean;
   onSaved: () => void;
 }
 
@@ -29,23 +26,16 @@ const PROVIDER_MANAGE_LIST_MAX_HEIGHT = {
 } as const;
 
 const ProviderManageContainer = ({
-  isBridge,
   onSaved,
 }: IProviderManageContainerProps) => {
   const intl = useIntl();
   const media = useMedia();
-  const [{ swapProviderManager, bridgeProviderManager }] =
-    useInAppNotificationAtom();
+  const [{ swapProviderManager }] = useInAppNotificationAtom();
   const [providerManageNewData, setProviderManageNewData] =
     useState<ISwapProviderManager[]>(swapProviderManager);
   useEffect(() => {
-    if (isBridge) {
-      setProviderManageNewData(bridgeProviderManager);
-    } else {
-      setProviderManageNewData(swapProviderManager);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isBridge]);
+    setProviderManageNewData(swapProviderManager);
+  }, [swapProviderManager]);
   const [isSaving, setIsSaving] = useState(false);
   const onProviderSwitchEnable = useCallback(
     (provider: string, enable: boolean) => {
@@ -108,11 +98,10 @@ const ProviderManageContainer = ({
     setIsSaving(true);
     await backgroundApiProxy.serviceSwap.updateSwapProviderManager(
       providerManageNewData,
-      isBridge,
     );
     setIsSaving(false);
     onSaved();
-  }, [onSaved, providerManageNewData, isBridge]);
+  }, [onSaved, providerManageNewData]);
 
   const providerManageListMaxHeight = media.gtMd
     ? PROVIDER_MANAGE_LIST_MAX_HEIGHT.desktop
@@ -131,40 +120,27 @@ const ProviderManageContainer = ({
         }}
       >
         <Accordion type="single" collapsible gap="$2">
-          {isBridge
-            ? providerManageNewData.map((item) => (
-                <ProviderSwitch
-                  serviceDisable={item.serviceDisable}
-                  isBridge={isBridge}
-                  key={item.providerInfo.provider}
-                  providerInfo={item.providerInfo}
-                  providerEnable={item.enable}
-                  onProviderSwitchEnable={(enable) => {
-                    onProviderSwitchEnable(item.providerInfo.provider, enable);
-                  }}
-                />
-              ))
-            : providerManageNewData.map((item) => (
-                <ProviderManageComponent
-                  key={item.providerInfo.provider}
-                  providerInfo={item.providerInfo}
-                  providerEnable={item.enable}
-                  serviceDisable={!!item.serviceDisable}
-                  serviceDisableNetworks={item.serviceDisableNetworks ?? []}
-                  providerSupportNetworks={item.supportNetworks ?? []}
-                  providerDisableNetworks={item.disableNetworks ?? []}
-                  onProviderSwitchEnable={(enable) => {
-                    onProviderSwitchEnable(item.providerInfo.provider, enable);
-                  }}
-                  onProviderNetworkEnable={(networkId, enable) => {
-                    onProviderNetworkEnable(
-                      item.providerInfo.provider,
-                      networkId,
-                      enable,
-                    );
-                  }}
-                />
-              ))}
+          {providerManageNewData.map((item) => (
+            <ProviderManageComponent
+              key={item.providerInfo.provider}
+              providerInfo={item.providerInfo}
+              providerEnable={item.enable}
+              serviceDisable={!!item.serviceDisable}
+              serviceDisableNetworks={item.serviceDisableNetworks ?? []}
+              providerSupportNetworks={item.supportNetworks ?? []}
+              providerDisableNetworks={item.disableNetworks ?? []}
+              onProviderSwitchEnable={(enable) => {
+                onProviderSwitchEnable(item.providerInfo.provider, enable);
+              }}
+              onProviderNetworkEnable={(networkId, enable) => {
+                onProviderNetworkEnable(
+                  item.providerInfo.provider,
+                  networkId,
+                  enable,
+                );
+              }}
+            />
+          ))}
         </Accordion>
       </ScrollView>
       <YStack pt="$4">

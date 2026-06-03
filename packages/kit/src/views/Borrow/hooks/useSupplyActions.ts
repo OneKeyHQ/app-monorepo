@@ -168,16 +168,16 @@ export const useSupplyActions = ({
           return;
         }
 
-        const fromToken = getDefaultFromToken(token, onekeyNetwork);
+        const fromToken = supportSwap
+          ? getDefaultFromToken(token, onekeyNetwork)
+          : getEthereumEthToken();
 
         navigation.pushModal(EModalRoutes.SwapModal, {
           screen: EModalSwapRoutes.SwapMainLand,
           params: {
             importFromToken: fromToken,
             importToToken: buildSwapToken(token, onekeyNetwork),
-            swapTabSwitchType: supportSwap
-              ? ESwapTabSwitchType.SWAP
-              : ESwapTabSwitchType.BRIDGE,
+            swapTabSwitchType: ESwapTabSwitchType.SWAP,
             swapSource: ESwapSource.MARKET,
           },
         });
@@ -228,7 +228,7 @@ export const useSupplyActions = ({
           params: {
             importFromToken: fromToken,
             importToToken: buildSwapToken(token, onekeyNetwork),
-            swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
+            swapTabSwitchType: ESwapTabSwitchType.SWAP,
             swapSource: ESwapSource.MARKET,
           },
         });

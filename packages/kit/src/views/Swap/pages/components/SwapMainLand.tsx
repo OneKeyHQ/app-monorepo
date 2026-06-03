@@ -129,7 +129,6 @@ import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import PreSwapDialogContent from './PreSwapDialogContent';
-import SwapBridgeMdContainer from './SwapBridgeMdContainer';
 import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
@@ -1096,13 +1095,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   );
   const swapBridgeSupportNetworksFilterAllNet = useMemo(() => {
     let filteredNetworks: typeof swapNetworks;
-    if (swapTypeSwitch === ESwapTabSwitchType.BRIDGE) {
+    if (swapTypeSwitch === ESwapTabSwitchType.SWAP) {
       filteredNetworks = swapNetworks.filter(
-        (item) => !!item.supportCrossChainSwap,
-      );
-    } else if (swapTypeSwitch === ESwapTabSwitchType.SWAP) {
-      filteredNetworks = swapNetworks.filter(
-        (item) => !!item.supportSingleSwap,
+        (item) => !!item.supportSingleSwap || !!item.supportCrossChainSwap,
       );
     } else {
       filteredNetworks = swapNetworks.filter((item) => !!item.supportLimit);
@@ -1166,34 +1161,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         />
       );
     }
-    if (swapTypeSwitch === ESwapTabSwitchType.SWAP) {
-      return (
-        <SwapSwapMbContainer
-          pageType={pageType ?? EPageType.modal}
-          swapTipsPageType={pageType}
-          onSelectToken={onSelectToken}
-          fetchLoading={fetchLoading}
-          onSelectPercentageStage={onSelectPercentageStage}
-          onBalanceMaxPress={onBalanceMaxPress}
-          onPreSwap={onPreSwap}
-          onToAnotherAddressModal={onToAnotherAddressModal}
-          onOpenProviderList={onOpenProviderList}
-          refreshAction={refreshAction}
-          quoteResult={quoteResult}
-          quoteLoading={quoteLoading}
-          quoteEventFetching={quoteEventFetching}
-          alerts={alerts}
-          onTokenPress={onTokenPress}
-          onSelectRecentTokenPairs={onSelectRecentTokenPairs}
-          onOpenOrdersClick={onOpenOrdersClick}
-          fromTokenAmountValue={fromTokenAmount.value}
-          swapRecentTokenPairs={swapRecentTokenPairs}
-          supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
-        />
-      );
-    }
     return (
-      <SwapBridgeMdContainer
+      <SwapSwapMbContainer
         pageType={pageType ?? EPageType.modal}
         swapTipsPageType={pageType}
         onSelectToken={onSelectToken}

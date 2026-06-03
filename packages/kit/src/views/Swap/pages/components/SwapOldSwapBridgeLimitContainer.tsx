@@ -99,9 +99,7 @@ const SwapOldSwapBridgeLimitContainer = ({
   const intl = useIntl();
 
   let swapTitle: string;
-  if (swapTypeSwitch === ESwapTabSwitchType.BRIDGE) {
-    swapTitle = intl.formatMessage({ id: ETranslations.swap_page_bridge });
-  } else if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+  if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
     swapTitle = intl.formatMessage({ id: ETranslations.swap_page_limit });
   } else {
     swapTitle = intl.formatMessage({ id: ETranslations.swap_page_swap });

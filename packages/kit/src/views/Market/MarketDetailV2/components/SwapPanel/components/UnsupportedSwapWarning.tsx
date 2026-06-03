@@ -2,8 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert } from '@onekeyhq/components';
-import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { Alert, SizableText, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSwapFromMarketJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -18,70 +17,61 @@ import { ESwapDirection } from '../hooks/useTradeType';
 export function UnsupportedSwapWarning({
   customMessage,
   actionToken,
-  actionTranslationId,
+  showSwapAction,
   onCloseDialog,
   tradeType,
 }: {
   customMessage?: string;
   actionToken?: ISwapToken;
-  actionTranslationId?: ETranslations;
+  showSwapAction?: boolean;
   onCloseDialog?: () => void;
   tradeType: ESwapDirection;
 }) {
   const intl = useIntl();
   const [, setSwapFromMarketJumpTokenAtom] = useSwapFromMarketJumpTokenAtom();
   const navigation = useAppNavigation();
-  const handleAlertAction = useCallback(
-    (actionName: string) => {
-      onCloseDialog?.();
-      if (actionName === 'bridge_action') {
-        setSwapFromMarketJumpTokenAtom({
-          token: actionToken,
-          type: ESwapTabSwitchType.BRIDGE,
-          direction: tradeType === ESwapDirection.BUY ? 'to' : 'from',
-        });
-        navigation.switchTab(ETabRoutes.Swap);
-      } else if (actionName === 'swap_action') {
-        setSwapFromMarketJumpTokenAtom({
-          token: actionToken,
-          type: ESwapTabSwitchType.SWAP,
-          direction: tradeType === ESwapDirection.BUY ? 'to' : 'from',
-        });
-        navigation.switchTab(ETabRoutes.Swap);
-      }
-    },
-    [
-      onCloseDialog,
-      setSwapFromMarketJumpTokenAtom,
-      actionToken,
-      tradeType,
-      navigation,
-    ],
-  );
-  const description = useMemo(() => {
-    if (actionTranslationId) {
-      return undefined;
-    }
+  const handleAlertAction = useCallback(() => {
+    onCloseDialog?.();
+    setSwapFromMarketJumpTokenAtom({
+      token: actionToken,
+      type: ESwapTabSwitchType.SWAP,
+      direction: tradeType === ESwapDirection.BUY ? 'to' : 'from',
+    });
+    navigation.switchTab(ETabRoutes.Swap);
+  }, [
+    onCloseDialog,
+    setSwapFromMarketJumpTokenAtom,
+    actionToken,
+    tradeType,
+    navigation,
+  ]);
+  const descriptionText = useMemo(() => {
     return (
       customMessage ||
       intl.formatMessage({ id: ETranslations.dexmarket_swap_unsupported_desc })
     );
-  }, [actionTranslationId, customMessage, intl]);
+  }, [customMessage, intl]);
+  const description = showSwapAction ? undefined : descriptionText;
   const descriptionComponent = useMemo(() => {
-    if (actionTranslationId) {
-      return (
-        <HyperlinkText
-          size="$bodyMd"
-          color="$textSubdued"
-          translationId={actionTranslationId}
-          onAction={(actionName) => {
-            void handleAlertAction(actionName);
-          }}
-        />
-      );
+    if (!showSwapAction) {
+      return undefined;
     }
-    return undefined;
-  }, [actionTranslationId, handleAlertAction]);
+    return (
+      <XStack flexWrap="wrap" gap="$1">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {descriptionText}
+        </SizableText>
+        <SizableText
+          size="$bodyMdMedium"
+          cursor="pointer"
+          textDecorationLine="underline"
+          onPress={handleAlertAction}
+        >
+          {intl.formatMessage({ id: ETranslations.global_swap })}
+        </SizableText>
+      </XStack>
+    );
+  }, [descriptionText, handleAlertAction, intl, showSwapAction]);
   return (
     <Alert
       icon="InfoCircleOutline"

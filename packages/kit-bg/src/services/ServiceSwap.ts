@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { isSwapHistoryProtocolExcluded } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import { getDenySwapProviderString } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -974,12 +975,12 @@ export default class ServiceSwap extends ServiceBase {
     if (fromNetworkId === toNetworkId) {
       return undefined;
     }
-    const { bridgeProviderManager } = await inAppNotificationAtom.get();
-    const denyBridges = bridgeProviderManager.filter((item) => !item.enable);
-    if (!denyBridges?.length) {
-      return undefined;
-    }
-    return denyBridges.map((item) => item.providerInfo.provider).join(',');
+    const { swapProviderManager } = await inAppNotificationAtom.get();
+    return getDenySwapProviderString({
+      providerManagers: swapProviderManager,
+      fromNetworkId,
+      toNetworkId,
+    });
   }
 
   async getDenySingleSwapProvider(fromNetworkId: string, toNetworkId: string) {
@@ -987,27 +988,11 @@ export default class ServiceSwap extends ServiceBase {
       return undefined;
     }
     const { swapProviderManager } = await inAppNotificationAtom.get();
-    const denyDexs = swapProviderManager.filter((item) => !item.enable);
-    let denyDexArr = denyDexs?.map((item) => item.providerInfo.provider);
-    const denyDexNetworks = swapProviderManager.filter((item) => {
-      if (item.enable) {
-        const netDisEnable = item.disableNetworks?.find(
-          (net) => net.networkId === fromNetworkId,
-        );
-        if (netDisEnable) {
-          return true;
-        }
-        return false;
-      }
-      return false;
+    return getDenySwapProviderString({
+      providerManagers: swapProviderManager,
+      fromNetworkId,
+      toNetworkId,
     });
-    if (denyDexNetworks?.length) {
-      denyDexArr = [
-        ...(denyDexArr ?? []),
-        ...denyDexNetworks.map((item) => item.providerInfo.provider),
-      ];
-    }
-    return denyDexArr?.join(',');
   }
 
   @backgroundMethod()
@@ -1309,25 +1294,15 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async updateSwapProviderManager(
     data: ISwapProviderManager[],
-    isBridge: boolean,
+    _isBridge?: boolean,
   ) {
-    if (isBridge) {
-      await this.backgroundApi.simpleDb.swapConfigs.setBridgeProviderManager(
-        data,
-      );
-      await inAppNotificationAtom.set((pre) => ({
-        ...pre,
-        bridgeProviderManager: data,
-      }));
-    } else {
-      await this.backgroundApi.simpleDb.swapConfigs.setSwapProviderManager(
-        data,
-      );
-      await inAppNotificationAtom.set((pre) => ({
-        ...pre,
-        swapProviderManager: data,
-      }));
-    }
+    await this.backgroundApi.simpleDb.swapConfigs.setSwapProviderManager(data);
+    await this.backgroundApi.simpleDb.swapConfigs.setBridgeProviderManager([]);
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapProviderManager: data,
+      bridgeProviderManager: [],
+    }));
   }
 
   @backgroundMethod()

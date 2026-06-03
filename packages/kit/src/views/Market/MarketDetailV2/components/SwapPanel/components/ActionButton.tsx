@@ -63,7 +63,6 @@ export function ActionButton({
   paymentToken,
   actionOtherToken,
   networkId,
-  onlySupportCrossChain,
   actionToken,
   onSwapAction,
   ...otherProps
@@ -131,9 +130,7 @@ export function ActionButton({
           tradeType === ESwapDirection.BUY ? actionToken : actionOtherToken,
         importFromToken:
           tradeType === ESwapDirection.BUY ? actionOtherToken : actionToken,
-        swapTabSwitchType: onlySupportCrossChain
-          ? ESwapTabSwitchType.BRIDGE
-          : ESwapTabSwitchType.SWAP,
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
         swapSource: ESwapSource.MARKET,
         marketPresetToken: actionToken
           ? {
@@ -147,7 +144,6 @@ export function ActionButton({
   }, [
     isValidAmount,
     amount,
-    onlySupportCrossChain,
     actionToken,
     actionOtherToken,
     tradeType,
