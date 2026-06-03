@@ -143,6 +143,7 @@ interface IMarketCandleSubscriptionRecord extends IEventCandleParameters {
 interface IRequiredSubscriptionInfo {
   requiredSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>>;
   params: ISubscriptionState;
+  marketCandleSubscriptionStateVersion: number;
 }
 
 @backgroundClass()
@@ -222,6 +223,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     IMarketCandleSubscriptionRecord
   >();
 
+  private _marketCandleSubscriptionStateVersion = 0;
+
+  private _bumpMarketCandleSubscriptionStateVersion(): void {
+    this._marketCandleSubscriptionStateVersion += 1;
+  }
+
+  private _isMarketCandleSubscriptionStateStale(stateVersion: number): boolean {
+    return stateVersion !== this._marketCandleSubscriptionStateVersion;
+  }
+
   private _getMarketCandleSubscriptions(): IEventCandleParameters[] {
     const subscriptionsBySpecKey = new Map<string, IEventCandleParameters>();
 
@@ -287,63 +298,78 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private async _syncMarketCandleSubscriptions(): Promise<void> {
-    const nextSubSpecsMap = this._getMarketCandleSubscriptionSpecsMap();
-    const nextSubSpecs = Object.values(nextSubSpecsMap);
-    const currentCandleSpecs = Object.values(this.allSubSpecsMap).filter(
-      (spec) => spec.type === ESubscriptionType.CANDLE,
-    );
+    while (true) {
+      const marketCandleSubscriptionStateVersion =
+        this._marketCandleSubscriptionStateVersion;
+      const nextSubSpecsMap = this._getMarketCandleSubscriptionSpecsMap();
+      const nextSubSpecs = Object.values(nextSubSpecsMap);
+      const currentCandleSpecs = Object.values(this.allSubSpecsMap).filter(
+        (spec) => spec.type === ESubscriptionType.CANDLE,
+      );
 
-    if (nextSubSpecs.length === 0 && currentCandleSpecs.length === 0) {
-      return;
-    }
+      if (nextSubSpecs.length === 0 && currentCandleSpecs.length === 0) {
+        return;
+      }
 
-    let client = this._client;
-    if (!client && this._clientInitPromise) {
-      client = await this._clientInitPromise;
-    }
-    if (!client && nextSubSpecs.length > 0) {
-      await this.connect();
-      client =
-        this._client ??
-        (this._clientInitPromise ? await this._clientInitPromise : null);
-    }
-    if (!client) {
-      return;
-    }
+      let client = this._client;
+      if (!client && this._clientInitPromise) {
+        client = await this._clientInitPromise;
+      }
+      if (!client && nextSubSpecs.length > 0) {
+        await this.connect();
+        client =
+          this._client ??
+          (this._clientInitPromise ? await this._clientInitPromise : null);
+      }
+      if (!client) {
+        return;
+      }
 
-    if (client.transport?.socket?.readyState !== WebSocket.OPEN) {
-      const isOpen = await this._waitForOpenSocket({
-        client,
-        timeoutMs:
-          ServiceHyperliquidSubscription.SUBSCRIPTION_UPDATE_OPEN_WAIT_MS,
-      });
-      if (!isOpen) {
+      if (client.transport?.socket?.readyState !== WebSocket.OPEN) {
+        const isOpen = await this._waitForOpenSocket({
+          client,
+          timeoutMs:
+            ServiceHyperliquidSubscription.SUBSCRIPTION_UPDATE_OPEN_WAIT_MS,
+        });
+        if (!isOpen) {
+          return;
+        }
+      }
+
+      if (
+        !this._isMarketCandleSubscriptionStateStale(
+          marketCandleSubscriptionStateVersion,
+        )
+      ) {
+        const toDestroySubscriptions = currentCandleSpecs.filter(
+          (spec) => !nextSubSpecsMap[spec.key],
+        );
+        for (const spec of toDestroySubscriptions) {
+          delete this.pendingSubSpecsMap[spec.key];
+        }
+
+        for (const spec of nextSubSpecs) {
+          this.allSubSpecsMap[spec.key] = spec;
+          this.pendingSubSpecsMap[spec.key] = spec;
+        }
+
+        const toCreateSubscriptions = nextSubSpecs.filter(
+          (spec) =>
+            !this._activeSubscriptions.has(spec.key) ||
+            this._destroyingSubscriptionKeys.has(spec.key),
+        );
+
+        await Promise.all([
+          ...toDestroySubscriptions.map((spec) =>
+            this._destroySubscription(spec),
+          ),
+          ...toCreateSubscriptions.map((spec) =>
+            this._createSubscription(spec),
+          ),
+        ]);
         return;
       }
     }
-
-    const toDestroySubscriptions = currentCandleSpecs.filter(
-      (spec) => !nextSubSpecsMap[spec.key],
-    );
-    for (const spec of toDestroySubscriptions) {
-      delete this.pendingSubSpecsMap[spec.key];
-    }
-
-    for (const spec of nextSubSpecs) {
-      this.allSubSpecsMap[spec.key] = spec;
-      this.pendingSubSpecsMap[spec.key] = spec;
-    }
-
-    const toCreateSubscriptions = nextSubSpecs.filter(
-      (spec) =>
-        !this._activeSubscriptions.has(spec.key) ||
-        this._destroyingSubscriptionKeys.has(spec.key),
-    );
-
-    await Promise.all([
-      ...toDestroySubscriptions.map((spec) => this._destroySubscription(spec)),
-      ...toCreateSubscriptions.map((spec) => this._createSubscription(spec)),
-    ]);
   }
 
   private _isSubscriptionSpecPending(
@@ -439,6 +465,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         : undefined;
     delete l2BookOptions?.assetId;
     const currentSpotSymbol = spotActiveAsset?.coin || undefined;
+    const marketCandleSubscriptionStateVersion =
+      this._marketCandleSubscriptionStateVersion;
+    const marketCandleSubscriptions = this._getMarketCandleSubscriptions();
     const params: ISubscriptionState = {
       isConnected,
       l2BookOptions,
@@ -449,12 +478,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       spotAssetCtxsEnabled: this._currentState.spotAssetCtxsEnabled,
       currentSpotSymbol,
       tradingMode: currentMode,
-      marketCandleSubscriptions: this._getMarketCandleSubscriptions(),
+      marketCandleSubscriptions,
     };
 
     const requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
 
-    return { requiredSubSpecsMap, params };
+    return {
+      requiredSubSpecsMap,
+      params,
+      marketCandleSubscriptionStateVersion,
+    };
   }
 
   private _hasInitialSubscription = false;
@@ -484,8 +517,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     if (this.subscriptionsHandlerDisabled) {
       return;
     }
-    const requiredSubInfo =
+    let requiredSubInfo =
       preparedRequiredSubInfo ?? (await this.buildRequiredSubscriptionsMap());
+    requiredSubInfo =
+      await this._ensureFreshRequiredSubscriptionInfo(requiredSubInfo);
     if (!requiredSubInfo) {
       return;
     }
@@ -506,6 +541,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       this._hasInitialSubscription = false;
       await this._cleanupAllSubscriptions();
       await timerUtils.wait(50);
+      requiredSubInfo =
+        await this._ensureFreshRequiredSubscriptionInfo(requiredSubInfo);
+      if (!requiredSubInfo) {
+        return;
+      }
     }
 
     this.allSubSpecsMap = {
@@ -524,6 +564,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._emitConnectionStatus();
     await this._executeSubscriptionChanges();
     this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
+  }
+
+  private async _ensureFreshRequiredSubscriptionInfo(
+    requiredSubInfo?: IRequiredSubscriptionInfo,
+  ): Promise<IRequiredSubscriptionInfo | undefined> {
+    let nextRequiredSubInfo = requiredSubInfo;
+    while (
+      nextRequiredSubInfo &&
+      this._isMarketCandleSubscriptionStateStale(
+        nextRequiredSubInfo.marketCandleSubscriptionStateVersion,
+      )
+    ) {
+      nextRequiredSubInfo = await this.buildRequiredSubscriptionsMap();
+    }
+    return nextRequiredSubInfo;
   }
 
   _updateSubscriptionsDebounced = debounce(
@@ -1056,13 +1111,26 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
 
-    this._marketCandleSubscriptionsBySubscriber.set(params.subscriberId, {
+    const nextSubscription: IMarketCandleSubscriptionRecord = {
       coin,
       interval: params.interval,
       generation: params.generation,
-    });
+    };
+    if (!isEqual(currentSubscription, nextSubscription)) {
+      this._marketCandleSubscriptionsBySubscriber.set(
+        params.subscriberId,
+        nextSubscription,
+      );
+      this._bumpMarketCandleSubscriptionStateVersion();
+    }
 
     await this.connect();
+    const latestSubscription = this._marketCandleSubscriptionsBySubscriber.get(
+      params.subscriberId,
+    );
+    if (!isEqual(latestSubscription, nextSubscription)) {
+      return;
+    }
     if (this.subscriptionsHandlerDisabled) {
       await this._syncMarketCandleSubscriptions();
     } else {
@@ -1090,6 +1158,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     this._marketCandleSubscriptionsBySubscriber.delete(params.subscriberId);
+    this._bumpMarketCandleSubscriptionStateVersion();
     if (!this._client && !this._clientInitPromise) {
       return;
     }
