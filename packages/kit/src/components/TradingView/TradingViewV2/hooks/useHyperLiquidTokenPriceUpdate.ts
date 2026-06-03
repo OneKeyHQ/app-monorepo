@@ -8,8 +8,6 @@ import {
   useTokenDetailAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/constants';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 const HYPERLIQUID_WS_URL = 'wss://api.hyperliquid.xyz/ws';
 const HYPERLIQUID_RECONNECT_DELAY = 2000;
@@ -51,16 +49,7 @@ type IHyperLiquidCandleSubscription = {
   interval: string;
 };
 
-type IHyperLiquidCandle = {
-  symbol: string;
-  interval: string;
-  close: string;
-};
-
 type IUseHyperLiquidTokenPriceUpdateParams = {
-  tokenAddress: string;
-  networkId: string;
-  tokenSymbol?: string;
   hyperLiquidSymbol?: string;
   kLineResolutionRef?: RefObject<string>;
   enabled?: boolean;
@@ -77,50 +66,33 @@ function getHyperLiquidInterval(resolution?: string) {
   return interval && HYPERLIQUID_INTERVALS.has(interval) ? interval : '1m';
 }
 
-function getStringValue(record: Record<string, unknown>, key: string) {
-  const value = record[key];
-  return typeof value === 'string' ? value : undefined;
-}
-
-function getRecord(value: unknown) {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
-}
-
-function parseCandleMessage(
-  messageData: unknown,
-): IHyperLiquidCandle | undefined {
+function parseCandleMessage(messageData: unknown) {
   if (typeof messageData !== 'string') {
     return undefined;
   }
 
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(messageData) as unknown;
+    const message = JSON.parse(messageData) as {
+      channel?: unknown;
+      data?: Record<string, unknown>;
+    };
+    if (message?.channel !== 'candle') {
+      return undefined;
+    }
+
+    const { s: symbol, i: interval, c: close } = message.data ?? {};
+    if (
+      typeof symbol === 'string' &&
+      typeof interval === 'string' &&
+      typeof close === 'string'
+    ) {
+      return { symbol, interval, close };
+    }
   } catch {
     return undefined;
   }
 
-  const message = getRecord(parsed);
-  if (!message || getStringValue(message, 'channel') !== 'candle') {
-    return undefined;
-  }
-
-  const candle = getRecord(message.data);
-  if (!candle) {
-    return undefined;
-  }
-
-  const symbol = getStringValue(candle, 's');
-  const interval = getStringValue(candle, 'i');
-  const close = getStringValue(candle, 'c');
-
-  if (!symbol || !interval || !close) {
-    return undefined;
-  }
-
-  return { symbol, interval, close };
+  return undefined;
 }
 
 function isValidPrice(price: string) {
@@ -167,50 +139,10 @@ function getPriceChange24hPercent({
   );
 }
 
-function isTokenDetailMatched({
-  tokenDetail,
-  tokenAddress,
-  networkId,
-  tokenSymbol,
-}: {
-  tokenDetail: IMarketTokenDetail | undefined;
-  tokenAddress: string;
-  networkId: string;
-  tokenSymbol?: string;
-}) {
-  if (!tokenDetail || !networkId) {
-    return false;
-  }
-
-  if (tokenDetail.networkId && tokenDetail.networkId !== networkId) {
-    return false;
-  }
-
-  const expectedSymbol = normalizeSymbol(tokenSymbol);
-  const currentSymbol = normalizeSymbol(tokenDetail.symbol);
-  if (expectedSymbol && currentSymbol && expectedSymbol !== currentSymbol) {
-    return false;
-  }
-
-  return equalTokenNoCaseSensitive({
-    token1: {
-      networkId,
-      contractAddress: tokenAddress,
-    },
-    token2: {
-      networkId,
-      contractAddress: tokenDetail.address || '',
-    },
-  });
-}
-
-function buildSubscription({
-  hyperLiquidSymbol,
-  resolution,
-}: {
-  hyperLiquidSymbol: string;
-  resolution?: string;
-}): IHyperLiquidCandleSubscription {
+function buildSubscription(
+  hyperLiquidSymbol: string,
+  resolution?: string,
+): IHyperLiquidCandleSubscription {
   return {
     type: 'candle',
     coin: hyperLiquidSymbol,
@@ -218,26 +150,17 @@ function buildSubscription({
   };
 }
 
-function sendSubscriptionMessage({
-  ws,
-  method,
-  subscription,
-}: {
-  ws: WebSocket;
-  method: 'subscribe' | 'unsubscribe';
-  subscription: IHyperLiquidCandleSubscription;
-}) {
-  if (ws.readyState !== WebSocket.OPEN) {
-    return;
+function sendSubscriptionMessage(
+  ws: WebSocket,
+  method: 'subscribe' | 'unsubscribe',
+  subscription: IHyperLiquidCandleSubscription,
+) {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ method, subscription }));
   }
-
-  ws.send(JSON.stringify({ method, subscription }));
 }
 
 export function useHyperLiquidTokenPriceUpdate({
-  tokenAddress,
-  networkId,
-  tokenSymbol,
   hyperLiquidSymbol,
   kLineResolutionRef,
   enabled = true,
@@ -257,13 +180,7 @@ export function useHyperLiquidTokenPriceUpdate({
       if (
         !latestTokenDetail ||
         !isValidPrice(latestPrice) ||
-        latestTokenDetail.price === latestPrice ||
-        !isTokenDetailMatched({
-          tokenDetail: latestTokenDetail,
-          tokenAddress,
-          networkId,
-          tokenSymbol,
-        })
+        latestTokenDetail.price === latestPrice
       ) {
         return;
       }
@@ -286,7 +203,7 @@ export function useHyperLiquidTokenPriceUpdate({
           MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
       });
     },
-    [networkId, tokenAddress, tokenDetailActions, tokenSymbol],
+    [tokenDetailActions],
   );
 
   const clearReconnectTimer = useCallback(() => {
@@ -297,21 +214,18 @@ export function useHyperLiquidTokenPriceUpdate({
   }, []);
 
   const subscribe = useCallback(
-    ({
-      ws,
-      previousSubscription,
-    }: {
-      ws: WebSocket;
-      previousSubscription?: IHyperLiquidCandleSubscription | null;
-    }) => {
+    (
+      ws: WebSocket,
+      previousSubscription?: IHyperLiquidCandleSubscription | null,
+    ) => {
       if (!hyperLiquidSymbol) {
         return;
       }
 
-      const nextSubscription = buildSubscription({
+      const nextSubscription = buildSubscription(
         hyperLiquidSymbol,
-        resolution: kLineResolutionRef?.current,
-      });
+        kLineResolutionRef?.current,
+      );
       if (
         previousSubscription?.coin === nextSubscription.coin &&
         previousSubscription?.interval === nextSubscription.interval
@@ -320,25 +234,17 @@ export function useHyperLiquidTokenPriceUpdate({
       }
 
       if (previousSubscription) {
-        sendSubscriptionMessage({
-          ws,
-          method: 'unsubscribe',
-          subscription: previousSubscription,
-        });
+        sendSubscriptionMessage(ws, 'unsubscribe', previousSubscription);
       }
 
-      sendSubscriptionMessage({
-        ws,
-        method: 'subscribe',
-        subscription: nextSubscription,
-      });
+      sendSubscriptionMessage(ws, 'subscribe', nextSubscription);
       subscriptionRef.current = nextSubscription;
     },
     [hyperLiquidSymbol, kLineResolutionRef],
   );
 
   const closeWebSocket = useCallback(
-    ({ clearReconnect = true }: { clearReconnect?: boolean } = {}) => {
+    (clearReconnect = true) => {
       if (clearReconnect) {
         clearReconnectTimer();
       }
@@ -346,11 +252,7 @@ export function useHyperLiquidTokenPriceUpdate({
       const ws = wsRef.current;
       const subscription = subscriptionRef.current;
       if (ws && subscription) {
-        sendSubscriptionMessage({
-          ws,
-          method: 'unsubscribe',
-          subscription,
-        });
+        sendSubscriptionMessage(ws, 'unsubscribe', subscription);
       }
 
       wsRef.current = null;
@@ -368,7 +270,7 @@ export function useHyperLiquidTokenPriceUpdate({
   );
 
   useEffect(() => {
-    if (!enabled || !networkId || !hyperLiquidSymbol) {
+    if (!enabled || !hyperLiquidSymbol) {
       closeWebSocket();
       return;
     }
@@ -380,13 +282,13 @@ export function useHyperLiquidTokenPriceUpdate({
         return;
       }
 
-      closeWebSocket({ clearReconnect: false });
+      closeWebSocket(false);
 
       const ws = new WebSocket(HYPERLIQUID_WS_URL);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        subscribe({ ws });
+        subscribe(ws);
       };
 
       ws.onmessage = (event) => {
@@ -430,29 +332,21 @@ export function useHyperLiquidTokenPriceUpdate({
       disposed = true;
       closeWebSocket();
     };
-  }, [
-    applyPrice,
-    closeWebSocket,
-    enabled,
-    hyperLiquidSymbol,
-    networkId,
-    subscribe,
-  ]);
+  }, [applyPrice, closeWebSocket, enabled, hyperLiquidSymbol, subscribe]);
 
   const syncSubscription = useCallback(() => {
     const ws = wsRef.current;
-    if (!enabled || !networkId || !hyperLiquidSymbol || !ws) {
+    if (!enabled || !hyperLiquidSymbol || !ws) {
       return;
     }
 
-    subscribe({
-      ws,
-      previousSubscription: subscriptionRef.current,
-    });
-  }, [enabled, hyperLiquidSymbol, networkId, subscribe]);
+    subscribe(ws, subscriptionRef.current);
+  }, [enabled, hyperLiquidSymbol, subscribe]);
 
   useInterval(
     syncSubscription,
-    enabled ? HYPERLIQUID_SUBSCRIPTION_SYNC_INTERVAL : null,
+    enabled && hyperLiquidSymbol
+      ? HYPERLIQUID_SUBSCRIPTION_SYNC_INTERVAL
+      : null,
   );
 }
