@@ -28,6 +28,7 @@ import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -226,6 +227,11 @@ const SettingProtectionModal = () => {
             })}
             {...(!isPrimeSubscriptionActive && {
               onPress: () => {
+                defaultLogger.prime.subscription.primeEntryClick({
+                  featureName: EPrimeFeatures.ReceiveRiskMonitoring,
+                  entryPoint: 'settingsPage',
+                  isPrimeActive: false,
+                });
                 navigation.pushModal(EModalRoutes.PrimeModal, {
                   screen: EPrimePages.PrimeDashboard,
                   params: {

@@ -37,6 +37,7 @@ import {
 } from '@onekeyhq/kit/src/components/TokenSelectorFilter/utils';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
 import { useManageToken } from '@onekeyhq/kit/src/hooks/useManageToken';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -189,9 +190,11 @@ function TokenListBlock({
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
+  const isDeFiEnabled = useIsDeFiEnabled(network?.id);
   const showLpTokenFilterSwitch =
     isTokenSelectorDappTokenFilterSupportedNetwork({
       network,
+      isDeFiEnabled,
     });
   const showLpTokensOnly = showLpTokenFilterSwitch
     ? tokenSelectorFilter.homeShowLpTokensOnly
