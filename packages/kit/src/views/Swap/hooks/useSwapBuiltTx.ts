@@ -123,6 +123,7 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { buildSwapApproveAndSendSteps } from '../utils/buildSwapReviewState';
 import {
   checkSwapLatestBalanceSufficient,
   getSwapRequiredNativeBalanceAmount,
@@ -141,6 +142,25 @@ const getEthers = createLazySdkLoader(() => import('ethers'));
 const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
+
+type IEstimateNetworkFeeResult = {
+  fallbackToSeparateTxConfirm?: boolean;
+};
+
+function canFallbackToSeparateApproveAndSwap({
+  approveUnsignedTxArr,
+  buildUnsignedParams,
+}: {
+  approveUnsignedTxArr?: IUnsignedTxPro[];
+  buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams;
+}) {
+  return Boolean(
+    approveUnsignedTxArr?.length &&
+    (buildUnsignedParams.encodedTx ||
+      buildUnsignedParams.transfersInfo?.length),
+  );
+}
+
 /**
  * React hook that manages the full lifecycle of building, approving, signing, and sending swap transactions in a multi-step workflow.
  *
@@ -262,6 +282,42 @@ export function useSwapBuildTx() {
   }
 
   const isModalPage = useIsOverlayPage();
+
+  const buildSeparateApproveAndSwapSteps = useCallback(
+    (quoteResult?: IFetchQuoteResult) =>
+      buildSwapApproveAndSendSteps({
+        quoteResult,
+        texts: {
+          approveAndSwap: intl.formatMessage({
+            id: ETranslations.swap_page_approve_and_swap,
+          }),
+          revokeApprove: intl.formatMessage(
+            {
+              id: ETranslations.global_revoke_approve,
+            },
+            {
+              symbol: quoteResult?.fromTokenInfo.symbol ?? fromToken?.symbol,
+            },
+          ),
+          approveTokenWithTarget: intl.formatMessage(
+            {
+              id: ETranslations.swap_page_approve_button,
+            },
+            {
+              token: quoteResult?.fromTokenInfo.symbol ?? fromToken?.symbol,
+              target: quoteResult?.info.providerName,
+            },
+          ),
+          confirmSwap: intl.formatMessage({
+            id: ETranslations.swap_review_confirm_swap,
+          }),
+          swap: intl.formatMessage({
+            id: ETranslations.global_swap,
+          }),
+        },
+      }),
+    [fromToken?.symbol, intl],
+  );
 
   const syncRecentTokenPairs = useCallback(
     async ({
@@ -2779,7 +2835,7 @@ export function useSwapBuildTx() {
       accountId: string,
       buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams,
       approveUnsignedTxArr?: IUnsignedTxPro[],
-    ) => {
+    ): Promise<IEstimateNetworkFeeResult> => {
       if (!fromToken || !fromAccountId || !fromUserAddress) {
         throw new OneKeyError('account error');
       }
@@ -2867,6 +2923,24 @@ export function useSwapBuildTx() {
               swapInfo,
               true,
             );
+            if (
+              canFallbackToSeparateApproveAndSwap({
+                approveUnsignedTxArr,
+                buildUnsignedParams,
+              })
+            ) {
+              setSwapSteps((prev) => ({
+                ...prev,
+                preSwapData: {
+                  ...prev.preSwapData,
+                  estimateNetworkFeeLoading: false,
+                  netWorkFee: undefined,
+                },
+              }));
+              return {
+                fallbackToSeparateTxConfirm: true,
+              };
+            }
             throw e;
           }
         } else if (
@@ -3064,6 +3138,7 @@ export function useSwapBuildTx() {
         }));
         throw _e;
       }
+      return {};
     },
     [
       buildGasInfo,
@@ -3108,7 +3183,7 @@ export function useSwapBuildTx() {
             data,
           );
           const { unsignedTxArr } = await getApproveUnSignedTxArr(data);
-          await estimateNetworkFee(
+          const estimateNetworkFeeResult = await estimateNetworkFee(
             fromAccountNetworkId ?? '',
             fromAccountId ?? '',
             {
@@ -3120,6 +3195,26 @@ export function useSwapBuildTx() {
             },
             unsignedTxArr,
           );
+          if (estimateNetworkFeeResult.fallbackToSeparateTxConfirm) {
+            const separateSteps = buildSeparateApproveAndSwapSteps(data);
+            if (data.allowanceResult && separateSteps.length > 1) {
+              setSwapSteps((prev) => ({
+                ...prev,
+                steps: separateSteps,
+                preSwapData: {
+                  ...prev.preSwapData,
+                  shouldFallback: true,
+                  needFetchGas: true,
+                  supportNetworkFeeLevel: false,
+                  netWorkFee: undefined,
+                  estimateNetworkFeeLoading: false,
+                  stepBeforeActionsLoading: false,
+                  stepBeforeActionsError: undefined,
+                },
+              }));
+              return;
+            }
+          }
           setSwapSteps((prev) => ({
             ...prev,
             preSwapData: {
@@ -3145,6 +3240,7 @@ export function useSwapBuildTx() {
       buildSwapAction,
       estimateNetworkFee,
       getApproveUnSignedTxArr,
+      buildSeparateApproveAndSwapSteps,
       setSwapSteps,
       slippageItem,
       fromAccountId,
@@ -3389,17 +3485,34 @@ export function useSwapBuildTx() {
                 preSwapData: swapStepsRef.current.preSwapData,
                 quoteResult: swapStepsRef.current.quoteResult,
               };
+              const separateFallbackSteps =
+                shouldFallback &&
+                step.type === ESwapStepType.BATCH_APPROVE_SWAP &&
+                quoteResultFinal?.allowanceResult
+                  ? buildSeparateApproveAndSwapSteps(quoteResultFinal)
+                  : undefined;
               if (shouldFallback) {
-                const newSteps = [...fallbackSwapStepsValues.steps];
-                newSteps[i] = {
-                  ...newSteps[i],
-                  status: ESwapStepStatus.READY,
-                };
+                const newSteps = separateFallbackSteps?.length
+                  ? separateFallbackSteps
+                  : [...fallbackSwapStepsValues.steps];
+                if (!separateFallbackSteps?.length) {
+                  newSteps[i] = {
+                    ...newSteps[i],
+                    status: ESwapStepStatus.READY,
+                  };
+                }
                 fallbackSwapStepsValues = {
                   steps: [...newSteps],
                   preSwapData: {
                     ...fallbackSwapStepsValues.preSwapData,
                     shouldFallback,
+                    ...(separateFallbackSteps?.length
+                      ? {
+                          needFetchGas: true,
+                          supportNetworkFeeLevel: false,
+                          netWorkFee: undefined,
+                        }
+                      : {}),
                   },
                   quoteResult: fallbackSwapStepsValues.quoteResult,
                 };
@@ -3410,20 +3523,32 @@ export function useSwapBuildTx() {
                   preSwapData: ISwapPreSwapData;
                   quoteResult?: IFetchQuoteResult | undefined;
                 }) => {
-                  const newSteps = [...prevSteps.steps];
-                  newSteps[i] = {
-                    ...newSteps[i],
-                    status: shouldFallback
-                      ? ESwapStepStatus.READY
-                      : ESwapStepStatus.FAILED,
-                    errorMessage,
-                  };
+                  const newSteps =
+                    shouldFallback && separateFallbackSteps?.length
+                      ? separateFallbackSteps
+                      : [...prevSteps.steps];
+                  if (!separateFallbackSteps?.length) {
+                    newSteps[i] = {
+                      ...newSteps[i],
+                      status: shouldFallback
+                        ? ESwapStepStatus.READY
+                        : ESwapStepStatus.FAILED,
+                      errorMessage,
+                    };
+                  }
                   return {
                     ...prevSteps,
                     steps: newSteps,
                     preSwapData: {
                       ...prevSteps.preSwapData,
                       shouldFallback,
+                      ...(shouldFallback && separateFallbackSteps?.length
+                        ? {
+                            needFetchGas: true,
+                            supportNetworkFeeLevel: false,
+                            netWorkFee: undefined,
+                          }
+                        : {}),
                     },
                   };
                 },
@@ -3465,6 +3590,7 @@ export function useSwapBuildTx() {
       buildTxNew,
       signMessage,
       batchApproveSwap,
+      buildSeparateApproveAndSwapSteps,
     ],
   );
 
