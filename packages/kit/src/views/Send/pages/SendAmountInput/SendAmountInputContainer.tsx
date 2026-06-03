@@ -525,12 +525,16 @@ function SendAmountInputContainer() {
             accountId: currentAccountId,
             protocol: EProtocolOfExchange.PRIVATE_SEND,
           });
-        return privateSendTokens?.some((item) =>
+        const matchedPrivateSendToken = privateSendTokens?.find((item) =>
           equalTokenNoCaseSensitive({
             token1: item,
             token2: privateSendToken,
           }),
         );
+        if (!matchedPrivateSendToken) {
+          return false;
+        }
+        return matchedPrivateSendToken.supportProtocol ?? true;
       } catch {
         return false;
       }
