@@ -13,7 +13,7 @@ import {
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useTradingFormAtom,
-  useTradingFormComputedAtom,
+  useTradingFormComputedSize,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -32,9 +32,9 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useOrderConfirm, useTradingPrice } from '../../hooks';
-import { useOrderPrice } from '../../hooks/useOrderPrice';
+import { useOrderConfirm } from '../../hooks';
 import { useEnableTradingWithDepositFallback } from '../../hooks/useEnableTradingWithDepositFallback';
+import { useOrderPrice } from '../../hooks/useOrderPrice';
 import { PerpTestIDs } from '../../testIDs';
 import { getPerpsFormLeverage } from '../../utils/leverageDisplay';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
@@ -113,7 +113,7 @@ function PerpTradingDisabledPlaceOrderButton() {
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [formData] = useTradingFormAtom();
-  const [tradingComputed] = useTradingFormComputedAtom();
+  const computedSizeBN = useTradingFormComputedSize();
   const { isSubmitting, handleConfirm } = useOrderConfirm();
   const { price: effectivePriceBN } = useOrderPrice(formData.side);
 
@@ -149,16 +149,16 @@ function PerpTradingDisabledPlaceOrderButton() {
     ) {
       return false;
     }
-    if (!tradingComputed.computedSizeBN.isFinite()) return false;
-    if (tradingComputed.computedSizeBN.lte(0)) return false;
+    if (!computedSizeBN.isFinite()) return false;
+    if (computedSizeBN.lte(0)) return false;
 
     const priceBN = effectivePriceBN;
     if (!priceBN.isFinite() || priceBN.lte(0)) return false;
 
-    const orderValue = tradingComputed.computedSizeBN.multipliedBy(priceBN);
+    const orderValue = computedSizeBN.multipliedBy(priceBN);
     return orderValue.lt(10);
   }, [
-    tradingComputed.computedSizeBN,
+    computedSizeBN,
     effectivePriceBN,
     formData.bboPriceMode,
     formData.orderMode,
@@ -173,8 +173,8 @@ function PerpTradingDisabledPlaceOrderButton() {
     ) {
       return false;
     }
-    if (!tradingComputed.computedSizeBN.isFinite()) return false;
-    if (tradingComputed.computedSizeBN.lte(0)) return false;
+    if (!computedSizeBN.isFinite()) return false;
+    if (computedSizeBN.lte(0)) return false;
 
     if (formData.type === 'limit') {
       if (!effectivePriceBN.isFinite() || effectivePriceBN.lte(0)) {
@@ -186,16 +186,16 @@ function PerpTradingDisabledPlaceOrderButton() {
           ? leverageBN
           : new BigNumber(1);
       const withdrawableBN = new BigNumber(computedValue?.withdrawable || 0);
-      const requiredMargin = tradingComputed.computedSizeBN
+      const requiredMargin = computedSizeBN
         .multipliedBy(effectivePriceBN)
         .dividedBy(safeLeverage);
       if (!requiredMargin.isFinite()) return false;
       return requiredMargin.gt(withdrawableBN);
     }
-    return tradingComputed.computedSizeBN.gt(maxTradeSz);
+    return computedSizeBN.gt(maxTradeSz);
   }, [
     computedValue?.withdrawable,
-    tradingComputed.computedSizeBN,
+    computedSizeBN,
     maxTradeSz,
     formData.type,
     formData.orderMode,
@@ -229,7 +229,7 @@ function PerpTradingDisabledPlaceOrderButton() {
       loading={universalLoading}
       handleShowConfirm={handleShowConfirm}
       formData={formData}
-      computedSize={tradingComputed.computedSizeBN}
+      computedSize={computedSizeBN}
       isMinimumOrderNotMet={isMinimumOrderNotMet}
       isSubmitting={isSubmitting}
       isNoEnoughMargin={isNoEnoughMargin}

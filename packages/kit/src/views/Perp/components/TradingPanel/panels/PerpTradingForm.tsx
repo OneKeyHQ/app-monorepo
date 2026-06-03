@@ -27,8 +27,9 @@ import {
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
   useTradingFormAtom,
-  useTradingFormComputedAtom,
+  useTradingFormComputedSize,
   useTradingFormEnvAtom,
+  useTradingFormSizeInputComputed,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type {
   IBBOPriceMode,
@@ -343,8 +344,11 @@ function PerpTradingForm({
   const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
 
   const [formData] = useTradingFormAtom();
+  const isScaleMode = formData.orderMode === 'scale';
+  const isTwapMode = formData.orderMode === 'twap';
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
-  const [tradingComputed] = useTradingFormComputedAtom();
+  const tradingComputed = useTradingFormSizeInputComputed();
+  const advancedComputedSizeBN = useTradingFormComputedSize();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const intl = useIntl();
   const actions = useHyperliquidActions();
@@ -492,8 +496,6 @@ function PerpTradingForm({
   ]);
 
   // Derive primaryOrderType from formData.orderMode
-  const isScaleMode = formData.orderMode === 'scale';
-  const isTwapMode = formData.orderMode === 'twap';
   const isAdvancedOrderMode =
     formData.orderMode === 'trigger' || isScaleMode || isTwapMode;
   const shouldShowLimitTif =
@@ -761,8 +763,7 @@ function PerpTradingForm({
     );
     const hasCountInput = Boolean(formData.scaleOrderCount);
     const hasSizeInput =
-      tradingComputed.computedSizeBN.isFinite() &&
-      tradingComputed.computedSizeBN.gt(0);
+      advancedComputedSizeBN.isFinite() && advancedComputedSizeBN.gt(0);
 
     if (!hasPriceInput && !hasCountInput && !hasSizeInput) {
       return undefined;
@@ -815,7 +816,7 @@ function PerpTradingForm({
     }
 
     const legs = buildScaleOrderLegs({
-      totalSize: tradingComputed.computedSizeBN.toFixed(),
+      totalSize: advancedComputedSizeBN.toFixed(),
       lowerPrice: formData.scaleLowerPrice ?? '',
       upperPrice: formData.scaleUpperPrice ?? '',
       orderCount,
@@ -855,7 +856,7 @@ function PerpTradingForm({
     isScaleMode,
     isSpot,
     sizeSzDecimals,
-    tradingComputed.computedSizeBN,
+    advancedComputedSizeBN,
   ]);
 
   const twapDurationInputMessage = useMemo(() => {
@@ -901,8 +902,8 @@ function PerpTradingForm({
       !Number.isInteger(duration) ||
       duration < TWAP_MIN_DURATION_MINUTES ||
       duration > TWAP_MAX_DURATION_MINUTES ||
-      !tradingComputed.computedSizeBN.isFinite() ||
-      tradingComputed.computedSizeBN.lte(0) ||
+      !advancedComputedSizeBN.isFinite() ||
+      advancedComputedSizeBN.lte(0) ||
       !midPriceBN.isFinite() ||
       midPriceBN.lte(0)
     ) {
@@ -913,7 +914,7 @@ function PerpTradingForm({
       1,
       Math.ceil(duration / TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES),
     );
-    const estimatedSliceNotional = tradingComputed.computedSizeBN
+    const estimatedSliceNotional = advancedComputedSizeBN
       .multipliedBy(midPriceBN)
       .dividedBy(estimatedSlices);
     if (
@@ -929,7 +930,7 @@ function PerpTradingForm({
     formData.twapDurationMinutes,
     isTwapMode,
     midPriceBN,
-    tradingComputed.computedSizeBN,
+    advancedComputedSizeBN,
     twapSmallSliceHelperText,
   ]);
 

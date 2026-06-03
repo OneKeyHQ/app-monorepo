@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import type { MutableRefObject } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -136,6 +137,9 @@ interface ISideButtonProps {
 }
 
 const PERPS_WEBSOCKET_OPEN_READY_STATE = 1;
+const noopHandleConfirm: (
+  overrideSide?: 'long' | 'short',
+) => Promise<void> = async () => undefined;
 
 function getPerpsAccountKey(account: {
   accountId?: string | null;
@@ -1952,6 +1956,27 @@ function EmptySizeSideButton({
 
 const SideButtonEmptySize = memo(EmptySizeSideButton);
 
+const TradingButtonGroupConfirmRef = memo(
+  ({
+    handleConfirmRef,
+    marketDataFreshness,
+  }: {
+    handleConfirmRef: MutableRefObject<
+      (overrideSide?: 'long' | 'short') => Promise<void>
+    >;
+    marketDataFreshness: IPerpsMarketDataFreshness;
+  }) => {
+    const { handleConfirm } = useOrderConfirmWithMarketDataFreshness({
+      marketDataFreshness,
+    });
+
+    handleConfirmRef.current = handleConfirm;
+
+    return null;
+  },
+);
+TradingButtonGroupConfirmRef.displayName = 'TradingButtonGroupConfirmRef';
+
 function TradingButtonGroupLive({
   isMobile,
   isLiveStatusPending = false,
@@ -1960,9 +1985,12 @@ function TradingButtonGroupLive({
   const [tradingMode] = useTradingModeAtom();
   const tradingSide = useTradingFormSide();
   const marketDataFreshness = usePerpsMarketDataFreshness();
-  const { handleConfirm } = useOrderConfirmWithMarketDataFreshness({
-    marketDataFreshness,
-  });
+  const liveHandleConfirmRef = useRef(noopHandleConfirm);
+  const handleConfirm = useCallback(
+    (overrideSide?: 'long' | 'short') =>
+      liveHandleConfirmRef.current(overrideSide),
+    [],
+  );
   const isSpot = tradingMode === 'spot';
 
   const renderSideButtons = () => {
@@ -2030,7 +2058,15 @@ function TradingButtonGroupLive({
     );
   };
 
-  return <YStack>{renderSideButtons()}</YStack>;
+  return (
+    <YStack>
+      <TradingButtonGroupConfirmRef
+        handleConfirmRef={liveHandleConfirmRef}
+        marketDataFreshness={marketDataFreshness}
+      />
+      {renderSideButtons()}
+    </YStack>
+  );
 }
 
 function TradingButtonGroupEmptySize({

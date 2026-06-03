@@ -802,6 +802,67 @@ export const {
   };
 });
 
+export interface ITradingFormSizeInputComputed {
+  sizeInputMode: EPerpsSizeInputMode;
+  sizePercent: number;
+  sliderEnabled: boolean;
+}
+
+function isTradingFormSizeInputComputedEqual(
+  a: ITradingFormSizeInputComputed,
+  b: ITradingFormSizeInputComputed,
+) {
+  return (
+    a.sizeInputMode === b.sizeInputMode &&
+    a.sizePercent === b.sizePercent &&
+    a.sliderEnabled === b.sliderEnabled
+  );
+}
+
+function isBigNumberValueEqual(a: BigNumber, b: BigNumber) {
+  return a.toFixed() === b.toFixed();
+}
+
+const tradingFormSizeInputComputedSelectedAtom = selectAtom(
+  tradingFormComputedAtom(),
+  (computed, prev?: ITradingFormSizeInputComputed) => {
+    const next = {
+      sizeInputMode: computed.sizeInputMode,
+      sizePercent: computed.sizePercent,
+      sliderEnabled: computed.sliderEnabled,
+    };
+    return prev && isTradingFormSizeInputComputedEqual(prev, next)
+      ? prev
+      : next;
+  },
+);
+
+const { use: useTradingFormSizeInputComputedAtom } = contextAtomComputed(
+  (get) => get(tradingFormSizeInputComputedSelectedAtom),
+);
+
+export function useTradingFormSizeInputComputed(): ITradingFormSizeInputComputed {
+  const [computed] = useTradingFormSizeInputComputedAtom();
+  return computed;
+}
+
+const tradingFormComputedSizeSelectedAtom = selectAtom(
+  tradingFormComputedAtom(),
+  (computed, prev?: BigNumber) => {
+    const next = computed.computedSizeBN;
+    return prev && isBigNumberValueEqual(prev, next) ? prev : next;
+  },
+);
+
+const { use: useTradingFormComputedSizeAtom } = contextAtomComputed((get) =>
+  get(tradingFormComputedSizeSelectedAtom),
+);
+
+export function useTradingFormComputedSize(): BigNumber {
+  const [computedSize] = useTradingFormComputedSizeAtom();
+  return computedSize;
+}
+
 // Field-by-field equality for IPerpsAssetCtx (all primitive strings + one string[] | null).
 // Used by selectAtom to return the previous reference when data is unchanged,
 // which causes Jotai to skip the notification chain → derived atoms not

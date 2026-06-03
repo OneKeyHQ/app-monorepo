@@ -8,7 +8,7 @@ export const ORDER_BOOK_TRANSITION_EASING = 'cubic-bezier(0.33, 1, 0.68, 1)';
 
 // ---- Per-layout pixel-alignment constants (single source) ----
 // Both the native depth-bar view props and the RN text layer read these so the
-// two layers can never drift apart. See orderbook-native-depthbar design §7.
+// two layers can never drift apart. See the native depth bar design notes.
 //
 // Layout contract reproduced by the native view:
 //   row i top = rowMarginTop + i * (rowHeight + rowMarginTop)  (margin on every

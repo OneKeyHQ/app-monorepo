@@ -1507,15 +1507,15 @@ const MOBILE_PRICE_FLEX = 0.5;
 const MOBILE_SIZE_FLEX = 0.5;
 
 function MobileSpreadInfoContent({
-  asks,
-  bids,
+  bestAskPx,
+  bestBidPx,
   hasTradingMidPrice = false,
   isEmpty,
   textColor,
   tradingMidPrice,
 }: {
-  asks: IBookLevel[];
-  bids: IBookLevel[];
+  bestAskPx?: string;
+  bestBidPx?: string;
   hasTradingMidPrice?: boolean;
   isEmpty: boolean;
   textColor: ReturnType<typeof useTextColor>;
@@ -1550,10 +1550,7 @@ function MobileSpreadInfoContent({
       : localizedMarkPrice;
   const midPrice = isEmpty
     ? emptyMidPrice
-    : getMidPrice(
-        parseFloat(bids[0]?.px ?? '0'),
-        parseFloat(asks[0]?.px ?? '0'),
-      );
+    : getMidPrice(parseFloat(bestBidPx ?? '0'), parseFloat(bestAskPx ?? '0'));
 
   useEffect(() => {
     tracePerpsMobileLayout('orderBook.mobileReferencePrice.state', {
@@ -1674,13 +1671,9 @@ const MobileSpreadInfoContentMemo = memo(MobileSpreadInfoContent);
 
 const MobileEmptySpreadInfoRow = memo(
   ({
-    asks,
-    bids,
     isEmpty,
     textColor,
   }: {
-    asks: IBookLevel[];
-    bids: IBookLevel[];
     isEmpty: boolean;
     textColor: ReturnType<typeof useTextColor>;
   }) => {
@@ -1688,8 +1681,6 @@ const MobileEmptySpreadInfoRow = memo(
       useTradingPrice();
     return (
       <MobileSpreadInfoContentMemo
-        asks={asks}
-        bids={bids}
         hasTradingMidPrice={hasTradingMidPrice}
         isEmpty={isEmpty}
         textColor={textColor}
@@ -1702,31 +1693,26 @@ MobileEmptySpreadInfoRow.displayName = 'MobileEmptySpreadInfoRow';
 
 const MobileSpreadInfoRow = memo(
   ({
-    asks,
-    bids,
+    bestAskPx,
+    bestBidPx,
     isEmpty,
     textColor,
   }: {
-    asks: IBookLevel[];
-    bids: IBookLevel[];
+    bestAskPx?: string;
+    bestBidPx?: string;
     isEmpty: boolean;
     textColor: ReturnType<typeof useTextColor>;
   }) => {
     if (isEmpty) {
       return (
-        <MobileEmptySpreadInfoRow
-          asks={asks}
-          bids={bids}
-          isEmpty={isEmpty}
-          textColor={textColor}
-        />
+        <MobileEmptySpreadInfoRow isEmpty={isEmpty} textColor={textColor} />
       );
     }
 
     return (
       <MobileSpreadInfoContentMemo
-        asks={asks}
-        bids={bids}
+        bestAskPx={bestAskPx}
+        bestBidPx={bestBidPx}
         isEmpty={isEmpty}
         textColor={textColor}
       />
@@ -1734,6 +1720,81 @@ const MobileSpreadInfoRow = memo(
   },
 );
 MobileSpreadInfoRow.displayName = 'MobileSpreadInfoRow';
+
+const OrderBookMobileHeader = memo(
+  ({ sizeDisplaySymbol }: { sizeDisplaySymbol: string }) => {
+    const intl = useIntl();
+    const textColor = useTextColor();
+
+    return (
+      <DebugRenderTracker name="OrderBookMobileHeader" position="right-center">
+        <View style={styles.pairBookHeader}>
+          <View style={{ flexDirection: 'row', width: '100%' }}>
+            <View style={{ flex: MOBILE_PRICE_FLEX }}>
+              <PerpBookText
+                style={[
+                  styles.headerText,
+                  {
+                    color: textColor.textSubdued,
+                    fontSize: 11,
+                    lineHeight: 14,
+                  },
+                ]}
+              >
+                {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
+              </PerpBookText>
+              <PerpBookText
+                style={[
+                  styles.headerText,
+                  {
+                    color: textColor.textSubdued,
+                    fontSize: 10,
+                    lineHeight: 12,
+                  },
+                ]}
+              >
+                (USD)
+              </PerpBookText>
+            </View>
+            <View
+              style={{
+                flex: MOBILE_SIZE_FLEX,
+                alignItems: 'flex-end',
+              }}
+            >
+              <PerpBookText
+                style={[
+                  styles.headerText,
+                  {
+                    color: textColor.textSubdued,
+                    fontSize: 11,
+                    lineHeight: 14,
+                  },
+                ]}
+              >
+                {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
+              </PerpBookText>
+              <PerpBookText
+                numberOfLines={1}
+                style={[
+                  styles.headerText,
+                  {
+                    color: textColor.textSubdued,
+                    fontSize: 10,
+                    lineHeight: 12,
+                  },
+                ]}
+              >
+                ({sizeDisplaySymbol})
+              </PerpBookText>
+            </View>
+          </View>
+        </View>
+      </DebugRenderTracker>
+    );
+  },
+);
+OrderBookMobileHeader.displayName = 'OrderBookMobileHeader';
 
 const MobileEmptyRow = memo(
   ({ priceColor, sizeColor }: { priceColor: string; sizeColor: string }) => {
@@ -1833,6 +1894,14 @@ export function OrderBookMobile({
     () => Array.from({ length: maxLevelsPerSide }, (_, index) => index),
     [maxLevelsPerSide],
   );
+  const askSpacerStyle = useMemo(
+    () => ({ height: aggregatedData.asks.length * MOBILE_ROW_HEIGHT }),
+    [aggregatedData.asks.length],
+  );
+  const bidSpacerStyle = useMemo(
+    () => ({ height: aggregatedData.bids.length * MOBILE_ROW_HEIGHT }),
+    [aggregatedData.bids.length],
+  );
 
   const bidDepth = useMemo(() => {
     return new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
@@ -1887,70 +1956,7 @@ export function OrderBookMobile({
 
   return (
     <View style={style}>
-      <DebugRenderTracker name="OrderBookMobileHeader" position="right-center">
-        <View style={styles.pairBookHeader}>
-          <View style={{ flexDirection: 'row', width: '100%' }}>
-            <View style={{ flex: MOBILE_PRICE_FLEX }}>
-              <PerpBookText
-                style={[
-                  styles.headerText,
-                  {
-                    color: textColor.textSubdued,
-                    fontSize: 11,
-                    lineHeight: 14,
-                  },
-                ]}
-              >
-                {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
-              </PerpBookText>
-              <PerpBookText
-                style={[
-                  styles.headerText,
-                  {
-                    color: textColor.textSubdued,
-                    fontSize: 10,
-                    lineHeight: 12,
-                  },
-                ]}
-              >
-                (USD)
-              </PerpBookText>
-            </View>
-            <View
-              style={{
-                flex: MOBILE_SIZE_FLEX,
-                alignItems: 'flex-end',
-              }}
-            >
-              <PerpBookText
-                style={[
-                  styles.headerText,
-                  {
-                    color: textColor.textSubdued,
-                    fontSize: 11,
-                    lineHeight: 14,
-                  },
-                ]}
-              >
-                {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
-              </PerpBookText>
-              <PerpBookText
-                numberOfLines={1}
-                style={[
-                  styles.headerText,
-                  {
-                    color: textColor.textSubdued,
-                    fontSize: 10,
-                    lineHeight: 12,
-                  },
-                ]}
-              >
-                ({sizeDisplaySymbol})
-              </PerpBookText>
-            </View>
-          </View>
-        </View>
-      </DebugRenderTracker>
+      <OrderBookMobileHeader sizeDisplaySymbol={sizeDisplaySymbol} />
       <View style={styles.relativeContainer}>
         {/* background depth bars */}
         <View style={styles.relativeContainer}>
@@ -2042,47 +2048,41 @@ export function OrderBookMobile({
         <View style={styles.absoluteContainer}>
           {/* ask price/size text now drawn natively by DepthBarColumn;
               keep transparent spacers so the spread row stays positioned. */}
-          {isEmpty
-            ? emptyRowIndexes.map((index) => (
-                <MobileEmptyRow
-                  key={`ask-empty-${index}`}
-                  priceColor={textColor.red}
-                  sizeColor={textColor.textSubdued}
-                />
-              ))
-            : aggregatedData.asks.map((_, index) => (
-                <View
-                  key={`ask-spacer-${index}`}
-                  style={{ height: MOBILE_ROW_HEIGHT }}
-                />
-              ))}
+          {isEmpty ? (
+            emptyRowIndexes.map((index) => (
+              <MobileEmptyRow
+                key={`ask-empty-${index}`}
+                priceColor={textColor.red}
+                sizeColor={textColor.textSubdued}
+              />
+            ))
+          ) : (
+            <View style={askSpacerStyle} />
+          )}
           <DebugRenderTracker
             name="OrderBookMobileSpreadRow"
             position="right-center"
           >
             <MobileSpreadInfoRow
-              asks={asks}
-              bids={bids}
+              bestAskPx={asks[0]?.px}
+              bestBidPx={bids[0]?.px}
               isEmpty={isEmpty}
               textColor={textColor}
             />
           </DebugRenderTracker>
           {/* bid price/size text now drawn natively by DepthBarColumn;
               keep transparent spacers so layout height matches the bars. */}
-          {isEmpty
-            ? emptyRowIndexes.map((index) => (
-                <MobileEmptyRow
-                  key={`bid-empty-${index}`}
-                  priceColor={textColor.green}
-                  sizeColor={textColor.textSubdued}
-                />
-              ))
-            : aggregatedData.bids.map((_, index) => (
-                <View
-                  key={`bid-spacer-${index}`}
-                  style={{ height: MOBILE_ROW_HEIGHT }}
-                />
-              ))}
+          {isEmpty ? (
+            emptyRowIndexes.map((index) => (
+              <MobileEmptyRow
+                key={`bid-empty-${index}`}
+                priceColor={textColor.green}
+                sizeColor={textColor.textSubdued}
+              />
+            ))
+          ) : (
+            <View style={bidSpacerStyle} />
+          )}
         </View>
       </View>
       <OrderBookSideRatio
