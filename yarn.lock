@@ -9792,7 +9792,6 @@ __metadata:
     react-native-web: "npm:0.21.2"
     react-native-worklets: "npm:0.7.1"
     react-refresh: "npm:^0.14.0"
-    react-render-tracker: "npm:^0.7.6"
     react-router-dom: "npm:^7.12.0"
     react-test-renderer: "npm:19.1.0"
     react-virtualized: "npm:^9.22.6"
@@ -42198,13 +42197,6 @@ __metadata:
     "@types/react":
       optional: true
   checksum: 10/9fac79e1c2ed2c85729bfe82f61ef4ae5ce51f478736a13892a9a11e05cbd4e9599f9f0e012cb5fc0719e18dc1dd687ab61f516193228615df636db8b851245e
-  languageName: node
-  linkType: hard
-
-"react-render-tracker@npm:^0.7.6":
-  version: 0.7.6
-  resolution: "react-render-tracker@npm:0.7.6"
-  checksum: 10/dc998bc191e8c2e08e7840b61fb64e5f318a0510d3beedebd72f957207cff5723b6897aa3ddb6669fc82d610b410f93df301340dc2e59ca23547f442802ca52a
   languageName: node
   linkType: hard
 
