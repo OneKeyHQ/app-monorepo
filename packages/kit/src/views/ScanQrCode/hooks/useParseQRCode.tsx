@@ -20,7 +20,6 @@ import type {
   IAnimationValue,
   IBaseValue,
   IChainValue,
-  IEthereumValue,
   IMarketDetailValue,
   IQRCodeHandlerParse,
   IUrlAccountValue,
@@ -39,7 +38,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
@@ -48,41 +46,9 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../Market/marketUtils';
+import { parseOnChainAmount } from '../utils/parseOnChainAmount';
 
-export const parseOnChainAmount = async (
-  value: {
-    type: EQRCodeHandlerType;
-    data: IBaseValue;
-  },
-  token: IToken | null,
-): Promise<string> => {
-  const data = value.data as IChainValue;
-  if (
-    data.network &&
-    data.network.id &&
-    value.type === EQRCodeHandlerType.ETHEREUM
-  ) {
-    const chainValue = value.data as IEthereumValue;
-    if (chainValue.value && token) {
-      return chainValueUtils.convertTokenChainValueToAmount({
-        value: chainValue.value,
-        token,
-      });
-    }
-
-    if (chainValue.amount) {
-      return String(chainValue.amount);
-    }
-
-    if (token && chainValue.uint256) {
-      return chainValueUtils.convertTokenChainValueToAmount({
-        value: chainValue.uint256,
-        token,
-      });
-    }
-  }
-  return data.amount ? String(data.amount) : '';
-};
+export { parseOnChainAmount };
 
 export const getAccountIdOnNetwork = async ({
   account,
