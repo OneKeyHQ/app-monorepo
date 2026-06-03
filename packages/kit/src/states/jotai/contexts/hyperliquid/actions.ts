@@ -2753,7 +2753,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               averageSliceNotional.lt(TWAP_MIN_ORDER_NOTIONAL)
             ) {
               throw new OneKeyLocalError(
-                'TWAP order size is too small for this duration',
+                ETranslations.perp_twap_small_slice__msg,
               );
             }
 

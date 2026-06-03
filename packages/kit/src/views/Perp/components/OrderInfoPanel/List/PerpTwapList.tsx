@@ -12,6 +12,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -284,9 +285,34 @@ function TwapEmptyState({
   description?: string;
 }) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
+  const isMobile = !gtMd;
+  const buttonHeight = isMobile ? 32 : 28;
   const handleGuidePress = useCallback(() => {
     openGuideUrl(buildHelpUrl('articles/13988742'));
   }, []);
+  const guideButton = (
+    <Button
+      testID={PerpTestIDs.TwapEmptyGuideButton}
+      width={180}
+      borderRadius="$full"
+      size="small"
+      h={buttonHeight}
+      px="$3"
+      variant="secondary"
+      onPress={handleGuidePress}
+      childrenAsText={false}
+    >
+      <XStack gap="$1.5" alignItems="center">
+        <Icon name="BookOpenOutline" size="$4" />
+        <SizableText size="$bodySmMedium">
+          {intl.formatMessage({
+            id: ETranslations.perp_twap_trading_guide__action,
+          })}
+        </SizableText>
+      </XStack>
+    </Button>
+  );
 
   return (
     <YStack
@@ -297,41 +323,39 @@ function TwapEmptyState({
       px="$5"
       py="$6"
     >
-      <YStack width="100%" maxWidth={420} gap="$3" alignItems="center">
-        <Illustration name="Orders" size={100} mb={-24} />
-        <SizableText size="$bodyMdMedium" color="$text" textAlign="center">
+      <YStack
+        width="100%"
+        maxWidth={isMobile ? 320 : 420}
+        gap="$2"
+        alignItems="center"
+      >
+        <YStack
+          h={isMobile ? 72 : 88}
+          alignItems="center"
+          overflow="visible"
+          mb={isMobile ? -4 : -8}
+        >
+          <Illustration name="Orders" size={isMobile ? 100 : 124} />
+        </YStack>
+        <SizableText
+          size={isMobile ? '$bodyXs' : '$bodySm'}
+          color="$textSubdued"
+          textAlign="center"
+          maxWidth={isMobile ? 280 : 360}
+        >
           {intl.formatMessage({ id: titleId })}
         </SizableText>
         {description ? (
           <SizableText
-            size="$bodySm"
+            size={isMobile ? '$bodyXs' : '$bodySm'}
             color="$textSubdued"
             textAlign="center"
-            maxWidth={360}
+            maxWidth={isMobile ? 280 : 360}
           >
             {description}
           </SizableText>
         ) : null}
-        <Button
-          testID={PerpTestIDs.TwapEmptyGuideButton}
-          width={180}
-          borderRadius="$full"
-          size="small"
-          h={28}
-          px="$3"
-          variant="secondary"
-          onPress={handleGuidePress}
-          childrenAsText={false}
-        >
-          <XStack gap="$1.5" alignItems="center">
-            <Icon name="BookOpenOutline" size="$4" />
-            <SizableText size="$bodySmMedium">
-              {intl.formatMessage({
-                id: ETranslations.perp_twap_trading_guide__action,
-              })}
-            </SizableText>
-          </XStack>
-        </Button>
+        {guideButton}
       </YStack>
     </YStack>
   );
