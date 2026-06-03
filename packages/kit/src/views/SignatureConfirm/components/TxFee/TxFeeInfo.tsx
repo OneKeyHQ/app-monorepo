@@ -144,6 +144,7 @@ function TxFeeInfo(props: IProps) {
     transferPayload,
     gasAccountScenario,
   } = props;
+  const isPrivateSendTransfer = transferPayload?.isPrivateSend === true;
   const intl = useIntl();
   const theme = useTheme();
   const themeName = useThemeName();
@@ -490,7 +491,8 @@ function TxFeeInfo(props: IProps) {
           accountAddress,
           transfersInfo: unsignedTxs[0].transfersInfo,
           lockedUserNonce,
-          gasAccountEnabled: !gasAccountTemporarilyDisabled,
+          gasAccountEnabled:
+            !isPrivateSendTransfer && !gasAccountTemporarilyDisabled,
           scenario: gasAccountScenario,
         });
         // L3 scenario gate telemetry: surface frontend contract bugs. Both
@@ -533,23 +535,29 @@ function TxFeeInfo(props: IProps) {
         // `gasAccountUiState` for any batch (a quote is bound to one user tx
         // via payloadHash + locked nonce). Surfacing sponsor UI here would
         // show "0 network fee" / sponsor badge while the actual broadcast
-        // falls back to user-paid. Treat batches like sponsor is disabled.
+        // falls back to user-paid. Private Send is also user-paid by contract.
         const sponsorDisabledForBatch = isMultiTxs;
+        const sponsorDisabledForPrivateSend = isPrivateSendTransfer;
         // `gasAccountTemporarilyDisabled` narrows only the gas-account path.
         // Megafuel is an independent sponsor mechanism and should still be
         // honored when the server indicates `payer='megafuel'` after a
-        // gas-account fallback. Custom RPC and multi-tx batches still force
+        // gas-account fallback. Custom RPC, multi-tx batches, and Private Send force
         // user-paid for all sponsors (see the block comment above).
         const serverPayer: IGasPayer = r.payer ?? 'user';
         const nextEffectiveFeePayer: IGasPayer =
           isCustomRpcEnabled ||
           sponsorDisabledForBatch ||
+          sponsorDisabledForPrivateSend ||
           (gasAccountTemporarilyDisabled && serverPayer === 'gasAccount')
             ? 'user'
             : serverPayer;
         updateEffectiveFeePayer(nextEffectiveFeePayer);
 
-        if (r.megafuelEligible && !sponsorDisabledForBatch) {
+        if (
+          r.megafuelEligible &&
+          !sponsorDisabledForBatch &&
+          !sponsorDisabledForPrivateSend
+        ) {
           // if custom rpc is enabled, disable megafuel eligible
           if (isCustomRpcEnabled) {
             r.megafuelEligible = undefined;
@@ -565,7 +573,7 @@ function TxFeeInfo(props: IProps) {
             updateMegafuelEligible(r.megafuelEligible);
           }
         } else {
-          if (sponsorDisabledForBatch) {
+          if (sponsorDisabledForBatch || sponsorDisabledForPrivateSend) {
             r.megafuelEligible = undefined;
             r.gas = r.gas?.map((gas) => ({
               ...gas,
@@ -578,10 +586,15 @@ function TxFeeInfo(props: IProps) {
         if (
           isCustomRpcEnabled ||
           gasAccountTemporarilyDisabled ||
-          sponsorDisabledForBatch
+          sponsorDisabledForBatch ||
+          sponsorDisabledForPrivateSend
         ) {
           resetGasAccountUiState();
-          if (gasAccountTemporarilyDisabled || sponsorDisabledForBatch) {
+          if (
+            gasAccountTemporarilyDisabled ||
+            sponsorDisabledForBatch ||
+            sponsorDisabledForPrivateSend
+          ) {
             // The default state already flags `selectedPayer='user'`,
             // `gasAccountEligible=false`, `idempotencyKey=''`; only the
             // explicit `payer='user'` is worth setting so downstream
@@ -830,6 +843,7 @@ function TxFeeInfo(props: IProps) {
       isSecondApproveTxWithFeeInfo,
       isSingleTxWithFeesInfo,
       feeInfoEditable,
+      isPrivateSendTransfer,
       network?.isTestnet,
       networkId,
       unsignedTxs,

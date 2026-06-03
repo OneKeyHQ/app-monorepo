@@ -248,6 +248,33 @@ public class AppDelegate: ExpoAppDelegate {
     }
   }
 
+  // Background URLSession events (concurrent/background downloads).
+  // When the app is relaunched in the background to finish a background
+  // download, hand the completion handler to the downloader via a notification.
+  // We post rather than call directly because the Nitro module's C++ umbrella
+  // header can't be imported into this Swift AppDelegate (see the
+  // NSClassFromString bridges above). If the downloader instance isn't live yet
+  // the events are processed on the next foreground launch instead — the
+  // download itself still completed in the background.
+  //
+  // Posted under a generic name (RangeDownloaderBackgroundEvents) so any number
+  // of channels (bundle / apk / chart) route through one notification; the
+  // shared range-downloader filters by its own session identifier prefix (and
+  // still recognizes the legacy identifier prefix for in-flight downloads that
+  // span an app update).
+  public override func application(
+    _ application: UIApplication,
+    handleEventsForBackgroundURLSession identifier: String,
+    completionHandler: @escaping () -> Void
+  ) {
+    NitroModuleBridge.logInfo("RangeDownloader", "handleEventsForBackgroundURLSession: \(identifier)")
+    NotificationCenter.default.post(
+      name: Notification.Name("RangeDownloaderBackgroundEvents"),
+      object: nil,
+      userInfo: ["identifier": identifier, "completionHandler": completionHandler]
+    )
+  }
+
   // Linking API
   public override func application(
     _ app: UIApplication,

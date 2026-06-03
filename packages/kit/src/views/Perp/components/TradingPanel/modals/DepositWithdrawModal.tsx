@@ -85,6 +85,7 @@ import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import usePerpDeposit from '../../../hooks/usePerpDeposit';
+import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
   PERP_DIALOG_BUTTON_SIZE,
@@ -2042,15 +2043,21 @@ export async function showDepositWithdrawDialog(
 
   const dialogInTabRef = dialogInTab.show({
     renderContent: (
-      <PerpsProviderMirror>
-        <DepositWithdrawContent
-          params={params}
-          selectedAccount={selectedAccount}
-          onClose={() => {
-            void dialogInTabRef.close();
-          }}
-        />
-      </PerpsProviderMirror>
+      // In-tab dialogs render through the IN_PAGE_TAB_CONTAINER portal at the
+      // TabNavigator root and do not inherit the page/header providers. Mirror the
+      // accountSelector context here (as the native perps page does) so any nested
+      // useActiveAccount consumer resolves when opened from the web-dapp header pill.
+      <PerpsAccountSelectorProviderMirror>
+        <PerpsProviderMirror>
+          <DepositWithdrawContent
+            params={params}
+            selectedAccount={selectedAccount}
+            onClose={() => {
+              void dialogInTabRef.close();
+            }}
+          />
+        </PerpsProviderMirror>
+      </PerpsAccountSelectorProviderMirror>
     ),
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,

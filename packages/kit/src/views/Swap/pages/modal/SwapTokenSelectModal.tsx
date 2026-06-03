@@ -30,6 +30,7 @@ import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
@@ -133,10 +134,15 @@ const SwapTokenSelectPage = ({
       backendIndex: currentSelectNetwork.backendIndex,
     };
   }, [currentSelectNetwork]);
+  const isDeFiEnabled = useIsDeFiEnabled(
+    currentSelectNetwork?.networkId,
+    SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
+  );
   const showLpTokenFilterSwitch =
     SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED &&
     isTokenSelectorDappTokenFilterSupportedNetwork({
       network: currentSelectNetworkForDappTokenFilter,
+      isDeFiEnabled,
     });
   const showLpTokensOnly = showLpTokenFilterSwitch
     ? tokenSelectorFilter.swapShowLpTokensOnly

@@ -2,7 +2,10 @@ import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapte
 
 import * as ThirdPartyErrors from '../errors/thirdPartyHardwareErrors';
 
-import type { IOneKeyHardwareErrorPayload } from '../types/errorTypes';
+import type {
+  IOneKeyError,
+  IOneKeyHardwareErrorPayload,
+} from '../types/errorTypes';
 
 interface IThirdPartyErrorContext {
   vendor?: string;
@@ -131,4 +134,29 @@ export function convertThirdPartyDeviceError(
     default:
       return new ThirdPartyErrors.ThirdPartyUnknownError(props);
   }
+}
+
+// Classify a third-party HW batch address-create result. Shared by the auto
+// (AccountSelectorActions) and manual (useAccountSelectorCreateAddress) paths so
+// the bare-device AppNotInstalled rule lives in one place.
+// - allAppNotInstalled: zero chains succeeded and every failure is AppNotInstalled
+//   (the device has no app for these chains).
+// - genuineFailures: failures other than AppNotInstalled (surface these).
+export function classifyThirdPartyHwCreateFailures<
+  T extends { error: Pick<IOneKeyError, 'code'> },
+>(params: {
+  addedCount: number;
+  failedAccounts: T[];
+}): { allAppNotInstalled: boolean; genuineFailures: T[] } {
+  const { addedCount, failedAccounts } = params;
+  const allAppNotInstalled =
+    addedCount === 0 &&
+    failedAccounts.length > 0 &&
+    failedAccounts.every(
+      (f) => f.error.code === ThirdPartyHwErrorCode.AppNotInstalled,
+    );
+  const genuineFailures = failedAccounts.filter(
+    (f) => f.error.code !== ThirdPartyHwErrorCode.AppNotInstalled,
+  );
+  return { allAppNotInstalled, genuineFailures };
 }

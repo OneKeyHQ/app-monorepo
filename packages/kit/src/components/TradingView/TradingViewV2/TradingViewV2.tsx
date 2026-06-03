@@ -29,6 +29,7 @@ import {
   useTradingViewMessageHandler,
 } from './messageHandlers';
 
+import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
 import type { ICustomReceiveHandlerData } from './types';
 import type { IWebViewRef } from '../../WebView/types';
@@ -69,6 +70,9 @@ interface IBaseTradingViewV2Props {
   storageNamespace?: string;
   forceEmptyKLineData?: boolean;
   emptyKLineDataOnError?: boolean;
+  kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  primaryKLineDataUnavailable?: boolean;
+  onPrimaryKLineDataUnavailable?: () => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -99,6 +103,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     storageNamespace,
     forceEmptyKLineData,
     emptyKLineDataOnError,
+    kLineDataFallback,
+    primaryKLineDataUnavailable,
+    onPrimaryKLineDataUnavailable,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -117,6 +124,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onIndicatorsDialogOpenChange,
     forceEmptyKLineData,
     emptyKLineDataOnError,
+    kLineDataFallback,
+    primaryKLineDataUnavailable,
+    onPrimaryKLineDataUnavailable,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
@@ -174,7 +184,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       effectiveDataSource !== 'websocket' &&
       !isHyperLiquidSource &&
       !mockEmptyKLineEnabled &&
-      !forceEmptyKLineData,
+      !forceEmptyKLineData &&
+      !primaryKLineDataUnavailable,
     autoHandleError: emptyKLineDataOnError ? false : undefined,
   });
 

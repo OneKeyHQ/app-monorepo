@@ -3,6 +3,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { emitOffscreenEventToBackground } from './offscreenEventBus';
 
 import type {
+  ConnectorCallResult,
   ConnectorDevice,
   ConnectorEventType,
   ConnectorSession,
@@ -98,6 +99,7 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
     };
     connector.on('device-connect', forward('device-connect'));
     connector.on('device-disconnect', forward('device-disconnect'));
+    // ui-event also carries app install progress (AppInstallProgress variant).
     connector.on('ui-event', forward('ui-event'));
   }
 
@@ -133,7 +135,7 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
     sessionId: string;
     method: string;
     callParams: unknown;
-  }): Promise<unknown> {
+  }): Promise<ConnectorCallResult> {
     const connector = await this.getConnector(params.vendor);
     return connector.call(params.sessionId, params.method, params.callParams);
   }

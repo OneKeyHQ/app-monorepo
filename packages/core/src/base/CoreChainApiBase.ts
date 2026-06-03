@@ -117,7 +117,14 @@ export abstract class CoreChainApiBase {
     payload: ICoreApiSignBasePayload;
     curve: ICurveName;
   }): Promise<ICoreApiPrivateKeysMap> {
-    const { credentials, account, password, relPaths } = payload;
+    const {
+      credentials,
+      account,
+      password,
+      relPaths,
+      kdfBackend,
+      enablePbkdf2Cache,
+    } = payload;
     let privateKeys: ICoreApiPrivateKeysMap = {};
     if (credentials.hd && credentials.imported) {
       throw new OneKeyInternalError(
@@ -132,6 +139,8 @@ export abstract class CoreChainApiBase {
         password,
         // build account.relPaths by _getRelPathsToAddressByApi()
         relPaths,
+        kdfBackend,
+        enablePbkdf2Cache,
       });
     }
     if (credentials.imported) {
@@ -140,9 +149,16 @@ export abstract class CoreChainApiBase {
       const { privateKey: p } = await decryptImportedCredential({
         password,
         credential: credentials.imported,
+        kdfBackend,
+        enablePbkdf2Cache,
       });
       const encryptPrivateKey = bufferUtils.bytesToHex(
-        await encryptAsync({ password, data: p }),
+        await encryptAsync({
+          password,
+          data: p,
+          kdfBackend,
+          enablePbkdf2Cache,
+        }),
       );
       privateKeys[account.path] = encryptPrivateKey;
       privateKeys[''] = encryptPrivateKey;
@@ -159,6 +175,8 @@ export abstract class CoreChainApiBase {
     account,
     relPaths,
     hdCredential,
+    kdfBackend,
+    enablePbkdf2Cache,
   }: ICoreApiGetPrivateKeysMapHdQuery & {
     curve: ICurveName;
   }): Promise<ICoreApiPrivateKeysMap> {
@@ -179,6 +197,9 @@ export abstract class CoreChainApiBase {
       password,
       basePath,
       usedRelativePaths,
+      undefined,
+      kdfBackend,
+      enablePbkdf2Cache,
     );
     const map: ICoreApiPrivateKeysMap = keys.reduce((ret, key) => {
       const result: ICoreApiPrivateKeysMap = {
