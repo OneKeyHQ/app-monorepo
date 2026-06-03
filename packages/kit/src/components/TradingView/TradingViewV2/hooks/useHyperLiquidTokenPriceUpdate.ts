@@ -215,7 +215,8 @@ export function useHyperLiquidTokenPriceUpdate({
         const current = subscriptionRef.current;
         if (
           current?.coin === nextSubscription.coin &&
-          current?.interval === nextSubscription.interval
+          current?.interval === nextSubscription.interval &&
+          current?.generation === nextSubscription.generation
         ) {
           subscriptionRef.current = null;
         }
