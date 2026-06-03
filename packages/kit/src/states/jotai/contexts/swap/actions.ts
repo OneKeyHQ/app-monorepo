@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/kit/src/views/Swap/utils/usMarketStatusUtils';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -1399,12 +1400,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       .fetchMarketTokenDetailByTokenAddress(
         token.contractAddress,
         token.networkId,
+        {
+          autoHandleError: false,
+        },
       )
-      .then((tokenDetail) =>
-        isUSMarketStatusStockTokenSource(
-          tokenDetail?.data?.token?.stock?.source,
-        ),
-      )
+      .then((tokenDetail) => {
+        if (tokenDetail?.code !== 0 || !tokenDetail?.data?.token) {
+          throw new OneKeyLocalError('Market token detail is not available');
+        }
+        return isUSMarketStatusStockTokenSource(
+          tokenDetail.data.token.stock?.source,
+        );
+      })
       .catch(() => {
         this.stockTokenCheckCache.delete(cacheKey);
         return false;
