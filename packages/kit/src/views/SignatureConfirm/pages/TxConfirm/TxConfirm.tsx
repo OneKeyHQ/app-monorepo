@@ -14,6 +14,7 @@ import {
   useDecodedTxsInitAtom,
   useEffectiveFeePayerAtom,
   useSignatureConfirmActions,
+  useTxFeeInfoInitAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -89,6 +90,7 @@ function TxConfirm() {
   const [reactiveUnsignedTxs] = useUnsignedTxsAtom();
   const [decodedTxsInit] = useDecodedTxsInitAtom();
   const [effectiveFeePayer] = useEffectiveFeePayerAtom();
+  const [txFeeInfoInit] = useTxFeeInfoInitAtom();
   const txConfirmParamsInit = useRef(false);
   const visitReceiveSelectorRef = useRef<boolean>(false);
 
@@ -451,9 +453,10 @@ function TxConfirm() {
         decodedTxs={decodedTxs}
         unsignedTxs={unsignedTxs}
         effectiveFeePayer={effectiveFeePayer}
+        txFeeInfoInit={txFeeInfoInit}
       />
     ),
-    [decodedTxs, unsignedTxs, effectiveFeePayer],
+    [decodedTxs, unsignedTxs, effectiveFeePayer, txFeeInfoInit],
   );
 
   return (

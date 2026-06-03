@@ -28,8 +28,9 @@ function TxConfirmHeaderRight(props: {
   decodedTxs: IDecodedTx[] | undefined;
   unsignedTxs: IUnsignedTxPro[] | undefined;
   effectiveFeePayer?: IGasPayer;
+  txFeeInfoInit?: boolean;
 }) {
-  const { decodedTxs, unsignedTxs, effectiveFeePayer } = props;
+  const { decodedTxs, unsignedTxs, effectiveFeePayer, txFeeInfoInit } = props;
   const intl = useIntl();
   const { gtMd } = useMedia();
   const theme = useThemeName();
@@ -38,6 +39,15 @@ function TxConfirmHeaderRight(props: {
 
   const mevProtectionProvider = useMemo(() => {
     if (!unsignedTxs) return null;
+
+    // Wait until fee info is initialized before deciding on the badge.
+    // `effectiveFeePayer` defaults to `'user'` and is only updated once the
+    // async fee estimation completes, so rendering the badge earlier would
+    // briefly show MEV for sponsored txs (and could leak the previous tx's
+    // payer in queue mode). Hiding it until init avoids that flicker.
+    if (!txFeeInfoInit) {
+      return null;
+    }
 
     // Hide the MEV badge whenever the fee is sponsored (gas account or BNB
     // gas-free / megafuel). Sponsored transactions are relayed through a
@@ -87,6 +97,7 @@ function TxConfirmHeaderRight(props: {
     unsignedTxs,
     decodedTx?.txDisplay?.mevProtectionProvider,
     effectiveFeePayer,
+    txFeeInfoInit,
   ]);
 
   const imageUri = useMemo(() => {
@@ -116,6 +127,10 @@ function TxConfirmHeaderRight(props: {
           });
         }
       });
+    } else {
+      // Reset stale size when the badge is hidden so a later provider with a
+      // different logo does not render with the previous provider's dimensions.
+      setProviderImageSize(undefined);
     }
   }, [imageUri]);
 
