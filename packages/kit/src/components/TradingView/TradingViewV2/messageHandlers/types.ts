@@ -31,6 +31,9 @@ export interface IMessageHandlerContext {
   forceEmptyKLineData?: boolean;
   emptyKLineDataOnError?: boolean;
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  skipPrimaryKLineData?: boolean;
+  onPrimaryKLineDataAvailable?: () => void;
+  onPrimaryKLineDataUnavailable?: () => void;
 }
 
 export interface IMessageHandlerParams {

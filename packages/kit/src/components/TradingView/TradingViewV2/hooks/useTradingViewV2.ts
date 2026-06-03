@@ -23,6 +23,8 @@ interface IFetchKLineDataFallbackParams {
   timeFrom: number;
   timeTo: number;
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  onPrimaryKLineDataAvailable?: () => void;
+  onPrimaryKLineDataUnavailable?: () => void;
 }
 
 interface ITradingViewV2Params {
@@ -33,6 +35,9 @@ interface ITradingViewV2Params {
   timeTo: number;
   autoHandleError?: boolean;
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  skipPrimaryKLineData?: boolean;
+  onPrimaryKLineDataAvailable?: () => void;
+  onPrimaryKLineDataUnavailable?: () => void;
 }
 
 function normalizeKLinePoints({
@@ -95,10 +100,13 @@ async function fetchFallbackIfNeeded({
   timeFrom,
   timeTo,
   kLineDataFallback,
+  onPrimaryKLineDataAvailable,
+  onPrimaryKLineDataUnavailable,
 }: IFetchKLineDataFallbackParams & {
   data?: IMarketTokenKLineResponse | null;
 }): Promise<IMarketTokenKLineResponse | null> {
   if (hasKLinePoints(data)) {
+    onPrimaryKLineDataAvailable?.();
     return data ?? null;
   }
 
@@ -110,6 +118,9 @@ async function fetchFallbackIfNeeded({
     timeTo,
     kLineDataFallback,
   });
+  if (hasKLinePoints(fallbackData)) {
+    onPrimaryKLineDataUnavailable?.();
+  }
   return fallbackData ?? data ?? null;
 }
 
@@ -120,8 +131,9 @@ async function fetchFallbackOnError({
   timeFrom,
   timeTo,
   kLineDataFallback,
+  onPrimaryKLineDataUnavailable,
 }: IFetchKLineDataFallbackParams): Promise<IMarketTokenKLineResponse | null> {
-  return fetchKLineDataFallback({
+  const fallbackData = await fetchKLineDataFallback({
     tokenAddress,
     networkId,
     interval,
@@ -129,6 +141,10 @@ async function fetchFallbackOnError({
     timeTo,
     kLineDataFallback,
   });
+  if (hasKLinePoints(fallbackData)) {
+    onPrimaryKLineDataUnavailable?.();
+  }
+  return fallbackData;
 }
 
 export async function fetchTradingViewV2Data({
@@ -139,7 +155,21 @@ export async function fetchTradingViewV2Data({
   timeTo,
   autoHandleError,
   kLineDataFallback,
+  skipPrimaryKLineData,
+  onPrimaryKLineDataAvailable,
+  onPrimaryKLineDataUnavailable,
 }: ITradingViewV2Params): Promise<IMarketTokenKLineResponse | null> {
+  if (skipPrimaryKLineData) {
+    return fetchKLineDataFallback({
+      tokenAddress,
+      networkId,
+      interval,
+      timeFrom,
+      timeTo,
+      kLineDataFallback,
+    });
+  }
+
   try {
     const data = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline(
       {
@@ -160,6 +190,8 @@ export async function fetchTradingViewV2Data({
       timeFrom,
       timeTo,
       kLineDataFallback,
+      onPrimaryKLineDataAvailable,
+      onPrimaryKLineDataUnavailable,
     });
   } catch (error) {
     console.error('Failed to fetch kline data:', error);
@@ -170,6 +202,7 @@ export async function fetchTradingViewV2Data({
       timeFrom,
       timeTo,
       kLineDataFallback,
+      onPrimaryKLineDataUnavailable,
     });
   }
 }
@@ -182,7 +215,21 @@ export async function fetchTradingViewV2DataWithSlicing({
   timeTo,
   autoHandleError,
   kLineDataFallback,
+  skipPrimaryKLineData,
+  onPrimaryKLineDataAvailable,
+  onPrimaryKLineDataUnavailable,
 }: ITradingViewV2Params): Promise<IMarketTokenKLineResponse | null> {
+  if (skipPrimaryKLineData) {
+    return fetchKLineDataFallback({
+      tokenAddress,
+      networkId,
+      interval,
+      timeFrom,
+      timeTo,
+      kLineDataFallback,
+    });
+  }
+
   try {
     // Check if the token is a native token
     // Native tokens typically have empty or undefined tokenAddress
@@ -241,6 +288,8 @@ export async function fetchTradingViewV2DataWithSlicing({
       timeFrom,
       timeTo,
       kLineDataFallback,
+      onPrimaryKLineDataAvailable,
+      onPrimaryKLineDataUnavailable,
     });
   } catch (error) {
     console.error('Failed to fetch sliced kline data:', error);
@@ -251,6 +300,7 @@ export async function fetchTradingViewV2DataWithSlicing({
       timeFrom,
       timeTo,
       kLineDataFallback,
+      onPrimaryKLineDataUnavailable,
     });
   }
 }

@@ -86,6 +86,7 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
       interval: '1m',
       timeFrom: 900,
       timeTo: 1060,
+      autoHandleError: undefined,
     });
     expect(mockFetchMarketTokenKline).toHaveBeenNthCalledWith(2, {
       tokenAddress: '0x123',
@@ -93,6 +94,7 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
       interval: '1m',
       timeFrom: 1060,
       timeTo: 1120,
+      autoHandleError: undefined,
     });
     expect(result?.total).toBe(3);
     expect(result?.points.map((point) => ({ t: point.t, c: point.c }))).toEqual(

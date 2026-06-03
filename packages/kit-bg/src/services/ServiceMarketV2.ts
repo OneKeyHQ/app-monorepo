@@ -172,6 +172,9 @@ class ServiceMarketV2 extends ServiceBase {
   async fetchMarketTokenDetailByTokenAddress(
     tokenAddress: string,
     networkId: string,
+    options?: {
+      autoHandleError?: boolean;
+    },
   ) {
     const settings = await settingsPersistAtom.get();
     const selectedCurrencyId = settings.currencyInfo?.id ?? 'usd';
@@ -194,7 +197,12 @@ class ServiceMarketV2 extends ServiceBase {
     }
     const response = await client.get<IMarketTokenDetailResponse>(
       '/utility/v2/market/token/detail',
-      { params },
+      {
+        params,
+        ...(options?.autoHandleError === false
+          ? { autoHandleError: false }
+          : {}),
+      },
     );
     return response.data;
   }

@@ -70,6 +70,9 @@ interface IBaseTradingViewV2Props {
   forceEmptyKLineData?: boolean;
   emptyKLineDataOnError?: boolean;
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  skipPrimaryKLineData?: boolean;
+  onPrimaryKLineDataAvailable?: () => void;
+  onPrimaryKLineDataUnavailable?: () => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -101,6 +104,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     forceEmptyKLineData,
     emptyKLineDataOnError,
     kLineDataFallback,
+    skipPrimaryKLineData,
+    onPrimaryKLineDataAvailable,
+    onPrimaryKLineDataUnavailable,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -120,6 +126,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     forceEmptyKLineData,
     emptyKLineDataOnError,
     kLineDataFallback,
+    skipPrimaryKLineData,
+    onPrimaryKLineDataAvailable,
+    onPrimaryKLineDataUnavailable,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
@@ -177,7 +186,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       effectiveDataSource !== 'websocket' &&
       !isHyperLiquidSource &&
       !mockEmptyKLineEnabled &&
-      !forceEmptyKLineData,
+      !forceEmptyKLineData &&
+      !skipPrimaryKLineData,
     autoHandleError: emptyKLineDataOnError ? false : undefined,
   });
 
