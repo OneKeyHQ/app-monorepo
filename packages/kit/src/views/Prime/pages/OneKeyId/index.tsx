@@ -36,7 +36,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
-import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -416,12 +415,10 @@ function OneKeyIdPage() {
   const media = useMedia();
   const { toInviteRewardPage } = useReferFriends();
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { isLoggedIn, logout, user } = useOneKeyAuth();
+  const { isLoggedIn, logout } = useOneKeyAuth();
   const logoutRef = useRef<() => Promise<void>>(logout);
   const isFocused = useRouteIsFocused();
   const isExplicitLogoutRef = useRef(false);
-  const isPrime = user?.primeSubscription?.isActive;
-  const subscriptionManageUrl = user?.subscriptionManageUrl;
 
   logoutRef.current = logout;
 
@@ -444,12 +441,6 @@ function OneKeyIdPage() {
   const handleClose = useCallback(() => {
     resetPrimeModal();
   }, []);
-
-  const handleManageSubscription = useCallback(() => {
-    if (subscriptionManageUrl) {
-      openUrlUtils.openUrlExternal(subscriptionManageUrl);
-    }
-  }, [subscriptionManageUrl]);
 
   const toPrimePage = useCallback(() => {
     requestIdleCallback(async () => {
@@ -523,16 +514,6 @@ function OneKeyIdPage() {
         id: ETranslations.id_prime,
       }),
       onPress: toPrimePage,
-    });
-  }
-  if (isPrime && subscriptionManageUrl) {
-    manageServiceActions.push({
-      key: 'subscription',
-      icon: 'CreditCardOutline',
-      title: intl.formatMessage({
-        id: ETranslations.prime_manage_subscription,
-      }),
-      onPress: handleManageSubscription,
     });
   }
   manageServiceActions.push(
