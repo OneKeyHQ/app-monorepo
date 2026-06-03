@@ -295,6 +295,21 @@ function WebModalNavigator({
   const disableEnterScaleAnimation = state.routes.some(
     (route) => !!descriptors[route.key]?.options?.disableEnterScaleAnimation,
   );
+  const modalScreenGtMdStyleMemo = useMemo(
+    () => ({
+      ...modalScreenGtMdStyle,
+      ...(descriptor.options.modalContentMaxHeight
+        ? { maxHeight: descriptor.options.modalContentMaxHeight }
+        : undefined),
+      ...(descriptor.options.modalContentMaxWidth
+        ? { maxWidth: descriptor.options.modalContentMaxWidth }
+        : undefined),
+    }),
+    [
+      descriptor.options.modalContentMaxHeight,
+      descriptor.options.modalContentMaxWidth,
+    ],
+  );
 
   useLayoutEffect(() => {
     const element = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex];
@@ -475,7 +490,7 @@ function WebModalNavigator({
               height="100%"
               borderTopStartRadius="$6"
               borderTopEndRadius="$6"
-              $gtMd={modalScreenGtMdStyle}
+              $gtMd={modalScreenGtMdStyleMemo}
               ref={modalScreenRefCallback}
               style={media.gtMd ? modalStyleGtMd : modalStyleMd}
             >

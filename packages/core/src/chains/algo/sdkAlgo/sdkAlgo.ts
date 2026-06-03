@@ -1,7 +1,11 @@
-// import * as sdk from 'algosdk/dist/esm/index.js';
-// export default sdk as typeof import('algosdk');
-
-import sdk from 'algosdk';
+import * as sdk from 'algosdk';
+import {
+  Transaction,
+  decodeObj,
+  encodeAddress,
+  encodeObj,
+  mnemonicFromSeed,
+} from 'algosdk';
 
 export type {
   EncodedTransaction as ISdkAlgoEncodedTransaction,
@@ -9,4 +13,23 @@ export type {
   TransactionType as ISdkAlgoTransactionType,
 } from 'algosdk';
 
-export default sdk;
+type IAlgoSdk = typeof import('algosdk');
+
+const sdkNamespace = sdk as IAlgoSdk & {
+  default?: IAlgoSdk & {
+    default?: IAlgoSdk;
+  };
+};
+
+const sdkAlgo = {
+  ...sdkNamespace.default?.default,
+  ...sdkNamespace.default,
+  ...sdkNamespace,
+  Transaction,
+  decodeObj,
+  encodeAddress,
+  encodeObj,
+  mnemonicFromSeed,
+};
+
+export default sdkAlgo as IAlgoSdk;

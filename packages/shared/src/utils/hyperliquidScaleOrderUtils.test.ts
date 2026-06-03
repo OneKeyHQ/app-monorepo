@@ -186,6 +186,11 @@ describe('hyperliquidScaleOrderUtils', () => {
     expect(validateScaleOrderLegs({ legs: tinyLegs }).errors[0]).toBe(
       'Leg 1: notional must be at least $10',
     );
+    expect(validateScaleOrderLegs({ legs: tinyLegs }).issues[0]).toEqual({
+      code: 'minNotionalTooSmall',
+      legIndex: 0,
+      minNotional: '10',
+    });
 
     const collapsedPriceLegs = buildScaleOrderLegs({
       totalSize: '100',
@@ -198,6 +203,7 @@ describe('hyperliquidScaleOrderUtils', () => {
     expect(validateScaleOrderLegs({ legs: collapsedPriceLegs })).toEqual({
       isValid: false,
       errors: ['Price range is too tight for this market precision'],
+      issues: [{ code: 'priceRangeTooTight', legIndex: 1 }],
     });
   });
 
@@ -209,6 +215,7 @@ describe('hyperliquidScaleOrderUtils', () => {
     ).toEqual({
       isValid: false,
       errors: ['Leg 1: invalid price'],
+      issues: [{ code: 'invalidPrice', legIndex: 0 }],
     });
     expect(
       validateScaleOrderLegs({
@@ -217,6 +224,7 @@ describe('hyperliquidScaleOrderUtils', () => {
     ).toEqual({
       isValid: false,
       errors: ['Leg 1: size is too small'],
+      issues: [{ code: 'sizeTooSmall', legIndex: 0 }],
     });
   });
 

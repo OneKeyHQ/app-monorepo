@@ -1,5 +1,7 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { isSwapHistoryProtocolExcluded } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import type {
+  EProtocolOfExchange,
   ESwapTxHistoryStatus,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
@@ -59,16 +61,32 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   }
 
   @backgroundMethod()
-  async deleteSwapHistoryItem(statuses?: ESwapTxHistoryStatus[]) {
+  async deleteSwapHistoryItem(
+    statuses?: ESwapTxHistoryStatus[],
+    options?: {
+      excludeProtocols?: EProtocolOfExchange[];
+    },
+  ) {
+    const shouldKeepHistory = (history: ISwapTxHistory) => {
+      if (
+        isSwapHistoryProtocolExcluded({
+          item: history,
+          excludeProtocols: options?.excludeProtocols,
+        })
+      ) {
+        return true;
+      }
+      return statuses ? !statuses.includes(history.status) : false;
+    };
     if (statuses) {
       const data = await this.getRawData();
       const histories = data?.histories ?? [];
-      const newHistories = histories.filter(
-        (i) => !statuses?.includes(i.status),
-      );
+      const newHistories = histories.filter(shouldKeepHistory);
       await this.setRawData({ histories: newHistories });
     } else {
-      await this.setRawData({ histories: [] });
+      const data = await this.getRawData();
+      const histories = data?.histories ?? [];
+      await this.setRawData({ histories: histories.filter(shouldKeepHistory) });
     }
   }
 

@@ -289,7 +289,6 @@ function MobilePerpMarket() {
 
   const onPressTokenSelector = useCallback(() => {
     defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
-      source: 'mobileMarketHeader',
       currentToken: activeTradeInstrument.coin,
       tradeMode: mode === 'spot' ? 'spot' : 'perp',
     });
