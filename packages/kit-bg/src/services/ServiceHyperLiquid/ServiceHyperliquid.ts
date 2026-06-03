@@ -1534,7 +1534,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     // Captured by the caller BEFORE its first await so the write is tagged with
     // the switch epoch that was current when the WS packet started processing —
     // not whatever it became after the await, which a concurrent switch may
-    // already have bumped (a TOCTOU that would otherwise retag a stale packet
+    // already have bumped (a TOCTOU that would otherwise re-tag a stale packet
     // with the new requestId and let it slip past isLatestActivePerpsAccountChange).
     requestId: number,
   ) {
@@ -1633,7 +1633,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   async updateActiveAccountSummary(webData2: IWsWebData2) {
     // Capture the switch epoch before the first await (TOCTOU): a switch
-    // starting between this read and the enqueue below must not retag this
+    // starting between this read and the enqueue below must not re-tag this
     // packet with the new switch's requestId.
     const requestId = this.activePerpsAccountChangeRequestId;
     const activeAccount = await perpsActiveAccountAtom.get();
@@ -1687,7 +1687,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     data: IWsAllDexsClearinghouseState,
   ) {
     // Capture the switch epoch before the first await (TOCTOU): a switch
-    // starting between this read and the enqueue below must not retag this
+    // starting between this read and the enqueue below must not re-tag this
     // packet with the new switch's requestId.
     const requestId = this.activePerpsAccountChangeRequestId;
     const activeAccount = await perpsActiveAccountAtom.get();
