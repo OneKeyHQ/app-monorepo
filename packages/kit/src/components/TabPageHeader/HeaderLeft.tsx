@@ -217,17 +217,15 @@ export function HeaderLeft({
                 rootNavigationRef.current?.canGoBack()
               ) {
                 rootNavigationRef.current?.goBack();
+              } else if (platformEnv.isNative) {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: ETabHomeRoutes.TabHome }],
+                });
               } else {
-                if (platformEnv.isNative) {
-                  navigation.reset({
-                    index: 0,
-                    routes: [{ name: ETabHomeRoutes.TabHome }],
-                  });
-                } else {
-                  rootNavigationRef.current?.dispatch(
-                    StackActions.replace(ETabHomeRoutes.TabHome),
-                  );
-                }
+                rootNavigationRef.current?.dispatch(
+                  StackActions.replace(ETabHomeRoutes.TabHome),
+                );
               }
             }}
           />

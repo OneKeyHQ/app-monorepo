@@ -386,9 +386,8 @@ export function SegmentSlider({
     onSlideComplete?.();
   }, [onSlideComplete, thumbScaleValue]);
 
-  const renderBubble = useCallback(() => {
-    return showBubble ? undefined : () => null;
-  }, [showBubble]);
+  const renderEmptyBubble = useCallback(() => null, []);
+  const renderBubble = showBubble ? undefined : renderEmptyBubble;
   return (
     <View style={styles.full} onLayout={handleLayout}>
       {centerOrigin ? (

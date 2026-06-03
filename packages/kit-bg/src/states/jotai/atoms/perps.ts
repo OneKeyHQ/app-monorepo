@@ -83,6 +83,13 @@ export interface IPerpsAccountDisplaySnapshotEntry {
   account: IPerpsActiveAccountAtom;
   accountValue: string | undefined;
   withdrawable: string | undefined;
+  activeAsset:
+    | {
+        coin: string;
+        leverage: IPerpsActiveAssetData['leverage'] | undefined;
+        updatedAt: number;
+      }
+    | undefined;
   availableToTrade:
     | {
         coin: string;
@@ -193,6 +200,89 @@ export const {
   name: EAtomNames.perpsAbstractionModeAtom,
   initialValue: undefined,
 });
+// #endregion
+
+// #region Spot Dusting
+const SPOT_DUSTING_LIVE_RECONCILE_GRACE_MS = 15_000;
+
+export type IPerpsSpotDustingAtom =
+  | {
+      accountAddress: IHex;
+      optOut: boolean;
+      source: 'live' | 'local';
+      updatedAt: number;
+      localMutation?: {
+        optOut: boolean;
+        updatedAt: number;
+        ignoreLiveUntil: number;
+      };
+    }
+  | undefined;
+
+export function getPerpsSpotDustingNextState({
+  prev,
+  accountAddress,
+  optOut,
+  source,
+  updatedAt,
+  liveReconcileGraceMs = SPOT_DUSTING_LIVE_RECONCILE_GRACE_MS,
+}: {
+  prev: IPerpsSpotDustingAtom;
+  accountAddress: IHex;
+  optOut: boolean;
+  source: 'live' | 'local';
+  updatedAt: number;
+  liveReconcileGraceMs?: number;
+}): IPerpsSpotDustingAtom {
+  const prevMatchesAccount =
+    prev?.accountAddress?.toLowerCase() === accountAddress.toLowerCase();
+  const prevLocalMutation = prevMatchesAccount
+    ? prev?.localMutation
+    : undefined;
+
+  if (
+    source === 'live' &&
+    prevLocalMutation &&
+    prevLocalMutation.optOut !== optOut &&
+    updatedAt < prevLocalMutation.ignoreLiveUntil
+  ) {
+    return prev;
+  }
+
+  const localMutation =
+    source === 'local'
+      ? {
+          optOut,
+          updatedAt,
+          ignoreLiveUntil: updatedAt + liveReconcileGraceMs,
+        }
+      : undefined;
+
+  if (
+    prevMatchesAccount &&
+    prev?.optOut === optOut &&
+    prev.source === source &&
+    prev.localMutation?.optOut === localMutation?.optOut &&
+    prev.localMutation?.updatedAt === localMutation?.updatedAt &&
+    prev.localMutation?.ignoreLiveUntil === localMutation?.ignoreLiveUntil
+  ) {
+    return prev;
+  }
+
+  return {
+    accountAddress,
+    optOut,
+    source,
+    updatedAt,
+    localMutation,
+  };
+}
+
+export const { target: perpsSpotDustingAtom, use: usePerpsSpotDustingAtom } =
+  globalAtom<IPerpsSpotDustingAtom>({
+    name: EAtomNames.perpsSpotDustingAtom,
+    initialValue: undefined,
+  });
 // #endregion
 
 // #region Spot Balances
@@ -330,6 +420,7 @@ export type IPerpsActiveAccountStatusDetails = {
   builderFeeOk: boolean;
   internalRebateBoundOk: boolean;
   abstractionOk: boolean;
+  requiresAgentRemovalSignature?: boolean;
 };
 export type IPerpsActiveAccountStatusInfoAtom =
   | {
@@ -426,6 +517,8 @@ export const {
 export interface IPerpsAccountLoadingInfo {
   selectAccountLoading: boolean;
   enableTradingLoading: boolean;
+  enableTradingTriggered: boolean;
+  enableTradingStatusPending: boolean;
 }
 export const {
   target: perpsAccountLoadingInfoAtom,
@@ -435,6 +528,8 @@ export const {
   initialValue: {
     selectAccountLoading: false,
     enableTradingLoading: false,
+    enableTradingTriggered: false,
+    enableTradingStatusPending: false,
   },
 });
 
@@ -443,17 +538,22 @@ export const {
   use: usePerpsActiveAccountEnableTradingModeAtom,
 } = globalAtomComputedR<{
   isSoftwareAccount: boolean;
+  isHardwareAccount: boolean;
+  canAutoEnableInOrderPanel: boolean;
+  requiresEnableTradingDialogInOrderPanel: boolean;
   requiresExplicitEnableTrading: boolean;
 }>({
   read: (get) => {
     const account = get(perpsActiveAccountAtom.atom());
-    const loading = get(perpsAccountLoadingInfoAtom.atom());
 
     const accountId = account.accountId ?? account.indexedAccountId;
 
-    if (loading.selectAccountLoading || !accountId) {
+    if (!accountId) {
       return {
         isSoftwareAccount: false,
+        isHardwareAccount: false,
+        canAutoEnableInOrderPanel: false,
+        requiresEnableTradingDialogInOrderPanel: false,
         requiresExplicitEnableTrading: true,
       };
     }
@@ -461,9 +561,13 @@ export const {
     const isSoftwareAccount =
       accountUtils.isHdAccount({ accountId }) ||
       accountUtils.isImportedAccount({ accountId });
+    const isHardwareAccount = accountUtils.isHwAccount({ accountId });
 
     return {
       isSoftwareAccount,
+      isHardwareAccount,
+      canAutoEnableInOrderPanel: isSoftwareAccount,
+      requiresEnableTradingDialogInOrderPanel: isHardwareAccount,
       requiresExplicitEnableTrading: !isSoftwareAccount,
     };
   },
@@ -475,22 +579,23 @@ export const {
 } = globalAtomComputedR<boolean>({
   read: (get) => {
     const status = get(perpsActiveAccountStatusAtom.atom());
-    const loading = get(perpsAccountLoadingInfoAtom.atom());
     const enableTradingMode = get(
       perpsActiveAccountEnableTradingModeAtom.atom(),
     );
-    const isAccountLoading =
-      loading.enableTradingLoading || loading.selectAccountLoading;
 
-    if (isAccountLoading || !status?.accountAddress) {
+    if (!status?.accountAddress) {
       return true;
     }
 
-    if (enableTradingMode.isSoftwareAccount && !status.accountNotSupport) {
-      return false;
+    if (status.accountNotSupport || status.canCreateAddress) {
+      return true;
     }
 
-    return !status?.canTrade;
+    return !(
+      status.canTrade ||
+      enableTradingMode.canAutoEnableInOrderPanel ||
+      enableTradingMode.requiresEnableTradingDialogInOrderPanel
+    );
   },
 });
 
@@ -768,11 +873,14 @@ export const {
   },
 });
 
+export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
+
 export interface IPerpsCustomSettings {
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
   lastTriggerOrderType: ETriggerOrderType;
+  lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
 }
 export const {
   target: perpsCustomSettingsAtom,
@@ -785,6 +893,7 @@ export const {
     showTradeMarks: true,
     showChartLines: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
+    lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,
   },
 });
 

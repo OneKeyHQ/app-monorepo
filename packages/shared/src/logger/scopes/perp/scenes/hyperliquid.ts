@@ -9,12 +9,17 @@ import type {
   IOrderRequest,
   IOrderResponse,
   ISuccessResponse,
+  ITwapCancelResponse,
+  ITwapOrderResponse,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IAgentApprovalRequest,
   IBuilderFeeRequest,
+  ICancelTwapOrderParams,
   ILeverageUpdateRequest,
+  IPlaceTwapOrderParams,
   ISetReferrerRequest,
+  ISpotDustingOptOutRequest,
   IUpdateIsolatedMarginRequest,
   IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -38,6 +43,18 @@ export interface IHyperLiquidLogParams<
   isFirstTime?: boolean;
 }
 
+export type IHyperLiquidApiFailureEndpoint = 'info' | 'exchange';
+
+export interface IHyperLiquidApiFailureLogParams extends Partial<IHyperLiquidAccountContext> {
+  endpoint: IHyperLiquidApiFailureEndpoint;
+  action: string;
+  request?: unknown;
+  response?: unknown;
+  error?: Record<string, unknown>;
+  message?: string;
+  extra?: Record<string, unknown>;
+}
+
 function stripSensitiveFields<TRequest, TResponse>(
   params: IHyperLiquidLogParams<TRequest, TResponse>,
 ) {
@@ -57,6 +74,11 @@ export interface IHyperLiquidOrderRequestPayload {
 }
 
 export class HyperLiquidScene extends BaseScene {
+  @LogToLocal({ level: 'error' })
+  public apiRequestFailure(params: IHyperLiquidApiFailureLogParams) {
+    return params;
+  }
+
   @LogToServer()
   public setReferrer(
     params: IHyperLiquidLogParams<
@@ -92,6 +114,16 @@ export class HyperLiquidScene extends BaseScene {
     params: IHyperLiquidLogParams<
       IBuilderFeeRequest,
       IApiRequestResult | IApiErrorResponse
+    >,
+  ) {
+    return stripSensitiveFields(params);
+  }
+
+  @LogToServer()
+  public setSpotDustingOptOut(
+    params: IHyperLiquidLogParams<
+      ISpotDustingOptOutRequest,
+      ISuccessResponse | IApiErrorResponse
     >,
   ) {
     return stripSensitiveFields(params);
@@ -202,6 +234,26 @@ export class HyperLiquidScene extends BaseScene {
     params: IHyperLiquidLogParams<
       { oid: number; order: IOrderParams },
       IModifyResponse | IApiErrorResponse
+    >,
+  ) {
+    return stripSensitiveFields(params);
+  }
+
+  @LogToServer()
+  public twapOrder(
+    params: IHyperLiquidLogParams<
+      { twap: Omit<IPlaceTwapOrderParams, 'szDecimals'> },
+      ITwapOrderResponse | IApiErrorResponse
+    >,
+  ) {
+    return stripSensitiveFields(params);
+  }
+
+  @LogToServer()
+  public twapCancel(
+    params: IHyperLiquidLogParams<
+      ICancelTwapOrderParams,
+      ITwapCancelResponse | IApiErrorResponse
     >,
   ) {
     return stripSensitiveFields(params);

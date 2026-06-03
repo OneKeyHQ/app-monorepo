@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useLayoutEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { MotiView } from 'moti';
@@ -43,6 +43,9 @@ export type ISwapProviderListItemProps = {
   toToken?: ISwapToken;
   selected?: boolean;
   disabled?: boolean;
+  autoOpenRoute?: boolean;
+  autoOpenRouteTrigger?: unknown;
+  routeCollapseTrigger?: unknown;
 } & IListItemProps;
 const SwapProviderListItem = ({
   providerResult,
@@ -52,6 +55,9 @@ const SwapProviderListItem = ({
   toToken,
   selected,
   disabled,
+  autoOpenRoute,
+  autoOpenRouteTrigger,
+  routeCollapseTrigger,
   ...rest
 }: ISwapProviderListItemProps) => {
   const intl = useIntl();
@@ -206,7 +212,20 @@ const SwapProviderListItem = ({
     toToken?.symbol,
   ]);
 
-  const [routeOpen, setRouteOpen] = useState(false);
+  const providerKey = `${providerResult.info.provider}-${providerResult.info.providerName}`;
+  const [routeOpen, setRouteOpen] = useState(Boolean(autoOpenRoute));
+
+  useLayoutEffect(() => {
+    if (autoOpenRoute) {
+      setRouteOpen(true);
+    }
+  }, [autoOpenRoute, autoOpenRouteTrigger, providerKey]);
+
+  useLayoutEffect(() => {
+    if (!autoOpenRoute) {
+      setRouteOpen(false);
+    }
+  }, [autoOpenRoute, providerKey, routeCollapseTrigger]);
 
   const routeContent = useMemo<IRouteRows>(() => {
     const routeRows: IRouteRows =
@@ -242,15 +261,12 @@ const SwapProviderListItem = ({
 
   const routeComponents = useMemo(() => {
     const routesData = providerResult.routesData;
-    if (providerResult.protocolNoRouterInfo) {
-      return (
-        <SizableText size="$bodySm" color="$textSubdued" mt="$3.5">
-          {providerResult.protocolNoRouterInfo}
-        </SizableText>
-      );
-    }
-    if (!routesData?.[0]?.subRoutes?.[0]?.length) {
-      return (
+    const hasRouteData = Boolean(routesData?.[0]?.subRoutes?.[0]?.length);
+    let routeContentComponent = null;
+    if (hasRouteData) {
+      routeContentComponent = <SwapRoutePaths routeContent={routeContent} />;
+    } else if (!providerResult.protocolNoRouterInfo) {
+      routeContentComponent = (
         <SizableText size="$bodySm" color="$textSubdued" mt="$3.5">
           {intl.formatMessage({
             id: ETranslations.provider_route_no_information,
@@ -258,7 +274,16 @@ const SwapProviderListItem = ({
         </SizableText>
       );
     }
-    return <SwapRoutePaths routeContent={routeContent} />;
+    return (
+      <Stack>
+        {routeContentComponent}
+        {providerResult.protocolNoRouterInfo ? (
+          <SizableText size="$bodySm" color="$textSubdued" mt="$3.5">
+            {providerResult.protocolNoRouterInfo}
+          </SizableText>
+        ) : null}
+      </Stack>
+    );
   }, [
     intl,
     providerResult.protocolNoRouterInfo,

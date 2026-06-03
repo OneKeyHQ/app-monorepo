@@ -288,8 +288,11 @@ export async function handleKLineDataRequest({
 
     // Use combined function to get sliced data
     try {
-      const shouldMockEmpty = await shouldMockEmptyKLineData(resolution);
-      const kLineData = shouldMockEmpty
+      const shouldForceEmptyKLineData =
+        context.forceEmptyKLineData ||
+        (await shouldMockEmptyKLineData(resolution));
+      const shouldSuppressKLineError = Boolean(context.emptyKLineDataOnError);
+      const fetchedKLineData = shouldForceEmptyKLineData
         ? buildEmptyKLineData()
         : await fetchTradingViewV2DataWithSlicing({
             tokenAddress,
@@ -297,7 +300,15 @@ export async function handleKLineDataRequest({
             interval: resolution,
             timeFrom: from,
             timeTo: to,
+            autoHandleError: shouldSuppressKLineError ? false : undefined,
+            kLineDataFallback: context.kLineDataFallback,
           });
+      const shouldUseEmptyKLineData =
+        shouldForceEmptyKLineData ||
+        (shouldSuppressKLineError && !fetchedKLineData);
+      const kLineData = shouldUseEmptyKLineData
+        ? buildEmptyKLineData()
+        : fetchedKLineData;
 
       if (webRef.current && kLineData) {
         webRef.current.sendMessageViaInjectedScript({
@@ -310,7 +321,7 @@ export async function handleKLineDataRequest({
         });
       }
 
-      if (shouldMockEmpty) {
+      if (shouldUseEmptyKLineData) {
         sendClearAccountMarks({
           tokenAddress,
           symbol: (safeData.symbol as string) || tokenAddress,
@@ -318,7 +329,12 @@ export async function handleKLineDataRequest({
         });
       }
 
-      if (!shouldMockEmpty && accountAddress && tokenAddress && networkId) {
+      if (
+        !shouldUseEmptyKLineData &&
+        accountAddress &&
+        tokenAddress &&
+        networkId
+      ) {
         void fetchAndSendAccountMarks({
           accountAddress,
           tokenAddress,

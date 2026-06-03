@@ -22,6 +22,25 @@ type INetworkAccountMeta = {
   xpub?: string;
 };
 
+// Precomputed inputs from a co-located parent (e.g. EarnHome) so two
+// hook instances do not independently resolve the same data. When omitted
+// the hook resolves everything itself — single-caller pages (PortfolioTab,
+// useRecommendedRefreshPendingTx) keep the legacy behavior unchanged.
+//
+// `pollingIntervalsByNetwork` is the raw `Record<networkId, seconds>` map
+// (NOT the min) so each hook instance computes the min over its own
+// `effectiveNetworkIds` subset — necessary because Earn and Borrow may
+// pick different subsets of the union.
+//
+// All three fields are keyed by the union of the parent-resolved networks;
+// hook instances pick their subset. When a key is missing the hook falls
+// back to its own resolution path for the affected resolution only.
+export type IStakingPendingTxsPrecomputed = {
+  networkAccountMap?: Record<string, string>;
+  pollingIntervalsByNetwork?: Record<string, number>;
+  accountMetaByNetwork?: Record<string, INetworkAccountMeta>;
+};
+
 const DEFAULT_POLLING_INTERVAL = timerUtils.getTimeDurationMs({ seconds: 30 });
 
 export const useStakingPendingTxs = ({
@@ -129,12 +148,14 @@ export const useStakingPendingTxsByInfo = ({
   networkIds,
   tagMatcher,
   onRefreshDelayMs = 0,
+  precomputed,
 }: {
   filter?: (tx: IStakePendingTx) => boolean;
   onRefresh?: () => void;
   networkIds?: string[];
   tagMatcher?: (tag: string) => boolean;
   onRefreshDelayMs?: number;
+  precomputed?: IStakingPendingTxsPrecomputed;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -255,31 +276,77 @@ export const useStakingPendingTxsByInfo = ({
     return derivedNetworkIds;
   }, [derivedNetworkIds, networkIds]);
 
-  // Get the minimum polling interval across all networks
+  // Get the minimum polling interval across all networks. One batched
+  // bridge call instead of N — the legacy `.map(networkId => RPC)` pattern
+  // was the 10+/s freeze amplifier called out in the OK-perp/swap trace.
   const { result: pollingInterval } = usePromiseResult(
     async () => {
       if (effectiveNetworkIds.length === 0) return DEFAULT_POLLING_INTERVAL;
-      const intervals = await Promise.all(
-        effectiveNetworkIds.map((networkId: string) =>
-          backgroundApiProxy.serviceStaking
-            .getFetchHistoryPollingInterval({
-              networkId,
-            })
-            .catch(() => 30),
-        ),
+      const shared = precomputed?.pollingIntervalsByNetwork;
+      // Use shared map when the parent has resolved every network we need;
+      // otherwise fall back to a batched RPC for the full set (avoid a
+      // partial-cache-miss split that would still cost a bridge call).
+      const haveAll =
+        shared !== undefined &&
+        effectiveNetworkIds.every((nid) => shared[nid] !== undefined);
+      const intervalsMap = haveAll
+        ? shared
+        : await backgroundApiProxy.serviceStaking.getFetchHistoryPollingIntervalsBatch(
+            { networkIds: effectiveNetworkIds },
+          );
+      const intervals = effectiveNetworkIds.map(
+        (networkId) => intervalsMap[networkId] ?? 30,
       );
-      const minInterval = Math.min(...intervals);
+      const minInterval = intervals.length > 0 ? Math.min(...intervals) : 30;
       return timerUtils.getTimeDurationMs({ seconds: minInterval });
     },
-    [effectiveNetworkIds],
+    [effectiveNetworkIds, precomputed?.pollingIntervalsByNetwork],
     { initResult: DEFAULT_POLLING_INTERVAL },
   );
 
-  // Resolve network-specific accountIds for the active indexed account
+  // Resolve network-specific accountIds for the active indexed account.
+  // Short-circuit to the parent-precomputed union map when present —
+  // EarnHome's earn + borrow hook instances share one resolution this way.
   const { result: networkAccountMap } = usePromiseResult<
     Record<string, string>
   >(
     async () => {
+      const sharedMap = precomputed?.networkAccountMap;
+      if (sharedMap) {
+        const subset: Record<string, string> = {};
+        for (const networkId of effectiveNetworkIds) {
+          const accountForNetwork = sharedMap[networkId];
+          if (accountForNetwork) {
+            subset[networkId] = accountForNetwork;
+          }
+        }
+        // Parent must cover every effectiveNetworkId for the short-circuit
+        // to be safe; falling back to per-instance resolution preserves the
+        // legacy "best-effort" contract when the union missed a network.
+        if (Object.keys(subset).length === effectiveNetworkIds.length) {
+          // Mirror the fallback path's synchronous activeAccount override so
+          // account switches converge one tick faster — without this, the
+          // short-circuit would briefly hold the OLD accountId for the
+          // current network until the shared resolver re-runs.
+          //
+          // Skip BTC: sharedMap entries are already normalized to taproot via
+          // getEarnAccount({ btcOnlyTaproot: true }) in the precomputed
+          // resolver. The active accountId is whichever derivation the user
+          // selected (often BIP44/BIP49/BIP84), so overwriting here would
+          // undo the taproot normalization and make pending tx fetch +
+          // history polling query the wrong account (OK-51703 regression).
+          if (
+            accountId &&
+            currentNetworkId &&
+            effectiveNetworkIds.includes(currentNetworkId) &&
+            !networkUtils.isBTCNetwork(currentNetworkId)
+          ) {
+            subset[currentNetworkId] = accountId;
+          }
+          return subset;
+        }
+      }
+
       const map: Record<string, string> = {};
 
       if (
@@ -336,10 +403,20 @@ export const useStakingPendingTxsByInfo = ({
 
       return map;
     },
-    [accountId, currentNetworkId, indexedAccount?.id, effectiveNetworkIds],
+    [
+      accountId,
+      currentNetworkId,
+      indexedAccount?.id,
+      effectiveNetworkIds,
+      precomputed?.networkAccountMap,
+    ],
     { initResult: {} },
   );
 
+  // Resolve xpub + accountAddress for every (accountId, networkId) pair.
+  // One batched bridge call replaces the prior 2N per-pair fan-out
+  // (getAccountXpub + getAccountAddressForApi) — see ServiceAccount
+  // .getAccountMetaForNetworksBatch for the contract.
   const { result: accountMetaByNetwork } = usePromiseResult<
     Record<string, INetworkAccountMeta>
   >(
@@ -349,35 +426,46 @@ export const useStakingPendingTxsByInfo = ({
         return {} as Record<string, INetworkAccountMeta>;
       }
 
+      // Reuse precomputed parent meta where available so two co-located
+      // hook instances (EarnHome's earn + borrow) share one batch RPC.
+      // We still derive the per-instance `meta` map keyed by accountId
+      // so downstream pendingTx fetch picks the right account per network.
+      const sharedMeta = precomputed?.accountMetaByNetwork;
+      const missingPairs: Array<{ accountId: string; networkId: string }> = [];
       const meta: Record<string, INetworkAccountMeta> = {};
-      await Promise.all(
-        entries.map(async ([networkId, accountForNetwork]) => {
-          try {
-            const [xpub, accountAddress] = await Promise.all([
-              backgroundApiProxy.serviceAccount.getAccountXpub({
-                accountId: accountForNetwork,
-                networkId,
-              }),
-              backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-                accountId: accountForNetwork,
-                networkId,
-              }),
-            ]);
 
+      for (const [networkId, accountForNetwork] of entries) {
+        const hit = sharedMeta?.[networkId];
+        if (hit && hit.accountId === accountForNetwork) {
+          meta[networkId] = hit;
+        } else {
+          missingPairs.push({ accountId: accountForNetwork, networkId });
+        }
+      }
+
+      if (missingPairs.length > 0) {
+        const batchResult =
+          await backgroundApiProxy.serviceAccount.getAccountMetaForNetworksBatch(
+            { pairs: missingPairs },
+          );
+        for (const {
+          accountId: accountForNetwork,
+          networkId,
+        } of missingPairs) {
+          const entry = batchResult[networkId];
+          if (entry) {
             meta[networkId] = {
               accountId: accountForNetwork,
-              accountAddress,
-              xpub,
+              accountAddress: entry.accountAddress,
+              xpub: entry.xpub,
             };
-          } catch {
-            // Skip networks we cannot resolve
           }
-        }),
-      );
+        }
+      }
 
       return meta;
     },
-    [networkAccountMap],
+    [networkAccountMap, precomputed?.accountMetaByNetwork],
     { initResult: {} as Record<string, INetworkAccountMeta> },
   );
 
@@ -556,4 +644,187 @@ export const useStakingPendingTxsByInfo = ({
     pendingCount: filteredTxs.length,
     refreshPending: refreshPendingWithHistory,
   };
+};
+
+/**
+ * Parent-side resolver that batches the three RPCs every
+ * `useStakingPendingTxsByInfo` instance independently issues:
+ * - `getNetworkAccountsInSameIndexedAccountId` (account map for union)
+ * - `getAccountMetaForNetworksBatch` (xpub + accountAddress for union)
+ * - `getFetchHistoryPollingIntervalsBatch` (polling intervals for union)
+ *
+ * When EarnHome renders both an Earn and a Borrow instance side-by-side,
+ * each was previously paying its own 3 round-trips on the same union of
+ * networks. Calling this hook once at the EarnHome level and forwarding
+ * the result via `precomputed` collapses 6 RPCs → 3 RPCs per dep change.
+ *
+ * Single-instance callers (PortfolioTab, useRecommendedRefreshPendingTx)
+ * MUST NOT use this — they already pay only one set of RPCs and adding
+ * the wrapper would double the work.
+ */
+export const useEarnPendingTxsSharedMeta = ({
+  extraNetworkIds = [],
+}: {
+  extraNetworkIds?: string[];
+} = {}): IStakingPendingTxsPrecomputed => {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { account, indexedAccount } = activeAccount;
+  const accountId = account?.id;
+  const currentNetworkId = activeAccount.network?.id;
+  const [{ availableAssetsByType = {} }] = useEarnAtom();
+
+  // Same derivation chain as inside useStakingPendingTxsByInfo's Earn
+  // branch — kept in sync so the union is a strict superset of what
+  // either instance will look up.
+  const derivedNetworkIds = useMemo<string[]>(() => {
+    const groupedAssets = [
+      EAvailableAssetsTypeEnum.SimpleEarn,
+      EAvailableAssetsTypeEnum.FixedRate,
+      EAvailableAssetsTypeEnum.Staking,
+    ].flatMap((type) => availableAssetsByType?.[type] ?? []);
+    const mergedAssets =
+      groupedAssets.length > 0
+        ? groupedAssets
+        : Object.values(availableAssetsByType).flat();
+    const set = new Set<string>();
+    mergedAssets.forEach((asset) => {
+      asset.protocols?.forEach((protocol) => {
+        if (protocol.networkId) {
+          set.add(protocol.networkId);
+        }
+      });
+    });
+    return [...set];
+  }, [availableAssetsByType]);
+
+  const stableExtraKey = useMemo(
+    () => [...new Set(extraNetworkIds.filter(Boolean))].toSorted().join('|'),
+    [extraNetworkIds],
+  );
+
+  const unionNetworkIds = useMemo<string[]>(() => {
+    const cleanedExtras = stableExtraKey ? stableExtraKey.split('|') : [];
+    return [...new Set([...derivedNetworkIds, ...cleanedExtras])];
+  }, [derivedNetworkIds, stableExtraKey]);
+
+  // Resolve account-per-network for the union. Mirrors the in-hook
+  // resolver — kept aligned so subset short-circuits in
+  // useStakingPendingTxsByInfo are byte-identical to a per-instance run.
+  const { result: networkAccountMap } = usePromiseResult<
+    Record<string, string>
+  >(
+    async () => {
+      const map: Record<string, string> = {};
+
+      if (
+        accountId &&
+        currentNetworkId &&
+        unionNetworkIds.includes(currentNetworkId)
+      ) {
+        map[currentNetworkId] = accountId;
+      }
+
+      if (!indexedAccount?.id || unionNetworkIds.length === 0) {
+        return map;
+      }
+
+      try {
+        const accounts =
+          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+            {
+              indexedAccountId: indexedAccount.id,
+              networkIds: unionNetworkIds,
+            },
+          );
+        accounts.forEach(({ network, account: networkAccount }) => {
+          if (network?.id && networkAccount?.id) {
+            map[network.id] = networkAccount.id;
+          }
+        });
+      } catch {
+        // Best-effort; downstream consumer falls back to per-instance path
+        // for any missing entry.
+      }
+
+      await Promise.all(
+        Object.keys(map).map(async (netId) => {
+          if (networkUtils.isBTCNetwork(netId)) {
+            try {
+              const earnAccount =
+                await backgroundApiProxy.serviceStaking.getEarnAccount({
+                  accountId: map[netId],
+                  networkId: netId,
+                  indexedAccountId: indexedAccount.id,
+                  btcOnlyTaproot: true,
+                });
+              if (earnAccount?.accountId) {
+                map[netId] = earnAccount.accountId;
+              }
+            } catch {
+              // Keep existing account if taproot resolution fails
+            }
+          }
+        }),
+      );
+
+      return map;
+    },
+    [accountId, currentNetworkId, indexedAccount?.id, unionNetworkIds],
+    { initResult: {} },
+  );
+
+  const { result: accountMetaByNetwork } = usePromiseResult<
+    Record<string, INetworkAccountMeta>
+  >(
+    async () => {
+      const entries = Object.entries(networkAccountMap);
+      if (entries.length === 0) {
+        return {} as Record<string, INetworkAccountMeta>;
+      }
+      const pairs = entries.map(([networkId, accountForNetwork]) => ({
+        accountId: accountForNetwork,
+        networkId,
+      }));
+      const batchResult =
+        await backgroundApiProxy.serviceAccount.getAccountMetaForNetworksBatch({
+          pairs,
+        });
+      const meta: Record<string, INetworkAccountMeta> = {};
+      for (const [networkId, accountForNetwork] of entries) {
+        const entry = batchResult[networkId];
+        if (entry) {
+          meta[networkId] = {
+            accountId: accountForNetwork,
+            accountAddress: entry.accountAddress,
+            xpub: entry.xpub,
+          };
+        }
+      }
+      return meta;
+    },
+    [networkAccountMap],
+    { initResult: {} as Record<string, INetworkAccountMeta> },
+  );
+
+  const { result: pollingIntervalsByNetwork } = usePromiseResult<
+    Record<string, number>
+  >(
+    async () => {
+      if (unionNetworkIds.length === 0) return {};
+      return backgroundApiProxy.serviceStaking.getFetchHistoryPollingIntervalsBatch(
+        { networkIds: unionNetworkIds },
+      );
+    },
+    [unionNetworkIds],
+    { initResult: {} as Record<string, number> },
+  );
+
+  return useMemo<IStakingPendingTxsPrecomputed>(
+    () => ({
+      networkAccountMap,
+      accountMetaByNetwork,
+      pollingIntervalsByNetwork,
+    }),
+    [networkAccountMap, accountMetaByNetwork, pollingIntervalsByNetwork],
+  );
 };

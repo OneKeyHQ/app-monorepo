@@ -173,7 +173,7 @@ function FreezeInactiveHomeTab({
 }) {
   const focusedTab = useFocusedTab();
   return (
-    <DelayedFreeze freeze={!!focusedTab && focusedTab !== tabName}>
+    <DelayedFreeze freeze={focusedTab ? focusedTab !== tabName : undefined}>
       {children}
     </DelayedFreeze>
   );

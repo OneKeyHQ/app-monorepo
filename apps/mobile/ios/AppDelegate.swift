@@ -7,10 +7,15 @@ import ReactAppDependencyProvider
 
 // MARK: - Dynamic bridge to Nitro modules (avoids C++ module import issues)
 private enum NitroModuleBridge {
-  // LaunchOptionsStore is @objcMembers in ReactNativeDeviceUtils
+  // LaunchOptionsStore is @objcMembers in ReactNativeDeviceUtils.
+  // Reach the singleton via the `sharedInstance` class method (perform),
+  // NOT KVC `value(forKeyPath: "shared")`: a Swift `static let` stored
+  // property is invisible to the ObjC runtime, so KVC returns nil and
+  // every subsequent `setValue(_:forKey:)` (startupTime, deviceToken,
+  // launchOptions) silently no-ops.
   static func launchOptionsStore() -> NSObject? {
     guard let cls = NSClassFromString("ReactNativeDeviceUtils.LaunchOptionsStore") as? NSObject.Type else { return nil }
-    return cls.value(forKeyPath: "shared") as? NSObject
+    return cls.perform(NSSelectorFromString("sharedInstance"))?.takeUnretainedValue() as? NSObject
   }
 
   // OneKeyLog is @objc in ReactNativeNativeLogger
@@ -241,6 +246,33 @@ public class AppDelegate: ExpoAppDelegate {
       UserDefaults.standard.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
       UserDefaults.standard.synchronize()
     }
+  }
+
+  // Background URLSession events (concurrent/background downloads).
+  // When the app is relaunched in the background to finish a background
+  // download, hand the completion handler to the downloader via a notification.
+  // We post rather than call directly because the Nitro module's C++ umbrella
+  // header can't be imported into this Swift AppDelegate (see the
+  // NSClassFromString bridges above). If the downloader instance isn't live yet
+  // the events are processed on the next foreground launch instead — the
+  // download itself still completed in the background.
+  //
+  // Posted under a generic name (RangeDownloaderBackgroundEvents) so any number
+  // of channels (bundle / apk / chart) route through one notification; the
+  // shared range-downloader filters by its own session identifier prefix (and
+  // still recognizes the legacy identifier prefix for in-flight downloads that
+  // span an app update).
+  public override func application(
+    _ application: UIApplication,
+    handleEventsForBackgroundURLSession identifier: String,
+    completionHandler: @escaping () -> Void
+  ) {
+    NitroModuleBridge.logInfo("RangeDownloader", "handleEventsForBackgroundURLSession: \(identifier)")
+    NotificationCenter.default.post(
+      name: Notification.Name("RangeDownloaderBackgroundEvents"),
+      object: nil,
+      userInfo: ["identifier": identifier, "completionHandler": completionHandler]
+    )
   }
 
   // Linking API

@@ -231,6 +231,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       password,
       indexes,
       hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
     } = query;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
     const indexFormatted = indexes.map((index) =>
@@ -238,6 +240,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     );
     const mnemonic = await mnemonicFromEntropy(hdCredential, password, {
       hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
     });
 
     const publicKeys = indexFormatted.map((index) => {

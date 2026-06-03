@@ -52,7 +52,10 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import {
+  displayFiatValueOrUnavailable,
+  displayOrUnavailable,
+} from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -519,7 +522,10 @@ function TokenDetailsHeader(props: IProps) {
                   lineHeight={48}
                   fontWeight={500}
                 >
-                  {displayOrUnavailable(tokenDetails?.fiatValue)}
+                  {displayFiatValueOrUnavailable(
+                    tokenDetails?.fiatValue,
+                    tokenDetails?.balanceParsed,
+                  )}
                 </Currency>
                 <NumberSizeableTextWrapper
                   hideValue

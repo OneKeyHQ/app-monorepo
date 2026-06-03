@@ -4,12 +4,30 @@ import { unionBy } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { REQUEST_TIMEOUT } from '@onekeyhq/shared/src/request/requestConst';
 import { isHistoryCursorAdvanced } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 const NATIVE_LOAD_MORE_HARD_LIMIT = 30;
+
+// Sentinel resolved by the soft-timeout race when a single load-more attempt
+// outlives LOAD_MORE_SOFT_TIMEOUT_MS. A unique symbol so it can never collide
+// with a real backend response object.
+const SOFT_TIMEOUT_SENTINEL = Symbol('historyLoadMoreSoftTimeout');
+
+// Soft timeout for one load-more attempt. Deliberately ABOVE the axios
+// REQUEST_TIMEOUT: that timeout only guards the HTTP leg inside the background
+// context, but loadMore() awaits a proxy round-trip that can hang where the
+// HTTP timeout can't see — the extension UI<->service-worker bridge (whose
+// callback expiry defaults to 10 minutes, far longer than this UX tolerates),
+// the native cross-thread transport, or a non-axios await inside
+// ServiceHistory. Sitting above REQUEST_TIMEOUT means a
+// slow-but-valid request is never preempted; the timer only wins on a genuine
+// lower-layer hang, releasing the otherwise-stuck footer spinner so the user
+// can retry by scrolling again.
+const LOAD_MORE_SOFT_TIMEOUT_MS = REQUEST_TIMEOUT + 15 * 1000;
 
 // Coerce whatever the backend hands back as the next-page cursor into a
 // non-empty string. Some chains emit numeric offsets, but the request param
@@ -90,20 +108,34 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
   // (duplicate-emit / chain reorg) without taking a stale state closure.
   const appendedIdsRef = useRef<Set<string>>(new Set());
 
-  const reset = useCallback(() => {
-    initializedRef.current = false;
+  // Begin a fresh pagination generation: bump `generationRef` (which orphans
+  // any in-flight load-more, since its response handler and finally-block are
+  // gated on a matching generation) and clear all cursor-independent progress —
+  // page counter, load count, appended-row set/state, the in-flight lock, and
+  // the loading spinner. Both reset() (teardown) and onFirstPageResponse
+  // (re-arm to a new first-page boundary) start from this clean slate before
+  // layering on their own cursor / hasMore semantics. Sharing it keeps the two
+  // call sites from drifting: the stuck-spinner bug was exactly
+  // onFirstPageResponse forgetting to release inFlightRef / isLoadingMore the
+  // way reset() does, so the orphaned load-more could never clear them.
+  const startNewPaginationGeneration = useCallback(() => {
     pageRef.current = 1;
-    cursorRef.current = undefined;
-    isIndexerCursorRef.current = false;
     loadCountRef.current = 0;
-    pendingLoadMoreRef.current = false;
-    inFlightRef.current = false;
     generationRef.current += 1;
+    inFlightRef.current = false;
     appendedIdsRef.current = new Set();
     setAppendedTxs([]);
-    setHasMore(false);
     setIsLoadingMore(false);
   }, []);
+
+  const reset = useCallback(() => {
+    startNewPaginationGeneration();
+    initializedRef.current = false;
+    cursorRef.current = undefined;
+    isIndexerCursorRef.current = false;
+    pendingLoadMoreRef.current = false;
+    setHasMore(false);
+  }, [startNewPaginationGeneration]);
 
   const onFirstPageResponse = useCallback(
     (meta: { next?: string; hasMore?: boolean; isIndexer?: boolean }) => {
@@ -115,16 +147,16 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       // polling / HistoryTxStatusChanged / visibility refresh can shift the
       // first-page boundary, so any previously-appended load-more rows are
       // no longer aligned with the new `meta.next` cursor (gap on the new
-      // boundary tx, or dupes against the new first page). Reset cursor +
-      // appended rows so the next load-more starts from the boundary of
-      // exactly this response. Bumping `generationRef` discards any
-      // in-flight load-more that was anchored to the previous generation.
+      // boundary tx, or dupes against the new first page).
+      // startNewPaginationGeneration() clears the cursor-independent progress,
+      // bumps `generationRef` to orphan any in-flight load-more anchored to the
+      // previous generation, and releases its loading flags; we then stamp the
+      // cursor + hasMore from exactly this response.
+      startNewPaginationGeneration();
       initializedRef.current = true;
-      pageRef.current = 1;
       // Indexer chains return a timestamp; non-indexer return opaque.
       cursorRef.current = normalizeCursor(meta.next);
       isIndexerCursorRef.current = !!meta.isIndexer;
-      loadCountRef.current = 0;
       // Preserve any pending replay intent when there's still a next page:
       // if onEndReached fired before pagination was armed (short list / fast
       // scroll), RN's SectionList won't refire and the effect below is the
@@ -133,12 +165,9 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       if (!meta.hasMore) {
         pendingLoadMoreRef.current = false;
       }
-      generationRef.current += 1;
-      appendedIdsRef.current = new Set();
-      setAppendedTxs([]);
       setHasMore(!!meta.hasMore);
     },
-    [enabled],
+    [enabled, startNewPaginationGeneration],
   );
 
   const loadMore = useCallback(async () => {
@@ -172,6 +201,7 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
     const generation = generationRef.current;
     inFlightRef.current = true;
     setIsLoadingMore(true);
+    let softTimeoutTimer: ReturnType<typeof setTimeout> | undefined;
     try {
       // BTC/LTC merge-derive consolidates per-deriveType cursors into one
       // opaque token managed by ServiceHistory — call the aggregator instead
@@ -189,16 +219,34 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
         page: nextPage,
         ...(cursor ? { cursor } : {}),
       };
-      const r = mergeDerive
-        ? await backgroundApiProxy.serviceHistory.fetchAccountHistoryForMergeDerive(
-            { ...commonParams, indexedAccountId: indexedAccountId ?? '' },
-          )
-        : await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+      const fetchPromise = mergeDerive
+        ? backgroundApiProxy.serviceHistory.fetchAccountHistoryForMergeDerive({
+            ...commonParams,
+            indexedAccountId: indexedAccountId ?? '',
+          })
+        : backgroundApiProxy.serviceHistory.fetchAccountHistory({
             ...commonParams,
             accountId,
           });
-      // reset() ran while we were awaiting — discard this response, its data
-      // belongs to a stale identity (account/network) and would clobber the
+      // Race the proxy round-trip against a soft timeout (see
+      // LOAD_MORE_SOFT_TIMEOUT_MS). If the timer wins, the underlying request is
+      // abandoned — not cancelled, but Promise.race keeps a rejection handler on
+      // it so any late settle is harmless and ignored — and the finally block
+      // releases the loading flags. cursor / page / loadCount are left
+      // untouched, so a later onEndReached retries cleanly from the same
+      // boundary.
+      const timeoutPromise = new Promise<typeof SOFT_TIMEOUT_SENTINEL>(
+        (resolve) => {
+          softTimeoutTimer = setTimeout(
+            () => resolve(SOFT_TIMEOUT_SENTINEL),
+            LOAD_MORE_SOFT_TIMEOUT_MS,
+          );
+        },
+      );
+      const r = await Promise.race([fetchPromise, timeoutPromise]);
+      if (r === SOFT_TIMEOUT_SENTINEL) return;
+      // reset() / onFirstPageResponse ran while we were awaiting — discard this
+      // response, its data belongs to a stale generation and would clobber the
       // newly-mounted state.
       if (generation !== generationRef.current) return;
       pageRef.current = nextPage;
@@ -242,6 +290,9 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
     } catch (error) {
       console.error('History loadMore failed:', error);
     } finally {
+      if (softTimeoutTimer) {
+        clearTimeout(softTimeoutTimer);
+      }
       if (generation === generationRef.current) {
         inFlightRef.current = false;
         setIsLoadingMore(false);

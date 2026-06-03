@@ -15,6 +15,7 @@ import { handleLayoutUpdate } from './layoutUpdateHandler';
 
 import type { IMarksTimeRange, IMessageHandlerContext } from './types';
 import type { IWebViewRef } from '../../../WebView/types';
+import type { ITradingViewV2KLineDataFallback } from '../hooks/useTradingViewV2';
 import type {
   ICustomReceiveHandlerData,
   ITradingViewIndicatorsDialogData,
@@ -34,6 +35,9 @@ interface IUseTradingViewMessageHandlerParams {
   currentKLineResolution?: React.MutableRefObject<string>;
   onTouchScroll?: (deltaY: number) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
+  forceEmptyKLineData?: boolean;
+  emptyKLineDataOnError?: boolean;
+  kLineDataFallback?: ITradingViewV2KLineDataFallback;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -133,6 +137,7 @@ async function handleGetMarks({
   networkId,
   resolution,
   webRef,
+  forceEmptyKLineData,
 }: {
   request: {
     requestId?: string;
@@ -146,6 +151,7 @@ async function handleGetMarks({
   networkId: string;
   resolution?: string;
   webRef: React.RefObject<IWebViewRef | null>;
+  forceEmptyKLineData?: boolean;
 }) {
   const requestId = request.requestId;
 
@@ -153,7 +159,7 @@ async function handleGetMarks({
     return;
   }
 
-  if (await shouldMockEmptyKLineData(resolution)) {
+  if (forceEmptyKLineData || (await shouldMockEmptyKLineData(resolution))) {
     webRef.current?.sendMessageViaInjectedScript({
       type: 'MARKS_RESPONSE',
       payload: {
@@ -234,6 +240,9 @@ export function useTradingViewMessageHandler({
   currentKLineResolution,
   onTouchScroll,
   onIndicatorsDialogOpenChange,
+  forceEmptyKLineData,
+  emptyKLineDataOnError,
+  kLineDataFallback,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
@@ -255,6 +264,9 @@ export function useTradingViewMessageHandler({
         tokenSymbol,
         marksTimeRange,
         currentKLineResolution,
+        forceEmptyKLineData,
+        emptyKLineDataOnError,
+        kLineDataFallback,
       };
 
       // Handle TradingView private API requests
@@ -311,6 +323,7 @@ export function useTradingViewMessageHandler({
           networkId,
           resolution,
           webRef,
+          forceEmptyKLineData,
         });
       }
 
@@ -350,6 +363,9 @@ export function useTradingViewMessageHandler({
       currentKLineResolution,
       onTouchScroll,
       onIndicatorsDialogOpenChange,
+      forceEmptyKLineData,
+      emptyKLineDataOnError,
+      kLineDataFallback,
     ],
   );
 

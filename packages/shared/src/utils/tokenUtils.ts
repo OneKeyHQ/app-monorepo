@@ -129,6 +129,34 @@ function networkFieldsContainKeyword(
   );
 }
 
+const tokenSearchKeywordAliasMap: Record<string, string[]> = {
+  eth: ['ether'],
+};
+
+export function buildTokenSearchKeywordQueries(keywords?: string): string[] {
+  const trimmedKeywords = keywords?.trim();
+  if (!trimmedKeywords) {
+    return [];
+  }
+
+  const searchTerms = trimmedKeywords.split(/\s+/).filter(Boolean);
+  if (searchTerms.length < 2) {
+    return [trimmedKeywords];
+  }
+
+  const queries = new Set<string>([trimmedKeywords]);
+  searchTerms.forEach((term, index) => {
+    const aliases = tokenSearchKeywordAliasMap[term.toLowerCase()];
+    aliases?.forEach((alias) => {
+      const nextTerms = [...searchTerms];
+      nextTerms[index] = alias;
+      queries.add(nextTerms.join(' '));
+    });
+  });
+
+  return Array.from(queries);
+}
+
 enum ESearchStrength {
   BOTH = 1,
   NETWORK_ONLY = 2,
@@ -264,15 +292,11 @@ export function getFilteredTokenBySearchKey({
       }
 
       if (matchedSubs.length > 0) {
-        const hasNetworkOnlyHit = matchedSubs.some(
-          (s) => s.strength === ESearchStrength.NETWORK_ONLY,
+        const networkQualifiedMatches = matchedSubs.filter(
+          (s) => s.strength !== ESearchStrength.TOKEN_ONLY,
         );
-        if (hasNetworkOnlyHit) {
-          results.push(
-            ...matchedSubs.filter(
-              (s) => s.strength !== ESearchStrength.TOKEN_ONLY,
-            ),
-          );
+        if (networkQualifiedMatches.length > 0) {
+          results.push(...networkQualifiedMatches);
         } else {
           results.push({
             token,

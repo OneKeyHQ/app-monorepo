@@ -141,6 +141,7 @@ jest.mock('@onekeyhq/shared/src/keylessWallet/shamirUtils', () => ({
   __esModule: true,
   default: {
     combine: jest.fn(async () => new Uint8Array([1, 2, 3])),
+    split: jest.fn(async () => [new Uint8Array([1]), new Uint8Array([2])]),
   },
 }));
 
@@ -148,6 +149,7 @@ const {
   decryptRevealableSeed,
   decryptStringAsync,
   encryptStringAsync,
+  generateMnemonic,
   revealEntropyToMnemonic,
 } =
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -204,6 +206,12 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
+function waitForScheduledBackgroundTask(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
+}
+
 function createKeylessWallet(overrides: Record<string, unknown> = {}) {
   return {
     id: WALLET_ID,
@@ -218,7 +226,7 @@ function createKeylessWallet(overrides: Record<string, unknown> = {}) {
 }
 
 function createService(params: { wallet?: any; password?: string } = {}) {
-  const wallet = params.wallet ?? createKeylessWallet();
+  const wallet = 'wallet' in params ? params.wallet : createKeylessWallet();
   const backgroundApi: any = {
     serviceAccount: {
       getKeylessWallet: jest.fn(async () => wallet),
@@ -277,7 +285,12 @@ function mockResetPinHappyPath(
     revision: 2,
     canonicalFormat: params.canonicalFormat ?? 'v2',
     backendShareData: resetBackendShareData,
-    ownerId: params.backendOwnerId ?? OWNER_ID,
+    // Mirror apiGetKeylessBackendShare: only v2 shares carry an ownerId; v1
+    // shares leave it undefined.
+    ownerId:
+      (params.canonicalFormat ?? 'v2') === 'v1'
+        ? undefined
+        : (params.backendOwnerId ?? OWNER_ID),
     ownerProvider: EOAuthSocialLoginProvider.Google,
   }));
   serviceAny.buildKeylessProviderFromSocialToken = jest.fn(
@@ -919,6 +932,61 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     });
   });
 
+  test('uses server revision as base revision when creating keyless wallet', async () => {
+    const { service, serviceAny } = createService({ wallet: null });
+    generateMnemonic.mockReturnValue('mnemonic');
+    serviceAny.apiAcquireCreationLock = jest.fn(async () => ({
+      lockId: 'lock-1',
+      hashId: HASH_ID,
+      expiresAt: NOW + 60_000,
+    }));
+    serviceAny.apiReleaseCreationLock = jest.fn(async () => undefined);
+    serviceAny.apiGetKeylessBackendShareMeta = jest.fn(async () => ({
+      backendShare: '',
+      hashId: HASH_ID,
+      revision: 5,
+      canonicalFormat: 'v2',
+    }));
+    serviceAny.buildKeylessOwnerIdFromSocialToken = jest.fn(
+      async () => OWNER_ID,
+    );
+    serviceAny.encryptKeylessMnemonic = jest.fn(
+      async () => backendShareData.encryptedMnemonic,
+    );
+    serviceAny.apiUploadKeylessJuiceboxShare = jest.fn(async () => undefined);
+    serviceAny.encryptKeylessBackendSharePayloadV1 = jest.fn(
+      async () => 'backend-share-raw-v1-mirror',
+    );
+    serviceAny.uploadKeylessBackendShare = jest.fn(
+      async () => backendShareData,
+    );
+    serviceAny.buildKeylessProviderFromSocialToken = jest.fn(
+      () => EOAuthSocialLoginProvider.Google,
+    );
+    serviceAny.buildKeylessSocialUserIdFromToken = jest.fn(() => 'social-id');
+    keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorage.mockResolvedValue(
+      undefined,
+    );
+
+    await expect(
+      service.createKeylessWalletToServer({
+        token: TOKEN,
+        refreshToken: REFRESH_TOKEN,
+        pin: PIN,
+      }),
+    ).resolves.toMatchObject({
+      ownerId: OWNER_ID,
+      mnemonic: 'mnemonic',
+    });
+
+    expect(serviceAny.uploadKeylessBackendShare).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseRevision: 5,
+        keylessBackendShareV1Mirror: 'backend-share-raw-v1-mirror',
+      }),
+    );
+  });
+
   test('encrypts backend share v2 with owner password and fixed uuid', async () => {
     const { serviceAny } = createService();
     encryptStringAsync.mockResolvedValue('encrypted-payload');
@@ -966,7 +1034,7 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     );
   });
 
-  test('submits v1 mirror when uploading keyless backend share v2', async () => {
+  test('submits caller-provided v1 mirror when uploading keyless backend share v2', async () => {
     const { serviceAny } = createService();
     const post = jest.fn(async () => ({
       data: {
@@ -988,8 +1056,8 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       ownerId: OWNER_ID,
       ownerProvider: EOAuthSocialLoginProvider.Google,
     }));
-    serviceAny.encryptKeylessBackendSharePayloadV1 = jest.fn(
-      async () => 'backend-share-raw-v1-mirror',
+    serviceAny.decryptKeylessBackendSharePayloadV1 = jest.fn(
+      async () => backendShareData,
     );
 
     await expect(
@@ -1002,6 +1070,7 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
         encryptedMnemonic: backendShareData.encryptedMnemonic,
         backendShare: backendShareData.backendShare,
         juiceboxShareX: backendShareData.juiceboxShareX,
+        keylessBackendShareV1Mirror: 'backend-share-raw-v1-mirror',
       }),
     ).resolves.toEqual(backendShareData);
 
@@ -1086,8 +1155,8 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       ownerId: OWNER_ID,
       ownerProvider: EOAuthSocialLoginProvider.Google,
     }));
-    serviceAny.encryptKeylessBackendSharePayloadV1 = jest.fn(
-      async () => 'backend-share-raw-v1-mirror',
+    serviceAny.decryptKeylessBackendSharePayloadV1 = jest.fn(
+      async () => backendShareData,
     );
 
     const params = {
@@ -1099,6 +1168,7 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       encryptedMnemonic: backendShareData.encryptedMnemonic,
       backendShare: backendShareData.backendShare,
       juiceboxShareX: backendShareData.juiceboxShareX,
+      keylessBackendShareV1Mirror: 'backend-share-raw-v1-mirror',
     };
 
     await expect(serviceAny.uploadKeylessBackendShare(params)).rejects.toThrow(
@@ -1141,6 +1211,7 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
 
     expect(serviceAny.uploadKeylessBackendShare).toHaveBeenCalledWith(
       expect.objectContaining({
+        baseRevision: 2,
         keylessBackendShareV1Mirror: 'backend-share-raw-v1',
       }),
     );
@@ -1244,7 +1315,7 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     ).rejects.toThrow('reset pin confirm status failed');
   });
 
-  test('rewrites backend share v2 when reset pin target owner changes', async () => {
+  test('awaits backend share owner rewrite when reset pin target owner changes', async () => {
     const { serviceAny } = createService();
     const resetBackendShareData = mockResetPinHappyPath(serviceAny, {
       backendOwnerId: 'legacy-owner-id',
@@ -1258,6 +1329,71 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
         newPin: PIN,
       }),
     ).resolves.toEqual({ success: true });
+
+    expect(serviceAny.migrateKeylessBackendShareToV2).toHaveBeenCalledWith({
+      token: TOKEN,
+      ownerId: OWNER_ID,
+      expectedHashId: HASH_ID,
+      expectedBackendShareData: resetBackendShareData,
+    });
+  });
+
+  test('rejects reset pin when backend share owner rewrite fails (owner changed)', async () => {
+    const { serviceAny } = createService();
+    const resetBackendShareData = mockResetPinHappyPath(serviceAny, {
+      backendOwnerId: 'legacy-owner-id',
+    });
+    serviceAny.apiResetPinConfirmStatus = jest.fn(async () => undefined);
+    serviceAny.migrateKeylessBackendShareToV2 = jest.fn(async () => {
+      throw new OneKeyLocalError('migration failed');
+    });
+
+    // When the backend share owner changes, the rewrite is a consistency
+    // requirement (juicebox is already under the new owner), so a failure must
+    // surface and fail reset rather than being swallowed as background work.
+    await expect(
+      serviceAny.resetKeylessWalletPin({
+        token: TOKEN,
+        refreshToken: REFRESH_TOKEN,
+        newPin: PIN,
+      }),
+    ).rejects.toThrow('migration failed');
+
+    expect(serviceAny.migrateKeylessBackendShareToV2).toHaveBeenCalledWith({
+      token: TOKEN,
+      ownerId: OWNER_ID,
+      expectedHashId: HASH_ID,
+      expectedBackendShareData: resetBackendShareData,
+    });
+    // The owner rewrite runs before any local persistence / pin-confirm reset,
+    // so its failure must not leave a mixed local(new owner)/server(old owner)
+    // state.
+    expect(localDb.updateKeylessWalletDetailsInfo).not.toHaveBeenCalled();
+    expect(serviceAny.apiResetPinConfirmStatus).not.toHaveBeenCalled();
+  });
+
+  test('keeps v1 backend migration non-blocking even though v1 has no ownerId', async () => {
+    const { serviceAny } = createService();
+    const resetBackendShareData = mockResetPinHappyPath(serviceAny, {
+      canonicalFormat: 'v1',
+    });
+    serviceAny.apiResetPinConfirmStatus = jest.fn(async () => undefined);
+    serviceAny.migrateKeylessBackendShareToV2 = jest.fn(async () => {
+      throw new OneKeyLocalError('migration failed');
+    });
+
+    // A v1 share has no ownerId, so it must not be misclassified as an owner
+    // change. A pure v1 -> v2 upgrade is best-effort background work that
+    // self-heals via passive migration, so its failure must not block reset.
+    await expect(
+      serviceAny.resetKeylessWalletPin({
+        token: TOKEN,
+        refreshToken: REFRESH_TOKEN,
+        newPin: PIN,
+      }),
+    ).resolves.toEqual({ success: true });
+
+    await waitForScheduledBackgroundTask();
 
     expect(serviceAny.migrateKeylessBackendShareToV2).toHaveBeenCalledWith({
       token: TOKEN,
@@ -1362,5 +1498,57 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     expect(
       serviceAny.updatePinConfirmStatusAfterSuccessfulPin,
     ).toHaveBeenCalledWith({ token: TOKEN });
+  });
+
+  test('does not reject restore when backend share v2 migration fails', async () => {
+    const { serviceAny } = createService();
+    const restoreBackendShareData: IKeylessBackendShare = {
+      ...backendShareData,
+      backendShare: 'AQ==',
+    };
+
+    serviceAny.apiGetKeylessBackendShare = jest.fn(async () => ({
+      backendShare: 'backend-share-raw-v1',
+      hashId: HASH_ID,
+      revision: 1,
+      canonicalFormat: 'v1',
+      backendShareData: restoreBackendShareData,
+      ownerId: OWNER_ID,
+      ownerProvider: EOAuthSocialLoginProvider.Google,
+    }));
+    serviceAny.apiGetKeylessJuiceboxShare = jest.fn(async () => ({
+      ownerId: OWNER_ID,
+      pin: PIN,
+      juiceboxShare: 'Ag==',
+      backendShareX: 1,
+    }));
+    serviceAny.decryptKeylessMnemonic = jest.fn(async () => 'mnemonic');
+    serviceAny.buildKeylessSocialUserIdFromToken = jest.fn(() => 'social-id');
+    serviceAny.migrateKeylessBackendShareToV2 = jest.fn(async () => {
+      throw new OneKeyLocalError('migration failed');
+    });
+
+    await expect(
+      serviceAny.restoreKeylessWalletFromServer({
+        token: TOKEN,
+        refreshToken: REFRESH_TOKEN,
+        pin: PIN,
+        pinConfirmStatusAlreadyUpdated: true,
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        ownerId: OWNER_ID,
+        mnemonic: 'mnemonic',
+      }),
+    );
+
+    await waitForScheduledBackgroundTask();
+
+    expect(serviceAny.migrateKeylessBackendShareToV2).toHaveBeenCalledWith({
+      token: TOKEN,
+      ownerId: OWNER_ID,
+      expectedHashId: HASH_ID,
+      expectedBackendShareData: restoreBackendShareData,
+    });
   });
 });

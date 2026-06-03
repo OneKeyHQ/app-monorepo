@@ -9,14 +9,7 @@ import {
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import {
-  runOnJS,
-  runOnUI,
-  scrollTo,
-  useAnimatedReaction,
-  useReducedMotion,
-  useSharedValue,
-} from 'react-native-reanimated';
+import { useReducedMotion, useSharedValue } from 'react-native-reanimated';
 
 import {
   Image,
@@ -25,11 +18,9 @@ import {
   Stack,
   Tabs,
   YStack,
-  useCurrentTabScrollY,
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import { useTabsContext } from '@onekeyhq/components/src/composite/Tabs/context';
 import {
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
@@ -39,9 +30,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type { IDeFiProtocol } from '@onekeyhq/shared/types/defi';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
-import type { WorkletFn } from '@onekeyhq/shared/types/worklet';
 
-import { BackToTopButton } from '../../../components/BackToTopButton';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   ProviderJotaiContextDeFiList,
@@ -82,10 +71,6 @@ import {
   shouldReleasePinLock,
 } from './defiDesktopStickyDom';
 
-// Scroll depth beyond which back-to-top may reveal; deep enough to be past
-// the initial fold, shallow enough to not require a full viewport of scroll.
-const BACK_TO_TOP_NEAR_TOP_PX = 200;
-
 // Mirrors HomePageView's `homePageContentMaxWidthSx` so the DeFi tab content
 // stays in horizontal alignment with the wallet header / tab bar / alerts.
 // Page.Container is now layout="full" so the scroll container fills the
@@ -93,24 +78,6 @@ const BACK_TO_TOP_NEAR_TOP_PX = 200;
 const DEFI_CONTAINER_CONTENT_MAX_WIDTH = 1140;
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 const PROTOCOL_NAV_PENDING_TARGET_TIMEOUT_MS = 5000;
-
-// Industry pattern: reveal on any upward scroll past the initial fold; hide
-// on downward scroll or when back near the top. rAF / animated-reaction
-// throttles already absorb wheel jitter, so no extra dead zone. Returns
-// `previous` when direction is neutral so callers can dedup by identity.
-// Called from a Reanimated worklet (useAnimatedReaction below). The
-// 'worklet'; directive is REQUIRED — Reanimated's babel plugin does not
-// auto-worklet top-level named function declarations, so without it the UI
-// thread crashes with "Object is not a function".
-const decideBackToTopVisible: WorkletFn<
-  (current: number, last: number, previous: boolean) => boolean
-> = (current, last, previous) => {
-  'worklet';
-  if (current <= BACK_TO_TOP_NEAR_TOP_PX) return false;
-  if (current < last) return true;
-  if (current > last) return false;
-  return previous;
-};
 
 function scrollToAnchor(
   anchor: HTMLElement,
@@ -818,198 +785,25 @@ function DeFiContainer() {
   );
 }
 
-function DeFiContainerScrollableNative() {
-  const tabBarOffset = useScrollContentTabBarOffset();
-
-  const scrollYShared = useCurrentTabScrollY();
-  const { refMap, focusedTab } = useTabsContext();
-
-  const [backToTopVisible, setBackToTopVisible] = useState(false);
-  const lastVisibleShared = useSharedValue(false);
-
-  // UI-thread dedup: only cross the RN bridge when the decision flips.
-  useAnimatedReaction(
-    () => scrollYShared.value as number,
-    (current, previous) => {
-      if (previous === null) return;
-      const next = decideBackToTopVisible(
-        current,
-        previous,
-        lastVisibleShared.value,
-      );
-      if (next !== lastVisibleShared.value) {
-        lastVisibleShared.value = next;
-        runOnJS(setBackToTopVisible)(next);
-      }
-    },
-    [scrollYShared],
-  );
-
-  const onPressBackToTop = useCallback(() => {
-    runOnUI(() => {
-      'worklet';
-
-      const ref = refMap[focusedTab.value];
-      if (ref) {
-        scrollTo(ref, 0, 0, true);
-      }
-    })();
-  }, [refMap, focusedTab]);
-
-  return (
-    <Stack flex={1}>
-      <Tabs.ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: tabBarOffset }}
-        nestedScrollEnabled={platformEnv.isNativeAndroid}
-        refreshControl={
-          !platformEnv.isNativeAndroid ? (
-            <PullToRefresh onRefresh={onHomePageRefresh} />
-          ) : undefined
-        }
-      >
-        <DeFiContainer />
-      </Tabs.ScrollView>
-      <BackToTopButton
-        visible={backToTopVisible}
-        onPress={onPressBackToTop}
-        placement="left"
-      />
-    </Stack>
-  );
-}
-
-function DeFiContainerScrollableWeb() {
-  const tabBarOffset = useScrollContentTabBarOffset();
-  const sentinelRef = useRef<HTMLElement | null>(null);
-  const scrollerRef = useRef<HTMLElement | null>(null);
-  const lastScrollTopRef = useRef(0);
-  const lastVisibleRef = useRef(false);
-  const [backToTopVisible, setBackToTopVisible] = useState(false);
-
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-
-    let attachedScroller: HTMLElement | null = null;
-    let scrollRafId = 0;
-    let attachRafId = 0;
-    const scrollOpts: AddEventListenerOptions = { passive: true };
-
-    const onScroll = () => {
-      if (scrollRafId || !attachedScroller) return;
-      scrollRafId = requestAnimationFrame(() => {
-        scrollRafId = 0;
-        if (!attachedScroller) return;
-        const current = attachedScroller.scrollTop;
-        const last = lastScrollTopRef.current;
-        lastScrollTopRef.current = current;
-        const next = decideBackToTopVisible(
-          current,
-          last,
-          lastVisibleRef.current,
-        );
-        if (next !== lastVisibleRef.current) {
-          lastVisibleRef.current = next;
-          setBackToTopVisible(next);
-        }
-      });
-    };
-
-    const detachScroller = () => {
-      if (attachedScroller) {
-        attachedScroller.removeEventListener('scroll', onScroll, scrollOpts);
-      }
-      attachedScroller = null;
-      scrollerRef.current = null;
-    };
-
-    const attachScroller = () => {
-      const nextScroller = findScrollableAncestorFromLocalNode(sentinel);
-      if (nextScroller === attachedScroller) {
-        scrollerRef.current = nextScroller;
-        return;
-      }
-
-      detachScroller();
-      attachedScroller = nextScroller;
-      scrollerRef.current = nextScroller;
-
-      if (attachedScroller) {
-        attachedScroller.addEventListener('scroll', onScroll, scrollOpts);
-        lastScrollTopRef.current = attachedScroller.scrollTop;
-      }
-    };
-
-    const scheduleAttach = () => {
-      if (attachRafId) cancelAnimationFrame(attachRafId);
-      attachRafId = requestAnimationFrame(() => {
-        attachRafId = 0;
-        attachScroller();
-      });
-    };
-
-    const resizeObserver =
-      typeof ResizeObserver === 'undefined'
-        ? undefined
-        : new ResizeObserver(scheduleAttach);
-    resizeObserver?.observe(sentinel);
-    if (sentinel.parentElement) {
-      resizeObserver?.observe(sentinel.parentElement);
-    }
-
-    attachScroller();
-    globalThis.addEventListener('resize', scheduleAttach);
-
-    return () => {
-      globalThis.removeEventListener('resize', scheduleAttach);
-      resizeObserver?.disconnect();
-      detachScroller();
-      if (scrollRafId) cancelAnimationFrame(scrollRafId);
-      if (attachRafId) cancelAnimationFrame(attachRafId);
-    };
-  }, []);
-
-  const onPressBackToTop = useCallback(() => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    scroller.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
-
-  return (
-    <Stack flex={1}>
-      <Tabs.ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: tabBarOffset }}
-        nestedScrollEnabled={platformEnv.isNativeAndroid}
-        refreshControl={
-          !platformEnv.isNativeAndroid ? (
-            <PullToRefresh onRefresh={onHomePageRefresh} />
-          ) : undefined
-        }
-      >
-        <Stack
-          ref={sentinelRef as any}
-          width={0}
-          height={0}
-          pointerEvents="none"
-        />
-        <DeFiContainer />
-      </Tabs.ScrollView>
-      <BackToTopButton
-        visible={backToTopVisible}
-        onPress={onPressBackToTop}
-        placement="left"
-      />
-    </Stack>
-  );
-}
-
 function DeFiContainerScrollable() {
-  if (platformEnv.isNative) {
-    return <DeFiContainerScrollableNative />;
-  }
-  return <DeFiContainerScrollableWeb />;
+  const tabBarOffset = useScrollContentTabBarOffset();
+
+  return (
+    <Stack flex={1}>
+      <Tabs.ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: tabBarOffset }}
+        nestedScrollEnabled={platformEnv.isNativeAndroid}
+        refreshControl={
+          !platformEnv.isNativeAndroid ? (
+            <PullToRefresh onRefresh={onHomePageRefresh} />
+          ) : undefined
+        }
+      >
+        <DeFiContainer />
+      </Tabs.ScrollView>
+    </Stack>
+  );
 }
 
 function DeFiContainerWithProvider() {

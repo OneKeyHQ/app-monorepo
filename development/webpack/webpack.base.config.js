@@ -107,6 +107,8 @@ const basePlugins = [
       env: {
         ONEKEY_PROXY: JSON.stringify(ONEKEY_PROXY),
         NODE_ENV: JSON.stringify(NODE_ENV),
+        DESKTOP_E2E_MODE: JSON.stringify(process.env.DESKTOP_E2E_MODE || ''),
+        E2E_MODE: JSON.stringify(process.env.E2E_MODE || ''),
         TAMAGUI_TARGET: JSON.stringify('web'),
         PERF_MONITOR_ENABLED: JSON.stringify(
           process.env.PERF_MONITOR_ENABLED || '',
