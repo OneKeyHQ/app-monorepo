@@ -20,6 +20,7 @@ export interface ISimpleDBAppStatus {
   fixHardwareLtcXPubMigrated?: boolean;
   btcFreshAddressSettingMigrated?: boolean;
   removeDeviceHomeScreenMigrated?: boolean;
+  walletAllNetworkLowBalanceReportedAtByWalletId?: Record<string, number>;
   // OneKey IDs (onekeyUserId) that have already seen the KYT intro dialog.
   // Scoped per Prime user so each account is prompted once.
   kytIntroShownUserIds?: string[];
@@ -29,6 +30,37 @@ export class SimpleDbEntityAppStatus extends SimpleDbEntityBase<ISimpleDBAppStat
   entityName = 'appStatus';
 
   override enableCache = true;
+
+  @backgroundMethod()
+  async getWalletAllNetworkLowBalanceReportedAt({
+    walletId,
+  }: {
+    walletId: string;
+  }) {
+    const appStatus = await this.getRawData();
+    return appStatus?.walletAllNetworkLowBalanceReportedAtByWalletId?.[
+      walletId
+    ];
+  }
+
+  @backgroundMethod()
+  async setWalletAllNetworkLowBalanceReportedAt({
+    walletId,
+    timestamp,
+  }: {
+    walletId: string;
+    timestamp: number;
+  }) {
+    await this.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        walletAllNetworkLowBalanceReportedAtByWalletId: {
+          ...v?.walletAllNetworkLowBalanceReportedAtByWalletId,
+          [walletId]: timestamp,
+        },
+      }),
+    );
+  }
 
   @backgroundMethod()
   async clearLastDBBackupTimestamp() {

@@ -77,6 +77,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalAssetDetailRoutes,
   EModalReceiveRoutes,
@@ -121,6 +122,17 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import { RichBlock } from '../RichBlock/RichBlock';
+
+import {
+  WALLET_ALL_NETWORK_LOW_BALANCE_BUCKET,
+  WALLET_ALL_NETWORK_LOW_BALANCE_SOURCE,
+  WALLET_ALL_NETWORK_LOW_BALANCE_THRESHOLD_CURRENCY,
+  WALLET_ALL_NETWORK_LOW_BALANCE_THRESHOLD_USD,
+  getWalletAllNetworkLowBalanceCurrency,
+  getWalletAllNetworkLowBalanceWalletType,
+  isWalletAllNetworkLowBalanceAggregationComplete,
+  shouldReportWalletAllNetworkLowBalance,
+} from './allNetworkLowBalanceAnalytics';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -1651,6 +1663,7 @@ function TokenListBlock({
       [key: string]: ITokenFiat;
     } = {};
     const accountsWorth: Record<string, string> = {};
+    let allNetworkTotalWorth = new BigNumber(0);
     let createAtNetworkWorth = new BigNumber(0);
     let smallBalanceTokensFiatValue = new BigNumber(0);
 
@@ -1756,6 +1769,10 @@ function TokenListBlock({
         });
 
         const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
+        const accountWorthValue = new BigNumber(accountWorth);
+        if (accountWorthValue.isFinite() && accountWorthValue.gte(0)) {
+          allNetworkTotalWorth = allNetworkTotalWorth.plus(accountWorthValue);
+        }
 
         accountsWorth[
           accountUtils.buildAccountValueKey({
@@ -1772,6 +1789,44 @@ function TokenListBlock({
               account.createAtNetwork === r.networkId))
         ) {
           createAtNetworkWorth = createAtNetworkWorth.plus(accountWorth);
+        }
+      }
+
+      const lowBalanceWalletType = getWalletAllNetworkLowBalanceWalletType(
+        wallet?.type,
+      );
+      if (lowBalanceWalletType && wallet?.id) {
+        const reportNow = Date.now();
+        const lowBalanceLastReportedAt =
+          await backgroundApiProxy.simpleDb.appStatus.getWalletAllNetworkLowBalanceReportedAt(
+            { walletId: wallet.id },
+          );
+        const lowBalanceResultCurrency =
+          getWalletAllNetworkLowBalanceCurrency(allNetworksResult);
+        if (
+          shouldReportWalletAllNetworkLowBalance({
+            totalBalanceUsd: allNetworkTotalWorth,
+            currency: lowBalanceResultCurrency,
+            aggregationComplete:
+              isWalletAllNetworkLowBalanceAggregationComplete({
+                expectedAccounts: allNetworkAccounts,
+                result: allNetworksResult,
+              }),
+            lastReportedAt: lowBalanceLastReportedAt,
+            now: reportNow,
+          })
+        ) {
+          defaultLogger.wallet.balance.walletAllNetworkLowBalance({
+            source: WALLET_ALL_NETWORK_LOW_BALANCE_SOURCE,
+            balanceBucket: WALLET_ALL_NETWORK_LOW_BALANCE_BUCKET,
+            thresholdUsd: WALLET_ALL_NETWORK_LOW_BALANCE_THRESHOLD_USD,
+            thresholdCurrency:
+              WALLET_ALL_NETWORK_LOW_BALANCE_THRESHOLD_CURRENCY,
+            walletType: lowBalanceWalletType,
+          });
+          await backgroundApiProxy.simpleDb.appStatus.setWalletAllNetworkLowBalanceReportedAt(
+            { walletId: wallet.id, timestamp: reportNow },
+          );
         }
       }
 
@@ -1911,8 +1966,11 @@ function TokenListBlock({
     account?.id,
     indexedAccount?.id,
     mergeDeriveAddressData,
+    allNetworkAccounts,
     allNetworksResult,
     network?.id,
+    wallet?.id,
+    wallet?.type,
     refreshAllTokenList,
     refreshAllTokenListMap,
     refreshAggregateTokensListMap,
