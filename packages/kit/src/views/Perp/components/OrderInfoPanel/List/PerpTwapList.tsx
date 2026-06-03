@@ -17,6 +17,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   type IPerpsActiveTwapOrder,
   useHyperliquidActions,
@@ -238,6 +239,34 @@ function getTwapBaseInfo({
       ? intl.formatMessage({ id: ETranslations.perp_yes__title })
       : intl.formatMessage({ id: ETranslations.perp_no__title }),
   };
+}
+
+function MobileTwapHistoryInfoRow({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+}) {
+  return (
+    <XStack width="100%" alignItems="center" justifyContent="space-between">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {label}
+      </SizableText>
+      <SizableText
+        size="$bodySm"
+        color={valueColor}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        textAlign="right"
+        maxWidth="60%"
+      >
+        {value}
+      </SizableText>
+    </XStack>
+  );
 }
 
 function getFillKey(record: ITwapSliceFill) {
@@ -517,6 +546,7 @@ function TwapHistoryRow({
   isHovered,
   onHoverChange,
   spotDisplayMap,
+  isMobile,
 }: {
   record: ITwapHistoryRecord;
   now: number;
@@ -527,6 +557,7 @@ function TwapHistoryRow({
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
   spotDisplayMap: Record<string, string>;
+  isMobile?: boolean;
 }) {
   const intl = useIntl();
   const { state } = record;
@@ -566,6 +597,118 @@ function TwapHistoryRow({
   const bgColor = getTableRowBgColor({ isHovered, index });
   const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
   const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
+
+  if (isMobile) {
+    let statusColor = '$textSubdued';
+    if (record.status.status === 'error') {
+      statusColor = '$red11';
+    } else if (record.status.status === 'finished') {
+      statusColor = '$green11';
+    }
+
+    return (
+      <ListItem
+        mx="$5"
+        my="$2"
+        p="$0"
+        backgroundColor="$bgSubdued"
+        flexDirection="column"
+        alignItems="flex-start"
+        borderRadius="$3"
+      >
+        <XStack
+          px="$3"
+          pt="$3"
+          pb="$2"
+          justifyContent="space-between"
+          alignItems="flex-start"
+          width="100%"
+          gap="$3"
+        >
+          <YStack flex={1} gap="$1">
+            <XStack gap="$2" alignItems="center" flexWrap="wrap">
+              <SizableText size="$bodyMdMedium" numberOfLines={1}>
+                {baseInfo.assetSymbol}
+              </SizableText>
+              <SizableText
+                size="$bodySm"
+                color={sideInfo.color}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {sideInfo.text}
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_twap_order__title,
+              })}{' '}
+              · {creationTime.inline}
+            </SizableText>
+          </YStack>
+          <YStack alignItems="flex-end" gap="$1" maxWidth="42%">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_status })}
+            </SizableText>
+            <SizableText
+              size="$bodySmMedium"
+              color={statusColor}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              textAlign="right"
+            >
+              {statusText}
+            </SizableText>
+          </YStack>
+        </XStack>
+        <YStack
+          px="$3"
+          py="$3"
+          width="100%"
+          gap="$2"
+          borderTopWidth="$px"
+          borderTopColor="$borderSubdued"
+        >
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_position_position_size,
+            })}
+            value={baseInfo.sizeWithSymbol}
+            valueColor={sideInfo.color}
+          />
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_executed_size__title,
+            })}
+            value={baseInfo.executedSizeWithSymbol}
+            valueColor={sideInfo.color}
+          />
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_average_price__title,
+            })}
+            value={baseInfo.avgPriceFormatted}
+          />
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_twap_running_time_total__title,
+            })}
+            value={baseInfo.runningTimeText}
+          />
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({ id: ETranslations.perps_reduce_only })}
+            value={baseInfo.reduceOnlyText}
+          />
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_twap_random__title,
+            })}
+            value={baseInfo.randomizeText}
+          />
+        </YStack>
+      </ListItem>
+    );
+  }
 
   return (
     <XStack
@@ -859,7 +1002,21 @@ function TwapFillRow({
   );
 }
 
-function PerpTwapList() {
+interface IPerpTwapListProps {
+  isMobile?: boolean;
+  useTabsList?: boolean;
+  disableListScroll?: boolean;
+  initialTab?: ITwapPanelTab;
+  enabledTabs?: ITwapPanelTab[];
+}
+
+function PerpTwapList({
+  isMobile,
+  useTabsList,
+  disableListScroll,
+  initialTab = 'active',
+  enabledTabs,
+}: IPerpTwapListProps) {
   const actions = useHyperliquidActions();
   const intl = useIntl();
   const [
@@ -871,10 +1028,14 @@ function PerpTwapList() {
     usePerpsTwapSliceFillsAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [spotDisplayMap] = useSpotPairDisplayMapAtom();
-  const [activeTab, setActiveTab] = useState<ITwapPanelTab>('active');
+  const [activeTab, setActiveTab] = useState<ITwapPanelTab>(initialTab);
   const [currentListPage, setCurrentListPage] = useState(1);
   const [now, setNow] = useState(Date.now());
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+  const enabledTabsSet = useMemo(
+    () => new Set(enabledTabs ?? TWAP_ORDERS_SUB_TABS.map((tab) => tab.key)),
+    [enabledTabs],
+  );
 
   useEffect(() => {
     void backgroundApiProxy.simpleDb.perp
@@ -887,6 +1048,17 @@ function PerpTwapList() {
   useEffect(() => {
     void actions.current.loadTwapData();
   }, [actions, currentUser?.accountAddress]);
+
+  useEffect(() => {
+    if (!enabledTabsSet.has(activeTab)) {
+      const firstEnabledTab = TWAP_ORDERS_SUB_TABS.find((tab) =>
+        enabledTabsSet.has(tab.key),
+      );
+      if (firstEnabledTab) {
+        setActiveTab(firstEnabledTab.key);
+      }
+    }
+  }, [activeTab, enabledTabsSet]);
 
   useEffect(() => {
     setCurrentListPage(1);
@@ -1238,9 +1410,10 @@ function PerpTwapList() {
         isHovered={isHovered}
         onHoverChange={onHoverChange}
         spotDisplayMap={spotDisplayMap}
+        isMobile={isMobile}
       />
     ),
-    [historyColumns, historyMinWidth, now, spotDisplayMap],
+    [historyColumns, historyMinWidth, isMobile, now, spotDisplayMap],
   );
 
   const renderFillRow = useCallback(
@@ -1269,11 +1442,13 @@ function PerpTwapList() {
   const emptyState = TWAP_EMPTY_STATE_MAP[activeTab];
   const twapOrderSubTabs = useMemo(
     () =>
-      TWAP_ORDERS_SUB_TABS.map((tab) => ({
-        key: tab.key,
-        label: intl.formatMessage({ id: tab.labelId }),
-      })),
-    [intl],
+      TWAP_ORDERS_SUB_TABS.filter((tab) => enabledTabsSet.has(tab.key)).map(
+        (tab) => ({
+          key: tab.key,
+          label: intl.formatMessage({ id: tab.labelId }),
+        }),
+      ),
+    [enabledTabsSet, intl],
   );
   const listEmptyComponent = useMemo(
     () => (
@@ -1287,17 +1462,20 @@ function PerpTwapList() {
 
   return (
     <YStack flex={1}>
-      <OrderInfoSubTabs
-        tabs={twapOrderSubTabs}
-        activeTab={activeTab}
-        onChange={setActiveTab}
-        variant="underline"
-      />
+      {twapOrderSubTabs.length > 1 ? (
+        <OrderInfoSubTabs
+          tabs={twapOrderSubTabs}
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          variant="underline"
+        />
+      ) : null}
       {activeTab === 'active' ? (
         <CommonTableListView
           onPullToRefresh={refreshTwapData}
           listViewDebugRenderTrackerProps={trackerProps}
-          useTabsList
+          useTabsList={useTabsList}
+          disableListScroll={disableListScroll}
           enablePagination
           pageSize={TWAP_PAGE_SIZE}
           currentListPage={currentListPage}
@@ -1305,6 +1483,8 @@ function PerpTwapList() {
           columns={activeColumns}
           minTableWidth={activeMinWidth}
           data={twapOrders}
+          isMobile={isMobile}
+          paginationToBottom={isMobile}
           renderRow={renderActiveRow}
           ListEmptyComponent={listEmptyComponent}
           emptyMessage={intl.formatMessage({
@@ -1317,7 +1497,8 @@ function PerpTwapList() {
         <CommonTableListView
           onPullToRefresh={refreshTwapData}
           listViewDebugRenderTrackerProps={trackerProps}
-          useTabsList
+          useTabsList={useTabsList}
+          disableListScroll={disableListScroll}
           enablePagination
           pageSize={TWAP_PAGE_SIZE}
           currentListPage={currentListPage}
@@ -1325,6 +1506,8 @@ function PerpTwapList() {
           columns={historyColumns}
           minTableWidth={historyMinWidth}
           data={historyRows}
+          isMobile={isMobile}
+          paginationToBottom={isMobile}
           renderRow={renderHistoryRow}
           ListEmptyComponent={listEmptyComponent}
           emptyMessage={intl.formatMessage({
@@ -1337,7 +1520,8 @@ function PerpTwapList() {
         <CommonTableListView
           onPullToRefresh={refreshTwapData}
           listViewDebugRenderTrackerProps={trackerProps}
-          useTabsList
+          useTabsList={useTabsList}
+          disableListScroll={disableListScroll}
           enablePagination
           pageSize={TWAP_PAGE_SIZE}
           currentListPage={currentListPage}
@@ -1345,6 +1529,8 @@ function PerpTwapList() {
           columns={fillColumns}
           minTableWidth={fillMinWidth}
           data={sliceFills}
+          isMobile={isMobile}
+          paginationToBottom={isMobile}
           renderRow={renderFillRow}
           ListEmptyComponent={listEmptyComponent}
           emptyMessage={intl.formatMessage({
