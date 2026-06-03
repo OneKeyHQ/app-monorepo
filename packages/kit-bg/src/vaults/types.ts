@@ -569,6 +569,15 @@ export type ITransferPayload = {
   amountToSend: string;
   isMaxSend: boolean;
   isNFT: boolean;
+  isPrivateSend?: boolean;
+  privateSend?: {
+    orderId?: string;
+    rocketXOrderId?: string;
+    provider?: string;
+    providerName?: string;
+    providerLogo?: string;
+    supportUrl?: string;
+  };
   originalRecipient: string;
   isToContract?: boolean;
   memo?: string;
@@ -679,6 +688,7 @@ export interface IBroadcastTransactionParams {
   rawTxType?: 'json' | 'hex';
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   gasAccountUiState?: IGasAccountUiState;
+  isPrivateSend?: boolean;
   useDefaultRpc?: boolean;
 }
 

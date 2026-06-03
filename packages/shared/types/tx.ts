@@ -92,6 +92,15 @@ export type IDecodedTxPayload = {
   value: string;
   label: string;
   type: EOnChainHistoryTxType;
+  privateSend?: {
+    orderId?: string;
+    rocketXOrderId?: string;
+    provider?: string;
+    providerName?: string;
+    providerLogo?: string;
+    supportUrl?: string;
+    originalRecipient?: string;
+  };
 };
 
 export type IUtxoAddressInfo = {

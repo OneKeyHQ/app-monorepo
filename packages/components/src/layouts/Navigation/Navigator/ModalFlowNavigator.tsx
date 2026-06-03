@@ -22,10 +22,15 @@ import type { ParamListBase } from '@react-navigation/routers';
 export interface IModalFlowNavigatorConfig<
   RouteName extends string,
   P extends ParamListBase,
-> extends ICommonNavigatorConfig<RouteName, P> {
+> extends Omit<ICommonNavigatorConfig<RouteName, P>, 'options'> {
+  options?:
+    | IModalNavigationOptions
+    | ((props: IScreenOptionsInfo<RouteName>) => IModalNavigationOptions);
   translationId?: ETranslations | string;
   shouldPopOnClickBackdrop?: boolean;
   dismissOnOverlayPress?: boolean;
+  modalContentMaxHeight?: number;
+  modalContentMaxWidth?: number;
   /**
    * Web-only. Skip the modal `scale(0.95) -> scale(1)` transform on
    * **both enter and exit** for this screen and keep only the opacity
@@ -129,6 +134,8 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             translationId,
             shouldPopOnClickBackdrop,
             dismissOnOverlayPress,
+            modalContentMaxHeight,
+            modalContentMaxWidth,
             disableEnterScaleAnimation,
           }) => {
             // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
@@ -136,6 +143,8 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
               ...(typeof options === 'function' ? {} : options),
               shouldPopOnClickBackdrop,
               dismissOnOverlayPress,
+              modalContentMaxHeight,
+              modalContentMaxWidth,
               disableEnterScaleAnimation,
               title: translationId
                 ? intl.formatMessage({

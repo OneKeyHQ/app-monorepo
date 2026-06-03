@@ -94,6 +94,7 @@ function HeaderView({
     // native HeaderSearchBar in packages/components/src/layouts/Page/PageHeader.tsx
     headerSearchBarOptions,
     headerTitleStyle,
+    modalContentMaxWidth,
   } = options || EMPTY_OPTIONS;
   const theme = useTheme();
   const state = navigation?.getState();
@@ -151,11 +152,11 @@ function HeaderView({
     }
     if (isModelScreen) {
       return isGtMd
-        ? ({ width: 640 } as Layout)
+        ? ({ width: modalContentMaxWidth ?? 640 } as Layout)
         : ({ width: window.innerWidth } as Layout);
     }
     return undefined;
-  }, [isGtMd, isModelScreen]);
+  }, [isGtMd, isModelScreen, modalContentMaxWidth]);
 
   const isDesktopModeUI = useIsDesktopModeUIInTabPages();
   const headerBackgroundColor = useMemo(() => {
