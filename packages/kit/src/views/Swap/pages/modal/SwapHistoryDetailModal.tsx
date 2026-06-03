@@ -358,6 +358,8 @@ const SwapHistoryDetailModal = () => {
       txHistory?.swapInfo.provider.provider === privateSendProvider,
     [txHistory?.protocol, txHistory?.swapInfo.provider.provider],
   );
+  const shouldRenderOrderId =
+    !!txHistory?.txInfo.orderId && !isPrivateSendHistory;
 
   const onViewInBrowser = useCallback((url: string) => {
     openUrlExternal(url);
@@ -924,7 +926,7 @@ const SwapHistoryDetailModal = () => {
               })}
               renderContent={renderSwapProvider()}
             />
-            {txHistory.txInfo.orderId ? (
+            {shouldRenderOrderId ? (
               <InfoItem
                 label="Order ID"
                 renderContent={txHistory.txInfo.orderId}
@@ -982,6 +984,7 @@ const SwapHistoryDetailModal = () => {
     renderSwapDate,
     renderSwapOrderStatus,
     renderSwapProvider,
+    shouldRenderOrderId,
     isPrivateSendHistory,
     txHistory,
   ]);
