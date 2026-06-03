@@ -18,6 +18,7 @@ import {
   parseContentPList,
 } from '@onekeyhq/desktop/app/libs/utils';
 import { restartBridge } from '@onekeyhq/desktop/app/process';
+import { getStaticPath } from '@onekeyhq/desktop/app/resoucePath';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
@@ -25,7 +26,12 @@ import type { IDesktopApi } from './instance/IDesktopApi';
 
 const execFileAsync = promisify(execFile);
 
+// cspell:ignore hidraw udev udevadm pkexec
 const ONEKEY_LINUX_UDEV_RULES_PATH = '/etc/udev/rules.d/99-onekey.rules';
+const ONEKEY_LINUX_UDEV_RULES_STATIC_PATH = path.join(
+  'udev',
+  '99-onekey.rules',
+);
 
 const isFlatpakRuntime = () =>
   Boolean(
@@ -34,25 +40,21 @@ const isFlatpakRuntime = () =>
     process.env.container === 'flatpak',
   );
 
-// cspell:ignore hidraw plugdev uaccess mktemp udevadm pkexec
-const ONEKEY_LINUX_UDEV_RULES = `# OneKey: The Original Hardware Wallet
-# https://onekey.so/
-# Put this file into /usr/lib/udev/rules.d
+const getOneKeyLinuxUdevRulesSourcePath = () =>
+  path.join(getStaticPath(), ONEKEY_LINUX_UDEV_RULES_STATIC_PATH);
 
-# note - hidraw* lines are not necessary for onekey-bridge, as we don't use hidraw
-# however, it is still necessary for Chrome support of u2f
-
-SUBSYSTEM=="usb", ATTR{idVendor}=="534c", ATTR{idProduct}=="0001", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl", SYMLINK+="trezor%n"
-KERNEL=="hidraw*", ATTRS{idVendor}=="534c", ATTRS{idProduct}=="0001",  MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl"
-
-SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="53c0", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl", SYMLINK+="trezor%n"
-SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="53c1", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl", SYMLINK+="trezor%n"
-KERNEL=="hidraw*", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="53c1",  MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl"
-
-SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="4f4a", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl", SYMLINK+="onekey%n"
-SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="4f4b", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl", SYMLINK+="onekey%n"
-KERNEL=="hidraw*", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="4f4b",  MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl"
-`;
+const readOneKeyLinuxUdevRules = memoizee(
+  async () =>
+    fs.readFile(getOneKeyLinuxUdevRulesSourcePath(), {
+      encoding: 'utf8',
+    }),
+  {
+    primitive: true,
+    promise: true,
+    max: 1,
+    normalizer: () => 'onekey-linux-udev-rules',
+  },
+);
 
 export type IInstallOneKeyUdevRulesResult = {
   supported: boolean;
@@ -362,10 +364,13 @@ class DesktopApiSystem {
     }
 
     try {
-      const currentRules = await fs.readFile(ONEKEY_LINUX_UDEV_RULES_PATH, {
-        encoding: 'utf8',
-      });
-      if (currentRules === ONEKEY_LINUX_UDEV_RULES) {
+      const [rules, currentRules] = await Promise.all([
+        readOneKeyLinuxUdevRules(),
+        fs.readFile(ONEKEY_LINUX_UDEV_RULES_PATH, {
+          encoding: 'utf8',
+        }),
+      ]);
+      if (currentRules === rules) {
         return {
           supported: true,
           installed: true,
@@ -373,7 +378,21 @@ class DesktopApiSystem {
         };
       }
     } catch {
-      // Missing or unreadable rules are handled by the pkexec installer below.
+      // Missing or unreadable installed rules are handled by the pkexec installer below.
+    }
+
+    let rulesSourcePath: string;
+    try {
+      await readOneKeyLinuxUdevRules();
+      rulesSourcePath = getOneKeyLinuxUdevRulesSourcePath();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        supported: true,
+        installed: false,
+        skippedReason: 'failed',
+        message: `OneKey udev rules file is unavailable: ${message}`,
+      };
     }
 
     try {
@@ -389,11 +408,7 @@ class DesktopApiSystem {
 
     const installScript = `
 set -e
-tmp_file="$(mktemp)"
-trap 'rm -f "$tmp_file"' EXIT
-cat > "$tmp_file" <<'ONEKEY_UDEV_RULES'
-${ONEKEY_LINUX_UDEV_RULES}ONEKEY_UDEV_RULES
-install -Dm644 "$tmp_file" "$1"
+install -Dm644 "$1" "$2"
 if command -v udevadm >/dev/null 2>&1; then
   udevadm control --reload-rules
   udevadm trigger --subsystem-match=usb --attr-match=idVendor=1209 || true
@@ -411,6 +426,7 @@ fi
           '-c',
           installScript,
           'install-onekey-udev-rules',
+          rulesSourcePath,
           ONEKEY_LINUX_UDEV_RULES_PATH,
         ],
         { timeout: 120_000 },
