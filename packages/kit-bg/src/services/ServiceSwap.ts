@@ -1661,9 +1661,9 @@ export default class ServiceSwap extends ServiceBase {
         ? i.txInfo.orderId === item.txInfo.orderId
         : i.txInfo.txId === item.txInfo.txId;
     const oldItem = filteredList.find(matchFn);
+    const updated = Date.now();
+    item.date = { ...item.date, updated };
     if (oldItem) {
-      const updated = Date.now();
-      item.date = { ...item.date, updated };
       if (
         oldItem.status === ESwapTxHistoryStatus.CANCELING &&
         item.status === ESwapTxHistoryStatus.SUCCESS
@@ -1684,7 +1684,6 @@ export default class ServiceSwap extends ServiceBase {
           item.txInfo.receiverTransactionId
         ] = true;
       }
-      await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
       await inAppNotificationAtom.set((pre) => {
         const newPendingList = filterSwapHistoryPendingList(
           pre.swapHistoryPendingList,
@@ -1731,6 +1730,7 @@ export default class ServiceSwap extends ServiceBase {
         });
       }
     }
+    await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
   }
 
   @backgroundMethod()

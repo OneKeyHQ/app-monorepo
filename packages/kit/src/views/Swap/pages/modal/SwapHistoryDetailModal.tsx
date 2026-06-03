@@ -40,7 +40,10 @@ import type {
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { IExplorersInfo } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IExplorersInfo,
+  ISwapTxHistory,
+} from '@onekeyhq/shared/types/swap/types';
 import {
   EExplorerType,
   EProtocolOfExchange,
@@ -286,6 +289,79 @@ function PrivateSendProgress({
   );
 }
 
+function isPrivateSendSwapTxHistory(item?: ISwapTxHistory) {
+  return (
+    item?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+    item?.swapInfo.provider.provider === privateSendProvider
+  );
+}
+
+function getPositiveTokenPrice(value?: number | string) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const valueBN = new BigNumber(value);
+  if (valueBN.isNaN() || !valueBN.isGreaterThan(0)) {
+    return undefined;
+  }
+
+  return valueBN.toFixed();
+}
+
+function applyPrivateSendTokenPrice({
+  item,
+  price,
+}: {
+  item: ISwapTxHistory;
+  price: string;
+}) {
+  const hasFromTokenPrice = !!getPositiveTokenPrice(
+    item.baseInfo.fromToken.price,
+  );
+  const hasToTokenPrice = !!getPositiveTokenPrice(item.baseInfo.toToken.price);
+
+  return {
+    ...item,
+    baseInfo: {
+      ...item.baseInfo,
+      fromToken: hasFromTokenPrice
+        ? item.baseInfo.fromToken
+        : { ...item.baseInfo.fromToken, price },
+      toToken: hasToTokenPrice
+        ? item.baseInfo.toToken
+        : { ...item.baseInfo.toToken, price },
+    },
+  };
+}
+
+async function fetchPrivateSendTokenPrice(item: ISwapTxHistory) {
+  const accountId = item.accountInfo.sender.accountId;
+  if (!accountId) {
+    return undefined;
+  }
+
+  const networkId =
+    item.baseInfo.fromToken.networkId ?? item.accountInfo.sender.networkId;
+  let tokenAddress = item.baseInfo.fromToken.contractAddress;
+
+  if (item.baseInfo.fromToken.isNative || !tokenAddress) {
+    tokenAddress = await backgroundApiProxy.serviceToken.getNativeTokenAddress({
+      networkId,
+    });
+  }
+
+  const tokenDetails = await backgroundApiProxy.serviceToken.fetchTokensDetails(
+    {
+      accountId,
+      networkId,
+      contractList: [tokenAddress],
+    },
+  );
+
+  return getPositiveTokenPrice(tokenDetails?.[0]?.price);
+}
+
 const SwapHistoryDetailModal = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -327,7 +403,7 @@ const SwapHistoryDetailModal = () => {
       (routeTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
         routeTxHistory.swapInfo.provider.provider === privateSendProvider) &&
       routeTxHistory.status !== ESwapTxHistoryStatus.PENDING;
-    const nextTxHistoryList = shouldKeepRoutePrivateSendStatus
+    const rawNextTxHistoryList = shouldKeepRoutePrivateSendStatus
       ? swapTxHistoryList.map((item) =>
           item.swapInfo.orderId === routeTxHistoryOrderId &&
           (item.status === ESwapTxHistoryStatus.PENDING ||
@@ -339,6 +415,25 @@ const SwapHistoryDetailModal = () => {
             : item,
         )
       : swapTxHistoryList;
+    const currentTxHistory = txHistoryListState?.find(
+      (item) => item.swapInfo.orderId === txHistoryOrderId,
+    );
+    const currentPrivateSendPrice =
+      currentTxHistory && isPrivateSendSwapTxHistory(currentTxHistory)
+        ? (getPositiveTokenPrice(currentTxHistory.baseInfo.fromToken.price) ??
+          getPositiveTokenPrice(currentTxHistory.baseInfo.toToken.price))
+        : undefined;
+    const nextTxHistoryList = currentPrivateSendPrice
+      ? rawNextTxHistoryList.map((item) =>
+          item.swapInfo.orderId === txHistoryOrderId &&
+          isPrivateSendSwapTxHistory(item)
+            ? applyPrivateSendTokenPrice({
+                item,
+                price: currentPrivateSendPrice,
+              })
+            : item,
+        )
+      : rawNextTxHistoryList;
     if (
       JSON.stringify(nextTxHistoryList) !== JSON.stringify(txHistoryListState)
     ) {
@@ -353,11 +448,52 @@ const SwapHistoryDetailModal = () => {
     [txHistoryListState, txHistoryOrderId],
   );
   const isPrivateSendHistory = useMemo(
-    () =>
-      txHistory?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
-      txHistory?.swapInfo.provider.provider === privateSendProvider,
-    [txHistory?.protocol, txHistory?.swapInfo.provider.provider],
+    () => isPrivateSendSwapTxHistory(txHistory),
+    [txHistory],
   );
+  useEffect(() => {
+    if (!txHistory || !isPrivateSendHistory) {
+      return;
+    }
+
+    const hasFromTokenPrice = !!getPositiveTokenPrice(
+      txHistory.baseInfo.fromToken.price,
+    );
+    const hasToTokenPrice = !!getPositiveTokenPrice(
+      txHistory.baseInfo.toToken.price,
+    );
+    if (hasFromTokenPrice && hasToTokenPrice) {
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const price = await fetchPrivateSendTokenPrice(txHistory);
+      if (!price || cancelled) {
+        return;
+      }
+
+      const nextTxHistory = applyPrivateSendTokenPrice({
+        item: txHistory,
+        price,
+      });
+      setTxHistoryListState((prev) =>
+        prev?.map((item) =>
+          item.swapInfo.orderId === nextTxHistory.swapInfo.orderId
+            ? nextTxHistory
+            : item,
+        ),
+      );
+      await backgroundApiProxy.serviceSwap.updateSwapHistoryItem(
+        nextTxHistory,
+        { shouldShowToast: false },
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPrivateSendHistory, txHistory]);
   const shouldRenderOrderId =
     !!txHistory?.txInfo.orderId && !isPrivateSendHistory;
 
