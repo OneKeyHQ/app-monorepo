@@ -53,13 +53,30 @@ export const { atom: webTabMountOrderAtom, use: useWebTabMountOrderAtom } =
  * Set of tab ids whose WebView should stay mounted (alive). Tabs not in this set
  * are unmounted to bound memory (recency LRU); re-activating an evicted tab
  * remounts and reloads it. Derived from tabs + active tab + recency order.
+ *
+ * Identity is kept stable across recomputes when the alive *membership* is
+ * unchanged (e.g. switching between two already-alive tabs only reorders
+ * recency). Without this, every recompute returns a fresh Set, re-rendering
+ * every mounted browser content (including evicted ones that render null) on
+ * each tab switch. The cache is correctness-safe: membership is always
+ * recomputed, and the previous Set is reused only when its contents match
+ * exactly — so a stale set can never be returned.
  */
+let prevAliveSet = new Set<string>();
 export const { atom: aliveWebViewIdsAtom, use: useAliveWebViewIdsAtom } =
   contextAtomComputed<Set<string>>((get) => {
     const { tabs } = get(webTabsAtom());
     const activeTabId = get(activeTabIdAtom());
     const mountOrder = get(webTabMountOrderAtom());
-    return computeAliveWebViewIds({ tabs, activeTabId, mountOrder });
+    const next = computeAliveWebViewIds({ tabs, activeTabId, mountOrder });
+    const sameAsPrev =
+      next.size === prevAliveSet.size &&
+      [...next].every((id) => prevAliveSet.has(id));
+    if (sameAsPrev) {
+      return prevAliveSet;
+    }
+    prevAliveSet = next;
+    return next;
   });
 
 export const {

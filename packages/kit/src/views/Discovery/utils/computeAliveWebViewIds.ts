@@ -10,6 +10,17 @@ import type { IWebTab } from '../types';
 //   3. any remaining tabs (older / never-activated) as a stable fallback
 // We then keep only the first `max` of that ordered list. Everything else is
 // evicted (its WebView unmounts) until it becomes active again.
+//
+// In-flight DApp request safety: evicting a tab unmounts its WebView, so an
+// in-flight bridge response could no longer reach it. This is safe because:
+//   - The active tab is ALWAYS alive (rule 1), and a tab can only be evicted
+//     after the user activates `max` OTHER tabs, pushing it out of the window.
+//   - DApp approval requests (connect/sign/tx) open a root modal
+//     (EModalRoutes.DAppConnectionModal) presented over the whole app, so the
+//     tab switcher is unreachable until the modal is resolved — the requesting
+//     tab cannot be evicted while its approval is pending.
+//   - Silent background RPCs (e.g. eth_call) on an evicted tab simply replay
+//     when the tab reloads on revisit; the connection auto-restores by origin.
 export function computeAliveWebViewIds({
   tabs,
   activeTabId,
