@@ -111,22 +111,6 @@ describe('resolveErrorI18nMessage', () => {
     );
   });
 
-  it('translates when key is an ETranslations enum value', () => {
-    const err = {
-      key: ETranslations.update_installation_package_possibly_compromised,
-      message: 'Unknown Onekey Internal Error. onekey_error',
-    };
-
-    const result = resolveErrorI18nMessage(err, intl);
-
-    expect(formatMessage).toHaveBeenCalledWith({
-      id: ETranslations.update_installation_package_possibly_compromised,
-    });
-    expect(result).toBe(
-      `TRANSLATED:${ETranslations.update_installation_package_possibly_compromised}`,
-    );
-  });
-
   it('returns raw message when it is not an i18n key', () => {
     const err = new Error('plain failure');
     expect(resolveErrorI18nMessage(err, intl)).toBe('plain failure');

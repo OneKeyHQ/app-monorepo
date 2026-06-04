@@ -130,18 +130,6 @@ export function resolveErrorI18nMessage(
   if (err === undefined || err === null) {
     return '';
   }
-  const keyValue = (err as { key?: unknown })?.key;
-  if (isETranslationsKey(keyValue)) {
-    if (intl) {
-      return intl.formatMessage({ id: keyValue });
-    }
-    // Lazy require keeps this module free of `react-intl` at load time so
-    // tests that stub `react-intl` (without providing `createIntl`) can still
-    // import code paths that reach this file.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-    const appLocaleModule: typeof import('../../locale/appLocale') = require('../../locale/appLocale');
-    return appLocaleModule.appLocale.intl.formatMessage({ id: keyValue });
-  }
   const message = (err as { message?: unknown })?.message;
   const text = isString(message) ? message : String(err);
   if (isETranslationsKey(text)) {
