@@ -48,6 +48,8 @@ const uniqByFn = (i: IMarketWatchListItemV2) =>
         }) || ''
       }`;
 
+const CHART_PRICE_FRESHNESS_MS = 10_000;
+
 class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   // Token Detail Actions
   setTokenDetail = contextAtomMethod(
@@ -147,10 +149,13 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
+      const chartPriceUpdatedAt = Date.now();
+
       set(tokenDetailAtom(), {
         ...tokenDetail,
         price: payload.price,
-        lastUpdated: payload.lastUpdated ?? Date.now(),
+        lastUpdated: payload.lastUpdated ?? chartPriceUpdatedAt,
+        chartPriceUpdatedAt,
       });
     },
   );
@@ -281,8 +286,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         const websocketConfig = responseData.data.websocket;
         const perpsInfo = responseData.data.perpsInfo;
 
-        // Always preserve K-line updated price if it exists, fallback to API price
-        // BUT only if we're updating the SAME token (check address and networkId)
+        // Preserve chart-updated price only while it is fresh.
         const currentTokenDetail = get(tokenDetailAtom());
         const isSameToken =
           currentTokenDetail &&
@@ -296,13 +300,19 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
               contractAddress: currentTokenDetail.address || '',
             },
           });
-        const hasKLinePrice = isSameToken && currentTokenDetail?.lastUpdated;
+        const chartPriceUpdatedAt = currentTokenDetail?.chartPriceUpdatedAt;
+        const hasFreshKLinePrice =
+          isSameToken &&
+          typeof chartPriceUpdatedAt === 'number' &&
+          Number.isFinite(chartPriceUpdatedAt) &&
+          Date.now() - chartPriceUpdatedAt < CHART_PRICE_FRESHNESS_MS;
 
-        const finalTokenData = hasKLinePrice
+        const finalTokenData = hasFreshKLinePrice
           ? {
               ...tokenData,
-              price: currentTokenDetail.price, // Always use K-line price
+              price: currentTokenDetail.price,
               lastUpdated: currentTokenDetail.lastUpdated,
+              chartPriceUpdatedAt,
             }
           : tokenData;
 

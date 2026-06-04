@@ -86,6 +86,10 @@ export const MarketTradingView = memo(
 
     const handlePriceUpdate = useCallback(
       (data: ITradingViewPriceUpdateData) => {
+        if (data.source === 'history') {
+          return;
+        }
+
         if (
           !isChartPriceUpdateForCurrentToken({
             data,
