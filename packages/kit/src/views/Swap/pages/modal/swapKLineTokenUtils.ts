@@ -1,4 +1,3 @@
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { ETokenDappType } from '@onekeyhq/shared/types/token';
@@ -10,11 +9,6 @@ export type ISwapKLineToken = ISwapToken & {
   dappType?: ITokenDappType;
 };
 
-export type ISwapKLineStableToken = Pick<
-  ISwapToken,
-  'contractAddress' | 'networkId'
->;
-
 export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   if (!token) {
     return false;
@@ -25,37 +19,26 @@ export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   return Boolean(token.defiMarked || token.dappName?.trim() || token.dappType);
 }
 
-export function isSwapKLineStableToken({
-  token,
-  stableTokens,
-}: {
-  token?: ISwapKLineToken;
-  stableTokens?: ISwapKLineStableToken[];
-}) {
-  if (!token) {
+export async function fetchSwapKLineTokenIsStable(
+  token?: ISwapKLineToken,
+): Promise<boolean> {
+  if (!token?.networkId) {
     return false;
   }
 
-  if (!stableTokens?.length) {
-    return false;
-  }
-
-  return stableTokens.some((stableToken) =>
-    equalTokenNoCaseSensitive({
-      token1: token,
-      token2: stableToken,
-    }),
-  );
+  return false;
 }
 
 export function getDefaultSwapKLineSide({
   fromToken,
-  stableTokens,
+  fromTokenIsStable = false,
   toToken,
+  toTokenIsStable = false,
 }: {
   fromToken?: ISwapKLineToken;
-  stableTokens?: ISwapKLineStableToken[];
+  fromTokenIsStable?: boolean;
   toToken?: ISwapKLineToken;
+  toTokenIsStable?: boolean;
 }): ESwapDirectionType {
   if (!toToken) {
     return ESwapDirectionType.FROM;
@@ -75,16 +58,10 @@ export function getDefaultSwapKLineSide({
   }
 
   if (!fromIsKnownUnsupported && !toIsKnownUnsupported) {
-    const fromIsStable = isSwapKLineStableToken({
-      token: fromToken,
-      stableTokens,
-    });
-    const toIsStable = isSwapKLineStableToken({
-      token: toToken,
-      stableTokens,
-    });
-    if (fromIsStable !== toIsStable) {
-      return fromIsStable ? ESwapDirectionType.TO : ESwapDirectionType.FROM;
+    if (fromTokenIsStable !== toTokenIsStable) {
+      return fromTokenIsStable
+        ? ESwapDirectionType.TO
+        : ESwapDirectionType.FROM;
     }
   }
 
@@ -93,12 +70,16 @@ export function getDefaultSwapKLineSide({
 
 export function getResolvableDefaultSwapKLineSide({
   fromToken,
-  stableTokens,
+  fromTokenIsStable,
+  isStableTokenCheckLoading,
   toToken,
+  toTokenIsStable,
 }: {
   fromToken?: ISwapKLineToken;
-  stableTokens?: ISwapKLineStableToken[];
+  fromTokenIsStable?: boolean;
+  isStableTokenCheckLoading?: boolean;
   toToken?: ISwapKLineToken;
+  toTokenIsStable?: boolean;
 }): ESwapDirectionType | undefined {
   if (!toToken) {
     return ESwapDirectionType.FROM;
@@ -117,13 +98,14 @@ export function getResolvableDefaultSwapKLineSide({
     return ESwapDirectionType.TO;
   }
 
-  if (stableTokens === undefined) {
+  if (isStableTokenCheckLoading) {
     return undefined;
   }
 
   return getDefaultSwapKLineSide({
     fromToken,
-    stableTokens,
+    fromTokenIsStable,
     toToken,
+    toTokenIsStable,
   });
 }

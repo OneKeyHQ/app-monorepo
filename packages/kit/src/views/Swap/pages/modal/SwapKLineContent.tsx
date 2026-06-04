@@ -16,6 +16,7 @@ import {
   Page,
   SegmentControl,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -53,7 +54,7 @@ import {
   getSwapKLineWalletChartDays,
 } from './swapKLineChartUtils';
 import {
-  type ISwapKLineStableToken,
+  fetchSwapKLineTokenIsStable,
   getResolvableDefaultSwapKLineSide,
   isKnownSwapKLineUnsupportedToken,
 } from './swapKLineTokenUtils';
@@ -295,37 +296,31 @@ function useSwapKLineNetworkName(networkId?: string) {
   return result;
 }
 
-function useSwapKLineStableTokens({
+function useSwapKLineStableTokenChecks({
   fromToken,
   toToken,
 }: {
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
 }) {
-  const fromNetworkId = fromToken?.networkId ?? '';
-  const toNetworkId = toToken?.networkId ?? '';
-  const { result, isLoading } = usePromiseResult<ISwapKLineStableToken[]>(
-    async () => {
-      const networkIds = Array.from(
-        new Set([fromNetworkId, toNetworkId].filter(Boolean)),
-      );
-      if (!networkIds.length) {
-        return [];
+  const { result, isLoading } = usePromiseResult<
+    | {
+        fromTokenIsStable: boolean;
+        toTokenIsStable: boolean;
       }
-
-      const speedConfigs = await Promise.all(
-        networkIds.map((networkId) =>
-          backgroundApiProxy.serviceSwap.fetchSpeedSwapConfig({ networkId }),
-        ),
-      );
-      return speedConfigs.flatMap((config) =>
-        (config.speedConfig.defaultLimitTokens ?? []).map((token) => ({
-          networkId: token.networkId,
-          contractAddress: token.contractAddress,
-        })),
-      );
+    | undefined
+  >(
+    async () => {
+      const [fromTokenIsStable, toTokenIsStable] = await Promise.all([
+        fetchSwapKLineTokenIsStable(fromToken),
+        fetchSwapKLineTokenIsStable(toToken),
+      ]);
+      return {
+        fromTokenIsStable,
+        toTokenIsStable,
+      };
     },
-    [fromNetworkId, toNetworkId],
+    [fromToken, toToken],
     {
       checkIsFocused: false,
       watchLoading: true,
@@ -335,8 +330,10 @@ function useSwapKLineStableTokens({
   );
 
   return {
-    stableTokens: result,
-    isLoading: result === undefined && isLoading !== false,
+    stableTokenChecks: result,
+    isLoading: Boolean(
+      (fromToken || toToken) && result === undefined && isLoading !== false,
+    ),
   };
 }
 
@@ -497,6 +494,7 @@ type ISwapKLineContentState = {
   primaryKLineDataUnavailable: boolean;
   resolvedSelectedSide?: ESwapDirectionType;
   shouldForceEmptyKLineData: boolean;
+  isResolvingSelectedToken: boolean;
   tokenMarketDetail?: IMarketTokenDetail;
   handlePrimaryKLineDataUnavailable: () => void;
   handleSelectedSideChange: (side: ESwapDirectionType) => void;
@@ -505,20 +503,18 @@ type ISwapKLineContentState = {
 function useSwapKLineContentState(): ISwapKLineContentState {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const { stableTokens, isLoading: isStableTokensLoading } =
-    useSwapKLineStableTokens({ fromToken, toToken });
-  const stableTokensForDefaultSide = useMemo(
-    () => stableTokens ?? (isStableTokensLoading ? undefined : []),
-    [isStableTokensLoading, stableTokens],
-  );
+  const { stableTokenChecks, isLoading: isStableTokenCheckLoading } =
+    useSwapKLineStableTokenChecks({ fromToken, toToken });
   const defaultSide = useMemo(
     () =>
       getResolvableDefaultSwapKLineSide({
         fromToken,
-        stableTokens: stableTokensForDefaultSide,
+        fromTokenIsStable: stableTokenChecks?.fromTokenIsStable,
+        isStableTokenCheckLoading,
         toToken,
+        toTokenIsStable: stableTokenChecks?.toTokenIsStable,
       }),
-    [fromToken, stableTokensForDefaultSide, toToken],
+    [fromToken, isStableTokenCheckLoading, stableTokenChecks, toToken],
   );
   const [selectedSide, setSelectedSide] = useState<ESwapDirectionType>();
   const hasTrackedOpenRef = useRef(false);
@@ -555,6 +551,9 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   });
   const shouldForceEmptyKLineData =
     isKnownSwapKLineUnsupportedToken(selectedToken);
+  const isResolvingSelectedToken = Boolean(
+    !selectedToken && (fromToken || toToken) && isStableTokenCheckLoading,
+  );
 
   useEffect(() => {
     if (hasTrackedOpenRef.current || !selectedToken || !resolvedSelectedSide) {
@@ -598,6 +597,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       selectedToken,
       walletMarketInfo,
       kLineDataFallback,
+      isResolvingSelectedToken,
       primaryKLineDataUnavailable,
       resolvedSelectedSide,
       shouldForceEmptyKLineData,
@@ -609,6 +609,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       fromToken,
       handlePrimaryKLineDataUnavailable,
       handleSelectedSideChange,
+      isResolvingSelectedToken,
       kLineDataFallback,
       primaryKLineDataUnavailable,
       resolvedSelectedSide,
@@ -775,6 +776,54 @@ function SwapKLineTokenInfoRow({
   );
 }
 
+function SwapKLineResolvingTokenContent({
+  chartMinHeight,
+  showSeparateChartDivider,
+}: {
+  chartMinHeight: number;
+  showSeparateChartDivider?: boolean;
+}) {
+  const chartSkeleton = (
+    <Skeleton
+      flex={1}
+      minHeight={chartMinHeight}
+      borderRadius="$2"
+      borderTopWidth={showSeparateChartDivider ? undefined : '$px'}
+      borderTopColor={showSeparateChartDivider ? undefined : '$borderSubdued'}
+    />
+  );
+  const chartSectionSkeleton = showSeparateChartDivider ? (
+    <YStack flex={1} gap="$5">
+      <Stack h="$px" bg="$borderSubdued" />
+      {chartSkeleton}
+    </YStack>
+  ) : (
+    chartSkeleton
+  );
+
+  return (
+    <>
+      <XStack
+        ai="center"
+        jc="space-between"
+        gap="$3"
+        minHeight="$10"
+        width="100%"
+      >
+        <XStack ai="center" gap="$3" flexShrink={1} minWidth={0}>
+          <Skeleton w="$10" h="$10" radius="round" />
+          <YStack gap="$1">
+            <Skeleton h="$4" w="$16" />
+            <Skeleton h="$3" w="$24" />
+          </YStack>
+        </XStack>
+        <Skeleton h="$8" w="$32" borderRadius="$full" />
+      </XStack>
+      {chartSectionSkeleton}
+    </>
+  );
+}
+
 function SwapKLineContentBody({
   state,
   chartMinHeight = 360,
@@ -862,23 +911,34 @@ function SwapKLineContentBody({
   ) : (
     chartContent
   );
+  let content: ReactNode;
+  if (selectedToken) {
+    content = (
+      <YStack flex={1} px={px} pt={pt} pb={pb} gap={gap}>
+        {tokenInfoContent}
+        {chartSectionContent}
+      </YStack>
+    );
+  } else if (state.isResolvingSelectedToken) {
+    content = (
+      <YStack flex={1} px={px} pt={pt} pb={pb} gap={gap}>
+        <SwapKLineResolvingTokenContent
+          chartMinHeight={chartMinHeight}
+          showSeparateChartDivider={showSeparateChartDivider}
+        />
+      </YStack>
+    );
+  } else {
+    content = (
+      <YStack flex={1} ai="center" jc="center" px="$5">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.token_selector_title })}
+        </SizableText>
+      </YStack>
+    );
+  }
 
-  return (
-    <>
-      {selectedToken ? (
-        <YStack flex={1} px={px} pt={pt} pb={pb} gap={gap}>
-          {tokenInfoContent}
-          {chartSectionContent}
-        </YStack>
-      ) : (
-        <YStack flex={1} ai="center" jc="center" px="$5">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.token_selector_title })}
-          </SizableText>
-        </YStack>
-      )}
-    </>
-  );
+  return <>{content}</>;
 }
 
 function SwapKLineDialogContent() {
