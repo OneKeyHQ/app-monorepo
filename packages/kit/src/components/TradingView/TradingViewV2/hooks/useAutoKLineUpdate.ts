@@ -23,66 +23,33 @@ export function useAutoKLineUpdate({
   interval = 5000, // 1 minute
   autoHandleError,
 }: IAutoKLineUpdateParams) {
-  const isFetchingRef = useRef(false);
-  const requestGenerationRef = useRef(0);
-  const previousParamsRef = useRef({ tokenAddress, networkId, enabled });
-  const latestParamsRef = useRef({
-    tokenAddress,
-    networkId,
-    enabled,
-    generation: requestGenerationRef.current,
-  });
-
-  if (
-    previousParamsRef.current.tokenAddress !== tokenAddress ||
-    previousParamsRef.current.networkId !== networkId ||
-    previousParamsRef.current.enabled !== enabled
-  ) {
-    requestGenerationRef.current += 1;
-    previousParamsRef.current = { tokenAddress, networkId, enabled };
-  }
-
-  latestParamsRef.current = {
-    tokenAddress,
-    networkId,
-    enabled,
-    generation: requestGenerationRef.current,
-  };
+  const lastUpdateTime = useRef<number>(0);
 
   const pushLatestKLineData = useCallback(async () => {
     // Skip if disabled or missing required params
     // For native tokens, tokenAddress might be empty, but networkId is required
-    if (!enabled || !networkId || !webRef.current || isFetchingRef.current) {
+    if (!enabled || !networkId || !webRef.current) {
       return;
     }
-
-    isFetchingRef.current = true;
-    const requestParams = { ...latestParamsRef.current };
 
     try {
       const now = Math.floor(Date.now() / 1000);
       const timeFrom = now - 200;
       const timeTo = now;
 
+      // Skip if we just updated recently (avoid duplicate calls)
+      if (now - lastUpdateTime.current < 4) {
+        return;
+      }
+
       const kLineData = await fetchTradingViewV2Data({
-        tokenAddress: requestParams.tokenAddress,
-        networkId: requestParams.networkId,
+        tokenAddress,
+        networkId,
         interval: '1m', // 1 minute interval
         timeFrom,
         timeTo,
         autoHandleError,
       });
-
-      const latestParams = latestParamsRef.current;
-      if (
-        !latestParams.enabled ||
-        latestParams.generation !== requestParams.generation ||
-        latestParams.tokenAddress !== requestParams.tokenAddress ||
-        latestParams.networkId !== requestParams.networkId ||
-        !webRef.current
-      ) {
-        return;
-      }
 
       // Sort K-line data by timestamp to ensure we get the actual latest price
       if (kLineData?.points && kLineData.points.length > 0) {
@@ -98,13 +65,13 @@ export function useAutoKLineUpdate({
             timestamp: now,
           },
         });
+
+        lastUpdateTime.current = now;
       }
     } catch (error) {
       console.error('Failed to push auto K-line data:', error);
-    } finally {
-      isFetchingRef.current = false;
     }
-  }, [enabled, networkId, webRef, autoHandleError]);
+  }, [enabled, tokenAddress, networkId, webRef, autoHandleError]);
 
   // Use the existing useInterval hook pattern
   // For native tokens, tokenAddress might be empty, but networkId is required

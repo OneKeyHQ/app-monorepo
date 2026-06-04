@@ -69,7 +69,7 @@ export const MarketTradingView = memo(
         tokenDetailActions.current.applyChartPriceUpdate({
           tokenAddress,
           networkId,
-          realtimePrice,
+          price: realtimePrice,
           lastUpdated: normalizeChartUpdateTimestamp(data.timestamp),
         });
       },

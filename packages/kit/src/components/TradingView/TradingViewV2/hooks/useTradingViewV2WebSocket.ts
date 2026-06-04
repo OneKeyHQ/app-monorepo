@@ -10,8 +10,6 @@ import {
 
 import type { IWebViewRef } from '../../../WebView/types';
 
-const TRADING_VIEW_WS_BRIDGE_THROTTLE_SECONDS = 4;
-
 interface IUseTradingViewV2WebSocketProps {
   networkId: string;
   tokenAddress: string;
@@ -37,7 +35,7 @@ export function useTradingViewV2WebSocket({
   chartType = '1m',
   currency = 'usd',
 }: IUseTradingViewV2WebSocketProps): void {
-  const lastBridgeUpdateTime = useRef<number>(0);
+  const lastUpdateTime = useRef<number>(0);
   const { markSubscriptionActivity } = useMarketWSSubscriptionRecovery({
     enabled,
     networkId,
@@ -46,7 +44,6 @@ export function useTradingViewV2WebSocket({
     currency,
     channel: 'ohlcv',
   });
-
   useEffect(() => {
     if (!networkId || !tokenAddress) {
       return;
@@ -104,46 +101,46 @@ export function useTradingViewV2WebSocket({
       markSubscriptionActivity();
 
       const now = Math.floor(Date.now() / 1000);
-      const receivedData = payload.data as IWsPriceData;
+      if (now - lastUpdateTime.current < 4) {
+        return;
+      }
 
       const webView = webRef.current;
-      if (
-        webView &&
-        receivedData &&
-        now - lastBridgeUpdateTime.current >=
-          TRADING_VIEW_WS_BRIDGE_THROTTLE_SECONDS
-      ) {
-        const dataForWebView =
-          receivedData && 'points' in receivedData
-            ? receivedData
-            : {
-                points: [
-                  {
-                    ...receivedData,
-
-                    // oxlint-disable-next-line @cspell/spellchecker
-                    t: receivedData.unixTime,
-                  },
-                ],
-                total: 1,
-              };
-
-        webView.sendMessageViaInjectedScript({
-          type: 'autoKLineUpdate',
-          payload: {
-            type: 'realtime',
-            kLineData: dataForWebView,
-            timestamp: now,
-          },
-        });
-
-        void backgroundApiProxy.serviceMarketWS.clearDataCount({
-          address: tokenAddress,
-          type: 'ohlcv',
-        });
-
-        lastBridgeUpdateTime.current = now;
+      if (!webView) {
+        return;
       }
+
+      const receivedData = payload.data as IWsPriceData;
+      const dataForWebView =
+        receivedData && 'points' in receivedData
+          ? receivedData
+          : {
+              points: [
+                {
+                  ...receivedData,
+
+                  // oxlint-disable-next-line @cspell/spellchecker
+                  t: receivedData.unixTime,
+                },
+              ],
+              total: 1,
+            };
+
+      webView.sendMessageViaInjectedScript({
+        type: 'autoKLineUpdate',
+        payload: {
+          type: 'realtime',
+          kLineData: dataForWebView,
+          timestamp: now,
+        },
+      });
+
+      void backgroundApiProxy.serviceMarketWS.clearDataCount({
+        address: tokenAddress,
+        type: 'ohlcv',
+      });
+
+      lastUpdateTime.current = now;
     }
 
     appEventBus.on(

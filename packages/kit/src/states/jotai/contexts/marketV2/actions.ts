@@ -28,7 +28,6 @@ import {
   isNativeAtom,
   marketWatchListV2Atom,
   networkIdAtom,
-  pendingChartPriceUpdateAtom,
   perpsInfoAtom,
   showWatchlistOnlyAtom,
   tokenAddressAtom,
@@ -36,17 +35,8 @@ import {
   tokenDetailLoadingAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
-import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from './constants';
-import {
-  buildMatchedRealtimeTokenDetail,
-  buildRealtimePriceDerivedFields,
-  isMarketTokenDetailMatched,
-  isValidRealtimePrice,
-} from './priceUtils';
 
 export const homeResettingFlags: Record<string, number> = {};
-
-const REALTIME_PRICE_STALE_TIMEOUT_MS = 10_000;
 
 const uniqByFn = (i: IMarketWatchListItemV2) =>
   i.perpsCoin
@@ -102,7 +92,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(isNativeAtom(), false);
     set(tokenDetailWebsocketAtom(), undefined);
     set(perpsInfoAtom(), undefined);
-    set(pendingChartPriceUpdateAtom, null);
   });
 
   applyChartPriceUpdate = contextAtomMethod(
@@ -112,62 +101,57 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       payload: {
         tokenAddress?: string;
         networkId?: string;
-        realtimePrice: string;
+        price: string;
         lastUpdated?: number;
       },
     ) => {
-      const { tokenAddress, networkId, realtimePrice, lastUpdated } = payload;
-      if (!isValidRealtimePrice(realtimePrice)) {
+      const tokenDetail = get(tokenDetailAtom());
+      if (!tokenDetail) {
         return;
       }
 
-      const currentTokenDetail = get(tokenDetailAtom());
-      const isSameToken = isMarketTokenDetailMatched({
-        tokenDetail: currentTokenDetail,
-        tokenAddress,
-        networkId,
-      });
-
-      if (currentTokenDetail && isSameToken) {
-        const latestTokenDetail = buildMatchedRealtimeTokenDetail({
-          tokenDetail: currentTokenDetail,
-          tokenAddress,
-          networkId,
-          realtimePrice,
-          realtimePriceSource: MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
-          lastUpdated,
-        });
-
-        if (latestTokenDetail) {
-          set(tokenDetailAtom(), latestTokenDetail);
-        }
-        set(pendingChartPriceUpdateAtom, null);
+      const numericPrice = Number(payload.price);
+      if (!Number.isFinite(numericPrice) || numericPrice <= 0) {
         return;
       }
 
-      const currentAddress = get(tokenAddressAtom());
-      const currentNetworkId = get(networkIdAtom());
-      const isCurrentToken =
-        (!currentNetworkId || !networkId || currentNetworkId === networkId) &&
-        equalTokenNoCaseSensitive({
+      if (
+        payload.networkId &&
+        tokenDetail.networkId &&
+        tokenDetail.networkId !== payload.networkId
+      ) {
+        return;
+      }
+
+      if (!payload.tokenAddress && !tokenDetail.isNative) {
+        return;
+      }
+
+      if (
+        payload.tokenAddress &&
+        !equalTokenNoCaseSensitive({
           token1: {
-            networkId: currentNetworkId || networkId || '',
-            contractAddress: currentAddress || '',
+            networkId: payload.networkId || tokenDetail.networkId || '',
+            contractAddress: payload.tokenAddress,
           },
           token2: {
-            networkId: networkId || currentNetworkId || '',
-            contractAddress: tokenAddress || '',
+            networkId: tokenDetail.networkId || payload.networkId || '',
+            contractAddress: tokenDetail.address || '',
           },
-        });
-
-      if (isCurrentToken) {
-        set(pendingChartPriceUpdateAtom, {
-          tokenAddress,
-          networkId,
-          realtimePrice,
-          lastUpdated,
-        });
+        })
+      ) {
+        return;
       }
+
+      if (tokenDetail.price === payload.price) {
+        return;
+      }
+
+      set(tokenDetailAtom(), {
+        ...tokenDetail,
+        price: payload.price,
+        lastUpdated: payload.lastUpdated ?? Date.now(),
+      });
     },
   );
 
@@ -186,7 +170,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(tokenAddressAtom(), tokenAddress);
       set(networkIdAtom(), networkId);
       set(isNativeAtom(), isNative);
-      set(pendingChartPriceUpdateAtom, null);
 
       let isStale = false;
       try {
@@ -212,25 +195,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         ) {
           return;
         }
-        const tokenData = responseData.data.token;
-        const pendingChartPriceUpdate = get(pendingChartPriceUpdateAtom);
-        const finalTokenData = pendingChartPriceUpdate
-          ? (buildMatchedRealtimeTokenDetail({
-              tokenDetail: tokenData,
-              tokenAddress: pendingChartPriceUpdate.tokenAddress,
-              networkId: pendingChartPriceUpdate.networkId,
-              realtimePrice: pendingChartPriceUpdate.realtimePrice,
-              realtimePriceSource:
-                MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
-              lastUpdated: pendingChartPriceUpdate.lastUpdated,
-            }) ?? tokenData)
-          : tokenData;
-
-        if (finalTokenData !== tokenData) {
-          set(pendingChartPriceUpdateAtom, null);
-        }
-
-        set(tokenDetailAtom(), finalTokenData);
+        set(tokenDetailAtom(), responseData.data.token);
         set(tokenDetailWebsocketAtom(), responseData.data.websocket);
         set(perpsInfoAtom(), responseData.data.perpsInfo);
       } catch (error) {
@@ -316,59 +281,30 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         const websocketConfig = responseData.data.websocket;
         const perpsInfo = responseData.data.perpsInfo;
 
-        // Preserve a recent realtime price only when it was written by an
-        // explicit realtime source for the same token.
+        // Always preserve K-line updated price if it exists, fallback to API price
+        // BUT only if we're updating the SAME token (check address and networkId)
         const currentTokenDetail = get(tokenDetailAtom());
-        const isSameToken = isMarketTokenDetailMatched({
-          tokenDetail: currentTokenDetail,
-          tokenAddress,
-          networkId,
-        });
-        const realtimePrice = currentTokenDetail?.price;
-        const realtimePriceLastUpdated = currentTokenDetail?.lastUpdated;
-        const realtimePriceSource = currentTokenDetail?.realtimePriceSource;
-        const hasFreshRealtimePrice = Boolean(
-          isSameToken &&
-          realtimePrice &&
-          realtimePriceLastUpdated &&
-          realtimePriceSource &&
-          Date.now() - realtimePriceLastUpdated <=
-            REALTIME_PRICE_STALE_TIMEOUT_MS,
-        );
+        const isSameToken =
+          currentTokenDetail &&
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId,
+              contractAddress: tokenAddress,
+            },
+            token2: {
+              networkId,
+              contractAddress: currentTokenDetail.address || '',
+            },
+          });
+        const hasKLinePrice = isSameToken && currentTokenDetail?.lastUpdated;
 
-        const finalTokenDataWithRealtime =
-          hasFreshRealtimePrice &&
-          realtimePrice &&
-          realtimePriceLastUpdated &&
-          realtimePriceSource
-            ? {
-                ...tokenData,
-                price: realtimePrice,
-                ...buildRealtimePriceDerivedFields({
-                  tokenDetail: tokenData,
-                  realtimePrice,
-                }),
-                lastUpdated: realtimePriceLastUpdated,
-                realtimePriceSource,
-              }
-            : tokenData;
-
-        const pendingChartPriceUpdate = get(pendingChartPriceUpdateAtom);
-        const finalTokenData = pendingChartPriceUpdate
-          ? (buildMatchedRealtimeTokenDetail({
-              tokenDetail: finalTokenDataWithRealtime,
-              tokenAddress: pendingChartPriceUpdate.tokenAddress,
-              networkId: pendingChartPriceUpdate.networkId,
-              realtimePrice: pendingChartPriceUpdate.realtimePrice,
-              realtimePriceSource:
-                MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
-              lastUpdated: pendingChartPriceUpdate.lastUpdated,
-            }) ?? finalTokenDataWithRealtime)
-          : finalTokenDataWithRealtime;
-
-        if (finalTokenData !== finalTokenDataWithRealtime) {
-          set(pendingChartPriceUpdateAtom, null);
-        }
+        const finalTokenData = hasKLinePrice
+          ? {
+              ...tokenData,
+              price: currentTokenDetail.price, // Always use K-line price
+              lastUpdated: currentTokenDetail.lastUpdated,
+            }
+          : tokenData;
 
         set(tokenDetailAtom(), finalTokenData);
         set(tokenDetailWebsocketAtom(), websocketConfig);

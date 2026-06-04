@@ -18,13 +18,6 @@ import type {
   IMarketTokenDetailWebsocket,
 } from '@onekeyhq/shared/types/marketV2';
 
-export interface IMarketChartPriceUpdate {
-  tokenAddress?: string;
-  networkId?: string;
-  realtimePrice: string;
-  lastUpdated?: number;
-}
-
 const {
   Provider: ProviderJotaiContextMarketV2,
   contextAtom,
@@ -44,10 +37,6 @@ export const {
 export const { atom: tokenDetailAtom, use: useTokenDetailAtom } = contextAtom<
   IMarketTokenDetail | undefined
 >(undefined);
-
-export const pendingChartPriceUpdateAtom = atom<IMarketChartPriceUpdate | null>(
-  null,
-);
 
 export const { atom: tokenDetailLoadingAtom, use: useTokenDetailLoadingAtom } =
   contextAtom<boolean>(false);

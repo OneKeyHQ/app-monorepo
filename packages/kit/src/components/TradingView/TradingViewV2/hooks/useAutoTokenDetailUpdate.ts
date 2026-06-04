@@ -1,7 +1,6 @@
 import { type RefObject, useCallback, useEffect, useRef } from 'react';
 
 import { useTokenDetailAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import type { IWebViewRef } from '../../../WebView/types';
 
@@ -12,16 +11,6 @@ interface IAutoTokenDetailUpdateParams {
   enabled?: boolean;
 }
 
-function buildChartTokenDetailSnapshot(tokenDetail: IMarketTokenDetail) {
-  const stableTokenDetail = { ...tokenDetail };
-  delete stableTokenDetail.price;
-  delete stableTokenDetail.priceConverted;
-  delete stableTokenDetail.priceChange24hPercent;
-  delete stableTokenDetail.lastUpdated;
-  delete stableTokenDetail.realtimePriceSource;
-  return stableTokenDetail;
-}
-
 export function useAutoTokenDetailUpdate({
   tokenAddress,
   networkId,
@@ -29,7 +18,7 @@ export function useAutoTokenDetailUpdate({
   enabled = true,
 }: IAutoTokenDetailUpdateParams) {
   const [tokenDetail] = useTokenDetailAtom();
-  const lastPushedTokenDetailRef = useRef<string>('');
+  const lastUpdateTime = useRef<number>(0);
 
   const pushLatestTokenDetailData = useCallback(() => {
     // Skip if disabled or missing required params
@@ -39,14 +28,12 @@ export function useAutoTokenDetailUpdate({
     }
 
     try {
-      const tokenDetailSnapshot = JSON.stringify(
-        buildChartTokenDetailSnapshot(tokenDetail),
-      );
-      if (lastPushedTokenDetailRef.current === tokenDetailSnapshot) {
+      const now = Math.floor(Date.now() / 1000);
+
+      // Skip if we just updated recently (avoid duplicate calls)
+      if (now - lastUpdateTime.current < 0.1) {
         return;
       }
-
-      const now = Math.floor(Date.now() / 1000);
 
       webRef.current.sendMessageViaInjectedScript({
         type: 'tokenDetailUpdate',
@@ -58,7 +45,7 @@ export function useAutoTokenDetailUpdate({
         },
       });
 
-      lastPushedTokenDetailRef.current = tokenDetailSnapshot;
+      lastUpdateTime.current = now;
     } catch (error) {
       console.error('Failed to push auto token detail data:', error);
     }
