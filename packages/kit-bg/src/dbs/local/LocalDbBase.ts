@@ -4783,70 +4783,185 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         ])
       ).filter(Boolean);
 
-      if (!isEmpty(info)) {
-        const result: {
-          walletName: string;
-          accountName: string;
-          accountId: string;
-          walletId: string;
-          walletType: IDBWalletType;
-          walletDeviceId?: string;
-          walletDeviceUsbId?: string;
-          order: number;
-        }[] = [];
-        const wallets = map(info, 'wallets');
-        const items = Object.entries(merge({}, wallets[0], wallets[1]));
-        for (const item of items) {
-          const [walletId, accountId] = item;
-          try {
-            const wallet = await this.getWallet({ walletId });
-            let account: IDBIndexedAccount | IDBAccount | undefined;
-            try {
-              account = await this.getIndexedAccount({ id: accountId });
-            } catch (error) {
-              account = await this.getAccount({ accountId });
-            }
-            if (wallet && account) {
-              if (
-                this.isTempWalletRemoved({ wallet }) ||
-                accountUtils.isWalletDeprecatedOrMocked(wallet)
-              ) {
-                // eslint-disable-next-line no-continue
-                continue;
-              }
-              const order = getOrderByWalletType(wallet.type);
-              if (
-                !accountUtils.isUrlAccountFn({
-                  accountId: account?.id,
-                })
-              ) {
-                result.push({
-                  walletName: wallet.name,
-                  accountName: account.name,
-                  accountId: account.id,
-                  walletId,
-                  walletType: wallet.type,
-                  walletDeviceId: wallet.associatedDeviceInfo?.connectId,
-                  walletDeviceUsbId: wallet.associatedDeviceInfo?.usbConnectId,
-                  order,
-                });
-              }
-            }
-          } catch (error) {
-            errorUtils.autoPrintErrorIgnore(error);
-          }
-        }
-        const resultSorted = [...result].toSorted((a, b) => a.order - b.order);
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('getAccountNameFromAddress', { resultSorted, result });
-        }
-        return resultSorted;
+      const wallets = map(info, 'wallets');
+      let items = Object.entries(merge({}, wallets[0], wallets[1]));
+
+      // The Address index is populated lazily — on account create, active
+      // account reload (AccountSelectorEffects), and all-network refresh, the
+      // last of which only writes the current globalDeriveType for EVM. A
+      // derive type that was never active (e.g. searching a BIP44 address
+      // while LedgerLive is selected without a created address) can be absent
+      // from the index, so the lookup above finds nothing even though the
+      // account exists. Fall back to scanning real db accounts by address and
+      // backfill the index so later lookups hit the fast path.
+      if (isEmpty(items)) {
+        items = await this.scanAccountEntriesByAddress({
+          networkId,
+          address,
+          normalizedAddress,
+        });
       }
-      return [];
+
+      if (isEmpty(items)) {
+        return [];
+      }
+
+      const result: {
+        walletName: string;
+        accountName: string;
+        accountId: string;
+        walletId: string;
+        walletType: IDBWalletType;
+        walletDeviceId?: string;
+        walletDeviceUsbId?: string;
+        order: number;
+      }[] = [];
+      for (const item of items) {
+        const [walletId, accountId] = item;
+        try {
+          const wallet = await this.getWallet({ walletId });
+          let account: IDBIndexedAccount | IDBAccount | undefined;
+          try {
+            account = await this.getIndexedAccount({ id: accountId });
+          } catch (error) {
+            account = await this.getAccount({ accountId });
+          }
+          if (wallet && account) {
+            if (
+              this.isTempWalletRemoved({ wallet }) ||
+              accountUtils.isWalletDeprecatedOrMocked(wallet)
+            ) {
+              // eslint-disable-next-line no-continue
+              continue;
+            }
+            const order = getOrderByWalletType(wallet.type);
+            if (
+              !accountUtils.isUrlAccountFn({
+                accountId: account?.id,
+              })
+            ) {
+              result.push({
+                walletName: wallet.name,
+                accountName: account.name,
+                accountId: account.id,
+                walletId,
+                walletType: wallet.type,
+                walletDeviceId: wallet.associatedDeviceInfo?.connectId,
+                walletDeviceUsbId: wallet.associatedDeviceInfo?.usbConnectId,
+                order,
+              });
+            }
+          }
+        } catch (error) {
+          errorUtils.autoPrintErrorIgnore(error);
+        }
+      }
+      const resultSorted = [...result].toSorted((a, b) => a.order - b.order);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('getAccountNameFromAddress', { resultSorted, result });
+      }
+      return resultSorted;
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
       return [];
     }
+  }
+
+  // Derive the Address-store id a db account would be written under, mirroring
+  // _saveAccountAddressesBatchByCache so a backfilled record lands on the exact
+  // key getAccountNameFromAddress queries against.
+  private computeAddressRecordIdForDbAccount({
+    account,
+    networkId,
+  }: {
+    account: IDBAccount;
+    networkId: string;
+  }): string {
+    const impl = networkUtils.getNetworkImpl({ networkId });
+    const { address } = account;
+    let id = address ? `${networkId}--${address}` : '';
+    if (account.type === EDBAccountType.SIMPLE || impl === IMPL_EVM) {
+      id = address ? `${impl}--${address}` : '';
+    }
+    if (!id) {
+      const variantAddress = (account as IDBVariantAccount).addresses?.[
+        networkId
+      ];
+      if (variantAddress && networkId) {
+        id = `${networkId}--${variantAddress}`;
+      }
+    }
+    return id;
+  }
+
+  // Fallback for getAccountNameFromAddress when the Address index is missing
+  // the searched address. Scans real db accounts by address (covering every
+  // derive type, regardless of the currently selected one) and backfills the
+  // index so subsequent lookups resolve via the fast path.
+  private async scanAccountEntriesByAddress({
+    networkId,
+    address,
+    normalizedAddress,
+  }: {
+    networkId: string;
+    address: string;
+    normalizedAddress: string;
+  }): Promise<Array<[string, string]>> {
+    if (!networkId) {
+      return [];
+    }
+    const impl = networkUtils.getNetworkImpl({ networkId });
+    const queryIds = new Set<string>();
+    if (address) {
+      queryIds.add(`${networkId}--${address}`);
+    }
+    if (normalizedAddress) {
+      queryIds.add(`${impl}--${normalizedAddress}`);
+    }
+    if (queryIds.size === 0) {
+      return [];
+    }
+
+    const { accounts } = await this.getAllAccounts();
+    const matched: IDBAccount[] = [];
+    for (const account of accounts) {
+      const recordId = this.computeAddressRecordIdForDbAccount({
+        account,
+        networkId,
+      });
+      if (recordId && queryIds.has(recordId)) {
+        matched.push(account);
+      }
+    }
+    if (isEmpty(matched)) {
+      return [];
+    }
+
+    // Backfill the Address index for every matched account so the next lookup
+    // hits the fast path instead of re-scanning all db accounts.
+    for (const account of matched) {
+      void this.saveAccountAddresses({
+        networkId,
+        account: account as INetworkAccount,
+      });
+    }
+
+    const seen = new Set<string>();
+    const entries: Array<[string, string]> = [];
+    for (const account of matched) {
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: account.id,
+      });
+      const entryAccountId = account.indexedAccountId ?? account.id;
+      const dedupeKey = `${walletId}::${entryAccountId}`;
+      if (seen.has(dedupeKey)) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      seen.add(dedupeKey);
+      entries.push([walletId, entryAccountId]);
+    }
+    return entries;
   }
 
   getNextIdsValue({
