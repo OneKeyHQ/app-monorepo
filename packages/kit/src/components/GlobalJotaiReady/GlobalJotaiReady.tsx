@@ -64,13 +64,26 @@ function withTimeout<T>(
 async function waitForJotaiReadyOnWebOrDesktop(): Promise<void> {
   // Wait both gates in parallel under a shared 5s safety cap. Either gate
   // failing to settle is acceptable — consumers degrade to defaults.
-  await withTimeout(
+  const result = await withTimeout(
     Promise.all([
       globalColdStartHydrationReadyHandler.ready,
       globalJotaiStorageReadyHandler.ready,
     ]),
     GATE_SAFETY_TIMEOUT_MS,
   );
+  if (result === 'timeout') {
+    // Degraded boot: neither gate settled within GATE_SAFETY_TIMEOUT_MS, so
+    // the gate is being force-released and React mounts with whatever atom
+    // values are present (likely defaults). This is intentional fail-open
+    // behavior, but we surface it so web/desktop boots are observable.
+    // logGlobalJotaiReady is native-only, so a separate warn is required here.
+    defaultLogger.app.bootRecovery.coldStartGateTimeout(
+      `[GlobalJotaiReady] cold-start gate did not settle within ${GATE_SAFETY_TIMEOUT_MS}ms; force-releasing with default atom values (first render may see default values)`,
+    );
+    // Telemetry flag for downstream readers (matches existing __ONEKEY_* globals).
+    (globalThis as Record<string, unknown>).__ONEKEY_COLD_START_GATE_TIMEOUT__ =
+      true;
+  }
 }
 
 const jsEntryStart: number =
