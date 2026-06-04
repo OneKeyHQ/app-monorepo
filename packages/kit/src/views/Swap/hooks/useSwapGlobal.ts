@@ -628,14 +628,9 @@ export function useSwapInit(params?: ISwapInitParams) {
         });
         return;
       }
-      setSwapTips((prev) => {
-        if (!tips && prev.status === 'ready' && prev.tips) {
-          return prev;
-        }
-        return {
-          status: 'empty',
-          updatedAt: Date.now(),
-        };
+      setSwapTips({
+        status: 'empty',
+        updatedAt: Date.now(),
       });
     })();
   }, [setSwapTips]);

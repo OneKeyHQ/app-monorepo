@@ -66,6 +66,10 @@ const SwapPendingHistoryListComponent = ({
     );
     return pendingData;
   }, [swapHistoryPendingList]);
+  const txHistoryListForDetail = useMemo(
+    () => (swapTxHistoryList?.length ? swapTxHistoryList : listData),
+    [listData, swapTxHistoryList],
+  );
   const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
   if (
     (!fromTokenAmountBN.isZero() && !fromTokenAmountBN.isNaN()) ||
@@ -135,7 +139,7 @@ const SwapPendingHistoryListComponent = ({
                 screen: EModalSwapRoutes.SwapHistoryDetail,
                 params: {
                   txHistoryOrderId: item.swapInfo.orderId,
-                  txHistoryList: [...(swapTxHistoryList ?? [])],
+                  txHistoryList: [...txHistoryListForDetail],
                 },
               });
             }}
