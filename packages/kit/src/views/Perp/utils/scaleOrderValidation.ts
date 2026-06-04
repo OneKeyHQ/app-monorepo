@@ -6,15 +6,6 @@ import type {
 
 import type { IntlShape } from 'react-intl';
 
-const SCALE_ORDER_MIN_NOTIONAL_I18N_KEY =
-  'perp_scale_order_min_notional__msg' as ETranslations;
-const SCALE_ORDER_MIN_NOTIONAL_ZH_DEFAULT_MESSAGE =
-  '每笔分段委托金额至少为 {amount}。请减少委托笔数或增加数量。';
-
-function getScaleOrderMinNotionalDefaultMessage() {
-  return 'Each scale order must be at least {amount}. Reduce order count or increase size.';
-}
-
 export function formatScaleOrderValidationError(
   intl: IntlShape,
   issue?: IScaleOrderValidationIssue,
@@ -28,10 +19,7 @@ export function formatScaleOrderValidationError(
     case 'minNotionalTooSmall':
       return intl.formatMessage(
         {
-          id: SCALE_ORDER_MIN_NOTIONAL_I18N_KEY,
-          defaultMessage: intl.locale.startsWith('zh')
-            ? SCALE_ORDER_MIN_NOTIONAL_ZH_DEFAULT_MESSAGE
-            : getScaleOrderMinNotionalDefaultMessage(),
+          id: ETranslations.perp_scale_order_min_notional__msg,
         },
         { amount: `$${issue.minNotional ?? '10'}` },
       );
