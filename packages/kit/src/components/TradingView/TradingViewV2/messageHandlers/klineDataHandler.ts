@@ -12,11 +12,6 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 
 import { MESSAGE_TYPES } from '../../TradingViewPerpsV2/constants/messageTypes';
-import {
-  debugMarketTradingViewLog,
-  shortMarketId,
-  summarizeMarketKLineData,
-} from '../debugLog';
 import { fetchTradingViewV2DataWithSlicing } from '../hooks';
 
 import type { IMessageHandlerContext, IMessageHandlerParams } from './types';
@@ -276,17 +271,6 @@ export async function handleKLineDataRequest({
     const resolution = safeData.resolution as string;
     const from = safeData.from as number;
     const to = safeData.to as number;
-    const firstDataRequest = safeData.firstDataRequest as boolean | undefined;
-
-    debugMarketTradingViewLog('history-request', {
-      tokenAddress: shortMarketId(tokenAddress),
-      networkId,
-      resolution,
-      from,
-      to,
-      firstDataRequest,
-      hasWebRef: Boolean(webRef.current),
-    });
 
     if (context.onCurrentKLineResolutionChange) {
       context.onCurrentKLineResolutionChange(resolution);
@@ -332,31 +316,7 @@ export async function handleKLineDataRequest({
         ? buildEmptyKLineData()
         : fetchedKLineData;
 
-      debugMarketTradingViewLog('history-fetched', {
-        tokenAddress: shortMarketId(tokenAddress),
-        networkId,
-        resolution,
-        shouldForceEmptyKLineData,
-        shouldSuppressKLineError,
-        shouldUseEmptyKLineData,
-        primaryKLineDataUnavailable: context.primaryKLineDataUnavailable,
-        summary: summarizeMarketKLineData(kLineData),
-      });
-
       if (webRef.current && kLineData) {
-        debugMarketTradingViewLog('history-send', {
-          tokenAddress: shortMarketId(tokenAddress),
-          networkId,
-          resolution,
-          summary: summarizeMarketKLineData(kLineData),
-          requestData: {
-            resolution: safeData.resolution,
-            from: safeData.from,
-            to: safeData.to,
-            firstDataRequest: safeData.firstDataRequest,
-          },
-        });
-
         webRef.current.sendMessageViaInjectedScript({
           type: 'kLineData',
           payload: {
@@ -364,14 +324,6 @@ export async function handleKLineDataRequest({
             kLineData,
             requestData: messageData,
           },
-        });
-      } else {
-        debugMarketTradingViewLog('history-send-skip', {
-          tokenAddress: shortMarketId(tokenAddress),
-          networkId,
-          resolution,
-          hasWebRef: Boolean(webRef.current),
-          hasKLineData: Boolean(kLineData),
         });
       }
 
@@ -401,12 +353,6 @@ export async function handleKLineDataRequest({
         });
       }
     } catch (error) {
-      debugMarketTradingViewLog('history-error', {
-        tokenAddress: shortMarketId(tokenAddress),
-        networkId,
-        resolution,
-        error: error instanceof Error ? error.message : String(error),
-      });
       console.error('Failed to fetch and send kline data:', error);
     }
   }

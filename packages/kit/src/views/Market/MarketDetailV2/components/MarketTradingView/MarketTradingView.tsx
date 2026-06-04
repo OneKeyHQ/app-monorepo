@@ -1,11 +1,7 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback } from 'react';
 
 import { TradingViewV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { ITradingViewPriceUpdateData } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
-import {
-  debugMarketTradingViewLog,
-  shortMarketId,
-} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/debugLog';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import { MarketTestIDs } from '../../../testIDs';
@@ -63,36 +59,12 @@ export const MarketTradingView = memo(
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
 
-    useEffect(() => {
-      debugMarketTradingViewLog('market-wrapper-props', {
-        networkId,
-        tokenAddress: shortMarketId(tokenAddress),
-        tokenSymbol,
-        dataSource,
-        pageWidth,
-      });
-    }, [dataSource, networkId, pageWidth, tokenAddress, tokenSymbol]);
-
     const handlePriceUpdate = useCallback(
       (data: ITradingViewPriceUpdateData) => {
         const realtimePrice = normalizeChartRealtimePrice(data.price);
         if (!realtimePrice) {
-          debugMarketTradingViewLog('price-update-skip-invalid', {
-            source: data.source,
-            symbol: data.symbol,
-            priceType: typeof data.price,
-          });
           return;
         }
-
-        debugMarketTradingViewLog('price-update-apply', {
-          source: data.source,
-          symbol: data.symbol,
-          tokenAddress: shortMarketId(tokenAddress),
-          networkId,
-          price: realtimePrice,
-          timestamp: data.timestamp,
-        });
 
         tokenDetailActions.current.applyChartPriceUpdate({
           tokenAddress,

@@ -4,8 +4,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { calculateDisplayPriceScale } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { debugMarketTradingViewLog, shortMarketId } from '../debugLog';
-
 import { handleAnalyticsEvent } from './analyticsHandler';
 import {
   fetchAccountTransactionMarks,
@@ -289,20 +287,6 @@ export function useTradingViewMessageHandler({
         data.scope === '$private' &&
         data.method === 'tradingview_getKLineData'
       ) {
-        const requestData =
-          data.data && typeof data.data === 'object'
-            ? (data.data as Record<string, unknown>)
-            : undefined;
-        debugMarketTradingViewLog('handler-kline-request', {
-          tokenAddress: shortMarketId(tokenAddress),
-          networkId,
-          requestMethod: requestData?.method,
-          resolution: requestData?.resolution,
-          from: requestData?.from,
-          to: requestData?.to,
-          firstDataRequest: requestData?.firstDataRequest,
-          hasWebRef: Boolean(webRef.current),
-        });
         await handleKLineDataRequest({ data, context });
       }
 
@@ -342,14 +326,6 @@ export function useTradingViewMessageHandler({
           | ITradingViewPriceUpdateData
           | undefined;
         if (priceUpdateData) {
-          debugMarketTradingViewLog('handler-price-update', {
-            tokenAddress: shortMarketId(tokenAddress),
-            networkId,
-            source: priceUpdateData.source,
-            symbol: priceUpdateData.symbol,
-            price: priceUpdateData.price,
-            timestamp: priceUpdateData.timestamp,
-          });
           onPriceUpdate?.(priceUpdateData);
         }
       }
