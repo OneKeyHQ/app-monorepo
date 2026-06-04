@@ -121,7 +121,15 @@ export const WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX = 'onekey:webembed:resp:';
 // reads / observes this slot and only switches to opt-in protocols (jotai
 // batch broadcast etc.) after the matching capability bit is set, so a
 // partial OTA / split-runtime mismatch can't silently drop batched updates.
+// SharedStore key holding main's latched capability advertisement (+ doubling
+// as the "main is up" liveness signal). Read synchronously by bg via
+// `sharedStore.get`.
 export const BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY = 'onekey:bg:main-caps';
+// SharedRPC content-less wake ping fired after main updates its latched
+// capabilities in SharedStore (SharedStore has no notify). Edge-wakes bg to
+// re-read the capabilities key. Value is irrelevant.
+export const BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY =
+  'onekey:bg:main-caps-wake';
 
 export type IBackgroundThreadMainCapabilitiesPayload = {
   jotaiStateBatch?: boolean;

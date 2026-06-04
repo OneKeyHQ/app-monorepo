@@ -4,6 +4,8 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -28,6 +30,7 @@ import type {
 } from '@onekeyhq/shared/types/signatureConfirm';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { ESwapProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 import {
   EApproveType,
   type IDecodedTx,
@@ -76,6 +79,104 @@ function mergeAddressComponentTags(
   });
 
   return base;
+}
+
+function getAddressKey(address?: string) {
+  return address?.toLowerCase() ?? '';
+}
+
+function isPrivateSendTx({
+  transferPayload,
+  unsignedTx,
+}: {
+  transferPayload?: IBuildDecodedTxParams['transferPayload'];
+  unsignedTx?: IUnsignedTxPro;
+}) {
+  return (
+    transferPayload?.isPrivateSend === true ||
+    unsignedTx?.swapInfo?.protocol === EProtocolOfExchange.PRIVATE_SEND
+  );
+}
+
+function getPrivateSendTxDisplayTitle() {
+  return appLocale.intl.formatMessage({
+    id: ETranslations.private_send_private_send,
+  });
+}
+
+function fixPrivateSendRecipientDisplay({
+  decodedTx,
+  unsignedTx,
+  transferPayload,
+}: {
+  decodedTx: IDecodedTx;
+  unsignedTx: IUnsignedTxPro;
+  transferPayload?: IBuildDecodedTxParams['transferPayload'];
+}) {
+  const originalRecipient =
+    transferPayload?.originalRecipient || unsignedTx.swapInfo?.receivingAddress;
+  const isPrivateSend = isPrivateSendTx({ transferPayload, unsignedTx });
+  if (decodedTx.txDisplay && isPrivateSend) {
+    decodedTx.txDisplay.title = getPrivateSendTxDisplayTitle();
+  }
+
+  if (
+    !isPrivateSend ||
+    !decodedTx.txDisplay?.components?.length ||
+    !originalRecipient
+  ) {
+    return;
+  }
+
+  const originalRecipientKey = getAddressKey(originalRecipient);
+  const payinAddresses = new Set<string>();
+  const addPayinAddress = (address?: string) => {
+    const key = getAddressKey(address);
+    if (key && key !== originalRecipientKey) {
+      payinAddresses.add(key);
+    }
+  };
+
+  addPayinAddress(transferPayload?.privateSend?.payinAddress);
+  addPayinAddress(
+    unsignedTx.swapInfo?.swapBuildResData.changellyOrder?.payinAddress,
+  );
+  // EVM token/private-send transactions target token or router contracts; only
+  // explicit transfer recipients should be rewritten to the original recipient.
+  decodedTx.actions.forEach((action) => {
+    if (action.assetTransfer) {
+      action.assetTransfer.sends.forEach((send) => addPayinAddress(send.to));
+    }
+  });
+  decodedTx.outputActions?.forEach((action) => {
+    if (action.assetTransfer) {
+      action.assetTransfer.sends.forEach((send) => addPayinAddress(send.to));
+    }
+  });
+
+  decodedTx.txDisplay.components = decodedTx.txDisplay.components.map(
+    (component) => {
+      if (component.type !== EParseTxComponentType.Address) {
+        return component;
+      }
+
+      const shouldUseOriginalRecipient =
+        component.role === EParseTxComponentRole.SwapReceiver ||
+        payinAddresses.has(getAddressKey(component.address));
+      if (!shouldUseOriginalRecipient) {
+        return component;
+      }
+
+      return {
+        ...component,
+        label: appLocale.intl.formatMessage({ id: ETranslations.global_to }),
+        address: originalRecipient,
+        tags: [],
+        isNavigable: false,
+        highlight: true,
+      };
+    },
+  );
 }
 
 @backgroundClass()
@@ -144,6 +245,18 @@ class ServiceSignatureConfirm extends ServiceBase {
           decodedTxs: r,
           unsignedTxs: params.unsignedTxs,
         });
+    }
+
+    if (
+      r[0]?.txDisplay &&
+      params.unsignedTxs.some((unsignedTx) =>
+        isPrivateSendTx({
+          transferPayload: params.transferPayload,
+          unsignedTx,
+        }),
+      )
+    ) {
+      r[0].txDisplay.title = getPrivateSendTxDisplayTitle();
     }
 
     return r;
@@ -335,6 +448,12 @@ class ServiceSignatureConfirm extends ServiceBase {
         }
       }
     }
+
+    fixPrivateSendRecipientDisplay({
+      decodedTx,
+      unsignedTx,
+      transferPayload,
+    });
 
     if (transferPayload?.isCustomHexData) {
       decodedTx.isCustomHexData = true;

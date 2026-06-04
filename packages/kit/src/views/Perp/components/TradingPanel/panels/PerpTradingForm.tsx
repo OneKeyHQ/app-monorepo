@@ -861,7 +861,9 @@ function PerpTradingForm({
         return undefined;
       }
       return {
-        text: 'Enter a valid scale price range',
+        text: intl.formatMessage({
+          id: ETranslations.perp_scale_price_range_required__msg,
+        }),
         tone: 'error' as const,
       };
     }
@@ -1663,7 +1665,7 @@ function PerpTradingForm({
                     ) : null}
                   </XStack>
                   <SizableText
-                    size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                    size={isMobile ? '$bodySm' : '$bodyMdMedium'}
                     color="$text"
                   >
                     {option.label}
@@ -1684,10 +1686,10 @@ function PerpTradingForm({
         <YStack gap={isMobile ? '$2.5' : '$3'}>
           <PriceInput
             label={intl.formatMessage({
-              id: ETranslations.perp_scale_lower_price__title,
+              id: ETranslations.perp_scale_lower_price_label__title,
             })}
             placeholder={intl.formatMessage({
-              id: ETranslations.perp_trade_price_place_holder,
+              id: ETranslations.perp_scale_lower_price_placeholder__desc,
             })}
             value={formData.scaleLowerPrice ?? ''}
             onChange={(value) => updateForm({ scaleLowerPrice: value })}
@@ -1698,10 +1700,10 @@ function PerpTradingForm({
           />
           <PriceInput
             label={intl.formatMessage({
-              id: ETranslations.perp_scale_upper_price__title,
+              id: ETranslations.perp_scale_upper_price_label__title,
             })}
             placeholder={intl.formatMessage({
-              id: ETranslations.perp_trade_price_place_holder,
+              id: ETranslations.perp_scale_upper_price_placeholder__desc,
             })}
             value={formData.scaleUpperPrice ?? ''}
             onChange={(value) => updateForm({ scaleUpperPrice: value })}
@@ -1884,7 +1886,7 @@ function PerpTradingForm({
   const renderTimeInForceSection = () => {
     if (shouldShowScaleTif) {
       return (
-        <XStack width="100%" justifyContent="flex-end">
+        <XStack flexShrink={0} justifyContent="flex-end">
           <TimeInForceSelector
             testID="perp-scale-tif-selector"
             value={formData.scaleTif ?? 'Gtc'}
@@ -1897,6 +1899,26 @@ function PerpTradingForm({
     }
 
     return null;
+  };
+
+  const renderScaleAuxiliarySection = () => {
+    if (!isScaleMode) {
+      return null;
+    }
+
+    return (
+      <XStack
+        width="100%"
+        alignItems="flex-start"
+        justifyContent="space-between"
+        gap={isMobile ? '$3' : '$4'}
+      >
+        <YStack flex={1} minWidth={0}>
+          {renderScaleAmountDistributionSection()}
+        </YStack>
+        {renderTimeInForceSection()}
+      </XStack>
+    );
   };
 
   const renderTwapDurationSection = () => {
@@ -2162,7 +2184,7 @@ function PerpTradingForm({
                   {...(isMobile && { p: '$0' })}
                 />
                 <SizableText
-                  size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                  size={isMobile ? '$bodySm' : '$bodyMdMedium'}
                   color="$text"
                 >
                   {intl.formatMessage({ id: ETranslations.perps_reduce_only })}
@@ -2193,7 +2215,7 @@ function PerpTradingForm({
                 renderTrigger={
                   <Stack display="inline-flex" alignSelf="flex-start">
                     <DashText
-                      size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                      size={isMobile ? '$bodySm' : '$bodyMdMedium'}
                       color="$text"
                       dashColor="$textDisabled"
                       dashThickness={0.5}
@@ -2236,7 +2258,7 @@ function PerpTradingForm({
                 {...(isMobile && { p: '$0' })}
               />
               <SizableText
-                size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                size={isMobile ? '$bodySm' : '$bodyMdMedium'}
                 color="$text"
               >
                 {intl.formatMessage({ id: ETranslations.perps_reduce_only })}
@@ -2267,7 +2289,7 @@ function PerpTradingForm({
               {...(isMobile && { p: '$0' })}
             />
             <SizableText
-              size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+              size={isMobile ? '$bodySm' : '$bodyMdMedium'}
               color="$text"
             >
               {intl.formatMessage({ id: ETranslations.perps_reduce_only })}
@@ -2310,22 +2332,24 @@ function PerpTradingForm({
               {...(isMobile && { p: '$0' })}
             />
 
-            <DashText
-              size={isMobile ? '$bodySm' : '$bodyMd'}
-              dashColor="$textSubdued"
-              dashThickness={0.5}
-              tooltip={intl.formatMessage({
-                id: ETranslations.perp_tp_sl_tooltip,
-              })}
-              tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
-              tooltipTitle={intl.formatMessage({
-                id: ETranslations.perp_position_tp_sl,
-              })}
-            >
-              {intl.formatMessage({
-                id: ETranslations.perp_position_tp_sl,
-              })}
-            </DashText>
+            <XStack alignItems="center" pt="$0.5">
+              <DashText
+                size={isMobile ? '$bodySm' : '$bodyMd'}
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_tp_sl_tooltip,
+                })}
+                tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+                tooltipTitle={intl.formatMessage({
+                  id: ETranslations.perp_position_tp_sl,
+                })}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_tp_sl,
+                })}
+              </DashText>
+            </XStack>
           </XStack>
 
           {standardLimitTifSelector}
@@ -2742,9 +2766,7 @@ function PerpTradingForm({
         />
       </YStack>
 
-      {renderTimeInForceSection()}
-
-      {renderScaleAmountDistributionSection()}
+      {renderScaleAuxiliarySection()}
 
       {isTwapMode ? renderTwapDurationSection() : null}
 
