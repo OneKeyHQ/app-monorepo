@@ -735,13 +735,17 @@ function SideButtonInternal({
           upperPrice.lte(0)
         ) {
           Toast.message({
-            title: 'Scale price range is required',
+            title: intl.formatMessage({
+              id: ETranslations.perp_scale_price_range_required__msg,
+            }),
           });
           return false;
         }
         if (lowerPrice.eq(upperPrice)) {
           Toast.message({
-            title: 'Scale lower and upper prices must be different',
+            title: intl.formatMessage({
+              id: ETranslations.perp_scale_price_range_same__msg,
+            }),
           });
           return false;
         }
@@ -753,7 +757,15 @@ function SideButtonInternal({
           orderCount > SCALE_ORDER_MAX_COUNT
         ) {
           Toast.message({
-            title: `Scale orders must be ${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT} orders`,
+            title: intl.formatMessage(
+              {
+                id: ETranslations.perp_scale_order_count_range__msg,
+              },
+              {
+                min: SCALE_ORDER_MIN_COUNT,
+                max: SCALE_ORDER_MAX_COUNT,
+              },
+            ),
           });
           return false;
         }

@@ -315,7 +315,7 @@ function PerpPortfolioContentComponent({
     activeAccount?.accountAddress,
   ).length;
 
-  const [timePeriod, setTimePeriod] = useState<IPortfolioTimePeriod>('allTime');
+  const [timePeriod, setTimePeriod] = useState<IPortfolioTimePeriod>('day');
   const [chartType, setChartType] =
     useState<IPortfolioChartType>('accountValue');
   const [pnlType, setPnlType] = useState<IPortfolioPnlType>('all');

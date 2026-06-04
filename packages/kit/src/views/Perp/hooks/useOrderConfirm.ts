@@ -178,7 +178,9 @@ function useOrderConfirmWithMarketDataFreshness({
         if (!referencePrice.isFinite() || referencePrice.lte(0)) {
           Toast.error({
             title: 'Order Failed',
-            message: 'Scale price range is required',
+            message: intl.formatMessage({
+              id: ETranslations.perp_scale_price_range_required__msg,
+            }),
           });
           return;
         }
@@ -189,7 +191,9 @@ function useOrderConfirmWithMarketDataFreshness({
         ) {
           Toast.error({
             title: 'Order Failed',
-            message: 'Scale lower and upper prices must be different',
+            message: intl.formatMessage({
+              id: ETranslations.perp_scale_price_range_same__msg,
+            }),
           });
           return;
         }
@@ -202,7 +206,15 @@ function useOrderConfirmWithMarketDataFreshness({
         ) {
           Toast.error({
             title: 'Order Failed',
-            message: `Scale orders must be ${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT} orders`,
+            message: intl.formatMessage(
+              {
+                id: ETranslations.perp_scale_order_count_range__msg,
+              },
+              {
+                min: SCALE_ORDER_MIN_COUNT,
+                max: SCALE_ORDER_MAX_COUNT,
+              },
+            ),
           });
           return;
         }
@@ -350,7 +362,9 @@ function useOrderConfirmWithMarketDataFreshness({
         ) {
           Toast.error({
             title: 'Order Failed',
-            message: 'TWAP order size is too small for this duration',
+            message: intl.formatMessage({
+              id: ETranslations.perp_twap_small_slice__msg,
+            }),
           });
           return;
         }
