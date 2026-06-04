@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url';
 
 // ── Pinned version (single source of truth) ──────────────────────────────────
 const PKG = '@onekeyhq/tradingview-charting-library';
-const VERSION = '0.1.14-test.0';
+const VERSION = '0.1.14-test.1';
 const REGISTRY = 'https://npm.pkg.github.com';
 // ─────────────────────────────────────────────────────────────────────────────
 

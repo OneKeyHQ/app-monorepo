@@ -23,6 +23,11 @@ import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
+import { ChartWebView } from '../ChartWebView';
+import {
+  CHART_WEBVIEW_MODE,
+  CHART_WEBVIEW_SCENE,
+} from '../ChartWebView/constants';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import { MESSAGE_TYPES } from './constants/messageTypes';
@@ -289,8 +294,27 @@ export function TradingViewPerpsV2(
     useState<string | null>(null);
   const hasPerpsReadyRef = useRef(false);
   const lastHandledRestoreNonceRef = useRef(0);
-  const isChartLinesReady = chartLinesReadyWebviewKey === _webviewKey;
-  const isChartContentReady = chartContentReadyWebviewKey === _webviewKey;
+
+  // Unified: perps shares the single warm pooled WebView (no cold load, no
+  // spinner) and the host auto-drives SYMBOL_CHANGE (source:'hyperliquid', from
+  // params.type='perps'). The shared page is loaded once globally, so per-load
+  // chartReady/perpsReady don't re-fire for a later perps host — treat the chart
+  // as ready (the page's listeners are already up) so lines still sync.
+  const useUnifiedHost =
+    platformEnv.isNative &&
+    CHART_WEBVIEW_MODE !== 'legacy' &&
+    CHART_WEBVIEW_SCENE === 'unified';
+  const [unifiedReady, setUnifiedReady] = useState(false);
+  useEffect(() => {
+    if (useUnifiedHost) setUnifiedReady(true);
+  }, [useUnifiedHost]);
+
+  const isChartLinesReady = useUnifiedHost
+    ? unifiedReady
+    : chartLinesReadyWebviewKey === _webviewKey;
+  const isChartContentReady = useUnifiedHost
+    ? unifiedReady
+    : chartContentReadyWebviewKey === _webviewKey;
 
   const prevWebviewKeyRef = useRef(_webviewKey);
   useEffect(() => {
@@ -333,9 +357,18 @@ export function TradingViewPerpsV2(
     [enablePerpsTradingUi, urlSymbol],
   );
 
-  const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
-    additionalParams,
-  });
+  const { finalUrl: staticTradingViewUrl, params: tradingViewParams } =
+    useTradingViewUrl({
+      additionalParams,
+    });
+
+  // The unified host reads the LIVE symbol off params (the URL symbol is frozen
+  // to avoid reloads); the constant unified source strips it, so this only feeds
+  // the host's SYMBOL_CHANGE. type:'perps' routes it to the Hyperliquid source.
+  const unifiedHostParams = useMemo(
+    () => ({ ...tradingViewParams, symbol }),
+    [tradingViewParams, symbol],
+  );
   const isSpotDisplayNameSyncRequired =
     reloadOnSymbolChange && (!!displayPair || !!displayCoin);
 
@@ -348,8 +381,12 @@ export function TradingViewPerpsV2(
     isChartReady: reloadOnSymbolChange
       ? isChartContentReady
       : isChartLinesReady,
-    enabled: !reloadOnSymbolChange,
-    syncOnReady: !reloadOnSymbolChange || isSpotDisplayNameSyncRequired,
+    // Under the unified host the host drives SYMBOL_CHANGE — disable our own
+    // sender so the two don't double-post and race.
+    enabled: !reloadOnSymbolChange && !useUnifiedHost,
+    syncOnReady:
+      (!reloadOnSymbolChange || isSpotDisplayNameSyncRequired) &&
+      !useUnifiedHost,
   });
 
   const pendingRecoverRef = useRef(false);
@@ -520,36 +557,57 @@ export function TradingViewPerpsV2(
     webRef.current = ref;
   }, []);
 
+  // Cold first load of the shared page; mark ready (covers the rare case where
+  // the optimistic mount-time ready guessed wrong) and forward to the caller.
+  const handleUnifiedLoadEnd = useCallback(() => {
+    setUnifiedReady(true);
+    onLoadEnd?.();
+  }, [onLoadEnd]);
+
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
   );
-  const showChartLoadingMask = !isChartContentReady;
+  // Unified shares a warm pooled WebView, so there's no cold load to mask (the
+  // native module reveals via snapshot on switch). The spinner only applies to
+  // the legacy per-instance WebView.
+  const showChartLoadingMask = !useUnifiedHost && !isChartContentReady;
 
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
-      <WebViewMemoized
-        key={_webviewKey}
-        src={staticTradingViewUrl}
-        customReceiveHandler={customReceiveHandler}
-        onWebViewRef={onWebViewRef}
-        onLoadEnd={onLoadEnd}
-        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        nativeInjectedJavaScriptBeforeContentLoaded={
-          platformEnv.isNativeAndroid
-            ? hideTradingViewBuiltInLoadingScript
-            : undefined
-        }
-        allowsBackForwardNavigationGestures={false}
-        displayProgressBar={false}
-        pullToRefreshEnabled={false}
-        scrollEnabled={false}
-        bounces={false}
-        overScrollMode="never"
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        decelerationRate="normal"
-      />
+      {useUnifiedHost ? (
+        <ChartWebView
+          params={unifiedHostParams}
+          onlineUrl={staticTradingViewUrl}
+          customReceiveHandler={customReceiveHandler}
+          onWebViewRef={onWebViewRef}
+          onLoadEnd={handleUnifiedLoadEnd}
+          flex={1}
+        />
+      ) : (
+        <WebViewMemoized
+          key={_webviewKey}
+          src={staticTradingViewUrl}
+          customReceiveHandler={customReceiveHandler}
+          onWebViewRef={onWebViewRef}
+          onLoadEnd={onLoadEnd}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+          nativeInjectedJavaScriptBeforeContentLoaded={
+            platformEnv.isNativeAndroid
+              ? hideTradingViewBuiltInLoadingScript
+              : undefined
+          }
+          allowsBackForwardNavigationGestures={false}
+          displayProgressBar={false}
+          pullToRefreshEnabled={false}
+          scrollEnabled={false}
+          bounces={false}
+          overScrollMode="never"
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          decelerationRate="normal"
+        />
+      )}
 
       {showChartLoadingMask ? (
         <Stack

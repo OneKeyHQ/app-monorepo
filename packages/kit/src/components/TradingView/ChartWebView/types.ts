@@ -17,6 +17,13 @@ export interface IChartWebViewBaseProps {
   // Receives an IWebViewRef-compatible adapter (sendMessageViaInjectedScript /
   // reload) backed by the chart-webview module, so existing hooks work unchanged.
   onWebViewRef?: (ref: IWebViewRef | null) => void;
+  // Fired when the underlying page finishes loading (forwarded from the module).
+  // For the shared unified WebView this only fires on the first (cold) load.
+  onLoadEnd?: () => void;
+  // Opt out of the host's automatic unified SYMBOL_CHANGE so the consumer can
+  // drive its own (e.g. perps: source:'hyperliquid' + displayNames + ready
+  // gating). The host still supplies the constant unified source + warm WebView.
+  selfDrivenSymbol?: boolean;
 }
 
 export type IChartWebViewProps = IChartWebViewBaseProps & IStackStyle;

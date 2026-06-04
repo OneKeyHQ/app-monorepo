@@ -13,6 +13,7 @@ import type { RefObject } from 'react';
 import { IconButton, Tabs, XStack, YStack } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
+import { ChartPrewarm } from '@onekeyhq/kit/src/components/TradingView/ChartWebView/ChartPrewarm';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -412,6 +413,9 @@ function MobileLayoutComponent({
           </Tabs.Tab>
         ) : null}
       </Tabs.Container>
+      {/* Boot the shared unified chart WebView while the user browses the list,
+          so opening a token (market or perps) is instant. Hidden + offscreen. */}
+      <ChartPrewarm />
     </TabBarDynamicContext.Provider>
   );
 }
