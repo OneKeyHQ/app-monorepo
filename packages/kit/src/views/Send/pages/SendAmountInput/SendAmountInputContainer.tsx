@@ -53,7 +53,6 @@ import {
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
-import { SwapRateDifferenceText } from '@onekeyhq/kit/src/views/Swap/components/SwapRateDifferenceText';
 import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -74,7 +73,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   openFiatCryptoUrl,
   openUrlExternal,
@@ -101,7 +99,6 @@ import {
   EProtocolOfExchange,
   ESwapFetchCancelCause,
   ESwapQuoteKind,
-  ESwapRateDifferenceUnit,
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -3071,24 +3068,6 @@ function SendAmountInputContainer() {
       privateSendQuote?.toTokenInfo.symbol ?? privateSendToken?.symbol ?? '';
     const toAmount = privateSendQuote?.toAmount ?? '0';
     const privateSendQuoteToAmount = privateSendQuote?.toAmount;
-    const valueDropPercent = getPrivateSendValueDropPercent(privateSendQuote);
-    const rateDifferenceValue =
-      privateSendQuote && typeof valueDropPercent === 'number'
-        ? new BigNumber(valueDropPercent).negated()
-        : undefined;
-    const privateSendRateDifference =
-      rateDifferenceValue?.isFinite() && !rateDifferenceValue.isZero()
-        ? {
-            value: `${
-              rateDifferenceValue.isPositive() ? '+' : ''
-            }${numberFormat(rateDifferenceValue.toFixed(), {
-              formatter: 'priceChange',
-            })}`,
-            unit: rateDifferenceValue.isNegative()
-              ? ESwapRateDifferenceUnit.NEGATIVE
-              : ESwapRateDifferenceUnit.POSITIVE,
-          }
-        : undefined;
     const toTokenPrice =
       privateSendQuote?.toTokenInfo.price ?? privateSendToken?.price;
     const toFiatValue =
@@ -3106,6 +3085,10 @@ function SendAmountInputContainer() {
     });
     const estimatedReceivedTooltip = intl.formatMessage({
       id: ETranslations.provider_route_changelly_float,
+    });
+    const formattedArrivalDuration = formatSwapQuoteDuration({
+      estTime: privateSendQuote?.estTime,
+      estimatedTime: privateSendQuote?.estimatedTime,
     });
 
     return (
@@ -3148,7 +3131,6 @@ function SendAmountInputContainer() {
                 numberOfLines={1}
                 maxWidth="100%"
               >
-                {`~ `}
                 <NumberSizeableText size="$bodyMdMedium" formatter="balance">
                   {toAmount}
                 </NumberSizeableText>
@@ -3172,10 +3154,6 @@ function SendAmountInputContainer() {
                   >
                     {toFiatValue}
                   </NumberSizeableText>
-                  <SwapRateDifferenceText
-                    rateDifference={privateSendRateDifference}
-                    size="$bodyMd"
-                  />
                 </XStack>
               ) : null}
             </YStack>
@@ -3191,10 +3169,9 @@ function SendAmountInputContainer() {
             <Skeleton h="$4" w="$16" />
           ) : (
             <SizableText size="$bodyMdMedium" color="$text">
-              {formatSwapQuoteDuration({
-                estTime: privateSendQuote?.estTime,
-                estimatedTime: privateSendQuote?.estimatedTime,
-              }) ?? '--'}
+              {formattedArrivalDuration
+                ? `~ ${formattedArrivalDuration}`
+                : '--'}
             </SizableText>
           )}
         </XStack>
