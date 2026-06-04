@@ -515,10 +515,15 @@ describeIfIndexedDB('IDB-backed paths', () => {
       // in a microtask loop forever and the race timer fires the rejection.
       const TIMEOUT_MS = 2000;
       const flushed = mod.flushColdStartCacheNow();
+      // Keep a handle on the fuse timer so we can clear it once the race
+      // settles. Promise.race leaves the losing promise's timer pending, and
+      // an un-cleared setTimeout is an open handle that keeps jest from
+      // exiting (CI hangs after coverage prints with no --forceExit).
+      let raceTimer: ReturnType<typeof setTimeout> | undefined;
       const bounded = Promise.race([
         flushed,
-        new Promise<never>((_, reject) =>
-          setTimeout(
+        new Promise<never>((_, reject) => {
+          raceTimer = setTimeout(
             () =>
               // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error
               reject(
@@ -527,10 +532,14 @@ describeIfIndexedDB('IDB-backed paths', () => {
                 ),
               ),
             TIMEOUT_MS,
-          ),
-        ),
+          );
+        }),
       ]);
-      await expect(bounded).resolves.toBeUndefined();
+      try {
+        await expect(bounded).resolves.toBeUndefined();
+      } finally {
+        if (raceTimer) clearTimeout(raceTimer);
+      }
 
       // Give-up cleanup: dirtyKeys must be empty so a subsequent caller (or
       // resetColdStartCache) does not pick up the same doomed keys. We peek

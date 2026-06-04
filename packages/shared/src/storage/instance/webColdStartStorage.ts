@@ -424,6 +424,14 @@ export async function readAllColdStartEntriesFromIdb(): Promise<
 // instantiate the lodash import etc.). Not exported from the public surface.
 export function __resetForTests(): void {
   (globalThis as Record<string, unknown>)[GLOBAL_MAP_KEY] = undefined;
+  // Close any open IDB connection before dropping the reference. Leaving it
+  // open keeps fake-indexeddb (and real IDB) holding the database, which then
+  // blocks the next test's deleteDatabase (fires onblocked) and leaves a
+  // scheduled task that prevents jest's event loop from going idle — an open
+  // handle that hangs CI after coverage prints (jest runs without forceExit).
+  if (dbPromise) {
+    void dbPromise.then((db) => db.close()).catch(() => {});
+  }
   dbPromise = undefined;
   dirtyKeys.clear();
   inFlightFlush = undefined;
