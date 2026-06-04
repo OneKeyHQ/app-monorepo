@@ -155,8 +155,33 @@ function getPrivateSendRocketXOrderIdFromCtx(ctx: unknown) {
     : undefined;
 }
 
+function getPrivateSendPayinAddressFromCtx(ctx: unknown) {
+  const payinAddress = (ctx as { payinAddress?: unknown } | undefined)
+    ?.payinAddress;
+  return typeof payinAddress === 'string' && payinAddress
+    ? payinAddress
+    : undefined;
+}
+
 function isPrivateSendFallbackOrderId(orderId?: string) {
   return orderId?.startsWith(privateSendFallbackOrderIdPrefix) ?? false;
+}
+
+function getSwapHistoryStateReceivedAddress({
+  swapTxHistory,
+  isPrivateSendHistory,
+}: {
+  swapTxHistory: ISwapTxHistory;
+  isPrivateSendHistory: boolean;
+}) {
+  if (!isPrivateSendHistory) {
+    return swapTxHistory.txInfo.receiver || undefined;
+  }
+  return (
+    getPrivateSendPayinAddressFromCtx(swapTxHistory.ctx) ||
+    swapTxHistory.txInfo.receiver ||
+    undefined
+  );
 }
 
 function getSwapHistoryStateOrderId({
@@ -1661,9 +1686,9 @@ export default class ServiceSwap extends ServiceBase {
         ? i.txInfo.orderId === item.txInfo.orderId
         : i.txInfo.txId === item.txInfo.txId;
     const oldItem = filteredList.find(matchFn);
+    const updated = Date.now();
+    item.date = { ...item.date, updated };
     if (oldItem) {
-      const updated = Date.now();
-      item.date = { ...item.date, updated };
       if (
         oldItem.status === ESwapTxHistoryStatus.CANCELING &&
         item.status === ESwapTxHistoryStatus.SUCCESS
@@ -1684,7 +1709,6 @@ export default class ServiceSwap extends ServiceBase {
           item.txInfo.receiverTransactionId
         ] = true;
       }
-      await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
       await inAppNotificationAtom.set((pre) => {
         const newPendingList = filterSwapHistoryPendingList(
           pre.swapHistoryPendingList,
@@ -1731,6 +1755,7 @@ export default class ServiceSwap extends ServiceBase {
         });
       }
     }
+    await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
   }
 
   @backgroundMethod()
@@ -1864,6 +1889,10 @@ export default class ServiceSwap extends ServiceBase {
       swapTxHistory: currentSwapTxHistory,
       isPrivateSendHistory,
     });
+    const stateReceivedAddress = getSwapHistoryStateReceivedAddress({
+      swapTxHistory: currentSwapTxHistory,
+      isPrivateSendHistory,
+    });
     try {
       const txStatusRes = await this.fetchTxState({
         txId:
@@ -1880,7 +1909,7 @@ export default class ServiceSwap extends ServiceBase {
         networkId: currentSwapTxHistory.baseInfo.fromToken.networkId,
         ctx: currentSwapTxHistory.ctx,
         toTokenAddress: currentSwapTxHistory.baseInfo.toToken.contractAddress,
-        receivedAddress: currentSwapTxHistory.txInfo.receiver,
+        receivedAddress: stateReceivedAddress,
         orderId: stateOrderId,
       });
       if (
