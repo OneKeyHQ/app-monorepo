@@ -1,9 +1,8 @@
 import { isString } from 'lodash';
 
-import { ETranslations } from '../../locale';
-import type { ETranslationsMock } from '../../locale';
-import type { IOneKeyErrorI18nInfo } from '../types/errorTypes';
+import { ETranslations, type ETranslationsMock } from '../../locale';
 
+import type { IOneKeyErrorI18nInfo } from '../types/errorTypes';
 import type { IntlShape } from 'react-intl';
 
 /**
