@@ -33,10 +33,7 @@ function doTaskInFolder({ folder }) {
     $('html head script').each((idx, ele) => {
       const $ele = $(ele);
       const src = $ele.attr('src');
-      if (
-        !src.includes('preload-html-head.js') &&
-        !src.includes('react-render-tracker')
-      ) {
+      if (!src.includes('preload-html-head.js')) {
         srcList.push(src);
         $ele.remove();
       }

@@ -5,7 +5,6 @@ export class PerpTokenSelectorScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public perpTokenSelectorOpen(params: {
-    source: 'desktop' | 'mobileTicker' | 'mobileMarketHeader';
     currentToken: string;
     tradeMode: 'perp' | 'spot';
   }) {

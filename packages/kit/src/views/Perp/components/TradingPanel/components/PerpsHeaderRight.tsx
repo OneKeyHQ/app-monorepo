@@ -15,33 +15,24 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  usePerpsActiveOpenOrdersAtom,
-  usePerpsActivePositionAtom,
-  usePerpsAllAssetCtxsAtom,
-  usePerpsAllMidsAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useShowPortfolio } from '@onekeyhq/kit/src/views/Perp/hooks/useShowPortfolio';
 import {
   getPerpsAccountDisplaySnapshotEntry,
+  perpsActiveAccountAtom,
+  perpsActiveAccountStatusAtom,
+  perpsActiveAssetAtom,
+  perpsActiveAssetCtxAtom,
+  perpsActiveAssetDataAtom,
+  perpsActiveOrderBookOptionsAtom,
   usePerpsAccountDisplayReadyAtom,
   usePerpsAccountDisplaySnapshotAtom,
   usePerpsActiveAccountAtom,
-  usePerpsActiveAccountIsAgentReadyAtom,
-  usePerpsActiveAccountStatusAtom,
-  usePerpsActiveAccountSummaryAtom,
-  usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
-  usePerpsActiveAssetDataAtom,
-  usePerpsActiveOrderBookOptionsAtom,
   usePerpsComputedAccountValueAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
-import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
-import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { PerpTestIDs } from '../../../testIDs';
 import {
   type IPerpsMobileLayoutTraceRect,
@@ -58,23 +49,6 @@ import { PerpsAccountNumberValue } from './PerpsAccountNumberValue';
 import type { LayoutChangeEvent } from 'react-native';
 
 function DebugButton() {
-  const [allMids] = usePerpsAllMidsAtom();
-  const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
-  const { assetCtx: btcAssetCtx } = usePerpsAssetCtx({ assetId: 0 });
-  const { mid: btcMid, midFormattedByDecimals: btcMidFormattedByDecimals } =
-    usePerpsMidPrice({ coin: 'BTC' });
-
-  const [activeAccount] = usePerpsActiveAccountAtom();
-  const [activeAccountSummary] = usePerpsActiveAccountSummaryAtom();
-  const [activeAccountStatus] = usePerpsActiveAccountStatusAtom();
-  const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
-  const [activeAsset] = usePerpsActiveAssetAtom();
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
-  const [activeAssetData] = usePerpsActiveAssetDataAtom();
-  const [activeOpenOrders] = usePerpsActiveOpenOrdersAtom();
-  const [activePositions] = usePerpsActivePositionAtom();
-  const [activeOrderBookOptions] = usePerpsActiveOrderBookOptionsAtom();
-
   return (
     <DebugRenderTracker name="PerpsHeaderRight__DebugButton">
       <IconButton
@@ -83,25 +57,31 @@ function DebugButton() {
         size="small"
         variant="tertiary"
         onPress={async () => {
-          const simpleDbPerpData =
-            await backgroundApiProxy.simpleDb.perp.getPerpData();
-          console.log('PerpsHeaderRight__DebugButton', {
+          const [
             simpleDbPerpData,
-            allMids,
-            allAssetCtxs,
-            btcAssetCtx,
-            btcMidFormattedByDecimals,
-            btcMid,
             activeAccount,
-            activeAccountSummary,
+            activeAccountStatus,
             activeAsset,
             activeAssetCtx,
             activeAssetData,
-            activeOpenOrders,
-            activePositions,
             activeOrderBookOptions,
+          ] = await Promise.all([
+            backgroundApiProxy.simpleDb.perp.getPerpData(),
+            perpsActiveAccountAtom.get(),
+            perpsActiveAccountStatusAtom.get(),
+            perpsActiveAssetAtom.get(),
+            perpsActiveAssetCtxAtom.get(),
+            perpsActiveAssetDataAtom.get(),
+            perpsActiveOrderBookOptionsAtom.get(),
+          ]);
+          console.log('PerpsHeaderRight__DebugButton', {
+            simpleDbPerpData,
+            activeAccount,
             activeAccountStatus,
-            isAgentReady,
+            activeAsset,
+            activeAssetCtx,
+            activeAssetData,
+            activeOrderBookOptions,
           });
         }}
       />

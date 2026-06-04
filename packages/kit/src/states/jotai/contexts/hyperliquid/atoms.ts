@@ -145,6 +145,30 @@ export const { atom: l2BookAtom, use: useL2BookAtom } =
 export const { atom: bboAtom, use: useBboAtom } =
   contextAtom<IPerpsBboWithLocalReceivedAt | null>(null);
 
+export const bboForOrderPriceAtomCache = new Map<
+  string,
+  ReturnType<typeof contextAtomComputed<IPerpsBboWithLocalReceivedAt | null>>
+>();
+
+function getOrCreateBboForOrderPriceAtom(enabled: boolean) {
+  const key = enabled ? 'enabled' : 'disabled';
+  let entry = bboForOrderPriceAtomCache.get(key);
+  if (!entry) {
+    const selectedAtom = selectAtom(bboAtom(), (bbo) => (enabled ? bbo : null));
+    entry = contextAtomComputed((get) => get(selectedAtom));
+    bboForOrderPriceAtomCache.set(key, entry);
+  }
+  return entry;
+}
+
+export function useBboForOrderPrice(
+  enabled: boolean,
+): IPerpsBboWithLocalReceivedAt | null {
+  const { use } = getOrCreateBboForOrderPriceAtom(enabled);
+  const [bbo] = use();
+  return bbo;
+}
+
 // TODO remove
 export const { atom: connectionStateAtom, use: useConnectionStateAtom } =
   contextAtom<IConnectionState>({
@@ -299,6 +323,181 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     twapRandomize: true,
     twapReduceOnly: false,
   });
+
+export type ITradingFormOrderPriceParams = Pick<
+  ITradingFormData,
+  | 'type'
+  | 'price'
+  | 'bboPriceMode'
+  | 'orderMode'
+  | 'triggerOrderType'
+  | 'triggerPrice'
+  | 'executionPrice'
+  | 'scaleLowerPrice'
+  | 'scaleUpperPrice'
+>;
+
+export type ITradingFormCalculationParams = Pick<
+  ITradingFormData,
+  | 'orderMode'
+  | 'sizeInputMode'
+  | 'size'
+  | 'sizePercent'
+  | 'scaleReduceOnly'
+  | 'twapReduceOnly'
+>;
+
+export type ITradingFormEmptySizeParams = Pick<
+  ITradingFormData,
+  'orderMode' | 'bboPriceMode' | 'sizeInputMode' | 'size' | 'sizePercent'
+>;
+
+function isBboPriceModeEqual(
+  a: IBBOPriceMode | undefined,
+  b: IBBOPriceMode | undefined,
+) {
+  if (a === b) {
+    return true;
+  }
+  if (!a || !b) {
+    return false;
+  }
+  return a.type === b.type && a.level === b.level;
+}
+
+function isTradingFormOrderPriceParamsEqual(
+  a: ITradingFormOrderPriceParams,
+  b: ITradingFormOrderPriceParams,
+) {
+  return (
+    a.type === b.type &&
+    a.price === b.price &&
+    isBboPriceModeEqual(a.bboPriceMode, b.bboPriceMode) &&
+    a.orderMode === b.orderMode &&
+    a.triggerOrderType === b.triggerOrderType &&
+    a.triggerPrice === b.triggerPrice &&
+    a.executionPrice === b.executionPrice &&
+    a.scaleLowerPrice === b.scaleLowerPrice &&
+    a.scaleUpperPrice === b.scaleUpperPrice
+  );
+}
+
+function isTradingFormCalculationParamsEqual(
+  a: ITradingFormCalculationParams,
+  b: ITradingFormCalculationParams,
+) {
+  return (
+    a.orderMode === b.orderMode &&
+    a.sizeInputMode === b.sizeInputMode &&
+    a.size === b.size &&
+    a.sizePercent === b.sizePercent &&
+    a.scaleReduceOnly === b.scaleReduceOnly &&
+    a.twapReduceOnly === b.twapReduceOnly
+  );
+}
+
+function isTradingFormEmptySizeParamsEqual(
+  a: ITradingFormEmptySizeParams,
+  b: ITradingFormEmptySizeParams,
+) {
+  return (
+    a.orderMode === b.orderMode &&
+    isBboPriceModeEqual(a.bboPriceMode, b.bboPriceMode) &&
+    a.sizeInputMode === b.sizeInputMode &&
+    a.size === b.size &&
+    a.sizePercent === b.sizePercent
+  );
+}
+
+const tradingFormSideSelectedAtom = selectAtom(
+  tradingFormAtom(),
+  (form) => form.side,
+);
+
+const tradingFormOrderPriceParamsSelectedAtom = selectAtom(
+  tradingFormAtom(),
+  (form, prev?: ITradingFormOrderPriceParams) => {
+    const next = {
+      type: form.type,
+      price: form.price,
+      bboPriceMode: form.bboPriceMode,
+      orderMode: form.orderMode,
+      triggerOrderType: form.triggerOrderType,
+      triggerPrice: form.triggerPrice,
+      executionPrice: form.executionPrice,
+      scaleLowerPrice: form.scaleLowerPrice,
+      scaleUpperPrice: form.scaleUpperPrice,
+    };
+    return prev && isTradingFormOrderPriceParamsEqual(prev, next) ? prev : next;
+  },
+);
+
+const tradingFormCalculationParamsSelectedAtom = selectAtom(
+  tradingFormAtom(),
+  (form, prev?: ITradingFormCalculationParams) => {
+    const next = {
+      orderMode: form.orderMode,
+      sizeInputMode: form.sizeInputMode,
+      size: form.size,
+      sizePercent: form.sizePercent,
+      scaleReduceOnly: form.scaleReduceOnly,
+      twapReduceOnly: form.twapReduceOnly,
+    };
+    return prev && isTradingFormCalculationParamsEqual(prev, next)
+      ? prev
+      : next;
+  },
+);
+
+const tradingFormEmptySizeParamsSelectedAtom = selectAtom(
+  tradingFormAtom(),
+  (form, prev?: ITradingFormEmptySizeParams) => {
+    const next = {
+      orderMode: form.orderMode,
+      bboPriceMode: form.bboPriceMode,
+      sizeInputMode: form.sizeInputMode,
+      size: form.size,
+      sizePercent: form.sizePercent,
+    };
+    return prev && isTradingFormEmptySizeParamsEqual(prev, next) ? prev : next;
+  },
+);
+
+const { use: useTradingFormSideAtom } = contextAtomComputed((get) =>
+  get(tradingFormSideSelectedAtom),
+);
+
+const { use: useTradingFormOrderPriceParamsAtom } = contextAtomComputed((get) =>
+  get(tradingFormOrderPriceParamsSelectedAtom),
+);
+
+const { use: useTradingFormCalculationParamsAtom } = contextAtomComputed(
+  (get) => get(tradingFormCalculationParamsSelectedAtom),
+);
+
+const { use: useTradingFormEmptySizeParamsAtom } = contextAtomComputed((get) =>
+  get(tradingFormEmptySizeParamsSelectedAtom),
+);
+
+export function useTradingFormSide(): ITradingFormData['side'] {
+  const [side] = useTradingFormSideAtom();
+  return side;
+}
+
+export function useTradingFormOrderPriceParams(): ITradingFormOrderPriceParams {
+  const [params] = useTradingFormOrderPriceParamsAtom();
+  return params;
+}
+
+export function useTradingFormCalculationParams(): ITradingFormCalculationParams {
+  const [params] = useTradingFormCalculationParamsAtom();
+  return params;
+}
+
+export function useTradingFormEmptySizeParams(): ITradingFormEmptySizeParams {
+  const [params] = useTradingFormEmptySizeParamsAtom();
+  return params;
+}
 
 export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =
   contextAtom<boolean>(false);
@@ -602,6 +801,67 @@ export const {
     sliderEnabled: maxSizeBN.isFinite() && maxSizeBN.gte(0),
   };
 });
+
+export interface ITradingFormSizeInputComputed {
+  sizeInputMode: EPerpsSizeInputMode;
+  sizePercent: number;
+  sliderEnabled: boolean;
+}
+
+function isTradingFormSizeInputComputedEqual(
+  a: ITradingFormSizeInputComputed,
+  b: ITradingFormSizeInputComputed,
+) {
+  return (
+    a.sizeInputMode === b.sizeInputMode &&
+    a.sizePercent === b.sizePercent &&
+    a.sliderEnabled === b.sliderEnabled
+  );
+}
+
+function isBigNumberValueEqual(a: BigNumber, b: BigNumber) {
+  return a.toFixed() === b.toFixed();
+}
+
+const tradingFormSizeInputComputedSelectedAtom = selectAtom(
+  tradingFormComputedAtom(),
+  (computed, prev?: ITradingFormSizeInputComputed) => {
+    const next = {
+      sizeInputMode: computed.sizeInputMode,
+      sizePercent: computed.sizePercent,
+      sliderEnabled: computed.sliderEnabled,
+    };
+    return prev && isTradingFormSizeInputComputedEqual(prev, next)
+      ? prev
+      : next;
+  },
+);
+
+const { use: useTradingFormSizeInputComputedAtom } = contextAtomComputed(
+  (get) => get(tradingFormSizeInputComputedSelectedAtom),
+);
+
+export function useTradingFormSizeInputComputed(): ITradingFormSizeInputComputed {
+  const [computed] = useTradingFormSizeInputComputedAtom();
+  return computed;
+}
+
+const tradingFormComputedSizeSelectedAtom = selectAtom(
+  tradingFormComputedAtom(),
+  (computed, prev?: BigNumber) => {
+    const next = computed.computedSizeBN;
+    return prev && isBigNumberValueEqual(prev, next) ? prev : next;
+  },
+);
+
+const { use: useTradingFormComputedSizeAtom } = contextAtomComputed((get) =>
+  get(tradingFormComputedSizeSelectedAtom),
+);
+
+export function useTradingFormComputedSize(): BigNumber {
+  const [computedSize] = useTradingFormComputedSizeAtom();
+  return computedSize;
+}
 
 // Field-by-field equality for IPerpsAssetCtx (all primitive strings + one string[] | null).
 // Used by selectAtom to return the previous reference when data is unchanged,

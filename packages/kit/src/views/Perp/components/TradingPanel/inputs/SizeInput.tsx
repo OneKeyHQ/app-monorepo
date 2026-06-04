@@ -4,10 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Divider, Icon, SizableText, XStack } from '@onekeyhq/components';
-import type {
-  IPerpsActiveAssetAtom,
-  IPerpsActiveAssetCtxAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePerpsTradingPreferencesAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -29,7 +26,7 @@ interface ISizeInputProps {
   symbol: string;
   onChange: (value: string) => void;
   activeAsset: IPerpsActiveAssetAtom;
-  activeAssetCtx: IPerpsActiveAssetCtxAtom;
+  isAssetCtxReady: boolean;
   referencePrice: string;
   sizeInputMode: EPerpsSizeInputMode;
   sliderPercent: number;
@@ -48,7 +45,7 @@ export const SizeInput = memo(
     onChange,
     symbol,
     activeAsset,
-    activeAssetCtx,
+    isAssetCtxReady,
     referencePrice,
     sizeInputMode,
     sliderPercent,
@@ -63,7 +60,7 @@ export const SizeInput = memo(
   }: ISizeInputProps) => {
     const intl = useIntl();
     const szDecimals = activeAsset?.universe?.szDecimals ?? 2;
-    const isDisabled = disabled || !activeAssetCtx || !activeAsset;
+    const isDisabled = disabled || !isAssetCtxReady || !activeAsset;
 
     const [tradingPreferences, setTradingPreferences] =
       usePerpsTradingPreferencesAtom();

@@ -3134,6 +3134,7 @@ export enum ETranslations {
   perp_enable_trading_steps_agent_removal__desc = 'perp_enable_trading_steps_agent_removal__desc',
   perp_enable_trading_steps_builder_fee__desc = 'perp_enable_trading_steps_builder_fee__desc',
   perp_enable_trading_steps_summary__desc = 'perp_enable_trading_steps_summary__desc',
+  perp_enable_trading_steps_summary_v2__desc = 'perp_enable_trading_steps_summary_v2__desc',
   perp_enable_trading_steps_wallet_confirmation__desc = 'perp_enable_trading_steps_wallet_confirmation__desc',
   perp_enable_trading_steps_wallet_confirmations__desc = 'perp_enable_trading_steps_wallet_confirmations__desc',
   perp_executed_size__title = 'perp_executed_size__title',
