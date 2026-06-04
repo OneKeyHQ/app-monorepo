@@ -5,10 +5,8 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Button,
   Divider,
-  Heading,
   Page,
   ScrollView,
   SizableText,
@@ -16,8 +14,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { ColorTokens } from '@onekeyhq/components';
+import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { RECEIVE_RISK_MONITORING_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, EModalWebViewRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
@@ -28,7 +30,12 @@ import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 
 import type { RouteProp } from '@react-navigation/core';
 
-const LEVEL_TEXT_COLOR: Record<string, ColorTokens> = {
+const DEFAULT_LEVEL_CONTENT = {
+  title: ETranslations.kyt_risk_check_failed__title,
+  description: ETranslations.kyt_risk_check_failed__desc,
+};
+
+const LEVEL_TEXT_COLOR: Record<EKytRiskLevel, ColorTokens> = {
   [EKytRiskLevel.None]: '$textSuccess',
   [EKytRiskLevel.Checking]: '$textSubdued',
   [EKytRiskLevel.Failed]: '$textSubdued',
@@ -36,21 +43,6 @@ const LEVEL_TEXT_COLOR: Record<string, ColorTokens> = {
   [EKytRiskLevel.Moderate]: '$textCaution',
   [EKytRiskLevel.High]: '$textCaution',
   [EKytRiskLevel.Severe]: '$textCritical',
-};
-
-const LEVEL_LABEL: Partial<Record<EKytRiskLevel, ETranslations>> = {
-  [EKytRiskLevel.None]: ETranslations.kyt_risk_level_none__title,
-  [EKytRiskLevel.Checking]: ETranslations.kyt_risk_level_checking__title,
-  [EKytRiskLevel.Failed]: ETranslations.global_failed,
-  [EKytRiskLevel.Low]: ETranslations.kyt_risk_level_low__title,
-  [EKytRiskLevel.Moderate]: ETranslations.kyt_risk_level_moderate__title,
-  [EKytRiskLevel.High]: ETranslations.kyt_risk_level_high__title,
-  [EKytRiskLevel.Severe]: ETranslations.kyt_risk_level_severe__title,
-};
-
-const DEFAULT_LEVEL_CONTENT = {
-  title: ETranslations.kyt_risk_check_failed__title,
-  description: ETranslations.kyt_risk_check_failed__desc,
 };
 
 const LEVEL_CONTENT: Partial<
@@ -184,6 +176,7 @@ function RiskFactorCard({ factor }: { factor: IKytRiskFactor }) {
 
 function KytRiskDetail() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const route =
     useRoute<
       RouteProp<
@@ -199,8 +192,6 @@ function KytRiskDetail() {
     () => LEVEL_CONTENT[riskDetail.level] ?? DEFAULT_LEVEL_CONTENT,
     [riskDetail.level],
   );
-  const levelLabel =
-    LEVEL_LABEL[riskDetail.level] ?? ETranslations.global_unknown;
 
   const visibleFactors = useMemo(() => {
     if (showAllFactors) return riskDetail.factors;
@@ -215,87 +206,93 @@ function KytRiskDetail() {
     }
   }, [riskDetail.reportUrl]);
 
+  const headerRight = useCallback(
+    () => (
+      <HeaderIconButton
+        icon="QuestionmarkOutline"
+        onPress={() => {
+          navigation.pushModal(EModalRoutes.WebViewModal, {
+            screen: EModalWebViewRoutes.WebView,
+            params: {
+              url: RECEIVE_RISK_MONITORING_HELP_LINK,
+              title: intl.formatMessage({
+                id: ETranslations.prime_feature_receive_risk_monitoring__title,
+              }),
+            },
+          });
+        }}
+      />
+    ),
+    [intl, navigation],
+  );
+
   return (
     <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.kyt_source_of_funds_risk_check__title,
         })}
+        headerRight={headerRight}
       />
       <Page.Body>
         <ScrollView>
-          <YStack px="$5" py="$3" gap="$1.5">
-            <Heading size="$headingXl">
-              {intl.formatMessage({ id: content.title })}
-            </Heading>
-            <SizableText size="$bodyLg">
-              {intl.formatMessage({ id: content.description })}
-            </SizableText>
-          </YStack>
-
-          <YStack px="$5" pb="$5" gap="$2">
-            {/* Overview */}
-            <YStack
-              borderWidth={1}
-              borderColor="$borderSubdued"
-              borderRadius="$3"
-              overflow="hidden"
-            >
-              <CardRow
-                label={intl.formatMessage({
-                  id: ETranslations.kyt_risk_level__title,
-                })}
+          <XStack alignItems="flex-start" gap="$6" padding="$5">
+            <YStack flex={1} gap="$0.5" minWidth={0}>
+              <SizableText
+                size="$heading2xl"
+                color={LEVEL_TEXT_COLOR[riskDetail.level] ?? '$text'}
+                numberOfLines={1}
               >
-                <SizableText
-                  size="$bodyMdMedium"
-                  color={LEVEL_TEXT_COLOR[riskDetail.level] ?? '$text'}
-                  textAlign="right"
-                >
-                  {intl.formatMessage({ id: levelLabel })}
-                </SizableText>
-              </CardRow>
-              <Divider />
-              <CardRow
-                label={intl.formatMessage({
-                  id: ETranslations.kyt_last_checked__title,
-                })}
+                {intl.formatMessage({ id: content.title })}
+              </SizableText>
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                numberOfLines={2}
               >
-                <SizableText size="$bodyMdMedium" textAlign="right">
-                  {riskDetail.checkedAt}
-                </SizableText>
-              </CardRow>
-              <Divider />
-              <CardRow
-                label={intl.formatMessage({ id: ETranslations.global_asset })}
-              >
-                <XStack ai="center" gap="$1.5">
-                  <Token
-                    size="sm"
-                    tokenImageUri={riskDetail.asset.tokenImageUri}
-                  />
-                  <SizableText size="$bodyMdMedium">
-                    {riskDetail.asset.symbol}
+                {intl.formatMessage({ id: content.description })}
+              </SizableText>
+              {riskDetail.checkedAt ? (
+                <XStack ai="center" gap="$1" flexWrap="wrap">
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.kyt_last_checked__title,
+                    })}
                   </SizableText>
-                  <Badge badgeType="default" badgeSize="sm">
-                    {riskDetail.asset.networkName}
-                  </Badge>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {riskDetail.checkedAt}
+                  </SizableText>
                 </XStack>
-              </CardRow>
-              <Divider />
-              <CardRow
-                label={intl.formatMessage({
-                  id: ETranslations.kyt_transfer__title,
-                })}
-              >
-                <SizableText size="$bodyMdMedium" textAlign="right">
-                  {riskDetail.transferAmount}
-                </SizableText>
-              </CardRow>
+              ) : null}
             </YStack>
+            <YStack ai="flex-end" gap="$0.5" flexShrink={0}>
+              <XStack ai="center" gap="$1.5">
+                <Token
+                  size="sm"
+                  tokenImageUri={riskDetail.asset.tokenImageUri}
+                />
+                <SizableText size="$bodyMdMedium" numberOfLines={1}>
+                  {riskDetail.transferAmount || riskDetail.asset.symbol}
+                </SizableText>
+              </XStack>
+              <YStack ai="flex-end">
+                {riskDetail.asset.networkName ? (
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                  >
+                    {riskDetail.asset.networkName}
+                  </SizableText>
+                ) : null}
+              </YStack>
+            </YStack>
+          </XStack>
 
-            {/* Risk Factors */}
-            {riskDetail.factors.length > 0 ? (
-              <YStack gap="$1">
+          {riskDetail.factors.length > 0 ? (
+            <>
+              <Divider mx="$5" />
+              <YStack px="$5" pb="$5" gap="$1">
                 <XStack ai="center" jc="space-between" py="$2">
                   <SizableText size="$headingSm" color="$textSubdued">
                     {intl.formatMessage({
@@ -331,17 +328,26 @@ function KytRiskDetail() {
                   </XStack>
                 ) : null}
               </YStack>
-            ) : null}
-          </YStack>
-
-          {/* Footer */}
-          <YStack px="$5" pb="$5" gap="$2.5">
+            </>
+          ) : null}
+        </ScrollView>
+      </Page.Body>
+      {riskDetail.reportUrl ? (
+        <Page.Footer>
+          <YStack
+            px="$5"
+            pt="$3"
+            pb="$5"
+            gap="$2.5"
+            bg="$bgApp"
+            borderTopWidth={1}
+            borderTopColor="$borderSubdued"
+          >
             <Button
               testID="kyt-view-report"
               variant="secondary"
               size="large"
-              icon="ArrowTopRightOutline"
-              iconAfter
+              iconAfter="ArrowTopRightOutline"
               onPress={handleViewReport}
             >
               {intl.formatMessage({
@@ -354,8 +360,8 @@ function KytRiskDetail() {
               })}
             </SizableText>
           </YStack>
-        </ScrollView>
-      </Page.Body>
+        </Page.Footer>
+      ) : null}
     </Page>
   );
 }
