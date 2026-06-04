@@ -39,14 +39,20 @@ import {
   jotaiContextStore,
 } from './jotaiContextStore';
 
+type IGlobalColdStartSnapshot = typeof globalThis & {
+  __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
+};
+
+function getColdStartSnapshot() {
+  return (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__;
+}
+
 function hasPerpsColdStartSnapshot() {
   if (!platformEnv.isNative && !platformEnv.isDesktop) {
     return false;
   }
 
-  const snapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
-    | Record<string, unknown>
-    | undefined;
+  const snapshot = getColdStartSnapshot();
   if (!snapshot) {
     return false;
   }
@@ -61,6 +67,27 @@ function hasPerpsColdStartSnapshot() {
   );
 }
 
+function hasSwapColdStartSnapshot() {
+  if (!platformEnv.isNative && !platformEnv.isDesktop) {
+    return false;
+  }
+
+  const snapshot = getColdStartSnapshot();
+  if (!snapshot) {
+    return false;
+  }
+
+  const swapColdStartCacheKeys = [
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTipsStateAtom,
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
+  ];
+  return Object.keys(snapshot).some((key) =>
+    swapColdStartCacheKeys.some((cacheKey) => key.endsWith(`::${cacheKey}`)),
+  );
+}
+
 const PerpsColdStartRootProvider = memo(() => {
   const shouldMount = useMemo(() => hasPerpsColdStartSnapshot(), []);
   if (!shouldMount) {
@@ -70,6 +97,16 @@ const PerpsColdStartRootProvider = memo(() => {
   return <PerpsRootProvider />;
 });
 PerpsColdStartRootProvider.displayName = 'PerpsColdStartRootProvider';
+
+const SwapColdStartRootProvider = memo(() => {
+  const shouldMount = useMemo(() => hasSwapColdStartSnapshot(), []);
+  if (!shouldMount) {
+    return null;
+  }
+
+  return <SwapRootProvider />;
+});
+SwapColdStartRootProvider.displayName = 'SwapColdStartRootProvider';
 
 // AccountSelectorMapTracker
 export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
@@ -147,6 +184,7 @@ function JotaiContextRootProvidersAutoMountCmp() {
   }
   return (
     <>
+      <SwapColdStartRootProvider />
       <PerpsColdStartRootProvider />
       {mapEntries.map(([key, value]) => {
         const { accountSelectorInfo, count, storeName } = value;

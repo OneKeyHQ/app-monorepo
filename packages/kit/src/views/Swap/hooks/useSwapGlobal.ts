@@ -621,8 +621,22 @@ export function useSwapInit(params?: ISwapInitParams) {
       const simpleDbTips =
         await backgroundApiProxy.simpleDb.swapConfigs.getSwapUserCloseTips();
       if (tips && !simpleDbTips.includes(tips.tipsId)) {
-        setSwapTips(tips);
+        setSwapTips({
+          tips,
+          status: 'ready',
+          updatedAt: Date.now(),
+        });
+        return;
       }
+      setSwapTips((prev) => {
+        if (!tips && prev.status === 'ready' && prev.tips) {
+          return prev;
+        }
+        return {
+          status: 'empty',
+          updatedAt: Date.now(),
+        };
+      });
     })();
   }, [setSwapTips]);
 

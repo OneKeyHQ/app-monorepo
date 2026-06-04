@@ -166,6 +166,8 @@ const SwapInputContainer = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const [, setInAppNotification] = useInAppNotificationAtom();
+  const tokenSelectorMinWidth = platformEnv.isNative ? 112 : 132;
+  const showTokenSelectorSkeleton = selectTokenLoading && !token?.symbol;
 
   const fromInputHasError = useMemo(() => {
     const accountError =
@@ -352,7 +354,9 @@ const SwapInputContainer = ({
             direction === ESwapDirectionType.FROM
               ? SwapTestIDs.fromTokenSelector
               : SwapTestIDs.toTokenSelector,
-          loading: selectTokenLoading,
+          minWidth: tokenSelectorMinWidth,
+          justifyContent: 'flex-end',
+          loading: showTokenSelectorSkeleton,
           selectedTokenImageUri: token?.logoURI,
           selectedTokenSymbol: token?.symbol,
           onPress: () => {

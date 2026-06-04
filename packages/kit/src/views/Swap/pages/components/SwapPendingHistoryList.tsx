@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
+  filterSwapHistoryPendingList,
   useInAppNotificationAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -55,15 +56,16 @@ const SwapPendingHistoryListComponent = ({
     [swapHistoryPendingList],
   );
   const listData = useMemo(() => {
-    const pendingData =
-      swapTxHistoryList?.filter(
-        (item) =>
-          !isPrivateSendSwapHistoryItem(item) &&
-          (item.status === ESwapTxHistoryStatus.PENDING ||
-            item.status === ESwapTxHistoryStatus.CANCELING),
-      ) ?? [];
+    const pendingData = filterSwapHistoryPendingList(
+      swapHistoryPendingList,
+    ).filter(
+      (item) =>
+        !isPrivateSendSwapHistoryItem(item) &&
+        (item.status === ESwapTxHistoryStatus.PENDING ||
+          item.status === ESwapTxHistoryStatus.CANCELING),
+    );
     return pendingData;
-  }, [swapTxHistoryList]);
+  }, [swapHistoryPendingList]);
   const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
   if (
     (!fromTokenAmountBN.isZero() && !fromTokenAmountBN.isNaN()) ||
