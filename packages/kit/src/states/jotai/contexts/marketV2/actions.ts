@@ -125,7 +125,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
-      if (!payload.tokenAddress && !tokenDetail.isNative) {
+      const isNative = get(isNativeAtom()) || tokenDetail.isNative;
+      if (!payload.tokenAddress && !isNative) {
         return;
       }
 
@@ -145,16 +146,23 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
+      const chartPriceUpdatedAt = Date.now();
+      const lastUpdated =
+        payload.lastUpdated ?? tokenDetail.lastUpdated ?? chartPriceUpdatedAt;
+
       if (tokenDetail.price === payload.price) {
+        set(tokenDetailAtom(), {
+          ...tokenDetail,
+          lastUpdated,
+          chartPriceUpdatedAt,
+        });
         return;
       }
-
-      const chartPriceUpdatedAt = Date.now();
 
       set(tokenDetailAtom(), {
         ...tokenDetail,
         price: payload.price,
-        lastUpdated: payload.lastUpdated ?? chartPriceUpdatedAt,
+        lastUpdated,
         chartPriceUpdatedAt,
       });
     },
