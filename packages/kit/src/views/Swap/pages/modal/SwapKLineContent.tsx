@@ -54,7 +54,7 @@ import {
 } from './swapKLineChartUtils';
 import {
   type ISwapKLineStableToken,
-  getDefaultSwapKLineSide,
+  getResolvableDefaultSwapKLineSide,
   isKnownSwapKLineUnsupportedToken,
 } from './swapKLineTokenUtils';
 
@@ -490,7 +490,7 @@ type ISwapKLineContentState = {
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
   primaryKLineDataUnavailable: boolean;
-  resolvedSelectedSide: ESwapDirectionType;
+  resolvedSelectedSide?: ESwapDirectionType;
   shouldForceEmptyKLineData: boolean;
   tokenMarketDetail?: IMarketTokenDetail;
   handlePrimaryKLineDataUnavailable: () => void;
@@ -503,7 +503,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   const stableTokens = useSwapKLineStableTokens({ fromToken, toToken });
   const defaultSide = useMemo(
     () =>
-      getDefaultSwapKLineSide({
+      getResolvableDefaultSwapKLineSide({
         fromToken,
         stableTokens,
         toToken,
@@ -525,8 +525,14 @@ function useSwapKLineContentState(): ISwapKLineContentState {
     return defaultSide;
   }, [defaultSide, fromToken, selectedSide, toToken]);
 
-  const selectedToken =
-    resolvedSelectedSide === ESwapDirectionType.FROM ? fromToken : toToken;
+  const selectedToken = useMemo(() => {
+    if (!resolvedSelectedSide) {
+      return undefined;
+    }
+    return resolvedSelectedSide === ESwapDirectionType.FROM
+      ? fromToken
+      : toToken;
+  }, [fromToken, resolvedSelectedSide, toToken]);
   const walletMarketInfo = useSwapKLineWalletMarketInfo(selectedToken);
   const tokenMarketDetail = useSwapKLineTokenMarketInfo(selectedToken);
   const {
@@ -541,7 +547,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
     isKnownSwapKLineUnsupportedToken(selectedToken);
 
   useEffect(() => {
-    if (hasTrackedOpenRef.current || !selectedToken) {
+    if (hasTrackedOpenRef.current || !selectedToken || !resolvedSelectedSide) {
       return;
     }
 
@@ -564,7 +570,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       const nextToken = side === ESwapDirectionType.FROM ? fromToken : toToken;
       if (nextToken) {
         defaultLogger.swap.swapKline.swapKlineTokenSwitch({
-          fromSide: resolvedSelectedSide,
+          fromSide: resolvedSelectedSide ?? side,
           toSide: side,
           tokenSymbol: nextToken.symbol,
           network: nextToken.networkId,
@@ -612,7 +618,7 @@ function SwapKLineHeaderRight({
   state: ISwapKLineContentState;
   compact?: boolean;
 }) {
-  if (!state.selectedToken) {
+  if (!state.selectedToken || !state.resolvedSelectedSide) {
     return null;
   }
 

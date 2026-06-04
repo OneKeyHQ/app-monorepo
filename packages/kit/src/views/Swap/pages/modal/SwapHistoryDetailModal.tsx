@@ -105,6 +105,10 @@ function getPrivateSendProgressStepStatuses({
     return ['done', 'done', 'done'];
   }
 
+  if (status === ESwapTxHistoryStatus.CANCELING) {
+    return ['done', 'process', 'todo'];
+  }
+
   if (
     extraStatus === ESwapExtraStatus.HOLD ||
     crossChainStatus === ESwapCrossChainStatus.REFUNDING
@@ -115,7 +119,6 @@ function getPrivateSendProgressStepStatuses({
   if (
     status === ESwapTxHistoryStatus.FAILED ||
     status === ESwapTxHistoryStatus.CANCELED ||
-    status === ESwapTxHistoryStatus.CANCELING ||
     extraStatus === ESwapExtraStatus.EXPIRED ||
     extraStatus === ESwapExtraStatus.REFUNDED ||
     crossChainStatus === ESwapCrossChainStatus.EXPIRED ||
@@ -127,6 +130,69 @@ function getPrivateSendProgressStepStatuses({
   }
 
   return ['done', 'process', 'todo'];
+}
+
+function getPrivateSendHistoryStatusTextProps({
+  status,
+  extraStatus,
+  crossChainStatus,
+}: {
+  status?: ESwapTxHistoryStatus;
+  extraStatus?: ESwapExtraStatus;
+  crossChainStatus?: ESwapCrossChainStatus;
+}) {
+  if (extraStatus === ESwapExtraStatus.HOLD) {
+    return getSwapHistoryStatusTextProps(
+      status ?? ESwapTxHistoryStatus.PENDING,
+      extraStatus,
+    );
+  }
+  if (extraStatus === ESwapExtraStatus.EXPIRED) {
+    return {
+      key: ETranslations.swap_history_detail_badge_expired,
+      color: '$textCritical',
+    } as const;
+  }
+  if (extraStatus === ESwapExtraStatus.REFUNDED) {
+    return {
+      key: ETranslations.swap_history_detail_badge_refunded,
+      color: '$textSuccess',
+    } as const;
+  }
+  if (
+    crossChainStatus === ESwapCrossChainStatus.EXPIRED ||
+    crossChainStatus === ESwapCrossChainStatus.PROVIDER_ERROR ||
+    crossChainStatus === ESwapCrossChainStatus.REFUNDED ||
+    crossChainStatus === ESwapCrossChainStatus.REFUND_FAILED ||
+    crossChainStatus === ESwapCrossChainStatus.REFUNDING
+  ) {
+    return getSwapCrossChainStatusTextProps(crossChainStatus);
+  }
+  if (
+    status === ESwapTxHistoryStatus.CANCELED ||
+    status === ESwapTxHistoryStatus.CANCELING
+  ) {
+    return getSwapHistoryStatusTextProps(status);
+  }
+  if (
+    status === ESwapTxHistoryStatus.SUCCESS ||
+    status === ESwapTxHistoryStatus.PARTIALLY_FILLED
+  ) {
+    return {
+      key: ETranslations.private_send_done,
+      color: '$textSuccess',
+    } as const;
+  }
+  if (status === ESwapTxHistoryStatus.FAILED) {
+    return {
+      key: ETranslations.private_send_failed,
+      color: '$textCritical',
+    } as const;
+  }
+  return {
+    key: ETranslations.private_send_pending,
+    color: '$textCaution',
+  } as const;
 }
 
 function PrivateSendProgressStatusIcon({
@@ -144,7 +210,12 @@ function PrivateSendProgressStatusIcon({
 
   if (status === 'process') {
     return (
-      <Stack w="$6" h="$6" alignItems="center" justifyContent="center">
+      <Stack
+        w={privateSendProgressStepIconSize}
+        h={privateSendProgressStepIconSize}
+        alignItems="center"
+        justifyContent="center"
+      >
         <Stack
           w="$5"
           h="$5"
@@ -164,7 +235,12 @@ function PrivateSendProgressStatusIcon({
   }
 
   return (
-    <Stack w="$6" h="$6" alignItems="center" justifyContent="center">
+    <Stack
+      w={privateSendProgressStepIconSize}
+      h={privateSendProgressStepIconSize}
+      alignItems="center"
+      justifyContent="center"
+    >
       <Stack
         w="$5"
         h="$5"
@@ -234,7 +310,12 @@ function PrivateSendProgressStep({
   const intl = useIntl();
   return (
     <Stack w={privateSendProgressStepLabelWidth} alignItems="center">
-      <Stack w="$6" h="$6" alignItems="center" justifyContent="center">
+      <Stack
+        w={privateSendProgressStepIconSize}
+        h={privateSendProgressStepIconSize}
+        alignItems="center"
+        justifyContent="center"
+      >
         <PrivateSendProgressStatusIcon status={status} />
       </Stack>
       <SizableText
@@ -242,7 +323,7 @@ function PrivateSendProgressStep({
         size="$bodySm"
         color="$textSubdued"
         width={privateSendProgressStepLabelWidth}
-        numberOfLines={1}
+        numberOfLines={2}
         textAlign="center"
       >
         {intl.formatMessage({ id: label })}
@@ -468,26 +549,30 @@ const SwapHistoryDetailModal = () => {
 
     let cancelled = false;
     void (async () => {
-      const price = await fetchPrivateSendTokenPrice(txHistory);
-      if (!price || cancelled) {
-        return;
-      }
+      try {
+        const price = await fetchPrivateSendTokenPrice(txHistory);
+        if (!price || cancelled) {
+          return;
+        }
 
-      const nextTxHistory = applyPrivateSendTokenPrice({
-        item: txHistory,
-        price,
-      });
-      setTxHistoryListState((prev) =>
-        prev?.map((item) =>
-          item.swapInfo.orderId === nextTxHistory.swapInfo.orderId
-            ? nextTxHistory
-            : item,
-        ),
-      );
-      await backgroundApiProxy.serviceSwap.updateSwapHistoryItem(
-        nextTxHistory,
-        { shouldShowToast: false },
-      );
+        const nextTxHistory = applyPrivateSendTokenPrice({
+          item: txHistory,
+          price,
+        });
+        setTxHistoryListState((prev) =>
+          prev?.map((item) =>
+            item.swapInfo.orderId === nextTxHistory.swapInfo.orderId
+              ? nextTxHistory
+              : item,
+          ),
+        );
+        await backgroundApiProxy.serviceSwap.updateSwapHistoryItem(
+          nextTxHistory,
+          { shouldShowToast: false },
+        );
+      } catch {
+        // Price backfill is best-effort and should not affect history details.
+      }
     })();
 
     return () => {
@@ -672,58 +757,11 @@ const SwapHistoryDetailModal = () => {
   const renderSwapOrderStatus = useCallback(() => {
     const { crossChainStatus, extraStatus, status } = txHistory ?? {};
     if (isPrivateSendHistory) {
-      const statusTextProps = (() => {
-        if (extraStatus === ESwapExtraStatus.HOLD) {
-          return getSwapHistoryStatusTextProps(
-            status ?? ESwapTxHistoryStatus.PENDING,
-            extraStatus,
-          );
-        }
-        if (extraStatus === ESwapExtraStatus.EXPIRED) {
-          return {
-            key: ETranslations.swap_history_detail_badge_expired,
-            color: '$textCritical',
-          } as const;
-        }
-        if (extraStatus === ESwapExtraStatus.REFUNDED) {
-          return {
-            key: ETranslations.swap_history_detail_badge_refunded,
-            color: '$textSuccess',
-          } as const;
-        }
-        if (
-          crossChainStatus === ESwapCrossChainStatus.EXPIRED ||
-          crossChainStatus === ESwapCrossChainStatus.PROVIDER_ERROR ||
-          crossChainStatus === ESwapCrossChainStatus.REFUNDED ||
-          crossChainStatus === ESwapCrossChainStatus.REFUND_FAILED ||
-          crossChainStatus === ESwapCrossChainStatus.REFUNDING
-        ) {
-          return getSwapCrossChainStatusTextProps(crossChainStatus);
-        }
-        if (
-          status === ESwapTxHistoryStatus.SUCCESS ||
-          status === ESwapTxHistoryStatus.PARTIALLY_FILLED
-        ) {
-          return {
-            key: ETranslations.private_send_done,
-            color: '$textSuccess',
-          } as const;
-        }
-        if (
-          status === ESwapTxHistoryStatus.FAILED ||
-          status === ESwapTxHistoryStatus.CANCELED ||
-          status === ESwapTxHistoryStatus.CANCELING
-        ) {
-          return {
-            key: ETranslations.private_send_failed,
-            color: '$textCritical',
-          } as const;
-        }
-        return {
-          key: ETranslations.private_send_pending,
-          color: '$textCaution',
-        } as const;
-      })();
+      const statusTextProps = getPrivateSendHistoryStatusTextProps({
+        crossChainStatus,
+        extraStatus,
+        status,
+      });
       return (
         <XStack gap="$2" alignItems="center">
           <SizableText size={16} color={statusTextProps.color}>

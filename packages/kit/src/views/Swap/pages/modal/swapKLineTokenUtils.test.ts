@@ -4,6 +4,7 @@ import {
   type ISwapKLineStableToken,
   type ISwapKLineToken,
   getDefaultSwapKLineSide,
+  getResolvableDefaultSwapKLineSide,
   isSwapKLineStableToken,
 } from './swapKLineTokenUtils';
 
@@ -54,6 +55,20 @@ describe('swapKLineTokenUtils', () => {
     ).toBe(false);
   });
 
+  it('waits for the server token list before choosing between two supported tokens', () => {
+    expect(
+      isSwapKLineStableToken({
+        token: usdtToken,
+      }),
+    ).toBe(false);
+    expect(
+      getResolvableDefaultSwapKLineSide({
+        fromToken: pepeToken,
+        toToken: usdtToken,
+      }),
+    ).toBeUndefined();
+  });
+
   it('defaults to the non-stable token when only one side is stable', () => {
     expect(
       getDefaultSwapKLineSide({
@@ -69,5 +84,31 @@ describe('swapKLineTokenUtils', () => {
         toToken: pepeToken,
       }),
     ).toBe(ESwapDirectionType.TO);
+  });
+
+  it('does not infer stable tokens from symbols when the server list is present', () => {
+    expect(
+      isSwapKLineStableToken({
+        token: usdtToken,
+        stableTokens: [
+          {
+            networkId: 'evm--1',
+            contractAddress: '0x0000000000000000000000000000000000000001',
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it('can resolve the default side without the server list for known unsupported tokens', () => {
+    expect(
+      getResolvableDefaultSwapKLineSide({
+        fromToken: pepeToken,
+        toToken: buildSwapKLineToken({
+          dappName: 'LP',
+          symbol: 'LP',
+        }),
+      }),
+    ).toBe(ESwapDirectionType.FROM);
   });
 });

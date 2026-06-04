@@ -32,7 +32,11 @@ export function isSwapKLineStableToken({
   token?: ISwapKLineToken;
   stableTokens?: ISwapKLineStableToken[];
 }) {
-  if (!token || !stableTokens?.length) {
+  if (!token) {
+    return false;
+  }
+
+  if (!stableTokens?.length) {
     return false;
   }
 
@@ -85,4 +89,41 @@ export function getDefaultSwapKLineSide({
   }
 
   return ESwapDirectionType.TO;
+}
+
+export function getResolvableDefaultSwapKLineSide({
+  fromToken,
+  stableTokens,
+  toToken,
+}: {
+  fromToken?: ISwapKLineToken;
+  stableTokens?: ISwapKLineStableToken[];
+  toToken?: ISwapKLineToken;
+}): ESwapDirectionType | undefined {
+  if (!toToken) {
+    return ESwapDirectionType.FROM;
+  }
+  if (!fromToken) {
+    return ESwapDirectionType.TO;
+  }
+
+  const fromIsKnownUnsupported = isKnownSwapKLineUnsupportedToken(fromToken);
+  const toIsKnownUnsupported = isKnownSwapKLineUnsupportedToken(toToken);
+
+  if (toIsKnownUnsupported && !fromIsKnownUnsupported) {
+    return ESwapDirectionType.FROM;
+  }
+  if (fromIsKnownUnsupported && !toIsKnownUnsupported) {
+    return ESwapDirectionType.TO;
+  }
+
+  if (stableTokens === undefined) {
+    return undefined;
+  }
+
+  return getDefaultSwapKLineSide({
+    fromToken,
+    stableTokens,
+    toToken,
+  });
 }

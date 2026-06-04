@@ -534,7 +534,7 @@ function SendAmountInputContainer() {
         if (!matchedPrivateSendToken) {
           return false;
         }
-        return matchedPrivateSendToken.supportProtocol ?? true;
+        return matchedPrivateSendToken.supportProtocol === true;
       } catch {
         return false;
       }
