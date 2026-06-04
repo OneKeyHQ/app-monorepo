@@ -1,259 +1,79 @@
 ---
 name: 1k-defi-module-integration
-description: Guide for integrating new DeFi modules or protocols (staking, lending, Earn, Borrow) into OneKey.
+description: App-side OneKey DeFi guide for Earn, Borrow, Staking, vaults, lending, protocol integrations, ABI-backed operations, native/provider-backed operations, pending transactions, history, route handoffs, risk display, and DeFi regression review.
 ---
 
-# DeFi Module Integration Guide
+# DeFi Module Integration
 
-This skill provides interactive guidance for integrating new DeFi modules or protocols into OneKey.
+Use this skill when App code touches Earn, Borrow, Staking, vault/lending/yield protocols, operation modals, pending/history, or protocol-specific DeFi flows.
 
-## Quick Start
+This is an App development skill. It should guide implementation and review from current repository code and App behavior, not from external workflow details.
 
-Before starting, determine your integration scenario:
+## Core Model
 
-| Scenario | Description | Guide |
-|----------|-------------|-------|
-| **New Protocol in Earn** | Adding a staking/yield protocol (e.g., Lido, Rocket Pool) | [earn-module-guide.md](reference/earn-module-guide.md) |
-| **New Protocol in Borrow** | Adding a lending market (e.g., Aave, Compound) | [borrow-module-guide.md](reference/borrow-module-guide.md) |
-| **Entirely New Module** | Creating a new DeFi category (e.g., Pendle, GMX) | [new-module-guide.md](reference/new-module-guide.md) |
+The canonical DeFi App path is:
 
-For Earn protocol reviews or regression follow-ups, also read
-[earn-regression-playbook.md](reference/earn-regression-playbook.md) before
-judging merge readiness.
+`host/route -> home -> list/detail -> operation modal -> transaction sequence -> pending refresh -> history -> cross-surface handoff`
 
----
+Most requirements are not "add a protocol" only. They are route, data, operation, pending, and platform integration requirements.
 
-## Integration Layers
+## Scenario Router
 
-Each DeFi module consists of 4 layers. **Home** and **Modal** are required; **Details** and **List** are optional.
+Classify the change first:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Layer 1: HOME PAGE (Required)                              │
-│  - Overview data (total value, APY, health factor)          │
-│  - Asset cards/tables                                       │
-│  - Pending transaction tracking                             │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 2: OPERATION MODALS (Required)                       │
-│  - Earn: Stake, Unstake, Claim (2-3 types)                  │
-│  - Borrow: Supply, Withdraw, Borrow, Repay (4 types)        │
-│  - Amount input, validation, risk warnings                  │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 3: DETAILS PAGE (Optional)                           │
-│  - Charts (APY history, interest rate model)                │
-│  - Detailed protocol information                            │
-│  - Share functionality                                      │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 4: PROTOCOL LIST (Optional, for multi-token)         │
-│  - List of available protocols/assets                       │
-│  - Filtering and sorting                                    │
-│  - Navigation to details                                    │
-└─────────────────────────────────────────────────────────────┘
-```
+1. Existing Earn protocol or Earn detail/list behavior.
+2. Existing Borrow protocol, market, reserve, or health-factor behavior.
+3. New DeFi module that does not fit Earn/Borrow.
+4. ABI-backed protocol operation where App builds contract calls from typed parameters.
+5. Native/provider-backed operation where App delegates protocol details to a provider or chain-specific service.
+6. Swap-assisted operation such as funding, wrap, repay-with-collateral, or Trade/Buy handoff.
+7. Regression/review of routing, pending refresh, history, or platform layout.
 
----
+If the scenario is unclear, map its operation contract before choosing UI structure.
 
-## Scenario Identification
+## Default Workflow
 
-### When to ask the user
+1. Read [app-architecture.md](references/app-architecture.md) to place the feature in the App flow.
+2. Use [code-map.md](references/code-map.md) to find stable anchors.
+3. Define the operation contract in [operation-flow.md](references/operation-flow.md): operation type, parameters, setup tx, business tx, status, risk, and refresh.
+4. Define route, state, pending, and platform ownership in [state-and-routing.md](references/state-and-routing.md).
+5. Run [checklists.md](references/checklists.md), including ABI/native readiness drills when adding a protocol integration.
+6. Validate on the route and platform that own the behavior.
 
-Ask for clarification when:
-1. The protocol type is ambiguous (could be Earn or Borrow)
-2. The operation types are not standard
-3. Special UI/UX requirements are mentioned
-4. The protocol has unique features not covered by existing patterns
+## Reference Map
 
-### Scenario characteristics
+| Need | Reference |
+| --- | --- |
+| Understand Earn/Borrow/Staking flow | [app-architecture.md](references/app-architecture.md) |
+| Find current repo anchors | [code-map.md](references/code-map.md) |
+| Define operation and transaction contracts | [operation-flow.md](references/operation-flow.md) |
+| Route, state, pending, history, and platform ownership | [state-and-routing.md](references/state-and-routing.md) |
+| Prevent common integration failures | [checklists.md](references/checklists.md) |
 
-**Earn Protocol** (Staking/Yield):
-- Operations: Stake, Unstake, Claim
-- Data: APY, staked amount, rewards
-- Examples: Lido, Rocket Pool, Babylon
+## Readiness Drills
 
-**Borrow Protocol** (Lending):
-- Operations: Supply, Withdraw, Borrow, Repay
-- Data: Health factor, collateral, debt, APY
-- Examples: Aave, Compound, Morpho
-- Advanced features: Repay with Collateral (swap-based repayment)
-- See: [borrow-module-guide.md - Repay with Collateral](reference/borrow-module-guide.md#repay-with-collateral-pattern)
+Use these drills to judge whether the skill can guide fast protocol integration:
 
-**New Module**:
-- Operations differ significantly from Earn/Borrow
-- Requires independent Tab or unique UI
-- Examples: Pendle (PT/YT), GMX (perpetuals)
+- ABI-backed protocol: can you identify network/account, contract address, read params, write params, approval/permit needs, tx labels, pending tags, refresh scope, and history semantics without a one-off template?
+- Native/provider-backed protocol: can you identify provider capability, native token handling, setup/business sequence, unsupported states, account derive requirements, and completion polling?
+- New L2/protocol module: can you decide whether it belongs under Earn/Borrow, a new DeFi surface, a Discovery-hosted flow, or a Trade handoff based on operation semantics?
 
-**Time-Based Protocol** (Fixed-rate yield):
-- Operations: Buy, Sell, Redeem (conditional on maturity)
-- Data: Maturity date, implied APY, underlying asset, discount rate
-- Special features: Maturity status, conditional operations, multi-variant assets
-- Examples: Pendle PT
-- Integration: As sub-module of Earn Tab (Fixed-rate category)
-- See: [earn-module-guide.md - Time-Based Protocols](reference/earn-module-guide.md#time-based-protocols-eg-pendle-pt)
+If a drill cannot be completed from the references, improve the abstraction before implementing.
 
----
+## Hard Stops
 
-## Key Decision Points
-
-| Decision | Options | Default |
-|----------|---------|---------|
-| Integration type | Earn / Borrow / New Module | Ask user |
-| Tab placement | Existing Earn Tab / New Tab | Earn Tab |
-| Operation count | 2-3 (Earn) / 4 (Borrow) / Custom | Based on type |
-| Risk warnings | Liquidation / Slashing / None | Based on type |
-| Token selection | Single / Multiple | Single |
-| Charts | APY history / Interest model / None | Based on type |
-| Share feature | Yes / No | Yes |
-| Multi-token list | Yes / No | Based on token count |
-| **Time-based features** | Maturity date / Conditional ops / None | Based on protocol |
-| **Multi-variant assets** | Group by underlying / Flat list | Based on protocol |
-| **Operation tabs** | Single op / Tab switching (Buy/Sell/Redeem) | Based on protocol |
-| **Repay with collateral** | Wallet balance only / With collateral option | Based on protocol |
-| **Dual amount input** | Single input / Bidirectional sync | Based on operation |
-| **Slippage settings** | Not needed / Auto / Custom | Based on swap involvement |
-
-### State Management Decision
-
-When integrating a new DeFi module, analyze the state requirements and ask the user:
-
-| State Type | Recommendation | Examples |
-|------------|----------------|----------|
-| **Needs Persistence** (across page navigation) | Use Jotai atoms | Portfolio data, user preferences, cached investments |
-| **Page-scoped** (no persistence needed) | Use React Context | Current operation state, form data, temporary UI state |
-
-**When using this skill, you should:**
-1. Analyze the state requirements of the new module
-2. Ask the user whether the state needs to persist across page navigation
-3. Recommend Jotai for persistent state, Context for page-scoped state
-
-**Example question to ask:**
-> "Does this module's data need to persist when the user navigates away and returns? For example:
-> - If yes (like portfolio data that should be cached): Use Jotai atoms
-> - If no (like form state that resets on page exit): Use React Context"
-
----
-
-## Quick Reference
-
-### Key File Paths
-
-| Module | Path |
-|--------|------|
-| Earn | `packages/kit/src/views/Earn/` |
-| Borrow | `packages/kit/src/views/Borrow/` |
-| Staking (shared) | `packages/kit/src/views/Staking/` |
-| Routes | `packages/shared/src/routes/` |
-| Modal Router | `packages/kit/src/routes/Modal/router.tsx` |
-| Tab Router | `packages/kit/src/routes/Tab/router.ts` |
-
-### Common Components
-
-| Component | Location | Usage |
-|-----------|----------|-------|
-| `StakingAmountInput` | `Staking/components/` | Amount input with validation |
-| `StakingFormWrapper` | `Staking/components/` | Form layout wrapper |
-| `EarnText` | `Staking/components/ProtocolDetails/` | Styled text with color support |
-| `EarnTooltip` | `Staking/components/ProtocolDetails/` | Info tooltips |
-| `PendingIndicator` | `Staking/components/StakingActivityIndicator/` | Pending tx indicator |
-| `ManagePositionContent` | `Staking/pages/ManagePosition/` | Shared manage position UI |
-| `ManagePosition` | `Borrow/components/ManagePosition/` | **Unified Borrow operation component (Supply/Withdraw/Borrow/Repay)** |
-
-### State Management Patterns
-
-| Pattern | Use Case | Reference |
-|---------|----------|-----------|
-| `IAsyncData<T>` | Unified async data format | [state-management-guide.md](reference/state-management-guide.md) |
-| `DataGate` | Data orchestration | [state-management-guide.md](reference/state-management-guide.md) |
-| `PendingBridge` | External pending state | [state-management-guide.md](reference/state-management-guide.md) |
-| Tag System | Pending tx identification | [state-management-guide.md](reference/state-management-guide.md) |
-
----
-
-## Workflow
-
-### Step 0: Gather Live Context for Reviews
-- For existing PRs or regressions, inspect Jira/Rovo requirements, GitHub PRs,
-  review comments, CI state, backend service contracts, and runtime evidence
-  where available.
-- Treat Slack or desktop-app context as supporting evidence only after it is
-  directly inspected; otherwise mark it as unverified.
-- Separate process blockers (release gate, labels, stale PR metadata) from code
-  correctness and regression risk.
-
-### Step 1: Identify Scenario
-- Determine if it's Earn, Borrow, or New Module
-- Read the corresponding guide
-
-### Step 2: Plan Layers
-- Decide which layers to implement (Home + Modal required)
-- Identify optional layers needed
-
-### Step 3: Implement Layer by Layer
-- Follow the guide for each layer
-- Use the checklist to verify completion
-
-### Step 4: Test and Verify
-- Test all operation types
-- Verify pending state handling
-- Check responsive layout
-
----
+- Do not place native Earn routes as if they are desktop/web Earn tabs; native hosts Earn under Discovery.
+- Do not add a protocol until route params, provider identity, operation contract, pending tags, and refresh scope are named.
+- Do not mix setup tx, approval, wrap, quote, and business tx into one opaque action.
+- Do not rely on optional fields to avoid defining pending/history identity.
+- Do not call native crash or freeze bugs fixed from state reasoning alone; capture the Android/iOS log, Sentry event, or JS/native boundary that proves the failing operation path.
+- Do not hand-edit generated locale files; use `/1k-i18n`.
+- Do not broaden shared Staking/Borrow utilities without existing-protocol regression reasoning.
 
 ## Related Skills
 
-This skill works best when combined with these other OneKey skills:
-
-| Skill | Use For |
-|-------|---------|
-| `1k-i18n` | Adding translations, using `ETranslations`, `useIntl()` |
-| `1k-coding-patterns` | React patterns, error handling, TypeScript best practices |
-| `1k-cross-platform` | Platform-specific code, `platformEnv` checks |
-| `page-and-route` | Route configuration, deep links, navigation |
-
----
-
-## i18n Quick Reference
-
-All user-facing strings must use internationalization. See `1k-i18n` skill for full details.
-
-**Basic Usage:**
-```typescript
-import { useIntl } from 'react-intl';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-function MyComponent() {
-  const intl = useIntl();
-
-  return (
-    <Text>
-      {intl.formatMessage({ id: ETranslations.defi_net_worth })}
-    </Text>
-  );
-}
-```
-
-**Common DeFi Translation Keys:**
-- `ETranslations.defi_net_worth` - "Net Worth"
-- `ETranslations.defi_net_apy` - "Net APY"
-- `ETranslations.defi_health_factor` - "Health Factor"
-- `ETranslations.defi_platform_bonus` - "Platform Bonus"
-- `ETranslations.defi_claimable_rewards` - "Claimable Rewards"
-- `ETranslations.global_history` - "History"
-
-**Adding New Keys:**
-1. Add key to `ETranslations` enum in `packages/shared/src/locale/enum.ts`
-2. Add translations in locale JSON files
-3. Never hardcode user-facing strings
-
----
-
-## Reference Documents
-
-| Document | Content |
-|----------|---------|
-| [earn-module-guide.md](reference/earn-module-guide.md) | Earn module architecture, files, operations |
-| [earn-regression-playbook.md](reference/earn-regression-playbook.md) | Regression-informed Earn review checklist from recent protocol integrations |
-| [borrow-module-guide.md](reference/borrow-module-guide.md) | Borrow module architecture, 4 operations, health factor |
-| [new-module-guide.md](reference/new-module-guide.md) | Creating new modules, Provider design |
-| [routing-guide.md](reference/routing-guide.md) | Modal routes, Tab routes, navigation utilities, deep links |
-| [state-management-guide.md](reference/state-management-guide.md) | IAsyncData, Pending, Tag system, refresh strategies |
-| [checklist.md](reference/checklist.md) | Integration checklist with required/optional markers |
+- `/1k-i18n` for translation keys and generated locale workflow.
+- `/1k-coding-patterns` for React and TypeScript patterns.
+- `/1k-state-management` for Jotai and state ownership.
+- `/1k-cross-platform` for platform-specific routing and layout.
+- `/1k-trade-swap-market` for Swap-assisted funding or repay flows.
