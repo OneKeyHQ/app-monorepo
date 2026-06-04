@@ -278,6 +278,35 @@ function isPrivateSendQuoteUsable(
   );
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function isPrivateSendMinAmountErrorMessage(errorMessage?: string) {
+  return /min|minimum|最低|最小/i.test(errorMessage ?? '');
+}
+
+function getPrivateSendMinAmountFromErrorMessage({
+  errorMessage,
+  tokenSymbol,
+}: {
+  errorMessage?: string;
+  tokenSymbol?: string;
+}) {
+  if (!errorMessage || !tokenSymbol) return undefined;
+  if (!isPrivateSendMinAmountErrorMessage(errorMessage)) return undefined;
+
+  const tokenSymbolRegExp = escapeRegExp(tokenSymbol);
+  const match = errorMessage.match(
+    new RegExp(`([0-9][0-9,.]*)\\s*${tokenSymbolRegExp}(?:\\s|$)`, 'i'),
+  );
+  const minAmount = match?.[1]?.replaceAll(',', '');
+  const minAmountBN = new BigNumber(minAmount ?? 0);
+  return minAmountBN.isFinite() && minAmountBN.isGreaterThan(0)
+    ? minAmountBN.toFixed()
+    : undefined;
+}
+
 function isSwapQuoteCancelError(error: unknown) {
   return (
     (error as { cause?: unknown } | undefined)?.cause ===
@@ -418,6 +447,7 @@ function SendAmountInputContainer() {
   const amount = form.watch('amount');
   const nftAmount = form.watch('nftAmount');
   const hasAmountError = !!form.formState.errors.amount;
+  const amountErrorMessage = form.formState.errors.amount?.message;
   const txMessage = form.watch('txMessage');
 
   const { serviceToken, serviceNFT } = backgroundApiProxy;
@@ -993,40 +1023,126 @@ function SendAmountInputContainer() {
     return new BigNumber(1).shiftedBy(-decimals).toFixed();
   }, [tokenDetails?.info.decimals]);
 
-  const minAmountHint = useMemo(() => {
-    if (!tokenSymbol || tokenMinAmount === undefined) return undefined;
+  const tokenMinTransferAmount = useMemo(() => {
     const isNative = tokenDetails?.info.isNative;
-    // Only show the hint when the chain enforces a meaningful chain-level
-    // minimum. Without that, displaying the token-precision floor (e.g.
-    // 1e-18 for an 18-decimal ERC20) is noise.
-    const chainMinRaw = isNative
+    return isNative
       ? (vaultSettings?.nativeMinTransferAmount ??
-        vaultSettings?.minTransferAmount)
-      : vaultSettings?.minTransferAmount;
-    if (!chainMinRaw || new BigNumber(chainMinRaw).isLessThanOrEqualTo(0)) {
+          vaultSettings?.minTransferAmount ??
+          '0')
+      : (vaultSettings?.minTransferAmount ?? '0');
+  }, [
+    tokenDetails?.info.isNative,
+    vaultSettings?.minTransferAmount,
+    vaultSettings?.nativeMinTransferAmount,
+  ]);
+
+  const privateSendProviderMinAmount = useMemo(() => {
+    if (sendMode !== ESendMode.PRIVATE) return undefined;
+    const minAmount = privateSendQuote?.limit?.min;
+    if (minAmount) {
+      const minAmountBN = new BigNumber(minAmount);
+      if (minAmountBN.isFinite() && minAmountBN.isGreaterThan(0)) {
+        return minAmountBN.toFixed();
+      }
+    }
+    return getPrivateSendMinAmountFromErrorMessage({
+      errorMessage: privateSendQuote?.errorMessage,
+      tokenSymbol,
+    });
+  }, [
+    privateSendQuote?.errorMessage,
+    privateSendQuote?.limit?.min,
+    sendMode,
+    tokenSymbol,
+  ]);
+
+  const chainEffectiveMinAmount = useMemo(() => {
+    if (tokenMinAmount === undefined) return undefined;
+    return BigNumber.max(tokenMinAmount, tokenMinTransferAmount).toFixed();
+  }, [tokenMinAmount, tokenMinTransferAmount]);
+
+  const isPrivateSendMinAmountHintReady =
+    sendMode !== ESendMode.PRIVATE ||
+    (!!privateSendQuote &&
+      !!scopedPrivateSendQuoteResult &&
+      isPrivateSendQuoteScopeMatched &&
+      !isPrivateSendQuoteLoading &&
+      !isPrivateSendRecipientResolving);
+
+  const privateSendEffectiveMinAmount = useMemo(() => {
+    if (chainEffectiveMinAmount === undefined) return undefined;
+    return BigNumber.max(
+      chainEffectiveMinAmount,
+      privateSendProviderMinAmount ?? '0',
+    ).toFixed();
+  }, [chainEffectiveMinAmount, privateSendProviderMinAmount]);
+
+  const validationEffectiveMinAmount =
+    sendMode === ESendMode.PRIVATE ? tokenMinAmount : chainEffectiveMinAmount;
+
+  const displayEffectiveMinAmount =
+    sendMode === ESendMode.PRIVATE
+      ? privateSendEffectiveMinAmount
+      : chainEffectiveMinAmount;
+
+  const minAmountHint = useMemo(() => {
+    if (!tokenSymbol || displayEffectiveMinAmount === undefined) {
       return undefined;
     }
-    // Mirror the validator's effectiveMin = max(tokenPrecisionMin, chainMin)
-    // so the hint matches the value the validator actually rejects against.
-    const effectiveMin = BigNumber.max(tokenMinAmount, chainMinRaw).toFixed();
+    if (!isPrivateSendMinAmountHintReady) return undefined;
+    // Only show the hint when the chain or provider enforces a meaningful
+    // minimum. Without that, displaying the token-precision floor (e.g.
+    // 1e-18 for an 18-decimal ERC20) is noise.
+    if (
+      !privateSendProviderMinAmount &&
+      new BigNumber(tokenMinTransferAmount).isLessThanOrEqualTo(0)
+    ) {
+      return undefined;
+    }
+    // Mirror the displayed effective min. Private Send keeps provider limits
+    // out of the form validator to avoid quote/error feedback loops.
     // Lightning BTC unit displays the min converted from sats.
     const displayMinAmount =
       isLightningNetwork && lnUnit === ELightningUnit.BTC
-        ? chainValueUtils.convertSatsToBtc(effectiveMin)
-        : effectiveMin;
+        ? chainValueUtils.convertSatsToBtc(displayEffectiveMinAmount)
+        : displayEffectiveMinAmount;
     return intl.formatMessage(
       { id: ETranslations.send_error_minimum_amount },
       { amount: displayMinAmount, token: tokenSymbol },
     );
   }, [
+    displayEffectiveMinAmount,
     intl,
+    isPrivateSendMinAmountHintReady,
     isLightningNetwork,
     lnUnit,
-    tokenDetails?.info.isNative,
-    tokenMinAmount,
+    privateSendProviderMinAmount,
+    tokenMinTransferAmount,
     tokenSymbol,
-    vaultSettings?.minTransferAmount,
-    vaultSettings?.nativeMinTransferAmount,
+  ]);
+
+  const isPrivateSendAmountBelowMin = useMemo(() => {
+    if (
+      sendMode !== ESendMode.PRIVATE ||
+      !isPrivateSendMinAmountHintReady ||
+      displayEffectiveMinAmount === undefined ||
+      privateSendAmountBN.isNaN() ||
+      privateSendAmountBN.isLessThanOrEqualTo(0)
+    ) {
+      return false;
+    }
+    const displayEffectiveMinAmountBN = new BigNumber(
+      displayEffectiveMinAmount,
+    );
+    return (
+      displayEffectiveMinAmountBN.isGreaterThan(0) &&
+      privateSendAmountBN.isLessThan(displayEffectiveMinAmountBN)
+    );
+  }, [
+    displayEffectiveMinAmount,
+    isPrivateSendMinAmountHintReady,
+    privateSendAmountBN,
+    sendMode,
   ]);
 
   const handleValidateTokenAmount = useCallback(
@@ -1074,36 +1190,24 @@ function SendAmountInputContainer() {
       }
 
       // Block flow if token decimals is missing — server must return explicit decimals
-      if (tokenMinAmount === undefined) {
+      if (validationEffectiveMinAmount === undefined) {
         return intl.formatMessage({
           id: ETranslations.send_amount_invalid,
         });
       }
 
-      // Minimum transfer amount check
       const isNative = tokenDetails?.info.isNative;
-      const minTransferAmount = isNative
-        ? (vaultSettings?.nativeMinTransferAmount ??
-          vaultSettings?.minTransferAmount ??
-          '0')
-        : (vaultSettings?.minTransferAmount ?? '0');
-
-      // Effective minimum: the larger of token precision minimum and chain minimum
-      const effectiveMin = BigNumber.max(
-        tokenMinAmount,
-        minTransferAmount,
-      ).toFixed();
 
       // Display min amount in the current unit (BTC or sats for Lightning)
       const displayMinAmount =
         isLightningNetwork && lnUnit === ELightningUnit.BTC
-          ? chainValueUtils.convertSatsToBtc(effectiveMin)
-          : effectiveMin;
+          ? chainValueUtils.convertSatsToBtc(validationEffectiveMinAmount)
+          : validationEffectiveMinAmount;
 
       if (
         !isUseFiat &&
-        !new BigNumber(effectiveMin).isZero() &&
-        amountBNForValidation.isLessThan(effectiveMin) &&
+        !new BigNumber(validationEffectiveMinAmount).isZero() &&
+        amountBNForValidation.isLessThan(validationEffectiveMinAmount) &&
         !amountBNForValidation.isZero()
       ) {
         return intl.formatMessage(
@@ -1115,8 +1219,8 @@ function SendAmountInputContainer() {
       if (
         isUseFiat &&
         priceBN.isGreaterThan(0) &&
-        !new BigNumber(effectiveMin).isZero() &&
-        tokenAmountBN.isLessThan(effectiveMin) &&
+        !new BigNumber(validationEffectiveMinAmount).isZero() &&
+        tokenAmountBN.isLessThan(validationEffectiveMinAmount) &&
         !tokenAmountBN.isZero()
       ) {
         return intl.formatMessage(
@@ -1178,13 +1282,11 @@ function SendAmountInputContainer() {
       intl,
       isLightningNetwork,
       lnUnit,
+      validationEffectiveMinAmount,
       tokenDetails?.balanceParsed,
       tokenDetails?.info.decimals,
       tokenDetails?.info.isNative,
       tokenDetails?.price,
-      tokenMinAmount,
-      vaultSettings?.nativeMinTransferAmount,
-      vaultSettings?.minTransferAmount,
       vaultSettings?.transferZeroNativeTokenEnabled,
       isUseFiat,
       isNFT,
@@ -1195,6 +1297,16 @@ function SendAmountInputContainer() {
       recipientAddress,
     ],
   );
+
+  useEffect(() => {
+    if (
+      sendMode !== ESendMode.PRIVATE ||
+      !isPositivePrivateSendAmount(privateSendAmount)
+    ) {
+      return;
+    }
+    void form.trigger('amount');
+  }, [form, privateSendAmount, sendMode, validationEffectiveMinAmount]);
 
   // Fiat input needs a usable price to convert it to a token amount. Single
   // source of truth for the fiat-mode guards below.
@@ -2261,6 +2373,7 @@ function SendAmountInputContainer() {
     if (sendMode === ESendMode.PRIVATE) {
       if (isPrivateSendQuoteRefreshing) return true;
       if (privateSendQuoteError) return true;
+      if (isPrivateSendAmountBelowMin) return true;
       if (!isPrivateSendQuoteUsable(privateSendQuote)) {
         return true;
       }
@@ -2280,6 +2393,7 @@ function SendAmountInputContainer() {
     sendMode,
     isPrivateSendQuoteRefreshing,
     privateSendQuoteError,
+    isPrivateSendAmountBelowMin,
     privateSendQuote,
   ]);
 
@@ -2673,15 +2787,26 @@ function SendAmountInputContainer() {
   const isAmountTyping = amount !== useDebounce(amount, 400);
   const shouldDeferAmountError =
     isAmountTyping || isAmountZeroOrEmpty || !hasAmountError;
+  const shouldShowPrivateSendMinAmountHint =
+    sendMode === ESendMode.PRIVATE &&
+    !!minAmountHint &&
+    (!hasAmountError ||
+      isAmountTyping ||
+      isAmountZeroOrEmpty ||
+      amountErrorMessage === minAmountHint);
   // While deferring, show the real min-amount hint when the chain has one.
   // When it doesn't (most EVM tokens, or BTC before tokenMinAmount loads),
   // `minAmountHint` is undefined and Form.Field would fall back to rendering
   // the red error anyway — so substitute a neutral placeholder to actually
   // keep the error suppressed. Only do this when there is an error to defer;
   // otherwise leave the hint empty so valid input shows no extra row.
-  const amountHint = shouldDeferAmountError
-    ? (minAmountHint ?? (hasAmountError ? NEUTRAL_AMOUNT_HINT : undefined))
-    : undefined;
+  let amountHint: string | undefined;
+  if (shouldShowPrivateSendMinAmountHint) {
+    amountHint = minAmountHint;
+  } else if (shouldDeferAmountError) {
+    amountHint =
+      minAmountHint ?? (hasAmountError ? NEUTRAL_AMOUNT_HINT : undefined);
+  }
 
   const renderAmountInput = useMemo(
     () => (
@@ -3188,11 +3313,6 @@ function SendAmountInputContainer() {
               : privateSendQuote?.info,
           })}
         </XStack>
-        {privateSendQuoteError ? (
-          <SizableText size="$bodyMd" color="$textCritical">
-            {privateSendQuoteError}
-          </SizableText>
-        ) : null}
         {showPrivateSendBalanceRow ? (
           <>
             <Stack h="$px" bg="$borderSubdued" my="$2" />
@@ -3212,7 +3332,6 @@ function SendAmountInputContainer() {
     isRouteFocused,
     maxBalance,
     privateSendQuote,
-    privateSendQuoteError,
     privateSendToken?.price,
     privateSendToken?.symbol,
     renderBalanceRowContent,
