@@ -59,6 +59,30 @@ const DefaultDemo = () => {
 };
 
 // -----------------------------------------------------------------------------
+// 1b. Tap snaps to nearest segment (native-only snapTapToSegment) — tap anywhere
+//     lands on the closest dot; drag still reaches any value (e.g. 26).
+// -----------------------------------------------------------------------------
+const TapSnapDemo = () => {
+  const [value, setValue] = useState(0);
+  return (
+    <YStack gap="$2" px="$4" py="$3">
+      <ValuePill value={value} />
+      <SegmentSlider
+        value={value}
+        onChange={setValue}
+        segments={4}
+        snapTapToSegment
+      />
+      <Label>
+        snapTapToSegment (native only) — tap at 26 snaps to 25; tap anywhere
+        lands on the nearest 0/25/50/75/100. Drag still moves freely to any
+        value (26 etc.).
+      </Label>
+    </YStack>
+  );
+};
+
+// -----------------------------------------------------------------------------
 // 2. No bubble — exact Perp panel config
 // -----------------------------------------------------------------------------
 const NoBubbleDemo = () => {
@@ -405,6 +429,10 @@ const SegmentSliderGallery = () => (
       {
         title: 'Default (4 segments, bubble on drag)',
         element: <DefaultDemo />,
+      },
+      {
+        title: 'Tap snaps to nearest segment (native snapTapToSegment)',
+        element: <TapSnapDemo />,
       },
       { title: 'No bubble (Perp panel config)', element: <NoBubbleDemo /> },
       {
