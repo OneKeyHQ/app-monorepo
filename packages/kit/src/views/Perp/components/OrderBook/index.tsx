@@ -2122,7 +2122,6 @@ export function OrderBookMobile({
         </View>
       </View>
       <OrderBookSideRatio
-        animated={false}
         bidDepth={bidDepth}
         askDepth={askDepth}
         size="mobile"

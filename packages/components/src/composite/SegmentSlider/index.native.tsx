@@ -11,6 +11,14 @@ import type { ReactNode } from 'react';
 const HIT_AREA_HEIGHT = 24;
 const DEFAULT_TRACK_HEIGHT = 4;
 
+// The native view's `epoch` token is only meant to suppress the thumb-scale
+// animation on a hard reset — but that scale animation fires solely on touch
+// (drag start/end), never on a controlled `value` change, which already
+// applies instantly without animation. So no caller of this slider needs to
+// bump it; keep it fixed. Re-expose as a prop if a future caller ever needs
+// the reset semantics.
+const FIXED_EPOCH = 0;
+
 export interface ISegmentSliderProps {
   value: number;
   sliderHeight?: number;
@@ -98,7 +106,7 @@ function SegmentSliderComponent({
       disabled={disabled}
       showBubble={showBubble}
       centerOrigin={centerOrigin}
-      epoch={0}
+      epoch={FIXED_EPOCH}
       onChange={onChange}
       onSlideStart={onSlideStart}
       onSlideComplete={onSlideComplete}

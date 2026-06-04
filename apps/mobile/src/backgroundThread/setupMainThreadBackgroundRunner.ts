@@ -617,17 +617,9 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
     observerInstalled = true;
     // Value-inline messaging: the native notify callback delivers BOTH the
     // `callId` and the payload `value`, so handlers consume the inline value
-    // directly — no read-back. The currently-published package still types
-    // `onWrite` as single-arg `(callId) => void`; the paired native (shipped
-    // with this JS) delivers the `(callId, value)` form, so cast to that shape
-    // until the version bump lands the new `ISharedRPC` type.
-    (
-      sharedRPC as unknown as {
-        onWrite(
-          callback: (callId: string, value: string | number | boolean) => void,
-        ): void;
-      }
-    ).onWrite((callId, value) => {
+    // directly — no read-back. The paired native (3.0.45) and `ISharedRPC`
+    // both carry the `(callId, value)` form.
+    sharedRPC.onWrite((callId, value) => {
       routeBackgroundMessage(
         {
           onReadySignal: () => handleRuntimeSignal(),
@@ -648,14 +640,8 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
 
     // Restart freshness (§4.6): tell native which SharedStore key this (main)
     // runtime owns, so the native invalidate("main") path clears it on
-    // teardown and a restarted bg never reads a prior-life main-up. Optional +
-    // cast until the package bump lands `registerReadinessKey` in the type;
-    // a no-op on an old native (which ships only paired with old JS).
-    (
-      sharedRPC as unknown as {
-        registerReadinessKey?: (key: string) => void;
-      }
-    ).registerReadinessKey?.(BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY);
+    // teardown and a restarted bg never reads a prior-life main-up.
+    sharedRPC.registerReadinessKey(BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY);
 
     // Advertise that this main runtime knows how to consume opt-in wire
     // protocols (batched jotai broadcasts at the moment), and signal "main is

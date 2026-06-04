@@ -552,15 +552,8 @@ function installBackgroundRequestHandler() {
   if (!handlerInstalled) {
     handlerInstalled = true;
     // Value-inline messaging: the native notify callback delivers `(callId,
-    // value)`. Cast to that shape until the package version bump lands the new
-    // `ISharedRPC` type (the currently-published type is still single-arg).
-    (
-      sharedRPC as unknown as {
-        onWrite(
-          callback: (callId: string, value: string | number | boolean) => void,
-        ): void;
-      }
-    ).onWrite((callId, value) => {
+    // value)` directly, as typed by `ISharedRPC` in the paired native (3.0.45).
+    sharedRPC.onWrite((callId, value) => {
       // Handle webembed bridge responses from main thread
       if (callId.startsWith(WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX)) {
         handleWebEmbedBridgeResponse(callId, value);
@@ -587,13 +580,8 @@ function installBackgroundRequestHandler() {
 
     // Restart freshness (§4.6): tell native which SharedStore key this (bg)
     // runtime owns, so the native invalidate("background") path clears it on
-    // teardown and a restarted main never reads a prior-life bg-ready. Optional
-    // + cast until the package bump lands `registerReadinessKey` in the type.
-    (
-      sharedRPC as unknown as {
-        registerReadinessKey?: (key: string) => void;
-      }
-    ).registerReadinessKey?.(BACKGROUND_THREAD_READY_KEY);
+    // teardown and a restarted main never reads a prior-life bg-ready.
+    sharedRPC.registerReadinessKey(BACKGROUND_THREAD_READY_KEY);
 
     // Catch the case where the main runtime advertised its capabilities
     // before this handler was installed (handler retry path on bg startup,

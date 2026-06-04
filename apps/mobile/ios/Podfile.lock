@@ -4617,6 +4617,36 @@ PODS:
   - SDWebImageWebPCoder (0.14.6):
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.17)
+  - SegmentSlider (3.0.45):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - NitroModules
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-callinvoker
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - Sentry/HybridSDK (8.56.2)
   - Skeleton (3.0.45):
     - boost
@@ -4921,6 +4951,7 @@ DEPENDENCIES:
   - RNSVG (from `../../../node_modules/react-native-svg`)
   - RNWorklets (from `../../../node_modules/react-native-worklets`)
   - "ScrollGuard (from `../../../node_modules/@onekeyfe/react-native-scroll-guard`)"
+  - "SegmentSlider (from `../../../node_modules/@onekeyfe/react-native-segment-slider`)"
   - "Skeleton (from `../../../node_modules/@onekeyfe/react-native-skeleton`)"
   - "SniConnect (from `../../../node_modules/@onekeyfe/react-native-sni-connect`)"
   - SocketRocket (~> 0.7.1)
@@ -5303,6 +5334,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-worklets"
   ScrollGuard:
     :path: "../../../node_modules/@onekeyfe/react-native-scroll-guard"
+  SegmentSlider:
+    :path: "../../../node_modules/@onekeyfe/react-native-segment-slider"
   Skeleton:
     :path: "../../../node_modules/@onekeyfe/react-native-skeleton"
   SniConnect:
@@ -5514,6 +5547,7 @@ SPEC CHECKSUMS:
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
+  SegmentSlider: 90884c77151fabc1387d319091b5d52022f5bbfc
   Sentry: b53951377b78e21a734f5dc8318e333dbfc682d7
   Skeleton: 4ae04d84e0c7ae6446d16850c50511feb78d8e63
   SniConnect: c92bce3bb3204c4cff031c0badb7aefaebee8f04
