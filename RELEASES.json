@@ -70,5 +70,14 @@
       "#11842"
     ],
     "notes": "Coalesce bg→main atom broadcasts + batch token merge bridge calls (#11740); Address swap issues (OK-55160, OK-55212, OK-55270, OK-55273, OK-55302) (#11773); Persist browser tab closes immediately to survive process kill (#11827); Prevent multi-token transfer row overflow in web history list (OK-55494) (#11838); Fix Android software-wallet Cardano address creation stuck loading (#11839); Update perps referral learn more link (#11842)"
+  },
+  {
+    "seq": 5,
+    "commit": "df8cf6d0f1904ee57b21a041270241e626c2e67a",
+    "date": "2026-06-04T14:21:34Z",
+    "prs": [
+      "#11915"
+    ],
+    "notes": "Don't block trading when rebate wallet bind fails (#11915)"
   }
 ]
