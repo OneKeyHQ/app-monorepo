@@ -16,6 +16,7 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
+import { debugMarketTradingViewLog, shortMarketId } from './debugLog';
 import {
   useAutoKLineUpdate,
   useAutoTokenDetailUpdate,
@@ -179,6 +180,36 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     disabledFeatures,
   });
 
+  useEffect(() => {
+    debugMarketTradingViewLog('view-state', {
+      symbol,
+      chartSymbol,
+      tokenAddress: shortMarketId(tokenAddress),
+      networkId,
+      dataSource,
+      effectiveDataSource,
+      isVisible,
+      isHyperLiquidSource,
+      useHyperLiquid,
+      mockEmptyKLineEnabled,
+      forceEmptyKLineData,
+      primaryKLineDataUnavailable,
+    });
+  }, [
+    chartSymbol,
+    dataSource,
+    effectiveDataSource,
+    forceEmptyKLineData,
+    isHyperLiquidSource,
+    isVisible,
+    mockEmptyKLineEnabled,
+    networkId,
+    primaryKLineDataUnavailable,
+    symbol,
+    tokenAddress,
+    useHyperLiquid,
+  ]);
+
   // OneKey realtime hooks only apply to app-served market candles.
   useAutoKLineUpdate({
     tokenAddress,
@@ -312,20 +343,47 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   const handleLoadStart = useCallback(
     (event: WebViewNavigationEvent) => {
+      debugMarketTradingViewLog('webview-load-start', {
+        symbol,
+        chartSymbol,
+        tokenAddress: shortMarketId(tokenAddress),
+        networkId,
+      });
       resetIndicatorsDialogOpen();
       onLoadStart?.(event);
     },
-    [onLoadStart, resetIndicatorsDialogOpen],
+    [
+      chartSymbol,
+      networkId,
+      onLoadStart,
+      resetIndicatorsDialogOpen,
+      symbol,
+      tokenAddress,
+    ],
   );
 
   const handleWebViewRef = useCallback(
     (ref: IWebViewRef | null) => {
+      debugMarketTradingViewLog('webview-ref', {
+        attached: Boolean(ref),
+        symbol,
+        chartSymbol,
+        tokenAddress: shortMarketId(tokenAddress),
+        networkId,
+      });
       if (!ref) {
         resetIndicatorsDialogOpen();
       }
       webRef.current = ref;
     },
-    [resetIndicatorsDialogOpen, webRef],
+    [
+      chartSymbol,
+      networkId,
+      resetIndicatorsDialogOpen,
+      symbol,
+      tokenAddress,
+      webRef,
+    ],
   );
 
   useEffect(() => {
@@ -346,7 +404,20 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       <WebView
         key={`${theme}:${tradingViewUrlWithParams}`}
         customReceiveHandler={async (data) => {
-          await customReceiveHandler(data as ICustomReceiveHandlerData);
+          const receiveData = data as ICustomReceiveHandlerData;
+          const requestData =
+            receiveData.data?.data && typeof receiveData.data.data === 'object'
+              ? (receiveData.data.data as Record<string, unknown>)
+              : undefined;
+          debugMarketTradingViewLog('bridge-receive', {
+            scope: receiveData.data?.scope,
+            method: receiveData.data?.method,
+            dataMethod: requestData?.method,
+            resolution: requestData?.resolution,
+            firstDataRequest: requestData?.firstDataRequest,
+            hasWebRef: Boolean(webRef.current),
+          });
+          await customReceiveHandler(receiveData);
         }}
         onWebViewRef={handleWebViewRef}
         allowsBackForwardNavigationGestures={false}

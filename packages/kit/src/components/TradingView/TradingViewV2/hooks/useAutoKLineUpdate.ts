@@ -2,6 +2,12 @@ import { type RefObject, useCallback, useRef } from 'react';
 
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 
+import {
+  debugMarketTradingViewLog,
+  shortMarketId,
+  summarizeMarketKLineData,
+} from '../debugLog';
+
 import { fetchTradingViewV2Data } from './useTradingViewV2';
 
 import type { IWebViewRef } from '../../../WebView/types';
@@ -39,8 +45,22 @@ export function useAutoKLineUpdate({
 
       // Skip if we just updated recently (avoid duplicate calls)
       if (now - lastUpdateTime.current < 4) {
+        debugMarketTradingViewLog('polling-realtime-skip-throttle', {
+          tokenAddress: shortMarketId(tokenAddress),
+          networkId,
+          now,
+          lastUpdateTime: lastUpdateTime.current,
+        });
         return;
       }
+
+      debugMarketTradingViewLog('polling-realtime-fetch', {
+        tokenAddress: shortMarketId(tokenAddress),
+        networkId,
+        timeFrom,
+        timeTo,
+        autoHandleError,
+      });
 
       const kLineData = await fetchTradingViewV2Data({
         tokenAddress,
@@ -56,7 +76,20 @@ export function useAutoKLineUpdate({
         kLineData.points.sort((a, b) => a.t - b.t);
       }
 
+      debugMarketTradingViewLog('polling-realtime-fetched', {
+        tokenAddress: shortMarketId(tokenAddress),
+        networkId,
+        summary: summarizeMarketKLineData(kLineData),
+      });
+
       if (webRef.current && kLineData) {
+        debugMarketTradingViewLog('polling-realtime-send', {
+          tokenAddress: shortMarketId(tokenAddress),
+          networkId,
+          summary: summarizeMarketKLineData(kLineData),
+          timestamp: now,
+        });
+
         webRef.current.sendMessageViaInjectedScript({
           type: 'autoKLineUpdate',
           payload: {
@@ -67,8 +100,20 @@ export function useAutoKLineUpdate({
         });
 
         lastUpdateTime.current = now;
+      } else {
+        debugMarketTradingViewLog('polling-realtime-send-skip', {
+          tokenAddress: shortMarketId(tokenAddress),
+          networkId,
+          hasWebRef: Boolean(webRef.current),
+          hasKLineData: Boolean(kLineData),
+        });
       }
     } catch (error) {
+      debugMarketTradingViewLog('polling-realtime-error', {
+        tokenAddress: shortMarketId(tokenAddress),
+        networkId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       console.error('Failed to push auto K-line data:', error);
     }
   }, [enabled, tokenAddress, networkId, webRef, autoHandleError]);

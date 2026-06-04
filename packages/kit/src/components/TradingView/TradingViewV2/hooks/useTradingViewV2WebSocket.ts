@@ -8,6 +8,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import {
+  debugMarketTradingViewLog,
+  shortMarketId,
+  summarizeMarketKLineData,
+} from '../debugLog';
+
 import type { IWebViewRef } from '../../../WebView/types';
 
 interface IUseTradingViewV2WebSocketProps {
@@ -51,6 +57,12 @@ export function useTradingViewV2WebSocket({
 
     async function initWebSocket(): Promise<void> {
       try {
+        debugMarketTradingViewLog('ws-subscribe', {
+          tokenAddress: shortMarketId(tokenAddress),
+          networkId,
+          chartType,
+          currency,
+        });
         await backgroundApiProxy.serviceMarketWS.connect();
         await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
           networkId,
@@ -70,6 +82,12 @@ export function useTradingViewV2WebSocket({
     return () => {
       async function cleanup(): Promise<void> {
         try {
+          debugMarketTradingViewLog('ws-unsubscribe', {
+            tokenAddress: shortMarketId(tokenAddress),
+            networkId,
+            chartType,
+            currency,
+          });
           await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
             networkId,
             tokenAddress,
@@ -102,11 +120,21 @@ export function useTradingViewV2WebSocket({
 
       const now = Math.floor(Date.now() / 1000);
       if (now - lastUpdateTime.current < 4) {
+        debugMarketTradingViewLog('ws-realtime-skip-throttle', {
+          tokenAddress: shortMarketId(tokenAddress),
+          networkId,
+          now,
+          lastUpdateTime: lastUpdateTime.current,
+        });
         return;
       }
 
       const webView = webRef.current;
       if (!webView) {
+        debugMarketTradingViewLog('ws-realtime-skip-no-webref', {
+          tokenAddress: shortMarketId(tokenAddress),
+          networkId,
+        });
         return;
       }
 
@@ -125,6 +153,15 @@ export function useTradingViewV2WebSocket({
               ],
               total: 1,
             };
+
+      debugMarketTradingViewLog('ws-realtime-send', {
+        tokenAddress: shortMarketId(tokenAddress),
+        networkId,
+        messageType: payload.messageType,
+        originalDataType: typeof payload.originalData,
+        summary: summarizeMarketKLineData(dataForWebView),
+        timestamp: now,
+      });
 
       webView.sendMessageViaInjectedScript({
         type: 'autoKLineUpdate',
@@ -154,5 +191,5 @@ export function useTradingViewV2WebSocket({
         handleMarketDataUpdate,
       );
     };
-  }, [markSubscriptionActivity, tokenAddress, webRef, enabled]);
+  }, [markSubscriptionActivity, networkId, tokenAddress, webRef, enabled]);
 }
