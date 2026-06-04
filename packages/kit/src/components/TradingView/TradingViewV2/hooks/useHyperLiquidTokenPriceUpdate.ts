@@ -13,48 +13,15 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
-  IEventCandleParameters,
-  IWsCandle,
-} from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IWsCandle } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import {
+  type IHyperLiquidCandleInterval,
+  getHyperLiquidInterval,
+} from './hyperLiquidTokenPriceUpdateUtils';
+
 const HYPERLIQUID_SUBSCRIPTION_SYNC_INTERVAL = 1000;
-
-type IHyperLiquidCandleInterval = IEventCandleParameters['interval'];
-
-const TRADINGVIEW_HL_NUMERIC_INTERVAL_MAP: Record<
-  string,
-  IHyperLiquidCandleInterval
-> = {
-  '1': '1m',
-  '3': '3m',
-  '5': '5m',
-  '15': '15m',
-  '30': '30m',
-  '60': '1h',
-  '120': '2h',
-  '240': '4h',
-  '480': '8h',
-  '720': '12h',
-};
-
-const HYPERLIQUID_INTERVALS = new Set<IHyperLiquidCandleInterval>([
-  '1m',
-  '3m',
-  '5m',
-  '15m',
-  '30m',
-  '1h',
-  '2h',
-  '4h',
-  '8h',
-  '12h',
-  '1d',
-  '3d',
-  '1w',
-  '1M',
-]);
 
 type IHyperLiquidCandleSubscription = {
   coin: string;
@@ -78,21 +45,6 @@ function buildSubscriberId() {
 
 function normalizeSymbol(symbol?: string) {
   return symbol?.trim().toUpperCase() || '';
-}
-
-function isHyperLiquidInterval(
-  interval?: string,
-): interval is IHyperLiquidCandleInterval {
-  return HYPERLIQUID_INTERVALS.has(interval as IHyperLiquidCandleInterval);
-}
-
-function getHyperLiquidInterval(
-  resolution?: string,
-): IHyperLiquidCandleInterval {
-  const interval =
-    TRADINGVIEW_HL_NUMERIC_INTERVAL_MAP[resolution || ''] ||
-    resolution?.replace(/H$/, 'h').replace(/D$/, 'd').replace(/W$/, 'w');
-  return isHyperLiquidInterval(interval) ? interval : '1m';
 }
 
 function buildSubscription(
