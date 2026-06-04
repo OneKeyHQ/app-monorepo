@@ -1,6 +1,8 @@
 import { isString } from 'lodash';
 
 import { ETranslations } from '../../locale';
+import type { ETranslationsMock } from '../../locale';
+import type { IOneKeyErrorI18nInfo } from '../types/errorTypes';
 
 import type { IntlShape } from 'react-intl';
 
@@ -17,9 +19,19 @@ export class UnwrappedIpcError extends Error {
 
   data?: unknown;
 
+  key?: ETranslations | ETranslationsMock;
+
+  info?: IOneKeyErrorI18nInfo;
+
   constructor(
     message: string,
-    options?: { code?: number; data?: unknown; cause?: unknown },
+    options?: {
+      code?: number;
+      data?: unknown;
+      key?: ETranslations | ETranslationsMock;
+      info?: IOneKeyErrorI18nInfo;
+      cause?: unknown;
+    },
   ) {
     super(message);
     if (options?.code !== undefined) {
@@ -27,6 +39,12 @@ export class UnwrappedIpcError extends Error {
     }
     if (options?.data !== undefined) {
       this.data = options.data;
+    }
+    if (options?.key !== undefined) {
+      this.key = options.key;
+    }
+    if (options?.info !== undefined) {
+      this.info = options.info;
     }
     if (options?.cause !== undefined) {
       (this as { cause?: unknown }).cause = options.cause;
@@ -52,6 +70,8 @@ type IUnwrappedPayload = {
   message: string;
   code?: number;
   data?: unknown;
+  key?: ETranslations | ETranslationsMock;
+  info?: IOneKeyErrorI18nInfo;
 };
 
 const parseInnerPayload = (tail: string): IUnwrappedPayload => {
@@ -63,12 +83,19 @@ const parseInnerPayload = (tail: string): IUnwrappedPayload => {
         message?: unknown;
         code?: unknown;
         data?: unknown;
+        key?: unknown;
+        info?: unknown;
       };
       if (isString(obj.message)) {
         return {
           message: obj.message,
           code: typeof obj.code === 'number' ? obj.code : undefined,
           data: obj.data,
+          key: isETranslationsKey(obj.key) ? obj.key : undefined,
+          info:
+            obj.info && typeof obj.info === 'object'
+              ? (obj.info as IOneKeyErrorI18nInfo)
+              : undefined,
         };
       }
     }
@@ -111,6 +138,8 @@ export function unwrapElectronIpcError(err: unknown): unknown {
   return new UnwrappedIpcError(payload.message, {
     code: payload.code,
     data: payload.data,
+    key: payload.key,
+    info: payload.info,
     cause: err,
   });
 }
@@ -131,29 +160,33 @@ export function resolveErrorI18nMessage(
     return '';
   }
   const keyValue = (err as { key?: unknown })?.key;
+  const values = (err as { info?: IOneKeyErrorI18nInfo })?.info;
   if (isETranslationsKey(keyValue)) {
     if (intl) {
-      return intl.formatMessage({ id: keyValue });
+      return intl.formatMessage({ id: keyValue }, values);
     }
     // Lazy require keeps this module free of `react-intl` at load time so
     // tests that stub `react-intl` (without providing `createIntl`) can still
     // import code paths that reach this file.
     // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
     const appLocaleModule: typeof import('../../locale/appLocale') = require('../../locale/appLocale');
-    return appLocaleModule.appLocale.intl.formatMessage({ id: keyValue });
+    return appLocaleModule.appLocale.intl.formatMessage(
+      { id: keyValue },
+      values,
+    );
   }
   const message = (err as { message?: unknown })?.message;
   const text = isString(message) ? message : String(err);
   if (isETranslationsKey(text)) {
     if (intl) {
-      return intl.formatMessage({ id: text });
+      return intl.formatMessage({ id: text }, values);
     }
     // Lazy require keeps this module free of `react-intl` at load time so
     // tests that stub `react-intl` (without providing `createIntl`) can still
     // import code paths that reach this file.
     // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
     const appLocaleModule: typeof import('../../locale/appLocale') = require('../../locale/appLocale');
-    return appLocaleModule.appLocale.intl.formatMessage({ id: text });
+    return appLocaleModule.appLocale.intl.formatMessage({ id: text }, values);
   }
   return text;
 }

@@ -89,7 +89,11 @@ async function handleError(error: unknown): Promise<void> {
       ? await hyperLiquidErrorResolver.resolveAsync(errorMessage)
       : undefined;
 
-  let friendlyMessage = resolveErrorI18nMessage(error);
+  const i18nResolvedMessage = resolveErrorI18nMessage(error);
+  let friendlyMessage =
+    i18nResolvedMessage !== rawErrorMessage
+      ? i18nResolvedMessage
+      : errorMessage;
   if (errorType) {
     friendlyMessage = ERROR_MESSAGES[errorType]();
   } else if (rawResolved?.i18nKey) {

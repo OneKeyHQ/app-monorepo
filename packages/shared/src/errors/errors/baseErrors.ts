@@ -134,6 +134,8 @@ export class OneKeyError<
     const serialized: {
       code: number;
       message: string;
+      key?: ETranslations | ETranslationsMock;
+      info?: I18nInfoT;
       requestId?: string;
       httpStatusCode?: number;
       data?: DataT;
@@ -144,6 +146,12 @@ export class OneKeyError<
     };
     if (this.data !== undefined) {
       serialized.data = this.data;
+    }
+    if (this.key !== undefined) {
+      serialized.key = this.key;
+    }
+    if (this.info !== undefined) {
+      serialized.info = this.info;
     }
     if (this.requestId !== undefined) {
       serialized.requestId = this.requestId;

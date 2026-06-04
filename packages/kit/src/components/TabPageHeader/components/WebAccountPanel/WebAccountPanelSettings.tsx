@@ -21,6 +21,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useLanguageSelector } from '@onekeyhq/kit/src/views/Setting/hooks';
 import {
   usePerpsActiveAccountAtom,
@@ -29,6 +33,7 @@ import {
   usePerpsSpotDustingAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -368,6 +373,10 @@ function PerpsSwitchSection() {
 
 function WebPerpsSpotDustingSetting() {
   const intl = useIntl();
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
+  const {
+    activeAccount: { account, indexedAccount, wallet },
+  } = useActiveAccount({ num: 0 });
   const [activeAccount] = usePerpsActiveAccountAtom();
   const [activeAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [spotDusting] = usePerpsSpotDustingAtom();
@@ -382,6 +391,12 @@ function WebPerpsSpotDustingSetting() {
   const activeAccountAddress = activeAccount.accountAddress?.toLowerCase();
   const activeAccountAddressRef = useRef(activeAccountAddress);
   activeAccountAddressRef.current = activeAccountAddress;
+  const panelAccountId =
+    selectedAccount.accountId ?? account?.id ?? indexedAccount?.id;
+  const activePerpsAccountId =
+    activeAccount.accountId ?? activeAccount.indexedAccountId;
+  const isPerpsAccountAligned =
+    Boolean(panelAccountId) && activePerpsAccountId === panelAccountId;
 
   const statusMatchesActiveAccount =
     Boolean(activeAccountAddress) &&
@@ -396,6 +411,7 @@ function WebPerpsSpotDustingSetting() {
   const enabled = pendingEnabled ?? serverEnabled;
   const canToggle =
     activeAccountStatus.canTrade === true &&
+    isPerpsAccountAligned &&
     statusMatchesActiveAccount &&
     pendingEnabled === undefined;
 
@@ -404,6 +420,39 @@ function WebPerpsSpotDustingSetting() {
       prev?.accountAddress === activeAccountAddress ? prev : undefined,
     );
   }, [activeAccountAddress]);
+
+  const ensureActivePerpsAccount = useCallback(async () => {
+    if (!panelAccountId) {
+      return;
+    }
+    if (activePerpsAccountId === panelAccountId && activeAccountAddress) {
+      return;
+    }
+    const deriveType =
+      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId: PERPS_NETWORK_ID,
+      });
+    await backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount({
+      indexedAccountId: indexedAccount?.id ?? null,
+      accountId: account?.id ?? null,
+      walletId: wallet?.id ?? null,
+      deriveType,
+    });
+  }, [
+    account?.id,
+    activeAccountAddress,
+    activePerpsAccountId,
+    indexedAccount?.id,
+    panelAccountId,
+    wallet?.id,
+  ]);
+
+  useEffect(() => {
+    if (!panelAccountId || isPerpsAccountAligned) {
+      return;
+    }
+    void ensureActivePerpsAccount();
+  }, [ensureActivePerpsAccount, isPerpsAccountAligned, panelAccountId]);
 
   const copy = useMemo(
     () => ({
@@ -479,6 +528,7 @@ function WebPerpsSpotDustingSetting() {
         Toast.error({ title: copy.disabledToast });
         return;
       }
+      await ensureActivePerpsAccount();
 
       setPendingStatus({
         accountAddress: requestAccountAddress,
@@ -518,6 +568,7 @@ function WebPerpsSpotDustingSetting() {
       copy.disabled,
       copy.enabled,
       copy.enabling,
+      ensureActivePerpsAccount,
       copy.failed,
       copy.loadingToast,
       statusMatchesActiveAccount,

@@ -1,4 +1,5 @@
 import { ETranslations } from '../../locale';
+import { OneKeyLocalError } from '../errors/localError';
 
 import {
   UnwrappedIpcError,
@@ -47,6 +48,20 @@ describe('unwrapElectronIpcError', () => {
     expect(unwrapped.data).toEqual({ foo: 'bar' });
   });
 
+  it('preserves key and info fields from serialized OneKeyError payload', () => {
+    const serialized = new OneKeyLocalError({
+      key: ETranslations.global_request_limit,
+      info: { amount: 12, unit: 'USDT' },
+    }).serialize();
+    const raw = buildIpcError(JSON.stringify(serialized));
+
+    const unwrapped = unwrapElectronIpcError(raw) as UnwrappedIpcError;
+
+    expect(unwrapped.key).toBe(ETranslations.global_request_limit);
+    expect(unwrapped.info).toEqual({ amount: 12, unit: 'USDT' });
+    expect((unwrapped as { cause?: unknown }).cause).toBe(raw);
+  });
+
   it('falls back to plain text when payload is not JSON', () => {
     const raw = buildIpcError('Error: something went wrong');
 
@@ -86,7 +101,10 @@ describe('unwrapElectronIpcError', () => {
 
 describe('resolveErrorI18nMessage', () => {
   const formatMessage = jest.fn(
-    (descriptor: { id?: unknown }) => `TRANSLATED:${String(descriptor?.id)}`,
+    (descriptor: { id?: unknown }, values?: Record<string, string | number>) =>
+      `TRANSLATED:${String(descriptor?.id)}${
+        values ? `:${JSON.stringify(values)}` : ''
+      }`,
   );
   const intl = { formatMessage } as unknown as Parameters<
     typeof resolveErrorI18nMessage
@@ -103,9 +121,10 @@ describe('resolveErrorI18nMessage', () => {
 
     const result = resolveErrorI18nMessage(err, intl);
 
-    expect(formatMessage).toHaveBeenCalledWith({
-      id: ETranslations.update_installation_package_possibly_compromised,
-    });
+    expect(formatMessage).toHaveBeenCalledWith(
+      { id: ETranslations.update_installation_package_possibly_compromised },
+      undefined,
+    );
     expect(result).toBe(
       `TRANSLATED:${ETranslations.update_installation_package_possibly_compromised}`,
     );
@@ -119,11 +138,30 @@ describe('resolveErrorI18nMessage', () => {
 
     const result = resolveErrorI18nMessage(err, intl);
 
-    expect(formatMessage).toHaveBeenCalledWith({
-      id: ETranslations.update_installation_package_possibly_compromised,
-    });
+    expect(formatMessage).toHaveBeenCalledWith(
+      { id: ETranslations.update_installation_package_possibly_compromised },
+      undefined,
+    );
     expect(result).toBe(
       `TRANSLATED:${ETranslations.update_installation_package_possibly_compromised}`,
+    );
+  });
+
+  it('passes i18n params through when translating with key', () => {
+    const err = {
+      key: ETranslations.global_request_limit,
+      info: { amount: 12, unit: 'USDT' },
+      message: 'Unknown Onekey Internal Error. onekey_error',
+    };
+
+    const result = resolveErrorI18nMessage(err, intl);
+
+    expect(formatMessage).toHaveBeenCalledWith(
+      { id: ETranslations.global_request_limit },
+      { amount: 12, unit: 'USDT' },
+    );
+    expect(result).toBe(
+      'TRANSLATED:global.request_limit:{"amount":12,"unit":"USDT"}',
     );
   });
 
