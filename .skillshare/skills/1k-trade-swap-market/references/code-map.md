@@ -94,7 +94,7 @@ Important anchors:
 - `packages/kit/src/views/Swap/pages/modal/SwapKLineContent.tsx`
 - `packages/kit/src/views/Swap/pages/modal/swapKLineTokenUtils.ts`
 - `packages/kit/src/components/TradingView/TradingViewV2/hooks/useTradingViewV2.ts`
-- `packages/kit/src/components/TradingView/TradingViewV2/klineDataHandler.ts`
+- `packages/kit/src/components/TradingView/TradingViewV2/messageHandlers/klineDataHandler.ts`
 - `packages/kit-bg/src/services/ServiceMarketV2.ts`
 
 Important anchors:
@@ -108,7 +108,7 @@ Important anchors:
 
 - `packages/shared/src/routes/swap.ts`
 - `packages/shared/types/swap/`
-- `packages/shared/types/marketV2/`
+- `packages/shared/types/marketV2.ts`
 - `packages/shared/src/logger/scopes/swap/`
 
 Do not add imports that violate the package hierarchy. `shared` cannot import from other OneKey packages, and `kit-bg` cannot import from `components` or `kit`.

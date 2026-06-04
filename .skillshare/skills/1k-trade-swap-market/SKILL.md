@@ -65,6 +65,7 @@ If a drill cannot be completed from the references, update the abstraction inste
 - Do not treat missing fee, ETA, rate, or limit fields as zero until the quote/build payload proves that meaning.
 - Do not let page atoms drift into review/confirm; confirm must use a frozen quote/build snapshot.
 - Do not reuse token-list state from another surface as proof for Swap selection.
+- Do not treat Wallet/Receive DeFi-token list regressions as Swap selector bugs unless the failing owner is the Swap/Market selector or handoff state.
 - Do not collapse account, network, provider, token, and receiver resets into one path without checking dependents.
 - Do not mark transaction behavior validated from static diff alone; inspect the actual App path, payload, pending row, or visible state.
 - Do not edit generated locale files directly; use the repository i18n workflow.

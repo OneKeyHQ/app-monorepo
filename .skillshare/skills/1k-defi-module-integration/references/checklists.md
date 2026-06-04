@@ -14,8 +14,9 @@ Run this before shipping or approving Earn/Borrow/Staking work:
 8. History rows show the right operation, token, provider, account, and final status.
 9. Cross-surface handoffs preserve source context and target ownership.
 10. Platform host and layout are validated on the affected platform.
-11. Shared utility changes include existing-protocol regression reasoning.
-12. User-facing text follows the repository i18n workflow.
+11. Native crash or freeze claims include the exact confirm/send path plus Android/iOS log, Sentry event, or JS/native crash boundary.
+12. Shared utility changes include existing-protocol regression reasoning.
+13. User-facing text follows the repository i18n workflow.
 
 ## ABI Readiness Drill
 

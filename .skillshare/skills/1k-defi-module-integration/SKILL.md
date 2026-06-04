@@ -66,6 +66,7 @@ If a drill cannot be completed from the references, improve the abstraction befo
 - Do not add a protocol until route params, provider identity, operation contract, pending tags, and refresh scope are named.
 - Do not mix setup tx, approval, wrap, quote, and business tx into one opaque action.
 - Do not rely on optional fields to avoid defining pending/history identity.
+- Do not call native crash or freeze bugs fixed from state reasoning alone; capture the Android/iOS log, Sentry event, or JS/native boundary that proves the failing operation path.
 - Do not hand-edit generated locale files; use `/1k-i18n`.
 - Do not broaden shared Staking/Borrow utilities without existing-protocol regression reasoning.
 

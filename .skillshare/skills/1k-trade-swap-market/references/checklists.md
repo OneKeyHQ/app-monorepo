@@ -13,7 +13,8 @@ Run this before shipping or approving Trade/Swap/Market work:
 7. Pending history is created after send success with the correct identity before status polling is trusted.
 8. Market/K-line data is isolated from quote/build state.
 9. Platform ownership is checked: desktop, web, extension, native mobile, tablet, modal, and bottom-sheet differences.
-10. Import hierarchy is preserved.
+10. Adjacent Wallet/Receive token-list ownership is not assumed to match Swap/Market selector ownership.
+11. Import hierarchy is preserved.
 
 ## New Channel Readiness Checklist
 
