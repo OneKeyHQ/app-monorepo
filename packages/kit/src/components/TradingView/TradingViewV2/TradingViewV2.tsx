@@ -14,6 +14,8 @@ import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
+import { ChartWebView } from '../ChartWebView';
+import { CHART_WEBVIEW_MODE } from '../ChartWebView/constants';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import {
@@ -168,10 +170,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useHyperLiquid,
   ]);
 
-  const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
-    additionalParams,
-    disabledFeatures,
-  });
+  const { finalUrl: tradingViewUrlWithParams, params: tradingViewParams } =
+    useTradingViewUrl({
+      additionalParams,
+      disabledFeatures,
+    });
 
   // OneKey realtime hooks only apply to app-served market candles.
   useAutoKLineUpdate({
@@ -335,6 +338,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     );
   }, []);
 
+  // TODO(chart-webview): legacy WebView path. Kept while migrating to the
+  // chart-webview module; remove once the new path (offline/online) is verified.
   const webView = useMemo(
     () => (
       <WebView
@@ -367,9 +372,34 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     ],
   );
 
+  // New chart-webview path (native only; web keeps legacy). Toggled at the code
+  // level via CHART_WEBVIEW_MODE — no runtime switch.
+  const useChartWebView =
+    platformEnv.isNative && CHART_WEBVIEW_MODE !== 'legacy';
+
+  const chartWebView = useMemo(
+    () => (
+      <ChartWebView
+        params={tradingViewParams}
+        onlineUrl={tradingViewUrlWithParams}
+        customReceiveHandler={async (data) => {
+          await customReceiveHandler(data);
+        }}
+        onWebViewRef={handleWebViewRef}
+        flex={1}
+      />
+    ),
+    [
+      customReceiveHandler,
+      handleWebViewRef,
+      tradingViewParams,
+      tradingViewUrlWithParams,
+    ],
+  );
+
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
-      {webView}
+      {useChartWebView ? chartWebView : webView}
 
       {mockEmptyKLineEnabled ? (
         <Stack
