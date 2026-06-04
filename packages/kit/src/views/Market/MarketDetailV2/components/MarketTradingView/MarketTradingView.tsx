@@ -32,6 +32,31 @@ function normalizeChartUpdateTimestamp(
   return timestamp < 10_000_000_000 ? timestamp * 1000 : timestamp;
 }
 
+function normalizeTokenAddress(address: string | undefined) {
+  return address?.trim().toLowerCase() ?? '';
+}
+
+function isChartPriceUpdateForCurrentToken({
+  data,
+  tokenAddress,
+  networkId,
+}: {
+  data: ITradingViewPriceUpdateData;
+  tokenAddress: string;
+  networkId: string;
+}) {
+  if (!data.networkId || data.networkId !== networkId) {
+    return false;
+  }
+
+  const currentTokenAddress = normalizeTokenAddress(tokenAddress);
+  const updateTokenAddress = normalizeTokenAddress(data.tokenAddress);
+
+  return currentTokenAddress
+    ? updateTokenAddress === currentTokenAddress
+    : !updateTokenAddress;
+}
+
 interface IMarketTradingViewProps {
   tokenAddress: string;
   networkId: string;
@@ -61,14 +86,24 @@ export const MarketTradingView = memo(
 
     const handlePriceUpdate = useCallback(
       (data: ITradingViewPriceUpdateData) => {
+        if (
+          !isChartPriceUpdateForCurrentToken({
+            data,
+            tokenAddress,
+            networkId,
+          })
+        ) {
+          return;
+        }
+
         const realtimePrice = normalizeChartRealtimePrice(data.price);
         if (!realtimePrice) {
           return;
         }
 
         tokenDetailActions.current.applyChartPriceUpdate({
-          tokenAddress,
-          networkId,
+          tokenAddress: data.tokenAddress,
+          networkId: data.networkId,
           price: realtimePrice,
           lastUpdated: normalizeChartUpdateTimestamp(data.timestamp),
         });

@@ -22,6 +22,8 @@ export interface ITradingViewIndicatorsDialogData {
 
 export interface ITradingViewPriceUpdateData {
   symbol?: string;
+  tokenAddress?: string;
+  networkId?: string;
   price?: string | number;
   timestamp?: number;
   interval?: string;
