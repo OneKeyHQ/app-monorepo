@@ -1,11 +1,10 @@
 import { memo, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
-import { StyleSheet } from 'react-native';
 import { SegmentSliderView } from '@onekeyfe/react-native-segment-slider';
+import { StyleSheet } from 'react-native';
 
 import { useTheme } from '../../hooks/useStyle';
-
-import type { ReactNode } from 'react';
 
 // Touch/hit area height, matching the web variant's HIT_AREA_HEIGHT.
 const HIT_AREA_HEIGHT = 24;
@@ -18,6 +17,13 @@ const DEFAULT_TRACK_HEIGHT = 4;
 // bump it; keep it fixed. Re-expose as a prop if a future caller ever needs
 // the reset semantics.
 const FIXED_EPOCH = 0;
+
+const styles = StyleSheet.create({
+  slider: {
+    width: '100%',
+    height: HIT_AREA_HEIGHT,
+  },
+});
 
 export interface ISegmentSliderProps {
   value: number;
@@ -114,13 +120,6 @@ function SegmentSliderComponent({
     />
   );
 }
-
-const styles = StyleSheet.create({
-  slider: {
-    width: '100%',
-    height: HIT_AREA_HEIGHT,
-  },
-});
 
 export const SegmentSlider = memo(SegmentSliderComponent);
 SegmentSlider.displayName = 'SegmentSlider';
