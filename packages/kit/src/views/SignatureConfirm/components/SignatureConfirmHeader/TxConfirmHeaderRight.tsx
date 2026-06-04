@@ -18,11 +18,22 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworksSupportMevProtection } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IGasPayer } from '@onekeyhq/shared/types/fee';
+import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 const mevProtectionProviders = getNetworksSupportMevProtection();
 
 const DEFAULT_IMAGE_HEIGHT = 40;
+
+function isPrivateSendSwapInfo(swapInfo: IUnsignedTxPro['swapInfo']) {
+  const buildResult = swapInfo?.swapBuildResData?.result;
+  return (
+    swapInfo?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+    buildResult?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+    buildResult?.info?.provider === privateSendProvider
+  );
+}
 
 function TxConfirmHeaderRight(props: {
   decodedTxs: IDecodedTx[] | undefined;
@@ -62,6 +73,14 @@ function TxConfirmHeaderRight(props: {
     }
 
     const unsignedTx = unsignedTxs[0];
+    const swapTx = find(unsignedTxs, 'swapInfo');
+
+    if (
+      decodedTx?.payload?.privateSend ||
+      isPrivateSendSwapInfo(swapTx?.swapInfo)
+    ) {
+      return null;
+    }
 
     if (unsignedTx.disableMev) {
       return null;
@@ -70,8 +89,6 @@ function TxConfirmHeaderRight(props: {
     if (decodedTx?.txDisplay?.mevProtectionProvider) {
       return decodedTx.txDisplay.mevProtectionProvider;
     }
-
-    const swapTx = find(unsignedTxs, 'swapInfo');
 
     if (swapTx && swapTx.swapInfo) {
       let isBridge = false;
@@ -95,6 +112,7 @@ function TxConfirmHeaderRight(props: {
     }
   }, [
     unsignedTxs,
+    decodedTx?.payload?.privateSend,
     decodedTx?.txDisplay?.mevProtectionProvider,
     effectiveFeePayer,
     txFeeInfoInit,
