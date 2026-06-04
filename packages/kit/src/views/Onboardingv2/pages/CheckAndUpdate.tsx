@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
@@ -10,11 +11,13 @@ import {
   AnimatePresence,
   Button,
   Dialog,
+  DialogContainer,
   HeightTransition,
   Icon,
   Image,
   SizableText,
   Spinner,
+  Theme,
   XStack,
   YStack,
   useThemeName,
@@ -43,7 +46,7 @@ import {
 } from '../hooks/useDeviceConnect';
 import { usePrepareUSBConnectForFirmwareUpdate } from '../hooks/usePrepareUSBConnectForFirmwareUpdate';
 import { OnboardingTestIDs } from '../testIDs';
-import { getForceTransportType } from '../utils';
+import { getDeviceLabel, getForceTransportType } from '../utils';
 
 import type { Features, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
@@ -87,6 +90,17 @@ function CheckAndUpdatePage({
     }
     return (currentDevice as SearchDevice).name;
   }, [currentDevice]);
+
+  // Product model name (e.g. "OneKey Pro"), not the BLE name (e.g. "Pro 062B").
+  // Falls back to the BLE label when the device type is unknown so the string
+  // is never empty.
+  const deviceModelName = useMemo(() => {
+    const deviceType = currentDevice?.deviceType;
+    if (!deviceType || deviceType === EDeviceType.Unknown) {
+      return deviceLabel;
+    }
+    return getDeviceLabel([deviceType]);
+  }, [currentDevice, deviceLabel]);
 
   const {
     verifyHardware,
@@ -133,7 +147,7 @@ function CheckAndUpdatePage({
         {
           id: ETranslations.genuine_check_desc,
         },
-        { deviceLabel },
+        { deviceLabel: deviceModelName },
       ),
       state: ECheckAndUpdateStepState.Idle,
     },
@@ -150,7 +164,7 @@ function CheckAndUpdatePage({
         {
           id: ETranslations.firmware_check_desc,
         },
-        { deviceLabel },
+        { deviceLabel: deviceModelName },
       ),
       state: ECheckAndUpdateStepState.Idle,
     },
@@ -573,24 +587,43 @@ function CheckAndUpdatePage({
 
   const handleSkipUpdate = useCallback(() => {
     Dialog.show({
-      icon: 'InfoCircleOutline',
-      tone: 'warning',
-      title: intl.formatMessage({
-        id: ETranslations.skip_firmware_check_dialog_title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.skip_firmware_check_dialog_desc,
-      }),
-      onConfirm: () => {
-        setSteps((prev) => {
-          const newSteps = [...prev];
-          newSteps[1] = {
-            ...newSteps[1],
-            state: ECheckAndUpdateStepState.Success,
-          };
-          return newSteps;
-        });
-      },
+      // The onboarding flow is force-dark (routes/Modal/Navigator.tsx wraps it
+      // in <Theme name="dark">), but Dialog.show renders into the global
+      // full-window overlay portal OUTSIDE that wrapper, so by default this
+      // dialog pops in the app/system (light) theme. Wrapping the whole
+      // DialogContainer in <Theme name="dark"> re-themes the entire chrome
+      // (card, header close icon, warning icon, footer buttons) via React
+      // context to match the onboarding flow. Mirrors
+      // useShowOnboardingInviteCodeDialog.
+      dialogContainer: ({ ref }) => (
+        <Theme name="dark">
+          <DialogContainer
+            ref={ref}
+            icon="CubeSolid"
+            tone="warning"
+            title={intl.formatMessage({
+              id: ETranslations.skip_firmware_check_dialog_title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.skip_firmware_check_dialog_desc,
+            })}
+            showFooter
+            showConfirmButton
+            showCancelButton
+            onConfirm={() => {
+              setSteps((prev) => {
+                const newSteps = [...prev];
+                newSteps[1] = {
+                  ...newSteps[1],
+                  state: ECheckAndUpdateStepState.Success,
+                };
+                return newSteps;
+              });
+            }}
+            onClose={async () => undefined}
+          />
+        </Theme>
+      ),
     });
   }, [intl]);
 
@@ -654,6 +687,21 @@ function CheckAndUpdatePage({
       foregroundLayer={celebrate ? <Confetti /> : null}
     >
       {steps.map((step, index) => {
+        // On Success, collapse the row to a single celebratory title and hide
+        // the description. The genuine title interpolates the product model
+        // name (e.g. "OneKey Pro"), not the BLE label.
+        const isStepSuccess = step.state === ECheckAndUpdateStepState.Success;
+        const successTitle =
+          step.id === ECheckAndUpdateStepId.GenuineCheck
+            ? intl.formatMessage(
+                { id: ETranslations.genuine_check_success_title },
+                { deviceLabel: deviceModelName },
+              )
+            : intl.formatMessage({
+                id: ETranslations.firmware_check_success_title,
+              });
+        const displayTitle = isStepSuccess ? successTitle : step.title;
+        const displayDescription = isStepSuccess ? undefined : step.description;
         return (
           <YStack key={step.title}>
             {/* highlight background */}
@@ -690,9 +738,9 @@ function CheckAndUpdatePage({
                   borderCurve="continuous"
                   $platform-web={{
                     boxShadow:
-                      '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                      'inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)',
                   }}
-                  $theme-dark={{
+                  $platform-native={{
                     borderWidth: StyleSheet.hairlineWidth,
                     borderColor: '$neutral2',
                   }}
@@ -716,7 +764,7 @@ function CheckAndUpdatePage({
                     key={i}
                     w="100%"
                     h="$1"
-                    bg="$neutral3"
+                    bg="$border"
                     borderRadius="$full"
                   />
                 ))}
@@ -830,10 +878,10 @@ function CheckAndUpdatePage({
                 ) : null}
               </YStack>
               <YStack gap="$1" flex={1}>
-                <SizableText size="$headingSm">{step.title}</SizableText>
-                {step.description ? (
+                <SizableText size="$headingSm">{displayTitle}</SizableText>
+                {displayDescription ? (
                   <SizableText color="$textSubdued">
-                    {step.description}
+                    {displayDescription}
                   </SizableText>
                 ) : null}
               </YStack>
@@ -969,7 +1017,7 @@ function CheckAndUpdatePage({
               {
                 id: ETranslations.check_my_deviceLabel,
               },
-              { deviceLabel },
+              { deviceLabel: deviceModelName },
             )}
           </Button>
         ) : null}
