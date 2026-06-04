@@ -666,12 +666,12 @@ function SwapKLineTokenPriceInfo({
     <YStack
       ai="flex-end"
       gap={compact ? '$0' : '$0.5'}
-      minWidth={compact ? '$24' : '$16'}
+      minWidth={compact ? '$24' : '$14'}
       maxWidth={compact ? '$30' : '$28'}
     >
       {price ? (
         <NumberSizeableText
-          size="$bodyMdMedium"
+          size={compact ? '$bodyMdMedium' : '$bodyLgMedium'}
           fontFamily="$monoMedium"
           formatter="price"
           formatterOptions={{ currency: '$' }}
@@ -682,7 +682,7 @@ function SwapKLineTokenPriceInfo({
         </NumberSizeableText>
       ) : (
         <SizableText
-          size="$bodyMdMedium"
+          size={compact ? '$bodyMdMedium' : '$bodyLgMedium'}
           color="$textSubdued"
           fontFamily="$monoMedium"
           numberOfLines={1}
@@ -690,31 +690,24 @@ function SwapKLineTokenPriceInfo({
           --
         </SizableText>
       )}
-      <XStack ai="center" gap={compact ? '$0' : '$1'}>
-        {compact ? null : (
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            24h
-          </SizableText>
-        )}
-        {priceChange ? (
-          <PriceChangePercentage
-            size={compact ? '$bodyXsMedium' : '$bodySmMedium'}
-            fontFamily="$monoMedium"
-            numberOfLines={1}
-          >
-            {priceChange}
-          </PriceChangePercentage>
-        ) : (
-          <SizableText
-            size="$bodySmMedium"
-            color="$textSubdued"
-            fontFamily="$monoMedium"
-            numberOfLines={1}
-          >
-            --
-          </SizableText>
-        )}
-      </XStack>
+      {priceChange ? (
+        <PriceChangePercentage
+          size={compact ? '$bodyXsMedium' : '$bodySmMedium'}
+          fontFamily="$monoMedium"
+          numberOfLines={1}
+        >
+          {priceChange}
+        </PriceChangePercentage>
+      ) : (
+        <SizableText
+          size="$bodySmMedium"
+          color="$textSubdued"
+          fontFamily="$monoMedium"
+          numberOfLines={1}
+        >
+          --
+        </SizableText>
+      )}
     </YStack>
   );
 }
@@ -739,7 +732,7 @@ function SwapKLineTokenInfoRow({
       ai="center"
       jc="space-between"
       gap={compact ? '$2.5' : '$3'}
-      minHeight={compact ? '$11' : '$12'}
+      minHeight={compact ? '$11' : '$10'}
       width="100%"
     >
       <XStack
@@ -761,18 +754,11 @@ function SwapKLineTokenInfoRow({
           maxWidth={compact ? undefined : '$28'}
           gap="$0.5"
         >
-          <SizableText
-            size={compact ? '$bodyLgMedium' : '$headingMd'}
-            numberOfLines={1}
-          >
+          <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {token.symbol}
           </SizableText>
           {networkName ? (
-            <SizableText
-              size={compact ? '$bodyMd' : '$bodySm'}
-              color="$textSubdued"
-              numberOfLines={1}
-            >
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
               {networkName}
             </SizableText>
           ) : null}
@@ -797,10 +783,12 @@ function SwapKLineContentBody({
   pt = '$3',
   px = '$5',
   headerRight,
+  separateChartDivider,
 }: {
   state: ISwapKLineContentState;
   chartMinHeight?: number;
   headerRight?: ReactNode;
+  separateChartDivider?: boolean;
 } & ISwapKLineContentSpacingProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -810,6 +798,7 @@ function SwapKLineContentBody({
   const disabledTradingViewFeatures = gtMd
     ? SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES
     : SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES;
+  const showSeparateChartDivider = separateChartDivider && gtMd;
 
   let tokenInfoContent: ReactNode = null;
   if (selectedToken) {
@@ -841,8 +830,8 @@ function SwapKLineContentBody({
       flex={1}
       minHeight={chartMinHeight}
       overflow="hidden"
-      borderTopWidth="$px"
-      borderTopColor="$borderSubdued"
+      borderTopWidth={showSeparateChartDivider ? undefined : '$px'}
+      borderTopColor={showSeparateChartDivider ? undefined : '$borderSubdued'}
     >
       <TradingViewV2
         key={`${chartNetworkId}:${chartTokenAddress}:${
@@ -865,13 +854,21 @@ function SwapKLineContentBody({
       />
     </Stack>
   );
+  const chartSectionContent = showSeparateChartDivider ? (
+    <YStack flex={1} gap="$5">
+      <Stack h="$px" bg="$borderSubdued" />
+      {chartContent}
+    </YStack>
+  ) : (
+    chartContent
+  );
 
   return (
     <>
       {selectedToken ? (
         <YStack flex={1} px={px} pt={pt} pb={pb} gap={gap}>
           {tokenInfoContent}
-          {chartContent}
+          {chartSectionContent}
         </YStack>
       ) : (
         <YStack flex={1} ai="center" jc="center" px="$5">
@@ -916,6 +913,15 @@ function SwapKLineModalContent() {
   const { gtMd } = useMedia();
   const state = useSwapKLineContentState();
   const headerRight = <SwapKLineHeaderRight state={state} compact={!gtMd} />;
+  const desktopContentProps = gtMd
+    ? ({
+        chartMinHeight: 353,
+        px: '$9',
+        pb: '$8',
+        gap: '$8',
+        separateChartDivider: true,
+      } as const)
+    : undefined;
 
   return (
     <Page lazyLoad testID={SwapTestIDs.kLineModal}>
@@ -923,7 +929,11 @@ function SwapKLineModalContent() {
         title={intl.formatMessage({ id: ETranslations.market_chart })}
       />
       <Page.Body>
-        <SwapKLineContentBody state={state} headerRight={headerRight} />
+        <SwapKLineContentBody
+          state={state}
+          headerRight={headerRight}
+          {...desktopContentProps}
+        />
       </Page.Body>
     </Page>
   );
