@@ -142,12 +142,12 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
       <YStack
         width="100%"
         maxWidth={isMobile ? 320 : 420}
-        gap="$3"
+        gap={isMobile ? '$3' : '$2'}
         alignItems="center"
         onLayout={(event) => handleTraceLayout('content', event)}
       >
-        <YStack h={isMobile ? 64 : 76} alignItems="center" overflow="visible">
-          <Illustration name="Orders" size={isMobile ? 88 : 100} />
+        <YStack h={isMobile ? 64 : 96} alignItems="center" overflow="visible">
+          <Illustration name="Orders" size={isMobile ? 88 : 124} />
         </YStack>
 
         <SizableText

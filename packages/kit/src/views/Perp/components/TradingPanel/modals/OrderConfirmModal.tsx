@@ -545,15 +545,25 @@ function OrderConfirmContent({
           <>
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                Price Range
+                {intl.formatMessage({
+                  id: ETranslations.perp_scale_lower_price_label__title,
+                })}
               </SizableText>
               <SizableText size="$bodyMdMedium">
                 {formatOrderPriceDisplay({
                   price: formData.scaleLowerPrice ?? '0',
                   isSpot,
                   szDecimals,
-                })}{' '}
-                -{' '}
+                })}
+              </SizableText>
+            </XStack>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_scale_upper_price_label__title,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">
                 {formatOrderPriceDisplay({
                   price: formData.scaleUpperPrice ?? '0',
                   isSpot,
