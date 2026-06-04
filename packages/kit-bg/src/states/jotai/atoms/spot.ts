@@ -7,7 +7,7 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid';
 
 import { EAtomNames } from '../atomNames';
-import { globalAtom } from '../utils';
+import { globalAtom, globalAtomComputedR } from '../utils';
 
 export interface ISpotActiveAssetAtom {
   coin: string;
@@ -39,6 +39,27 @@ export const {
 } = globalAtom<ISpotActiveAssetCtxAtom>({
   name: EAtomNames.spotActiveAssetCtxAtom,
   initialValue: undefined,
+});
+
+export const {
+  target: spotActiveAssetCtxReadyAtom,
+  use: useSpotActiveAssetCtxReadyAtom,
+} = globalAtomComputedR<boolean>({
+  read: (get) => Boolean(get(spotActiveAssetCtxAtom.atom())),
+});
+
+export const {
+  target: spotActiveAssetCtxMidPriceAtom,
+  use: useSpotActiveAssetCtxMidPriceAtom,
+} = globalAtomComputedR<string | undefined>({
+  read: (get) => get(spotActiveAssetCtxAtom.atom())?.ctx?.midPrice,
+});
+
+export const {
+  target: spotActiveAssetCtxMarkPriceAtom,
+  use: useSpotActiveAssetCtxMarkPriceAtom,
+} = globalAtomComputedR<string | undefined>({
+  read: (get) => get(spotActiveAssetCtxAtom.atom())?.ctx?.markPrice,
 });
 
 export interface ISpotBalancesAtom {

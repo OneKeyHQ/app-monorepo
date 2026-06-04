@@ -108,6 +108,7 @@ import {
   perpsActiveAccountSummaryAtom,
   perpsActiveAssetAtom,
   perpsActiveAssetCtxAtom,
+  perpsActiveAssetCtxDisplayAtom,
   perpsActiveAssetDataAtom,
   perpsCommonConfigPersistAtom,
   perpsCustomSettingsAtom,
@@ -178,6 +179,79 @@ type IChangeActiveAssetResult = {
 const HIDE_SELECT_ACCOUNT_LOADING_DELAY_MS = timerUtils.getTimeDurationMs({
   seconds: 0.3,
 });
+const PERPS_ACTIVE_ASSET_CTX_DISPLAY_THROTTLE_MS = 500;
+
+let perpsActiveAssetCtxDisplayLastSetAt = 0;
+let perpsActiveAssetCtxDisplayTimer: ReturnType<typeof setTimeout> | undefined;
+let perpsActiveAssetCtxDisplayPending: IPerpsActiveAssetCtxAtom | undefined;
+
+async function setPerpsActiveAssetCtxDisplay(
+  nextValue: IPerpsActiveAssetCtxAtom,
+) {
+  const prevValue = await perpsActiveAssetCtxDisplayAtom.get();
+  if (
+    prevValue?.coin === nextValue?.coin &&
+    prevValue?.assetId === nextValue?.assetId &&
+    isEqual(prevValue?.ctx, nextValue?.ctx)
+  ) {
+    return;
+  }
+  await perpsActiveAssetCtxDisplayAtom.set(nextValue);
+}
+
+function clearPerpsActiveAssetCtxDisplayTimer() {
+  if (perpsActiveAssetCtxDisplayTimer) {
+    clearTimeout(perpsActiveAssetCtxDisplayTimer);
+    perpsActiveAssetCtxDisplayTimer = undefined;
+  }
+}
+
+function schedulePerpsActiveAssetCtxDisplayUpdate({
+  nextValue,
+  immediate,
+}: {
+  nextValue: IPerpsActiveAssetCtxAtom;
+  immediate?: boolean;
+}) {
+  if (!nextValue || immediate) {
+    clearPerpsActiveAssetCtxDisplayTimer();
+    perpsActiveAssetCtxDisplayPending = undefined;
+    perpsActiveAssetCtxDisplayLastSetAt = Date.now();
+    void setPerpsActiveAssetCtxDisplay(nextValue);
+    return;
+  }
+
+  const now = Date.now();
+  const elapsed = now - perpsActiveAssetCtxDisplayLastSetAt;
+  if (
+    !perpsActiveAssetCtxDisplayTimer &&
+    elapsed >= PERPS_ACTIVE_ASSET_CTX_DISPLAY_THROTTLE_MS
+  ) {
+    perpsActiveAssetCtxDisplayPending = undefined;
+    perpsActiveAssetCtxDisplayLastSetAt = now;
+    void setPerpsActiveAssetCtxDisplay(nextValue);
+    return;
+  }
+
+  perpsActiveAssetCtxDisplayPending = nextValue;
+  if (perpsActiveAssetCtxDisplayTimer) {
+    return;
+  }
+
+  perpsActiveAssetCtxDisplayTimer = setTimeout(
+    () => {
+      perpsActiveAssetCtxDisplayTimer = undefined;
+      const pending = perpsActiveAssetCtxDisplayPending;
+      perpsActiveAssetCtxDisplayPending = undefined;
+      if (!pending) {
+        return;
+      }
+      perpsActiveAssetCtxDisplayLastSetAt = Date.now();
+      void setPerpsActiveAssetCtxDisplay(pending);
+    },
+    Math.max(0, PERPS_ACTIVE_ASSET_CTX_DISPLAY_THROTTLE_MS - elapsed),
+  );
+}
 
 function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
   return fills.filter(
@@ -1240,21 +1314,46 @@ export default class ServiceHyperliquid extends ServiceBase {
   async updateActiveAssetCtx(data: IWsActiveAssetCtx | undefined) {
     const activeAsset = await perpsActiveAssetAtom.get();
     if (activeAsset?.coin === data?.coin && data?.coin) {
+      const nextCtx = perpsUtils.formatAssetCtx(data?.ctx);
+      const activeAssetCtx = await perpsActiveAssetCtxAtom.get();
+      const nextActiveAssetCtx: NonNullable<IPerpsActiveAssetCtxAtom> = {
+        coin: data.coin,
+        assetId: activeAsset?.assetId,
+        ctx: nextCtx,
+      };
+      const shouldUpdateDisplayImmediately =
+        activeAssetCtx?.coin !== data.coin ||
+        activeAssetCtx?.assetId !== activeAsset?.assetId;
+      if (
+        activeAssetCtx?.coin === data.coin &&
+        activeAssetCtx.assetId === activeAsset?.assetId &&
+        isEqual(activeAssetCtx.ctx, nextCtx)
+      ) {
+        schedulePerpsActiveAssetCtxDisplayUpdate({
+          nextValue: nextActiveAssetCtx,
+          immediate: shouldUpdateDisplayImmediately,
+        });
+        return;
+      }
       markPerpsColdStartPerfOnce('service_active_asset_ctx_atom_set_first', {
         coin: data.coin,
         markPx: data.ctx?.markPx,
       });
       await perpsActiveAssetCtxAtom.set(
-        (_prev): IPerpsActiveAssetCtxAtom => ({
-          coin: data?.coin,
-          assetId: activeAsset?.assetId,
-          ctx: perpsUtils.formatAssetCtx(data?.ctx),
-        }),
+        (_prev): IPerpsActiveAssetCtxAtom => nextActiveAssetCtx,
       );
+      schedulePerpsActiveAssetCtxDisplayUpdate({
+        nextValue: nextActiveAssetCtx,
+        immediate: shouldUpdateDisplayImmediately,
+      });
     } else {
       const activeAssetCtx = await perpsActiveAssetCtxAtom.get();
       if (activeAssetCtx?.coin !== activeAsset?.coin) {
         await perpsActiveAssetCtxAtom.set(undefined);
+        schedulePerpsActiveAssetCtxDisplayUpdate({
+          nextValue: undefined,
+          immediate: true,
+        });
       }
     }
   }
@@ -2179,6 +2278,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       this.rememberCommittedActiveAsset(nextActiveAsset);
       if (oldCoin !== newCoin) {
         await perpsActiveAssetCtxAtom.set(undefined);
+        schedulePerpsActiveAssetCtxDisplayUpdate({
+          nextValue: undefined,
+          immediate: true,
+        });
       }
       markPerpsColdStartPerf('service_change_active_asset_end', {
         coin: nextActiveAsset.coin,

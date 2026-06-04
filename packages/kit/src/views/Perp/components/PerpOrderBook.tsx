@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -26,9 +26,15 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
+import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
-import { useL2Book } from '../hooks/usePerpMarketData';
+import {
+  type IL2BookData,
+  getFreshL2BookSnapshotFromSwr,
+  normalizeL2BookData,
+  useL2Book,
+} from '../hooks/usePerpMarketData';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
 import { useTradingPrice } from '../hooks/useTradingPrice';
 import { isPerpsL2BookInteractive } from '../utils/l2BookFreshness';
@@ -38,6 +44,10 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../utils/mobileLayoutTrace';
+import {
+  PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS,
+  getPerpsOrderBookVisualSnapshotDelayMs,
+} from '../utils/orderBookVisualScheduler';
 
 import {
   type IOrderBookSelection,
@@ -382,6 +392,167 @@ function MobileHeader({
 const MobileHeaderMemo = memo(MobileHeader);
 const MOBILE_SPOT_MAX_LEVELS_PER_SIDE = 4;
 
+function DefaultOrderBookLoadingNode({
+  isSpot,
+  maxLevelsPerSide,
+  spotUniverse,
+  symbol,
+  variant,
+}: {
+  isSpot?: boolean;
+  maxLevelsPerSide?: number;
+  spotUniverse?: Parameters<typeof DefaultLoadingNode>[0]['spotUniverse'];
+  symbol?: string;
+  variant: IOrderBookVariant;
+}) {
+  const { midPrice } = useTradingPrice();
+  return (
+    <DefaultLoadingNode
+      isSpot={isSpot}
+      maxLevelsPerSide={maxLevelsPerSide}
+      midPrice={midPrice}
+      spotUniverse={spotUniverse}
+      symbol={symbol}
+      variant={variant}
+    />
+  );
+}
+
+function usePublishVisualL2BookSnapshot({
+  book,
+  enabled,
+  onPublish,
+}: {
+  book: IL2BookData | null;
+  enabled: boolean;
+  onPublish: (book: IL2BookData | null) => void;
+}) {
+  const visualBookRef = useRef<IL2BookData | null>(book);
+  const pendingBookRef = useRef<IL2BookData | null>(null);
+  const lastPublishedAtRef = useRef<number | undefined>(undefined);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const publishBook = useCallback(
+    (nextBook: IL2BookData | null, publishedAt: number) => {
+      pendingBookRef.current = null;
+      visualBookRef.current = nextBook;
+      lastPublishedAtRef.current = nextBook ? publishedAt : undefined;
+      onPublish(nextBook);
+    },
+    [onPublish],
+  );
+
+  useEffect(() => {
+    if (!enabled) {
+      clearTimer();
+      publishBook(book, Date.now());
+      return undefined;
+    }
+
+    if (!book) {
+      clearTimer();
+      publishBook(null, Date.now());
+      return undefined;
+    }
+
+    const currentVisualBook = visualBookRef.current;
+    const shouldPublishImmediately =
+      !currentVisualBook || currentVisualBook.coin !== book.coin;
+    const now = Date.now();
+    const delayMs = shouldPublishImmediately
+      ? 0
+      : getPerpsOrderBookVisualSnapshotDelayMs({
+          frameMs: PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS,
+          lastPublishedAt: lastPublishedAtRef.current,
+          now,
+        });
+
+    pendingBookRef.current = book;
+
+    if (delayMs === 0) {
+      clearTimer();
+      publishBook(book, now);
+      return undefined;
+    }
+
+    if (!timerRef.current) {
+      const expectedCoin = book.coin;
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        const pendingBook = pendingBookRef.current;
+        const visibleCoin = visualBookRef.current?.coin;
+        if (
+          pendingBook?.coin === expectedCoin &&
+          visibleCoin === expectedCoin
+        ) {
+          publishBook(pendingBook, Date.now());
+        } else {
+          pendingBookRef.current = null;
+        }
+      }, delayMs);
+    }
+
+    return undefined;
+  }, [book, clearTimer, enabled, publishBook]);
+
+  useEffect(() => clearTimer, [clearTimer]);
+}
+
+function PerpOrderBookDataBridge({
+  enableVisualSnapshot,
+  onInteractiveChange,
+  onVisualBookChange,
+  subscriptionOptions,
+}: {
+  enableVisualSnapshot: boolean;
+  onInteractiveChange: (isInteractive: boolean) => void;
+  onVisualBookChange: (book: IL2BookData | null) => void;
+  subscriptionOptions: IL2BookOptions;
+}) {
+  const { l2Book, hasOrderBook, isOrderBookInteractive } = useL2Book({
+    nSigFigs: subscriptionOptions.nSigFigs,
+    mantissa: subscriptionOptions.mantissa,
+  });
+  const isInteractive =
+    hasOrderBook && Boolean(l2Book) && isOrderBookInteractive;
+
+  usePublishVisualL2BookSnapshot({
+    book: l2Book,
+    enabled: enableVisualSnapshot,
+    onPublish: onVisualBookChange,
+  });
+
+  useEffect(() => {
+    onInteractiveChange(isInteractive);
+  }, [isInteractive, onInteractiveChange]);
+
+  useEffect(() => {
+    if (isInteractive && l2Book) {
+      markPerpsColdStartPerfOnce('ui_order_book_ready', {
+        coin: l2Book.coin,
+        bidLevels: l2Book.bids.length,
+        askLevels: l2Book.asks.length,
+      });
+    }
+  }, [
+    isInteractive,
+    l2Book,
+    l2Book?.asks.length,
+    l2Book?.bids.length,
+    l2Book?.coin,
+  ]);
+
+  return null;
+}
+const PerpOrderBookDataBridgeMemo = memo(PerpOrderBookDataBridge);
+
 export function PerpOrderBook({
   entry,
   maxLevelsPerSide: propMaxLevelsPerSide,
@@ -401,7 +572,6 @@ export function PerpOrderBook({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
-  const { midPrice } = useTradingPrice();
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
 
@@ -420,20 +590,58 @@ export function PerpOrderBook({
     return { nSigFigs, mantissa };
   }, [activeTradeInstrument.coin, orderBookTickOptions]);
 
-  const { l2Book, hasOrderBook, isOrderBookInteractive } = useL2Book({
-    nSigFigs: l2SubscriptionOptions.nSigFigs,
-    mantissa: l2SubscriptionOptions.mantissa,
-  });
+  const enableVisualSnapshot = !gtMd;
+  const [renderL2Book, setRenderL2Book] = useState<IL2BookData | null>(null);
+  const [isOrderBookInteractive, setIsOrderBookInteractive] = useState(false);
+  const initialCachedL2Book = useMemo(() => {
+    const coin = activeTradeInstrument.coin;
+    if (!coin) {
+      return null;
+    }
+    return normalizeL2BookData({
+      expectedCoin: coin,
+      bookData: getFreshL2BookSnapshotFromSwr({
+        coin,
+        options: {
+          nSigFigs: l2SubscriptionOptions.nSigFigs,
+          mantissa: l2SubscriptionOptions.mantissa,
+        },
+      }),
+    });
+  }, [
+    activeTradeInstrument.coin,
+    l2SubscriptionOptions.mantissa,
+    l2SubscriptionOptions.nSigFigs,
+  ]);
+  const activeRenderL2Book =
+    renderL2Book?.coin === activeTradeInstrument.coin ? renderL2Book : null;
+  const visibleL2Book = activeRenderL2Book ?? initialCachedL2Book;
+  const hasRenderOrderBook = Boolean(visibleL2Book);
+
+  const handleVisualBookChange = useCallback((book: IL2BookData | null) => {
+    setRenderL2Book((prevBook) => (prevBook === book ? prevBook : book));
+  }, []);
+
+  const handleOrderBookInteractiveChange = useCallback(
+    (nextIsInteractive: boolean) => {
+      setIsOrderBookInteractive((prevIsInteractive) =>
+        prevIsInteractive === nextIsInteractive
+          ? prevIsInteractive
+          : nextIsInteractive,
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
-    if (hasOrderBook && l2Book && isOrderBookInteractive) {
-      markPerpsColdStartPerfOnce('ui_order_book_ready', {
-        coin: l2Book.coin,
-        bidLevels: l2Book.bids.length,
-        askLevels: l2Book.asks.length,
-      });
-    }
-  }, [hasOrderBook, isOrderBookInteractive, l2Book]);
+    setRenderL2Book(null);
+    setIsOrderBookInteractive(false);
+  }, [
+    activeTradeInstrument.coin,
+    activeTradeInstrument.mode,
+    l2SubscriptionOptions.mantissa,
+    l2SubscriptionOptions.nSigFigs,
+  ]);
 
   useEffect(() => {
     const coin = activeTradeInstrument.coin;
@@ -548,9 +756,9 @@ export function PerpOrderBook({
   ]);
 
   const tickOptionsData = useTickOptions({
-    symbol: l2Book?.coin,
-    bids: l2Book?.bids ?? [],
-    asks: l2Book?.asks ?? [],
+    symbol: visibleL2Book?.coin,
+    bids: visibleL2Book?.bids ?? [],
+    asks: visibleL2Book?.asks ?? [],
   });
   const {
     tickOptions,
@@ -571,8 +779,8 @@ export function PerpOrderBook({
     (selection: IOrderBookSelection) => {
       if (
         !isPerpsL2BookInteractive({
-          bookTime: l2Book?.time,
-          bookReceivedAt: l2Book?.localReceivedAt,
+          bookTime: visibleL2Book?.time,
+          bookReceivedAt: visibleL2Book?.localReceivedAt,
         })
       ) {
         return;
@@ -588,7 +796,25 @@ export function PerpOrderBook({
 
       actionsRef.current.updateTradingForm(updates);
     },
-    [actionsRef, formData.type, l2Book?.localReceivedAt, l2Book?.time],
+    [
+      actionsRef,
+      formData.type,
+      visibleL2Book?.localReceivedAt,
+      visibleL2Book?.time,
+    ],
+  );
+  const isVisibleOrderBookInteractive = useMemo(
+    () =>
+      isOrderBookInteractive &&
+      isPerpsL2BookInteractive({
+        bookTime: visibleL2Book?.time,
+        bookReceivedAt: visibleL2Book?.localReceivedAt,
+      }),
+    [
+      isOrderBookInteractive,
+      visibleL2Book?.localReceivedAt,
+      visibleL2Book?.time,
+    ],
   );
 
   const mobileMaxLevelsPerSide = useMemo(() => {
@@ -622,7 +848,7 @@ export function PerpOrderBook({
           entry: entry ?? 'perpTab',
           coin: activeTradeInstrument.coin,
           mode: activeTradeInstrument.mode,
-          hasOrderBook,
+          hasOrderBook: hasRenderOrderBook,
           mobileMaxLevelsPerSide,
           shouldShowEnableTradingButton,
         });
@@ -634,7 +860,7 @@ export function PerpOrderBook({
       activeTradeInstrument.mode,
       entry,
       gtMd,
-      hasOrderBook,
+      hasRenderOrderBook,
       mobileMaxLevelsPerSide,
       shouldShowEnableTradingButton,
     ],
@@ -648,10 +874,10 @@ export function PerpOrderBook({
       entry ?? 'perpTab',
       activeTradeInstrument.mode,
       activeTradeInstrument.coin,
-      hasOrderBook ? 'book' : 'loading',
-      l2Book?.coin ?? '',
-      l2Book?.bids.length ?? 0,
-      l2Book?.asks.length ?? 0,
+      hasRenderOrderBook ? 'book' : 'loading',
+      visibleL2Book?.coin ?? '',
+      visibleL2Book?.bids.length ?? 0,
+      visibleL2Book?.asks.length ?? 0,
       shouldShowEnableTradingButton ? 'enableTrading' : 'trade',
       formData.hasTpsl ? 'tpsl' : 'noTpsl',
       mobileMaxLevelsPerSide,
@@ -664,10 +890,10 @@ export function PerpOrderBook({
       entry: entry ?? 'perpTab',
       coin: activeTradeInstrument.coin,
       mode: activeTradeInstrument.mode,
-      hasOrderBook,
-      bookCoin: l2Book?.coin,
-      bidLevels: l2Book?.bids.length ?? 0,
-      askLevels: l2Book?.asks.length ?? 0,
+      hasOrderBook: hasRenderOrderBook,
+      bookCoin: visibleL2Book?.coin,
+      bidLevels: visibleL2Book?.bids.length ?? 0,
+      askLevels: visibleL2Book?.asks.length ?? 0,
       mobileMaxLevelsPerSide,
       shouldShowEnableTradingButton,
       hasTpsl: formData.hasTpsl,
@@ -678,24 +904,24 @@ export function PerpOrderBook({
     entry,
     formData.hasTpsl,
     gtMd,
-    hasOrderBook,
-    l2Book?.asks.length,
-    l2Book?.bids.length,
-    l2Book?.coin,
+    hasRenderOrderBook,
+    visibleL2Book?.asks.length,
+    visibleL2Book?.bids.length,
+    visibleL2Book?.coin,
     mobileMaxLevelsPerSide,
     shouldShowEnableTradingButton,
   ]);
 
   const mobileOrderBook = useMemo(() => {
-    if (!hasOrderBook || !l2Book) return null;
+    if (!hasRenderOrderBook || !visibleL2Book) return null;
     if (gtMd) return null;
     if (entry === 'perpMobileMarket') {
       return (
         <OrderBook
           horizontal
-          symbol={l2Book.coin}
-          bids={l2Book.bids}
-          asks={l2Book.asks}
+          symbol={visibleL2Book.coin}
+          bids={visibleL2Book.bids}
+          asks={visibleL2Book.asks}
           maxLevelsPerSide={13}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
@@ -703,7 +929,9 @@ export function PerpOrderBook({
           showTickSelector
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
-          onSelectLevel={isOrderBookInteractive ? handleLevelSelect : undefined}
+          onSelectLevel={
+            isVisibleOrderBookInteractive ? handleLevelSelect : undefined
+          }
           loadingNode={
             <DefaultLoadingNode
               variant="mobileHorizontal"
@@ -727,9 +955,9 @@ export function PerpOrderBook({
       >
         <MobileHeaderMemo />
         <OrderBookMobile
-          symbol={l2Book.coin}
-          bids={l2Book.bids}
-          asks={l2Book.asks}
+          symbol={visibleL2Book.coin}
+          bids={visibleL2Book.bids}
+          asks={visibleL2Book.asks}
           maxLevelsPerSide={mobileMaxLevelsPerSide}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
@@ -737,7 +965,9 @@ export function PerpOrderBook({
           showTickSelector
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
-          onSelectLevel={isOrderBookInteractive ? handleLevelSelect : undefined}
+          onSelectLevel={
+            isVisibleOrderBookInteractive ? handleLevelSelect : undefined
+          }
           variant="mobileVertical"
         />
       </YStack>
@@ -747,18 +977,27 @@ export function PerpOrderBook({
     gtMd,
     handleTraceLayout,
     handleTickOptionChange,
-    l2Book,
+    visibleL2Book,
     handleLevelSelect,
     selectedTickOption,
-    hasOrderBook,
-    isOrderBookInteractive,
+    hasRenderOrderBook,
+    isVisibleOrderBookInteractive,
     mobileMaxLevelsPerSide,
     tickOptions,
     priceDecimals,
     sizeDecimals,
   ]);
 
-  if (!hasOrderBook || !l2Book) {
+  const dataBridge = (
+    <PerpOrderBookDataBridgeMemo
+      enableVisualSnapshot={enableVisualSnapshot}
+      onInteractiveChange={handleOrderBookInteractiveChange}
+      onVisualBookChange={handleVisualBookChange}
+      subscriptionOptions={l2SubscriptionOptions}
+    />
+  );
+
+  if (!hasRenderOrderBook || !visibleL2Book) {
     let loadingVariant = 'desktop';
     if (!gtMd) {
       loadingVariant =
@@ -766,88 +1005,96 @@ export function PerpOrderBook({
     }
     if (!gtMd && loadingVariant === 'mobileVertical') {
       return (
-        <YStack
-          flex={1}
-          bg="$bgApp"
-          gap="$1"
-          onLayout={(event) =>
-            handleTraceLayout('mobileVerticalLoading', event)
-          }
-        >
-          <MobileHeaderMemo showPlaceholder />
-          <OrderBookMobile
-            symbol={activeTradeInstrument.coin}
-            bids={[]}
-            asks={[]}
-            maxLevelsPerSide={mobileMaxLevelsPerSide}
-            selectedTickOption={selectedTickOption}
-            onTickOptionChange={handleTickOptionChange}
-            tickOptions={tickOptions}
-            showTickSelector
-            priceDecimals={priceDecimals}
-            sizeDecimals={sizeDecimals}
-            onSelectLevel={undefined}
-            variant="mobileVertical"
-          />
-        </YStack>
+        <>
+          {dataBridge}
+          <YStack
+            flex={1}
+            bg="$bgApp"
+            gap="$1"
+            onLayout={(event) =>
+              handleTraceLayout('mobileVerticalLoading', event)
+            }
+          >
+            <MobileHeaderMemo showPlaceholder />
+            <OrderBookMobile
+              symbol={activeTradeInstrument.coin}
+              bids={[]}
+              asks={[]}
+              maxLevelsPerSide={mobileMaxLevelsPerSide}
+              selectedTickOption={selectedTickOption}
+              onTickOptionChange={handleTickOptionChange}
+              tickOptions={tickOptions}
+              showTickSelector
+              priceDecimals={priceDecimals}
+              sizeDecimals={sizeDecimals}
+              onSelectLevel={undefined}
+              variant="mobileVertical"
+            />
+          </YStack>
+        </>
       );
     }
     if (!gtMd && loadingVariant === 'mobileHorizontal') {
       return (
-        <YStack
-          flex={1}
-          bg="$bgApp"
-          onLayout={(event) =>
-            handleTraceLayout('mobileHorizontalLoading', event)
-          }
-        >
-          <OrderBook
-            horizontal
-            symbol={activeTradeInstrument.coin}
-            bids={[]}
-            asks={[]}
-            maxLevelsPerSide={13}
-            selectedTickOption={selectedTickOption}
-            onTickOptionChange={handleTickOptionChange}
-            tickOptions={tickOptions}
-            showTickSelector
-            priceDecimals={priceDecimals}
-            sizeDecimals={sizeDecimals}
-            onSelectLevel={undefined}
-            loadingNode={
-              <DefaultLoadingNode
-                variant="mobileHorizontal"
-                maxLevelsPerSide={13}
-              />
+        <>
+          {dataBridge}
+          <YStack
+            flex={1}
+            bg="$bgApp"
+            onLayout={(event) =>
+              handleTraceLayout('mobileHorizontalLoading', event)
             }
-            variant="mobileHorizontal"
-          />
-        </YStack>
+          >
+            <OrderBook
+              horizontal
+              symbol={activeTradeInstrument.coin}
+              bids={[]}
+              asks={[]}
+              maxLevelsPerSide={13}
+              selectedTickOption={selectedTickOption}
+              onTickOptionChange={handleTickOptionChange}
+              tickOptions={tickOptions}
+              showTickSelector
+              priceDecimals={priceDecimals}
+              sizeDecimals={sizeDecimals}
+              onSelectLevel={undefined}
+              loadingNode={
+                <DefaultLoadingNode
+                  variant="mobileHorizontal"
+                  maxLevelsPerSide={13}
+                />
+              }
+              variant="mobileHorizontal"
+            />
+          </YStack>
+        </>
       );
     }
     return (
-      <YStack flex={1} justifyContent="center" alignItems="center">
-        <DefaultLoadingNode
-          variant={loadingVariant as IOrderBookVariant}
-          symbol={
-            loadingVariant === 'mobileVertical'
-              ? (l2Book?.coin ?? activeTradeInstrument.coin)
-              : undefined
-          }
-          isSpot={activeTradeInstrument.mode === 'spot'}
-          spotUniverse={
-            activeTradeInstrument.mode === 'spot'
-              ? activeTradeInstrument.universe
-              : undefined
-          }
-          midPrice={midPrice}
-          maxLevelsPerSide={
-            loadingVariant === 'mobileVertical'
-              ? mobileMaxLevelsPerSide
-              : undefined
-          }
-        />
-      </YStack>
+      <>
+        {dataBridge}
+        <YStack flex={1} justifyContent="center" alignItems="center">
+          <DefaultOrderBookLoadingNode
+            variant={loadingVariant as IOrderBookVariant}
+            symbol={
+              loadingVariant === 'mobileVertical'
+                ? activeTradeInstrument.coin
+                : undefined
+            }
+            isSpot={activeTradeInstrument.mode === 'spot'}
+            spotUniverse={
+              activeTradeInstrument.mode === 'spot'
+                ? activeTradeInstrument.universe
+                : undefined
+            }
+            maxLevelsPerSide={
+              loadingVariant === 'mobileVertical'
+                ? mobileMaxLevelsPerSide
+                : undefined
+            }
+          />
+        </YStack>
+      </>
     );
   }
 
@@ -859,10 +1106,10 @@ export function PerpOrderBook({
     >
       {gtMd ? (
         <OrderBook
-          symbol={l2Book.coin}
+          symbol={visibleL2Book.coin}
           horizontal={false}
-          bids={l2Book.bids}
-          asks={l2Book.asks}
+          bids={visibleL2Book.bids}
+          asks={visibleL2Book.asks}
           maxLevelsPerSide={desktopMaxLevelsPerSide}
           initialContainerHeight={initialOrderBookHeight}
           selectedTickOption={selectedTickOption}
@@ -871,7 +1118,9 @@ export function PerpOrderBook({
           showTickSelector
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
-          onSelectLevel={isOrderBookInteractive ? handleLevelSelect : undefined}
+          onSelectLevel={
+            isVisibleOrderBookInteractive ? handleLevelSelect : undefined
+          }
           variant="web"
         />
       ) : (
@@ -880,8 +1129,11 @@ export function PerpOrderBook({
     </YStack>
   );
   return (
-    <DebugRenderTracker name="PerpOrderBook" position="top-left">
-      {content}
-    </DebugRenderTracker>
+    <>
+      {dataBridge}
+      <DebugRenderTracker name="PerpOrderBook" position="top-left">
+        {content}
+      </DebugRenderTracker>
+    </>
   );
 }

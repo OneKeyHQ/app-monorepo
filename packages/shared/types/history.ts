@@ -126,6 +126,7 @@ export type IOnChainHistoryTx = {
   privateSend?: {
     orderId?: string;
     rocketXOrderId?: string;
+    payinAddress?: string;
     provider?: string;
     providerName?: string;
     providerLogo?: string;

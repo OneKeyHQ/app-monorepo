@@ -34,6 +34,18 @@ function DebugRenderTracker(
     children: ReactNode;
   },
 ): ReactNode {
+  if (process.env.NODE_ENV === 'production' || !platformEnv.isRuntimeBrowser) {
+    return props.children;
+  }
+
+  return <DebugRenderTrackerBrowser {...props} />;
+}
+
+function DebugRenderTrackerBrowser(
+  props: IDebugRenderTrackerProps & {
+    children: ReactNode;
+  },
+): ReactNode {
   const {
     children,
     position = 'top-left',
@@ -62,39 +74,35 @@ function DebugRenderTracker(
     [offsetX, offsetY],
   );
 
-  if (process.env.NODE_ENV !== 'production') {
-    if (platformEnv.isRuntimeBrowser) {
-      const isDebugRenderTrackerEnabled = appStorage.syncStorage.getBoolean(
-        EAppSyncStorageKeys.onekey_debug_render_tracker,
-      );
-      if (isDebugRenderTrackerEnabled) {
-        classRef.current = classRef.current === css1 ? css2 : css1;
-        renderTimesRef.current += 1;
+  const isDebugRenderTrackerEnabled = appStorage.syncStorage.getBoolean(
+    EAppSyncStorageKeys.onekey_debug_render_tracker,
+  );
+  if (isDebugRenderTrackerEnabled) {
+    classRef.current = classRef.current === css1 ? css2 : css1;
+    renderTimesRef.current += 1;
 
-        const divElement = (
-          <div className={classRef.current} style={containerStyle}>
-            <div
-              onClick={handleClick}
-              style={cursorZoomInStyle}
-              className={`debug-render-tracker-times-badge ${position}`}
-            >
-              <div
-                className="debug-render-tracker-times-badge-text"
-                style={badgeTextStyle}
-              >
-                {renderTimesRef.current}
-              </div>
-            </div>
-            {children}
+    const divElement = (
+      <div className={classRef.current} style={containerStyle}>
+        <div
+          onClick={handleClick}
+          style={cursorZoomInStyle}
+          className={`debug-render-tracker-times-badge ${position}`}
+        >
+          <div
+            className="debug-render-tracker-times-badge-text"
+            style={badgeTextStyle}
+          >
+            {renderTimesRef.current}
           </div>
-        );
-        return divElement;
-        // const clonedElement = cloneElement(children, {
-        //   className: classRef.current, // not working for FlatList
-        // });
-        // return clonedElement;
-      }
-    }
+        </div>
+        {children}
+      </div>
+    );
+    return divElement;
+    // const clonedElement = cloneElement(children, {
+    //   className: classRef.current, // not working for FlatList
+    // });
+    // return clonedElement;
   }
 
   return children;

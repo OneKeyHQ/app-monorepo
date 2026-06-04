@@ -22,6 +22,7 @@ import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart'
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import {
+  usePerpsActiveAccountAtom,
   usePerpsActiveAccountMmrAtom,
   usePerpsComputedAccountValueAtom,
   useSpotPairDisplayMapAtom,
@@ -40,7 +41,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
-import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsActivePositionsByAddress } from '../../hooks/usePerpsActivePositionsByAddress';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { PERP_DIALOG_BUTTON_SIZE } from '../PerpDialogLayout';
 
@@ -308,8 +309,11 @@ function PerpPortfolioContentComponent({
       },
     ];
   }, [intl]);
+  const [activeAccount] = usePerpsActiveAccountAtom();
   const [mmrData] = usePerpsActiveAccountMmrAtom();
-  const positionsLength = usePerpsAccountScopedActivePositions().length;
+  const positionsLength = usePerpsActivePositionsByAddress(
+    activeAccount?.accountAddress,
+  ).length;
 
   const [timePeriod, setTimePeriod] = useState<IPortfolioTimePeriod>('allTime');
   const [chartType, setChartType] =

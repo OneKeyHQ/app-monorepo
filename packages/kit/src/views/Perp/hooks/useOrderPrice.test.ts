@@ -25,7 +25,9 @@ let mockMidPriceBN: BigNumber;
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
   useBboAtom: () => [mockBbo],
+  useBboForOrderPrice: (enabled: boolean) => (enabled ? mockBbo : null),
   useTradingFormAtom: () => [mockFormData],
+  useTradingFormOrderPriceParams: () => mockFormData,
 }));
 
 jest.mock('./useTradingPrice', () => ({

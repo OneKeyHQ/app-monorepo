@@ -13,6 +13,7 @@ import {
   perpsActiveAccountIsAgentReadyAtom,
   perpsActiveAssetAtom,
   perpsActiveAssetCtxAtom,
+  perpsActiveAssetCtxDisplayAtom,
   perpsActiveAssetDataAtom,
   perpsActiveOrderBookOptionsAtom,
   perpsDepositOrderAtom,
@@ -2112,6 +2113,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set(bboAtom(), null);
     }
     await perpsActiveAssetCtxAtom.set(undefined);
+    await perpsActiveAssetCtxDisplayAtom.set(undefined);
     await perpsActiveAssetDataAtom.set(undefined);
     await spotActiveAssetCtxAtom.set(undefined);
 
