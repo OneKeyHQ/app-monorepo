@@ -13,14 +13,11 @@ function stringifyLogValue(value: unknown) {
 }
 
 export function debugScanCameraLog(label: string, value?: unknown) {
+  const logLabel = `${LOG_PREFIX} ${label}`;
   const valueText = value === undefined ? '' : stringifyLogValue(value);
 
-  defaultLogger.scanQrCode.readQrCode.debugCameraState(label, valueText);
-
-  if (process.env.NODE_ENV === 'production') {
-    return;
-  }
+  defaultLogger.scanQrCode.readQrCode.debugCameraState(logLabel, valueText);
 
   // eslint-disable-next-line no-console
-  console.log(`${LOG_PREFIX} ${label}${valueText ? ` ${valueText}` : ''}`);
+  console.log(`${logLabel}${valueText ? ` ${valueText}` : ''}`);
 }

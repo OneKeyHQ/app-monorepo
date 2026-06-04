@@ -1,19 +1,70 @@
 diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
-index 135a383..45b26d4 100644
+index 135a383..a2498d1 100644
 --- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
 +++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
-@@ -58,6 +58,10 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -15,6 +15,8 @@ import UIKit
+  */
+ // swiftlint:disable:next type_body_length
+ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelegate {
++    private static let ok55747LogFileLock = NSLock()
++
+     var previewView: UIView { cameraPreview }
+ 
+     private let cameraPreview = RealPreviewView(frame: .zero)
+@@ -58,6 +60,52 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
      // Keep delegate objects in memory to avoid collecting them before photo capturing finishes
      private var inProgressPhotoCaptureDelegates = [Int64: PhotoCaptureDelegate]()
  
 +    private func ok55747Log(_ message: String) {
-+        print("[OK-55747][CameraKit] \(message)")
++        let logMessage = "[OK-55747][CameraKit] \(message)"
++        print(logMessage)
++        ok55747WriteToExportLog(logMessage)
++    }
++
++    private func ok55747WriteToExportLog(_ message: String) {
++        let safeMessage = message
++            .replacingOccurrences(of: "\n", with: " ")
++            .replacingOccurrences(of: "\r", with: " ")
++
++        guard let cacheDir = NSSearchPathForDirectoriesInDomains(
++            .cachesDirectory, .userDomainMask, true
++        ).first else {
++            return
++        }
++
++        let logsDir = (cacheDir as NSString).appendingPathComponent("logs")
++        let logFilePath = (logsDir as NSString).appendingPathComponent("app-latest.log")
++        let formatter = DateFormatter()
++        formatter.dateFormat = "HH:mm:ss"
++        formatter.locale = Locale(identifier: "en_US_POSIX")
++        let line = "\(formatter.string(from: Date())) | INFO : [CameraKit] \(safeMessage)\n"
++
++        guard let data = line.data(using: .utf8) else {
++            return
++        }
++
++        Self.ok55747LogFileLock.lock()
++        defer { Self.ok55747LogFileLock.unlock() }
++
++        try? FileManager.default.createDirectory(
++            atPath: logsDir,
++            withIntermediateDirectories: true
++        )
++        if !FileManager.default.fileExists(atPath: logFilePath) {
++            _ = FileManager.default.createFile(atPath: logFilePath, contents: nil)
++        }
++        guard let fileHandle = FileHandle(forWritingAtPath: logFilePath) else {
++            return
++        }
++        fileHandle.seekToEndOfFile()
++        fileHandle.write(data)
++        fileHandle.closeFile()
 +    }
 +
      // MARK: - Lifecycle
  
      #if !targetEnvironment(macCatalyst)
-@@ -88,9 +92,11 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -88,9 +136,11 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
      }
  
      func cameraRemovedFromSuperview() {
@@ -25,7 +76,7 @@ index 135a383..45b26d4 100644
                  self.removeObservers()
              }
          }
-@@ -112,34 +118,43 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -112,34 +162,43 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
      // MARK: - Public
  
      func setup(cameraType: CameraType, supportedBarcodeType: [CodeFormat]) {
@@ -91,7 +142,7 @@ index 135a383..45b26d4 100644
              }
          }
      }
-@@ -347,6 +362,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -347,6 +406,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
      }
  
      func update(resizeMode: ResizeMode) {
@@ -99,7 +150,7 @@ index 135a383..45b26d4 100644
          DispatchQueue.main.async {
              switch resizeMode {
              case .cover:
-@@ -558,13 +574,16 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -558,13 +618,16 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
          guard let videoDevice = self.getBestDevice(for: cameraType),
              let videoDeviceInput = try? AVCaptureDeviceInput(device: videoDevice)
          else {
@@ -116,7 +167,7 @@ index 135a383..45b26d4 100644
          }
  
          session.sessionPreset = .photo
-@@ -579,12 +598,15 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -579,12 +642,15 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
          if session.canAddInput(videoDeviceInput) {
              session.addInput(videoDeviceInput)
              self.videoDeviceInput = videoDeviceInput
@@ -132,7 +183,7 @@ index 135a383..45b26d4 100644
  
              if let photoOutputConnection = self.photoOutput.connection(with: .video) {
                  if photoOutputConnection.isVideoStabilizationSupported {
-@@ -592,6 +614,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -592,6 +658,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
                  }
              }
          } else {
@@ -140,7 +191,7 @@ index 135a383..45b26d4 100644
              return .sessionConfigurationFailed
          }
  
-@@ -606,6 +629,9 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -606,6 +673,9 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
                  .filter { availableTypes.contains($0) }
  
              metadataOutput.metadataObjectTypes = filteredTypes
@@ -150,7 +201,7 @@ index 135a383..45b26d4 100644
          }
  
          applyDeferredStartConfiguration()
-@@ -614,16 +640,25 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -614,16 +684,25 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
      }
  
      private func applyDeferredStartConfiguration() {
@@ -177,7 +228,7 @@ index 135a383..45b26d4 100644
          }
      }
  
-@@ -823,17 +858,23 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -823,17 +902,23 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
  
      private func sessionRuntimeError(notification: Notification) {
          guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError else {
@@ -201,7 +252,7 @@ index 135a383..45b26d4 100644
                  }
              }
          }
-@@ -853,6 +894,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -853,6 +938,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
              let reason = AVCaptureSession.InterruptionReason(rawValue: reasonValue)
          {
              print("Capture session was interrupted with reason \(reason)")
