@@ -44,6 +44,7 @@ import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { LightningUnitSwitch } from '@onekeyhq/kit/src/components/UnitSwitch';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
@@ -128,6 +129,14 @@ import {
 import type { RouteProp } from '@react-navigation/core';
 
 export const amountInputAccessoryViewID = 'send-amount-input-accessory-view';
+
+// Neutral, non-empty hint used to keep the amount error suppressed while the
+// user is typing on chains/tokens that have no min-amount hint (most EVM
+// tokens, or BTC before tokenMinAmount loads). Form.Field only renders the
+// subdued hint in place of the red error when `hint` is truthy, so an empty
+// string would not work — a non-breaking space renders blank while reserving
+// the row height (OK-55683).
+const NEUTRAL_AMOUNT_HINT = '\u00A0';
 
 interface IAmountFormValues {
   accountId: string;
@@ -1190,6 +1199,13 @@ function SendAmountInputContainer() {
     ],
   );
 
+  // Fiat input needs a usable price to convert it to a token amount. Single
+  // source of truth for the fiat-mode guards below.
+  const hasUsablePrice = useMemo(
+    () => new BigNumber(tokenDetails?.price ?? 0).isGreaterThan(0),
+    [tokenDetails?.price],
+  );
+
   // Check if balance is insufficient (show on button instead of form error)
   const isInsufficientBalance = useMemo(() => {
     if (!amount || amount === '0') return false;
@@ -1197,12 +1213,28 @@ function SendAmountInputContainer() {
     if (valueBN.isNaN() || valueBN.isNegative()) return false;
 
     if (isUseFiat) {
-      const fiatValue = new BigNumber(maxBalanceFiat);
-      return valueBN.isGreaterThan(fiatValue);
+      // No usable price → fiat can't convert to a sendable amount; block.
+      if (!hasUsablePrice) {
+        return true;
+      }
+      // Judge on the floored token amount actually submitted (same basis as
+      // validation and the sibling comparison), not the raw fiat value — they
+      // disagree at the sub-unit boundary. Both `originalAmount` and
+      // `maxBalance` follow the same unit (incl. Lightning: sats when
+      // lnUnit=SATS, BTC when lnUnit=BTC), so the comparison is unit-consistent.
+      return new BigNumber(linkedAmount.originalAmount).isGreaterThan(
+        maxBalance,
+      );
     }
     const balance = new BigNumber(maxBalance);
     return valueBN.isGreaterThan(balance);
-  }, [amount, isUseFiat, maxBalanceFiat, maxBalance]);
+  }, [
+    amount,
+    isUseFiat,
+    hasUsablePrice,
+    linkedAmount.originalAmount,
+    maxBalance,
+  ]);
 
   // Skip the `tokenInfo.address` truthiness check: for chains where
   // `vaultSettings.isNativeTokenContractAddressEmpty` is true (e.g. BTC), the
@@ -1211,8 +1243,15 @@ function SendAmountInputContainer() {
   const autoSwitchEnabled =
     !!vaultSettings?.mergeDeriveAssetsEnabled &&
     !isNFT &&
-    !isUseFiat &&
     !isLightningNetwork &&
+    // Intentionally NOT gated on `hasUsablePrice` in fiat mode. The 0-balance
+    // entry-case (land on an empty deriveType → switch to a funded sibling) is
+    // price-independent and is the primary path this feature targets — on an
+    // empty-balance BTC format `fetchTokensDetails()` returns [], so price is
+    // missing exactly when we most need the switch. The amount-driven cascade
+    // still can't misfire without a price: `linkedAmount.originalAmount` (fed
+    // in as the token amount) collapses to '0' when price is 0, and a 0 amount
+    // self-skips the cascade (it only runs the entry-case).
     // With coin control the user has hand-picked UTXOs and `maxBalance` is
     // the selected-UTXO subtotal, not the account balance — a subset
     // shortfall must not trigger a switch that also discards their selection.
@@ -1239,13 +1278,23 @@ function SendAmountInputContainer() {
     [sendConfirmActions],
   );
 
+  // Auto-switch compares against sibling token balances, so feed token units:
+  // the converted originalAmount in fiat mode, the raw amount in token mode.
+  const autoSwitchAmount = isUseFiat ? linkedAmount.originalAmount : amount;
+
   const {
     autoSwitchInfo,
     dismissAutoSwitchInfo,
     pulseSignal,
     allFormatsInsufficient,
   } = useAutoSwitchDeriveType({
-    amount,
+    amount: autoSwitchAmount,
+    // Raw form input + display mode, used only as the manual-switch lock basis.
+    // The lock must release on a real user edit but NOT when the token-priced
+    // `autoSwitchAmount` shifts on its own (async price load, account switch) —
+    // so it compares the untouched input, not the derived value.
+    userInputAmount: amount,
+    isUseFiat,
     isInsufficientBalance,
     enabled: autoSwitchEnabled,
     currentAccountId,
@@ -2611,8 +2660,22 @@ function SendAmountInputContainer() {
   ]);
 
   const isAmountZeroOrEmpty = !amount || new BigNumber(amount).isZero();
-  const amountHint =
-    isAmountZeroOrEmpty || !hasAmountError ? minAmountHint : undefined;
+  // Defer the red error while the user is still typing/deleting so transient
+  // values ("0.000", below-min, empty) don't flash red (OK-55683). Validation
+  // stays live (submit gating unaffected); only the display is debounced — the
+  // Field renders the neutral hint in place of the error until input settles.
+  const isAmountTyping = amount !== useDebounce(amount, 400);
+  const shouldDeferAmountError =
+    isAmountTyping || isAmountZeroOrEmpty || !hasAmountError;
+  // While deferring, show the real min-amount hint when the chain has one.
+  // When it doesn't (most EVM tokens, or BTC before tokenMinAmount loads),
+  // `minAmountHint` is undefined and Form.Field would fall back to rendering
+  // the red error anyway — so substitute a neutral placeholder to actually
+  // keep the error suppressed. Only do this when there is an error to defer;
+  // otherwise leave the hint empty so valid input shows no extra row.
+  const amountHint = shouldDeferAmountError
+    ? (minAmountHint ?? (hasAmountError ? NEUTRAL_AMOUNT_HINT : undefined))
+    : undefined;
 
   const renderAmountInput = useMemo(
     () => (

@@ -1,4 +1,4 @@
 interface:
   display_name: "OneKey Trade Swap Market"
-  short_description: "Trade/Swap/Market workflow and review"
-  default_prompt: "Use $1k-trade-swap-market for OneKey Trade, Swap, Market, Private Send/incognito, DeFi/Earn funding handoffs into Trade/Swap/Limit, provider, fee, quote, preset, history, or token-selector implementation and review."
+  short_description: "App-side Swap, Market, provider channel, and order-flow guidance"
+  default_prompt: "Use $1k-trade-swap-market for OneKey Swap, Swap Pro, Market speed-swap, K-line/chart, token selectors, quote/build/send flows, provider channels, PrivateSend-like channels, stock/order channels, history/status, fees, slippage, ETA, or funding handoffs into Swap."
