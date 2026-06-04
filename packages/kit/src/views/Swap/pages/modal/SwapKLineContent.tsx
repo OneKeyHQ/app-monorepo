@@ -304,7 +304,7 @@ function useSwapKLineStableTokens({
 }) {
   const fromNetworkId = fromToken?.networkId ?? '';
   const toNetworkId = toToken?.networkId ?? '';
-  const { result } = usePromiseResult<ISwapKLineStableToken[]>(
+  const { result, isLoading } = usePromiseResult<ISwapKLineStableToken[]>(
     async () => {
       const networkIds = Array.from(
         new Set([fromNetworkId, toNetworkId].filter(Boolean)),
@@ -328,11 +328,16 @@ function useSwapKLineStableTokens({
     [fromNetworkId, toNetworkId],
     {
       checkIsFocused: false,
+      watchLoading: true,
       undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
     },
   );
 
-  return result;
+  return {
+    stableTokens: result,
+    isLoading: result === undefined && isLoading !== false,
+  };
 }
 
 function SwapKLineTokenSwitch({
@@ -500,15 +505,20 @@ type ISwapKLineContentState = {
 function useSwapKLineContentState(): ISwapKLineContentState {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const stableTokens = useSwapKLineStableTokens({ fromToken, toToken });
+  const { stableTokens, isLoading: isStableTokensLoading } =
+    useSwapKLineStableTokens({ fromToken, toToken });
+  const stableTokensForDefaultSide = useMemo(
+    () => stableTokens ?? (isStableTokensLoading ? undefined : []),
+    [isStableTokensLoading, stableTokens],
+  );
   const defaultSide = useMemo(
     () =>
       getResolvableDefaultSwapKLineSide({
         fromToken,
-        stableTokens,
+        stableTokens: stableTokensForDefaultSide,
         toToken,
       }),
-    [fromToken, stableTokens, toToken],
+    [fromToken, stableTokensForDefaultSide, toToken],
   );
   const [selectedSide, setSelectedSide] = useState<ESwapDirectionType>();
   const hasTrackedOpenRef = useRef(false);
