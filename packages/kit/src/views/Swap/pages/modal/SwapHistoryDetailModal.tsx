@@ -1191,14 +1191,16 @@ const SwapHistoryDetailModal = () => {
                   : {})}
               />
             ) : null}
-            <InfoItem
-              disabledCopy
-              label={intl.formatMessage({
-                id: ETranslations.swap_history_detail_rate,
-              })}
-              renderContent={renderRate()}
-            />
-            {protocolFeeContent ? (
+            {isPrivateSendHistory ? null : (
+              <InfoItem
+                disabledCopy
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_rate,
+                })}
+                renderContent={renderRate()}
+              />
+            )}
+            {!isPrivateSendHistory && protocolFeeContent ? (
               <InfoItem
                 disabledCopy
                 label={intl.formatMessage({
@@ -1208,7 +1210,7 @@ const SwapHistoryDetailModal = () => {
               />
             ) : null}
 
-            {txHistory?.swapInfo?.surplus ? (
+            {!isPrivateSendHistory && txHistory?.swapInfo?.surplus ? (
               <InfoItem
                 disabledCopy
                 label={intl.formatMessage({
