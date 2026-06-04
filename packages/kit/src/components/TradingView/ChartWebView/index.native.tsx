@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   type ChartWebviewMethods,
@@ -55,6 +55,9 @@ function buildUnifiedParamsJson(params: Record<string, string>): string {
 
 // Market tokens route by source-encoded symbol (the chart carries decimal per
 // token); perps route to the Hyperliquid datafeed. Display labels are UI-only.
+// force:false makes the message idempotent — the chart no-ops when it already
+// shows this symbol (so we can send eagerly/often without flicker) and switches
+// when it doesn't. We never need to force a re-render of the same symbol here.
 function buildSymbolChangeMessage(params: Record<string, string>) {
   const source = params.type === 'perps' ? 'hyperliquid' : 'market';
   return {
@@ -67,22 +70,9 @@ function buildSymbolChangeMessage(params: Record<string, string>) {
       decimal: params.decimal,
       displayPair: params.symbol,
       displayCoin: params.symbol,
-      force: true,
+      force: false,
     },
   };
-}
-
-// Identity of the currently-shown token, so we don't re-post an unchanged symbol.
-function unifiedSymbolKey(params: Record<string, string>): string {
-  return [
-    params.type,
-    params.symbol,
-    params.address,
-    params.networkId,
-    params.decimal,
-  ]
-    .map((part) => part ?? '')
-    .join(':');
 }
 
 export function ChartWebView({
@@ -111,17 +101,18 @@ export function ChartWebView({
   autoDriveSymbolRef.current = autoDriveSymbol;
   const onLoadEndRef = useRef(onLoadEnd);
   onLoadEndRef.current = onLoadEnd;
-  // Dedupe SYMBOL_CHANGE; cleared on blur so re-focusing always resyncs (the
-  // shared page may have been switched to another token while we were inactive).
-  const lastSentKeyRef = useRef<string | null>(null);
+  // Eager send happens once per mount (the incoming screen), so a background host
+  // doesn't keep re-posting; the focus effect re-asserts afterwards.
+  const didEagerSendRef = useRef(false);
+  // The Nitro hybridRef arrives AFTER the first render/effect, so a send can fire
+  // before postMessage is wired. Gate sends on this and re-run when it flips true.
+  const [hybridReady, setHybridReady] = useState(false);
 
   const sendSymbolChange = useCallback(() => {
+    const ref = hybridRefHolder.current;
     const current = paramsRef.current;
-    if (!current.symbol) return;
-    hybridRefHolder.current?.postMessage(
-      JSON.stringify(buildSymbolChangeMessage(current)),
-    );
-    lastSentKeyRef.current = unifiedSymbolKey(current);
+    if (!ref || !current.symbol) return;
+    ref.postMessage(JSON.stringify(buildSymbolChangeMessage(current)));
   }, []);
 
   // Adapter exposing the IWebViewRef surface used by TradingView hooks/handlers
@@ -151,17 +142,24 @@ export function ChartWebView({
     };
   }, [onWebViewRef]);
 
-  // Unified: deliver every symbol switch via SYMBOL_CHANGE (no reload). Send on
-  // focus + token change; clear the dedupe key on blur so re-focus resyncs.
+  // (1) Eager: push our symbol the moment the transport is ready — BEFORE this
+  // screen finishes focusing — so the chart switches during the navigation
+  // transition and the new screen appears already showing the right symbol
+  // (instead of the previous one for a beat). Fires once per mount = only the
+  // incoming screen, so background hosts don't hijack the shared page.
   useEffect(() => {
-    if (!autoDriveSymbol) return;
-    if (!isFocused) {
-      lastSentKeyRef.current = null;
-      return;
-    }
-    if (lastSentKeyRef.current === unifiedSymbolKey(params)) return;
+    if (!autoDriveSymbol || !hybridReady || didEagerSendRef.current) return;
+    didEagerSendRef.current = true;
     sendSymbolChange();
-  }, [autoDriveSymbol, isFocused, params, sendSymbolChange]);
+  }, [autoDriveSymbol, hybridReady, sendSymbolChange]);
+
+  // (2) Focused resync: re-assert our symbol whenever we hold focus or our symbol
+  // changes while focused — the shared page may have been moved by another host.
+  // Idempotent (force:false), so a no-op when the page already shows our symbol.
+  useEffect(() => {
+    if (!autoDriveSymbol || !hybridReady || !isFocused) return;
+    sendSymbolChange();
+  }, [autoDriveSymbol, hybridReady, isFocused, params, sendSymbolChange]);
 
   const source = useMemo(() => {
     if (CHART_WEBVIEW_MODE === 'online') {
@@ -199,6 +197,8 @@ export function ChartWebView({
     () =>
       callback((r: HybridView<ChartWebviewProps, ChartWebviewMethods>) => {
         hybridRefHolder.current = r;
+        // Flip ready so the auto-drive effect re-runs now that postMessage works.
+        setHybridReady(true);
       }),
     [],
   );
@@ -223,8 +223,9 @@ export function ChartWebView({
   const onLoadEndProp = useMemo(
     () =>
       callback(() => {
+        // Cold first load: the page's SYMBOL_CHANGE listener wasn't up for the
+        // eager send, so re-assert now that it is.
         if (autoDriveSymbolRef.current && isFocusedRef.current) {
-          lastSentKeyRef.current = null;
           sendSymbolChange();
         }
         // Forward to the consumer (perps re-syncs its own symbol + enables lines).
