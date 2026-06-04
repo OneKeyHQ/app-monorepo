@@ -60,7 +60,7 @@
     "@onekeyfe/react-native-ble-utils": "0.1.4",
     "@onekeyfe/react-native-bundle-crypto": "3.0.45",
     "@onekeyfe/react-native-bundle-update": "3.0.45",
-    "@onekeyfe/react-native-chart-webview": "3.0.45",
+    "@onekeyfe/react-native-chart-webview": "3.0.48",
     "@onekeyfe/react-native-check-biometric-auth-changed": "3.0.45",
     "@onekeyfe/react-native-cloud-kit-module": "3.0.45",
     "@onekeyfe/react-native-device-utils": "3.0.45",
