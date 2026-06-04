@@ -2754,9 +2754,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               !averageSliceNotional.isFinite() ||
               averageSliceNotional.lt(TWAP_MIN_ORDER_NOTIONAL)
             ) {
-              throw new OneKeyLocalError({
-                key: ETranslations.perp_twap_small_slice__msg,
-              });
+              throw new OneKeyLocalError(
+                'TWAP order size is too small for this duration',
+              );
             }
 
             const reduceOnly = isSpot

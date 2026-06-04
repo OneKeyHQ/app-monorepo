@@ -1,6 +1,5 @@
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { resolveErrorI18nMessage } from '@onekeyhq/shared/src/errors/utils/electronIpcError';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   extractHyperLiquidErrorMessage,
@@ -89,11 +88,7 @@ async function handleError(error: unknown): Promise<void> {
       ? await hyperLiquidErrorResolver.resolveAsync(errorMessage)
       : undefined;
 
-  const i18nResolvedMessage = resolveErrorI18nMessage(error);
-  let friendlyMessage =
-    i18nResolvedMessage !== rawErrorMessage
-      ? i18nResolvedMessage
-      : errorMessage;
+  let friendlyMessage = errorMessage;
   if (errorType) {
     friendlyMessage = ERROR_MESSAGES[errorType]();
   } else if (rawResolved?.i18nKey) {
