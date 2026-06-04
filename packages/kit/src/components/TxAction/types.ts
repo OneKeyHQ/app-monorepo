@@ -22,6 +22,7 @@ export type ITxActionProps = {
   nativeTokenTransferAmountToUpdate?: string;
   showIcon?: boolean;
   replaceType?: EReplaceTxType;
+  displayStatus?: EDecodedTxStatus;
   swapInfo?: ISwapTxInfo;
   hideValue?: boolean;
   compact?: boolean;

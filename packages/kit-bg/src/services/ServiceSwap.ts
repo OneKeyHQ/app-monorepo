@@ -161,6 +161,7 @@ type IPrivateSendStatusSource = 'stateTx' | 'orderDetail';
 type IFetchSwapHistoryStatusResult = {
   orderDetail?: IPrivateSendOrderDetail;
   txStatusRes?: IFetchSwapTxHistoryStatusResponse;
+  shouldPreserveExistingExtraStatus?: boolean;
 };
 
 function normalizePrivateSendOrderDetailState(
@@ -1981,6 +1982,9 @@ export default class ServiceSwap extends ServiceBase {
       }
     }
     await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
+    if (isPrivateSendSwapHistoryItem(item)) {
+      appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+    }
   }
 
   @backgroundMethod()
@@ -2143,8 +2147,15 @@ export default class ServiceSwap extends ServiceBase {
       const orderDetail = await this.fetchSwapOrderDetail({
         txId: currentSwapTxHistory.txInfo.txId,
       });
-      const txStatusRes = getPrivateSendOrderDetailTxState(orderDetail);
-      return txStatusRes ? { orderDetail, txStatusRes } : undefined;
+      const orderDetailTxStatusRes =
+        getPrivateSendOrderDetailTxState(orderDetail);
+      return orderDetailTxStatusRes
+        ? {
+            orderDetail,
+            txStatusRes: orderDetailTxStatusRes,
+            shouldPreserveExistingExtraStatus: true,
+          }
+        : undefined;
     }
     const txStatusRes = await this.fetchSwapHistoryStateTx({
       currentSwapTxHistory,
@@ -2211,10 +2222,15 @@ export default class ServiceSwap extends ServiceBase {
       ) {
         const rawStatus = txStatusRes.state;
         const previousStateDetail = previousSwapTxHistory.stateDetail;
+        const shouldPreserveExistingExtraStatus =
+          fetchResult?.shouldPreserveExistingExtraStatus &&
+          !isSwapTxHistoryStatusTerminal(rawStatus);
         currentSwapTxHistory = {
           ...currentSwapTxHistory,
           status: rawStatus,
-          extraStatus: txStatusRes.extraStatus,
+          extraStatus: shouldPreserveExistingExtraStatus
+            ? (txStatusRes.extraStatus ?? currentSwapTxHistory.extraStatus)
+            : txStatusRes.extraStatus,
           stateDetail:
             txStatusRes.stateDetail ?? currentSwapTxHistory.stateDetail,
           swapInfo: {

@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Button, XStack } from '@onekeyhq/components';
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { getHistoryTxDisplayStatus } from '@onekeyhq/shared/src/utils/historyUtils';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
@@ -144,6 +145,7 @@ function BaseTxHistoryListItem(props: IProps) {
   if (!historyTx || !historyTx.decodedTx) return null;
 
   const isPending = historyTx.decodedTx.status === EDecodedTxStatus.Pending;
+  const displayStatus = getHistoryTxDisplayStatus(historyTx);
 
   return (
     <TxHistoryListItemErrorBoundary>
@@ -156,6 +158,7 @@ function BaseTxHistoryListItem(props: IProps) {
         showIcon={showIcon}
         componentType={ETxActionComponentType.ListView}
         componentProps={{ onPress: handlePress }}
+        displayStatus={displayStatus}
         compact={compact}
       />
       {isPending ? (

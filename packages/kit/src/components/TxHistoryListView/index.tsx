@@ -22,6 +22,7 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   convertToSectionGroups,
   getFilteredHistoryBySearchKey,
+  getHistoryTxDisplayStatus,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
@@ -312,7 +313,7 @@ function TxHistoryListViewSectionHeader(
   useEffect(() => {
     if (
       data[0] &&
-      data[0].decodedTx.status === EDecodedTxStatus.Pending &&
+      getHistoryTxDisplayStatus(data[0]) === EDecodedTxStatus.Pending &&
       ((inTabList && isTabFocused) || !inTabList)
     ) {
       setTimeout(() => {
@@ -321,7 +322,10 @@ function TxHistoryListViewSectionHeader(
     }
   }, [data, inTabList, isTabFocused, recomputeLayout]);
 
-  if (data[0] && data[0].decodedTx.status === EDecodedTxStatus.Pending) {
+  if (
+    data[0] &&
+    getHistoryTxDisplayStatus(data[0]) === EDecodedTxStatus.Pending
+  ) {
     return (
       <XStack
         px="$pagePadding"

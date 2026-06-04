@@ -384,6 +384,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     componentProps,
     showIcon,
     replaceType,
+    displayStatus,
     hideValue,
     compact,
   } = props;
@@ -692,7 +693,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       showIcon={showIcon}
       replaceType={replaceType}
-      status={decodedTx.status}
+      status={displayStatus ?? decodedTx.status}
       networkId={networkId}
       networkLogoURI={networkLogoURI}
       riskyLevel={decodedTx.riskyLevel}

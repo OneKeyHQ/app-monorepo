@@ -107,6 +107,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function shouldMergePrivateSendReplayBaseInfo({
+  item,
+  replayItem,
+}: {
+  item: ISwapTxHistory;
+  replayItem: ISwapTxHistory;
+}) {
+  if (
+    !isSamePrivateSendSwapToken({
+      token1: item.baseInfo.fromToken,
+      token2: replayItem.baseInfo.fromToken,
+    })
+  ) {
+    return true;
+  }
+
+  return (
+    Boolean(replayItem.baseInfo.fromAmount) &&
+    !isSamePrivateSendAmount(
+      item.baseInfo.fromAmount,
+      replayItem.baseInfo.fromAmount,
+    )
+  );
+}
+
 function mergePrivateSendHistoryReplayFields({
   item,
   replayItem,
@@ -158,11 +183,10 @@ function mergePrivateSendHistoryReplayFields({
 
   if (
     shouldMergeReplayBaseInfo &&
-    replayItem.baseInfo.fromToken.contractAddress &&
-    !isSameTokenAddress(
-      nextItem.baseInfo.fromToken.contractAddress,
-      replayItem.baseInfo.fromToken.contractAddress,
-    )
+    shouldMergePrivateSendReplayBaseInfo({
+      item: nextItem,
+      replayItem,
+    })
   ) {
     nextItem = {
       ...nextItem,
@@ -210,8 +234,59 @@ function getPrivateSendKnownTokenAddress(token?: IPrivateSendKnownToken) {
   return token?.contractAddress ?? token?.address ?? '';
 }
 
+function normalizePrivateSendTokenAddress(address?: string) {
+  const normalized = address?.trim();
+  return normalized ? normalized.toLowerCase() : '';
+}
+
 function isSameTokenAddress(a?: string, b?: string) {
-  return !!a && !!b && a.toLowerCase() === b.toLowerCase();
+  const normalizedA = normalizePrivateSendTokenAddress(a);
+  const normalizedB = normalizePrivateSendTokenAddress(b);
+  return Boolean(normalizedA && normalizedB && normalizedA === normalizedB);
+}
+
+function isSamePrivateSendAddress(a?: string, b?: string) {
+  const normalizedA = a?.trim();
+  const normalizedB = b?.trim();
+  return Boolean(normalizedA && normalizedB && normalizedA === normalizedB);
+}
+
+function isSamePrivateSendAmount(a?: string, b?: string) {
+  const amountA = new BigNumber(a ?? '');
+  const amountB = new BigNumber(b ?? '');
+  return !amountA.isNaN() && !amountB.isNaN() && amountA.isEqualTo(amountB);
+}
+
+function isPrivateSendNativeTokenIdentity({
+  tokenInfo,
+  transfer,
+}: {
+  tokenInfo?: IPrivateSendKnownToken;
+  transfer: IDecodedTxTransferInfo;
+}) {
+  const tokenAddress = getPrivateSendKnownTokenAddress(tokenInfo);
+  return Boolean(
+    (tokenInfo?.isNative || !tokenAddress) &&
+    (transfer.isNative || !transfer.tokenIdOnNetwork),
+  );
+}
+
+function isSamePrivateSendSwapToken({
+  token1,
+  token2,
+}: {
+  token1: ISwapToken;
+  token2: ISwapToken;
+}) {
+  if (isSameTokenAddress(token1.contractAddress, token2.contractAddress)) {
+    return true;
+  }
+
+  return Boolean(
+    token1.networkId === token2.networkId &&
+    (token1.isNative || !token1.contractAddress) &&
+    (token2.isNative || !token2.contractAddress),
+  );
 }
 
 function getPrivateSendHistoryTransfers(historyTx: IAccountHistoryTx) {
@@ -229,13 +304,43 @@ function getPrivateSendHistoryTransfers(historyTx: IAccountHistoryTx) {
   );
 }
 
+function getPrivateSendHistorySendTransfers(historyTx: IAccountHistoryTx) {
+  return historyTx.decodedTx.actions.reduce<IDecodedTxTransferInfo[]>(
+    (result, action) => {
+      if (action.assetTransfer) {
+        result.push(...action.assetTransfer.sends);
+      }
+      return result;
+    },
+    [],
+  );
+}
+
 function getPrivateSendHistoryTransfer(
   historyTx: IAccountHistoryTx,
   tokenInfo?: IPrivateSendKnownToken,
 ) {
+  const privateSendPayload = getPrivateSendHistoryPayload(historyTx);
+  const sendTransfers = getPrivateSendHistorySendTransfers(historyTx);
+  const allTransfers = getPrivateSendHistoryTransfers(historyTx);
+  const findTransfer = (
+    predicate: (transfer: IDecodedTxTransferInfo) => boolean,
+  ) => sendTransfers.find(predicate) ?? allTransfers.find(predicate);
+
+  const payinAddress = privateSendPayload?.payinAddress;
+  const payinTransfer = payinAddress
+    ? findTransfer((transfer) =>
+        isSamePrivateSendAddress(transfer.to, payinAddress),
+      )
+    : undefined;
+
+  if (payinTransfer) {
+    return payinTransfer;
+  }
+
   const tokenAddress = getPrivateSendKnownTokenAddress(tokenInfo);
   const matchedTransfer = tokenAddress
-    ? getPrivateSendHistoryTransfers(historyTx).find((transfer) =>
+    ? findTransfer((transfer) =>
         isSameTokenAddress(transfer.tokenIdOnNetwork, tokenAddress),
       )
     : undefined;
@@ -244,14 +349,25 @@ function getPrivateSendHistoryTransfer(
     return matchedTransfer;
   }
 
-  const transferAction = historyTx.decodedTx.actions.find(
-    (action) =>
-      action.assetTransfer?.sends?.[0] || action.assetTransfer?.receives?.[0],
+  const amountTransfer = findTransfer((transfer) =>
+    isSamePrivateSendAmount(
+      transfer.amount,
+      historyTx.decodedTx.payload?.value,
+    ),
   );
-  return (
-    transferAction?.assetTransfer?.sends?.[0] ??
-    transferAction?.assetTransfer?.receives?.[0]
+
+  if (amountTransfer) {
+    return amountTransfer;
+  }
+
+  const nativeTransfer = findTransfer((transfer) =>
+    isPrivateSendNativeTokenIdentity({
+      tokenInfo,
+      transfer,
+    }),
   );
+
+  return nativeTransfer ?? sendTransfers[0] ?? allTransfers[0];
 }
 
 function getPositivePriceValue(value?: number | string) {
@@ -283,7 +399,12 @@ async function fetchPrivateSendHistoryTokenDetails({
     historyTx.decodedTx.tokenIdOnNetwork ||
     '';
 
-  if (tokenInfo?.isNative || transfer?.isNative || !tokenAddress) {
+  if (
+    tokenInfo?.isNative ||
+    transfer?.isNative ||
+    (transfer ? !transfer.tokenIdOnNetwork : false) ||
+    !tokenAddress
+  ) {
     tokenAddress = await backgroundApiProxy.serviceToken.getNativeTokenAddress({
       networkId: historyTx.decodedTx.networkId,
     });
@@ -561,7 +682,7 @@ export async function maybeOpenPrivateSendHistoryDetail({
       ? mergePrivateSendHistoryReplayFields({
           item: txHistoryItem,
           replayItem: replayTxHistoryItem,
-          shouldMergeReplayBaseInfo: !!tokenInfo,
+          shouldMergeReplayBaseInfo: !!resolvedTokenInfo,
         })
       : { item: replayTxHistoryItem, updated: false };
   const {

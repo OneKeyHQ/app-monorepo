@@ -172,6 +172,9 @@ export type IAccountHistoryTx = {
 
   isLocalCreated?: boolean;
 
+  displayStatus?: EDecodedTxStatus;
+  displayStatusSource?: 'privateSendOrder';
+
   replacedPrevId?: string; // cancel speedUp replacedId
   replacedNextId?: string;
   replacedType?: EReplaceTxType; // cancel speedUp

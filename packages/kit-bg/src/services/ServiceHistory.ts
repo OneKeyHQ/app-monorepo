@@ -27,6 +27,11 @@ import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
 } from '@onekeyhq/shared/src/utils/promiseUtils';
+import {
+  getPrivateSendHistoryDisplayStatus,
+  isPrivateSendAccountHistoryTx,
+  isPrivateSendSwapHistoryItem,
+} from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressBadge,
@@ -51,6 +56,7 @@ import type {
   ITransferRecipient,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
+import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
   IReplaceTxInfo,
@@ -91,6 +97,44 @@ class ServiceHistory extends ServiceBase {
     appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
       if (event.level !== 'critical') return;
       this.memoizedFetchBtcReplaceState.clear();
+    });
+  }
+
+  private async attachPrivateSendDisplayStatus(
+    txs: IAccountHistoryTx[],
+  ): Promise<IAccountHistoryTx[]> {
+    if (!txs.some((tx) => isPrivateSendAccountHistoryTx(tx))) {
+      return txs;
+    }
+
+    const swapHistories =
+      await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
+    const privateSendSwapHistoryByTxId = new Map<string, ISwapTxHistory>();
+    swapHistories.forEach((item) => {
+      if (isPrivateSendSwapHistoryItem(item) && item.txInfo.txId) {
+        privateSendSwapHistoryByTxId.set(item.txInfo.txId, item);
+      }
+    });
+
+    return txs.map((tx) => {
+      if (!isPrivateSendAccountHistoryTx(tx)) {
+        return tx;
+      }
+
+      const displayStatus = getPrivateSendHistoryDisplayStatus({
+        historyTx: tx,
+        swapHistory: privateSendSwapHistoryByTxId.get(tx.decodedTx.txid),
+      });
+
+      if (!displayStatus || displayStatus === tx.decodedTx.status) {
+        return tx;
+      }
+
+      return {
+        ...tx,
+        displayStatus,
+        displayStatusSource: 'privateSendOrder',
+      };
     });
   }
 
@@ -573,6 +617,8 @@ class ServiceHistory extends ServiceBase {
       });
       tx.decodedTx.networkLogoURI = network.logoURI;
     }
+
+    result = await this.attachPrivateSendDisplayStatus(result);
 
     const accountsWithChangedPendingTxs = new Set<string>(); // accountId_networkId
     const accountsWithChangedConfirmedTxs = new Set<string>(); // accountId_networkId
