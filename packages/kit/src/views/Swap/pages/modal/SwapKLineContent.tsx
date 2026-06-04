@@ -54,8 +54,9 @@ import {
   getSwapKLineWalletChartDays,
 } from './swapKLineChartUtils';
 import {
-  fetchSwapKLineTokenIsStable,
+  fetchSwapKLineTokensStableStatus,
   getResolvableDefaultSwapKLineSide,
+  getSwapKLineTokenStableStatusFromMap,
   isKnownSwapKLineUnsupportedToken,
 } from './swapKLineTokenUtils';
 
@@ -311,13 +312,19 @@ function useSwapKLineStableTokenChecks({
     | undefined
   >(
     async () => {
-      const [fromTokenIsStable, toTokenIsStable] = await Promise.all([
-        fetchSwapKLineTokenIsStable(fromToken),
-        fetchSwapKLineTokenIsStable(toToken),
+      const stableStatusMap = await fetchSwapKLineTokensStableStatus([
+        fromToken,
+        toToken,
       ]);
       return {
-        fromTokenIsStable,
-        toTokenIsStable,
+        fromTokenIsStable: getSwapKLineTokenStableStatusFromMap({
+          stableStatusMap,
+          token: fromToken,
+        }),
+        toTokenIsStable: getSwapKLineTokenStableStatusFromMap({
+          stableStatusMap,
+          token: toToken,
+        }),
       };
     },
     [fromToken, toToken],

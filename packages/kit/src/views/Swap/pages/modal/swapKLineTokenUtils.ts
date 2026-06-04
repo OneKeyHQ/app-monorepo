@@ -1,3 +1,4 @@
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { ETokenDappType } from '@onekeyhq/shared/types/token';
@@ -19,14 +20,60 @@ export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   return Boolean(token.defiMarked || token.dappName?.trim() || token.dappType);
 }
 
+function normalizeSwapKLineStableTokenAddress(token?: ISwapKLineToken) {
+  const address = token?.contractAddress?.trim();
+  if (!token?.networkId || token.isNative || !address) {
+    return undefined;
+  }
+  return address.startsWith('0x') ? address.toLowerCase() : address;
+}
+
+export async function fetchSwapKLineTokensStableStatus(
+  tokens: (ISwapKLineToken | undefined)[],
+): Promise<Map<string, boolean>> {
+  const contractAddressesList = Array.from(
+    new Set(
+      tokens
+        .map((token) => normalizeSwapKLineStableTokenAddress(token))
+        .filter((address): address is string => Boolean(address)),
+    ),
+  );
+
+  if (!contractAddressesList.length) {
+    return new Map();
+  }
+
+  const stableCoinsList =
+    await backgroundApiProxy.serviceSwap.checkStableCoinsList({
+      contractAddressesList,
+    });
+
+  return new Map(
+    stableCoinsList.map((item) => [
+      item.contractAddress.startsWith('0x')
+        ? item.contractAddress.toLowerCase()
+        : item.contractAddress,
+      item.isStableCoin,
+    ]),
+  );
+}
+
+export function getSwapKLineTokenStableStatusFromMap({
+  stableStatusMap,
+  token,
+}: {
+  stableStatusMap: Map<string, boolean>;
+  token?: ISwapKLineToken;
+}) {
+  const address = normalizeSwapKLineStableTokenAddress(token);
+  return address ? (stableStatusMap.get(address) ?? false) : false;
+}
+
 export async function fetchSwapKLineTokenIsStable(
   token?: ISwapKLineToken,
 ): Promise<boolean> {
-  if (!token?.networkId) {
-    return false;
-  }
-
-  return false;
+  const stableStatusMap = await fetchSwapKLineTokensStableStatus([token]);
+  return getSwapKLineTokenStableStatusFromMap({ stableStatusMap, token });
 }
 
 export function getDefaultSwapKLineSide({

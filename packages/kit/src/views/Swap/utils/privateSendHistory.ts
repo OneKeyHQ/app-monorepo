@@ -12,7 +12,6 @@ import {
   privateSendProvider,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
-  IFetchSwapTxHistoryStatusResponse,
   ISwapNetwork,
   ISwapToken,
   ISwapTxHistory,
@@ -66,10 +65,6 @@ function getPrivateSendFallbackOrderId(historyTx: IAccountHistoryTx) {
   }`;
 }
 
-function isPrivateSendFallbackOrderId(orderId?: string) {
-  return orderId?.startsWith(privateSendFallbackOrderIdPrefix) ?? false;
-}
-
 function ensurePrivateSendHistoryOrderId(item: ISwapTxHistory) {
   const orderId =
     item.swapInfo.orderId ??
@@ -99,10 +94,6 @@ function getPrivateSendPayinAddressFromCtx(ctx: unknown) {
   return typeof payinAddress === 'string' && payinAddress
     ? payinAddress
     : undefined;
-}
-
-function getPrivateSendTxStateReceivedAddress(item: ISwapTxHistory) {
-  return getPrivateSendPayinAddressFromCtx(item.ctx) ?? item.txInfo.receiver;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -413,75 +404,8 @@ function buildPrivateSendHistoryItemFromAccountHistory({
   };
 }
 
-function canFetchPrivateSendTxState(item: ISwapTxHistory) {
-  return (
-    isPrivateSendSwapHistoryItem(item) &&
-    !!getPrivateSendRocketXOrderIdFromCtx(item.ctx) &&
-    !!(item.txInfo.txId || item.txInfo.orderId || item.swapInfo.orderId)
-  );
-}
-
-async function fetchPrivateSendTxState(item: ISwapTxHistory) {
-  const orderId = item.swapInfo.orderId ?? item.txInfo.orderId;
-  const rocketXOrderId = getPrivateSendRocketXOrderIdFromCtx(item.ctx);
-  const shouldUseOrderId =
-    !!orderId &&
-    !isPrivateSendFallbackOrderId(orderId) &&
-    orderId !== rocketXOrderId;
-
-  return backgroundApiProxy.serviceSwap.fetchTxState({
-    txId: item.txInfo.txId ?? '',
-    provider: item.swapInfo.provider.provider || privateSendProvider,
-    protocol: item.protocol ?? EProtocolOfExchange.PRIVATE_SEND,
-    networkId: item.baseInfo.fromToken.networkId,
-    ctx: item.ctx,
-    toTokenAddress: item.baseInfo.toToken.contractAddress,
-    receivedAddress: getPrivateSendTxStateReceivedAddress(item) || undefined,
-    orderId: shouldUseOrderId ? orderId : undefined,
-  });
-}
-
-function applyPrivateSendTxState({
-  item,
-  txState,
-}: {
-  item: ISwapTxHistory;
-  txState?: IFetchSwapTxHistoryStatusResponse;
-}) {
-  if (!txState) {
-    return item;
-  }
-
-  return {
-    ...item,
-    status: txState.state ?? item.status,
-    extraStatus: txState.extraStatus ?? item.extraStatus,
-    crossChainStatus: txState.crossChainStatus ?? item.crossChainStatus,
-    stateDetail: txState.stateDetail ?? item.stateDetail,
-    swapOrderHash: txState.swapOrderHash ?? item.swapOrderHash,
-    baseInfo: {
-      ...item.baseInfo,
-      toAmount: txState.dealReceiveAmount ?? item.baseInfo.toAmount,
-    },
-    txInfo: {
-      ...item.txInfo,
-      txId: txState.txId ?? item.txInfo.txId,
-      gasFeeInNative: txState.gasFee ?? item.txInfo.gasFeeInNative,
-      gasFeeFiatValue: txState.gasFeeFiatValue ?? item.txInfo.gasFeeFiatValue,
-      receiverTransactionId:
-        txState.crossChainReceiveTxHash ?? item.txInfo.receiverTransactionId,
-    },
-    swapInfo: {
-      ...item.swapInfo,
-      chainFlipExplorerUrl:
-        txState.chainFlipExplorerUrl ?? item.swapInfo.chainFlipExplorerUrl,
-      surplus: txState.surplus ?? item.swapInfo.surplus,
-    },
-    date: {
-      ...item.date,
-      updated: txState.timestamp ?? item.date.updated,
-    },
-  };
+function canFetchPrivateSendOrderDetail(item: ISwapTxHistory) {
+  return isPrivateSendSwapHistoryItem(item) && !!item.txInfo.txId;
 }
 
 export async function maybeOpenPrivateSendHistoryDetail({
@@ -585,21 +509,31 @@ export async function maybeOpenPrivateSendHistoryDetail({
     tokenDetails: resolvedTokenDetails,
   });
 
-  let txState: IFetchSwapTxHistoryStatusResponse | undefined;
-  if (canFetchPrivateSendTxState(resolvedTxHistoryItem)) {
+  let orderDetailTxHistoryItem = resolvedTxHistoryItem;
+  if (canFetchPrivateSendOrderDetail(resolvedTxHistoryItem)) {
     try {
-      txState = await fetchPrivateSendTxState(resolvedTxHistoryItem);
+      orderDetailTxHistoryItem =
+        await backgroundApiProxy.serviceSwap.fetchPrivateSendOrderDetailHistoryItem(
+          { item: resolvedTxHistoryItem },
+        );
     } catch {
-      txState = undefined;
+      orderDetailTxHistoryItem = resolvedTxHistoryItem;
     }
   }
+  const shouldPersistOrderDetailFields =
+    JSON.stringify(orderDetailTxHistoryItem) !==
+    JSON.stringify(resolvedTxHistoryItem);
 
   const nextTxHistoryItem = ensurePrivateSendHistoryOrderId(
-    applyPrivateSendTxState({ item: resolvedTxHistoryItem, txState }),
+    orderDetailTxHistoryItem,
   );
   if (shouldPersistFallbackHistory) {
     await backgroundApiProxy.serviceSwap.addSwapHistoryItem(nextTxHistoryItem);
-  } else if (shouldPersistResolvedTokenDetails || shouldPersistReplayFields) {
+  } else if (
+    shouldPersistResolvedTokenDetails ||
+    shouldPersistReplayFields ||
+    shouldPersistOrderDetailFields
+  ) {
     await backgroundApiProxy.serviceSwap.updateSwapHistoryItem(
       nextTxHistoryItem,
       { shouldShowToast: false },

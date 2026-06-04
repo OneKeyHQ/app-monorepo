@@ -3,7 +3,7 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { EventSourcePolyfill } from 'event-source-polyfill';
-import { cloneDeep, has } from 'lodash';
+import { cloneDeep, has, isEqual } from 'lodash';
 
 import {
   getBtcForkNetwork,
@@ -35,7 +35,10 @@ import {
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
-import { isSwapHistoryProtocolExcluded } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import {
+  isPrivateSendSwapHistoryItem,
+  isSwapHistoryProtocolExcluded,
+} from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -124,6 +127,159 @@ import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwo
 const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
+
+type ICheckStableCoinsListItem = {
+  contractAddress: string;
+  isStableCoin: boolean;
+};
+
+type IPrivateSendOrderDetail = {
+  protocol?: EProtocolOfExchange;
+  kind?: ESwapQuoteKind;
+  changellyOrder?: IFetchBuildTxResponse['changellyOrder'];
+  rocketXOrderId?: string;
+  providerInfo?: ISwapTxHistory['swapInfo']['provider'];
+  fromAmount?: string;
+  fromToken?: ISwapTokenBase;
+  toToken?: ISwapTokenBase;
+  toAmount?: string;
+  receivingAddress?: string;
+  percentageFee?: number;
+  protocolFee?: number;
+  instantRate?: string;
+  state?: ESwapTxHistoryStatus | 'created';
+  stateDetail?: string;
+  txId?: string;
+  swapOrderHash?: IFetchSwapTxHistoryStatusResponse['swapOrderHash'];
+  orderId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type IPrivateSendStatusSource = 'stateTx' | 'orderDetail';
+
+type IFetchSwapHistoryStatusResult = {
+  orderDetail?: IPrivateSendOrderDetail;
+  txStatusRes?: IFetchSwapTxHistoryStatusResponse;
+};
+
+function normalizePrivateSendOrderDetailState(
+  state?: IPrivateSendOrderDetail['state'],
+) {
+  if (!state) {
+    return undefined;
+  }
+  if (state === 'created') {
+    return ESwapTxHistoryStatus.PENDING;
+  }
+  return Object.values(ESwapTxHistoryStatus).includes(state)
+    ? state
+    : undefined;
+}
+
+function getPrivateSendOrderDetailTime(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : undefined;
+}
+
+function mergePrivateSendOrderDetailToken({
+  currentToken,
+  orderDetailToken,
+}: {
+  currentToken: ISwapToken;
+  orderDetailToken?: ISwapTokenBase;
+}): ISwapToken {
+  if (!orderDetailToken) {
+    return currentToken;
+  }
+  return {
+    ...currentToken,
+    ...orderDetailToken,
+    price: currentToken.price ?? orderDetailToken.price,
+  };
+}
+
+function getPrivateSendOrderDetailTxState(
+  orderDetail?: IPrivateSendOrderDetail | null,
+): IFetchSwapTxHistoryStatusResponse | undefined {
+  if (!orderDetail) {
+    return undefined;
+  }
+  const state = normalizePrivateSendOrderDetailState(orderDetail.state);
+  if (!state) {
+    return undefined;
+  }
+  return {
+    state,
+    stateDetail: orderDetail.stateDetail,
+    txId: orderDetail.txId,
+    dealReceiveAmount: orderDetail.toAmount,
+    swapOrderHash: orderDetail.swapOrderHash,
+  };
+}
+
+function mergePrivateSendOrderDetailToSwapHistory({
+  item,
+  orderDetail,
+}: {
+  item: ISwapTxHistory;
+  orderDetail: IPrivateSendOrderDetail;
+}): ISwapTxHistory {
+  const created = getPrivateSendOrderDetailTime(orderDetail.createdAt);
+  const updated = getPrivateSendOrderDetailTime(orderDetail.updatedAt);
+  const state = normalizePrivateSendOrderDetailState(orderDetail.state);
+  return {
+    ...item,
+    protocol: orderDetail.protocol ?? item.protocol,
+    status: state ?? item.status,
+    stateDetail: orderDetail.stateDetail ?? item.stateDetail,
+    swapOrderHash: orderDetail.swapOrderHash ?? item.swapOrderHash,
+    baseInfo: {
+      ...item.baseInfo,
+      fromAmount: orderDetail.fromAmount ?? item.baseInfo.fromAmount,
+      toAmount: orderDetail.toAmount ?? item.baseInfo.toAmount,
+      fromToken: mergePrivateSendOrderDetailToken({
+        currentToken: item.baseInfo.fromToken,
+        orderDetailToken: orderDetail.fromToken,
+      }),
+      toToken: mergePrivateSendOrderDetailToken({
+        currentToken: item.baseInfo.toToken,
+        orderDetailToken: orderDetail.toToken,
+      }),
+    },
+    txInfo: {
+      ...item.txInfo,
+      txId: orderDetail.txId ?? item.txInfo.txId,
+      orderId: orderDetail.orderId ?? item.txInfo.orderId,
+      useOrderId: item.txInfo.useOrderId,
+      receiver: orderDetail.receivingAddress ?? item.txInfo.receiver,
+    },
+    swapInfo: {
+      ...item.swapInfo,
+      provider: orderDetail.providerInfo ?? item.swapInfo.provider,
+      instantRate: orderDetail.instantRate ?? item.swapInfo.instantRate,
+      oneKeyFee: orderDetail.percentageFee ?? item.swapInfo.oneKeyFee,
+      protocolFee: orderDetail.protocolFee ?? item.swapInfo.protocolFee,
+      orderId: orderDetail.orderId ?? item.swapInfo.orderId,
+    },
+    ctx: {
+      ...(typeof item.ctx === 'object' && item.ctx !== null ? item.ctx : {}),
+      ...(orderDetail.rocketXOrderId
+        ? { rocketXOrderId: orderDetail.rocketXOrderId }
+        : {}),
+      ...(orderDetail.changellyOrder?.payinAddress
+        ? { payinAddress: orderDetail.changellyOrder.payinAddress }
+        : {}),
+    },
+    date: {
+      created: created ?? item.date.created,
+      updated: updated ?? item.date.updated,
+    },
+  };
+}
 
 function isPrivateSendProtocol(protocol?: string) {
   return (
@@ -1135,6 +1291,69 @@ export default class ServiceSwap extends ServiceBase {
     return data?.data ?? { state: ESwapTxHistoryStatus.PENDING };
   }
 
+  private async fetchSwapOrderDetail({
+    txId,
+  }: {
+    txId?: string;
+  }): Promise<IPrivateSendOrderDetail | undefined> {
+    if (!txId) {
+      return undefined;
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const { data } = await client.get<
+      IFetchResponse<IPrivateSendOrderDetail | null>
+    >('/swap/v1/order-detail', {
+      params: { txId },
+    });
+    return data?.data ?? undefined;
+  }
+
+  @backgroundMethod()
+  async fetchSwapOrderDetailTxState({
+    txId,
+  }: {
+    txId?: string;
+  }): Promise<IFetchSwapTxHistoryStatusResponse | undefined> {
+    const orderDetail = await this.fetchSwapOrderDetail({ txId });
+    return getPrivateSendOrderDetailTxState(orderDetail);
+  }
+
+  @backgroundMethod()
+  async fetchPrivateSendOrderDetailHistoryItem({
+    item,
+  }: {
+    item: ISwapTxHistory;
+  }): Promise<ISwapTxHistory> {
+    if (!isPrivateSendSwapHistoryItem(item) || !item.txInfo.txId) {
+      return item;
+    }
+    const orderDetail = await this.fetchSwapOrderDetail({
+      txId: item.txInfo.txId,
+    });
+    if (!orderDetail) {
+      return item;
+    }
+    return mergePrivateSendOrderDetailToSwapHistory({ item, orderDetail });
+  }
+
+  @backgroundMethod()
+  async checkStableCoinsList({
+    contractAddressesList,
+  }: {
+    contractAddressesList: string[];
+  }): Promise<ICheckStableCoinsListItem[]> {
+    if (!contractAddressesList.length) {
+      return [];
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const { data } = await client.post<
+      IFetchResponse<ICheckStableCoinsListItem[]>
+    >('/swap/v1/check-stable-coins-list', {
+      contractAddressesList,
+    });
+    return data?.data ?? [];
+  }
+
   @backgroundMethod()
   async checkSupportSwap({ networkId }: { networkId: string }) {
     return this.checkSupportSwapMemo({ networkId });
@@ -1871,20 +2090,13 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
-  async swapHistoryStatusRunFetch(
-    swapTxHistory: ISwapTxHistory,
-    options?: {
-      shouldScheduleNextFetch?: boolean;
-      shouldShowToast?: boolean;
-    },
-  ) {
-    let enableInterval = true;
-    const shouldScheduleNextFetch = options?.shouldScheduleNextFetch ?? true;
-    const shouldShowToast = options?.shouldShowToast ?? true;
-    let currentSwapTxHistory = cloneDeep(swapTxHistory);
-    const isPrivateSendHistory =
-      currentSwapTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
-      currentSwapTxHistory.swapInfo.provider.provider === privateSendProvider;
+  private async fetchSwapHistoryStateTx({
+    currentSwapTxHistory,
+    isPrivateSendHistory,
+  }: {
+    currentSwapTxHistory: ISwapTxHistory;
+    isPrivateSendHistory: boolean;
+  }) {
     const stateOrderId = getSwapHistoryStateOrderId({
       swapTxHistory: currentSwapTxHistory,
       isPrivateSendHistory,
@@ -1893,33 +2105,106 @@ export default class ServiceSwap extends ServiceBase {
       swapTxHistory: currentSwapTxHistory,
       isPrivateSendHistory,
     });
-    try {
-      const txStatusRes = await this.fetchTxState({
-        txId:
-          currentSwapTxHistory.txInfo.txId ??
-          currentSwapTxHistory.txInfo.orderId ??
-          '',
-        provider: currentSwapTxHistory.swapInfo.provider.provider,
-        protocol:
-          currentSwapTxHistory.protocol ??
-          (currentSwapTxHistory.swapInfo.provider.provider ===
-          privateSendProvider
-            ? EProtocolOfExchange.PRIVATE_SEND
-            : EProtocolOfExchange.SWAP),
-        networkId: currentSwapTxHistory.baseInfo.fromToken.networkId,
-        ctx: currentSwapTxHistory.ctx,
-        toTokenAddress: currentSwapTxHistory.baseInfo.toToken.contractAddress,
-        receivedAddress: stateReceivedAddress,
-        orderId: stateOrderId,
+    return this.fetchTxState({
+      txId:
+        currentSwapTxHistory.txInfo.txId ??
+        currentSwapTxHistory.txInfo.orderId ??
+        '',
+      provider: currentSwapTxHistory.swapInfo.provider.provider,
+      protocol:
+        currentSwapTxHistory.protocol ??
+        (currentSwapTxHistory.swapInfo.provider.provider === privateSendProvider
+          ? EProtocolOfExchange.PRIVATE_SEND
+          : EProtocolOfExchange.SWAP),
+      networkId: currentSwapTxHistory.baseInfo.fromToken.networkId,
+      ctx: currentSwapTxHistory.ctx,
+      toTokenAddress: currentSwapTxHistory.baseInfo.toToken.contractAddress,
+      receivedAddress: stateReceivedAddress,
+      orderId: stateOrderId,
+    });
+  }
+
+  private async fetchSwapHistoryStatus({
+    currentSwapTxHistory,
+    isPrivateSendHistory,
+    privateSendStatusSource,
+  }: {
+    currentSwapTxHistory: ISwapTxHistory;
+    isPrivateSendHistory: boolean;
+    privateSendStatusSource: IPrivateSendStatusSource;
+  }): Promise<IFetchSwapHistoryStatusResult | undefined> {
+    if (isPrivateSendHistory && privateSendStatusSource === 'orderDetail') {
+      const orderDetail = await this.fetchSwapOrderDetail({
+        txId: currentSwapTxHistory.txInfo.txId,
       });
+      const txStatusRes = getPrivateSendOrderDetailTxState(orderDetail);
+      return txStatusRes ? { orderDetail, txStatusRes } : undefined;
+    }
+    const txStatusRes = await this.fetchSwapHistoryStateTx({
+      currentSwapTxHistory,
+      isPrivateSendHistory,
+    });
+    return { txStatusRes };
+  }
+
+  @backgroundMethod()
+  async fetchPrivateSendInitialTxState(swapTxHistory: ISwapTxHistory) {
+    if (!isPrivateSendSwapHistoryItem(swapTxHistory)) {
+      return;
+    }
+    await this.fetchSwapHistoryStateTx({
+      currentSwapTxHistory: swapTxHistory,
+      isPrivateSendHistory: true,
+    });
+  }
+
+  async swapHistoryStatusRunFetch(
+    swapTxHistory: ISwapTxHistory,
+    options?: {
+      shouldScheduleNextFetch?: boolean;
+      shouldShowToast?: boolean;
+      privateSendStatusSource?: IPrivateSendStatusSource;
+    },
+  ) {
+    let enableInterval = true;
+    const shouldScheduleNextFetch = options?.shouldScheduleNextFetch ?? true;
+    const shouldShowToast = options?.shouldShowToast ?? true;
+    const privateSendStatusSource =
+      options?.privateSendStatusSource ?? 'orderDetail';
+    let currentSwapTxHistory = cloneDeep(swapTxHistory);
+    const isPrivateSendHistory =
+      currentSwapTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+      currentSwapTxHistory.swapInfo.provider.provider === privateSendProvider;
+    try {
+      const fetchResult = await this.fetchSwapHistoryStatus({
+        currentSwapTxHistory,
+        isPrivateSendHistory,
+        privateSendStatusSource,
+      });
+      const txStatusRes = fetchResult?.txStatusRes;
+      if (!txStatusRes) {
+        return;
+      }
+      const previousSwapTxHistory = currentSwapTxHistory;
+      if (fetchResult?.orderDetail) {
+        currentSwapTxHistory = mergePrivateSendOrderDetailToSwapHistory({
+          item: currentSwapTxHistory,
+          orderDetail: fetchResult.orderDetail,
+        });
+      }
+      const shouldUpdateOrderDetailFields = !isEqual(
+        previousSwapTxHistory,
+        currentSwapTxHistory,
+      );
       if (
+        shouldUpdateOrderDetailFields ||
         shouldUpdateSwapHistoryAfterTxState({
           swapTxHistory: currentSwapTxHistory,
           txStatusRes,
         })
       ) {
         const rawStatus = txStatusRes.state;
-        const previousStateDetail = currentSwapTxHistory.stateDetail;
+        const previousStateDetail = previousSwapTxHistory.stateDetail;
         currentSwapTxHistory = {
           ...currentSwapTxHistory,
           status: rawStatus,
