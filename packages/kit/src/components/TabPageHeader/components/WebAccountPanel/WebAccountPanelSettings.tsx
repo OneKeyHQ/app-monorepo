@@ -21,10 +21,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
-import {
-  useActiveAccount,
-  useSelectedAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useLanguageSelector } from '@onekeyhq/kit/src/views/Setting/hooks';
 import {
   usePerpsActiveAccountAtom,
@@ -373,7 +370,6 @@ function PerpsSwitchSection() {
 
 function WebPerpsSpotDustingSetting() {
   const intl = useIntl();
-  const { selectedAccount } = useSelectedAccount({ num: 0 });
   const {
     activeAccount: { account, indexedAccount, wallet },
   } = useActiveAccount({ num: 0 });
@@ -391,8 +387,7 @@ function WebPerpsSpotDustingSetting() {
   const activeAccountAddress = activeAccount.accountAddress?.toLowerCase();
   const activeAccountAddressRef = useRef(activeAccountAddress);
   activeAccountAddressRef.current = activeAccountAddress;
-  const panelAccountId =
-    selectedAccount.accountId ?? account?.id ?? indexedAccount?.id;
+  const panelAccountId = account?.id ?? indexedAccount?.id;
   const activePerpsAccountId =
     activeAccount.accountId ?? activeAccount.indexedAccountId;
   const isPerpsAccountAligned =
