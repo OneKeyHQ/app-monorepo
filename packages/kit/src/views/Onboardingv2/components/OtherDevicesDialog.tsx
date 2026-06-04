@@ -2,8 +2,10 @@ import { useIntl } from 'react-intl';
 
 import {
   Dialog,
+  DialogContainer,
   Image,
   SizableText,
+  Theme,
   YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
@@ -66,7 +68,22 @@ function OtherDevicesDialogContent() {
 
 export function showOtherDevicesDialog() {
   Dialog.show({
-    showFooter: false,
-    renderContent: <OtherDevicesDialogContent />,
+    // The onboarding flow is force-dark (routes/Modal/Navigator.tsx wraps it
+    // in <Theme name="dark">), but Dialog.show renders into the global
+    // full-window overlay portal OUTSIDE that wrapper, so by default this
+    // dialog pops in the app/system (light) theme. Wrapping the whole
+    // DialogContainer in <Theme name="dark"> re-themes the entire chrome
+    // (card, close icon) via React context to match the onboarding flow.
+    // Mirrors useShowOnboardingInviteCodeDialog.
+    dialogContainer: ({ ref }) => (
+      <Theme name="dark">
+        <DialogContainer
+          ref={ref}
+          showFooter={false}
+          renderContent={<OtherDevicesDialogContent />}
+          onClose={async () => undefined}
+        />
+      </Theme>
+    ),
   });
 }
