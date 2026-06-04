@@ -4935,6 +4935,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return [];
     }
 
+    // Searching an address no account owns is the common universal-search case,
+    // and empty results are intentionally dropped from
+    // getAccountNameFromAddressMemo (ServiceAccount), so without this guard the
+    // same not-held address would re-run the O(n) scan — and the getAllAccounts
+    // deep-clone — on every search. scanAccountMissCache is flushed on any
+    // account/wallet write, so a newly created account is still found at once.
+    const missKey = `${networkId}--${normalizedAddress || address}`;
+    if (this.scanAccountMissCache.get(missKey)) {
+      return [];
+    }
+
     const { accounts } = await this.getAllAccounts();
     const matched: IDBAccount[] = [];
     for (const account of accounts) {
@@ -4944,6 +4955,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
     if (isEmpty(matched)) {
+      this.scanAccountMissCache.set(missKey, true);
       return [];
     }
 
