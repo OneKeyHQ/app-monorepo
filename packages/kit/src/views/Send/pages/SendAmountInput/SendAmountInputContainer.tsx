@@ -23,6 +23,8 @@ import {
   HeightTransition,
   Icon,
   Image,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
+  Keyboard,
   NumberSizeableText,
   Page,
   ScrollView,
@@ -3541,6 +3543,106 @@ function SendAmountInputContainer() {
       ? ETranslations.private_send_private_send
       : ETranslations.enter_amount__title;
 
+  const shouldUseScrollablePrivateSendBody = sendMode === ESendMode.PRIVATE;
+
+  const renderAmountFormContent = (
+    <Form form={form}>
+      {isNFT ? renderNFTAmountInput : renderAmountInput}
+
+      {isLightningNetwork && lnUnit ? (
+        <XStack justifyContent="center" mt="$2">
+          <LightningUnitSwitch
+            value={lnUnit}
+            onChange={(v) => {
+              setLnUnit(v as ELightningUnit);
+              if (!isUseFiat) {
+                form.setValue(
+                  'amount',
+                  v === ELightningUnit.BTC
+                    ? chainValueUtils.convertSatsToBtc(form.getValues('amount'))
+                    : chainValueUtils.convertBtcToSats(
+                        form.getValues('amount'),
+                      ),
+                );
+                if (form.formState.isDirty) {
+                  setTimeout(() => {
+                    void form.trigger('amount');
+                  }, 100);
+                }
+              }
+            }}
+          />
+        </XStack>
+      ) : null}
+    </Form>
+  );
+
+  const renderBottomInfoContent = (
+    <>
+      <HeightTransition hide={!displayTxMessageForm}>
+        <Form form={form}>
+          <Form.Field
+            name="txMessage"
+            label={intl.formatMessage({
+              id: recipientIsContract
+                ? ETranslations.global_contract_call
+                : ETranslations.global_hex_data,
+            })}
+            optional
+            rules={{
+              validate: validateTxMessage,
+            }}
+            description={
+              txMessageDescription ? (
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {`${txMessageDescription} `}
+                  <SizableText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    textDecorationLine="underline"
+                    onPress={showTxMessageRawData}
+                  >
+                    {txMessageViewActionLabel}
+                  </SizableText>
+                </SizableText>
+              ) : undefined
+            }
+            labelAddon={
+              <Button
+                testID={SendTestIDs.hexDataFaqButton}
+                size="small"
+                variant="tertiary"
+                onPress={showTxMessageFaq}
+              >
+                {intl.formatMessage({
+                  id: recipientIsContract
+                    ? ETranslations.global_hex_data_default_faq
+                    : ETranslations.global_hex_data_faq,
+                })}
+              </Button>
+            }
+          >
+            <TextArea testID={SendTestIDs.hexDataInput}>
+              <TextAreaInput
+                placeholder={intl.formatMessage({
+                  id: recipientIsContract
+                    ? ETranslations.global_hex_data_default
+                    : ETranslations.global_hex_data_input_default,
+                })}
+              />
+            </TextArea>
+          </Form.Field>
+        </Form>
+      </HeightTransition>
+      {renderAutoSwitchAlert}
+      {extraContent}
+      {sendMode === ESendMode.PRIVATE
+        ? renderPrivateSendQuoteCard
+        : renderBalanceCard}
+      {renderNFTInfoCard}
+    </>
+  );
+
   return (
     <Page safeAreaEnabled>
       <Page.Header
@@ -3548,104 +3650,34 @@ function SendAmountInputContainer() {
         headerRight={renderPrivateSendHeaderRight}
       />
 
-      <Page.Body px="$5" justifyContent="center">
-        <Form form={form}>
-          {isNFT ? renderNFTAmountInput : renderAmountInput}
-
-          {isLightningNetwork && lnUnit ? (
-            <XStack justifyContent="center" mt="$2">
-              <LightningUnitSwitch
-                value={lnUnit}
-                onChange={(v) => {
-                  setLnUnit(v as ELightningUnit);
-                  if (!isUseFiat) {
-                    form.setValue(
-                      'amount',
-                      v === ELightningUnit.BTC
-                        ? chainValueUtils.convertSatsToBtc(
-                            form.getValues('amount'),
-                          )
-                        : chainValueUtils.convertBtcToSats(
-                            form.getValues('amount'),
-                          ),
-                    );
-                    if (form.formState.isDirty) {
-                      setTimeout(() => {
-                        void form.trigger('amount');
-                      }, 100);
-                    }
-                  }
-                }}
-              />
-            </XStack>
-          ) : null}
-        </Form>
-      </Page.Body>
+      {shouldUseScrollablePrivateSendBody ? (
+        <Page.Body minHeight={0} overflow="hidden">
+          <Keyboard.AwareScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ flexGrow: 1 }}
+            bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+          >
+            <YStack px="$5" py="$5" gap="$5">
+              {renderAmountFormContent}
+              <YStack gap="$3">{renderBottomInfoContent}</YStack>
+            </YStack>
+          </Keyboard.AwareScrollView>
+        </Page.Body>
+      ) : (
+        <Page.Body px="$5" justifyContent="center">
+          {renderAmountFormContent}
+        </Page.Body>
+      )}
 
       <Page.Footer>
-        <Stack px="$5" gap="$3">
-          <HeightTransition hide={!displayTxMessageForm}>
-            <Form form={form}>
-              <Form.Field
-                name="txMessage"
-                label={intl.formatMessage({
-                  id: recipientIsContract
-                    ? ETranslations.global_contract_call
-                    : ETranslations.global_hex_data,
-                })}
-                optional
-                rules={{
-                  validate: validateTxMessage,
-                }}
-                description={
-                  txMessageDescription ? (
-                    <SizableText size="$bodySm" color="$textSubdued">
-                      {`${txMessageDescription} `}
-                      <SizableText
-                        size="$bodySm"
-                        color="$textSubdued"
-                        textDecorationLine="underline"
-                        onPress={showTxMessageRawData}
-                      >
-                        {txMessageViewActionLabel}
-                      </SizableText>
-                    </SizableText>
-                  ) : undefined
-                }
-                labelAddon={
-                  <Button
-                    testID={SendTestIDs.hexDataFaqButton}
-                    size="small"
-                    variant="tertiary"
-                    onPress={showTxMessageFaq}
-                  >
-                    {intl.formatMessage({
-                      id: recipientIsContract
-                        ? ETranslations.global_hex_data_default_faq
-                        : ETranslations.global_hex_data_faq,
-                    })}
-                  </Button>
-                }
-              >
-                <TextArea testID={SendTestIDs.hexDataInput}>
-                  <TextAreaInput
-                    placeholder={intl.formatMessage({
-                      id: recipientIsContract
-                        ? ETranslations.global_hex_data_default
-                        : ETranslations.global_hex_data_input_default,
-                    })}
-                  />
-                </TextArea>
-              </Form.Field>
-            </Form>
-          </HeightTransition>
-          {renderAutoSwitchAlert}
-          {extraContent}
-          {sendMode === ESendMode.PRIVATE
-            ? renderPrivateSendQuoteCard
-            : renderBalanceCard}
-          {renderNFTInfoCard}
-        </Stack>
+        {shouldUseScrollablePrivateSendBody ? null : (
+          <Stack px="$5" gap="$3">
+            {renderBottomInfoContent}
+          </Stack>
+        )}
         {renderFooterActions}
       </Page.Footer>
     </Page>
