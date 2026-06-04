@@ -21,14 +21,22 @@ concurrency:
 
 env:
   YARN_ENABLE_GLOBAL_CACHE: true
+  JEST_SHARD_TOTAL: 3
+
+permissions:
+  contents: read
+  packages: read
 
 jobs:
   unittest:
+    name: Unit Tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-24.04
 
     strategy:
+      fail-fast: false
       matrix:
         node-version: [24.x]
+        shard: [1, 2, 3]
 
     steps:
       - uses: actions/checkout@v4
@@ -60,14 +68,62 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          yarn test --coverage
+          yarn test \
+            --coverage \
+            --shard=${{ matrix.shard }}/${JEST_SHARD_TOTAL} \
+            --coverageDirectory=coverage/shard-${{ matrix.shard }} \
+            --coverageReporters=text \
+            --coverageReporters=lcov \
+            --coverageReporters=json-summary \
+            --coverageReporters=json \
+            --coverageThreshold='{}'
 
       - name: Upload Test Report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-report-${{ env.BUILD_NUMBER }}-${{ github.sha }}
+          name: test-report-${{ github.sha }}-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }}
           path: test-report.html
+
+      - name: Upload Coverage Shard
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report-${{ github.sha }}-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }}
+          path: coverage/shard-${{ matrix.shard }}/
+          if-no-files-found: error
+
+  coverage:
+    name: unittest (24.x)
+    runs-on: ubuntu-24.04
+    needs: unittest
+    if: always()
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check unit test shards
+        run: |
+          if [ "${{ needs.unittest.result }}" != "success" ]; then
+            echo "::error::Unit test shard matrix result: ${{ needs.unittest.result }}"
+            exit 1
+          fi
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          check-latest: true
+
+      - name: Download Coverage Shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-report-${{ github.sha }}-shard-*
+          path: coverage-shards
+
+      - name: Merge Coverage Reports
+        run: |
+          node development/scripts/merge-jest-coverage.js coverage-shards coverage "${JEST_SHARD_TOTAL}"
 
       - name: Upload Coverage Report
         uses: actions/upload-artifact@v4
@@ -75,4 +131,3 @@ jobs:
         with:
           name: coverage-report-${{ github.sha }}
           path: coverage/
-
