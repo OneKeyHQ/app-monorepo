@@ -30,13 +30,6 @@ function identifyError(errorMessage: string): EErrorType | null {
   return null;
 }
 
-function extractErrorMessage(error: unknown): string {
-  const hyperLiquidMessage = extractHyperLiquidErrorMessage(error);
-  if (hyperLiquidMessage) return hyperLiquidMessage;
-
-  return extractRawErrorMessage(error);
-}
-
 function extractRawErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
@@ -44,6 +37,13 @@ function extractRawErrorMessage(error: unknown): string {
     return String(error.message);
   }
   return 'Unknown error occurred';
+}
+
+function extractErrorMessage(error: unknown): string {
+  const hyperLiquidMessage = extractHyperLiquidErrorMessage(error);
+  if (hyperLiquidMessage) return hyperLiquidMessage;
+
+  return extractRawErrorMessage(error);
 }
 
 async function handleError(error: unknown): Promise<void> {

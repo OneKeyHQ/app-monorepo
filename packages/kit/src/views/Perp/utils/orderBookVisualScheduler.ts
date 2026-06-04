@@ -1,4 +1,4 @@
-export const PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS = 1000;
+export const PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS = 200;
 
 export function getPerpsOrderBookVisualSnapshotDelayMs({
   frameMs,

@@ -2026,7 +2026,6 @@ export function OrderBookMobile({
             ))
           ) : (
             <DepthBarColumn
-              animated={false}
               percents={askPercents}
               rowHeight={MOBILE_ROW_HEIGHT}
               rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
@@ -2062,7 +2061,6 @@ export function OrderBookMobile({
             ))
           ) : (
             <DepthBarColumn
-              animated={false}
               percents={bidPercents}
               rowHeight={MOBILE_ROW_HEIGHT}
               rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
@@ -2124,7 +2122,6 @@ export function OrderBookMobile({
         </View>
       </View>
       <OrderBookSideRatio
-        animated={false}
         bidDepth={bidDepth}
         askDepth={askDepth}
         size="mobile"
