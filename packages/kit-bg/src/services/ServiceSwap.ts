@@ -1352,13 +1352,13 @@ export default class ServiceSwap extends ServiceBase {
     if (!contractAddressesList.length) {
       return [];
     }
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
-    const { data } = await client.post<
+    const client = await this.getRawDataClient(EServiceEndpointEnum.Swap);
+    const response = await client.post<
       IFetchResponse<ICheckStableCoinsListItem[]>
     >('/swap/v1/check-stable-coins-list', {
       contractAddressesList,
     });
-    return data?.data ?? [];
+    return response.data?.data ?? [];
   }
 
   @backgroundMethod()

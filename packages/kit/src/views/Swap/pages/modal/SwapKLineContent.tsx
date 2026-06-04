@@ -54,9 +54,10 @@ import {
   getSwapKLineWalletChartDays,
 } from './swapKLineChartUtils';
 import {
-  fetchSwapKLineTokensStableStatus,
+  fetchSwapKLineTokenAddressesStableStatus,
   getResolvableDefaultSwapKLineSide,
-  getSwapKLineTokenStableStatusFromMap,
+  getSwapKLineStableTokenAddress,
+  getSwapKLineStableTokenStatusFromMap,
   isKnownSwapKLineUnsupportedToken,
 } from './swapKLineTokenUtils';
 
@@ -87,8 +88,14 @@ function getSwapKLineTokenKey(token?: ISwapToken) {
   if (!token?.networkId) {
     return '';
   }
+  const contractAddress = token.contractAddress?.trim();
+  const normalizedContractAddress = contractAddress?.startsWith('0x')
+    ? contractAddress.toLowerCase()
+    : (contractAddress ?? '');
 
-  return `${token.networkId}:${token.contractAddress ?? ''}`;
+  return `${token.networkId}:${normalizedContractAddress}:${
+    token.isNative ? 'native' : 'contract'
+  }`;
 }
 
 function getNormalizedValueText(value?: number | string | null) {
@@ -304,6 +311,10 @@ function useSwapKLineStableTokenChecks({
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
 }) {
+  const fromTokenKey = getSwapKLineTokenKey(fromToken);
+  const toTokenKey = getSwapKLineTokenKey(toToken);
+  const fromStableTokenAddress = getSwapKLineStableTokenAddress(fromToken);
+  const toStableTokenAddress = getSwapKLineStableTokenAddress(toToken);
   const { result, isLoading } = usePromiseResult<
     | {
         fromTokenIsStable: boolean;
@@ -312,22 +323,22 @@ function useSwapKLineStableTokenChecks({
     | undefined
   >(
     async () => {
-      const stableStatusMap = await fetchSwapKLineTokensStableStatus([
-        fromToken,
-        toToken,
+      const stableStatusMap = await fetchSwapKLineTokenAddressesStableStatus([
+        fromTokenKey ? fromStableTokenAddress : undefined,
+        toTokenKey ? toStableTokenAddress : undefined,
       ]);
       return {
-        fromTokenIsStable: getSwapKLineTokenStableStatusFromMap({
+        fromTokenIsStable: getSwapKLineStableTokenStatusFromMap({
           stableStatusMap,
-          token: fromToken,
+          stableTokenAddress: fromStableTokenAddress,
         }),
-        toTokenIsStable: getSwapKLineTokenStableStatusFromMap({
+        toTokenIsStable: getSwapKLineStableTokenStatusFromMap({
           stableStatusMap,
-          token: toToken,
+          stableTokenAddress: toStableTokenAddress,
         }),
       };
     },
-    [fromToken, toToken],
+    [fromTokenKey, fromStableTokenAddress, toTokenKey, toStableTokenAddress],
     {
       checkIsFocused: false,
       watchLoading: true,

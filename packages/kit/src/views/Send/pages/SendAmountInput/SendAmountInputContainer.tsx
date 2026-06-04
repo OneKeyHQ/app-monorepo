@@ -3231,7 +3231,7 @@ function SendAmountInputContainer() {
       id: ETranslations.private_send_estimated_received,
     });
     const estimatedReceivedTooltip = intl.formatMessage({
-      id: ETranslations.provider_route_changelly_float,
+      id: ETranslations.private_send_est_received_tooltips,
     });
     const formattedArrivalDuration = formatSwapQuoteDuration({
       estTime: privateSendQuote?.estTime,

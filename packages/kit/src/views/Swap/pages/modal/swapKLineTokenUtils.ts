@@ -20,7 +20,7 @@ export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   return Boolean(token.defiMarked || token.dappName?.trim() || token.dappType);
 }
 
-function normalizeSwapKLineStableTokenAddress(token?: ISwapKLineToken) {
+export function getSwapKLineStableTokenAddress(token?: ISwapKLineToken) {
   const address = token?.contractAddress?.trim();
   if (!token?.networkId || token.isNative || !address) {
     return undefined;
@@ -28,14 +28,14 @@ function normalizeSwapKLineStableTokenAddress(token?: ISwapKLineToken) {
   return address.startsWith('0x') ? address.toLowerCase() : address;
 }
 
-export async function fetchSwapKLineTokensStableStatus(
-  tokens: (ISwapKLineToken | undefined)[],
+export async function fetchSwapKLineTokenAddressesStableStatus(
+  stableTokenAddresses: (string | undefined)[],
 ): Promise<Map<string, boolean>> {
   const contractAddressesList = Array.from(
     new Set(
-      tokens
-        .map((token) => normalizeSwapKLineStableTokenAddress(token))
-        .filter((address): address is string => Boolean(address)),
+      stableTokenAddresses.filter((address): address is string =>
+        Boolean(address),
+      ),
     ),
   );
 
@@ -43,19 +43,43 @@ export async function fetchSwapKLineTokensStableStatus(
     return new Map();
   }
 
-  const stableCoinsList =
-    await backgroundApiProxy.serviceSwap.checkStableCoinsList({
-      contractAddressesList,
-    });
+  try {
+    const stableCoinsList =
+      await backgroundApiProxy.serviceSwap.checkStableCoinsList({
+        contractAddressesList,
+      });
 
-  return new Map(
-    stableCoinsList.map((item) => [
-      item.contractAddress.startsWith('0x')
-        ? item.contractAddress.toLowerCase()
-        : item.contractAddress,
-      item.isStableCoin,
-    ]),
+    return new Map(
+      stableCoinsList.map((item) => [
+        item.contractAddress.startsWith('0x')
+          ? item.contractAddress.toLowerCase()
+          : item.contractAddress,
+        item.isStableCoin,
+      ]),
+    );
+  } catch {
+    return new Map();
+  }
+}
+
+export async function fetchSwapKLineTokensStableStatus(
+  tokens: (ISwapKLineToken | undefined)[],
+): Promise<Map<string, boolean>> {
+  return fetchSwapKLineTokenAddressesStableStatus(
+    tokens.map((token) => getSwapKLineStableTokenAddress(token)),
   );
+}
+
+export function getSwapKLineStableTokenStatusFromMap({
+  stableStatusMap,
+  stableTokenAddress,
+}: {
+  stableStatusMap: Map<string, boolean>;
+  stableTokenAddress?: string;
+}) {
+  return stableTokenAddress
+    ? (stableStatusMap.get(stableTokenAddress) ?? false)
+    : false;
 }
 
 export function getSwapKLineTokenStableStatusFromMap({
@@ -65,8 +89,10 @@ export function getSwapKLineTokenStableStatusFromMap({
   stableStatusMap: Map<string, boolean>;
   token?: ISwapKLineToken;
 }) {
-  const address = normalizeSwapKLineStableTokenAddress(token);
-  return address ? (stableStatusMap.get(address) ?? false) : false;
+  return getSwapKLineStableTokenStatusFromMap({
+    stableStatusMap,
+    stableTokenAddress: getSwapKLineStableTokenAddress(token),
+  });
 }
 
 export async function fetchSwapKLineTokenIsStable(
