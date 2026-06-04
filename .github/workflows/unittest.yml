@@ -22,6 +22,7 @@ concurrency:
 env:
   YARN_ENABLE_GLOBAL_CACHE: true
   JEST_SHARD_TOTAL: 3
+  JEST_COVERAGE_THRESHOLD_JSON: '{"statements":10,"branches":35,"functions":10}'
 
 permissions:
   contents: read
