@@ -31,6 +31,8 @@ describe('formatScaleOrderValidationError', () => {
       locale: 'zh-CN',
       messages: {
         perp_scale_order_size_too_small__msg: '订单数量过小',
+        perp_scale_order_min_notional__msg:
+          '每笔分段委托金额至少为 {amount}。请减少委托笔数或增加数量。',
       } as Record<string, string>,
     },
     cache,
@@ -58,7 +60,7 @@ describe('formatScaleOrderValidationError', () => {
     );
   });
 
-  it('falls back to zh message when lokalise pull is unavailable locally', () => {
+  it('formats scale min notional errors with zh translations', () => {
     expect(
       formatScaleOrderValidationError(
         zhIntl,

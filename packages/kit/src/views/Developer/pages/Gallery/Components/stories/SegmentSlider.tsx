@@ -412,8 +412,11 @@ const SegmentSliderGallery = () => (
         element: <RefreshAlignmentDemo />,
       },
       { title: 'Tap accuracy', element: <TapAccuracyDemo /> },
-      { title: 'Force snap to step', element: <ForceSnapDemo /> },
-      { title: 'Wide snap threshold', element: <WideThresholdDemo /> },
+      { title: 'Force snap to step (web only)', element: <ForceSnapDemo /> },
+      {
+        title: 'Wide snap threshold (web only)',
+        element: <WideThresholdDemo />,
+      },
       { title: 'High segment count (10)', element: <HighSegmentDemo /> },
       { title: 'Custom range (1..100)', element: <CustomRangeDemo /> },
       { title: 'Center origin (-50..50)', element: <CenterOriginDemo /> },

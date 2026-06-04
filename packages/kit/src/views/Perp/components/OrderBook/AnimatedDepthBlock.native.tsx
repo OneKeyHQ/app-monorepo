@@ -86,7 +86,6 @@ function useReducedMotion(): boolean {
  * the constants in `AnimatedDepthBlock.shared.ts` (design §7).
  */
 export function DepthBarColumn({
-  animated = true,
   percents,
   rowHeight,
   rowMarginTop,
@@ -103,8 +102,10 @@ export function DepthBarColumn({
   textInset,
   onRowPress,
 }: IDepthBarColumnProps) {
-  const osReducedMotion = useReducedMotion();
-  const reducedMotion = !animated || osReducedMotion;
+  // Depth bars animate by default — the `animated` prop is intentionally ignored
+  // so callers can never accidentally ship a non-animated book. Only the OS
+  // "reduce motion" accessibility setting disables the native easing.
+  const reducedMotion = useReducedMotion();
   const totalHeight =
     percents.length * rowHeight + percents.length * rowMarginTop;
   const nativeColor = useMemo(() => toNativeColor(color), [color]);
@@ -191,7 +192,6 @@ export function DepthBar({
 }
 
 export function SideRatioSegments({
-  animated = true,
   bidPercentage,
   askPercentage,
   longColor,
@@ -200,8 +200,9 @@ export function SideRatioSegments({
   startSegmentStyle,
   gap = 4,
 }: ISideRatioSegmentsProps) {
-  const osReducedMotion = useReducedMotion();
-  const reducedMotion = !animated || osReducedMotion;
+  // Animates by default — `animated` is intentionally ignored (only OS reduce
+  // motion disables it), so callers never need a prop to get animation.
+  const reducedMotion = useReducedMotion();
   const flatSegment = StyleSheet.flatten(segmentStyle) ?? {};
   const flatStart = StyleSheet.flatten(startSegmentStyle) ?? {};
   const segmentHeight =

@@ -122,13 +122,14 @@ interface IPerpSettingsPopoverContentProps {
 }
 
 function SpotDustingOptOutSetting() {
+  const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const [activeAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [spotDusting] = usePerpsSpotDustingAtom();
   const [pendingStatus, setPendingStatus] = useState<
     | {
         accountAddress: string;
-        optOut: boolean;
+        enabled: boolean;
       }
     | undefined
   >();
@@ -139,18 +140,18 @@ function SpotDustingOptOutSetting() {
   const statusMatchesActiveAccount =
     Boolean(activeAccountAddress) &&
     spotDusting?.accountAddress?.toLowerCase() === activeAccountAddress;
-  const serverOptOut = statusMatchesActiveAccount
-    ? spotDusting?.optOut === true
+  const serverEnabled = statusMatchesActiveAccount
+    ? spotDusting?.optOut !== true
     : false;
-  const pendingOptOut =
+  const pendingEnabled =
     pendingStatus && pendingStatus.accountAddress === activeAccountAddress
-      ? pendingStatus.optOut
+      ? pendingStatus.enabled
       : undefined;
-  const optOut = pendingOptOut ?? serverOptOut;
+  const enabled = pendingEnabled ?? serverEnabled;
   const canToggle =
     activeAccountStatus.canTrade === true &&
     statusMatchesActiveAccount &&
-    pendingOptOut === undefined;
+    pendingEnabled === undefined;
 
   useEffect(() => {
     setPendingStatus((prev) =>
@@ -158,15 +159,65 @@ function SpotDustingOptOutSetting() {
     );
   }, [activeAccountAddress]);
 
+  const copy = useMemo(
+    () => ({
+      title: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting__title,
+      }),
+      loadingSubtitle: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_loading__desc,
+      }),
+      disabledSubtitle: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_enable_trading_required__desc,
+      }),
+      enabledSubtitle: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_on__desc,
+      }),
+      disabledStateSubtitle: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_off__desc,
+      }),
+      loadingToast: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_loading__msg,
+      }),
+      disabledToast: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_enable_trading_required__msg,
+      }),
+      enabling: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_turning_on__msg,
+      }),
+      disabling: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_turning_off__msg,
+      }),
+      enabled: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_turned_on__msg,
+      }),
+      disabled: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_turned_off__msg,
+      }),
+      failed: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_update_failed__msg,
+      }),
+    }),
+    [intl],
+  );
+
   const subtitle = useMemo(() => {
     if (!statusMatchesActiveAccount) {
-      return 'Loading spot dusting status from Hyperliquid.';
+      return copy.loadingSubtitle;
     }
     if (activeAccountStatus.canTrade !== true) {
-      return 'Enable trading to change spot dusting settings.';
+      return copy.disabledSubtitle;
     }
-    return 'When enabled, Hyperliquid will not auto-convert spot balances under $1 each day.';
-  }, [activeAccountStatus.canTrade, statusMatchesActiveAccount]);
+    return enabled ? copy.enabledSubtitle : copy.disabledStateSubtitle;
+  }, [
+    activeAccountStatus.canTrade,
+    copy.disabledStateSubtitle,
+    copy.disabledSubtitle,
+    copy.enabledSubtitle,
+    copy.loadingSubtitle,
+    enabled,
+    statusMatchesActiveAccount,
+  ]);
 
   const handleToggle = useCallback(
     async (value: boolean) => {
@@ -176,45 +227,41 @@ function SpotDustingOptOutSetting() {
       }
       if (!statusMatchesActiveAccount) {
         Toast.error({
-          title: 'Spot dusting status is still loading.',
+          title: copy.loadingToast,
         });
         return;
       }
 
       if (activeAccountStatus.canTrade !== true) {
         Toast.error({
-          title: 'Enable trading to change spot dusting settings.',
+          title: copy.disabledToast,
         });
         return;
       }
 
       setPendingStatus({
         accountAddress: requestAccountAddress,
-        optOut: value,
+        enabled: value,
       });
       const loadingToast = Toast.loading({
-        title: value
-          ? 'Opting out of spot dusting...'
-          : 'Opting into spot dusting...',
+        title: value ? copy.enabling : copy.disabling,
         duration: Infinity,
       });
       try {
         await backgroundApiProxy.serviceHyperliquidExchange.setSpotDustingOptOut(
-          { optOut: value },
+          { optOut: !value },
         );
         loadingToast?.close();
         if (activeAccountAddressRef.current === requestAccountAddress) {
           Toast.success({
-            title: value ? 'Opted out of spot dusting' : 'Spot dusting enabled',
+            title: value ? copy.enabled : copy.disabled,
           });
         }
       } catch (error) {
         loadingToast?.close();
         if (activeAccountAddressRef.current === requestAccountAddress) {
           Toast.error({
-            title:
-              (error as Error)?.message ||
-              'Failed to update spot dusting setting',
+            title: (error as Error)?.message || copy.failed,
           });
         }
       } finally {
@@ -223,7 +270,17 @@ function SpotDustingOptOutSetting() {
         );
       }
     },
-    [activeAccountStatus.canTrade, statusMatchesActiveAccount],
+    [
+      activeAccountStatus.canTrade,
+      copy.disabledToast,
+      copy.disabling,
+      copy.disabled,
+      copy.enabled,
+      copy.enabling,
+      copy.failed,
+      copy.loadingToast,
+      statusMatchesActiveAccount,
+    ],
   );
 
   return (
@@ -232,14 +289,14 @@ function SpotDustingOptOutSetting() {
       px="$2.5"
       titleProps={{ size: '$bodyMdMedium' }}
       subtitleProps={{ size: '$bodySm' }}
-      title="Opt Out of Spot Dusting"
+      title={copy.title}
       subtitle={subtitle}
       cursor="default"
     >
       <Switch
         testID="perp-spot-dusting-opt-out-switch"
         size={ESwitchSize.small}
-        value={optOut}
+        value={enabled}
         disabled={!canToggle}
         onChange={handleToggle}
       />

@@ -1,5 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   DashText,
   Icon,
@@ -11,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { ISelectItem } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ITIF } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { TIF_OPTIONS, isTifValue } from '../../../utils/timeInForce';
@@ -24,22 +27,29 @@ interface ITimeInForceSelectorProps {
 }
 
 function TifHelpContent({ isMobile }: { isMobile: boolean }) {
+  const intl = useIntl();
   const titleSize = isMobile ? '$bodyMdMedium' : '$bodySmMedium';
   const contentSize = isMobile ? '$bodyMd' : '$bodySm';
 
   return (
-    <YStack gap={isMobile ? '$3' : '$2'}>
-      <SizableText size={titleSize}>Time In Force</SizableText>
-      <SizableText size={contentSize}>
-        GTC (Good Til Cancel): Order will rest until filled or canceled.
+    <YStack width="100%" gap={isMobile ? '$3' : '$2'}>
+      <SizableText size={titleSize}>
+        {intl.formatMessage({ id: ETranslations.perp_time_in_force__title })}
       </SizableText>
       <SizableText size={contentSize}>
-        IOC (Immediate Or Cancel): Any portion that is not immediately filled
-        will be canceled.
+        {intl.formatMessage({
+          id: ETranslations.perp_time_in_force_gtc__desc,
+        })}
       </SizableText>
       <SizableText size={contentSize}>
-        ALO (Add Liquidity Only): Order will exist only as a limit order on the
-        book. Also known as post-only.
+        {intl.formatMessage({
+          id: ETranslations.perp_time_in_force_ioc__desc,
+        })}
+      </SizableText>
+      <SizableText size={contentSize}>
+        {intl.formatMessage({
+          id: ETranslations.perp_time_in_force_alo__desc,
+        })}
       </SizableText>
     </YStack>
   );
@@ -48,7 +58,11 @@ function TifHelpContent({ isMobile }: { isMobile: boolean }) {
 const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
   // eslint-disable-next-line react/prop-types
   ({ value, onChange, disabled = false, isMobile = false, testID }) => {
+    const intl = useIntl();
     const [isOpen, setIsOpen] = useState(false);
+    const title = intl.formatMessage({
+      id: ETranslations.perp_time_in_force__title,
+    });
     const items = useMemo(
       (): ISelectItem[] =>
         TIF_OPTIONS.map((option) => ({
@@ -71,7 +85,7 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
     );
 
     const labelTrigger = (
-      <XStack alignItems="center" pt="$0.5">
+      <XStack alignItems="center">
         <DashText
           size={isMobile ? '$bodySm' : '$bodyMd'}
           color="$textSubdued"
@@ -87,20 +101,28 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
 
     const helpTrigger = isMobile ? (
       <Popover
-        title="Time In Force"
-        placement="top-end"
+        title={title}
+        placement="bottom-end"
         renderTrigger={labelTrigger}
         renderContent={
-          <YStack px="$5" pt="$2" pb="$4">
+          <YStack width="100%" px="$5" pt="$2" pb="$4">
             <TifHelpContent isMobile={isMobile} />
           </YStack>
         }
       />
     ) : (
       <Tooltip
-        placement="top-end"
+        placement="bottom-end"
+        contentProps={{
+          width: 320,
+          maxWidth: 320,
+        }}
         renderTrigger={labelTrigger}
-        renderContent={<TifHelpContent isMobile={isMobile} />}
+        renderContent={
+          <YStack width="100%">
+            <TifHelpContent isMobile={isMobile} />
+          </YStack>
+        }
       />
     );
 
@@ -112,7 +134,7 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
         onChange={handleChange}
         onOpenChange={setIsOpen}
         disabled={disabled}
-        title="Time In Force"
+        title={title}
         placement="bottom-end"
         floatingPanelProps={{
           width: 88,
@@ -143,7 +165,7 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
               }
             >
               <SizableText
-                size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                size={isMobile ? '$bodySm' : '$bodyMdMedium'}
                 color="$text"
               >
                 {label}
