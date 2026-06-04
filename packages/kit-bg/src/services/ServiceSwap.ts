@@ -195,10 +195,16 @@ function mergePrivateSendOrderDetailToken({
   if (!orderDetailToken) {
     return currentToken;
   }
+  const isSameToken = equalTokenNoCaseSensitive({
+    token1: currentToken,
+    token2: orderDetailToken,
+  });
   return {
     ...currentToken,
     ...orderDetailToken,
-    price: currentToken.price ?? orderDetailToken.price,
+    price: isSameToken
+      ? (orderDetailToken.price ?? currentToken.price)
+      : orderDetailToken.price,
   };
 }
 
