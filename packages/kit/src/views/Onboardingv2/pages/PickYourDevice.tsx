@@ -33,6 +33,11 @@ import {
   LayoutHeaderTitle,
 } from '../components/Layout';
 import { showOtherDevicesDialog } from '../components/OtherDevicesDialog';
+import PixelShimmer from '../components/PixelShimmer';
+
+// Neutral shimmer for the non-OneKey "use another device" card; OneKey device
+// cards fall back to PixelShimmer's brand-green default.
+const SHIMMER_NEUTRAL = ['#94A3B8', '#CBD5E1', '#A0AEC0'];
 
 export default function PickYourDevice() {
   const intl = useIntl();
@@ -44,6 +49,7 @@ export default function PickYourDevice() {
       tags?: string[];
       deviceType: EDeviceType[];
       image: ReturnType<typeof require>;
+      colors?: string[];
     }>
   >(() => {
     const devices = [
@@ -73,6 +79,7 @@ export default function PickYourDevice() {
         tags: ['Ledger', 'Trezor'],
         deviceType: [],
         image: require('@onekeyhq/kit/assets/pick-others.png'),
+        colors: SHIMMER_NEUTRAL,
       },
     ];
 
@@ -100,7 +107,7 @@ export default function PickYourDevice() {
           px: 0,
         }}
       >
-        {DEVICES.map(({ name, tags, image, deviceType }) => (
+        {DEVICES.map(({ name, tags, image, deviceType, colors }) => (
           <YStack
             key={name}
             group="card"
@@ -137,11 +144,12 @@ export default function PickYourDevice() {
                 borderWidth: 0,
                 borderRadius: 0,
                 gap: '$16',
+                overflow: 'hidden',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              {/* Hover/press bg layer — no responsive overrides so
+              {/* Hover bg layer — no responsive overrides so
                   $group-card-* always wins over $gtMd cascade */}
               <Stack
                 position="absolute"
@@ -159,17 +167,16 @@ export default function PickYourDevice() {
                   borderRightColor: '$transparent',
                 }}
                 $group-card-hover={{
-                  bg: '$bgHover',
-                  borderColor: '$borderSubdued',
-                }}
-                $group-card-press={{
-                  bg: '$bgActive',
                   borderColor: '$borderSubdued',
                 }}
               />
+              {/* Clerk-style pixel shimmer on hover (web + desktop wide layout
+                  only); renders null on native. Painted above the hover tint
+                  but behind the device image and text. */}
+              {gtMd ? <PixelShimmer colors={colors} /> : null}
               <YStack
                 position="absolute"
-                animation="quick"
+                animation="medium"
                 animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 enterStyle={{
                   opacity: 0,
