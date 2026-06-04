@@ -2787,9 +2787,15 @@ function SendAmountInputContainer() {
   const isAmountTyping = amount !== useDebounce(amount, 400);
   const shouldDeferAmountError =
     isAmountTyping || isAmountZeroOrEmpty || !hasAmountError;
+  const shouldShowPrivateSendCriticalQuoteError =
+    sendMode === ESendMode.PRIVATE &&
+    !!privateSendQuoteError &&
+    (!isPrivateSendMinAmountErrorMessage(privateSendQuoteError) ||
+      !minAmountHint);
   const shouldShowPrivateSendMinAmountHint =
     sendMode === ESendMode.PRIVATE &&
     !!minAmountHint &&
+    !shouldShowPrivateSendCriticalQuoteError &&
     (!hasAmountError ||
       isAmountTyping ||
       isAmountZeroOrEmpty ||
@@ -2857,6 +2863,18 @@ function SendAmountInputContainer() {
             }}
           />
         </Form.Field>
+        <HeightTransition>
+          {shouldShowPrivateSendCriticalQuoteError ? (
+            <SizableText
+              pt="$1.5"
+              size="$bodyMd"
+              color="$textCritical"
+              textAlign="center"
+            >
+              {privateSendQuoteError}
+            </SizableText>
+          ) : null}
+        </HeightTransition>
         {platformEnv.isNativeIOS ? (
           <InputAccessoryView nativeID={amountInputAccessoryViewID}>
             <SizableText h="$0" />
@@ -2875,6 +2893,8 @@ function SendAmountInputContainer() {
       isUseFiat,
       linkedAmount.linkedAmount,
       linkedAmount.originalAmount,
+      privateSendQuoteError,
+      shouldShowPrivateSendCriticalQuoteError,
       tokenSymbol,
     ],
   );
