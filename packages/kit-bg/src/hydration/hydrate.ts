@@ -43,9 +43,10 @@
 //     ready gate so React can still mount.
 //
 // Telemetry: globalThis.__ONEKEY_COLD_START_RESULT__ holds one of
-//   'success' | 'timeout' | 'error' | 'killed'
+//   'success' | 'timeout' | 'error' | 'killed' | 'skipped'
 // describing the terminal state. 'success' means at least the L2 ctx
-// snapshot was primed from IDB; everything else fell back to defaults.
+// snapshot was primed from IDB; everything else fell back to defaults
+// ('skipped' is the deliberate dev-mode no-op).
 
 /* eslint-disable no-console */
 
@@ -249,6 +250,10 @@ const promise: Promise<void> = (async () => {
     console.log(
       '[ColdStartHydration] dev mode, skipping (cold-start is production-only)',
     );
+    // Deliberate no-op: mark as 'skipped' so the finally block does not log
+    // this as 'error' (the initial value). Keeps dev-mode skips distinct from
+    // genuine IDB failures for any telemetry / debugging that inspects status.
+    status = 'skipped';
     return;
   }
 

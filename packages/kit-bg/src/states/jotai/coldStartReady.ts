@@ -6,13 +6,15 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 // Discriminated union describing the terminal state of cold-start hydration.
-// 'success' means at least one L1/L2 entry was primed from IDB; the other
-// three are degradation paths where the runtime fell back to atom defaults.
+// 'success' means at least one L1/L2 entry was primed from IDB; the rest are
+// non-success paths where the runtime fell back to atom defaults. 'skipped'
+// is a deliberate no-op (dev mode), distinct from the 'error' failure bucket.
 export type IColdStartHydrationStatus =
   | 'success'
   | 'timeout'
   | 'error'
-  | 'killed';
+  | 'killed'
+  | 'skipped';
 
 class ColdStartHydrationReadyHandler {
   isReady = false;
