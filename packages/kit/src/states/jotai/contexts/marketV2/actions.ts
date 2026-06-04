@@ -42,7 +42,7 @@ import {
 
 export const homeResettingFlags: Record<string, number> = {};
 
-const K_LINE_PRICE_STALE_TIMEOUT_MS = 10_000;
+const REALTIME_PRICE_STALE_TIMEOUT_MS = 10_000;
 
 const uniqByFn = (i: IMarketWatchListItemV2) =>
   i.perpsCoin
@@ -243,7 +243,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           realtimePriceLastUpdated &&
           realtimePriceSource &&
           Date.now() - realtimePriceLastUpdated <=
-            K_LINE_PRICE_STALE_TIMEOUT_MS,
+            REALTIME_PRICE_STALE_TIMEOUT_MS,
         );
 
         const finalTokenData =

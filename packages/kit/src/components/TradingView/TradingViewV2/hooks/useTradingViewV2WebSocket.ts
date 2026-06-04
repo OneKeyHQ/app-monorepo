@@ -1,12 +1,6 @@
 import { type RefObject, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  useTokenDetailActions,
-  useTokenDetailAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/constants';
-import { buildMatchedRealtimeTokenDetail } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
 import { useMarketWSSubscriptionRecovery } from '@onekeyhq/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery';
 import type { IWsPriceData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
 import {
@@ -44,9 +38,6 @@ export function useTradingViewV2WebSocket({
   currency = 'usd',
 }: IUseTradingViewV2WebSocketProps): void {
   const lastBridgeUpdateTime = useRef<number>(0);
-  const tokenDetailActions = useTokenDetailActions();
-  const [tokenDetail] = useTokenDetailAtom();
-  const tokenDetailRef = useRef(tokenDetail);
   const { markSubscriptionActivity } = useMarketWSSubscriptionRecovery({
     enabled,
     networkId,
@@ -55,7 +46,7 @@ export function useTradingViewV2WebSocket({
     currency,
     channel: 'ohlcv',
   });
-  tokenDetailRef.current = tokenDetail;
+
   useEffect(() => {
     if (!networkId || !tokenAddress) {
       return;
@@ -112,8 +103,7 @@ export function useTradingViewV2WebSocket({
 
       markSubscriptionActivity();
 
-      const nowMs = Date.now();
-      const now = Math.floor(nowMs / 1000);
+      const now = Math.floor(Date.now() / 1000);
       const receivedData = payload.data as IWsPriceData;
 
       const webView = webRef.current;
@@ -154,23 +144,6 @@ export function useTradingViewV2WebSocket({
 
         lastBridgeUpdateTime.current = now;
       }
-
-      if (receivedData && typeof receivedData.c === 'number') {
-        const latestPrice = receivedData.c.toString();
-        const latestTokenDetail = buildMatchedRealtimeTokenDetail({
-          tokenDetail: tokenDetailRef.current,
-          tokenAddress,
-          networkId,
-          realtimePrice: latestPrice,
-          realtimePriceSource:
-            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.marketWs,
-          lastUpdated: nowMs,
-        });
-
-        if (latestTokenDetail) {
-          tokenDetailActions.current.setTokenDetail(latestTokenDetail);
-        }
-      }
     }
 
     appEventBus.on(
@@ -184,12 +157,5 @@ export function useTradingViewV2WebSocket({
         handleMarketDataUpdate,
       );
     };
-  }, [
-    markSubscriptionActivity,
-    networkId,
-    tokenAddress,
-    webRef,
-    enabled,
-    tokenDetailActions,
-  ]);
+  }, [markSubscriptionActivity, tokenAddress, webRef, enabled]);
 }

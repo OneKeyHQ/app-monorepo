@@ -106,8 +106,7 @@ describe('marketV2 priceUtils', () => {
         buildRealtimeTokenDetail({
           tokenDetail,
           realtimePrice: '110',
-          realtimePriceSource:
-            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.marketWs,
+          realtimePriceSource: MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
           lastUpdated: 123,
         }),
       ).toEqual({
@@ -115,7 +114,7 @@ describe('marketV2 priceUtils', () => {
         price: '110',
         priceConverted: '132',
         priceChange24hPercent: '37.5',
-        realtimePriceSource: MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.marketWs,
+        realtimePriceSource: MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
         lastUpdated: 123,
       });
     });
@@ -128,15 +127,13 @@ describe('marketV2 priceUtils', () => {
           priceChange24hPercent: '20',
         }),
         realtimePrice: '120',
-        realtimePriceSource:
-          MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.kLinePolling,
+        realtimePriceSource: MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
         lastUpdated: 123,
       });
       const secondTick = buildRealtimeTokenDetail({
         tokenDetail: firstTick,
         realtimePrice: '130',
-        realtimePriceSource:
-          MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.kLinePolling,
+        realtimePriceSource: MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
         lastUpdated: 456,
       });
 
@@ -159,8 +156,7 @@ describe('marketV2 priceUtils', () => {
           tokenAddress: '0xabc',
           networkId: 'evm--1',
           realtimePrice: '110',
-          realtimePriceSource:
-            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+          realtimePriceSource: MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
           lastUpdated: 123,
         }),
       ).toEqual({
@@ -168,8 +164,7 @@ describe('marketV2 priceUtils', () => {
         price: '110',
         priceConverted: '132',
         priceChange24hPercent: '37.5',
-        realtimePriceSource:
-          MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+        realtimePriceSource: MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
         lastUpdated: 123,
       });
     });
@@ -179,38 +174,15 @@ describe('marketV2 priceUtils', () => {
         buildMatchedRealtimeTokenDetail({
           tokenDetail: buildTokenDetail({
             realtimePriceSource:
-              MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+              MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
           }),
           tokenAddress: '0xabc',
           networkId: 'evm--1',
           realtimePrice: '100',
-          realtimePriceSource:
-            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+          realtimePriceSource: MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
           lastUpdated: 456,
         }),
       ).toBeUndefined();
-    });
-
-    it('keeps same-price updates when the realtime source changes', () => {
-      expect(
-        buildMatchedRealtimeTokenDetail({
-          tokenDetail: buildTokenDetail({
-            realtimePriceSource:
-              MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.kLinePolling,
-          }),
-          tokenAddress: '0xabc',
-          networkId: 'evm--1',
-          realtimePrice: '100',
-          realtimePriceSource:
-            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
-          lastUpdated: 456,
-        }),
-      ).toMatchObject({
-        price: '100',
-        realtimePriceSource:
-          MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
-        lastUpdated: 456,
-      });
     });
 
     it('skips invalid realtime prices', () => {
@@ -220,8 +192,7 @@ describe('marketV2 priceUtils', () => {
           tokenAddress: '0xabc',
           networkId: 'evm--1',
           realtimePrice: '0',
-          realtimePriceSource:
-            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+          realtimePriceSource: MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
         }),
       ).toBeUndefined();
     });
@@ -236,8 +207,7 @@ describe('marketV2 priceUtils', () => {
           tokenAddress: '0xabc',
           networkId: 'evm--56',
           realtimePrice: '110',
-          realtimePriceSource:
-            MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.hyperLiquid,
+          realtimePriceSource: MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
         }),
       ).toBeUndefined();
     });

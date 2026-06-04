@@ -376,19 +376,6 @@ export class HyperLiquidScene extends BaseScene {
   }
 
   /**
-   * Local-only diagnostics for Market-owned Hyperliquid candle subscriptions.
-   */
-  @LogToLocal({ level: 'error' })
-  public marketCandleSubscribeError(params: { error: unknown }) {
-    return params;
-  }
-
-  @LogToLocal({ level: 'error' })
-  public marketCandleUnsubscribeError(params: { error: unknown }) {
-    return params;
-  }
-
-  /**
    * Local-only diagnostics for non-blocking cold-start market snapshot writes.
    */
   @LogToLocal({ level: 'error' })

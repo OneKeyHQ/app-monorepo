@@ -19,10 +19,12 @@ import type { ITradingViewV2KLineDataFallback } from '../hooks/useTradingViewV2'
 import type {
   ICustomReceiveHandlerData,
   ITradingViewIndicatorsDialogData,
+  ITradingViewPriceUpdateData,
   ITradingViewTouchScrollData,
 } from '../types';
 
 const DEFAULT_HYPERLIQUID_PRICE_SCALE = 100;
+const TRADINGVIEW_PRICE_UPDATE = 'tradingview_priceUpdate';
 
 interface IUseTradingViewMessageHandlerParams {
   tokenAddress?: string;
@@ -40,6 +42,7 @@ interface IUseTradingViewMessageHandlerParams {
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
+  onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -247,6 +250,7 @@ export function useTradingViewMessageHandler({
   kLineDataFallback,
   primaryKLineDataUnavailable,
   onPrimaryKLineDataUnavailable,
+  onPriceUpdate,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
@@ -309,6 +313,18 @@ export function useTradingViewMessageHandler({
           request: data.data as { symbol?: string; requestId?: string },
           webRef,
         });
+      }
+
+      if (
+        data.scope === '$private' &&
+        data.method === TRADINGVIEW_PRICE_UPDATE
+      ) {
+        const priceUpdateData = data.data as
+          | ITradingViewPriceUpdateData
+          | undefined;
+        if (priceUpdateData) {
+          onPriceUpdate?.(priceUpdateData);
+        }
       }
 
       if (data.scope === '$private' && data.method === 'tradingview_getMarks') {
@@ -374,6 +390,7 @@ export function useTradingViewMessageHandler({
       kLineDataFallback,
       primaryKLineDataUnavailable,
       onPrimaryKLineDataUnavailable,
+      onPriceUpdate,
     ],
   );
 

@@ -20,7 +20,6 @@ import {
   useAutoKLineUpdate,
   useAutoTokenDetailUpdate,
   useHyperLiquidKlineSource,
-  useHyperLiquidTokenPriceUpdate,
   useTradingViewV2WebSocket,
 } from './hooks';
 import {
@@ -31,7 +30,10 @@ import {
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
-import type { ICustomReceiveHandlerData } from './types';
+import type {
+  ICustomReceiveHandlerData,
+  ITradingViewPriceUpdateData,
+} from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { ITradingViewDisabledFeature } from '../hooks';
 import type { WebViewProps } from 'react-native-webview';
@@ -73,6 +75,7 @@ interface IBaseTradingViewV2Props {
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
+  onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -106,6 +109,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     kLineDataFallback,
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
+    onPriceUpdate,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -127,6 +131,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     kLineDataFallback,
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
+    onPriceUpdate,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
@@ -194,18 +199,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     networkId,
     webRef,
     enabled: isVisible,
-  });
-
-  useHyperLiquidTokenPriceUpdate({
-    hyperLiquidSymbol,
-    tokenAddress,
-    networkId,
-    kLineResolutionRef: currentKLineResolution,
-    enabled:
-      isVisible &&
-      useHyperLiquid &&
-      !mockEmptyKLineEnabled &&
-      !forceEmptyKLineData,
   });
 
   useTradingViewV2WebSocket({

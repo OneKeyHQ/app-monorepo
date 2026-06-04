@@ -1,12 +1,6 @@
 import { type RefObject, useCallback, useRef } from 'react';
 
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
-import {
-  useTokenDetailActions,
-  useTokenDetailAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/constants';
-import { buildMatchedRealtimeTokenDetail } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
 
 import { fetchTradingViewV2Data } from './useTradingViewV2';
 
@@ -29,9 +23,6 @@ export function useAutoKLineUpdate({
   interval = 5000, // 1 minute
   autoHandleError,
 }: IAutoKLineUpdateParams) {
-  const tokenDetailActions = useTokenDetailActions();
-  const [tokenDetail] = useTokenDetailAtom();
-  const tokenDetailRef = useRef(tokenDetail);
   const isFetchingRef = useRef(false);
   const requestGenerationRef = useRef(0);
   const previousParamsRef = useRef({ tokenAddress, networkId, enabled });
@@ -41,8 +32,6 @@ export function useAutoKLineUpdate({
     enabled,
     generation: requestGenerationRef.current,
   });
-
-  tokenDetailRef.current = tokenDetail;
 
   if (
     previousParamsRef.current.tokenAddress !== tokenAddress ||
@@ -71,14 +60,13 @@ export function useAutoKLineUpdate({
     const requestParams = { ...latestParamsRef.current };
 
     try {
-      const nowMs = Date.now();
-      const now = Math.floor(nowMs / 1000);
+      const now = Math.floor(Date.now() / 1000);
       const timeFrom = now - 200;
       const timeTo = now;
 
       const kLineData = await fetchTradingViewV2Data({
-        tokenAddress,
-        networkId,
+        tokenAddress: requestParams.tokenAddress,
+        networkId: requestParams.networkId,
         interval: '1m', // 1 minute interval
         timeFrom,
         timeTo,
@@ -110,41 +98,13 @@ export function useAutoKLineUpdate({
             timestamp: now,
           },
         });
-
-        // Update token detail price with latest K-line close price
-
-        if (kLineData.points && kLineData.points.length > 0) {
-          const latestPoint = kLineData.points[kLineData.points.length - 1];
-          const latestPrice = latestPoint.c.toString(); // close price
-
-          const latestTokenDetail = buildMatchedRealtimeTokenDetail({
-            tokenDetail: tokenDetailRef.current,
-            tokenAddress: requestParams.tokenAddress,
-            networkId: requestParams.networkId,
-            realtimePrice: latestPrice,
-            realtimePriceSource:
-              MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.kLinePolling,
-            lastUpdated: nowMs,
-          });
-
-          if (latestTokenDetail) {
-            tokenDetailActions.current.setTokenDetail(latestTokenDetail);
-          }
-        }
       }
     } catch (error) {
       console.error('Failed to push auto K-line data:', error);
     } finally {
       isFetchingRef.current = false;
     }
-  }, [
-    enabled,
-    tokenAddress,
-    networkId,
-    webRef,
-    tokenDetailActions,
-    autoHandleError,
-  ]);
+  }, [enabled, networkId, webRef, autoHandleError]);
 
   // Use the existing useInterval hook pattern
   // For native tokens, tokenAddress might be empty, but networkId is required
