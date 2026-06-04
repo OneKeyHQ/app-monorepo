@@ -191,6 +191,13 @@ export interface IOnboardingPageProps extends IPageProps {
   narrow?: boolean;
   backgroundLayer?: React.ReactNode;
   /**
+   * Full-page overlay rendered ON TOP of the content (vs backgroundLayer which
+   * sits behind it). Pointer-events are disabled so it never blocks the page.
+   * Used for decorative overlays like the onboarding confetti, which must
+   * escape the narrow/animated content container to stay centred.
+   */
+  foregroundLayer?: React.ReactNode;
+  /**
    * Extra offset above the keyboard. Increase when a Page.Footer is rendered
    * so the focused input clears the footer area, not just the keyboard.
    */
@@ -208,6 +215,7 @@ export function OnboardingPage({
   alignTop = false,
   narrow = false,
   backgroundLayer,
+  foregroundLayer,
   keyboardBottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   children,
   ...pageProps
@@ -283,6 +291,19 @@ export function OnboardingPage({
       ) : (
         contentArea
       )}
+      {foregroundLayer ? (
+        <YStack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          overflow="hidden"
+          pointerEvents="none"
+        >
+          {foregroundLayer}
+        </YStack>
+      ) : null}
     </Page>
   );
 }

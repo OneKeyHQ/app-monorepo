@@ -35,6 +35,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import { Confetti } from '../components/Confetti';
 import { OnboardingPage } from '../components/Layout';
 import {
   useConnectDeviceError,
@@ -154,6 +155,18 @@ function CheckAndUpdatePage({
       state: ECheckAndUpdateStepState.Idle,
     },
   ]);
+
+  const [celebrate, setCelebrate] = useState(false);
+  // Fire the celebratory confetti once everything is ready — i.e. the moment
+  // the firmware check passes and the "Continue" button appears.
+  const isReady =
+    steps.find((step) => step.id === ECheckAndUpdateStepId.FirmwareCheck)
+      ?.state === ECheckAndUpdateStepState.Success;
+  useEffect(() => {
+    if (isReady) {
+      setCelebrate(true);
+    }
+  }, [isReady]);
 
   const actions = useFirmwareUpdateActions();
   const toFirmwareUpgradePage = useCallback(async () => {
@@ -638,6 +651,7 @@ function CheckAndUpdatePage({
       alignTop
       narrow
       contentContainerProps={{ gap: '$10' }}
+      foregroundLayer={celebrate ? <Confetti /> : null}
     >
       {steps.map((step, index) => {
         return (
