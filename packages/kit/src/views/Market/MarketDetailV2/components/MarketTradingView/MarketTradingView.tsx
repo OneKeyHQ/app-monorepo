@@ -1,13 +1,8 @@
-import { memo, useCallback, useRef } from 'react';
+import { memo, useCallback } from 'react';
 
 import { TradingViewV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { ITradingViewPriceUpdateData } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
-import {
-  useTokenDetailActions,
-  useTokenDetailAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/constants';
-import { buildMatchedRealtimeTokenDetail } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/priceUtils';
+import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import { MarketTestIDs } from '../../../testIDs';
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
@@ -62,10 +57,7 @@ export const MarketTradingView = memo(
     onIndicatorsDialogOpenChange,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
-    const [tokenDetail] = useTokenDetailAtom();
     const tokenDetailActions = useTokenDetailActions();
-    const tokenDetailRef = useRef(tokenDetail);
-    tokenDetailRef.current = tokenDetail;
 
     const handlePriceUpdate = useCallback(
       (data: ITradingViewPriceUpdateData) => {
@@ -74,18 +66,12 @@ export const MarketTradingView = memo(
           return;
         }
 
-        const latestTokenDetail = buildMatchedRealtimeTokenDetail({
-          tokenDetail: tokenDetailRef.current,
+        tokenDetailActions.current.applyChartPriceUpdate({
           tokenAddress,
           networkId,
           realtimePrice,
-          realtimePriceSource: MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
           lastUpdated: normalizeChartUpdateTimestamp(data.timestamp),
         });
-
-        if (latestTokenDetail) {
-          tokenDetailActions.current.setTokenDetail(latestTokenDetail);
-        }
       },
       [networkId, tokenAddress, tokenDetailActions],
     );

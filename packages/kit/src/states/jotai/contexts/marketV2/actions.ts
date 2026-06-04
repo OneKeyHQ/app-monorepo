@@ -28,6 +28,7 @@ import {
   isNativeAtom,
   marketWatchListV2Atom,
   networkIdAtom,
+  pendingChartPriceUpdateAtom,
   perpsInfoAtom,
   showWatchlistOnlyAtom,
   tokenAddressAtom,
@@ -35,9 +36,12 @@ import {
   tokenDetailLoadingAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
+import { MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE } from './constants';
 import {
+  buildMatchedRealtimeTokenDetail,
   buildRealtimePriceDerivedFields,
   isMarketTokenDetailMatched,
+  isValidRealtimePrice,
 } from './priceUtils';
 
 export const homeResettingFlags: Record<string, number> = {};
@@ -98,7 +102,74 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(isNativeAtom(), false);
     set(tokenDetailWebsocketAtom(), undefined);
     set(perpsInfoAtom(), undefined);
+    set(pendingChartPriceUpdateAtom, null);
   });
+
+  applyChartPriceUpdate = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        tokenAddress?: string;
+        networkId?: string;
+        realtimePrice: string;
+        lastUpdated?: number;
+      },
+    ) => {
+      const { tokenAddress, networkId, realtimePrice, lastUpdated } = payload;
+      if (!isValidRealtimePrice(realtimePrice)) {
+        return;
+      }
+
+      const currentTokenDetail = get(tokenDetailAtom());
+      const isSameToken = isMarketTokenDetailMatched({
+        tokenDetail: currentTokenDetail,
+        tokenAddress,
+        networkId,
+      });
+
+      if (currentTokenDetail && isSameToken) {
+        const latestTokenDetail = buildMatchedRealtimeTokenDetail({
+          tokenDetail: currentTokenDetail,
+          tokenAddress,
+          networkId,
+          realtimePrice,
+          realtimePriceSource: MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
+          lastUpdated,
+        });
+
+        if (latestTokenDetail) {
+          set(tokenDetailAtom(), latestTokenDetail);
+        }
+        set(pendingChartPriceUpdateAtom, null);
+        return;
+      }
+
+      const currentAddress = get(tokenAddressAtom());
+      const currentNetworkId = get(networkIdAtom());
+      const isCurrentToken =
+        (!currentNetworkId || !networkId || currentNetworkId === networkId) &&
+        equalTokenNoCaseSensitive({
+          token1: {
+            networkId: currentNetworkId || networkId || '',
+            contractAddress: currentAddress || '',
+          },
+          token2: {
+            networkId: networkId || currentNetworkId || '',
+            contractAddress: tokenAddress || '',
+          },
+        });
+
+      if (isCurrentToken) {
+        set(pendingChartPriceUpdateAtom, {
+          tokenAddress,
+          networkId,
+          realtimePrice,
+          lastUpdated,
+        });
+      }
+    },
+  );
 
   changeActiveToken = contextAtomMethod(
     async (
@@ -115,6 +186,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(tokenAddressAtom(), tokenAddress);
       set(networkIdAtom(), networkId);
       set(isNativeAtom(), isNative);
+      set(pendingChartPriceUpdateAtom, null);
 
       let isStale = false;
       try {
@@ -140,7 +212,25 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         ) {
           return;
         }
-        set(tokenDetailAtom(), responseData.data.token);
+        const tokenData = responseData.data.token;
+        const pendingChartPriceUpdate = get(pendingChartPriceUpdateAtom);
+        const finalTokenData = pendingChartPriceUpdate
+          ? (buildMatchedRealtimeTokenDetail({
+              tokenDetail: tokenData,
+              tokenAddress: pendingChartPriceUpdate.tokenAddress,
+              networkId: pendingChartPriceUpdate.networkId,
+              realtimePrice: pendingChartPriceUpdate.realtimePrice,
+              realtimePriceSource:
+                MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
+              lastUpdated: pendingChartPriceUpdate.lastUpdated,
+            }) ?? tokenData)
+          : tokenData;
+
+        if (finalTokenData !== tokenData) {
+          set(pendingChartPriceUpdateAtom, null);
+        }
+
+        set(tokenDetailAtom(), finalTokenData);
         set(tokenDetailWebsocketAtom(), responseData.data.websocket);
         set(perpsInfoAtom(), responseData.data.perpsInfo);
       } catch (error) {
@@ -246,7 +336,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             REALTIME_PRICE_STALE_TIMEOUT_MS,
         );
 
-        const finalTokenData =
+        const finalTokenDataWithRealtime =
           hasFreshRealtimePrice &&
           realtimePrice &&
           realtimePriceLastUpdated &&
@@ -262,6 +352,23 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
                 realtimePriceSource,
               }
             : tokenData;
+
+        const pendingChartPriceUpdate = get(pendingChartPriceUpdateAtom);
+        const finalTokenData = pendingChartPriceUpdate
+          ? (buildMatchedRealtimeTokenDetail({
+              tokenDetail: finalTokenDataWithRealtime,
+              tokenAddress: pendingChartPriceUpdate.tokenAddress,
+              networkId: pendingChartPriceUpdate.networkId,
+              realtimePrice: pendingChartPriceUpdate.realtimePrice,
+              realtimePriceSource:
+                MARKET_TOKEN_DETAIL_REALTIME_PRICE_SOURCE.chart,
+              lastUpdated: pendingChartPriceUpdate.lastUpdated,
+            }) ?? finalTokenDataWithRealtime)
+          : finalTokenDataWithRealtime;
+
+        if (finalTokenData !== finalTokenDataWithRealtime) {
+          set(pendingChartPriceUpdateAtom, null);
+        }
 
         set(tokenDetailAtom(), finalTokenData);
         set(tokenDetailWebsocketAtom(), websocketConfig);
@@ -617,6 +724,7 @@ export function useTokenDetailActions() {
   const fetchTokenDetail = actions.fetchTokenDetail.use();
   const clearTokenDetail = actions.clearTokenDetail.use();
   const changeActiveToken = actions.changeActiveToken.use();
+  const applyChartPriceUpdate = actions.applyChartPriceUpdate.use();
 
   return useRef({
     setTokenDetail,
@@ -629,6 +737,7 @@ export function useTokenDetailActions() {
     fetchTokenDetail,
     clearTokenDetail,
     changeActiveToken,
+    applyChartPriceUpdate,
   });
 }
 

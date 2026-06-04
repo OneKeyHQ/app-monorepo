@@ -1,6 +1,7 @@
 import { type RefObject, useCallback, useEffect, useRef } from 'react';
 
 import { useTokenDetailAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import type { IWebViewRef } from '../../../WebView/types';
 
@@ -9,6 +10,16 @@ interface IAutoTokenDetailUpdateParams {
   networkId: string;
   webRef: RefObject<IWebViewRef | null>;
   enabled?: boolean;
+}
+
+function buildChartTokenDetailSnapshot(tokenDetail: IMarketTokenDetail) {
+  const stableTokenDetail = { ...tokenDetail };
+  delete stableTokenDetail.price;
+  delete stableTokenDetail.priceConverted;
+  delete stableTokenDetail.priceChange24hPercent;
+  delete stableTokenDetail.lastUpdated;
+  delete stableTokenDetail.realtimePriceSource;
+  return stableTokenDetail;
 }
 
 export function useAutoTokenDetailUpdate({
@@ -28,7 +39,9 @@ export function useAutoTokenDetailUpdate({
     }
 
     try {
-      const tokenDetailSnapshot = JSON.stringify(tokenDetail);
+      const tokenDetailSnapshot = JSON.stringify(
+        buildChartTokenDetailSnapshot(tokenDetail),
+      );
       if (lastPushedTokenDetailRef.current === tokenDetailSnapshot) {
         return;
       }
