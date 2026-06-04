@@ -157,7 +157,7 @@ PODS:
     - ExpoModulesCore
     - SPAlert (~> 4.2)
     - SPIndicator (~> 1.6)
-  - ChartWebview (3.0.45):
+  - ChartWebview (3.0.48):
     - boost
     - DoubleConversion
     - fast_float
@@ -5364,7 +5364,7 @@ SPEC CHECKSUMS:
   BleUtils: 0fd18e5fd2732c89771dc79941c7320ac9c42015
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   Burnt: e3a3397e26172fca31a59bb27421475a58068836
-  ChartWebview: 25bdd26d3e8fe9c2fe8eb863684ec1e62c542795
+  ChartWebview: 6b89f76f28f074024f67440200521a3723928d12
   CloudFs: d022e117d1b0a623e965a22efb6ffe9accc6e583
   CloudKitModule: eeeec8260c26909cd3074e72eef224a1eae6943a
   CocoaLumberjack: 5644158777912b7de7469fa881f8a3f259c2512a
@@ -5561,6 +5561,6 @@ SPEC CHECKSUMS:
   Yoga: 728df40394d49f3f471688747cf558158b3a3bd1
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 2430ff9e6b7aa2cc39982650e3ad77e67fc8093d
+PODFILE CHECKSUM: 6cde7d8d7d163d41aa5f44c8f077ce0e5569951c
 
 COCOAPODS: 1.16.2

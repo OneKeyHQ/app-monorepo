@@ -12,7 +12,7 @@ export type IChartWebViewMode = 'legacy' | 'offline' | 'online';
  * Native only — on web TradingView always uses 'legacy' (the module is native).
  * Flip this to 'offline' (or 'online') to exercise the new path.
  */
-export const CHART_WEBVIEW_MODE: IChartWebViewMode = 'legacy';
+export const CHART_WEBVIEW_MODE: IChartWebViewMode = 'offline';
 
 // Must match the folder name bundled into the native apps (iOS Run Script /
 // Android copyChartWebviewAssets) and the module's localBundle resolution.
