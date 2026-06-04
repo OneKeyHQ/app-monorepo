@@ -95,6 +95,7 @@ export type IDecodedTxPayload = {
   privateSend?: {
     orderId?: string;
     rocketXOrderId?: string;
+    payinAddress?: string;
     provider?: string;
     providerName?: string;
     providerLogo?: string;

@@ -1389,20 +1389,79 @@ function BasePerpTokenSelector() {
 
 export const PerpTokenSelector = memo(BasePerpTokenSelector);
 
+// Leaf: the ONLY node that subscribes to the live asset ctx. A price tick
+// re-renders just this percentage text — the symbol label, the chevron, and
+// the token-selector trigger layout stay put (they don't subscribe).
+const PerpTickerChangeLeaf = memo(
+  ({ coin, mode }: { coin: string; mode: string }) => {
+    const {
+      assetCtx,
+      source: assetCtxSource,
+      cacheAgeMs,
+    } = usePerpsActiveAssetCtxDisplay(coin);
+    const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+    const spotCtxForActiveCoin =
+      spotAssetCtx?.coin === coin ? spotAssetCtx.ctx : undefined;
+    const change24hPercent =
+      mode === 'spot'
+        ? spotCtxForActiveCoin?.change24hPercent
+        : assetCtx?.ctx?.change24hPercent;
+    const hasChange24hPercent =
+      change24hPercent !== undefined && Number.isFinite(change24hPercent);
+
+    useEffect(() => {
+      tracePerpsMobileLayout('tokenSelector.mobile.state', {
+        coin,
+        mode,
+        change24hPercent,
+        assetCtxSource,
+        cacheAgeMs,
+      });
+    }, [assetCtxSource, cacheAgeMs, change24hPercent, coin, mode]);
+
+    if (!hasChange24hPercent) {
+      return (
+        <SizableText
+          fontSize={10}
+          fontFamily="$monoRegular"
+          color="$textSubdued"
+          alignSelf="center"
+        >
+          --
+        </SizableText>
+      );
+    }
+    return (
+      <NumberSizeableText
+        style={{ fontSize: 10 }}
+        fontFamily="$monoRegular"
+        fontVariant={['tabular-nums']}
+        alignSelf="center"
+        color={change24hPercent < 0 ? '$red11' : '$green11'}
+        formatter="priceChange"
+        formatterOptions={{
+          showPlusMinusSigns: true,
+        }}
+      >
+        {change24hPercent}
+      </NumberSizeableText>
+    );
+  },
+);
+PerpTickerChangeLeaf.displayName = 'PerpTickerChangeLeaf';
+
 const BasePerpTokenSelectorMobileView = memo(
   ({
     onPressTokenSelector,
     displayLabel,
-    change24hPercent,
+    coin,
+    mode,
   }: {
     onPressTokenSelector: () => void;
     displayLabel: string;
-    change24hPercent: number | undefined;
+    coin: string;
+    mode: string;
   }) => {
-    const hasChange24hPercent =
-      change24hPercent !== undefined && Number.isFinite(change24hPercent);
-    const changeColor =
-      hasChange24hPercent && change24hPercent < 0 ? '$red11' : '$green11';
     return (
       <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
         <XStack
@@ -1414,30 +1473,7 @@ const BasePerpTokenSelectorMobileView = memo(
           hitSlop={NATIVE_HIT_SLOP}
         >
           <SizableText size="$headingLg">{displayLabel}</SizableText>
-          {hasChange24hPercent ? (
-            <NumberSizeableText
-              style={{ fontSize: 10 }}
-              fontFamily="$monoRegular"
-              fontVariant={['tabular-nums']}
-              alignSelf="center"
-              color={changeColor}
-              formatter="priceChange"
-              formatterOptions={{
-                showPlusMinusSigns: true,
-              }}
-            >
-              {change24hPercent}
-            </NumberSizeableText>
-          ) : (
-            <SizableText
-              fontSize={10}
-              fontFamily="$monoRegular"
-              color="$textSubdued"
-              alignSelf="center"
-            >
-              --
-            </SizableText>
-          )}
+          <PerpTickerChangeLeaf coin={coin} mode={mode} />
           <Icon name="ChevronTriangleDownSmallSolid" size="$5" />
         </XStack>
       </DebugRenderTracker>
@@ -1447,30 +1483,11 @@ const BasePerpTokenSelectorMobileView = memo(
 BasePerpTokenSelectorMobileView.displayName = 'BasePerpTokenSelectorMobileView';
 function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
+  // Only low-frequency fields here (coin/displayName/mode change on coin
+  // switch). The live ctx subscription now lives in PerpTickerChangeLeaf, so
+  // this component — and the memoized view shell — no longer re-render on
+  // every price tick.
   const { coin, displayName, mode } = useActiveTradeDisplay();
-
-  const {
-    assetCtx,
-    source: assetCtxSource,
-    cacheAgeMs,
-  } = usePerpsActiveAssetCtxDisplay(coin);
-  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
-  const spotCtxForActiveCoin =
-    spotAssetCtx?.coin === coin ? spotAssetCtx.ctx : undefined;
-  const change24hPercent =
-    mode === 'spot'
-      ? spotCtxForActiveCoin?.change24hPercent
-      : assetCtx?.ctx?.change24hPercent;
-
-  useEffect(() => {
-    tracePerpsMobileLayout('tokenSelector.mobile.state', {
-      coin,
-      mode,
-      change24hPercent,
-      assetCtxSource,
-      cacheAgeMs,
-    });
-  }, [assetCtxSource, cacheAgeMs, change24hPercent, coin, mode]);
 
   const displayLabel = mode === 'spot' ? displayName : `${displayName}USDC`;
 
@@ -1488,7 +1505,8 @@ function BasePerpTokenSelectorMobile() {
     <BasePerpTokenSelectorMobileView
       onPressTokenSelector={onPressTokenSelector}
       displayLabel={displayLabel}
-      change24hPercent={change24hPercent}
+      coin={coin}
+      mode={mode}
     />
   );
 }

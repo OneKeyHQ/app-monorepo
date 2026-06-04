@@ -4,10 +4,11 @@ import { BigNumber } from 'bignumber.js';
 
 import type { IBBOPriceMode } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  useBboAtom,
-  useTradingFormAtom,
+  useBboForOrderPrice,
+  useTradingFormOrderPriceParams,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { getPerpsMarketDataLocalReceivedAt } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
+import type { IPerpsActiveAssetCtxMidPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getScaleOrderReferencePrice } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import { getTriggerEffectivePrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -26,6 +27,10 @@ export interface IUseOrderPriceReturn {
   price: BigNumber;
   isValid: boolean;
   error: IOrderPriceError;
+}
+
+interface IUseOrderPriceOptions {
+  priceSource?: IPerpsActiveAssetCtxMidPriceSource;
 }
 
 /**
@@ -162,16 +167,18 @@ export function calculateOrderPrice(
   };
 }
 
-export function useOrderPrice(side?: 'long' | 'short'): IUseOrderPriceReturn {
-  const [formData] = useTradingFormAtom();
-  const [bbo] = useBboAtom();
-  const { midPriceBN } = useTradingPrice();
-  const [, refreshBboFreshness] = useState(0);
-  const bboReceivedAt = getPerpsMarketDataLocalReceivedAt(bbo);
+function useOrderPriceWithMidPrice(
+  midPriceBN: BigNumber,
+  side?: 'long' | 'short',
+): IUseOrderPriceReturn {
+  const formData = useTradingFormOrderPriceParams();
   const shouldTrackBboFreshness =
     formData.type === 'limit' &&
     Boolean(formData.bboPriceMode) &&
     Boolean(side);
+  const bbo = useBboForOrderPrice(shouldTrackBboFreshness);
+  const [, refreshBboFreshness] = useState(0);
+  const bboReceivedAt = getPerpsMarketDataLocalReceivedAt(bbo);
 
   useEffect(() => {
     if (!shouldTrackBboFreshness) {
@@ -207,4 +214,12 @@ export function useOrderPrice(side?: 'long' | 'short'): IUseOrderPriceReturn {
     formData.scaleLowerPrice,
     formData.scaleUpperPrice,
   );
+}
+
+export function useOrderPrice(
+  side?: 'long' | 'short',
+  { priceSource = 'live' }: IUseOrderPriceOptions = {},
+): IUseOrderPriceReturn {
+  const { midPriceBN } = useTradingPrice({ source: priceSource });
+  return useOrderPriceWithMidPrice(midPriceBN, side);
 }

@@ -1656,14 +1656,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           return true;
         } catch (error) {
           const e = error as OneKeyError | undefined;
-          console.error(
-            `[HyperLiquid WebSocket] unsubscribe() failed for ${spec.key}:`,
-            error,
-          );
-          if (e?.message.includes('Already unsubscribed')) {
+          if (e?.message?.includes('Already unsubscribed')) {
             removeSubCache();
             return true;
           }
+          console.log(
+            `[HyperLiquid WebSocket] unsubscribe() failed for ${spec.key}:`,
+            error,
+          );
           return false;
         } finally {
           this._destroyingSubscriptionKeys.delete(spec.key);

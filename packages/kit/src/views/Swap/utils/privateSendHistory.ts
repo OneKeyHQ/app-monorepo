@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
@@ -19,7 +21,10 @@ import {
   EProtocolOfExchange,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type {
+  IFetchTokenDetailItem,
+  IToken,
+} from '@onekeyhq/shared/types/token';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 type IPrivateSendHistoryNavigation = {
@@ -42,6 +47,7 @@ type IPrivateSendHistoryNetwork = {
 
 type IPrivateSendTxStateCtx = {
   rocketXOrderId?: unknown;
+  payinAddress?: unknown;
 };
 
 export function isPrivateSendHistoryTx(historyTx: IAccountHistoryTx) {
@@ -87,6 +93,72 @@ function getPrivateSendRocketXOrderIdFromCtx(ctx: unknown) {
     : undefined;
 }
 
+function getPrivateSendPayinAddressFromCtx(ctx: unknown) {
+  const payinAddress = (ctx as IPrivateSendTxStateCtx | undefined)
+    ?.payinAddress;
+  return typeof payinAddress === 'string' && payinAddress
+    ? payinAddress
+    : undefined;
+}
+
+function getPrivateSendTxStateReceivedAddress(item: ISwapTxHistory) {
+  return getPrivateSendPayinAddressFromCtx(item.ctx) ?? item.txInfo.receiver;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function mergePrivateSendHistoryReplayFields({
+  item,
+  replayItem,
+}: {
+  item: ISwapTxHistory;
+  replayItem: ISwapTxHistory;
+}) {
+  const replayRocketXOrderId = getPrivateSendRocketXOrderIdFromCtx(
+    replayItem.ctx,
+  );
+  const replayPayinAddress = getPrivateSendPayinAddressFromCtx(replayItem.ctx);
+  const currentRocketXOrderId = getPrivateSendRocketXOrderIdFromCtx(item.ctx);
+  const currentPayinAddress = getPrivateSendPayinAddressFromCtx(item.ctx);
+
+  let updated = false;
+  let nextItem = item;
+
+  if (
+    (replayRocketXOrderId && !currentRocketXOrderId) ||
+    (replayPayinAddress && !currentPayinAddress)
+  ) {
+    nextItem = {
+      ...nextItem,
+      ctx: {
+        ...(isRecord(nextItem.ctx) ? nextItem.ctx : {}),
+        ...(replayRocketXOrderId && !currentRocketXOrderId
+          ? { rocketXOrderId: replayRocketXOrderId }
+          : {}),
+        ...(replayPayinAddress && !currentPayinAddress
+          ? { payinAddress: replayPayinAddress }
+          : {}),
+      },
+    };
+    updated = true;
+  }
+
+  if (!nextItem.txInfo.receiver && replayItem.txInfo.receiver) {
+    nextItem = {
+      ...nextItem,
+      txInfo: {
+        ...nextItem.txInfo,
+        receiver: replayItem.txInfo.receiver,
+      },
+    };
+    updated = true;
+  }
+
+  return { item: nextItem, updated };
+}
+
 function getPrivateSendFallbackStatus(historyTx: IAccountHistoryTx) {
   if (
     historyTx.decodedTx.status === EDecodedTxStatus.Failed ||
@@ -130,27 +202,112 @@ function getPrivateSendHistoryTransfer(historyTx: IAccountHistoryTx) {
   );
 }
 
+function getPositivePriceValue(value?: number | string) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const valueBN = new BigNumber(value);
+  if (valueBN.isNaN() || !valueBN.isGreaterThan(0)) {
+    return undefined;
+  }
+
+  return valueBN.toFixed();
+}
+
+async function fetchPrivateSendHistoryTokenDetails({
+  historyTx,
+  accountId,
+}: {
+  historyTx: IAccountHistoryTx;
+  accountId: string;
+}) {
+  const transfer = getPrivateSendHistoryTransfer(historyTx);
+  let tokenAddress =
+    transfer?.tokenIdOnNetwork ?? historyTx.decodedTx.tokenIdOnNetwork ?? '';
+
+  if (transfer?.isNative || !tokenAddress) {
+    tokenAddress = await backgroundApiProxy.serviceToken.getNativeTokenAddress({
+      networkId: historyTx.decodedTx.networkId,
+    });
+  }
+
+  const tokenDetails = await backgroundApiProxy.serviceToken.fetchTokensDetails(
+    {
+      accountId,
+      networkId: historyTx.decodedTx.networkId,
+      contractList: [tokenAddress],
+    },
+  );
+
+  return tokenDetails?.[0];
+}
+
 function buildSwapToken({
   historyTx,
   tokenInfo,
+  tokenDetails,
 }: {
   historyTx: IAccountHistoryTx;
   tokenInfo?: IToken;
+  tokenDetails?: IFetchTokenDetailItem;
 }): ISwapToken {
   const transfer = getPrivateSendHistoryTransfer(historyTx);
+  const token = tokenDetails?.info ?? tokenInfo;
+  const price =
+    getPositivePriceValue(transfer?.price) ??
+    getPositivePriceValue(tokenDetails?.price);
+
   return {
     networkId: historyTx.decodedTx.networkId,
     contractAddress:
-      tokenInfo?.address ??
+      token?.address ??
       transfer?.tokenIdOnNetwork ??
       historyTx.decodedTx.tokenIdOnNetwork ??
       '',
-    isNative: tokenInfo?.isNative ?? transfer?.isNative,
-    symbol: tokenInfo?.symbol ?? transfer?.symbol ?? '',
-    decimals: tokenInfo?.decimals ?? 0,
-    name: tokenInfo?.name ?? transfer?.name ?? '',
-    logoURI: tokenInfo?.logoURI ?? transfer?.icon,
-    price: transfer?.price ?? '0',
+    isNative: token?.isNative ?? transfer?.isNative,
+    symbol: token?.symbol ?? transfer?.symbol ?? '',
+    decimals: token?.decimals ?? 0,
+    name: token?.name ?? transfer?.name ?? '',
+    logoURI: token?.logoURI ?? transfer?.icon,
+    price,
+  };
+}
+
+function applyPrivateSendTokenDetailsPrice({
+  item,
+  tokenDetails,
+}: {
+  item: ISwapTxHistory;
+  tokenDetails?: IFetchTokenDetailItem;
+}) {
+  const price = getPositivePriceValue(tokenDetails?.price);
+  if (!price) {
+    return { item, updated: false };
+  }
+
+  const hasFromTokenPrice = !!getPositivePriceValue(
+    item.baseInfo.fromToken.price,
+  );
+  const hasToTokenPrice = !!getPositivePriceValue(item.baseInfo.toToken.price);
+  if (hasFromTokenPrice && hasToTokenPrice) {
+    return { item, updated: false };
+  }
+
+  return {
+    item: {
+      ...item,
+      baseInfo: {
+        ...item.baseInfo,
+        fromToken: hasFromTokenPrice
+          ? item.baseInfo.fromToken
+          : { ...item.baseInfo.fromToken, price },
+        toToken: hasToTokenPrice
+          ? item.baseInfo.toToken
+          : { ...item.baseInfo.toToken, price },
+      },
+    },
+    updated: true,
   };
 }
 
@@ -160,6 +317,7 @@ function buildPrivateSendHistoryItemFromAccountHistory({
   accountAddress,
   network,
   tokenInfo,
+  tokenDetails,
   currencySymbol,
 }: {
   historyTx: IAccountHistoryTx;
@@ -167,6 +325,7 @@ function buildPrivateSendHistoryItemFromAccountHistory({
   accountAddress?: string;
   network?: IPrivateSendHistoryNetwork;
   tokenInfo?: IToken;
+  tokenDetails?: IFetchTokenDetailItem;
   currencySymbol?: string;
 }): ISwapTxHistory {
   const transferAction = historyTx.decodedTx.actions.find(
@@ -183,7 +342,8 @@ function buildPrivateSendHistoryItemFromAccountHistory({
     historyTx.decodedTx.owner;
   const privateSendPayload = getPrivateSendHistoryPayload(historyTx);
   const receiver = privateSendPayload?.originalRecipient ?? '';
-  const token = buildSwapToken({ historyTx, tokenInfo });
+  const payinAddress = privateSendPayload?.payinAddress ?? transfer?.to;
+  const token = buildSwapToken({ historyTx, tokenInfo, tokenDetails });
   const networkInfo = buildSwapNetwork({
     network,
     fallbackNetworkId: historyTx.decodedTx.networkId,
@@ -196,7 +356,13 @@ function buildPrivateSendHistoryItemFromAccountHistory({
       ? privateSendPayload.orderId
       : undefined;
   const orderId = backendOrderId ?? getPrivateSendFallbackOrderId(historyTx);
-  const ctx = rocketXOrderId ? { rocketXOrderId } : undefined;
+  const ctx =
+    rocketXOrderId || payinAddress
+      ? {
+          ...(rocketXOrderId ? { rocketXOrderId } : {}),
+          ...(payinAddress ? { payinAddress } : {}),
+        }
+      : undefined;
 
   return {
     protocol: EProtocolOfExchange.PRIVATE_SEND,
@@ -270,9 +436,7 @@ async function fetchPrivateSendTxState(item: ISwapTxHistory) {
     networkId: item.baseInfo.fromToken.networkId,
     ctx: item.ctx,
     toTokenAddress: item.baseInfo.toToken.contractAddress,
-    receivedAddress: shouldUseOrderId
-      ? item.txInfo.receiver || undefined
-      : undefined,
+    receivedAddress: getPrivateSendTxStateReceivedAddress(item) || undefined,
     orderId: shouldUseOrderId ? orderId : undefined,
   });
 }
@@ -370,6 +534,17 @@ export async function maybeOpenPrivateSendHistoryDetail({
   }
 
   const transfer = getPrivateSendHistoryTransfer(historyTx);
+  let resolvedTokenDetails: IFetchTokenDetailItem | undefined;
+  try {
+    resolvedTokenDetails = await fetchPrivateSendHistoryTokenDetails({
+      historyTx,
+      accountId,
+    });
+    resolvedTokenInfo = resolvedTokenInfo ?? resolvedTokenDetails?.info;
+  } catch {
+    resolvedTokenDetails = undefined;
+  }
+
   if (
     !resolvedTokenInfo &&
     (transfer?.isNative || !transfer?.tokenIdOnNetwork)
@@ -386,16 +561,29 @@ export async function maybeOpenPrivateSendHistoryDetail({
   }
 
   const shouldPersistFallbackHistory = !txHistoryItem;
-  const resolvedTxHistoryItem =
-    txHistoryItem ??
-    buildPrivateSendHistoryItemFromAccountHistory({
-      historyTx,
-      accountId,
-      accountAddress,
-      network: resolvedNetwork,
-      tokenInfo: resolvedTokenInfo,
-      currencySymbol,
-    });
+  const replayTxHistoryItem = buildPrivateSendHistoryItemFromAccountHistory({
+    historyTx,
+    accountId,
+    accountAddress,
+    network: resolvedNetwork,
+    tokenInfo: resolvedTokenInfo,
+    tokenDetails: resolvedTokenDetails,
+    currencySymbol,
+  });
+  const { item: baseTxHistoryItem, updated: shouldPersistReplayFields } =
+    txHistoryItem
+      ? mergePrivateSendHistoryReplayFields({
+          item: txHistoryItem,
+          replayItem: replayTxHistoryItem,
+        })
+      : { item: replayTxHistoryItem, updated: false };
+  const {
+    item: resolvedTxHistoryItem,
+    updated: shouldPersistResolvedTokenDetails,
+  } = applyPrivateSendTokenDetailsPrice({
+    item: baseTxHistoryItem,
+    tokenDetails: resolvedTokenDetails,
+  });
 
   let txState: IFetchSwapTxHistoryStatusResponse | undefined;
   if (canFetchPrivateSendTxState(resolvedTxHistoryItem)) {
@@ -411,6 +599,11 @@ export async function maybeOpenPrivateSendHistoryDetail({
   );
   if (shouldPersistFallbackHistory) {
     await backgroundApiProxy.serviceSwap.addSwapHistoryItem(nextTxHistoryItem);
+  } else if (shouldPersistResolvedTokenDetails || shouldPersistReplayFields) {
+    await backgroundApiProxy.serviceSwap.updateSwapHistoryItem(
+      nextTxHistoryItem,
+      { shouldShowToast: false },
+    );
   }
   const txHistoryOrderId = nextTxHistoryItem.swapInfo.orderId;
 
