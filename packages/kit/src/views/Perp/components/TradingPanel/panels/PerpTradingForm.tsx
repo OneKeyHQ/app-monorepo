@@ -1812,10 +1812,7 @@ function PerpTradingForm({
   const renderTimeInForceSection = () => {
     if (shouldShowScaleTif) {
       return (
-        <XStack
-          flexShrink={0}
-          justifyContent="flex-end"
-        >
+        <XStack flexShrink={0} justifyContent="flex-end">
           <TimeInForceSelector
             testID="perp-scale-tif-selector"
             value={formData.scaleTif ?? 'Gtc'}

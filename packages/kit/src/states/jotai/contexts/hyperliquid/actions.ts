@@ -2752,9 +2752,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               !averageSliceNotional.isFinite() ||
               averageSliceNotional.lt(TWAP_MIN_ORDER_NOTIONAL)
             ) {
-              throw new OneKeyLocalError(
-                ETranslations.perp_twap_small_slice__msg,
-              );
+              throw new OneKeyLocalError({
+                key: ETranslations.perp_twap_small_slice__msg,
+              });
             }
 
             const reduceOnly = isSpot

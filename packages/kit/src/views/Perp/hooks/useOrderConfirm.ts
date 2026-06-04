@@ -362,7 +362,9 @@ function useOrderConfirmWithMarketDataFreshness({
         ) {
           Toast.error({
             title: 'Order Failed',
-            message: 'TWAP order size is too small for this duration',
+            message: intl.formatMessage({
+              id: ETranslations.perp_twap_small_slice__msg,
+            }),
           });
           return;
         }

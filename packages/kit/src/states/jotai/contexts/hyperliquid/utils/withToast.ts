@@ -1,5 +1,6 @@
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { resolveErrorI18nMessage } from '@onekeyhq/shared/src/errors/utils/electronIpcError';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   extractHyperLiquidErrorMessage,
@@ -30,13 +31,6 @@ function identifyError(errorMessage: string): EErrorType | null {
   return null;
 }
 
-function extractErrorMessage(error: unknown): string {
-  const hyperLiquidMessage = extractHyperLiquidErrorMessage(error);
-  if (hyperLiquidMessage) return hyperLiquidMessage;
-
-  return extractRawErrorMessage(error);
-}
-
 function extractRawErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
@@ -44,6 +38,13 @@ function extractRawErrorMessage(error: unknown): string {
     return String(error.message);
   }
   return 'Unknown error occurred';
+}
+
+function extractErrorMessage(error: unknown): string {
+  const hyperLiquidMessage = extractHyperLiquidErrorMessage(error);
+  if (hyperLiquidMessage) return hyperLiquidMessage;
+
+  return extractRawErrorMessage(error);
 }
 
 async function handleError(error: unknown): Promise<void> {
@@ -88,7 +89,7 @@ async function handleError(error: unknown): Promise<void> {
       ? await hyperLiquidErrorResolver.resolveAsync(errorMessage)
       : undefined;
 
-  let friendlyMessage = errorMessage;
+  let friendlyMessage = resolveErrorI18nMessage(error);
   if (errorType) {
     friendlyMessage = ERROR_MESSAGES[errorType]();
   } else if (rawResolved?.i18nKey) {
