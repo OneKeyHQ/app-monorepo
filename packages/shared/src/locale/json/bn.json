@@ -3129,6 +3129,7 @@
   "perp_enable_trading_steps_agent_removal__desc": "Replace previous trading agent",
   "perp_enable_trading_steps_builder_fee__desc": "Confirm OneKey service access",
   "perp_enable_trading_steps_summary__desc": "Enable trading for instant, gas-free Perps orders. Requires",
+  "perp_enable_trading_steps_summary_v2__desc": "Enable trading for instant, gas-free Perps orders. Requires <underline>{count}</underline> {count, plural, one {wallet confirmation.} other {wallet confirmations.}}",
   "perp_enable_trading_steps_wallet_confirmation__desc": "wallet confirmation.",
   "perp_enable_trading_steps_wallet_confirmations__desc": "wallet confirmations.",
   "perp_executed_size__title": "Executed Size",

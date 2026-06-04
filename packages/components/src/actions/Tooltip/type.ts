@@ -15,5 +15,6 @@ export interface ITooltipProps extends TMTooltipProps {
   shortcutKey?: EShortcutEvents | string[];
   hovering?: boolean;
   contentProps?: PopoverContentProps;
+  triggerAsChild?: boolean | 'except-style';
   ref?: React.RefObject<ITooltipRef>;
 }

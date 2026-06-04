@@ -3129,6 +3129,7 @@
   "perp_enable_trading_steps_agent_removal__desc": "替换此前的交易代理",
   "perp_enable_trading_steps_builder_fee__desc": "确认 OneKey 服务访问",
   "perp_enable_trading_steps_summary__desc": "开启交易即可使用即时、免 Gas 的 Perps 订单。需要",
+  "perp_enable_trading_steps_summary_v2__desc": "启用交易即可即时下单，无需 Gas。需要 <underline>{count}</underline> 次钱包确认。",
   "perp_enable_trading_steps_wallet_confirmation__desc": "次钱包确认。",
   "perp_enable_trading_steps_wallet_confirmations__desc": "次钱包确认。",
   "perp_executed_size__title": "已成交数量",

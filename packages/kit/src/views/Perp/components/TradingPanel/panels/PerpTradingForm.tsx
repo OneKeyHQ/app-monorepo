@@ -14,6 +14,7 @@ import {
   Select,
   SizableText,
   Skeleton,
+  Stack,
   Tooltip,
   XStack,
   YStack,
@@ -26,8 +27,9 @@ import {
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
   useTradingFormAtom,
-  useTradingFormComputedAtom,
+  useTradingFormComputedSize,
   useTradingFormEnvAtom,
+  useTradingFormSizeInputComputed,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type {
   IBBOPriceMode,
@@ -40,13 +42,13 @@ import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
+  usePerpsActiveAssetCtxReadyAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useSpotActiveAssetAtom,
-  useSpotActiveAssetCtxAtom,
+  useSpotActiveAssetCtxReadyAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -82,6 +84,7 @@ import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../../testIDs';
 import { getPerpsFormLeverage } from '../../../utils/leverageDisplay';
+import { getScaleOrderValidationErrorMessage } from '../../../utils/scaleOrderValidation';
 import {
   type ITradeSide,
   getTradingSideTextColor,
@@ -176,6 +179,15 @@ function splitTwapDurationMinutes(minutes: number) {
     hours: Math.floor(clampedMinutes / 60),
     minutes: clampedMinutes % 60,
   };
+}
+
+function hasTradingFormOrderSizeInput(
+  formData: Pick<ITradingFormData, 'sizeInputMode' | 'size' | 'sizePercent'>,
+) {
+  if (formData.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
+    return (formData.sizePercent ?? 0) > 0;
+  }
+  return Boolean(formData.size?.trim());
 }
 
 function SpotAvailableActionIcon({
@@ -341,19 +353,35 @@ function PerpTradingForm({
   const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
 
   const [formData] = useTradingFormAtom();
+  const isScaleMode = formData.orderMode === 'scale';
+  const isTwapMode = formData.orderMode === 'twap';
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
-  const [tradingComputed] = useTradingFormComputedAtom();
+  const tradingComputed = useTradingFormSizeInputComputed();
+  const advancedComputedSizeBN = useTradingFormComputedSize();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const isSpot = activeTradeInstrument.mode === 'spot';
+  const shouldUseLiveTradingPrice = Boolean(
+    isSpot ||
+    formData.bboPriceMode ||
+    formData.orderMode !== 'standard' ||
+    hasTradingFormOrderSizeInput(formData),
+  );
+  const shouldSyncTradingFormEnv = shouldUseLiveTradingPrice;
+  const tradingPriceSource = shouldUseLiveTradingPrice ? 'live' : 'display';
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const [activeAsset] = usePerpsActiveAssetAtom();
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const [isPerpsActiveAssetCtxReady] = usePerpsActiveAssetCtxReadyAtom();
   const [spotActiveAsset] = useSpotActiveAssetAtom();
-  const [spotActiveAssetCtx] = useSpotActiveAssetCtxAtom();
+  const [isSpotActiveAssetCtxReady] = useSpotActiveAssetCtxReadyAtom();
   const [{ balances: spotBalances }] = useSpotBalancesAtom();
   const { baseName: activeBaseName } = useActiveTradeDisplay();
-  const { midPrice, midPriceBN } = useTradingPrice();
-  const { price: orderPriceBN } = useOrderPrice(formData.side);
+  const { midPrice, midPriceBN } = useTradingPrice({
+    source: tradingPriceSource,
+  });
+  const { price: orderPriceBN } = useOrderPrice(formData.side, {
+    priceSource: tradingPriceSource,
+  });
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const { universeByBaseName } = useSpotMetaMaps();
   const perpsPositions = usePerpsAccountScopedActivePositions();
@@ -398,7 +426,6 @@ function PerpTradingForm({
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
 
-  const isSpot = activeTradeInstrument.mode === 'spot';
   const spotUniverse = isSpot ? spotActiveAsset?.universe : undefined;
   const sizeSzDecimals = isSpot
     ? (spotUniverse?.baseSzDecimals ?? 2)
@@ -425,9 +452,9 @@ function PerpTradingForm({
       spotUniverse,
     ],
   );
-  const selectedTradeAssetCtx = isSpot
-    ? (spotActiveAssetCtx as typeof activeAssetCtx)
-    : activeAssetCtx;
+  const isSelectedTradeAssetCtxReady = isSpot
+    ? isSpotActiveAssetCtxReady
+    : isPerpsActiveAssetCtxReady;
 
   const spotAvailableBaseBN = useMemo(() => {
     if (!spotUniverse?.baseName) {
@@ -490,8 +517,6 @@ function PerpTradingForm({
   ]);
 
   // Derive primaryOrderType from formData.orderMode
-  const isScaleMode = formData.orderMode === 'scale';
-  const isTwapMode = formData.orderMode === 'twap';
   const isAdvancedOrderMode =
     formData.orderMode === 'trigger' || isScaleMode || isTwapMode;
   const shouldShowLimitTif =
@@ -566,32 +591,105 @@ function PerpTradingForm({
     },
     [actions],
   );
+  const midPriceRef = useRef(midPrice);
+  const latestFormDataRef = useRef(formData);
+
+  latestFormDataRef.current = formData;
+
+  useEffect(() => {
+    midPriceRef.current = midPrice;
+  }, [midPrice]);
+
+  const getFormattedMidPrice = useCallback(async () => {
+    const latestMidPrice =
+      activeTradeInstrument.mode === 'perp'
+        ? (
+            await actions.current.getMidPrice({
+              coin: activeTradeInstrument.coin,
+            })
+          ).mid || midPriceRef.current
+        : midPriceRef.current;
+    if (!latestMidPrice) {
+      return undefined;
+    }
+    return isSpot
+      ? formatSpotPriceToValid(latestMidPrice, sizeSzDecimals)
+      : formatPriceToSignificantDigits(latestMidPrice, sizeSzDecimals);
+  }, [actions, activeTradeInstrument, isSpot, sizeSzDecimals]);
+
+  const handleUseMidPriceForExecutionPrice = useCallback(() => {
+    void (async () => {
+      const nextPrice = await getFormattedMidPrice();
+      if (nextPrice) {
+        updateForm({
+          executionPrice: nextPrice,
+        });
+      }
+    })();
+  }, [getFormattedMidPrice, updateForm]);
+
+  const handleUseMidPriceForPrice = useCallback(() => {
+    void (async () => {
+      const nextPrice = await getFormattedMidPrice();
+      if (nextPrice) {
+        updateForm({
+          price: nextPrice,
+        });
+      }
+    })();
+  }, [getFormattedMidPrice, updateForm]);
 
   const prevTypeRef = useRef<'market' | 'limit'>(formData.type);
 
   useEffect(() => {
     const prevType = prevTypeRef.current;
     const currentType = formData.type;
+    let didCancel = false;
 
-    if (prevType !== 'limit' && currentType === 'limit' && midPrice) {
-      updateForm({
-        price: isSpot
-          ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-          : formatPriceToSignificantDigits(midPrice, sizeSzDecimals),
-      });
+    if (prevType !== 'limit' && currentType === 'limit') {
+      void (async () => {
+        const nextPrice = await getFormattedMidPrice();
+        const latestFormData = latestFormDataRef.current;
+        if (
+          nextPrice &&
+          !didCancel &&
+          latestFormData.type === 'limit' &&
+          !latestFormData.price?.trim()
+        ) {
+          updateForm({
+            price: nextPrice,
+          });
+        }
+      })();
     }
 
     prevTypeRef.current = currentType;
-  }, [
-    formData.type,
-    formData.price,
-    isSpot,
-    midPrice,
-    sizeSzDecimals,
-    updateForm,
-  ]);
+
+    return () => {
+      didCancel = true;
+    };
+  }, [formData.type, getFormattedMidPrice, updateForm]);
 
   useEffect(() => {
+    if (!shouldSyncTradingFormEnv) {
+      setTradingFormEnv((prev) => {
+        const prevAvailable = prev.availableToTrade ?? [];
+        const prevMaxTradeSzs = prev.maxTradeSzs ?? [];
+        if (
+          prev.markPrice === undefined &&
+          prev.leverageValue === undefined &&
+          prev.fallbackLeverage === undefined &&
+          prev.szDecimals === undefined &&
+          prevAvailable.length === 0 &&
+          prevMaxTradeSzs.length === 0
+        ) {
+          return prev;
+        }
+        return {};
+      });
+      return;
+    }
+
     const nextEnv = isSpot
       ? {
           markPrice: midPrice,
@@ -660,6 +758,7 @@ function PerpTradingForm({
     activeAssetData?.leverage?.value,
     activeAsset?.universe?.maxLeverage,
     activeAsset?.universe?.szDecimals,
+    shouldSyncTradingFormEnv,
     setTradingFormEnv,
     formData.leverage,
     updateForm,
@@ -732,8 +831,7 @@ function PerpTradingForm({
     );
     const hasCountInput = Boolean(formData.scaleOrderCount);
     const hasSizeInput =
-      tradingComputed.computedSizeBN.isFinite() &&
-      tradingComputed.computedSizeBN.gt(0);
+      advancedComputedSizeBN.isFinite() && advancedComputedSizeBN.gt(0);
 
     if (!hasPriceInput && !hasCountInput && !hasSizeInput) {
       return undefined;
@@ -786,7 +884,7 @@ function PerpTradingForm({
     }
 
     const legs = buildScaleOrderLegs({
-      totalSize: tradingComputed.computedSizeBN.toFixed(),
+      totalSize: advancedComputedSizeBN.toFixed(),
       lowerPrice: formData.scaleLowerPrice ?? '',
       upperPrice: formData.scaleUpperPrice ?? '',
       orderCount,
@@ -798,11 +896,13 @@ function PerpTradingForm({
     const validation = validateScaleOrderLegs({ legs });
     if (!validation.isValid) {
       return {
-        text:
-          validation.errors[0] ??
-          intl.formatMessage({
+        text: getScaleOrderValidationErrorMessage({
+          intl,
+          validation,
+          fallback: intl.formatMessage({
             id: ETranslations.perp_invalid_scale_order__msg,
           }),
+        }),
         tone: 'error' as const,
       };
     }
@@ -824,7 +924,7 @@ function PerpTradingForm({
     isScaleMode,
     isSpot,
     sizeSzDecimals,
-    tradingComputed.computedSizeBN,
+    advancedComputedSizeBN,
   ]);
 
   const twapDurationInputMessage = useMemo(() => {
@@ -870,8 +970,8 @@ function PerpTradingForm({
       !Number.isInteger(duration) ||
       duration < TWAP_MIN_DURATION_MINUTES ||
       duration > TWAP_MAX_DURATION_MINUTES ||
-      !tradingComputed.computedSizeBN.isFinite() ||
-      tradingComputed.computedSizeBN.lte(0) ||
+      !advancedComputedSizeBN.isFinite() ||
+      advancedComputedSizeBN.lte(0) ||
       !midPriceBN.isFinite() ||
       midPriceBN.lte(0)
     ) {
@@ -882,7 +982,7 @@ function PerpTradingForm({
       1,
       Math.ceil(duration / TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES),
     );
-    const estimatedSliceNotional = tradingComputed.computedSizeBN
+    const estimatedSliceNotional = advancedComputedSizeBN
       .multipliedBy(midPriceBN)
       .dividedBy(estimatedSlices);
     if (
@@ -898,7 +998,7 @@ function PerpTradingForm({
     formData.twapDurationMinutes,
     isTwapMode,
     midPriceBN,
-    tradingComputed.computedSizeBN,
+    advancedComputedSizeBN,
     twapSmallSliceHelperText,
   ]);
 
@@ -1511,51 +1611,22 @@ function PerpTradingForm({
       const scaleSizeDistribution = formData.scaleSizeDistribution ?? 'fixed';
       return (
         <YStack gap="$1.5">
-          {isMobile ? (
-            <Popover
-              renderContent={() => (
-                <YStack px="$5" pt="$2" pb="$4">
-                  <SizableText size="$bodyMd">
-                    {scaleAmountDistributionHelperText}
-                  </SizableText>
-                </YStack>
-              )}
-              renderTrigger={
-                <DashText
-                  size="$bodySmMedium"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_scale_amount_distribution__title,
-                  })}
-                </DashText>
-              }
-              title={intl.formatMessage({
-                id: ETranslations.perp_scale_amount_distribution__title,
-              })}
-              placement="bottom-start"
-            />
-          ) : (
-            <Tooltip
-              renderContent={scaleAmountDistributionHelperText}
-              renderTrigger={
-                <DashText
-                  size="$bodySmMedium"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  cursor="help"
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_scale_amount_distribution__title,
-                  })}
-                </DashText>
-              }
-              placement="bottom-start"
-            />
-          )}
+          <DashText
+            size="$bodySmMedium"
+            color="$textSubdued"
+            dashColor="$textDisabled"
+            dashThickness={0.5}
+            tooltip={scaleAmountDistributionHelperText}
+            tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+            tooltipPlacement="bottom-start"
+            tooltipTitle={intl.formatMessage({
+              id: ETranslations.perp_scale_amount_distribution__title,
+            })}
+          >
+            {intl.formatMessage({
+              id: ETranslations.perp_scale_amount_distribution__title,
+            })}
+          </DashText>
           <XStack gap="$4" alignItems="center" flexWrap="wrap">
             {scaleAmountDistributionOptions.map((option) => {
               const checked = scaleSizeDistribution === option.value;
@@ -1703,18 +1774,7 @@ function PerpTradingForm({
           />
           {isTriggerLimitOrder ? (
             <PriceInput
-              onUseMidPrice={() => {
-                if (midPrice) {
-                  updateForm({
-                    executionPrice: isSpot
-                      ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-                      : formatPriceToSignificantDigits(
-                          midPrice,
-                          sizeSzDecimals,
-                        ),
-                  });
-                }
-              }}
+              onUseMidPrice={handleUseMidPriceForExecutionPrice}
               placeholder={intl.formatMessage({
                 id: ETranslations.perps_input_price_place_holder,
               })}
@@ -1748,18 +1808,7 @@ function PerpTradingForm({
           ) : (
             <YStack flex={1}>
               <PriceInput
-                onUseMidPrice={() => {
-                  if (midPrice) {
-                    updateForm({
-                      price: isSpot
-                        ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-                        : formatPriceToSignificantDigits(
-                            midPrice,
-                            sizeSzDecimals,
-                          ),
-                    });
-                  }
-                }}
+                onUseMidPrice={handleUseMidPriceForPrice}
                 value={
                   formData.type === 'limit'
                     ? formData.price
@@ -2010,45 +2059,20 @@ function PerpTradingForm({
 
     return (
       <YStack gap="$3">
-        {isMobile ? (
-          <Popover
-            renderContent={() => (
-              <YStack px="$5" pt="$2" pb="$4">
-                <SizableText size="$bodyMd">{twapHelperText}</SizableText>
-              </YStack>
-            )}
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-              >
-                {twapDurationLabel}
-              </DashText>
-            }
-            title={intl.formatMessage({
-              id: ETranslations.perp_twap_duration__title,
-            })}
-            placement="bottom-start"
-          />
-        ) : (
-          <Tooltip
-            renderContent={twapHelperText}
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-                cursor="help"
-              >
-                {twapDurationLabel}
-              </DashText>
-            }
-            placement="bottom-start"
-          />
-        )}
+        <DashText
+          size="$bodySm"
+          color="$textSubdued"
+          dashColor="$textDisabled"
+          dashThickness={0.5}
+          tooltip={twapHelperText}
+          tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+          tooltipPlacement="bottom-start"
+          tooltipTitle={intl.formatMessage({
+            id: ETranslations.perp_twap_duration__title,
+          })}
+        >
+          {twapDurationLabel}
+        </DashText>
         <XStack gap="$2.5">
           {renderTwapDurationInput({
             field: 'hours',
@@ -2162,21 +2186,24 @@ function PerpTradingForm({
               />
               <Tooltip
                 placement="top"
+                triggerAsChild="except-style"
                 renderContent={intl.formatMessage({
                   id: ETranslations.perp_twap_randomize__desc,
                 })}
                 renderTrigger={
-                  <DashText
-                    size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
-                    color="$text"
-                    dashColor="$textDisabled"
-                    dashThickness={0.5}
-                    cursor="help"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_twap_randomize__title,
-                    })}
-                  </DashText>
+                  <Stack display="inline-flex" alignSelf="flex-start">
+                    <DashText
+                      size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                      color="$text"
+                      dashColor="$textDisabled"
+                      dashThickness={0.5}
+                      cursor="help"
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.perp_twap_randomize__title,
+                      })}
+                    </DashText>
+                  </Stack>
                 }
               />
             </XStack>
@@ -2283,46 +2310,22 @@ function PerpTradingForm({
               {...(isMobile && { p: '$0' })}
             />
 
-            {isMobile ? (
-              <Popover
-                renderContent={() => (
-                  <YStack px="$5" pt="$2" pb="$4">
-                    <SizableText size="$bodyMd">
-                      {intl.formatMessage({
-                        id: ETranslations.perp_tp_sl_tooltip,
-                      })}
-                    </SizableText>
-                  </YStack>
-                )}
-                renderTrigger={
-                  <DashText
-                    size="$bodySm"
-                    dashColor="$textSubdued"
-                    dashThickness={0.5}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_position_tp_sl,
-                    })}
-                  </DashText>
-                }
-                title={intl.formatMessage({
-                  id: ETranslations.perp_position_tp_sl,
-                })}
-              />
-            ) : (
-              <Tooltip
-                renderContent={intl.formatMessage({
-                  id: ETranslations.perp_tp_sl_tooltip,
-                })}
-                renderTrigger={
-                  <DashText size="$bodyMd" dashThickness={0.5} cursor="help">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_position_tp_sl,
-                    })}
-                  </DashText>
-                }
-              />
-            )}
+            <DashText
+              size={isMobile ? '$bodySm' : '$bodyMd'}
+              dashColor="$textSubdued"
+              dashThickness={0.5}
+              tooltip={intl.formatMessage({
+                id: ETranslations.perp_tp_sl_tooltip,
+              })}
+              tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+              tooltipTitle={intl.formatMessage({
+                id: ETranslations.perp_position_tp_sl,
+              })}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_position_tp_sl,
+              })}
+            </DashText>
           </XStack>
 
           {standardLimitTifSelector}
@@ -2422,38 +2425,17 @@ function PerpTradingForm({
       </XStack>
 
       <XStack justifyContent="space-between" alignItems="center" gap="$3">
-        {isMobile ? (
-          <Popover
-            title={spotMaxTradeLabel}
-            renderTrigger={
-              <DashText size="$bodySm" color="$textSubdued" dashThickness={0.5}>
-                {spotMaxTradeLabel}
-              </DashText>
-            }
-            renderContent={() => (
-              <YStack px="$5" pt="$2" pb="$4">
-                <SizableText size="$bodyMd">{spotMaxTradeTooltip}</SizableText>
-              </YStack>
-            )}
-          />
-        ) : (
-          <Tooltip
-            placement="top"
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashThickness={0.5}
-                cursor="help"
-              >
-                {spotMaxTradeLabel}
-              </DashText>
-            }
-            renderContent={
-              <SizableText size="$bodySm">{spotMaxTradeTooltip}</SizableText>
-            }
-          />
-        )}
+        <DashText
+          size="$bodySm"
+          color="$textSubdued"
+          dashThickness={0.5}
+          tooltip={spotMaxTradeTooltip}
+          tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+          tooltipPlacement="top"
+          tooltipTitle={spotMaxTradeLabel}
+        >
+          {spotMaxTradeLabel}
+        </DashText>
         <SizableText size="$bodySmMedium">{spotMaxTradeDisplay}</SizableText>
       </XStack>
     </>
@@ -2733,7 +2715,7 @@ function PerpTradingForm({
         referencePrice={referencePriceString}
         side={formData.side}
         activeAsset={selectedTradeAsset}
-        activeAssetCtx={selectedTradeAssetCtx}
+        isAssetCtxReady={isSelectedTradeAssetCtxReady}
         symbol={activeBaseName || perpsSelectedDisplayName}
         value={formData.size}
         onChange={handleManualSizeChange}
