@@ -280,6 +280,22 @@ export function UniversalSearch({
     }
   }, [focusedTab, searchStatus, initialTabName]);
 
+  // The loading-phase reset above points `focusedTab` at `initialTabName`, which
+  // can end up hidden when that preset module returns no results (see
+  // `visibleTabTitles`). The TabBar seeds its highlight from `focusedTab.value`
+  // at mount, so a hidden value would leave the bar with no active tab while the
+  // list already falls back to the All results. Correct it synchronously here —
+  // before the TabBar mounts in the `done` branch — to the resolved, always
+  // visible `activeTab`. This is a render-time fix (not a deferred write), so it
+  // is applied at mount-seed time rather than being dropped by it.
+  if (
+    searchStatus === ESearchStatus.done &&
+    focusedTab.value !== activeTab &&
+    !visibleTabTitles.includes(focusedTab.value)
+  ) {
+    focusedTab.value = activeTab;
+  }
+
   const shouldUseTokensCacheData = useMemo(() => {
     return (
       allTokenList &&

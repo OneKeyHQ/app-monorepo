@@ -4867,10 +4867,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  // Derive the Address-store id a db account would be written under, mirroring
-  // _saveAccountAddressesBatchByCache so a backfilled record lands on the exact
-  // key getAccountNameFromAddress queries against.
-  private computeAddressRecordIdForDbAccount({
+  // Single source of truth for the Address-store record id a db account is
+  // written under, shared by the writer (_saveAccountAddressesBatchByCache) and
+  // the uncreated-derive-path scan fallback below — so the reader can never
+  // drift from the writer's keying. `addressDetail` is only populated on the
+  // INetworkAccount the writer passes; raw db accounts (the scanner's input)
+  // fall back to the stored `address`. EVM index keys are always lowercased, so
+  // we enforce that here regardless of input (covering a checksum-cased address
+  // that lands in the db without an addressDetail). Non-EVM SIMPLE chains whose
+  // stored `address` (displayAddress) differs from their normalizedAddress
+  // (e.g. TON friendly form) only resolve when the addressDetail is present.
+  private buildAddressRecordId({
     account,
     networkId,
   }: {
@@ -4881,7 +4888,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const { address } = account;
     let id = address ? `${networkId}--${address}` : '';
     if (account.type === EDBAccountType.SIMPLE || impl === IMPL_EVM) {
-      id = address ? `${impl}--${address}` : '';
+      let normalizedAddress =
+        (account as INetworkAccount).addressDetail?.normalizedAddress ||
+        address;
+      if (impl === IMPL_EVM) {
+        normalizedAddress = normalizedAddress?.toLowerCase();
+      }
+      id = normalizedAddress ? `${impl}--${normalizedAddress}` : '';
     }
     if (!id) {
       const variantAddress = (account as IDBVariantAccount).addresses?.[
@@ -4925,10 +4938,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const { accounts } = await this.getAllAccounts();
     const matched: IDBAccount[] = [];
     for (const account of accounts) {
-      const recordId = this.computeAddressRecordIdForDbAccount({
-        account,
-        networkId,
-      });
+      const recordId = this.buildAddressRecordId({ account, networkId });
       if (recordId && queryIds.has(recordId)) {
         matched.push(account);
       }
@@ -4937,18 +4947,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return [];
     }
 
-    // Backfill the Address index for every matched account so the next lookup
-    // hits the fast path instead of re-scanning all db accounts.
+    const seen = new Set<string>();
+    const entries: Array<[string, string]> = [];
     for (const account of matched) {
+      // Backfill the Address index for every matched account so the next lookup
+      // hits the fast path instead of re-scanning all db accounts.
       void this.saveAccountAddresses({
         networkId,
         account: account as INetworkAccount,
       });
-    }
 
-    const seen = new Set<string>();
-    const entries: Array<[string, string]> = [];
-    for (const account of matched) {
       const walletId = accountUtils.getWalletIdFromAccountId({
         accountId: account.id,
       });
@@ -6474,25 +6482,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         > = {};
         for (const { networkId, account } of cacheToProcess) {
           const accountId = account.id;
-          const { indexedAccountId, address, addressDetail, type } = account;
+          const { indexedAccountId } = account;
 
-          const impl = networkUtils.getNetworkImpl({ networkId });
-          let id = address ? `${networkId}--${address}` : '';
-          if (type === EDBAccountType.SIMPLE || impl === IMPL_EVM) {
-            const normalizedAddress =
-              addressDetail?.normalizedAddress || address;
-            id = normalizedAddress ? `${impl}--${normalizedAddress}` : '';
-          }
+          const id = this.buildAddressRecordId({ account, networkId });
           if (!id) {
-            const variantAccount = account as IDBVariantAccount | undefined;
-            const variantAddress = variantAccount?.addresses?.[networkId];
-            if (variantAddress && networkId) {
-              id = `${networkId}--${variantAddress}`;
-            }
-            if (!id) {
-              // eslint-disable-next-line no-continue
-              continue;
-            }
+            // eslint-disable-next-line no-continue
+            continue;
           }
 
           const walletId = accountUtils.getWalletIdFromAccountId({
