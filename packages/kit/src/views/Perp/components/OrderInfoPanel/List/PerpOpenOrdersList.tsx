@@ -6,6 +6,7 @@ import {
   Button,
   type IDebugRenderTrackerProps,
   Icon,
+  Illustration,
   SizableText,
   Toast,
   XStack,
@@ -64,41 +65,57 @@ type IOpenOrdersDisplayRow =
 
 function MobileTwapEmptyState() {
   const intl = useIntl();
+  const buttonHeight = 32;
   const handleGuidePress = useCallback(() => {
     openGuideUrl(buildHelpUrl('articles/13988742'));
   }, []);
+  const guideButton = (
+    <Button
+      testID={PerpTestIDs.TwapEmptyGuideButton}
+      width={180}
+      borderRadius="$full"
+      size="small"
+      h={buttonHeight}
+      px="$3"
+      variant="secondary"
+      onPress={handleGuidePress}
+      childrenAsText={false}
+    >
+      <XStack gap="$1.5" alignItems="center">
+        <Icon name="BookOpenOutline" size="$4" />
+        <SizableText size="$bodySmMedium">
+          {intl.formatMessage({
+            id: ETranslations.perp_twap_trading_guide__action,
+          })}
+        </SizableText>
+      </XStack>
+    </Button>
+  );
 
   return (
     <YStack
       flex={1}
       alignItems="center"
-      justifyContent="center"
-      p="$6"
-      gap="$3"
+      justifyContent="flex-start"
+      minHeight={240}
+      px="$5"
+      pt="$16"
+      pb="$6"
     >
-      <SizableText size="$bodyMdMedium" color="$text" textAlign="center">
-        {intl.formatMessage({ id: ETranslations.perp_no_active_twap__title })}
-      </SizableText>
-      <Button
-        testID={PerpTestIDs.TwapEmptyGuideButton}
-        width={180}
-        borderRadius="$full"
-        size="small"
-        h={28}
-        px="$3"
-        variant="secondary"
-        onPress={handleGuidePress}
-        childrenAsText={false}
-      >
-        <XStack gap="$1.5" alignItems="center">
-          <Icon name="BookOpenOutline" size="$4" />
-          <SizableText size="$bodySmMedium">
-            {intl.formatMessage({
-              id: ETranslations.perp_twap_trading_guide__action,
-            })}
-          </SizableText>
-        </XStack>
-      </Button>
+      <YStack width="100%" maxWidth={320} gap="$2" alignItems="center">
+        <YStack h={72} alignItems="center" overflow="visible">
+          <Illustration name="Orders" size={100} />
+        </YStack>
+        <SizableText
+          size="$bodyXs"
+          color="$textSubdued"
+          textAlign="center"
+          maxWidth={280}
+        >
+          {intl.formatMessage({ id: ETranslations.perp_no_active_twap__title })}
+        </SizableText>
+        {guideButton}
+      </YStack>
     </YStack>
   );
 }
@@ -535,9 +552,7 @@ function PerpOpenOrdersList({
     </YStack>
   ) : null;
   const listEmptyComponent =
-    isMobile && activeOpenOrdersSubTab === 'twap' ? (
-      <MobileTwapEmptyState />
-    ) : undefined;
+    activeOpenOrdersSubTab === 'twap' ? <MobileTwapEmptyState /> : undefined;
 
   return (
     <CommonTableListView
