@@ -47,6 +47,13 @@ type ITransferBlock = {
   direction: EDecodedTxDirection;
 };
 
+function isSendLikeHistoryTxType(type?: EOnChainHistoryTxType) {
+  return (
+    type === EOnChainHistoryTxType.Send ||
+    type === EOnChainHistoryTxType.PrivateSend
+  );
+}
+
 function getTxActionTransferInfo(
   props: ITxActionProps & { isUTXO?: boolean; intl: IntlShape },
 ) {
@@ -109,7 +116,7 @@ function getTxActionTransferInfo(
       transferTarget = to || from;
     }
   } else if (isUTXO) {
-    if (type === EOnChainHistoryTxType.Send) {
+    if (isSendLikeHistoryTxType(type)) {
       const filteredReceives = receives.filter((receive) => !receive.isOwn);
       transferTarget =
         filteredReceives.length > 1
@@ -409,6 +416,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     intl,
     isUTXO,
   });
+  const isSendLikeHistory = isSendLikeHistoryTxType(type);
   const descriptionTarget = isPrivateSend
     ? (payload?.privateSend?.originalRecipient ?? transferTarget)
     : transferTarget;
@@ -452,7 +460,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       avatar.fallbackIcon = 'ArrowBottomOutline';
       title = intl.formatMessage({ id: ETranslations.global_receive });
     } else if (vaultSettings?.isUtxo) {
-      if (type === EOnChainHistoryTxType.Send) {
+      if (isSendLikeHistory) {
         const tokens = uniq(map(sends, 'tokenIdOnNetwork'));
         if (tokens.length > 1) {
           change = buildExpandedTransferView({
@@ -537,7 +545,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       avatar.src = receiveNFTIcon || receiveTokenIcon;
       title = intl.formatMessage({ id: ETranslations.global_receive });
     } else if (vaultSettings?.isUtxo) {
-      if (type === EOnChainHistoryTxType.Send) {
+      if (isSendLikeHistory) {
         const changeInfo = buildTransferChangeInfo({
           changePrefix: '-',
           transfers: sends,
