@@ -20,6 +20,8 @@ import {
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { debugScanCameraLog } from '../utils/debugScanCameraLog';
+
 import { ScanCamera } from './ScanCamera';
 
 export type IScanQrCodeProps = {
@@ -38,6 +40,24 @@ export function ScanQrCode({
   );
   const isFocused = useIsFocused();
   const [progress, setProgress] = useState<number | undefined>();
+  useEffect(() => {
+    debugScanCameraLog('scan-qrcode-mount', {
+      qrWalletScene: Boolean(qrWalletScene),
+    });
+    return () => {
+      debugScanCameraLog('scan-qrcode-unmount', {
+        qrWalletScene: Boolean(qrWalletScene),
+      });
+    };
+  }, [qrWalletScene]);
+
+  useEffect(() => {
+    debugScanCameraLog('permission-state', {
+      currentPermission,
+      isFocused,
+      canRenderCamera: currentPermission === PermissionStatus.GRANTED,
+    });
+  }, [currentPermission, isFocused]);
   /*
     useEffect has been removed for performance. 
     If other hooks cause scanned to be refreshed to false, please add useEffect back.
@@ -76,20 +96,50 @@ export function ScanQrCode({
   );
 
   const handlePermission = useCallback(async () => {
-    const readSilentStatus =
-      platformEnv.isDesktopMac || platformEnv.isDesktopWin
-        ? await globalThis.desktopApiProxy?.system?.getMediaAccessStatus?.(
-            'camera',
-          )
-        : (await Camera.getCameraPermissionsAsync())?.status;
+    debugScanCameraLog('permission-check-start', {
+      isDesktopMac: platformEnv.isDesktopMac,
+      isDesktopWin: platformEnv.isDesktopWin,
+      isNativeIOS: platformEnv.isNativeIOS,
+      isNativeAndroid: platformEnv.isNativeAndroid,
+    });
+    let readSilentStatus;
+    if (platformEnv.isDesktopMac || platformEnv.isDesktopWin) {
+      readSilentStatus =
+        await globalThis.desktopApiProxy?.system?.getMediaAccessStatus?.(
+          'camera',
+        );
+      debugScanCameraLog('permission-read-result', {
+        status: readSilentStatus,
+        source: 'desktopApiProxy',
+      });
+    } else {
+      const readPermissionResponse = await Camera.getCameraPermissionsAsync();
+      readSilentStatus = readPermissionResponse?.status;
+      debugScanCameraLog('permission-read-result', {
+        status: readPermissionResponse?.status,
+        granted: readPermissionResponse?.granted,
+        canAskAgain: readPermissionResponse?.canAskAgain,
+        source: 'expo-camera',
+      });
+    }
     if (readSilentStatus === PermissionStatus.GRANTED) {
       setCurrentPermission(PermissionStatus.GRANTED);
+      debugScanCameraLog('permission-granted-from-read');
       return;
     }
-    const { status } = await Camera.requestCameraPermissionsAsync();
+    debugScanCameraLog('permission-request-start');
+    const requestPermissionResponse =
+      await Camera.requestCameraPermissionsAsync();
+    const { status } = requestPermissionResponse;
     setCurrentPermission(status);
+    debugScanCameraLog('permission-request-result', {
+      status,
+      granted: requestPermissionResponse.granted,
+      canAskAgain: requestPermissionResponse.canAskAgain,
+    });
 
     if (status === PermissionStatus.GRANTED) {
+      debugScanCameraLog('permission-granted-from-request');
       return;
     }
     const canRequestExpandView =
@@ -150,6 +200,11 @@ export function ScanQrCode({
           openSettings('camera');
         }
       },
+    });
+    debugScanCameraLog('permission-denied-dialog-shown', {
+      status,
+      canRequestExpandView,
+      canViewTutorial,
     });
   }, [intl]);
 

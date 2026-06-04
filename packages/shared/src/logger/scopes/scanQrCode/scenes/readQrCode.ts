@@ -16,4 +16,9 @@ export class ReadQrCodeScene extends BaseScene {
   public readFromLibrary(imageResult: string, stringResult: string | null) {
     return devOnlyData({ imageResult, stringResult });
   }
+
+  @LogToLocal({ level: 'info' })
+  public debugCameraState(label: string, valueText?: string) {
+    return valueText ? [label, valueText] : [label];
+  }
 }

@@ -1,8 +1,31 @@
 diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
-index 135a383..d7435c3 100644
+index 135a383..45b26d4 100644
 --- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
 +++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
-@@ -112,34 +112,35 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -58,6 +58,10 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+     // Keep delegate objects in memory to avoid collecting them before photo capturing finishes
+     private var inProgressPhotoCaptureDelegates = [Int64: PhotoCaptureDelegate]()
+ 
++    private func ok55747Log(_ message: String) {
++        print("[OK-55747][CameraKit] \(message)")
++    }
++
+     // MARK: - Lifecycle
+ 
+     #if !targetEnvironment(macCatalyst)
+@@ -88,9 +92,11 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+     }
+ 
+     func cameraRemovedFromSuperview() {
++        ok55747Log("cameraRemovedFromSuperview setupResult=\(setupResult) session.isRunning=\(session.isRunning)")
+         sessionQueue.async {
+             if self.setupResult == .success {
+                 self.session.stopRunning()
++                self.ok55747Log("stopRunning session.isRunning=\(self.session.isRunning)")
+                 self.removeObservers()
+             }
+         }
+@@ -112,34 +118,43 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
      // MARK: - Public
  
      func setup(cameraType: CameraType, supportedBarcodeType: [CodeFormat]) {
@@ -10,6 +33,7 @@ index 135a383..d7435c3 100644
 -        // so it must be on the same thread as setupCaptureSession to avoid startRunning executing inbetween
 -        // Observe this with a breakpoint on `.session = X` and look in Console.app for
 -        // "AVCaptureSession beginConfiguration" from the com.apple.cameracapture subsystem
++        ok55747Log("setup begin cameraType=\(cameraType) supportedBarcodeTypeCount=\(supportedBarcodeType.count)")
          DispatchQueue.main.async {
 -            self.cameraPreview.session = self.session
 -            self.cameraPreview.previewLayer.videoGravity = .resizeAspect
@@ -33,6 +57,7 @@ index 135a383..d7435c3 100644
 +        self.sessionQueue.async {
 +            self.setupResult = self.setupCaptureSession(
 +                cameraType: cameraType, supportedBarcodeType: supportedBarcodeType)
++            self.ok55747Log("setupCaptureSession result=\(self.setupResult)")
  
 -                self.addObservers()
 +            self.addObservers()
@@ -41,7 +66,11 @@ index 135a383..d7435c3 100644
 -                    self.session.startRunning()
 -                }
 +            if self.setupResult == .success {
++                self.ok55747Log("startRunning begin")
 +                self.session.startRunning()
++                self.ok55747Log("startRunning end session.isRunning=\(self.session.isRunning)")
++            } else {
++                self.ok55747Log("startRunning skipped setupResult=\(self.setupResult)")
 +            }
  
 -                DispatchQueue.main.async {
@@ -54,13 +83,15 @@ index 135a383..d7435c3 100644
 +            // commitConfiguration). Dispatching to main after startRunning() ensures proper
 +            // sequencing of the AVCaptureSession configuration lifecycle. (Fixes REACT-NATIVE-1EZ)
 +            DispatchQueue.main.async {
++                self.ok55747Log("preview attach begin resizeMode=\(self.resizeMode)")
 +                self.cameraPreview.session = self.session
 +                self.cameraPreview.previewLayer.videoGravity = self.resizeMode == .cover ? .resizeAspectFill : .resizeAspect
 +                self.setVideoOrientationToInterfaceOrientation()
++                self.ok55747Log("preview attach end hasConnection=\(self.cameraPreview.previewLayer.connection != nil)")
              }
          }
      }
-@@ -347,6 +348,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -347,6 +362,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
      }
  
      func update(resizeMode: ResizeMode) {
@@ -68,6 +99,116 @@ index 135a383..d7435c3 100644
          DispatchQueue.main.async {
              switch resizeMode {
              case .cover:
+@@ -558,13 +574,16 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+         guard let videoDevice = self.getBestDevice(for: cameraType),
+             let videoDeviceInput = try? AVCaptureDeviceInput(device: videoDevice)
+         else {
++            ok55747Log("setupCaptureSession failed no video device or input")
+             return .sessionConfigurationFailed
+         }
++        ok55747Log("setupCaptureSession device=\(videoDevice.localizedName)")
+ 
+         session.beginConfiguration()
+         defer {
+             session.commitConfiguration()
+             self.resetZoom(forDevice: videoDevice)
++            self.ok55747Log("setupCaptureSession commit session.isRunning=\(self.session.isRunning)")
+         }
+ 
+         session.sessionPreset = .photo
+@@ -579,12 +598,15 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+         if session.canAddInput(videoDeviceInput) {
+             session.addInput(videoDeviceInput)
+             self.videoDeviceInput = videoDeviceInput
++            ok55747Log("setupCaptureSession addInput success")
+         } else {
++            ok55747Log("setupCaptureSession addInput failed")
+             return .sessionConfigurationFailed
+         }
+ 
+         if session.canAddOutput(photoOutput) {
+             session.addOutput(photoOutput)
++            ok55747Log("setupCaptureSession addPhotoOutput success")
+ 
+             if let photoOutputConnection = self.photoOutput.connection(with: .video) {
+                 if photoOutputConnection.isVideoStabilizationSupported {
+@@ -592,6 +614,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+                 }
+             }
+         } else {
++            ok55747Log("setupCaptureSession addPhotoOutput failed")
+             return .sessionConfigurationFailed
+         }
+ 
+@@ -606,6 +629,9 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+                 .filter { availableTypes.contains($0) }
+ 
+             metadataOutput.metadataObjectTypes = filteredTypes
++            ok55747Log("setupCaptureSession addMetadataOutput success filteredTypeCount=\(filteredTypes.count)")
++        } else {
++            ok55747Log("setupCaptureSession addMetadataOutput failed")
+         }
+ 
+         applyDeferredStartConfiguration()
+@@ -614,16 +640,25 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+     }
+ 
+     private func applyDeferredStartConfiguration() {
+-        guard #available(iOS 26.0, *) else { return }
++        guard #available(iOS 26.0, *) else {
++            ok55747Log("deferredStart unavailable")
++            return
++        }
+ 
+         let enableDeferredStart = deferredStartEnabled
+ 
+         if photoOutput.isDeferredStartSupported {
+             photoOutput.isDeferredStartEnabled = enableDeferredStart
++            ok55747Log("photoOutput deferredStart enabled=\(enableDeferredStart)")
++        } else {
++            ok55747Log("photoOutput deferredStart unsupported")
+         }
+ 
+         if metadataOutput.isDeferredStartSupported {
+             metadataOutput.isDeferredStartEnabled = enableDeferredStart
++            ok55747Log("metadataOutput deferredStart enabled=\(enableDeferredStart)")
++        } else {
++            ok55747Log("metadataOutput deferredStart unsupported")
+         }
+     }
+ 
+@@ -823,17 +858,23 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+ 
+     private func sessionRuntimeError(notification: Notification) {
+         guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError else {
++            ok55747Log("sessionRuntimeError missing AVError")
+             return
+         }
+ 
+         print("Capture session runtime error: \(error)")
++        ok55747Log("sessionRuntimeError code=\(error.code.rawValue) description=\(error.localizedDescription)")
+ 
+         // Automatically try to restart the session running if media services were reset and the last start running succeeded.
+         if error.code == .mediaServicesWereReset {
+             sessionQueue.async {
+                 if self.isSessionRunning {
++                    self.ok55747Log("sessionRuntimeError restart begin")
+                     self.session.startRunning()
+                     self.isSessionRunning = self.session.isRunning
++                    self.ok55747Log("sessionRuntimeError restart end isSessionRunning=\(self.isSessionRunning)")
++                } else {
++                    self.ok55747Log("sessionRuntimeError restart skipped isSessionRunning=false")
+                 }
+             }
+         }
+@@ -853,6 +894,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+             let reason = AVCaptureSession.InterruptionReason(rawValue: reasonValue)
+         {
+             print("Capture session was interrupted with reason \(reason)")
++            ok55747Log("sessionWasInterrupted reason=\(reason.rawValue)")
+ 
+             if reason == .audioDeviceInUseByAnotherClient
+                 || reason == .videoDeviceInUseByAnotherClient
 diff --git a/node_modules/react-native-camera-kit/src/Camera.android.tsx b/node_modules/react-native-camera-kit/src/Camera.android.tsx
 index 56cddbc..ae14ea0 100644
 --- a/node_modules/react-native-camera-kit/src/Camera.android.tsx
