@@ -284,6 +284,7 @@
 				076068C12E7EF3BA00E007B2 /* Embed Frameworks */,
 				3EDAD8685393FC102363B5F8 /* [CP] Embed Pods Frameworks */,
 				EFE2221F1F14C7E02A5D3839 /* [CP] Copy Pods Resources */,
+				C0FFEE48C0FFEE48C0FFEE48 /* [CP-User] Bundle TradingView offline chart assets */,
 			);
 			buildRules = (
 			);
@@ -604,6 +605,17 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "if [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  echo \"Skipping background bundle in Debug configuration\"\n  exit 0\nfi\n\n# Union build already produced background.bundle — skip separate Metro run.\nif [[ \"$UNION_BUILD\" = \"true\" ]]; then\n  echo \"Skipping separate background bundle (UNION_BUILD=true)\"\n  exit 0\nfi\n\nif [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\nif [[ -z \"$NODE_BINARY\" ]]; then\n  export NODE_BINARY=\"node\"\nfi\n\n\"$NODE_BINARY\" \"$PROJECT_ROOT/scripts/build-release-background-bundle.js\" \\\n  --platform ios \\\n  --entry-file \"$PROJECT_ROOT/background.ts\" \\\n  --bundle-output \"$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/background.bundle\" \\\n  --assets-dest \"$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" \\\n  --sourcemap-output \"$CONFIGURATION_BUILD_DIR/background.bundle.map\"\n";
+			showEnvVarsInLog = 0;
+		};
+		C0FFEE48C0FFEE48C0FFEE48 /* [CP-User] Bundle TradingView offline chart assets */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			name = "[CP-User] Bundle TradingView offline chart assets";
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "SRC=\"${PROJECT_DIR}/../tradingview-assets\"\nDEST=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/tradingview-assets\"\nif [ -d \"$SRC\" ]; then\n  rm -rf \"$DEST\"; mkdir -p \"$DEST\"; cp -R \"$SRC/.\" \"$DEST/\"\n  echo \"chart-webview: copied offline assets -> $DEST\"\nelse\n  echo \"chart-webview: no tradingview-assets (run fetch-tradingview-assets.mjs)\"\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
