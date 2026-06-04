@@ -139,6 +139,21 @@ export function useTradingViewV2WebSocket({
       }
 
       const receivedData = payload.data as IWsPriceData;
+      if (
+        receivedData &&
+        !('points' in receivedData) &&
+        receivedData.type &&
+        receivedData.type !== chartType
+      ) {
+        debugMarketTradingViewLog('ws-realtime-skip-chart-type', {
+          tokenAddress: shortMarketId(tokenAddress),
+          networkId,
+          receivedType: receivedData.type,
+          chartType,
+        });
+        return;
+      }
+
       const dataForWebView =
         receivedData && 'points' in receivedData
           ? receivedData
@@ -191,5 +206,12 @@ export function useTradingViewV2WebSocket({
         handleMarketDataUpdate,
       );
     };
-  }, [markSubscriptionActivity, networkId, tokenAddress, webRef, enabled]);
+  }, [
+    chartType,
+    markSubscriptionActivity,
+    networkId,
+    tokenAddress,
+    webRef,
+    enabled,
+  ]);
 }

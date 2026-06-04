@@ -26,6 +26,7 @@ import {
 import {
   DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
   fetchAndSendAccountMarks,
+  normalizeTradingViewKLineInterval,
   useTradingViewMessageHandler,
 } from './messageHandlers';
 
@@ -85,6 +86,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webRef = useRef<IWebViewRef | null>(null);
   const marksTimeRange = useRef<IMarksTimeRange | null>(null);
   const currentKLineResolution = useRef(DEFAULT_TRADING_VIEW_KLINE_RESOLUTION);
+  const [activeKLineResolution, setActiveKLineResolution] = useState(
+    DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
+  );
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -116,6 +120,21 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   } = props;
 
   const { handleNavigation } = useNavigationHandler();
+  const handleCurrentKLineResolutionChange = useCallback(
+    (resolution: string) => {
+      const normalizedResolution =
+        normalizeTradingViewKLineInterval(resolution);
+      currentKLineResolution.current = normalizedResolution;
+      setActiveKLineResolution((prev) =>
+        prev === normalizedResolution ? prev : normalizedResolution,
+      );
+      debugMarketTradingViewLog('resolution-change', {
+        resolution,
+        normalizedResolution,
+      });
+    },
+    [],
+  );
   const { customReceiveHandler } = useTradingViewMessageHandler({
     tokenAddress,
     networkId,
@@ -125,6 +144,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     tokenSymbol: symbol,
     marksTimeRange,
     currentKLineResolution,
+    onCurrentKLineResolutionChange: handleCurrentKLineResolutionChange,
     onTouchScroll,
     onIndicatorsDialogOpenChange,
     forceEmptyKLineData,
@@ -188,6 +208,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       networkId,
       dataSource,
       effectiveDataSource,
+      activeKLineResolution,
       isVisible,
       isHyperLiquidSource,
       useHyperLiquid,
@@ -197,6 +218,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     });
   }, [
     chartSymbol,
+    activeKLineResolution,
     dataSource,
     effectiveDataSource,
     forceEmptyKLineData,
@@ -242,7 +264,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       !isHyperLiquidSource &&
       !mockEmptyKLineEnabled &&
       !forceEmptyKLineData,
-    chartType: '1m',
+    chartType: activeKLineResolution,
   });
 
   // Load marks on page enter and refresh when swap transaction succeeds

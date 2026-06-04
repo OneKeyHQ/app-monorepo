@@ -37,6 +37,7 @@ interface IUseTradingViewMessageHandlerParams {
   tokenSymbol?: string;
   marksTimeRange?: React.MutableRefObject<IMarksTimeRange | null>;
   currentKLineResolution?: React.MutableRefObject<string>;
+  onCurrentKLineResolutionChange?: (resolution: string) => void;
   onTouchScroll?: (deltaY: number) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   forceEmptyKLineData?: boolean;
@@ -245,6 +246,7 @@ export function useTradingViewMessageHandler({
   tokenSymbol,
   marksTimeRange,
   currentKLineResolution,
+  onCurrentKLineResolutionChange,
   onTouchScroll,
   onIndicatorsDialogOpenChange,
   forceEmptyKLineData,
@@ -274,6 +276,7 @@ export function useTradingViewMessageHandler({
         tokenSymbol,
         marksTimeRange,
         currentKLineResolution,
+        onCurrentKLineResolutionChange,
         forceEmptyKLineData,
         emptyKLineDataOnError,
         kLineDataFallback,
@@ -407,6 +410,7 @@ export function useTradingViewMessageHandler({
       tokenSymbol,
       marksTimeRange,
       currentKLineResolution,
+      onCurrentKLineResolutionChange,
       onTouchScroll,
       onIndicatorsDialogOpenChange,
       forceEmptyKLineData,

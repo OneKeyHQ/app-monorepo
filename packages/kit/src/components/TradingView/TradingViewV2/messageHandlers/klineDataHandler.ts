@@ -288,7 +288,9 @@ export async function handleKLineDataRequest({
       hasWebRef: Boolean(webRef.current),
     });
 
-    if (context.currentKLineResolution) {
+    if (context.onCurrentKLineResolutionChange) {
+      context.onCurrentKLineResolutionChange(resolution);
+    } else if (context.currentKLineResolution) {
       context.currentKLineResolution.current = resolution;
     }
 

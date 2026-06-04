@@ -103,6 +103,29 @@ export class MarketSubscriptionTracker {
     );
   }
 
+  hasExactSubscription({
+    address,
+    type,
+    networkId,
+    chartType,
+    currency,
+  }: {
+    address: string;
+    type: ISubscriptionType;
+    networkId: string;
+    chartType?: string;
+    currency?: string;
+  }): boolean {
+    return this.subscriptions.some(
+      (sub) =>
+        sub.address === address &&
+        sub.type === type &&
+        sub.networkId === networkId &&
+        sub.chartType === chartType &&
+        sub.currency === currency,
+    );
+  }
+
   getSubscription({
     address,
     type,
