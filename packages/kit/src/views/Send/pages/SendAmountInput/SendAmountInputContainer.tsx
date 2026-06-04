@@ -185,6 +185,7 @@ type IPrivateSendQuoteRecipientResult = {
 
 type IPrivateSendBuildCtx = {
   rocketXOrderId?: unknown;
+  payinAddress?: unknown;
 };
 
 const privateSendValueDropWarningPercent = 5;
@@ -1884,6 +1885,10 @@ function SendAmountInputContainer() {
             };
             const normalizedBuildSwapRes = {
               ...buildSwapRes,
+              ctx: {
+                ...buildSwapRes.ctx,
+                payinAddress: privateSendPayinAddress,
+              },
               orderId: privateSendBackendOrderId,
               result: {
                 ...buildSwapRes.result,
@@ -2051,6 +2056,7 @@ function SendAmountInputContainer() {
                 privateSend: {
                   orderId: privateSendOrderId,
                   rocketXOrderId: privateSendRocketXOrderId,
+                  payinAddress: privateSendPayinAddress,
                   provider: privateSendProviderInfo.provider,
                   providerName: privateSendProviderInfo.providerName,
                   providerLogo: privateSendProviderInfo.providerLogo,

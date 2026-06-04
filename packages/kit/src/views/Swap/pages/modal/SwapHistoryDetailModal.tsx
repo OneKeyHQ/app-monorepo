@@ -89,6 +89,24 @@ const privateSendProgressStepLabels = [
 const privateSendProgressStepLabelWidth = 72;
 const privateSendProgressStepIconSize = 24;
 
+function getPrivateSendProgressStepLabel({
+  index,
+  status,
+}: {
+  index: number;
+  status: IPrivateSendProgressStepStatus;
+}) {
+  if (
+    index === privateSendProgressStepLabels.length - 1 &&
+    status === 'error'
+  ) {
+    return ETranslations.private_send_failed;
+  }
+  return (
+    privateSendProgressStepLabels[index] ?? ETranslations.private_send_pending
+  );
+}
+
 function getPrivateSendProgressStepStatuses({
   status,
   extraStatus,
@@ -304,7 +322,7 @@ function PrivateSendProgressStep({
   label,
   status,
 }: {
-  label: (typeof privateSendProgressStepLabels)[number];
+  label: ETranslations;
   status: IPrivateSendProgressStepStatus;
 }) {
   const intl = useIntl();
@@ -360,7 +378,10 @@ function PrivateSendProgress({
               <PrivateSendProgressConnector nextStepStatus={stepStatus} />
             ) : null}
             <PrivateSendProgressStep
-              label={privateSendProgressStepLabels[index]}
+              label={getPrivateSendProgressStepLabel({
+                index,
+                status: stepStatus,
+              })}
               status={stepStatus}
             />
           </Fragment>

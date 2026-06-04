@@ -155,8 +155,33 @@ function getPrivateSendRocketXOrderIdFromCtx(ctx: unknown) {
     : undefined;
 }
 
+function getPrivateSendPayinAddressFromCtx(ctx: unknown) {
+  const payinAddress = (ctx as { payinAddress?: unknown } | undefined)
+    ?.payinAddress;
+  return typeof payinAddress === 'string' && payinAddress
+    ? payinAddress
+    : undefined;
+}
+
 function isPrivateSendFallbackOrderId(orderId?: string) {
   return orderId?.startsWith(privateSendFallbackOrderIdPrefix) ?? false;
+}
+
+function getSwapHistoryStateReceivedAddress({
+  swapTxHistory,
+  isPrivateSendHistory,
+}: {
+  swapTxHistory: ISwapTxHistory;
+  isPrivateSendHistory: boolean;
+}) {
+  if (!isPrivateSendHistory) {
+    return swapTxHistory.txInfo.receiver || undefined;
+  }
+  return (
+    getPrivateSendPayinAddressFromCtx(swapTxHistory.ctx) ||
+    swapTxHistory.txInfo.receiver ||
+    undefined
+  );
 }
 
 function getSwapHistoryStateOrderId({
@@ -1864,6 +1889,10 @@ export default class ServiceSwap extends ServiceBase {
       swapTxHistory: currentSwapTxHistory,
       isPrivateSendHistory,
     });
+    const stateReceivedAddress = getSwapHistoryStateReceivedAddress({
+      swapTxHistory: currentSwapTxHistory,
+      isPrivateSendHistory,
+    });
     try {
       const txStatusRes = await this.fetchTxState({
         txId:
@@ -1880,7 +1909,7 @@ export default class ServiceSwap extends ServiceBase {
         networkId: currentSwapTxHistory.baseInfo.fromToken.networkId,
         ctx: currentSwapTxHistory.ctx,
         toTokenAddress: currentSwapTxHistory.baseInfo.toToken.contractAddress,
-        receivedAddress: currentSwapTxHistory.txInfo.receiver,
+        receivedAddress: stateReceivedAddress,
         orderId: stateOrderId,
       });
       if (
