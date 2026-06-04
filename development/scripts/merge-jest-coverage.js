@@ -67,11 +67,15 @@ function readCoverageMap(coverageFiles) {
   return coverageMap;
 }
 
-function percent(covered, total) {
+function rawPercent(covered, total) {
   if (total === 0) {
     return 100;
   }
-  return Number(((covered / total) * 100).toFixed(2));
+  return (covered / total) * 100;
+}
+
+function percent(covered, total) {
+  return Number(rawPercent(covered, total).toFixed(2));
 }
 
 function createMetricSummary(total, covered) {
@@ -158,10 +162,40 @@ function summarizeCoverageMap(coverageMap) {
   return summary;
 }
 
+function normalizeCoverageThresholds(value, sourceName) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${sourceName} must be an object`);
+  }
+
+  const thresholds = {};
+  for (const metric of metrics) {
+    const threshold = value[metric];
+    if (threshold !== undefined) {
+      if (typeof threshold !== 'number' || Number.isNaN(threshold)) {
+        throw new Error(
+          `Invalid coverage threshold for ${metric} in ${sourceName}: ${threshold}`,
+        );
+      }
+      thresholds[metric] = threshold;
+    }
+  }
+
+  if (Object.keys(thresholds).length === 0) {
+    throw new Error(
+      `${sourceName} did not contain any global coverage thresholds`,
+    );
+  }
+
+  return thresholds;
+}
+
 function readGlobalCoverageThreshold() {
   const envValue = process.env.JEST_COVERAGE_THRESHOLD_JSON;
   if (envValue) {
-    return JSON.parse(envValue);
+    return normalizeCoverageThresholds(
+      JSON.parse(envValue),
+      'JEST_COVERAGE_THRESHOLD_JSON',
+    );
   }
 
   const configPath = path.join(rootDir, 'jest.config.js');
@@ -171,7 +205,9 @@ function readGlobalCoverageThreshold() {
   );
 
   if (!thresholdMatch) {
-    return {};
+    throw new Error(
+      'Unable to find coverageThreshold.global in jest.config.js. Set JEST_COVERAGE_THRESHOLD_JSON to avoid disabling coverage thresholds.',
+    );
   }
 
   const thresholds = {};
@@ -183,7 +219,10 @@ function readGlobalCoverageThreshold() {
     propertyMatch = propertyPattern.exec(thresholdBlock);
   }
 
-  return thresholds;
+  return normalizeCoverageThresholds(
+    thresholds,
+    'jest.config.js coverageThreshold.global',
+  );
 }
 
 function recreateDir(dir) {
@@ -289,8 +328,8 @@ function writeCoverageReports(coverageMap, summary, outputDir) {
   writeLcov(coverageMap, outputDir);
 }
 
-function formatPercent(value) {
-  return `${value.toFixed(2).replace(/\.00$/, '')}%`;
+function formatPercent(value, fractionDigits = 2) {
+  return `${value.toFixed(fractionDigits).replace(/\.?0+$/, '')}%`;
 }
 
 function checkCoverageThresholds(summary, thresholds) {
@@ -300,9 +339,13 @@ function checkCoverageThresholds(summary, thresholds) {
     const threshold = thresholds[metric];
     if (typeof threshold === 'number') {
       const metricSummary = summary.total[metric];
-      if (threshold >= 0 && metricSummary.pct < threshold) {
+      const metricPercent = rawPercent(
+        metricSummary.covered,
+        metricSummary.total,
+      );
+      if (threshold >= 0 && metricPercent < threshold) {
         failures.push(
-          `${metric}: ${formatPercent(metricSummary.pct)} is below ${threshold}%`,
+          `${metric}: ${formatPercent(metricPercent, 4)} (${metricSummary.covered}/${metricSummary.total}) is below ${threshold}%`,
         );
       } else if (threshold < 0) {
         const uncovered = metricSummary.total - metricSummary.covered;
