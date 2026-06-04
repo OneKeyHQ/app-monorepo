@@ -13,6 +13,7 @@ import CreateNewWallet from '../pages/CreateNewWallet';
 import CreateOrImportWallet from '../pages/CreateOrImportWallet';
 import CreatePasscode from '../pages/CreatePasscodePage';
 import CreatePin from '../pages/CreatePinPage';
+import DeviceSetup from '../pages/DeviceSetup';
 import { FinalizeWalletSetup } from '../pages/FinalizeWalletSetup';
 import GetStarted from '../pages/GetStarted';
 import ICloudBackup from '../pages/ICloudBackup';
@@ -91,6 +92,11 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.CheckAndUpdate,
     component: CheckAndUpdate,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.DeviceSetup,
+    component: DeviceSetup,
     options: hiddenHeaderOptions,
   },
   {

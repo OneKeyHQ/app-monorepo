@@ -165,4 +165,11 @@ export const OnboardingTestIDs = {
   checkAndUpdateSkipUpdateBtn: 'onboarding-check-and-update-skip-update-btn',
   checkAndUpdateRetryBtn: 'onboarding-check-and-update-retry-btn',
   checkAndUpdateSkipStepBtn: 'onboarding-check-and-update-skip-step-btn',
+  checkAndUpdateContinueToSetupBtn:
+    'onboarding-check-and-update-continue-to-setup-btn',
+
+  // Device setup
+  deviceSetupPage: 'onboarding-device-setup-page',
+  deviceSetupDoneBtn: 'onboarding-device-setup-done-btn',
+  deviceSetupRetryBtn: 'onboarding-device-setup-retry-btn',
 } as const;
