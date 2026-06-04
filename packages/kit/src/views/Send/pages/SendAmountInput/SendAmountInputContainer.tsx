@@ -3660,8 +3660,10 @@ function SendAmountInputContainer() {
             contentContainerStyle={{ flexGrow: 1 }}
             bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
           >
-            <YStack px="$5" py="$5" gap="$5">
-              {renderAmountFormContent}
+            <YStack px="$5" py="$5" gap="$5" flexGrow={1}>
+              <YStack flex={1} justifyContent="center">
+                {renderAmountFormContent}
+              </YStack>
               <YStack gap="$3">{renderBottomInfoContent}</YStack>
             </YStack>
           </Keyboard.AwareScrollView>

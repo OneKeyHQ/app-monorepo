@@ -147,6 +147,14 @@ function mergePrivateSendHistoryReplayFields({
   const replayPayinAddress = getPrivateSendPayinAddressFromCtx(replayItem.ctx);
   const currentRocketXOrderId = getPrivateSendRocketXOrderIdFromCtx(item.ctx);
   const currentPayinAddress = getPrivateSendPayinAddressFromCtx(item.ctx);
+  const shouldMergeGasFeeInNative = shouldUsePrivateSendReplayFeeValue({
+    currentValue: item.txInfo.gasFeeInNative,
+    replayValue: replayItem.txInfo.gasFeeInNative,
+  });
+  const shouldMergeGasFeeFiatValue = shouldUsePrivateSendReplayFeeValue({
+    currentValue: item.txInfo.gasFeeFiatValue,
+    replayValue: replayItem.txInfo.gasFeeFiatValue,
+  });
 
   let updated = false;
   let nextItem = item;
@@ -164,6 +172,22 @@ function mergePrivateSendHistoryReplayFields({
           : {}),
         ...(replayPayinAddress && !currentPayinAddress
           ? { payinAddress: replayPayinAddress }
+          : {}),
+      },
+    };
+    updated = true;
+  }
+
+  if (shouldMergeGasFeeInNative || shouldMergeGasFeeFiatValue) {
+    nextItem = {
+      ...nextItem,
+      txInfo: {
+        ...nextItem.txInfo,
+        ...(shouldMergeGasFeeInNative
+          ? { gasFeeInNative: replayItem.txInfo.gasFeeInNative }
+          : {}),
+        ...(shouldMergeGasFeeFiatValue
+          ? { gasFeeFiatValue: replayItem.txInfo.gasFeeFiatValue }
           : {}),
       },
     };
@@ -255,6 +279,30 @@ function isSamePrivateSendAmount(a?: string, b?: string) {
   const amountA = new BigNumber(a ?? '');
   const amountB = new BigNumber(b ?? '');
   return !amountA.isNaN() && !amountB.isNaN() && amountA.isEqualTo(amountB);
+}
+
+function shouldUsePrivateSendReplayFeeValue({
+  currentValue,
+  replayValue,
+}: {
+  currentValue?: string;
+  replayValue?: string;
+}) {
+  const replayValueBN = new BigNumber(replayValue ?? '');
+  if (
+    replayValueBN.isNaN() ||
+    !replayValueBN.isFinite() ||
+    !replayValueBN.isGreaterThan(0)
+  ) {
+    return false;
+  }
+
+  const currentValueBN = new BigNumber(currentValue ?? '');
+  return (
+    currentValueBN.isNaN() ||
+    !currentValueBN.isFinite() ||
+    !currentValueBN.isGreaterThan(0)
+  );
 }
 
 function isPrivateSendNativeTokenIdentity({

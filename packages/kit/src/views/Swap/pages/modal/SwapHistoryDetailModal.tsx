@@ -964,8 +964,18 @@ const SwapHistoryDetailModal = () => {
 
   const renderNetworkFee = useCallback(() => {
     const { gasFeeFiatValue, gasFeeInNative } = txHistory?.txInfo ?? {};
-    const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? 0);
+    const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? '');
+    const gasFeeFiatValueBN = new BigNumber(gasFeeFiatValue ?? '');
+    if (gasFeeInNativeBN.isNaN() || !gasFeeInNativeBN.isFinite()) {
+      return (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          --
+        </SizableText>
+      );
+    }
     const gasFeeDisplay = gasFeeInNativeBN.toFixed();
+    const shouldRenderGasFeeFiatValue =
+      !gasFeeFiatValueBN.isNaN() && gasFeeFiatValueBN.isFinite();
     return (
       <SizableText size="$bodyMd" color="$textSubdued">
         <NumberSizeableText
@@ -985,7 +995,7 @@ const SwapHistoryDetailModal = () => {
               txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol,
           }}
         >
-          {gasFeeFiatValue ?? 0}
+          {shouldRenderGasFeeFiatValue ? gasFeeFiatValue : '--'}
         </NumberSizeableText>
         )
       </SizableText>
