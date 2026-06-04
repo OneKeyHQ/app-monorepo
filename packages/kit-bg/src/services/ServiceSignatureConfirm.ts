@@ -128,34 +128,31 @@ function fixPrivateSendRecipientDisplay({
     return;
   }
 
+  const originalRecipientKey = getAddressKey(originalRecipient);
   const payinAddresses = new Set<string>();
   const addPayinAddress = (address?: string) => {
     const key = getAddressKey(address);
-    if (key && key !== getAddressKey(originalRecipient)) {
+    if (key && key !== originalRecipientKey) {
       payinAddresses.add(key);
     }
   };
 
+  addPayinAddress(transferPayload?.privateSend?.payinAddress);
   addPayinAddress(
     unsignedTx.swapInfo?.swapBuildResData.changellyOrder?.payinAddress,
   );
-  addPayinAddress(decodedTx.to);
+  // EVM token/private-send transactions target token or router contracts; only
+  // explicit transfer recipients should be rewritten to the original recipient.
   decodedTx.actions.forEach((action) => {
     if (action.assetTransfer) {
-      addPayinAddress(action.assetTransfer.to);
       action.assetTransfer.sends.forEach((send) => addPayinAddress(send.to));
     }
   });
   decodedTx.outputActions?.forEach((action) => {
     if (action.assetTransfer) {
-      addPayinAddress(action.assetTransfer.to);
       action.assetTransfer.sends.forEach((send) => addPayinAddress(send.to));
     }
   });
-
-  if (!payinAddresses.size) {
-    return;
-  }
 
   decodedTx.txDisplay.components = decodedTx.txDisplay.components.map(
     (component) => {
