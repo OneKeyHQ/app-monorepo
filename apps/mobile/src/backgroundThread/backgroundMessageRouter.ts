@@ -80,6 +80,10 @@ export function routeBackgroundMessage(
     return;
   }
 
+  // Final case. If this prefix doesn't match either, the message falls through
+  // and is intentionally ignored — a typo or a future bg-side key with no router
+  // entry drops silently; the unit test `ignores an unknown key prefix` pins
+  // this contract.
   if (callId.startsWith(WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX)) {
     handlers.onWebEmbedRequest(callId, value);
   }
