@@ -105,6 +105,7 @@ const EarnMainTabsComponent = ({
   const tabsRef = externalTabsRef || internalTabsRef;
   const { hideSmallAssets, setHideSmallAssets } = useEarnHideSmallAssets();
   const useDesktopPageScrollTabs = platformEnv.isDesktop;
+  const directTabPressAnimationEnabled = platformEnv.isNativeIOS;
 
   const tabNames = useMemo(
     () => ({
@@ -131,6 +132,10 @@ const EarnMainTabsComponent = ({
   const initialTabName = useMemo(() => {
     return getTabName(defaultTab);
   }, [defaultTab, getTabName]);
+  const initialTabNameRef = useRef(initialTabName);
+  const containerInitialTabName = platformEnv.isNativeIOS
+    ? initialTabNameRef.current
+    : initialTabName;
 
   const tabNameList = useMemo(
     () => [tabNames.assets, tabNames.portfolio, tabNames.faqs],
@@ -151,6 +156,10 @@ const EarnMainTabsComponent = ({
     ({ tabName }: { tabName: string }) => {
       const tabKey = tabKeyByName[tabName];
       if (tabKey) {
+        if (platformEnv.isNativeIOS) {
+          return;
+        }
+
         rootNavigationRef.current?.setParams?.({
           tab: tabKey,
         });
@@ -219,6 +228,9 @@ const EarnMainTabsComponent = ({
   const isFocusedRef = useRef(isFocused);
 
   useEffect(() => {
+    if (platformEnv.isNativeIOS) {
+      return;
+    }
     if (isFocused === isFocusedRef.current) {
       return;
     }
@@ -314,19 +326,15 @@ const EarnMainTabsComponent = ({
 
   const renderTabBar = useCallback(
     (tabBarProps: TabBarProps<string>) => {
-      const handleTabPress = (name: string) => {
-        tabBarProps.onTabPress?.(name);
-      };
       return (
         <Tabs.TabBar
           {...tabBarProps}
-          directTabPressAnimation={platformEnv.isNativeIOS}
-          onTabPress={handleTabPress}
+          directTabPressAnimation={directTabPressAnimationEnabled}
           renderToolbar={renderPortfolioToolbar}
         />
       );
     },
-    [renderPortfolioToolbar],
+    [directTabPressAnimationEnabled, renderPortfolioToolbar],
   );
 
   const mergedContainerProps = useMemo<
@@ -409,7 +417,7 @@ const EarnMainTabsComponent = ({
       width={platformEnv.isNative ? Number(tabContainerWidth) : undefined}
       ref={tabsRef as any}
       renderTabBar={renderTabBar}
-      initialTabName={initialTabName}
+      initialTabName={containerInitialTabName}
       onTabChange={handleTabChange}
       useNativeHeaderAnimation={platformEnv.isNativeAndroid}
       pagerProps={
