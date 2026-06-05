@@ -35,9 +35,16 @@
  *   NPM_GITHUB_READ_TOKEN=<token> node development/scripts/fetch-tradingview-assets.mjs
  */
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, cpSync, readdirSync } from 'node:fs';
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // ── Pinned version (single source of truth) ──────────────────────────────────
@@ -50,7 +57,7 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 // Staging dirs consumed by the native/desktop builds:
 //   - mobile: iOS (Run Script) + Android (Gradle copy)
 //   - desktop: electron-builder asar (apps/desktop/app/tradingview-assets/**)
-const DESTS = [
+const DEST_DIRS = [
   join(REPO_ROOT, 'apps', 'mobile', 'tradingview-assets'),
   join(REPO_ROOT, 'apps', 'desktop', 'app', 'tradingview-assets'),
 ];
@@ -91,11 +98,13 @@ if (!metaRes.ok) {
 }
 const meta = await metaRes.json();
 const tarballUrl = meta?.versions?.[VERSION]?.dist?.tarball;
-if (!tarballUrl) fail(`version ${VERSION} not found in registry metadata for ${PKG}`);
+if (!tarballUrl)
+  fail(`version ${VERSION} not found in registry metadata for ${PKG}`);
 
 // 2. Download the tarball (.tgz).
 const tgzRes = await fetch(tarballUrl, { headers: authHeaders });
-if (!tgzRes.ok) fail(`tarball download failed: ${tgzRes.status} ${tgzRes.statusText}`);
+if (!tgzRes.ok)
+  fail(`tarball download failed: ${tgzRes.status} ${tgzRes.statusText}`);
 const tgzBuf = Buffer.from(await tgzRes.arrayBuffer());
 
 const tmp = mkdtempSync(join(tmpdir(), 'tv-assets-'));
@@ -104,7 +113,9 @@ writeFileSync(tgzPath, tgzBuf);
 
 // 3. Extract only package/dist from the tarball.
 try {
-  execFileSync('tar', ['-xzf', tgzPath, '-C', tmp, 'package/dist'], { stdio: 'inherit' });
+  execFileSync('tar', ['-xzf', tgzPath, '-C', tmp, 'package/dist'], {
+    stdio: 'inherit',
+  });
 } catch {
   rmSync(tmp, { recursive: true, force: true });
   fail('failed to extract package/dist from tarball');
@@ -121,13 +132,15 @@ try {
 }
 if (distEntries.length === 0) {
   rmSync(tmp, { recursive: true, force: true });
-  fail(`extracted dist/ is empty for ${PKG}@${VERSION} — refusing to stage an asset-less chart`);
+  fail(
+    `extracted dist/ is empty for ${PKG}@${VERSION} — refusing to stage an asset-less chart`,
+  );
 }
 
 // 4. Replace each staging dir with the fresh dist contents.
 //    Use fs.cpSync (not rsync) so this runs on Windows CI runners too — they
 //    package the desktop app but have no rsync on PATH.
-for (const dest of DESTS) {
+for (const dest of DEST_DIRS) {
   rmSync(dest, { recursive: true, force: true });
   mkdirSync(dest, { recursive: true });
   cpSync(distSrc, dest, { recursive: true });
