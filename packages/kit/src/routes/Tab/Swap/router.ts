@@ -5,12 +5,9 @@ import { ETabSwapRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
 
-const Swap = LazyLoadRootTabPage(async () => {
-  const [module] = await Promise.all([
-    import(/* webpackPrefetch: true */ '../../../views/Swap'),
-    prefetchSwapColdStartIcons(),
-  ]);
-  return module;
+const Swap = LazyLoadRootTabPage(() => {
+  void prefetchSwapColdStartIcons();
+  return import(/* webpackPrefetch: true */ '../../../views/Swap');
 });
 
 export const swapRouters: ITabSubNavigatorConfig<any, any>[] = [
