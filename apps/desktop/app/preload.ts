@@ -23,12 +23,17 @@ export type IDesktopEventUnSubscribe = () => void;
 
 // --- Internal state (preload world, not accessible from renderer) ---
 
-let desktopGlobals: { sdkConnectSrc: string } | undefined;
+let desktopGlobals:
+  | { sdkConnectSrc: string; tradingViewOfflineReady?: boolean }
+  | undefined;
 const deepLinks: any[] = [];
 
 ipcRenderer.on(
   ipcMessageKeys.SET_ONEKEY_DESKTOP_GLOBALS,
-  (_, globals: { sdkConnectSrc: string }) => {
+  (
+    _,
+    globals: { sdkConnectSrc: string; tradingViewOfflineReady?: boolean },
+  ) => {
     desktopGlobals = globals;
   },
 );

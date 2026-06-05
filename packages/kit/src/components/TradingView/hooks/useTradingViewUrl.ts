@@ -7,10 +7,12 @@ import {
   TRADING_VIEW_URL,
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
+import { DESKTOP_OFFLINE_CHART_ENTRY_URL } from '@onekeyhq/shared/src/consts/desktopChartConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { CHART_WEBVIEW_DESKTOP_OFFLINE_ENABLED } from '../ChartWebView/constants';
 import { TRADING_VIEW_DISABLED_FEATURES_URL_PARAM } from '../constants';
 import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
 
@@ -32,9 +34,26 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
 
+  // Desktop offline chart: usable only when the bundle was shipped into the asar
+  // (main process registered the onekey-chart:// handler and reports it ready via
+  // the desktop global). Mirrors native's online fallback when assets are absent.
+  const desktopOfflineChartReady =
+    platformEnv.isDesktop &&
+    CHART_WEBVIEW_DESKTOP_OFFLINE_ENABLED &&
+    !!(
+      globalThis.ONEKEY_DESKTOP_GLOBALS_GETTER?.() ??
+      globalThis.ONEKEY_DESKTOP_GLOBALS
+    )?.tradingViewOfflineReady;
+
   const baseUrl = useMemo(() => {
+    // Dev "use local TradingView URL" always wins (chart dev server on :5173).
     if (devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl) {
       return localTradingViewUrl;
+    }
+
+    // Local offline chart served from the asar (onekey-chart://local/index.html).
+    if (desktopOfflineChartReady) {
+      return DESKTOP_OFFLINE_CHART_ENTRY_URL;
     }
 
     if (devSettings.enabled) {
@@ -46,6 +65,7 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
     devSettings.enabled,
     devSettings.settings?.useLocalTradingViewUrl,
     localTradingViewUrl,
+    desktopOfflineChartReady,
   ]);
 
   // The full param set, shared by the online URL (query string) and the offline

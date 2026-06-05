@@ -9,6 +9,9 @@
  *   - iOS: a Run Script build phase copies it into the app bundle's tradingview-assets/
  *   - Android: the copyChartWebviewAssets Gradle task copies it into
  *     assets/tradingview-assets/  (chart-webview loads assets/<localBundle>/)
+ *   - Desktop: staged into apps/desktop/app/tradingview-assets/, which electron-builder
+ *     bundles into app.asar (outside build/, so it never enters the hot-update bundle);
+ *     the main process serves it under the onekey-chart:// custom scheme.
  *
  * IMPORTANT — this script is intentionally NOT part of `yarn install` /
  * postinstall, and the package is NOT a dependency in any package.json. That
@@ -37,8 +40,13 @@ const REGISTRY = 'https://npm.pkg.github.com';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-// Single shared staging dir consumed by both iOS (Run Script) and Android (Gradle copy).
-const DEST = join(REPO_ROOT, 'apps', 'mobile', 'tradingview-assets');
+// Staging dirs consumed by the native/desktop builds:
+//   - mobile: iOS (Run Script) + Android (Gradle copy)
+//   - desktop: electron-builder asar (apps/desktop/app/tradingview-assets/**)
+const DESTS = [
+  join(REPO_ROOT, 'apps', 'mobile', 'tradingview-assets'),
+  join(REPO_ROOT, 'apps', 'desktop', 'app', 'tradingview-assets'),
+];
 
 const token = process.env.NODE_AUTH_TOKEN;
 if (!token) {
@@ -86,10 +94,11 @@ try {
 }
 const distSrc = join(tmp, 'package', 'dist');
 
-// 4. Replace the staging dir with the fresh dist contents.
-rmSync(DEST, { recursive: true, force: true });
-mkdirSync(DEST, { recursive: true });
-execFileSync('rsync', ['-r', '-c', `${distSrc}/`, `${DEST}/`], { stdio: 'inherit' });
+// 4. Replace each staging dir with the fresh dist contents.
+for (const dest of DESTS) {
+  rmSync(dest, { recursive: true, force: true });
+  mkdirSync(dest, { recursive: true });
+  execFileSync('rsync', ['-r', '-c', `${distSrc}/`, `${dest}/`], { stdio: 'inherit' });
+  console.log(`[tradingview-assets] staged ${PKG}@${VERSION} dist -> ${dest}`);
+}
 rmSync(tmp, { recursive: true, force: true });
-
-console.log(`[tradingview-assets] staged ${PKG}@${VERSION} dist -> ${DEST}`);

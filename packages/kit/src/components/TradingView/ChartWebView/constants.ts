@@ -14,6 +14,19 @@ export type IChartWebViewMode = 'legacy' | 'offline' | 'online';
  */
 export const CHART_WEBVIEW_MODE: IChartWebViewMode = 'offline';
 
+/**
+ * Desktop offline chart switch (code-level, no runtime toggle).
+ *
+ * When true AND the offline bundle was shipped into the asar (signalled at
+ * runtime via the `tradingViewOfflineReady` desktop global), desktop loads the
+ * chart from the local onekey-chart:// virtual origin instead of the remote URL.
+ * Otherwise (flag off, or no bundle on open-source / no-token builds) desktop
+ * keeps using the online chart. Native is governed separately by
+ * CHART_WEBVIEW_MODE; this flag is desktop-only and the renderer reads it
+ * through useTradingViewUrl.
+ */
+export const CHART_WEBVIEW_DESKTOP_OFFLINE_ENABLED = true;
+
 // Must match the folder name bundled into the native apps (iOS Run Script /
 // Android copyChartWebviewAssets) and the module's localBundle resolution.
 export const CHART_WEBVIEW_LOCAL_BUNDLE = 'tradingview-assets';
