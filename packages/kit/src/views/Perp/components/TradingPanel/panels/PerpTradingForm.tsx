@@ -102,6 +102,7 @@ import { TradingFormInput } from '../inputs/TradingFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { BBOSelector } from '../selectors/BBOSelector';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
+import { MobileOrderTypeSelector } from '../selectors/MobileOrderTypeSelector';
 import { TimeInForceSelector } from '../selectors/TimeInForceSelector';
 import { TradeSideToggle } from '../selectors/TradeSideToggle';
 
@@ -1503,22 +1504,38 @@ function PerpTradingForm({
   const mobileOrderTypeOptions = useMemo(() => {
     const base = [
       {
+        description: intl.formatMessage({
+          id: ETranslations.perp_order_type_market_desc__desc,
+        }),
+        icon: 'MarketOrderOutline' as const,
         label: intl.formatMessage({ id: ETranslations.perp_trade_market }),
         value: 'market' as string,
       },
       {
+        description: intl.formatMessage({
+          id: ETranslations.perp_order_type_limit_desc__desc,
+        }),
+        icon: 'LimitOrderOutline' as const,
         label: intl.formatMessage({ id: ETranslations.perp_trade_limit }),
         value: 'limit' as string,
       },
     ];
     const algoOrderOptions = [
       {
+        description: intl.formatMessage({
+          id: ETranslations.perp_order_type_scale_desc__desc,
+        }),
+        icon: 'ScaledOrderOutline' as const,
         label: intl.formatMessage({
           id: ETranslations.perp_scale_order__title,
         }),
         value: 'scale',
       },
       {
+        description: intl.formatMessage({
+          id: ETranslations.perp_order_type_twap_desc__desc,
+        }),
+        icon: 'TwapOutline' as const,
         label: intl.formatMessage({
           id: ETranslations.perp_twap_order__title,
         }),
@@ -1529,12 +1546,20 @@ function PerpTradingForm({
     return [
       ...base,
       {
+        description: intl.formatMessage({
+          id: ETranslations.perp_order_type_trigger_market_desc__desc,
+        }),
+        icon: 'TriggerOrderOutline' as const,
         label: intl.formatMessage({
           id: ETranslations.perp_order_trigger_market,
         }),
         value: ETriggerOrderType.TRIGGER_MARKET as string,
       },
       {
+        description: intl.formatMessage({
+          id: ETranslations.perp_order_type_trigger_limit_desc__desc,
+        }),
+        icon: 'AdvancedLimitOutline' as const,
         label: intl.formatMessage({
           id: ETranslations.perp_order_trigger_limit,
         }),
@@ -2241,14 +2266,14 @@ function PerpTradingForm({
       return (
         <YStack gap="$1.5" {...(isMobile && { mt: '$1' })} p="$0">
           <YStack alignItems="flex-start" gap="$2.5">
-            {isSpot ? null : (
-              renderReduceOnlyCheckbox({
-                testID: 'perp-twap-reduce-only-checkbox',
-                value: formData.twapReduceOnly ?? false,
-                onChange: (checked) =>
-                  updateForm({ twapReduceOnly: checked }),
-              })
-            )}
+            {isSpot
+              ? null
+              : renderReduceOnlyCheckbox({
+                  testID: 'perp-twap-reduce-only-checkbox',
+                  value: formData.twapReduceOnly ?? false,
+                  onChange: (checked) =>
+                    updateForm({ twapReduceOnly: checked }),
+                })}
             <XStack alignItems="center" gap="$2">
               <Checkbox
                 testID="perp-twap-randomize-checkbox"
@@ -2531,13 +2556,9 @@ function PerpTradingForm({
 
           <XStack alignItems="center" gap="$2.5">
             <YStack flex={1}>
-              <Select
-                testID="perp-mobile-selected-order-type-select"
-                items={mobileOrderTypeOptions}
-                title={intl.formatMessage({
-                  id: ETranslations.perp_trade_order_type,
-                })}
+              <MobileOrderTypeSelector
                 value={mobileSelectedOrderType}
+                options={mobileOrderTypeOptions}
                 disabled={isSubmitting}
                 onChange={(nextValue) => {
                   if (typeof nextValue !== 'string') {
@@ -2548,34 +2569,6 @@ function PerpTradingForm({
                     return;
                   }
                   handleTriggerOrderTypeChange(nextValue);
-                }}
-                placement="bottom-start"
-                renderTrigger={({
-                  onPress,
-                  label,
-                  disabled: disabledTrigger,
-                }) => (
-                  <XStack
-                    onPress={onPress}
-                    disabled={disabledTrigger}
-                    height={32}
-                    bg="$bgSubdued"
-                    borderRadius="$2"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    px="$3"
-                    flex={1}
-                  >
-                    <SizableText size="$bodyMdMedium">{label}</SizableText>
-                    <Icon
-                      name="ChevronDownSmallOutline"
-                      color="$iconSubdued"
-                      size="$4"
-                    />
-                  </XStack>
-                )}
-                floatingPanelProps={{
-                  width: 180,
                 }}
               />
             </YStack>
@@ -2670,7 +2663,9 @@ function PerpTradingForm({
                       if (!isAdvancedOrderMode) {
                         applyPrimaryOrderType('trigger');
                       } else {
-                        onPress?.(e);
+                        (onPress as ((event?: unknown) => void) | undefined)?.(
+                          e,
+                        );
                       }
                     }}
                   >
