@@ -444,7 +444,17 @@ function TxActionTransferListView(props: ITxActionProps) {
   if (tableLayout) {
     const currencySymbol = settings.currencyInfo.symbol;
 
-    if (!isEmpty(sends) && isEmpty(receives)) {
+    if (isPrivateSend) {
+      change = buildExpandedTransferView({
+        sends: groupTransfersByToken(sends),
+        hideValue,
+        currencySymbol,
+      });
+      avatar.fallbackIcon = 'ArrowTopOutline';
+      title = intl.formatMessage({
+        id: ETranslations.private_send_private_send,
+      });
+    } else if (!isEmpty(sends) && isEmpty(receives)) {
       change = buildExpandedTransferView({
         sends: groupTransfersByToken(sends),
         hideValue,
@@ -509,21 +519,29 @@ function TxActionTransferListView(props: ITxActionProps) {
     }
 
     // swap / staking icon overrides
-    if (isPrivateSend) {
-      avatar.fallbackIcon = 'ArrowTopOutline';
-      title = intl.formatMessage({
-        id: ETranslations.private_send_private_send,
-      });
-    } else if (actions[0]?.assetTransfer?.isInternalSwap) {
+    if (!isPrivateSend && actions[0]?.assetTransfer?.isInternalSwap) {
       avatar.fallbackIcon = 'SwitchHorOutline';
-    } else if (actions[0]?.assetTransfer?.isInternalStaking) {
+    } else if (!isPrivateSend && actions[0]?.assetTransfer?.isInternalStaking) {
       avatar.fallbackIcon = 'CoinsOutline';
     }
 
     changeDescription = null;
   } else {
     const isStackedLayout = !tableLayout;
-    if (!isEmpty(sends) && isEmpty(receives)) {
+    if (isPrivateSend) {
+      const changeInfo = buildTransferChangeInfo({
+        changePrefix: '-',
+        transfers: sends,
+        intl,
+      });
+      change = changeInfo.change;
+      changeSymbol = changeInfo.changeSymbol;
+      changeDescription = changeInfo.changeDescription;
+      avatar.src = sendNFTIcon || sendTokenIcon;
+      title = intl.formatMessage({
+        id: ETranslations.private_send_private_send,
+      });
+    } else if (!isEmpty(sends) && isEmpty(receives)) {
       const changeInfo = buildTransferChangeInfo({
         changePrefix: '-',
         transfers: sends,
