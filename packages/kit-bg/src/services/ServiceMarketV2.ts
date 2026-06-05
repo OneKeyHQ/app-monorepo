@@ -278,12 +278,13 @@ class ServiceMarketV2 extends ServiceBase {
     );
   }
 
-  // Bar length in seconds for a TradingView resolution ('1m','5m','1H','1D'...).
+  // Bar length in seconds for a TradingView resolution ('1m','5m','1H','1D','1M'...).
   // TradingView also sends bare numbers ('1','5','15','60','240') representing minutes.
+  // Note: lowercase 'm' = minute, uppercase 'M' = month (case-sensitive).
   private _klineIntervalToSeconds(interval?: string): number {
     if (!interval) return 60;
     const trimmed = interval.trim();
-    const m = /^(\d+)\s*([smhHdDwW])$/.exec(trimmed);
+    const m = /^(\d+)\s*([smhHdDwWM])$/.exec(trimmed);
     if (!m) {
       // Bare number → TradingView minute resolution (e.g. '5' = 5 minutes)
       const asNum = parseInt(trimmed, 10);
@@ -300,6 +301,7 @@ class ServiceMarketV2 extends ServiceBase {
       D: 86_400,
       w: 604_800,
       W: 604_800,
+      M: 2_592_000,
     };
     return n * (unitSec[m[2]] ?? 60);
   }
