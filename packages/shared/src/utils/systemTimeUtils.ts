@@ -17,6 +17,18 @@ export enum ELocalSystemTimeStatus {
   UNKNOWN = 'UNKNOWN',
 }
 
+export enum ECloudSyncDataTimeSource {
+  Estimated = 'estimated',
+  TrustedLocal = 'trusted-local',
+  LastServer = 'last-server',
+  AppBuild = 'app-build',
+}
+
+export type ICloudSyncCorrectedTime = {
+  time: number;
+  source: ECloudSyncDataTimeSource;
+};
+
 // const mockServerTime: number | undefined = 1_947_829_622_691;
 const mockServerTime: number | undefined = undefined;
 
@@ -52,12 +64,25 @@ function isTimeValid({ time }: { time: number | undefined }): boolean {
   }
   return true;
 }
+
+function getMonotonicTimeNow(): number | undefined {
+  const time = globalThis.performance?.now?.();
+  if (!isNumber(time) || isNaN(time) || isNil(time)) {
+    return undefined;
+  }
+  return time;
+}
+
 class SystemTimeUtils {
   constructor() {
     const lastServerTimeInStorage = appStorage.syncStorage.getNumber(
       EAppSyncStorageKeys.last_valid_server_time,
     );
-    this.lastServerTime = lastServerTimeInStorage;
+    this.setLastServerTimeValue({
+      value: lastServerTimeInStorage,
+      updateEstimateBaseline: true,
+      persist: false,
+    });
 
     const lastLocalTimeInStorage = appStorage.syncStorage.getNumber(
       EAppSyncStorageKeys.last_valid_local_time,
@@ -69,22 +94,52 @@ class SystemTimeUtils {
 
   private _lastServerTime: number | undefined;
 
+  private _serverTimeEstimateBase: number | undefined;
+
+  private _lastServerTimePerfBase: number | undefined;
+
+  private _lastServerTimeIsReal = false;
+
   get lastServerTime(): number | undefined {
     return this._lastServerTime;
   }
 
-  set lastServerTime(value: number | undefined) {
+  private setLastServerTimeValue({
+    value,
+    updateEstimateBaseline,
+    persist,
+  }: {
+    value: number | undefined;
+    updateEstimateBaseline: boolean;
+    persist: boolean;
+  }) {
     if (!this.isTimeValid({ time: value })) {
       this._lastServerTime = appBuildTime;
+      this._serverTimeEstimateBase = undefined;
+      this._lastServerTimePerfBase = undefined;
+      this._lastServerTimeIsReal = false;
       return;
     }
     this._lastServerTime = value;
-    if (value) {
+    if (updateEstimateBaseline) {
+      this._serverTimeEstimateBase = value;
+      this._lastServerTimePerfBase = getMonotonicTimeNow();
+      this._lastServerTimeIsReal = true;
+    }
+    if (value && persist) {
       appStorage.syncStorage.set(
         EAppSyncStorageKeys.last_valid_server_time,
         value,
       );
     }
+  }
+
+  set lastServerTime(value: number | undefined) {
+    this.setLastServerTimeValue({
+      value,
+      updateEstimateBaseline: false,
+      persist: false,
+    });
   }
 
   private _lastLocalTime: number | undefined;
@@ -109,25 +164,52 @@ class SystemTimeUtils {
 
   _serverTimeInterval: ReturnType<typeof setInterval> | undefined;
 
+  async refreshServerTime(): Promise<boolean> {
+    const endpoint = await getEndpointByServiceName(
+      EServiceEndpointEnum.Wallet,
+    );
+    const client = await appApiClient.getClient({
+      endpoint,
+      name: EServiceEndpointEnum.Wallet,
+    });
+    const response = await client.get(ONEKEY_HEALTH_CHECK_URL, {
+      params: {
+        _: 'system_time_utils',
+        timestamp: Date.now(),
+      },
+    });
+    const headers = response.headers as
+      | {
+          date?: string;
+          Date?: string;
+          get?: (name: string) => unknown;
+        }
+      | undefined;
+    const rawHeaderDate =
+      headers?.date ?? headers?.Date ?? headers?.get?.('date');
+    const headerDate = Array.isArray(rawHeaderDate)
+      ? rawHeaderDate[0]
+      : rawHeaderDate;
+    if (typeof headerDate !== 'string') {
+      return false;
+    }
+    const serverTimestamp = new Date(headerDate).getTime();
+    if (!this.isTimeValid({ time: serverTimestamp })) {
+      return false;
+    }
+    this.updateServerTime({
+      serverTime: serverTimestamp,
+    });
+    return true;
+  }
+
   startServerTimeInterval() {
     if (this._serverTimeInterval) {
       return;
     }
     this._serverTimeInterval = setInterval(async () => {
       try {
-        const endpoint = await getEndpointByServiceName(
-          EServiceEndpointEnum.Wallet,
-        );
-        const client = await appApiClient.getClient({
-          endpoint,
-          name: EServiceEndpointEnum.Wallet,
-        });
-        await client.get(ONEKEY_HEALTH_CHECK_URL, {
-          params: {
-            _: 'system_time_utils',
-            timestamp: Date.now(),
-          },
-        });
+        await this.refreshServerTime();
       } catch (_error) {
         this.systemTimeStatus = ELocalSystemTimeStatus.UNKNOWN;
       }
@@ -136,6 +218,91 @@ class SystemTimeUtils {
 
   isTimeValid({ time }: { time: number | undefined }): boolean {
     return isTimeValid({ time });
+  }
+
+  getEstimatedServerTime(): number | undefined {
+    if (
+      !this._lastServerTimeIsReal ||
+      !this.isTimeValid({ time: this._serverTimeEstimateBase }) ||
+      isNil(this._lastServerTimePerfBase)
+    ) {
+      return undefined;
+    }
+
+    const now = getMonotonicTimeNow();
+    if (isNil(now)) {
+      return undefined;
+    }
+
+    const elapsed = now - this._lastServerTimePerfBase;
+    if (!isNumber(elapsed) || isNaN(elapsed) || isNil(elapsed) || elapsed < 0) {
+      return undefined;
+    }
+
+    const estimated = (this._serverTimeEstimateBase ?? 0) + elapsed;
+    if (!this.isTimeValid({ time: estimated })) {
+      return undefined;
+    }
+    return estimated;
+  }
+
+  getCorrectedCloudSyncNow(): ICloudSyncCorrectedTime {
+    const estimated = this.getEstimatedServerTime();
+    if (estimated) {
+      return {
+        time: estimated,
+        source: ECloudSyncDataTimeSource.Estimated,
+      };
+    }
+
+    const localNow = Date.now();
+    if (
+      this.systemTimeStatus === ELocalSystemTimeStatus.VALID &&
+      this.lastServerTime &&
+      this.isLocalTimeValid({
+        localTime: localNow,
+        serverTime: this.lastServerTime,
+      })
+    ) {
+      return {
+        time: Math.max(localNow, this.lastServerTime, appBuildTime),
+        source: ECloudSyncDataTimeSource.TrustedLocal,
+      };
+    }
+
+    if (
+      this._lastServerTimeIsReal &&
+      this.isTimeValid({ time: this.lastServerTime })
+    ) {
+      return {
+        time: this.lastServerTime ?? appBuildTime,
+        source: ECloudSyncDataTimeSource.LastServer,
+      };
+    }
+
+    return {
+      time: appBuildTime,
+      source: ECloudSyncDataTimeSource.AppBuild,
+    };
+  }
+
+  isCloudSyncDataTimeFuturePoisoned({
+    dataTime,
+    correctedNow,
+    tolerance,
+  }: {
+    dataTime: number | undefined;
+    correctedNow?: ICloudSyncCorrectedTime;
+    tolerance: number;
+  }) {
+    if (!dataTime) {
+      return false;
+    }
+    const now = correctedNow ?? this.getCorrectedCloudSyncNow();
+    if (now.source === ECloudSyncDataTimeSource.AppBuild) {
+      return false;
+    }
+    return dataTime > now.time + tolerance;
   }
 
   isLocalTimeValid({
@@ -157,6 +324,47 @@ class SystemTimeUtils {
     }
     const isValid = Math.abs(timeDiff) < localServerTimeDiff;
     return isValid;
+  }
+
+  updateServerTime({
+    serverTime,
+    localTime,
+  }: {
+    serverTime: number | undefined;
+    localTime?: number;
+  }) {
+    if (!this.isTimeValid({ time: serverTime })) {
+      return;
+    }
+
+    const localTimestamp = localTime ?? Date.now();
+    if (
+      !isNumber(localTimestamp) ||
+      isNaN(localTimestamp) ||
+      isNil(localTimestamp)
+    ) {
+      return;
+    }
+
+    const localTimeValid = this.isLocalTimeValid({
+      localTime: localTimestamp,
+      serverTime,
+    });
+    this.systemTimeStatus = localTimeValid
+      ? ELocalSystemTimeStatus.VALID
+      : ELocalSystemTimeStatus.INVALID;
+    this.setLastServerTimeValue({
+      value: serverTime,
+      updateEstimateBaseline: true,
+      persist: true,
+    });
+    if (localTimeValid) {
+      this.lastLocalTime = localTimestamp;
+    }
+
+    if (!localTimeValid) {
+      appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);
+    }
   }
 
   increaseTimeCache = throttle(
@@ -286,25 +494,10 @@ class SystemTimeUtils {
       if (mockLocalTimeOffset) {
         localTimestamp += mockLocalTimeOffset;
       }
-      const timeDiff: number = localTimestamp - (serverTimestamp ?? 0);
-      if (isNaN(timeDiff) || isNil(timeDiff)) {
-        return;
-      }
-      const localTimeValid = this.isLocalTimeValid({
-        localTime: localTimestamp,
+      this.updateServerTime({
         serverTime: serverTimestamp,
+        localTime: localTimestamp,
       });
-      this.systemTimeStatus = localTimeValid
-        ? ELocalSystemTimeStatus.VALID
-        : ELocalSystemTimeStatus.INVALID;
-      this.lastServerTime = serverTimestamp;
-      if (localTimeValid) {
-        this.lastLocalTime = localTimestamp;
-      }
-
-      if (!localTimeValid) {
-        appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);
-      }
     },
     1000,
     {
