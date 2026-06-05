@@ -69,6 +69,7 @@ import {
 import { DefaultLoadingNode } from './DefaultLoadingNode';
 import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
+import { useRafCoalesced } from './useRafCoalesced';
 import { getMidPrice } from './utils';
 
 import type { IFormattedOBLevel, IOrderBookVariant } from './types';
@@ -809,6 +810,42 @@ export function OrderBook({
     [aggregatedData.asks],
   );
 
+  // REACT-NATIVE-1JZ: build the native depth-bar `percents` arrays once per data
+  // change (useMemo) instead of inside JSX on every render, then frame-coalesce
+  // them (useRafCoalesced) so high-frequency L2 ticks collapse to ~one Nitro
+  // prop write per displayed frame. Only the depth-bar *visual* data is gated
+  // here — the price/size ladder text below still reads `aggregatedData`
+  // directly, so the numbers the user reads stay maximally fresh.
+  const bidPercentsRaw = useMemo(
+    () =>
+      aggregatedData.bids.map((item) =>
+        calculatePercentage(item.cumSize, bidDepth),
+      ),
+    [aggregatedData.bids, bidDepth],
+  );
+  const askPercentsRaw = useMemo(
+    () =>
+      aggregatedData.asks.map((item) =>
+        calculatePercentage(item.cumSize, askDepth),
+      ),
+    [aggregatedData.asks, askDepth],
+  );
+  // Vertical layout draws asks top-to-bottom reversed; keep its own derived
+  // array so the reversal isn't recomputed in JSX each render.
+  const reversedAskPercentsRaw = useMemo(
+    () =>
+      aggregatedData.asks
+        .toReversed()
+        .map((item) => calculatePercentage(item.cumSize, askDepth)),
+    [aggregatedData.asks, askDepth],
+  );
+  const bidPercents = useRafCoalesced(bidPercentsRaw, depthEpoch);
+  const askPercents = useRafCoalesced(askPercentsRaw, depthEpoch);
+  const reversedAskPercents = useRafCoalesced(
+    reversedAskPercentsRaw,
+    depthEpoch,
+  );
+
   const blockColors = useBlockColors();
   const textColor = useTextColor();
   const spreadColor = useSpreadColor();
@@ -942,9 +979,7 @@ export function OrderBook({
             <View style={styles.levelListContainer}>
               <View style={styles.levelList}>
                 <DepthBarColumn
-                  percents={aggregatedData.bids.map((item) =>
-                    calculatePercentage(item.cumSize, bidDepth),
-                  )}
+                  percents={bidPercents}
                   rowHeight={ORDER_BOOK_HORIZONTAL_ROW_HEIGHT}
                   rowMarginTop={ORDER_BOOK_HORIZONTAL_ROW_MARGIN_TOP}
                   barInset={ORDER_BOOK_HORIZONTAL_BAR_INSET}
@@ -955,9 +990,7 @@ export function OrderBook({
               </View>
               <View style={styles.levelList}>
                 <DepthBarColumn
-                  percents={aggregatedData.asks.map((item) =>
-                    calculatePercentage(item.cumSize, askDepth),
-                  )}
+                  percents={askPercents}
                   rowHeight={ORDER_BOOK_HORIZONTAL_ROW_HEIGHT}
                   rowMarginTop={ORDER_BOOK_HORIZONTAL_ROW_MARGIN_TOP}
                   barInset={ORDER_BOOK_HORIZONTAL_BAR_INSET}
@@ -1108,11 +1141,7 @@ export function OrderBook({
       <View style={styles.relativeContainer}>
         <View style={styles.relativeContainer}>
           <DepthBarColumn
-            percents={aggregatedData.asks
-              .toReversed()
-              .map((itemData) =>
-                calculatePercentage(itemData.cumSize, askDepth),
-              )}
+            percents={reversedAskPercents}
             rowHeight={verticalRowHeight}
             rowMarginTop={ORDER_BOOK_VERTICAL_ROW_MARGIN_TOP}
             barInset={ORDER_BOOK_VERTICAL_BAR_INSET}
@@ -1129,9 +1158,7 @@ export function OrderBook({
             ]}
           />
           <DepthBarColumn
-            percents={aggregatedData.bids.map((itemData) =>
-              calculatePercentage(itemData.cumSize, bidDepth),
-            )}
+            percents={bidPercents}
             rowHeight={verticalRowHeight}
             rowMarginTop={ORDER_BOOK_VERTICAL_ROW_MARGIN_TOP}
             barInset={ORDER_BOOK_VERTICAL_BAR_INSET}
@@ -1913,36 +1940,49 @@ export function OrderBookMobile({
     () => aggregatedData.asks.toReversed(),
     [aggregatedData.asks],
   );
-  const askPercents = useMemo(
+  // REACT-NATIVE-1JZ: the mobile native depth-bar view draws the bar fill AND
+  // the price/size ladder text itself, so percents + prices + sizes must stay
+  // mutually consistent. They are memoized per data change (below) and then
+  // frame-coalesced together via useRafCoalesced so 100+Hz L2 ticks collapse to
+  // ~one Nitro prop write per displayed frame. The user-read trading numbers
+  // (mid / spread / mark in MobileSpreadInfoRow) come from raw bids[0]/asks[0]
+  // and atoms — NOT these arrays — so they are unaffected and stay fresh.
+  const askPercentsRaw = useMemo(
     () =>
       reversedAsks.map((itemData) =>
         calculatePercentage(itemData.cumSize, askDepth),
       ),
     [askDepth, reversedAsks],
   );
-  const askPrices = useMemo(
+  const askPricesRaw = useMemo(
     () => reversedAsks.map((itemData) => itemData.price),
     [reversedAsks],
   );
-  const askSizes = useMemo(
+  const askSizesRaw = useMemo(
     () => reversedAsks.map((itemData) => itemData.displaySize),
     [reversedAsks],
   );
-  const bidPercents = useMemo(
+  const bidPercentsRaw = useMemo(
     () =>
       aggregatedData.bids.map((itemData) =>
         calculatePercentage(itemData.cumSize, bidDepth),
       ),
     [aggregatedData.bids, bidDepth],
   );
-  const bidPrices = useMemo(
+  const bidPricesRaw = useMemo(
     () => aggregatedData.bids.map((itemData) => itemData.price),
     [aggregatedData.bids],
   );
-  const bidSizes = useMemo(
+  const bidSizesRaw = useMemo(
     () => aggregatedData.bids.map((itemData) => itemData.displaySize),
     [aggregatedData.bids],
   );
+  const askPercents = useRafCoalesced(askPercentsRaw, depthEpoch);
+  const askPrices = useRafCoalesced(askPricesRaw, depthEpoch);
+  const askSizes = useRafCoalesced(askSizesRaw, depthEpoch);
+  const bidPercents = useRafCoalesced(bidPercentsRaw, depthEpoch);
+  const bidPrices = useRafCoalesced(bidPricesRaw, depthEpoch);
+  const bidSizes = useRafCoalesced(bidSizesRaw, depthEpoch);
 
   const priceFontSize = useMemo(() => {
     if (!asks.length) {
