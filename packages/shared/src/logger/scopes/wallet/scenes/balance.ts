@@ -1,5 +1,5 @@
 import { BaseScene } from '../../../base/baseScene';
-import { LogToServer } from '../../../base/decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export type IWalletAssetStatus = 'low' | 'funded';
 export type IWalletAssetStatusPreviousStatus = IWalletAssetStatus | 'unknown';
@@ -44,11 +44,13 @@ function normalizeAssetStatusChangedParams(
 }
 
 export class WalletBalanceScene extends BaseScene {
+  @LogToLocal()
   @LogToServer()
   public walletAssetStatusEvaluated(params: IWalletAssetStatusEvaluatedParams) {
     return normalizeAssetStatusParams(params);
   }
 
+  @LogToLocal()
   @LogToServer()
   public walletAssetStatusChanged(params: IWalletAssetStatusChangedParams) {
     return normalizeAssetStatusChangedParams(params);
