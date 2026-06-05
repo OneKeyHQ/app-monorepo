@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIsFocused } from '@react-navigation/core';
 import { get, noop, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -46,8 +46,8 @@ import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { useFirmwareVerifyDialog } from '../../Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
-import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHardwareWallet/SelectAddWalletTypeDialog';
 import { resolveHardwarePassphraseEnabled } from '../../Onboarding/pages/ConnectHardwareWallet/passphraseStateUtils';
+import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHardwareWallet/SelectAddWalletTypeDialog';
 import {
   getForceTransportType,
   getHardwareCommunicationTypeString,
@@ -722,21 +722,32 @@ export function useDeviceConnect({
     unlocked: boolean | undefined;
     passphraseEnabled: boolean;
     deviceId: string | undefined;
+    deviceType: string | undefined;
   };
 
   const extractDeviceState = useCallback(
     async (
       features: IOneKeyDeviceFeatures,
       device: SearchDevice,
-    ): Promise<IDeviceState> => ({
-      unlockedAttachPin: features.unlocked_attach_pin ?? undefined,
-      unlocked: features.unlocked ?? undefined,
-      passphraseEnabled: await resolveHardwarePassphraseEnabled({
-        device,
+    ): Promise<IDeviceState> => {
+      let deviceType = await deviceUtils.getDeviceTypeFromFeatures({
         features,
-      }),
-      deviceId: features.device_id ?? undefined,
-    }),
+      });
+      if (deviceType === 'unknown') {
+        deviceType = device.deviceType;
+      }
+
+      return {
+        unlockedAttachPin: features.unlocked_attach_pin ?? undefined,
+        unlocked: features.unlocked ?? undefined,
+        passphraseEnabled: await resolveHardwarePassphraseEnabled({
+          device,
+          features,
+        }),
+        deviceId: features.device_id ?? undefined,
+        deviceType,
+      };
+    },
     [],
   );
 
@@ -761,6 +772,7 @@ export function useDeviceConnect({
       deviceState: IDeviceState,
       device: SearchDevice,
     ): Promise<IWalletCreationStrategy | null> => {
+      const isPro2 = deviceState.deviceType === EDeviceType.Pro2;
       if (!deviceState.unlocked) {
         return {
           createHiddenWalletOnly: false,
@@ -768,7 +780,7 @@ export function useDeviceConnect({
         };
       }
 
-      if (deviceState.unlockedAttachPin) {
+      if (deviceState.unlockedAttachPin && !isPro2) {
         return {
           createHiddenWalletOnly: deviceState.passphraseEnabled,
           createStandardWalletOnly: !deviceState.passphraseEnabled,

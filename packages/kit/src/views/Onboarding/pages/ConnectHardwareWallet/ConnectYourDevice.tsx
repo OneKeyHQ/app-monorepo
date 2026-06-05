@@ -97,8 +97,8 @@ import { useBuyOneKeyHeaderRightButton } from '../../../DeviceManagement/hooks/u
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
-import { useSelectAddWalletTypeDialog } from './SelectAddWalletTypeDialog';
 import { resolveHardwarePassphraseEnabled } from './passphraseStateUtils';
+import { useSelectAddWalletTypeDialog } from './SelectAddWalletTypeDialog';
 
 import type { Features, IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
@@ -1351,21 +1351,32 @@ export function ConnectYourDevicePage() {
     unlocked: boolean | undefined;
     passphraseEnabled: boolean;
     deviceId: string | undefined;
+    deviceType: string | undefined;
   };
 
   const extractDeviceState = useCallback(
     async (
       features: IOneKeyDeviceFeatures,
       device: SearchDevice,
-    ): Promise<IDeviceState> => ({
-      unlockedAttachPin: features.unlocked_attach_pin ?? undefined,
-      unlocked: features.unlocked ?? undefined,
-      passphraseEnabled: await resolveHardwarePassphraseEnabled({
-        device,
+    ): Promise<IDeviceState> => {
+      let deviceType = await deviceUtils.getDeviceTypeFromFeatures({
         features,
-      }),
-      deviceId: features.device_id ?? undefined,
-    }),
+      });
+      if (deviceType === 'unknown') {
+        deviceType = device.deviceType;
+      }
+
+      return {
+        unlockedAttachPin: features.unlocked_attach_pin ?? undefined,
+        unlocked: features.unlocked ?? undefined,
+        passphraseEnabled: await resolveHardwarePassphraseEnabled({
+          device,
+          features,
+        }),
+        deviceId: features.device_id ?? undefined,
+        deviceType,
+      };
+    },
     [],
   );
 
@@ -1391,6 +1402,7 @@ export function ConnectYourDevicePage() {
       deviceState: IDeviceState,
       device: SearchDevice,
     ): Promise<IWalletCreationStrategy | null> => {
+      const isPro2 = deviceState.deviceType === EDeviceType.Pro2;
       if (!deviceState.unlocked) {
         return {
           createHiddenWalletOnly: false,
@@ -1398,7 +1410,7 @@ export function ConnectYourDevicePage() {
         };
       }
 
-      if (deviceState.unlockedAttachPin) {
+      if (deviceState.unlockedAttachPin && !isPro2) {
         return {
           createHiddenWalletOnly: deviceState.passphraseEnabled,
           createStandardWalletOnly: !deviceState.passphraseEnabled,
