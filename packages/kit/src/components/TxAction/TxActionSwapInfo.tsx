@@ -14,8 +14,14 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { swapSlippageDecimal } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import {
+  privateSendProvider,
+  swapSlippageDecimal,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  EProtocolOfExchange,
+  type ISwapTxInfo,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import {
@@ -43,6 +49,9 @@ function TxActionSwapInfo(props: IProps) {
     slippage,
     unSupportSlippage,
   } = swapBuildResData.result;
+  const isPrivateSend =
+    swapInfo.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+    provider.provider === privateSendProvider;
 
   const { network: senderNetwork } = useAccountData({
     networkId: sender.accountInfo.networkId,
@@ -119,7 +128,7 @@ function TxActionSwapInfo(props: IProps) {
           }
           compactAll
         />
-        {tokenRate ? (
+        {tokenRate && !isPrivateSend ? (
           <InfoItem
             label={intl.formatMessage({
               id: ETranslations.swap_history_detail_rate,
@@ -129,7 +138,7 @@ function TxActionSwapInfo(props: IProps) {
           />
         ) : null}
 
-        {unSupportSlippage ? null : (
+        {unSupportSlippage || isPrivateSend ? null : (
           <InfoItem
             label={intl.formatMessage({
               id: ETranslations.swap_page_provider_slippage_tolerance,

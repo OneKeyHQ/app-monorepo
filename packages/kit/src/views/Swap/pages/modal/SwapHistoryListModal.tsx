@@ -24,10 +24,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { LazyHeaderTitle } from '@onekeyhq/kit/src/components/LazyHeaderTitle';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  filterSwapHistoryPendingList,
-  useInAppNotificationAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -43,6 +40,10 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
+import {
+  getSwapMarketPendingHistoryCount,
+  getSwapMarketPendingHistoryKey,
+} from '../../utils/swapMarketHistory';
 import SwapMarketHistoryList from '../components/SwapMarketHistoryList';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -67,6 +68,10 @@ const SwapHistoryListModal = ({
   );
   const [{ swapHistoryPendingList, swapLimitOrders }] =
     useInAppNotificationAtom();
+  const marketPendingKey = useMemo(
+    () => getSwapMarketPendingHistoryKey(swapHistoryPendingList),
+    [swapHistoryPendingList],
+  );
 
   useEffect(() => {
     void backgroundApiProxy.serviceSwap.refreshSwapHistoryPendingStatusOnce();
@@ -79,8 +84,7 @@ const SwapHistoryListModal = ({
       return histories;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swapHistoryPendingList],
-    { watchLoading: true },
+    [marketPendingKey],
   );
   const swapMarketTxHistoryList = useMemo(
     () =>
@@ -129,13 +133,7 @@ const SwapHistoryListModal = ({
   }, [swapMarketTxHistoryList]);
 
   const marketPendingHistoryCount = useMemo(
-    () =>
-      filterSwapHistoryPendingList(swapHistoryPendingList).filter(
-        (item) =>
-          !isPrivateSendSwapHistoryItem(item) &&
-          (item.status === ESwapTxHistoryStatus.PENDING ||
-            item.status === ESwapTxHistoryStatus.CANCELING),
-      ).length,
+    () => getSwapMarketPendingHistoryCount(swapHistoryPendingList),
     [swapHistoryPendingList],
   );
 

@@ -143,6 +143,11 @@ const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
 
+type ISwapSendTxResult = ISignedTxPro & {
+  gasFeeFiatValue?: string;
+  gasFeeInNative?: string;
+};
+
 type IEstimateNetworkFeeResult = {
   fallbackToSeparateTxConfirm?: boolean;
 };
@@ -867,7 +872,11 @@ export function useSwapBuildTx() {
           feeInfo: gasInfo as IFeeInfoUnit,
         },
       });
-      return res;
+      return {
+        ...res,
+        gasFeeFiatValue: totalFiatForDisplay,
+        gasFeeInNative: totalNativeForDisplay,
+      };
     },
     [checkLatestNativeTokenBalance, intl, setSwapSteps],
   );
@@ -1270,7 +1279,7 @@ export function useSwapBuildTx() {
           };
         },
       );
-      let lastTxRes: ISignedTxPro | undefined;
+      let lastTxRes: ISwapSendTxResult | undefined;
       const unsignedTx =
         await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
           ...buildUnsignedParamsCheckNonce,
@@ -2371,7 +2380,13 @@ export function useSwapBuildTx() {
               needFetchGas,
             );
             if (sendTxRes) {
-              void onBuildTxSuccess(sendTxRes.txid, swapInfo, orderId);
+              void onBuildTxSuccess(
+                sendTxRes.txid,
+                swapInfo,
+                orderId,
+                sendTxRes.gasFeeFiatValue,
+                sendTxRes.gasFeeInNative,
+              );
             }
           }
         }
@@ -2695,7 +2710,13 @@ export function useSwapBuildTx() {
             swapFromToken: fromTokenInfo,
             swapToToken: toTokenInfo,
           });
-          void onBuildTxSuccess(sendTxRes.txid, swapInfo);
+          void onBuildTxSuccess(
+            sendTxRes.txid,
+            swapInfo,
+            undefined,
+            sendTxRes.gasFeeFiatValue,
+            sendTxRes.gasFeeInNative,
+          );
           return sendTxRes;
         }
       }

@@ -1,4 +1,4 @@
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { ETokenDappType } from '@onekeyhq/shared/types/token';
@@ -10,11 +10,6 @@ export type ISwapKLineToken = ISwapToken & {
   dappType?: ITokenDappType;
 };
 
-export type ISwapKLineStableToken = Pick<
-  ISwapToken,
-  'contractAddress' | 'networkId'
->;
-
 export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   if (!token) {
     return false;
@@ -25,37 +20,98 @@ export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   return Boolean(token.defiMarked || token.dappName?.trim() || token.dappType);
 }
 
-export function isSwapKLineStableToken({
-  token,
-  stableTokens,
-}: {
-  token?: ISwapKLineToken;
-  stableTokens?: ISwapKLineStableToken[];
-}) {
-  if (!token) {
-    return false;
+export function getSwapKLineStableTokenAddress(token?: ISwapKLineToken) {
+  const address = token?.contractAddress?.trim();
+  if (!token?.networkId || token.isNative || !address) {
+    return undefined;
   }
+  return address.startsWith('0x') ? address.toLowerCase() : address;
+}
 
-  if (!stableTokens?.length) {
-    return false;
-  }
-
-  return stableTokens.some((stableToken) =>
-    equalTokenNoCaseSensitive({
-      token1: token,
-      token2: stableToken,
-    }),
+export async function fetchSwapKLineTokenAddressesStableStatus(
+  stableTokenAddresses: (string | undefined)[],
+): Promise<Map<string, boolean>> {
+  const contractAddressesList = Array.from(
+    new Set(
+      stableTokenAddresses.filter((address): address is string =>
+        Boolean(address),
+      ),
+    ),
   );
+
+  if (!contractAddressesList.length) {
+    return new Map();
+  }
+
+  try {
+    const stableCoinsList =
+      await backgroundApiProxy.serviceSwap.checkStableCoinsList({
+        contractAddressesList,
+      });
+
+    return new Map(
+      stableCoinsList.map((item) => [
+        item.contractAddress.startsWith('0x')
+          ? item.contractAddress.toLowerCase()
+          : item.contractAddress,
+        item.isStableCoin,
+      ]),
+    );
+  } catch {
+    return new Map();
+  }
+}
+
+export async function fetchSwapKLineTokensStableStatus(
+  tokens: (ISwapKLineToken | undefined)[],
+): Promise<Map<string, boolean>> {
+  return fetchSwapKLineTokenAddressesStableStatus(
+    tokens.map((token) => getSwapKLineStableTokenAddress(token)),
+  );
+}
+
+export function getSwapKLineStableTokenStatusFromMap({
+  stableStatusMap,
+  stableTokenAddress,
+}: {
+  stableStatusMap: Map<string, boolean>;
+  stableTokenAddress?: string;
+}) {
+  return stableTokenAddress
+    ? (stableStatusMap.get(stableTokenAddress) ?? false)
+    : false;
+}
+
+export function getSwapKLineTokenStableStatusFromMap({
+  stableStatusMap,
+  token,
+}: {
+  stableStatusMap: Map<string, boolean>;
+  token?: ISwapKLineToken;
+}) {
+  return getSwapKLineStableTokenStatusFromMap({
+    stableStatusMap,
+    stableTokenAddress: getSwapKLineStableTokenAddress(token),
+  });
+}
+
+export async function fetchSwapKLineTokenIsStable(
+  token?: ISwapKLineToken,
+): Promise<boolean> {
+  const stableStatusMap = await fetchSwapKLineTokensStableStatus([token]);
+  return getSwapKLineTokenStableStatusFromMap({ stableStatusMap, token });
 }
 
 export function getDefaultSwapKLineSide({
   fromToken,
-  stableTokens,
+  fromTokenIsStable = false,
   toToken,
+  toTokenIsStable = false,
 }: {
   fromToken?: ISwapKLineToken;
-  stableTokens?: ISwapKLineStableToken[];
+  fromTokenIsStable?: boolean;
   toToken?: ISwapKLineToken;
+  toTokenIsStable?: boolean;
 }): ESwapDirectionType {
   if (!toToken) {
     return ESwapDirectionType.FROM;
@@ -75,16 +131,10 @@ export function getDefaultSwapKLineSide({
   }
 
   if (!fromIsKnownUnsupported && !toIsKnownUnsupported) {
-    const fromIsStable = isSwapKLineStableToken({
-      token: fromToken,
-      stableTokens,
-    });
-    const toIsStable = isSwapKLineStableToken({
-      token: toToken,
-      stableTokens,
-    });
-    if (fromIsStable !== toIsStable) {
-      return fromIsStable ? ESwapDirectionType.TO : ESwapDirectionType.FROM;
+    if (fromTokenIsStable !== toTokenIsStable) {
+      return fromTokenIsStable
+        ? ESwapDirectionType.TO
+        : ESwapDirectionType.FROM;
     }
   }
 
@@ -93,12 +143,16 @@ export function getDefaultSwapKLineSide({
 
 export function getResolvableDefaultSwapKLineSide({
   fromToken,
-  stableTokens,
+  fromTokenIsStable,
+  isStableTokenCheckLoading,
   toToken,
+  toTokenIsStable,
 }: {
   fromToken?: ISwapKLineToken;
-  stableTokens?: ISwapKLineStableToken[];
+  fromTokenIsStable?: boolean;
+  isStableTokenCheckLoading?: boolean;
   toToken?: ISwapKLineToken;
+  toTokenIsStable?: boolean;
 }): ESwapDirectionType | undefined {
   if (!toToken) {
     return ESwapDirectionType.FROM;
@@ -117,13 +171,14 @@ export function getResolvableDefaultSwapKLineSide({
     return ESwapDirectionType.TO;
   }
 
-  if (stableTokens === undefined) {
+  if (isStableTokenCheckLoading) {
     return undefined;
   }
 
   return getDefaultSwapKLineSide({
     fromToken,
-    stableTokens,
+    fromTokenIsStable,
     toToken,
+    toTokenIsStable,
   });
 }
