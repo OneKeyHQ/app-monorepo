@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ComponentType, ReactNode } from 'react';
 
 import { SegmentSliderView } from '@onekeyfe/react-native-segment-slider';
 import { StyleSheet } from 'react-native';
@@ -17,6 +17,15 @@ const DEFAULT_TRACK_HEIGHT = 4;
 // bump it; keep it fixed. Re-expose as a prop if a future caller ever needs
 // the reset semantics.
 const FIXED_EPOCH = 0;
+
+type ISegmentSliderNativeViewProps = ComponentProps<
+  typeof SegmentSliderView
+> & {
+  snapTapToSegment?: boolean;
+};
+
+const SegmentSliderNativeView =
+  SegmentSliderView as ComponentType<ISegmentSliderNativeViewProps>;
 
 const styles = StyleSheet.create({
   slider: {
@@ -110,7 +119,7 @@ function SegmentSliderComponent({
   );
 
   return (
-    <SegmentSliderView
+    <SegmentSliderNativeView
       style={styles.slider}
       value={value}
       min={min}

@@ -1,4 +1,11 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -116,10 +123,7 @@ function getPrivateSendProgressStepStatuses({
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
 }): IPrivateSendProgressStepStatus[] {
-  if (
-    status === ESwapTxHistoryStatus.SUCCESS ||
-    status === ESwapTxHistoryStatus.PARTIALLY_FILLED
-  ) {
+  if (status === ESwapTxHistoryStatus.SUCCESS) {
     return ['done', 'done', 'done'];
   }
 
@@ -192,10 +196,7 @@ function getPrivateSendHistoryStatusTextProps({
   ) {
     return getSwapHistoryStatusTextProps(status);
   }
-  if (
-    status === ESwapTxHistoryStatus.SUCCESS ||
-    status === ESwapTxHistoryStatus.PARTIALLY_FILLED
-  ) {
+  if (status === ESwapTxHistoryStatus.SUCCESS) {
     return {
       key: ETranslations.private_send_done,
       color: '$textSuccess',
@@ -414,9 +415,11 @@ function getPositiveTokenPrice(value?: number | string) {
 function applyPrivateSendTokenPrice({
   item,
   price,
+  force,
 }: {
   item: ISwapTxHistory;
   price: string;
+  force?: boolean;
 }) {
   const hasFromTokenPrice = !!getPositiveTokenPrice(
     item.baseInfo.fromToken.price,
@@ -427,14 +430,48 @@ function applyPrivateSendTokenPrice({
     ...item,
     baseInfo: {
       ...item.baseInfo,
-      fromToken: hasFromTokenPrice
-        ? item.baseInfo.fromToken
-        : { ...item.baseInfo.fromToken, price },
-      toToken: hasToTokenPrice
-        ? item.baseInfo.toToken
-        : { ...item.baseInfo.toToken, price },
+      fromToken:
+        hasFromTokenPrice && !force
+          ? item.baseInfo.fromToken
+          : { ...item.baseInfo.fromToken, price },
+      toToken:
+        hasToTokenPrice && !force
+          ? item.baseInfo.toToken
+          : { ...item.baseInfo.toToken, price },
     },
   };
+}
+
+function isSamePrivateSendHistoryToken({
+  source,
+  target,
+}: {
+  source?: ISwapTxHistory;
+  target?: ISwapTxHistory;
+}) {
+  if (!source || !target) {
+    return false;
+  }
+  return equalTokenNoCaseSensitive({
+    token1: source.baseInfo.fromToken,
+    token2: target.baseInfo.fromToken,
+  });
+}
+
+function getPrivateSendPriceBackfillKey(item?: ISwapTxHistory) {
+  if (!item) {
+    return undefined;
+  }
+  const accountId = item.accountInfo.sender.accountId;
+  const networkId =
+    item.baseInfo.fromToken.networkId ?? item.accountInfo.sender.networkId;
+  const tokenAddress = item.baseInfo.fromToken.isNative
+    ? 'native'
+    : item.baseInfo.fromToken.contractAddress;
+  if (!accountId || !networkId || !tokenAddress) {
+    return undefined;
+  }
+  return `${item.swapInfo.orderId ?? item.txInfo.txId ?? ''}:${accountId}:${networkId}:${tokenAddress}`;
 }
 
 async function fetchPrivateSendTokenPrice(item: ISwapTxHistory) {
@@ -474,6 +511,7 @@ const SwapHistoryDetailModal = () => {
   const intl = useIntl();
   const { txHistoryOrderId, txHistoryList } = route.params ?? {};
   const [txHistoryListState, setTxHistoryListState] = useState(txHistoryList);
+  const privateSendPriceBackfillKeysRef = useRef(new Set<string>());
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { result: swapTxHistoryList } = usePromiseResult(
     async () => {
@@ -528,7 +566,11 @@ const SwapHistoryDetailModal = () => {
     const nextTxHistoryList = currentPrivateSendPrice
       ? rawNextTxHistoryList.map((item) =>
           item.swapInfo.orderId === txHistoryOrderId &&
-          isPrivateSendSwapTxHistory(item)
+          isPrivateSendSwapTxHistory(item) &&
+          isSamePrivateSendHistoryToken({
+            source: currentTxHistory,
+            target: item,
+          })
             ? applyPrivateSendTokenPrice({
                 item,
                 price: currentPrivateSendPrice,
@@ -558,28 +600,32 @@ const SwapHistoryDetailModal = () => {
       return;
     }
 
-    const hasFromTokenPrice = !!getPositiveTokenPrice(
-      txHistory.baseInfo.fromToken.price,
-    );
-    const hasToTokenPrice = !!getPositiveTokenPrice(
-      txHistory.baseInfo.toToken.price,
-    );
-    if (hasFromTokenPrice && hasToTokenPrice) {
+    const priceBackfillKey = getPrivateSendPriceBackfillKey(txHistory);
+    if (
+      !priceBackfillKey ||
+      privateSendPriceBackfillKeysRef.current.has(priceBackfillKey)
+    ) {
       return;
     }
+    privateSendPriceBackfillKeysRef.current.add(priceBackfillKey);
 
     let cancelled = false;
     void (async () => {
       try {
         const price = await fetchPrivateSendTokenPrice(txHistory);
         if (!price || cancelled) {
+          privateSendPriceBackfillKeysRef.current.delete(priceBackfillKey);
           return;
         }
 
         const nextTxHistory = applyPrivateSendTokenPrice({
           item: txHistory,
           price,
+          force: true,
         });
+        if (JSON.stringify(nextTxHistory) === JSON.stringify(txHistory)) {
+          return;
+        }
         setTxHistoryListState((prev) =>
           prev?.map((item) =>
             item.swapInfo.orderId === nextTxHistory.swapInfo.orderId
@@ -592,6 +638,7 @@ const SwapHistoryDetailModal = () => {
           { shouldShowToast: false },
         );
       } catch {
+        privateSendPriceBackfillKeysRef.current.delete(priceBackfillKey);
         // Price backfill is best-effort and should not affect history details.
       }
     })();
@@ -911,8 +958,18 @@ const SwapHistoryDetailModal = () => {
 
   const renderNetworkFee = useCallback(() => {
     const { gasFeeFiatValue, gasFeeInNative } = txHistory?.txInfo ?? {};
-    const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? 0);
+    const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? '');
+    const gasFeeFiatValueBN = new BigNumber(gasFeeFiatValue ?? '');
+    if (gasFeeInNativeBN.isNaN() || !gasFeeInNativeBN.isFinite()) {
+      return (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          --
+        </SizableText>
+      );
+    }
     const gasFeeDisplay = gasFeeInNativeBN.toFixed();
+    const shouldRenderGasFeeFiatValue =
+      !gasFeeFiatValueBN.isNaN() && gasFeeFiatValueBN.isFinite();
     return (
       <SizableText size="$bodyMd" color="$textSubdued">
         <NumberSizeableText
@@ -932,7 +989,7 @@ const SwapHistoryDetailModal = () => {
               txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol,
           }}
         >
-          {gasFeeFiatValue ?? 0}
+          {shouldRenderGasFeeFiatValue ? gasFeeFiatValue : '--'}
         </NumberSizeableText>
         )
       </SizableText>
@@ -1138,14 +1195,16 @@ const SwapHistoryDetailModal = () => {
                   : {})}
               />
             ) : null}
-            <InfoItem
-              disabledCopy
-              label={intl.formatMessage({
-                id: ETranslations.swap_history_detail_rate,
-              })}
-              renderContent={renderRate()}
-            />
-            {protocolFeeContent ? (
+            {isPrivateSendHistory ? null : (
+              <InfoItem
+                disabledCopy
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_rate,
+                })}
+                renderContent={renderRate()}
+              />
+            )}
+            {!isPrivateSendHistory && protocolFeeContent ? (
               <InfoItem
                 disabledCopy
                 label={intl.formatMessage({
@@ -1155,7 +1214,7 @@ const SwapHistoryDetailModal = () => {
               />
             ) : null}
 
-            {txHistory?.swapInfo?.surplus ? (
+            {!isPrivateSendHistory && txHistory?.swapInfo?.surplus ? (
               <InfoItem
                 disabledCopy
                 label={intl.formatMessage({

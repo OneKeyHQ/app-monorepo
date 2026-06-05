@@ -3,7 +3,7 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { EventSourcePolyfill } from 'event-source-polyfill';
-import { cloneDeep, has } from 'lodash';
+import { cloneDeep, has, isEqual } from 'lodash';
 
 import {
   getBtcForkNetwork,
@@ -35,7 +35,11 @@ import {
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
-import { isSwapHistoryProtocolExcluded } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import {
+  isPrivateSendSwapHistoryItem,
+  isSamePrivateSendSwapHistoryItem,
+  isSwapHistoryProtocolExcluded,
+} from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -63,6 +67,7 @@ import {
   swapSpeedSwapApprovingStateFetchInterval,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  ESwapExtraStatus,
   ESwapQuoteKind,
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
@@ -124,6 +129,169 @@ import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwo
 const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
+
+type ICheckStableCoinsListItem = {
+  contractAddress: string;
+  isStableCoin: boolean;
+};
+
+type IPrivateSendOrderDetail = {
+  protocol?: EProtocolOfExchange;
+  kind?: ESwapQuoteKind;
+  changellyOrder?: IFetchBuildTxResponse['changellyOrder'];
+  rocketXOrderId?: string;
+  providerInfo?: ISwapTxHistory['swapInfo']['provider'];
+  fromAmount?: string;
+  fromToken?: ISwapTokenBase;
+  toToken?: ISwapTokenBase;
+  toAmount?: string;
+  receivingAddress?: string;
+  percentageFee?: number;
+  protocolFee?: number;
+  instantRate?: string;
+  state?: ESwapTxHistoryStatus | 'created';
+  extraStatus?: ESwapExtraStatus;
+  stateDetail?: string;
+  txId?: string;
+  swapOrderHash?: IFetchSwapTxHistoryStatusResponse['swapOrderHash'];
+  orderId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type IPrivateSendStatusSource = 'stateTx' | 'orderDetail';
+
+type IFetchSwapHistoryStatusResult = {
+  orderDetail?: IPrivateSendOrderDetail;
+  txStatusRes?: IFetchSwapTxHistoryStatusResponse;
+  shouldPreserveExistingExtraStatus?: boolean;
+};
+
+function normalizePrivateSendOrderDetailState(
+  state?: IPrivateSendOrderDetail['state'],
+) {
+  if (!state) {
+    return undefined;
+  }
+  if (state === 'created') {
+    return ESwapTxHistoryStatus.PENDING;
+  }
+  return Object.values(ESwapTxHistoryStatus).includes(state)
+    ? state
+    : undefined;
+}
+
+function getPrivateSendOrderDetailTime(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : undefined;
+}
+
+function mergePrivateSendOrderDetailToken({
+  currentToken,
+  orderDetailToken,
+}: {
+  currentToken: ISwapToken;
+  orderDetailToken?: ISwapTokenBase;
+}): ISwapToken {
+  if (!orderDetailToken) {
+    return currentToken;
+  }
+  const isSameToken = equalTokenNoCaseSensitive({
+    token1: currentToken,
+    token2: orderDetailToken,
+  });
+  return {
+    ...currentToken,
+    ...orderDetailToken,
+    price: isSameToken
+      ? (orderDetailToken.price ?? currentToken.price)
+      : orderDetailToken.price,
+  };
+}
+
+function getPrivateSendOrderDetailTxState(
+  orderDetail?: IPrivateSendOrderDetail | null,
+): IFetchSwapTxHistoryStatusResponse | undefined {
+  if (!orderDetail) {
+    return undefined;
+  }
+  const state = normalizePrivateSendOrderDetailState(orderDetail.state);
+  if (!state) {
+    return undefined;
+  }
+  return {
+    state,
+    extraStatus: orderDetail.extraStatus,
+    stateDetail: orderDetail.stateDetail,
+    txId: orderDetail.txId,
+    dealReceiveAmount: orderDetail.toAmount,
+    swapOrderHash: orderDetail.swapOrderHash,
+  };
+}
+
+function mergePrivateSendOrderDetailToSwapHistory({
+  item,
+  orderDetail,
+}: {
+  item: ISwapTxHistory;
+  orderDetail: IPrivateSendOrderDetail;
+}): ISwapTxHistory {
+  const created = getPrivateSendOrderDetailTime(orderDetail.createdAt);
+  const updated = getPrivateSendOrderDetailTime(orderDetail.updatedAt);
+  const state = normalizePrivateSendOrderDetailState(orderDetail.state);
+  return {
+    ...item,
+    protocol: orderDetail.protocol ?? item.protocol,
+    status: state ?? item.status,
+    extraStatus: orderDetail.extraStatus ?? item.extraStatus,
+    stateDetail: orderDetail.stateDetail ?? item.stateDetail,
+    swapOrderHash: orderDetail.swapOrderHash ?? item.swapOrderHash,
+    baseInfo: {
+      ...item.baseInfo,
+      fromAmount: orderDetail.fromAmount ?? item.baseInfo.fromAmount,
+      toAmount: orderDetail.toAmount ?? item.baseInfo.toAmount,
+      fromToken: mergePrivateSendOrderDetailToken({
+        currentToken: item.baseInfo.fromToken,
+        orderDetailToken: orderDetail.fromToken,
+      }),
+      toToken: mergePrivateSendOrderDetailToken({
+        currentToken: item.baseInfo.toToken,
+        orderDetailToken: orderDetail.toToken,
+      }),
+    },
+    txInfo: {
+      ...item.txInfo,
+      txId: orderDetail.txId ?? item.txInfo.txId,
+      orderId: orderDetail.orderId ?? item.txInfo.orderId,
+      useOrderId: item.txInfo.useOrderId,
+      receiver: orderDetail.receivingAddress ?? item.txInfo.receiver,
+    },
+    swapInfo: {
+      ...item.swapInfo,
+      provider: orderDetail.providerInfo ?? item.swapInfo.provider,
+      instantRate: orderDetail.instantRate ?? item.swapInfo.instantRate,
+      oneKeyFee: orderDetail.percentageFee ?? item.swapInfo.oneKeyFee,
+      protocolFee: orderDetail.protocolFee ?? item.swapInfo.protocolFee,
+      orderId: orderDetail.orderId ?? item.swapInfo.orderId,
+    },
+    ctx: {
+      ...(typeof item.ctx === 'object' && item.ctx !== null ? item.ctx : {}),
+      ...(orderDetail.rocketXOrderId
+        ? { rocketXOrderId: orderDetail.rocketXOrderId }
+        : {}),
+      ...(orderDetail.changellyOrder?.payinAddress
+        ? { payinAddress: orderDetail.changellyOrder.payinAddress }
+        : {}),
+    },
+    date: {
+      created: created ?? item.date.created,
+      updated: updated ?? item.date.updated,
+    },
+  };
+}
 
 function isPrivateSendProtocol(protocol?: string) {
   return (
@@ -1135,6 +1303,69 @@ export default class ServiceSwap extends ServiceBase {
     return data?.data ?? { state: ESwapTxHistoryStatus.PENDING };
   }
 
+  private async fetchSwapOrderDetail({
+    txId,
+  }: {
+    txId?: string;
+  }): Promise<IPrivateSendOrderDetail | undefined> {
+    if (!txId) {
+      return undefined;
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const { data } = await client.get<
+      IFetchResponse<IPrivateSendOrderDetail | null>
+    >('/swap/v1/order-detail', {
+      params: { txId },
+    });
+    return data?.data ?? undefined;
+  }
+
+  @backgroundMethod()
+  async fetchSwapOrderDetailTxState({
+    txId,
+  }: {
+    txId?: string;
+  }): Promise<IFetchSwapTxHistoryStatusResponse | undefined> {
+    const orderDetail = await this.fetchSwapOrderDetail({ txId });
+    return getPrivateSendOrderDetailTxState(orderDetail);
+  }
+
+  @backgroundMethod()
+  async fetchPrivateSendOrderDetailHistoryItem({
+    item,
+  }: {
+    item: ISwapTxHistory;
+  }): Promise<ISwapTxHistory> {
+    if (!isPrivateSendSwapHistoryItem(item) || !item.txInfo.txId) {
+      return item;
+    }
+    const orderDetail = await this.fetchSwapOrderDetail({
+      txId: item.txInfo.txId,
+    });
+    if (!orderDetail) {
+      return item;
+    }
+    return mergePrivateSendOrderDetailToSwapHistory({ item, orderDetail });
+  }
+
+  @backgroundMethod()
+  async checkStableCoinsList({
+    contractAddressesList,
+  }: {
+    contractAddressesList: string[];
+  }): Promise<ICheckStableCoinsListItem[]> {
+    if (!contractAddressesList.length) {
+      return [];
+    }
+    const client = await this.getRawDataClient(EServiceEndpointEnum.Swap);
+    const response = await client.post<
+      IFetchResponse<ICheckStableCoinsListItem[]>
+    >('/swap/v1/check-stable-coins-list', {
+      contractAddressesList,
+    });
+    return response.data?.data ?? [];
+  }
+
   @backgroundMethod()
   async checkSupportSwap({ networkId }: { networkId: string }) {
     return this.checkSupportSwapMemo({ networkId });
@@ -1552,6 +1783,47 @@ export default class ServiceSwap extends ServiceBase {
     );
   }
 
+  private isSameSwapHistoryItem(a: ISwapTxHistory, b: ISwapTxHistory) {
+    const bPrimaryId = b.txInfo.useOrderId ? b.txInfo.orderId : b.txInfo.txId;
+    const aPrimaryId = b.txInfo.useOrderId ? a.txInfo.orderId : a.txInfo.txId;
+    if (bPrimaryId && aPrimaryId === bPrimaryId) {
+      return true;
+    }
+    return isSamePrivateSendSwapHistoryItem(a, b);
+  }
+
+  private getSwapHistoryIntervalKey(swapTxHistory: ISwapTxHistory) {
+    return swapTxHistory.txInfo.useOrderId
+      ? (swapTxHistory.txInfo.orderId ?? '')
+      : (swapTxHistory.txInfo.txId ?? '');
+  }
+
+  private getSwapHistoryIntervalKeys(swapTxHistory: ISwapTxHistory) {
+    return Array.from(
+      new Set(
+        [
+          this.getSwapHistoryIntervalKey(swapTxHistory),
+          swapTxHistory.txInfo.txId,
+          swapTxHistory.txInfo.orderId,
+          swapTxHistory.swapInfo.orderId,
+        ].filter((id): id is string => !!id),
+      ),
+    );
+  }
+
+  private async cleanSwapHistoryStateIntervals(
+    ...swapTxHistories: ISwapTxHistory[]
+  ) {
+    const ids = Array.from(
+      new Set(
+        swapTxHistories.flatMap((item) =>
+          this.getSwapHistoryIntervalKeys(item),
+        ),
+      ),
+    );
+    await Promise.all(ids.map((id) => this.cleanHistoryStateIntervals(id)));
+  }
+
   @backgroundMethod()
   async syncSwapHistoryPendingList() {
     const histories = await this.fetchSwapHistoryListFromSimple();
@@ -1603,17 +1875,22 @@ export default class ServiceSwap extends ServiceBase {
       const filteredList = filterSwapHistoryPendingList(
         pre.swapHistoryPendingList,
       );
-      if (
-        this.isSwapHistoryPendingStatus(item) &&
-        !filteredList.find((i) =>
-          item.txInfo.useOrderId
-            ? i.txInfo.orderId === item.txInfo.orderId
-            : i.txInfo.txId === item.txInfo.txId,
-        )
-      ) {
+      const matchFn = (i: ISwapTxHistory) =>
+        this.isSameSwapHistoryItem(i, item);
+      const unmatchedList = filteredList.filter((i) => !matchFn(i));
+      if (this.isSwapHistoryPendingStatus(item)) {
         return {
           ...pre,
-          swapHistoryPendingList: [...filteredList, item],
+          swapHistoryPendingList: [...unmatchedList, item],
+        };
+      }
+      const matchedInPendingList = filteredList.some(matchFn);
+      if (matchedInPendingList) {
+        return {
+          ...pre,
+          swapHistoryPendingList: filteredList.map((i) =>
+            matchFn(i) ? item : i,
+          ),
         };
       }
       // Item already exists — only update state if dirty entries were removed,
@@ -1623,6 +1900,12 @@ export default class ServiceSwap extends ServiceBase {
       }
       return pre;
     });
+    if (
+      isPrivateSendSwapHistoryItem(item) &&
+      !this.isSwapHistoryPendingStatus(item)
+    ) {
+      appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+    }
   }
 
   @backgroundMethod()
@@ -1681,10 +1964,7 @@ export default class ServiceSwap extends ServiceBase {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const shouldShowToast = options?.shouldShowToast ?? true;
     const filteredList = filterSwapHistoryPendingList(swapHistoryPendingList);
-    const matchFn = (i: ISwapTxHistory) =>
-      item.txInfo.useOrderId
-        ? i.txInfo.orderId === item.txInfo.orderId
-        : i.txInfo.txId === item.txInfo.txId;
+    const matchFn = (i: ISwapTxHistory) => this.isSameSwapHistoryItem(i, item);
     const oldItem = filteredList.find(matchFn);
     const updated = Date.now();
     item.date = { ...item.date, updated };
@@ -1756,6 +2036,9 @@ export default class ServiceSwap extends ServiceBase {
       }
     }
     await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
+    if (isPrivateSendSwapHistoryItem(item)) {
+      appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+    }
   }
 
   @backgroundMethod()
@@ -1842,8 +2125,10 @@ export default class ServiceSwap extends ServiceBase {
           delete this.historyStateIntervalCountMap[id];
         }),
       );
-    } else if (this.historyStateIntervals[historyId]) {
-      clearInterval(this.historyStateIntervals[historyId]);
+    } else {
+      if (this.historyStateIntervals[historyId]) {
+        clearInterval(this.historyStateIntervals[historyId]);
+      }
       this.historyCurrentStateIntervalIds =
         this.historyCurrentStateIntervalIds.filter((id) => id !== historyId);
       delete this.historyStateIntervals[historyId];
@@ -1871,20 +2156,13 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
-  async swapHistoryStatusRunFetch(
-    swapTxHistory: ISwapTxHistory,
-    options?: {
-      shouldScheduleNextFetch?: boolean;
-      shouldShowToast?: boolean;
-    },
-  ) {
-    let enableInterval = true;
-    const shouldScheduleNextFetch = options?.shouldScheduleNextFetch ?? true;
-    const shouldShowToast = options?.shouldShowToast ?? true;
-    let currentSwapTxHistory = cloneDeep(swapTxHistory);
-    const isPrivateSendHistory =
-      currentSwapTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
-      currentSwapTxHistory.swapInfo.provider.provider === privateSendProvider;
+  private async fetchSwapHistoryStateTx({
+    currentSwapTxHistory,
+    isPrivateSendHistory,
+  }: {
+    currentSwapTxHistory: ISwapTxHistory;
+    isPrivateSendHistory: boolean;
+  }) {
     const stateOrderId = getSwapHistoryStateOrderId({
       swapTxHistory: currentSwapTxHistory,
       isPrivateSendHistory,
@@ -1893,37 +2171,122 @@ export default class ServiceSwap extends ServiceBase {
       swapTxHistory: currentSwapTxHistory,
       isPrivateSendHistory,
     });
-    try {
-      const txStatusRes = await this.fetchTxState({
-        txId:
-          currentSwapTxHistory.txInfo.txId ??
-          currentSwapTxHistory.txInfo.orderId ??
-          '',
-        provider: currentSwapTxHistory.swapInfo.provider.provider,
-        protocol:
-          currentSwapTxHistory.protocol ??
-          (currentSwapTxHistory.swapInfo.provider.provider ===
-          privateSendProvider
-            ? EProtocolOfExchange.PRIVATE_SEND
-            : EProtocolOfExchange.SWAP),
-        networkId: currentSwapTxHistory.baseInfo.fromToken.networkId,
-        ctx: currentSwapTxHistory.ctx,
-        toTokenAddress: currentSwapTxHistory.baseInfo.toToken.contractAddress,
-        receivedAddress: stateReceivedAddress,
-        orderId: stateOrderId,
+    return this.fetchTxState({
+      txId:
+        currentSwapTxHistory.txInfo.txId ??
+        currentSwapTxHistory.txInfo.orderId ??
+        '',
+      provider: currentSwapTxHistory.swapInfo.provider.provider,
+      protocol:
+        currentSwapTxHistory.protocol ??
+        (currentSwapTxHistory.swapInfo.provider.provider === privateSendProvider
+          ? EProtocolOfExchange.PRIVATE_SEND
+          : EProtocolOfExchange.SWAP),
+      networkId: currentSwapTxHistory.baseInfo.fromToken.networkId,
+      ctx: currentSwapTxHistory.ctx,
+      toTokenAddress: currentSwapTxHistory.baseInfo.toToken.contractAddress,
+      receivedAddress: stateReceivedAddress,
+      orderId: stateOrderId,
+    });
+  }
+
+  private async fetchSwapHistoryStatus({
+    currentSwapTxHistory,
+    isPrivateSendHistory,
+    privateSendStatusSource,
+  }: {
+    currentSwapTxHistory: ISwapTxHistory;
+    isPrivateSendHistory: boolean;
+    privateSendStatusSource: IPrivateSendStatusSource;
+  }): Promise<IFetchSwapHistoryStatusResult | undefined> {
+    if (isPrivateSendHistory && privateSendStatusSource === 'orderDetail') {
+      const orderDetail = await this.fetchSwapOrderDetail({
+        txId: currentSwapTxHistory.txInfo.txId,
       });
+      const orderDetailTxStatusRes =
+        getPrivateSendOrderDetailTxState(orderDetail);
+      return orderDetailTxStatusRes
+        ? {
+            orderDetail,
+            txStatusRes: orderDetailTxStatusRes,
+            shouldPreserveExistingExtraStatus: true,
+          }
+        : undefined;
+    }
+    const txStatusRes = await this.fetchSwapHistoryStateTx({
+      currentSwapTxHistory,
+      isPrivateSendHistory,
+    });
+    return { txStatusRes };
+  }
+
+  @backgroundMethod()
+  async fetchPrivateSendInitialTxState(swapTxHistory: ISwapTxHistory) {
+    if (!isPrivateSendSwapHistoryItem(swapTxHistory)) {
+      return;
+    }
+    await this.fetchSwapHistoryStateTx({
+      currentSwapTxHistory: swapTxHistory,
+      isPrivateSendHistory: true,
+    });
+  }
+
+  async swapHistoryStatusRunFetch(
+    swapTxHistory: ISwapTxHistory,
+    options?: {
+      shouldScheduleNextFetch?: boolean;
+      shouldShowToast?: boolean;
+      privateSendStatusSource?: IPrivateSendStatusSource;
+    },
+  ) {
+    let enableInterval = true;
+    const shouldScheduleNextFetch = options?.shouldScheduleNextFetch ?? true;
+    const shouldShowToast = options?.shouldShowToast ?? true;
+    const privateSendStatusSource =
+      options?.privateSendStatusSource ?? 'orderDetail';
+    let currentSwapTxHistory = cloneDeep(swapTxHistory);
+    const isPrivateSendHistory =
+      currentSwapTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+      currentSwapTxHistory.swapInfo.provider.provider === privateSendProvider;
+    try {
+      const fetchResult = await this.fetchSwapHistoryStatus({
+        currentSwapTxHistory,
+        isPrivateSendHistory,
+        privateSendStatusSource,
+      });
+      const txStatusRes = fetchResult?.txStatusRes;
+      if (!txStatusRes) {
+        return;
+      }
+      const previousSwapTxHistory = currentSwapTxHistory;
+      if (fetchResult?.orderDetail) {
+        currentSwapTxHistory = mergePrivateSendOrderDetailToSwapHistory({
+          item: currentSwapTxHistory,
+          orderDetail: fetchResult.orderDetail,
+        });
+      }
+      const shouldUpdateOrderDetailFields = !isEqual(
+        previousSwapTxHistory,
+        currentSwapTxHistory,
+      );
       if (
+        shouldUpdateOrderDetailFields ||
         shouldUpdateSwapHistoryAfterTxState({
           swapTxHistory: currentSwapTxHistory,
           txStatusRes,
         })
       ) {
         const rawStatus = txStatusRes.state;
-        const previousStateDetail = currentSwapTxHistory.stateDetail;
+        const previousStateDetail = previousSwapTxHistory.stateDetail;
+        const shouldPreserveExistingExtraStatus =
+          fetchResult?.shouldPreserveExistingExtraStatus &&
+          !isSwapTxHistoryStatusTerminal(rawStatus);
         currentSwapTxHistory = {
           ...currentSwapTxHistory,
           status: rawStatus,
-          extraStatus: txStatusRes.extraStatus,
+          extraStatus: shouldPreserveExistingExtraStatus
+            ? (txStatusRes.extraStatus ?? currentSwapTxHistory.extraStatus)
+            : txStatusRes.extraStatus,
           stateDetail:
             txStatusRes.stateDetail ?? currentSwapTxHistory.stateDetail,
           swapInfo: {
@@ -1987,19 +2350,17 @@ export default class ServiceSwap extends ServiceBase {
         }
         if (isSwapTxHistoryStatusTerminal(finalStatus)) {
           enableInterval = false;
-          const deleteHistoryId = currentSwapTxHistory.txInfo.useOrderId
-            ? (currentSwapTxHistory.txInfo.orderId ?? '')
-            : (currentSwapTxHistory.txInfo.txId ?? '');
-          await this.cleanHistoryStateIntervals(deleteHistoryId);
+          await this.cleanSwapHistoryStateIntervals(
+            previousSwapTxHistory,
+            currentSwapTxHistory,
+          );
         }
       }
     } catch (e) {
       const error = e as { message?: string };
       console.error('Swap History Status Fetch Error', error?.message);
     } finally {
-      const keyId = currentSwapTxHistory.txInfo.useOrderId
-        ? (currentSwapTxHistory.txInfo.orderId ?? '')
-        : (currentSwapTxHistory.txInfo.txId ?? '');
+      const keyId = this.getSwapHistoryIntervalKey(currentSwapTxHistory);
       if (
         enableInterval &&
         shouldScheduleNextFetch &&
@@ -2031,9 +2392,7 @@ export default class ServiceSwap extends ServiceBase {
     const newHistoryStatePendingList = statusPendingList.filter(
       (item) =>
         !this.historyCurrentStateIntervalIds.includes(
-          item.txInfo.useOrderId
-            ? (item.txInfo.orderId ?? '')
-            : (item.txInfo.txId ?? ''),
+          this.getSwapHistoryIntervalKey(item),
         ),
     );
     if (!newHistoryStatePendingList.length) return;
@@ -2041,9 +2400,7 @@ export default class ServiceSwap extends ServiceBase {
       newHistoryStatePendingList.map(async (swapTxHistory) => {
         this.historyCurrentStateIntervalIds = [
           ...this.historyCurrentStateIntervalIds,
-          swapTxHistory.txInfo.useOrderId
-            ? (swapTxHistory.txInfo.orderId ?? '')
-            : (swapTxHistory.txInfo.txId ?? ''),
+          this.getSwapHistoryIntervalKey(swapTxHistory),
         ];
         await this.swapHistoryStatusRunFetch(swapTxHistory);
       }),

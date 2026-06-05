@@ -29,6 +29,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getHistoryTxDisplayStatus } from '@onekeyhq/shared/src/utils/historyUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -116,7 +117,7 @@ function TxHistoryListContainer(
 
         for (let i = 0; i < txs.length; i += 1) {
           const tx = txs[i];
-          if (tx.decodedTx.status !== EDecodedTxStatus.Pending) {
+          if (getHistoryTxDisplayStatus(tx) !== EDecodedTxStatus.Pending) {
             tempLimit += 1;
           }
           tempTxs.push(tx);
