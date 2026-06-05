@@ -403,8 +403,6 @@ function SwapKLineTokenSwitch({
   toToken?: ISwapToken;
   compact?: boolean;
 }) {
-  const selectedToken =
-    selectedSide === ESwapDirectionType.FROM ? fromToken : toToken;
   const tokenSize = compact ? 'xxs' : 'xs';
   const labelSize = compact ? '$bodySmMedium' : '$bodyMdMedium';
   const labelGap = compact ? '$1' : '$1.5';
@@ -483,53 +481,29 @@ function SwapKLineTokenSwitch({
     [onChange],
   );
 
-  if (options.length > 1) {
-    return (
-      <SegmentControl
-        value={selectedSide}
-        options={options}
-        onChange={handleChange}
-        slotBackgroundColor="$neutral3"
-        activeBackgroundColor="$bg"
-        borderRadius="$full"
-        p="$0.5"
-        h="auto"
-        segmentControlItemStyleProps={{
-          py: compact ? '$1' : '$1.5',
-          px: compact ? '$2' : '$3',
-          borderRadius: '$full',
-          '$platform-web': {
-            boxShadow: 'none',
-          },
-        }}
-      />
-    );
-  }
-
-  if (!selectedToken) {
+  if (options.length <= 1) {
     return null;
   }
 
   return (
-    <XStack
-      ai="center"
-      gap="$1"
-      px={compact ? '$1.5' : '$2'}
-      py="$1"
-      bg="$neutral3"
+    <SegmentControl
+      value={selectedSide}
+      options={options}
+      onChange={handleChange}
+      slotBackgroundColor="$neutral3"
+      activeBackgroundColor="$bg"
       borderRadius="$full"
-      maxWidth={compact ? '$24' : '$32'}
-    >
-      <Token
-        size={tokenSize}
-        tokenImageUri={selectedToken.logoURI}
-        networkId={selectedToken.networkId}
-        showNetworkIcon
-      />
-      <SizableText size={labelSize} numberOfLines={1}>
-        {selectedToken.symbol}
-      </SizableText>
-    </XStack>
+      p="$0.5"
+      h="auto"
+      segmentControlItemStyleProps={{
+        py: compact ? '$1' : '$1.5',
+        px: compact ? '$2' : '$3',
+        borderRadius: '$full',
+        '$platform-web': {
+          boxShadow: 'none',
+        },
+      }}
+    />
   );
 }
 
