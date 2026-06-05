@@ -47,6 +47,7 @@ import { useAccountSelectorActions } from '../../../states/jotai/contexts/accoun
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { useFirmwareVerifyDialog } from '../../Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHardwareWallet/SelectAddWalletTypeDialog';
+import { resolveHardwarePassphraseEnabled } from '../../Onboarding/pages/ConnectHardwareWallet/passphraseStateUtils';
 import {
   getForceTransportType,
   getHardwareCommunicationTypeString,
@@ -716,12 +717,25 @@ export function useDeviceConnect({
     ],
   );
 
+  type IDeviceState = {
+    unlockedAttachPin: boolean | undefined;
+    unlocked: boolean | undefined;
+    passphraseEnabled: boolean;
+    deviceId: string | undefined;
+  };
+
   const extractDeviceState = useCallback(
-    (features: IOneKeyDeviceFeatures) => ({
-      unlockedAttachPin: features.unlocked_attach_pin,
-      unlocked: features.unlocked,
-      passphraseEnabled: Boolean(features.passphrase_protection),
-      deviceId: features.device_id,
+    async (
+      features: IOneKeyDeviceFeatures,
+      device: SearchDevice,
+    ): Promise<IDeviceState> => ({
+      unlockedAttachPin: features.unlocked_attach_pin ?? undefined,
+      unlocked: features.unlocked ?? undefined,
+      passphraseEnabled: await resolveHardwarePassphraseEnabled({
+        device,
+        features,
+      }),
+      deviceId: features.device_id ?? undefined,
     }),
     [],
   );
@@ -744,7 +758,7 @@ export function useDeviceConnect({
 
   const determineWalletCreationStrategy = useCallback(
     async (
-      deviceState: ReturnType<typeof extractDeviceState>,
+      deviceState: IDeviceState,
       device: SearchDevice,
     ): Promise<IWalletCreationStrategy | null> => {
       if (!deviceState.unlocked) {
@@ -806,7 +820,7 @@ export function useDeviceConnect({
       strategy: IWalletCreationStrategy,
       features: IOneKeyDeviceFeatures,
       isFirmwareVerified?: boolean,
-      deviceState?: ReturnType<typeof extractDeviceState>,
+      deviceState?: IDeviceState,
     ) => {
       try {
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
@@ -902,7 +916,7 @@ export function useDeviceConnect({
         throw error;
       }
 
-      const deviceState = extractDeviceState(features);
+      const deviceState = await extractDeviceState(features, currentDevice);
       const strategy = await determineWalletCreationStrategy(
         deviceState,
         currentDevice,
