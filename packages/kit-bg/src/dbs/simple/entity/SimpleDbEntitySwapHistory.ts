@@ -1,10 +1,14 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { isSwapHistoryProtocolExcluded } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import {
+  isPrivateSendSwapHistoryItem,
+  isSamePrivateSendSwapHistoryItem,
+  isSwapHistoryProtocolExcluded,
+} from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import type {
   EProtocolOfExchange,
-  ESwapTxHistoryStatus,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -12,6 +16,55 @@ export const historyCircularBufferMaxSize = 300;
 
 export interface ISwapTxHistoryPersistList {
   histories: ISwapTxHistory[];
+}
+
+const SWAP_HISTORY_TERMINAL_STATUSES = new Set<ESwapTxHistoryStatus>([
+  ESwapTxHistoryStatus.SUCCESS,
+  ESwapTxHistoryStatus.FAILED,
+  ESwapTxHistoryStatus.CANCELED,
+  ESwapTxHistoryStatus.PARTIALLY_FILLED,
+]);
+
+function isSwapHistoryTerminal(item: ISwapTxHistory) {
+  return SWAP_HISTORY_TERMINAL_STATUSES.has(item.status);
+}
+
+function isSameSwapHistoryItem(a: ISwapTxHistory, b: ISwapTxHistory) {
+  const bPrimaryId = b.txInfo.useOrderId ? b.txInfo.orderId : b.txInfo.txId;
+  const aPrimaryId = b.txInfo.useOrderId ? a.txInfo.orderId : a.txInfo.txId;
+  if (bPrimaryId && aPrimaryId === bPrimaryId) {
+    return true;
+  }
+  return isSamePrivateSendSwapHistoryItem(a, b);
+}
+
+function isSwapHistoryItemMatchedById(item: ISwapTxHistory, id: string) {
+  if (!isPrivateSendSwapHistoryItem(item)) {
+    return item.txInfo.txId === id;
+  }
+  return (
+    item.txInfo.txId === id ||
+    item.txInfo.orderId === id ||
+    item.swapInfo.orderId === id
+  );
+}
+
+function shouldReplaceExistingSwapHistoryItem({
+  existing,
+  incoming,
+}: {
+  existing: ISwapTxHistory;
+  incoming: ISwapTxHistory;
+}) {
+  if (!isSamePrivateSendSwapHistoryItem(existing, incoming)) {
+    return false;
+  }
+  const existingTerminal = isSwapHistoryTerminal(existing);
+  const incomingTerminal = isSwapHistoryTerminal(incoming);
+  if (existingTerminal && !incomingTerminal) {
+    return false;
+  }
+  return incomingTerminal && !existingTerminal;
 }
 
 export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistoryPersistList> {
@@ -22,16 +75,23 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   @backgroundMethod()
   async addSwapHistoryItem(item: ISwapTxHistory) {
     const data = await this.getRawData();
-    if (
-      data?.histories?.find((i) =>
-        i.txInfo.useOrderId
-          ? i.txInfo.orderId === item.txInfo.orderId
-          : i.txInfo.txId === item.txInfo.txId,
-      )
-    ) {
+    const histories = data?.histories ?? [];
+    const existingIndex = histories.findIndex((i) =>
+      isSameSwapHistoryItem(i, item),
+    );
+    if (existingIndex !== -1) {
+      if (
+        shouldReplaceExistingSwapHistoryItem({
+          existing: histories[existingIndex],
+          incoming: item,
+        })
+      ) {
+        histories[existingIndex] = item;
+        await this.setRawData({ histories });
+      }
       return;
     }
-    const histories = [item, ...(data?.histories ?? [])];
+    histories.unshift(item);
     if (histories.length > historyCircularBufferMaxSize) {
       histories.pop();
     }
@@ -42,16 +102,10 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   async updateSwapHistoryItem(item: ISwapTxHistory, oldTxId?: string) {
     const data = await this.getRawData();
     const histories = data?.histories ?? [];
-    let index = histories.findIndex((i) =>
-      item.txInfo.useOrderId
-        ? i.txInfo.orderId === item.txInfo.orderId
-        : i.txInfo.txId === item.txInfo.txId,
-    );
+    let index = histories.findIndex((i) => isSameSwapHistoryItem(i, item));
     if (oldTxId) {
       index = histories.findIndex((i) =>
-        item.txInfo.useOrderId
-          ? i.txInfo.orderId === oldTxId
-          : i.txInfo.txId === oldTxId,
+        isSwapHistoryItemMatchedById(i, oldTxId),
       );
     }
     if (index !== -1) {

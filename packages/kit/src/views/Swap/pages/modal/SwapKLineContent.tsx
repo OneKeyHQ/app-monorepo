@@ -16,6 +16,7 @@ import {
   Page,
   SegmentControl,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -53,8 +54,10 @@ import {
   getSwapKLineWalletChartDays,
 } from './swapKLineChartUtils';
 import {
-  type ISwapKLineStableToken,
+  fetchSwapKLineTokenAddressesStableStatus,
   getResolvableDefaultSwapKLineSide,
+  getSwapKLineStableTokenAddress,
+  getSwapKLineStableTokenStatusFromMap,
   isKnownSwapKLineUnsupportedToken,
 } from './swapKLineTokenUtils';
 
@@ -85,8 +88,14 @@ function getSwapKLineTokenKey(token?: ISwapToken) {
   if (!token?.networkId) {
     return '';
   }
+  const contractAddress = token.contractAddress?.trim();
+  const normalizedContractAddress = contractAddress?.startsWith('0x')
+    ? contractAddress.toLowerCase()
+    : (contractAddress ?? '');
 
-  return `${token.networkId}:${token.contractAddress ?? ''}`;
+  return `${token.networkId}:${normalizedContractAddress}:${
+    token.isNative ? 'native' : 'contract'
+  }`;
 }
 
 function getNormalizedValueText(value?: number | string | null) {
@@ -295,37 +304,41 @@ function useSwapKLineNetworkName(networkId?: string) {
   return result;
 }
 
-function useSwapKLineStableTokens({
+function useSwapKLineStableTokenChecks({
   fromToken,
   toToken,
 }: {
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
 }) {
-  const fromNetworkId = fromToken?.networkId ?? '';
-  const toNetworkId = toToken?.networkId ?? '';
-  const { result, isLoading } = usePromiseResult<ISwapKLineStableToken[]>(
-    async () => {
-      const networkIds = Array.from(
-        new Set([fromNetworkId, toNetworkId].filter(Boolean)),
-      );
-      if (!networkIds.length) {
-        return [];
+  const fromTokenKey = getSwapKLineTokenKey(fromToken);
+  const toTokenKey = getSwapKLineTokenKey(toToken);
+  const fromStableTokenAddress = getSwapKLineStableTokenAddress(fromToken);
+  const toStableTokenAddress = getSwapKLineStableTokenAddress(toToken);
+  const { result, isLoading } = usePromiseResult<
+    | {
+        fromTokenIsStable: boolean;
+        toTokenIsStable: boolean;
       }
-
-      const speedConfigs = await Promise.all(
-        networkIds.map((networkId) =>
-          backgroundApiProxy.serviceSwap.fetchSpeedSwapConfig({ networkId }),
-        ),
-      );
-      return speedConfigs.flatMap((config) =>
-        (config.speedConfig.defaultLimitTokens ?? []).map((token) => ({
-          networkId: token.networkId,
-          contractAddress: token.contractAddress,
-        })),
-      );
+    | undefined
+  >(
+    async () => {
+      const stableStatusMap = await fetchSwapKLineTokenAddressesStableStatus([
+        fromTokenKey ? fromStableTokenAddress : undefined,
+        toTokenKey ? toStableTokenAddress : undefined,
+      ]);
+      return {
+        fromTokenIsStable: getSwapKLineStableTokenStatusFromMap({
+          stableStatusMap,
+          stableTokenAddress: fromStableTokenAddress,
+        }),
+        toTokenIsStable: getSwapKLineStableTokenStatusFromMap({
+          stableStatusMap,
+          stableTokenAddress: toStableTokenAddress,
+        }),
+      };
     },
-    [fromNetworkId, toNetworkId],
+    [fromTokenKey, fromStableTokenAddress, toTokenKey, toStableTokenAddress],
     {
       checkIsFocused: false,
       watchLoading: true,
@@ -335,8 +348,10 @@ function useSwapKLineStableTokens({
   );
 
   return {
-    stableTokens: result,
-    isLoading: result === undefined && isLoading !== false,
+    stableTokenChecks: result,
+    isLoading: Boolean(
+      (fromToken || toToken) && result === undefined && isLoading !== false,
+    ),
   };
 }
 
@@ -497,6 +512,7 @@ type ISwapKLineContentState = {
   primaryKLineDataUnavailable: boolean;
   resolvedSelectedSide?: ESwapDirectionType;
   shouldForceEmptyKLineData: boolean;
+  isResolvingSelectedToken: boolean;
   tokenMarketDetail?: IMarketTokenDetail;
   handlePrimaryKLineDataUnavailable: () => void;
   handleSelectedSideChange: (side: ESwapDirectionType) => void;
@@ -505,20 +521,18 @@ type ISwapKLineContentState = {
 function useSwapKLineContentState(): ISwapKLineContentState {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const { stableTokens, isLoading: isStableTokensLoading } =
-    useSwapKLineStableTokens({ fromToken, toToken });
-  const stableTokensForDefaultSide = useMemo(
-    () => stableTokens ?? (isStableTokensLoading ? undefined : []),
-    [isStableTokensLoading, stableTokens],
-  );
+  const { stableTokenChecks, isLoading: isStableTokenCheckLoading } =
+    useSwapKLineStableTokenChecks({ fromToken, toToken });
   const defaultSide = useMemo(
     () =>
       getResolvableDefaultSwapKLineSide({
         fromToken,
-        stableTokens: stableTokensForDefaultSide,
+        fromTokenIsStable: stableTokenChecks?.fromTokenIsStable,
+        isStableTokenCheckLoading,
         toToken,
+        toTokenIsStable: stableTokenChecks?.toTokenIsStable,
       }),
-    [fromToken, stableTokensForDefaultSide, toToken],
+    [fromToken, isStableTokenCheckLoading, stableTokenChecks, toToken],
   );
   const [selectedSide, setSelectedSide] = useState<ESwapDirectionType>();
   const hasTrackedOpenRef = useRef(false);
@@ -555,6 +569,9 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   });
   const shouldForceEmptyKLineData =
     isKnownSwapKLineUnsupportedToken(selectedToken);
+  const isResolvingSelectedToken = Boolean(
+    !selectedToken && (fromToken || toToken) && isStableTokenCheckLoading,
+  );
 
   useEffect(() => {
     if (hasTrackedOpenRef.current || !selectedToken || !resolvedSelectedSide) {
@@ -598,6 +615,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       selectedToken,
       walletMarketInfo,
       kLineDataFallback,
+      isResolvingSelectedToken,
       primaryKLineDataUnavailable,
       resolvedSelectedSide,
       shouldForceEmptyKLineData,
@@ -609,6 +627,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       fromToken,
       handlePrimaryKLineDataUnavailable,
       handleSelectedSideChange,
+      isResolvingSelectedToken,
       kLineDataFallback,
       primaryKLineDataUnavailable,
       resolvedSelectedSide,
@@ -666,12 +685,12 @@ function SwapKLineTokenPriceInfo({
     <YStack
       ai="flex-end"
       gap={compact ? '$0' : '$0.5'}
-      minWidth={compact ? '$24' : '$16'}
+      minWidth={compact ? '$24' : '$14'}
       maxWidth={compact ? '$30' : '$28'}
     >
       {price ? (
         <NumberSizeableText
-          size="$bodyMdMedium"
+          size={compact ? '$bodyMdMedium' : '$bodyLgMedium'}
           fontFamily="$monoMedium"
           formatter="price"
           formatterOptions={{ currency: '$' }}
@@ -682,7 +701,7 @@ function SwapKLineTokenPriceInfo({
         </NumberSizeableText>
       ) : (
         <SizableText
-          size="$bodyMdMedium"
+          size={compact ? '$bodyMdMedium' : '$bodyLgMedium'}
           color="$textSubdued"
           fontFamily="$monoMedium"
           numberOfLines={1}
@@ -690,31 +709,24 @@ function SwapKLineTokenPriceInfo({
           --
         </SizableText>
       )}
-      <XStack ai="center" gap={compact ? '$0' : '$1'}>
-        {compact ? null : (
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            24h
-          </SizableText>
-        )}
-        {priceChange ? (
-          <PriceChangePercentage
-            size={compact ? '$bodyXsMedium' : '$bodySmMedium'}
-            fontFamily="$monoMedium"
-            numberOfLines={1}
-          >
-            {priceChange}
-          </PriceChangePercentage>
-        ) : (
-          <SizableText
-            size="$bodySmMedium"
-            color="$textSubdued"
-            fontFamily="$monoMedium"
-            numberOfLines={1}
-          >
-            --
-          </SizableText>
-        )}
-      </XStack>
+      {priceChange ? (
+        <PriceChangePercentage
+          size={compact ? '$bodyXsMedium' : '$bodySmMedium'}
+          fontFamily="$monoMedium"
+          numberOfLines={1}
+        >
+          {priceChange}
+        </PriceChangePercentage>
+      ) : (
+        <SizableText
+          size="$bodySmMedium"
+          color="$textSubdued"
+          fontFamily="$monoMedium"
+          numberOfLines={1}
+        >
+          --
+        </SizableText>
+      )}
     </YStack>
   );
 }
@@ -739,7 +751,7 @@ function SwapKLineTokenInfoRow({
       ai="center"
       jc="space-between"
       gap={compact ? '$2.5' : '$3'}
-      minHeight={compact ? '$11' : '$12'}
+      minHeight={compact ? '$11' : '$10'}
       width="100%"
     >
       <XStack
@@ -761,18 +773,11 @@ function SwapKLineTokenInfoRow({
           maxWidth={compact ? undefined : '$28'}
           gap="$0.5"
         >
-          <SizableText
-            size={compact ? '$bodyLgMedium' : '$headingMd'}
-            numberOfLines={1}
-          >
+          <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {token.symbol}
           </SizableText>
           {networkName ? (
-            <SizableText
-              size={compact ? '$bodyMd' : '$bodySm'}
-              color="$textSubdued"
-              numberOfLines={1}
-            >
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
               {networkName}
             </SizableText>
           ) : null}
@@ -789,6 +794,54 @@ function SwapKLineTokenInfoRow({
   );
 }
 
+function SwapKLineResolvingTokenContent({
+  chartMinHeight,
+  showSeparateChartDivider,
+}: {
+  chartMinHeight: number;
+  showSeparateChartDivider?: boolean;
+}) {
+  const chartSkeleton = (
+    <Skeleton
+      flex={1}
+      minHeight={chartMinHeight}
+      borderRadius="$2"
+      borderTopWidth={showSeparateChartDivider ? undefined : '$px'}
+      borderTopColor={showSeparateChartDivider ? undefined : '$borderSubdued'}
+    />
+  );
+  const chartSectionSkeleton = showSeparateChartDivider ? (
+    <YStack flex={1} gap="$5">
+      <Stack h="$px" bg="$borderSubdued" />
+      {chartSkeleton}
+    </YStack>
+  ) : (
+    chartSkeleton
+  );
+
+  return (
+    <>
+      <XStack
+        ai="center"
+        jc="space-between"
+        gap="$3"
+        minHeight="$10"
+        width="100%"
+      >
+        <XStack ai="center" gap="$3" flexShrink={1} minWidth={0}>
+          <Skeleton w="$10" h="$10" radius="round" />
+          <YStack gap="$1">
+            <Skeleton h="$4" w="$16" />
+            <Skeleton h="$3" w="$24" />
+          </YStack>
+        </XStack>
+        <Skeleton h="$8" w="$32" borderRadius="$full" />
+      </XStack>
+      {chartSectionSkeleton}
+    </>
+  );
+}
+
 function SwapKLineContentBody({
   state,
   chartMinHeight = 360,
@@ -797,10 +850,12 @@ function SwapKLineContentBody({
   pt = '$3',
   px = '$5',
   headerRight,
+  separateChartDivider,
 }: {
   state: ISwapKLineContentState;
   chartMinHeight?: number;
   headerRight?: ReactNode;
+  separateChartDivider?: boolean;
 } & ISwapKLineContentSpacingProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -810,6 +865,7 @@ function SwapKLineContentBody({
   const disabledTradingViewFeatures = gtMd
     ? SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES
     : SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES;
+  const showSeparateChartDivider = separateChartDivider && gtMd;
 
   let tokenInfoContent: ReactNode = null;
   if (selectedToken) {
@@ -841,8 +897,8 @@ function SwapKLineContentBody({
       flex={1}
       minHeight={chartMinHeight}
       overflow="hidden"
-      borderTopWidth="$px"
-      borderTopColor="$borderSubdued"
+      borderTopWidth={showSeparateChartDivider ? undefined : '$px'}
+      borderTopColor={showSeparateChartDivider ? undefined : '$borderSubdued'}
     >
       <TradingViewV2
         key={`${chartNetworkId}:${chartTokenAddress}:${
@@ -865,23 +921,42 @@ function SwapKLineContentBody({
       />
     </Stack>
   );
-
-  return (
-    <>
-      {selectedToken ? (
-        <YStack flex={1} px={px} pt={pt} pb={pb} gap={gap}>
-          {tokenInfoContent}
-          {chartContent}
-        </YStack>
-      ) : (
-        <YStack flex={1} ai="center" jc="center" px="$5">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.token_selector_title })}
-          </SizableText>
-        </YStack>
-      )}
-    </>
+  const chartSectionContent = showSeparateChartDivider ? (
+    <YStack flex={1} gap="$5">
+      <Stack h="$px" bg="$borderSubdued" />
+      {chartContent}
+    </YStack>
+  ) : (
+    chartContent
   );
+  let content: ReactNode;
+  if (selectedToken) {
+    content = (
+      <YStack flex={1} px={px} pt={pt} pb={pb} gap={gap}>
+        {tokenInfoContent}
+        {chartSectionContent}
+      </YStack>
+    );
+  } else if (state.isResolvingSelectedToken) {
+    content = (
+      <YStack flex={1} px={px} pt={pt} pb={pb} gap={gap}>
+        <SwapKLineResolvingTokenContent
+          chartMinHeight={chartMinHeight}
+          showSeparateChartDivider={showSeparateChartDivider}
+        />
+      </YStack>
+    );
+  } else {
+    content = (
+      <YStack flex={1} ai="center" jc="center" px="$5">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.token_selector_title })}
+        </SizableText>
+      </YStack>
+    );
+  }
+
+  return <>{content}</>;
 }
 
 function SwapKLineDialogContent() {
@@ -916,6 +991,15 @@ function SwapKLineModalContent() {
   const { gtMd } = useMedia();
   const state = useSwapKLineContentState();
   const headerRight = <SwapKLineHeaderRight state={state} compact={!gtMd} />;
+  const desktopContentProps = gtMd
+    ? ({
+        chartMinHeight: 353,
+        px: '$9',
+        pb: '$8',
+        gap: '$8',
+        separateChartDivider: true,
+      } as const)
+    : undefined;
 
   return (
     <Page lazyLoad testID={SwapTestIDs.kLineModal}>
@@ -923,7 +1007,11 @@ function SwapKLineModalContent() {
         title={intl.formatMessage({ id: ETranslations.market_chart })}
       />
       <Page.Body>
-        <SwapKLineContentBody state={state} headerRight={headerRight} />
+        <SwapKLineContentBody
+          state={state}
+          headerRight={headerRight}
+          {...desktopContentProps}
+        />
       </Page.Body>
     </Page>
   );
