@@ -25,12 +25,16 @@ import {
 import {
   DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
   fetchAndSendAccountMarks,
+  normalizeTradingViewKLineInterval,
   useTradingViewMessageHandler,
 } from './messageHandlers';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
-import type { ICustomReceiveHandlerData } from './types';
+import type {
+  ICustomReceiveHandlerData,
+  ITradingViewPriceUpdateData,
+} from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { ITradingViewDisabledFeature } from '../hooks';
 import type { WebViewProps } from 'react-native-webview';
@@ -72,6 +76,7 @@ interface IBaseTradingViewV2Props {
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
+  onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -80,6 +85,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webRef = useRef<IWebViewRef | null>(null);
   const marksTimeRange = useRef<IMarksTimeRange | null>(null);
   const currentKLineResolution = useRef(DEFAULT_TRADING_VIEW_KLINE_RESOLUTION);
+  const [activeKLineResolution, setActiveKLineResolution] = useState(
+    DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
+  );
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -105,11 +113,23 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     kLineDataFallback,
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
+    onPriceUpdate,
     onLoadStart,
     ...stackStyle
   } = props;
 
   const { handleNavigation } = useNavigationHandler();
+  const handleCurrentKLineResolutionChange = useCallback(
+    (resolution: string) => {
+      const normalizedResolution =
+        normalizeTradingViewKLineInterval(resolution);
+      currentKLineResolution.current = normalizedResolution;
+      setActiveKLineResolution((prev) =>
+        prev === normalizedResolution ? prev : normalizedResolution,
+      );
+    },
+    [],
+  );
   const { customReceiveHandler } = useTradingViewMessageHandler({
     tokenAddress,
     networkId,
@@ -119,6 +139,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     tokenSymbol: symbol,
     marksTimeRange,
     currentKLineResolution,
+    onCurrentKLineResolutionChange: handleCurrentKLineResolutionChange,
     onTouchScroll,
     onIndicatorsDialogOpenChange,
     forceEmptyKLineData,
@@ -126,6 +147,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     kLineDataFallback,
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
+    onPriceUpdate,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
@@ -205,7 +227,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       !isHyperLiquidSource &&
       !mockEmptyKLineEnabled &&
       !forceEmptyKLineData,
-    chartType: '1m',
+    chartType: activeKLineResolution,
   });
 
   // Load marks on page enter and refresh when swap transaction succeeds
@@ -340,7 +362,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       <WebView
         key={`${theme}:${tradingViewUrlWithParams}`}
         customReceiveHandler={async (data) => {
-          await customReceiveHandler(data as ICustomReceiveHandlerData);
+          const receiveData = data as ICustomReceiveHandlerData;
+          await customReceiveHandler(receiveData);
         }}
         onWebViewRef={handleWebViewRef}
         allowsBackForwardNavigationGestures={false}
