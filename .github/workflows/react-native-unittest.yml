@@ -190,7 +190,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
         working-directory: apps/mobile
-        run: yarn harness:test:android --testPathPatterns='${{ matrix.test-path-pattern }}'
+        run: yarn harness:test:android --testPathPattern='${{ matrix.test-path-pattern }}'
 
       - name: Dump logcat on failure
         if: failure()
