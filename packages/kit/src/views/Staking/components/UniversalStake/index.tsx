@@ -284,6 +284,7 @@ function ProtocolSwitcher({
   fallbackAprText?: string;
   protocolSwitchConfig: IManagePositionProtocolSwitchConfig;
 }) {
+  const intl = useIntl();
   const isSwitchEnabled = protocolSwitchConfig.protocols.length > 1;
   const trigger = (
     <ProtocolSwitchTriggerRow
@@ -303,8 +304,7 @@ function ProtocolSwitcher({
 
   return (
     <Popover
-      title=""
-      showHeader={false}
+      title={intl.formatMessage({ id: ETranslations.defi_select_protocol })}
       placement="bottom-end"
       renderTrigger={trigger}
       floatingPanelProps={{
