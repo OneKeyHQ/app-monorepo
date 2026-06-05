@@ -193,6 +193,13 @@ class ServicePrimeCloudSync extends ServiceBase {
     explicitHistoricalTime,
     allowHistoricalTime,
   }: ICloudSyncDataTimeParams = {}): Promise<number> {
+    if (!systemTimeUtils.hasFreshServerTimeInCurrentProcess()) {
+      try {
+        await systemTimeUtils.ensureFreshServerTime();
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+      }
+    }
     const correctedNow = systemTimeUtils.getCorrectedCloudSyncNow();
 
     if (allowHistoricalTime && !isNil(explicitHistoricalTime)) {

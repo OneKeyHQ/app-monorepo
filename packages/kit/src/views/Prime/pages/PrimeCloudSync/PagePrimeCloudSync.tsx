@@ -48,6 +48,7 @@ import {
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
+import { ELocalSystemTimeStatus } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 
@@ -65,7 +66,6 @@ function formatSyncLastUpdateTime(syncTime?: number): string {
 }
 
 const listItemNativePressableStyle = { flexShrink: 0 } as const;
-const LOCAL_SYSTEM_TIME_INVALID_STATUS = 'INVALID';
 
 function useIsLocalSystemTimeInvalid() {
   const [isLocalSystemTimeInvalid, setIsLocalSystemTimeInvalid] =
@@ -81,7 +81,7 @@ function useIsLocalSystemTimeInvalid() {
             await backgroundApiProxy.servicePrimeCloudSync.getLocalSystemTimeStatus();
           if (isActive) {
             setIsLocalSystemTimeInvalid(
-              result.status === LOCAL_SYSTEM_TIME_INVALID_STATUS,
+              result.status === ELocalSystemTimeStatus.INVALID,
             );
           }
         } catch (error) {
@@ -89,19 +89,23 @@ function useIsLocalSystemTimeInvalid() {
         }
       })();
 
-      const handleLocalSystemTimeInvalid = () => {
-        setIsLocalSystemTimeInvalid(true);
+      const handleLocalSystemTimeStatusChanged = ({
+        status,
+      }: {
+        status: string;
+      }) => {
+        setIsLocalSystemTimeInvalid(status === ELocalSystemTimeStatus.INVALID);
       };
       appEventBus.on(
-        EAppEventBusNames.LocalSystemTimeInvalid,
-        handleLocalSystemTimeInvalid,
+        EAppEventBusNames.LocalSystemTimeStatusChanged,
+        handleLocalSystemTimeStatusChanged,
       );
 
       return () => {
         isActive = false;
         appEventBus.off(
-          EAppEventBusNames.LocalSystemTimeInvalid,
-          handleLocalSystemTimeInvalid,
+          EAppEventBusNames.LocalSystemTimeStatusChanged,
+          handleLocalSystemTimeStatusChanged,
         );
       };
     }, []),

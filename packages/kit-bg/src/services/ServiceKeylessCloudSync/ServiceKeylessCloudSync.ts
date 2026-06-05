@@ -14,7 +14,6 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import systemTimeUtils, {
-  ECloudSyncDataTimeSource,
   ELocalSystemTimeStatus,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -90,18 +89,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
   }
 
   private async getKeylessSignatureTimestamp(): Promise<number> {
-    let correctedNow = systemTimeUtils.getCorrectedCloudSyncNow();
-    const shouldRefreshServerTime =
-      correctedNow.source !== ECloudSyncDataTimeSource.Estimated &&
-      correctedNow.source !== ECloudSyncDataTimeSource.TrustedLocal;
-    if (shouldRefreshServerTime) {
+    if (!systemTimeUtils.hasFreshServerTimeInCurrentProcess()) {
       try {
-        await systemTimeUtils.refreshServerTime();
-        correctedNow = systemTimeUtils.getCorrectedCloudSyncNow();
+        await systemTimeUtils.ensureFreshServerTime();
       } catch (error) {
         errorUtils.autoPrintErrorIgnore(error);
       }
     }
+    const correctedNow = systemTimeUtils.getCorrectedCloudSyncNow();
     return correctedNow.time;
   }
 

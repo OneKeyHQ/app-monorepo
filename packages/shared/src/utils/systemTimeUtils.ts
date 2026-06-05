@@ -80,7 +80,7 @@ class SystemTimeUtils {
     );
     this.setLastServerTimeValue({
       value: lastServerTimeInStorage,
-      updateEstimateBaseline: true,
+      updateEstimateBaseline: false,
       persist: false,
     });
 
@@ -99,6 +99,8 @@ class SystemTimeUtils {
   private _lastServerTimePerfBase: number | undefined;
 
   private _lastServerTimeIsReal = false;
+
+  private _refreshServerTimePromise: Promise<boolean> | undefined;
 
   get lastServerTime(): number | undefined {
     return this._lastServerTime;
@@ -164,6 +166,34 @@ class SystemTimeUtils {
 
   _serverTimeInterval: ReturnType<typeof setInterval> | undefined;
 
+  private setSystemTimeStatus(status: ELocalSystemTimeStatus) {
+    if (this.systemTimeStatus === status) {
+      return;
+    }
+    this.systemTimeStatus = status;
+    appEventBus.emit(EAppEventBusNames.LocalSystemTimeStatusChanged, {
+      status,
+    });
+  }
+
+  hasFreshServerTimeInCurrentProcess(): boolean {
+    return (
+      this._lastServerTimeIsReal &&
+      this.isTimeValid({ time: this.lastServerTime })
+    );
+  }
+
+  async ensureFreshServerTime(): Promise<boolean> {
+    if (this.hasFreshServerTimeInCurrentProcess()) {
+      return true;
+    }
+
+    this._refreshServerTimePromise ??= this.refreshServerTime().finally(() => {
+      this._refreshServerTimePromise = undefined;
+    });
+    return this._refreshServerTimePromise;
+  }
+
   async refreshServerTime(): Promise<boolean> {
     const endpoint = await getEndpointByServiceName(
       EServiceEndpointEnum.Wallet,
@@ -207,11 +237,14 @@ class SystemTimeUtils {
     if (this._serverTimeInterval) {
       return;
     }
+    void this.ensureFreshServerTime().catch(() => {
+      this.setSystemTimeStatus(ELocalSystemTimeStatus.UNKNOWN);
+    });
     this._serverTimeInterval = setInterval(async () => {
       try {
         await this.refreshServerTime();
       } catch (_error) {
-        this.systemTimeStatus = ELocalSystemTimeStatus.UNKNOWN;
+        this.setSystemTimeStatus(ELocalSystemTimeStatus.UNKNOWN);
       }
     }, intervalTimeout);
   }
@@ -350,9 +383,6 @@ class SystemTimeUtils {
       localTime: localTimestamp,
       serverTime,
     });
-    this.systemTimeStatus = localTimeValid
-      ? ELocalSystemTimeStatus.VALID
-      : ELocalSystemTimeStatus.INVALID;
     this.setLastServerTimeValue({
       value: serverTime,
       updateEstimateBaseline: true,
@@ -361,6 +391,12 @@ class SystemTimeUtils {
     if (localTimeValid) {
       this.lastLocalTime = localTimestamp;
     }
+
+    this.setSystemTimeStatus(
+      localTimeValid
+        ? ELocalSystemTimeStatus.VALID
+        : ELocalSystemTimeStatus.INVALID,
+    );
 
     if (!localTimeValid) {
       appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);

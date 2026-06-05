@@ -73,8 +73,11 @@ describe('ServiceKeylessCloudSync', () => {
       time: correctedTimestamp,
       source: ECloudSyncDataTimeSource.Estimated,
     });
-    const refreshServerTime = jest
-      .spyOn(systemTimeUtils, 'refreshServerTime')
+    jest
+      .spyOn(systemTimeUtils, 'hasFreshServerTimeInCurrentProcess')
+      .mockReturnValue(true);
+    const ensureFreshServerTime = jest
+      .spyOn(systemTimeUtils, 'ensureFreshServerTime')
       .mockResolvedValue(true);
     const buildKeylessSignatureHeader = jest
       .spyOn(keylessCloudSyncUtils, 'buildKeylessSignatureHeader')
@@ -102,7 +105,7 @@ describe('ServiceKeylessCloudSync', () => {
       },
     });
 
-    expect(refreshServerTime).not.toHaveBeenCalled();
+    expect(ensureFreshServerTime).not.toHaveBeenCalled();
     expect(buildKeylessSignatureHeader).toHaveBeenCalledWith(
       expect.objectContaining({
         timestamp: correctedTimestamp,
@@ -111,21 +114,17 @@ describe('ServiceKeylessCloudSync', () => {
     expect(auth?.signatureHeader).toBe('signature-header');
   });
 
-  test('keyless signature header refreshes server time before stale fallback', async () => {
-    const fallbackTimestamp = 1_747_527_766_656;
+  test('keyless signature header ensures fresh server time before signing', async () => {
     const refreshedTimestamp = 1_800_000_000_000;
+    jest.spyOn(systemTimeUtils, 'getCorrectedCloudSyncNow').mockReturnValue({
+      time: refreshedTimestamp,
+      source: ECloudSyncDataTimeSource.Estimated,
+    });
     jest
-      .spyOn(systemTimeUtils, 'getCorrectedCloudSyncNow')
-      .mockReturnValueOnce({
-        time: fallbackTimestamp,
-        source: ECloudSyncDataTimeSource.AppBuild,
-      })
-      .mockReturnValueOnce({
-        time: refreshedTimestamp,
-        source: ECloudSyncDataTimeSource.Estimated,
-      });
-    const refreshServerTime = jest
-      .spyOn(systemTimeUtils, 'refreshServerTime')
+      .spyOn(systemTimeUtils, 'hasFreshServerTimeInCurrentProcess')
+      .mockReturnValue(false);
+    const ensureFreshServerTime = jest
+      .spyOn(systemTimeUtils, 'ensureFreshServerTime')
       .mockResolvedValue(true);
     const buildKeylessSignatureHeader = jest
       .spyOn(keylessCloudSyncUtils, 'buildKeylessSignatureHeader')
@@ -153,7 +152,7 @@ describe('ServiceKeylessCloudSync', () => {
       },
     });
 
-    expect(refreshServerTime).toHaveBeenCalledTimes(1);
+    expect(ensureFreshServerTime).toHaveBeenCalledTimes(1);
     expect(buildKeylessSignatureHeader).toHaveBeenCalledWith(
       expect.objectContaining({
         timestamp: refreshedTimestamp,
