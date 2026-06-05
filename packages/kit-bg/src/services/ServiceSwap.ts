@@ -130,9 +130,19 @@ const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
 
-type ICheckStableCoinsListItem = {
+type ICheckStableCoinsListParamsItem = {
+  networkId: string;
+  contractAddressList: string[];
+};
+
+type ICheckStableCoinsListResultItem = {
   contractAddress: string;
   isStableCoin: boolean;
+};
+
+type ICheckStableCoinsListItem = {
+  networkId: string;
+  results: ICheckStableCoinsListResultItem[];
 };
 
 type IPrivateSendOrderDetail = {
@@ -1350,19 +1360,17 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async checkStableCoinsList({
-    contractAddressesList,
+    list,
   }: {
-    contractAddressesList: string[];
+    list: ICheckStableCoinsListParamsItem[];
   }): Promise<ICheckStableCoinsListItem[]> {
-    if (!contractAddressesList.length) {
+    if (!list.length) {
       return [];
     }
     const client = await this.getRawDataClient(EServiceEndpointEnum.Swap);
     const response = await client.post<
       IFetchResponse<ICheckStableCoinsListItem[]>
-    >('/swap/v1/check-stable-coins-list', {
-      contractAddressesList,
-    });
+    >('/swap/v1/check-stable-coins-list', list);
     return response.data?.data ?? [];
   }
 
