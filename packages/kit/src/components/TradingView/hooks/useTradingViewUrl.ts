@@ -12,7 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import { getDesktopOfflineChartReady } from '../ChartWebView/chartOverlay/ready';
+import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
 import { TRADING_VIEW_DISABLED_FEATURES_URL_PARAM } from '../constants';
 import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
 

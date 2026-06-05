@@ -24,11 +24,11 @@ import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { ChartWebView } from '../ChartWebView';
-import { getDesktopOfflineChartReady } from '../ChartWebView/chartOverlay/ready';
 import {
   CHART_WEBVIEW_MODE,
   CHART_WEBVIEW_SCENE,
 } from '../ChartWebView/constants';
+import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import { MESSAGE_TYPES } from './constants/messageTypes';

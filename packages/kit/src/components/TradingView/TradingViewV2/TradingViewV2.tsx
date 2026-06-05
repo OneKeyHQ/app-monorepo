@@ -15,8 +15,8 @@ import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { ChartWebView } from '../ChartWebView';
-import { getDesktopOfflineChartReady } from '../ChartWebView/chartOverlay/ready';
 import { CHART_WEBVIEW_MODE } from '../ChartWebView/constants';
+import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import {
@@ -75,9 +75,9 @@ interface IBaseTradingViewV2Props {
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
-  /** Force the legacy per-instance WebView on desktop instead of the warm
-   * onekey-chart:// overlay. Set by chart hosts inside a modal/portal where a
-   * single app-root overlay would render behind the modal (e.g. Swap K-line).
+  /** Force the legacy per-instance WebView on desktop instead of the in-flow
+   * onekey-chart:// chart host. Used by the Swap K-line modal, which remounts the
+   * chart per token (its own key) so the warm unified host gives no benefit there.
    * No effect on native (which uses its own pooled module). */
   preferLegacyChart?: boolean;
 }
