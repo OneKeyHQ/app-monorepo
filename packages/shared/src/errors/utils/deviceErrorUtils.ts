@@ -12,6 +12,7 @@ import {
 import { getDeviceErrorPayloadMessage } from './errorUtils';
 import {
   convertThirdPartyDeviceError,
+  isThirdPartyInstallAppUserCancelCode,
   normalizeThirdPartyDeviceErrorCode,
 } from './thirdPartyDeviceErrorUtils';
 
@@ -262,7 +263,7 @@ export function convertDeviceError(
     case 'ERR_BAD_REQUEST':
       return new HardwareErrors.HardwareCommunicationError({ payload });
     default:
-      if (isHwkErrorCode(code)) {
+      if (isHwkErrorCode(code) || isThirdPartyInstallAppUserCancelCode(code)) {
         return convertThirdPartyDeviceError({
           code: Number(code),
           error: payload.error ?? message ?? '',

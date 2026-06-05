@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export const INSTALL_CANCEL_DELAY = 60_000;
+export const INSTALL_CANCEL_DELAY = 30_000;
 
 export function useInstallCancelVisibility({
   installing,

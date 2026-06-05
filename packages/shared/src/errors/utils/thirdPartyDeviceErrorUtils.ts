@@ -30,6 +30,13 @@ export function normalizeThirdPartyDeviceErrorCode(payload: {
   return Number.isFinite(code) ? code : payload.code;
 }
 
+export function isThirdPartyInstallAppUserCancelCode(code: unknown): boolean {
+  return (
+    (typeof code === 'string' ? Number(code) : code) ===
+    ThirdPartyErrors.THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE
+  );
+}
+
 /**
  * Convert a third-party hardware SDK failure payload into a structured
  * OneKeyHardwareError with i18n key and autoToast/dialog behavior.
@@ -102,6 +109,9 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyHwErrorCode.UserAborted:
       return new ThirdPartyErrors.ThirdPartyUserAborted(props);
+
+    case ThirdPartyErrors.THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE:
+      return new ThirdPartyErrors.ThirdPartyInstallAppUserCancelled(props);
 
     case ThirdPartyHwErrorCode.DevicePermissionDenied:
       return new ThirdPartyErrors.ThirdPartyDevicePermissionDenied({
@@ -182,7 +192,9 @@ export function classifyThirdPartyHwCreateFailures<
       (f) => f.error.code === ThirdPartyHwErrorCode.AppNotInstalled,
     );
   const genuineFailures = failedAccounts.filter(
-    (f) => f.error.code !== ThirdPartyHwErrorCode.AppNotInstalled,
+    (f) =>
+      f.error.code !== ThirdPartyHwErrorCode.AppNotInstalled &&
+      !isThirdPartyInstallAppUserCancelCode(f.error.code),
   );
   return { allAppNotInstalled, genuineFailures };
 }
@@ -192,6 +204,9 @@ export function filterThirdPartyHwCreateFailureToasts<
 >(failedAccounts: T[]): T[] {
   let deviceOutOfMemoryShown = false;
   return failedAccounts.filter((failedAccount) => {
+    if (isThirdPartyInstallAppUserCancelCode(failedAccount.error.code)) {
+      return false;
+    }
     if (failedAccount.error.autoToast === false) {
       return false;
     }

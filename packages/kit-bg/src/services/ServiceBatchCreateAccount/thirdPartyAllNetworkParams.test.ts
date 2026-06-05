@@ -1,8 +1,16 @@
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
+
+import { THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+
+import { thirdPartyCommonCallParamsForCreateScene } from '../../vaults/base/thirdPartyHardwareCommonParams';
+
+import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkErrors';
 import {
   attachLedgerAllNetworkFingerprints,
   normalizeThirdPartyAllNetworkBundle,
 } from './thirdPartyAllNetworkParams';
 
+import type { IHwAllNetworkPrepareAccountsItem } from '../../vaults/types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 describe('normalizeThirdPartyAllNetworkBundle', () => {
@@ -121,5 +129,99 @@ describe('normalizeThirdPartyAllNetworkBundle', () => {
     expect(result).toBe(true);
     expect((bundle[0] as { deviceId?: string }).deviceId).toBe('evm-fp');
     expect((bundle[1] as { deviceId?: string }).deviceId).toBeUndefined();
+  });
+});
+
+describe('normalizeAllNetworkInstallCancelErrors', () => {
+  it('marks item install cancel separately when another item succeeded', () => {
+    const result = normalizeAllNetworkInstallCancelErrors([
+      {
+        network: 'tron',
+        path: "m/44'/195'/0'/0/0",
+        success: false,
+        payload: {
+          code: ThirdPartyHwErrorCode.UserAborted,
+          error: 'Action canceled',
+          errorCode: ThirdPartyHwErrorCode.UserAborted,
+          connectId: '',
+          deviceId: '',
+        },
+      },
+      {
+        network: 'sol',
+        path: "m/44'/501'/0'/0'",
+        success: true,
+        payload: {
+          address: 'sol-address',
+        },
+      },
+    ] as IHwAllNetworkPrepareAccountsItem[]);
+
+    expect(result[0].payload?.code).toBe(
+      THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
+    );
+  });
+
+  it('keeps user cancel unchanged when no item succeeded', () => {
+    const result = normalizeAllNetworkInstallCancelErrors([
+      {
+        network: 'tron',
+        path: "m/44'/195'/0'/0/0",
+        success: false,
+        payload: {
+          code: ThirdPartyHwErrorCode.UserAborted,
+          error: 'Action canceled',
+          errorCode: ThirdPartyHwErrorCode.UserAborted,
+          connectId: '',
+          deviceId: '',
+        },
+      },
+      {
+        network: 'sol',
+        path: "m/44'/501'/0'/0'",
+        success: false,
+        payload: {
+          code: ThirdPartyHwErrorCode.UserAborted,
+          error: 'Action canceled',
+          errorCode: ThirdPartyHwErrorCode.UserAborted,
+          connectId: '',
+          deviceId: '',
+        },
+      },
+    ] as IHwAllNetworkPrepareAccountsItem[]);
+
+    expect(result.map((item) => item.payload?.code)).toEqual([
+      ThirdPartyHwErrorCode.UserAborted,
+      ThirdPartyHwErrorCode.UserAborted,
+    ]);
+  });
+
+  it('keeps user cancel unchanged for a single all-network item', () => {
+    const result = normalizeAllNetworkInstallCancelErrors([
+      {
+        network: 'tron',
+        path: "m/44'/195'/0'/0/0",
+        success: false,
+        payload: {
+          code: ThirdPartyHwErrorCode.UserAborted,
+          error: 'Action canceled',
+          errorCode: ThirdPartyHwErrorCode.UserAborted,
+          connectId: '',
+          deviceId: '',
+        },
+      },
+    ] as IHwAllNetworkPrepareAccountsItem[]);
+
+    expect(result[0].payload?.code).toBe(ThirdPartyHwErrorCode.UserAborted);
+  });
+});
+
+describe('thirdPartyCommonCallParamsForCreateScene', () => {
+  it('keeps manual all-network calls on the SDK default install behavior', () => {
+    expect(
+      thirdPartyCommonCallParamsForCreateScene({
+        isAutoCreateMultiNetwork: false,
+      }),
+    ).toBeUndefined();
   });
 });

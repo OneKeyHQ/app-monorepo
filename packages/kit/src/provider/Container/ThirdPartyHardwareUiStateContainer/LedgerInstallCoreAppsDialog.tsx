@@ -101,8 +101,8 @@ function InstallCoreAppsContent({
       installError = error;
       Toast.error({ title: (error as Error)?.message ?? 'Install failed' });
     } finally {
-      await thirdPartyBatchInstallAtom.set(undefined);
       await thirdPartyAppInstallAtom.set(undefined);
+      await thirdPartyBatchInstallAtom.set(undefined);
       onResult?.(installedOk, installError);
       onClose();
     }

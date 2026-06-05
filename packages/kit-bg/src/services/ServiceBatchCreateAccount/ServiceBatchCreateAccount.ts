@@ -64,6 +64,13 @@ import ServiceBase from '../ServiceBase';
 import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
 
 import {
+  debugAllNetworkLog,
+  summarizeAllNetworkBundle,
+  summarizeAllNetworkItems,
+  summarizeAllNetworkSdkResponse,
+} from './thirdPartyAllNetworkDebug';
+import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkErrors';
+import {
   type IThirdPartyAllNetworkAddressParams,
   attachLedgerAllNetworkFingerprints,
   normalizeThirdPartyAllNetworkBundle,
@@ -827,11 +834,22 @@ class ServiceBatchCreateAccount extends ServiceBase {
     shouldPersistLedgerFingerprints?: boolean;
   }): Promise<IHwAllNetworkPrepareAccountsItem[]> {
     const bundle = normalizeThirdPartyAllNetworkBundle(bundleParams);
+    const thirdPartyCommonParams =
+      thirdPartyCommonCallParamsForCreateScene(createSceneParams);
+    debugAllNetworkLog('third-party-request', {
+      autoInstallApp: thirdPartyCommonParams?.autoInstallApp,
+      bundleLength: bundle.length,
+      bundle: summarizeAllNetworkBundle(bundle),
+    });
     const response = await allNetworkGetAddress(connectId, deviceId, {
       ...commonParams,
-      ...thirdPartyCommonCallParamsForCreateScene(createSceneParams),
+      ...thirdPartyCommonParams,
       bundle,
     });
+    debugAllNetworkLog(
+      'third-party-response',
+      summarizeAllNetworkSdkResponse(response),
+    );
 
     if (!response.success) {
       throw convertThirdPartyDeviceError(response.payload, {
@@ -839,14 +857,16 @@ class ServiceBatchCreateAccount extends ServiceBase {
       });
     }
 
+    const payload = normalizeAllNetworkInstallCancelErrors(response.payload);
+
     if (shouldPersistLedgerFingerprints && dbDeviceId) {
       await this.persistLedgerAllNetworkFingerprints({
         dbDeviceId,
-        items: response.payload,
+        items: payload,
       });
     }
 
-    return response.payload;
+    return payload;
   }
 
   private async persistLedgerAllNetworkFingerprints({
@@ -1002,13 +1022,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
             }
             hwAllNetworkPrepareAccountsResponse.bundleLength =
               bundleParams.length;
-            console.log(
-              'getHwAllNetworkPrepareAccountsResponse__bundleParams>>>>>>>',
-              {
-                length: bundleParams.length,
-                loopMode: params.loopMode,
-              },
-            );
+            debugAllNetworkLog('prepare-request', {
+              length: bundleParams.length,
+              loopMode: params.loopMode,
+              bundle: summarizeAllNetworkBundle(bundleParams),
+            });
 
             // throw new NewFirmwareForceUpdate({ payload: {} });
 
@@ -1084,6 +1102,15 @@ class ServiceBatchCreateAccount extends ServiceBase {
                                   'sdk.allNetworkGetAddressByLoop__onLoopItemResponse',
                                   data,
                                 );
+                                debugAllNetworkLog('loop-item-response', {
+                                  item: summarizeAllNetworkItems(
+                                    data
+                                      ? [
+                                          data as IHwAllNetworkPrepareAccountsItem,
+                                        ]
+                                      : [],
+                                  )[0],
+                                });
 
                                 if (data) {
                                   hwAllNetworkPrepareAccountsResponse.onSdkItemCallResponse(
@@ -1097,6 +1124,19 @@ class ServiceBatchCreateAccount extends ServiceBase {
                                   data,
                                   error,
                                 );
+                                debugAllNetworkLog('loop-all-response', {
+                                  items: summarizeAllNetworkItems(
+                                    data as
+                                      | IHwAllNetworkPrepareAccountsItem[]
+                                      | undefined,
+                                  ),
+                                  error: error
+                                    ? summarizeAllNetworkSdkResponse({
+                                        success: false,
+                                        payload: error.payload,
+                                      })
+                                    : undefined,
+                                });
                                 if (data === undefined && error) {
                                   const hwError = convertDeviceError(
                                     {
@@ -1135,13 +1175,30 @@ class ServiceBatchCreateAccount extends ServiceBase {
                       bundle: bundleParams,
                       response: sdkAllNetworkGetAddressResponse,
                     });
+                    debugAllNetworkLog(
+                      'sdk-response',
+                      summarizeAllNetworkSdkResponse(
+                        sdkAllNetworkGetAddressResponse,
+                      ),
+                    );
 
                     return sdkAllNetworkGetAddressResponse;
                   },
                 )) as IHwAllNetworkPrepareAccountsItem[];
               }
+              allNetworkGetAddressResponse =
+                normalizeAllNetworkInstallCancelErrors(
+                  allNetworkGetAddressResponse,
+                );
+              debugAllNetworkLog('prepare-response-items', {
+                items: summarizeAllNetworkItems(allNetworkGetAddressResponse),
+              });
             } catch (error) {
               console.log('sdk.allNetworkGetAddress error', error);
+              debugAllNetworkLog('prepare-error', {
+                message: this.getErrorMessage(error),
+                code: (error as { code?: unknown })?.code,
+              });
               if (params.loopMode) {
                 appEventBus.emit(
                   EAppEventBusNames.SDKGetAllNetworkAddressesEnd,
@@ -1370,6 +1427,17 @@ class ServiceBatchCreateAccount extends ServiceBase {
         defaultLogger.account.batchCreatePerf.batchCreateForAllNetworkDone({
           walletId: params.walletId,
           addedAccountsCount: addedAccounts.length,
+        });
+        debugAllNetworkLog('batch-create-result', {
+          addedAccounts,
+          failedAccounts: failedAccounts.map((item) => ({
+            networkId: item.networkId,
+            deriveType: item.deriveType,
+            code: item.error.code,
+            key: item.error.key,
+            message: item.error.message,
+            autoToast: item.error.autoToast,
+          })),
         });
         return { addedAccounts, failedAccounts };
       },

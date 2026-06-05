@@ -9,6 +9,8 @@ import { OneKeyHardwareError } from './hardwareErrors';
 
 import type { IOneKeyErrorHardwareProps } from './hardwareErrors';
 
+export const THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE = 10_504;
+
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
 // ---------------------------------------------------------------------------
@@ -130,6 +132,20 @@ export class ThirdPartyUserAborted extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.UserAborted;
+}
+
+/** User canceled installing a required chain app during all-network address creation. */
+export class ThirdPartyInstallAppUserCancelled extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_user_cancel_error,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override code = THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE;
 }
 
 /** OS-level device permission (Bluetooth / USB) denied. */

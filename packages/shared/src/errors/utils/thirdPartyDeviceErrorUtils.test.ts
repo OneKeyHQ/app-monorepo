@@ -1,5 +1,7 @@
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
+import { THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE } from '../errors/thirdPartyHardwareErrors';
+
 import { convertDeviceError } from './deviceErrorUtils';
 import {
   classifyThirdPartyHwCreateFailures,
@@ -39,6 +41,16 @@ describe('convertDeviceError', () => {
 
     expect(error.code).toBe(ThirdPartyHwErrorCode.NetworkError);
   });
+
+  it('maps all-network install cancel code before generic hardware fallback', () => {
+    const error = convertDeviceError({
+      code: THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
+      error: 'User declined to install Tron',
+    });
+
+    expect(error.code).toBe(THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE);
+    expect(error.autoToast).toBe(false);
+  });
 });
 
 describe('classifyThirdPartyHwCreateFailures', () => {
@@ -55,6 +67,26 @@ describe('classifyThirdPartyHwCreateFailures', () => {
 
     expect(result.allAppNotInstalled).toBe(false);
     expect(result.genuineFailures).toEqual([failedAccount]);
+  });
+
+  it('drops all-network install cancel failures from genuine failures', () => {
+    const installCancel = {
+      error: {
+        code: THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
+      },
+    };
+    const deviceOutOfMemory = {
+      error: {
+        code: ThirdPartyHwErrorCode.DeviceOutOfMemory,
+      },
+    };
+    const result = classifyThirdPartyHwCreateFailures({
+      addedCount: 1,
+      failedAccounts: [installCancel, deviceOutOfMemory],
+    });
+
+    expect(result.allAppNotInstalled).toBe(false);
+    expect(result.genuineFailures).toEqual([deviceOutOfMemory]);
   });
 });
 
@@ -96,5 +128,16 @@ describe('filterThirdPartyHwCreateFailureToasts', () => {
     expect(filterThirdPartyHwCreateFailureToasts([first, muted])).toEqual([
       first,
     ]);
+  });
+
+  it('drops all-network install cancel failures even without autoToast=false', () => {
+    const installCancel = {
+      error: {
+        code: THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
+        message: 'User declined to install Tron',
+      },
+    };
+
+    expect(filterThirdPartyHwCreateFailureToasts([installCancel])).toEqual([]);
   });
 });
