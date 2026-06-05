@@ -40,6 +40,13 @@ export interface ISegmentSliderProps {
   onSlideStart?: () => void;
   onSlideComplete?: () => void;
   /**
+   * When true, a tap (a press that does not turn into a drag) snaps the value to
+   * the nearest segment mark; a drag still moves freely to any value. No-op when
+   * `segments` is 0. Default false. Native-only for now — the web variant
+   * (`./index.tsx`) does not yet honor this and keeps its tap-on-mark snapping.
+   */
+  snapTapToSegment?: boolean;
+  /**
    * @deprecated Not supported by the native (Nitro) renderer — marks/thumb are
    * drawn natively. Accepted for prop compatibility but ignored.
    */
@@ -77,6 +84,7 @@ function SegmentSliderComponent({
   disabled = false,
   showBubble = true,
   centerOrigin = false,
+  snapTapToSegment = false,
 }: ISegmentSliderProps) {
   const theme = useTheme();
   // `.val` re-reads on theme change (useTheme re-runs the component), so the
@@ -112,6 +120,7 @@ function SegmentSliderComponent({
       disabled={disabled}
       showBubble={showBubble}
       centerOrigin={centerOrigin}
+      snapTapToSegment={snapTapToSegment}
       epoch={FIXED_EPOCH}
       onChange={onChange}
       onSlideStart={onSlideStart}

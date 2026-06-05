@@ -660,19 +660,13 @@ class ServiceUniversalSearch extends ServiceBase {
       let wallet;
       let accountsValue;
       let accountsDeFiOverview;
+      // Default to the validated network. For watch-only / imported /
+      // external accounts this is re-resolved below to the account's own
+      // network, since the validated networkId may point at a different
+      // chain of the same impl (e.g. eth vs polygon for EVM addresses).
+      let resolvedNetwork = network;
+      let resolvedNetworkId = networkId || '';
       try {
-        accountsDeFiOverview = (
-          await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
-            accounts: [
-              {
-                accountId: accountItem.accountId,
-                networkId: networkId || '',
-                accountAddress: address,
-              },
-            ],
-            deFiRawData,
-          })
-        )?.[0];
         if (
           accountUtils.isOthersAccount({
             accountId: accountItem.accountId,
@@ -683,12 +677,30 @@ class ServiceUniversalSearch extends ServiceBase {
             networkId: networkId || '',
           });
           if (account?.id) {
+            // Watch-only / imported / external accounts are bound to the
+            // network they were created on (createAtNetwork). When the same
+            // EVM address is searched while the active network is non-EVM,
+            // the validated networkId resolves to the default EVM chain (eth)
+            // rather than the account's real network — so the value lookup
+            // and navigation would target the wrong chain. Re-resolve the
+            // network from the account itself.
+            const createdNetworkId =
+              await serviceAccount.getAccountCreatedNetworkId({ account });
+            if (createdNetworkId && createdNetworkId !== resolvedNetworkId) {
+              const createdNetwork = await serviceNetwork.getNetworkSafe({
+                networkId: createdNetworkId,
+              });
+              if (createdNetwork) {
+                resolvedNetwork = createdNetwork;
+                resolvedNetworkId = createdNetworkId;
+              }
+            }
             accountsValue = (
               await this.backgroundApi.serviceAccountProfile.getAccountsValue({
                 accounts: [
                   {
                     accountId: account.id,
-                    networkId: networkId || '',
+                    networkId: resolvedNetworkId,
                     accountAddress: account.address,
                     xpub: accountUtils.pickXpubFromDBAccount(account),
                   },
@@ -783,6 +795,19 @@ class ServiceUniversalSearch extends ServiceBase {
           }
         }
 
+        accountsDeFiOverview = (
+          await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
+            accounts: [
+              {
+                accountId: accountItem.accountId,
+                networkId: resolvedNetworkId,
+                accountAddress: address,
+              },
+            ],
+            deFiRawData,
+          })
+        )?.[0];
+
         const walletId = accountUtils.getWalletIdFromAccountId({
           accountId: accountItem.accountId,
         });
@@ -805,7 +830,7 @@ class ServiceUniversalSearch extends ServiceBase {
             normalizedAddress: address,
             encoding: EAddressEncodings.P2PKH,
           },
-          network,
+          network: resolvedNetwork,
           accountInfo: {
             accountId: accountItem.accountId,
             formattedName: `${accountItem.walletName} / ${accountItem.accountName}`,

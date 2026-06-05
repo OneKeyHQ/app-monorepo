@@ -189,7 +189,12 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
       /* fallback to default initialValue */
     }
   } else {
-    // Non-native: use pre-loaded snapshot from __ONEKEY_JOTAI_INIT_STATES__
+    // Non-native: opt-in snapshot injection used by jotaiInitFromUi's fast
+    // path (extension / native BG→UI bridge with useSnapshotInjection:true).
+    // Cold-start L1 mirror was REMOVED on web/desktop — hydrate.ts no longer
+    // writes to this global. So in practice on web/desktop this stays
+    // undefined and atoms initialize from defaults; jotaiInit reconciles
+    // from source-of-truth IDB asynchronously.
     const snapshotStates = (globalThis as any).__ONEKEY_JOTAI_INIT_STATES__;
     if (snapshotStates && name && name in snapshotStates) {
       const cached = snapshotStates[name];
@@ -468,42 +473,6 @@ function flushColdStartCache() {
   }
 }
 
-function flushColdStartCachesNow() {
-  if (coldStartSaveTimer) {
-    clearTimeout(coldStartSaveTimer);
-    coldStartSaveTimer = undefined;
-  }
-  flushColdStartCache();
-  swrCacheUtils.flushNow();
-}
-
-let coldStartDesktopUnloadListenerRegistered = false;
-export function ensureColdStartDesktopUnloadListener() {
-  if (coldStartDesktopUnloadListenerRegistered || !platformEnv.isDesktop) {
-    return;
-  }
-  coldStartDesktopUnloadListenerRegistered = true;
-
-  const win =
-    typeof globalThis.window !== 'undefined'
-      ? (globalThis.window as Pick<Window, 'addEventListener'>)
-      : undefined;
-  win?.addEventListener?.('beforeunload', flushColdStartCachesNow);
-
-  const doc =
-    typeof globalThis.document !== 'undefined'
-      ? (globalThis.document as Pick<
-          Document,
-          'addEventListener' | 'visibilityState'
-        >)
-      : undefined;
-  doc?.addEventListener?.('visibilitychange', () => {
-    if (doc.visibilityState === 'hidden') {
-      flushColdStartCachesNow();
-    }
-  });
-}
-
 function scheduleColdStartSave(name: string) {
   coldStartDirtyKeys.add(name);
   coldStartLog(`scheduleSave: ${name}, dirty=${coldStartDirtyKeys.size}`);
@@ -522,19 +491,28 @@ let coldStartAppStateListenerRegistered = false;
 function ensureColdStartAppStateListener() {
   if (coldStartAppStateListenerRegistered) return;
   coldStartAppStateListenerRegistered = true;
-  ensureColdStartDesktopUnloadListener();
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { AppState } =
-      require('react-native') as typeof import('react-native');
-    AppState.addEventListener('change', (state) => {
-      if (state === 'background') {
-        flushColdStartCachesNow();
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { registerColdStartFlushTrigger } =
+    require('@onekeyhq/shared/src/storage/coldStartFlushTrigger') as typeof import('@onekeyhq/shared/src/storage/coldStartFlushTrigger');
+  registerColdStartFlushTrigger(() => {
+    if (coldStartSaveTimer) {
+      clearTimeout(coldStartSaveTimer);
+      coldStartSaveTimer = undefined;
+    }
+    flushColdStartCache();
+    swrCacheUtils.flushNow();
+    // Web/Desktop: also push the in-memory cold-start map to IndexedDB now.
+    if (platformEnv.isWeb || platformEnv.isDesktop) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { flushColdStartCacheNow } =
+          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
+        void flushColdStartCacheNow();
+      } catch {
+        /* webColdStartStorage may not be loaded on extension UI */
       }
-    });
-  } catch {
-    /* AppState not available in non-RN env */
-  }
+    }
+  });
 }
 
 export function hydrateContextColdStartCacheForProvider({

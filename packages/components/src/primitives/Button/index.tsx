@@ -224,6 +224,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
       children,
       color: outerColor,
       iconColor: outerIconColor,
+      textAlign,
       variant = 'secondary',
       childrenAsText = true,
       textEllipsis,
@@ -330,6 +331,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
             textBreakStrategy="simple"
             size={textVariant as FontSizeTokens}
             color={outerColor || color}
+            textAlign={textAlign}
             ellipse={textEllipsis}
           >
             {children}
