@@ -776,12 +776,10 @@ function SendAmountInputContainer() {
       !!privateSendToken &&
       !!account?.address &&
       !!recipientAddress &&
-      !hasAmountError &&
       !privateSendAmountBN.isNaN() &&
       privateSendAmountBN.isGreaterThan(0),
     [
       account?.address,
-      hasAmountError,
       isPrivateSendSupported,
       privateSendAmountBN,
       privateSendToken,
@@ -829,8 +827,7 @@ function SendAmountInputContainer() {
         !isPrivateSendSupported ||
         !privateSendToken ||
         !account?.address ||
-        !privateSendQuoteRecipientAddress ||
-        hasAmountError
+        !privateSendQuoteRecipientAddress
       ) {
         return undefined;
       }
@@ -878,7 +875,6 @@ function SendAmountInputContainer() {
     [
       account?.address,
       currentAccountId,
-      hasAmountError,
       isPrivateSendSupported,
       privateSendAmount,
       privateSendToken,
@@ -1124,6 +1120,10 @@ function SendAmountInputContainer() {
         });
       }
 
+      if (privateSendQuoteError) {
+        return privateSendQuoteError;
+      }
+
       const priceBN = new BigNumber(tokenDetails?.price ?? 0);
       // Mirror the flooring applied in `linkedAmount` so the value validated
       // here matches the value submitted to the vault. Without this, fiat
@@ -1255,6 +1255,7 @@ function SendAmountInputContainer() {
       isUseFiat,
       isNFT,
       tokenSymbol,
+      privateSendQuoteError,
       currentAccountId,
       networkId,
       maxBalance,
@@ -1270,7 +1271,13 @@ function SendAmountInputContainer() {
       return;
     }
     void form.trigger('amount');
-  }, [form, privateSendAmount, sendMode, validationEffectiveMinAmount]);
+  }, [
+    form,
+    privateSendAmount,
+    privateSendQuoteError,
+    sendMode,
+    validationEffectiveMinAmount,
+  ]);
 
   // Fiat input needs a usable price to convert it to a token amount. Single
   // source of truth for the fiat-mode guards below.
@@ -2751,14 +2758,12 @@ function SendAmountInputContainer() {
   const isAmountTyping = amount !== useDebounce(amount, 400);
   const shouldDeferAmountError =
     isAmountTyping || isAmountZeroOrEmpty || !hasAmountError;
-  const shouldShowPrivateSendCriticalQuoteError =
-    sendMode === ESendMode.PRIVATE &&
-    !!privateSendQuoteError &&
-    (!privateSendProviderMinAmount || !minAmountHint);
+  const hasPrivateSendQuoteError =
+    sendMode === ESendMode.PRIVATE && !!privateSendQuoteError;
   const shouldShowPrivateSendMinAmountHint =
     sendMode === ESendMode.PRIVATE &&
     !!minAmountHint &&
-    !shouldShowPrivateSendCriticalQuoteError &&
+    !hasPrivateSendQuoteError &&
     (!hasAmountError ||
       isAmountTyping ||
       isAmountZeroOrEmpty ||
@@ -2826,18 +2831,6 @@ function SendAmountInputContainer() {
             }}
           />
         </Form.Field>
-        <HeightTransition>
-          {shouldShowPrivateSendCriticalQuoteError ? (
-            <SizableText
-              pt="$1.5"
-              size="$bodyMd"
-              color="$textCritical"
-              textAlign="center"
-            >
-              {privateSendQuoteError}
-            </SizableText>
-          ) : null}
-        </HeightTransition>
         {platformEnv.isNativeIOS ? (
           <InputAccessoryView nativeID={amountInputAccessoryViewID}>
             <SizableText h="$0" />
@@ -2856,8 +2849,6 @@ function SendAmountInputContainer() {
       isUseFiat,
       linkedAmount.linkedAmount,
       linkedAmount.originalAmount,
-      privateSendQuoteError,
-      shouldShowPrivateSendCriticalQuoteError,
       tokenSymbol,
     ],
   );
