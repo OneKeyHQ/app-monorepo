@@ -3653,6 +3653,7 @@
   "private_send.select_mode_title": "Modalità di invio",
   "private_send.submitted": "Inviato",
   "private_send.submitting": "Invio in corso",
+  "private_send.success": "Invio privato riuscito",
   "private_send.value_drop_amount": "Riduzione del valore del {amount}%",
   "private_send.value_drop_message": "I nostri fornitori hanno offerto la migliore quotazione disponibile, ma a causa della liquidità e delle condizioni di mercato, si prevede che questa transazione avrà una significativa caduta di valore. Continuare?",
   "promode.limit_sell_for": "Vendi a",

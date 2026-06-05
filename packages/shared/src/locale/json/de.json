@@ -3653,6 +3653,7 @@
   "private_send.select_mode_title": "Sende-Modus",
   "private_send.submitted": "Eingereicht",
   "private_send.submitting": "Einreichen",
+  "private_send.success": "Private Send erfolgreich",
   "private_send.value_drop_amount": "{amount}% Wertverlust",
   "private_send.value_drop_message": "Unsere Anbieter haben das beste verfügbare Angebot gemacht, aber aufgrund von Liquidität und Marktbedingungen wird erwartet, dass diese Transaktion einen signifikanten Wertverlust aufweist. Fortfahren?",
   "promode.limit_sell_for": "Verkaufen für",

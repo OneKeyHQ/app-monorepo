@@ -3653,6 +3653,7 @@
   "private_send.select_mode_title": "Chế độ gửi",
   "private_send.submitted": "Đã gửi",
   "private_send.submitting": "Đang gửi",
+  "private_send.success": "Gửi riêng tư thành công",
   "private_send.value_drop_amount": "Giảm giá trị {amount}%",
   "private_send.value_drop_message": "Các nhà cung cấp của chúng tôi đã đưa ra báo giá tốt nhất có sẵn, nhưng do điều kiện thanh khoản và thị trường, giao dịch này dự kiến sẽ có sự giảm giá trị đáng kể. Tiếp tục?",
   "promode.limit_sell_for": "Bán với giá",

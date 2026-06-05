@@ -3653,6 +3653,7 @@
   "private_send.select_mode_title": "Режим отправки",
   "private_send.submitted": "Отправлено",
   "private_send.submitting": "Отправка",
+  "private_send.success": "Приватная отправка успешна",
   "private_send.value_drop_amount": "Снижение стоимости на {amount}%",
   "private_send.value_drop_message": "Наши поставщики предложили лучшую доступную цену, но из-за ликвидности и рыночных условий ожидается значительное снижение стоимости этой транзакции. Продолжить?",
   "promode.limit_sell_for": "Продать за",

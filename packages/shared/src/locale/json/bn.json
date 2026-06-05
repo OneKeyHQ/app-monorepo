@@ -3653,6 +3653,7 @@
   "private_send.select_mode_title": "পাঠানোর মোড",
   "private_send.submitted": "জমা দেওয়া হয়েছে",
   "private_send.submitting": "জমা দেওয়া হচ্ছে",
+  "private_send.success": "প্রাইভেট সেন্ড সফল",
   "private_send.value_drop_amount": "{amount}% মূল্য হ্রাস",
   "private_send.value_drop_message": "আমাদের প্রদানকারীরা সেরা উপলব্ধ কোট প্রদান করেছে, তবে তারল্য এবং বাজার পরিস্থিতির কারণে, এই লেনদেনের একটি উল্লেখযোগ্য মূল্য পতন হতে পারে। চালিয়ে যাবেন?",
   "promode.limit_sell_for": "বিক্রয় মূল্য",

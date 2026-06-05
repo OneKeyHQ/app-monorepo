@@ -3653,6 +3653,7 @@
   "private_send.select_mode_title": "전송 모드",
   "private_send.submitted": "제출됨",
   "private_send.submitting": "제출 중",
+  "private_send.success": "프라이빗 전송 성공",
   "private_send.value_drop_amount": "{amount}% 가치 하락",
   "private_send.value_drop_message": "우리의 제공업체들이 최상의 견적을 제공했지만, 유동성과 시장 상황으로 인해 이 거래는 상당한 가치 하락이 예상됩니다. 계속하시겠습니까?",
   "promode.limit_sell_for": "판매가",

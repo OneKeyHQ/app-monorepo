@@ -3653,6 +3653,7 @@
   "private_send.select_mode_title": "โหมดการส่ง",
   "private_send.submitted": "ส่งแล้ว",
   "private_send.submitting": "กำลังส่ง",
+  "private_send.success": "การส่งแบบส่วนตัวสำเร็จ",
   "private_send.value_drop_amount": "มูลค่าลดลง {amount}%",
   "private_send.value_drop_message": "ผู้ให้บริการของเราได้เสนอราคาที่ดีที่สุดที่มีอยู่ แต่เนื่องจากสภาพคล่องและสภาวะตลาด การทำธุรกรรมนี้คาดว่าจะมีการลดค่าที่สำคัญ ดำเนินการต่อหรือไม่?",
   "promode.limit_sell_for": "ขายในราคา",

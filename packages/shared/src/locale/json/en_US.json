@@ -3653,6 +3653,7 @@
   "private_send.select_mode_title": "Send mode",
   "private_send.submitted": "Submitted",
   "private_send.submitting": "Submitting",
+  "private_send.success": "Private send successful",
   "private_send.value_drop_amount": "{amount}% value drop",
   "private_send.value_drop_message": "Our providers have offered the best available quote, but due to liquidity and market conditions, this transaction is expected to have a significant value drop. Continue?",
   "promode.limit_sell_for": "Sell for",

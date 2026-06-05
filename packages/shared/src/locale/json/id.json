@@ -3653,6 +3653,7 @@
   "private_send.select_mode_title": "Mode kirim",
   "private_send.submitted": "Dikirim",
   "private_send.submitting": "Mengirim",
+  "private_send.success": "Pengiriman pribadi berhasil",
   "private_send.value_drop_amount": "Penurunan nilai {amount}%",
   "private_send.value_drop_message": "Penyedia kami telah menawarkan kutipan terbaik yang tersedia, tetapi karena kondisi likuiditas dan pasar, transaksi ini diperkirakan akan mengalami penurunan nilai yang signifikan. Lanjutkan?",
   "promode.limit_sell_for": "Jual seharga",

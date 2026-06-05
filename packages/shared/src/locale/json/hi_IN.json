@@ -3653,6 +3653,7 @@
   "private_send.select_mode_title": "भेजने का मोड",
   "private_send.submitted": "प्रस्तुत किया गया",
   "private_send.submitting": "प्रस्तुत कर रहा है",
+  "private_send.success": "प्राइवेट भेजना सफल",
   "private_send.value_drop_amount": "{amount}% मूल्य में गिरावट",
   "private_send.value_drop_message": "हमारे प्रदाताओं ने सबसे अच्छा उपलब्ध उद्धरण पेश किया है, लेकिन तरलता और बाजार की स्थिति के कारण, इस लेन-देन में महत्वपूर्ण मूल्य गिरावट की उम्मीद है। जारी रखें?",
   "promode.limit_sell_for": "इसके लिए बेचें",

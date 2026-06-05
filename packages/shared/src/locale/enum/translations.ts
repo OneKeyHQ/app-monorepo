@@ -3658,6 +3658,7 @@ export enum ETranslations {
   private_send_select_mode_title = 'private_send.select_mode_title',
   private_send_submitted = 'private_send.submitted',
   private_send_submitting = 'private_send.submitting',
+  private_send_success = 'private_send.success',
   private_send_value_drop_amount = 'private_send.value_drop_amount',
   private_send_value_drop_message = 'private_send.value_drop_message',
   promode_limit_sell_for = 'promode.limit_sell_for',

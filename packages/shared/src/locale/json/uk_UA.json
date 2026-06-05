@@ -3653,6 +3653,7 @@
   "private_send.select_mode_title": "Режим відправлення",
   "private_send.submitted": "Відправлено",
   "private_send.submitting": "Відправлення",
+  "private_send.success": "Приватна відправка успішна",
   "private_send.value_drop_amount": "Зниження вартості на {amount}%",
   "private_send.value_drop_message": "Наші постачальники запропонували найкращу доступну ціну, але через ліквідність і ринкові умови ця транзакція, ймовірно, матиме значне зниження вартості. Продовжити?",
   "promode.limit_sell_for": "Продати за",
