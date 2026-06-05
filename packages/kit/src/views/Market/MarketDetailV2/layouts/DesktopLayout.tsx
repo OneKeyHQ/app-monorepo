@@ -78,6 +78,7 @@ export function DesktopLayout() {
     websocketConfig,
     isStockToken,
     chartSymbol,
+    chartDecimal,
   } = useTokenDetail();
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
@@ -138,6 +139,7 @@ export function DesktopLayout() {
                 tokenAddress={tokenAddress}
                 networkId={networkId}
                 tokenSymbol={chartSymbol}
+                decimal={chartDecimal}
                 isNative={isNative}
                 dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
                 onTouchScroll={handleTradingViewTouchScroll}

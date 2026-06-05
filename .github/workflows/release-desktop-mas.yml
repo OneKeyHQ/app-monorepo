@@ -9,6 +9,10 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+  packages: read # read:packages for the offline TradingView chart bundle (cross-repo)
+
 env:
   NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true

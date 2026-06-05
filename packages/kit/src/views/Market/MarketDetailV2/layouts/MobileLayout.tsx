@@ -56,6 +56,7 @@ function MobileTradingViewTouchBridge({
   tokenAddress,
   networkId,
   tokenSymbol,
+  decimal,
   dataSource,
   pageWidth,
   onIndicatorsDialogOpenChange,
@@ -63,6 +64,7 @@ function MobileTradingViewTouchBridge({
   tokenAddress: string;
   networkId: string;
   tokenSymbol: string;
+  decimal?: number;
   dataSource: 'websocket' | 'polling';
   pageWidth?: number;
   onIndicatorsDialogOpenChange: (isOpen: boolean) => void;
@@ -98,6 +100,7 @@ function MobileTradingViewTouchBridge({
       tokenAddress={tokenAddress}
       networkId={networkId}
       tokenSymbol={tokenSymbol}
+      decimal={decimal}
       dataSource={dataSource}
       pageWidth={pageWidth}
       onTouchScroll={handleTouchScrollWhenEnabled}
@@ -114,6 +117,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     websocketConfig,
     isStockToken,
     chartSymbol,
+    chartDecimal,
   } = useTokenDetail();
   const tokenSymbol = chartSymbol;
   const intl = useIntl();
@@ -336,6 +340,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                       tokenAddress={tokenAddress}
                       networkId={networkId}
                       tokenSymbol={tokenSymbol}
+                      decimal={chartDecimal}
                       dataSource={
                         websocketConfig?.kline ? 'websocket' : 'polling'
                       }
@@ -351,6 +356,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                     tokenAddress={tokenAddress}
                     networkId={networkId}
                     tokenSymbol={tokenSymbol}
+                    decimal={chartDecimal}
                     dataSource={
                       websocketConfig?.kline ? 'websocket' : 'polling'
                     }
@@ -376,6 +382,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
       </YStack>
     );
   }, [
+    chartDecimal,
     effectivePageWidth,
     handleHeaderHorizontalSwipe,
     handleIndicatorsDialogOpenChange,

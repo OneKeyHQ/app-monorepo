@@ -27,6 +27,7 @@ interface IMarketToken {
   networkId: string;
   symbol: string;
   isNative?: boolean;
+  decimals?: number;
 }
 
 interface IUseToDetailPageOptions {
@@ -63,6 +64,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           symbol: item.symbol,
           networkId: item.networkId,
           address: item.tokenAddress,
+          // Carry the token's price decimals so the warm chart / pre-switch
+          // SYMBOL_CHANGE uses the correct per-symbol priceScale before
+          // tokenDetail arrives (otherwise micro-price tokens fall back to the
+          // chart's default decimal=8 and render the wrong scale).
+          decimal: item.decimals,
         });
       }
 

@@ -42,6 +42,20 @@ function buildUnifiedParamsJson(params: Record<string, string>): string {
     }
   }
   constant.scene = 'unified';
+  // INTENTIONAL SHARED NAMESPACE (single-pool tradeoff). storageNamespace is a
+  // boot param baked into the source, and the byte-identical-source invariant
+  // above requires it to be constant across market and perps hosts (any per-domain
+  // value would make the two sources differ → the shared pooled WebView would
+  // reload on every market<->perps switch, defeating the warm single-WebView
+  // design). So on native, market and perps deliberately SHARE the same
+  // `tradingview_settings_*` / `tradingview_study_template_*` storage. (Desktop
+  // can afford per-domain isolation — see unifiedUrl.ts — because it mounts two
+  // separate in-flow WebViews with distinct URLs, not one shared pool.) True
+  // per-domain isolation under the shared pool would have to live inside the chart
+  // repo, keyed off the active SYMBOL_CHANGE source ('market' vs 'hyperliquid')
+  // rather than this boot-time namespace; the app-side SYMBOL_CHANGE payload
+  // carries no storageNamespace, so it cannot be done here without regressing the
+  // no-reload reuse.
   constant.storageNamespace = 'unified';
   constant.type = 'market';
   constant.symbol = CHART_WEBVIEW_UNIFIED_INITIAL_SYMBOL;
@@ -165,16 +179,49 @@ export function ChartWebView({
     if (CHART_WEBVIEW_MODE === 'online') {
       return { uri: onlineUrl };
     }
+    // Offline asset-presence fallback (white-screen guard).
+    //
+    // The offline bundle (assets/tradingview-assets) is fetched + copied into the
+    // app ONLY by release/internal builds that run fetch-tradingview-assets.mjs
+    // with a read token. Open-source / no-token builds (and any build that skipped
+    // the fetch) ship NO assets, so loading the localBundle would resolve to a
+    // missing index.html and render "Not Found" (white chart) with no recovery.
+    //
+    // There is no JS-visible readiness signal on native: the chart-webview module
+    // exposes no asset-presence / constants API (unlike desktop's
+    // `tradingViewOfflineReady` global, see ready.ts), the asset staging is a pure
+    // native-bundle filesystem step (iOS Run Script / Android Gradle copy) with no
+    // runtime flag surfaced to JS, and CHART_WEBVIEW_LOCAL_BUNDLE is a hardcoded
+    // folder name that stays constant whether or not the files were actually
+    // staged. So JS cannot reliably gate on bundle presence here.
+    //
+    // CONTRACT WITH NATIVE: we therefore pass the online URL as an explicit
+    // `fallbackUri` alongside the localBundle. The native module MUST load
+    // `fallbackUri` when the localBundle's `entry` asset is absent on disk (i.e.
+    // when it would otherwise serve a "Not Found" page), and use the localBundle
+    // when present. NOTE/LIMITATION: today's native computeTargetUrl (iOS/Android)
+    // does NOT yet honor `fallbackUri` — a non-empty `uri` simply wins outright and
+    // an empty `uri` falls through to the localBundle regardless of whether its
+    // files exist. So this guard only takes effect once the native module is
+    // updated to read `fallbackUri`; until then asset-less builds still need the
+    // release pipeline to either stage assets or flip CHART_WEBVIEW_MODE to
+    // 'online'. `fallbackUri` is app-global (the same remote chart URL), so it does
+    // NOT taint the byte-identical unified source: localBundle/entry/paramsJson —
+    // the keys that drive the shared WebView's load + reuse — stay identical across
+    // market and perps hosts. Only emitted when an online URL actually exists.
+    const fallbackUri = onlineUrl ? { fallbackUri: onlineUrl } : {};
     if (IS_UNIFIED) {
       // uri:'' so the source keys never flip absent (Nitro rejects that).
       return {
         uri: '',
+        ...fallbackUri,
         localBundle: CHART_WEBVIEW_LOCAL_BUNDLE,
         entry: CHART_WEBVIEW_ENTRY,
         paramsJson: buildUnifiedParamsJson(params),
       };
     }
     return {
+      ...fallbackUri,
       localBundle: CHART_WEBVIEW_LOCAL_BUNDLE,
       entry: CHART_WEBVIEW_ENTRY,
       paramsJson: JSON.stringify(params),

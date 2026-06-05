@@ -15,6 +15,7 @@ export function navigateToMarketTokenDetail(
     networkId: string;
     isNative?: boolean;
     symbol?: string;
+    decimals?: number;
   },
   opts: {
     tokenDetailActions: ReturnType<typeof useTokenDetailActions>;
@@ -34,6 +35,11 @@ export function navigateToMarketTokenDetail(
       symbol: token.symbol,
       networkId: token.networkId,
       address: token.address,
+      // Carry the token's price decimals so the warm chart rides SYMBOL_CHANGE
+      // with the correct per-symbol priceScale before tokenDetail returns,
+      // matching the market-list entry point (otherwise selector-entry charts
+      // fall back to the default decimal=8 for micro-price tokens).
+      decimal: token.decimals,
     });
   }
 

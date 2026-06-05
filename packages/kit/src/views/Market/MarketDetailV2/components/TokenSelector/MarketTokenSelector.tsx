@@ -130,6 +130,7 @@ function BaseMarketTokenSelectorContent() {
       isNative?: boolean;
       perpsCoin?: string;
       symbol?: string;
+      decimals?: number;
     }) => {
       if (token.perpsCoin) {
         void closePopover?.();

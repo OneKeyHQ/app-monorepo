@@ -76,6 +76,7 @@ function MobileTokenSelectorContent() {
       isNative?: boolean;
       perpsCoin?: string;
       symbol?: string;
+      decimals?: number;
     }) => {
       if (token.perpsCoin) {
         navigation.popStack();

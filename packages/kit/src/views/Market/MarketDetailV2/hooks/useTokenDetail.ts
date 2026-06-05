@@ -43,6 +43,23 @@ export function useTokenDetail() {
     return '';
   }, [tokenDetail?.symbol, predictedSymbol, tokenAddress, networkId]);
 
+  // Price decimals to drive the chart priceScale. Prefer the loaded detail;
+  // before it arrives, fall back to the decimals predicted at tap (only when it
+  // matches THIS token). Keeps micro-price tokens at the correct priceScale
+  // during the warm-chart / SYMBOL_CHANGE window instead of the chart's default
+  // decimal=8. Returns undefined when unknown so the chart keeps its default.
+  const chartDecimal = useMemo(() => {
+    if (typeof tokenDetail?.decimals === 'number') return tokenDetail.decimals;
+    if (
+      typeof predictedSymbol?.decimal === 'number' &&
+      predictedSymbol.address === tokenAddress &&
+      predictedSymbol.networkId === networkId
+    ) {
+      return predictedSymbol.decimal;
+    }
+    return undefined;
+  }, [tokenDetail?.decimals, predictedSymbol, tokenAddress, networkId]);
+
   const isStockToken = useMemo(
     () => !!tokenDetail?.stock?.underlyingAssetTicker,
     [tokenDetail?.stock?.underlyingAssetTicker],
@@ -59,5 +76,6 @@ export function useTokenDetail() {
     isReady,
     isStockToken,
     chartSymbol,
+    chartDecimal,
   };
 }

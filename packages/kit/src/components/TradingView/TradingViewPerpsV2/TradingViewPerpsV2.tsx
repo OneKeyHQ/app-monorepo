@@ -311,6 +311,19 @@ export function TradingViewPerpsV2(
   useEffect(() => {
     if (useUnifiedHost) setUnifiedReady(true);
   }, [useUnifiedHost]);
+  // The optimistic mount-time unifiedReady keeps the warm/prewarmed host fast,
+  // but on a genuine cold start the chart page's perps listener may not be
+  // registered yet, so the first full line sync can be silently dropped. The
+  // page emits a real READY ACK (onChartLinesReady) and onLoadEnd once it is
+  // actually ready; bump this confirmation counter on those events to force a
+  // full line resend so a dropped cold-start sync self-heals. Line messages are
+  // idempotent (full PERPS_TV_LINES_SYNC), so the redundant warm-case resend is
+  // harmless.
+  const [unifiedReadyConfirmation, setUnifiedReadyConfirmation] = useState(0);
+  const confirmUnifiedReady = useCallback(() => {
+    setUnifiedReady(true);
+    setUnifiedReadyConfirmation((prev) => prev + 1);
+  }, []);
 
   const isChartLinesReady = useUnifiedHost
     ? unifiedReady
@@ -440,7 +453,13 @@ export function TradingViewPerpsV2(
     hasPerpsReadyRef.current = true;
     setChartContentReadyWebviewKey(_webviewKey);
     setChartLinesReadyWebviewKey(_webviewKey);
-  }, [_webviewKey]);
+    // Unified mode gates line sync on the optimistic unifiedReady; a real READY
+    // ACK from the page confirms its perps listener is up, so force a full
+    // resend to recover any cold-start sync the page dropped before it was ready.
+    if (useUnifiedHost) {
+      confirmUnifiedReady();
+    }
+  }, [_webviewKey, useUnifiedHost, confirmUnifiedReady]);
 
   const onChartReady = useCallback(() => {
     setChartContentReadyWebviewKey(_webviewKey);
@@ -542,13 +561,34 @@ export function TradingViewPerpsV2(
   });
 
   // Chart lines management (liquidation, position, orders)
-  useChartLines({
+  const { sendLinesSync } = useChartLines({
     symbol,
     szDecimals: szDecimals ?? 3,
     userAddress,
     webRef,
     isReady: isChartLinesReady,
   });
+
+  // Unified host only: when the page emits a real READY ACK / onLoadEnd (counter
+  // bumps), force a full line resend exactly once per confirmation. This
+  // recovers the cold-start case where the optimistic-early first sync was
+  // dropped before the page registered its perps listener. The resend is a
+  // full, idempotent PERPS_TV_LINES_SYNC, so re-asserting the same lines on a
+  // warm host is harmless. Guarding on the handled-counter ref keeps this from
+  // re-firing when sendLinesSync's identity changes on every line data change.
+  const handledReadyConfirmationRef = useRef(0);
+  const sendLinesSyncRef = useRef(sendLinesSync);
+  sendLinesSyncRef.current = sendLinesSync;
+  useEffect(() => {
+    if (!useUnifiedHost || unifiedReadyConfirmation === 0) {
+      return;
+    }
+    if (handledReadyConfirmationRef.current === unifiedReadyConfirmation) {
+      return;
+    }
+    handledReadyConfirmationRef.current = unifiedReadyConfirmation;
+    sendLinesSyncRef.current();
+  }, [useUnifiedHost, unifiedReadyConfirmation]);
 
   // trade update push
   const { pushTradeUpdate: _pushTradeUpdate } = useTradeUpdates({
@@ -563,9 +603,9 @@ export function TradingViewPerpsV2(
   // Cold first load of the shared page; mark ready (covers the rare case where
   // the optimistic mount-time ready guessed wrong) and forward to the caller.
   const handleUnifiedLoadEnd = useCallback(() => {
-    setUnifiedReady(true);
+    confirmUnifiedReady();
     onLoadEnd?.();
-  }, [onLoadEnd]);
+  }, [confirmUnifiedReady, onLoadEnd]);
 
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),

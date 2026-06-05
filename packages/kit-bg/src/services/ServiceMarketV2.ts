@@ -279,10 +279,16 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   // Bar length in seconds for a TradingView resolution ('1m','5m','1H','1D'...).
+  // TradingView also sends bare numbers ('1','5','15','60','240') representing minutes.
   private _klineIntervalToSeconds(interval?: string): number {
     if (!interval) return 60;
-    const m = /^(\d+)\s*([smhHdDwW])$/.exec(interval.trim());
-    if (!m) return 60;
+    const trimmed = interval.trim();
+    const m = /^(\d+)\s*([smhHdDwW])$/.exec(trimmed);
+    if (!m) {
+      // Bare number → TradingView minute resolution (e.g. '5' = 5 minutes)
+      const asNum = parseInt(trimmed, 10);
+      return Number.isFinite(asNum) && asNum > 0 ? asNum * 60 : 60;
+    }
     const n = parseInt(m[1], 10);
     const unitSec: Record<string, number> = {
       s: 1,
