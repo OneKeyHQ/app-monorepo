@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import { Empty, Skeleton, XStack, YStack } from '@onekeyhq/components';
 import {
   useSwapProEnableCurrentSymbolAtom,
+  useSwapProSupportNetworksTokenListAtom,
   useSwapProSupportNetworksTokenListLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -18,21 +19,35 @@ interface ISwapProPositionsListProps {
   onTokenPress: (token: ISwapToken) => void;
   onSearchClick?: () => void;
   filterToken?: ISwapToken[];
+  cachedTokenList?: ISwapToken[];
+  hasCachedTokenList?: boolean;
 }
 
 const SwapProPositionsList = ({
   onTokenPress,
   onSearchClick,
   filterToken,
+  cachedTokenList,
+  hasCachedTokenList,
 }: ISwapProPositionsListProps) => {
   const intl = useIntl();
-  const { finallyTokenList } = useSwapProPositionsListFilter(filterToken);
   const [swapProSupportNetworksTokenListLoading] =
     useSwapProSupportNetworksTokenListLoadingAtom();
+  const [swapProSupportNetworksTokenList] =
+    useSwapProSupportNetworksTokenListAtom();
+  const shouldUseCachedTokenList =
+    !!hasCachedTokenList &&
+    !!cachedTokenList?.length &&
+    (swapProSupportNetworksTokenListLoading ||
+      swapProSupportNetworksTokenList.length === 0);
+  const { finallyTokenList } = useSwapProPositionsListFilter(
+    filterToken,
+    shouldUseCachedTokenList ? cachedTokenList : undefined,
+  );
   const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
   const pnlMap = useSwapProPositionsPnl(finallyTokenList);
 
-  if (swapProSupportNetworksTokenListLoading) {
+  if (swapProSupportNetworksTokenListLoading && !shouldUseCachedTokenList) {
     return (
       <YStack gap="$2" p="$2">
         <XStack>

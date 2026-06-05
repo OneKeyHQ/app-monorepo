@@ -23,17 +23,33 @@ export type IIconContainerProps = Omit<SvgProps, 'color' | 'style'> & {
 const ComponentMaps: Record<string, typeof Svg> = {};
 
 const DEFAULT_SIZE = 24;
+type IIconLoadResult = typeof Svg | undefined;
 
 // Global promise cache to ensure only one loading promise per icon
 const isLoadingIcon: Record<string, boolean> = {};
 // Callback queues for each icon
 const callbackQueues: Record<
   string,
-  Array<(component: typeof Svg) => void>
+  Array<(component: IIconLoadResult) => void>
 > = {};
 
-const loadIconModule = (name: IKeyOfIcons): Promise<typeof Svg> => {
+const resolveIconCallbacks = (
+  name: IKeyOfIcons,
+  component: IIconLoadResult,
+) => {
+  const callbacks = callbackQueues[name] || [];
+  callbacks.forEach((callback) => callback(component));
+  delete callbackQueues[name];
+};
+
+const loadIconModule = (name: IKeyOfIcons): Promise<IIconLoadResult> => {
   return new Promise((resolveCallback) => {
+    const iconLoader = ICON_CONFIG[name];
+    if (!iconLoader) {
+      resolveCallback(undefined);
+      return;
+    }
+
     if (callbackQueues[name]) {
       callbackQueues[name].push(resolveCallback);
     } else {
@@ -45,25 +61,25 @@ const loadIconModule = (name: IKeyOfIcons): Promise<typeof Svg> => {
     }
 
     isLoadingIcon[name] = true;
-    void ICON_CONFIG[name]?.().then((module: any) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (module?.default) {
+    void iconLoader()
+      .then((module: any) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        const component = module.default as typeof Svg;
-        ComponentMaps[name] = component;
+        const component = module?.default as typeof Svg | undefined;
+        if (component) {
+          ComponentMaps[name] = component;
+        }
         delete isLoadingIcon[name];
-
-        const callbacks = callbackQueues[name] || [];
-        callbacks.forEach((callback) => callback(component));
-
-        delete callbackQueues[name];
-      }
-    });
+        resolveIconCallbacks(name, component);
+      })
+      .catch(() => {
+        delete isLoadingIcon[name];
+        resolveIconCallbacks(name, undefined);
+      });
   });
 };
 
 const loadIcon = (name: IKeyOfIcons) =>
-  new Promise<typeof Svg>((resolve) => {
+  new Promise<IIconLoadResult>((resolve) => {
     // If component is already loaded, resolve immediately
     if (ComponentMaps[name]) {
       resolve(ComponentMaps[name]);
@@ -177,28 +193,38 @@ const BasicIcon = styled(IconContainer, {
 const loadIcons = (...names: IKeyOfIcons[]) =>
   Promise.all(names.map((name) => loadIcon(name)));
 
+const CRITICAL_ICON_NAMES: IKeyOfIcons[] = [
+  'ArrowTopOutline',
+  'ArrowBottomOutline',
+  'DotHorOutline',
+  'SearchOutline',
+  'BellOutline',
+  'DotGridOutline',
+];
+
+const SWAP_COLD_START_ICON_NAMES: IKeyOfIcons[] = [
+  'TradingViewCandlesOutline',
+  'SliderHorOutline',
+  'ClockTimeHistoryOutline',
+  'InfoCircleSolid',
+  'CrossedSmallSolid',
+  'SwitchVerOutline',
+  'AnonymousHiddenOutline',
+];
+
+export const prefetchSwapColdStartIcons = () =>
+  loadIcons(...SWAP_COLD_START_ICON_NAMES)
+    .then(() => undefined)
+    .catch(() => undefined);
+
 /**
  * Pre-warm critical icon segment loading. Call at JS entry (before React mount)
  * so segments start loading early and icons are ready by first render.
  */
 export function warmCriticalIcons() {
-  const names: IKeyOfIcons[] = [
-    'ArrowTopOutline',
-    'ArrowBottomOutline',
-    'DotHorOutline',
-    'SearchOutline',
-    'BellOutline',
-    'DotGridOutline',
-  ];
-  for (const name of names) {
+  for (const name of CRITICAL_ICON_NAMES) {
     if (!ComponentMaps[name] && ICON_CONFIG[name]) {
-      void ICON_CONFIG[name]().then((module: any) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (module?.default) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          ComponentMaps[name] = module.default as typeof Svg;
-        }
-      });
+      void loadIcon(name);
     }
   }
 }

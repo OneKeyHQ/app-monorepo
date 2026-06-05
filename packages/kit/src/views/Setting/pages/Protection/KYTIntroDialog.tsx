@@ -26,6 +26,14 @@ const receiveKytIntroTrackingParams = {
   isPrimeActive: true,
 } as const;
 
+const mobileFooterButtonProps = {
+  flexGrow: 0,
+  flexBasis: 'auto',
+  w: '100%',
+  justifyContent: 'center',
+  textAlign: 'center',
+} as const;
+
 function KYTIntroDialogContent() {
   const intl = useIntl();
 
@@ -44,6 +52,7 @@ function KYTIntroDialogContent() {
       <XStack
         mt="$3"
         ai="center"
+        alignSelf="flex-start"
         gap="$1"
         onPress={() => {
           defaultLogger.prime.usage.primeReceiveKytIntroAction({
@@ -91,25 +100,25 @@ function useKYTIntroDialog() {
       footerProps: md
         ? {
             flexDirection: 'column-reverse',
-            gap: '$4',
+            gap: '$2.5',
             pb: mobileFooterBottomPadding,
           }
         : undefined,
       confirmButtonProps: md
         ? {
+            ...mobileFooterButtonProps,
             size: 'large',
-            flexGrow: 0,
-            flexBasis: 'auto',
-            w: '100%',
           }
         : undefined,
       cancelButtonProps: md
         ? {
-            size: 'medium',
+            ...mobileFooterButtonProps,
+            mx: '$0',
+            my: '$0',
+            px: '$5',
+            py: '$3',
+            size: 'large',
             variant: 'tertiary',
-            flexGrow: 0,
-            flexBasis: 'auto',
-            w: '100%',
           }
         : undefined,
       renderContent: <KYTIntroDialogContent />,

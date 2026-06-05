@@ -27,6 +27,11 @@ export interface IPerpsSliderProps {
   showBubble?: boolean;
   step?: number;
   centerOrigin?: boolean;
+  /**
+   * Native-only for now: when true, a tap snaps to the nearest segment mark
+   * while a drag stays free. Default false.
+   */
+  snapTapToSegment?: boolean;
 }
 
 function PerpsSliderComponent({
@@ -39,6 +44,7 @@ function PerpsSliderComponent({
   sliderHeight,
   showBubble = false,
   centerOrigin = false,
+  snapTapToSegment = false,
 }: IPerpsSliderProps) {
   return (
     <SegmentSlider
@@ -51,6 +57,7 @@ function PerpsSliderComponent({
       sliderHeight={sliderHeight}
       showBubble={showBubble}
       centerOrigin={centerOrigin}
+      snapTapToSegment={snapTapToSegment}
     />
   );
 }
