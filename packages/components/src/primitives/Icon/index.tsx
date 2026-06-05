@@ -177,28 +177,40 @@ const BasicIcon = styled(IconContainer, {
 const loadIcons = (...names: IKeyOfIcons[]) =>
   Promise.all(names.map((name) => loadIcon(name)));
 
+const CRITICAL_ICON_NAMES: IKeyOfIcons[] = [
+  'ArrowTopOutline',
+  'ArrowBottomOutline',
+  'DotHorOutline',
+  'SearchOutline',
+  'BellOutline',
+  'DotGridOutline',
+];
+
+const SWAP_COLD_START_ICON_NAMES: IKeyOfIcons[] = [
+  'TradingViewCandlesOutline',
+  'SliderHorOutline',
+  'ClockTimeHistoryOutline',
+  'InfoCircleSolid',
+  'CrossedSmallSolid',
+  'SwitchVerOutline',
+  'AnonymousHiddenOutline',
+];
+
+export const prefetchSwapColdStartIcons = () =>
+  loadIcons(...SWAP_COLD_START_ICON_NAMES);
+
 /**
  * Pre-warm critical icon segment loading. Call at JS entry (before React mount)
  * so segments start loading early and icons are ready by first render.
  */
 export function warmCriticalIcons() {
   const names: IKeyOfIcons[] = [
-    'ArrowTopOutline',
-    'ArrowBottomOutline',
-    'DotHorOutline',
-    'SearchOutline',
-    'BellOutline',
-    'DotGridOutline',
+    ...CRITICAL_ICON_NAMES,
+    ...SWAP_COLD_START_ICON_NAMES,
   ];
   for (const name of names) {
     if (!ComponentMaps[name] && ICON_CONFIG[name]) {
-      void ICON_CONFIG[name]().then((module: any) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (module?.default) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          ComponentMaps[name] = module.default as typeof Svg;
-        }
-      });
+      void loadIcon(name);
     }
   }
 }
