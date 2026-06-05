@@ -1,10 +1,6 @@
 import { type RefObject, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  useTokenDetailActions,
-  useTokenDetailAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketWSSubscriptionRecovery } from '@onekeyhq/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery';
 import type { IWsPriceData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
 import {
@@ -31,6 +27,39 @@ interface IMarketPriceUpdatePayload {
   originalData?: unknown;
 }
 
+function normalizeMarketWsKLineInterval(interval: string | undefined): string {
+  switch (interval) {
+    case '1':
+    case '1m':
+      return '1m';
+    case '5':
+    case '5m':
+      return '5m';
+    case '15':
+    case '15m':
+      return '15m';
+    case '30':
+    case '30m':
+      return '30m';
+    case '60':
+    case '1h':
+    case '1H':
+      return '1h';
+    case '240':
+    case '4h':
+    case '4H':
+      return '4h';
+    case '1d':
+    case '1D':
+      return '1d';
+    case '1w':
+    case '1W':
+      return '1w';
+    default:
+      return interval || '1m';
+  }
+}
+
 export function useTradingViewV2WebSocket({
   networkId,
   tokenAddress,
@@ -40,18 +69,15 @@ export function useTradingViewV2WebSocket({
   currency = 'usd',
 }: IUseTradingViewV2WebSocketProps): void {
   const lastUpdateTime = useRef<number>(0);
-  const tokenDetailActions = useTokenDetailActions();
-  const [tokenDetail] = useTokenDetailAtom();
-  const tokenDetailRef = useRef(tokenDetail);
+  const wsChartType = normalizeMarketWsKLineInterval(chartType);
   const { markSubscriptionActivity } = useMarketWSSubscriptionRecovery({
     enabled,
     networkId,
     tokenAddress,
-    chartType,
+    chartType: wsChartType,
     currency,
     channel: 'ohlcv',
   });
-  tokenDetailRef.current = tokenDetail;
   useEffect(() => {
     if (!networkId || !tokenAddress) {
       return;
@@ -63,7 +89,7 @@ export function useTradingViewV2WebSocket({
         await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
           networkId,
           tokenAddress,
-          chartType,
+          chartType: wsChartType,
           currency,
         });
       } catch (error) {
@@ -81,7 +107,7 @@ export function useTradingViewV2WebSocket({
           await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
             networkId,
             tokenAddress,
-            chartType,
+            chartType: wsChartType,
             currency,
           });
         } catch (error) {
@@ -91,7 +117,7 @@ export function useTradingViewV2WebSocket({
 
       void cleanup();
     };
-  }, [networkId, tokenAddress, enabled, chartType, currency]);
+  }, [networkId, tokenAddress, enabled, wsChartType, currency]);
 
   useEffect(() => {
     if (!enabled) {
@@ -119,6 +145,15 @@ export function useTradingViewV2WebSocket({
       }
 
       const receivedData = payload.data as IWsPriceData;
+      if (
+        receivedData &&
+        !('points' in receivedData) &&
+        receivedData.type &&
+        normalizeMarketWsKLineInterval(receivedData.type) !== wsChartType
+      ) {
+        return;
+      }
+
       const dataForWebView =
         receivedData && 'points' in receivedData
           ? receivedData
@@ -148,24 +183,6 @@ export function useTradingViewV2WebSocket({
         type: 'ohlcv',
       });
 
-      if (
-        receivedData &&
-        typeof receivedData.c === 'number' &&
-        tokenDetailRef.current
-      ) {
-        const latestPrice = receivedData.c.toString();
-
-        if (tokenDetailRef.current.price !== latestPrice) {
-          const updatedTokenDetail: typeof tokenDetailRef.current = {
-            ...tokenDetailRef.current,
-            price: latestPrice,
-            lastUpdated: now * 1000,
-          };
-
-          tokenDetailActions.current.setTokenDetail(updatedTokenDetail);
-        }
-      }
-
       lastUpdateTime.current = now;
     }
 
@@ -182,9 +199,10 @@ export function useTradingViewV2WebSocket({
     };
   }, [
     markSubscriptionActivity,
+    networkId,
     tokenAddress,
     webRef,
     enabled,
-    tokenDetailActions,
+    wsChartType,
   ]);
 }
