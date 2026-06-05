@@ -294,6 +294,19 @@ export function UniversalSearch({
     !visibleTabTitles.includes(focusedTab.value)
   ) {
     focusedTab.value = activeTab;
+    // Commit `filterType` to the resolved fallback too. Otherwise it keeps the
+    // hidden preset (e.g. "Dapps"): once that preset's deferred results arrive
+    // and its tab becomes visible again, `activeTab` would jump back to the
+    // preset and the content list would re-filter to it — while the TabBar,
+    // already mounted and seeded to the always-visible fallback, keeps
+    // highlighting it, leaving the highlight out of sync with the content.
+    // Pinning `filterType` here keeps the user on the fallback so both stay in
+    // sync.
+    // This guard never fires mid-swipe, where `filterType` already equals
+    // `activeTab` (only `focusedTab` is mid-transition).
+    if (filterType !== activeTab) {
+      setFilterType(activeTab);
+    }
   }
 
   const shouldUseTokensCacheData = useMemo(() => {
