@@ -2762,6 +2762,7 @@ function PerpTradingForm({
           onChange={handleSliderPercentChange}
           disabled={sliderDisabled}
           segments={4}
+          snapTapToSegment
           sliderHeight={isMobile ? 2 : 4}
         />
       </YStack>

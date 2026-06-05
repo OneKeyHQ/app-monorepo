@@ -42,6 +42,12 @@ export interface ISegmentSliderProps {
    * center.
    */
   centerOrigin?: boolean;
+  /**
+   * Native-only for now: when true, a tap snaps to the nearest segment mark
+   * while a drag stays free. Accepted here for cross-platform prop parity but
+   * not yet honored by the web variant, which keeps its tap-on-mark snapping.
+   */
+  snapTapToSegment?: boolean;
 }
 
 interface ISegmentMarkProps {
