@@ -9,6 +9,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { chartPredictedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -51,6 +52,20 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {
+      // Predict the chart symbol the moment the user taps. Native uses it to
+      // pre-switch the warm pooled chart during the navigation transition;
+      // desktop uses it to mount the detail chart immediately (its gate waits on
+      // tokenDetail.symbol otherwise — the white-screen cause). Read back in
+      // useTokenDetail (matched by address) so a stale prediction never leaks.
+      if (platformEnv.isNative || platformEnv.isDesktop) {
+        void chartPredictedSymbolAtom.set({
+          source: 'market',
+          symbol: item.symbol,
+          networkId: item.networkId,
+          address: item.tokenAddress,
+        });
+      }
+
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: item.networkId,
       });

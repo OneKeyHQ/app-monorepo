@@ -19,6 +19,13 @@ export interface IChartPrewarmProps {
   symbol?: string;
   // Routing source for `symbol` (defaults to hyperliquid/perps).
   source?: 'market' | 'hyperliquid';
+  // Market source only: encode the unified market symbol so the prewarmed chart
+  // requests the right token kline (cached for the detail to reuse).
+  // decimal only affects the price scale, not the kline request, so a rough value is
+  // fine — the detail corrects it without re-fetching bars.
+  networkId?: string;
+  address?: string;
+  decimal?: number;
 }
 
 /**
@@ -45,6 +52,9 @@ export interface IChartPrewarmProps {
 export function ChartPrewarm({
   symbol,
   source = 'hyperliquid',
+  networkId,
+  address,
+  decimal,
 }: IChartPrewarmProps = {}) {
   const enabled =
     platformEnv.isNative &&
@@ -57,10 +67,18 @@ export function ChartPrewarm({
   // page is still reused without reload — this only feeds the SYMBOL_CHANGE.
   const effectiveSymbol = symbol ?? PREWARM_RESET_COIN;
   const effectiveSource = symbol ? source : PREWARM_RESET_SOURCE;
+  const isMarket = effectiveSource === 'market';
   const { params } = useTradingViewUrl({
     additionalParams: {
       symbol: effectiveSymbol,
-      type: effectiveSource === 'hyperliquid' ? 'perps' : 'market',
+      type: isMarket ? 'market' : 'perps',
+      ...(isMarket
+        ? {
+            networkId: networkId ?? '',
+            address: address ?? '',
+            ...(decimal !== undefined ? { decimal: String(decimal) } : {}),
+          }
+        : {}),
     },
   });
 

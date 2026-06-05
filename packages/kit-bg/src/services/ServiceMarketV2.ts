@@ -278,15 +278,92 @@ class ServiceMarketV2 extends ServiceBase {
     );
   }
 
+  // Bar length in seconds for a TradingView resolution ('1m','5m','1H','1D'...).
+  private _klineIntervalToSeconds(interval?: string): number {
+    if (!interval) return 60;
+    const m = /^(\d+)\s*([smhHdDwW])$/.exec(interval.trim());
+    if (!m) return 60;
+    const n = parseInt(m[1], 10);
+    const unitSec: Record<string, number> = {
+      s: 1,
+      S: 1,
+      m: 60,
+      h: 3600,
+      H: 3600,
+      d: 86_400,
+      D: 86_400,
+      w: 604_800,
+      W: 604_800,
+    };
+    return n * (unitSec[m[2]] ?? 60);
+  }
+
+  // Cached kline fetch. The cache key excludes autoHandleError and uses the
+  // caller-bucketed time range, so repeated requests for the same token+interval
+  // within the same bar (e.g. the prewarm's early getBars and the detail's
+  // getBars ~300ms later) collapse to one network call.
+  private _memoizedFetchMarketTokenKline = memoizee(
+    async ({
+      tokenAddress,
+      networkId,
+      interval,
+      timeFrom,
+      timeTo,
+      autoHandleError,
+    }: {
+      tokenAddress: string;
+      networkId: string;
+      interval?: string;
+      timeFrom?: number;
+      timeTo?: number;
+      autoHandleError?: boolean;
+    }): Promise<IMarketTokenKLineResponse> => {
+      let innerInterval = interval?.toUpperCase();
+      if (innerInterval?.includes('M') || innerInterval?.includes('S')) {
+        innerInterval = innerInterval?.toLowerCase();
+      }
+      const requestConfig = {
+        params: {
+          tokenAddress,
+          networkId,
+          interval: innerInterval,
+          timeFrom,
+          timeTo,
+          currency: 'usd',
+        },
+        ...(autoHandleError === false ? { autoHandleError: false } : {}),
+      };
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        code: number;
+        message: string;
+        data: IMarketTokenKLineResponse;
+      }>('/utility/v2/market/token/kline', requestConfig);
+      return response.data.data;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      promise: true,
+      normalizer: (args) => {
+        const [{ tokenAddress, networkId, interval, timeFrom, timeTo }] =
+          args as [
+            {
+              tokenAddress: string;
+              networkId: string;
+              interval?: string;
+              timeFrom?: number;
+              timeTo?: number;
+            },
+          ];
+        return `${tokenAddress}|${networkId}|${interval ?? ''}|${
+          timeFrom ?? ''
+        }|${timeTo ?? ''}`;
+      },
+    },
+  );
+
   @backgroundMethod()
-  async fetchMarketTokenKline({
-    tokenAddress,
-    networkId,
-    interval,
-    timeFrom,
-    timeTo,
-    autoHandleError,
-  }: {
+  async fetchMarketTokenKline(params: {
     tokenAddress: string;
     networkId: string;
     interval?: string;
@@ -294,32 +371,18 @@ class ServiceMarketV2 extends ServiceBase {
     timeTo?: number;
     autoHandleError?: boolean;
   }) {
-    let innerInterval = interval?.toUpperCase();
-
-    if (innerInterval?.includes('M') || innerInterval?.includes('S')) {
-      innerInterval = innerInterval?.toLowerCase();
-    }
-
-    const requestConfig = {
-      params: {
-        tokenAddress,
-        networkId,
-        interval: innerInterval,
-        timeFrom,
-        timeTo,
-        currency: 'usd',
-      },
-      ...(autoHandleError === false ? { autoHandleError: false } : {}),
-    };
-
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      code: number;
-      message: string;
-      data: IMarketTokenKLineResponse;
-    }>('/utility/v2/market/token/kline', requestConfig);
-    const { data } = response.data;
-    return data;
+    // Bucket the time range to the bar interval so timeTo≈now (which varies every
+    // call) doesn't bust the cache within the same bar. Bars are interval-aligned,
+    // so flooring keeps slice boundaries contiguous (no gaps); the latest partial
+    // bar is filled by the realtime update path.
+    const sec = this._klineIntervalToSeconds(params.interval);
+    const bucket = (t?: number) =>
+      t !== undefined && sec > 0 ? Math.floor(t / sec) * sec : t;
+    return this._memoizedFetchMarketTokenKline({
+      ...params,
+      timeFrom: bucket(params.timeFrom),
+      timeTo: bucket(params.timeTo),
+    });
   }
 
   @backgroundMethod()

@@ -75,6 +75,7 @@ function MobileTokenSelectorContent() {
       networkId: string;
       isNative?: boolean;
       perpsCoin?: string;
+      symbol?: string;
     }) => {
       if (token.perpsCoin) {
         navigation.popStack();
