@@ -2,13 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  AnimatePresence,
-  Image,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { Image, SizableText, XStack } from '@onekeyhq/components';
 import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -50,38 +44,24 @@ const SwapAccountAddressContainer = ({
       token?.networkLogoURI ??
       localNetworkInfo?.logoURI;
 
-    return (
-      <AnimatePresence>
-        {networkName ? (
-          <XStack
-            key="network-component"
-            animation="quick"
-            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-            enterStyle={{
-              opacity: 0,
-              x: 8,
-            }}
-            exitStyle={{
-              opacity: 0,
-              x: 4,
-            }}
-            gap="$1"
-            alignItems="center"
-            cursor="pointer"
-            onPress={() => {
-              onClickNetwork?.(type);
-            }}
-          >
-            {networkLogoURI ? (
-              <Image w={16} h={16} source={{ uri: networkLogoURI }} />
-            ) : null}
-            <SizableText size="$bodyMd" color="$text">
-              {networkName}
-            </SizableText>
-          </XStack>
+    return networkName ? (
+      <XStack
+        key="network-component"
+        gap="$1"
+        alignItems="center"
+        cursor="pointer"
+        onPress={() => {
+          onClickNetwork?.(type);
+        }}
+      >
+        {networkLogoURI ? (
+          <Image w={16} h={16} source={{ uri: networkLogoURI }} />
         ) : null}
-      </AnimatePresence>
-    );
+        <SizableText size="$bodyMd" color="$text">
+          {networkName}
+        </SizableText>
+      </XStack>
+    ) : null;
   }, [swapSupportAllNetwork, onClickNetwork, type, fromToken, toToken]);
 
   return (

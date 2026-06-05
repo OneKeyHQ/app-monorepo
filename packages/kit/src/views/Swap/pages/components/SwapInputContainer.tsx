@@ -187,14 +187,8 @@ const SwapInputContainer = ({
     return cachedBalanceBN.isNaN() ? '' : cachedBalanceBN.toFixed();
   }, [address, balance, token?.accountAddress, token?.balanceParsed]);
   const showBalanceSkeleton = useMemo(
-    () =>
-      Boolean(
-        token &&
-        accountInfo?.account?.id &&
-        !displayBalance &&
-        (balanceLoading || !balance),
-      ),
-    [accountInfo?.account?.id, balance, balanceLoading, displayBalance, token],
+    () => Boolean(token && !displayBalance && (balanceLoading || !balance)),
+    [balance, balanceLoading, displayBalance, token],
   );
 
   const fromInputHasError = useMemo(() => {
