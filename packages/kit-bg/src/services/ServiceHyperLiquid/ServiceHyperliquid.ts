@@ -2520,8 +2520,10 @@ export default class ServiceHyperliquid extends ServiceBase {
           }),
         ]);
 
-        // Clear local credentials to force new agent creation for rebate binding
-        if (!isRebateBound) {
+        // Clear local credentials to force new agent creation for rebate binding.
+        // Gate on isEnableTradingTrigger: rebate binding is best-effort and must
+        // not clear a working agent on background refreshes (would block trading).
+        if (!isRebateBound && isEnableTradingTrigger) {
           await this.clearLocalAgentCredentials({
             userAddress: accountAddress,
           });
