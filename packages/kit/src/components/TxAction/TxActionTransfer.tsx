@@ -306,6 +306,39 @@ function groupTransfersByToken(transfers: IDecodedTxTransferInfo[]) {
   }));
 }
 
+function isSameTransferToken(
+  source: IDecodedTxTransferInfo,
+  target: IDecodedTxTransferInfo,
+) {
+  const sourceTokenId = source.tokenIdOnNetwork?.toLowerCase();
+  const targetTokenId = target.tokenIdOnNetwork?.toLowerCase();
+  if (sourceTokenId || targetTokenId) {
+    return sourceTokenId === targetTokenId;
+  }
+  return source.isNative && target.isNative && source.symbol === target.symbol;
+}
+
+function backfillTransferPricesFromReceives({
+  sends,
+  receives,
+}: {
+  sends: IDecodedTxTransferInfo[];
+  receives: IDecodedTxTransferInfo[];
+}) {
+  if (isEmpty(receives)) {
+    return sends;
+  }
+  return sends.map((send) => {
+    if (!isNil(send.price)) {
+      return send;
+    }
+    const receive = receives.find(
+      (item) => isSameTransferToken(send, item) && !isNil(item.price),
+    );
+    return receive ? { ...send, price: receive.price } : send;
+  });
+}
+
 function buildExpandedTransferView({
   sends = [],
   receives = [],
@@ -418,6 +451,9 @@ function TxActionTransferListView(props: ITxActionProps) {
     isUTXO,
   });
   const isSendLikeHistory = isSendLikeHistoryTxType(type);
+  const privateSendSends = isPrivateSend
+    ? backfillTransferPricesFromReceives({ sends, receives })
+    : sends;
   const descriptionTarget = isPrivateSend
     ? (payload?.privateSend?.originalRecipient ?? transferTarget)
     : transferTarget;
@@ -446,7 +482,7 @@ function TxActionTransferListView(props: ITxActionProps) {
 
     if (isPrivateSend) {
       change = buildExpandedTransferView({
-        sends: groupTransfersByToken(sends),
+        sends: groupTransfersByToken(privateSendSends),
         hideValue,
         currencySymbol,
       });
@@ -531,7 +567,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     if (isPrivateSend) {
       const changeInfo = buildTransferChangeInfo({
         changePrefix: '-',
-        transfers: sends,
+        transfers: privateSendSends,
         intl,
       });
       change = changeInfo.change;
