@@ -66,6 +66,7 @@ import {
   swapSpeedSwapApprovingStateFetchInterval,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  ESwapExtraStatus,
   ESwapQuoteKind,
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
@@ -148,6 +149,7 @@ type IPrivateSendOrderDetail = {
   protocolFee?: number;
   instantRate?: string;
   state?: ESwapTxHistoryStatus | 'created';
+  extraStatus?: ESwapExtraStatus;
   stateDetail?: string;
   txId?: string;
   swapOrderHash?: IFetchSwapTxHistoryStatusResponse['swapOrderHash'];
@@ -221,6 +223,7 @@ function getPrivateSendOrderDetailTxState(
   }
   return {
     state,
+    extraStatus: orderDetail.extraStatus,
     stateDetail: orderDetail.stateDetail,
     txId: orderDetail.txId,
     dealReceiveAmount: orderDetail.toAmount,
@@ -242,6 +245,7 @@ function mergePrivateSendOrderDetailToSwapHistory({
     ...item,
     protocol: orderDetail.protocol ?? item.protocol,
     status: state ?? item.status,
+    extraStatus: orderDetail.extraStatus ?? item.extraStatus,
     stateDetail: orderDetail.stateDetail ?? item.stateDetail,
     swapOrderHash: orderDetail.swapOrderHash ?? item.swapOrderHash,
     baseInfo: {
