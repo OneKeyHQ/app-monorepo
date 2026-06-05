@@ -75,6 +75,35 @@ export class ThirdPartyDeviceLocked extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.DeviceLocked;
 }
 
+/** Not enough free space on the device to install the app */
+export class ThirdPartyDeviceOutOfMemory extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslations.hardware_third_party_device_out_of_memory__msg,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceOutOfMemory;
+}
+
+/** Network failure reaching the vendor's servers (e.g. downloading an app) */
+export class ThirdPartyNetworkError extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.global_network_error,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.NetworkError;
+}
+
 /** User rejected the operation on device */
 export class ThirdPartyUserRejected extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {

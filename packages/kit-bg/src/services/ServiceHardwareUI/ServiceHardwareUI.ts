@@ -32,6 +32,7 @@ import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
   hardwareUiStateAtom,
+  thirdPartyAppInstallAtom,
   thirdPartyHardwareUiStateAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -653,6 +654,9 @@ class ServiceHardwareUI extends ServiceBase {
         if (isThirdPartyVendor) {
           if (!skipCloseHardwareUiStateDialog) {
             void thirdPartyHardwareUiStateAtom.set(undefined);
+            // Install dialog rides a separate atom; SDK's CLOSE_UI_WINDOW
+            // doesn't fire on a mid-install error, so clear it here too.
+            void thirdPartyAppInstallAtom.set(undefined);
           }
         } else if (connectId) {
           if (!skipCloseHardwareUiStateDialog) {

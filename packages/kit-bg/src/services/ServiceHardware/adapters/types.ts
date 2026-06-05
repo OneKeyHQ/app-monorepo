@@ -55,6 +55,8 @@ export type IAdapterUiResponse = UiResponseEvent;
 export interface IThirdPartyHardwareAdapter {
   readonly vendor: EHardwareVendor;
   readonly hw: IHardwareWallet;
+  /** Enables the app-level batch address flow for vendors that implement it. */
+  readonly supportsAllNetworkGetAddress?: boolean;
 
   onUiEvent(handler: (event: IAdapterUiEvent) => void): () => void;
   uiResponse(response: IAdapterUiResponse): void;

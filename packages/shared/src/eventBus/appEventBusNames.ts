@@ -156,5 +156,4 @@ export enum EAppEventBusNames {
   NavigateModalFromBackgroundThread = 'NavigateModalFromBackgroundThread',
   TrayActionWillNavigate = 'TrayActionWillNavigate',
   MemoryPressureWarning = 'MemoryPressureWarning',
-  ShowLedgerInstallCoreApps = 'ShowLedgerInstallCoreApps',
 }

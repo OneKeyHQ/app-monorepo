@@ -12,6 +12,24 @@ interface IThirdPartyErrorContext {
   chain?: string;
 }
 
+const LEDGER_INVALID_FIRMWARE_METADATA_RESPONSE_TAG =
+  'InvalidGetFirmwareMetadataResponseError';
+
+export function normalizeThirdPartyDeviceErrorCode(payload: {
+  code: number | string | undefined;
+  _tag?: string;
+}): number | string | undefined {
+  const code =
+    typeof payload.code === 'string' ? Number(payload.code) : payload.code;
+  if (
+    code === ThirdPartyHwErrorCode.UnknownError &&
+    payload._tag === LEDGER_INVALID_FIRMWARE_METADATA_RESPONSE_TAG
+  ) {
+    return ThirdPartyHwErrorCode.NetworkError;
+  }
+  return Number.isFinite(code) ? code : payload.code;
+}
+
 /**
  * Convert a third-party hardware SDK failure payload into a structured
  * OneKeyHardwareError with i18n key and autoToast/dialog behavior.
@@ -29,11 +47,13 @@ export function convertThirdPartyDeviceError(
     code: number;
     appName?: string;
     params?: IOneKeyHardwareErrorPayload['params'];
+    _tag?: string;
   },
   context?: IThirdPartyErrorContext,
 ) {
+  const normalizedCode = normalizeThirdPartyDeviceErrorCode(payload);
   const hwPayload: IOneKeyHardwareErrorPayload = {
-    code: payload.code,
+    code: normalizedCode,
     message: payload.error,
     params: payload.params,
   };
@@ -43,7 +63,7 @@ export function convertThirdPartyDeviceError(
     appName: payload.appName,
   };
 
-  switch (payload.code) {
+  switch (normalizedCode) {
     // EVM-specific (chain-specific copy, production-validated)
     case ThirdPartyHwErrorCode.EvmBlindSigningRequired:
       return new ThirdPartyErrors.ThirdPartyEvmBlindSigningRequired(props);
@@ -91,6 +111,12 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyHwErrorCode.DeviceLocked:
       return new ThirdPartyErrors.ThirdPartyDeviceLocked(props);
+
+    case ThirdPartyHwErrorCode.DeviceOutOfMemory:
+      return new ThirdPartyErrors.ThirdPartyDeviceOutOfMemory(props);
+
+    case ThirdPartyHwErrorCode.NetworkError:
+      return new ThirdPartyErrors.ThirdPartyNetworkError(props);
 
     case ThirdPartyHwErrorCode.WrongApp:
       return new ThirdPartyErrors.ThirdPartyWrongApp(props);
@@ -159,4 +185,22 @@ export function classifyThirdPartyHwCreateFailures<
     (f) => f.error.code !== ThirdPartyHwErrorCode.AppNotInstalled,
   );
   return { allAppNotInstalled, genuineFailures };
+}
+
+export function filterThirdPartyHwCreateFailureToasts<
+  T extends { error: Pick<IOneKeyError, 'autoToast' | 'code'> },
+>(failedAccounts: T[]): T[] {
+  let deviceOutOfMemoryShown = false;
+  return failedAccounts.filter((failedAccount) => {
+    if (failedAccount.error.autoToast === false) {
+      return false;
+    }
+    if (failedAccount.error.code === ThirdPartyHwErrorCode.DeviceOutOfMemory) {
+      if (deviceOutOfMemoryShown) {
+        return false;
+      }
+      deviceOutOfMemoryShown = true;
+    }
+    return true;
+  });
 }
