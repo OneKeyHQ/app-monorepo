@@ -2,6 +2,14 @@ import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDeco
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
+export type IWalletAssetStatus = 'low' | 'funded';
+
+export type IWalletAssetStatusAnalyticsState = {
+  assetStatus?: IWalletAssetStatus;
+  lastStatusChangedAt?: number;
+  lastSnapshotReportedAt?: number;
+};
+
 export interface ISimpleDBAppStatus {
   // hdWalletHashGenerated?: boolean;
   // hdWalletXfpGenerated?: boolean;
@@ -20,7 +28,7 @@ export interface ISimpleDBAppStatus {
   fixHardwareLtcXPubMigrated?: boolean;
   btcFreshAddressSettingMigrated?: boolean;
   removeDeviceHomeScreenMigrated?: boolean;
-  walletAllNetworkLowBalanceReportedAtByWalletId?: Record<string, number>;
+  walletAssetStatusAnalytics?: IWalletAssetStatusAnalyticsState;
   // OneKey IDs (onekeyUserId) that have already seen the KYT intro dialog.
   // Scoped per Prime user so each account is prompted once.
   kytIntroShownUserIds?: string[];
@@ -32,32 +40,19 @@ export class SimpleDbEntityAppStatus extends SimpleDbEntityBase<ISimpleDBAppStat
   override enableCache = true;
 
   @backgroundMethod()
-  async getWalletAllNetworkLowBalanceReportedAt({
-    walletId,
-  }: {
-    walletId: string;
-  }) {
+  async getWalletAssetStatusAnalytics() {
     const appStatus = await this.getRawData();
-    return appStatus?.walletAllNetworkLowBalanceReportedAtByWalletId?.[
-      walletId
-    ];
+    return appStatus?.walletAssetStatusAnalytics;
   }
 
   @backgroundMethod()
-  async setWalletAllNetworkLowBalanceReportedAt({
-    walletId,
-    timestamp,
-  }: {
-    walletId: string;
-    timestamp: number;
-  }) {
+  async setWalletAssetStatusAnalytics(
+    status: IWalletAssetStatusAnalyticsState,
+  ) {
     await this.setRawData(
       (v): ISimpleDBAppStatus => ({
         ...v,
-        walletAllNetworkLowBalanceReportedAtByWalletId: {
-          ...v?.walletAllNetworkLowBalanceReportedAtByWalletId,
-          [walletId]: timestamp,
-        },
+        walletAssetStatusAnalytics: status,
       }),
     );
   }
