@@ -1193,6 +1193,57 @@ interface ITradingSizeParams extends ITradingSizeContext {
   sizePercent?: number;
 }
 
+type ISpotBalanceValueItem = {
+  coin: string;
+  token: number;
+  total: string;
+  entryNtl?: string;
+};
+
+const HYPERLIQUID_SPOT_STABLE_COINS = new Set(['USDC', 'USDT', 'USDB', 'USDH']);
+
+const isHyperliquidSpotStableCoin = (coin: string) =>
+  HYPERLIQUID_SPOT_STABLE_COINS.has(coin.toUpperCase());
+
+function calculateSpotBalancesTotalUsd({
+  balances,
+  getMarkPrice,
+}: {
+  balances: ISpotBalanceValueItem[];
+  getMarkPrice: (coin: string) => string | undefined;
+}): {
+  totalUsd: string;
+  missingPriceCoins: string[];
+} {
+  let totalUsd = new BigNumber(0);
+  const missingPriceCoins: string[] = [];
+
+  for (const balance of balances) {
+    const amount = new BigNumber(balance.total);
+    if (!amount.isFinite() || amount.lte(0)) {
+      // skip invalid / empty balances
+    } else if (
+      balance.token === 0 ||
+      isHyperliquidSpotStableCoin(balance.coin)
+    ) {
+      totalUsd = totalUsd.plus(amount);
+    } else {
+      const markPrice = getMarkPrice(balance.coin);
+      const markPriceBN = new BigNumber(markPrice ?? 0);
+      if (markPriceBN.isFinite() && markPriceBN.gt(0)) {
+        totalUsd = totalUsd.plus(amount.multipliedBy(markPriceBN));
+      } else {
+        missingPriceCoins.push(balance.coin);
+      }
+    }
+  }
+
+  return {
+    totalUsd: totalUsd.toFixed(),
+    missingPriceCoins,
+  };
+}
+
 const computeEffectivePrice = (
   price?: string,
   markPrice?: string,
@@ -2014,6 +2065,8 @@ export {
   getTriggerEffectivePrice,
   getSpotMarketCapValue,
   compareSpotMarketCapValues,
+  isHyperliquidSpotStableCoin,
+  calculateSpotBalancesTotalUsd,
   getValidSpotPriceDecimals,
   formatSpotPriceToValid,
   formatSpotAssetCtx,
@@ -2073,6 +2126,8 @@ export default {
   formatChartUsdPrice,
   getSpotMarketCapValue,
   compareSpotMarketCapValues,
+  isHyperliquidSpotStableCoin,
+  calculateSpotBalancesTotalUsd,
   formatSpotAssetCtx,
   formatSpotPriceEntry,
   isSpotInstrument,

@@ -11,6 +11,7 @@ import {
   analyzeOrderBookPrecision,
   calculateLiquidationPrice,
   calculatePriceScale,
+  calculateSpotBalancesTotalUsd,
   compareSpotMarketCapValues,
   computeMaxTradeSize,
   countDecimalPlaces,
@@ -146,7 +147,6 @@ describe('isPredictionMarketInstrument', () => {
   });
 });
 
-
 describe('trading size helpers', () => {
   test('uses direct maxSize for slider sizing without mark/reference price conversion', () => {
     const maxSize = computeMaxTradeSize({
@@ -172,6 +172,50 @@ describe('trading size helpers', () => {
       szDecimals: 2,
     });
     expect(resolvedSize.toFixed()).toBe('18.56');
+  });
+});
+
+describe('calculateSpotBalancesTotalUsd', () => {
+  test('counts non-USDC spot holdings with spot mark prices', () => {
+    const result = calculateSpotBalancesTotalUsd({
+      balances: [
+        {
+          coin: 'USDC',
+          token: 0,
+          total: '236.786521',
+        },
+        {
+          coin: 'BTC',
+          token: 1,
+          total: '0.0040073065',
+        },
+      ],
+      getMarkPrice: (coin) => (coin === 'BTC' ? '62454' : undefined),
+    });
+
+    expect(result.missingPriceCoins).toEqual([]);
+    expect(new BigNumber(result.totalUsd).toFixed(2)).toBe('487.06');
+  });
+
+  test('keeps total unresolved when a positive non-stable token price is missing', () => {
+    const result = calculateSpotBalancesTotalUsd({
+      balances: [
+        {
+          coin: 'USDC',
+          token: 0,
+          total: '236.786521',
+        },
+        {
+          coin: 'BTC',
+          token: 1,
+          total: '0.0040073065',
+        },
+      ],
+      getMarkPrice: () => undefined,
+    });
+
+    expect(result.totalUsd).toBe('236.786521');
+    expect(result.missingPriceCoins).toEqual(['BTC']);
   });
 });
 

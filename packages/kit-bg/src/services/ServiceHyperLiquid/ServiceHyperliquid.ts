@@ -47,6 +47,7 @@ import {
   updateTokenSelectorFavoriteCoins,
 } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import perpsUtils, {
+  calculateSpotBalancesTotalUsd,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -1431,6 +1432,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       }
     });
     this._flushSpotPrices(map);
+    void this.recalculateSpotTotalUsd({ force: true });
   }
 
   async extractSpotPricesFromAllMids(mids: Record<string, string>) {
@@ -1710,50 +1712,19 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     await spotBalancesAtom.set({ balances, isLoaded: true });
 
-    // Calculate total USD value from spot balances
-    // Price lookup: USDC (token=0) → 1:1, others → allMids.mids[coin] (perp mid price by token name)
-    // Note: allMids["HYPE"]=36.20 is the correct USD price
-    //       allMids["@N"] is a spot universe pair index, NOT token index — do NOT use
+    await this._ensureSpotMappings();
+
+    // Calculate total USD value from spot balances.
+    // Price lookup order:
+    // 1. spot pair ctx markPx from spotAssetCtxs (e.g. BTC/USDC)
+    // 2. token/perp mid fallback from allMids (e.g. HYPE)
+    // Missing non-stable prices keep spotTotalUsd undefined so consumers show
+    // loading instead of a USDC-only account value.
     const mids = hyperLiquidCache.allMids?.mids;
-    const hasNonUsdcTokens = balances.some(
-      (b) => b.token !== 0 && parseFloat(b.total) > 0,
-    );
-    const midsReady = mids && Object.keys(mids).length > 0;
-
-    // Don't write spotTotalUsd if allMids hasn't loaded yet and we have non-USDC tokens
-    // This prevents briefly showing an artificially low value
-    if (hasNonUsdcTokens && !midsReady) {
-      await perpsSpotBalancesAtom.set({
-        accountAddress: activeAddress as IHex,
-        balances: balances.map((b) => ({
-          coin: b.coin,
-          token: b.token,
-          total: b.total,
-          hold: b.hold,
-          entryNtl: b.entryNtl,
-        })),
-        spotTotalUsd: undefined, // triggers isLoading in computed atom
-      });
-      return;
-    }
-
-    let totalUsd = new BigNumber(0);
-    for (const balance of balances) {
-      const amount = new BigNumber(balance.total);
-      if (amount.isZero()) {
-        // skip zero balances
-      } else if (balance.token === 0) {
-        // USDC — quote currency, 1:1 USD
-        totalUsd = totalUsd.plus(amount);
-      } else {
-        // Use token name to look up perp mid price (e.g., "HYPE" → 36.20)
-        const midPrice = mids?.[balance.coin];
-        if (midPrice) {
-          totalUsd = totalUsd.plus(amount.multipliedBy(midPrice));
-        }
-      }
-    }
-
+    const spotTotal = calculateSpotBalancesTotalUsd({
+      balances,
+      getMarkPrice: (coin) => this.getSpotBalanceMarkPrice(coin, mids),
+    });
     const normalizedBalances = balances.map((b) => ({
       coin: b.coin,
       token: b.token,
@@ -1761,7 +1732,17 @@ export default class ServiceHyperliquid extends ServiceBase {
       hold: b.hold,
       entryNtl: b.entryNtl,
     }));
-    const spotTotalUsd = totalUsd.toFixed();
+
+    if (spotTotal.missingPriceCoins.length > 0) {
+      await perpsSpotBalancesAtom.set({
+        accountAddress: activeAddress as IHex,
+        balances: normalizedBalances,
+        spotTotalUsd: undefined,
+      });
+      return;
+    }
+
+    const spotTotalUsd = spotTotal.totalUsd;
     await perpsSpotBalancesAtom.set({
       accountAddress: activeAddress as IHex,
       balances: normalizedBalances,
@@ -1791,41 +1772,41 @@ export default class ServiceHyperliquid extends ServiceBase {
       });
   }
 
-  // Re-calculate spotTotalUsd from cached balances when allMids becomes available
-  async recalculateSpotTotalUsd() {
+  // Re-calculate spotTotalUsd from cached balances when price data becomes available
+  async recalculateSpotTotalUsd({ force = false }: { force?: boolean } = {}) {
     const spotData = await perpsSpotBalancesAtom.get();
-    if (!spotData?.balances?.length || spotData.spotTotalUsd !== undefined)
+    if (
+      !spotData?.balances?.length ||
+      (!force && spotData.spotTotalUsd !== undefined)
+    ) {
       return;
+    }
 
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAddress = activeAccount?.accountAddress?.toLowerCase();
-    if (!activeAddress || activeAddress !== spotData.accountAddress) return;
+    const spotAddress = spotData.accountAddress?.toLowerCase();
+    if (!activeAddress || activeAddress !== spotAddress) return;
+
+    await this._ensureSpotMappings();
 
     const mids = hyperLiquidCache.allMids?.mids;
-    if (!mids || Object.keys(mids).length === 0) return;
-
     const { balances } = spotData;
-    let totalUsd = new BigNumber(0);
-    for (const balance of balances) {
-      const amount = new BigNumber(balance.total);
-      if (amount.isZero()) {
-        // skip zero balances
-      } else if (balance.token === 0) {
-        totalUsd = totalUsd.plus(amount);
-      } else {
-        const midPrice = mids[balance.coin];
-        if (midPrice) {
-          totalUsd = totalUsd.plus(amount.multipliedBy(midPrice));
-        }
-      }
+    const spotTotal = calculateSpotBalancesTotalUsd({
+      balances,
+      getMarkPrice: (coin) => this.getSpotBalanceMarkPrice(coin, mids),
+    });
+    if (spotTotal.missingPriceCoins.length > 0) {
+      return;
     }
 
-    const computed = totalUsd.toFixed();
+    const computed = spotTotal.totalUsd;
     // Functional updater: only write if spotTotalUsd is still undefined
     // (avoids overwriting fresher data from a concurrent SPOT_STATE event)
     let didWrite = false;
     await perpsSpotBalancesAtom.set((prev) => {
-      if (!prev || prev.spotTotalUsd !== undefined) return prev;
+      if (!prev || (!force && prev.spotTotalUsd !== undefined)) return prev;
+      if (prev.accountAddress?.toLowerCase() !== activeAddress) return prev;
+      if (prev.spotTotalUsd === computed) return prev;
       didWrite = true;
       return { ...prev, spotTotalUsd: computed };
     });
@@ -1909,6 +1890,18 @@ export default class ServiceHyperliquid extends ServiceBase {
   async getSpotPairName(tokenName: string): Promise<string | undefined> {
     await this._ensureSpotMappings();
     return this._spotMappings.baseNameToPairName[tokenName];
+  }
+
+  private getSpotBalanceMarkPrice(coin: string, mids?: Record<string, string>) {
+    const spotPairName = this._spotMappings.baseNameToPairName[coin];
+    const displayName = perpsUtils.getSpotTokenDisplayName(coin);
+
+    return (
+      (spotPairName ? this._spotPriceCache[spotPairName]?.markPx : undefined) ??
+      this._spotPriceCache[coin]?.markPx ??
+      mids?.[coin] ??
+      mids?.[displayName]
+    );
   }
 
   @backgroundMethod()
