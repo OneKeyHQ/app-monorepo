@@ -80,7 +80,6 @@ const SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES = [
 
 type ISwapKLineWalletMarketInfo = {
   coinGeckoId?: string;
-  price?: string;
   priceChange24hPercent?: string;
 };
 
@@ -131,7 +130,7 @@ function useSwapKLineTokenMarketInfo(token?: ISwapToken, enabled = true) {
   const networkId = token?.networkId ?? '';
   const { result } = usePromiseResult<IMarketTokenDetail | undefined>(
     async () => {
-      if (!enabled || !networkId || !tokenAddress) {
+      if (!enabled || !networkId) {
         return undefined;
       }
       const response =
@@ -140,6 +139,7 @@ function useSwapKLineTokenMarketInfo(token?: ISwapToken, enabled = true) {
           networkId,
           {
             autoHandleError: false,
+            skipConvertCurrency: true,
           },
         );
       return response?.data?.token;
@@ -161,16 +161,14 @@ function buildSwapKLineWalletMarketInfo(
   tokenInfo?: IFetchTokenDetailItem,
 ): ISwapKLineWalletMarketInfo | undefined {
   const coinGeckoId = tokenInfo?.info?.coingeckoId?.trim();
-  const price = getNormalizedPrice(tokenInfo?.price);
   const priceChange24hPercent = getNormalizedPercent(tokenInfo?.price24h);
 
-  if (!coinGeckoId && !price && !priceChange24hPercent) {
+  if (!coinGeckoId && !priceChange24hPercent) {
     return undefined;
   }
 
   return {
     coinGeckoId,
-    price,
     priceChange24hPercent,
   };
 }
@@ -672,20 +670,15 @@ function SwapKLineHeaderRight({
 }
 
 function SwapKLineTokenPriceInfo({
-  token,
   tokenMarketDetail,
   walletMarketInfo,
   compact,
 }: {
-  token: ISwapToken;
   tokenMarketDetail?: IMarketTokenDetail;
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
   compact?: boolean;
 }) {
-  const price =
-    getNormalizedPrice(tokenMarketDetail?.price) ??
-    walletMarketInfo?.price ??
-    getNormalizedPrice(token.price);
+  const price = getNormalizedPrice(tokenMarketDetail?.price);
   const priceChange =
     getNormalizedPercent(tokenMarketDetail?.priceChange24hPercent) ??
     walletMarketInfo?.priceChange24hPercent;
@@ -792,7 +785,6 @@ function SwapKLineTokenInfoRow({
           ) : null}
         </YStack>
         <SwapKLineTokenPriceInfo
-          token={token}
           tokenMarketDetail={tokenMarketDetail}
           walletMarketInfo={walletMarketInfo}
           compact={compact}
