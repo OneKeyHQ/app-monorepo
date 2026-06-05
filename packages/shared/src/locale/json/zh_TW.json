@@ -2645,7 +2645,7 @@
   "network_enabled_count": "{count} 已啟用",
   "network_fee_suggested_by_dapp_description": "已切換至 dApp 建議的 gas 以節省手續費",
   "network_fee_suggested_by_dapp_label": "由 dApp 建議",
-  "network_found_assets_on_networks": "發現有資產的網絡",
+  "network_found_assets_on_networks": "有資產的網絡",
   "network_invisible_in_all_network_tooltip_title": "隱藏於「所有網路」視圖中",
   "network_none_selected": "未選擇網路",
   "network_not_enabled": "未啟用",
