@@ -88,6 +88,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildTokenSelectorDappTokenFilterParams,
   isTokenSelectorDappTokenFilterSupportedNetwork,
@@ -2534,14 +2535,154 @@ function TokenListBlock({
     },
   );
 
+  // Imperatively refresh the single-network wallet token list for an
+  // explicitly provided account/network. Used when a refresh is emitted from
+  // another home tab right after a network switch: this list may be frozen
+  // (inactive tab), so its own `run` closures still point at the previous
+  // network. Driving the fetch from explicit params lets the always-visible
+  // header worth (and the shared token-list atoms) update to the new network
+  // without waiting for the user to return to this tab.
+  const explicitRefreshSeqRef = useRef(0);
+  const refreshSingleNetworkTokenListByTarget = useCallback(
+    async (target: { accountId: string; networkId: string }) => {
+      const { accountId, networkId } = target;
+      if (!accountId || !networkId) return;
+      // All-networks aggregation is driven by a separate, closure-bound hook
+      // that cannot be refreshed imperatively here; let it refresh on return.
+      if (networkUtils.isAllNetwork({ networkId })) return;
+
+      const seq = (explicitRefreshSeqRef.current += 1);
+      const isLatest = () => explicitRefreshSeqRef.current === seq;
+
+      let emittedRefreshing = false;
+      try {
+        // Derive-merge networks need the multi-derive fetch handled by `run`;
+        // skip the single-account fast path so we never apply partial data.
+        const targetVaultSettings =
+          await backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          });
+        if (targetVaultSettings?.mergeDeriveAssetsEnabled) return;
+        if (!isLatest()) return;
+
+        appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+          isRefreshing: true,
+          type: EHomeTab.TOKENS,
+          accountId,
+          networkId,
+        });
+        emittedRefreshing = true;
+
+        const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+          accountId,
+          mergeTokens: true,
+          networkId,
+          flag: 'home-token-list',
+          saveToLocal: true,
+          ...walletTokenFilterParams,
+        });
+
+        // A newer switch superseded this fetch; drop the stale body so it
+        // can't clobber the latest network's data.
+        if (!isLatest()) return;
+
+        const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
+        updateAccountOverviewState({ isRefreshing: false, initialized: true });
+        updateAccountWorth({
+          accountId,
+          initialized: true,
+          worth: {
+            [accountUtils.buildAccountValueKey({ accountId, networkId })]:
+              accountWorth,
+          },
+          createAtNetworkWorth: accountWorth,
+          merge: false,
+        });
+
+        refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
+        refreshTokenListMap({
+          tokens: {
+            ...r.tokens.map,
+            ...r.smallBalanceTokens.map,
+            ...r.riskTokens.map,
+          },
+        });
+        refreshRiskyTokenList({
+          keys: r.riskTokens.keys,
+          riskyTokens: r.riskTokens.data,
+        });
+        refreshRiskyTokenListMap({ tokens: r.riskTokens.map });
+        refreshSmallBalanceTokenList({
+          keys: r.smallBalanceTokens.keys,
+          smallBalanceTokens: r.smallBalanceTokens.data,
+        });
+        refreshSmallBalanceTokenListMap({ tokens: r.smallBalanceTokens.map });
+        refreshSmallBalanceTokensFiatValue({
+          value: r.smallBalanceTokens.fiatValue ?? '0',
+        });
+        if (r.allTokens) {
+          refreshAllTokenList({
+            keys: r.allTokens.keys,
+            tokens: r.allTokens.data,
+            accountId,
+            networkId,
+          });
+          refreshAllTokenListMap({ tokens: r.allTokens.map });
+        }
+        updateTokenListState({ initialized: true, isRefreshing: false });
+      } catch (e) {
+        if (!(e instanceof CanceledError)) {
+          throw e;
+        }
+      } finally {
+        if (emittedRefreshing) {
+          appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+            isRefreshing: false,
+            type: EHomeTab.TOKENS,
+            accountId,
+            networkId,
+          });
+        }
+      }
+    },
+    [
+      walletTokenFilterParams,
+      updateAccountOverviewState,
+      updateAccountWorth,
+      refreshTokenList,
+      refreshTokenListMap,
+      refreshRiskyTokenList,
+      refreshRiskyTokenListMap,
+      refreshSmallBalanceTokenList,
+      refreshSmallBalanceTokenListMap,
+      refreshSmallBalanceTokensFiatValue,
+      refreshAllTokenList,
+      refreshAllTokenListMap,
+      updateTokenListState,
+    ],
+  );
+
   useEffect(() => {
     const refresh = (
       params:
         | {
             accounts: { accountId: string; networkId: string }[];
+            refreshByProvidedAccounts?: boolean;
           }
         | undefined,
     ) => {
+      // A flagged payload (emitted from another home tab right after a network
+      // switch) asks this list to refresh against the provided account/network.
+      // This list may be frozen with a stale network in its closures, so honor
+      // the explicit target instead of falling through to the closure-bound
+      // `run` / all-networks paths.
+      if (params?.refreshByProvidedAccounts) {
+        const target = params.accounts?.[0];
+        if (target) {
+          void refreshSingleNetworkTokenListByTarget(target);
+        }
+        return;
+      }
       if (network?.isAllNetworks) {
         if (params?.accounts) {
           void handleRefreshAllNetworkDataByAccounts(params.accounts);
@@ -2580,6 +2721,7 @@ function TokenListBlock({
     run,
     runAllNetworksRequests,
     runLpTokenList,
+    refreshSingleNetworkTokenListByTarget,
     showLpTokensOnly,
   ]);
 

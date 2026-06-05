@@ -279,6 +279,12 @@ export interface IAppEventBusPayload {
           accountId: string;
           networkId: string;
         }[];
+        // When true, the home token list refreshes strictly against the
+        // provided account/network instead of its own active account. Used by
+        // emitters from a different home tab right after a network switch,
+        // when the (inactive) token list is frozen and its closures still
+        // point at the previous network.
+        refreshByProvidedAccounts?: boolean;
       };
   [EAppEventBusNames.RefreshEarnRecommendedList]: undefined;
   [EAppEventBusNames.RefreshHistoryList]: undefined;
