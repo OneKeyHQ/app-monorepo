@@ -28,6 +28,7 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { IVideoRef } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -91,6 +92,7 @@ const ICON_DETAIL_ICON_SIZE = 24;
 const PAGINATION_BUTTON_VERTICAL_OFFSET = 24;
 const DIALOG_FOOTER_BOTTOM_PADDING = 20;
 const MOBILE_DIALOG_VIDEO_LOAD_DELAY_MS = 300;
+const VIDEO_END_PAUSE_MS = 1000;
 const VIDEO_POSTER_FADE_DURATION_MS = 220;
 const DIALOG_CONTENT_SWIPE_THRESHOLD = 32;
 const primeFeatureOverlayButtonIconProps = { color: '$whiteA10' } as const;
@@ -198,34 +200,35 @@ const PrimeFeatureMedia = memo(function PrimeFeatureMedia({
   const [shouldLoadVideo, setShouldLoadVideo] = useState(
     canLoadVideo && isActive,
   );
-  const [videoPlayKey, setVideoPlayKey] = useState(0);
   const [shouldPlayVideo, setShouldPlayVideo] = useState(false);
   const posterOpacity = useRef(new Animated.Value(1)).current;
-  const prevIsActiveRef = useRef(isActive);
+  const videoRef = useRef<IVideoRef>(null);
+  const videoLoopControllerRef = useRef<{
+    endTimer: ReturnType<typeof setTimeout> | null;
+    hasHandledEnd: boolean;
+    isActive: boolean;
+  }>({
+    endTimer: null,
+    hasHandledEnd: false,
+    isActive,
+  });
 
-  useEffect(() => {
-    if (feature.media.type !== 'video') {
-      return;
+  const clearVideoEndTimer = useCallback(() => {
+    const controller = videoLoopControllerRef.current;
+    if (controller.endTimer) {
+      clearTimeout(controller.endTimer);
+      controller.endTimer = null;
     }
+  }, []);
 
+  const resetVideoToPoster = useCallback(() => {
     posterOpacity.stopAnimation();
     posterOpacity.setValue(1);
     setShouldPlayVideo(false);
+  }, [posterOpacity]);
 
-    if (isActive && canLoadVideo) {
-      setShouldLoadVideo(true);
-      if (!prevIsActiveRef.current) {
-        setVideoPlayKey((key) => key + 1);
-      }
-    } else if (!canLoadVideo) {
-      setShouldLoadVideo(false);
-    }
-
-    prevIsActiveRef.current = isActive;
-  }, [canLoadVideo, feature.media.type, isActive, posterOpacity]);
-
-  const handleVideoReadyForDisplay = useCallback(() => {
-    if (!isActive) {
+  const showVideo = useCallback(() => {
+    if (!videoLoopControllerRef.current.isActive) {
       return;
     }
 
@@ -236,7 +239,64 @@ const PrimeFeatureMedia = memo(function PrimeFeatureMedia({
       duration: VIDEO_POSTER_FADE_DURATION_MS,
       useNativeDriver: true,
     }).start();
-  }, [isActive, posterOpacity]);
+  }, [posterOpacity]);
+
+  useEffect(() => {
+    if (feature.media.type !== 'video') {
+      return;
+    }
+
+    const controller = videoLoopControllerRef.current;
+    const wasActive = controller.isActive;
+    controller.isActive = isActive;
+    clearVideoEndTimer();
+    resetVideoToPoster();
+    controller.hasHandledEnd = false;
+
+    if (isActive && canLoadVideo) {
+      setShouldLoadVideo(true);
+      if (!wasActive && videoRef.current) {
+        videoRef.current.seek(0);
+        videoRef.current.resume();
+        showVideo();
+      }
+    } else if (!canLoadVideo) {
+      setShouldLoadVideo(false);
+    }
+
+    return clearVideoEndTimer;
+  }, [
+    canLoadVideo,
+    clearVideoEndTimer,
+    feature.media.type,
+    isActive,
+    resetVideoToPoster,
+    showVideo,
+  ]);
+
+  const handleVideoReadyForDisplay = useCallback(() => {
+    showVideo();
+  }, [showVideo]);
+
+  const handleVideoEnded = useCallback(() => {
+    const controller = videoLoopControllerRef.current;
+    if (!controller.isActive || controller.hasHandledEnd) {
+      return;
+    }
+
+    controller.hasHandledEnd = true;
+    clearVideoEndTimer();
+    controller.endTimer = setTimeout(() => {
+      controller.endTimer = null;
+      if (!controller.isActive) {
+        return;
+      }
+
+      videoRef.current?.seek(0);
+      videoRef.current?.resume();
+      controller.hasHandledEnd = false;
+    }, VIDEO_END_PAUSE_MS);
+  }, [clearVideoEndTimer]);
 
   if (feature.media.type === 'video') {
     const posterSource = feature.media.getPosterSource();
@@ -247,11 +307,11 @@ const PrimeFeatureMedia = memo(function PrimeFeatureMedia({
       <>
         {shouldLoadVideo ? (
           <Video
-            key={`${feature.id}-${videoPlayKey}`}
+            ref={videoRef}
             source={feature.media.getSource()}
             style={styles.featureMediaFill}
             resizeMode={EVideoResizeMode.COVER}
-            repeat
+            repeat={false}
             muted
             paused={
               !isActive || (shouldUseNativePosterOverlay && !shouldPlayVideo)
@@ -266,6 +326,7 @@ const PrimeFeatureMedia = memo(function PrimeFeatureMedia({
                 ? handleVideoReadyForDisplay
                 : undefined
             }
+            onEnd={handleVideoEnded}
           />
         ) : null}
         {shouldUseNativePosterOverlay ? (
@@ -402,6 +463,7 @@ export function PrimeFeatureIntroContent({
   const goToFeatureIndexRef = useRef<((index: number) => void) | null>(null);
   const usePageFooter = mode === 'page';
   const useDialogFooter = mode === 'dialog';
+  const shouldShowExtensionPagination = platformEnv.isExtensionUiPopup && !gtMd;
   const shouldDelayVideoLoad = useDialogFooter && !gtMd;
   const [canLoadVideo, setCanLoadVideo] = useState(!shouldDelayVideoLoad);
 
@@ -646,8 +708,10 @@ export function PrimeFeatureIntroContent({
     [activeFeature?.id, canLoadVideo],
   );
 
-  const showDesktopPaginationButton =
-    features.length > 1 && gtMd && !platformEnv.isNative;
+  const showOverlayPaginationButton =
+    features.length > 1 &&
+    !platformEnv.isNative &&
+    (gtMd || shouldShowExtensionPagination);
   const renderPagination = useCallback(
     ({
       currentIndex,
@@ -661,7 +725,7 @@ export function PrimeFeatureIntroContent({
       goToIndex: (index: number) => void;
     }) => {
       goToFeatureIndexRef.current = goToIndex;
-      return showDesktopPaginationButton ? (
+      return showOverlayPaginationButton ? (
         <Stack
           position="absolute"
           top={PAGINATION_BUTTON_VERTICAL_OFFSET}
@@ -683,7 +747,7 @@ export function PrimeFeatureIntroContent({
         </Stack>
       ) : null;
     },
-    [features.length, showDesktopPaginationButton],
+    [features.length, showOverlayPaginationButton],
   );
 
   const dialogContentSwipeResponder = useMemo(
