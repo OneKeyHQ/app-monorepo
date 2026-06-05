@@ -18,6 +18,7 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapAccountAddressContainerProps {
@@ -36,17 +37,22 @@ const SwapAccountAddressContainer = ({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { activeAccount: activeToAccount } = useActiveAccount({ num: 1 });
   const networkComponent = useMemo(() => {
+    const token = type === ESwapDirectionType.FROM ? fromToken : toToken;
     const networkInfo = swapSupportAllNetwork.find(
-      (net) =>
-        net.networkId ===
-        (type === ESwapDirectionType.FROM
-          ? fromToken?.networkId
-          : toToken?.networkId),
+      (net) => net.networkId === token?.networkId,
     );
+    const localNetworkInfo = token?.networkId
+      ? networkUtils.getLocalNetworkInfo(token.networkId)
+      : undefined;
+    const networkName = networkInfo?.name ?? localNetworkInfo?.name;
+    const networkLogoURI =
+      networkInfo?.logoURI ??
+      token?.networkLogoURI ??
+      localNetworkInfo?.logoURI;
 
     return (
       <AnimatePresence>
-        {networkInfo ? (
+        {networkName ? (
           <XStack
             key="network-component"
             animation="quick"
@@ -66,21 +72,17 @@ const SwapAccountAddressContainer = ({
               onClickNetwork?.(type);
             }}
           >
-            <Image w={16} h={16} source={{ uri: networkInfo.logoURI }} />
+            {networkLogoURI ? (
+              <Image w={16} h={16} source={{ uri: networkLogoURI }} />
+            ) : null}
             <SizableText size="$bodyMd" color="$text">
-              {networkInfo.name}
+              {networkName}
             </SizableText>
           </XStack>
         ) : null}
       </AnimatePresence>
     );
-  }, [
-    swapSupportAllNetwork,
-    onClickNetwork,
-    type,
-    fromToken?.networkId,
-    toToken?.networkId,
-  ]);
+  }, [swapSupportAllNetwork, onClickNetwork, type, fromToken, toToken]);
 
   return (
     <XStack alignItems="center" gap="$1">
