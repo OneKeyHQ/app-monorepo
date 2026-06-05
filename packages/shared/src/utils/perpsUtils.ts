@@ -1179,6 +1179,7 @@ interface ITradingSizeContext {
   side: 'long' | 'short';
   price?: string;
   markPrice?: string;
+  maxSize?: BigNumber.Value | null;
   availableToTrade?: Array<number | string>;
   maxTradeSzs?: Array<number | string>;
   leverageValue?: number | string | null;
@@ -1225,11 +1226,22 @@ const computeMaxTradeSize = ({
   side,
   price,
   markPrice,
+  maxSize,
   maxTradeSzs,
   leverageValue,
   fallbackLeverage,
   szDecimals,
 }: ITradingSizeContext): BigNumber => {
+  if (maxSize !== undefined && maxSize !== null) {
+    const maxSizeBN = new BigNumber(maxSize);
+    if (!maxSizeBN.isFinite() || maxSizeBN.lte(0)) {
+      return new BigNumber(0);
+    }
+
+    const decimals = szDecimals ?? 2;
+    return maxSizeBN.decimalPlaces(decimals, BigNumber.ROUND_FLOOR);
+  }
+
   const effectivePrice = computeEffectivePrice(price, markPrice);
   if (!effectivePrice) {
     return new BigNumber(0);
@@ -1273,6 +1285,7 @@ const resolveTradingSizeBN = ({
   side,
   price,
   markPrice,
+  maxSize,
   maxTradeSzs,
   leverageValue,
   fallbackLeverage,
@@ -1292,23 +1305,24 @@ const resolveTradingSizeBN = ({
     return new BigNumber(0);
   }
 
-  const maxSize = computeMaxTradeSize({
+  const resolvedMaxSize = computeMaxTradeSize({
     side,
     price,
     markPrice,
+    maxSize,
     maxTradeSzs,
     leverageValue,
     fallbackLeverage,
     szDecimals,
   });
 
-  if (!maxSize.isFinite() || maxSize.lte(0)) {
+  if (!resolvedMaxSize.isFinite() || resolvedMaxSize.lte(0)) {
     return new BigNumber(0);
   }
 
   const percentBN = new BigNumber(percentValue);
   const decimals = szDecimals ?? 2;
-  return maxSize
+  return resolvedMaxSize
     .multipliedBy(percentBN)
     .dividedBy(100)
     .decimalPlaces(decimals, BigNumber.ROUND_FLOOR);
