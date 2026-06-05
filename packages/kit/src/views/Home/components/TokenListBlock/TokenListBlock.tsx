@@ -2693,7 +2693,7 @@ function TokenListBlock({
           }
         }
       } else {
-        void run();
+        void run({ alwaysSetState: true });
         if (showLpTokensOnly) {
           void runLpTokenList({ alwaysSetState: true });
         }
