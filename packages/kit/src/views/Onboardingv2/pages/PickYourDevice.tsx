@@ -24,6 +24,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import { MOCK_PRO2_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/devicePro2Mock';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
@@ -53,6 +54,11 @@ export default function PickYourDevice() {
     }>
   >(() => {
     const devices = [
+      {
+        name: 'OneKey Pro 2',
+        deviceType: [MOCK_PRO2_DEVICE_TYPE],
+        image: require('@onekeyhq/kit/assets/pick-pro-2.png'),
+      },
       {
         name: 'OneKey Pro',
         deviceType: [EDeviceType.Pro],
@@ -208,7 +214,11 @@ export default function PickYourDevice() {
                 />
               </YStack>
               <YStack gap="$3" $gtMd={{ gap: '$5', alignItems: 'center' }}>
-                <SizableText size="$headingXl" $gtMd={{ size: '$heading2xl' }}>
+                <SizableText
+                  textAlign="center"
+                  size="$headingXl"
+                  $gtMd={{ size: '$heading2xl' }}
+                >
                   {name}
                 </SizableText>
                 <XStack gap="$2" $gtMd={{ minHeight: '$6' }}>

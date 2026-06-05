@@ -1,5 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import { MOCK_PRO2_DEVICE_TYPE } from './devicePro2Mock';
+
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
 
@@ -26,7 +28,17 @@ export const HdWalletAvatarImageNames = Object.keys(
 ) as IHdWalletAvatarImageNames[];
 
 export const HwWalletAvatarImages: Record<
-  IDeviceType | `${EDeviceType.Pro}Black` | `${EDeviceType.Pro}White`,
+  | IDeviceType
+  | `${EDeviceType.Pro}Black`
+  | `${EDeviceType.Pro}White`
+  // MOCK(pro2): literal keys until EDeviceType.Pro2 ships. `pro2` is the base
+  // (default avatar); Black/Orange/Silver are the color variants. These equal
+  // the future `${EDeviceType.Pro2}` template forms (Pro2 = 'pro2'), so
+  // convergence is a literal -> template swap. See devicePro2Mock.ts.
+  | 'pro2'
+  | 'pro2Black'
+  | 'pro2Orange'
+  | 'pro2Silver',
   ImageSourcePropType
 > = {
   [EDeviceType.Unknown]: { uri: undefined },
@@ -38,6 +50,10 @@ export const HwWalletAvatarImages: Record<
   [EDeviceType.Pro]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}Black`]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}White`]: require('../assets/wallet/avatar/ProWhite.png'),
+  pro2: require('../assets/wallet/avatar/Pro2Black.png'),
+  pro2Black: require('../assets/wallet/avatar/Pro2Black.png'),
+  pro2Orange: require('../assets/wallet/avatar/Pro2Orange.png'),
+  pro2Silver: require('../assets/wallet/avatar/Pro2Silver.png'),
 };
 
 export const OthersWalletAvatarImages = {
@@ -72,12 +88,31 @@ export type IAllWalletAvatarImageNamesWithoutDividers =
 export function getDeviceAvatarImage(
   deviceType: IDeviceType,
   serialNo?: string,
-): IDeviceType | `${EDeviceType.Pro}Black` | `${EDeviceType.Pro}White` {
+):
+  | IDeviceType
+  | `${EDeviceType.Pro}Black`
+  | `${EDeviceType.Pro}White`
+  | 'pro2Black'
+  | 'pro2Orange'
+  | 'pro2Silver' {
   if (deviceType === EDeviceType.Pro) {
     if (serialNo && serialNo?.startsWith('PR') && serialNo?.endsWith('B')) {
       return `${EDeviceType.Pro}White`;
     }
     return `${EDeviceType.Pro}Black`;
+  }
+  // MOCK(pro2): provisional serial_no -> color rule from the SDK dev (not yet
+  // finalized). Last char of serial_no: B = Black, O = Orange, S = Silver
+  // (e.g. PRT41B0225O -> Orange). Falls back to Black when unknown/missing.
+  // Keyed off the shared mock device type until EDeviceType.Pro2 ships.
+  if (deviceType === MOCK_PRO2_DEVICE_TYPE) {
+    if (serialNo?.endsWith('O')) {
+      return 'pro2Orange';
+    }
+    if (serialNo?.endsWith('S')) {
+      return 'pro2Silver';
+    }
+    return 'pro2Black';
   }
   return deviceType;
 }
