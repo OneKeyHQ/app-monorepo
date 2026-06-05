@@ -154,6 +154,7 @@ import type {
   IPerpsDepositNetworksAtom,
   IPerpsDepositToken,
   IPerpsDepositTokensAtom,
+  ISpotBalanceItem,
 } from '../../states/jotai/atoms';
 import type {
   ISpotActiveAssetCtxAtom,
@@ -180,6 +181,10 @@ type IChangeActiveAssetResult = {
 const HIDE_SELECT_ACCOUNT_LOADING_DELAY_MS = timerUtils.getTimeDurationMs({
   seconds: 0.3,
 });
+const SPOT_TOTAL_USD_MISSING_PRICE_FALLBACK_DELAY_MS =
+  timerUtils.getTimeDurationMs({
+    seconds: 3,
+  });
 const PERPS_ACTIVE_ASSET_CTX_DISPLAY_THROTTLE_MS = 500;
 
 let perpsActiveAssetCtxDisplayLastSetAt = 0;
@@ -416,6 +421,11 @@ export default class ServiceHyperliquid extends ServiceBase {
   private _spotPriceDirty = false;
 
   private _spotPriceFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private _spotTotalUsdFallbackTimer: ReturnType<typeof setTimeout> | null =
+    null;
+
+  private _spotTotalUsdFallbackAccountAddress: string | null = null;
 
   private _fetchSpotExternalMarketCaps = cacheUtils.memoizee(
     async (): Promise<Record<string, string>> => {
@@ -1718,8 +1728,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     // Price lookup order:
     // 1. spot pair ctx markPx from spotAssetCtxs (e.g. BTC/USDC)
     // 2. token/perp mid fallback from allMids (e.g. HYPE)
-    // Missing non-stable prices keep spotTotalUsd undefined so consumers show
-    // loading instead of a USDC-only account value.
+    // Missing non-stable prices briefly keep spotTotalUsd undefined so
+    // consumers show loading instead of a USDC-only account value. A fallback
+    // timer below writes the known partial total if prices never arrive.
     const mids = hyperLiquidCache.allMids?.mids;
     const spotTotal = calculateSpotBalancesTotalUsd({
       balances,
@@ -1734,14 +1745,21 @@ export default class ServiceHyperliquid extends ServiceBase {
     }));
 
     if (spotTotal.missingPriceCoins.length > 0) {
+      const previousSpotData = await perpsSpotBalancesAtom.get();
+      const previousSpotTotalUsd =
+        previousSpotData?.accountAddress?.toLowerCase() === activeAddress
+          ? previousSpotData.spotTotalUsd
+          : undefined;
       await perpsSpotBalancesAtom.set({
         accountAddress: activeAddress as IHex,
         balances: normalizedBalances,
-        spotTotalUsd: undefined,
+        spotTotalUsd: previousSpotTotalUsd,
       });
+      this._scheduleSpotTotalUsdFallback(activeAddress);
       return;
     }
 
+    this._clearSpotTotalUsdFallbackTimer(activeAddress);
     const spotTotalUsd = spotTotal.totalUsd;
     await perpsSpotBalancesAtom.set({
       accountAddress: activeAddress as IHex,
@@ -1796,9 +1814,11 @@ export default class ServiceHyperliquid extends ServiceBase {
       getMarkPrice: (coin) => this.getSpotBalanceMarkPrice(coin, mids),
     });
     if (spotTotal.missingPriceCoins.length > 0) {
+      this._scheduleSpotTotalUsdFallback(activeAddress);
       return;
     }
 
+    this._clearSpotTotalUsdFallbackTimer(activeAddress);
     const computed = spotTotal.totalUsd;
     // Functional updater: only write if spotTotalUsd is still undefined
     // (avoids overwriting fresher data from a concurrent SPOT_STATE event)
@@ -1830,6 +1850,91 @@ export default class ServiceHyperliquid extends ServiceBase {
         .catch((error: unknown) => {
           console.warn(
             '[recalculateSpotTotalUsd] failed to persist display cache:',
+            error,
+          );
+        });
+    }
+  }
+
+  private _clearSpotTotalUsdFallbackTimer(accountAddress?: string) {
+    const normalizedAddress = accountAddress?.toLowerCase();
+    if (
+      normalizedAddress &&
+      this._spotTotalUsdFallbackAccountAddress !== normalizedAddress
+    ) {
+      return;
+    }
+    if (this._spotTotalUsdFallbackTimer) {
+      clearTimeout(this._spotTotalUsdFallbackTimer);
+    }
+    this._spotTotalUsdFallbackTimer = null;
+    this._spotTotalUsdFallbackAccountAddress = null;
+  }
+
+  private _scheduleSpotTotalUsdFallback(accountAddress: string) {
+    const normalizedAddress = accountAddress.toLowerCase();
+    if (
+      this._spotTotalUsdFallbackTimer &&
+      this._spotTotalUsdFallbackAccountAddress === normalizedAddress
+    ) {
+      return;
+    }
+
+    this._clearSpotTotalUsdFallbackTimer();
+    this._spotTotalUsdFallbackAccountAddress = normalizedAddress;
+    this._spotTotalUsdFallbackTimer = setTimeout(() => {
+      void this._applySpotTotalUsdFallback(normalizedAddress);
+    }, SPOT_TOTAL_USD_MISSING_PRICE_FALLBACK_DELAY_MS);
+  }
+
+  private async _applySpotTotalUsdFallback(accountAddress: string) {
+    this._clearSpotTotalUsdFallbackTimer(accountAddress);
+
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAddress = activeAccount?.accountAddress?.toLowerCase();
+    if (!activeAddress || activeAddress !== accountAddress) {
+      return;
+    }
+
+    await this._ensureSpotMappings();
+
+    const mids = hyperLiquidCache.allMids?.mids;
+    let computed: string | undefined;
+    let balancesToPersist: ISpotBalanceItem[] | undefined;
+    await perpsSpotBalancesAtom.set((prev) => {
+      if (!prev || prev.accountAddress?.toLowerCase() !== accountAddress) {
+        return prev;
+      }
+
+      const spotTotal = calculateSpotBalancesTotalUsd({
+        balances: prev.balances,
+        getMarkPrice: (coin) => this.getSpotBalanceMarkPrice(coin, mids),
+      });
+      computed = spotTotal.totalUsd;
+      balancesToPersist = prev.balances;
+      return { ...prev, spotTotalUsd: computed };
+    });
+
+    if (computed && balancesToPersist) {
+      void this.cacheService
+        .writePerpsAccountDisplaySnapshot({
+          accountAddress,
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[applySpotTotalUsdFallback] failed to persist display snapshot:',
+            error,
+          );
+        });
+      void this.cacheService
+        .writePerpsAccountDisplaySpotBalances({
+          accountAddress,
+          balances: balancesToPersist,
+          spotTotalUsd: computed,
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            '[applySpotTotalUsdFallback] failed to persist display cache:',
             error,
           );
         });

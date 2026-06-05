@@ -2258,6 +2258,7 @@ function PerpTradingForm({
                   flex={1}
                   numberOfLines={1}
                 >
+                  {/* TODO: replace hardcoded QA copy with ETranslations after the i18n key is added. */}
                   Per child order size
                 </SizableText>
                 <SizableText
