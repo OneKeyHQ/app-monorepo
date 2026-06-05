@@ -300,13 +300,15 @@ class ServiceHistory extends ServiceBase {
       filterScam,
       filterLowValue,
     });
+    const txsWithPrivateSendDisplayStatus =
+      await this.attachPrivateSendDisplayStatus(filtered);
 
     // Load-more is single-network (the AllNetworks branch never reaches here),
     // so resolve the logo once and stamp every tx instead of per-tx fetching.
     const logoNetwork = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,
     });
-    for (const tx of filtered) {
+    for (const tx of txsWithPrivateSendDisplayStatus) {
       tx.decodedTx.networkLogoURI = logoNetwork.logoURI;
     }
 
@@ -319,7 +321,7 @@ class ServiceHistory extends ServiceBase {
       isIndexer: !!onChainResult.isIndexer,
       accounts: [] as IAllNetworkAccountInfo[],
       allAccounts: [] as IAllNetworkAccountInfo[],
-      txs: filtered,
+      txs: txsWithPrivateSendDisplayStatus,
       addressMap: onChainResult.addressMap,
       accountsWithChangedPendingTxs: [] as {
         accountId: string;
@@ -416,7 +418,7 @@ class ServiceHistory extends ServiceBase {
     // 2. Check if the locally pending transactions have been confirmed
 
     // Confirmed transactions
-    const confirmedTxs: IAccountHistoryTx[] = [];
+    let confirmedTxs: IAccountHistoryTx[] = [];
     // Transactions still in pending status
     const pendingTxs: IAccountHistoryTx[] = [];
 
@@ -546,6 +548,25 @@ class ServiceHistory extends ServiceBase {
     });
     onChainHistoryTxs = txs;
 
+    const privateSendDisplayStatusTxs =
+      await this.attachPrivateSendDisplayStatus(
+        unionBy(
+          [...confirmedTxs, ...localHistoryConfirmedTxs, ...onChainHistoryTxs],
+          (tx) => tx.id,
+        ),
+      );
+    const privateSendDisplayStatusTxById = new Map(
+      privateSendDisplayStatusTxs.map((tx) => [tx.id, tx]),
+    );
+    const withPrivateSendDisplayStatus = (txsToMap: IAccountHistoryTx[]) =>
+      txsToMap.map((tx) => privateSendDisplayStatusTxById.get(tx.id) ?? tx);
+
+    confirmedTxs = withPrivateSendDisplayStatus(confirmedTxs);
+    localHistoryConfirmedTxs = withPrivateSendDisplayStatus(
+      localHistoryConfirmedTxs,
+    );
+    onChainHistoryTxs = withPrivateSendDisplayStatus(onChainHistoryTxs);
+
     // 5. Merge the just-confirmed transactions, locally confirmed transactions, and on-chain history
 
     // Merge the locally confirmed transactions and the just-confirmed transactions
@@ -654,8 +675,6 @@ class ServiceHistory extends ServiceBase {
       });
       tx.decodedTx.networkLogoURI = network.logoURI;
     }
-
-    result = await this.attachPrivateSendDisplayStatus(result);
 
     const accountsWithChangedPendingTxs = new Set<string>(); // accountId_networkId
     const accountsWithChangedConfirmedTxs = new Set<string>(); // accountId_networkId
@@ -1000,8 +1019,11 @@ class ServiceHistory extends ServiceBase {
         tx.decodedTx.networkLogoURI = network.logoURI;
       }
 
+      const resultWithPrivateSendDisplayStatus =
+        await this.attachPrivateSendDisplayStatus(result);
+
       return filterHistoryTxs({
-        txs: result,
+        txs: resultWithPrivateSendDisplayStatus,
         sourceCurrency,
         targetCurrency,
         currencyMap,
@@ -1037,8 +1059,11 @@ class ServiceHistory extends ServiceBase {
       (tx) => tx.id,
     );
 
+    const resultWithPrivateSendDisplayStatus =
+      await this.attachPrivateSendDisplayStatus(result);
+
     return filterHistoryTxs({
-      txs: result,
+      txs: resultWithPrivateSendDisplayStatus,
       filterScam,
       filterLowValue,
       sourceCurrency,
