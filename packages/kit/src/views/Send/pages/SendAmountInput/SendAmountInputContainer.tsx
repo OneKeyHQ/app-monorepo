@@ -2159,18 +2159,20 @@ function SendAmountInputContainer() {
                   rocketXOrderId: privateSendRocketXOrderId,
                 },
               };
+              try {
+                await backgroundApiProxy.serviceSwap.fetchPrivateSendInitialTxState(
+                  swapHistoryItem,
+                );
+              } catch (error) {
+                defaultLogger.app.error.log(
+                  `Fetch private send initial tx state failed: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                );
+              }
               await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
                 swapHistoryItem,
               );
-              void backgroundApiProxy.serviceSwap
-                .fetchPrivateSendInitialTxState(swapHistoryItem)
-                .catch((error) => {
-                  defaultLogger.app.error.log(
-                    `Fetch private send initial tx state failed: ${
-                      error instanceof Error ? error.message : String(error)
-                    }`,
-                  );
-                });
             };
 
             await signatureConfirm.navigationToTxConfirm({
