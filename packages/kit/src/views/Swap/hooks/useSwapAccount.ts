@@ -215,6 +215,8 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
   const [accountForTargetNetwork, setAccountForTargetNetwork] = useState<
     INetworkAccount | undefined
   >(undefined);
+  const [resolvedTargetNetworkAccountKey, setResolvedTargetNetworkAccountKey] =
+    useState<string | undefined>(undefined);
 
   const focusSwapPro = useMemo(() => {
     return (
@@ -278,13 +280,47 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     tokenNetworkId,
   ]);
 
+  const targetNetworkAccountResolveKey = useMemo(() => {
+    if (!shouldResolveTargetNetworkAccount || !tokenNetworkId) {
+      return undefined;
+    }
+    return [
+      tokenNetworkId,
+      activeAccount.indexedAccount?.id ?? '',
+      activeAccount.account?.id ?? '',
+      activeAccount.deriveType ?? '',
+    ].join('|');
+  }, [
+    activeAccount.account?.id,
+    activeAccount.deriveType,
+    activeAccount.indexedAccount?.id,
+    shouldResolveTargetNetworkAccount,
+    tokenNetworkId,
+  ]);
+
+  const isAddressInfoReady = useMemo(() => {
+    if (!activeAccount.ready) {
+      return false;
+    }
+    if (!targetNetworkAccountResolveKey) {
+      return true;
+    }
+    return resolvedTargetNetworkAccountKey === targetNetworkAccountResolveKey;
+  }, [
+    activeAccount.ready,
+    resolvedTargetNetworkAccountKey,
+    targetNetworkAccountResolveKey,
+  ]);
+
   useEffect(() => {
     let cancelled = false;
 
     if (!shouldResolveTargetNetworkAccount || !tokenNetworkId) {
       setAccountForTargetNetwork(undefined);
+      setResolvedTargetNetworkAccountKey(undefined);
       return;
     }
+    setResolvedTargetNetworkAccountKey(undefined);
 
     void (async () => {
       try {
@@ -304,10 +340,12 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
           });
         if (!cancelled) {
           setAccountForTargetNetwork(targetAccount);
+          setResolvedTargetNetworkAccountKey(targetNetworkAccountResolveKey);
         }
       } catch (_e) {
         if (!cancelled) {
           setAccountForTargetNetwork(undefined);
+          setResolvedTargetNetworkAccountKey(targetNetworkAccountResolveKey);
         }
       }
     })();
@@ -320,6 +358,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     activeAccount.dbAccount,
     activeAccount.indexedAccount?.id,
     shouldResolveTargetNetworkAccount,
+    targetNetworkAccountResolveKey,
     tokenNetworkId,
   ]);
 
@@ -331,11 +370,13 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       networkId: undefined | string;
       accountInfo: IAccountSelectorActiveAccountInfo | undefined;
       activeAccount: IAccountSelectorActiveAccountInfo | undefined;
+      isAddressInfoReady: boolean;
     } = {
       networkId: undefined,
       address: undefined,
       accountInfo: undefined,
       activeAccount: undefined,
+      isAddressInfoReady,
     };
     // Keep the confirmed custom recipient even when cross-chain TO account
     // resolution has not materialized a network account yet.
@@ -354,6 +395,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         ...res,
         address: swapToAnotherAccountAddressAtom.address ?? '',
         networkId: swapToAnotherAccountAddressAtom.networkId ?? '',
+        isAddressInfoReady: true,
         accountInfo: swapToAnotherAccountAddressAtom.accountInfo
           ? {
               ...swapToAnotherAccountAddressAtom.accountInfo,
@@ -406,6 +448,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         ...res,
         address: accountForTargetNetwork?.addressDetail?.address,
         networkId: tokenNetworkId,
+        isAddressInfoReady,
       };
     }
     return res;
@@ -419,6 +462,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     activeAccount,
     isAllNetwork,
     accountForTargetNetwork,
+    isAddressInfoReady,
     tokenNetworkId,
     currentSelectNetwork?.networkId,
     shouldResolveTargetNetworkAccount,

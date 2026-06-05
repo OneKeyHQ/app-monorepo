@@ -28,6 +28,7 @@ export interface IMessageHandlerContext {
   tokenSymbol?: string;
   marksTimeRange?: React.MutableRefObject<IMarksTimeRange | null>;
   currentKLineResolution?: React.MutableRefObject<string>;
+  onCurrentKLineResolutionChange?: (resolution: string) => void;
   forceEmptyKLineData?: boolean;
   emptyKLineDataOnError?: boolean;
   kLineDataFallback?: ITradingViewV2KLineDataFallback;

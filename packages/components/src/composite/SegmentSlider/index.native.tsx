@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ComponentType, ReactNode } from 'react';
 
 import { SegmentSliderView } from '@onekeyfe/react-native-segment-slider';
 import { StyleSheet } from 'react-native';
@@ -17,6 +17,15 @@ const DEFAULT_TRACK_HEIGHT = 4;
 // bump it; keep it fixed. Re-expose as a prop if a future caller ever needs
 // the reset semantics.
 const FIXED_EPOCH = 0;
+
+type ISegmentSliderNativeViewProps = ComponentProps<
+  typeof SegmentSliderView
+> & {
+  snapTapToSegment?: boolean;
+};
+
+const SegmentSliderNativeView =
+  SegmentSliderView as ComponentType<ISegmentSliderNativeViewProps>;
 
 const styles = StyleSheet.create({
   slider: {
@@ -39,6 +48,13 @@ export interface ISegmentSliderProps {
   forceSnapToStep?: boolean;
   onSlideStart?: () => void;
   onSlideComplete?: () => void;
+  /**
+   * When true, a tap (a press that does not turn into a drag) snaps the value to
+   * the nearest segment mark; a drag still moves freely to any value. No-op when
+   * `segments` is 0. Default false. Native-only for now — the web variant
+   * (`./index.tsx`) does not yet honor this and keeps its tap-on-mark snapping.
+   */
+  snapTapToSegment?: boolean;
   /**
    * @deprecated Not supported by the native (Nitro) renderer — marks/thumb are
    * drawn natively. Accepted for prop compatibility but ignored.
@@ -77,6 +93,7 @@ function SegmentSliderComponent({
   disabled = false,
   showBubble = true,
   centerOrigin = false,
+  snapTapToSegment = false,
 }: ISegmentSliderProps) {
   const theme = useTheme();
   // `.val` re-reads on theme change (useTheme re-runs the component), so the
@@ -102,7 +119,7 @@ function SegmentSliderComponent({
   );
 
   return (
-    <SegmentSliderView
+    <SegmentSliderNativeView
       style={styles.slider}
       value={value}
       min={min}
@@ -112,6 +129,7 @@ function SegmentSliderComponent({
       disabled={disabled}
       showBubble={showBubble}
       centerOrigin={centerOrigin}
+      snapTapToSegment={snapTapToSegment}
       epoch={FIXED_EPOCH}
       onChange={onChange}
       onSlideStart={onSlideStart}

@@ -26,6 +26,14 @@ const receiveKytIntroTrackingParams = {
   isPrimeActive: true,
 } as const;
 
+const mobileFooterButtonProps = {
+  flexGrow: 0,
+  flexBasis: 'auto',
+  w: '100%',
+  justifyContent: 'center',
+  textAlign: 'center',
+} as const;
+
 function KYTIntroDialogContent() {
   const intl = useIntl();
 
@@ -97,19 +105,15 @@ function useKYTIntroDialog() {
         : undefined,
       confirmButtonProps: md
         ? {
+            ...mobileFooterButtonProps,
             size: 'large',
-            flexGrow: 0,
-            flexBasis: 'auto',
-            w: '100%',
           }
         : undefined,
       cancelButtonProps: md
         ? {
+            ...mobileFooterButtonProps,
             size: 'medium',
             variant: 'tertiary',
-            flexGrow: 0,
-            flexBasis: 'auto',
-            w: '100%',
           }
         : undefined,
       renderContent: <KYTIntroDialogContent />,
