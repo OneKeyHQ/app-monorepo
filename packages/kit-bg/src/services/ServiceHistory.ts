@@ -110,6 +110,38 @@ function shouldPreferPrivateSendSwapHistory(
   );
 }
 
+function mergePrivateSendLocalDecodedTxFields({
+  localTx,
+  onChainHistoryTx,
+}: {
+  localTx: IAccountHistoryTx;
+  onChainHistoryTx: IAccountHistoryTx;
+}) {
+  if (!isPrivateSendAccountHistoryTx(localTx)) {
+    return onChainHistoryTx;
+  }
+
+  const localPayload = localTx.decodedTx.payload;
+  const localExtraInfo = localTx.decodedTx.extraInfo;
+  if (!localPayload && !localExtraInfo) {
+    return onChainHistoryTx;
+  }
+
+  return {
+    ...onChainHistoryTx,
+    decodedTx: {
+      ...onChainHistoryTx.decodedTx,
+      payload: localPayload
+        ? {
+            ...onChainHistoryTx.decodedTx.payload,
+            ...localPayload,
+          }
+        : onChainHistoryTx.decodedTx.payload,
+      extraInfo: onChainHistoryTx.decodedTx.extraInfo ?? localExtraInfo,
+    },
+  };
+}
+
 // Sentinel value stored inside a merge-derive opaque cursor map to mark a
 // deriveType that has finished paginating. Future pages skip it entirely
 // instead of issuing a request that would just return an empty page.
@@ -1205,13 +1237,27 @@ class ServiceHistory extends ServiceBase {
         pendingTxs,
         pendingTxsToModify,
       } = param;
+      const localHistoryTxs = [...confirmedTxs, ...pendingTxs];
+      const mergedOnChainHistoryTxs = onChainHistoryTxs.map(
+        (onChainHistoryTx) => {
+          const localHistoryTx = localHistoryTxs.find((tx) =>
+            this.isSameScopedHistoryTx(onChainHistoryTx, tx),
+          );
+          return localHistoryTx
+            ? mergePrivateSendLocalDecodedTxFields({
+                localTx: localHistoryTx,
+                onChainHistoryTx,
+              })
+            : onChainHistoryTx;
+        },
+      );
 
       // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
       let confirmedTxsToSave: IAccountHistoryTx[] = [];
 
       confirmedTxsToSave = confirmedTxs
         .map((tx) => {
-          const onChainHistoryTx = onChainHistoryTxs.find((item) =>
+          const onChainHistoryTx = mergedOnChainHistoryTxs.find((item) =>
             this.isSameScopedHistoryTx(item, tx),
           );
           if (onChainHistoryTx) {
@@ -1222,7 +1268,7 @@ class ServiceHistory extends ServiceBase {
         .filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
 
       const resp = unionBy(
-        [...onChainHistoryTxs, ...confirmedTxsToSave],
+        [...mergedOnChainHistoryTxs, ...confirmedTxsToSave],
         (tx) => tx.id,
       );
 
