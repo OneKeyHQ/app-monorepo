@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { XStack, YStack } from '@onekeyhq/components';
+import { Skeleton, XStack, YStack } from '@onekeyhq/components';
 import {
   useSwapProEnableCurrentSymbolAtom,
   useSwapProSelectTokenAtom,
@@ -35,6 +35,24 @@ interface ISwapProTabListContainerProps {
   disableDelayRender?: boolean;
 }
 
+function SwapProTabListSkeleton() {
+  return (
+    <YStack gap="$2" minHeight={118} p="$2">
+      <XStack>
+        <Skeleton w="$20" h="$8" radius="round" />
+      </XStack>
+      <XStack justifyContent="space-between">
+        <Skeleton w="$20" h="$5" radius="round" />
+        <Skeleton w="$10" h="$5" radius="round" />
+      </XStack>
+      <XStack justifyContent="space-between">
+        <Skeleton w="$24" h="$5" radius="round" />
+        <Skeleton w="$12" h="$5" radius="round" />
+      </XStack>
+    </YStack>
+  );
+}
+
 const SwapProTabListContainer = memo(
   ({
     onTokenPress,
@@ -53,7 +71,8 @@ const SwapProTabListContainer = memo(
     const [swapToToken] = useSwapSelectToTokenAtom();
     const [shouldRenderLists, setShouldRenderLists] = useState(false);
 
-    useSwapProSupportNetworksTokenList(supportNetworksList);
+    const { cachedPositionTokenList, hasCachedPositionTokenList } =
+      useSwapProSupportNetworksTokenList(supportNetworksList);
     const focusSwapPro = useMemo(() => {
       return (
         platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT
@@ -79,6 +98,9 @@ const SwapProTabListContainer = memo(
         ? ETabName.SwapProOpenOrders
         : ETabName.SwapOrderHistory;
     }, [focusSwapPro]);
+    const shouldRenderListContent = shouldRenderLists || disableDelayRender;
+    const shouldRenderPositionsContent =
+      shouldRenderListContent || hasCachedPositionTokenList;
 
     const changeTabToLimitOrderList = useCallback(() => {
       setActiveTab(openOrdersTabName);
@@ -113,45 +135,51 @@ const SwapProTabListContainer = memo(
 
     return (
       <YStack>
-        {shouldRenderLists || disableDelayRender ? (
-          <>
-            <XStack
-              bg="$bgApp"
-              borderBottomWidth="$0.5"
-              borderBottomColor="$borderSubdued"
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <XStack gap="$5" bg="$bgApp">
-                <TabBarItem
-                  name={ETabName.Positions}
-                  isFocused={activeTab === ETabName.Positions}
-                  onPress={setActiveTab}
-                />
-                <TabBarItem
-                  name={openOrdersTabName}
-                  isFocused={activeTab === openOrdersTabName}
-                  onPress={setActiveTab}
-                />
-              </XStack>
-            </XStack>
-            <YStack flex={1}>
-              <YStack
-                display={activeTab === ETabName.Positions ? 'flex' : 'none'}
-                flex={1}
-              >
-                <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
-                <SwapProPositionsList
-                  onTokenPress={onTokenPress}
-                  onSearchClick={onSearchClick}
-                  filterToken={filterToken}
-                />
-              </YStack>
-              <YStack
-                display={activeTab === openOrdersTabName ? 'flex' : 'none'}
-                flex={1}
-              >
-                <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
+        <XStack
+          bg="$bgApp"
+          borderBottomWidth="$0.5"
+          borderBottomColor="$borderSubdued"
+          justifyContent="space-between"
+          alignItems="center"
+        >
+          <XStack gap="$5" bg="$bgApp">
+            <TabBarItem
+              name={ETabName.Positions}
+              isFocused={activeTab === ETabName.Positions}
+              onPress={setActiveTab}
+            />
+            <TabBarItem
+              name={openOrdersTabName}
+              isFocused={activeTab === openOrdersTabName}
+              onPress={setActiveTab}
+            />
+          </XStack>
+        </XStack>
+        <YStack flex={1}>
+          <YStack
+            display={activeTab === ETabName.Positions ? 'flex' : 'none'}
+            flex={1}
+          >
+            <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
+            {shouldRenderPositionsContent ? (
+              <SwapProPositionsList
+                onTokenPress={onTokenPress}
+                onSearchClick={onSearchClick}
+                filterToken={filterToken}
+                cachedTokenList={cachedPositionTokenList}
+                hasCachedTokenList={hasCachedPositionTokenList}
+              />
+            ) : (
+              <SwapProTabListSkeleton />
+            )}
+          </YStack>
+          <YStack
+            display={activeTab === openOrdersTabName ? 'flex' : 'none'}
+            flex={1}
+          >
+            <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
+            {shouldRenderListContent ? (
+              <>
                 {focusSwapPro ? (
                   <LimitOrderList
                     onClickCell={onOpenOrdersClick}
@@ -171,10 +199,12 @@ const SwapProTabListContainer = memo(
                     />
                   </XStack>
                 )}
-              </YStack>
-            </YStack>
-          </>
-        ) : null}
+              </>
+            ) : (
+              <SwapProTabListSkeleton />
+            )}
+          </YStack>
+        </YStack>
       </YStack>
     );
   },
