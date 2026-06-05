@@ -77,6 +77,7 @@ export function DesktopLayout() {
     isNative,
     websocketConfig,
     isStockToken,
+    chartSymbol,
   } = useTokenDetail();
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
@@ -132,11 +133,11 @@ export function DesktopLayout() {
           <TokenDetailHeader />
 
           <Stack h={MARKET_DETAIL_LAYOUT.chartHeight} overflow="hidden">
-            {networkId && tokenDetail?.symbol ? (
+            {networkId && chartSymbol ? (
               <MarketTradingView
                 tokenAddress={tokenAddress}
                 networkId={networkId}
-                tokenSymbol={tokenDetail?.symbol}
+                tokenSymbol={chartSymbol}
                 isNative={isNative}
                 dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
                 onTouchScroll={handleTradingViewTouchScroll}
