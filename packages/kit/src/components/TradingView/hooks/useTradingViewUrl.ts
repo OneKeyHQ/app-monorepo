@@ -12,7 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import { CHART_WEBVIEW_DESKTOP_OFFLINE_ENABLED } from '../ChartWebView/constants';
+import { getDesktopOfflineChartReady } from '../ChartWebView/chartOverlay/ready';
 import { TRADING_VIEW_DISABLED_FEATURES_URL_PARAM } from '../constants';
 import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
 
@@ -37,13 +37,7 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
   // Desktop offline chart: usable only when the bundle was shipped into the asar
   // (main process registered the onekey-chart:// handler and reports it ready via
   // the desktop global). Mirrors native's online fallback when assets are absent.
-  const desktopOfflineChartReady =
-    platformEnv.isDesktop &&
-    CHART_WEBVIEW_DESKTOP_OFFLINE_ENABLED &&
-    !!(
-      globalThis.ONEKEY_DESKTOP_GLOBALS_GETTER?.() ??
-      globalThis.ONEKEY_DESKTOP_GLOBALS
-    )?.tradingViewOfflineReady;
+  const desktopOfflineChartReady = getDesktopOfflineChartReady();
 
   const baseUrl = useMemo(() => {
     // Dev "use local TradingView URL" always wins (chart dev server on :5173).

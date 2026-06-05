@@ -28,6 +28,7 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/de
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import SupabaseAuthProvider from '../components/OneKeyAuth/supabase/SupabaseAuthProvider';
 import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
+import { ChartOverlayRoot } from '../components/TradingView/ChartWebView/chartOverlay/ChartOverlayRoot';
 
 import { Container } from './Container';
 import { ColdStartByNotification } from './Container/ColdStartByNotification';
@@ -168,6 +169,7 @@ export function KitProvider(props: any = {}) {
                 <SplashProvider>
                   <Container />
                 </SplashProvider>
+                <ChartOverlayRoot />
                 <PasswordVerifyPromptMount />
                 <WebViewWebEmbedProvider />
                 <LastActivityTracker />

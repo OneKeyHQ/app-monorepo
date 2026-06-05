@@ -24,6 +24,7 @@ import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { ChartWebView } from '../ChartWebView';
+import { getDesktopOfflineChartReady } from '../ChartWebView/chartOverlay/ready';
 import {
   CHART_WEBVIEW_MODE,
   CHART_WEBVIEW_SCENE,
@@ -301,9 +302,11 @@ export function TradingViewPerpsV2(
   // chartReady/perpsReady don't re-fire for a later perps host — treat the chart
   // as ready (the page's listeners are already up) so lines still sync.
   const useUnifiedHost =
-    platformEnv.isNative &&
-    CHART_WEBVIEW_MODE !== 'legacy' &&
-    CHART_WEBVIEW_SCENE === 'unified';
+    (platformEnv.isNative &&
+      CHART_WEBVIEW_MODE !== 'legacy' &&
+      CHART_WEBVIEW_SCENE === 'unified') ||
+    // Desktop warm overlay is always unified (constant onekey-chart:// source).
+    getDesktopOfflineChartReady();
   const [unifiedReady, setUnifiedReady] = useState(false);
   useEffect(() => {
     if (useUnifiedHost) setUnifiedReady(true);

@@ -15,6 +15,7 @@ import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { ChartWebView } from '../ChartWebView';
+import { getDesktopOfflineChartReady } from '../ChartWebView/chartOverlay/ready';
 import { CHART_WEBVIEW_MODE } from '../ChartWebView/constants';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
@@ -74,6 +75,11 @@ interface IBaseTradingViewV2Props {
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
+  /** Force the legacy per-instance WebView on desktop instead of the warm
+   * onekey-chart:// overlay. Set by chart hosts inside a modal/portal where a
+   * single app-root overlay would render behind the modal (e.g. Swap K-line).
+   * No effect on native (which uses its own pooled module). */
+  preferLegacyChart?: boolean;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -107,6 +113,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     kLineDataFallback,
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
+    preferLegacyChart,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -372,10 +379,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     ],
   );
 
-  // New chart-webview path (native only; web keeps legacy). Toggled at the code
-  // level via CHART_WEBVIEW_MODE — no runtime switch.
+  // New chart-webview path: native via the chart-webview module (CHART_WEBVIEW_MODE),
+  // desktop via the warm onekey-chart:// overlay when the offline bundle shipped.
+  // Web keeps legacy.
   const useChartWebView =
-    platformEnv.isNative && CHART_WEBVIEW_MODE !== 'legacy';
+    (platformEnv.isNative && CHART_WEBVIEW_MODE !== 'legacy') ||
+    (!preferLegacyChart && getDesktopOfflineChartReady());
 
   const chartWebView = useMemo(
     () => (
