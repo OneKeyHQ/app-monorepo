@@ -153,6 +153,17 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     ttl: timerUtils.getTimeDurationMs({ seconds: 5 }),
   });
 
+  // Negative cache for getAccountNameFromAddress's scan fallback: remembers
+  // `${networkId}--${address}` combos that a full-account scan found no owner
+  // for, so repeatedly searching the same not-held address (the common
+  // universal-search case) does not re-run an O(n) scan plus a getAllAccounts()
+  // deep-clone every time. Flushed by clearStoreCachedData() on any
+  // account/wallet write, so a newly created account is still found immediately.
+  scanAccountMissCache = new cacheUtils.LRUCache<string, true>({
+    max: 100,
+    ttl: timerUtils.getTimeDurationMs({ seconds: 30 }),
+  });
+
   getAllRecordsByCache<T>(
     cacheKey:
       | 'allDbAccounts'
@@ -176,6 +187,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   clearStoreCachedData() {
     this.getRecordByIdWithCache.clear();
     this.dbAllRecordsCache.clear();
+    this.scanAccountMissCache.clear();
   }
 
   async removeRecords<T extends ELocalDBStoreNames>(
