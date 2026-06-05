@@ -19,16 +19,23 @@
  * package) unblocked: a normal `yarn install` never touches the private
  * registry. Only release builds / internal devs with a token run this.
  *
- * Auth: reads NODE_AUTH_TOKEN (a GitHub PAT / Actions token with read:packages
- * for the package). No token -> skip silently (the app falls back to the online
- * chart). The package's repo must grant read access to this consuming repo, or
- * the token must have org-level read:packages.
+ * Auth: reads NPM_GITHUB_READ_TOKEN (a GitHub PAT / Actions token with
+ * read:packages for the package; NODE_AUTH_TOKEN is accepted as a fallback only).
+ * No token -> skip silently (the app falls back to the online chart). Because the
+ * package lives in a *different* repo, the default Actions GITHUB_TOKEN cannot
+ * read it — CI must pass a PAT with org-level read:packages (the
+ * NPM_GITHUB_READ_TOKEN secret).
+ *
+ * Strict mode: set TRADINGVIEW_ASSETS_REQUIRED=1 to turn the silent "no token ->
+ * skip" path into a hard error. Release workflows set this so a missing/invalid
+ * token fails the build instead of silently shipping the online-fallback chart.
+ * Local dev / open-source `yarn install` leave it unset (skip stays silent).
  *
  * Usage:
- *   NODE_AUTH_TOKEN=<token> node development/scripts/fetch-tradingview-assets.mjs
+ *   NPM_GITHUB_READ_TOKEN=<token> node development/scripts/fetch-tradingview-assets.mjs
  */
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, cpSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,12 +55,22 @@ const DESTS = [
   join(REPO_ROOT, 'apps', 'desktop', 'app', 'tradingview-assets'),
 ];
 
-const token = process.env.NODE_AUTH_TOKEN;
+const required = !!process.env.TRADINGVIEW_ASSETS_REQUIRED;
+// Prefer the dedicated NPM_GITHUB_READ_TOKEN; NODE_AUTH_TOKEN is only a tolerated
+// fallback for local devs who already export it (we never *set* NODE_AUTH_TOKEN
+// ourselves, to avoid colliding with npm/yarn's registry-auth use of that name).
+const token = process.env.NPM_GITHUB_READ_TOKEN || process.env.NODE_AUTH_TOKEN;
 if (!token) {
-  console.warn(
-    `[tradingview-assets] NODE_AUTH_TOKEN not set — skipping offline chart fetch. ` +
-      `The app will use the online chart. (Set NODE_AUTH_TOKEN to bundle ${PKG}@${VERSION}.)`,
-  );
+  const msg =
+    `[tradingview-assets] NPM_GITHUB_READ_TOKEN not set — cannot fetch the offline chart bundle. ` +
+    `Set a read:packages token to bundle ${PKG}@${VERSION}.`;
+  if (required) {
+    // Release builds opt into strict mode: a missing token must fail the build,
+    // not silently ship the online-fallback chart.
+    console.error(msg);
+    process.exit(1);
+  }
+  console.warn(`${msg} Skipping — the app will use the online chart.`);
   process.exit(0);
 }
 
@@ -94,11 +111,26 @@ try {
 }
 const distSrc = join(tmp, 'package', 'dist');
 
+// Guard against a tarball that extracted an empty dist/ — staging nothing would
+// silently ship a broken (asset-less) offline chart.
+let distEntries = [];
+try {
+  distEntries = readdirSync(distSrc);
+} catch {
+  /* distSrc missing -> handled by the empty check below */
+}
+if (distEntries.length === 0) {
+  rmSync(tmp, { recursive: true, force: true });
+  fail(`extracted dist/ is empty for ${PKG}@${VERSION} — refusing to stage an asset-less chart`);
+}
+
 // 4. Replace each staging dir with the fresh dist contents.
+//    Use fs.cpSync (not rsync) so this runs on Windows CI runners too — they
+//    package the desktop app but have no rsync on PATH.
 for (const dest of DESTS) {
   rmSync(dest, { recursive: true, force: true });
   mkdirSync(dest, { recursive: true });
-  execFileSync('rsync', ['-r', '-c', `${distSrc}/`, `${dest}/`], { stdio: 'inherit' });
+  cpSync(distSrc, dest, { recursive: true });
   console.log(`[tradingview-assets] staged ${PKG}@${VERSION} dist -> ${dest}`);
 }
 rmSync(tmp, { recursive: true, force: true });

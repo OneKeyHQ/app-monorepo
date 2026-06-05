@@ -83,6 +83,12 @@ jobs:
         run: |
           yarn install --immutable
 
+      - name: Stage TradingView offline chart assets
+        env:
+          NPM_GITHUB_READ_TOKEN: ${{ secrets.NPM_GITHUB_READ_TOKEN }}
+          TRADINGVIEW_ASSETS_REQUIRED: '1'
+        run: node development/scripts/fetch-tradingview-assets.mjs
+
       - name: Setup Code Signing file
         run: |
           [IO.File]::WriteAllBytes("apps/desktop/sign.p12", [Convert]::FromBase64String("${{ secrets.DESKTOP_KEYS_SECRET }}"))
