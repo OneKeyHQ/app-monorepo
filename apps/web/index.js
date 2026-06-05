@@ -10,6 +10,12 @@ if (typeof globalThis !== 'undefined') {
 
 import '@onekeyhq/shared/src/polyfills';
 
+// Cold-start hydration: fires IndexedDB read promise + populates globalThis
+// vars before React mounts. Must run after polyfills, before any jotai atoms
+// are referenced. See packages/kit/src/components/GlobalJotaiReady which
+// awaits the cold-start gate on web/desktop.
+import '@onekeyhq/kit-bg/src/hydration/hydrate';
+
 import { registerRootComponent } from 'expo';
 
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
