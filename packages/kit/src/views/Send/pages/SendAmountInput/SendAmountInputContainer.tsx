@@ -898,9 +898,15 @@ function SendAmountInputContainer() {
       (canFetchPrivateSendQuote && !isPrivateSendQuoteScopeMatched));
   const privateSendQuote = scopedPrivateSendQuoteResult?.selectedQuote;
   const refreshPrivateSendQuote = useCallback(() => {
-    if (!canFetchPrivateSendQuote || isPrivateSendQuoteRefreshing) return;
+    if (
+      !canFetchPrivateSendQuote ||
+      isPrivateSendQuoteRefreshing ||
+      isSubmitting
+    ) {
+      return;
+    }
     setPrivateSendQuoteRefreshNonce((nonce) => nonce + 1);
-  }, [canFetchPrivateSendQuote, isPrivateSendQuoteRefreshing]);
+  }, [canFetchPrivateSendQuote, isPrivateSendQuoteRefreshing, isSubmitting]);
 
   const privateSendQuoteError = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return undefined;
@@ -2372,11 +2378,20 @@ function SendAmountInputContainer() {
   isSubmitDisabledRef.current = isSubmitDisabled;
 
   const handleConfirm = useCallback(async () => {
+    const shouldLockPrivateSend = sendMode === ESendMode.PRIVATE;
+    if (shouldLockPrivateSend) {
+      setIsSubmitting(true);
+    }
     const isValid = await form.trigger();
-    if (!isValid) return;
+    if (!isValid) {
+      if (shouldLockPrivateSend) {
+        setIsSubmitting(false);
+      }
+      return;
+    }
 
     await onSubmitRef.current?.();
-  }, [form]);
+  }, [form, sendMode]);
 
   // Keyboard shortcuts for desktop (when input is not focused)
   // M = Max, Enter = confirm
@@ -3212,11 +3227,14 @@ function SendAmountInputContainer() {
             <SwapRefreshButtonBase
               refreshAction={refreshPrivateSendQuote}
               disabled={
-                !canFetchPrivateSendQuote || isPrivateSendQuoteRefreshing
+                !canFetchPrivateSendQuote ||
+                isPrivateSendQuoteRefreshing ||
+                isSubmitting
               }
               isRefreshQuote={isPrivateSendQuoteRefreshing}
               isLoading={isPrivateSendQuoteRefreshing}
               isFocused={isRouteFocused}
+              autoRefresh={!isSubmitting}
             />
           </XStack>
           {showPrivateSendQuoteSkeleton ? (
@@ -3304,6 +3322,7 @@ function SendAmountInputContainer() {
     isNFT,
     isPrivateSendQuoteRefreshing,
     isRouteFocused,
+    isSubmitting,
     maxBalance,
     privateSendQuote,
     privateSendToken?.price,
