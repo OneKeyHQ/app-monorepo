@@ -3614,6 +3614,12 @@ function SendAmountInputContainer() {
     </>
   );
 
+  const handleDismissKeyboardOnDrag = useCallback(() => {
+    if (platformEnv.isNativeIOS) {
+      Keyboard.dismiss();
+    }
+  }, []);
+
   return (
     <Page safeAreaEnabled>
       <Page.Header
@@ -3626,6 +3632,7 @@ function SendAmountInputContainer() {
           <Keyboard.AwareScrollView
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
+            onScrollBeginDrag={handleDismissKeyboardOnDrag}
             showsVerticalScrollIndicator={false}
             style={{ flex: 1 }}
             contentContainerStyle={{ flexGrow: 1 }}
@@ -3640,8 +3647,20 @@ function SendAmountInputContainer() {
           </Keyboard.AwareScrollView>
         </Page.Body>
       ) : (
-        <Page.Body px="$5" justifyContent="center">
-          {renderAmountFormContent}
+        <Page.Body minHeight={0} overflow="hidden">
+          <Keyboard.AwareScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            onScrollBeginDrag={handleDismissKeyboardOnDrag}
+            showsVerticalScrollIndicator={false}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ flexGrow: 1 }}
+            bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+          >
+            <YStack px="$5" flexGrow={1} justifyContent="center">
+              {renderAmountFormContent}
+            </YStack>
+          </Keyboard.AwareScrollView>
         </Page.Body>
       )}
 
