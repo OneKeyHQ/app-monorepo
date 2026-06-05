@@ -1,0 +1,108 @@
+diff --git a/node_modules/react-native-nitro-modules/cpp/threading/Dispatcher.cpp b/node_modules/react-native-nitro-modules/cpp/threading/Dispatcher.cpp
+index 00ba8f4..b027abe 100644
+--- a/node_modules/react-native-nitro-modules/cpp/threading/Dispatcher.cpp
++++ b/node_modules/react-native-nitro-modules/cpp/threading/Dispatcher.cpp
+@@ -11,6 +11,7 @@
+ #include "JSIHelpers.hpp"
+ #include "NitroDefines.hpp"
+ #include "NitroLogger.hpp"
++#include <mutex>
+ 
+ namespace margelo::nitro {
+ 
+@@ -21,23 +22,44 @@ using namespace facebook;
+  * If multiple versions of react-native-nitro-modules are linked, there would be multiple maps. We catch that issue later.
+  */
+ std::unordered_map<jsi::Runtime * NON_NULL, std::weak_ptr<Dispatcher>> Dispatcher::_globalCache;
++// Guards `_globalCache`. The map is a static, process-wide cache concurrently accessed
++// by multiple JS runtimes (main/background/worklet UI) during startup. Without this lock,
++// concurrent emplace/rehash corrupts the underlying hash table and SIGSEGVs. All JSI
++// operations are intentionally performed OUTSIDE this lock to avoid nesting with the
++// JSICache lock, which would deadlock.
++std::mutex Dispatcher::_globalCacheMutex;
+ 
+ void Dispatcher::installRuntimeGlobalDispatcher(jsi::Runtime& runtime, std::shared_ptr<Dispatcher> dispatcher) {
+   Logger::log(LogLevel::Info, TAG, "Installing global Dispatcher Holder into Runtime \"%s\"...", getRuntimeId(runtime).c_str());
+ 
+-  // Store a weak reference in global cache
+-  _globalCache[&runtime] = dispatcher;
++  // Store a weak reference in global cache (locked: serialize map access across runtimes)
++  {
++    std::lock_guard<std::mutex> lock(_globalCacheMutex);
++    _globalCache[&runtime] = dispatcher;
++  }
+ 
+-  // Inject the dispatcher into Runtime global (runtime will hold a strong reference)
++  // Inject the dispatcher into Runtime global (runtime will hold a strong reference).
++  // JSI operations are kept outside the lock to avoid nesting with the JSICache lock.
+   jsi::Value dispatcherHolder = JSIConverter<std::shared_ptr<Dispatcher>>::toJSI(runtime, dispatcher);
+   CommonGlobals::defineGlobal(runtime, KnownGlobalPropertyName::DISPATCHER, std::move(dispatcherHolder));
+ }
+ 
+ std::shared_ptr<Dispatcher> Dispatcher::getRuntimeGlobalDispatcher(jsi::Runtime& runtime) {
+-  auto found = _globalCache.find(&runtime);
+-  if (found != _globalCache.end()) [[likely]] {
+-    // the runtime is known - we have something in cache
+-    std::weak_ptr<Dispatcher> weakDispatcher = found->second;
++  // Read from cache under the lock, copying out the weak_ptr so the lock can be
++  // released before any non-map work (the lock only protects `_globalCache`).
++  std::weak_ptr<Dispatcher> weakDispatcher;
++  bool foundInCache = false;
++  {
++    std::lock_guard<std::mutex> lock(_globalCacheMutex);
++    auto found = _globalCache.find(&runtime);
++    if (found != _globalCache.end()) [[likely]] {
++      weakDispatcher = found->second;
++      foundInCache = true;
++    }
++  }
++  if (foundInCache) {
++    // the runtime is known - we have something in cache.
++    // `.lock()` does not touch the map, so it is safe to run outside the lock.
+     std::shared_ptr<Dispatcher> strongDispatcher = weakDispatcher.lock();
+     if (strongDispatcher) {
+       // the weak reference we cached is still valid - return it!
+@@ -47,12 +69,16 @@ std::shared_ptr<Dispatcher> Dispatcher::getRuntimeGlobalDispatcher(jsi::Runtime&
+ 
+   Logger::log(LogLevel::Warning, TAG, "Unknown Runtime (%s), looking for Dispatcher through JSI global lookup...",
+               getRuntimeId(runtime).c_str());
++  // JSI fallback is kept outside the lock to avoid nesting with the JSICache lock.
+   // 1. Get global.__nitroDispatcher
+   jsi::Value dispatcherHolderValue = getRuntimeGlobalDispatcherHolder(runtime);
+   // 2. Cast it to the jsi::Object
+   std::shared_ptr<Dispatcher> dispatcher = JSIConverter<std::shared_ptr<Dispatcher>>::fromJSI(runtime, dispatcherHolderValue);
+-  // 3. Throw it in our cache and return
+-  _globalCache[&runtime] = dispatcher;
++  // 3. Throw it in our cache and return (locked: serialize map access across runtimes)
++  {
++    std::lock_guard<std::mutex> lock(_globalCacheMutex);
++    _globalCache[&runtime] = dispatcher;
++  }
+   return dispatcher;
+ }
+ 
+diff --git a/node_modules/react-native-nitro-modules/cpp/threading/Dispatcher.hpp b/node_modules/react-native-nitro-modules/cpp/threading/Dispatcher.hpp
+index dfe3070..b8dee5f 100644
+--- a/node_modules/react-native-nitro-modules/cpp/threading/Dispatcher.hpp
++++ b/node_modules/react-native-nitro-modules/cpp/threading/Dispatcher.hpp
+@@ -8,6 +8,7 @@
+ #include "Promise.hpp"
+ #include <functional>
+ #include <jsi/jsi.h>
++#include <mutex>
+ #include <queue>
+ #include <unordered_map>
+ 
+@@ -75,6 +76,12 @@ public:
+ 
+ private:
+   static std::unordered_map<jsi::Runtime * NON_NULL, std::weak_ptr<Dispatcher>> _globalCache;
++  // Serializes all access to `_globalCache`. It is a static map shared across
++  // multiple concurrent JS runtimes (main/background/worklet UI). Without a lock,
++  // concurrent emplace/rehash from different runtimes corrupts the hash table and
++  // crashes with SIGSEGV. Only `_globalCache` access is guarded; JSI operations are
++  // deliberately kept outside the lock to avoid nesting with the JSICache lock (deadlock).
++  static std::mutex _globalCacheMutex;
+ 
+ private:
+   static constexpr auto TAG = "Dispatcher";
