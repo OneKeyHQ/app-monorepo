@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIsFocused } from '@react-navigation/core';
 import { get, noop, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -772,7 +772,6 @@ export function useDeviceConnect({
       deviceState: IDeviceState,
       device: SearchDevice,
     ): Promise<IWalletCreationStrategy | null> => {
-      const isPro2 = deviceState.deviceType === EDeviceType.Pro2;
       if (!deviceState.unlocked) {
         return {
           createHiddenWalletOnly: false,
@@ -780,7 +779,7 @@ export function useDeviceConnect({
         };
       }
 
-      if (deviceState.unlockedAttachPin && !isPro2) {
+      if (deviceState.unlockedAttachPin) {
         return {
           createHiddenWalletOnly: deviceState.passphraseEnabled,
           createStandardWalletOnly: !deviceState.passphraseEnabled,

@@ -1402,7 +1402,6 @@ export function ConnectYourDevicePage() {
       deviceState: IDeviceState,
       device: SearchDevice,
     ): Promise<IWalletCreationStrategy | null> => {
-      const isPro2 = deviceState.deviceType === EDeviceType.Pro2;
       if (!deviceState.unlocked) {
         return {
           createHiddenWalletOnly: false,
@@ -1410,7 +1409,7 @@ export function ConnectYourDevicePage() {
         };
       }
 
-      if (deviceState.unlockedAttachPin && !isPro2) {
+      if (deviceState.unlockedAttachPin) {
         return {
           createHiddenWalletOnly: deviceState.passphraseEnabled,
           createStandardWalletOnly: !deviceState.passphraseEnabled,
