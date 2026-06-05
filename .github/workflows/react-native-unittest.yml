@@ -18,13 +18,26 @@ env:
 
 jobs:
   harness-android:
-    name: Harness Tests (Android)
+    name: Harness Tests (Android / ${{ matrix.test-scope }})
     runs-on: ubuntu-24.04
     timeout-minutes: 90
 
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [24.x]
+        include:
+          - node-version: 24.x
+            test-scope: mobile-shared-core
+            test-path-pattern: 'apps/mobile|packages/shared/src|packages/core/src'
+          - node-version: 24.x
+            test-scope: kit-bg
+            test-path-pattern: 'packages/kit-bg/src'
+          - node-version: 24.x
+            test-scope: kit-market-perp
+            test-path-pattern: 'packages/kit/src/views/(Market|Perp)'
+          - node-version: 24.x
+            test-scope: kit-rest
+            test-path-pattern: 'packages/kit/src/(?!views/(Market|Perp))'
 
     steps:
       - uses: actions/checkout@v4
@@ -177,7 +190,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
         working-directory: apps/mobile
-        run: yarn harness:test:android
+        run: yarn harness:test:android --testPathPatterns='${{ matrix.test-path-pattern }}'
 
       - name: Dump logcat on failure
         if: failure()
