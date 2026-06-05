@@ -56,7 +56,10 @@ import type {
   ITransferRecipient,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
-import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchSwapTxHistoryStatusResponse,
+  ISwapTxHistory,
+} from '@onekeyhq/shared/types/swap/types';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
   IReplaceTxInfo,
@@ -115,6 +118,37 @@ class ServiceHistory extends ServiceBase {
         privateSendSwapHistoryByTxId.set(item.txInfo.txId, item);
       }
     });
+    const chainStatusesRequiringOrderDetail = new Set<EDecodedTxStatus>([
+      EDecodedTxStatus.Confirmed,
+    ]);
+    const privateSendOrderStatusByTxId = new Map<
+      string,
+      IFetchSwapTxHistoryStatusResponse
+    >();
+    const privateSendTxsWithoutLocalHistory = txs.filter((tx) => {
+      if (!isPrivateSendAccountHistoryTx(tx) || !tx.decodedTx.txid) {
+        return false;
+      }
+      if (privateSendSwapHistoryByTxId.has(tx.decodedTx.txid)) {
+        return false;
+      }
+      return chainStatusesRequiringOrderDetail.has(tx.decodedTx.status);
+    });
+    await promiseAllSettledEnhanced(
+      privateSendTxsWithoutLocalHistory.map((tx) => async () => {
+        const orderDetailTxStatus =
+          await this.backgroundApi.serviceSwap.fetchSwapOrderDetailTxState({
+            txId: tx.decodedTx.txid,
+          });
+        if (orderDetailTxStatus) {
+          privateSendOrderStatusByTxId.set(
+            tx.decodedTx.txid,
+            orderDetailTxStatus,
+          );
+        }
+      }),
+      { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
+    );
 
     return txs.map((tx) => {
       if (!isPrivateSendAccountHistoryTx(tx)) {
@@ -124,6 +158,9 @@ class ServiceHistory extends ServiceBase {
       const displayStatus = getPrivateSendHistoryDisplayStatus({
         historyTx: tx,
         swapHistory: privateSendSwapHistoryByTxId.get(tx.decodedTx.txid),
+        orderDetailTxStatus: privateSendOrderStatusByTxId.get(
+          tx.decodedTx.txid,
+        ),
       });
 
       if (!displayStatus || displayStatus === tx.decodedTx.status) {

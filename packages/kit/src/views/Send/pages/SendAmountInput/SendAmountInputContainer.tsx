@@ -265,9 +265,15 @@ function getPrivateSendValueDropPercent(quote?: IFetchQuoteResult) {
   return Number.isFinite(valueDropPercent) ? valueDropPercent : undefined;
 }
 
-function isPositivePrivateSendAmount(amount?: string | number) {
+function getPositivePrivateSendAmount(amount?: string | number) {
   const amountBN = new BigNumber(amount ?? 0);
-  return amountBN.isFinite() && amountBN.isGreaterThan(0);
+  return amountBN.isFinite() && amountBN.isGreaterThan(0)
+    ? amountBN.toFixed()
+    : undefined;
+}
+
+function isPositivePrivateSendAmount(amount?: string | number) {
+  return Boolean(getPositivePrivateSendAmount(amount));
 }
 
 function isPrivateSendQuoteUsable(
@@ -278,35 +284,6 @@ function isPrivateSendQuoteUsable(
     !quote.errorMessage &&
     isPositivePrivateSendAmount(quote.toAmount),
   );
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function isPrivateSendMinAmountErrorMessage(errorMessage?: string) {
-  return /min|minimum|最低|最小/i.test(errorMessage ?? '');
-}
-
-function getPrivateSendMinAmountFromErrorMessage({
-  errorMessage,
-  tokenSymbol,
-}: {
-  errorMessage?: string;
-  tokenSymbol?: string;
-}) {
-  if (!errorMessage || !tokenSymbol) return undefined;
-  if (!isPrivateSendMinAmountErrorMessage(errorMessage)) return undefined;
-
-  const tokenSymbolRegExp = escapeRegExp(tokenSymbol);
-  const match = errorMessage.match(
-    new RegExp(`([0-9][0-9,.]*)\\s*${tokenSymbolRegExp}(?:\\s|$)`, 'i'),
-  );
-  const minAmount = match?.[1]?.replaceAll(',', '');
-  const minAmountBN = new BigNumber(minAmount ?? 0);
-  return minAmountBN.isFinite() && minAmountBN.isGreaterThan(0)
-    ? minAmountBN.toFixed()
-    : undefined;
 }
 
 function isSwapQuoteCancelError(error: unknown) {
@@ -1040,23 +1017,8 @@ function SendAmountInputContainer() {
 
   const privateSendProviderMinAmount = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return undefined;
-    const minAmount = privateSendQuote?.limit?.min;
-    if (minAmount) {
-      const minAmountBN = new BigNumber(minAmount);
-      if (minAmountBN.isFinite() && minAmountBN.isGreaterThan(0)) {
-        return minAmountBN.toFixed();
-      }
-    }
-    return getPrivateSendMinAmountFromErrorMessage({
-      errorMessage: privateSendQuote?.errorMessage,
-      tokenSymbol,
-    });
-  }, [
-    privateSendQuote?.errorMessage,
-    privateSendQuote?.limit?.min,
-    sendMode,
-    tokenSymbol,
-  ]);
+    return getPositivePrivateSendAmount(privateSendQuote?.limit?.min);
+  }, [privateSendQuote?.limit?.min, sendMode]);
 
   const chainEffectiveMinAmount = useMemo(() => {
     if (tokenMinAmount === undefined) return undefined;
@@ -2792,8 +2754,7 @@ function SendAmountInputContainer() {
   const shouldShowPrivateSendCriticalQuoteError =
     sendMode === ESendMode.PRIVATE &&
     !!privateSendQuoteError &&
-    (!isPrivateSendMinAmountErrorMessage(privateSendQuoteError) ||
-      !minAmountHint);
+    (!privateSendProviderMinAmount || !minAmountHint);
   const shouldShowPrivateSendMinAmountHint =
     sendMode === ESendMode.PRIVATE &&
     !!minAmountHint &&

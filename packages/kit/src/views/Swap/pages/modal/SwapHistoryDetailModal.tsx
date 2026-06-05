@@ -123,10 +123,7 @@ function getPrivateSendProgressStepStatuses({
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
 }): IPrivateSendProgressStepStatus[] {
-  if (
-    status === ESwapTxHistoryStatus.SUCCESS ||
-    status === ESwapTxHistoryStatus.PARTIALLY_FILLED
-  ) {
+  if (status === ESwapTxHistoryStatus.SUCCESS) {
     return ['done', 'done', 'done'];
   }
 
@@ -199,10 +196,7 @@ function getPrivateSendHistoryStatusTextProps({
   ) {
     return getSwapHistoryStatusTextProps(status);
   }
-  if (
-    status === ESwapTxHistoryStatus.SUCCESS ||
-    status === ESwapTxHistoryStatus.PARTIALLY_FILLED
-  ) {
+  if (status === ESwapTxHistoryStatus.SUCCESS) {
     return {
       key: ETranslations.private_send_done,
       color: '$textSuccess',

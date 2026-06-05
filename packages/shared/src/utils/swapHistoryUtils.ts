@@ -1,7 +1,10 @@
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchSwapTxHistoryStatusResponse,
+  ISwapTxHistory,
+} from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
   ESwapCrossChainStatus,
@@ -17,7 +20,6 @@ const PRIVATE_SEND_FAILED_DISPLAY_STATUSES = new Set<ESwapTxHistoryStatus>([
 
 const PRIVATE_SEND_SUCCESS_DISPLAY_STATUSES = new Set<ESwapTxHistoryStatus>([
   ESwapTxHistoryStatus.SUCCESS,
-  ESwapTxHistoryStatus.PARTIALLY_FILLED,
 ]);
 
 const PRIVATE_SEND_FAILED_EXTRA_STATUSES = new Set<ESwapExtraStatus>([
@@ -50,9 +52,11 @@ export function isPrivateSendAccountHistoryTx(
 export function getPrivateSendHistoryDisplayStatus({
   historyTx,
   swapHistory,
+  orderDetailTxStatus,
 }: {
   historyTx: IAccountHistoryTx;
   swapHistory?: ISwapTxHistory;
+  orderDetailTxStatus?: IFetchSwapTxHistoryStatusResponse;
 }) {
   if (!isPrivateSendAccountHistoryTx(historyTx)) {
     return undefined;
@@ -70,26 +74,46 @@ export function getPrivateSendHistoryDisplayStatus({
   const privateSendSwapHistory = isPrivateSendSwapHistoryItem(swapHistory)
     ? swapHistory
     : undefined;
+  let privateSendStatusSource:
+    | {
+        status: ESwapTxHistoryStatus;
+        extraStatus?: ESwapExtraStatus;
+        crossChainStatus?: ESwapCrossChainStatus;
+      }
+    | undefined;
+  if (privateSendSwapHistory) {
+    privateSendStatusSource = {
+      status: privateSendSwapHistory.status,
+      extraStatus: privateSendSwapHistory.extraStatus,
+      crossChainStatus: privateSendSwapHistory.crossChainStatus,
+    };
+  } else if (orderDetailTxStatus) {
+    privateSendStatusSource = {
+      status: orderDetailTxStatus.state,
+      extraStatus: orderDetailTxStatus.extraStatus,
+      crossChainStatus: orderDetailTxStatus.crossChainStatus,
+    };
+  }
 
-  if (!privateSendSwapHistory) {
+  if (!privateSendStatusSource) {
     return EDecodedTxStatus.Pending;
   }
 
   if (
-    PRIVATE_SEND_SUCCESS_DISPLAY_STATUSES.has(privateSendSwapHistory.status)
+    PRIVATE_SEND_SUCCESS_DISPLAY_STATUSES.has(privateSendStatusSource.status)
   ) {
     return EDecodedTxStatus.Confirmed;
   }
 
   if (
-    PRIVATE_SEND_FAILED_DISPLAY_STATUSES.has(privateSendSwapHistory.status) ||
-    (privateSendSwapHistory.extraStatus &&
+    PRIVATE_SEND_FAILED_DISPLAY_STATUSES.has(privateSendStatusSource.status) ||
+    (privateSendStatusSource.extraStatus &&
       PRIVATE_SEND_FAILED_EXTRA_STATUSES.has(
-        privateSendSwapHistory.extraStatus,
+        privateSendStatusSource.extraStatus,
       )) ||
-    (privateSendSwapHistory.crossChainStatus &&
+    (privateSendStatusSource.crossChainStatus &&
       PRIVATE_SEND_FAILED_CROSS_CHAIN_STATUSES.has(
-        privateSendSwapHistory.crossChainStatus,
+        privateSendStatusSource.crossChainStatus,
       ))
   ) {
     return EDecodedTxStatus.Failed;
