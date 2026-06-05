@@ -36,10 +36,30 @@ const PRIVATE_SEND_FAILED_CROSS_CHAIN_STATUSES = new Set<ESwapCrossChainStatus>(
   ],
 );
 
-export function isPrivateSendSwapHistoryItem(item?: ISwapTxHistory): boolean {
+export function isPrivateSendSwapHistoryItem(
+  item?: ISwapTxHistory | null,
+): boolean {
   return (
     item?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
     item?.swapInfo?.provider?.provider === privateSendProvider
+  );
+}
+
+export function isSamePrivateSendSwapHistoryItem(
+  a?: ISwapTxHistory | null,
+  b?: ISwapTxHistory | null,
+): boolean {
+  if (!isPrivateSendSwapHistoryItem(a) || !isPrivateSendSwapHistoryItem(b)) {
+    return false;
+  }
+
+  const aIds = new Set(
+    [a?.txInfo.txId, a?.txInfo.orderId, a?.swapInfo.orderId].filter(
+      (id): id is string => !!id,
+    ),
+  );
+  return [b?.txInfo.txId, b?.txInfo.orderId, b?.swapInfo.orderId].some(
+    (id) => !!id && aIds.has(id),
   );
 }
 
@@ -63,7 +83,6 @@ export function getPrivateSendHistoryDisplayStatus({
   }
 
   if (
-    historyTx.decodedTx.status === EDecodedTxStatus.Pending ||
     historyTx.decodedTx.status === EDecodedTxStatus.Failed ||
     historyTx.decodedTx.status === EDecodedTxStatus.Dropped ||
     historyTx.decodedTx.status === EDecodedTxStatus.Removed
@@ -81,17 +100,17 @@ export function getPrivateSendHistoryDisplayStatus({
         crossChainStatus?: ESwapCrossChainStatus;
       }
     | undefined;
-  if (privateSendSwapHistory) {
-    privateSendStatusSource = {
-      status: privateSendSwapHistory.status,
-      extraStatus: privateSendSwapHistory.extraStatus,
-      crossChainStatus: privateSendSwapHistory.crossChainStatus,
-    };
-  } else if (orderDetailTxStatus) {
+  if (orderDetailTxStatus) {
     privateSendStatusSource = {
       status: orderDetailTxStatus.state,
       extraStatus: orderDetailTxStatus.extraStatus,
       crossChainStatus: orderDetailTxStatus.crossChainStatus,
+    };
+  } else if (privateSendSwapHistory) {
+    privateSendStatusSource = {
+      status: privateSendSwapHistory.status,
+      extraStatus: privateSendSwapHistory.extraStatus,
+      crossChainStatus: privateSendSwapHistory.crossChainStatus,
     };
   }
 

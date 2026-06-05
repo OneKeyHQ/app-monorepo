@@ -56,10 +56,7 @@ import type {
   ITransferRecipient,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
-import type {
-  IFetchSwapTxHistoryStatusResponse,
-  ISwapTxHistory,
-} from '@onekeyhq/shared/types/swap/types';
+import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
   IReplaceTxInfo,
@@ -84,6 +81,34 @@ import type { IAccountDeriveTypes } from '../vaults/types';
 const HISTORY_TIME_RANGE_MS = timerUtils.getTimeDurationMs({
   month: HISTORY_TIME_RANGE_MONTHS,
 });
+
+const PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES = new Set([
+  ESwapTxHistoryStatus.SUCCESS,
+  ESwapTxHistoryStatus.FAILED,
+  ESwapTxHistoryStatus.CANCELED,
+  ESwapTxHistoryStatus.PARTIALLY_FILLED,
+]);
+
+function shouldPreferPrivateSendSwapHistory(
+  next: ISwapTxHistory,
+  current: ISwapTxHistory,
+) {
+  const isNextTerminal = PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES.has(
+    next.status,
+  );
+  const isCurrentTerminal = PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES.has(
+    current.status,
+  );
+
+  if (isNextTerminal !== isCurrentTerminal) {
+    return isNextTerminal;
+  }
+
+  return (
+    (next.date.updated ?? next.date.created) >
+    (current.date.updated ?? current.date.created)
+  );
+}
 
 // Sentinel value stored inside a merge-derive opaque cursor map to mark a
 // deriveType that has finished paginating. Future pages skip it entirely
@@ -115,56 +140,30 @@ class ServiceHistory extends ServiceBase {
     const privateSendSwapHistoryByTxId = new Map<string, ISwapTxHistory>();
     swapHistories.forEach((item) => {
       if (isPrivateSendSwapHistoryItem(item) && item.txInfo.txId) {
-        privateSendSwapHistoryByTxId.set(item.txInfo.txId, item);
-      }
-    });
-    const chainStatusesRequiringOrderDetail = new Set<EDecodedTxStatus>([
-      EDecodedTxStatus.Confirmed,
-    ]);
-    const privateSendOrderStatusByTxId = new Map<
-      string,
-      IFetchSwapTxHistoryStatusResponse
-    >();
-    const privateSendTxsWithoutLocalHistory = txs.filter((tx) => {
-      if (!isPrivateSendAccountHistoryTx(tx) || !tx.decodedTx.txid) {
-        return false;
-      }
-      if (privateSendSwapHistoryByTxId.has(tx.decodedTx.txid)) {
-        return false;
-      }
-      return chainStatusesRequiringOrderDetail.has(tx.decodedTx.status);
-    });
-    await promiseAllSettledEnhanced(
-      privateSendTxsWithoutLocalHistory.map((tx) => async () => {
-        const orderDetailTxStatus =
-          await this.backgroundApi.serviceSwap.fetchSwapOrderDetailTxState({
-            txId: tx.decodedTx.txid,
-          });
-        if (orderDetailTxStatus) {
-          privateSendOrderStatusByTxId.set(
-            tx.decodedTx.txid,
-            orderDetailTxStatus,
-          );
+        const current = privateSendSwapHistoryByTxId.get(item.txInfo.txId);
+        if (!current || shouldPreferPrivateSendSwapHistory(item, current)) {
+          privateSendSwapHistoryByTxId.set(item.txInfo.txId, item);
         }
-      }),
-      { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
-    );
+      }
+    });
 
     return txs.map((tx) => {
       if (!isPrivateSendAccountHistoryTx(tx)) {
         return tx;
       }
 
+      const swapHistory = privateSendSwapHistoryByTxId.get(tx.decodedTx.txid);
+      if (!swapHistory) {
+        return this.clearHistoryTxDisplayStatus(tx);
+      }
+
       const displayStatus = getPrivateSendHistoryDisplayStatus({
         historyTx: tx,
-        swapHistory: privateSendSwapHistoryByTxId.get(tx.decodedTx.txid),
-        orderDetailTxStatus: privateSendOrderStatusByTxId.get(
-          tx.decodedTx.txid,
-        ),
+        swapHistory,
       });
 
       if (!displayStatus || displayStatus === tx.decodedTx.status) {
-        return tx;
+        return this.clearHistoryTxDisplayStatus(tx);
       }
 
       return {
@@ -173,6 +172,65 @@ class ServiceHistory extends ServiceBase {
         displayStatusSource: 'privateSendOrder',
       };
     });
+  }
+
+  private clearHistoryTxDisplayStatus(tx: IAccountHistoryTx) {
+    if (!tx.displayStatus && !tx.displayStatusSource) {
+      return tx;
+    }
+    const { displayStatus, displayStatusSource, ...rest } = tx;
+    return rest;
+  }
+
+  private isSameScopedHistoryTx(a: IAccountHistoryTx, b: IAccountHistoryTx) {
+    if (
+      a.decodedTx.networkId &&
+      b.decodedTx.networkId &&
+      a.decodedTx.networkId !== b.decodedTx.networkId
+    ) {
+      return false;
+    }
+    if (
+      a.decodedTx.accountId &&
+      b.decodedTx.accountId &&
+      a.decodedTx.accountId !== b.decodedTx.accountId
+    ) {
+      return false;
+    }
+    if (
+      a.decodedTx.owner &&
+      b.decodedTx.owner &&
+      a.decodedTx.owner.toLowerCase() !== b.decodedTx.owner.toLowerCase()
+    ) {
+      return false;
+    }
+    if (
+      a.decodedTx.xpub &&
+      b.decodedTx.xpub &&
+      a.decodedTx.xpub !== b.decodedTx.xpub
+    ) {
+      return false;
+    }
+
+    if (
+      a.id === b.id ||
+      (!!a.originalId && a.originalId === b.id) ||
+      (!!b.originalId && b.originalId === a.id) ||
+      (!!a.originalId && a.originalId === b.originalId)
+    ) {
+      return true;
+    }
+
+    const aTxIds = [a.decodedTx.txid, a.decodedTx.originalTxId].filter(
+      (txId): txId is string => !!txId,
+    );
+    const bTxIds = new Set(
+      [b.decodedTx.txid, b.decodedTx.originalTxId].filter(
+        (txId): txId is string => !!txId,
+      ),
+    );
+
+    return aTxIds.some((txId) => bTxIds.has(txId));
   }
 
   private async _resolveHistoryRequestParams(
@@ -676,16 +734,22 @@ class ServiceHistory extends ServiceBase {
       tx.decodedTx.networkLogoURI = network.logoURI;
     }
 
+    result = await this.attachPrivateSendDisplayStatus(result);
+
     const accountsWithChangedPendingTxs = new Set<string>(); // accountId_networkId
     const accountsWithChangedConfirmedTxs = new Set<string>(); // accountId_networkId
     const changedPendingTxInfos: IChangedPendingTxInfo[] = [];
     localHistoryPendingTxs.forEach((tx) => {
-      const txInResult = finalPendingTxs.find((item) => item.id === tx.id);
+      const txInResult = finalPendingTxs.find((item) =>
+        this.isSameScopedHistoryTx(item, tx),
+      );
       if (!txInResult) {
         accountsWithChangedPendingTxs.add(
           `${tx.decodedTx.accountId}_${tx.decodedTx.networkId}`,
         );
-        const confirmedTx = result.find((item) => item.id === tx.id);
+        const confirmedTx = result.find((item) =>
+          this.isSameScopedHistoryTx(item, tx),
+        );
         if (confirmedTx) {
           changedPendingTxInfos.push({
             accountId: confirmedTx.decodedTx.accountId,
@@ -700,8 +764,8 @@ class ServiceHistory extends ServiceBase {
     // Find accounts with new on-chain confirmed transactions
     // (transactions that are on-chain but not in local confirmed history)
     onChainHistoryTxs.forEach((tx) => {
-      const txInLocalConfirmed = localHistoryConfirmedTxs.find(
-        (item) => item.id === tx.id,
+      const txInLocalConfirmed = localHistoryConfirmedTxs.find((item) =>
+        this.isSameScopedHistoryTx(item, tx),
       );
       if (!txInLocalConfirmed) {
         accountsWithChangedConfirmedTxs.add(
@@ -1147,8 +1211,8 @@ class ServiceHistory extends ServiceBase {
 
       confirmedTxsToSave = confirmedTxs
         .map((tx) => {
-          const onChainHistoryTx = onChainHistoryTxs.find(
-            (item) => item.id === tx.id,
+          const onChainHistoryTx = onChainHistoryTxs.find((item) =>
+            this.isSameScopedHistoryTx(item, tx),
           );
           if (onChainHistoryTx) {
             return onChainHistoryTx;
@@ -1210,11 +1274,8 @@ class ServiceHistory extends ServiceBase {
       // detection fires and the pending record is cleaned from simpleDb.
       const onChainMatchedPendingTxs: IAccountHistoryTx[] = [];
       finalPendingTxs = finalPendingTxs.filter((tx) => {
-        const matched = onChainHistoryTxs.find(
-          (onChainTx) =>
-            onChainTx.id === tx.id ||
-            (onChainTx.decodedTx.originalTxId &&
-              onChainTx.decodedTx.originalTxId === tx.decodedTx.txid),
+        const matched = onChainHistoryTxs.find((onChainTx) =>
+          this.isSameScopedHistoryTx(onChainTx, tx),
         );
         if (matched) {
           onChainMatchedPendingTxs.push(tx);

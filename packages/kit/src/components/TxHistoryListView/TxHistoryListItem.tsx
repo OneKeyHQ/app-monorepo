@@ -144,8 +144,8 @@ function BaseTxHistoryListItem(props: IProps) {
 
   if (!historyTx || !historyTx.decodedTx) return null;
 
-  const isPending = historyTx.decodedTx.status === EDecodedTxStatus.Pending;
   const displayStatus = getHistoryTxDisplayStatus(historyTx);
+  const isPending = displayStatus === EDecodedTxStatus.Pending;
 
   return (
     <TxHistoryListItemErrorBoundary>

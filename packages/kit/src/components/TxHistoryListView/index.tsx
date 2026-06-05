@@ -503,7 +503,10 @@ function BaseTxHistoryListView(props: IProps) {
                 : SECTION_HEADER_HEIGHT_NEXT;
             }
             if (info.type === 'section-item') {
-              if (info.item?.decodedTx?.status === EDecodedTxStatus.Pending) {
+              if (
+                getHistoryTxDisplayStatus(info.item) ===
+                EDecodedTxStatus.Pending
+              ) {
                 return undefined;
               }
               // A multi-token transfer renders more change lines than the base

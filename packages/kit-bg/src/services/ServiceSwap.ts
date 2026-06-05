@@ -37,6 +37,7 @@ import {
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   isPrivateSendSwapHistoryItem,
+  isSamePrivateSendSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -1782,6 +1783,47 @@ export default class ServiceSwap extends ServiceBase {
     );
   }
 
+  private isSameSwapHistoryItem(a: ISwapTxHistory, b: ISwapTxHistory) {
+    const bPrimaryId = b.txInfo.useOrderId ? b.txInfo.orderId : b.txInfo.txId;
+    const aPrimaryId = b.txInfo.useOrderId ? a.txInfo.orderId : a.txInfo.txId;
+    if (bPrimaryId && aPrimaryId === bPrimaryId) {
+      return true;
+    }
+    return isSamePrivateSendSwapHistoryItem(a, b);
+  }
+
+  private getSwapHistoryIntervalKey(swapTxHistory: ISwapTxHistory) {
+    return swapTxHistory.txInfo.useOrderId
+      ? (swapTxHistory.txInfo.orderId ?? '')
+      : (swapTxHistory.txInfo.txId ?? '');
+  }
+
+  private getSwapHistoryIntervalKeys(swapTxHistory: ISwapTxHistory) {
+    return Array.from(
+      new Set(
+        [
+          this.getSwapHistoryIntervalKey(swapTxHistory),
+          swapTxHistory.txInfo.txId,
+          swapTxHistory.txInfo.orderId,
+          swapTxHistory.swapInfo.orderId,
+        ].filter((id): id is string => !!id),
+      ),
+    );
+  }
+
+  private async cleanSwapHistoryStateIntervals(
+    ...swapTxHistories: ISwapTxHistory[]
+  ) {
+    const ids = Array.from(
+      new Set(
+        swapTxHistories.flatMap((item) =>
+          this.getSwapHistoryIntervalKeys(item),
+        ),
+      ),
+    );
+    await Promise.all(ids.map((id) => this.cleanHistoryStateIntervals(id)));
+  }
+
   @backgroundMethod()
   async syncSwapHistoryPendingList() {
     const histories = await this.fetchSwapHistoryListFromSimple();
@@ -1833,17 +1875,22 @@ export default class ServiceSwap extends ServiceBase {
       const filteredList = filterSwapHistoryPendingList(
         pre.swapHistoryPendingList,
       );
-      if (
-        this.isSwapHistoryPendingStatus(item) &&
-        !filteredList.find((i) =>
-          item.txInfo.useOrderId
-            ? i.txInfo.orderId === item.txInfo.orderId
-            : i.txInfo.txId === item.txInfo.txId,
-        )
-      ) {
+      const matchFn = (i: ISwapTxHistory) =>
+        this.isSameSwapHistoryItem(i, item);
+      const unmatchedList = filteredList.filter((i) => !matchFn(i));
+      if (this.isSwapHistoryPendingStatus(item)) {
         return {
           ...pre,
-          swapHistoryPendingList: [...filteredList, item],
+          swapHistoryPendingList: [...unmatchedList, item],
+        };
+      }
+      const matchedInPendingList = filteredList.some(matchFn);
+      if (matchedInPendingList) {
+        return {
+          ...pre,
+          swapHistoryPendingList: filteredList.map((i) =>
+            matchFn(i) ? item : i,
+          ),
         };
       }
       // Item already exists — only update state if dirty entries were removed,
@@ -1853,6 +1900,12 @@ export default class ServiceSwap extends ServiceBase {
       }
       return pre;
     });
+    if (
+      isPrivateSendSwapHistoryItem(item) &&
+      !this.isSwapHistoryPendingStatus(item)
+    ) {
+      appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+    }
   }
 
   @backgroundMethod()
@@ -1911,10 +1964,7 @@ export default class ServiceSwap extends ServiceBase {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const shouldShowToast = options?.shouldShowToast ?? true;
     const filteredList = filterSwapHistoryPendingList(swapHistoryPendingList);
-    const matchFn = (i: ISwapTxHistory) =>
-      item.txInfo.useOrderId
-        ? i.txInfo.orderId === item.txInfo.orderId
-        : i.txInfo.txId === item.txInfo.txId;
+    const matchFn = (i: ISwapTxHistory) => this.isSameSwapHistoryItem(i, item);
     const oldItem = filteredList.find(matchFn);
     const updated = Date.now();
     item.date = { ...item.date, updated };
@@ -2075,8 +2125,10 @@ export default class ServiceSwap extends ServiceBase {
           delete this.historyStateIntervalCountMap[id];
         }),
       );
-    } else if (this.historyStateIntervals[historyId]) {
-      clearInterval(this.historyStateIntervals[historyId]);
+    } else {
+      if (this.historyStateIntervals[historyId]) {
+        clearInterval(this.historyStateIntervals[historyId]);
+      }
       this.historyCurrentStateIntervalIds =
         this.historyCurrentStateIntervalIds.filter((id) => id !== historyId);
       delete this.historyStateIntervals[historyId];
@@ -2298,19 +2350,17 @@ export default class ServiceSwap extends ServiceBase {
         }
         if (isSwapTxHistoryStatusTerminal(finalStatus)) {
           enableInterval = false;
-          const deleteHistoryId = currentSwapTxHistory.txInfo.useOrderId
-            ? (currentSwapTxHistory.txInfo.orderId ?? '')
-            : (currentSwapTxHistory.txInfo.txId ?? '');
-          await this.cleanHistoryStateIntervals(deleteHistoryId);
+          await this.cleanSwapHistoryStateIntervals(
+            previousSwapTxHistory,
+            currentSwapTxHistory,
+          );
         }
       }
     } catch (e) {
       const error = e as { message?: string };
       console.error('Swap History Status Fetch Error', error?.message);
     } finally {
-      const keyId = currentSwapTxHistory.txInfo.useOrderId
-        ? (currentSwapTxHistory.txInfo.orderId ?? '')
-        : (currentSwapTxHistory.txInfo.txId ?? '');
+      const keyId = this.getSwapHistoryIntervalKey(currentSwapTxHistory);
       if (
         enableInterval &&
         shouldScheduleNextFetch &&
@@ -2342,9 +2392,7 @@ export default class ServiceSwap extends ServiceBase {
     const newHistoryStatePendingList = statusPendingList.filter(
       (item) =>
         !this.historyCurrentStateIntervalIds.includes(
-          item.txInfo.useOrderId
-            ? (item.txInfo.orderId ?? '')
-            : (item.txInfo.txId ?? ''),
+          this.getSwapHistoryIntervalKey(item),
         ),
     );
     if (!newHistoryStatePendingList.length) return;
@@ -2352,9 +2400,7 @@ export default class ServiceSwap extends ServiceBase {
       newHistoryStatePendingList.map(async (swapTxHistory) => {
         this.historyCurrentStateIntervalIds = [
           ...this.historyCurrentStateIntervalIds,
-          swapTxHistory.txInfo.useOrderId
-            ? (swapTxHistory.txInfo.orderId ?? '')
-            : (swapTxHistory.txInfo.txId ?? ''),
+          this.getSwapHistoryIntervalKey(swapTxHistory),
         ];
         await this.swapHistoryStatusRunFetch(swapTxHistory);
       }),
