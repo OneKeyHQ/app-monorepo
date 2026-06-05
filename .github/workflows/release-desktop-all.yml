@@ -34,6 +34,7 @@ on:
 
 permissions:
   contents: read
+  packages: read # read:packages for the offline TradingView chart bundle (cross-repo)
 
 env:
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
@@ -138,7 +139,7 @@ jobs:
 
       - name: Stage TradingView offline chart assets
         env:
-          NPM_GITHUB_READ_TOKEN: ${{ secrets.NPM_GITHUB_READ_TOKEN }}
+          NPM_GITHUB_READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TRADINGVIEW_ASSETS_REQUIRED: '1'
         run: node development/scripts/fetch-tradingview-assets.mjs
 
@@ -446,7 +447,7 @@ jobs:
 
       - name: Stage TradingView offline chart assets
         env:
-          NPM_GITHUB_READ_TOKEN: ${{ secrets.NPM_GITHUB_READ_TOKEN }}
+          NPM_GITHUB_READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TRADINGVIEW_ASSETS_REQUIRED: '1'
         run: node development/scripts/fetch-tradingview-assets.mjs
 
@@ -699,7 +700,7 @@ jobs:
 
       - name: Stage TradingView offline chart assets
         env:
-          NPM_GITHUB_READ_TOKEN: ${{ secrets.NPM_GITHUB_READ_TOKEN }}
+          NPM_GITHUB_READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TRADINGVIEW_ASSETS_REQUIRED: '1'
         run: node development/scripts/fetch-tradingview-assets.mjs
 

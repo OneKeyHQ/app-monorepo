@@ -26,6 +26,10 @@ env:
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
   ENABLE_STARTUP_PROFILE: ${{ github.event.inputs.ENABLE_STARTUP_PROFILE || 'false' }}
 
+permissions:
+  contents: read
+  packages: read # read:packages for the offline TradingView chart bundle (cross-repo)
+
 jobs:
   release-android:
     runs-on: ubuntu-24.04
@@ -112,7 +116,7 @@ jobs:
 
       - name: Stage TradingView offline chart assets for EAS upload
         env:
-          NPM_GITHUB_READ_TOKEN: ${{ secrets.NPM_GITHUB_READ_TOKEN }}
+          NPM_GITHUB_READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TRADINGVIEW_ASSETS_REQUIRED: '1'
         run: |
           node development/scripts/fetch-tradingview-assets.mjs
