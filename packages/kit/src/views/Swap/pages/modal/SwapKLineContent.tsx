@@ -56,7 +56,7 @@ import {
 import {
   fetchSwapKLineTokenAddressesStableStatus,
   getResolvableDefaultSwapKLineSide,
-  getSwapKLineStableTokenAddress,
+  getSwapKLineStableTokenKey,
   getSwapKLineStableTokenStatusFromMap,
   isKnownSwapKLineUnsupportedToken,
 } from './swapKLineTokenUtils';
@@ -311,10 +311,40 @@ function useSwapKLineStableTokenChecks({
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
 }) {
-  const fromTokenKey = getSwapKLineTokenKey(fromToken);
-  const toTokenKey = getSwapKLineTokenKey(toToken);
-  const fromStableTokenAddress = getSwapKLineStableTokenAddress(fromToken);
-  const toStableTokenAddress = getSwapKLineStableTokenAddress(toToken);
+  const fromStableTokenKey = getSwapKLineStableTokenKey(fromToken);
+  const toStableTokenKey = getSwapKLineStableTokenKey(toToken);
+  const fromStableTokenIdentity = useMemo(
+    () =>
+      fromStableTokenKey
+        ? {
+            networkId: fromToken?.networkId,
+            contractAddress: fromToken?.contractAddress,
+            isNative: fromToken?.isNative,
+          }
+        : undefined,
+    [
+      fromStableTokenKey,
+      fromToken?.contractAddress,
+      fromToken?.isNative,
+      fromToken?.networkId,
+    ],
+  );
+  const toStableTokenIdentity = useMemo(
+    () =>
+      toStableTokenKey
+        ? {
+            networkId: toToken?.networkId,
+            contractAddress: toToken?.contractAddress,
+            isNative: toToken?.isNative,
+          }
+        : undefined,
+    [
+      toStableTokenKey,
+      toToken?.contractAddress,
+      toToken?.isNative,
+      toToken?.networkId,
+    ],
+  );
   const { result, isLoading } = usePromiseResult<
     | {
         fromTokenIsStable: boolean;
@@ -324,21 +354,26 @@ function useSwapKLineStableTokenChecks({
   >(
     async () => {
       const stableStatusMap = await fetchSwapKLineTokenAddressesStableStatus([
-        fromTokenKey ? fromStableTokenAddress : undefined,
-        toTokenKey ? toStableTokenAddress : undefined,
+        fromStableTokenIdentity,
+        toStableTokenIdentity,
       ]);
       return {
         fromTokenIsStable: getSwapKLineStableTokenStatusFromMap({
           stableStatusMap,
-          stableTokenAddress: fromStableTokenAddress,
+          stableTokenKey: fromStableTokenKey,
         }),
         toTokenIsStable: getSwapKLineStableTokenStatusFromMap({
           stableStatusMap,
-          stableTokenAddress: toStableTokenAddress,
+          stableTokenKey: toStableTokenKey,
         }),
       };
     },
-    [fromTokenKey, fromStableTokenAddress, toTokenKey, toStableTokenAddress],
+    [
+      fromStableTokenIdentity,
+      fromStableTokenKey,
+      toStableTokenIdentity,
+      toStableTokenKey,
+    ],
     {
       checkIsFocused: false,
       watchLoading: true,
