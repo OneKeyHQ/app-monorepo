@@ -57,10 +57,7 @@ export function SizeInputModeSelector({
       alignItems="center"
       gap="$2"
       cursor="default"
-      onPress={(e) => {
-        e.stopPropagation();
-        onPress();
-      }}
+      onPress={onPress}
     >
       <XStack
         w="$3"
