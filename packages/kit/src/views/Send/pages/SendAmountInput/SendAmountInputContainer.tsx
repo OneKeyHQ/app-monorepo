@@ -2850,7 +2850,22 @@ function SendAmountInputContainer() {
         </Form.Field>
         {platformEnv.isNativeIOS ? (
           <InputAccessoryView nativeID={amountInputAccessoryViewID}>
-            <SizableText h="$0" />
+            <XStack
+              p="$2.5"
+              px="$3.5"
+              justifyContent="flex-end"
+              bg="$bgSubdued"
+              borderTopWidth="$px"
+              borderTopColor="$borderSubduedLight"
+            >
+              <Button
+                variant="tertiary"
+                testID="send-amount-keyboard-done-btn"
+                onPress={Keyboard.dismiss}
+              >
+                {intl.formatMessage({ id: ETranslations.global_done })}
+              </Button>
+            </XStack>
           </InputAccessoryView>
         ) : null}
       </>
@@ -2861,6 +2876,7 @@ function SendAmountInputContainer() {
       handleAmountInputChange,
       handleToggleFiatMode,
       handleValidateTokenAmount,
+      intl,
       isIntegerAmount,
       isInvoiceAmountLocked,
       isUseFiat,
@@ -3649,20 +3665,8 @@ function SendAmountInputContainer() {
           </Keyboard.AwareScrollView>
         </Page.Body>
       ) : (
-        <Page.Body minHeight={0} overflow="hidden">
-          <Keyboard.AwareScrollView
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            onScrollBeginDrag={handleDismissKeyboardOnDrag}
-            showsVerticalScrollIndicator={false}
-            style={{ flex: 1 }}
-            contentContainerStyle={{ flexGrow: 1 }}
-            bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
-          >
-            <YStack px="$5" flexGrow={1} justifyContent="center">
-              {renderAmountFormContent}
-            </YStack>
-          </Keyboard.AwareScrollView>
+        <Page.Body px="$5" justifyContent="center">
+          {renderAmountFormContent}
         </Page.Body>
       )}
 
