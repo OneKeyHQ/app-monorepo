@@ -65,6 +65,8 @@ Important anchors:
 - `packages/kit/src/views/Swap/components/SwapTxHistoryListCell.tsx`
 - `packages/kit/src/views/Swap/pages/modal/SwapHistoryDetailModal.tsx`
 - `packages/kit/src/views/Swap/utils/privateSendHistory.ts`
+- `packages/kit/src/views/Swap/utils/swapMarketHistory.ts`
+- `packages/shared/src/utils/swapHistoryUtils.ts`
 - `packages/kit-bg/src/services/ServiceSwap.ts`
 
 Important anchors:
@@ -72,7 +74,17 @@ Important anchors:
 - `useSwapTxHistoryActions`
 - `addSwapHistoryItem`
 - `swapHistoryStatusRunFetch`
-- PrivateSend progress and detail display helpers
+- `fetchTxState`
+- `fetchSwapOrderDetailTxState`
+- `fetchPrivateSendOrderDetailHistoryItem`
+- `maybeOpenPrivateSendHistoryDetail`
+- `isSwapHistoryProtocolExcluded`
+- channel-specific progress and detail display helpers
+
+Use this area for history display, channel listeners, local writeback, replay
+enrichment, and repair. Do not add a new channel-specific history path until the
+shared predicate, pending-list behavior, and detail route fallback have been
+checked.
 
 ## Market Speed-Swap
 
@@ -88,6 +100,10 @@ Important anchors:
 - `useSpeedSwapActions`
 - `buildMarketExecutionPayload`
 - `useMarketPresetSettings`
+
+Market speed-swap should hand an execution payload into the Swap spine. Market
+detail owns token context and presets; Swap owns quote/build/send/history after
+the execution payload is built.
 
 ## Market And K-Line Data
 
@@ -112,3 +128,7 @@ Important anchors:
 - `packages/shared/src/logger/scopes/swap/`
 
 Do not add imports that violate the package hierarchy. `shared` cannot import from other OneKey packages, and `kit-bg` cannot import from `components` or `kit`.
+
+When channel identity needs to be shared across `kit` and `kit-bg`, put only the
+minimal type, enum, constant, or pure predicate in `shared`. Keep UI display and
+background service logic in their owning packages.
