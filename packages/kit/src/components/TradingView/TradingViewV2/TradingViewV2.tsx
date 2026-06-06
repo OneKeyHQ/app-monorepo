@@ -389,6 +389,13 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}
         decelerationRate="normal"
+        // Desktop offline build serves the chart from onekey-chart://, whose
+        // protocol handler is registered only on the persist:onekey session
+        // (apps/desktop/app/app.ts). DesktopWebView already defaults to this
+        // partition, but pin it explicitly so the offline scheme keeps
+        // resolving here (e.g. Swap K-line modal, preferLegacyChart) even if
+        // that default ever changes. No-op on native/web.
+        partition="persist:onekey"
         src={tradingViewUrlWithParams}
       />
     ),
