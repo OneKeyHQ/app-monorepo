@@ -16,6 +16,7 @@ describe('ledgerApps', () => {
         { networkId: networkIdsMap.eth },
         { networkId: networkIdsMap.sol },
         { networkId: networkIdsMap.trx },
+        { networkId: networkIdsMap.doge },
         { networkId: networkIdsMap.eth },
       ]),
     ).toEqual(['Bitcoin', 'Ethereum', 'Solana', 'Tron']);

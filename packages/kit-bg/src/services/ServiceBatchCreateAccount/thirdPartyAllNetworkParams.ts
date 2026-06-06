@@ -1,3 +1,5 @@
+import { getLedgerNetworkCapability } from '@onekeyhq/shared/src/hardware/ledgerApps';
+
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 import type { ChainForFingerprint } from '@onekeyfe/hwk-adapter-core';
 
@@ -11,15 +13,6 @@ export type IThirdPartyAllNetworkAddressParams = AllNetworkAddressParams & {
   showOnDevice?: boolean;
   chainId?: number;
 };
-
-const BTC_NETWORKS = new Set<AllNetworkAddressParams['network']>([
-  'btc',
-  'tbtc',
-  'bch',
-  'doge',
-  'ltc',
-  'neurai',
-]);
 
 function parseChainId(chainName: string | undefined): number | undefined {
   if (!chainName) {
@@ -44,15 +37,15 @@ function normalizeItem(
     normalized.showOnDevice = showOnDevice;
   }
 
-  if (item.network === 'evm') {
-    normalized.methodName ??= 'evmGetAddress';
+  const ledgerCapability = getLedgerNetworkCapability({
+    network: item.network,
+  });
+  if (ledgerCapability) {
+    normalized.methodName ??= ledgerCapability.methodName;
+  }
+
+  if (ledgerCapability?.methodName === 'evmGetAddress') {
     normalized.chainId ??= parseChainId(item.chainName);
-  } else if (BTC_NETWORKS.has(item.network)) {
-    normalized.methodName ??= 'btcGetPublicKey';
-  } else if (item.network === 'sol') {
-    normalized.methodName ??= 'solGetAddress';
-  } else if (item.network === 'tron') {
-    normalized.methodName ??= 'tronGetAddress';
   }
 
   return normalized;
@@ -67,19 +60,9 @@ export function normalizeThirdPartyAllNetworkBundle(
 function getLedgerFingerprintChain(
   item: AllNetworkAddressParams,
 ): ChainForFingerprint | undefined {
-  if (item.network === 'evm') {
-    return 'evm';
-  }
-  if (BTC_NETWORKS.has(item.network)) {
-    return 'btc';
-  }
-  if (item.network === 'sol') {
-    return 'sol';
-  }
-  if (item.network === 'tron') {
-    return 'tron';
-  }
-  return undefined;
+  return getLedgerNetworkCapability({
+    network: item.network,
+  })?.fingerprintChain;
 }
 
 function getDeviceChainFingerprints(

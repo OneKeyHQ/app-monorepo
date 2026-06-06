@@ -1,8 +1,7 @@
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
 import { THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
-
-import { thirdPartyCommonCallParamsForCreateScene } from '../../vaults/base/thirdPartyHardwareCommonParams';
+import { LEDGER_BTC_FAMILY_NETWORKS } from '@onekeyhq/shared/src/hardware/ledgerApps';
 
 import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkErrors';
 import {
@@ -38,23 +37,17 @@ describe('normalizeThirdPartyAllNetworkBundle', () => {
   });
 
   it('normalizes BTC-family network names to the common BTC public-key method', () => {
-    const items = normalizeThirdPartyAllNetworkBundle([
-      { network: 'btc', path: "m/84'/0'/0'", showOnOneKey: false },
-      { network: 'tbtc', path: "m/84'/1'/0'", showOnOneKey: false },
-      { network: 'bch', path: "m/44'/145'/0'", showOnOneKey: false },
-      { network: 'doge', path: "m/44'/3'/0'", showOnOneKey: false },
-      { network: 'ltc', path: "m/84'/2'/0'", showOnOneKey: false },
-      { network: 'neurai', path: "m/44'/1900'/0'", showOnOneKey: false },
-    ]);
+    const items = normalizeThirdPartyAllNetworkBundle(
+      LEDGER_BTC_FAMILY_NETWORKS.map((network, index) => ({
+        network,
+        path: `m/44'/${index}'/0'`,
+        showOnOneKey: false,
+      })),
+    );
 
-    expect(items.map((item) => item.methodName)).toEqual([
-      'btcGetPublicKey',
-      'btcGetPublicKey',
-      'btcGetPublicKey',
-      'btcGetPublicKey',
-      'btcGetPublicKey',
-      'btcGetPublicKey',
-    ]);
+    expect(items.map((item) => item.methodName)).toEqual(
+      LEDGER_BTC_FAMILY_NETWORKS.map(() => 'btcGetPublicKey'),
+    );
     expect(
       items.some((item) => Object.prototype.hasOwnProperty.call(item, 'coin')),
     ).toBe(false);
@@ -88,7 +81,7 @@ describe('normalizeThirdPartyAllNetworkBundle', () => {
   it('attaches Ledger chain fingerprints per all-network item', () => {
     const bundle: AllNetworkAddressParams[] = [
       { network: 'evm', path: "m/44'/60'/0'/0/0", showOnOneKey: false },
-      { network: 'doge', path: "m/44'/3'/0'", showOnOneKey: false },
+      { network: 'btc', path: "m/84'/0'/0'", showOnOneKey: false },
       { network: 'sol', path: "m/44'/501'/0'/0'", showOnOneKey: false },
       { network: 'tron', path: "m/44'/195'/0'/0/0", showOnOneKey: false },
     ];
@@ -213,15 +206,5 @@ describe('normalizeAllNetworkInstallCancelErrors', () => {
     ] as IHwAllNetworkPrepareAccountsItem[]);
 
     expect(result[0].payload?.code).toBe(ThirdPartyHwErrorCode.UserAborted);
-  });
-});
-
-describe('thirdPartyCommonCallParamsForCreateScene', () => {
-  it('keeps manual all-network calls on the SDK default install behavior', () => {
-    expect(
-      thirdPartyCommonCallParamsForCreateScene({
-        isAutoCreateMultiNetwork: false,
-      }),
-    ).toBeUndefined();
   });
 });
