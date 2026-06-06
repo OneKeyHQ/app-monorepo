@@ -674,7 +674,7 @@
     },
     {
       // JS/JSX files - disable TypeScript-specific rules
-      "files": ["**/*.js", "**/*.jsx"],
+      "files": ["**/*.js", "**/*.jsx", "**/*.mjs", "**/*.cjs"],
       "rules": {
         "typescript/no-floating-promises": "off",
         "typescript/consistent-type-imports": "off",
