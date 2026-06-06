@@ -52,6 +52,7 @@ function KYTIntroDialogContent() {
       <XStack
         mt="$3"
         ai="center"
+        alignSelf="flex-start"
         gap="$1"
         onPress={() => {
           defaultLogger.prime.usage.primeReceiveKytIntroAction({
@@ -99,7 +100,7 @@ function useKYTIntroDialog() {
       footerProps: md
         ? {
             flexDirection: 'column-reverse',
-            gap: '$4',
+            gap: '$2.5',
             pb: mobileFooterBottomPadding,
           }
         : undefined,
@@ -112,7 +113,11 @@ function useKYTIntroDialog() {
       cancelButtonProps: md
         ? {
             ...mobileFooterButtonProps,
-            size: 'medium',
+            mx: '$0',
+            my: '$0',
+            px: '$5',
+            py: '$3',
+            size: 'large',
             variant: 'tertiary',
           }
         : undefined,
