@@ -73,6 +73,9 @@ export function useSwapFromAccountNetworkSync() {
     if (!fromToken && !toToken) {
       return true;
     }
+    if (!selectedTokensColdStartContext) {
+      return true;
+    }
 
     const currentContext = buildSwapSelectedTokensColdStartContext({
       activeAccount: fromActiveAccount,
@@ -212,6 +215,7 @@ export function useSwapFromAccountNetworkSync() {
     fromToken?.contractAddress,
     toToken?.networkId,
     toToken?.contractAddress,
+    isSelectedTokensColdStartContextValid,
     swapProviderSupportReceiveAddress,
     isModalPage,
   ]);
@@ -232,6 +236,7 @@ export function useSwapFromAccountNetworkSync() {
     fromToken?.contractAddress,
     toToken?.networkId,
     toToken?.contractAddress,
+    isSelectedTokensColdStartContextValid,
     swapProviderSupportReceiveAddress,
     isModalPage,
   ]);
