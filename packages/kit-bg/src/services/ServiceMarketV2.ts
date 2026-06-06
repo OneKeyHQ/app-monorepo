@@ -311,6 +311,22 @@ class ServiceMarketV2 extends ServiceBase {
     return n * (unitSec[m[2]] ?? 60);
   }
 
+  // Normalize a TradingView resolution to the interval string the kline API
+  // expects: minute/second lowercase ('1m','30s'), hour/day/week/month
+  // uppercase ('1H','1D','1W','1M'); bare numbers ('1','60') pass through.
+  // The previous toUpperCase()+includes('M')->toLowerCase() approach collapsed
+  // month '1M' into minute '1m' because the toUpperCase() step erased the m/M
+  // case before the check — case-sensitive per-unit mapping keeps them distinct.
+  private _normalizeKlineApiInterval(interval?: string): string | undefined {
+    if (!interval) return interval;
+    const trimmed = interval.trim();
+    const m = /^(\d+)\s*([smhHdDwWM])$/.exec(trimmed);
+    if (!m) return trimmed; // bare number (minutes) or unknown → pass through
+    const unit = m[2];
+    const lower = unit === 'm' || unit === 's';
+    return `${m[1]}${lower ? unit.toLowerCase() : unit.toUpperCase()}`;
+  }
+
   // Cached kline fetch. The cache key excludes autoHandleError and uses the
   // caller-bucketed time range, so repeated requests for the same token+interval
   // within the same bar (e.g. the prewarm's early getBars and the detail's
@@ -331,10 +347,7 @@ class ServiceMarketV2 extends ServiceBase {
       timeTo?: number;
       autoHandleError?: boolean;
     }): Promise<IMarketTokenKLineResponse> => {
-      let innerInterval = interval?.toUpperCase();
-      if (innerInterval?.includes('M') || innerInterval?.includes('S')) {
-        innerInterval = innerInterval?.toLowerCase();
-      }
+      const innerInterval = this._normalizeKlineApiInterval(interval);
       const requestConfig = {
         params: {
           tokenAddress,
