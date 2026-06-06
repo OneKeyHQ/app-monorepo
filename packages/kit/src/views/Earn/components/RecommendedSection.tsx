@@ -16,7 +16,6 @@ import {
   Badge,
   Button,
   HeaderScrollGestureWrapper,
-  Icon,
   IconButton,
   ScrollView,
   SizableText,
@@ -41,7 +40,6 @@ import { AprText } from './AprText';
 const CARD_WIDTH = 240;
 const CARD_GAP = 12;
 const CARD_PADDING_H = 20;
-const CARD_MIN_HEIGHT = 136;
 const INITIAL_VISIBLE_COUNT = 4;
 const SKELETON_ITEM_COUNT = 4;
 
@@ -88,18 +86,12 @@ const RecommendedBadges = memo(
 
 RecommendedBadges.displayName = 'RecommendedBadges';
 
-function RecommendedCardSkeletonItem({
-  noWalletConnected,
-  ...rest
-}: IYStackProps & {
-  noWalletConnected: boolean;
-}) {
+function RecommendedCardSkeletonItem(rest: IYStackProps) {
   return (
     <YStack
-      gap="$4"
+      gap="$2"
       px="$4"
       py="$3.5"
-      minHeight={CARD_MIN_HEIGHT}
       borderRadius="$3"
       bg="$bgSubdued"
       borderWidth={StyleSheet.hairlineWidth}
@@ -116,21 +108,12 @@ function RecommendedCardSkeletonItem({
       </XStack>
       <YStack alignItems="flex-start" width="100%">
         <Skeleton w={92} h={32} borderRadius="$2" />
-        {!noWalletConnected ? (
-          <XStack gap="$1" ai="center" pt="$3">
-            <Skeleton w={112} h={16} borderRadius="$2" />
-          </XStack>
-        ) : null}
       </YStack>
     </YStack>
   );
 }
 
-function RecommendedListSkeletonItem({
-  noWalletConnected,
-}: {
-  noWalletConnected: boolean;
-}) {
+function RecommendedListSkeletonItem() {
   return (
     <ListItem
       userSelect="none"
@@ -143,11 +126,6 @@ function RecommendedListSkeletonItem({
             <Skeleton w={56} h={24} borderRadius="$2" />
             <Skeleton w={44} h={20} borderRadius="$full" />
           </XStack>
-        }
-        secondary={
-          !noWalletConnected ? (
-            <Skeleton w={96} h={16} borderRadius="$2" />
-          ) : undefined
         }
       />
       <Skeleton w={60} h={24} borderRadius="$2" />
@@ -184,45 +162,12 @@ function useRecommendedItemPress(token?: IRecommendAsset) {
   }, [navigation, token]);
 }
 
-const RecommendedBalanceLine = memo(
-  ({
-    availableText,
-    isLoading,
-  }: {
-    availableText?: string;
-    isLoading?: boolean;
-  }) => (
-    <XStack gap="$1" ai="center">
-      <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
-      {isLoading ? (
-        <Skeleton w={96} h={16} borderRadius="$2" />
-      ) : (
-        <SizableText
-          size="$bodySm"
-          color="$textSubdued"
-          flexShrink={1}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {availableText}
-        </SizableText>
-      )}
-    </XStack>
-  ),
-);
-
-RecommendedBalanceLine.displayName = 'RecommendedBalanceLine';
-
 const RecommendedItem = memo(
   ({
     token,
-    noWalletConnected,
-    isBalanceLoading,
     ...rest
   }: {
     token?: IRecommendAsset;
-    noWalletConnected: boolean;
-    isBalanceLoading?: boolean;
   } & IYStackProps) => {
     const onPress = useRecommendedItemPress(token);
 
@@ -233,11 +178,9 @@ const RecommendedItem = memo(
     return (
       <YStack
         role="button"
-        flex={1}
-        gap="$4"
+        gap="$2"
         px="$4"
         py="$3.5"
-        minHeight={CARD_MIN_HEIGHT}
         borderRadius="$3"
         borderCurve="continuous"
         bg="$bgSubdued"
@@ -273,14 +216,6 @@ const RecommendedItem = memo(
               maxAprInfo: token.maxAprInfo,
             }}
           />
-          {!noWalletConnected ? (
-            <YStack pt="$3" width="100%">
-              <RecommendedBalanceLine
-                availableText={token.available?.text}
-                isLoading={isBalanceLoading}
-              />
-            </YStack>
-          ) : null}
         </YStack>
       </YStack>
     );
@@ -289,71 +224,49 @@ const RecommendedItem = memo(
 
 RecommendedItem.displayName = 'RecommendedItem';
 
-const RecommendedListItem = memo(
-  ({
-    token,
-    noWalletConnected,
-    isBalanceLoading,
-  }: {
-    token: IRecommendAsset;
-    noWalletConnected: boolean;
-    isBalanceLoading?: boolean;
-  }) => {
-    const onPress = useRecommendedItemPress(token);
+const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
+  const onPress = useRecommendedItemPress(token);
 
-    return (
-      <ListItem
-        userSelect="none"
-        onPress={onPress}
-        renderAvatar={
-          <Token size="md" tokenImageUri={token.logoURI} borderRadius="$full" />
+  return (
+    <ListItem
+      userSelect="none"
+      onPress={onPress}
+      renderAvatar={
+        <Token size="md" tokenImageUri={token.logoURI} borderRadius="$full" />
+      }
+    >
+      <ListItem.Text
+        flex={1}
+        primary={
+          <XStack gap="$2" ai="center" flex={1} minWidth={0} flexWrap="wrap">
+            <SizableText size="$bodyLgMedium" flexShrink={1} numberOfLines={1}>
+              {token.symbol}
+            </SizableText>
+            <RecommendedBadges
+              token={token}
+              containerProps={{
+                justifyContent: 'flex-start',
+                flexShrink: 0,
+              }}
+            />
+          </XStack>
         }
-      >
-        <ListItem.Text
-          flex={1}
-          primary={
-            <XStack gap="$2" ai="center" flex={1} minWidth={0} flexWrap="wrap">
-              <SizableText
-                size="$bodyLgMedium"
-                flexShrink={1}
-                numberOfLines={1}
-              >
-                {token.symbol}
-              </SizableText>
-              <RecommendedBadges
-                token={token}
-                containerProps={{
-                  justifyContent: 'flex-start',
-                  flexShrink: 0,
-                }}
-              />
-            </XStack>
-          }
-          secondary={
-            !noWalletConnected ? (
-              <RecommendedBalanceLine
-                availableText={token.available?.text}
-                isLoading={isBalanceLoading}
-              />
-            ) : undefined
-          }
+      />
+      <YStack alignItems="flex-end" justifyContent="center">
+        <AprText
+          size="$bodyLgMedium"
+          asset={{
+            aprWithoutFee: token.aprWithoutFee ?? '',
+            aprInfo: token.aprInfo,
+            rewardUnit: token.rewardUnit,
+            minAprInfo: token.minAprInfo,
+            maxAprInfo: token.maxAprInfo,
+          }}
         />
-        <YStack alignItems="flex-end" justifyContent="center">
-          <AprText
-            size="$bodyLgMedium"
-            asset={{
-              aprWithoutFee: token.aprWithoutFee ?? '',
-              aprInfo: token.aprInfo,
-              rewardUnit: token.rewardUnit,
-              minAprInfo: token.minAprInfo,
-              maxAprInfo: token.maxAprInfo,
-            }}
-          />
-        </YStack>
-      </ListItem>
-    );
-  },
-);
+      </YStack>
+    </ListItem>
+  );
+});
 
 RecommendedListItem.displayName = 'RecommendedListItem';
 
@@ -363,9 +276,11 @@ function useScrollElement(scrollViewRef: React.RefObject<any>) {
     if (!node) {
       return null;
     }
-    if (typeof node.getScrollableNode === 'function') {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      return node.getScrollableNode() as HTMLElement;
+    const scrollableNode = node as {
+      getScrollableNode?: () => HTMLElement | null;
+    };
+    if (typeof scrollableNode.getScrollableNode === 'function') {
+      return scrollableNode.getScrollableNode();
     }
     if (node instanceof HTMLElement) {
       return node;
@@ -654,12 +569,10 @@ function RecommendedShowMoreButton({ onPress }: { onPress: () => void }) {
 
 function RecommendedSectionSkeleton({
   withHeader,
-  noWalletConnected,
   variant,
   disableHorizontalBleed = false,
 }: {
   withHeader: boolean;
-  noWalletConnected: boolean;
   variant: IRecommendedLayoutVariant;
   disableHorizontalBleed?: boolean;
 }) {
@@ -672,10 +585,7 @@ function RecommendedSectionSkeleton({
       >
         <YStack>
           {Array.from({ length: SKELETON_ITEM_COUNT }).map((_, index) => (
-            <RecommendedListSkeletonItem
-              key={index}
-              noWalletConnected={noWalletConnected}
-            />
+            <RecommendedListSkeletonItem key={index} />
           ))}
         </YStack>
       </RecommendedSectionContainer>
@@ -684,14 +594,8 @@ function RecommendedSectionSkeleton({
 
   const skeletonCards = Array.from({ length: SKELETON_ITEM_COUNT }).map(
     (_, index) => (
-      <YStack
-        key={index}
-        minWidth={CARD_WIDTH}
-        flexGrow={1}
-        flexBasis={0}
-        overflow="hidden"
-      >
-        <RecommendedCardSkeletonItem noWalletConnected={noWalletConnected} />
+      <YStack key={index} width={CARD_WIDTH} overflow="hidden">
+        <RecommendedCardSkeletonItem />
       </YStack>
     ),
   );
@@ -713,20 +617,16 @@ function RecommendedSectionSkeleton({
 
 export function RecommendedSection({
   tokens,
-  noWalletConnected,
   withHeader = true,
   disableHorizontalBleed = false,
   recommendedItemContainerProps,
   showSkeleton = false,
-  isBalanceLoading = false,
 }: {
   tokens: IRecommendAsset[];
-  noWalletConnected: boolean;
   withHeader?: boolean;
   disableHorizontalBleed?: boolean;
   recommendedItemContainerProps?: IYStackProps;
   showSkeleton?: boolean;
-  isBalanceLoading?: boolean;
 }) {
   const media = useMedia();
   const [showAll, setShowAll] = useState(false);
@@ -740,7 +640,6 @@ export function RecommendedSection({
     return (
       <RecommendedSectionSkeleton
         withHeader={withHeader}
-        noWalletConnected={noWalletConnected}
         variant={variant}
         disableHorizontalBleed={disableHorizontalBleed}
       />
@@ -764,12 +663,7 @@ export function RecommendedSection({
       >
         <YStack>
           {visibleTokens.map((token) => (
-            <RecommendedListItem
-              key={token.symbol}
-              token={token}
-              noWalletConnected={noWalletConnected}
-              isBalanceLoading={isBalanceLoading}
-            />
+            <RecommendedListItem key={token.symbol} token={token} />
           ))}
           {showMoreButton}
         </YStack>
@@ -778,19 +672,8 @@ export function RecommendedSection({
   }
 
   const cardItems = visibleTokens.map((token) => (
-    <YStack
-      key={token.symbol}
-      minWidth={CARD_WIDTH}
-      flexGrow={1}
-      flexBasis={0}
-      overflow="hidden"
-    >
-      <RecommendedItem
-        token={token}
-        noWalletConnected={noWalletConnected}
-        isBalanceLoading={isBalanceLoading}
-        {...recommendedItemContainerProps}
-      />
+    <YStack key={token.symbol} width={CARD_WIDTH} overflow="hidden">
+      <RecommendedItem token={token} {...recommendedItemContainerProps} />
     </YStack>
   ));
 
