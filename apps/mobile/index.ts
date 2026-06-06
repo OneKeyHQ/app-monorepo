@@ -93,6 +93,10 @@ if ((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__) {
   const { warmCriticalIcons } =
     require('@onekeyhq/components/src/primitives/Icon') as typeof import('@onekeyhq/components/src/primitives/Icon');
   warmCriticalIcons();
+
+  const { prewarmColdStartImagesFromSnapshot } =
+    require('@onekeyhq/kit/src/utils/coldStartImagePreload') as typeof import('@onekeyhq/kit/src/utils/coldStartImagePreload');
+  void prewarmColdStartImagesFromSnapshot();
 }
 
 // Install native error logger for Release mode debugging.

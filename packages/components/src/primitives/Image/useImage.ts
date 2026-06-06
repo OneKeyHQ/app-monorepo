@@ -17,9 +17,13 @@ import {
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import {
+  deleteCachedImagePath,
+  getCachedImagePath,
+  getCachedImageRef,
+  refreshCachedImagePath,
+} from './cache';
 import { isEmptyResolvedSource } from './utils';
-
-const IMAGE_CACHE_MAP = new Map<string, string>();
 
 interface IUseImageOptions extends ImageLoadOptions {
   onSuccess?: (image: ImageRef) => void;
@@ -37,7 +41,7 @@ export function useImage(
   const resolvedSource = useMemo(() => {
     return resolveSource(source);
   }, [source]);
-  const cachedImage: ImageSource | null = useMemo(() => {
+  const cachedImage: ImageRef | ImageSource | null = useMemo(() => {
     if (resolvedSource?.uri && !/^https?:\/\//.test(resolvedSource.uri)) {
       return {
         uri: resolvedSource.uri,
@@ -47,9 +51,14 @@ export function useImage(
       return null;
     }
     const imageUri = resolvedSource?.uri;
-    if (imageUri && IMAGE_CACHE_MAP.has(imageUri)) {
+    const cachedImageRef = getCachedImageRef(imageUri);
+    if (cachedImageRef) {
+      return cachedImageRef;
+    }
+    const cachedPath = getCachedImagePath(imageUri);
+    if (cachedPath) {
       return {
-        uri: IMAGE_CACHE_MAP.get(imageUri),
+        uri: cachedPath,
       };
     }
     return null;
@@ -77,11 +86,7 @@ export function useImage(
           setImage(remoteImage);
           const uri = resolvedSource?.uri;
           if (uri) {
-            void Image.getCachePathAsync(uri).then((cachePath) => {
-              if (cachePath) {
-                IMAGE_CACHE_MAP.set(uri, cachePath);
-              }
-            });
+            void refreshCachedImagePath(uri);
           }
         }
       })
@@ -110,7 +115,7 @@ export function useImage(
       return;
     }
     if (resolvedSource?.uri) {
-      IMAGE_CACHE_MAP.delete(resolvedSource?.uri);
+      deleteCachedImagePath(resolvedSource?.uri);
     }
     if (isEffectValid.current) {
       fetchImageTimesLimit.current += 1;
