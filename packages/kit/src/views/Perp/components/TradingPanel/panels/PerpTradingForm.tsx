@@ -963,7 +963,7 @@ function PerpTradingForm({
     }
   }, [formData.twapDurationMinutes, intl, isTwapMode]);
 
-  const twapHelperMessage = useMemo(() => {
+  const twapEstimatedSliceNotional = useMemo(() => {
     if (!isTwapMode) {
       return undefined;
     }
@@ -987,22 +987,38 @@ function PerpTradingForm({
     const estimatedSliceNotional = advancedComputedSizeBN
       .multipliedBy(midPriceBN)
       .dividedBy(estimatedSlices);
-    if (
-      estimatedSliceNotional.isFinite() &&
-      estimatedSliceNotional.gt(0) &&
-      estimatedSliceNotional.lt(TWAP_MIN_SLICE_NOTIONAL_HINT)
-    ) {
-      return twapSmallSliceHelperText;
+    if (!estimatedSliceNotional.isFinite() || estimatedSliceNotional.lte(0)) {
+      return undefined;
     }
 
-    return undefined;
+    return estimatedSliceNotional;
   }, [
     formData.twapDurationMinutes,
     isTwapMode,
     midPriceBN,
     advancedComputedSizeBN,
-    twapSmallSliceHelperText,
   ]);
+
+  const twapEstimatedSliceNotionalDisplay = useMemo(() => {
+    if (!twapEstimatedSliceNotional) {
+      return undefined;
+    }
+
+    return `${numberFormat(twapEstimatedSliceNotional.toFixed(), {
+      formatter: 'balance',
+    })} ${USDC_TOKEN_SYMBOL}`;
+  }, [twapEstimatedSliceNotional]);
+
+  const twapHelperMessage = useMemo(() => {
+    if (
+      twapEstimatedSliceNotional &&
+      twapEstimatedSliceNotional.lt(TWAP_MIN_SLICE_NOTIONAL_HINT)
+    ) {
+      return twapSmallSliceHelperText;
+    }
+
+    return undefined;
+  }, [twapEstimatedSliceNotional, twapSmallSliceHelperText]);
 
   const [twapDurationHoursInput, setTwapDurationHoursInput] = useState('');
   const [twapDurationMinutesInput, setTwapDurationMinutesInput] = useState('');
@@ -2163,8 +2179,8 @@ function PerpTradingForm({
     }
     if (isTwapMode) {
       return (
-        <YStack gap="$1.5" {...(isMobile && { mt: '$1' })} p="$0">
-          <YStack alignItems="flex-start" gap="$2.5">
+        <YStack width="100%" gap="$1.5" {...(isMobile && { mt: '$1' })} p="$0">
+          <YStack width="100%" alignItems="flex-start" gap="$2.5">
             {isSpot ? null : (
               <XStack alignItems="center" gap="$2">
                 <Checkbox
@@ -2229,6 +2245,31 @@ function PerpTradingForm({
                 }
               />
             </XStack>
+            {twapEstimatedSliceNotionalDisplay ? (
+              <XStack
+                width="100%"
+                alignItems="center"
+                justifyContent="space-between"
+                gap="$3"
+              >
+                <SizableText
+                  size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+                  color="$textSubdued"
+                  flex={1}
+                  numberOfLines={1}
+                >
+                  {/* TODO: replace hardcoded QA copy with ETranslations after the i18n key is added. */}
+                  Per child order size
+                </SizableText>
+                <SizableText
+                  size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+                  color="$text"
+                  numberOfLines={1}
+                >
+                  {twapEstimatedSliceNotionalDisplay}
+                </SizableText>
+              </XStack>
+            ) : null}
           </YStack>
         </YStack>
       );

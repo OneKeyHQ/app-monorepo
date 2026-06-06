@@ -4,9 +4,9 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
-    "@onekeyfe/react-native-scroll-guard": "3.0.47",
-    "@onekeyfe/react-native-segment-slider": "3.0.47",
-    "@onekeyfe/react-native-tab-view": "3.0.47",
+    "@onekeyfe/react-native-scroll-guard": "3.0.49",
+    "@onekeyfe/react-native-segment-slider": "3.0.49",
+    "@onekeyfe/react-native-tab-view": "3.0.49",
     "@react-navigation/bottom-tabs": "7.10.1",
     "@react-navigation/elements": "2.9.5",
     "@react-navigation/native": "7.1.28",

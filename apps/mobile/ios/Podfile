@@ -119,6 +119,26 @@ target 'OneKeyWallet' do
   # Manually add RNGoogleSignin pod (expo-module.config.json only includes the Expo adapter, not the TurboModule)
   # pod 'RNGoogleSignin', :path => '../../../node_modules/@react-native-google-signin/google-signin'
 
+  # Copy the offline TradingView chart bundle into the app's resource dir so the
+  # chart-webview native module can serve it (Bundle.main.resourceURL/tradingview-assets/).
+  # Defined as a CocoaPods script_phase so `pod install` regenerates it every time
+  # (a hand-added pbxproj phase gets wiped by pod install — see git history).
+  # Assets are staged by development/scripts/fetch-tradingview-assets.mjs; the
+  # guard makes a missing staging dir a no-op (open-source / no-token builds fall
+  # back to the online chart).
+  script_phase :name => 'Bundle TradingView offline chart assets',
+    :execution_position => :after_compile,
+    :script => <<-SCRIPT
+      SRC="${PROJECT_DIR}/../tradingview-assets"
+      DEST="${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/tradingview-assets"
+      if [ -d "$SRC" ]; then
+        rm -rf "$DEST"; mkdir -p "$DEST"; cp -R "$SRC/." "$DEST/"
+        echo "chart-webview: copied offline assets -> $DEST"
+      else
+        echo "chart-webview: no tradingview-assets (run fetch-tradingview-assets.mjs)"
+      fi
+    SCRIPT
+
   post_install do |installer|
     # Copy custom fonts from components package and add to Xcode Resources.
     # Fonts are registered via Info.plist UIAppFonts so iOS manages them natively,

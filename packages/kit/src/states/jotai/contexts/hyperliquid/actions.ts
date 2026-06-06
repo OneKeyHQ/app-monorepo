@@ -46,6 +46,7 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   SCALE_ORDER_MIN_NOTIONAL,
   getReduceOnlyOrderGuardError,
+  getReduceOnlyPositionMaxSize,
   getReduceOnlyPositionSnapshotError,
   getScaleOrderReferencePrice,
   getScaleOrderSizeSkew,
@@ -2574,6 +2575,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               throw new OneKeyLocalError('Invalid scale price range');
             }
 
+            const reduceOnly = isSpot
+              ? false
+              : Boolean(formData.scaleReduceOnly);
+            const position = activePositionsValue.activePositions.find(
+              (pos) => pos.position.coin === activeTradeInstrument.coin,
+            )?.position;
+            const reduceOnlyMaxSize = getReduceOnlyPositionMaxSize({
+              reduceOnly,
+              side: formData.side,
+              positionSize: position?.szi,
+              szDecimals,
+            });
             const resolvedSize = resolveTradingSize({
               sizeInputMode: formData.sizeInputMode,
               manualSize: formData.size,
@@ -2583,6 +2596,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               markPrice: isSpot
                 ? (env.markPrice ?? referencePrice.toFixed())
                 : activeAssetCtxValue?.ctx?.markPrice,
+              maxSize: reduceOnlyMaxSize,
               maxTradeSzs: isSpot
                 ? env.maxTradeSzs
                 : activeAssetDataValue?.maxTradeSzs,
@@ -2592,9 +2606,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 : activeAssetValue?.universe?.maxLeverage,
               szDecimals,
             });
-            const reduceOnly = isSpot
-              ? false
-              : Boolean(formData.scaleReduceOnly);
             if (reduceOnly) {
               const snapshotError = getReduceOnlyPositionSnapshotError({
                 reduceOnly,
@@ -2604,9 +2615,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               if (snapshotError) {
                 throw new OneKeyLocalError(snapshotError);
               }
-              const position = activePositionsValue.activePositions.find(
-                (pos) => pos.position.coin === activeTradeInstrument.coin,
-              )?.position;
               const reduceOnlyError = getReduceOnlyOrderGuardError({
                 reduceOnly,
                 side: formData.side,
@@ -3186,6 +3194,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           return result;
         },
         actionType: EActionType.CANCEL_ORDER,
+        args: [1],
       });
     },
   );
