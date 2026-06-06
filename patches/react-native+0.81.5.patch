@@ -1,0 +1,797 @@
+diff --git a/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js b/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
+index 05bddcb..5211253 100644
+--- a/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
++++ b/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
+@@ -82,6 +82,9 @@ const RCTTextInputViewConfig: PartialViewConfigWithoutName = {
+     topContentSizeChange: {
+       registrationName: 'onContentSizeChange',
+     },
++    topPaste: {
++      registrationName: 'onPaste',
++    },
+     topChangeSync: {
+       registrationName: 'onChangeSync',
+     },
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
+index 6e9c384..e68e675 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
+@@ -13,6 +13,10 @@
+ #import <React/RCTBackedTextInputDelegateAdapter.h>
+ #import <React/RCTTextAttributes.h>
+ 
++#import <MobileCoreServices/MobileCoreServices.h>
++#import <MobileCoreServices/UTType.h>
++#import <UIKit/UIKit.h>
++
+ @implementation RCTUITextView {
+   UILabel *_placeholderView;
+   UITextView *_detachedTextView;
+@@ -21,6 +25,7 @@ @implementation RCTUITextView {
+   NSArray<UIBarButtonItemGroup *> *_initialValueLeadingBarButtonGroups;
+   NSArray<UIBarButtonItemGroup *> *_initialValueTrailingBarButtonGroups;
+   NSArray<NSString *> *_acceptDragAndDropTypes;
++  BOOL _isProcessingImagePaste;
+ }
+ 
+ static UIFont *defaultPlaceholderFont(void)
+@@ -208,10 +213,98 @@ - (void)scrollRangeToVisible:(NSRange)range
+ 
+ - (void)paste:(id)sender
+ {
++  UIPasteboard *clipboard = [UIPasteboard generalPasteboard];
++
++  // Handle image paste
++  if (clipboard.hasImages && [self processImagePaste:clipboard]) {
++    return;
++  }
++
++  // Handle text paste
+   _textWasPasted = YES;
++  if (clipboard.hasStrings) {
++    [_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
++  }
+   [super paste:sender];
+ }
+ 
++- (void)_superPaste:(id)sender
++{
++  [super paste:sender];
++}
++
++- (BOOL)processImagePaste:(UIPasteboard *)clipboard
++{
++  // Prevent concurrent image paste operations from rapid taps
++  if (_isProcessingImagePaste) {
++    return YES;
++  }
++
++  for (NSItemProvider *itemProvider in clipboard.itemProviders) {
++    if (![itemProvider hasItemConformingToTypeIdentifier:(NSString *)kUTTypeImage]) {
++      continue;
++    }
++
++    for (NSString *identifier in itemProvider.registeredTypeIdentifiers) {
++      if (!UTTypeConformsTo((__bridge CFStringRef)identifier, kUTTypeImage)) {
++        continue;
++      }
++
++      _isProcessingImagePaste = YES;
++      // Snapshot clipboard text before async to avoid stale/changed clipboard reads later
++      BOOL clipboardHasStrings = clipboard.hasStrings;
++      NSString *clipboardString = clipboardHasStrings ? clipboard.string : nil;
++      // Capture self directly — the block temporarily retains self until the async
++      // operation completes, which is safe (no permanent retain cycle).
++      [itemProvider loadDataRepresentationForTypeIdentifier:identifier completionHandler:^(NSData *data, NSError *error) {
++        if (error || !data) {
++          dispatch_async(dispatch_get_main_queue(), ^{
++            self->_isProcessingImagePaste = NO;
++            // Fallback to text paste on failure
++            self->_textWasPasted = YES;
++            if (clipboardHasStrings && clipboardString) {
++              [self->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
++            }
++            [self _superPaste:nil];
++          });
++          return;
++        }
++
++        // Perform file I/O on background queue to avoid main thread jank
++        NSString *MIMEType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassMIMEType);
++        if (!MIMEType) {
++          MIMEType = @"application/octet-stream";
++        }
++        NSString *fileExtension = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassFilenameExtension);
++        if (!fileExtension) {
++          fileExtension = @"bin";
++        }
++        NSString *fileName = [NSString stringWithFormat:@"%@.%@", [[NSUUID UUID] UUIDString], fileExtension];
++        NSString *filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
++        BOOL writeSuccess = [data writeToFile:filePath atomically:YES];
++
++        dispatch_async(dispatch_get_main_queue(), ^{
++          self->_isProcessingImagePaste = NO;
++
++          if (writeSuccess) {
++            NSURL *fileURL = [NSURL fileURLWithPath:filePath];
++            [self->_textInputDelegateAdapter didPaste:MIMEType withData:[fileURL absoluteString]];
++          } else {
++            // Fallback when file write fails
++            self->_textWasPasted = YES;
++            if (clipboardHasStrings && clipboardString) {
++              [self->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
++            }
++            [self _superPaste:nil];
++          }
++        });
++      }];
++      return YES;
++    }
++  }
++  return NO;
++}
++
+ // Turn off scroll animation to fix flaky scrolling.
+ // This is only necessary for iOS < 14.
+ #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED < 140000
+@@ -301,6 +394,10 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+     return NO;
+   }
+ 
++  if (action == @selector(paste:) && [UIPasteboard generalPasteboard].hasImages) {
++    return YES;
++  }
++
+   return [super canPerformAction:action withSender:sender];
+ }
+ 
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h
+index 7187177..da00893 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h
+@@ -37,6 +37,8 @@ NS_ASSUME_NONNULL_BEGIN
+ 
+ - (void)textInputDidChangeSelection;
+ 
++- (void)textInputDidPaste:(NSString *)type withData:(NSString *)data;
++
+ @optional
+ 
+ - (void)scrollViewDidScroll:(UIScrollView *)scrollView;
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h
+index f1c32e6..7ec9bb0 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h
+@@ -20,6 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
+ 
+ - (void)skipNextTextInputDidChangeSelectionEventWithTextRange:(UITextRange *)textRange;
+ - (void)selectedTextRangeWasSet;
++- (void)didPaste:(NSString *)type withData:(NSString *)data;
+ 
+ @end
+ 
+@@ -31,6 +32,8 @@ NS_ASSUME_NONNULL_BEGIN
+ 
+ - (void)skipNextTextInputDidChangeSelectionEventWithTextRange:(UITextRange *)textRange;
+ 
++- (void)didPaste:(NSString *)type withData:(NSString *)data;
++
+ @end
+ 
+ NS_ASSUME_NONNULL_END
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
+index 82d9a79..8cc48ec 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
+@@ -148,6 +148,11 @@ - (void)selectedTextRangeWasSet
+   [self textFieldProbablyDidChangeSelection];
+ }
+ 
++- (void)didPaste:(NSString *)type withData:(NSString *)data
++{
++  [_backedTextInputView.textInputDelegate textInputDidPaste:type withData:data];
++}
++
+ #pragma mark - Generalization
+ 
+ - (void)textFieldProbablyDidChangeSelection
+@@ -330,6 +335,11 @@ - (void)skipNextTextInputDidChangeSelectionEventWithTextRange:(UITextRange *)tex
+   _previousSelectedTextRange = textRange;
+ }
+ 
++- (void)didPaste:(NSString *)type withData:(NSString *)data
++{
++  [_backedTextInputView.textInputDelegate textInputDidPaste:type withData:data];
++}
++
+ #pragma mark - Generalization
+ 
+ - (void)textViewProbablyDidChangeSelection
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h
+index 4804624..90b7081 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h
+@@ -37,6 +37,7 @@ NS_ASSUME_NONNULL_BEGIN
+ @property (nonatomic, copy, nullable) RCTDirectEventBlock onChange;
+ @property (nonatomic, copy, nullable) RCTDirectEventBlock onChangeSync;
+ @property (nonatomic, copy, nullable) RCTDirectEventBlock onScroll;
++@property (nonatomic, copy, nullable) RCTDirectEventBlock onPaste;
+ 
+ @property (nonatomic, assign) NSInteger mostRecentEventCount;
+ @property (nonatomic, assign, readonly) NSInteger nativeEventCount;
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
+index 6a2d4f8..caae2d0 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
+@@ -599,6 +599,52 @@ - (void)textInputDidChangeSelection
+   });
+ }
+ 
++BOOL isBlankString(NSString *string) {
++  if (!string) {
++    return YES;
++  }
++  if ([string isKindOfClass: [NSNull class]]) {
++    return YES;
++  }
++
++  if (!string.length) {
++    return YES;
++  }
++
++  NSCharacterSet *whitespace = [NSCharacterSet whitespaceAndNewlineCharacterSet];
++  NSString *trimmed = [string stringByTrimmingCharactersInSet:whitespace];
++  if (!trimmed.length) {
++    return YES;
++  }
++
++  return NO;
++}
++
++
++- (void)textInputDidPaste:(NSString *)type withData:(NSString *)data
++{
++  if (!_onPaste) {
++    return;
++  }
++  
++  if (isBlankString(type) || isBlankString(data)) {
++    return;
++  }
++
++  NSMutableArray *items = [NSMutableArray new];
++  [items addObject:@{
++    @"type" : type,
++    @"data" : data,
++  }];
++
++  NSDictionary *payload = @{
++    @"target" : self.reactTag,
++    @"items" : items,
++  };
++
++  _onPaste(payload);
++}
++
+ - (void)updateLocalData
+ {
+   [self enforceTextAttributesIfNeeded];
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm
+index 47adc53..1865e0a 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm
+@@ -70,6 +70,7 @@ @implementation RCTBaseTextInputViewManager {
+ RCT_EXPORT_VIEW_PROPERTY(onChangeSync, RCTDirectEventBlock)
+ RCT_EXPORT_VIEW_PROPERTY(onSelectionChange, RCTDirectEventBlock)
+ RCT_EXPORT_VIEW_PROPERTY(onScroll, RCTDirectEventBlock)
++RCT_EXPORT_VIEW_PROPERTY(onPaste, RCTDirectEventBlock)
+ 
+ RCT_EXPORT_SHADOW_PROPERTY(text, NSString)
+ RCT_EXPORT_SHADOW_PROPERTY(placeholder, NSString)
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
+index 377f41e..2bab943 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
+@@ -12,12 +12,17 @@
+ #import <React/RCTUtils.h>
+ #import <React/UIView+React.h>
+ 
++#import <MobileCoreServices/MobileCoreServices.h>
++#import <MobileCoreServices/UTType.h>
++#import <UIKit/UIKit.h>
++
+ @implementation RCTUITextField {
+   RCTBackedTextFieldDelegateAdapter *_textInputDelegateAdapter;
+   NSDictionary<NSAttributedStringKey, id> *_defaultTextAttributes;
+   NSArray<UIBarButtonItemGroup *> *_initialValueLeadingBarButtonGroups;
+   NSArray<UIBarButtonItemGroup *> *_initialValueTrailingBarButtonGroups;
+   NSArray<NSString *> *_acceptDragAndDropTypes;
++  BOOL _isProcessingImagePaste;
+ }
+ 
+ // This should not be needed but internal build were failing without it.
+@@ -180,6 +185,10 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+     return NO;
+   }
+ 
++  if (action == @selector(paste:) && [UIPasteboard generalPasteboard].hasImages) {
++    return YES;
++  }
++
+   return [super canPerformAction:action withSender:sender];
+ }
+ 
+@@ -260,12 +269,100 @@ - (void)scrollRangeToVisible:(NSRange)range
+   // Singleline TextInput does not require scrolling after calling setSelectedTextRange (PR 38679).
+ }
+ 
++- (void)_superPaste:(id)sender
++{
++  [super paste:sender];
++}
++
+ - (void)paste:(id)sender
+ {
++  UIPasteboard *clipboard = [UIPasteboard generalPasteboard];
++
++  // Handle image paste
++  if (clipboard.hasImages && [self processImagePaste:clipboard]) {
++    return;
++  }
++
++  // Handle text paste
+   _textWasPasted = YES;
++  if (clipboard.hasStrings) {
++    [_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
++  }
+   [super paste:sender];
+ }
+ 
++- (BOOL)processImagePaste:(UIPasteboard *)clipboard
++{
++  // Prevent concurrent image paste operations from rapid taps
++  if (_isProcessingImagePaste) {
++    return YES;
++  }
++
++  for (NSItemProvider *itemProvider in clipboard.itemProviders) {
++    if (![itemProvider hasItemConformingToTypeIdentifier:(NSString *)kUTTypeImage]) {
++      continue;
++    }
++
++    for (NSString *identifier in itemProvider.registeredTypeIdentifiers) {
++      if (!UTTypeConformsTo((__bridge CFStringRef)identifier, kUTTypeImage)) {
++        continue;
++      }
++
++      _isProcessingImagePaste = YES;
++      // Snapshot clipboard text before async to avoid stale/changed clipboard reads later
++      BOOL clipboardHasStrings = clipboard.hasStrings;
++      NSString *clipboardString = clipboardHasStrings ? clipboard.string : nil;
++      // Capture self directly — the block temporarily retains self until the async
++      // operation completes, which is safe (no permanent retain cycle).
++      [itemProvider loadDataRepresentationForTypeIdentifier:identifier completionHandler:^(NSData *data, NSError *error) {
++        if (error || !data) {
++          dispatch_async(dispatch_get_main_queue(), ^{
++            self->_isProcessingImagePaste = NO;
++            // Fallback to text paste on failure
++            self->_textWasPasted = YES;
++            if (clipboardHasStrings && clipboardString) {
++              [self->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
++            }
++            [self _superPaste:nil];
++          });
++          return;
++        }
++
++        // Perform file I/O on background queue to avoid main thread jank
++        NSString *MIMEType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassMIMEType);
++        if (!MIMEType) {
++          MIMEType = @"application/octet-stream";
++        }
++        NSString *fileExtension = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassFilenameExtension);
++        if (!fileExtension) {
++          fileExtension = @"bin";
++        }
++        NSString *fileName = [NSString stringWithFormat:@"%@.%@", [[NSUUID UUID] UUIDString], fileExtension];
++        NSString *filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
++        BOOL writeSuccess = [data writeToFile:filePath atomically:YES];
++
++        dispatch_async(dispatch_get_main_queue(), ^{
++          self->_isProcessingImagePaste = NO;
++
++          if (writeSuccess) {
++            NSURL *fileURL = [NSURL fileURLWithPath:filePath];
++            [self->_textInputDelegateAdapter didPaste:MIMEType withData:[fileURL absoluteString]];
++          } else {
++            // Fallback when file write fails
++            self->_textWasPasted = YES;
++            if (clipboardHasStrings && clipboardString) {
++              [self->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
++            }
++            [self _superPaste:nil];
++          }
++        });
++      }];
++      return YES;
++    }
++  }
++  return NO;
++}
++
+ #pragma mark - Layout
+ 
+ - (CGSize)contentSize
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
+index bec2ac5..4cab4b5 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
+@@ -103,46 +103,51 @@ - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+ 
+ + (BOOL)isSupported:(NSString *)componentName
+ {
+-  // Step 1: check if ViewManager with specified name is supported.
+-  BOOL isComponentNameSupported =
+-      [[RCTLegacyViewManagerInteropComponentView supportedViewManagers] containsObject:componentName];
+-  if (isComponentNameSupported) {
+-    return YES;
+-  }
++  // This method accesses a shared static NSMutableDictionary and may be called
++  // concurrently from multiple JS runtimes (e.g. main + background thread).
++  // @synchronized ensures thread-safe access to the mutable shared state.
++  @synchronized([RCTLegacyViewManagerInteropComponentView class]) {
++    // Step 1: check if ViewManager with specified name is supported.
++    BOOL isComponentNameSupported =
++        [[RCTLegacyViewManagerInteropComponentView supportedViewManagers] containsObject:componentName];
++    if (isComponentNameSupported) {
++      return YES;
++    }
+ 
+-  // Step 2: check if component has supported prefix.
+-  for (NSString *item in [RCTLegacyViewManagerInteropComponentView supportedViewManagersPrefixes]) {
+-    if ([componentName hasPrefix:item]) {
++    // Step 2: check if component has supported prefix.
++    for (NSString *item in [RCTLegacyViewManagerInteropComponentView supportedViewManagersPrefixes]) {
++      if ([componentName hasPrefix:item]) {
++        return YES;
++      }
++    }
++
++    // Step 3: check if the module has been registered
++    // TODO(T174674274): Implement lazy loading of legacy view managers in the new architecture.
++    NSArray<Class> *registeredModules = RCTGetModuleClasses();
++    NSMutableDictionary<NSString *, Class> *supportedLegacyViewComponents =
++        [RCTLegacyViewManagerInteropComponentView _supportedLegacyViewComponents];
++    if (supportedLegacyViewComponents[componentName] != NULL) {
+       return YES;
+     }
+-  }
+ 
+-  // Step 3: check if the module has been registered
+-  // TODO(T174674274): Implement lazy loading of legacy view managers in the new architecture.
+-  NSArray<Class> *registeredModules = RCTGetModuleClasses();
+-  NSMutableDictionary<NSString *, Class> *supportedLegacyViewComponents =
+-      [RCTLegacyViewManagerInteropComponentView _supportedLegacyViewComponents];
+-  if (supportedLegacyViewComponents[componentName] != NULL) {
+-    return YES;
+-  }
++    for (Class moduleClass in registeredModules) {
++      id<RCTBridgeModule> bridgeModule = (id<RCTBridgeModule>)moduleClass;
++      NSString *moduleName = [[bridgeModule moduleName] isEqualToString:@""]
++          ? [NSStringFromClass(moduleClass) stringByReplacingOccurrencesOfString:@"Manager" withString:@""]
++          : [bridgeModule moduleName];
+ 
+-  for (Class moduleClass in registeredModules) {
+-    id<RCTBridgeModule> bridgeModule = (id<RCTBridgeModule>)moduleClass;
+-    NSString *moduleName = [[bridgeModule moduleName] isEqualToString:@""]
+-        ? [NSStringFromClass(moduleClass) stringByReplacingOccurrencesOfString:@"Manager" withString:@""]
+-        : [bridgeModule moduleName];
++      if (supportedLegacyViewComponents[moduleName] == NULL) {
++        supportedLegacyViewComponents[moduleName] = moduleClass;
++      }
+ 
+-    if (supportedLegacyViewComponents[moduleName] == NULL) {
+-      supportedLegacyViewComponents[moduleName] = moduleClass;
++      if ([moduleName isEqualToString:componentName] ||
++          [moduleName isEqualToString:[@"RCT" stringByAppendingString:componentName]]) {
++        return YES;
++      }
+     }
+ 
+-    if ([moduleName isEqualToString:componentName] ||
+-        [moduleName isEqualToString:[@"RCT" stringByAppendingString:componentName]]) {
+-      return YES;
+-    }
++    return NO;
+   }
+-
+-  return NO;
+ }
+ 
+ + (void)supportLegacyViewManagersWithPrefix:(NSString *)prefix
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
+index 577bebe..ad0f253 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
+@@ -381,6 +381,38 @@ - (void)prepareForRecycle
+   [_backedTextInputView resignFirstResponder];
+ }
+ 
++BOOL checkIsBlankString(NSString *string) {
++  if (!string) {
++    return YES;
++  }
++  if ([string isKindOfClass: [NSNull class]]) {
++    return YES;
++  }
++
++  if (!string.length) {
++    return YES;
++  }
++
++  NSCharacterSet *whitespace = [NSCharacterSet whitespaceAndNewlineCharacterSet];
++  NSString *trimmed = [string stringByTrimmingCharactersInSet:whitespace];
++  if (!trimmed.length) {
++    return YES;
++  }
++
++  return NO;
++}
++
++
++- (void)textInputDidPaste:(NSString *)type withData:(NSString *)data
++{
++  if (checkIsBlankString(type) || checkIsBlankString(data)) {
++    return;
++  }
++  if (_eventEmitter) {
++    static_cast<const TextInputEventEmitter &>(*_eventEmitter).onPaste(std::string([type UTF8String]), std::string([data UTF8String]));
++  }
++}
++
+ #pragma mark - RCTBackedTextInputDelegate
+ 
+ - (BOOL)textInputShouldBeginEditing
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
+index a99f103..27865c2 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
+@@ -828,6 +828,19 @@ - (UIView *)currentContainerView
+ }
+ 
+ - (void)invalidateLayer
++{
++  // During modal transition, prevent backgroundColor and layer changes from being animated.
++  extern BOOL RNSModalTransitionInProgress;
++  if (RNSModalTransitionInProgress) {
++    [UIView performWithoutAnimation:^{
++      [self _invalidateLayerImpl];
++    }];
++  } else {
++    [self _invalidateLayerImpl];
++  }
++}
++
++- (void)_invalidateLayerImpl
+ {
+   CALayer *layer = self.layer;
+ 
+diff --git a/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm b/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm
+index 9f50554..23eaaa8 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm
+@@ -103,8 +103,24 @@ - (void)updateLayoutMetrics:(const LayoutMetrics &)layoutMetrics
+     } else {
+       // Note: Changing `frame` when `layer.transform` is not the `identity transform` is undefined behavior.
+       // Therefore, we must use `center` and `bounds`.
+-      self.center = CGPoint{CGRectGetMidX(frame), CGRectGetMidY(frame)};
+-      self.bounds = CGRect{CGPointZero, frame.size};
++      //
++      // When a modal transition is in progress, Fabric may mount recycled views
++      // whose stale frames differ from the new layout. Without performWithoutAnimation,
++      // UIKit captures the center/bounds change as an implicit animation within the
++      // modal presentation's animation block, causing visible content displacement.
++      extern BOOL RNSModalTransitionInProgress;
++      if (RNSModalTransitionInProgress) {
++        [UIView performWithoutAnimation:^{
++          self.center = CGPoint{CGRectGetMidX(frame), CGRectGetMidY(frame)};
++          self.bounds = CGRect{CGPointZero, frame.size};
++          // Force immediate layout so that subviews (e.g. RCTParagraphTextView)
++          // also get their frames set within performWithoutAnimation scope.
++          [self layoutIfNeeded];
++        }];
++      } else {
++        self.center = CGPoint{CGRectGetMidX(frame), CGRectGetMidY(frame)};
++        self.bounds = CGRect{CGPointZero, frame.size};
++      }
+     }
+   }
+ 
+diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
+index f8dd833..db25f53 100644
+--- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
++++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
+@@ -67,6 +67,10 @@ public class ViewGroupDrawingOrderHelper(private val viewGroup: ViewGroup) {
+           childCount,
+           index)
+       update()
++      // update() set this.drawingOrderIndices to null, so we must also null the
++      // local variable; otherwise the rebuild branch below is skipped and we
++      // return a stale, out-of-bounds index (Sentry REACT-NATIVE-48W / 4AM).
++      currentDrawingOrderIndices = null
+     }
+ 
+     if (currentDrawingOrderIndices == null) {
+diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
+index 89b666d..246c9cf 100644
+--- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
++++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
+@@ -869,7 +869,13 @@ public open class ReactViewGroup public constructor(context: Context?) :
+     if (_overflow != Overflow.VISIBLE || getTag(R.id.filter) != null) {
+       clipToPaddingBox(this, canvas)
+     }
+-    super.dispatchDraw(canvas)
++    try {
++      super.dispatchDraw(canvas)
++    } catch (e: NullPointerException) {
++      // Race condition: child view removed during draw cycle by reanimated mount transaction.
++      // The view hierarchy will be re-drawn correctly on the next frame.
++      // Tracking: https://github.com/software-mansion/react-native-reanimated/issues/8422
++    }
+   }
+ 
+   override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
+diff --git a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm b/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
+index 2a67797..5e5aeff 100644
+--- a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
++++ b/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
+@@ -57,6 +57,9 @@ static int32_t getUniqueId()
+ 
+ static jsi::String convertNSStringToJSIString(jsi::Runtime &runtime, NSString *value)
+ {
++  if (value == nil) {
++    return jsi::String::createFromUtf8(runtime, "");
++  }
+   return jsi::String::createFromUtf8(runtime, [value UTF8String] ? [value UTF8String] : "");
+ }
+ 
+@@ -89,6 +92,9 @@ static int32_t getUniqueId()
+ 
+ jsi::Value convertObjCObjectToJSIValue(jsi::Runtime &runtime, id value)
+ {
++  if (value == nil) {
++    return jsi::Value::null();
++  }
+   if ([value isKindOfClass:[NSString class]]) {
+     return convertNSStringToJSIString(runtime, (NSString *)value);
+   } else if ([value isKindOfClass:[NSNumber class]]) {
+@@ -435,7 +441,58 @@ TraceSection s(
+     @try {
+       [inv invokeWithTarget:strongModule];
+     } @catch (NSException *exception) {
+-      throw convertNSExceptionToJSError(runtime, exception, std::string{moduleName}, methodNameStr);
++      // ---------------------------------------------------------------
++      // OneKey patch — async void TurboModule must not touch `runtime`.
++      // ---------------------------------------------------------------
++      //
++      // Upstream RN already has the right rule for the *sibling* method
++      // (`performMethodInvocation`, this file ~L374): JSError is only
++      // safe to construct from a sync call, because only a sync call is
++      // guaranteed to run on the JS thread. Quoting the upstream comment:
++      //
++      //     // We can only convert NSException to JSError in sync method
++      //     // calls. See https://github.com/reactwg/react-native-new-
++      //     // architecture/discussions/276#discussioncomment-12567155
++      //
++      // `performVoidMethodInvocation` (this function), however,
++      // unconditionally calls `convertNSExceptionToJSError(runtime, ...)`
++      // — even on the async branch, where the block has been hopped onto
++      // a GCD queue via `nativeMethodCallInvoker_->invokeAsync(...)`
++      // (~L463). `convertNSExceptionToJSError` reads JS properties off
++      // the runtime to build the JSError (e.g. `Error.prototype.stack`),
++      // which races the JS thread that is still using the same Hermes
++      // runtime. The Hermes GCScope chain / handle table is not
++      // thread-safe, so this race manifests as a SIGSEGV inside
++      // `PinnedHermesValue` construction during a subsequent JS
++      // `instanceof` (see crash report — Thread 5 mid
++      // `convertNSExceptionToJSError`, Thread 18 mid
++      // `instanceOfOperator_RJS`).
++      //
++      // The minimal fix is to mirror the sibling function's sync/async
++      // split here. For sync void calls (rare; gated by
++      // `shouldVoidMethodsExecuteSync_`) we keep the original behavior
++      // so JS callers that opted into sync semantics still see the
++      // exception as a JSError. For the async path we re-throw the
++      // NSException to unwind the GCD block: the void method has no JS
++      // caller awaiting a result, so the rethrow is harmless to JS
++      // semantics — it just routes through the GCD top-level handler
++      // (and any `RCTSetFatalHandler` installed by the host app), where
++      // we can observe it via crash reporters instead of crashing
++      // Hermes.
++      if (shouldVoidMethodsExecuteSync_) {
++        throw convertNSExceptionToJSError(runtime, exception, std::string{moduleName}, methodNameStr);
++      } else {
++        // Note for future maintainers: do NOT try to "convert and emit"
++        // by hopping to the JS thread via `jsInvoker_`. That works in
++        // principle but turns a fire-and-forget void method into a
++        // queued task, which subtly changes ordering w.r.t. the next
++        // JS-initiated call. If reach-into-JS observability is desired,
++        // post a Sentry breadcrumb / NSLog here and keep the rethrow.
++        RCTLogError(
++            @"[OneKey] Async void TurboModule %s.%s raised NSException; rethrowing to GCD handler. name=%@ reason=%@",
++            moduleName, methodNameStr.c_str(), exception.name, exception.reason);
++        @throw exception;
++      }
+     } @finally {
+       [retainedObjectsForInvocation removeAllObjects];
+     }
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp
+index a9bc219..0fc50bf 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp
++++ b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp
+@@ -131,6 +131,19 @@ static jsi::Value keyPressMetricsPayload(
+   return payload;
+ };
+ 
++void TextInputEventEmitter::onPaste(const std::string& type, const std::string& data) const {
++  dispatchEvent("paste", [type, data](jsi::Runtime& runtime) {
++    auto payload = jsi::Object(runtime);
++    auto items = jsi::Array(runtime, 1);
++    auto item = jsi::Object(runtime);
++    item.setProperty(runtime, "type", type);
++    item.setProperty(runtime, "data", data);
++    items.setValueAtIndex(runtime, 0, item);
++    payload.setProperty(runtime, "items", items);
++    return payload;
++  });
++}
++
+ void TextInputEventEmitter::onFocus(const Metrics& textInputMetrics) const {
+   dispatchTextInputEvent("focus", textInputMetrics);
+ }
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.h b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.h
+index dbce575..5b03581 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.h
++++ b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.h
+@@ -44,6 +44,7 @@ class TextInputEventEmitter : public ViewEventEmitter {
+   void onSubmitEditing(const Metrics& textInputMetrics) const;
+   void onKeyPress(const KeyPressMetrics& keyPressMetrics) const;
+   void onScroll(const Metrics& textInputMetrics) const;
++  void onPaste(const std::string& type, const std::string& data) const;
+ 
+  private:
+   void dispatchTextInputEvent(
+diff --git a/node_modules/react-native/third-party-podspecs/RCT-Folly.podspec b/node_modules/react-native/third-party-podspecs/RCT-Folly.podspec
+index 8852179..040c4f0 100644
+--- a/node_modules/react-native/third-party-podspecs/RCT-Folly.podspec
++++ b/node_modules/react-native/third-party-podspecs/RCT-Folly.podspec
+@@ -25,7 +25,7 @@ Pod::Spec.new do |spec|
+   spec.dependency "DoubleConversion"
+   spec.dependency "glog"
+   spec.dependency "fast_float", "8.0.0"
+-  spec.dependency "fmt", "11.0.2"
++  spec.dependency "fmt", "12.1.0"
+   spec.compiler_flags = '-Wno-documentation -faligned-new'
+   spec.source_files = 'folly/String.cpp',
+                       'folly/Conv.cpp',
+diff --git a/node_modules/react-native/third-party-podspecs/fmt.podspec b/node_modules/react-native/third-party-podspecs/fmt.podspec
+index 2f38990..a40c575 100644
+--- a/node_modules/react-native/third-party-podspecs/fmt.podspec
++++ b/node_modules/react-native/third-party-podspecs/fmt.podspec
+@@ -8,14 +8,14 @@ fmt_git_url = fmt_config[:git]
+ 
+ Pod::Spec.new do |spec|
+   spec.name = "fmt"
+-  spec.version = "11.0.2"
++  spec.version = "12.1.0"
+   spec.license = { :type => "MIT" }
+   spec.homepage = "https://github.com/fmtlib/fmt"
+   spec.summary = "{fmt} is an open-source formatting library for C++. It can be used as a safe and fast alternative to (s)printf and iostreams."
+   spec.authors = "The fmt contributors"
+   spec.source = {
+     :git => fmt_git_url,
+-    :tag => "11.0.2"
++    :tag => "12.1.0"
+   }
+   spec.pod_target_xcconfig = {
+     "CLANG_CXX_LANGUAGE_STANDARD" => rct_cxx_language_standard(),
