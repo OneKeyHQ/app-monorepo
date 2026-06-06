@@ -278,6 +278,11 @@ export interface IAppEventBusPayload {
         accounts: {
           accountId: string;
           networkId: string;
+          // Stable across network switches for HD accounts; forwarded so a
+          // frozen token list (whose own `indexedAccount` closure may be
+          // stale) resolves aggregate hidden/custom tokens against the right
+          // indexed account. Undefined for Others (imported/watch-only).
+          indexedAccountId?: string;
         }[];
         // When true, the home token list refreshes strictly against the
         // provided account/network instead of its own active account. Used by

@@ -639,7 +639,7 @@ export function HomePageView({
     if (!prevNetworkId || !nextNetworkId || prevNetworkId === nextNetworkId) {
       return;
     }
-    if (activeTabId === EHomeWalletTab.Portfolio) {
+    if (!activeTabId || activeTabId === EHomeWalletTab.Portfolio) {
       return;
     }
     const accountId = account?.id;
@@ -647,10 +647,19 @@ export function HomePageView({
       return;
     }
     appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-      accounts: [{ accountId, networkId: nextNetworkId }],
+      accounts: [
+        {
+          accountId,
+          networkId: nextNetworkId,
+          // Provide the fresh indexedAccountId so the frozen token list can
+          // resolve aggregate hidden/custom tokens correctly instead of
+          // falling back to its own (stale) closure.
+          indexedAccountId: indexedAccount?.id,
+        },
+      ],
       refreshByProvidedAccounts: true,
     });
-  }, [network?.id, activeTabId, account?.id]);
+  }, [network?.id, activeTabId, account?.id, indexedAccount?.id]);
 
   const stickyHeaderCtx = useMemo(
     () => ({

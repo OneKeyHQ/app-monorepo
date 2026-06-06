@@ -2544,8 +2544,12 @@ function TokenListBlock({
   // without waiting for the user to return to this tab.
   const explicitRefreshSeqRef = useRef(0);
   const refreshSingleNetworkTokenListByTarget = useCallback(
-    async (target: { accountId: string; networkId: string }) => {
-      const { accountId, networkId } = target;
+    async (target: {
+      accountId: string;
+      networkId: string;
+      indexedAccountId?: string;
+    }) => {
+      const { accountId, networkId, indexedAccountId } = target;
       if (!accountId || !networkId) return;
       // All-networks aggregation is driven by a separate, closure-bound hook
       // that cannot be refreshed imperatively here; let it refresh on return.
@@ -2556,13 +2560,21 @@ function TokenListBlock({
 
       let emittedRefreshing = false;
       try {
-        // Derive-merge networks need the multi-derive fetch handled by `run`;
-        // skip the single-account fast path so we never apply partial data.
+        // Multi-derive (merge-derive) HD accounts need the parallel
+        // per-derivation fetch that only `run` performs; the single-account
+        // fast path below would apply partial data, so skip them. Others
+        // accounts (imported/watch-only) are always single-address even on
+        // merge-derive networks, so they can safely use the fast path here.
         const targetVaultSettings =
           await backgroundApiProxy.serviceNetwork.getVaultSettings({
             networkId,
           });
-        if (targetVaultSettings?.mergeDeriveAssetsEnabled) return;
+        if (
+          targetVaultSettings?.mergeDeriveAssetsEnabled &&
+          !accountUtils.isOthersAccount({ accountId })
+        ) {
+          return;
+        }
         if (!isLatest()) return;
 
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
@@ -2573,12 +2585,22 @@ function TokenListBlock({
         });
         emittedRefreshing = true;
 
+        // Cancel any superseded in-flight wallet token fetch (e.g. a request
+        // for the previous network) so its late response can't clobber this
+        // network's data. Mirrors the abort in the closure-bound `run` path;
+        // the seq guard alone only coordinates between explicit refreshes.
+        await backgroundApiProxy.serviceToken.abortFetchAccountTokens({
+          excludedFlags: ['token-selector'],
+        });
+        if (!isLatest()) return;
+
         const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
           accountId,
           mergeTokens: true,
           networkId,
           flag: 'home-token-list',
           saveToLocal: true,
+          indexedAccountId,
           ...walletTokenFilterParams,
         });
 
@@ -2628,6 +2650,15 @@ function TokenListBlock({
             networkId,
           });
           refreshAllTokenListMap({ tokens: r.allTokens.map });
+          // Keep the broader local token directory in sync, like `run` does;
+          // `saveToLocal` only persists the per-account token cache.
+          const mergedTokens = r.allTokens.data;
+          if (mergedTokens && mergedTokens.length) {
+            void backgroundApiProxy.serviceToken.updateLocalTokens({
+              networkId,
+              tokens: mergedTokens,
+            });
+          }
         }
         updateTokenListState({ initialized: true, isRefreshing: false });
       } catch (e) {
@@ -2666,7 +2697,11 @@ function TokenListBlock({
     const refresh = (
       params:
         | {
-            accounts: { accountId: string; networkId: string }[];
+            accounts: {
+              accountId: string;
+              networkId: string;
+              indexedAccountId?: string;
+            }[];
             refreshByProvidedAccounts?: boolean;
           }
         | undefined,
