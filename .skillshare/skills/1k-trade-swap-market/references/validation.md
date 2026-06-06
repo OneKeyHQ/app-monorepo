@@ -20,12 +20,13 @@ When transaction behavior changes, inspect the payloads that prove the chain:
 2. selected provider/quote state
 3. review snapshot inputs
 4. build response
-5. approval/setup response when applicable
-6. send result
-7. pending history item
-8. status polling response
-9. history detail fallback payload
-10. replay/enrichment payload used to repair old or partial local rows
+5. decoded transaction actions and `extraInfo` for setup or auxiliary costs
+6. approval/setup response when applicable
+7. send result
+8. pending history item
+9. status polling response
+10. history detail fallback payload
+11. replay/enrichment payload used to repair old or partial local rows
 
 Do not claim runtime validation from a visible screen alone when the bug is in quote/build/send/history state.
 
@@ -70,5 +71,8 @@ Use these recipes based on failure type:
 - Replay/repair bug: open from account history or notification, verify the row
   is enriched once, semantic fields are preserved, and unknown values are not
   displayed as zero.
+- Setup-fee display bug: compare decoded tx actions, decoded `extraInfo`, local
+  swap-history context, order detail, and detail UI rows; verify setup costs are
+  shown separately and do not inflate the business transfer amount.
 - Market K-line bug: verify token detail payload, chart fetch, fallback data, and WebView events separately.
 - Handoff bug: start from Earn/Market/Buy, then confirm Swap owns state after quote starts.

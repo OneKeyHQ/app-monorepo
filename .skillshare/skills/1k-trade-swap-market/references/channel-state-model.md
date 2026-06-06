@@ -29,6 +29,8 @@ Define what the user should see, not only what the chain recorded:
 - semantic receiver, provider settlement address, and chain `to` address
 - provider name/logo/support URL
 - network fee, provider fee, commission, spread, ETA, rate, and unknown display
+- setup, activation, or auxiliary asset rows that should display separately
+  from the main business transfer
 - progress steps and final labels
 - which ordinary Swap/Bridge/Market lists must include or exclude the channel
 
@@ -59,6 +61,8 @@ Define the App-side row created after submit:
 - frozen quote/build fields copied into history
 - gas/provider fee fields and whether missing means unknown
 - provider raw context preserved for later status lookup
+- typed display context when base swap fields cannot represent all semantic
+  rows, fees, or receiver fields
 - pending-list filters for Swap, Bridge, Market, and channel-specific lists
 
 Send success without the correct local history row is not a complete channel
@@ -70,9 +74,13 @@ enough provider context to survive an app restart.
 Define how stale, partial, or legacy rows are corrected:
 
 - account history or notification entry opens the right detail route
+- confirmed on-chain history can replace a local pending row without erasing
+  locally decoded payload or extraInfo needed for channel display
 - old simpleDb rows can be enriched without losing user-facing fields
 - provider order detail can backfill amount, token, provider, rate, fee, status,
   and receiver fields
+- replay can add missing semantic display rows only when the replay source is
+  richer than the persisted row
 - unknown values render as unknown, not zero
 - merge rules avoid replacing a valid semantic receiver with a settlement
   address
@@ -92,6 +100,11 @@ Use this default priority unless the channel contract says otherwise:
 4. Account history replay fields for recovery and missing local rows.
 5. Local cached fields as fallback only.
 
+Locally persisted review/build payload and decoded `extraInfo` are not generic
+cache when they are the only source for semantic receiver, setup fee, or display
+row metadata. Preserve them until a higher-priority source explicitly provides
+the same semantic field.
+
 Never let a lower-priority source overwrite a higher-priority semantic field
 without an explicit migration or correction rule.
 
@@ -105,6 +118,7 @@ Entry surface:
 Capability:
 Identity keys:
 History display:
+Setup/auxiliary fees:
 Listener source:
 Local writeback:
 Replay/repair source:

@@ -31,6 +31,7 @@ When navigating to Earn on native:
 Name the owner for each data class:
 
 - home overview
+- home recommendations
 - available assets
 - portfolio investments
 - protocol detail
@@ -42,6 +43,12 @@ Name the owner for each data class:
 - route params
 
 Do not let operation modals mutate portfolio caches directly unless the cache owner exposes that refresh path.
+
+Earn recommendations, available assets, and portfolio investments are separate
+owners. Before changing Earn home fetch or refresh behavior, decide which owner
+is changing. Do not treat an available-assets `refreshTrigger` as a
+recommended-list refresh unless the current component contract explicitly says
+so.
 
 ## Request Staleness
 
@@ -56,6 +63,12 @@ Guard refresh and request identity by:
 - focused route or visible content state
 
 If the user changes account or route while data is loading, stale responses must not update the new surface.
+
+Earn tab content can stay mounted while hidden. For recommended assets and
+available assets, propagate explicit `isActive` or visible-content state from
+the host and tab layer into fetch consumers. Gate promise focus overrides,
+throttled fetch callbacks, and user-triggered search fetches on that state;
+focus or first-mount checks alone are not enough.
 
 ## Pending And History
 

@@ -67,7 +67,9 @@ Important anchors:
 - `packages/kit/src/views/Swap/utils/privateSendHistory.ts`
 - `packages/kit/src/views/Swap/utils/swapMarketHistory.ts`
 - `packages/shared/src/utils/swapHistoryUtils.ts`
+- `packages/kit-bg/src/services/ServiceHistory.ts`
 - `packages/kit-bg/src/services/ServiceSwap.ts`
+- `packages/kit-bg/src/vaults/impls/*/Vault.ts`
 
 Important anchors:
 
@@ -79,12 +81,19 @@ Important anchors:
 - `fetchPrivateSendOrderDetailHistoryItem`
 - `maybeOpenPrivateSendHistoryDetail`
 - `isSwapHistoryProtocolExcluded`
+- `ServiceHistory.batchUpdateLocalHistoryTxs`
+- chain-specific `Vault.buildDecodedTx`
 - channel-specific progress and detail display helpers
 
 Use this area for history display, channel listeners, local writeback, replay
 enrichment, and repair. Do not add a new channel-specific history path until the
 shared predicate, pending-list behavior, and detail route fallback have been
 checked.
+
+When display depends on decoded actions or `decodedTx.extraInfo`, inspect the
+chain-specific decode path as well as swap-history repair. On-chain history
+replacement should not erase locally decoded channel metadata before detail
+rendering has a richer replacement source.
 
 ## Market Speed-Swap
 
