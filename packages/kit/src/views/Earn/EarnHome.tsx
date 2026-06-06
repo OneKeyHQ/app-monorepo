@@ -314,6 +314,8 @@ function BasicEarnHome({
   const defaultMode = route.params?.mode || 'earn';
   const isEarnMode = defaultMode === 'earn';
   const isBorrowMode = defaultMode === 'borrow';
+  const isEarnContentActive =
+    isEarnDataActive && showContent !== false && isEarnMode;
   const earnModeSwitchTypeRef = useRef<IEarnModeSwitchType>('default');
   const hasLoggedEarnModeSwitchRef = useRef(false);
   const defaultModeRef = useRef(defaultMode);
@@ -397,7 +399,13 @@ function BasicEarnHome({
       }
       setIsEarnTabFocused(isVisibleFocus);
       setIsEarnDataActive(isDataActive);
-      if (!isVisibleFocus) return;
+      if (
+        !isVisibleFocus ||
+        showContent === false ||
+        defaultModeRef.current !== 'earn'
+      ) {
+        return;
+      }
 
       void prefetchEarnAvailableAssets();
 
@@ -420,7 +428,7 @@ function BasicEarnHome({
 
       void refetchFAQ();
     },
-    [actions, prefetchEarnAvailableAssets, refetchFAQ],
+    [actions, prefetchEarnAvailableAssets, refetchFAQ, showContent],
   );
 
   useListenTabFocusState(earnFocusTabRoutes, handleListenTabFocusState);
@@ -524,6 +532,7 @@ function BasicEarnHome({
                   containerProps={mobileContainerProps}
                   tabsRef={tabsRef}
                   nestedPager={useSwipePager}
+                  isActive={isEarnContentActive}
                 />
                 {showHeader && showContent ? (
                   <YStack
@@ -575,6 +584,7 @@ function BasicEarnHome({
             containerProps={mobileContainerProps}
             header={marketSelectorHeader}
             tabsRef={tabsRef}
+            isActive={isEarnContentActive}
           />
 
           {showHeader && showContent && media.md ? (
@@ -649,6 +659,7 @@ function BasicEarnHome({
                 isFaqLoading={isFaqLoading}
                 defaultTab={defaultTab}
                 portfolioData={portfolioData}
+                isActive={isEarnContentActive}
               />
             </YStack>
           }

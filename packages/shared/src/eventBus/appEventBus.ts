@@ -280,7 +280,6 @@ export interface IAppEventBusPayload {
           networkId: string;
         }[];
       };
-  [EAppEventBusNames.RefreshEarnRecommendedList]: undefined;
   [EAppEventBusNames.RefreshHistoryList]: undefined;
   [EAppEventBusNames.RefreshApprovalList]: undefined;
   [EAppEventBusNames.RefreshBookmarkList]: undefined;
