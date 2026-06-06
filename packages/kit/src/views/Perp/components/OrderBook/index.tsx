@@ -1977,12 +1977,31 @@ export function OrderBookMobile({
     () => aggregatedData.bids.map((itemData) => itemData.displaySize),
     [aggregatedData.bids],
   );
-  const askPercents = useRafCoalesced(askPercentsRaw, depthEpoch);
-  const askPrices = useRafCoalesced(askPricesRaw, depthEpoch);
-  const askSizes = useRafCoalesced(askSizesRaw, depthEpoch);
-  const bidPercents = useRafCoalesced(bidPercentsRaw, depthEpoch);
-  const bidPrices = useRafCoalesced(bidPricesRaw, depthEpoch);
-  const bidSizes = useRafCoalesced(bidSizesRaw, depthEpoch);
+  // Merge percents/prices/sizes into a single ladder object per side and
+  // frame-coalesce ONCE, so the three arrays a depth column reads are always
+  // from the SAME source frame. Coalescing them through three independent
+  // useRafCoalesced calls could land a percents update on frame N while
+  // prices/sizes still showed frame N-1, briefly misaligning the bar fill from
+  // its own price/size text (PR review r3363420755). The raw arrays keep their
+  // own useMemo identities so this wrapper only changes when real data changes.
+  const askLadderRaw = useMemo(
+    () => ({
+      percents: askPercentsRaw,
+      prices: askPricesRaw,
+      sizes: askSizesRaw,
+    }),
+    [askPercentsRaw, askPricesRaw, askSizesRaw],
+  );
+  const bidLadderRaw = useMemo(
+    () => ({
+      percents: bidPercentsRaw,
+      prices: bidPricesRaw,
+      sizes: bidSizesRaw,
+    }),
+    [bidPercentsRaw, bidPricesRaw, bidSizesRaw],
+  );
+  const askLadder = useRafCoalesced(askLadderRaw, depthEpoch);
+  const bidLadder = useRafCoalesced(bidLadderRaw, depthEpoch);
 
   const priceFontSize = useMemo(() => {
     if (!asks.length) {
@@ -2066,15 +2085,15 @@ export function OrderBookMobile({
             ))
           ) : (
             <DepthBarColumn
-              percents={askPercents}
+              percents={askLadder.percents}
               rowHeight={MOBILE_ROW_HEIGHT}
               rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
               barInset={ORDER_BOOK_MOBILE_BAR_INSET}
               color={blockColors.red}
               origin="left"
               epoch={depthEpoch}
-              prices={askPrices}
-              sizes={askSizes}
+              prices={askLadder.prices}
+              sizes={askLadder.sizes}
               priceColor={textColor.red}
               sizeColor={textColor.textSubdued}
               priceFontSize={priceFontSize}
@@ -2101,15 +2120,15 @@ export function OrderBookMobile({
             ))
           ) : (
             <DepthBarColumn
-              percents={bidPercents}
+              percents={bidLadder.percents}
               rowHeight={MOBILE_ROW_HEIGHT}
               rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
               barInset={ORDER_BOOK_MOBILE_BAR_INSET}
               color={blockColors.green}
               origin="left"
               epoch={depthEpoch}
-              prices={bidPrices}
-              sizes={bidSizes}
+              prices={bidLadder.prices}
+              sizes={bidLadder.sizes}
               priceColor={textColor.green}
               sizeColor={textColor.textSubdued}
               priceFontSize={priceFontSize}
