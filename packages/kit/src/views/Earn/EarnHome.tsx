@@ -316,10 +316,13 @@ function BasicEarnHome({
   const isBorrowMode = defaultMode === 'borrow';
   const isEarnContentActive =
     isEarnDataActive && showContent !== false && isEarnMode;
+  const isAssetsTabActive = defaultTab === undefined || defaultTab === 'assets';
   const earnModeSwitchTypeRef = useRef<IEarnModeSwitchType>('default');
   const hasLoggedEarnModeSwitchRef = useRef(false);
   const defaultModeRef = useRef(defaultMode);
   defaultModeRef.current = defaultMode;
+  const isAssetsTabActiveRef = useRef(isAssetsTabActive);
+  isAssetsTabActiveRef.current = isAssetsTabActive;
 
   const earnBorrowScrollPosition = useSharedValue(
     defaultMode === 'borrow' ? 1 : 0,
@@ -407,6 +410,12 @@ function BasicEarnHome({
         return;
       }
 
+      void refetchFAQ();
+
+      if (!isAssetsTabActiveRef.current) {
+        return;
+      }
+
       void prefetchEarnAvailableAssets();
 
       const simpleKey = `availableAssets-${EAvailableAssetsTypeEnum.SimpleEarn}`;
@@ -425,8 +434,6 @@ function BasicEarnHome({
         });
         actions.current.triggerRefresh();
       }
-
-      void refetchFAQ();
     },
     [actions, prefetchEarnAvailableAssets, refetchFAQ, showContent],
   );
