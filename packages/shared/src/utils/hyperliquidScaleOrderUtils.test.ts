@@ -2,6 +2,7 @@ import {
   assertValidScaleOrderLegs,
   buildScaleOrderLegs,
   getReduceOnlyOrderGuardError,
+  getReduceOnlyPositionMaxSize,
   getReduceOnlyPositionSnapshotError,
   getScaleOrderPriceBounds,
   getScaleOrderReferencePrice,
@@ -299,5 +300,43 @@ describe('hyperliquidScaleOrderUtils', () => {
         positionSize: '2',
       }),
     ).toBe('Reduce-only order size exceeds the current position');
+  });
+
+  test('resolves reduce-only slider max from the opposite position size', () => {
+    expect(
+      getReduceOnlyPositionMaxSize({
+        reduceOnly: true,
+        side: 'short',
+        positionSize: '37.123',
+        szDecimals: 2,
+      })?.toFixed(),
+    ).toBe('37.12');
+
+    expect(
+      getReduceOnlyPositionMaxSize({
+        reduceOnly: true,
+        side: 'long',
+        positionSize: '-12.345',
+        szDecimals: 2,
+      })?.toFixed(),
+    ).toBe('12.34');
+
+    expect(
+      getReduceOnlyPositionMaxSize({
+        reduceOnly: true,
+        side: 'long',
+        positionSize: '12.345',
+        szDecimals: 2,
+      }),
+    ).toBeUndefined();
+
+    expect(
+      getReduceOnlyPositionMaxSize({
+        reduceOnly: false,
+        side: 'short',
+        positionSize: '37.123',
+        szDecimals: 2,
+      }),
+    ).toBeUndefined();
   });
 });

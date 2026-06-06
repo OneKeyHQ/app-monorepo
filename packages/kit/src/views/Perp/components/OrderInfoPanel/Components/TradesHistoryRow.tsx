@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   DashText,
   Divider,
   IconButton,
@@ -54,7 +53,6 @@ export type ITradesHistoryRowProps = {
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
   builderFeeRate?: number;
-  twapId?: number;
 };
 
 const TradesHistoryRow = memo(
@@ -69,7 +67,6 @@ const TradesHistoryRow = memo(
     isHovered,
     onHoverChange,
     builderFeeRate,
-    twapId,
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
       return (
@@ -264,11 +261,6 @@ const TradesHistoryRow = memo(
                 >
                   {directionInfo.directionStr}
                 </SizableText>
-                {twapId !== undefined ? (
-                  <Badge badgeType="info" badgeSize="sm">
-                    {`TWAP #${twapId}`}
-                  </Badge>
-                ) : null}
               </XStack>
               <SizableText size="$bodySm" color="$textSubdued">
                 {dateInfo.date} {dateInfo.time}
@@ -442,11 +434,6 @@ const TradesHistoryRow = memo(
                 >
                   {directionInfo.directionStr}
                 </SizableText>
-                {twapId !== undefined ? (
-                  <Badge badgeType="info" badgeSize="sm">
-                    {`TWAP #${twapId}`}
-                  </Badge>
-                ) : null}
               </XStack>
             </XStack>
 
