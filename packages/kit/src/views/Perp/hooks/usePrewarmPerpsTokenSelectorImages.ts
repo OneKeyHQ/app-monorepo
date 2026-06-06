@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { prewarmPerpsTokenSelectorImages } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
@@ -49,22 +48,15 @@ function loadTokenSelectorInitialList() {
 }
 
 export function usePrewarmPerpsTokenSelectorImages() {
-  const actions = useHyperliquidActions();
   const tokenSelectorImageItemsRef = useRef<
     IPerpsTokenSelectorInitialListItem[]
   >([]);
 
   const refreshTokenSelectorInitialList = useCallback(async () => {
-    const { assetsByDex, tokenSearchAliases, items } =
-      await loadTokenSelectorInitialList();
+    const { items } = await loadTokenSelectorInitialList();
     tokenSelectorImageItemsRef.current = items;
-    actions.current.updateAllAssetsFiltered({
-      allAssetsByDex: assetsByDex,
-      query: '',
-      tokenSearchAliases,
-    });
     return items;
-  }, [actions]);
+  }, []);
 
   const prewarmTokenSelectorImages = useCallback(() => {
     const tokenSelectorImageItems = tokenSelectorImageItemsRef.current;

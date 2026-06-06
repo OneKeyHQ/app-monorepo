@@ -1005,10 +1005,16 @@ function MobileTokenSelectorModal({
     void prewarmPerpsTokenSelectorImages(mockedListData);
   }, [mockedListData]);
 
+  const isDefaultPerpsSelectorView =
+    displayActiveTab === DEFAULT_PERP_TOKEN_ACTIVE_TAB &&
+    (selectorConfig?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD) ===
+      DEFAULT_PERP_TOKEN_SORT_FIELD &&
+    (selectorConfig?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION) ===
+      DEFAULT_PERP_TOKEN_SORT_DIRECTION;
   const shouldUseCachedInitialList =
     platformEnv.isNativeIOS &&
     !searchQuery &&
-    isPerpTokenSelectorPerpsTab(displayPrimaryTab) &&
+    isDefaultPerpsSelectorView &&
     mockedListData.length === 0 &&
     cachedInitialListRef.current.length > 0;
   const displayedListData = shouldUseCachedInitialList
