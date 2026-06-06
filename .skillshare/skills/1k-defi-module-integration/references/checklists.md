@@ -56,6 +56,13 @@ Use this drill for native staking, chain-specific, or provider-backed operations
 ## Earn/Staking Checklist
 
 - Provider, vault, network, symbol, category, and account survive list/detail/operation round trip.
+- Recommended cards are classified as global catalog data or account-scoped
+  balance data before fetch and refresh behavior is changed.
+- If balance or wallet UI is removed from recommendations, remove the matching
+  account-scoped fetch, cache key, app event, pending/swap refresh coupling,
+  and balance skeletons instead of preserving hidden account refresh work.
+- Hidden Earn, Borrow mode, and inactive Earn tabs do not fetch recommended or
+  available-assets data unless the visible host says they are active.
 - Stake, withdraw, claim, redeem, and maturity-driven variants use typed operation state.
 - Approval, permit, wrap, cooldown, quote, and KYC states are visible before sign.
 - Pending indicator and history filters use the same tags.
