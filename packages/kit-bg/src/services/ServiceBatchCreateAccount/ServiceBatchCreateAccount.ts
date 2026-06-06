@@ -63,12 +63,6 @@ import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetwork
 import ServiceBase from '../ServiceBase';
 import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
 
-import {
-  debugAllNetworkLog,
-  summarizeAllNetworkBundle,
-  summarizeAllNetworkItems,
-  summarizeAllNetworkSdkResponse,
-} from './thirdPartyAllNetworkDebug';
 import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkErrors';
 import {
   type IThirdPartyAllNetworkAddressParams,
@@ -836,20 +830,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
     const bundle = normalizeThirdPartyAllNetworkBundle(bundleParams);
     const thirdPartyCommonParams =
       thirdPartyCommonCallParamsForCreateScene(createSceneParams);
-    debugAllNetworkLog('third-party-request', {
-      autoInstallApp: thirdPartyCommonParams?.autoInstallApp,
-      bundleLength: bundle.length,
-      bundle: summarizeAllNetworkBundle(bundle),
-    });
     const response = await allNetworkGetAddress(connectId, deviceId, {
       ...commonParams,
       ...thirdPartyCommonParams,
       bundle,
     });
-    debugAllNetworkLog(
-      'third-party-response',
-      summarizeAllNetworkSdkResponse(response),
-    );
 
     if (!response.success) {
       throw convertThirdPartyDeviceError(response.payload, {
@@ -1022,11 +1007,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
             }
             hwAllNetworkPrepareAccountsResponse.bundleLength =
               bundleParams.length;
-            debugAllNetworkLog('prepare-request', {
-              length: bundleParams.length,
-              loopMode: params.loopMode,
-              bundle: summarizeAllNetworkBundle(bundleParams),
-            });
 
             // throw new NewFirmwareForceUpdate({ payload: {} });
 
@@ -1098,20 +1078,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
                                     },
                                   );
                                 }
-                                console.log(
-                                  'sdk.allNetworkGetAddressByLoop__onLoopItemResponse',
-                                  data,
-                                );
-                                debugAllNetworkLog('loop-item-response', {
-                                  item: summarizeAllNetworkItems(
-                                    data
-                                      ? [
-                                          data as IHwAllNetworkPrepareAccountsItem,
-                                        ]
-                                      : [],
-                                  )[0],
-                                });
-
                                 if (data) {
                                   hwAllNetworkPrepareAccountsResponse.onSdkItemCallResponse(
                                     data as IHwAllNetworkPrepareAccountsItem,
@@ -1119,24 +1085,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
                                 }
                               },
                               onAllItemsResponse: (data, error) => {
-                                console.log(
-                                  'sdk.allNetworkGetAddressByLoop__onAllItemsResponse',
-                                  data,
-                                  error,
-                                );
-                                debugAllNetworkLog('loop-all-response', {
-                                  items: summarizeAllNetworkItems(
-                                    data as
-                                      | IHwAllNetworkPrepareAccountsItem[]
-                                      | undefined,
-                                  ),
-                                  error: error
-                                    ? summarizeAllNetworkSdkResponse({
-                                        success: false,
-                                        payload: error.payload,
-                                      })
-                                    : undefined,
-                                });
                                 if (data === undefined && error) {
                                   const hwError = convertDeviceError(
                                     {
@@ -1171,17 +1119,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
                     const sdkAllNetworkGetAddressResponse =
                       await sdkPromiseResult;
 
-                    console.log('sdk.allNetworkGetAddress response', {
-                      bundle: bundleParams,
-                      response: sdkAllNetworkGetAddressResponse,
-                    });
-                    debugAllNetworkLog(
-                      'sdk-response',
-                      summarizeAllNetworkSdkResponse(
-                        sdkAllNetworkGetAddressResponse,
-                      ),
-                    );
-
                     return sdkAllNetworkGetAddressResponse;
                   },
                 )) as IHwAllNetworkPrepareAccountsItem[];
@@ -1190,15 +1127,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                 normalizeAllNetworkInstallCancelErrors(
                   allNetworkGetAddressResponse,
                 );
-              debugAllNetworkLog('prepare-response-items', {
-                items: summarizeAllNetworkItems(allNetworkGetAddressResponse),
-              });
             } catch (error) {
-              console.log('sdk.allNetworkGetAddress error', error);
-              debugAllNetworkLog('prepare-error', {
-                message: this.getErrorMessage(error),
-                code: (error as { code?: unknown })?.code,
-              });
               if (params.loopMode) {
                 appEventBus.emit(
                   EAppEventBusNames.SDKGetAllNetworkAddressesEnd,
@@ -1427,17 +1356,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
         defaultLogger.account.batchCreatePerf.batchCreateForAllNetworkDone({
           walletId: params.walletId,
           addedAccountsCount: addedAccounts.length,
-        });
-        debugAllNetworkLog('batch-create-result', {
-          addedAccounts,
-          failedAccounts: failedAccounts.map((item) => ({
-            networkId: item.networkId,
-            deriveType: item.deriveType,
-            code: item.error.code,
-            key: item.error.key,
-            message: item.error.message,
-            autoToast: item.error.autoToast,
-          })),
         });
         return { addedAccounts, failedAccounts };
       },

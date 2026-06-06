@@ -49,7 +49,6 @@ function InstallCoreAppsContent({
 
   const hasSelection = apps.some((appName) => selected[appName]);
 
-  // Hand off only when the SDK actually starts emitting; spinner stays otherwise.
   useEffect(() => {
     if (installing && appInstallState) {
       onClose();
@@ -156,7 +155,6 @@ export async function showLedgerInstallCoreAppsDialog(params: {
     const device = await backgroundApiProxy.serviceAccount.getWalletDevice({
       walletId: params.walletId,
     });
-    // USB Ledger connectId is empty by design; SDK picks the sole device.
     connectId =
       device?.connectId || device?.usbConnectId || device?.bleConnectId || '';
   }

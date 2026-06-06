@@ -15,10 +15,6 @@ export type IThirdPartyHardwareSearchOptions = {
   resetSession?: boolean;
 };
 
-// =====================================================================
-// UI Event types (OneKey-specific adapter UI layer)
-// =====================================================================
-
 export type IAdapterUiRequestType =
   | EThirdPartyHardwareUiAction.requestDeviceNotFound
   | EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm;
@@ -45,17 +41,9 @@ export type IAdapterUiEvent = IAdapterUiRequest;
 /** Alias of SDK's UiResponseEvent — the (type, payload) contract is SDK-owned. */
 export type IAdapterUiResponse = UiResponseEvent;
 
-/**
- * The narrow union of "vendors that currently have a registered adapter"
- * is derived from `thirdPartyHardwareAdapterRegistry` — import it from
- * `./thirdPartyHardwareAdapterRegistry` (or re-export via `./index`).
- * We keep `vendor` typed as the broader `EHardwareVendor` here to avoid
- * a types ↔ registry circular import.
- */
 export interface IThirdPartyHardwareAdapter {
   readonly vendor: EHardwareVendor;
   readonly hw: IHardwareWallet;
-  /** Enables the app-level batch address flow for vendors that implement it. */
   readonly supportsAllNetworkGetAddress?: boolean;
 
   onUiEvent(handler: (event: IAdapterUiEvent) => void): () => void;

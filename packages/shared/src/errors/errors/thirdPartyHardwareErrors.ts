@@ -77,7 +77,6 @@ export class ThirdPartyDeviceLocked extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.DeviceLocked;
 }
 
-/** Not enough free space on the device to install the app */
 export class ThirdPartyDeviceOutOfMemory extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
@@ -92,7 +91,6 @@ export class ThirdPartyDeviceOutOfMemory extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.DeviceOutOfMemory;
 }
 
-/** Network failure reaching the vendor's servers (e.g. downloading an app) */
 export class ThirdPartyNetworkError extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
@@ -106,7 +104,6 @@ export class ThirdPartyNetworkError extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.NetworkError;
 }
 
-/** User rejected the operation on device */
 export class ThirdPartyUserRejected extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -120,7 +117,6 @@ export class ThirdPartyUserRejected extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.UserRejected;
 }
 
-/** User dismissed in-app cancel UI. No auto-toast (user already knows). */
 export class ThirdPartyUserAborted extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -134,7 +130,6 @@ export class ThirdPartyUserAborted extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.UserAborted;
 }
 
-/** User canceled installing a required chain app during all-network address creation. */
 export class ThirdPartyInstallAppUserCancelled extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -148,7 +143,6 @@ export class ThirdPartyInstallAppUserCancelled extends ThirdPartyHardwareError {
   override code = THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE;
 }
 
-/** OS-level device permission (Bluetooth / USB) denied. */
 export class ThirdPartyDevicePermissionDenied extends ThirdPartyHardwareError {
   reason?: EThirdPartyDevicePermissionDeniedReason;
 

@@ -204,7 +204,6 @@ export const {
   name: EAtomNames.thirdPartyHardwareUiStateAtom,
 });
 
-// Separate install state so progress UI does not fight with generic SDK prompts.
 export type IThirdPartyAppInstallState = {
   vendor: EHardwareVendor;
   appName: string;

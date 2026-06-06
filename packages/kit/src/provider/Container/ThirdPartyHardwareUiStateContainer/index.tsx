@@ -179,7 +179,6 @@ function InstallAppDialogContent() {
   const [state] = useThirdPartyAppInstallAtom();
   const [batch] = useThirdPartyBatchInstallAtom();
 
-  // Clamp mid-install percent at 99 so the bar only hits 100 on completion.
   const [view, setView] = useState<IInstallView>(INITIAL_VIEW);
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -238,8 +237,6 @@ function InstallAppDialogContent() {
     [vendor],
   );
 
-  // Defense in depth: clear both atoms on cancel/abort so a stuck loop can't
-  // leave the batch atom dangling.
   const onCancel = useCallback(async () => {
     try {
       await sendResponse(false);
@@ -535,7 +532,6 @@ function ThirdPartyHardwareUiStateContainerCmp() {
 
   const [appInstallState] = useThirdPartyAppInstallAtom();
 
-  // Gate on per-app atom only so installApp fast-fail never flashes the dialog.
   const dialogActive = !!appInstallState;
   useEffect(() => {
     if (dialogActive) {
