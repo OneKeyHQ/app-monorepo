@@ -776,12 +776,10 @@ function SendAmountInputContainer() {
       !!privateSendToken &&
       !!account?.address &&
       !!recipientAddress &&
-      !hasAmountError &&
       !privateSendAmountBN.isNaN() &&
       privateSendAmountBN.isGreaterThan(0),
     [
       account?.address,
-      hasAmountError,
       isPrivateSendSupported,
       privateSendAmountBN,
       privateSendToken,
@@ -829,8 +827,7 @@ function SendAmountInputContainer() {
         !isPrivateSendSupported ||
         !privateSendToken ||
         !account?.address ||
-        !privateSendQuoteRecipientAddress ||
-        hasAmountError
+        !privateSendQuoteRecipientAddress
       ) {
         return undefined;
       }
@@ -878,7 +875,6 @@ function SendAmountInputContainer() {
     [
       account?.address,
       currentAccountId,
-      hasAmountError,
       isPrivateSendSupported,
       privateSendAmount,
       privateSendToken,
@@ -902,9 +898,15 @@ function SendAmountInputContainer() {
       (canFetchPrivateSendQuote && !isPrivateSendQuoteScopeMatched));
   const privateSendQuote = scopedPrivateSendQuoteResult?.selectedQuote;
   const refreshPrivateSendQuote = useCallback(() => {
-    if (!canFetchPrivateSendQuote || isPrivateSendQuoteRefreshing) return;
+    if (
+      !canFetchPrivateSendQuote ||
+      isPrivateSendQuoteRefreshing ||
+      isSubmitting
+    ) {
+      return;
+    }
     setPrivateSendQuoteRefreshNonce((nonce) => nonce + 1);
-  }, [canFetchPrivateSendQuote, isPrivateSendQuoteRefreshing]);
+  }, [canFetchPrivateSendQuote, isPrivateSendQuoteRefreshing, isSubmitting]);
 
   const privateSendQuoteError = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return undefined;
@@ -1124,6 +1126,10 @@ function SendAmountInputContainer() {
         });
       }
 
+      if (privateSendQuoteError) {
+        return privateSendQuoteError;
+      }
+
       const priceBN = new BigNumber(tokenDetails?.price ?? 0);
       // Mirror the flooring applied in `linkedAmount` so the value validated
       // here matches the value submitted to the vault. Without this, fiat
@@ -1255,6 +1261,7 @@ function SendAmountInputContainer() {
       isUseFiat,
       isNFT,
       tokenSymbol,
+      privateSendQuoteError,
       currentAccountId,
       networkId,
       maxBalance,
@@ -1270,7 +1277,13 @@ function SendAmountInputContainer() {
       return;
     }
     void form.trigger('amount');
-  }, [form, privateSendAmount, sendMode, validationEffectiveMinAmount]);
+  }, [
+    form,
+    privateSendAmount,
+    privateSendQuoteError,
+    sendMode,
+    validationEffectiveMinAmount,
+  ]);
 
   // Fiat input needs a usable price to convert it to a token amount. Single
   // source of truth for the fiat-mode guards below.
@@ -2146,18 +2159,20 @@ function SendAmountInputContainer() {
                   rocketXOrderId: privateSendRocketXOrderId,
                 },
               };
+              try {
+                await backgroundApiProxy.serviceSwap.fetchPrivateSendInitialTxState(
+                  swapHistoryItem,
+                );
+              } catch (error) {
+                defaultLogger.app.error.log(
+                  `Fetch private send initial tx state failed: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                );
+              }
               await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
                 swapHistoryItem,
               );
-              void backgroundApiProxy.serviceSwap
-                .fetchPrivateSendInitialTxState(swapHistoryItem)
-                .catch((error) => {
-                  defaultLogger.app.error.log(
-                    `Fetch private send initial tx state failed: ${
-                      error instanceof Error ? error.message : String(error)
-                    }`,
-                  );
-                });
             };
 
             await signatureConfirm.navigationToTxConfirm({
@@ -2365,11 +2380,20 @@ function SendAmountInputContainer() {
   isSubmitDisabledRef.current = isSubmitDisabled;
 
   const handleConfirm = useCallback(async () => {
+    const shouldLockPrivateSend = sendMode === ESendMode.PRIVATE;
+    if (shouldLockPrivateSend) {
+      setIsSubmitting(true);
+    }
     const isValid = await form.trigger();
-    if (!isValid) return;
+    if (!isValid) {
+      if (shouldLockPrivateSend) {
+        setIsSubmitting(false);
+      }
+      return;
+    }
 
     await onSubmitRef.current?.();
-  }, [form]);
+  }, [form, sendMode]);
 
   // Keyboard shortcuts for desktop (when input is not focused)
   // M = Max, Enter = confirm
@@ -2751,14 +2775,12 @@ function SendAmountInputContainer() {
   const isAmountTyping = amount !== useDebounce(amount, 400);
   const shouldDeferAmountError =
     isAmountTyping || isAmountZeroOrEmpty || !hasAmountError;
-  const shouldShowPrivateSendCriticalQuoteError =
-    sendMode === ESendMode.PRIVATE &&
-    !!privateSendQuoteError &&
-    (!privateSendProviderMinAmount || !minAmountHint);
+  const hasPrivateSendQuoteError =
+    sendMode === ESendMode.PRIVATE && !!privateSendQuoteError;
   const shouldShowPrivateSendMinAmountHint =
     sendMode === ESendMode.PRIVATE &&
     !!minAmountHint &&
-    !shouldShowPrivateSendCriticalQuoteError &&
+    !hasPrivateSendQuoteError &&
     (!hasAmountError ||
       isAmountTyping ||
       isAmountZeroOrEmpty ||
@@ -2826,21 +2848,24 @@ function SendAmountInputContainer() {
             }}
           />
         </Form.Field>
-        <HeightTransition>
-          {shouldShowPrivateSendCriticalQuoteError ? (
-            <SizableText
-              pt="$1.5"
-              size="$bodyMd"
-              color="$textCritical"
-              textAlign="center"
-            >
-              {privateSendQuoteError}
-            </SizableText>
-          ) : null}
-        </HeightTransition>
         {platformEnv.isNativeIOS ? (
           <InputAccessoryView nativeID={amountInputAccessoryViewID}>
-            <SizableText h="$0" />
+            <XStack
+              p="$2.5"
+              px="$3.5"
+              justifyContent="flex-end"
+              bg="$bgSubdued"
+              borderTopWidth="$px"
+              borderTopColor="$borderSubduedLight"
+            >
+              <Button
+                variant="tertiary"
+                testID="send-amount-keyboard-done-btn"
+                onPress={Keyboard.dismiss}
+              >
+                {intl.formatMessage({ id: ETranslations.global_done })}
+              </Button>
+            </XStack>
           </InputAccessoryView>
         ) : null}
       </>
@@ -2851,13 +2876,12 @@ function SendAmountInputContainer() {
       handleAmountInputChange,
       handleToggleFiatMode,
       handleValidateTokenAmount,
+      intl,
       isIntegerAmount,
       isInvoiceAmountLocked,
       isUseFiat,
       linkedAmount.linkedAmount,
       linkedAmount.originalAmount,
-      privateSendQuoteError,
-      shouldShowPrivateSendCriticalQuoteError,
       tokenSymbol,
     ],
   );
@@ -3221,11 +3245,14 @@ function SendAmountInputContainer() {
             <SwapRefreshButtonBase
               refreshAction={refreshPrivateSendQuote}
               disabled={
-                !canFetchPrivateSendQuote || isPrivateSendQuoteRefreshing
+                !canFetchPrivateSendQuote ||
+                isPrivateSendQuoteRefreshing ||
+                isSubmitting
               }
               isRefreshQuote={isPrivateSendQuoteRefreshing}
               isLoading={isPrivateSendQuoteRefreshing}
               isFocused={isRouteFocused}
+              autoRefresh={!isSubmitting}
             />
           </XStack>
           {showPrivateSendQuoteSkeleton ? (
@@ -3313,6 +3340,7 @@ function SendAmountInputContainer() {
     isNFT,
     isPrivateSendQuoteRefreshing,
     isRouteFocused,
+    isSubmitting,
     maxBalance,
     privateSendQuote,
     privateSendToken?.price,
@@ -3604,6 +3632,12 @@ function SendAmountInputContainer() {
     </>
   );
 
+  const handleDismissKeyboardOnDrag = useCallback(() => {
+    if (platformEnv.isNativeIOS) {
+      Keyboard.dismiss();
+    }
+  }, []);
+
   return (
     <Page safeAreaEnabled>
       <Page.Header
@@ -3616,6 +3650,7 @@ function SendAmountInputContainer() {
           <Keyboard.AwareScrollView
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
+            onScrollBeginDrag={handleDismissKeyboardOnDrag}
             showsVerticalScrollIndicator={false}
             style={{ flex: 1 }}
             contentContainerStyle={{ flexGrow: 1 }}
