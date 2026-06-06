@@ -15,16 +15,16 @@ import {
   PerpSideRatioView,
 } from '@onekeyfe/react-native-perp-depth-bar';
 import {
-  type HybridView,
-  callback as nitroCallback,
-} from 'react-native-nitro-modules';
-import {
   AccessibilityInfo,
   type StyleProp,
   StyleSheet,
   type ViewStyle,
   processColor,
 } from 'react-native';
+import {
+  type HybridView,
+  callback as nitroCallback,
+} from 'react-native-nitro-modules';
 
 import { normalizeDepthWidth } from './AnimatedDepthBlock.shared';
 
