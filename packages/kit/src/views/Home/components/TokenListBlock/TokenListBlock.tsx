@@ -74,6 +74,7 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
+  type IAppEventBusPayload,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -2695,16 +2696,7 @@ function TokenListBlock({
 
   useEffect(() => {
     const refresh = (
-      params:
-        | {
-            accounts: {
-              accountId: string;
-              networkId: string;
-              indexedAccountId?: string;
-            }[];
-            refreshByProvidedAccounts?: boolean;
-          }
-        | undefined,
+      params: IAppEventBusPayload[EAppEventBusNames.RefreshTokenList],
     ) => {
       // A flagged payload (emitted from another home tab right after a network
       // switch) asks this list to refresh against the provided account/network.

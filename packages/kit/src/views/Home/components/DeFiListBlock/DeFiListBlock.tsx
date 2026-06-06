@@ -144,6 +144,33 @@ const ProtocolListItem = memo(
 );
 ProtocolListItem.displayName = 'ProtocolListItem';
 
+// Convert a DeFi overview's monetary fields from one fiat currency to another
+// using the two currencies' rate values. Returns only the converted numeric
+// fields so callers can spread them over the source overview, preserving its
+// other keys (e.g. `currency`).
+function convertDeFiOverviewValues(
+  overview: {
+    totalValue: number;
+    totalDebt: number;
+    totalReward: number;
+    netWorth: number;
+  },
+  sourceCurrencyValue: string,
+  targetCurrencyValue: string,
+) {
+  const convert = (value: number) =>
+    new BigNumber(value)
+      .div(sourceCurrencyValue)
+      .times(targetCurrencyValue)
+      .toNumber();
+  return {
+    totalValue: convert(overview.totalValue),
+    totalDebt: convert(overview.totalDebt),
+    totalReward: convert(overview.totalReward),
+    netWorth: convert(overview.netWorth),
+  };
+}
+
 function DeFiListBlock({
   refreshCacheOnly = false,
   tableLayout,
@@ -599,22 +626,11 @@ function DeFiListBlock({
           const _targetCurrencyInfo = currencyMap[settings.currencyInfo.id];
           convertedOverview = {
             ...rawOverview,
-            totalValue: new BigNumber(rawOverview.totalValue)
-              .div(_sourceCurrencyInfo.value)
-              .times(_targetCurrencyInfo.value)
-              .toNumber(),
-            totalDebt: new BigNumber(rawOverview.totalDebt)
-              .div(_sourceCurrencyInfo.value)
-              .times(_targetCurrencyInfo.value)
-              .toNumber(),
-            totalReward: new BigNumber(rawOverview.totalReward)
-              .div(_sourceCurrencyInfo.value)
-              .times(_targetCurrencyInfo.value)
-              .toNumber(),
-            netWorth: new BigNumber(rawOverview.netWorth)
-              .div(_sourceCurrencyInfo.value)
-              .times(_targetCurrencyInfo.value)
-              .toNumber(),
+            ...convertDeFiOverviewValues(
+              rawOverview,
+              _sourceCurrencyInfo.value,
+              _targetCurrencyInfo.value,
+            ),
           };
         }
       }
@@ -855,22 +871,11 @@ function DeFiListBlock({
             const _targetCurrencyInfo = currencyMap[settings.currencyInfo.id];
             convertedOverview = {
               ...rawOverview,
-              totalValue: new BigNumber(rawOverview.totalValue)
-                .div(_sourceCurrencyInfo.value)
-                .times(_targetCurrencyInfo.value)
-                .toNumber(),
-              totalDebt: new BigNumber(rawOverview.totalDebt)
-                .div(_sourceCurrencyInfo.value)
-                .times(_targetCurrencyInfo.value)
-                .toNumber(),
-              totalReward: new BigNumber(rawOverview.totalReward)
-                .div(_sourceCurrencyInfo.value)
-                .times(_targetCurrencyInfo.value)
-                .toNumber(),
-              netWorth: new BigNumber(rawOverview.netWorth)
-                .div(_sourceCurrencyInfo.value)
-                .times(_targetCurrencyInfo.value)
-                .toNumber(),
+              ...convertDeFiOverviewValues(
+                rawOverview,
+                _sourceCurrencyInfo.value,
+                _targetCurrencyInfo.value,
+              ),
             };
           }
           updateAccountDeFiOverview({
@@ -981,22 +986,11 @@ function DeFiListBlock({
             if (_sourceCurrencyInfo && _targetCurrencyInfo) {
               convertedOverview = {
                 ...rawOverview,
-                totalValue: new BigNumber(rawOverview.totalValue)
-                  .div(_sourceCurrencyInfo.value)
-                  .times(_targetCurrencyInfo.value)
-                  .toNumber(),
-                totalDebt: new BigNumber(rawOverview.totalDebt)
-                  .div(_sourceCurrencyInfo.value)
-                  .times(_targetCurrencyInfo.value)
-                  .toNumber(),
-                totalReward: new BigNumber(rawOverview.totalReward)
-                  .div(_sourceCurrencyInfo.value)
-                  .times(_targetCurrencyInfo.value)
-                  .toNumber(),
-                netWorth: new BigNumber(rawOverview.netWorth)
-                  .div(_sourceCurrencyInfo.value)
-                  .times(_targetCurrencyInfo.value)
-                  .toNumber(),
+                ...convertDeFiOverviewValues(
+                  rawOverview,
+                  _sourceCurrencyInfo.value,
+                  _targetCurrencyInfo.value,
+                ),
               };
             }
           }
