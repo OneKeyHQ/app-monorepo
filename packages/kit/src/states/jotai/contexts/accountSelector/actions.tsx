@@ -1515,12 +1515,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }
 
         const shouldSync =
-          (await serviceAccountSelector.shouldSyncWithHome({
-            sceneName,
-            sceneUrl,
-            num,
-          })) &&
-          (await serviceAccountSelector.shouldSyncWithHome(eventPayload));
+          await serviceAccountSelector.shouldSyncHomeAndSwapSelectedAccount({
+            sourceScene: eventPayload,
+            targetScene: {
+              sceneName,
+              sceneUrl,
+              num,
+            },
+          });
 
         if (shouldSync) {
           const current = this.getSelectedAccount.call(set, { num });
@@ -1799,7 +1801,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         // **** also save to home scene SelectedAccount if sync needed
         if (
           sceneName !== EAccountSelectorSceneName.home &&
-          (await serviceAccountSelector.shouldSyncWithHome({
+          (await serviceAccountSelector.shouldSyncWithHomeSource({
             sceneName,
             sceneUrl,
             num,
