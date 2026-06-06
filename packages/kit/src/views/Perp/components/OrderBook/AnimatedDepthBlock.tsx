@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -93,9 +93,24 @@ export function DepthBarColumn({
   barInset,
   color,
   origin = 'left',
+  epoch,
   onRowPress,
+  onDepthReady,
 }: IDepthBarColumnProps) {
   const barHeight = rowHeight - 2 * barInset;
+  // Mirror the native variant's `onDepthReady` contract so the shared parent can
+  // gate its `--` placeholder identically on web. Web renders bars synchronously
+  // from props, so "ready" is simply the first non-empty render per epoch.
+  const reportedReadyRef = useRef(false);
+  useEffect(() => {
+    reportedReadyRef.current = false;
+  }, [epoch]);
+  useEffect(() => {
+    if (percents.length > 0 && !reportedReadyRef.current) {
+      reportedReadyRef.current = true;
+      onDepthReady?.();
+    }
+  }, [percents.length, onDepthReady]);
   return (
     <>
       {percents.map((percent, index) => (

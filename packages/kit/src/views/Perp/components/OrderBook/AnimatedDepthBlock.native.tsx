@@ -35,13 +35,15 @@ import type {
 } from './AnimatedDepthBlock.shared';
 
 /**
- * Stable empty array passed as the `percents` prop on `DepthBarColumn`. The
- * high-frequency per-row depth data is pushed imperatively via the native
- * `setDepth` method (see below), so the prop must stay referentially stable to
- * avoid re-entering the React reconciliation + Fabric props commit + JSI
- * serialization path on every frame (REACT-NATIVE-1JZ).
+ * Stable empty arrays passed as the `percents` / `prices` / `sizes` props on
+ * `DepthBarColumn`. The high-frequency per-row depth AND text data are pushed
+ * imperatively via the native `setDepth` / `setText` methods (see below), so the
+ * props must stay referentially stable to avoid re-entering the React
+ * reconciliation + Fabric props commit + JSI serialization path on every frame
+ * (REACT-NATIVE-1JZ).
  */
 const EMPTY_PERCENTS: number[] = [];
+const EMPTY_STRINGS: string[] = [];
 
 /**
  * Imperative hybrid-view ref types. Nitro views expose their native methods on
@@ -137,6 +139,7 @@ export function DepthBarColumn({
   sizeFontSize,
   textInset,
   onRowPress,
+  onDepthReady,
 }: IDepthBarColumnProps) {
   // Depth bars animate by default — the `animated` prop is intentionally ignored
   // so callers can never accidentally ship a non-animated book. Only the OS
@@ -173,9 +176,20 @@ export function DepthBarColumn({
     [],
   );
 
+  // Tracks whether `onDepthReady` has fired for the current epoch. Re-armed on
+  // every epoch change (coin / tick switch) so the parent's `--` placeholder is
+  // shown again until the new book has actually painted.
+  const reportedReadyRef = useRef(false);
+  useEffect(() => {
+    reportedReadyRef.current = false;
+  }, [epoch]);
+
   useEffect(() => {
     const node = depthRef.current;
     if (!node) {
+      // Native node not attached yet — nothing was pushed, so do NOT report
+      // ready. A later frame (once the hybridRef callback has run) re-enters via
+      // the `percents`/`prices`/`sizes` deps and performs the first real push.
       return;
     }
     let buf = bufRef.current;
@@ -189,7 +203,18 @@ export function DepthBarColumn({
     }
     buf.set(percents);
     node.setDepth?.(buf.buffer);
-  }, [percents]);
+    // Push the per-row text in the SAME effect so the bar fill and its row text
+    // always come from one source frame (REACT-NATIVE-1JZ). The `prices`/`sizes`
+    // props stay empty/stable; this imperative call is the high-frequency path.
+    node.setText?.(prices ?? [], sizes ?? []);
+    // Signal the first real (non-empty) paint so the parent can drop its `--`
+    // placeholder. Gated on an attached node + actual data, so it never fires
+    // during the cold-start gap where the view exists but the push was skipped.
+    if (percents.length > 0 && !reportedReadyRef.current) {
+      reportedReadyRef.current = true;
+      onDepthReady?.();
+    }
+  }, [percents, prices, sizes, onDepthReady]);
 
   return (
     <StyledPerpDepthBarsView
@@ -202,8 +227,8 @@ export function DepthBarColumn({
       origin={origin}
       reducedMotion={reducedMotion}
       epoch={epoch}
-      prices={prices ?? []}
-      sizes={sizes ?? []}
+      prices={EMPTY_STRINGS}
+      sizes={EMPTY_STRINGS}
       priceColor={nativePriceColor ?? 'rgba(0,0,0,1)'}
       sizeColor={nativeSizeColor ?? 'rgba(0,0,0,1)'}
       priceFontSize={priceFontSize ?? 11}

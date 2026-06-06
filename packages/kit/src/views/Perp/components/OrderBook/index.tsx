@@ -1921,6 +1921,28 @@ export function OrderBookMobile({
     () => Array.from({ length: maxLevelsPerSide }, (_, index) => index),
     [maxLevelsPerSide],
   );
+  // Cold-start / coin-switch placeholder gating. The depth-bar rows are pushed
+  // to the native view imperatively (setDepth/setText) from a post-paint effect;
+  // on a saturated JS thread (cold start) that effect is starved, so the live
+  // `DepthBarColumn` can sit BLANK for seconds even though `aggregatedData`
+  // already has data (isEmpty === false). Keep showing the `--` skeleton until
+  // we've confirmed (one frame after data lands) that the native push has run —
+  // and reset it on every depth epoch (coin / tick switch) so a switch shows
+  // `--` until the new book paints, instead of a blank gap.
+  const [depthPainted, setDepthPainted] = useState(false);
+  useEffect(() => {
+    // New coin / tick / empty<->full: re-arm the skeleton.
+    setDepthPainted(false);
+  }, [depthEpoch]);
+  // Dropped only when a `DepthBarColumn` reports its first real (non-empty) paint
+  // for this epoch — NOT on a fixed timer. A timer/rAF can fire before the native
+  // node has attached and received its imperative push, which is exactly the
+  // cold-start window that flashed blank (placeholder removed but bars not yet
+  // drawn). Either side reporting ready is enough to reveal the live ladder.
+  const handleDepthReady = useCallback(() => setDepthPainted(true), []);
+  // Show the `--` skeleton when there is genuinely no data, OR while the live
+  // native ladder has not yet painted its first frame of data.
+  const showDepthSkeleton = isEmpty || !depthPainted;
   const askSpacerStyle = useMemo(
     () => ({ height: aggregatedData.asks.length * MOBILE_ROW_HEIGHT }),
     [aggregatedData.asks.length],
@@ -2100,6 +2122,7 @@ export function OrderBookMobile({
               sizeFontSize={priceFontSize}
               textInset={4}
               onRowPress={isInteractive ? handleAskRowPress : undefined}
+              onDepthReady={handleDepthReady}
             />
           )}
           <View
@@ -2135,6 +2158,7 @@ export function OrderBookMobile({
               sizeFontSize={priceFontSize}
               textInset={4}
               onRowPress={isInteractive ? handleBidRowPress : undefined}
+              onDepthReady={handleDepthReady}
             />
           )}
         </View>
@@ -2142,8 +2166,10 @@ export function OrderBookMobile({
         {/* foreground texts */}
         <View style={styles.absoluteContainer}>
           {/* ask price/size text now drawn natively by DepthBarColumn;
-              keep transparent spacers so the spread row stays positioned. */}
-          {isEmpty ? (
+              keep transparent spacers so the spread row stays positioned. The
+              `--` skeleton stays up until the native ladder paints (covers the
+              cold-start blank gap), not just while the book is genuinely empty. */}
+          {showDepthSkeleton ? (
             emptyRowIndexes.map((index) => (
               <MobileEmptyRow
                 key={`ask-empty-${index}`}
@@ -2166,8 +2192,10 @@ export function OrderBookMobile({
             />
           </DebugRenderTracker>
           {/* bid price/size text now drawn natively by DepthBarColumn;
-              keep transparent spacers so layout height matches the bars. */}
-          {isEmpty ? (
+              keep transparent spacers so layout height matches the bars. The
+              `--` skeleton stays up until the native ladder paints (covers the
+              cold-start blank gap), not just while the book is genuinely empty. */}
+          {showDepthSkeleton ? (
             emptyRowIndexes.map((index) => (
               <MobileEmptyRow
                 key={`bid-empty-${index}`}

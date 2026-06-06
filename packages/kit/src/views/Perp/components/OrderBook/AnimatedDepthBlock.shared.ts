@@ -73,6 +73,15 @@ export type IDepthBarColumnProps = {
   sizeFontSize?: number;
   textInset?: number;
   onRowPress?: (rowIndex: number) => void;
+  /**
+   * Fired the first time this column has actually rendered a non-empty frame of
+   * data for the current `epoch` (native: after the first successful imperative
+   * `setDepth` push with the native node attached; web: once it has rows). Lets
+   * the parent keep a `--` placeholder up until the real ladder has painted,
+   * instead of flashing blank during the cold-start window where the native view
+   * exists but its imperative data push has not landed yet. Re-armed per epoch.
+   */
+  onDepthReady?: () => void;
 };
 
 export type ISideRatioSegmentsProps = {
