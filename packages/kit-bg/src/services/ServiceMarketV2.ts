@@ -174,10 +174,12 @@ class ServiceMarketV2 extends ServiceBase {
     networkId: string,
     options?: {
       autoHandleError?: boolean;
+      skipConvertCurrency?: boolean;
     },
   ) {
-    const settings = await settingsPersistAtom.get();
-    const selectedCurrencyId = settings.currencyInfo?.id ?? 'usd';
+    const selectedCurrencyId = options?.skipConvertCurrency
+      ? 'usd'
+      : ((await settingsPersistAtom.get()).currencyInfo?.id ?? 'usd');
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const requestTokenAddress =
       await resolveMarketTokenDetailRequestTokenAddress({
@@ -192,13 +194,16 @@ class ServiceMarketV2 extends ServiceBase {
       currency: 'usd',
     };
     // When the user has selected a non-USD currency, request a converted price
-    if (selectedCurrencyId !== 'usd') {
+    if (!options?.skipConvertCurrency && selectedCurrencyId !== 'usd') {
       params.convertCurrency = selectedCurrencyId;
     }
     const response = await client.get<IMarketTokenDetailResponse>(
       '/utility/v2/market/token/detail',
       {
         params,
+        ...(options?.skipConvertCurrency
+          ? { headers: { 'x-onekey-request-currency': 'usd' } }
+          : {}),
         ...(options?.autoHandleError === false
           ? { autoHandleError: false }
           : {}),

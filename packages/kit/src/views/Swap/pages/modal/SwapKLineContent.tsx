@@ -56,7 +56,7 @@ import {
 import {
   fetchSwapKLineTokenAddressesStableStatus,
   getResolvableDefaultSwapKLineSide,
-  getSwapKLineStableTokenAddress,
+  getSwapKLineStableTokenKey,
   getSwapKLineStableTokenStatusFromMap,
   isKnownSwapKLineUnsupportedToken,
 } from './swapKLineTokenUtils';
@@ -80,7 +80,6 @@ const SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES = [
 
 type ISwapKLineWalletMarketInfo = {
   coinGeckoId?: string;
-  price?: string;
   priceChange24hPercent?: string;
 };
 
@@ -131,7 +130,7 @@ function useSwapKLineTokenMarketInfo(token?: ISwapToken, enabled = true) {
   const networkId = token?.networkId ?? '';
   const { result } = usePromiseResult<IMarketTokenDetail | undefined>(
     async () => {
-      if (!enabled || !networkId || !tokenAddress) {
+      if (!enabled || !networkId) {
         return undefined;
       }
       const response =
@@ -140,6 +139,7 @@ function useSwapKLineTokenMarketInfo(token?: ISwapToken, enabled = true) {
           networkId,
           {
             autoHandleError: false,
+            skipConvertCurrency: true,
           },
         );
       return response?.data?.token;
@@ -161,16 +161,14 @@ function buildSwapKLineWalletMarketInfo(
   tokenInfo?: IFetchTokenDetailItem,
 ): ISwapKLineWalletMarketInfo | undefined {
   const coinGeckoId = tokenInfo?.info?.coingeckoId?.trim();
-  const price = getNormalizedPrice(tokenInfo?.price);
   const priceChange24hPercent = getNormalizedPercent(tokenInfo?.price24h);
 
-  if (!coinGeckoId && !price && !priceChange24hPercent) {
+  if (!coinGeckoId && !priceChange24hPercent) {
     return undefined;
   }
 
   return {
     coinGeckoId,
-    price,
     priceChange24hPercent,
   };
 }
@@ -311,10 +309,40 @@ function useSwapKLineStableTokenChecks({
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
 }) {
-  const fromTokenKey = getSwapKLineTokenKey(fromToken);
-  const toTokenKey = getSwapKLineTokenKey(toToken);
-  const fromStableTokenAddress = getSwapKLineStableTokenAddress(fromToken);
-  const toStableTokenAddress = getSwapKLineStableTokenAddress(toToken);
+  const fromStableTokenKey = getSwapKLineStableTokenKey(fromToken);
+  const toStableTokenKey = getSwapKLineStableTokenKey(toToken);
+  const fromStableTokenIdentity = useMemo(
+    () =>
+      fromStableTokenKey
+        ? {
+            networkId: fromToken?.networkId,
+            contractAddress: fromToken?.contractAddress,
+            isNative: fromToken?.isNative,
+          }
+        : undefined,
+    [
+      fromStableTokenKey,
+      fromToken?.contractAddress,
+      fromToken?.isNative,
+      fromToken?.networkId,
+    ],
+  );
+  const toStableTokenIdentity = useMemo(
+    () =>
+      toStableTokenKey
+        ? {
+            networkId: toToken?.networkId,
+            contractAddress: toToken?.contractAddress,
+            isNative: toToken?.isNative,
+          }
+        : undefined,
+    [
+      toStableTokenKey,
+      toToken?.contractAddress,
+      toToken?.isNative,
+      toToken?.networkId,
+    ],
+  );
   const { result, isLoading } = usePromiseResult<
     | {
         fromTokenIsStable: boolean;
@@ -324,21 +352,26 @@ function useSwapKLineStableTokenChecks({
   >(
     async () => {
       const stableStatusMap = await fetchSwapKLineTokenAddressesStableStatus([
-        fromTokenKey ? fromStableTokenAddress : undefined,
-        toTokenKey ? toStableTokenAddress : undefined,
+        fromStableTokenIdentity,
+        toStableTokenIdentity,
       ]);
       return {
         fromTokenIsStable: getSwapKLineStableTokenStatusFromMap({
           stableStatusMap,
-          stableTokenAddress: fromStableTokenAddress,
+          stableTokenKey: fromStableTokenKey,
         }),
         toTokenIsStable: getSwapKLineStableTokenStatusFromMap({
           stableStatusMap,
-          stableTokenAddress: toStableTokenAddress,
+          stableTokenKey: toStableTokenKey,
         }),
       };
     },
-    [fromTokenKey, fromStableTokenAddress, toTokenKey, toStableTokenAddress],
+    [
+      fromStableTokenIdentity,
+      fromStableTokenKey,
+      toStableTokenIdentity,
+      toStableTokenKey,
+    ],
     {
       checkIsFocused: false,
       watchLoading: true,
@@ -368,8 +401,6 @@ function SwapKLineTokenSwitch({
   toToken?: ISwapToken;
   compact?: boolean;
 }) {
-  const selectedToken =
-    selectedSide === ESwapDirectionType.FROM ? fromToken : toToken;
   const tokenSize = compact ? 'xxs' : 'xs';
   const labelSize = compact ? '$bodySmMedium' : '$bodyMdMedium';
   const labelGap = compact ? '$1' : '$1.5';
@@ -448,53 +479,29 @@ function SwapKLineTokenSwitch({
     [onChange],
   );
 
-  if (options.length > 1) {
-    return (
-      <SegmentControl
-        value={selectedSide}
-        options={options}
-        onChange={handleChange}
-        slotBackgroundColor="$neutral3"
-        activeBackgroundColor="$bg"
-        borderRadius="$full"
-        p="$0.5"
-        h="auto"
-        segmentControlItemStyleProps={{
-          py: compact ? '$1' : '$1.5',
-          px: compact ? '$2' : '$3',
-          borderRadius: '$full',
-          '$platform-web': {
-            boxShadow: 'none',
-          },
-        }}
-      />
-    );
-  }
-
-  if (!selectedToken) {
+  if (options.length <= 1) {
     return null;
   }
 
   return (
-    <XStack
-      ai="center"
-      gap="$1"
-      px={compact ? '$1.5' : '$2'}
-      py="$1"
-      bg="$neutral3"
+    <SegmentControl
+      value={selectedSide}
+      options={options}
+      onChange={handleChange}
+      slotBackgroundColor="$neutral3"
+      activeBackgroundColor="$bg"
       borderRadius="$full"
-      maxWidth={compact ? '$24' : '$32'}
-    >
-      <Token
-        size={tokenSize}
-        tokenImageUri={selectedToken.logoURI}
-        networkId={selectedToken.networkId}
-        showNetworkIcon
-      />
-      <SizableText size={labelSize} numberOfLines={1}>
-        {selectedToken.symbol}
-      </SizableText>
-    </XStack>
+      p="$0.5"
+      h="auto"
+      segmentControlItemStyleProps={{
+        py: compact ? '$1' : '$1.5',
+        px: compact ? '$2' : '$3',
+        borderRadius: '$full',
+        '$platform-web': {
+          boxShadow: 'none',
+        },
+      }}
+    />
   );
 }
 
@@ -663,20 +670,15 @@ function SwapKLineHeaderRight({
 }
 
 function SwapKLineTokenPriceInfo({
-  token,
   tokenMarketDetail,
   walletMarketInfo,
   compact,
 }: {
-  token: ISwapToken;
   tokenMarketDetail?: IMarketTokenDetail;
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
   compact?: boolean;
 }) {
-  const price =
-    getNormalizedPrice(tokenMarketDetail?.price) ??
-    walletMarketInfo?.price ??
-    getNormalizedPrice(token.price);
+  const price = getNormalizedPrice(tokenMarketDetail?.price);
   const priceChange =
     getNormalizedPercent(tokenMarketDetail?.priceChange24hPercent) ??
     walletMarketInfo?.priceChange24hPercent;
@@ -783,7 +785,6 @@ function SwapKLineTokenInfoRow({
           ) : null}
         </YStack>
         <SwapKLineTokenPriceInfo
-          token={token}
           tokenMarketDetail={tokenMarketDetail}
           walletMarketInfo={walletMarketInfo}
           compact={compact}
