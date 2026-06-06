@@ -26,6 +26,10 @@ env:
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
   ENABLE_STARTUP_PROFILE: ${{ github.event.inputs.ENABLE_STARTUP_PROFILE || 'false' }}
 
+permissions:
+  contents: read
+  packages: read # read:packages for the offline TradingView chart bundle (cross-repo)
+
 jobs:
   release-android:
     runs-on: ubuntu-24.04
@@ -109,6 +113,19 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn install --immutable
+
+      - name: Stage TradingView offline chart assets for EAS upload
+        env:
+          NPM_GITHUB_READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRADINGVIEW_ASSETS_REQUIRED: '1'
+        run: |
+          node development/scripts/fetch-tradingview-assets.mjs
+          # EAS uploads the working dir but honours .gitignore, which excludes the
+          # fetched assets. Mirror .gitignore into .easignore and re-include them
+          # so they ride along in the EAS upload. Generated in CI so it never
+          # drifts from .gitignore.
+          cp .gitignore .easignore
+          printf '\n# Re-include CI-fetched offline chart assets (otherwise gitignored)\n!apps/mobile/tradingview-assets\n!apps/mobile/tradingview-assets/**\n' >> .easignore
 
       - name: Build on EAS And Submit
         if: ${{ github.event.workflow_run }}
