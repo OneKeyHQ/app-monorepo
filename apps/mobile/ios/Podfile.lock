@@ -278,7 +278,9 @@ PODS:
     - SocketRocket
     - Yoga
   - DoubleConversion (1.1.6)
-  - EMASCurl (1.4.1)
+  - EMASCurl (1.5.5):
+    - EMASCurl/HTTP2 (= 1.5.5)
+  - EMASCurl/HTTP2 (1.5.5)
   - EXApplication (7.0.7):
     - ExpoModulesCore
   - EXConstants (18.0.10):
@@ -663,7 +665,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - PerpDepthBar (3.0.47):
+  - PerpDepthBar (3.0.49):
     - boost
     - DoubleConversion
     - fast_float
@@ -4681,7 +4683,7 @@ PODS:
   - SniConnect (1.1.0):
     - boost
     - DoubleConversion
-    - EMASCurl (= 1.4.1)
+    - EMASCurl (= 1.5.5)
     - fast_float
     - fmt
     - glog
@@ -5370,7 +5372,7 @@ SPEC CHECKSUMS:
   CocoaLumberjack: 5644158777912b7de7469fa881f8a3f259c2512a
   DnsLookup: 61d4d265e95b8e9a9512a5bd51586dc857cafff6
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
-  EMASCurl: 50940d5e8e695aa85d153514e184f897dc1ca2a7
+  EMASCurl: d75387e1ce9dec1a75cd25cb33c7a7e7bf21997f
   EXApplication: 296622817d459f46b6c5fe8691f4aac44d2b79e7
   EXConstants: fd688cef4e401dcf798a021cfb5d87c890c30ba3
   EXImageLoader: 4d3d3284141f1a45006cc4d0844061c182daf7ee
@@ -5428,7 +5430,7 @@ SPEC CHECKSUMS:
   NitroModules: 11bba9d065af151eae51e38a6425e04c3b223ff3
   OpenSSL-Universal: ecee7b138fa75a74ecf00d7ffd248fb584739b9e
   Pbkdf2: a8ac65ae4b296ccd04404a7d2f17313b71499741
-  PerpDepthBar: 09ced9ded5501020d06b8d7dc9236cfabf8e0491
+  PerpDepthBar: 408ee7c821844445d58885fdae31292f54687dfe
   Ping: 69ae807b163e6791e392b233b5ec0a5105429ac9
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   PurchasesHybridCommon: f1650b33e9a1dd04d5e8a40dfe757f39e63f935c
@@ -5550,7 +5552,7 @@ SPEC CHECKSUMS:
   SegmentSlider: f81b6af624c4a92b6c76a3c191254a76ed2febe0
   Sentry: b53951377b78e21a734f5dc8318e333dbfc682d7
   Skeleton: 3a5a527c748a442786ecb46d844f6cab4252d2ca
-  SniConnect: c92bce3bb3204c4cff031c0badb7aefaebee8f04
+  SniConnect: 32f9f7b9075dd431f5f62b13a7d64b0b45c7d647
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
