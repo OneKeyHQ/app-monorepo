@@ -115,7 +115,7 @@ import {
   type ITokenSelectorListItem,
   SPOT_DEX_INDEX,
 } from './PerpTokenSelector';
-import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
+import { PerpTokenSelectorRow, SubtitleBadge } from './PerpTokenSelectorRow';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -285,23 +285,7 @@ const InitialRowsSnapshotRow = memo(
               </XStack>
             ) : null}
             {subtitle ? (
-              <XStack
-                borderRadius="$1"
-                bg="$bgStrong"
-                justifyContent="center"
-                alignItems="center"
-                px="$1.5"
-                maxWidth={80}
-              >
-                <SizableText
-                  fontSize={10}
-                  color="$textSubdued"
-                  lineHeight={16}
-                  numberOfLines={1}
-                >
-                  {subtitle}
-                </SizableText>
-              </XStack>
+              <SubtitleBadge subtitle={subtitle} maxWidth={80} />
             ) : null}
           </XStack>
           {hasDisplayAssetCtx ? (
