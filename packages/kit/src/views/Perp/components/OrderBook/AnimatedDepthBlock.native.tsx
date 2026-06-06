@@ -1,10 +1,23 @@
-import { type ComponentType, useEffect, useMemo, useState } from 'react';
+import {
+  type ComponentType,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
+  type PerpDepthBarsMethods,
   type PerpDepthBarsProps,
   PerpDepthBarsView,
+  type PerpSideRatioMethods,
+  type PerpSideRatioProps,
   PerpSideRatioView,
 } from '@onekeyfe/react-native-perp-depth-bar';
+import {
+  type HybridView,
+  callback as nitroCallback,
+} from 'react-native-nitro-modules';
 import {
   AccessibilityInfo,
   type StyleProp,
@@ -21,11 +34,34 @@ import type {
   ISideRatioSegmentsProps,
 } from './AnimatedDepthBlock.shared';
 
+/**
+ * Stable empty array passed as the `percents` prop on `DepthBarColumn`. The
+ * high-frequency per-row depth data is pushed imperatively via the native
+ * `setDepth` method (see below), so the prop must stay referentially stable to
+ * avoid re-entering the React reconciliation + Fabric props commit + JSI
+ * serialization path on every frame (REACT-NATIVE-1JZ).
+ */
+const EMPTY_PERCENTS: number[] = [];
+
+/**
+ * Imperative hybrid-view ref types. Nitro views expose their native methods on
+ * the `hybridRef` (NOT the React `ref`); we mirror the same `HybridView<Props,
+ * Methods>` shape the package declares internally (its index only re-exports
+ * the Props/Methods, not the composed alias).
+ */
+type IPerpDepthBarsRef = HybridView<PerpDepthBarsProps, PerpDepthBarsMethods>;
+type IPerpSideRatioRef = HybridView<PerpSideRatioProps, PerpSideRatioMethods>;
+
 const DEFAULT_ROW_HEIGHT = 24;
 const SIDE_RATIO_SEGMENT_HEIGHT = 4;
 const SIDE_RATIO_CORNER_RADIUS = 999;
 const StyledPerpDepthBarsView = PerpDepthBarsView as ComponentType<
-  PerpDepthBarsProps & { style?: StyleProp<ViewStyle> }
+  PerpDepthBarsProps & {
+    style?: StyleProp<ViewStyle>;
+    // Nitro `hybridRef` callback; wrapped via `callback(...)`. The wrapper
+    // component spreads it straight through to the underlying host component.
+    hybridRef?: { f: (ref: IPerpDepthBarsRef) => void };
+  }
 >;
 const noopOnRowPress = () => undefined;
 
@@ -106,6 +142,8 @@ export function DepthBarColumn({
   // so callers can never accidentally ship a non-animated book. Only the OS
   // "reduce motion" accessibility setting disables the native easing.
   const reducedMotion = useReducedMotion();
+  // `totalHeight` is still derived from the live `percents` arg (row count drives
+  // layout); only the high-frequency native data path is moved off props.
   const totalHeight =
     percents.length * rowHeight + percents.length * rowMarginTop;
   const nativeColor = useMemo(() => toNativeColor(color), [color]);
@@ -118,9 +156,45 @@ export function DepthBarColumn({
     [sizeColor],
   );
 
+  // Imperative depth push: bypass the per-frame `percents` prop commit and feed
+  // the native view a single packed Float32Array via `setDepth` (one JSI call,
+  // skipping the React/Fabric props chain — REACT-NATIVE-1JZ).
+  const depthRef = useRef<IPerpDepthBarsRef | null>(null);
+  // Typed as `Float32Array<ArrayBuffer>` so `.buffer` narrows to `ArrayBuffer`
+  // (not `ArrayBufferLike`) for the `setDepth(buffer: ArrayBuffer)` call.
+  const bufRef = useRef<Float32Array<ArrayBuffer> | null>(null);
+  // Stable `hybridRef` callback so the prop never changes identity between
+  // renders (a new callback would force a Fabric props re-commit every frame).
+  const hybridRef = useMemo(
+    () =>
+      nitroCallback((node: IPerpDepthBarsRef) => {
+        depthRef.current = node;
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    const node = depthRef.current;
+    if (!node) {
+      return;
+    }
+    let buf = bufRef.current;
+    // Reuse the same backing buffer across frames; only reallocate when the row
+    // count changes. `setDepth` synchronously copies the data into the native
+    // target (it does not retain the buffer), so overwriting it next frame is
+    // safe.
+    if (!buf || buf.length !== percents.length) {
+      buf = new Float32Array(percents.length);
+      bufRef.current = buf;
+    }
+    buf.set(percents);
+    node.setDepth?.(buf.buffer);
+  }, [percents]);
+
   return (
     <StyledPerpDepthBarsView
-      percents={percents}
+      hybridRef={hybridRef}
+      percents={EMPTY_PERCENTS}
       rowHeight={rowHeight}
       rowMarginTop={rowMarginTop}
       barInset={barInset}
@@ -219,10 +293,27 @@ export function SideRatioSegments({
     [shortColor],
   );
 
+  // Imperative ratio push: bypass the high-frequency
+  // `bidPercentage`/`askPercentage` prop commits and update the native view in a
+  // single JSI call via `setRatio` (REACT-NATIVE-1JZ).
+  const ratioRef = useRef<IPerpSideRatioRef | null>(null);
+  const hybridRef = useMemo(
+    () =>
+      nitroCallback((node: IPerpSideRatioRef) => {
+        ratioRef.current = node;
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    ratioRef.current?.setRatio?.(bidPercentage, askPercentage);
+  }, [bidPercentage, askPercentage]);
+
   return (
     <PerpSideRatioView
-      bidPercentage={bidPercentage}
-      askPercentage={askPercentage}
+      hybridRef={hybridRef}
+      bidPercentage={50}
+      askPercentage={50}
       longColor={nativeLongColor}
       shortColor={nativeShortColor}
       segmentHeight={segmentHeight}

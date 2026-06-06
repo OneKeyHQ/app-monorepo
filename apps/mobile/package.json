@@ -69,7 +69,7 @@
     "@onekeyfe/react-native-native-logger": "3.0.47",
     "@onekeyfe/react-native-perf-memory": "3.0.47",
     "@onekeyfe/react-native-perf-stats": "3.0.47",
-    "@onekeyfe/react-native-perp-depth-bar": "3.0.47",
+    "@onekeyfe/react-native-perp-depth-bar": "3.0.49",
     "@onekeyfe/react-native-range-downloader": "3.0.47",
     "@onekeyfe/react-native-scroll-guard": "3.0.47",
     "@onekeyfe/react-native-segment-slider": "3.0.47",

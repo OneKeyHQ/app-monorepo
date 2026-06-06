@@ -9477,14 +9477,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-perp-depth-bar@npm:3.0.47":
-  version: 3.0.47
-  resolution: "@onekeyfe/react-native-perp-depth-bar@npm:3.0.47"
+"@onekeyfe/react-native-perp-depth-bar@npm:3.0.49":
+  version: 3.0.49
+  resolution: "@onekeyfe/react-native-perp-depth-bar@npm:3.0.49"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.33.2
-  checksum: 10/477b47418eede5ee74b384a7254e9b150c27f50fdcc101fa1896cfdf3f7d0597a1108ba288e0c976bd80141c269cb038e45b51a3e6b5841ef3119014dce8efda
+  checksum: 10/fea36d9c1f3911bcb59a98aad2e6c6b1ed022a10c202137fe38741795b009d2212b4292218b254e4e2501fd47d495ea85af2a3a6b74c2c173f96dc40ac813963
   languageName: node
   linkType: hard
 
@@ -10039,7 +10039,7 @@ __metadata:
     "@onekeyfe/react-native-native-logger": "npm:3.0.47"
     "@onekeyfe/react-native-perf-memory": "npm:3.0.47"
     "@onekeyfe/react-native-perf-stats": "npm:3.0.47"
-    "@onekeyfe/react-native-perp-depth-bar": "npm:3.0.47"
+    "@onekeyfe/react-native-perp-depth-bar": "npm:3.0.49"
     "@onekeyfe/react-native-range-downloader": "npm:3.0.47"
     "@onekeyfe/react-native-scroll-guard": "npm:3.0.47"
     "@onekeyfe/react-native-segment-slider": "npm:3.0.47"
