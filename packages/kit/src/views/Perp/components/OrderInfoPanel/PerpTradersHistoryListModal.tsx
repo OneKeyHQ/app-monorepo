@@ -128,7 +128,7 @@ export function PerpTradersHistoryListModal() {
                 isMobile
                 useTabsList={false}
                 initialTab="history"
-                enabledTabs={['history']}
+                enabledTabs={['history', 'fills']}
               />
             ) : null}
             {activeTab === 'Account' ? (
