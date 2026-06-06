@@ -11,10 +11,11 @@ Run this before shipping or approving Trade/Swap/Market work:
 5. Review data is frozen: confirm does not keep reading mutable page state after the user enters review.
 6. Approval/setup is explicit: allowance, permit, wrap, setup tx, and business tx are not merged invisibly.
 7. Pending history is created after send success with the correct identity before status polling is trusted.
-8. Market/K-line data is isolated from quote/build state.
-9. Platform ownership is checked: desktop, web, extension, native mobile, tablet, modal, and bottom-sheet differences.
-10. Adjacent Wallet/Receive token-list ownership is not assumed to match Swap/Market selector ownership.
-11. Import hierarchy is preserved.
+8. Channel state is declared: history display, listener source, local writeback, replay/enrichment, and repair rules.
+9. Market/K-line data is isolated from quote/build state.
+10. Platform ownership is checked: desktop, web, extension, native mobile, tablet, modal, and bottom-sheet differences.
+11. Adjacent Wallet/Receive token-list ownership is not assumed to match Swap/Market selector ownership.
+12. Import hierarchy is preserved.
 
 ## New Channel Readiness Checklist
 
@@ -28,8 +29,10 @@ Use this for PrivateSend-like, stock/order, or unusual provider channels:
 6. Build response variant is typed and routed through one adapter.
 7. Post-send identity chooses txid, order id, route id, or composite key deliberately.
 8. History row, detail page, and status polling use the same identity.
-9. Error states include provider unavailable, unsupported route, expired quote, market closed, partial fill, and unknown finality when applicable.
-10. Validation covers both happy path and one provider/channel failure.
+9. List inclusion/exclusion is explicit for Swap, Bridge, Market, and channel-specific history surfaces.
+10. Replay and repair sources are defined for app restart, account-history entry, notification entry, and backend field backfill.
+11. Error states include provider unavailable, unsupported route, expired quote, market closed, partial fill, and unknown finality when applicable.
+12. Validation covers both happy path and one provider/channel failure.
 
 ## PrivateSend-Like Drill
 
@@ -42,6 +45,7 @@ Complete this drill before saying the skill can guide a privacy/order channel:
 - Which status steps are shown in detail, and which are terminal?
 - How does the detail page fetch or preserve token price when normal swap data is unavailable?
 - What runtime payload proves the order has been created?
+- Which source repairs an old local row missing provider/order fields?
 
 ## Stock/Order Channel Drill
 
@@ -54,6 +58,16 @@ Complete this drill before wiring a stock-like protocol:
 - Does review need risk, market-hours, or delayed-settlement copy?
 - Does history display order lifecycle rather than on-chain confirmation?
 - Can token selectors, quote result rows, and history rows handle non-token identity without leaking token assumptions?
+- Can local history survive app restart and then reconcile against broker/provider order status?
+
+## Bridge/Limit Shared-Spine Drill
+
+- Which visible entry surface launches the channel?
+- Which semantic value must remain distinct from ordinary Swap after entry merge?
+- Which default token/network rules apply only to this channel?
+- Which history list should include or exclude the channel?
+- Which status listener owns terminal state?
+- Which analytics or monitor fields distinguish this channel from normal Swap?
 
 ## Market And K-Line Checklist
 
