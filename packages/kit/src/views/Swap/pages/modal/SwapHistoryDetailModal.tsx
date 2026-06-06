@@ -83,7 +83,7 @@ type ISwapHistoryDetailAssetItem = {
   icon: string;
   isNFT: boolean;
   isNative: boolean;
-  price: string;
+  price?: string;
   amount?: string;
 };
 
@@ -503,8 +503,7 @@ function getPrivateSendTransferPrice({
   return (
     getPositiveTokenPrice(transfer.price) ??
     (isBaseToken ? getPositiveTokenPrice(fromAssetPrice) : undefined) ??
-    (transfer.isNative ? nativeTokenPrice : undefined) ??
-    '0'
+    (transfer.isNative ? nativeTokenPrice : undefined)
   );
 }
 

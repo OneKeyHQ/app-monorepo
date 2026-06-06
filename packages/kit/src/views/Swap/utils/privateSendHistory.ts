@@ -131,6 +131,52 @@ function getPrivateSendDisplayTransfersFromCtx(ctx: unknown) {
     : [];
 }
 
+function normalizePrivateSendTransferAmount(amount?: string) {
+  const amountBN = new BigNumber(amount ?? '');
+  return amountBN.isNaN() || !amountBN.isFinite()
+    ? (amount ?? '')
+    : amountBN.toFixed();
+}
+
+function getPrivateSendDisplayTransferIdentity(
+  transfer: IDecodedTxTransferInfo,
+) {
+  return {
+    amount: normalizePrivateSendTransferAmount(transfer.amount),
+    tokenIdOnNetwork: normalizePrivateSendTokenAddress(
+      transfer.tokenIdOnNetwork,
+    ),
+    symbol: transfer.symbol,
+    icon: transfer.icon,
+    isNative: transfer.isNative === true,
+  };
+}
+
+function areSamePrivateSendDisplayTransfers({
+  currentTransfers,
+  replayTransfers,
+}: {
+  currentTransfers: IDecodedTxTransferInfo[];
+  replayTransfers: IDecodedTxTransferInfo[];
+}) {
+  if (currentTransfers.length !== replayTransfers.length) {
+    return false;
+  }
+  return replayTransfers.every((transfer, index) => {
+    const replayIdentity = getPrivateSendDisplayTransferIdentity(transfer);
+    const currentIdentity = getPrivateSendDisplayTransferIdentity(
+      currentTransfers[index],
+    );
+    return (
+      replayIdentity.amount === currentIdentity.amount &&
+      replayIdentity.tokenIdOnNetwork === currentIdentity.tokenIdOnNetwork &&
+      replayIdentity.symbol === currentIdentity.symbol &&
+      replayIdentity.icon === currentIdentity.icon &&
+      replayIdentity.isNative === currentIdentity.isNative
+    );
+  });
+}
+
 function shouldMergePrivateSendDisplayTransfers({
   currentTransfers,
   replayTransfers,
@@ -142,18 +188,10 @@ function shouldMergePrivateSendDisplayTransfers({
     return false;
   }
 
-  const hasCurrentNativeTransfer = currentTransfers.some(
-    (transfer) => transfer.isNative,
-  );
-  const hasReplayNativeTransfer = replayTransfers.some(
-    (transfer) => transfer.isNative,
-  );
-
-  return (
-    !currentTransfers.length ||
-    replayTransfers.length > currentTransfers.length ||
-    (hasReplayNativeTransfer && !hasCurrentNativeTransfer)
-  );
+  return !areSamePrivateSendDisplayTransfers({
+    currentTransfers,
+    replayTransfers,
+  });
 }
 
 function shouldMergePrivateSendReplayBaseInfo({

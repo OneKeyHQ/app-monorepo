@@ -89,6 +89,10 @@ const PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES = new Set([
   ESwapTxHistoryStatus.PARTIALLY_FILLED,
 ]);
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 function shouldPreferPrivateSendSwapHistory(
   next: ISwapTxHistory,
   current: ISwapTxHistory,
@@ -110,13 +114,98 @@ function shouldPreferPrivateSendSwapHistory(
   );
 }
 
+function mergeNullishRecordFields<T extends Record<string, unknown>>({
+  primary,
+  fallback,
+}: {
+  primary: T;
+  fallback: T;
+}) {
+  const result: Record<string, unknown> = { ...primary };
+  Object.entries(fallback).forEach(([key, fallbackValue]) => {
+    const primaryValue = result[key];
+    if (primaryValue === undefined || primaryValue === null) {
+      if (fallbackValue !== undefined && fallbackValue !== null) {
+        result[key] = fallbackValue;
+      }
+      return;
+    }
+    if (isRecord(primaryValue) && isRecord(fallbackValue)) {
+      result[key] = mergeNullishRecordFields({
+        primary: primaryValue,
+        fallback: fallbackValue,
+      });
+    }
+  });
+  return result as T;
+}
+
+function mergePrivateSendPayloadFields({
+  localPayload,
+  onChainPayload,
+}: {
+  localPayload: IAccountHistoryTx['decodedTx']['payload'];
+  onChainPayload: IAccountHistoryTx['decodedTx']['payload'];
+}): IAccountHistoryTx['decodedTx']['payload'] {
+  if (!localPayload) {
+    return onChainPayload;
+  }
+  if (!onChainPayload) {
+    return localPayload;
+  }
+
+  const nextPayload = mergeNullishRecordFields({
+    primary: onChainPayload as unknown as Record<string, unknown>,
+    fallback: localPayload as unknown as Record<string, unknown>,
+  }) as IAccountHistoryTx['decodedTx']['payload'];
+
+  const localPrivateSend = localPayload.privateSend;
+  const onChainPrivateSend = onChainPayload.privateSend;
+  if (localPrivateSend && onChainPrivateSend) {
+    return {
+      ...nextPayload,
+      privateSend: mergeNullishRecordFields({
+        primary: onChainPrivateSend as unknown as Record<string, unknown>,
+        fallback: localPrivateSend as unknown as Record<string, unknown>,
+      }) as NonNullable<
+        IAccountHistoryTx['decodedTx']['payload']
+      >['privateSend'],
+    } as IAccountHistoryTx['decodedTx']['payload'];
+  }
+
+  return nextPayload;
+}
+
+function mergePrivateSendExtraInfoFields({
+  localExtraInfo,
+  onChainExtraInfo,
+}: {
+  localExtraInfo: IAccountHistoryTx['decodedTx']['extraInfo'];
+  onChainExtraInfo: IAccountHistoryTx['decodedTx']['extraInfo'];
+}) {
+  if (!localExtraInfo) {
+    return onChainExtraInfo;
+  }
+  if (!onChainExtraInfo) {
+    return localExtraInfo;
+  }
+  if (!isRecord(localExtraInfo) || !isRecord(onChainExtraInfo)) {
+    return onChainExtraInfo;
+  }
+
+  return mergeNullishRecordFields({
+    primary: onChainExtraInfo,
+    fallback: localExtraInfo,
+  }) as IAccountHistoryTx['decodedTx']['extraInfo'];
+}
+
 function mergePrivateSendLocalDecodedTxFields({
   localTx,
   onChainHistoryTx,
 }: {
   localTx: IAccountHistoryTx;
   onChainHistoryTx: IAccountHistoryTx;
-}) {
+}): IAccountHistoryTx {
   if (!isPrivateSendAccountHistoryTx(localTx)) {
     return onChainHistoryTx;
   }
@@ -131,13 +220,14 @@ function mergePrivateSendLocalDecodedTxFields({
     ...onChainHistoryTx,
     decodedTx: {
       ...onChainHistoryTx.decodedTx,
-      payload: localPayload
-        ? {
-            ...onChainHistoryTx.decodedTx.payload,
-            ...localPayload,
-          }
-        : onChainHistoryTx.decodedTx.payload,
-      extraInfo: onChainHistoryTx.decodedTx.extraInfo ?? localExtraInfo,
+      payload: mergePrivateSendPayloadFields({
+        localPayload,
+        onChainPayload: onChainHistoryTx.decodedTx.payload,
+      }),
+      extraInfo: mergePrivateSendExtraInfoFields({
+        localExtraInfo,
+        onChainExtraInfo: onChainHistoryTx.decodedTx.extraInfo,
+      }),
     },
   };
 }
@@ -713,6 +803,7 @@ class ServiceHistory extends ServiceBase {
         await this.batchUpdateLocalHistoryTxs(allNetworksParams);
       finalPendingTxs = updateResult.allFinalPendingTxs;
       confirmedTxsToSave = updateResult.allConfirmedTxsToSave;
+      onChainHistoryTxs = updateResult.allMergedOnChainHistoryTxs;
     } else {
       let pendingTxsToModify: IAccountHistoryTx[] = [];
       try {
@@ -742,6 +833,7 @@ class ServiceHistory extends ServiceBase {
       ]);
       finalPendingTxs = updateResult.allFinalPendingTxs;
       confirmedTxsToSave = updateResult.allConfirmedTxsToSave;
+      onChainHistoryTxs = updateResult.allMergedOnChainHistoryTxs;
     }
 
     // Merge the locally pending transactions, confirmed transactions, and on-chain history to return
@@ -1214,6 +1306,7 @@ class ServiceHistory extends ServiceBase {
     }[],
   ) {
     const allConfirmedTxsToSave: IAccountHistoryTx[] = [];
+    const allMergedOnChainHistoryTxs: IAccountHistoryTx[] = [];
     const allNonceHasBeenUsedTxs: IAccountHistoryTx[] = [];
     const allFinalPendingTxs: IAccountHistoryTx[] = [];
 
@@ -1251,6 +1344,7 @@ class ServiceHistory extends ServiceBase {
             : onChainHistoryTx;
         },
       );
+      allMergedOnChainHistoryTxs.push(...mergedOnChainHistoryTxs);
 
       // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
       let confirmedTxsToSave: IAccountHistoryTx[] = [];
@@ -1355,6 +1449,7 @@ class ServiceHistory extends ServiceBase {
 
     return {
       allConfirmedTxsToSave,
+      allMergedOnChainHistoryTxs,
       allNonceHasBeenUsedTxs,
       allFinalPendingTxs,
     };
