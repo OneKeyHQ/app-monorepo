@@ -204,7 +204,6 @@ export function getImportFromToken({
 }: {
   networkId: string;
   tokenAddress: string;
-  isSupportSwap: boolean;
 }) {
   let importFromToken: ISwapTokenBase | undefined;
   const swapTabSwitchType = ESwapTabSwitchType.SWAP;

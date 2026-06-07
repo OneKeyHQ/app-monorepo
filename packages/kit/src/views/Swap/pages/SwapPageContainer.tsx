@@ -18,8 +18,8 @@ import SwapMainLandWithPageType from './components/SwapMainLand';
 
 const TAB_PARAM_MAP: Record<string, ESwapTabSwitchType> = {
   swap: ESwapTabSwitchType.SWAP,
-  bridge: ESwapTabSwitchType.SWAP,
-  crosschain: ESwapTabSwitchType.SWAP,
+  bridge: ESwapTabSwitchType.BRIDGE,
+  crosschain: ESwapTabSwitchType.BRIDGE,
   limit: ESwapTabSwitchType.LIMIT,
 };
 

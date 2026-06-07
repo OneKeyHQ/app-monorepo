@@ -1792,6 +1792,29 @@ export const swapBridgeDefaultTokenExtraConfigs = {
   },
 };
 
+export function getSwapBridgeDefaultToToken(
+  token: Pick<ISwapToken, 'networkId' | 'contractAddress'>,
+) {
+  const matchedConfig = swapBridgeDefaultTokenConfigs.find((config) =>
+    config.fromTokens.some(
+      (fromToken) =>
+        fromToken.networkId === token.networkId &&
+        fromToken.contractAddress.toLowerCase() ===
+          token.contractAddress.toLowerCase(),
+    ),
+  );
+
+  if (matchedConfig) {
+    return matchedConfig.toTokenDefaultMatch;
+  }
+
+  return token.networkId ===
+    swapBridgeDefaultTokenExtraConfigs.mainNetDefaultToTokenConfig.networkId
+    ? swapBridgeDefaultTokenExtraConfigs.mainNetDefaultToTokenConfig
+        .defaultToToken
+    : swapBridgeDefaultTokenExtraConfigs.defaultToToken;
+}
+
 export const wrappedTokens = [
   {
     networkId: 'evm--1',

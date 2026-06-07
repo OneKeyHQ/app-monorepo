@@ -156,3 +156,41 @@ export function getDenySwapProviderString({
     .map((providerManager) => providerManager.providerInfo.provider)
     .join(',');
 }
+
+export function getDenyBridgeProviderString({
+  providerManagers,
+}: {
+  providerManagers: ISwapProviderManager[];
+}) {
+  const denyProviders = providerManagers.filter(
+    (providerManager) => !providerManager.enable,
+  );
+
+  if (!denyProviders.length) {
+    return undefined;
+  }
+
+  return denyProviders
+    .map((providerManager) => providerManager.providerInfo.provider)
+    .join(',');
+}
+
+export function mergeDenyProviderStrings(
+  ...denyProviderStrings: (string | undefined)[]
+) {
+  const providerSet = new Set<string>();
+
+  denyProviderStrings.forEach((denyProviderString) => {
+    denyProviderString
+      ?.split(',')
+      .map((provider) => provider.trim())
+      .filter(Boolean)
+      .forEach((provider) => providerSet.add(provider));
+  });
+
+  if (!providerSet.size) {
+    return undefined;
+  }
+
+  return Array.from(providerSet).join(',');
+}

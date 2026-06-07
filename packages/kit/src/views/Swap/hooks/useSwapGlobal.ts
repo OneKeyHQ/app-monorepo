@@ -322,10 +322,13 @@ export function useSwapInit(params?: ISwapInitParams) {
         }
       }
       if (params?.importFromToken && !params?.importToToken) {
+        const defaultTokenSwapType =
+          params?.swapTabSwitchType === ESwapTabSwitchType.BRIDGE
+            ? ESwapTabSwitchType.BRIDGE
+            : (normalizedSwapTabSwitchType ?? ESwapTabSwitchType.SWAP);
         const needSetToToken = needChangeToken({
           token: params.importFromToken,
-          swapTypeSwitchValue:
-            normalizedSwapTabSwitchType ?? ESwapTabSwitchType.SWAP,
+          swapTypeSwitchValue: defaultTokenSwapType,
         });
         if (needSetToToken) {
           const defaultTokenSupportTypes =
@@ -407,6 +410,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importFromToken,
     params?.importToToken,
     params?.importNetworkId,
+    params?.swapTabSwitchType,
     normalizedSwapTabSwitchType,
     skipSyncDefaultSelectedToken,
     setFromTokenAmount,

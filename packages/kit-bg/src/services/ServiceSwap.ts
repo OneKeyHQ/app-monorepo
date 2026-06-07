@@ -40,7 +40,11 @@ import {
   isSamePrivateSendSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
-import { getDenySwapProviderString } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
+import {
+  getDenyBridgeProviderString,
+  getDenySwapProviderString,
+  mergeDenyProviderStrings,
+} from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -1178,12 +1182,18 @@ export default class ServiceSwap extends ServiceBase {
     if (fromNetworkId === toNetworkId) {
       return undefined;
     }
-    const { swapProviderManager } = await inAppNotificationAtom.get();
-    return getDenySwapProviderString({
-      providerManagers: swapProviderManager,
-      fromNetworkId,
-      toNetworkId,
-    });
+    const { swapProviderManager, bridgeProviderManager } =
+      await inAppNotificationAtom.get();
+    return mergeDenyProviderStrings(
+      getDenySwapProviderString({
+        providerManagers: swapProviderManager,
+        fromNetworkId,
+        toNetworkId,
+      }),
+      getDenyBridgeProviderString({
+        providerManagers: bridgeProviderManager,
+      }),
+    );
   }
 
   async getDenySingleSwapProvider(fromNetworkId: string, toNetworkId: string) {

@@ -8,7 +8,9 @@ import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildUnifiedSwapProviderManagers,
+  getDenyBridgeProviderString,
   getDenySwapProviderString,
+  mergeDenyProviderStrings,
 } from './swapProviderManagerUtils';
 
 function network(networkId: string): ISwapNetwork {
@@ -161,5 +163,29 @@ describe('swapProviderManagerUtils', () => {
     });
 
     expect(denyProviders).toBe('ProviderA');
+  });
+
+  it('merges unified deny providers with legacy bridge denies', () => {
+    const denyProviders = mergeDenyProviderStrings(
+      getDenySwapProviderString({
+        providerManagers: [
+          {
+            ...manager({ provider: 'ProviderA', enable: false }),
+            isSupportCrossChain: true,
+          },
+        ],
+        fromNetworkId: 'evm--1',
+        toNetworkId: 'sol--101',
+      }),
+      getDenyBridgeProviderString({
+        providerManagers: [
+          manager({ provider: 'ProviderA', enable: false }),
+          manager({ provider: 'BridgeOnly', enable: false }),
+          manager({ provider: 'EnabledBridge' }),
+        ],
+      }),
+    );
+
+    expect(denyProviders).toBe('ProviderA,BridgeOnly');
   });
 });

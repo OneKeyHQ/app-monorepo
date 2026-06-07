@@ -143,7 +143,6 @@ interface ISwapProActionButtonProps {
   hasEnoughBalance: boolean;
   balanceLoading: boolean;
   supportSpeedSwap: boolean;
-  onlySupportCrossChain: boolean;
   isActionDisabled?: boolean;
 }
 

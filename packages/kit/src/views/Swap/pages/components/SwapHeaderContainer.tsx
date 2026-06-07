@@ -103,10 +103,6 @@ const SwapHeaderContainer = ({
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
   const networkIdRef = useRef(networkId);
-  const normalizedDefaultSwapType =
-    defaultSwapType === ESwapTabSwitchType.BRIDGE
-      ? ESwapTabSwitchType.SWAP
-      : defaultSwapType;
   if (networkIdRef.current !== networkId) {
     networkIdRef.current = networkId;
   }
@@ -114,15 +110,12 @@ const SwapHeaderContainer = ({
     networkIdRef.current = fromToken?.networkId;
   }
   useEffect(() => {
-    if (normalizedDefaultSwapType) {
+    if (defaultSwapType) {
       // Avoid switching the default toToken before it has been loaded,
       // resulting in the default network toToken across chains
       setTimeout(
         () => {
-          void swapTypeSwitchAction(
-            normalizedDefaultSwapType,
-            networkIdRef.current,
-          );
+          void swapTypeSwitchAction(defaultSwapType, networkIdRef.current);
         },
         platformEnv.isExtension ? 100 : 10,
       );

@@ -47,7 +47,6 @@ export interface IActionButtonProps extends IButtonProps {
   isWrapped?: boolean;
   actionToken?: ISwapToken;
   actionOtherToken?: ISwapToken;
-  onlySupportCrossChain?: boolean;
   onSwapAction?: () => void;
 }
 

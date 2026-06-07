@@ -28,8 +28,7 @@ import {
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
-  swapBridgeDefaultTokenConfigs,
-  swapBridgeDefaultTokenExtraConfigs,
+  getSwapBridgeDefaultToToken,
   swapDefaultSetTokens,
   swapRateDifferenceMax,
   swapRateDifferenceMin,
@@ -435,35 +434,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       swapTypeSwitchValue === ESwapTabSwitchType.BRIDGE &&
       (token.networkId === toToken?.networkId || !toToken)
     ) {
-      let needChangeToToken: ISwapToken | null = null;
-      swapBridgeDefaultTokenConfigs.some((config) => {
-        const findToken = config.fromTokens.find((t) =>
-          equalTokenNoCaseSensitive({
-            token1: {
-              networkId: t.networkId,
-              contractAddress: t.contractAddress,
-            },
-            token2: {
-              networkId: token.networkId,
-              contractAddress: token.contractAddress,
-            },
-          }),
-        );
-        if (findToken) {
-          needChangeToToken = config.toTokenDefaultMatch;
-        }
-        return !!findToken;
-      });
-      if (!needChangeToToken) {
-        needChangeToToken =
-          token.networkId ===
-          swapBridgeDefaultTokenExtraConfigs.mainNetDefaultToTokenConfig
-            .networkId
-            ? swapBridgeDefaultTokenExtraConfigs.mainNetDefaultToTokenConfig
-                .defaultToToken
-            : swapBridgeDefaultTokenExtraConfigs.defaultToToken;
-      }
-      return needChangeToToken;
+      return getSwapBridgeDefaultToToken(token);
     }
 
     return null;
@@ -515,12 +486,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapSelectFromTokenAtom(), token);
         set(swapSelectToTokenAtom(), needChangeToToken);
       } else {
-        if (
-          toToken?.networkId !== token.networkId &&
-          swapTypeSwitchValue === ESwapTabSwitchType.SWAP
-        ) {
-          void this.resetSwapTokenData.call(set, ESwapDirectionType.TO);
-        }
         set(swapSelectFromTokenAtom(), token);
       }
     },
