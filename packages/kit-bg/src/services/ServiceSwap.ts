@@ -1568,8 +1568,18 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async updateSwapProviderManager(
     data: ISwapProviderManager[],
-    _isBridge?: boolean,
+    isBridge?: boolean,
   ) {
+    if (isBridge) {
+      await this.backgroundApi.simpleDb.swapConfigs.setBridgeProviderManager(
+        data,
+      );
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        bridgeProviderManager: data,
+      }));
+      return;
+    }
     await this.backgroundApi.simpleDb.swapConfigs.setSwapProviderManager(data);
     await this.backgroundApi.simpleDb.swapConfigs.setBridgeProviderManager([]);
     await inAppNotificationAtom.set((pre) => ({

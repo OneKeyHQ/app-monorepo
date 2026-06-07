@@ -47,6 +47,11 @@ import {
   isSwapNetworkCacheReadyForBasicList,
   mergeSwapNetworksWithCachedSort,
 } from '../utils/swapNetworkCacheUtils';
+import {
+  getSwapNetworkSupportTabSwitchTypes,
+  getSwapSupportCheckType,
+  getVisibleSwapTabSwitchType,
+} from '../utils/swapTypeUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapProInputToken } from './useSwapPro';
@@ -77,10 +82,9 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
   const [skipSyncDefaultSelectedToken, setSkipSyncDefaultSelectedToken] =
     useState<boolean>(false);
-  const normalizedSwapTabSwitchType =
-    params?.swapTabSwitchType === ESwapTabSwitchType.BRIDGE
-      ? ESwapTabSwitchType.SWAP
-      : params?.swapTabSwitchType;
+  const normalizedSwapTabSwitchType = getVisibleSwapTabSwitchType(
+    params?.swapTabSwitchType,
+  );
   const swapAddressInfoRef =
     useRef<ReturnType<typeof useSwapAddressInfo>>(undefined);
   const [, setInAppNotification] = useInAppNotificationAtom();
@@ -253,15 +257,13 @@ export function useSwapInit(params?: ISwapInitParams) {
       const supportNet = swapNetworks.find(
         (net) => net.networkId === token.networkId,
       );
-      let supportTypes: ESwapTabSwitchType[] = [];
-      if (supportNet) {
-        if (supportNet.supportSingleSwap || supportNet.supportCrossChainSwap) {
-          supportTypes = [...supportTypes, ESwapTabSwitchType.SWAP];
-        }
-        if (supportNet.supportLimit) {
-          supportTypes = [...supportTypes, ESwapTabSwitchType.LIMIT];
-        }
-      }
+      const supportTypes = supportNet
+        ? getSwapNetworkSupportTabSwitchTypes({
+            supportSingleSwap: supportNet.supportSingleSwap,
+            supportCrossChainSwap: supportNet.supportCrossChainSwap,
+            supportLimit: supportNet.supportLimit,
+          })
+        : [];
       if (!normalizedSwapTabSwitchType && enableSwitchAction) {
         if (
           supportTypes.length > 0 &&
@@ -309,15 +311,20 @@ export function useSwapInit(params?: ISwapInitParams) {
           (net) => net.networkId === params?.importToToken?.networkId,
         ))
     ) {
+      const importTokenSupportCheckType = getSwapSupportCheckType(
+        params?.swapTabSwitchType,
+      );
+      let didSetImportFromToken = false;
       if (params?.importFromToken) {
         const fromTokenSupportTypes = checkSupportTokenSwapType(
           params?.importFromToken,
         );
         if (
-          normalizedSwapTabSwitchType &&
-          fromTokenSupportTypes.includes(normalizedSwapTabSwitchType)
+          importTokenSupportCheckType &&
+          fromTokenSupportTypes.includes(importTokenSupportCheckType)
         ) {
           setSwapFromToken(params?.importFromToken);
+          didSetImportFromToken = true;
         }
       }
       if (params?.importToToken) {
@@ -325,13 +332,17 @@ export function useSwapInit(params?: ISwapInitParams) {
           params?.importToToken,
         );
         if (
-          normalizedSwapTabSwitchType &&
-          toTokenSupportTypes.includes(normalizedSwapTabSwitchType)
+          importTokenSupportCheckType &&
+          toTokenSupportTypes.includes(importTokenSupportCheckType)
         ) {
           setToToken(params?.importToToken);
         }
       }
-      if (params?.importFromToken && !params?.importToToken) {
+      if (
+        params?.importFromToken &&
+        !params?.importToToken &&
+        didSetImportFromToken
+      ) {
         const defaultTokenSwapType =
           params?.swapTabSwitchType === ESwapTabSwitchType.BRIDGE
             ? ESwapTabSwitchType.BRIDGE
@@ -343,10 +354,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         if (needSetToToken) {
           const defaultTokenSupportTypes =
             checkSupportTokenSwapType(needSetToToken);
-          if (
-            normalizedSwapTabSwitchType &&
-            defaultTokenSupportTypes.includes(normalizedSwapTabSwitchType)
-          ) {
+          if (defaultTokenSupportTypes.includes(defaultTokenSwapType)) {
             setToToken(needSetToToken);
           }
         }

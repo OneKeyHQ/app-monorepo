@@ -425,28 +425,54 @@ const SwapSettingsDialogContent = ({
           />
         )}
         {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
-          <SwapProviderSettingItem
-            title={intl.formatMessage({
-              id: ETranslations.provider_title,
-            })}
-            onPress={() => {
-              dialogRef.current = Dialog.show({
-                title: intl.formatMessage({
-                  id: ETranslations.provider_title,
-                }),
-                disableDrag: true,
-                renderContent: (
-                  <ProviderManageContainer
-                    onSaved={() => {
-                      void dialogRef.current?.close();
-                    }}
-                  />
-                ),
-                showConfirmButton: false,
-                showCancelButton: false,
-              });
-            }}
-          />
+          <>
+            <SwapProviderSettingItem
+              title={intl.formatMessage({
+                id: ETranslations.swap_settings_manage_swap,
+              })}
+              onPress={() => {
+                dialogRef.current = Dialog.show({
+                  title: intl.formatMessage({
+                    id: ETranslations.swap_settings_manage_swap,
+                  }),
+                  disableDrag: true,
+                  renderContent: (
+                    <ProviderManageContainer
+                      mode="singleSwap"
+                      onSaved={() => {
+                        void dialogRef.current?.close();
+                      }}
+                    />
+                  ),
+                  showConfirmButton: false,
+                  showCancelButton: false,
+                });
+              }}
+            />
+            <SwapProviderSettingItem
+              title={intl.formatMessage({
+                id: ETranslations.swap_settings_manage_bridge,
+              })}
+              onPress={() => {
+                dialogRef.current = Dialog.show({
+                  title: intl.formatMessage({
+                    id: ETranslations.swap_settings_manage_bridge,
+                  }),
+                  disableDrag: true,
+                  renderContent: (
+                    <ProviderManageContainer
+                      mode="crossChain"
+                      onSaved={() => {
+                        void dialogRef.current?.close();
+                      }}
+                    />
+                  ),
+                  showConfirmButton: false,
+                  showCancelButton: false,
+                });
+              }}
+            />
+          </>
         ) : null}
       </YStack>
     </ScrollView>

@@ -39,6 +39,7 @@ import type { GestureResponderEvent } from 'react-native';
 export interface IActionButtonProps extends IButtonProps {
   tradeType: ITradeType;
   supportSpeedSwap?: boolean;
+  onlySupportCrossChain?: boolean;
   amount: string;
   token?: IToken;
   paymentToken?: IToken;
@@ -56,6 +57,7 @@ export function ActionButton({
   token,
   balance,
   supportSpeedSwap,
+  onlySupportCrossChain,
   disabled,
   onPress,
   isWrapped,
@@ -129,7 +131,9 @@ export function ActionButton({
           tradeType === ESwapDirection.BUY ? actionToken : actionOtherToken,
         importFromToken:
           tradeType === ESwapDirection.BUY ? actionOtherToken : actionToken,
-        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        swapTabSwitchType: onlySupportCrossChain
+          ? ESwapTabSwitchType.BRIDGE
+          : ESwapTabSwitchType.SWAP,
         swapSource: ESwapSource.MARKET,
         marketPresetToken: actionToken
           ? {
@@ -146,6 +150,7 @@ export function ActionButton({
     actionToken,
     actionOtherToken,
     tradeType,
+    onlySupportCrossChain,
     navigation,
   ]);
 

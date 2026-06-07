@@ -2463,7 +2463,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapFromTokenAmountAtom(), (o) => ({ ...o, isInput: true }));
       }
       this.cleanManualSelectQuoteProviders.call(set);
-      const swapSupportNetworks = get(swapNetworksIncludeAllNetworkAtom());
+      const swapSupportNetworks =
+        type === ESwapTabSwitchType.BRIDGE
+          ? get(swapNetworks()).filter((net) => net.supportCrossChainSwap)
+          : get(swapNetworksIncludeAllNetworkAtom());
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromNetworkDefault =

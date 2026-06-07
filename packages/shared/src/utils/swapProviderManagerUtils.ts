@@ -35,6 +35,19 @@ function buildProviderMap(providerManagers: ISwapProviderManager[]) {
   return map;
 }
 
+function isUnifiedProviderManager(providerManager: ISwapProviderManager) {
+  return (
+    providerManager.isSupportSingleSwap !== undefined ||
+    providerManager.isSupportCrossChain !== undefined ||
+    providerManager.singleSwapEnable !== undefined ||
+    providerManager.crossChainEnable !== undefined ||
+    providerManager.singleSwapDisableNetworks !== undefined ||
+    providerManager.crossChainDisableNetworks !== undefined ||
+    providerManager.supportSingleSwapNetworks !== undefined ||
+    providerManager.supportCrossChainNetworks !== undefined
+  );
+}
+
 export function buildUnifiedSwapProviderManagers({
   serverProviders,
   swapProviderManagers,
@@ -65,17 +78,23 @@ export function buildUnifiedSwapProviderManagers({
         ...supportCrossChainNetworks,
       ]);
       const singleSwapEnable = provider.isSupportSingleSwap
-        ? (legacySwapProvider?.enable ?? true)
+        ? (legacySwapProvider?.singleSwapEnable ??
+          legacySwapProvider?.enable ??
+          true)
         : true;
       const crossChainEnable = provider.isSupportCrossChain
-        ? (legacyBridgeProvider?.enable ?? true)
+        ? (legacySwapProvider?.crossChainEnable ??
+          legacyBridgeProvider?.enable ??
+          true)
         : true;
       const singleSwapDisableNetworks = filterNetworksBySupport(
-        legacySwapProvider?.disableNetworks,
+        legacySwapProvider?.singleSwapDisableNetworks ??
+          legacySwapProvider?.disableNetworks,
         supportSingleSwapNetworks,
       );
       const crossChainDisableNetworks = filterNetworksBySupport(
-        legacyBridgeProvider?.disableNetworks,
+        legacySwapProvider?.crossChainDisableNetworks ??
+          legacyBridgeProvider?.disableNetworks,
         supportCrossChainNetworks,
       );
       const disableNetworks = filterNetworksBySupport(
@@ -110,6 +129,7 @@ export function buildUnifiedSwapProviderManagers({
 
 export function normalizeSwapProviderManagersForSave(
   providerManagers: ISwapProviderManager[],
+  mode: 'all' | 'singleSwap' | 'crossChain' = 'all',
 ): ISwapProviderManager[] {
   return providerManagers.map((providerManager) => {
     const supportSingleSwapNetworks =
@@ -120,25 +140,53 @@ export function normalizeSwapProviderManagersForSave(
       providerManager.supportCrossChainNetworks ??
       providerManager.supportNetworks ??
       [];
+    const currentSingleSwapEnable =
+      providerManager.singleSwapEnable ?? providerManager.enable ?? true;
+    const currentCrossChainEnable =
+      providerManager.crossChainEnable ?? providerManager.enable ?? true;
+    let singleSwapEnable = currentSingleSwapEnable;
+    if (providerManager.isSupportSingleSwap === false) {
+      singleSwapEnable = true;
+    } else if (mode === 'all' || mode === 'singleSwap') {
+      singleSwapEnable = providerManager.enable ?? true;
+    }
+    let crossChainEnable = currentCrossChainEnable;
+    if (providerManager.isSupportCrossChain === false) {
+      crossChainEnable = true;
+    } else if (mode === 'all' || mode === 'crossChain') {
+      crossChainEnable = providerManager.enable ?? true;
+    }
+    const singleSwapDisableNetworks = filterNetworksBySupport(
+      mode === 'all' || mode === 'singleSwap'
+        ? providerManager.disableNetworks
+        : providerManager.singleSwapDisableNetworks,
+      supportSingleSwapNetworks,
+    );
+    const crossChainDisableNetworks = filterNetworksBySupport(
+      mode === 'all' || mode === 'crossChain'
+        ? providerManager.disableNetworks
+        : providerManager.crossChainDisableNetworks,
+      supportCrossChainNetworks,
+    );
+    const disableNetworks = filterNetworksBySupport(
+      uniqueNetworks([
+        ...singleSwapDisableNetworks,
+        ...crossChainDisableNetworks,
+      ]),
+      uniqueNetworks([
+        ...supportSingleSwapNetworks,
+        ...supportCrossChainNetworks,
+      ]),
+    );
 
     return {
       ...providerManager,
-      singleSwapEnable:
-        providerManager.isSupportSingleSwap === false
-          ? true
-          : providerManager.enable,
-      crossChainEnable:
-        providerManager.isSupportCrossChain === false
-          ? true
-          : providerManager.enable,
-      singleSwapDisableNetworks: filterNetworksBySupport(
-        providerManager.disableNetworks,
-        supportSingleSwapNetworks,
-      ),
-      crossChainDisableNetworks: filterNetworksBySupport(
-        providerManager.disableNetworks,
-        supportCrossChainNetworks,
-      ),
+      enable: singleSwapEnable && crossChainEnable,
+      singleSwapEnable,
+      crossChainEnable,
+      singleSwapDisableNetworks,
+      crossChainDisableNetworks,
+      disableNetworks,
     };
   });
 }
@@ -151,6 +199,12 @@ function isProviderSupportQuoteMode({
   isCrossChain: boolean;
 }) {
   if (isCrossChain) {
+    if (
+      providerManager.isSupportCrossChain === undefined &&
+      !isUnifiedProviderManager(providerManager)
+    ) {
+      return false;
+    }
     return providerManager.isSupportCrossChain !== false;
   }
   return providerManager.isSupportSingleSwap !== false;
@@ -164,9 +218,9 @@ function isProviderEnabledForQuoteMode({
   isCrossChain: boolean;
 }) {
   if (isCrossChain) {
-    return providerManager.crossChainEnable ?? providerManager.enable;
+    return providerManager.crossChainEnable ?? providerManager.enable ?? true;
   }
-  return providerManager.singleSwapEnable ?? providerManager.enable;
+  return providerManager.singleSwapEnable ?? providerManager.enable ?? true;
 }
 
 function isProviderDisabledByNetwork({
