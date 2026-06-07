@@ -1088,7 +1088,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importToToken,
     params?.importNetworkId,
     // syncDefaultSelectedToken() bails early after kicking off an async home->swap
-    // account writeback (syncSwapSelectedAccountFromLatestHome). When swap and home
+    // account write-back (syncSwapSelectedAccountFromLatestHome). When swap and home
     // share the same network, networkId above does not change, so without watching
     // the account identity the init would never re-run and a deeplink/Market import
     // token would be swallowed. The home-sync path pre-clears tokens, so the rerun
