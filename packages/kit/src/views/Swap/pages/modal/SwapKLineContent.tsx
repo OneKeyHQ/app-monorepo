@@ -917,6 +917,9 @@ function SwapKLineContentBody({
         kLineDataFallback={state.kLineDataFallback}
         primaryKLineDataUnavailable={state.primaryKLineDataUnavailable}
         onPrimaryKLineDataUnavailable={state.handlePrimaryKLineDataUnavailable}
+        // In a modal: the app-root chart overlay would render behind it, so use
+        // the legacy per-instance WebView (offline URL) here on desktop.
+        preferLegacyChart
         w="100%"
         h="100%"
       />

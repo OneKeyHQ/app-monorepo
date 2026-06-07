@@ -1,0 +1,108 @@
+diff --git a/node_modules/@tamagui/focus-scope/dist/cjs/FocusScope.js b/node_modules/@tamagui/focus-scope/dist/cjs/FocusScope.js
+index b029312..24fe25a 100644
+--- a/node_modules/@tamagui/focus-scope/dist/cjs/FocusScope.js
++++ b/node_modules/@tamagui/focus-scope/dist/cjs/FocusScope.js
+@@ -43,11 +43,11 @@ function useFocusScope(props, forwardedRef) {
+     forceUnmount,
+     children,
+     ...scopeProps
+-  } = props, [container, setContainer] = React.useState(null), onMountAutoFocus = (0, import_use_event.useEvent)(onMountAutoFocusProp), onUnmountAutoFocus = (0, import_use_event.useEvent)(onUnmountAutoFocusProp), lastFocusedElementRef = React.useRef(null), composedRefs = (0, import_compose_refs.useComposedRefs)(forwardedRef, (node) => {
++  } = props, [container, setContainer] = React.useState(null), onMountAutoFocus = (0, import_use_event.useEvent)(onMountAutoFocusProp), onUnmountAutoFocus = (0, import_use_event.useEvent)(onUnmountAutoFocusProp), lastFocusedElementRef = React.useRef(null), composedRefs = (0, import_compose_refs.useComposedRefs)(forwardedRef, React.useCallback((node) => {
+     React.startTransition(() => {
+       setContainer(node);
+     });
+-  }), focusScope = React.useRef({
++  }, [])), focusScope = React.useRef({
+     paused: !1,
+     pause() {
+       this.paused = !0;
+diff --git a/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.js b/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.js
+index 0ceee7f..917e660 100644
+--- a/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.js
++++ b/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.js
+@@ -18,11 +18,11 @@ function useFocusScope(props, forwardedRef) {
+     forceUnmount,
+     children,
+     ...scopeProps
+-  } = props, [container, setContainer] = React.useState(null), onMountAutoFocus = useEvent(onMountAutoFocusProp), onUnmountAutoFocus = useEvent(onUnmountAutoFocusProp), lastFocusedElementRef = React.useRef(null), composedRefs = useComposedRefs(forwardedRef, (node) => {
++  } = props, [container, setContainer] = React.useState(null), onMountAutoFocus = useEvent(onMountAutoFocusProp), onUnmountAutoFocus = useEvent(onUnmountAutoFocusProp), lastFocusedElementRef = React.useRef(null), composedRefs = useComposedRefs(forwardedRef, React.useCallback((node) => {
+     React.startTransition(() => {
+       setContainer(node);
+     });
+-  }), focusScope = React.useRef({
++  }, [])), focusScope = React.useRef({
+     paused: !1,
+     pause() {
+       this.paused = !0;
+diff --git a/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs b/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs
+index 882a822..b8da710 100644
+--- a/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs
++++ b/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs
+@@ -29,11 +29,11 @@ function useFocusScope(props, forwardedRef) {
+     onMountAutoFocus = useEvent(onMountAutoFocusProp),
+     onUnmountAutoFocus = useEvent(onUnmountAutoFocusProp),
+     lastFocusedElementRef = React.useRef(null),
+-    composedRefs = useComposedRefs(forwardedRef, node => {
++    composedRefs = useComposedRefs(forwardedRef, React.useCallback(node => {
+       React.startTransition(() => {
+         setContainer(node);
+       });
+-    }),
++    }, [])),
+     focusScope = React.useRef({
+       paused: !1,
+       pause() {
+diff --git a/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.js b/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.js
+index 0ceee7f..917e660 100644
+--- a/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.js
++++ b/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.js
+@@ -18,11 +18,11 @@ function useFocusScope(props, forwardedRef) {
+     forceUnmount,
+     children,
+     ...scopeProps
+-  } = props, [container, setContainer] = React.useState(null), onMountAutoFocus = useEvent(onMountAutoFocusProp), onUnmountAutoFocus = useEvent(onUnmountAutoFocusProp), lastFocusedElementRef = React.useRef(null), composedRefs = useComposedRefs(forwardedRef, (node) => {
++  } = props, [container, setContainer] = React.useState(null), onMountAutoFocus = useEvent(onMountAutoFocusProp), onUnmountAutoFocus = useEvent(onUnmountAutoFocusProp), lastFocusedElementRef = React.useRef(null), composedRefs = useComposedRefs(forwardedRef, React.useCallback((node) => {
+     React.startTransition(() => {
+       setContainer(node);
+     });
+-  }), focusScope = React.useRef({
++  }, [])), focusScope = React.useRef({
+     paused: !1,
+     pause() {
+       this.paused = !0;
+diff --git a/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.mjs b/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.mjs
+index 882a822..b8da710 100644
+--- a/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.mjs
++++ b/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.mjs
+@@ -29,11 +29,11 @@ function useFocusScope(props, forwardedRef) {
+     onMountAutoFocus = useEvent(onMountAutoFocusProp),
+     onUnmountAutoFocus = useEvent(onUnmountAutoFocusProp),
+     lastFocusedElementRef = React.useRef(null),
+-    composedRefs = useComposedRefs(forwardedRef, node => {
++    composedRefs = useComposedRefs(forwardedRef, React.useCallback(node => {
+       React.startTransition(() => {
+         setContainer(node);
+       });
+-    }),
++    }, [])),
+     focusScope = React.useRef({
+       paused: !1,
+       pause() {
+diff --git a/node_modules/@tamagui/focus-scope/src/FocusScope.tsx b/node_modules/@tamagui/focus-scope/src/FocusScope.tsx
+index 155a652..eceff05 100644
+--- a/node_modules/@tamagui/focus-scope/src/FocusScope.tsx
++++ b/node_modules/@tamagui/focus-scope/src/FocusScope.tsx
+@@ -50,11 +50,11 @@ export function useFocusScope(
+   const onMountAutoFocus = useEvent(onMountAutoFocusProp)
+   const onUnmountAutoFocus = useEvent(onUnmountAutoFocusProp)
+   const lastFocusedElementRef = React.useRef<HTMLElement | null>(null)
+-  const composedRefs = useComposedRefs(forwardedRef, (node) => {
++  const composedRefs = useComposedRefs(forwardedRef, React.useCallback((node) => {
+     React.startTransition(() => {
+       setContainer(node)
+     })
+-  })
++  }, []))
+ 
+   const focusScope = React.useRef({
+     paused: false,

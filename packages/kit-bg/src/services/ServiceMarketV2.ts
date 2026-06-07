@@ -283,15 +283,113 @@ class ServiceMarketV2 extends ServiceBase {
     );
   }
 
+  // Bar length in seconds for a TradingView resolution ('1m','5m','1H','1D','1M'...).
+  // TradingView also sends bare numbers ('1','5','15','60','240') representing minutes.
+  // Note: lowercase 'm' = minute, uppercase 'M' = month (case-sensitive).
+  private _klineIntervalToSeconds(interval?: string): number {
+    if (!interval) return 60;
+    const trimmed = interval.trim();
+    const m = /^(\d+)\s*([smhHdDwWM])$/.exec(trimmed);
+    if (!m) {
+      // Bare number → TradingView minute resolution (e.g. '5' = 5 minutes)
+      const asNum = parseInt(trimmed, 10);
+      return Number.isFinite(asNum) && asNum > 0 ? asNum * 60 : 60;
+    }
+    const n = parseInt(m[1], 10);
+    const unitSec: Record<string, number> = {
+      s: 1,
+      S: 1,
+      m: 60,
+      h: 3600,
+      H: 3600,
+      d: 86_400,
+      D: 86_400,
+      w: 604_800,
+      W: 604_800,
+      M: 2_592_000,
+    };
+    return n * (unitSec[m[2]] ?? 60);
+  }
+
+  // Normalize a TradingView resolution to the interval string the kline API
+  // expects: minute/second lowercase ('1m','30s'), hour/day/week/month
+  // uppercase ('1H','1D','1W','1M'); bare numbers ('1','60') pass through.
+  // The previous toUpperCase()+includes('M')->toLowerCase() approach collapsed
+  // month '1M' into minute '1m' because the toUpperCase() step erased the m/M
+  // case before the check — case-sensitive per-unit mapping keeps them distinct.
+  private _normalizeKlineApiInterval(interval?: string): string | undefined {
+    if (!interval) return interval;
+    const trimmed = interval.trim();
+    const m = /^(\d+)\s*([smhHdDwWM])$/.exec(trimmed);
+    if (!m) return trimmed; // bare number (minutes) or unknown → pass through
+    const unit = m[2];
+    const lower = unit === 'm' || unit === 's';
+    return `${m[1]}${lower ? unit.toLowerCase() : unit.toUpperCase()}`;
+  }
+
+  // Cached kline fetch. The cache key excludes autoHandleError and uses the
+  // caller-bucketed time range, so repeated requests for the same token+interval
+  // within the same bar (e.g. the prewarm's early getBars and the detail's
+  // getBars ~300ms later) collapse to one network call.
+  private _memoizedFetchMarketTokenKline = memoizee(
+    async ({
+      tokenAddress,
+      networkId,
+      interval,
+      timeFrom,
+      timeTo,
+      autoHandleError,
+    }: {
+      tokenAddress: string;
+      networkId: string;
+      interval?: string;
+      timeFrom?: number;
+      timeTo?: number;
+      autoHandleError?: boolean;
+    }): Promise<IMarketTokenKLineResponse> => {
+      const innerInterval = this._normalizeKlineApiInterval(interval);
+      const requestConfig = {
+        params: {
+          tokenAddress,
+          networkId,
+          interval: innerInterval,
+          timeFrom,
+          timeTo,
+          currency: 'usd',
+        },
+        ...(autoHandleError === false ? { autoHandleError: false } : {}),
+      };
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        code: number;
+        message: string;
+        data: IMarketTokenKLineResponse;
+      }>('/utility/v2/market/token/kline', requestConfig);
+      return response.data.data;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      promise: true,
+      normalizer: (args) => {
+        const [{ tokenAddress, networkId, interval, timeFrom, timeTo }] =
+          args as [
+            {
+              tokenAddress: string;
+              networkId: string;
+              interval?: string;
+              timeFrom?: number;
+              timeTo?: number;
+            },
+          ];
+        return `${tokenAddress}|${networkId}|${interval ?? ''}|${
+          timeFrom ?? ''
+        }|${timeTo ?? ''}`;
+      },
+    },
+  );
+
   @backgroundMethod()
-  async fetchMarketTokenKline({
-    tokenAddress,
-    networkId,
-    interval,
-    timeFrom,
-    timeTo,
-    autoHandleError,
-  }: {
+  async fetchMarketTokenKline(params: {
     tokenAddress: string;
     networkId: string;
     interval?: string;
@@ -299,32 +397,18 @@ class ServiceMarketV2 extends ServiceBase {
     timeTo?: number;
     autoHandleError?: boolean;
   }) {
-    let innerInterval = interval?.toUpperCase();
-
-    if (innerInterval?.includes('M') || innerInterval?.includes('S')) {
-      innerInterval = innerInterval?.toLowerCase();
-    }
-
-    const requestConfig = {
-      params: {
-        tokenAddress,
-        networkId,
-        interval: innerInterval,
-        timeFrom,
-        timeTo,
-        currency: 'usd',
-      },
-      ...(autoHandleError === false ? { autoHandleError: false } : {}),
-    };
-
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      code: number;
-      message: string;
-      data: IMarketTokenKLineResponse;
-    }>('/utility/v2/market/token/kline', requestConfig);
-    const { data } = response.data;
-    return data;
+    // Bucket the time range to the bar interval so timeTo≈now (which varies every
+    // call) doesn't bust the cache within the same bar. Bars are interval-aligned,
+    // so flooring keeps slice boundaries contiguous (no gaps); the latest partial
+    // bar is filled by the realtime update path.
+    const sec = this._klineIntervalToSeconds(params.interval);
+    const bucket = (t?: number) =>
+      t !== undefined && sec > 0 ? Math.floor(t / sec) * sec : t;
+    return this._memoizedFetchMarketTokenKline({
+      ...params,
+      timeFrom: bucket(params.timeFrom),
+      timeTo: bucket(params.timeTo),
+    });
   }
 
   @backgroundMethod()

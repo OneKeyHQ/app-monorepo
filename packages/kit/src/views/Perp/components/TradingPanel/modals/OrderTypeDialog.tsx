@@ -125,9 +125,6 @@ export function showOrderTypeDialog({
     ),
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
-    onClose: () => {
-      void dialogInstance.close();
-    },
   });
 
   return dialogInstance;
