@@ -1866,26 +1866,6 @@ export function OrderBookMobile({
     selectedTickOption?.value,
     isEmpty,
   );
-  // Spacers reserve the height of the native columns so the foreground spread
-  // row stays aligned. While empty, the native view draws `maxLevelsPerSide`
-  // placeholder rows, so reserve that height too (not 0).
-  const askSpacerStyle = useMemo(
-    () => ({
-      height:
-        (isEmpty ? maxLevelsPerSide : aggregatedData.asks.length) *
-        MOBILE_ROW_HEIGHT,
-    }),
-    [aggregatedData.asks.length, isEmpty, maxLevelsPerSide],
-  );
-  const bidSpacerStyle = useMemo(
-    () => ({
-      height:
-        (isEmpty ? maxLevelsPerSide : aggregatedData.bids.length) *
-        MOBILE_ROW_HEIGHT,
-    }),
-    [aggregatedData.bids.length, isEmpty, maxLevelsPerSide],
-  );
-
   const bidDepth = useMemo(() => {
     return new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
   }, [aggregatedData.bids]);
@@ -1937,7 +1917,7 @@ export function OrderBookMobile({
   // frame-coalesce ONCE, so the three arrays a depth column reads are always
   // from the SAME source frame. Coalescing them through three independent
   // useRafCoalesced calls could land a percents update on frame N while
-  // prices/sizes still showed frame N-1, briefly misaligning the bar fill from
+  // prices/sizes still showed frame N-1, briefly separating the bar fill from
   // its own price/size text (PR review r3363420755). The raw arrays keep their
   // own useMemo identities so this wrapper only changes when real data changes.
   const askLadderRaw = useMemo(
@@ -1958,6 +1938,25 @@ export function OrderBookMobile({
   );
   const askLadder = useRafCoalesced(askLadderRaw, depthEpoch);
   const bidLadder = useRafCoalesced(bidLadderRaw, depthEpoch);
+  // Spacers reserve the height of the native columns so the foreground spread
+  // row stays aligned. In populated state, use the same frame-coalesced row count
+  // the native columns render; while empty, reserve the native placeholder rows.
+  const askSpacerStyle = useMemo(
+    () => ({
+      height:
+        (isEmpty ? maxLevelsPerSide : askLadder.percents.length) *
+        MOBILE_ROW_HEIGHT,
+    }),
+    [askLadder.percents.length, isEmpty, maxLevelsPerSide],
+  );
+  const bidSpacerStyle = useMemo(
+    () => ({
+      height:
+        (isEmpty ? maxLevelsPerSide : bidLadder.percents.length) *
+        MOBILE_ROW_HEIGHT,
+    }),
+    [bidLadder.percents.length, isEmpty, maxLevelsPerSide],
+  );
 
   const priceFontSize = useMemo(() => {
     if (!asks.length) {

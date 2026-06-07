@@ -1,5 +1,6 @@
 import {
   type ComponentType,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -172,32 +173,41 @@ export function DepthBarColumn({
   // Typed as `Float32Array<ArrayBuffer>` so `.buffer` narrows to `ArrayBuffer`
   // (not `ArrayBufferLike`) for the `setDepth(buffer: ArrayBuffer)` call.
   const bufRef = useRef<Float32Array<ArrayBuffer> | null>(null);
-  // Stable `hybridRef` callback so the prop never changes identity between
-  // renders (a new callback would force a Fabric props re-commit every frame).
-  const hybridRef = useMemo(
-    () =>
-      nitroCallback((node: IPerpDepthBarsRef) => {
-        depthRef.current = node;
-      }),
-    [],
-  );
-
-  useEffect(() => {
-    const node = depthRef.current;
+  const payloadRef = useRef({
+    percents,
+    prices,
+    sizes,
+    placeholderText,
+    placeholderRows,
+  });
+  payloadRef.current = {
+    percents,
+    prices,
+    sizes,
+    placeholderText,
+    placeholderRows,
+  };
+  const pushDepth = useCallback((node = depthRef.current) => {
     if (!node) {
-      // Native node not attached yet; a later frame re-enters via the deps.
       return;
     }
-    const hasData = percents.length > 0;
+    const {
+      percents: latestPercents,
+      prices: latestPrices,
+      sizes: latestSizes,
+      placeholderText: latestPlaceholderText,
+      placeholderRows: latestPlaceholderRows,
+    } = payloadRef.current;
+    const hasData = latestPercents.length > 0;
     // Rows to push: real data, else the placeholder rows. The `--` empty state is
     // driven through the SAME imperative setDepth/setText path that already works
     // for real data (numbers render fine), so it does NOT depend on the native
     // `placeholderText`/`placeholderRows` props — avoids JS<->native version skew.
     let rows = 0;
     if (hasData) {
-      rows = percents.length;
-    } else if (placeholderText) {
-      rows = placeholderRows ?? 0;
+      rows = latestPercents.length;
+    } else if (latestPlaceholderText) {
+      rows = latestPlaceholderRows ?? 0;
     }
 
     // Depth buffer: real percents, else zeros (placeholder rows draw no bar).
@@ -207,7 +217,7 @@ export function DepthBarColumn({
       bufRef.current = buf;
     }
     if (hasData) {
-      buf.set(percents);
+      buf.set(latestPercents);
     } else {
       buf.fill(0);
     }
@@ -216,14 +226,28 @@ export function DepthBarColumn({
     // Per-row text in the SAME frame as the bars (REACT-NATIVE-1JZ): real
     // price/size, else `rows` copies of the placeholder string ("--").
     if (hasData) {
-      node.setText?.(prices ?? [], sizes ?? []);
-    } else if (rows > 0 && placeholderText) {
-      const ph = new Array<string>(rows).fill(placeholderText);
+      node.setText?.(latestPrices ?? [], latestSizes ?? []);
+    } else if (rows > 0 && latestPlaceholderText) {
+      const ph = new Array<string>(rows).fill(latestPlaceholderText);
       node.setText?.(ph, ph);
     } else {
       node.setText?.([], []);
     }
-  }, [percents, prices, sizes, placeholderText, placeholderRows]);
+  }, []);
+  // Stable `hybridRef` callback so the prop never changes identity between
+  // renders (a new callback would force a Fabric props re-commit every frame).
+  const hybridRef = useMemo(
+    () =>
+      nitroCallback((node: IPerpDepthBarsRef) => {
+        depthRef.current = node;
+        pushDepth(node);
+      }),
+    [pushDepth],
+  );
+
+  useEffect(() => {
+    pushDepth();
+  }, [percents, prices, sizes, placeholderText, placeholderRows, pushDepth]);
 
   return (
     <StyledPerpDepthBarsView
@@ -335,17 +359,27 @@ export function SideRatioSegments({
   // `bidPercentage`/`askPercentage` prop commits and update the native view in a
   // single JSI call via `setRatio` (REACT-NATIVE-1JZ).
   const ratioRef = useRef<IPerpSideRatioRef | null>(null);
+  const ratioPayloadRef = useRef({ bidPercentage, askPercentage });
+  ratioPayloadRef.current = { bidPercentage, askPercentage };
+  const pushRatio = useCallback((node = ratioRef.current) => {
+    const {
+      bidPercentage: latestBidPercentage,
+      askPercentage: latestAskPercentage,
+    } = ratioPayloadRef.current;
+    node?.setRatio?.(latestBidPercentage, latestAskPercentage);
+  }, []);
   const hybridRef = useMemo(
     () =>
       nitroCallback((node: IPerpSideRatioRef) => {
         ratioRef.current = node;
+        pushRatio(node);
       }),
-    [],
+    [pushRatio],
   );
 
   useEffect(() => {
-    ratioRef.current?.setRatio?.(bidPercentage, askPercentage);
-  }, [bidPercentage, askPercentage]);
+    pushRatio();
+  }, [bidPercentage, askPercentage, pushRatio]);
 
   return (
     <PerpSideRatioView
