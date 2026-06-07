@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebView from '../../WebView';
 
@@ -84,6 +86,19 @@ export function ChartWebView({
   // (theme/locale) via the `key`, which is rare.
   const unifiedUrl = useMemo(() => buildUnifiedChartUrl(params), [params]);
 
+  // Diagnostic: this desktop host is the OFFLINE path — it only mounts when the
+  // asar shipped the bundle (getDesktopOfflineChartReady), serving the constant
+  // onekey-chart:// source. The online fallback (bundle absent → legacy WebView)
+  // is logged in useTradingViewUrl instead (this component never renders there).
+  useEffect(() => {
+    defaultLogger.market.chart.chartSource({
+      platform: platformEnv.appPlatform ?? 'desktop',
+      type: paramsRef.current.type,
+      mode: 'offline',
+      sourceKind: 'offline',
+    });
+  }, []);
+
   const handleInnerRef = useCallback(
     (ref: IWebViewRef | null) => {
       webRefHolder.current = ref;
@@ -112,6 +127,11 @@ export function ChartWebView({
   // The page boots on a placeholder symbol; once its SYMBOL_CHANGE listener is
   // up (load end), push the active token and forward to the consumer.
   const handleLoadEnd = useCallback(() => {
+    defaultLogger.market.chart.chartLoadEnd({
+      platform: platformEnv.appPlatform ?? 'desktop',
+      type: paramsRef.current.type,
+      sourceKind: 'offline',
+    });
     if (autoDriveSymbolRef.current && isFocusedRef.current) {
       sendSymbolChange();
     }

@@ -9,6 +9,8 @@ import { type HybridView, callback } from 'react-native-nitro-modules';
 
 import { Stack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   CHART_WEBVIEW_ENTRY,
@@ -238,6 +240,23 @@ export function ChartWebView({
       ? CHART_WEBVIEW_REUSE_KEY
       : undefined;
 
+  // Diagnostic: confirm whether this native chart resolves to the offline
+  // app-bundled assets or the remote online URL (see market.chart scene). Logs
+  // intent only — JS has no asset-presence signal on native, so 'offline' here
+  // means CHART_WEBVIEW_MODE selected the localBundle, not that the files exist.
+  const sourceKind = CHART_WEBVIEW_MODE === 'online' ? 'online' : 'offline';
+  useEffect(() => {
+    defaultLogger.market.chart.chartSource({
+      platform: platformEnv.appPlatform ?? 'native',
+      type: paramsRef.current.type,
+      mode: CHART_WEBVIEW_MODE,
+      sourceKind,
+      scene: CHART_WEBVIEW_SCENE,
+      pooled: !!reuseKey,
+      hasOnlineFallback: !!onlineUrl,
+    });
+  }, [sourceKind, reuseKey, onlineUrl]);
+
   // Nitro requires function props wrapped with callback(). The hybridRef callback
   // hands us a ref whose .current is the live HybridObject (postMessage/reload).
   const hybridRefProp = useMemo(
@@ -270,6 +289,11 @@ export function ChartWebView({
   const onLoadEndProp = useMemo(
     () =>
       callback(() => {
+        defaultLogger.market.chart.chartLoadEnd({
+          platform: platformEnv.appPlatform ?? 'native',
+          type: paramsRef.current.type,
+          sourceKind,
+        });
         // Cold first load: the page's SYMBOL_CHANGE listener wasn't up for the
         // eager send, so re-assert now that it is.
         if (autoDriveSymbolRef.current && isFocusedRef.current) {
@@ -278,7 +302,7 @@ export function ChartWebView({
         // Forward to the consumer (perps re-syncs its own symbol + enables lines).
         onLoadEndRef.current?.();
       }),
-    [sendSymbolChange],
+    [sendSymbolChange, sourceKind],
   );
 
   // Remount when the source mode/url changes so the new source loads cleanly.
