@@ -291,7 +291,6 @@ export interface IAppEventBusPayload {
         // point at the previous network.
         refreshByProvidedAccounts?: boolean;
       };
-  [EAppEventBusNames.RefreshEarnRecommendedList]: undefined;
   [EAppEventBusNames.RefreshHistoryList]: undefined;
   [EAppEventBusNames.RefreshApprovalList]: undefined;
   [EAppEventBusNames.RefreshBookmarkList]: undefined;

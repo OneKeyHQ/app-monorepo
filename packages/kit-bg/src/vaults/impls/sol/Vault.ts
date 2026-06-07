@@ -1013,14 +1013,15 @@ export default class Vault extends VaultBase {
     }
 
     let extraInfo: IDecodedTxExtraSol | null = null;
+    const hasCreateTokenAccountInstruction = instructions.some(
+      (instruction) =>
+        instruction.programId.toString() ===
+        ASSOCIATED_TOKEN_PROGRAM_ID.toString(),
+    );
     if (
-      !unsignedTx.swapInfo &&
       !unsignedTx.stakingInfo &&
-      instructions.some(
-        (instruction) =>
-          instruction.programId.toString() ===
-          ASSOCIATED_TOKEN_PROGRAM_ID.toString(),
-      ) &&
+      (!unsignedTx.swapInfo || transferPayload?.isPrivateSend === true) &&
+      hasCreateTokenAccountInstruction &&
       actions[0].assetTransfer
     ) {
       const network = await this.getNetwork();

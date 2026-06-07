@@ -18,6 +18,7 @@ import {
   ipcMain,
   nativeTheme,
   powerMonitor,
+  protocol,
   session,
   shell,
 } from 'electron';
@@ -37,6 +38,10 @@ import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import {
+  DESKTOP_OFFLINE_CHART_HOST,
+  DESKTOP_OFFLINE_CHART_SCHEME,
+} from '@onekeyhq/shared/src/consts/desktopChartConsts';
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -158,6 +163,57 @@ const resourcesPath = getResourcesPath();
 const sdkConnectSrc = isLocalUnpacked
   ? `file://${path.join(staticPath, 'js-sdk/')}`
   : path.join('/static', 'js-sdk/');
+
+// ── Offline TradingView chart bundle ────────────────────────────────────────
+// Staged into apps/desktop/app/tradingview-assets/ by
+// development/scripts/fetch-tradingview-assets.mjs and bundled into the asar
+// (outside build/, so it never enters the hot-update bundle). The main process
+// is never hot-updated, so __dirname (app.asar/dist) is a stable anchor.
+const chartAssetsRoot = path.resolve(__dirname, '..', 'tradingview-assets');
+const chartOfflineReady = fs.existsSync(
+  path.join(chartAssetsRoot, 'index.html'),
+);
+
+// Register the chart scheme as privileged BEFORE app `ready`. `standard` +
+// `secure` give the offline chart a real, secure virtual origin
+// (onekey-chart://local) so its direct Hyperliquid fetch()/WebSocket calls
+// behave like a normal https page (proper Origin, CORS, secure context) —
+// unlike file://, which is a null/opaque origin. Registered unconditionally so
+// the scheme is consistent; the handler is only wired when assets exist.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: DESKTOP_OFFLINE_CHART_SCHEME,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true,
+    },
+  },
+]);
+
+// Minimal extension → MIME map for the chart bundle (html/js/css/fonts/images).
+// Kept local to avoid a mime dependency in the main process.
+const CHART_MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.mjs': 'text/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.map': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.wasm': 'application/wasm',
+};
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
@@ -747,6 +803,7 @@ async function createMainWindow() {
         staticPath: `file://${staticPath}`,
         // preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
         sdkConnectSrc,
+        tradingViewOfflineReady: chartOfflineReady,
       },
     );
   });
@@ -1184,6 +1241,53 @@ async function createMainWindow() {
     'clipboard-sanitized-write',
   ]);
   const webviewSession = session.fromPartition('persist:onekey');
+
+  // Serve the offline TradingView chart bundle on the privileged onekey-chart://
+  // virtual origin for the chart <webview> (which runs in this partition). Maps
+  // onekey-chart://local/<path> → asar tradingview-assets/<path>, path-traversal
+  // guarded. Only wired when the bundle was shipped (no-token builds skip it and
+  // the renderer falls back to the online chart). The handler reads via fs, which
+  // Electron patches for transparent asar access.
+  if (chartOfflineReady) {
+    try {
+      webviewSession.protocol.handle(
+        DESKTOP_OFFLINE_CHART_SCHEME,
+        async (request) => {
+          try {
+            const { host, pathname } = new URL(request.url);
+            if (host !== DESKTOP_OFFLINE_CHART_HOST) {
+              return new Response('Not Found', { status: 404 });
+            }
+            const rel =
+              decodeURIComponent(pathname).replace(/^\/+/, '') || 'index.html';
+            const resolved = path.resolve(chartAssetsRoot, rel);
+            if (
+              resolved !== chartAssetsRoot &&
+              !resolved.startsWith(chartAssetsRoot + path.sep)
+            ) {
+              logger.warn('[chart] blocked path traversal:', resolved);
+              return new Response('Forbidden', { status: 403 });
+            }
+            const data = await fs.promises.readFile(resolved);
+            const ext = path.extname(resolved).toLowerCase();
+            const mime = CHART_MIME_TYPES[ext] || 'application/octet-stream';
+            return new Response(new Uint8Array(data), {
+              status: 200,
+              headers: { 'Content-Type': mime },
+            });
+          } catch {
+            logger.warn('[chart] asset not found:', request.url);
+            return new Response('Not Found', { status: 404 });
+          }
+        },
+      );
+    } catch (e) {
+      // protocol.handle throws if already registered (e.g. window recreated on
+      // `activate`). Safe to ignore — the existing handler stays valid.
+      logger.info('[chart] protocol handler already registered:', e);
+    }
+  }
+
   webviewSession.setPermissionRequestHandler(
     (webContents, permission, callback, details) => {
       const requestingUrl = details.requestingUrl || '';

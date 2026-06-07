@@ -32,6 +32,7 @@ import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
 import { PerpGuidePopover } from '../components/Guide/PerpGuidePopover';
+import { PerpChartPrewarm } from '../components/PerpChartPrewarm';
 import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
@@ -196,6 +197,9 @@ function PerpContent() {
         <LazyPageContainer>
           <PerpBodyContent />
         </LazyPageContainer>
+        {/* Keep the shared chart WebView warm + pre-switched to the active pair
+            so opening the chart sub-page is instant (native, hidden offscreen). */}
+        <PerpChartPrewarm />
       </Page.Body>
     </Page>
   );

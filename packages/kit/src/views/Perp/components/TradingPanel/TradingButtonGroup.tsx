@@ -173,8 +173,11 @@ function hasPerpsOrderSizeInput(
 function shouldUseEmptySizeTradingButtons(
   formData: ITradingFormEmptySizeParams,
 ) {
+  const isAlgoOrderMode =
+    formData.orderMode === 'scale' || formData.orderMode === 'twap';
   return (
     formData.orderMode !== 'trigger' &&
+    !isAlgoOrderMode &&
     !formData.bboPriceMode &&
     !hasPerpsOrderSizeInput(formData)
   );
@@ -496,7 +499,7 @@ function SideButtonInternal({
   }, [activeTradeInstrument, isSpot]);
 
   const buttonText = useMemo(() => {
-    if (isMobile && formData.orderMode === 'scale') {
+    if (formData.orderMode === 'scale') {
       return side === 'long'
         ? intl.formatMessage({
             id: ETranslations.perp_preview_buy__action,
@@ -553,7 +556,6 @@ function SideButtonInternal({
   }, [
     priceError,
     formData.orderMode,
-    isMobile,
     isNoEnoughMargin,
     isSpot,
     side,
@@ -1487,7 +1489,7 @@ function SideButtonInternal({
           disabledStyle={
             shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
           }
-          loading={shouldShowButtonLoading || isSubmitting}
+          loading={shouldShowButtonLoading}
           onPress={handlePress}
           h={36}
           py={
@@ -1534,7 +1536,7 @@ function SideButtonInternal({
         disabledStyle={
           shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
         }
-        loading={shouldShowButtonLoading || isSubmitting}
+        loading={shouldShowButtonLoading}
         onPress={handlePress}
         h={36}
         py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
