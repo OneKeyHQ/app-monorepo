@@ -1335,17 +1335,14 @@ function BasePerpTokenSelector() {
           isOpeningRef.current = true;
           void waitForTokenSelectorOpenPrewarm(
             Promise.resolve().then(() => prewarmTokenSelectorImages()),
-          )
-            .then(() => {
-              defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
-                currentToken: baseName,
-                tradeMode: mode === 'spot' ? 'spot' : 'perp',
-              });
-              setIsOpen(true);
-            })
-            .finally(() => {
-              isOpeningRef.current = false;
-            });
+          ).finally(() => {
+            isOpeningRef.current = false;
+          });
+          defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
+            currentToken: baseName,
+            tradeMode: mode === 'spot' ? 'spot' : 'perp',
+          });
+          setIsOpen(true);
         }}
         placement="bottom-start"
         renderTrigger={
@@ -1547,19 +1544,16 @@ function BasePerpTokenSelectorMobile() {
           prewarmTokenSelectorImages(),
         ]),
       ),
-    )
-      .then(() => {
-        defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
-          currentToken: coin,
-          tradeMode: mode === 'spot' ? 'spot' : 'perp',
-        });
-        navigation.pushModal(EModalRoutes.PerpModal, {
-          screen: EModalPerpRoutes.MobileTokenSelector,
-        });
-      })
-      .finally(() => {
-        isOpeningRef.current = false;
-      });
+    ).finally(() => {
+      isOpeningRef.current = false;
+    });
+    defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
+      currentToken: coin,
+      tradeMode: mode === 'spot' ? 'spot' : 'perp',
+    });
+    navigation.pushModal(EModalRoutes.PerpModal, {
+      screen: EModalPerpRoutes.MobileTokenSelector,
+    });
   }, [coin, mode, navigation, prewarmTokenSelectorImages]);
 
   return (

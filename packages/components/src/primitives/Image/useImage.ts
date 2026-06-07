@@ -22,6 +22,8 @@ import {
   getCachedImagePath,
   getCachedImageRef,
   refreshCachedImagePath,
+  releaseCachedImageRef,
+  retainCachedImageRef,
 } from './cache';
 import { isEmptyResolvedSource } from './utils';
 
@@ -41,20 +43,30 @@ export function useImage(
   const resolvedSource = useMemo(() => {
     return resolveSource(source);
   }, [source]);
+  const cachedImageRef = useMemo(() => {
+    if (resolvedSource?.uri && !/^https?:\/\//.test(resolvedSource.uri)) {
+      return null;
+    }
+    if (platformEnv.isNativeAndroid) {
+      return null;
+    }
+    const imageUri = resolvedSource?.uri;
+    return getCachedImageRef(imageUri) ?? null;
+  }, [resolvedSource?.uri]);
+
   const cachedImage: ImageRef | ImageSource | null = useMemo(() => {
     if (resolvedSource?.uri && !/^https?:\/\//.test(resolvedSource.uri)) {
       return {
         uri: resolvedSource.uri,
       };
     }
+    if (cachedImageRef) {
+      return cachedImageRef;
+    }
     if (platformEnv.isNativeAndroid) {
       return null;
     }
     const imageUri = resolvedSource?.uri;
-    const cachedImageRef = getCachedImageRef(imageUri);
-    if (cachedImageRef) {
-      return cachedImageRef;
-    }
     const cachedPath = getCachedImagePath(imageUri);
     if (cachedPath) {
       return {
@@ -62,7 +74,7 @@ export function useImage(
       };
     }
     return null;
-  }, [resolvedSource?.uri]);
+  }, [cachedImageRef, resolvedSource?.uri]);
 
   // Since options are not dependencies of the below effect, we store them in a ref.
   // Once the image is asynchronously loaded, the effect will use the most recent options,
@@ -140,6 +152,17 @@ export function useImage(
       }
     };
   }, [image]);
+
+  useEffect(() => {
+    const imageUri = resolvedSource?.uri;
+    if (!cachedImageRef || !imageUri) {
+      return;
+    }
+    retainCachedImageRef(imageUri);
+    return () => {
+      releaseCachedImageRef(imageUri);
+    };
+  }, [cachedImageRef, resolvedSource?.uri]);
 
   useEffect(() => {
     isEffectValid.current = true;
