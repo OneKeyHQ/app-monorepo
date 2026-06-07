@@ -153,6 +153,97 @@ function getPrivateSendDisplayTransferIdentity(
   };
 }
 
+function areSamePrivateSendDisplayTransferContents({
+  currentIdentity,
+  replayIdentity,
+}: {
+  currentIdentity: ReturnType<typeof getPrivateSendDisplayTransferIdentity>;
+  replayIdentity: ReturnType<typeof getPrivateSendDisplayTransferIdentity>;
+}) {
+  return (
+    replayIdentity.amount === currentIdentity.amount &&
+    replayIdentity.tokenIdOnNetwork === currentIdentity.tokenIdOnNetwork &&
+    replayIdentity.symbol === currentIdentity.symbol &&
+    replayIdentity.icon === currentIdentity.icon &&
+    replayIdentity.isNative === currentIdentity.isNative
+  );
+}
+
+function areSamePrivateSendDisplayTransferTokens({
+  currentIdentity,
+  replayIdentity,
+}: {
+  currentIdentity: ReturnType<typeof getPrivateSendDisplayTransferIdentity>;
+  replayIdentity: ReturnType<typeof getPrivateSendDisplayTransferIdentity>;
+}) {
+  return (
+    replayIdentity.tokenIdOnNetwork === currentIdentity.tokenIdOnNetwork &&
+    replayIdentity.symbol === currentIdentity.symbol &&
+    replayIdentity.icon === currentIdentity.icon &&
+    replayIdentity.isNative === currentIdentity.isNative
+  );
+}
+
+function findPrivateSendDisplayTransferWithPrice({
+  currentTransfers,
+  replayTransfer,
+  index,
+}: {
+  currentTransfers: IDecodedTxTransferInfo[];
+  replayTransfer: IDecodedTxTransferInfo;
+  index: number;
+}) {
+  const replayIdentity = getPrivateSendDisplayTransferIdentity(replayTransfer);
+  const sameIndexTransfer = currentTransfers[index];
+  if (sameIndexTransfer) {
+    const sameIndexIdentity =
+      getPrivateSendDisplayTransferIdentity(sameIndexTransfer);
+    if (
+      sameIndexIdentity.price &&
+      areSamePrivateSendDisplayTransferTokens({
+        currentIdentity: sameIndexIdentity,
+        replayIdentity,
+      })
+    ) {
+      return sameIndexTransfer;
+    }
+  }
+
+  return currentTransfers.find((currentTransfer) => {
+    const currentIdentity =
+      getPrivateSendDisplayTransferIdentity(currentTransfer);
+    return (
+      currentIdentity.price &&
+      areSamePrivateSendDisplayTransferTokens({
+        currentIdentity,
+        replayIdentity,
+      })
+    );
+  });
+}
+
+function mergePrivateSendDisplayTransferPrices({
+  currentTransfers,
+  replayTransfers,
+}: {
+  currentTransfers: IDecodedTxTransferInfo[];
+  replayTransfers: IDecodedTxTransferInfo[];
+}) {
+  return replayTransfers.map((replayTransfer, index) => {
+    if (getPositivePriceValue(replayTransfer.price)) {
+      return replayTransfer;
+    }
+
+    const currentTransfer = findPrivateSendDisplayTransferWithPrice({
+      currentTransfers,
+      replayTransfer,
+      index,
+    });
+    const price = getPositivePriceValue(currentTransfer?.price);
+    return price ? { ...replayTransfer, price } : replayTransfer;
+  });
+}
+
 function areSamePrivateSendDisplayTransfers({
   currentTransfers,
   replayTransfers,
@@ -169,12 +260,11 @@ function areSamePrivateSendDisplayTransfers({
       currentTransfers[index],
     );
     return (
-      replayIdentity.amount === currentIdentity.amount &&
-      replayIdentity.tokenIdOnNetwork === currentIdentity.tokenIdOnNetwork &&
-      replayIdentity.symbol === currentIdentity.symbol &&
-      replayIdentity.icon === currentIdentity.icon &&
-      replayIdentity.isNative === currentIdentity.isNative &&
-      replayIdentity.price === currentIdentity.price
+      areSamePrivateSendDisplayTransferContents({
+        currentIdentity,
+        replayIdentity,
+      }) &&
+      (!replayIdentity.price || replayIdentity.price === currentIdentity.price)
     );
   });
 }
@@ -246,6 +336,12 @@ function mergePrivateSendHistoryReplayFields({
     currentTransfers: currentDisplayTransfers,
     replayTransfers: replayDisplayTransfers,
   });
+  const mergedReplayDisplayTransfers = shouldMergeDisplayTransfers
+    ? mergePrivateSendDisplayTransferPrices({
+        currentTransfers: currentDisplayTransfers,
+        replayTransfers: replayDisplayTransfers,
+      })
+    : replayDisplayTransfers;
   const shouldMergeGasFeeInNative = shouldUsePrivateSendReplayFeeValue({
     currentValue: item.txInfo.gasFeeInNative,
     replayValue: replayItem.txInfo.gasFeeInNative,
@@ -274,7 +370,7 @@ function mergePrivateSendHistoryReplayFields({
           ? { payinAddress: replayPayinAddress }
           : {}),
         ...(shouldMergeDisplayTransfers
-          ? { privateSendDisplayTransfers: replayDisplayTransfers }
+          ? { privateSendDisplayTransfers: mergedReplayDisplayTransfers }
           : {}),
       },
     };
