@@ -3,11 +3,17 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { DebugRenderTracker, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  DebugRenderTracker,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useTradingFormAtom,
-  useTradingFormComputedAtom,
+  useTradingFormComputedSize,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -21,11 +27,15 @@ import {
   usePerpsActiveAssetDataAtom,
   usePerpsComputedAccountValueAtom,
   usePerpsCustomSettingsAtom,
+  usePerpsShouldShowEnableTradingButtonAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useOrderConfirm } from '../../hooks';
+import { useEnableTradingWithDepositFallback } from '../../hooks/useEnableTradingWithDepositFallback';
 import { useOrderPrice } from '../../hooks/useOrderPrice';
+import { PerpTestIDs } from '../../testIDs';
 import { getPerpsFormLeverage } from '../../utils/leverageDisplay';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import {
@@ -47,13 +57,63 @@ import { TradingButtonGroup } from './TradingButtonGroup';
 
 import type { LayoutChangeEvent } from 'react-native';
 
-function PerpTradingDisabledButton() {
+function PerpEnableTradingButtonLite() {
+  const intl = useIntl();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const enableTrading = useEnableTradingWithDepositFallback();
+  const isAccountLoading =
+    perpsAccountLoading.enableTradingLoading ||
+    perpsAccountLoading.selectAccountLoading;
+
+  return (
+    <YStack
+      gap="$3"
+      h={126}
+      justifyContent="flex-end"
+      flex={1}
+      pointerEvents="box-none"
+    >
+      <XStack
+        gap="$3"
+        p="$3"
+        borderRadius="$3"
+        bg="$bgSubdued"
+        pointerEvents="box-none"
+      >
+        <SizableText size="$bodySm" color="$text" pointerEvents="box-none">
+          {intl.formatMessage({
+            id: ETranslations.perp_enable_trading_desc,
+          })}
+        </SizableText>
+      </XStack>
+      <Button
+        size="medium"
+        borderRadius="$full"
+        testID={PerpTestIDs.EnableTradingButton}
+        variant="primary"
+        loading={isAccountLoading}
+        onPress={async () => {
+          await enableTrading();
+        }}
+        childrenAsText={false}
+      >
+        <SizableText size="$bodyMdMedium" color="$textInverse">
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_button_enable_trading,
+          })}
+        </SizableText>
+      </Button>
+    </YStack>
+  );
+}
+
+function PerpTradingDisabledPlaceOrderButton() {
   const intl = useIntl();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [formData] = useTradingFormAtom();
-  const [tradingComputed] = useTradingFormComputedAtom();
+  const computedSizeBN = useTradingFormComputedSize();
   const { isSubmitting, handleConfirm } = useOrderConfirm();
   const { price: effectivePriceBN } = useOrderPrice(formData.side);
 
@@ -89,16 +149,16 @@ function PerpTradingDisabledButton() {
     ) {
       return false;
     }
-    if (!tradingComputed.computedSizeBN.isFinite()) return false;
-    if (tradingComputed.computedSizeBN.lte(0)) return false;
+    if (!computedSizeBN.isFinite()) return false;
+    if (computedSizeBN.lte(0)) return false;
 
     const priceBN = effectivePriceBN;
     if (!priceBN.isFinite() || priceBN.lte(0)) return false;
 
-    const orderValue = tradingComputed.computedSizeBN.multipliedBy(priceBN);
+    const orderValue = computedSizeBN.multipliedBy(priceBN);
     return orderValue.lt(10);
   }, [
-    tradingComputed.computedSizeBN,
+    computedSizeBN,
     effectivePriceBN,
     formData.bboPriceMode,
     formData.orderMode,
@@ -113,8 +173,8 @@ function PerpTradingDisabledButton() {
     ) {
       return false;
     }
-    if (!tradingComputed.computedSizeBN.isFinite()) return false;
-    if (tradingComputed.computedSizeBN.lte(0)) return false;
+    if (!computedSizeBN.isFinite()) return false;
+    if (computedSizeBN.lte(0)) return false;
 
     if (formData.type === 'limit') {
       if (!effectivePriceBN.isFinite() || effectivePriceBN.lte(0)) {
@@ -126,16 +186,16 @@ function PerpTradingDisabledButton() {
           ? leverageBN
           : new BigNumber(1);
       const withdrawableBN = new BigNumber(computedValue?.withdrawable || 0);
-      const requiredMargin = tradingComputed.computedSizeBN
+      const requiredMargin = computedSizeBN
         .multipliedBy(effectivePriceBN)
         .dividedBy(safeLeverage);
       if (!requiredMargin.isFinite()) return false;
       return requiredMargin.gt(withdrawableBN);
     }
-    return tradingComputed.computedSizeBN.gt(maxTradeSz);
+    return computedSizeBN.gt(maxTradeSz);
   }, [
     computedValue?.withdrawable,
-    tradingComputed.computedSizeBN,
+    computedSizeBN,
     maxTradeSz,
     formData.type,
     formData.orderMode,
@@ -169,12 +229,23 @@ function PerpTradingDisabledButton() {
       loading={universalLoading}
       handleShowConfirm={handleShowConfirm}
       formData={formData}
-      computedSize={tradingComputed.computedSizeBN}
+      computedSize={computedSizeBN}
       isMinimumOrderNotMet={isMinimumOrderNotMet}
       isSubmitting={isSubmitting}
       isNoEnoughMargin={isNoEnoughMargin}
     />
   );
+}
+
+function PerpTradingDisabledButton() {
+  const [shouldShowEnableTradingButton] =
+    usePerpsShouldShowEnableTradingButtonAtom();
+
+  if (shouldShowEnableTradingButton) {
+    return <PerpEnableTradingButtonLite />;
+  }
+
+  return <PerpTradingDisabledPlaceOrderButton />;
 }
 
 const PerpTradingDisabledButtonMemo = memo(PerpTradingDisabledButton);

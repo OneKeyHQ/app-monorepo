@@ -624,6 +624,43 @@ export function HomePageView({
     [tabConfigs],
   );
 
+  // When the user switches network while NOT on the wallet (token list) tab,
+  // that tab is frozen (see FreezeInactiveHomeTab) so its own token-list
+  // refresh won't run until the user returns — leaving the always-visible
+  // header worth stuck on the previous network. Proactively refresh the wallet
+  // token list for the new network. The list resolves the request from the
+  // explicit account/network in the payload because its own closures are
+  // frozen on the previous network.
+  const prevNetworkIdRef = useRef(network?.id);
+  useEffect(() => {
+    const nextNetworkId = network?.id;
+    const prevNetworkId = prevNetworkIdRef.current;
+    prevNetworkIdRef.current = nextNetworkId;
+    if (!prevNetworkId || !nextNetworkId || prevNetworkId === nextNetworkId) {
+      return;
+    }
+    if (!activeTabId || activeTabId === EHomeWalletTab.Portfolio) {
+      return;
+    }
+    const accountId = account?.id;
+    if (!accountId) {
+      return;
+    }
+    appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+      accounts: [
+        {
+          accountId,
+          networkId: nextNetworkId,
+          // Provide the fresh indexedAccountId so the frozen token list can
+          // resolve aggregate hidden/custom tokens correctly instead of
+          // falling back to its own (stale) closure.
+          indexedAccountId: indexedAccount?.id,
+        },
+      ],
+      refreshByProvidedAccounts: true,
+    });
+  }, [network?.id, activeTabId, account?.id, indexedAccount?.id]);
+
   const stickyHeaderCtx = useMemo(
     () => ({
       portalTarget,

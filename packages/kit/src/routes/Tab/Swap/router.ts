@@ -1,12 +1,14 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
+import { prefetchSwapColdStartIcons } from '@onekeyhq/components/src/primitives/Icon';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabSwapRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
 
-const Swap = LazyLoadRootTabPage(
-  () => import(/* webpackPrefetch: true */ '../../../views/Swap'),
-);
+const Swap = LazyLoadRootTabPage(() => {
+  void prefetchSwapColdStartIcons();
+  return import(/* webpackPrefetch: true */ '../../../views/Swap');
+});
 
 export const swapRouters: ITabSubNavigatorConfig<any, any>[] = [
   {

@@ -60,6 +60,14 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   })),
 }));
 
+// Stub the kit-bg atoms barrel so the predicted-symbol write never reaches real
+// WebStorage/IndexedDB (unavailable in jsdom). The hook only uses this one atom.
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  chartPredictedSymbolAtom: {
+    set: jest.fn(),
+  },
+}));
+
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   appEventBus: {
     emit: jest.fn(),

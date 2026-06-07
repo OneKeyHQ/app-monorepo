@@ -271,7 +271,10 @@ export async function handleKLineDataRequest({
     const resolution = safeData.resolution as string;
     const from = safeData.from as number;
     const to = safeData.to as number;
-    if (context.currentKLineResolution) {
+
+    if (context.onCurrentKLineResolutionChange) {
+      context.onCurrentKLineResolutionChange(resolution);
+    } else if (context.currentKLineResolution) {
       context.currentKLineResolution.current = resolution;
     }
 

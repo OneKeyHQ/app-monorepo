@@ -43,6 +43,7 @@ export interface IMarketTokenDetail {
   };
   price?: string;
   priceConverted?: string;
+  chartPriceUpdatedAt?: number;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
   priceChange30mPercent?: string;

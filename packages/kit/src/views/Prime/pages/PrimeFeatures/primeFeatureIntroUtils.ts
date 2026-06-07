@@ -118,7 +118,7 @@ export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
     media: {
       type: 'video',
       getSource: () =>
-        getPrimeFeatureVideoSource('prime-feature-bulk-revoke-20260529.mp4'),
+        getPrimeFeatureVideoSource('prime-feature-bulk-revoke-20260604.mp4'),
       getPosterSource: () =>
         require('@onekeyhq/kit/assets/prime/bulk_revoke_poster.png') as ImageSourcePropType,
     },

@@ -79,6 +79,7 @@ export enum EAtomNames {
   perpsAccountLoadingInfoAtom = 'perpsAccountLoadingInfoAtom',
   perpsActiveAssetAtom = 'perpsActiveAssetAtom',
   perpsActiveAssetCtxAtom = 'perpsActiveAssetCtxAtom',
+  perpsActiveAssetCtxDisplayAtom = 'perpsActiveAssetCtxDisplayAtom',
   perpsActiveAssetDataAtom = 'perpsActiveAssetDataAtom',
   perpsActiveOrderBookOptionsAtom = 'perpsActiveOrderBookOptionsAtom',
   perpsCustomSettingsAtom = 'perpsCustomSettingsAtom',
@@ -131,6 +132,7 @@ export enum EAtomNames {
   marketBannerListSortAtom = 'marketBannerListSortAtom',
   marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
   marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
+  chartPredictedSymbolAtom = 'chartPredictedSymbolAtom',
 
   // account selector values (async loaded)
   accountSelectorValuesMapAtom = 'accountSelectorValuesMapAtom',

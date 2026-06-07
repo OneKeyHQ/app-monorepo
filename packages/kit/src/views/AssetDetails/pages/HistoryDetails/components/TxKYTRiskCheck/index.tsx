@@ -6,10 +6,8 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Dialog,
-  Divider,
   Icon,
   SizableText,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -30,6 +28,8 @@ import type {
   IKytRiskDetail,
 } from '@onekeyhq/shared/types/kyt';
 import type { IDecodedTxTransferInfo } from '@onekeyhq/shared/types/tx';
+
+import { InfoItem, InfoItemGroup } from '../TxDetailsInfoItem';
 
 const RISK_LEVEL_CONFIG: Record<
   EKytRiskLevel,
@@ -253,44 +253,35 @@ export function TxKYTRiskCheck({
   const showDrillIn = config.drillIn || details.length > 1;
 
   return (
-    <>
-      <Divider mx="$5" />
-      <XStack
-        px="$3"
-        py="$2.5"
-        ai="center"
-        gap="$3"
+    <InfoItemGroup>
+      <InfoItem
+        label={intl.formatMessage({
+          id: ETranslations.kyt_source_of_funds_risk_check__title,
+        })}
+        renderContent={
+          <XStack ai="center" jc="space-between" gap="$3">
+            <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
+              {subtitle}
+            </SizableText>
+            <XStack ai="center" gap="$2">
+              <KytBadge level={level} />
+              {showDrillIn ? (
+                <Icon
+                  name="ChevronRightSmallOutline"
+                  size="$5"
+                  color="$iconSubdued"
+                />
+              ) : null}
+            </XStack>
+          </XStack>
+        }
         borderRadius="$3"
-        mx="$2"
-        my="$1"
         {...(showDrillIn && {
           onPress: handlePress,
-          cursor: 'pointer',
           hoverStyle: { bg: '$bgHover' },
           pressStyle: { bg: '$bgActive' },
         })}
-      >
-        <Stack flex={1} gap="$1">
-          <SizableText size="$bodyMdMedium">
-            {intl.formatMessage({
-              id: ETranslations.kyt_source_of_funds_risk_check__title,
-            })}
-          </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {subtitle}
-          </SizableText>
-        </Stack>
-        <XStack ai="center" gap="$2">
-          <KytBadge level={level} />
-          {showDrillIn ? (
-            <Icon
-              name="ChevronRightSmallOutline"
-              size="$5"
-              color="$iconSubdued"
-            />
-          ) : null}
-        </XStack>
-      </XStack>
-    </>
+      />
+    </InfoItemGroup>
   );
 }

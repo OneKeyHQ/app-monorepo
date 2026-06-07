@@ -112,6 +112,7 @@ const SwapProLimitPriceSlider = ({
           showBubble={false}
           onChange={handleSliderChange}
           segments={4}
+          snapTapToSegment
           sliderHeight={2}
           centerOrigin
         />

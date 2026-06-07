@@ -49,6 +49,7 @@ function EarnListView({ isActive = true }: { isActive?: boolean }) {
         withHeader={false}
         disableHorizontalBleed
         enableFetch={enableRecommendedFetch}
+        isActive={isActive}
         recommendedItemContainerProps={{
           bg: '$bgSubdued',
           borderColor: '$neutral3',
@@ -57,7 +58,7 @@ function EarnListView({ isActive = true }: { isActive?: boolean }) {
         }}
       />
     );
-  }, [enableRecommendedFetch]);
+  }, [enableRecommendedFetch, isActive]);
 
   const handleViewMore = useCallback(() => {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);

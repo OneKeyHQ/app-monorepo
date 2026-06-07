@@ -2,7 +2,6 @@
 // development, but some (e.g. onekey_pending_install_task) are used in
 // production on mobile/desktop.
 export enum EAppSyncStorageKeys {
-  rrt = 'rrt',
   perf_switch = 'perf_switch',
   onekey_webembed_config = 'onekey_webembed_config',
   onekey_disable_bg_api_serializable_checking = 'onekey_disable_bg_api_serializable_checking',

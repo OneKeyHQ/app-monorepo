@@ -81,12 +81,22 @@ const syncStorageDesktop = createDesktopSyncStorage({
   checkResetting: true,
 });
 
-const coldStartCacheStorageDesktop = createDesktopSyncStorage({
-  id: 'onekey-cold-start-cache',
-});
-
-export {
-  coldStartCacheStorageDesktop as coldStartCacheStorage,
-  syncStorageDesktop as syncStorage,
-};
+export { syncStorageDesktop as syncStorage };
 export type { ISyncStorage };
+
+// Cold-start cache storage on desktop renderer: backed by the same IDB +
+// in-memory map pipeline as web (see webColdStartStorage). Desktop renderer
+// is Chromium, so the IDB layer that hydrate.ts pre-warms at boot works
+// identically. Mirrors the export shape of syncStorageInstance.ts.
+//
+// Do NOT replace this with a sync-IPC electron-store implementation: every
+// .getString / .setObject would synchronously block the renderer waiting on
+// the main process. Under boot-time contention (many concurrent IPC
+// callers, main process busy with own init), that path freezes the
+// renderer thread. The IDB+Map approach below is fully synchronous for
+// reads (Map is pre-warmed by hydrate.ts) and asynchronous for IDB
+// persistence (debounced flush on writes).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { createWebColdStartStorage } =
+  require('./webColdStartStorage') as typeof import('./webColdStartStorage');
+export const coldStartCacheStorage = createWebColdStartStorage();

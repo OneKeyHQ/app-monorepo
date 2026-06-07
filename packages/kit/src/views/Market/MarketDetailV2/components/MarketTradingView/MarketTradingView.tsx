@@ -1,9 +1,61 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { TradingViewV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import type { ITradingViewPriceUpdateData } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import { MarketTestIDs } from '../../../testIDs';
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
+
+function normalizeChartRealtimePrice(
+  price: ITradingViewPriceUpdateData['price'],
+) {
+  const priceString =
+    typeof price === 'number' ? price.toString() : price?.trim();
+  const numericPrice = Number(priceString);
+  return Number.isFinite(numericPrice) && numericPrice > 0
+    ? priceString
+    : undefined;
+}
+
+function normalizeChartUpdateTimestamp(
+  timestamp: ITradingViewPriceUpdateData['timestamp'],
+) {
+  if (
+    typeof timestamp !== 'number' ||
+    !Number.isFinite(timestamp) ||
+    timestamp <= 0
+  ) {
+    return Date.now();
+  }
+
+  return timestamp < 10_000_000_000 ? timestamp * 1000 : timestamp;
+}
+
+function normalizeTokenAddress(address: string | undefined) {
+  return address?.trim().toLowerCase() ?? '';
+}
+
+function isChartPriceUpdateForCurrentToken({
+  data,
+  tokenAddress,
+  networkId,
+}: {
+  data: ITradingViewPriceUpdateData;
+  tokenAddress: string;
+  networkId: string;
+}) {
+  if (!data.networkId || data.networkId !== networkId) {
+    return false;
+  }
+
+  const currentTokenAddress = normalizeTokenAddress(tokenAddress);
+  const updateTokenAddress = normalizeTokenAddress(data.tokenAddress);
+
+  return currentTokenAddress
+    ? updateTokenAddress === currentTokenAddress
+    : !updateTokenAddress;
+}
 
 interface IMarketTradingViewProps {
   tokenAddress: string;
@@ -30,6 +82,38 @@ export const MarketTradingView = memo(
     onIndicatorsDialogOpenChange,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
+    const tokenDetailActions = useTokenDetailActions();
+
+    const handlePriceUpdate = useCallback(
+      (data: ITradingViewPriceUpdateData) => {
+        if (data.source === 'history') {
+          return;
+        }
+
+        if (
+          !isChartPriceUpdateForCurrentToken({
+            data,
+            tokenAddress,
+            networkId,
+          })
+        ) {
+          return;
+        }
+
+        const realtimePrice = normalizeChartRealtimePrice(data.price);
+        if (!realtimePrice) {
+          return;
+        }
+
+        tokenDetailActions.current.applyChartPriceUpdate({
+          tokenAddress: data.tokenAddress,
+          networkId: data.networkId,
+          price: realtimePrice,
+          lastUpdated: normalizeChartUpdateTimestamp(data.timestamp),
+        });
+      },
+      [networkId, tokenAddress, tokenDetailActions],
+    );
 
     return (
       <TradingViewV2
@@ -43,6 +127,7 @@ export const MarketTradingView = memo(
         w={pageWidth}
         onTouchScroll={onTouchScroll}
         onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
+        onPriceUpdate={handlePriceUpdate}
       />
     );
   },

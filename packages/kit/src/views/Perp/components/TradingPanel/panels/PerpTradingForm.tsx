@@ -27,8 +27,9 @@ import {
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
   useTradingFormAtom,
-  useTradingFormComputedAtom,
+  useTradingFormComputedSize,
   useTradingFormEnvAtom,
+  useTradingFormSizeInputComputed,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type {
   IBBOPriceMode,
@@ -41,13 +42,13 @@ import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
+  usePerpsActiveAssetCtxReadyAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useSpotActiveAssetAtom,
-  useSpotActiveAssetCtxAtom,
+  useSpotActiveAssetCtxReadyAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -178,6 +179,15 @@ function splitTwapDurationMinutes(minutes: number) {
     hours: Math.floor(clampedMinutes / 60),
     minutes: clampedMinutes % 60,
   };
+}
+
+function hasTradingFormOrderSizeInput(
+  formData: Pick<ITradingFormData, 'sizeInputMode' | 'size' | 'sizePercent'>,
+) {
+  if (formData.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
+    return (formData.sizePercent ?? 0) > 0;
+  }
+  return Boolean(formData.size?.trim());
 }
 
 function SpotAvailableActionIcon({
@@ -343,19 +353,35 @@ function PerpTradingForm({
   const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
 
   const [formData] = useTradingFormAtom();
+  const isScaleMode = formData.orderMode === 'scale';
+  const isTwapMode = formData.orderMode === 'twap';
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
-  const [tradingComputed] = useTradingFormComputedAtom();
+  const tradingComputed = useTradingFormSizeInputComputed();
+  const advancedComputedSizeBN = useTradingFormComputedSize();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const isSpot = activeTradeInstrument.mode === 'spot';
+  const shouldUseLiveTradingPrice = Boolean(
+    isSpot ||
+    formData.bboPriceMode ||
+    formData.orderMode !== 'standard' ||
+    hasTradingFormOrderSizeInput(formData),
+  );
+  const shouldSyncTradingFormEnv = shouldUseLiveTradingPrice;
+  const tradingPriceSource = shouldUseLiveTradingPrice ? 'live' : 'display';
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const [activeAsset] = usePerpsActiveAssetAtom();
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const [isPerpsActiveAssetCtxReady] = usePerpsActiveAssetCtxReadyAtom();
   const [spotActiveAsset] = useSpotActiveAssetAtom();
-  const [spotActiveAssetCtx] = useSpotActiveAssetCtxAtom();
+  const [isSpotActiveAssetCtxReady] = useSpotActiveAssetCtxReadyAtom();
   const [{ balances: spotBalances }] = useSpotBalancesAtom();
   const { baseName: activeBaseName } = useActiveTradeDisplay();
-  const { midPrice, midPriceBN } = useTradingPrice();
-  const { price: orderPriceBN } = useOrderPrice(formData.side);
+  const { midPrice, midPriceBN } = useTradingPrice({
+    source: tradingPriceSource,
+  });
+  const { price: orderPriceBN } = useOrderPrice(formData.side, {
+    priceSource: tradingPriceSource,
+  });
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const { universeByBaseName } = useSpotMetaMaps();
   const perpsPositions = usePerpsAccountScopedActivePositions();
@@ -400,7 +426,6 @@ function PerpTradingForm({
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
 
-  const isSpot = activeTradeInstrument.mode === 'spot';
   const spotUniverse = isSpot ? spotActiveAsset?.universe : undefined;
   const sizeSzDecimals = isSpot
     ? (spotUniverse?.baseSzDecimals ?? 2)
@@ -427,9 +452,9 @@ function PerpTradingForm({
       spotUniverse,
     ],
   );
-  const selectedTradeAssetCtx = isSpot
-    ? (spotActiveAssetCtx as typeof activeAssetCtx)
-    : activeAssetCtx;
+  const isSelectedTradeAssetCtxReady = isSpot
+    ? isSpotActiveAssetCtxReady
+    : isPerpsActiveAssetCtxReady;
 
   const spotAvailableBaseBN = useMemo(() => {
     if (!spotUniverse?.baseName) {
@@ -492,8 +517,6 @@ function PerpTradingForm({
   ]);
 
   // Derive primaryOrderType from formData.orderMode
-  const isScaleMode = formData.orderMode === 'scale';
-  const isTwapMode = formData.orderMode === 'twap';
   const isAdvancedOrderMode =
     formData.orderMode === 'trigger' || isScaleMode || isTwapMode;
   const shouldShowLimitTif =
@@ -568,32 +591,105 @@ function PerpTradingForm({
     },
     [actions],
   );
+  const midPriceRef = useRef(midPrice);
+  const latestFormDataRef = useRef(formData);
+
+  latestFormDataRef.current = formData;
+
+  useEffect(() => {
+    midPriceRef.current = midPrice;
+  }, [midPrice]);
+
+  const getFormattedMidPrice = useCallback(async () => {
+    const latestMidPrice =
+      activeTradeInstrument.mode === 'perp'
+        ? (
+            await actions.current.getMidPrice({
+              coin: activeTradeInstrument.coin,
+            })
+          ).mid || midPriceRef.current
+        : midPriceRef.current;
+    if (!latestMidPrice) {
+      return undefined;
+    }
+    return isSpot
+      ? formatSpotPriceToValid(latestMidPrice, sizeSzDecimals)
+      : formatPriceToSignificantDigits(latestMidPrice, sizeSzDecimals);
+  }, [actions, activeTradeInstrument, isSpot, sizeSzDecimals]);
+
+  const handleUseMidPriceForExecutionPrice = useCallback(() => {
+    void (async () => {
+      const nextPrice = await getFormattedMidPrice();
+      if (nextPrice) {
+        updateForm({
+          executionPrice: nextPrice,
+        });
+      }
+    })();
+  }, [getFormattedMidPrice, updateForm]);
+
+  const handleUseMidPriceForPrice = useCallback(() => {
+    void (async () => {
+      const nextPrice = await getFormattedMidPrice();
+      if (nextPrice) {
+        updateForm({
+          price: nextPrice,
+        });
+      }
+    })();
+  }, [getFormattedMidPrice, updateForm]);
 
   const prevTypeRef = useRef<'market' | 'limit'>(formData.type);
 
   useEffect(() => {
     const prevType = prevTypeRef.current;
     const currentType = formData.type;
+    let didCancel = false;
 
-    if (prevType !== 'limit' && currentType === 'limit' && midPrice) {
-      updateForm({
-        price: isSpot
-          ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-          : formatPriceToSignificantDigits(midPrice, sizeSzDecimals),
-      });
+    if (prevType !== 'limit' && currentType === 'limit') {
+      void (async () => {
+        const nextPrice = await getFormattedMidPrice();
+        const latestFormData = latestFormDataRef.current;
+        if (
+          nextPrice &&
+          !didCancel &&
+          latestFormData.type === 'limit' &&
+          !latestFormData.price?.trim()
+        ) {
+          updateForm({
+            price: nextPrice,
+          });
+        }
+      })();
     }
 
     prevTypeRef.current = currentType;
-  }, [
-    formData.type,
-    formData.price,
-    isSpot,
-    midPrice,
-    sizeSzDecimals,
-    updateForm,
-  ]);
+
+    return () => {
+      didCancel = true;
+    };
+  }, [formData.type, getFormattedMidPrice, updateForm]);
 
   useEffect(() => {
+    if (!shouldSyncTradingFormEnv) {
+      setTradingFormEnv((prev) => {
+        const prevAvailable = prev.availableToTrade ?? [];
+        const prevMaxTradeSzs = prev.maxTradeSzs ?? [];
+        if (
+          prev.markPrice === undefined &&
+          prev.leverageValue === undefined &&
+          prev.fallbackLeverage === undefined &&
+          prev.szDecimals === undefined &&
+          prevAvailable.length === 0 &&
+          prevMaxTradeSzs.length === 0
+        ) {
+          return prev;
+        }
+        return {};
+      });
+      return;
+    }
+
     const nextEnv = isSpot
       ? {
           markPrice: midPrice,
@@ -662,6 +758,7 @@ function PerpTradingForm({
     activeAssetData?.leverage?.value,
     activeAsset?.universe?.maxLeverage,
     activeAsset?.universe?.szDecimals,
+    shouldSyncTradingFormEnv,
     setTradingFormEnv,
     formData.leverage,
     updateForm,
@@ -734,8 +831,7 @@ function PerpTradingForm({
     );
     const hasCountInput = Boolean(formData.scaleOrderCount);
     const hasSizeInput =
-      tradingComputed.computedSizeBN.isFinite() &&
-      tradingComputed.computedSizeBN.gt(0);
+      advancedComputedSizeBN.isFinite() && advancedComputedSizeBN.gt(0);
 
     if (!hasPriceInput && !hasCountInput && !hasSizeInput) {
       return undefined;
@@ -765,7 +861,9 @@ function PerpTradingForm({
         return undefined;
       }
       return {
-        text: 'Enter a valid scale price range',
+        text: intl.formatMessage({
+          id: ETranslations.perp_scale_price_range_required__msg,
+        }),
         tone: 'error' as const,
       };
     }
@@ -788,7 +886,7 @@ function PerpTradingForm({
     }
 
     const legs = buildScaleOrderLegs({
-      totalSize: tradingComputed.computedSizeBN.toFixed(),
+      totalSize: advancedComputedSizeBN.toFixed(),
       lowerPrice: formData.scaleLowerPrice ?? '',
       upperPrice: formData.scaleUpperPrice ?? '',
       orderCount,
@@ -828,7 +926,7 @@ function PerpTradingForm({
     isScaleMode,
     isSpot,
     sizeSzDecimals,
-    tradingComputed.computedSizeBN,
+    advancedComputedSizeBN,
   ]);
 
   const twapDurationInputMessage = useMemo(() => {
@@ -865,7 +963,7 @@ function PerpTradingForm({
     }
   }, [formData.twapDurationMinutes, intl, isTwapMode]);
 
-  const twapHelperMessage = useMemo(() => {
+  const twapEstimatedSliceNotional = useMemo(() => {
     if (!isTwapMode) {
       return undefined;
     }
@@ -874,8 +972,8 @@ function PerpTradingForm({
       !Number.isInteger(duration) ||
       duration < TWAP_MIN_DURATION_MINUTES ||
       duration > TWAP_MAX_DURATION_MINUTES ||
-      !tradingComputed.computedSizeBN.isFinite() ||
-      tradingComputed.computedSizeBN.lte(0) ||
+      !advancedComputedSizeBN.isFinite() ||
+      advancedComputedSizeBN.lte(0) ||
       !midPriceBN.isFinite() ||
       midPriceBN.lte(0)
     ) {
@@ -886,25 +984,41 @@ function PerpTradingForm({
       1,
       Math.ceil(duration / TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES),
     );
-    const estimatedSliceNotional = tradingComputed.computedSizeBN
+    const estimatedSliceNotional = advancedComputedSizeBN
       .multipliedBy(midPriceBN)
       .dividedBy(estimatedSlices);
+    if (!estimatedSliceNotional.isFinite() || estimatedSliceNotional.lte(0)) {
+      return undefined;
+    }
+
+    return estimatedSliceNotional;
+  }, [
+    formData.twapDurationMinutes,
+    isTwapMode,
+    midPriceBN,
+    advancedComputedSizeBN,
+  ]);
+
+  const twapEstimatedSliceNotionalDisplay = useMemo(() => {
+    if (!twapEstimatedSliceNotional) {
+      return undefined;
+    }
+
+    return `${numberFormat(twapEstimatedSliceNotional.toFixed(), {
+      formatter: 'balance',
+    })} ${USDC_TOKEN_SYMBOL}`;
+  }, [twapEstimatedSliceNotional]);
+
+  const twapHelperMessage = useMemo(() => {
     if (
-      estimatedSliceNotional.isFinite() &&
-      estimatedSliceNotional.gt(0) &&
-      estimatedSliceNotional.lt(TWAP_MIN_SLICE_NOTIONAL_HINT)
+      twapEstimatedSliceNotional &&
+      twapEstimatedSliceNotional.lt(TWAP_MIN_SLICE_NOTIONAL_HINT)
     ) {
       return twapSmallSliceHelperText;
     }
 
     return undefined;
-  }, [
-    formData.twapDurationMinutes,
-    isTwapMode,
-    midPriceBN,
-    tradingComputed.computedSizeBN,
-    twapSmallSliceHelperText,
-  ]);
+  }, [twapEstimatedSliceNotional, twapSmallSliceHelperText]);
 
   const [twapDurationHoursInput, setTwapDurationHoursInput] = useState('');
   const [twapDurationMinutesInput, setTwapDurationMinutesInput] = useState('');
@@ -1567,7 +1681,7 @@ function PerpTradingForm({
                     ) : null}
                   </XStack>
                   <SizableText
-                    size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                    size={isMobile ? '$bodySm' : '$bodyMdMedium'}
                     color="$text"
                   >
                     {option.label}
@@ -1588,10 +1702,10 @@ function PerpTradingForm({
         <YStack gap={isMobile ? '$2.5' : '$3'}>
           <PriceInput
             label={intl.formatMessage({
-              id: ETranslations.perp_scale_lower_price__title,
+              id: ETranslations.perp_scale_lower_price_label__title,
             })}
             placeholder={intl.formatMessage({
-              id: ETranslations.perp_trade_price_place_holder,
+              id: ETranslations.perp_scale_lower_price_placeholder__desc,
             })}
             value={formData.scaleLowerPrice ?? ''}
             onChange={(value) => updateForm({ scaleLowerPrice: value })}
@@ -1602,10 +1716,10 @@ function PerpTradingForm({
           />
           <PriceInput
             label={intl.formatMessage({
-              id: ETranslations.perp_scale_upper_price__title,
+              id: ETranslations.perp_scale_upper_price_label__title,
             })}
             placeholder={intl.formatMessage({
-              id: ETranslations.perp_trade_price_place_holder,
+              id: ETranslations.perp_scale_upper_price_placeholder__desc,
             })}
             value={formData.scaleUpperPrice ?? ''}
             onChange={(value) => updateForm({ scaleUpperPrice: value })}
@@ -1678,18 +1792,7 @@ function PerpTradingForm({
           />
           {isTriggerLimitOrder ? (
             <PriceInput
-              onUseMidPrice={() => {
-                if (midPrice) {
-                  updateForm({
-                    executionPrice: isSpot
-                      ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-                      : formatPriceToSignificantDigits(
-                          midPrice,
-                          sizeSzDecimals,
-                        ),
-                  });
-                }
-              }}
+              onUseMidPrice={handleUseMidPriceForExecutionPrice}
               placeholder={intl.formatMessage({
                 id: ETranslations.perps_input_price_place_holder,
               })}
@@ -1723,18 +1826,7 @@ function PerpTradingForm({
           ) : (
             <YStack flex={1}>
               <PriceInput
-                onUseMidPrice={() => {
-                  if (midPrice) {
-                    updateForm({
-                      price: isSpot
-                        ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
-                        : formatPriceToSignificantDigits(
-                            midPrice,
-                            sizeSzDecimals,
-                          ),
-                    });
-                  }
-                }}
+                onUseMidPrice={handleUseMidPriceForPrice}
                 value={
                   formData.type === 'limit'
                     ? formData.price
@@ -1810,7 +1902,7 @@ function PerpTradingForm({
   const renderTimeInForceSection = () => {
     if (shouldShowScaleTif) {
       return (
-        <XStack width="100%" justifyContent="flex-end">
+        <XStack flexShrink={0} justifyContent="flex-end">
           <TimeInForceSelector
             testID="perp-scale-tif-selector"
             value={formData.scaleTif ?? 'Gtc'}
@@ -1823,6 +1915,26 @@ function PerpTradingForm({
     }
 
     return null;
+  };
+
+  const renderScaleAuxiliarySection = () => {
+    if (!isScaleMode) {
+      return null;
+    }
+
+    return (
+      <XStack
+        width="100%"
+        alignItems="flex-start"
+        justifyContent="space-between"
+        gap={isMobile ? '$3' : '$4'}
+      >
+        <YStack flex={1} minWidth={0}>
+          {renderScaleAmountDistributionSection()}
+        </YStack>
+        {renderTimeInForceSection()}
+      </XStack>
+    );
   };
 
   const renderTwapDurationSection = () => {
@@ -2067,8 +2179,8 @@ function PerpTradingForm({
     }
     if (isTwapMode) {
       return (
-        <YStack gap="$1.5" {...(isMobile && { mt: '$1' })} p="$0">
-          <YStack alignItems="flex-start" gap="$2.5">
+        <YStack width="100%" gap="$1.5" {...(isMobile && { mt: '$1' })} p="$0">
+          <YStack width="100%" alignItems="flex-start" gap="$2.5">
             {isSpot ? null : (
               <XStack alignItems="center" gap="$2">
                 <Checkbox
@@ -2088,7 +2200,7 @@ function PerpTradingForm({
                   {...(isMobile && { p: '$0' })}
                 />
                 <SizableText
-                  size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                  size={isMobile ? '$bodySm' : '$bodyMdMedium'}
                   color="$text"
                 >
                   {intl.formatMessage({ id: ETranslations.perps_reduce_only })}
@@ -2119,7 +2231,7 @@ function PerpTradingForm({
                 renderTrigger={
                   <Stack display="inline-flex" alignSelf="flex-start">
                     <DashText
-                      size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                      size={isMobile ? '$bodySm' : '$bodyMdMedium'}
                       color="$text"
                       dashColor="$textDisabled"
                       dashThickness={0.5}
@@ -2133,6 +2245,31 @@ function PerpTradingForm({
                 }
               />
             </XStack>
+            {twapEstimatedSliceNotionalDisplay ? (
+              <XStack
+                width="100%"
+                alignItems="center"
+                justifyContent="space-between"
+                gap="$3"
+              >
+                <SizableText
+                  size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+                  color="$textSubdued"
+                  flex={1}
+                  numberOfLines={1}
+                >
+                  {/* TODO: replace hardcoded QA copy with ETranslations after the i18n key is added. */}
+                  Per child order size
+                </SizableText>
+                <SizableText
+                  size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+                  color="$text"
+                  numberOfLines={1}
+                >
+                  {twapEstimatedSliceNotionalDisplay}
+                </SizableText>
+              </XStack>
+            ) : null}
           </YStack>
         </YStack>
       );
@@ -2162,7 +2299,7 @@ function PerpTradingForm({
                 {...(isMobile && { p: '$0' })}
               />
               <SizableText
-                size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+                size={isMobile ? '$bodySm' : '$bodyMdMedium'}
                 color="$text"
               >
                 {intl.formatMessage({ id: ETranslations.perps_reduce_only })}
@@ -2193,7 +2330,7 @@ function PerpTradingForm({
               {...(isMobile && { p: '$0' })}
             />
             <SizableText
-              size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+              size={isMobile ? '$bodySm' : '$bodyMdMedium'}
               color="$text"
             >
               {intl.formatMessage({ id: ETranslations.perps_reduce_only })}
@@ -2236,22 +2373,24 @@ function PerpTradingForm({
               {...(isMobile && { p: '$0' })}
             />
 
-            <DashText
-              size={isMobile ? '$bodySm' : '$bodyMd'}
-              dashColor="$textSubdued"
-              dashThickness={0.5}
-              tooltip={intl.formatMessage({
-                id: ETranslations.perp_tp_sl_tooltip,
-              })}
-              tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
-              tooltipTitle={intl.formatMessage({
-                id: ETranslations.perp_position_tp_sl,
-              })}
-            >
-              {intl.formatMessage({
-                id: ETranslations.perp_position_tp_sl,
-              })}
-            </DashText>
+            <XStack alignItems="center" pt="$0.5">
+              <DashText
+                size={isMobile ? '$bodySm' : '$bodyMd'}
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_tp_sl_tooltip,
+                })}
+                tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+                tooltipTitle={intl.formatMessage({
+                  id: ETranslations.perp_position_tp_sl,
+                })}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_tp_sl,
+                })}
+              </DashText>
+            </XStack>
           </XStack>
 
           {standardLimitTifSelector}
@@ -2641,7 +2780,7 @@ function PerpTradingForm({
         referencePrice={referencePriceString}
         side={formData.side}
         activeAsset={selectedTradeAsset}
-        activeAssetCtx={selectedTradeAssetCtx}
+        isAssetCtxReady={isSelectedTradeAssetCtxReady}
         symbol={activeBaseName || perpsSelectedDisplayName}
         value={formData.size}
         onChange={handleManualSizeChange}
@@ -2664,13 +2803,12 @@ function PerpTradingForm({
           onChange={handleSliderPercentChange}
           disabled={sliderDisabled}
           segments={4}
+          snapTapToSegment
           sliderHeight={isMobile ? 2 : 4}
         />
       </YStack>
 
-      {renderTimeInForceSection()}
-
-      {renderScaleAmountDistributionSection()}
+      {renderScaleAuxiliarySection()}
 
       {isTwapMode ? renderTwapDurationSection() : null}
 

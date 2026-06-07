@@ -2,10 +2,6 @@ import { useCallback, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type {
@@ -158,7 +154,6 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
     this.syncToDb.call(set, {
       refreshTrigger: Number(earnData.refreshTrigger || 0) + 1,
     });
-    appEventBus.emit(EAppEventBusNames.RefreshEarnRecommendedList, undefined);
   });
 
   setLoadingState = contextAtomMethod(

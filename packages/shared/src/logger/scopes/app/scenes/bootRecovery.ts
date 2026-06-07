@@ -10,4 +10,13 @@ export class BootRecoveryScene extends BaseScene {
   public log(message: string) {
     return message;
   }
+
+  // Warning-level signal for the web/desktop cold-start gate: the source-of-
+  // truth atom / cold-start hydration handlers did not settle within the
+  // safety timeout, so React was force-mounted with default atom values.
+  // Distinct from `log` so post-incident filtering can isolate degraded boots.
+  @LogToLocal({ level: 'warn' })
+  public coldStartGateTimeout(message: string) {
+    return message;
+  }
 }

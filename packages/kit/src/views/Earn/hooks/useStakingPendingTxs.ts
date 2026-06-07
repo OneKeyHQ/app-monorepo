@@ -24,8 +24,8 @@ type INetworkAccountMeta = {
 
 // Precomputed inputs from a co-located parent (e.g. EarnHome) so two
 // hook instances do not independently resolve the same data. When omitted
-// the hook resolves everything itself — single-caller pages (PortfolioTab,
-// useRecommendedRefreshPendingTx) keep the legacy behavior unchanged.
+// the hook resolves everything itself — single-caller pages keep the
+// legacy behavior unchanged.
 //
 // `pollingIntervalsByNetwork` is the raw `Record<networkId, seconds>` map
 // (NOT the min) so each hook instance computes the min over its own
@@ -658,9 +658,8 @@ export const useStakingPendingTxsByInfo = ({
  * networks. Calling this hook once at the EarnHome level and forwarding
  * the result via `precomputed` collapses 6 RPCs → 3 RPCs per dep change.
  *
- * Single-instance callers (PortfolioTab, useRecommendedRefreshPendingTx)
- * MUST NOT use this — they already pay only one set of RPCs and adding
- * the wrapper would double the work.
+ * Single-instance callers MUST NOT use this — they already pay only one
+ * set of RPCs and adding the wrapper would double the work.
  */
 export const useEarnPendingTxsSharedMeta = ({
   extraNetworkIds = [],
