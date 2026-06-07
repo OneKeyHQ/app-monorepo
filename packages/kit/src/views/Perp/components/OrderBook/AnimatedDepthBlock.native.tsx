@@ -139,16 +139,22 @@ export function DepthBarColumn({
   sizeFontSize,
   textInset,
   onRowPress,
-  onDepthReady,
+  placeholderText,
+  placeholderRows,
 }: IDepthBarColumnProps) {
   // Depth bars animate by default — the `animated` prop is intentionally ignored
   // so callers can never accidentally ship a non-animated book. Only the OS
   // "reduce motion" accessibility setting disables the native easing.
   const reducedMotion = useReducedMotion();
-  // `totalHeight` is still derived from the live `percents` arg (row count drives
-  // layout); only the high-frequency native data path is moved off props.
-  const totalHeight =
-    percents.length * rowHeight + percents.length * rowMarginTop;
+  // `totalHeight` is derived from the live `percents` arg (row count drives
+  // layout); only the high-frequency native data path is moved off props. While
+  // empty, reserve height for the native `--` placeholder rows so the column
+  // keeps a stable size before any data arrives.
+  let rowCount = percents.length;
+  if (rowCount === 0 && placeholderText) {
+    rowCount = placeholderRows ?? 0;
+  }
+  const totalHeight = rowCount * rowHeight + rowCount * rowMarginTop;
   const nativeColor = useMemo(() => toNativeColor(color), [color]);
   const nativePriceColor = useMemo(
     () => (priceColor ? toNativeColor(priceColor) : undefined),
@@ -176,45 +182,48 @@ export function DepthBarColumn({
     [],
   );
 
-  // Tracks whether `onDepthReady` has fired for the current epoch. Re-armed on
-  // every epoch change (coin / tick switch) so the parent's `--` placeholder is
-  // shown again until the new book has actually painted.
-  const reportedReadyRef = useRef(false);
-  useEffect(() => {
-    reportedReadyRef.current = false;
-  }, [epoch]);
-
   useEffect(() => {
     const node = depthRef.current;
     if (!node) {
-      // Native node not attached yet — nothing was pushed, so do NOT report
-      // ready. A later frame (once the hybridRef callback has run) re-enters via
-      // the `percents`/`prices`/`sizes` deps and performs the first real push.
+      // Native node not attached yet; a later frame re-enters via the deps.
       return;
     }
+    const hasData = percents.length > 0;
+    // Rows to push: real data, else the placeholder rows. The `--` empty state is
+    // driven through the SAME imperative setDepth/setText path that already works
+    // for real data (numbers render fine), so it does NOT depend on the native
+    // `placeholderText`/`placeholderRows` props — avoids JS<->native version skew.
+    let rows = 0;
+    if (hasData) {
+      rows = percents.length;
+    } else if (placeholderText) {
+      rows = placeholderRows ?? 0;
+    }
+
+    // Depth buffer: real percents, else zeros (placeholder rows draw no bar).
     let buf = bufRef.current;
-    // Reuse the same backing buffer across frames; only reallocate when the row
-    // count changes. `setDepth` synchronously copies the data into the native
-    // target (it does not retain the buffer), so overwriting it next frame is
-    // safe.
-    if (!buf || buf.length !== percents.length) {
-      buf = new Float32Array(percents.length);
+    if (!buf || buf.length !== rows) {
+      buf = new Float32Array(rows);
       bufRef.current = buf;
     }
-    buf.set(percents);
-    node.setDepth?.(buf.buffer);
-    // Push the per-row text in the SAME effect so the bar fill and its row text
-    // always come from one source frame (REACT-NATIVE-1JZ). The `prices`/`sizes`
-    // props stay empty/stable; this imperative call is the high-frequency path.
-    node.setText?.(prices ?? [], sizes ?? []);
-    // Signal the first real (non-empty) paint so the parent can drop its `--`
-    // placeholder. Gated on an attached node + actual data, so it never fires
-    // during the cold-start gap where the view exists but the push was skipped.
-    if (percents.length > 0 && !reportedReadyRef.current) {
-      reportedReadyRef.current = true;
-      onDepthReady?.();
+    if (hasData) {
+      buf.set(percents);
+    } else {
+      buf.fill(0);
     }
-  }, [percents, prices, sizes, onDepthReady]);
+    node.setDepth?.(buf.buffer);
+
+    // Per-row text in the SAME frame as the bars (REACT-NATIVE-1JZ): real
+    // price/size, else `rows` copies of the placeholder string ("--").
+    if (hasData) {
+      node.setText?.(prices ?? [], sizes ?? []);
+    } else if (rows > 0 && placeholderText) {
+      const ph = new Array<string>(rows).fill(placeholderText);
+      node.setText?.(ph, ph);
+    } else {
+      node.setText?.([], []);
+    }
+  }, [percents, prices, sizes, placeholderText, placeholderRows]);
 
   return (
     <StyledPerpDepthBarsView
@@ -234,6 +243,8 @@ export function DepthBarColumn({
       priceFontSize={priceFontSize ?? 11}
       sizeFontSize={sizeFontSize ?? 11}
       textInset={textInset ?? 0}
+      placeholderText={placeholderText ?? ''}
+      placeholderRows={placeholderRows ?? 0}
       onRowPress={onRowPress ?? noopOnRowPress}
       style={{ width: '100%', height: totalHeight }}
     />
@@ -274,6 +285,8 @@ export function DepthBar({
       priceFontSize={11}
       sizeFontSize={11}
       textInset={0}
+      placeholderText=""
+      placeholderRows={0}
       onRowPress={noopOnRowPress}
       style={{
         position: 'absolute',

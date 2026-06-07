@@ -74,14 +74,14 @@ export type IDepthBarColumnProps = {
   textInset?: number;
   onRowPress?: (rowIndex: number) => void;
   /**
-   * Fired the first time this column has actually rendered a non-empty frame of
-   * data for the current `epoch` (native: after the first successful imperative
-   * `setDepth` push with the native node attached; web: once it has rows). Lets
-   * the parent keep a `--` placeholder up until the real ladder has painted,
-   * instead of flashing blank during the cold-start window where the native view
-   * exists but its imperative data push has not landed yet. Re-armed per epoch.
+   * Per-row placeholder text drawn by the column itself while it has no real
+   * data (e.g. "--"). The view owns its empty state — no RN skeleton/overlay —
+   * so it swaps atomically to real numbers with no blank handoff frame. Drawn in
+   * `priceColor` (left) / `sizeColor` (right), no bar fill.
    */
-  onDepthReady?: () => void;
+  placeholderText?: string;
+  /** Number of placeholder rows to draw while `placeholderText` is shown. */
+  placeholderRows?: number;
 };
 
 export type ISideRatioSegmentsProps = {

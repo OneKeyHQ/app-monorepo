@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import {
@@ -93,24 +93,39 @@ export function DepthBarColumn({
   barInset,
   color,
   origin = 'left',
-  epoch,
+  priceColor,
+  sizeColor,
+  textInset,
   onRowPress,
-  onDepthReady,
+  placeholderText,
+  placeholderRows,
 }: IDepthBarColumnProps) {
   const barHeight = rowHeight - 2 * barInset;
-  // Mirror the native variant's `onDepthReady` contract so the shared parent can
-  // gate its `--` placeholder identically on web. Web renders bars synchronously
-  // from props, so "ready" is simply the first non-empty render per epoch.
-  const reportedReadyRef = useRef(false);
-  useEffect(() => {
-    reportedReadyRef.current = false;
-  }, [epoch]);
-  useEffect(() => {
-    if (percents.length > 0 && !reportedReadyRef.current) {
-      reportedReadyRef.current = true;
-      onDepthReady?.();
-    }
-  }, [percents.length, onDepthReady]);
+  // Empty state: draw `--` placeholder rows here (no RN overlay), matching the
+  // native variant which draws the placeholder itself.
+  if (percents.length === 0 && placeholderText && (placeholderRows ?? 0) > 0) {
+    return (
+      <>
+        {Array.from({ length: placeholderRows ?? 0 }).map((_, index) => (
+          <View
+            // eslint-disable-next-line react/no-array-index-key
+            key={index}
+            style={{
+              height: rowHeight,
+              marginTop: rowMarginTop,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: textInset ?? 0,
+            }}
+          >
+            <Text style={{ color: priceColor }}>{placeholderText}</Text>
+            <Text style={{ color: sizeColor }}>{placeholderText}</Text>
+          </View>
+        ))}
+      </>
+    );
+  }
   return (
     <>
       {percents.map((percent, index) => (

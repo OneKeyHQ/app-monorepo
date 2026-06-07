@@ -1823,57 +1823,6 @@ const OrderBookMobileHeader = memo(
 );
 OrderBookMobileHeader.displayName = 'OrderBookMobileHeader';
 
-const MobileEmptyRow = memo(
-  ({ priceColor, sizeColor }: { priceColor: string; sizeColor: string }) => {
-    return (
-      <DebugRenderTracker
-        name="OrderBookMobileEmptyRow"
-        position="right-center"
-      >
-        <View
-          style={{
-            flex: 1,
-            flexDirection: 'row',
-            alignItems: 'center',
-            height: MOBILE_ROW_HEIGHT,
-            paddingHorizontal: 4,
-          }}
-        >
-          <View style={{ flex: MOBILE_PRICE_FLEX }}>
-            <PerpBookText
-              style={[
-                styles.monospaceText,
-                {
-                  color: priceColor,
-                  fontSize: 11,
-                  lineHeight: 14,
-                },
-              ]}
-            >
-              --
-            </PerpBookText>
-          </View>
-          <View style={{ flex: MOBILE_SIZE_FLEX, alignItems: 'flex-end' }}>
-            <PerpBookText
-              style={[
-                styles.monospaceText,
-                {
-                  color: sizeColor,
-                  fontSize: 11,
-                  lineHeight: 14,
-                },
-              ]}
-            >
-              --
-            </PerpBookText>
-          </View>
-        </View>
-      </DebugRenderTracker>
-    );
-  },
-);
-MobileEmptyRow.displayName = 'MobileEmptyRow';
-
 // A compact, mobile-friendly order book: two columns (Price/Size),
 // asks on top, bids at bottom, with a prominent spread row in the middle.
 export function OrderBookMobile({
@@ -1917,39 +1866,24 @@ export function OrderBookMobile({
     selectedTickOption?.value,
     isEmpty,
   );
-  const emptyRowIndexes = useMemo(
-    () => Array.from({ length: maxLevelsPerSide }, (_, index) => index),
-    [maxLevelsPerSide],
-  );
-  // Cold-start / coin-switch placeholder gating. The depth-bar rows are pushed
-  // to the native view imperatively (setDepth/setText) from a post-paint effect;
-  // on a saturated JS thread (cold start) that effect is starved, so the live
-  // `DepthBarColumn` can sit BLANK for seconds even though `aggregatedData`
-  // already has data (isEmpty === false). Keep showing the `--` skeleton until
-  // we've confirmed (one frame after data lands) that the native push has run —
-  // and reset it on every depth epoch (coin / tick switch) so a switch shows
-  // `--` until the new book paints, instead of a blank gap.
-  const [depthPainted, setDepthPainted] = useState(false);
-  useEffect(() => {
-    // New coin / tick / empty<->full: re-arm the skeleton.
-    setDepthPainted(false);
-  }, [depthEpoch]);
-  // Dropped only when a `DepthBarColumn` reports its first real (non-empty) paint
-  // for this epoch — NOT on a fixed timer. A timer/rAF can fire before the native
-  // node has attached and received its imperative push, which is exactly the
-  // cold-start window that flashed blank (placeholder removed but bars not yet
-  // drawn). Either side reporting ready is enough to reveal the live ladder.
-  const handleDepthReady = useCallback(() => setDepthPainted(true), []);
-  // Show the `--` skeleton when there is genuinely no data, OR while the live
-  // native ladder has not yet painted its first frame of data.
-  const showDepthSkeleton = isEmpty || !depthPainted;
+  // Spacers reserve the height of the native columns so the foreground spread
+  // row stays aligned. While empty, the native view draws `maxLevelsPerSide`
+  // placeholder rows, so reserve that height too (not 0).
   const askSpacerStyle = useMemo(
-    () => ({ height: aggregatedData.asks.length * MOBILE_ROW_HEIGHT }),
-    [aggregatedData.asks.length],
+    () => ({
+      height:
+        (isEmpty ? maxLevelsPerSide : aggregatedData.asks.length) *
+        MOBILE_ROW_HEIGHT,
+    }),
+    [aggregatedData.asks.length, isEmpty, maxLevelsPerSide],
   );
   const bidSpacerStyle = useMemo(
-    () => ({ height: aggregatedData.bids.length * MOBILE_ROW_HEIGHT }),
-    [aggregatedData.bids.length],
+    () => ({
+      height:
+        (isEmpty ? maxLevelsPerSide : aggregatedData.bids.length) *
+        MOBILE_ROW_HEIGHT,
+    }),
+    [aggregatedData.bids.length, isEmpty, maxLevelsPerSide],
   );
 
   const bidDepth = useMemo(() => {
@@ -2098,33 +2032,25 @@ export function OrderBookMobile({
       <View style={styles.relativeContainer}>
         {/* background depth bars */}
         <View style={styles.relativeContainer}>
-          {isEmpty ? (
-            emptyRowIndexes.map((index) => (
-              <View
-                key={`ask-empty-bg-${index}`}
-                style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
-              />
-            ))
-          ) : (
-            <DepthBarColumn
-              percents={askLadder.percents}
-              rowHeight={MOBILE_ROW_HEIGHT}
-              rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
-              barInset={ORDER_BOOK_MOBILE_BAR_INSET}
-              color={blockColors.red}
-              origin="left"
-              epoch={depthEpoch}
-              prices={askLadder.prices}
-              sizes={askLadder.sizes}
-              priceColor={textColor.red}
-              sizeColor={textColor.textSubdued}
-              priceFontSize={priceFontSize}
-              sizeFontSize={priceFontSize}
-              textInset={4}
-              onRowPress={isInteractive ? handleAskRowPress : undefined}
-              onDepthReady={handleDepthReady}
-            />
-          )}
+          <DepthBarColumn
+            percents={askLadder.percents}
+            rowHeight={MOBILE_ROW_HEIGHT}
+            rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
+            barInset={ORDER_BOOK_MOBILE_BAR_INSET}
+            color={blockColors.red}
+            origin="left"
+            epoch={depthEpoch}
+            prices={askLadder.prices}
+            sizes={askLadder.sizes}
+            priceColor={textColor.red}
+            sizeColor={textColor.textSubdued}
+            priceFontSize={priceFontSize}
+            sizeFontSize={priceFontSize}
+            textInset={4}
+            placeholderText="--"
+            placeholderRows={maxLevelsPerSide}
+            onRowPress={isInteractive ? handleAskRowPress : undefined}
+          />
           <View
             style={{
               flexDirection: 'row',
@@ -2134,52 +2060,34 @@ export function OrderBookMobile({
               justifyContent: 'center',
             }}
           />
-          {isEmpty ? (
-            emptyRowIndexes.map((index) => (
-              <View
-                key={`bid-empty-bg-${index}`}
-                style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
-              />
-            ))
-          ) : (
-            <DepthBarColumn
-              percents={bidLadder.percents}
-              rowHeight={MOBILE_ROW_HEIGHT}
-              rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
-              barInset={ORDER_BOOK_MOBILE_BAR_INSET}
-              color={blockColors.green}
-              origin="left"
-              epoch={depthEpoch}
-              prices={bidLadder.prices}
-              sizes={bidLadder.sizes}
-              priceColor={textColor.green}
-              sizeColor={textColor.textSubdued}
-              priceFontSize={priceFontSize}
-              sizeFontSize={priceFontSize}
-              textInset={4}
-              onRowPress={isInteractive ? handleBidRowPress : undefined}
-              onDepthReady={handleDepthReady}
-            />
-          )}
+          <DepthBarColumn
+            percents={bidLadder.percents}
+            rowHeight={MOBILE_ROW_HEIGHT}
+            rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
+            barInset={ORDER_BOOK_MOBILE_BAR_INSET}
+            color={blockColors.green}
+            origin="left"
+            epoch={depthEpoch}
+            prices={bidLadder.prices}
+            sizes={bidLadder.sizes}
+            priceColor={textColor.green}
+            sizeColor={textColor.textSubdued}
+            priceFontSize={priceFontSize}
+            sizeFontSize={priceFontSize}
+            textInset={4}
+            placeholderText="--"
+            placeholderRows={maxLevelsPerSide}
+            onRowPress={isInteractive ? handleBidRowPress : undefined}
+          />
         </View>
 
-        {/* foreground texts */}
+        {/* foreground: only the spread row. Per-row price/size text AND the
+            `--` empty-state placeholder are drawn natively by DepthBarColumn
+            (no RN overlay), so the native view swaps placeholder→numbers with no
+            blank handoff frame. Transparent spacers keep the spread row aligned
+            with the native columns in both empty and populated states. */}
         <View style={styles.absoluteContainer}>
-          {/* ask price/size text now drawn natively by DepthBarColumn;
-              keep transparent spacers so the spread row stays positioned. The
-              `--` skeleton stays up until the native ladder paints (covers the
-              cold-start blank gap), not just while the book is genuinely empty. */}
-          {showDepthSkeleton ? (
-            emptyRowIndexes.map((index) => (
-              <MobileEmptyRow
-                key={`ask-empty-${index}`}
-                priceColor={textColor.red}
-                sizeColor={textColor.textSubdued}
-              />
-            ))
-          ) : (
-            <View style={askSpacerStyle} />
-          )}
+          <View style={askSpacerStyle} />
           <DebugRenderTracker
             name="OrderBookMobileSpreadRow"
             position="right-center"
@@ -2191,21 +2099,7 @@ export function OrderBookMobile({
               textColor={textColor}
             />
           </DebugRenderTracker>
-          {/* bid price/size text now drawn natively by DepthBarColumn;
-              keep transparent spacers so layout height matches the bars. The
-              `--` skeleton stays up until the native ladder paints (covers the
-              cold-start blank gap), not just while the book is genuinely empty. */}
-          {showDepthSkeleton ? (
-            emptyRowIndexes.map((index) => (
-              <MobileEmptyRow
-                key={`bid-empty-${index}`}
-                priceColor={textColor.green}
-                sizeColor={textColor.textSubdued}
-              />
-            ))
-          ) : (
-            <View style={bidSpacerStyle} />
-          )}
+          <View style={bidSpacerStyle} />
         </View>
       </View>
       <OrderBookSideRatio
