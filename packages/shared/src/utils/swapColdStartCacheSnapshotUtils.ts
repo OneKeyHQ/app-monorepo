@@ -32,6 +32,16 @@ export type ISwapSelectedTokensColdStartContext = {
   updatedAt: number;
 };
 
+// All-network selected accounts use the `onekeyall--*` sentinel network id. This
+// util runs on the earliest mobile cold-start path (apps/mobile/index.ts), so we
+// intentionally avoid importing networkUtils/presetNetworks here and match the
+// impl prefix directly to keep the boot import graph minimal.
+const SWAP_COLD_START_ALL_NETWORK_ID_PREFIX = 'onekeyall--';
+
+export function isSwapColdStartAllNetworkContextNetworkId(networkId?: string) {
+  return Boolean(networkId?.startsWith(SWAP_COLD_START_ALL_NETWORK_ID_PREFIX));
+}
+
 function buildContextAtomSnapshotKey({
   coldStartScopeKey,
   coldStartCacheKey,
@@ -46,10 +56,14 @@ export function buildSwapSelectedTokensColdStartAccountKey(
   activeAccount?: IColdStartAccountLike,
 ) {
   const walletId = activeAccount?.wallet?.id ?? '';
+  // Resolve the DB account id (dbAccount.id) before the INetworkAccount id
+  // (account.id) so this runtime active-account key matches the persisted
+  // selected-account key, which uses othersWalletAccountId (a DB account id) for
+  // "others" wallets. See buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount.
   const accountId =
     activeAccount?.indexedAccount?.id ??
-    activeAccount?.account?.id ??
     activeAccount?.dbAccount?.id ??
+    activeAccount?.account?.id ??
     '';
   const deriveType = activeAccount?.deriveType ?? '';
 
@@ -175,7 +189,19 @@ function isSwapSelectedTokenSnapshotMatchedContext({
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
   );
 
-  return fromToken?.networkId === cachedContext.networkId;
+  if (!fromToken?.networkId) {
+    return false;
+  }
+
+  // In all-network mode the cached context network is the `onekeyall--*` sentinel
+  // while the cached from-token carries a concrete chain id, so they never match
+  // exactly. Accept any concrete from-token network in that mode; otherwise the
+  // all-network cold-start cache would always be discarded on the next launch.
+  if (isSwapColdStartAllNetworkContextNetworkId(cachedContext.networkId)) {
+    return true;
+  }
+
+  return fromToken.networkId === cachedContext.networkId;
 }
 
 function inferSwapTypeFromSelectedTokenSnapshot({
@@ -239,6 +265,15 @@ function normalizeSwapTypeSnapshot({
 export function normalizeSwapColdStartCacheSnapshot(
   snapshot: Record<string, unknown>,
 ) {
+  // The mobile boot path (apps/mobile/index.ts) passes JSON.parse(rawMmkvValue)
+  // straight in, which can yield null/array/string for legacy or corrupted
+  // values. Indexing or deleting on a non-object would throw, and the outer
+  // try/catch would then drop the ENTIRE cold-start snapshot (every feature),
+  // not just swap. Degrade to the input unchanged, matching parseL2CtxSnapshot.
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+    return snapshot;
+  }
+
   const contextKey = buildContextAtomSnapshotKey({
     coldStartScopeKey: SWAP_STORE_SCOPE_KEY,
     coldStartCacheKey:

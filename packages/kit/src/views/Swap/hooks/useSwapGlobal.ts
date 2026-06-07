@@ -57,6 +57,7 @@ import {
   SWAP_COLD_START_HOME_SCENE_NAME,
   buildSwapSelectedAccountSyncedFromHome,
   buildSwapSelectedTokensColdStartContext,
+  isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
   shouldClearSwapSelectedTokensOnHomeAccountUpdate,
   shouldSyncSwapSelectedAccountOnHomeAccountUpdate,
@@ -270,7 +271,15 @@ export function useSwapInit(params?: ISwapInitParams) {
     if (!currentContext) {
       return;
     }
-    if (fromTokenRef.current?.networkId !== currentContext.networkId) {
+    // In all-network mode the context network is the `onekeyall--*` sentinel while
+    // the from-token carries a concrete chain id, so they never match exactly.
+    // Skipping the equality guard here lets the context persist; otherwise the
+    // all-network cold-start cache would be dropped on the next launch. Same rule
+    // is mirrored in normalizeSwapColdStartCacheSnapshot.
+    if (
+      !isSwapColdStartAllNetworkContextNetworkId(currentContext.networkId) &&
+      fromTokenRef.current?.networkId !== currentContext.networkId
+    ) {
       return;
     }
 
@@ -1078,6 +1087,17 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importFromToken,
     params?.importToToken,
     params?.importNetworkId,
+    // syncDefaultSelectedToken() bails early after kicking off an async home->swap
+    // account writeback (syncSwapSelectedAccountFromLatestHome). When swap and home
+    // share the same network, networkId above does not change, so without watching
+    // the account identity the init would never re-run and a deeplink/Market import
+    // token would be swallowed. The home-sync path pre-clears tokens, so the rerun
+    // lands cleanly in the default/import init branch.
+    swapActiveAccount.wallet?.id,
+    swapActiveAccount.indexedAccount?.id,
+    swapActiveAccount.account?.id,
+    swapActiveAccount.dbAccount?.id,
+    swapActiveAccount.deriveType,
   ]);
   const [swapFromMarketJumpToken, setSwapFromMarketJumpToken] =
     useSwapFromMarketJumpTokenAtom();

@@ -2,6 +2,7 @@ import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/s
 import {
   buildSwapSelectedTokensColdStartAccountKey,
   buildSwapSelectedTokensColdStartContext,
+  isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
 } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
@@ -10,6 +11,7 @@ import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 export {
   buildSwapSelectedTokensColdStartAccountKey,
   buildSwapSelectedTokensColdStartContext,
+  isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
 };
 
@@ -22,18 +24,22 @@ export function buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount(
     'walletId' | 'indexedAccountId' | 'othersWalletAccountId' | 'deriveType'
   >,
 ) {
-  const walletId = selectedAccount?.walletId ?? '';
-  const accountId =
-    selectedAccount?.indexedAccountId ??
-    selectedAccount?.othersWalletAccountId ??
-    '';
-  const deriveType = selectedAccount?.deriveType ?? '';
-
-  if (!walletId && !accountId) {
-    return undefined;
-  }
-
-  return [walletId, accountId, deriveType].join('|');
+  // Delegate to the single shared key builder so the persisted selected-account
+  // key always matches the runtime active-account key. othersWalletAccountId is a
+  // DB account id, so it maps to dbAccount.id (which the shared builder resolves
+  // before account.id).
+  return buildSwapSelectedTokensColdStartAccountKey({
+    wallet: selectedAccount?.walletId
+      ? { id: selectedAccount.walletId }
+      : undefined,
+    indexedAccount: selectedAccount?.indexedAccountId
+      ? { id: selectedAccount.indexedAccountId }
+      : undefined,
+    dbAccount: selectedAccount?.othersWalletAccountId
+      ? { id: selectedAccount.othersWalletAccountId }
+      : undefined,
+    deriveType: selectedAccount?.deriveType,
+  });
 }
 
 export function isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount({
@@ -61,33 +67,6 @@ export function isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount({
   );
 }
 
-export function shouldClearSwapSelectedTokensOnHomeAccountUpdate({
-  cachedContext,
-  eventPayload,
-}: {
-  cachedContext?: ISwapSelectedTokensColdStartContext;
-  eventPayload: {
-    selectedAccount?: IAccountSelectorSelectedAccount;
-    sceneName: EAccountSelectorSceneName;
-    num: number;
-  };
-}) {
-  if (
-    eventPayload.sceneName !== SWAP_COLD_START_HOME_SCENE_NAME ||
-    eventPayload.num !== 0
-  ) {
-    return false;
-  }
-
-  const matched =
-    isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount({
-      cachedContext,
-      selectedAccount: eventPayload.selectedAccount,
-    });
-
-  return matched === false;
-}
-
 function isHomeMainAccountUpdate({
   eventPayload,
 }: {
@@ -99,6 +78,48 @@ function isHomeMainAccountUpdate({
   return (
     eventPayload.sceneName === SWAP_COLD_START_HOME_SCENE_NAME &&
     eventPayload.num === 0
+  );
+}
+
+export function shouldClearSwapSelectedTokensOnHomeAccountUpdate({
+  cachedContext,
+  eventPayload,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext;
+  eventPayload: {
+    selectedAccount?: IAccountSelectorSelectedAccount;
+    sceneName: EAccountSelectorSceneName;
+    num: number;
+  };
+}) {
+  if (!isHomeMainAccountUpdate({ eventPayload })) {
+    return false;
+  }
+
+  // No cached context means there are no restored cold-start tokens to protect.
+  if (!cachedContext) {
+    return false;
+  }
+
+  // Home account was cleared/reset (disconnect, wallet removed, back to a default
+  // empty account): the new selected account has no network or no resolvable
+  // account key, so the restored tokens no longer belong to any active account
+  // and must be dropped. Treat this as an explicit mismatch rather than letting
+  // the matcher return undefined (which would leave stale tokens behind).
+  const { selectedAccount } = eventPayload;
+  const accountKey =
+    buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount(
+      selectedAccount,
+    );
+  if (!selectedAccount?.networkId || !accountKey) {
+    return true;
+  }
+
+  return (
+    isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount({
+      cachedContext,
+      selectedAccount,
+    }) === false
   );
 }
 
