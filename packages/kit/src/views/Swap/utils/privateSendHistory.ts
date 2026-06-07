@@ -149,6 +149,7 @@ function getPrivateSendDisplayTransferIdentity(
     symbol: transfer.symbol,
     icon: transfer.icon,
     isNative: transfer.isNative === true,
+    price: getPositivePriceValue(transfer.price),
   };
 }
 
@@ -172,7 +173,8 @@ function areSamePrivateSendDisplayTransfers({
       replayIdentity.tokenIdOnNetwork === currentIdentity.tokenIdOnNetwork &&
       replayIdentity.symbol === currentIdentity.symbol &&
       replayIdentity.icon === currentIdentity.icon &&
-      replayIdentity.isNative === currentIdentity.isNative
+      replayIdentity.isNative === currentIdentity.isNative &&
+      replayIdentity.price === currentIdentity.price
     );
   });
 }
@@ -503,12 +505,14 @@ function buildPrivateSendCreateTokenAccountFeeTransfer({
   network,
   nativeTokenInfo,
   createTokenAccountFee,
+  nativeTokenPrice,
 }: {
   historyTx: IAccountHistoryTx;
   sender: string;
   network?: IPrivateSendHistoryNetwork;
   nativeTokenInfo?: IToken;
   createTokenAccountFee: IPrivateSendCreateTokenAccountFee;
+  nativeTokenPrice?: string;
 }): IDecodedTxTransferInfo {
   return {
     from: sender,
@@ -529,6 +533,7 @@ function buildPrivateSendCreateTokenAccountFeeTransfer({
     isNFT: false,
     isNative: true,
     networkId: historyTx.decodedTx.networkId,
+    price: nativeTokenPrice,
   };
 }
 
@@ -537,13 +542,18 @@ function buildPrivateSendDisplayTransfers({
   sender,
   network,
   nativeTokenInfo,
+  token,
 }: {
   historyTx: IAccountHistoryTx;
   sender: string;
   network?: IPrivateSendHistoryNetwork;
   nativeTokenInfo?: IToken;
+  token?: ISwapToken;
 }) {
-  const sendTransfers = getPrivateSendHistorySendTransfers(historyTx);
+  const sendTransfers = applyPrivateSendDisplayTransferPrice({
+    transfers: getPrivateSendHistorySendTransfers(historyTx),
+    token,
+  });
   const createTokenAccountFee = getPrivateSendCreateTokenAccountFee(historyTx);
   if (!createTokenAccountFee) {
     return sendTransfers;
@@ -566,6 +576,7 @@ function buildPrivateSendDisplayTransfers({
       network,
       nativeTokenInfo,
       createTokenAccountFee,
+      nativeTokenPrice: getPrivateSendNativePriceFromFee(historyTx),
     }),
   ];
 }
@@ -635,6 +646,70 @@ function getPositivePriceValue(value?: number | string) {
   }
 
   return valueBN.toFixed();
+}
+
+function getPrivateSendNativePriceFromFee(historyTx: IAccountHistoryTx) {
+  const totalFeeInNative = getPositivePriceValue(
+    historyTx.decodedTx.totalFeeInNative,
+  );
+  const totalFeeFiatValue = getPositivePriceValue(
+    historyTx.decodedTx.totalFeeFiatValue,
+  );
+  if (!totalFeeInNative || !totalFeeFiatValue) {
+    return undefined;
+  }
+
+  return new BigNumber(totalFeeFiatValue).div(totalFeeInNative).toFixed();
+}
+
+function getPrivateSendDisplayTransferPriceFromToken({
+  transfer,
+  token,
+}: {
+  transfer: IDecodedTxTransferInfo;
+  token?: ISwapToken;
+}) {
+  const price = getPositivePriceValue(token?.price);
+  if (!price) {
+    return undefined;
+  }
+  if (!token) {
+    return undefined;
+  }
+
+  if (isSameTokenAddress(transfer.tokenIdOnNetwork, token.contractAddress)) {
+    return price;
+  }
+
+  if (
+    (!transfer.networkId || token.networkId === transfer.networkId) &&
+    (token.isNative || !token.contractAddress) &&
+    (transfer.isNative || !transfer.tokenIdOnNetwork)
+  ) {
+    return price;
+  }
+
+  return undefined;
+}
+
+function applyPrivateSendDisplayTransferPrice({
+  transfers,
+  token,
+}: {
+  transfers: IDecodedTxTransferInfo[];
+  token?: ISwapToken;
+}) {
+  return transfers.map((transfer) => {
+    if (getPositivePriceValue(transfer.price)) {
+      return transfer;
+    }
+
+    const price = getPrivateSendDisplayTransferPriceFromToken({
+      transfer,
+      token,
+    });
+    return price ? { ...transfer, price } : transfer;
+  });
 }
 
 async function fetchPrivateSendHistoryTokenDetails({
@@ -789,6 +864,7 @@ function buildPrivateSendHistoryItemFromAccountHistory({
     sender,
     network,
     nativeTokenInfo,
+    token,
   });
   const ctx =
     rocketXOrderId || payinAddress || privateSendDisplayTransfers.length
