@@ -17,6 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
+  EProtocolOfExchange,
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapSlippageSegmentKey,
@@ -49,6 +50,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
+import { getSwapExecutionType } from '../utils/swapTypeUtils';
 import { truncateDecimalPlaces } from '../utils/utils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -688,7 +690,14 @@ export function useSwapQuote() {
         fromAddress: swapAddressInfo.address ?? '',
         toAddress: swapToAddressInfo.address ?? '',
         walletType: activeAccountRef.current?.accountInfo?.wallet?.type ?? '',
-        quoteType: swapTabSwitchTypeRef.current,
+        quoteType: getSwapExecutionType({
+          protocol:
+            swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT
+              ? EProtocolOfExchange.LIMIT
+              : undefined,
+          fromNetworkId: fromTokenRef.current?.networkId,
+          toNetworkId: toTokenRef.current?.networkId,
+        }),
         slippageSetting:
           settingsAtomRef.current.swapSlippagePercentageMode ===
           ESwapSlippageSegmentKey.AUTO

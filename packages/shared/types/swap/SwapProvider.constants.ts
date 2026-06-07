@@ -152,10 +152,14 @@ export interface ISwapProviderManager {
   serviceDisable?: boolean;
   isSupportSingleSwap?: boolean;
   isSupportCrossChain?: boolean;
+  singleSwapEnable?: boolean;
+  crossChainEnable?: boolean;
   supportSingleSwapNetworks?: ISwapNetwork[];
   supportCrossChainNetworks?: ISwapNetwork[];
   supportNetworks?: ISwapNetwork[];
   disableNetworks?: ISwapNetwork[];
+  singleSwapDisableNetworks?: ISwapNetwork[];
+  crossChainDisableNetworks?: ISwapNetwork[];
   serviceDisableNetworks?: ISwapNetwork[];
 }
 

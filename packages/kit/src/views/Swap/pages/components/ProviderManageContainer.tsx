@@ -12,6 +12,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { normalizeSwapProviderManagersForSave } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
 import type { ISwapProviderManager } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
 import ProviderManageComponent from '../../components/ProviderManageComponent';
@@ -24,6 +25,12 @@ const PROVIDER_MANAGE_LIST_MAX_HEIGHT = {
   desktop: 360,
   mobile: '$80',
 } as const;
+
+function syncProviderManagerUnifiedSettings(
+  providerManager: ISwapProviderManager,
+) {
+  return normalizeSwapProviderManagersForSave([providerManager])[0];
+}
 
 const ProviderManageContainer = ({
   onSaved,
@@ -42,11 +49,11 @@ const ProviderManageContainer = ({
       setProviderManageNewData(
         providerManageNewData.map((item) => {
           if (item.providerInfo.provider === provider) {
-            return {
+            return syncProviderManagerUnifiedSettings({
               ...item,
               enable,
               disableNetworks: enable ? [] : [...(item.supportNetworks ?? [])],
-            };
+            });
           }
           return item;
         }),
@@ -69,23 +76,23 @@ const ProviderManageContainer = ({
                 );
             if (enable) {
               if (disNetsEnable?.length) {
-                return {
+                return syncProviderManagerUnifiedSettings({
                   ...item,
                   enable: true,
                   disableNetworks: (item.disableNetworks ?? []).filter(
                     (net) =>
                       !disNetsEnable.find((n) => net.networkId === n.networkId),
                   ),
-                };
+                });
               }
             } else if (disNetsEnable?.length) {
-              return {
+              return syncProviderManagerUnifiedSettings({
                 ...item,
                 disableNetworks: [
                   ...(item.disableNetworks ?? []),
                   ...disNetsEnable,
                 ],
-              };
+              });
             }
           }
           return item;

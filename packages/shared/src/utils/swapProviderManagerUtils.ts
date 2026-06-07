@@ -64,32 +64,83 @@ export function buildUnifiedSwapProviderManagers({
         ...supportSingleSwapNetworks,
         ...supportCrossChainNetworks,
       ]);
+      const singleSwapEnable = provider.isSupportSingleSwap
+        ? (legacySwapProvider?.enable ?? true)
+        : true;
+      const crossChainEnable = provider.isSupportCrossChain
+        ? (legacyBridgeProvider?.enable ?? true)
+        : true;
+      const singleSwapDisableNetworks = filterNetworksBySupport(
+        legacySwapProvider?.disableNetworks,
+        supportSingleSwapNetworks,
+      );
+      const crossChainDisableNetworks = filterNetworksBySupport(
+        legacyBridgeProvider?.disableNetworks,
+        supportCrossChainNetworks,
+      );
       const disableNetworks = filterNetworksBySupport(
         uniqueNetworks([
-          ...(legacySwapProvider?.disableNetworks ?? []),
-          ...(legacyBridgeProvider?.disableNetworks ?? []),
+          ...singleSwapDisableNetworks,
+          ...crossChainDisableNetworks,
         ]),
         supportNetworks,
       );
 
       return {
         providerInfo: provider.providerInfo,
-        enable:
-          (legacySwapProvider?.enable ?? true) &&
-          (legacyBridgeProvider?.enable ?? true),
+        enable: singleSwapEnable && crossChainEnable,
         serviceDisable: provider.providerServiceDisable,
         isSupportSingleSwap: !!provider.isSupportSingleSwap,
         isSupportCrossChain: !!provider.isSupportCrossChain,
+        singleSwapEnable,
+        crossChainEnable,
         supportSingleSwapNetworks,
         supportCrossChainNetworks,
         supportNetworks,
         disableNetworks,
+        singleSwapDisableNetworks,
+        crossChainDisableNetworks,
         serviceDisableNetworks: filterNetworksBySupport(
           provider.serviceDisableNetworks,
           supportNetworks,
         ),
       };
     });
+}
+
+export function normalizeSwapProviderManagersForSave(
+  providerManagers: ISwapProviderManager[],
+): ISwapProviderManager[] {
+  return providerManagers.map((providerManager) => {
+    const supportSingleSwapNetworks =
+      providerManager.supportSingleSwapNetworks ??
+      providerManager.supportNetworks ??
+      [];
+    const supportCrossChainNetworks =
+      providerManager.supportCrossChainNetworks ??
+      providerManager.supportNetworks ??
+      [];
+
+    return {
+      ...providerManager,
+      singleSwapEnable:
+        providerManager.isSupportSingleSwap === false
+          ? true
+          : providerManager.enable,
+      crossChainEnable:
+        providerManager.isSupportCrossChain === false
+          ? true
+          : providerManager.enable,
+      singleSwapDisableNetworks: filterNetworksBySupport(
+        providerManager.disableNetworks,
+        supportSingleSwapNetworks,
+      ),
+      crossChainDisableNetworks: filterNetworksBySupport(
+        providerManager.disableNetworks,
+        supportCrossChainNetworks,
+      ),
+    };
+  });
 }
 
 function isProviderSupportQuoteMode({
@@ -105,16 +156,34 @@ function isProviderSupportQuoteMode({
   return providerManager.isSupportSingleSwap !== false;
 }
 
+function isProviderEnabledForQuoteMode({
+  providerManager,
+  isCrossChain,
+}: {
+  providerManager: ISwapProviderManager;
+  isCrossChain: boolean;
+}) {
+  if (isCrossChain) {
+    return providerManager.crossChainEnable ?? providerManager.enable;
+  }
+  return providerManager.singleSwapEnable ?? providerManager.enable;
+}
+
 function isProviderDisabledByNetwork({
   providerManager,
+  isCrossChain,
   networkIds,
 }: {
   providerManager: ISwapProviderManager;
+  isCrossChain: boolean;
   networkIds: string[];
 }) {
-  return networkIds.some((networkId) =>
-    hasNetwork(providerManager.disableNetworks, networkId),
-  );
+  const disableNetworks = isCrossChain
+    ? (providerManager.crossChainDisableNetworks ??
+      providerManager.disableNetworks)
+    : (providerManager.singleSwapDisableNetworks ??
+      providerManager.disableNetworks);
+  return networkIds.some((networkId) => hasNetwork(disableNetworks, networkId));
 }
 
 export function getDenySwapProviderString({
@@ -140,9 +209,13 @@ export function getDenySwapProviderString({
       return false;
     }
     return (
-      !providerManager.enable ||
+      !isProviderEnabledForQuoteMode({
+        providerManager,
+        isCrossChain,
+      }) ||
       isProviderDisabledByNetwork({
         providerManager,
+        isCrossChain,
         networkIds,
       })
     );

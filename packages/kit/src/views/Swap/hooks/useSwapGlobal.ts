@@ -205,35 +205,45 @@ export function useSwapInit(params?: ISwapInitParams) {
         await backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager();
       const bridgeProviderManagerSimpleDb =
         await backgroundApiProxy.simpleDb.swapConfigs.getBridgeProviderManager();
-      setInAppNotification((pre) => ({
-        ...pre,
-        swapProviderManager: swapProviderManagerSimpleDb,
-        bridgeProviderManager: bridgeProviderManagerSimpleDb,
-      }));
-      if (noFetch) {
-        return;
-      }
-      const swapProviderManagerFromServer =
-        await backgroundApiProxy.serviceSwap.getSwapProviderManager();
-
-      if (swapProviderManagerFromServer.length) {
-        const unifiedProviderManager = buildUnifiedSwapProviderManagers({
-          serverProviders: swapProviderManagerFromServer,
-          swapProviderManagers: swapProviderManagerSimpleDb,
-          bridgeProviderManagers: bridgeProviderManagerSimpleDb,
-        });
-        await backgroundApiProxy.simpleDb.swapConfigs.setSwapProviderManager(
-          unifiedProviderManager,
-        );
-        await backgroundApiProxy.simpleDb.swapConfigs.setBridgeProviderManager(
-          [],
-        );
+      const setProviderManagersFromCache = () => {
         setInAppNotification((pre) => ({
           ...pre,
-          swapProviderManager: unifiedProviderManager,
-          bridgeProviderManager: [],
+          swapProviderManager: swapProviderManagerSimpleDb,
+          bridgeProviderManager: bridgeProviderManagerSimpleDb,
         }));
+      };
+      if (noFetch) {
+        setProviderManagersFromCache();
+        return;
       }
+
+      try {
+        const swapProviderManagerFromServer =
+          await backgroundApiProxy.serviceSwap.getSwapProviderManager();
+
+        if (swapProviderManagerFromServer.length) {
+          const unifiedProviderManager = buildUnifiedSwapProviderManagers({
+            serverProviders: swapProviderManagerFromServer,
+            swapProviderManagers: swapProviderManagerSimpleDb,
+            bridgeProviderManagers: bridgeProviderManagerSimpleDb,
+          });
+          await backgroundApiProxy.simpleDb.swapConfigs.setSwapProviderManager(
+            unifiedProviderManager,
+          );
+          await backgroundApiProxy.simpleDb.swapConfigs.setBridgeProviderManager(
+            [],
+          );
+          setInAppNotification((pre) => ({
+            ...pre,
+            swapProviderManager: unifiedProviderManager,
+            bridgeProviderManager: [],
+          }));
+          return;
+        }
+      } catch {
+        // Keep cached provider settings usable when the provider list refresh fails.
+      }
+      setProviderManagersFromCache();
     },
     [setInAppNotification],
   );

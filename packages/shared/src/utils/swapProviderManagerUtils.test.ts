@@ -11,6 +11,7 @@ import {
   getDenyBridgeProviderString,
   getDenySwapProviderString,
   mergeDenyProviderStrings,
+  normalizeSwapProviderManagersForSave,
 } from './swapProviderManagerUtils';
 
 function network(networkId: string): ISwapNetwork {
@@ -93,6 +94,8 @@ describe('swapProviderManagerUtils', () => {
     expect(result[0]).toMatchObject({
       providerInfo: { provider: 'ProviderA' },
       enable: false,
+      singleSwapEnable: true,
+      crossChainEnable: false,
       isSupportSingleSwap: true,
       isSupportCrossChain: true,
     });
@@ -103,6 +106,12 @@ describe('swapProviderManagerUtils', () => {
     expect(result[0].disableNetworks?.map((item) => item.networkId)).toEqual([
       'evm--1',
     ]);
+    expect(
+      result[0].singleSwapDisableNetworks?.map((item) => item.networkId),
+    ).toEqual(['evm--1']);
+    expect(
+      result[0].crossChainDisableNetworks?.map((item) => item.networkId),
+    ).toEqual([]);
     expect(result[1]).toMatchObject({
       providerInfo: { provider: 'ProviderB' },
       enable: true,
@@ -136,6 +145,63 @@ describe('swapProviderManagerUtils', () => {
     });
 
     expect(denyProviders).toBe('ProviderA,ProviderB');
+  });
+
+  it('does not deny same-chain swap from legacy bridge provider disables', () => {
+    const providerManagers = buildUnifiedSwapProviderManagers({
+      serverProviders: [serverProvider({ provider: 'ProviderA' })],
+      swapProviderManagers: [manager({ provider: 'ProviderA' })],
+      bridgeProviderManagers: [
+        manager({ provider: 'ProviderA', enable: false }),
+      ],
+    });
+
+    const denyProviders = getDenySwapProviderString({
+      providerManagers,
+      fromNetworkId: 'evm--1',
+      toNetworkId: 'evm--1',
+    });
+
+    expect(denyProviders).toBeUndefined();
+  });
+
+  it('keeps legacy swap network disables out of cross-chain quote denies', () => {
+    const providerManagers = buildUnifiedSwapProviderManagers({
+      serverProviders: [serverProvider({ provider: 'ProviderA' })],
+      swapProviderManagers: [
+        manager({
+          provider: 'ProviderA',
+          disableNetworks: [network('evm--1')],
+        }),
+      ],
+      bridgeProviderManagers: [],
+    });
+
+    const denyProviders = getDenySwapProviderString({
+      providerManagers,
+      fromNetworkId: 'evm--1',
+      toNetworkId: 'sol--101',
+    });
+
+    expect(denyProviders).toBeUndefined();
+  });
+
+  it('keeps legacy bridge disables scoped to cross-chain quote denies', () => {
+    const providerManagers = buildUnifiedSwapProviderManagers({
+      serverProviders: [serverProvider({ provider: 'ProviderA' })],
+      swapProviderManagers: [manager({ provider: 'ProviderA' })],
+      bridgeProviderManagers: [
+        manager({ provider: 'ProviderA', enable: false }),
+      ],
+    });
+
+    const denyProviders = getDenySwapProviderString({
+      providerManagers,
+      fromNetworkId: 'evm--1',
+      toNetworkId: 'sol--101',
+    });
+
+    expect(denyProviders).toBe('ProviderA');
   });
 
   it('returns cross-chain deny providers when either side network is disabled', () => {
@@ -187,5 +253,35 @@ describe('swapProviderManagerUtils', () => {
     );
 
     expect(denyProviders).toBe('ProviderA,BridgeOnly');
+  });
+
+  it('normalizes unified user settings into both quote modes on save', () => {
+    const [providerManager] = normalizeSwapProviderManagersForSave([
+      {
+        ...manager({
+          provider: 'ProviderA',
+          enable: true,
+          disableNetworks: [network('evm--1'), network('sol--101')],
+        }),
+        isSupportSingleSwap: true,
+        isSupportCrossChain: true,
+        singleSwapEnable: true,
+        crossChainEnable: false,
+        supportSingleSwapNetworks: [network('evm--1')],
+        supportCrossChainNetworks: [network('evm--1'), network('sol--101')],
+      },
+    ]);
+
+    expect(providerManager).toMatchObject({
+      enable: true,
+      singleSwapEnable: true,
+      crossChainEnable: true,
+    });
+    expect(
+      providerManager.singleSwapDisableNetworks?.map((item) => item.networkId),
+    ).toEqual(['evm--1']);
+    expect(
+      providerManager.crossChainDisableNetworks?.map((item) => item.networkId),
+    ).toEqual(['evm--1', 'sol--101']);
   });
 });
