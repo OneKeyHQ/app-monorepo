@@ -216,7 +216,7 @@ function convertTokenToSwapToken({
     name: tokenDetails.info.name,
     logoURI: tokenDetails.info.logoURI,
     balanceParsed: tokenDetails.balanceParsed,
-    price: tokenDetails.price.toString(),
+    price: tokenDetails.price?.toString(),
     fiatValue: tokenDetails.fiatValue,
   };
 }

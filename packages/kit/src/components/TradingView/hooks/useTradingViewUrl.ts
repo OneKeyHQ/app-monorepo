@@ -7,10 +7,12 @@ import {
   TRADING_VIEW_URL,
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
+import { DESKTOP_OFFLINE_CHART_ENTRY_URL } from '@onekeyhq/shared/src/consts/desktopChartConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
 import { TRADING_VIEW_DISABLED_FEATURES_URL_PARAM } from '../constants';
 import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
 
@@ -32,9 +34,20 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
 
+  // Desktop offline chart: usable only when the bundle was shipped into the asar
+  // (main process registered the onekey-chart:// handler and reports it ready via
+  // the desktop global). Mirrors native's online fallback when assets are absent.
+  const desktopOfflineChartReady = getDesktopOfflineChartReady();
+
   const baseUrl = useMemo(() => {
+    // Dev "use local TradingView URL" always wins (chart dev server on :5173).
     if (devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl) {
       return localTradingViewUrl;
+    }
+
+    // Local offline chart served from the asar (onekey-chart://local/index.html).
+    if (desktopOfflineChartReady) {
+      return DESKTOP_OFFLINE_CHART_ENTRY_URL;
     }
 
     if (devSettings.enabled) {
@@ -46,25 +59,29 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
     devSettings.enabled,
     devSettings.settings?.useLocalTradingViewUrl,
     localTradingViewUrl,
+    desktopOfflineChartReady,
   ]);
 
-  const finalUrl = useMemo(() => {
-    const timezone = getTradingViewTimezone(calendars);
-    const locale = systemLocale;
-
-    const url = new URL(baseUrl);
-    url.searchParams.set('timezone', timezone);
-    url.searchParams.set('locale', locale);
-    url.searchParams.set('platform', platformEnv.appPlatform ?? 'web');
-    url.searchParams.set('theme', theme);
+  // The full param set, shared by the online URL (query string) and the offline
+  // chart-webview bundle (passed as paramsJson). Keeping a single source avoids
+  // online/offline drift.
+  const params = useMemo(() => {
+    const result: Record<string, string> = {
+      timezone: getTradingViewTimezone(calendars),
+      locale: systemLocale,
+      platform: platformEnv.appPlatform ?? 'web',
+      theme,
+    };
     if (platformEnv.version) {
-      url.searchParams.set('appVersion', platformEnv.version);
+      result.appVersion = platformEnv.version;
     }
 
-    // Add any additional parameters
+    // Add any additional parameters (skip empty/undefined values).
     if (additionalParams) {
       Object.entries(additionalParams).forEach(([key, value]) => {
-        url.searchParams.set(key, value);
+        if (value !== undefined && value !== null) {
+          result[key] = value;
+        }
       });
     }
 
@@ -74,24 +91,24 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
       )
       .join(',');
     if (serializedDisabledFeatures) {
-      url.searchParams.set(
-        TRADING_VIEW_DISABLED_FEATURES_URL_PARAM,
-        serializedDisabledFeatures,
-      );
+      result[TRADING_VIEW_DISABLED_FEATURES_URL_PARAM] =
+        serializedDisabledFeatures;
     }
 
+    return result;
+  }, [additionalParams, calendars, disabledFeatures, systemLocale, theme]);
+
+  const finalUrl = useMemo(() => {
+    const url = new URL(baseUrl);
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.set(key, value);
+    });
     return url.toString();
-  }, [
-    additionalParams,
-    baseUrl,
-    calendars,
-    disabledFeatures,
-    systemLocale,
-    theme,
-  ]);
+  }, [baseUrl, params]);
 
   return {
     baseUrl,
     finalUrl,
+    params,
   };
 }
