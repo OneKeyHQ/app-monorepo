@@ -187,12 +187,16 @@ export abstract class CloudSyncFlowManagerBase<
     allDevices,
     isDeleted,
     dataTime,
+    allowHistoricalTime,
+    existingDataTime,
     syncCredential,
   }: {
     dbRecord: TRecord;
     allDevices?: IDBDevice[];
     isDeleted: boolean | undefined;
     dataTime: number | undefined;
+    allowHistoricalTime?: boolean;
+    existingDataTime?: number;
     syncCredential: ICloudSyncCredential | undefined;
   }): Promise<IDBCloudSyncItem | undefined> {
     const target = await this.buildSyncTargetByDBQuery({
@@ -202,6 +206,8 @@ export abstract class CloudSyncFlowManagerBase<
     return this.buildSyncItem({
       target,
       dataTime,
+      allowHistoricalTime,
+      existingDataTime,
       syncCredential,
       isDeleted,
     });
@@ -210,11 +216,17 @@ export abstract class CloudSyncFlowManagerBase<
   async buildSyncItem({
     target,
     dataTime,
+    allowHistoricalTime,
+    existingDataTime,
+    preserveUndefinedDataTime,
     syncCredential,
     isDeleted,
   }: {
     target: ICloudSyncTargetMap[T];
     dataTime: number | undefined;
+    allowHistoricalTime?: boolean;
+    existingDataTime?: number;
+    preserveUndefinedDataTime?: boolean;
     syncCredential: ICloudSyncCredential | undefined;
     isDeleted?: boolean;
   }): Promise<IDBCloudSyncItem | undefined> {
@@ -228,6 +240,17 @@ export abstract class CloudSyncFlowManagerBase<
           target,
           callerName: 'buildSyncItem',
         });
+      const finalDataTime =
+        preserveUndefinedDataTime && dataTime === undefined
+          ? undefined
+          : await this.backgroundApi.servicePrimeCloudSync.getCloudSyncDataTime(
+              {
+                syncItemKey: key,
+                existingDataTime,
+                explicitHistoricalTime: dataTime,
+                allowHistoricalTime,
+              },
+            );
       const item = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
         key,
         rawDataJson: {
@@ -236,7 +259,7 @@ export abstract class CloudSyncFlowManagerBase<
           dataType: dataType as any,
         },
         syncCredential,
-        dataTime,
+        dataTime: finalDataTime,
       });
       item.localSceneUpdated = true;
       item.serverUploaded = false;
@@ -423,21 +446,23 @@ export abstract class CloudSyncFlowManagerBase<
             console.error('parse rawData error', error);
           }
         } else {
+          let dataTime: number | undefined;
+          let allowHistoricalTime = false;
+          if (shouldUseCreateGenesisTime) {
+            if (await shouldUseCreateGenesisTime({ target })) {
+              console.log(
+                'useCreateGenesisTime PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME',
+                PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+              );
+              dataTime = PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME;
+              allowHistoricalTime = true;
+            }
+          }
           const newSyncItem = await this.buildSyncItem({
             syncCredential,
             target,
-            dataTime: await (async () => {
-              if (shouldUseCreateGenesisTime) {
-                if (await shouldUseCreateGenesisTime({ target })) {
-                  console.log(
-                    'useCreateGenesisTime PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME',
-                    PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
-                  );
-                  return PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME;
-                }
-              }
-              return this.timeNow();
-            })(),
+            dataTime,
+            allowHistoricalTime,
           });
           if (newSyncItem) {
             newSyncItems.push(newSyncItem);
@@ -555,6 +580,8 @@ export abstract class CloudSyncFlowManagerBase<
             syncCredential,
             target,
             dataTime: updatedDataTime,
+            existingDataTime: existingSyncItem.dataTime,
+            allowHistoricalTime: true,
           });
           if (updatedSyncItem) {
             newSyncItems.push(updatedSyncItem);
@@ -570,23 +597,24 @@ export abstract class CloudSyncFlowManagerBase<
           existingSyncItem: undefined,
         });
 
+        let historicalDataTime = dataTime;
+        let allowHistoricalTime = dataTime !== undefined;
+        if (dataTime === undefined && shouldUseCreateGenesisTime) {
+          if (await shouldUseCreateGenesisTime({ target })) {
+            console.log(
+              'useCreateGenesisTime PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME',
+              PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+            );
+            historicalDataTime = PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME;
+            allowHistoricalTime = true;
+          }
+        }
+
         const newSyncItem = await this.buildSyncItem({
           syncCredential,
           target,
-          dataTime:
-            dataTime ??
-            (await (async () => {
-              if (shouldUseCreateGenesisTime) {
-                if (await shouldUseCreateGenesisTime({ target })) {
-                  console.log(
-                    'useCreateGenesisTime PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME',
-                    PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
-                  );
-                  return PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME;
-                }
-              }
-              return this.timeNow();
-            })()),
+          dataTime: historicalDataTime,
+          allowHistoricalTime,
         });
         if (newSyncItem) {
           newSyncItems.push(newSyncItem);
@@ -812,6 +840,7 @@ export abstract class CloudSyncFlowManagerBase<
           const item = await this.buildSyncItem({
             target,
             dataTime: initDataTime,
+            preserveUndefinedDataTime: true,
             syncCredential,
           });
           return item;

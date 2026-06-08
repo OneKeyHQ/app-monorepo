@@ -81,7 +81,7 @@ export const limitOrderEstimationFeePercent = 1.05;
 export const defaultSupportUrl = 'https://help.onekey.so/articles/11536900';
 
 export const privateSendHelpCenterUrl =
-  'https://help.onekey.so/articles/11536900';
+  'https://help.onekey.so/articles/15388307';
 
 export const privateSendProvider = 'SwapRocketXPrivateSend';
 

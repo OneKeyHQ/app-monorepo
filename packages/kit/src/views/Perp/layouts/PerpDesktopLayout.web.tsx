@@ -67,14 +67,7 @@ function PerpDesktopLayout() {
 
   const tradingPanel = useMemo(() => {
     return (
-      <YStack
-        h={layout.marketContentHeight}
-        minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
-        maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
-        w={tradingWidth}
-        borderLeftWidth="$px"
-        borderLeftColor="$borderSubdued"
-      >
+      <YStack height={layout.marketContentHeight} overflow="hidden">
         <Stack flex={1} style={{ overflowY: 'auto' }}>
           <YStack pb="$4">
             <PerpTradingPanel />
@@ -82,18 +75,15 @@ function PerpDesktopLayout() {
         </Stack>
       </YStack>
     );
-  }, [layout.marketContentHeight, tradingWidth]);
+  }, [layout.marketContentHeight]);
 
   const accountPanel = useMemo(() => {
     return (
       <YStack
         minHeight={layout.bottomPanelHeight}
         alignSelf="stretch"
-        minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
-        maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
-        w={tradingWidth}
-        borderLeftWidth="$px"
-        borderLeftColor="$borderSubdued"
+        borderTopWidth="$px"
+        borderTopColor="$borderSubdued"
       >
         <XStack alignItems="center">
           <XStack py="$3" px="$2.5">
@@ -110,7 +100,7 @@ function PerpDesktopLayout() {
         </YStack>
       </YStack>
     );
-  }, [intl, layout.bottomPanelHeight, tradingWidth]);
+  }, [intl, layout.bottomPanelHeight]);
 
   return (
     <Stack
@@ -130,13 +120,13 @@ function PerpDesktopLayout() {
         >
           <PerpTickerBar />
 
-          <XStack
-            h={chartExpanded ? undefined : layout.marketContentHeight}
-            flex={chartExpanded ? 1 : undefined}
-            overflow="hidden"
-          >
+          <XStack alignItems="stretch" overflow="visible">
             <YStack flex={1} minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
-              <XStack flex={1} overflow="hidden">
+              <XStack
+                h={chartExpanded ? undefined : layout.marketContentHeight}
+                flex={chartExpanded ? 1 : undefined}
+                overflow="hidden"
+              >
                 <YStack flex={1} position="relative">
                   <PerpMarketWorkspacePanel
                     onTouchScroll={handleTradingViewTouchScroll}
@@ -209,24 +199,31 @@ function PerpDesktopLayout() {
                   </YStack>
                 ) : null}
               </XStack>
+
+              <XStack
+                display={chartExpanded ? 'none' : 'flex'}
+                borderTopWidth="$px"
+                borderTopColor="$borderSubdued"
+                minHeight={layout.bottomPanelHeight}
+                alignItems="stretch"
+              >
+                <YStack flex={1}>
+                  <PerpOrderInfoPanel />
+                </YStack>
+              </XStack>
             </YStack>
 
-            <YStack display={chartExpanded ? 'none' : 'flex'}>
+            <YStack
+              display={chartExpanded ? 'none' : 'flex'}
+              minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
+              maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
+              w={tradingWidth}
+              borderLeftWidth="$px"
+              borderLeftColor="$borderSubdued"
+            >
               {tradingPanel}
+              {accountPanel}
             </YStack>
-          </XStack>
-
-          <XStack
-            display={chartExpanded ? 'none' : 'flex'}
-            borderTopWidth="$px"
-            borderTopColor="$borderSubdued"
-            minHeight={layout.bottomPanelHeight}
-            alignItems="stretch"
-          >
-            <YStack flex={1}>
-              <PerpOrderInfoPanel />
-            </YStack>
-            {accountPanel}
           </XStack>
         </YStack>
       </YStack>

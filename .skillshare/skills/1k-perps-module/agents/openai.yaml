@@ -1,0 +1,4 @@
+interface:
+  display_name: "OneKey Perps / Hyperliquid"
+  short_description: "Perps routing, contracts, state, validation"
+  default_prompt: "Use $1k-perps-module to route OneKey Perps/Hyperliquid work such as TWAP, scale orders, orderbook, K-line, Relay deposit, positions/account state, or Perps subscriptions."
