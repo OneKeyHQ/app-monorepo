@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { isNil, unionBy, uniqBy } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
@@ -205,14 +206,27 @@ function mergePrivateSendExtraInfoFields({
   }) as IAccountHistoryTx['decodedTx']['extraInfo'];
 }
 
+function getPrivateSendPositivePriceValue(value?: number | string) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const valueBN = new BigNumber(value);
+  if (valueBN.isNaN() || !valueBN.isFinite() || !valueBN.isGreaterThan(0)) {
+    return undefined;
+  }
+
+  return valueBN.toFixed();
+}
+
 function hasPrivateSendTransferPrice(transfer?: IHistoryDecodedTransfer) {
-  return !isNil(transfer?.price) && transfer?.price !== '';
+  return !!getPrivateSendPositivePriceValue(transfer?.price);
 }
 
 function hasPrivateSendSwapHistoryTokenPrice(
   token?: IPrivateSendSwapHistoryToken,
 ) {
-  return !isNil(token?.price) && token?.price !== '';
+  return !!getPrivateSendPositivePriceValue(token?.price);
 }
 
 function normalizePrivateSendTransferTokenId(tokenId?: string) {
