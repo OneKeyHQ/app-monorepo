@@ -75,6 +75,7 @@ import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
 import type { HardwareAllNetworkGetAddressResponse } from '../services/ServiceHardware/HardwareAllNetworkGetAddressResponse';
 import type { AllNetworkAddressParams, IDeviceType } from '@onekeyfe/hd-core';
 import type { HDNodeType } from '@onekeyfe/hd-transport';
+import type { ChainForFingerprint } from '@onekeyfe/hwk-adapter-core';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -468,6 +469,8 @@ export type IHwAllNetworkPrepareAccountsItem =
       address?: string;
       path?: string;
       rootFingerprint?: number;
+      chainFingerprint?: string;
+      chainFingerprintChain?: ChainForFingerprint;
 
       pub?: string;
       publicKey?: string; // cosmos, sui, aptos 缺

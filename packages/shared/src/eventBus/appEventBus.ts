@@ -387,9 +387,6 @@ export interface IAppEventBusPayload {
     vendor: EHardwareVendor;
     reason: EThirdPartyDevicePermissionDeniedReason;
   };
-  [EAppEventBusNames.ShowLedgerInstallCoreApps]: {
-    walletId: string;
-  };
   [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
   [EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice]: undefined;
   [EAppEventBusNames.EnabledNetworksChanged]: undefined;

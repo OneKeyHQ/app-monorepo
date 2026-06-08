@@ -1841,6 +1841,26 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async thirdPartyHardwareListInstalledAppNames(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw new OneKeyLocalError(
+        `No third-party adapter registered for vendor ${params.vendor}`,
+      );
+    }
+    const hw = adapter.hw as unknown as {
+      listInstalledNames: (
+        connectId: string,
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.listInstalledNames(params.connectId);
+  }
+
+  @backgroundMethod()
   async thirdPartyHardwareListAvailableApps(params: {
     vendor: EHardwareVendor;
     connectId: string;
