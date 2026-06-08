@@ -43,6 +43,7 @@ import {
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
+  useSwapInitialSelectedTokensSyncedAtom,
   useSwapMevConfigAtom,
   useSwapNativeTokenReserveGasAtom,
   useSwapNetworksAtom,
@@ -57,9 +58,11 @@ import {
   SWAP_COLD_START_HOME_SCENE_NAME,
   buildSwapSelectedAccountSyncedFromHome,
   buildSwapSelectedTokensColdStartContext,
+  getSwapSelectedTokensColdStartContextNetworkId,
   isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
-  shouldClearSwapSelectedTokensOnHomeAccountUpdate,
+  shouldClearSwapSelectedTokensBeforeHomeAccountSync,
+  shouldHandleSwapColdStartHomeAccountUpdate,
   shouldSyncSwapSelectedAccountOnHomeAccountUpdate,
 } from '../utils/swapColdStartTokenCacheUtils';
 import {
@@ -157,6 +160,8 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [, setSwapTips] = useSwapTipsAtom();
   const [selectedTokensColdStartContext, setSelectedTokensColdStartContext] =
     useSwapSelectedTokensColdStartContextAtom();
+  const [initialSelectedTokensSynced, setInitialSelectedTokensSynced] =
+    useSwapInitialSelectedTokensSyncedAtom();
   const fromToken = useMemo(() => {
     if (platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
       return swapProFromToken;
@@ -190,6 +195,10 @@ export function useSwapInit(params?: ISwapInitParams) {
   ) {
     selectedTokensColdStartContextRef.current = selectedTokensColdStartContext;
   }
+  const initialSelectedTokensSyncedRef = useRef(initialSelectedTokensSynced);
+  if (initialSelectedTokensSyncedRef.current !== initialSelectedTokensSynced) {
+    initialSelectedTokensSyncedRef.current = initialSelectedTokensSynced;
+  }
   const swapNetworksRef = useRef<ISwapNetwork[]>([]);
   if (swapNetworksRef.current !== swapNetworks) {
     swapNetworksRef.current = swapNetworks;
@@ -218,7 +227,10 @@ export function useSwapInit(params?: ISwapInitParams) {
     () =>
       buildSwapSelectedTokensColdStartContext({
         activeAccount: swapActiveAccountRef.current,
-        networkId: swapActiveAccountRef.current?.network?.id,
+        networkId: getSwapSelectedTokensColdStartContextNetworkId({
+          accountNetworkId: swapActiveAccountRef.current?.network?.id,
+          fromTokenNetworkId: fromTokenRef.current?.networkId,
+        }),
         swapType: getSelectedTokensColdStartSwapType({
           currentSwapType: swapTypeSwitchRef.current,
           fromToken: fromTokenRef.current,
@@ -293,6 +305,7 @@ export function useSwapInit(params?: ISwapInitParams) {
       return;
     }
 
+    selectedTokensColdStartContextRef.current = currentContext;
     setSelectedTokensColdStartContext(currentContext);
   }, [
     getCurrentSelectedTokensColdStartContext,
@@ -324,14 +337,22 @@ export function useSwapInit(params?: ISwapInitParams) {
     ],
   );
 
+  const markInitialSelectedTokensSynced = useCallback(() => {
+    if (initialSelectedTokensSyncedRef.current) {
+      return;
+    }
+    initialSelectedTokensSyncedRef.current = true;
+    setInitialSelectedTokensSynced(true);
+  }, [setInitialSelectedTokensSynced]);
+
   const syncSwapSelectedAccountFromHome = useCallback(
-    (
+    async (
       homeSelectedAccount?: Parameters<
         typeof shouldSyncSwapSelectedAccountOnHomeAccountUpdate
       >[0]['eventPayload']['selectedAccount'],
     ) => {
       if (!homeSelectedAccount) {
-        return false;
+        return { synced: false as const };
       }
 
       const eventPayload = {
@@ -351,13 +372,22 @@ export function useSwapInit(params?: ISwapInitParams) {
           swapSelectedAccount: swapSelectedAccountRef.current,
         })
       ) {
-        return false;
+        return { synced: false as const };
       }
 
-      if (hasSelectedTokens) {
+      let clearedSelectedTokens = false;
+      if (
+        shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+          cachedContext: selectedTokensColdStartContextRef.current,
+          hasSelectedTokens,
+          homeSelectedAccount,
+          swapSelectedAccount: swapSelectedAccountRef.current,
+        })
+      ) {
+        clearedSelectedTokens = true;
         clearSelectedTokensColdStartCache({ resetSwapType: true });
       }
-      void updateSelectedAccount({
+      await updateSelectedAccount({
         updateMeta: {
           eventEmitDisabled: true,
           updatedAt: Date.now(),
@@ -369,7 +399,11 @@ export function useSwapInit(params?: ISwapInitParams) {
             swapSelectedAccount: currentSelectedAccount,
           }),
       });
-      return true;
+      return {
+        synced: true as const,
+        clearedSelectedTokens,
+        homeSelectedAccount,
+      };
     },
     [clearSelectedTokensColdStartCache, updateSelectedAccount],
   );
@@ -382,7 +416,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   useEffect(() => {
     const handleAccountSelectorSelectedAccountUpdate = (
       eventPayload: Parameters<
-        typeof shouldClearSwapSelectedTokensOnHomeAccountUpdate
+        typeof shouldHandleSwapColdStartHomeAccountUpdate
       >[0]['eventPayload'],
     ) => {
       if (
@@ -392,14 +426,14 @@ export function useSwapInit(params?: ISwapInitParams) {
         return;
       }
       if (
-        shouldClearSwapSelectedTokensOnHomeAccountUpdate({
+        shouldHandleSwapColdStartHomeAccountUpdate({
           cachedContext: selectedTokensColdStartContextRef.current,
           eventPayload,
+          initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
         })
       ) {
-        clearSelectedTokensColdStartCache({ resetSwapType: true });
+        void syncSwapSelectedAccountFromHome(eventPayload.selectedAccount);
       }
-      syncSwapSelectedAccountFromHome(eventPayload.selectedAccount);
     };
 
     appEventBus.on(
@@ -412,7 +446,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         handleAccountSelectorSelectedAccountUpdate,
       );
     };
-  }, [clearSelectedTokensColdStartCache, syncSwapSelectedAccountFromHome]);
+  }, [syncSwapSelectedAccountFromHome]);
 
   useEffect(() => {
     if (hasSyncedSwapSelectedAccountFromHomeStorageRef.current) {
@@ -769,12 +803,31 @@ export function useSwapInit(params?: ISwapInitParams) {
   );
 
   const syncDefaultSelectedToken = useCallback(async () => {
-    if (await syncSwapSelectedAccountFromLatestHome()) {
+    const hasImportParams = Boolean(
+      params?.importFromToken ||
+      params?.importToToken ||
+      params?.importNetworkId,
+    );
+    let hasSelectedTokens = Boolean(fromTokenRef.current || toTokenRef.current);
+    if (
+      initialSelectedTokensSyncedRef.current &&
+      hasSelectedTokens &&
+      !hasImportParams
+    ) {
       return;
+    }
+    const homeAccountSyncResult = await syncSwapSelectedAccountFromLatestHome();
+    if (homeAccountSyncResult.synced) {
+      if (homeAccountSyncResult.clearedSelectedTokens) {
+        hasSelectedTokens = false;
+      } else if (hasSelectedTokens && !hasImportParams) {
+        markInitialSelectedTokensSynced();
+        return;
+      }
     }
 
     let shouldResetInvalidColdStartSwapType = false;
-    if (fromTokenRef.current || toTokenRef.current) {
+    if (hasSelectedTokens) {
       const isSelectedTokensColdStartContextValid =
         validateSelectedTokensColdStartContext();
       if (isSelectedTokensColdStartContextValid === undefined) {
@@ -782,6 +835,7 @@ export function useSwapInit(params?: ISwapInitParams) {
       }
       if (isSelectedTokensColdStartContextValid) {
         syncSelectedTokensColdStartSwapType();
+        markInitialSelectedTokensSynced();
         return;
       }
 
@@ -848,24 +902,31 @@ export function useSwapInit(params?: ISwapInitParams) {
           params?.importToToken?.networkId ??
           getNetworkIdsMap().onekeyall,
       );
+      markInitialSelectedTokensSynced();
       return;
     }
+    const defaultTokenNetworkId = homeAccountSyncResult.synced
+      ? homeAccountSyncResult.homeSelectedAccount.networkId
+      : swapAddressInfoRef.current?.networkId;
+    const hasAccountReadyForDefaultToken =
+      swapAddressInfoRef.current?.accountInfo?.ready ||
+      Boolean(homeAccountSyncResult.synced);
     if (
-      !swapAddressInfoRef.current?.accountInfo?.ready ||
-      !swapAddressInfoRef.current?.networkId ||
+      !hasAccountReadyForDefaultToken ||
+      !defaultTokenNetworkId ||
       !swapNetworksRef.current.length ||
       (params?.importNetworkId &&
-        swapAddressInfoRef.current?.networkId &&
-        params?.importNetworkId !== swapAddressInfoRef.current?.networkId) ||
+        defaultTokenNetworkId &&
+        params?.importNetworkId !== defaultTokenNetworkId) ||
       skipSyncDefaultSelectedToken
     ) {
       return;
     }
     const isAllNet = networkUtils.isAllNetwork({
-      networkId: swapAddressInfoRef.current?.networkId,
+      networkId: defaultTokenNetworkId,
     });
     const accountNetwork = swapNetworksRef.current.find(
-      (net) => net.networkId === swapAddressInfoRef.current?.networkId,
+      (net) => net.networkId === defaultTokenNetworkId,
     );
     let netInfo = accountNetwork;
     let netId = accountNetwork?.networkId;
@@ -882,6 +943,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         !isNil(swapDefaultSetTokens[netId]?.fromToken) ||
         !isNil(swapDefaultSetTokens[netId]?.toToken)
       ) {
+        let didSetDefaultSelectedTokens = false;
         const defaultFromToken = swapDefaultSetTokens[netId]?.fromToken;
         const defaultToToken = swapDefaultSetTokens[netId]?.toToken;
         const defaultFromTokenWithLogo = defaultFromToken
@@ -894,6 +956,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           : undefined;
         if (defaultFromToken) {
           setSwapFromToken(defaultFromTokenWithLogo);
+          didSetDefaultSelectedTokens = true;
           void syncNetworksSort(defaultFromToken.networkId);
         }
         if (defaultToToken) {
@@ -903,6 +966,7 @@ export function useSwapInit(params?: ISwapInitParams) {
               ? defaultToToken.networkLogoURI
               : netInfo?.logoURI,
           });
+          didSetDefaultSelectedTokens = true;
           void syncNetworksSort(defaultToToken.networkId);
           if (shouldResetInvalidColdStartSwapType) {
             switchSwapTypeIfNeeded(
@@ -942,6 +1006,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           });
           if (needChangeToToken) {
             setToToken(needChangeToToken);
+            didSetDefaultSelectedTokens = true;
             void syncNetworksSort(needChangeToToken.networkId);
             if (
               !params?.swapTabSwitchType &&
@@ -957,6 +1022,9 @@ export function useSwapInit(params?: ISwapInitParams) {
         }
         if (defaultFromToken) {
           checkSupportTokenSwapType(defaultFromToken, true);
+        }
+        if (didSetDefaultSelectedTokens) {
+          markInitialSelectedTokensSynced();
         }
       } else if (shouldResetInvalidColdStartSwapType) {
         switchSwapTypeIfNeeded(
@@ -986,6 +1054,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     validateSelectedTokensColdStartContext,
     syncSelectedTokensColdStartSwapType,
     clearSelectedTokensColdStartCache,
+    markInitialSelectedTokensSynced,
     switchSwapTypeIfNeeded,
     syncSwapSelectedAccountFromLatestHome,
   ]);
@@ -1089,12 +1158,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importFromToken,
     params?.importToToken,
     params?.importNetworkId,
-    // syncDefaultSelectedToken() bails early after kicking off an async home->swap
-    // account write-back (syncSwapSelectedAccountFromLatestHome). When swap and home
-    // share the same network, networkId above does not change, so without watching
-    // the account identity the init would never re-run and a deeplink/Market import
-    // token would be swallowed. The home-sync path pre-clears tokens, so the rerun
-    // lands cleanly in the default/import init branch.
+    // The initial home->swap account write-back can keep the same networkId while
+    // changing account identity, so import/default token init must also watch the
+    // resolved account fields.
     swapActiveAccount.wallet?.id,
     swapActiveAccount.indexedAccount?.id,
     swapActiveAccount.account?.id,

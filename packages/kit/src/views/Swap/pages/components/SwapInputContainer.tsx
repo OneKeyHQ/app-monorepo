@@ -46,6 +46,7 @@ import {
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapColdStartDisplayTokens } from '../../hooks/useSwapColdStartDisplayTokens';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 import { SwapTestIDs } from '../../testIDs';
 
@@ -168,9 +169,27 @@ const SwapInputContainer = ({
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
+  const {
+    displayFromToken,
+    displayToToken,
+    isInitialFromTokenSelectionPending,
+    isInitialToTokenSelectionPending,
+  } = useSwapColdStartDisplayTokens({
+    fromToken,
+    toToken,
+  });
+  const tokenSelectorDisplayToken =
+    (token?.symbol ? token : undefined) ??
+    (direction === ESwapDirectionType.FROM ? displayFromToken : displayToToken);
+  const isInitialTokenSelectionPending =
+    direction === ESwapDirectionType.FROM
+      ? isInitialFromTokenSelectionPending
+      : isInitialToTokenSelectionPending;
   const [, setInAppNotification] = useInAppNotificationAtom();
   const tokenSelectorMinWidth = platformEnv.isNative ? 112 : 132;
-  const showTokenSelectorSkeleton = selectTokenLoading && !token?.symbol;
+  const showTokenSelectorSkeleton =
+    !tokenSelectorDisplayToken?.symbol &&
+    (selectTokenLoading || isInitialTokenSelectionPending);
   const displayBalance = useMemo(() => {
     if (balance) {
       return balance;
@@ -310,6 +329,8 @@ const SwapInputContainer = ({
       <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
         <SwapAccountAddressContainer
           type={direction}
+          displayToken={tokenSelectorDisplayToken}
+          networkLoading={showTokenSelectorSkeleton}
           onClickNetwork={onSelectToken}
         />
         <SwapInputActions
@@ -380,8 +401,8 @@ const SwapInputContainer = ({
           minWidth: tokenSelectorMinWidth,
           justifyContent: 'flex-end',
           loading: showTokenSelectorSkeleton,
-          selectedTokenImageUri: token?.logoURI,
-          selectedTokenSymbol: token?.symbol,
+          selectedTokenImageUri: tokenSelectorDisplayToken?.logoURI,
+          selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
           onPress: () => {
             onSelectToken(direction);
           },

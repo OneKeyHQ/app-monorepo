@@ -164,6 +164,11 @@ export const {
 });
 
 export const {
+  atom: swapInitialSelectedTokensSyncedAtom,
+  use: useSwapInitialSelectedTokensSyncedAtom,
+} = contextAtom<boolean>(false);
+
+export const {
   atom: swapSwapModalSelectFromTokenAtom,
   use: useSwapModalSelectFromTokenAtom,
 } = contextAtom<ISwapToken | undefined>(undefined);
