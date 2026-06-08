@@ -1001,6 +1001,15 @@ function SendAmountInputContainer() {
     }
   }, [isUseFiat, form]);
 
+  const sendModeRef = useRef(sendMode);
+  useEffect(() => {
+    if (sendModeRef.current !== sendMode) {
+      sendModeRef.current = sendMode;
+      form.clearErrors('amount');
+      void form.trigger('amount');
+    }
+  }, [form, sendMode]);
+
   const isIntegerAmount = useMemo(() => {
     if (!isUseFiat && isLightningNetwork && lnUnit === ELightningUnit.SATS) {
       return true;
@@ -1047,20 +1056,12 @@ function SendAmountInputContainer() {
       !isPrivateSendQuoteLoading &&
       !isPrivateSendRecipientResolving);
 
-  const privateSendEffectiveMinAmount = useMemo(() => {
-    if (chainEffectiveMinAmount === undefined) return undefined;
-    return BigNumber.max(
-      chainEffectiveMinAmount,
-      privateSendProviderMinAmount ?? '0',
-    ).toFixed();
-  }, [chainEffectiveMinAmount, privateSendProviderMinAmount]);
-
   const validationEffectiveMinAmount =
     sendMode === ESendMode.PRIVATE ? tokenMinAmount : chainEffectiveMinAmount;
 
   const displayEffectiveMinAmount =
     sendMode === ESendMode.PRIVATE
-      ? privateSendEffectiveMinAmount
+      ? privateSendProviderMinAmount
       : chainEffectiveMinAmount;
 
   const minAmountHint = useMemo(() => {
@@ -1068,13 +1069,14 @@ function SendAmountInputContainer() {
       return undefined;
     }
     if (!isPrivateSendMinAmountHintReady) return undefined;
-    // Only show the hint when the chain or provider enforces a meaningful
-    // minimum. Without that, displaying the token-precision floor (e.g.
-    // 1e-18 for an 18-decimal ERC20) is noise.
-    if (
-      !privateSendProviderMinAmount &&
-      new BigNumber(tokenMinTransferAmount).isLessThanOrEqualTo(0)
-    ) {
+    // Only show the hint when the active send mode enforces a meaningful
+    // minimum. Private Send gets this from the provider quote, not the
+    // ordinary chain-level minimum used by normal Send.
+    const shouldShowMinAmountHint =
+      sendMode === ESendMode.PRIVATE
+        ? !!privateSendProviderMinAmount
+        : new BigNumber(tokenMinTransferAmount).isGreaterThan(0);
+    if (!shouldShowMinAmountHint) {
       return undefined;
     }
     // Mirror the displayed effective min. Private Send keeps provider limits
@@ -1095,6 +1097,7 @@ function SendAmountInputContainer() {
     isLightningNetwork,
     lnUnit,
     privateSendProviderMinAmount,
+    sendMode,
     tokenMinTransferAmount,
     tokenSymbol,
   ]);
