@@ -25,7 +25,7 @@ function OrderInfoSubTabs<T extends string>({
       >
         <XStack
           minWidth="100%"
-          pl={variant === 'underline' ? '$5' : '$2.5'}
+          pl="$5"
           pr="$5"
           py={variant === 'underline' ? '$0' : '$2.5'}
           gap={variant === 'underline' ? '$5' : '$2'}

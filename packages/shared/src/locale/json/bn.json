@@ -3286,6 +3286,7 @@
   "perp_trading_adjust_margin_updated": "মার্জিন আপডেট করা হয়েছে",
   "perp_twap_active__title": "সক্রিয়",
   "perp_twap_avg_filled_price__title": "গড় সম্পাদিত মূল্য",
+  "perp_twap_child_order_size__title": "প্রতি চাইল্ড অর্ডারের পরিমাণ",
   "perp_twap_duration__title": "সময়কাল",
   "perp_twap_duration_helper__desc": "TWAP নির্বাচিত সময়কালের উপর মার্কেট স্লাইস সাবমিট করে। Hyperliquid স্লাইসের সময় নিয়ন্ত্রণ করে এবং খুব ছোট স্লাইস বাতিল করতে পারে।",
   "perp_twap_duration_range__msg": "TWAP সময়কালের দৈর্ঘ্য অবশ্যই {min}-{max} মিনিট হতে হবে",

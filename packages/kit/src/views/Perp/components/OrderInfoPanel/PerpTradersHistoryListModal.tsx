@@ -119,7 +119,7 @@ export function PerpTradersHistoryListModal() {
       <PageBody>
         <YStack flex={1}>
           <TabHeader activeTab={activeTab} onTabChange={setActiveTab} />
-          <YStack flex={1}>
+          <YStack flex={1} pt={activeTab === 'Trades' ? '$3' : '$0'}>
             {activeTab === 'Trades' ? (
               <PerpTradesHistoryList isMobile useTabsList={false} />
             ) : null}

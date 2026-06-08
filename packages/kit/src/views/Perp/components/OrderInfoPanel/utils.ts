@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -9,6 +10,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import type { IColumnConfig } from './List/CommonTableListView';
+import type { IntlShape } from 'react-intl';
 
 const spotHoldingPnlCurrencyFormatter: INumberFormatProps = {
   formatter: 'value',
@@ -89,6 +91,46 @@ export const getPerpFillDirectionType = (
   }
 
   return 'unknown';
+};
+
+export const getFillDirectionDisplayInfo = ({
+  fill,
+  intl,
+}: {
+  fill: { coin: string; dir?: string; side: string };
+  intl: IntlShape;
+}) => {
+  if (isSpotInstrument(fill.coin)) {
+    return {
+      text: intl.formatMessage({
+        id:
+          fill.side === 'B'
+            ? ETranslations.global_buy
+            : ETranslations.global_sell,
+      }),
+      color: fill.side === 'B' ? '$green11' : '$red11',
+    };
+  }
+
+  let color = fill.side === 'B' ? '$green11' : '$red11';
+  const directionType = getPerpFillDirectionType(fill.dir);
+  let text = fill.dir ?? '';
+
+  if (directionType === 'openLong') {
+    text = intl.formatMessage({ id: ETranslations.perp_long });
+  } else if (directionType === 'openShort') {
+    text = intl.formatMessage({ id: ETranslations.perp_short });
+  } else if (directionType === 'closeLong') {
+    text = intl.formatMessage({ id: ETranslations.perp_order_close_long });
+  } else if (directionType === 'closeShort') {
+    text = intl.formatMessage({ id: ETranslations.perp_order_close_short });
+  }
+
+  if (fill.side === 'A') {
+    color = '$red11';
+  }
+
+  return { text, color };
 };
 
 export const isSpotHoldingStableCoin = (coin: string) =>
