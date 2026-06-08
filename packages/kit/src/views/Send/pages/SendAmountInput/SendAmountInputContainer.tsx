@@ -515,6 +515,12 @@ function SendAmountInputContainer() {
   );
   const enableAllowListValidation = !isLightningNetwork;
   const [sendMode, setSendMode] = useState<ESendMode>(ESendMode.PUBLIC);
+  const shouldUsePrivateSendQuoteCollapse =
+    sendMode === ESendMode.PRIVATE && !media.gtMd;
+  const [
+    isPrivateSendQuoteDetailsExpanded,
+    setIsPrivateSendQuoteDetailsExpanded,
+  ] = useState(false);
 
   const privateSendToken = useMemo(
     () => convertTokenToSwapToken({ networkId, tokenDetails }),
@@ -573,6 +579,12 @@ function SendAmountInputContainer() {
       setSendMode(ESendMode.PUBLIC);
     }
   }, [sendMode, showPrivateSendModeSwitch]);
+
+  useEffect(() => {
+    if (!shouldUsePrivateSendQuoteCollapse) {
+      setIsPrivateSendQuoteDetailsExpanded(false);
+    }
+  }, [shouldUsePrivateSendQuoteCollapse]);
 
   const currencySymbol = settings.currencyInfo.symbol;
   const tokenSymbol = useMemo(() => {
@@ -1594,6 +1606,17 @@ function SendAmountInputContainer() {
       amountInputRef.current?.focus();
     }, 300);
     return () => clearTimeout(timer);
+  }, []);
+
+  const handleAmountInputFocus = useCallback(() => {
+    setIsAmountInputFocused(true);
+    if (shouldUsePrivateSendQuoteCollapse) {
+      setIsPrivateSendQuoteDetailsExpanded(false);
+    }
+  }, [shouldUsePrivateSendQuoteCollapse]);
+
+  const handleAmountInputBlur = useCallback(() => {
+    setIsAmountInputFocused(false);
   }, []);
 
   const currentSelectedUtxoKeys = currentSelectedUtxoInfo?.keys;
@@ -2830,12 +2853,8 @@ function SendAmountInputContainer() {
                 : undefined,
               placeholder: '0',
               editable: !isInvoiceAmountLocked,
-              onFocus: () => {
-                setIsAmountInputFocused(true);
-              },
-              onBlur: () => {
-                setIsAmountInputFocused(false);
-              },
+              onFocus: handleAmountInputFocus,
+              onBlur: handleAmountInputBlur,
               keyboardType: isIntegerAmount ? 'number-pad' : 'decimal-pad',
               ...(isUseFiat && {
                 leftAddOnProps: {
@@ -2874,6 +2893,8 @@ function SendAmountInputContainer() {
       amountHint,
       currencySymbol,
       handleAmountInputChange,
+      handleAmountInputBlur,
+      handleAmountInputFocus,
       handleToggleFiatMode,
       handleValidateTokenAmount,
       intl,
@@ -3142,7 +3163,13 @@ function SendAmountInputContainer() {
       let providerContent: ReactNode = null;
       if (providerName) {
         providerContent = (
-          <XStack alignItems="center" justifyContent="flex-end" gap="$1">
+          <XStack
+            alignItems="center"
+            justifyContent="flex-end"
+            gap="$1"
+            flexShrink={1}
+            minWidth={0}
+          >
             {providerInfo?.providerLogo ? (
               <Stack position="relative" w="$5" h="$5">
                 <Image
@@ -3196,6 +3223,16 @@ function SendAmountInputContainer() {
   const renderPrivateSendQuoteCard = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return null;
     const showPrivateSendQuoteSkeleton = isPrivateSendQuoteRefreshing;
+    const isPrivateSendQuoteDetailsVisible =
+      !shouldUsePrivateSendQuoteCollapse || isPrivateSendQuoteDetailsExpanded;
+    const privateSendQuoteSummaryRowMinHeight =
+      shouldUsePrivateSendQuoteCollapse ? 48 : 56;
+    const privateSendQuoteDetailRowHeight = shouldUsePrivateSendQuoteCollapse
+      ? 28
+      : 36;
+    const privateSendQuoteBalanceRowHeight = shouldUsePrivateSendQuoteCollapse
+      ? 48
+      : 56;
     const toTokenSymbol =
       privateSendQuote?.toTokenInfo.symbol ?? privateSendToken?.symbol ?? '';
     const toAmount = privateSendQuote?.toAmount ?? '0';
@@ -3222,11 +3259,61 @@ function SendAmountInputContainer() {
       estTime: privateSendQuote?.estTime,
       estimatedTime: privateSendQuote?.estimatedTime,
     });
+    const handleTogglePrivateSendQuoteDetails = () => {
+      if (!shouldUsePrivateSendQuoteCollapse) return;
+      if (!isPrivateSendQuoteDetailsExpanded) {
+        amountInputRef.current?.blur();
+        Keyboard.dismiss();
+      }
+      setIsPrivateSendQuoteDetailsExpanded((expanded) => !expanded);
+    };
+
+    const renderPrivateSendQuoteDetails = (
+      <>
+        <XStack
+          h={privateSendQuoteDetailRowHeight}
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.private_send_arrival_in,
+            })}
+          </SizableText>
+          {showPrivateSendQuoteSkeleton ? (
+            <Skeleton h="$4" w="$16" />
+          ) : (
+            <SizableText size="$bodyMdMedium" color="$text">
+              {formattedArrivalDuration
+                ? `~ ${formattedArrivalDuration}`
+                : '--'}
+            </SizableText>
+          )}
+        </XStack>
+        <XStack
+          h={privateSendQuoteDetailRowHeight}
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.swap_history_detail_provider,
+            })}
+          </SizableText>
+          {renderPrivateSendProviderContent({
+            isLoading: isPrivateSendQuoteRefreshing,
+            providerInfo: isPrivateSendQuoteRefreshing
+              ? undefined
+              : privateSendQuote?.info,
+          })}
+        </XStack>
+      </>
+    );
 
     return (
       <YStack bg="$bgSubdued" borderRadius="$3" px="$4" py="$2.5" width="100%">
         <XStack
-          minHeight={56}
+          minHeight={privateSendQuoteSummaryRowMinHeight}
           alignItems="center"
           justifyContent="space-between"
           gap="$3"
@@ -3255,78 +3342,93 @@ function SendAmountInputContainer() {
               autoRefresh={!isSubmitting}
             />
           </XStack>
-          {showPrivateSendQuoteSkeleton ? (
-            <Skeleton h="$4" w="$24" />
-          ) : (
-            <YStack alignItems="flex-end" flexShrink={1} minWidth={0}>
-              <SizableText
-                size="$bodyMdMedium"
-                color="$text"
-                textAlign="right"
-                numberOfLines={1}
-                maxWidth="100%"
-              >
-                <NumberSizeableText size="$bodyMdMedium" formatter="balance">
-                  {toAmount}
-                </NumberSizeableText>
-                {toTokenSymbol ? ` ${toTokenSymbol}` : ''}
-              </SizableText>
-              {toFiatValue ? (
-                <XStack
-                  alignItems="center"
-                  justifyContent="flex-end"
-                  gap="$1"
-                  flexShrink={1}
-                  minWidth={0}
+          <XStack
+            alignItems="center"
+            justifyContent="flex-end"
+            gap="$1"
+            flexShrink={1}
+            minWidth={0}
+          >
+            {showPrivateSendQuoteSkeleton ? (
+              <Skeleton h="$4" w="$24" />
+            ) : (
+              <YStack alignItems="flex-end" flexShrink={1} minWidth={0}>
+                <SizableText
+                  size="$bodyMdMedium"
+                  color="$text"
+                  textAlign="right"
+                  numberOfLines={1}
                   maxWidth="100%"
                 >
-                  <NumberSizeableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    formatter="value"
-                    formatterOptions={{ currency: currencySymbol }}
-                    numberOfLines={1}
-                  >
-                    {toFiatValue}
+                  <NumberSizeableText size="$bodyMdMedium" formatter="balance">
+                    {toAmount}
                   </NumberSizeableText>
-                </XStack>
-              ) : null}
-            </YStack>
-          )}
+                  {toTokenSymbol ? ` ${toTokenSymbol}` : ''}
+                </SizableText>
+                {toFiatValue ? (
+                  <XStack
+                    alignItems="center"
+                    justifyContent="flex-end"
+                    gap="$1"
+                    flexShrink={1}
+                    minWidth={0}
+                    maxWidth="100%"
+                  >
+                    <NumberSizeableText
+                      size="$bodyMd"
+                      color="$textSubdued"
+                      formatter="value"
+                      formatterOptions={{ currency: currencySymbol }}
+                      numberOfLines={1}
+                    >
+                      {toFiatValue}
+                    </NumberSizeableText>
+                  </XStack>
+                ) : null}
+              </YStack>
+            )}
+            {shouldUsePrivateSendQuoteCollapse ? (
+              <Stack
+                w="$5"
+                h="$5"
+                alignItems="center"
+                justifyContent="center"
+                borderRadius="$full"
+                cursor="pointer"
+                hoverStyle={{ bg: '$bgHover' }}
+                pressStyle={{ bg: '$bgActive' }}
+                onPress={handleTogglePrivateSendQuoteDetails}
+              >
+                <Stack
+                  animation="quick"
+                  rotate={isPrivateSendQuoteDetailsExpanded ? '0deg' : '-90deg'}
+                  transformOrigin="center"
+                >
+                  <Icon
+                    name="ChevronDownSmallOutline"
+                    size="$4"
+                    color="$iconSubdued"
+                  />
+                </Stack>
+              </Stack>
+            ) : null}
+          </XStack>
         </XStack>
-        <XStack h={36} alignItems="center" justifyContent="space-between">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.private_send_arrival_in,
-            })}
-          </SizableText>
-          {showPrivateSendQuoteSkeleton ? (
-            <Skeleton h="$4" w="$16" />
-          ) : (
-            <SizableText size="$bodyMdMedium" color="$text">
-              {formattedArrivalDuration
-                ? `~ ${formattedArrivalDuration}`
-                : '--'}
-            </SizableText>
-          )}
-        </XStack>
-        <XStack h={36} alignItems="center" justifyContent="space-between">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.swap_history_detail_provider,
-            })}
-          </SizableText>
-          {renderPrivateSendProviderContent({
-            isLoading: isPrivateSendQuoteRefreshing,
-            providerInfo: isPrivateSendQuoteRefreshing
-              ? undefined
-              : privateSendQuote?.info,
-          })}
-        </XStack>
+        {shouldUsePrivateSendQuoteCollapse ? (
+          <HeightTransition hide={!isPrivateSendQuoteDetailsVisible}>
+            {renderPrivateSendQuoteDetails}
+          </HeightTransition>
+        ) : (
+          renderPrivateSendQuoteDetails
+        )}
         {showPrivateSendBalanceRow ? (
           <>
             <Stack h="$px" bg="$borderSubdued" my="$2" />
-            <XStack h={56} alignItems="center" width="100%">
+            <XStack
+              h={privateSendQuoteBalanceRowHeight}
+              alignItems="center"
+              width="100%"
+            >
               {renderBalanceRowContent()}
             </XStack>
           </>
@@ -3339,6 +3441,7 @@ function SendAmountInputContainer() {
     isLoadingAssets,
     isNFT,
     isPrivateSendQuoteRefreshing,
+    isPrivateSendQuoteDetailsExpanded,
     isRouteFocused,
     isSubmitting,
     maxBalance,
@@ -3349,6 +3452,7 @@ function SendAmountInputContainer() {
     renderPrivateSendProviderContent,
     refreshPrivateSendQuote,
     sendMode,
+    shouldUsePrivateSendQuoteCollapse,
     canFetchPrivateSendQuote,
   ]);
 
