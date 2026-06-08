@@ -873,12 +873,7 @@ function PerpTradingForm({
       if (!hasPriceInput) {
         return undefined;
       }
-      return {
-        text: intl.formatMessage({
-          id: ETranslations.perp_scale_price_range_required__msg,
-        }),
-        tone: 'error' as const,
-      };
+      return undefined;
     }
     if (lowerPrice.eq(upperPrice)) {
       return {
@@ -889,13 +884,7 @@ function PerpTradingForm({
       };
     }
     if (!hasSizeInput) {
-      return {
-        text: intl.formatMessage(
-          { id: ETranslations.perp_scale_order_size_required_hint__desc },
-          { min: `$${SCALE_ORDER_MIN_NOTIONAL}` },
-        ),
-        tone: 'helper' as const,
-      };
+      return undefined;
     }
 
     const legs = buildScaleOrderLegs({
@@ -922,13 +911,7 @@ function PerpTradingForm({
       };
     }
 
-    return {
-      text: intl.formatMessage(
-        { id: ETranslations.perp_scale_preview_summary_hint__desc },
-        { count: legs.length, min: `$${SCALE_ORDER_MIN_NOTIONAL}` },
-      ),
-      tone: 'helper' as const,
-    };
+    return undefined;
   }, [
     formData.scaleLowerPrice,
     formData.scaleOrderCount,
