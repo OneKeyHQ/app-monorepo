@@ -186,7 +186,6 @@ class ServiceAddressBook extends ServiceBase {
     isDeleted: boolean | undefined;
   }): Promise<IDBCloudSyncItem[]> {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
-    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
     const syncCredential =
       await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
 
@@ -197,7 +196,7 @@ class ServiceAddressBook extends ServiceBase {
             syncCredential,
             dbRecord: item,
             isDeleted,
-            dataTime: now,
+            dataTime: undefined,
           });
         }),
       )

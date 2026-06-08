@@ -68,7 +68,6 @@ class ServiceCustomRpc extends ServiceBase {
     isDeleted: boolean;
   }) {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
-    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
     const syncCredential =
       await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
 
@@ -78,7 +77,7 @@ class ServiceCustomRpc extends ServiceBase {
           return syncManagers.customRpc.buildSyncItemByDBQuery({
             syncCredential,
             dbRecord: customRpc,
-            dataTime: now,
+            dataTime: undefined,
             isDeleted,
           });
         }),
@@ -95,7 +94,6 @@ class ServiceCustomRpc extends ServiceBase {
     isDeleted: boolean;
   }) {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
-    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
     const syncCredential =
       await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
 
@@ -105,7 +103,7 @@ class ServiceCustomRpc extends ServiceBase {
           return syncManagers.customNetwork.buildSyncItemByDBQuery({
             syncCredential,
             dbRecord: customNetwork,
-            dataTime: now,
+            dataTime: undefined,
             isDeleted,
           });
         }),

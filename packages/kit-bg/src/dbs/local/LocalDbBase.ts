@@ -104,6 +104,7 @@ import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
@@ -173,6 +174,9 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const LOCAL_PASSWORD_KDF_LAZY_UPGRADE_CREDENTIAL_BATCH_SIZE = 3;
+const CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS = timerUtils.getTimeDurationMs({
+  minute: 10,
+});
 
 type ILocalPasswordKdfParams = {
   kdfBackend?: IPbkdf2DispatchBackend;
@@ -189,29 +193,19 @@ type IAddAndUpdateSyncItemsParams = {
   items: IDBCloudSyncItem[];
   skipUpdate?: boolean;
   skipUploadToServer?: boolean;
-  // OK-55438: forward to the upload so genuine "now" writes get a server stamp
-  useServerDataTime?: boolean;
   fn?: () => Promise<void>;
 };
 
-type IAddAndUpdateFreshSyncItemsParams = Omit<
-  IAddAndUpdateSyncItemsParams,
-  'useServerDataTime'
->;
+type IAddAndUpdateFreshSyncItemsParams = IAddAndUpdateSyncItemsParams;
 
 type ITxAddAndUpdateSyncItemsParams = {
   tx: ILocalDBTransaction;
   items: IDBCloudSyncItem[];
   skipUpdate?: boolean;
   skipUploadToServer?: boolean;
-  // OK-55438: forward to the upload so genuine "now" writes get a server stamp
-  useServerDataTime?: boolean;
 };
 
-type ITxAddAndUpdateFreshSyncItemsParams = Omit<
-  ITxAddAndUpdateSyncItemsParams,
-  'useServerDataTime'
->;
+type ITxAddAndUpdateFreshSyncItemsParams = ITxAddAndUpdateSyncItemsParams;
 
 function getLocalPasswordKdfParams(): ILocalPasswordKdfParams {
   if (
@@ -2520,6 +2514,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       shouldUpdate = true;
     }
 
+    if (!shouldUpdate && updateItem.dataTime) {
+      const existingFuturePoisoned =
+        systemTimeUtils.isCloudSyncDataTimeFuturePoisoned({
+          dataTime: item.dataTime,
+          tolerance: CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS,
+        });
+      const incomingFuturePoisoned =
+        systemTimeUtils.isCloudSyncDataTimeFuturePoisoned({
+          dataTime: updateItem.dataTime,
+          tolerance: CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS,
+        });
+      if (existingFuturePoisoned && !incomingFuturePoisoned) {
+        shouldUpdate = true;
+      }
+    }
+
     if (!shouldUpdate) {
       return;
     }
@@ -2622,7 +2632,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     items,
     skipUpdate,
     skipUploadToServer,
-    useServerDataTime,
     fn,
   }: IAddAndUpdateSyncItemsParams) {
     if (items?.length) {
@@ -2634,7 +2643,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           items,
           skipUpdate,
           skipUploadToServer,
-          useServerDataTime,
         });
 
         await fn?.();
@@ -2654,7 +2662,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       items,
       skipUpdate,
       skipUploadToServer,
-      useServerDataTime: true,
       fn,
     });
   }
@@ -2664,7 +2671,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     items,
     skipUpdate,
     skipUploadToServer,
-    useServerDataTime,
   }: ITxAddAndUpdateSyncItemsParams) {
     // add new item
     await this.txAddRecords({
@@ -2697,7 +2703,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (!skipUploadToServer) {
       void this.backgroundApi?.servicePrimeCloudSync.apiUploadItems({
         localItems: items,
-        useServerDataTime,
       });
     }
   }
@@ -2713,7 +2718,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       items,
       skipUpdate,
       skipUploadToServer,
-      useServerDataTime: true,
     });
   }
 
@@ -4573,7 +4577,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           // allDevices,
           syncCredential: await syncManagers.wallet.getSyncCredential(),
           isDeleted: false,
-          dataTime: await this.timeNow(),
+          dataTime: undefined,
         });
       }
     }
@@ -4585,8 +4589,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       // add or update sync item
       if (syncItem) {
-        // OK-55438: rename is a genuine "now" write; let the server stamp
-        // dataTime so a fast local clock can't push it into the future.
         await this.txAddAndUpdateFreshSyncItems({
           tx,
           items: [syncItem],
@@ -6044,7 +6046,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }
         }
       } else {
-        const now = await this.timeNow();
         if (params.accountId) {
           const account = await this.getAccountSafe({
             accountId: params.accountId,
@@ -6054,7 +6055,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               syncCredential: await syncManagers.account.getSyncCredential(),
               dbRecord: { ...account, name: params.name || account.name },
               isDeleted: false,
-              dataTime: now,
+              dataTime: undefined,
             });
           }
         }
@@ -6072,7 +6073,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                   name: params.name || indexedAccount.name,
                 },
                 isDeleted: false,
-                dataTime: now,
+                dataTime: undefined,
               },
             );
           }
@@ -6087,8 +6088,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       // add or update sync item
       if (syncItem) {
-        // OK-55438: account/indexedAccount rename is a genuine "now" write;
-        // let the server stamp dataTime to avoid future timestamps.
         await this.txAddAndUpdateFreshSyncItems({
           tx,
           items: [syncItem],
