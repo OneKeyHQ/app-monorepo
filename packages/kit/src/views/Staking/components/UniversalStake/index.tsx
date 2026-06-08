@@ -92,6 +92,7 @@ import {
   ManagePageV2ReceiveInput,
 } from '../ManagePageV2ReceiveInput';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
+import { EarnPlatformBonusSection } from '../ProtocolDetails/EarnPlatformBonusSection';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
 import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
@@ -1985,6 +1986,30 @@ export function UniversalStake({
     showPendleTransactionSection,
   });
 
+  const tradeOrBuyContent = isPendleProvider ? null : (
+    <TradeOrBuy
+      token={tokenInfo?.token as IToken}
+      accountId={accountId}
+      networkId={networkId}
+      containerStyle={{
+        pt: '$0',
+      }}
+    />
+  );
+
+  const shouldShowPlatformBonus = Boolean(
+    transactionConfirmation?.platformBonus,
+  );
+
+  const platformBonusContent = transactionConfirmation?.platformBonus ? (
+    <EarnPlatformBonusSection
+      platformBonus={transactionConfirmation.platformBonus}
+      protocolInfo={protocolInfo}
+      tokenInfo={tokenInfo}
+      footer={tradeOrBuyContent}
+    />
+  ) : null;
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
@@ -2234,19 +2259,11 @@ export function UniversalStake({
                 </Accordion.Item>
               </Accordion>
             ) : null}
-            {isPendleProvider ? null : (
-              <TradeOrBuy
-                token={tokenInfo?.token as IToken}
-                accountId={accountId}
-                networkId={networkId}
-                containerStyle={{
-                  pt: '$0',
-                }}
-              />
-            )}
+            {shouldShowPlatformBonus ? null : tradeOrBuyContent}
           </YStack>
         </YStack>
       ) : null}
+      {platformBonusContent}
       {beforeFooter}
       {isInModalContext ? (
         <Page.Footer>
