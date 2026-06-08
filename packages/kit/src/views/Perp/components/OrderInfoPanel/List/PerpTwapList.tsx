@@ -603,9 +603,9 @@ function TwapHistoryRow({
         <XStack
           px="$3"
           pt="$3"
-          pb="$2"
+          pb="$1"
           justifyContent="space-between"
-          alignItems="flex-start"
+          alignItems="center"
           width="100%"
           gap="$3"
         >
@@ -624,14 +624,17 @@ function TwapHistoryRow({
               </SizableText>
             </XStack>
             <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_twap_order__title,
-              })}{' '}
-              · {creationTime.inline}
+              {creationTime.inline}
             </SizableText>
           </YStack>
-          <YStack alignItems="flex-end" gap="$1" maxWidth="42%">
-            <SizableText size="$bodySm" color="$textSubdued">
+          <YStack
+            alignItems="flex-end"
+            justifyContent="center"
+            gap="$1"
+            minWidth={72}
+            maxWidth="42%"
+          >
+            <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
               {intl.formatMessage({ id: ETranslations.global_status })}
             </SizableText>
             <SizableText
@@ -647,7 +650,8 @@ function TwapHistoryRow({
         </XStack>
         <YStack
           px="$3"
-          py="$3"
+          pt="$2.5"
+          pb="$3"
           width="100%"
           gap="$2"
           borderTopWidth="$px"
@@ -658,14 +662,12 @@ function TwapHistoryRow({
               id: ETranslations.perp_position_position_size,
             })}
             value={baseInfo.sizeWithSymbol}
-            valueColor={sideInfo.color}
           />
           <MobileTwapHistoryInfoRow
             label={intl.formatMessage({
               id: ETranslations.perp_executed_size__title,
             })}
             value={baseInfo.executedSizeWithSymbol}
-            valueColor={sideInfo.color}
           />
           <MobileTwapHistoryInfoRow
             label={intl.formatMessage({
@@ -928,11 +930,10 @@ function TwapFillRow({
         <Divider width="100%" borderColor="$borderSubdued" />
         <XStack
           px="$3"
+          pt="$1"
           pb="$3"
-          pt="$3"
           width="100%"
-          flex={1}
-          alignItems="center"
+          alignItems="flex-start"
           justifyContent="space-around"
         >
           <YStack gap="$1" flex={1} alignItems="flex-start">
