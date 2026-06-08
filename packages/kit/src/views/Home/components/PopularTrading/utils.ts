@@ -17,6 +17,12 @@ function getTokenKey(token: {
 
 const EMPTY_DISPLAY_TOKENS: IFavoriteTokenDisplay[] = [];
 
+function shouldUseStockMetadataColumnsForTokens(
+  items: Array<Pick<IFavoriteTokenDisplay, 'stock'>>,
+) {
+  return items.length > 0 && items.every((item) => !!item.stock);
+}
+
 function mapMarketTokenToDisplay(
   item: IMarketTokenListItem,
 ): IFavoriteTokenDisplay | null {
@@ -38,7 +44,13 @@ function mapMarketTokenToDisplay(
     priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
     marketCap: parseFloat(item.marketCap ?? '0'),
     volume24h: parseFloat(item.volume24h ?? '0'),
+    stock: item.stock,
   };
 }
 
-export { EMPTY_DISPLAY_TOKENS, getTokenKey, mapMarketTokenToDisplay };
+export {
+  EMPTY_DISPLAY_TOKENS,
+  getTokenKey,
+  mapMarketTokenToDisplay,
+  shouldUseStockMetadataColumnsForTokens,
+};

@@ -61,6 +61,8 @@ import {
   DEFAULT_MARKET_CATEGORY_ID,
   DEFAULT_SPOT_CATEGORIES,
   FAVORITES_CATEGORY_ID,
+  HOME_PERPS_CATEGORY_ID,
+  HOME_WATCHLIST_TAB_TYPE,
 } from './constants';
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 import { useHomeMarketCategoryTokens } from './useHomeMarketCategoryTokens';
@@ -171,8 +173,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const navigateToMarketTab = useNavigateToMarketTab();
-  const { minLiquidity, spotCategories: apiSpotCategories } =
-    useMarketBasicConfig();
+  const {
+    minLiquidity,
+    homeTab: apiHomeTabs,
+    spotCategories: apiSpotCategories,
+  } = useMarketBasicConfig();
   const [favoriteTokens, setFavoriteTokens] = useState<IFavoriteTokenDisplay[]>(
     [],
   );
@@ -213,25 +218,50 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     return DEFAULT_SPOT_CATEGORIES;
   }, [apiSpotCategories]);
 
-  const homeCategories = useMemo<IMarketCategoryItem[]>(
-    () => [
-      {
-        id: FAVORITES_CATEGORY_ID,
-        name: intl.formatMessage({ id: ETranslations.global_favorites }),
-        iconName: 'StarOutline',
-        iconOnly: true,
-      },
-      ...marketCategories,
-    ],
-    [intl, marketCategories],
+  const favoritesCategory = useMemo<IMarketCategoryItem>(
+    () => ({
+      id: FAVORITES_CATEGORY_ID,
+      name: intl.formatMessage({ id: ETranslations.global_favorites }),
+      iconName: 'StarOutline',
+      iconOnly: true,
+    }),
+    [intl],
   );
+
+  const homeCategories = useMemo<IMarketCategoryItem[]>(() => {
+    if (apiHomeTabs.length > 0) {
+      return apiHomeTabs
+        .filter((tab) => tab.type !== HOME_PERPS_CATEGORY_ID)
+        .map((tab) => {
+          if (tab.type === HOME_WATCHLIST_TAB_TYPE) {
+            return {
+              ...favoritesCategory,
+              name: tab.name,
+            };
+          }
+
+          return {
+            id: tab.type,
+            name: tab.name,
+            icon: tab.icon,
+          };
+        });
+    }
+
+    return [favoritesCategory, ...marketCategories];
+  }, [apiHomeTabs, favoritesCategory, marketCategories]);
 
   const selectedMarketCategoryId =
     selectedCategoryId === FAVORITES_CATEGORY_ID
       ? undefined
       : selectedCategoryId || DEFAULT_MARKET_CATEGORY_ID;
 
-  const isMarketCategoryTokenInWatchList = useCallback(
+  const { categoryTokens, isCategoryLoading } = useHomeMarketCategoryTokens({
+    minLiquidity,
+    selectedMarketCategoryId,
+  });
+
+  const isTokenInWatchList = useCallback(
     (record: IFavoriteTokenDisplay) =>
       watchListItems.some((item) =>
         equalTokenNoCaseSensitive({
@@ -250,7 +280,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const handleMarketCategoryStarPress = useCallback(
     async (record: IFavoriteTokenDisplay) => {
-      const checked = isMarketCategoryTokenInWatchList(record);
+      const checked = isTokenInWatchList(record);
 
       try {
         if (checked) {
@@ -306,7 +336,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
       }
     },
-    [intl, isMarketCategoryTokenInWatchList, watchListItems],
+    [intl, isTokenInWatchList, watchListItems],
   );
 
   // Columns for table layout (only used when user has favorites)
@@ -497,11 +527,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     ];
   }, [intl, tableLayout]);
 
-  const { categoryTokens, isCategoryLoading } = useHomeMarketCategoryTokens({
-    minLiquidity,
-    selectedMarketCategoryId,
-  });
-
   const { isLoading, run: refreshData } = usePromiseResult(
     async () => {
       // Get user's favorites from local storage (synced via Prime Cloud Sync)
@@ -622,6 +647,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
               marketCap: parseFloat(item.marketCap ?? '0'),
               volume24h: parseFloat(item.volume24h ?? '0'),
+              stock: item.stock,
             };
           })
           .filter((item): item is IFavoriteTokenDisplay => item !== null);
@@ -675,7 +701,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
 
         const displayTokens: IFavoriteTokenDisplay[] = targetList
-          .map((targetItem) => {
+          .map((targetItem): IFavoriteTokenDisplay | null => {
             const { normalizedAddress } = getNativeTokenInfo(
               targetItem.isNative,
               targetItem.contractAddress,
@@ -695,6 +721,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
               marketCap: parseFloat(item.marketCap ?? '0'),
               volume24h: parseFloat(item.volume24h ?? '0'),
+              stock: item.stock,
             };
           })
           .filter((item): item is IFavoriteTokenDisplay => item !== null);
@@ -1032,7 +1059,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             tokens={categoryTokens}
             isLoading={isCategoryLoading}
             tableLayout={tableLayout}
-            isTokenInWatchList={isMarketCategoryTokenInWatchList}
+            isTokenInWatchList={isTokenInWatchList}
             onStarPress={handleMarketCategoryStarPress}
             onTokenPress={handleTokenPress}
             onViewMore={handleViewMore}
@@ -1096,7 +1123,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     homeCategories,
     intl,
     isCategoryLoading,
-    isMarketCategoryTokenInWatchList,
+    isTokenInWatchList,
     isLoading,
     renderEmptyStateCards,
     renderUserFavoritesList,

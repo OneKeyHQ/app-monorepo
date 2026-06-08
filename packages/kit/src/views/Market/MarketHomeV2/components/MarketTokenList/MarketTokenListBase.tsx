@@ -36,7 +36,10 @@ import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
-import { shouldShowStockSubtitleForTokens } from './utils/tokenListHelpers';
+import {
+  shouldShowStockSubtitleForTokens,
+  shouldUseStockMetadataColumnsForTokens,
+} from './utils/tokenListHelpers';
 
 const SPINNER_HEIGHT = 52;
 // Watchlist mode: only these 3 columns are sortable (server-side sort)
@@ -198,6 +201,13 @@ function MarketTokenListBase({
 
     return shouldShowStockSubtitleForTokens(rawData);
   }, [rawData, showStockSubtitle]);
+  const useStockMetadataColumns = useMemo(
+    () =>
+      !isWatchlistMode &&
+      showStockSubtitle === 'auto' &&
+      shouldUseStockMetadataColumnsForTokens(rawData),
+    [isWatchlistMode, rawData, showStockSubtitle],
+  );
 
   const marketTokenColumns = useMarketTokenColumns(
     networkId,
@@ -209,6 +219,7 @@ function MarketTokenListBase({
     resolvedShowStockSubtitle,
     hiddenDesktopColumns,
     change24hColumnTitle,
+    useStockMetadataColumns,
   );
 
   // Client-side sorting: sort data locally when clientSort is enabled

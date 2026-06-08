@@ -1,6 +1,8 @@
 import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
 
 const FAVORITES_CATEGORY_ID = 'favorites';
+const HOME_WATCHLIST_TAB_TYPE = 'watchlist';
+const HOME_PERPS_CATEGORY_ID = 'perps';
 const DEFAULT_MARKET_CATEGORY_ID = 'trending';
 const DEFAULT_SPOT_CATEGORIES: IMarketCategoryItem[] = [
   { id: 'trending', name: 'Trending' },
@@ -12,5 +14,7 @@ export {
   DEFAULT_MARKET_CATEGORY_ID,
   DEFAULT_SPOT_CATEGORIES,
   FAVORITES_CATEGORY_ID,
+  HOME_PERPS_CATEGORY_ID,
   HOME_MARKET_CATEGORY_REQUEST_LIMIT,
+  HOME_WATCHLIST_TAB_TYPE,
 };

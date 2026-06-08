@@ -16,14 +16,44 @@ import type { ITableProps } from '@onekeyhq/components';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
+import {
+  getStockMarketCapValue,
+  getStockPeRatioValue,
+  getStockVolume24hValue,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { RichTable } from '../RichTable';
 
 import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
+import { shouldUseStockMetadataColumnsForTokens } from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
+
+const EMPTY_MARKET_VALUE = '--';
+
+function getDefaultMarketValue(value?: number) {
+  return value ? value : EMPTY_MARKET_VALUE;
+}
+
+function getVolume24hValue(
+  record: IFavoriteTokenDisplay,
+  useStockMetadataColumns?: boolean,
+) {
+  return useStockMetadataColumns
+    ? (getStockVolume24hValue(record) ?? EMPTY_MARKET_VALUE)
+    : getDefaultMarketValue(record.volume24h);
+}
+
+function getMarketCapValue(
+  record: IFavoriteTokenDisplay,
+  useStockMetadataColumns?: boolean,
+) {
+  return useStockMetadataColumns
+    ? (getStockMarketCapValue(record) ?? EMPTY_MARKET_VALUE)
+    : getDefaultMarketValue(record.marketCap);
+}
 
 type IMarketCategoryTokenListProps = {
   tokens: IFavoriteTokenDisplay[];
@@ -46,6 +76,10 @@ function MarketCategoryTokenList({
 }: IMarketCategoryTokenListProps) {
   const intl = useIntl();
   const { md } = useMedia();
+  const useStockMetadataColumns = useMemo(
+    () => shouldUseStockMetadataColumnsForTokens(tokens),
+    [tokens],
+  );
 
   const columns = useMemo<ITableProps<IFavoriteTokenDisplay>['columns']>(() => {
     if (tableLayout) {
@@ -102,24 +136,47 @@ function MarketCategoryTokenList({
           },
         },
         {
-          dataIndex: 'price',
-          title: intl.formatMessage({ id: ETranslations.global_price }),
+          dataIndex: useStockMetadataColumns ? 'marketCap' : 'price',
+          title: useStockMetadataColumns
+            ? intl.formatMessage({ id: ETranslations.global_market_cap })
+            : intl.formatMessage({ id: ETranslations.global_price }),
           render: (_: unknown, record: IFavoriteTokenDisplay) => (
             <NumberSizeableText
               size="$bodyLgMedium"
-              formatter="price"
+              formatter={useStockMetadataColumns ? 'marketCap' : 'price'}
               formatterOptions={{
                 currency: '$',
+                ...(useStockMetadataColumns ? { capAtMaxT: true } : undefined),
               }}
             >
-              {record.price ?? '-'}
+              {useStockMetadataColumns
+                ? getMarketCapValue(record, useStockMetadataColumns)
+                : (record.price ?? '-')}
             </NumberSizeableText>
           ),
         },
         {
-          dataIndex: 'priceChange24h',
-          title: intl.formatMessage({ id: ETranslations.market_change_24h }),
+          dataIndex: useStockMetadataColumns ? 'volume24h' : 'priceChange24h',
+          title: useStockMetadataColumns
+            ? intl.formatMessage({
+                id: ETranslations.dexmarket_stock_24h_volume,
+              })
+            : intl.formatMessage({ id: ETranslations.market_change_24h }),
           render: (_: unknown, record: IFavoriteTokenDisplay) => {
+            if (useStockMetadataColumns) {
+              return (
+                <NumberSizeableText
+                  size="$bodyLgMedium"
+                  formatter="marketCap"
+                  formatterOptions={{
+                    currency: '$',
+                  }}
+                >
+                  {getVolume24hValue(record, useStockMetadataColumns)}
+                </NumberSizeableText>
+              );
+            }
+
             const { changeColor, showPlusMinusSigns } =
               getTokenPriceChangeStyle({
                 priceChange: record.priceChange24h ?? 0,
@@ -137,17 +194,23 @@ function MarketCategoryTokenList({
           },
         },
         {
-          dataIndex: 'volume24h',
-          title: intl.formatMessage({ id: ETranslations.market_24h_turnover }),
+          dataIndex: useStockMetadataColumns ? 'stock' : 'volume24h',
+          title: useStockMetadataColumns
+            ? intl.formatMessage({
+                id: ETranslations.dexmarket_stock_pe_ttm,
+              })
+            : intl.formatMessage({ id: ETranslations.market_24h_turnover }),
           render: (_: unknown, record: IFavoriteTokenDisplay) => (
             <NumberSizeableText
               size="$bodyLgMedium"
-              formatter="marketCap"
-              formatterOptions={{
-                currency: '$',
-              }}
+              formatter={useStockMetadataColumns ? 'value' : 'marketCap'}
+              formatterOptions={
+                useStockMetadataColumns ? undefined : { currency: '$' }
+              }
             >
-              {!record.volume24h ? '--' : record.volume24h}
+              {useStockMetadataColumns
+                ? (getStockPeRatioValue(record) ?? EMPTY_MARKET_VALUE)
+                : getVolume24hValue(record, useStockMetadataColumns)}
             </NumberSizeableText>
           ),
         },
@@ -195,9 +258,14 @@ function MarketCategoryTokenList({
                     formatter="marketCap"
                     formatterOptions={{
                       currency: '$',
+                      ...(useStockMetadataColumns
+                        ? { capAtMaxT: true }
+                        : undefined),
                     }}
                   >
-                    {!record.volume24h ? '--' : record.volume24h}
+                    {useStockMetadataColumns
+                      ? getMarketCapValue(record, useStockMetadataColumns)
+                      : getVolume24hValue(record, useStockMetadataColumns)}
                   </NumberSizeableText>
                 </YStack>
               </XStack>
@@ -209,6 +277,25 @@ function MarketCategoryTokenList({
         dataIndex: 'price',
         title: intl.formatMessage({ id: ETranslations.global_price }),
         render: (_: unknown, record: IFavoriteTokenDisplay) => {
+          if (useStockMetadataColumns) {
+            return (
+              <YStack alignItems="flex-end">
+                <NumberSizeableText
+                  size="$bodyLgMedium"
+                  formatter="marketCap"
+                  formatterOptions={{
+                    currency: '$',
+                  }}
+                >
+                  {getVolume24hValue(record, useStockMetadataColumns)}
+                </NumberSizeableText>
+                <NumberSizeableText size="$bodyMd" formatter="value">
+                  {getStockPeRatioValue(record) ?? EMPTY_MARKET_VALUE}
+                </NumberSizeableText>
+              </YStack>
+            );
+          }
+
           const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
             priceChange: record.priceChange24h ?? 0,
           });
@@ -236,7 +323,13 @@ function MarketCategoryTokenList({
         },
       },
     ];
-  }, [intl, isTokenInWatchList, onStarPress, tableLayout]);
+  }, [
+    intl,
+    isTokenInWatchList,
+    onStarPress,
+    tableLayout,
+    useStockMetadataColumns,
+  ]);
 
   if (isLoading !== false && tokens.length === 0) {
     return (
