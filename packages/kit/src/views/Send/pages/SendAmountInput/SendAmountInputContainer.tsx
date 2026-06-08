@@ -2540,6 +2540,15 @@ function SendAmountInputContainer() {
               pressStyle={{ bg: '$bgActive' }}
               onPress={(event) => {
                 handlePrivateSendGuideClick();
+                if (platformEnv.isNative) {
+                  event.persist();
+                  event.stopPropagation();
+                  amountInputRef.current?.blur();
+                  void Keyboard.dismissWithDelay(80).finally(() => {
+                    onPress?.(event);
+                  });
+                  return;
+                }
                 onPress?.(event);
               }}
             >
@@ -3636,7 +3645,11 @@ function SendAmountInputContainer() {
       ? ETranslations.private_send_private_send
       : ETranslations.enter_amount__title;
 
-  const shouldUseScrollablePrivateSendBody = sendMode === ESendMode.PRIVATE;
+  const isPrivateSendMode = sendMode === ESendMode.PRIVATE;
+  const shouldUseMobilePrivateSendFixedLayout =
+    isPrivateSendMode && platformEnv.isNative && !media.gtMd;
+  const shouldUseScrollablePrivateSendBody =
+    isPrivateSendMode && !shouldUseMobilePrivateSendFixedLayout;
 
   const renderAmountFormContent = (
     <Form form={form}>
@@ -3670,7 +3683,7 @@ function SendAmountInputContainer() {
     </Form>
   );
 
-  const renderBottomInfoContent = (
+  const renderInputRelatedInfoContent = (
     <>
       <HeightTransition hide={!displayTxMessageForm}>
         <Form form={form}>
@@ -3729,18 +3742,82 @@ function SendAmountInputContainer() {
       </HeightTransition>
       {renderAutoSwitchAlert}
       {extraContent}
-      {sendMode === ESendMode.PRIVATE
-        ? renderPrivateSendQuoteCard
-        : renderBalanceCard}
+    </>
+  );
+
+  const renderQuoteInfoContent = (
+    <>
+      {isPrivateSendMode ? renderPrivateSendQuoteCard : renderBalanceCard}
       {renderNFTInfoCard}
     </>
   );
 
-  const handleDismissKeyboardOnDrag = useCallback(() => {
-    if (platformEnv.isNativeIOS) {
-      Keyboard.dismiss();
-    }
-  }, []);
+  const renderBottomInfoContent = (
+    <>
+      {renderInputRelatedInfoContent}
+      {renderQuoteInfoContent}
+    </>
+  );
+
+  const renderMobilePrivateSendPageBody = (
+    <Page.Body minHeight={0} overflow="hidden">
+      <YStack flex={1} minHeight={0}>
+        <Keyboard.AwareScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
+          showsVerticalScrollIndicator={false}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1 }}
+          bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+        >
+          <YStack flexGrow={1} justifyContent="center" px="$5" py="$5" gap="$3">
+            {renderAmountFormContent}
+            {renderInputRelatedInfoContent}
+          </YStack>
+        </Keyboard.AwareScrollView>
+        <Keyboard.StickyView>
+          <YStack bg="$bgApp" px="$5" pt="$2.5" pb="$2" gap="$2.5">
+            <YStack gap="$2.5">{renderQuoteInfoContent}</YStack>
+            <XStack gap="$2.5" width="100%">
+              {renderPrivateSendFooterButtons}
+            </XStack>
+            {renderPrivateSendFooterHelp}
+          </YStack>
+        </Keyboard.StickyView>
+      </YStack>
+    </Page.Body>
+  );
+
+  let renderPageBody: ReactNode;
+  if (shouldUseMobilePrivateSendFixedLayout) {
+    renderPageBody = renderMobilePrivateSendPageBody;
+  } else if (shouldUseScrollablePrivateSendBody) {
+    renderPageBody = (
+      <Page.Body minHeight={0} overflow="hidden">
+        <Keyboard.AwareScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1 }}
+          bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+        >
+          <YStack px="$5" py="$5" gap="$5" flexGrow={1}>
+            <YStack flex={1} justifyContent="center">
+              {renderAmountFormContent}
+            </YStack>
+            <YStack gap="$3">{renderBottomInfoContent}</YStack>
+          </YStack>
+        </Keyboard.AwareScrollView>
+      </Page.Body>
+    );
+  } else {
+    renderPageBody = (
+      <Page.Body px="$5" justifyContent="center">
+        {renderAmountFormContent}
+      </Page.Body>
+    );
+  }
 
   return (
     <Page safeAreaEnabled>
@@ -3749,39 +3826,18 @@ function SendAmountInputContainer() {
         headerRight={renderPrivateSendHeaderRight}
       />
 
-      {shouldUseScrollablePrivateSendBody ? (
-        <Page.Body minHeight={0} overflow="hidden">
-          <Keyboard.AwareScrollView
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            onScrollBeginDrag={handleDismissKeyboardOnDrag}
-            showsVerticalScrollIndicator={false}
-            style={{ flex: 1 }}
-            contentContainerStyle={{ flexGrow: 1 }}
-            bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
-          >
-            <YStack px="$5" py="$5" gap="$5" flexGrow={1}>
-              <YStack flex={1} justifyContent="center">
-                {renderAmountFormContent}
-              </YStack>
-              <YStack gap="$3">{renderBottomInfoContent}</YStack>
-            </YStack>
-          </Keyboard.AwareScrollView>
-        </Page.Body>
-      ) : (
-        <Page.Body px="$5" justifyContent="center">
-          {renderAmountFormContent}
-        </Page.Body>
-      )}
+      {renderPageBody}
 
-      <Page.Footer>
-        {shouldUseScrollablePrivateSendBody ? null : (
-          <Stack px="$5" gap="$3">
-            {renderBottomInfoContent}
-          </Stack>
-        )}
-        {renderFooterActions}
-      </Page.Footer>
+      {shouldUseMobilePrivateSendFixedLayout ? null : (
+        <Page.Footer>
+          {shouldUseScrollablePrivateSendBody ? null : (
+            <Stack px="$5" gap="$3">
+              {renderBottomInfoContent}
+            </Stack>
+          )}
+          {renderFooterActions}
+        </Page.Footer>
+      )}
     </Page>
   );
 }
