@@ -160,46 +160,73 @@ const SwapTokenSelectPage = ({
   const { selectFromToken, selectToToken, syncNetworksSort } =
     useSwapActions().current;
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
+  const getSelectableDefaultNetwork = useCallback(
+    (networkId?: string) => {
+      const preferredNetwork = networkId
+        ? swapNetworksIncludeAllNetwork.find(
+            (item: ISwapNetwork) => item.networkId === networkId,
+          )
+        : undefined;
+      const pairedNetworkId =
+        type === ESwapDirectionType.TO
+          ? fromToken?.networkId
+          : toToken?.networkId;
+      const disabledNetworkIds =
+        swapTypeSwitch === ESwapTabSwitchType.SWAP
+          ? getSwapDisabledNetworkIdsForPairToken({
+              networks: swapNetworksIncludeAllNetwork,
+              pairedNetworkId,
+            })
+          : [];
+
+      if (
+        preferredNetwork &&
+        !disabledNetworkIds.includes(preferredNetwork.networkId)
+      ) {
+        return preferredNetwork;
+      }
+
+      return (
+        swapNetworksIncludeAllNetwork.find(
+          (network) => network.isAllNetworks,
+        ) ??
+        swapNetworksIncludeAllNetwork.find(
+          (network) => !disabledNetworkIds.includes(network.networkId),
+        )
+      );
+    },
+    [
+      fromToken?.networkId,
+      swapNetworksIncludeAllNetwork,
+      swapTypeSwitch,
+      toToken?.networkId,
+      type,
+    ],
+  );
   const syncDefaultNetworkSelect = useCallback(() => {
     if (type === ESwapDirectionType.FROM) {
       if (fromToken?.networkId) {
-        return (
-          swapNetworksIncludeAllNetwork.find(
-            (item: ISwapNetwork) => item.networkId === fromToken.networkId,
-          ) ?? swapNetworksIncludeAllNetwork?.[0]
-        );
+        return getSelectableDefaultNetwork(fromToken.networkId);
       }
       if (toToken?.networkId && swapTypeSwitch === ESwapTabSwitchType.SWAP) {
-        return (
-          swapNetworksIncludeAllNetwork.find(
-            (item: ISwapNetwork) => item.networkId === toToken.networkId,
-          ) ?? swapNetworksIncludeAllNetwork?.[0]
-        );
+        return getSelectableDefaultNetwork(toToken.networkId);
       }
     } else {
       if (toToken?.networkId) {
-        return (
-          swapNetworksIncludeAllNetwork.find(
-            (item: ISwapNetwork) => item.networkId === toToken.networkId,
-          ) ?? swapNetworksIncludeAllNetwork?.[0]
-        );
+        return getSelectableDefaultNetwork(toToken.networkId);
       }
       if (
         fromToken?.networkId &&
         (swapTypeSwitch === ESwapTabSwitchType.SWAP ||
           swapTypeSwitch === ESwapTabSwitchType.LIMIT)
       ) {
-        return (
-          swapNetworksIncludeAllNetwork.find(
-            (item: ISwapNetwork) => item.networkId === fromToken.networkId,
-          ) ?? swapNetworksIncludeAllNetwork?.[0]
-        );
+        return getSelectableDefaultNetwork(fromToken.networkId);
       }
     }
-    return swapNetworksIncludeAllNetwork?.[0];
+    return getSelectableDefaultNetwork();
   }, [
     fromToken?.networkId,
-    swapNetworksIncludeAllNetwork,
+    getSelectableDefaultNetwork,
     swapTypeSwitch,
     toToken?.networkId,
     type,

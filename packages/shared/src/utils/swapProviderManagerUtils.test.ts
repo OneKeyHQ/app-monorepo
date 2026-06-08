@@ -343,7 +343,7 @@ describe('swapProviderManagerUtils', () => {
     ).toBe(false);
   });
 
-  it('blocks unified migration when legacy bridge providers are missing from the unified cross-chain set', () => {
+  it('ignores stale legacy bridge providers that are no longer server cross-chain providers', () => {
     const serverProviders = [serverProvider({ provider: 'ProviderA' })];
     const unifiedProviderManagers = buildUnifiedSwapProviderManagers({
       serverProviders,
@@ -359,6 +359,26 @@ describe('swapProviderManagerUtils', () => {
           manager({ provider: 'ProviderA' }),
           manager({ provider: 'MissingBridgeProvider' }),
         ],
+      }),
+    ).toBe(true);
+  });
+
+  it('blocks unified migration when current bridge providers are missing from the unified cross-chain set', () => {
+    const serverProviders = [
+      serverProvider({ provider: 'ProviderA' }),
+      serverProvider({ provider: 'ProviderB' }),
+    ];
+    const unifiedProviderManagers = buildUnifiedSwapProviderManagers({
+      serverProviders: [serverProvider({ provider: 'ProviderA' })],
+      swapProviderManagers: [manager({ provider: 'ProviderA' })],
+      bridgeProviderManagers: [],
+    });
+
+    expect(
+      canUseUnifiedSwapProviderManagers({
+        serverProviders,
+        unifiedProviderManagers,
+        bridgeProviderManagers: [manager({ provider: 'ProviderB' })],
       }),
     ).toBe(false);
   });

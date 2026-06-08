@@ -219,8 +219,8 @@ export function useSwapInit(params?: ISwapInitParams) {
           bridgeProviderManager: bridgeProviderManagerSimpleDb,
         }));
       };
+      setProviderManagersFromCache();
       if (noFetch) {
-        setProviderManagersFromCache();
         return;
       }
 
@@ -241,7 +241,6 @@ export function useSwapInit(params?: ISwapInitParams) {
               bridgeProviderManagers: bridgeProviderManagerSimpleDb,
             })
           ) {
-            setProviderManagersFromCache();
             return;
           }
           await backgroundApiProxy.simpleDb.swapConfigs.setSwapProviderManager(
@@ -255,12 +254,10 @@ export function useSwapInit(params?: ISwapInitParams) {
             swapProviderManager: unifiedProviderManager,
             bridgeProviderManager: [],
           }));
-          return;
         }
       } catch {
         // Keep cached provider settings usable when the provider list refresh fails.
       }
-      setProviderManagersFromCache();
     },
     [setInAppNotification],
   );

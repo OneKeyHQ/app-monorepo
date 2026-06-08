@@ -70,6 +70,19 @@ function hasProviderSupportNetworks(provider: ISwapServiceProvider) {
   return true;
 }
 
+function buildServerCrossChainProviderIdSet(
+  serverProviders: ISwapServiceProvider[],
+) {
+  const crossChainProviderIds = new Set<string>();
+  for (const provider of serverProviders) {
+    const providerId = provider.providerInfo?.provider;
+    if (providerId && provider.isSupportCrossChain) {
+      crossChainProviderIds.add(providerId);
+    }
+  }
+  return crossChainProviderIds;
+}
+
 export function canUseUnifiedSwapProviderManagers({
   serverProviders,
   unifiedProviderManagers,
@@ -101,6 +114,8 @@ export function canUseUnifiedSwapProviderManagers({
   }
 
   const unifiedCrossChainProviderIds = new Set<string>();
+  const serverCrossChainProviderIds =
+    buildServerCrossChainProviderIdSet(serverProviders);
   for (const providerManager of unifiedProviderManagers) {
     const providerId = providerManager.providerInfo.provider;
     if (!serverProviderIds.has(providerId)) {
@@ -123,9 +138,13 @@ export function canUseUnifiedSwapProviderManagers({
     }
   }
 
-  return bridgeProviderManagers.every((providerManager) =>
-    unifiedCrossChainProviderIds.has(providerManager.providerInfo.provider),
-  );
+  return bridgeProviderManagers
+    .filter((providerManager) =>
+      serverCrossChainProviderIds.has(providerManager.providerInfo.provider),
+    )
+    .every((providerManager) =>
+      unifiedCrossChainProviderIds.has(providerManager.providerInfo.provider),
+    );
 }
 
 export function buildUnifiedSwapProviderManagers({
