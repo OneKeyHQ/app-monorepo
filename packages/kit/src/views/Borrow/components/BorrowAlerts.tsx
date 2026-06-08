@@ -1,9 +1,12 @@
 import { memo, useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IAlertProps } from '@onekeyhq/components';
 import { Alert, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type {
@@ -37,6 +40,7 @@ export const BorrowAlerts = memo(
     indexedAccountId,
     marketNetworkId,
   }: IBorrowAlertsProps) => {
+    const intl = useIntl();
     const navigation = useAppNavigation();
     const swapFromToken = swapDefaultSetTokens['evm--1']?.fromToken;
     const swapToToken = swapDefaultSetTokens['sol--101']?.fromToken;
@@ -115,7 +119,7 @@ export const BorrowAlerts = memo(
             };
           case 'bridge':
             return {
-              label: button.text.text,
+              label: intl.formatMessage({ id: ETranslations.global_swap }),
               onPress: () => {
                 handleSwapPress();
               },
@@ -128,7 +132,7 @@ export const BorrowAlerts = memo(
             return null;
         }
       },
-      [handleReceivePress, handleSwapPress],
+      [handleReceivePress, handleSwapPress, intl],
     );
 
     const resolveAlertAction = useCallback(

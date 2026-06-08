@@ -242,9 +242,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       navigateToSwapPage({
         importFromToken,
         importToToken,
-        swapTabSwitchType: importToToken
-          ? ESwapTabSwitchType.BRIDGE
-          : ESwapTabSwitchType.SWAP,
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
         marketPresetToken: {
           networkId,
           contractAddress: realContractAddress,

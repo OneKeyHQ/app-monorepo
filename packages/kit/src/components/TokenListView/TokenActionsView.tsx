@@ -126,9 +126,7 @@ function TokenActionsView(props: IProps) {
         }
       }
 
-      const swapTabSwitchType = importToToken
-        ? ESwapTabSwitchType.BRIDGE
-        : ESwapTabSwitchType.SWAP;
+      const swapTabSwitchType = ESwapTabSwitchType.SWAP;
       defaultLogger.wallet.walletActions.actionTrade({
         walletType: activeAccount?.wallet?.type ?? '',
         networkId: activeNetworkId,

@@ -337,7 +337,7 @@ function TokenDetailsHeader(props: IProps) {
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const createSwapActionHandler = useCallback(
-    (actionType: ESwapTabSwitchType) => async () => {
+    () => async () => {
       const importFromToken: ISwapToken = {
         contractAddress: tokenInfo.address,
         symbol: tokenInfo.symbol,
@@ -349,23 +349,18 @@ function TokenDetailsHeader(props: IProps) {
         networkLogoURI: network?.logoURI,
       };
       let importToToken: ISwapToken | undefined;
-      let swapTabSwitchType = actionType;
-      if (actionType === ESwapTabSwitchType.BRIDGE) {
-        importToToken = getSwapBridgeDefaultToToken(importFromToken);
-      } else if (actionType === ESwapTabSwitchType.SWAP) {
-        try {
-          const { isSupportSwap, isSupportCrossChain } =
-            await backgroundApiProxy.serviceSwap.checkSupportSwap({
-              networkId,
-            });
-          if (!isSupportSwap && isSupportCrossChain) {
-            importToToken = getSwapBridgeDefaultToToken(importFromToken);
-            swapTabSwitchType = ESwapTabSwitchType.BRIDGE;
-          }
-        } catch {
-          // Keep the existing Swap fallback if capability refresh fails.
+      try {
+        const { isSupportSwap, isSupportCrossChain } =
+          await backgroundApiProxy.serviceSwap.checkSupportSwap({
+            networkId,
+          });
+        if (!isSupportSwap && isSupportCrossChain) {
+          importToToken = getSwapBridgeDefaultToToken(importFromToken);
         }
+      } catch {
+        // Keep the existing Swap fallback if capability refresh fails.
       }
+      const swapTabSwitchType = ESwapTabSwitchType.SWAP;
 
       defaultLogger.wallet.walletActions.actionTrade({
         walletType: wallet?.type ?? '',
@@ -405,7 +400,7 @@ function TokenDetailsHeader(props: IProps) {
     ],
   );
 
-  const handleOnSwap = createSwapActionHandler(ESwapTabSwitchType.SWAP);
+  const handleOnSwap = createSwapActionHandler();
 
   const disableSwapAction = useMemo(
     () => accountUtils.isUrlAccountFn({ accountId }),
