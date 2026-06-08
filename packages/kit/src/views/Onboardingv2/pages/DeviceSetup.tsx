@@ -40,6 +40,13 @@ import { getForceTransportType } from '../utils';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
+// DEBUG(pro2): the bulk of OneKey Pro 2 onboarding work happens on this page, so
+// while it's under active development we keep an already-initialized device parked
+// on DeviceSetup instead of auto-jumping to FinalizeWalletSetup after the check
+// passes. Flip back to false (or delete the guard at its use site) to restore the
+// production flash-through behavior.
+const DEBUG_DISABLE_AUTO_FINALIZE = true;
+
 enum EDeviceSetupState {
   // Initial device-status check in flight (also the brief "flash" state shown
   // to already-initialized devices right before they jump to Finalize).
@@ -220,19 +227,22 @@ function DeviceSetupPage({
       return;
     }
     setSetupState(EDeviceSetupState.Success);
-    const deviceForFinalize =
-      getActiveDevice() ??
-      currentDevice ??
-      (deviceData?.device as SearchDevice | undefined);
-    navigateTimeoutRef.current = setTimeout(() => {
-      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-        deviceData: {
-          ...deviceData,
-          device: (deviceForFinalize ?? currentDevice) as SearchDevice,
-        },
-        isFirmwareVerified,
-      });
-    }, 1200);
+    // DEBUG(pro2): gate the auto-navigation so the page stays put for debugging.
+    if (!DEBUG_DISABLE_AUTO_FINALIZE) {
+      const deviceForFinalize =
+        getActiveDevice() ??
+        currentDevice ??
+        (deviceData?.device as SearchDevice | undefined);
+      navigateTimeoutRef.current = setTimeout(() => {
+        navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+          deviceData: {
+            ...deviceData,
+            device: (deviceForFinalize ?? currentDevice) as SearchDevice,
+          },
+          isFirmwareVerified,
+        });
+      }, 1200);
+    }
   }, [
     ensureTransportType,
     getActiveDevice,
