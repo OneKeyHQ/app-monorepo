@@ -9,6 +9,8 @@ import { OneKeyHardwareError } from './hardwareErrors';
 
 import type { IOneKeyErrorHardwareProps } from './hardwareErrors';
 
+export const THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE = 10_504;
+
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
 // ---------------------------------------------------------------------------
@@ -75,7 +77,33 @@ export class ThirdPartyDeviceLocked extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.DeviceLocked;
 }
 
-/** User rejected the operation on device */
+export class ThirdPartyDeviceOutOfMemory extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslations.hardware_third_party_device_out_of_memory__msg,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceOutOfMemory;
+}
+
+export class ThirdPartyNetworkError extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.global_network_error,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.NetworkError;
+}
+
 export class ThirdPartyUserRejected extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -89,7 +117,6 @@ export class ThirdPartyUserRejected extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.UserRejected;
 }
 
-/** User dismissed in-app cancel UI. No auto-toast (user already knows). */
 export class ThirdPartyUserAborted extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -103,7 +130,19 @@ export class ThirdPartyUserAborted extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.UserAborted;
 }
 
-/** OS-level device permission (Bluetooth / USB) denied. */
+export class ThirdPartyInstallAppUserCancelled extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_user_cancel_error,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override code = THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE;
+}
+
 export class ThirdPartyDevicePermissionDenied extends ThirdPartyHardwareError {
   reason?: EThirdPartyDevicePermissionDeniedReason;
 
