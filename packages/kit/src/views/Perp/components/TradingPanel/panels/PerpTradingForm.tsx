@@ -59,7 +59,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
-  SCALE_ORDER_MIN_NOTIONAL,
   buildScaleOrderLegs,
   getScaleOrderReferencePrice,
   getScaleOrderSizeSkew,
@@ -856,10 +855,7 @@ function PerpTradingForm({
       orderCount < SCALE_ORDER_MIN_COUNT ||
       orderCount > SCALE_ORDER_MAX_COUNT
     ) {
-      return {
-        text: `Enter ${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT} orders`,
-        tone: 'error' as const,
-      };
+      return undefined;
     }
 
     const lowerPrice = new BigNumber(formData.scaleLowerPrice ?? 0);
@@ -873,12 +869,7 @@ function PerpTradingForm({
       if (!hasPriceInput) {
         return undefined;
       }
-      return {
-        text: intl.formatMessage({
-          id: ETranslations.perp_scale_price_range_required__msg,
-        }),
-        tone: 'error' as const,
-      };
+      return undefined;
     }
     if (lowerPrice.eq(upperPrice)) {
       return {
@@ -889,13 +880,7 @@ function PerpTradingForm({
       };
     }
     if (!hasSizeInput) {
-      return {
-        text: intl.formatMessage(
-          { id: ETranslations.perp_scale_order_size_required_hint__desc },
-          { min: `$${SCALE_ORDER_MIN_NOTIONAL}` },
-        ),
-        tone: 'helper' as const,
-      };
+      return undefined;
     }
 
     const legs = buildScaleOrderLegs({
@@ -922,13 +907,7 @@ function PerpTradingForm({
       };
     }
 
-    return {
-      text: intl.formatMessage(
-        { id: ETranslations.perp_scale_preview_summary_hint__desc },
-        { count: legs.length, min: `$${SCALE_ORDER_MIN_NOTIONAL}` },
-      ),
-      tone: 'helper' as const,
-    };
+    return undefined;
   }, [
     formData.scaleLowerPrice,
     formData.scaleOrderCount,
@@ -2350,8 +2329,9 @@ function PerpTradingForm({
                   flex={1}
                   numberOfLines={1}
                 >
-                  {/* TODO: replace hardcoded QA copy with ETranslations after the i18n key is added. */}
-                  Per child order size
+                  {intl.formatMessage({
+                    id: ETranslations.perp_twap_child_order_size__title,
+                  })}
                 </SizableText>
                 <SizableText
                   size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}

@@ -3286,6 +3286,7 @@
   "perp_trading_adjust_margin_updated": "마진이 업데이트됨",
   "perp_twap_active__title": "진행 중",
   "perp_twap_avg_filled_price__title": "평균 체결 가격",
+  "perp_twap_child_order_size__title": "하위 주문당 주문 규모",
   "perp_twap_duration__title": "기간",
   "perp_twap_duration_helper__desc": "TWAP는 선택한 기간 동안 시장 분할 주문을 제출합니다. Hyperliquid는 분할 시기를 제어하며 매우 작은 분할은 거부할 수 있습니다.",
   "perp_twap_duration_range__msg": "TWAP 기간은 {min}-{max} 분이어야 합니다",

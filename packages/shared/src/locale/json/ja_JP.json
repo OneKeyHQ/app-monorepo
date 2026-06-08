@@ -3286,6 +3286,7 @@
   "perp_trading_adjust_margin_updated": "マージンを更新しました",
   "perp_twap_active__title": "進行中",
   "perp_twap_avg_filled_price__title": "平均約定価格",
+  "perp_twap_child_order_size__title": "子注文ごとの注文サイズ",
   "perp_twap_duration__title": "期間",
   "perp_twap_duration_helper__desc": "TWAPは選択された期間にわたってマーケットスライスを送信します。Hyperliquidはスライスタイミングを制御し、非常に小さいスライスを拒否する場合があります。",
   "perp_twap_duration_range__msg": "TWAPの期間は{min}-{max}分である必要があります",

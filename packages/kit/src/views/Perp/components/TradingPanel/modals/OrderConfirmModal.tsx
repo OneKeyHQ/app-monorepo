@@ -22,10 +22,6 @@ import {
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  buildScaleOrderLegs,
-  getScaleOrderSizeSkew,
-} from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatPriceToSignificantDigits,
@@ -178,7 +174,6 @@ function OrderConfirmContent({
   const isLimitTrigger =
     formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
   const limitTifLabel = getTifLabel(formData.limitTif ?? 'Gtc') ?? 'GTC';
-  const scaleTifLabel = getTifLabel(formData.scaleTif ?? 'Gtc') ?? 'GTC';
   const shouldShowStandardLimitTif =
     !isSpot && !isTriggerMode && !isAlgoOrderMode && formData.type === 'limit';
 
@@ -199,32 +194,6 @@ function OrderConfirmContent({
         return null;
     }
   }, [isTriggerMode, formData.triggerOrderType, intl]);
-
-  const scaleLegPreview = useMemo(() => {
-    if (!isScaleMode) {
-      return [];
-    }
-    return buildScaleOrderLegs({
-      totalSize: computedSizeForSide.toFixed(),
-      lowerPrice: formData.scaleLowerPrice ?? '',
-      upperPrice: formData.scaleUpperPrice ?? '',
-      orderCount: Number(formData.scaleOrderCount ?? 0),
-      szDecimals,
-      side: effectiveSide,
-      sizeSkew: getScaleOrderSizeSkew(formData.scaleSizeDistribution),
-      assetType: isSpot ? 'spot' : 'perp',
-    });
-  }, [
-    isScaleMode,
-    isSpot,
-    computedSizeForSide,
-    formData.scaleLowerPrice,
-    formData.scaleUpperPrice,
-    formData.scaleOrderCount,
-    formData.scaleSizeDistribution,
-    szDecimals,
-    effectiveSide,
-  ]);
 
   const twapPreview = useMemo(() => {
     if (!isTwapMode) {
@@ -467,29 +436,39 @@ function OrderConfirmContent({
     ? orderTypeText
     : (triggerTypeLabel ?? orderTypeText);
   const shouldShowActionSide = isAlgoOrderMode || Boolean(triggerTypeLabel);
+  const scaleDistributionLabel =
+    formData.scaleSizeDistribution === 'increasing'
+      ? intl.formatMessage({
+          id: ETranslations.perp_scale_increasing_distribution__action,
+        })
+      : intl.formatMessage({
+          id: ETranslations.perp_scale_fixed_distribution__action,
+        });
 
   return (
     <YStack gap="$4" p="$1">
       {/* Order Details */}
       <YStack gap="$3">
         {/* Action */}
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_order_type,
-            })}
-          </SizableText>
-          {shouldShowActionSide ? (
-            <SizableText size="$bodyMdMedium" color={actionColor}>
-              {actionLabel}
-              {' /'} {actionSideLabel}
+        {!isScaleMode ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_order_type,
+              })}
             </SizableText>
-          ) : (
-            <SizableText size="$bodyMdMedium" color={actionColor}>
-              {actionLabel}
-            </SizableText>
-          )}
-        </XStack>
+            {shouldShowActionSide ? (
+              <SizableText size="$bodyMdMedium" color={actionColor}>
+                {actionLabel}
+                {' /'} {actionSideLabel}
+              </SizableText>
+            ) : (
+              <SizableText size="$bodyMdMedium" color={actionColor}>
+                {actionLabel}
+              </SizableText>
+            )}
+          </XStack>
+        ) : null}
 
         {/* Trigger Price (trigger orders only) */}
         {isTriggerMode && formData.triggerPrice ? (
@@ -546,6 +525,41 @@ function OrderConfirmContent({
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
+                  id: ETranslations.perp_trade_order_type,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium" color={actionColor}>
+                {shouldShowActionSide
+                  ? `${actionLabel} / ${actionSideLabel}`
+                  : actionLabel}
+              </SizableText>
+            </XStack>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_position_size,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">{sizeDisplay}</SizableText>
+            </XStack>
+            {orderValue.isFinite() && orderValue.gt(0) ? (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_trade_order_value,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">
+                  {numberFormat(orderValue.toFixed(2), {
+                    formatter: 'value',
+                    formatterOptions: { currency: '$' },
+                  })}
+                </SizableText>
+              </XStack>
+            ) : null}
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
                   id: ETranslations.perp_scale_lower_price_label__title,
                 })}
               </SizableText>
@@ -571,83 +585,18 @@ function OrderConfirmContent({
                 })}
               </SizableText>
             </XStack>
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_scale_orders__title,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {formData.scaleOrderCount ?? '--'}
-              </SizableText>
-            </XStack>
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_scale_amount_distribution__title,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {formData.scaleSizeDistribution === 'increasing'
-                  ? intl.formatMessage({
-                      id: ETranslations.perp_scale_increasing_distribution__action,
-                    })
-                  : intl.formatMessage({
-                      id: ETranslations.perp_scale_fixed_distribution__action,
-                    })}
-              </SizableText>
-            </XStack>
-            {isSpot ? null : (
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  Time in Force
-                </SizableText>
-                <SizableText size="$bodyMdMedium">{scaleTifLabel}</SizableText>
-              </XStack>
-            )}
             {isSpot ? null : (
               <XStack justifyContent="space-between" alignItems="center">
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage({
-                    id: ETranslations.perps_reduce_only,
+                    id: ETranslations.perp_scale_amount_distribution__title,
                   })}
                 </SizableText>
                 <SizableText size="$bodyMdMedium">
-                  {formData.scaleReduceOnly ? yesText : noText}
+                  {scaleDistributionLabel}
                 </SizableText>
               </XStack>
             )}
-            {scaleLegPreview.length > 0 ? (
-              <YStack gap="$1.5">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  Scale Preview
-                </SizableText>
-                {scaleLegPreview.slice(0, 5).map((leg) => (
-                  <XStack
-                    key={leg.index}
-                    justifyContent="space-between"
-                    alignItems="center"
-                  >
-                    <SizableText size="$bodySm" color="$textSubdued">
-                      #{leg.index + 1}
-                    </SizableText>
-                    <SizableText size="$bodySmMedium">
-                      {formatOrderPriceDisplay({
-                        price: leg.price,
-                        isSpot,
-                        szDecimals,
-                      })}{' '}
-                      × {leg.size}
-                    </SizableText>
-                  </XStack>
-                ))}
-                {scaleLegPreview.length > 5 ? (
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    +{scaleLegPreview.length - 5} more
-                  </SizableText>
-                ) : null}
-              </YStack>
-            ) : null}
           </>
         ) : null}
 
@@ -663,49 +612,23 @@ function OrderConfirmContent({
                 {twapPreview.minutes} {minuteUnit}
               </SizableText>
             </XStack>
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                Execution
-              </SizableText>
-              <SizableText size="$bodyMdMedium">Market slices</SizableText>
-            </XStack>
-            {isSpot ? null : (
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.perps_reduce_only,
-                  })}
-                </SizableText>
-                <SizableText size="$bodyMdMedium">
-                  {formData.twapReduceOnly ? yesText : noText}
-                </SizableText>
-              </XStack>
-            )}
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_twap_randomize__title,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {formData.twapRandomize ? yesText : noText}
-              </SizableText>
-            </XStack>
           </>
         ) : null}
 
         {/* Position Size */}
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_position_position_size,
-            })}
-          </SizableText>
-          <SizableText size="$bodyMdMedium">{sizeDisplay}</SizableText>
-        </XStack>
+        {!isScaleMode ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_position_position_size,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">{sizeDisplay}</SizableText>
+          </XStack>
+        ) : null}
 
         {/* Order Value */}
-        {orderValue.isFinite() && orderValue.gt(0) ? (
+        {!isScaleMode && orderValue.isFinite() && orderValue.gt(0) ? (
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
@@ -717,6 +640,19 @@ function OrderConfirmContent({
                 formatter: 'value',
                 formatterOptions: { currency: '$' },
               })}
+            </SizableText>
+          </XStack>
+        ) : null}
+
+        {isTwapMode ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_twap_randomize__title,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              {formData.twapRandomize ? yesText : noText}
             </SizableText>
           </XStack>
         ) : null}

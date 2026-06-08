@@ -3286,6 +3286,7 @@
   "perp_trading_adjust_margin_updated": "Маржу оновлено",
   "perp_twap_active__title": "Активно",
   "perp_twap_avg_filled_price__title": "Середня ціна виконання",
+  "perp_twap_child_order_size__title": "Розмір дочірнього ордера",
   "perp_twap_duration__title": "Тривалість",
   "perp_twap_duration_helper__desc": "TWAP надсилає ринкові порції протягом обраного періоду. Hyperliquid керує часом порцій і може відхилити дуже маленькі порції.",
   "perp_twap_duration_range__msg": "Тривалість TWAP повинна бути {min}-{max} хвилин",
