@@ -6,6 +6,8 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 
+import { thirdPartyCommonCallParamsForCreateScene } from './thirdPartyHardwareCommonParams';
+
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
 import type {
@@ -14,14 +16,28 @@ import type {
   Response,
 } from '@onekeyfe/hwk-adapter-core';
 
-const FINGERPRINT_CHAINS: ChainForFingerprint[] = ['evm', 'btc', 'sol', 'tron'];
+export const LEDGER_FINGERPRINT_CHAINS: readonly ChainForFingerprint[] = [
+  'evm',
+  'btc',
+  'sol',
+  'tron',
+];
+
+export function isLedgerFingerprintChain(
+  chain: unknown,
+): chain is ChainForFingerprint {
+  return (
+    typeof chain === 'string' &&
+    LEDGER_FINGERPRINT_CHAINS.includes(chain as ChainForFingerprint)
+  );
+}
 
 // Auto multi-network fill (onboarding + add-account) suppresses the per-app
 // install prompt; manual / single-network add keeps the SDK default (prompt).
 export function ledgerCommonCallParamsForCreateScene(scene: {
   isAutoCreateMultiNetwork?: boolean;
 }): ICommonCallParams | undefined {
-  return scene.isAutoCreateMultiNetwork ? { autoInstallApp: false } : undefined;
+  return thirdPartyCommonCallParamsForCreateScene(scene);
 }
 
 type IDbDeviceForFingerprint = {
@@ -70,6 +86,27 @@ function serializeWrite(
   });
   pendingWrites.set(deviceId, next);
   return next;
+}
+
+export async function persistLedgerChainFingerprint({
+  dbDeviceId,
+  chain,
+  fingerprint,
+}: {
+  dbDeviceId: string;
+  chain: ChainForFingerprint;
+  fingerprint: string;
+}): Promise<void> {
+  if (localDb.updateDeviceChainFingerprint) {
+    await serializeWrite(dbDeviceId, async () => {
+      await localDb.updateDeviceChainFingerprint({
+        dbDeviceId,
+        chain,
+        fingerprint,
+      });
+    });
+  }
+  setCache(dbDeviceId, chain, fingerprint);
 }
 
 /**
@@ -137,15 +174,11 @@ async function generateAndStoreFingerprint(
     );
     if (result.success && result.payload) {
       const fingerprint = result.payload;
-      if (localDb.updateDeviceChainFingerprint) {
-        await serializeWrite(dbDevice.id, async () => {
-          await localDb.updateDeviceChainFingerprint({
-            dbDeviceId: dbDevice.id,
-            chain,
-            fingerprint,
-          });
-        });
-      }
+      await persistLedgerChainFingerprint({
+        dbDeviceId: dbDevice.id,
+        chain,
+        fingerprint,
+      });
       return fingerprint;
     }
     defaultLogger.hardware.sdkLog.log(
@@ -241,7 +274,7 @@ export async function verifySeedMatch(
     return 'unknown';
   }
 
-  const candidates = FINGERPRINT_CHAINS.filter((c) => !!stored[c]);
+  const candidates = LEDGER_FINGERPRINT_CHAINS.filter((c) => !!stored[c]);
   if (candidates.length === 0) return 'unknown';
 
   for (const chain of candidates) {

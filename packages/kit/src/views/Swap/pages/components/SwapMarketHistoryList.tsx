@@ -35,6 +35,8 @@ import type {
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
+import { getSwapMarketPendingHistoryKey } from '../../utils/swapMarketHistory';
+
 interface ISectionData {
   title: string;
   status?: ESwapTxHistoryStatus;
@@ -58,6 +60,10 @@ const SwapMarketHistoryList = ({
   const [{ swapHistoryAlertDismissed }] = useNotificationsAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const marketPendingKey = useMemo(
+    () => getSwapMarketPendingHistoryKey(swapHistoryPendingList),
+    [swapHistoryPendingList],
+  );
   const { result: swapTxHistoryList, isLoading } = usePromiseResult(
     async () => {
       const histories =
@@ -65,7 +71,7 @@ const SwapMarketHistoryList = ({
       return histories;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swapHistoryPendingList],
+    [marketPendingKey],
     { watchLoading: true },
   );
   const sectionData = useMemo(() => {
@@ -177,7 +183,7 @@ const SwapMarketHistoryList = ({
     ),
     [navigation, isPushModal, swapTxHistoryList],
   );
-  if (isLoading) {
+  if (isLoading && !swapTxHistoryList?.length) {
     return Array.from({ length: 5 }).map((_, index) => (
       <ListItem key={index}>
         <Skeleton w="$10" h="$10" radius="round" />

@@ -41,6 +41,29 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
         const { dbDevice } = params.deviceParams;
         const { template } = params.deriveInfo;
 
+        const buildPath = ({ index }: { index: number }) =>
+          accountUtils.buildPathFromTemplate({
+            template,
+            index,
+          });
+        const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+          params,
+          usedIndexes,
+          buildPath,
+          buildResultAccount: ({ account }) => ({
+            address: account.payload?.address || '',
+            path: account.path,
+            publicKey: '',
+            __hwExtraInfo__: {
+              rootFingerprint: account.payload?.rootFingerprint,
+            },
+          }),
+          hwSdkNetwork: this.hwSdkNetwork,
+        });
+        if (allNetworkAccounts) {
+          return allNetworkAccounts.payload;
+        }
+
         const adapter =
           await this.backgroundApi.serviceHardware.getAdapterForVendor(
             EHardwareVendor.ledger,
@@ -51,10 +74,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
 
         const ret: ICoreApiGetAddressItem[] = [];
         for (const index of usedIndexes) {
-          const path = accountUtils.buildPathFromTemplate({
-            template,
-            index,
-          });
+          const path = buildPath({ index });
 
           const result = await callLedgerWithFingerprint(
             this.backgroundApi,
@@ -196,8 +216,12 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
   }
 
   override async buildHwAllNetworkPrepareAccountsParams(
-    _params: IBuildHwAllNetworkPrepareAccountsParams,
+    params: IBuildHwAllNetworkPrepareAccountsParams,
   ): Promise<AllNetworkAddressParams | undefined> {
-    return undefined;
+    return {
+      network: this.hwSdkNetwork,
+      path: params.path,
+      showOnOneKey: false,
+    };
   }
 }

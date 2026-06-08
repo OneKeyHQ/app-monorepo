@@ -1,9 +1,17 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import Svg, { Line } from 'react-native-svg';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -17,6 +25,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
@@ -38,7 +47,10 @@ import type {
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { IExplorersInfo } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IExplorersInfo,
+  ISwapTxHistory,
+} from '@onekeyhq/shared/types/swap/types';
 import {
   EExplorerType,
   EProtocolOfExchange,
@@ -48,6 +60,7 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
+import type { IDecodedTxTransferInfo } from '@onekeyhq/shared/types/tx';
 
 import { AssetItem } from '../../../AssetDetails/pages/HistoryDetails';
 import {
@@ -62,6 +75,7 @@ import {
 } from '../../utils/utils';
 
 import type { RouteProp } from '@react-navigation/core';
+import type { LayoutChangeEvent } from 'react-native';
 
 type ISwapHistoryDetailAssetItem = {
   name: string;
@@ -69,7 +83,7 @@ type ISwapHistoryDetailAssetItem = {
   icon: string;
   isNFT: boolean;
   isNative: boolean;
-  price: string;
+  price?: string;
   amount?: string;
 };
 
@@ -80,6 +94,26 @@ const privateSendProgressStepLabels = [
   ETranslations.private_send_pending,
   ETranslations.private_send_done,
 ] as const;
+const privateSendProgressStepLabelWidth = 72;
+const privateSendProgressStepIconSize = 24;
+
+function getPrivateSendProgressStepLabel({
+  index,
+  status,
+}: {
+  index: number;
+  status: IPrivateSendProgressStepStatus;
+}) {
+  if (
+    index === privateSendProgressStepLabels.length - 1 &&
+    status === 'error'
+  ) {
+    return ETranslations.private_send_failed;
+  }
+  return (
+    privateSendProgressStepLabels[index] ?? ETranslations.private_send_pending
+  );
+}
 
 function getPrivateSendProgressStepStatuses({
   status,
@@ -90,11 +124,12 @@ function getPrivateSendProgressStepStatuses({
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
 }): IPrivateSendProgressStepStatus[] {
-  if (
-    status === ESwapTxHistoryStatus.SUCCESS ||
-    status === ESwapTxHistoryStatus.PARTIALLY_FILLED
-  ) {
+  if (status === ESwapTxHistoryStatus.SUCCESS) {
     return ['done', 'done', 'done'];
+  }
+
+  if (status === ESwapTxHistoryStatus.CANCELING) {
+    return ['done', 'process', 'todo'];
   }
 
   if (
@@ -107,7 +142,6 @@ function getPrivateSendProgressStepStatuses({
   if (
     status === ESwapTxHistoryStatus.FAILED ||
     status === ESwapTxHistoryStatus.CANCELED ||
-    status === ESwapTxHistoryStatus.CANCELING ||
     extraStatus === ESwapExtraStatus.EXPIRED ||
     extraStatus === ESwapExtraStatus.REFUNDED ||
     crossChainStatus === ESwapCrossChainStatus.EXPIRED ||
@@ -119,6 +153,66 @@ function getPrivateSendProgressStepStatuses({
   }
 
   return ['done', 'process', 'todo'];
+}
+
+function getPrivateSendHistoryStatusTextProps({
+  status,
+  extraStatus,
+  crossChainStatus,
+}: {
+  status?: ESwapTxHistoryStatus;
+  extraStatus?: ESwapExtraStatus;
+  crossChainStatus?: ESwapCrossChainStatus;
+}) {
+  if (extraStatus === ESwapExtraStatus.HOLD) {
+    return getSwapHistoryStatusTextProps(
+      status ?? ESwapTxHistoryStatus.PENDING,
+      extraStatus,
+    );
+  }
+  if (extraStatus === ESwapExtraStatus.EXPIRED) {
+    return {
+      key: ETranslations.swap_history_detail_badge_expired,
+      color: '$textCritical',
+    } as const;
+  }
+  if (extraStatus === ESwapExtraStatus.REFUNDED) {
+    return {
+      key: ETranslations.swap_history_detail_badge_refunded,
+      color: '$textSuccess',
+    } as const;
+  }
+  if (
+    crossChainStatus === ESwapCrossChainStatus.EXPIRED ||
+    crossChainStatus === ESwapCrossChainStatus.PROVIDER_ERROR ||
+    crossChainStatus === ESwapCrossChainStatus.REFUNDED ||
+    crossChainStatus === ESwapCrossChainStatus.REFUND_FAILED ||
+    crossChainStatus === ESwapCrossChainStatus.REFUNDING
+  ) {
+    return getSwapCrossChainStatusTextProps(crossChainStatus);
+  }
+  if (
+    status === ESwapTxHistoryStatus.CANCELED ||
+    status === ESwapTxHistoryStatus.CANCELING
+  ) {
+    return getSwapHistoryStatusTextProps(status);
+  }
+  if (status === ESwapTxHistoryStatus.SUCCESS) {
+    return {
+      key: ETranslations.private_send_done,
+      color: '$textSuccess',
+    } as const;
+  }
+  if (status === ESwapTxHistoryStatus.FAILED) {
+    return {
+      key: ETranslations.private_send_failed,
+      color: '$textCritical',
+    } as const;
+  }
+  return {
+    key: ETranslations.private_send_pending,
+    color: '$textCaution',
+  } as const;
 }
 
 function PrivateSendProgressStatusIcon({
@@ -136,7 +230,12 @@ function PrivateSendProgressStatusIcon({
 
   if (status === 'process') {
     return (
-      <Stack w="$6" h="$6" alignItems="center" justifyContent="center">
+      <Stack
+        w={privateSendProgressStepIconSize}
+        h={privateSendProgressStepIconSize}
+        alignItems="center"
+        justifyContent="center"
+      >
         <Stack
           w="$5"
           h="$5"
@@ -156,7 +255,12 @@ function PrivateSendProgressStatusIcon({
   }
 
   return (
-    <Stack w="$6" h="$6" alignItems="center" justifyContent="center">
+    <Stack
+      w={privateSendProgressStepIconSize}
+      h={privateSendProgressStepIconSize}
+      alignItems="center"
+      justifyContent="center"
+    >
       <Stack
         w="$5"
         h="$5"
@@ -164,6 +268,86 @@ function PrivateSendProgressStatusIcon({
         borderWidth={2}
         borderColor="$iconDisabled"
       />
+    </Stack>
+  );
+}
+
+function PrivateSendProgressConnector({
+  nextStepStatus,
+}: {
+  nextStepStatus: IPrivateSendProgressStepStatus;
+}) {
+  const theme = useTheme();
+  const [width, setWidth] = useState(0);
+  const isNextStepTodo = nextStepStatus === 'todo';
+  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    const nextWidth = e.nativeEvent.layout.width;
+    setWidth((prevWidth) => (prevWidth === nextWidth ? prevWidth : nextWidth));
+  }, []);
+
+  return (
+    <Stack
+      flex={1}
+      minWidth={0}
+      height="$6"
+      ml={-privateSendProgressStepIconSize}
+      mr={-privateSendProgressStepIconSize}
+      position="relative"
+      justifyContent="center"
+      onLayout={isNextStepTodo ? handleLayout : undefined}
+    >
+      {isNextStepTodo ? (
+        <Stack position="absolute" left={0} right={0} top={0} bottom={0}>
+          {width > 0 ? (
+            <Svg height={privateSendProgressStepIconSize} width={width}>
+              <Line
+                x1={0}
+                y1={privateSendProgressStepIconSize / 2}
+                x2={width}
+                y2={privateSendProgressStepIconSize / 2}
+                stroke={theme.borderSubdued.val}
+                strokeWidth={1}
+                strokeDasharray="6 6"
+                strokeLinecap="square"
+              />
+            </Svg>
+          ) : null}
+        </Stack>
+      ) : (
+        <Stack height="$px" bg="$borderSubdued" />
+      )}
+    </Stack>
+  );
+}
+
+function PrivateSendProgressStep({
+  label,
+  status,
+}: {
+  label: ETranslations;
+  status: IPrivateSendProgressStepStatus;
+}) {
+  const intl = useIntl();
+  return (
+    <Stack w={privateSendProgressStepLabelWidth} alignItems="center">
+      <Stack
+        w={privateSendProgressStepIconSize}
+        h={privateSendProgressStepIconSize}
+        alignItems="center"
+        justifyContent="center"
+      >
+        <PrivateSendProgressStatusIcon status={status} />
+      </Stack>
+      <SizableText
+        mt="$1"
+        size="$bodySm"
+        color="$textSubdued"
+        width={privateSendProgressStepLabelWidth}
+        numberOfLines={2}
+        textAlign="center"
+      >
+        {intl.formatMessage({ id: label })}
+      </SizableText>
     </Stack>
   );
 }
@@ -177,7 +361,6 @@ function PrivateSendProgress({
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
 }) {
-  const intl = useIntl();
   const stepStatuses = useMemo(
     () =>
       getPrivateSendProgressStepStatuses({
@@ -190,29 +373,227 @@ function PrivateSendProgress({
 
   return (
     <Stack mx="$5" mb="$2.5" px="$5" py="$3" bg="$bgSubdued" borderRadius="$2">
-      <XStack alignItems="center">
+      <XStack alignItems="flex-start">
         {stepStatuses.map((stepStatus, index) => (
           <Fragment key={`${stepStatus}-${index}`}>
             {index > 0 ? (
-              <Stack flex={1} height="$px" bg="$borderSubdued" />
+              <PrivateSendProgressConnector nextStepStatus={stepStatus} />
             ) : null}
-            <Stack w="$6" h="$6" alignItems="center" justifyContent="center">
-              <PrivateSendProgressStatusIcon status={stepStatus} />
-            </Stack>
+            <PrivateSendProgressStep
+              label={getPrivateSendProgressStepLabel({
+                index,
+                status: stepStatus,
+              })}
+              status={stepStatus}
+            />
           </Fragment>
-        ))}
-      </XStack>
-      <XStack mt="$1">
-        {privateSendProgressStepLabels.map((label) => (
-          <Stack key={label} flex={1} alignItems="center" minWidth={0}>
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {intl.formatMessage({ id: label })}
-            </SizableText>
-          </Stack>
         ))}
       </XStack>
     </Stack>
   );
+}
+
+function isPrivateSendSwapTxHistory(item?: ISwapTxHistory) {
+  return (
+    item?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+    item?.swapInfo?.provider?.provider === privateSendProvider
+  );
+}
+
+type IPrivateSendHistoryCtx = {
+  privateSendDisplayTransfers?: unknown;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isPrivateSendDisplayTransfer(
+  value: unknown,
+): value is IDecodedTxTransferInfo {
+  return (
+    isRecord(value) &&
+    typeof value.amount === 'string' &&
+    typeof value.symbol === 'string'
+  );
+}
+
+function getPrivateSendDisplayTransfers(item?: ISwapTxHistory) {
+  const transfers = (item?.ctx as IPrivateSendHistoryCtx | undefined)
+    ?.privateSendDisplayTransfers;
+  return Array.isArray(transfers)
+    ? transfers.filter(isPrivateSendDisplayTransfer)
+    : [];
+}
+
+function normalizeTokenAddress(address?: string) {
+  const normalized = address?.trim();
+  return normalized ? normalized.toLowerCase() : '';
+}
+
+function isBasePrivateSendTransfer({
+  transfer,
+  txHistory,
+}: {
+  transfer: IDecodedTxTransferInfo;
+  txHistory?: ISwapTxHistory;
+}) {
+  const fromToken = txHistory?.baseInfo.fromToken;
+  if (!fromToken) {
+    return false;
+  }
+  if (transfer.networkId && transfer.networkId !== fromToken.networkId) {
+    return false;
+  }
+
+  const transferTokenAddress = normalizeTokenAddress(transfer.tokenIdOnNetwork);
+  const fromTokenAddress = normalizeTokenAddress(fromToken.contractAddress);
+  if (transferTokenAddress && fromTokenAddress) {
+    return transferTokenAddress === fromTokenAddress;
+  }
+
+  return Boolean(
+    (transfer.isNative || !transferTokenAddress) &&
+    (fromToken.isNative || !fromTokenAddress),
+  );
+}
+
+function getPositiveTokenPrice(value?: number | string) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const valueBN = new BigNumber(value);
+  if (valueBN.isNaN() || !valueBN.isGreaterThan(0)) {
+    return undefined;
+  }
+
+  return valueBN.toFixed();
+}
+
+function getNativeTokenPriceFromGasFee(item?: ISwapTxHistory) {
+  const gasFeeInNativeBN = new BigNumber(item?.txInfo.gasFeeInNative ?? '');
+  const gasFeeFiatValueBN = new BigNumber(item?.txInfo.gasFeeFiatValue ?? '');
+
+  if (
+    gasFeeInNativeBN.isNaN() ||
+    !gasFeeInNativeBN.isFinite() ||
+    !gasFeeInNativeBN.isGreaterThan(0) ||
+    gasFeeFiatValueBN.isNaN() ||
+    !gasFeeFiatValueBN.isFinite() ||
+    !gasFeeFiatValueBN.isGreaterThan(0)
+  ) {
+    return undefined;
+  }
+
+  return gasFeeFiatValueBN.div(gasFeeInNativeBN).toFixed();
+}
+
+function getPrivateSendTransferPrice({
+  transfer,
+  isBaseToken,
+  fromAssetPrice,
+  nativeTokenPrice,
+}: {
+  transfer: IDecodedTxTransferInfo;
+  isBaseToken: boolean;
+  fromAssetPrice?: string;
+  nativeTokenPrice?: string;
+}) {
+  return (
+    getPositiveTokenPrice(transfer.price) ??
+    (isBaseToken ? getPositiveTokenPrice(fromAssetPrice) : undefined) ??
+    (transfer.isNative ? nativeTokenPrice : undefined)
+  );
+}
+
+function applyPrivateSendTokenPrice({
+  item,
+  price,
+  force,
+}: {
+  item: ISwapTxHistory;
+  price: string;
+  force?: boolean;
+}) {
+  const hasFromTokenPrice = !!getPositiveTokenPrice(
+    item.baseInfo.fromToken.price,
+  );
+  const hasToTokenPrice = !!getPositiveTokenPrice(item.baseInfo.toToken.price);
+
+  return {
+    ...item,
+    baseInfo: {
+      ...item.baseInfo,
+      fromToken:
+        hasFromTokenPrice && !force
+          ? item.baseInfo.fromToken
+          : { ...item.baseInfo.fromToken, price },
+      toToken:
+        hasToTokenPrice && !force
+          ? item.baseInfo.toToken
+          : { ...item.baseInfo.toToken, price },
+    },
+  };
+}
+
+function isSamePrivateSendHistoryToken({
+  source,
+  target,
+}: {
+  source?: ISwapTxHistory;
+  target?: ISwapTxHistory;
+}) {
+  if (!source || !target) {
+    return false;
+  }
+  return equalTokenNoCaseSensitive({
+    token1: source.baseInfo.fromToken,
+    token2: target.baseInfo.fromToken,
+  });
+}
+
+function getPrivateSendPriceBackfillKey(item?: ISwapTxHistory) {
+  if (!item) {
+    return undefined;
+  }
+  const accountId = item.accountInfo.sender.accountId;
+  const networkId =
+    item.baseInfo.fromToken.networkId ?? item.accountInfo.sender.networkId;
+  const tokenAddress = item.baseInfo.fromToken.isNative
+    ? 'native'
+    : item.baseInfo.fromToken.contractAddress;
+  if (!accountId || !networkId || !tokenAddress) {
+    return undefined;
+  }
+  return `${item.swapInfo.orderId ?? item.txInfo.txId ?? ''}:${accountId}:${networkId}:${tokenAddress}`;
+}
+
+async function fetchPrivateSendTokenPrice(item: ISwapTxHistory) {
+  const accountId = item.accountInfo.sender.accountId;
+  if (!accountId) {
+    return undefined;
+  }
+
+  const networkId =
+    item.baseInfo.fromToken.networkId ?? item.accountInfo.sender.networkId;
+  let tokenAddress = item.baseInfo.fromToken.contractAddress;
+
+  if (item.baseInfo.fromToken.isNative || !tokenAddress) {
+    tokenAddress = await backgroundApiProxy.serviceToken.getNativeTokenAddress({
+      networkId,
+    });
+  }
+
+  const tokenDetails = await backgroundApiProxy.serviceToken.fetchTokensDetails(
+    {
+      accountId,
+      networkId,
+      contractList: [tokenAddress],
+    },
+  );
+
+  return getPositiveTokenPrice(tokenDetails?.[0]?.price);
 }
 
 const SwapHistoryDetailModal = () => {
@@ -225,6 +606,7 @@ const SwapHistoryDetailModal = () => {
   const intl = useIntl();
   const { txHistoryOrderId, txHistoryList } = route.params ?? {};
   const [txHistoryListState, setTxHistoryListState] = useState(txHistoryList);
+  const privateSendPriceBackfillKeysRef = useRef(new Set<string>());
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { result: swapTxHistoryList } = usePromiseResult(
     async () => {
@@ -256,7 +638,7 @@ const SwapHistoryDetailModal = () => {
       (routeTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
         routeTxHistory.swapInfo.provider.provider === privateSendProvider) &&
       routeTxHistory.status !== ESwapTxHistoryStatus.PENDING;
-    const nextTxHistoryList = shouldKeepRoutePrivateSendStatus
+    const rawNextTxHistoryList = shouldKeepRoutePrivateSendStatus
       ? swapTxHistoryList.map((item) =>
           item.swapInfo.orderId === routeTxHistoryOrderId &&
           (item.status === ESwapTxHistoryStatus.PENDING ||
@@ -268,6 +650,29 @@ const SwapHistoryDetailModal = () => {
             : item,
         )
       : swapTxHistoryList;
+    const currentTxHistory = txHistoryListState?.find(
+      (item) => item.swapInfo.orderId === txHistoryOrderId,
+    );
+    const currentPrivateSendPrice =
+      currentTxHistory && isPrivateSendSwapTxHistory(currentTxHistory)
+        ? (getPositiveTokenPrice(currentTxHistory.baseInfo.fromToken.price) ??
+          getPositiveTokenPrice(currentTxHistory.baseInfo.toToken.price))
+        : undefined;
+    const nextTxHistoryList = currentPrivateSendPrice
+      ? rawNextTxHistoryList.map((item) =>
+          item.swapInfo.orderId === txHistoryOrderId &&
+          isPrivateSendSwapTxHistory(item) &&
+          isSamePrivateSendHistoryToken({
+            source: currentTxHistory,
+            target: item,
+          })
+            ? applyPrivateSendTokenPrice({
+                item,
+                price: currentPrivateSendPrice,
+              })
+            : item,
+        )
+      : rawNextTxHistoryList;
     if (
       JSON.stringify(nextTxHistoryList) !== JSON.stringify(txHistoryListState)
     ) {
@@ -282,11 +687,63 @@ const SwapHistoryDetailModal = () => {
     [txHistoryListState, txHistoryOrderId],
   );
   const isPrivateSendHistory = useMemo(
-    () =>
-      txHistory?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
-      txHistory?.swapInfo.provider.provider === privateSendProvider,
-    [txHistory?.protocol, txHistory?.swapInfo.provider.provider],
+    () => isPrivateSendSwapTxHistory(txHistory),
+    [txHistory],
   );
+  useEffect(() => {
+    if (!txHistory || !isPrivateSendHistory) {
+      return;
+    }
+
+    const priceBackfillKey = getPrivateSendPriceBackfillKey(txHistory);
+    if (
+      !priceBackfillKey ||
+      privateSendPriceBackfillKeysRef.current.has(priceBackfillKey)
+    ) {
+      return;
+    }
+    privateSendPriceBackfillKeysRef.current.add(priceBackfillKey);
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const price = await fetchPrivateSendTokenPrice(txHistory);
+        if (!price || cancelled) {
+          privateSendPriceBackfillKeysRef.current.delete(priceBackfillKey);
+          return;
+        }
+
+        const nextTxHistory = applyPrivateSendTokenPrice({
+          item: txHistory,
+          price,
+          force: true,
+        });
+        if (JSON.stringify(nextTxHistory) === JSON.stringify(txHistory)) {
+          return;
+        }
+        setTxHistoryListState((prev) =>
+          prev?.map((item) =>
+            item.swapInfo.orderId === nextTxHistory.swapInfo.orderId
+              ? nextTxHistory
+              : item,
+          ),
+        );
+        await backgroundApiProxy.serviceSwap.updateSwapHistoryItem(
+          nextTxHistory,
+          { shouldShowToast: false },
+        );
+      } catch {
+        privateSendPriceBackfillKeysRef.current.delete(priceBackfillKey);
+        // Price backfill is best-effort and should not affect history details.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPrivateSendHistory, txHistory]);
+  const shouldRenderOrderId =
+    !!txHistory?.txInfo.orderId && !isPrivateSendHistory;
 
   const onViewInBrowser = useCallback((url: string) => {
     openUrlExternal(url);
@@ -339,6 +796,68 @@ const SwapHistoryDetailModal = () => {
       });
     }
     if (isPrivateSendHistory) {
+      const privateSendDisplayTransfers =
+        getPrivateSendDisplayTransfers(txHistory);
+      if (privateSendDisplayTransfers.length) {
+        const nativeTokenPrice = getNativeTokenPriceFromGasFee(txHistory);
+        return (
+          <>
+            {privateSendDisplayTransfers.map((transfer, index) => {
+              const isBaseToken = isBasePrivateSendTransfer({
+                transfer,
+                txHistory,
+              });
+              const asset = {
+                name:
+                  transfer.name ||
+                  (isBaseToken
+                    ? (txHistory?.baseInfo.fromToken.name ?? '')
+                    : ''),
+                symbol:
+                  transfer.symbol ||
+                  (isBaseToken
+                    ? (txHistory?.baseInfo.fromToken.symbol ?? '')
+                    : ''),
+                icon:
+                  transfer.icon ||
+                  (isBaseToken
+                    ? (txHistory?.baseInfo.fromToken.logoURI ?? '')
+                    : ''),
+                isNFT: transfer.isNFT,
+                isNative: transfer.isNative,
+                price: getPrivateSendTransferPrice({
+                  transfer,
+                  isBaseToken,
+                  fromAssetPrice: fromAsset.price,
+                  nativeTokenPrice,
+                }),
+              };
+
+              return (
+                <AssetItem
+                  key={`${transfer.tokenIdOnNetwork || transfer.symbol}-${
+                    transfer.amount
+                  }-${index}`}
+                  index={index}
+                  direction={EDecodedTxDirection.OUT}
+                  asset={asset}
+                  isAllNetworks
+                  amount={transfer.amount}
+                  networkIcon={txHistory?.baseInfo.fromNetwork?.logoURI ?? ''}
+                  currencySymbol={
+                    txHistory?.currency ??
+                    settingsPersistAtom.currencyInfo.symbol
+                  }
+                  networkId={
+                    transfer.networkId ??
+                    txHistory?.baseInfo.fromNetwork?.networkId
+                  }
+                />
+              );
+            })}
+          </>
+        );
+      }
       return (
         <AssetItem
           index={0}
@@ -463,58 +982,11 @@ const SwapHistoryDetailModal = () => {
   const renderSwapOrderStatus = useCallback(() => {
     const { crossChainStatus, extraStatus, status } = txHistory ?? {};
     if (isPrivateSendHistory) {
-      const statusTextProps = (() => {
-        if (extraStatus === ESwapExtraStatus.HOLD) {
-          return getSwapHistoryStatusTextProps(
-            status ?? ESwapTxHistoryStatus.PENDING,
-            extraStatus,
-          );
-        }
-        if (extraStatus === ESwapExtraStatus.EXPIRED) {
-          return {
-            key: ETranslations.swap_history_detail_badge_expired,
-            color: '$textCritical',
-          } as const;
-        }
-        if (extraStatus === ESwapExtraStatus.REFUNDED) {
-          return {
-            key: ETranslations.swap_history_detail_badge_refunded,
-            color: '$textSuccess',
-          } as const;
-        }
-        if (
-          crossChainStatus === ESwapCrossChainStatus.EXPIRED ||
-          crossChainStatus === ESwapCrossChainStatus.PROVIDER_ERROR ||
-          crossChainStatus === ESwapCrossChainStatus.REFUNDED ||
-          crossChainStatus === ESwapCrossChainStatus.REFUND_FAILED ||
-          crossChainStatus === ESwapCrossChainStatus.REFUNDING
-        ) {
-          return getSwapCrossChainStatusTextProps(crossChainStatus);
-        }
-        if (
-          status === ESwapTxHistoryStatus.SUCCESS ||
-          status === ESwapTxHistoryStatus.PARTIALLY_FILLED
-        ) {
-          return {
-            key: ETranslations.private_send_done,
-            color: '$textSuccess',
-          } as const;
-        }
-        if (
-          status === ESwapTxHistoryStatus.FAILED ||
-          status === ESwapTxHistoryStatus.CANCELED ||
-          status === ESwapTxHistoryStatus.CANCELING
-        ) {
-          return {
-            key: ETranslations.private_send_failed,
-            color: '$textCritical',
-          } as const;
-        }
-        return {
-          key: ETranslations.private_send_pending,
-          color: '$textCaution',
-        } as const;
-      })();
+      const statusTextProps = getPrivateSendHistoryStatusTextProps({
+        crossChainStatus,
+        extraStatus,
+        status,
+      });
       return (
         <XStack gap="$2" alignItems="center">
           <SizableText size={16} color={statusTextProps.color}>
@@ -643,8 +1115,18 @@ const SwapHistoryDetailModal = () => {
 
   const renderNetworkFee = useCallback(() => {
     const { gasFeeFiatValue, gasFeeInNative } = txHistory?.txInfo ?? {};
-    const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? 0);
+    const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? '');
+    const gasFeeFiatValueBN = new BigNumber(gasFeeFiatValue ?? '');
+    if (gasFeeInNativeBN.isNaN() || !gasFeeInNativeBN.isFinite()) {
+      return (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          --
+        </SizableText>
+      );
+    }
     const gasFeeDisplay = gasFeeInNativeBN.toFixed();
+    const shouldRenderGasFeeFiatValue =
+      !gasFeeFiatValueBN.isNaN() && gasFeeFiatValueBN.isFinite();
     return (
       <SizableText size="$bodyMd" color="$textSubdued">
         <NumberSizeableText
@@ -664,7 +1146,7 @@ const SwapHistoryDetailModal = () => {
               txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol,
           }}
         >
-          {gasFeeFiatValue ?? 0}
+          {shouldRenderGasFeeFiatValue ? gasFeeFiatValue : '--'}
         </NumberSizeableText>
         )
       </SizableText>
@@ -853,7 +1335,7 @@ const SwapHistoryDetailModal = () => {
               })}
               renderContent={renderSwapProvider()}
             />
-            {txHistory.txInfo.orderId ? (
+            {shouldRenderOrderId ? (
               <InfoItem
                 label="Order ID"
                 renderContent={txHistory.txInfo.orderId}
@@ -870,14 +1352,16 @@ const SwapHistoryDetailModal = () => {
                   : {})}
               />
             ) : null}
-            <InfoItem
-              disabledCopy
-              label={intl.formatMessage({
-                id: ETranslations.swap_history_detail_rate,
-              })}
-              renderContent={renderRate()}
-            />
-            {protocolFeeContent ? (
+            {isPrivateSendHistory ? null : (
+              <InfoItem
+                disabledCopy
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_rate,
+                })}
+                renderContent={renderRate()}
+              />
+            )}
+            {!isPrivateSendHistory && protocolFeeContent ? (
               <InfoItem
                 disabledCopy
                 label={intl.formatMessage({
@@ -887,7 +1371,7 @@ const SwapHistoryDetailModal = () => {
               />
             ) : null}
 
-            {txHistory?.swapInfo?.surplus ? (
+            {!isPrivateSendHistory && txHistory?.swapInfo?.surplus ? (
               <InfoItem
                 disabledCopy
                 label={intl.formatMessage({
@@ -911,6 +1395,7 @@ const SwapHistoryDetailModal = () => {
     renderSwapDate,
     renderSwapOrderStatus,
     renderSwapProvider,
+    shouldRenderOrderId,
     isPrivateSendHistory,
     txHistory,
   ]);

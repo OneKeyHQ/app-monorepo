@@ -1,6 +1,7 @@
 export enum EAppEventBusNames {
   ConfirmAccountSelected = 'ConfirmAccountSelected',
   LocalSystemTimeInvalid = 'LocalSystemTimeInvalid',
+  LocalSystemTimeStatusChanged = 'LocalSystemTimeStatusChanged',
   WalletClear = 'WalletClear',
   WalletUpdate = 'WalletUpdate',
   WalletRemove = 'WalletRemove',
@@ -63,7 +64,6 @@ export enum EAppEventBusNames {
   TokenListUpdate = 'TokenListUpdate',
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
-  RefreshEarnRecommendedList = 'RefreshEarnRecommendedList',
   RefreshHistoryList = 'RefreshHistoryList',
   RefreshBookmarkList = 'RefreshBookmarkList',
   InvalidateDiscoveryHomeBookmarksPrefetch = 'InvalidateDiscoveryHomeBookmarksPrefetch',
@@ -156,5 +156,4 @@ export enum EAppEventBusNames {
   NavigateModalFromBackgroundThread = 'NavigateModalFromBackgroundThread',
   TrayActionWillNavigate = 'TrayActionWillNavigate',
   MemoryPressureWarning = 'MemoryPressureWarning',
-  ShowLedgerInstallCoreApps = 'ShowLedgerInstallCoreApps',
 }

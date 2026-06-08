@@ -417,13 +417,11 @@ class ServiceDiscovery extends ServiceBase {
     isRemove,
     skipSaveLocalSyncItem,
     skipEventEmit,
-    useServerDataTime,
   }: {
     bookmarks: IBrowserBookmark[];
     isRemove?: boolean;
     skipSaveLocalSyncItem?: boolean;
     skipEventEmit?: boolean;
-    useServerDataTime?: boolean;
   }) {
     console.log('setBrowserBookmarks', bookmarks);
     // debugger;
@@ -440,7 +438,6 @@ class ServiceDiscovery extends ServiceBase {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
     let syncItems: IDBCloudSyncItem[] = [];
     if (!skipSaveLocalSyncItem) {
-      const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
       syncItems = (
         await Promise.all(
           bookmarks.map(async (bookmark) => {
@@ -448,7 +445,7 @@ class ServiceDiscovery extends ServiceBase {
               syncCredential:
                 await syncManagers.browserBookmark.getSyncCredential(),
               dbRecord: bookmark,
-              dataTime: now,
+              dataTime: undefined,
               isDeleted: isRemove,
             });
           }),
@@ -473,17 +470,10 @@ class ServiceDiscovery extends ServiceBase {
       savedSuccess = true;
     };
 
-    if (useServerDataTime) {
-      await this.backgroundApi.localDb.addAndUpdateFreshSyncItems({
-        items: syncItems,
-        fn: saveBookmarks,
-      });
-    } else {
-      await this.backgroundApi.localDb.addAndUpdateSyncItems({
-        items: syncItems,
-        fn: saveBookmarks,
-      });
-    }
+    await this.backgroundApi.localDb.addAndUpdateSyncItems({
+      items: syncItems,
+      fn: saveBookmarks,
+    });
 
     if (savedSuccess) {
       this._clearDiscoveryHomeBookmarksSwr({

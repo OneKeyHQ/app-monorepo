@@ -4,7 +4,9 @@ import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/co
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
+import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import {
   checkWrappedTokenPair,
@@ -80,7 +82,10 @@ export const { atom: swapMevConfigAtom, use: useSwapMevConfigAtom } =
 
 // swap bridge limit switch
 export const { atom: swapTypeSwitchAtom, use: useSwapTypeSwitchAtom } =
-  contextAtom<ESwapTabSwitchType>(ESwapTabSwitchType.SWAP);
+  contextAtom<ESwapTabSwitchType>(ESwapTabSwitchType.SWAP, {
+    coldStartCache: true,
+    coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
+  });
 
 // swap networks & tokens
 export const { atom: swapNetworks, use: useSwapNetworksAtom } = contextAtom<
@@ -138,10 +143,25 @@ export const {
 export const {
   atom: swapSelectFromTokenAtom,
   use: useSwapSelectFromTokenAtom,
-} = contextAtom<ISwapToken | undefined>(undefined);
+} = contextAtom<ISwapToken | undefined>(undefined, {
+  coldStartCache: true,
+  coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+});
 
 export const { atom: swapSelectToTokenAtom, use: useSwapSelectToTokenAtom } =
-  contextAtom<ISwapToken | undefined>(undefined);
+  contextAtom<ISwapToken | undefined>(undefined, {
+    coldStartCache: true,
+    coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
+  });
+
+export const {
+  atom: swapSelectedTokensColdStartContextAtom,
+  use: useSwapSelectedTokensColdStartContextAtom,
+} = contextAtom<ISwapSelectedTokensColdStartContext | undefined>(undefined, {
+  coldStartCache: true,
+  coldStartCacheKey:
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+});
 
 export const {
   atom: swapSwapModalSelectFromTokenAtom,
@@ -527,10 +547,24 @@ export const {
   use: useSwapSelectTokenNetworkAtom,
 } = contextAtom<ISwapNetwork | undefined>(undefined);
 
+export type ISwapTipsState = {
+  tips?: ISwapTips;
+  status: 'unknown' | 'ready' | 'empty';
+  updatedAt: number;
+};
+
 // swap tips
-export const { atom: swapTipsAtom, use: useSwapTipsAtom } = contextAtom<
-  ISwapTips | undefined
->(undefined);
+export const { atom: swapTipsAtom, use: useSwapTipsAtom } =
+  contextAtom<ISwapTipsState>(
+    {
+      status: 'unknown',
+      updatedAt: 0,
+    },
+    {
+      coldStartCache: true,
+      coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTipsStateAtom,
+    },
+  );
 
 export const {
   atom: swapNativeTokenReserveGasAtom,
@@ -596,6 +630,42 @@ export const {
   atom: swapProSupportNetworksTokenListAtom,
   use: useSwapProSupportNetworksTokenListAtom,
 } = contextAtom<ISwapToken[]>([]);
+
+export const SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS = 20;
+
+export type ISwapProPositionsCacheEntry = {
+  ownerKey: string;
+  networkIdsKey: string;
+  tokens: ISwapToken[];
+  updatedAt: number;
+};
+
+export function buildSwapProPositionsOwnerKey({
+  accountId,
+  networkIdsKey,
+}: {
+  accountId?: string;
+  networkIdsKey: string;
+}) {
+  if (!accountId || !networkIdsKey) {
+    return '';
+  }
+  return `${accountId}__${networkIdsKey}`;
+}
+
+export const {
+  atom: swapProPositionsCacheAtom,
+  use: useSwapProPositionsCacheAtom,
+} = contextAtom<{
+  byOwner: Record<string, ISwapProPositionsCacheEntry>;
+}>(
+  { byOwner: {} },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
+  },
+);
 
 export const {
   atom: swapProSupportNetworksTokenListLoadingAtom,

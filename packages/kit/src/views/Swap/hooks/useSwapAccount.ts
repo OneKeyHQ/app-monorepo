@@ -32,10 +32,15 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenNetworkAtom,
+  useSwapSelectedTokensColdStartContextAtom,
   useSwapToAnotherAccountAddressAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import {
+  buildSwapSelectedTokensColdStartContext,
+  isSwapSelectedTokensColdStartContextMatched,
+} from '../utils/swapColdStartTokenCacheUtils';
 
 import {
   shouldShowSwapRecipientAddressInfo,
@@ -62,8 +67,34 @@ export function useSwapFromAccountNetworkSync() {
     useSwapProviderSupportReceiveAddressAtom();
   const [, setSettings] = useSettingsAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [selectedTokensColdStartContext] =
+    useSwapSelectedTokensColdStartContextAtom();
+  const isSelectedTokensColdStartContextValid = useMemo(() => {
+    if (!fromToken && !toToken) {
+      return true;
+    }
+    if (!selectedTokensColdStartContext) {
+      return true;
+    }
+
+    const currentContext = buildSwapSelectedTokensColdStartContext({
+      activeAccount: fromActiveAccount,
+      networkId: fromActiveAccount.network?.id,
+    });
+    if (!currentContext) {
+      return false;
+    }
+
+    return isSwapSelectedTokensColdStartContextMatched({
+      cachedContext: selectedTokensColdStartContext,
+      currentContext,
+    });
+  }, [fromToken, fromActiveAccount, selectedTokensColdStartContext, toToken]);
   const fromTokenRef = useRef<ISwapToken | undefined>(undefined);
   const toTokenRef = useRef<ISwapToken | undefined>(undefined);
+  const isSelectedTokensColdStartContextValidRef = useRef(
+    isSelectedTokensColdStartContextValid,
+  );
   const swapProviderSupportReceiveAddressRef = useRef<boolean | undefined>(
     undefined,
   );
@@ -83,6 +114,13 @@ export function useSwapFromAccountNetworkSync() {
   if (toTokenRef.current !== toToken) {
     toTokenRef.current = toToken;
   }
+  if (
+    isSelectedTokensColdStartContextValidRef.current !==
+    isSelectedTokensColdStartContextValid
+  ) {
+    isSelectedTokensColdStartContextValidRef.current =
+      isSelectedTokensColdStartContextValid;
+  }
   if (swapToAnotherAccountRef.current !== swapToAnotherAccount) {
     swapToAnotherAccountRef.current = swapToAnotherAccount;
   }
@@ -96,6 +134,9 @@ export function useSwapFromAccountNetworkSync() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const checkTokenForAccountNetworkDebounce = useCallback(
     debounce(async () => {
+      if (!isSelectedTokensColdStartContextValidRef.current) {
+        return;
+      }
       if (fromTokenRef.current) {
         await updateSelectedAccountNetwork({
           num: 0,
@@ -174,6 +215,7 @@ export function useSwapFromAccountNetworkSync() {
     fromToken?.contractAddress,
     toToken?.networkId,
     toToken?.contractAddress,
+    isSelectedTokensColdStartContextValid,
     swapProviderSupportReceiveAddress,
     isModalPage,
   ]);
@@ -194,6 +236,7 @@ export function useSwapFromAccountNetworkSync() {
     fromToken?.contractAddress,
     toToken?.networkId,
     toToken?.contractAddress,
+    isSelectedTokensColdStartContextValid,
     swapProviderSupportReceiveAddress,
     isModalPage,
   ]);
@@ -215,6 +258,8 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
   const [accountForTargetNetwork, setAccountForTargetNetwork] = useState<
     INetworkAccount | undefined
   >(undefined);
+  const [resolvedTargetNetworkAccountKey, setResolvedTargetNetworkAccountKey] =
+    useState<string | undefined>(undefined);
 
   const focusSwapPro = useMemo(() => {
     return (
@@ -278,13 +323,47 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     tokenNetworkId,
   ]);
 
+  const targetNetworkAccountResolveKey = useMemo(() => {
+    if (!shouldResolveTargetNetworkAccount || !tokenNetworkId) {
+      return undefined;
+    }
+    return [
+      tokenNetworkId,
+      activeAccount.indexedAccount?.id ?? '',
+      activeAccount.account?.id ?? '',
+      activeAccount.deriveType ?? '',
+    ].join('|');
+  }, [
+    activeAccount.account?.id,
+    activeAccount.deriveType,
+    activeAccount.indexedAccount?.id,
+    shouldResolveTargetNetworkAccount,
+    tokenNetworkId,
+  ]);
+
+  const isAddressInfoReady = useMemo(() => {
+    if (!activeAccount.ready) {
+      return false;
+    }
+    if (!targetNetworkAccountResolveKey) {
+      return true;
+    }
+    return resolvedTargetNetworkAccountKey === targetNetworkAccountResolveKey;
+  }, [
+    activeAccount.ready,
+    resolvedTargetNetworkAccountKey,
+    targetNetworkAccountResolveKey,
+  ]);
+
   useEffect(() => {
     let cancelled = false;
 
     if (!shouldResolveTargetNetworkAccount || !tokenNetworkId) {
       setAccountForTargetNetwork(undefined);
+      setResolvedTargetNetworkAccountKey(undefined);
       return;
     }
+    setResolvedTargetNetworkAccountKey(undefined);
 
     void (async () => {
       try {
@@ -304,10 +383,12 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
           });
         if (!cancelled) {
           setAccountForTargetNetwork(targetAccount);
+          setResolvedTargetNetworkAccountKey(targetNetworkAccountResolveKey);
         }
       } catch (_e) {
         if (!cancelled) {
           setAccountForTargetNetwork(undefined);
+          setResolvedTargetNetworkAccountKey(targetNetworkAccountResolveKey);
         }
       }
     })();
@@ -320,6 +401,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     activeAccount.dbAccount,
     activeAccount.indexedAccount?.id,
     shouldResolveTargetNetworkAccount,
+    targetNetworkAccountResolveKey,
     tokenNetworkId,
   ]);
 
@@ -331,11 +413,13 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       networkId: undefined | string;
       accountInfo: IAccountSelectorActiveAccountInfo | undefined;
       activeAccount: IAccountSelectorActiveAccountInfo | undefined;
+      isAddressInfoReady: boolean;
     } = {
       networkId: undefined,
       address: undefined,
       accountInfo: undefined,
       activeAccount: undefined,
+      isAddressInfoReady,
     };
     // Keep the confirmed custom recipient even when cross-chain TO account
     // resolution has not materialized a network account yet.
@@ -354,6 +438,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         ...res,
         address: swapToAnotherAccountAddressAtom.address ?? '',
         networkId: swapToAnotherAccountAddressAtom.networkId ?? '',
+        isAddressInfoReady: true,
         accountInfo: swapToAnotherAccountAddressAtom.accountInfo
           ? {
               ...swapToAnotherAccountAddressAtom.accountInfo,
@@ -406,6 +491,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         ...res,
         address: accountForTargetNetwork?.addressDetail?.address,
         networkId: tokenNetworkId,
+        isAddressInfoReady,
       };
     }
     return res;
@@ -419,6 +505,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     activeAccount,
     isAllNetwork,
     accountForTargetNetwork,
+    isAddressInfoReady,
     tokenNetworkId,
     currentSelectNetwork?.networkId,
     shouldResolveTargetNetworkAccount,

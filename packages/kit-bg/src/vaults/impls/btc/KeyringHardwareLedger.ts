@@ -76,44 +76,58 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
           );
         }
 
-        const ret: ICoreApiGetAddressItem[] = [];
-        for (const index of usedIndexes) {
+        const buildAccountPath = ({ index }: { index: number }) => {
           const fullPath = accountUtils.buildPathFromTemplate({
             template,
             index,
           });
-          // BTC needs the account-level path (remove last 2 segments: change/index)
-          const accountPath = accountUtils.removePathLastSegment({
+          return accountUtils.removePathLastSegment({
             path: fullPath,
             removeCount: 2,
           });
+        };
 
-          // Get xpub from Ledger device
-          const pubKeyResult = await callLedgerWithFingerprint(
-            this.backgroundApi,
-            dbDevice,
-            'btc',
-            (deviceId) =>
-              adapter.hw.btcGetPublicKey(
-                dbDevice.connectId,
-                deviceId,
-                {
-                  path: accountPath,
-                  showOnDevice: params.isVerifyAddressAction ?? false,
-                },
-                // per-call HW options derived from the account-creation scene
-                ledgerCommonCallParamsForCreateScene(params),
-              ),
-          );
+        const ret: ICoreApiGetAddressItem[] = [];
+        for (const index of usedIndexes) {
+          const accountPath = buildAccountPath({ index });
+
+          const allNetworkItem =
+            params.hwAllNetworkPrepareAccountsResponse &&
+            (await params.hwAllNetworkPrepareAccountsResponse.getItem({
+              path: accountPath,
+              hwSdkNetwork: this.hwSdkNetwork,
+            }));
+
+          const pubKeyResult =
+            allNetworkItem ||
+            (await callLedgerWithFingerprint(
+              this.backgroundApi,
+              dbDevice,
+              'btc',
+              (deviceId) =>
+                adapter.hw.btcGetPublicKey(
+                  dbDevice.connectId,
+                  deviceId,
+                  {
+                    path: accountPath,
+                    showOnDevice: params.isVerifyAddressAction ?? false,
+                  },
+                  ledgerCommonCallParamsForCreateScene(params),
+                ),
+            ));
 
           if (!pubKeyResult.success) {
+            if (!pubKeyResult.payload) {
+              throw new OneKeyLocalError('Ledger BTC get public key failed');
+            }
             throw convertThirdPartyDeviceError(pubKeyResult.payload, {
               vendor: 'Ledger',
               chain: 'Bitcoin',
             });
           }
 
-          const rawXpubField: unknown = pubKeyResult.payload.xpub;
+          const pubKeyPayload = checkIsDefined(pubKeyResult.payload);
+          const rawXpubField: unknown = pubKeyPayload.xpub;
           // Ledger DMK may return { extendedPublicKey: string } instead of string
           const rawXpub =
             typeof rawXpubField === 'string'
@@ -630,8 +644,15 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
   }
 
   override async buildHwAllNetworkPrepareAccountsParams(
-    _params: IBuildHwAllNetworkPrepareAccountsParams,
+    params: IBuildHwAllNetworkPrepareAccountsParams,
   ): Promise<AllNetworkAddressParams | undefined> {
-    return undefined;
+    return {
+      network: this.hwSdkNetwork,
+      path: accountUtils.removePathLastSegment({
+        path: params.path,
+        removeCount: 2,
+      }),
+      showOnOneKey: false,
+    };
   }
 }

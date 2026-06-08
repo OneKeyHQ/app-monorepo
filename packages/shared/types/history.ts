@@ -126,6 +126,7 @@ export type IOnChainHistoryTx = {
   privateSend?: {
     orderId?: string;
     rocketXOrderId?: string;
+    payinAddress?: string;
     provider?: string;
     providerName?: string;
     providerLogo?: string;
@@ -170,6 +171,9 @@ export type IAccountHistoryTx = {
   key?: string;
 
   isLocalCreated?: boolean;
+
+  displayStatus?: EDecodedTxStatus;
+  displayStatusSource?: 'privateSendOrder';
 
   replacedPrevId?: string; // cancel speedUp replacedId
   replacedNextId?: string;

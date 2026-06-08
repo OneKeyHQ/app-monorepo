@@ -4,7 +4,10 @@ import { selectAtom } from 'jotai/utils';
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
-import { getScaleOrderReferencePrice } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
+  getReduceOnlyPositionMaxSize,
+  getScaleOrderReferencePrice,
+} from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import {
   computeMaxTradeSize,
   getTriggerEffectivePrice,
@@ -706,6 +709,9 @@ export const {
 } = contextAtomComputed((get) => {
   const form = get(tradingFormAtom());
   const env = get(tradingFormEnvAtom());
+  const activeTradeInstrument = get(activeTradeInstrumentAtom());
+  const activeAccount = get(perpsActiveAccountAtom.atom());
+  const activePositionsValue = get(perpsActivePositionAtom());
 
   const mode = form.sizeInputMode ?? EPerpsSizeInputMode.MANUAL;
   const percent = form.sizePercent ?? 0;
@@ -759,10 +765,34 @@ export const {
     }
   }
 
+  const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+  const positionsAccountAddress =
+    activePositionsValue.accountAddress?.toLowerCase();
+  const isPositionSnapshotReady = activeAccountAddress
+    ? positionsAccountAddress === activeAccountAddress
+    : !positionsAccountAddress;
+  const scaleReduceOnlyPositionSize = isPositionSnapshotReady
+    ? activePositionsValue.activePositions.find(
+        (pos) => pos.position.coin === activeTradeInstrument.coin,
+      )?.position.szi
+    : undefined;
+  const scaleReduceOnlyMaxSizeBN =
+    form.orderMode === 'scale' &&
+    form.scaleReduceOnly &&
+    activeTradeInstrument.mode !== 'spot'
+      ? getReduceOnlyPositionMaxSize({
+          reduceOnly: form.scaleReduceOnly,
+          side: form.side,
+          positionSize: scaleReduceOnlyPositionSize,
+          szDecimals: env.szDecimals,
+        })
+      : undefined;
+
   const maxSizeBN = computeMaxTradeSize({
     side: form.side,
     price,
     markPrice: env.markPrice,
+    maxSize: scaleReduceOnlyMaxSizeBN,
     maxTradeSzs: effectiveMaxTradeSzs,
     leverageValue: env.leverageValue,
     fallbackLeverage: env.fallbackLeverage,
@@ -776,6 +806,7 @@ export const {
     side: form.side,
     price,
     markPrice: env.markPrice,
+    maxSize: scaleReduceOnlyMaxSizeBN,
     maxTradeSzs: effectiveMaxTradeSzs,
     leverageValue: env.leverageValue,
     fallbackLeverage: env.fallbackLeverage,

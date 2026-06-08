@@ -353,7 +353,7 @@ export const {
     if (isUnified) {
       // Unified/portfolio: all values from spotState
       // Per HL docs: "Individual perp dex user states are not meaningful"
-      if (!activeSpotData?.spotTotalUsd) {
+      if (activeSpotData?.spotTotalUsd === undefined) {
         // Spot data not yet loaded: return undefined for skeleton screen
         return {
           accountValue: undefined,
@@ -379,7 +379,7 @@ export const {
     return {
       accountValue: spotValue.plus(perpsValue).toFixed(),
       withdrawable: activeSummary?.withdrawable,
-      isLoading: !activeSpotData?.spotTotalUsd,
+      isLoading: activeSpotData?.spotTotalUsd === undefined,
     };
   },
 });
